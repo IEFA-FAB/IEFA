@@ -69,6 +69,9 @@ const EXEMPT: Record<string, string> = {
 	// Trigger do cadastro (auth.users): insere o perfil com papel `author`, o default — fora do
 	// WHEN do journal, e não é concessão de nada.
 	"public.handle_new_user": "perfil `author` do cadastro, fora do que a fase 2 vigia",
+	// Escreve só colunas de perfil (whitelist; `role` recusado em p_fields) e nasce `author`; a
+	// troca de papel é delegada a journal.change_user_role, que abre o contexto e grava o log.
+	"journal.save_user_profile": "só campos de perfil; o papel vai por journal.change_user_role",
 }
 
 describe("fase 1 — toda função que escreve em tabela de acesso é auditada", () => {
@@ -128,4 +131,11 @@ describe("fase 2 — os triggers cobrem todas as tabelas de acesso", () => {
 		expect(sql).not.toMatch(/last_used_at is distinct/)
 		expect(sql).toMatch(/when \(old\.role is distinct from new\.role\)/)
 	})
+})
+
+test("journal.save_user_profile delega o papel à função auditada e recusa `role` nos campos", () => {
+	const body = bodies.get("journal.save_user_profile")?.body ?? ""
+	expect(body).toContain("perform journal.change_user_role(p_actor, p_user, p_role, p_assurance)")
+	expect(body).toMatch(/where k not in \('full_name', 'affiliation', 'orcid', 'bio', 'expertise', 'email_notifications'\)/)
+	expect(body).not.toMatch(/insert into journal\.user_profiles \([^)]*\brole\b/)
 })

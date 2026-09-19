@@ -5,9 +5,12 @@
  * recebe parecer às cegas. Trocar o papel é conceder ou retirar acesso, e por isso passa pela
  * função SQL auditada `journal.change_user_role` (migration 20260921130000): a troca e a linha
  * de `access_control.sensitive_operation_log` entram na MESMA transação, com o ator da SESSÃO.
- * Desde 20260921130100 o banco recusa troca de papel fora dela — um `update` de perfil que
- * carregue `role` falha. Por isso o papel é SEPARADO do resto do payload aqui, e o resto do
- * perfil (nome, afiliação, bio) segue pela escrita comum.
+ * Desde 20260921130100 o banco recusa troca de papel fora dela.
+ *
+ * Perfil e papel são UMA gravação (`journal.save_user_profile`): os campos do perfil e a troca
+ * de papel entram juntos ou nada entra. Antes o portal gravava os campos e depois trocava o
+ * papel — uma troca recusada deixava o nome já gravado. E a autorização da troca é decidida
+ * ANTES de qualquer escrita (`planProfileSave` + `assertJournalRoleChangeAllowed`).
  *
  * Quem pode trocar papel: só editor (`assertRoleChangeAllowed`, em `auth.server.ts`). O editor
  * é administrador GLOBAL do journal: pode dar a si mesmo qualquer papel que já tem, mas NINGUÉM
@@ -36,6 +39,23 @@ export function splitRoleFromProfilePayload<T extends Record<string, unknown>>(p
 }
 
 /**
+ * O que gravar: os campos do perfil (sem `id` — o alvo sai da sessão ou do parâmetro checado —
+ * e sem `role`) e a troca de papel, SÓ se o papel pedido for diferente do atual. O formulário
+ * de perfil reenvia o papel que a pessoa já tem a cada gravação; tratar isso como troca exigia
+ * papel de editor de quem só editava a própria bio. Perfil inexistente conta como `author` —
+ * é o papel com que ele nasce.
+ */
+export function planProfileSave(
+	payload: Record<string, unknown>,
+	currentRole: UserRole | null
+): { fields: Record<string, unknown>; role: UserRole | undefined } {
+	const { role, rest } = splitRoleFromProfilePayload(payload)
+	const { id: _id, ...fields } = rest
+	const effectiveCurrent = currentRole ?? "author"
+	return { fields, role: role !== undefined && role !== effectiveCurrent ? role : undefined }
+}
+
+/**
  * Recusa (GrantNotAllowedError) o editor que retira a própria função de editor. Trocar o
  * papel de OUTRA pessoa, ou manter o próprio `editor`, passa.
  */
@@ -46,10 +66,12 @@ export function assertJournalRoleChangeAllowed(actorId: string, targetUserId: st
 /** Frases para a tela, pelos tokens estáveis da função SQL. */
 const ROLE_ERROR_MESSAGES: Record<string, string> = {
 	PROFILE_NOT_FOUND: "Perfil do journal não encontrado.",
+	PROFILE_ALREADY_EXISTS: "O perfil já existe — edite-o em vez de criar outro.",
+	PROFILE_FIELD_INVALID: "Campo de perfil ausente ou inválido.",
 	ACCESS_ACTOR_NOT_FOUND: "Sua conta não foi encontrada no cadastro de usuários; a alteração não foi feita.",
 	ACCESS_CHANGE_INVALID: "Papel inválido.",
 }
 
 export function toJournalRoleError(error: { message?: string; code?: string }): Error {
-	return new Error(ROLE_ERROR_MESSAGES[error.message ?? ""] ?? "Falha ao alterar o papel. Confira o perfil antes de tentar de novo.", { cause: error })
+	return new Error(ROLE_ERROR_MESSAGES[error.message ?? ""] ?? "Falha ao salvar o perfil. Confira os dados antes de tentar de novo.", { cause: error })
 }

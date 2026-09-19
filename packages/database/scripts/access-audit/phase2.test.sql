@@ -86,6 +86,15 @@ begin
 	perform access_control.revoke_mcp_api_key('00000000-0000-0000-0000-00000000000c', 'revokeMcpKeyFn', k);
 end $$;
 
+-- ── journal.save_user_profile passa com a fase 2 (sem papel: nem abre contexto) ──
+do $$ begin
+	perform journal.save_user_profile('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000000f1', 'upsert', '{"full_name":"F2"}');
+end $$;
+do $$ begin
+	perform journal.save_user_profile('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000000f1', 'update', '{"bio":"b"}', 'editor');
+	assert (select role from journal.user_profiles where id = '00000000-0000-0000-0000-0000000000f1') = 'editor';
+end $$;
+
 -- ── O contexto não vaza para a PRÓXIMA transação ────────────────────────────
 select access_control.change_module_permission('00000000-0000-0000-0000-00000000000a', 'rumaer', 'grant', '00000000-0000-0000-0000-00000000000c', 'rumaer', 3, null, null, null, null) is not null as granted;
 do $$ begin

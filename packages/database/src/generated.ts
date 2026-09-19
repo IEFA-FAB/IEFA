@@ -6801,6 +6801,17 @@ export type Database = {
       }
       get_article_details: { Args: { article_uuid: string }; Returns: Json }
       is_editor: { Args: { user_uuid?: string }; Returns: boolean }
+      save_user_profile: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_fields: Json
+          p_mode: string
+          p_role?: string
+          p_user: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

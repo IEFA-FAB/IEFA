@@ -1535,6 +1535,102 @@ begin
 end;
 $$;
 
+-- Perfil do journal E papel numa transação só. O portal gravava os campos do perfil e DEPOIS
+-- trocava o papel: uma troca recusada (ou que falhasse) deixava o nome/bio já gravados — a
+-- tela dizia "erro" sobre algo que tinha sido meio feito. Aqui os campos e o papel entram
+-- juntos, ou nada entra; a troca de papel é a de `change_user_role` (com o log dela).
+--
+-- `p_fields` só aceita as colunas de perfil que a tela edita — nunca `id`, `role`,
+-- `created_at`. `p_mode`: `insert` (o perfil não pode existir), `update` (tem de existir) ou
+-- `upsert`. `p_role` nulo = não mexe no papel. Quem pode trocar papel (só editor, e ninguém
+-- retira a própria função de editor) o portal decide ANTES de chamar.
+create or replace function journal.save_user_profile(
+	p_actor     uuid,
+	p_user      uuid,
+	p_mode      text,
+	p_fields    jsonb,
+	p_role      text default null,
+	p_assurance text default 'session'
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+	v_exists  boolean;
+	v_unknown text;
+	v_profile journal.user_profiles;
+begin
+	if p_actor is null or p_user is null or p_mode is null or p_mode not in ('insert', 'update', 'upsert') then
+		raise exception 'ACCESS_CHANGE_INVALID' using errcode = '22023', detail = 'ator, usuário e modo (insert, update, upsert) são obrigatórios';
+	end if;
+	if p_fields is null or jsonb_typeof(p_fields) <> 'object' then
+		raise exception 'PROFILE_FIELD_INVALID' using errcode = '22023', detail = 'campos do perfil devem ser um objeto';
+	end if;
+	select k into v_unknown
+		from jsonb_object_keys(p_fields) as k
+		where k not in ('full_name', 'affiliation', 'orcid', 'bio', 'expertise', 'email_notifications')
+		limit 1;
+	if v_unknown is not null then
+		raise exception 'PROFILE_FIELD_INVALID' using errcode = '22023', detail = format('campo não editável: %s', v_unknown);
+	end if;
+
+	perform 1 from journal.user_profiles where id = p_user for update;
+	v_exists := found;
+	if p_mode = 'insert' and v_exists then
+		raise exception 'PROFILE_ALREADY_EXISTS' using errcode = '23505', detail = 'o perfil já existe';
+	end if;
+	if p_mode = 'update' and not v_exists then
+		raise exception 'PROFILE_NOT_FOUND' using errcode = 'P0002', detail = 'perfil do journal inexistente';
+	end if;
+
+	begin
+		if v_exists then
+			update journal.user_profiles set
+					full_name = case when p_fields ? 'full_name' then p_fields ->> 'full_name' else full_name end,
+					affiliation = case when p_fields ? 'affiliation' then p_fields ->> 'affiliation' else affiliation end,
+					orcid = case when p_fields ? 'orcid' then p_fields ->> 'orcid' else orcid end,
+					bio = case when p_fields ? 'bio' then p_fields ->> 'bio' else bio end,
+					expertise = case
+						when not (p_fields ? 'expertise') then expertise
+						when jsonb_typeof(p_fields -> 'expertise') = 'array' then array(select jsonb_array_elements_text(p_fields -> 'expertise'))
+						else null
+					end,
+					email_notifications = case when p_fields ? 'email_notifications' then (p_fields ->> 'email_notifications')::boolean else email_notifications end
+				where id = p_user;
+		else
+			-- O papel NÃO entra no insert: nasce `author` (o default da coluna), fora do que a
+			-- fase 2 vigia; se pedido, é trocado abaixo, pela função auditada.
+			insert into journal.user_profiles (id, full_name, affiliation, orcid, bio, expertise, email_notifications)
+				values (
+					p_user,
+					p_fields ->> 'full_name',
+					p_fields ->> 'affiliation',
+					p_fields ->> 'orcid',
+					p_fields ->> 'bio',
+					case when jsonb_typeof(p_fields -> 'expertise') = 'array' then array(select jsonb_array_elements_text(p_fields -> 'expertise')) end,
+					coalesce((p_fields ->> 'email_notifications')::boolean, true)
+				);
+		end if;
+	exception
+		when not_null_violation or invalid_text_representation or check_violation then
+			raise exception 'PROFILE_FIELD_INVALID' using errcode = '22023', detail = 'campo do perfil ausente ou inválido';
+		when foreign_key_violation then
+			raise exception 'PROFILE_NOT_FOUND' using errcode = 'P0002', detail = 'o usuário não existe';
+	end;
+
+	-- Mesma transação: se a troca de papel falhar (ator inexistente, papel inválido), os campos
+	-- acima são desfeitos junto.
+	if p_role is not null then
+		perform journal.change_user_role(p_actor, p_user, p_role, p_assurance);
+	end if;
+
+	select * into v_profile from journal.user_profiles where id = p_user;
+	return to_jsonb(v_profile);
+end;
+$$;
+
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Privilégios: só a service role (e o dono, `postgres`, role do Drizzle do sisub)
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -1584,7 +1680,8 @@ begin
 				('forms', 'remove_response_viewer'),
 				('forms', 'add_questionnaire_editor'),
 				('forms', 'remove_questionnaire_editor'),
-				('journal', 'change_user_role')
+				('journal', 'change_user_role'),
+				('journal', 'save_user_profile')
 			)
 	loop
 		execute format('revoke all on function %s from public, anon, authenticated', v_fn);

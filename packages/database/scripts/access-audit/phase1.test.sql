@@ -238,6 +238,27 @@ begin
 	assert (select role from journal.user_profiles where id = '00000000-0000-0000-0000-00000000000b') = 'editor', 'troca com ator inexistente foi desfeita';
 end $$;
 
+-- ── journal.save_user_profile: perfil + papel, uma transação ────────────────
+do $$
+declare r jsonb; n bigint;
+begin
+	insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f1', 'f1@x');
+	delete from journal.user_profiles where id = '00000000-0000-0000-0000-0000000000f1';
+	-- insert: nasce author, sem log
+	n := pg_temp.log_count();
+	r := journal.save_user_profile('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000000f1', 'insert', '{"full_name":"F","expertise":["a","b"]}');
+	assert r ->> 'role' = 'author' and r -> 'expertise' = '["a","b"]'::jsonb and pg_temp.log_count() = n;
+	perform pg_temp.expect_error($q$ select journal.save_user_profile('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000000f1', 'insert', '{"full_name":"F"}') $q$, 'PROFILE_ALREADY_EXISTS');
+	perform pg_temp.expect_error($q$ select journal.save_user_profile('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000000f1', 'update', '{"role":"editor"}') $q$, 'PROFILE_FIELD_INVALID');
+	perform pg_temp.expect_error($q$ select journal.save_user_profile('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000000ee', 'update', '{"bio":"x"}') $q$, 'PROFILE_NOT_FOUND');
+	-- update + papel: os dois, e um log
+	r := journal.save_user_profile('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000000f1', 'update', '{"bio":"nova"}', 'reviewer');
+	assert r ->> 'bio' = 'nova' and r ->> 'role' = 'reviewer' and r ->> 'full_name' = 'F' and pg_temp.log_count() = n + 1;
+	-- troca de papel que falha (ator inexistente) desfaz os campos também
+	perform pg_temp.expect_error($q$ select journal.save_user_profile('00000000-0000-0000-0000-0000000000ff', '00000000-0000-0000-0000-0000000000f1', 'update', '{"bio":"perdida"}', 'editor') $q$, 'ACCESS_ACTOR_NOT_FOUND');
+	assert (select bio from journal.user_profiles where id = '00000000-0000-0000-0000-0000000000f1') = 'nova', 'campos da troca recusada foram desfeitos';
+end $$;
+
 -- ── Privilégios: só a service role ──────────────────────────────────────────
 do $$
 declare f record;
@@ -246,6 +267,8 @@ begin
 		select p.oid::regprocedure as sig
 			from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 			where n.nspname in ('access_control', 'forms', 'journal')
+				-- funções de trigger (como journal.update_updated_at do stub) não são RPC
+				and p.prorettype <> 'trigger'::regtype
 	loop
 		assert not has_function_privilege('anon', f.sig, 'execute'), format('anon executa %s', f.sig);
 		assert not has_function_privilege('authenticated', f.sig, 'execute'), format('authenticated executa %s', f.sig);
