@@ -24,6 +24,7 @@ import {
 	type DenyImpact,
 	type GrantEffect,
 	isExpiredGrant,
+	todayInBrasilia,
 } from "./admin-access"
 
 // ─── Linhas de grant ───────────────────────────────────────────────────────────
@@ -69,6 +70,16 @@ export type PersonIdentity = { email: string; name: string | null; nrOrdem: stri
 /** Janela de "expira em breve", em dias. */
 export const EXPIRING_SOON_DAYS = 30
 const DAY_MS = 86_400_000
+
+/**
+ * Dias civis (Brasília) de hoje até o dia do prazo: 0 = vence hoje. Contar em horas daria "21
+ * dias" para um acesso que vale até daqui a 20 dias, porque o prazo é o FIM do último dia.
+ */
+export function civilDaysUntil(expiresAt: string, now: number = Date.now()): number {
+	const today = Date.parse(`${todayInBrasilia(now)}T00:00:00Z`)
+	const last = Date.parse(`${todayInBrasilia(Date.parse(expiresAt))}T00:00:00Z`)
+	return Math.round((last - today) / DAY_MS)
+}
 
 /** O resumo de situação de uma pessoa, das linhas dela na lista. */
 export type PersonStatus = {

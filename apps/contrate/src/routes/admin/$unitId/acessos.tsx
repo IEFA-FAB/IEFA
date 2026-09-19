@@ -6,6 +6,7 @@ import { GrantRolesForm } from "@/components/access/GrantRolesForm"
 import { PeopleTable } from "@/components/access/PeopleTable"
 import { PersonPanel } from "@/components/access/PersonPanel"
 import { SectionHeader } from "@/components/alpha/SectionNav"
+import { LabelText } from "@/components/LabelText"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -243,9 +244,11 @@ function AcessosPage() {
 			</section>
 
 			<Sheet open={granting} onOpenChange={setGranting}>
-				<SheetContent side="right" className="w-full overflow-y-auto data-[side=right]:sm:max-w-lg">
+				<SheetContent side="right" className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
 					<SheetHeader className="border-border border-b pr-12">
-						<p className="text-label text-muted-foreground">Projeto α · {scopeContext.label}</p>
+						<p className="text-label text-muted-foreground">
+							<LabelText text={`Projeto α · ${scopeContext.label}`} />
+						</p>
 						<SheetTitle className="font-semibold text-xl tracking-tight">Conceder acesso</SheetTitle>
 						<SheetDescription>
 							Escolha a pessoa, a OM e quantos papéis quiser. Você concede só nas OMs que administra
@@ -330,7 +333,7 @@ function ListSummary({
 	const people = (count: number) => `${formatCount(count)} ${count === 1 ? "pessoa" : "pessoas"}`
 	return (
 		<p className="text-muted-foreground text-sm" aria-live="polite">
-			{filtered ? (
+			{filtered && data.grandTotal > 0 ? (
 				<>
 					<span className="font-medium text-foreground">{people(data.total)}</span> no filtro, de {people(data.grandTotal)} com papel
 				</>

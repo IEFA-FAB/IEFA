@@ -31,6 +31,8 @@ export function PersonPicker({
 }) {
 	const [input, setInput] = useState(value ? candidateLabel(value) : "")
 	const [term, setTerm] = useState("")
+	const [open, setOpen] = useState(false)
+	const [highlighted, setHighlighted] = useState<PersonCandidate | undefined>(undefined)
 
 	useEffect(() => {
 		const handle = setTimeout(() => setTerm(input.trim()), DEBOUNCE_MS)
@@ -46,6 +48,11 @@ export function PersonPicker({
 		staleTime: 30_000,
 	})
 	const items = searching ? (search.data ?? []) : value ? [value] : []
+
+	function select(next: PersonCandidate | null) {
+		onChange(next)
+		if (next) setInput(candidateLabel(next))
+	}
 
 	const status = !searching
 		? input.trim().length > 0 && input.trim().length < MIN_CHARS
@@ -64,10 +71,10 @@ export function PersonPicker({
 			items={items}
 			filter={null}
 			value={value}
-			onValueChange={(next) => {
-				onChange(next)
-				if (next) setInput(candidateLabel(next))
-			}}
+			onValueChange={select}
+			open={open}
+			onOpenChange={setOpen}
+			onItemHighlighted={setHighlighted}
 			inputValue={input}
 			onInputValueChange={(next) => setInput(next)}
 			itemToStringLabel={candidateLabel}
@@ -80,6 +87,17 @@ export function PersonPicker({
 				<Combobox.Input
 					id={id}
 					autoFocus={autoFocus}
+					onKeyDown={(event) => {
+						// Os resultados chegam depois da última tecla (busca no servidor), e o destaque
+						// automático só acompanha a digitação: sem isto, Enter sem destaque apagava o
+						// texto digitado. Enter escolhe o primeiro resultado.
+						const first = items[0]
+						if (event.key !== "Enter" || highlighted !== undefined || !searching || first === undefined) return
+						event.preventDefault()
+						event.preventBaseUIHandler()
+						select(first)
+						setOpen(false)
+					}}
 					placeholder="Nome de guerra, e-mail ou Nr. de ordem"
 					className="h-9 w-full min-w-0 border border-input bg-transparent pr-2.5 pl-8 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
 				/>

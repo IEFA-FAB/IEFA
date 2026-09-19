@@ -6,6 +6,7 @@ import {
 	type AlphaPerson,
 	aggregatePeople,
 	auditActionOf,
+	civilDaysUntil,
 	compareGrants,
 	groupAllowsByUnit,
 	inheritedDenyUnits,
@@ -373,5 +374,15 @@ describe("summarizeStatus", () => {
 			blocked: false,
 			expired: true,
 		})
+	})
+})
+
+describe("civilDaysUntil", () => {
+	test("conta dias civis de Brasília até o último dia do prazo", () => {
+		// 19/09 às 22:30 em Brasília (já 20/09 em UTC); prazo até o fim de 09/10.
+		const lateEvening = Date.parse("2026-09-20T01:30:00Z")
+		expect(civilDaysUntil("2026-10-09T23:59:59.999-03:00", lateEvening)).toBe(20)
+		expect(civilDaysUntil("2026-09-19T23:59:59.999-03:00", lateEvening)).toBe(0)
+		expect(civilDaysUntil("2026-09-20T23:59:59.999-03:00", lateEvening)).toBe(1)
 	})
 })

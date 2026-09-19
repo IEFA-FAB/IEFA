@@ -56,9 +56,15 @@ export function PeopleTable({ rows, sort, dir, onSortChange, onOpen, currentUser
 							aria-label={`Abrir acessos de ${personLabel(person)}`}
 						>
 							<span className="flex min-w-0 flex-col">
-								<span className="truncate font-medium group-hover/person:underline">{personLabel(person)}</span>
+								<span className="truncate font-medium group-hover/person:underline" title={personLabel(person)}>
+									{personLabel(person)}
+								</span>
 								{person.name && person.email ? <span className="truncate text-muted-foreground text-xs">{person.email}</span> : null}
 								{person.userId === currentUserId ? <span className="text-label mt-0.5 text-muted-foreground">Você</span> : null}
+								{/* Em tela estreita a coluna de situação sai; os selos vêm sob o nome. */}
+								<span className="mt-1.5 sm:hidden">
+									<PersonStatusBadges person={person} now={now} />
+								</span>
 							</span>
 							<NavArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground md:hidden" aria-hidden="true" />
 						</button>
@@ -117,10 +123,10 @@ export function PeopleTable({ rows, sort, dir, onSortChange, onOpen, currentUser
 	}
 
 	const columnClass: Record<string, string> = {
-		person: "w-[16rem] min-w-[12rem]",
-		roles: "min-w-[14rem]",
-		status: "w-[13rem] min-w-[10rem]",
-		lastChange: "hidden w-[9rem] md:table-cell",
+		person: "w-[45%] min-w-[9rem] sm:w-[16rem] sm:min-w-[12rem]",
+		roles: "min-w-[10rem] sm:min-w-[14rem]",
+		status: "hidden w-[13rem] min-w-[10rem] sm:table-cell",
+		lastChange: "hidden w-[10.5rem] md:table-cell",
 	}
 
 	return (
@@ -128,7 +134,7 @@ export function PeopleTable({ rows, sort, dir, onSortChange, onOpen, currentUser
 			className={cn("relative max-h-[min(70dvh,52rem)] overflow-auto border border-border transition-opacity duration-150", isFetching && "opacity-60")}
 			aria-busy={isFetching || undefined}
 		>
-			<table className="w-full border-collapse text-sm">
+			<table className="w-full table-fixed border-collapse text-sm">
 				<caption className="sr-only">{caption}</caption>
 				<thead className="sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_var(--border)]">
 					{table.getHeaderGroups().map((group) => (
@@ -142,14 +148,14 @@ export function PeopleTable({ rows, sort, dir, onSortChange, onOpen, currentUser
 										key={header.id}
 										scope="col"
 										aria-sort={ariaSort}
-										className={cn("text-label h-10 px-3 text-left align-middle font-medium text-muted-foreground", columnClass[header.column.id])}
+										className={`text-label ${cn("h-10 whitespace-nowrap px-2 text-left sm:px-3 align-middle text-muted-foreground", columnClass[header.column.id])}`}
 									>
 										{sortable ? (
 											<button
 												type="button"
 												onClick={() => toggle(header.column.id)}
 												className={cn(
-													"-mx-1 inline-flex items-center gap-1 px-1 py-0.5 uppercase outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+													"-mx-1 inline-flex items-center gap-1 px-1 py-0.5 uppercase tracking-[inherit] outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
 													active && "text-foreground"
 												)}
 											>
@@ -192,7 +198,7 @@ export function PeopleTable({ rows, sort, dir, onSortChange, onOpen, currentUser
 								}}
 							>
 								{row.getAllCells().map((cell) => (
-									<td key={cell.id} className={cn("px-3 py-3", columnClass[cell.column.id])}>
+									<td key={cell.id} className={cn("px-2 py-2.5 sm:px-3 sm:py-3", columnClass[cell.column.id])}>
 										{flexRender(cell.column.columnDef.cell, cell.getContext())}
 									</td>
 								))}

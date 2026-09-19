@@ -2,7 +2,7 @@ import { Clock, Prohibition } from "iconoir-react"
 import { Badge } from "@/components/ui/badge"
 import { isExpiredGrant, ROLE_INFO, ROLE_SHORT_LABEL, roleOfModule } from "@/lib/alpha/admin-access"
 import { formatDate } from "@/lib/alpha/format"
-import { type AlphaGrant, type AlphaPerson, EXPIRING_SOON_DAYS, groupAllowsByUnit } from "@/lib/alpha/people"
+import { type AlphaGrant, type AlphaPerson, civilDaysUntil, EXPIRING_SOON_DAYS, groupAllowsByUnit } from "@/lib/alpha/people"
 import { cn } from "@/lib/utils"
 
 const SOON_MS = EXPIRING_SOON_DAYS * 86_400_000
@@ -57,7 +57,8 @@ export function UnitRoleGroups({ grants, now = Date.now(), className }: { grants
 		<ul className={cn("flex flex-wrap items-center gap-x-4 gap-y-1.5", className)}>
 			{groups.map((group) => (
 				<li key={group.unitId ?? "global"} className="flex flex-wrap items-center gap-1">
-					<span className={cn("text-label mr-0.5", group.unitId === null ? "text-foreground" : "text-muted-foreground")}>
+					{/* `text-label` fora do `cn`: o tailwind-merge o lê como cor de texto e o descarta diante de `text-foreground`. */}
+					<span className={`text-label mr-0.5 ${group.unitId === null ? "text-foreground" : "text-muted-foreground"}`}>
 						{group.unitId === null ? "Global" : (group.unitCode ?? `OM ${group.unitId}`)}
 					</span>
 					{group.grants.map((grant) => (
@@ -105,7 +106,7 @@ export function PersonStatusBadges({ person, now = Date.now() }: { person: Pick<
 		}
 	}
 	if (status.expiringSoon && status.nextExpiry) {
-		const days = Math.max(0, Math.ceil((new Date(status.nextExpiry).getTime() - now) / 86_400_000))
+		const days = Math.max(0, civilDaysUntil(status.nextExpiry, now))
 		badges.push(
 			<Badge key="soon" variant="outline" title={`O acesso mais próximo de vencer vale até ${formatDate(status.nextExpiry)}`}>
 				<Clock aria-hidden="true" />

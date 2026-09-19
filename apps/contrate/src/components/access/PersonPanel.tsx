@@ -63,7 +63,7 @@ export function PersonPanel({
 }) {
 	return (
 		<Sheet open={userId !== null} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl data-[side=right]:sm:max-w-xl">
+			<SheetContent side="right" className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-xl">
 				{userId ? (
 					<PersonPanelBody key={userId} userId={userId} currentUserId={currentUserId} isGlobalAdmin={isGlobalAdmin} units={units} defaultUnit={defaultUnit} />
 				) : null}
