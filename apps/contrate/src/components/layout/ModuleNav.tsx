@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router"
 import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
-import type { ContrateModule, ModuleNavItem } from "@/lib/modules"
+import { type ContrateModule, type ModuleNavItem, resolveNavItems } from "@/lib/modules"
+import type { ScopeContext } from "@/lib/scope"
 
 /** Tira a barra final: `/aci/` e `/aci` são a mesma tela para quem compara caminho. */
 export function normalizePath(path: string): string {
@@ -18,15 +19,15 @@ export function isNavItemActive(pathname: string, item: ModuleNavItem): boolean 
 }
 
 /** O item aceso na tela atual, se houver — a trilha do cabeçalho usa o mesmo critério da barra. */
-export function findActiveNavItem(pathname: string, module: ContrateModule): ModuleNavItem | null {
-	return module.nav.find((item) => isNavItemActive(pathname, item)) ?? null
+export function findActiveNavItem(pathname: string, items: readonly ModuleNavItem[]): ModuleNavItem | null {
+	return items.find((item) => isNavItemActive(pathname, item)) ?? null
 }
 
 /**
  * Navegação do módulo aberto — e SÓ dele. Trocar de módulo troca a barra inteira;
  * nenhum item aqui leva a outro módulo (é o seletor, acima, que faz isso).
  */
-export function ModuleNav({ module }: { module: ContrateModule }) {
+export function ModuleNav({ module, scope }: { module: ContrateModule; scope: ScopeContext | null }) {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const { setOpenMobile } = useSidebar()
 
@@ -34,7 +35,7 @@ export function ModuleNav({ module }: { module: ContrateModule }) {
 		<nav aria-label={`Navegação — ${module.label}`}>
 			<SidebarGroup>
 				<SidebarMenu>
-					{module.nav.map((item) => {
+					{resolveNavItems(module, scope).map((item) => {
 						const Icon = item.icon
 						const isActive = isNavItemActive(pathname, item)
 						return (

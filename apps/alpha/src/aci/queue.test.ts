@@ -4,6 +4,7 @@ import { buildQueue, deriveStage, type QueueRow, summarizeQueue, toQueueItem } f
 const row = (overrides: Partial<QueueRow> = {}): QueueRow => ({
 	submission_id: "s1",
 	user_id: "u1",
+	unit_id: 26,
 	filename: "s1.docx",
 	doc_kind: "TR",
 	modalidade: null,

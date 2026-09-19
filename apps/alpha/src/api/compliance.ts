@@ -14,8 +14,8 @@ import { LegalRefResolver } from "../compliance/resolve-legal-ref.ts"
 import { runCompliance } from "../compliance/run.ts"
 import { applyCitationGuard, type ChecklistRule, judgeRule } from "../compliance/verify.ts"
 import { supabase } from "../db/supabase.ts"
-import { ALPHA_LEVEL, type AlphaAccess } from "../lib/alpha-access.ts"
-import { requireAlphaLevel } from "../middleware/auth.ts"
+import type { AlphaAccess } from "../lib/alpha-access.ts"
+import { requireRole } from "../middleware/require-role.ts"
 import { canReadComplianceRun, canReadSubmission, extractionBelongsToSubmission } from "./authorize.ts"
 import { FINDING_COLUMNS, RUN_COLUMNS } from "./columns.ts"
 
@@ -101,7 +101,8 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	// POST /api/v1/rules/:id/evaluate — testa uma regra isolada contra um trecho
 	// Avaliar regra dispara chamada de modelo com texto arbitrário do usuário:
 	// mesmo perfil que promove regra, para não virar um proxy de LLM aberto.
-	.post("/api/v1/rules/:id/evaluate", requireAlphaLevel(ALPHA_LEVEL.ACI), zValidator("json", EvaluateBodySchema), async (c) => {
+	// ACI GLOBAL: a regra é catálogo compartilhado por todas as OMs.
+	.post("/api/v1/rules/:id/evaluate", requireRole("aci", { global: true }), zValidator("json", EvaluateBodySchema), async (c) => {
 		const id = c.req.param("id")
 		const { text, label } = c.req.valid("json")
 
@@ -129,7 +130,9 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	})
 
 	// PATCH /api/v1/rules/:id — promoção e despromoção, sempre explícitas
-	.patch("/api/v1/rules/:id", requireAlphaLevel(ALPHA_LEVEL.ACI), zValidator("json", RuleStatusSchema), async (c) => {
+	// ACI GLOBAL: promover uma regra muda o parecer de TODAS as OMs — o ACI de uma OM não
+	// decide isso sozinho.
+	.patch("/api/v1/rules/:id", requireRole("aci", { global: true }), zValidator("json", RuleStatusSchema), async (c) => {
 		const id = c.req.param("id")
 		const { status } = c.req.valid("json")
 

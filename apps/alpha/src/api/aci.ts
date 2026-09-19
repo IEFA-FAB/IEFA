@@ -5,9 +5,10 @@
  * Tudo que já existia (submissão, extração, execução) continua nas rotas de
  * origem — aqui entra só a camada do analista sobre elas.
  *
- * Perfil: a fila é de quem enxerga o fluxo inteiro (`hasBroadAccess`). Triagem
- * e parecer exigem o nível ACI (`alpha` 3) — pelo desenho do projeto, o ACI é o único com
- * poder de aprovação final.
+ * Perfil, sempre recortado por OM (a cobertura de cada papel já vem expandida pela
+ * hierarquia de apoio): a fila é de licitações e ACI, só com os processos das OMs que eles
+ * cobrem. Triagem e parecer exigem o ACI que cobre a OM DAQUELE processo — pelo desenho do
+ * projeto, o ACI é o único com poder de aprovação final, e só sobre o que é da alçada dele.
  *
  * Toda leitura confere `error`. Nesta camada, "sem dados" nunca é o fallback
  * de "a consulta falhou": a fila com zero achados, o relatório com zero
@@ -23,9 +24,9 @@ import { buildQueue, DECISIONS, deriveStage, type QueueRow, type RunStatus, summ
 import { type FinalReport, type ReportDocument, type ReportFinding, type ReportReview, renderReportMarkdown, resolveFindings } from "../aci/report.ts"
 import { blockersByDecision, decisionBlockers, reviewSnapshot, type TriagedFinding } from "../aci/review.ts"
 import { supabase } from "../db/supabase.ts"
-import { ALPHA_LEVEL, type AlphaAccess, hasBroadAccess } from "../lib/alpha-access.ts"
-import { requireAlphaLevel } from "../middleware/auth.ts"
-import { canReadComplianceRun, canReadSubmission } from "./authorize.ts"
+import { type AlphaAccess, coversUnit, decideSubmissionReview, isEmptyCoverage, type SubmissionOwnership, unitsFor } from "../lib/alpha-access.ts"
+import { requireRole } from "../middleware/require-role.ts"
+import { canReadComplianceRun, canReadSubmission, canReviewComplianceRun, canTriageFinding } from "./authorize.ts"
 import { FINDING_COLUMNS, REVIEW_COLUMNS, RUN_COLUMNS } from "./columns.ts"
 
 type Variables = { user: User; access: AlphaAccess }
@@ -41,6 +42,10 @@ const TriageBodySchema = z.object({
 const ReviewBodySchema = z.object({
 	decision: z.enum(DECISIONS),
 	notes: z.string().max(10_000).optional(),
+})
+
+const QueueQuerySchema = z.object({
+	unit_id: z.coerce.number().int().nonnegative().optional(),
 })
 
 const ReportQuerySchema = z.object({
@@ -64,27 +69,25 @@ async function loadTriagedFindings(runId: string): Promise<TriagedFinding[] | nu
 }
 
 export const aciRoutes = new Hono<{ Variables: Variables }>()
-	// GET /api/v1/me/access — o perfil do usuário, para a interface não oferecer o que
-	// vai devolver 403. A regra continua aqui: o cliente só lê o resultado.
-	.get("/api/v1/me/access", (c) => {
-		const access = c.get("access")
-		return c.json({
-			level: access.level,
-			can_see_all: hasBroadAccess(access),
-			can_decide: access.level >= ALPHA_LEVEL.ACI,
-			can_manage_access: access.canManageAccess,
-		})
-	})
-	// GET /api/v1/aci/queue — todos os processos, com etapa e o que pede atenção
-	.get("/api/v1/aci/queue", async (c) => {
+	// GET /api/v1/aci/queue — os processos das OMs que o usuário cobre como licitações ou
+	// ACI, com etapa e o que pede atenção. `?unit_id=` recorta uma OM da cobertura.
+	.get("/api/v1/aci/queue", zValidator("query", QueueQuerySchema), async (c) => {
 		// A fila é a visão de quem revisa. Requisitante tem a própria lista em
-		// `GET /submissions`; abrir a fila para ele seria expor o documento alheio.
-		if (!hasBroadAccess(c.get("access"))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+		// `GET /submissions`; abrir a fila para ele seria expor o fluxo de revisão.
+		const scope = unitsFor(c.get("access"), "procurement", "aci")
+		if (isEmptyCoverage(scope)) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+
+		const { unit_id } = c.req.valid("query")
+		if (unit_id !== undefined && !coversUnit(scope, unit_id)) return c.json({ error: "Forbidden", code: "UNIT_OUT_OF_SCOPE" }, 403)
+
+		// `null` = sem recorte, e só para o papel GLOBAL sem filtro. Qualquer outro caso manda
+		// a lista explícita — inclusive a vazia nunca chega aqui (403 acima).
+		const p_unit_ids = unit_id !== undefined ? [unit_id] : scope === "all" ? null : [...scope]
 
 		// Uma linha por submissão, agregada no banco — ver o comentário da RPC na
 		// migration: a versão em app transferia todos os achados e esbarrava no
 		// teto de 1000 linhas do PostgREST sem erro.
-		const { data, error } = await supabase.rpc("aci_queue", { p_limit: QUEUE_LIMIT })
+		const { data, error } = await supabase.rpc("aci_queue", { p_limit: QUEUE_LIMIT, p_unit_ids })
 		if (error) {
 			console.error(`[aci] fila não lida: ${error.message}`)
 			return failed(c, "QUEUE_FAILED")
@@ -106,7 +109,7 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 
 		const { data: submission, error } = await supabase
 			.from("submission")
-			.select("id, user_id, filename, doc_kind, modalidade, objeto, mime_type, created_at")
+			.select("id, user_id, unit_id, filename, doc_kind, modalidade, objeto, mime_type, created_at")
 			.eq("id", id)
 			.maybeSingle()
 
@@ -132,6 +135,11 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 
 		return c.json({
 			submission,
+			// A OM do processo, no nível de cima para a tela não precisar abrir `submission`.
+			unit_id: submission.unit_id as number | null,
+			// Decidido aqui, com a MESMA regra que as rotas de triagem e parecer aplicam: ACI
+			// que cobre a OM deste processo. A tela não recalcula.
+			can_decide: decideSubmissionReview(c.get("access"), submission as SubmissionOwnership),
 			// Derivada aqui, com a mesma função da fila — a tela não recalcula.
 			stage: deriveStage((extractions.data ?? []).length > 0, (latestRun?.status as RunStatus | undefined) ?? null, latestReviewed),
 			extractions: extractions.data ?? [],
@@ -142,10 +150,14 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 	})
 
 	// PATCH /api/v1/compliance/findings/:id — triagem do analista
-	.patch("/api/v1/compliance/findings/:id", requireAlphaLevel(ALPHA_LEVEL.ACI), zValidator("json", TriageBodySchema), async (c) => {
+	.patch("/api/v1/compliance/findings/:id", requireRole("aci"), zValidator("json", TriageBodySchema), async (c) => {
 		const id = c.req.param("id")
 		const { triage, note } = c.req.valid("json")
 		const user = c.get("user")
+
+		// Ser ACI em ALGUMA OM (o guard acima) não basta: o achado tem de ser de um processo
+		// de OM que ele cobre. Antes, esta rota só conferia o nível.
+		if (!(await canTriageFinding(id, c.get("access")))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 
 		// Descartar sem motivo tira do relatório um achado que a máquina fundamentou
 		// em dispositivo real. O motivo é o que torna o descarte auditável.
@@ -194,10 +206,13 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 	})
 
 	// POST /api/v1/compliance/runs/:id/reviews — emite o parecer (linha nova, nunca update)
-	.post("/api/v1/compliance/runs/:id/reviews", requireAlphaLevel(ALPHA_LEVEL.ACI), zValidator("json", ReviewBodySchema), async (c) => {
+	.post("/api/v1/compliance/runs/:id/reviews", requireRole("aci"), zValidator("json", ReviewBodySchema), async (c) => {
 		const id = c.req.param("id")
 		const { decision, notes } = c.req.valid("json")
 		const user = c.get("user")
+
+		// Parecer só do ACI que cobre a OM do processo — ver a triagem acima.
+		if (!(await canReviewComplianceRun(id, c.get("access")))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 
 		const { data: run, error } = await supabase.from("compliance_run").select("id, status").eq("id", id).maybeSingle()
 		if (error) return failed(c, "RUN_LOOKUP_FAILED")
@@ -258,7 +273,7 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 		const documentIds = [...(run.model_document_id ? [run.model_document_id] : []), ...(run.law_document_ids ?? [])]
 
 		const [submission, extraction, findings, reviews, documents] = await Promise.all([
-			supabase.from("submission").select("id, filename, doc_kind, modalidade, objeto, created_at").eq("id", run.submission_id).maybeSingle(),
+			supabase.from("submission").select("id, unit_id, filename, doc_kind, modalidade, objeto, created_at").eq("id", run.submission_id).maybeSingle(),
 			supabase.from("extraction").select("id, model, created_at").eq("id", run.extraction_id).maybeSingle(),
 			supabase.from("compliance_finding").select(FINDING_COLUMNS).eq("run_id", id),
 			supabase.from("compliance_review").select(REVIEW_COLUMNS).eq("run_id", id).order("created_at", { ascending: false }),

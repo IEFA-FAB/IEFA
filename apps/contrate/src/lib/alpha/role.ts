@@ -1,38 +1,41 @@
 /**
- * Perfil do usuário no Projeto α.
+ * Perfil do usuário no Projeto α — `GET /api/v1/me/access`.
  *
- * Vem do PBAC (módulos `alpha` e `alpha-admin` em `access_control.user_permissions`),
- * resolvido pelo próprio α em `GET /api/v1/me/access`. O portal não lê permissão do
- * banco nem da sessão: a regra de acesso mora no α, e aqui é só o que a tela precisa
- * para não oferecer botão que vai devolver 403.
+ * Quatro papéis (requisitante, licitações, ACI, administração), cada um com a cobertura de
+ * OMs JÁ expandida pela hierarquia de apoio: `"all"` é o grant global, a lista são os ids.
+ * Quem resolve é o α, sobre o PBAC; o contrate não lê grant do banco para decidir o que a
+ * tela oferece — só o que ele mesmo administra (a tela de acessos) passa por server fn.
+ *
+ * O contrato é o de `@iefa/alpha-client/access`, e a resposta é conferida contra ele: um α
+ * que mudasse o formato faria a tela esconder módulo de quem tem papel, em silêncio.
  */
 
+import { type AlphaRole, type MeAccess, MeAccessSchema } from "@iefa/alpha-client/access"
 import { queryOptions } from "@tanstack/react-query"
 import { alphaRequest } from "./client"
 
-export type AlphaLevel = 0 | 1 | 2 | 3
+export type { AccessUnit, AlphaRole, MeAccess, UnitOption, UnitSet } from "@iefa/alpha-client/access"
 
-export type AlphaAccess = {
-	level: AlphaLevel
-	/** Licitações e ACI: a fila e os processos de todos os requisitantes. */
-	can_see_all: boolean
-	/** Só o ACI: triagem de achado e parecer. */
-	can_decide: boolean
-	/** `alpha-admin` 3: conceder e revogar os grants do α. */
-	can_manage_access: boolean
-}
+/**
+ * Teto da consulta do perfil. Ela roda no `beforeLoad` das rotas com OM: sem teto, um α
+ * pendurado prenderia a navegação inteira, sem mensagem.
+ */
+const ACCESS_TIMEOUT_MS = 15_000
 
-export const LEVEL_LABEL: Record<AlphaLevel, string> = {
-	0: "sem perfil",
-	1: "Requisitante",
-	2: "Licitações",
-	3: "ACI",
+export const ALPHA_ACCESS_QUERY_KEY = ["alpha", "me", "access"] as const
+
+export const ROLE_LABEL: Record<AlphaRole, string> = {
+	requester: "Requisitante",
+	procurement: "Licitações",
+	aci: "ACI",
+	admin: "Administração de acessos",
 }
 
 export function alphaAccessQueryOptions(token: string | undefined) {
 	return queryOptions({
-		queryKey: ["alpha", "me", "access"],
-		queryFn: () => alphaRequest<AlphaAccess>("/api/v1/me/access", token),
+		queryKey: ALPHA_ACCESS_QUERY_KEY,
+		queryFn: async (): Promise<MeAccess> =>
+			MeAccessSchema.parse(await alphaRequest<unknown>("/api/v1/me/access", token, { signal: AbortSignal.timeout(ACCESS_TIMEOUT_MS) })),
 		enabled: !!token,
 		staleTime: 60_000,
 	})

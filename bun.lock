@@ -115,6 +115,7 @@
       "dependencies": {
         "@base-ui/react": "^1.8.0",
         "@iefa/agent-web": "workspace:*",
+        "@iefa/alpha-client": "workspace:*",
         "@iefa/auth-kit": "workspace:*",
         "@iefa/database": "workspace:*",
         "@iefa/legal-kit": "workspace:*",
@@ -550,6 +551,7 @@
       "dependencies": {
         "@langchain/core": "^1.2.9",
         "@langchain/openai": "^1.5.11",
+        "zod": "^4.5.4",
       },
       "devDependencies": {
         "@iefa/tsconfig": "workspace:*",

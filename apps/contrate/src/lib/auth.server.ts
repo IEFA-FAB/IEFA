@@ -5,15 +5,15 @@
  * `/_serverFn/<id>` é endpoint HTTP cru: o `beforeLoad` protege a navegação, não o
  * endpoint. Toda fn que usa client service-role passa por um guard daqui.
  *
- * Autorização é PBAC (`@iefa/pbac`), a mesma dos demais apps: módulo `alpha` para o
- * copiloto e `alpha-admin` (nível 3) para gerir os acessos. As regras de negócio do
- * α (fila, triagem, parecer) moram na API do α, que resolve o mesmo PBAC; aqui só o
- * que é do próprio app — Pregoeiro e a tela de acessos.
+ * Autorização é PBAC (`@iefa/pbac`), a mesma dos demais apps. Os papéis do α
+ * (`alpha-requester`, `alpha-procurement`, `alpha-aci`, `alpha-admin`, cada um por OM) são
+ * resolvidos pela API do α para o fluxo (fila, triagem, parecer); aqui só o que é do
+ * próprio app — Pregoeiro e a tela de acessos (`alpha-admin` 3, escopado por OM).
  */
 
-import type { UserContext } from "@iefa/pbac"
+import { fetchUnitSupportGraph, isEmptyCoverage, needsSupportGraph, resolveModuleUnitCoverage, type UnitCoverage, type UserContext } from "@iefa/pbac"
 import { createRequestAuth, forbidden as denyWithStatus, unauthorized as unauthenticatedWithStatus } from "@iefa/pbac/start"
-import { getAccessControlClient, getIefaAuthClient } from "./supabase.server"
+import { getAccessControlClient, getCoreReadClient, getIefaAuthClient } from "./supabase.server"
 
 export function unauthorized(): never {
 	return unauthenticatedWithStatus("Não autenticado.")
@@ -43,7 +43,29 @@ export async function requireSelf(claimedUserId: string): Promise<string> {
 	return userId
 }
 
-/** Gate da gestão de acessos do α: `alpha-admin` nível 3. */
-export function requireAlphaAdmin(): Promise<UserContext> {
-	return auth.requireLevel("alpha-admin", 3)
+export interface AlphaAdminContext {
+	ctx: UserContext
+	/**
+	 * As OMs que este administrador administra: a do grant e as que ela apoia (hierarquia
+	 * de apoio, a MESMA expansão que o α aplica), ou `"all"` para o administrador global.
+	 */
+	coverage: UnitCoverage
+}
+
+/**
+ * Gate da gestão de acessos do α: `alpha-admin` nível 3 em ALGUMA OM, com a cobertura
+ * resolvida no servidor. É ela — e nunca o que o cliente mandar — que `assertGrantable`
+ * confere antes de cada concessão.
+ *
+ * O grafo de apoio só é lido quando há grant escopado (allow ou deny): o administrador
+ * global não paga a leitura. Falha na leitura propaga — cobertura calculada sem o grafo
+ * seria cobertura errada.
+ */
+export async function requireAlphaAdmin(): Promise<AlphaAdminContext> {
+	const ctx = await auth.requireLevel("alpha-admin", 3)
+	const graph = needsSupportGraph(ctx.permissions, ["alpha-admin"]) ? await fetchUnitSupportGraph(getCoreReadClient()) : null
+	const coverage = resolveModuleUnitCoverage(ctx.permissions, "alpha-admin", graph, 3)
+	// Allow numa OM recortado por deny na mesma OM: tem o grant, não administra nada.
+	if (isEmptyCoverage(coverage)) forbidden("Você não administra acessos em nenhuma OM.")
+	return { ctx, coverage }
 }

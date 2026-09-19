@@ -328,6 +328,7 @@ FROM deps AS contrate-build
 ARG VITE_IEFA_SUPABASE_URL
 ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
 COPY packages/agent-web ./packages/agent-web
+COPY packages/alpha-client ./packages/alpha-client
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit

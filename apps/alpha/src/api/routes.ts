@@ -8,13 +8,15 @@ import { z } from "zod"
 import { supabase } from "../db/supabase"
 import { GRAPH_INVOKE_CONFIG, graph } from "../graph"
 import { buildTurnInput } from "../graph/turn-input.ts"
-import { ALPHA_LEVEL, type AlphaAccess } from "../lib/alpha-access.ts"
+import type { AlphaAccess } from "../lib/alpha-access.ts"
 import { messageText } from "../lib/message-text.ts"
-import { authMiddleware, requireAlphaLevel } from "../middleware/auth"
+import { authMiddleware } from "../middleware/auth"
+import { requireRole } from "../middleware/require-role.ts"
 import { embedDocuments } from "../sources/embeddings"
 import { ingestSource } from "../sources/pipeline"
 import { getSource, hasAdapter, listSources, resolveAdapter } from "../sources/registry"
 import type { NormativeSourceRow } from "../sources/types"
+import { accessRoutes } from "./access.ts"
 import { aciRoutes } from "./aci.ts"
 import { canAccessSession } from "./authorize"
 import { complianceRoutes } from "./compliance"
@@ -228,6 +230,8 @@ async function logQuery(session_id: string, user_id: string, query: string, stat
 const app = new Hono<{ Variables: AppVariables }>()
 	.use("/api/v1/*", browserCors)
 	.use("/api/v1/*", authMiddleware)
+	// Perfil por OM (`/me/access`) e o seletor de OM do envio (`/units`).
+	.route("/", accessRoutes)
 	// Submissão e extração (Etapa 1.4) — montadas depois do middleware de auth.
 	.route("/", submissionRoutes)
 	// Conformidade e bancada de regras (Etapas 1.5–1.7).
@@ -502,7 +506,8 @@ const app = new Hono<{ Variables: AppVariables }>()
 	})
 
 	// POST /api/v1/sources/:id/refresh — coleta sob demanda (dry-run por padrão)
-	.post("/api/v1/sources/:id/refresh", requireAlphaLevel(ALPHA_LEVEL.ACI), zValidator("json", RefreshBodySchema), async (c) => {
+	// ACI GLOBAL: a fonte normativa é corpus compartilhado por todas as OMs.
+	.post("/api/v1/sources/:id/refresh", requireRole("aci", { global: true }), zValidator("json", RefreshBodySchema), async (c) => {
 		const id = c.req.param("id")
 		const { apply, limit } = c.req.valid("json")
 

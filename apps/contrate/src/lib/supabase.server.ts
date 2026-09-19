@@ -14,8 +14,10 @@ export function getIefaServerClient() {
 }
 
 /**
- * Service role no schema `access_control` — resolução do PBAC e gestão dos grants
- * `alpha`/`alpha-admin`. Toda escrita aqui é restrita a esses dois módulos.
+ * Service role no schema `access_control` — resolução do PBAC e gestão dos grants dos
+ * papéis do α (`alpha-requester`, `alpha-procurement`, `alpha-aci`, `alpha-admin`). Toda
+ * escrita aqui passa por `changeModulePermission` (grant + auditoria numa transação) e é
+ * restrita a esses quatro módulos.
  */
 export function getAccessControlClient() {
 	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "access_control" })

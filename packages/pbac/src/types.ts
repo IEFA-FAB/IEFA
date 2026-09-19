@@ -28,14 +28,32 @@
  * - sucont-admin:        Administração do SUCONT (gerenciar grants dos módulos acima) —
  *                          sucont, unscoped/global. Usa level 3, o mesmo que o módulo
  *                          `sucont` único exigia antes do split: o backfill preserva o nível.
- * - alpha:               Projeto α (copiloto de aquisições) — alpha, unscoped/global. Os perfis
- *                          do negócio são aninhados e viram nível: 1 = requisitante,
- *                          2 = licitações (enxerga o fluxo inteiro), 3 = ACI (triagem, parecer,
- *                          curadoria de regras e fontes). Sem grant, o autenticado ainda usa o
- *                          chat e envia o próprio documento; deny (0) fecha a API inteira.
- * - alpha-admin:         Administração do α (gerenciar grants dos dois módulos) — level 3.
- *                          Separado de `alpha` pelo mesmo motivo do `sucont-admin`: decidir
- *                          parecer e conceder acesso são atribuições diferentes.
+ * - alpha:               @deprecated — Projeto α, modelo antigo de UM módulo com nível aninhado
+ *                          (1 requisitante, 2 licitações, 3 ACI), sem escopo. Substituído pelos
+ *                          módulos de papel abaixo (20260918…_alpha_role_modules_unit_scope). Nada
+ *                          mais o lê; o literal e as linhas ficam UMA versão, para o rollback do
+ *                          deploy devolver o acesso, e saem num PR de limpeza (como o `sucont`).
+ * - alpha-requester:     Requisitante do α — escopado por `unit_id` (OM; nulo = global), level 1.
+ *                          Enxerga TODAS as submissões das OMs que cobre (continuidade quando o
+ *                          colega sai de férias). Enviar documento NÃO exige este grant: qualquer
+ *                          autenticado envia, atribuindo a uma OM. Deny sem escopo aqui bloqueia o
+ *                          envio.
+ * - alpha-procurement:   Licitações do α — escopado por OM, level 1. A fila e os processos das
+ *                          OMs cobertas.
+ * - alpha-aci:           ACI (Assessoria de Controle Interno) do α — escopado por OM, level 1.
+ *                          Triagem de achado e parecer SÓ nos processos das OMs cobertas. A
+ *                          curadoria de regras e fontes (catálogo compartilhado) exige o grant
+ *                          GLOBAL.
+ * - alpha-admin:         Administração do α (conceder/revogar os módulos de papel e o próprio
+ *                          `alpha-admin`) — level 3, escopado por OM. O de OM X concede só em X e
+ *                          nas OMs que X apoia, nunca global e nunca a si mesmo (`assertGrantable`);
+ *                          o global concede qualquer coisa.
+ *
+ *                        Nos quatro, o escopo desce pela HIERARQUIA DE APOIO
+ *                        (`core.units.supporting_unit_id`, ver `unit-coverage.ts`): grant na
+ *                        apoiadora (GAP-SJ) cobre as apoiadas (IAE, DCTA, IEFA-SJ); o inverso não.
+ *                        Papéis são módulos, e não níveis de um só, porque o escopo é por papel:
+ *                        a mesma pessoa pode ser Licitações no GAP-SJ e Requisitante no IEFA-SJ.
  *
  * As três divisões são módulos SEPARADOS, e não escopos de um módulo `sucont` único, porque
  * o escopo do PBAC é um id numérico de unidade/cozinha/refeitório — a divisão da SUCONT não
@@ -58,7 +76,11 @@ export type AppModule =
 	| "sucont-3"
 	| "sucont-4"
 	| "sucont-admin"
+	/** @deprecated modelo de nível único; substituído pelos módulos `alpha-*` de papel. Sai no PR de limpeza. */
 	| "alpha"
+	| "alpha-requester"
+	| "alpha-procurement"
+	| "alpha-aci"
 	| "alpha-admin"
 
 /**

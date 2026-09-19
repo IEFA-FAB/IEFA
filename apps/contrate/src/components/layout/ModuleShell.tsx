@@ -1,12 +1,23 @@
-import { Link, useRouterState } from "@tanstack/react-router"
+import { Link, useMatches, useRouterState } from "@tanstack/react-router"
 import { NavArrowRight } from "iconoir-react"
 import type { ReactNode } from "react"
 import { LegalNoticeBanner } from "@/components/LegalNoticeBanner"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { CONTRATE_MODULES, type ContrateModule, type ContrateModuleId } from "@/lib/modules"
+import { type ContrateModule, type ContrateModuleId, getModule, resolveNavItems, scopedPath } from "@/lib/modules"
+import type { ScopeContext } from "@/lib/scope"
 import { AppSidebar } from "./AppSidebar"
 import { findActiveNavItem, normalizePath } from "./ModuleNav"
+
+/**
+ * A OM aberta, lida do contexto que a rota `$unitId` do módulo entrega (`enterScope`) — o
+ * mesmo caminho do `scopeContext` do sisub. `null` fora de escopo (hub, módulo sem OM).
+ */
+function useScopeContext(): ScopeContext | null {
+	return useMatches({
+		select: (matches) => matches.map((m) => (m.context as { scopeContext?: ScopeContext } | undefined)?.scopeContext).find(Boolean) ?? null,
+	})
+}
 
 /**
  * Casca dos módulos (`/aci`, `/alpha`, `/pregoeiro`, `/admin`) — a mesma arquitetura
@@ -20,8 +31,8 @@ import { findActiveNavItem, normalizePath } from "./ModuleNav"
  * ela volta expandida — o estado não é gravado em cookie (ver `ui/sidebar.tsx`).
  */
 export function ModuleShell({ moduleId, children }: { moduleId: ContrateModuleId; children: ReactNode }) {
-	const module = CONTRATE_MODULES.find((m) => m.id === moduleId)
-	if (!module) throw new Error(`Módulo desconhecido: ${moduleId}`)
+	const module = getModule(moduleId)
+	const scope = useScopeContext()
 
 	return (
 		<SidebarProvider>
@@ -32,13 +43,13 @@ export function ModuleShell({ moduleId, children }: { moduleId: ContrateModuleId
 				Ir para o conteúdo
 			</a>
 
-			<AppSidebar module={module} />
+			<AppSidebar module={module} scope={scope} />
 
 			<SidebarInset>
 				<header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 md:px-6 print:hidden">
 					<SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
 					<Separator orientation="vertical" className="mx-1 h-5 data-[orientation=vertical]:self-center" />
-					<ModuleBreadcrumb module={module} />
+					<ModuleBreadcrumb module={module} scope={scope} />
 				</header>
 
 				<main id="conteudo" tabIndex={-1} className="flex-1 outline-none">
@@ -59,21 +70,26 @@ interface Crumb {
 }
 
 /**
- * Trilha do cabeçalho: Contrate › Módulo › Tela.
+ * Trilha do cabeçalho: Contrate › Módulo › OM › Tela.
  *
  * "Contrate" é a volta para a home — a porta de entrada do app, que apresenta os
- * módulos. O módulo leva à entrada dele; a tela vem do MESMO critério de ativo da
- * barra. Tela fora da navegação (um processo, um relatório) termina no módulo, e o
- * título dela é o `h1` da página logo abaixo — repeti-lo aqui seria título duplo.
+ * módulos. O módulo leva à entrada dele (o hub de OM, nos módulos com escopo); a OM, à
+ * entrada do módulo nela; a tela vem do MESMO critério de ativo da barra. Tela fora da
+ * navegação (um processo, um relatório) termina na OM, e o título dela é o `h1` da página
+ * logo abaixo — repeti-lo aqui seria título duplo.
  */
-function ModuleBreadcrumb({ module }: { module: ContrateModule }) {
+function ModuleBreadcrumb({ module, scope }: { module: ContrateModule; scope: ScopeContext | null }) {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
-	const item = findActiveNavItem(pathname, module)
+	const item = findActiveNavItem(pathname, resolveNavItems(module, scope))
+	const scopeIndex = scope && module.scope ? scopedPath(module.scope.index, scope.id) : null
+	// A tela que É a entrada da OM já aparece como a OM: repetir o item seria "GAP-SJ › Fila".
+	const showItem = item !== null && (scopeIndex === null || normalizePath(item.to) !== normalizePath(scopeIndex))
 
 	const crumbs: Crumb[] = [
 		{ label: "Contrate", to: "/" },
-		{ label: module.label, to: module.home, collapsible: item !== null },
-		...(item ? [{ label: item.label, to: item.to }] : []),
+		{ label: module.label, to: module.home, collapsible: scope !== null || showItem },
+		...(scope && scopeIndex ? [{ label: scope.label, to: scopeIndex, collapsible: showItem }] : []),
+		...(item && showItem ? [{ label: item.label, to: item.to }] : []),
 	]
 
 	return (

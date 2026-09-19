@@ -16,6 +16,7 @@
   "dependencies": {
     "@base-ui/react": "^1.8.0",
     "@iefa/agent-web": "workspace:*",
+    "@iefa/alpha-client": "workspace:*",
     "@iefa/auth-kit": "workspace:*",
     "@iefa/database": "workspace:*",
     "@iefa/legal-kit": "workspace:*",

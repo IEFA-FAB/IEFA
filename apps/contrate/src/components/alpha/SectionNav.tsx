@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { LabelText } from "@/components/LabelText"
 
 /**
  * Cabeçalho de página dos módulos do Projeto α — console e Plataforma ACI.
@@ -13,7 +14,9 @@ import type { ReactNode } from "react"
 export function SectionHeader({ eyebrow, title, subtitle, actions }: { eyebrow: string; title: string; subtitle?: string; actions?: ReactNode }) {
 	return (
 		<header className="mb-8 border-border border-b pb-6 print:hidden">
-			<p className="text-label mb-2 text-muted-foreground">{eyebrow}</p>
+			<p className="text-label mb-2 text-muted-foreground">
+				<LabelText text={eyebrow} />
+			</p>
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div>
 					<h1 className="font-semibold text-3xl tracking-tighter">{title}</h1>

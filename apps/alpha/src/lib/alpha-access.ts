@@ -1,51 +1,138 @@
-import { hasPermission, type UserPermission } from "@iefa/pbac"
+import type { AlphaRole, MeAccess, UnitSet } from "@iefa/alpha-client/access"
+import {
+	type AppModule,
+	coversUnit,
+	isEmptyCoverage,
+	needsSupportGraph,
+	resolveModuleUnitCoverage,
+	type UnitSupportEdge,
+	type UserPermission,
+	unionCoverage,
+} from "@iefa/pbac"
+
+export type { AlphaRole, UnitSet }
+export { coversUnit, isEmptyCoverage }
 
 /**
  * Perfil do usuário no Projeto α, derivado do PBAC (`@iefa/pbac`) — a mesma engine e a
  * mesma tabela `access_control.user_permissions` do sisub, rumaer e sucont.
  *
- * Os perfis do negócio são aninhados (o ACI faz tudo o que Licitações faz, e mais), por
- * isso cabem em níveis do módulo `alpha`:
- *   0 — sem grant: chat e o próprio documento, como qualquer usuário autenticado
- *   1 — requisitante (explícito; hoje equivale ao 0, existe para a allow-list futura)
- *   2 — licitações: enxerga o fluxo inteiro (fila, processos de todos)
- *   3 — ACI: triagem, parecer e curadoria de regras e fontes
+ * ## Um módulo por papel, escopado por OM
  *
- * A gestão dos grants é outro módulo (`alpha-admin`), como no sucont: decidir parecer e
- * conceder acesso são atribuições diferentes.
+ *   alpha-requester    (level 1) — vê todas as submissões das OMs que cobre
+ *   alpha-procurement  (level 1) — fila e processos das OMs que cobre
+ *   alpha-aci          (level 1) — triagem e parecer nos processos das OMs que cobre; com
+ *                                  grant GLOBAL, também a curadoria de regras e fontes
+ *   alpha-admin        (level 3) — concede e revoga os quatro (quem administra é o contrate)
  *
- * Antes daqui, o perfil era `auth.users.app_metadata.role`: um texto único, concedido
- * por SQL, sem prazo, sem negação e sem tela.
+ * Grant com `unit_id` nulo é global. O escopo desce pela HIERARQUIA DE APOIO
+ * (`core.units.supporting_unit_id`): grant no GAP-SJ cobre IAE, DCTA e IEFA; o inverso não.
+ * A expansão é resolvida UMA vez por request (`authMiddleware`) e a cobertura de cada papel
+ * chega às rotas já pronta, como `UnitSet`.
+ *
+ * Antes daqui, os papéis eram níveis aninhados de um módulo `alpha` único e sem escopo —
+ * licitações e ACI enxergavam a FAB inteira. O módulo `alpha` não é mais lido (ver
+ * `@iefa/pbac` `types.ts`).
+ *
+ * ## Enviar documento não exige papel
+ *
+ * Qualquer autenticado envia, atribuindo o documento a uma OM, e sempre enxerga o que enviou.
+ * O único bloqueio é o deny SEM escopo em `alpha-requester`: ele fecha o envio. Não há mais
+ * "deny que fecha a API inteira" — o chat e a leitura do próprio documento ficam de pé, como
+ * para quem nunca teve grant. Deny ESCOPADO só recorta cobertura (inclusive de um allow
+ * global): ele não impede enviar para aquela OM, porque enviar não depende de papel.
  */
-export type AlphaLevel = 0 | 1 | 2 | 3
 
-export const ALPHA_LEVEL = {
-	REQUESTER: 1,
-	PROCUREMENT: 2,
-	ACI: 3,
-} as const satisfies Record<string, AlphaLevel>
+export const ROLE_MODULE = {
+	requester: "alpha-requester",
+	procurement: "alpha-procurement",
+	aci: "alpha-aci",
+	admin: "alpha-admin",
+} as const satisfies Record<AlphaRole, AppModule>
+
+/** Nível mínimo que conta para o papel: os de fluxo usam 1; a administração segue em 3. */
+const ROLE_MIN_LEVEL: Record<AlphaRole, number> = { requester: 1, procurement: 1, aci: 1, admin: 3 }
+
+export const ALPHA_ROLE_MODULES: readonly AppModule[] = Object.values(ROLE_MODULE)
 
 export type AlphaAccess = {
-	level: AlphaLevel
-	/** Pode conceder e revogar grants dos módulos `alpha` e `alpha-admin`. */
-	canManageAccess: boolean
+	roles: Record<AlphaRole, UnitSet>
+	/** `false` só com deny sem escopo em `alpha-requester`. */
+	canSubmit: boolean
 }
 
-export function resolveAlphaAccess(permissions: UserPermission[]): AlphaAccess {
-	const level = ([3, 2, 1] as const).find((n) => hasPermission(permissions, "alpha", n)) ?? 0
-	return { level, canManageAccess: hasPermission(permissions, "alpha-admin", 3) }
+/** `true` quando a resolução precisa do grafo de apoio — só com grant/deny escopado. */
+export function needsUnitGraph(permissions: readonly UserPermission[]): boolean {
+	return needsSupportGraph(permissions, ALPHA_ROLE_MODULES)
 }
 
 /**
- * Deny explícito (`level 0`, sem escopo) no módulo `alpha` fecha a API inteira — inclusive
- * o que qualquer autenticado faz. Sem grant nenhum é outra coisa: o usuário recém-cadastrado
- * segue usando o chat e enviando o próprio documento.
+ * Resolve os quatro papéis. `graph` é o grafo de apoio de `core.units`; pode ser `null` quando
+ * {@link needsUnitGraph} é `false` (ninguém paga a leitura por um grant só global).
  */
-export function isAlphaDenied(permissions: UserPermission[]): boolean {
-	return permissions.some((p) => p.module === "alpha" && p.level === 0 && p.unit_id === null && p.mess_hall_id === null && p.kitchen_id === null)
+export function resolveAlphaAccess(permissions: UserPermission[], graph: readonly UnitSupportEdge[] | null): AlphaAccess {
+	const roles = {} as Record<AlphaRole, UnitSet>
+	for (const role of Object.keys(ROLE_MODULE) as AlphaRole[]) {
+		const coverage = resolveModuleUnitCoverage(permissions, ROLE_MODULE[role], graph, ROLE_MIN_LEVEL[role])
+		roles[role] = coverage === "all" ? "all" : [...coverage]
+	}
+
+	const submitDenied = permissions.some(
+		(p) => p.module === ROLE_MODULE.requester && p.level <= 0 && p.unit_id === null && p.kitchen_id === null && p.mess_hall_id === null
+	)
+
+	return { roles, canSubmit: !submitDenied }
 }
 
-/** Perfis que enxergam o fluxo inteiro, por definição de negócio: Licitações e ACI. */
-export function hasBroadAccess(access: AlphaAccess): boolean {
-	return access.level >= ALPHA_LEVEL.PROCUREMENT
+/** União da cobertura dos papéis pedidos. */
+export function unitsFor(access: AlphaAccess, ...roles: AlphaRole[]): UnitSet {
+	const union = unionCoverage(...roles.map((role) => access.roles[role]))
+	return union === "all" ? "all" : [...union]
+}
+
+/** O usuário tem o papel em alguma OM — ou, com `global`, sem recorte nenhum. */
+export function hasRole(access: AlphaAccess, role: AlphaRole, options: { global?: true } = {}): boolean {
+	const coverage = access.roles[role]
+	return options.global ? coverage === "all" : !isEmptyCoverage(coverage)
+}
+
+/** O que decide o acesso a uma submissão: quem enviou e a OM a que foi atribuída. */
+export type SubmissionOwnership = { user_id: string; unit_id: number | null }
+
+/** Papéis que leem as submissões da OM: requisitante, licitações e ACI. */
+export const READER_ROLES: readonly AlphaRole[] = ["requester", "procurement", "aci"]
+
+/**
+ * O usuário pode ler esta submissão (e tudo o que pende dela: extração, texto, execução,
+ * parecer, relatório)?
+ *
+ * Allow-list: o autor, ou um papel de leitura que cubra a OM da submissão. Submissão sem OM
+ * (anterior ao escopo por OM) só o autor e os papéis globais alcançam.
+ */
+export function decideSubmissionRead(access: AlphaAccess, userId: string, submission: SubmissionOwnership): boolean {
+	if (submission.user_id === userId) return true
+	return coversUnit(unitsFor(access, ...READER_ROLES), submission.unit_id)
+}
+
+/**
+ * O usuário pode triar achado e emitir parecer nesta submissão? Só o ACI que cobre a OM
+ * dela — ser o autor NÃO basta, e ser ACI de outra OM também não.
+ */
+export function decideSubmissionReview(access: AlphaAccess, submission: SubmissionOwnership): boolean {
+	return coversUnit(access.roles.aci, submission.unit_id)
+}
+
+/**
+ * Os campos do `/me/access` de antes do escopo por OM, derivados dos papéis — para o
+ * contrate já publicado seguir funcionando até ser atualizado. `level` segue a hierarquia
+ * antiga (ACI > licitações > requisitante), agora "em alguma OM".
+ */
+export function legacyAccessFields(access: AlphaAccess): Pick<MeAccess, "level" | "can_see_all" | "can_decide" | "can_manage_access"> {
+	const level = hasRole(access, "aci") ? 3 : hasRole(access, "procurement") ? 2 : hasRole(access, "requester") ? 1 : 0
+	return {
+		level,
+		can_see_all: hasRole(access, "procurement") || hasRole(access, "aci"),
+		can_decide: hasRole(access, "aci"),
+		can_manage_access: hasRole(access, "admin"),
+	}
 }
