@@ -68,7 +68,9 @@ const LEVEL_LABELS: Record<number, string> = { 1: "Acesso", 2: "Editor", 3: "Adm
 
 /** A chave de uma linha da lista — pessoa + módulo + origem, que é o que a torna única. */
 function grantKey(grant: SucontGrant): string {
-	return `${grant.source}:${grant.userId}:${grant.module}`
+	// A linha inline tem id próprio: duas linhas do mesmo (usuário, módulo) — escopos ou lados
+	// diferentes — são dois acessos, e cada uma se revoga sozinha.
+	return grant.permissionId ?? `${grant.source}:${grant.userId}:${grant.module}:${grant.policyName ?? ""}`
 }
 
 export function SucontPermissionsManager() {
@@ -82,7 +84,10 @@ export function SucontPermissionsManager() {
 	// Revoga UM grant — pessoa e módulo. Sem o módulo, retirar o acesso à SUCONT-3
 	// de quem também tem a SUCONT-4 apagaria os dois.
 	const revoke = useMutation({
-		mutationFn: (grant: SucontGrant) => revokeSucontPermissionFn({ data: { userId: grant.userId, module: grant.module } }),
+		mutationFn: (grant: SucontGrant) => {
+			if (!grant.permissionId) throw new Error("Acesso emprestado por política — desanexe a política para retirá-lo")
+			return revokeSucontPermissionFn({ data: { permissionId: grant.permissionId } })
+		},
 		onSuccess: () => {
 			toast.success("Acesso revogado")
 			invalidateGrants()

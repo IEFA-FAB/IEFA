@@ -15,7 +15,7 @@
  *     último, todo mundo, com conserto só por SQL.
  */
 
-import { type AppModule, assertGrantable, type ChangeModulePermissionInput } from "@iefa/pbac"
+import { type AppModule, assertGrantable, type ChangeModulePermissionInput, partitionOfLevel } from "@iefa/pbac"
 import { SUCONT_ADMIN_MODULE } from "./permission-modules"
 
 /** Prefixo das operações no log de auditoria: `sucont.permission.grant|revoke`. */
@@ -24,9 +24,12 @@ export const SUCONT_AUDIT_APP = "sucont"
 /** Par (módulo, nível) concedível — validado junto pelo schema da server function. */
 export type SucontGrantChange = { userId: string; module: AppModule; level: number }
 
-/** A revogação tranca o ator fora da tela? Só revogar o PRÓPRIO `sucont-admin`. */
-export function isSelfAdminRevoke(actorId: string, target: { userId: string; module: AppModule }): boolean {
-	return actorId === target.userId && target.module === SUCONT_ADMIN_MODULE
+/**
+ * A revogação desta linha tranca o ator fora da tela? Só revogar o PRÓPRIO acesso (allow) de
+ * `sucont-admin`. Retirar um bloqueio próprio não tranca ninguém.
+ */
+export function isSelfAdminRevoke(actorId: string, target: { userId: string; module: AppModule; level: number }): boolean {
+	return actorId === target.userId && target.module === SUCONT_ADMIN_MODULE && target.level > 0
 }
 
 /** Concessão (idempotente: reconceder substitui o nível e zera o prazo). */
@@ -44,20 +47,42 @@ export function buildSucontGrant(actorId: string, data: SucontGrantChange): Chan
 	}
 }
 
+/** A linha de `user_permissions` que a tela mostrou, lida pelo `permissionId` no servidor. */
+export type SucontPermissionRow = {
+	id: string
+	user_id: string
+	module: AppModule
+	level: number
+	unit_id: number | null
+	kitchen_id: number | null
+	mess_hall_id: number | null
+}
+
 /**
- * Revogação do acesso INLINE de um módulo, na chave global — allow e deny, como a tela
- * sempre fez ("retirar o acesso ao SUCONT-3"). Acesso emprestado por política não é linha
- * desta tabela: sem linha, a função responde "não há acesso concedido" e nada é registrado.
+ * Revogação da LINHA que a tela mostrou — a chave inteira dela (usuário, módulo e escopo) e o
+ * lado dela (allow ou deny). O alvo sai da linha, lida no servidor pelo `permissionId`; nada
+ * disso vem do cliente. Antes a revogação apagava TODAS as linhas de (usuário, módulo); passar
+ * a apagar só a chave global faria o "Revogar" de uma linha escopada responder "não há acesso"
+ * com o acesso de pé. Pela linha, cada uma sai sozinha — e o outro lado da chave fica.
  */
-export function buildSucontRevoke(actorId: string, data: { userId: string; module: AppModule }): ChangeModulePermissionInput {
-	assertGrantable({ actorId, coverage: "all" }, { userId: data.userId, unitId: null, revokesAdministration: data.module === SUCONT_ADMIN_MODULE })
+export function buildSucontRevoke(actorId: string, row: SucontPermissionRow): ChangeModulePermissionInput {
+	assertGrantable(
+		{ actorId, coverage: "all" },
+		{
+			userId: row.user_id,
+			unitId: row.unit_id,
+			revokesAdministration: isSelfAdminRevoke(actorId, { userId: row.user_id, module: row.module, level: row.level }),
+		}
+	)
 	return {
 		actorId,
 		app: SUCONT_AUDIT_APP,
 		action: "revoke",
-		targetUserId: data.userId,
-		module: data.module,
-		unitId: null,
-		partition: "all",
+		targetUserId: row.user_id,
+		module: row.module,
+		unitId: row.unit_id,
+		kitchenId: row.kitchen_id,
+		messHallId: row.mess_hall_id,
+		partition: partitionOfLevel(row.level),
 	}
 }

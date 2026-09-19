@@ -30,7 +30,7 @@ import { z } from "zod"
 import { requireSucontAdmin, requireUserId } from "#/lib/auth.server"
 import { describePerson } from "#/lib/identity"
 import { fetchMilitaryIdentities } from "#/lib/military.server"
-import { buildSucontGrant, buildSucontRevoke } from "#/lib/permission-change"
+import { buildSucontGrant, buildSucontRevoke, type SucontPermissionRow } from "#/lib/permission-change"
 import { SUCONT_ADMIN_MODULE, SUCONT_PERMISSION_MODULES } from "#/lib/permission-modules"
 import { getAccessControlClient, getCoreClient } from "#/lib/supabase.server"
 
@@ -135,19 +135,27 @@ export const grantSucontPermissionFn = createServerFn({ method: "POST" })
 	})
 
 /**
- * Revoga um grant do sucont. Só admin — e ninguém revoga o próprio `sucont-admin`
- * (trancaria o ator fora da tela; sendo o último, todo mundo).
+ * Revoga a LINHA de grant que a tela mostrou. Só admin — e ninguém revoga o próprio
+ * `sucont-admin` (trancaria o ator fora da tela; sendo o último, todo mundo).
  *
- * `module` é obrigatório e restrito à lista do app: apagar "o acesso ao sucont" sem
- * dizer qual módulo retiraria as três divisões e a administração de uma vez — e
- * numa tabela compartilhada, um `delete` sem `module` alcançaria o ERP inteiro.
+ * A entrada é só o `permissionId`: usuário, módulo, escopo e lado saem da linha, lida aqui com
+ * `module` restrito aos do sucont — um id de grant de outro app (o `global` do sisub, numa
+ * tabela compartilhada) não é alcançável por esta tela.
  */
 export const revokeSucontPermissionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ userId: z.uuid(), module: z.enum(MODULES as [AppModule, ...AppModule[]]) }))
+	.validator(z.object({ permissionId: z.uuid() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		const ctx = await requireSucontAdmin()
+		const { data: row, error } = await getAccessControlClient()
+			.from("user_permissions")
+			.select("id, user_id, module, level, unit_id, kitchen_id, mess_hall_id")
+			.eq("id", data.permissionId)
+			.in("module", MODULES)
+			.maybeSingle()
+		if (error) throw new Error(error.message)
+		if (!row) throw new Error("Acesso não encontrado — a lista pode estar desatualizada.")
 		try {
-			await changeModulePermission(getAccessControlClient(), buildSucontRevoke(ctx.userId, data))
+			await changeModulePermission(getAccessControlClient(), buildSucontRevoke(ctx.userId, row as SucontPermissionRow))
 			return { ok: true }
 		} catch (error) {
 			rethrowAccessError(error)
@@ -155,6 +163,11 @@ export const revokeSucontPermissionFn = createServerFn({ method: "POST" })
 	})
 
 export type SucontGrant = {
+	/**
+	 * A linha de `user_permissions` (`source: "inline"`) — é por ela que a revogação acontece.
+	 * `null` no acesso por política, que não se revoga aqui.
+	 */
+	permissionId: string | null
 	userId: string
 	/** Módulo do sucont que o grant concede — a divisão, ou a administração de acessos. */
 	module: AppModule
@@ -286,9 +299,10 @@ type PartialGrant = Omit<SucontGrant, "email" | "nrOrdem" | "posto" | "nomeGuerr
 
 /** Grants gravados direto na linha do usuário, nos quatro módulos do sucont. */
 async function fetchInlineGrants(accessControl: AnySupabaseClient): Promise<PartialGrant[]> {
-	const { data, error } = await accessControl.from("user_permissions").select("module, user_id, level, expires_at").in("module", MODULES)
+	const { data, error } = await accessControl.from("user_permissions").select("id, module, user_id, level, expires_at").in("module", MODULES)
 	if (error) throw new Error(error.message)
-	return ((data ?? []) as Array<{ module: AppModule; user_id: string; level: number; expires_at: string | null }>).map((row) => ({
+	return ((data ?? []) as Array<{ id: string; module: AppModule; user_id: string; level: number; expires_at: string | null }>).map((row) => ({
+		permissionId: row.id,
 		userId: row.user_id,
 		module: row.module,
 		level: row.level,
@@ -344,6 +358,7 @@ async function fetchPolicyGrants(accessControl: AnySupabaseClient): Promise<Part
 			[...levelByPolicyModule.values()]
 				.filter((statement) => statement.policyId === row.policy_id)
 				.map((statement) => ({
+					permissionId: null,
 					userId: row.user_id,
 					module: statement.module,
 					level: statement.level,
