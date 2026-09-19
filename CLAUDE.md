@@ -193,6 +193,27 @@ chave publicável (papéis `anon`/`authenticated`) está no bundle de todo app. 
   USAGE), RLS desligada alcançável e
   SECURITY DEFINER sem `search_path` ou exposta.
 
+### Mudança de acesso: só por função auditada
+
+Conceder, alterar ou revogar acesso — em QUALQUER app — grava a mudança e a linha de
+`access_control.sensitive_operation_log` na mesma transação, com o ator da SESSÃO (nunca do input).
+Referência: cabeçalhos de `20260921130000_access_change_audited_functions.sql` (as funções) e
+`20260921130100_access_change_enforcement.sql` (os triggers).
+
+- **Tabelas vigiadas**: `access_control.{user_permissions, policy, policy_statement,
+  user_policy_attachment, mcp_api_keys}`, `forms.{response_viewer, response_viewer_scope_binding,
+  questionnaire_editor}` e o `role` de `journal.user_profiles`. Escrita fora de função auditada
+  levanta `42501 ACCESS_CHANGE_UNAUDITED` (fase 2). Passam só: contexto aberto pela função, cascata
+  de FK / outro trigger, e bypass explícito.
+- **Caminhos**: `changeModulePermission`/`setModuleBlock` (@iefa/pbac), as operações de
+  `@iefa/sisub-domain` (`runAccessFunction`), as RPCs `forms.*` e `journal.save_user_profile`.
+  Função SQL nova que escreve nessas tabelas abre o contexto ANTES da primeira escrita
+  (`perform access_control.audit_context('<app>.<recurso>.<ação>')`) e grava o log na mesma
+  transação — `packages/database/src/access-audit.sql-contract.test.ts` cobra.
+- **Migration com seed/backfill nessas tabelas** (depois de 20260921130100) abre o bypass na própria
+  transação: `select set_config('iefa.audit_bypass', '<motivo>', true);`. Sem ele, a migration falha.
+  No código TS o bypass só é permitido nos arquivos da allowlist de `.opengrep/rules/access-audit.yaml`.
+
 ## Commands
 
 ```bash

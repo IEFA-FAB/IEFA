@@ -21,7 +21,7 @@ import {
 	userPolicyAttachmentInAccessControl,
 } from "@iefa/database/drizzle/sisub"
 import type { UserPermission } from "@iefa/pbac"
-import { and, asc, count, eq, inArray, isNull } from "drizzle-orm"
+import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm"
 import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import { requirePermission } from "../guards/require-permission.ts"
 import type {
@@ -35,7 +35,6 @@ import type {
 	ListPolicies,
 	ListPolicyMembers,
 	ListUserPolicies,
-	PolicyStatementInput,
 	RemovePolicyStatement,
 	RestorePolicy,
 	UpdatePolicy,
@@ -43,7 +42,9 @@ import type {
 } from "../schemas/policies.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { insertOneOrFail, isExpired, mutateOrFail, notExpired, runQuery } from "../utils/index.ts"
+import { isExpired, notExpired, runQuery } from "../utils/index.ts"
+import { type AccessAudit, defaultAccessAudit, runAccessFunction, SELF_ADMIN_EXPIRY_MESSAGE } from "./access-change.ts"
+import { isAttached, loadActorAccessSnapshot, refuseIfLosesAdministration, wouldLoseAdministration } from "./self-admin-guard.ts"
 
 export type PolicyStatementRow = {
 	id: string
@@ -313,58 +314,136 @@ export async function listUserPolicyPermissions(db: SisubDb, userId: string): Pr
 	return rows as UserPermission[]
 }
 
-// ── Escrita: política ────────────────────────────────────────────────────────
+// ── Auto-tranca: a própria administração por política ───────────────────────
+//
+// Toda escrita que pode mexer no conjunto efetivo do PRÓPRIO ator — statement de uma política
+// anexada a ele, anexar/desanexar a si mesmo, remover/restaurar política anexada a ele — é
+// simulada antes (`self-admin-guard.ts`): se o ator deixaria de ter `admin` (por um allow que
+// sai OU por um deny que entra), a escrita é recusada. Mudança que não toca o ator não carrega
+// nem a foto do acesso dele além do necessário para saber que não toca.
 
-export async function createPolicy(db: SisubDb, ctx: UserContext, input: CreatePolicy, assurance: AssuranceRequirement = NO_ASSURANCE): Promise<PolicyRow> {
+/** Statement de uma política, lido para a regra de auto-tranca e para a autorização. */
+async function loadStatement(db: SisubDb, statementId: string): Promise<{ policyId: string; module: string; level: number }> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ policyId: policyStatementInAccessControl.policyId, module: policyStatementInAccessControl.module, level: policyStatementInAccessControl.level })
+			.from(policyStatementInAccessControl)
+			.where(eq(policyStatementInAccessControl.id, statementId))
+			.limit(1)
+	)
+	const row = rows[0]
+	if (!row) throw new NotFoundError("policy_statement", statementId)
+	return row
+}
+
+// ── Escrita ──────────────────────────────────────────────────────────────────
+//
+// Toda escrita de política, statement e anexo passa por uma função SQL auditada
+// (20260921130000): a mudança e a linha de `access_control.sensitive_operation_log` entram na
+// MESMA transação, com o ator da sessão (`ctx.userId`). Mudar o que uma política concede muda
+// o acesso de TODOS os anexados, e o log registra quem são (`affected_user_ids`). Desde
+// 20260921130100 o banco recusa escrita direta nestas tabelas.
+//
+// As checagens de política gerenciada/removida continuam aqui ANTES da chamada — é o que dá a
+// mensagem com o nome da política — e são refeitas pela função sob trava, que é a que vale.
+
+type PolicyFunctionRow = {
+	log_id: string
+	id: string
+	name: string
+	description: string | null
+	managed: boolean
+	created_at: string
+	deleted_at: string | null
+}
+
+function toPolicyRow(row: PolicyFunctionRow): PolicyRow {
+	return { id: row.id, name: row.name, description: row.description, managed: row.managed, created_at: row.created_at, deleted_at: row.deleted_at }
+}
+
+type StatementFunctionRow = {
+	log_id: string
+	statement_id: string
+	module: string
+	level: number
+	unit_id: number | null
+	kitchen_id: number | null
+	mess_hall_id: number | null
+}
+
+function toStatementRow(row: StatementFunctionRow): PolicyStatementRow {
+	return { id: row.statement_id, module: row.module, level: row.level, unit_id: row.unit_id, kitchen_id: row.kitchen_id, mess_hall_id: row.mess_hall_id }
+}
+
+export async function createPolicy(
+	db: SisubDb,
+	ctx: UserContext,
+	input: CreatePolicy,
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("createPolicy")
+): Promise<PolicyRow> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
 
-	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
-		db
-			.insert(policyInAccessControl)
-			.values({ name: input.name, description: input.description ?? null, managed: false })
-			.returning(POLICY_COLS)
+	const row = await runAccessFunction<PolicyFunctionRow>(
+		db,
+		sql`access_control.create_policy(${ctx.userId}::uuid, ${audit.operation}::text, ${input.name}::text, ${input.description ?? null}::text, ${audit.grade}::text)`,
+		{ fallbackCode: "INSERT_FAILED" }
 	)
-	return row as PolicyRow
+	return toPolicyRow(row)
 }
 
-export async function updatePolicy(db: SisubDb, ctx: UserContext, input: UpdatePolicy, assurance: AssuranceRequirement = NO_ASSURANCE): Promise<PolicyRow> {
+export async function updatePolicy(
+	db: SisubDb,
+	ctx: UserContext,
+	input: UpdatePolicy,
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("updatePolicy")
+): Promise<PolicyRow> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
 	await assertPolicyEditable(db, input.policyId)
 
-	const updates: { name?: string; description?: string | null; updatedAt: string } = { updatedAt: new Date().toISOString() }
-	if (input.name != null) updates.name = input.name
-	// nullable: undefined = não mexe; null = limpa a descrição.
-	if (input.description !== undefined) updates.description = input.description
-
-	const row = await insertOneOrFail("UPDATE_FAILED", `policy ${input.policyId} not found`, () =>
-		db.update(policyInAccessControl).set(updates).where(eq(policyInAccessControl.id, input.policyId)).returning(POLICY_COLS)
+	// nullable: undefined = não mexe; null = limpa a descrição. Nome nulo/ausente = não mexe.
+	const row = await runAccessFunction<PolicyFunctionRow>(
+		db,
+		sql`access_control.update_policy(
+			${ctx.userId}::uuid, ${audit.operation}::text, ${input.policyId}::uuid, ${input.name ?? null}::text,
+			${input.description ?? null}::text, ${input.description !== undefined}::boolean, ${audit.grade}::text
+		)`,
+		{ fallbackCode: "UPDATE_FAILED", notFoundId: input.policyId }
 	)
-	return row as PolicyRow
+	return toPolicyRow(row)
 }
 
 /**
  * Soft delete. A política deixa de compor as permissões efetivas de qualquer usuário
  * imediatamente — a resolução filtra `deleted_at IS NULL` — sem apagar os anexos, para que
- * uma remoção acidental seja reversível.
+ * uma remoção acidental seja reversível. É revogação em massa: o log registra quem estava
+ * anexado e o que a política concedia.
  */
-export async function deletePolicy(db: SisubDb, ctx: UserContext, input: DeletePolicy, assurance: AssuranceRequirement = NO_ASSURANCE): Promise<void> {
+export async function deletePolicy(
+	db: SisubDb,
+	ctx: UserContext,
+	input: DeletePolicy,
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("deletePolicy")
+): Promise<void> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
 	await assertPolicyEditable(db, input.policyId)
+	const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
+	if (isAttached(snapshot, input.policyId)) refuseIfLosesAdministration(snapshot, { kind: "policy-deleted", policyId: input.policyId, deleted: true })
 
-	await mutateOrFail("DELETE_FAILED", `policy ${input.policyId} not found`, () =>
-		db
-			.update(policyInAccessControl)
-			.set({ deletedAt: new Date().toISOString() })
-			.where(and(eq(policyInAccessControl.id, input.policyId), isNull(policyInAccessControl.deletedAt)))
-			.returning({ id: policyInAccessControl.id })
-	)
+	await runAccessFunction(db, sql`access_control.delete_policy(${ctx.userId}::uuid, ${audit.operation}::text, ${input.policyId}::uuid, ${audit.grade}::text)`, {
+		fallbackCode: "DELETE_FAILED",
+		notFoundId: input.policyId,
+	})
 }
 
 /**
- * Reverte o soft delete.
+ * Reverte o soft delete — e com ele, devolve o acesso a TODOS os anexados. É concessão em
+ * massa, registrada como tal (com os afetados) na mesma transação.
  *
  * `deletePolicy` preserva statements e anexos justamente para que uma remoção acidental seja
  * reversível — sem esta operação, a identidade e os anexos ficavam retidos e inalcançáveis,
@@ -373,8 +452,15 @@ export async function deletePolicy(db: SisubDb, ctx: UserContext, input: DeleteP
  * Recusa se o nome já foi reutilizado por outra política viva: o índice único parcial
  * rejeitaria o update de qualquer forma, e um erro de constraint cru não diria o motivo.
  */
-export async function restorePolicy(db: SisubDb, ctx: UserContext, input: RestorePolicy): Promise<PolicyRow> {
+export async function restorePolicy(
+	db: SisubDb,
+	ctx: UserContext,
+	input: RestorePolicy,
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("restorePolicy")
+): Promise<PolicyRow> {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.select(POLICY_COLS).from(policyInAccessControl).where(eq(policyInAccessControl.id, input.policyId)).limit(1)
@@ -390,100 +476,122 @@ export async function restorePolicy(db: SisubDb, ctx: UserContext, input: Restor
 			.where(and(eq(policyInAccessControl.name, policy.name), isNull(policyInAccessControl.deletedAt)))
 			.limit(1)
 	)
-	if (clash.length > 0) {
-		throw new DomainError("POLICY_NAME_TAKEN", `Já existe uma política ativa chamada "${policy.name}" — renomeie-a antes de restaurar esta`)
-	}
+	const nameTaken = new DomainError("POLICY_NAME_TAKEN", `Já existe uma política ativa chamada "${policy.name}" — renomeie-a antes de restaurar esta`)
+	if (clash.length > 0) throw nameTaken
 
-	const row = await insertOneOrFail("UPDATE_FAILED", `policy ${input.policyId} not found`, () =>
-		db
-			.update(policyInAccessControl)
-			.set({ deletedAt: null, updatedAt: new Date().toISOString() })
-			.where(eq(policyInAccessControl.id, input.policyId))
-			.returning(POLICY_COLS)
+	// Restaurar devolve os statements da política a todos os anexados — inclusive um deny de
+	// `admin` sobre o próprio ator.
+	const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
+	if (isAttached(snapshot, input.policyId)) refuseIfLosesAdministration(snapshot, { kind: "policy-deleted", policyId: input.policyId, deleted: false })
+
+	const row = await runAccessFunction<PolicyFunctionRow>(
+		db,
+		sql`access_control.restore_policy(${ctx.userId}::uuid, ${audit.operation}::text, ${input.policyId}::uuid, ${audit.grade}::text)`,
+		{ fallbackCode: "UPDATE_FAILED", notFoundId: input.policyId, overrides: { POLICY_NAME_TAKEN: nameTaken } }
 	)
-	return row as PolicyRow
+	return toPolicyRow(row)
 }
 
 // ── Escrita: statements ──────────────────────────────────────────────────────
-
-function statementValues(statement: PolicyStatementInput) {
-	return {
-		module: statement.module,
-		level: statement.level,
-		unitId: statement.unit_id ?? null,
-		kitchenId: statement.kitchen_id ?? null,
-		messHallId: statement.mess_hall_id ?? null,
-	}
-}
 
 export async function addPolicyStatement(
 	db: SisubDb,
 	ctx: UserContext,
 	input: AddPolicyStatement,
-	assurance: AssuranceRequirement = NO_ASSURANCE
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("addPolicyStatement")
 ): Promise<PolicyStatementRow> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
 	await assertPolicyEditable(db, input.policyId)
 
-	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
-		db
-			.insert(policyStatementInAccessControl)
-			.values({ policyId: input.policyId, ...statementValues(input.statement) })
-			.returning(STATEMENT_COLS)
+	const statement = input.statement
+	// Um `admin:0` numa política anexada ao ator o bloquearia na hora (deny vence allow).
+	const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
+	if (isAttached(snapshot, input.policyId)) {
+		refuseIfLosesAdministration(snapshot, {
+			kind: "statement-upsert",
+			policyId: input.policyId,
+			statement: {
+				id: "(novo)",
+				module: statement.module,
+				level: statement.level,
+				unit_id: statement.unit_id ?? null,
+				kitchen_id: statement.kitchen_id ?? null,
+				mess_hall_id: statement.mess_hall_id ?? null,
+			},
+		})
+	}
+	const row = await runAccessFunction<StatementFunctionRow>(
+		db,
+		sql`access_control.add_policy_statement(
+			${ctx.userId}::uuid, ${audit.operation}::text, ${input.policyId}::uuid, ${statement.module}::text, ${statement.level}::integer,
+			${statement.unit_id ?? null}::bigint, ${statement.kitchen_id ?? null}::bigint, ${statement.mess_hall_id ?? null}::bigint, ${audit.grade}::text
+		)`,
+		{ fallbackCode: "INSERT_FAILED", notFoundId: input.policyId }
 	)
-	return row as PolicyStatementRow
-}
-
-/** Resolve a política dona de um statement — a autorização é sempre pela política. */
-async function resolveStatementPolicy(db: SisubDb, statementId: string): Promise<string> {
-	const rows = await runQuery("FETCH_FAILED", () =>
-		db
-			.select({ policyId: policyStatementInAccessControl.policyId })
-			.from(policyStatementInAccessControl)
-			.where(eq(policyStatementInAccessControl.id, statementId))
-			.limit(1)
-	)
-	const row = rows[0]
-	if (!row) throw new NotFoundError("policy_statement", statementId)
-	return row.policyId
+	return toStatementRow(row)
 }
 
 export async function updatePolicyStatement(
 	db: SisubDb,
 	ctx: UserContext,
 	input: UpdatePolicyStatement,
-	assurance: AssuranceRequirement = NO_ASSURANCE
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("updatePolicyStatement")
 ): Promise<PolicyStatementRow> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
-	await assertPolicyEditable(db, await resolveStatementPolicy(db, input.statementId))
+	const current = await loadStatement(db, input.statementId)
+	await assertPolicyEditable(db, current.policyId)
 
-	const row = await insertOneOrFail("UPDATE_FAILED", `policy_statement ${input.statementId} not found`, () =>
-		db
-			.update(policyStatementInAccessControl)
-			.set(statementValues(input.statement))
-			.where(eq(policyStatementInAccessControl.id, input.statementId))
-			.returning(STATEMENT_COLS)
+	const statement = input.statement
+	// Rebaixar o statement de `admin` de uma política anexada ao ator — ou transformar QUALQUER
+	// statement dela em `admin:0` — o deixaria sem administração.
+	const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
+	if (isAttached(snapshot, current.policyId)) {
+		refuseIfLosesAdministration(snapshot, {
+			kind: "statement-upsert",
+			policyId: current.policyId,
+			statement: {
+				id: input.statementId,
+				module: statement.module,
+				level: statement.level,
+				unit_id: statement.unit_id ?? null,
+				kitchen_id: statement.kitchen_id ?? null,
+				mess_hall_id: statement.mess_hall_id ?? null,
+			},
+		})
+	}
+	const row = await runAccessFunction<StatementFunctionRow>(
+		db,
+		sql`access_control.update_policy_statement(
+			${ctx.userId}::uuid, ${audit.operation}::text, ${input.statementId}::uuid, ${statement.module}::text, ${statement.level}::integer,
+			${statement.unit_id ?? null}::bigint, ${statement.kitchen_id ?? null}::bigint, ${statement.mess_hall_id ?? null}::bigint, ${audit.grade}::text
+		)`,
+		{ fallbackCode: "UPDATE_FAILED", notFoundId: input.statementId }
 	)
-	return row as PolicyStatementRow
+	return toStatementRow(row)
 }
 
 export async function removePolicyStatement(
 	db: SisubDb,
 	ctx: UserContext,
 	input: RemovePolicyStatement,
-	assurance: AssuranceRequirement = NO_ASSURANCE
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("removePolicyStatement")
 ): Promise<void> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
-	await assertPolicyEditable(db, await resolveStatementPolicy(db, input.statementId))
+	const current = await loadStatement(db, input.statementId)
+	await assertPolicyEditable(db, current.policyId)
+	const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
+	if (isAttached(snapshot, current.policyId)) refuseIfLosesAdministration(snapshot, { kind: "statement-delete", statementId: input.statementId })
 
-	await mutateOrFail("DELETE_FAILED", `policy_statement ${input.statementId} not found`, () =>
-		db
-			.delete(policyStatementInAccessControl)
-			.where(eq(policyStatementInAccessControl.id, input.statementId))
-			.returning({ id: policyStatementInAccessControl.id })
+	await runAccessFunction(
+		db,
+		sql`access_control.remove_policy_statement(${ctx.userId}::uuid, ${audit.operation}::text, ${input.statementId}::uuid, ${audit.grade}::text)`,
+		{ fallbackCode: "DELETE_FAILED", notFoundId: input.statementId }
 	)
 }
 
@@ -493,10 +601,11 @@ export async function removePolicyStatement(
  * Anexa uma política a um usuário. Idempotente: o unique `(user_id, policy_id)` absorve a
  * repetição, então anexar duas vezes não falha nem duplica.
  *
- * Reanexar REESCREVE o prazo (`onConflictDoUpdate`), e é essa a forma de estender, encurtar
- * ou tornar permanente um acesso já concedido — sem isso, `expires_at` só poderia ser
- * definido no primeiro anexo e um acesso com prazo errado teria que ser desanexado e
- * reanexado, perdendo `created_at` e `created_by`.
+ * Reanexar REESCREVE o prazo, e é essa a forma de estender, encurtar ou tornar permanente um
+ * acesso já concedido — sem isso, `expires_at` só poderia ser definido no primeiro anexo e um
+ * acesso com prazo errado teria que ser desanexado e reanexado, perdendo `created_at` e
+ * `created_by`. O log distingue as duas coisas (`change: "attach"` × `"expiry"`, com o prazo
+ * anterior) — é a diferença entre conceder e renovar.
  *
  * Política GERENCIADA pode ser anexada — a imutabilidade é do conteúdo, não do uso. É
  * justamente assim que o "Conjunto Treino" é concedido.
@@ -505,50 +614,54 @@ export async function attachPolicy(
 	db: SisubDb,
 	ctx: UserContext,
 	input: AttachPolicy,
-	assurance: AssuranceRequirement = NO_ASSURANCE
-): Promise<{ success: true }> {
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("attachPolicy")
+): Promise<{ success: true; change: "attach" | "expiry"; log_id: string }> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
+	// Anexar a SI MESMO: a política pode trazer um `admin:0` (que o bloqueia na hora), e pôr
+	// prazo no próprio anexo de uma política que dá administração a encerraria depois. Anexar-se
+	// com prazo a uma política que NÃO é a fonte da administração continua permitido.
+	if (input.userId === ctx.userId) {
+		const snapshot = await loadActorAccessSnapshot(db, ctx.userId, input.policyId)
+		const ending = input.expires_at != null
+		const change = { kind: "attach", policyId: input.policyId, ending } as const
+		if (wouldLoseAdministration(snapshot, change)) {
+			// A frase específica quando é SÓ o prazo que tranca (sem prazo, a mudança passaria).
+			const onlyTheExpiry = ending && !wouldLoseAdministration(snapshot, { ...change, ending: false })
+			refuseIfLosesAdministration(snapshot, change, onlyTheExpiry ? SELF_ADMIN_EXPIRY_MESSAGE : undefined)
+		}
+	}
 
-	const rows = await runQuery("FETCH_FAILED", () =>
-		db
-			.select({ id: policyInAccessControl.id, deletedAt: policyInAccessControl.deletedAt })
-			.from(policyInAccessControl)
-			.where(eq(policyInAccessControl.id, input.policyId))
-			.limit(1)
+	const result = await runAccessFunction<{ log_id: string; change: "attach" | "expiry" }>(
+		db,
+		sql`access_control.attach_policy(
+			${ctx.userId}::uuid, ${audit.operation}::text, ${input.userId}::uuid, ${input.policyId}::uuid,
+			${input.expires_at ?? null}::timestamptz, ${audit.grade}::text
+		)`,
+		{ fallbackCode: "INSERT_FAILED", notFoundId: input.policyId }
 	)
-	const policy = rows[0]
-	if (!policy || policy.deletedAt !== null) throw new NotFoundError("policy", input.policyId)
-
-	const expiresAt = input.expires_at ?? null
-
-	await runQuery("INSERT_FAILED", () =>
-		db
-			.insert(userPolicyAttachmentInAccessControl)
-			.values({ userId: input.userId, policyId: input.policyId, createdBy: ctx.userId, expiresAt })
-			.onConflictDoUpdate({
-				target: [userPolicyAttachmentInAccessControl.userId, userPolicyAttachmentInAccessControl.policyId],
-				set: { expiresAt },
-			})
-			.then(() => undefined)
-	)
-	return { success: true as const }
+	return { success: true as const, change: result.change, log_id: result.log_id }
 }
 
 export async function detachPolicy(
 	db: SisubDb,
 	ctx: UserContext,
 	input: DetachPolicy,
-	assurance: AssuranceRequirement = NO_ASSURANCE
-): Promise<{ success: true }> {
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("detachPolicy")
+): Promise<{ success: true; log_id: string }> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
+	if (input.userId === ctx.userId) refuseIfLosesAdministration(await loadActorAccessSnapshot(db, ctx.userId), { kind: "detach", policyId: input.policyId })
 
-	await mutateOrFail("DELETE_FAILED", `attachment ${input.userId}/${input.policyId} not found`, () =>
-		db
-			.delete(userPolicyAttachmentInAccessControl)
-			.where(and(eq(userPolicyAttachmentInAccessControl.userId, input.userId), eq(userPolicyAttachmentInAccessControl.policyId, input.policyId)))
-			.returning({ id: userPolicyAttachmentInAccessControl.id })
+	const result = await runAccessFunction<{ log_id: string }>(
+		db,
+		sql`access_control.detach_policy(${ctx.userId}::uuid, ${audit.operation}::text, ${input.userId}::uuid, ${input.policyId}::uuid, ${audit.grade}::text)`,
+		{
+			fallbackCode: "DELETE_FAILED",
+			overrides: { ATTACHMENT_NOT_FOUND: new DomainError("DELETE_FAILED", `attachment ${input.userId}/${input.policyId} not found`) },
+		}
 	)
-	return { success: true as const }
+	return { success: true as const, log_id: result.log_id }
 }

@@ -1,13 +1,16 @@
 /**
- * Helpers compartilhados de autogestão de acesso por módulo (rumaer, sucont, …).
+ * Helpers compartilhados de LEITURA de acesso por módulo (rumaer, sucont, contrate, …).
  *
  * Cada app do ERP gerencia apenas os grants do PRÓPRIO módulo, mesmo compartilhando
  * a tabela `access_control.user_permissions`. Estes helpers concentram a lógica
  * idêntica entre os apps; cada app fornece os clientes Supabase e mantém os
  * próprios gates de admin e schemas de validação (níveis permitidos etc.).
  *
- * O sisub NÃO usa estes helpers: a administração de permissões dele vive em
- * @iefa/sisub-domain (grants com escopo, módulos múltiplos, DomainError próprio).
+ * ESCRITA não mora aqui. Conceder e revogar passam por `changeModulePermission`
+ * (`permission-change.ts`), que grava o grant e o log de auditoria numa transação. Os
+ * antigos `grantModulePermission`/`grantUnscopedModulePermission`/`revokeModulePermission`
+ * escreviam direto na tabela, sem ator nem log, e saíram quando a escrita sem auditoria
+ * passou a ser recusada pelo banco (20260921130100).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js"
@@ -81,128 +84,4 @@ export async function searchUsersByEmail(coreReadClient: AnySupabaseClient, emai
 		email: r.email ?? "",
 		nrOrdem: r.nrOrdem ?? null,
 	}))
-}
-
-/**
- * Concede/atualiza o grant de `module` para um usuário, com escopo de UNIDADE opcional
- * (`unitId: null` = global). Idempotente. A validação do nível permitido (2|3 no rumaer,
- * 1–3 no sucont) e de QUEM pode conceder QUAL escopo (`assertGrantable`) fica no app.
- *
- * Só o eixo de unidade: é o único que os apps fora do sisub usam (o α escopa por OM), e o
- * sisub administra os próprios grants escopados por `@iefa/sisub-domain`. Cozinha e
- * refeitório seguem nulos — a chave do grant é (user, module, NULL, NULL, unit_id).
- *
- * Padrão update-first → insert → retry-em-23505 para ser seguro sob concorrência.
- * O select-then-insert simples tem corrida (dois admins simultâneos podem ambos ver
- * "não existe" e inserir). A garantia dura fica no DB; a corrida perde com 23505 e
- * reaplica como update.
- *
- * Quem produz esse 23505 são `user_permissions_allow_uniq` (`level > 0`) e
- * `user_permissions_deny_uniq` (`level <= 0`) — únicos sobre
- * (user_id, module, mess_hall_id, kitchen_id, unit_id) com `nulls not distinct`
- * (migração 20260917185655). Valem para QUALQUER módulo e QUALQUER escopo, e
- * substituíram os dois parciais que cobriam só `rumaer` e o `sucont` legado — enquanto a
- * garantia era por módulo, `sucont-1/3/4`, os módulos do sisub e os do Projeto α gravavam
- * duas linhas na corrida, e revogar uma deixava a outra concedendo. São DOIS índices
- * porque allow e deny coexistem na mesma chave de propósito: é o deny sobre allow, que
- * `resolveEffectivePermissions` aplica por precedência.
- *
- * Por isso o update casa SÓ `level > 0`: ele atualiza o allow, nunca o deny. Sem esse
- * filtro, conceder a quem tem um deny na chave (e nenhum allow) casaria a linha do DENY e
- * sobrescreveria `level`/`expires_at` nela — a negação sumiria em silêncio, com `ok` de
- * volta, e ninguém saberia que uma decisão explícita foi apagada por um clique de
- * concessão. Não casando allow nenhum, o passo 2 INSERE — e o insert convive com o deny,
- * porque os dois índices são parciais.
- *
- * Consequência a conhecer: com um deny vigente na mesma chave, o grant fica gravado, mas
- * o deny continua vencendo até ser revogado — a resolução aplica a precedência. É o
- * comportamento desejado: destruir a negação seria pior, e o deny é visível e removível
- * na tela de acessos.
- */
-export async function grantModulePermission(
-	accessControlClient: AnySupabaseClient,
-	params: { module: AppModule; userId: string; level: number; unitId: number | null }
-): Promise<{ ok: true }> {
-	// `expires_at: null` junto do nível: conceder é conceder ACESSO VIVO. Sem isso, reaplicar
-	// um grant sobre uma linha com prazo vencido atualizaria o nível, devolveria `ok` — e o
-	// usuário continuaria sem acesso nenhum, porque a resolução ignora a linha expirada.
-	const applyUpdate = () => {
-		const base = accessControlClient
-			.from("user_permissions")
-			.update({ level: params.level, expires_at: null })
-			.eq("user_id", params.userId)
-			.eq("module", params.module)
-			.is("mess_hall_id", null)
-			.is("kitchen_id", null)
-		// `eq(null)` viraria `unit_id = NULL`, que nunca casa: o global precisa de `is`.
-		const scoped = params.unitId === null ? base.is("unit_id", null) : base.eq("unit_id", params.unitId)
-		// Só o ALLOW: o deny da mesma chave é outra decisão, e não é esta função que a revoga.
-		return scoped.gt("level", 0).select("id")
-	}
-
-	// 1. atualiza o ALLOW existente, se houver
-	const { data: updated, error: updErr } = await applyUpdate()
-	if (updErr) throw new Error(updErr.message)
-	if (updated && updated.length > 0) return { ok: true }
-
-	// 2. não havia allow → insere (o índice de allow impede a duplicata de fato; um deny
-	//    na mesma chave não atrapalha, porque os índices são parciais e ele fica de pé)
-	const { error: insErr } = await accessControlClient.from("user_permissions").insert({
-		user_id: params.userId,
-		module: params.module,
-		level: params.level,
-		mess_hall_id: null,
-		kitchen_id: null,
-		unit_id: params.unitId,
-	})
-	if (!insErr) return { ok: true }
-
-	// 3. corrida: outro request inseriu primeiro (unique_violation) → reaplica como update
-	if (insErr.code === "23505") {
-		const { error: retryErr } = await applyUpdate()
-		if (retryErr) throw new Error(retryErr.message)
-		return { ok: true }
-	}
-	throw new Error(insErr.message)
-}
-
-/**
- * Concede/atualiza o grant GLOBAL (unscoped) de `module`. Atalho de
- * {@link grantModulePermission} com `unitId: null` — é o que rumaer e sucont usam, e o
- * contrato deles (filtros, payload, retry) segue idêntico.
- */
-export function grantUnscopedModulePermission(
-	accessControlClient: AnySupabaseClient,
-	params: { module: AppModule; userId: string; level: number }
-): Promise<{ ok: true }> {
-	return grantModulePermission(accessControlClient, { ...params, unitId: null })
-}
-
-/**
- * Revoga o grant INLINE de `module` numa chave exata — (usuário, módulo, unidade), com
- * cozinha e refeitório nulos. Apaga allow E deny daquela chave: é "tirar a linha da
- * tela", o mesmo que a revogação unscoped dos apps sempre fez.
- *
- * Sempre com `module` e com a unidade casada por igualdade (`is null` no global): um
- * `delete` sem eles, numa tabela compartilhada, alcançaria o ERP inteiro — ou revogaria
- * TODAS as OMs do usuário quando o administrador pediu uma só.
- *
- * Devolve quantas linhas saíram, para o app distinguir "revogado" de "não havia grant"
- * (grant por política anexada, por exemplo, não é linha daqui).
- */
-export async function revokeModulePermission(
-	accessControlClient: AnySupabaseClient,
-	params: { module: AppModule; userId: string; unitId: number | null }
-): Promise<{ removed: number }> {
-	const base = accessControlClient
-		.from("user_permissions")
-		.delete()
-		.eq("user_id", params.userId)
-		.eq("module", params.module)
-		.is("mess_hall_id", null)
-		.is("kitchen_id", null)
-	const scoped = params.unitId === null ? base.is("unit_id", null) : base.eq("unit_id", params.unitId)
-	const { data, error } = await scoped.select("id")
-	if (error) throw new Error(error.message)
-	return { removed: (data ?? []).length }
 }

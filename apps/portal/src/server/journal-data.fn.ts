@@ -5,6 +5,7 @@
  * Todas usam service role (RLS bypass) — nunca importe em código client-side.
  */
 
+import { GrantNotAllowedError } from "@iefa/pbac"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import {
@@ -19,6 +20,8 @@ import {
 	requireUserId,
 } from "@/lib/auth.server"
 import { PORTAL_URL, sendJournalEmail, type TemplateName } from "@/lib/journal/email.server"
+import { assertJournalRoleChangeAllowed, planProfileSave, toJournalRoleError } from "@/lib/journal/role-change"
+import type { UserRole } from "@/lib/journal/types"
 import { getJournalServerClient } from "@/lib/supabase.server"
 
 const looseRecord = z.record(z.string(), z.unknown())
@@ -65,24 +68,55 @@ export const getUserProfileFn = createServerFn({ method: "GET" })
 		return result
 	})
 
-// `id` vem da sessão: um perfil só pode ser criado para si mesmo, e `role` só entra
-// no payload se quem chama for editor (senão é auto-promoção a editor).
+/** Papel atual do perfil — `null` quando o perfil ainda não existe. */
+async function readCurrentRole(userId: string): Promise<UserRole | null> {
+	const { data, error } = await getJournalServerClient().from("user_profiles").select("role").eq("id", userId).maybeSingle()
+	if (error) throw new Error(error.message)
+	return (data?.role as UserRole | undefined) ?? null
+}
+
+/**
+ * Grava o perfil de `targetUserId` — campos e, se pedido, papel — numa transação só
+ * (`journal.save_user_profile`, migration 20260921130000). A troca de papel é auditada lá
+ * dentro (`journal.change_user_role`: papel + linha de log, ator da sessão).
+ *
+ * TUDO que pode recusar a troca é decidido ANTES de escrever qualquer coisa: se o papel muda,
+ * só editor troca (`assertRoleChangeAllowed`) e ninguém retira a própria função de editor
+ * (`assertJournalRoleChangeAllowed`). Recusada a troca, nada é gravado — nem o nome.
+ */
+async function saveJournalProfile(actorId: string, targetUserId: string, mode: "insert" | "update" | "upsert", payload: Record<string, unknown>) {
+	const { fields, role } = planProfileSave(payload, await readCurrentRole(targetUserId))
+	if (role !== undefined) {
+		await assertRoleChangeAllowed({ role })
+		try {
+			assertJournalRoleChangeAllowed(actorId, targetUserId, role)
+		} catch (error) {
+			if (error instanceof GrantNotAllowedError) forbidden(error.message)
+			throw error
+		}
+	}
+	const { data, error } = await getJournalServerClient().rpc("save_user_profile", {
+		p_actor: actorId,
+		p_user: targetUserId,
+		p_mode: mode,
+		p_fields: fields,
+		...(role !== undefined ? { p_role: role } : {}),
+	})
+	if (error) throw toJournalRoleError(error)
+	return data
+}
+
+// `id` vem da sessão: um perfil só pode ser criado para si mesmo, e trocar o papel exige
+// editor (senão é auto-promoção a editor). Campos e papel numa transação só.
 export const createUserProfileFn = createServerFn({ method: "POST" })
 	.validator(looseRecord)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		await assertRoleChangeAllowed(data)
-		const { data: result, error } = await getJournalServerClient()
-			.from("user_profiles")
-			.insert({ ...data, id: userId })
-			.select()
-			.single()
-		if (error) throw new Error(error.message)
-		return result
+		return saveJournalProfile(userId, userId, "insert", data)
 	})
 
-// O escopo é conferido no corpo: alvo ≠ sessão exige papel de editor, e `role` no
-// payload passa por assertRoleChangeAllowed.
+// O escopo é conferido no corpo: alvo ≠ sessão exige papel de editor, e a troca de papel é
+// autorizada antes de qualquer escrita e gravada junto com os campos, auditada.
 // nosemgrep: server-fn-user-id-from-client
 export const updateUserProfileFn = createServerFn({ method: "POST" })
 	.validator(z.object({ userId: z.string(), updates: looseRecord }))
@@ -90,24 +124,14 @@ export const updateUserProfileFn = createServerFn({ method: "POST" })
 		// Editor edita qualquer perfil (moderação/atribuição de papel); os demais, só o próprio.
 		const userId = await requireUserId()
 		if (data.userId !== userId && !(await isEditor(userId))) forbidden("Você só pode editar o próprio perfil.")
-		await assertRoleChangeAllowed(data.updates)
-		const { data: result, error } = await getJournalServerClient().from("user_profiles").update(data.updates).eq("id", data.userId).select().single()
-		if (error) throw new Error(error.message)
-		return result
+		return saveJournalProfile(userId, data.userId, "update", data.updates)
 	})
 
 export const upsertUserProfileFn = createServerFn({ method: "POST" })
 	.validator(looseRecord)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		await assertRoleChangeAllowed(data)
-		const { data: result, error } = await getJournalServerClient()
-			.from("user_profiles")
-			.upsert({ ...data, id: userId })
-			.select()
-			.single()
-		if (error) throw new Error(error.message)
-		return result
+		return saveJournalProfile(userId, userId, "upsert", data)
 	})
 
 // ─── Articles ─────────────────────────────────────────────────────────────────

@@ -20,14 +20,25 @@
  * Revogar é o caminho ATIVO; o prazo é o passivo, para a chave que ninguém lembrou de
  * revogar. Quem recusa a chave vencida é `resolveApiKey`, em `apps/sisub-mcp/src/auth.ts` —
  * aqui a responsabilidade é só gravar o instante, e gravá-lo sempre.
+ *
+ * ## Auditoria
+ *
+ * Criar, revogar e apagar uma chave é conceder e retirar uma CREDENCIAL. As três passam por
+ * funções SQL auditadas (20260921130000): a escrita e a linha de
+ * `access_control.sensitive_operation_log` entram na mesma transação, com o ator da sessão —
+ * que também é o dono, por construção (`user_id = p_actor` dentro da função). O hash nunca vai
+ * ao log. Desde 20260921130100 o banco recusa escrita direta nesta tabela (exceto o
+ * `last_used_at` que o sisub-mcp grava a cada chamada, que não é acesso).
  */
 
 import { mcpApiKeysInAccessControl, type SisubDb } from "@iefa/database/drizzle/sisub"
-import { and, desc, eq } from "drizzle-orm"
+import { desc, eq, sql } from "drizzle-orm"
 import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import type { CreateMcpApiKey, DeleteMcpApiKey, RevokeMcpApiKey } from "../schemas/mcp-keys.ts"
 import type { UserContext } from "../types/context.ts"
-import { insertOneOrFail, mutateOrFail, runQuery } from "../utils/index.ts"
+import { DomainError } from "../types/errors.ts"
+import { runQuery } from "../utils/index.ts"
+import { type AccessAudit, defaultAccessAudit, runAccessFunction } from "./access-change.ts"
 
 /** Projeção pública da chave — `key_hash` NUNCA sai daqui. */
 export type McpApiKeyRow = {
@@ -67,11 +78,6 @@ function expiresAtFrom(days: number, now: Date = new Date()): string {
 	return new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString()
 }
 
-/** Predicado self-only: a linha só é alcançável se pertencer à sessão. */
-function ownedBySession(keyId: string, userId: string) {
-	return and(eq(mcpApiKeysInAccessControl.id, keyId), eq(mcpApiKeysInAccessControl.userId, userId))
-}
-
 export async function listMcpApiKeys(db: SisubDb, ctx: UserContext): Promise<McpApiKeyRow[]> {
 	return runQuery("FETCH_FAILED", () =>
 		db
@@ -86,7 +92,8 @@ export async function createMcpApiKey(
 	db: SisubDb,
 	ctx: UserContext,
 	input: CreateMcpApiKey,
-	assurance: AssuranceRequirement = NO_ASSURANCE
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("createMcpApiKey")
 ): Promise<{ key: string; row: McpApiKeyRow }> {
 	// Sem gate de permissão antes: a chave é do PRÓPRIO chamador e não amplia permissão
 	// nenhuma. O piso de garantia existe por outro motivo — a chave é credencial de prazo
@@ -94,40 +101,57 @@ export async function createMcpApiKey(
 	requireAssurance(ctx, assurance)
 	const rawKey = `smcp_${toHex(crypto.getRandomValues(new Uint8Array(32)))}`
 	const keyPrefix = rawKey.slice(0, 12) // "smcp_" + 7 chars
-	// Hash FORA do `insertOneOrFail`: falha de Web Crypto não é falha de insert e não deve
+	// Hash FORA da chamada ao banco: falha de Web Crypto não é falha de insert e não deve
 	// chegar ao chamador com o código de erro do banco.
 	const keyHash = await sha256hex(rawKey)
 
-	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
-		db
-			.insert(mcpApiKeysInAccessControl)
-			.values({
-				userId: ctx.userId,
-				label: input.label,
-				keyHash,
-				keyPrefix,
-				// Prazo calculado AQUI, e não pelo default da coluna: o default de 90 dias é rede
-				// para o código antigo da janela de deploy, e usá-lo como caminho normal jogaria
-				// fora a escolha que a tela acabou de perguntar.
-				expiresAt: expiresAtFrom(input.expiresInDays),
-			})
-			.returning(MCP_API_KEY_COLS)
+	// Prazo calculado AQUI, e não pelo default da coluna: o default de 90 dias é rede para o
+	// código antigo da janela de deploy, e usá-lo como caminho normal jogaria fora a escolha
+	// que a tela acabou de perguntar.
+	const row = await runAccessFunction<McpApiKeyRow & { log_id: string }>(
+		db,
+		sql`access_control.create_mcp_api_key(
+			${ctx.userId}::uuid, ${audit.operation}::text, ${input.label}::text, ${keyHash}::text, ${keyPrefix}::text,
+			${expiresAtFrom(input.expiresInDays)}::timestamptz, ${audit.grade}::text
+		)`,
+		{ fallbackCode: "INSERT_FAILED" }
 	)
-
-	return { key: rawKey, row }
+	const { log_id: _logId, ...publicRow } = row
+	return { key: rawKey, row: publicRow }
 }
 
-export async function revokeMcpApiKey(db: SisubDb, ctx: UserContext, input: RevokeMcpApiKey): Promise<void> {
-	// A linha permanece no banco (auditoria) — revogar é só desligar `is_active`.
-	await mutateOrFail("REVOKE_FAILED", `mcp_api_key ${input.id} not found`, () =>
-		db.update(mcpApiKeysInAccessControl).set({ isActive: false }).where(ownedBySession(input.id, ctx.userId)).returning({ id: mcpApiKeysInAccessControl.id })
+/**
+ * Revoga a chave do PRÓPRIO chamador. A linha permanece no banco (auditoria) — revogar é só
+ * desligar `is_active`. Revogar a já revogada não é erro nem é registrado: nada aconteceu.
+ */
+export async function revokeMcpApiKey(
+	db: SisubDb,
+	ctx: UserContext,
+	input: RevokeMcpApiKey,
+	audit: AccessAudit = defaultAccessAudit("revokeMcpApiKey")
+): Promise<{ log_id: string | null; changed: boolean }> {
+	const result = await runAccessFunction<{ log_id: string | null; changed: boolean }>(
+		db,
+		sql`access_control.revoke_mcp_api_key(${ctx.userId}::uuid, ${audit.operation}::text, ${input.id}::uuid, ${audit.grade}::text)`,
+		{ fallbackCode: "REVOKE_FAILED", overrides: { MCP_KEY_NOT_FOUND: new DomainError("REVOKE_FAILED", `mcp_api_key ${input.id} not found`) } }
 	)
+	return { log_id: result.log_id ?? null, changed: Boolean(result.changed) }
 }
 
-export async function deleteMcpApiKey(db: SisubDb, ctx: UserContext, input: DeleteMcpApiKey): Promise<void> {
-	// Hard delete: a tabela não tem `deleted_at`, e a chave revogada já cobre o caso de
-	// auditoria. Quem apaga escolheu não guardar o registro.
-	await mutateOrFail("DELETE_FAILED", `mcp_api_key ${input.id} not found`, () =>
-		db.delete(mcpApiKeysInAccessControl).where(ownedBySession(input.id, ctx.userId)).returning({ id: mcpApiKeysInAccessControl.id })
+/**
+ * Apaga a chave do PRÓPRIO chamador. Hard delete: a tabela não tem `deleted_at`; o que
+ * sobra da chave é a linha do log (prefixo, rótulo, prazo, uso), na mesma transação.
+ */
+export async function deleteMcpApiKey(
+	db: SisubDb,
+	ctx: UserContext,
+	input: DeleteMcpApiKey,
+	audit: AccessAudit = defaultAccessAudit("deleteMcpApiKey")
+): Promise<{ log_id: string }> {
+	const result = await runAccessFunction<{ log_id: string }>(
+		db,
+		sql`access_control.delete_mcp_api_key(${ctx.userId}::uuid, ${audit.operation}::text, ${input.id}::uuid, ${audit.grade}::text)`,
+		{ fallbackCode: "DELETE_FAILED", overrides: { MCP_KEY_NOT_FOUND: new DomainError("DELETE_FAILED", `mcp_api_key ${input.id} not found`) } }
 	)
+	return { log_id: result.log_id }
 }

@@ -23,14 +23,24 @@ import {
 	userPolicyAttachmentInAccessControl,
 } from "@iefa/database/drizzle/sisub"
 import { resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
-import { and, asc, eq, ilike, isNull } from "drizzle-orm"
+import { and, asc, eq, ilike, isNull, sql } from "drizzle-orm"
 import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { describeDriverError, isExpired, mutateOrFail, notExpired, runQuery, unwrapPgError } from "../utils/index.ts"
+import { isExpired, notExpired, runQuery, unwrapPgError } from "../utils/index.ts"
+import {
+	type AccessAudit,
+	assertSisubGrantable,
+	defaultAccessAudit,
+	runAccessFunction,
+	SELF_ADMIN_EXPIRY_MESSAGE,
+	SISUB_ADMIN_MODULE,
+	selfAdminUpdateRefusal,
+} from "./access-change.ts"
 import { listUserPolicyPermissions } from "./policies.ts"
+import { loadActorAccessSnapshot, refuseIfLosesAdministration } from "./self-admin-guard.ts"
 
 /**
  * Effective permission set for a user: applies deny precedence and injects an implicit
@@ -259,112 +269,202 @@ export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, i
  *
  * São dois, e não um índice geral, porque allow e deny PODEM coexistir na mesma chave:
  * é o deny sobre allow, que `resolveEffectivePermissions` resolve por precedência.
+ *
+ * Desde 20260921130000 a escrita passa pelas funções auditadas, que traduzem essa violação
+ * no token `PERMISSION_ALREADY_EXISTS` (23505). Os dois formatos são reconhecidos: o do
+ * índice cru (caminho antigo, e quem ainda escrever direto por manutenção) e o da função.
  */
 export function isDuplicateGrantViolation(error: unknown): boolean {
 	// O código real fica em `.cause` (DrizzleQueryError) — `unwrapPgError` o resgata.
 	const pg = unwrapPgError(error)
+	if (pg.code !== "23505") return false
 	const constraint = pg.constraint_name ?? ""
-	return pg.code === "23505" && (constraint === "user_permissions_allow_uniq" || constraint === "user_permissions_deny_uniq")
+	return constraint === "user_permissions_allow_uniq" || constraint === "user_permissions_deny_uniq" || pg.message === "PERMISSION_ALREADY_EXISTS"
 }
 
-export async function createUserPermission(db: SisubDb, ctx: UserContext, input: CreateUserPermission, assurance: AssuranceRequirement = NO_ASSURANCE) {
+/** Linha de grant inline que as regras de autoconcessão precisam ler antes de mexer. */
+async function loadPermissionRow(db: SisubDb, permissionId: string) {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				id: userPermissionsInAccessControl.id,
+				userId: userPermissionsInAccessControl.userId,
+				module: userPermissionsInAccessControl.module,
+				level: userPermissionsInAccessControl.level,
+			})
+			.from(userPermissionsInAccessControl)
+			.where(eq(userPermissionsInAccessControl.id, permissionId))
+			.limit(1)
+	)
+	return rows[0] ?? null
+}
+
+type PermissionChangeResult = { log_id: string; permission_id: string; user_id: string; module?: string; level?: number; previous_level?: number }
+
+/**
+ * Concede um grant inline. ESTRITA: repetir (usuário, módulo, escopo, lado) é erro legível,
+ * não upsert — reescrever em silêncio o nível ou o prazo de uma concessão existente é
+ * exatamente o que o console não deve fazer por um clique de "criar". A escrita e o log de
+ * auditoria entram na mesma transação (`access_control.create_user_permission`).
+ *
+ * O administrador pode conceder a si mesmo (é administrador global do sisub); o que ninguém
+ * faz é criar um BLOQUEIO sobre a própria administração.
+ */
+export async function createUserPermission(
+	db: SisubDb,
+	ctx: UserContext,
+	input: CreateUserPermission,
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("createUserPermission")
+) {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
-	// Cru (sem runQuery): o 23505 precisa ser inspecionado antes de virar DomainError.
-	// Este insert é direto — não checa se já existe — e antes do índice ele simplesmente
-	// gravava a segunda linha: a pessoa passava a aparecer duas vezes na tela e revogar
-	// apagava só uma. Agora o banco recusa, e a recusa precisa dizer O QUE fazer, porque
-	// o caminho existe: `fetchUserPermissionsAdmin` devolve o grant que já está lá —
-	// inclusive o vencido, marcado `expired` — e editá-lo é como se renova o acesso.
-	try {
-		await db.insert(userPermissionsInAccessControl).values({
-			userId: input.userId,
-			module: input.module,
-			level: input.level,
-			messHallId: input.mess_hall_id ?? null,
-			kitchenId: input.kitchen_id ?? null,
-			unitId: input.unit_id ?? null,
-			expiresAt: input.expires_at ?? null,
+	assertSisubGrantable(ctx.userId, { userId: input.userId, revokesAdministration: input.module === SISUB_ADMIN_MODULE && input.level <= 0 })
+	// Rede geral (self-admin-guard): um grant novo sobre si mesmo — um deny de `admin` escopado,
+	// por exemplo — não pode deixar o ator sem a administração que ele tem.
+	if (input.userId === ctx.userId) {
+		refuseIfLosesAdministration(await loadActorAccessSnapshot(db, ctx.userId), {
+			kind: "inline-upsert",
+			row: {
+				id: "(novo)",
+				module: input.module,
+				level: input.level,
+				unit_id: input.unit_id ?? null,
+				kitchen_id: input.kitchen_id ?? null,
+				mess_hall_id: input.mess_hall_id ?? null,
+				ending: input.expires_at != null,
+			},
 		})
-	} catch (e) {
-		if (isDuplicateGrantViolation(e)) {
-			throw new DomainError(
-				"PERMISSION_ALREADY_EXISTS",
-				`Já existe uma concessão de "${input.module}" para este usuário neste escopo. Edite a concessão existente em vez de criar outra — se ela estiver vencida, renove o prazo por ali.`
-			)
-		}
-		throw new DomainError("INSERT_FAILED", describeDriverError(e))
 	}
-	return { success: true as const }
-}
 
-export async function updateUserPermission(db: SisubDb, ctx: UserContext, input: UpdateUserPermission, assurance: AssuranceRequirement = NO_ASSURANCE) {
-	requirePermission(ctx, "admin", 2)
-	requireAssurance(ctx, assurance)
-	// `expires_at` é PATCH, não substituição: ausente = não mexe no prazo, `null` = torna o
-	// grant permanente. Os escopos seguem sendo substituição porque o diálogo sempre os
-	// envia; o prazo, não — um cliente que não conhece o campo apagaria o prazo de todo
-	// grant que editasse.
-	const updates: { level: number; messHallId: number | null; kitchenId: number | null; unitId: number | null; expiresAt?: string | null } = {
-		level: input.level,
-		messHallId: input.mess_hall_id ?? null,
-		kitchenId: input.kitchen_id ?? null,
-		unitId: input.unit_id ?? null,
-	}
-	if (input.expires_at !== undefined) updates.expiresAt = input.expires_at
-
-	// O `user_id` volta da LINHA alterada, e não do input — que nem o traz. É ele que permite
-	// ao chamador reagir à mudança (a invalidação de códigos de recuperação quando a conta
-	// vira protegida, design.md D9) sem precisar confiar num id vindo do cliente.
-	//
-	// O update também colide: mudar o ESCOPO para um que o usuário já tem naquele módulo —
-	// ou cruzar a fronteira allow/deny pelo nível (2 → 0, que troca de índice) — viola a
-	// mesma unicidade que o insert. Sem tratamento, o administrador recebia no toast
-	// `UPDATE_FAILED: [23505] … Failed query: update …`: o SQL cru que a criação já não
-	// vaza. Cru (sem `mutateOrFail`) porque ele embrulha o erro em DomainError SEM `cause`,
-	// e aí o 23505 já não é mais inspecionável.
-	let rows: Array<{ id: string; userId: string }>
-	try {
-		rows = await db
-			.update(userPermissionsInAccessControl)
-			.set(updates)
-			.where(eq(userPermissionsInAccessControl.id, input.permissionId))
-			.returning({ id: userPermissionsInAccessControl.id, userId: userPermissionsInAccessControl.userId })
-	} catch (e) {
-		if (isDuplicateGrantViolation(e)) {
-			throw new DomainError(
-				"PERMISSION_ALREADY_EXISTS",
-				"Este usuário já tem outra concessão deste módulo neste escopo. Ajuste ou remova a outra concessão antes de mover esta para cá."
-			)
+	const result = await runAccessFunction<PermissionChangeResult>(
+		db,
+		sql`access_control.create_user_permission(
+			${ctx.userId}::uuid, ${audit.operation}::text, ${input.userId}::uuid, ${input.module}::text, ${input.level}::integer,
+			${input.unit_id ?? null}::bigint, ${input.kitchen_id ?? null}::bigint, ${input.mess_hall_id ?? null}::bigint,
+			${input.expires_at ?? null}::timestamptz, ${audit.grade}::text
+		)`,
+		{
+			fallbackCode: "INSERT_FAILED",
+			overrides: {
+				// O caminho existe: `fetchUserPermissionsAdmin` devolve o grant que já está lá —
+				// inclusive o vencido, marcado `expired` — e editá-lo é como se renova o acesso.
+				PERMISSION_ALREADY_EXISTS: new DomainError(
+					"PERMISSION_ALREADY_EXISTS",
+					`Já existe uma concessão de "${input.module}" para este usuário neste escopo. Edite a concessão existente em vez de criar outra — se ela estiver vencida, renove o prazo por ali.`
+				),
+			},
 		}
-		throw new DomainError("UPDATE_FAILED", describeDriverError(e))
-	}
-	// Mesmo contrato de `mutateOrFail`: WHERE que não casa é "não encontrado", não sucesso.
-	const row = rows[0]
-	if (!row) throw new DomainError("UPDATE_FAILED", `permission ${input.permissionId} not found`)
-	return { success: true as const, user_id: row.userId ?? null }
+	)
+	return { success: true as const, log_id: result.log_id, permission_id: result.permission_id }
 }
 
 /**
- * Remove uma concessão e devolve O QUE foi removido.
+ * Altera nível, escopo e (opcionalmente) prazo de um grant existente. O ANTES e o DEPOIS vão
+ * para o log, na mesma transação da escrita (`access_control.update_user_permission`).
  *
- * O `returning` traz `user_id`/`module`/`level` porque a remoção é destrutiva: depois
- * dela, o `permissionId` não aponta para linha nenhuma. Devolver só `{ success }`
- * obrigaria a trilha de auditoria a registrar um id órfão — e ninguém conseguiria dizer,
- * meses depois, de quem era o acesso revogado nem em que módulo.
+ * `expires_at` é PATCH, não substituição: ausente = não mexe no prazo, `null` = torna o
+ * grant permanente. Os escopos seguem sendo substituição porque o diálogo sempre os envia;
+ * o prazo, não — um cliente que não conhece o campo apagaria o prazo de todo grant que editasse.
+ *
+ * Ninguém REDUZ nem ENCERRA a própria administração — rebaixar o próprio `admin`, trocá-lo por
+ * bloqueio ou pôr prazo nele (vencido ou futuro): trancaria o ator fora do console — e, sendo o
+ * último, todo mundo. Tornar a própria administração permanente pode. Ver
+ * `selfAdminUpdateRefusal`.
  */
-export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input: { permissionId: string }, assurance: AssuranceRequirement = NO_ASSURANCE) {
+export async function updateUserPermission(
+	db: SisubDb,
+	ctx: UserContext,
+	input: UpdateUserPermission,
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("updateUserPermission")
+) {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
-	const [removed] = await mutateOrFail("DELETE_FAILED", `permission ${input.permissionId} not found`, () =>
-		db.delete(userPermissionsInAccessControl).where(eq(userPermissionsInAccessControl.id, input.permissionId)).returning({
-			id: userPermissionsInAccessControl.id,
-			userId: userPermissionsInAccessControl.userId,
-			module: userPermissionsInAccessControl.module,
-			level: userPermissionsInAccessControl.level,
+
+	const current = await loadPermissionRow(db, input.permissionId)
+	if (!current) throw new DomainError("UPDATE_FAILED", `permission ${input.permissionId} not found`)
+	const refusal = selfAdminUpdateRefusal(ctx.userId, current, { level: input.level, expiresAt: input.expires_at })
+	if (refusal === "EXPIRY") throw new DomainError("GRANT_NOT_ALLOWED", SELF_ADMIN_EXPIRY_MESSAGE)
+	assertSisubGrantable(ctx.userId, { userId: current.userId, revokesAdministration: refusal === "LEVEL" })
+	// Rede geral: qualquer outra linha do próprio ator que, alterada, o deixaria sem administração.
+	if (current.userId === ctx.userId) {
+		const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
+		const before = snapshot.inline.find((row) => row.id === current.id)
+		refuseIfLosesAdministration(snapshot, {
+			kind: "inline-upsert",
+			row: {
+				id: current.id,
+				module: current.module,
+				level: input.level,
+				unit_id: input.unit_id ?? null,
+				kitchen_id: input.kitchen_id ?? null,
+				mess_hall_id: input.mess_hall_id ?? null,
+				// Prazo ausente = não mexe (a linha segue vencida ou não); nulo = permanente; data = termina.
+				expired: input.expires_at === undefined ? (before?.expired ?? false) : false,
+				ending: input.expires_at !== undefined && input.expires_at !== null,
+			},
 		})
+	}
+
+	const result = await runAccessFunction<PermissionChangeResult>(
+		db,
+		sql`access_control.update_user_permission(
+			${ctx.userId}::uuid, ${audit.operation}::text, ${input.permissionId}::uuid, ${input.level}::integer,
+			${input.unit_id ?? null}::bigint, ${input.kitchen_id ?? null}::bigint, ${input.mess_hall_id ?? null}::bigint,
+			${input.expires_at ?? null}::timestamptz, ${input.expires_at !== undefined}::boolean, ${audit.grade}::text
+		)`,
+		{
+			fallbackCode: "UPDATE_FAILED",
+			overrides: {
+				// Mudar o ESCOPO para um que o usuário já tem naquele módulo — ou cruzar a
+				// fronteira allow/deny pelo nível (2 → 0, que troca de índice) — colide.
+				PERMISSION_ALREADY_EXISTS: new DomainError(
+					"PERMISSION_ALREADY_EXISTS",
+					"Este usuário já tem outra concessão deste módulo neste escopo. Ajuste ou remova a outra concessão antes de mover esta para cá."
+				),
+				PERMISSION_NOT_FOUND: new DomainError("UPDATE_FAILED", `permission ${input.permissionId} not found`),
+			},
+		}
 	)
-	return { success: true as const, removed }
+	// O `user_id` volta da LINHA alterada, e não do input — que nem o traz. É ele que permite
+	// ao chamador reagir à mudança (a invalidação de códigos de recuperação quando a conta
+	// vira protegida, design.md D9) sem precisar confiar num id vindo do cliente.
+	return { success: true as const, user_id: result.user_id ?? null, log_id: result.log_id }
+}
+
+/**
+ * Remove uma concessão e devolve O QUE foi removido. A linha inteira vai para o log, na mesma
+ * transação (`access_control.delete_user_permission`): depois do delete, o log é o único
+ * lugar onde o acesso revogado ainda existe.
+ *
+ * Ninguém revoga a própria administração (o allow do próprio `admin`).
+ */
+export async function deleteUserPermission(
+	db: SisubDb,
+	ctx: UserContext,
+	input: { permissionId: string },
+	assurance: AssuranceRequirement = NO_ASSURANCE,
+	audit: AccessAudit = defaultAccessAudit("deleteUserPermission")
+) {
+	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
+
+	const current = await loadPermissionRow(db, input.permissionId)
+	if (!current) throw new DomainError("DELETE_FAILED", `permission ${input.permissionId} not found`)
+	assertSisubGrantable(ctx.userId, { userId: current.userId, revokesAdministration: current.module === SISUB_ADMIN_MODULE && current.level > 0 })
+	if (current.userId === ctx.userId) refuseIfLosesAdministration(await loadActorAccessSnapshot(db, ctx.userId), { kind: "inline-delete", id: current.id })
+
+	const result = await runAccessFunction<PermissionChangeResult>(
+		db,
+		sql`access_control.delete_user_permission(${ctx.userId}::uuid, ${audit.operation}::text, ${input.permissionId}::uuid, ${audit.grade}::text)`,
+		{ fallbackCode: "DELETE_FAILED", overrides: { PERMISSION_NOT_FOUND: new DomainError("DELETE_FAILED", `permission ${input.permissionId} not found`) } }
+	)
+	return {
+		success: true as const,
+		log_id: result.log_id,
+		removed: { id: result.permission_id, userId: result.user_id, module: result.module ?? "", level: result.level ?? 0 },
+	}
 }
 
 // ── Leitura em lote: o conjunto efetivo de TODAS as contas ───────────────────

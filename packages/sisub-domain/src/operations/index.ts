@@ -1,3 +1,4 @@
+export { type AccessAudit, type AuditGrade, defaultAccessAudit } from "./access-change.ts"
 export {
 	calculateAtaNeeds,
 	createAta,
@@ -39,6 +40,7 @@ export {
 } from "./ata-quantity-limits.ts"
 export {
 	type AuditTargetValue,
+	listSensitiveOperationNames,
 	listSensitiveOperations,
 	recordSensitiveOperation,
 	type SensitiveOperationLogEntry,

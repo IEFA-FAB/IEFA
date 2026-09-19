@@ -108,3 +108,24 @@ export async function withAudit<T>({ operation, record, run, target }: WithAudit
 	}
 	return result
 }
+
+/**
+ * Identificação de uma mudança de ACESSO para o log — quando quem grava a linha é a função SQL,
+ * na mesma transação da mudança (migration 20260921130000), e não este envelope.
+ *
+ * `operation` é o nome da server function (como em `withAudit`); `grade` é o grau do registro de
+ * classificação. Operação classificada `"none"` que mexe em acesso (revogar/apagar a própria
+ * chave MCP) é registrada com `session`: a coluna só aceita os dois graus, e mudança de acesso
+ * é registrada SEMPRE — quem decide se o log existe não é o grau, é o fato de o acesso mudar.
+ * Por isso a tela de auditoria nunca lê "sessão elevada" num `session` gravado — só `fresh`
+ * afirma elevação (`describeRequirement`, `lib/audit-log/requirement-label.ts`).
+ *
+ * @throws {Error} se `operation` não estiver no registro — ANTES de qualquer escrita.
+ */
+export function atomicAuditFor(operation: AssuranceOperationName): { operation: string; grade: "session" | "fresh" } {
+	const entry = assuranceFor(operation)
+	if (!entry) {
+		throw new Error(`Operação "${operation}" não está no registro de garantia (src/server/assurance-registry.ts) — classifique-a antes de auditá-la.`)
+	}
+	return { operation, grade: entry.require === "none" ? "session" : entry.require }
+}

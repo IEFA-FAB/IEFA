@@ -18,15 +18,7 @@ export { hasAnyPermission, hasPermission } from "./has-permission.ts"
  * cabeçalho de `jwt-claims.ts`: fora dessa ordem, isto é ler o que o cliente escreveu.
  */
 export { decodeJwtPayload, readSubject } from "./jwt-claims.ts"
-export {
-	grantModulePermission,
-	grantUnscopedModulePermission,
-	myModulePermissionsQueryConfig,
-	resolveModulePermissions,
-	revokeModulePermission,
-	searchUsersByEmail,
-	type UserEmailSearchRow,
-} from "./module-permissions.ts"
+export { myModulePermissionsQueryConfig, resolveModulePermissions, searchUsersByEmail, type UserEmailSearchRow } from "./module-permissions.ts"
 export { type ModuleScopes, resolveModuleScopes, type ScopeAxis } from "./module-scopes.ts"
 export {
 	type ChangeModulePermissionInput,

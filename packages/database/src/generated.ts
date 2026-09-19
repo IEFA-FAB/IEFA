@@ -4108,7 +4108,66 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_questionnaire_editor: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_editor_email: string
+          p_editor_id: string
+          p_questionnaire_id: string
+        }
+        Returns: Json
+      }
+      add_response_viewer: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_bindings: Json
+          p_questionnaire_id: string
+          p_scope_mode: string
+          p_viewer_email: string
+          p_viewer_id: string
+        }
+        Returns: Json
+      }
       lookup_user_id_by_email: { Args: { p_email: string }; Returns: string }
+      remove_questionnaire_editor: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_editor_row_id: string
+          p_questionnaire_id: string
+        }
+        Returns: Json
+      }
+      remove_response_viewer: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_questionnaire_id: string
+          p_viewer_row_id: string
+        }
+        Returns: Json
+      }
+      replace_viewer_bindings: {
+        Args: { p_bindings: Json; p_viewer_row_id: string }
+        Returns: undefined
+      }
+      update_response_viewer_policy: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_bindings: Json
+          p_questionnaire_id: string
+          p_scope_mode: string
+          p_viewer_row_id: string
+        }
+        Returns: Json
+      }
+      viewer_bindings_json: {
+        Args: { p_viewer_row_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       evaluation_type:
@@ -6731,8 +6790,28 @@ export type Database = {
       }
     }
     Functions: {
+      change_user_role: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_role: string
+          p_user: string
+        }
+        Returns: Json
+      }
       get_article_details: { Args: { article_uuid: string }; Returns: Json }
       is_editor: { Args: { user_uuid?: string }; Returns: boolean }
+      save_user_profile: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_fields: Json
+          p_mode: string
+          p_role?: string
+          p_user: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

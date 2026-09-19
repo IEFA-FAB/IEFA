@@ -13,6 +13,7 @@ import type { AppModule, UserPermission } from "@iefa/pbac"
 export type SucontUserSearchResult = { id: string; email: string; nrOrdem: string | null; posto: string | null; nomeGuerra: string | null }
 export type SucontGrantTarget = { module: "sucont-1" | "sucont-3" | "sucont-4"; level: 1 | 2 } | { module: "sucont-admin"; level: 3 }
 export type SucontGrant = {
+	permissionId: string | null
 	userId: string
 	module: AppModule
 	email: string
@@ -33,6 +34,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 	return [
 		// SARAM vinculado e encontrado no cadastro: a linha é nomeada como na OM.
 		{
+			permissionId: "harness-permission-1",
 			userId: "harness-admin",
 			module: "sucont-admin",
 			email: "nannijpsn@fab.mil.br",
@@ -46,6 +48,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 		// A MESMA pessoa em duas divisões — é o caso que o split introduz, e o que a
 		// tela precisa mostrar sem parecer duplicata.
 		{
+			permissionId: "harness-permission-2",
 			userId: "harness-admin",
 			module: "sucont-4",
 			email: "nannijpsn@fab.mil.br",
@@ -58,6 +61,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 		},
 		// Sem SARAM: o e-mail segura o rótulo.
 		{
+			permissionId: "harness-permission-3",
 			userId: "harness-editor",
 			module: "sucont-3",
 			email: "editor@fab.mil.br",
@@ -70,6 +74,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 		},
 		// Acesso emprestado por política: linha somente-leitura, "Revogar" desabilitado.
 		{
+			permissionId: null,
 			userId: "harness-policy",
 			module: "sucont-1",
 			email: "parceiro@fab.mil.br",
@@ -84,6 +89,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 		// Nem e-mail no ERP nem no GoTrue, nem SARAM: sobra o id, e é assim que a
 		// tela deve ficar no pior caso.
 		{
+			permissionId: "harness-permission-5",
 			userId: "8f1c0b6e-0000-4000-8000-000000000000",
 			module: "sucont-3",
 			email: "",

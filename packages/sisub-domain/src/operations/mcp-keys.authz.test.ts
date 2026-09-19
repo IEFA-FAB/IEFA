@@ -6,9 +6,11 @@
  * cru revogaria ou apagaria a credencial de qualquer outro usuário a partir do id, que é
  * público na URL da própria lista.
  *
- * O teste inspeciona o predicado real: compila o `SQL` capturado com o dialeto do Postgres e
- * confere que o id da sessão está entre os parâmetros. Assim ele falha se alguém remover o
- * `eq(userId, ctx.userId)` — e não só se a operação inteira sumir.
+ * O teste inspeciona a query real: compila o `SQL` capturado com o dialeto do Postgres e
+ * confere que o id da sessão está entre os parâmetros. Na leitura é o `where`; nas mutações
+ * (desde 20260921130000) é o ATOR da função SQL auditada, que é também o dono — a função só
+ * alcança a linha com `user_id = p_actor`, e é o teste SQL local
+ * (`packages/database/scripts/access-audit`) que prova esse lado.
  */
 
 import { describe, expect, test } from "bun:test"
@@ -25,43 +27,38 @@ const KEY_ID = "33333333-3333-3333-3333-333333333333"
 
 const ctx: UserContext = { userId: SESSION_USER, permissions: [], aal: 1, lastFactorAt: null, origin: "session" }
 
-type Captured = { where?: SQL; values?: Record<string, unknown> }
+type Captured = { where?: SQL; executed: Array<{ sql: string; params: unknown[] }> }
 
 /**
- * Stub do handle Drizzle que captura o predicado e o payload. `rows` decide o desfecho:
- * `[]` simula o WHERE que não casou nada (chave de outro usuário, ou inexistente).
+ * Stub do handle Drizzle. A leitura (`select`) captura o predicado; as mutações passam por
+ * `execute` (a função SQL auditada) e devolvem `result` — ou falham com o token da função.
  */
-function fakeDb(captured: Captured, rows: unknown[]): SisubDb {
+function fakeDb(captured: Captured, outcome: { rows?: unknown[]; result?: Record<string, unknown>; error?: unknown } = {}): SisubDb {
+	const dialect = new PgDialect()
 	const chain = {
 		from: () => chain,
-		set: () => chain,
 		where: (w: SQL) => {
 			captured.where = w
 			return chain
 		},
-		values: (v: Record<string, unknown>) => {
-			captured.values = v
-			return chain
-		},
-		orderBy: () => Promise.resolve(rows),
-		returning: () => Promise.resolve(rows),
+		orderBy: () => Promise.resolve(outcome.rows ?? []),
 	}
-	return { select: () => chain, insert: () => chain, update: () => chain, delete: () => chain } as unknown as SisubDb
+	return {
+		select: () => chain,
+		execute: (query: SQL) => {
+			captured.executed.push(dialect.sqlToQuery(query))
+			if (outcome.error) return Promise.reject(outcome.error)
+			return Promise.resolve([{ result: outcome.result ?? { log_id: "log-1", id: KEY_ID, changed: true } }])
+		},
+	} as unknown as SisubDb
 }
 
-const ROW = [{ id: KEY_ID }]
+const captured = (): Captured => ({ executed: [] })
 
-/** Parâmetros do predicado, como o Postgres os receberia. */
-function whereParams(captured: Captured): unknown[] {
-	expect(captured.where, "a operação não montou nenhum predicado").toBeDefined()
-	return new PgDialect().sqlToQuery(captured.where as SQL).params
-}
-
-const SCOPED: [string, (db: SisubDb) => Promise<unknown>][] = [
-	["listMcpApiKeys", (db) => listMcpApiKeys(db, ctx)],
-	["revokeMcpApiKey", (db) => revokeMcpApiKey(db, ctx, { id: KEY_ID })],
-	["deleteMcpApiKey", (db) => deleteMcpApiKey(db, ctx, { id: KEY_ID })],
-]
+/** O erro que a função auditada levanta quando a chave não é do ator (ou não existe). */
+const notOwned = Object.assign(new Error("Failed query: select access_control.revoke_mcp_api_key(...)"), {
+	cause: { code: "P0002", message: "MCP_KEY_NOT_FOUND" },
+})
 
 const MUTATIONS: [string, (db: SisubDb) => Promise<unknown>][] = [
 	["revokeMcpApiKey", (db) => revokeMcpApiKey(db, ctx, { id: KEY_ID })],
@@ -69,34 +66,48 @@ const MUTATIONS: [string, (db: SisubDb) => Promise<unknown>][] = [
 ]
 
 describe("escopo das chaves de API do MCP", () => {
-	test.each(SCOPED)("%s filtra pelo usuário da sessão", async (_name, run) => {
-		const captured: Captured = {}
-		await run(fakeDb(captured, ROW))
-		expect(whereParams(captured)).toContain(SESSION_USER)
+	test("listMcpApiKeys filtra pelo usuário da sessão", async () => {
+		const c = captured()
+		await listMcpApiKeys(fakeDb(c), ctx)
+		expect(c.where, "a leitura não montou nenhum predicado").toBeDefined()
+		expect(new PgDialect().sqlToQuery(c.where as SQL).params).toContain(SESSION_USER)
+	})
+
+	test.each(MUTATIONS)("%s chama a função auditada com o ATOR (= dono) da sessão", async (_name, run) => {
+		const c = captured()
+		await run(fakeDb(c))
+		expect(c.executed[0].params[0]).toBe(SESSION_USER)
+		expect(c.executed[0].params).toContain(KEY_ID)
 	})
 
 	test.each(MUTATIONS)("%s não alcança a chave de outro usuário", async (_name, run) => {
-		const captured: Captured = {}
-		// WHERE com o id da sessão não casa a linha alheia → 0 linhas afetadas.
-		await expect(run(fakeDb(captured, []))).rejects.toBeInstanceOf(DomainError)
-		expect(whereParams(captured)).not.toContain(OTHER_USER)
+		const c = captured()
+		// A função só casa `user_id = p_actor`: a chave alheia é "não encontrada".
+		await expect(run(fakeDb(c, { error: notOwned }))).rejects.toBeInstanceOf(DomainError)
+		expect(c.executed[0].params).not.toContain(OTHER_USER)
 	})
 
 	test("createMcpApiKey grava o dono da sessão, não um id vindo do input", async () => {
-		const captured: Captured = {}
-		// O schema não tem campo de dono; o excedente aqui prova que nada dele chega ao insert.
-		await createMcpApiKey(fakeDb(captured, ROW), ctx, { label: "cli", expiresInDays: 90, userId: OTHER_USER } as never)
-		expect(captured.values?.userId).toBe(SESSION_USER)
+		const c = captured()
+		// O schema não tem campo de dono; o excedente aqui prova que nada dele chega à função.
+		await createMcpApiKey(fakeDb(c), ctx, { label: "cli", expiresInDays: 90, userId: OTHER_USER } as never)
+		expect(c.executed[0].params[0]).toBe(SESSION_USER)
+		expect(c.executed[0].params).not.toContain(OTHER_USER)
 	})
 
 	test("createMcpApiKey devolve a chave em claro uma vez e persiste só o hash", async () => {
-		const captured: Captured = {}
-		const { key } = await createMcpApiKey(fakeDb(captured, ROW), ctx, { label: "cli", expiresInDays: 90 })
+		const c = captured()
+		const { key, row } = await createMcpApiKey(fakeDb(c, { result: { log_id: "log-1", id: KEY_ID, label: "cli" } }), ctx, { label: "cli", expiresInDays: 90 })
+		// ator, operação, rótulo, hash, prefixo, prazo, grau
+		const [, , , keyHash, keyPrefix] = c.executed[0].params as string[]
 
 		expect(key).toMatch(/^smcp_[0-9a-f]{64}$/)
-		expect(captured.values?.keyHash).toMatch(/^[0-9a-f]{64}$/)
-		expect(captured.values?.keyHash).not.toBe(key)
-		expect(captured.values?.keyPrefix).toBe(key.slice(0, 12))
+		expect(keyHash).toMatch(/^[0-9a-f]{64}$/)
+		expect(keyHash).not.toBe(key)
+		expect(keyPrefix).toBe(key.slice(0, 12))
+		// O log_id é do servidor; a linha pública não o carrega (nem o hash).
+		expect(row).not.toHaveProperty("log_id")
+		expect(row).not.toHaveProperty("key_hash")
 	})
 })
 
@@ -107,21 +118,15 @@ describe("escopo das chaves de API do MCP", () => {
  */
 describe("prazo das chaves de API do MCP", () => {
 	test.each([30, 90, 365] as const)("createMcpApiKey grava expires_at para %s dias", async (days) => {
-		const captured: Captured = {}
+		const c = captured()
 		const before = Date.now()
 
-		await createMcpApiKey(fakeDb(captured, ROW), ctx, { label: "cli", expiresInDays: days })
+		await createMcpApiKey(fakeDb(c), ctx, { label: "cli", expiresInDays: days })
 
-		const expiresAt = Date.parse(String(captured.values?.expiresAt))
-		expect(Number.isFinite(expiresAt), "expires_at ausente ou ilegível no insert").toBe(true)
+		const expiresAt = Date.parse(String(c.executed[0].params[5]))
+		expect(Number.isFinite(expiresAt), "expires_at ausente ou ilegível na chamada").toBe(true)
 		const dias = (expiresAt - before) / (24 * 60 * 60 * 1000)
 		expect(dias).toBeGreaterThan(days - 0.01)
 		expect(dias).toBeLessThan(days + 0.01)
-	})
-
-	test("o prazo nunca sai do default da coluna — o insert sempre informa um", async () => {
-		const captured: Captured = {}
-		await createMcpApiKey(fakeDb(captured, ROW), ctx, { label: "cli", expiresInDays: 30 })
-		expect(Object.keys(captured.values ?? {})).toContain("expiresAt")
 	})
 })

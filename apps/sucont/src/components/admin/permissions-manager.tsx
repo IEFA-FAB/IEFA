@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#
 import { Skeleton } from "#/components/ui/skeleton"
 import { toast } from "#/components/ui/toast"
 import { describePerson } from "#/lib/identity"
+import { isSelfAdminRevoke } from "#/lib/permission-change"
 import {
 	grantSucontPermissionFn,
 	revokeSucontPermissionFn,
@@ -67,7 +68,9 @@ const LEVEL_LABELS: Record<number, string> = { 1: "Acesso", 2: "Editor", 3: "Adm
 
 /** A chave de uma linha da lista — pessoa + módulo + origem, que é o que a torna única. */
 function grantKey(grant: SucontGrant): string {
-	return `${grant.source}:${grant.userId}:${grant.module}`
+	// A linha inline tem id próprio: duas linhas do mesmo (usuário, módulo) — escopos ou lados
+	// diferentes — são dois acessos, e cada uma se revoga sozinha.
+	return grant.permissionId ?? `${grant.source}:${grant.userId}:${grant.module}:${grant.policyName ?? ""}`
 }
 
 export function SucontPermissionsManager() {
@@ -81,7 +84,10 @@ export function SucontPermissionsManager() {
 	// Revoga UM grant — pessoa e módulo. Sem o módulo, retirar o acesso à SUCONT-3
 	// de quem também tem a SUCONT-4 apagaria os dois.
 	const revoke = useMutation({
-		mutationFn: (grant: SucontGrant) => revokeSucontPermissionFn({ data: { userId: grant.userId, module: grant.module } }),
+		mutationFn: (grant: SucontGrant) => {
+			if (!grant.permissionId) throw new Error("Acesso emprestado por política — desanexe a política para retirá-lo")
+			return revokeSucontPermissionFn({ data: { permissionId: grant.permissionId } })
+		},
 		onSuccess: () => {
 			toast.success("Acesso revogado")
 			invalidateGrants()
@@ -175,6 +181,9 @@ function GrantsList({
 		<ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border">
 			{grants.map((grant) => {
 				const isSelf = grant.userId === currentUserId
+				// A mesma regra do servidor (`buildSucontRevoke`): só a PRÓPRIA administração não
+				// sai por aqui. A própria divisão, o administrador pode retirar.
+				const locksSelfOut = currentUserId !== null && isSelfAdminRevoke(currentUserId, grant)
 				const isExpired = grant.expiresAt !== null && new Date(grant.expiresAt).getTime() <= Date.now()
 				const byPolicy = grant.source === "policy"
 				const key = grantKey(grant)
@@ -200,15 +209,15 @@ function GrantsList({
 								type="button"
 								variant="ghost"
 								size="sm"
-								disabled={isSelf || byPolicy || revokingKey === key}
+								disabled={locksSelfOut || byPolicy || revokingKey === key}
 								onClick={() => onRevoke(grant)}
 								title={
 									// Apagar a linha de `user_permissions` não desfaz um anexo de política:
 									// o botão responderia sucesso e o acesso continuaria de pé.
 									byPolicy
 										? "Acesso emprestado por política — desanexe a política para retirá-lo"
-										: isSelf
-											? "Ninguém altera o próprio acesso — peça a outro administrador"
+										: locksSelfOut
+											? "Ninguém revoga a própria administração — peça a outro administrador"
 											: "Revogar acesso"
 								}
 								className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -341,7 +350,11 @@ function GrantAccessCard({ currentUserId, onGranted }: { currentUserId: string |
 					<div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/30 p-4">
 						<div className="flex flex-col gap-1">
 							<PersonLabel person={selected} primaryClassName="text-subheading text-foreground" secondaryClassName="text-caption text-muted-foreground" />
-							{isSelf && <span className="text-hint text-warning">Este é o seu próprio acesso — outro administrador precisa alterá-lo.</span>}
+							{isSelf && (
+								<span className="text-hint text-muted-foreground">
+									Este é o seu próprio acesso — a concessão fica registrada no log de auditoria com você como autor.
+								</span>
+							)}
 						</div>
 
 						<div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -362,7 +375,7 @@ function GrantAccessCard({ currentUserId, onGranted }: { currentUserId: string |
 									</SelectContent>
 								</Select>
 							</div>
-							<Button type="button" onClick={() => grant.mutate()} disabled={isSelf || grant.isPending}>
+							<Button type="button" onClick={() => grant.mutate()} disabled={grant.isPending}>
 								{grant.isPending ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
 								Conceder acesso
 							</Button>

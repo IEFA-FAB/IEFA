@@ -1,7 +1,8 @@
-import type { Json } from "@iefa/database"
+import type { Database, Json } from "@iefa/database"
 import { notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { SELF_VIEWER_MESSAGES, selfViewerGrantRefusal, toFormsAccessError } from "@/lib/access-change"
 import { forbidden, requireUser, requireUserId } from "@/lib/auth.server"
 import {
 	buildBindingsFromPolicyInput,
@@ -19,6 +20,10 @@ import {
 import { getFormsServerClient } from "@/lib/supabase.server"
 
 type FormsDbClient = ReturnType<typeof getFormsServerClient>
+
+/** Linhas devolvidas pelas funções auditadas (`to_jsonb(row)`, mais o `log_id`). */
+type ResponseViewerRow = Database["forms"]["Tables"]["response_viewer"]["Row"] & { log_id: string }
+type QuestionnaireEditorRow = Database["forms"]["Tables"]["questionnaire_editor"]["Row"] & { log_id: string }
 
 type QuestionnaireAccess = {
 	questionnaireId: string
@@ -209,23 +214,6 @@ async function assertQuestionnaireCanDisableOmScope(db: FormsDbClient, questionn
 	if (scopedViewer) {
 		throw new Error("Converta ou remova os visualizadores escopados antes de desativar a segmentação por OM")
 	}
-}
-
-async function replaceViewerPolicyBindings(db: FormsDbClient, responseViewerId: string, bindings: ViewerScopeBinding[]) {
-	const { error: deleteError } = await db.from("response_viewer_scope_binding").delete().eq("response_viewer_id", responseViewerId)
-	if (deleteError) throw new Error(deleteError.message)
-
-	if (bindings.length === 0) return
-
-	const { error: insertError } = await db.from("response_viewer_scope_binding").insert(
-		bindings.map((binding) => ({
-			response_viewer_id: responseViewerId,
-			attribute_key: binding.attribute_key,
-			effect: binding.effect,
-			value: binding.value,
-		}))
-	)
-	if (insertError) throw new Error(insertError.message)
 }
 
 async function getViewerPolicyListForQuestionnaire(db: FormsDbClient, questionnaireId: string) {
@@ -737,6 +725,20 @@ export const getViewersFn = createServerFn({ method: "GET" })
 		return getViewerPolicyListForQuestionnaire(db, questionnaire_id)
 	})
 
+/*
+ * Conceder, alterar e retirar acesso às respostas passa pelas funções SQL auditadas
+ * (`forms.*_response_viewer*`, migration 20260921130000): o visualizador, as regras de escopo
+ * dele e a linha de `access_control.sensitive_operation_log` entram na MESMA transação, com o
+ * ator da sessão (`user.id`). Ver `lib/access-change.ts`.
+ */
+
+/** Recusa a concessão de acesso às respostas sobre si mesmo — ver `lib/access-change.ts`. */
+function refuseSelfViewerGrant(actorId: string, viewerUserId: string, actorIsCreator: boolean): void {
+	const refusal = selfViewerGrantRefusal(actorId, viewerUserId, actorIsCreator)
+	if (refusal === "CREATOR_ALREADY_SEES") throw new Error(SELF_VIEWER_MESSAGES[refusal])
+	if (refusal) forbidden(SELF_VIEWER_MESSAGES[refusal])
+}
+
 export const addViewerFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
@@ -756,19 +758,18 @@ export const addViewerFn = createServerFn({ method: "POST" })
 
 		const { normalizedEmail, userId: viewerUserId } = await lookupUserIdByEmail(db, email)
 		if (!viewerUserId) throw new Error("Usuário não encontrado com esse email")
-		if (viewerUserId === user.id && questionnaireAccess.isCreator) throw new Error("Você já é o criador do questionário")
+		refuseSelfViewerGrant(user.id, viewerUserId, questionnaireAccess.isCreator)
 
-		const { data, error } = await db
-			.from("response_viewer")
-			.insert({ questionnaire_id, viewer_id: viewerUserId, viewer_email: normalizedEmail, added_by: user.id, scope_mode })
-			.select()
-			.single()
-		if (error) {
-			if (error.code === "23505") throw new Error("Este usuário já é um visualizador")
-			throw new Error(error.message)
-		}
-		await replaceViewerPolicyBindings(db, data.id, buildBindingsFromPolicyInput(policy))
-		return data
+		const { data, error } = await db.rpc("add_response_viewer", {
+			p_actor: user.id,
+			p_questionnaire_id: questionnaire_id,
+			p_viewer_id: viewerUserId,
+			p_viewer_email: normalizedEmail,
+			p_scope_mode: scope_mode,
+			p_bindings: buildBindingsFromPolicyInput(policy),
+		})
+		if (error) throw toFormsAccessError(error)
+		return data as ResponseViewerRow
 	})
 
 export const updateViewerPolicyFn = createServerFn({ method: "POST" })
@@ -788,17 +789,27 @@ export const updateViewerPolicyFn = createServerFn({ method: "POST" })
 		if (!visibilityAccess.canManageViewers) forbidden()
 		validateViewerPolicyInput(scope_mode, visibilityAccess.metadataConfig, policy)
 
-		const { data: viewer, error } = await db
+		// O alvo sai da LINHA (o `viewer_id` do payload é o id da linha, não da pessoa): é o que
+		// permite recusar a alteração do próprio escopo por quem não é o criador.
+		const { data: current, error: currentError } = await db
 			.from("response_viewer")
-			.update({ scope_mode })
+			.select("viewer_id")
 			.eq("id", viewer_id)
 			.eq("questionnaire_id", questionnaire_id)
-			.select()
-			.single()
-		if (error) throw new Error(error.message)
+			.maybeSingle()
+		if (currentError) throw new Error(currentError.message)
+		if (!current) throw new Error("Visualizador não encontrado neste questionário — a lista pode estar desatualizada")
+		refuseSelfViewerGrant(user.id, current.viewer_id, visibilityAccess.questionnaireAccess.isCreator)
 
-		await replaceViewerPolicyBindings(db, viewer.id, buildBindingsFromPolicyInput(policy))
-		return viewer
+		const { data, error } = await db.rpc("update_response_viewer_policy", {
+			p_actor: user.id,
+			p_questionnaire_id: questionnaire_id,
+			p_viewer_row_id: viewer_id,
+			p_scope_mode: scope_mode,
+			p_bindings: buildBindingsFromPolicyInput(policy),
+		})
+		if (error) throw toFormsAccessError(error)
+		return data as ResponseViewerRow
 	})
 
 export const removeViewerFn = createServerFn({ method: "POST" })
@@ -809,8 +820,8 @@ export const removeViewerFn = createServerFn({ method: "POST" })
 		const db = getFormsServerClient()
 		await requireQuestionnaireViewerManagementAccess(db, questionnaire_id, user.id)
 
-		const { error } = await db.from("response_viewer").delete().eq("id", id).eq("questionnaire_id", questionnaire_id)
-		if (error) throw new Error(error.message)
+		const { error } = await db.rpc("remove_response_viewer", { p_actor: user.id, p_questionnaire_id: questionnaire_id, p_viewer_row_id: id })
+		if (error) throw toFormsAccessError(error)
 	})
 
 // ── Questionnaire Editors ────────────────────────────────────────────────────
@@ -842,16 +853,15 @@ export const addEditorFn = createServerFn({ method: "POST" })
 		if (!editorUserId) throw new Error("Usuário não encontrado com esse email")
 		if (editorUserId === user.id) throw new Error("Você já é o dono do questionário")
 
-		const { data, error } = await db
-			.from("questionnaire_editor")
-			.insert({ questionnaire_id, editor_id: editorUserId, editor_email: normalizedEmail, added_by: user.id })
-			.select()
-			.single()
-		if (error) {
-			if (error.code === "23505") throw new Error("Este usuário já é um editor")
-			throw new Error(error.message)
-		}
-		return data
+		// Editor + linha de auditoria na mesma transação (`forms.add_questionnaire_editor`).
+		const { data, error } = await db.rpc("add_questionnaire_editor", {
+			p_actor: user.id,
+			p_questionnaire_id: questionnaire_id,
+			p_editor_id: editorUserId,
+			p_editor_email: normalizedEmail,
+		})
+		if (error) throw toFormsAccessError(error)
+		return data as QuestionnaireEditorRow
 	})
 
 export const removeEditorFn = createServerFn({ method: "POST" })
@@ -862,8 +872,8 @@ export const removeEditorFn = createServerFn({ method: "POST" })
 		const db = getFormsServerClient()
 		await requireQuestionnaireCreatorAccess(db, questionnaire_id, user.id)
 
-		const { error } = await db.from("questionnaire_editor").delete().eq("id", id).eq("questionnaire_id", questionnaire_id)
-		if (error) throw new Error(error.message)
+		const { error } = await db.rpc("remove_questionnaire_editor", { p_actor: user.id, p_questionnaire_id: questionnaire_id, p_editor_row_id: id })
+		if (error) throw toFormsAccessError(error)
 	})
 
 // ── Response Versioning ─────────────────────────────────────────────────────
