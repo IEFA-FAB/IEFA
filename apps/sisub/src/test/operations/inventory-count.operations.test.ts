@@ -24,6 +24,18 @@ const describeIf = url ? describeSupabaseIntegration : describeSupabaseIntegrati
 
 class Rollback extends Error {}
 
+/**
+ * "X horas atrás", comprimido para caber no DIA CIVIL de Brasília. O guard do
+ * ledger só aceita `occurred_at` retroativo dentro do mesmo dia, e intervalos
+ * fixos ("5 horas atrás") quebravam o teste entre 00h e 05h de Brasília — a
+ * mesma armadilha do #370. A hora vira fração do tempo decorrido desde a
+ * meia-noite: a ORDEM entre os instantes do teste é preservada, sempre no dia.
+ */
+function agoIn(tx: postgres.TransactionSql) {
+	return (hours: number) =>
+		tx`(now() - (now() - (date_trunc('day', now() at time zone 'America/Sao_Paulo') at time zone 'America/Sao_Paulo')) * ${hours / 10}::float8)`
+}
+
 describeIf("inventory count (DB)", () => {
 	let sql: postgres.Sql
 
@@ -40,6 +52,7 @@ describeIf("inventory count (DB)", () => {
 		await expect(
 			sql
 				.begin(async (tx) => {
+					const ago = agoIn(tx)
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-CNT', 'unit teste contagem') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha contagem') returning id`
 					const [arroz] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ TESTE CNT', 'KG') returning id`
@@ -59,15 +72,15 @@ describeIf("inventory count (DB)", () => {
 					// dia civil de Brasília, e o gatilho recusa o resto
 					await tx`
 						insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost, occurred_at)
-						values (${kitchenRow.id}, ${arroz.id}, ${lotArroz.id}, 'receipt', 50, 4, now() - interval '5 hours'),
-						       (${kitchenRow.id}, ${oleo.id}, ${lotOleo.id}, 'receipt', 60, 8, now() - interval '5 hours')`
+						values (${kitchenRow.id}, ${arroz.id}, ${lotArroz.id}, 'receipt', 50, 4, ${ago(5)}),
+						       (${kitchenRow.id}, ${oleo.id}, ${lotOleo.id}, 'receipt', 60, 8, ${ago(5)})`
 
 					// ── abertura materializa o escopo ────────────────────────────────
 					const [aberta] = await tx`
 						select * from inventory.open_inventory_count(${kitchenRow.id}, 'rotating', 'full', '{}'::jsonb, true, null, ${autor.id})`
 					expect(Number(aberta.scope_items)).toBe(2)
 					// a contagem "abriu" há 4 h: o lançamento não pode ser anterior à abertura
-					await tx`update inventory.inventory_count set created_at = now() - interval '4 hours' where id = ${aberta.count_id}`
+					await tx`update inventory.inventory_count set created_at = ${ago(4)} where id = ${aberta.count_id}`
 
 					// ── duas contagens abertas não disputam o mesmo item ─────────────
 					await expect(
@@ -77,8 +90,8 @@ describeIf("inventory count (DB)", () => {
 					// ── duas pessoas contando a mesma prateleira SOMAM ───────────────
 					await tx`
 						insert into inventory.inventory_count_entry (count_id, lot_id, quantity, client_event_id, counted_by, counted_at)
-						values (${aberta.count_id}, ${lotArroz.id}, 12, 'ev-a', ${autor.id}, now() - interval '3 hours'),
-						       (${aberta.count_id}, ${lotArroz.id}, 38, 'ev-b', ${outro.id}, now() - interval '3 hours')`
+						values (${aberta.count_id}, ${lotArroz.id}, 12, 'ev-a', ${autor.id}, ${ago(3)}),
+						       (${aberta.count_id}, ${lotArroz.id}, 38, 'ev-b', ${outro.id}, ${ago(3)})`
 					const [somado] = await tx`
 						select sum(quantity) as total from inventory.inventory_count_entry where count_id = ${aberta.count_id} and lot_id = ${lotArroz.id}`
 					expect(Number(somado.total)).toBe(50)
@@ -95,9 +108,9 @@ describeIf("inventory count (DB)", () => {
 					// ── a cozinha continua trabalhando: saída DEPOIS não vira falta ──
 					await tx`
 						insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost, occurred_at)
-						values (${kitchenRow.id}, ${arroz.id}, ${lotArroz.id}, 'production_issue', 10, 4, now() - interval '1 hour')`
+						values (${kitchenRow.id}, ${arroz.id}, ${lotArroz.id}, 'production_issue', 10, 4, ${ago(1)})`
 					const [refs] = await tx`
-						select inventory.balance_at(${kitchenRow.id}, ${lotArroz.id}, null, null, now() - interval '3 hours') as no_instante,
+						select inventory.balance_at(${kitchenRow.id}, ${lotArroz.id}, null, null, ${ago(3)}) as no_instante,
 						       inventory.balance_at(${kitchenRow.id}, ${lotArroz.id}, null, null, now()) as agora`
 					expect(Number(refs.no_instante)).toBe(50) // contado 50 → diferença ZERO
 					expect(Number(refs.agora)).toBe(40)
@@ -105,7 +118,7 @@ describeIf("inventory count (DB)", () => {
 					// ── óleo contado a menor ─────────────────────────────────────────
 					await tx`
 						insert into inventory.inventory_count_entry (count_id, lot_id, quantity, client_event_id, counted_by, counted_at)
-						values (${aberta.count_id}, ${lotOleo.id}, 30, 'ev-c', ${autor.id}, now() - interval '3 hours')`
+						values (${aberta.count_id}, ${lotOleo.id}, 30, 'ev-c', ${autor.id}, ${ago(3)})`
 
 					// ── aprovar exige a coleta ENCERRADA ─────────────────────────────
 					await expect(tx.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${aberta.count_id}, ${outro.id}, null)`)).rejects.toThrow(
@@ -173,10 +186,10 @@ describeIf("inventory count (DB)", () => {
 					const [limpa] = await tx`
 						select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
 							${tx.json({ ingredient_ids: [arroz.id] })}, true, null, ${autor.id})`
-					await tx`update inventory.inventory_count set created_at = now() - interval '1 hour' where id = ${limpa.count_id}`
+					await tx`update inventory.inventory_count set created_at = ${ago(1)} where id = ${limpa.count_id}`
 					await tx`
 						insert into inventory.inventory_count_entry (count_id, lot_id, quantity, client_event_id, counted_by, counted_at)
-						values (${limpa.count_id}, ${lotArroz.id}, 40, 'ev-d', ${outro.id}, now() - interval '30 minutes')`
+						values (${limpa.count_id}, ${lotArroz.id}, 40, 'ev-d', ${outro.id}, ${ago(0.5)})`
 					await tx`update inventory.inventory_count set status = 'review' where id = ${limpa.count_id}`
 					await tx`select * from inventory.approve_inventory_count(${limpa.count_id}, ${terceiro.id}, null)`
 					const [comSegregacao] = await tx`select approved_by_own_entry from inventory.inventory_count where id = ${limpa.count_id}`
@@ -208,6 +221,7 @@ describeIf("inventory count (DB)", () => {
 		await expect(
 			sql
 				.begin(async (tx) => {
+					const ago = agoIn(tx)
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-CNT2', 'unit teste contagem 2') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha contagem 2') returning id`
 					const [outraCozinha] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha vizinha') returning id`
@@ -227,7 +241,7 @@ describeIf("inventory count (DB)", () => {
 							insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, unit_cost, expiry_date, received_at)
 							values (${kitchenId}, ${ingredientId}, ${code}, 5, ${expiry}::date, now() - interval '10 days') returning id`
 						await tx`insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost, occurred_at)
-							values (${kitchenId}, ${ingredientId}, ${row.id}, 'receipt', ${qty}, 5, now() - interval '5 hours')`
+							values (${kitchenId}, ${ingredientId}, ${row.id}, 'receipt', ${qty}, 5, ${ago(5)})`
 						return row.id as string
 					}
 					const arrozL1 = await lote(arroz.id, "ARZ-L1", 10, "2030-01-10")
@@ -239,10 +253,10 @@ describeIf("inventory count (DB)", () => {
 					const [c] = await tx`
 						select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
 							${tx.json({ ingredient_ids: [arroz.id, feijao.id, sal.id] })}, true, null, ${abre})`
-					await tx`update inventory.inventory_count set created_at = now() - interval '4 hours' where id = ${c.count_id}`
+					await tx`update inventory.inventory_count set created_at = ${ago(4)} where id = ${c.count_id}`
 					const lancar = (event: string, target: { lot?: string; ingredient?: string }, qty: number, countId = c.count_id) =>
 						tx`insert into inventory.inventory_count_entry (count_id, lot_id, ingredient_id, quantity, client_event_id, counted_by, counted_at)
-							values (${countId}, ${target.lot ?? null}, ${target.ingredient ?? null}, ${qty}, ${event}, ${conta}, now() - interval '3 hours')`
+							values (${countId}, ${target.lot ?? null}, ${target.ingredient ?? null}, ${qty}, ${event}, ${conta}, ${ago(3)})`
 
 					// ── lançamento fora do escopo, de outra cozinha ou fora do tempo ──
 					const [milho] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('MILHO TESTE CNT2', 'KG') returning id`
@@ -261,7 +275,7 @@ describeIf("inventory count (DB)", () => {
 					await expect(
 						tx.savepoint(
 							(sp) => sp`insert into inventory.inventory_count_entry (count_id, lot_id, quantity, client_event_id, counted_by, counted_at)
-						values (${c.count_id}, ${arrozL1}, 1, 'antes', ${conta}, now() - interval '6 hours')`
+						values (${c.count_id}, ${arrozL1}, 1, 'antes', ${conta}, ${ago(6)})`
 						)
 					).rejects.toThrow(/fora da contagem/)
 
@@ -288,7 +302,7 @@ describeIf("inventory count (DB)", () => {
 					// ── rodada 2: o feijão é recontado; o arroz fica da rodada 1 ─────
 					await tx`update inventory.inventory_count set status = 'review' where id = ${c.count_id}`
 					const [{ open_recount: filha }] = await tx`select inventory.open_recount(${c.count_id}, ${[feijao.id]}::uuid[], ${abre})`
-					await tx`update inventory.inventory_count set created_at = now() - interval '4 hours' where id = ${filha}`
+					await tx`update inventory.inventory_count set created_at = ${ago(4)} where id = ${filha}`
 					// a rodada anterior não aceita mais lançamento nem aprovação
 					await expect(tx.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${c.count_id}, ${aprova}, null)`)).rejects.toThrow(
 						/não está aguardando aprovação/
