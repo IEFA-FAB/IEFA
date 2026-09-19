@@ -17,6 +17,9 @@
  *   ERRO   client_execute        função NOSSA executável por anon/authenticated fora da allowlist
  *   ERRO   service_role_no_execute função de schema exposto que o service_role (servidor) não executa
  *   ERRO   default_acl_client_execute default de privilégios que faz função NOVA nascer executável por cliente
+ *   ERRO   client_schema_usage   anon/authenticated com USAGE num schema fora da CLIENT_SCHEMA_ALLOWLIST
+ *   ERRO   client_table_grant_latent grant de tabela a cliente num schema que ele não alcança
+ *   ERRO   client_table_grant    grant de tabela/view a cliente fora da CLIENT_TABLE_ALLOWLIST (ou além de SELECT)
  *   AVISO  view_secdef_no_grant  view sem security_invoker, mas sem GRANT de cliente hoje
  *   AVISO  secdef_execute_latent EXECUTE de cliente numa SECURITY DEFINER de schema sem USAGE
  *   AVISO  rls_no_policy         RLS ligada e nenhuma policy → deny-all (ok se for só service-role)
@@ -530,6 +533,131 @@ async function auditDefaultAcl(schemas: string[]): Promise<Finding[]> {
 	return findings
 }
 
+/**
+ * Schemas que um CLIENTE alcança de propósito, com os papéis e o motivo. O navegador só
+ * lê seis tabelas, pelo Realtime; o resto dos schemas expostos é do servidor
+ * (`service_role`), e USAGE de cliente neles seria a única porta entre a chave pública e
+ * o dado — um grant de tabela a mais o abriria. Fechado em 20260920230000.
+ */
+const CLIENT_SCHEMA_ALLOWLIST: Record<string, { roles: ("anon" | "authenticated")[]; reason: string }> = {
+	public: {
+		roles: ["anon", "authenticated"],
+		reason:
+			"USAGE vem de PUBLIC (dono pg_database_owner) e papéis internos da plataforma dependem dele; o conteúdo é extensão, tabela legada com RLS negando tudo e funções fechadas",
+	},
+	kitchen: { roles: ["authenticated"], reason: "Realtime do sisub: daily_menu, menu_items, recipes (policy using true)" },
+	assignment_selection: {
+		roles: ["anon", "authenticated"],
+		reason: "Realtime do telão público (anon) e do controlador (authenticated): edition, person, vacancy",
+	},
+}
+
+/**
+ * Tabelas e views que o NAVEGADOR lê, com os papéis. A allowlist de schema sozinha não
+ * basta: dentro de `kitchen` ou `assignment_selection`, um `grant select` novo a cliente
+ * (com policy `using (true)`) passaria sem erro. Só SELECT — escrita de cliente não
+ * existe em app nenhum. Realtime novo entra aqui E na publicação `supabase_realtime`.
+ */
+const CLIENT_TABLE_ALLOWLIST: Record<string, ("anon" | "authenticated")[]> = {
+	"kitchen.daily_menu": ["authenticated"],
+	"kitchen.menu_items": ["authenticated"],
+	"kitchen.recipes": ["authenticated"],
+	"assignment_selection.edition": ["anon", "authenticated"],
+	"assignment_selection.person": ["anon", "authenticated"],
+	"assignment_selection.vacancy": ["anon", "authenticated"],
+	// view security_invoker sobre as três acima; não expõe nada além delas
+	"assignment_selection.vacancy_status": ["anon", "authenticated"],
+}
+
+async function auditClientTableGrants(schemas: string[]): Promise<Finding[]> {
+	const rows = await sql<{ object: string; role: "anon" | "authenticated"; privs: string[] }[]>`
+		select
+			n.nspname || '.' || c.relname as object,
+			r as role,
+			array(
+				select priv from unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) priv
+				where has_table_privilege(r, c.oid, priv)
+			) as privs
+		from pg_class c
+		join pg_namespace n on n.oid = c.relnamespace
+		cross join unnest(array['anon', 'authenticated']) r
+		where n.nspname = any(${schemas})
+			and c.relkind in ('r', 'p', 'v', 'm', 'f')
+			-- sem USAGE é o lint 'client_table_grant_latent'
+			and has_schema_privilege(r, n.oid, 'USAGE')
+			and (has_table_privilege(r, c.oid, 'SELECT') or has_table_privilege(r, c.oid, 'INSERT')
+				or has_table_privilege(r, c.oid, 'UPDATE') or has_table_privilege(r, c.oid, 'DELETE')
+				or has_table_privilege(r, c.oid, 'TRUNCATE'))
+		order by 1, 2
+	`
+	return rows.flatMap((r): Finding[] => {
+		const allowed = CLIENT_TABLE_ALLOWLIST[r.object]?.includes(r.role) ?? false
+		const beyondSelect = r.privs.filter((priv) => priv !== "SELECT")
+		if (allowed && beyondSelect.length === 0) return []
+		return [
+			{
+				severity: "error",
+				lint: "client_table_grant",
+				object: r.object,
+				detail: allowed
+					? `${r.role} tem [${beyondSelect.join(",")}] além de SELECT — o navegador só lê; revogue`
+					: `${r.role} tem [${r.privs.join(",")}] e a tabela/view não está na CLIENT_TABLE_ALLOWLIST — o navegador não a lê; revogue, ou justifique na allowlist (e, se for Realtime, na publicação)`,
+			},
+		]
+	})
+}
+
+async function auditClientSchemaUsage(schemas: string[]): Promise<Finding[]> {
+	const rows = await sql<{ schema: string; role: "anon" | "authenticated"; table_grants: number }[]>`
+		select
+			n.nspname as schema,
+			r as role,
+			(
+				select count(*)::int from pg_class c
+				where c.relnamespace = n.oid and c.relkind in ('r', 'p', 'v', 'm', 'f')
+					and (has_table_privilege(r, c.oid, 'SELECT') or has_table_privilege(r, c.oid, 'INSERT')
+						or has_table_privilege(r, c.oid, 'UPDATE') or has_table_privilege(r, c.oid, 'DELETE'))
+			) as table_grants
+		from pg_namespace n
+		cross join unnest(array['anon', 'authenticated']) r
+		where n.nspname = any(${schemas})
+			and has_schema_privilege(r, n.oid, 'USAGE')
+		order by 1, 2
+	`
+	const usageFindings = rows
+		.filter((r) => !CLIENT_SCHEMA_ALLOWLIST[r.schema]?.roles.includes(r.role))
+		.map((r) => ({
+			severity: "error" as const,
+			lint: "client_schema_usage",
+			object: `schema ${r.schema} (${r.role})`,
+			detail: `${r.role} tem USAGE neste schema e ele não está na CLIENT_SCHEMA_ALLOWLIST (${r.table_grants} tabela(s)/view(s) com grant para ele) — o navegador não lê daqui; \`revoke usage on schema ${r.schema} from ${r.role}\`, ou justifique na allowlist`,
+		}))
+
+	// Grant de tabela a cliente num schema SEM usage dele é latente: um `grant usage`
+	// futuro o publica de uma vez. Sem leitor no navegador, não tem por que existir.
+	const latent = await sql<{ object: string; role: string }[]>`
+		select c.oid::regclass::text as object, r as role
+		from pg_class c
+		join pg_namespace n on n.oid = c.relnamespace
+		cross join unnest(array['anon', 'authenticated']) r
+		where n.nspname = any(${schemas})
+			and c.relkind in ('r', 'p', 'v', 'm', 'f')
+			and not has_schema_privilege(r, n.oid, 'USAGE')
+			and (has_table_privilege(r, c.oid, 'SELECT') or has_table_privilege(r, c.oid, 'INSERT')
+				or has_table_privilege(r, c.oid, 'UPDATE') or has_table_privilege(r, c.oid, 'DELETE'))
+		order by 1, 2
+	`
+	return [
+		...usageFindings,
+		...latent.map((r) => ({
+			severity: "error" as const,
+			lint: "client_table_grant_latent",
+			object: r.object,
+			detail: `${r.role} tem grant nesta tabela/view, mas não alcança o schema — inerte hoje, aberto no primeiro \`grant usage\`. Revogue`,
+		})),
+	]
+}
+
 async function main() {
 	const schemas = await resolveExposedSchemas()
 	const findings = (
@@ -543,6 +671,8 @@ async function main() {
 			auditClientExecute(schemas),
 			auditServiceRoleExecute(schemas),
 			auditDefaultAcl(schemas),
+			auditClientSchemaUsage(schemas),
+			auditClientTableGrants(schemas),
 		])
 	).flat()
 
