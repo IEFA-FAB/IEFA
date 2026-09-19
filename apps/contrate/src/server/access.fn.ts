@@ -24,10 +24,18 @@
  * ## Acúmulo de papéis
  *
  * Nada aqui impede a mesma pessoa de ter os quatro papéis na mesma OM — é decisão do
- * mantenedor (2026-09-19), sem segregação de funções. Cada concessão é um papel.
+ * mantenedor (2026-09-19), sem segregação de funções. A concessão aceita vários papéis de uma
+ * vez (`grantAlphaRolesFn`), mas cada papel continua sendo uma concessão própria, auditada.
  *
  * Nada disso confia no cliente: a OM oferecida na tela é só conveniência, e a cobertura é
  * recalculada a cada chamada.
+ *
+ * ## A lista de pessoas
+ *
+ * No auge, ~1000 pessoas com algum papel. A lista é por PESSOA, e o recorte (busca, filtros,
+ * ordem, página) é feito aqui: a tela recebe só a página, com o total (`listAlphaPeopleFn`).
+ * As leituras moram em `lib/alpha/access-read.server.ts`; a agregação, pura, em
+ * `lib/alpha/people.ts`.
  *
  * ## Auditoria
  *
@@ -43,21 +51,27 @@ import {
 	fetchUnitSupportGraph,
 	GrantNotAllowedError,
 	PermissionChangeError,
-	partitionOfLevel,
 	resolveUserPermissions,
-	searchUsersByEmail,
 	setModuleBlock,
 	type UnitCoverage,
 	type UnitSupportEdge,
-	type UserEmailSearchRow,
 } from "@iefa/pbac"
-import type { SupabaseClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import {
-	ALPHA_ADMIN_MODULES,
+	fetchAuditRows,
+	fetchGrants,
+	fetchIdentities,
+	fetchLastChanges,
+	fetchUnitCodes,
+	type PartialGrant,
+	searchPeopleCandidates,
+	withAuthEmails,
+} from "@/lib/alpha/access-read.server"
+import {
+	ALPHA_GRANT_ROLES,
 	ALPHA_ROLE_GRANTS,
-	type AlphaAdminModule,
+	type AlphaGrantRole,
 	adminUnitChoices,
 	annotateDenyImpact,
 	buildAlphaBlockChange,
@@ -66,24 +80,40 @@ import {
 	type DenyImpact,
 	denyImpactNeedsGraph,
 	denyImpactOnAllow,
-	type GrantAlphaRoleInput,
-	GrantAlphaRoleSchema,
-	type GrantEffect,
+	GrantAlphaRolesSchema,
+	GrantInputError,
+	isExpiredGrant,
+	planAlphaRoleGrants,
 	RevokeAlphaRoleSchema,
+	type RoleGrantOutcome,
 	SetCopilotBlockSchema,
-	supportingUnitsOf,
 } from "@/lib/alpha/admin-access"
+import {
+	type AlphaGrant,
+	type AlphaPerson,
+	type AuditEntry,
+	aggregatePeople,
+	inheritedDenyUnits,
+	isAuditVisible,
+	listingUnits,
+	needsEmailsForSearch,
+	type PeoplePage,
+	PeopleQuerySchema,
+	type PersonIdentity,
+	queryPeople,
+	toAuditEntry,
+	toUnitIdOrNull,
+} from "@/lib/alpha/people"
 import { forbidden, requireAlphaAdmin } from "@/lib/auth.server"
 import { getAccessControlClient, getCoreReadClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: aceita qualquer schema de SupabaseClient, como no @iefa/pbac
-type AnySupabaseClient = SupabaseClient<any, any>
+export type { AlphaGrant, AlphaPerson, AuditEntry } from "@/lib/alpha/people"
 
 /** O que a tela de acessos precisa saber do próprio administrador. */
 export type AdminScope = {
 	/** Administrador global: concede grant global e lista "todas as OMs". */
 	isGlobal: boolean
-	/** As OMs que ele administra (todas, no global), para o seletor de concessão. */
+	/** As OMs que ele administra (todas, no global), para o seletor de concessão e o filtro. */
 	units: UnitOption[]
 }
 
@@ -106,12 +136,18 @@ export const fetchAdminScopeFn = createServerFn({ method: "GET" }).handler(async
 	return { isGlobal: allowGlobal, units }
 })
 
-/** Busca por e-mail no cadastro do ERP, para conceder acesso. Só administrador. */
-export const searchUsersByEmailFn = createServerFn({ method: "GET" })
-	.validator(z.object({ email: z.string().min(3) }))
-	.handler(async ({ data }): Promise<UserEmailSearchRow[]> => {
+/** Uma pessoa do cadastro do ERP, candidata a receber papel. */
+export type PersonCandidate = { id: string } & PersonIdentity
+
+/**
+ * Busca por nome (posto + nome de guerra), e-mail ou Nr. de ordem no cadastro do ERP, para
+ * conceder acesso. Só administrador. Até 10 resultados.
+ */
+export const searchAlphaCandidatesFn = createServerFn({ method: "GET" })
+	.validator(z.object({ q: z.string().trim().min(2).max(80) }))
+	.handler(async ({ data }): Promise<PersonCandidate[]> => {
 		await requireAlphaAdmin()
-		return searchUsersByEmail(getCoreReadClient(), data.email)
+		return searchPeopleCandidates(getCoreReadClient(), data.q)
 	})
 
 /**
@@ -121,7 +157,7 @@ export const searchUsersByEmailFn = createServerFn({ method: "GET" })
  */
 function rethrowAccessError(error: unknown): never {
 	if (error instanceof GrantNotAllowedError) forbidden(error.message)
-	if (error instanceof PermissionChangeError) {
+	if (error instanceof PermissionChangeError || error instanceof GrantInputError) {
 		throw new Error(error.message, { cause: error })
 	}
 	throw error
@@ -135,70 +171,110 @@ async function assertSelectableUnit(unitId: number | null): Promise<void> {
 	if (!data || data.is_training) throw new Error("OM inexistente.")
 }
 
-/** O acesso recém-gravado vale? Ver {@link grantAlphaPermissionFn}. */
-export type GrantOutcome = {
-	ok: true
-	previousLevel: number | null
-	/**
-	 * Algum bloqueio da pessoa anula o acesso recém-gravado — `true` também quando um acesso
-	 * GLOBAL fica recortado em parte das OMs (`partial`). `null`: a conferência falhou depois
-	 * da gravação, e a tela não afirma nem que vale nem que não vale.
-	 */
-	blocked: boolean | null
-	/** Só no acesso global: vale, menos nas OMs bloqueadas. */
-	partial: boolean
-}
-
 /**
- * Os bloqueios da pessoa anulam o acesso recém-gravado? Resolve as permissões VIVAS dela
+ * Os bloqueios da pessoa anulam os acessos recém-gravados? Resolve as permissões VIVAS dela
  * exatamente como a API do α as resolve (`resolveUserPermissions`: grant inline e política
- * anexada, com a precedência de deny) e confere a OM do acesso contra a cobertura do papel,
- * expandida pela hierarquia de apoio (`denyImpactOnAllow`). O `deny_present` da função SQL só
- * enxerga o bloqueio da MESMA chave — um bloqueio global, de política ou na OM apoiadora
- * passava despercebido, e a tela dizia "concedido" para um acesso que não vale.
+ * anexada, com a precedência de deny) e confere a OM de cada acesso contra a cobertura do
+ * papel, expandida pela hierarquia de apoio (`denyImpactOnAllow`). Uma leitura para todos os
+ * papéis da concessão.
  *
- * `denyPresent` é só atalho: bloqueio vivo na mesma chave anula com certeza, sem ler nada.
+ * O `deny_present` da função SQL só enxerga o bloqueio da MESMA chave — um bloqueio global,
+ * de política ou na OM apoiadora passava despercebido. Ele é só atalho: bloqueio vivo na
+ * mesma chave anula com certeza, sem ler nada.
  */
-async function resolveGrantBlock(data: GrantAlphaRoleInput, denyPresent: boolean | null): Promise<Pick<GrantOutcome, "blocked" | "partial">> {
-	if (denyPresent === true) return { blocked: true, partial: false }
+async function resolveGrantBlocks(
+	userId: string,
+	unitId: number | null,
+	granted: ReadonlyArray<{ role: AlphaGrantRole; denyPresent: boolean | null }>
+): Promise<Map<AlphaGrantRole, { blocked: boolean; partial: boolean }>> {
+	const result = new Map<AlphaGrantRole, { blocked: boolean; partial: boolean }>()
+	const pending = granted.filter((entry) => {
+		if (entry.denyPresent !== true) return true
+		result.set(entry.role, { blocked: true, partial: false })
+		return false
+	})
+	if (pending.length === 0) return result
 
-	const allow = { ...ALPHA_ROLE_GRANTS[data.role], unitId: data.unitId }
-	const permissions = await resolveUserPermissions(data.userId, getAccessControlClient())
-	const graph = denyImpactNeedsGraph(allow, permissions) ? await fetchUnitSupportGraph(getCoreReadClient()) : null
-	const impact: DenyImpact = denyImpactOnAllow(allow, permissions, graph)
-	return { blocked: impact !== "none", partial: impact === "partial" }
+	const permissions = await resolveUserPermissions(userId, getAccessControlClient())
+	const allows = pending.map((entry) => ({ role: entry.role, allow: { ...ALPHA_ROLE_GRANTS[entry.role], unitId } }))
+	const graph = allows.some(({ allow }) => denyImpactNeedsGraph(allow, permissions)) ? await fetchUnitSupportGraph(getCoreReadClient()) : null
+	for (const { role, allow } of allows) {
+		const impact: DenyImpact = denyImpactOnAllow(allow, permissions, graph)
+		result.set(role, { blocked: impact !== "none", partial: impact === "partial" })
+	}
+	return result
 }
 
+/** O resultado da concessão múltipla: um desfecho por papel pedido, na ordem canônica. */
+export type GrantRolesResult = { outcomes: RoleGrantOutcome[] }
+
 /**
- * Concede UM papel numa OM (ou global). Idempotente: reconceder atualiza o nível e zera o
- * prazo. Registrado no log de auditoria na mesma transação.
+ * Concede VÁRIOS papéis a uma pessoa, numa OM (ou global), com o mesmo prazo. Cada papel é uma
+ * concessão própria por `changeModulePermission` — a escrita e a linha de auditoria na mesma
+ * transação —, e o desfecho volta papel a papel: um papel que falha não desfaz os que já
+ * entraram (cada um foi auditado), e a tela diz exatamente quais valem.
  *
- * `blocked`: o acesso foi gravado, mas um bloqueio da pessoa o anula — a tela avisa em vez de
- * dizer só "concedido". A conferência roda DEPOIS da gravação e fora do `try` da concessão:
- * se ela falhar, o acesso já está gravado e auditado, e responder erro faria o administrador
- * conceder de novo algo que já foi concedido. Falha vira `blocked: null`.
+ * A política de quem concede (`planAlphaRoleGrants` → `assertGrantable`) é conferida para
+ * TODOS os papéis antes da primeira gravação: uma recusa responde 403 e nada é gravado.
+ *
+ * Idempotente por papel: reconceder atualiza o nível e SUBSTITUI o prazo pelo pedido.
+ *
+ * `blocked`: o acesso foi gravado, mas um bloqueio da pessoa o anula. A conferência roda
+ * DEPOIS das gravações e fora do `try` delas: se falhar, os acessos já estão gravados e
+ * auditados, e responder erro faria o administrador conceder de novo. Falha vira `blocked: null`.
  */
-export const grantAlphaPermissionFn = createServerFn({ method: "POST" })
-	.validator(GrantAlphaRoleSchema)
-	.handler(async ({ data }): Promise<GrantOutcome> => {
+export const grantAlphaRolesFn = createServerFn({ method: "POST" })
+	.validator(GrantAlphaRolesSchema)
+	.handler(async ({ data }): Promise<GrantRolesResult> => {
 		const { ctx, coverage } = await requireAlphaAdmin()
-		let result: Awaited<ReturnType<typeof changeModulePermission>>
+		let planned: ReturnType<typeof planAlphaRoleGrants>
 		try {
 			// Ator = sessão (`ctx.userId`); o `data` não tem campo de ator.
-			const change = buildAlphaPermissionChange({ actorId: ctx.userId, coverage }, data)
+			planned = planAlphaRoleGrants({ actorId: ctx.userId, coverage }, data)
 			await assertSelectableUnit(data.unitId)
-			result = await changeModulePermission(getAccessControlClient(), change)
 		} catch (error) {
 			rethrowAccessError(error)
 		}
 
-		try {
-			return { ok: true, previousLevel: result.previousLevel, ...(await resolveGrantBlock(data, result.denyPresent)) }
-		} catch (cause) {
-			// biome-ignore lint/suspicious/noConsole: a tela recebe só `blocked: null`; sem o log, a falha da conferência não deixa rastro nenhum no servidor
-			console.error("[contrate] acesso gravado, mas a conferência de bloqueio falhou", cause)
-			return { ok: true, previousLevel: result.previousLevel, blocked: null, partial: false }
+		const written: Array<{ role: AlphaGrantRole; previousLevel: number | null; denyPresent: boolean | null }> = []
+		const failed = new Map<AlphaGrantRole, string>()
+		// Em sequência, e não em paralelo: são no máximo quatro chaves distintas, e a ordem do log
+		// fica a mesma da tela.
+		for (const { role, change } of planned) {
+			try {
+				const result = await changeModulePermission(getAccessControlClient(), change)
+				written.push({ role, previousLevel: result.previousLevel, denyPresent: result.denyPresent })
+			} catch (error) {
+				// biome-ignore lint/suspicious/noConsole: a tela recebe a frase; a causa do banco só fica no log do servidor
+				console.error(`[contrate] concessão de ${role} falhou`, error instanceof PermissionChangeError ? error.cause : error)
+				failed.set(role, error instanceof PermissionChangeError ? error.message : "Falha ao conceder este papel.")
+			}
 		}
+
+		let blocks: Map<AlphaGrantRole, { blocked: boolean; partial: boolean }> | null = null
+		if (written.length > 0) {
+			try {
+				blocks = await resolveGrantBlocks(data.userId, data.unitId, written)
+			} catch (cause) {
+				// biome-ignore lint/suspicious/noConsole: a tela recebe só `blocked: null`; sem o log, a falha da conferência não deixa rastro nenhum no servidor
+				console.error("[contrate] acesso gravado, mas a conferência de bloqueio falhou", cause)
+			}
+		}
+
+		const outcomes: RoleGrantOutcome[] = planned.map(({ role }) => {
+			const failure = failed.get(role)
+			if (failure !== undefined) return { role, status: "failed", message: failure }
+			const entry = written.find((w) => w.role === role)
+			const block = blocks?.get(role)
+			return {
+				role,
+				status: "granted",
+				previousLevel: entry?.previousLevel ?? null,
+				blocked: block ? block.blocked : null,
+				partial: block?.partial ?? false,
+			}
+		})
+		return { outcomes }
 	})
 
 /**
@@ -245,261 +321,180 @@ export const setAlphaCopilotBlockFn = createServerFn({ method: "POST" })
 		}
 	})
 
-export type AlphaGrant = {
+// ─── Leitura: lista de pessoas, painel da pessoa, prévia da concessão ───────────
+
+/**
+ * As linhas do α num recorte de OMs, com os bloqueios herdados e a conta de bloqueio de cada
+ * acesso — a MESMA conta da API do α (`annotateDenyImpact`).
+ *
+ * ## Bloqueios herdados
+ *
+ * Um acesso numa OM é anulado também por bloqueio sem OM e por bloqueio numa OM que a apoia
+ * (o deny escopado desce pela hierarquia de apoio, como o allow). Sem essas linhas a tela
+ * afirmaria que o acesso vale. Então, para as pessoas que JÁ estão no recorte, vêm também os
+ * bloqueios delas nesses escopos, marcados `inherited` — e nada de quem não está nele.
+ */
+async function loadAnnotatedGrants(
+	coverage: UnitCoverage,
+	units: readonly number[] | "all",
+	graph: readonly UnitSupportEdge[],
+	userId?: string
+): Promise<AlphaGrant[]> {
+	const accessControl = getAccessControlClient()
+	const own = await fetchGrants(accessControl, { kind: "units", units, userId }, coverage)
+	if (own.length === 0) return []
+
+	const inherited: PartialGrant[] =
+		units === "all"
+			? []
+			: await fetchGrants(
+					accessControl,
+					{ kind: "inheritedDenies", unitIds: inheritedDenyUnits(units, graph), userIds: new Set(own.map((grant) => grant.userId)) },
+					"all"
+				)
+	const all = [...own, ...inherited]
+	const codes = await fetchUnitCodes(
+		getCoreReadClient(),
+		all.flatMap((grant) => (grant.unitId === null ? [] : [grant.unitId]))
+	)
+	return annotateDenyImpact(all, graph).map((grant) => ({ ...grant, unitCode: grant.unitId === null ? null : (codes.get(grant.unitId) ?? null) }))
+}
+
+/** A página da lista, e as OMs que ela abrange (para o filtro de OM). */
+export type PeopleListResult = PeoplePage & { units: number[] | "all" }
+
+/**
+ * A lista de PESSOAS com papel do α no escopo da página — uma OM (ela e as que ela apoia,
+ * dentro da cobertura) ou todas (`null`, só o administrador global, inclusive os grants sem
+ * OM). Busca, filtros, ordem e página são aplicados AQUI; a tela recebe só a página e o total.
+ *
+ * Nunca fora da cobertura de quem pede — com a exceção dos bloqueios herdados.
+ * Inclui o grant vencido (a tela o marca), para a linha não sumir sem que ninguém a tenha
+ * revogado.
+ */
+export const listAlphaPeopleFn = createServerFn({ method: "GET" })
+	.validator(PeopleQuerySchema)
+	.handler(async ({ data }): Promise<PeopleListResult> => {
+		const { coverage } = await requireAlphaAdmin()
+		if (!canListGrants(coverage, data.scopeUnitId)) forbidden("Esta OM está fora da sua administração.")
+
+		const now = Date.now()
+		const graph = await fetchUnitSupportGraph(getCoreReadClient())
+		const units = listingUnits(data.scopeUnitId, coverage, graph)
+		const grants = await loadAnnotatedGrants(coverage, units, graph)
+		const userIds = [...new Set(grants.map((grant) => grant.userId))]
+
+		// A ordem por alteração precisa da data de TODO mundo; a por nome, só da página. O e-mail
+		// do GoTrue (quem não tem `core.user_data`) só para todos quando há busca; senão, só a página.
+		const searchesEmails = needsEmailsForSearch(data)
+		const [identities, allChanges] = await Promise.all([
+			fetchIdentities(getCoreReadClient(), userIds, { resolveMissingEmails: searchesEmails }),
+			data.sort === "recent" && userIds.length > 0 ? fetchLastChanges(getAccessControlClient(), "all", coverage) : Promise.resolve(null),
+		])
+		const page = queryPeople(aggregatePeople(grants, identities, allChanges, now), data, graph, now)
+
+		if (!searchesEmails) page.rows = await withAuthEmails(getCoreReadClient(), page.rows)
+		if (allChanges === null && page.rows.length > 0) {
+			const changes = await fetchLastChanges(
+				getAccessControlClient(),
+				page.rows.map((person) => person.userId),
+				coverage
+			)
+			page.rows = page.rows.map((person) => ({ ...person, lastChangeAt: changes.get(person.userId) ?? null }))
+		}
+		return { ...page, units }
+	})
+
+/** O painel de uma pessoa: os papéis dela no que o administrador alcança e a trilha recente. */
+export type PersonDetail = {
 	userId: string
-	module: AlphaAdminModule
-	/** OM do grant; `null` é o grant global. */
-	unitId: number | null
-	/** Sigla da OM, para a lista; `null` no global. */
-	unitCode: string | null
-	/** E-mail institucional; vazio só quando a conta não tem e-mail no GoTrue. */
-	email: string
-	level: number
-	/**
-	 * `allow` é acesso (`level > 0`); `deny` é BLOQUEIO (`level <= 0`) — anula o acesso do
-	 * mesmo papel na chave, e a tela nunca o mostra como papel concedido.
-	 */
-	effect: GrantEffect
-	/** ISO 8601, ou `null` sem prazo. Vencido é ausência (de acesso ou de bloqueio), não deny. */
-	expiresAt: string | null
-	/**
-	 * `policy` é acesso emprestado por política anexada, e NÃO se revoga aqui: apagar a
-	 * linha de `user_permissions` não desfaz o anexo, e a chamada responderia sucesso com
-	 * o acesso de pé.
-	 */
-	source: "inline" | "policy"
-	policyName?: string
-	/**
-	 * Bloqueio HERDADO: gravado fora da OM aberta — sem OM (global) ou numa OM que a apoia —,
-	 * mas alcança o acesso de quem está na lista. Vem para a conta do `denyImpact` e para a
-	 * tela dizer de onde o bloqueio vem; não é "desta OM", e só o administrador global o retira
-	 * (na chave dele, não na da OM aberta).
-	 */
-	inherited: boolean
-	/** Quanto os bloqueios vivos da pessoa tiram deste acesso (`none` em bloqueio e em vencido). */
+	identity: PersonIdentity
+	/** `null` quando ela não tem nenhuma linha do α no que o administrador administra. */
+	person: AlphaPerson | null
+	/** As alterações de acesso mais recentes sobre ela, visíveis a quem pede. */
+	audit: AuditEntry[]
+}
+
+/** Quantas entradas da trilha o painel mostra. */
+const AUDIT_TRAIL_SIZE = 8
+
+/**
+ * O painel da pessoa: todas as linhas dela nas OMs que o administrador administra (o global,
+ * todas, inclusive as sem OM), os bloqueios herdados, e a trilha de auditoria — quem alterou o
+ * quê, quando —, recortada à administração de quem pede (`isAuditVisible`). Só leitura.
+ */
+export const fetchAlphaPersonFn = createServerFn({ method: "GET" })
+	.validator(z.object({ userId: z.uuid() }))
+	.handler(async ({ data }): Promise<PersonDetail> => {
+		const { coverage } = await requireAlphaAdmin()
+		const now = Date.now()
+		const core = getCoreReadClient()
+		const graph = await fetchUnitSupportGraph(core)
+		const units = coverage === "all" ? ("all" as const) : coverage
+		const [grants, auditRows] = await Promise.all([
+			loadAnnotatedGrants(coverage, units, graph, data.userId),
+			// Folga sobre o que se mostra: parte do log pode estar fora da administração de quem pede.
+			fetchAuditRows(getAccessControlClient(), data.userId, AUDIT_TRAIL_SIZE * 5),
+		])
+		const visible = auditRows
+			.filter((row) => isAuditVisible({ operation: row.operation, unitId: toUnitIdOrNull(row.target?.unit_id) }, coverage))
+			.slice(0, AUDIT_TRAIL_SIZE)
+
+		const actorIds = visible.map((row) => row.actor_id)
+		const auditUnits = visible.flatMap((row) => {
+			const unitId = toUnitIdOrNull(row.target?.unit_id)
+			return unitId === null ? [] : [unitId]
+		})
+		const [identities, codes] = await Promise.all([fetchIdentities(core, [data.userId, ...actorIds]), fetchUnitCodes(core, auditUnits)])
+		const actorLabel = (id: string) => {
+			const identity = identities.get(id)
+			return identity?.name || identity?.email || "Conta sem cadastro"
+		}
+
+		const audit = visible.flatMap((row) => {
+			const entry = toAuditEntry(row, { actor: actorLabel, unitCode: (id) => codes.get(id) ?? null })
+			return entry ? [entry] : []
+		})
+		const lastChanges = new Map(audit.length > 0 ? [[data.userId, audit[0]?.at ?? ""]] : [])
+		const person = aggregatePeople(grants, identities, lastChanges, now)[0] ?? null
+		return { userId: data.userId, identity: identities.get(data.userId) ?? { email: "", name: null, nrOrdem: null }, person, audit }
+	})
+
+/** Como cada papel está para a pessoa na OM escolhida, antes de conceder. */
+export type RolePreview = {
+	role: AlphaGrantRole
+	/** Os acessos que ela já tem neste papel, NESTA OM (ou global): inline ou por política. */
+	existing: Array<{ source: "inline" | "policy"; policyName?: string; expiresAt: string | null; expired: boolean }>
+	/** Quanto os bloqueios vivos dela tirariam de um acesso novo aqui — a conta da concessão. */
 	denyImpact: DenyImpact
 }
 
 /**
- * Os grants do α de UMA OM (`unitId`) — ou de todas, inclusive os globais (`null`, só para o
- * administrador global). Nunca fora da cobertura de quem pede — com uma exceção, a dos
- * bloqueios herdados.
- *
- * Lê as DUAS origens que `resolveUserPermissions` lê — grant inline e política anexada.
- * Inclui o grant vencido (a tela o marca), para a linha não sumir sem que ninguém a tenha
- * revogado.
- *
- * ## Bloqueios herdados
- *
- * Um acesso na OM aberta é anulado também por bloqueio sem OM e por bloqueio numa OM que a
- * apoia (o deny escopado desce pela hierarquia de apoio, como o allow). Sem essas linhas a
- * tela afirmaria que o acesso vale. Então, para as pessoas que JÁ estão na lista, vêm também
- * os bloqueios delas nesses escopos, marcados `inherited`. É o mínimo para a conta
- * (`annotateDenyImpact`) sair igual à da API do α — e nada de quem não está na lista.
+ * A prévia do formulário de concessão: para cada papel, o que a pessoa já tem na OM escolhida
+ * e se um bloqueio dela anularia o acesso novo. É a MESMA conta que a concessão faz depois de
+ * gravar (`resolveUserPermissions` + `denyImpactOnAllow`), para o aviso vir antes do clique.
+ * Só nas OMs que o administrador administra.
  */
-export const listAlphaGrantsFn = createServerFn({ method: "GET" })
-	.validator(z.object({ unitId: z.number().int().nonnegative().nullable() }))
-	.handler(async ({ data }): Promise<AlphaGrant[]> => {
+export const previewAlphaGrantFn = createServerFn({ method: "GET" })
+	.validator(z.object({ userId: z.uuid(), unitId: z.number().int().nonnegative().nullable() }))
+	.handler(async ({ data }): Promise<RolePreview[]> => {
 		const { coverage } = await requireAlphaAdmin()
 		if (!canListGrants(coverage, data.unitId)) forbidden("Esta OM está fora da sua administração.")
 
 		const accessControl = getAccessControlClient()
-		const core = getCoreReadClient()
-		const scope: RowScope = { kind: "unit", unitId: data.unitId }
-		const [inline, byPolicy, graph] = await Promise.all([
-			fetchInlineGrants(accessControl, scope),
-			fetchPolicyGrants(accessControl, scope, coverage),
-			fetchUnitSupportGraph(core),
+		const [permissions, rows] = await Promise.all([
+			resolveUserPermissions(data.userId, accessControl),
+			fetchGrants(accessControl, { kind: "units", units: data.unitId === null ? "all" : [data.unitId], userId: data.userId }, coverage),
 		])
-		const own = [...inline, ...byPolicy]
-		if (own.length === 0) return []
+		const allows = ALPHA_GRANT_ROLES.map((role) => ({ role, allow: { ...ALPHA_ROLE_GRANTS[role], unitId: data.unitId } }))
+		const graph = allows.some(({ allow }) => denyImpactNeedsGraph(allow, permissions)) ? await fetchUnitSupportGraph(getCoreReadClient()) : null
+		const now = Date.now()
 
-		const inherited = data.unitId === null ? [] : await fetchInheritedDenies(accessControl, data.unitId, own, graph)
-		const all = [...own, ...inherited]
-
-		const userIds = [...new Set(all.map((g) => g.userId))]
-		const unitIds = [...new Set(all.map((g) => g.unitId).filter((id): id is number => id !== null))]
-		const [users, units] = await Promise.all([
-			core.from("user_data").select("id, email").in("id", userIds),
-			unitIds.length === 0 ? Promise.resolve({ data: [], error: null }) : core.from("units").select("id, code").in("id", unitIds),
-		])
-		if (users.error) throw new Error(users.error.message)
-		if (units.error) throw new Error(units.error.message)
-
-		const emailById = new Map(((users.data ?? []) as Array<{ id: string; email: string | null }>).map((u) => [u.id, u.email ?? ""]))
-		const codeById = new Map(((units.data ?? []) as Array<{ id: number; code: string }>).map((u) => [u.id, u.code]))
-		const fallback = await fetchEmailsFromAuth(
-			core,
-			userIds.filter((id) => !emailById.get(id))
-		)
-
-		return annotateDenyImpact(all, graph)
-			.map((g) => ({
-				...g,
-				email: emailById.get(g.userId) || fallback.get(g.userId) || "",
-				unitCode: g.unitId === null ? null : (codeById.get(g.unitId) ?? null),
-			}))
-			.sort(
-				(a, b) =>
-					(a.email || a.userId).localeCompare(b.email || b.userId, "pt-BR") ||
-					(a.unitCode ?? "").localeCompare(b.unitCode ?? "", "pt-BR") ||
-					a.module.localeCompare(b.module)
-			)
+		return allows.map(({ role, allow }) => ({
+			role,
+			existing: rows
+				.filter((row) => row.effect === "allow" && row.module === allow.module && row.unitId === data.unitId)
+				.map((row) => ({ source: row.source, policyName: row.policyName, expiresAt: row.expiresAt, expired: isExpiredGrant(row, now) })),
+			denyImpact: denyImpactOnAllow(allow, permissions, graph),
+		}))
 	})
-
-/**
- * Os bloqueios que alcançam a OM `unitId` sem estar gravados nela — os sem OM e os das OMs
- * que a apoiam, transitivamente — das pessoas que já estão na lista (`own`).
- */
-async function fetchInheritedDenies(
-	accessControl: AnySupabaseClient,
-	unitId: number,
-	own: readonly PartialGrant[],
-	graph: readonly UnitSupportEdge[]
-): Promise<PartialGrant[]> {
-	const scope: RowScope = { kind: "inheritedDenies", unitIds: supportingUnitsOf(unitId, graph), userIds: [...new Set(own.map((g) => g.userId))] }
-	const [inline, byPolicy] = await Promise.all([fetchInlineGrants(accessControl, scope), fetchPolicyGrants(accessControl, scope, "all")])
-	return [...inline, ...byPolicy]
-}
-/** Chamadas simultâneas ao GoTrue na busca de e-mail — o suficiente para a lista não esperar em fila, sem abrir uma conexão por pessoa. */
-const AUTH_LOOKUP_CONCURRENCY = 5
-
-/**
- * E-mail pela API de administração do GoTrue, para quem ainda não tem linha em
- * `core.user_data` (a linha nasce no login do sisub). Só leitura.
- *
- * Em lotes, e não tudo de uma vez: um `Promise.all` sobre a lista inteira dispara uma
- * requisição por pessoa faltante ao mesmo tempo, e é o GoTrue que paga — justo na tela
- * que se abre depois de conceder acesso a muita gente.
- */
-async function fetchEmailsFromAuth(core: AnySupabaseClient, userIds: readonly string[]): Promise<Map<string, string>> {
-	const found = new Map<string, string>()
-
-	for (let i = 0; i < userIds.length; i += AUTH_LOOKUP_CONCURRENCY) {
-		const batch = userIds.slice(i, i + AUTH_LOOKUP_CONCURRENCY)
-		const resolved = await Promise.all(
-			batch.map(async (id) => {
-				const { data, error } = await core.auth.admin.getUserById(id)
-				return [id, error ? "" : (data.user?.email ?? "")] as const
-			})
-		)
-		for (const [id, email] of resolved) if (email !== "") found.set(id, email)
-	}
-
-	return found
-}
-
-type PartialGrant = Omit<AlphaGrant, "email" | "unitCode" | "denyImpact">
-
-/**
- * Que linhas ler:
- *   - `unit`: as da OM aberta; `null` = todas as OMs e os globais (só o administrador global
- *     chega aqui);
- *   - `inheritedDenies`: só BLOQUEIOS, sem OM ou nas OMs `unitIds` (as apoiadoras da aberta),
- *     e só das pessoas `userIds`.
- */
-type RowScope = { kind: "unit"; unitId: number | null } | { kind: "inheritedDenies"; unitIds: readonly number[]; userIds: readonly string[] }
-
-/**
- * Aplica o recorte de OM e de lado a uma query com `unit_id` e `level`. O filtro de pessoa
- * fica com quem chama: no inline é coluna da própria linha; na política, do anexo.
- */
-// biome-ignore lint/suspicious/noExplicitAny: builder do PostgREST de qualquer tabela
-function applyRowScope<Q extends { eq: any; lte: any; is: any; or: any }>(query: Q, scope: RowScope): Q {
-	if (scope.kind === "unit") return scope.unitId === null ? query : query.eq("unit_id", scope.unitId)
-	const denies = query.lte("level", 0)
-	return scope.unitIds.length === 0 ? denies.is("unit_id", null) : denies.or(`unit_id.is.null,unit_id.in.(${scope.unitIds.join(",")})`)
-}
-
-async function fetchInlineGrants(accessControl: AnySupabaseClient, scope: RowScope): Promise<PartialGrant[]> {
-	let query = accessControl
-		.from("user_permissions")
-		.select("module, user_id, level, expires_at, unit_id")
-		.in("module", [...ALPHA_ADMIN_MODULES])
-		.is("kitchen_id", null)
-		.is("mess_hall_id", null)
-	query = applyRowScope(query, scope)
-	if (scope.kind === "inheritedDenies") query = query.in("user_id", [...scope.userIds])
-
-	const { data, error } = await query
-	if (error) throw new Error(error.message)
-	return ((data ?? []) as Array<{ module: AlphaAdminModule; user_id: string; level: number; expires_at: string | null; unit_id: number | null }>).map(
-		(row) => ({
-			userId: row.user_id,
-			module: row.module,
-			unitId: row.unit_id,
-			level: row.level,
-			effect: partitionOfLevel(row.level),
-			expiresAt: row.expires_at,
-			source: "inline" as const,
-			inherited: scope.kind === "inheritedDenies",
-		})
-	)
-}
-
-/**
- * `coverage` é a defesa em profundidade da lista da OM: nenhuma linha sai dela. Os bloqueios
- * herdados passam `"all"` — eles estão fora da cobertura por definição, e o recorte que os
- * limita é o de `RowScope` (só bloqueio, só os escopos que alcançam a OM, só quem está na lista).
- */
-async function fetchPolicyGrants(accessControl: AnySupabaseClient, scope: RowScope, coverage: UnitCoverage): Promise<PartialGrant[]> {
-	const statementQuery = applyRowScope(
-		accessControl
-			.from("policy_statement")
-			.select("policy_id, module, level, unit_id")
-			.in("module", [...ALPHA_ADMIN_MODULES])
-			.is("kitchen_id", null)
-			.is("mess_hall_id", null),
-		scope
-	)
-
-	const { data: statements, error: statementError } = await statementQuery
-	if (statementError) {
-		// Banco sem o modelo de políticas: mesma degradação do `@iefa/pbac`. Aqui só
-		// encolhe uma lista de conferência — nunca concede acesso.
-		if (statementError.code === "PGRST205" || statementError.code === "42P01") return []
-		throw new Error(statementError.message)
-	}
-
-	type Statement = { policyId: string; module: AlphaAdminModule; level: number; effect: GrantEffect; unitId: number | null }
-	// Maior nível por (política, módulo, OM, lado) — a semântica da resolução. O lado entra na
-	// chave: um deny da política não pode ser engolido pelo allow dela (nem virar um allow).
-	const byKey = new Map<string, Statement>()
-	for (const row of (statements ?? []) as Array<{ policy_id: string; module: AlphaAdminModule; level: number; unit_id: number | null }>) {
-		// Defesa em profundidade: a lista nunca sai da cobertura, mesmo que o filtro acima mude.
-		if (!canListGrants(coverage, row.unit_id)) continue
-		const effect = partitionOfLevel(row.level)
-		const key = `${row.policy_id}:${row.module}:${row.unit_id ?? ""}:${effect}`
-		const current = byKey.get(key)
-		if (!current || row.level > current.level) byKey.set(key, { policyId: row.policy_id, module: row.module, level: row.level, effect, unitId: row.unit_id })
-	}
-	if (byKey.size === 0) return []
-
-	const ids = [...new Set([...byKey.values()].map((v) => v.policyId))]
-	const attachmentQuery = accessControl.from("user_policy_attachment").select("user_id, policy_id, expires_at").in("policy_id", ids)
-	const [policies, attachments] = await Promise.all([
-		accessControl.from("policy").select("id, name").in("id", ids).is("deleted_at", null),
-		scope.kind === "inheritedDenies" ? attachmentQuery.in("user_id", [...scope.userIds]) : attachmentQuery,
-	])
-	if (policies.error) throw new Error(policies.error.message)
-	if (attachments.error) throw new Error(attachments.error.message)
-
-	const nameById = new Map(((policies.data ?? []) as Array<{ id: string; name: string }>).map((p) => [p.id, p.name]))
-	return ((attachments.data ?? []) as Array<{ user_id: string; policy_id: string; expires_at: string | null }>)
-		.filter((row) => nameById.has(row.policy_id))
-		.flatMap((row) =>
-			[...byKey.values()]
-				.filter((statement) => statement.policyId === row.policy_id)
-				.map((statement) => ({
-					userId: row.user_id,
-					module: statement.module,
-					unitId: statement.unitId,
-					level: statement.level,
-					effect: statement.effect,
-					expiresAt: row.expires_at,
-					source: "policy" as const,
-					policyName: nameById.get(row.policy_id),
-					inherited: scope.kind === "inheritedDenies",
-				}))
-		)
-}

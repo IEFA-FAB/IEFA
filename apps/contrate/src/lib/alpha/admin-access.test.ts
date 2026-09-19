@@ -13,13 +13,19 @@ import {
 	copilotBlockState,
 	denyImpactNeedsGraph,
 	denyImpactOnAllow,
-	distinctPeople,
+	expiryInstantOf,
+	GrantAlphaRolesSchema,
+	GrantInputError,
 	type GrantRowLike,
 	grantRowKey,
 	initialGrantUnit,
+	planAlphaRoleGrants,
 	RevokeAlphaRoleSchema,
+	type RoleGrantOutcome,
 	splitGrantsByEffect,
+	summarizeGrantOutcomes,
 	supportingUnitsOf,
+	todayInBrasilia,
 } from "./admin-access"
 
 const ADMIN = "00000000-0000-0000-0000-00000000000a"
@@ -423,16 +429,120 @@ describe("bloqueio no copiloto", () => {
 			)
 		).toBe("blocked")
 	})
+})
 
-	test("distinctPeople: uma entrada por pessoa, na ordem da lista", () => {
-		const rows = [
-			{ userId: "a", email: "a@fab.mil.br" },
-			{ userId: "b", email: "b@fab.mil.br" },
-			{ userId: "a", email: "a@fab.mil.br" },
-		]
-		expect(distinctPeople(rows)).toEqual([
-			{ userId: "a", email: "a@fab.mil.br" },
-			{ userId: "b", email: "b@fab.mil.br" },
+describe("prazo (expiryInstantOf)", () => {
+	// 2026-09-19 22:30 em Brasília = 2026-09-20 01:30 UTC: o dia civil aqui ainda é 19.
+	const lateEvening = Date.parse("2026-09-20T01:30:00Z")
+
+	test("hoje é o dia civil de Brasília, não o do UTC", () => {
+		expect(todayInBrasilia(lateEvening)).toBe("2026-09-19")
+	})
+
+	test("o acesso vale até o fim do dia escolhido, em Brasília", () => {
+		expect(expiryInstantOf("2026-09-30", lateEvening)).toBe("2026-09-30T23:59:59.999-03:00")
+		expect(new Date(expiryInstantOf("2026-09-30", lateEvening) ?? "").toISOString()).toBe("2026-10-01T02:59:59.999Z")
+	})
+
+	test("hoje é aceito (vale até o fim do dia); ontem, não", () => {
+		expect(expiryInstantOf("2026-09-19", lateEvening)).toBe("2026-09-19T23:59:59.999-03:00")
+		expect(() => expiryInstantOf("2026-09-18", lateEvening)).toThrow(GrantInputError)
+	})
+
+	test("sem data é sem prazo; data inexistente é recusada", () => {
+		expect(expiryInstantOf(null, lateEvening)).toBeNull()
+		expect(() => expiryInstantOf("2026-02-30", lateEvening)).toThrow("Data de prazo inválida.")
+		expect(() => expiryInstantOf("30/09/2026", lateEvening)).toThrow(GrantInputError)
+	})
+})
+
+describe("concessão de vários papéis (planAlphaRoleGrants)", () => {
+	const now = Date.parse("2026-09-19T12:00:00Z")
+
+	test("uma concessão auditada por papel, na ordem canônica, com o mesmo prazo e o ator do guard", () => {
+		const planned = planAlphaRoleGrants(SCOPED, { userId: OTHER, roles: ["admin", "requester", "aci"], unitId: 100, expiresOn: "2026-12-31" }, now)
+		expect(planned.map((p) => p.role)).toEqual(["requester", "aci", "admin"])
+		for (const { change } of planned) {
+			expect(change).toMatchObject({
+				actorId: ADMIN,
+				app: "contrate",
+				action: "grant",
+				targetUserId: OTHER,
+				unitId: 100,
+				expiresAt: "2026-12-31T23:59:59.999-03:00",
+			})
+		}
+		expect(planned.map((p) => [p.change.module, p.change.level])).toEqual([
+			["alpha-requester", 1],
+			["alpha-aci", 1],
+			["alpha-admin", 3],
 		])
+	})
+
+	test("os quatro papéis na mesma OM: sem segregação de funções", () => {
+		expect(planAlphaRoleGrants(GLOBAL, { userId: OTHER, roles: [...ALPHA_GRANT_ROLES], unitId: 26, expiresOn: null }, now)).toHaveLength(4)
+	})
+
+	test("recusa de política recusa TODOS os papéis antes de qualquer gravação", () => {
+		// Escopado concedendo fora da cobertura, global, ou a si mesmo.
+		expect(refusal(() => planAlphaRoleGrants(SCOPED, { userId: OTHER, roles: ["requester", "aci"], unitId: 10, expiresOn: null }, now))).toBe(
+			"OUTSIDE_COVERAGE"
+		)
+		expect(refusal(() => planAlphaRoleGrants(SCOPED, { userId: OTHER, roles: ["requester"], unitId: null, expiresOn: null }, now))).not.toBeNull()
+		expect(refusal(() => planAlphaRoleGrants(SCOPED, { userId: ADMIN, roles: ["aci"], unitId: 26, expiresOn: null }, now))).toBe("SELF_REQUIRES_GLOBAL_ADMIN")
+		// O global concede a si mesmo, inclusive global.
+		expect(planAlphaRoleGrants(GLOBAL, { userId: ADMIN, roles: ["aci", "admin"], unitId: null, expiresOn: null }, now)).toHaveLength(2)
+	})
+
+	test("prazo passado recusa tudo", () => {
+		expect(() => planAlphaRoleGrants(GLOBAL, { userId: OTHER, roles: ["aci"], unitId: 26, expiresOn: "2026-09-01" }, now)).toThrow(GrantInputError)
+	})
+
+	test("o schema exige ao menos um papel, sem repetição, e não tem campo de ator", () => {
+		const OTHER = "00000000-0000-4000-8000-00000000000b"
+		expect(GrantAlphaRolesSchema.safeParse({ userId: OTHER, roles: [], unitId: 26, expiresOn: null }).success).toBe(false)
+		expect(GrantAlphaRolesSchema.safeParse({ userId: OTHER, roles: ["aci", "aci"], unitId: 26, expiresOn: null }).success).toBe(false)
+		expect(GrantAlphaRolesSchema.safeParse({ userId: OTHER, roles: ["aci"], unitId: 26, expiresOn: "31/12/2026" }).success).toBe(false)
+		const parsed = GrantAlphaRolesSchema.parse({ userId: OTHER, roles: ["aci"], unitId: 26, expiresOn: null, actorId: ADMIN })
+		expect(parsed).not.toHaveProperty("actorId")
+	})
+})
+
+describe("aviso da concessão (summarizeGrantOutcomes)", () => {
+	const ok = (role: RoleGrantOutcome["role"], extra: Partial<{ blocked: boolean | null; partial: boolean }> = {}): RoleGrantOutcome => ({
+		role,
+		status: "granted",
+		previousLevel: null,
+		blocked: false,
+		partial: false,
+		...extra,
+	})
+	const fail = (role: RoleGrantOutcome["role"], message = "Falha ao alterar o acesso."): RoleGrantOutcome => ({ role, status: "failed", message })
+
+	test("tudo concedido e valendo", () => {
+		expect(summarizeGrantOutcomes([ok("requester"), ok("aci")])).toEqual({ tone: "success", title: "Papéis concedidos: Requisitante e ACI" })
+		expect(summarizeGrantOutcomes([ok("aci")])).toEqual({ tone: "success", title: "ACI concedido" })
+	})
+
+	test("falha parcial diz quais entraram e quais não", () => {
+		const summary = summarizeGrantOutcomes([
+			ok("requester"),
+			fail("aci", "Outra alteração no mesmo acesso aconteceu ao mesmo tempo. Tente de novo."),
+			ok("admin"),
+		])
+		expect(summary.tone).toBe("warning")
+		expect(summary.title).toBe("2 de 3 papéis concedidos")
+		expect(summary.description).toContain("Concedido: Requisitante e Administração de acessos.")
+		expect(summary.description).toContain("ACI: Outra alteração")
+	})
+
+	test("nada concedido é erro, nunca sucesso", () => {
+		expect(summarizeGrantOutcomes([fail("aci"), fail("admin")])).toMatchObject({ tone: "error", title: "Nenhum papel foi concedido" })
+	})
+
+	test("gravado mas anulado por bloqueio, ou sem conferência, é aviso", () => {
+		expect(summarizeGrantOutcomes([ok("aci", { blocked: true }), ok("requester")])).toMatchObject({ tone: "warning", title: "Acesso gravado, mas bloqueado" })
+		expect(summarizeGrantOutcomes([ok("aci", { blocked: true, partial: true })]).description).toContain("vale, menos nas OMs bloqueadas")
+		expect(summarizeGrantOutcomes([ok("aci", { blocked: null })])).toMatchObject({ tone: "warning", title: "Acesso gravado, sem conferência de bloqueio" })
 	})
 })

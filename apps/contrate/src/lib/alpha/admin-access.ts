@@ -34,6 +34,26 @@ export type AlphaGrantRole = keyof typeof ALPHA_ROLE_GRANTS
 export const ALPHA_GRANT_ROLES = Object.keys(ALPHA_ROLE_GRANTS) as AlphaGrantRole[]
 
 /**
+ * Como a tela nomeia e explica cada papel. Não são aninhados: cada um é um grant próprio, por
+ * OM — a mesma pessoa pode ser Licitações no GAP-SJ e Requisitante no IEFA-SJ, ou os quatro
+ * na mesma OM.
+ */
+export const ROLE_INFO: Record<AlphaGrantRole, { label: string; hint: string }> = {
+	requester: { label: "Requisitante", hint: "Vê todas as submissões da OM. Enviar documento não exige papel." },
+	procurement: { label: "Licitações", hint: "Vê a fila e os processos da OM." },
+	aci: { label: "ACI", hint: "Tria achados e emite parecer nos processos da OM; no global, também cura regras e fontes." },
+	admin: { label: "Administração de acessos", hint: "Concede e revoga papéis na OM e nas que ela apoia." },
+}
+
+/** Rótulo curto, para as fichas da lista. */
+export const ROLE_SHORT_LABEL: Record<AlphaGrantRole, string> = {
+	requester: "Requisitante",
+	procurement: "Licitações",
+	aci: "ACI",
+	admin: "Admin",
+}
+
+/**
  * Os módulos que esta tela administra. O módulo pedido é validado contra esta lista — sem
  * isso, um administrador do α concederia `global` do sisub pela mesma chamada. O `alpha`
  * antigo (nível único) saiu do `AppModule` (20260921090000).
@@ -59,8 +79,70 @@ export const GrantAlphaRoleSchema = z.object({
 	userId: z.uuid(),
 	role: z.enum(ALPHA_GRANT_ROLES as [AlphaGrantRole, ...AlphaGrantRole[]]),
 	unitId: z.number().int().nonnegative().nullable(),
+	/** Instante em que o acesso deixa de valer (ISO 8601); ausente ou `null` = sem prazo. */
+	expiresAt: z.iso.datetime({ offset: true }).nullable().optional(),
 })
 export type GrantAlphaRoleInput = z.infer<typeof GrantAlphaRoleSchema>
+
+/** Data civil `AAAA-MM-DD`, como o `<input type="date">` a entrega. */
+const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Entrada da concessão de VÁRIOS papéis de uma vez: a mesma pessoa, a mesma OM, o mesmo
+ * prazo. Como as outras, SEM campo de ator (o teste de contrato fixa). Cada papel vira uma
+ * concessão própria, auditada na sua transação ({@link planAlphaRoleGrants}).
+ *
+ * `expiresOn` é a data civil do ÚLTIMO dia de acesso, no fuso de Brasília; `null` = sem prazo.
+ */
+export const GrantAlphaRolesSchema = z.object({
+	userId: z.uuid(),
+	roles: z
+		.array(z.enum(ALPHA_GRANT_ROLES as [AlphaGrantRole, ...AlphaGrantRole[]]))
+		.min(1, "Escolha ao menos um papel.")
+		.max(ALPHA_GRANT_ROLES.length)
+		.refine((roles) => new Set(roles).size === roles.length, "Papel repetido."),
+	unitId: z.number().int().nonnegative().nullable(),
+	expiresOn: z.string().regex(CIVIL_DATE, "Data inválida.").nullable(),
+})
+export type GrantAlphaRolesInput = z.infer<typeof GrantAlphaRolesSchema>
+
+/** Brasília não tem horário de verão desde 2019: o deslocamento é fixo. */
+const BRASILIA_OFFSET = "-03:00"
+const BRASILIA_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" })
+
+/** A data civil de hoje em Brasília (`AAAA-MM-DD`) — nunca a do UTC, que vira o dia às 21h. */
+export function todayInBrasilia(now: number = Date.now()): string {
+	return BRASILIA_DATE.format(new Date(now))
+}
+
+/**
+ * O instante em que um acesso com prazo até `expiresOn` deixa de valer: o fim daquele dia em
+ * Brasília. "Até 30/09" vale o dia 30 inteiro para quem está aqui, e não até as 21h (o fim do
+ * dia em UTC). `null` = sem prazo.
+ *
+ * Recusa data inexistente (`2026-02-30`) e data passada: conceder já vencido gravaria um
+ * acesso que não vale, auditado como se valesse. Hoje é aceito — vale até o fim do dia.
+ */
+export function expiryInstantOf(expiresOn: string | null, now: number = Date.now()): string | null {
+	if (expiresOn === null) return null
+	if (!CIVIL_DATE.test(expiresOn)) throw new GrantInputError("Data de prazo inválida.")
+	const [year, month, day] = expiresOn.split("-").map(Number) as [number, number, number]
+	const probe = new Date(Date.UTC(year, month - 1, day))
+	if (probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) {
+		throw new GrantInputError("Data de prazo inválida.")
+	}
+	if (expiresOn < todayInBrasilia(now)) throw new GrantInputError("O prazo não pode ser uma data passada.")
+	return `${expiresOn}T23:59:59.999${BRASILIA_OFFSET}`
+}
+
+/** Entrada recusada antes de qualquer gravação (prazo inválido). A mensagem vai para a tela. */
+export class GrantInputError extends Error {
+	constructor(message: string) {
+		super(message)
+		this.name = "GrantInputError"
+		Object.setPrototypeOf(this, new.target.prototype)
+	}
+}
 
 /**
  * Os dois lados de uma chave: o acesso (`allow`, `level > 0`) e o bloqueio (`deny`,
@@ -112,8 +194,9 @@ export function buildAlphaPermissionChange(
 					module: ALPHA_ROLE_GRANTS[data.role].module,
 					level: ALPHA_ROLE_GRANTS[data.role].level,
 					unitId: data.unitId,
-					// Conceder é acesso vivo, sem prazo — reaplicar reativa uma linha vencida.
-					expiresAt: null,
+					// Conceder é acesso vivo: o prazo é o pedido, ou nenhum — reaplicar reativa uma
+					// linha vencida e substitui o prazo que ela tinha.
+					expiresAt: data.expiresAt ?? null,
 				}
 			: {
 					actorId: admin.actorId,
@@ -135,6 +218,101 @@ export function buildAlphaPermissionChange(
 		touchesDeny: touchesDenyPartition(change),
 	})
 	return change
+}
+
+/**
+ * As concessões de {@link GrantAlphaRolesSchema}: uma por papel, na ordem canônica dos papéis,
+ * cada uma já conferida por {@link buildAlphaPermissionChange} (a mesma política de
+ * administração escopada da concessão avulsa). Tudo é conferido ANTES da primeira gravação:
+ * a regra de quem concede não depende do papel, então uma recusa recusa todos, e nenhum
+ * papel sai gravado pela metade por causa dela. Prazo inválido também recusa tudo.
+ *
+ * O que ainda pode falhar depois — o banco, papel a papel — é relatado por papel pela server
+ * function; cada concessão é a sua transação auditada.
+ */
+export function planAlphaRoleGrants(
+	admin: { actorId: string; coverage: UnitCoverage },
+	data: GrantAlphaRolesInput,
+	now: number = Date.now()
+): Array<{ role: AlphaGrantRole; change: ChangeModulePermissionInput }> {
+	const expiresAt = expiryInstantOf(data.expiresOn, now)
+	const wanted = new Set(data.roles)
+	return ALPHA_GRANT_ROLES.filter((role) => wanted.has(role)).map((role) => ({
+		role,
+		change: buildAlphaPermissionChange(admin, { userId: data.userId, role, unitId: data.unitId, expiresAt }),
+	}))
+}
+
+/** O que aconteceu com cada papel pedido numa concessão múltipla. */
+export type RoleGrantOutcome =
+	| {
+			role: AlphaGrantRole
+			status: "granted"
+			previousLevel: number | null
+			/**
+			 * Algum bloqueio da pessoa anula o acesso recém-gravado — `true` também quando um acesso
+			 * GLOBAL fica recortado em parte das OMs (`partial`). `null`: a conferência falhou depois
+			 * da gravação, e a tela não afirma nem que vale nem que não vale.
+			 */
+			blocked: boolean | null
+			partial: boolean
+	  }
+	| { role: AlphaGrantRole; status: "failed"; message: string }
+
+export type GrantSummary = { tone: "success" | "warning" | "error"; title: string; description?: string }
+
+function listLabels(roles: readonly AlphaGrantRole[]): string {
+	const labels = roles.map((role) => ROLE_INFO[role].label)
+	if (labels.length <= 1) return labels.join("")
+	return `${labels.slice(0, -1).join(", ")} e ${labels.at(-1)}`
+}
+
+/**
+ * O aviso depois de uma concessão múltipla. Nunca "concedido" para papel que falhou ou que um
+ * bloqueio anula: a falha parcial diz quais entraram e quais não, e o bloqueio diz quais não
+ * valem — o administrador decide o próximo passo sabendo o estado real.
+ */
+export function summarizeGrantOutcomes(outcomes: readonly RoleGrantOutcome[]): GrantSummary {
+	const granted = outcomes.filter((outcome) => outcome.status === "granted")
+	const failed = outcomes.filter((outcome) => outcome.status === "failed")
+	const failures = failed.map((outcome) => `${ROLE_INFO[outcome.role].label}: ${outcome.message}`).join(" ")
+
+	if (granted.length === 0) {
+		return { tone: "error", title: failed.length === 1 ? "O papel não foi concedido" : "Nenhum papel foi concedido", description: failures || undefined }
+	}
+	if (failed.length > 0) {
+		return {
+			tone: "warning",
+			title: `${granted.length} de ${outcomes.length} papéis concedidos`,
+			description: `Concedido: ${listLabels(granted.map((outcome) => outcome.role))}. Não concedido: ${failures}`,
+		}
+	}
+
+	const fullyBlocked = granted.filter((outcome) => outcome.blocked === true && !outcome.partial).map((outcome) => outcome.role)
+	const partlyBlocked = granted.filter((outcome) => outcome.blocked === true && outcome.partial).map((outcome) => outcome.role)
+	const unchecked = granted.filter((outcome) => outcome.blocked === null).map((outcome) => outcome.role)
+	if (fullyBlocked.length > 0 || partlyBlocked.length > 0) {
+		const parts = [
+			fullyBlocked.length > 0 ? `${listLabels(fullyBlocked)}: um bloqueio da pessoa anula o acesso onde ele foi concedido.` : "",
+			partlyBlocked.length > 0 ? `${listLabels(partlyBlocked)}: vale, menos nas OMs bloqueadas.` : "",
+			"O bloqueio vence o acesso enquanto existir; só um administrador global o retira.",
+		]
+		return { tone: "warning", title: "Acesso gravado, mas bloqueado", description: parts.filter(Boolean).join(" ") }
+	}
+	if (unchecked.length > 0) {
+		return {
+			tone: "warning",
+			title: "Acesso gravado, sem conferência de bloqueio",
+			description: `Não foi possível conferir se algum bloqueio anula ${listLabels(unchecked)}. Confira o painel da pessoa.`,
+		}
+	}
+	return {
+		tone: "success",
+		title:
+			granted.length === 1
+				? `${ROLE_INFO[granted[0]?.role ?? "requester"].label} concedido`
+				: `Papéis concedidos: ${listLabels(granted.map((outcome) => outcome.role))}`,
+	}
 }
 
 // ─── Bloqueio no copiloto ──────────────────────────────────────────────────────
@@ -184,7 +362,7 @@ export function buildAlphaBlockChange(admin: { actorId: string; coverage: UnitCo
  * Só conta a linha inline: bloqueio que vem de política não se retira por aqui (desanexa-se a
  * política), e o botão de desbloquear afirmaria o que não pode cumprir. Vencido é ausência.
  * A lista traz esses bloqueios em qualquer OM aberta: os globais vêm como herdados
- * (`listAlphaGrantsFn`).
+ * (`listAlphaPeopleFn`).
  */
 export type CopilotBlockState = "blocked" | "partial" | "none"
 
@@ -196,13 +374,6 @@ export function copilotBlockState(grants: readonly GrantRowLike[], userId: strin
 	)
 	if (blockedModules.size === 0) return "none"
 	return ALPHA_ADMIN_MODULES.every((module) => blockedModules.has(module)) ? "blocked" : "partial"
-}
-
-/** As pessoas da lista, uma vez cada, na ordem em que aparecem — para a seção de bloqueio. */
-export function distinctPeople<T extends { userId: string; email: string }>(grants: readonly T[]): Array<{ userId: string; email: string }> {
-	const seen = new Map<string, string>()
-	for (const grant of grants) if (!seen.has(grant.userId)) seen.set(grant.userId, grant.email)
-	return [...seen].map(([userId, email]) => ({ userId, email }))
 }
 
 /**
@@ -343,7 +514,7 @@ function rowToUserPermission(row: GrantRowLike): UserPermission {
  * marca própria).
  *
  * A lista precisa trazer os bloqueios que alcançam o que está na tela — os sem OM e os das
- * OMs apoiadoras, e não só os da OM aberta (`listAlphaGrantsFn`). `graph` é o grafo de apoio
+ * OMs apoiadoras, e não só os das OMs listadas (`listAlphaPeopleFn`). `graph` é o grafo de apoio
  * inteiro.
  */
 export function annotateDenyImpact<T extends GrantRowLike>(
