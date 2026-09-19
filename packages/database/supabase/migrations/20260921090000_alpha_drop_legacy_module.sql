@@ -7,37 +7,44 @@
 -- antigo segue funcionando depois dela: nada lê as linhas `alpha`, e o α já exige a OM no
 -- envio desde o #383.
 --
--- ## 1. As linhas `module = 'alpha'`: converter, depois apagar
+-- ## 1. As linhas `module = 'alpha'`: converter o que ficou para trás, depois apagar
 --
--- O backfill de 20260918123000 espelhou cada linha `alpha` nos papéis que o nível dela
--- alcançava e deixou a original de pé para o rollback do α. Mas a tela antiga do contrate
--- continuou gravando `alpha` até o deploy do contrate novo — e uma linha gravada DEPOIS do
--- backfill nunca foi convertida. O α novo não lê `alpha`: quem a recebeu PERDEU, em silêncio,
--- o acesso que ela concedia no modelo antigo (nível 3 era ACI).
+-- O backfill de 20260918123000 (aplicado em 2026-09-18 12:30 UTC) espelhou cada linha
+-- `alpha` nos papéis e deixou a original de pé para o rollback do α. Mas a tela antiga do
+-- contrate continuou gravando `alpha` até o deploy do contrate novo — e uma linha gravada
+-- DEPOIS do backfill nunca foi convertida. O α novo não lê `alpha`: quem a recebeu PERDEU,
+-- em silêncio, o acesso que ela concedia (nível 3 era ACI).
 --
--- Por isso esta migration primeiro REFAZ o backfill, com a mesma regra de 20260918123000, para
--- toda linha `alpha` que ainda não esteja coberta — é conversão do sistema, por migration, do
--- que já tinha sido concedido; não é concessão nova:
+-- A conversão aqui é deliberadamente ESTREITA:
+--
+--   - só linha criada DEPOIS do backfill (`created_at > 2026-09-18 12:30 UTC`). As anteriores
+--     já foram convertidas; se o papel delas não existe mais, foi REVOGADO pela tela nova — e
+--     reconvertê-la desfaria a revogação em silêncio (o log mostraria o revoke como última
+--     palavra e a pessoa estaria de papel de volta);
+--   - pela mesma razão, nada é convertido para um par (pessoa, papel) com revogação no
+--     `sensitive_operation_log` posterior à linha;
+--   - NUNCA gera `alpha-admin`. No modelo antigo, nível 3 era ACI; administrar acesso sempre
+--     foi o módulo `alpha-admin`, à parte. Gerar admin aqui seria conceder por migration, sem
+--     log, o poder de conceder.
 --
 --   alpha 1       → alpha-requester 1
---   alpha 2       → alpha-requester 1 + alpha-procurement 1
---   alpha 3       → alpha-requester 1 + alpha-procurement 1 + alpha-aci 1 + alpha-admin 3
---   alpha <= 0    → bloqueio nos quatro
+--   alpha 2       → + alpha-procurement 1
+--   alpha 3       → + alpha-aci 1
+--   alpha <= 0    → bloqueio nos três papéis
 --
--- Mesmo escopo e mesmo `expires_at` da linha de origem (copiar sem o prazo transformaria um
--- acesso temporário em permanente). O `not exists` separa allow de deny — a mesma partição dos
--- dois índices únicos parciais: um allow novo não é barrado por um deny existente na chave,
--- nem o contrário; e um papel que já existe no lado certo não é tocado.
+-- Mesmo escopo e mesmo `expires_at` da linha de origem. O `not exists` separa allow de deny,
+-- a mesma partição dos dois índices únicos parciais.
 --
--- Só DEPOIS o DELETE, que continua CONDICIONADO À COBERTURA, como o do `sucont`
--- (20260910191735): sai a linha cujo titular tem TODOS os papéis que o nível dela alcançava,
--- no mesmo escopo e no mesmo lado. Depois da conversão isso é toda linha — a guarda fica para
--- o caso que a conversão não resolve (um papel já existente com nível abaixo do exigido), em
--- que apagar a linha seria perder acesso sem caminho de volta pela interface.
+-- Depois, TODA linha `alpha` sai: nada a lê desde o #383, então apagá-la não tira acesso de
+-- ninguém — o que ela significava já está (ou deliberadamente não está) nos papéis.
 --
--- Em produção (consulta de 2026-09-19): 3 linhas `alpha`, todas nível 3 e globais; duas já
--- cobertas, uma gravada depois do backfill e convertida aqui. O aviso no fim lista o que foi
--- convertido e o que, se algo, ficou.
+-- `policy_statement` com `alpha`: nenhuma em produção. Se aparecer, a migration PARA — um
+-- statement de política é decisão de quem administra a política, não de migration.
+--
+-- Em produção (consulta de 2026-09-19): 3 linhas `alpha`, nível 3, globais. Duas de 2026-09-17
+-- (já convertidas pelo backfill) e uma de 2026-09-18 13:34 UTC, gravada pela tela antiga
+-- depois do backfill — convertida aqui em requisitante + licitações + ACI (o admin, a titular
+-- já tinha por grant próprio).
 --
 -- ## 2. `alpha.submission.unit_id` NOT NULL
 --
@@ -48,16 +55,26 @@
 -- Se houver submissão sem OM, a migration PARA com a contagem — atribuir uma OM a processo
 -- de contratação por palpite exporia o documento a quem não devia vê-lo.
 --
--- Idempotente: reaplicar não converte duas vezes nem apaga mais do que a cobertura permite, e
+-- Idempotente: reaplicar não encontra mais linha `alpha` (nada a converter nem a apagar), e
 -- `set not null` sobre coluna já NOT NULL não faz nada.
 
 begin;
 
--- ─── 1a. Conversão das linhas `alpha` ainda não cobertas ─────────────────────
--- A mesma regra de 20260918123000, em `user_permissions` e em `policy_statement`. O que foi
--- inserido vai para uma tabela temporária, só para o aviso do fim.
+-- ─── 1a. Statement de política com `alpha`: decisão manual ───────────────────
+do $$
+declare
+	v_policy integer;
+begin
+	select count(*) into v_policy from access_control.policy_statement where module = 'alpha';
+	if v_policy > 0 then
+		raise exception 'access_control.policy_statement tem % statement(s) com o módulo legado alpha: converta-os pela tela de políticas antes de aplicar esta migration', v_policy
+			using errcode = '55000';
+	end if;
+end
+$$;
+
+-- ─── 1b. Conversão estreita das linhas `alpha` gravadas depois do backfill ────
 create temporary table alpha_legacy_converted (
-	source text,
 	owner_id uuid,
 	module text,
 	level integer,
@@ -70,8 +87,7 @@ with role_map (min_level, module, target_level) as (
 	values
 		(1, 'alpha-requester', 1),
 		(2, 'alpha-procurement', 1),
-		(3, 'alpha-aci', 1),
-		(3, 'alpha-admin', 3)
+		(3, 'alpha-aci', 1)
 ),
 inserted as (
 	insert into access_control.user_permissions (user_id, module, level, mess_hall_id, kitchen_id, unit_id, expires_at)
@@ -79,6 +95,8 @@ inserted as (
 	from access_control.user_permissions s
 	join role_map m on (s.level <= 0 or s.level >= m.min_level)
 	where s.module = 'alpha'
+		-- Só o que o backfill de 20260918123000 não viu.
+		and s.created_at > timestamptz '2026-09-18 12:30:00+00'
 		and not exists (
 			select 1
 			from access_control.user_permissions t
@@ -89,115 +107,32 @@ inserted as (
 				and t.kitchen_id   is not distinct from s.kitchen_id
 				and t.unit_id      is not distinct from s.unit_id
 		)
+		-- Revogação posterior à linha é a última palavra: não se desfaz por migration.
+		and not exists (
+			select 1
+			from access_control.sensitive_operation_log l
+			where l.operation like '%.permission.revoke'
+				and l.created_at > s.created_at
+				and l.target ->> 'target_user_id' = s.user_id::text
+				and l.target ->> 'module' = m.module
+		)
 	returning user_id, module, level, unit_id, kitchen_id, mess_hall_id
 )
 insert into alpha_legacy_converted
-select 'inline', user_id, module, level, unit_id, kitchen_id, mess_hall_id from inserted;
+select user_id, module, level, unit_id, kitchen_id, mess_hall_id from inserted;
 
--- Sem UNIQUE em `policy_statement` (várias linhas por política): o dedup inclui o nível.
-with role_map (min_level, module, target_level) as (
-	values
-		(1, 'alpha-requester', 1),
-		(2, 'alpha-procurement', 1),
-		(3, 'alpha-aci', 1),
-		(3, 'alpha-admin', 3)
-),
-inserted as (
-	insert into access_control.policy_statement (policy_id, module, level, unit_id, kitchen_id, mess_hall_id)
-	select s.policy_id, m.module, case when s.level > 0 then m.target_level else s.level end, s.unit_id, s.kitchen_id, s.mess_hall_id
-	from access_control.policy_statement s
-	join role_map m on (s.level <= 0 or s.level >= m.min_level)
-	where s.module = 'alpha'
-		and not exists (
-			select 1
-			from access_control.policy_statement t
-			where t.policy_id = s.policy_id
-				and t.module = m.module
-				and t.level = case when s.level > 0 then m.target_level else s.level end
-				and t.unit_id      is not distinct from s.unit_id
-				and t.kitchen_id   is not distinct from s.kitchen_id
-				and t.mess_hall_id is not distinct from s.mess_hall_id
-		)
-	returning policy_id, module, level, unit_id, kitchen_id, mess_hall_id
-)
-insert into alpha_legacy_converted
-select 'policy', policy_id, module, level, unit_id, kitchen_id, mess_hall_id from inserted;
+-- ─── 1c. Toda linha `alpha` sai ──────────────────────────────────────────────
+delete from access_control.user_permissions where module = 'alpha';
 
--- ─── 1b. Linhas `alpha` cobertas pelos papéis saem ───────────────────────────
--- Sai a linha para a qual NÃO EXISTE papel exigido faltando. O lado entra na comparação
--- (`(t.level > 0) = (s.level > 0)`) pela mesma razão dos dois índices únicos parciais: um
--- acesso não cobre um bloqueio, nem o contrário. O `expires_at` não entra: a conversão acima
--- copiou o prazo, e nada lê a linha `alpha`.
-with role_map (min_level, module, target_level) as (
-	values
-		(1, 'alpha-requester', 1),
-		(2, 'alpha-procurement', 1),
-		(3, 'alpha-aci', 1),
-		(3, 'alpha-admin', 3)
-)
-delete from access_control.user_permissions s
-where s.module = 'alpha'
-	and not exists (
-		select 1
-		from role_map m
-		where (s.level <= 0 or s.level >= m.min_level)
-			and not exists (
-				select 1
-				from access_control.user_permissions t
-				where t.user_id = s.user_id
-					and t.module = m.module
-					and (t.level > 0) = (s.level > 0)
-					and (s.level <= 0 or t.level >= m.target_level)
-					and t.unit_id      is not distinct from s.unit_id
-					and t.kitchen_id   is not distinct from s.kitchen_id
-					and t.mess_hall_id is not distinct from s.mess_hall_id
-			)
-	);
-
-with role_map (min_level, module, target_level) as (
-	values
-		(1, 'alpha-requester', 1),
-		(2, 'alpha-procurement', 1),
-		(3, 'alpha-aci', 1),
-		(3, 'alpha-admin', 3)
-)
-delete from access_control.policy_statement s
-where s.module = 'alpha'
-	and not exists (
-		select 1
-		from role_map m
-		where (s.level <= 0 or s.level >= m.min_level)
-			and not exists (
-				select 1
-				from access_control.policy_statement t
-				where t.policy_id = s.policy_id
-					and t.module = m.module
-					and (t.level > 0) = (s.level > 0)
-					and (s.level <= 0 or t.level >= m.target_level)
-					and t.unit_id      is not distinct from s.unit_id
-					and t.kitchen_id   is not distinct from s.kitchen_id
-					and t.mess_hall_id is not distinct from s.mess_hall_id
-			)
-	);
-
--- O que foi convertido — e o que, se algo, ficou — aparece no output de quem aplica.
 do $$
 declare
-	v_converted   text;
-	v_left_inline integer;
-	v_left_policy integer;
+	v_converted text;
 begin
-	select string_agg(format('%s %s → %s %s (%s)', c.source, c.owner_id, c.module, c.level,
-			coalesce('OM ' || c.unit_id, 'cozinha ' || c.kitchen_id, 'refeitório ' || c.mess_hall_id, 'global')), '; ' order by c.source, c.owner_id, c.module)
+	select string_agg(format('%s → %s %s (%s)', c.owner_id, c.module, c.level,
+			coalesce('OM ' || c.unit_id, 'cozinha ' || c.kitchen_id, 'refeitório ' || c.mess_hall_id, 'global')), '; ' order by c.owner_id, c.module)
 		into v_converted
 		from alpha_legacy_converted c;
 	raise notice 'alpha: convertido nesta aplicação: %', coalesce(v_converted, 'nada');
-
-	select count(*) into v_left_inline from access_control.user_permissions where module = 'alpha';
-	select count(*) into v_left_policy from access_control.policy_statement where module = 'alpha';
-	if v_left_inline > 0 or v_left_policy > 0 then
-		raise notice 'alpha: % linha(s) inline e % statement(s) de política NÃO saíram — um papel da conversão já existia com nível abaixo do exigido; confira e reaplique', v_left_inline, v_left_policy;
-	end if;
 end
 $$;
 
