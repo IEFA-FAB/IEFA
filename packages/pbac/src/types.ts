@@ -28,11 +28,9 @@
  * - sucont-admin:        Administração do SUCONT (gerenciar grants dos módulos acima) —
  *                          sucont, unscoped/global. Usa level 3, o mesmo que o módulo
  *                          `sucont` único exigia antes do split: o backfill preserva o nível.
- * - alpha:               @deprecated — Projeto α, modelo antigo de UM módulo com nível aninhado
- *                          (1 requisitante, 2 licitações, 3 ACI), sem escopo. Substituído pelos
- *                          módulos de papel abaixo (20260918…_alpha_role_modules_unit_scope). Nada
- *                          mais o lê; o literal e as linhas ficam UMA versão, para o rollback do
- *                          deploy devolver o acesso, e saem num PR de limpeza (como o `sucont`).
+ *   (O antigo módulo `alpha`, de nível aninhado e sem escopo, SAIU: 20260921…_alpha_drop_legacy_module
+ *   apaga as linhas cobertas pelos papéis abaixo, e a regra opengrep `alpha-legacy-module-literal`
+ *   barra o literal. Papel novo do α é módulo novo aqui, nunca nível de outro.)
  * - alpha-requester:     Requisitante do α — escopado por `unit_id` (OM; nulo = global), level 1.
  *                          Enxerga TODAS as submissões das OMs que cobre (continuidade quando o
  *                          colega sai de férias). Enviar documento NÃO exige este grant: qualquer
@@ -76,8 +74,6 @@ export type AppModule =
 	| "sucont-3"
 	| "sucont-4"
 	| "sucont-admin"
-	/** @deprecated modelo de nível único; substituído pelos módulos `alpha-*` de papel. Sai no PR de limpeza. */
-	| "alpha"
 	| "alpha-requester"
 	| "alpha-procurement"
 	| "alpha-aci"

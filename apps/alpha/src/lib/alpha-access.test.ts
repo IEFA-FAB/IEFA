@@ -6,7 +6,6 @@ import {
 	decideSubmissionRead,
 	decideSubmissionReview,
 	hasRole,
-	legacyAccessFields,
 	needsUnitGraph,
 	resolveAlphaAccess,
 	unitsFor,
@@ -49,8 +48,11 @@ describe("resolveAlphaAccess", () => {
 		expect(access(permissions).roles).toEqual({ requester: [], procurement: [], aci: "all", admin: "all" })
 	})
 
-	test("o módulo `alpha` antigo não é mais lido — nem o allow, nem o deny", () => {
-		const legacy = access([grant("alpha", 3), grant("alpha", 0)])
+	// O módulo saiu do `AppModule`, mas a limpeza (20260921090000) mantém a linha que os papéis
+	// não cobrem — em produção, uma. Ela continua sem efeito nenhum.
+	test("uma linha do módulo `alpha` antigo que tenha sobrado não é lida — nem o allow, nem o deny", () => {
+		const legacyModule = "alpha" as UserPermission["module"]
+		const legacy = access([grant(legacyModule, 3), grant(legacyModule, 0)])
 		expect(legacy.roles).toEqual({ requester: [], procurement: [], aci: [], admin: [] })
 		expect(legacy.canSubmit).toBe(true)
 	})
@@ -112,7 +114,6 @@ describe("unitsFor / hasRole", () => {
 describe("decideSubmissionRead", () => {
 	test("o autor sempre lê o que enviou — mesmo sem papel e em OM que não cobre", () => {
 		expect(decideSubmissionRead(access([]), ME, { user_id: ME, unit_id: GAP_RJ })).toBe(true)
-		expect(decideSubmissionRead(access([]), ME, { user_id: ME, unit_id: null })).toBe(true)
 	})
 
 	test("sem papel, a submissão do colega não", () => {
@@ -132,11 +133,6 @@ describe("decideSubmissionRead", () => {
 		expect(decideSubmissionRead(access([grant("alpha-aci", 1, GAP_RJ)]), ME, { user_id: COLLEAGUE, unit_id: IAE })).toBe(false)
 	})
 
-	test("submissão sem OM: só o autor e o papel global", () => {
-		expect(decideSubmissionRead(access([grant("alpha-aci", 1, GAP_SJ)]), ME, { user_id: COLLEAGUE, unit_id: null })).toBe(false)
-		expect(decideSubmissionRead(access([grant("alpha-aci", 1)]), ME, { user_id: COLLEAGUE, unit_id: null })).toBe(true)
-	})
-
 	test("alpha-admin não lê processo — administrar acesso não é papel de fluxo", () => {
 		expect(decideSubmissionRead(access([grant("alpha-admin", 3)]), ME, { user_id: COLLEAGUE, unit_id: IAE })).toBe(false)
 	})
@@ -154,26 +150,62 @@ describe("decideSubmissionReview", () => {
 	})
 })
 
-describe("legacyAccessFields", () => {
-	test("deriva o formato por nível a partir dos papéis", () => {
-		expect(legacyAccessFields(access([]))).toEqual({ level: 0, can_see_all: false, can_decide: false, can_manage_access: false })
-		expect(legacyAccessFields(access([grant("alpha-requester", 1, IAE)]))).toEqual({
-			level: 1,
-			can_see_all: false,
-			can_decide: false,
-			can_manage_access: false,
-		})
-		expect(legacyAccessFields(access([grant("alpha-procurement", 1, GAP_SJ)]))).toMatchObject({ level: 2, can_see_all: true, can_decide: false })
-		expect(legacyAccessFields(access([grant("alpha-aci", 1, IAE), grant("alpha-admin", 3, IAE)]))).toEqual({
-			level: 3,
-			can_see_all: true,
-			can_decide: true,
-			can_manage_access: true,
-		})
+/**
+ * Acúmulo de papéis, SEM segregação de funções — decisão do mantenedor (2026-09-19): a mesma
+ * pessoa pode ser requisitante, licitações, ACI e administradora na MESMA OM, e o ACI que
+ * enviou o documento tria e emite parecer sobre ele. Se um destes testes falhar, é mudança
+ * de regra — não conserto.
+ */
+describe("acúmulo de papéis (sem segregação de funções)", () => {
+	const allFourAtIae = [grant("alpha-requester", 1, IAE), grant("alpha-procurement", 1, IAE), grant("alpha-aci", 1, IAE), grant("alpha-admin", 3, IAE)]
+
+	test("os quatro papéis na mesma OM resolvem juntos, sem um apagar o outro", () => {
+		const a = access(allFourAtIae)
+		expect(a.roles).toEqual({ requester: [IAE], procurement: [IAE], aci: [IAE], admin: [IAE] })
+		expect(a.canSubmit).toBe(true)
+		for (const role of ["requester", "procurement", "aci", "admin"] as const) expect(hasRole(a, role)).toBe(true)
 	})
 
-	test("o backfill (quatro papéis globais) reproduz exatamente o ACI + admin de antes", () => {
-		const backfilled = access([grant("alpha-requester", 1), grant("alpha-procurement", 1), grant("alpha-aci", 1), grant("alpha-admin", 3)])
-		expect(legacyAccessFields(backfilled)).toEqual({ level: 3, can_see_all: true, can_decide: true, can_manage_access: true })
+	test("a cobertura de leitura e a da fila são a união dos papéis", () => {
+		const a = access(allFourAtIae)
+		expect(unitsFor(a, "requester", "procurement", "aci")).toEqual([IAE])
+		expect(unitsFor(a, "procurement", "aci")).toEqual([IAE])
+		expect(unitsFor(a, "requester", "procurement", "aci", "admin")).toEqual([IAE])
+	})
+
+	test("o autor que é ACI da OM tria e emite parecer no PRÓPRIO processo", () => {
+		const a = access(allFourAtIae)
+		const own = { user_id: ME, unit_id: IAE }
+		expect(decideSubmissionRead(a, ME, own)).toBe(true)
+		expect(decideSubmissionReview(a, own)).toBe(true)
+	})
+
+	test("e decide também o processo do colega da mesma OM", () => {
+		const a = access(allFourAtIae)
+		const colleague = { user_id: COLLEAGUE, unit_id: IAE }
+		expect(decideSubmissionRead(a, ME, colleague)).toBe(true)
+		expect(decideSubmissionReview(a, colleague)).toBe(true)
+	})
+
+	test("acumular papéis não alarga o escopo: fora da OM, nada", () => {
+		const a = access(allFourAtIae)
+		expect(decideSubmissionRead(a, ME, { user_id: COLLEAGUE, unit_id: GAP_SJ })).toBe(false)
+		expect(decideSubmissionReview(a, { user_id: ME, unit_id: GAP_SJ })).toBe(false)
+	})
+
+	test("papéis acumulados em OMs diferentes: cada um no seu escopo", () => {
+		const a = access([grant("alpha-requester", 1, IEFA), grant("alpha-aci", 1, IAE), grant("alpha-procurement", 1, GAP_SJ)])
+		expect(a.roles).toEqual({ requester: [IEFA], procurement: [GAP_SJ, IAE, DCTA, IEFA], aci: [IAE], admin: [] })
+		expect(decideSubmissionReview(a, { user_id: ME, unit_id: IAE })).toBe(true)
+		expect(decideSubmissionReview(a, { user_id: ME, unit_id: IEFA })).toBe(false)
+	})
+
+	test("o bloqueio no copiloto (deny sem escopo nos quatro) derruba todos os papéis e o envio", () => {
+		const blocked = access([...allFourAtIae, ...(["alpha-requester", "alpha-procurement", "alpha-aci", "alpha-admin"] as const).map((m) => grant(m, 0))])
+		expect(blocked.roles).toEqual({ requester: [], procurement: [], aci: [], admin: [] })
+		expect(blocked.canSubmit).toBe(false)
+		// O autor segue lendo o que ele mesmo enviou — como qualquer conta sem papel.
+		expect(decideSubmissionRead(blocked, ME, { user_id: ME, unit_id: IAE })).toBe(true)
+		expect(decideSubmissionReview(blocked, { user_id: ME, unit_id: IAE })).toBe(false)
 	})
 })

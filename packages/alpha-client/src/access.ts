@@ -11,11 +11,15 @@
  * `alpha-aci`, `alpha-admin`). A cobertura vem JÁ expandida pela hierarquia de apoio: grant
  * no GAP-SJ lista também IAE, DCTA e IEFA. `"all"` é o grant global.
  *
- * ## Campos legados
+ * Os papéis se ACUMULAM: a mesma pessoa pode ter os quatro, na mesma OM (sem segregação de
+ * funções, decisão do mantenedor de 2026-09-19).
  *
- * `level`, `can_see_all`, `can_decide` e `can_manage_access` são o formato de antes do escopo
- * por OM, derivados dos papéis para o contrate já publicado seguir funcionando até ser
- * atualizado. Saem junto com o módulo `alpha`, no PR de limpeza.
+ * ## Campos legados — removidos
+ *
+ * `level`, `can_see_all`, `can_decide` e `can_manage_access` (o formato por nível de antes do
+ * escopo por OM) saíram no PR de limpeza. O `z.object` descarta chave desconhecida, então um
+ * contrate com este schema lê tanto o α que ainda os manda quanto o que não manda — mas o
+ * contrate ANTERIOR os exige, e por isso o contrate sobe antes do α (ver o PR).
  */
 
 import { z } from "zod"
@@ -48,15 +52,6 @@ export const MeAccessSchema = z.object({
 	units: z.array(AccessUnitSchema),
 	/** Pode enviar documento. Só um deny sem escopo em `alpha-requester` fecha. */
 	can_submit: z.boolean(),
-
-	/** @deprecated nível do módulo `alpha` antigo: 3 ACI, 2 licitações, 1 requisitante, 0 nenhum. */
-	level: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
-	/** @deprecated "enxerga a fila": licitações ou ACI em alguma OM. */
-	can_see_all: z.boolean(),
-	/** @deprecated ACI em alguma OM — a decisão por processo vem em `can_decide` do processo. */
-	can_decide: z.boolean(),
-	/** @deprecated `alpha-admin` 3 em alguma OM. */
-	can_manage_access: z.boolean(),
 })
 export type MeAccess = z.infer<typeof MeAccessSchema>
 

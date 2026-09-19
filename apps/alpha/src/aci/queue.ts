@@ -28,8 +28,8 @@ export type RunStatus = "running" | "succeeded" | "failed"
 export interface QueueRow {
 	submission_id: string
 	user_id: string
-	/** OM a que a submissão foi atribuída. Nula só em registro anterior ao escopo por OM. */
-	unit_id: number | null
+	/** OM a que a submissão foi atribuída — obrigatória (NOT NULL desde 20260921090000). */
+	unit_id: number
 	filename: string
 	doc_kind: string
 	modalidade: string | null
@@ -52,7 +52,7 @@ export interface QueueRow {
 export interface QueueSubmission {
 	id: string
 	user_id: string
-	unit_id: number | null
+	unit_id: number
 	filename: string
 	doc_kind: string
 	modalidade: string | null

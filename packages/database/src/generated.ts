@@ -1034,7 +1034,7 @@ export type Database = {
           modalidade: string | null
           objeto: string | null
           storage_path: string
-          unit_id: number | null
+          unit_id: number
           user_id: string
         }
         Insert: {
@@ -1046,7 +1046,7 @@ export type Database = {
           modalidade?: string | null
           objeto?: string | null
           storage_path: string
-          unit_id?: number | null
+          unit_id: number
           user_id: string
         }
         Update: {
@@ -1058,7 +1058,7 @@ export type Database = {
           modalidade?: string | null
           objeto?: string | null
           storage_path?: string
-          unit_id?: number | null
+          unit_id?: number
           user_id?: string
         }
         Relationships: []

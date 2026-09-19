@@ -10,7 +10,7 @@ import type { AccessUnit, MeAccess, UnitOption, UnitSet } from "@iefa/alpha-clie
 import type { User } from "@supabase/supabase-js"
 import { Hono } from "hono"
 import { core } from "../db/supabase.ts"
-import { type AlphaAccess, legacyAccessFields, unitsFor } from "../lib/alpha-access.ts"
+import { type AlphaAccess, unitsFor } from "../lib/alpha-access.ts"
 
 type Variables = { user: User; access: AlphaAccess }
 
@@ -20,7 +20,6 @@ export function buildMeAccess(access: AlphaAccess, units: AccessUnit[]): MeAcces
 		roles: { ...access.roles },
 		units,
 		can_submit: access.canSubmit,
-		...legacyAccessFields(access),
 	}
 }
 
@@ -30,8 +29,8 @@ export function coverageForPickers(access: AlphaAccess): UnitSet {
 }
 
 export const accessRoutes = new Hono<{ Variables: Variables }>()
-	// GET /api/v1/me/access — papéis por OM (já expandidos pela hierarquia de apoio), as OMs
-	// que eles alcançam e os campos legados do formato por nível.
+	// GET /api/v1/me/access — papéis por OM (já expandidos pela hierarquia de apoio) e as OMs
+	// que eles alcançam.
 	.get("/api/v1/me/access", async (c) => {
 		const access = c.get("access")
 		const coverage = coverageForPickers(access)

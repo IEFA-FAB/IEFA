@@ -136,7 +136,7 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 		return c.json({
 			submission,
 			// A OM do processo, no nível de cima para a tela não precisar abrir `submission`.
-			unit_id: submission.unit_id as number | null,
+			unit_id: submission.unit_id as number,
 			// Decidido aqui, com a MESMA regra que as rotas de triagem e parecer aplicam: ACI
 			// que cobre a OM deste processo. A tela não recalcula.
 			can_decide: decideSubmissionReview(c.get("access"), submission as SubmissionOwnership),

@@ -17,7 +17,7 @@ export type ProcessPage = "processos" | "relatorio"
  * O caminho novo de um processo (ou relatório) da OM `unitId`. Sem escopo que sirva, o hub do
  * Requisitante — que nunca é vazio (quem não tem papel lá tem `minhas`).
  */
-export function resolveLegacyProcessPath(access: MeAccess, unitId: number | null, page: ProcessPage, id: string): string {
+export function resolveLegacyProcessPath(access: MeAccess, unitId: number, page: ProcessPage, id: string): string {
 	for (const moduleId of ["aci", "requisitante"] as const) {
 		const module = getModule(moduleId)
 		const scope = pickScopeForUnit(moduleScopeOptions(module, access), unitId)

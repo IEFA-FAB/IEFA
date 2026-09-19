@@ -1,4 +1,4 @@
-import type { AlphaRole, MeAccess, UnitSet } from "@iefa/alpha-client/access"
+import type { AlphaRole, UnitSet } from "@iefa/alpha-client/access"
 import {
 	type AppModule,
 	coversUnit,
@@ -31,8 +31,17 @@ export { coversUnit, isEmptyCoverage }
  * chega às rotas já pronta, como `UnitSet`.
  *
  * Antes daqui, os papéis eram níveis aninhados de um módulo `alpha` único e sem escopo —
- * licitações e ACI enxergavam a FAB inteira. O módulo `alpha` não é mais lido (ver
- * `@iefa/pbac` `types.ts`).
+ * licitações e ACI enxergavam a FAB inteira. Esse módulo saiu do `AppModule` e as linhas
+ * dele foram apagadas (20260921090000); uma linha que tenha sobrado não é lida aqui.
+ *
+ * ## Papéis se acumulam — sem segregação de funções
+ *
+ * A mesma pessoa pode ter os quatro papéis ao mesmo tempo, inclusive na mesma OM: cada papel
+ * é resolvido sozinho, e as decisões usam a UNIÃO deles. Não há exclusão mútua entre
+ * requisitante, licitações, ACI e administração, nem entre ser autor e ser ACI do processo.
+ * Decisão do mantenedor (2026-09-19), por versatilidade das OMs pequenas e para teste; os
+ * testes de `alpha-access.test.ts` ("acúmulo de papéis") fixam isso — mudar exige decisão
+ * nova, não correção de bug.
  *
  * ## Enviar documento não exige papel
  *
@@ -96,8 +105,11 @@ export function hasRole(access: AlphaAccess, role: AlphaRole, options: { global?
 	return options.global ? coverage === "all" : !isEmptyCoverage(coverage)
 }
 
-/** O que decide o acesso a uma submissão: quem enviou e a OM a que foi atribuída. */
-export type SubmissionOwnership = { user_id: string; unit_id: number | null }
+/**
+ * O que decide o acesso a uma submissão: quem enviou e a OM a que foi atribuída. A OM é
+ * obrigatória no banco (`alpha.submission.unit_id` NOT NULL desde 20260921090000).
+ */
+export type SubmissionOwnership = { user_id: string; unit_id: number }
 
 /** Papéis que leem as submissões da OM: requisitante, licitações e ACI. */
 export const READER_ROLES: readonly AlphaRole[] = ["requester", "procurement", "aci"]
@@ -106,8 +118,7 @@ export const READER_ROLES: readonly AlphaRole[] = ["requester", "procurement", "
  * O usuário pode ler esta submissão (e tudo o que pende dela: extração, texto, execução,
  * parecer, relatório)?
  *
- * Allow-list: o autor, ou um papel de leitura que cubra a OM da submissão. Submissão sem OM
- * (anterior ao escopo por OM) só o autor e os papéis globais alcançam.
+ * Allow-list: o autor, ou um papel de leitura que cubra a OM da submissão.
  */
 export function decideSubmissionRead(access: AlphaAccess, userId: string, submission: SubmissionOwnership): boolean {
 	if (submission.user_id === userId) return true
@@ -116,23 +127,13 @@ export function decideSubmissionRead(access: AlphaAccess, userId: string, submis
 
 /**
  * O usuário pode triar achado e emitir parecer nesta submissão? Só o ACI que cobre a OM
- * dela — ser o autor NÃO basta, e ser ACI de outra OM também não.
+ * dela — ser o autor, sozinho, NÃO basta, e ser ACI de outra OM também não.
+ *
+ * Ser o autor também NÃO impede: o ACI da OM que enviou o próprio documento tria e emite
+ * parecer sobre ele. A segregação de funções (quem elabora não confere) NÃO é aplicada, por
+ * decisão do mantenedor em 2026-09-19 — ver "Papéis se acumulam" no topo do arquivo. Por
+ * isso a função nem recebe quem pede: o autor não entra na conta.
  */
 export function decideSubmissionReview(access: AlphaAccess, submission: SubmissionOwnership): boolean {
 	return coversUnit(access.roles.aci, submission.unit_id)
-}
-
-/**
- * Os campos do `/me/access` de antes do escopo por OM, derivados dos papéis — para o
- * contrate já publicado seguir funcionando até ser atualizado. `level` segue a hierarquia
- * antiga (ACI > licitações > requisitante), agora "em alguma OM".
- */
-export function legacyAccessFields(access: AlphaAccess): Pick<MeAccess, "level" | "can_see_all" | "can_decide" | "can_manage_access"> {
-	const level = hasRole(access, "aci") ? 3 : hasRole(access, "procurement") ? 2 : hasRole(access, "requester") ? 1 : 0
-	return {
-		level,
-		can_see_all: hasRole(access, "procurement") || hasRole(access, "aci"),
-		can_decide: hasRole(access, "aci"),
-		can_manage_access: hasRole(access, "admin"),
-	}
 }
