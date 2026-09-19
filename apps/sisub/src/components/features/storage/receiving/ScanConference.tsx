@@ -1,6 +1,6 @@
 import { useRouter } from "@tanstack/react-router"
 import { Check, ListChecks, PackageCheck, Undo2 } from "lucide-react"
-import { useState } from "react"
+import { type ComponentProps, useRef, useState } from "react"
 import { ScanInput } from "@/components/features/storage/scan/ScanInput"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -73,6 +73,7 @@ const METHOD_LABEL: Record<string, string> = {
 	typed: "digitado",
 	bulk_confirm: "aceito conforme faturado",
 	reversal: "estorno",
+	refusal: "recusa",
 }
 
 /** Identificador da leitura, gerado no clique: o retry não conta duas vezes. */
@@ -80,19 +81,46 @@ function newClientEventId(): string {
 	return crypto.randomUUID()
 }
 
+/** Uma leitura como chega do leitor — guardada para ser contada depois de associar o código. */
+interface PendingScan {
+	raw: string
+	gtin: string
+	lotCode?: string
+	expiryDate?: string
+	times: number
+}
+
 interface ScanConferenceProps {
 	receiptId: string
 	lines: ConferenceLine[]
 	events: ScanEventRow[]
 	editable: boolean
-	scannerConfig: { prefix?: string; suffix?: string; gsSubstitute?: string }
+	/**
+	 * Perfil calibrado da estação, INTEIRO (`scannerPropsFrom`): prefixo/sufixo E
+	 * terminador e ritmo. Passar só o prefixo fazia o leitor calibrado sem
+	 * terminador nunca enviar a leitura.
+	 */
+	scannerProps: Pick<ComponentProps<typeof ScanInput>, "config" | "terminator" | "timing">
 }
 
-export function ScanConference({ receiptId, lines, events, editable, scannerConfig }: ScanConferenceProps) {
+/** Embalagens da leitura: inteiro de 1 a 999, como o servidor aceita. "2,5" não é 2. */
+function parseMultiplier(value: string): number | null {
+	const trimmed = value.trim()
+	if (!/^\d{1,3}$/.test(trimmed)) return null
+	const times = Number(trimmed)
+	return times >= 1 && times <= 999 ? times : null
+}
+
+export function ScanConference({ receiptId, lines, events, editable, scannerProps }: ScanConferenceProps) {
 	const router = useRouter()
 	const [busy, setBusy] = useState(false)
 	const [multiplier, setMultiplier] = useState("1")
-	const [unknownGtin, setUnknownGtin] = useState<string | null>(null)
+	// A FILA das leituras. Desligar o campo durante a gravação desligava também a
+	// captura global, e caixas lidas em sequência rápida sumiam sem aviso. Agora o
+	// campo segue ligado e cada leitura espera a anterior terminar, na ordem.
+	const scanQueue = useRef<Promise<unknown>>(Promise.resolve())
+	const [queued, setQueued] = useState(0)
+	const [unknownScan, setUnknownScan] = useState<PendingScan | null>(null)
 	const [associateTo, setAssociateTo] = useState<string>("")
 	const [refusing, setRefusing] = useState<ConferenceLine | null>(null)
 	const [refusalReason, setRefusalReason] = useState<(typeof REFUSAL_REASONS)[number]["value"]>("damaged")
@@ -100,7 +128,12 @@ export function ScanConference({ receiptId, lines, events, editable, scannerConf
 	const [replacementPromised, setReplacementPromised] = useState(false)
 
 	const reversed = new Set(events.filter((event) => event.method === "reversal").map((event) => event.reversed_event_id))
-	const pendingLines = lines.filter((line) => !events.some((event) => event.receipt_item_id === line.id))
+	// Evento VIVO: não é estorno e não foi estornado. Linha sem evento vivo não foi
+	// conferida — a importação põe o faturado nela, e mostrá-la "completa" fazia
+	// uma nota de 40 linhas parecer conferida antes de qualquer leitura.
+	const liveEvents = events.filter((event) => event.method !== "reversal" && !reversed.has(event.id))
+	const conferredIds = new Set(liveEvents.map((event) => event.receipt_item_id))
+	const pendingLines = lines.filter((line) => !conferredIds.has(line.id))
 
 	async function run<T>(action: () => Promise<T>, success?: string): Promise<T | undefined> {
 		setBusy(true)
@@ -117,33 +150,44 @@ export function ScanConference({ receiptId, lines, events, editable, scannerConf
 		}
 	}
 
-	async function handleScan(raw: string, gtin: string, lotCode?: string, expiryDate?: string) {
-		const times = Math.max(1, Number(multiplier) || 1)
-		const result = await run(() =>
-			recordScanEventFn({
+	/** Grava UMA leitura. Devolve `true` quando ela casou com uma linha. */
+	async function recordScan(scan: PendingScan): Promise<boolean> {
+		try {
+			const result = await recordScanEventFn({
 				data: {
 					receiptId,
 					clientEventId: newClientEventId(),
-					rawCode: raw,
-					gtin,
-					lotCode,
-					expiryDate,
-					multiplier: times,
+					rawCode: scan.raw,
+					gtin: scan.gtin,
+					lotCode: scan.lotCode,
+					expiryDate: scan.expiryDate,
+					multiplier: scan.times,
 				},
 			})
-		)
-		if (!result) return
-		if (!result.matched) {
-			// o sistema não adiciona item que a nota não tem: quem decide é o operador
-			setUnknownGtin(gtin)
+			if (!result.matched) {
+				// o sistema não adiciona item que a nota não tem: quem decide é o operador
+				setUnknownScan(scan)
+				return false
+			}
+			if (result.duplicate) toast.info("Esta leitura já tinha sido registrada")
+			else toast.success(`+${NUM.format(result.quantityBase)} conferido${scan.times > 1 ? ` (${scan.times} embalagens)` : ""}`)
+			await router.invalidate()
+			return true
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Erro ao registrar a leitura")
+			return false
+		}
+	}
+
+	function handleScan(raw: string, gtin: string, lotCode?: string, expiryDate?: string) {
+		const times = parseMultiplier(multiplier)
+		if (times == null) {
+			toast.error("Embalagens: informe um número inteiro de 1 a 999 — a leitura não foi registrada")
 			return
 		}
-		if (result.duplicate) {
-			toast.info("Esta leitura já tinha sido registrada")
-			return
-		}
-		toast.success(`+${NUM.format(result.quantityBase)} conferido${times > 1 ? ` (${times} embalagens)` : ""}`)
 		setMultiplier("1")
+		setQueued((count) => count + 1)
+		scanQueue.current = scanQueue.current.then(() => recordScan({ raw, gtin, lotCode, expiryDate, times })).finally(() => setQueued((count) => count - 1))
 	}
 
 	return (
@@ -162,8 +206,7 @@ export function ScanConference({ receiptId, lines, events, editable, scannerConf
 								<ScanInput
 									label="Código do volume"
 									placeholder="Leia o código do volume recebido…"
-									disabled={busy}
-									config={scannerConfig}
+									{...scannerProps}
 									onReading={(reading) => {
 										if (reading.kind === "gtin") handleScan(reading.raw, reading.gtin)
 										else if (reading.kind === "gs1" && reading.fields.gtin) {
@@ -176,11 +219,18 @@ export function ScanConference({ receiptId, lines, events, editable, scannerConf
 							</div>
 							<div className="w-28 space-y-1">
 								<Label htmlFor="multiplier">Embalagens</Label>
-								<Input id="multiplier" inputMode="numeric" value={multiplier} onChange={(event) => setMultiplier(event.target.value)} />
+								<Input
+									id="multiplier"
+									inputMode="numeric"
+									value={multiplier}
+									aria-invalid={parseMultiplier(multiplier) == null}
+									onChange={(event) => setMultiplier(event.target.value)}
+								/>
 							</div>
 						</div>
 						<p className="text-xs text-muted-foreground">
 							Leia uma embalagem e informe quantas iguais chegaram — ler 30 caixas uma a uma é o que faz a conferência parar no meio.
+							{queued > 0 && ` Gravando ${queued} leitura(s)…`}
 						</p>
 
 						{pendingLines.length > 0 && (
@@ -210,18 +260,21 @@ export function ScanConference({ receiptId, lines, events, editable, scannerConf
 				</CardHeader>
 				<CardContent className="space-y-2">
 					{lines.map((line) => {
+						const conferred = conferredIds.has(line.id)
+						const refused = line.divergence_reason?.startsWith("Recusado:") ?? false
 						const remaining = line.invoiced_qty_base == null ? null : Number((line.invoiced_qty_base - line.received_qty_base).toFixed(4))
-						const done = remaining != null && Math.abs(remaining) < 0.0001
-						const over = remaining != null && remaining < 0
-						const lineEvents = events.filter((event) => event.receipt_item_id === line.id && event.method !== "reversal" && !reversed.has(event.id))
+						const done = conferred && !refused && remaining != null && Math.abs(remaining) < 0.0001
+						const over = conferred && remaining != null && remaining < 0
+						const short = conferred && !refused && remaining != null && remaining > 0
+						const lineEvents = liveEvents.filter((event) => event.receipt_item_id === line.id)
 						return (
 							<div key={line.id} className="rounded-xl border p-3 text-sm">
 								<div className="flex flex-wrap items-center justify-between gap-2">
 									<div>
 										<strong>{line.description}</strong>
 										<span className="ml-2 text-xs text-muted-foreground">
-											conferido {NUM.format(line.received_qty_base)}
-											{line.invoiced_qty_base != null && ` de ${NUM.format(line.invoiced_qty_base)}`} {line.measure_unit ?? ""}
+											{conferred ? `conferido ${NUM.format(line.received_qty_base)}` : "não conferida"}
+											{line.invoiced_qty_base != null && ` · faturado ${NUM.format(line.invoiced_qty_base)}`} {line.measure_unit ?? ""}
 										</span>
 									</div>
 									<div className="flex items-center gap-2">
@@ -236,9 +289,15 @@ export function ScanConference({ receiptId, lines, events, editable, scannerConf
 												a maior: {NUM.format(Math.abs(remaining))}
 											</Badge>
 										)}
-										{remaining != null && remaining > 0 && (
+										{short && remaining != null && (
 											<Badge variant="outline" className="text-xs">
 												falta {NUM.format(remaining)}
+												{!line.divergence_reason && " — informe o motivo na linha"}
+											</Badge>
+										)}
+										{refused && (
+											<Badge variant="outline" className="text-xs text-warning">
+												recusada
 											</Badge>
 										)}
 										{editable && (
@@ -249,9 +308,10 @@ export function ScanConference({ receiptId, lines, events, editable, scannerConf
 													variant="ghost"
 													disabled={busy}
 													onClick={() => {
+														// é o TOTAL da linha (substitui o que havia), não mais uma embalagem
 														const value = window.prompt(
-															`Quantidade conferida de ${line.description} (${line.measure_unit ?? ""})`,
-															String(line.invoiced_qty_base ?? "")
+															`Quantidade TOTAL conferida de ${line.description} (${line.measure_unit ?? ""}) — substitui o que já foi lido`,
+															String(conferred ? line.received_qty_base : (line.invoiced_qty_base ?? ""))
 														)
 														if (value == null) return
 														const quantity = Number(value.replace(",", "."))
@@ -308,14 +368,14 @@ export function ScanConference({ receiptId, lines, events, editable, scannerConf
 			</Card>
 
 			{/* Código que não está na nota: o sistema não decide sozinho */}
-			{unknownGtin && (
-				<Dialog open onOpenChange={(open) => !open && setUnknownGtin(null)}>
+			{unknownScan && (
+				<Dialog open onOpenChange={(open) => !open && setUnknownScan(null)}>
 					<DialogContent>
 						<DialogHeader>
 							<DialogTitle>Código não consta nesta nota</DialogTitle>
 							<DialogDescription>
-								O GTIN {unknownGtin} não corresponde a nenhuma linha. Pode ser embalagem nova do mesmo produto, item trocado pelo fornecedor, ou volume de outra
-								entrega.
+								O GTIN {unknownScan.gtin} não corresponde a nenhuma linha. Pode ser embalagem nova do mesmo produto, item trocado pelo fornecedor, ou volume de
+								outra entrega.
 							</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-2">
@@ -337,16 +397,21 @@ export function ScanConference({ receiptId, lines, events, editable, scannerConf
 							</p>
 						</div>
 						<DialogFooter>
-							<Button type="button" variant="ghost" onClick={() => setUnknownGtin(null)}>
+							<Button type="button" variant="ghost" onClick={() => setUnknownScan(null)}>
 								Ignorar
 							</Button>
 							<Button
 								type="button"
 								disabled={busy || !associateTo}
 								onClick={async () => {
-									await run(() => associateGtinToLineFn({ data: { receiptItemId: associateTo, gtin: unknownGtin } }), "Código associado")
-									setUnknownGtin(null)
+									const scan = unknownScan
+									const associated = await run(() => associateGtinToLineFn({ data: { receiptItemId: associateTo, gtin: scan.gtin } }), "Código associado")
+									// falhou: o diálogo fica, com o código e a escolha, para tentar de novo
+									if (!associated) return
+									setUnknownScan(null)
 									setAssociateTo("")
+									// a caixa que abriu o diálogo também conta — agora o código casa
+									await recordScan(scan)
 								}}
 							>
 								Associar
@@ -396,13 +461,21 @@ export function ScanConference({ receiptId, lines, events, editable, scannerConf
 								type="button"
 								disabled={busy}
 								onClick={async () => {
-									await run(
+									const refused = await run(
 										() =>
 											refuseReceiptLineFn({
-												data: { receiptItemId: refusing.id, reason: refusalReason, note: refusalNote.trim() || undefined, replacementPromised },
+												data: {
+													receiptItemId: refusing.id,
+													clientEventId: newClientEventId(),
+													reason: refusalReason,
+													note: refusalNote.trim() || undefined,
+													replacementPromised,
+												},
 											}),
 										"Linha recusada"
 									)
+									// falhou: o diálogo fica, com o motivo e a nota digitados
+									if (!refused) return
 									setRefusing(null)
 									setRefusalNote("")
 									setReplacementPromised(false)

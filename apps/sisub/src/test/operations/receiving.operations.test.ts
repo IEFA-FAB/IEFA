@@ -156,4 +156,94 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 				})
 		).resolves.toBe("rolled-back")
 	}, 30_000)
+
+	test("conferência por leitura: total e lotes saem dos eventos (20260920240000)", async () => {
+		await expect(
+			sql
+				.begin(async (tx) => {
+					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-CONF', 'unit teste conferência') returning id`
+					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha conferência') returning id`
+					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('LEITE TESTE CONF', 'L') returning id`
+					const [receipt] = await tx`insert into inventory.goods_receipt (kitchen_id) values (${kitchenRow.id}) returning id`
+					// como a importação da nota deixa a linha: faturado 10, recebido 10, lote da nota com 10
+					const [item] = await tx`
+						insert into inventory.goods_receipt_item (receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
+						values (${receipt.id}, ${ingredient.id}, 10, 10, 4) returning id`
+					await tx`insert into inventory.goods_receipt_item_lot (receipt_item_id, lot_code, quantity_base, unit_cost)
+						values (${item.id}, 'NF-L9', 10, 4)`
+
+					let n = 0
+					const event = async (method: string, quantity: number, lotCode: string | null = null) => {
+						n += 1
+						const [row] = await tx`
+							insert into inventory.receipt_scan_event (receipt_id, receipt_item_id, client_event_id, method, quantity_base, lot_code, expiry_date)
+							values (${receipt.id}, ${item.id}, ${`ev-conf-${n}`}, ${method}, ${quantity}, ${lotCode}, ${lotCode ? "2027-01-31" : null})
+							returning id`
+						return row.id as string
+					}
+					const reverse = async (eventId: string) => {
+						n += 1
+						await tx`
+							insert into inventory.receipt_scan_event (receipt_id, receipt_item_id, client_event_id, method, quantity_base, reversed_event_id)
+							values (${receipt.id}, ${item.id}, ${`ev-conf-${n}`}, 'reversal', 0, ${eventId})`
+					}
+					const state = async () => {
+						const [{ sync_receipt_line: total }] = await tx`select inventory.sync_receipt_line(${item.id})`
+						const lots = await tx`select lot_code, quantity_base from inventory.goods_receipt_item_lot where receipt_item_id = ${item.id} order by lot_code`
+						const [line] = await tx`select received_qty_base, divergence_reason from inventory.goods_receipt_item where id = ${item.id}`
+						return {
+							total: Number(total),
+							received: Number(line.received_qty_base),
+							reason: line.divergence_reason as string | null,
+							lots: Object.fromEntries(lots.map((lot) => [lot.lot_code as string, Number(lot.quantity_base)])) as Record<string, number>,
+						}
+					}
+
+					// leitura simples de 4: o lote da nota acompanha (antes ficava 10 e a efetivação travava)
+					await event("scanner", 4)
+					expect(await state()).toMatchObject({ total: 4, received: 4, lots: { "NF-L9": 4 } })
+
+					// etiqueta GS1 com lote: o lote lido nasce na tabela de lotes
+					await event("scanner", 3, "GS1-L1")
+					expect(await state()).toMatchObject({ total: 7, lots: { "GS1-L1": 3, "NF-L9": 4 } })
+
+					// total informado: supera as leituras de antes — inclusive o lote lido
+					const typed = await event("typed", 6)
+					expect(await state()).toMatchObject({ total: 6, lots: { "NF-L9": 6 } })
+
+					// leitura DEPOIS do total soma a ele (a regra antiga deixava o total vencer)
+					await event("scanner", 2)
+					expect(await state()).toMatchObject({ total: 8, lots: { "NF-L9": 8 } })
+
+					// recusa: total zero, lote sai, motivo fica enquanto a recusa estiver viva
+					await tx`update inventory.goods_receipt_item set divergence_reason = 'Recusado: Avaria' where id = ${item.id}`
+					const refusal = await event("refusal", 0)
+					const refused = await state()
+					expect(refused).toMatchObject({ total: 0, reason: "Recusado: Avaria" })
+					expect(Object.keys(refused.lots)).toHaveLength(0)
+
+					// desfeita a recusa, volta o total de antes e o motivo "Recusado:" sai
+					await reverse(refusal)
+					const restored = await state()
+					expect(restored.total).toBe(8)
+					expect(restored.reason).toBeNull()
+					expect(Object.values(restored.lots).reduce((a, b) => a + b, 0)).toBe(8)
+
+					// desfeito o total informado, valem as leituras de antes dele de novo
+					await reverse(typed)
+					expect((await state()).total).toBe(4 + 3 + 2)
+
+					// e a efetivação fecha: a soma dos lotes bate com o conferido
+					await tx`update inventory.goods_receipt set status = 'provisional', provisional_at = now() where id = ${receipt.id}`
+					const [finalized] = await tx`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
+					expect(Number(finalized.movements)).toBeGreaterThan(0)
+
+					throw new Rollback()
+				})
+				.catch((err) => {
+					if (err instanceof Rollback) return "rolled-back"
+					throw err
+				})
+		).resolves.toBe("rolled-back")
+	}, 30_000)
 })

@@ -15,6 +15,7 @@ import { ArrowLeft, CheckCheck, ClipboardCheck, Plus, Printer, Thermometer, Tras
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { ScanConference } from "@/components/features/storage/receiving/ScanConference"
+import { scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -468,7 +469,8 @@ function ReceiptDetailPage() {
 							Recebimento provisório
 						</Button>
 					)}
-					{(receipt.status === "provisional" || receipt.status === "divergent") && (
+					{/* Efetivação é única: recebimento `divergent` JÁ efetivado mostrava o botão, que sempre falhava */}
+					{(receipt.status === "provisional" || receipt.status === "divergent") && receipt.definitive_at == null && (
 						<Button size="sm" className="gap-1.5" disabled={busy} onClick={toDefinitive}>
 							{busy ? <Spinner className="size-4" /> : <CheckCheck className="size-4" />}
 							Efetivar definitivo
@@ -508,11 +510,7 @@ function ReceiptDetailPage() {
 					divergence_reason: item.divergence_reason,
 				}))}
 				events={scanEvents as never[]}
-				scannerConfig={{
-					prefix: scannerProfile.prefix ?? undefined,
-					suffix: scannerProfile.suffix ?? undefined,
-					gsSubstitute: scannerProfile.gsSubstitute ?? undefined,
-				}}
+				scannerProps={scannerPropsFrom(scannerProfile)}
 			/>
 
 			{receipt.fiscal_pending && (
@@ -542,12 +540,16 @@ function ReceiptDetailPage() {
 											resolution === "glosa" ? "Referência da glosa (processo/documento)" : "Chave de acesso da NF-e (44 caracteres)"
 										)
 										if (!reference) return
+										// trava os três botões enquanto viaja: duplo clique mandava duas resoluções
+										setBusy(true)
 										try {
 											await resolveFiscalPendingFn({ data: { receiptId: receipt.id, resolution, reference } })
 											toast.success("Pendência fiscal resolvida")
-											router.invalidate()
+											await router.invalidate()
 										} catch (error) {
 											toast.error(error instanceof Error ? error.message : "Erro ao resolver a pendência")
+										} finally {
+											setBusy(false)
 										}
 									}}
 								>
@@ -561,7 +563,10 @@ function ReceiptDetailPage() {
 
 			<div className="space-y-4">
 				{items.map((item) => (
-					<ItemCard key={item.id} item={item} editable={editable} onSaved={() => router.invalidate()} />
+					// A chave leva a quantidade: o cartão guarda a quantidade em estado local, e
+					// depois de uma leitura ele seguia mostrando — e "Salvar" regravava — o número
+					// de antes, apagando o que a leitura contou.
+					<ItemCard key={`${item.id}:${item.received_qty_base}`} item={item} editable={editable} onSaved={() => router.invalidate()} />
 				))}
 			</div>
 		</div>
