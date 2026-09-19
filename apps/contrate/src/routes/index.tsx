@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowRight, Lock, NavArrowDown } from "iconoir-react"
-import { Fragment } from "react"
 import { AppLayout } from "@/components/AppLayout"
 import { AcanthusAscii } from "@/components/home/AcanthusAscii"
 import { ModuleGrid } from "@/components/home/ModuleGrid"
+import { LabelText } from "@/components/LabelText"
 import { useModuleAccess } from "@/components/layout/useModuleAccess"
 import { Button } from "@/components/ui/button"
 import { accessibleModules } from "@/lib/modules"
@@ -223,18 +223,4 @@ function SectionHeading({ id, eyebrow, title, children }: { id: string; eyebrow:
 			<p className="text-muted-foreground leading-relaxed">{children}</p>
 		</div>
 	)
-}
-
-/**
- * Texto de rótulo em caixa alta que preserva o α. Com `uppercase` ele vira "Α" (alfa
- * maiúsculo), indistinguível de um A latino — "PROJETO A".
- */
-function LabelText({ text }: { text: string }) {
-	const parts = text.split("α")
-	return parts.map((part, i) => (
-		<Fragment key={i}>
-			{part}
-			{i < parts.length - 1 && <span className="normal-case">α</span>}
-		</Fragment>
-	))
 }
