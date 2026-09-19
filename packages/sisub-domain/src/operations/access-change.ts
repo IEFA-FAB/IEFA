@@ -130,3 +130,34 @@ export function assertSisubGrantable(actorId: string, target: { userId: string; 
 		throw error
 	}
 }
+
+/** Módulo que administra acesso no sisub (`requirePermission(ctx, "admin", 2)`). */
+export const SISUB_ADMIN_MODULE = "admin"
+
+/** Frase da recusa de pôr prazo na própria administração — mais útil que o "revogar" genérico. */
+export const SELF_ADMIN_EXPIRY_MESSAGE =
+	"Você não pode pôr prazo no próprio acesso de administração: ao vencer, ele o trancaria fora do console. Peça a outro administrador."
+
+/**
+ * A alteração da PRÓPRIA linha de administração (allow de `admin`) a encerraria ou reduziria?
+ *
+ * Regra (decisão para fechar a auto-tranca por prazo): na própria administração, o ator pode
+ * SUBIR o nível e pode torná-la PERMANENTE (`expires_at: null`); não pode baixar o nível,
+ * virá-la bloqueio, nem pôr prazo NENHUM — nem no passado, nem no futuro. Prazo futuro também
+ * tranca, só que depois: não há "prazo seguro" a validar contra o relógio, e aceitar um
+ * deixaria a auto-tranca a um clique de distância (e dependente de fuso). Quem precisa de
+ * administração com prazo recebe de OUTRO administrador, e o log registra isso.
+ *
+ * Pura: `current` é a linha como está; `next` é o que o update pede (`expiresAt` ausente = não
+ * mexe no prazo).
+ */
+export function selfAdminUpdateRefusal(
+	actorId: string,
+	current: { userId: string; module: string; level: number },
+	next: { level: number; expiresAt?: string | null }
+): "LEVEL" | "EXPIRY" | null {
+	if (current.userId !== actorId || current.module !== SISUB_ADMIN_MODULE || current.level <= 0) return null
+	if (next.level < current.level) return "LEVEL"
+	if (next.expiresAt !== undefined && next.expiresAt !== null) return "EXPIRY"
+	return null
+}

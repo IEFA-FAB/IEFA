@@ -43,7 +43,14 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { isExpired, notExpired, runQuery } from "../utils/index.ts"
-import { type AccessAudit, defaultAccessAudit, runAccessFunction } from "./access-change.ts"
+import {
+	type AccessAudit,
+	assertSisubGrantable,
+	defaultAccessAudit,
+	runAccessFunction,
+	SELF_ADMIN_EXPIRY_MESSAGE,
+	SISUB_ADMIN_MODULE,
+} from "./access-change.ts"
 
 export type PolicyStatementRow = {
 	id: string
@@ -313,6 +320,65 @@ export async function listUserPolicyPermissions(db: SisubDb, userId: string): Pr
 	return rows as UserPermission[]
 }
 
+// ── Auto-tranca: a própria administração por política ───────────────────────
+//
+// A mesma regra do grant inline (`selfAdminUpdateRefusal`): ninguém encerra a PRÓPRIA
+// administração — aqui, quando ela vem de uma política anexada ao ator. Desanexar, pôr prazo no
+// anexo, remover/rebaixar o statement de `admin` ou apagar a política trancaria o ator fora do
+// console. A regra olha a política e o anexo DESTE ator, não o conjunto efetivo: é o mesmo
+// critério do grant inline, e o que o torna previsível para quem clica.
+
+/** A política concede administração (allow de `admin`)? */
+async function policyGrantsAdmin(db: SisubDb, policyId: string): Promise<boolean> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: policyStatementInAccessControl.id })
+			.from(policyStatementInAccessControl)
+			.where(
+				and(
+					eq(policyStatementInAccessControl.policyId, policyId),
+					eq(policyStatementInAccessControl.module, SISUB_ADMIN_MODULE),
+					sql`${policyStatementInAccessControl.level} > 0`
+				)
+			)
+			.limit(1)
+	)
+	return rows.length > 0
+}
+
+/** O ator tem esta política anexada (vigente ou não)? */
+async function isAttachedTo(db: SisubDb, userId: string, policyId: string): Promise<boolean> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: userPolicyAttachmentInAccessControl.id })
+			.from(userPolicyAttachmentInAccessControl)
+			.where(and(eq(userPolicyAttachmentInAccessControl.userId, userId), eq(userPolicyAttachmentInAccessControl.policyId, policyId)))
+			.limit(1)
+	)
+	return rows.length > 0
+}
+
+/** Recusa: a operação encerraria a administração que o ator recebe por esta política. */
+function refuseSelfAdminRemoval(ctx: UserContext): never {
+	assertSisubGrantable(ctx.userId, { userId: ctx.userId, revokesAdministration: true })
+	// `assertSisubGrantable` sempre lança com `revokesAdministration` sobre si mesmo.
+	throw new DomainError("GRANT_NOT_ALLOWED", "Você não pode retirar a própria administração.")
+}
+
+/** Statement de uma política, lido para a regra de auto-tranca e para a autorização. */
+async function loadStatement(db: SisubDb, statementId: string): Promise<{ policyId: string; module: string; level: number }> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ policyId: policyStatementInAccessControl.policyId, module: policyStatementInAccessControl.module, level: policyStatementInAccessControl.level })
+			.from(policyStatementInAccessControl)
+			.where(eq(policyStatementInAccessControl.id, statementId))
+			.limit(1)
+	)
+	const row = rows[0]
+	if (!row) throw new NotFoundError("policy_statement", statementId)
+	return row
+}
+
 // ── Escrita ──────────────────────────────────────────────────────────────────
 //
 // Toda escrita de política, statement e anexo passa por uma função SQL auditada
@@ -409,6 +475,7 @@ export async function deletePolicy(
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
 	await assertPolicyEditable(db, input.policyId)
+	if ((await isAttachedTo(db, ctx.userId, input.policyId)) && (await policyGrantsAdmin(db, input.policyId))) refuseSelfAdminRemoval(ctx)
 
 	await runAccessFunction(db, sql`access_control.delete_policy(${ctx.userId}::uuid, ${audit.operation}::text, ${input.policyId}::uuid, ${audit.grade}::text)`, {
 		fallbackCode: "DELETE_FAILED",
@@ -487,20 +554,6 @@ export async function addPolicyStatement(
 	return toStatementRow(row)
 }
 
-/** Resolve a política dona de um statement — a autorização é sempre pela política. */
-async function resolveStatementPolicy(db: SisubDb, statementId: string): Promise<string> {
-	const rows = await runQuery("FETCH_FAILED", () =>
-		db
-			.select({ policyId: policyStatementInAccessControl.policyId })
-			.from(policyStatementInAccessControl)
-			.where(eq(policyStatementInAccessControl.id, statementId))
-			.limit(1)
-	)
-	const row = rows[0]
-	if (!row) throw new NotFoundError("policy_statement", statementId)
-	return row.policyId
-}
-
 export async function updatePolicyStatement(
 	db: SisubDb,
 	ctx: UserContext,
@@ -510,9 +563,14 @@ export async function updatePolicyStatement(
 ): Promise<PolicyStatementRow> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
-	await assertPolicyEditable(db, await resolveStatementPolicy(db, input.statementId))
+	const current = await loadStatement(db, input.statementId)
+	await assertPolicyEditable(db, current.policyId)
 
 	const statement = input.statement
+	// Rebaixar (ou trocar de módulo) o statement de `admin` de uma política anexada ao ator.
+	const reducesAdmin =
+		current.module === SISUB_ADMIN_MODULE && current.level > 0 && (statement.module !== SISUB_ADMIN_MODULE || statement.level < current.level)
+	if (reducesAdmin && (await isAttachedTo(db, ctx.userId, current.policyId))) refuseSelfAdminRemoval(ctx)
 	const row = await runAccessFunction<StatementFunctionRow>(
 		db,
 		sql`access_control.update_policy_statement(
@@ -533,7 +591,9 @@ export async function removePolicyStatement(
 ): Promise<void> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
-	await assertPolicyEditable(db, await resolveStatementPolicy(db, input.statementId))
+	const current = await loadStatement(db, input.statementId)
+	await assertPolicyEditable(db, current.policyId)
+	if (current.module === SISUB_ADMIN_MODULE && current.level > 0 && (await isAttachedTo(db, ctx.userId, current.policyId))) refuseSelfAdminRemoval(ctx)
 
 	await runAccessFunction(
 		db,
@@ -566,6 +626,17 @@ export async function attachPolicy(
 ): Promise<{ success: true; change: "attach" | "expiry"; log_id: string }> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
+	// Pôr prazo no PRÓPRIO anexo de uma política que dá administração a encerraria (vencido já,
+	// futuro depois) — a mesma regra do grant inline. Anexar-se de novo (anexo que não existia)
+	// é concessão, e pode ter prazo: não retira nada que o ator já tinha.
+	if (
+		input.userId === ctx.userId &&
+		input.expires_at != null &&
+		(await isAttachedTo(db, ctx.userId, input.policyId)) &&
+		(await policyGrantsAdmin(db, input.policyId))
+	) {
+		throw new DomainError("GRANT_NOT_ALLOWED", SELF_ADMIN_EXPIRY_MESSAGE)
+	}
 
 	const result = await runAccessFunction<{ log_id: string; change: "attach" | "expiry" }>(
 		db,
@@ -587,6 +658,7 @@ export async function detachPolicy(
 ): Promise<{ success: true; log_id: string }> {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
+	if (input.userId === ctx.userId && (await policyGrantsAdmin(db, input.policyId))) refuseSelfAdminRemoval(ctx)
 
 	const result = await runAccessFunction<{ log_id: string }>(
 		db,

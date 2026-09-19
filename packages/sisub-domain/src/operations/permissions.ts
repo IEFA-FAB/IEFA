@@ -30,7 +30,15 @@ import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, Up
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { isExpired, notExpired, runQuery, unwrapPgError } from "../utils/index.ts"
-import { type AccessAudit, assertSisubGrantable, defaultAccessAudit, runAccessFunction } from "./access-change.ts"
+import {
+	type AccessAudit,
+	assertSisubGrantable,
+	defaultAccessAudit,
+	runAccessFunction,
+	SELF_ADMIN_EXPIRY_MESSAGE,
+	SISUB_ADMIN_MODULE,
+	selfAdminUpdateRefusal,
+} from "./access-change.ts"
 import { listUserPolicyPermissions } from "./policies.ts"
 
 /**
@@ -290,10 +298,6 @@ async function loadPermissionRow(db: SisubDb, permissionId: string) {
 	return rows[0] ?? null
 }
 
-/** Módulo e nível mínimo que administram acesso no sisub (`requirePermission(ctx, "admin", 2)`). */
-const ADMIN_MODULE = "admin"
-const ADMIN_LEVEL = 2
-
 type PermissionChangeResult = { log_id: string; permission_id: string; user_id: string; module?: string; level?: number; previous_level?: number }
 
 /**
@@ -314,7 +318,7 @@ export async function createUserPermission(
 ) {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
-	assertSisubGrantable(ctx.userId, { userId: input.userId, revokesAdministration: input.module === ADMIN_MODULE && input.level <= 0 })
+	assertSisubGrantable(ctx.userId, { userId: input.userId, revokesAdministration: input.module === SISUB_ADMIN_MODULE && input.level <= 0 })
 
 	const result = await runAccessFunction<PermissionChangeResult>(
 		db,
@@ -346,8 +350,10 @@ export async function createUserPermission(
  * grant permanente. Os escopos seguem sendo substituição porque o diálogo sempre os envia;
  * o prazo, não — um cliente que não conhece o campo apagaria o prazo de todo grant que editasse.
  *
- * Ninguém REDUZ a própria administração (rebaixar o próprio `admin`, ou trocá-lo por bloqueio):
- * trancaria o ator fora do console — e, sendo o último, todo mundo.
+ * Ninguém REDUZ nem ENCERRA a própria administração — rebaixar o próprio `admin`, trocá-lo por
+ * bloqueio ou pôr prazo nele (vencido ou futuro): trancaria o ator fora do console — e, sendo o
+ * último, todo mundo. Tornar a própria administração permanente pode. Ver
+ * `selfAdminUpdateRefusal`.
  */
 export async function updateUserPermission(
 	db: SisubDb,
@@ -361,10 +367,9 @@ export async function updateUserPermission(
 
 	const current = await loadPermissionRow(db, input.permissionId)
 	if (!current) throw new DomainError("UPDATE_FAILED", `permission ${input.permissionId} not found`)
-	assertSisubGrantable(ctx.userId, {
-		userId: current.userId,
-		revokesAdministration: current.module === ADMIN_MODULE && current.level >= ADMIN_LEVEL && input.level < current.level,
-	})
+	const refusal = selfAdminUpdateRefusal(ctx.userId, current, { level: input.level, expiresAt: input.expires_at })
+	if (refusal === "EXPIRY") throw new DomainError("GRANT_NOT_ALLOWED", SELF_ADMIN_EXPIRY_MESSAGE)
+	assertSisubGrantable(ctx.userId, { userId: current.userId, revokesAdministration: refusal === "LEVEL" })
 
 	const result = await runAccessFunction<PermissionChangeResult>(
 		db,
@@ -411,7 +416,7 @@ export async function deleteUserPermission(
 
 	const current = await loadPermissionRow(db, input.permissionId)
 	if (!current) throw new DomainError("DELETE_FAILED", `permission ${input.permissionId} not found`)
-	assertSisubGrantable(ctx.userId, { userId: current.userId, revokesAdministration: current.module === ADMIN_MODULE && current.level > 0 })
+	assertSisubGrantable(ctx.userId, { userId: current.userId, revokesAdministration: current.module === SISUB_ADMIN_MODULE && current.level > 0 })
 
 	const result = await runAccessFunction<PermissionChangeResult>(
 		db,
