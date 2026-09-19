@@ -1,8 +1,9 @@
 /**
  * Unit settings operations — UASG code + address fields. Drizzle query layer.
  *
- * Auth: a leitura de settings é apenas autenticada; a ESCRITA (UASG e endereço da OM) exige
- * `unit:2` na própria unidade.
+ * Auth: LEITURA exige `unit:1` na própria unidade — as duas telas que a leem (configurações
+ * da OM e o anexo da ATA) são da unidade, e nenhuma lista OMs alheias; a ESCRITA (UASG e
+ * endereço da OM) exige `unit:2`.
  */
 
 import { type SisubDb, unitsInCore } from "@iefa/database/drizzle/sisub"
@@ -30,7 +31,8 @@ type UnitSettings = Pick<
 	| "address_cep"
 >
 
-export async function fetchUnitSettings(db: SisubDb, _ctx: UserContext, input: FetchUnitSettings): Promise<UnitSettings> {
+export async function fetchUnitSettings(db: SisubDb, ctx: UserContext, input: FetchUnitSettings): Promise<UnitSettings> {
+	requireUnit(ctx, 1, input.unitId)
 	const row = await runQuery("FETCH_FAILED", () =>
 		db.query.unitsInCore.findFirst({
 			columns: {

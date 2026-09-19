@@ -62,7 +62,7 @@ function failed(c: { json: (body: unknown, status: 500) => Response }, code: str
 async function loadTriagedFindings(runId: string): Promise<TriagedFinding[] | null> {
 	const { data, error } = await supabase.from("compliance_finding").select(TRIAGE_COLUMNS).eq("run_id", runId)
 	if (error) {
-		console.error(`[aci] achados da execução ${runId} não lidos: ${error.message}`)
+		console.error(`[aci] achados da execução ${JSON.stringify(runId)} não lidos: ${error.message}`)
 		return null
 	}
 	return (data ?? []) as TriagedFinding[]

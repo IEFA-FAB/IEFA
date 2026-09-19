@@ -22,7 +22,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm"
-import { requirePermission } from "../guards/require-permission.ts"
+import { requireAnyPermission, requireUnit, requireUnscopedPermission } from "../guards/require-permission.ts"
 import type { FetchProcurementNeeds, FetchUnitDashboard } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
@@ -47,9 +47,17 @@ function num(v: string | number | null | undefined): number | null {
  *   (6) Sort by folder_description → ingredient_name (pt-BR collation).
  */
 export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input: FetchProcurementNeeds): Promise<ProcurementNeed[]> {
-	requirePermission(ctx, "kitchen", 1)
-
 	const { startDate, endDate, kitchenId, unitId } = input
+
+	// Escopado pelo recorte pedido. O guard era `kitchen:1` SEM escopo, que aceita o grant de
+	// QUALQUER cozinha: com ele, quem tinha uma cozinha lia o cardápio planejado de todas.
+	//   - por cozinha: `kitchen:1` nela, ou `storage:1` nela (a reposição do almoxarifado
+	//     chama isto com o ctx do estoque — `replenishment.fn`);
+	//   - por unidade: `unit:1` nela;
+	//   - sem recorte (a FAB inteira): só a permissão sem escopo.
+	if (kitchenId != null) requireAnyPermission(ctx, ["kitchen", "storage"], 1, { type: "kitchen", id: kitchenId })
+	else if (unitId != null) requireUnit(ctx, 1, unitId)
+	else requireUnscopedPermission(ctx, "kitchen", 1)
 
 	let kitchenIds: number[] | undefined
 	if (unitId) {
@@ -233,9 +241,12 @@ type DashboardArpItemRow = {
  */
 export async function fetchUnitDashboard(
 	db: SisubDb,
-	_ctx: UserContext,
+	ctx: UserContext,
 	input: FetchUnitDashboard
 ): Promise<{ published_atas: ProcurementList[]; low_balance_items: DashboardArpItemRow[] }> {
+	// ATAs, saldo de ARP e cardápio planejado da OM: só quem lê a unidade. Antes a fn só
+	// exigia sessão, e o `unitId` do corpo abria o painel de qualquer OM.
+	requireUnit(ctx, 1, input.unitId)
 	// ── 1. Todas as ATAs não deletadas da unidade ─────────────────────────────
 	const allAtas = await runQuery("QUERY_FAILED", () =>
 		db

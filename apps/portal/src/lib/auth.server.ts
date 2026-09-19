@@ -16,6 +16,7 @@
  */
 
 import { createRequestAuth, forbidden as denyWithStatus, unauthorized as unauthenticatedWithStatus } from "@iefa/pbac/start"
+import { AUTHOR_EDITABLE_STATUSES } from "./journal/write-schemas"
 import { getIefaAuthClient, getJournalServerClient } from "./supabase.server"
 
 /**
@@ -87,40 +88,89 @@ export async function requireArticleOwnerOrEditor(articleId: string): Promise<{ 
 }
 
 /**
+ * Com que direito o chamador lê o artigo. As fns de leitura decidem a PROJEÇÃO por aqui:
+ * leitor público de artigo publicado não recebe e-mail de coautor, e revisor não recebe
+ * identidade de quem submeteu além do que a página mostra.
+ */
+export type ArticleAccess = {
+	isEditor: boolean
+	isSubmitter: boolean
+	isAssignedReviewer: boolean
+	/** Acesso só porque o artigo está publicado — anônimo ou autenticado sem vínculo. */
+	isPublicReader: boolean
+}
+
+const NO_ACCESS: ArticleAccess = { isEditor: false, isSubmitter: false, isAssignedReviewer: false, isPublicReader: false }
+
+/**
  * Acesso de LEITURA ao artigo: editor, autor submissor, revisor aceito/concluído — ou
- * artigo publicado (aí é público). Retorna se o chamador é editor, para o caller decidir
- * a redação de campos confidenciais (identidade do revisor, comentários ao editor).
+ * artigo publicado (aí é público). O vínculo é checado ANTES do "publicado": o autor de
+ * um artigo publicado continua sendo autor, não leitor público.
  *
  * O userId vem sempre da sessão, nunca do input — é a diferença entre este guard e o
  * `canViewArticleFn`, que só responde uma pergunta.
  */
-export async function requireArticleAccess(articleId: string): Promise<{ isEditor: boolean }> {
+export async function requireArticleAccess(articleId: string): Promise<ArticleAccess> {
 	const db = getJournalServerClient()
 	const { data: article } = await db.from("articles").select("status, submitter_id, deleted_at").eq("id", articleId).maybeSingle()
 	if (!article) throw new Error("Artigo não encontrado.")
 	const userId = await getRequestUserId()
-	if (userId && (await isEditor(userId))) return { isEditor: true }
-	if (article.status === "published" && !article.deleted_at) return { isEditor: false }
+	if (userId) {
+		const isSubmitterOfArticle = article.submitter_id === userId
+		if (await isEditor(userId)) return { ...NO_ACCESS, isEditor: true, isSubmitter: isSubmitterOfArticle }
+		if (isSubmitterOfArticle) return { ...NO_ACCESS, isSubmitter: true }
+		const { data: assignment } = await db
+			.from("review_assignments")
+			.select("id")
+			.eq("article_id", articleId)
+			.eq("reviewer_id", userId)
+			.in("status", ["accepted", "completed"])
+			.maybeSingle()
+		if (assignment) return { ...NO_ACCESS, isAssignedReviewer: true }
+	}
+	if (article.status === "published" && !article.deleted_at) return { ...NO_ACCESS, isPublicReader: true }
 	if (!userId) unauthorized()
-	if (article.submitter_id === userId) return { isEditor: false }
-	const { data: assignment } = await db
-		.from("review_assignments")
-		.select("id")
-		.eq("article_id", articleId)
-		.eq("reviewer_id", userId)
-		.in("status", ["accepted", "completed"])
-		.maybeSingle()
-	if (assignment) return { isEditor: false }
 	forbidden("Você não tem acesso a este artigo.")
 }
 
 /**
- * Um payload livre (`looseRecord`) que chega do cliente não pode carregar `role`: era
+ * Escrita do AUTOR fora dos fluxos dedicados: o submissor mexe no próprio manuscrito só
+ * enquanto ele está em rascunho ou aguardando revisão (a regra do `canEditArticleFn`).
+ * Sem o recorte de status, o autor reescrevia título, coautores e arquivos de um artigo
+ * já em avaliação — ou publicado. Editor escreve em qualquer status.
+ */
+export async function requireArticleWriteAccess(articleId: string): Promise<{ userId: string; isEditor: boolean; status: string }> {
+	const userId = await requireUserId()
+	const { data: article } = await getJournalServerClient().from("articles").select("submitter_id, status, deleted_at").eq("id", articleId).maybeSingle()
+	if (!article) forbidden("Você não tem acesso a este artigo.")
+	if (await isEditor(userId)) return { userId, isEditor: true, status: article.status }
+	if (article.submitter_id !== userId || article.deleted_at) forbidden("Você não tem acesso a este artigo.")
+	if (!(AUTHOR_EDITABLE_STATUSES as readonly string[]).includes(article.status)) {
+		forbidden("A submissão não pode ser alterada pelo autor no status atual.")
+	}
+	return { userId, isEditor: false, status: article.status }
+}
+
+/**
+ * Exige que o chamador seja o submissor do artigo e que o artigo esteja num dos status
+ * informados. Para os fluxos do autor (rascunho, submissão): nenhum deles pode tocar
+ * artigo alheio, nem artigo que já saiu do estado que o fluxo espera.
+ */
+export async function requireSubmitterArticle(articleId: string, allowedStatuses: readonly string[]): Promise<{ userId: string; status: string }> {
+	const userId = await requireUserId()
+	const { data: article } = await getJournalServerClient().from("articles").select("submitter_id, status, deleted_at").eq("id", articleId).maybeSingle()
+	if (!article || article.deleted_at || article.submitter_id !== userId) forbidden("Você não tem acesso a este artigo.")
+	if (!allowedStatuses.includes(article.status)) forbidden("A submissão não pode ser alterada no status atual.")
+	return { userId, status: article.status }
+}
+
+/**
+ * Um payload de perfil que chega do cliente não pode carregar `role`: era
  * assim que qualquer chamador se promovia a `editor` e assumia o corpo editorial
  * inteiro. Só editor altera papel — e nunca por um upsert de perfil comum.
  */
 export async function assertRoleChangeAllowed(payload: Record<string, unknown>): Promise<void> {
-	if (!("role" in payload)) return
+	if (payload.role === undefined) return
 	const userId = await requireUserId()
 	if (!(await isEditor(userId))) forbidden("Apenas editores podem alterar o papel de um usuário.")
 }

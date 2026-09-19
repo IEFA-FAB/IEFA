@@ -5,6 +5,7 @@ import apiRoutes from "./api/routes.ts"
 import { env } from "./env.ts"
 import { refreshAllSources } from "./jobs/refresh-sources.ts"
 import { startSourcesRefreshWorker } from "./jobs/scheduler.ts"
+import { secureCompare } from "./lib/secure-compare.ts"
 
 const app = apiRoutes
 	/**
@@ -14,8 +15,8 @@ const app = apiRoutes
 	 * scheduled task, não um usuário. A autenticação é por segredo de serviço.
 	 */
 	.post("/internal/jobs/sources/refresh", async (c) => {
-		const provided = c.req.header("x-alpha-job-secret")
-		if (!env.ALPHA_JOB_SECRET || provided !== env.ALPHA_JOB_SECRET) {
+		// Constant-time: o `!==` respondia mais devagar quanto mais longo o prefixo certo.
+		if (!secureCompare(c.req.header("x-alpha-job-secret"), env.ALPHA_JOB_SECRET)) {
 			return c.json({ error: "Unauthorized", code: "INVALID_JOB_SECRET" }, 401)
 		}
 
@@ -53,4 +54,9 @@ export default {
 	 * não ganhar mais timeout aqui.
 	 */
 	idleTimeout: 240,
+	/**
+	 * Teto do corpo no próprio servidor, abaixo dos 128 MB padrão do Bun. O `bodyLimit`
+	 * por rota (`api/routes.ts`) é o limite fino; este é o piso para rota que o esqueça.
+	 */
+	maxRequestBodySize: 32 * 1024 * 1024,
 }

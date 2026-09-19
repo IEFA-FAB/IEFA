@@ -23,6 +23,24 @@ describe("isInternalPath / safeRedirect (guard de open redirect)", () => {
 		}
 	})
 
+	it("rejeita caminho que o parser normaliza para protocol-relative", () => {
+		for (const path of ["/.//evil.com", "/..//evil.com", "/%2e//evil.com", "/a/..//evil.com"]) {
+			expect(isInternalPath(path)).toBe(false)
+			expect(safeRedirect(path)).toBeUndefined()
+		}
+	})
+
+	it("aceita espaço (codificado ou não) dentro do caminho", () => {
+		expect(isInternalPath("/recipes?search=arroz%20feijao")).toBe(true)
+	})
+
+	it("rejeita caractere de controle que o parser de URL descarta (TAB/LF/CR)", () => {
+		for (const path of ["/\t/evil.com", "/\n/evil.com", "/\r/evil.com", "/%09/evil.com", "/%0A/evil.com", "/a\\b"]) {
+			expect(isInternalPath(path)).toBe(false)
+			expect(safeRedirect(path)).toBeUndefined()
+		}
+	})
+
 	it("rejeita autoridade escondida atrás de percent-encoding", () => {
 		for (const path of ["/%2Fevil.com", "/%2f%2fevil.com", "/%5Cevil.com"]) {
 			expect(isInternalPath(path)).toBe(false)

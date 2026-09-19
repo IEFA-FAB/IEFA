@@ -56,7 +56,7 @@ import { requirePermission } from "../guards/require-permission.ts"
 import type { ListTrainingResets } from "../schemas/training.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { describeDriverError, insertOneOrFail, runQuery, unwrapPgError } from "../utils/index.ts"
+import { describeDriverError, driverFailure, insertOneOrFail, runQuery, unwrapPgError } from "../utils/index.ts"
 
 /** Código exigido nas sentinelas — segunda âncora, além de `is_training`. */
 const TRAINING_CODE = "TREINO"
@@ -625,7 +625,7 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext, assuranc
 				try {
 					counts[step.table] = await step.run(tx, scope, ids)
 				} catch (e) {
-					throw new DomainError("RESET_FAILED", `Falha ao limpar ${step.table}: ${describeDriverError(e)}`)
+					throw driverFailure("RESET_FAILED", e, `Falha ao limpar ${step.table}`, `Falha ao limpar ${step.table}`)
 				}
 			}
 

@@ -3,7 +3,7 @@ import { defineHandler } from "nitro"
 import { type H3Event, HTTPError, readBody } from "nitro/h3"
 import { silentAdapterLogger } from "#/lib/ai-logger"
 import { getServerCapabilities } from "#/lib/capabilities.server"
-import { requireSucontUser } from "#/lib/nitro-auth.server"
+import { requireSameOriginJson, requireSucontUser } from "#/lib/nitro-auth.server"
 import { buildDgcUserPrompt, DGC_SYSTEM_PROMPT } from "#/sacdgc/prompt"
 import { dgcAnalysisRequestSchema } from "#/sacdgc/request"
 import { dgcAnalysisSchema, normalizeDgcAnalysis } from "#/sacdgc/schema"
@@ -34,6 +34,10 @@ const DEADLINE_MS = 300_000
 const MAX_OUTPUT_TOKENS = 16_000
 
 export default defineHandler(async (event: H3Event) => {
+	// CSRF primeiro: nada do pedido (nem a sessão do cookie) é usado antes de
+	// confirmar que ele veio do próprio app como JSON.
+	requireSameOriginJson(event)
+
 	if (!getServerCapabilities().oracle) {
 		throw new HTTPError({ status: 503, message: "Análise por IA indisponível — IA não configurada neste ambiente" })
 	}

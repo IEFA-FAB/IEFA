@@ -8,7 +8,7 @@
 
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/useAuth"
-import { alphaRequest } from "./client"
+import { alphaPath, alphaRequest } from "./client"
 
 export interface NormativeSource {
 	id: string
@@ -65,14 +65,15 @@ export function sourceDocumentsQueryOptions(token: string | undefined, sourceId:
 	return queryOptions({
 		queryKey: ["alpha", "sources", sourceId, "documents", includeSuperseded],
 		queryFn: async () =>
-			(await alphaRequest<{ documents: AlphaDocument[] }>(`/api/v1/sources/${sourceId}/documents?include_superseded=${includeSuperseded}`, token)).documents,
+			(await alphaRequest<{ documents: AlphaDocument[] }>(alphaPath`/api/v1/sources/${sourceId}/documents?include_superseded=${includeSuperseded}`, token))
+				.documents,
 	})
 }
 
 export function documentStructureQueryOptions(token: string | undefined, documentId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "documents", documentId, "structure"],
-		queryFn: () => alphaRequest<DocumentStructure>(`/api/v1/documents/${documentId}/structure`, token),
+		queryFn: () => alphaRequest<DocumentStructure>(alphaPath`/api/v1/documents/${documentId}/structure`, token),
 	})
 }
 
@@ -84,10 +85,14 @@ export function useRefreshSource() {
 		mutationFn: (sourceId: string) =>
 			// Coleta a partir do console é sempre simulação: gravar é decisão de
 			// operação, feita pela CLI ou pelo job agendado, não por clique na tela.
-			alphaRequest<{ source_id: string; discovered: number; items: Array<{ outcome: string }> }>(`/api/v1/sources/${sourceId}/refresh`, session?.access_token, {
-				method: "POST",
-				body: JSON.stringify({ apply: false }),
-			}),
+			alphaRequest<{ source_id: string; discovered: number; items: Array<{ outcome: string }> }>(
+				alphaPath`/api/v1/sources/${sourceId}/refresh`,
+				session?.access_token,
+				{
+					method: "POST",
+					body: JSON.stringify({ apply: false }),
+				}
+			),
 		onSuccess: (_result, sourceId) => {
 			queryClient.invalidateQueries({ queryKey: ["alpha", "sources"] })
 			queryClient.invalidateQueries({ queryKey: ["alpha", "sources", sourceId] })

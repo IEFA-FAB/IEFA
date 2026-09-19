@@ -32,8 +32,10 @@ import {
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireUser, requireUserId } from "@/lib/auth.server"
+import { maskCpf } from "@/lib/cpf-mask"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import type { MilitaryDataRow } from "@/types/domain/admin"
 
 /**
  * O validator é mantido para não quebrar o formato do payload dos chamadores, mas
@@ -50,15 +52,22 @@ export const fetchUserDataFn = createServerFn({ method: "GET" })
  * O `nrOrdem` é resolvido a partir da sessão, não do payload — comparar a string do
  * cliente convidaria divergência de formato (zero à esquerda, número vs string) e um
  * 403 falso na tela de perfil. Sem nrOrdem vinculado à conta: `null`.
+ *
+ * O CPF sai MASCARADO. Enquanto o nrOrdem era regravável à vontade, esta fn era uma
+ * consulta de CPF por número de ordem; o vínculo agora é write-once e exclusivo
+ * (`syncUserNrOrdem`), e o documento inteiro deixa de viajar de qualquer forma.
  */
 export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
 	.validator(FetchMilitaryDataSchema)
-	.handler(async () => {
+	.handler(async (): Promise<MilitaryDataRow | null> => {
 		const userId = await requireUserId()
 		const db = getDb()
 		const nrOrdem = await fetchUserNrOrdem(db, { userId }).catch(handleDomainError)
 		if (!nrOrdem) return null
-		return fetchMilitaryData(db, { nrOrdem }).catch(handleDomainError)
+		const row = await fetchMilitaryData(db, { nrOrdem }).catch(handleDomainError)
+		if (!row) return null
+		const { nrCpf, ...rest } = row
+		return { ...rest, nrCpfMasked: maskCpf(nrCpf) }
 	})
 
 export const fetchUserNrOrdemFn = createServerFn({ method: "GET" })
@@ -68,7 +77,10 @@ export const fetchUserNrOrdemFn = createServerFn({ method: "GET" })
 		return fetchUserNrOrdem(getDb(), { userId }).catch(handleDomainError)
 	})
 
-/** `nrOrdem` vem do formulário (input legítimo do usuário); `userId`/`email`, da sessão. */
+/**
+ * `nrOrdem` vem do formulário (input legítimo do usuário); `userId`/`email`, da sessão.
+ * O vínculo é write-once e exclusivo — a regra mora em `syncUserNrOrdem`.
+ */
 export const syncUserNrOrdemFn = createServerFn({ method: "POST" })
 	.validator(SyncUserNrOrdemSchema)
 	.handler(async ({ data }) => {

@@ -3,13 +3,16 @@
  * Uses OpenAI function-calling format instead of MCP SDK format.
  */
 
-import { toJsonSchema } from "@iefa/sisub-domain"
+import { listAccessibleKitchens, toJsonSchema } from "@iefa/sisub-domain"
 import {
+	AGENT_APPLY_TEMPLATE_MAX_DATES,
+	AgentApplyTemplateSchema,
 	AgentCheckMenuEquipmentSchema,
 	AgentCheckRecipeEquipmentSchema,
 	AgentListKitchenEquipmentSchema,
 	AgentListRecipesSchema,
 	AgentRecipeEquipmentSchema,
+	agentApplyTemplate,
 	agentCheckMenuEquipment,
 	agentCheckRecipeEquipment,
 	agentFetchDayMenus,
@@ -37,20 +40,14 @@ const MEAL_TYPE_COLUMNS = "id, name, sort_order, kitchen_id" as const
 
 const listKitchens: ModuleToolDefinition = {
 	name: "list_kitchens",
-	description: "Lista todas as cozinhas disponíveis no sistema. Retorna id, display_name, tipo e unidade.",
+	description: "Lista as cozinhas em que o usuário tem acesso. Retorna id, display_name, tipo e unidade.",
 	parameters: { type: "object", properties: {}, required: [] },
 	requiredLevel: 1,
+	// Mesma operation do `list_kitchens` do MCP: só as cozinhas do chamador. A versão anterior
+	// lia a tabela inteira pelo client service-role e entregava a lista da FAB a qualquer
+	// `kitchen:1` escopado.
 	async handler(_args, ctx) {
-		requireKitchenPermission(ctx, 1)
-		// `core.units` não tem coluna `name` — é `display_name`. Com o nome errado o
-		// PostgREST devolve erro e a tool ficava 100% quebrada.
-		const { data, error } = await ctx.supabase
-			.schema("kitchen")
-			.from("kitchen")
-			.select(`id, display_name, type, unit_id, unit:units!kitchen_unit_id_fkey(id, display_name)`)
-			.order("id")
-		if (error) return toolErr(sanitizeDbError(error, "list_kitchens"))
-		return toolOk(data ?? [])
+		return toolOk(await listAccessibleKitchens(ctx.db, domainCtx(ctx)))
 	},
 }
 
@@ -381,150 +378,29 @@ const getTemplateItems: ModuleToolDefinition = {
 	},
 }
 
+/**
+ * Invólucro fino de `agentApplyTemplate` (`@iefa/sisub-domain/agent`), que chama o
+ * `applyTemplate` do domínio numa transação, só no modo "skip" e com no máximo 31 datas.
+ *
+ * A versão anterior reimplementava a operação em PostgREST: SEMPRE soft-deletava os
+ * cardápios das datas, aceitava qualquer quantidade de datas e desfazia falha parcial com um
+ * rollback "melhor esforço" fora de transação. Numa tool que o modelo decide chamar — e que
+ * um texto injetado numa receita ou num nome de template pode induzir —, isso era apagar o
+ * planejamento de meses com uma frase. Substituir planejamento existente fica para a tela,
+ * que mostra a prévia do que vai para a lixeira.
+ */
 const applyTemplate: ModuleToolDefinition = {
 	name: "apply_template",
-	description: `Aplica template semanal a datas de uma cozinha. Para cada data:
-1. Soft-deletes menus existentes
-2. Calcula dia do template via startDayOfWeek (1=seg..7=dom)
-3. Cria novos menus com itens do template
-O template deve ser global ou da mesma cozinha.`,
-	parameters: {
-		type: "object",
-		properties: {
-			templateId: { type: "string", description: "ID (UUID) do template" },
-			kitchenId: { type: "number", description: "ID da cozinha destino" },
-			targetDates: { type: "array", items: { type: "string" }, description: "Datas YYYY-MM-DD" },
-			startDayOfWeek: { type: "number", description: "Dia do template (1=seg..7=dom) para a primeira data" },
-		},
-		required: ["templateId", "kitchenId", "targetDates", "startDayOfWeek"],
-	},
+	description: `Aplica um template semanal a datas de uma cozinha (no máximo ${AGENT_APPLY_TEMPLATE_MAX_DATES} datas por chamada).
+Só PREENCHE refeições que ainda não têm cardápio: o planejamento existente, inclusive ajustes manuais, é preservado — esta ferramenta nunca apaga nem substitui cardápio. Para substituir, oriente o usuário a aplicar pela tela de planejamento.
+startDayOfWeek (1=seg..7=dom) é o dia do template que corresponde à primeira data. O template deve ser semanal e global ou da mesma cozinha.
+Na resposta, datesSkipped lista as datas que já tinham alguma refeição planejada e foram preservadas.`,
+	parameters: toJsonSchema(AgentApplyTemplateSchema),
 	requiredLevel: 2,
 	async handler(args, ctx) {
-		const kitchenId = safeInt(args.kitchenId, "kitchenId")
-		requireKitchenPermission(ctx, 2, { type: "kitchen", id: kitchenId })
-
-		const templateId = requireUuid(args.templateId, "templateId")
-		const startDayOfWeek = safeInt(args.startDayOfWeek, "startDayOfWeek")
-		if (startDayOfWeek < 1 || startDayOfWeek > 7) return toolErr("startDayOfWeek deve ser 1-7")
-
-		if (!Array.isArray(args.targetDates) || args.targetDates.length === 0) return toolErr("targetDates deve ser array não vazio")
-		requireValidDates(...args.targetDates)
-		const targetDates = (args.targetDates as string[]).map((d) => String(d).trim())
-
-		// Verify template ownership
-		const { data: template, error: templateFetchError } = await ctx.supabase
-			.from("menu_template")
-			.select("id, kitchen_id, name, deleted_at, template_type")
-			.eq("id", templateId)
-			.single()
-
-		if (templateFetchError || !template) return toolErr("Template não encontrado")
-		if (template.deleted_at !== null) return toolErr("Template removido")
-		if (template.kitchen_id !== null && template.kitchen_id !== kitchenId) {
-			return toolErr("Template pertence a outra cozinha")
-		}
-		// Evento/exceção não tem semana e a aplicação semanal é destrutiva — mesmo guard
-		// do domínio (NOT_WEEKLY_TEMPLATE): eventos entram no calendário pela tela do
-		// evento ("Aplicar ao Calendário"), que soma sem apagar a rotina.
-		if (template.template_type != null && template.template_type !== "weekly") {
-			return toolErr(`Template é ${template.template_type}; aplique pelo editor de eventos/exceções (aditivo), não pelo fluxo semanal`)
-		}
-
-		// Fetch template items
-		const { data: templateItems, error: fetchError } = await ctx.supabase
-			.from("menu_template_items")
-			.select(`*, recipe_origin:recipe_id(*)`)
-			.eq("menu_template_id", templateId)
-
-		if (fetchError || !templateItems) return toolErr(sanitizeDbError(fetchError ?? new Error("template items"), "apply_template"))
-
-		// Soft-delete existing menus
-		const { data: deletedMenus, error: deleteError } = await ctx.supabase
-			.from("daily_menu")
-			.update({ deleted_at: new Date().toISOString() })
-			.in("service_date", targetDates)
-			.eq("kitchen_id", kitchenId)
-			.select("id")
-
-		if (deleteError) return toolErr(sanitizeDbError(deleteError, "apply_template:delete"))
-
-		async function rollback() {
-			if (!deletedMenus?.length) return
-			await ctx.supabase
-				.from("daily_menu")
-				.update({ deleted_at: null })
-				.in(
-					"id",
-					deletedMenus.map((m) => m.id)
-				)
-		}
-
-		// Generate new menus
-		const newMenus: Array<{ id: string; service_date: string; meal_type_id: string; kitchen_id: number; status: string }> = []
-		const newMenuItems: Array<{
-			daily_menu_id: string
-			recipe_origin_id: string
-			recipe: unknown
-			origin_template_id: string
-			origin_template_type: string
-		}> = []
-
-		for (const dateStr of targetDates) {
-			const date = new Date(dateStr)
-			const jsDay = date.getDay()
-			const dateDayOfWeek = jsDay === 0 ? 7 : jsDay
-			const offset = dateDayOfWeek - startDayOfWeek
-			const templateDay = ((offset + 7) % 7) + 1
-
-			const dayItems = templateItems.filter((item) => item.day_of_week === templateDay)
-			const itemsByMealType: Record<string, typeof dayItems> = {}
-			for (const item of dayItems) {
-				const key = item.meal_type_id ?? "__null__"
-				if (!itemsByMealType[key]) itemsByMealType[key] = []
-				itemsByMealType[key].push(item)
-			}
-
-			for (const [mealTypeId, items] of Object.entries(itemsByMealType)) {
-				if (mealTypeId === "__null__") continue
-				const menuId = crypto.randomUUID()
-				newMenus.push({ id: menuId, service_date: dateStr, meal_type_id: mealTypeId, kitchen_id: kitchenId, status: "PLANNED" })
-				for (const item of items) {
-					newMenuItems.push({
-						daily_menu_id: menuId,
-						recipe_origin_id: item.recipe_id ?? "",
-						recipe: item.recipe_origin,
-						// Rastreabilidade: mesmo stamp do applyTemplate do domínio.
-						origin_template_id: templateId,
-						origin_template_type: "weekly",
-					})
-				}
-			}
-		}
-
-		if (newMenus.length > 0) {
-			const { error: menuInsertError } = await ctx.supabase.from("daily_menu").insert(newMenus)
-			if (menuInsertError) {
-				await rollback()
-				return toolErr(sanitizeDbError(menuInsertError, "apply_template:insert_menus"))
-			}
-		}
-
-		if (newMenuItems.length > 0) {
-			const { error: itemInsertError } = await ctx.supabase.from("menu_items").insert(newMenuItems)
-			if (itemInsertError) {
-				await ctx.supabase
-					.from("daily_menu")
-					.delete()
-					.in(
-						"id",
-						newMenus.map((m) => m.id)
-					)
-				await rollback()
-				return toolErr(sanitizeDbError(itemInsertError, "apply_template:insert_items"))
-			}
-		}
-
-		return toolOk({ success: true, menusCreated: newMenus.length, itemsCreated: newMenuItems.length, datesProcessed: targetDates })
+		const input = AgentApplyTemplateSchema.parse(args)
+		requireKitchenPermission(ctx, 2, { type: "kitchen", id: input.kitchenId })
+		return toolOk(await agentApplyTemplate(ctx.db, domainCtx(ctx), input))
 	},
 }
 

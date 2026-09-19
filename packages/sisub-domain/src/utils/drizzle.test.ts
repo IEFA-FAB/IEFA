@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { DomainError } from "../types/errors.ts"
+import { DomainError, GENERIC_DB_ERROR_MESSAGE, QueryFailedError } from "../types/errors.ts"
 import { runQuery, toNumeric, unwrapPgError } from "./drizzle.ts"
 
 /**
@@ -81,6 +81,30 @@ describe("runQuery: mensagem de erro", () => {
 		const raw = Object.assign(new Error("write CONNECT_TIMEOUT"), { code: "CONNECT_TIMEOUT" })
 		const msg = await messageOf(() => Promise.reject(raw))
 		expect(msg).toBe("[CONNECT_TIMEOUT] write CONNECT_TIMEOUT")
+	})
+
+	test("a mensagem para o cliente não carrega SQL nem parâmetros; o log e a cause, sim", async () => {
+		const secretParam = "cpf=12345678900"
+		const raw = new Error(`Failed query: select * from core.user_data where email = $1\nparams: ${secretParam}`)
+		;(raw as Error & { cause?: unknown }).cause = Object.assign(new Error("duplicate key value"), { code: "23505" })
+
+		const err = await runQuery("QUERY_FAILED", () => Promise.reject(raw)).catch((e: unknown) => e)
+		expect(err).toBeInstanceOf(QueryFailedError)
+		const q = err as QueryFailedError
+		expect(q.publicMessage).toBe(GENERIC_DB_ERROR_MESSAGE)
+		expect(q.message).toContain("core.user_data")
+		expect(q.cause).toBe(raw)
+		// Não enumerável: não vaza por serialização.
+		expect(JSON.stringify(q)).not.toContain(secretParam)
+	})
+
+	test("com prefixo, o cliente lê o prefixo (e o código, se pedido) — nada do driver", async () => {
+		const err = (await runQuery("INSERT_FAILED", failing({ code: "23505", message: "duplicate key value" }), {
+			prefix: "Falha ao criar item",
+			includeCode: true,
+		}).catch((e: unknown) => e)) as QueryFailedError
+		expect(err.publicMessage).toBe("Falha ao criar item [23505]")
+		expect(err.publicMessage).not.toContain("select")
 	})
 
 	test("DomainError atravessa intacto", async () => {

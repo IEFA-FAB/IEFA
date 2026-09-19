@@ -13,6 +13,7 @@
 
 import {
 	dailyMenuInKitchen,
+	mealTypeInKitchen,
 	menuItemsInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
@@ -206,6 +207,76 @@ export async function getTemplateItems(db: SisubDb, ctx: UserContext, input: Get
 	return items.sort(compareTemplateItems)
 }
 
+/**
+ * Um template só referencia receita e tipo de refeição do PRÓPRIO escopo: globais (servem a
+ * qualquer um) ou da mesma cozinha do template. Template global, então, só aceita globais.
+ *
+ * Sem isto a escrita confiava nos ids que chegavam no input: um `kitchen:2` da cozinha A
+ * gravava no próprio template a receita local da cozinha B — e `get_template_items` /
+ * `applyTemplate` passavam a entregar a ficha de B (inclusive o snapshot com ingredientes)
+ * a quem só tem A. A FK não pega isso: ela só confere que o id existe.
+ *
+ * Mesma regra que `validateRecipeAccess` aplica ao item de cardápio.
+ */
+async function assertTemplateContentInScope(
+	db: SisubDb,
+	templateKitchenId: number | null,
+	items: readonly TemplateItem[] | undefined,
+	meals: readonly TemplateMeal[] | undefined
+): Promise<void> {
+	const outOfScope = await findOutOfScopeRefs(
+		db,
+		templateKitchenId,
+		(items ?? []).map((i) => i.recipeId),
+		[...(items ?? []).map((i) => i.mealTypeId), ...(meals ?? []).map((m) => m.mealTypeId)]
+	)
+	// Mesmo erro para "não existe" e "é de outra cozinha": sondar id não distingue os dois.
+	const recipeId = outOfScope.recipeIds[0]
+	if (recipeId) throw new NotFoundError("recipe", recipeId)
+	const mealTypeId = outOfScope.mealTypeIds[0]
+	if (mealTypeId) throw new NotFoundError("meal_type", mealTypeId)
+}
+
+/**
+ * Referências (receita, tipo de refeição) que NÃO cabem num template do escopo informado:
+ * inexistentes, ou locais de outra cozinha. A regra está descrita em
+ * {@link assertTemplateContentInScope}; esta é a metade que só lê, para quem precisa de outra
+ * mensagem (o fork, cujo chamador já enxerga a origem).
+ */
+async function findOutOfScopeRefs(
+	db: SisubDb,
+	templateKitchenId: number | null,
+	rawRecipeIds: ReadonlyArray<string | null>,
+	rawMealTypeIds: ReadonlyArray<string | null>
+): Promise<{ recipeIds: string[]; mealTypeIds: string[] }> {
+	const recipeIds = [...new Set(rawRecipeIds.filter((id): id is string => id != null))]
+	const mealTypeIds = [...new Set(rawMealTypeIds.filter((id): id is string => id != null))]
+
+	const [recipes, mealTypes] = await Promise.all([
+		recipeIds.length > 0
+			? runQuery("FETCH_FAILED", () =>
+					db.select({ id: recipesInKitchen.id, kitchenId: recipesInKitchen.kitchenId }).from(recipesInKitchen).where(inArray(recipesInKitchen.id, recipeIds))
+				)
+			: Promise.resolve([]),
+		mealTypeIds.length > 0
+			? runQuery("FETCH_FAILED", () =>
+					db
+						.select({ id: mealTypeInKitchen.id, kitchenId: mealTypeInKitchen.kitchenId })
+						.from(mealTypeInKitchen)
+						.where(inArray(mealTypeInKitchen.id, mealTypeIds))
+				)
+			: Promise.resolve([]),
+	])
+
+	const inScope = (kitchenId: number | null) => kitchenId === null || kitchenId === templateKitchenId
+	const recipeOwner = new Map(recipes.map((r) => [r.id, r.kitchenId]))
+	const mealTypeOwner = new Map(mealTypes.map((m) => [m.id, m.kitchenId]))
+	return {
+		recipeIds: recipeIds.filter((id) => !recipeOwner.has(id) || !inScope(recipeOwner.get(id) ?? null)),
+		mealTypeIds: mealTypeIds.filter((id) => !mealTypeOwner.has(id) || !inScope(mealTypeOwner.get(id) ?? null)),
+	}
+}
+
 function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (typeof menuTemplateItemsInKitchen.$inferInsert)[] {
 	return items.map((item, index) => ({
 		menuTemplateId: templateId,
@@ -235,6 +306,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 
 	const items = input.items ?? []
 	const meals = input.meals ?? []
+	await assertTemplateContentInScope(db, input.kitchenId ?? null, items, meals)
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
@@ -331,6 +403,24 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	const sourceItems = source.menuTemplateItemsInKitchens
 	// Efetivo base lido à parte, tolerante à tabela ausente (fork continua mesmo sem a base).
 	const sourceMeals = (await fetchTemplateMealsSafe(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
+
+	// A cópia herda as referências da origem — e elas precisam caber no DESTINO, pela mesma
+	// regra de `createTemplate`/`saveTemplateEdit`. Sem isto, `kitchen:1` em A + `kitchen:2` em
+	// C copiava para C o plano de A com as preparações LOCAIS de A, e C passava a ler a ficha
+	// delas pelo próprio template. Aqui a mensagem pode dizer o que é: quem copia já enxerga a
+	// origem (o guard acima exigiu), então não há sondagem a esconder.
+	const outOfScope = await findOutOfScopeRefs(
+		db,
+		targetKitchenId,
+		sourceItems.map((i) => i.recipeId),
+		[...sourceItems.map((i) => i.mealTypeId), ...sourceMeals.map((m) => m.mealTypeId)]
+	)
+	if (outOfScope.recipeIds.length > 0 || outOfScope.mealTypeIds.length > 0) {
+		throw new DomainError(
+			"TEMPLATE_FORK_OUT_OF_SCOPE",
+			`O plano de origem usa ${outOfScope.recipeIds.length} preparação(ões) e ${outOfScope.mealTypeIds.length} tipo(s) de refeição locais de outra cozinha, que não podem ir para o destino. Troque-os por itens globais ou do destino antes de copiar.`
+		)
+	}
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
@@ -488,6 +578,11 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 	}
 
 	requireAssetWriteForScope(ctx, targetKitchenId)
+
+	// O escopo do template que será GRAVADO: o local in-place mantém a cozinha dele; o global
+	// editado pela SDAB fica global; o fork nasce na cozinha do contexto. Nos três casos,
+	// `targetKitchenId` (o mismatch com um local foi recusado acima).
+	await assertTemplateContentInScope(db, targetKitchenId, input.items, input.meals)
 
 	// Template local, ou template global editado pela própria SDAB: edição in-place.
 	if (source.kitchen_id !== null || targetKitchenId === null) {

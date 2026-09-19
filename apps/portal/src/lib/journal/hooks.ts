@@ -45,7 +45,8 @@ import {
 	updateUserProfile,
 	upsertUserProfile,
 } from "./client"
-import type { Article, ArticleAuthor, ArticleVersion, Review, UserProfile } from "./types"
+import type { Article, Review, UserProfile } from "./types"
+import type { ArticleAuthorInsertInput, ArticleVersionInsertInput, ReviewInsertInput } from "./write-schemas"
 
 // ============================================
 // QUERY OPTIONS (for use in loaders and components)
@@ -297,7 +298,7 @@ export function useCreateArticleAuthors() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (authors: Partial<ArticleAuthor>[]) => createArticleAuthors(authors),
+		mutationFn: (authors: ArticleAuthorInsertInput[]) => createArticleAuthors(authors),
 		onSuccess: (data) => {
 			if (data.length > 0) {
 				const articleId = data[0].article_id
@@ -313,7 +314,7 @@ export function useCreateArticleVersion() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (version: Partial<ArticleVersion>) => createArticleVersion(version),
+		mutationFn: (version: ArticleVersionInsertInput) => createArticleVersion(version),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({
 				queryKey: ["journal", "article-versions", data.article_id],
@@ -329,7 +330,7 @@ export function useCreateReview() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (review: Partial<Review>) => createReview(review),
+		mutationFn: (review: ReviewInsertInput) => createReview(review),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["journal", "review"] })
 		},

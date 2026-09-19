@@ -19,6 +19,7 @@
  */
 
 import type { AnalysisRun } from "@iefa/database/sucont"
+import { forbidden } from "@iefa/pbac/start"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireDivisionAccess, requireDivisionEditor } from "#/lib/auth.server"
@@ -130,7 +131,19 @@ export const saveDgcAnalysisFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }): Promise<{ id: string }> => {
 		const ctx = await requireEditor()
-		const { data: row, error } = await getSucontServerClient()
+		const client = getSucontServerClient()
+
+		// A rodada tem de ser do SAC-DGC E de quem a abriu. `runId` vem do cliente: sem
+		// isto um editor da SUCONT-1 gravava (ou, pelo upsert, SOBRESCREVIA) a análise
+		// de uma UG na rodada de outro operador — ou numa rodada de outra ferramenta,
+		// já que `analysis_run` é compartilhada. Na tela o id é sempre o que
+		// `startDgcRunFn` acabou de devolver ao próprio usuário; rodada reaberta é só
+		// leitura (o recorte não volta do banco), então nada legítimo cai aqui.
+		const { data: run, error: runError } = await client.from("analysis_run").select("tool, created_by").eq("id", data.runId).maybeSingle()
+		if (runError) throw new Error(runError.message)
+		if (run?.tool !== TOOL || run.created_by !== ctx.userId) forbidden("Rodada não encontrada ou aberta por outro usuário.")
+
+		const { data: row, error } = await client
 			.from("dgc_analysis")
 			.upsert(
 				{

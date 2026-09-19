@@ -21,11 +21,14 @@ import type { User } from "@supabase/supabase-js"
 import { supabase } from "../db/supabase.ts"
 import { type AlphaAccess, decideSubmissionRead, decideSubmissionReview, READER_ROLES, type SubmissionOwnership, unitsFor } from "../lib/alpha-access.ts"
 
+// Os ids vêm da rota, que aceita qualquer texto: vão ao log por `JSON.stringify`, para que um
+// `%0A` no id não forje uma linha inteira do log.
+
 /** Autor e OM da submissão, ou `null` se não existe (ou não pôde ser lida). */
 async function loadSubmissionOwnership(submissionId: string): Promise<SubmissionOwnership | null> {
 	const { data, error } = await supabase.from("submission").select("user_id, unit_id").eq("id", submissionId).maybeSingle()
 	if (error) {
-		console.error(`[authorize] submissão ${submissionId} não lida: ${error.message}`)
+		console.error(`[authorize] submissão ${JSON.stringify(submissionId)} não lida: ${error.message}`)
 		return null
 	}
 	return (data as SubmissionOwnership | null) ?? null
@@ -35,7 +38,7 @@ async function loadSubmissionOwnership(submissionId: string): Promise<Submission
 async function loadRunSubmissionId(runId: string): Promise<string | null> {
 	const { data, error } = await supabase.from("compliance_run").select("submission_id").eq("id", runId).maybeSingle()
 	if (error) {
-		console.error(`[authorize] execução ${runId} não lida: ${error.message}`)
+		console.error(`[authorize] execução ${JSON.stringify(runId)} não lida: ${error.message}`)
 		return null
 	}
 	return (data?.submission_id as string | undefined) ?? null
@@ -90,7 +93,7 @@ export async function canTriageFinding(findingId: string, access: AlphaAccess): 
 
 	const { data, error } = await supabase.from("compliance_finding").select("run_id").eq("id", findingId).maybeSingle()
 	if (error) {
-		console.error(`[authorize] achado ${findingId} não lido: ${error.message}`)
+		console.error(`[authorize] achado ${JSON.stringify(findingId)} não lido: ${error.message}`)
 		return false
 	}
 	if (!data?.run_id) return false

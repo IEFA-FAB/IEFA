@@ -2,8 +2,10 @@
  * Kitchen ATA draft operations: pending → sent status lifecycle for
  * kitchen-to-management procurement requests. Drizzle query layer.
  *
- * Auth: leituras seguem sem guard PBAC; ESCRITA exige `kitchen:2` na cozinha dona do rascunho,
- * resolvida do banco quando a operação recebe só o id (`authorizeDraft`).
+ * Auth: LEITURA exige `kitchen:1` na cozinha OU `unit:1` numa OM dela (a gestão lê o rascunho
+ * enviado no wizard da ATA) — ver `requireKitchenOrItsUnit`. ESCRITA exige `kitchen:2` na
+ * cozinha dona do rascunho, resolvida do banco quando a operação recebe só o id
+ * (`authorizeDraft`), e os planos citados precisam ser da própria cozinha ou globais.
  *
  * Status: "pending" (editable by kitchen) → "sent". Mensagens de erro especiais
  * (`Erro ao ...: message`) preservadas (prefixo + mensagem do driver).
@@ -12,6 +14,7 @@
 import { kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement, menuTemplateInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, desc, eq, inArray } from "drizzle-orm"
+import { requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
 import { requireKitchen } from "../guards/require-permission.ts"
 import type {
 	CreateKitchenDraft,
@@ -22,7 +25,7 @@ import type {
 	UpdateKitchenDraft,
 } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
-import { NotFoundError } from "../types/errors.ts"
+import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toColumns, toWire } from "../utils/index.ts"
 
 type Draft = Tables<"kitchen_ata_draft">
@@ -88,7 +91,8 @@ async function attachSelections(db: SisubDb, drafts: DraftRow[], prefix: string)
 }
 
 /** Lists all drafts for a kitchen with their template selections, ordered by creation date descending. */
-export async function fetchKitchenDrafts(db: SisubDb, _ctx: UserContext, input: FetchKitchenDrafts) {
+export async function fetchKitchenDrafts(db: SisubDb, ctx: UserContext, input: FetchKitchenDrafts) {
+	await requireKitchenOrItsUnit(db, ctx, 1, input.kitchenId)
 	const prefix = "Erro ao buscar rascunhos"
 	const drafts = await runQuery(
 		"FETCH_FAILED",
@@ -104,7 +108,10 @@ export async function fetchKitchenDrafts(db: SisubDb, _ctx: UserContext, input: 
 }
 
 /** Returns the most recent "sent" draft for a kitchen (awaiting management action), or null if none exists. */
-export async function fetchPendingDraft(db: SisubDb, _ctx: UserContext, input: FetchPendingDraft) {
+export async function fetchPendingDraft(db: SisubDb, ctx: UserContext, input: FetchPendingDraft) {
+	// O wizard da ATA chama isto para CADA cozinha da OM: quem compõe a ata é a gestão da
+	// unidade, que não precisa ter a cozinha.
+	await requireKitchenOrItsUnit(db, ctx, 1, input.kitchenId)
 	const prefix = "Erro ao buscar rascunho pendente"
 	const drafts = await runQuery(
 		"FETCH_FAILED",
@@ -128,7 +135,7 @@ export async function fetchPendingDraft(db: SisubDb, _ctx: UserContext, input: F
  * A entrada dessas operações traz só o `draftId` — sem resolver o dono, qualquer detentor de
  * `kitchen:2` em uma cozinha editava, enviava ou apagava o rascunho de ATA de outra.
  */
-async function authorizeDraft(db: SisubDb, ctx: UserContext, draftId: string): Promise<void> {
+async function authorizeDraft(db: SisubDb, ctx: UserContext, draftId: string): Promise<number> {
 	const [row] = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({ kitchenId: kitchenAtaDraftInProcurement.kitchenId })
@@ -138,10 +145,37 @@ async function authorizeDraft(db: SisubDb, ctx: UserContext, draftId: string): P
 	)
 	if (!row?.kitchenId) throw new NotFoundError("kitchen_ata_draft", draftId)
 	requireKitchen(ctx, 2, row.kitchenId)
+	return row.kitchenId
+}
+
+/**
+ * Os planos citados no rascunho são da própria cozinha ou globais. O guard da cozinha prova
+ * só a cozinha; o `templateId` vinha do corpo, e um rascunho enviado à OM levava o plano
+ * LOCAL de outra cozinha — que o wizard da ATA depois abria e calculava.
+ */
+async function assertTemplatesOfKitchen(db: SisubDb, kitchenId: number, templateIds: readonly string[]): Promise<void> {
+	const ids = [...new Set(templateIds)]
+	if (ids.length === 0) return
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: menuTemplateInKitchen.id, kitchenId: menuTemplateInKitchen.kitchenId })
+			.from(menuTemplateInKitchen)
+			.where(inArray(menuTemplateInKitchen.id, ids))
+	)
+	const ownerById = new Map(rows.map((r) => [r.id, r.kitchenId]))
+	const foreign = ids.filter((id) => !ownerById.has(id) || (ownerById.get(id) != null && ownerById.get(id) !== kitchenId))
+	if (foreign.length > 0) {
+		throw new DomainError("TEMPLATE_ACCESS_DENIED", `Plano(s) de cardápio que não são desta cozinha nem globais: ${foreign.join(", ")}`)
+	}
 }
 
 export async function createKitchenDraft(db: SisubDb, ctx: UserContext, input: CreateKitchenDraft) {
 	requireKitchen(ctx, 2, input.kitchenId)
+	await assertTemplatesOfKitchen(
+		db,
+		input.kitchenId,
+		input.selections.map((s) => s.templateId)
+	)
 
 	const draft = await db.transaction(async (tx) => {
 		const inserted = await insertOneOrFail(
@@ -169,7 +203,14 @@ export async function createKitchenDraft(db: SisubDb, ctx: UserContext, input: C
  * selections=undefined → metadata-only update, existing selections untouched.
  */
 export async function updateKitchenDraft(db: SisubDb, ctx: UserContext, input: UpdateKitchenDraft) {
-	await authorizeDraft(db, ctx, input.draftId)
+	const kitchenId = await authorizeDraft(db, ctx, input.draftId)
+	if (input.selections !== undefined) {
+		await assertTemplatesOfKitchen(
+			db,
+			kitchenId,
+			input.selections.map((s) => s.templateId)
+		)
+	}
 
 	const draft = await db.transaction(async (tx) => {
 		const set = { ...toColumns(input.updates), updatedAt: new Date().toISOString() } as Partial<typeof kitchenAtaDraftInProcurement.$inferInsert>

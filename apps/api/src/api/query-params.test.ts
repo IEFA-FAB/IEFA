@@ -10,6 +10,7 @@ import {
 	parseListFilter,
 	parseOrderParam,
 	parseSortableOrderParam,
+	projectedColumns,
 	toInt,
 } from "./query-params.ts"
 
@@ -166,5 +167,22 @@ describe("parseListFilter", () => {
 describe("dayBounds", () => {
 	test("cobre o dia inteiro", () => {
 		expect(dayBounds("2026-03-01")).toEqual({ start: "2026-03-01T00:00:00.000", end: "2026-03-01T23:59:59.999" })
+	})
+})
+
+describe("projectedColumns", () => {
+	test("colunas simples da projeção, sem aspas", () => {
+		expect(projectedColumns('id, created_at, value, question, "userId"')).toEqual(["id", "created_at", "value", "question", "userId"])
+	})
+
+	test("embed, alias e cast ficam de fora — só coluna simples é ordenável", () => {
+		expect(projectedColumns("id, unit:units(code), name:display_name, code::text")).toEqual(["id"])
+	})
+
+	test("com a projeção como allow-list, coluna não publicada vira recusa", () => {
+		// `/api/units` projeta `id, code, display_name`: ordenar por `is_training` era oráculo.
+		const sortable = projectedColumns("id, code, display_name")
+		expect(parseSortableOrderParam("is_training:desc", sortable)).toEqual({ ok: false, reason: "unknown-column" })
+		expect(parseSortableOrderParam("code:asc", sortable)).toEqual({ ok: true, order: [{ column: "code", ascending: true }] })
 	})
 })

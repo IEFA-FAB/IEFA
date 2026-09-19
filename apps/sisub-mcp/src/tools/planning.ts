@@ -13,7 +13,7 @@ import {
 	GetTrashItemsSchema,
 	getTrashItems,
 	ListKitchensSchema,
-	listKitchens,
+	listAccessibleKitchens,
 	RemoveMenuItemSchema,
 	RestoreMenuItemSchema,
 	removeMenuItem,
@@ -42,13 +42,16 @@ import { toolResult } from "./shared.ts"
 const listKitchensTool: ToolDefinition = {
 	schema: {
 		name: "list_kitchens",
-		description: "Lista todas as cozinhas disponíveis no sistema. Retorna id, display_name, tipo e unidade de cada cozinha. Requer permissão kitchen nível 1.",
+		description:
+			"Lista as cozinhas em que o usuário tem acesso (planejamento ou produção). Retorna id, display_name, tipo e unidade de cada cozinha. Requer permissão kitchen ou kitchen-production nível 1.",
 		inputSchema: toJsonSchema(ListKitchensSchema),
 	},
 	async handler(_args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
-			return toolResult(await listKitchens(getDb(), ctx))
+			// Só as cozinhas do chamador: `listKitchens` é referência de seletor e descarta o
+			// contexto — exposto aqui, entregava a lista da FAB inteira a qualquer chave.
+			return toolResult(await listAccessibleKitchens(getDb(), ctx))
 		} catch (e) {
 			return handleToolError(e)
 		}

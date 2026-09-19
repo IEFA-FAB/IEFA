@@ -12,6 +12,7 @@
  * cópia por arquivo é uma cópia que um dia sai do ar sem ninguém notar.
  */
 
+import { checkSameOriginJsonRequest } from "@iefa/auth-kit"
 import type { AppModule } from "@iefa/pbac"
 import { hasAnyPermission, resolveUserPermissions } from "@iefa/pbac"
 import { createCookieAuthClient } from "@iefa/supabase-kit"
@@ -48,4 +49,21 @@ export async function requireSucontUser(event: H3Event, modules: readonly AppMod
 	}
 
 	return { id: user.id }
+}
+
+/**
+ * Guard de CSRF das rotas Nitro que leem corpo JSON com a sessão do cookie.
+ *
+ * O `readBody` do h3 faz `JSON.parse` de qualquer content-type, e o cookie do
+ * Supabase é `SameSite=Lax`: uma página em outro subdomínio de `iefa.com.br` (que é
+ * "same-site") conseguia disparar um POST `text/plain` sem preflight e queimar o
+ * Bedrock com a sessão da vítima. Exige `application/json` e `Origin`/`Referer` do
+ * próprio app — ver `checkSameOriginJsonRequest` no auth-kit.
+ *
+ * Chamar ANTES de `requireSucontUser` e do `readBody`.
+ * @throws 403 se o pedido não vier do próprio app como JSON.
+ */
+export function requireSameOriginJson(event: H3Event): void {
+	const check = checkSameOriginJsonRequest(event.req.headers, event.req.url)
+	if (!check.ok) throw new HTTPError({ status: 403, message: `Requisição recusada: ${check.reason}` })
 }

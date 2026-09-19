@@ -1,4 +1,5 @@
 import { toast } from "@/components/ui/toast"
+import { type CsvValue, csvRow } from "@/lib/csv"
 import { useIngredientsTree } from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientItem } from "@/types/domain/ingredients"
 
@@ -97,12 +98,15 @@ export function useExportIngredientsCSV() {
 			return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("pt-BR")
 		}
 
-		const num = (n: number | null | undefined): string => (n == null ? "" : String(n))
+		// Número segue número: `csvCell` o isenta da neutralização de fórmula (um `-0.5` é dado).
+		const num = (n: number | null | undefined): CsvValue => n
 
 		// Linha CSV: 13 colunas, sempre na mesma ordem
 		const rows: string[] = []
-		const pushRow = (cols: (string | null | undefined)[]) => {
-			rows.push(cols.map((c) => `"${escapeCSV(c == null ? "" : String(c))}"`).join(","))
+		// `csvRow` neutraliza fórmula (`=`, `+`, `-`, `@` no início) além de escapar aspas:
+		// nome de insumo e de pasta são texto livre e a planilha os executaria.
+		const pushRow = (cols: CsvValue[]) => {
+			rows.push(csvRow(cols))
 		}
 
 		const emitIngredient = (ingredient: Ingredient) => {
@@ -184,11 +188,6 @@ export function useExportIngredientsCSV() {
 	}
 
 	return { exportCSV }
-}
-
-/** Escapa aspas duplas para CSV (duplicando-as). */
-function escapeCSV(value: string): string {
-	return value.replace(/"/g, '""')
 }
 
 /**

@@ -7,7 +7,7 @@
 
 import { queryOptions, useMutation } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/useAuth"
-import { alphaRequest } from "./client"
+import { alphaPath, alphaRequest } from "./client"
 
 export const CAMPO_LABELS = {
 	objeto: "Objeto da contratação",
@@ -88,7 +88,7 @@ export interface SubmissionResponse {
 export function submissionTextQueryOptions(token: string | undefined, submissionId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "submissions", submissionId, "text"],
-		queryFn: () => alphaRequest<{ submission_id: string; text: string }>(`/api/v1/submissions/${submissionId}/text`, token),
+		queryFn: () => alphaRequest<{ submission_id: string; text: string }>(alphaPath`/api/v1/submissions/${submissionId}/text`, token),
 		staleTime: 5 * 60_000,
 	})
 }
@@ -105,7 +105,8 @@ export interface StoredExtraction {
 export function extractionsQueryOptions(token: string | undefined, submissionId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "submissions", submissionId, "extractions"],
-		queryFn: async () => (await alphaRequest<{ extractions: StoredExtraction[] }>(`/api/v1/submissions/${submissionId}/extractions`, token)).extractions,
+		queryFn: async () =>
+			(await alphaRequest<{ extractions: StoredExtraction[] }>(alphaPath`/api/v1/submissions/${submissionId}/extractions`, token)).extractions,
 	})
 }
 
@@ -121,7 +122,11 @@ export function extractionsQueryOptions(token: string | undefined, submissionId:
  */
 export function submissionsQueryOptions(token: string | undefined, scope: { kind: "unit" | "all" | "personal"; unitId: number | null }) {
 	const path =
-		scope.kind === "personal" ? "/api/v1/submissions?mine=true" : scope.unitId === null ? "/api/v1/submissions" : `/api/v1/submissions?unit_id=${scope.unitId}`
+		scope.kind === "personal"
+			? "/api/v1/submissions?mine=true"
+			: scope.unitId === null
+				? "/api/v1/submissions"
+				: alphaPath`/api/v1/submissions?unit_id=${scope.unitId}`
 	return queryOptions({
 		queryKey: ["alpha", "submissions", "list", scope.kind, scope.unitId ?? "all"],
 		queryFn: async () => (await alphaRequest<{ submissions: SubmissionResponse[] }>(path, token)).submissions,
@@ -151,6 +156,6 @@ export function useRunExtraction() {
 
 	return useMutation({
 		mutationFn: (submissionId: string) =>
-			alphaRequest<ExtractionResponse>(`/api/v1/submissions/${submissionId}/extractions`, session?.access_token, { method: "POST" }),
+			alphaRequest<ExtractionResponse>(alphaPath`/api/v1/submissions/${submissionId}/extractions`, session?.access_token, { method: "POST" }),
 	})
 }

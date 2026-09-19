@@ -7,7 +7,7 @@ import { analyticNoteRequestSchema } from "#/auditor/services/report-request"
 import { analyticNoteJsonSchema, normalizeAnalyticNote } from "#/auditor/services/report-schema"
 import { silentAdapterLogger } from "#/lib/ai-logger"
 import { getServerCapabilities } from "#/lib/capabilities.server"
-import { requireSucontUser } from "#/lib/nitro-auth.server"
+import { requireSameOriginJson, requireSucontUser } from "#/lib/nitro-auth.server"
 
 /**
  * Nota Analítica Estratégica de UMA competência do auditor SIAFI × SILOMS.
@@ -41,6 +41,10 @@ const DEADLINE_MS = 180_000
 const MAX_OUTPUT_TOKENS = 8_000
 
 export default defineHandler(async (event: H3Event) => {
+	// CSRF primeiro: nada do pedido (nem a sessão do cookie) é usado antes de
+	// confirmar que ele veio do próprio app como JSON.
+	requireSameOriginJson(event)
+
 	if (!getServerCapabilities().oracle) {
 		throw new HTTPError({ status: 503, message: "Nota analítica indisponível — IA não configurada neste ambiente" })
 	}

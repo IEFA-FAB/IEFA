@@ -18,7 +18,7 @@ import { extractLegalRefs } from "../../lib/legal-ref.ts"
 import { cleanText, normalizeTitle, stripDiacritics } from "../../lib/text.ts"
 import { type DocxDocument, parseDocx } from "../docx.ts"
 import type { ExplanatoryNoteDraft, NormativeSourceAdapter, PlaceholderDraft, SourceItem, StructuredDoc, StructureNodeDraft } from "../types.ts"
-import { discoverAguModels, EXCLUDED_CATEGORIES, UNVERSIONED_LABEL } from "./discover.ts"
+import { discoverAguModels, EXCLUDED_CATEGORIES, fetchFromAgu, UNVERSIONED_LABEL } from "./discover.ts"
 
 /**
  * `Nivel01`, `Nvel02`, `Nvel2-Opcional`, `Nivel3`, `Nvel4-R`, `Nvel1-SemNumeracao`.
@@ -189,11 +189,15 @@ export function createAguAdapter(baseUrl: string): NormativeSourceAdapter {
 			if (report.excluded.length > 0) {
 				console.info(`[agu] ${report.excluded.length} arquivo(s) ignorado(s) por estarem em categoria excluída (${[...EXCLUDED_CATEGORIES].join(", ")})`)
 			}
+			if (report.offHost.length > 0) {
+				console.warn(`[agu] ${report.offHost.length} link(s) de .docx ignorado(s) por apontarem para host fora da AGU`)
+			}
 			return report.items
 		},
 
 		async fetch(item: SourceItem) {
-			const response = await fetch(item.fetch_url, { headers: { "User-Agent": BROWSER_USER_AGENT } })
+			// Host conferido também aqui, e a cada redirecionamento: `fetch_url` saiu de HTML de terceiro.
+			const response = await fetchFromAgu(item.fetch_url, { headers: { "User-Agent": BROWSER_USER_AGENT } })
 			if (!response.ok) throw new Error(`GET ${item.fetch_url} → ${response.status}`)
 			return new Uint8Array(await response.arrayBuffer())
 		},

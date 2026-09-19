@@ -65,5 +65,9 @@ export function createSsrAuthClient<S extends SchemaName>({ url, key, schema, fe
 		...(schema ? { db: { schema } } : {}),
 		global: { fetch: fetch ?? authTimeoutFetch },
 		cookies: startCookieMethods(),
+		// `Secure` explícito: o default do @supabase/ssr não marca, e o cookie carrega o
+		// refresh token. Em produção o app só é servido por HTTPS (ALB redireciona 80→443);
+		// em dev (http://localhost) o navegador recusaria o cookie.
+		cookieOptions: { secure: process.env.NODE_ENV === "production" },
 	})
 }

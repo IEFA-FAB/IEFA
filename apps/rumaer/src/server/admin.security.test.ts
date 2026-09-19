@@ -48,6 +48,11 @@ describe("storage.fn.ts — upload exige gate; downloads permanecem públicos", 
 		expect(upload?.body).toContain("requireUniformEditor()")
 	})
 
+	test("getSignedUploadUrlFn só assina caminho derivado de variante (sem texto livre)", () => {
+		expect(upload?.body).toContain("IMAGE_PATH_PATTERN")
+		expect(upload?.body).toContain("parseImagePath(")
+	})
+
 	for (const s of publicDownloads) {
 		test(`${s.name} permanece público (sem gate)`, () => {
 			expect(s.body).not.toContain("requireUniformEditor")
@@ -89,4 +94,14 @@ describe("permissions.fn.ts — concessão e revogação são auditadas", () => 
 		expect(source).not.toMatch(/from\("user_permissions"\)\s*\.(insert|update|upsert|delete)\(/)
 		expect(source).not.toMatch(/grantUnscopedModulePermission|grantModulePermission|revokeModulePermission/)
 	})
+})
+
+describe("admin.fn.ts — image_path é o caminho da própria variante", () => {
+	const segments = serverFnSegments("admin.fn.ts")
+
+	for (const name of ["upsertVariantFn", "upsertVariantImageFn"]) {
+		test(`${name} confere o caminho com assertOwnImagePath`, () => {
+			expect(segments.find((s) => s.name === name)?.body).toContain("assertOwnImagePath(")
+		})
+	}
 })

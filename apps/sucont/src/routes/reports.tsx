@@ -12,6 +12,7 @@ import { Input } from "#/components/ui/input"
 import { toast } from "#/components/ui/toast"
 import { useHubFilters } from "#/lib/hub-filters"
 import { reportsQueryOptions } from "#/lib/queries"
+import { isHttpUrl } from "#/lib/safe-url"
 import type { Tool } from "#/lib/types"
 import { createReportFn, deleteReportFn } from "#/server/reports.fn"
 
@@ -72,7 +73,9 @@ function Reports() {
 		id: r.id,
 		title: r.title,
 		description: r.description ?? "",
-		url: r.url,
+		// Linha gravada antes da validação de esquema no servidor pode ter `javascript:`;
+		// sem URL o card não vira link.
+		url: isHttpUrl(r.url) ? r.url : undefined,
 		icon: r.icon ?? "FileBarChart",
 		stage: "acompanhar" as const,
 	}))

