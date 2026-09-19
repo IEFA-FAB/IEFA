@@ -559,6 +559,7 @@ export const ASSURANCE_REGISTRY = {
 	setLotUseFirstFn: { require: "none" },
 	saveExpiryPolicyFn: { require: "none" },
 	deleteExpiryPolicyFn: { require: "none" },
+
 	// ── issue.fn.ts (fetchReturnableLotsFn é GET, não entra)
 
 	// ── stock.fn.ts
