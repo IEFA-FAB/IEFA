@@ -397,10 +397,24 @@ describe("GET /api/v1/me/access (contrato com o contrate)", () => {
 		expect(body.can_submit).toBe(true)
 	})
 
-	// Os campos do formato por nível saíram no PR de limpeza: o corpo é SÓ o contrato novo.
-	test("os campos legados (level, can_see_all, can_decide, can_manage_access) não voltam", async () => {
-		const raw = (await (await appAs([grant("alpha-aci", 1), grant("alpha-admin", 3)]).request("/api/v1/me/access")).json()) as Record<string, unknown>
-		expect(Object.keys(raw).sort()).toEqual(["can_submit", "roles", "units"])
+	// O contrate publicado pelo #383 EXIGE os campos do formato por nível; α e contrate sobem
+	// separados. Até os dois apps deste PR estarem no ar, o α continua mandando os quatro.
+	// TODO(alpha): no PR que parar de emiti-los, este teste passa a exigir a ausência.
+	test("continua emitindo os campos legados deprecados, como o contrate do #383 exige", async () => {
+		const raw = (await (await appAs([grant("alpha-procurement", 1, GAP_SJ), grant("alpha-admin", 3, IAE)]).request("/api/v1/me/access")).json()) as Record<
+			string,
+			unknown
+		>
+		expect(Object.keys(raw).sort()).toEqual(["can_decide", "can_manage_access", "can_see_all", "can_submit", "level", "roles", "units"])
+		expect(raw).toMatchObject({ level: 2, can_see_all: true, can_decide: false, can_manage_access: true })
+		// O schema do #383 (campos obrigatórios) aceita a resposta.
+		const LegacyContrateSchema = MeAccessSchema.required({ level: true, can_see_all: true, can_decide: true, can_manage_access: true })
+		expect(LegacyContrateSchema.safeParse(raw).success).toBe(true)
+	})
+
+	test("o schema atual aceita a resposta SEM os campos legados (o α do PR seguinte)", () => {
+		const parsed = MeAccessSchema.safeParse({ roles: { requester: [], procurement: [], aci: [], admin: [] }, units: [], can_submit: true })
+		expect(parsed.success).toBe(true)
 	})
 
 	test("quatro papéis globais: 'all' em todos, e as OMs reais", async () => {

@@ -1,4 +1,4 @@
-import type { AlphaRole, UnitSet } from "@iefa/alpha-client/access"
+import type { AlphaRole, MeAccess, UnitSet } from "@iefa/alpha-client/access"
 import {
 	type AppModule,
 	coversUnit,
@@ -32,7 +32,7 @@ export { coversUnit, isEmptyCoverage }
  *
  * Antes daqui, os papéis eram níveis aninhados de um módulo `alpha` único e sem escopo —
  * licitações e ACI enxergavam a FAB inteira. Esse módulo saiu do `AppModule` e as linhas
- * dele foram apagadas (20260921090000); uma linha que tenha sobrado não é lida aqui.
+ * dele foram convertidas nos papéis e apagadas (20260921090000); uma linha que reste não é lida aqui.
  *
  * ## Papéis se acumulam — sem segregação de funções
  *
@@ -136,4 +136,25 @@ export function decideSubmissionRead(access: AlphaAccess, userId: string, submis
  */
 export function decideSubmissionReview(access: AlphaAccess, submission: SubmissionOwnership): boolean {
 	return coversUnit(access.roles.aci, submission.unit_id)
+}
+
+/**
+ * @deprecated Os campos do `/me/access` de antes do escopo por OM, derivados dos papéis. O
+ * contrate publicado pelo #383 ainda os EXIGE ao validar a resposta, e α e contrate sobem de
+ * forma independente — parar de mandá-los antes de o contrate novo estar no ar quebraria o
+ * perfil de todo mundo na janela entre os dois deploys. `level` segue a hierarquia antiga
+ * (ACI > licitações > requisitante), agora "em alguma OM".
+ *
+ * TODO(alpha): remover esta função, o spread em `buildMeAccess` (`api/access.ts`) e os campos
+ * de `MeAccessSchema` (`@iefa/alpha-client/access`) num PR seguinte, DEPOIS que α e contrate
+ * deste PR estiverem os dois em produção.
+ */
+export function legacyAccessFields(access: AlphaAccess): Required<Pick<MeAccess, "level" | "can_see_all" | "can_decide" | "can_manage_access">> {
+	const level = hasRole(access, "aci") ? 3 : hasRole(access, "procurement") ? 2 : hasRole(access, "requester") ? 1 : 0
+	return {
+		level,
+		can_see_all: hasRole(access, "procurement") || hasRole(access, "aci"),
+		can_decide: hasRole(access, "aci"),
+		can_manage_access: hasRole(access, "admin"),
+	}
 }

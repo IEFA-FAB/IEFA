@@ -14,12 +14,14 @@
  * Os papéis se ACUMULAM: a mesma pessoa pode ter os quatro, na mesma OM (sem segregação de
  * funções, decisão do mantenedor de 2026-09-19).
  *
- * ## Campos legados — removidos
+ * ## Campos legados — deprecados, em duas etapas
  *
- * `level`, `can_see_all`, `can_decide` e `can_manage_access` (o formato por nível de antes do
- * escopo por OM) saíram no PR de limpeza. O `z.object` descarta chave desconhecida, então um
- * contrate com este schema lê tanto o α que ainda os manda quanto o que não manda — mas o
- * contrate ANTERIOR os exige, e por isso o contrate sobe antes do α (ver o PR).
+ * `level`, `can_see_all`, `can_decide` e `can_manage_access` são o formato por nível de antes
+ * do escopo por OM. O contrate publicado pelo #383 os EXIGE ao validar a resposta, e α e
+ * contrate sobem de forma independente do mesmo merge — então:
+ *   1. (este PR) o α continua MANDANDO os quatro; aqui eles viram OPCIONAIS, e o contrate novo
+ *      não depende deles;
+ *   2. (PR seguinte, com os dois apps já no ar) o α para de mandá-los e eles saem daqui.
  */
 
 import { z } from "zod"
@@ -52,6 +54,17 @@ export const MeAccessSchema = z.object({
 	units: z.array(AccessUnitSchema),
 	/** Pode enviar documento. Só um deny sem escopo em `alpha-requester` fecha. */
 	can_submit: z.boolean(),
+
+	// Campos legados — OPCIONAIS aqui: o contrate não os lê, e o α deixa de mandá-los num PR
+	// seguinte. Ver o cabeçalho deste arquivo.
+	/** @deprecated nível do módulo `alpha` antigo: 3 ACI, 2 licitações, 1 requisitante, 0 nenhum. */
+	level: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]).optional(),
+	/** @deprecated "enxerga a fila": licitações ou ACI em alguma OM. */
+	can_see_all: z.boolean().optional(),
+	/** @deprecated ACI em alguma OM — a decisão por processo vem em `can_decide` do processo. */
+	can_decide: z.boolean().optional(),
+	/** @deprecated `alpha-admin` 3 em alguma OM. */
+	can_manage_access: z.boolean().optional(),
 })
 export type MeAccess = z.infer<typeof MeAccessSchema>
 

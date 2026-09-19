@@ -6,6 +6,7 @@ import {
 	decideSubmissionRead,
 	decideSubmissionReview,
 	hasRole,
+	legacyAccessFields,
 	needsUnitGraph,
 	resolveAlphaAccess,
 	unitsFor,
@@ -48,8 +49,8 @@ describe("resolveAlphaAccess", () => {
 		expect(access(permissions).roles).toEqual({ requester: [], procurement: [], aci: "all", admin: "all" })
 	})
 
-	// O módulo saiu do `AppModule`, mas a limpeza (20260921090000) mantém a linha que os papéis
-	// não cobrem — em produção, uma. Ela continua sem efeito nenhum.
+	// O módulo saiu do `AppModule` e a limpeza (20260921090000) converte e apaga as linhas; a que
+	// ela não consegue apagar (papel já existente com nível abaixo do exigido) segue sem efeito nenhum.
 	test("uma linha do módulo `alpha` antigo que tenha sobrado não é lida — nem o allow, nem o deny", () => {
 		const legacyModule = "alpha" as UserPermission["module"]
 		const legacy = access([grant(legacyModule, 3), grant(legacyModule, 0)])
@@ -147,6 +148,32 @@ describe("decideSubmissionReview", () => {
 	test("ser o autor, licitações ou requisitante da OM não basta", () => {
 		const notAci = access([grant("alpha-procurement", 1), grant("alpha-requester", 1)])
 		expect(decideSubmissionReview(notAci, { user_id: ME, unit_id: IAE })).toBe(false)
+	})
+})
+
+// @deprecated — sai com os campos legados do `/me/access`, no PR seguinte (ver `legacyAccessFields`).
+describe("legacyAccessFields", () => {
+	test("deriva o formato por nível a partir dos papéis", () => {
+		expect(legacyAccessFields(access([]))).toEqual({ level: 0, can_see_all: false, can_decide: false, can_manage_access: false })
+		expect(legacyAccessFields(access([grant("alpha-requester", 1, IAE)]))).toEqual({
+			level: 1,
+			can_see_all: false,
+			can_decide: false,
+			can_manage_access: false,
+		})
+		expect(legacyAccessFields(access([grant("alpha-procurement", 1, GAP_SJ)]))).toMatchObject({ level: 2, can_see_all: true, can_decide: false })
+	})
+
+	test("os quatro papéis (na mesma OM ou globais) dão o ACI administrador de antes", () => {
+		const expected = { level: 3, can_see_all: true, can_decide: true, can_manage_access: true } as const
+		expect(legacyAccessFields(access([grant("alpha-requester", 1), grant("alpha-procurement", 1), grant("alpha-aci", 1), grant("alpha-admin", 3)]))).toEqual(
+			expected
+		)
+		expect(
+			legacyAccessFields(
+				access([grant("alpha-requester", 1, IAE), grant("alpha-procurement", 1, IAE), grant("alpha-aci", 1, IAE), grant("alpha-admin", 3, IAE)])
+			)
+		).toEqual(expected)
 	})
 })
 
