@@ -15,32 +15,30 @@
  * Manuscrito em avaliação é confidencial e sustenta o duplo-cego.
  */
 
-import { createClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { forbidden, requireArticleAccess, requireArticleWriteAccess } from "@/lib/auth.server"
-import { envServer } from "@/lib/env.server"
-import { parseSubmissionUploadPath, SUBMISSIONS_BUCKET } from "@/lib/journal/storage-paths"
+import { parseStoredSubmissionPath, parseSubmissionUploadPath, SUBMISSIONS_BUCKET } from "@/lib/journal/storage-paths"
 import { getJournalServerClient } from "@/lib/supabase.server"
 
+/** Storage service-role pelo kit (com os deadlines de fetch) — o schema não importa aqui. */
 function getStorageClient() {
-	return createClient(envServer.VITE_IEFA_SUPABASE_URL, envServer.IEFA_SUPABASE_SECRET_KEY, {
-		auth: { persistSession: false },
-	})
+	return getJournalServerClient().storage
 }
 
 /** Teto da validade do link assinado. O valor do cliente era repassado sem limite. */
 const MAX_DOWNLOAD_EXPIRES_IN = 3600
 
 /**
- * Extrai o articleId do caminho. Rejeita `..` (escapa do prefixo pretendido) e caminho
- * sem prefixo de artigo — o default é negar, não assinar o que vier.
+ * Extrai o articleId do caminho, validado INTEIRO contra a convenção (storage-paths.ts).
+ * Recusar só o `..` literal não bastava: `<A>/%2e%2e/<B>/v1/manuscript.pdf` passava pelo
+ * gate do artigo A e o storage, ao normalizar a URL, assinava o manuscrito de B. O
+ * default é negar, não assinar o que vier.
  */
 function articleIdFromPath(path: string): string {
-	if (path.includes("..")) forbidden("Caminho inválido.")
-	const articleId = path.split("/")[0]
-	if (!articleId) forbidden("Caminho inválido.")
-	return articleId
+	const parsed = parseStoredSubmissionPath(path)
+	if (!parsed) forbidden("Caminho inválido.")
+	return parsed.articleId
 }
 
 /**
@@ -59,7 +57,7 @@ export const getSignedUploadUrlFn = createServerFn({ method: "POST" })
 			const expectsFirstVersion = status === "draft"
 			if (expectsFirstVersion !== (parsed.version === 1)) forbidden("Versão do arquivo não corresponde ao status da submissão.")
 		}
-		const { data: result, error } = await getStorageClient().storage.from(SUBMISSIONS_BUCKET).createSignedUploadUrl(data.filePath)
+		const { data: result, error } = await getStorageClient().from(SUBMISSIONS_BUCKET).createSignedUploadUrl(data.filePath)
 		if (error) throw new Error(error.message)
 		return result // { signedUrl, token, path }
 	})
@@ -74,7 +72,7 @@ export const getSignedDownloadUrlFn = createServerFn({ method: "GET" })
 	.validator(
 		z.object({
 			bucket: z.string(),
-			path: z.string().min(1),
+			path: z.string().min(1).max(200),
 			expiresIn: z.number().int().positive().max(MAX_DOWNLOAD_EXPIRES_IN).optional(),
 		})
 	)
@@ -95,7 +93,7 @@ export const getSignedDownloadUrlFn = createServerFn({ method: "GET" })
 			if (!latest?.pdf_path || latest.pdf_path !== data.path) forbidden("Arquivo não publicado.")
 		}
 		const { data: result, error } = await getStorageClient()
-			.storage.from(SUBMISSIONS_BUCKET)
+			.from(SUBMISSIONS_BUCKET)
 			.createSignedUrl(data.path, data.expiresIn ?? MAX_DOWNLOAD_EXPIRES_IN)
 		if (error) throw new Error(error.message)
 		return result.signedUrl

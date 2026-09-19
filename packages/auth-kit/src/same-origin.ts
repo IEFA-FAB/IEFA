@@ -24,10 +24,30 @@ function originOf(value: string | null): string | null {
 }
 
 /**
- * `requestUrl` é a URL que o servidor recebeu. Atrás do ALB o host vem certo, mas o
- * esquema chega `http`; por isso a comparação é pelo HOST, e o `x-forwarded-host`
- * (quando existe) prevalece sobre o `host`.
+ * Host que o NAVEGADOR usou para chegar ao app. Atrás do ALB o host vem certo (o ALB
+ * preserva o `Host`), mas o esquema chega `http`; por isso a comparação é pelo HOST.
+ * `x-forwarded-host` fica de fora de propósito: o ALB repassa o valor que o CLIENTE mandou.
  */
+function requestHost(headers: Headers, requestUrl: string): string | null {
+	try {
+		return (headers.get("host") || new URL(requestUrl).host).toLowerCase()
+	} catch {
+		return null
+	}
+}
+
+/**
+ * `true` quando `origin` (valor de `Origin`, ou a origem do `Referer`) aponta para o próprio
+ * app. É também o matcher de origem do `createCsrfMiddleware` do TanStack Start, cuja
+ * comparação padrão (`Origin === new URL(request.url).origin`) recusaria todo request
+ * legítimo atrás do ALB, onde `request.url` chega com `http:`.
+ */
+export function isRequestOrigin(origin: string | null | undefined, headers: Headers, requestUrl: string): boolean {
+	const source = originOf(origin ?? null)
+	const expected = requestHost(headers, requestUrl)
+	return source !== null && expected !== null && new URL(source).host.toLowerCase() === expected
+}
+
 export function checkSameOriginJsonRequest(headers: Headers, requestUrl: string): SameOriginCheck {
 	const contentType = headers.get("content-type")?.split(";")[0]?.trim().toLowerCase()
 	if (contentType !== "application/json") {
@@ -36,17 +56,6 @@ export function checkSameOriginJsonRequest(headers: Headers, requestUrl: string)
 
 	const source = originOf(headers.get("origin")) ?? originOf(headers.get("referer"))
 	if (!source) return { ok: false, reason: "Origem ausente" }
-
-	const forwardedHost = headers.get("x-forwarded-host")?.split(",")[0]?.trim()
-	let expectedHost: string
-	try {
-		expectedHost = (forwardedHost || headers.get("host") || new URL(requestUrl).host).toLowerCase()
-	} catch {
-		return { ok: false, reason: "Host inválido" }
-	}
-
-	if (new URL(source).host.toLowerCase() !== expectedHost) {
-		return { ok: false, reason: "Origem diferente do app" }
-	}
+	if (!isRequestOrigin(source, headers, requestUrl)) return { ok: false, reason: "Origem diferente do app" }
 	return { ok: true }
 }

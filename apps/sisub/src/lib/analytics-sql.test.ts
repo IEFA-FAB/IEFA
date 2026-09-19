@@ -112,4 +112,22 @@ describe("validateSql", () => {
 		]
 		for (const sql of ok) expect(validateSql(sql), sql).toEqual({ valid: true })
 	})
+
+	test("rejeita relação em lista com vírgula depois de JOIN ... ON (bypass da verificação)", () => {
+		expect(validateSql('SELECT d.email, d."nrOrdem" FROM (SELECT 1) x JOIN (SELECT 1) y ON true, core.user_data d ORDER BY d.email OFFSET 500').valid).toBe(
+			false
+		)
+		expect(validateSql("SELECT * FROM units u JOIN kitchen k USING (id), auth.users a").valid).toBe(false)
+	})
+
+	test("rejeita TABLE e WINDOW", () => {
+		expect(validateSql("SELECT * FROM (TABLE auth.users) t").valid).toBe(false)
+		expect(validateSql("SELECT count(*) OVER user_data FROM units WINDOW user_data AS ()").valid).toBe(false)
+	})
+
+	test("JOIN seguido de vírgula para tabela liberada continua aceito", () => {
+		expect(validateSql("SELECT * FROM units u JOIN mess_halls m ON m.unit_id = u.id, kitchen k WHERE k.unit_id = u.id LIMIT 5")).toEqual({
+			valid: true,
+		})
+	})
 })

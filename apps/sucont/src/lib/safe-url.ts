@@ -19,6 +19,9 @@ export function resolveSameOriginDestination(destination: string, origin: string
 	try {
 		const url = new URL(destination, origin)
 		if (url.origin !== origin) return fallback
+		// "/.//evil.com" resolve para a origem, mas o pathname normalizado é "//evil.com":
+		// devolvido cru, o `location.assign` o lê como protocol-relative e sai do app.
+		if (url.pathname.startsWith("//")) return fallback
 		return `${url.pathname}${url.search}${url.hash}`
 	} catch {
 		return fallback

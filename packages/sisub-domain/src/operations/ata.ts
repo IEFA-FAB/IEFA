@@ -2,9 +2,13 @@
  * Procurement list (ATA) lifecycle operations: needs calculation, creation,
  * status transitions, soft-delete. Drizzle query layer (migração PostgREST→Drizzle).
  *
- * Auth: leituras seguem sem guard PBAC (a rota do módulo já exige `unit:1`); ESCRITA exige
- * `unit:2` na unidade DONA da ata. Sete das dez recebem só um id — a unidade sai da linha
- * persistida, nunca do input (ver `authorizeAtaList`/`authorizeAtaItem` e `ata.authz.test.ts`).
+ * Auth: LEITURA exige `unit:1` na unidade dona da ata; ESCRITA, `unit:2`. Sete das dez escritas
+ * recebem só um id — a unidade sai da linha persistida, nunca do input (ver `authorizeAtaList`/
+ * `authorizeAtaItem` e `ata.authz.test.ts`). O que a ata CITA também é conferido contra ela:
+ * cozinhas e planos de cardápio são da OM (`assertSelectionsBelongToUnit`), itens atualizados
+ * por id são da própria ata (predicado com `list_id`), e pesquisa de preço só é religada quando
+ * está solta ou já é da mesma OM (`filterOwnResearchLinks`). O cálculo de necessidades, que não
+ * grava nada, exige alcançar cada cozinha selecionada (`authorizeNeedsSelections`).
  *
  * Contrato de retorno PRESERVADO (snake_case aninhado) via `toWire()`; o Drizzle
  * devolve colunas camelCase e relations com nomes gerados pelo `drizzle-kit pull`.
@@ -40,6 +44,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { canReachKitchen, type KitchenUnitRef, kitchenBelongsToUnit } from "../guards/kitchen-unit.ts"
 import { requireUnit } from "../guards/require-permission.ts"
 import type {
 	CalculateAtaNeeds,
@@ -58,7 +63,7 @@ import type {
 	UpdateAtaStatus,
 } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError } from "../types/errors.ts"
+import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 import { computeAtaItemLimits, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
@@ -157,8 +162,11 @@ const DETAILS_RELATIONS: Record<string, string> = {
  * Aggregates identical ingredient_ids across all kitchenSelections (weekly + events + exceptions combined).
  * Translates ingredient → purchase_item via is_default link, then sorts by folder_description → ingredient_name (pt-BR).
  */
-export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: CalculateAtaNeeds): Promise<ProcurementNeed[]> {
+export async function calculateAtaNeeds(db: SisubDb, ctx: UserContext, input: CalculateAtaNeeds): Promise<ProcurementNeed[]> {
 	const { kitchenSelections } = input
+	// Não grava nada, mas LÊ planos, receitas e insumos das cozinhas citadas — que vinham do
+	// corpo. Sem isto, qualquer sessão abria o plano local de qualquer cozinha pelo cálculo.
+	await authorizeNeedsSelections(db, ctx, kitchenSelections)
 
 	// Coletar as seleções dos três regimes (weekly, event, exception). `repetitions`
 	// já chega normalizado como "vezes dentro da vigência da ata" — a projeção
@@ -401,6 +409,147 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 	return needs
 }
 
+// ─── Escopo das seleções (cozinha + plano) ────────────────────────────────────
+
+type SelectionScopeInput = ReadonlyArray<{
+	kitchenId: number
+	templateSelections: ReadonlyArray<{ templateId: string }>
+	eventSelections: ReadonlyArray<{ templateId: string }>
+	exceptionSelections?: ReadonlyArray<{ templateId: string }>
+}>
+
+/** Só a cozinha COM seleção entra na ata (as demais são puladas na gravação) — e só ela é conferida. */
+function selectedKitchens(kitchenSelections: SelectionScopeInput) {
+	return kitchenSelections
+		.map((ks) => ({
+			kitchenId: ks.kitchenId,
+			templateIds: [...ks.templateSelections, ...ks.eventSelections, ...(ks.exceptionSelections ?? [])].map((s) => s.templateId),
+		}))
+		.filter((ks) => ks.templateIds.length > 0)
+}
+
+/**
+ * Lê do banco a OM de cada cozinha e a cozinha dona de cada plano citado, e confere que todo
+ * plano é da própria cozinha ou global. Devolve as cozinhas para o chamador decidir o resto
+ * (pertencer à OM da ata, ou ser alcançável por quem calcula).
+ */
+async function loadSelectionScope(client: SisubDb | TxClient, kitchenSelections: SelectionScopeInput): Promise<Map<number, KitchenUnitRef>> {
+	const selected = selectedKitchens(kitchenSelections)
+	if (selected.length === 0) return new Map()
+
+	const kitchenIds = [...new Set(selected.map((ks) => ks.kitchenId))]
+	const templateIds = [...new Set(selected.flatMap((ks) => ks.templateIds))]
+	const [kitchens, templates] = await Promise.all([
+		runQuery("FETCH_FAILED", () =>
+			client
+				.select({ id: kitchenInKitchen.id, unitId: kitchenInKitchen.unitId, purchaseUnitId: kitchenInKitchen.purchaseUnitId })
+				.from(kitchenInKitchen)
+				.where(inArray(kitchenInKitchen.id, kitchenIds))
+		),
+		runQuery("FETCH_FAILED", () =>
+			client
+				.select({ id: menuTemplateInKitchen.id, kitchenId: menuTemplateInKitchen.kitchenId })
+				.from(menuTemplateInKitchen)
+				.where(inArray(menuTemplateInKitchen.id, templateIds))
+		),
+	])
+	const kitchenById = new Map(kitchens.map((k) => [k.id, k]))
+	const templateOwner = new Map(templates.map((t) => [t.id, t.kitchenId]))
+
+	for (const ks of selected) {
+		if (!kitchenById.has(ks.kitchenId)) throw new DomainError("NOT_FOUND", `cozinha ${ks.kitchenId} não encontrada`)
+		// Plano inexistente e plano local de OUTRA cozinha respondem igual: não é daqui.
+		const foreign = ks.templateIds.filter((id) => {
+			if (!templateOwner.has(id)) return true
+			const owner = templateOwner.get(id)
+			return owner != null && owner !== ks.kitchenId
+		})
+		if (foreign.length > 0) {
+			throw new DomainError(
+				"TEMPLATE_ACCESS_DENIED",
+				`Plano(s) de cardápio que não são da cozinha ${ks.kitchenId} nem globais: ${[...new Set(foreign)].join(", ")}`
+			)
+		}
+	}
+	return kitchenById
+}
+
+/**
+ * A ata só compõe cozinhas da PRÓPRIA OM (lotação ou compra) com planos delas. O guard da
+ * escrita prova só a unidade da ata; as cozinhas e os planos vinham do corpo, e a ata de uma
+ * OM gravava — e depois publicava no snapshot — o cardápio de cozinha de outra.
+ */
+async function assertSelectionsBelongToUnit(client: SisubDb | TxClient, unitId: number, kitchenSelections: SelectionScopeInput): Promise<void> {
+	const kitchens = await loadSelectionScope(client, kitchenSelections)
+	for (const kitchen of kitchens.values()) {
+		if (!kitchenBelongsToUnit(kitchen, unitId)) {
+			throw new DomainError("KITCHEN_NOT_IN_UNIT", `A cozinha ${kitchen.id} não pertence à unidade ${unitId}`)
+		}
+	}
+}
+
+/** Cálculo sem ata: quem calcula precisa alcançar cada cozinha (`kitchen:1` nela ou `unit:1` numa OM dela). */
+async function authorizeNeedsSelections(db: SisubDb, ctx: UserContext, kitchenSelections: SelectionScopeInput): Promise<void> {
+	const kitchens = await loadSelectionScope(db, kitchenSelections)
+	for (const kitchen of kitchens.values()) {
+		if (!canReachKitchen(ctx, 1, kitchen)) throw new PermissionDeniedError("kitchen | unit", 1, { type: "kitchen", id: kitchen.id })
+	}
+}
+
+// ─── Pesquisa de preço citada pela ata ────────────────────────────────────────
+
+/**
+ * Filtra os vínculos de pesquisa de preço que a ata pode reivindicar: cabeçalho e item SOLTOS
+ * (recém-pesquisados no wizard) ou já ligados a uma ata da MESMA OM, e o item tem de ser do
+ * cabeçalho citado.
+ *
+ * Os ids vinham do corpo e eram religados sem conferência: a ata de uma OM "roubava" a memória
+ * de cálculo de outra — e a limpeza de órfãs em `persistDraftItems` depois a APAGAVA. O vínculo
+ * alheio é DESCARTADO em vez de recusar a gravação: a chave de idempotência da pesquisa avulsa
+ * (sem ata) é por CATMAT/dia/amostras, e duas OMs pesquisando o mesmo item no mesmo dia recebem
+ * o mesmo id — recusar travaria o salvamento da segunda por uma colisão que ela não causou.
+ */
+async function filterOwnResearchLinks<T extends { researchId: string; researchItemId: string }>(
+	client: SisubDb | TxClient,
+	unitId: number,
+	links: readonly T[]
+): Promise<T[]> {
+	if (links.length === 0) return []
+	const headerIds = [...new Set(links.map((l) => l.researchId))]
+	const itemIds = [...new Set(links.map((l) => l.researchItemId))]
+
+	const [headers, items] = await Promise.all([
+		runQuery("FETCH_FAILED", () =>
+			client
+				.select({
+					id: procurementPesquisaPrecoInProcurement.id,
+					ataId: procurementPesquisaPrecoInProcurement.ataId,
+					unitId: procurementListInProcurement.unitId,
+				})
+				.from(procurementPesquisaPrecoInProcurement)
+				.leftJoin(procurementListInProcurement, eq(procurementListInProcurement.id, procurementPesquisaPrecoInProcurement.ataId))
+				.where(inArray(procurementPesquisaPrecoInProcurement.id, headerIds))
+		),
+		runQuery("FETCH_FAILED", () =>
+			client
+				.select({
+					id: procurementPesquisaPrecoItemInProcurement.id,
+					researchId: procurementPesquisaPrecoItemInProcurement.researchId,
+					ataItemId: procurementPesquisaPrecoItemInProcurement.ataItemId,
+					unitId: procurementListInProcurement.unitId,
+				})
+				.from(procurementPesquisaPrecoItemInProcurement)
+				.leftJoin(procurementListItemInProcurement, eq(procurementListItemInProcurement.id, procurementPesquisaPrecoItemInProcurement.ataItemId))
+				.leftJoin(procurementListInProcurement, eq(procurementListInProcurement.id, procurementListItemInProcurement.listId))
+				.where(inArray(procurementPesquisaPrecoItemInProcurement.id, itemIds))
+		),
+	])
+
+	const ownHeaders = new Set(headers.filter((h) => h.ataId == null || h.unitId === unitId).map((h) => h.id))
+	const researchOfOwnItem = new Map(items.filter((i) => i.ataItemId == null || i.unitId === unitId).map((i) => [i.id, i.researchId]))
+	return links.filter((l) => ownHeaders.has(l.researchId) && researchOfOwnItem.get(l.researchItemId) === l.researchId)
+}
+
 // ─── Criar rascunho vazio (wizard step 1) ────────────────────────────────────
 
 /**
@@ -410,13 +559,14 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
  * Estas operações recebem só o id. Sem resolver o dono, qualquer detentor de `unit:2` numa OM
  * editava preço, descrição e status — ou apagava — a ATA de outra.
  */
-async function authorizeAtaList(db: SisubDb, ctx: UserContext, listId: string): Promise<void> {
+async function authorizeAtaList(db: SisubDb, ctx: UserContext, listId: string, level: 1 | 2 = 2): Promise<number> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.select({ unitId: procurementListInProcurement.unitId }).from(procurementListInProcurement).where(eq(procurementListInProcurement.id, listId)).limit(1)
 	)
 	const unitId = rows[0]?.unitId
 	if (unitId == null) throw new DomainError("NOT_FOUND", `ata ${listId} não encontrada`)
-	requireUnit(ctx, 2, unitId)
+	requireUnit(ctx, level, unitId)
+	return unitId
 }
 
 /**
@@ -457,7 +607,8 @@ export async function createAtaDraft(db: SisubDb, ctx: UserContext, input: Creat
 // ─── Atualizar metadados e seleções do rascunho ───────────────────────────────
 
 export async function updateAtaDraft(db: SisubDb, ctx: UserContext, input: UpdateAtaDraft): Promise<void> {
-	await authorizeAtaList(db, ctx, input.draftId)
+	const unitId = await authorizeAtaList(db, ctx, input.draftId)
+	if (input.kitchenSelections !== undefined) await assertSelectionsBelongToUnit(db, unitId, input.kitchenSelections)
 
 	await db.transaction(async (tx) => {
 		const updateData: Partial<typeof procurementListInProcurement.$inferInsert> = { updatedAt: new Date().toISOString() }
@@ -544,7 +695,7 @@ export async function saveAtaDraftItems(
 	ctx: UserContext,
 	input: SaveAtaDraftItems
 ): Promise<{ savedIds: Array<{ ingredientId: string; ataItemId: string }>; unlinkedResearchCount: number }> {
-	await authorizeAtaList(db, ctx, input.draftId)
+	const unitId = await authorizeAtaList(db, ctx, input.draftId)
 
 	const existing = input.items.filter((i) => i.ata_item_id)
 	const toInsert = input.items.filter((i) => !i.ata_item_id)
@@ -554,7 +705,7 @@ export async function saveAtaDraftItems(
 
 	const { unlinkedResearchCount } = await db.transaction(async (tx) => {
 		await assertDraftEditable(tx, input.draftId)
-		const result = await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks, stamp)
+		const result = await persistDraftItems(tx, input.draftId, unitId, existing, toInsert, insertedItemsById, input.researchLinks, stamp)
 		await runQuery(
 			"UPDATE_FAILED",
 			// Passo 5 = "Itens": salvar os quantitativos leva o rascunho para a revisão de itens.
@@ -594,6 +745,7 @@ function itemBusinessKey(catmat: number | null | undefined, ingredientId: string
 async function persistDraftItems(
 	tx: TxClient,
 	draftId: string,
+	unitId: number,
 	existing: DraftItem[],
 	toInsert: DraftItem[],
 	insertedItemsById: Map<string, string>,
@@ -622,11 +774,21 @@ async function persistDraftItems(
 	}
 
 	// Atualizar existentes (preserva IDs, logo preserva pesquisa_preco_item.ata_item_id).
+	// O predicado amarra a ata (`list_id`): o `ata_item_id` vem do corpo, e um `where id = ?`
+	// cru reescrevia — e, pelo `listId` do payload, SEQUESTRAVA — o item de outra ata. Item que
+	// não é desta ata derruba a transação inteira em vez de sumir calado.
 	for (const item of existing) {
-		await tx
-			.update(procurementListItemInProcurement)
-			.set(buildItemPayload(item, draftId, stamp))
-			.where(eq(procurementListItemInProcurement.id, item.ata_item_id as string))
+		await mutateOrFail(
+			"UPDATE_FAILED",
+			`Erro ao salvar itens: item ${item.ata_item_id} não pertence à ata ${draftId}`,
+			() =>
+				tx
+					.update(procurementListItemInProcurement)
+					.set(buildItemPayload(item, draftId, stamp))
+					.where(and(eq(procurementListItemInProcurement.id, item.ata_item_id as string), eq(procurementListItemInProcurement.listId, draftId)))
+					.returning({ id: procurementListItemInProcurement.id }),
+			{ prefix: "Erro ao salvar itens" }
+		)
 	}
 
 	// Inserir novos.
@@ -678,7 +840,7 @@ async function persistDraftItems(
 		for (const item of existing) {
 			if (item.ingredient_id) itemIdByIngredient.set(item.ingredient_id, item.ata_item_id as string)
 		}
-		for (const link of researchLinks) {
+		for (const link of await filterOwnResearchLinks(tx, unitId, researchLinks)) {
 			const newItemId = itemIdByIngredient.get(link.ingredientId)
 			if (!newItemId) continue
 			await tx
@@ -717,7 +879,7 @@ async function persistDraftItems(
 // ─── Finalizar rascunho (wizard_step → null, ata pronta para publicação) ──────
 
 export async function finalizeAtaDraft(db: SisubDb, ctx: UserContext, input: FinalizeAtaDraft): Promise<ProcurementList> {
-	await authorizeAtaList(db, ctx, input.draftId)
+	const unitId = await authorizeAtaList(db, ctx, input.draftId)
 
 	const existing = input.items.filter((i) => i.ata_item_id)
 	const toInsert = input.items.filter((i) => !i.ata_item_id)
@@ -727,7 +889,7 @@ export async function finalizeAtaDraft(db: SisubDb, ctx: UserContext, input: Fin
 
 	const ata = await db.transaction(async (tx) => {
 		await assertDraftEditable(tx, input.draftId)
-		await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks, stamp)
+		await persistDraftItems(tx, input.draftId, unitId, existing, toInsert, insertedItemsById, input.researchLinks, stamp)
 
 		const updated = await insertOneOrFail(
 			"UPDATE_FAILED",
@@ -759,6 +921,7 @@ export async function createAta(db: SisubDb, ctx: UserContext, input: CreateAta)
 
 	const { unitId, title, notes, kitchenSelections, items } = input
 	const stamp = new Date().toISOString()
+	await assertSelectionsBelongToUnit(db, unitId, kitchenSelections)
 
 	const ata = await db.transaction(async (tx) => {
 		// 1. Criar lista de compras.
@@ -808,7 +971,7 @@ export async function createAta(db: SisubDb, ctx: UserContext, input: CreateAta)
 
 			// 4. Linkar registros de auditoria de pesquisa de preços (se houver).
 			if (input.researchLinks?.length && insertedItems.length) {
-				for (const link of input.researchLinks) {
+				for (const link of await filterOwnResearchLinks(tx, unitId, input.researchLinks)) {
 					const ataItem = insertedItems.find((i) => i.ingredientId === link.ingredientId)
 					if (!ataItem) continue
 					await tx
@@ -829,7 +992,8 @@ export async function createAta(db: SisubDb, ctx: UserContext, input: CreateAta)
 // ─── Listar ATAs da unidade ───────────────────────────────────────────────────
 
 /** Lists all non-deleted ATAs for a unit, ordered by creation date descending. */
-export async function fetchAtaList(db: SisubDb, _ctx: UserContext, input: FetchAtaList): Promise<ProcurementList[]> {
+export async function fetchAtaList(db: SisubDb, ctx: UserContext, input: FetchAtaList): Promise<ProcurementList[]> {
+	requireUnit(ctx, 1, input.unitId)
 	const lists = await runQuery(
 		"QUERY_FAILED",
 		() =>
@@ -850,7 +1014,7 @@ export async function fetchAtaList(db: SisubDb, _ctx: UserContext, input: FetchA
  *
  * Returns null only on missing ATA; kitchen/items failures still throw.
  */
-export async function fetchAtaDetails(db: SisubDb, _ctx: UserContext, input: FetchAtaDetails): Promise<AtaWithDetails | null> {
+export async function fetchAtaDetails(db: SisubDb, ctx: UserContext, input: FetchAtaDetails): Promise<AtaWithDetails | null> {
 	const ata = await runQuery(
 		"QUERY_FAILED",
 		() => db.query.procurementListInProcurement.findFirst({ where: eq(procurementListInProcurement.id, input.ataId) }),
@@ -859,6 +1023,9 @@ export async function fetchAtaDetails(db: SisubDb, _ctx: UserContext, input: Fet
 		}
 	)
 	if (!ata) return null
+	// A unidade sai da LINHA: qualquer sessão lia a ata — preços, pesquisa, cozinhas — de
+	// qualquer OM sabendo o id.
+	requireUnit(ctx, 1, ata.unitId)
 
 	// Cozinha → seleções → template em queries SEPARADAS, juntadas em JS.
 	// A relational query aninhada gerava o alias
@@ -1312,15 +1479,39 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 // ─── Atualizar preços de itens de uma ATA já salva ───────────────────────────
 
 export async function updateAtaItemPrices(db: SisubDb, ctx: UserContext, input: UpdateAtaItemPrices): Promise<void> {
-	await authorizeAtaList(db, ctx, input.ataId)
+	const unitId = await authorizeAtaList(db, ctx, input.ataId)
 
 	await db.transaction(async (tx) => {
+		// Preço só em item DESTA ata: o `ataItemId` vem do corpo, e o update por id cru repreçava
+		// o item de qualquer ata — o guard acima prova só a ata informada.
 		for (const u of input.updates) {
-			await tx.update(procurementListItemInProcurement).set({ unitPrice: u.price }).where(eq(procurementListItemInProcurement.id, u.ataItemId))
+			await mutateOrFail(
+				"UPDATE_FAILED",
+				`Erro ao atualizar preço: item ${u.ataItemId} não pertence à ata ${input.ataId}`,
+				() =>
+					tx
+						.update(procurementListItemInProcurement)
+						.set({ unitPrice: u.price })
+						.where(and(eq(procurementListItemInProcurement.id, u.ataItemId), eq(procurementListItemInProcurement.listId, input.ataId)))
+						.returning({ id: procurementListItemInProcurement.id }),
+				{ prefix: "Erro ao atualizar preço" }
+			)
 		}
 
 		if (input.researchLinks?.length) {
-			for (const link of input.researchLinks) {
+			// O item de destino do vínculo também tem de ser desta ata.
+			const linkItemIds = [...new Set(input.researchLinks.map((l) => l.ataItemId))]
+			const ownItems = await runQuery("FETCH_FAILED", () =>
+				tx
+					.select({ id: procurementListItemInProcurement.id })
+					.from(procurementListItemInProcurement)
+					.where(and(inArray(procurementListItemInProcurement.id, linkItemIds), eq(procurementListItemInProcurement.listId, input.ataId)))
+			)
+			const ownItemIds = new Set(ownItems.map((i) => i.id))
+			const foreignItem = linkItemIds.find((id) => !ownItemIds.has(id))
+			if (foreignItem) throw new DomainError("UPDATE_FAILED", `Erro ao vincular pesquisa: item ${foreignItem} não pertence à ata ${input.ataId}`)
+
+			for (const link of await filterOwnResearchLinks(tx, unitId, input.researchLinks)) {
 				await tx
 					.update(procurementPesquisaPrecoItemInProcurement)
 					.set({ ataItemId: link.ataItemId })

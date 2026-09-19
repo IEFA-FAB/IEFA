@@ -17,9 +17,11 @@ export type { ProfileAdmin }
 export type UserDataRow = UserData
 
 /**
- * Dados militares (tabela user_military_data)
+ * Dados militares da própria conta, como chegam ao navegador (`fetchMilitaryDataFn`):
+ * a linha de `user_military_data` SEM o CPF inteiro — só a versão mascarada. O documento
+ * completo não sai do servidor (LGPD; ver `maskCpf`).
  */
-export type MilitaryDataRow = UserMilitaryData
+export type MilitaryDataRow = Omit<UserMilitaryData, "nrCpf"> & { nrCpfMasked: string | null }
 
 // ============================================================================
 // DOMAIN TYPES (Tipos de Negócio)

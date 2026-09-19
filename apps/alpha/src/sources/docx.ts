@@ -25,6 +25,12 @@
  *   expressão regular: cada `<w:p>` sem fechamento varria o resto do arquivo, e mil
  *   deles num XML de megabytes travavam o event loop por minutos. O scanner abaixo é
  *   um laço de `indexOf` que nunca volta atrás.
+ * - **CPU dentro do teto.** Linear não é barato: um `.docx` de 256 KB que descompacta
+ *   até o teto antigo (32 MiB de `<w:p>` minúsculos) prendia o event loop por 12 s entre
+ *   leitura e montagem das seções. O teto agora é por entrada e do tamanho de documento
+ *   real (ver {@link MAX_DOCX_DOCUMENT_XML_BYTES}), a leitura para no parágrafo
+ *   {@link MAX_DOCX_PARAGRAPHS}, e a varredura só copia o conteúdo de uma tag quando
+ *   precisa ler atributo dela.
  */
 
 import { unzipSync } from "fflate"
@@ -50,18 +56,37 @@ export interface DocxDocument {
 }
 
 /**
- * Teto do XML descompactado, somando `document.xml` e `comments.xml`.
+ * Teto do `word/document.xml` descompactado.
  *
- * Um ETP/TR real tem poucos megabytes de XML — o peso do `.docx` são as imagens,
- * que não são extraídas. O teto é folgado para o documento legítimo e pequeno para
- * a memória do processo.
+ * O maior modelo da AGU em `__fixtures__/` (TR de serviços e obras) tem 0,7 MB de XML e
+ * ~1.000 parágrafos — o peso do `.docx` são as imagens, que não são extraídas. 8 MiB é
+ * uma dezena de vezes isso; o teto anterior (32 MiB somados) custava segundos de CPU
+ * no event loop para um arquivo de poucos KB.
  */
-export const MAX_DOCX_XML_BYTES = 32 * 1024 * 1024
+export const MAX_DOCX_DOCUMENT_XML_BYTES = 8 * 1024 * 1024
+
+/** Teto do `word/comments.xml` — o do TR da AGU, com 168 notas, tem 0,4 MB. */
+export const MAX_DOCX_COMMENTS_XML_BYTES = 2 * 1024 * 1024
+
+/** Teto somado das duas entradas lidas. */
+export const MAX_DOCX_XML_BYTES = MAX_DOCX_DOCUMENT_XML_BYTES + MAX_DOCX_COMMENTS_XML_BYTES
+
+/**
+ * Teto de parágrafos. O TR da AGU tem ~1.000; cada célula de tabela também é parágrafo,
+ * então uma planilha de preços de milhares de linhas chega às dezenas de milhares. A
+ * leitura para AQUI — não depois de montar tudo —, então XML feito só de parágrafos
+ * vazios não paga a varredura inteira.
+ */
+export const MAX_DOCX_PARAGRAPHS = 50_000
 
 /** Teto de entradas no zip. Um `.docx` do Word tem dezenas; o fflate itera a contagem DECLARADA. */
 export const MAX_DOCX_ENTRIES = 10_000
 
-const WANTED_ENTRIES = new Set(["word/document.xml", "word/comments.xml"])
+/** Entradas lidas e o teto de cada uma. Nenhuma outra é descompactada. */
+const WANTED_ENTRIES: ReadonlyMap<string, number> = new Map([
+	["word/document.xml", MAX_DOCX_DOCUMENT_XML_BYTES],
+	["word/comments.xml", MAX_DOCX_COMMENTS_XML_BYTES],
+])
 
 const XML_ENTITIES: Record<string, string> = {
 	"&amp;": "&",
@@ -83,8 +108,6 @@ function decodeXml(value: string): string {
 interface XmlTag {
 	/** Nome qualificado, ex.: `w:p`, `w:pStyle`. */
 	name: string
-	/** Conteúdo entre `<` e `>`, sem os dois. */
-	raw: string
 	closing: boolean
 	selfClosing: boolean
 	/** Posição do `<`. */
@@ -93,8 +116,18 @@ interface XmlTag {
 	end: number
 }
 
-function isNameTerminator(char: string): boolean {
-	return char === " " || char === "\t" || char === "\n" || char === "\r" || char === "/"
+/** Espaço, tab, LF, CR, `/` — onde termina o nome da tag. */
+function isNameTerminator(code: number): boolean {
+	return code === 0x20 || code === 0x09 || code === 0x0a || code === 0x0d || code === 0x2f
+}
+
+/**
+ * Conteúdo entre `<` e `>` (sem os dois). Copiado só por quem vai ler atributo: a
+ * varredura passa por milhões de tags que não interessam, e copiar cada uma era a maior
+ * parte do custo.
+ */
+function tagContent(xml: string, tag: XmlTag): string {
+	return xml.slice(tag.start + 1, tag.end - 1)
 }
 
 /**
@@ -112,14 +145,13 @@ function forEachTag(xml: string, visit: (tag: XmlTag) => void): void {
 		const close = xml.indexOf(">", start + 1)
 		if (close === -1) return
 
-		const raw = xml.slice(start + 1, close)
-		const closing = raw.startsWith("/")
-		const selfClosing = !closing && raw.endsWith("/")
-		const nameStart = closing ? 1 : 0
+		const closing = xml.charCodeAt(start + 1) === 0x2f
+		const selfClosing = !closing && close > start + 1 && xml.charCodeAt(close - 1) === 0x2f
+		const nameStart = closing ? start + 2 : start + 1
 		let nameEnd = nameStart
-		while (nameEnd < raw.length && !isNameTerminator(raw[nameEnd])) nameEnd++
+		while (nameEnd < close && !isNameTerminator(xml.charCodeAt(nameEnd))) nameEnd++
 
-		visit({ name: raw.slice(nameStart, nameEnd), raw, closing, selfClosing, start, end: close + 1 })
+		visit({ name: xml.slice(nameStart, nameEnd), closing, selfClosing, start, end: close + 1 })
 		cursor = close + 1
 	}
 }
@@ -189,8 +221,11 @@ function parseParagraphs(xml: string): DocxParagraph[] {
 				open = false
 			} else if (tag.selfClosing) {
 				// `<w:p/>`: parágrafo vazio. Dentro de um parágrafo aberto não abre outro — `w:p` não aninha.
-				if (!open) paragraphs.push({ style: null, text: "", commentIds: [] })
+				if (open) return
+				if (paragraphs.length >= MAX_DOCX_PARAGRAPHS) throw new Error("docx recusado: parágrafos acima do limite")
+				paragraphs.push({ style: null, text: "", commentIds: [] })
 			} else if (!open) {
+				if (paragraphs.length >= MAX_DOCX_PARAGRAPHS) throw new Error("docx recusado: parágrafos acima do limite")
 				open = true
 				style = null
 				commentIds = []
@@ -201,9 +236,9 @@ function parseParagraphs(xml: string): DocxParagraph[] {
 		if (!open) return
 		if (collector.visit(tag, xml) || tag.closing) return
 		if (tag.name === "w:pStyle") {
-			if (style === null) style = attribute(tag.raw, "w:val")
+			if (style === null) style = attribute(tagContent(xml, tag), "w:val")
 		} else if (tag.name === "w:commentRangeStart") {
-			const id = attribute(tag.raw, "w:id")
+			const id = attribute(tagContent(xml, tag), "w:id")
 			if (id !== null) commentIds.push(id)
 		}
 	})
@@ -227,7 +262,8 @@ function parseComments(xml: string | undefined): Map<string, DocxComment> {
 				if (current.id) comments.set(current.id, { id: current.id, author: current.author, text })
 				current = null
 			} else if (!tag.selfClosing && !current) {
-				current = { id: attribute(tag.raw, "w:id"), author: attribute(tag.raw, "w:author") }
+				const content = tagContent(xml, tag)
+				current = { id: attribute(content, "w:id"), author: attribute(content, "w:author") }
 				collector.finish()
 			}
 			return
@@ -254,10 +290,12 @@ function unzipDocxEntries(bytes: Uint8Array): Record<string, Uint8Array> {
 		filter: (file) => {
 			entries += 1
 			if (entries > MAX_DOCX_ENTRIES) throw new Error("docx inválido: entradas demais no arquivo")
-			if (!WANTED_ENTRIES.has(file.name)) return false
+			const maxBytes = WANTED_ENTRIES.get(file.name)
+			if (maxBytes === undefined) return false
 
-			declaredBytes += Math.max(file.size, file.originalSize)
-			if (declaredBytes > MAX_DOCX_XML_BYTES) throw new Error("docx recusado: conteúdo descompactado acima do limite")
+			const declared = Math.max(file.size, file.originalSize)
+			declaredBytes += declared
+			if (declared > maxBytes || declaredBytes > MAX_DOCX_XML_BYTES) throw new Error("docx recusado: conteúdo descompactado acima do limite")
 			return true
 		},
 	})

@@ -1,4 +1,4 @@
-import { toJsonSchema } from "@iefa/sisub-domain"
+import { NotFoundError, QueryFailedError, toJsonSchema } from "@iefa/sisub-domain"
 import {
 	AgentCheckMenuEquipmentSchema,
 	AgentCheckRecipeEquipmentSchema,
@@ -27,6 +27,7 @@ import {
 	type ToolContext,
 	ToolPermissionError,
 	ToolValidationError,
+	toModelFacingToolError,
 	toolErr,
 	toolOk,
 	wrapTool,
@@ -241,5 +242,71 @@ describe("teto de payload das tools", () => {
 
 		// list_kitchens e get_meal_types são enumerações fechadas e curtas (dezenas de linhas).
 		expect(semLimite).toEqual(["list_kitchens"])
+	})
+})
+
+describe("erro de tool que chega ao modelo", () => {
+	function failing(error: unknown) {
+		const def: ModuleToolDefinition = {
+			name: "get_template_items",
+			description: "Itens do plano",
+			parameters: { type: "object", properties: {} },
+			requiredLevel: 1,
+			handler: async () => {
+				throw error
+			},
+		}
+		const execute = wrapTool(def, ctx([])).execute
+		if (!execute) throw new Error("wrapTool não devolveu um ServerTool executável")
+		return (): Promise<unknown> => Promise.resolve(execute({}, undefined as never))
+	}
+
+	test("erro cru do driver (fora do runQuery) não leva SQL ao modelo", async () => {
+		const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+		try {
+			// É o formato do DrizzleQueryError que `fetchTemplateMealsSafe` relança.
+			const raw = Object.assign(new Error("Failed query: select * from kitchen.menu_template_meal where id = $1\nparams: 42"), {
+				cause: { code: "57014", message: "canceling statement" },
+			})
+			const rejection: Error | null = await failing(raw)().then(
+				() => null,
+				(e: unknown) => e as Error
+			)
+			expect(rejection?.message).toBe("Erro ao executar get_template_items. Tente novamente.")
+			expect(rejection?.message).not.toMatch(/select|params|kitchen\./i)
+			expect(consoleSpy).toHaveBeenCalled()
+		} finally {
+			consoleSpy.mockRestore()
+		}
+	})
+
+	test("TypeError de código também vira mensagem genérica", () => {
+		const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+		try {
+			expect(toModelFacingToolError("list_x", new TypeError("Cannot read properties of undefined (reading 'kitchenId')")).message).toBe(
+				"Erro ao executar list_x. Tente novamente."
+			)
+		} finally {
+			consoleSpy.mockRestore()
+		}
+	})
+
+	test("QueryFailedError devolve a mensagem pública", () => {
+		const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+		try {
+			const error = new QueryFailedError("FETCH_FAILED", "Failed query: select 1", "Não foi possível ler os planos")
+			expect(toModelFacingToolError("list_x", error).message).toBe("Não foi possível ler os planos")
+		} finally {
+			consoleSpy.mockRestore()
+		}
+	})
+
+	test("erro escrito para quem lê passa intacto: domínio, recusa e validação", () => {
+		const domain = new NotFoundError("recipe", "abc")
+		expect(toModelFacingToolError("get_recipe", domain)).toBe(domain)
+		const denied = new ToolPermissionError("Sem permissão nesta cozinha")
+		expect(toModelFacingToolError("get_recipe", denied)).toBe(denied)
+		const invalid = new ToolValidationError("recipeId deve ser UUID")
+		expect(toModelFacingToolError("get_recipe", invalid)).toBe(invalid)
 	})
 })

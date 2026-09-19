@@ -23,6 +23,13 @@ describe("isInternalPath / safeRedirect (guard de open redirect)", () => {
 		}
 	})
 
+	it("rejeita caminho que o parser normaliza para protocol-relative", () => {
+		for (const path of ["/.//evil.com", "/..//evil.com", "/%2e//evil.com", "/a/..//evil.com"]) {
+			expect(isInternalPath(path)).toBe(false)
+			expect(safeRedirect(path)).toBeUndefined()
+		}
+	})
+
 	it("aceita espaço (codificado ou não) dentro do caminho", () => {
 		expect(isInternalPath("/recipes?search=arroz%20feijao")).toBe(true)
 	})

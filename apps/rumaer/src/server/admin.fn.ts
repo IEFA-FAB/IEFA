@@ -12,6 +12,7 @@ import { requireUniformEditor } from "@/lib/auth.server"
 import { placeholderActionFor } from "@/lib/image-placeholder"
 import { buildImagePlaceholder } from "@/lib/image-placeholder.server"
 import { getRumaerServerClient } from "@/lib/supabase.server"
+import { isOwnImagePath } from "@/lib/uniforms/image-path"
 
 const BUCKET = "rumaer-uniforms"
 
@@ -20,6 +21,18 @@ async function removeStorageObjects(paths: (string | null | undefined)[]) {
 	const valid = paths.filter((p): p is string => !!p)
 	if (valid.length === 0) return
 	await getRumaerServerClient().storage.from(BUCKET).remove(valid)
+}
+
+/**
+ * `image_path` tem de ser o caminho da PRÓPRIA variante (ou do próprio look), derivado dos
+ * ids — ver `@/lib/uniforms/image-path`. Texto livre deixava o editor apontar a variante
+ * para qualquer objeto do bucket, que virava assinável pelo download público e apagável
+ * pela limpeza de órfão.
+ */
+function assertOwnImagePath(path: string, owner: { uniformId: string; variantId: string | undefined; pieceId?: string }): void {
+	if (!owner.variantId || !isOwnImagePath(path, { uniformId: owner.uniformId, variantId: owner.variantId, pieceId: owner.pieceId })) {
+		throw new Error("Caminho de imagem inválido para esta variante. Envie a imagem de novo.")
+	}
 }
 
 const GRUPO = z.enum(["historicos", "representacao", "servicos", "educacao_fisica", "desfile"])
@@ -152,6 +165,7 @@ export const upsertVariantFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }): Promise<UniformVariant> => {
 		await requireUniformEditor()
+		if (typeof data.image_path === "string") assertOwnImagePath(data.image_path, { uniformId: data.uniform_id, variantId: data.id })
 		const supabase = getRumaerServerClient()
 		const { uploaded, ...payload } = data
 		// Sempre que o payload mexe na imagem base (troca p/ outro path OU limpa com null), o arquivo
@@ -381,6 +395,11 @@ export const upsertVariantImageFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<UniformVariantImage> => {
 		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
+		// O uniforme sai do banco, não do payload: é ele que compõe o caminho do look.
+		const { data: variant, error: variantError } = await supabase.from("uniform_variant").select("uniform_id").eq("id", data.variant_id).maybeSingle()
+		if (variantError) throw new Error(variantError.message)
+		if (!variant) throw new Error("Variante não encontrada.")
+		assertOwnImagePath(data.image_path, { uniformId: variant.uniform_id, variantId: data.variant_id, pieceId: data.piece_id })
 		const { uploaded, ...payload } = data
 		// Ao trocar a imagem alternativa: remove o arquivo antigo se o path mudou (órfão).
 		const { data: existing } = await supabase

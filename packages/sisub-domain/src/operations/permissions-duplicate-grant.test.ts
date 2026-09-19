@@ -27,6 +27,8 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import type { SQL } from "drizzle-orm"
 import { PgDialect } from "drizzle-orm/pg-core"
 import type { UserContext } from "../types/context.ts"
+import { CreateUserPermissionSchema } from "../schemas/permissions.ts"
+import { PolicyStatementInputSchema } from "../schemas/policies.ts"
 import { DomainError } from "../types/errors.ts"
 import { createUserPermission, deleteUserPermission, isDuplicateGrantViolation, updateUserPermission } from "./permissions.ts"
 
@@ -249,3 +251,29 @@ describe("deleteUserPermission", () => {
 		).resolves.toMatchObject({ success: true })
 	})
 })
+
+// ---------------------------------------------------------------------------
+// admin/global não aceitam escopo — consulta sem escopo aceita grant escopado, então um
+// `admin` "só da unidade 5" valeria como administrador pleno.
+// ---------------------------------------------------------------------------
+
+describe("admin/global sem escopo", () => {
+	test("o schema recusa grant e statement escopados de admin/global", () => {
+		expect(CreateUserPermissionSchema.safeParse({ userId: "00000000-0000-4000-8000-000000000002", module: "admin", level: 2, unit_id: 5 }).success).toBe(false)
+		expect(PolicyStatementInputSchema.safeParse({ module: "global", level: 1, kitchen_id: 7 }).success).toBe(false)
+		expect(PolicyStatementInputSchema.safeParse({ module: "global", level: 1 }).success).toBe(true)
+	})
+
+	test("a operação recusa mesmo sem passar pelo validator", async () => {
+		const { db } = accessDb({ result: { log_id: "log-1", permission_id: "perm-1", user_id: "user-2" } })
+		const error = await caught(createUserPermission(db, ADMIN, { userId: "user-2", module: "admin", level: 2, unit_id: 5 }))
+		expect(error?.code).toBe("SCOPE_NOT_ALLOWED")
+	})
+
+	test("editar grant existente de admin para um escopo é recusado pelo módulo da LINHA", async () => {
+		const existing = { id: "perm-1", userId: "user-2", module: "admin", level: 2 }
+		const error = await caught(updateUserPermission(accessDb({ existing }).db, ADMIN, { permissionId: "perm-1", level: 2, unit_id: 5 }))
+		expect(error?.code).toBe("SCOPE_NOT_ALLOWED")
+	})
+})
+

@@ -224,8 +224,33 @@ async function assertTemplateContentInScope(
 	items: readonly TemplateItem[] | undefined,
 	meals: readonly TemplateMeal[] | undefined
 ): Promise<void> {
-	const recipeIds = [...new Set((items ?? []).map((i) => i.recipeId))]
-	const mealTypeIds = [...new Set([...(items ?? []).map((i) => i.mealTypeId), ...(meals ?? []).map((m) => m.mealTypeId)])]
+	const outOfScope = await findOutOfScopeRefs(
+		db,
+		templateKitchenId,
+		(items ?? []).map((i) => i.recipeId),
+		[...(items ?? []).map((i) => i.mealTypeId), ...(meals ?? []).map((m) => m.mealTypeId)]
+	)
+	// Mesmo erro para "não existe" e "é de outra cozinha": sondar id não distingue os dois.
+	const recipeId = outOfScope.recipeIds[0]
+	if (recipeId) throw new NotFoundError("recipe", recipeId)
+	const mealTypeId = outOfScope.mealTypeIds[0]
+	if (mealTypeId) throw new NotFoundError("meal_type", mealTypeId)
+}
+
+/**
+ * Referências (receita, tipo de refeição) que NÃO cabem num template do escopo informado:
+ * inexistentes, ou locais de outra cozinha. A regra está descrita em
+ * {@link assertTemplateContentInScope}; esta é a metade que só lê, para quem precisa de outra
+ * mensagem (o fork, cujo chamador já enxerga a origem).
+ */
+async function findOutOfScopeRefs(
+	db: SisubDb,
+	templateKitchenId: number | null,
+	rawRecipeIds: ReadonlyArray<string | null>,
+	rawMealTypeIds: ReadonlyArray<string | null>
+): Promise<{ recipeIds: string[]; mealTypeIds: string[] }> {
+	const recipeIds = [...new Set(rawRecipeIds.filter((id): id is string => id != null))]
+	const mealTypeIds = [...new Set(rawMealTypeIds.filter((id): id is string => id != null))]
 
 	const [recipes, mealTypes] = await Promise.all([
 		recipeIds.length > 0
@@ -245,13 +270,10 @@ async function assertTemplateContentInScope(
 
 	const inScope = (kitchenId: number | null) => kitchenId === null || kitchenId === templateKitchenId
 	const recipeOwner = new Map(recipes.map((r) => [r.id, r.kitchenId]))
-	for (const id of recipeIds) {
-		// Mesmo erro para "não existe" e "é de outra cozinha": sondar id não distingue os dois.
-		if (!recipeOwner.has(id) || !inScope(recipeOwner.get(id) ?? null)) throw new NotFoundError("recipe", id)
-	}
 	const mealTypeOwner = new Map(mealTypes.map((m) => [m.id, m.kitchenId]))
-	for (const id of mealTypeIds) {
-		if (!mealTypeOwner.has(id) || !inScope(mealTypeOwner.get(id) ?? null)) throw new NotFoundError("meal_type", id)
+	return {
+		recipeIds: recipeIds.filter((id) => !recipeOwner.has(id) || !inScope(recipeOwner.get(id) ?? null)),
+		mealTypeIds: mealTypeIds.filter((id) => !mealTypeOwner.has(id) || !inScope(mealTypeOwner.get(id) ?? null)),
 	}
 }
 
@@ -381,6 +403,24 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	const sourceItems = source.menuTemplateItemsInKitchens
 	// Efetivo base lido à parte, tolerante à tabela ausente (fork continua mesmo sem a base).
 	const sourceMeals = (await fetchTemplateMealsSafe(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
+
+	// A cópia herda as referências da origem — e elas precisam caber no DESTINO, pela mesma
+	// regra de `createTemplate`/`saveTemplateEdit`. Sem isto, `kitchen:1` em A + `kitchen:2` em
+	// C copiava para C o plano de A com as preparações LOCAIS de A, e C passava a ler a ficha
+	// delas pelo próprio template. Aqui a mensagem pode dizer o que é: quem copia já enxerga a
+	// origem (o guard acima exigiu), então não há sondagem a esconder.
+	const outOfScope = await findOutOfScopeRefs(
+		db,
+		targetKitchenId,
+		sourceItems.map((i) => i.recipeId),
+		[...sourceItems.map((i) => i.mealTypeId), ...sourceMeals.map((m) => m.mealTypeId)]
+	)
+	if (outOfScope.recipeIds.length > 0 || outOfScope.mealTypeIds.length > 0) {
+		throw new DomainError(
+			"TEMPLATE_FORK_OUT_OF_SCOPE",
+			`O plano de origem usa ${outOfScope.recipeIds.length} preparação(ões) e ${outOfScope.mealTypeIds.length} tipo(s) de refeição locais de outra cozinha, que não podem ir para o destino. Troque-os por itens globais ou do destino antes de copiar.`
+		)
+	}
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>

@@ -2,15 +2,18 @@
  * Kitchen operations — listagem, vínculo a unidades e address settings. Drizzle query layer.
  *
  * Auth: leituras de referência (`listKitchens`/`listUnitKitchens`) são apenas autenticadas —
- * o catálogo de cozinhas/unidades é visível a qualquer usuário logado (ex.: o admin `global`
- * monta o seletor de escopo de permissões sem ter `kitchen`). Mesma postura de `listUnits`/
- * `listAllMessHalls`. Já a ESCRITA de settings exige `kitchen:2` na própria cozinha.
+ * o catálogo de cozinhas/unidades (id, nome, OM) é visível a qualquer usuário logado (ex.: o
+ * admin `global` monta o seletor de escopo de permissões sem ter `kitchen`; o wizard da ATA
+ * lista as cozinhas da OM). Mesma postura de `listUnits`/`listAllMessHalls`. O ENDEREÇO não é
+ * catálogo: `fetchKitchenSettings` exige `kitchen:1` na cozinha ou `unit:1` numa OM dela, e a
+ * ESCRITA de settings exige `kitchen:2` na própria cozinha.
  */
 
 import { kitchenInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { hasAnyPermission } from "@iefa/pbac"
 import { asc, eq } from "drizzle-orm"
+import { requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
 import { requireAnyPermission, requireKitchen } from "../guards/require-permission.ts"
 import type { FetchKitchenSettings, ListUnitKitchens, UpdateKitchenSettings } from "../schemas/kitchens.ts"
 import type { UserContext } from "../types/context.ts"
@@ -90,7 +93,8 @@ export async function listUnitKitchens(db: SisubDb, _ctx: UserContext, input: Li
 
 // ─── Kitchen address settings ───────────────────────────────────────────────
 
-export async function fetchKitchenSettings(db: SisubDb, _ctx: UserContext, input: FetchKitchenSettings): Promise<KitchenSettings> {
+export async function fetchKitchenSettings(db: SisubDb, ctx: UserContext, input: FetchKitchenSettings): Promise<KitchenSettings> {
+	await requireKitchenOrItsUnit(db, ctx, 1, input.kitchenId)
 	const row = await runQuery("FETCH_FAILED", () =>
 		db.query.kitchenInKitchen.findFirst({
 			columns: {

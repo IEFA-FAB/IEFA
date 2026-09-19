@@ -250,7 +250,17 @@ export async function addOtherPresence(db: SisubDb, ctx: UserContext, input: Add
 	)
 }
 
-export async function resolveDisplayName(db: SisubDb, _ctx: UserContext, input: ResolveDisplayName): Promise<string | null> {
+/**
+ * Nome de exibição de uma pessoa, para o fiscal conferir quem ele acabou de ler no QR.
+ *
+ * O próprio nome é livre; o de TERCEIRO exige `messhall:1` no rancho informado — o guard
+ * vivia só na server fn, e esta operação descartava o contexto. A pessoa NÃO precisa ser da
+ * OM do rancho, e isso é deliberado: o comensal de outra OM é atendido em qualquer rancho, e
+ * restringir ao efetivo da unidade deixaria o fiscal sem saber quem entrou. O que se entrega
+ * é o nome de exibição e só — e só a quem opera a fiscalização de um rancho.
+ */
+export async function resolveDisplayName(db: SisubDb, ctx: UserContext, input: ResolveDisplayName): Promise<string | null> {
+	if (input.userId !== ctx.userId) requireMessHall(ctx, 1, input.messHallId)
 	try {
 		const rows = await db
 			.select({ display_name: vUserIdentityInCore.displayName })

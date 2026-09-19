@@ -24,9 +24,13 @@ function looksInternal(value: string): boolean {
 		const code = char.charCodeAt(0)
 		if (code < 0x20 || code === 0x7f || char === "\\") return false
 	}
-	// Última palavra fica com o parser: o caminho tem de resolver para a própria origem.
+	// Última palavra fica com o parser: o caminho tem de resolver para a própria origem, e o
+	// caminho NORMALIZADO não pode abrir autoridade. "/.//evil.com" resolve para a origem,
+	// mas o pathname que sai do parser é "//evil.com" — quem o reusa (um `location.assign`
+	// de `url.pathname`) navega para fora.
 	try {
-		return new URL(value, "https://internal.invalid").origin === "https://internal.invalid"
+		const resolved = new URL(value, "https://internal.invalid")
+		return resolved.origin === "https://internal.invalid" && !resolved.pathname.startsWith("//")
 	} catch {
 		return false
 	}

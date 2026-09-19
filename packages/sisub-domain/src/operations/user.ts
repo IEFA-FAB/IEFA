@@ -1,9 +1,10 @@
 /**
  * User profile + military data sync operations (schema sisub on user_data). Drizzle query layer.
  *
- * Auth posture preserved from the original server functions: these are
- * UNAUTHENTICATED entrypoints — they run during the login/profile-bootstrap
- * flow, so they take no UserContext and add no guard.
+ * Auth posture preserved from the original server functions: these take no
+ * UserContext — the server fns derive the user id from the session and pass it in
+ * (self-only). `syncUserNrOrdem` carries its own invariant (write-once + exclusive):
+ * the caller is always the account owner, but what it may write is decided here.
  *
  * NOTA: `user_data`/`user_military_data` têm colunas camelCase no DB (`nrOrdem`,
  * `nrCpf`, `dataAtualizacao`, …). O contrato é camelCase, então usamos `db.select`
@@ -43,7 +44,7 @@ function isEmailUniqueViolation(error: unknown): boolean {
  * `nrOrdem` só entra no payload quando informado, para não sobrescrever um valor
  * existente durante um sync que só carrega o email.
  */
-async function upsertUserDataReclaimingEmail(db: SisubDb, row: { id: string; email: string; nrOrdem?: string }) {
+async function upsertUserDataReclaimingEmail(db: SisubDb, row: { id: string; email: string; nrOrdem?: string | null }) {
 	const values = { id: row.id, email: row.email, ...(row.nrOrdem !== undefined ? { nrOrdem: row.nrOrdem } : {}) }
 	const set = { email: row.email, ...(row.nrOrdem !== undefined ? { nrOrdem: row.nrOrdem } : {}) }
 	// Cru (sem runQuery): precisamos inspecionar o 23505 antes de embrulhar em DomainError.
@@ -121,8 +122,57 @@ export async function fetchUserNrOrdem(db: SisubDb, input: FetchUserNrOrdem): Pr
 	return asString && asString.trim().length > 0 ? asString : null
 }
 
+/**
+ * Vincula o Nr. de Ordem à conta — pelo próprio usuário, e uma vez só.
+ *
+ * O vínculo decide de quem são os dados militares que a conta enxerga (nome, posto, OM).
+ * Livre para reescrever, ele virava enumeração: o usuário gravava o nrOrdem de outra
+ * pessoa, lia os dados dela, trocava de novo — um por um, sem limite (LGPD). Por isso:
+ *
+ *   - write-once: um nrOrdem que JÁ LOCALIZA um cadastro militar não muda por aqui — só o
+ *     mesmo valor passa (reenvio do formulário é idempotente). Trocar ou limpar exige o
+ *     administrador; limpar e regravar seria a mesma troca em dois passos. O nrOrdem que
+ *     não localiza cadastro nenhum (erro de digitação) segue corrigível: ele não revelou
+ *     nada, e travá-lo deixaria a conta sem saída;
+ *   - exclusivo: um nrOrdem já vinculado a OUTRA conta é recusado. Sem isso, a segunda
+ *     conta leria os dados da primeira pessoa.
+ *
+ * As duas checagens são leitura-antes-da-escrita; duas contas disputando o mesmo nrOrdem no
+ * mesmo instante escapariam da segunda — o índice único parcial da migration
+ * `20260921130410` fecha essa corrida no banco.
+ */
 export async function syncUserNrOrdem(db: SisubDb, input: SyncUserNrOrdem) {
-	await upsertUserDataReclaimingEmail(db, { id: input.userId, email: input.email, nrOrdem: input.nrOrdem })
+	const requested = input.nrOrdem.trim()
+	const current = await fetchUserNrOrdem(db, { userId: input.userId })
+	const changes = (current ?? "") !== requested
+
+	if (changes && current != null && (await fetchMilitaryData(db, { nrOrdem: current })) != null) {
+		throw new DomainError(
+			"NR_ORDEM_LOCKED",
+			"O Nr. de Ordem já está vinculado à sua conta e não pode ser alterado por aqui. Para corrigi-lo, procure o administrador do sistema."
+		)
+	}
+
+	if (changes && requested.length > 0) {
+		const taken = await runQuery("FETCH_FAILED", () =>
+			db
+				.select({ id: userDataInCore.id })
+				.from(userDataInCore)
+				.where(and(eq(userDataInCore.nrOrdem, requested), ne(userDataInCore.id, input.userId)))
+				.limit(1)
+		)
+		if (taken.length > 0) {
+			throw new DomainError("NR_ORDEM_TAKEN", "Este Nr. de Ordem já está vinculado a outra conta. Se ele é seu, procure o administrador do sistema.")
+		}
+	}
+
+	// Sem mudança, só o email é sincronizado — o nrOrdem nem entra no payload. Vazio grava
+	// `null`: string em branco não é um vínculo.
+	await upsertUserDataReclaimingEmail(db, {
+		id: input.userId,
+		email: input.email,
+		...(changes ? { nrOrdem: requested.length > 0 ? requested : null } : {}),
+	})
 }
 
 export async function syncUserEmail(db: SisubDb, input: SyncUserEmail) {

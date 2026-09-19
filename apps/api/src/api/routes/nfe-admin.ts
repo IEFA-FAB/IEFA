@@ -8,6 +8,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { computeNfeItemCosts } from "@iefa/sisub-domain"
 import { createClient } from "@supabase/supabase-js"
 import { secureCompare } from "../../lib/secure-compare.ts"
+import { MAX_NFE_XML_BODY_BYTES, uploadBodyLimit } from "../../lib/upload-limit.ts"
 import { NfeParseError, parseNfeXml } from "../../workers/nfe/parse.ts"
 
 type NfeClient = ReturnType<typeof getSupabase>
@@ -58,6 +59,7 @@ const importRoute = createRoute({
 		},
 		422: { content: { "application/json": { schema: ErrorSchema } }, description: "XML inválido" },
 		401: { content: { "application/json": { schema: ErrorSchema } }, description: "Unauthorized" },
+		413: { content: { "application/json": { schema: ErrorSchema } }, description: "Corpo acima do limite" },
 	},
 })
 
@@ -76,6 +78,8 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 		if (!secureCompare(secret, adminSecret)) return c.json({ error: "Unauthorized" }, 401)
 		return next()
 	})
+	// Depois do segredo, nunca antes: ver `upload-limit.ts`.
+	nfeAdminRoutes.use("/import", uploadBodyLimit(MAX_NFE_XML_BODY_BYTES))
 
 	nfeAdminRoutes.openapi(importRoute, async (c) => {
 		const xml = await c.req.text()

@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { supabase } from "@/lib/supabase"
 import { pieceItemsQueryOptions, piecesQueryOptions, signedImageQueryOptions, uniformQueryOptions } from "@/lib/uniforms/hooks"
+import { imageExtensionFor, lookImagePath, UNSUPPORTED_IMAGE_MESSAGE, variantImagePath } from "@/lib/uniforms/image-path"
 import {
 	CATEGORIA_LABELS,
 	CIRCULO_LABELS,
@@ -502,8 +503,11 @@ function VariantCard({
 	async function handleUpload(file: File) {
 		setUploading(true)
 		try {
-			const ext = file.name.split(".").pop() || "png"
-			const filePath = `${variant.uniform_id}/${variant.id}.${ext}`
+			// A extensão sai do TIPO do arquivo, não do nome (texto do usuário): o bucket e o
+			// servidor só aceitam png, jpeg e webp.
+			const ext = imageExtensionFor(file.type)
+			if (!ext) throw new Error(UNSUPPORTED_IMAGE_MESSAGE)
+			const filePath = variantImagePath(variant.uniform_id, variant.id, ext)
 			const { path, token } = await getSignedUploadUrlFn({ data: { filePath } })
 			const { error } = await supabase.storage.from("rumaer-uniforms").uploadToSignedUrl(path, token, file, { upsert: true })
 			if (error) throw new Error(error.message)
@@ -707,8 +711,9 @@ function AltImageRow({
 	async function handleUpload(file: File) {
 		setUploading(true)
 		try {
-			const ext = file.name.split(".").pop() || "png"
-			const filePath = `${variant.uniform_id}/${variant.id}__${piece.piece_id}.${ext}`
+			const ext = imageExtensionFor(file.type)
+			if (!ext) throw new Error(UNSUPPORTED_IMAGE_MESSAGE)
+			const filePath = lookImagePath(variant.uniform_id, variant.id, piece.piece_id, ext)
 			const { path, token } = await getSignedUploadUrlFn({ data: { filePath } })
 			const { error } = await supabase.storage.from("rumaer-uniforms").uploadToSignedUrl(path, token, file, { upsert: true })
 			if (error) throw new Error(error.message)

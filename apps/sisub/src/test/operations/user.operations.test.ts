@@ -76,18 +76,51 @@ describeSupabaseIntegration("user operations (regressão)", () => {
 		expect(mil?.sgPosto).toBe("SO")
 	})
 
-	test("syncUserNrOrdem faz upsert idempotente (cria e depois atualiza por id)", async () => {
+	test("syncUserNrOrdem faz upsert idempotente e corrige nrOrdem que não localiza cadastro", async () => {
 		if (!reachable || !seeder || !db) return
 		const userId = await seeder.seedAuthUser()
 		seeder.track("user_data", userId)
 		const email = `${uid("sync-")}@example.invalid`.toLowerCase()
+		// valores únicos: o vínculo agora é exclusivo, e "111" fixo colidiria com conta real
+		const first = uid("NO")
+		const second = uid("NO")
 
-		await syncUserNrOrdem(db, { userId, email, nrOrdem: "111" })
-		expect((await fetchSisubUserData(db, { userId }))?.nrOrdem).toBe("111")
+		await syncUserNrOrdem(db, { userId, email, nrOrdem: first })
+		expect((await fetchSisubUserData(db, { userId }))?.nrOrdem).toBe(first)
 
-		// segundo sync (mesmo id) atualiza nrOrdem
-		await syncUserNrOrdem(db, { userId, email, nrOrdem: "222" })
-		expect((await fetchSisubUserData(db, { userId }))?.nrOrdem).toBe("222")
+		// reenvio do mesmo valor é idempotente
+		await syncUserNrOrdem(db, { userId, email, nrOrdem: first })
+		expect((await fetchSisubUserData(db, { userId }))?.nrOrdem).toBe(first)
+
+		// `first` não localiza cadastro militar (erro de digitação) → segue corrigível
+		await syncUserNrOrdem(db, { userId, email, nrOrdem: second })
+		expect((await fetchSisubUserData(db, { userId }))?.nrOrdem).toBe(second)
+	})
+
+	test("syncUserNrOrdem trava o nrOrdem que já localiza cadastro militar (LGPD)", async () => {
+		if (!reachable || !seeder || !db) return
+		const nrOrdem = await seeder.seedUserMilitaryData({ sgPosto: "SO" })
+		const userId = await seeder.seedAuthUser()
+		seeder.track("user_data", userId)
+		const email = `${uid("lock-")}@example.invalid`.toLowerCase()
+
+		await syncUserNrOrdem(db, { userId, email, nrOrdem })
+		// trocar por outro — ou limpar — é leitura de dado de terceiro em dois passos
+		await expect(syncUserNrOrdem(db, { userId, email, nrOrdem: uid("NO") })).rejects.toMatchObject({ code: "NR_ORDEM_LOCKED" })
+		await expect(syncUserNrOrdem(db, { userId, email, nrOrdem: "" })).rejects.toMatchObject({ code: "NR_ORDEM_LOCKED" })
+		expect((await fetchSisubUserData(db, { userId }))?.nrOrdem).toBe(nrOrdem)
+	})
+
+	test("syncUserNrOrdem recusa nrOrdem já vinculado a outra conta", async () => {
+		if (!reachable || !seeder || !db) return
+		const nrOrdem = uid("NO")
+		const owner = await seeder.seedAuthUser()
+		await seeder.seedUserData({ id: owner, nrOrdem })
+
+		const intruder = await seeder.seedAuthUser()
+		seeder.track("user_data", intruder)
+		const email = `${uid("taken-")}@example.invalid`.toLowerCase()
+		await expect(syncUserNrOrdem(db, { userId: intruder, email, nrOrdem })).rejects.toMatchObject({ code: "NR_ORDEM_TAKEN" })
 	})
 
 	test("syncUserEmail reivindica o email de uma linha órfã (delete + retry)", async () => {

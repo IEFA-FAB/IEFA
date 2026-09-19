@@ -26,7 +26,13 @@ import { resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
 import { and, asc, eq, ilike, isNull, sql } from "drizzle-orm"
 import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import { requirePermission } from "../guards/require-permission.ts"
-import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
+import {
+	type CreateUserPermission,
+	type FetchUserPermissions,
+	type SearchUsersByEmail,
+	type UpdateUserPermission,
+	unscopedModuleViolation,
+} from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { isExpired, notExpired, runQuery, unwrapPgError } from "../utils/index.ts"
@@ -282,6 +288,17 @@ export function isDuplicateGrantViolation(error: unknown): boolean {
 	return constraint === "user_permissions_allow_uniq" || constraint === "user_permissions_deny_uniq" || pg.message === "PERMISSION_ALREADY_EXISTS"
 }
 
+/**
+ * `admin`/`global` não aceitam escopo — ver `UNSCOPED_ONLY_MODULES`. Repetido aqui, e não só
+ * no schema: a operação é chamada também por quem não passa pelo `.validator` (outra fn, o
+ * MCP, um teste), e a regra é de segurança, não de formulário. O banco tem a mesma trava
+ * (CHECK `user_permissions_admin_global_unscoped`, migration 20260921160420).
+ */
+function assertScopeAllowed(module: string, scope: { unit_id?: number | null; kitchen_id?: number | null; mess_hall_id?: number | null }): void {
+	const violation = unscopedModuleViolation(module, scope)
+	if (violation) throw new DomainError("SCOPE_NOT_ALLOWED", violation)
+}
+
 /** Linha de grant inline que as regras de autoconcessão precisam ler antes de mexer. */
 async function loadPermissionRow(db: SisubDb, permissionId: string) {
 	const rows = await runQuery("FETCH_FAILED", () =>
@@ -319,6 +336,7 @@ export async function createUserPermission(
 ) {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
+	assertScopeAllowed(input.module, input)
 	assertSisubGrantable(ctx.userId, { userId: input.userId, revokesAdministration: input.module === SISUB_ADMIN_MODULE && input.level <= 0 })
 	// Rede geral (self-admin-guard): um grant novo sobre si mesmo — um deny de `admin` escopado,
 	// por exemplo — não pode deixar o ator sem a administração que ele tem.
@@ -384,6 +402,8 @@ export async function updateUserPermission(
 
 	const current = await loadPermissionRow(db, input.permissionId)
 	if (!current) throw new DomainError("UPDATE_FAILED", `permission ${input.permissionId} not found`)
+	// O módulo não é editável e não vem no input: vale o da LINHA.
+	assertScopeAllowed(current.module, input)
 	const refusal = selfAdminUpdateRefusal(ctx.userId, current, { level: input.level, expiresAt: input.expires_at })
 	if (refusal === "EXPIRY") throw new DomainError("GRANT_NOT_ALLOWED", SELF_ADMIN_EXPIRY_MESSAGE)
 	assertSisubGrantable(ctx.userId, { userId: current.userId, revokesAdministration: refusal === "LEVEL" })

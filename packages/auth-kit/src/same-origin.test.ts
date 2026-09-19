@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { checkSameOriginJsonRequest } from "./same-origin.ts"
+import { checkSameOriginJsonRequest, isRequestOrigin } from "./same-origin.ts"
 
 const URL_ = "http://sisub.iefa.com.br/api/module-chat/stream"
 
@@ -15,14 +15,14 @@ describe("checkSameOriginJsonRequest (guard de CSRF)", () => {
 		)
 	})
 
-	it("respeita o x-forwarded-host do ALB", () => {
+	it("ignora o x-forwarded-host (o ALB repassa o valor que o cliente mandou)", () => {
 		const h = new Headers({
-			host: "10.0.0.1:3000",
-			"x-forwarded-host": "sisub.iefa.com.br",
+			host: "sisub.iefa.com.br",
+			"x-forwarded-host": "evil.com",
 			"content-type": "application/json",
-			origin: "https://sisub.iefa.com.br",
+			origin: "https://evil.com",
 		})
-		expect(checkSameOriginJsonRequest(h, URL_).ok).toBe(true)
+		expect(checkSameOriginJsonRequest(h, URL_).ok).toBe(false)
 	})
 
 	it("recusa text/plain (o POST cross-site sem preflight)", () => {
@@ -38,5 +38,15 @@ describe("checkSameOriginJsonRequest (guard de CSRF)", () => {
 	it("recusa request sem Origin nem Referer, e Origin opaca", () => {
 		expect(checkSameOriginJsonRequest(headers({ "content-type": "application/json" }), URL_).ok).toBe(false)
 		expect(checkSameOriginJsonRequest(headers({ "content-type": "application/json", origin: "null" }), URL_).ok).toBe(false)
+	})
+})
+
+describe("isRequestOrigin (matcher do createCsrfMiddleware)", () => {
+	it("compara pelo host, ignorando o http do request atrás do ALB", () => {
+		const h = new Headers({ host: "sisub.iefa.com.br" })
+		expect(isRequestOrigin("https://sisub.iefa.com.br", h, "http://sisub.iefa.com.br/_serverFn/x")).toBe(true)
+		expect(isRequestOrigin("https://portal.iefa.com.br", h, "http://sisub.iefa.com.br/_serverFn/x")).toBe(false)
+		expect(isRequestOrigin("null", h, "http://sisub.iefa.com.br/_serverFn/x")).toBe(false)
+		expect(isRequestOrigin(undefined, h, "http://sisub.iefa.com.br/_serverFn/x")).toBe(false)
 	})
 })

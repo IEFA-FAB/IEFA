@@ -5,9 +5,9 @@
  * `RecipeLastReview` projeta a view kitchen.recipe_last_review (DISTINCT ON por receita).
  */
 
-import { recipeLastReviewInKitchen, recipeReviewInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { recipeLastReviewInKitchen, recipeReviewInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { eq } from "drizzle-orm"
-import { authorizeAssetMutation } from "../guards/asset-ownership.ts"
+import { authorizeAssetMutation, canReadAsset } from "../guards/asset-ownership.ts"
 import { requireAnyPermission } from "../guards/require-permission.ts"
 import type { VersionActor } from "../schemas/ingredients.ts"
 import type { ListRecipeLastReviews, RecordRecipeReview } from "../schemas/recipes.ts"
@@ -70,6 +70,9 @@ export async function recordRecipeReview(db: SisubDb, ctx: UserContext, input: R
 export async function listRecipeLastReviews(db: SisubDb, ctx: UserContext, input: ListRecipeLastReviews): Promise<RecipeLastReview[]> {
 	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 
+	// O dono da preparação vem junto (join), para filtrar pelo mesmo critério da leitura por id:
+	// a view cobre TODAS as preparações, e sem o filtro quem tinha uma cozinha lia os ids das
+	// preparações locais das outras e o nome de quem as revisou.
 	const where = input.recipeId ? eq(recipeLastReviewInKitchen.recipeId, input.recipeId) : undefined
 	const rows = await runQuery("QUERY_FAILED", () =>
 		db
@@ -78,10 +81,12 @@ export async function listRecipeLastReviews(db: SisubDb, ctx: UserContext, input
 				reviewed_at: recipeLastReviewInKitchen.reviewedAt,
 				reviewed_by: recipeLastReviewInKitchen.reviewedBy,
 				reviewed_by_name: recipeLastReviewInKitchen.reviewedByName,
+				owner_kitchen_id: recipesInKitchen.kitchenId,
 			})
 			.from(recipeLastReviewInKitchen)
+			.innerJoin(recipesInKitchen, eq(recipesInKitchen.id, recipeLastReviewInKitchen.recipeId))
 			.where(where)
 	)
 	// A view garante recipe_id/reviewed_at não-nulos (DISTINCT ON sobre linhas reais).
-	return rows as RecipeLastReview[]
+	return rows.filter((row) => canReadAsset(ctx, row.owner_kitchen_id)).map(({ owner_kitchen_id: _owner, ...review }) => review as RecipeLastReview)
 }

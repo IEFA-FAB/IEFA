@@ -23,6 +23,12 @@ describe("sameOriginDestination", () => {
 		expect(sameOriginDestination(dest, ORIGIN)).toBe("/hub")
 	})
 
+	test("caminho que o parser normaliza para protocol-relative cai no fallback", () => {
+		for (const path of ["/.//evil.com", "/..//evil.com", "/%2e//evil.com"]) {
+			expect(sameOriginDestination(path, "https://sisub.iefa.com.br")).toBe("/hub")
+		}
+	})
+
 	test("vazio cai no fallback", () => {
 		expect(sameOriginDestination("", ORIGIN)).toBe("/hub")
 		expect(sameOriginDestination(undefined, ORIGIN, "/auth")).toBe("/auth")

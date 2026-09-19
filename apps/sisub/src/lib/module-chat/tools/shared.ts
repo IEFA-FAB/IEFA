@@ -5,12 +5,14 @@
 
 import type { Database } from "@iefa/database"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { hasPermission } from "@iefa/pbac"
-import { QueryFailedError, type UserContext } from "@iefa/sisub-domain"
+import { AssuranceRequiredError, hasPermission, PermissionDeniedError as PbacPermissionDeniedError } from "@iefa/pbac"
+import { DomainError, QueryFailedError, type UserContext } from "@iefa/sisub-domain"
 import { dropUnexpectedNulls, enforcePayloadBudget } from "@iefa/sisub-domain/agent"
+import { describeDriverError } from "@iefa/sisub-domain/utils"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { ServerTool } from "@tanstack/ai"
 import { toolDefinition } from "@tanstack/ai"
+import { ZodError } from "zod"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
 
 // ── Tool context (passed to every tool handler) ─────────────────────────────
@@ -205,6 +207,39 @@ export function untypedFrom(ctx: ToolContext, table: string, schema: ToolTableSc
 }
 
 /**
+ * O erro que a tool devolve ao MODELO — e o texto do erro de tool volta inteiro no prompt do
+ * turno seguinte, de onde o modelo pode repeti-lo ao usuário pelo SSE.
+ *
+ * Só passa adiante o erro cuja mensagem foi ESCRITA para quem lê: erro de domínio (permissão,
+ * não encontrado, regra de negócio), as recusas das próprias tools e a validação de argumento
+ * (o modelo precisa dela para corrigir a chamada). Todo o resto é falha de infraestrutura cuja
+ * `message` ninguém revisou: o `DrizzleQueryError` que escapa de um caminho sem `runQuery`
+ * (`fetchTemplateMealsSafe` relança o que não é "tabela ausente") põe `Failed query: <SQL>
+ * params: <valores>` na mensagem, e um `TypeError` descreve o código. Antes só
+ * `QueryFailedError` era traduzido, e esses iam crus até o navegador. O detalhe fica no log.
+ */
+export function toModelFacingToolError(toolName: string, error: unknown): Error {
+	if (error instanceof QueryFailedError) {
+		// biome-ignore lint/suspicious/noConsole: server-side error logging
+		console.error(`[module-chat:${toolName}]`, error.message)
+		return new Error(error.publicMessage)
+	}
+	if (
+		error instanceof DomainError ||
+		error instanceof ToolPermissionError ||
+		error instanceof ToolValidationError ||
+		error instanceof PbacPermissionDeniedError ||
+		error instanceof AssuranceRequiredError ||
+		error instanceof ZodError
+	) {
+		return error
+	}
+	// biome-ignore lint/suspicious/noConsole: server-side error logging
+	console.error(`[module-chat:${toolName}]`, describeDriverError(error))
+	return new Error(`Erro ao executar ${toolName}. Tente novamente.`)
+}
+
+/**
  * Wraps a ModuleToolDefinition as a TanStack AI ServerTool.
  * The ToolContext is injected via closure so each request gets its own auth/supabase.
  */
@@ -220,15 +255,7 @@ export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): ServerToo
 		// isso, `null` é ausência — sem esta linha `safeInt(null)` viraria `0` calado.
 		const input = dropUnexpectedNulls(args as Record<string, unknown>, def.parameters)
 		const result = await def.handler(input, ctx).catch((error: unknown) => {
-			// Falha de banco vinda do domínio: a `message` traz SQL e parâmetros, e o texto do
-			// erro de tool volta INTEIRO para o modelo (que pode repeti-lo ao usuário). O
-			// diagnóstico fica no log; o modelo lê a mensagem pública.
-			if (error instanceof QueryFailedError) {
-				// biome-ignore lint/suspicious/noConsole: server-side error logging
-				console.error(`[module-chat:${def.name}]`, error.message)
-				throw new Error(error.publicMessage)
-			}
-			throw error
+			throw toModelFacingToolError(def.name, error)
 		})
 		if (!result.success) throw new Error(result.error ?? "Ferramenta falhou")
 

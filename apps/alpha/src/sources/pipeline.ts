@@ -13,6 +13,7 @@
 
 import { supabase } from "../db/supabase.ts"
 import { embeddingModelId } from "../lib/embeddings.ts"
+import { redactCloudIdentifiers } from "../lib/redact.ts"
 import { estimateTokens } from "../lib/text.ts"
 import { buildChunks } from "./chunking.ts"
 import type { NormativeSourceAdapter, SourceItem, StructuredDoc } from "./types.ts"
@@ -289,7 +290,9 @@ export async function ingestSource({ sourceId, adapter, embed, apply = false, li
 				notes: 0,
 				seeded_rules: 0,
 				chunks: 0,
-				error: error instanceof Error ? error.message : String(error),
+				// Redigido já aqui: o resultado vai para `last_error` (lido por qualquer
+				// autenticado em `GET /api/v1/sources`) e volta na resposta do refresh.
+				error: redactCloudIdentifiers(error instanceof Error ? error.message : String(error)),
 			})
 		}
 	}
@@ -300,7 +303,7 @@ export async function ingestSource({ sourceId, adapter, embed, apply = false, li
 			.from("normative_source")
 			.update({
 				last_checked_at: new Date().toISOString(),
-				last_error: failures.length > 0 ? `${failures.length} item(ns) com erro: ${failures[0]?.error ?? ""}`.slice(0, 500) : null,
+				last_error: failures.length > 0 ? redactCloudIdentifiers(`${failures.length} item(ns) com erro: ${failures[0]?.error ?? ""}`).slice(0, 500) : null,
 			})
 			.eq("id", sourceId)
 	}

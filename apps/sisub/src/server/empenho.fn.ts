@@ -4,16 +4,20 @@
  * reforço/anulação por EVENTO (o valor nunca é editado) e saldos derivados
  * da view finance.v_empenho_saldo. Inscrição em restos a pagar é ação
  * explícita no encerramento do exercício.
- * CLIENT: getServerClient (service role, schema finance).
+ * CLIENT: getServerClient (service role, schema finance); getDb (Drizzle) só para o
+ * evento de empenho, que precisa de transação com lock.
  * AUTH: `unit` escopado — 1 leitura, 2 lançar evento, 3 encerrar exercício.
  * TABLES: finance.empenho, empenho_event, v_empenho_saldo.
  * @domain core
  * @migration 20260731140000_finance_empenho_document
  */
 
+import { describeDriverError, unwrapPgError } from "@iefa/sisub-domain/utils"
 import { createServerFn } from "@tanstack/react-start"
+import { sql } from "drizzle-orm"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
+import { getDb } from "@/lib/db.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -189,14 +193,13 @@ export const registerEmpenhoEventFn = createServerFn({ method: "POST" })
 		const ctx = await requireUnitScope(2, Number(empenho.unit_id))
 		const { userId } = ctx
 
-		// anulação não pode derrubar o vigente abaixo do já liquidado
+		// Pré-checagem para a mensagem boa no caso comum; a decisão que vale é a de dentro da
+		// transação abaixo, sob o lock.
 		if (data.tipo !== "reforco") {
 			const saldos = await fetchSaldos([data.empenhoId])
 			const saldo = saldos.get(data.empenhoId)
 			if (saldo && saldo.valor_vigente - data.valor < saldo.valor_liquidado) {
-				throw new Error(
-					`Anulação deixaria o empenho (R$ ${(saldo.valor_vigente - data.valor).toFixed(2)}) abaixo do já liquidado (R$ ${saldo.valor_liquidado.toFixed(2)})`
-				)
+				throw new Error(floorMessage(saldo.valor_vigente - data.valor, saldo.valor_liquidado))
 			}
 		}
 
@@ -204,25 +207,93 @@ export const registerEmpenhoEventFn = createServerFn({ method: "POST" })
 			"registerEmpenhoEventFn",
 			ctx,
 			async () => {
-				const { error } = await fin.from("empenho_event").insert({
-					empenho_id: data.empenhoId,
-					tipo: data.tipo,
-					valor: data.valor,
-					data: data.data,
-					documento: data.documento?.trim() || null,
-					justificativa: data.justificativa.trim(),
-					created_by: userId,
-				})
-				if (error) throw new Error(`Erro ao registrar evento: ${error.message}`)
-
-				// cancelamento total também marca o status do documento
-				if (data.tipo === "cancelamento") {
-					await fin.from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
+				try {
+					await insertEmpenhoEventSerialized({ ...data, userId })
+				} catch (error) {
+					throw toEmpenhoEventError(error)
 				}
 			},
 			() => ({ empenhoId: data.empenhoId, unitId: Number(empenho.unit_id), tipo: data.tipo, valor: data.valor, data: data.data })
 		)
 	})
+
+/** Mesmo teto de espera do reset de treino: vira erro com mensagem antes dos 60 s do ALB. */
+const EVENT_LOCK_TIMEOUT = "10s"
+
+function floorMessage(vigenteApos: number, liquidado: number): string {
+	return `Anulação deixaria o empenho (R$ ${vigenteApos.toFixed(2)}) abaixo do já liquidado (R$ ${liquidado.toFixed(2)})`
+}
+
+class EmpenhoFloorError extends Error {}
+
+/**
+ * Checa o piso e grava o evento NUMA transação, serializada pelo empenho.
+ *
+ * Antes, a checagem lia o saldo por um cliente e o insert ia por outro, sem lock: duas
+ * anulações simultâneas liam o mesmo vigente, passavam as duas e juntas derrubavam o empenho
+ * abaixo do já liquidado. As chaves dos dois advisory locks são as MESMAS dos triggers do banco
+ * (`finance.check_empenho_event_floor` e `finance.check_liquidacao_within_empenho`): tomar as
+ * duas serializa esta anulação contra outra anulação E contra uma liquidação em curso do mesmo
+ * empenho — que, com chaves diferentes, se cruzavam (cada lado lia o valor do outro antes do
+ * commit). A ordem é sempre evento → liquidação, e o trigger de liquidação só toma a segunda:
+ * não há ciclo.
+ */
+async function insertEmpenhoEventSerialized(input: {
+	empenhoId: string
+	tipo: "reforco" | "anulacao" | "cancelamento"
+	valor: number
+	data: string
+	documento?: string
+	justificativa: string
+	userId: string
+}): Promise<void> {
+	await getDb().transaction(async (tx) => {
+		// `set_config(..., true)`: local à transação, volta ao padrão no commit (ver training.ts).
+		await tx.execute(sql`select set_config('lock_timeout', ${EVENT_LOCK_TIMEOUT}, true)`)
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`empenho_event:${input.empenhoId}`}::text, 42))`)
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`liq_empenho:${input.empenhoId}`}::text, 42))`)
+
+		if (input.tipo !== "reforco") {
+			const [row] = await tx.execute<{ vigente: string | null; liquidado: string | null }>(sql`
+				select
+					(select valor_vigente from finance.v_empenho_vigente where empenho_id = ${input.empenhoId}::uuid)::text as vigente,
+					(select coalesce(sum(valor), 0) from finance.liquidacao where empenho_id = ${input.empenhoId}::uuid)::text as liquidado
+			`)
+			const vigente = Number(row?.vigente ?? 0)
+			const liquidado = Number(row?.liquidado ?? 0)
+			if (vigente - input.valor < liquidado) throw new EmpenhoFloorError(floorMessage(vigente - input.valor, liquidado))
+		}
+
+		await tx.execute(sql`
+			insert into finance.empenho_event (empenho_id, tipo, valor, data, documento, justificativa, created_by)
+			values (
+				${input.empenhoId}::uuid, ${input.tipo}, ${input.valor}, ${input.data}::date,
+				${input.documento?.trim() || null}, ${input.justificativa.trim()}, ${input.userId}::uuid
+			)
+		`)
+
+		// cancelamento total também marca o status do documento — na MESMA transação: antes o
+		// update ia solto e, se falhasse, o evento ficava gravado com o empenho ainda "ativo".
+		if (input.tipo === "cancelamento") {
+			await tx.execute(sql`update finance.empenho set status = 'anulado' where id = ${input.empenhoId}::uuid`)
+		}
+	})
+}
+
+/**
+ * O erro que chega ao cliente. O do driver traz o SQL e os parâmetros na mensagem — isso fica
+ * no log; o cliente lê o motivo de negócio (piso, espera esgotada) ou uma mensagem genérica.
+ */
+function toEmpenhoEventError(error: unknown): Error {
+	if (error instanceof EmpenhoFloorError) return error
+	const pg = unwrapPgError(error)
+	// O trigger do banco tem a mesma regra e a mesma frase — repassa a dele.
+	if (pg.message?.startsWith("Anulação deixaria")) return new Error(pg.message)
+	if (pg.code === "55P03") return new Error("Outro lançamento neste empenho está em andamento. Tente de novo em instantes.")
+	// biome-ignore lint/suspicious/noConsole: server-side — o detalhe do driver só vai para o log
+	console.error("[registerEmpenhoEventFn]", describeDriverError(error))
+	return new Error("Erro ao registrar evento do empenho. Tente novamente.")
+}
 
 /**
  * Inscrição em restos a pagar no encerramento do exercício: saldo a liquidar

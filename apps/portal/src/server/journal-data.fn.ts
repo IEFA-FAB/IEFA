@@ -21,9 +21,10 @@ import {
 	requireUserId,
 } from "@/lib/auth.server"
 import { PORTAL_URL, sendJournalEmail, type TemplateName } from "@/lib/journal/email.server"
+import { assertStoredFilesMatchExtension } from "@/lib/journal/file-signature.server"
 import { assertJournalRoleChangeAllowed, planProfileSave, toJournalRoleError } from "@/lib/journal/role-change"
+import { areVersionPathsOfArticle } from "@/lib/journal/storage-paths"
 import type { UserRole } from "@/lib/journal/types"
-import { isPathOfArticle } from "@/lib/journal/storage-paths"
 import {
 	ArticleAuthorInsertSchema,
 	ArticleAuthorUpdateSchema,
@@ -427,8 +428,9 @@ export const createArticleVersionFn = createServerFn({ method: "POST" })
 	.validator(ArticleVersionInsertSchema)
 	.handler(async ({ data }) => {
 		const { userId, isEditor: callerIsEditor } = await requireArticleWriteAccess(data.article_id)
-		const paths = [data.pdf_path, data.source_path, ...(data.supplementary_paths ?? [])].filter((path): path is string => !!path)
-		if (paths.some((path) => !isPathOfArticle(data.article_id, path))) forbidden("Arquivo fora do diretório do artigo.")
+		const paths = { pdfPath: data.pdf_path, sourcePath: data.source_path, supplementaryPaths: data.supplementary_paths }
+		if (!areVersionPathsOfArticle(data.article_id, paths)) forbidden("Arquivo fora do diretório do artigo.")
+		await assertStoredFilesMatchExtension([paths.pdfPath, paths.sourcePath, ...(paths.supplementaryPaths ?? [])])
 		// `notes` é anotação do editor sobre a versão.
 		const { notes, ...fields } = data
 		const { data: result, error } = await getJournalServerClient()
@@ -1189,7 +1191,7 @@ export const getAuthorArticleReviewsFn = createServerFn({ method: "GET" })
 // (PDF já subido via signed URL). Cria a versão N+1, move para revised_submitted,
 // reabre os assignments concluídos para nova rodada e registra o evento.
 export const resubmitRevisionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ articleId: z.string(), pdfPath: z.string(), sourcePath: z.string().optional(), coverLetter: z.string().optional() }))
+	.validator(z.object({ articleId: z.uuid(), pdfPath: z.string().max(200), sourcePath: z.string().max(200).optional(), coverLetter: z.string().optional() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const db = getJournalServerClient()
@@ -1197,8 +1199,10 @@ export const resubmitRevisionFn = createServerFn({ method: "POST" })
 		const { data: article } = await db.from("articles").select("submitter_id, status").eq("id", data.articleId).single()
 		if (!article || article.submitter_id !== userId) forbidden("Você não tem acesso a este artigo.")
 		if (article.status !== "revision_requested") throw new Error("A submissão não está aguardando revisão do autor.")
-		const paths = [data.pdfPath, data.sourcePath].filter((path): path is string => !!path)
-		if (paths.some((path) => !isPathOfArticle(data.articleId, path))) forbidden("Arquivo fora do diretório do artigo.")
+		if (!areVersionPathsOfArticle(data.articleId, { pdfPath: data.pdfPath, sourcePath: data.sourcePath })) forbidden("Arquivo fora do diretório do artigo.")
+		// Conteúdo, não só o nome — e é a última chance: esta chamada tira o artigo de
+		// `revision_requested`, e depois dela o autor não grava mais nesta versão.
+		await assertStoredFilesMatchExtension([data.pdfPath, data.sourcePath])
 
 		const { data: last } = await db
 			.from("article_versions")

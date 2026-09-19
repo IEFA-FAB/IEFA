@@ -346,24 +346,27 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
  * com template_type "weekly" e não excluído). Usado para sinalizar, na listagem de
  * preparações, quais merecem revisão prioritária por estarem em cardápios semanais.
  *
- * Sem escopo de cozinha: uma preparação global pode ser usada em um plano semanal de
- * qualquer cozinha. Autorização garantida por `requirePermission` — com Drizzle
- * (conexão direta pelo role do projeto) não há RLS; a autorização é só na aplicação.
+ * Sem escopo de cozinha no PLANO: uma preparação global pode ser usada em um plano semanal
+ * de qualquer cozinha, e é isso que a sinalização quer contar. Mas a PREPARAÇÃO devolvida
+ * passa pelo mesmo critério da leitura por id (`canReadAsset`): sem ele, a lista entregava
+ * os ids das preparações locais de todas as cozinhas da FAB. Autorização só na aplicação —
+ * com Drizzle (conexão direta pelo role do projeto) não há RLS.
  */
 export async function listRecipeMenuUsage(db: SisubDb, ctx: UserContext): Promise<string[]> {
 	requirePermission(ctx, "kitchen", 1)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ recipeId: menuTemplateItemsInKitchen.recipeId })
+			.select({ recipeId: menuTemplateItemsInKitchen.recipeId, ownerKitchenId: recipesInKitchen.kitchenId })
 			.from(menuTemplateItemsInKitchen)
 			.innerJoin(menuTemplateInKitchen, eq(menuTemplateItemsInKitchen.menuTemplateId, menuTemplateInKitchen.id))
+			.innerJoin(recipesInKitchen, eq(recipesInKitchen.id, menuTemplateItemsInKitchen.recipeId))
 			.where(and(eq(menuTemplateInKitchen.templateType, "weekly"), isNull(menuTemplateInKitchen.deletedAt), isNotNull(menuTemplateItemsInKitchen.recipeId)))
 	)
 
 	const ids = new Set<string>()
 	for (const row of rows) {
-		if (row.recipeId) ids.add(row.recipeId)
+		if (row.recipeId && canReadAsset(ctx, row.ownerKitchenId)) ids.add(row.recipeId)
 	}
 	return Array.from(ids)
 }

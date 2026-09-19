@@ -10,7 +10,8 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { forbidden, requireSelf, requireSubmitterArticle } from "@/lib/auth.server"
-import { isPathOfArticle } from "@/lib/journal/storage-paths"
+import { assertStoredFilesMatchExtension } from "@/lib/journal/file-signature.server"
+import { areVersionPathsOfArticle } from "@/lib/journal/storage-paths"
 import { getJournalServerClient } from "@/lib/supabase.server"
 
 // ─── Shared schemas ───────────────────────────────────────────────────────────
@@ -138,9 +139,9 @@ export const saveVersionDraftFn = createServerFn({ method: "POST" })
 		z.object({
 			articleId: z.uuid(),
 			userId: z.uuid(),
-			pdfPath: z.string().min(1),
-			sourcePath: z.string().optional(),
-			supplementaryPaths: z.array(z.string()).optional(),
+			pdfPath: z.string().min(1).max(200),
+			sourcePath: z.string().max(200).optional(),
+			supplementaryPaths: z.array(z.string().max(200)).max(100).optional(),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -152,8 +153,9 @@ export const saveVersionDraftFn = createServerFn({ method: "POST" })
 		// A versão 1 é a do rascunho: só o submissor mexe nela, e só antes de submeter —
 		// sem isso qualquer sessão trocava o `pdf_path` do manuscrito de outro autor.
 		await requireSubmitterArticle(articleId, ["draft"])
-		const paths = [pdfPath, sourcePath, ...(supplementaryPaths ?? [])].filter((path): path is string => !!path)
-		if (paths.some((path) => !isPathOfArticle(articleId, path))) forbidden("Arquivo fora do diretório do artigo.")
+		if (!areVersionPathsOfArticle(articleId, { pdfPath, sourcePath, supplementaryPaths })) forbidden("Arquivo fora do diretório do artigo.")
+		// Conteúdo, não só o nome: o autor sobe os bytes direto no storage.
+		await assertStoredFilesMatchExtension([pdfPath, sourcePath, ...(supplementaryPaths ?? [])])
 
 		// Check if version 1 already exists
 		const { data: existing } = await supabase.from("article_versions").select("id").eq("article_id", articleId).eq("version_number", 1).maybeSingle()
@@ -224,6 +226,20 @@ export const submitArticleFn = createServerFn({ method: "POST" })
 		// "submetia" qualquer artigo (inclusive um publicado, que voltava para a fila). A
 		// re-submissão de revisão tem fluxo próprio (`resubmitRevisionFn`).
 		await requireSubmitterArticle(articleId, ["draft"])
+
+		// Os arquivos da v1 são conferidos de novo AQUI: enquanto era rascunho o autor podia
+		// regravar o mesmo caminho (upsert) depois do `saveVersionDraftFn`. Depois desta
+		// transição ele não obtém mais URL de upload para a v1.
+		const { data: draftVersion } = await supabase
+			.from("article_versions")
+			.select("pdf_path, source_path, supplementary_paths")
+			.eq("article_id", articleId)
+			.eq("version_number", 1)
+			.maybeSingle()
+		if (!draftVersion?.pdf_path) throw new Error("Envie o manuscrito (PDF) antes de submeter.")
+		const draftPaths = { pdfPath: draftVersion.pdf_path, sourcePath: draftVersion.source_path, supplementaryPaths: draftVersion.supplementary_paths }
+		if (!areVersionPathsOfArticle(articleId, draftPaths)) forbidden("Arquivo fora do diretório do artigo.")
+		await assertStoredFilesMatchExtension([draftPaths.pdfPath, draftPaths.sourcePath, ...(draftPaths.supplementaryPaths ?? [])])
 
 		// Promote article to submitted — o filtro de dono/status no próprio UPDATE fecha a
 		// corrida com outra aba submetendo o mesmo rascunho.

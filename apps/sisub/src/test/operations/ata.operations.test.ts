@@ -19,6 +19,7 @@ import {
 	saveAtaDraftItems,
 	updateAtaDraft,
 	updateAtaItemDescription,
+	updateAtaItemPrices,
 	updateAtaQuantityLimits,
 	updateAtaStatus,
 } from "@iefa/sisub-domain"
@@ -372,5 +373,66 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 		)
 		const after = (await fetchAtaDetails(db, ctx, { ataId: b.id }))?.items[0]
 		expect(after?.delivery_cycle).toBeNull()
+	})
+
+	// ─── o que a ata CITA é conferido contra ela ─────────────────────────────────
+
+	test("saveAtaDraftItems não sequestra item de outra ata (update amarrado ao list_id)", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const other = await createAta(db, ctx, {
+			unitId,
+			title: uid("[TEST] ATA "),
+			kitchenSelections: [],
+			items: [{ ingredient_name: "Feijão", total_quantity: 10 }],
+		})
+		seeder.track("procurement_list", other.id)
+		const itemOfOther = (await fetchAtaDetails(db, ctx, { ataId: other.id }))?.items[0]
+		if (!itemOfOther) throw new Error("item não persistido")
+		const { id: draftId } = await createAtaDraft(db, ctx, { unitId })
+		seeder.track("procurement_list", draftId)
+
+		await expect(
+			saveAtaDraftItems(db, ctx, { draftId, items: [{ ata_item_id: itemOfOther.id, ingredient_name: "Sequestro", total_quantity: 1 }] })
+		).rejects.toThrow(/não pertence/i)
+		const after = (await fetchAtaDetails(db, ctx, { ataId: other.id }))?.items[0]
+		expect(after?.ingredient_name).toBe("Feijão")
+	})
+
+	test("updateAtaItemPrices não repreça item de outra ata", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const a = await createAta(db, ctx, { unitId, title: uid("[TEST] ATA "), kitchenSelections: [], items: [{ ingredient_name: "Arroz", total_quantity: 10 }] })
+		seeder.track("procurement_list", a.id)
+		const b = await createAta(db, ctx, { unitId, title: uid("[TEST] ATA "), kitchenSelections: [], items: [{ ingredient_name: "Feijão", total_quantity: 10 }] })
+		seeder.track("procurement_list", b.id)
+		const itemOfB = (await fetchAtaDetails(db, ctx, { ataId: b.id }))?.items[0]
+		if (!itemOfB) throw new Error("item não persistido")
+
+		await expect(updateAtaItemPrices(db, ctx, { ataId: a.id, updates: [{ ataItemId: itemOfB.id, price: 999 }] })).rejects.toThrow(/não pertence/i)
+		expect((await fetchAtaDetails(db, ctx, { ataId: b.id }))?.items[0]?.unit_price).toBeNull()
+	})
+
+	test("createAta recusa cozinha de outra unidade e plano local de outra cozinha", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const { id: ownKitchen } = await seeder.seedKitchen({ unitId })
+		const { id: foreignKitchen } = await seeder.seedKitchen()
+		const foreignTemplate = await seeder.seedTemplate({ kitchenId: foreignKitchen })
+
+		const selection = (kitchenId: number, templateId: string) => ({
+			kitchenId,
+			kitchenName: "K",
+			deliveryNotes: "",
+			templateSelections: [{ templateId, templateName: "T", repetitions: 1 }],
+			eventSelections: [],
+			exceptionSelections: [],
+		})
+		await expect(
+			createAta(db, ctx, { unitId, title: uid("[TEST] ATA "), kitchenSelections: [selection(foreignKitchen, foreignTemplate)], items: [] })
+		).rejects.toMatchObject({ code: "KITCHEN_NOT_IN_UNIT" })
+		await expect(
+			createAta(db, ctx, { unitId, title: uid("[TEST] ATA "), kitchenSelections: [selection(ownKitchen, foreignTemplate)], items: [] })
+		).rejects.toMatchObject({ code: "TEMPLATE_ACCESS_DENIED" })
 	})
 })

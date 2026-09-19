@@ -9,6 +9,12 @@ describe("resolveSameOriginDestination", () => {
 		expect(resolveSameOriginDestination("/", ORIGIN)).toBe("/")
 	})
 
+	it("recusa caminho que o parser normaliza para protocol-relative", () => {
+		for (const path of ["/.//evil.com", "/..//evil.com", "/%2e//evil.com"]) {
+			expect(resolveSameOriginDestination(path, "https://sucont.iefa.com.br")).toBe("/")
+		}
+	})
+
 	it("recusa destino fora da origem", () => {
 		expect(resolveSameOriginDestination("//evil.com", ORIGIN)).toBe("/")
 		expect(resolveSameOriginDestination("/\t/evil.com", ORIGIN)).toBe("/")

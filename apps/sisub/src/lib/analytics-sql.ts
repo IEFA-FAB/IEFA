@@ -139,29 +139,13 @@ const KEYWORDS_BEFORE_PAREN = new Set([
 	"with",
 ])
 
-/** Palavras que encerram a lista de relações de um FROM (no mesmo nível de parênteses). */
-const FROM_LIST_TERMINATORS = new Set([
-	"where",
-	"group",
-	"order",
-	"limit",
-	"having",
-	"union",
-	"intersect",
-	"except",
-	"window",
-	"offset",
-	"fetch",
-	"on",
-	"using",
-	"join",
-	"inner",
-	"left",
-	"right",
-	"full",
-	"cross",
-	"natural",
-])
+/**
+ * Palavras que encerram a lista de relações de um FROM (no mesmo nível de parênteses).
+ * `ON`/`USING`/`JOIN` NÃO encerram: `FROM a JOIN b ON a.x = b.x, core.user_data d` continua
+ * sendo lista de relações depois da condição — vírgula no nível do FROM só pode abrir outra
+ * relação (dentro de expressão ela fica num nível de parênteses mais fundo).
+ */
+const FROM_LIST_TERMINATORS = new Set(["where", "group", "order", "limit", "having", "union", "intersect", "except", "offset", "fetch"])
 
 const BLOCKED_KEYWORDS = [
 	"INSERT",
@@ -181,6 +165,9 @@ const BLOCKED_KEYWORDS = [
 	"MERGE",
 	"LOCK",
 	"SET",
+	// `TABLE x` é relação sem FROM; `WINDOW nome AS (...)` se confundia com nome de CTE.
+	"TABLE",
+	"WINDOW",
 ]
 
 type Token = { kind: "ident" | "string" | "number" | "punct"; value: string }
@@ -347,7 +334,7 @@ export function validateSql(sql: string): { valid: boolean; error?: string } {
 				if (token.value === "from" && opener && (opener === "extract" || opener === "substring" || opener === "trim")) continue
 				const err = checkRelationAt(tokens, i + 1, cteNames)
 				if (err) return { valid: false, error: err }
-				inFromList[depth] = token.value === "from"
+				inFromList[depth] = true
 				continue
 			}
 

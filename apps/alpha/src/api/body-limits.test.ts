@@ -26,4 +26,14 @@ describe("requestBodyLimit", () => {
 		expect((await post("/api/v1/submissions", MAX_JSON_BODY_BYTES + 1)).status).toBe(200)
 		expect((await post("/api/v1/submissions", MAX_UPLOAD_BODY_BYTES + 1)).status).toBe(413)
 	})
+
+	// O `routes.ts` monta o app com o `env` do Supabase e não é importável aqui; a ordem
+	// dos middlewares é conferida no fonte. Teto antes da auth = anônimo bufferiza o corpo.
+	test("routes.ts: o teto de corpo roda DEPOIS do authMiddleware", async () => {
+		const source = await Bun.file(new URL("./routes.ts", import.meta.url)).text()
+		const auth = source.indexOf('.use("/api/v1/*", authMiddleware)')
+		const limit = source.indexOf('.use("/api/v1/*", requestBodyLimit)')
+		expect(auth).toBeGreaterThan(-1)
+		expect(limit).toBeGreaterThan(auth)
+	})
 })

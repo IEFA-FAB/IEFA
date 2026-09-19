@@ -113,6 +113,11 @@ export function isAdminSecretPath(path: string, restrictedPaths: readonly string
  * chegar à comparação do segredo — inclusive com o segredo certo, senão a força bruta
  * continuaria descobrindo o acerto pelo status. Depois da rota, todo 401 conta como
  * tentativa errada (é o único motivo de 401 nessas rotas).
+ *
+ * Vale para QUALQUER método. O `OPTIONS` passava direto, sem contar nem ser barrado —
+ * mas o guard do segredo nas rotas admin roda em todo método, então `OPTIONS` com o
+ * segredo no header devolvia 401/não-401 e virava oráculo de força bruta ilimitado. Não
+ * há preflight legítimo a preservar: essas rotas ficam fora do CORS (ver `index.ts`).
  */
 export function adminAttemptGuard(options: {
 	limiter: FailedAttemptLimiter
@@ -120,7 +125,7 @@ export function adminAttemptGuard(options: {
 	clientIp: (c: Context) => string
 }): MiddlewareHandler {
 	return async (c, next) => {
-		if (c.req.method === "OPTIONS" || !isAdminSecretPath(c.req.path, options.restrictedPaths)) return next()
+		if (!isAdminSecretPath(c.req.path, options.restrictedPaths)) return next()
 
 		const origin = options.clientIp(c)
 		const verdict = options.limiter.assess(origin)

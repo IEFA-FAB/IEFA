@@ -136,6 +136,24 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
 		}
 	})
 
+/**
+ * O empenho citado pela liquidação é da unidade que liquida — lido da LINHA, nunca
+ * do corpo. A busca já filtra pela unidade: empenho inexistente e empenho de outra
+ * OM respondem a mesma coisa, para a checagem não virar oráculo de ids alheios.
+ */
+async function assertEmpenhoOfUnit(unitId: number, empenhoId: string): Promise<void> {
+	const { data: row, error } = await finance().from("empenho").select("id").eq("id", empenhoId).eq("unit_id", unitId).maybeSingle()
+	if (error) throw new Error(`Erro ao conferir o empenho: ${error.message}`)
+	if (!row) throw new Error("Empenho não encontrado nesta unidade")
+}
+
+/** A liquidação paga pela OB é da unidade que paga — mesma regra, mesmo sigilo. */
+async function assertLiquidacaoOfUnit(unitId: number, liquidacaoId: string): Promise<void> {
+	const { data: row, error } = await finance().from("liquidacao").select("id").eq("id", liquidacaoId).eq("unit_id", unitId).maybeSingle()
+	if (error) throw new Error(`Erro ao conferir a liquidação: ${error.message}`)
+	if (!row) throw new Error("Liquidação não encontrada nesta unidade")
+}
+
 /** Registra a NS. O banco garante que não excede o empenho vigente. */
 /**
  * O vínculo da liquidação com recebimento e NF-e, conferido NO BANCO.
@@ -225,6 +243,10 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 		const ctx = await requireUnitScope(2, data.unitId)
 		const { userId } = ctx
 		const fin = finance()
+		// O empenho é conferido contra a unidade ANTES de tudo: o guard acima prova só
+		// que o chamador opera `data.unitId`, e o `empenhoId` vinha do corpo sem
+		// vínculo nenhum com ela — a NS consumia o empenho de outra OM.
+		await assertEmpenhoOfUnit(data.unitId, data.empenhoId)
 		const nfeDocumentId = await assertLiquidationLinks(data.unitId, data.empenhoId, data.goodsReceiptId, data.nfeDocumentId)
 
 		return withSensitiveAudit(
@@ -289,6 +311,9 @@ export const createPagamentoFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireUnitScope(2, data.unitId)
 		const { userId } = ctx
+		// Mesma porta da liquidação: `liquidacaoId` vem do corpo, e só o guard da
+		// unidade informada deixava pagar a NS de outra OM.
+		await assertLiquidacaoOfUnit(data.unitId, data.liquidacaoId)
 
 		return withSensitiveAudit(
 			"createPagamentoFn",

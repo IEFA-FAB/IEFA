@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { KitchenIdSchema, UuidSchema } from "./common.ts"
-import { AccessExpirySchema, APP_MODULES } from "./permissions.ts"
+import { AccessExpirySchema, APP_MODULES, unscopedModuleViolation } from "./permissions.ts"
 
 /**
  * Nível de um statement. Mesma escala dos grants: 0 = deny explícito, 1 = leitura,
@@ -33,6 +33,9 @@ export const PolicyStatementInputSchema = z
 				path: ["unit_id"],
 			})
 		}
+		// Mesma regra do grant inline — ver `UNSCOPED_ONLY_MODULES`.
+		const violation = unscopedModuleViolation(value.module, value)
+		if (violation) ctx.addIssue({ code: "custom", message: violation, path: ["module"] })
 	})
 export type PolicyStatementInput = z.infer<typeof PolicyStatementInputSchema>
 

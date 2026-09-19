@@ -14,6 +14,11 @@
  * quatro. `script-src`/`img-src`/`connect-src` precisam da própria mudança testada
  * por app (script inline do TanStack Start e de tema, Faro, Supabase, imagem
  * externa) e não entraram.
+ *
+ * CSRF das server functions: cada app SSR registra o `createCsrfMiddleware` do TanStack
+ * Start em `src/start.ts` (auditoria de 2026-09-19). Sem ele, server fn aceita POST
+ * `multipart/form-data`/sem `Content-Type` cross-site — sem preflight — com o cookie da
+ * vítima. Apagar o arquivo não quebra build nem teste; por isso o gate.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -85,6 +90,19 @@ for (const app of SSR_APPS) {
 	}
 }
 
+for (const app of SSR_APPS) {
+	let start: string
+	try {
+		start = readFileSync(join(REPO_ROOT, "apps", app, "src", "start.ts"), "utf8")
+	} catch {
+		failures.push(`${app}: sem src/start.ts — as server functions ficam sem o middleware de CSRF`)
+		continue
+	}
+	if (!start.includes("createCsrfMiddleware(") || !/requestMiddleware:\s*\[[^\]]*csrfMiddleware/.test(start)) {
+		failures.push(`${app}: src/start.ts não registra o createCsrfMiddleware em requestMiddleware`)
+	}
+}
+
 if (failures.length > 0) {
 	console.error("✗ Baseline de headers de segurança violada:\n")
 	for (const f of failures) console.error(`  - ${f}`)
@@ -92,4 +110,6 @@ if (failures.length > 0) {
 	process.exit(1)
 }
 
-console.log(`✓ Baseline de headers de segurança presente na regra "/**" de ${SSR_APPS.length} apps SSR (${REQUIRED_HEADERS.length} headers cada).`)
+console.log(
+	`✓ Baseline de headers de segurança presente na regra "/**" de ${SSR_APPS.length} apps SSR (${REQUIRED_HEADERS.length} headers cada), com CSRF das server functions.`
+)

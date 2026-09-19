@@ -1,8 +1,8 @@
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { Loader2 } from "lucide-react"
+import { useEffect } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { SecuritySummaryCard } from "@/components/features/diner/SecuritySummaryCard"
@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 import { useUpdateNrOrdem } from "@/hooks/business/useUserNrOrdem"
@@ -41,49 +42,12 @@ function DataField({ label, value, mono = false }: { label: string; value: strin
 	)
 }
 
-function onlyDigits(value: string | null | undefined) {
-	return String(value ?? "").replace(/\D/g, "")
-}
-
-function formatCpf(value: string | null | undefined) {
-	const digits = onlyDigits(value)
-	if (digits.length !== 11) return value && String(value).trim().length > 0 ? String(value) : "—"
-	return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`
-}
-
-function maskCpfGov(value: string | null | undefined) {
-	const digits = onlyDigits(value)
-	if (digits.length !== 11) return value && String(value).trim().length > 0 ? String(value) : "—"
-	return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`
-}
-
+/**
+ * O CPF chega MASCARADO do servidor (`***.456.789-**`) — o documento inteiro não sai de lá
+ * (`fetchMilitaryDataFn`). Não há o que revelar aqui, então não há botão de revelar.
+ */
 function CpfField({ value }: { value: string | null | undefined }) {
-	const [isVisible, setIsVisible] = useState(false)
-	const hasValue = !!value && String(value).trim().length > 0
-	const displayValue = isVisible ? formatCpf(value) : maskCpfGov(value)
-	const Icon = isVisible ? EyeOff : Eye
-
-	return (
-		<div className="space-y-0.5">
-			<dt className="text-xs text-muted-foreground">CPF</dt>
-			<dd className="flex min-h-8 items-center gap-2">
-				<span className="text-sm font-mono">{displayValue}</span>
-				{hasValue && (
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						className="size-7"
-						aria-label={isVisible ? "Ocultar CPF" : "Visualizar CPF"}
-						aria-pressed={isVisible}
-						onClick={() => setIsVisible((current) => !current)}
-					>
-						<Icon className="size-4" aria-hidden="true" />
-					</Button>
-				)}
-			</dd>
-		</div>
-	)
+	return <DataField label="CPF" value={value} mono />
 }
 
 function MilitaryPanel({ military, effectiveNrOrdem }: { military: MilitaryDataRow; effectiveNrOrdem: string }) {
@@ -95,7 +59,7 @@ function MilitaryPanel({ military, effectiveNrOrdem }: { military: MilitaryDataR
 				</div>
 				<DataField label="Nome de Guerra" value={military.nmGuerra ? toNameCase(military.nmGuerra) : military.nmGuerra} />
 				<DataField label="Nr. de Ordem" value={military.nrOrdem ?? effectiveNrOrdem} mono />
-				<CpfField value={military.nrCpf} />
+				<CpfField value={military.nrCpfMasked} />
 				<div className="grid grid-cols-2 gap-x-6 col-span-2">
 					<DataField label="Posto" value={military.sgPosto} />
 					<DataField label="OM" value={military.sgOrg} />
@@ -116,6 +80,10 @@ function ProfilePage() {
 	const effectiveNrOrdem = userData?.nrOrdem ?? ""
 	const { data: military, isLoading: isLoadingMilitary } = useMilitaryData(effectiveNrOrdem)
 	const updateNrOrdem = useUpdateNrOrdem()
+	// Nr. de Ordem que já localiza um cadastro militar é write-once (`syncUserNrOrdem`): o
+	// servidor recusa a troca, então a tela nem a oferece. O que não localiza nada (erro de
+	// digitação) segue editável.
+	const isNrOrdemLocked = !!effectiveNrOrdem && !!military
 
 	const form = useForm({
 		defaultValues: { nrOrdem: "" },
@@ -131,8 +99,14 @@ function ProfilePage() {
 			},
 		},
 		onSubmit: async ({ value }) => {
-			if (!user) return
-			await updateNrOrdem.mutateAsync({ user, nrOrdem: value.nrOrdem ?? "" })
+			if (!user || isNrOrdemLocked) return
+			try {
+				await updateNrOrdem.mutateAsync({ user, nrOrdem: value.nrOrdem ?? "" })
+			} catch (error) {
+				// Nr. já vinculado a outra conta, ou já travado nesta: a mensagem do servidor diz o que fazer.
+				toast.error(error instanceof Error ? error.message : "Não foi possível salvar o Nr. de Ordem")
+				return
+			}
 			await queryClient.invalidateQueries({ queryKey: queryKeys.user.data(user.id) })
 		},
 	})
@@ -184,16 +158,22 @@ function ProfilePage() {
 												placeholder="Ex.: 1234567"
 												inputMode="numeric"
 												pattern="[0-9]*"
+												readOnly={isNrOrdemLocked}
+												aria-readonly={isNrOrdemLocked}
 											/>
 											<FieldError errors={field.state.meta.errors?.map((e) => ({ message: String(e) }))} />
-											<FieldDescription>Vincula sua conta ao cadastro militar automaticamente.</FieldDescription>
+											<FieldDescription>
+												{isNrOrdemLocked
+													? "Vinculado ao seu cadastro militar. Para corrigi-lo, procure o administrador do sistema."
+													: "Vincula sua conta ao cadastro militar automaticamente. Depois de localizado, o vínculo não pode ser alterado por aqui."}
+											</FieldDescription>
 										</Field>
 									)}
 								</form.Field>
 							</FieldGroup>
 
 							<div className="flex items-center gap-3">
-								<Button type="submit" disabled={updateNrOrdem.isPending || !!form.state.isSubmitting}>
+								<Button type="submit" disabled={isNrOrdemLocked || updateNrOrdem.isPending || !!form.state.isSubmitting}>
 									{updateNrOrdem.isPending ? (
 										<>
 											<Loader2 className="mr-2 size-4 animate-spin" />

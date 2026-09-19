@@ -1,6 +1,6 @@
 /**
  * Drag-and-drop de imagem (react-dropzone) para o admin de uniformes.
- * - `useImageDrop`: hook headless (1 imagem, valida tipo, toast em rejeição).
+ * - `useImageDrop`: hook headless (1 imagem PNG/JPEG/WebP, valida tipo, toast em rejeição).
  * - `ImageDropzone`: área tracejada pronta — arraste OU clique para enviar/trocar.
  */
 
@@ -8,6 +8,7 @@ import { Loader2, Trash2, Upload } from "lucide-react"
 import { ErrorCode, useDropzone } from "react-dropzone"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
+import { ACCEPTED_IMAGE_MIMES, IMAGE_TOO_LARGE_MESSAGE, MAX_IMAGE_BYTES, UNSUPPORTED_IMAGE_MESSAGE } from "@/lib/uniforms/image-path"
 import { cn } from "@/lib/utils"
 
 type UseImageDropOptions = {
@@ -19,7 +20,9 @@ type UseImageDropOptions = {
 
 export function useImageDrop({ onFile, disabled, noClick }: UseImageDropOptions) {
 	return useDropzone({
-		accept: { "image/*": [] },
+		// Só os formatos que o bucket aceita (png, jpeg, webp) — ver `@/lib/uniforms/image-path`.
+		accept: Object.fromEntries(ACCEPTED_IMAGE_MIMES.map((mime) => [mime, []])),
+		maxSize: MAX_IMAGE_BYTES,
 		multiple: false,
 		disabled,
 		noClick,
@@ -29,7 +32,9 @@ export function useImageDrop({ onFile, disabled, noClick }: UseImageDropOptions)
 		},
 		onDropRejected: (rejections) => {
 			const code = rejections[0]?.errors[0]?.code
-			toast.error(code === ErrorCode.FileInvalidType ? "Selecione um arquivo de imagem" : "Arquivo rejeitado")
+			toast.error(
+				code === ErrorCode.FileInvalidType ? UNSUPPORTED_IMAGE_MESSAGE : code === ErrorCode.FileTooLarge ? IMAGE_TOO_LARGE_MESSAGE : "Arquivo rejeitado"
+			)
 		},
 	})
 }

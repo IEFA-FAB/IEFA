@@ -238,8 +238,11 @@ async function logQuery(session_id: string, user_id: string, query: string, stat
 
 const app = new Hono<{ Variables: AppVariables }>()
 	.use("/api/v1/*", browserCors)
-	.use("/api/v1/*", requestBodyLimit)
+	// Auth ANTES do teto de corpo: com o corpo em chunked (sem `content-length`) o
+	// `bodyLimit` lê o stream inteiro até o teto para contar — um anônimo fazia o α
+	// bufferizar ~26 MB por request antes de receber o 401. A auth só lê o header.
 	.use("/api/v1/*", authMiddleware)
+	.use("/api/v1/*", requestBodyLimit)
 	// Perfil por OM (`/me/access`) e o seletor de OM do envio (`/units`).
 	.route("/", accessRoutes)
 	// Submissão e extração (Etapa 1.4) — montadas depois do middleware de auth.

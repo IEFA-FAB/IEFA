@@ -19,6 +19,14 @@ const CLIENT_FORBIDDEN_ROLES = new Set(["system", "developer"])
 type ClientToolCall = { id?: unknown }
 type ClientMessage = { role: string; content?: unknown; toolCalls?: unknown; toolCallId?: unknown }
 
+/**
+ * Id vazio NÃO conclui call nenhuma: o `@tanstack/ai` testa `message.toolCallId &&`, então
+ * uma call `id: ""` com resultado `toolCallId: ""` segue pendente para ele — e executada.
+ */
+function isNonEmptyId(value: unknown): value is string {
+	return typeof value === "string" && value.length > 0
+}
+
 /** Mesma regra do `@tanstack/ai`: resultado com `pendingExecution: true` não conclui a call. */
 function isCompletedToolResult(message: ClientMessage): boolean {
 	if (typeof message.content !== "string") return true
@@ -40,7 +48,7 @@ export type SanitizeOptions = {
 export function sanitizeClientMessages<T extends ClientMessage>(messages: readonly T[], options: SanitizeOptions): T[] {
 	const completed = new Set<string>()
 	for (const message of messages) {
-		if (message.role === "tool" && typeof message.toolCallId === "string" && isCompletedToolResult(message)) {
+		if (message.role === "tool" && isNonEmptyId(message.toolCallId) && isCompletedToolResult(message)) {
 			completed.add(message.toolCallId)
 		}
 	}
@@ -49,7 +57,7 @@ export function sanitizeClientMessages<T extends ClientMessage>(messages: readon
 	for (const message of messages) {
 		if (CLIENT_FORBIDDEN_ROLES.has(message.role)) continue
 		if (!options.allowPendingToolCalls && message.role === "assistant" && Array.isArray(message.toolCalls)) {
-			const toolCalls = (message.toolCalls as ClientToolCall[]).filter((call) => typeof call?.id === "string" && completed.has(call.id))
+			const toolCalls = (message.toolCalls as ClientToolCall[]).filter((call) => isNonEmptyId(call?.id) && completed.has(call.id))
 			result.push({ ...message, toolCalls: toolCalls.length > 0 ? toolCalls : undefined })
 			continue
 		}

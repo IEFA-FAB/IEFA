@@ -54,7 +54,9 @@ describe("adminAttemptGuard", () => {
 				"*",
 				adminAttemptGuard({ limiter, restrictedPaths: RESTRICTED, clientIp: (c) => clientIpFromForwardedFor(c.req.header("x-forwarded-for")) ?? "unknown" })
 			)
-			.get("/api/user-data", (c) => (c.req.header("x-admin-secret") === "certo" ? c.json([]) : c.json({ error: "Unauthorized" }, 401)))
+			.use("/api/user-data", async (c, next) => (c.req.header("x-admin-secret") === "certo" ? next() : c.json({ error: "Unauthorized" }, 401)))
+			.get("/api/user-data", (c) => c.json([]))
+			.options("/api/user-data", (c) => c.body(null, 204))
 			.get("/api/units", (c) => c.json([]))
 	}
 
@@ -73,6 +75,19 @@ describe("adminAttemptGuard", () => {
 		expect((await as("certo", "9.9.9.9, 203.0.113.9")).status).toBe(429)
 		// Outro IP (visto pelo ALB) segue livre.
 		expect((await as("certo", "203.0.113.10")).status).toBe(200)
+	})
+
+	test("OPTIONS não é atalho: conta a tentativa errada e é barrado como os demais", async () => {
+		const guarded = app(new FailedAttemptLimiter(2, 60_000))
+		const options = (secret: string) =>
+			guarded.request("/api/user-data", { method: "OPTIONS", headers: { "x-admin-secret": secret, "x-forwarded-for": "203.0.113.9" } })
+
+		expect((await options("errado")).status).toBe(401)
+		expect((await options("errado")).status).toBe(401)
+		// O oráculo fechou: nem o acerto por OPTIONS nem o GET passam mais.
+		expect((await options("certo")).status).toBe(429)
+		const get = await guarded.request("/api/user-data", { headers: { "x-admin-secret": "certo", "x-forwarded-for": "203.0.113.9" } })
+		expect(get.status).toBe(429)
 	})
 
 	test("rota pública não conta nem é barrada", async () => {

@@ -343,6 +343,10 @@ export const registerAuditorMessageFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<{ id: string; number: number; corpo: string }> => {
 		const ctx = await requireEditor()
 		const client = getSucontServerClient()
+		// Mesma trava dos vizinhos: sem ela a mensagem carimbava como proveniência a rodada
+		// de outra pessoa — ou de outra ferramenta, já que `analysis_run` é compartilhada.
+		// Na tela o id é o `lastRunId` que o próprio usuário acabou de abrir.
+		if (data.analysisRunId) await requireOwnAuditorRun(client, data.analysisRunId, ctx.userId)
 
 		const { data: row, error } = await client
 			.from("generated_message")

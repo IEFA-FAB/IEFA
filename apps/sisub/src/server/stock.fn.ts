@@ -11,6 +11,7 @@
  * @migration 20260729160000_inventory_stock_core
  */
 
+import { hasPermission } from "@iefa/pbac"
 import { brasiliaToday } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -18,6 +19,7 @@ import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { transferDestinationProblem } from "@/lib/transfer-destination"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -233,7 +235,28 @@ export const createTransferFn = createServerFn({ method: "POST" })
 		// escopo pela cozinha de ORIGEM do lote (quem cede precisa da permissão)
 		const { data: lotRow } = await inventory().from("stock_lot").select("kitchen_id").eq("id", data.lotId).maybeSingle()
 		if (!lotRow) throw new Error("Lote não encontrado")
-		const { userId } = await requireStorageForKitchen(2, Number(lotRow.kitchen_id))
+		const ctx = await requireStorageForKitchen(2, Number(lotRow.kitchen_id))
+		const { userId } = ctx
+
+		// O destino vinha do corpo sem conferência nenhuma — ver `transferDestinationProblem`.
+		const { data: kitchenRows, error: kitchenError } = await kitchen()
+			.from("kitchen")
+			.select("id, unit_id, purchase_unit_id")
+			.in("id", [Number(lotRow.kitchen_id), data.toKitchenId])
+		if (kitchenError) throw new Error(`Erro ao conferir as cozinhas da transferência: ${kitchenError.message}`)
+		type KitchenUnitRow = { id: number; unit_id: number | null; purchase_unit_id: number | null }
+		const toUnits = (row: KitchenUnitRow | undefined) =>
+			row
+				? { unitId: row.unit_id == null ? null : Number(row.unit_id), purchaseUnitId: row.purchase_unit_id == null ? null : Number(row.purchase_unit_id) }
+				: null
+		const byId = new Map<number, KitchenUnitRow>(((kitchenRows ?? []) as KitchenUnitRow[]).map((row) => [Number(row.id), row]))
+		const problem = transferDestinationProblem({
+			origin: toUnits(byId.get(Number(lotRow.kitchen_id))),
+			destination: toUnits(byId.get(data.toKitchenId)),
+			callerOperatesDestination: hasPermission(ctx.permissions, "storage", 1, { type: "kitchen", id: data.toKitchenId }),
+		})
+		if (problem) throw new Error(problem)
+
 		const { data: result, error } = await inventory().rpc("transfer_stock", {
 			p_lot_id: data.lotId,
 			p_to_kitchen: data.toKitchenId,

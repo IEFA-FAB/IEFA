@@ -15,6 +15,28 @@ export const AccessExpirySchema = z.iso.datetime({ offset: true }).nullable()
 
 export const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "admin", "analytics", "local-analytics", "storage"] as const
 
+/**
+ * Módulos que só existem SEM escopo: `admin` (gestão de acesso) e `global` (catálogo da SDAB)
+ * valem para a FAB inteira, e toda checagem deles é sem escopo — `requirePermission(ctx,
+ * "admin", 2)`.
+ *
+ * Só que consulta sem escopo ACEITA grant escopado (`hasPermission`: "consulta sem escopo aceita
+ * qualquer escopo concedido" — é o que abre a rota do módulo a quem tem uma cozinha). Então um
+ * `admin` concedido "só para a unidade 5" passaria em toda checagem de admin como se fosse
+ * pleno: o escopo não recorta nada, só engana quem concede. Recusar na concessão é o único
+ * lugar em que isso fecha sem mexer na semântica de todas as outras checagens.
+ */
+export const UNSCOPED_ONLY_MODULES = ["admin", "global"] as const
+
+type ScopeFields = { unit_id?: number | null; kitchen_id?: number | null; mess_hall_id?: number | null }
+
+/** Mensagem de recusa quando `module` não aceita escopo e `scope` traz um — senão `null`. */
+export function unscopedModuleViolation(module: string, scope: ScopeFields): string | null {
+	if (!(UNSCOPED_ONLY_MODULES as readonly string[]).includes(module)) return null
+	const scoped = [scope.unit_id, scope.kitchen_id, scope.mess_hall_id].some((id) => id != null)
+	return scoped ? `O módulo "${module}" vale para toda a FAB e não aceita escopo de unidade, cozinha ou refeitório` : null
+}
+
 export const FetchUserPermissionsSchema = z.object({ userId: z.string().min(1) })
 export type FetchUserPermissions = z.infer<typeof FetchUserPermissionsSchema>
 
@@ -24,7 +46,8 @@ export type SearchUsersByEmail = z.infer<typeof SearchUsersByEmailSchema>
 export const FetchUserPermissionsAdminSchema = z.object({ userId: z.string().min(1) })
 export type FetchUserPermissionsAdmin = z.infer<typeof FetchUserPermissionsAdminSchema>
 
-export const CreateUserPermissionSchema = z.object({
+/** Campos do grant, antes da regra entre eles — separados para o `.superRefine` não esconder a forma. */
+const CreateUserPermissionFieldsSchema = z.object({
 	userId: z.string().min(1),
 	module: z.enum(APP_MODULES),
 	level: z.number().int().min(0).max(2),
@@ -33,6 +56,11 @@ export const CreateUserPermissionSchema = z.object({
 	unit_id: z.number().nullable().optional(),
 	/** Ausente ou `null` = grant permanente. */
 	expires_at: AccessExpirySchema.optional(),
+})
+
+export const CreateUserPermissionSchema = CreateUserPermissionFieldsSchema.superRefine((value, ctx) => {
+	const violation = unscopedModuleViolation(value.module, value)
+	if (violation) ctx.addIssue({ code: "custom", message: violation, path: ["module"] })
 })
 export type CreateUserPermission = z.infer<typeof CreateUserPermissionSchema>
 
