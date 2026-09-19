@@ -122,9 +122,13 @@ consulta por agente em vez de ler a página.
   (`packages/legal-kit/src/cookie-inventory.test.ts`) varre `apps/*/src` e
   `packages/*/src`, inclusive chave montada em template, e exige que a linha da
   chave **nomeie o app** que a grava — chave já inventariada num app novo não
-  passa mais em silêncio. O que ele não vê é armazenamento feito por dependência
-  (o `theme` do Fumadocs na Documentação, o identificador do Faro): esse entra
-  à mão.
+  passa mais em silêncio. Chave declarada em package (o `auth_rate_limit` do
+  `@iefa/auth-kit`) é atribuída a todo app que importa, como valor, o export que
+  chega até ela (`cookie-inventory-scan.ts` segue o grafo de import do package até
+  o `exports` do `package.json`): quem adota o `useLoginRateLimiter` precisa estar
+  na linha, quem só importa `safeRedirect` ou um tipo do mesmo package não. O que
+  ele não vê é armazenamento feito por dependência de terceiro (o `theme` do
+  Fumadocs na Documentação, o identificador do Faro): esse entra à mão.
 - **Nova versão de documento**: migration nova com `effective_date` posterior. O
   aviso de ciência reaparece sozinho para todo mundo.
 
