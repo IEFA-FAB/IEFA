@@ -183,6 +183,15 @@ describe("assertGrantable", () => {
 		expect(refusal(() => assertGrantable(scopedAdmin, { userId: OTHER, unitId: IAE, revokesAdministration: true }))).toBeNull()
 	})
 
+	test("bloqueio (deny): só o admin global cria ou retira — o escopado é recusado mesmo dentro da cobertura", () => {
+		expect(refusal(() => assertGrantable({ actorId: ADMIN, coverage: "all" }, { userId: OTHER, unitId: GAP_SJ, touchesDeny: true }))).toBeNull()
+		expect(refusal(() => assertGrantable({ actorId: ADMIN, coverage: "all" }, { userId: OTHER, unitId: null, touchesDeny: true }))).toBeNull()
+		expect(refusal(() => assertGrantable(scopedAdmin, { userId: OTHER, unitId: GAP_SJ, touchesDeny: true }))).toBe("DENY_REQUIRES_GLOBAL_ADMIN")
+		expect(refusal(() => assertGrantable(scopedAdmin, { userId: OTHER, unitId: IEFA, touchesDeny: true }))).toBe("DENY_REQUIRES_GLOBAL_ADMIN")
+		// O allow na mesma OM continua do escopado.
+		expect(refusal(() => assertGrantable(scopedAdmin, { userId: OTHER, unitId: GAP_SJ, touchesDeny: false }))).toBeNull()
+	})
+
 	test("sem cobertura nenhuma (não é admin): recusado", () => {
 		expect(refusal(() => assertGrantable({ actorId: ADMIN, coverage: [] }, { userId: OTHER, unitId: GAP_SJ }))).toBe("OUTSIDE_COVERAGE")
 	})

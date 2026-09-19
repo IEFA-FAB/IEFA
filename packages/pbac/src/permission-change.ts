@@ -1,8 +1,8 @@
 /**
  * Conceder e revogar grant inline COM auditoria — atômico, numa transação do banco.
  *
- * Chama `access_control.change_module_permission` (migration 20260918130335), que grava o
- * grant (ou apaga a chave) e a linha de `access_control.sensitive_operation_log` na MESMA
+ * Chama `access_control.change_module_permission` (migrations 20260918130335 e
+ * 20260919005526), que grava o grant (ou apaga a partição da chave) e a linha de `access_control.sensitive_operation_log` na MESMA
  * transação: ou os dois entram, ou nenhum. Gravar o log pelo app depois da escrita deixava
  * duas janelas — o log falhar com o grant já confirmado, e o beneficiário usar o acesso
  * antes de uma compensação que também podia falhar. Ver o cabeçalho da migration.
@@ -25,12 +25,17 @@
  *   - `grant` com `level > 0` só toca a linha de ALLOW da chave; com `level <= 0`, só a de
  *     DENY. Os dois coexistem por desenho (dois índices únicos parciais);
  *   - `grant` substitui o prazo (`expiresAt` nulo = sem prazo): conceder é acesso vivo;
- *   - `revoke` apaga a chave inteira (allow e deny). Chave sem linha é
+ *   - `revoke` apaga só a PARTIÇÃO pedida (`partition`): `allow`, `deny` ou `all` (as duas,
+ *     o default). Revogar o allow nunca leva junto o deny da mesma chave — era assim que um
+ *     bloqueio sumia sem ninguém ter decidido retirá-lo. Partição sem linha é
  *     `PermissionChangeError("NOT_FOUND")`, e NADA é registrado — revogar o que não existia
- *     não é algo que aconteceu.
+ *     não é algo que aconteceu;
+ *   - o `grant` devolve `denyPresent`: há um deny VIVO na mesma chave depois da concessão.
+ *     Deny vence (`hasPermission`), então o allow recém-gravado não vale enquanto ele
+ *     existir — a tela tem de dizer isso, e não só "concedido".
  *
  * Quem pode conceder o quê (`assertGrantable`, níveis válidos por módulo) continua no app,
- * ANTES desta chamada.
+ * ANTES desta chamada — inclusive quem mexe em deny (`touchesDenyPartition`).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js"
@@ -40,6 +45,17 @@ import type { AppModule } from "./types.ts"
 type AnySupabaseClient = SupabaseClient<any, any>
 
 export type PermissionChangeAction = "grant" | "revoke"
+
+/**
+ * A partição da chave: `allow` (`level > 0`), `deny` (`level <= 0`) ou as duas (`all`). As
+ * duas linhas coexistem na mesma chave por desenho (dois índices únicos parciais).
+ */
+export type PermissionPartition = "allow" | "deny" | "all"
+
+/** A partição de uma linha, pelo sinal do nível — a mesma fronteira dos índices parciais. */
+export function partitionOfLevel(level: number): Exclude<PermissionPartition, "all"> {
+	return level > 0 ? "allow" : "deny"
+}
 
 export interface ChangeModulePermissionInput {
 	/** Usuário da SESSÃO, do guard de administração. Nunca do input. */
@@ -56,6 +72,11 @@ export interface ChangeModulePermissionInput {
 	messHallId?: number | null
 	/** Só no `grant`. ISO 8601; `null`/ausente = sem prazo. */
 	expiresAt?: string | null
+	/**
+	 * Só no `revoke`: qual partição da chave sai. Default `all` (allow e deny). No `grant` a
+	 * partição sai do sinal do nível, e este campo é ignorado.
+	 */
+	partition?: PermissionPartition
 	/** Grau de garantia exigido na execução, como no resto do log. Default `session`. */
 	assurance?: "session" | "fresh"
 }
@@ -64,12 +85,19 @@ export interface PermissionChangeResult {
 	/** A linha gravada em `sensitive_operation_log`. */
 	logId: string
 	action: PermissionChangeAction
+	/** A partição tocada: a do nível (`grant`) ou a pedida (`revoke`). */
+	partition: PermissionPartition
 	/** A linha concedida (`grant`); `null` no `revoke`. */
 	permissionId: string | null
 	/** Nível anterior na mesma partição (`grant`) ou o removido (`revoke`); `null` se não havia. */
 	previousLevel: number | null
 	/** Linhas removidas no `revoke` (allow e/ou deny); `0` no `grant`. */
 	removed: number
+	/**
+	 * `grant`: há deny VIVO na mesma chave depois da concessão — o allow concedido não vale
+	 * enquanto ele existir. `null` no `revoke` (não é calculado).
+	 */
+	denyPresent: boolean | null
 }
 
 export type PermissionChangeErrorCode = "INVALID" | "NOT_FOUND" | "REFERENCE_NOT_FOUND" | "ACTOR_NOT_FOUND" | "CONFLICT" | "FAILED"
@@ -98,9 +126,24 @@ export class PermissionChangeError extends Error {
 	}
 }
 
-/** Argumentos nomeados da RPC. Puro — é o mapeamento que o teste fixa. */
+/**
+ * A alteração cria, altera ou remove uma linha de DENY? Um `grant` com `level <= 0`, ou um
+ * `revoke` que não se restringe ao allow. Puro — é o que o app passa a `assertGrantable`
+ * (`touchesDeny`): mexer em bloqueio é só do administrador global.
+ */
+export function touchesDenyPartition(change: Pick<ChangeModulePermissionInput, "action" | "level" | "partition">): boolean {
+	if (change.action === "grant") return change.level !== null && change.level !== undefined && change.level <= 0
+	return (change.partition ?? "all") !== "allow"
+}
+
+/**
+ * Argumentos nomeados da RPC. Puro — é o mapeamento que o teste fixa.
+ *
+ * `p_partition` só vai no `revoke`: no `grant` a função a tira do nível, e omitir o argumento
+ * mantém a concessão compatível com a assinatura anterior à 20260919005526.
+ */
 export function toPermissionChangeArgs(input: ChangeModulePermissionInput): Record<string, string | number | null> {
-	return {
+	const args: Record<string, string | number | null> = {
 		p_actor: input.actorId,
 		p_app: input.app,
 		p_action: input.action,
@@ -113,6 +156,8 @@ export function toPermissionChangeArgs(input: ChangeModulePermissionInput): Reco
 		p_expires_at: input.action === "grant" ? (input.expiresAt ?? null) : null,
 		p_assurance: input.assurance ?? "session",
 	}
+	if (input.action === "revoke") args.p_partition = input.partition ?? "all"
+	return args
 }
 
 /** Traduz o erro do PostgREST pela mensagem estável que a função levanta. Puro. */
@@ -126,7 +171,15 @@ export function toPermissionChangeError(error: { message?: string; code?: string
 	return new PermissionChangeError("FAILED", error)
 }
 
-type RpcResult = { log_id: string; action: PermissionChangeAction; permission_id: string | null; previous_level: number | null; removed: number }
+type RpcResult = {
+	log_id: string
+	action: PermissionChangeAction
+	partition?: PermissionPartition
+	permission_id: string | null
+	previous_level: number | null
+	removed: number
+	deny_present?: boolean | null
+}
 
 /**
  * Concede ou revoga um grant inline e registra a operação, atomicamente. Recebe qualquer
@@ -142,8 +195,11 @@ export async function changeModulePermission(client: AnySupabaseClient, input: C
 	return {
 		logId: row.log_id,
 		action: row.action,
+		// Sem `partition` no corpo só a versão anterior à 20260919005526, que revogava a chave inteira.
+		partition: row.partition ?? (input.action === "revoke" ? "all" : partitionOfLevel(input.level ?? 0)),
 		permissionId: row.permission_id ?? null,
 		previousLevel: row.previous_level ?? null,
 		removed: row.removed ?? 0,
+		denyPresent: row.deny_present ?? null,
 	}
 }

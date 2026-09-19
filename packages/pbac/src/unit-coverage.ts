@@ -159,6 +159,8 @@ export type GrantRefusal =
 	| "GLOBAL_REQUIRES_GLOBAL_ADMIN"
 	/** A OM do grant está fora do que o administrador cobre. */
 	| "OUTSIDE_COVERAGE"
+	/** Criar ou retirar um bloqueio (deny) — só o administrador global. */
+	| "DENY_REQUIRES_GLOBAL_ADMIN"
 
 const REFUSAL_MESSAGE: Record<GrantRefusal, string> = {
 	SELF: "Você não pode alterar o próprio acesso. Peça a outro administrador.",
@@ -166,6 +168,7 @@ const REFUSAL_MESSAGE: Record<GrantRefusal, string> = {
 	SELF_LOCKOUT: "Você não pode revogar a própria administração de acessos. Peça a outro administrador.",
 	GLOBAL_REQUIRES_GLOBAL_ADMIN: "Só um administrador global concede ou revoga acesso sem OM (global).",
 	OUTSIDE_COVERAGE: "Esta OM está fora da sua administração — você só concede acesso na sua OM e nas que ela apoia.",
+	DENY_REQUIRES_GLOBAL_ADMIN: "Só um administrador global cria ou retira um bloqueio de acesso. Peça a um administrador global.",
 }
 
 /**
@@ -212,18 +215,25 @@ export function assertNotSelf(actorId: string, targetUserId: string): void {
  * Vale para qualquer papel do app, inclusive o de administrador: o administrador do GAP-SJ
  * pode fazer um administrador do IAE, e o do IAE não pode fazer um do GAP-SJ.
  *
+ * Bloqueio (deny, `level <= 0`) é só do administrador global — criar E retirar
+ * (`touchesDeny`). O deny vence qualquer allow (`hasPermission`), inclusive o de OM que o
+ * administrador escopado concede: se ele pudesse retirar o deny, desfaria a decisão de quem
+ * está acima dele; se pudesse criar, bloquearia um acesso que outra política concedeu.
+ *
  * `coverage` é a cobertura do módulo de ADMINISTRAÇÃO do ator, resolvida pelo app com a
  * mesma expansão de apoio que decide o resto do acesso. `revokesAdministration` é o app
- * que sabe: `true` quando a operação é revogar o grant do módulo de administração.
+ * que sabe: `true` quando a operação é revogar o ALLOW do módulo de administração (retirar
+ * um bloqueio não tranca ninguém para fora). `touchesDeny` sai de `touchesDenyPartition`.
  */
 export function assertGrantable(
 	admin: { actorId: string; coverage: UnitCoverage },
-	target: { userId: string; unitId: number | null; revokesAdministration?: boolean }
+	target: { userId: string; unitId: number | null; revokesAdministration?: boolean; touchesDeny?: boolean }
 ): void {
 	const isSelf = admin.actorId === target.userId
 	if (isSelf && target.revokesAdministration) throw new GrantNotAllowedError("SELF_LOCKOUT")
 	if (isSelf && admin.coverage !== "all") throw new GrantNotAllowedError("SELF_REQUIRES_GLOBAL_ADMIN")
 	if (admin.coverage === "all") return
+	if (target.touchesDeny) throw new GrantNotAllowedError("DENY_REQUIRES_GLOBAL_ADMIN")
 	if (target.unitId === null) throw new GrantNotAllowedError("GLOBAL_REQUIRES_GLOBAL_ADMIN")
 	if (!coversUnit(admin.coverage, target.unitId)) throw new GrantNotAllowedError("OUTSIDE_COVERAGE")
 }

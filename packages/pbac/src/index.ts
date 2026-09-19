@@ -35,8 +35,11 @@ export {
 	PermissionChangeError,
 	type PermissionChangeErrorCode,
 	type PermissionChangeResult,
+	type PermissionPartition,
+	partitionOfLevel,
 	toPermissionChangeArgs,
 	toPermissionChangeError,
+	touchesDenyPartition,
 } from "./permission-change.ts"
 export { type AssuranceReachability, isProtectedAccount } from "./protected-account.ts"
 export { NOT_EXPIRED, resolveUserPermissions } from "./resolve-permissions.ts"

@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test"
-import { changeModulePermission, PermissionChangeError, toPermissionChangeArgs, toPermissionChangeError } from "./permission-change.ts"
+import {
+	changeModulePermission,
+	PermissionChangeError,
+	partitionOfLevel,
+	toPermissionChangeArgs,
+	toPermissionChangeError,
+	touchesDenyPartition,
+} from "./permission-change.ts"
 
 const ACTOR = "00000000-0000-0000-0000-00000000000a"
 const TARGET = "00000000-0000-0000-0000-00000000000b"
@@ -21,6 +28,29 @@ describe("toPermissionChangeArgs", () => {
 			p_expires_at: null,
 			p_assurance: "session",
 		})
+	})
+
+	// No grant a partição sai do nível; omitir o argumento mantém a concessão compatível com a
+	// assinatura anterior à 20260919005526.
+	test("grant não envia p_partition, mesmo se o chamador a passar", () => {
+		const args = toPermissionChangeArgs({
+			actorId: ACTOR,
+			app: "contrate",
+			action: "grant",
+			targetUserId: TARGET,
+			module: "alpha-aci",
+			level: 1,
+			unitId: 7,
+			partition: "deny",
+		})
+		expect(args).not.toHaveProperty("p_partition")
+	})
+
+	test("revoke leva a partição pedida; sem ela, all (a chave inteira)", () => {
+		const base = { actorId: ACTOR, app: "contrate", action: "revoke", targetUserId: TARGET, module: "alpha-aci", unitId: 7 } as const
+		expect(toPermissionChangeArgs({ ...base, partition: "allow" }).p_partition).toBe("allow")
+		expect(toPermissionChangeArgs({ ...base, partition: "deny" }).p_partition).toBe("deny")
+		expect(toPermissionChangeArgs(base).p_partition).toBe("all")
 	})
 
 	test("grant global com prazo e assurance fresh", () => {
@@ -59,6 +89,31 @@ describe("toPermissionChangeArgs", () => {
 	})
 })
 
+describe("partitionOfLevel", () => {
+	test("a fronteira dos índices parciais: > 0 allow, <= 0 deny", () => {
+		expect(partitionOfLevel(1)).toBe("allow")
+		expect(partitionOfLevel(3)).toBe("allow")
+		expect(partitionOfLevel(0)).toBe("deny")
+		expect(partitionOfLevel(-1)).toBe("deny")
+	})
+})
+
+describe("touchesDenyPartition", () => {
+	test("grant: só nível <= 0 mexe em deny", () => {
+		expect(touchesDenyPartition({ action: "grant", level: 1 })).toBe(false)
+		expect(touchesDenyPartition({ action: "grant", level: 0 })).toBe(true)
+		expect(touchesDenyPartition({ action: "grant", level: -1 })).toBe(true)
+	})
+
+	// `all` (o default) apaga também o deny da chave: é mexer em bloqueio.
+	test("revoke: só a partição allow deixa o deny em paz", () => {
+		expect(touchesDenyPartition({ action: "revoke", partition: "allow" })).toBe(false)
+		expect(touchesDenyPartition({ action: "revoke", partition: "deny" })).toBe(true)
+		expect(touchesDenyPartition({ action: "revoke", partition: "all" })).toBe(true)
+		expect(touchesDenyPartition({ action: "revoke" })).toBe(true)
+	})
+})
+
 describe("toPermissionChangeError", () => {
 	test.each([
 		["PERMISSION_CHANGE_INVALID", "INVALID"],
@@ -94,7 +149,13 @@ function rpcStub(result: { data: unknown; error: { message: string; code?: strin
 describe("changeModulePermission", () => {
 	test("chama a RPC do schema access_control e devolve o resultado normalizado", async () => {
 		const captured: { schema?: string; fn?: string; args?: unknown } = {}
-		const stub = rpcStub({ data: { log_id: "log-1", action: "grant", permission_id: "perm-1", previous_level: null, removed: 0 }, error: null }, captured)
+		const stub = rpcStub(
+			{
+				data: { log_id: "log-1", action: "grant", partition: "allow", permission_id: "perm-1", previous_level: null, removed: 0, deny_present: true },
+				error: null,
+			},
+			captured
+		)
 
 		const result = await changeModulePermission(stub as never, {
 			actorId: ACTOR,
@@ -109,7 +170,26 @@ describe("changeModulePermission", () => {
 		expect(captured.schema).toBe("access_control")
 		expect(captured.fn).toBe("change_module_permission")
 		expect((captured.args as Record<string, unknown>).p_actor).toBe(ACTOR)
-		expect(result).toEqual({ logId: "log-1", action: "grant", permissionId: "perm-1", previousLevel: null, removed: 0 })
+		expect(result).toEqual({ logId: "log-1", action: "grant", partition: "allow", permissionId: "perm-1", previousLevel: null, removed: 0, denyPresent: true })
+	})
+
+	test("revoke por partição: devolve a partição e denyPresent nulo", async () => {
+		const captured: { schema?: string; fn?: string; args?: unknown } = {}
+		const stub = rpcStub(
+			{ data: { log_id: "log-2", action: "revoke", partition: "deny", permission_id: null, previous_level: 0, removed: 1, deny_present: null }, error: null },
+			captured
+		)
+		const result = await changeModulePermission(stub as never, {
+			actorId: ACTOR,
+			app: "contrate",
+			action: "revoke",
+			targetUserId: TARGET,
+			module: "alpha-aci",
+			unitId: 7,
+			partition: "deny",
+		})
+		expect((captured.args as Record<string, unknown>).p_partition).toBe("deny")
+		expect(result).toMatchObject({ partition: "deny", removed: 1, previousLevel: 0, denyPresent: null })
 	})
 
 	test("erro da RPC vira PermissionChangeError com a causa preservada", async () => {
