@@ -83,7 +83,12 @@ function builder(table: string) {
 	return api
 }
 
-mock.module("../db/supabase.ts", () => ({ supabase: { from: (table: string) => builder(table) } }))
+// O `mock.module` do bun vale para o PROCESSO, não para o arquivo: todo teste que rodar
+// depois deste e importar `db/supabase.ts` recebe este objeto. Por isso ele declara os três
+// exports do módulo real — sem `core` e `accessControl`, a importação quebrava em outro
+// arquivo (`Export named 'core' not found`), e só na ordem de execução do CI.
+const fakeSupabase = { from: (table: string) => builder(table) }
+mock.module("../db/supabase.ts", () => ({ supabase: fakeSupabase, core: fakeSupabase, accessControl: fakeSupabase }))
 mock.module("../lib/embeddings.ts", () => ({ embeddingModelId: () => "fake:model" }))
 
 const { ingestSource } = await import("./pipeline.ts")
