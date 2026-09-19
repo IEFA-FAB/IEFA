@@ -1,12 +1,13 @@
 import type { UserEmailSearchRow } from "@iefa/pbac"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { LockSlash, Prohibition, Search, Trash, UserPlus, WarningTriangle } from "iconoir-react"
+import { Lock, LockSlash, Prohibition, Search, Trash, UserPlus, WarningTriangle } from "iconoir-react"
 import { useState } from "react"
 import { SectionHeader } from "@/components/alpha/SectionNav"
 import { GLOBAL_UNIT, type UnitChoice, UnitSelect } from "@/components/alpha/UnitSelect"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -17,11 +18,14 @@ import {
 	type AlphaAdminModule,
 	type AlphaGrantRole,
 	canChangeOwnAccess,
+	copilotBlockState,
+	distinctPeople,
 	type GrantAlphaRoleInput,
 	grantRowKey,
 	initialGrantUnit,
 	isExpiredGrant,
 	roleOfModule,
+	type SetCopilotBlockInput,
 	splitGrantsByEffect,
 } from "@/lib/alpha/admin-access"
 import type { ScopeContext } from "@/lib/scope"
@@ -32,6 +36,7 @@ import {
 	listAlphaGrantsFn,
 	revokeAlphaPermissionFn,
 	searchUsersByEmailFn,
+	setAlphaCopilotBlockFn,
 } from "@/server/access.fn"
 
 const grantsQueryOptions = (unitId: number | null) =>
@@ -112,6 +117,12 @@ function AcessosPage() {
 					revokingKey={revoke.isPending && revoke.variables ? grantRowKey(revoke.variables) : null}
 				/>
 			</section>
+
+			{/* Desligar alguém do α inteiro é decisão do administrador global — o servidor recusa
+			    o escopado de qualquer forma (`buildAlphaBlockChange`). */}
+			{isGlobalAdmin && grants.data && grants.data.length > 0 && (
+				<CopilotBlockSection grants={grants.data} currentUserId={currentUserId} onChanged={invalidate} />
+			)}
 
 			{/* `key`: trocar de OM remonta o formulário. Sem ela o estado guardava a OM anterior
 			    e a concessão podia sair para a OM que já não está na tela. */}
@@ -299,6 +310,133 @@ function GrantsList({
 				</section>
 			)}
 		</div>
+	)
+}
+
+/**
+ * "Bloquear no copiloto": uma pessoa por linha, com o estado do bloqueio SEM OM nos quatro
+ * papéis e o botão que o cria (ou retira) de uma vez. A confirmação é obrigatória — o clique
+ * derruba todos os papéis da pessoa em todas as OMs.
+ */
+function CopilotBlockSection({ grants, currentUserId, onChanged }: { grants: AlphaGrant[]; currentUserId: string | null; onChanged: () => void }) {
+	const [pending, setPending] = useState<{ userId: string; email: string; blocked: boolean } | null>(null)
+	const people = distinctPeople(grants)
+
+	const change = useMutation({
+		mutationFn: (data: SetCopilotBlockInput) => setAlphaCopilotBlockFn({ data }),
+		onSuccess: (result) => {
+			if (result.changed === 0) {
+				toast.info(
+					result.blocked ? "A pessoa já estava bloqueada no copiloto" : "Não havia bloqueio no copiloto a retirar",
+					result.blocked ? undefined : { description: "Um bloqueio que vem de política se retira desanexando a política." }
+				)
+			} else {
+				toast.success(result.blocked ? "Bloqueado no copiloto" : "Desbloqueado no copiloto")
+			}
+			setPending(null)
+			onChanged()
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao alterar o bloqueio"),
+	})
+
+	return (
+		<section aria-labelledby="bloqueio-copiloto" className="flex flex-col gap-4">
+			<div className="flex flex-col gap-1">
+				<h2 id="bloqueio-copiloto" className="font-semibold text-xl tracking-tight">
+					Bloqueio no copiloto
+				</h2>
+				<p className="text-muted-foreground text-sm">
+					Para desligar alguém do Projeto α de uma vez — saída da OM, fim da função. O bloqueio vale em todas as OMs e nos quatro papéis, e fica registrado com
+					quem o fez. Os acessos concedidos não são apagados: voltam a valer no desbloqueio.
+				</p>
+			</div>
+			<ul className="flex flex-col divide-y divide-border border border-border">
+				{people.map((person) => {
+					const state = copilotBlockState(grants, person.userId)
+					const isSelf = person.userId === currentUserId
+					const busy = change.isPending && change.variables?.userId === person.userId
+					return (
+						<li key={person.userId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+							<div className="flex min-w-0 flex-col">
+								<span className="truncate text-sm">{person.email || person.userId}</span>
+								{isSelf && <span className="text-muted-foreground text-xs">Você</span>}
+							</div>
+							<div className="flex shrink-0 items-center gap-2">
+								{state === "blocked" && (
+									<Badge variant="destructive">
+										<Prohibition aria-hidden="true" />
+										Bloqueado no copiloto
+									</Badge>
+								)}
+								{state === "partial" && (
+									<Badge variant="outline" title="Há bloqueio sem OM em parte dos papéis — bloquear completa os quatro; desbloquear retira os que houver">
+										Bloqueio parcial
+									</Badge>
+								)}
+								{state === "none" ? (
+									<Button
+										type="button"
+										variant="destructive"
+										size="sm"
+										disabled={isSelf || busy}
+										title={isSelf ? "Ninguém bloqueia a si mesmo — peça a outro administrador global" : "Bloquear nos quatro papéis, em todas as OMs"}
+										onClick={() => setPending({ ...person, blocked: true })}
+									>
+										<Lock className="size-4" aria-hidden="true" />
+										Bloquear no copiloto
+									</Button>
+								) : (
+									<>
+										{state === "partial" && (
+											<Button type="button" variant="destructive" size="sm" disabled={isSelf || busy} onClick={() => setPending({ ...person, blocked: true })}>
+												<Lock className="size-4" aria-hidden="true" />
+												Completar bloqueio
+											</Button>
+										)}
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											disabled={isSelf || busy}
+											title={isSelf ? "Ninguém altera o próprio bloqueio — peça a outro administrador global" : "Retirar o bloqueio sem OM dos quatro papéis"}
+											onClick={() => setPending({ ...person, blocked: false })}
+										>
+											<LockSlash className="size-4" aria-hidden="true" />
+											Desbloquear
+										</Button>
+									</>
+								)}
+							</div>
+						</li>
+					)
+				})}
+			</ul>
+
+			<Dialog open={pending !== null} onOpenChange={(open) => !open && !change.isPending && setPending(null)}>
+				<DialogContent className="sm:max-w-lg">
+					<DialogHeader>
+						<DialogTitle>{pending?.blocked ? "Bloquear no copiloto?" : "Desbloquear no copiloto?"}</DialogTitle>
+						<DialogDescription>
+							{pending?.blocked
+								? `${pending.email || "Esta pessoa"} perde os quatro papéis do Projeto α — Requisitante, Licitações, ACI e Administração de acessos — em todas as OMs, e não envia mais documento. Os acessos concedidos ficam guardados e voltam no desbloqueio. A conversa com o copiloto e a leitura do que ela mesma enviou seguem abertas, como para qualquer conta.`
+								: `Os papéis concedidos a ${pending?.email || "esta pessoa"} voltam a valer. Bloqueios de uma OM específica, se houver, continuam.`}
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setPending(null)} disabled={change.isPending}>
+							Cancelar
+						</Button>
+						<Button
+							variant={pending?.blocked ? "destructive" : "default"}
+							disabled={pending === null || change.isPending}
+							onClick={() => pending && change.mutate({ userId: pending.userId, blocked: pending.blocked })}
+						>
+							{change.isPending ? "Gravando…" : pending?.blocked ? "Bloquear" : "Desbloquear"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</section>
 	)
 }
 

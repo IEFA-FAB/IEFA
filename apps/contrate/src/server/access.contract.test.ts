@@ -11,7 +11,7 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { GrantAlphaRoleSchema, RevokeAlphaRoleSchema } from "@/lib/alpha/admin-access"
+import { GrantAlphaRoleSchema, RevokeAlphaRoleSchema, SetCopilotBlockSchema } from "@/lib/alpha/admin-access"
 
 const SOURCE = readFileSync(join(import.meta.dir, "access.fn.ts"), "utf8")
 const ACTOR_KEY = /actor|p_actor|grantedBy|granted_by|createdBy|performedBy/i
@@ -37,25 +37,50 @@ describe("entradas de grant/revoke sem ator", () => {
 
 describe("handlers de mutação", () => {
 	const handlers = postHandlers()
+	const nameOf = (chunk: string) => chunk.match(/^const (\w+)/)?.[1]
+	const grantHandlers = handlers.filter((chunk) => nameOf(chunk) !== "setAlphaCopilotBlockFn")
 
-	test("são exatamente os dois: conceder e revogar", () => {
-		expect(handlers.map((chunk) => chunk.match(/^const (\w+)/)?.[1])).toEqual(["grantAlphaPermissionFn", "revokeAlphaPermissionFn"])
+	test("são exatamente os três: conceder, revogar e bloquear no copiloto", () => {
+		expect(handlers.map(nameOf)).toEqual(["grantAlphaPermissionFn", "revokeAlphaPermissionFn", "setAlphaCopilotBlockFn"])
 	})
 
-	test.each(handlers.map((chunk) => [chunk.match(/^const (\w+)/)?.[1], chunk]))(
-		"%s: guard primeiro, ator do guard, escrita pelo helper auditado",
-		(_name, chunk) => {
-			const body = chunk as string
-			// O contexto vem do guard de administração...
-			expect(body).toMatch(/const \{ ctx, coverage \} = await requireAlphaAdmin\(\)/)
-			// ...e o ator é o `userId` dele — nunca `data.*`.
-			expect(body).toMatch(/buildAlphaPermissionChange\(\{ actorId: ctx\.userId, coverage \}, data\)/)
-			expect(body).not.toMatch(/actorId:\s*data\./)
-			// A escrita é a do helper atômico (grant + log numa transação), nunca direta.
-			expect(body).toMatch(/changeModulePermission\(getAccessControlClient\(\), change\)/)
-			expect(body).not.toMatch(/\.from\("user_permissions"\)\s*\.(insert|update|delete|upsert)/)
-		}
-	)
+	test.each(grantHandlers.map((chunk) => [nameOf(chunk), chunk]))("%s: guard primeiro, ator do guard, escrita pelo helper auditado", (_name, chunk) => {
+		const body = chunk as string
+		// O contexto vem do guard de administração...
+		expect(body).toMatch(/const \{ ctx, coverage \} = await requireAlphaAdmin\(\)/)
+		// ...e o ator é o `userId` dele — nunca `data.*`.
+		expect(body).toMatch(/buildAlphaPermissionChange\(\{ actorId: ctx\.userId, coverage \}, data\)/)
+		expect(body).not.toMatch(/actorId:\s*data\./)
+		// A escrita é a do helper atômico (grant + log numa transação), nunca direta.
+		expect(body).toMatch(/changeModulePermission\(getAccessControlClient\(\), change\)/)
+		expect(body).not.toMatch(/\.from\("user_permissions"\)\s*\.(insert|update|delete|upsert)/)
+	})
+})
+
+/**
+ * "Bloquear no copiloto": deny sem OM nos quatro papéis, numa transação, com log por papel. O
+ * ator é a sessão, a escrita é da função SQL, e as regras de quem pode (só o global, nunca
+ * sobre si mesmo) passam por `buildAlphaBlockChange` — testado em `admin-access.test.ts`.
+ */
+describe("bloqueio no copiloto", () => {
+	const chunk = postHandlers().find((c) => c.startsWith("const setAlphaCopilotBlockFn")) ?? ""
+
+	test("a entrada não tem campo de ator, e o ator forjado é descartado", () => {
+		for (const key of Object.keys(SetCopilotBlockSchema.shape)) expect(key).not.toMatch(ACTOR_KEY)
+		const parsed = SetCopilotBlockSchema.parse({ userId: "00000000-0000-4000-8000-00000000000b", blocked: true, actorId: "forjado" })
+		expect(parsed).not.toHaveProperty("actorId")
+	})
+
+	test("guard primeiro, ator do guard, regra pura, escrita pela função SQL auditada", () => {
+		expect(chunk).toMatch(/\.validator\(SetCopilotBlockSchema\)/)
+		expect(chunk).toMatch(/const \{ ctx, coverage \} = await requireAlphaAdmin\(\)/)
+		expect(chunk).toMatch(/buildAlphaBlockChange\(\{ actorId: ctx\.userId, coverage \}, data\)/)
+		expect(chunk).not.toMatch(/actorId:\s*data\./)
+		expect(chunk).toMatch(/setModuleBlock\(getAccessControlClient\(\), change\)/)
+		// Nada de quatro chamadas avulsas: um bloqueio pela metade é o estado que a função evita.
+		expect(chunk).not.toMatch(/changeModulePermission/)
+		expect(chunk).not.toMatch(/\.from\("user_permissions"\)/)
+	})
 })
 
 describe("o arquivo não escreve em user_permissions por fora do helper", () => {

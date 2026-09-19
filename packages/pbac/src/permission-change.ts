@@ -203,3 +203,75 @@ export async function changeModulePermission(client: AnySupabaseClient, input: C
 		denyPresent: row.deny_present ?? null,
 	}
 }
+
+// ─── Bloqueio em vários módulos de uma vez ─────────────────────────────────────
+
+export interface SetModuleBlockInput {
+	/** Usuário da SESSÃO, do guard de administração. Nunca do input. */
+	actorId: string
+	/** Prefixo da operação no log: `${app}.permission.block|unblock`. Minúsculas, dígitos e hífen. */
+	app: string
+	targetUserId: string
+	/** Os módulos que o bloqueio cobre — no α, os quatro papéis. Ao menos um. */
+	modules: readonly AppModule[]
+	/** `true` bloqueia (deny sem escopo, nível 0, sem prazo); `false` apaga esses denies. */
+	blocked: boolean
+	/** Grau de garantia exigido na execução, como no resto do log. Default `session`. */
+	assurance?: "session" | "fresh"
+}
+
+export interface ModuleBlockResult {
+	blocked: boolean
+	/** Módulos em que algo mudou — um registro de auditoria cada. */
+	changed: AppModule[]
+	/** Módulos que já estavam no estado pedido: nada gravado, nada registrado. */
+	unchanged: AppModule[]
+	/** As linhas gravadas em `sensitive_operation_log`, uma por módulo de `changed`. */
+	logIds: string[]
+}
+
+/** Argumentos nomeados da RPC `set_module_block`. Puro — é o mapeamento que o teste fixa. */
+export function toModuleBlockArgs(input: SetModuleBlockInput): Record<string, string | boolean | string[]> {
+	return {
+		p_actor: input.actorId,
+		p_app: input.app,
+		p_user: input.targetUserId,
+		p_modules: [...input.modules],
+		p_blocked: input.blocked,
+		p_assurance: input.assurance ?? "session",
+	}
+}
+
+type BlockRpcResult = { blocked: boolean; changed: AppModule[] | null; unchanged: AppModule[] | null; log_ids: string[] | null }
+
+/**
+ * Bloqueia ou desbloqueia uma pessoa em VÁRIOS módulos numa transação só, com uma linha de
+ * auditoria por módulo alterado — `access_control.set_module_block` (20260921090100).
+ *
+ * É o "desligar alguém" de um app inteiro: um deny SEM ESCOPO por módulo vence qualquer
+ * allow dele, global ou de OM. Em quatro chamadas de {@link changeModulePermission}, uma
+ * falha no meio deixaria a pessoa bloqueada em parte dos módulos — e a tela diria
+ * "bloqueado" com acesso ainda valendo. Aqui é tudo ou nada.
+ *
+ * Mesma semântica de partição de `changeModulePermission`: NUNCA toca o allow (desbloquear
+ * devolve exatamente os acessos de antes) nem o deny escopado de uma OM. Módulo já no
+ * estado pedido não é gravado nem registrado — vem em `unchanged`.
+ *
+ * O ator sai da SESSÃO, como em `changeModulePermission` (ver o cabeçalho deste arquivo). A
+ * função SQL recusa o bloqueio de si mesmo (`INVALID`); o app deve recusar antes, com a
+ * mensagem dele. Quem pode bloquear (no α, só o administrador global) é decisão do app,
+ * ANTES desta chamada. Lança `PermissionChangeError`.
+ */
+export async function setModuleBlock(client: AnySupabaseClient, input: SetModuleBlockInput): Promise<ModuleBlockResult> {
+	const { data, error } = await client.schema("access_control").rpc("set_module_block", toModuleBlockArgs(input))
+	if (error) throw toPermissionChangeError(error)
+
+	const row = data as BlockRpcResult | null
+	// Sem corpo não há como afirmar o que mudou — nem que nada mudou.
+	if (!row || !Array.isArray(row.changed)) throw new PermissionChangeError("FAILED", new Error("set_module_block sem retorno"))
+	const changed = row.changed
+	const logIds = row.log_ids ?? []
+	// Cada módulo alterado tem o seu registro; faltando algum, a gravação não está provada.
+	if (logIds.length !== changed.length) throw new PermissionChangeError("FAILED", new Error("set_module_block sem log para cada módulo alterado"))
+	return { blocked: row.blocked, changed, unchanged: row.unchanged ?? [], logIds }
+}

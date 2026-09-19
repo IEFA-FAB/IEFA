@@ -9,10 +9,12 @@ import {
 	assertGrantable,
 	type ChangeModulePermissionInput,
 	coversUnit,
+	GrantNotAllowedError,
 	isEmptyCoverage,
 	needsSupportGraph,
 	resolveEffectivePermissions,
 	resolveModuleUnitCoverage,
+	type SetModuleBlockInput,
 	touchesDenyPartition,
 	type UnitCoverage,
 	type UnitSupportEdge,
@@ -34,8 +36,7 @@ export const ALPHA_GRANT_ROLES = Object.keys(ALPHA_ROLE_GRANTS) as AlphaGrantRol
 /**
  * Os módulos que esta tela administra. O módulo pedido é validado contra esta lista — sem
  * isso, um administrador do α concederia `global` do sisub pela mesma chamada. O `alpha`
- * antigo (nível único) não é mais concedido nem listado: nada o lê, e as linhas dele ficam
- * só para o rollback até o PR de limpeza.
+ * antigo (nível único) saiu do `AppModule` (20260921090000).
  */
 export const ALPHA_ADMIN_MODULES = ["alpha-requester", "alpha-procurement", "alpha-aci", "alpha-admin"] as const
 export type AlphaAdminModule = (typeof ALPHA_ADMIN_MODULES)[number]
@@ -87,8 +88,11 @@ export const AUDIT_APP = "contrate"
  * A alteração a gravar, depois da política de administração escopada (`assertGrantable`):
  * OM dentro da cobertura, global só pelo administrador global; sobre si mesmo, só o
  * global — e ninguém revoga o próprio `alpha-admin` (trancaria o ator para fora da tela).
- * Retirar um bloqueio (deny) é só do global; esta tela não cria bloqueio (o grant é sempre
- * o nível positivo do papel). A alteração sobre si mesmo é auditada como qualquer outra:
+ * Retirar um bloqueio (deny) é só do global; a concessão não cria bloqueio (o grant é sempre
+ * o nível positivo do papel) — bloquear é o "Bloquear no copiloto" ({@link buildAlphaBlockChange}).
+ *
+ * Nenhum papel exclui outro: a mesma pessoa recebe os quatro, na mesma OM, um por chamada
+ * (sem segregação de funções — decisão do mantenedor, 2026-09-19). A alteração sobre si mesmo é auditada como qualquer outra:
  * ator e alvo iguais no log.
  *
  * O ator é `actorId` — o `userId` do guard, passado pela server function. O `data` nunca o
@@ -131,6 +135,74 @@ export function buildAlphaPermissionChange(
 		touchesDeny: touchesDenyPartition(change),
 	})
 	return change
+}
+
+// ─── Bloqueio no copiloto ──────────────────────────────────────────────────────
+
+/**
+ * Entrada de "Bloquear no copiloto" / "Desbloquear". Como nas outras, SEM campo de ator: quem
+ * age é a sessão (o teste de contrato fixa).
+ */
+export const SetCopilotBlockSchema = z.object({
+	userId: z.uuid(),
+	blocked: z.boolean(),
+})
+export type SetCopilotBlockInput = z.infer<typeof SetCopilotBlockSchema>
+
+/**
+ * O bloqueio a gravar: um deny SEM ESCOPO em cada um dos quatro papéis (ou a retirada deles),
+ * numa transação — `setModuleBlock` do @iefa/pbac.
+ *
+ * Só o administrador GLOBAL bloqueia e desbloqueia: é um deny, e deny é só dele
+ * (`DENY_REQUIRES_GLOBAL_ADMIN`, a mesma regra de `assertGrantable`). E NUNCA sobre si mesmo —
+ * nem o global: bloquear-se derrubaria o próprio `alpha-admin` e o trancaria para fora da tela
+ * (e, se fosse o último, todo mundo). A função SQL recusa o bloqueio próprio também; aqui é
+ * para a mensagem ser a nossa e o desbloqueio próprio também ficar de fora.
+ *
+ * Os papéis concedidos NÃO são tocados: bloquear anula todos eles enquanto o bloqueio existir,
+ * e desbloquear devolve exatamente o que a pessoa tinha. Bloqueio de UMA OM (deny escopado)
+ * também fica — é outra decisão.
+ */
+export function buildAlphaBlockChange(admin: { actorId: string; coverage: UnitCoverage }, data: SetCopilotBlockInput): SetModuleBlockInput {
+	if (admin.actorId === data.userId) throw new GrantNotAllowedError("SELF")
+	if (admin.coverage !== "all") throw new GrantNotAllowedError("DENY_REQUIRES_GLOBAL_ADMIN")
+	return {
+		actorId: admin.actorId,
+		app: AUDIT_APP,
+		targetUserId: data.userId,
+		modules: [...ALPHA_ADMIN_MODULES],
+		blocked: data.blocked,
+	}
+}
+
+/**
+ * O estado de "Bloqueado no copiloto" de uma pessoa, lido das linhas da lista de acessos:
+ *   - `blocked` — bloqueio SEM OM, vivo e gravado aqui (inline), nos quatro papéis;
+ *   - `partial` — em parte deles (bloquear completa; desbloquear retira o que houver);
+ *   - `none`    — em nenhum.
+ *
+ * Só conta a linha inline: bloqueio que vem de política não se retira por aqui (desanexa-se a
+ * política), e o botão de desbloquear afirmaria o que não pode cumprir. Vencido é ausência.
+ * A lista traz esses bloqueios em qualquer OM aberta: os globais vêm como herdados
+ * (`listAlphaGrantsFn`).
+ */
+export type CopilotBlockState = "blocked" | "partial" | "none"
+
+export function copilotBlockState(grants: readonly GrantRowLike[], userId: string, now: number = Date.now()): CopilotBlockState {
+	const blockedModules = new Set(
+		grants
+			.filter((g) => g.userId === userId && g.source === "inline" && g.effect === "deny" && g.unitId === null && !isExpiredGrant(g, now))
+			.map((g) => g.module)
+	)
+	if (blockedModules.size === 0) return "none"
+	return ALPHA_ADMIN_MODULES.every((module) => blockedModules.has(module)) ? "blocked" : "partial"
+}
+
+/** As pessoas da lista, uma vez cada, na ordem em que aparecem — para a seção de bloqueio. */
+export function distinctPeople<T extends { userId: string; email: string }>(grants: readonly T[]): Array<{ userId: string; email: string }> {
+	const seen = new Map<string, string>()
+	for (const grant of grants) if (!seen.has(grant.userId)) seen.set(grant.userId, grant.email)
+	return [...seen].map(([userId, email]) => ({ userId, email }))
 }
 
 /**
