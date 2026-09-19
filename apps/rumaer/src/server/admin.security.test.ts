@@ -72,3 +72,21 @@ describe("permissions.fn.ts — administração exige requireRumaerAdmin (rumaer
 		expect(seg?.body).toContain("requireUserId()")
 	})
 })
+
+describe("permissions.fn.ts — concessão e revogação são auditadas", () => {
+	const source = readFileSync(join(import.meta.dir, "permissions.fn.ts"), "utf8")
+
+	test("grant e revoke passam por changeModulePermission, com o ator da sessão", () => {
+		const segments = serverFnSegments("permissions.fn.ts")
+		for (const name of ["grantRumaerPermissionFn", "revokeRumaerPermissionFn"]) {
+			const body = segments.find((s) => s.name === name)?.body ?? ""
+			expect(body).toContain("changeModulePermission(")
+			expect(body).toContain("ctx.userId")
+		}
+	})
+
+	test("nenhuma escrita direta em user_permissions (o banco a recusa desde 20260921120100)", () => {
+		expect(source).not.toMatch(/from\("user_permissions"\)\s*\.(insert|update|upsert|delete)\(/)
+		expect(source).not.toMatch(/grantUnscopedModulePermission|grantModulePermission|revokeModulePermission/)
+	})
+})

@@ -6,7 +6,7 @@
  * `sucont-3`, `sucont-4` e `sucont-admin` —, e o módulo pedido pelo cliente é
  * validado contra essa lista: sem isso, um administrador do SUCONT concederia
  * `global` do sisub pela mesma chamada. A lógica compartilhada (filtro por módulo,
- * busca por e-mail, upsert de grant unscoped) vem de @iefa/pbac.
+ * busca por e-mail, concessão auditada) vem de @iefa/pbac.
  *
  * Gate: administração exige `sucont-admin` nível 3 (requireSucontAdmin).
  * Grants do sucont são sempre globais/unscoped. Nas divisões o nível é 1 (acesso à
@@ -14,13 +14,23 @@
  * único exigia antes do split, e o backfill o preservou.
  */
 
-import { type AppModule, grantUnscopedModulePermission, resolveModulePermissions, searchUsersByEmail, type UserPermission } from "@iefa/pbac"
+import {
+	type AppModule,
+	changeModulePermission,
+	GrantNotAllowedError,
+	PermissionChangeError,
+	resolveModulePermissions,
+	searchUsersByEmail,
+	type UserPermission,
+} from "@iefa/pbac"
+import { forbidden } from "@iefa/pbac/start"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireSucontAdmin, requireUserId } from "#/lib/auth.server"
 import { describePerson } from "#/lib/identity"
 import { fetchMilitaryIdentities } from "#/lib/military.server"
+import { buildSucontGrant, buildSucontRevoke } from "#/lib/permission-change"
 import { SUCONT_ADMIN_MODULE, SUCONT_PERMISSION_MODULES } from "#/lib/permission-modules"
 import { getAccessControlClient, getCoreClient } from "#/lib/supabase.server"
 
@@ -91,54 +101,58 @@ export const searchUsersByEmailFn = createServerFn({ method: "GET" })
 	})
 
 /**
- * Concede/atualiza um grant de módulo do sucont (global/unscoped) a um usuário. Só
- * admin. O upsert seguro sob concorrência (update-first → insert → retry-em-23505,
- * apoiado no índice parcial único do DB) vive em `grantUnscopedModulePermission`
- * (@iefa/pbac). Não colide com grants de outros apps na mesma tabela.
+ * Recusa de política vira 403 com a frase para a tela; falha do banco vira a frase do
+ * `PermissionChangeError` (o SQL cru segue em `cause`, para o log do servidor).
+ */
+function rethrowAccessError(error: unknown): never {
+	if (error instanceof GrantNotAllowedError) forbidden(error.message)
+	if (error instanceof PermissionChangeError) throw new Error(error.message, { cause: error })
+	throw error
+}
+
+/**
+ * Concede/atualiza um grant de módulo do sucont (global/unscoped) a um usuário. Só admin.
+ * Grant e linha de `access_control.sensitive_operation_log` numa transação
+ * (`changeModulePermission`, @iefa/pbac), com o ator da SESSÃO; a corrida entre dois
+ * administradores é absorvida no banco. Não colide com grants de outros apps na mesma tabela.
  *
  * Uma chamada = UM módulo. Conceder as três divisões são três chamadas, e é assim
  * que se quer: a tela pede um módulo por vez, e cada linha é revogável sozinha.
+ *
+ * O administrador pode conceder a si mesmo (é administrador global do app) — o log registra
+ * ator e alvo iguais. Ver `lib/permission-change.ts`.
  */
 export const grantSucontPermissionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ userId: z.string().min(1) }).and(GrantTargetSchema))
+	.validator(z.object({ userId: z.uuid() }).and(GrantTargetSchema))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		const ctx = await requireSucontAdmin()
-		assertNotSelf(ctx.userId, data.userId)
-		return grantUnscopedModulePermission(getAccessControlClient(), { module: data.module, userId: data.userId, level: data.level })
+		try {
+			await changeModulePermission(getAccessControlClient(), buildSucontGrant(ctx.userId, data))
+			return { ok: true }
+		} catch (error) {
+			rethrowAccessError(error)
+		}
 	})
 
 /**
- * Revoga um grant do sucont. Só admin, e nunca o próprio.
+ * Revoga um grant do sucont. Só admin — e ninguém revoga o próprio `sucont-admin`
+ * (trancaria o ator fora da tela; sendo o último, todo mundo).
  *
  * `module` é obrigatório e restrito à lista do app: apagar "o acesso ao sucont" sem
  * dizer qual módulo retiraria as três divisões e a administração de uma vez — e
  * numa tabela compartilhada, um `delete` sem `module` alcançaria o ERP inteiro.
  */
 export const revokeSucontPermissionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ userId: z.string().min(1), module: z.enum(MODULES as [AppModule, ...AppModule[]]) }))
+	.validator(z.object({ userId: z.uuid(), module: z.enum(MODULES as [AppModule, ...AppModule[]]) }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		const ctx = await requireSucontAdmin()
-		assertNotSelf(ctx.userId, data.userId)
-		const { error } = await getAccessControlClient().from("user_permissions").delete().eq("user_id", data.userId).eq("module", data.module)
-		if (error) throw new Error(error.message)
-		return { ok: true }
+		try {
+			await changeModulePermission(getAccessControlClient(), buildSucontRevoke(ctx.userId, data))
+			return { ok: true }
+		} catch (error) {
+			rethrowAccessError(error)
+		}
 	})
-
-/**
- * Recusa a alteração do próprio acesso.
- *
- * Rebaixar-se para nível 1 ou revogar o próprio grant tranca o administrador para
- * fora desta tela — e, se ele for o último nível 3, tranca TODO MUNDO para fora
- * dela, sem caminho de volta pela interface: o conserto passa a ser SQL no banco
- * de produção. O gate mora no servidor, e não só no botão desabilitado, porque a
- * chamada é alcançável direto pelo endpoint.
- *
- * Não é uma trava de "último admin" — contar administradores teria corrida entre a
- * contagem e o delete. Ninguém mexe no próprio acesso; outro administrador mexe.
- */
-function assertNotSelf(actorId: string, targetId: string): void {
-	if (actorId === targetId) throw new Error("Você não pode alterar o próprio acesso. Peça a outro administrador do SUCONT.")
-}
 
 export type SucontGrant = {
 	userId: string
