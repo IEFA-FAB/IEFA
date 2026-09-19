@@ -1,5 +1,5 @@
 -- Termos de Uso 2.2.0, Política de Privacidade 2.2.0 e Política de Cookies 1.3.0
--- (pt-BR + en-US). Vigência: 2026-09-21.
+-- (pt-BR + en-US). Vigência: 2026-09-19.
 --
 -- Supersede os documentos de `20260907120000_legal_documents_cookies_v1_2.sql` (Termos e
 -- Privacidade 2.1.0, Cookies 1.2.0), cujo conteúdo é a base deste. Nada foi retirado: as
@@ -53,9 +53,10 @@
 -- Efeito esperado: as três versões são linhas novas, então o aviso de ciência reaparece
 -- para todo usuário de todo app com sessão (sem bloquear a navegação — ver LGPD.md).
 --
--- DECLARADA, NÃO APLICADA. Por ser DML puro, o caminho limpo é `execute_sql` com o corpo
--- + `INSERT INTO supabase_migrations.schema_migrations (version, name)` com o timestamp
--- exato deste arquivo — `apply_migration` carimbaria outro `version`.
+-- APLICADA em 2026-09-19, antes do merge, em transação única (psql -1) com o
+-- `INSERT INTO supabase_migrations.schema_migrations (version, name)` no timestamp exato
+-- deste arquivo — `apply_migration` carimbaria outro `version`. Vigência: a data em que
+-- entrou no ar.
 
 INSERT INTO iefa.legal_documents (doc_type, version, locale, content_md, effective_date, published_at)
 VALUES
@@ -139,7 +140,7 @@ Fica eleito o foro da Justiça Federal da Seção Judiciária do Rio de Janeiro 
 ## 13. Contato
 
 **iefa@fab.mil.br**$doc$,
-  '2026-09-21',
+  '2026-09-19',
   now()
 ),
 
@@ -310,7 +311,7 @@ Esta Política é versionada. O número da versão e a data de vigência constam
 ## 15. Contato
 
 Dúvidas, pedidos e reclamações relacionados a esta Política: **iefa@fab.mil.br**$doc$,
-  '2026-09-21',
+  '2026-09-19',
   now()
 ),
 
@@ -389,7 +390,7 @@ Esta Política é versionada, e a versão vigente e a data de vigência aparecem
 ## 7. Contato
 
 **iefa@fab.mil.br**$doc$,
-  '2026-09-21',
+  '2026-09-19',
   now()
 ),
 
@@ -474,7 +475,7 @@ The Federal Court of the Judiciary Section of Rio de Janeiro is elected to settl
 ## 13. Contact
 
 **iefa@fab.mil.br**$doc$,
-  '2026-09-21',
+  '2026-09-19',
   now()
 ),
 
@@ -647,7 +648,7 @@ This Policy is versioned. The version number and effective date appear at the to
 ## 15. Contact
 
 Questions, requests and complaints regarding this Policy: **iefa@fab.mil.br**$doc$,
-  '2026-09-21',
+  '2026-09-19',
   now()
 ),
 
@@ -728,7 +729,7 @@ This Policy is versioned; the current version and effective date appear at the t
 ## 7. Contact
 
 **iefa@fab.mil.br**$doc$,
-  '2026-09-21',
+  '2026-09-19',
   now()
 )
 

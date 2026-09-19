@@ -38,9 +38,9 @@ produção, editá-la no lugar faria o número nomear dois textos — quem já a
 rodado localmente nunca receberia o novo (`ON CONFLICT … DO NOTHING`), e os testes
 leem o `.sql`, não o banco, então continuariam verdes. Vigente no repositório:
 **Termos e Privacidade 2.2.0, Cookies 1.3.0**, em
-`20260921120000_legal_documents_v2_2.sql` — declarada e ainda **não aplicada**;
-até a aplicação, produção serve 2.1.0 / cookies 1.2.0
-(`20260907120000_legal_documents_cookies_v1_2.sql`). A 2.2.0 existe porque o
+`20260921120000_legal_documents_v2_2.sql`, **aplicada em produção em 2026-09-19**
+(vigência nessa data; substitui 2.1.0 / cookies 1.2.0 de
+`20260907120000_legal_documents_cookies_v1_2.sql`). A 2.2.0 existe porque o
 Contrate foi ao ar sem constar de documento nenhum.
 
 ## Cobertura por app
