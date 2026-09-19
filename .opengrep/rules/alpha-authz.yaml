@@ -63,8 +63,8 @@ rules:
     severity: ERROR
     message: >-
       Módulo PBAC `"alpha"` (o nível único de antes do escopo por OM). Ele saiu do `AppModule`
-      e as linhas dele foram apagadas (20260921090000_alpha_drop_legacy_module) — a que sobrou
-      em produção não é lida por ninguém. Ler ou gravar `module = 'alpha'` devolveria o modelo
+      e as linhas dele foram convertidas nos papéis e apagadas (20260921090000_alpha_drop_legacy_module);
+      se alguma restar, ninguém a lê. Ler ou gravar `module = 'alpha'` devolveria o modelo
       sem escopo, em que licitações e ACI enxergavam a FAB inteira. Use o papel:
       `alpha-requester`, `alpha-procurement`, `alpha-aci` ou `alpha-admin` (`ROLE_MODULE` em
       `apps/alpha/src/lib/alpha-access.ts`, `ALPHA_ROLE_GRANTS` no contrate). O tipo pega o

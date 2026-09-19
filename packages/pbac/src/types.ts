@@ -29,7 +29,7 @@
  *                          sucont, unscoped/global. Usa level 3, o mesmo que o módulo
  *                          `sucont` único exigia antes do split: o backfill preserva o nível.
  *   (O antigo módulo `alpha`, de nível aninhado e sem escopo, SAIU: 20260921…_alpha_drop_legacy_module
- *   apaga as linhas cobertas pelos papéis abaixo, e a regra opengrep `alpha-legacy-module-literal`
+ *   converte as linhas nos papéis abaixo e as apaga, e a regra opengrep `alpha-legacy-module-literal`
  *   barra o literal. Papel novo do α é módulo novo aqui, nunca nível de outro.)
  * - alpha-requester:     Requisitante do α — escopado por `unit_id` (OM; nulo = global), level 1.
  *                          Enxerga TODAS as submissões das OMs que cobre (continuidade quando o
