@@ -61,7 +61,14 @@ function accessDb(outcome: { error?: unknown; result?: Record<string, unknown>; 
 	const existing = outcome.existing === undefined ? { id: "perm-1", userId: "user-2", module: "kitchen", level: 1 } : outcome.existing
 	const db = {
 		execute: (query: SQL) => {
-			calls.push(dialect.sqlToQuery(query))
+			const rendered = dialect.sqlToQuery(query)
+			// A foto do acesso do ator (self-admin-guard) não é a chamada auditada: responde com o
+			// grant existente, se for do próprio ator, e fica fora de `calls`.
+			if (rendered.sql.includes("actor-access-snapshot")) {
+				const own = existing && existing.userId === ADMIN.userId ? [{ ...existing, unit_id: null, kitchen_id: null, mess_hall_id: null, expired: false }] : []
+				return Promise.resolve([{ snapshot: { inline: own, attachments: [], policies: [] } }])
+			}
+			calls.push(rendered)
 			if (outcome.error) return Promise.reject(outcome.error)
 			return Promise.resolve([{ result: outcome.result ?? { log_id: "log-1", permission_id: "perm-1", user_id: "user-2" } }])
 		},

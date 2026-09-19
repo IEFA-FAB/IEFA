@@ -40,6 +40,7 @@ import {
 	selfAdminUpdateRefusal,
 } from "./access-change.ts"
 import { listUserPolicyPermissions } from "./policies.ts"
+import { loadActorAccessSnapshot, refuseIfLosesAdministration } from "./self-admin-guard.ts"
 
 /**
  * Effective permission set for a user: applies deny precedence and injects an implicit
@@ -319,6 +320,22 @@ export async function createUserPermission(
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
 	assertSisubGrantable(ctx.userId, { userId: input.userId, revokesAdministration: input.module === SISUB_ADMIN_MODULE && input.level <= 0 })
+	// Rede geral (self-admin-guard): um grant novo sobre si mesmo — um deny de `admin` escopado,
+	// por exemplo — não pode deixar o ator sem a administração que ele tem.
+	if (input.userId === ctx.userId) {
+		refuseIfLosesAdministration(await loadActorAccessSnapshot(db, ctx.userId), {
+			kind: "inline-upsert",
+			row: {
+				id: "(novo)",
+				module: input.module,
+				level: input.level,
+				unit_id: input.unit_id ?? null,
+				kitchen_id: input.kitchen_id ?? null,
+				mess_hall_id: input.mess_hall_id ?? null,
+				ending: input.expires_at != null,
+			},
+		})
+	}
 
 	const result = await runAccessFunction<PermissionChangeResult>(
 		db,
@@ -370,6 +387,25 @@ export async function updateUserPermission(
 	const refusal = selfAdminUpdateRefusal(ctx.userId, current, { level: input.level, expiresAt: input.expires_at })
 	if (refusal === "EXPIRY") throw new DomainError("GRANT_NOT_ALLOWED", SELF_ADMIN_EXPIRY_MESSAGE)
 	assertSisubGrantable(ctx.userId, { userId: current.userId, revokesAdministration: refusal === "LEVEL" })
+	// Rede geral: qualquer outra linha do próprio ator que, alterada, o deixaria sem administração.
+	if (current.userId === ctx.userId) {
+		const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
+		const before = snapshot.inline.find((row) => row.id === current.id)
+		refuseIfLosesAdministration(snapshot, {
+			kind: "inline-upsert",
+			row: {
+				id: current.id,
+				module: current.module,
+				level: input.level,
+				unit_id: input.unit_id ?? null,
+				kitchen_id: input.kitchen_id ?? null,
+				mess_hall_id: input.mess_hall_id ?? null,
+				// Prazo ausente = não mexe (a linha segue vencida ou não); nulo = permanente; data = termina.
+				expired: input.expires_at === undefined ? (before?.expired ?? false) : false,
+				ending: input.expires_at !== undefined && input.expires_at !== null,
+			},
+		})
+	}
 
 	const result = await runAccessFunction<PermissionChangeResult>(
 		db,
@@ -417,6 +453,7 @@ export async function deleteUserPermission(
 	const current = await loadPermissionRow(db, input.permissionId)
 	if (!current) throw new DomainError("DELETE_FAILED", `permission ${input.permissionId} not found`)
 	assertSisubGrantable(ctx.userId, { userId: current.userId, revokesAdministration: current.module === SISUB_ADMIN_MODULE && current.level > 0 })
+	if (current.userId === ctx.userId) refuseIfLosesAdministration(await loadActorAccessSnapshot(db, ctx.userId), { kind: "inline-delete", id: current.id })
 
 	const result = await runAccessFunction<PermissionChangeResult>(
 		db,
