@@ -19,6 +19,7 @@ import {
 	canChangeOwnAccess,
 	type GrantAlphaRoleInput,
 	grantRowKey,
+	initialGrantUnit,
 	isAllowBlockedByDeny,
 	isExpiredGrant,
 	roleOfModule,
@@ -113,7 +114,9 @@ function AcessosPage() {
 				/>
 			</section>
 
-			<GrantAccess scope={scopeContext} currentUserId={currentUserId} onGranted={invalidate} />
+			{/* `key`: trocar de OM remonta o formulário. Sem ela o estado guardava a OM anterior
+			    e a concessão podia sair para a OM que já não está na tela. */}
+			<GrantAccess key={scopeContext.id} scope={scopeContext} currentUserId={currentUserId} onGranted={invalidate} />
 		</div>
 	)
 }
@@ -294,7 +297,8 @@ function GrantAccess({ scope, currentUserId, onGranted }: { scope: ScopeContext;
 	const [selected, setSelected] = useState<UserEmailSearchRow | null>(null)
 	const [role, setRole] = useState<AlphaGrantRole>("requester")
 	// Parte da OM aberta. Em "todas", nada é pré-escolhido: grant global às cegas é o erro caro.
-	const [unit, setUnit] = useState<UnitChoice | null>(scope.unitId)
+	// Vale a cada troca de OM porque a página remonta este componente (`key={scope.id}`).
+	const [unit, setUnit] = useState<UnitChoice | null>(initialGrantUnit(scope))
 	const adminScope = useQuery(adminScopeQueryOptions())
 
 	const term = email.trim()

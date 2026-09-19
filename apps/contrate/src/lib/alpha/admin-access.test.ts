@@ -8,6 +8,7 @@ import {
 	canListGrants,
 	type GrantRowLike,
 	grantRowKey,
+	initialGrantUnit,
 	isAllowBlockedByDeny,
 	RevokeAlphaRoleSchema,
 	splitGrantsByEffect,
@@ -181,5 +182,13 @@ describe("lista: acesso e bloqueio", () => {
 		expect(isAllowBlockedByDeny(allow, [row({ effect: "deny", expiresAt: "2026-09-19T00:00:00Z" })], now)).toBe(true)
 		// Um allow na lista de bloqueios não conta.
 		expect(isAllowBlockedByDeny(allow, [row({})], now)).toBe(false)
+	})
+})
+
+describe("initialGrantUnit (o formulário de concessão)", () => {
+	test("parte da OM da página; em todas, de nenhuma", () => {
+		expect(initialGrantUnit({ kind: "unit", unitId: 26 })).toBe(26)
+		expect(initialGrantUnit({ kind: "unit", unitId: 100 })).toBe(100)
+		expect(initialGrantUnit({ kind: "all", unitId: null })).toBeNull()
 	})
 })

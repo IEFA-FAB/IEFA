@@ -72,6 +72,12 @@ describe("o arquivo não escreve em user_permissions por fora do helper", () => 
 describe("tela de acessos", () => {
 	const PAGE = readFileSync(join(import.meta.dir, "../routes/admin/$unitId/acessos.tsx"), "utf8")
 
+	// Sem a `key`, o formulário guardava a OM anterior ao trocar de OM, e a concessão podia
+	// sair para a OM que já não estava na tela.
+	test("o formulário de concessão é remontado a cada troca de escopo", () => {
+		expect(PAGE).toMatch(/<GrantAccess key=\{scopeContext\.id\}/)
+	})
+
 	// Revogar sem o lado apagaria a chave inteira — acesso E bloqueio.
 	test("a revogação manda o lado da linha clicada", () => {
 		expect(PAGE).toMatch(/revokeAlphaPermissionFn\(\{ data: \{[^}]*effect: grant\.effect/)

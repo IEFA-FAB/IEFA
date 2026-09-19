@@ -196,3 +196,12 @@ export function isAllowBlockedByDeny(allow: GrantRowLike, denies: readonly Grant
 			!isExpiredGrant(deny, now)
 	)
 }
+
+/**
+ * A OM que o formulário de concessão parte: a da página. Em "todas" (e em qualquer escopo
+ * sem OM), nada — grant global às cegas é o erro caro. O formulário é remontado a cada troca
+ * de escopo (`key` na página), então este é o valor de TODA entrada numa OM.
+ */
+export function initialGrantUnit(scope: { kind: string; unitId: number | null }): number | null {
+	return scope.kind === "unit" ? scope.unitId : null
+}
