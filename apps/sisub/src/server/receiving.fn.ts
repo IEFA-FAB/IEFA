@@ -296,13 +296,18 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 		// fazia a próxima leitura recalcular da soma dos eventos e apagar a edição —
 		// e a edição sumia sem rastro no termo. Mudou o total, vira evento `typed`
 		// (o operador dizendo o total), e a linha é recalculada a partir dele.
+		// A tela julgou a divergência pela quantidade que carregou: se a linha mudou
+		// por baixo (outra leitura), salvar — mesmo só o motivo — decidiria sobre um
+		// número velho, e podia apagar o motivo de uma linha que de fato diverge.
 		const current = Number(item.received_qty_base)
 		const baseline = data.baselineQtyBase ?? current
-		const operatorChangedQty = data.receivedQtyBase !== baseline
-		if (operatorChangedQty && current !== baseline) {
-			throw new Error("A quantidade desta linha mudou enquanto você editava (outra leitura entrou) — recarregue e confira antes de salvar")
-		}
-		if (operatorChangedQty) {
+		const conflict = "A quantidade desta linha mudou enquanto você editava (outra leitura entrou) — recarregue e confira antes de salvar"
+		if (current !== baseline) throw new Error(conflict)
+		const reason = diverges ? (data.divergenceReason?.trim() ?? null) : null
+
+		if (data.receivedQtyBase !== baseline) {
+			// total e motivo numa transação só; linha que volta a bater com a nota
+			// perde o motivo no próprio recálculo
 			await recordReceiptEvent({
 				receiptId: item.receipt_id as string,
 				receiptItemId: data.receiptItemId,
@@ -310,13 +315,19 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 				method: "typed",
 				quantityBase: data.receivedQtyBase,
 				userId,
+				divergenceReason: reason,
 			})
+			return
 		}
-		const { error } = await inv
+		// só o motivo: condicionado à quantidade que a tela viu
+		const { data: updated, error } = await inv
 			.from("goods_receipt_item")
-			.update({ divergence_reason: diverges ? (data.divergenceReason?.trim() ?? null) : null })
+			.update({ divergence_reason: reason })
 			.eq("id", data.receiptItemId)
+			.eq("received_qty_base", current)
+			.select("id")
 		if (error) throw new Error(`Erro ao atualizar item: ${error.message}`)
+		if (!updated?.length) throw new Error(conflict)
 	})
 
 /**
@@ -738,6 +749,8 @@ async function recordReceiptEvent(event: {
 	expiryDate?: string | null
 	packageFactor?: number | null
 	reversedEventId?: string | null
+	/** Gravado na linha na mesma transação do evento (e só se o evento entrou). */
+	divergenceReason?: string | null
 }): Promise<{ duplicate: boolean; total: number }> {
 	const { data, error } = await inventory().rpc("record_receipt_event", {
 		p_receipt_id: event.receiptId,
@@ -752,6 +765,7 @@ async function recordReceiptEvent(event: {
 		p_expiry_date: event.expiryDate ?? null,
 		p_package_factor: event.packageFactor ?? null,
 		p_reversed_event_id: event.reversedEventId ?? null,
+		p_divergence_reason: event.divergenceReason ?? null,
 	})
 	if (error) throw new Error(`Erro ao registrar a conferência: ${error.message}`)
 	const row = (data ?? [])[0] as { duplicate: boolean; total: number } | undefined
@@ -955,15 +969,9 @@ export const refuseReceiptLineFn = createServerFn({ method: "POST" })
 		// conforme faturado" ainda contava a linha recusada como pendente e
 		// devolvia a quantidade faturada. O motivo fica na linha enquanto o evento
 		// de recusa estiver vivo (`sync_receipt_line` o tira quando não estiver).
-		// o motivo primeiro, o evento depois: o recálculo que vem com o evento vê a
-		// recusa viva e mantém o motivo
-		const { error } = await inventory()
-			.from("goods_receipt_item")
-			.update({
-				divergence_reason: `Recusado: ${label}${data.note ? ` — ${data.note.trim()}` : ""}${data.replacementPromised ? " (reposição prometida)" : ""}`,
-			})
-			.eq("id", data.receiptItemId)
-		if (error) throw new Error(`Erro ao recusar a linha: ${error.message}`)
+		// Motivo e evento na MESMA transação: em duas, uma leitura no meio apagava
+		// o motivo, e a falha do segundo passo deixava a linha "Recusado:" com a
+		// quantidade inteira indo para o estoque.
 		await recordReceiptEvent({
 			receiptId,
 			receiptItemId: data.receiptItemId,
@@ -971,6 +979,7 @@ export const refuseReceiptLineFn = createServerFn({ method: "POST" })
 			method: "refusal",
 			quantityBase: 0,
 			userId,
+			divergenceReason: `Recusado: ${label}${data.note ? ` — ${data.note.trim()}` : ""}${data.replacementPromised ? " (reposição prometida)" : ""}`,
 		})
 		return { refused: true }
 	})

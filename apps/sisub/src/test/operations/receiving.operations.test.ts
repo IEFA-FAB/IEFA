@@ -284,12 +284,13 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 						method: string,
 						quantity: number,
 						lotCode: string | null = null,
-						reversedEventId: string | null = null
+						reversedEventId: string | null = null,
+						reason: string | null = null
 					) => {
 						const [row] = await tx`
 							select * from inventory.record_receipt_event(
 								${receipt.id}::uuid, ${itemId}::uuid, ${clientEventId}::text, ${method}::text, ${quantity}::numeric, null::uuid,
-								null::text, null::text, ${lotCode}::text, ${lotCode ? "2027-05-31" : null}::date, null::numeric, ${reversedEventId}::uuid)`
+								null::text, null::text, ${lotCode}::text, ${lotCode ? "2027-05-31" : null}::date, null::numeric, ${reversedEventId}::uuid, ${reason}::text)`
 						return { duplicate: row.duplicate as boolean, eventId: row.event_id as string | null, total: Number(row.total) }
 					}
 					const lotsOf = async (itemId: string) => {
@@ -310,9 +311,10 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					expect(await record(a, "atom-a-1", "scanner", 12, "OUTRO-L")).toMatchObject({ duplicate: true, total: 12 })
 
 					// recusa: tudo a zero, mas os dois lotes continuam lá — o da nota com a validade
-					await tx`update inventory.goods_receipt_item set divergence_reason = 'Recusado: Avaria' where id = ${a}`
-					const refusal = await record(a, "atom-a-2", "refusal", 0)
+					// (motivo e evento na mesma transação — 20260921170000)
+					const refusal = await record(a, "atom-a-2", "refusal", 0, null, null, "Recusado: Avaria")
 					expect(refusal.total).toBe(0)
+					expect(await lineOf(a)).toEqual({ received: 0, reason: "Recusado: Avaria" })
 					expect(await lotsOf(a)).toEqual({ "NF-LOTE-A": 0, "OUTRO-L": 0 })
 					const [invoiceLot] = await tx`select expiry_date from inventory.goods_receipt_item_lot where receipt_item_id = ${a} and lot_code = 'NF-LOTE-A'`
 					expect(invoiceLot.expiry_date).not.toBeNull()
@@ -342,6 +344,22 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					expect(again).toBe(0)
 					expect((await lineOf(c)).received).toBe(5)
 
+					// ── D: a divisão de lotes do operador sobrevive ao recálculo (20260921170000) ──
+					const [nfeItemD] = await tx`
+						insert into inventory.nfe_item (nfe_document_id, n_item, lot_code, expiry_date)
+						values (${nfe.id}, 2, 'NF-D', '2027-04-30') returning id`
+					const d = await line(100, nfeItemD.id)
+					await tx`insert into inventory.goods_receipt_item_lot (receipt_item_id, lot_code, expiry_date, quantity_base, unit_cost)
+						values (${d}, 'NF-D', '2027-04-30', 60, 2), (${d}, 'L2', '2027-06-30', 40, 2)`
+					expect((await record(d, "atom-d-1", "typed", 100)).total).toBe(100)
+					expect(await lotsOf(d)).toEqual({ "NF-D": 60, L2: 40 })
+
+					// ── E: o arredondamento fecha no lote LIDO, sem resto em lote sem validade ──
+					const e = await line(10)
+					for (const k of [1, 2, 3]) await record(e, `atom-e-${k}`, "scanner", 3.3333, "CX-1")
+					expect(await lineOf(e)).toEqual({ received: 10, reason: null })
+					expect(await lotsOf(e)).toEqual({ "CX-1": 10 })
+
 					// ── efetivação: falta sem motivo é recusada DENTRO da função ──
 					await record(c, "atom-c-1", "typed", 4)
 					await tx`update inventory.goods_receipt set status = 'provisional', provisional_at = now() where id = ${receipt.id}`
@@ -350,8 +368,8 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					)
 					await tx`update inventory.goods_receipt_item set divergence_reason = 'Falta de 1 KG' where id = ${c}`
 					const [finalized] = await tx`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
-					// A (lote da nota), B e C; o lote zerado OUTRO-L não vira estoque
-					expect(Number(finalized.movements)).toBe(3)
+					// A (lote da nota), B, C, D (dois lotes) e E; o lote zerado OUTRO-L não vira estoque
+					expect(Number(finalized.movements)).toBe(6)
 					const zeroStock = await tx`select 1 from inventory.stock_lot where goods_receipt_item_id = ${a} and lot_code = 'OUTRO-L'`
 					expect(zeroStock).toHaveLength(0)
 					const [status] = await tx`select status from inventory.goods_receipt where id = ${receipt.id}`
