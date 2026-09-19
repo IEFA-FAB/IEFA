@@ -21,11 +21,17 @@
  * relatório de execução se reporta agregado ("1 anexado, 26 sem conta").
  *
  * Uso:
- *   bun run scripts/add-trainees.ts                       # dry-run com scripts/trainees.local.txt
- *   bun run scripts/add-trainees.ts --apply
- *   bun run scripts/add-trainees.ts --file outra-lista.txt --apply
- *   bun run scripts/add-trainees.ts --apply fulano@fab.mil.br  # emails soltos, sem arquivo
- *   bun run scripts/add-trainees.ts --apply --actor <uuid>     # grava o autor no anexo
+ *   bun run scripts/add-trainees.ts --actor <uuid>                       # dry-run com scripts/trainees.local.txt
+ *   bun run scripts/add-trainees.ts --actor <uuid> --apply
+ *   bun run scripts/add-trainees.ts --actor <uuid> --file outra-lista.txt --apply
+ *   bun run scripts/add-trainees.ts --actor <uuid> --apply fulano@fab.mil.br  # emails soltos, sem arquivo
+ *
+ * **`--actor` é obrigatório**: é o uid (em `auth.users`) de QUEM está concedendo — a pessoa
+ * que roda o script, não um id qualquer. Cada anexo passa pela função auditada
+ * `access_control.attach_policy` (migration 20260921120000), que grava o anexo e a linha de
+ * `access_control.sensitive_operation_log` na mesma transação, com esse ator e a operação
+ * `script.add-trainees.attach`. Anexar sem registrar quem concedeu era exatamente o caminho que
+ * a auditoria de acesso fechou; desde 20260921120100 o banco recusa o insert direto.
  *
  * Requer `SISUB_DATABASE_URL` (pooler). Sem `--apply` a transação termina em ROLLBACK, então o
  * dry-run exercita os inserts de verdade e o relatório é o mesmo que o `--apply` produziria.
@@ -55,8 +61,12 @@ function parseArgs(argv: string[]): Args {
 	// Arquivo só entra quando nenhum email foi passado à mão: `--apply a@b` não deve arrastar a
 	// turma inteira junto.
 	if (args.emails.length === 0) args.file ??= DEFAULT_FILE
+	if (!args.actor) throw new Error("--actor <uuid> é obrigatório: o anexo registra no log de auditoria QUEM concedeu (o seu uid em auth.users).")
 	return args
 }
+
+/** Nome da operação no log de auditoria — distingue o lote do botão da SDAB (`attachPolicyFn`). */
+const AUDIT_OPERATION = "script.add-trainees.attach"
 
 /**
  * Lê o arquivo do rol.
@@ -142,10 +152,8 @@ async function main() {
 			`
 			if (!policy) throw new Error(`política "${TRAINING_POLICY}" não encontrada — o seed de treino foi aplicado neste banco?`)
 
-			if (actor) {
-				const [row] = await tx`select 1 from auth.users where id = ${actor}::uuid`
-				if (!row) throw new Error(`--actor ${actor} não existe em auth.users`)
-			}
+			const [actorRow] = await tx`select 1 from auth.users where id = ${actor}::uuid`
+			if (!actorRow) throw new Error(`--actor ${actor} não existe em auth.users`)
 
 			// lower() dos dois lados: auth.users guarda o email como o usuário digitou.
 			const accounts = await tx<{ id: string; email: string }[]>`
@@ -156,13 +164,23 @@ async function main() {
 			const attached: string[] = []
 			const already: string[] = []
 			for (const [email, userId] of byEmail) {
-				const inserted = await tx<{ id: string }[]>`
-					insert into access_control.user_policy_attachment (user_id, policy_id, created_by)
-					values (${userId}::uuid, ${policy.id}::uuid, ${actor}::uuid)
-					on conflict (user_id, policy_id) do nothing
-					returning id
+				// Quem já está em treino fica como está: reanexar pela função reescreveria o prazo
+				// do anexo existente (é a semântica de renovação do console), e o lote não renova.
+				const [existing] = await tx`
+					select 1 from access_control.user_policy_attachment where user_id = ${userId}::uuid and policy_id = ${policy.id}::uuid
 				`
-				;(inserted.length > 0 ? attached : already).push(email)
+				if (existing) {
+					already.push(email)
+					continue
+				}
+				// Anexo + linha de auditoria, na mesma transação (a do lote, que termina em ROLLBACK
+				// no dry-run). Sem prazo: o treino é desanexado pela SDAB quando a turma acaba.
+				await tx`
+					select access_control.attach_policy(
+						${actor}::uuid, ${AUDIT_OPERATION}::text, ${userId}::uuid, ${policy.id}::uuid, null::timestamptz, 'session'::text
+					)
+				`
+				attached.push(email)
 			}
 
 			return { attached, already, missing: emails.filter((e) => !byEmail.has(e)) }

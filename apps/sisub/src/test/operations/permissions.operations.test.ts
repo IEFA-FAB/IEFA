@@ -5,6 +5,17 @@
  *
  * O prazo só tem teste de verdade aqui: a comparação é `now()` do Postgres, e nenhum teste
  * unitário consegue provar que a linha vencida some — só que o SQL a pede.
+ *
+ * ## Escritas de acesso: dentro de uma transação desfeita
+ *
+ * Desde 20260921120000 conceder/alterar/revogar grava a linha de
+ * `access_control.sensitive_operation_log` na MESMA transação, com o ator da sessão — e o ator
+ * tem de existir em `auth.users` (FK `on delete restrict`). Os testes que exercitam essas
+ * operações rodam com um ator semeado e DENTRO de `inRollback`: a mudança e o log são desfeitos
+ * juntos (o log de produção não guarda teste), e o ator pode ser apagado no cleanup. É também o
+ * que permite provar, no banco real, que o log saiu na mesma transação da mudança.
+ *
+ * REQUER a fase 1 (20260921120000) aplicada no banco compartilhado.
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
@@ -21,11 +32,38 @@ import {
 	searchUsersByEmail,
 	updateUserPermission,
 } from "@iefa/sisub-domain"
+import { sql } from "drizzle-orm"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
 
 const ctx = fullAccessCtx()
+
+/** Sentinela do rollback: a transação termina SEMPRE desfeita. */
+class Rollback extends Error {}
+
+/**
+ * Roda `fn` numa transação que é sempre desfeita. As operações de domínio recebem o `tx` como
+ * handle — e enxergam o que escreveram, inclusive a linha de log.
+ */
+async function inRollback(db: SisubDb, fn: (tx: SisubDb) => Promise<void>): Promise<void> {
+	try {
+		await db.transaction(async (tx) => {
+			await fn(tx as unknown as SisubDb)
+			throw new Rollback()
+		})
+	} catch (e) {
+		if (!(e instanceof Rollback)) throw e
+	}
+}
+
+/** A linha de log gravada pela função auditada, lida na MESMA transação. */
+async function logRow(tx: SisubDb, logId: string) {
+	const rows = (await tx.execute(
+		sql`select actor_id, operation, assurance, target from access_control.sensitive_operation_log where id = ${logId}::uuid`
+	)) as unknown as Array<{ actor_id: string; operation: string; assurance: string; target: Record<string, unknown> }>
+	return rows[0] ?? null
+}
 
 /** Instantes de referência do prazo — distantes o bastante para não correrem com a suíte. */
 const PAST = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
@@ -90,27 +128,65 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 		expect(dinerRules[0].level).toBe(2) // a regra explícita, não a injetada
 	})
 
-	test("CRUD admin: create → fetch (ordenado por module) → update → delete", async () => {
+	test("CRUD admin: create → fetch (ordenado por module) → update → delete — cada passo com UMA linha de log na mesma transação", async () => {
+		if (!reachable || !seeder || !db) return
+		const actorId = await seeder.seedAuthUser()
+		const userId = await seeder.seedAuthUser()
+		const actor = fullAccessCtx(actorId)
+
+		await inRollback(db, async (tx) => {
+			const created = await createUserPermission(tx, actor, { userId, module: "kitchen", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: null })
+			expect(created.success).toBe(true)
+			const createdLog = await logRow(tx, created.log_id)
+			expect(createdLog).toMatchObject({ actor_id: actorId, operation: "createUserPermission", assurance: "session" })
+			expect(createdLog?.target).toMatchObject({ target_user_id: userId, module: "kitchen", level: 1, action: "grant" })
+
+			const rows = await fetchUserPermissionsAdmin(tx, actor, { userId })
+			expect(rows).toHaveLength(1)
+			const permId = rows[0].id
+			expect(rows[0].module).toBe("kitchen")
+			expect(rows[0].level).toBe(1)
+
+			const updated = await updateUserPermission(tx, actor, { permissionId: permId, level: 2, mess_hall_id: null, kitchen_id: null, unit_id: null })
+			const afterUpdate = await fetchUserPermissionsAdmin(tx, actor, { userId })
+			expect(afterUpdate[0].level).toBe(2)
+			expect((await logRow(tx, updated.log_id))?.target).toMatchObject({ level: 2, previous: { level: 1 } })
+
+			const deleted = await deleteUserPermission(tx, actor, { permissionId: permId })
+			const afterDelete = await fetchUserPermissionsAdmin(tx, actor, { userId })
+			expect(afterDelete).toHaveLength(0)
+			expect(deleted.removed).toMatchObject({ userId, module: "kitchen", level: 2 })
+			expect((await logRow(tx, deleted.log_id))?.target).toMatchObject({ target_user_id: userId, action: "revoke", previous: { level: 2 } })
+		})
+	})
+
+	test("ator que não existe em auth.users: a concessão NÃO acontece (log e grant são uma transação só)", async () => {
 		if (!reachable || !seeder || !db) return
 		const userId = await seeder.seedAuthUser()
 		seeder.trackWhere("user_permissions", "user_id", userId)
 
-		const created = await createUserPermission(db, ctx, { userId, module: "kitchen", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: null })
-		expect(created).toEqual({ success: true })
+		// `fullAccessCtx()` usa um id que não é conta nenhuma: a linha de log recusa a FK, e o
+		// grant, gravado ANTES dela na mesma função, vai junto.
+		await expect(createUserPermission(db, ctx, { userId, module: "storage", level: 1 })).rejects.toMatchObject({ code: "ACTOR_NOT_FOUND" })
+		expect(await fetchUserPermissionsAdmin(db, ctx, { userId })).toHaveLength(0)
+	})
 
-		const rows = await fetchUserPermissionsAdmin(db, ctx, { userId })
-		expect(rows).toHaveLength(1)
-		const permId = rows[0].id
-		expect(rows[0].module).toBe("kitchen")
-		expect(rows[0].level).toBe(1)
-
-		await updateUserPermission(db, ctx, { permissionId: permId, level: 2, mess_hall_id: null, kitchen_id: null, unit_id: null })
-		const afterUpdate = await fetchUserPermissionsAdmin(db, ctx, { userId })
-		expect(afterUpdate[0].level).toBe(2)
-
-		await deleteUserPermission(db, ctx, { permissionId: permId })
-		const afterDelete = await fetchUserPermissionsAdmin(db, ctx, { userId })
-		expect(afterDelete).toHaveLength(0)
+	test("escrita direta em user_permissions é recusada — só vale depois da fase 2 (20260921120100)", async () => {
+		if (!reachable || !seeder || !db) return
+		const [{ enforced }] = (await db.execute(
+			sql`select exists (select 1 from pg_trigger where tgname = 'enforce_audited_change' and tgrelid = 'access_control.user_permissions'::regclass) as enforced`
+		)) as unknown as Array<{ enforced: boolean }>
+		// Antes da fase 2 não há o que provar — e o teste NÃO pode reprovar a main por isso
+		// (declara → aplica → mergeia). Depois dela, é a garantia de "isso deve ocorrer".
+		if (!enforced) return
+		const userId = await seeder.seedAuthUser()
+		await inRollback(db, async (tx) => {
+			await expect(
+				tx.execute(sql`insert into access_control.user_permissions (user_id, module, level) values (${userId}::uuid, 'kitchen', 1)`)
+			).rejects.toMatchObject({
+				cause: { code: "42501" },
+			})
+		})
 	})
 
 	test("searchUsersByEmail encontra por ilike e devolve { id, email, nrOrdem }", async () => {
@@ -233,45 +309,53 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 
 	test("createUserPermission grava o prazo; updateUserPermission só o toca quando é enviado", async () => {
 		if (!reachable || !seeder || !db) return
+		const actor = fullAccessCtx(await seeder.seedAuthUser())
 		const userId = await seeder.seedAuthUser()
-		seeder.trackWhere("user_permissions", "user_id", userId)
 
-		await createUserPermission(db, ctx, { userId, module: "kitchen", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: null, expires_at: FUTURE })
-		const [created] = await fetchUserPermissionsAdmin(db, ctx, { userId })
-		expect(created.expires_at).not.toBeNull()
-		expect(created.expired).toBe(false)
+		await inRollback(db, async (tx) => {
+			await createUserPermission(tx, actor, { userId, module: "kitchen", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: null, expires_at: FUTURE })
+			const [created] = await fetchUserPermissionsAdmin(tx, actor, { userId })
+			expect(created.expires_at).not.toBeNull()
+			expect(created.expired).toBe(false)
 
-		// Sem `expires_at` no payload o prazo NÃO pode sumir — é o cliente antigo, que não
-		// conhece o campo, editando o nível.
-		await updateUserPermission(db, ctx, { permissionId: created.id, level: 2, mess_hall_id: null, kitchen_id: null, unit_id: null })
-		const [untouched] = await fetchUserPermissionsAdmin(db, ctx, { userId })
-		expect(untouched.level).toBe(2)
-		expect(untouched.expires_at).toBe(created.expires_at)
+			// Sem `expires_at` no payload o prazo NÃO pode sumir — é o cliente antigo, que não
+			// conhece o campo, editando o nível.
+			await updateUserPermission(tx, actor, { permissionId: created.id, level: 2, mess_hall_id: null, kitchen_id: null, unit_id: null })
+			const [untouched] = await fetchUserPermissionsAdmin(tx, actor, { userId })
+			expect(untouched.level).toBe(2)
+			expect(untouched.expires_at).toBe(created.expires_at)
 
-		// `null` explícito LIMPA o prazo: é a diferença entre ausente e nulo.
-		await updateUserPermission(db, ctx, { permissionId: created.id, level: 2, mess_hall_id: null, kitchen_id: null, unit_id: null, expires_at: null })
-		const [cleared] = await fetchUserPermissionsAdmin(db, ctx, { userId })
-		expect(cleared.expires_at).toBeNull()
+			// `null` explícito LIMPA o prazo: é a diferença entre ausente e nulo.
+			await updateUserPermission(tx, actor, { permissionId: created.id, level: 2, mess_hall_id: null, kitchen_id: null, unit_id: null, expires_at: null })
+			const [cleared] = await fetchUserPermissionsAdmin(tx, actor, { userId })
+			expect(cleared.expires_at).toBeNull()
+		})
 	})
 
-	test("attachPolicy é upsert: reanexar REESCREVE o prazo em vez de virar no-op", async () => {
+	test("attachPolicy é upsert: reanexar REESCREVE o prazo em vez de virar no-op — e o log distingue anexo de renovação", async () => {
 		if (!reachable || !seeder || !db) return
+		const actor = fullAccessCtx(await seeder.seedAuthUser())
 		const userId = await seeder.seedAuthUser()
 		const policyId = await seeder.seedPolicy()
 		await seeder.seedPolicyStatement({ policyId, module: "analytics", level: 2 })
 		seeder.trackWhere("user_policy_attachment", "policy_id", policyId)
 
-		await attachPolicy(db, ctx, { userId, policyId, expires_at: PAST })
-		expect(hasPermission(await listEffectiveUserPermissions(db, { userId }), "analytics", 2)).toBe(false)
+		await inRollback(db, async (tx) => {
+			const first = await attachPolicy(tx, actor, { userId, policyId, expires_at: PAST })
+			expect(first.change).toBe("attach")
+			expect(hasPermission(await listEffectiveUserPermissions(tx, { userId }), "analytics", 2)).toBe(false)
 
-		// Renovar sem poder desanexar/reanexar perderia `created_at`/`created_by`.
-		await attachPolicy(db, ctx, { userId, policyId, expires_at: FUTURE })
-		expect(hasPermission(await listEffectiveUserPermissions(db, { userId }), "analytics", 2)).toBe(true)
+			// Renovar sem poder desanexar/reanexar perderia `created_at`/`created_by`.
+			const renewed = await attachPolicy(tx, actor, { userId, policyId, expires_at: FUTURE })
+			expect(renewed.change).toBe("expiry")
+			expect((await logRow(tx, renewed.log_id))?.target).toMatchObject({ change: "expiry", policy_id: policyId })
+			expect(hasPermission(await listEffectiveUserPermissions(tx, { userId }), "analytics", 2)).toBe(true)
 
-		// Reanexar sem prazo torna permanente.
-		await attachPolicy(db, ctx, { userId, policyId })
-		const attached = await listUserPolicies(db, ctx, { userId })
-		expect(attached.find((p) => p.id === policyId)?.expires_at).toBeNull()
+			// Reanexar sem prazo torna permanente.
+			await attachPolicy(tx, actor, { userId, policyId })
+			const attached = await listUserPolicies(tx, actor, { userId })
+			expect(attached.find((p) => p.id === policyId)?.expires_at).toBeNull()
+		})
 	})
 
 	test("listPolicyMembers filtra o anexo vencido por padrão e o devolve marcado com includeExpired", async () => {

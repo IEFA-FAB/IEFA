@@ -31,16 +31,18 @@ function forbiddenDb(): SisubDb {
 	const explode = () => {
 		throw new Error("a operação tocou o banco — o guard deveria ter rejeitado ANTES")
 	}
-	return { select: explode, insert: explode, update: explode, delete: explode } as unknown as SisubDb
+	return { select: explode, insert: explode, update: explode, delete: explode, execute: explode } as unknown as SisubDb
 }
 
-/** Handle que registra a escrita, para o caso em que ela DEVE acontecer. */
+/**
+ * Handle que registra a escrita, para o caso em que ela DEVE acontecer. A escrita de acesso é
+ * a chamada da função SQL auditada (`execute`), desde 20260921120000.
+ */
 function recordingDb(written: { count: number }): SisubDb {
-	const chain = { values: () => Promise.resolve(undefined) }
 	return {
-		insert: () => {
+		execute: () => {
 			written.count++
-			return chain
+			return Promise.resolve([{ result: { log_id: "log-1", permission_id: "perm-1", user_id: "u" } }])
 		},
 	} as unknown as SisubDb
 }

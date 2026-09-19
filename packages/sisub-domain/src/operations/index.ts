@@ -1,3 +1,4 @@
+export { type AccessAudit, type AuditGrade, defaultAccessAudit } from "./access-change.ts"
 export {
 	calculateAtaNeeds,
 	createAta,

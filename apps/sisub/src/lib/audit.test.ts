@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, test } from "vitest"
-import { type AuditEntry, withAudit } from "@/lib/audit"
+import { type AuditEntry, atomicAuditFor, withAudit } from "@/lib/audit"
 import { ASSURANCE_REGISTRY, type AssuranceOperationName } from "@/server/assurance-registry"
 
 /** Gravador de mentira: guarda o que receberia o banco. */
@@ -175,5 +175,20 @@ describe("withAudit", () => {
 		})
 
 		expect(recorder.entries[0]?.target).toBeUndefined()
+	})
+})
+
+describe("atomicAuditFor — mudança de acesso, log gravado pela função SQL", () => {
+	test("devolve o nome da fn e o grau do registro", () => {
+		expect(atomicAuditFor("createUserPermissionFn")).toEqual({ operation: "createUserPermissionFn", grade: "fresh" })
+	})
+
+	test('operação "none" que muda acesso é registrada como session — a coluna não tem "none"', () => {
+		expect(ASSURANCE_REGISTRY.revokeMcpKeyFn.require).toBe("none")
+		expect(atomicAuditFor("revokeMcpKeyFn")).toEqual({ operation: "revokeMcpKeyFn", grade: "session" })
+	})
+
+	test("nome fora do registro falha ANTES de qualquer escrita", () => {
+		expect(() => atomicAuditFor("naoExisteFn" as AssuranceOperationName)).toThrow(/registro de garantia/)
 	})
 })

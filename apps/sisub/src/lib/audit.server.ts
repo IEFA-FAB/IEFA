@@ -12,9 +12,9 @@
  */
 
 import type { AssuranceRequirement } from "@iefa/pbac"
-import { recordSensitiveOperation } from "@iefa/sisub-domain"
+import { type AccessAudit, recordSensitiveOperation } from "@iefa/sisub-domain"
 import type { UserContext } from "@iefa/sisub-domain/types"
-import { type AuditTarget, withAudit } from "@/lib/audit"
+import { type AuditTarget, atomicAuditFor, withAudit } from "@/lib/audit"
 import { getDb } from "@/lib/db.server"
 import { type AssuranceOperationName, enforcedAssuranceFor } from "@/server/assurance-registry"
 
@@ -56,4 +56,35 @@ export function withSensitiveAudit<T>(
 		target,
 		record: (entry) => recordSensitiveOperation(getDb(), ctx, entry),
 	})
+}
+
+/**
+ * Envelope das mudanças de ACESSO (permissões, políticas, anexos, chaves MCP): a operação de
+ * domínio chama uma função SQL que grava a mudança E a linha de auditoria na MESMA transação
+ * (migration 20260921120000). Este envelope NÃO grava nada — gravar aqui duplicaria a linha, e
+ * gravar DEPOIS era exatamente o defeito: log que falha com o acesso já concedido.
+ *
+ * O que ele faz é o que o `withSensitiveAudit` faz ANTES de rodar: resolve o nome no registro
+ * (nome errado falha antes da escrita), entrega o piso de garantia ao guard da operação e o
+ * par (nome, grau) com que a função SQL registra. O ator não passa por aqui: a operação de
+ * domínio o tira do MESMO `ctx` que o guard autorizou.
+ *
+ * ```ts
+ * const ctx = await requireAuth()
+ * return withAtomicAudit("createUserPermissionFn", ({ assurance, audit }) =>
+ * 	createUserPermission(getDb(), ctx, data, assurance, audit)
+ * ).catch(handleDomainError)
+ * ```
+ */
+export function withAtomicAudit<T>(
+	operation: AssuranceOperationName,
+	run: (context: { assurance: AssuranceRequirement; audit: AccessAudit }) => Promise<T>
+): Promise<T> {
+	let audit: AccessAudit
+	try {
+		audit = atomicAuditFor(operation)
+	} catch (error) {
+		return Promise.reject(error)
+	}
+	return run({ assurance: enforcedAssuranceFor(operation), audit })
 }
