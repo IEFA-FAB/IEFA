@@ -214,7 +214,10 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 
 	test("forkTemplate de exceção global leva o pax de cada item e a recorrência mensal", async () => {
 		if (!reachable || !seeder || !db) return
-		const { kitchenId, mealTypeId, recipeId } = await base()
+		const { kitchenId, recipeId } = await base()
+		// Template global só referencia tipo de refeição GLOBAL: o local de uma cozinha
+		// vazaria para todas (`assertTemplateContentInScope`).
+		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
 		// Modelo do catálogo global: sem efetivo base, o quantitativo mora no item.
 		const src = await createTemplate(db, ctx, {
 			name: uid("[TEST] Exceção global "),
@@ -236,7 +239,9 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 
 	test("saveTemplateEdit forka template global editado no contexto de uma cozinha", async () => {
 		if (!reachable || !seeder || !db) return
-		const { kitchenId, mealTypeId, recipeId } = await base()
+		const { kitchenId, recipeId } = await base()
+		// Template global só referencia tipo de refeição GLOBAL (`assertTemplateContentInScope`).
+		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
 
 		// Template GLOBAL (kitchenId ausente) — o catálogo da SDAB.
 		const global = await createTemplate(db, ctx, {
