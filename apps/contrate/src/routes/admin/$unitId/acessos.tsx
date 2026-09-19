@@ -1,7 +1,7 @@
 import type { UserEmailSearchRow } from "@iefa/pbac"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Search, Trash, UserPlus, WarningTriangle } from "iconoir-react"
+import { LockSlash, Prohibition, Search, Trash, UserPlus, WarningTriangle } from "iconoir-react"
 import { useState } from "react"
 import { SectionHeader } from "@/components/alpha/SectionNav"
 import { GLOBAL_UNIT, type UnitChoice, UnitSelect } from "@/components/alpha/UnitSelect"
@@ -12,7 +12,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/useAuth"
-import { ALPHA_GRANT_ROLES, type AlphaGrantRole, canChangeOwnAccess, roleOfModule } from "@/lib/alpha/admin-access"
+import {
+	ALPHA_GRANT_ROLES,
+	type AlphaAdminModule,
+	type AlphaGrantRole,
+	canChangeOwnAccess,
+	type GrantAlphaRoleInput,
+	grantRowKey,
+	isAllowBlockedByDeny,
+	isExpiredGrant,
+	roleOfModule,
+	splitGrantsByEffect,
+} from "@/lib/alpha/admin-access"
 import type { ScopeContext } from "@/lib/scope"
 import {
 	type AlphaGrant,
@@ -50,17 +61,8 @@ const ROLE_INFO: Record<AlphaGrantRole, { label: string; hint: string }> = {
 
 const ROLE_ITEMS = Object.fromEntries(ALPHA_GRANT_ROLES.map((role) => [role, ROLE_INFO[role].label]))
 
-function grantLabel(grant: AlphaGrant): string {
-	return ROLE_INFO[roleOfModule(grant.module)].label
-}
-
-/**
- * Chave de uma linha. OM e nome da política entram junto porque a mesma pessoa pode ter o
- * mesmo papel em duas OMs, e duas políticas podem emprestar o MESMO papel — sem eles, as
- * linhas nascem com a mesma chave de React e uma delas some da lista.
- */
-function grantKey(grant: AlphaGrant): string {
-	return `${grant.source}:${grant.userId}:${grant.module}:${grant.unitId ?? "global"}:${grant.policyName ?? ""}`
+function moduleLabel(module: AlphaAdminModule): string {
+	return ROLE_INFO[roleOfModule(module)].label
 }
 
 function AcessosPage() {
@@ -72,10 +74,12 @@ function AcessosPage() {
 	const isGlobalAdmin = useQuery(adminScopeQueryOptions()).data?.isGlobal ?? false
 	const invalidate = () => queryClient.invalidateQueries({ queryKey: ["alpha", "grants"] })
 
+	// Revoga SÓ o lado da linha clicada: o acesso, ou o bloqueio — o outro lado da chave fica.
 	const revoke = useMutation({
-		mutationFn: (grant: AlphaGrant) => revokeAlphaPermissionFn({ data: { userId: grant.userId, module: grant.module, unitId: grant.unitId } }),
-		onSuccess: () => {
-			toast.success("Acesso revogado")
+		mutationFn: (grant: AlphaGrant) =>
+			revokeAlphaPermissionFn({ data: { userId: grant.userId, module: grant.module, unitId: grant.unitId, effect: grant.effect } }),
+		onSuccess: (_result, grant) => {
+			toast.success(grant.effect === "deny" ? "Bloqueio retirado" : "Acesso revogado")
 			invalidate()
 		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao revogar"),
@@ -105,7 +109,7 @@ function AcessosPage() {
 					isGlobalAdmin={isGlobalAdmin}
 					showUnit={scopeContext.kind === "all"}
 					onRevoke={(grant) => revoke.mutate(grant)}
-					revokingKey={revoke.isPending && revoke.variables ? grantKey(revoke.variables) : null}
+					revokingKey={revoke.isPending && revoke.variables ? grantRowKey(revoke.variables) : null}
 				/>
 			</section>
 
@@ -158,53 +162,131 @@ function GrantsList({
 		return <p className="border border-border p-4 text-muted-foreground text-sm">Nenhum acesso concedido aqui. Conceda o primeiro abaixo.</p>
 	}
 
+	// Acesso e bloqueio coexistem na mesma chave; o bloqueio vence. Um bloqueio nunca aparece
+	// como papel concedido.
+	const { allows, denies } = splitGrantsByEffect(grants)
+
 	return (
-		<ul className="flex flex-col divide-y divide-border border border-border">
-			{grants.map((grant) => {
-				const key = grantKey(grant)
-				const isSelf = grant.userId === currentUserId
-				const selfBlocked = isSelf && !canChangeOwnAccess(isGlobalAdmin, { action: "revoke", module: grant.module })
-				const byPolicy = grant.source === "policy"
-				const isExpired = grant.expiresAt !== null && new Date(grant.expiresAt).getTime() <= Date.now()
-				return (
-					<li key={key} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-						<div className="flex min-w-0 flex-col">
-							<span className="truncate text-sm">{grant.email || grant.userId}</span>
-							{isSelf && <span className="text-muted-foreground text-xs">Você</span>}
-							{byPolicy && <span className="truncate text-muted-foreground text-xs">Pela política “{grant.policyName}”</span>}
-						</div>
-						<div className="flex shrink-0 items-center gap-2">
-							{isExpired && <Badge variant="destructive">Expirado</Badge>}
-							{byPolicy && <Badge variant="outline">Política</Badge>}
-							{showUnit || grant.unitId === null ? (
-								<Badge variant="outline">{grant.unitId === null ? "Global" : (grant.unitCode ?? `OM ${grant.unitId}`)}</Badge>
-							) : null}
-							<Badge variant={grant.module === "alpha-admin" ? "default" : "secondary"}>{grantLabel(grant)}</Badge>
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								disabled={selfBlocked || byPolicy || revokingKey === key}
-								onClick={() => onRevoke(grant)}
-								title={
-									byPolicy
-										? "Acesso emprestado por política — desanexe a política para retirá-lo"
-										: selfBlocked
-											? grant.module === "alpha-admin"
-												? "Ninguém revoga a própria administração de acessos — peça a outro administrador"
-												: "Só um administrador global altera o próprio acesso — peça a outro administrador"
-											: "Revogar acesso"
-								}
-							>
-								<Trash className="size-4" aria-hidden="true" />
-								Revogar
-							</Button>
-						</div>
-					</li>
-				)
-			})}
-		</ul>
+		<div className="flex flex-col gap-6">
+			{allows.length === 0 ? (
+				<p className="border border-border p-4 text-muted-foreground text-sm">Nenhum acesso concedido aqui. Conceda o primeiro abaixo.</p>
+			) : (
+				<ul className="flex flex-col divide-y divide-border border border-border">
+					{allows.map((grant) => {
+						const key = grantRowKey(grant)
+						const isSelf = grant.userId === currentUserId
+						const selfBlocked = isSelf && !canChangeOwnAccess(isGlobalAdmin, { action: "revoke", module: grant.module })
+						const byPolicy = grant.source === "policy"
+						return (
+							<li key={key} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+								<GrantWho grant={grant} isSelf={isSelf} />
+								<div className="flex shrink-0 items-center gap-2">
+									{isExpiredGrant(grant) && <Badge variant="destructive">Expirado</Badge>}
+									{isAllowBlockedByDeny(grant, denies) && (
+										<Badge variant="destructive" title="Há um bloqueio vigente deste papel para esta pessoa — o acesso não vale enquanto ele existir">
+											Anulado por bloqueio
+										</Badge>
+									)}
+									{byPolicy && <Badge variant="outline">Política</Badge>}
+									<UnitBadge grant={grant} showUnit={showUnit} />
+									<Badge variant={grant.module === "alpha-admin" ? "default" : "secondary"}>{moduleLabel(grant.module)}</Badge>
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										disabled={selfBlocked || byPolicy || revokingKey === key}
+										onClick={() => onRevoke(grant)}
+										title={
+											byPolicy
+												? "Acesso emprestado por política — desanexe a política para retirá-lo"
+												: selfBlocked
+													? grant.module === "alpha-admin"
+														? "Ninguém revoga a própria administração de acessos — peça a outro administrador"
+														: "Só um administrador global altera o próprio acesso — peça a outro administrador"
+													: "Revogar o acesso — um bloqueio do mesmo papel, se houver, continua"
+										}
+									>
+										<Trash className="size-4" aria-hidden="true" />
+										Revogar
+									</Button>
+								</div>
+							</li>
+						)
+					})}
+				</ul>
+			)}
+
+			{denies.length > 0 && (
+				<section aria-labelledby="bloqueios" className="flex flex-col gap-3">
+					<div className="flex flex-col gap-1">
+						<h3 id="bloqueios" className="font-semibold text-lg tracking-tight">
+							Bloqueios
+						</h3>
+						<p className="text-muted-foreground text-sm">
+							Um bloqueio anula o papel para a pessoa mesmo que haja acesso concedido, inclusive o concedido aqui.{" "}
+							{isGlobalAdmin
+								? "Retirar o bloqueio não remove o acesso do mesmo papel, e revogar o acesso não retira o bloqueio."
+								: "Só um administrador global retira um bloqueio — aqui ele aparece para consulta."}
+						</p>
+					</div>
+					<ul className="flex flex-col divide-y divide-border border border-destructive/40 bg-destructive/5">
+						{denies.map((grant) => {
+							const key = grantRowKey(grant)
+							const byPolicy = grant.source === "policy"
+							return (
+								<li key={key} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+									<GrantWho grant={grant} isSelf={grant.userId === currentUserId} />
+									<div className="flex shrink-0 items-center gap-2">
+										{isExpiredGrant(grant) && <Badge variant="outline">Expirado — não bloqueia mais</Badge>}
+										{byPolicy && <Badge variant="outline">Política</Badge>}
+										<UnitBadge grant={grant} showUnit={showUnit} />
+										<Badge variant="destructive">
+											<Prohibition aria-hidden="true" />
+											Bloqueio de {moduleLabel(grant.module)}
+										</Badge>
+										{/* Só o global retira — o servidor recusa o escopado de qualquer forma. */}
+										{isGlobalAdmin && (
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												disabled={byPolicy || revokingKey === key}
+												onClick={() => onRevoke(grant)}
+												title={
+													byPolicy
+														? "Bloqueio vindo de política — desanexe a política para retirá-lo"
+														: "Retirar o bloqueio — o acesso do mesmo papel, se houver, continua"
+												}
+											>
+												<LockSlash className="size-4" aria-hidden="true" />
+												Retirar bloqueio
+											</Button>
+										)}
+									</div>
+								</li>
+							)
+						})}
+					</ul>
+				</section>
+			)}
+		</div>
 	)
+}
+
+function GrantWho({ grant, isSelf }: { grant: AlphaGrant; isSelf: boolean }) {
+	return (
+		<div className="flex min-w-0 flex-col">
+			<span className="truncate text-sm">{grant.email || grant.userId}</span>
+			{isSelf && <span className="text-muted-foreground text-xs">Você</span>}
+			{grant.source === "policy" && <span className="truncate text-muted-foreground text-xs">Pela política “{grant.policyName}”</span>}
+		</div>
+	)
+}
+
+/** Na lista de todas as OMs, a OM de cada linha; numa OM só, ela é o título — menos o global, que sempre se marca. */
+function UnitBadge({ grant, showUnit }: { grant: AlphaGrant; showUnit: boolean }) {
+	if (!showUnit && grant.unitId !== null) return null
+	return <Badge variant="outline">{grant.unitId === null ? "Global" : (grant.unitCode ?? `OM ${grant.unitId}`)}</Badge>
 }
 
 function GrantAccess({ scope, currentUserId, onGranted }: { scope: ScopeContext; currentUserId: string | null; onGranted: () => void }) {
@@ -224,13 +306,17 @@ function GrantAccess({ scope, currentUserId, onGranted }: { scope: ScopeContext;
 	})
 
 	const grant = useMutation({
-		mutationFn: () => {
-			if (!selected) throw new Error("Nenhum usuário selecionado")
-			if (unit === null) throw new Error("Escolha a OM do acesso")
-			return grantAlphaPermissionFn({ data: { userId: selected.id, role, unitId: unit === GLOBAL_UNIT ? null : unit } })
-		},
-		onSuccess: () => {
-			toast.success("Acesso concedido")
+		mutationFn: (data: GrantAlphaRoleInput) => grantAlphaPermissionFn({ data }),
+		onSuccess: (result, data) => {
+			if (result.blockedByDeny) {
+				// Gravado, mas sem efeito: o bloqueio da mesma chave vence. "Concedido" seria mentira.
+				toast.warning("Acesso gravado, mas a pessoa continua bloqueada", {
+					description: `Há um bloqueio de ${ROLE_INFO[data.role].label} ${data.unitId === null ? "global" : "nesta OM"} para ela, e o bloqueio vence o acesso enquanto existir. Só um administrador global retira um bloqueio.`,
+					duration: 15_000,
+				})
+			} else {
+				toast.success("Acesso concedido")
+			}
 			setSelected(null)
 			setEmail("")
 			onGranted()
@@ -342,7 +428,14 @@ function GrantAccess({ scope, currentUserId, onGranted }: { scope: ScopeContext;
 						</div>
 					</div>
 					<div>
-						<Button type="button" onClick={() => grant.mutate()} disabled={selfBlocked || unit === null || grant.isPending}>
+						<Button
+							type="button"
+							onClick={() => {
+								if (unit === null) return
+								grant.mutate({ userId: selected.id, role, unitId: unit === GLOBAL_UNIT ? null : unit })
+							}}
+							disabled={selfBlocked || unit === null || grant.isPending}
+						>
 							<UserPlus className="size-4" aria-hidden="true" />
 							Conceder
 						</Button>

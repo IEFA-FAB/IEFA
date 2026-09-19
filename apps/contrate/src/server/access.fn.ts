@@ -12,6 +12,14 @@
  * AQUI, pela hierarquia de apoio. O administrador de uma OM concede e revoga só nela e nas
  * que ela apoia — nunca grant global, nunca sobre si mesmo (`assertGrantable`). O global
  * concede qualquer coisa — inclusive sobre si mesmo, menos revogar o próprio `alpha-admin`.
+ *
+ * ## Bloqueios (deny)
+ *
+ * Acesso (`level > 0`) e bloqueio (`level <= 0`) coexistem na mesma chave, e o bloqueio
+ * vence. A lista devolve os dois lados marcados (`effect`); revogar diz QUAL lado sai, e o
+ * outro fica. Retirar um bloqueio é só do administrador global (`assertGrantable`,
+ * `touchesDeny`) — o escopado o vê, mas não o desfaz. Esta tela não cria bloqueio.
+ *
  * Nada disso confia no cliente: a OM oferecida na tela é só conveniência, e a cobertura é
  * recalculada a cada chamada.
  *
@@ -23,7 +31,15 @@
  */
 
 import type { UnitOption } from "@iefa/alpha-client/access"
-import { changeModulePermission, GrantNotAllowedError, PermissionChangeError, searchUsersByEmail, type UnitCoverage, type UserEmailSearchRow } from "@iefa/pbac"
+import {
+	changeModulePermission,
+	GrantNotAllowedError,
+	PermissionChangeError,
+	partitionOfLevel,
+	searchUsersByEmail,
+	type UnitCoverage,
+	type UserEmailSearchRow,
+} from "@iefa/pbac"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -34,6 +50,7 @@ import {
 	buildAlphaPermissionChange,
 	canListGrants,
 	GrantAlphaRoleSchema,
+	type GrantEffect,
 	RevokeAlphaRoleSchema,
 } from "@/lib/alpha/admin-access"
 import { forbidden, requireAlphaAdmin } from "@/lib/auth.server"
@@ -101,25 +118,29 @@ async function assertSelectableUnit(unitId: number | null): Promise<void> {
 /**
  * Concede UM papel numa OM (ou global). Idempotente: reconceder atualiza o nível e zera o
  * prazo. Registrado no log de auditoria na mesma transação.
+ *
+ * `blockedByDeny`: há bloqueio vivo na mesma chave — o acesso foi gravado, mas não vale
+ * enquanto o bloqueio existir. A tela avisa em vez de dizer só "concedido".
  */
 export const grantAlphaPermissionFn = createServerFn({ method: "POST" })
 	.validator(GrantAlphaRoleSchema)
-	.handler(async ({ data }): Promise<{ ok: true; previousLevel: number | null }> => {
+	.handler(async ({ data }): Promise<{ ok: true; previousLevel: number | null; blockedByDeny: boolean }> => {
 		const { ctx, coverage } = await requireAlphaAdmin()
 		try {
 			// Ator = sessão (`ctx.userId`); o `data` não tem campo de ator.
 			const change = buildAlphaPermissionChange({ actorId: ctx.userId, coverage }, data)
 			await assertSelectableUnit(data.unitId)
 			const result = await changeModulePermission(getAccessControlClient(), change)
-			return { ok: true, previousLevel: result.previousLevel }
+			return { ok: true, previousLevel: result.previousLevel, blockedByDeny: result.denyPresent === true }
 		} catch (error) {
 			rethrowAccessError(error)
 		}
 	})
 
 /**
- * Revoga o grant INLINE de um papel numa OM (ou o global): a chave inteira, allow e deny.
- * Registrado no log na mesma transação; chave sem linha é erro, e nada é registrado.
+ * Revoga UM lado do grant INLINE de um papel numa OM (ou o global): o acesso (`allow`) ou o
+ * bloqueio (`deny`, só o administrador global) — o outro lado da chave fica. Registrado no
+ * log na mesma transação; lado sem linha é erro, e nada é registrado.
  */
 export const revokeAlphaPermissionFn = createServerFn({ method: "POST" })
 	.validator(RevokeAlphaRoleSchema)
@@ -144,7 +165,12 @@ export type AlphaGrant = {
 	/** E-mail institucional; vazio só quando a conta não tem e-mail no GoTrue. */
 	email: string
 	level: number
-	/** ISO 8601, ou `null` sem prazo. Vencido é ausência de acesso, não deny. */
+	/**
+	 * `allow` é acesso (`level > 0`); `deny` é BLOQUEIO (`level <= 0`) — anula o acesso do
+	 * mesmo papel na chave, e a tela nunca o mostra como papel concedido.
+	 */
+	effect: GrantEffect
+	/** ISO 8601, ou `null` sem prazo. Vencido é ausência (de acesso ou de bloqueio), não deny. */
 	expiresAt: string | null
 	/**
 	 * `policy` é acesso emprestado por política anexada, e NÃO se revoga aqui: apagar a
@@ -253,6 +279,7 @@ async function fetchInlineGrants(accessControl: AnySupabaseClient, unitId: numbe
 			module: row.module,
 			unitId: row.unit_id,
 			level: row.level,
+			effect: partitionOfLevel(row.level),
 			expiresAt: row.expires_at,
 			source: "inline" as const,
 		})
@@ -276,15 +303,17 @@ async function fetchPolicyGrants(accessControl: AnySupabaseClient, unitId: numbe
 		throw new Error(statementError.message)
 	}
 
-	type Statement = { policyId: string; module: AlphaAdminModule; level: number; unitId: number | null }
-	// Maior nível por (política, módulo, OM) — a semântica da resolução.
+	type Statement = { policyId: string; module: AlphaAdminModule; level: number; effect: GrantEffect; unitId: number | null }
+	// Maior nível por (política, módulo, OM, lado) — a semântica da resolução. O lado entra na
+	// chave: um deny da política não pode ser engolido pelo allow dela (nem virar um allow).
 	const byKey = new Map<string, Statement>()
 	for (const row of (statements ?? []) as Array<{ policy_id: string; module: AlphaAdminModule; level: number; unit_id: number | null }>) {
 		// Defesa em profundidade: a lista nunca sai da cobertura, mesmo que o filtro acima mude.
 		if (!canListGrants(coverage, row.unit_id)) continue
-		const key = `${row.policy_id}:${row.module}:${row.unit_id ?? ""}`
+		const effect = partitionOfLevel(row.level)
+		const key = `${row.policy_id}:${row.module}:${row.unit_id ?? ""}:${effect}`
 		const current = byKey.get(key)
-		if (!current || row.level > current.level) byKey.set(key, { policyId: row.policy_id, module: row.module, level: row.level, unitId: row.unit_id })
+		if (!current || row.level > current.level) byKey.set(key, { policyId: row.policy_id, module: row.module, level: row.level, effect, unitId: row.unit_id })
 	}
 	if (byKey.size === 0) return []
 
@@ -307,6 +336,7 @@ async function fetchPolicyGrants(accessControl: AnySupabaseClient, unitId: numbe
 					module: statement.module,
 					unitId: statement.unitId,
 					level: statement.level,
+					effect: statement.effect,
 					expiresAt: row.expires_at,
 					source: "policy" as const,
 					policyName: nameById.get(row.policy_id),

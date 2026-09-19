@@ -5,7 +5,7 @@
  */
 
 import type { UnitOption } from "@iefa/alpha-client/access"
-import { assertGrantable, type ChangeModulePermissionInput, type UnitCoverage } from "@iefa/pbac"
+import { assertGrantable, type ChangeModulePermissionInput, touchesDenyPartition, type UnitCoverage } from "@iefa/pbac"
 import { z } from "zod"
 
 /** Os papéis do α e o grant de cada um: módulo PBAC e o ÚNICO nível que ele usa. */
@@ -49,10 +49,22 @@ export const GrantAlphaRoleSchema = z.object({
 })
 export type GrantAlphaRoleInput = z.infer<typeof GrantAlphaRoleSchema>
 
+/**
+ * Os dois lados de uma chave: o acesso (`allow`, `level > 0`) e o bloqueio (`deny`,
+ * `level <= 0`). Coexistem na mesma chave, e o bloqueio vence.
+ */
+export const GRANT_EFFECTS = ["allow", "deny"] as const
+export type GrantEffect = (typeof GRANT_EFFECTS)[number]
+
+/**
+ * `effect` é OBRIGATÓRIO na revogação: revogar o acesso nunca leva junto o bloqueio da
+ * mesma chave, e retirar o bloqueio nunca leva o acesso. Não há "a chave inteira" por aqui.
+ */
 export const RevokeAlphaRoleSchema = z.object({
 	userId: z.uuid(),
 	module: z.enum(ALPHA_ADMIN_MODULES),
 	unitId: z.number().int().nonnegative().nullable(),
+	effect: z.enum(GRANT_EFFECTS),
 })
 export type RevokeAlphaRoleInput = z.infer<typeof RevokeAlphaRoleSchema>
 
@@ -63,7 +75,9 @@ export const AUDIT_APP = "contrate"
  * A alteração a gravar, depois da política de administração escopada (`assertGrantable`):
  * OM dentro da cobertura, global só pelo administrador global; sobre si mesmo, só o
  * global — e ninguém revoga o próprio `alpha-admin` (trancaria o ator para fora da tela).
- * A alteração sobre si mesmo é auditada como qualquer outra: ator e alvo iguais no log.
+ * Retirar um bloqueio (deny) é só do global; esta tela não cria bloqueio (o grant é sempre
+ * o nível positivo do papel). A alteração sobre si mesmo é auditada como qualquer outra:
+ * ator e alvo iguais no log.
  *
  * O ator é `actorId` — o `userId` do guard, passado pela server function. O `data` nunca o
  * fornece, nem se trouxer um campo com esse nome.
@@ -72,27 +86,39 @@ export function buildAlphaPermissionChange(
 	admin: { actorId: string; coverage: UnitCoverage },
 	data: GrantAlphaRoleInput | RevokeAlphaRoleInput
 ): ChangeModulePermissionInput {
+	const change: ChangeModulePermissionInput =
+		"role" in data
+			? {
+					actorId: admin.actorId,
+					app: AUDIT_APP,
+					action: "grant",
+					targetUserId: data.userId,
+					module: ALPHA_ROLE_GRANTS[data.role].module,
+					level: ALPHA_ROLE_GRANTS[data.role].level,
+					unitId: data.unitId,
+					// Conceder é acesso vivo, sem prazo — reaplicar reativa uma linha vencida.
+					expiresAt: null,
+				}
+			: {
+					actorId: admin.actorId,
+					app: AUDIT_APP,
+					action: "revoke",
+					targetUserId: data.userId,
+					module: data.module,
+					unitId: data.unitId,
+					// Só o lado pedido sai: o outro lado da chave fica.
+					partition: data.effect,
+				}
+
 	assertGrantable(admin, {
 		userId: data.userId,
 		unitId: data.unitId,
-		revokesAdministration: "module" in data && data.module === ALPHA_ROLE_GRANTS.admin.module,
+		// Trancar-se para fora é revogar o próprio ACESSO de administração; retirar o próprio
+		// bloqueio não tranca ninguém.
+		revokesAdministration: change.action === "revoke" && change.module === ALPHA_ROLE_GRANTS.admin.module && change.partition !== "deny",
+		touchesDeny: touchesDenyPartition(change),
 	})
-
-	if ("role" in data) {
-		const grant = ALPHA_ROLE_GRANTS[data.role]
-		return {
-			actorId: admin.actorId,
-			app: AUDIT_APP,
-			action: "grant",
-			targetUserId: data.userId,
-			module: grant.module,
-			level: grant.level,
-			unitId: data.unitId,
-			// Conceder é acesso vivo, sem prazo — reaplicar reativa uma linha vencida.
-			expiresAt: null,
-		}
-	}
-	return { actorId: admin.actorId, app: AUDIT_APP, action: "revoke", targetUserId: data.userId, module: data.module, unitId: data.unitId }
+	return change
 }
 
 /**
@@ -122,4 +148,51 @@ export function canChangeOwnAccess(isGlobalAdmin: boolean, change: { action: "gr
 export function canListGrants(coverage: UnitCoverage, unitId: number | null): boolean {
 	if (coverage === "all") return true
 	return unitId !== null && coverage.includes(unitId)
+}
+
+/** O que a lista de acessos precisa de uma linha para decidir chave, lado e bloqueio. */
+export interface GrantRowLike {
+	source: "inline" | "policy"
+	effect: GrantEffect
+	userId: string
+	module: AlphaAdminModule
+	unitId: number | null
+	policyName?: string
+	expiresAt: string | null
+}
+
+/**
+ * Chave de React de uma linha. OM e nome da política entram porque a mesma pessoa pode ter
+ * o mesmo papel em duas OMs, e duas políticas podem emprestar o MESMO papel; o lado
+ * (`effect`) entra porque acesso e bloqueio coexistem na MESMA chave do banco — sem ele as
+ * duas linhas nasceriam com a mesma chave e uma sumiria da lista.
+ */
+export function grantRowKey(grant: GrantRowLike): string {
+	return `${grant.source}:${grant.effect}:${grant.userId}:${grant.module}:${grant.unitId ?? "global"}:${grant.policyName ?? ""}`
+}
+
+/** Vencido é ausência — de acesso ou de bloqueio (`NOT_EXPIRED`). */
+export function isExpiredGrant(grant: Pick<GrantRowLike, "expiresAt">, now: number = Date.now()): boolean {
+	return grant.expiresAt !== null && new Date(grant.expiresAt).getTime() <= now
+}
+
+/** Separa acessos de bloqueios: a tela nunca mostra um bloqueio como papel concedido. */
+export function splitGrantsByEffect<T extends GrantRowLike>(grants: readonly T[]): { allows: T[]; denies: T[] } {
+	return { allows: grants.filter((grant) => grant.effect === "allow"), denies: grants.filter((grant) => grant.effect === "deny") }
+}
+
+/**
+ * Um bloqueio VIVO desta lista anula o acesso? O da mesma chave (pessoa, papel, OM) e o
+ * global do papel (deny sem OM derruba o papel inteiro). Só o que está na lista: um
+ * bloqueio fora dela (global, na lista de uma OM só) não aparece aqui.
+ */
+export function isAllowBlockedByDeny(allow: GrantRowLike, denies: readonly GrantRowLike[], now: number = Date.now()): boolean {
+	return denies.some(
+		(deny) =>
+			deny.effect === "deny" &&
+			deny.userId === allow.userId &&
+			deny.module === allow.module &&
+			(deny.unitId === null || deny.unitId === allow.unitId) &&
+			!isExpiredGrant(deny, now)
+	)
 }

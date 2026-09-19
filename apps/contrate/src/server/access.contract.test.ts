@@ -64,3 +64,16 @@ describe("o arquivo não escreve em user_permissions por fora do helper", () => 
 		expect(SOURCE).not.toMatch(/grantModulePermission|revokeModulePermission|grantUnscopedModulePermission/)
 	})
 })
+
+/**
+ * A tela que chama estas server functions. Lida como fonte pelo mesmo motivo: montar a rota
+ * pediria o router e o servidor inteiros.
+ */
+describe("tela de acessos", () => {
+	const PAGE = readFileSync(join(import.meta.dir, "../routes/admin/$unitId/acessos.tsx"), "utf8")
+
+	// Revogar sem o lado apagaria a chave inteira — acesso E bloqueio.
+	test("a revogação manda o lado da linha clicada", () => {
+		expect(PAGE).toMatch(/revokeAlphaPermissionFn\(\{ data: \{[^}]*effect: grant\.effect/)
+	})
+})
