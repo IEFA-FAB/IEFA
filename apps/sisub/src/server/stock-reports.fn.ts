@@ -12,6 +12,7 @@
 import { isInflow } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { assertNoBlindCountHides, hiddenByBlindCount } from "@/lib/blind-count.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -80,7 +81,8 @@ export const listClosingsFn = createServerFn({ method: "GET" })
 export const fetchBalanceteFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), competencia: competenciaSchema }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const ctx = await requireStorageForKitchen(1, data.kitchenId)
+		await assertNoBlindCountHides(data.kitchenId, ctx, "O balancete")
 		const { from, to } = monthRange(data.competencia)
 
 		const { data: moves, error } = await inventory()
@@ -147,7 +149,12 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), ingredientId: z.uuid(), competencia: competenciaSchema }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const ctx = await requireStorageForKitchen(1, data.kitchenId)
+		// a ficha é o saldo acumulado do item: com o item numa contagem cega
+		// aberta, ela é exatamente o número que a contagem esconde
+		if ((await hiddenByBlindCount(data.kitchenId, ctx)).has(data.ingredientId)) {
+			throw new Error("A ficha deste item fica indisponível enquanto ele estiver numa contagem cega aberta")
+		}
 		const { from, to } = monthRange(data.competencia)
 		const inv = inventory()
 
@@ -182,7 +189,8 @@ export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 export const exportCatmatCsvFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), competencia: competenciaSchema }))
 	.handler(async ({ data }): Promise<string> => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const ctx = await requireStorageForKitchen(1, data.kitchenId)
+		await assertNoBlindCountHides(data.kitchenId, ctx, "A exportação")
 		const balancete = await fetchBalanceteFn({ data })
 
 		const ingredientIds = balancete.map((row) => row.ingredientId).filter((id): id is string => id != null)

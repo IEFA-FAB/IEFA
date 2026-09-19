@@ -564,9 +564,19 @@ export const ASSURANCE_REGISTRY = {
 
 	// ── stock.fn.ts
 	createTransferFn: { require: "none" },
-	createInventoryCountFn: { require: "none" },
-	upsertCountItemFn: { require: "none" },
-	confirmInventoryCountFn: { require: "none" },
+
+	// ── count.fn.ts
+	// Aprovar inventário lança ajuste contábil com uma linha por diferença, mas
+	// segue `none` como o resto do módulo: a classificação existe e o registro
+	// sensível é gravado; o enforcement de MFA é decisão do change de garantia.
+	openInventoryCountFn: { require: "none" },
+	postCountEntriesFn: { require: "none" },
+	addFoundItemFn: { require: "none" },
+	acceptNotCountedFn: { require: "none" },
+	reviewInventoryCountFn: { require: "none" },
+	openRecountFn: { require: "none" },
+	approveInventoryCountFn: { require: "none" },
+	rejectInventoryCountFn: { require: "none" },
 
 	// ── supply-order.fn.ts
 	createSupplyOrderFn: { require: "none" },

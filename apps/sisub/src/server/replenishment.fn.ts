@@ -15,6 +15,7 @@ import { applyCorrectionFactors, calculateNetNeed, decideChannel, estimateLeadTi
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { assertNoBlindCountHides } from "@/lib/blind-count.server"
 import { getDb } from "@/lib/db.server"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -51,6 +52,8 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), horizonDays: z.number().int().min(1).max(60).default(14) }))
 	.handler(async ({ data }): Promise<ReplenishmentSuggestion[]> => {
 		const ctx = await requireStorageForKitchen(1, data.kitchenId)
+		// a sugestão é demanda − saldo: com o item em contagem cega, ela revela o saldo
+		await assertNoBlindCountHides(data.kitchenId, ctx, "A reposição")
 		const inv = inventory()
 		const kit = kitchen()
 		const proc = procurement()

@@ -118,6 +118,17 @@ export {
 	temperatureDivergenceReason,
 	temperatureVerdict,
 } from "./conditioning.ts"
+export {
+	type ClockWindow,
+	type CountEntryInput,
+	type CountLineVariance,
+	type CountTolerance,
+	type CountVarianceVerdict,
+	evaluateCountLine,
+	movedDuringSync,
+	type ResolvedInstant,
+	resolveCountedAt,
+} from "./count-math.ts"
 export { getUnitDashboard, type UnitDashboardData } from "./dashboard.ts"
 export { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 export type {
