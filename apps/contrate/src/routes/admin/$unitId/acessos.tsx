@@ -1,627 +1,392 @@
-import type { UserEmailSearchRow } from "@iefa/pbac"
-import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Lock, LockSlash, Prohibition, Search, Trash, UserPlus, WarningTriangle } from "iconoir-react"
-import { useState } from "react"
+import { NavArrowLeft, NavArrowRight, Search, UserPlus, WarningTriangle, Xmark } from "iconoir-react"
+import { useCallback, useEffect, useState } from "react"
+import { GrantRolesForm } from "@/components/access/GrantRolesForm"
+import { PeopleTable } from "@/components/access/PeopleTable"
+import { PersonPanel } from "@/components/access/PersonPanel"
 import { SectionHeader } from "@/components/alpha/SectionNav"
-import { GLOBAL_UNIT, type UnitChoice, UnitSelect } from "@/components/alpha/UnitSelect"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/useAuth"
-import {
-	ALPHA_GRANT_ROLES,
-	type AlphaAdminModule,
-	type AlphaGrantRole,
-	canChangeOwnAccess,
-	copilotBlockState,
-	distinctPeople,
-	type GrantAlphaRoleInput,
-	grantRowKey,
-	initialGrantUnit,
-	isExpiredGrant,
-	roleOfModule,
-	type SetCopilotBlockInput,
-	splitGrantsByEffect,
-} from "@/lib/alpha/admin-access"
-import type { ScopeContext } from "@/lib/scope"
-import {
-	type AlphaGrant,
-	fetchAdminScopeFn,
-	grantAlphaPermissionFn,
-	listAlphaGrantsFn,
-	revokeAlphaPermissionFn,
-	searchUsersByEmailFn,
-	setAlphaCopilotBlockFn,
-} from "@/server/access.fn"
+import { ALPHA_GRANT_ROLES, type AlphaGrantRole, initialGrantUnit, ROLE_INFO } from "@/lib/alpha/admin-access"
+import { formatCount } from "@/lib/alpha/format"
+import { PAGE_SIZES, type PageSize, type PeopleQuery, type PeopleSearch, PeopleSearchSchema, type PeopleStatusFilter, peopleQueryOf } from "@/lib/alpha/people"
+import { fetchAdminScopeFn, listAlphaPeopleFn } from "@/server/access.fn"
 
-const grantsQueryOptions = (unitId: number | null) =>
-	queryOptions({ queryKey: ["alpha", "grants", unitId ?? "todas"] as const, queryFn: () => listAlphaGrantsFn({ data: { unitId } }) })
+const peopleQueryOptions = (scopeUnitId: number | null, query: PeopleQuery) =>
+	queryOptions({
+		queryKey: ["alpha", "access", "people", scopeUnitId ?? "todas", query] as const,
+		queryFn: () => listAlphaPeopleFn({ data: { scopeUnitId, ...query } }),
+	})
 
 const adminScopeQueryOptions = () => queryOptions({ queryKey: ["alpha", "adminScope"] as const, queryFn: () => fetchAdminScopeFn(), staleTime: 60_000 })
 
 export const Route = createFileRoute("/admin/$unitId/acessos")({
+	// Busca, filtros, ordem, página e a pessoa aberta moram na URL: o F5 e o link copiado
+	// abrem a mesma lista. Valor que não serve cai no padrão (`PeopleSearchSchema`).
+	validateSearch: (search: Record<string, unknown>): PeopleSearch => PeopleSearchSchema.parse(search),
+	loaderDeps: ({ search }) => ({ query: peopleQueryOf(search) }),
 	// A OM já foi conferida pela rota-mãe; as server functions reconferem a cobertura.
-	loader: ({ context }) => {
-		void context.queryClient.query({ ...grantsQueryOptions(context.scopeContext.unitId), staleTime: "static" }).catch(() => {})
+	loader: ({ context, deps }) => {
+		void context.queryClient.prefetchQuery(peopleQueryOptions(context.scopeContext.unitId, deps.query))
 	},
 	head: () => ({ meta: [{ title: "Acessos | Contrate" }] }),
 	component: AcessosPage,
 })
 
-/**
- * Os papéis concedíveis. Não são aninhados: cada um é um grant próprio, por OM — a mesma
- * pessoa pode ser Licitações no GAP-SJ e Requisitante no IEFA-SJ.
- */
-const ROLE_INFO: Record<AlphaGrantRole, { label: string; hint: string }> = {
-	requester: { label: "Requisitante", hint: "Vê todas as submissões da OM — enviar documento não exige papel" },
-	procurement: { label: "Licitações", hint: "Vê a fila e os processos da OM" },
-	aci: { label: "ACI", hint: "Tria achados e emite parecer nos processos da OM; o global também cura regras e fontes" },
-	admin: { label: "Administração de acessos", hint: "Concede e revoga papéis na OM e nas que ela apoia" },
+const STATUS_LABEL: Record<PeopleStatusFilter, string> = {
+	ativo: "Com acesso valendo",
+	bloqueado: "Com bloqueio",
+	anulado: "Anulados por bloqueio",
+	expira: "Vencem em 30 dias",
+	vencido: "Com acesso vencido",
 }
 
-const ROLE_ITEMS = Object.fromEntries(ALPHA_GRANT_ROLES.map((role) => [role, ROLE_INFO[role].label]))
-
-function moduleLabel(module: AlphaAdminModule): string {
-	return ROLE_INFO[roleOfModule(module)].label
-}
+const ALL = "todos"
 
 function AcessosPage() {
-	const queryClient = useQueryClient()
 	const { user } = useAuth()
-	const { scopeContext } = Route.useRouteContext()
 	const currentUserId = user?.id ?? null
-	const grants = useQuery(grantsQueryOptions(scopeContext.unitId))
-	const isGlobalAdmin = useQuery(adminScopeQueryOptions()).data?.isGlobal ?? false
-	const invalidate = () => queryClient.invalidateQueries({ queryKey: ["alpha", "grants"] })
+	const { scopeContext } = Route.useRouteContext()
+	const search = Route.useSearch()
+	const navigate = Route.useNavigate()
+	const query = peopleQueryOf(search)
+	const scopeUnitId = scopeContext.unitId
 
-	// Revoga SÓ o lado da linha clicada: o acesso, ou o bloqueio — o outro lado da chave fica.
-	const revoke = useMutation({
-		mutationFn: (grant: AlphaGrant) =>
-			revokeAlphaPermissionFn({ data: { userId: grant.userId, module: grant.module, unitId: grant.unitId, effect: grant.effect } }),
-		onSuccess: (_result, grant) => {
-			toast.success(grant.effect === "deny" ? "Bloqueio retirado" : "Acesso revogado")
-			invalidate()
-		},
-		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao revogar"),
-	})
+	const list = useQuery({ ...peopleQueryOptions(scopeUnitId, query), placeholderData: keepPreviousData })
+	const adminScope = useQuery(adminScopeQueryOptions())
+	const isGlobalAdmin = adminScope.data?.isGlobal ?? false
+	const [granting, setGranting] = useState(false)
+
+	/** Muda a URL. Filtro novo volta à página 1; a pessoa aberta fica. */
+	const updateSearch = useCallback(
+		(patch: Partial<PeopleSearch>, { resetPage = true, replace = true } = {}) =>
+			navigate({ search: (prev: PeopleSearch) => ({ ...prev, ...patch, ...(resetPage ? { page: undefined } : {}) }), replace }),
+		[navigate]
+	)
+	const openPerson = useCallback((userId: string) => updateSearch({ person: userId }, { resetPage: false, replace: false }), [updateSearch])
+
+	const filtered = query.q !== undefined || query.role !== undefined || query.unit !== undefined || query.status !== undefined
+	const units = adminScope.data?.units ?? []
+	const listedUnits = list.data?.units
+	const unitOptions = listedUnits === undefined ? [] : listedUnits === "all" ? units : units.filter((unit) => listedUnits.includes(unit.id))
+	const showUnitFilter = listedUnits === "all" || unitOptions.length > 1
+	const defaultUnit = initialGrantUnit(scopeContext)
 
 	return (
-		<div className="flex flex-col gap-10">
+		<div className="flex flex-col gap-6">
 			<SectionHeader
 				eyebrow={`Projeto α · Acessos · ${scopeContext.label}`}
 				title="Acessos"
 				subtitle={
 					scopeContext.kind === "all"
-						? "Os papéis do Projeto α em todas as OMs, inclusive os globais. Cada concessão e revogação fica registrada com quem a fez."
-						: `Os papéis do Projeto α em ${scopeContext.label}. Quem tem papel na OM que apoia outras alcança também as apoiadas. Cada concessão e revogação fica registrada com quem a fez.`
+						? "Quem tem papel do Projeto α em todas as OMs, inclusive os globais. Cada concessão e revogação fica registrada com quem a fez."
+						: `Quem tem papel do Projeto α em ${scopeContext.label} e nas OMs que ela apoia. Cada concessão e revogação fica registrada com quem a fez.`
+				}
+				actions={
+					<Button type="button" onClick={() => setGranting(true)}>
+						<UserPlus aria-hidden="true" />
+						Conceder acesso
+					</Button>
 				}
 			/>
 
-			<section aria-labelledby="quem-tem-acesso" className="flex flex-col gap-4">
-				<h2 id="quem-tem-acesso" className="font-semibold text-xl tracking-tight">
+			<section aria-labelledby="quem-tem-acesso" className="flex flex-col gap-3">
+				<h2 id="quem-tem-acesso" className="sr-only">
 					Quem tem acesso
 				</h2>
-				<GrantsList
-					grants={grants.data}
-					isLoading={grants.isLoading}
-					error={grants.error}
-					currentUserId={currentUserId}
-					isGlobalAdmin={isGlobalAdmin}
-					showUnit={scopeContext.kind === "all"}
-					onRevoke={(grant) => revoke.mutate(grant)}
-					revokingKey={revoke.isPending && revoke.variables ? grantRowKey(revoke.variables) : null}
-				/>
-			</section>
 
-			{/* Desligar alguém do α inteiro é decisão do administrador global — o servidor recusa
-			    o escopado de qualquer forma (`buildAlphaBlockChange`). */}
-			{isGlobalAdmin && grants.data && grants.data.length > 0 && (
-				<CopilotBlockSection grants={grants.data} currentUserId={currentUserId} onChanged={invalidate} />
-			)}
-
-			{/* `key`: trocar de OM remonta o formulário. Sem ela o estado guardava a OM anterior
-			    e a concessão podia sair para a OM que já não está na tela. */}
-			<GrantAccess key={scopeContext.id} scope={scopeContext} currentUserId={currentUserId} onGranted={invalidate} />
-		</div>
-	)
-}
-
-function GrantsList({
-	grants,
-	isLoading,
-	error,
-	currentUserId,
-	isGlobalAdmin,
-	showUnit,
-	onRevoke,
-	revokingKey,
-}: {
-	grants: AlphaGrant[] | undefined
-	isLoading: boolean
-	error: unknown
-	currentUserId: string | null
-	isGlobalAdmin: boolean
-	/** Na lista de todas as OMs, a OM de cada grant; numa OM só, ela é o título da página. */
-	showUnit: boolean
-	onRevoke: (grant: AlphaGrant) => void
-	revokingKey: string | null
-}) {
-	// Carregando, falhou e vazio são três telas. Lista vazia depois de erro afirmaria que
-	// ninguém tem acesso.
-	if (isLoading) {
-		return (
-			<div className="flex flex-col gap-2">
-				<Skeleton className="h-12 w-full" />
-				<Skeleton className="h-12 w-full" />
-			</div>
-		)
-	}
-
-	if (error) {
-		return (
-			<div className="flex items-start gap-3 border border-destructive/40 bg-destructive/5 p-4 text-sm">
-				<WarningTriangle className="size-5 shrink-0 text-destructive" aria-hidden="true" />
-				<span>A consulta falhou: {error instanceof Error ? error.message : "não foi possível carregar os acessos."}</span>
-			</div>
-		)
-	}
-
-	if (!grants || grants.length === 0) {
-		return <p className="border border-border p-4 text-muted-foreground text-sm">Nenhum acesso concedido aqui. Conceda o primeiro abaixo.</p>
-	}
-
-	// Acesso e bloqueio coexistem na mesma chave; o bloqueio vence. Um bloqueio nunca aparece
-	// como papel concedido.
-	const { allows, denies } = splitGrantsByEffect(grants)
-
-	return (
-		<div className="flex flex-col gap-6">
-			{allows.length === 0 ? (
-				<p className="border border-border p-4 text-muted-foreground text-sm">Nenhum acesso concedido aqui. Conceda o primeiro abaixo.</p>
-			) : (
-				<ul className="flex flex-col divide-y divide-border border border-border">
-					{allows.map((grant) => {
-						const key = grantRowKey(grant)
-						const isSelf = grant.userId === currentUserId
-						const selfBlocked = isSelf && !canChangeOwnAccess(isGlobalAdmin, { action: "revoke", module: grant.module })
-						const byPolicy = grant.source === "policy"
-						return (
-							<li key={key} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-								<GrantWho grant={grant} isSelf={isSelf} />
-								<div className="flex shrink-0 items-center gap-2">
-									{isExpiredGrant(grant) && <Badge variant="destructive">Expirado</Badge>}
-									{/* Calculado no servidor com a mesma regra da API do α: bloqueio global, na
-									    OM ou numa OM que a apoia anula; numa OM apoiada, não. */}
-									{grant.denyImpact === "full" && (
-										<Badge
-											variant="destructive"
-											title="Há um bloqueio vigente deste papel para esta pessoa que alcança esta OM — global, nela ou numa OM que a apoia. O acesso não vale enquanto ele existir"
-										>
-											Anulado por bloqueio
-										</Badge>
-									)}
-									{grant.denyImpact === "partial" && (
-										<Badge variant="destructive" title="Há bloqueio deste papel para esta pessoa em algumas OMs — nelas o acesso global não vale">
-											Recortado por bloqueio
-										</Badge>
-									)}
-									{byPolicy && <Badge variant="outline">Política</Badge>}
-									<UnitBadge grant={grant} showUnit={showUnit} />
-									<Badge variant={grant.module === "alpha-admin" ? "default" : "secondary"}>{moduleLabel(grant.module)}</Badge>
-									<Button
-										type="button"
-										variant="ghost"
-										size="sm"
-										disabled={selfBlocked || byPolicy || revokingKey === key}
-										onClick={() => onRevoke(grant)}
-										title={
-											byPolicy
-												? "Acesso emprestado por política — desanexe a política para retirá-lo"
-												: selfBlocked
-													? grant.module === "alpha-admin"
-														? "Ninguém revoga a própria administração de acessos — peça a outro administrador"
-														: "Só um administrador global altera o próprio acesso — peça a outro administrador"
-													: "Revogar o acesso — um bloqueio do mesmo papel, se houver, continua"
-										}
-									>
-										<Trash className="size-4" aria-hidden="true" />
-										Revogar
-									</Button>
-								</div>
-							</li>
-						)
-					})}
-				</ul>
-			)}
-
-			{denies.length > 0 && (
-				<section aria-labelledby="bloqueios" className="flex flex-col gap-3">
-					<div className="flex flex-col gap-1">
-						<h3 id="bloqueios" className="font-semibold text-lg tracking-tight">
-							Bloqueios
-						</h3>
-						<p className="text-muted-foreground text-sm">
-							Um bloqueio anula o papel para a pessoa mesmo que haja acesso concedido, inclusive o concedido aqui.{" "}
-							{denies.some((grant) => grant.inherited) &&
-								"Herdado é o bloqueio global ou de uma OM que apoia esta: gravado fora daqui, ele alcança os acessos desta OM. "}
-							{isGlobalAdmin
-								? "Retirar o bloqueio não remove o acesso do mesmo papel, e revogar o acesso não retira o bloqueio."
-								: "Só um administrador global retira um bloqueio — aqui ele aparece para consulta."}
-						</p>
-					</div>
-					<ul className="flex flex-col divide-y divide-border border border-destructive/40 bg-destructive/5">
-						{denies.map((grant) => {
-							const key = grantRowKey(grant)
-							const byPolicy = grant.source === "policy"
-							return (
-								<li key={key} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-									<GrantWho grant={grant} isSelf={grant.userId === currentUserId} />
-									<div className="flex shrink-0 items-center gap-2">
-										{isExpiredGrant(grant) && <Badge variant="outline">Expirado — não bloqueia mais</Badge>}
-										{grant.inherited && (
-											<Badge
-												variant="outline"
-												title={
-													grant.unitId === null
-														? "Bloqueio global do papel — vale também nesta OM"
-														: "Bloqueio numa OM que apoia esta — o bloqueio da apoiadora vale também para as OMs que ela apoia"
-												}
-											>
-												Herdado
-											</Badge>
-										)}
-										{byPolicy && <Badge variant="outline">Política</Badge>}
-										{/* O herdado não é desta OM: mostra de onde ele vem. */}
-										<UnitBadge grant={grant} showUnit={showUnit || grant.inherited} />
-										<Badge variant="destructive">
-											<Prohibition aria-hidden="true" />
-											Bloqueio de {moduleLabel(grant.module)}
-										</Badge>
-										{/* Só o global retira — o servidor recusa o escopado de qualquer forma. */}
-										{isGlobalAdmin && (
-											<Button
-												type="button"
-												variant="ghost"
-												size="sm"
-												disabled={byPolicy || revokingKey === key}
-												onClick={() => onRevoke(grant)}
-												title={
-													byPolicy
-														? "Bloqueio vindo de política — desanexe a política para retirá-lo"
-														: grant.inherited
-															? `Retirar o bloqueio ${grant.unitId === null ? "global" : `em ${grant.unitCode ?? `OM ${grant.unitId}`}`} — sai de lá, e não só desta OM; o acesso do mesmo papel, se houver, continua`
-															: "Retirar o bloqueio — o acesso do mesmo papel, se houver, continua"
-												}
-											>
-												<LockSlash className="size-4" aria-hidden="true" />
-												Retirar bloqueio
-											</Button>
-										)}
-									</div>
-								</li>
-							)
-						})}
-					</ul>
-				</section>
-			)}
-		</div>
-	)
-}
-
-/**
- * "Bloquear no copiloto": uma pessoa por linha, com o estado do bloqueio SEM OM nos quatro
- * papéis e o botão que o cria (ou retira) de uma vez. A confirmação é obrigatória — o clique
- * derruba todos os papéis da pessoa em todas as OMs.
- */
-function CopilotBlockSection({ grants, currentUserId, onChanged }: { grants: AlphaGrant[]; currentUserId: string | null; onChanged: () => void }) {
-	const [pending, setPending] = useState<{ userId: string; email: string; blocked: boolean } | null>(null)
-	const people = distinctPeople(grants)
-
-	const change = useMutation({
-		mutationFn: (data: SetCopilotBlockInput) => setAlphaCopilotBlockFn({ data }),
-		onSuccess: (result) => {
-			if (result.changed === 0) {
-				toast.info(
-					result.blocked ? "A pessoa já estava bloqueada no copiloto" : "Não havia bloqueio no copiloto a retirar",
-					result.blocked ? undefined : { description: "Um bloqueio que vem de política se retira desanexando a política." }
-				)
-			} else {
-				toast.success(result.blocked ? "Bloqueado no copiloto" : "Desbloqueado no copiloto")
-			}
-			setPending(null)
-			onChanged()
-		},
-		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao alterar o bloqueio"),
-	})
-
-	return (
-		<section aria-labelledby="bloqueio-copiloto" className="flex flex-col gap-4">
-			<div className="flex flex-col gap-1">
-				<h2 id="bloqueio-copiloto" className="font-semibold text-xl tracking-tight">
-					Bloqueio no copiloto
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					Para desligar alguém do Projeto α de uma vez — saída da OM, fim da função. O bloqueio vale em todas as OMs e nos quatro papéis, e fica registrado com
-					quem o fez. Os acessos concedidos não são apagados: voltam a valer no desbloqueio.
-				</p>
-			</div>
-			<ul className="flex flex-col divide-y divide-border border border-border">
-				{people.map((person) => {
-					const state = copilotBlockState(grants, person.userId)
-					const isSelf = person.userId === currentUserId
-					const busy = change.isPending && change.variables?.userId === person.userId
-					return (
-						<li key={person.userId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-							<div className="flex min-w-0 flex-col">
-								<span className="truncate text-sm">{person.email || person.userId}</span>
-								{isSelf && <span className="text-muted-foreground text-xs">Você</span>}
-							</div>
-							<div className="flex shrink-0 items-center gap-2">
-								{state === "blocked" && (
-									<Badge variant="destructive">
-										<Prohibition aria-hidden="true" />
-										Bloqueado no copiloto
-									</Badge>
-								)}
-								{state === "partial" && (
-									<Badge variant="outline" title="Há bloqueio sem OM em parte dos papéis — bloquear completa os quatro; desbloquear retira os que houver">
-										Bloqueio parcial
-									</Badge>
-								)}
-								{state === "none" ? (
-									<Button
-										type="button"
-										variant="destructive"
-										size="sm"
-										disabled={isSelf || busy}
-										title={isSelf ? "Ninguém bloqueia a si mesmo — peça a outro administrador global" : "Bloquear nos quatro papéis, em todas as OMs"}
-										onClick={() => setPending({ ...person, blocked: true })}
-									>
-										<Lock className="size-4" aria-hidden="true" />
-										Bloquear no copiloto
-									</Button>
-								) : (
-									<>
-										{state === "partial" && (
-											<Button type="button" variant="destructive" size="sm" disabled={isSelf || busy} onClick={() => setPending({ ...person, blocked: true })}>
-												<Lock className="size-4" aria-hidden="true" />
-												Completar bloqueio
-											</Button>
-										)}
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											disabled={isSelf || busy}
-											title={isSelf ? "Ninguém altera o próprio bloqueio — peça a outro administrador global" : "Retirar o bloqueio sem OM dos quatro papéis"}
-											onClick={() => setPending({ ...person, blocked: false })}
-										>
-											<LockSlash className="size-4" aria-hidden="true" />
-											Desbloquear
-										</Button>
-									</>
-								)}
-							</div>
-						</li>
-					)
-				})}
-			</ul>
-
-			<Dialog open={pending !== null} onOpenChange={(open) => !open && !change.isPending && setPending(null)}>
-				<DialogContent className="sm:max-w-lg">
-					<DialogHeader>
-						<DialogTitle>{pending?.blocked ? "Bloquear no copiloto?" : "Desbloquear no copiloto?"}</DialogTitle>
-						<DialogDescription>
-							{pending?.blocked
-								? `${pending.email || "Esta pessoa"} perde os quatro papéis do Projeto α — Requisitante, Licitações, ACI e Administração de acessos — em todas as OMs, e não envia mais documento. Os acessos concedidos ficam guardados e voltam no desbloqueio. A conversa com o copiloto e a leitura do que ela mesma enviou seguem abertas, como para qualquer conta.`
-								: `Os papéis concedidos a ${pending?.email || "esta pessoa"} voltam a valer. Bloqueios de uma OM específica, se houver, continuam.`}
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setPending(null)} disabled={change.isPending}>
-							Cancelar
-						</Button>
-						<Button
-							variant={pending?.blocked ? "destructive" : "default"}
-							disabled={pending === null || change.isPending}
-							onClick={() => pending && change.mutate({ userId: pending.userId, blocked: pending.blocked })}
+				<div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+					<SearchField value={query.q ?? ""} onChange={(q) => updateSearch({ q: q || undefined })} />
+					<div className="flex flex-wrap items-center gap-2">
+						<Select<string>
+							value={query.role ?? ALL}
+							onValueChange={(value) => updateSearch({ role: value === ALL || value === null ? undefined : (value as AlphaGrantRole) })}
 						>
-							{change.isPending ? "Gravando…" : pending?.blocked ? "Bloquear" : "Desbloquear"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</section>
-	)
-}
+							<SelectTrigger aria-label="Filtrar por papel" className="h-9 min-w-36">
+								<SelectValue>{query.role ? ROLE_INFO[query.role].label : "Todos os papéis"}</SelectValue>
+							</SelectTrigger>
+							<SelectContent alignItemWithTrigger={false}>
+								<SelectItem value={ALL}>Todos os papéis</SelectItem>
+								<SelectSeparator />
+								{ALPHA_GRANT_ROLES.map((role) => (
+									<SelectItem key={role} value={role}>
+										{ROLE_INFO[role].label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 
-function GrantWho({ grant, isSelf }: { grant: AlphaGrant; isSelf: boolean }) {
-	return (
-		<div className="flex min-w-0 flex-col">
-			<span className="truncate text-sm">{grant.email || grant.userId}</span>
-			{isSelf && <span className="text-muted-foreground text-xs">Você</span>}
-			{grant.source === "policy" && <span className="truncate text-muted-foreground text-xs">Pela política “{grant.policyName}”</span>}
-		</div>
-	)
-}
-
-/** Na lista de todas as OMs, a OM de cada linha; numa OM só, ela é o título — menos o global, que sempre se marca. */
-function UnitBadge({ grant, showUnit }: { grant: AlphaGrant; showUnit: boolean }) {
-	if (!showUnit && grant.unitId !== null) return null
-	return <Badge variant="outline">{grant.unitId === null ? "Global" : (grant.unitCode ?? `OM ${grant.unitId}`)}</Badge>
-}
-
-function GrantAccess({ scope, currentUserId, onGranted }: { scope: ScopeContext; currentUserId: string | null; onGranted: () => void }) {
-	const [email, setEmail] = useState("")
-	const [selected, setSelected] = useState<UserEmailSearchRow | null>(null)
-	const [role, setRole] = useState<AlphaGrantRole>("requester")
-	// Parte da OM aberta. Em "todas", nada é pré-escolhido: grant global às cegas é o erro caro.
-	// Vale a cada troca de OM porque a página remonta este componente (`key={scope.id}`).
-	const [unit, setUnit] = useState<UnitChoice | null>(initialGrantUnit(scope))
-	const adminScope = useQuery(adminScopeQueryOptions())
-
-	const term = email.trim()
-	const search = useQuery({
-		queryKey: ["alpha", "userSearch", term],
-		queryFn: () => searchUsersByEmailFn({ data: { email: term } }),
-		enabled: term.length >= 3,
-		staleTime: 30_000,
-	})
-
-	const grant = useMutation({
-		mutationFn: (data: GrantAlphaRoleInput) => grantAlphaPermissionFn({ data }),
-		onSuccess: (result, data) => {
-			// `blocked` é a cobertura efetiva do papel, calculada no servidor com a regra da API do
-			// α — não só o bloqueio da mesma chave. "Concedido" para um acesso anulado seria mentira.
-			const label = ROLE_INFO[data.role].label
-			if (result.blocked === true && result.partial) {
-				toast.warning("Acesso gravado, mas bloqueado em parte das OMs", {
-					description: `Há bloqueio de ${label} para esta pessoa em algumas OMs; nelas o bloqueio vence o acesso global enquanto existir. Só um administrador global retira um bloqueio.`,
-					duration: 15_000,
-				})
-			} else if (result.blocked === true) {
-				toast.warning("Acesso gravado, mas a pessoa continua bloqueada", {
-					description: `Há um bloqueio de ${label} para ela que alcança ${data.unitId === null ? "todas as OMs" : "esta OM — global, nela ou numa OM que a apoia"}, e o bloqueio vence o acesso enquanto existir. Só um administrador global retira um bloqueio.`,
-					duration: 15_000,
-				})
-			} else if (result.blocked === null) {
-				toast.warning("Acesso concedido, mas sem conferência de bloqueio", {
-					description: "O acesso foi gravado, mas não foi possível conferir se algum bloqueio o anula. Confira a lista de acessos.",
-					duration: 15_000,
-				})
-			} else {
-				toast.success("Acesso concedido")
-			}
-			setSelected(null)
-			setEmail("")
-			onGranted()
-		},
-		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao conceder"),
-	})
-
-	// O global pode conceder a si mesmo (fica no log como qualquer concessão); o de OM, não.
-	const selfBlocked = selected !== null && selected.id === currentUserId && !canChangeOwnAccess(adminScope.data?.isGlobal ?? false, { action: "grant" })
-
-	return (
-		<section aria-labelledby="conceder-acesso" className="flex flex-col gap-4">
-			<div className="flex flex-col gap-1">
-				<h2 id="conceder-acesso" className="font-semibold text-xl tracking-tight">
-					Conceder acesso
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					Conceder de novo o mesmo papel na mesma OM não cria um segundo acesso. Você concede só nas OMs que administra
-					{adminScope.data?.isGlobal ? ", e só você, como administrador global, concede acesso global" : ""}.
-				</p>
-			</div>
-
-			<div className="relative max-w-xl">
-				<Search className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" aria-hidden="true" />
-				<Input
-					type="search"
-					value={email}
-					onChange={(e) => {
-						setEmail(e.target.value)
-						setSelected(null)
-					}}
-					placeholder="Buscar por e-mail…"
-					aria-label="Buscar usuário por e-mail"
-					className="pl-9"
-				/>
-			</div>
-
-			{term.length >= 3 && (
-				<ul className="flex max-w-xl flex-col divide-y divide-border border border-border">
-					{search.isLoading && <li className="px-4 py-3 text-muted-foreground text-sm">Buscando…</li>}
-					{search.error && <li className="px-4 py-3 text-destructive text-sm">A busca falhou. Tente de novo.</li>}
-					{search.data?.length === 0 && (
-						// O cadastro de pessoas do ERP só recebe a linha no login: sem esta explicação o
-						// administrador concluiria que a conta não existe.
-						<li className="px-4 py-3 text-muted-foreground text-sm">
-							Ninguém encontrado. Só aparece aqui quem já entrou ao menos uma vez em um sistema do IEFA que registra o cadastro — peça à pessoa que entre e
-							busque de novo.
-						</li>
-					)}
-					{search.data?.map((row) => (
-						<li key={row.id}>
-							<button
-								type="button"
-								onClick={() => setSelected(row)}
-								aria-pressed={selected?.id === row.id}
-								className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-muted ${selected?.id === row.id ? "bg-muted" : ""}`}
-							>
-								<span className="truncate">{row.email}</span>
-								{row.nrOrdem && <span className="shrink-0 font-mono text-muted-foreground text-xs">{row.nrOrdem}</span>}
-							</button>
-						</li>
-					))}
-				</ul>
-			)}
-
-			{selected && (
-				<div className="flex max-w-3xl flex-col gap-4 border border-border p-4">
-					<div className="flex flex-col gap-1">
-						<span className="font-medium">{selected.email}</span>
-						{selfBlocked && <span className="text-destructive text-xs">Este é o seu próprio acesso — só um administrador global o altera.</span>}
-					</div>
-					<div className="grid gap-3 sm:grid-cols-2">
-						<div className="flex min-w-0 flex-col gap-1.5">
-							<label htmlFor="grant-role" className="text-muted-foreground text-xs uppercase tracking-wider">
-								Papel
-							</label>
-							{/* `items` porque valor e rótulo diferem: sem ele o trigger mostra "procurement". */}
-							<Select items={ROLE_ITEMS} value={role} onValueChange={(v) => setRole((v as AlphaGrantRole | null) ?? "requester")}>
-								<SelectTrigger id="grant-role" className="w-full">
-									<SelectValue />
+						{showUnitFilter ? (
+							<Select<string> value={search.unit ?? ALL} onValueChange={(value) => updateSearch({ unit: value === ALL || value === null ? undefined : value })}>
+								<SelectTrigger aria-label="Filtrar por OM" className="h-9 min-w-32">
+									<SelectValue>
+										{search.unit === undefined
+											? "Todas as OMs"
+											: search.unit === "global"
+												? "Só global"
+												: (units.find((unit) => String(unit.id) === search.unit)?.code ?? `OM ${search.unit}`)}
+									</SelectValue>
 								</SelectTrigger>
-								<SelectContent>
-									{ALPHA_GRANT_ROLES.map((value) => (
-										<SelectItem key={value} value={value}>
-											{ROLE_INFO[value].label} — {ROLE_INFO[value].hint}
+								<SelectContent alignItemWithTrigger={false} className="max-h-80">
+									<SelectItem value={ALL}>Todas as OMs</SelectItem>
+									{listedUnits === "all" ? <SelectItem value="global">Só global</SelectItem> : null}
+									<SelectSeparator />
+									{unitOptions.map((unit) => (
+										<SelectItem key={unit.id} value={String(unit.id)}>
+											<span className="font-medium">{unit.code}</span>
+											{unit.display_name && unit.display_name !== unit.code ? (
+												<span className="truncate text-muted-foreground">{unit.display_name}</span>
+											) : null}
 										</SelectItem>
 									))}
 								</SelectContent>
 							</Select>
-						</div>
-						<div className="flex min-w-0 flex-col gap-1.5">
-							<label htmlFor="grant-unit" className="text-muted-foreground text-xs uppercase tracking-wider">
-								OM
-							</label>
-							{adminScope.isError ? (
-								<p className="text-destructive text-sm">Não foi possível carregar as OMs que você administra.</p>
-							) : (
-								<UnitSelect
-									id="grant-unit"
-									units={adminScope.data?.units ?? []}
-									value={unit}
-									onChange={setUnit}
-									allowGlobal={adminScope.data?.isGlobal ?? false}
-									placeholder={adminScope.isLoading ? "carregando as OMs…" : "selecione a OM"}
-									disabled={adminScope.isLoading}
-									className="max-w-none"
-								/>
-							)}
-						</div>
-					</div>
-					<div>
-						<Button
-							type="button"
-							onClick={() => {
-								if (unit === null) return
-								grant.mutate({ userId: selected.id, role, unitId: unit === GLOBAL_UNIT ? null : unit })
-							}}
-							disabled={selfBlocked || unit === null || grant.isPending}
+						) : null}
+
+						<Select<string>
+							value={query.status ?? ALL}
+							onValueChange={(value) => updateSearch({ status: value === ALL || value === null ? undefined : (value as PeopleStatusFilter) })}
 						>
-							<UserPlus className="size-4" aria-hidden="true" />
-							Conceder
-						</Button>
+							<SelectTrigger aria-label="Filtrar por situação" className="h-9 min-w-40">
+								<SelectValue>{query.status ? STATUS_LABEL[query.status] : "Qualquer situação"}</SelectValue>
+							</SelectTrigger>
+							<SelectContent alignItemWithTrigger={false}>
+								<SelectItem value={ALL}>Qualquer situação</SelectItem>
+								<SelectSeparator />
+								{(Object.keys(STATUS_LABEL) as PeopleStatusFilter[]).map((status) => (
+									<SelectItem key={status} value={status}>
+										{STATUS_LABEL[status]}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+
+						{filtered ? (
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onClick={() => updateSearch({ q: undefined, role: undefined, unit: undefined, status: undefined })}
+							>
+								<Xmark aria-hidden="true" />
+								Limpar filtros
+							</Button>
+						) : null}
 					</div>
 				</div>
+
+				<ListSummary data={list.data} filtered={filtered} isLoading={list.isLoading} />
+
+				{list.isError && !list.data ? (
+					<div role="alert" className="flex items-start gap-3 border border-destructive/40 bg-destructive/5 p-4 text-sm">
+						<WarningTriangle className="size-5 shrink-0 text-destructive" aria-hidden="true" />
+						<span>
+							A consulta falhou: {list.error instanceof Error ? list.error.message : "não foi possível carregar os acessos."} Nada aqui significa que ninguém
+							tem acesso.
+						</span>
+					</div>
+				) : list.isLoading || !list.data ? (
+					<div role="status" className="flex flex-col gap-1.5" aria-busy="true" aria-label="Carregando a lista de acessos">
+						{Array.from({ length: 6 }, (_, index) => (
+							<Skeleton key={index} className="h-14 w-full" />
+						))}
+					</div>
+				) : (
+					<>
+						<PeopleTable
+							rows={list.data.rows}
+							sort={query.sort}
+							dir={query.dir}
+							onSortChange={(sort, dir) => updateSearch({ sort, dir }, { resetPage: true })}
+							onOpen={openPerson}
+							currentUserId={currentUserId}
+							isFetching={list.isPlaceholderData}
+							caption={`Pessoas com papel do Projeto α em ${scopeContext.label}`}
+							empty={
+								list.data.grandTotal === 0 ? (
+									<div className="flex flex-col items-start gap-3">
+										<p className="text-sm">Ninguém tem papel do Projeto α aqui ainda.</p>
+										<Button type="button" variant="outline" size="sm" onClick={() => setGranting(true)}>
+											<UserPlus aria-hidden="true" />
+											Conceder o primeiro acesso
+										</Button>
+									</div>
+								) : (
+									<div className="flex flex-col items-start gap-3">
+										<p className="text-sm">Nenhuma pessoa com esses filtros, entre {formatCount(list.data.grandTotal)} com papel aqui.</p>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() => updateSearch({ q: undefined, role: undefined, unit: undefined, status: undefined })}
+										>
+											Limpar filtros
+										</Button>
+									</div>
+								)
+							}
+						/>
+						<Pagination
+							page={list.data.page}
+							pageCount={list.data.pageCount}
+							size={query.size}
+							onPage={(page) => updateSearch({ page: page === 1 ? undefined : page }, { resetPage: false })}
+							onSize={(size) => updateSearch({ size: size === 50 ? undefined : size })}
+						/>
+					</>
+				)}
+			</section>
+
+			<Sheet open={granting} onOpenChange={setGranting}>
+				<SheetContent side="right" className="w-full overflow-y-auto data-[side=right]:sm:max-w-lg">
+					<SheetHeader className="border-border border-b pr-12">
+						<p className="text-label text-muted-foreground">Projeto α · {scopeContext.label}</p>
+						<SheetTitle className="font-semibold text-xl tracking-tight">Conceder acesso</SheetTitle>
+						<SheetDescription>
+							Escolha a pessoa, a OM e quantos papéis quiser. Você concede só nas OMs que administra
+							{isGlobalAdmin ? ", e só o administrador global concede acesso global" : ""}.
+						</SheetDescription>
+					</SheetHeader>
+					<div className="px-4 pb-8">
+						{adminScope.isError ? (
+							<p className="text-destructive text-sm">Não foi possível carregar as OMs que você administra.</p>
+						) : adminScope.isLoading ? (
+							<Skeleton className="h-40 w-full" />
+						) : (
+							<GrantRolesForm
+								units={units}
+								allowGlobal={isGlobalAdmin}
+								initialUnit={defaultUnit}
+								currentUserId={currentUserId}
+								isGlobalAdmin={isGlobalAdmin}
+								onClose={() => setGranting(false)}
+							/>
+						)}
+					</div>
+				</SheetContent>
+			</Sheet>
+
+			<PersonPanel
+				userId={search.person ?? null}
+				onOpenChange={(open) => {
+					if (!open) updateSearch({ person: undefined }, { resetPage: false })
+				}}
+				currentUserId={currentUserId}
+				isGlobalAdmin={isGlobalAdmin}
+				units={units}
+				defaultUnit={defaultUnit}
+			/>
+		</div>
+	)
+}
+
+/** Busca com espera: a URL (e o servidor) só mudam 300 ms depois da última tecla. */
+function SearchField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+	const [draft, setDraft] = useState(value)
+
+	// A URL mudou por fora (limpar filtros, voltar): o campo acompanha.
+	useEffect(() => setDraft(value), [value])
+
+	useEffect(() => {
+		if (draft.trim() === value) return
+		const handle = setTimeout(() => onChange(draft.trim()), 300)
+		return () => clearTimeout(handle)
+	}, [draft, value, onChange])
+
+	return (
+		<div className="relative w-full lg:max-w-sm">
+			<Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-4 text-muted-foreground" aria-hidden="true" />
+			<Input
+				type="search"
+				value={draft}
+				onChange={(event) => setDraft(event.target.value)}
+				onKeyDown={(event) => {
+					if (event.key === "Enter") onChange(draft.trim())
+				}}
+				placeholder="Buscar por nome, e-mail ou Nr. de ordem"
+				aria-label="Buscar pessoa por nome, e-mail ou Nr. de ordem"
+				className="h-9 pl-8"
+			/>
+		</div>
+	)
+}
+
+/** "1.024 pessoas" — o total do recorte, e de quantas ele é recorte. */
+function ListSummary({
+	data,
+	filtered,
+	isLoading,
+}: {
+	data: { total: number; grandTotal: number; from: number; to: number } | undefined
+	filtered: boolean
+	isLoading: boolean
+}) {
+	if (isLoading || !data) return <p className="h-5 text-muted-foreground text-sm">&nbsp;</p>
+	const people = (count: number) => `${formatCount(count)} ${count === 1 ? "pessoa" : "pessoas"}`
+	return (
+		<p className="text-muted-foreground text-sm" aria-live="polite">
+			{filtered ? (
+				<>
+					<span className="font-medium text-foreground">{people(data.total)}</span> no filtro, de {people(data.grandTotal)} com papel
+				</>
+			) : (
+				<>
+					<span className="font-medium text-foreground">{people(data.total)}</span> com papel
+				</>
 			)}
-		</section>
+			{data.total > 0 ? ` · mostrando ${formatCount(data.from)}–${formatCount(data.to)}` : ""}
+		</p>
+	)
+}
+
+function Pagination({
+	page,
+	pageCount,
+	size,
+	onPage,
+	onSize,
+}: {
+	page: number
+	pageCount: number
+	size: PageSize
+	onPage: (page: number) => void
+	onSize: (size: PageSize) => void
+}) {
+	return (
+		<nav aria-label="Paginação da lista de acessos" className="flex flex-wrap items-center justify-between gap-3">
+			<div className="flex items-center gap-2 text-muted-foreground text-sm">
+				<span id="por-pagina">Por página</span>
+				<Select<string> value={String(size)} onValueChange={(value) => value && onSize(Number(value) as PageSize)}>
+					<SelectTrigger aria-labelledby="por-pagina" className="h-8 w-20">
+						<SelectValue>{String(size)}</SelectValue>
+					</SelectTrigger>
+					<SelectContent alignItemWithTrigger={false}>
+						{PAGE_SIZES.map((option) => (
+							<SelectItem key={option} value={String(option)}>
+								{option}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</div>
+			<div className="flex items-center gap-2">
+				<Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+					<NavArrowLeft aria-hidden="true" />
+					Anterior
+				</Button>
+				<span className="min-w-28 text-center text-sm tabular-nums" aria-current="page">
+					Página {formatCount(page)} de {formatCount(pageCount)}
+				</span>
+				<Button type="button" variant="outline" size="sm" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
+					Próxima
+					<NavArrowRight aria-hidden="true" />
+				</Button>
+			</div>
+		</nav>
 	)
 }
