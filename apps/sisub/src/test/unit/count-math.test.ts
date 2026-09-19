@@ -5,7 +5,7 @@
  * o instante da contagem vale mais que o de agora, o relógio do tablet não é
  * confiável, e divergência relevante precisa das DUAS tolerâncias.
  */
-import { evaluateCountLine, lineQuantity, movedDuringSync, resolveCountedAt, unlottedReference } from "@iefa/sisub-domain"
+import { evaluateCountLine, movedDuringSync, resolveCountedAt } from "@iefa/sisub-domain"
 import { describe, expect, test } from "vitest"
 
 describe("resolveCountedAt", () => {
@@ -50,32 +50,6 @@ describe("movedDuringSync", () => {
 	})
 })
 
-describe("lineQuantity", () => {
-	test("duas pessoas na mesma câmara somam", () => {
-		expect(
-			lineQuantity([
-				{ quantity: 12, countedAt: "2026-09-18T09:00:00.000Z" },
-				{ quantity: 8, countedAt: "2026-09-18T09:05:00.000Z" },
-			])
-		).toBe(20)
-	})
-
-	test("sobrescrita anula o que veio antes dela, e soma o que veio depois", () => {
-		expect(
-			lineQuantity([
-				{ quantity: 12, countedAt: "2026-09-18T09:00:00.000Z" },
-				{ quantity: 8, countedAt: "2026-09-18T09:05:00.000Z" },
-				{ quantity: 30, countedAt: "2026-09-18T09:10:00.000Z", overwrite: true },
-				{ quantity: 5, countedAt: "2026-09-18T09:15:00.000Z" },
-			])
-		).toBe(35)
-	})
-
-	test("sem lançamento, zero", () => {
-		expect(lineQuantity([])).toBe(0)
-	})
-})
-
 describe("evaluateCountLine", () => {
 	const tolerance = { percent: 5, floorValue: 50 }
 
@@ -105,26 +79,5 @@ describe("evaluateCountLine", () => {
 	test("contado igual ao ledger não é divergência nem com saldo zero", () => {
 		expect(evaluateCountLine({ counted: 0, ledger: 0, unitCost: 10 }, tolerance).percent).toBe(0)
 		expect(evaluateCountLine({ counted: 0, ledger: 0, unitCost: 10 }, tolerance).needsRecount).toBe(false)
-	})
-})
-
-describe("unlottedReference", () => {
-	test("a linha sem lote é comparada com os lotes que ninguém contou", () => {
-		// cenário da spec: arroz com L1 (10) e L2 (5), L1 contado, lançado
-		// "arroz sem lote 5" — não pode gerar sobra de 5 nem falta de 5
-		const referencia = unlottedReference(
-			0,
-			[
-				{ lotId: "L1", balance: 10 },
-				{ lotId: "L2", balance: 5 },
-			],
-			["L1"]
-		)
-		expect(referencia).toBe(5)
-		expect(evaluateCountLine({ counted: 5, ledger: referencia, unitCost: 4 }, { percent: 5, floorValue: 50 }).difference).toBe(0)
-	})
-
-	test("com todos os lotes contados, sobra só o saldo sem lote", () => {
-		expect(unlottedReference(3, [{ lotId: "L1", balance: 10 }], ["L1"])).toBe(3)
 	})
 })

@@ -81,26 +81,11 @@ export function movedDuringSync(movementInstants: readonly string[], countedAt: 
 	})
 }
 
-export interface CountEntryRecord {
-	quantity: number
-	countedAt: string
-	overwrite?: boolean
-}
-
-/**
- * Quantidade da linha: soma dos lançamentos, com a sobrescrita anulando o que
- * veio antes dela.
- *
- * Somar é o default porque duas pessoas contando prateleiras diferentes do
- * mesmo lote têm as duas razão; sobrescrever é a saída explícita de quem
- * contou errado e não quer somar mais um lançamento de correção.
- */
-export function lineQuantity(entries: readonly CountEntryRecord[]): number {
-	if (entries.length === 0) return 0
-	const ordered = [...entries].sort((a, b) => (a.countedAt < b.countedAt ? -1 : a.countedAt > b.countedAt ? 1 : 0))
-	const lastOverwrite = ordered.reduce<number>((found, entry, index) => (entry.overwrite ? index : found), -1)
-	return ordered.slice(lastOverwrite === -1 ? 0 : lastOverwrite).reduce((total, entry) => total + entry.quantity, 0)
-}
+// A quantidade da linha (soma com sobrescrita) e a referência da linha SEM
+// lote moravam aqui, em TypeScript, e também no SQL da aprovação — e as duas
+// cópias divergiam: a folha mostrava diferença zero onde a aprovação lançava
+// perda. As duas agora são de `inventory.count_lines`, a única definição, que
+// a folha e a aprovação leem.
 
 export interface CountLineVariance {
 	counted: number
@@ -137,17 +122,4 @@ export function evaluateCountLine(line: CountLineVariance, tolerance: CountToler
 		percent,
 		needsRecount: percent > tolerance.percent && differenceValue > tolerance.floorValue,
 	}
-}
-
-/**
- * Linha "sem lote" de um item: o saldo de referência é o saldo sem lote MAIS o
- * dos lotes do item que ninguém contou individualmente.
- *
- * Sem isso, contar "arroz, 5 KG" numa cozinha que tem L1 (10 KG, contado) e L2
- * (5 KG, não contado) acusaria 5 KG de sobra no item e 5 KG de falta em L2 —
- * duas linhas de ajuste para um estoque que está exatamente certo.
- */
-export function unlottedReference(unlottedBalance: number, lots: readonly { lotId: string; balance: number }[], countedLotIds: readonly string[]): number {
-	const counted = new Set(countedLotIds)
-	return lots.filter((lot) => !counted.has(lot.lotId)).reduce((total, lot) => total + lot.balance, unlottedBalance)
 }

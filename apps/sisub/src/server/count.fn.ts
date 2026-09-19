@@ -22,9 +22,10 @@
  */
 
 import { hasPermission } from "@iefa/pbac"
-import { evaluateCountLine, lineQuantity, unlottedReference } from "@iefa/sisub-domain"
+import { evaluateCountLine } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -108,209 +109,179 @@ interface CountSheetLine {
 	notCountedAccepted: boolean
 }
 
+type CountLineRow = {
+	lot_id: string | null
+	ingredient_id: string | null
+	frozen_preparation_id: string | null
+	owner_count_id: string
+	counted_qty: number | string | null
+	entries: number
+	counted_at: string | null
+	ledger_qty: number | string
+	accepted_not_counted: boolean
+}
+
 /**
  * A folha.
  *
- * `reveal` decide se o saldo viaja na resposta. Ele é calculado AQUI, com o
- * nível do usuário e o estado do documento, e nunca vem do cliente: a folha
- * cega que devolve o saldo "só para o React esconder" não é cega.
+ * As linhas e a referência de cada uma vêm de `inventory.count_lines` — a
+ * MESMA função que a aprovação lança. A folha calculava a linha sem lote por
+ * conta própria, e a tela dizia diferença zero onde a aprovação lançava perda.
+ *
+ * `reveal` decide se o saldo viaja na resposta, e é calculado AQUI, com o nível
+ * do usuário e o estado do documento — nunca vem do cliente. Nível 2 só vê o
+ * saldo depois do FIM (aprovada, rejeitada, vencida): na revisão ele ainda pode
+ * ser chamado a recontar, e recontagem de quem viu o esperado não é cega.
  */
 export const fetchCountSheetFn = createServerFn({ method: "GET" })
 	.validator(z.object({ countId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: count } = await inv
+		const { data: count, error: countError } = await inv
 			.from("inventory_count")
 			.select(
-				"id, kitchen_id, status, type, scope, blind, round, competencia, created_at, expires_at, created_by, approved_at, approval_exception_reason, approved_by, approved_by_own_entry"
+				"id, kitchen_id, status, type, scope, blind, round, parent_count_id, competencia, created_at, expires_at, created_by, approved_at, approval_exception_reason, approved_by, approved_by_own_entry"
 			)
 			.eq("id", data.countId)
 			.maybeSingle()
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
 		if (!count) throw new Error("Contagem não encontrada")
-		const ctx = await requireStorageForKitchen(2, Number(count.kitchen_id))
+		const kitchenId = Number(count.kitchen_id)
+		const ctx = await requireStorageForKitchen(2, kitchenId)
 
-		// Cego enquanto está sendo contado, e só para quem conta. Nível 3 vê
-		// porque é ele quem revisa e aprova — e depois de encerrada todo mundo vê,
-		// senão a revisão não teria como ser conferida.
-		const counting = count.status === "counting" || count.status === "recount" || count.status === "draft"
-		const isManager = hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id: Number(count.kitchen_id) })
-		const reveal = !count.blind || !counting || isManager
+		const finished = ["approved", "rejected", "expired"].includes(String(count.status))
+		const isManager = hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id: kitchenId })
+		const reveal = !count.blind || finished || isManager
 
-		const [{ data: scope }, { data: entries }] = await Promise.all([
-			inv.from("count_scope_item").select("ingredient_id, frozen_preparation_id, found, not_counted_accepted").eq("count_id", data.countId),
+		const rows = await readAllPages<CountLineRow>("as linhas da contagem", (from, to) =>
 			inv
-				.from("inventory_count_entry")
-				.select("lot_id, ingredient_id, frozen_preparation_id, quantity, counted_at, overwrite, counted_by")
-				.eq("count_id", data.countId),
-		])
+				.rpc("count_lines", { p_count_id: data.countId })
+				.order("ingredient_id", { ascending: true, nullsFirst: false })
+				.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
+				.order("lot_id", { ascending: true, nullsFirst: true })
+				.order("owner_count_id", { ascending: true })
+				.range(from, to)
+		)
 
-		type Entry = {
-			lot_id: string | null
-			ingredient_id: string | null
-			frozen_preparation_id: string | null
-			quantity: number
-			counted_at: string
-			overwrite: boolean
-		}
-		const entryRows = (entries ?? []) as Entry[]
+		const scope = await readAllPages<{ ingredient_id: string | null; frozen_preparation_id: string | null; found: boolean; not_counted_accepted: boolean }>(
+			"o escopo da contagem",
+			(from, to) =>
+				inv
+					.from("count_scope_item")
+					.select("id, ingredient_id, frozen_preparation_id, found, not_counted_accepted")
+					.eq("count_id", data.countId)
+					.order("id")
+					.range(from, to)
+		)
+		const scopeByItem = new Map(scope.map((item) => [item.ingredient_id ?? item.frozen_preparation_id ?? "", item]))
 
-		// lotes da cozinha, para montar as linhas e resolver a referência sem lote
-		const { data: lots } = await inv
-			.from("stock_lot")
-			.select("id, ingredient_id, frozen_preparation_id, short_code, lot_code, expiry_date, location")
-			.eq("kitchen_id", Number(count.kitchen_id))
-		type Lot = {
+		const lotIds = rows.map((row) => row.lot_id).filter(Boolean) as string[]
+		const lots = await readAllPagesIn<{
 			id: string
-			ingredient_id: string | null
-			frozen_preparation_id: string | null
 			short_code: string | null
 			lot_code: string | null
 			expiry_date: string | null
 			location: string | null
-		}
-		const lotRows = (lots ?? []) as Lot[]
-		const lotById = new Map(lotRows.map((lot) => [lot.id, lot]))
+			unit_cost: number | string | null
+		}>("os lotes da contagem", lotIds, (chunk, from, to) =>
+			inv.from("stock_lot").select("id, short_code, lot_code, expiry_date, location, unit_cost").in("id", chunk).order("id").range(from, to)
+		)
+		const lotById = new Map(lots.map((lot) => [lot.id, lot]))
 
-		// agrupa os lançamentos por linha (lote, ou item quando é o monte)
-		const grouped = new Map<string, { lotId: string | null; ingredientId: string | null; frozenPreparationId: string | null; entries: Entry[] }>()
-		for (const entry of entryRows) {
-			const lot = entry.lot_id ? lotById.get(entry.lot_id) : undefined
-			const key = entry.lot_id ? `l:${entry.lot_id}` : `i:${entry.ingredient_id ?? entry.frozen_preparation_id}`
-			const line = grouped.get(key) ?? {
-				lotId: entry.lot_id,
-				ingredientId: entry.ingredient_id ?? lot?.ingredient_id ?? null,
-				frozenPreparationId: entry.frozen_preparation_id ?? lot?.frozen_preparation_id ?? null,
-				entries: [],
-			}
-			line.entries.push(entry)
-			grouped.set(key, line)
-		}
-
-		// linhas do escopo que ninguém tocou também aparecem: é o item esquecido
-		// na prateleira, e ele precisa estar visível para ser contado ou aceito
-		type ScopeRow = { ingredient_id: string | null; frozen_preparation_id: string | null; found: boolean; not_counted_accepted: boolean }
-		const scopeRows = (scope ?? []) as ScopeRow[]
-		for (const item of scopeRows) {
-			const key = `i:${item.ingredient_id ?? item.frozen_preparation_id}`
-			const touched = [...grouped.values()].some((line) => line.ingredientId === item.ingredient_id && line.frozenPreparationId === item.frozen_preparation_id)
-			if (!touched && !grouped.has(key)) {
-				grouped.set(key, { lotId: null, ingredientId: item.ingredient_id, frozenPreparationId: item.frozen_preparation_id, entries: [] })
-			}
-		}
-
-		const ingredientIds = [...new Set([...grouped.values()].map((line) => line.ingredientId).filter(Boolean))] as string[]
-		const frozenIds = [...new Set([...grouped.values()].map((line) => line.frozenPreparationId).filter(Boolean))] as string[]
+		const ingredientIds = [...new Set(rows.map((row) => row.ingredient_id).filter(Boolean))] as string[]
+		const frozenIds = [...new Set(rows.map((row) => row.frozen_preparation_id).filter(Boolean))] as string[]
 		const kit = kitchen()
 		const describe = new Map<string, { description: string; measureUnit: string | null }>()
-		if (ingredientIds.length > 0) {
-			const { data: rows } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
-			for (const row of rows ?? []) describe.set(row.id, { description: row.description, measureUnit: row.measure_unit })
+		for (const row of await readAllPagesIn<{ id: string; description: string; measure_unit: string | null }>("os insumos", ingredientIds, (chunk, from, to) =>
+			kit.from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
+		)) {
+			describe.set(row.id, { description: row.description, measureUnit: row.measure_unit })
 		}
-		if (frozenIds.length > 0) {
-			const { data: rows } = await kit.from("frozen_preparation").select("id, description").in("id", frozenIds)
-			for (const row of rows ?? []) describe.set(row.id, { description: row.description, measureUnit: null })
-		}
-
-		const settings = await toleranceFor(Number(count.kitchen_id))
-		const countedLotIdsByItem = new Map<string, string[]>()
-		for (const line of grouped.values()) {
-			if (!line.lotId) continue
-			const key = line.ingredientId ?? line.frozenPreparationId ?? ""
-			countedLotIdsByItem.set(key, [...(countedLotIdsByItem.get(key) ?? []), line.lotId])
+		for (const row of await readAllPagesIn<{ id: string; description: string }>("as preparações", frozenIds, (chunk, from, to) =>
+			kit.from("frozen_preparation").select("id, description").in("id", chunk).order("id").range(from, to)
+		)) {
+			describe.set(row.id, { description: row.description, measureUnit: null })
 		}
 
-		const scopeByItem = new Map(scopeRows.map((item) => [item.ingredient_id ?? item.frozen_preparation_id ?? "", item]))
-		const lines: CountSheetLine[] = []
-		for (const [key, line] of grouped) {
-			const itemKey = line.ingredientId ?? line.frozenPreparationId ?? ""
-			const meta = describe.get(itemKey)
-			const lot = line.lotId ? lotById.get(line.lotId) : undefined
-			const counted = lineQuantity(line.entries.map((entry) => ({ quantity: Number(entry.quantity), countedAt: entry.counted_at, overwrite: entry.overwrite })))
-
-			let ledger: number | null = null
-			let verdict: { difference: number; differenceValue: number; needsRecount: boolean } | null = null
-			if (reveal) {
-				// o instante que vale é o do ÚLTIMO lançamento da linha; sem
-				// lançamento nenhum, o de agora
-				const instant = line.entries.reduce<string | null>((latest, entry) => (latest == null || entry.counted_at > latest ? entry.counted_at : latest), null)
-				const { data: balance } = await inv.rpc("balance_at", {
-					p_kitchen_id: Number(count.kitchen_id),
-					p_lot_id: line.lotId,
-					p_ingredient_id: line.lotId ? null : line.ingredientId,
-					p_frozen_preparation_id: line.lotId ? null : line.frozenPreparationId,
-					p_instant: instant ?? new Date().toISOString(),
-				})
-				ledger = Number(balance ?? 0)
-
-				// A linha SEM lote de um item não se compara com o saldo do item
-				// inteiro: ela responde pelos lotes que ninguém contou. Sem isso,
-				// contar "arroz 5 KG" numa cozinha com L1 (contado) e L2 acusaria
-				// sobra no item e falta em L2 — duas linhas de ajuste para um estoque
-				// que está certo.
-				if (!line.lotId) {
-					const itemLots = lotRows.filter((row) => (row.ingredient_id ?? row.frozen_preparation_id) === itemKey).map((row) => ({ lotId: row.id, balance: 0 }))
-					if (itemLots.length > 0) {
-						const counted = countedLotIdsByItem.get(itemKey) ?? []
-						for (const itemLot of itemLots) {
-							const { data: lotBalance } = await inv.rpc("balance_at", {
-								p_kitchen_id: Number(count.kitchen_id),
-								p_lot_id: itemLot.lotId,
-								p_ingredient_id: null,
-								p_frozen_preparation_id: null,
-								p_instant: instant ?? new Date().toISOString(),
-							})
-							itemLot.balance = Number(lotBalance ?? 0)
-						}
-						ledger = unlottedReference(0, itemLots, counted)
-					}
-				}
-
-				const evaluated = evaluateCountLine({ counted, ledger, unitCost: 0 }, { percent: settings.tolerancePct, floorValue: settings.toleranceFloorValue })
-				verdict = { difference: evaluated.difference, differenceValue: evaluated.differenceValue, needsRecount: evaluated.needsRecount }
+		// Custo, para medir a divergência em DINHEIRO. Sem ele o valor da diferença
+		// era sempre zero, o piso nunca era passado e "recontar as divergentes"
+		// nunca aparecia. Lote: o custo do lote; item: o custo médio da cozinha.
+		const avgCost = new Map<string, number>()
+		if (reveal) {
+			for (const row of await readAllPagesIn<{ ingredient_id: string | null; frozen_preparation_id: string | null; avg_unit_cost: number | string | null }>(
+				"os custos médios",
+				[...ingredientIds, ...frozenIds],
+				(chunk, from, to) =>
+					inv
+						.from("stock_cost")
+						.select("ingredient_id, frozen_preparation_id, avg_unit_cost")
+						.eq("kitchen_id", kitchenId)
+						.or(`ingredient_id.in.(${chunk.join(",")}),frozen_preparation_id.in.(${chunk.join(",")})`)
+						.order("ingredient_id", { ascending: true, nullsFirst: false })
+						.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
+						.range(from, to)
+			)) {
+				const key = row.ingredient_id ?? row.frozen_preparation_id
+				if (key && row.avg_unit_cost != null) avgCost.set(key, Number(row.avg_unit_cost))
 			}
+		}
+		const tolerance = await countToleranceFor(kitchenId)
 
+		const lines: CountSheetLine[] = rows.map((row) => {
+			const itemKey = row.ingredient_id ?? row.frozen_preparation_id ?? ""
+			const lot = row.lot_id ? lotById.get(row.lot_id) : undefined
+			const counted = row.counted_qty == null ? 0 : Number(row.counted_qty)
+			const ledger = Number(row.ledger_qty)
+			const unitCost = lot?.unit_cost != null ? Number(lot.unit_cost) : (avgCost.get(itemKey) ?? 0)
+			// linha sem lançamento e não aceita ainda não tem veredito: ninguém contou
+			const judged = reveal && (row.entries > 0 || row.accepted_not_counted)
+			const verdict = judged ? evaluateCountLine({ counted, ledger, unitCost }, tolerance) : null
 			const scopeItem = scopeByItem.get(itemKey)
-			lines.push({
-				key,
-				lotId: line.lotId,
-				ingredientId: line.ingredientId,
-				frozenPreparationId: line.frozenPreparationId,
-				description: meta?.description ?? "(item sem cadastro)",
-				measureUnit: meta?.measureUnit ?? null,
+			return {
+				key: `${row.owner_count_id}:${row.lot_id ? `l:${row.lot_id}` : `i:${itemKey}`}`,
+				lotId: row.lot_id,
+				ingredientId: row.ingredient_id,
+				frozenPreparationId: row.frozen_preparation_id,
+				description: describe.get(itemKey)?.description ?? "(item sem cadastro)",
+				measureUnit: describe.get(itemKey)?.measureUnit ?? null,
 				lotLabel: lot?.short_code ?? lot?.lot_code ?? null,
 				expiryDate: lot?.expiry_date ?? null,
 				location: lot?.location ?? null,
 				counted,
-				entries: line.entries.length,
-				ledger,
+				entries: row.entries,
+				ledger: reveal ? ledger : null,
 				difference: verdict?.difference ?? null,
 				differenceValue: verdict?.differenceValue ?? null,
 				needsRecount: verdict?.needsRecount ?? null,
 				found: scopeItem?.found ?? false,
-				notCountedAccepted: scopeItem?.not_counted_accepted ?? false,
-			})
-		}
+				notCountedAccepted: row.accepted_not_counted,
+			}
+		})
 
 		lines.sort((a, b) => a.description.localeCompare(b.description, "pt-BR") || (a.lotLabel ?? "").localeCompare(b.lotLabel ?? ""))
 		return {
 			count,
 			reveal,
 			lines,
-			scopeItems: scopeRows.length,
-			notCounted: lines.filter((line) => line.entries === 0).length,
+			scopeItems: scope.length,
+			notCounted: lines.filter((line) => line.entries === 0 && !line.notCountedAccepted).length,
 		}
 	})
 
-/** Tolerâncias da cozinha, com os defaults do banco. */
-async function toleranceFor(kitchenId: number) {
-	const { data: row } = await inventory()
+/**
+ * Tolerância da CONTAGEM (`count_tolerance_*`), com os defaults do banco. A
+ * folha usava a tolerância da SAÍDA do dia — outra regra, de outro documento.
+ */
+async function countToleranceFor(kitchenId: number) {
+	const { data: row, error } = await inventory()
 		.from("kitchen_stock_settings")
-		.select("issue_tolerance_pct, issue_tolerance_floor_value")
+		.select("count_tolerance_pct, count_tolerance_value")
 		.eq("kitchen_id", kitchenId)
 		.maybeSingle()
+	if (error) throw new Error(`Erro ao carregar a tolerância da contagem: ${error.message}`)
 	return {
-		tolerancePct: Number(row?.issue_tolerance_pct ?? 10),
-		toleranceFloorValue: Number(row?.issue_tolerance_floor_value ?? 20),
+		percent: Number(row?.count_tolerance_pct ?? 5),
+		floorValue: Number(row?.count_tolerance_value ?? 50),
 	}
 }
 
@@ -345,10 +316,15 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: count } = await inv.from("inventory_count").select("id, kitchen_id, status").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv
+			.from("inventory_count")
+			.select("id, kitchen_id, status, created_at")
+			.eq("id", data.countId)
+			.maybeSingle()
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
 		if (!count) throw new Error("Contagem não encontrada")
 		const { userId } = await requireStorageForKitchen(2, Number(count.kitchen_id))
-		if (!["draft", "counting", "recount"].includes(String(count.status))) {
+		if (!["draft", "counting"].includes(String(count.status))) {
 			throw new Error(`Contagem em "${count.status}" não aceita lançamento`)
 		}
 
@@ -357,32 +333,61 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 			if (targets !== 1) throw new Error("Cada lançamento aponta para UM alvo: lote, insumo ou preparação")
 		}
 
-		// O desvio do relógio e a janela de sincronização são resolvidos no
-		// CLIENTE (`resolveCountedAt`), que é quem conhece o instante do
-		// dispositivo; aqui o servidor guarda o que recebeu e, quando não veio
-		// nada, usa o próprio relógio — que é o caso online.
-		const receivedAt = new Date().toISOString()
+		// O instante vale para a diferença, e quem o escolhe NÃO é o cliente. O
+		// `deviceAt` do dispositivo é guardado como veio, mas o `counted_at` fica
+		// preso à janela que o SERVIDOR conhece: da última entrega deste usuário
+		// nesta contagem (ou da abertura) até agora. Aceito como veio, o nível 2
+		// escolhia o instante de referência — antes de um recebimento, por exemplo
+		// — e com ele a diferença. Escopo e cozinha do lote são conferidos pelo
+		// gatilho do banco, que também trava a contagem.
+		const receivedAt = new Date()
+		const { data: last, error: lastError } = await inv
+			.from("inventory_count_entry")
+			.select("created_at")
+			.eq("count_id", data.countId)
+			.eq("counted_by", userId)
+			.order("created_at", { ascending: false })
+			.limit(1)
+			.maybeSingle()
+		if (lastError) throw new Error(`Erro ao conferir os lançamentos anteriores: ${lastError.message}`)
+		const floor = new Date(Math.max(new Date(String(count.created_at)).getTime(), last?.created_at ? new Date(String(last.created_at)).getTime() : 0))
+		const clamp = (deviceAt: string | undefined): Date => {
+			if (!deviceAt) return receivedAt
+			const at = new Date(deviceAt)
+			if (Number.isNaN(at.getTime())) return receivedAt
+			return new Date(Math.min(receivedAt.getTime(), Math.max(floor.getTime(), at.getTime())))
+		}
+
 		const { error } = await inv.from("inventory_count_entry").upsert(
-			data.entries.map((entry) => ({
-				count_id: data.countId,
-				lot_id: entry.lotId ?? null,
-				ingredient_id: entry.ingredientId ?? null,
-				frozen_preparation_id: entry.frozenPreparationId ?? null,
-				quantity: entry.quantity,
-				client_event_id: entry.clientEventId,
-				counted_at: entry.deviceAt ?? receivedAt,
-				device_at: entry.deviceAt ?? null,
-				overwrite: entry.overwrite,
-				counted_by: userId,
-				note: entry.note?.trim() || null,
-			})),
+			data.entries.map((entry) => {
+				const countedAt = clamp(entry.deviceAt)
+				return {
+					count_id: data.countId,
+					lot_id: entry.lotId ?? null,
+					ingredient_id: entry.ingredientId ?? null,
+					frozen_preparation_id: entry.frozenPreparationId ?? null,
+					quantity: entry.quantity,
+					client_event_id: entry.clientEventId,
+					counted_at: countedAt.toISOString(),
+					device_at: entry.deviceAt ?? null,
+					clock_skew_ms: entry.deviceAt ? countedAt.getTime() - new Date(entry.deviceAt).getTime() || 0 : null,
+					overwrite: entry.overwrite,
+					counted_by: userId,
+					note: entry.note?.trim() || null,
+				}
+			}),
 			{ onConflict: "count_id,client_event_id", ignoreDuplicates: true }
 		)
 		if (error) throw new Error(`Erro ao gravar os lançamentos: ${error.message}`)
-		return { received: data.entries.length, receivedAt }
+		return { received: data.entries.length, receivedAt: receivedAt.toISOString() }
 	})
 
-/** Item fora da folha que apareceu na prateleira entra no escopo. */
+/**
+ * Item fora da folha que apareceu na prateleira entra no escopo. A função do
+ * banco trava a contagem e confere o status; item de outra contagem aberta é
+ * recusado com o nome do problema. (Antes era um `upsert(onConflict)` contra
+ * índice de EXPRESSÃO — sempre 42P10 —, sem guarda de status.)
+ */
 export const addFoundItemFn = createServerFn({ method: "POST" })
 	.validator(z.object({ countId: z.uuid(), ingredientId: z.uuid().optional(), frozenPreparationId: z.uuid().optional() }))
 	.handler(async ({ data }) => {
@@ -390,38 +395,42 @@ export const addFoundItemFn = createServerFn({ method: "POST" })
 			throw new Error("Informe o insumo OU a preparação")
 		}
 		const inv = inventory()
-		const { data: count } = await inv.from("inventory_count").select("id, kitchen_id, status").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
 		if (!count) throw new Error("Contagem não encontrada")
 		await requireStorageForKitchen(2, Number(count.kitchen_id))
 
-		const { error } = await inv.from("count_scope_item").upsert(
-			{
-				count_id: data.countId,
-				kitchen_id: Number(count.kitchen_id),
-				ingredient_id: data.ingredientId ?? null,
-				frozen_preparation_id: data.frozenPreparationId ?? null,
-				found: true,
-			},
-			{ onConflict: "count_id,ingredient_id", ignoreDuplicates: true }
-		)
-		// item já em contagem aberta noutra folha bate no índice de sobreposição
-		if (error) throw new Error(`Erro ao incluir o achado: ${error.message}. Ele pode estar em outra contagem aberta`)
-		return { added: true }
+		const { data: added, error } = await inv.rpc("add_found_item", {
+			p_count_id: data.countId,
+			p_ingredient_id: data.ingredientId ?? null,
+			p_frozen_preparation_id: data.frozenPreparationId ?? null,
+		})
+		if (error) throw new Error(`Erro ao incluir o achado: ${error.message}`)
+		return { added: added === true }
 	})
 
-/** Item do escopo que ninguém contou só vira zero com esta marcação. */
+/**
+ * Item do escopo que ninguém contou só vira zero com esta marcação. O gatilho
+ * do banco recusa a marcação em contagem já encerrada — sem ele, a marca
+ * gravada depois da aprovação dizia "sucesso" e o item nunca era zerado.
+ */
 export const acceptNotCountedFn = createServerFn({ method: "POST" })
 	.validator(z.object({ countId: z.uuid(), ingredientId: z.uuid().optional(), frozenPreparationId: z.uuid().optional(), accepted: z.boolean() }))
 	.handler(async ({ data }) => {
+		if ((data.ingredientId == null) === (data.frozenPreparationId == null)) {
+			throw new Error("Informe o insumo OU a preparação")
+		}
 		const inv = inventory()
-		const { data: count } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
 		if (!count) throw new Error("Contagem não encontrada")
 		await requireStorageForKitchen(3, Number(count.kitchen_id))
 
 		let query = inv.from("count_scope_item").update({ not_counted_accepted: data.accepted }).eq("count_id", data.countId)
 		query = data.ingredientId ? query.eq("ingredient_id", data.ingredientId) : query.eq("frozen_preparation_id", data.frozenPreparationId)
-		const { error } = await query
+		const { data: updated, error } = await query.select("id")
 		if (error) throw new Error(`Erro ao marcar o item: ${error.message}`)
+		if ((updated ?? []).length === 0) throw new Error("O item não está no escopo desta contagem")
 		return { accepted: data.accepted }
 	})
 
@@ -430,13 +439,16 @@ export const reviewInventoryCountFn = createServerFn({ method: "POST" })
 	.validator(z.object({ countId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: count } = await inv.from("inventory_count").select("id, kitchen_id, status").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
 		if (!count) throw new Error("Contagem não encontrada")
 		await requireStorageForKitchen(3, Number(count.kitchen_id))
-		if (!["counting", "recount"].includes(String(count.status))) throw new Error(`Contagem em "${count.status}" não está em coleta`)
 
-		const { error } = await inv.from("inventory_count").update({ status: "review" }).eq("id", data.countId).eq("status", count.status)
+		// condicional ao status E conferida: sem o `select`, mudar nada contava
+		// como sucesso
+		const { data: moved, error } = await inv.from("inventory_count").update({ status: "review" }).eq("id", data.countId).eq("status", "counting").select("id")
 		if (error) throw new Error(`Erro ao encerrar a coleta: ${error.message}`)
+		if ((moved ?? []).length === 0) throw new Error("A contagem não está em coleta")
 		return { status: "review" as const }
 	})
 
@@ -445,61 +457,34 @@ export const reviewInventoryCountFn = createServerFn({ method: "POST" })
  *
  * Rodada nova é contagem NOVA apontando para a anterior, e não uma edição da
  * mesma: a rodada anterior é prova de que a primeira contagem deu outro
- * número, e apagá-la para escrever por cima destruiria a única evidência de
- * que houve recontagem.
+ * número. As três escritas (anterior para `recount`, rodada nova, escopo dela)
+ * vão numa função do banco, sob trava: separadas, uma falha no meio deixava a
+ * anterior em `recount` sem filha, e dois cliques abriam duas filhas.
  */
 export const openRecountFn = createServerFn({ method: "POST" })
-	.validator(z.object({ countId: z.uuid(), ingredientIds: z.array(z.uuid()).min(1) }))
+	.validator(z.object({ countId: z.uuid(), ingredientIds: z.array(z.uuid()).min(1).max(500) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: count } = await inv.from("inventory_count").select("id, kitchen_id, status, type, blind, round").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id, round").eq("id", data.countId).maybeSingle()
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
 		if (!count) throw new Error("Contagem não encontrada")
 		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
-		if (count.status !== "review") throw new Error("A recontagem sai da revisão da rodada anterior")
 
-		// a rodada anterior sai do ar ANTES: é ela que segura os itens no índice
-		// de sobreposição, e a nova precisa dos mesmos itens
-		const { error: closeError } = await inv.from("inventory_count").update({ status: "recount" }).eq("id", data.countId)
-		if (closeError) throw new Error(`Erro ao encerrar a rodada: ${closeError.message}`)
-		const { error: scopeError } = await inv.from("count_scope_item").update({ open: false }).eq("count_id", data.countId)
-		if (scopeError) throw new Error(`Erro ao liberar o escopo da rodada: ${scopeError.message}`)
-
-		const { data: created, error } = await inv
-			.from("inventory_count")
-			.insert({
-				kitchen_id: Number(count.kitchen_id),
-				status: "counting",
-				type: count.type,
-				scope: "item_list",
-				scope_params: { ingredient_ids: data.ingredientIds },
-				// rodada de recontagem é SEMPRE cega, mesmo que a primeira não fosse:
-				// quem reconta sabendo o que a rodada anterior deu confirma o número
-				// dela em vez de contar de novo
-				blind: true,
-				round: Number(count.round) + 1,
-				parent_count_id: data.countId,
-				created_by: userId,
-			})
-			.select("id")
-			.single()
-		if (error || !created) throw new Error(`Erro ao abrir a recontagem: ${error?.message}`)
-
-		const { error: itemsError } = await inv.from("count_scope_item").insert(
-			data.ingredientIds.map((ingredientId) => ({
-				count_id: created.id,
-				kitchen_id: Number(count.kitchen_id),
-				ingredient_id: ingredientId,
-			}))
-		)
-		if (itemsError) throw new Error(`Erro ao montar a folha da recontagem: ${itemsError.message}`)
-		return { countId: created.id as string, round: Number(count.round) + 1 }
+		const { data: created, error } = await inv.rpc("open_recount", {
+			p_count_id: data.countId,
+			p_ingredient_ids: [...new Set(data.ingredientIds)],
+			p_user: userId,
+		})
+		if (error) throw new Error(`Erro ao abrir a recontagem: ${error.message}`)
+		return { countId: created as string, round: Number(count.round) + 1 }
 	})
 
 export const approveInventoryCountFn = createServerFn({ method: "POST" })
 	.validator(z.object({ countId: z.uuid(), exceptionReason: z.string().max(300).optional() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: count } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
 		if (!count) throw new Error("Contagem não encontrada")
 		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
 
@@ -517,26 +502,17 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 		}
 	})
 
-/** Rejeita a contagem sem lançar nada. */
+/** Rejeita a contagem sem lançar nada — sob trava, e nunca depois de aprovada. */
 export const rejectInventoryCountFn = createServerFn({ method: "POST" })
 	.validator(z.object({ countId: z.uuid(), reason: z.string().min(5).max(300) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: count } = await inv.from("inventory_count").select("id, kitchen_id, status, notes").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
 		if (!count) throw new Error("Contagem não encontrada")
 		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
-		if (count.status === "approved") throw new Error("Contagem já aprovada")
 
-		const { error } = await inv
-			.from("inventory_count")
-			.update({
-				status: "rejected",
-				// a observação do operador não é sobrescrita pelo motivo da rejeição
-				notes: count.notes ? `${count.notes}\n\nRejeitada: ${data.reason.trim()}` : `Rejeitada: ${data.reason.trim()}`,
-				confirmed_by: userId,
-				confirmed_at: new Date().toISOString(),
-			})
-			.eq("id", data.countId)
+		const { error } = await inv.rpc("reject_inventory_count", { p_count_id: data.countId, p_actor: userId, p_reason: data.reason.trim() })
 		if (error) throw new Error(`Erro ao rejeitar a contagem: ${error.message}`)
 		return { rejected: true }
 	})

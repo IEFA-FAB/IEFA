@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/components/ui/toast"
 import {
 	acceptNotCountedFn,
+	addFoundItemFn,
 	approveInventoryCountFn,
 	fetchCountSheetFn,
 	listInventoryCountsFn,
@@ -23,7 +24,7 @@ import {
 	rejectInventoryCountFn,
 	reviewInventoryCountFn,
 } from "@/server/count.fn"
-import { fetchScannerProfileFn } from "@/server/scanner.fn"
+import { fetchScannerProfileFn, resolveScanToIngredientFn } from "@/server/scanner.fn"
 
 /**
  * Inventário.
@@ -78,7 +79,8 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/co
 		// a folha aberta é a que está sendo contada; sem ela, a última em revisão
 		const target =
 			deps.countId ??
-			list.counts.find((count: { status: string }) => count.status === "counting" || count.status === "recount")?.id ??
+			// `recount` é a rodada SUBSTITUÍDA pela recontagem: não se conta mais nela
+			list.counts.find((count: { status: string }) => count.status === "counting")?.id ??
 			list.counts.find((count: { status: string }) => count.status === "review")?.id
 		const sheet = target ? await fetchCountSheetFn({ data: { countId: target } }) : null
 		return { list, sheet, scannerProfile, kitchenId }
@@ -97,6 +99,11 @@ function CountsPage() {
 	const [scope, setScope] = useState("full")
 	const [scopeValue, setScopeValue] = useState("")
 	const [quantities, setQuantities] = useState<Record<string, string>>({})
+	// O que a última leitura apontou. A folha só lista lote que já foi contado, e
+	// o lote na mão do operador pode ainda não ter linha: a leitura abre o alvo
+	// aqui, com o campo de quantidade, em vez de procurar uma linha que não existe.
+	const [scanned, setScanned] = useState<{ ingredientId: string; lotId: string | null; description: string } | null>(null)
+	const [scannedQty, setScannedQty] = useState("")
 
 	async function run(action: () => Promise<unknown>, success: string) {
 		setBusy(true)
@@ -142,7 +149,8 @@ function CountsPage() {
 		setQuantities((current) => ({ ...current, [line.key]: "" }))
 	}
 
-	const open = sheet?.count.status === "counting" || sheet?.count.status === "recount"
+	const open = sheet?.count.status === "counting"
+	const scannedInScope = scanned != null && (sheet?.lines ?? []).some((line) => line.ingredientId === scanned.ingredientId)
 	const inReview = sheet?.count.status === "review"
 	const divergent = (sheet?.lines ?? []).filter((line) => line.needsRecount === true)
 
@@ -244,23 +252,92 @@ function CountsPage() {
 								placeholder="Leia o GTIN ou a etiqueta do lote…"
 								disabled={busy}
 								{...scannerPropsFrom(scannerProfile)}
-								onReading={(reading) => {
-									// a leitura APONTA a linha; a quantidade é sempre do operador,
+								onReading={async (reading) => {
+									// a leitura APONTA o alvo; a quantidade é sempre do operador,
 									// porque a embalagem lida não diz quantas há na prateleira
-									const label = reading.kind === "lot_label" ? reading.lotShortCode : reading.kind === "gtin" ? reading.gtin : null
-									if (!label) {
-										toast.error("Código não reconhecido nesta folha")
+									if (reading.kind !== "lot_label" && reading.kind !== "gtin") {
+										toast.error("Código não reconhecido: leia o GTIN da embalagem ou a etiqueta do lote")
 										return
 									}
-									const target = sheet.lines.find((line) => line.lotLabel === label || line.description.includes(label))
-									if (!target) {
-										toast.error(`${label} não está nesta folha. Use "incluir achado" se ele apareceu na prateleira`)
-										return
+									try {
+										const found = await resolveScanToIngredientFn({
+											data: reading.kind === "lot_label" ? { kitchenId, lotShortCode: reading.lotShortCode } : { kitchenId, gtin: reading.gtin },
+										})
+										if (!found.ingredientId) {
+											toast.error("Código não está no catálogo desta cozinha")
+											return
+										}
+										setScanned({ ingredientId: found.ingredientId, lotId: found.lotId, description: found.description ?? "insumo" })
+										setScannedQty("")
+										requestAnimationFrame(() => document.querySelector<HTMLInputElement>("[data-count-qty=scanned]")?.focus())
+									} catch (error) {
+										toast.error(error instanceof Error ? error.message : "Erro ao resolver o código lido")
 									}
-									requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-count-qty="${target.key}"]`)?.focus())
-									toast.info(`${target.description} — informe a quantidade`)
 								}}
 							/>
+						)}
+
+						{open && scanned && (
+							<div className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
+								<span>
+									Contando: <strong>{scanned.description}</strong>
+									{scanned.lotId ? " · lote lido na etiqueta" : " · sem lote (o monte na prateleira)"}
+								</span>
+								{scannedInScope ? (
+									<>
+										<Input
+											className="h-8 w-24"
+											inputMode="decimal"
+											placeholder="qtd"
+											data-count-qty="scanned"
+											value={scannedQty}
+											onChange={(event) => setScannedQty(event.target.value)}
+										/>
+										<Button
+											type="button"
+											size="sm"
+											disabled={busy}
+											onClick={async () => {
+												const quantity = Number(scannedQty.replace(",", "."))
+												if (!Number.isFinite(quantity) || quantity < 0) {
+													toast.error("Informe a quantidade")
+													return
+												}
+												await postLine(
+													{
+														key: `scan:${scanned.ingredientId}:${scanned.lotId ?? "item"}`,
+														lotId: scanned.lotId,
+														ingredientId: scanned.ingredientId,
+														frozenPreparationId: null,
+													},
+													quantity
+												)
+												setScanned(null)
+											}}
+										>
+											Lançar
+										</Button>
+									</>
+								) : (
+									<>
+										<span className="text-muted-foreground">fora do escopo desta contagem.</span>
+										<Button
+											type="button"
+											size="sm"
+											variant="outline"
+											disabled={busy}
+											onClick={() =>
+												run(() => addFoundItemFn({ data: { countId: sheet.count.id, ingredientId: scanned.ingredientId } }), "Achado incluído na contagem")
+											}
+										>
+											Incluir como achado
+										</Button>
+									</>
+								)}
+								<Button type="button" size="sm" variant="ghost" onClick={() => setScanned(null)}>
+									Cancelar
+								</Button>
+							</div>
 						)}
 
 						<Table>

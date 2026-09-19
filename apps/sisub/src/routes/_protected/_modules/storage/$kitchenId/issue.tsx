@@ -60,7 +60,7 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/is
 		const kitchenId = Number(params.kitchenId)
 		const [today, balance, scannerProfile] = await Promise.all([
 			fetchTodayIssueRequestFn({ data: { kitchenId, origin: deps.origin, requestId: deps.origin === "ad_hoc" ? deps.requestId : undefined } }),
-			fetchStockBalanceFn({ data: { kitchenId } }),
+			fetchStockBalanceFn({ data: { kitchenId, operation: true } }),
 			fetchScannerProfileFn({ data: { kitchenId } }),
 		])
 		const request = today.requestId ? await fetchIssueRequestFn({ data: { requestId: today.requestId } }) : null

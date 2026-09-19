@@ -11,10 +11,11 @@
  * @migration 20260729160000_inventory_stock_core
  */
 
-import { hasPermission, type UserContext } from "@iefa/pbac"
 import { brasiliaToday } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { hiddenByBlindCount } from "@/lib/blind-count.server"
+import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -78,13 +79,36 @@ async function describeItems(ingredientIds: string[], frozenIds: string[]) {
 
 /** Saldo por item (com lotes) de uma cozinha, a partir da view do ledger. */
 export const fetchStockBalanceFn = createServerFn({ method: "GET" })
-	.validator(z.object({ kitchenId: z.number().int().positive() }))
+	.validator(
+		z.object({
+			kitchenId: z.number().int().positive(),
+			/**
+			 * Tela de OPERAÇÃO (saída, ajuste): exige nível 2 e não esconde item em
+			 * contagem cega. A cozinha não para durante a contagem, e sem o saldo o
+			 * operador não escolhe lote. A cegueira protege contra o viés de quem
+			 * conta, não contra quem procura o número numa tela de operação — a
+			 * defesa contra isso é a recontagem por outra pessoa e a segregação.
+			 */
+			operation: z.boolean().default(false),
+		})
+	)
 	.handler(async ({ data }): Promise<StockBalanceItem[]> => {
-		const ctx = await requireStorageForKitchen(1, data.kitchenId)
+		const ctx = await requireStorageForKitchen(data.operation ? 2 : 1, data.kitchenId)
 		const inv = inventory()
 
-		const { data: rows, error } = await inv.from("v_stock_balance").select("*").eq("kitchen_id", data.kitchenId)
-		if (error) throw new Error(`Erro ao consultar saldo: ${error.message}`)
+		// páginas até o fim: o PostgREST corta em 1000 linhas calado, e cozinha
+		// com muitos lotes perdia item do painel
+		// biome-ignore lint/suspicious/noExplicitAny: linha da view fora dos tipos gerados
+		const rows = await readAllPages<any>("o saldo", (from, to) =>
+			inv
+				.from("v_stock_balance")
+				.select("*")
+				.eq("kitchen_id", data.kitchenId)
+				.order("ingredient_id", { ascending: true, nullsFirst: false })
+				.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
+				.order("lot_id", { ascending: true, nullsFirst: true })
+				.range(from, to)
+		)
 
 		// Contagem cega alcança TODA leitura de saldo, e não só a folha.
 		//
@@ -94,10 +118,10 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 		// existe para impedir, porque contagem que confirma o sistema não acha
 		// erro nenhum.
 		//
-		// Quem revisa e aprova (nível 3) continua vendo: é ele que compara. E a
-		// ocultação acaba quando a coleta encerra, senão a revisão não teria como
-		// ser conferida.
-		const hidden = await hiddenByBlindCount(data.kitchenId, ctx)
+		// Quem revisa e aprova (nível 3) continua vendo: é ele que compara. Para os
+		// demais, a ocultação vale enquanto a contagem está aberta, inclusive em
+		// revisão — é dali que sai a recontagem (`lib/blind-count.server.ts`).
+		const hidden = data.operation ? new Set<string>() : await hiddenByBlindCount(data.kitchenId, ctx)
 
 		// A view é a soma do ledger e não conhece o lote além do código: quarentena,
 		// etiqueta, local e "usar primeiro" vêm da tabela. Sem isso a tela mostra
@@ -107,9 +131,17 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 			string,
 			{ short_code: string; location: string | null; use_first: boolean; quarantined_at: string | null; derivation: string | null }
 		>()
-		if (lotIds.length > 0) {
-			const { data: lots } = await inv.from("stock_lot").select("id, short_code, location, use_first, quarantined_at, derivation").in("id", lotIds)
-			for (const lot of lots ?? []) lotMeta.set(lot.id, lot)
+		for (const lot of await readAllPagesIn<{
+			id: string
+			short_code: string
+			location: string | null
+			use_first: boolean
+			quarantined_at: string | null
+			derivation: string | null
+		}>("os lotes", lotIds, (chunk, from, to) =>
+			inv.from("stock_lot").select("id, short_code, location, use_first, quarantined_at, derivation").in("id", chunk).order("id").range(from, to)
+		)) {
+			lotMeta.set(lot.id, lot)
 		}
 
 		const byItem = new Map<string, StockBalanceItem>()
@@ -164,34 +196,6 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 		const visible = [...byItem.values()].filter((item) => !hidden.has(item.ingredientId ?? item.frozenPreparationId ?? ""))
 		return visible.sort((a, b) => a.description.localeCompare(b.description, "pt-BR"))
 	})
-
-/**
- * Itens que uma contagem cega em andamento esconde deste usuário.
- *
- * Vazio quando não há contagem cega em coleta, ou quando o usuário é nível 3
- * na cozinha. Uma consulta a mais no caminho do painel, e ela só sai do
- * caminho quando a cozinha está contando — que é quando o número importa.
- */
-async function hiddenByBlindCount(kitchenId: number, ctx: UserContext): Promise<Set<string>> {
-	if (hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id: kitchenId })) return new Set()
-
-	const inv = inventory()
-	const { data: counts } = await inv
-		.from("inventory_count")
-		.select("id")
-		.eq("kitchen_id", kitchenId)
-		.eq("blind", true)
-		.in("status", ["draft", "counting", "recount"])
-	const countIds = ((counts ?? []) as Array<{ id: string }>).map((row) => row.id)
-	if (countIds.length === 0) return new Set()
-
-	const { data: scope } = await inv.from("count_scope_item").select("ingredient_id, frozen_preparation_id").in("count_id", countIds)
-	return new Set(
-		((scope ?? []) as Array<{ ingredient_id: string | null; frozen_preparation_id: string | null }>).map(
-			(row) => row.ingredient_id ?? row.frozen_preparation_id ?? ""
-		)
-	)
-}
 
 /** Movimentos recentes de uma cozinha (com descrição do item). */
 export const fetchStockMovementsFn = createServerFn({ method: "GET" })

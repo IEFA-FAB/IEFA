@@ -48,7 +48,7 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/ad
 		const today = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
 		const monthStart = `${today.slice(0, 7)}-01`
 		const [balance, adjustments, quarantined, losses, scannerProfile] = await Promise.all([
-			fetchStockBalanceFn({ data: { kitchenId } }),
+			fetchStockBalanceFn({ data: { kitchenId, operation: true } }),
 			listAdjustmentsFn({ data: { kitchenId, limit: 30 } }),
 			listQuarantinedLotsFn({ data: { kitchenId } }),
 			fetchLossReportFn({ data: { kitchenId, from: monthStart, to: today } }),
