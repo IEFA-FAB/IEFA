@@ -18,16 +18,23 @@
  * Acesso (`level > 0`) e bloqueio (`level <= 0`) coexistem na mesma chave, e o bloqueio
  * vence. A lista devolve os dois lados marcados (`effect`); revogar diz QUAL lado sai, e o
  * outro fica. Retirar um bloqueio é só do administrador global (`assertGrantable`,
- * `touchesDeny`) — o escopado o vê, mas não o desfaz. Esta tela não cria bloqueio.
+ * `touchesDeny`) — o escopado o vê, mas não o desfaz. O único bloqueio que esta tela CRIA é
+ * o "Bloquear no copiloto" (`setAlphaCopilotBlockFn`): sem OM, nos quatro papéis de uma vez.
+ *
+ * ## Acúmulo de papéis
+ *
+ * Nada aqui impede a mesma pessoa de ter os quatro papéis na mesma OM — é decisão do
+ * mantenedor (2026-09-19), sem segregação de funções. Cada concessão é um papel.
  *
  * Nada disso confia no cliente: a OM oferecida na tela é só conveniência, e a cobertura é
  * recalculada a cada chamada.
  *
  * ## Auditoria
  *
- * Toda concessão e revogação passa por `changeModulePermission` (@iefa/pbac): o grant e a
- * linha de `access_control.sensitive_operation_log` entram numa transação só. O ator é o
- * `userId` do guard — as entradas nem têm campo de ator (`admin-access.contract.test.ts`).
+ * Toda concessão e revogação passa por `changeModulePermission` (@iefa/pbac), e o bloqueio
+ * no copiloto por `setModuleBlock`: a escrita e a linha de
+ * `access_control.sensitive_operation_log` entram numa transação só, dentro da função SQL. O
+ * ator é o `userId` do guard — as entradas nem têm campo de ator (`access.contract.test.ts`).
  */
 
 import type { UnitOption } from "@iefa/alpha-client/access"
@@ -39,6 +46,7 @@ import {
 	partitionOfLevel,
 	resolveUserPermissions,
 	searchUsersByEmail,
+	setModuleBlock,
 	type UnitCoverage,
 	type UnitSupportEdge,
 	type UserEmailSearchRow,
@@ -52,6 +60,7 @@ import {
 	type AlphaAdminModule,
 	adminUnitChoices,
 	annotateDenyImpact,
+	buildAlphaBlockChange,
 	buildAlphaPermissionChange,
 	canListGrants,
 	type DenyImpact,
@@ -61,6 +70,7 @@ import {
 	GrantAlphaRoleSchema,
 	type GrantEffect,
 	RevokeAlphaRoleSchema,
+	SetCopilotBlockSchema,
 	supportingUnitsOf,
 } from "@/lib/alpha/admin-access"
 import { forbidden, requireAlphaAdmin } from "@/lib/auth.server"
@@ -204,6 +214,32 @@ export const revokeAlphaPermissionFn = createServerFn({ method: "POST" })
 			const change = buildAlphaPermissionChange({ actorId: ctx.userId, coverage }, data)
 			const result = await changeModulePermission(getAccessControlClient(), change)
 			return { ok: true, removed: result.removed }
+		} catch (error) {
+			rethrowAccessError(error)
+		}
+	})
+
+/** O que o bloqueio no copiloto fez. `changed` vazio: a pessoa já estava no estado pedido. */
+export type CopilotBlockOutcome = { ok: true; blocked: boolean; changed: number; unchanged: number }
+
+/**
+ * "Bloquear no copiloto" / "Desbloquear": deny SEM OM nos quatro papéis do α (ou a retirada
+ * deles), numa transação, com uma linha de auditoria por papel alterado — o desligamento de
+ * alguém do α num clique. Só o administrador GLOBAL, e nunca sobre si mesmo
+ * (`buildAlphaBlockChange`). Os acessos concedidos ficam: o bloqueio os anula, o desbloqueio
+ * os devolve.
+ *
+ * Toda escrita em `user_permissions` é da função SQL (`setModuleBlock`), nunca daqui.
+ */
+export const setAlphaCopilotBlockFn = createServerFn({ method: "POST" })
+	.validator(SetCopilotBlockSchema)
+	.handler(async ({ data }): Promise<CopilotBlockOutcome> => {
+		const { ctx, coverage } = await requireAlphaAdmin()
+		try {
+			// Ator = sessão (`ctx.userId`); o `data` não tem campo de ator.
+			const change = buildAlphaBlockChange({ actorId: ctx.userId, coverage }, data)
+			const result = await setModuleBlock(getAccessControlClient(), change)
+			return { ok: true, blocked: result.blocked, changed: result.changed.length, unchanged: result.unchanged.length }
 		} catch (error) {
 			rethrowAccessError(error)
 		}

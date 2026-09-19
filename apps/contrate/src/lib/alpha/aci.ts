@@ -40,8 +40,8 @@ export type Triage = "acatado" | "descartado" | null
 export interface QueueSubmission {
 	id: string
 	user_id: string
-	/** OM a que o documento foi atribuído. Nula só em registro anterior ao escopo por OM. */
-	unit_id: number | null
+	/** OM a que o documento foi atribuído — obrigatória (NOT NULL desde 20260921090000). */
+	unit_id: number
 	filename: string
 	doc_kind: string
 	modalidade: string | null
@@ -118,7 +118,7 @@ export interface ExtractionSummary {
 export interface ProcessDetail {
 	submission: QueueSubmission & { mime_type: string }
 	/** A OM do processo — a mesma de `submission.unit_id`, no nível de cima. */
-	unit_id: number | null
+	unit_id: number
 	/** Triagem e parecer: ACI que cobre a OM DESTE processo. Decidido no α; a tela não recalcula. */
 	can_decide: boolean
 	/** Derivada no α pela mesma função da fila. */
@@ -139,7 +139,7 @@ export interface FinalReport {
 	run: ComplianceRun
 	submission: {
 		id: string
-		unit_id: number | null
+		unit_id: number
 		filename: string
 		doc_kind: string
 		modalidade: string | null

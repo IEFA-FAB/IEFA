@@ -14,5 +14,5 @@ export function meAccess(roles: Partial<Record<keyof MeAccess["roles"], UnitSet>
 	const sets = Object.values(full)
 	const covered = new Set(sets.flatMap((set) => (set === "all" ? [] : set)))
 	const units = sets.some((set) => set === "all") ? UNITS : UNITS.filter((unit) => covered.has(unit.id))
-	return { roles: full, units, can_submit: true, level: 0, can_see_all: false, can_decide: false, can_manage_access: false }
+	return { roles: full, units, can_submit: true }
 }

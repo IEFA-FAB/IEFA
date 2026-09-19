@@ -95,12 +95,7 @@ function PainelPage() {
 	const access = useQuery(alphaAccessQueryOptions(session?.access_token))
 	// Na fila de mais de uma OM (`todas`), cada linha diz de que OM é o processo.
 	const unitCodes = useMemo(() => new Map((access.data?.units ?? []).map((unit) => [unit.id, unit.code])), [access.data])
-	const labelFor = (item: QueueItem) =>
-		scopeContext.kind === "unit"
-			? null
-			: item.submission.unit_id === null
-				? "sem OM"
-				: (unitCodes.get(item.submission.unit_id) ?? `OM ${item.submission.unit_id}`)
+	const labelFor = (item: QueueItem) => (scopeContext.kind === "unit" ? null : (unitCodes.get(item.submission.unit_id) ?? `OM ${item.submission.unit_id}`))
 	const [stageFilter, setStageFilter] = useState<Stage | "todas">("todas")
 
 	const items = useMemo(() => {

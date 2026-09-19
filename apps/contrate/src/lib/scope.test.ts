@@ -64,10 +64,10 @@ describe("pickScopeForUnit", () => {
 		expect(pickScopeForUnit(buildScopeOptions([26, 100], UNITS), 100)?.id).toBe("100")
 	})
 
-	test("global: a OM se estiver na lista; `todas` para registro sem OM", () => {
+	test("global: a OM se estiver na lista; `todas` se não estiver", () => {
 		const global = buildScopeOptions("all", UNITS)
 		expect(pickScopeForUnit(global, 26)?.id).toBe("26")
-		expect(pickScopeForUnit(global, null)?.id).toBe(ALL_UNITS_SCOPE)
+		expect(pickScopeForUnit(global, 999_999)?.id).toBe(ALL_UNITS_SCOPE)
 	})
 
 	test("sem cobertura mas com `minhas`: `minhas`", () => {
@@ -76,7 +76,6 @@ describe("pickScopeForUnit", () => {
 
 	test("OM fora da cobertura, sem `todas` nem `minhas`: null", () => {
 		expect(pickScopeForUnit(buildScopeOptions([26], UNITS), 10)).toBeNull()
-		expect(pickScopeForUnit(buildScopeOptions([26], UNITS), null)).toBeNull()
 	})
 })
 

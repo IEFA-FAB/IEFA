@@ -2,13 +2,18 @@ import { describe, expect, test } from "bun:test"
 import type { UnitOption } from "@iefa/alpha-client/access"
 import { GrantNotAllowedError, type UnitSupportEdge, type UserPermission } from "@iefa/pbac"
 import {
+	ALPHA_ADMIN_MODULES,
+	ALPHA_GRANT_ROLES,
 	adminUnitChoices,
 	annotateDenyImpact,
+	buildAlphaBlockChange,
 	buildAlphaPermissionChange,
 	canChangeOwnAccess,
 	canListGrants,
+	copilotBlockState,
 	denyImpactNeedsGraph,
 	denyImpactOnAllow,
+	distinctPeople,
 	type GrantRowLike,
 	grantRowKey,
 	initialGrantUnit,
@@ -318,5 +323,116 @@ describe("initialGrantUnit (o formulário de concessão)", () => {
 		expect(initialGrantUnit({ kind: "unit", unitId: 26 })).toBe(26)
 		expect(initialGrantUnit({ kind: "unit", unitId: 100 })).toBe(100)
 		expect(initialGrantUnit({ kind: "all", unitId: null })).toBeNull()
+	})
+})
+
+/**
+ * Acúmulo de papéis, SEM segregação de funções (mantenedor, 2026-09-19): a mesma pessoa pode
+ * ser Requisitante, Licitações, ACI e Administração na MESMA OM. Nenhuma regra da tela ou do
+ * servidor recusa o segundo, terceiro ou quarto papel.
+ */
+describe("acúmulo de papéis na mesma OM", () => {
+	test("o administrador escopado concede os quatro papéis à mesma pessoa na mesma OM", () => {
+		const changes = ALPHA_GRANT_ROLES.map((role) => buildAlphaPermissionChange(SCOPED, { userId: OTHER, role, unitId: 100 }))
+		expect(changes.map((c) => [c.module, c.level, c.unitId])).toEqual([
+			["alpha-requester", 1, 100],
+			["alpha-procurement", 1, 100],
+			["alpha-aci", 1, 100],
+			["alpha-admin", 3, 100],
+		])
+	})
+
+	test("o global também, e inclusive a si mesmo (fica no log como qualquer concessão)", () => {
+		for (const role of ALPHA_GRANT_ROLES) {
+			expect(refusal(() => buildAlphaPermissionChange(GLOBAL, { userId: OTHER, role, unitId: 100 }))).toBeNull()
+			expect(refusal(() => buildAlphaPermissionChange(GLOBAL, { userId: ADMIN, role, unitId: 100 }))).toBeNull()
+		}
+	})
+
+	test("os quatro viram quatro linhas distintas na lista, nenhuma anulada", () => {
+		const rows: GrantRowLike[] = ALPHA_ADMIN_MODULES.map((module) => ({
+			source: "inline",
+			effect: "allow",
+			userId: OTHER,
+			module,
+			unitId: 100,
+			level: module === "alpha-admin" ? 3 : 1,
+			expiresAt: null,
+		}))
+		expect(new Set(rows.map(grantRowKey)).size).toBe(4)
+		expect(splitGrantsByEffect(rows).allows).toHaveLength(4)
+		expect(annotateDenyImpact(rows, []).map((r) => r.denyImpact)).toEqual(["none", "none", "none", "none"])
+	})
+})
+
+describe("bloqueio no copiloto", () => {
+	test("global bloqueia: deny sem OM nos quatro papéis, numa chamada, ator do guard", () => {
+		expect(buildAlphaBlockChange(GLOBAL, { userId: OTHER, blocked: true })).toEqual({
+			actorId: ADMIN,
+			app: "contrate",
+			targetUserId: OTHER,
+			modules: ["alpha-requester", "alpha-procurement", "alpha-aci", "alpha-admin"],
+			blocked: true,
+		})
+		expect(buildAlphaBlockChange(GLOBAL, { userId: OTHER, blocked: false })).toMatchObject({ blocked: false })
+	})
+
+	test("administrador de OM não bloqueia nem desbloqueia — deny é só do global", () => {
+		expect(refusal(() => buildAlphaBlockChange(SCOPED, { userId: OTHER, blocked: true }))).toBe("DENY_REQUIRES_GLOBAL_ADMIN")
+		expect(refusal(() => buildAlphaBlockChange(SCOPED, { userId: OTHER, blocked: false }))).toBe("DENY_REQUIRES_GLOBAL_ADMIN")
+	})
+
+	// Bloquear-se derrubaria o próprio `alpha-admin`: trancaria o ator fora da tela.
+	test("ninguém bloqueia nem desbloqueia a si mesmo — nem o global", () => {
+		expect(refusal(() => buildAlphaBlockChange(GLOBAL, { userId: ADMIN, blocked: true }))).toBe("SELF")
+		expect(refusal(() => buildAlphaBlockChange(GLOBAL, { userId: ADMIN, blocked: false }))).toBe("SELF")
+	})
+
+	const denyRow = (over: Partial<GrantRowLike>): GrantRowLike => ({
+		source: "inline",
+		effect: "deny",
+		userId: OTHER,
+		module: "alpha-aci",
+		unitId: null,
+		level: 0,
+		expiresAt: null,
+		...over,
+	})
+	const allFourDenies = ALPHA_ADMIN_MODULES.map((module) => denyRow({ module }))
+
+	test("copilotBlockState: bloqueado só com deny sem OM, vivo e inline nos quatro", () => {
+		expect(copilotBlockState(allFourDenies, OTHER)).toBe("blocked")
+		expect(copilotBlockState(allFourDenies.slice(0, 2), OTHER)).toBe("partial")
+		expect(copilotBlockState([], OTHER)).toBe("none")
+		// De outra pessoa não conta.
+		expect(copilotBlockState(allFourDenies, ADMIN)).toBe("none")
+	})
+
+	test("copilotBlockState: deny de OM, de política, vencido ou allow não são o bloqueio no copiloto", () => {
+		const now = Date.parse("2026-09-19T12:00:00Z")
+		expect(copilotBlockState([denyRow({ unitId: 100 })], OTHER, now)).toBe("none")
+		expect(copilotBlockState([denyRow({ source: "policy" })], OTHER, now)).toBe("none")
+		expect(copilotBlockState([denyRow({ expiresAt: "2026-09-18T00:00:00Z" })], OTHER, now)).toBe("none")
+		expect(copilotBlockState([denyRow({ effect: "allow", level: 1 })], OTHER, now)).toBe("none")
+		// Com prazo ainda no futuro, bloqueia.
+		expect(
+			copilotBlockState(
+				ALPHA_ADMIN_MODULES.map((module) => denyRow({ module, expiresAt: "2026-09-20T00:00:00Z" })),
+				OTHER,
+				now
+			)
+		).toBe("blocked")
+	})
+
+	test("distinctPeople: uma entrada por pessoa, na ordem da lista", () => {
+		const rows = [
+			{ userId: "a", email: "a@fab.mil.br" },
+			{ userId: "b", email: "b@fab.mil.br" },
+			{ userId: "a", email: "a@fab.mil.br" },
+		]
+		expect(distinctPeople(rows)).toEqual([
+			{ userId: "a", email: "a@fab.mil.br" },
+			{ userId: "b", email: "b@fab.mil.br" },
+		])
 	})
 })

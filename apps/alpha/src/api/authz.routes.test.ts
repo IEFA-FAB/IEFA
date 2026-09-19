@@ -388,30 +388,131 @@ describe("GET /api/v1/aci/processes/:id", () => {
 // ─── Contrato de /me/access e /units ─────────────────────────────────────────
 
 describe("GET /api/v1/me/access (contrato com o contrate)", () => {
-	test("papéis por OM já expandidos, as OMs para os seletores e os campos legados", async () => {
+	test("papéis por OM já expandidos e as OMs para os seletores", async () => {
 		const res = await appAs([grant("alpha-procurement", 1, GAP_SJ), grant("alpha-admin", 3, IAE)]).request("/api/v1/me/access")
 		const body = MeAccessSchema.parse(await res.json())
 
 		expect(body.roles).toEqual({ requester: [], procurement: [GAP_SJ, IAE], aci: [], admin: [IAE] })
 		expect(body.units.map((u) => u.id).sort((a, b) => a - b)).toEqual([GAP_SJ, IAE])
-		expect(body).toMatchObject({ can_submit: true, level: 2, can_see_all: true, can_decide: false, can_manage_access: true })
+		expect(body.can_submit).toBe(true)
 	})
 
-	test("backfill global: o contrate antigo segue vendo o ACI administrador de antes", async () => {
+	// O contrate publicado pelo #383 EXIGE os campos do formato por nível; α e contrate sobem
+	// separados. Até os dois apps deste PR estarem no ar, o α continua mandando os quatro.
+	// TODO(alpha): no PR que parar de emiti-los, este teste passa a exigir a ausência.
+	test("continua emitindo os campos legados deprecados, como o contrate do #383 exige", async () => {
+		const raw = (await (await appAs([grant("alpha-procurement", 1, GAP_SJ), grant("alpha-admin", 3, IAE)]).request("/api/v1/me/access")).json()) as Record<
+			string,
+			unknown
+		>
+		expect(Object.keys(raw).sort()).toEqual(["can_decide", "can_manage_access", "can_see_all", "can_submit", "level", "roles", "units"])
+		expect(raw).toMatchObject({ level: 2, can_see_all: true, can_decide: false, can_manage_access: true })
+		// O schema do #383 (campos obrigatórios) aceita a resposta.
+		const LegacyContrateSchema = MeAccessSchema.required({ level: true, can_see_all: true, can_decide: true, can_manage_access: true })
+		expect(LegacyContrateSchema.safeParse(raw).success).toBe(true)
+	})
+
+	test("o schema atual aceita a resposta SEM os campos legados (o α do PR seguinte)", () => {
+		const parsed = MeAccessSchema.safeParse({ roles: { requester: [], procurement: [], aci: [], admin: [] }, units: [], can_submit: true })
+		expect(parsed.success).toBe(true)
+	})
+
+	test("quatro papéis globais: 'all' em todos, e as OMs reais", async () => {
 		const res = await appAs([grant("alpha-requester", 1), grant("alpha-procurement", 1), grant("alpha-aci", 1), grant("alpha-admin", 3)]).request(
 			"/api/v1/me/access"
 		)
 		const body = MeAccessSchema.parse(await res.json())
 
 		expect(body.roles).toEqual({ requester: "all", procurement: "all", aci: "all", admin: "all" })
-		expect(body).toMatchObject({ level: 3, can_see_all: true, can_decide: true, can_manage_access: true })
 		// "all" lista as OMs reais: nem a sentinela de treino, nem a sobra de teste sem tipo.
 		expect(body.units.map((u) => u.code).sort()).toEqual(["GAP-RJ", "GAP-SJ", "IAE"])
 	})
 
 	test("sem papel: nenhuma OM, envio aberto", async () => {
 		const body = MeAccessSchema.parse(await (await appAs([]).request("/api/v1/me/access")).json())
-		expect(body).toMatchObject({ units: [], can_submit: true, level: 0 })
+		expect(body).toMatchObject({ units: [], can_submit: true })
+	})
+})
+
+// ─── Acúmulo de papéis: sem segregação de funções ────────────────────────────
+//
+// Decisão do mantenedor (2026-09-19): a mesma pessoa pode ter os quatro papéis na MESMA OM
+// — e, sendo ACI dela, tria e emite parecer no processo que ELA MESMA enviou. Nenhuma rota
+// pode recusar por "é o autor". Ver `alpha-access.ts`, "Papéis se acumulam".
+
+describe("uma pessoa com os quatro papéis na mesma OM", () => {
+	const allFour = () => [grant("alpha-requester", 1, IAE), grant("alpha-procurement", 1, IAE), grant("alpha-aci", 1, IAE), grant("alpha-admin", 3, IAE)]
+
+	beforeEach(() => {
+		// O processo é DELA: autora e ACI da mesma OM.
+		state.tables.submission?.push({ id: "sub-own", user_id: ME, unit_id: IAE, filename: "tr.docx", doc_kind: "TR", created_at: "2026-09-19T10:00:00Z" })
+		state.tables.compliance_run?.push({ id: "run-own", submission_id: "sub-own", status: "succeeded" })
+		state.tables.compliance_finding?.push({ id: "finding-own", run_id: "run-own", severity: "ALTA", triage: null, triage_note: null })
+	})
+
+	test("/me/access lista os quatro papéis na OM", async () => {
+		const body = MeAccessSchema.parse(await (await appAs(allFour()).request("/api/v1/me/access")).json())
+		expect(body.roles).toEqual({ requester: [IAE], procurement: [IAE], aci: [IAE], admin: [IAE] })
+		expect(body.units.map((u) => u.code)).toEqual(["IAE"])
+	})
+
+	test("envia para a OM", async () => {
+		const data = new FormData()
+		data.set("file", new File([new Uint8Array([1])], "tr.pdf", { type: "application/pdf" }))
+		data.set("doc_kind", "TR")
+		data.set("unit_id", String(IAE))
+		expect((await appAs(allFour()).request("/api/v1/submissions", { method: "POST", body: data })).status).toBe(201)
+	})
+
+	test("vê o próprio processo com `can_decide: true`", async () => {
+		const body = await (await appAs(allFour()).request("/api/v1/aci/processes/sub-own")).json()
+		expect(body).toMatchObject({ unit_id: IAE, can_decide: true })
+	})
+
+	test("tria achado do PRÓPRIO processo (e desfaz a triagem)", async () => {
+		const patch = (triage: string | null) => ({
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ triage }),
+		})
+		expect((await appAs(allFour()).request("/api/v1/compliance/findings/finding-own", patch("acatado"))).status).toBe(200)
+		expect(state.tables.compliance_finding?.find((f) => f.id === "finding-own")?.triage).toBe("acatado")
+		expect((await appAs(allFour()).request("/api/v1/compliance/findings/finding-own", patch(null))).status).toBe(200)
+		expect(state.tables.compliance_finding?.find((f) => f.id === "finding-own")?.triage).toBeNull()
+	})
+
+	test("emite parecer no PRÓPRIO processo", async () => {
+		const res = await appAs(allFour()).request("/api/v1/compliance/runs/run-own/reviews", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ decision: "aprovado_com_ressalvas", notes: "acúmulo de papéis" }),
+		})
+		expect(res.status).toBe(201)
+		expect(state.writes.map((w) => `${w.verb}:${w.table}`)).toEqual(["insert:compliance_review"])
+	})
+
+	test("a fila recorta para a OM, e o processo do colega da OM também é decidido", async () => {
+		await appAs(allFour()).request("/api/v1/aci/queue")
+		expect(state.rpcCalls[0]?.args.p_unit_ids).toEqual([IAE])
+
+		const res = await appAs(allFour()).request("/api/v1/compliance/runs/run-iae/reviews", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ decision: "aprovado" }),
+		})
+		expect(res.status).toBe(201)
+	})
+
+	test("fora da OM, acumular papéis não abre nada", async () => {
+		state.tables.submission?.push({ id: "sub-rj", user_id: AUTHOR, unit_id: GAP_RJ })
+		state.tables.compliance_run?.push({ id: "run-rj", submission_id: "sub-rj", status: "succeeded" })
+		expect((await appAs(allFour()).request("/api/v1/aci/processes/sub-rj")).status).toBe(403)
+		const res = await appAs(allFour()).request("/api/v1/compliance/runs/run-rj/reviews", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ decision: "aprovado" }),
+		})
+		expect(res.status).toBe(403)
 	})
 })
 

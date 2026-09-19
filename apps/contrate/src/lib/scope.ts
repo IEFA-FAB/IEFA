@@ -114,11 +114,11 @@ export function resolveScopeParam(raw: string, options: readonly ScopeOption[]):
  * destino depois do envio.
  *
  * A OM dele, se estiver entre as opções; senão `todas` (quem é global alcança tudo, inclusive
- * o registro sem OM); senão `minhas` (quem enviou sem ter papel). `null` quando nenhum serve.
+ * a OM que não está na lista); senão `minhas` (quem enviou sem ter papel). `null` quando nenhum serve.
  */
-export function pickScopeForUnit(options: readonly ScopeOption[], unitId: number | null): ScopeOption | null {
+export function pickScopeForUnit(options: readonly ScopeOption[], unitId: number): ScopeOption | null {
 	return (
-		(unitId !== null ? options.find((option) => option.kind === "unit" && option.unitId === unitId) : undefined) ??
+		options.find((option) => option.kind === "unit" && option.unitId === unitId) ??
 		options.find((option) => option.kind === "all") ??
 		options.find((option) => option.kind === "personal") ??
 		null

@@ -7,8 +7,8 @@ describe("resolveLegacyProcessPath", () => {
 		expect(resolveLegacyProcessPath(meAccess({ procurement: [26, 100] }), 100, "processos", "abc")).toBe("/aci/100/processos/abc")
 	})
 
-	test("global com registro sem OM vai a `todas`", () => {
-		expect(resolveLegacyProcessPath(meAccess({ aci: "all" }), null, "relatorio", "run-1")).toBe("/aci/todas/relatorio/run-1")
+	test("global com OM fora da lista de OMs vai a `todas`", () => {
+		expect(resolveLegacyProcessPath(meAccess({ aci: "all" }), 999_999, "relatorio", "run-1")).toBe("/aci/todas/relatorio/run-1")
 	})
 
 	test("revisor de OUTRA OM que é requisitante desta vai ao Requisitante", () => {

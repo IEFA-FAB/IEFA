@@ -76,8 +76,8 @@ export interface ExtractionResponse {
 
 export interface SubmissionResponse {
 	id: string
-	/** OM a que o documento foi atribuído. Nula só em registro anterior ao escopo por OM. */
-	unit_id: number | null
+	/** OM a que o documento foi atribuído — obrigatória (NOT NULL desde 20260921090000). */
+	unit_id: number
 	filename: string
 	doc_kind: string
 	modalidade: string | null

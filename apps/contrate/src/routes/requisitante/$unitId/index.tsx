@@ -102,15 +102,7 @@ function ProcessosPage() {
 											</Link>
 										</td>
 										<td className="px-3 py-3 align-top font-mono text-xs">{submission.doc_kind}</td>
-										{showUnit ? (
-											<td className="px-3 py-3 align-top text-sm">
-												{submission.unit_id === null ? (
-													<span className="text-muted-foreground">sem OM</span>
-												) : (
-													(unitCodes.get(submission.unit_id) ?? `OM ${submission.unit_id}`)
-												)}
-											</td>
-										) : null}
+										{showUnit ? <td className="px-3 py-3 align-top text-sm">{unitCodes.get(submission.unit_id) ?? `OM ${submission.unit_id}`}</td> : null}
 										<td className="px-3 py-3 align-top text-muted-foreground text-xs tabular-nums">{formatDateTime(submission.created_at)}</td>
 									</tr>
 								))}

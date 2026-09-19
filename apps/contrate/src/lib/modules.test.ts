@@ -16,6 +16,18 @@ describe("accessibleModules", () => {
 		const access = meAccess({ requester: "all", procurement: "all", aci: "all", admin: "all" })
 		expect(accessibleModules({ isAuthenticated: true, access }).map((m) => m.id)).toEqual(["aci", "requisitante", "pregoeiro", "alpha", "admin"])
 	})
+
+	// Acúmulo de papéis, sem segregação de funções (mantenedor, 2026-09-19): os quatro na MESMA
+	// OM abrem todos os módulos de fluxo e o de acessos, cada um nessa OM. O Console α segue só
+	// do ACI GLOBAL — curadoria é catálogo de todas as OMs, não papel de OM.
+	test("os quatro papéis na mesma OM: todos os módulos da OM, cada um aberto nela", () => {
+		const access = meAccess({ requester: [100], procurement: [100], aci: [100], admin: [100] })
+		const modules = accessibleModules({ isAuthenticated: true, access })
+		expect(modules.map((m) => m.id)).toEqual(["aci", "requisitante", "pregoeiro", "admin"])
+		for (const id of ["aci", "requisitante", "admin"] as const) {
+			expect(moduleScopeOptions(getModule(id), access).map((option) => option.id)).toContain("100")
+		}
+	})
 })
 
 describe("moduleScopeOptions", () => {

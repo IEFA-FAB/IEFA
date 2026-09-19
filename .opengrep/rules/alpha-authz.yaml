@@ -57,3 +57,43 @@ rules:
       - metavariable-regex:
           metavariable: $MODULE
           regex: ^["'`]alpha
+
+  - id: alpha-legacy-module-literal
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Módulo PBAC `"alpha"` (o nível único de antes do escopo por OM). Ele saiu do `AppModule`
+      e as linhas dele foram convertidas nos papéis e apagadas (20260921090000_alpha_drop_legacy_module);
+      se alguma restar, ninguém a lê. Ler ou gravar `module = 'alpha'` devolveria o modelo
+      sem escopo, em que licitações e ACI enxergavam a FAB inteira. Use o papel:
+      `alpha-requester`, `alpha-procurement`, `alpha-aci` ou `alpha-admin` (`ROLE_MODULE` em
+      `apps/alpha/src/lib/alpha-access.ts`, `ALPHA_ROLE_GRANTS` no contrate). O tipo pega o
+      literal tipado; esta regra pega o que o tipo não vê — filtro do PostgREST, objeto sem
+      tipo, comparação com string.
+    paths:
+      include:
+        - "apps/**"
+        - "packages/**"
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+    pattern-either:
+      # Linha de grant/statement montada à mão, ou objeto de permissão.
+      - pattern: '{..., module: "alpha", ...}'
+      # Filtros do PostgREST sobre a coluna `module`.
+      - pattern: $Q.eq("module", "alpha")
+      - pattern: $Q.neq("module", "alpha")
+      - pattern: $Q.in("module", [..., "alpha", ...])
+      - pattern-regex: '\bmodule\.(eq|neq|in)\.\(?([a-z0-9-]+,)*alpha(?![a-z0-9-])'
+      # Comparação com a coluna.
+      - pattern: $P.module === "alpha"
+      - pattern: $P.module == "alpha"
+      - pattern: $P.module !== "alpha"
+      # Os guards e resolvedores do @iefa/pbac.
+      - patterns:
+          - pattern-either:
+              - pattern: $FN($PERMS, "alpha", ...)
+              - pattern: $FN($PERMS, [..., "alpha", ...], ...)
+          - metavariable-regex:
+              metavariable: $FN
+              regex: ^(hasPermission|hasAnyPermission|requirePermission|requireAnyPermission|resolveModuleScopes|resolveModuleUnitCoverage|grantModulePermission|revokeModulePermission|grantUnscopedModulePermission|needsSupportGraph)$
