@@ -117,19 +117,26 @@ describe("integridade do registro", () => {
 	})
 
 	/**
-	 * Uma escrita e uma leitura. A leitura entrou junto da tela de auditoria e não fere a
-	 * regra apenas-inserção — ela não altera nada. O que a lista literal protege é o
-	 * contrário: qualquer função nova neste módulo reprova a suíte e passa por revisão, que
-	 * é como `deleteOldAuditRows` "só para limpar" é barrado antes de existir.
+	 * Uma escrita e duas leituras. As leituras entraram com a tela de auditoria (o registro
+	 * e os nomes de operação para o filtro) e não ferem a regra apenas-inserção — não
+	 * alteram nada. O que a lista literal protege é o contrário: qualquer função nova neste
+	 * módulo reprova a suíte e passa por revisão, que é como `deleteOldAuditRows` "só para
+	 * limpar" é barrado antes de existir.
 	 */
-	test("o módulo exporta exatamente uma escrita (inserção) e uma leitura", () => {
-		expect(Object.keys(auditModule).sort()).toEqual(["listSensitiveOperations", "recordSensitiveOperation"])
+	test("o módulo exporta exatamente uma escrita (inserção) e duas leituras", () => {
+		expect(Object.keys(auditModule).sort()).toEqual(["listSensitiveOperationNames", "listSensitiveOperations", "recordSensitiveOperation"])
 	})
 
-	test("a leitura exige `admin` nível 3 — é a consulta mais sensível do sistema", () => {
+	test("as leituras exigem `admin` nível 3 — é a consulta mais sensível do sistema", () => {
 		const source = readFileSync(join(import.meta.dir, "audit.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
-		const body = source.slice(source.indexOf("export async function listSensitiveOperations"))
-		expect(body).toContain('requirePermission(ctx, "admin", 3)')
+		for (const name of ["listSensitiveOperations(", "listSensitiveOperationNames("]) {
+			const start = source.indexOf(`export async function ${name}`)
+			expect(start, `${name} não encontrada`).toBeGreaterThan(-1)
+			// Até a próxima função exportada: o guard tem de estar no corpo DESTA.
+			const next = source.indexOf("export async function", start + 1)
+			const body = source.slice(start, next === -1 ? undefined : next)
+			expect(body).toContain('requirePermission(ctx, "admin", 3)')
+		}
 	})
 
 	test("o código-fonte não monta update nem delete sobre o log", () => {

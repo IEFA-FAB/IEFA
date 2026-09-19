@@ -11,7 +11,7 @@
  * @migration 20260911120000_access_control_sensitive_operation_log
  */
 
-import { ListSensitiveOperationsSchema, listSensitiveOperations, type SensitiveOperationLogEntry } from "@iefa/sisub-domain"
+import { ListSensitiveOperationsSchema, listSensitiveOperationNames, listSensitiveOperations, type SensitiveOperationLogEntry } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
@@ -22,9 +22,9 @@ export type SensitiveOperationRow = SensitiveOperationLogEntry
 /**
  * Registro paginado, mais recentes primeiro, com o total da consulta.
  *
- * `actorId` é o filtro "o que esta pessoa fez". Ele nomeia OUTRO usuário de propósito —
- * é a razão de ser da tela —, e por isso o guard aqui é de autorização (`admin` nível 3),
- * não de autenticação.
+ * `actorId` é o filtro "o que esta pessoa fez" e `targetUserId`, "o que aconteceu com o
+ * acesso desta pessoa". Os dois nomeiam OUTRO usuário de propósito — é a razão de ser da
+ * tela —, e por isso o guard aqui é de autorização (`admin` nível 3), não de autenticação.
  */
 export const listSensitiveOperationsFn = createServerFn({ method: "GET" })
 	.validator(ListSensitiveOperationsSchema)
@@ -32,3 +32,9 @@ export const listSensitiveOperationsFn = createServerFn({ method: "GET" })
 		const ctx = await requireAuthWithPermission("admin", 3)
 		return listSensitiveOperations(getDb(), ctx, data).catch(handleDomainError)
 	})
+
+/** Nomes de operação distintos já gravados — as opções do filtro "Operação" da tela. */
+export const listSensitiveOperationNamesFn = createServerFn({ method: "GET" }).handler(async (): Promise<string[]> => {
+	const ctx = await requireAuthWithPermission("admin", 3)
+	return listSensitiveOperationNames(getDb(), ctx).catch(handleDomainError)
+})

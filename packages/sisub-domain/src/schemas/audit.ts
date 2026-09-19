@@ -45,11 +45,22 @@ export type RecordSensitiveOperation = z.infer<typeof RecordSensitiveOperationSc
  * existe para responder quando uma conta cai em suspeita. Sem ele, a consulta é
  * o panorama do período.
  *
+ * `targetUserId` é a pergunta inversa: "o que aconteceu com o acesso DESTA pessoa".
+ * Casa a pessoa como alvo direto (`target.target_user_id`, ou as chaves das linhas
+ * gravadas antes do formato padrão: `userId`, `targetUserId`) e como alcançada por
+ * mudança de política (`target.affected_user_ids`).
+ *
+ * `operation` é igualdade exata com o nome gravado — o filtro da tela oferece a
+ * lista de nomes distintos (`listSensitiveOperationNames`), então não há por que
+ * aceitar padrão.
+ *
  * `limit` tem teto no schema e é reaplicado na operation: o cliente escolhe a
  * página, nunca o tamanho da varredura.
  */
 export const ListSensitiveOperationsSchema = z.object({
 	actorId: z.uuid().optional(),
+	targetUserId: z.uuid().optional(),
+	operation: z.string().min(1).max(120).optional(),
 	limit: z.number().int().min(1).max(SENSITIVE_OPERATION_LIST_MAX).optional(),
 	offset: z.number().int().min(0).optional(),
 })

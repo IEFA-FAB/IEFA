@@ -54,8 +54,10 @@ export const queryKeys = {
 	},
 
 	audit: {
-		// Ator e página entram na chave: são respostas diferentes do mesmo endpoint.
-		sensitiveOperations: (actorId: string | null, limit: number, offset: number) => ["audit", "sensitive-operations", actorId, limit, offset] as const,
+		// Filtros e página entram na chave: são respostas diferentes do mesmo endpoint.
+		sensitiveOperations: (filters: { actorId: string | null; targetUserId: string | null; operation: string | null }, limit: number, offset: number) =>
+			["audit", "sensitive-operations", filters.actorId, filters.targetUserId, filters.operation, limit, offset] as const,
+		sensitiveOperationNames: () => ["audit", "sensitive-operation-names"] as const,
 		mfaAdoption: () => ["audit", "mfa-adoption"] as const,
 	},
 

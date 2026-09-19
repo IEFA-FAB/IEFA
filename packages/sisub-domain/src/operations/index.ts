@@ -40,6 +40,7 @@ export {
 } from "./ata-quantity-limits.ts"
 export {
 	type AuditTargetValue,
+	listSensitiveOperationNames,
 	listSensitiveOperations,
 	recordSensitiveOperation,
 	type SensitiveOperationLogEntry,
