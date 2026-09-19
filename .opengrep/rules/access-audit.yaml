@@ -1,0 +1,111 @@
+##
+# Concessão, alteração e revogação de acesso só pelas funções SQL AUDITADAS.
+#
+# Como as outras regras deste diretório, esta nasceu de bug real: em 2026-09-18 apareceu um
+# `alpha-admin` global sem registro nenhum de quem o concedeu, e o levantamento mostrou que
+# rumaer, sucont, forms e o papel do journal nunca registraram concessão, e que o sisub
+# gravava o log DEPOIS da mutação, em outra instrução — log que falha deixa o acesso concedido
+# e sem rastro. Diretriz do mantenedor: em TODO app, quem concedeu, a quem, o quê e quando,
+# atomicamente com a mudança; o esquecimento tem de FALHAR.
+#
+# As funções (migration 20260921120000) gravam a mudança e a linha de
+# `access_control.sensitive_operation_log` numa transação só, com o ator da sessão. Os
+# triggers (20260921120100) recusam no banco a escrita fora delas. Esta regra pega o mesmo
+# esquecimento ANTES do deploy — e o buraco que o trigger não vê: escrita direta numa
+# transação que já chamou uma função auditada (o contexto vale até o fim da transação).
+#
+# Caminho certo:
+#   - grant inline por chave (contrate, rumaer, sucont): `changeModulePermission` (@iefa/pbac);
+#   - console do sisub (grant por linha, políticas, anexos, chaves MCP): as operações de
+#     `@iefa/sisub-domain`, que chamam `access_control.*` por `runAccessFunction`;
+#   - forms: `db.rpc("add_response_viewer" | "update_response_viewer_policy" |
+#     "remove_response_viewer" | "add_questionnaire_editor" | "remove_questionnaire_editor")`;
+#   - papel do journal: `rpc("change_user_role")`.
+#
+# `journal.user_profiles` fica fora da regra: só a coluna `role` é acesso, e o resto do perfil
+# (nome, bio) é escrito normalmente — o trigger vigia só o papel, e o contrato de
+# `apps/portal/src/lib/journal/role-change.test.ts` garante que `role` sai do payload.
+##
+rules:
+  - id: access-table-direct-write
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Escrita direta em tabela de ACESSO (grant, política, anexo, chave MCP, visualizador ou editor
+      de questionário). Não registra quem concedeu, a quem e quando — e desde 20260921120100 o banco
+      a recusa (42501 ACCESS_CHANGE_UNAUDITED). Use a função auditada: `changeModulePermission`
+      (@iefa/pbac), as operações de `@iefa/sisub-domain` (`runAccessFunction`) ou a RPC `forms.*` /
+      `journal.change_user_role`. Manutenção explícita (seed, faxina de fixture) abre
+      `iefa.audit_bypass` numa transação — e entra na allowlist de `access-audit-bypass-outside-allowlist`.
+    paths:
+      include:
+        - "apps/**/*.ts"
+        - "apps/**/*.tsx"
+        - "packages/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+        - "**/node_modules/**"
+    patterns:
+      - pattern-either:
+          # supabase-js / PostgREST
+          - pattern: $DB.from("user_permissions").$WRITE(...)
+          - pattern: $DB.from("policy").$WRITE(...)
+          - pattern: $DB.from("policy_statement").$WRITE(...)
+          - pattern: $DB.from("user_policy_attachment").$WRITE(...)
+          - pattern: $DB.from("mcp_api_keys").$WRITE(...)
+          - pattern: $DB.from("response_viewer").$WRITE(...)
+          - pattern: $DB.from("response_viewer_scope_binding").$WRITE(...)
+          - pattern: $DB.from("questionnaire_editor").$WRITE(...)
+          # Drizzle
+          - pattern: $DB.$WRITE(userPermissionsInAccessControl)
+          - pattern: $DB.$WRITE(policyInAccessControl)
+          - pattern: $DB.$WRITE(policyStatementInAccessControl)
+          - pattern: $DB.$WRITE(userPolicyAttachmentInAccessControl)
+          - pattern: $DB.$WRITE(mcpApiKeysInAccessControl)
+          - pattern: $DB.$WRITE(responseViewerInForms)
+          - pattern: $DB.$WRITE(responseViewerScopeBindingInForms)
+          - pattern: $DB.$WRITE(questionnaireEditorInForms)
+      - metavariable-regex:
+          metavariable: $WRITE
+          regex: ^(insert|update|upsert|delete)$
+      # `last_used_at` é telemetria do sisub-mcp, não acesso — o trigger também o deixa passar.
+      - pattern-not: '$DB.from("mcp_api_keys").update({ last_used_at: $V })'
+
+  - id: access-table-direct-write-raw-sql
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      SQL cru escrevendo em tabela de ACESSO. Não registra quem concedeu, a quem e quando — e desde
+      20260921120100 o banco o recusa (42501 ACCESS_CHANGE_UNAUDITED). Chame a função auditada
+      (`select access_control.attach_policy(…)`, `access_control.create_user_permission(…)`, …).
+    paths:
+      include:
+        - "apps/**/*.ts"
+        - "packages/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+        - "**/node_modules/**"
+    pattern-regex: (?i)\b(insert\s+into|update|delete\s+from)\s+(access_control\.(user_permissions|policy|policy_statement|user_policy_attachment|mcp_api_keys)|forms\.(response_viewer|response_viewer_scope_binding|questionnaire_editor))\b
+
+  - id: access-audit-bypass-outside-allowlist
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `iefa.audit_bypass` / `iefa.audit_operation` fora da allowlist. O bypass desliga a exigência de
+      auditoria das tabelas de acesso na transação, e o contexto de operação é o que SÓ as funções
+      SQL auditadas abrem — escrevê-lo no app forja a prova de que a mudança foi registrada. Bypass
+      legítimo é manutenção explícita (faxina e seed de fixture) e entra na lista de exclusões desta
+      regra, com o motivo.
+    paths:
+      include:
+        - "apps/**/*.ts"
+        - "apps/**/*.tsx"
+        - "packages/**/*.ts"
+      exclude:
+        - "**/node_modules/**"
+        # Seeder das fixtures de integração do sisub: grant de TESTE não é concessão a ninguém,
+        # e não pode ir para o log de produção (ator com log não se apaga).
+        - "apps/sisub/src/test/access-fixture-writer.ts"
+        # Faxina de fixture vazada (roda contra produção, com teto e dry-run).
+        - "apps/sisub/scripts/purge-test-fixtures.ts"
+    pattern-regex: iefa\.audit_(bypass|operation)
