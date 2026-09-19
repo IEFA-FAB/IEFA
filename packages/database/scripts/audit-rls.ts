@@ -442,13 +442,20 @@ async function auditClientExecute(schemas: string[]): Promise<Finding[]> {
 		}))
 }
 
-/** O servidor chama as funções como `service_role`; sem EXECUTE explícito ele quebra. */
+/**
+ * O servidor chama as funções como `service_role`; sem EXECUTE explícito ele quebra.
+ * Vale também FORA dos schemas expostos: uma RPC exposta que chama um helper de outro
+ * schema (ex.: `private.norm()`) falha com 42501 se o helper não for executável.
+ */
 async function auditServiceRoleExecute(schemas: string[]): Promise<Finding[]> {
 	const rows = await sql<{ signature: string }[]>`
 		select p.oid::regprocedure::text as signature
 		from pg_proc p
 		join pg_namespace n on n.oid = p.pronamespace
-		where n.nspname = any(${schemas})
+		where (
+				n.nspname = any(${schemas})
+				or (p.proowner = 'postgres'::regrole and n.nspname not in ('pg_catalog', 'information_schema') and n.nspname !~ '^pg_')
+			)
 			and p.prokind in ('f', 'p')
 			and p.prorettype <> 'pg_catalog.trigger'::regtype
 			and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
@@ -469,12 +476,22 @@ async function auditServiceRoleExecute(schemas: string[]): Promise<Finding[]> {
  * global que o tire), ou um default por schema concede a anon/authenticated.
  */
 async function auditDefaultAcl(schemas: string[]): Promise<Finding[]> {
-	const [global] = await sql<{ public_execute: boolean }[]>`
-		select not exists (
-			select 1 from pg_default_acl d
-			where d.defaclrole = 'postgres'::regrole and d.defaclnamespace = 0 and d.defaclobjtype = 'f'
-				and not exists (select 1 from unnest(d.defaclacl) a where a::text like '=%')
-		) as public_execute
+	// Sem entrada global, vale o default embutido — que concede a PUBLIC. Com entrada, ela
+	// não pode conceder a PUBLIC nem a anon/authenticated, e tem de conceder ao
+	// service_role (senão função nova, em qualquer schema, nasce inalcançável pelo servidor).
+	const [global] = await sql<{ has_entry: boolean; client_execute: boolean; service_role: boolean }[]>`
+		select
+			exists (select 1 from pg_default_acl d where d.defaclrole = 'postgres'::regrole and d.defaclnamespace = 0 and d.defaclobjtype = 'f') as has_entry,
+			exists (
+				select 1 from pg_default_acl d, unnest(d.defaclacl) a
+				where d.defaclrole = 'postgres'::regrole and d.defaclnamespace = 0 and d.defaclobjtype = 'f'
+					and a::text ~ '^(=|anon=|authenticated=)'
+			) as client_execute,
+			exists (
+				select 1 from pg_default_acl d, unnest(d.defaclacl) a
+				where d.defaclrole = 'postgres'::regrole and d.defaclnamespace = 0 and d.defaclobjtype = 'f'
+					and a::text ~ '^service_role='
+			) as service_role
 	`
 	const perSchema = await sql<{ schema: string; acl: string }[]>`
 		select d.defaclnamespace::regnamespace::text as schema, array_to_string(d.defaclacl, ' ') as acl
@@ -484,13 +501,22 @@ async function auditDefaultAcl(schemas: string[]): Promise<Finding[]> {
 			and exists (select 1 from unnest(d.defaclacl) a where a::text ~ '^(anon|authenticated)=')
 	`
 	const findings: Finding[] = []
-	if (global?.public_execute) {
+	if (!global?.has_entry || global.client_execute) {
 		findings.push({
 			severity: "error",
 			lint: "default_acl_client_execute",
 			object: "default privileges (global, role postgres)",
 			detail:
-				"função nova nasce executável por PUBLIC (e por anon/authenticated, que herdam) — `alter default privileges for role postgres revoke execute on routines from public` (sem `in schema`: o por-schema não gruda)",
+				"função nova nasce executável por cliente (PUBLIC, de quem anon/authenticated herdam, ou os dois direto) — `alter default privileges for role postgres revoke execute on routines from public, anon, authenticated` (sem `in schema`: o por-schema não gruda)",
+		})
+	}
+	if (!global?.service_role) {
+		findings.push({
+			severity: "error",
+			lint: "default_acl_client_execute",
+			object: "default privileges (global, role postgres)",
+			detail:
+				"o default global não concede EXECUTE ao service_role: função nova fora dos schemas com default próprio nasce inalcançável pelo servidor — `alter default privileges for role postgres grant execute on routines to service_role`",
 		})
 	}
 	for (const r of perSchema) {
