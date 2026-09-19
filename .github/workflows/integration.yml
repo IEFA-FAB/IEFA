@@ -52,6 +52,16 @@ jobs:
           bun-version: "1.4.0"
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      # Grants do banco: função nossa executável por cliente, função que o
+      # service_role não executa, default que faz função NOVA nascer aberta, RLS e
+      # SECURITY DEFINER. Lê só o catálogo. Roda aqui, e não só no agendamento do
+      # security.yml, porque toda migration passa por este workflow
+      # (`packages/database/**`) e é aplicada ANTES do merge — o gate vê o efeito
+      # dela no banco, qualquer que seja o SQL que o causou.
+      - name: Audit database grants and RLS
+        env:
+          SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
+        run: bun --filter @iefa/database audit:rls
       - name: Run transactional integration gate
         working-directory: apps/sisub
         env:

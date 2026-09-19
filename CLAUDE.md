@@ -166,6 +166,25 @@ Regras de contribuição para **todos** os devs e agentes de IA no repo.
   `sucont`, `assignment_selection`, `gs`
 - Env: `VITE_SISUB_SUPABASE_URL`, `VITE_SISUB_SUPABASE_PUBLISHABLE_KEY` (client), `SISUB_SUPABASE_SECRET_KEY` (server)
 
+### Funções SQL: EXECUTE é negado por padrão
+
+Todo schema de `pgrst.db_schemas` vira API: cada função nele é um `POST /rest/v1/rpc/<nome>`, e a
+chave publicável (papéis `anon`/`authenticated`) está no bundle de todo app. Desde
+`20260920210000`:
+
+- **Função nova nasce executável só por `postgres` (dono) e `service_role` (servidor).** O default
+  GLOBAL do dono não concede mais a PUBLIC. Não é preciso `revoke` em função nova.
+- **Nunca escrever `revoke … from anon, authenticated` achando que fecha**: eles herdam de PUBLIC. E
+  `alter default privileges … in schema X revoke … from public` não gruda (o por-schema só
+  acrescenta ao global).
+- **O navegador não chama função nenhuma** — só auth, upload por URL assinada e Realtime de tabela
+  com policy `using (true)`. Conceder EXECUTE a `anon`/`authenticated` exige entrar na
+  `CLIENT_EXECUTE_ALLOWLIST` de `packages/database/scripts/audit-rls.ts`, com o motivo.
+- **Gate**: `bun --filter @iefa/database audit:rls` roda no job `gate` do `integration.yml` (toda
+  migration passa por ele e é aplicada antes do merge) e falha em função executável por cliente,
+  função que o `service_role` não executa, default que faça função nova nascer aberta, RLS
+  desligada alcançável e SECURITY DEFINER sem `search_path` ou exposta.
+
 ## Commands
 
 ```bash

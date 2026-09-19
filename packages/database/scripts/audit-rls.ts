@@ -14,6 +14,9 @@
  *   ERRO   view_security_definer view sem security_invoker E com GRANT para anon/authenticated
  *   ERRO   secdef_client_execute função SECURITY DEFINER executável por anon/authenticated
  *   ERRO   client_write_grant    GRANT de escrita para anon/authenticated sem policy que sustente
+ *   ERRO   client_execute        função NOSSA executável por anon/authenticated fora da allowlist
+ *   ERRO   service_role_no_execute função de schema exposto que o service_role (servidor) não executa
+ *   ERRO   default_acl_client_execute default de privilégios que faz função NOVA nascer executável por cliente
  *   AVISO  view_secdef_no_grant  view sem security_invoker, mas sem GRANT de cliente hoje
  *   AVISO  secdef_execute_latent EXECUTE de cliente numa SECURITY DEFINER de schema sem USAGE
  *   AVISO  rls_no_policy         RLS ligada e nenhuma policy → deny-all (ok se for só service-role)
@@ -25,13 +28,17 @@
  * qualquer usuário logado, e `journal.get_article_details` entregava o peer review cego a
  * anônimo. Ver a migration 20260825155457.
  *
- * `client_write_grant` e `secdef_client_execute` existem como GATE porque o banco não
- * consegue se defender sozinho aqui: `alter default privileges … revoke execute on
- * functions from public` NÃO gruda. O Postgres mescla o default embutido (que concede
- * EXECUTE a PUBLIC) com o que está em `pg_default_acl`, então toda função nova nasce
- * executável por `anon`. Medido neste banco: criar uma função de teste depois do revoke
- * ainda dá `=X/postgres` no ACL. Para tabelas o default embutido não concede nada a
- * PUBLIC, e por isso o `revoke` de tabela/sequence de 20260825160953 gruda.
+ * Funções: o Postgres dá EXECUTE a PUBLIC em toda função nova, e `anon`/`authenticated`
+ * herdam de PUBLIC — `revoke … from anon, authenticated` não tira nada. O default por
+ * SCHEMA (`alter default privileges … in schema X revoke … from public`) também não
+ * gruda: ele só ACRESCENTA ao default global — foi o que este comentário mediu antes, e
+ * concluiu que o banco não se defendia sozinho. O que gruda é o default GLOBAL do dono
+ * (`alter default privileges for role postgres revoke execute on routines from public`),
+ * aplicado em 20260920210000 — medido: função nova passa a nascer só com postgres e
+ * service_role. `client_execute`, `service_role_no_execute` e
+ * `default_acl_client_execute` são o gate que impede a volta: o navegador não chama
+ * função nenhuma (levantamento de 2026-09-19 em todos os apps), então qualquer EXECUTE
+ * de cliente numa função nossa é exceção a justificar na allowlist.
  *
  * Uso:
  *   SISUB_DATABASE_URL=postgres://... bun run audit:rls
@@ -66,6 +73,7 @@ const FALLBACK_EXPOSED_SCHEMAS = [
 	"assignment_selection",
 	"sucont",
 	"alpha",
+	"documents",
 ]
 
 type Severity = "error" | "warn"
@@ -393,6 +401,135 @@ async function auditDefinerExecuteGrants(schemas: string[]): Promise<Finding[]> 
 	})
 }
 
+/**
+ * Funções que um CLIENTE (anon/authenticated) pode executar de propósito. Hoje, nenhuma:
+ * o navegador só usa auth, upload por URL assinada e Realtime. Entrar aqui exige o
+ * motivo — é um endpoint `/rest/v1/rpc/<nome>` aberto a quem tem a chave publicável.
+ * Chave = `schema.nome(tipos)` como sai de `regprocedure::text`.
+ */
+const CLIENT_EXECUTE_ALLOWLIST: Record<string, string> = {}
+
+/**
+ * Função nossa executável por anon/authenticated. Independe do USAGE no schema de
+ * propósito: USAGE é uma porta só, e um `grant usage` futuro publicaria de uma vez
+ * toda função que já estivesse com EXECUTE aberto. Membro de extensão (`pg_trgm`,
+ * `unaccent`…) fica de fora: é da plataforma.
+ */
+async function auditClientExecute(schemas: string[]): Promise<Finding[]> {
+	const rows = await sql<{ signature: string; anon: boolean; authenticated: boolean; definer: boolean }[]>`
+		select
+			p.oid::regprocedure::text as signature,
+			has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
+			has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated,
+			p.prosecdef as definer
+		from pg_proc p
+		join pg_namespace n on n.oid = p.pronamespace
+		where n.nspname = any(${schemas})
+			and p.prokind in ('f', 'p')
+			-- gatilho não é exponível como RPC, e o EXECUTE só é checado no CREATE TRIGGER
+			and p.prorettype <> 'pg_catalog.trigger'::regtype
+			and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
+			and (has_function_privilege('anon', p.oid, 'EXECUTE') or has_function_privilege('authenticated', p.oid, 'EXECUTE'))
+		order by 1
+	`
+	return rows
+		.filter((r) => !(r.signature in CLIENT_EXECUTE_ALLOWLIST))
+		.map((r) => ({
+			severity: "error" as const,
+			lint: "client_execute",
+			object: r.signature,
+			detail: `executável por ${[r.anon ? "anon" : null, r.authenticated ? "authenticated" : null].filter(Boolean).join(", ")}${r.definer ? " (SECURITY DEFINER — ignora a RLS)" : ""}. Nenhum app chama função com papel de cliente: revogue de PUBLIC (não só de anon/authenticated — eles herdam de PUBLIC) ou justifique na CLIENT_EXECUTE_ALLOWLIST`,
+		}))
+}
+
+/**
+ * O servidor chama as funções como `service_role`; sem EXECUTE explícito ele quebra.
+ * Vale também FORA dos schemas expostos: uma RPC exposta que chama um helper de outro
+ * schema (ex.: `private.norm()`) falha com 42501 se o helper não for executável.
+ */
+async function auditServiceRoleExecute(schemas: string[]): Promise<Finding[]> {
+	const rows = await sql<{ signature: string }[]>`
+		select p.oid::regprocedure::text as signature
+		from pg_proc p
+		join pg_namespace n on n.oid = p.pronamespace
+		where (
+				n.nspname = any(${schemas})
+				or (p.proowner = 'postgres'::regrole and n.nspname not in ('pg_catalog', 'information_schema') and n.nspname !~ '^pg_')
+			)
+			and p.prokind in ('f', 'p')
+			and p.prorettype <> 'pg_catalog.trigger'::regtype
+			and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
+			and not has_function_privilege('service_role', p.oid, 'EXECUTE')
+		order by 1
+	`
+	return rows.map((r) => ({
+		severity: "error" as const,
+		lint: "service_role_no_execute",
+		object: r.signature,
+		detail: "service_role (o servidor, via chave secreta) não executa esta função — `grant execute on function … to service_role`",
+	}))
+}
+
+/**
+ * O default de privilégios decide com o que a PRÓXIMA função nasce. Dois jeitos de ela
+ * nascer aberta: o default global do dono ainda dá EXECUTE a PUBLIC (não há entrada
+ * global que o tire), ou um default por schema concede a anon/authenticated.
+ */
+async function auditDefaultAcl(schemas: string[]): Promise<Finding[]> {
+	// Sem entrada global, vale o default embutido — que concede a PUBLIC. Com entrada, ela
+	// não pode conceder a PUBLIC nem a anon/authenticated, e tem de conceder ao
+	// service_role (senão função nova, em qualquer schema, nasce inalcançável pelo servidor).
+	const [global] = await sql<{ has_entry: boolean; client_execute: boolean; service_role: boolean }[]>`
+		select
+			exists (select 1 from pg_default_acl d where d.defaclrole = 'postgres'::regrole and d.defaclnamespace = 0 and d.defaclobjtype = 'f') as has_entry,
+			exists (
+				select 1 from pg_default_acl d, unnest(d.defaclacl) a
+				where d.defaclrole = 'postgres'::regrole and d.defaclnamespace = 0 and d.defaclobjtype = 'f'
+					and a::text ~ '^(=|anon=|authenticated=)'
+			) as client_execute,
+			exists (
+				select 1 from pg_default_acl d, unnest(d.defaclacl) a
+				where d.defaclrole = 'postgres'::regrole and d.defaclnamespace = 0 and d.defaclobjtype = 'f'
+					and a::text ~ '^service_role='
+			) as service_role
+	`
+	const perSchema = await sql<{ schema: string; acl: string }[]>`
+		select d.defaclnamespace::regnamespace::text as schema, array_to_string(d.defaclacl, ' ') as acl
+		from pg_default_acl d
+		where d.defaclrole = 'postgres'::regrole and d.defaclobjtype = 'f'
+			and d.defaclnamespace::regnamespace::text = any(${schemas})
+			and exists (select 1 from unnest(d.defaclacl) a where a::text ~ '^(anon|authenticated)=')
+	`
+	const findings: Finding[] = []
+	if (!global?.has_entry || global.client_execute) {
+		findings.push({
+			severity: "error",
+			lint: "default_acl_client_execute",
+			object: "default privileges (global, role postgres)",
+			detail:
+				"função nova nasce executável por cliente (PUBLIC, de quem anon/authenticated herdam, ou os dois direto) — `alter default privileges for role postgres revoke execute on routines from public, anon, authenticated` (sem `in schema`: o por-schema não gruda)",
+		})
+	}
+	if (!global?.service_role) {
+		findings.push({
+			severity: "error",
+			lint: "default_acl_client_execute",
+			object: "default privileges (global, role postgres)",
+			detail:
+				"o default global não concede EXECUTE ao service_role: função nova fora dos schemas com default próprio nasce inalcançável pelo servidor — `alter default privileges for role postgres grant execute on routines to service_role`",
+		})
+	}
+	for (const r of perSchema) {
+		findings.push({
+			severity: "error",
+			lint: "default_acl_client_execute",
+			object: `default privileges (schema ${r.schema}, role postgres)`,
+			detail: `função nova neste schema nasce executável por cliente: ${r.acl}`,
+		})
+	}
+	return findings
+}
+
 async function main() {
 	const schemas = await resolveExposedSchemas()
 	const findings = (
@@ -403,6 +540,9 @@ async function main() {
 			auditViews(schemas),
 			auditDefinerExecuteGrants(schemas),
 			auditClientWriteGrants(schemas),
+			auditClientExecute(schemas),
+			auditServiceRoleExecute(schemas),
+			auditDefaultAcl(schemas),
 		])
 	).flat()
 
