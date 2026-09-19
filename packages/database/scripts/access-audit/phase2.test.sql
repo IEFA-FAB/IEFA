@@ -95,6 +95,44 @@ do $$ begin
 	assert (select role from journal.user_profiles where id = '00000000-0000-0000-0000-0000000000f1') = 'editor';
 end $$;
 
+-- ── set_module_block (contrate, #388) sob a fase 2 ─────────────────────────
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000b1', 'b1@x');
+-- sem contexto, o mesmo deny que a função grava é recusado
+do $$ begin
+	perform pg_temp.expect_error($q$ insert into access_control.user_permissions (user_id, module, level) values ('00000000-0000-0000-0000-0000000000b1', 'alpha-aci', 0) $q$, 'ACCESS_CHANGE_UNAUDITED');
+end $$;
+do $$
+declare r jsonb; n bigint := (select count(*) from access_control.sensitive_operation_log);
+begin
+	-- um allow pré-existente: o bloqueio não o toca
+	perform access_control.change_module_permission('00000000-0000-0000-0000-00000000000a', 'contrate', 'grant', '00000000-0000-0000-0000-0000000000b1', 'alpha-requester', 1, 1, null, null, null);
+	n := n + 1;
+	r := access_control.set_module_block('00000000-0000-0000-0000-00000000000a', 'contrate', '00000000-0000-0000-0000-0000000000b1',
+		array['alpha-requester', 'alpha-procurement', 'alpha-aci', 'alpha-admin'], true);
+	assert jsonb_array_length(r -> 'changed') = 4, 'quatro módulos bloqueados';
+	assert (select count(*) from access_control.sensitive_operation_log) = n + 4, 'uma linha de log por módulo alterado';
+	assert (select count(*) from access_control.sensitive_operation_log where operation = 'contrate.permission.block' and target ->> 'target_user_id' = '00000000-0000-0000-0000-0000000000b1') = 4;
+	assert exists (select 1 from access_control.user_permissions where user_id = '00000000-0000-0000-0000-0000000000b1' and module = 'alpha-requester' and level = 1), 'o allow ficou';
+end $$;
+do $$
+declare r jsonb; n bigint := (select count(*) from access_control.sensitive_operation_log);
+begin
+	-- de novo: tudo já bloqueado, nada muda, nada é registrado
+	r := access_control.set_module_block('00000000-0000-0000-0000-00000000000a', 'contrate', '00000000-0000-0000-0000-0000000000b1', array['alpha-aci', 'alpha-admin'], true);
+	assert jsonb_array_length(r -> 'changed') = 0 and (select count(*) from access_control.sensitive_operation_log) = n;
+	-- desbloqueio de dois: dois logs, os outros dois bloqueios ficam
+	r := access_control.set_module_block('00000000-0000-0000-0000-00000000000a', 'contrate', '00000000-0000-0000-0000-0000000000b1', array['alpha-aci', 'alpha-admin'], false);
+	assert jsonb_array_length(r -> 'changed') = 2 and (select count(*) from access_control.sensitive_operation_log) = n + 2;
+	assert (select count(*) from access_control.user_permissions where user_id = '00000000-0000-0000-0000-0000000000b1' and level <= 0) = 2;
+	-- ninguém bloqueia a si mesmo
+	perform pg_temp.expect_error($q$ select access_control.set_module_block('00000000-0000-0000-0000-00000000000a', 'contrate', '00000000-0000-0000-0000-00000000000a', array['alpha-admin'], true) $q$, 'PERMISSION_CHANGE_INVALID');
+end $$;
+-- ator inexistente: nenhum módulo fica bloqueado (log e escrita, uma transação)
+do $$ begin
+	perform pg_temp.expect_error($q$ select access_control.set_module_block('00000000-0000-0000-0000-0000000000ff', 'contrate', '00000000-0000-0000-0000-0000000000b1', array['alpha-aci', 'alpha-admin'], true) $q$, 'PERMISSION_ACTOR_NOT_FOUND');
+	assert (select count(*) from access_control.user_permissions where user_id = '00000000-0000-0000-0000-0000000000b1' and level <= 0) = 2;
+end $$;
+
 -- ── O contexto não vaza para a PRÓXIMA transação ────────────────────────────
 select access_control.change_module_permission('00000000-0000-0000-0000-00000000000a', 'rumaer', 'grant', '00000000-0000-0000-0000-00000000000c', 'rumaer', 3, null, null, null, null) is not null as granted;
 do $$ begin

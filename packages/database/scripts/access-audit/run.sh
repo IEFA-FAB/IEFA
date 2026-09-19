@@ -26,6 +26,9 @@ $PSQL -d postgres -qc "create database $DB"
 run() { $PSQL -d "$DB" -v ON_ERROR_STOP=1 -q -f "$1"; }
 
 run "$HERE/stub.sql"
+# Já aplicada em produção antes desta (20260921090100, #388): a fase 1 a substitui por
+# `create or replace` — aplicá-la antes aqui prova que a substituição sobre a versão viva funciona.
+run "$MIGRATIONS/20260921090100_access_control_set_module_block.sql"
 run "$MIGRATIONS/20260921130000_access_change_audited_functions.sql"
 # Reaplicável: a fase 1 é idempotente.
 run "$MIGRATIONS/20260921130000_access_change_audited_functions.sql"

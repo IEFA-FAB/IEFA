@@ -139,3 +139,13 @@ test("journal.save_user_profile delega o papel à função auditada e recusa `ro
 	expect(body).toMatch(/where k not in \('full_name', 'affiliation', 'orcid', 'bio', 'expertise', 'email_notifications'\)/)
 	expect(body).not.toMatch(/insert into journal\.user_profiles \([^)]*\brole\b/)
 })
+
+test("set_module_block (20260921090100, aplicada) é substituída pela versão que abre o contexto", () => {
+	const latest = bodies.get("access_control.set_module_block")
+	expect(latest?.file).toBe(PHASE_1)
+	expect(latest?.body).toContain("perform access_control.audit_context(p_app || '.permission.' || case when p_blocked then 'block' else 'unblock' end)")
+	// A assinatura não muda: `create or replace` sobre a função viva, sem sobrecarga nova.
+	expect(latest?.body).toMatch(
+		/p_actor\s+uuid,\s*p_app\s+text,\s*p_user\s+uuid,\s*p_modules\s+text\[\],\s*p_blocked\s+boolean,\s*p_assurance\s+text default 'session'/
+	)
+})

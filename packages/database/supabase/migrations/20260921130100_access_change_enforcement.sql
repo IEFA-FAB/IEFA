@@ -7,11 +7,14 @@
 -- direto — aplicar isto antes quebraria a concessão de acesso em TODOS eles no mesmo instante.
 --
 --   1. fase 1 (20260921130000) aplicada;
---   2. o código que chama as funções em produção em TODOS os apps que escrevem estas tabelas:
---      sisub, sisub-mcp (não escreve acesso, mas atualiza `last_used_at` — coberto pelo WHEN),
---      rumaer, sucont, forms, portal e contrate. Conferir por JOB no run de deploy da main
---      (deploy pulado por check vermelho deixa o app com o código antigo);
---   3. o PR de limpeza do α (`set_module_block`) já chamando `access_control.audit_context`;
+--   2. o código que chama as funções em produção nos apps que escreviam estas tabelas direto:
+--      sisub, rumaer, sucont, forms e portal — deploy da main com o job de CADA um verde
+--      (deploy pulado por check vermelho deixa o app com o código antigo, que escreve direto e
+--      passaria a falhar). contrate e sisub-mcp já não escrevem direto (contrate usa
+--      `change_module_permission`/`set_module_block`, cujas versões com contexto vêm na fase 1;
+--      sisub-mcp só grava `last_used_at`, fora do WHEN);
+--   3. `set_module_block` (20260921090100) substituída pela versão que abre o contexto — isso
+--      já vem na fase 1, nada a fazer além dela;
 --   4. SÓ ENTÃO: `psql -f` desta migration + `supabase migration repair --status applied`.
 --
 -- ── A regra ──────────────────────────────────────────────────────────────────

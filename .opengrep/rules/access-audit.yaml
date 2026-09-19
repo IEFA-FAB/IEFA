@@ -20,7 +20,12 @@
 #     `@iefa/sisub-domain`, que chamam `access_control.*` por `runAccessFunction`;
 #   - forms: `db.rpc("add_response_viewer" | "update_response_viewer_policy" |
 #     "remove_response_viewer" | "add_questionnaire_editor" | "remove_questionnaire_editor")`;
-#   - papel do journal: `rpc("change_user_role")`.
+#   - papel do journal: `rpc("save_user_profile")` (perfil + papel, uma transação);
+#   - bloqueio em vários módulos (contrate): `setModuleBlock` (@iefa/pbac).
+#
+# Migrations (SQL, fora do alcance destas regras TS) que semeiam ou corrigem essas tabelas depois
+# de 20260921130100 abrem o bypass na própria transação —
+# `select set_config('iefa.audit_bypass', '<motivo>', true);` — senão o trigger as recusa.
 #
 # `journal.user_profiles` fica fora da regra: só a coluna `role` é acesso, e o resto do perfil
 # (nome, bio) é escrito normalmente — o trigger vigia só o papel, e o contrato de
