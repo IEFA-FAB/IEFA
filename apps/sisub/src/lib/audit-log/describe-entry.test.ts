@@ -601,6 +601,32 @@ describe("staticTitle — opções do filtro", () => {
 		expect(staticTitle("forms.editor.revoke")).toBe("Editor de questionário revogado")
 		expect(staticTitle("portal.journal-role.change")).toBe("Papel no journal alterado")
 		expect(staticTitle("createEmpenhoFn")).toBeNull()
-		expect(staticTitle("contrate.permission.block")).toBeNull()
+		expect(staticTitle("contrate.permission.transfer")).toBeNull()
+	})
+})
+
+describe("bloqueio em vários módulos (contrate, set_module_block)", () => {
+	const target = {
+		target_user_id: "00000000-0000-4000-8000-00000000000b",
+		module: "alpha-aci",
+		level: 0,
+		unit_id: null,
+		kitchen_id: null,
+		mess_hall_id: null,
+		partition: "deny",
+		previous_level: null,
+		previous_expires_at: null,
+	}
+
+	test("block e unblock têm título próprio", () => {
+		expect(describeAuditEntry("contrate.permission.block", target).title).toBe("Bloqueou no módulo")
+		expect(describeAuditEntry("contrate.permission.unblock", { ...target, level: null, removed: [{ id: "x", level: 0 }] }).title).toBe("Desbloqueou no módulo")
+		expect(staticTitle("contrate.permission.block")).toBe("Bloqueou no módulo")
+		expect(staticTitle("contrate.permission.unblock")).toBe("Desbloqueou no módulo")
+	})
+
+	test("bloqueio com prazo que virou permanente mostra a mudança de prazo", () => {
+		const d = describeAuditEntry("contrate.permission.block", { ...target, previous_level: 0, previous_expires_at: "2026-10-01T00:00:00Z" })
+		expect(d.fields.some((field) => field.label === "Prazo")).toBe(true)
 	})
 })

@@ -235,7 +235,7 @@ function describeInlinePermission(operation: string, t: Json): { title: string; 
 	return { title, fields: f.list }
 }
 
-/** Grant por CHAVE dos outros apps (`<app>.permission.grant|revoke`, `change_module_permission`). */
+/** Grant por CHAVE dos outros apps (`<app>.permission.grant|revoke|block|unblock`, `change_module_permission`/`set_module_block`). */
 function describeKeyPermission(action: string, t: Json): { title: string | null; fields: AuditField[] } {
 	const f = new Fields()
 	const hadBefore = t.previous_level !== null && t.previous_level !== undefined
@@ -255,6 +255,15 @@ function describeKeyPermission(action: string, t: Json): { title: string | null;
 		title = t.partition === "deny" ? "Removeu bloqueio" : "Revogou acesso"
 		f.add("Nível", `${formatLevel(t.previous_level)} → removido`)
 		if (Array.isArray(t.removed) && t.removed.length > 1) f.add("Concessões removidas", String(t.removed.length))
+	} else if (action === "block") {
+		// `set_module_block` (20260921090100): deny sem escopo e sem prazo, um log por módulo.
+		title = "Bloqueou no módulo"
+		// Bloqueio que já existia com prazo virou permanente — é isso que a linha registra.
+		if (t.previous_expires_at !== null && t.previous_expires_at !== undefined)
+			f.add("Prazo", transition(formatExpiry(t.previous_expires_at), formatExpiry(null)))
+	} else if (action === "unblock") {
+		title = "Desbloqueou no módulo"
+		if (Array.isArray(t.removed) && t.removed.length > 1) f.add("Bloqueios removidos", String(t.removed.length))
 	}
 	return { title, fields: f.list }
 }
@@ -456,6 +465,8 @@ export function staticTitle(operation: string): string | null {
 	if (keyPermission && (PERMISSION_APPS as readonly string[]).includes(keyPermission[1])) {
 		if (keyPermission[2] === "grant") return "Concedeu ou alterou acesso"
 		if (keyPermission[2] === "revoke") return "Revogou acesso"
+		if (keyPermission[2] === "block") return "Bloqueou no módulo"
+		if (keyPermission[2] === "unblock") return "Desbloqueou no módulo"
 		return null
 	}
 	if (isAttachOperation(operation)) return "Anexou política ou alterou prazo do anexo"
