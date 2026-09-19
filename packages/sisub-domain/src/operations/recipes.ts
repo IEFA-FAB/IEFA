@@ -23,7 +23,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { FrozenPreparation, Ingredient, Recipe, RecipeFolder, RecipeIngredient } from "@iefa/database/sisub"
 import { and, asc, eq, ilike, inArray, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm"
-import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
+import { authorizeAssetMutation, canReadAsset, requireAssetRead, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateRecipe,
@@ -42,7 +42,7 @@ import type {
 } from "../schemas/recipes.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire, unwrapPgError } from "../utils/index.ts"
+import { containsPattern, insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire, unwrapPgError } from "../utils/index.ts"
 import { copyRecipeEquipmentRequirements } from "./equipment.ts"
 import { copyRecipeFlow } from "./recipe-flow.ts"
 
@@ -197,6 +197,9 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 	const row = await runQuery("FETCH_FAILED", () => db.query.recipesInKitchen.findFirst({ where, with: WITH_INGREDIENTS }))
 
 	if (!row) throw new NotFoundError("recipe", input.recipeId)
+	// O gate acima só diz "lê receitas"; QUAL receita é decidido pelo dono da linha. Sem isto,
+	// `kitchen:1` de uma cozinha lia a ficha local de qualquer outra só sabendo o UUID.
+	requireAssetRead(ctx, row.kitchenId)
 
 	scrubDeletedFrozenPreparations(row)
 	const recipe = toRecipeWire<RecipeWithIngredients>(row)
@@ -236,7 +239,7 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 	} else {
 		conditions.push(isNull(recipesInKitchen.kitchenId))
 	}
-	if (input.search) conditions.push(ilike(recipesInKitchen.name, `%${input.search}%`))
+	if (input.search) conditions.push(ilike(recipesInKitchen.name, containsPattern(input.search)))
 
 	// Sem orderBy no SQL: o sort pt-BR em JS (após o dedup) determina a ordem final;
 	// ordenar no Postgres seria um passo sem efeito observável.
@@ -305,7 +308,7 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
 	} else {
 		conditions.push(isNull(recipesInKitchen.kitchenId))
 	}
-	if (input.search) conditions.push(ilike(recipesInKitchen.name, `%${input.search}%`))
+	if (input.search) conditions.push(ilike(recipesInKitchen.name, containsPattern(input.search)))
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
@@ -343,24 +346,27 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
  * com template_type "weekly" e não excluído). Usado para sinalizar, na listagem de
  * preparações, quais merecem revisão prioritária por estarem em cardápios semanais.
  *
- * Sem escopo de cozinha: uma preparação global pode ser usada em um plano semanal de
- * qualquer cozinha. Autorização garantida por `requirePermission` — com Drizzle
- * (conexão direta pelo role do projeto) não há RLS; a autorização é só na aplicação.
+ * Sem escopo de cozinha no PLANO: uma preparação global pode ser usada em um plano semanal
+ * de qualquer cozinha, e é isso que a sinalização quer contar. Mas a PREPARAÇÃO devolvida
+ * passa pelo mesmo critério da leitura por id (`canReadAsset`): sem ele, a lista entregava
+ * os ids das preparações locais de todas as cozinhas da FAB. Autorização só na aplicação —
+ * com Drizzle (conexão direta pelo role do projeto) não há RLS.
  */
 export async function listRecipeMenuUsage(db: SisubDb, ctx: UserContext): Promise<string[]> {
 	requirePermission(ctx, "kitchen", 1)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ recipeId: menuTemplateItemsInKitchen.recipeId })
+			.select({ recipeId: menuTemplateItemsInKitchen.recipeId, ownerKitchenId: recipesInKitchen.kitchenId })
 			.from(menuTemplateItemsInKitchen)
 			.innerJoin(menuTemplateInKitchen, eq(menuTemplateItemsInKitchen.menuTemplateId, menuTemplateInKitchen.id))
+			.innerJoin(recipesInKitchen, eq(recipesInKitchen.id, menuTemplateItemsInKitchen.recipeId))
 			.where(and(eq(menuTemplateInKitchen.templateType, "weekly"), isNull(menuTemplateInKitchen.deletedAt), isNotNull(menuTemplateItemsInKitchen.recipeId)))
 	)
 
 	const ids = new Set<string>()
 	for (const row of rows) {
-		if (row.recipeId) ids.add(row.recipeId)
+		if (row.recipeId && canReadAsset(ctx, row.ownerKitchenId)) ids.add(row.recipeId)
 	}
 	return Array.from(ids)
 }
@@ -369,9 +375,10 @@ export async function listRecipeVersions(db: SisubDb, ctx: UserContext, input: L
 	requirePermission(ctx, "kitchen", 1)
 
 	const root = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInKitchen.findFirst({ columns: { id: true, baseRecipeId: true }, where: eq(recipesInKitchen.id, input.recipeId) })
+		db.query.recipesInKitchen.findFirst({ columns: { id: true, baseRecipeId: true, kitchenId: true }, where: eq(recipesInKitchen.id, input.recipeId) })
 	)
 	if (!root) throw new NotFoundError("recipe", input.recipeId)
+	requireAssetRead(ctx, root.kitchenId)
 
 	const rootId = root.baseRecipeId ?? root.id
 
@@ -383,7 +390,9 @@ export async function listRecipeVersions(db: SisubDb, ctx: UserContext, input: L
 		})
 	)
 
-	return rows.map((r) => toRecipeWire<RecipeWithIngredients>(r))
+	// A linhagem de uma receita GLOBAL inclui o fork de cada cozinha que a adaptou. Sem este
+	// filtro, pedir as versões do arroz global devolvia a ficha local de todas as cozinhas da FAB.
+	return rows.filter((r) => canReadAsset(ctx, r.kitchenId)).map((r) => toRecipeWire<RecipeWithIngredients>(r))
 }
 
 // ── Pastas de preparação (agrupamento plano — organização e filtragem) ───────

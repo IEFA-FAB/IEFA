@@ -51,4 +51,15 @@ describe.each(ROUTE_FILES.map((path) => [path] as const))("%s", (path) => {
 		const declaration = VITE_CONFIG.split("\n").find((line) => line.includes(`handler: "${path}"`)) ?? ""
 		expect(declaration).toContain('format: "web"')
 	})
+
+	// Toda rota daqui lê corpo JSON com a sessão do cookie, que é `SameSite=Lax`: um
+	// POST `text/plain` de outro subdomínio chegava com a sessão da vítima. O guard de
+	// CSRF vem antes de qualquer uso do pedido — sessão ou corpo.
+	it("chama requireSameOriginJson antes da sessão e do corpo", () => {
+		const source = readFileSync(join(APP_ROOT, path), "utf8")
+		const guard = source.indexOf("requireSameOriginJson(event)")
+		expect(guard).toBeGreaterThan(-1)
+		expect(guard).toBeLessThan(source.indexOf("requireSucontUser(event"))
+		expect(guard).toBeLessThan(source.indexOf("readBody(event)"))
+	})
 })

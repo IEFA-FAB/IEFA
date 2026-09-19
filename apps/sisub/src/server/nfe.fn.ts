@@ -224,13 +224,18 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 	return { matched, review, noMatch }
 }
 
+/** 5 MB de texto: folga de 4× sobre a maior NF-e plausível. */
+const NFE_XML_MAX_CHARS = 5 * 1024 * 1024
+
 /**
  * Uploads an NF-e XML through the API proxy and immediately runs the matching pipeline.
  *
  * @throws {Error} friendly messages for duplicate key (409) and invalid XML (422).
  */
 export const uploadNfeFn = createServerFn({ method: "POST" })
-	.validator(z.object({ xml: z.string().min(1), kitchenId: z.number().int().positive().optional() }))
+	// Teto do XML: NF-e real fica na casa das dezenas de KB (a maior, com centenas de itens,
+	// passa pouco de 1 MB). Sem teto, o servidor aceitava e repassava ao proxy qualquer volume.
+	.validator(z.object({ xml: z.string().min(1).max(NFE_XML_MAX_CHARS, "XML da NF-e grande demais"), kitchenId: z.number().int().positive().optional() }))
 	.handler(async ({ data }) => {
 		const { userId } = await requireStorageForKitchen(2, data.kitchenId ?? null)
 
@@ -279,16 +284,32 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 		if (!parsed) throw new Error("Chave de acesso inválida — confira o dígito verificador")
 
 		const inv = inventory()
-		const { data: existing } = await inv.from("nfe_document").select("id, status, kitchen_id").eq("access_key", parsed.key).maybeSingle()
+		const unitId = await purchaseUnitIdForKitchen(data.kitchenId)
+
+		const { data: existing } = await inv.from("nfe_document").select("id, status, kitchen_id, unit_id").eq("access_key", parsed.key).maybeSingle()
 		if (existing) {
-			// nota já conhecida: assume para esta cozinha se ainda não tem dono
+			// Nota já conhecida. As mesmas travas de `claimNfeForKitchenFn`: sem elas, ler a chave
+			// de uma nota de OUTRA unidade (ela está impressa no DANFE) bastava para assumi-la, e
+			// a nota de outra cozinha devolvia o id dela a quem não pode abri-la.
+			if (existing.kitchen_id != null && Number(existing.kitchen_id) !== data.kitchenId) throw new Error("NF-e já pertence a outra cozinha")
+			if (existing.unit_id != null && unitId != null && Number(existing.unit_id) !== unitId) throw new Error("NF-e endereçada a outra unidade")
+			// Sem dono: assume para esta cozinha. `is(kitchen_id, null)` fecha a corrida com outra
+			// cozinha assumindo ao mesmo tempo — desde que se confira que ESTE update pegou a linha:
+			// quem perde a corrida atualiza zero linhas, e sem a conferência receberia o id da nota
+			// que acabou de virar da outra cozinha.
 			if (existing.kitchen_id == null) {
-				await inv.from("nfe_document").update({ kitchen_id: data.kitchenId }).eq("id", existing.id)
+				const { data: claimed, error } = await inv
+					.from("nfe_document")
+					.update({ kitchen_id: data.kitchenId })
+					.eq("id", existing.id)
+					.is("kitchen_id", null)
+					.select("id")
+				if (error) throw new Error(`Erro ao assumir a nota: ${error.message}`)
+				if (!claimed || claimed.length === 0) throw new Error("NF-e já pertence a outra cozinha")
 			}
 			return { nfeDocumentId: existing.id as string, created: false, status: existing.status as string }
 		}
 
-		const unitId = await purchaseUnitIdForKitchen(data.kitchenId)
 		// AAMM da chave → primeiro dia do mês de emissão. É uma aproximação
 		// deliberada: a chave não traz o dia, e inventar um é pior que assumir o
 		// mês, que é o que o painel usa para ordenar.

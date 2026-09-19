@@ -45,6 +45,7 @@ import {
 import { enforceToolAssurance } from "./assurance.ts"
 import { resolveCredential } from "./auth.ts"
 import { getDataClient } from "./supabase.ts"
+import { toolAnnotations } from "./tools/annotations.ts"
 import { equipmentTools } from "./tools/equipment.ts"
 import { kitchenTools } from "./tools/kitchens.ts"
 import { mealTypeTools } from "./tools/meal-types.ts"
@@ -75,7 +76,9 @@ export function createMcpServer(credential: string): Server {
 	// ── Tools ─────────────────────────────────────────────────────────────────
 
 	server.setRequestHandler(ListToolsRequestSchema, async () => ({
-		tools: allTools.map((t) => t.schema),
+		// `readOnlyHint`/`destructiveHint` deixam o cliente pedir confirmação humana antes de
+		// uma escrita. São dicas — a autorização segue inteira no domínio.
+		tools: allTools.map((t) => ({ ...t.schema, annotations: toolAnnotations(t.schema.name) })),
 	}))
 
 	server.setRequestHandler(CallToolRequestSchema, async (request) => {

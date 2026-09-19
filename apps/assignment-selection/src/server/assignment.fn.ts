@@ -2,6 +2,7 @@ import type { Edition, Person, Vacancy } from "@iefa/database/assignment-selecti
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAccess } from "@/lib/auth.server"
+import { splitPersonChanges } from "@/lib/person-changes"
 import { getAssignmentServerClient } from "@/lib/supabase.server"
 
 export interface BoardData {
@@ -81,10 +82,40 @@ export const updatePersonFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<Person> => {
 		await requireAccess()
 		const supabase = getAssignmentServerClient()
-		const { data: row, error } = await supabase.from("person").update(data.changes).eq("id", data.id).select("*").single()
-		if (error) throw new Error(error.message)
+		const { choice, rest, hasChoice, hasRest } = splitPersonChanges(data.changes)
+
+		// OM e confirmação consomem vaga: vão pela função do banco, que trava a vaga e
+		// recusa OM fora da edição ou acima de `total_vagas` — inclusive com dois
+		// controladores confirmando ao mesmo tempo. Roda antes do update comum, para que
+		// uma recusa não deixe meia alteração gravada.
+		let row: Person | null = null
+		if (hasChoice) {
+			const { data: applied, error } = await applyPersonChoice(supabase, data.id, choice)
+			if (error) throw new Error(error.message)
+			row = applied
+		}
+		if (hasRest || !row) {
+			const { data: updated, error } = await supabase.from("person").update(rest).eq("id", data.id).select("*").single()
+			if (error) throw new Error(error.message)
+			row = updated
+		}
 		return row
 	})
+
+type AssignmentClient = ReturnType<typeof getAssignmentServerClient>
+
+/**
+ * `assignment_selection.apply_person_choice` (migration 20260921160500) ainda não está
+ * nos tipos gerados de `@iefa/database` — o cast some quando os tipos forem regenerados
+ * depois de aplicar a migration.
+ */
+function applyPersonChoice(supabase: AssignmentClient, personId: number, changes: Record<string, unknown>) {
+	const rpc = supabase.rpc.bind(supabase) as unknown as (
+		fn: "apply_person_choice",
+		args: { p_person_id: number; p_changes: Record<string, unknown> }
+	) => PromiseLike<{ data: Person | null; error: { message: string } | null }>
+	return rpc("apply_person_choice", { p_person_id: personId, p_changes: changes })
+}
 
 /** Ativa uma edição no telão (marca active=true e desmarca as demais). */
 export const setActiveEditionFn = createServerFn({ method: "POST" })
@@ -117,9 +148,20 @@ export const callPersonFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<void> => {
 		await requireAccess()
 		const supabase = getAssignmentServerClient()
+		// O militar tem de ser da edição informada. Sem isto o `clear` apagava o telão de
+		// uma edição e o `show` acendia o card de alguém de outra.
+		const { data: person, error: personError } = await supabase
+			.from("person")
+			.select("id")
+			.eq("id", data.personId)
+			.eq("edition_id", data.editionId)
+			.maybeSingle()
+		if (personError) throw new Error(personError.message)
+		if (!person) throw new Error("Militar não pertence a esta edição")
+
 		const clear = await supabase.from("person").update({ show_card: false, show_om: false }).eq("edition_id", data.editionId)
 		if (clear.error) throw new Error(clear.error.message)
-		const show = await supabase.from("person").update({ show_card: true }).eq("id", data.personId)
+		const show = await supabase.from("person").update({ show_card: true }).eq("id", data.personId).eq("edition_id", data.editionId)
 		if (show.error) throw new Error(show.error.message)
 	})
 

@@ -7,7 +7,10 @@
  *         impedindo session hijacking.
  *   M1 — Sessões HTTP têm TTL (2h de inatividade) e limite máximo (200 sessões).
  *         Cleanup automático a cada 10 minutos.
- *   M2 — Rate limiting por IP: 100 req/min. Resposta 429 quando excedido.
+ *   M2 — Rate limiting por IP: 100 req/min. Resposta 429 quando excedido. O IP é o
+ *         último item do X-Forwarded-For (o que o ALB acrescenta), não o primeiro, que o
+ *         cliente escreve.
+ *   M6 — Teto de sessões por usuário (10) além do global, e corpo limitado a 1 MiB.
  *   M5 — Headers CORS definidos explicitamente; preflight OPTIONS tratado.
  *
  * Transporte "stdio": JWT via SISUB_USER_JWT env var (Claude Desktop local)
@@ -19,6 +22,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
 import { resolveCredential } from "./auth.ts"
 import { isDbPoolWedged } from "./db.ts"
+import { BodyTooLargeError, clientIpFrom, countUserSessions, MAX_SESSIONS_PER_USER, readBodyCapped } from "./http-guards.ts"
 import { createMcpServer } from "./server.ts"
 
 const transportMode = process.env.MCP_TRANSPORT ?? "http"
@@ -112,11 +116,9 @@ if (transportMode === "stdio") {
 
 	const rateLimits = new Map<string, RateLimitEntry>()
 
-	/** Extrai o IP real do cliente, respeitando proxy reverso (X-Forwarded-For). */
+	/** IP do cliente para o rate limit — ver `clientIpFrom` (último hop, o do ALB). */
 	function getClientIp(req: import("node:http").IncomingMessage): string {
-		const forwarded = req.headers["x-forwarded-for"]
-		if (typeof forwarded === "string") return forwarded.split(",")[0].trim()
-		return req.socket.remoteAddress ?? "unknown"
+		return clientIpFrom(req.headers["x-forwarded-for"], req.socket.remoteAddress)
 	}
 
 	/**
@@ -134,18 +136,6 @@ if (transportMode === "stdio") {
 
 		entry.count += 1
 		return entry.count > RATE_LIMIT_MAX
-	}
-
-	// ── Helpers HTTP ──────────────────────────────────────────────────────────
-
-	/** Lê o body de um IncomingMessage como string. */
-	function readBody(req: import("node:http").IncomingMessage): Promise<string> {
-		return new Promise((resolve, reject) => {
-			const chunks: Buffer[] = []
-			req.on("data", (chunk: Buffer) => chunks.push(chunk))
-			req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")))
-			req.on("error", reject)
-		})
 	}
 
 	// ── HTTP Server ───────────────────────────────────────────────────────────
@@ -219,6 +209,32 @@ if (transportMode === "stdio") {
 			return
 		}
 
+		// Ler body para requisições POST — ANTES de abrir sessão/transport: corpo recusado não
+		// deve deixar um servidor MCP conectado para trás.
+		let parsedBody: unknown
+		if (req.method === "POST") {
+			let raw: string
+			try {
+				raw = await readBodyCapped(req)
+			} catch (err) {
+				if (err instanceof BodyTooLargeError) {
+					res.writeHead(413, { "Content-Type": "application/json", Connection: "close" })
+					res.end(JSON.stringify({ error: "Corpo da requisição grande demais" }))
+					return
+				}
+				throw err
+			}
+			if (raw) {
+				try {
+					parsedBody = JSON.parse(raw)
+				} catch {
+					res.writeHead(400, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ error: "JSON body inválido" }))
+					return
+				}
+			}
+		}
+
 		// ── Resolver sessão ───────────────────────────────────────────────────
 		const sessionId = req.headers["mcp-session-id"] as string | undefined
 		let transport: StreamableHTTPServerTransport
@@ -250,6 +266,13 @@ if (transportMode === "stdio") {
 				res.end(JSON.stringify({ error: "Servidor com capacidade máxima de sessões. Tente novamente em alguns minutos." }))
 				return
 			}
+			// M6: e por usuário — sem isto, UMA credencial ocupava as 200 vagas e travava o
+			// servidor para todo mundo até o TTL de 2 h expirar.
+			if (countUserSessions(sessions.values(), currentUserId) >= MAX_SESSIONS_PER_USER) {
+				res.writeHead(429, { "Content-Type": "application/json" })
+				res.end(JSON.stringify({ error: "Limite de sessões simultâneas deste usuário atingido. Encerre uma sessão ou aguarde." }))
+				return
+			}
 
 			// Nova sessão: criar transport e capturar o JWT atual
 			// createMcpServer(credential) captura a credencial em closure para uso nas tool calls.
@@ -278,21 +301,6 @@ if (transportMode === "stdio") {
 
 			const mcpServer = createMcpServer(credential)
 			await mcpServer.connect(transport)
-		}
-
-		// Ler body para requisições POST
-		let parsedBody: unknown
-		if (req.method === "POST") {
-			const raw = await readBody(req)
-			if (raw) {
-				try {
-					parsedBody = JSON.parse(raw)
-				} catch {
-					res.writeHead(400, { "Content-Type": "application/json" })
-					res.end(JSON.stringify({ error: "JSON body inválido" }))
-					return
-				}
-			}
 		}
 
 		// Delegar ao SDK MCP

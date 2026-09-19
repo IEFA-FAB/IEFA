@@ -12,8 +12,9 @@
  */
 
 import { createAdapterFromEnv, enforceRequestRateLimit, maxIterationsMiddleware, RateLimitError } from "@iefa/ai-provider"
+import { checkSameOriginJsonRequest } from "@iefa/auth-kit"
 import type { Database } from "@iefa/database"
-import { NOT_EXPIRED } from "@iefa/pbac"
+import { resolveUserPermissions } from "@iefa/pbac"
 import { metrics, trace } from "@opentelemetry/api"
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
@@ -23,10 +24,12 @@ import { type H3Event, HTTPError, readBody } from "h3"
 import { defineHandler } from "nitro"
 import { hasPermission } from "@/auth/pbac"
 import { getServerCapabilities } from "@/lib/capabilities.server"
+import { checkChatPayloadSize, sanitizeClientMessages } from "@/lib/chat-client-messages"
 import { getDb } from "@/lib/db.server"
 import { envServer } from "@/lib/env.server"
 import { getModuleConfig } from "@/lib/module-chat/tools/registry"
 import { getMaxLevel, type ToolContext } from "@/lib/module-chat/tools/shared"
+import { getAccessControlClient } from "@/lib/supabase.server"
 import type { ChatModule } from "@/types/domain/module-chat"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
 
@@ -65,20 +68,17 @@ function getDataClient() {
 	})
 }
 
-async function loadUserPermissions(supabase: ReturnType<typeof getDataClient>, userId: string): Promise<UserPermission[]> {
-	const { data, error } = await supabase
-		.schema("access_control")
-		.from("user_permissions")
-		.select("module, level, mess_hall_id, kitchen_id, unit_id")
-		.eq("user_id", userId)
-		// Mesmo filtro de prazo de `resolveUserPermissions` (@iefa/pbac): grant vencido é
-		// AUSENTE. Esta query é escrita à mão em vez de reusar o resolver porque ela NÃO quer
-		// o comensal implícito — o chat é gateado por módulo real. Sem o filtro, porém, o SSE
-		// virava o único caminho em que um acesso já expirado continuava valendo, e é ele que
-		// escolhe o conjunto de tools pelo `getMaxLevel` abaixo.
-		.or(NOT_EXPIRED)
-	if (error) throw new Error("Erro ao carregar permissões")
-	return ((data ?? []) as UserPermission[]).filter((p) => p.level > 0)
+/**
+ * Permissões EFETIVAS do usuário — grants inline + políticas, com os denies (level 0).
+ *
+ * Esta função era uma query escrita à mão em `user_permissions` terminando em
+ * `.filter((p) => p.level > 0)`: descartava o deny antes de `hasPermission`, que depende
+ * de vê-lo para negar, e nem lia as permissões vindas de política. Quem tinha allow global
+ * e deny numa cozinha escrevia nela pelo chat. O comensal implícito que o resolver injeta
+ * é inofensivo aqui: `diner` não é módulo de chat.
+ */
+function loadUserPermissions(userId: string): Promise<UserPermission[]> {
+	return resolveUserPermissions(userId, getAccessControlClient()) as Promise<UserPermission[]>
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────
@@ -88,6 +88,12 @@ export default defineHandler(async (event: H3Event) => {
 	// "Em breve" na UI e o endpoint responde 503 (em vez de quebrar o deploy).
 	if (!getServerCapabilities().moduleChat) {
 		throw new HTTPError({ status: 503, message: "Assistente IA indisponível — não configurado neste ambiente" })
+	}
+
+	// CSRF: o corpo é lido com a sessão do cookie, e `readBody` aceita `text/plain`.
+	const origin = checkSameOriginJsonRequest(event.req.headers, event.req.url)
+	if (!origin.ok) {
+		throw new HTTPError({ status: 403, message: origin.reason })
 	}
 
 	// 1. Auth
@@ -111,7 +117,11 @@ export default defineHandler(async (event: H3Event) => {
 		throw new HTTPError({ status: 400, message: "Corpo da requisição inválido" })
 	}
 
-	const { messages } = params
+	const sizeError = checkChatPayloadSize(params.messages)
+	if (sizeError) {
+		throw new HTTPError({ status: 413, message: sizeError })
+	}
+	const messages = sanitizeClientMessages(params.messages, { allowPendingToolCalls: false })
 	const fp = params.forwardedProps as Record<string, unknown>
 	const module = fp?.module as ChatModule | undefined
 	const scopeId = fp?.scopeId != null ? Number(fp.scopeId) : undefined
@@ -122,7 +132,7 @@ export default defineHandler(async (event: H3Event) => {
 
 	// 3. PBAC check
 	const supabase = getDataClient()
-	const permissions = await loadUserPermissions(supabase, user.id)
+	const permissions = await loadUserPermissions(user.id)
 
 	const appModule: AppModule = module
 	const scope: PermissionScope | undefined =

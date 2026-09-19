@@ -68,4 +68,80 @@ describe("validateSql", () => {
 
 		expect(validateSql(longSql)).toEqual({ valid: false, error: "SQL muito longa" })
 	})
+
+	test("rejeita relação fora da whitelist escondida em lista com vírgula (bypass da auditoria)", () => {
+		expect(validateSql("SELECT a.email, a.encrypted_password FROM units u, auth.users a LIMIT 50").valid).toBe(false)
+		expect(validateSql('SELECT * FROM units, "auth"."mfa_factors"').valid).toBe(false)
+		expect(validateSql("SELECT * FROM units u, secrets s").valid).toBe(false)
+	})
+
+	test("rejeita comentário no lugar de espaço", () => {
+		expect(validateSql("SELECT * FROM/**/auth.users")).toEqual({ valid: false, error: "Comentários não são permitidos" })
+		expect(validateSql("SELECT 1 FROM units -- x")).toEqual({ valid: false, error: "Comentários não são permitidos" })
+	})
+
+	test("rejeita chamada de função fora da allow-list e função qualificada", () => {
+		expect(validateSql("SELECT access_control.change_module_permission('00000000-0000-0000-0000-000000000000','sisub','grant') FROM units").valid).toBe(false)
+		expect(validateSql("SELECT pg_sleep(600) FROM units").valid).toBe(false)
+		expect(validateSql("SELECT set_config('role','postgres',true) FROM units").valid).toBe(false)
+		expect(validateSql("SELECT * FROM units WHERE id = current_setting('x')::int").valid).toBe(false)
+	})
+
+	test("rejeita schema não liberado mesmo com nome de tabela permitido", () => {
+		expect(validateSql("SELECT * FROM auth.units").valid).toBe(false)
+		expect(validateSql("SELECT * FROM kitchen.recipes LIMIT 5").valid).toBe(true)
+	})
+
+	test("rejeita CTE que só mascara tabela proibida", () => {
+		expect(validateSql("WITH users AS (SELECT * FROM auth.users) SELECT * FROM users").valid).toBe(false)
+	})
+
+	test("rejeita string com escape e dollar-quoting", () => {
+		expect(validateSql("SELECT E'\\x' FROM units").valid).toBe(false)
+		expect(validateSql("SELECT $x$a$x$ FROM units").valid).toBe(false)
+	})
+
+	test("aceita as consultas analíticas usuais", () => {
+		const ok = [
+			"SELECT date_trunc('week', date) AS semana, count(*) AS n FROM meal_presences WHERE date >= CURRENT_DATE - interval '30 days' GROUP BY 1 ORDER BY 1",
+			"SELECT extract(month FROM service_date) AS mes, sum(forecasted_headcount)::numeric(10,2) AS total FROM daily_menu GROUP BY 1",
+			"SELECT u.display_name, count(mp.id) FROM units u JOIN mess_halls mh ON mh.unit_id = u.id LEFT JOIN meal_presences mp ON mp.mess_hall_id = mh.id GROUP BY u.display_name ORDER BY 2 DESC LIMIT 10",
+			"SELECT k.display_name, count(*) FILTER (WHERE d.status = 'PUBLISHED') FROM kitchen k, daily_menu d WHERE d.kitchen_id = k.id GROUP BY 1",
+			"SELECT kitchen_id, row_number() OVER (PARTITION BY kitchen_id ORDER BY service_date) FROM daily_menu WHERE kitchen_id IN (SELECT id FROM kitchen) LIMIT 20",
+			"SELECT CAST(net_quantity AS numeric) FROM recipe_ingredients WHERE recipe_id IN (1, 2)",
+		]
+		for (const sql of ok) expect(validateSql(sql), sql).toEqual({ valid: true })
+	})
+
+	test("rejeita relação em lista com vírgula depois de JOIN ... ON (bypass da verificação)", () => {
+		expect(validateSql('SELECT d.email, d."nrOrdem" FROM (SELECT 1) x JOIN (SELECT 1) y ON true, core.user_data d ORDER BY d.email OFFSET 500').valid).toBe(
+			false
+		)
+		expect(validateSql("SELECT * FROM units u JOIN kitchen k USING (id), auth.users a").valid).toBe(false)
+	})
+
+	test("rejeita TABLE e WINDOW", () => {
+		expect(validateSql("SELECT * FROM (TABLE auth.users) t").valid).toBe(false)
+		expect(validateSql("SELECT count(*) OVER user_data FROM units WINDOW user_data AS ()").valid).toBe(false)
+	})
+
+	test("JOIN seguido de vírgula para tabela liberada continua aceito", () => {
+		expect(validateSql("SELECT * FROM units u JOIN mess_halls m ON m.unit_id = u.id, kitchen k WHERE k.unit_id = u.id LIMIT 5")).toEqual({
+			valid: true,
+		})
+	})
+
+	test("rejeita a primeira relação de um JOIN entre parênteses (bypass da revisão)", () => {
+		expect(validateSql("SELECT u.email FROM (auth.users u CROSS JOIN units x) LIMIT 5").valid).toBe(false)
+		expect(validateSql("SELECT d.email FROM (core.user_data d JOIN units x ON true)").valid).toBe(false)
+		expect(validateSql("SELECT 1 FROM units WHERE EXISTS (SELECT 1 FROM ((core.user_data d JOIN units z ON true)))").valid).toBe(false)
+		expect(validateSql("SELECT * FROM (units u JOIN mess_halls m ON m.unit_id = u.id) LIMIT 5")).toEqual({ valid: true })
+	})
+
+	test("aceita rótulo entre aspas com acento e as funções de data comuns", () => {
+		expect(validateSql("SELECT count(*) AS \"Total de refeições\" FROM meal_presences WHERE date >= now() - interval '7 days'")).toEqual({
+			valid: true,
+		})
+		expect(validateSql("SELECT date(created_at), position('a' in display_name) FROM units")).toEqual({ valid: true })
+	})
 })

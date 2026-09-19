@@ -11,6 +11,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
 import { secureCompare } from "../../lib/secure-compare.ts"
+import { MAX_SIAFI_REPORT_BODY_BYTES, uploadBodyLimit } from "../../lib/upload-limit.ts"
 import { parseSiafiRows, SiafiParseError, type SiafiReportType } from "../../workers/siafi/parse.ts"
 import { readSiafiFile } from "../../workers/siafi/read-file.ts"
 
@@ -75,6 +76,7 @@ const importRoute = createRoute({
 		},
 		422: { content: { "application/json": { schema: ErrorSchema } }, description: "Layout não reconhecido ou tipo incompatível" },
 		401: { content: { "application/json": { schema: ErrorSchema } }, description: "Unauthorized" },
+		413: { content: { "application/json": { schema: ErrorSchema } }, description: "Corpo acima do limite" },
 	},
 })
 
@@ -100,6 +102,8 @@ export function createSiafiAdminRoutes(deps: SiafiAdminRoutesDeps = {}) {
 		if (!secureCompare(secret, adminSecret)) return c.json({ error: "Unauthorized" }, 401)
 		return next()
 	})
+	// Depois do segredo, nunca antes: ver `upload-limit.ts`.
+	siafiAdminRoutes.use("/import", uploadBodyLimit(MAX_SIAFI_REPORT_BODY_BYTES))
 
 	siafiAdminRoutes.openapi(importRoute, async (c) => {
 		const { unit_id, report_type, file_name, competencia, created_by } = c.req.valid("query")

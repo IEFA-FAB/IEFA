@@ -38,6 +38,20 @@ function allowsNull(schema: unknown): boolean {
 }
 
 /**
+ * Chaves que nunca viram propriedade da saída. `JSON.parse` entrega `"__proto__"` como chave
+ * PRÓPRIA do objeto; copiá-la com `out[key] = value` num objeto literal chama o setter de
+ * `Object.prototype.__proto__` e troca o protótipo da saída pelo objeto que o modelo mandou —
+ * o handler passaria a enxergar, por herança, campos que o schema nunca validou. Nenhuma tool
+ * tem parâmetro com esses nomes; descartá-los não tira nada de ninguém.
+ */
+const FORBIDDEN_KEYS: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"])
+
+/** Schema de uma propriedade — só a PRÓPRIA, nunca herdada (`properties.constructor`). */
+function ownProperty(properties: Record<string, unknown> | undefined, key: string): unknown {
+	return properties != null && Object.hasOwn(properties, key) ? properties[key] : undefined
+}
+
+/**
  * O que sobra depois de `dropUnexpectedNulls`: toda chave vira opcional, em qualquer
  * profundidade, porque a função apaga campo em objeto aninhado também. Array fica intacto —
  * a função não mexe em item de array.
@@ -61,7 +75,8 @@ export function dropUnexpectedNulls<T extends Record<string, JsonValue>>(args: T
 	const out: Record<string, JsonValue> = {}
 
 	for (const [key, value] of Object.entries(args)) {
-		const propSchema = properties?.[key]
+		if (FORBIDDEN_KEYS.has(key)) continue
+		const propSchema = ownProperty(properties, key)
 
 		if (value === null) {
 			if (allowsNull(propSchema)) out[key] = value

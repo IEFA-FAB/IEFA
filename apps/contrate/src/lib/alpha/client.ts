@@ -21,6 +21,17 @@ export const DEFAULT_ALPHA_BASE_URL = "https://alpha.iefa.com.br"
 
 export const ALPHA_BASE_URL = (import.meta.env.VITE_ALPHA_API_URL as string | undefined) ?? DEFAULT_ALPHA_BASE_URL
 
+/**
+ * Caminho do α com cada valor interpolado codificado: alphaPath`/api/v1/submissions/${id}/text`.
+ *
+ * Os ids vêm de parâmetro de rota da URL do contrate — o usuário os escreve. Interpolado
+ * cru, um `../aci/queue` ou um `?` no id reescrevia a chamada que o browser faz ao α com o
+ * token da pessoa. Codificado, ele é sempre UM segmento.
+ */
+export function alphaPath(strings: TemplateStringsArray, ...values: Array<string | number | boolean>): string {
+	return strings.reduce((path, chunk, index) => path + chunk + (index < values.length ? encodeURIComponent(String(values[index])) : ""), "")
+}
+
 export async function alphaRequest<T>(path: string, token: string | undefined, init: RequestInit = {}): Promise<T> {
 	const isFormData = init.body instanceof FormData
 

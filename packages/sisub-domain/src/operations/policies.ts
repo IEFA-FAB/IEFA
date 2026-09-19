@@ -24,6 +24,7 @@ import type { UserPermission } from "@iefa/pbac"
 import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm"
 import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import { requirePermission } from "../guards/require-permission.ts"
+import { unscopedModuleViolation } from "../schemas/permissions.ts"
 import type {
 	AddPolicyStatement,
 	AttachPolicy,
@@ -35,6 +36,7 @@ import type {
 	ListPolicies,
 	ListPolicyMembers,
 	ListUserPolicies,
+	PolicyStatementInput,
 	RemovePolicyStatement,
 	RestorePolicy,
 	UpdatePolicy,
@@ -494,6 +496,16 @@ export async function restorePolicy(
 
 // ── Escrita: statements ──────────────────────────────────────────────────────
 
+/**
+ * `admin`/`global` não aceitam escopo (ver `UNSCOPED_ONLY_MODULES`). O schema já recusa e o
+ * banco tem o CHECK (migration 20260921160420); repetido aqui porque a operação não depende de
+ * o chamador ter passado pelo `.validator`, e a mensagem do CHECK não diz o que corrigir.
+ */
+function assertStatementScopeAllowed(statement: PolicyStatementInput): void {
+	const violation = unscopedModuleViolation(statement.module, statement)
+	if (violation) throw new DomainError("SCOPE_NOT_ALLOWED", violation)
+}
+
 export async function addPolicyStatement(
 	db: SisubDb,
 	ctx: UserContext,
@@ -506,6 +518,7 @@ export async function addPolicyStatement(
 	await assertPolicyEditable(db, input.policyId)
 
 	const statement = input.statement
+	assertStatementScopeAllowed(statement)
 	// Um `admin:0` numa política anexada ao ator o bloquearia na hora (deny vence allow).
 	const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
 	if (isAttached(snapshot, input.policyId)) {
@@ -546,6 +559,7 @@ export async function updatePolicyStatement(
 	await assertPolicyEditable(db, current.policyId)
 
 	const statement = input.statement
+	assertStatementScopeAllowed(statement)
 	// Rebaixar o statement de `admin` de uma política anexada ao ator — ou transformar QUALQUER
 	// statement dela em `admin:0` — o deixaria sem administração.
 	const snapshot = await loadActorAccessSnapshot(db, ctx.userId)

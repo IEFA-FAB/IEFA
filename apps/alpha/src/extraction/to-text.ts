@@ -11,6 +11,7 @@
  */
 
 import { extractText, getDocumentProxy } from "unpdf"
+import { DocumentLimitError } from "../lib/document-limits.ts"
 import { cleanText, normalizeTitle } from "../lib/text.ts"
 import { type DocxParagraph, parseDocx } from "../sources/docx.ts"
 import type { StructureNodeDraft } from "../sources/types.ts"
@@ -29,6 +30,25 @@ export interface SubmissionText {
  */
 export interface PdfSubmissionText extends SubmissionText {
 	pages: string[]
+}
+
+/**
+ * Teto de páginas de PDF lidas por padrão.
+ *
+ * O pdf.js monta o texto página a página, e o custo cresce com elas: sem teto, um PDF
+ * enviado com milhares de páginas (vazias, que comprimem a quase nada) prende o processo
+ * por minutos. Um ETP/TR/edital real fica muito abaixo disso. Quem lê PDF de origem
+ * confiável e maior (o coletor do RADA-e) passa o teto explicitamente.
+ */
+export const MAX_PDF_PAGES = 500
+
+export class PdfTooLargeError extends DocumentLimitError {
+	readonly pages: number
+	constructor(pages: number, maxPages: number) {
+		super(`O PDF tem ${pages} páginas; o limite é ${maxPages}.`)
+		this.name = "PdfTooLargeError"
+		this.pages = pages
+	}
 }
 
 /** `Heading1`, `Ttulo1`, `Heading 2`. */
@@ -104,13 +124,15 @@ export function docxToSubmissionText(bytes: Uint8Array): SubmissionText {
 	}
 }
 
-export async function pdfToSubmissionText(bytes: Uint8Array): Promise<PdfSubmissionText> {
+export async function pdfToSubmissionText(bytes: Uint8Array, options: { maxPages?: number } = {}): Promise<PdfSubmissionText> {
+	const maxPages = options.maxPages ?? MAX_PDF_PAGES
 	// A cópia não é desperdício: o pdf.js TRANSFERE o ArrayBuffer para o worker, e o
 	// buffer do chamador volta destacado, com `byteLength` 0. Quem reaproveitasse os
 	// bytes depois de converter — para calcular hash, gravar em storage ou tentar OCR —
 	// receberia vazio, sem erro nenhum. Isolar aqui custa uma cópia e vale por todos os
 	// chamadores, presentes e futuros.
 	const pdf = await getDocumentProxy(bytes.slice())
+	if (pdf.numPages > maxPages) throw new PdfTooLargeError(pdf.numPages, maxPages)
 	// `mergePages: false` porque a fronteira de página é informação, não formatação: é
 	// o que permite reconhecer cabeçalho e rodapé (ver `ingest/print-artifacts.ts`). O
 	// `text` daqui segue idêntico ao de antes — o `mergePages` do unpdf junta as páginas
@@ -132,6 +154,21 @@ export async function pdfToSubmissionText(bytes: Uint8Array): Promise<PdfSubmiss
 	})
 
 	return { text: lines.filter(Boolean).join("\n"), nodes: buildNodes(paragraphs), pages }
+}
+
+/**
+ * Confere os tetos de processamento ANTES de o documento ser aceito. Sem isto o upload
+ * respondia 201 e o documento nunca mais podia ser lido: extração, texto e verificação
+ * falhavam para sempre. PDF: só conta as páginas (barato). docx: a leitura inteira já é
+ * leve, e o texto volta para semear o cache.
+ */
+export async function inspectSubmissionDocument(bytes: Uint8Array, mimeType: string): Promise<string | null> {
+	if (mimeType.includes("pdf")) {
+		const pdf = await getDocumentProxy(bytes.slice())
+		if (pdf.numPages > MAX_PDF_PAGES) throw new PdfTooLargeError(pdf.numPages, MAX_PDF_PAGES)
+		return null
+	}
+	return (await toSubmissionText(bytes, mimeType)).text
 }
 
 export async function toSubmissionText(bytes: Uint8Array, mimeType: string): Promise<SubmissionText> {

@@ -20,6 +20,7 @@ import type { PersonIdentity } from "@iefa/database/core"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireSucontAdmin, requireSucontApp } from "#/lib/auth.server"
+import { countLiteralSearchChars, escapeLikePattern } from "#/lib/like-pattern"
 import { getCoreClient, getSucontServerClient } from "#/lib/supabase.server"
 
 /**
@@ -30,6 +31,8 @@ const ROSTER_SEARCH_LIMIT = 20
 
 /** Mínimo de caracteres da busca. Uma letra devolveria milhares de pessoas. */
 const ROSTER_SEARCH_MIN = 3
+/** Teto do termo. Nome de guerra não passa disso; o teto só barra payload absurdo. */
+const ROSTER_SEARCH_MAX = 80
 
 export type SectionPerson = {
 	id: string
@@ -193,13 +196,23 @@ export const createSectionPersonFn = createServerFn({ method: "POST" })
  * identificar um colega.
  */
 export const searchRosterFn = createServerFn({ method: "GET" })
-	.validator(z.object({ nomeGuerra: z.string().trim().min(ROSTER_SEARCH_MIN) }))
+	.validator(
+		z.object({
+			// O mínimo conta só texto de verdade: `%%%` tem três caracteres e, sem esta
+			// regra, casaria com o efetivo inteiro — a leitura em massa que o mínimo barra.
+			nomeGuerra: z
+				.string()
+				.trim()
+				.max(ROSTER_SEARCH_MAX)
+				.refine((value) => countLiteralSearchChars(value) >= ROSTER_SEARCH_MIN, `Informe ao menos ${ROSTER_SEARCH_MIN} letras do nome de guerra.`),
+		})
+	)
 	.handler(async ({ data }): Promise<RosterMatch[]> => {
 		await requireSucontAdmin()
 		const { data: rows, error } = await getCoreClient()
 			.from("user_military_data")
 			.select("nrOrdem, sgPosto, nmGuerra, sgOrg")
-			.ilike("nmGuerra", `%${data.nomeGuerra}%`)
+			.ilike("nmGuerra", `%${escapeLikePattern(data.nomeGuerra)}%`)
 			.not("nrOrdem", "is", null)
 			.order("nmGuerra", { ascending: true })
 			.limit(ROSTER_SEARCH_LIMIT)

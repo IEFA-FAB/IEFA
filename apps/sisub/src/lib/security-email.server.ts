@@ -63,6 +63,15 @@ const SECURITY_URL = `${PUBLIC_URL}/diner/security`
 /** Endereço da tela de chaves de API, para o titular renovar a que vai vencer. */
 const MCP_KEYS_URL = `${PUBLIC_URL}/diner/mcp-keys`
 
+/**
+ * Escapa texto para interpolar em HTML. O rótulo da chave de API é digitado pelo titular:
+ * interpolado cru, `<a href=…>` ou `<img src=…>` no nome virava marcação no e-mail que o
+ * SISUB assina — link de phishing com o remetente oficial.
+ */
+export function escapeHtml(text: string): string {
+	return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
+}
+
 function formatMoment(at: Date): string {
 	return at.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })
 }
@@ -80,7 +89,7 @@ function buildNotice(kind: SecurityNoticeKind, at: Date, details?: McpKeyExpirin
 		return {
 			subject: "SISUB — sua chave de API do MCP está perto de vencer",
 			body:
-				`<p>A chave de API <strong>${details?.label ?? "sem nome"}</strong> vence em ` +
+				`<p>A chave de API <strong>${escapeHtml(details?.label ?? "sem nome")}</strong> vence em ` +
 				`${details ? formatMoment(details.expiresAt) : "breve"}.</p>` +
 				`<p>Depois dessa data o cliente MCP para de autenticar. Gere uma nova chave em ` +
 				`<a href="${MCP_KEYS_URL}">Chaves de API (MCP)</a> e substitua a configuração do cliente.</p>` +

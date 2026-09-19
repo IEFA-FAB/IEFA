@@ -28,11 +28,12 @@ import {
 	stepTemplateInKitchen,
 	utensilInKitchen,
 } from "@iefa/database/drizzle/sisub"
+import { hasAnyPermission, hasPermission } from "@iefa/pbac"
 import { eq } from "drizzle-orm"
 import type { UserContext } from "../types/context.ts"
 import { NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
-import { requireKitchen, requirePermission } from "./require-permission.ts"
+import { requireAnyPermission, requireKitchen, requirePermission } from "./require-permission.ts"
 
 /** Tables holding both global and local rows. Keys double as the entity name in errors. */
 export type AssetKind = "recipe" | "menu_template" | "meal_type" | "step_template" | "utensil" | "equipment_model"
@@ -89,4 +90,32 @@ export async function authorizeAssetMutation(db: SisubDb, ctx: UserContext, kind
 	const ownerKitchenId = await resolveAssetOwner(db, kind, id)
 	requireAssetWriteForScope(ctx, ownerKitchenId)
 	return ownerKitchenId
+}
+
+/**
+ * Pode LER um ativo global/local, dado o dono já resolvido da linha?
+ *
+ *   - global (`kitchen_id IS NULL`): quem tem cozinha OU catálogo global — mesmo critério
+ *     de `getTemplate`/`listRecipeSummaries` (a SDAB chega aqui sem cozinha nenhuma);
+ *   - local (`kitchen_id = N`): só quem tem `kitchen:1` escopado àquela cozinha. `global`
+ *     não abre ativo de cozinha — é a mesma regra da leitura de template local.
+ *
+ * Versão booleana para FILTRAR listas (versões de uma linhagem incluem forks de várias
+ * cozinhas); para autorizar uma leitura por id, use {@link requireAssetRead}.
+ */
+export function canReadAsset(ctx: UserContext, ownerKitchenId: number | null): boolean {
+	if (ownerKitchenId == null) return hasAnyPermission(ctx.permissions, ["kitchen", "global"], 1)
+	return hasPermission(ctx.permissions, "kitchen", 1, { type: "kitchen", id: ownerKitchenId })
+}
+
+/**
+ * Autoriza a LEITURA por id de um ativo global/local, com o dono lido da linha persistida —
+ * nunca do input. Sem isto, qualquer `kitchen:1` de uma cozinha lia a ficha de outra só
+ * sabendo o UUID (IDOR entre cozinhas).
+ *
+ * @throws {PermissionDeniedError} quando o chamador não alcança o dono.
+ */
+export function requireAssetRead(ctx: UserContext, ownerKitchenId: number | null): void {
+	if (ownerKitchenId == null) requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	else requireKitchen(ctx, 1, ownerKitchenId)
 }

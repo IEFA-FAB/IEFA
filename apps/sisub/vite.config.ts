@@ -57,6 +57,11 @@ export default defineConfig(async ({ mode, isSsrBuild }) => {
 							// bloqueados; nenhum outro app do monorepo usa câmera.
 							"permissions-policy": "camera=(self), microphone=(), geolocation=()",
 							"strict-transport-security": "max-age=31536000; includeSubDomains",
+							// CSP só com diretivas que não tocam script/estilo/imagem: o TanStack Start emite
+							// script inline e os apps carregam imagem externa, e uma CSP estrita derrubaria
+							// produção. `frame-ancestors` é o sucessor do X-Frame-Options (que fica para
+							// navegador antigo); `base-uri` impede `<base>` injetado de sequestrar URL relativa.
+							"content-security-policy": "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'",
 						},
 					},
 					"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },

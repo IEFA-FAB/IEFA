@@ -36,6 +36,49 @@ export const UNVERSIONED_LABEL = "sem-versao"
  */
 export const EXCLUDED_CATEGORIES = new Set(["modelos-antigos"])
 
+/**
+ * Hosts de onde o α aceita baixar modelo da AGU.
+ *
+ * O `href` vem de HTML de terceiro: sem lista, um `.docx` apontando para outro host —
+ * inclusive endereço interno da VPC, como o metadata da task — seria buscado pelo
+ * servidor. A página e os arquivos da AGU moram todos em `www.gov.br`.
+ */
+export const AGU_ALLOWED_HOSTS: ReadonlySet<string> = new Set(["www.gov.br", "gov.br"])
+
+/** Redirecionamentos seguidos por `fetchFromAgu` — cada salto é reconferido contra a lista. */
+const MAX_REDIRECTS = 5
+
+export function isAllowedAguUrl(url: string): boolean {
+	try {
+		const parsed = new URL(url)
+		return parsed.protocol === "https:" && AGU_ALLOWED_HOSTS.has(parsed.hostname) && !parsed.username && !parsed.password
+	} catch {
+		return false
+	}
+}
+
+/**
+ * `fetch` restrito aos hosts da AGU, inclusive depois de redirecionamento.
+ *
+ * `redirect: "follow"` (o padrão) seguiria um 302 para qualquer lugar sem que a lista
+ * fosse consultada de novo. Aqui o redirecionamento é manual e cada `Location` passa
+ * pela mesma conferência da URL original.
+ */
+export async function fetchFromAgu(url: string, init: RequestInit = {}): Promise<Response> {
+	let current = url
+	for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+		if (!isAllowedAguUrl(current)) throw new Error(`AGU: host fora da lista permitida: ${JSON.stringify(current)}`)
+
+		const response = await fetch(current, { ...init, redirect: "manual" })
+		const location = response.status >= 300 && response.status < 400 ? response.headers.get("location") : null
+		if (!location) return response
+
+		await response.body?.cancel().catch(() => {})
+		current = new URL(location, current).toString()
+	}
+	throw new Error(`AGU: mais de ${MAX_REDIRECTS} redirecionamentos a partir de ${JSON.stringify(url)}`)
+}
+
 const DOCX_ANCHOR = /<a\b[^>]*\bhref="([^"]+\.docx)"[^>]*>([\s\S]*?)<\/a>/gi
 const CATEGORY_LINK = /<a\b[^>]*\bhref="([^"]+)"/gi
 const HTML_TAG = /<[^>]+>/g
@@ -46,13 +89,15 @@ export interface DiscoverReport {
 	supersededByNewer: Array<{ external_id: string; version_label: string }>
 	/** Arquivos ignorados por estarem em categoria excluída. */
 	excluded: Array<{ fetch_url: string; category: string }>
+	/** Links de `.docx` para host fora de {@link AGU_ALLOWED_HOSTS} — nunca buscados. */
+	offHost: string[]
 	categoriesVisited: string[]
 }
 
 type Fetcher = (url: string) => Promise<string>
 
 const defaultFetcher: Fetcher = async (url) => {
-	const response = await fetch(url, { headers: { "User-Agent": "iefa-alpha/1.0 (+https://portal.iefa.com.br)" } })
+	const response = await fetchFromAgu(url, { headers: { "User-Agent": "iefa-alpha/1.0 (+https://portal.iefa.com.br)" } })
 	if (!response.ok) throw new Error(`GET ${url} → ${response.status}`)
 	return response.text()
 }
@@ -161,9 +206,15 @@ function keepNewestPerModel(candidates: SourceItem[]): { items: SourceItem[]; su
 export function collectItemsFromHtml(pages: Array<{ url: string; html: string }>, baseUrl: string): DiscoverReport {
 	const byUrl = new Map<string, SourceItem>()
 	const excluded: DiscoverReport["excluded"] = []
+	const offHost = new Set<string>()
 
 	for (const page of pages) {
 		for (const anchor of extractDocxAnchors(page.html)) {
+			if (!isAllowedAguUrl(anchor.url)) {
+				offHost.add(anchor.url)
+				continue
+			}
+
 			const existing = byUrl.get(anchor.url)
 
 			// Mesmo arquivo em vários <a>: fica com o primeiro título não vazio.
@@ -196,6 +247,7 @@ export function collectItemsFromHtml(pages: Array<{ url: string; html: string }>
 		items: deduped.items.sort((a, b) => a.external_id.localeCompare(b.external_id)),
 		supersededByNewer: deduped.supersededByNewer,
 		excluded,
+		offHost: [...offHost],
 		categoriesVisited: pages.map((page) => page.url),
 	}
 }

@@ -5,12 +5,14 @@
 
 import type { Database } from "@iefa/database"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { hasPermission } from "@iefa/pbac"
-import type { UserContext } from "@iefa/sisub-domain"
+import { AssuranceRequiredError, hasPermission, PermissionDeniedError as PbacPermissionDeniedError } from "@iefa/pbac"
+import { DomainError, QueryFailedError, type UserContext } from "@iefa/sisub-domain"
 import { dropUnexpectedNulls, enforcePayloadBudget } from "@iefa/sisub-domain/agent"
+import { describeDriverError } from "@iefa/sisub-domain/utils"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { ServerTool } from "@tanstack/ai"
 import { toolDefinition } from "@tanstack/ai"
+import { ZodError } from "zod"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
 
 // ── Tool context (passed to every tool handler) ─────────────────────────────
@@ -84,29 +86,30 @@ export function requireUnitPermission(ctx: ToolContext, minLevel: number, scope?
 }
 
 /**
- * Gets the max permission level for a given module + optional scope.
+ * Maior nível do usuário num módulo (+ escopo opcional) — decide QUAIS tools o modelo recebe.
+ *
+ * O conjunto efetivo de permissões (`resolveUserPermissions`) traz os denies junto (`level 0`),
+ * e aqui eles valem como em `hasPermission`: deny sem escopo zera o módulo; deny escopado zera
+ * a consulta daquele escopo, mesmo contra um allow sem escopo. Sem isso, o allow global de
+ * quem teve a cozinha 7 negada ainda entregava ao modelo as tools de escrita nela.
  */
 export function getMaxLevel(permissions: UserPermission[], module: AppModule, scopeId?: number): number {
 	const scopeType = module === "kitchen" ? "kitchen" : module === "unit" ? "unit" : undefined
+	const isUnscoped = (p: UserPermission) => p.unit_id === null && p.mess_hall_id === null && p.kitchen_id === null
+	const matchesScope = (p: UserPermission) =>
+		scopeType != null && scopeId != null && (scopeType === "kitchen" ? p.kitchen_id === scopeId : p.unit_id === scopeId)
+
+	const ofModule = permissions.filter((p) => p.module === module)
+	for (const deny of ofModule) {
+		if (deny.level > 0) continue
+		if (isUnscoped(deny) || matchesScope(deny)) return 0
+	}
 
 	let maxLevel = 0
-	for (const p of permissions) {
-		if (p.module !== module) continue
+	for (const p of ofModule) {
+		if (p.level <= 0) continue
 
-		const isGlobal = p.unit_id === null && p.mess_hall_id === null && p.kitchen_id === null
-		if (isGlobal) {
-			maxLevel = Math.max(maxLevel, p.level)
-			continue
-		}
-
-		if (!scopeType || scopeId == null) {
-			maxLevel = Math.max(maxLevel, p.level)
-			continue
-		}
-
-		if (scopeType === "kitchen" && p.kitchen_id === scopeId) {
-			maxLevel = Math.max(maxLevel, p.level)
-		} else if (scopeType === "unit" && p.unit_id === scopeId) {
+		if (isUnscoped(p) || !scopeType || scopeId == null || matchesScope(p)) {
 			maxLevel = Math.max(maxLevel, p.level)
 		}
 	}
@@ -204,6 +207,39 @@ export function untypedFrom(ctx: ToolContext, table: string, schema: ToolTableSc
 }
 
 /**
+ * O erro que a tool devolve ao MODELO — e o texto do erro de tool volta inteiro no prompt do
+ * turno seguinte, de onde o modelo pode repeti-lo ao usuário pelo SSE.
+ *
+ * Só passa adiante o erro cuja mensagem foi ESCRITA para quem lê: erro de domínio (permissão,
+ * não encontrado, regra de negócio), as recusas das próprias tools e a validação de argumento
+ * (o modelo precisa dela para corrigir a chamada). Todo o resto é falha de infraestrutura cuja
+ * `message` ninguém revisou: o `DrizzleQueryError` que escapa de um caminho sem `runQuery`
+ * (`fetchTemplateMealsSafe` relança o que não é "tabela ausente") põe `Failed query: <SQL>
+ * params: <valores>` na mensagem, e um `TypeError` descreve o código. Antes só
+ * `QueryFailedError` era traduzido, e esses iam crus até o navegador. O detalhe fica no log.
+ */
+export function toModelFacingToolError(toolName: string, error: unknown): Error {
+	if (error instanceof QueryFailedError) {
+		// biome-ignore lint/suspicious/noConsole: server-side error logging
+		console.error(`[module-chat:${toolName}]`, error.message)
+		return new Error(error.publicMessage)
+	}
+	if (
+		error instanceof DomainError ||
+		error instanceof ToolPermissionError ||
+		error instanceof ToolValidationError ||
+		error instanceof PbacPermissionDeniedError ||
+		error instanceof AssuranceRequiredError ||
+		error instanceof ZodError
+	) {
+		return error
+	}
+	// biome-ignore lint/suspicious/noConsole: server-side error logging
+	console.error(`[module-chat:${toolName}]`, describeDriverError(error))
+	return new Error(`Erro ao executar ${toolName}. Tente novamente.`)
+}
+
+/**
  * Wraps a ModuleToolDefinition as a TanStack AI ServerTool.
  * The ToolContext is injected via closure so each request gets its own auth/supabase.
  */
@@ -218,7 +254,9 @@ export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): ServerToo
 		// Modelo manda `null` no lugar de omitir campo opcional. Onde o schema não previu
 		// isso, `null` é ausência — sem esta linha `safeInt(null)` viraria `0` calado.
 		const input = dropUnexpectedNulls(args as Record<string, unknown>, def.parameters)
-		const result = await def.handler(input, ctx)
+		const result = await def.handler(input, ctx).catch((error: unknown) => {
+			throw toModelFacingToolError(def.name, error)
+		})
 		if (!result.success) throw new Error(result.error ?? "Ferramenta falhou")
 
 		// Mesma rede de segurança do servidor MCP: falhar aqui devolve um erro de tool

@@ -3,10 +3,15 @@ import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@ta
 import { defineHandler } from "nitro"
 import { type H3Event, HTTPError, readBody } from "nitro/h3"
 import { getServerCapabilities } from "#/lib/capabilities.server"
-import { requireSucontUser } from "#/lib/nitro-auth.server"
+import { requireSameOriginJson, requireSucontUser } from "#/lib/nitro-auth.server"
 import { buildSystemPrompt } from "#/lib/oracle-prompt"
+import { checkOracleRequestLimits } from "#/lib/oracle-request"
 
 export default defineHandler(async (event: H3Event) => {
+	// CSRF primeiro: nada do pedido (nem a sessão do cookie) é usado antes de
+	// confirmar que ele veio do próprio app como JSON.
+	requireSameOriginJson(event)
+
 	// Capability gate — sem SUCONT_AI_* o oráculo não está configurado neste
 	// ambiente: 503 em vez de estourar na montagem do adapter.
 	if (!getServerCapabilities().oracle) {
@@ -27,15 +32,17 @@ export default defineHandler(async (event: H3Event) => {
 	let params: Awaited<ReturnType<typeof chatParamsFromRequestBody>>
 	try {
 		params = await chatParamsFromRequestBody(rawBody)
-	} catch (err) {
-		if (err instanceof Response) {
-			throw new HTTPError({ status: 400, message: "Corpo da requisição inválido (AG-UI format esperado)" })
-		}
-		throw err
+	} catch {
+		// O `chatParamsFromRequestBody` lança `Error` (versões antigas lançavam
+		// `Response`) quando o corpo não é AG-UI. Os dois são corpo inválido: 400, e
+		// não o 500 que o `Error` virava ao passar direto.
+		throw new HTTPError({ status: 400, message: "Corpo da requisição inválido (AG-UI format esperado)" })
 	}
 
-	const { messages, forwardedProps } = params
-	const contextSummary = forwardedProps.contextSummary as string | undefined
+	const limits = checkOracleRequestLimits(params.messages, params.forwardedProps.contextSummary)
+	if (!limits.ok) throw new HTTPError({ status: limits.status, message: limits.message })
+	const { messages } = params
+	const { contextSummary } = limits
 
 	// Teto de requisições ANTES de abrir o SSE: depois que o stream começa não há
 	// mais status HTTP para devolver, e o erro viraria conexão cortada sem mensagem.

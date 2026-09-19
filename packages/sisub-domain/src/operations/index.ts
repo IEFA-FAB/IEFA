@@ -334,7 +334,7 @@ export {
 	sendKitchenDraft,
 	updateKitchenDraft,
 } from "./kitchen-draft.ts"
-export { fetchKitchenSettings, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
+export { type AccessibleKitchen, fetchKitchenSettings, listAccessibleKitchens, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
 export {
 	competenciaFromDate,
 	type KitchenUnitRef,

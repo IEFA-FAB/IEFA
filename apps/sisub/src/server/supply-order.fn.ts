@@ -10,11 +10,13 @@
  * @migration 20260729170000_procurement_supply_order_goods_receipt
  */
 
+import { resolvePurchaseUnitId } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { supplyOrderLinkProblems } from "@/lib/supply-order-gate"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -123,8 +125,32 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		// (arp_item.ni_fornecedor) e a consulta acontece aqui, na emissão.
 		let sicafStatus: string | null = null
 		const finance = getServerClient("finance") as unknown as LooseClient
-		const { data: empenhoRow } = await finance.from("empenho").select("arp_item_id, unit_id").eq("id", data.empenhoId).single()
+		const { data: empenhoRow, error: empenhoError } = await finance
+			.from("empenho")
+			.select("arp_item_id, unit_id, status")
+			.eq("id", data.empenhoId)
+			.maybeSingle()
+		if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${empenhoError.message}`)
 		if (!empenhoRow) throw new Error("Empenho não encontrado")
+
+		// O guard acima prova só a cozinha. O empenho vinha do corpo e o `unit_id`
+		// dele era lido sem comparação: a OF consumia o saldo de outra OM. A unidade
+		// compradora é calculada como em `listEmpenhosForKitchenFn`, de onde a tela
+		// tira o empenho — e ANTES do SICAF, que não deve consultar fornecedor alheio.
+		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
+		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).maybeSingle()
+		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${kitchenError.message}`)
+		const problems = supplyOrderLinkProblems({
+			kitchenPurchaseUnitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
+			empenho: {
+				unitId: empenhoRow.unit_id == null ? null : Number(empenhoRow.unit_id),
+				status: String(empenhoRow.status),
+				arpItemId: (empenhoRow.arp_item_id as string | null) ?? null,
+			},
+			itemArpItemIds: data.items.map((item) => item.arpItemId),
+		})
+		if (problems.length > 0) throw new Error(problems.join("; "))
+
 		if (empenhoRow.arp_item_id != null) {
 			const { data: arpItem } = await proc.from("procurement_arp_item").select("ni_fornecedor").eq("id", empenhoRow.arp_item_id).maybeSingle()
 			const cnpj = arpItem?.ni_fornecedor?.replace(/\D/g, "") ?? ""
@@ -185,7 +211,9 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 		const finance = getServerClient("finance") as unknown as LooseClient
 
 		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
-		const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
+		// Mesma regra que `createSupplyOrderFn` confere na emissão: o que se lista aqui
+		// é exatamente o que se pode usar lá.
+		const unitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
 		if (unitId == null) return []
 
 		const { data: empenhos, error } = await finance

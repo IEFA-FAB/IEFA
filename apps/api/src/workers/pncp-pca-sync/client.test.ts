@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { fetchPcaCsv, PncpUnavailableError } from "./client.ts"
+import { buildPcaCsvUrl, fetchPcaCsv, PncpUnavailableError } from "./client.ts"
 
 /** Backoffs curtos: o teste exercita a lógica de retentativa, não a espera real. */
 const FAST = { retryDelaysMs: [1, 1, 1] } as const
@@ -101,5 +101,18 @@ describe("fetchPcaCsv", () => {
 		const sent = calls.headers[0]
 		expect(sent.authorization).toBeUndefined()
 		expect(sent["accept-encoding"]).toBeUndefined()
+	})
+})
+
+describe("buildPcaCsvUrl", () => {
+	test("CNPJ de 14 dígitos vira o segmento do caminho", () => {
+		expect(buildPcaCsvUrl("00394429000100", 2026)).toBe("https://pncp.gov.br/api/pncp/v1/orgaos/00394429000100/pca/2026/csv")
+	})
+
+	test("CNPJ que não é só dígito é recusado antes de qualquer requisição", () => {
+		// Interpolado cru, `../` reescrevia o caminho da chamada feita pelo servidor.
+		expect(() => buildPcaCsvUrl("../../../x/aaaa", 2026)).toThrow(RangeError)
+		expect(() => buildPcaCsvUrl("00.394.429/0001-00", 2026)).toThrow(RangeError)
+		expect(() => buildPcaCsvUrl("00394429000100", 2026.5)).toThrow(RangeError)
 	})
 })

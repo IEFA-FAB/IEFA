@@ -5,8 +5,10 @@ export {
 	type AssetKind,
 	type AssuranceRequirement,
 	authorizeAssetMutation,
+	canReadAsset,
 	NO_ASSURANCE,
 	requireAnyPermission,
+	requireAssetRead,
 	requireAssetWriteForScope,
 	requireAssurance,
 	requireKitchen,
@@ -27,7 +29,7 @@ export * from "./operations/index.ts"
 // biome-ignore lint/performance/noReExportAll: intentional barrel re-export for package consumers
 export * from "./schemas/index.ts"
 export type { AppModule, PermissionScope, ProcurementNeed, ProcurementParams, UserContext, UserPermission } from "./types/index.ts"
-export { DomainError, NotFoundError, PermissionDeniedError, ValidationError } from "./types/index.ts"
+export { DomainError, GENERIC_DB_ERROR_MESSAGE, NotFoundError, PermissionDeniedError, QueryFailedError, ValidationError } from "./types/index.ts"
 export type {
 	BalanceStatus,
 	ConditionIssue,

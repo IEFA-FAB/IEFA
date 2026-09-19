@@ -1,5 +1,7 @@
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
+import { checkSameOriginJsonRequest } from "@iefa/auth-kit"
 import type { Database } from "@iefa/database"
+import { hasPermission, resolveUserPermissions } from "@iefa/pbac"
 import { metrics, trace } from "@opentelemetry/api"
 import { createServerClient } from "@supabase/ssr"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
@@ -8,8 +10,10 @@ import { type H3Event, HTTPError, readBody } from "h3"
 import { defineHandler } from "nitro"
 import { ANALYTICS_SYSTEM_PROMPT } from "@/lib/analytics-prompt"
 import { getServerCapabilities } from "@/lib/capabilities.server"
+import { checkChatPayloadSize, sanitizeClientMessages } from "@/lib/chat-client-messages"
 import { envServer } from "@/lib/env.server"
 import { renderChartTool } from "@/lib/render-chart-tool"
+import { getAccessControlClient } from "@/lib/supabase.server"
 
 const otel = otelMiddleware({
 	tracer: trace.getTracer("sisub-analytics"),
@@ -39,6 +43,12 @@ export default defineHandler(async (event: H3Event) => {
 		throw new HTTPError({ status: 503, message: "Assistente IA indisponível — não configurado neste ambiente" })
 	}
 
+	// CSRF: o corpo é lido com a sessão do cookie, e `readBody` aceita `text/plain`.
+	const origin = checkSameOriginJsonRequest(event.req.headers, event.req.url)
+	if (!origin.ok) {
+		throw new HTTPError({ status: 403, message: origin.reason })
+	}
+
 	const authClient = getAuthClientFromEvent(event)
 	const {
 		data: { user },
@@ -47,6 +57,13 @@ export default defineHandler(async (event: H3Event) => {
 
 	if (!user || authError) {
 		throw new HTTPError({ status: 401, message: "Não autenticado" })
+	}
+
+	// A tela exige `analytics:1`; o endpoint tem de exigir o mesmo. Antes só a sessão bastava,
+	// e qualquer conta chegava ao `render_chart`.
+	const permissions = await resolveUserPermissions(user.id, getAccessControlClient())
+	if (!hasPermission(permissions, "analytics", 1)) {
+		throw new HTTPError({ status: 403, message: "Permissão insuficiente" })
 	}
 
 	const rawBody = await readBody(event)
@@ -61,7 +78,12 @@ export default defineHandler(async (event: H3Event) => {
 		throw err
 	}
 
-	const { messages } = params
+	const sizeError = checkChatPayloadSize(params.messages)
+	if (sizeError) {
+		throw new HTTPError({ status: 413, message: sizeError })
+	}
+	// Sem aprovação humana neste fluxo: toda tool call pendente vinda do cliente é forjada.
+	const messages = sanitizeClientMessages(params.messages, { allowPendingToolCalls: false })
 
 	// Teto de consumo antes de abrir o SSE — ver comentário equivalente no chat dos módulos.
 	try {

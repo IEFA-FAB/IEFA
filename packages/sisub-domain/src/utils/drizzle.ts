@@ -7,7 +7,7 @@
  * de erro (paridade com o padrão `{ error }` do PostgREST → DomainError).
  */
 
-import { DomainError } from "../types/errors.ts"
+import { DomainError, GENERIC_DB_ERROR_MESSAGE, QueryFailedError } from "../types/errors.ts"
 
 function camelToSnake(key: string): string {
 	return key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
@@ -141,17 +141,32 @@ export function describeDriverError(e: unknown, withCode = true): string {
 	return `${codeSeg}${detail}${base}`
 }
 
+/**
+ * Converte uma falha do driver em {@link QueryFailedError}: diagnóstico completo na
+ * `message` (log), mensagem sem SQL nem parâmetros em `publicMessage` (cliente), erro
+ * original em `cause`. Use em todo `catch` que vira erro de domínio fora do `runQuery`.
+ *
+ * @param detailPrefix - contexto para o LOG (pode citar tabela/id).
+ * @param publicMessage - o que o cliente lê; sem ele, a mensagem genérica.
+ */
+export function driverFailure(code: string, e: unknown, detailPrefix?: string, publicMessage?: string): QueryFailedError {
+	const detail = describeDriverError(e)
+	return new QueryFailedError(code, detailPrefix ? `${detailPrefix}: ${detail}` : detail, publicMessage ?? GENERIC_DB_ERROR_MESSAGE, e)
+}
+
 export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: RunQueryOptions): Promise<T> {
 	try {
 		return await op()
 	} catch (e) {
 		if (e instanceof DomainError) throw e
-		if (!opts?.prefix) throw new DomainError(code, describeDriverError(e))
+		if (!opts?.prefix) throw new QueryFailedError(code, describeDriverError(e), GENERIC_DB_ERROR_MESSAGE, e)
 		// Com prefixo o código fica no lugar documentado — `"<prefix> [<pgcode>]: …"` —
 		// e só quando `includeCode` pede. Daí o `withCode: false`: quem escolhe é o opts.
 		const pgCode = opts.includeCode ? unwrapPgError(e).code : undefined
 		const codeSeg = pgCode ? ` [${pgCode}]` : ""
-		throw new DomainError(code, `${opts.prefix}${codeSeg}: ${describeDriverError(e, false)}`)
+		// O prefixo é texto de negócio escrito aqui no código — é o que o cliente lê. O resto
+		// (SQL, parâmetros, motivo do driver) fica no log.
+		throw new QueryFailedError(code, `${opts.prefix}${codeSeg}: ${describeDriverError(e, false)}`, `${opts.prefix}${codeSeg}`, e)
 	}
 }
 

@@ -17,6 +17,14 @@ import type { UnitSupportEdge, UserPermission } from "@iefa/pbac"
 import { Hono } from "hono"
 import { type AlphaAccess, needsUnitGraph, resolveAlphaAccess } from "../lib/alpha-access.ts"
 
+/**
+ * PDF de uma página, o menor que o pdf.js abre. O upload confere o teto de páginas antes de
+ * aceitar o arquivo, e bytes quaisquer agora são recusados como documento ilegível.
+ */
+const MINIMAL_PDF = new TextEncoder().encode(
+	"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 3 3]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"
+)
+
 // ─── PostgREST de memória ─────────────────────────────────────────────────────
 
 type Row = Record<string, unknown>
@@ -292,9 +300,9 @@ describe("GET /api/v1/submissions", () => {
 })
 
 describe("POST /api/v1/submissions", () => {
-	function form(fields: Record<string, string>) {
+	function form(fields: Record<string, string>, filename = "tr.pdf") {
 		const data = new FormData()
-		data.set("file", new File([new Uint8Array([1, 2, 3])], "tr.pdf", { type: "application/pdf" }))
+		data.set("file", new File([MINIMAL_PDF], filename, { type: "application/pdf" }))
 		data.set("doc_kind", "TR")
 		for (const [key, value] of Object.entries(fields)) data.set(key, value)
 		return { method: "POST", body: data }
@@ -307,6 +315,17 @@ describe("POST /api/v1/submissions", () => {
 		expect(state.writes).toEqual([
 			expect.objectContaining({ table: "submission", verb: "insert", payload: expect.objectContaining({ user_id: ME, unit_id: IAE }) }),
 		])
+	})
+
+	test("o nome enviado não entra no caminho do Storage — `..` não sai do prefixo do usuário", async () => {
+		// O storage-js não codifica o caminho e o `fetch` normaliza `..`: com o nome no caminho,
+		// este upload gravava em OUTRO bucket, com a chave de serviço.
+		const res = await appAs([]).request("/api/v1/submissions", form({ unit_id: String(IAE) }, "/../../../outro-bucket/x.pdf"))
+
+		expect(res.status).toBe(201)
+		expect(storageCalls).toHaveLength(1)
+		expect(storageCalls[0]).toMatch(/^upload:me\/[0-9a-f-]{36}\.pdf$/)
+		expect(state.writes[0]?.payload).toEqual(expect.objectContaining({ filename: "x.pdf", storage_path: storageCalls[0]?.slice("upload:".length) }))
 	})
 
 	test("sem OM: 400 do validador, nada enviado ao Storage", async () => {
@@ -458,7 +477,7 @@ describe("uma pessoa com os quatro papéis na mesma OM", () => {
 
 	test("envia para a OM", async () => {
 		const data = new FormData()
-		data.set("file", new File([new Uint8Array([1])], "tr.pdf", { type: "application/pdf" }))
+		data.set("file", new File([MINIMAL_PDF], "tr.pdf", { type: "application/pdf" }))
 		data.set("doc_kind", "TR")
 		data.set("unit_id", String(IAE))
 		expect((await appAs(allFour()).request("/api/v1/submissions", { method: "POST", body: data })).status).toBe(201)

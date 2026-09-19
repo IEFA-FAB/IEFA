@@ -15,6 +15,6 @@ export type {
 	UserMealDetail,
 	UserMilitaryDataAPI,
 } from "./dashboard.ts"
-export { DomainError, NotFoundError, PermissionDeniedError, ValidationError } from "./errors.ts"
+export { DomainError, GENERIC_DB_ERROR_MESSAGE, NotFoundError, PermissionDeniedError, QueryFailedError, ValidationError } from "./errors.ts"
 export type { MealKey } from "./meal.ts"
 export type { ProcurementNeed, ProcurementParams } from "./procurement.ts"

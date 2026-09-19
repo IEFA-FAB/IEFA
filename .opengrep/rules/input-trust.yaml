@@ -1,0 +1,87 @@
+##
+# Entrada do cliente tratada como confiável — auditoria de inputs de 2026-09-19.
+#
+# As duas regras nasceram de bug real, achado na mesma auditoria:
+#
+#   - O journal do portal validava o corpo das server fns com
+#     `z.record(z.string(), z.unknown())` e gravava o objeto inteiro com o client
+#     service-role. O autor mandava `updates: { status: "published" }` e publicava o
+#     próprio artigo sem passar pela revisão; o mesmo validador deixava trocar
+#     `article_id` de coautor e `assignment_id` de parecer. Validador que aceita
+#     qualquer chave não valida nada: quem escolhe as colunas gravadas é o cliente.
+#
+#   - O upload do alpha montava o caminho com `file.name`. O storage-js não codifica o
+#     caminho e o `fetch` normaliza `..`: um arquivo chamado `/../../../outro/x.pdf`
+#     gravava em QUALQUER bucket, com a service role. Nome de arquivo do cliente vai
+#     para uma coluna, nunca para o caminho.
+##
+rules:
+  - id: server-fn-open-record-validator
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Validador de server fn que aceita qualquer chave (`z.record(..., z.unknown()/z.any())`,
+      `z.any()`, `z.unknown()`). Com o client service-role, quem escolhe as colunas gravadas
+      passa a ser o cliente — foi assim que o autor do journal publicava sem revisão. Declare
+      um `z.object({...})` com os campos que ESTE papel pode editar.
+    paths:
+      include:
+        - "apps/*/src/server/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+    # Registro aberto como CAMPO só conta quando o campo é o patch/linha a gravar
+    # (`updates`, `payload`…). `env: z.record(...)` que vira uma coluna jsonb é valor,
+    # não escolha de coluna — e é legítimo.
+    pattern-either:
+      - pattern: $FN.validator(z.any())
+      - pattern: $FN.validator(z.unknown())
+      - pattern: $FN.validator(z.record($K, z.unknown()))
+      - pattern: $FN.validator(z.record($K, z.any()))
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  $FN.validator(z.object({..., $F: z.record($K, z.unknown()), ...}))
+              - pattern: |
+                  $FN.validator(z.object({..., $F: z.record($K, z.any()), ...}))
+          - metavariable-regex:
+              metavariable: $F
+              regex: ^(updates|patch|changes|fields|data|payload|values|row)$
+      # O caso real era por variável: `const looseRecord = z.record(...)` no topo do
+      # arquivo, usado em `.validator(looseRecord)` e dentro de `z.object({ updates: looseRecord })`.
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  const $V = z.record($K, z.unknown())
+                  ...
+              - pattern-inside: |
+                  const $V = z.record($K, z.any())
+                  ...
+          - pattern-either:
+              - pattern: $FN.validator($V)
+              - pattern: |
+                  $FN.validator(z.object({..., $F: $V, ...}))
+
+  - id: storage-path-from-client-filename
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Caminho de Storage montado com o nome de arquivo enviado pelo cliente. O storage-js não
+      codifica o caminho e o `fetch` normaliza `..`: `/../../../outro-bucket/x` escapa do
+      bucket. Gere o caminho no servidor (id + extensão derivada do MIME) e guarde o nome
+      original só numa coluna.
+    paths:
+      include:
+        - "apps/*/src/**/*.ts"
+        - "packages/*/src/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+    pattern-either:
+      - pattern: $S.storage.from($B).upload(`...${$F.name}...`, ...)
+      - pattern: |
+          $P = `...${$F.name}...`
+          ...
+          $S.storage.from($B).upload($P, ...)
+      - pattern: |
+          const $P = `...${$F.name}...`
+          ...
+          $S.storage.from($B).upload($P, ...)

@@ -58,4 +58,25 @@ describe("dropUnexpectedNulls", () => {
 		const schema = { type: "object", properties: { a: { enum: ["x", null] }, b: { const: null } } }
 		expect(dropUnexpectedNulls({ a: null, b: null }, schema)).toEqual({ a: null, b: null })
 	})
+
+	test("__proto__/constructor/prototype vindos do modelo não viram propriedade nem protótipo", () => {
+		// `JSON.parse` entrega `__proto__` como chave PRÓPRIA — é assim que o argumento chega.
+		const args = JSON.parse('{"search":"arroz","__proto__":{"isAdmin":true},"constructor":{"x":1},"prototype":2,"filtro":{"__proto__":{"y":1},"ok":1}}')
+		const out = dropUnexpectedNulls(args, handWritten) as Record<string, unknown>
+
+		expect(Object.getPrototypeOf(out)).toBe(Object.prototype)
+		expect((out as { isAdmin?: unknown }).isAdmin).toBeUndefined()
+		expect(Object.keys(out)).toEqual(["search", "filtro"])
+		expect(Object.hasOwn(out, "constructor")).toBe(false)
+		const filtro = out.filtro as Record<string, unknown>
+		expect(Object.getPrototypeOf(filtro)).toBe(Object.prototype)
+		expect(filtro).toEqual({ ok: 1 })
+		// Nada vazou para o protótipo global.
+		expect(({} as { isAdmin?: unknown }).isAdmin).toBeUndefined()
+	})
+
+	test("schema com `properties` herdadas não é consultado por herança", () => {
+		// `properties.constructor` seria `Object` — um schema que não aceita null nem é schema.
+		expect(dropUnexpectedNulls({ toString: null }, { type: "object", properties: {} })).toEqual({})
+	})
 })

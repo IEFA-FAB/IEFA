@@ -9,6 +9,7 @@ import type { Report } from "@iefa/database/sucont"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireSucontAccess, requireSucontEditor } from "#/lib/auth.server"
+import { isHttpUrl } from "#/lib/safe-url"
 import { getSucontServerClient } from "#/lib/supabase.server"
 
 export const listReportsFn = createServerFn({ method: "GET" }).handler(async (): Promise<Report[]> => {
@@ -21,9 +22,11 @@ export const listReportsFn = createServerFn({ method: "GET" }).handler(async ():
 export const createReportFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			title: z.string().min(1),
-			url: z.string().min(1),
-			description: z.string().optional(),
+			title: z.string().trim().min(1).max(200),
+			// Só http(s): o link vira `href` para a seção inteira, e `javascript:` salvo
+			// por um editor executaria no clique de qualquer colega.
+			url: z.string().trim().min(1).max(2048).refine(isHttpUrl, "Informe um endereço http:// ou https://."),
+			description: z.string().max(2000).optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<Report> => {

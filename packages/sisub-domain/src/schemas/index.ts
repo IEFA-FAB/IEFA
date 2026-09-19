@@ -310,7 +310,9 @@ export {
 	FetchUserPermissionsAdminSchema,
 	FetchUserPermissionsSchema,
 	SearchUsersByEmailSchema,
+	UNSCOPED_ONLY_MODULES,
 	UpdateUserPermissionSchema,
+	unscopedModuleViolation,
 } from "./permissions.ts"
 export type {
 	AddOtherPresence,

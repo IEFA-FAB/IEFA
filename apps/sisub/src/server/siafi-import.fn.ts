@@ -42,15 +42,25 @@ export interface ImportBatchRow {
 	applied_at: string | null
 }
 
+/**
+ * ~15 MB de arquivo (base64 infla 4/3). Relatório do Tesouro Gerencial de uma unidade num
+ * exercício fica bem abaixo disso.
+ */
+const SIAFI_REPORT_MAX_BASE64_CHARS = 20 * 1024 * 1024
+
 /** Sobe o arquivo ao proxy do api, que parseia e estaciona o lote. */
 export const uploadSiafiReportFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			unitId: z.number().int().positive(),
 			reportType: z.enum(["credito", "ne", "ns", "ob"]),
-			fileName: z.string().min(1),
-			/** conteúdo do arquivo em base64 (binário atravessa a server fn assim) */
-			contentBase64: z.string().min(1),
+			fileName: z.string().min(1).max(255),
+			/**
+			 * conteúdo do arquivo em base64 (binário atravessa a server fn assim). Teto de
+			 * {@link SIAFI_REPORT_MAX_BASE64_CHARS}: sem ele, o servidor decodificava em memória e
+			 * repassava ao proxy um corpo de qualquer tamanho.
+			 */
+			contentBase64: z.string().min(1).max(SIAFI_REPORT_MAX_BASE64_CHARS, "Arquivo grande demais para importação"),
 			competencia: z
 				.string()
 				.regex(/^\d{4}-\d{2}$/)

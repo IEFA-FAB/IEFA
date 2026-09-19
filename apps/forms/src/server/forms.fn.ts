@@ -248,11 +248,26 @@ async function getViewerPolicyListForQuestionnaire(db: FormsDbClient, questionna
 	}))
 }
 
+/** Mesma resposta para e-mail sem conta e para falha de inclusão — não revela quem existe. */
+const ADD_BY_EMAIL_FAILED = "Não foi possível adicionar esse email. Confira o endereço e se a pessoa já acessou o sistema."
+
 async function lookupUserIdByEmail(db: FormsDbClient, email: string) {
 	const normalizedEmail = email.toLowerCase().trim()
 	const { data: userId, error } = await db.rpc("lookup_user_id_by_email", { p_email: normalizedEmail })
 	if (error) throw new Error(error.message)
 	return { normalizedEmail, userId }
+}
+
+/**
+ * Resposta só vale para questionário publicado. Sem isto qualquer usuário logado que
+ * soubesse o id abria sessão, gravava e enviava resposta ao rascunho de outra pessoa —
+ * a tela `/respond/$id` recusava, mas as server functions não.
+ */
+async function requirePublishedQuestionnaire(db: FormsDbClient, questionnaireId: string) {
+	const { data, error } = await db.from("questionnaire").select("status").eq("id", questionnaireId).maybeSingle()
+	if (error) throw new Error(error.message)
+	if (!data) throw notFound()
+	if (data.status !== "sent") forbidden("Este questionário não está publicado")
 }
 
 async function getQuestionnairesByIds(db: FormsDbClient, ids: string[], tags?: string[]) {
@@ -275,9 +290,13 @@ export const getQuestionnairesFn = createServerFn({ method: "GET" })
 	.handler(async ({ data: { tags } }) => {
 		// O client roda com service key (bypassa RLS) — sem este guard o endpoint
 		// expõe todos os questionários da instância a qualquer requisição anônima.
-		await requireUserId()
+		const userId = await requireUserId()
 		const db = getFormsServerClient()
-		let query = db.from("questionnaire").select("*").order("created_at", { ascending: false })
+		// Só os próprios (rascunhos inclusive) e os publicados. Antes a lista trazia os
+		// rascunhos de todo mundo e o filtro "meus" era feito no navegador — o payload
+		// entregava o rascunho alheio a qualquer usuário logado. Os compartilhados para
+		// edição vêm de `getEditableSharedWithMeFn`, que checa `questionnaire_editor`.
+		let query = db.from("questionnaire").select("*").or(`created_by.eq.${userId},status.eq.sent`).order("created_at", { ascending: false })
 		if (tags?.length) {
 			query = query.contains("tags", tags)
 		}
@@ -559,6 +578,7 @@ export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 		const user = await requireUser()
 
 		const db = getFormsServerClient()
+		await requirePublishedQuestionnaire(db, questionnaire_id)
 
 		const { data: existing } = await db
 			.from("questionnaire_response")
@@ -594,12 +614,23 @@ export const saveAnswerFn = createServerFn({ method: "POST" })
 		const db = getFormsServerClient()
 		const { data: session, error: sessionError } = await db
 			.from("questionnaire_response")
-			.select("respondent_id, status")
+			.select("respondent_id, status, questionnaire_id")
 			.eq("id", questionnaire_response_id)
 			.single()
 		if (sessionError) throw new Error(sessionError.message)
 		if (session.respondent_id !== user.id || session.status !== "draft") {
 			throw new Error("Sem permissão para alterar esta resposta")
+		}
+		await requirePublishedQuestionnaire(db, session.questionnaire_id)
+
+		// A pergunta tem de ser do questionário desta sessão. Sem isto a resposta de
+		// um questionário carregava linhas de perguntas de outro — que apareciam na
+		// versão enviada e em qualquer leitura que junte `response` por pergunta.
+		const { data: question, error: questionError } = await db.from("question").select("section_id").eq("id", question_id).maybeSingle()
+		if (questionError) throw new Error(questionError.message)
+		const questionQuestionnaireId = question ? await getQuestionnaireIdBySectionId(db, question.section_id) : null
+		if (questionQuestionnaireId !== session.questionnaire_id) {
+			throw new Error("Pergunta não pertence a este questionário")
 		}
 
 		const { data, error } = await db
@@ -627,13 +658,14 @@ export const submitResponseFn = createServerFn({ method: "POST" })
 		const db = getFormsServerClient()
 		const { data: session, error: sessionError } = await db
 			.from("questionnaire_response")
-			.select("respondent_id, status, evaluation_type, om, secao")
+			.select("respondent_id, status, questionnaire_id, evaluation_type, om, secao")
 			.eq("id", id)
 			.single()
 		if (sessionError) throw new Error(sessionError.message)
 		if (session.respondent_id !== user.id || session.status !== "draft") {
 			throw new Error("Sem permissão para enviar esta resposta")
 		}
+		await requirePublishedQuestionnaire(db, session.questionnaire_id)
 
 		const { data: responses, error: respError } = await db.from("response").select("question_id, value, observation").eq("questionnaire_response_id", id)
 		if (respError) throw new Error(respError.message)
@@ -757,7 +789,9 @@ export const addViewerFn = createServerFn({ method: "POST" })
 		validateViewerPolicyInput(scope_mode, visibilityAccess.metadataConfig, policy)
 
 		const { normalizedEmail, userId: viewerUserId } = await lookupUserIdByEmail(db, email)
-		if (!viewerUserId) throw new Error("Usuário não encontrado com esse email")
+		// Mensagem genérica de propósito: "usuário não encontrado" transformava o
+		// formulário num oráculo de quais e-mails têm conta na instância.
+		if (!viewerUserId) throw new Error(ADD_BY_EMAIL_FAILED)
 		refuseSelfViewerGrant(user.id, viewerUserId, questionnaireAccess.isCreator)
 
 		const { data, error } = await db.rpc("add_response_viewer", {
@@ -850,7 +884,7 @@ export const addEditorFn = createServerFn({ method: "POST" })
 		if (!access.createdBy) throw new Error("Este questionário não pode ter editores")
 
 		const { normalizedEmail, userId: editorUserId } = await lookupUserIdByEmail(db, email)
-		if (!editorUserId) throw new Error("Usuário não encontrado com esse email")
+		if (!editorUserId) throw new Error(ADD_BY_EMAIL_FAILED)
 		if (editorUserId === user.id) throw new Error("Você já é o dono do questionário")
 
 		// Editor + linha de auditoria na mesma transação (`forms.add_questionnaire_editor`).

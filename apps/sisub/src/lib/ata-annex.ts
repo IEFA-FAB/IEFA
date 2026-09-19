@@ -7,6 +7,7 @@ import {
 	type QuantityLimitWarning,
 } from "@iefa/sisub-domain"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
+import { csvCell } from "@/lib/csv"
 import type { AtaSnapshotComponent } from "@/types/domain/ata"
 
 /** Padrões da ATA que os itens herdam. */
@@ -151,7 +152,6 @@ export function annexMaxValue(rows: AtaAnnexRow[]): number {
 }
 
 const CYCLE_CSV: Record<DeliveryCycle, string> = { weekly: "Semanal", monthly: "Mensal" }
-const csvCell = (value: string | number | null): string => `"${String(value ?? "").replaceAll('"', '""')}"`
 const csvNumber = (value: number | null, digits: number): string => (value == null ? "" : value.toFixed(digits))
 
 /** Anexo de quantitativos em CSV: uma linha por item, na ordem da tela; justificativa ao final. */

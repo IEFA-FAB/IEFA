@@ -23,6 +23,7 @@ import { structuredLLM } from "../lib/llm.ts"
 import { radaRetriever } from "../tools/rada-retriever.ts"
 import type { EvidenceGuardReason, EvidenceSpan } from "./evidence.ts"
 import { judgeEvidence } from "./evidence.ts"
+import { buildJudgeUserMessage, createPromptNonce, UNTRUSTED_DOCUMENT_RULE } from "./judge-prompt.ts"
 import type { LegalRefResolver } from "./resolve-legal-ref.ts"
 import type { Severity } from "./severity.ts"
 
@@ -74,7 +75,8 @@ REGRAS ABSOLUTAS:
 1. Julgue APENAS com base nos trechos da norma fornecidos e no trecho do documento fornecido.
 2. Se os trechos da norma não permitirem concluir, responda NAO_AVALIADA. Nunca responda CONFORME por ausência de informação.
 3. Cite exclusivamente dispositivos que apareçam nos trechos da norma fornecidos. Não cite de memória.
-4. "evidence" deve ser trecho literal do documento analisado.`
+4. "evidence" deve ser trecho literal do documento analisado.
+${UNTRUSTED_DOCUMENT_RULE}`
 
 /** Aplicabilidade da regra à submissão. */
 export function isApplicable(rule: ChecklistRule, context: { modalidade: string | null; objeto: string | null }): boolean {
@@ -156,7 +158,8 @@ export async function judgeRule(rule: ChecklistRule, block: { label: string; tex
 		{ role: "system", content: SYSTEM_PROMPT },
 		{
 			role: "user",
-			content: `REGRA A VERIFICAR:\n${rule.statement}\n\nTRECHOS DA NORMA:\n${normaContext}\n\nTRECHO DO DOCUMENTO (${block.label}):\n${block.text}`,
+			// O documento vai delimitado por nonce e declarado como dado — ver `judge-prompt.ts`.
+			content: buildJudgeUserMessage({ statement: rule.statement, normaContext, block, nonce: createPromptNonce() }),
 		},
 	])) as {
 		status: RuleVerdict["status"]

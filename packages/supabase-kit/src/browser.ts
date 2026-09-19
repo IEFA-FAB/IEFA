@@ -19,5 +19,8 @@ export type BrowserClientOptions<S extends SchemaName> = {
  * e de realtime (`channel`/`removeChannel`), que os apps usam.
  */
 export function createAppBrowserClient<S extends SchemaName>({ url, publishableKey, schema }: BrowserClientOptions<S>): SupabaseClient<Database, S> {
-	return createBrowserClient(url, publishableKey, schema ? { db: { schema } } : {}) as unknown as SupabaseClient<Database, S>
+	// `Secure` quando a página é HTTPS: o default do @supabase/ssr não marca, e o cookie
+	// carrega o refresh token. Em dev (http://localhost) fica sem, senão o navegador o recusa.
+	const cookieOptions = { secure: (globalThis as { location?: { protocol?: string } }).location?.protocol === "https:" }
+	return createBrowserClient(url, publishableKey, { ...(schema ? { db: { schema } } : {}), cookieOptions }) as unknown as SupabaseClient<Database, S>
 }

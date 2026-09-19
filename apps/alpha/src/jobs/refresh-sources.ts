@@ -11,6 +11,7 @@
 import { supabase } from "../db/supabase.ts"
 import { env } from "../env.ts"
 import type { LegalRef } from "../lib/legal-ref.ts"
+import { redactCloudIdentifiers } from "../lib/redact.ts"
 import { canonicalRefLabel } from "../lib/ref-label.ts"
 import { embedDocuments } from "../sources/embeddings.ts"
 import { type IngestReport, ingestSource } from "../sources/pipeline.ts"
@@ -141,7 +142,7 @@ export async function refreshAllSources(options: { apply?: boolean; onlySourceId
 			report.sources.push({ source_id: source.id, error: message })
 			await supabase
 				.from("normative_source")
-				.update({ last_checked_at: new Date().toISOString(), last_error: message.slice(0, 500) })
+				.update({ last_checked_at: new Date().toISOString(), last_error: redactCloudIdentifiers(message).slice(0, 500) })
 				.eq("id", source.id)
 		}
 	}
