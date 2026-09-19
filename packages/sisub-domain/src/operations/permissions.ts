@@ -261,7 +261,7 @@ export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, i
  * São dois, e não um índice geral, porque allow e deny PODEM coexistir na mesma chave:
  * é o deny sobre allow, que `resolveEffectivePermissions` resolve por precedência.
  *
- * Desde 20260921120000 a escrita passa pelas funções auditadas, que traduzem essa violação
+ * Desde 20260921130000 a escrita passa pelas funções auditadas, que traduzem essa violação
  * no token `PERMISSION_ALREADY_EXISTS` (23505). Os dois formatos são reconhecidos: o do
  * índice cru (caminho antigo, e quem ainda escrever direto por manutenção) e o da função.
  */

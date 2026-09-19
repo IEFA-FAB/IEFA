@@ -5,7 +5,7 @@
  * nunca do payload. A chave real (rawKey) é retornada APENAS em createMcpKeyFn.
  *
  * Criar, revogar e apagar uma chave são registrados no log de operações sensíveis na MESMA
- * transação da escrita (`withAtomicAudit`, migration 20260921120000) — inclusive revogar e
+ * transação da escrita (`withAtomicAudit`, migration 20260921130000) — inclusive revogar e
  * apagar, que são `"none"` no registro de garantia (não exigem segundo fator: retirar uma
  * credencial vazada não pode esperar), mas são retirada de credencial e ficam registradas.
  * @domain app

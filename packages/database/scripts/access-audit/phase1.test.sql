@@ -1,4 +1,4 @@
--- Fase 1 (20260921120000): cada função auditada grava a mudança e UMA linha de log, na mesma
+-- Fase 1 (20260921130000): cada função auditada grava a mudança e UMA linha de log, na mesma
 -- transação; erro em qualquer ponto (inclusive no log) desfaz tudo. Roda depois de stub.sql e
 -- da migration de fase 1, ANTES dos triggers. Falha = exceção (psql -v ON_ERROR_STOP=1).
 

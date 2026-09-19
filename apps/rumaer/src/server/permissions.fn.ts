@@ -13,7 +13,7 @@
  *
  * Conceder e revogar passam por `changeModulePermission`: o grant e a linha de
  * `access_control.sensitive_operation_log` entram numa transação só, com o ator da SESSÃO.
- * Escrita direta em `user_permissions` é recusada pelo banco desde 20260921120100.
+ * Escrita direta em `user_permissions` é recusada pelo banco desde 20260921130100.
  * Quem pode mexer em quê (autoconcessão, auto-revogação) está em `lib/permission-change.ts`.
  */
 

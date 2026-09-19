@@ -41,7 +41,7 @@ test("toJournalRoleError não vaza SQL", () => {
 
 /**
  * Contrato do servidor: `role` nunca vai numa escrita comum de perfil — só pela função
- * auditada, com o ator da sessão. O banco recusa a troca de papel fora dela desde 20260921120100.
+ * auditada, com o ator da sessão. O banco recusa a troca de papel fora dela desde 20260921130100.
  */
 describe("journal-data.fn.ts — papel só pela função auditada", () => {
 	const source = readFileSync(join(import.meta.dir, "..", "..", "server", "journal-data.fn.ts"), "utf8")

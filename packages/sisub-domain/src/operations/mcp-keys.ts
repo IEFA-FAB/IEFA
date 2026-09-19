@@ -24,10 +24,10 @@
  * ## Auditoria
  *
  * Criar, revogar e apagar uma chave é conceder e retirar uma CREDENCIAL. As três passam por
- * funções SQL auditadas (20260921120000): a escrita e a linha de
+ * funções SQL auditadas (20260921130000): a escrita e a linha de
  * `access_control.sensitive_operation_log` entram na mesma transação, com o ator da sessão —
  * que também é o dono, por construção (`user_id = p_actor` dentro da função). O hash nunca vai
- * ao log. Desde 20260921120100 o banco recusa escrita direta nesta tabela (exceto o
+ * ao log. Desde 20260921130100 o banco recusa escrita direta nesta tabela (exceto o
  * `last_used_at` que o sisub-mcp grava a cada chamada, que não é acesso).
  */
 

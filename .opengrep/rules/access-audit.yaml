@@ -8,9 +8,9 @@
 # e sem rastro. Diretriz do mantenedor: em TODO app, quem concedeu, a quem, o quê e quando,
 # atomicamente com a mudança; o esquecimento tem de FALHAR.
 #
-# As funções (migration 20260921120000) gravam a mudança e a linha de
+# As funções (migration 20260921130000) gravam a mudança e a linha de
 # `access_control.sensitive_operation_log` numa transação só, com o ator da sessão. Os
-# triggers (20260921120100) recusam no banco a escrita fora delas. Esta regra pega o mesmo
+# triggers (20260921130100) recusam no banco a escrita fora delas. Esta regra pega o mesmo
 # esquecimento ANTES do deploy — e o buraco que o trigger não vê: escrita direta numa
 # transação que já chamou uma função auditada (o contexto vale até o fim da transação).
 #
@@ -32,7 +32,7 @@ rules:
     severity: ERROR
     message: >-
       Escrita direta em tabela de ACESSO (grant, política, anexo, chave MCP, visualizador ou editor
-      de questionário). Não registra quem concedeu, a quem e quando — e desde 20260921120100 o banco
+      de questionário). Não registra quem concedeu, a quem e quando — e desde 20260921130100 o banco
       a recusa (42501 ACCESS_CHANGE_UNAUDITED). Use a função auditada: `changeModulePermission`
       (@iefa/pbac), as operações de `@iefa/sisub-domain` (`runAccessFunction`) ou a RPC `forms.*` /
       `journal.change_user_role`. Manutenção explícita (seed, faxina de fixture) abre
@@ -76,7 +76,7 @@ rules:
     severity: ERROR
     message: >-
       SQL cru escrevendo em tabela de ACESSO. Não registra quem concedeu, a quem e quando — e desde
-      20260921120100 o banco o recusa (42501 ACCESS_CHANGE_UNAUDITED). Chame a função auditada
+      20260921130100 o banco o recusa (42501 ACCESS_CHANGE_UNAUDITED). Chame a função auditada
       (`select access_control.attach_policy(…)`, `access_control.create_user_permission(…)`, …).
     paths:
       include:

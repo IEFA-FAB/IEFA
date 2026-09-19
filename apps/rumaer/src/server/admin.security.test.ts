@@ -85,7 +85,7 @@ describe("permissions.fn.ts — concessão e revogação são auditadas", () => 
 		}
 	})
 
-	test("nenhuma escrita direta em user_permissions (o banco a recusa desde 20260921120100)", () => {
+	test("nenhuma escrita direta em user_permissions (o banco a recusa desde 20260921130100)", () => {
 		expect(source).not.toMatch(/from\("user_permissions"\)\s*\.(insert|update|upsert|delete)\(/)
 		expect(source).not.toMatch(/grantUnscopedModulePermission|grantModulePermission|revokeModulePermission/)
 	})

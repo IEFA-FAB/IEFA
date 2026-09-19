@@ -26,12 +26,12 @@ $PSQL -d postgres -qc "create database $DB"
 run() { $PSQL -d "$DB" -v ON_ERROR_STOP=1 -q -f "$1"; }
 
 run "$HERE/stub.sql"
-run "$MIGRATIONS/20260921120000_access_change_audited_functions.sql"
+run "$MIGRATIONS/20260921130000_access_change_audited_functions.sql"
 # Reaplicável: a fase 1 é idempotente.
-run "$MIGRATIONS/20260921120000_access_change_audited_functions.sql"
+run "$MIGRATIONS/20260921130000_access_change_audited_functions.sql"
 run "$HERE/phase1.test.sql"
 bash "$HERE/concurrency.sh"
-run "$MIGRATIONS/20260921120100_access_change_enforcement.sql"
-run "$MIGRATIONS/20260921120100_access_change_enforcement.sql"
+run "$MIGRATIONS/20260921130100_access_change_enforcement.sql"
+run "$MIGRATIONS/20260921130100_access_change_enforcement.sql"
 run "$HERE/phase2.test.sql"
 echo "access-audit: tudo verde"

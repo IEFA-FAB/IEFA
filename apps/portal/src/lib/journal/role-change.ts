@@ -3,9 +3,9 @@
  *
  * `editor` administra o corpo editorial inteiro (inclusive o papel dos outros); `reviewer`
  * recebe parecer às cegas. Trocar o papel é conceder ou retirar acesso, e por isso passa pela
- * função SQL auditada `journal.change_user_role` (migration 20260921120000): a troca e a linha
+ * função SQL auditada `journal.change_user_role` (migration 20260921130000): a troca e a linha
  * de `access_control.sensitive_operation_log` entram na MESMA transação, com o ator da SESSÃO.
- * Desde 20260921120100 o banco recusa troca de papel fora dela — um `update` de perfil que
+ * Desde 20260921130100 o banco recusa troca de papel fora dela — um `update` de perfil que
  * carregue `role` falha. Por isso o papel é SEPARADO do resto do payload aqui, e o resto do
  * perfil (nome, afiliação, bio) segue pela escrita comum.
  *

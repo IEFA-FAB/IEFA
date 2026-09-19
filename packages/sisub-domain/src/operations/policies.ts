@@ -316,10 +316,10 @@ export async function listUserPolicyPermissions(db: SisubDb, userId: string): Pr
 // ── Escrita ──────────────────────────────────────────────────────────────────
 //
 // Toda escrita de política, statement e anexo passa por uma função SQL auditada
-// (20260921120000): a mudança e a linha de `access_control.sensitive_operation_log` entram na
+// (20260921130000): a mudança e a linha de `access_control.sensitive_operation_log` entram na
 // MESMA transação, com o ator da sessão (`ctx.userId`). Mudar o que uma política concede muda
 // o acesso de TODOS os anexados, e o log registra quem são (`affected_user_ids`). Desde
-// 20260921120100 o banco recusa escrita direta nestas tabelas.
+// 20260921130100 o banco recusa escrita direta nestas tabelas.
 //
 // As checagens de política gerenciada/removida continuam aqui ANTES da chamada — é o que dá a
 // mensagem com o nome da política — e são refeitas pela função sob trava, que é a que vale.

@@ -28,10 +28,10 @@
  *
  * **`--actor` é obrigatório**: é o uid (em `auth.users`) de QUEM está concedendo — a pessoa
  * que roda o script, não um id qualquer. Cada anexo passa pela função auditada
- * `access_control.attach_policy` (migration 20260921120000), que grava o anexo e a linha de
+ * `access_control.attach_policy` (migration 20260921130000), que grava o anexo e a linha de
  * `access_control.sensitive_operation_log` na mesma transação, com esse ator e a operação
  * `script.add-trainees.attach`. Anexar sem registrar quem concedeu era exatamente o caminho que
- * a auditoria de acesso fechou; desde 20260921120100 o banco recusa o insert direto.
+ * a auditoria de acesso fechou; desde 20260921130100 o banco recusa o insert direto.
  *
  * Requer `SISUB_DATABASE_URL` (pooler). Sem `--apply` a transação termina em ROLLBACK, então o
  * dry-run exercita os inserts de verdade e o relatório é o mesmo que o `--apply` produziria.

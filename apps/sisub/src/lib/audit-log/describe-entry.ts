@@ -10,7 +10,7 @@
  *
  * ## O `target` não tem um formato só
  *
- * As funções auditadas de 20260921120000 gravam um formato padrão (`target_user_id`,
+ * As funções auditadas de 20260921130000 gravam um formato padrão (`target_user_id`,
  * `action`, `previous`…). As linhas anteriores a elas — gravadas pelo app, em camelCase
  * (`userId`, `policyId`, `keyPrefix`) — continuam no log para sempre, porque o log é
  * apenas-inserção. E há operações que não são de acesso (empenho, orçamento, MFA) com alvo

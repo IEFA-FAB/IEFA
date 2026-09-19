@@ -1,5 +1,5 @@
 /**
- * Forma por forma: cada `target` que as funções auditadas de 20260921120000 gravam, as
+ * Forma por forma: cada `target` que as funções auditadas de 20260921130000 gravam, as
  * formas legadas que o app gravava antes delas (e que ficam no log para sempre) e as
  * desconhecidas. O contrato é "forma conhecida vira frase; o resto vira chave/valor;
  * nada lança".

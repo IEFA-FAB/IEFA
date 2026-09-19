@@ -7,10 +7,10 @@
  * Conceder, alterar e retirar esse acesso passa pelas funções SQL `forms.add_response_viewer`,
  * `forms.update_response_viewer_policy`, `forms.remove_response_viewer`,
  * `forms.add_questionnaire_editor` e `forms.remove_questionnaire_editor` (migration
- * 20260921120000): a escrita e a linha de `access_control.sensitive_operation_log` entram na
+ * 20260921130000): a escrita e a linha de `access_control.sensitive_operation_log` entram na
  * MESMA transação, com o ator da SESSÃO. Antes, o visualizador e as regras de escopo dele eram
  * duas escritas soltas — um visualizador podia nascer "global" e perder a regra no meio do
- * caminho, vendo tudo — e nada registrava quem concedeu. Desde 20260921120100 o banco recusa
+ * caminho, vendo tudo — e nada registrava quem concedeu. Desde 20260921130100 o banco recusa
  * escrita direta nessas tabelas.
  *
  * ## Quem pode conceder a si mesmo

@@ -8,7 +8,7 @@
  *
  * O teste inspeciona a query real: compila o `SQL` capturado com o dialeto do Postgres e
  * confere que o id da sessão está entre os parâmetros. Na leitura é o `where`; nas mutações
- * (desde 20260921120000) é o ATOR da função SQL auditada, que é também o dono — a função só
+ * (desde 20260921130000) é o ATOR da função SQL auditada, que é também o dono — a função só
  * alcança a linha com `user_id = p_actor`, e é o teste SQL local
  * (`packages/database/scripts/access-audit`) que prova esse lado.
  */

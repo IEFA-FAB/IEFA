@@ -16,7 +16,7 @@
  *   - `withSensitiveAudit` — o log é gravado pelo app, DEPOIS da operação. Serve às operações
  *     que não são mudança de acesso (empenho, crédito, fator de MFA…);
  *   - `withAtomicAudit` — mudança de ACESSO (permissão, política, anexo, chave MCP). Quem grava
- *     a linha é a função SQL, na MESMA transação da mudança (migration 20260921120000); o
+ *     a linha é a função SQL, na MESMA transação da mudança (migration 20260921130000); o
  *     envelope só resolve nome e grau. Usar `withSensitiveAudit` nestas duplicaria a linha — e
  *     voltaria a gravar depois, que era o defeito. `ACCESS_CHANGE_OPERATIONS` é a lista delas.
  */

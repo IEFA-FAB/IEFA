@@ -116,7 +116,7 @@ const targetUser = alias(userDataInCore, "target_user")
 
 /**
  * Chaves em que o alvo pessoal foi gravado, na ordem de preferência. `target_user_id` é o
- * formato padrão das funções auditadas (20260921120000); `userId` e `targetUserId` são das
+ * formato padrão das funções auditadas (20260921130000); `userId` e `targetUserId` são das
  * linhas que o app gravava antes delas — o log é apenas-inserção, então elas ficam para
  * sempre e o filtro tem de continuar achando-as.
  */

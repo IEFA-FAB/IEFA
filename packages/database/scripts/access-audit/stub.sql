@@ -1,5 +1,5 @@
 -- Esqueleto mínimo do banco de produção para validar as migrations de auditoria de acesso
--- (20260921120000 + 20260921120100) num Postgres DESCARTÁVEL. Espelha as colunas, FKs
+-- (20260921130000 + 20260921130100) num Postgres DESCARTÁVEL. Espelha as colunas, FKs
 -- (inclusive as ações ON DELETE), índices únicos e CHECKs das tabelas de acesso como estão
 -- em produção (conferido por leitura do catálogo em 2026-09-19). NÃO é migration: só roda
 -- em cluster local, por `run.sh`.

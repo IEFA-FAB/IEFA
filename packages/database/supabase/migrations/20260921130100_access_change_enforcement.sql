@@ -6,7 +6,7 @@
 -- (antes do deploy do PR que os declara) sisub, rumaer, sucont, forms e portal ainda escrevem
 -- direto — aplicar isto antes quebraria a concessão de acesso em TODOS eles no mesmo instante.
 --
---   1. fase 1 (20260921120000) aplicada;
+--   1. fase 1 (20260921130000) aplicada;
 --   2. o código que chama as funções em produção em TODOS os apps que escrevem estas tabelas:
 --      sisub, sisub-mcp (não escreve acesso, mas atualiza `last_used_at` — coberto pelo WHEN),
 --      rumaer, sucont, forms, portal e contrate. Conferir por JOB no run de deploy da main
@@ -66,14 +66,14 @@ begin
 		raise exception 'ACCESS_CHANGE_UNAUDITED'
 			using errcode = '42501',
 				detail = format('%s em %I.%I sem contexto de auditoria', tg_op, tg_table_schema, tg_table_name),
-				hint = 'Use a função auditada (access_control.*, forms.*, journal.change_user_role), que grava a mudança e o log na mesma transação. Manutenção explícita: set_config(''iefa.audit_bypass'', ''<motivo>'', true). Ver 20260921120100.';
+				hint = 'Use a função auditada (access_control.*, forms.*, journal.change_user_role), que grava a mudança e o log na mesma transação. Manutenção explícita: set_config(''iefa.audit_bypass'', ''<motivo>'', true). Ver 20260921130100.';
 	end if;
 	return case when tg_op = 'DELETE' then old else new end;
 end;
 $$;
 
 comment on function access_control.enforce_audited_access_change() is
-	'Recusa (42501 ACCESS_CHANGE_UNAUDITED) escrita em tabela de acesso sem contexto de auditoria (iefa.audit_operation), sem bypass explícito (iefa.audit_bypass) e fora de cascata/trigger (pg_trigger_depth() > 1). Ver 20260921120100.';
+	'Recusa (42501 ACCESS_CHANGE_UNAUDITED) escrita em tabela de acesso sem contexto de auditoria (iefa.audit_operation), sem bypass explícito (iefa.audit_bypass) e fora de cascata/trigger (pg_trigger_depth() > 1). Ver 20260921130100.';
 
 revoke all on function access_control.enforce_audited_access_change() from public, anon, authenticated;
 

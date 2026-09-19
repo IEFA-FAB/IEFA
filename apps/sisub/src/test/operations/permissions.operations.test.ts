@@ -8,14 +8,14 @@
  *
  * ## Escritas de acesso: dentro de uma transação desfeita
  *
- * Desde 20260921120000 conceder/alterar/revogar grava a linha de
+ * Desde 20260921130000 conceder/alterar/revogar grava a linha de
  * `access_control.sensitive_operation_log` na MESMA transação, com o ator da sessão — e o ator
  * tem de existir em `auth.users` (FK `on delete restrict`). Os testes que exercitam essas
  * operações rodam com um ator semeado e DENTRO de `inRollback`: a mudança e o log são desfeitos
  * juntos (o log de produção não guarda teste), e o ator pode ser apagado no cleanup. É também o
  * que permite provar, no banco real, que o log saiu na mesma transação da mudança.
  *
- * REQUER a fase 1 (20260921120000) aplicada no banco compartilhado.
+ * REQUER a fase 1 (20260921130000) aplicada no banco compartilhado.
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
@@ -171,7 +171,7 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 		expect(await fetchUserPermissionsAdmin(db, ctx, { userId })).toHaveLength(0)
 	})
 
-	test("escrita direta em user_permissions é recusada — só vale depois da fase 2 (20260921120100)", async () => {
+	test("escrita direta em user_permissions é recusada — só vale depois da fase 2 (20260921130100)", async () => {
 		if (!reachable || !seeder || !db) return
 		const [{ enforced }] = (await db.execute(
 			sql`select exists (select 1 from pg_trigger where tgname = 'enforce_audited_change' and tgrelid = 'access_control.user_permissions'::regclass) as enforced`

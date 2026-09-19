@@ -36,7 +36,7 @@ function forbiddenDb(): SisubDb {
 
 /**
  * Handle que registra a escrita, para o caso em que ela DEVE acontecer. A escrita de acesso é
- * a chamada da função SQL auditada (`execute`), desde 20260921120000.
+ * a chamada da função SQL auditada (`execute`), desde 20260921130000.
  */
 function recordingDb(written: { count: number }): SisubDb {
 	return {

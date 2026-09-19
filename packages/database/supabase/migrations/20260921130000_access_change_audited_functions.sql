@@ -15,7 +15,7 @@
 --   * rumaer, sucont, forms, portal (papel do journal): nenhum log;
 --   * scripts (`add-trainees.ts`): SQL cru, ator opcional.
 --
--- Esta migration cria as funções. A FASE 2 (20260921120100) liga os triggers que recusam
+-- Esta migration cria as funções. A FASE 2 (20260921130100) liga os triggers que recusam
 -- escrita sem auditoria nas tabelas de acesso — ela SÓ pode ser aplicada depois que todos os
 -- apps estiverem em produção chamando estas funções (a ordem está no cabeçalho dela).
 --
@@ -105,7 +105,7 @@ end;
 $$;
 
 comment on function access_control.audit_context(text) is
-	'Abre o contexto de auditoria da transação (iefa.audit_operation, local à transação). Os triggers de 20260921120100 só aceitam escrita em tabela de acesso com ele aberto. Toda função que escreve em tabela de acesso chama isto ANTES de escrever e grava a própria linha em sensitive_operation_log. Ver 20260921120000.';
+	'Abre o contexto de auditoria da transação (iefa.audit_operation, local à transação). Os triggers de 20260921130100 só aceitam escrita em tabela de acesso com ele aberto. Toda função que escreve em tabela de acesso chama isto ANTES de escrever e grava a própria linha em sensitive_operation_log. Ver 20260921130000.';
 
 create or replace function access_control.record_access_change(p_actor uuid, p_operation text, p_assurance text, p_target jsonb)
 returns uuid
@@ -141,7 +141,7 @@ end;
 $$;
 
 comment on function access_control.record_access_change(uuid, text, text, jsonb) is
-	'Grava a linha de sensitive_operation_log da mudança de acesso em curso — só com o contexto de auditoria aberto para a MESMA operação. Ator inexistente é ACCESS_ACTOR_NOT_FOUND e desfaz a transação inteira. Ver 20260921120000.';
+	'Grava a linha de sensitive_operation_log da mudança de acesso em curso — só com o contexto de auditoria aberto para a MESMA operação. Ator inexistente é ACCESS_ACTOR_NOT_FOUND e desfaz a transação inteira. Ver 20260921130000.';
 
 -- A consulta "o que aconteceu com o acesso desta pessoa" (tela de auditoria do sisub).
 create index if not exists sensitive_operation_log_target_user_idx
@@ -218,12 +218,12 @@ begin
 		v_partition := p_partition;
 	end if;
 
-	-- 20260921120000: a escrita abaixo só passa pelo trigger com o contexto aberto.
+	-- 20260921130000: a escrita abaixo só passa pelo trigger com o contexto aberto.
 	perform access_control.audit_context(p_app || '.permission.' || p_action);
 
 	begin
 		if p_action = 'grant' then
-			-- 20260921120000: serializa concessões concorrentes na MESMA chave. Sem isto, as duas
+			-- 20260921130000: serializa concessões concorrentes na MESMA chave. Sem isto, as duas
 			-- leem "não havia" e o log das duas registra `previous_level` nulo — a segunda, na
 			-- verdade, sobrescreveu a primeira. O `for update` abaixo não trava linha inexistente.
 			perform pg_advisory_xact_lock(hashtextextended(

@@ -10,7 +10,7 @@
  * (`permission-change.ts`), que grava o grant e o log de auditoria numa transação. Os
  * antigos `grantModulePermission`/`grantUnscopedModulePermission`/`revokeModulePermission`
  * escreviam direto na tabela, sem ator nem log, e saíram quando a escrita sem auditoria
- * passou a ser recusada pelo banco (20260921120100).
+ * passou a ser recusada pelo banco (20260921130100).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js"

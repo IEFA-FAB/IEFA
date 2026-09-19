@@ -5,7 +5,7 @@
  *
  * ## Por que não pelo PostgREST, como o resto do seeder
  *
- * Desde 20260921120100 o banco recusa (42501 `ACCESS_CHANGE_UNAUDITED`) escrita nessas tabelas
+ * Desde 20260921130100 o banco recusa (42501 `ACCESS_CHANGE_UNAUDITED`) escrita nessas tabelas
  * fora das funções auditadas, que gravam o log de operações sensíveis na mesma transação. Semear
  * uma fixture não é conceder acesso a ninguém — e registrar no log de PRODUÇÃO cada grant de
  * teste exigiria um ator real que, por `on delete restrict`, nunca mais poderia ser apagado.

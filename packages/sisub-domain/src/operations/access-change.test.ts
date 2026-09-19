@@ -1,5 +1,5 @@
 /**
- * A ponte com as funções SQL auditadas (20260921120000): tradução dos tokens estáveis em erro
+ * A ponte com as funções SQL auditadas (20260921130000): tradução dos tokens estáveis em erro
  * de domínio legível, e a leitura do `jsonb` devolvido.
  */
 

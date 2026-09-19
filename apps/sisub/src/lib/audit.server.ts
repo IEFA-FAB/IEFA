@@ -61,7 +61,7 @@ export function withSensitiveAudit<T>(
 /**
  * Envelope das mudanças de ACESSO (permissões, políticas, anexos, chaves MCP): a operação de
  * domínio chama uma função SQL que grava a mudança E a linha de auditoria na MESMA transação
- * (migration 20260921120000). Este envelope NÃO grava nada — gravar aqui duplicaria a linha, e
+ * (migration 20260921130000). Este envelope NÃO grava nada — gravar aqui duplicaria a linha, e
  * gravar DEPOIS era exatamente o defeito: log que falha com o acesso já concedido.
  *
  * O que ele faz é o que o `withSensitiveAudit` faz ANTES de rodar: resolve o nome no registro

@@ -34,7 +34,7 @@ describe("selfViewerGrantRefusal", () => {
 /**
  * Contrato do servidor: toda concessão/retirada de acesso a questionário passa pela função SQL
  * auditada, com o ator da SESSÃO — e nenhuma escreve direto nas tabelas de acesso (o banco
- * recusa desde 20260921120100; a regra opengrep `access-table-direct-write` também).
+ * recusa desde 20260921130100; a regra opengrep `access-table-direct-write` também).
  */
 describe("forms.fn.ts — acesso a questionário é auditado", () => {
 	const source = readFileSync(join(import.meta.dir, "..", "server", "forms.fn.ts"), "utf8")

@@ -1,5 +1,5 @@
 /**
- * Invariantes TEXTUAIS das migrations de auditoria de acesso (20260921120000 e 20260921120100).
+ * Invariantes TEXTUAIS das migrations de auditoria de acesso (20260921130000 e 20260921130100).
  *
  * O comportamento é provado num Postgres descartável (`scripts/access-audit/run.sh`: mudança +
  * log na mesma transação, rollback quando o log falha, trigger recusando escrita direta,
@@ -16,8 +16,8 @@ import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 const MIGRATIONS = join(import.meta.dir, "..", "supabase", "migrations")
-const PHASE_1 = "20260921120000_access_change_audited_functions.sql"
-const PHASE_2 = "20260921120100_access_change_enforcement.sql"
+const PHASE_1 = "20260921130000_access_change_audited_functions.sql"
+const PHASE_2 = "20260921130100_access_change_enforcement.sql"
 
 /** As tabelas que a fase 2 vigia — e em que só função auditada escreve. */
 const ACCESS_TABLES = [

@@ -2,13 +2,13 @@
  * Conceder e revogar grant inline COM auditoria — atômico, numa transação do banco.
  *
  * Chama `access_control.change_module_permission` (migrations 20260918130335,
- * 20260919010255 e 20260921120000), que grava o grant (ou apaga a partição da chave) e a linha de `access_control.sensitive_operation_log` na MESMA
+ * 20260919010255 e 20260921130000), que grava o grant (ou apaga a partição da chave) e a linha de `access_control.sensitive_operation_log` na MESMA
  * transação: ou os dois entram, ou nenhum. Gravar o log pelo app depois da escrita deixava
  * duas janelas — o log falhar com o grant já confirmado, e o beneficiário usar o acesso
  * antes de uma compensação que também podia falhar. Ver o cabeçalho da migration.
  *
  * Agnóstico de app: contrate, rumaer e sucont concedem e revogam por aqui. É o ÚNICO caminho
- * de escrita por chave: desde 20260921120100 o banco recusa (42501 ACCESS_CHANGE_UNAUDITED)
+ * de escrita por chave: desde 20260921130100 o banco recusa (42501 ACCESS_CHANGE_UNAUDITED)
  * escrita em `user_permissions` fora de função auditada. O console do sisub edita por LINHA e
  * usa as funções irmãs (`create/update/delete_user_permission`), via `@iefa/sisub-domain`.
  *

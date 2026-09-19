@@ -212,7 +212,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 	const cleanups: CleanupStep[] = []
 	// Roteia cada tabela para seu schema de domínio (client base é só o ponto de entrada).
 	const tbl = (table: string) => client.schema(schemaFor(table)).from(table)
-	// Tabelas de ACESSO não aceitam escrita pelo PostgREST desde 20260921120100 (só pelas
+	// Tabelas de ACESSO não aceitam escrita pelo PostgREST desde 20260921130100 (só pelas
 	// funções auditadas, ou com o bypass de manutenção). O seeder as escreve pela conexão
 	// direta, com o bypass — ver `access-fixture-writer.ts`.
 	const access = createAccessFixtureWriter()

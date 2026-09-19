@@ -111,7 +111,7 @@ export async function withAudit<T>({ operation, record, run, target }: WithAudit
 
 /**
  * Identificação de uma mudança de ACESSO para o log — quando quem grava a linha é a função SQL,
- * na mesma transação da mudança (migration 20260921120000), e não este envelope.
+ * na mesma transação da mudança (migration 20260921130000), e não este envelope.
  *
  * `operation` é o nome da server function (como em `withAudit`); `grade` é o grau do registro de
  * classificação. Operação classificada `"none"` que mexe em acesso (revogar/apagar a própria

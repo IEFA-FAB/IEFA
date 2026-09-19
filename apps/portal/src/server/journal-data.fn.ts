@@ -71,7 +71,7 @@ export const getUserProfileFn = createServerFn({ method: "GET" })
 /**
  * Troca o papel de `targetUserId` pela função auditada `journal.change_user_role`: o papel e a
  * linha de `access_control.sensitive_operation_log` na MESMA transação, com o ator da sessão.
- * Desde 20260921120100 o banco recusa troca de papel fora dela. Ver `lib/journal/role-change.ts`.
+ * Desde 20260921130100 o banco recusa troca de papel fora dela. Ver `lib/journal/role-change.ts`.
  *
  * Pré-condição: `assertRoleChangeAllowed` já confirmou que o ator é editor.
  */

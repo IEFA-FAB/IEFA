@@ -727,7 +727,7 @@ export const getViewersFn = createServerFn({ method: "GET" })
 
 /*
  * Conceder, alterar e retirar acesso às respostas passa pelas funções SQL auditadas
- * (`forms.*_response_viewer*`, migration 20260921120000): o visualizador, as regras de escopo
+ * (`forms.*_response_viewer*`, migration 20260921130000): o visualizador, as regras de escopo
  * dele e a linha de `access_control.sensitive_operation_log` entram na MESMA transação, com o
  * ator da sessão (`user.id`). Ver `lib/access-change.ts`.
  */

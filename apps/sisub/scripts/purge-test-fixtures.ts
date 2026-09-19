@@ -114,7 +114,7 @@ async function main() {
 		// (pega FK que o fecho não cobriu antes de alguém rodar com --apply).
 		const rows = await sql.begin(async (tx) => {
 			// Manutenção EXPLÍCITA: fixture vazada inclui grants, políticas e anexos de teste, e
-			// desde 20260921120100 o banco recusa escrita nas tabelas de acesso fora das funções
+			// desde 20260921130100 o banco recusa escrita nas tabelas de acesso fora das funções
 			// auditadas. Apagar lixo de teste não é revogar acesso de ninguém — e não vai ao log.
 			// LOCAL à transação: some no commit/rollback (seguro no transaction pooler).
 			await tx`select set_config('iefa.audit_bypass', 'purge-test-fixtures', true)`

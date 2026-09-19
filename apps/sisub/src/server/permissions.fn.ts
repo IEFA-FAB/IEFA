@@ -76,7 +76,7 @@ export const fetchUserPermissionsAdminFn = createServerFn({ method: "GET" })
 /*
  * Concessão, alteração e revogação: a mudança e a linha de `access_control.sensitive_operation_log`
  * entram na MESMA transação, pela função SQL que a operação de domínio chama
- * (`withAtomicAudit`, migration 20260921120000). O alvo registrado (quem, módulo, escopo, nível
+ * (`withAtomicAudit`, migration 20260921130000). O alvo registrado (quem, módulo, escopo, nível
  * antes → depois, prazo) sai do BANCO — da linha gravada ou removida —, não do payload.
  */
 

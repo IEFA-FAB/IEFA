@@ -91,7 +91,7 @@ export const fetchEffectivePermissionsFn = createServerFn({ method: "GET" })
 /*
  * Toda escrita de política, statement e anexo grava a mudança e a linha de auditoria na MESMA
  * transação, pela função SQL que a operação de domínio chama (`withAtomicAudit`, migration
- * 20260921120000). O log registra antes → depois e, quando a mudança alcança todos os
+ * 20260921130000). O log registra antes → depois e, quando a mudança alcança todos os
  * anexados (statement, remoção, restauração), QUEM são eles.
  */
 

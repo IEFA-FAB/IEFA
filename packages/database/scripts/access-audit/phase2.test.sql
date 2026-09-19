@@ -1,4 +1,4 @@
--- Fase 2 (20260921120100): escrita em tabela de acesso sem contexto de auditoria FALHA; as
+-- Fase 2 (20260921130100): escrita em tabela de acesso sem contexto de auditoria FALHA; as
 -- funções, as cascatas de FK, o cadastro (`handle_new_user`) e o bypass explícito passam.
 -- Roda depois de phase1.test.sql e da migration de fase 2.
 

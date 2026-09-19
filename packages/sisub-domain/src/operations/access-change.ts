@@ -1,13 +1,13 @@
 /**
  * Ponte entre as operações de acesso do sisub e as funções SQL AUDITADAS
- * (migration 20260921120000).
+ * (migration 20260921130000).
  *
  * ## Por que a escrita saiu do Drizzle
  *
  * Toda concessão, alteração ou revogação de acesso grava a mudança E a linha de
  * `access_control.sensitive_operation_log` na MESMA transação, dentro de uma função SQL. Antes,
  * o envelope `withSensitiveAudit` gravava o log DEPOIS, em outra instrução: se o log falhava, o
- * acesso já estava concedido e sem rastro. Desde 20260921120100 o banco RECUSA (42501
+ * acesso já estava concedido e sem rastro. Desde 20260921130100 o banco RECUSA (42501
  * `ACCESS_CHANGE_UNAUDITED`) escrita direta em `user_permissions`, `policy`,
  * `policy_statement`, `user_policy_attachment` e `mcp_api_keys` — então não há volta: um
  * `db.insert(userPermissionsInAccessControl)` novo falha em produção (e a regra opengrep

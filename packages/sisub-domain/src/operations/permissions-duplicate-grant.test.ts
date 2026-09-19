@@ -17,7 +17,7 @@
  * diz o que fazer, e não o 23505 cru — nos DOIS caminhos de escrita (criar e editar) — e,
  * principalmente, que ela NÃO engole as outras falhas de driver.
  *
- * Desde 20260921120000 a escrita é a função SQL auditada (`access_control.create_user_permission`
+ * Desde 20260921130000 a escrita é a função SQL auditada (`access_control.create_user_permission`
  * e irmãs), que traduz a violação no token `PERMISSION_ALREADY_EXISTS` (23505) e grava o log de
  * auditoria na mesma transação. Os stubs abaixo simulam o `db.execute` dessa chamada.
  */
@@ -104,7 +104,7 @@ describe("isDuplicateGrantViolation", () => {
 		expect(isDuplicateGrantViolation(driverError({ code: "23503", constraint_name: "user_permissions_allow_uniq" }))).toBe(false)
 	})
 
-	test("reconhece o token da função auditada (20260921120000)", () => {
+	test("reconhece o token da função auditada (20260921130000)", () => {
 		expect(isDuplicateGrantViolation(functionError("PERMISSION_ALREADY_EXISTS", "23505"))).toBe(true)
 		expect(isDuplicateGrantViolation(functionError("POLICY_NAME_TAKEN", "23505"))).toBe(false)
 	})
