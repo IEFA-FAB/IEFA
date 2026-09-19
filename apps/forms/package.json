@@ -10,6 +10,7 @@
     "lint": "biome lint",
     "check": "biome check",
     "typecheck": "tsc --noEmit",
+    "test": "bun test --no-env-file src",
     "validate-env": "bun run src/env.ts"
   },
   "dependencies": {
