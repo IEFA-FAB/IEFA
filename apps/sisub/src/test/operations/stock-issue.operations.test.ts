@@ -170,6 +170,20 @@ describeIf("stock issue request (DB)", () => {
 						insert into inventory.stock_issue_request_item (request_id, ingredient_id, suggested_qty)
 						values (${request.id}, ${feijao.id}, 12.5), (${request.id}, ${arroz.id}, null)`
 
+					// ── recalcular: grava, atualiza e ZERA o que saiu do plano ─────────
+					// (20260920190000: numa função que trava linhas → requisição, a
+					// ordem do fechamento)
+					const [{ refresh_issue_suggestion: gravadas }] = await tx`select inventory.refresh_issue_suggestion(${request.id},
+						${tx.json([{ ingredient_id: feijao.id, meal_type_id: null, suggested_qty: 13 }])})`
+					expect(gravadas).toBe(1)
+					const recalculado = await tx`select ingredient_id, suggested_qty from inventory.stock_issue_request_item where request_id = ${request.id}`
+					expect(Number(recalculado.find((row) => row.ingredient_id === feijao.id)?.suggested_qty)).toBe(13)
+					// o arroz saiu do plano: zero, e não apagado
+					expect(Number(recalculado.find((row) => row.ingredient_id === arroz.id)?.suggested_qty)).toBe(0)
+					// volta ao que o teste espera daqui para frente
+					await tx`update inventory.stock_issue_request_item set suggested_qty = 12.5 where request_id = ${request.id} and ingredient_id = ${feijao.id}`
+					await tx`update inventory.stock_issue_request_item set suggested_qty = null where request_id = ${request.id} and ingredient_id = ${arroz.id}`
+
 					// ── a impressão digital do banco é a MESMA do servidor ─────────────
 					const [{ fp }] = await tx`select inventory.issue_suggestion_fingerprint(${request.id}) as fp`
 					const items = await tx`select ingredient_id, suggested_qty from inventory.stock_issue_request_item where request_id = ${request.id}`
@@ -212,6 +226,11 @@ describeIf("stock issue request (DB)", () => {
 					// com o retrato atual, fecha
 					const [{ fp: current }] = await tx`select inventory.issue_suggestion_fingerprint(${request.id}) as fp`
 					await tx`select * from inventory.close_issue_request(${request.id}, ${author.id}, ${moves}, ${current})`
+
+					// dia fechado: recalcular não grava nada (a sugestão está congelada)
+					const [{ refresh_issue_suggestion: fechado }] = await tx`select inventory.refresh_issue_suggestion(${request.id},
+						${tx.json([{ ingredient_id: feijao.id, meal_type_id: null, suggested_qty: 99 }])})`
+					expect(fechado).toBe(0)
 
 					// ── retry de saída que passou ANTES do fechamento é reconhecido ────
 					const [replay] = await tx`select * from inventory.issue_stock(${request.id}, ${feijao.id}, 3, ${author.id}, 'emissao-r4-0001', null, null, null)`

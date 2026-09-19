@@ -90,7 +90,7 @@ function DailyIssuePage() {
 	const [scannedIngredientId, setScannedIngredientId] = useState<string | null>(null)
 	// Lote lido na etiqueta: a saída daquele insumo sai DESSE lote, o que está
 	// na mão do operador — e não do que a alocação automática escolheria.
-	const [scannedLot, setScannedLot] = useState<{ ingredientId: string; lotId: string } | null>(null)
+	const [scannedLot, setScannedLot] = useState<{ ingredientId: string; lotId: string; description: string } | null>(null)
 	const [extraQuantity, setExtraQuantity] = useState("")
 
 	const open = request?.request.status === "open"
@@ -144,7 +144,7 @@ function DailyIssuePage() {
 			const label = found.description ?? "insumo"
 			setScannedIngredientId(ingredientId)
 			// só a etiqueta de LOTE fixa o lote; o GTIN da embalagem não diz qual é
-			setScannedLot(found.matchedBy === "lot" && found.lotId ? { ingredientId, lotId: found.lotId } : null)
+			setScannedLot(found.matchedBy === "lot" && found.lotId ? { ingredientId, lotId: found.lotId, description: label } : null)
 			const inSuggestion = request?.lines.some((line) => line.ingredientId === ingredientId) ?? false
 			if (!inSuggestion) {
 				if (!stockByIngredient.has(ingredientId)) {
@@ -384,6 +384,21 @@ function DailyIssuePage() {
 								toast.error("Código não reconhecido")
 							}}
 						/>
+						{/*
+						 * O pino do lote tem de aparecer: sem isso a saída seguinte
+						 * saía de um lote que a tela não mostrava, e o erro "lote sem
+						 * saldo" mandava "deixar a alocação automática" sem dizer como.
+						 */}
+						{scannedLot && (
+							<div className="flex flex-wrap items-center gap-2 rounded-md border px-2 py-1 text-xs">
+								<span>
+									{scannedLot.description}: a próxima saída sai do <strong>lote lido na etiqueta</strong>.
+								</span>
+								<Button type="button" size="sm" variant="ghost" className="h-6" onClick={() => setScannedLot(null)}>
+									Usar a alocação automática
+								</Button>
+							</div>
+						)}
 						<p className="text-xs text-muted-foreground">
 							Os lotes são escolhidos automaticamente: o que vence primeiro, ignorando vencido e o que está em quarentena.
 						</p>

@@ -248,31 +248,17 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		// comum — nunca conflitava, e cada carregamento da tela acrescentava uma
 		// linha duplicada do mesmo insumo. A refeição segue como informação.
 		const { lines } = await computeSuggestion(data.kitchenId, issueDate)
-		if (lines.length > 0) {
-			const { error: upsertError } = await inv.from("stock_issue_request_item").upsert(
-				lines.map((line) => ({
-					request_id: requestId,
-					ingredient_id: line.ingredientId,
-					meal_type_id: line.mealTypeId,
-					suggested_qty: line.suggestedQty,
-				})),
-				{ onConflict: "request_id,ingredient_id" }
-			)
-			if (upsertError) throw new Error(`Erro ao gravar a sugestão do dia: ${upsertError.message}`)
-		}
-
-		// Insumo que SAIU do planejamento desde o último cálculo fica com sugestão
-		// ZERO — inclusive quando o plano esvaziou de vez, que antes não gravava
-		// nada. Sem isto a sugestão antiga continuava valendo: o item contava como
-		// 100% de falta e o dia não fechava sem motivo para algo que nem estava mais
-		// planejado. Zerar, e não apagar, porque um motivo já registrado na linha
-		// segue sendo o registro do que aconteceu — e, se o item já saiu do estoque,
-		// a variância contra zero é real e o motivo é devido.
-		const planned = lines.map((line) => line.ingredientId)
-		let stale = inv.from("stock_issue_request_item").update({ suggested_qty: 0 }).eq("request_id", requestId)
-		if (planned.length > 0) stale = stale.not("ingredient_id", "in", `(${planned.join(",")})`)
-		const { error: staleError } = await stale
-		if (staleError) throw new Error(`Erro ao atualizar os itens que saíram do planejamento: ${staleError.message}`)
+		// Gravar e zerar os que saíram do plano numa função só, que trava as linhas
+		// ANTES da requisição — a ordem do fechamento. O upsert de várias linhas
+		// travava na ordem inversa (pelo gatilho de cada linha) e dava deadlock
+		// com o fechamento. Zerar, e não apagar: o motivo já registrado segue
+		// sendo o registro do que aconteceu, e o item que saiu do plano depois de
+		// sair do estoque ainda deve justificativa (`evaluateVariance`).
+		const { error: refreshError } = await inv.rpc("refresh_issue_suggestion", {
+			p_request_id: requestId,
+			p_lines: lines.map((line) => ({ ingredient_id: line.ingredientId, meal_type_id: line.mealTypeId, suggested_qty: line.suggestedQty })),
+		})
+		if (refreshError) throw new Error(`Erro ao gravar a sugestão do dia: ${refreshError.message}`)
 
 		return { requestId, reopened: false as const, suggested: lines.length }
 	})
@@ -349,7 +335,10 @@ interface AdHocSummary {
 const ISSUE_QUANTITY = z
 	.number()
 	.positive()
-	.refine((value) => Number(value.toFixed(4)) === value, "Quantidade com no máximo 4 casas decimais")
+	// Com tolerância, e não `Number(value.toFixed(4)) === value`: o `toFixed`
+	// herda o arredondamento binário (a família do `(1.005).toFixed(2)`), e um
+	// valor legítimo de 4 casas podia ser recusado como se tivesse mais.
+	.refine((value) => Math.abs(Math.round(value * 1e4) / 1e4 - value) < 1e-9, "Quantidade com no máximo 4 casas decimais")
 
 /** Emite a saída de um ingrediente. */
 export const issueStockFn = createServerFn({ method: "POST" })
