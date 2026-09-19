@@ -47,7 +47,16 @@ function fakeDb(state: State) {
 			},
 		}),
 	})
-	return { db: { select, insert } as unknown as SisubDb, written }
+	// A operação roda numa transação com lock por nrOrdem; o fake executa o corpo no próprio
+	// objeto e conta os locks tomados.
+	let locks = 0
+	const db: Record<string, unknown> = { select, insert }
+	db.execute = () => {
+		locks++
+		return Promise.resolve()
+	}
+	db.transaction = (run: (tx: unknown) => Promise<unknown>) => run(db)
+	return { db: db as unknown as SisubDb, written, locks: () => locks }
 }
 
 const base = { userId: "user-1", email: "a@fab.mil.br" }
@@ -62,9 +71,11 @@ async function codeOf(run: Promise<unknown>): Promise<string | null> {
 
 describe("syncUserNrOrdem", () => {
 	test("primeiro vínculo grava o nrOrdem (aparado)", async () => {
-		const { db, written } = fakeDb({ current: null, currentHasMilitary: false, takenByOther: false })
+		const { db, written, locks } = fakeDb({ current: null, currentHasMilitary: false, takenByOther: false })
 		await syncUserNrOrdem(db, { ...base, nrOrdem: " 1234567 " })
 		expect(written[0]?.nrOrdem).toBe("1234567")
+		// checagem e gravação serializadas por nrOrdem (duas contas ao mesmo tempo)
+		expect(locks()).toBe(1)
 	})
 
 	test("nrOrdem de OUTRA conta é recusado", async () => {

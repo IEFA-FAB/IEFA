@@ -11,6 +11,7 @@
  */
 
 import { extractText, getDocumentProxy } from "unpdf"
+import { DocumentLimitError } from "../lib/document-limits.ts"
 import { cleanText, normalizeTitle } from "../lib/text.ts"
 import { type DocxParagraph, parseDocx } from "../sources/docx.ts"
 import type { StructureNodeDraft } from "../sources/types.ts"
@@ -41,10 +42,10 @@ export interface PdfSubmissionText extends SubmissionText {
  */
 export const MAX_PDF_PAGES = 500
 
-export class PdfTooLargeError extends Error {
+export class PdfTooLargeError extends DocumentLimitError {
 	readonly pages: number
 	constructor(pages: number, maxPages: number) {
-		super(`PDF com ${pages} páginas excede o limite de ${maxPages}`)
+		super(`O PDF tem ${pages} páginas; o limite é ${maxPages}.`)
 		this.name = "PdfTooLargeError"
 		this.pages = pages
 	}
@@ -153,6 +154,21 @@ export async function pdfToSubmissionText(bytes: Uint8Array, options: { maxPages
 	})
 
 	return { text: lines.filter(Boolean).join("\n"), nodes: buildNodes(paragraphs), pages }
+}
+
+/**
+ * Confere os tetos de processamento ANTES de o documento ser aceito. Sem isto o upload
+ * respondia 201 e o documento nunca mais podia ser lido: extração, texto e verificação
+ * falhavam para sempre. PDF: só conta as páginas (barato). docx: a leitura inteira já é
+ * leve, e o texto volta para semear o cache.
+ */
+export async function inspectSubmissionDocument(bytes: Uint8Array, mimeType: string): Promise<string | null> {
+	if (mimeType.includes("pdf")) {
+		const pdf = await getDocumentProxy(bytes.slice())
+		if (pdf.numPages > MAX_PDF_PAGES) throw new PdfTooLargeError(pdf.numPages, MAX_PDF_PAGES)
+		return null
+	}
+	return (await toSubmissionText(bytes, mimeType)).text
 }
 
 export async function toSubmissionText(bytes: Uint8Array, mimeType: string): Promise<SubmissionText> {

@@ -147,7 +147,9 @@ export const getSignedUploadUrlFn = createServerFn({ method: "POST" })
 			setResponseStatus(404)
 			throw new Error("Variante ou peça não encontrada.")
 		}
-		const { data: result, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(data.filePath)
+		// `upsert: true` na ASSINATURA: o caminho é fixo por variante/peça, e trocar a foto é
+		// regravar o mesmo objeto. O `upsert` passado ao `uploadToSignedUrl` não tem efeito.
+		const { data: result, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(data.filePath, { upsert: true })
 		if (error) throw new Error(error.message)
 		return result // { signedUrl, token, path }
 	})

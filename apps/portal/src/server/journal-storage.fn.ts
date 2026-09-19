@@ -57,7 +57,12 @@ export const getSignedUploadUrlFn = createServerFn({ method: "POST" })
 			const expectsFirstVersion = status === "draft"
 			if (expectsFirstVersion !== (parsed.version === 1)) forbidden("Versão do arquivo não corresponde ao status da submissão.")
 		}
-		const { data: result, error } = await getStorageClient().from(SUBMISSIONS_BUCKET).createSignedUploadUrl(data.filePath)
+		// `upsert: true` é decidido AQUI, na assinatura — o `upsert` que o cliente passa ao
+		// `uploadToSignedUrl` não tem efeito. Sem ele, um arquivo recusado pela checagem de
+		// assinatura (file-signature.server.ts) ficava no caminho fixo e nenhum reenvio o
+		// substituía: o rascunho travava. Quem regrava é só o autor, no status que as
+		// checagens acima já exigem.
+		const { data: result, error } = await getStorageClient().from(SUBMISSIONS_BUCKET).createSignedUploadUrl(data.filePath, { upsert: true })
 		if (error) throw new Error(error.message)
 		return result // { signedUrl, token, path }
 	})

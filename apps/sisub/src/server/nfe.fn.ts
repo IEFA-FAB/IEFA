@@ -294,10 +294,18 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 			if (existing.kitchen_id != null && Number(existing.kitchen_id) !== data.kitchenId) throw new Error("NF-e já pertence a outra cozinha")
 			if (existing.unit_id != null && unitId != null && Number(existing.unit_id) !== unitId) throw new Error("NF-e endereçada a outra unidade")
 			// Sem dono: assume para esta cozinha. `is(kitchen_id, null)` fecha a corrida com outra
-			// cozinha assumindo ao mesmo tempo.
+			// cozinha assumindo ao mesmo tempo — desde que se confira que ESTE update pegou a linha:
+			// quem perde a corrida atualiza zero linhas, e sem a conferência receberia o id da nota
+			// que acabou de virar da outra cozinha.
 			if (existing.kitchen_id == null) {
-				const { error } = await inv.from("nfe_document").update({ kitchen_id: data.kitchenId }).eq("id", existing.id).is("kitchen_id", null)
+				const { data: claimed, error } = await inv
+					.from("nfe_document")
+					.update({ kitchen_id: data.kitchenId })
+					.eq("id", existing.id)
+					.is("kitchen_id", null)
+					.select("id")
 				if (error) throw new Error(`Erro ao assumir a nota: ${error.message}`)
+				if (!claimed || claimed.length === 0) throw new Error("NF-e já pertence a outra cozinha")
 			}
 			return { nfeDocumentId: existing.id as string, created: false, status: existing.status as string }
 		}

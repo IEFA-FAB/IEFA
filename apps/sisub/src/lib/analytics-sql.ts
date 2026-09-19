@@ -94,6 +94,9 @@ const ALLOWED_FUNCTIONS = new Set([
 	"bool_or",
 	"generate_series",
 	"cast",
+	"now",
+	"date",
+	"position",
 ])
 
 /** Palavras-chave que legitimamente vêm antes de "(" sem serem chamada de função. */
@@ -214,7 +217,10 @@ function tokenize(sql: string): Token[] | string {
 			const close = sql.indexOf('"', i + 1)
 			if (close === -1) return "Identificador não terminado"
 			const value = sql.slice(i + 1, close)
-			if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) return "Identificador entre aspas inválido"
+			// Qualquer conteúdo sem aspas vale: o identificador não sai do token (`""` escapado
+			// fecharia e reabriria, e aí vira dois tokens que a varredura confere). Rótulo de
+			// gráfico em português — `AS "Total de refeições"` — é o uso comum.
+			if (value.length === 0) return "Identificador entre aspas vazio"
 			tokens.push({ kind: "ident", value: value.toLowerCase() })
 			i = close + 1
 			continue
@@ -259,7 +265,16 @@ function collectCteNames(tokens: Token[]): Set<string> {
 function checkRelationAt(tokens: Token[], i: number, cteNames: Set<string>): string | null {
 	const first = tokens[i]
 	if (!first) return "Relação ausente"
-	if (first.value === "(") return null // subquery — validada pelo resto da varredura
+	if (first.value === "(") {
+		// `FROM (SELECT …)` é subquery, validada pelo resto da varredura. Mas `FROM (a JOIN b …)`
+		// é JOIN entre parênteses: a PRIMEIRA relação de dentro não vem depois de FROM/JOIN
+		// nenhum, e passava sem conferência (`FROM (auth.users u CROSS JOIN units x)`).
+		let j = i
+		while (tokens[j]?.value === "(") j++
+		const inner = tokens[j]?.value
+		if (inner === "select" || inner === "with" || inner === "values") return null
+		return checkRelationAt(tokens, j, cteNames)
+	}
 	if (first.kind !== "ident") return `Relação inválida: ${first.value}`
 	let schema: string | null = null
 	let table = first.value

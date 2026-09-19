@@ -13,8 +13,9 @@ import { Hono } from "hono"
 import { z } from "zod"
 import { core, supabase } from "../db/supabase.ts"
 import { extractContratacao } from "../extraction/extract.ts"
-import { toSubmissionText } from "../extraction/to-text.ts"
+import { inspectSubmissionDocument, toSubmissionText } from "../extraction/to-text.ts"
 import { type AlphaAccess, coversUnit, READER_ROLES, unitsFor } from "../lib/alpha-access.ts"
+import { DocumentLimitError } from "../lib/document-limits.ts"
 import { TextCache } from "../lib/text-cache.ts"
 import { canReadSubmission } from "./authorize.ts"
 import { SUBMISSION_BUCKET } from "./submission-bucket.ts"
@@ -102,12 +103,27 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 
 		const bytes = new Uint8Array(await file.arrayBuffer())
 
+		// Tetos de leitura conferidos ANTES de aceitar: um documento acima deles (PDF de 600
+		// páginas, docx com XML gigante) era gravado com 201 e depois falhava para sempre em
+		// texto, extração e verificação, sem dizer por quê.
+		let inspectedText: string | null
+		try {
+			inspectedText = await inspectSubmissionDocument(bytes, file.type)
+		} catch (inspectError) {
+			if (inspectError instanceof DocumentLimitError) {
+				return c.json({ error: "Unprocessable Entity", code: "DOCUMENT_TOO_LARGE", message: inspectError.message }, 422)
+			}
+			console.error("[submissions] documento enviado não pôde ser lido:", inspectError)
+			return c.json({ error: "Unprocessable Entity", code: "UNREADABLE_DOCUMENT", message: "não foi possível ler o documento enviado" }, 422)
+		}
+
 		const { error: uploadError } = await supabase.storage.from(SUBMISSION_BUCKET).upload(storagePath, bytes, { contentType: file.type, upsert: false })
 		if (uploadError) {
 			// O detalhe do Storage (bucket, caminho, política) fica no log — o cliente recebe só o código.
 			console.error(`[submissions] upload de ${storagePath} falhou: ${uploadError.message}`)
 			return c.json({ error: "Internal Server Error", code: "UPLOAD_FAILED", message: "falha ao gravar o arquivo" }, 500)
 		}
+		if (inspectedText !== null) submissionTexts.set(storagePath, inspectedText)
 
 		const { data, error } = await supabase
 			.from("submission")
@@ -207,6 +223,9 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 				201
 			)
 		} catch (extractionError) {
+			if (extractionError instanceof DocumentLimitError) {
+				return c.json({ error: "Unprocessable Entity", code: "DOCUMENT_TOO_LARGE", message: extractionError.message }, 422)
+			}
 			// A mensagem do provider pode trazer ARN de role, região e id de modelo — fica no log.
 			console.error(`[submissions] extração da submissão ${id} falhou:`, extractionError)
 			return c.json({ error: "Bad Gateway", code: "EXTRACTION_FAILED", message: "falha na extração do documento" }, 502)
@@ -247,6 +266,9 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 			if (text === null) return c.json({ error: "Internal Server Error", code: "DOWNLOAD_FAILED" }, 500)
 			return c.json({ submission_id: id, text })
 		} catch (extractionError) {
+			if (extractionError instanceof DocumentLimitError) {
+				return c.json({ error: "Unprocessable Entity", code: "DOCUMENT_TOO_LARGE", message: extractionError.message }, 422)
+			}
 			console.error(`[submissions] texto da submissão ${id} não extraído:`, extractionError)
 			return c.json({ error: "Unprocessable Entity", code: "TEXT_EXTRACTION_FAILED", message: "não foi possível ler o documento" }, 422)
 		}

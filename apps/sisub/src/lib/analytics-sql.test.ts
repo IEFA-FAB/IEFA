@@ -130,4 +130,18 @@ describe("validateSql", () => {
 			valid: true,
 		})
 	})
+
+	test("rejeita a primeira relação de um JOIN entre parênteses (bypass da revisão)", () => {
+		expect(validateSql("SELECT u.email FROM (auth.users u CROSS JOIN units x) LIMIT 5").valid).toBe(false)
+		expect(validateSql("SELECT d.email FROM (core.user_data d JOIN units x ON true)").valid).toBe(false)
+		expect(validateSql("SELECT 1 FROM units WHERE EXISTS (SELECT 1 FROM ((core.user_data d JOIN units z ON true)))").valid).toBe(false)
+		expect(validateSql("SELECT * FROM (units u JOIN mess_halls m ON m.unit_id = u.id) LIMIT 5")).toEqual({ valid: true })
+	})
+
+	test("aceita rótulo entre aspas com acento e as funções de data comuns", () => {
+		expect(validateSql("SELECT count(*) AS \"Total de refeições\" FROM meal_presences WHERE date >= now() - interval '7 days'")).toEqual({
+			valid: true,
+		})
+		expect(validateSql("SELECT date(created_at), position('a' in display_name) FROM units")).toEqual({ valid: true })
+	})
 })

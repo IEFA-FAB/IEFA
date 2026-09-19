@@ -143,35 +143,47 @@ export async function fetchUserNrOrdem(db: SisubDb, input: FetchUserNrOrdem): Pr
  */
 export async function syncUserNrOrdem(db: SisubDb, input: SyncUserNrOrdem) {
 	const requested = input.nrOrdem.trim()
-	const current = await fetchUserNrOrdem(db, { userId: input.userId })
-	const changes = (current ?? "") !== requested
 
-	if (changes && current != null && (await fetchMilitaryData(db, { nrOrdem: current })) != null) {
-		throw new DomainError(
-			"NR_ORDEM_LOCKED",
-			"O Nr. de Ordem já está vinculado à sua conta e não pode ser alterado por aqui. Para corrigi-lo, procure o administrador do sistema."
-		)
-	}
-
-	if (changes && requested.length > 0) {
-		const taken = await runQuery("FETCH_FAILED", () =>
-			db
-				.select({ id: userDataInCore.id })
-				.from(userDataInCore)
-				.where(and(eq(userDataInCore.nrOrdem, requested), ne(userDataInCore.id, input.userId)))
-				.limit(1)
-		)
-		if (taken.length > 0) {
-			throw new DomainError("NR_ORDEM_TAKEN", "Este Nr. de Ordem já está vinculado a outra conta. Se ele é seu, procure o administrador do sistema.")
+	// Checar e gravar numa transação só, com lock por nrOrdem: duas contas reivindicando o
+	// MESMO número ao mesmo tempo passavam as duas pela checagem de "já vinculado" antes de
+	// qualquer uma gravar. O índice único que fecharia isso no banco não existe enquanto
+	// houver duplicata antiga em `core.user_data` (migration 20260921160410), então a
+	// serialização fica aqui — e vale com ou sem o índice.
+	await db.transaction(async (tx) => {
+		if (requested.length > 0) {
+			await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`nr-ordem:${requested}`}))`)
 		}
-	}
 
-	// Sem mudança, só o email é sincronizado — o nrOrdem nem entra no payload. Vazio grava
-	// `null`: string em branco não é um vínculo.
-	await upsertUserDataReclaimingEmail(db, {
-		id: input.userId,
-		email: input.email,
-		...(changes ? { nrOrdem: requested.length > 0 ? requested : null } : {}),
+		const current = await fetchUserNrOrdem(tx as unknown as SisubDb, { userId: input.userId })
+		const changes = (current ?? "") !== requested
+
+		if (changes && current != null && (await fetchMilitaryData(tx as unknown as SisubDb, { nrOrdem: current })) != null) {
+			throw new DomainError(
+				"NR_ORDEM_LOCKED",
+				"O Nr. de Ordem já está vinculado à sua conta e não pode ser alterado por aqui. Para corrigi-lo, procure o administrador do sistema."
+			)
+		}
+
+		if (changes && requested.length > 0) {
+			const taken = await runQuery("FETCH_FAILED", () =>
+				tx
+					.select({ id: userDataInCore.id })
+					.from(userDataInCore)
+					.where(and(eq(userDataInCore.nrOrdem, requested), ne(userDataInCore.id, input.userId)))
+					.limit(1)
+			)
+			if (taken.length > 0) {
+				throw new DomainError("NR_ORDEM_TAKEN", "Este Nr. de Ordem já está vinculado a outra conta. Se ele é seu, procure o administrador do sistema.")
+			}
+		}
+
+		// Sem mudança, só o email é sincronizado — o nrOrdem nem entra no payload. Vazio grava
+		// `null`: string em branco não é um vínculo.
+		await upsertUserDataReclaimingEmail(tx as unknown as SisubDb, {
+			id: input.userId,
+			email: input.email,
+			...(changes ? { nrOrdem: requested.length > 0 ? requested : null } : {}),
+		})
 	})
 }
 

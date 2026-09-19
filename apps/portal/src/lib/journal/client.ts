@@ -359,10 +359,13 @@ export async function uploadArticleFile(
 
 	const { token } = await getSignedUploadUrlFn({ data: { filePath } })
 
-	// Content-Type pela extensão, não o `file.type` do navegador (que o usuário controla).
-	const { data, error } = await supabase.storage
-		.from(SUBMISSIONS_BUCKET)
-		.uploadToSignedUrl(filePath, token, file, { cacheControl: "3600", upsert: true, contentType: CONTENT_TYPE_BY_EXTENSION[fileExt] })
+	// Content-Type pela extensão, não o `file.type` do navegador. Tem de ir NO Blob: com corpo
+	// File/Blob o storage-js monta multipart e ignora `options.contentType`, e o tipo gravado
+	// seria o `file.type` — vazio para `.typ` (vira octet-stream, que o bucket recusa) e
+	// `application/x-zip-compressed`/`application/vnd.ms-excel` no Windows. O bucket só aceita
+	// os tipos da lista (migration 20260921160200); é ele quem recusa um tipo forjado.
+	const body = new Blob([file], { type: CONTENT_TYPE_BY_EXTENSION[fileExt] })
+	const { data, error } = await supabase.storage.from(SUBMISSIONS_BUCKET).uploadToSignedUrl(filePath, token, body, { cacheControl: "3600", upsert: true })
 
 	if (error) throw error
 	return data.path

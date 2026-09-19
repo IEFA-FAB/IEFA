@@ -253,7 +253,9 @@ export const createTransferFn = createServerFn({ method: "POST" })
 		const problem = transferDestinationProblem({
 			origin: toUnits(byId.get(Number(lotRow.kitchen_id))),
 			destination: toUnits(byId.get(data.toKitchenId)),
-			callerOperatesDestination: hasPermission(ctx.permissions, "storage", 1, { type: "kitchen", id: data.toKitchenId }),
+			// OPERAR o estoque de destino é escrita: nível 2, como todo lançamento do módulo.
+			// Nível 1 é só leitura e não autoriza lançar no livro de outra OM.
+			callerOperatesDestination: hasPermission(ctx.permissions, "storage", 2, { type: "kitchen", id: data.toKitchenId }),
 		})
 		if (problem) throw new Error(problem)
 

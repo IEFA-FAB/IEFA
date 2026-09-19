@@ -34,6 +34,7 @@
  */
 
 import { unzipSync } from "fflate"
+import { DocumentLimitError } from "../lib/document-limits.ts"
 import { cleanText } from "../lib/text.ts"
 
 export interface DocxParagraph {
@@ -59,11 +60,13 @@ export interface DocxDocument {
  * Teto do `word/document.xml` descompactado.
  *
  * O maior modelo da AGU em `__fixtures__/` (TR de serviços e obras) tem 0,7 MB de XML e
- * ~1.000 parágrafos — o peso do `.docx` são as imagens, que não são extraídas. 8 MiB é
- * uma dezena de vezes isso; o teto anterior (32 MiB somados) custava segundos de CPU
- * no event loop para um arquivo de poucos KB.
+ * ~1.000 parágrafos (~730 bytes de XML por parágrafo) — o peso do `.docx` são as imagens,
+ * que não são extraídas. O teto acompanha o de parágrafos (`MAX_DOCX_PARAGRAPHS`): 50.000
+ * parágrafos dão ~36 MB de XML, e um teto menor recusava a planilha de preços de um
+ * EDITAL real antes de o teto de parágrafos chegar. A CPU fica limitada pela leitura
+ * linear e pela parada nos 50.000 parágrafos.
  */
-export const MAX_DOCX_DOCUMENT_XML_BYTES = 8 * 1024 * 1024
+export const MAX_DOCX_DOCUMENT_XML_BYTES = 48 * 1024 * 1024
 
 /** Teto do `word/comments.xml` — o do TR da AGU, com 168 notas, tem 0,4 MB. */
 export const MAX_DOCX_COMMENTS_XML_BYTES = 2 * 1024 * 1024
@@ -222,10 +225,12 @@ function parseParagraphs(xml: string): DocxParagraph[] {
 			} else if (tag.selfClosing) {
 				// `<w:p/>`: parágrafo vazio. Dentro de um parágrafo aberto não abre outro — `w:p` não aninha.
 				if (open) return
-				if (paragraphs.length >= MAX_DOCX_PARAGRAPHS) throw new Error("docx recusado: parágrafos acima do limite")
+				if (paragraphs.length >= MAX_DOCX_PARAGRAPHS)
+					throw new DocumentLimitError(`O documento tem mais de ${MAX_DOCX_PARAGRAPHS} parágrafos, o limite de leitura.`)
 				paragraphs.push({ style: null, text: "", commentIds: [] })
 			} else if (!open) {
-				if (paragraphs.length >= MAX_DOCX_PARAGRAPHS) throw new Error("docx recusado: parágrafos acima do limite")
+				if (paragraphs.length >= MAX_DOCX_PARAGRAPHS)
+					throw new DocumentLimitError(`O documento tem mais de ${MAX_DOCX_PARAGRAPHS} parágrafos, o limite de leitura.`)
 				open = true
 				style = null
 				commentIds = []
@@ -289,13 +294,14 @@ function unzipDocxEntries(bytes: Uint8Array): Record<string, Uint8Array> {
 	return unzipSync(bytes, {
 		filter: (file) => {
 			entries += 1
-			if (entries > MAX_DOCX_ENTRIES) throw new Error("docx inválido: entradas demais no arquivo")
+			if (entries > MAX_DOCX_ENTRIES) throw new DocumentLimitError("O arquivo .docx tem entradas internas demais.")
 			const maxBytes = WANTED_ENTRIES.get(file.name)
 			if (maxBytes === undefined) return false
 
 			const declared = Math.max(file.size, file.originalSize)
 			declaredBytes += declared
-			if (declared > maxBytes || declaredBytes > MAX_DOCX_XML_BYTES) throw new Error("docx recusado: conteúdo descompactado acima do limite")
+			if (declared > maxBytes || declaredBytes > MAX_DOCX_XML_BYTES)
+				throw new DocumentLimitError("O conteúdo do .docx descompactado excede o limite de leitura.")
 			return true
 		},
 	})

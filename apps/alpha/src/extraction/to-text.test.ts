@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import { PdfTooLargeError, pdfToSubmissionText } from "./to-text.ts"
+import { DocumentLimitError } from "../lib/document-limits.ts"
+import { inspectSubmissionDocument, MAX_PDF_PAGES, PdfTooLargeError, pdfToSubmissionText } from "./to-text.ts"
 
 /**
  * PDF mínimo válido, montado à mão: uma página com uma linha de texto. Serve para
@@ -64,5 +65,29 @@ describe("pdfToSubmissionText", () => {
 		// Página vazia comprime a quase nada: sem teto, milhares delas num upload pequeno
 		// prendiam o processo montando texto página a página.
 		await expect(pdfToSubmissionText(minimalPdf(), { maxPages: 0 })).rejects.toBeInstanceOf(PdfTooLargeError)
+	})
+})
+
+/** PDF com `pages` páginas vazias — só a árvore de páginas, que é o que a inspeção conta. */
+function blankPdf(pages: number): Uint8Array {
+	const kids = Array.from({ length: pages }, (_, i) => `${i + 3} 0 R`).join(" ")
+	let pdf = `%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[${kids}]/Count ${pages}>>endobj\n`
+	for (let i = 0; i < pages; i++) pdf += `${i + 3} 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 3 3]>>endobj\n`
+	pdf += "trailer<</Root 1 0 R>>\n%%EOF\n"
+	return new TextEncoder().encode(pdf)
+}
+
+describe("inspectSubmissionDocument", () => {
+	it("recusa no ENVIO o PDF acima do teto de páginas, com o motivo na mensagem", async () => {
+		const error = await inspectSubmissionDocument(blankPdf(MAX_PDF_PAGES + 1), "application/pdf").then(
+			() => null,
+			(e: unknown) => e
+		)
+		expect(error).toBeInstanceOf(DocumentLimitError)
+		expect((error as Error).message).toContain(`${MAX_PDF_PAGES + 1} páginas`)
+	})
+
+	it("aceita o PDF dentro do teto sem extrair o texto", async () => {
+		expect(await inspectSubmissionDocument(blankPdf(2), "application/pdf")).toBeNull()
 	})
 })

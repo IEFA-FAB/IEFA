@@ -5,15 +5,19 @@
 -- qualquer nrOrdem na própria conta, e `fetchMilitaryDataFn` devolvia CPF, nome
 -- e posto de quem tinha aquele número — consulta de CPF por número de ordem.
 --
--- O código já fecha (sisub-domain `syncUserNrOrdem`: write-once + exclusivo; a
--- fn devolve o CPF só mascarado). A exclusividade lá é leitura-antes-da-escrita,
--- e duas contas disputando o mesmo nrOrdem no mesmo instante passariam as duas.
--- Este índice fecha a corrida.
+-- O código já fecha (sisub-domain `syncUserNrOrdem`: write-once + exclusivo, com
+-- checagem e gravação numa transação serializada por `pg_advisory_xact_lock` do
+-- nrOrdem; a fn devolve o CPF só mascarado). Este índice é a trava no banco para
+-- qualquer outro caminho de escrita.
 --
 -- Condicional de propósito: se a base JÁ tem nrOrdem repetido entre contas, o
 -- índice não sobe e a migration avisa (WARNING) em vez de travar o deploy —
 -- duplicata existente é caso para o administrador decidir qual conta é a dona,
--- não para uma migration apagar. Liste com a consulta do fim e rode de novo.
+-- não para uma migration apagar.
+--
+-- ESTADO EM PRODUÇÃO (2026-09-19): aplicada com 3 duplicatas, então o índice NÃO
+-- existe. Esta versão já está registrada — `db push` não a roda de novo. Depois de
+-- resolver as duplicatas (consulta do fim), o índice sobe numa migration NOVA.
 -- ============================================================================
 
 do $$

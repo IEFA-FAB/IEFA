@@ -65,21 +65,22 @@ describe("parseDocx — entrada hostil", () => {
 	})
 
 	test("XML de parágrafos minúsculos dentro do teto para no limite de parágrafos, sem varrer tudo", () => {
-		// ~8 MiB de parágrafos de uma letra: comprime a poucos KB e antes prendia o event
-		// loop por segundos entre leitura e montagem das seções.
+		// ~8 MiB de parágrafos de uma letra (~240 mil, bem acima do teto de parágrafos e bem
+		// abaixo do teto de bytes): comprime a poucos KB e antes prendia o event loop por
+		// segundos entre leitura e montagem das seções.
 		const paragraph = "<w:p><w:r><w:t>a</w:t></w:r></w:p>"
-		const xml = `<w:document><w:body>${paragraph.repeat(Math.floor((MAX_DOCX_DOCUMENT_XML_BYTES - 64) / paragraph.length))}</w:body></w:document>`
+		const xml = `<w:document><w:body>${paragraph.repeat(Math.floor((8 * 1024 * 1024) / paragraph.length))}</w:body></w:document>`
 		const zip = zipSync({ "word/document.xml": strToU8(xml) }, { level: 9 })
 		expect(zip.length).toBeLessThan(64 * 1024)
 		const startedAt = performance.now()
-		expect(() => parseDocx(zip)).toThrow(/parágrafos acima do limite/)
+		expect(() => parseDocx(zip)).toThrow(/mais de \d+ parágrafos/)
 		expect(performance.now() - startedAt).toBeLessThan(2_000)
 	})
 
 	test("documento no limite de parágrafos ainda é lido", () => {
 		const xml = `<w:document><w:body>${"<w:p><w:r><w:t>a</w:t></w:r></w:p>".repeat(MAX_DOCX_PARAGRAPHS)}</w:body></w:document>`
 		expect(parseDocx(docx(xml)).paragraphs).toHaveLength(MAX_DOCX_PARAGRAPHS)
-		expect(() => parseDocx(docx(xml.replace("</w:body>", "<w:p/></w:body>")))).toThrow(/parágrafos acima do limite/)
+		expect(() => parseDocx(docx(xml.replace("</w:body>", "<w:p/></w:body>")))).toThrow(/mais de \d+ parágrafos/)
 	})
 
 	test("parágrafos sem fechamento não custam tempo quadrático", () => {

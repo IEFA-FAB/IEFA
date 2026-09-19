@@ -15,6 +15,7 @@ import { runCompliance } from "../compliance/run.ts"
 import { applyCitationGuard, type ChecklistRule, judgeRule } from "../compliance/verify.ts"
 import { supabase } from "../db/supabase.ts"
 import type { AlphaAccess } from "../lib/alpha-access.ts"
+import { DocumentLimitError } from "../lib/document-limits.ts"
 import { requireRole } from "../middleware/require-role.ts"
 import { canReadComplianceRun, canReadSubmission, extractionBelongsToSubmission } from "./authorize.ts"
 import { FINDING_COLUMNS, RUN_COLUMNS } from "./columns.ts"
@@ -53,6 +54,9 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 		try {
 			return c.json(await runCompliance(submission_id, extraction_id), 201)
 		} catch (error) {
+			if (error instanceof DocumentLimitError) {
+				return c.json({ error: "Unprocessable Entity", code: "DOCUMENT_TOO_LARGE", message: error.message }, 422)
+			}
 			// Erro de provider traz ARN de role, região e id de modelo — fica no log, não na resposta.
 			console.error(`[compliance] execução da submissão ${submission_id} falhou:`, error)
 			return c.json({ error: "Bad Gateway", code: "COMPLIANCE_RUN_FAILED", message: "falha na verificação de conformidade" }, 502)

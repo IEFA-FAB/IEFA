@@ -26,9 +26,9 @@ import { describe, expect, test } from "bun:test"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import type { SQL } from "drizzle-orm"
 import { PgDialect } from "drizzle-orm/pg-core"
-import type { UserContext } from "../types/context.ts"
 import { CreateUserPermissionSchema } from "../schemas/permissions.ts"
 import { PolicyStatementInputSchema } from "../schemas/policies.ts"
+import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { createUserPermission, deleteUserPermission, isDuplicateGrantViolation, updateUserPermission } from "./permissions.ts"
 
@@ -276,4 +276,3 @@ describe("admin/global sem escopo", () => {
 		expect(error?.code).toBe("SCOPE_NOT_ALLOWED")
 	})
 })
-
