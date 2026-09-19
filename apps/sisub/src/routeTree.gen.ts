@@ -106,6 +106,7 @@ import { Route as ProtectedModulesMesshallMessHallIdIndexRouteImport } from './r
 import { Route as ProtectedModulesStorageKitchenIdAdjustmentsRouteImport } from './routes/_protected/_modules/storage/$kitchenId/adjustments'
 import { Route as ProtectedModulesStorageKitchenIdCountsRouteImport } from './routes/_protected/_modules/storage/$kitchenId/counts'
 import { Route as ProtectedModulesStorageKitchenIdDashboardRouteImport } from './routes/_protected/_modules/storage/$kitchenId/dashboard'
+import { Route as ProtectedModulesStorageKitchenIdExpiryRouteImport } from './routes/_protected/_modules/storage/$kitchenId/expiry'
 import { Route as ProtectedModulesStorageKitchenIdIncomingRouteImport } from './routes/_protected/_modules/storage/$kitchenId/incoming'
 import { Route as ProtectedModulesStorageKitchenIdProductionIssueRouteImport } from './routes/_protected/_modules/storage/$kitchenId/production-issue'
 import { Route as ProtectedModulesStorageKitchenIdReplenishmentRouteImport } from './routes/_protected/_modules/storage/$kitchenId/replenishment'
@@ -716,6 +717,12 @@ const ProtectedModulesStorageKitchenIdDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => ProtectedModulesStorageKitchenIdRouteRoute,
   } as any)
+const ProtectedModulesStorageKitchenIdExpiryRoute =
+  ProtectedModulesStorageKitchenIdExpiryRouteImport.update({
+    id: '/expiry',
+    path: '/expiry',
+    getParentRoute: () => ProtectedModulesStorageKitchenIdRouteRoute,
+  } as any)
 const ProtectedModulesStorageKitchenIdIncomingRoute =
   ProtectedModulesStorageKitchenIdIncomingRouteImport.update({
     id: '/incoming',
@@ -1103,6 +1110,7 @@ export interface FileRoutesByFullPath {
   '/storage/$kitchenId/adjustments': typeof ProtectedModulesStorageKitchenIdAdjustmentsRoute
   '/storage/$kitchenId/counts': typeof ProtectedModulesStorageKitchenIdCountsRoute
   '/storage/$kitchenId/dashboard': typeof ProtectedModulesStorageKitchenIdDashboardRoute
+  '/storage/$kitchenId/expiry': typeof ProtectedModulesStorageKitchenIdExpiryRoute
   '/storage/$kitchenId/incoming': typeof ProtectedModulesStorageKitchenIdIncomingRoute
   '/storage/$kitchenId/production-issue': typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
   '/storage/$kitchenId/replenishment': typeof ProtectedModulesStorageKitchenIdReplenishmentRoute
@@ -1242,6 +1250,7 @@ export interface FileRoutesByTo {
   '/storage/$kitchenId/adjustments': typeof ProtectedModulesStorageKitchenIdAdjustmentsRoute
   '/storage/$kitchenId/counts': typeof ProtectedModulesStorageKitchenIdCountsRoute
   '/storage/$kitchenId/dashboard': typeof ProtectedModulesStorageKitchenIdDashboardRoute
+  '/storage/$kitchenId/expiry': typeof ProtectedModulesStorageKitchenIdExpiryRoute
   '/storage/$kitchenId/incoming': typeof ProtectedModulesStorageKitchenIdIncomingRoute
   '/storage/$kitchenId/production-issue': typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
   '/storage/$kitchenId/replenishment': typeof ProtectedModulesStorageKitchenIdReplenishmentRoute
@@ -1389,6 +1398,7 @@ export interface FileRoutesById {
   '/_protected/_modules/storage/$kitchenId/adjustments': typeof ProtectedModulesStorageKitchenIdAdjustmentsRoute
   '/_protected/_modules/storage/$kitchenId/counts': typeof ProtectedModulesStorageKitchenIdCountsRoute
   '/_protected/_modules/storage/$kitchenId/dashboard': typeof ProtectedModulesStorageKitchenIdDashboardRoute
+  '/_protected/_modules/storage/$kitchenId/expiry': typeof ProtectedModulesStorageKitchenIdExpiryRoute
   '/_protected/_modules/storage/$kitchenId/incoming': typeof ProtectedModulesStorageKitchenIdIncomingRoute
   '/_protected/_modules/storage/$kitchenId/production-issue': typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
   '/_protected/_modules/storage/$kitchenId/replenishment': typeof ProtectedModulesStorageKitchenIdReplenishmentRoute
@@ -1536,6 +1546,7 @@ export interface FileRouteTypes {
     | '/storage/$kitchenId/adjustments'
     | '/storage/$kitchenId/counts'
     | '/storage/$kitchenId/dashboard'
+    | '/storage/$kitchenId/expiry'
     | '/storage/$kitchenId/incoming'
     | '/storage/$kitchenId/production-issue'
     | '/storage/$kitchenId/replenishment'
@@ -1675,6 +1686,7 @@ export interface FileRouteTypes {
     | '/storage/$kitchenId/adjustments'
     | '/storage/$kitchenId/counts'
     | '/storage/$kitchenId/dashboard'
+    | '/storage/$kitchenId/expiry'
     | '/storage/$kitchenId/incoming'
     | '/storage/$kitchenId/production-issue'
     | '/storage/$kitchenId/replenishment'
@@ -1821,6 +1833,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/storage/$kitchenId/adjustments'
     | '/_protected/_modules/storage/$kitchenId/counts'
     | '/_protected/_modules/storage/$kitchenId/dashboard'
+    | '/_protected/_modules/storage/$kitchenId/expiry'
     | '/_protected/_modules/storage/$kitchenId/incoming'
     | '/_protected/_modules/storage/$kitchenId/production-issue'
     | '/_protected/_modules/storage/$kitchenId/replenishment'
@@ -2574,6 +2587,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesStorageKitchenIdDashboardRouteImport
       parentRoute: typeof ProtectedModulesStorageKitchenIdRouteRoute
     }
+    '/_protected/_modules/storage/$kitchenId/expiry': {
+      id: '/_protected/_modules/storage/$kitchenId/expiry'
+      path: '/expiry'
+      fullPath: '/storage/$kitchenId/expiry'
+      preLoaderRoute: typeof ProtectedModulesStorageKitchenIdExpiryRouteImport
+      parentRoute: typeof ProtectedModulesStorageKitchenIdRouteRoute
+    }
     '/_protected/_modules/storage/$kitchenId/incoming': {
       id: '/_protected/_modules/storage/$kitchenId/incoming'
       path: '/incoming'
@@ -3110,6 +3130,7 @@ interface ProtectedModulesStorageKitchenIdRouteRouteChildren {
   ProtectedModulesStorageKitchenIdAdjustmentsRoute: typeof ProtectedModulesStorageKitchenIdAdjustmentsRoute
   ProtectedModulesStorageKitchenIdCountsRoute: typeof ProtectedModulesStorageKitchenIdCountsRoute
   ProtectedModulesStorageKitchenIdDashboardRoute: typeof ProtectedModulesStorageKitchenIdDashboardRoute
+  ProtectedModulesStorageKitchenIdExpiryRoute: typeof ProtectedModulesStorageKitchenIdExpiryRoute
   ProtectedModulesStorageKitchenIdIncomingRoute: typeof ProtectedModulesStorageKitchenIdIncomingRoute
   ProtectedModulesStorageKitchenIdProductionIssueRoute: typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
   ProtectedModulesStorageKitchenIdReplenishmentRoute: typeof ProtectedModulesStorageKitchenIdReplenishmentRoute
@@ -3131,6 +3152,8 @@ const ProtectedModulesStorageKitchenIdRouteRouteChildren: ProtectedModulesStorag
       ProtectedModulesStorageKitchenIdCountsRoute,
     ProtectedModulesStorageKitchenIdDashboardRoute:
       ProtectedModulesStorageKitchenIdDashboardRoute,
+    ProtectedModulesStorageKitchenIdExpiryRoute:
+      ProtectedModulesStorageKitchenIdExpiryRoute,
     ProtectedModulesStorageKitchenIdIncomingRoute:
       ProtectedModulesStorageKitchenIdIncomingRoute,
     ProtectedModulesStorageKitchenIdProductionIssueRoute:

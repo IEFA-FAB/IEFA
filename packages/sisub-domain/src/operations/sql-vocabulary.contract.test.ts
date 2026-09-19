@@ -26,7 +26,9 @@ import {
 } from "../schemas/equipment.ts"
 import { WORKFORCE_NOTE_KINDS, WORKFORCE_SURVEY_STATUSES } from "../schemas/workforce.ts"
 import { CATALOG_SCOPE_VALUES } from "./catalog-scope.ts"
+import { CONSERVATION_CLASSES } from "./conditioning.ts"
 import {
+	EXPIRY_DEFAULT_ALERT_DAYS,
 	GOODS_RECEIPT_STATUSES,
 	INFLOW_REASONS,
 	LOT_DERIVATIONS,
@@ -269,5 +271,37 @@ describe("motivos de ajuste", () => {
 	test("segregação e derivação de lote espelham o domínio", () => {
 		expect(checkValues(REASONS, "segregation")).toEqual([...SEGREGATION_MODES].sort())
 		expect(checkValues(REASONS, "derivation", 0)).toEqual([...LOT_DERIVATIONS].sort())
+	})
+})
+
+describe("antecedência default do alerta de vencimento", () => {
+	const EXPIRY = "20260919120000_expiry_alert_policy.sql"
+
+	/**
+	 * O default vive num `case` dentro de `inventory.expiry_alert_days`, e não
+	 * num `check`: `checkValues` não o alcança. A leitura aqui é do `case` real
+	 * do arquivo — se alguém trocar 3 por 5 no SQL e esquecer a tela, o teste
+	 * acusa; ninguém acusaria contando os dias na prateleira.
+	 */
+	function caseDefaults(): Record<string, number> {
+		const sql = stripSqlComments(readFileSync(join(MIGRATIONS, EXPIRY), "utf8"))
+		const block = sql.match(/case p_conservation_class([\s\S]*?)end/)
+		if (!block) throw new Error("case de default não encontrado na migration de vencimentos")
+		const found: Record<string, number> = {}
+		for (const [, klass, days] of block[1].matchAll(/when\s+'([a-z_]+)'\s+then\s+(\d+)/g)) {
+			found[klass] = Number(days)
+		}
+		const fallback = block[1].match(/else\s+(\d+)/)
+		if (fallback) found.outras = Number(fallback[1])
+		return found
+	}
+
+	test("o `case` da migration espelha EXPIRY_DEFAULT_ALERT_DAYS", () => {
+		expect(caseDefaults()).toEqual({ ...EXPIRY_DEFAULT_ALERT_DAYS })
+	})
+
+	test("as classes com default próprio são classes de conservação existentes", () => {
+		const classes = Object.keys(EXPIRY_DEFAULT_ALERT_DAYS).filter((key) => key !== "outras")
+		expect(classes.every((klass) => (CONSERVATION_CLASSES as readonly string[]).includes(klass))).toBe(true)
 	})
 })

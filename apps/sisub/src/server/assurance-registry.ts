@@ -548,6 +548,11 @@ export const ASSURANCE_REGISTRY = {
 	splitLotFn: { require: "none" },
 	saveStockSettingsFn: { require: "none" },
 
+	// ── expiry.fn.ts
+	setLotUseFirstFn: { require: "none" },
+	saveExpiryPolicyFn: { require: "none" },
+	deleteExpiryPolicyFn: { require: "none" },
+
 	// ── stock.fn.ts
 	createTransferFn: { require: "none" },
 	createInventoryCountFn: { require: "none" },

@@ -217,3 +217,32 @@ export const NATURE_LABELS: Record<(typeof REASON_NATURE)[StockAdjustmentReason]
 	donation: "Doação",
 	implantation: "Implantação",
 }
+
+/**
+ * Antecedência default do alerta de validade, por classe de conservação.
+ *
+ * Espelha o `case` de `inventory.expiry_alert_days` (migration
+ * 20260919120000). Existe em TypeScript porque a tela explica o default ao
+ * usuário — "sem política, valem 3 dias para resfriado" — e um número escrito à
+ * mão num texto de interface é a forma mais silenciosa de divergir do banco:
+ * ninguém percebe até alguém contar os dias na prateleira.
+ *
+ * `sql-vocabulary.contract.test.ts` compara os dois.
+ */
+export const EXPIRY_DEFAULT_ALERT_DAYS = {
+	resfriado: 3,
+	congelado: 15,
+	/** Demais classes: seco, climatizado e não aplicável. */
+	outras: 30,
+} as const
+
+/** Faixas do painel de vencimentos, da mais urgente para a menos. */
+export const EXPIRY_BANDS = ["expired", "critical", "warning", "no_expiry"] as const
+export type ExpiryBand = (typeof EXPIRY_BANDS)[number]
+
+export const EXPIRY_BAND_LABELS: Record<ExpiryBand, string> = {
+	expired: "Vencido",
+	critical: "Crítico",
+	warning: "Atenção",
+	no_expiry: "Perecíveis sem validade",
+}

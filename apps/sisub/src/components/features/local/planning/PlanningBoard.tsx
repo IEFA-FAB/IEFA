@@ -24,6 +24,7 @@ import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import { ApplyTemplateDialog } from "./ApplyTemplateDialog"
 import { DayDrawer } from "./DayDrawer"
+import { ExpiringInPeriod } from "./ExpiringInPeriod"
 import { MealTypeManager } from "./MealTypeManager"
 import { TemplatePalette } from "./TemplatePalette"
 import { TrashDrawer } from "./TrashDrawer"
@@ -363,6 +364,14 @@ export function PlanningBoard() {
 					})}
 				</div>
 			</div>
+
+			{/*
+			 * O período é o do calendário na tela (inclui a semana que transborda o
+			 * mês), e não o mês civil: é o que a nutricionista está de fato olhando.
+			 */}
+			{Number.isInteger(kitchenId) && kitchenId > 0 && (
+				<ExpiringInPeriod kitchenId={kitchenId} from={format(startDate, "yyyy-MM-dd")} until={format(endDate, "yyyy-MM-dd")} />
+			)}
 
 			<DayDrawer open={isDrawerOpen} onClose={() => dispatch({ type: "SET_DRAWER_OPEN", value: false })} date={selectedDay} kitchenId={kitchenId} />
 
