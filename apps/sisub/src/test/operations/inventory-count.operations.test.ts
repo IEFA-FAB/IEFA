@@ -315,8 +315,17 @@ describeIf("inventory count (DB)", () => {
 					await expect(tx.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${c.count_id}, ${aprova}, null)`)).rejects.toThrow(
 						/não está aguardando aprovação/
 					)
-					// o monte de feijão, com o lote em quarentena junto: 7 + 5
-					await lancar("fei-r2", { ingredient: feijao.id }, 12, filha)
+					// o monte de feijão: 7 soltos; o lote em quarentena NÃO foi contado por lote
+					await lancar("fei-r2", { ingredient: feijao.id }, 7, filha)
+					await tx`update inventory.inventory_count set status = 'review' where id = ${filha}`
+					// falta sem lote com lote em quarentena não contado: recusa (a falta
+					// nem sai do suspeito nem é jogada nos sadios)
+					await expect(tx.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${filha}, ${aprova}, null)`)).rejects.toThrow(
+						/está em quarentena e não foi contado por lote/
+					)
+					// conta-se o lote em quarentena à parte (5) e a coleta volta a fechar
+					await tx`update inventory.inventory_count set status = 'counting' where id = ${filha}`
+					await lancar("fei-q", { lot: feijaoQ }, 5, filha)
 					await tx`update inventory.inventory_count set status = 'review' where id = ${filha}`
 
 					// ── strict: quem contou na rodada 1 não aprova a rodada 2 ────────
@@ -393,6 +402,20 @@ describeIf("inventory count (DB)", () => {
 					await tx`select inventory.reject_inventory_count(${a.count_id}, ${aprova}, 'contagem errada')`
 					const [{ add_found_item: agora }] = await tx`select inventory.add_found_item(${b.count_id}, ${arroz.id}, null)`
 					expect(agora).toBe(true)
+
+					// ── a guarda de "sem decisão" vale também para preparação congelada ─
+					// (`NULL = any(...)` deixava passar a linha de preparação quando a
+					// recontagem era só de insumos)
+					const [congelado] = await tx`insert into kitchen.frozen_preparation (description) values ('CALDO TESTE CNT2') returning id`
+					const [w] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
+						${tx.json({ ingredient_ids: [sal.id] })}, true, null, ${abre})`
+					await tx`select inventory.add_found_item(${w.count_id}, null, ${congelado.id})`
+					await tx`insert into inventory.inventory_count_entry (count_id, ingredient_id, quantity, client_event_id, counted_by)
+						values (${w.count_id}, ${sal.id}, 1, 'sal-w', ${conta})`
+					await tx`update inventory.inventory_count set status = 'review' where id = ${w.count_id}`
+					await expect(tx.savepoint((sp) => sp`select inventory.open_recount(${w.count_id}, ${[sal.id]}::uuid[], '{}'::uuid[], ${abre})`)).rejects.toThrow(
+						/sem lançamento e sem decisão/
+					)
 
 					throw new Rollback()
 				})
