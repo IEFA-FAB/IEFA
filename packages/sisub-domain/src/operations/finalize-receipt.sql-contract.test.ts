@@ -69,4 +69,17 @@ describe("finalize_goods_receipt — invariantes da definição vigente", () => 
 		// A prova textual possível: o loop interno percorre goods_receipt_item_lot.
 		expect(body).toMatch(/from inventory\.goods_receipt_item_lot where receipt_item_id = v_item\.id/)
 	})
+
+	test("lote zerado pela conferência não vira estoque", () => {
+		// Desde 20260920250000 a conferência zera o lote em vez de apagá-lo (o da
+		// nota guarda código e validade); sem o filtro, viraria lote de estoque
+		// com zero e movimento de zero.
+		expect(body).toMatch(/receipt_item_id = v_item\.id and quantity_base > 0/)
+	})
+
+	test("divergência sem motivo não efetiva — checada depois da trava", () => {
+		// No servidor, antes da RPC, uma leitura no meio passava a falta sem motivo.
+		expect(body).toMatch(/diferem da nota sem motivo/)
+		expect(body.indexOf("diferem da nota sem motivo")).toBeGreaterThan(body.indexOf("for update"))
+	})
 })

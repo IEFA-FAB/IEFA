@@ -34,6 +34,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { invoiceSituationProblem } from "@/lib/invoice-gate"
+import { readAllPages } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -264,6 +265,12 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 			receiptItemId: z.uuid(),
 			receivedQtyBase: z.number().nonnegative(),
 			divergenceReason: z.string().nullable().optional(),
+			/**
+			 * A quantidade que a tela carregou. Mudar só o motivo não pode virar um
+			 * "total informado" com o número que a tela mostrava — se outra pessoa
+			 * leu caixas no meio, esse número está velho e apagaria as leituras dela.
+			 */
+			baselineQtyBase: z.number().nonnegative().optional(),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -289,23 +296,27 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 		// fazia a próxima leitura recalcular da soma dos eventos e apagar a edição —
 		// e a edição sumia sem rastro no termo. Mudou o total, vira evento `typed`
 		// (o operador dizendo o total), e a linha é recalculada a partir dele.
-		if (Number(item.received_qty_base) !== data.receivedQtyBase) {
-			const { error: eventError } = await inv.from("receipt_scan_event").insert({
-				receipt_id: item.receipt_id,
-				receipt_item_id: data.receiptItemId,
-				client_event_id: crypto.randomUUID(),
+		const current = Number(item.received_qty_base)
+		const baseline = data.baselineQtyBase ?? current
+		const operatorChangedQty = data.receivedQtyBase !== baseline
+		if (operatorChangedQty && current !== baseline) {
+			throw new Error("A quantidade desta linha mudou enquanto você editava (outra leitura entrou) — recarregue e confira antes de salvar")
+		}
+		if (operatorChangedQty) {
+			await recordReceiptEvent({
+				receiptId: item.receipt_id as string,
+				receiptItemId: data.receiptItemId,
+				clientEventId: crypto.randomUUID(),
 				method: "typed",
-				quantity_base: data.receivedQtyBase,
-				created_by: userId,
+				quantityBase: data.receivedQtyBase,
+				userId,
 			})
-			if (eventError) throw new Error(`Erro ao registrar a quantidade: ${eventError.message}`)
 		}
 		const { error } = await inv
 			.from("goods_receipt_item")
 			.update({ divergence_reason: diverges ? (data.divergenceReason?.trim() ?? null) : null })
 			.eq("id", data.receiptItemId)
 		if (error) throw new Error(`Erro ao atualizar item: ${error.message}`)
-		await syncConfirmedQuantity(data.receiptItemId)
 	})
 
 /**
@@ -488,31 +499,9 @@ export const finalizeReceiptFn = createServerFn({ method: "POST" })
 		await assertInvoiceUsable(data.receiptId)
 
 		const inv = inventory()
-		// Divergência sem motivo não efetiva (art. 140: aceitar a menos é decisão
-		// registrada, não silêncio). A edição da linha já exigia; a conferência por
-		// leitura não passa por ela, e uma falta vinda só das leituras efetivava
-		// como `definitive`, sem motivo e sem virar `divergent`.
-		const { data: lines, error: linesError } = await inv
-			.from("goods_receipt_item")
-			.select("id, ingredient_id, invoiced_qty_base, received_qty_base, divergence_reason")
-			.eq("receipt_id", data.receiptId)
-		if (linesError) throw new Error(`Erro ao conferir as linhas: ${linesError.message}`)
-		const unexplained = (
-			(lines ?? []) as Array<{ ingredient_id: string | null; invoiced_qty_base: number | null; received_qty_base: number; divergence_reason: string | null }>
-		).filter((line) =>
-			requiresDivergenceReason(line.invoiced_qty_base == null ? null : Number(line.invoiced_qty_base), Number(line.received_qty_base), line.divergence_reason)
-		)
-		if (unexplained.length > 0) {
-			const ids = [...new Set(unexplained.map((line) => line.ingredient_id).filter(Boolean))] as string[]
-			const { data: names } = ids.length > 0 ? await kitchen().from("ingredient").select("description").in("id", ids) : { data: [] }
-			const list = ((names ?? []) as Array<{ description: string }>)
-				.map((row) => row.description)
-				.slice(0, 5)
-				.join(", ")
-			throw new Error(
-				`${unexplained.length} linha(s) diferem da nota sem motivo registrado${list ? ` (${list})` : ""} — informe o motivo da divergência antes de efetivar`
-			)
-		}
+		// Divergência sem motivo não efetiva (art. 140) — a checagem mora em
+		// `finalize_goods_receipt`, depois da trava do recebimento (20260920250000).
+		// Aqui, antes da RPC, uma leitura que entrasse no meio passava por ela.
 		// sem a designação gravada, o termo sairia sem quem efetivou
 		const { error: designationError } = await inv.from("goods_receipt").update({ definitive_designation_id: designationId }).eq("id", data.receiptId)
 		if (designationError) throw new Error(`Erro ao registrar a designação: ${designationError.message}`)
@@ -714,17 +703,59 @@ async function scanLinesFor(receiptId: string) {
 	})
 }
 
+type ScanEventRow = {
+	id: string
+	seq: number
+	receipt_item_id: string | null
+	method: string
+	raw_code: string | null
+	gtin: string | null
+	lot_code: string | null
+	expiry_date: string | null
+	package_factor: number | null
+	quantity_base: number
+	reversed_event_id: string | null
+	created_by: string | null
+	created_at: string
+}
+
 /**
- * Recalcula a linha a partir dos eventos — total e lotes — no banco, com o
- * recebimento e a linha travados (`inventory.sync_receipt_line`). Somar em
- * TypeScript lia os eventos e gravava o total sem trava: duas leituras
- * simultâneas gravavam um total velho, e os lotes nunca acompanhavam a
- * quantidade (toda entrega a menor travava a efetivação).
+ * Grava UM evento e recalcula a linha na MESMA transação
+ * (`inventory.record_receipt_event`, 20260920250000). Gravar e recalcular em
+ * duas idas deixava a leitura fora do total quando o recálculo falhava — o
+ * reenvio caía no "já registrada" e não recalculava mais.
  */
-async function syncConfirmedQuantity(receiptItemId: string): Promise<number> {
-	const { data, error } = await inventory().rpc("sync_receipt_line", { p_receipt_item_id: receiptItemId })
-	if (error) throw new Error(`Erro ao recalcular a linha: ${error.message}`)
-	return Number(data ?? 0)
+async function recordReceiptEvent(event: {
+	receiptId: string
+	receiptItemId: string
+	clientEventId: string
+	method: "scanner" | "camera" | "manual_confirm" | "typed" | "reversal" | "refusal"
+	quantityBase: number
+	userId: string
+	rawCode?: string | null
+	gtin?: string | null
+	lotCode?: string | null
+	expiryDate?: string | null
+	packageFactor?: number | null
+	reversedEventId?: string | null
+}): Promise<{ duplicate: boolean; total: number }> {
+	const { data, error } = await inventory().rpc("record_receipt_event", {
+		p_receipt_id: event.receiptId,
+		p_receipt_item_id: event.receiptItemId,
+		p_client_event_id: event.clientEventId,
+		p_method: event.method,
+		p_quantity: event.quantityBase,
+		p_user: event.userId,
+		p_raw_code: event.rawCode ?? null,
+		p_gtin: event.gtin ?? null,
+		p_lot_code: event.lotCode ?? null,
+		p_expiry_date: event.expiryDate ?? null,
+		p_package_factor: event.packageFactor ?? null,
+		p_reversed_event_id: event.reversedEventId ?? null,
+	})
+	if (error) throw new Error(`Erro ao registrar a conferência: ${error.message}`)
+	const row = (data ?? [])[0] as { duplicate: boolean; total: number } | undefined
+	return { duplicate: Boolean(row?.duplicate), total: Number(row?.total ?? 0) }
 }
 
 /**
@@ -752,7 +783,6 @@ export const recordScanEventFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const { receipt, userId } = await requireOpenReceipt(data.receiptId, 2)
-		const inv = inventory()
 
 		if (!data.gtin) throw new Error("Leitura sem GTIN — use a confirmação manual para item sem código")
 		const lines = await scanLinesFor(data.receiptId)
@@ -764,32 +794,27 @@ export const recordScanEventFn = createServerFn({ method: "POST" })
 		}
 
 		const quantity = (match.quantityBase ?? 0) * data.multiplier
-		const { error } = await inv.from("receipt_scan_event").insert({
-			receipt_id: data.receiptId,
-			receipt_item_id: match.receiptItemId,
-			client_event_id: data.clientEventId,
+		// mesma leitura reenviada: reconhecida pelo `clientEventId`, e a linha é
+		// recalculada mesmo assim
+		const recorded = await recordReceiptEvent({
+			receiptId: data.receiptId,
+			receiptItemId: match.receiptItemId,
+			clientEventId: data.clientEventId,
 			method: data.method,
-			raw_code: data.rawCode,
+			quantityBase: quantity,
+			userId,
+			rawCode: data.rawCode,
 			gtin: data.gtin,
-			lot_code: data.lotCode ?? null,
-			expiry_date: data.expiryDate ?? null,
-			package_factor: match.packageFactor * data.multiplier,
-			quantity_base: quantity,
-			created_by: userId,
+			lotCode: data.lotCode ?? null,
+			expiryDate: data.expiryDate ?? null,
+			packageFactor: match.packageFactor * data.multiplier,
 		})
-		if (error) {
-			// mesma leitura reenviada: idempotente por construção
-			if (error.code === "23505") return { matched: true as const, receiptItemId: match.receiptItemId, duplicate: true as const, quantityBase: 0 }
-			throw new Error(`Erro ao registrar a leitura: ${error.message}`)
-		}
-
-		const total = await syncConfirmedQuantity(match.receiptItemId)
 		return {
 			matched: true as const,
 			receiptItemId: match.receiptItemId,
-			duplicate: false as const,
-			quantityBase: quantity,
-			confirmedQtyBase: total,
+			duplicate: recorded.duplicate,
+			quantityBase: recorded.duplicate ? 0 : quantity,
+			confirmedQtyBase: recorded.total,
 			source: match.source,
 		}
 	})
@@ -800,16 +825,16 @@ export const confirmLineManuallyFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const receiptId = await receiptIdForItem(data.receiptItemId)
 		const { userId } = await requireOpenReceipt(receiptId, 2)
-		const { error } = await inventory().from("receipt_scan_event").insert({
-			receipt_id: receiptId,
-			receipt_item_id: data.receiptItemId,
-			client_event_id: data.clientEventId,
+		// é o TOTAL da linha (override), não mais uma embalagem
+		const recorded = await recordReceiptEvent({
+			receiptId,
+			receiptItemId: data.receiptItemId,
+			clientEventId: data.clientEventId,
 			method: "manual_confirm",
-			quantity_base: data.quantityBase,
-			created_by: userId,
+			quantityBase: data.quantityBase,
+			userId,
 		})
-		if (error && error.code !== "23505") throw new Error(`Erro ao confirmar a linha: ${error.message}`)
-		return { confirmedQtyBase: await syncConfirmedQuantity(data.receiptItemId) }
+		return { confirmedQtyBase: recorded.total }
 	})
 
 /**
@@ -823,38 +848,15 @@ export const bulkConfirmReceiptFn = createServerFn({ method: "POST" })
 	.validator(z.object({ receiptId: z.uuid(), clientEventId: z.string().min(8).max(64) }))
 	.handler(async ({ data }) => {
 		const { userId } = await requireOpenReceipt(data.receiptId, 2)
-		const inv = inventory()
-		const { data: items, error: itemsError } = await inv.from("goods_receipt_item").select("id, invoiced_qty_base").eq("receipt_id", data.receiptId)
-		if (itemsError) throw new Error(`Erro ao carregar as linhas: ${itemsError.message}`)
-		const { data: events, error: eventsError } = await inv
-			.from("receipt_scan_event")
-			.select("id, receipt_item_id, method, reversed_event_id")
-			.eq("receipt_id", data.receiptId)
-		if (eventsError) throw new Error(`Erro ao carregar a conferência: ${eventsError.message}`)
-		// "Tocada" é linha com evento VIVO — leitura, confirmação ou recusa que não
-		// foi desfeita. Linha cuja única leitura foi desfeita volta a ser pendente.
-		const eventRows = (events ?? []) as Array<{ id: string; receipt_item_id: string | null; method: string; reversed_event_id: string | null }>
-		const reversed = new Set(eventRows.filter((event) => event.method === "reversal").map((event) => event.reversed_event_id))
-		const touched = new Set(eventRows.filter((event) => event.method !== "reversal" && !reversed.has(event.id)).map((event) => event.receipt_item_id))
-
-		const pending = ((items ?? []) as Array<{ id: string; invoiced_qty_base: number | null }>).filter(
-			(item) => !touched.has(item.id) && item.invoiced_qty_base != null
-		)
-		if (pending.length === 0) return { confirmed: 0 }
-
-		const { error } = await inv.from("receipt_scan_event").insert(
-			pending.map((item, index) => ({
-				receipt_id: data.receiptId,
-				receipt_item_id: item.id,
-				client_event_id: `${data.clientEventId}-${index}`,
-				method: "bulk_confirm",
-				quantity_base: item.invoiced_qty_base,
-				created_by: userId,
-			}))
-		)
-		if (error && error.code !== "23505") throw new Error(`Erro ao aceitar as linhas: ${error.message}`)
-		for (const item of pending) await syncConfirmedQuantity(item.id)
-		return { confirmed: pending.length }
+		// Linha a linha, com a linha travada, no banco: decidir aqui quais linhas
+		// ninguém tocou deixava uma leitura que chegasse no meio somar ao faturado.
+		const { data: confirmed, error } = await inventory().rpc("bulk_confirm_receipt", {
+			p_receipt_id: data.receiptId,
+			p_client_event_id: data.clientEventId,
+			p_user: userId,
+		})
+		if (error) throw new Error(`Erro ao aceitar as linhas: ${error.message}`)
+		return { confirmed: Number(confirmed ?? 0) }
 	})
 
 /** Desfaz uma leitura (estorno append-only — o histórico continua). */
@@ -871,21 +873,18 @@ export const reverseScanEventFn = createServerFn({ method: "POST" })
 		if (!event) throw new Error("Leitura não encontrada")
 		if (event.method === "reversal") throw new Error("Um estorno não se desfaz — registre a leitura de novo")
 		const { userId } = await requireOpenReceipt(event.receipt_id, 2)
+		if (!event.receipt_item_id) throw new Error("Leitura sem linha — nada a desfazer")
 
-		const { error } = await inv.from("receipt_scan_event").insert({
-			receipt_id: event.receipt_id,
-			receipt_item_id: event.receipt_item_id,
-			client_event_id: data.clientEventId,
+		const recorded = await recordReceiptEvent({
+			receiptId: event.receipt_id,
+			receiptItemId: event.receipt_item_id,
+			clientEventId: data.clientEventId,
 			method: "reversal",
-			quantity_base: 0,
-			reversed_event_id: event.id,
-			created_by: userId,
+			quantityBase: 0,
+			userId,
+			reversedEventId: event.id,
 		})
-		if (error) {
-			if (error.code === "23505") throw new Error("Esta leitura já foi desfeita")
-			throw new Error(`Erro ao desfazer a leitura: ${error.message}`)
-		}
-		return { confirmedQtyBase: event.receipt_item_id ? await syncConfirmedQuantity(event.receipt_item_id) : 0 }
+		return { confirmedQtyBase: recorded.total, alreadyReversed: recorded.duplicate }
 	})
 
 /**
@@ -956,24 +955,23 @@ export const refuseReceiptLineFn = createServerFn({ method: "POST" })
 		// conforme faturado" ainda contava a linha recusada como pendente e
 		// devolvia a quantidade faturada. O motivo fica na linha enquanto o evento
 		// de recusa estiver vivo (`sync_receipt_line` o tira quando não estiver).
-		const inv = inventory()
-		const { error: eventError } = await inv.from("receipt_scan_event").insert({
-			receipt_id: receiptId,
-			receipt_item_id: data.receiptItemId,
-			client_event_id: data.clientEventId,
-			method: "refusal",
-			quantity_base: 0,
-			created_by: userId,
-		})
-		if (eventError && eventError.code !== "23505") throw new Error(`Erro ao recusar a linha: ${eventError.message}`)
-		const { error } = await inv
+		// o motivo primeiro, o evento depois: o recálculo que vem com o evento vê a
+		// recusa viva e mantém o motivo
+		const { error } = await inventory()
 			.from("goods_receipt_item")
 			.update({
 				divergence_reason: `Recusado: ${label}${data.note ? ` — ${data.note.trim()}` : ""}${data.replacementPromised ? " (reposição prometida)" : ""}`,
 			})
 			.eq("id", data.receiptItemId)
 		if (error) throw new Error(`Erro ao recusar a linha: ${error.message}`)
-		await syncConfirmedQuantity(data.receiptItemId)
+		await recordReceiptEvent({
+			receiptId,
+			receiptItemId: data.receiptItemId,
+			clientEventId: data.clientEventId,
+			method: "refusal",
+			quantityBase: 0,
+			userId,
+		})
 		return { refused: true }
 	})
 
@@ -1049,14 +1047,16 @@ export const listScanEventsFn = createServerFn({ method: "GET" })
 		const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		await requireStorageForKitchen(1, Number(receipt.kitchen_id))
-		const { data: events, error } = await inv
-			.from("receipt_scan_event")
-			.select(
-				"id, seq, receipt_item_id, method, raw_code, gtin, lot_code, expiry_date, package_factor, quantity_base, reversed_event_id, created_by, created_at"
-			)
-			.eq("receipt_id", data.receiptId)
-			.order("seq", { ascending: false })
-			.limit(200)
-		if (error) throw new Error(`Erro ao listar a conferência: ${error.message}`)
-		return events ?? []
+		// TODAS as páginas: com o corte em 200, linha de nota grande cujos eventos
+		// eram mais antigos aparecia "não conferida" e a leitura dela não se desfazia
+		return await readAllPages<ScanEventRow>("a conferência", (from, to) =>
+			inv
+				.from("receipt_scan_event")
+				.select(
+					"id, seq, receipt_item_id, method, raw_code, gtin, lot_code, expiry_date, package_factor, quantity_base, reversed_event_id, created_by, created_at"
+				)
+				.eq("receipt_id", data.receiptId)
+				.order("seq", { ascending: false })
+				.range(from, to)
+		)
 	})

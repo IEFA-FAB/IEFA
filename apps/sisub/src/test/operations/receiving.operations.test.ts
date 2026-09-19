@@ -124,8 +124,10 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 						for (const line of lines) {
 							await tx`
 								insert into inventory.goods_receipt_item
-									(receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
-								values (${receipt.id}, ${ingredient.id}, ${line.invoiced}, ${line.received}, ${line.cost})`
+									(receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost, divergence_reason)
+								values (${receipt.id}, ${ingredient.id}, ${line.invoiced}, ${line.received}, ${line.cost},
+									-- linha que difere da nota precisa de motivo para efetivar (20260920250000)
+									${line.invoiced != null && line.invoiced !== line.received ? "Divergência de teste" : null})`
 						}
 						await tx`update inventory.goods_receipt set status = 'provisional', provisional_at = now() where id = ${receipt.id}`
 						await tx`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
@@ -215,12 +217,13 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					await event("scanner", 2)
 					expect(await state()).toMatchObject({ total: 8, lots: { "NF-L9": 8 } })
 
-					// recusa: total zero, lote sai, motivo fica enquanto a recusa estiver viva
+					// recusa: total zero, lotes zerados (ficam como registro — 20260920250000),
+					// motivo fica enquanto a recusa estiver viva
 					await tx`update inventory.goods_receipt_item set divergence_reason = 'Recusado: Avaria' where id = ${item.id}`
 					const refusal = await event("refusal", 0)
 					const refused = await state()
 					expect(refused).toMatchObject({ total: 0, reason: "Recusado: Avaria" })
-					expect(Object.keys(refused.lots)).toHaveLength(0)
+					expect(refused.lots).toEqual({ "GS1-L1": 0, "NF-L9": 0 })
 
 					// desfeita a recusa, volta o total de antes e o motivo "Recusado:" sai
 					await reverse(refusal)
@@ -233,10 +236,126 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					await reverse(typed)
 					expect((await state()).total).toBe(4 + 3 + 2)
 
-					// e a efetivação fecha: a soma dos lotes bate com o conferido
+					// e a efetivação fecha: a soma dos lotes bate com o conferido. A falta de
+					// 1 precisa de motivo — a efetivação recusa sem ele (20260920250000)
 					await tx`update inventory.goods_receipt set status = 'provisional', provisional_at = now() where id = ${receipt.id}`
+					await expect(tx.savepoint((sp) => sp`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`)).rejects.toThrow(/LEITE TESTE CONF/)
+					await tx`update inventory.goods_receipt_item set divergence_reason = 'Falta de 1 L' where id = ${item.id}`
 					const [finalized] = await tx`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
-					expect(Number(finalized.movements)).toBeGreaterThan(0)
+					expect(Number(finalized.movements)).toBe(2)
+
+					throw new Rollback()
+				})
+				.catch((err) => {
+					if (err instanceof Rollback) return "rolled-back"
+					throw err
+				})
+		).resolves.toBe("rolled-back")
+	}, 30_000)
+
+	test("conferência atômica: lote da nota preservado, arredondamento, aceitação em massa e motivo sob a trava (20260920250000)", async () => {
+		await expect(
+			sql
+				.begin(async (tx) => {
+					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-ATOM', 'unit teste atômica') returning id`
+					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha atômica') returning id`
+					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('QUEIJO TESTE ATOM', 'KG') returning id`
+					const [nfe] = await tx`insert into inventory.nfe_document (access_key) values (${`ZZTESTATOM${"0".repeat(34)}`}) returning id`
+					const [nfeItem] = await tx`
+						insert into inventory.nfe_item (nfe_document_id, n_item, lot_code, expiry_date)
+						values (${nfe.id}, 1, 'NF-LOTE-A', '2027-03-31') returning id`
+					const [receipt] = await tx`insert into inventory.goods_receipt (kitchen_id) values (${kitchenRow.id}) returning id`
+					const line = async (invoiced: number, nfeItemId: string | null = null) => {
+						const [row] = await tx`
+							insert into inventory.goods_receipt_item (receipt_id, ingredient_id, nfe_item_id, invoiced_qty_base, received_qty_base, unit_cost)
+							values (${receipt.id}, ${ingredient.id}, ${nfeItemId}, ${invoiced}, ${invoiced}, 2) returning id`
+						return row.id as string
+					}
+					// A: da nota, com o lote dela; B: caixas fracionadas; C: ninguém toca
+					const a = await line(12, nfeItem.id)
+					await tx`insert into inventory.goods_receipt_item_lot (receipt_item_id, lot_code, expiry_date, quantity_base, unit_cost)
+						values (${a}, 'NF-LOTE-A', '2027-03-31', 12, 2)`
+					const b = await line(10)
+					const c = await line(5)
+
+					const record = async (
+						itemId: string,
+						clientEventId: string,
+						method: string,
+						quantity: number,
+						lotCode: string | null = null,
+						reversedEventId: string | null = null
+					) => {
+						const [row] = await tx`
+							select * from inventory.record_receipt_event(
+								${receipt.id}::uuid, ${itemId}::uuid, ${clientEventId}::text, ${method}::text, ${quantity}::numeric, null::uuid,
+								null::text, null::text, ${lotCode}::text, ${lotCode ? "2027-05-31" : null}::date, null::numeric, ${reversedEventId}::uuid)`
+						return { duplicate: row.duplicate as boolean, eventId: row.event_id as string | null, total: Number(row.total) }
+					}
+					const lotsOf = async (itemId: string) => {
+						const rows = await tx`select lot_code, expiry_date, quantity_base from inventory.goods_receipt_item_lot where receipt_item_id = ${itemId}`
+						return Object.fromEntries(rows.map((lot) => [lot.lot_code as string, Number(lot.quantity_base)])) as Record<string, number>
+					}
+					const lineOf = async (itemId: string) => {
+						const [row] = await tx`select received_qty_base, divergence_reason from inventory.goods_receipt_item where id = ${itemId}`
+						return { received: Number(row.received_qty_base), reason: row.divergence_reason as string | null }
+					}
+
+					// ── A: a leitura GS1 da quantidade inteira em OUTRO lote não apaga o da nota ──
+					const scanned = await record(a, "atom-a-1", "scanner", 12, "OUTRO-L")
+					expect(scanned).toMatchObject({ duplicate: false, total: 12 })
+					expect(await lotsOf(a)).toEqual({ "NF-LOTE-A": 0, "OUTRO-L": 12 })
+
+					// reenvio da mesma leitura: reconhecido, sem somar, e a linha é recalculada
+					expect(await record(a, "atom-a-1", "scanner", 12, "OUTRO-L")).toMatchObject({ duplicate: true, total: 12 })
+
+					// recusa: tudo a zero, mas os dois lotes continuam lá — o da nota com a validade
+					await tx`update inventory.goods_receipt_item set divergence_reason = 'Recusado: Avaria' where id = ${a}`
+					const refusal = await record(a, "atom-a-2", "refusal", 0)
+					expect(refusal.total).toBe(0)
+					expect(await lotsOf(a)).toEqual({ "NF-LOTE-A": 0, "OUTRO-L": 0 })
+					const [invoiceLot] = await tx`select expiry_date from inventory.goods_receipt_item_lot where receipt_item_id = ${a} and lot_code = 'NF-LOTE-A'`
+					expect(invoiceLot.expiry_date).not.toBeNull()
+
+					// recusa desfeita: volta a leitura, e o motivo "Recusado:" sai
+					expect((await record(a, "atom-a-3", "reversal", 0, null, refusal.eventId)).total).toBe(12)
+					expect(await lineOf(a)).toEqual({ received: 12, reason: null })
+
+					// desfazer duas vezes a mesma leitura: a segunda é duplicada, não erro
+					expect((await record(a, "atom-a-4", "reversal", 0, null, scanned.eventId)).duplicate).toBe(false)
+					expect((await record(a, "atom-a-5", "reversal", 0, null, scanned.eventId)).duplicate).toBe(true)
+					// sem evento vivo, a linha volta ao faturado — e o resíduo volta ao lote DA NOTA
+					expect(await lotsOf(a)).toEqual({ "NF-LOTE-A": 12, "OUTRO-L": 0 })
+
+					// ── B: 3 caixas de 3,3333 somam 9,9999 — é o faturado, e o motivo antigo sai ──
+					await record(b, "atom-b-1", "scanner", 3.3333)
+					await tx`update inventory.goods_receipt_item set divergence_reason = 'Falta de caixas' where id = ${b}`
+					await record(b, "atom-b-2", "scanner", 3.3333)
+					expect((await record(b, "atom-b-3", "scanner", 3.3333)).total).toBe(10)
+					expect(await lineOf(b)).toEqual({ received: 10, reason: null })
+					expect(Object.values(await lotsOf(b))).toEqual([10])
+
+					// ── aceitar conforme faturado: só as linhas sem evento vivo (A e C, não B) ──
+					const [{ bulk_confirm_receipt: bulk }] = await tx`select inventory.bulk_confirm_receipt(${receipt.id}, 'atom-bulk', null)`
+					expect(bulk).toBe(2)
+					const [{ bulk_confirm_receipt: again }] = await tx`select inventory.bulk_confirm_receipt(${receipt.id}, 'atom-bulk', null)`
+					expect(again).toBe(0)
+					expect((await lineOf(c)).received).toBe(5)
+
+					// ── efetivação: falta sem motivo é recusada DENTRO da função ──
+					await record(c, "atom-c-1", "typed", 4)
+					await tx`update inventory.goods_receipt set status = 'provisional', provisional_at = now() where id = ${receipt.id}`
+					await expect(tx.savepoint((sp) => sp`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`)).rejects.toThrow(
+						/QUEIJO TESTE ATOM.*motivo/
+					)
+					await tx`update inventory.goods_receipt_item set divergence_reason = 'Falta de 1 KG' where id = ${c}`
+					const [finalized] = await tx`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
+					// A (lote da nota), B e C; o lote zerado OUTRO-L não vira estoque
+					expect(Number(finalized.movements)).toBe(3)
+					const zeroStock = await tx`select 1 from inventory.stock_lot where goods_receipt_item_id = ${a} and lot_code = 'OUTRO-L'`
+					expect(zeroStock).toHaveLength(0)
+					const [status] = await tx`select status from inventory.goods_receipt where id = ${receipt.id}`
+					expect(status.status).toBe("divergent")
 
 					throw new Rollback()
 				})

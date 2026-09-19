@@ -288,7 +288,14 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 		setSaving(true)
 		try {
 			await updateReceiptItemFn({
-				data: { receiptItemId: item.id, receivedQtyBase: Number(qty), divergenceReason: reason || null },
+				// o que a tela carregou: salvar só o motivo não regrava a quantidade, e
+				// quantidade mudada por leitura no meio da edição é recusada, não sobrescrita
+				data: {
+					receiptItemId: item.id,
+					receivedQtyBase: Number(qty),
+					divergenceReason: reason || null,
+					baselineQtyBase: Number(item.received_qty_base),
+				},
 			})
 			toast.success("Item conferido")
 			onSaved()

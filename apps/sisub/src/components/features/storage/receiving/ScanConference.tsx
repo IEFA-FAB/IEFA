@@ -120,7 +120,10 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 	// campo segue ligado e cada leitura espera a anterior terminar, na ordem.
 	const scanQueue = useRef<Promise<unknown>>(Promise.resolve())
 	const [queued, setQueued] = useState(0)
-	const [unknownScan, setUnknownScan] = useState<PendingScan | null>(null)
+	// FILA dos códigos fora da nota: com a leitura seguindo ligada, a segunda
+	// caixa desconhecida chegava com o diálogo da primeira aberto e a substituía
+	const [unknownScans, setUnknownScans] = useState<PendingScan[]>([])
+	const unknownScan = unknownScans[0] ?? null
 	const [associateTo, setAssociateTo] = useState<string>("")
 	const [refusing, setRefusing] = useState<ConferenceLine | null>(null)
 	const [refusalReason, setRefusalReason] = useState<(typeof REFUSAL_REASONS)[number]["value"]>("damaged")
@@ -166,7 +169,7 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 			})
 			if (!result.matched) {
 				// o sistema não adiciona item que a nota não tem: quem decide é o operador
-				setUnknownScan(scan)
+				setUnknownScans((pending) => [...pending, scan])
 				return false
 			}
 			if (result.duplicate) toast.info("Esta leitura já tinha sido registrada")
@@ -179,6 +182,11 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 		}
 	}
 
+	function dismissUnknownScan() {
+		setUnknownScans((pending) => pending.slice(1))
+		setAssociateTo("")
+	}
+
 	function handleScan(raw: string, gtin: string, lotCode?: string, expiryDate?: string) {
 		const times = parseMultiplier(multiplier)
 		if (times == null) {
@@ -186,8 +194,12 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 			return
 		}
 		setMultiplier("1")
+		enqueueScan({ raw, gtin, lotCode, expiryDate, times })
+	}
+
+	function enqueueScan(scan: PendingScan) {
 		setQueued((count) => count + 1)
-		scanQueue.current = scanQueue.current.then(() => recordScan({ raw, gtin, lotCode, expiryDate, times })).finally(() => setQueued((count) => count - 1))
+		scanQueue.current = scanQueue.current.then(() => recordScan(scan)).finally(() => setQueued((count) => count - 1))
 	}
 
 	return (
@@ -238,13 +250,12 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 								type="button"
 								variant="outline"
 								size="sm"
-								disabled={busy}
-								onClick={() =>
-									run(
-										() => bulkConfirmReceiptFn({ data: { receiptId, clientEventId: newClientEventId() } }),
-										`${pendingLines.length} linha(s) aceitas conforme faturado`
-									)
-								}
+								// leitura ainda na fila é de uma linha que a tela ainda mostra pendente
+								disabled={busy || queued > 0}
+								onClick={async () => {
+									const result = await run(() => bulkConfirmReceiptFn({ data: { receiptId, clientEventId: newClientEventId() } }))
+									if (result) toast.success(`${result.confirmed} linha(s) aceitas conforme faturado`)
+								}}
 							>
 								<ListChecks className="mr-2 size-4" />
 								Aceitar conforme faturado ({pendingLines.length} restantes)
@@ -350,9 +361,11 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 														variant="ghost"
 														className="h-5 px-1"
 														disabled={busy}
-														onClick={() =>
-															run(() => reverseScanEventFn({ data: { eventId: event.id, clientEventId: newClientEventId() } }), "Leitura desfeita")
-														}
+														onClick={async () => {
+															const result = await run(() => reverseScanEventFn({ data: { eventId: event.id, clientEventId: newClientEventId() } }))
+															if (result?.alreadyReversed) toast.info("Esta leitura já tinha sido desfeita")
+															else if (result) toast.success("Leitura desfeita")
+														}}
 													>
 														<Undo2 className="size-3" />
 													</Button>
@@ -369,13 +382,14 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 
 			{/* Código que não está na nota: o sistema não decide sozinho */}
 			{unknownScan && (
-				<Dialog open onOpenChange={(open) => !open && setUnknownScan(null)}>
+				<Dialog open onOpenChange={(open) => !open && dismissUnknownScan()}>
 					<DialogContent>
 						<DialogHeader>
 							<DialogTitle>Código não consta nesta nota</DialogTitle>
 							<DialogDescription>
-								O GTIN {unknownScan.gtin} não corresponde a nenhuma linha. Pode ser embalagem nova do mesmo produto, item trocado pelo fornecedor, ou volume de
-								outra entrega.
+								O GTIN {unknownScan.gtin} não corresponde a nenhuma linha
+								{unknownScans.length > 1 && ` (mais ${unknownScans.length - 1} código(s) na fila)`}. Pode ser embalagem nova do mesmo produto, item trocado pelo
+								fornecedor, ou volume de outra entrega.
 							</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-2">
@@ -397,7 +411,7 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 							</p>
 						</div>
 						<DialogFooter>
-							<Button type="button" variant="ghost" onClick={() => setUnknownScan(null)}>
+							<Button type="button" variant="ghost" onClick={dismissUnknownScan}>
 								Ignorar
 							</Button>
 							<Button
@@ -408,10 +422,12 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 									const associated = await run(() => associateGtinToLineFn({ data: { receiptItemId: associateTo, gtin: scan.gtin } }), "Código associado")
 									// falhou: o diálogo fica, com o código e a escolha, para tentar de novo
 									if (!associated) return
-									setUnknownScan(null)
+									// a caixa que abriu o diálogo também conta — agora o código casa —, e
+									// as do mesmo código que esperavam na fila vão junto, na fila de gravação
+									const sameCode = unknownScans.filter((pending) => pending.gtin === scan.gtin)
+									setUnknownScans((pending) => pending.filter((other) => other.gtin !== scan.gtin))
 									setAssociateTo("")
-									// a caixa que abriu o diálogo também conta — agora o código casa
-									await recordScan(scan)
+									for (const pending of sameCode) enqueueScan(pending)
 								}}
 							>
 								Associar
