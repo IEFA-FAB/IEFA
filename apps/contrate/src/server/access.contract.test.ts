@@ -66,6 +66,26 @@ describe("o arquivo não escreve em user_permissions por fora do helper", () => 
 })
 
 /**
+ * O aviso de "acesso gravado, mas bloqueado" e o selo "Anulado por bloqueio" saem da MESMA
+ * conta da API do α — permissões resolvidas pelo `@iefa/pbac` (inline + política) e cobertura
+ * expandida pela hierarquia de apoio. O `deny_present` da função SQL só vê a mesma chave, e
+ * foi com ele sozinho que a tela dizia "concedido" para acesso anulado por bloqueio global,
+ * de política ou na OM apoiadora.
+ */
+describe("conferência de bloqueio", () => {
+	test("a concessão resolve as permissões da pessoa como o α e confere a cobertura", () => {
+		expect(SOURCE).toMatch(/resolveUserPermissions\(data\.userId, getAccessControlClient\(\)\)/)
+		expect(SOURCE).toMatch(/denyImpactOnAllow\(allow, permissions, graph\)/)
+		expect(SOURCE).not.toMatch(/blockedByDeny/)
+	})
+
+	test("a lista traz os bloqueios herdados e marca cada acesso com a conta do α", () => {
+		expect(SOURCE).toMatch(/fetchInheritedDenies\(/)
+		expect(SOURCE).toMatch(/annotateDenyImpact\(all, graph\)/)
+	})
+})
+
+/**
  * A tela que chama estas server functions. Lida como fonte pelo mesmo motivo: montar a rota
  * pediria o router e o servidor inteiros.
  */

@@ -37,6 +37,7 @@ import {
 	GrantNotAllowedError,
 	PermissionChangeError,
 	partitionOfLevel,
+	resolveUserPermissions,
 	searchUsersByEmail,
 	type UnitCoverage,
 	type UnitSupportEdge,
@@ -47,12 +48,16 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import {
 	ALPHA_ADMIN_MODULES,
+	ALPHA_ROLE_GRANTS,
 	type AlphaAdminModule,
 	adminUnitChoices,
 	annotateDenyImpact,
 	buildAlphaPermissionChange,
 	canListGrants,
 	type DenyImpact,
+	denyImpactNeedsGraph,
+	denyImpactOnAllow,
+	type GrantAlphaRoleInput,
 	GrantAlphaRoleSchema,
 	type GrantEffect,
 	RevokeAlphaRoleSchema,
@@ -120,25 +125,69 @@ async function assertSelectableUnit(unitId: number | null): Promise<void> {
 	if (!data || data.is_training) throw new Error("OM inexistente.")
 }
 
+/** O acesso recém-gravado vale? Ver {@link grantAlphaPermissionFn}. */
+export type GrantOutcome = {
+	ok: true
+	previousLevel: number | null
+	/**
+	 * Algum bloqueio da pessoa anula o acesso recém-gravado — `true` também quando um acesso
+	 * GLOBAL fica recortado em parte das OMs (`partial`). `null`: a conferência falhou depois
+	 * da gravação, e a tela não afirma nem que vale nem que não vale.
+	 */
+	blocked: boolean | null
+	/** Só no acesso global: vale, menos nas OMs bloqueadas. */
+	partial: boolean
+}
+
+/**
+ * Os bloqueios da pessoa anulam o acesso recém-gravado? Resolve as permissões VIVAS dela
+ * exatamente como a API do α as resolve (`resolveUserPermissions`: grant inline e política
+ * anexada, com a precedência de deny) e confere a OM do acesso contra a cobertura do papel,
+ * expandida pela hierarquia de apoio (`denyImpactOnAllow`). O `deny_present` da função SQL só
+ * enxerga o bloqueio da MESMA chave — um bloqueio global, de política ou na OM apoiadora
+ * passava despercebido, e a tela dizia "concedido" para um acesso que não vale.
+ *
+ * `denyPresent` é só atalho: bloqueio vivo na mesma chave anula com certeza, sem ler nada.
+ */
+async function resolveGrantBlock(data: GrantAlphaRoleInput, denyPresent: boolean | null): Promise<Pick<GrantOutcome, "blocked" | "partial">> {
+	if (denyPresent === true) return { blocked: true, partial: false }
+
+	const allow = { ...ALPHA_ROLE_GRANTS[data.role], unitId: data.unitId }
+	const permissions = await resolveUserPermissions(data.userId, getAccessControlClient())
+	const graph = denyImpactNeedsGraph(allow, permissions) ? await fetchUnitSupportGraph(getCoreReadClient()) : null
+	const impact: DenyImpact = denyImpactOnAllow(allow, permissions, graph)
+	return { blocked: impact !== "none", partial: impact === "partial" }
+}
+
 /**
  * Concede UM papel numa OM (ou global). Idempotente: reconceder atualiza o nível e zera o
  * prazo. Registrado no log de auditoria na mesma transação.
  *
- * `blockedByDeny`: há bloqueio vivo na mesma chave — o acesso foi gravado, mas não vale
- * enquanto o bloqueio existir. A tela avisa em vez de dizer só "concedido".
+ * `blocked`: o acesso foi gravado, mas um bloqueio da pessoa o anula — a tela avisa em vez de
+ * dizer só "concedido". A conferência roda DEPOIS da gravação e fora do `try` da concessão:
+ * se ela falhar, o acesso já está gravado e auditado, e responder erro faria o administrador
+ * conceder de novo algo que já foi concedido. Falha vira `blocked: null`.
  */
 export const grantAlphaPermissionFn = createServerFn({ method: "POST" })
 	.validator(GrantAlphaRoleSchema)
-	.handler(async ({ data }): Promise<{ ok: true; previousLevel: number | null; blockedByDeny: boolean }> => {
+	.handler(async ({ data }): Promise<GrantOutcome> => {
 		const { ctx, coverage } = await requireAlphaAdmin()
+		let result: Awaited<ReturnType<typeof changeModulePermission>>
 		try {
 			// Ator = sessão (`ctx.userId`); o `data` não tem campo de ator.
 			const change = buildAlphaPermissionChange({ actorId: ctx.userId, coverage }, data)
 			await assertSelectableUnit(data.unitId)
-			const result = await changeModulePermission(getAccessControlClient(), change)
-			return { ok: true, previousLevel: result.previousLevel, blockedByDeny: result.denyPresent === true }
+			result = await changeModulePermission(getAccessControlClient(), change)
 		} catch (error) {
 			rethrowAccessError(error)
+		}
+
+		try {
+			return { ok: true, previousLevel: result.previousLevel, ...(await resolveGrantBlock(data, result.denyPresent)) }
+		} catch (cause) {
+			// biome-ignore lint/suspicious/noConsole: a tela recebe só `blocked: null`; sem o log, a falha da conferência não deixa rastro nenhum no servidor
+			console.error("[contrate] acesso gravado, mas a conferência de bloqueio falhou", cause)
+			return { ok: true, previousLevel: result.previousLevel, blocked: null, partial: false }
 		}
 	})
 

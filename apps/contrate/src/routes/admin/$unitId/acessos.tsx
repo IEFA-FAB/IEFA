@@ -338,10 +338,22 @@ function GrantAccess({ scope, currentUserId, onGranted }: { scope: ScopeContext;
 	const grant = useMutation({
 		mutationFn: (data: GrantAlphaRoleInput) => grantAlphaPermissionFn({ data }),
 		onSuccess: (result, data) => {
-			if (result.blockedByDeny) {
-				// Gravado, mas sem efeito: o bloqueio da mesma chave vence. "Concedido" seria mentira.
+			// `blocked` é a cobertura efetiva do papel, calculada no servidor com a regra da API do
+			// α — não só o bloqueio da mesma chave. "Concedido" para um acesso anulado seria mentira.
+			const label = ROLE_INFO[data.role].label
+			if (result.blocked === true && result.partial) {
+				toast.warning("Acesso gravado, mas bloqueado em parte das OMs", {
+					description: `Há bloqueio de ${label} para esta pessoa em algumas OMs; nelas o bloqueio vence o acesso global enquanto existir. Só um administrador global retira um bloqueio.`,
+					duration: 15_000,
+				})
+			} else if (result.blocked === true) {
 				toast.warning("Acesso gravado, mas a pessoa continua bloqueada", {
-					description: `Há um bloqueio de ${ROLE_INFO[data.role].label} ${data.unitId === null ? "global" : "nesta OM"} para ela, e o bloqueio vence o acesso enquanto existir. Só um administrador global retira um bloqueio.`,
+					description: `Há um bloqueio de ${label} para ela que alcança ${data.unitId === null ? "todas as OMs" : "esta OM — global, nela ou numa OM que a apoia"}, e o bloqueio vence o acesso enquanto existir. Só um administrador global retira um bloqueio.`,
+					duration: 15_000,
+				})
+			} else if (result.blocked === null) {
+				toast.warning("Acesso concedido, mas sem conferência de bloqueio", {
+					description: "O acesso foi gravado, mas não foi possível conferir se algum bloqueio o anula. Confira a lista de acessos.",
 					duration: 15_000,
 				})
 			} else {
