@@ -180,10 +180,16 @@ chave publicável (papéis `anon`/`authenticated`) está no bundle de todo app. 
 - **O navegador não chama função nenhuma** — só auth, upload por URL assinada e Realtime de tabela
   com policy `using (true)`. Conceder EXECUTE a `anon`/`authenticated` exige entrar na
   `CLIENT_EXECUTE_ALLOWLIST` de `packages/database/scripts/audit-rls.ts`, com o motivo.
+- **Schemas: cliente só alcança o que o navegador lê** (desde `20260920230000`). `anon`/`authenticated`
+  têm USAGE apenas em `assignment_selection` (Realtime do telão), `kitchen` (só `authenticated`,
+  Realtime do sisub) e `public` (USAGE de PUBLIC, da plataforma). Tabela nova para o navegador exige
+  entrar na `CLIENT_SCHEMA_ALLOWLIST` do mesmo arquivo — e, se for Realtime, na publicação
+  `supabase_realtime`. Todo o resto é do servidor (`service_role`).
 - **Gate**: `bun --filter @iefa/database audit:rls` roda no job `gate` do `integration.yml` (toda
   migration passa por ele e é aplicada antes do merge) e falha em função executável por cliente,
-  função que o `service_role` não executa, default que faça função nova nascer aberta, RLS
-  desligada alcançável e SECURITY DEFINER sem `search_path` ou exposta.
+  função que o `service_role` não executa, default que faça função nova nascer aberta, USAGE de
+  cliente fora da allowlist, grant de tabela a cliente sem USAGE, RLS desligada alcançável e
+  SECURITY DEFINER sem `search_path` ou exposta.
 
 ## Commands
 
