@@ -139,7 +139,7 @@ export async function fetchUserNrOrdem(db: SisubDb, input: FetchUserNrOrdem): Pr
  *
  * As duas checagens são leitura-antes-da-escrita; duas contas disputando o mesmo nrOrdem no
  * mesmo instante escapariam da segunda — o índice único parcial da migration
- * `20260921130410` fecha essa corrida no banco.
+ * `20260921160410` fecha essa corrida no banco.
  */
 export async function syncUserNrOrdem(db: SisubDb, input: SyncUserNrOrdem) {
 	const requested = input.nrOrdem.trim()

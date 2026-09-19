@@ -10,7 +10,7 @@
  * a variante para um objeto alheio — que passava a ser assinável pelo download público
  * (que só assina caminho catalogado) e apagável pela limpeza de órfãos.
  *
- * Só png, jpeg e webp — o mesmo recorte que o bucket aceita (migration 20260921130200).
+ * Só png, jpeg e webp — o mesmo recorte que o bucket aceita (migration 20260921160200).
  * Puro: usado pela tela de upload e pelas server functions.
  */
 
@@ -27,7 +27,7 @@ export const ACCEPTED_IMAGE_MIMES = Object.keys(IMAGE_EXTENSION_BY_MIME) as Imag
 
 export const UNSUPPORTED_IMAGE_MESSAGE = "Formato não aceito. Envie uma imagem PNG, JPEG ou WebP."
 
-/** Teto do bucket por arquivo (migration 20260921130200). */
+/** Teto do bucket por arquivo (migration 20260921160200). */
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 export const IMAGE_TOO_LARGE_MESSAGE = "Imagem acima de 10 MB. Reduza o arquivo e envie de novo."

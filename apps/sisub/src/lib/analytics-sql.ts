@@ -10,7 +10,7 @@
  *
  * Esta camada NÃO é a fronteira de segurança. Quem segura é o banco: a RPC roda como
  * `analytics_reader` (SELECT só nestas tabelas, sem EXECUTE em função de aplicação, em
- * transação somente leitura — migration 20260921130000). A validação aqui existe para
+ * transação somente leitura — migration 20260921160000). A validação aqui existe para
  * devolver ao modelo um erro legível, antes do `permission denied`.
  */
 

@@ -105,7 +105,7 @@ export const updatePersonFn = createServerFn({ method: "POST" })
 type AssignmentClient = ReturnType<typeof getAssignmentServerClient>
 
 /**
- * `assignment_selection.apply_person_choice` (migration 20260921130500) ainda não está
+ * `assignment_selection.apply_person_choice` (migration 20260921160500) ainda não está
  * nos tipos gerados de `@iefa/database` — o cast some quando os tipos forem regenerados
  * depois de aplicar a migration.
  */
