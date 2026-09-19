@@ -145,6 +145,7 @@ forms:
 contrate:
   - 'apps/contrate/**'
   - 'packages/agent-web/**'
+  - 'packages/alpha-client/**'
   - 'packages/auth-kit/**'
   - 'packages/database/**'
   - 'packages/legal-kit/**'
