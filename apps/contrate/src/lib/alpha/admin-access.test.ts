@@ -1,17 +1,20 @@
 import { describe, expect, test } from "bun:test"
 import type { UnitOption } from "@iefa/alpha-client/access"
-import { GrantNotAllowedError } from "@iefa/pbac"
+import { GrantNotAllowedError, type UnitSupportEdge, type UserPermission } from "@iefa/pbac"
 import {
 	adminUnitChoices,
+	annotateDenyImpact,
 	buildAlphaPermissionChange,
 	canChangeOwnAccess,
 	canListGrants,
+	denyImpactNeedsGraph,
+	denyImpactOnAllow,
 	type GrantRowLike,
 	grantRowKey,
 	initialGrantUnit,
-	isAllowBlockedByDeny,
 	RevokeAlphaRoleSchema,
 	splitGrantsByEffect,
+	supportingUnitsOf,
 } from "./admin-access"
 
 const ADMIN = "00000000-0000-0000-0000-00000000000a"
@@ -152,6 +155,7 @@ describe("lista: acesso e bloqueio", () => {
 		userId: OTHER,
 		module: "alpha-aci",
 		unitId: 26,
+		level: 1,
 		expiresAt: null,
 		...over,
 	})
@@ -167,21 +171,145 @@ describe("lista: acesso e bloqueio", () => {
 		const deny = row({ effect: "deny" })
 		expect(splitGrantsByEffect([allow, deny])).toEqual({ allows: [allow], denies: [deny] })
 	})
+})
 
-	test("isAllowBlockedByDeny: mesma chave ou global do papel, vigente", () => {
-		const now = Date.parse("2026-09-18T12:00:00Z")
-		const allow = row({})
-		expect(isAllowBlockedByDeny(allow, [row({ effect: "deny" })], now)).toBe(true)
-		expect(isAllowBlockedByDeny(allow, [row({ effect: "deny", unitId: null })], now)).toBe(true)
-		// Outra OM, outro papel, outra pessoa: não anula.
-		expect(isAllowBlockedByDeny(allow, [row({ effect: "deny", unitId: 100 })], now)).toBe(false)
-		expect(isAllowBlockedByDeny(allow, [row({ effect: "deny", module: "alpha-admin" })], now)).toBe(false)
-		expect(isAllowBlockedByDeny(allow, [row({ effect: "deny", userId: ADMIN })], now)).toBe(false)
-		// Vencido não bloqueia; prazo no futuro bloqueia.
-		expect(isAllowBlockedByDeny(allow, [row({ effect: "deny", expiresAt: "2026-09-17T00:00:00Z" })], now)).toBe(false)
-		expect(isAllowBlockedByDeny(allow, [row({ effect: "deny", expiresAt: "2026-09-19T00:00:00Z" })], now)).toBe(true)
-		// Um allow na lista de bloqueios não conta.
-		expect(isAllowBlockedByDeny(allow, [row({})], now)).toBe(false)
+// Hierarquia de apoio: GAP-SJ (26) apoia IAE (100) e DCTA (101); 7 não apoia nem é apoiada.
+const GRAPH: UnitSupportEdge[] = [
+	{ id: 7, supporting_unit_id: null },
+	{ id: 26, supporting_unit_id: null },
+	{ id: 100, supporting_unit_id: 26 },
+	{ id: 101, supporting_unit_id: 26 },
+]
+
+const deny = (over: Partial<UserPermission> = {}): UserPermission => ({
+	module: "alpha-aci",
+	level: 0,
+	unit_id: null,
+	kitchen_id: null,
+	mess_hall_id: null,
+	...over,
+})
+
+describe("denyImpactOnAllow (a mesma conta da API do α)", () => {
+	const aciAt = (unitId: number | null) => ({ module: "alpha-aci" as const, level: 1, unitId })
+
+	test("sem bloqueio do papel: vale, e não pede o grafo", () => {
+		expect(denyImpactOnAllow(aciAt(100), [deny({ module: "alpha-admin" })], null)).toBe("none")
+		expect(denyImpactNeedsGraph(aciAt(100), [deny({ module: "alpha-admin" })])).toBe(false)
+	})
+
+	test("bloqueio sem OM derruba o papel em todo lugar", () => {
+		expect(denyImpactOnAllow(aciAt(100), [deny()], GRAPH)).toBe("full")
+		expect(denyImpactOnAllow(aciAt(null), [deny()], GRAPH)).toBe("full")
+		// Global contra global: nem o grafo é preciso.
+		expect(denyImpactNeedsGraph(aciAt(null), [deny()])).toBe(false)
+		expect(denyImpactOnAllow(aciAt(null), [deny()], null)).toBe("full")
+	})
+
+	test("bloqueio na mesma OM anula", () => {
+		expect(denyImpactOnAllow(aciAt(100), [deny({ unit_id: 100 })], GRAPH)).toBe("full")
+	})
+
+	test("bloqueio na OM APOIADORA anula o acesso na apoiada", () => {
+		expect(denyImpactNeedsGraph(aciAt(100), [deny({ unit_id: 26 })])).toBe(true)
+		expect(denyImpactOnAllow(aciAt(100), [deny({ unit_id: 26 })], GRAPH)).toBe("full")
+	})
+
+	test("bloqueio na OM APOIADA não anula o acesso na apoiadora", () => {
+		expect(denyImpactOnAllow(aciAt(26), [deny({ unit_id: 100 })], GRAPH)).toBe("none")
+	})
+
+	test("bloqueio em OM sem relação não anula", () => {
+		expect(denyImpactOnAllow(aciAt(100), [deny({ unit_id: 7 })], GRAPH)).toBe("none")
+	})
+
+	test("acesso global com bloqueio escopado: vale, menos nas OMs bloqueadas", () => {
+		expect(denyImpactOnAllow(aciAt(null), [deny({ unit_id: 26 })], GRAPH)).toBe("partial")
+	})
+
+	test("o bloqueio de outro papel não conta", () => {
+		expect(denyImpactOnAllow(aciAt(100), [deny({ module: "alpha-procurement", unit_id: 26 })], GRAPH)).toBe("none")
+	})
+
+	test("o administrador conta no nível dele", () => {
+		const admin = { module: "alpha-admin" as const, level: 3, unitId: 100 }
+		expect(denyImpactOnAllow(admin, [deny({ module: "alpha-admin", unit_id: 26 })], GRAPH)).toBe("full")
+		expect(denyImpactOnAllow(admin, [deny({ module: "alpha-admin", unit_id: 101 })], GRAPH)).toBe("none")
+	})
+
+	test("conferir um bloqueio como se fosse acesso é erro de programação", () => {
+		expect(() => denyImpactOnAllow({ module: "alpha-aci", level: 0, unitId: 26 }, [], GRAPH)).toThrow()
+	})
+})
+
+describe("annotateDenyImpact (o selo da lista)", () => {
+	const now = Date.parse("2026-09-18T12:00:00Z")
+	const row = (over: Partial<GrantRowLike>): GrantRowLike => ({
+		source: "inline",
+		effect: "allow",
+		userId: OTHER,
+		module: "alpha-aci",
+		unitId: 100,
+		level: 1,
+		expiresAt: null,
+		...over,
+	})
+	const impactOf = (grants: GrantRowLike[]) => annotateDenyImpact(grants, GRAPH, now).map((g) => g.denyImpact)
+
+	test("bloqueio sem OM anula o acesso da OM", () => {
+		expect(impactOf([row({}), row({ effect: "deny", level: 0, unitId: null })])).toEqual(["full", "none"])
+	})
+
+	test("bloqueio na apoiadora anula o acesso na apoiada", () => {
+		expect(impactOf([row({}), row({ effect: "deny", level: 0, unitId: 26 })])).toEqual(["full", "none"])
+	})
+
+	test("bloqueio na apoiada não anula o acesso na apoiadora", () => {
+		expect(impactOf([row({ unitId: 26 }), row({ effect: "deny", level: 0, unitId: 100 })])).toEqual(["none", "none"])
+	})
+
+	test("bloqueio emprestado por política anula como o inline", () => {
+		expect(impactOf([row({}), row({ source: "policy", policyName: "Suspensão", effect: "deny", level: 0, unitId: 26 })])).toEqual(["full", "none"])
+	})
+
+	test("bloqueio vencido não anula; com prazo no futuro, anula", () => {
+		expect(impactOf([row({}), row({ effect: "deny", level: 0, unitId: null, expiresAt: "2026-09-17T00:00:00Z" })])).toEqual(["none", "none"])
+		expect(impactOf([row({}), row({ effect: "deny", level: 0, unitId: null, expiresAt: "2026-09-19T00:00:00Z" })])).toEqual(["full", "none"])
+	})
+
+	test("bloqueio de outra pessoa ou de outro papel não anula", () => {
+		expect(impactOf([row({}), row({ effect: "deny", level: 0, unitId: null, userId: ADMIN })])).toEqual(["none", "none"])
+		expect(impactOf([row({}), row({ effect: "deny", level: 0, unitId: null, module: "alpha-admin" })])).toEqual(["none", "none"])
+	})
+
+	test("acesso global recortado por bloqueio numa OM é parcial", () => {
+		expect(impactOf([row({ unitId: null }), row({ effect: "deny", level: 0, unitId: 7 })])).toEqual(["partial", "none"])
+	})
+
+	test("acesso vencido não leva o selo — já tem o dele", () => {
+		expect(impactOf([row({ expiresAt: "2026-09-17T00:00:00Z" }), row({ effect: "deny", level: 0, unitId: null })])).toEqual(["none", "none"])
+	})
+})
+
+describe("supportingUnitsOf", () => {
+	test("sobe a cadeia de apoio, sem a própria OM", () => {
+		expect(supportingUnitsOf(100, GRAPH)).toEqual([26])
+		expect(supportingUnitsOf(26, GRAPH)).toEqual([])
+		expect(supportingUnitsOf(999, GRAPH)).toEqual([])
+	})
+
+	test("transitiva e sem laço", () => {
+		const chain: UnitSupportEdge[] = [
+			{ id: 1, supporting_unit_id: null },
+			{ id: 2, supporting_unit_id: 1 },
+			{ id: 3, supporting_unit_id: 2 },
+		]
+		expect(supportingUnitsOf(3, chain)).toEqual([2, 1])
+		const cycle: UnitSupportEdge[] = [
+			{ id: 1, supporting_unit_id: 2 },
+			{ id: 2, supporting_unit_id: 1 },
+		]
+		expect(supportingUnitsOf(1, cycle)).toEqual([2])
 	})
 })
 

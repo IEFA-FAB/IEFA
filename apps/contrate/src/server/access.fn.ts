@@ -33,11 +33,13 @@
 import type { UnitOption } from "@iefa/alpha-client/access"
 import {
 	changeModulePermission,
+	fetchUnitSupportGraph,
 	GrantNotAllowedError,
 	PermissionChangeError,
 	partitionOfLevel,
 	searchUsersByEmail,
 	type UnitCoverage,
+	type UnitSupportEdge,
 	type UserEmailSearchRow,
 } from "@iefa/pbac"
 import type { SupabaseClient } from "@supabase/supabase-js"
@@ -47,11 +49,14 @@ import {
 	ALPHA_ADMIN_MODULES,
 	type AlphaAdminModule,
 	adminUnitChoices,
+	annotateDenyImpact,
 	buildAlphaPermissionChange,
 	canListGrants,
+	type DenyImpact,
 	GrantAlphaRoleSchema,
 	type GrantEffect,
 	RevokeAlphaRoleSchema,
+	supportingUnitsOf,
 } from "@/lib/alpha/admin-access"
 import { forbidden, requireAlphaAdmin } from "@/lib/auth.server"
 import { getAccessControlClient, getCoreReadClient } from "@/lib/supabase.server"
@@ -179,15 +184,33 @@ export type AlphaGrant = {
 	 */
 	source: "inline" | "policy"
 	policyName?: string
+	/**
+	 * Bloqueio HERDADO: gravado fora da OM aberta — sem OM (global) ou numa OM que a apoia —,
+	 * mas alcança o acesso de quem está na lista. Vem para a conta do `denyImpact` e para a
+	 * tela dizer de onde o bloqueio vem; não é "desta OM", e só o administrador global o retira
+	 * (na chave dele, não na da OM aberta).
+	 */
+	inherited: boolean
+	/** Quanto os bloqueios vivos da pessoa tiram deste acesso (`none` em bloqueio e em vencido). */
+	denyImpact: DenyImpact
 }
 
 /**
  * Os grants do α de UMA OM (`unitId`) — ou de todas, inclusive os globais (`null`, só para o
- * administrador global). Nunca fora da cobertura de quem pede.
+ * administrador global). Nunca fora da cobertura de quem pede — com uma exceção, a dos
+ * bloqueios herdados.
  *
  * Lê as DUAS origens que `resolveUserPermissions` lê — grant inline e política anexada.
  * Inclui o grant vencido (a tela o marca), para a linha não sumir sem que ninguém a tenha
  * revogado.
+ *
+ * ## Bloqueios herdados
+ *
+ * Um acesso na OM aberta é anulado também por bloqueio sem OM e por bloqueio numa OM que a
+ * apoia (o deny escopado desce pela hierarquia de apoio, como o allow). Sem essas linhas a
+ * tela afirmaria que o acesso vale. Então, para as pessoas que JÁ estão na lista, vêm também
+ * os bloqueios delas nesses escopos, marcados `inherited`. É o mínimo para a conta
+ * (`annotateDenyImpact`) sair igual à da API do α — e nada de quem não está na lista.
  */
 export const listAlphaGrantsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().nonnegative().nullable() }))
@@ -196,13 +219,21 @@ export const listAlphaGrantsFn = createServerFn({ method: "GET" })
 		if (!canListGrants(coverage, data.unitId)) forbidden("Esta OM está fora da sua administração.")
 
 		const accessControl = getAccessControlClient()
-		const [inline, byPolicy] = await Promise.all([fetchInlineGrants(accessControl, data.unitId), fetchPolicyGrants(accessControl, data.unitId, coverage)])
-		const all = [...inline, ...byPolicy]
-		if (all.length === 0) return []
+		const core = getCoreReadClient()
+		const scope: RowScope = { kind: "unit", unitId: data.unitId }
+		const [inline, byPolicy, graph] = await Promise.all([
+			fetchInlineGrants(accessControl, scope),
+			fetchPolicyGrants(accessControl, scope, coverage),
+			fetchUnitSupportGraph(core),
+		])
+		const own = [...inline, ...byPolicy]
+		if (own.length === 0) return []
+
+		const inherited = data.unitId === null ? [] : await fetchInheritedDenies(accessControl, data.unitId, own, graph)
+		const all = [...own, ...inherited]
 
 		const userIds = [...new Set(all.map((g) => g.userId))]
 		const unitIds = [...new Set(all.map((g) => g.unitId).filter((id): id is number => id !== null))]
-		const core = getCoreReadClient()
 		const [users, units] = await Promise.all([
 			core.from("user_data").select("id, email").in("id", userIds),
 			unitIds.length === 0 ? Promise.resolve({ data: [], error: null }) : core.from("units").select("id, code").in("id", unitIds),
@@ -217,7 +248,7 @@ export const listAlphaGrantsFn = createServerFn({ method: "GET" })
 			userIds.filter((id) => !emailById.get(id))
 		)
 
-		return all
+		return annotateDenyImpact(all, graph)
 			.map((g) => ({
 				...g,
 				email: emailById.get(g.userId) || fallback.get(g.userId) || "",
@@ -231,6 +262,20 @@ export const listAlphaGrantsFn = createServerFn({ method: "GET" })
 			)
 	})
 
+/**
+ * Os bloqueios que alcançam a OM `unitId` sem estar gravados nela — os sem OM e os das OMs
+ * que a apoiam, transitivamente — das pessoas que já estão na lista (`own`).
+ */
+async function fetchInheritedDenies(
+	accessControl: AnySupabaseClient,
+	unitId: number,
+	own: readonly PartialGrant[],
+	graph: readonly UnitSupportEdge[]
+): Promise<PartialGrant[]> {
+	const scope: RowScope = { kind: "inheritedDenies", unitIds: supportingUnitsOf(unitId, graph), userIds: [...new Set(own.map((g) => g.userId))] }
+	const [inline, byPolicy] = await Promise.all([fetchInlineGrants(accessControl, scope), fetchPolicyGrants(accessControl, scope, "all")])
+	return [...inline, ...byPolicy]
+}
 /** Chamadas simultâneas ao GoTrue na busca de e-mail — o suficiente para a lista não esperar em fila, sem abrir uma conexão por pessoa. */
 const AUTH_LOOKUP_CONCURRENCY = 5
 
@@ -259,17 +304,37 @@ async function fetchEmailsFromAuth(core: AnySupabaseClient, userIds: readonly st
 	return found
 }
 
-type PartialGrant = Omit<AlphaGrant, "email" | "unitCode">
+type PartialGrant = Omit<AlphaGrant, "email" | "unitCode" | "denyImpact">
 
-async function fetchInlineGrants(accessControl: AnySupabaseClient, unitId: number | null): Promise<PartialGrant[]> {
+/**
+ * Que linhas ler:
+ *   - `unit`: as da OM aberta; `null` = todas as OMs e os globais (só o administrador global
+ *     chega aqui);
+ *   - `inheritedDenies`: só BLOQUEIOS, sem OM ou nas OMs `unitIds` (as apoiadoras da aberta),
+ *     e só das pessoas `userIds`.
+ */
+type RowScope = { kind: "unit"; unitId: number | null } | { kind: "inheritedDenies"; unitIds: readonly number[]; userIds: readonly string[] }
+
+/**
+ * Aplica o recorte de OM e de lado a uma query com `unit_id` e `level`. O filtro de pessoa
+ * fica com quem chama: no inline é coluna da própria linha; na política, do anexo.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: builder do PostgREST de qualquer tabela
+function applyRowScope<Q extends { eq: any; lte: any; is: any; or: any }>(query: Q, scope: RowScope): Q {
+	if (scope.kind === "unit") return scope.unitId === null ? query : query.eq("unit_id", scope.unitId)
+	const denies = query.lte("level", 0)
+	return scope.unitIds.length === 0 ? denies.is("unit_id", null) : denies.or(`unit_id.is.null,unit_id.in.(${scope.unitIds.join(",")})`)
+}
+
+async function fetchInlineGrants(accessControl: AnySupabaseClient, scope: RowScope): Promise<PartialGrant[]> {
 	let query = accessControl
 		.from("user_permissions")
 		.select("module, user_id, level, expires_at, unit_id")
 		.in("module", [...ALPHA_ADMIN_MODULES])
 		.is("kitchen_id", null)
 		.is("mess_hall_id", null)
-	// `null` = todas as OMs e os globais (só o administrador global chega aqui).
-	if (unitId !== null) query = query.eq("unit_id", unitId)
+	query = applyRowScope(query, scope)
+	if (scope.kind === "inheritedDenies") query = query.in("user_id", [...scope.userIds])
 
 	const { data, error } = await query
 	if (error) throw new Error(error.message)
@@ -282,18 +347,26 @@ async function fetchInlineGrants(accessControl: AnySupabaseClient, unitId: numbe
 			effect: partitionOfLevel(row.level),
 			expiresAt: row.expires_at,
 			source: "inline" as const,
+			inherited: scope.kind === "inheritedDenies",
 		})
 	)
 }
 
-async function fetchPolicyGrants(accessControl: AnySupabaseClient, unitId: number | null, coverage: UnitCoverage): Promise<PartialGrant[]> {
-	let statementQuery = accessControl
-		.from("policy_statement")
-		.select("policy_id, module, level, unit_id")
-		.in("module", [...ALPHA_ADMIN_MODULES])
-		.is("kitchen_id", null)
-		.is("mess_hall_id", null)
-	if (unitId !== null) statementQuery = statementQuery.eq("unit_id", unitId)
+/**
+ * `coverage` é a defesa em profundidade da lista da OM: nenhuma linha sai dela. Os bloqueios
+ * herdados passam `"all"` — eles estão fora da cobertura por definição, e o recorte que os
+ * limita é o de `RowScope` (só bloqueio, só os escopos que alcançam a OM, só quem está na lista).
+ */
+async function fetchPolicyGrants(accessControl: AnySupabaseClient, scope: RowScope, coverage: UnitCoverage): Promise<PartialGrant[]> {
+	const statementQuery = applyRowScope(
+		accessControl
+			.from("policy_statement")
+			.select("policy_id, module, level, unit_id")
+			.in("module", [...ALPHA_ADMIN_MODULES])
+			.is("kitchen_id", null)
+			.is("mess_hall_id", null),
+		scope
+	)
 
 	const { data: statements, error: statementError } = await statementQuery
 	if (statementError) {
@@ -318,9 +391,10 @@ async function fetchPolicyGrants(accessControl: AnySupabaseClient, unitId: numbe
 	if (byKey.size === 0) return []
 
 	const ids = [...new Set([...byKey.values()].map((v) => v.policyId))]
+	const attachmentQuery = accessControl.from("user_policy_attachment").select("user_id, policy_id, expires_at").in("policy_id", ids)
 	const [policies, attachments] = await Promise.all([
 		accessControl.from("policy").select("id, name").in("id", ids).is("deleted_at", null),
-		accessControl.from("user_policy_attachment").select("user_id, policy_id, expires_at").in("policy_id", ids),
+		scope.kind === "inheritedDenies" ? attachmentQuery.in("user_id", [...scope.userIds]) : attachmentQuery,
 	])
 	if (policies.error) throw new Error(policies.error.message)
 	if (attachments.error) throw new Error(attachments.error.message)
@@ -340,6 +414,7 @@ async function fetchPolicyGrants(accessControl: AnySupabaseClient, unitId: numbe
 					expiresAt: row.expires_at,
 					source: "policy" as const,
 					policyName: nameById.get(row.policy_id),
+					inherited: scope.kind === "inheritedDenies",
 				}))
 		)
 }

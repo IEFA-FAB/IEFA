@@ -20,7 +20,6 @@ import {
 	type GrantAlphaRoleInput,
 	grantRowKey,
 	initialGrantUnit,
-	isAllowBlockedByDeny,
 	isExpiredGrant,
 	roleOfModule,
 	splitGrantsByEffect,
@@ -185,9 +184,19 @@ function GrantsList({
 								<GrantWho grant={grant} isSelf={isSelf} />
 								<div className="flex shrink-0 items-center gap-2">
 									{isExpiredGrant(grant) && <Badge variant="destructive">Expirado</Badge>}
-									{isAllowBlockedByDeny(grant, denies) && (
-										<Badge variant="destructive" title="Há um bloqueio vigente deste papel para esta pessoa — o acesso não vale enquanto ele existir">
+									{/* Calculado no servidor com a mesma regra da API do α: bloqueio global, na
+									    OM ou numa OM que a apoia anula; numa OM apoiada, não. */}
+									{grant.denyImpact === "full" && (
+										<Badge
+											variant="destructive"
+											title="Há um bloqueio vigente deste papel para esta pessoa que alcança esta OM — global, nela ou numa OM que a apoia. O acesso não vale enquanto ele existir"
+										>
 											Anulado por bloqueio
+										</Badge>
+									)}
+									{grant.denyImpact === "partial" && (
+										<Badge variant="destructive" title="Há bloqueio deste papel para esta pessoa em algumas OMs — nelas o acesso global não vale">
+											Recortado por bloqueio
 										</Badge>
 									)}
 									{byPolicy && <Badge variant="outline">Política</Badge>}
@@ -227,6 +236,8 @@ function GrantsList({
 						</h3>
 						<p className="text-muted-foreground text-sm">
 							Um bloqueio anula o papel para a pessoa mesmo que haja acesso concedido, inclusive o concedido aqui.{" "}
+							{denies.some((grant) => grant.inherited) &&
+								"Herdado é o bloqueio global ou de uma OM que apoia esta: gravado fora daqui, ele alcança os acessos desta OM. "}
 							{isGlobalAdmin
 								? "Retirar o bloqueio não remove o acesso do mesmo papel, e revogar o acesso não retira o bloqueio."
 								: "Só um administrador global retira um bloqueio — aqui ele aparece para consulta."}
@@ -241,8 +252,21 @@ function GrantsList({
 									<GrantWho grant={grant} isSelf={grant.userId === currentUserId} />
 									<div className="flex shrink-0 items-center gap-2">
 										{isExpiredGrant(grant) && <Badge variant="outline">Expirado — não bloqueia mais</Badge>}
+										{grant.inherited && (
+											<Badge
+												variant="outline"
+												title={
+													grant.unitId === null
+														? "Bloqueio global do papel — vale também nesta OM"
+														: "Bloqueio numa OM que apoia esta — o bloqueio da apoiadora vale também para as OMs que ela apoia"
+												}
+											>
+												Herdado
+											</Badge>
+										)}
 										{byPolicy && <Badge variant="outline">Política</Badge>}
-										<UnitBadge grant={grant} showUnit={showUnit} />
+										{/* O herdado não é desta OM: mostra de onde ele vem. */}
+										<UnitBadge grant={grant} showUnit={showUnit || grant.inherited} />
 										<Badge variant="destructive">
 											<Prohibition aria-hidden="true" />
 											Bloqueio de {moduleLabel(grant.module)}
@@ -258,7 +282,9 @@ function GrantsList({
 												title={
 													byPolicy
 														? "Bloqueio vindo de política — desanexe a política para retirá-lo"
-														: "Retirar o bloqueio — o acesso do mesmo papel, se houver, continua"
+														: grant.inherited
+															? `Retirar o bloqueio ${grant.unitId === null ? "global" : `em ${grant.unitCode ?? `OM ${grant.unitId}`}`} — sai de lá, e não só desta OM; o acesso do mesmo papel, se houver, continua`
+															: "Retirar o bloqueio — o acesso do mesmo papel, se houver, continua"
 												}
 											>
 												<LockSlash className="size-4" aria-hidden="true" />

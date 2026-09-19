@@ -5,7 +5,19 @@
  */
 
 import type { UnitOption } from "@iefa/alpha-client/access"
-import { assertGrantable, type ChangeModulePermissionInput, touchesDenyPartition, type UnitCoverage } from "@iefa/pbac"
+import {
+	assertGrantable,
+	type ChangeModulePermissionInput,
+	coversUnit,
+	isEmptyCoverage,
+	needsSupportGraph,
+	resolveEffectivePermissions,
+	resolveModuleUnitCoverage,
+	touchesDenyPartition,
+	type UnitCoverage,
+	type UnitSupportEdge,
+	type UserPermission,
+} from "@iefa/pbac"
 import { z } from "zod"
 
 /** Os papéis do α e o grant de cada um: módulo PBAC e o ÚNICO nível que ele usa. */
@@ -157,6 +169,7 @@ export interface GrantRowLike {
 	userId: string
 	module: AlphaAdminModule
 	unitId: number | null
+	level: number
 	policyName?: string
 	expiresAt: string | null
 }
@@ -182,19 +195,122 @@ export function splitGrantsByEffect<T extends GrantRowLike>(grants: readonly T[]
 }
 
 /**
- * Um bloqueio VIVO desta lista anula o acesso? O da mesma chave (pessoa, papel, OM) e o
- * global do papel (deny sem OM derruba o papel inteiro). Só o que está na lista: um
- * bloqueio fora dela (global, na lista de uma OM só) não aparece aqui.
+ * Quanto os bloqueios da pessoa tiram de UM acesso:
+ *   - `none`    — o acesso vale onde foi concedido;
+ *   - `full`    — não vale em lugar nenhum (a OM dele está bloqueada; no global, todas);
+ *   - `partial` — só no acesso GLOBAL: vale, menos nas OMs bloqueadas.
+ *
+ * Um acesso numa OM é `none` ou `full`: o que se pergunta é se a PRÓPRIA OM segue coberta.
+ * Um bloqueio numa OM que ela apoia recorta o alcance dele lá embaixo, mas não o anula.
  */
-export function isAllowBlockedByDeny(allow: GrantRowLike, denies: readonly GrantRowLike[], now: number = Date.now()): boolean {
-	return denies.some(
-		(deny) =>
-			deny.effect === "deny" &&
-			deny.userId === allow.userId &&
-			deny.module === allow.module &&
-			(deny.unitId === null || deny.unitId === allow.unitId) &&
-			!isExpiredGrant(deny, now)
-	)
+export type DenyImpact = "none" | "partial" | "full"
+
+/** O acesso cujo efeito se confere: papel (módulo), nível e OM (`null` = global). */
+export type AllowUnderCheck = { module: AlphaAdminModule; level: number; unitId: number | null }
+
+function toUserPermission(allow: AllowUnderCheck): UserPermission {
+	return { module: allow.module, level: allow.level, unit_id: allow.unitId, kitchen_id: null, mess_hall_id: null }
+}
+
+/** Os bloqueios do papel no conjunto — o que pode recortar o acesso. */
+function denyEntriesOf(module: AlphaAdminModule, permissions: readonly UserPermission[]): UserPermission[] {
+	return permissions.filter((p) => p.module === module && p.level <= 0)
+}
+
+/**
+ * O cálculo de {@link denyImpactOnAllow} precisa do grafo de apoio? Só quando há bloqueio
+ * do papel E alguma das linhas envolvidas tem OM — quem não tem bloqueio não paga a leitura.
+ */
+export function denyImpactNeedsGraph(allow: AllowUnderCheck, permissions: readonly UserPermission[]): boolean {
+	const denies = denyEntriesOf(allow.module, permissions)
+	return denies.length > 0 && needsSupportGraph([toUserPermission(allow), ...denies], [allow.module])
+}
+
+/**
+ * Os bloqueios de `permissions` anulam este acesso?
+ *
+ * A decisão é a MESMA que a API do α toma ao resolver o papel (`resolveAlphaAccess`): a
+ * precedência de deny de `resolveEffectivePermissions` e a cobertura por OM de
+ * `resolveModuleUnitCoverage`, com o deny escopado expandindo pela hierarquia de apoio.
+ * Por isso a tela não adivinha a partir de uma linha só:
+ *   - bloqueio sem OM derruba o papel em todo lugar;
+ *   - bloqueio numa OM APOIADORA derruba também as que ela apoia (deny no GAP-SJ anula o
+ *     acesso no IAE);
+ *   - bloqueio numa OM APOIADA não anula o acesso na apoiadora — só recorta o alcance.
+ *
+ * Só o acesso conferido e os bloqueios do papel entram no cálculo: deny vence allow venha
+ * de onde vier, então "a OM do acesso segue coberta" é o mesmo que "nenhum bloqueio a
+ * alcança", tenha a pessoa outros acessos do papel ou não.
+ *
+ * `permissions` são as VIVAS da pessoa, de qualquer origem (inline e política) — vencido é
+ * ausência e não pode entrar aqui. `graph` só pode ser `null` quando
+ * {@link denyImpactNeedsGraph} é `false`.
+ */
+export function denyImpactOnAllow(allow: AllowUnderCheck, permissions: readonly UserPermission[], graph: readonly UnitSupportEdge[] | null): DenyImpact {
+	if (allow.level <= 0) throw new Error("denyImpactOnAllow: a linha conferida é um bloqueio, não um acesso")
+	const denies = denyEntriesOf(allow.module, permissions)
+	if (denies.length === 0) return "none"
+
+	const effective = resolveEffectivePermissions([toUserPermission(allow)], denies)
+	const coverage = resolveModuleUnitCoverage(effective, allow.module, graph, allow.level)
+
+	if (allow.unitId !== null) return coversUnit(coverage, allow.unitId) ? "none" : "full"
+	if (coverage === "all") return "none"
+	return isEmptyCoverage(coverage) ? "full" : "partial"
+}
+
+/** Uma linha da lista no formato do PBAC — para a resolução, a origem (inline/política) não importa. */
+function rowToUserPermission(row: GrantRowLike): UserPermission {
+	return { module: row.module, level: row.level, unit_id: row.unitId, kitchen_id: null, mess_hall_id: null }
+}
+
+/**
+ * Marca cada linha da lista com o efeito dos bloqueios sobre ela ({@link denyImpactOnAllow}),
+ * a partir das OUTRAS linhas da mesma pessoa e do mesmo papel — inline e de política. Bloqueio
+ * vencido não conta (é ausência); acesso vencido e bloqueio saem `none` (o vencido já tem a
+ * marca própria).
+ *
+ * A lista precisa trazer os bloqueios que alcançam o que está na tela — os sem OM e os das
+ * OMs apoiadoras, e não só os da OM aberta (`listAlphaGrantsFn`). `graph` é o grafo de apoio
+ * inteiro.
+ */
+export function annotateDenyImpact<T extends GrantRowLike>(
+	grants: readonly T[],
+	graph: readonly UnitSupportEdge[],
+	now: number = Date.now()
+): Array<T & { denyImpact: DenyImpact }> {
+	const liveDenies = new Map<string, UserPermission[]>()
+	for (const grant of grants) {
+		if (grant.effect !== "deny" || isExpiredGrant(grant, now)) continue
+		const key = `${grant.userId}:${grant.module}`
+		const list = liveDenies.get(key) ?? []
+		list.push(rowToUserPermission(grant))
+		liveDenies.set(key, list)
+	}
+
+	return grants.map((grant) => {
+		if (grant.effect !== "allow" || isExpiredGrant(grant, now)) return { ...grant, denyImpact: "none" as const }
+		const denies = liveDenies.get(`${grant.userId}:${grant.module}`) ?? []
+		return { ...grant, denyImpact: denyImpactOnAllow(grant, denies, graph) }
+	})
+}
+
+/**
+ * As OMs que apoiam esta, transitivamente, sem ela mesma: o caminho de
+ * `supporting_unit_id` acima. Um bloqueio em qualquer uma delas alcança esta OM. O
+ * conjunto visitado corta ciclo.
+ */
+export function supportingUnitsOf(unitId: number, graph: readonly UnitSupportEdge[]): number[] {
+	const supporterOf = new Map(graph.map((edge) => [edge.id, edge.supporting_unit_id]))
+	const chain: number[] = []
+	const seen = new Set<number>([unitId])
+	let current = supporterOf.get(unitId) ?? null
+	while (current !== null && !seen.has(current)) {
+		seen.add(current)
+		chain.push(current)
+		current = supporterOf.get(current) ?? null
+	}
+	return chain
 }
 
 /**
