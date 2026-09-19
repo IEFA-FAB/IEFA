@@ -129,7 +129,7 @@ describe("agregação da lista de pessoas no auge (1000 pessoas)", () => {
 			["última página (25 por página)", { ...base, page: 40, size: 25 }],
 		]
 		const measured = scenarios.map(([label, query]) => {
-			const run = time(() => queryPeople(people, query, NOW))
+			const run = time(() => queryPeople(people, query, GRAPH, NOW))
 			return { label, ms: run.ms, total: run.value.total, rows: run.value.rows.length, bytes: JSON.stringify(run.value.rows).length }
 		})
 

@@ -24,6 +24,7 @@ import {
 	type DenyImpact,
 	type GrantEffect,
 	isExpiredGrant,
+	supportingUnitsOf,
 	todayInBrasilia,
 } from "./admin-access"
 
@@ -191,6 +192,16 @@ export function aggregatePeople(
 	return people
 }
 
+/**
+ * De onde um bloqueio vale, lido do ESCOPO dele — nunca de quem olha. `inherited` só diz que
+ * ele foi gravado fora das OMs listadas; para o administrador global nada é herdado, e o
+ * bloqueio sem OM tem de continuar dizendo que vale em todas as OMs.
+ */
+export function denyScopeLabel(deny: Pick<AlphaGrant, "unitId" | "inherited">): string {
+	if (deny.unitId === null) return "Vale em todas as OMs"
+	return deny.inherited ? "Herdado de uma OM que apoia: vale nela e nas que ela apoia" : "Vale nesta OM e nas que ela apoia"
+}
+
 /** Os acessos de uma pessoa agrupados por OM (global primeiro) — as fichas da linha. */
 export type UnitRoleGroup = { unitId: number | null; unitCode: string | null; grants: AlphaGrant[] }
 
@@ -264,13 +275,34 @@ function matchesUnit(grant: AlphaGrant, unit: UnitFilter | undefined): boolean {
 }
 
 /**
+ * O bloqueio alcança o recorte de OM do filtro? A MESMA regra de cobertura do PBAC (e do selo
+ * "Anulado por bloqueio", `denyImpactOnAllow`): o bloqueio sem OM alcança todas; o de uma OM
+ * alcança ela e as que ela apoia, transitivamente — então alcança a OM filtrada quando é ela
+ * ou uma apoiadora dela. O inverso não vale: bloqueio numa apoiada não alcança a apoiadora.
+ *
+ * "Só global": qualquer bloqueio vivo recorta o acesso global (em parte das OMs, ao menos).
+ */
+export function denyReachesUnitFilter(deny: Pick<AlphaGrant, "unitId">, unit: UnitFilter, graph: readonly UnitSupportEdge[]): boolean {
+	if (unit === "global" || deny.unitId === null || deny.unitId === unit) return true
+	return supportingUnitsOf(unit, graph).includes(deny.unitId)
+}
+
+/**
  * A pessoa passa pelos filtros de papel, OM e situação? Papel e OM recortam as LINHAS
  * consideradas; a situação é conferida só nelas — "anulado" com papel ACI é "algum acesso de
  * ACI anulado", e não "anulado em qualquer papel, e tem ACI".
  *
- * Um bloqueio sem OM alcança qualquer OM, então conta no filtro de OM para "bloqueado".
+ * "Com bloqueio" com filtro de OM conta todo bloqueio que ALCANÇA a OM pela hierarquia de
+ * apoio ({@link denyReachesUnitFilter}), e não só o gravado nela: sem isso, quem tem acesso
+ * numa apoiada e bloqueio na apoiadora mostrava o selo e sumia do filtro. `graph` é o grafo
+ * de apoio inteiro.
  */
-export function personMatches(person: AlphaPerson, query: Pick<PeopleQuery, "q" | "role" | "unit" | "status">, now: number = Date.now()): boolean {
+export function personMatches(
+	person: AlphaPerson,
+	query: Pick<PeopleQuery, "q" | "role" | "unit" | "status">,
+	graph: readonly UnitSupportEdge[],
+	now: number = Date.now()
+): boolean {
 	if (!matchesSearch(person, query.q)) return false
 	if (query.role === undefined && query.unit === undefined && query.status === undefined) return true
 
@@ -281,7 +313,8 @@ export function personMatches(person: AlphaPerson, query: Pick<PeopleQuery, "q" 
 	if (query.status === undefined) return true
 
 	if (query.status === "bloqueado") {
-		const reaching = query.unit === undefined ? byRole : byRole.filter((grant) => matchesUnit(grant, query.unit) || grant.unitId === null)
+		const unit = query.unit
+		const reaching = unit === undefined ? byRole : byRole.filter((grant) => grant.effect === "deny" && denyReachesUnitFilter(grant, unit, graph))
 		return summarizeStatus(reaching, now).blocked
 	}
 	const status = summarizeStatus(scoped, now)
@@ -341,9 +374,21 @@ export function pageInfo(total: number, page: number, size: number): PageInfo {
 
 export type PeoplePage = PageInfo & { rows: AlphaPerson[] /** Pessoas no escopo, antes de busca e filtros. */; grandTotal: number }
 
+/**
+ * A lista precisa do e-mail de TODO mundo antes de filtrar? Só com termo de busca: o e-mail
+ * entra no texto buscado, e quem não tem linha em `core.user_data` só tem e-mail no GoTrue.
+ * Sem busca, o e-mail é só exibição, e basta resolvê-lo para a página. Qualquer termo — não só
+ * o que "parece e-mail" —, porque "fulano" também é busca por e-mail. A ordem por nome de quem
+ * não tem nome nem e-mail no cadastro usa o id até o e-mail chegar (caso raro: grant sem
+ * cadastro, de antes da busca de candidatos exigir a linha).
+ */
+export function needsEmailsForSearch(query: Pick<PeopleQuery, "q">): boolean {
+	return (query.q ?? "").trim().length > 0
+}
+
 /** Busca, filtra, ordena e pagina. O total é o do recorte filtrado; `grandTotal`, o do escopo. */
-export function queryPeople(people: readonly AlphaPerson[], query: PeopleQuery, now: number = Date.now()): PeoplePage {
-	const filtered = people.filter((person) => personMatches(person, query, now))
+export function queryPeople(people: readonly AlphaPerson[], query: PeopleQuery, graph: readonly UnitSupportEdge[], now: number = Date.now()): PeoplePage {
+	const filtered = people.filter((person) => personMatches(person, query, graph, now))
 	const sorted = sortPeople(filtered, query.sort, query.dir)
 	const info = pageInfo(sorted.length, query.page, query.size)
 	return { ...info, rows: sorted.slice(info.from === 0 ? 0 : info.from - 1, info.to), grandTotal: people.length }

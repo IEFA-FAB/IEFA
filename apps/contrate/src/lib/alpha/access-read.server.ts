@@ -17,6 +17,7 @@
 import { partitionOfLevel, type UnitCoverage } from "@iefa/pbac"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { ALPHA_ADMIN_MODULES, type AlphaAdminModule, canListGrants, type GrantEffect } from "./admin-access"
+import { createTtlCache, mapWithConcurrency } from "./concurrency"
 import { type AlphaGrant, isAuditVisible, type PersonIdentity, toUnitIdOrNull } from "./people"
 
 // biome-ignore lint/suspicious/noExplicitAny: aceita qualquer schema de SupabaseClient, como no @iefa/pbac
@@ -238,21 +239,51 @@ export async function fetchGrants(accessControl: AnySupabaseClient, scope: Grant
 const AUTH_LOOKUP_CONCURRENCY = 5
 
 /**
- * E-mail pela API de administração do GoTrue, para quem ainda não tem linha em
- * `core.user_data` (a linha nasce no login do sisub). Só leitura, em lotes.
+ * E-mail do GoTrue por pessoa, em memória do processo por 5 minutos: a busca com espera na
+ * tela dispara uma requisição a cada pausa de digitação, e o e-mail de uma conta não muda
+ * nesse intervalo. Só memória (nada gravado), com teto de entradas. `""` = conta sem e-mail
+ * (ou inexistente), também guardado para não ser perguntado de novo a cada tecla.
  */
-async function fetchEmailsFromAuth(core: AnySupabaseClient, userIds: readonly string[]): Promise<Map<string, string>> {
+const AUTH_EMAIL_CACHE = createTtlCache<string>({ ttlMs: 5 * 60_000, maxEntries: 5000 })
+
+/**
+ * E-mail pela API de administração do GoTrue, para quem ainda não tem linha em
+ * `core.user_data` (a linha nasce no login do sisub). Só leitura, com no máximo
+ * {@link AUTH_LOOKUP_CONCURRENCY} chamadas ao mesmo tempo, e o que já está no cache não sai
+ * de novo. Falha de uma chamada não é guardada — a próxima requisição tenta de novo.
+ */
+export async function fetchEmailsFromAuth(
+	core: AnySupabaseClient,
+	userIds: readonly string[],
+	cache: Pick<ReturnType<typeof createTtlCache<string>>, "get" | "set"> = AUTH_EMAIL_CACHE
+): Promise<Map<string, string>> {
 	const found = new Map<string, string>()
-	for (const batch of chunk(userIds, AUTH_LOOKUP_CONCURRENCY)) {
-		const resolved = await Promise.all(
-			batch.map(async (id) => {
-				const { data, error } = await core.auth.admin.getUserById(id)
-				return [id, error ? "" : (data.user?.email ?? "")] as const
-			})
-		)
-		for (const [id, email] of resolved) if (email !== "") found.set(id, email)
+	const pending: string[] = []
+	for (const id of new Set(userIds)) {
+		const cached = cache.get(id)
+		if (cached === undefined) pending.push(id)
+		else if (cached !== "") found.set(id, cached)
 	}
+	await mapWithConcurrency(pending, AUTH_LOOKUP_CONCURRENCY, async (id) => {
+		const { data, error } = await core.auth.admin.getUserById(id)
+		if (error) return
+		const email = data.user?.email ?? ""
+		cache.set(id, email)
+		if (email !== "") found.set(id, email)
+	})
 	return found
+}
+
+/**
+ * Preenche pelo GoTrue o e-mail de quem veio sem (sem linha em `core.user_data`) — só nas
+ * pessoas pedidas, normalmente as da PÁGINA. A lista não paga a busca de mil contas a cada
+ * tecla, filtro ou página.
+ */
+export async function withAuthEmails<T extends { userId: string; email: string }>(core: AnySupabaseClient, people: readonly T[]): Promise<T[]> {
+	const missing = people.filter((person) => person.email === "").map((person) => person.userId)
+	if (missing.length === 0) return [...people]
+	const emails = await fetchEmailsFromAuth(core, missing)
+	return people.map((person) => (person.email === "" && emails.has(person.userId) ? { ...person, email: emails.get(person.userId) ?? "" } : person))
 }
 
 /** O nome de exibição do ERP só vale como nome quando não é o próprio e-mail (a view cai nele sem cadastro militar). */
@@ -264,8 +295,15 @@ export function identityName(displayName: string | null | undefined, email: stri
 /**
  * Quem é cada pessoa: e-mail e Nr. de ordem (`core.user_data`), e posto + nome de guerra
  * (`core.v_user_identity`, a mesma identificação do sisub). Em lotes de {@link ID_CHUNK}.
+ *
+ * `resolveMissingEmails: false` deixa sem e-mail quem não tem linha em `core.user_data`, em
+ * vez de perguntar ao GoTrue — a lista resolve depois, só para a página ({@link withAuthEmails}).
  */
-export async function fetchIdentities(core: AnySupabaseClient, userIds: readonly string[]): Promise<Map<string, PersonIdentity>> {
+export async function fetchIdentities(
+	core: AnySupabaseClient,
+	userIds: readonly string[],
+	{ resolveMissingEmails = true }: { resolveMissingEmails?: boolean } = {}
+): Promise<Map<string, PersonIdentity>> {
 	const ids = [...new Set(userIds)]
 	const chunks = chunk(ids)
 	const [users, names] = await Promise.all([
@@ -289,7 +327,8 @@ export async function fetchIdentities(core: AnySupabaseClient, userIds: readonly
 	}
 
 	const missing = ids.filter((id) => !identities.get(id)?.email)
-	if (missing.length > 0) {
+	for (const id of missing) if (!identities.has(id)) identities.set(id, { email: "", name: null, nrOrdem: null })
+	if (resolveMissingEmails && missing.length > 0) {
 		const fallback = await fetchEmailsFromAuth(core, missing)
 		for (const id of missing) {
 			const email = fallback.get(id) ?? ""

@@ -66,6 +66,7 @@ import {
 	fetchUnitCodes,
 	type PartialGrant,
 	searchPeopleCandidates,
+	withAuthEmails,
 } from "@/lib/alpha/access-read.server"
 import {
 	ALPHA_GRANT_ROLES,
@@ -95,6 +96,7 @@ import {
 	inheritedDenyUnits,
 	isAuditVisible,
 	listingUnits,
+	needsEmailsForSearch,
 	type PeoplePage,
 	PeopleQuerySchema,
 	type PersonIdentity,
@@ -382,13 +384,16 @@ export const listAlphaPeopleFn = createServerFn({ method: "GET" })
 		const grants = await loadAnnotatedGrants(coverage, units, graph)
 		const userIds = [...new Set(grants.map((grant) => grant.userId))]
 
-		// A ordem por alteração precisa da data de TODO mundo; a por nome, só da página.
+		// A ordem por alteração precisa da data de TODO mundo; a por nome, só da página. O e-mail
+		// do GoTrue (quem não tem `core.user_data`) só para todos quando há busca; senão, só a página.
+		const searchesEmails = needsEmailsForSearch(data)
 		const [identities, allChanges] = await Promise.all([
-			fetchIdentities(getCoreReadClient(), userIds),
+			fetchIdentities(getCoreReadClient(), userIds, { resolveMissingEmails: searchesEmails }),
 			data.sort === "recent" && userIds.length > 0 ? fetchLastChanges(getAccessControlClient(), "all", coverage) : Promise.resolve(null),
 		])
-		const page = queryPeople(aggregatePeople(grants, identities, allChanges, now), data, now)
+		const page = queryPeople(aggregatePeople(grants, identities, allChanges, now), data, graph, now)
 
+		if (!searchesEmails) page.rows = await withAuthEmails(getCoreReadClient(), page.rows)
 		if (allChanges === null && page.rows.length > 0) {
 			const changes = await fetchLastChanges(
 				getAccessControlClient(),

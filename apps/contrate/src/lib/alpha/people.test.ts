@@ -8,10 +8,13 @@ import {
 	auditActionOf,
 	civilDaysUntil,
 	compareGrants,
+	denyReachesUnitFilter,
+	denyScopeLabel,
 	groupAllowsByUnit,
 	inheritedDenyUnits,
 	isAuditVisible,
 	listingUnits,
+	needsEmailsForSearch,
 	normalizeText,
 	type PeopleQuery,
 	PeopleQuerySchema,
@@ -157,7 +160,7 @@ describe("personMatches (busca e filtros)", () => {
 		grant({ userId: "caio", unitId: null, module: "alpha-admin", level: 3 }),
 		grant({ userId: "caio", unitId: 10, module: "alpha-procurement", expiresAt: new Date(NOW - DAY).toISOString() }),
 	])
-	const ids = (query: Partial<PeopleQuery>) => list.filter((p) => personMatches(p, { ...BASE_QUERY, ...query }, NOW)).map((p) => p.userId)
+	const ids = (query: Partial<PeopleQuery>) => list.filter((p) => personMatches(p, { ...BASE_QUERY, ...query }, GRAPH, NOW)).map((p) => p.userId)
 
 	test("busca por nome sem acento, e-mail e Nr. de ordem; todos os termos precisam casar", () => {
 		expect(ids({ q: "ana souza" })).toEqual(["ana"])
@@ -188,7 +191,7 @@ describe("personMatches (busca e filtros)", () => {
 
 	test("bloqueio sem OM conta no filtro de OM para 'bloqueado'", () => {
 		const [dan] = people([grant({ userId: "ana", unitId: 100 }), grant({ userId: "ana", unitId: null, effect: "deny", inherited: true })])
-		expect(personMatches(dan as AlphaPerson, { ...BASE_QUERY, unit: 100, status: "bloqueado" }, NOW)).toBe(true)
+		expect(personMatches(dan as AlphaPerson, { ...BASE_QUERY, unit: 100, status: "bloqueado" }, GRAPH, NOW)).toBe(true)
 	})
 })
 
@@ -224,11 +227,11 @@ describe("sortPeople e paginação", () => {
 			null,
 			NOW
 		)
-		const page = queryPeople(many, { ...BASE_QUERY, page: 2, size: 50 }, NOW)
+		const page = queryPeople(many, { ...BASE_QUERY, page: 2, size: 50 }, GRAPH, NOW)
 		expect(page.rows).toHaveLength(50)
 		expect(page.rows[0]?.userId).toBe("u050")
 		expect(page).toMatchObject({ total: 130, grandTotal: 130, page: 2, pageCount: 3, from: 51, to: 100 })
-		const filtered = queryPeople(many, { ...BASE_QUERY, q: "u12", size: 25 }, NOW)
+		const filtered = queryPeople(many, { ...BASE_QUERY, q: "u12", size: 25 }, GRAPH, NOW)
 		expect(filtered).toMatchObject({ total: 10, grandTotal: 130, pageCount: 1 })
 	})
 })
@@ -384,5 +387,55 @@ describe("civilDaysUntil", () => {
 		expect(civilDaysUntil("2026-10-09T23:59:59.999-03:00", lateEvening)).toBe(20)
 		expect(civilDaysUntil("2026-09-19T23:59:59.999-03:00", lateEvening)).toBe(0)
 		expect(civilDaysUntil("2026-09-20T23:59:59.999-03:00", lateEvening)).toBe(1)
+	})
+})
+
+describe("filtro 'Com bloqueio' segue a hierarquia de apoio", () => {
+	// Página do GAP-SJ; filtro na IEFA-SJ (102), apoiada pelo DCTA (101), apoiado pelo GAP-SJ (26).
+	const [person] = people([grant({ userId: "ana", unitId: 102 }), grant({ userId: "ana", unitId: 26, effect: "deny" })])
+	const blocked = (unit: PeopleQuery["unit"]) => personMatches(person as AlphaPerson, { ...BASE_QUERY, unit, status: "bloqueado" }, GRAPH, NOW)
+
+	test("bloqueio na apoiadora alcança a apoiada: aparece no filtro, como o selo já mostrava", () => {
+		// O selo (a conta do α) diz que o acesso na IEFA-SJ está anulado...
+		expect(person?.status).toMatchObject({ blocked: true, annulled: true })
+		expect(person?.grants.find((g) => g.effect === "allow")?.denyImpact).toBe("full")
+		// ...e o filtro concorda.
+		expect(blocked(102)).toBe(true)
+	})
+
+	test("bloqueio numa apoiada NÃO alcança a apoiadora", () => {
+		const [bia] = people([grant({ userId: "bia", unitId: 26 }), grant({ userId: "bia", unitId: 102, effect: "deny" })])
+		expect(personMatches(bia as AlphaPerson, { ...BASE_QUERY, unit: 26, status: "bloqueado" }, GRAPH, NOW)).toBe(false)
+		expect(bia?.grants.find((g) => g.effect === "allow")?.denyImpact).toBe("none")
+	})
+
+	test("denyReachesUnitFilter: sem OM, a própria, a apoiadora transitiva; 'Só global' conta qualquer bloqueio", () => {
+		expect(denyReachesUnitFilter({ unitId: null }, 102, GRAPH)).toBe(true)
+		expect(denyReachesUnitFilter({ unitId: 102 }, 102, GRAPH)).toBe(true)
+		expect(denyReachesUnitFilter({ unitId: 101 }, 102, GRAPH)).toBe(true)
+		expect(denyReachesUnitFilter({ unitId: 26 }, 102, GRAPH)).toBe(true)
+		expect(denyReachesUnitFilter({ unitId: 100 }, 102, GRAPH)).toBe(false)
+		expect(denyReachesUnitFilter({ unitId: 102 }, 26, GRAPH)).toBe(false)
+		expect(denyReachesUnitFilter({ unitId: 10 }, "global", GRAPH)).toBe(true)
+	})
+})
+
+describe("denyScopeLabel: o escopo do bloqueio, não quem olha", () => {
+	test("bloqueio sem OM vale em todas as OMs, herdado ou não (para o global nada é herdado)", () => {
+		expect(denyScopeLabel({ unitId: null, inherited: false })).toBe("Vale em todas as OMs")
+		expect(denyScopeLabel({ unitId: null, inherited: true })).toBe("Vale em todas as OMs")
+	})
+
+	test("bloqueio de OM: nela e nas apoiadas; o herdado diz de onde vem", () => {
+		expect(denyScopeLabel({ unitId: 26, inherited: false })).toBe("Vale nesta OM e nas que ela apoia")
+		expect(denyScopeLabel({ unitId: 26, inherited: true })).toContain("Herdado de uma OM que apoia")
+	})
+})
+
+describe("needsEmailsForSearch", () => {
+	test("só com termo de busca a lista resolve o e-mail de todos", () => {
+		expect(needsEmailsForSearch({})).toBe(false)
+		expect(needsEmailsForSearch({ q: "   " })).toBe(false)
+		expect(needsEmailsForSearch({ q: "fulano" })).toBe(true)
 	})
 })

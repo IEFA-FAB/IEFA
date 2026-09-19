@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/toast"
 import { canChangeOwnAccess, grantRowKey, isExpiredGrant, ROLE_INFO, roleOfModule, splitGrantsByEffect } from "@/lib/alpha/admin-access"
 import { formatDate, formatDateTime } from "@/lib/alpha/format"
-import { type AlphaGrant, type AuditEntry, personLabel } from "@/lib/alpha/people"
+import { type AlphaGrant, type AuditEntry, denyScopeLabel, personLabel } from "@/lib/alpha/people"
 import { cn } from "@/lib/utils"
 import { fetchAlphaPersonFn, type PersonDetail, revokeAlphaPermissionFn, setAlphaCopilotBlockFn } from "@/server/access.fn"
 import { GrantRolesForm, invalidateAccessQueries } from "./GrantRolesForm"
@@ -298,13 +298,7 @@ function Grants({ detail, currentUserId, isGlobalAdmin }: { detail: PersonDetail
 											</span>
 										</span>
 										<span className="text-muted-foreground text-xs">
-											{expired
-												? "Vencido: não bloqueia mais"
-												: grant.inherited
-													? grant.unitId === null
-														? "Herdado: vale em todas as OMs"
-														: "Herdado de uma OM que apoia"
-													: "Nesta OM"}
+											{expired ? "Vencido: não bloqueia mais" : denyScopeLabel(grant)}
 											{byPolicy ? ` · pela política “${grant.policyName}”` : ""}
 										</span>
 									</div>

@@ -89,8 +89,17 @@ describe("leituras", () => {
 
 	test("a lista devolve só a página, nunca todas as linhas", () => {
 		const chunk = handlers.find((c) => nameOf(c) === "listAlphaPeopleFn") ?? ""
-		expect(chunk).toMatch(/queryPeople\(aggregatePeople\(grants, identities, allChanges, now\), data, now\)/)
+		expect(chunk).toMatch(/queryPeople\(aggregatePeople\(grants, identities, allChanges, now\), data, graph, now\)/)
 		expect(chunk).toMatch(/return \{ \.\.\.page, units \}/)
+	})
+
+	// O GoTrue (e-mail de quem não tem `core.user_data`) não é consultado para a lista inteira a
+	// cada tecla, filtro ou página: só com busca (o e-mail é texto buscado), e senão só na página.
+	test("a lista só resolve e-mail no GoTrue para a página, salvo quando há busca", () => {
+		const chunk = handlers.find((c) => nameOf(c) === "listAlphaPeopleFn") ?? ""
+		expect(chunk).toMatch(/fetchIdentities\(getCoreReadClient\(\), userIds, \{ resolveMissingEmails: searchesEmails \}\)/)
+		expect(chunk).toMatch(/if \(!searchesEmails\) page\.rows = await withAuthEmails\(getCoreReadClient\(\), page\.rows\)/)
+		expect(READS).toMatch(/mapWithConcurrency\(pending, AUTH_LOOKUP_CONCURRENCY/)
 	})
 
 	test("a trilha de auditoria é recortada à administração de quem pede", () => {
