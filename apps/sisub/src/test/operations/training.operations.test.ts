@@ -99,6 +99,11 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	"inventory.count_scope_item":
 		"escopo materializado da contagem física — documento operacional de estoque, fora do escopo de treino, e seus lançamentos ficam no ledger",
 	"gs1_integration.gtin_alias": "catálogo compartilhado (GTIN aprendido na conferência); não é dado operacional da cozinha de treino",
+	// `alpha.submission` — migration 20260918123000 (OM da submissão do Projeto α). Declarada
+	// DEPOIS de aplicada, por erro de ordem; este PR é o remédio. O α é outro app: o Conjunto
+	// Treino não concede nenhum módulo `alpha-*`, e o α recusa a unidade de treino como OM de
+	// envio, então o treinando do sisub não gera linha aqui.
+	"alpha.submission": "documento de contratação real enviado ao Projeto α (ETP/TR), não dado gerado pelo treinamento do sisub",
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */
