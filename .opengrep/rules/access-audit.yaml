@@ -108,4 +108,6 @@ rules:
         - "apps/sisub/src/test/access-fixture-writer.ts"
         # Faxina de fixture vazada (roda contra produção, com teto e dry-run).
         - "apps/sisub/scripts/purge-test-fixtures.ts"
+        # Contrato textual das migrations: LÊ os nomes no SQL, não os escreve.
+        - "packages/database/src/access-audit.sql-contract.test.ts"
     pattern-regex: iefa\.audit_(bypass|operation)
