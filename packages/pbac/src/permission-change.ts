@@ -2,7 +2,7 @@
  * Conceder e revogar grant inline COM auditoria — atômico, numa transação do banco.
  *
  * Chama `access_control.change_module_permission` (migrations 20260918130335 e
- * 20260919005526), que grava o grant (ou apaga a partição da chave) e a linha de `access_control.sensitive_operation_log` na MESMA
+ * 20260919010255), que grava o grant (ou apaga a partição da chave) e a linha de `access_control.sensitive_operation_log` na MESMA
  * transação: ou os dois entram, ou nenhum. Gravar o log pelo app depois da escrita deixava
  * duas janelas — o log falhar com o grant já confirmado, e o beneficiário usar o acesso
  * antes de uma compensação que também podia falhar. Ver o cabeçalho da migration.
@@ -140,7 +140,7 @@ export function touchesDenyPartition(change: Pick<ChangeModulePermissionInput, "
  * Argumentos nomeados da RPC. Puro — é o mapeamento que o teste fixa.
  *
  * `p_partition` só vai no `revoke`: no `grant` a função a tira do nível, e omitir o argumento
- * mantém a concessão compatível com a assinatura anterior à 20260919005526.
+ * mantém a concessão compatível com a assinatura anterior à 20260919010255.
  */
 export function toPermissionChangeArgs(input: ChangeModulePermissionInput): Record<string, string | number | null> {
 	const args: Record<string, string | number | null> = {
@@ -195,7 +195,7 @@ export async function changeModulePermission(client: AnySupabaseClient, input: C
 	return {
 		logId: row.log_id,
 		action: row.action,
-		// Sem `partition` no corpo só a versão anterior à 20260919005526, que revogava a chave inteira.
+		// Sem `partition` no corpo só a versão anterior à 20260919010255, que revogava a chave inteira.
 		partition: row.partition ?? (input.action === "revoke" ? "all" : partitionOfLevel(input.level ?? 0)),
 		permissionId: row.permission_id ?? null,
 		previousLevel: row.previous_level ?? null,

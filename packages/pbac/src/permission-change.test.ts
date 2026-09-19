@@ -31,7 +31,7 @@ describe("toPermissionChangeArgs", () => {
 	})
 
 	// No grant a partição sai do nível; omitir o argumento mantém a concessão compatível com a
-	// assinatura anterior à 20260919005526.
+	// assinatura anterior à 20260919010255.
 	test("grant não envia p_partition, mesmo se o chamador a passar", () => {
 		const args = toPermissionChangeArgs({
 			actorId: ACTOR,
