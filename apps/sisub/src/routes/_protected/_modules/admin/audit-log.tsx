@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AUDIT_SOURCE_LABELS, describeAuditEntry, sourceOf, staticTitle } from "@/lib/audit-log/describe-entry"
+import { describeRequirement, type RegistryLookup } from "@/lib/audit-log/requirement-label"
 import { queryKeys } from "@/lib/query-keys"
 import { assuranceFor } from "@/server/assurance-registry"
 import { listSensitiveOperationNamesFn, listSensitiveOperationsFn, type SensitiveOperationRow } from "@/server/audit.fn"
@@ -49,6 +50,9 @@ function formatStamp(value: string) {
 function actorLabel(row: SensitiveOperationRow) {
 	return row.actor_email ?? row.actor_id
 }
+
+/** O grau que o registro de garantia declara — `null` para operação de fora do sisub. */
+const registryRequirement: RegistryLookup = (operation) => assuranceFor(operation as Parameters<typeof assuranceFor>[0])?.require ?? null
 
 /**
  * Frase que descreve a operação, lida do registro de classificação — a MESMA que o usuário
@@ -292,6 +296,7 @@ type AuditRowProps = {
 function AuditRow({ row, onFilterActor, onFilterTarget, activeTargetId }: AuditRowProps) {
 	const description = describeAuditEntry(row.operation, row.target)
 	const title = description.title ?? operationReason(row.operation)
+	const requirement = describeRequirement(row.operation, row.assurance, registryRequirement)
 	const targetId = description.targetUserId
 	const selfTarget = targetId !== null && targetId === row.actor_id
 	const targetLabel = row.target_email ?? targetId
@@ -349,13 +354,13 @@ function AuditRow({ row, onFilterActor, onFilterTarget, activeTargetId }: AuditR
 			</TableCell>
 
 			<TableCell>
-				{/* A coluna registra o grau EXIGIDO pela operação, não o que a sessão provou.
+				{/* A coluna diz o grau EXIGIDO pela operação, não o que a sessão provou.
 				    Rotular como "elevação recente" afirmaria uma verificação de segundo fator
 				    que, enquanto os pisos estão desligados, não aconteceu — uma trilha de
-				    auditoria que afirma o que não mediu é pior que uma que não afirma nada. */}
-				<Badge variant={row.assurance === "fresh" ? "warning" : "secondary"}>
-					{row.assurance === "fresh" ? "Exige elevação recente" : "Exige sessão elevada"}
-				</Badge>
+				    auditoria que afirma o que não mediu é pior que uma que não afirma nada.
+				    E `session` gravado por outro app (ou por operação "none") não é elevação:
+				    a frase sai do registro do sisub, ver `describeRequirement`. */}
+				<Badge variant={requirement.tone}>{requirement.label}</Badge>
 			</TableCell>
 		</TableRow>
 	)
