@@ -1,0 +1,391 @@
+---
+title: Fluxo de trabalho (RAC)
+description: O roteiro como eixo do trabalho, o grão que sustenta a matriz e o desenho que separa a análise da origem do dado.
+---
+
+Esta página descreve o **fluxo-alvo** da SUCONT-3. O que está implementado hoje está em
+[Ferramentas](/docs/sucont/ferramentas) — e a distância entre as duas páginas é justamente
+o que aqui se propõe fechar.
+
+<Callout type="warn">
+Alvo, não estado. Nenhuma das tabelas da seção "Modelo de dados" existe ainda. Onde o texto
+diz "hoje", é o comportamento atual; onde diz "passa a", é proposta.
+</Callout>
+
+## O trabalho é o roteiro, não a ferramenta
+
+O **RAC — Roteiro de Acompanhamento Contábil** é o que organiza a SUCONT-3.1. A edição
+vigente tem **39 questões**, ordenadas por bloco de risco da Matriz GUT, e é executada
+**mensalmente**, por competência.
+
+Isso não é interpretação: é como a seção já se descreve. No inventário que ela mantém
+(`src/lib/centro-monitoramento-data.ts`), as seis ferramentas analíticas estão todas sob o
+mesmo grupo — *"Analistas SUCONT — Análises automatizadas do RAC"* — e ao lado delas, no
+grupo "Documentos de Trabalho da SUCONT-3.1", estão os artefatos que guardam o roteiro de
+verdade:
+
+| Artefato (Drive) | Papel declarado |
+|---|---|
+| Planilha de Registros RAC | Registro **mensal** do RAC pelos operadores |
+| Formulário RAC (Referencial Teórico) | Referencial do RAC mensal e apuração do **Grau de Performance Contábil** |
+| Planilha de Restrições Contábeis | Registro mensal das restrições **a nível UG**, pelos conferentes |
+| Numerador de Mensagens SIAFI | Controle da numeração das MSGs da seção |
+| Lista de UGs e Conferentes | Quem responde por qual UG |
+
+O app tem as análises; a planilha tem o roteiro. **O sistema de registro do trabalho está
+fora do sistema que faz o trabalho.**
+
+### As seis ferramentas são seis critérios sobre a mesma tabela
+
+A partição por questão já existe no código, espalhada em quatro arquivos:
+
+| Critério | Questões | Onde a regra mora |
+|---|---|---|
+| Sem movimentação há mais de 3 meses | 20 questões (Q07–Q34, esparsas) | `analistasaldoalongado/utils/rac.ts` |
+| Conta transitória com saldo ≠ 0 | Q16, Q26, Q30, Q35, Q36, Q37 | `lib/analista/types.ts` (33 regras) |
+| Par de contas que deve espelhar | Q11, Q20, Q39 | `lib/compatibilidade/pares.ts` |
+| Par 897210300 × 897110300 por conta corrente | Q22 | `lib/cruzamento/analyzer.ts` |
+| Subitem genérico 99/999 na conta corrente | Q28 | `routes/subitens-genericos.tsx` |
+| Conta contábil genérica | Q29 | `routes/conta-generica.tsx` |
+
+Todas leem o mesmo registro — `(UG, conta contábil, conta corrente, saldo)` — do mesmo
+export do Tesouro Gerencial. A ferramenta é o meio; **a questão é a unidade de trabalho**.
+
+<Callout>
+**Numeração.** A edição anterior do RAC ia até 43, e as duas numerações não têm offset: a
+vigente reordenou por criticidade, então a antiga Q05 é a Q33 de hoje e a antiga Q09 é a
+Q07. A correspondência foi refeita **conta a conta** em `utils/rac.ts`. Esta página usa a
+numeração vigente; os `id` legados do Centro de Monitoramento (`q05_25`, `q34`, `q43`…)
+ainda carregam a antiga.
+</Callout>
+
+## Onde o desenho atual trava
+
+1. **Seis uploads do mesmo arquivo.** Cada ferramenta tem seu parser, com sua heurística de
+   cabeçalho. Uma coluna renomeada pelo Tesouro quebra em seis lugares, com seis mensagens
+   de erro diferentes. (No monorepo são sete parsers — o sétimo é
+   `apps/api/src/workers/siafi/parse.ts`.)
+2. **Seis das oito não guardam nada.** Fechou a aba, acabou a análise. "Sem movimentação há
+   mais de 3 meses" depende de o operador ter exportado meses suficientes, não do histórico.
+3. **A numeração da MSG voltou ao `XXX`.** O Auditor resolveu isso com sequência no banco;
+   as seis da SUCONT-3 seguem com número digitado à mão. Dois operadores no mesmo dia emitem
+   o mesmo número.
+4. **Cobertura não é conclusão.** A ferramenta diz *"achei isto"*. O roteiro exige *"analisei
+   e está conforme"* ou *"analisei e há restrição"*. Hoje, UG que não aparece no resultado é
+   indistinguível de UG que não foi olhada.
+5. **Sete questões não têm ferramenta nenhuma: Q01–Q06 e Q38.** Num roteiro ordenado por
+   criticidade, são as do topo. O catálogo mostra seis ferramentas e não diz que faltam sete
+   questões — o modelo atual esconde exatamente a parte mais crítica do trabalho.
+
+## O eixo novo: competência → matriz → célula
+
+```
+Abrir competência ──▶ Importar ──▶ Matriz ──▶ Célula ──▶ Fechar competência
+   (2026-09)          (uma vez)   UG × questão   veredicto    registro + grau
+                                                 + evidência
+                                                 + restrição
+                                                 + MSG
+```
+
+1. **Abrir a competência** cria a instância do roteiro: as questões da edição vigente × as
+   UGs acompanhadas. Não se abre uma ferramenta — abre-se o mês.
+2. **Importar** alimenta o grão uma única vez. As seis análises passam a ler do banco.
+3. **A matriz** chega pré-preenchida onde há ferramenta: 32 das 39 questões trazem os
+   achados. As outras sete chegam em branco, esperando o conferente — visíveis.
+4. **A célula** é a unidade de trabalho. Carrega evidência (as linhas de saldo que a
+   motivaram), veredicto do conferente, e — quando há restrição — a MSG, numerada pela
+   sequência do banco.
+5. **Fechar a competência** produz o que hoje é feito à mão em três planilhas.
+
+### Responsabilidade: por UG, não por questão
+
+Esse é o ajuste que o eixo "questão a questão" sozinho não comporta. A responsabilidade na
+SUCONT-3 é **por UG**: são quatro conferentes com 23 UGs cada (`lib/ug/registry.ts`), a
+Planilha de Restrições registra "a nível UG, pelos conferentes", e toda MSG é endereçada a
+uma UG.
+
+Percorrer só por questão faria cada questão atravessar 92 UGs de quatro donos diferentes, e
+ninguém fecharia nada. Percorrer só por UG perderia a ordem de criticidade do roteiro. O
+grão real é **(competência, UG, questão)**, com dois cortes da mesma matriz:
+
+| Quem | Corte | Fecha |
+|---|---|---|
+| Conferente | suas 23 UGs × 39 questões | a UG, quando todas as questões dela têm veredicto |
+| Chefe da seção | 39 questões × 92 UGs | a competência, quando não há célula em aberto |
+
+O Grau de Performance Contábil sai do segundo corte — e só é calculável se o registro for
+estruturado, que é o que a planilha não garante.
+
+## A origem do saldo é um plugin
+
+Esta é a adaptação que dá flexibilidade futura, e é a única decisão de arquitetura que
+precisa ser tomada **antes** de escrever qualquer código.
+
+<Callout type="warn">
+Regra: **nada acima do grão pode saber de onde a linha veio.** Análise, matriz, veredicto e
+mensagem leem `tesouro_balance`. Quem sabe de origem é o lote de importação, e só ele.
+</Callout>
+
+```
+┌─ upload XLSX/CSV (Tesouro Gerencial)  ──┐
+├─ API do SIAFI (quando houver credencial)├──▶ import_batch ──▶ tesouro_balance ──▶ análise
+├─ fonte aberta (cadastro, execução)      │      (source)        (o grão)            (regra)
+└─ lançamento manual do conferente        ──┘
+```
+
+O que isso compra, concretamente:
+
+- **Trocar de fonte deixa de ser reescrita.** Acrescentar a API do SIAFI vira inserir linhas
+  com outro `source`. Nada acima muda.
+- **Proveniência por linha.** A célula da matriz cita o lote que a produziu — hoje não há
+  como saber qual arquivo gerou qual cobrança nas seis ferramentas.
+- **Conferência cruzada.** Importar a mesma competência por duas fontes vira comparação, não
+  sobrescrita. O Auditor já faz isso: `saveAuditorBalancesFn` devolve os conflitos em vez de
+  sobrescrever calado.
+- **O upload continua válido.** Ele deixa de ser a *memória* da ferramenta e passa a ser
+  *uma* alimentação do roteiro.
+
+### Três níveis de acesso às fontes
+
+A distinção importa porque define o que dá para automatizar **agora** e o que depende de
+autorização de terceiros.
+
+| Nível | O que exige | Exemplo | Ao alcance hoje |
+|---|---|---|---|
+| 0 — aberto | nada | Cadastro de UGs do SIAFI (CKAN do Tesouro) | ✅ |
+| 1 — cadastro self-service | e-mail → chave de API | Portal da Transparência (`chave-api-dados`) | ✅ |
+| 2 — credencial institucional | CPF+senha SIAFI, certificado de máquina, cadastro do sistema | `tabConsultarSaldoContabil` | ❌ bloqueado |
+
+## As fontes, uma a uma
+
+### Upload do Tesouro Gerencial — nível 0, e a única que entrega o grão
+
+O Tesouro Gerencial é MicroStrategy: monta relatório, não expõe API. O export é a única
+porta para `(UG, conta, conta corrente, saldo)` hoje.
+
+**Entrega:** o grão completo, na competência que o operador recortou.
+**Não entrega:** contrato. O layout varia por relatório e por versão; o recorte é
+responsabilidade de quem montou o relatório, e trocar o relatório muda o resultado sem que o
+app perceba.
+
+### Cadastro de Unidades Gestoras do SIAFI — nível 0, aplicável já
+
+Dataset `siafi-relatorio-unidades-gestoras` no CKAN do Tesouro Transparente. CSV público,
+sem credencial, ~49,5 mil UGs, com `UG`, `Título`, `CNPJ`, `UF`, `Código Órgão`, `Função`
+(EXECUTORA/CONTROLE) e `Ativo` (SIM/NÃO).
+
+Isto cobre exatamente os campos que `lib/ug/registry.ts` preencheu **à mão**: `tituloSiafi` e
+`ativoSiafi`. Conferido em 2026-09-12 contra as 98 UGs do registro:
+
+- **0 divergências de título** e **0 conflitos de ativo/inativo** — a conferência manual se
+  sustentou;
+- `120017` (II COMAR) consta como **CONTROLE**, não EXECUTORA;
+- todas as **90 UGs executoras ativas** do órgão 52111 estão no registro, mais a `121002`
+  do Fundo Aeronáutico.
+
+<Callout>
+A conferência acima levou minutos com um CSV aberto. Como rotina, ela deixa de ser um
+mutirão manual e vira teste mensal — sem nenhuma credencial. É o primeiro ganho disponível,
+e não depende de nada nem de ninguém de fora.
+</Callout>
+
+#### O escopo é um conjunto de órgãos, não um órgão
+
+O detalhe que decide a regra de sincronização: **a Aeronáutica não é um órgão só no SIAFI**.
+O Comando gere também o Fundo Aeronáutico e a CFIAe, que são órgãos distintos com fontes
+distintas, mas do mesmo conjunto — as fontes constam do **Plano de Ação da Aeronáutica**.
+Conferir contra `52111` sozinho recorta o universo errado.
+
+| Órgão | Título | Faixa de UG | UGs | Executoras ativas |
+|---|---|---|---|---|
+| 52111 | Comando da Aeronáutica | `120xxx`, `128xxx` | 553 | 90 |
+| 52911 | Fundo Aeronáutico | `121xxx` | 1 | 1 |
+| 52211 | Caixa de Financiamento Imobiliário da Aeronáutica (CFIAe) | `123xxx` | 2 | 1 |
+| 52912 | Fundo Aeroviário | `122xxx` | 1 | 1 |
+| 52212 | INFRAERO | `125xxx`, `128xxx` | 3 | 0 |
+
+#### Uma pista de busca — que não é regra
+
+<Callout type="warn">
+O que vem abaixo é **observação, não norma**. Serve para *achar* os órgãos de uma força no
+cadastro quando não se tem a lista à mão. Não deve virar condição em código, nem substituir
+o conjunto declarado do Plano de Ação: foi assim que este documento chegou à CFIAe, e é só
+para isso que serve.
+</Callout>
+
+Nos órgãos `52…` do Ministério da Defesa, o **quarto dígito** costuma identificar a força —
+`52X`**`1`**`X` Aeronáutica, `52X`**`2`**`X` Exército, `52X`**`3`**`X` Marinha —, e o
+terceiro, a classe (`1` comando, `2` entidade vinculada, `9` fundo, `0` o próprio MD):
+
+| Órgão | Classe (3º) | Força (4º) | Título |
+|---|---|---|---|
+| 52111 · 52121 · 52131 | comando | Aero · EB · MB | Comandos da Aeronáutica, do Exército e da Marinha |
+| 52211 · 52212 | vinculada | Aeronáutica | CFIAe · INFRAERO |
+| 52221 · 52222 | vinculada | Exército | IMBEL · Fundação Osório |
+| 52231 · 52233 | vinculada | Marinha | EMGEPRON · AMAZUL |
+| 52911 · 52912 | fundo | Aeronáutica | Fundo Aeronáutico · Fundo Aeroviário |
+| 52132 · 52133 | comando | Marinha | Fundo Naval · FDEPM — dentro da série do Comando |
+| 52000–52003 | — | — | Ministério da Defesa e seus fundos |
+
+Vale para 15 dos 19 órgãos `52…`. **O Fundo do Exército (`52904`) não segue** — traz `0` onde
+a pista esperaria `2`. E a classe é ainda menos confiável que a força: os fundos da Marinha
+moram na série do Comando (`5213x`), não em `529xx`.
+
+Na faixa de UG a mesma lógica aparece — `11xxxx` MD, `12xxxx` Aeronáutica, `16xxxx` Exército,
+`21xxxx`/`7xxxxx` Marinha-Comando, `6xxxxx` Fundo Naval, `8xxxxx` FDEPM — e falha do mesmo
+jeito, como o par CFIAe/ANAC abaixo mostra.
+
+Daí a regra que de fato vale: **o conjunto de órgãos é configuração declarada, derivada do
+Plano de Ação — nunca inferido do código do órgão nem do prefixo da UG.**
+
+<Callout type="warn">
+Refeita a conferência sobre a **faixa 12xxxx inteira**, e não sobre o 52111 isolado, aparecem
+duas UGs executoras ativas fora do registro:
+
+- **`123001` — CAIXA FINANCIAMENTO IMOBILIÁRIO AERONÁUTICA (CFIAe)**, órgão 52211. Está no
+  mesmo Plano de Ação; é candidata legítima ao escopo do RAC, e hoje o app não consegue nem
+  formular a pergunta.
+- **`122002` — ANAC / Fundo Aeroviário**, órgão 52912. Mesma faixa de UG, **fora** da
+  contabilidade do COMAER.
+
+O par mostra por que o filtro tem de ser o conjunto de órgãos do Plano de Ação, e não a faixa
+numérica: a faixa acerta a CFIAe e erra a ANAC. **Confirmar com a seção se a CFIAe entra no
+RAC** é item aberto.
+</Callout>
+
+### Portal da Transparência — nível 1, complementar
+
+API REST, chave obtida por cadastro de e-mail (`chave-api-dados` no header). Baixado o
+OpenAPI: 106 endpoints em 17 grupos.
+
+**Entrega:** execução orçamentária por UG — empenho, liquidação, pagamento e documentos
+(`/api-de-dados/despesas/documentos` aceita `unidadeGestora`, `fase`, `dataEmissao`); e o
+cadastro de órgãos SIAFI.
+**Não entrega:** saldo do PCASP. Nenhum endpoint de saldo contábil; o único path que menciona
+SIAFI é `/api-de-dados/orgaos-siafi`, que é cadastro de órgão.
+
+Serve como **contexto e contraprova** — por exemplo, evidenciar se houve movimento de
+documento numa UG cujo saldo está parado —, não como substituto do grão.
+
+### Dados abertos de contabilidade — não cobrem a União por UG
+
+Os balancetes mensais por classe do PCASP publicados pelo Tesouro são da **MSC (Matriz de
+Saldos Contábeis) dos Entes da Federação** — Estados, DF e Municípios declarando via Siconfi.
+A União não declara MSC; a União *é* o SIAFI. A granularidade é o ente, nunca a UG.
+
+Há razão de fundo para isso não mudar: a **conta corrente** do SIAFI carrega CNPJ de credor,
+número de contrato e inscrição. É exatamente o campo que o RAC usa no cruzamento, e
+exatamente o que não se publica. **A granularidade que o RAC exige é a que o dado aberto não
+publica por desenho.**
+
+### API do SIAFI — nível 2, é o alvo, está bloqueada
+
+Operação `tabConsultarSaldoContabil` do serviço `consultarTabelasAdministrativas` (STN, doc
+v8.3):
+
+| | |
+|---|---|
+| Entrada | `codUG`, `contaContabil` (obrigatória, 9 posições), `contaCorrente` (opcional), `mesRefSaldo` (opcional) |
+| Saída | `codUG`, `contaContabil`, `contaCorrente`, `vlrSaldo`, `tipoSaldo` |
+
+É, campo a campo, o `ParsedRow { ug, contaContabil, contaCorrente, saldo }` que os seis
+parsers tentam adivinhar de um XLSX — só que tipado, por competência e com contrato. De
+quebra, `tipoSaldo` (devedor/credor) vem explícito, onde hoje se infere por sinal.
+
+O que impede hoje:
+
+- **SOAP com mTLS**: certificado digital de máquina registrado no Trust Store do Novo SIAFI,
+  e cadastro do sistema e da máquina de origem (erro `EWS0003`). Os apps rodam em ECS Fargate
+  sem IP de saída fixo.
+- **Credencial de pessoa física**: WS-Security com CPF de usuário habilitado + senha, e a
+  transação `CONRAZAO` no perfil. Automatizar significa guardar credencial pessoal de um
+  militar num secret — decisão de comando, não de arquitetura. A senha do SIAFI expira.
+- **Abrangência é a do perfil de quem chama** (erro `EWS0007`: a UG do cabeçalho tem de ser
+  primária ou secundária do operador). Se a SUCONT não tiver abrangência CONRAZAO sobre as
+  UGs do COMAER, a API devolve *menos* que o Tesouro Gerencial.
+- **Volume**: `contaContabil` é obrigatória e única por chamada. Não existe "tudo da UG X".
+  São **89 contas × 92 UGs ≈ 8.200 chamadas por competência** — job em lote mensal, não
+  consulta de tela. E a doc diz textualmente *"não há garantias de nível de serviço"*.
+
+Duas perguntas decidem se isso é viável, e nenhuma é técnica: **a SUCONT tem abrangência
+CONRAZAO sobre as UGs do Comando?** (administrador SIAFI do COMAER) e **o cadastro de sistema
+e máquina é concedido?** (`ti.stn@fazenda.gov.br`).
+
+### Fora do Tesouro
+
+SILOMS (Auditor SUCONT-4) e DGC (SAC-DGC, SUCONT-1) são sistemas do COMAER e do Tesouro
+Gerencial respectivamente, fora deste fluxo — ver "O que este fluxo não cobre".
+
+## Modelo de dados
+
+Todas no schema `sucont`, sempre por server function.
+
+| Tabela | Grão | Papel |
+|---|---|---|
+| `rac_question` | edição + número | Catálogo das 39 questões, **versionado por edição** — é o que permite reler uma competência antiga na numeração em que ela foi executada |
+| `rac_cycle` | competência | A instância do roteiro. Estado: aberta → em análise → fechada |
+| `import_batch` | lote | `cycle_id`, `source`, `source_ref`, quem importou, quando, quantas linhas, status |
+| `tesouro_balance` | competência + UG + conta contábil + conta corrente | **O grão.** `saldo`, `tipo_saldo`, `batch_id` |
+| `rac_finding` | ciclo + UG + questão | **A célula.** Veredicto, justificativa, quem decidiu, quando; aponta para as linhas de evidência e para a MSG |
+| `generated_message` | — | Já existe e já é genérica (`tool` é texto livre, `number` vem de sequência). Passa a servir as seis |
+| `unidade_gestora` | código | Passa a ser a fonte única, sincronizada do cadastro aberto; `registry.ts` vira seed. Ganha `codigo_orgao` e `funcao` (EXECUTORA/CONTROLE), que hoje não existem em lugar nenhum |
+| `orgao_escopo` | código do órgão | O conjunto do Plano de Ação — `52111`, `52911`, `52211`… — declarado como dado. É o filtro da sincronização e do universo do roteiro |
+
+Três invariantes que vêm da experiência do Auditor e não devem ser renegociadas:
+
+- **Chave natural com upsert idempotente.** Reimportar a mesma competência não duplica linha
+  e devolve os conflitos em vez de sobrescrever.
+- **Contagem derivada, nunca aceita do cliente.** No SAC-DGC, `alert_count` e `finding_count`
+  são colunas geradas do jsonb: número vindo da aplicação poderia discordar do conteúdo.
+- **Intenção e resultado são registros distintos.** `startRun` grava "o arquivo tem N linhas";
+  `finalizeRun` grava o que aterrissou. Sem isso, uma importação interrompida fica registrada
+  como completa.
+
+## Ordem de adoção
+
+Cada fase entrega valor sozinha, e nenhuma depende da seguinte.
+
+| Fase | O que faz | Depende de fora? |
+|---|---|---|
+| 0 | Declarar `orgao_escopo` (o conjunto do Plano de Ação); sincronizar `unidade_gestora` do cadastro aberto com `codigo_orgao` e `funcao`; `registry.ts` vira seed; conferência mensal vira teste | **Não** |
+| 1 | `import_batch` + `tesouro_balance` + **um** parser em `lib/tesouro/`; as seis passam a ler do banco | **Não** |
+| 2 | `rac_question` + `rac_cycle` + `rac_finding`; a matriz e os dois cortes; as sete questões sem ferramenta viram linha em branco | **Não** |
+| 3 | As seis passam a usar `generated_message`; o `XXX` morre | **Não** |
+| 4 | `source = 'siafi-api'` | **Sim** — abrangência CONRAZAO + cadastro STN |
+
+A fase 4 é a única bloqueada, e é a última justamente porque o desenho da fase 1 faz dela um
+acréscimo, não uma reescrita. **Nada do que a seção precisa hoje espera por credencial.**
+
+## Questões abertas
+
+Nenhuma é técnica, e todas mudam o modelo. Ficam aqui para não virarem suposição embutida em
+código.
+
+| # | Pergunta | Quem responde | O que muda |
+|---|---|---|---|
+| 1 | O que são **Q01–Q06 e Q38**, as sete questões sem ferramenta? Verificação por UG ou da própria Setorial? | SUCONT-3 | Se houver questão *global*, o roteiro passa a ter dois tipos de célula: `(ciclo, UG, questão)` e `(ciclo, questão)` |
+| 2 | **Toda questão é respondida por UG?** | SUCONT-3 | Mesma consequência da anterior — define se o grão é sempre ternário |
+| 3 | **"Restrição contábil" e "MSG à UG" são o mesmo objeto?** Há duas planilhas separadas no Drive, o que sugere que não | SUCONT-3 | Se são dois, `rac_finding` guarda a restrição e aponta para zero ou mais mensagens |
+| 4 | Quais órgãos compõem o **conjunto do Plano de Ação**, e a **CFIAe** (`123001`) entra no RAC? | SUCONT-3 | É o conteúdo de `orgao_escopo` — e o universo de UGs do roteiro. É a única questão que trava a Fase 0 |
+| 5 | A SUCONT tem **abrangência CONRAZAO** sobre as UGs do conjunto? | Administrador SIAFI do COMAER | Decide se a Fase 4 é viável |
+| 6 | O **cadastro de sistema e máquina** junto à STN é concedido? | `ti.stn@fazenda.gov.br` | Idem |
+
+## O que este fluxo não cobre
+
+- **Auditor SUCONT-4** e **SAC-DGC** (SUCONT-1) não respondem questões do RAC — não têm
+  `racQuestions` no catálogo, e está certo: o RAC é o roteiro da SUCONT-3. As outras divisões
+  têm os seus, e o da SUCONT-4 **já está no banco**: `checklist_item` + `checklist_occurrence`,
+  com prazo por dia útil, responsável e ocorrência por competência.
+- A diferença entre os dois modelos é uma dimensão: item de checklist se responde **uma vez
+  por competência**; questão do RAC, **uma vez por UG por competência**. O conceito a
+  generalizar é *roteiro* — forçar Auditor e DGC para dentro do RAC seria o erro simétrico.
+- **Nada é escrito no SIAFI.** A saída continua sendo texto que o operador leva à mensagem
+  SIAFI ou ao SAU. A cobrança segue sendo ato humano — o que muda é que ela passa a ficar
+  registrada.
+
+## Fontes
+
+- [SIAFI — Consultar Tabelas Administrativas](https://www.gov.br/conecta/catalogo/apis/consultar-tabelas-administrativas-do-siafi) · [documentação técnica v8.3 (PDF)](https://www.gov.br/conecta/catalogo/apis/consultar-tabelas-administrativas-do-siafi/at_download/api_tecnico_documentacao)
+- [Portal da Transparência — OpenAPI](https://api.portaldatransparencia.gov.br/v3/api-docs)
+- [Unidades Gestoras cadastradas no SIAFI — CKAN do Tesouro Transparente](https://www.tesourotransparente.gov.br/ckan/dataset/siafi-relatorio-unidades-gestoras)
+- [Siconfi — API de Dados Abertos](https://www.tesourotransparente.gov.br/consultas/consultas-siconfi/siconfi-api-de-dados-abertos)

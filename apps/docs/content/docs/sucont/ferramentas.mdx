@@ -38,11 +38,11 @@ Ausência de competência anterior não é divergência zero: o registro carrega
 
 ## Monitoramento Patrimonial — `/monitoramento`
 
-Saldos transitórios: contas que, pelo RAC, não deveriam atravessar o fechamento do mês. Cobre Q26, Q27, Q28, Q31, Q32 e Q36.
+Saldos transitórios: contas que, pelo RAC, não deveriam atravessar o fechamento do mês. Cobre Q16, Q26, Q30, Q35, Q36 e Q37.
 
 **Entrada.** Colunas UG, mês, conta e saldo, casadas por *substring* do cabeçalho. Se nenhum cabeçalho casar, entra um **fallback heurístico** que adivinha pelo formato do valor (6 dígitos = UG, 9 dígitos = conta, `mmm/aaaa` = mês, o resto numérico = saldo). Linhas com saldo zero são descartadas.
 
-**Regra.** Tabela de 30 contas em `src/lib/analista/types.ts`, cada uma com sua questão RAC e sua lista de UGs excepcionadas. Quatro classificações:
+**Regra.** Tabela de 33 contas em `src/lib/analista/types.ts`, cada uma com sua questão RAC e sua lista de UGs excepcionadas. Quatro classificações:
 
 | Classificação | Quando |
 |---|---|
@@ -63,11 +63,11 @@ Duas regras especiais existem hoje: **115410200** (matérias-primas em armazéns
 
 ## Analista Saldo Alongado — `/analistasaldoalongado`
 
-Saldos parados, das questões Q05 a Q25.
+Saldos parados: 20 questões esparsas entre a Q07 e a Q34 — as que o roteiro vigente marca com o critério "sem movimentação há mais de três meses".
 
 **Entrada.** CSV ou XLSX. Colunas por sinônimos (`ug (codigo)`, `conta contabil (codigo)`, `conta corrente`, …). A coluna de saldo é escolhida entre as que começam com "saldo"; havendo várias com mês no nome (`Saldo - R$ jan/2026`), vence **a mais recente**. Normaliza moeda pt-BR e limpa sufixo `.0` de UG e conta corrente.
 
-**Regra.** Consolidação por UG: número de ocorrências, saldo total, contas contábeis e correntes distintas, conta mais recorrente. `RAC_MAPPING` (em `utils/rac.ts`) associa 21 questões às suas contas, e `ACCOUNT_NAMES` nomeia as contas de restos a pagar.
+**Regra.** Consolidação por UG: número de ocorrências, saldo total, contas contábeis e correntes distintas, conta mais recorrente. `RAC_MAPPING` (em `utils/rac.ts`) associa 20 questões às suas contas, e `ACCOUNT_NAMES` nomeia as contas de restos a pagar.
 
 **Saída.** Painéis operacional, gerencial e analítico; modal por UG; e uma mensagem por UG com texto fixo — pedido de regularização ou justificativa via SAU, chamado "Resposta de Acompanhamento Contábil", prazo de 5 dias úteis, assinatura SUCONT-3.
 
@@ -78,13 +78,13 @@ Saldos parados, das questões Q05 a Q25.
 </Callout>
 
 - `RAC_MAPPING` só serve para rotular. A consolidação **não filtra** por questão: conta fora do mapa entra no total e na mensagem do mesmo jeito.
-- Em `"Questão 12"`, três códigos começam com `812` e um com `811` (`811310301`) — vale conferir contra o roteiro.
+- Em `"Questão 27"` (contratos em execução), três códigos começam com `812` e um com `811` (`811310301`) — vale conferir contra o roteiro.
 
 <Callout>
-Corrigido em 2026-08: sete códigos da `"Questão 8"` estavam com um dígito a mais (`2188810102` em vez de `218810102`) e nunca casavam, deixando as contas do grupo 21881 sem rótulo de questão. `rac.test.ts` agora exige 9 dígitos em toda entrada.
+Corrigido em 2026-08: sete códigos da questão das consignações e retenções (hoje `"Questão 23"`) estavam com um dígito a mais (`2188810102` em vez de `218810102`) e nunca casavam, deixando as contas do grupo 21881 sem rótulo de questão. `rac.test.ts` agora exige 9 dígitos em toda entrada.
 </Callout>
 
-## Subitens Genéricos — `/subitens-genericos` (Q34)
+## Subitens Genéricos — `/subitens-genericos` (Q28)
 
 **Entrada.** XLSX lido a partir da **linha 12** (`range: 11`): o export do Tesouro Gerencial traz onze linhas de cabeçalho. Colunas identificadas por nome, com correspondência exata e depois por substring.
 
@@ -104,7 +104,7 @@ Linhas que casam viram ocorrência; ocorrências com mesma conta contábil e mes
 - Qualquer outro `99` delimitado dentro da conta corrente (vinculação, gestão, ano) também casa.
 - Não há cálculo de proporção — nenhuma comparação com o total do elemento de despesa. Ver [Conformidade](/docs/sucont/conformidade), onde isso é o principal desencontro com a regra federal.
 
-## Contas Genéricas — `/conta-generica` (Q35)
+## Contas Genéricas — `/conta-generica` (Q29)
 
 **Entrada.** Procura um cabeçalho que tenha, em correspondência exata, `UG` + `Conta Contábil` + (`Mês` ou `Conta Corrente`) + `Saldo - R$` (ou `Saldo`, ou `Valor Alongado`).
 
@@ -116,15 +116,15 @@ Linhas que casam viram ocorrência; ocorrências com mesma conta contábil e mes
 
 **Saída.** Além das mensagens (individual ou única, com prazo/sem prazo/alerta): análise de Pareto (quantos % das UGs concentram quantos % das ocorrências), lista de prioridade com score, mapa de risco por ODS, impacto financeiro total e o chat do Oráculo com os dados no contexto.
 
-## Compatibilidade de Saldos — `/analista-compatibilidade` (Q40–Q42)
+## Compatibilidade de Saldos — `/analista-compatibilidade` (Q11, Q20, Q39)
 
 Três pares de contas que devem espelhar:
 
 | # | Conta A | Conta B | Questão |
 |---|---|---|---|
-| 1 | `1.1.1.1.1.19.03` Caixa Econômica Federal | `8.1.1.1.1.01.13` Caução a executar | Q40 |
-| 2 | `1.1.5.5.1.10.00` Materiais de consumo em trânsito | `8.9.9.9.2.01.02` Bens de estoque enviados | Q41 |
-| 3 | `1.2.3.1.1.99.05` Bens móveis em trânsito | `8.9.9.9.2.02.02` Bens móveis enviados | Q42 |
+| 1 | `1.1.1.1.1.19.03` Caixa Econômica Federal | `8.1.1.1.1.01.13` Caução a executar | Q39 |
+| 2 | `1.1.5.5.1.10.00` Materiais de consumo em trânsito | `8.9.9.9.2.01.02` Bens de estoque enviados | Q20 |
+| 3 | `1.2.3.1.1.99.05` Bens móveis em trânsito | `8.9.9.9.2.02.02` Bens móveis enviados | Q11 |
 
 **Regra** (`src/lib/compatibilidade/pares.ts`). As linhas são **somadas** por UG × conta contábil (`agregarSaldos`) e só então comparadas (`compararPares`). O par é divergente quando os saldos diferem além da tolerância de arredondamento **ou** quando uma das duas contas não aparece no relatório com a outra presente — inclusive se o lado presente estiver zerado, porque falta o registro espelhado. Par inteiramente ausente é ignorado. `totalDiff` da UG é a soma das diferenças absolutas, e o ranking ordena por ela.
 
@@ -132,9 +132,9 @@ Três pares de contas que devem espelhar:
 Até 2026-08, a agregação era `ugs[ug][conta] = saldo` — **sobrescrevia**. Relatório com mais de uma linha para o mesmo par (por conta corrente, mês ou fonte) tinha todas as linhas menos a última descartadas em silêncio, o que inventava divergência onde o par estava equilibrado. Hoje soma, e `pares.test.ts` cobre o caso.
 </Callout>
 
-**Limites.** O par 1 (Q40) compara um ativo da classe 1 com um controle da classe 8 — o espelhamento decorre da rotina de caução em conta bancária específica, não de contrapartida do PCASP. A rotina ainda não está referenciada em norma citável; enquanto isso, a mensagem invoca o dever geral de análise e conciliação do item 5.1 da Macrofunção 02.03.18.
+**Limites.** O par 1 (Q39) compara um ativo da classe 1 com um controle da classe 8 — o espelhamento decorre da rotina de caução em conta bancária específica, não de contrapartida do PCASP. A rotina ainda não está referenciada em norma citável; enquanto isso, a mensagem invoca o dever geral de análise e conciliação do item 5.1 da Macrofunção 02.03.18.
 
-## Cruzamento de Contas — `/cruzamento-contas` (Q43)
+## Cruzamento de Contas — `/cruzamento-contas` (Q22)
 
 Espelhamento entre `897210300` e `897110300`.
 
@@ -180,7 +180,7 @@ Análise crítica do Demonstrativo Gerencial de Custos por UG. Sucessor do `sacd
 
 Catálogo estático (`src/lib/centro-monitoramento-data.ts`) das ferramentas, planilhas e documentos de trabalho da SUCONT-3, organizado por módulo (3.1, 3.2, …), com busca.
 
-As seis trilhas do RAC (Q05–Q25, Q34, Q35, Q40–Q42 e Q43 na numeração do inventário) apontam para as **rotas internas** já portadas (`internalPath`), e não mais para as versões legadas hospedadas fora (`*.sucont3-2sau.workers.dev`, `ai.studio`) — `centro-monitoramento-data.test.ts` garante que cada rota do inventário existe em `sucontTools` e que nenhum host legado volta. O que continua com `url` é o que segue fora de propósito: planilhas, cadernos do NotebookLM e sistemas federais.
+As seis trilhas do RAC (cujos `id` do inventário — `q05_25`, `q34`, `q35`, `q40_42`, `q43` — ainda carregam a numeração da edição anterior do Roteiro) apontam para as **rotas internas** já portadas (`internalPath`), e não mais para as versões legadas hospedadas fora (`*.sucont3-2sau.workers.dev`, `ai.studio`) — `centro-monitoramento-data.test.ts` garante que cada rota do inventário existe em `sucontTools` e que nenhum host legado volta. O que continua com `url` é o que segue fora de propósito: planilhas, cadernos do NotebookLM e sistemas federais.
 
 ## Área de Trabalho e Relatórios — `/workspace`, `/reports`
 

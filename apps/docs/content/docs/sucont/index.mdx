@@ -32,19 +32,31 @@ Três consequências que definem o produto:
 Corolário: **trocar o relatório de origem muda o resultado sem que o app perceba**. Um arquivo com layout parecido mas recorte diferente é processado normalmente e gera mensagens de cobrança normalmente.
 </Callout>
 
+Esse desenho é herança: as ferramentas nasceram fora do monorepo, sem banco, como análises
+pontuais. O trabalho que elas servem — o RAC, executado por competência e registrado hoje em
+planilhas no Drive — pede outro eixo. Ver [Fluxo de trabalho (RAC)](/docs/sucont/fluxo-rac).
+
 ## Inventário
 
 O hub agrega por **etapa do ciclo** (`analisar`, `comunicar`, `acompanhar`, `consultar`), não por tecnologia — a categoria antiga ("Auditoria", "Automação", "IA / Chatbot") classificava a ferramenta pelo que ela usa por dentro, e ninguém chega ao hub precisando de "uma automação". As questões do RAC são dado (`racQuestions` em `src/lib/types.ts`), e por isso filtram.
 
+<Callout>
+Os números do RAC nesta documentação são os da **edição vigente do Roteiro** (39 questões,
+ordenadas por bloco de risco da Matriz GUT). A edição anterior ia até 43, e as duas
+numerações **não têm offset** — a antiga Q05 é a Q33 de hoje. Os `id` do Centro de
+Monitoramento (`q05_25`, `q34`, `q43`…) ainda carregam a numeração antiga. Ver
+[Fluxo de trabalho (RAC)](/docs/sucont/fluxo-rac).
+</Callout>
+
 | Ferramenta | Rota | Etapa | RAC | Papel |
 |---|---|---|---|---|
 | Auditor SUCONT-4 | `/auditor` | analisar | — | Divergência SIAFI × SILOMS em consumo, BMP e intangível, com série persistida |
-| Monitoramento Patrimonial | `/monitoramento` | acompanhar | Q26–Q28, Q31, Q32, Q36 | Saldos transitórios que não deveriam sobreviver ao mês |
-| Analista Saldo Alongado | `/analistasaldoalongado` | analisar | Q05–Q25 | Saldos sem movimentação, consolidados por UG |
-| Subitens Genéricos | `/subitens-genericos` | analisar | Q34 | Conta corrente com subitem 99/999 |
-| Contas Genéricas | `/conta-generica` | analisar | Q35 | Uso de conta contábil genérica |
-| Compatibilidade de Saldos | `/analista-compatibilidade` | analisar | Q40–Q42 | Três pares de contas que devem espelhar |
-| Cruzamento de Contas | `/cruzamento-contas` | analisar | Q43 | 897210300 × 897110300 por conta corrente |
+| Monitoramento Patrimonial | `/monitoramento` | acompanhar | Q16, Q26, Q30, Q35–Q37 | Saldos transitórios que não deveriam sobreviver ao mês |
+| Analista Saldo Alongado | `/analistasaldoalongado` | analisar | 20 questões entre Q07 e Q34 | Saldos sem movimentação, consolidados por UG |
+| Subitens Genéricos | `/subitens-genericos` | analisar | Q28 | Conta corrente com subitem 99/999 |
+| Contas Genéricas | `/conta-generica` | analisar | Q29 | Uso de conta contábil genérica |
+| Compatibilidade de Saldos | `/analista-compatibilidade` | analisar | Q11, Q20, Q39 | Três pares de contas que devem espelhar |
+| Cruzamento de Contas | `/cruzamento-contas` | analisar | Q22 | 897210300 × 897110300 por conta corrente |
 | SAC-DGC | `/sac-dgc` | analisar | — | Análise crítica do Demonstrativo Gerencial de Custos por UG, por IA |
 | Automação de Documentos | `/documentacao` | comunicar | — | Rascunho → ofício FAB ou relatório de análise, via IA |
 | Centro de Monitoramento | `/centro-monitoramento` | consultar | — | Inventário dos módulos e oráculos da SUCONT-3, por seção |
@@ -87,7 +99,7 @@ As ferramentas analíticas não têm gate próprio: quem entra no hub roda todas
 
 Dois consumidores, ambos por AWS Bedrock via `@iefa/ai-provider` (prefixo de env `SUCONT`):
 
-- **Oráculo SUCONT** — chat SSE em `routes/api/chat/stream.post.ts`, embutido nas telas de Q34, Q35 e Monitoramento. O prompt vive em `src/lib/oracle-prompt.ts`, carrega o mapa de UGs e recebe, por `contextSummary`, um resumo dos dados abertos na interface.
+- **Oráculo SUCONT** — chat SSE em `routes/api/chat/stream.post.ts`, embutido nas telas de Q28, Q29 e Monitoramento. O prompt vive em `src/lib/oracle-prompt.ts`, carrega o mapa de UGs e recebe, por `contextSummary`, um resumo dos dados abertos na interface.
 - **SAC-DGC** — `routes/api/sacdgc/analyze.post.ts`. Recebe só o recorte de uma UG (mais um resumo do grupo, para comparação), com saída estruturada validada por schema.
 - **Automação de Documentos** — `adaptDraftFn` transforma um rascunho livre em ofício padrão FAB ou em relatório de análise, também com saída estruturada.
 
@@ -107,11 +119,11 @@ Nenhuma das regras contábeis está em banco ou em configuração. Todas são li
 
 | Regra | Arquivo |
 |---|---|
-| Contas por questão RAC (Q05–Q25) | `src/analistasaldoalongado/utils/rac.ts` |
-| Contas transitórias + exceções por UG (Q26–Q36) | `src/lib/analista/types.ts` |
-| Pares de contas (Q40–Q42) | `src/lib/compatibilidade/pares.ts` |
-| Par 897210300 × 897110300 (Q43) | `src/lib/cruzamento/analyzer.ts` |
-| Subitem genérico (Q34) | `src/routes/subitens-genericos.tsx` |
+| Contas por questão RAC (20 questões entre Q07 e Q34) | `src/analistasaldoalongado/utils/rac.ts` |
+| Contas transitórias + exceções por UG (Q16, Q26, Q30, Q35–Q37) | `src/lib/analista/types.ts` |
+| Pares de contas (Q11, Q20, Q39) | `src/lib/compatibilidade/pares.ts` |
+| Par 897210300 × 897110300 (Q22) | `src/lib/cruzamento/analyzer.ts` |
+| Subitem genérico (Q28) | `src/routes/subitens-genericos.tsx` |
 | Classificação de risco SIAFI × SILOMS | `src/auditor/services/dataProcessor.ts` |
 | UGs, ODS, órgão superior e conferentes | `src/lib/ug/registry.ts` — **fonte única** |
 | Citações normativas das mensagens | `src/lib/normas.ts` — **fonte única** |
@@ -123,7 +135,7 @@ Mudança de norma, de conta ou de conferente é **mudança de código com deploy
 
 | Camada | Comando | Cobre |
 |---|---|---|
-| Unidade | `bun test --no-env-file src` (no app) | As regras acima: registro de UG, mapa do RAC, contas transitórias, pares Q40–Q42, cruzamento Q43, tolerância, títulos das macrofunções, parser e risco do Auditor, SAC-DGC |
+| Unidade | `bun test --no-env-file src` (no app) | As regras acima: registro de UG, mapa do RAC, contas transitórias, pares Q11/Q20/Q39, cruzamento Q22, tolerância, títulos das macrofunções, parser e risco do Auditor, SAC-DGC |
 | Contrato | mesma suíte (`src/test/*.contract.test.ts`) | Rotas Nitro registradas e gate de IA |
 | E2E | `bun run test:e2e` (Playwright) | SAC-DGC com e sem IA, sobre fixtures reais em `e2e/fixtures/` |
 | Visual | `bun run harness:build` + `harness:shot` | Gráficos e o hub fora do app, sem sessão |

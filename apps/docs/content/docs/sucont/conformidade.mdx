@@ -5,6 +5,16 @@ description: As regras do sucont conferidas contra MCASP, PCASP e as macrofunç�
 
 Esta página confere **as regras implementadas em código** contra a norma federal. Ela não avalia o RAC em si: o Roteiro de Acompanhamento Contábil é instrumento de controle interno do COMAER e pode legitimamente ser mais rígido que a União. O que se checa aqui é (a) se a regra em código corresponde ao que a norma diz e (b) se o **texto enviado à UG** atribui à norma federal algo que ela não diz.
 
+<Callout type="warn">
+**Numeração.** Esta página usa a numeração da **edição anterior** do RAC (até Q43), que é a
+que estava vigente quando a análise normativa foi feita, questão a questão. As demais páginas
+já usam a edição vigente (39 questões) — e as duas numerações **não têm offset**. Correspondências
+úteis aqui: a Q34 desta página é a **Q28** de hoje (subitem genérico), a Q35 é a **Q29** (conta
+genérica), a Q40–Q42 são **Q39, Q20 e Q11** (pares) e a Q43 é a **Q22** (cruzamento). Reconverter
+o restante exige refazer a conferência conta a conta, e não foi feito. Ver
+[Fluxo de trabalho (RAC)](/docs/sucont/fluxo-rac).
+</Callout>
+
 <Callout>
 Achados reconferidos contra a `main` em setembro de 2026, depois dos refactors de hub e estilo do sucont (#246 a #263). Todos os desencontros normativos continuavam presentes no código — nenhum deles foi resolvido de passagem por aqueles PRs, porque nenhum era de aparência. O que a `main` mudou por conta própria, e que esta página passou a refletir, foi o **Auditor**: grão do risco por (UG, grupo) em vez de por UG, probabilidade relativa à janela carregada em vez de dividida por 12 fixo, `hasPrevious` no lugar de tratar competência ausente como divergência zero, e persistência da rodada em banco.
 </Callout>
