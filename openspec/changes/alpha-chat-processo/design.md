@@ -37,7 +37,7 @@ O contrate fala com o α por `alphaRequest` (`lib/alpha/client.ts`), com o Beare
   - o roteador, o grader e o `no_basis` foram calibrados para "achar o dispositivo no RADA-e", e cada um custa uma chamada de modelo antes da primeira palavra;
   - o estado do grafo atravessa turnos (ver o `buildTurnInput`), e isso já rendeu dois bugs;
   - o grafo não transmite texto.
-- **Alternativa considerada:** `@tanstack/ai` (`chat()` + `createAdapterFromEnv`). Foi descartada por ora. O α inteiro é LangChain: fallback, retry com `$metadata.httpStatusCode` e tracer. Um segundo stack de modelo no mesmo serviço duplicaria a reserva e a telemetria. Migrar o α é o item 6.3 do `tanstack-ai-multiprovider-migration`, não deste change.
+- **Alternativa considerada:** `@tanstack/ai` (`chat()` + `createAdapterFromEnv`). Foi descartada por ora. O α inteiro é LangChain: fallback, retry com `$metadata.httpStatusCode` e tracer. Um segundo stack de modelo no mesmo serviço duplicaria a reserva e a telemetria. Migrar o α não é deste change: o item 6.3 do `tanstack-ai-multiprovider-migration` cobria só a parte de LLM do `@iefa/alpha-client`, e foi fechado com o change arquivado em `openspec/changes/archive/2026-09-20-tanstack-ai-multiprovider-migration/`.
 
 Ferramentas do agente, todas somente leitura:
 
