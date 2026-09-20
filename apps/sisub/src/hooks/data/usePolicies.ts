@@ -160,12 +160,19 @@ export function useRemovePolicyStatement() {
 	})
 }
 
+/**
+ * Anexa uma política — e, como o anexo é idempotente, é também o caminho de RENOVAÇÃO.
+ *
+ * `expiresAt` ausente não mexe no prazo de um anexo que já exista; `null` torna o anexo
+ * permanente; uma data reescreve o prazo. Reanexar em vez de desanexar+anexar preserva
+ * `created_at`/`created_by`, que são a trilha de quem concedeu.
+ */
 export function useAttachPolicy() {
 	const invalidate = usePolicyInvalidation()
 	return useMutation({
-		mutationFn: (data: { userId: string; policyId: string }) => attachPolicyFn({ data }),
-		onSuccess: () => {
-			toast.success("Política anexada")
+		mutationFn: (data: { userId: string; policyId: string; expiresAt?: string | null }) => attachPolicyFn({ data }),
+		onSuccess: (_result, variables) => {
+			toast.success(variables.expiresAt === undefined ? "Política anexada" : "Prazo da política atualizado")
 			invalidate()
 		},
 		onError: (error: Error) => toast.error("Erro ao anexar política", { description: error.message }),

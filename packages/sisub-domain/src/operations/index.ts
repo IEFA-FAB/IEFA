@@ -306,6 +306,7 @@ export {
 	upsertDailyMenu,
 } from "./planning.ts"
 export {
+	type AttachedPolicy,
 	addPolicyStatement,
 	attachPolicy,
 	createPolicy,

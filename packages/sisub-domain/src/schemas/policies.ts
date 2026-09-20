@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { KitchenIdSchema, UuidSchema } from "./common.ts"
-import { APP_MODULES } from "./permissions.ts"
+import { APP_MODULES, ExpiresAtSchema } from "./permissions.ts"
 
 /**
  * Nível de um statement. Mesma escala dos grants: 0 = deny explícito, 1 = leitura,
@@ -87,10 +87,20 @@ export type RemovePolicyStatement = z.infer<typeof RemovePolicyStatementSchema>
 export const AttachPolicySchema = z.object({
 	userId: UuidSchema,
 	policyId: UuidSchema,
+	/**
+	 * Prazo do anexo. `null` = permanente (limpa um prazo já gravado); ausente = não mexe no
+	 * prazo do anexo que já exista. Anexar é idempotente, então este campo é também o caminho
+	 * de RENOVAÇÃO: reanexar com uma data nova reescreve só o prazo.
+	 */
+	expiresAt: ExpiresAtSchema,
 })
 export type AttachPolicy = z.infer<typeof AttachPolicySchema>
 
-export const DetachPolicySchema = AttachPolicySchema
+/** Desanexar não tem prazo: é a remoção do anexo, aconteça ele estar vigente ou vencido. */
+export const DetachPolicySchema = z.object({
+	userId: UuidSchema,
+	policyId: UuidSchema,
+})
 export type DetachPolicy = z.infer<typeof DetachPolicySchema>
 
 export const ListUserPoliciesSchema = z.object({ userId: UuidSchema })

@@ -1,14 +1,16 @@
 "use no memo"
 
-import { Link2, Link2Off, Lock, ShieldOff } from "lucide-react"
+import { CalendarClock, Link2, Link2Off, Lock, ShieldOff } from "lucide-react"
 import * as React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAttachPolicy, useDetachPolicy, useEffectivePermissions, usePolicies, useUserPolicies } from "@/hooks/data/usePolicies"
+import { ExpiryCell, ExpiryField, fromDatetimeLocalValue, toDatetimeLocalValue } from "./expiry"
 import { LEVEL_CONFIG, MODULE_LABELS, type ScopeMaps, type SisubModule, scopeLabel } from "./labels"
 
 /**
@@ -30,7 +32,17 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 
 	const [attachOpen, setAttachOpen] = React.useState(false)
 	const [selectedPolicyId, setSelectedPolicyId] = React.useState("")
+	const [attachExpiresAt, setAttachExpiresAt] = React.useState("")
 	const [detachTarget, setDetachTarget] = React.useState<(typeof attached)[number] | null>(null)
+	// Renovar o prazo de um anexo existente. Estado separado do de anexar: as duas ações
+	// coexistem na mesma tela e compartilhar o campo faria uma vazar na outra.
+	const [expiryTarget, setExpiryTarget] = React.useState<(typeof attached)[number] | null>(null)
+	const [expiryValue, setExpiryValue] = React.useState("")
+
+	const openExpiryDialog = (policy: (typeof attached)[number]) => {
+		setExpiryValue(toDatetimeLocalValue(policy.expires_at))
+		setExpiryTarget(policy)
+	}
 
 	// Política já anexada não é reofertada — anexar de novo é no-op e só confunde.
 	const attachedIds = new Set(attached.map((p) => p.id))
@@ -59,8 +71,10 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 				) : (
 					<div className="space-y-1">
 						{attached.map((policy) => (
-							<div key={policy.id} className="flex items-center justify-between rounded-lg border px-4 py-3">
-								<div>
+							// Anexo vencido: tint de fundo + badge na linha do prazo. Nada de faixa de acento
+							// lateral — a proibição global do repo vale para status também.
+							<div key={policy.id} className={`flex items-center justify-between gap-4 rounded-lg border px-4 py-3 ${policy.expired ? "bg-muted/40" : ""}`}>
+								<div className={policy.expired ? "opacity-60" : undefined}>
 									<p className="text-subheading flex items-center gap-2">
 										{policy.name}
 										{policy.managed && (
@@ -71,11 +85,20 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 										)}
 									</p>
 									{policy.description && <p className="text-xs text-muted-foreground mt-0.5">{policy.description}</p>}
+									<div className="mt-1">
+										<ExpiryCell expiresAt={policy.expires_at} expired={policy.expired} />
+									</div>
 								</div>
-								<Button variant="ghost" size="sm" onClick={() => setDetachTarget(policy)} className="gap-1.5">
-									<Link2Off className="size-4" />
-									Desanexar
-								</Button>
+								<div className="flex items-center gap-1 shrink-0">
+									<Button variant="ghost" size="sm" onClick={() => openExpiryDialog(policy)} className="gap-1.5">
+										<CalendarClock className="size-4" />
+										Prazo
+									</Button>
+									<Button variant="ghost" size="sm" onClick={() => setDetachTarget(policy)} className="gap-1.5">
+										<Link2Off className="size-4" />
+										Desanexar
+									</Button>
+								</div>
 							</div>
 						))}
 					</div>
@@ -87,7 +110,8 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 				<div>
 					<h3 className="text-heading">Permissões efetivas</h3>
 					<p className="text-sm text-muted-foreground mt-0.5">
-						O que este usuário pode fazer, somando políticas e grants diretos. Um deny anula o allow que ele cobre.
+						O que este usuário pode fazer, somando políticas e grants diretos. Um deny anula o allow que ele cobre. Concessão com prazo vencido não entra: nem
+						concede, nem nega.
 					</p>
 				</div>
 
@@ -162,6 +186,7 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 					if (!v) {
 						setAttachOpen(false)
 						setSelectedPolicyId("")
+						setAttachExpiresAt("")
 					}
 				}}
 			>
@@ -183,6 +208,13 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 							</SelectContent>
 						</Select>
 						{selectedPolicy?.description && <p className="text-xs text-muted-foreground mt-2">{selectedPolicy.description}</p>}
+
+						<div className="mt-4">
+							<Label className="text-sm">Prazo (opcional)</Label>
+							<div className="mt-1.5">
+								<ExpiryField value={attachExpiresAt} onChange={setAttachExpiresAt} disabled={attach.isPending} />
+							</div>
+						</div>
 					</div>
 					<DialogFooter className="flex justify-between">
 						<Button variant="outline" onClick={() => setAttachOpen(false)} disabled={attach.isPending}>
@@ -191,11 +223,12 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 						<Button
 							onClick={() =>
 								attach.mutate(
-									{ userId, policyId: selectedPolicyId },
+									{ userId, policyId: selectedPolicyId, expiresAt: fromDatetimeLocalValue(attachExpiresAt) },
 									{
 										onSuccess: () => {
 											setAttachOpen(false)
 											setSelectedPolicyId("")
+											setAttachExpiresAt("")
 										},
 									}
 								)
@@ -203,6 +236,32 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 							disabled={attach.isPending || !selectedPolicyId}
 						>
 							{attach.isPending ? "Anexando..." : "Anexar"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* ── Prazo do anexo ── */}
+			<Dialog open={!!expiryTarget} onOpenChange={(v) => !v && setExpiryTarget(null)}>
+				<DialogContent className="sm:max-w-[440px]">
+					<DialogHeader>
+						<DialogTitle>Prazo de {expiryTarget?.name}</DialogTitle>
+					</DialogHeader>
+					<div className="py-2">
+						<ExpiryField value={expiryValue} onChange={setExpiryValue} disabled={attach.isPending} />
+					</div>
+					<DialogFooter className="flex justify-between">
+						<Button variant="outline" onClick={() => setExpiryTarget(null)} disabled={attach.isPending}>
+							Cancelar
+						</Button>
+						<Button
+							onClick={() =>
+								expiryTarget &&
+								attach.mutate({ userId, policyId: expiryTarget.id, expiresAt: fromDatetimeLocalValue(expiryValue) }, { onSuccess: () => setExpiryTarget(null) })
+							}
+							disabled={attach.isPending}
+						>
+							{attach.isPending ? "Salvando..." : "Salvar prazo"}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

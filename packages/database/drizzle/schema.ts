@@ -356,6 +356,8 @@ export const userPermissionsInAccessControl = accessControl.table("user_permissi
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	unitId: bigint("unit_id", { mode: "number" }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	/** Prazo do grant. `null` = nunca expira. Linha vencida é AUSENTE na resolução, não deny. */
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	index("idx_user_permissions_user_id").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
@@ -2214,6 +2216,8 @@ export const userPolicyAttachmentInAccessControl = accessControl.table("user_pol
 	policyId: uuid("policy_id").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	createdBy: uuid("created_by"),
+	/** Prazo do anexo. `null` = nunca expira. Anexo vencido não contribui com statement algum. */
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	index("user_policy_attachment_user_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
 	index("user_policy_attachment_policy_idx").using("btree", table.policyId.asc().nullsLast().op("uuid_ops")),

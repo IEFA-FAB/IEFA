@@ -2,6 +2,16 @@ import { z } from "zod"
 
 export const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "admin", "analytics", "local-analytics", "storage"] as const
 
+/**
+ * Prazo de uma concessão. `null` = sem prazo (nunca expira) — é o default de tudo que já
+ * existe; ausente (`undefined`) = não mexer no prazo gravado.
+ *
+ * Os dois significados são distintos e a operation TEM que ramificar em `!== undefined`:
+ * tratar `null` como "não mexeu" tornaria impossível remover um prazo já definido, e tratar
+ * `undefined` como `null` limparia o prazo de qualquer edição que só trocasse o nível.
+ */
+export const ExpiresAtSchema = z.iso.datetime({ offset: true }).nullable().optional()
+
 export const FetchUserPermissionsSchema = z.object({ userId: z.string().min(1) })
 export type FetchUserPermissions = z.infer<typeof FetchUserPermissionsSchema>
 
@@ -18,6 +28,7 @@ export const CreateUserPermissionSchema = z.object({
 	mess_hall_id: z.number().nullable().optional(),
 	kitchen_id: z.number().nullable().optional(),
 	unit_id: z.number().nullable().optional(),
+	expiresAt: ExpiresAtSchema,
 })
 export type CreateUserPermission = z.infer<typeof CreateUserPermissionSchema>
 
@@ -27,6 +38,8 @@ export const UpdateUserPermissionSchema = z.object({
 	mess_hall_id: z.number().nullable().optional(),
 	kitchen_id: z.number().nullable().optional(),
 	unit_id: z.number().nullable().optional(),
+	// null limpa o prazo (volta a ser permanente); undefined = não mexe. Ver ExpiresAtSchema.
+	expiresAt: ExpiresAtSchema,
 })
 export type UpdateUserPermission = z.infer<typeof UpdateUserPermissionSchema>
 

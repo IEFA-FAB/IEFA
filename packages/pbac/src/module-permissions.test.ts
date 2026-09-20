@@ -30,7 +30,9 @@ function createResolveStub(rows: UserPermission[]) {
 				select() {
 					return {
 						eq() {
-							return { data: rows, error: null }
+							// `.or(...)` é o filtro de prazo aplicado pelo resolver — ver
+							// `resolve-permissions.ts`. O dublê precisa acompanhar a cadeia.
+							return { or: () => ({ data: rows, error: null }) }
 						},
 					}
 				},

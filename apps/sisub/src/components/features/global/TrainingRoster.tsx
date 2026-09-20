@@ -1,8 +1,9 @@
 "use no memo"
 
-import { GraduationCap, Search, UserMinus, UserPlus } from "lucide-react"
+import { CalendarClock, GraduationCap, Search, UserMinus, UserPlus } from "lucide-react"
 import * as React from "react"
 import { usePBAC } from "@/auth/pbac"
+import { ExpiryCell, ExpiryField, fromDatetimeLocalValue, toDatetimeLocalValue } from "@/components/features/global/policies/expiry"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,6 +38,10 @@ export function TrainingRoster() {
 
 	const [addOpen, setAddOpen] = React.useState(false)
 	const [removeTarget, setRemoveTarget] = React.useState<(typeof members)[number] | null>(null)
+	// Renovar/limpar o prazo de quem já está na turma. Reanexar com prazo novo preserva quem
+	// concedeu e quando — desanexar e reanexar perderia essa trilha.
+	const [expiryTarget, setExpiryTarget] = React.useState<(typeof members)[number] | null>(null)
+	const [expiryValue, setExpiryValue] = React.useState("")
 
 	if (policyError) {
 		return (
@@ -72,13 +77,14 @@ export function TrainingRoster() {
 							<TableHead className="text-foreground text-subheading">Usuário</TableHead>
 							<TableHead className="text-foreground text-subheading">Nr. Ordem</TableHead>
 							<TableHead className="text-foreground text-subheading">Desde</TableHead>
-							<TableHead className="w-[120px]" />
+							<TableHead className="text-foreground text-subheading">Prazo</TableHead>
+							<TableHead className="w-[180px]" />
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{!canWrite ? (
 							<TableRow>
-								<TableCell colSpan={4} className="h-20 text-center text-sm text-muted-foreground">
+								<TableCell colSpan={5} className="h-20 text-center text-sm text-muted-foreground">
 									A turma do treino é visível para quem administra o acesso da SDAB (nível de escrita).
 								</TableCell>
 							</TableRow>
@@ -86,31 +92,48 @@ export function TrainingRoster() {
 							// Erro precisa aparecer como erro: cair no estado vazio afirmaria que não há
 							// ninguém em treino quando na verdade a lista não pôde ser lida.
 							<TableRow>
-								<TableCell colSpan={4} className="h-20 text-center text-sm text-destructive">
+								<TableCell colSpan={5} className="h-20 text-center text-sm text-destructive">
 									Não foi possível carregar a turma: {(membersError as Error).message}
 								</TableCell>
 							</TableRow>
 						) : policyLoading || membersLoading ? (
 							<TableRow>
-								<TableCell colSpan={4}>
+								<TableCell colSpan={5}>
 									<Skeleton className="h-5 w-full" />
 								</TableCell>
 							</TableRow>
 						) : members.length === 0 ? (
 							<TableRow>
-								<TableCell colSpan={4} className="h-20 text-center text-sm text-muted-foreground">
+								<TableCell colSpan={5} className="h-20 text-center text-sm text-muted-foreground">
 									Ninguém em treino no momento.
 								</TableCell>
 							</TableRow>
 						) : (
 							members.map((member) => (
-								<TableRow key={member.user_id} className="hover:bg-accent/40">
+								// Anexo vencido continua listado — é quem precisa ser renovado ou removido —,
+								// esmaecido e com badge de expirada, nunca como se ainda estivesse em treino.
+								<TableRow key={member.user_id} className={member.expired ? "bg-muted/40 opacity-60 hover:bg-accent/40" : "hover:bg-accent/40"}>
 									<TableCell className="text-sm">{member.email ?? member.user_id}</TableCell>
 									<TableCell className="text-sm font-mono">{member.nrOrdem ?? "—"}</TableCell>
 									<TableCell className="text-sm">{new Date(member.attached_at).toLocaleDateString("pt-BR")}</TableCell>
+									<TableCell className="text-sm">
+										<ExpiryCell expiresAt={member.expires_at} expired={member.expired} />
+									</TableCell>
 									<TableCell>
 										{canWrite && (
-											<div className="flex justify-end">
+											<div className="flex justify-end gap-1">
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() => {
+														setExpiryValue(toDatetimeLocalValue(member.expires_at))
+														setExpiryTarget(member)
+													}}
+													className="gap-1.5"
+												>
+													<CalendarClock className="size-4" />
+													Prazo
+												</Button>
 												<Button variant="ghost" size="sm" onClick={() => setRemoveTarget(member)} className="gap-1.5">
 													<UserMinus className="size-4" />
 													Remover
@@ -130,9 +153,39 @@ export function TrainingRoster() {
 				policyId={policy?.id ?? null}
 				existingIds={new Set(members.map((m) => m.user_id))}
 				isPending={attach.isPending}
-				onAdd={(userId) => policy && attach.mutate({ userId, policyId: policy.id }, { onSuccess: () => setAddOpen(false) })}
+				onAdd={(userId, expiresAt) => policy && attach.mutate({ userId, policyId: policy.id, expiresAt }, { onSuccess: () => setAddOpen(false) })}
 				onClose={() => setAddOpen(false)}
 			/>
+
+			<Dialog open={!!expiryTarget} onOpenChange={(v) => !v && setExpiryTarget(null)}>
+				<DialogContent className="sm:max-w-[440px]">
+					<DialogHeader>
+						<DialogTitle>Prazo do treino</DialogTitle>
+					</DialogHeader>
+					<p className="text-sm text-muted-foreground">{expiryTarget?.email ?? expiryTarget?.user_id}</p>
+					<div className="py-2">
+						<ExpiryField value={expiryValue} onChange={setExpiryValue} disabled={attach.isPending} />
+					</div>
+					<DialogFooter className="flex justify-between">
+						<Button variant="outline" onClick={() => setExpiryTarget(null)} disabled={attach.isPending}>
+							Cancelar
+						</Button>
+						<Button
+							onClick={() =>
+								expiryTarget &&
+								policy &&
+								attach.mutate(
+									{ userId: expiryTarget.user_id, policyId: policy.id, expiresAt: fromDatetimeLocalValue(expiryValue) },
+									{ onSuccess: () => setExpiryTarget(null) }
+								)
+							}
+							disabled={attach.isPending}
+						>
+							{attach.isPending ? "Salvando..." : "Salvar prazo"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog open={!!removeTarget} onOpenChange={(v) => !v && setRemoveTarget(null)}>
 				<DialogContent className="sm:max-w-[440px]">
@@ -176,14 +229,18 @@ function AddTraineeDialog({
 	policyId: string | null
 	existingIds: Set<string>
 	isPending: boolean
-	onAdd: (userId: string) => void
+	onAdd: (userId: string, expiresAt: string | null) => void
 	onClose: () => void
 }) {
 	const [email, setEmail] = React.useState("")
+	const [expiresAt, setExpiresAt] = React.useState("")
 	const { results, isSearching, canSearch } = useUserSearch(email)
 
 	React.useEffect(() => {
-		if (!open) setEmail("")
+		if (!open) {
+			setEmail("")
+			setExpiresAt("")
+		}
 	}, [open])
 
 	return (
@@ -194,6 +251,15 @@ function AddTraineeDialog({
 				</DialogHeader>
 
 				<div className="space-y-3 py-2">
+					{/* Prazo escolhido ANTES de selecionar a pessoa: adicionar é um clique só na lista
+					    de resultados, então o campo tem que já estar preenchido quando ele acontece. */}
+					<div>
+						<span className="text-sm font-medium">Prazo (opcional)</span>
+						<div className="mt-1.5">
+							<ExpiryField value={expiresAt} onChange={setExpiresAt} disabled={isPending} />
+						</div>
+					</div>
+
 					<div className="relative">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 						<Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@fab.mil.br" className="pl-9" autoComplete="off" />
@@ -215,7 +281,7 @@ function AddTraineeDialog({
 											key={user.id}
 											type="button"
 											disabled={alreadyIn || isPending || !policyId}
-											onClick={() => onAdd(user.id)}
+											onClick={() => onAdd(user.id, fromDatetimeLocalValue(expiresAt))}
 											className="w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition-colors enabled:hover:bg-accent disabled:opacity-60"
 										>
 											<div>

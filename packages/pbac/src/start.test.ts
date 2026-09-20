@@ -44,7 +44,8 @@ function permissionsClient(rows: Array<Record<string, unknown>>): any {
 	return {
 		from: () => ({
 			select: () => ({
-				eq: async () => ({ data: rows, error: null }),
+				// `.or(...)` = filtro de prazo (`expires_at is null or > now()`) do resolver.
+				eq: () => ({ or: async () => ({ data: rows, error: null }) }),
 			}),
 		}),
 	}

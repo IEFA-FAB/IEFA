@@ -28,6 +28,7 @@ import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
 import { mutateOrFail, runQuery } from "../utils/index.ts"
+import { isActiveGrant, isExpiredGrant } from "./access-expiry.ts"
 import { listUserPolicyPermissions } from "./policies.ts"
 
 /**
@@ -45,7 +46,9 @@ export async function listEffectiveUserPermissions(db: SisubDb, input: FetchUser
 				unit_id: userPermissionsInAccessControl.unitId,
 			})
 			.from(userPermissionsInAccessControl)
-			.where(eq(userPermissionsInAccessControl.userId, input.userId))
+			// O prazo é cortado aqui, na origem: linha vencida nunca chega ao resolver, então um
+			// deny vencido deixa de negar em vez de continuar cancelando allow de outra origem.
+			.where(and(eq(userPermissionsInAccessControl.userId, input.userId), isActiveGrant(userPermissionsInAccessControl.expiresAt)))
 	)
 
 	// Segunda origem: os statements das políticas anexadas. A união com os grants inline e
@@ -111,7 +114,9 @@ export async function listEffectiveUserPermissionsWithOrigin(
 					unit_id: userPermissionsInAccessControl.unitId,
 				})
 				.from(userPermissionsInAccessControl)
-				.where(eq(userPermissionsInAccessControl.userId, input.userId))
+				// Mesmo corte de prazo da resolução canônica: o console tem que responder o que a
+				// autorização responde, senão mostraria como vigente um grant que já não vale.
+				.where(and(eq(userPermissionsInAccessControl.userId, input.userId), isActiveGrant(userPermissionsInAccessControl.expiresAt)))
 		),
 		listUserPolicyStatementsWithSource(db, input.userId),
 	])
@@ -194,7 +199,14 @@ async function listUserPolicyStatementsWithSource(db: SisubDb, userId: string) {
 			.from(userPolicyAttachmentInAccessControl)
 			.innerJoin(policyInAccessControl, eq(policyInAccessControl.id, userPolicyAttachmentInAccessControl.policyId))
 			.innerJoin(policyStatementInAccessControl, eq(policyStatementInAccessControl.policyId, policyInAccessControl.id))
-			.where(and(eq(userPolicyAttachmentInAccessControl.userId, userId), isNull(policyInAccessControl.deletedAt)))
+			.where(
+				and(
+					eq(userPolicyAttachmentInAccessControl.userId, userId),
+					isNull(policyInAccessControl.deletedAt),
+					// Anexo vencido não contribui com statement nenhum — nem allow, nem deny.
+					isActiveGrant(userPolicyAttachmentInAccessControl.expiresAt)
+				)
+			)
 	)
 }
 
@@ -224,8 +236,15 @@ export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, i
 				mess_hall_id: userPermissionsInAccessControl.messHallId,
 				kitchen_id: userPermissionsInAccessControl.kitchenId,
 				unit_id: userPermissionsInAccessControl.unitId,
+				expires_at: userPermissionsInAccessControl.expiresAt,
+				// Calculado pelo `now()` do banco, não pelo relógio do navegador: a mesma
+				// comparação que a resolução usa, para a tela não discordar da autorização.
+				expired: isExpiredGrant(userPermissionsInAccessControl.expiresAt),
 			})
 			.from(userPermissionsInAccessControl)
+			// Listagem ADMINISTRATIVA: mostra também o vencido — é a linha que o administrador
+			// vai renovar ou remover, e escondê-la a tornaria inalcançável. Quem resolve acesso
+			// é `listEffectiveUserPermissions`, e essa filtra.
 			.where(eq(userPermissionsInAccessControl.userId, input.userId))
 			.orderBy(asc(userPermissionsInAccessControl.module))
 	)
@@ -241,6 +260,8 @@ export async function createUserPermission(db: SisubDb, ctx: UserContext, input:
 			messHallId: input.mess_hall_id ?? null,
 			kitchenId: input.kitchen_id ?? null,
 			unitId: input.unit_id ?? null,
+			// Ausente e null significam a mesma coisa na CRIAÇÃO: concessão sem prazo.
+			expiresAt: input.expiresAt ?? null,
 		})
 	)
 	return { success: true as const }
@@ -256,6 +277,10 @@ export async function updateUserPermission(db: SisubDb, ctx: UserContext, input:
 				messHallId: input.mess_hall_id ?? null,
 				kitchenId: input.kitchen_id ?? null,
 				unitId: input.unit_id ?? null,
+				// Aqui os dois valores DIVERGEM, e por isso o teste é `!== undefined`: null limpa
+				// o prazo (a concessão volta a ser permanente), ausente deixa o prazo gravado
+				// intacto. Colapsar em `?? null` apagaria o prazo em qualquer edição de nível.
+				...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
 			})
 			.where(eq(userPermissionsInAccessControl.id, input.permissionId))
 			.returning({ id: userPermissionsInAccessControl.id })
