@@ -133,6 +133,28 @@ export type StockAdjustmentStatus = (typeof STOCK_ADJUSTMENT_STATUSES)[number]
 export const SEGREGATION_MODES = ["strict", "dual"] as const
 export type SegregationMode = (typeof SEGREGATION_MODES)[number]
 
+/** Status da carga de abertura (`inventory.opening_balance.status`). */
+export const OPENING_BALANCE_STATUSES = ["draft", "posted", "cancelled"] as const
+export type OpeningBalanceStatus = (typeof OPENING_BALANCE_STATUSES)[number]
+
+/** De onde vieram as linhas da carga: planilha livre ou a folha gerada do catálogo. */
+export const OPENING_BALANCE_SOURCES = ["spreadsheet", "catalog_sheet"] as const
+export type OpeningBalanceSource = (typeof OPENING_BALANCE_SOURCES)[number]
+
+/**
+ * Fonte do custo de cada linha da carga (`opening_balance_item.cost_source`).
+ * Gravada porque o custo de abertura vira custo médio e depois valor de balancete:
+ * quem audita precisa saber se o número foi homologado, estimado ou digitado.
+ */
+export const OPENING_COST_SOURCES = ["ata", "price_research", "manual"] as const
+export type OpeningCostSource = (typeof OPENING_COST_SOURCES)[number]
+
+export const OPENING_COST_SOURCE_LABELS: Record<OpeningCostSource, string> = {
+	ata: "ATA (preço homologado)",
+	price_research: "Pesquisa de preço",
+	manual: "Informado",
+}
+
 /** Derivação de lote: produto aberto, fracionado ou descongelado (RDC 216). */
 export const LOT_DERIVATIONS = ["opened", "portioned", "thawed"] as const
 export type LotDerivation = (typeof LOT_DERIVATIONS)[number]

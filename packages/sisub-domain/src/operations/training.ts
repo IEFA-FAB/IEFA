@@ -242,6 +242,14 @@ const RESET_STEPS: ResetStep[] = [
 			return deleteRaw(tx, sql`delete from inventory.stock_adjustment where kitchen_id = ${scope.kitchen_id} returning 1`)
 		},
 	},
+	// A carga de abertura vem ANTES do movimento e do lote: cada linha dela aponta para o lote
+	// e para o `adjustment_in` que ela criou (`opening_balance_item.lot_id`/`movement_id`, sem
+	// cascade), então apagá-la depois deles cairia por FK. As linhas saem por cascade do
+	// documento, e o guard de imutabilidade libera o DELETE sob a flag do reset.
+	{
+		table: "inventory.opening_balance",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.opening_balance where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
 	{
 		table: "inventory.stock_movement",
 		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_movement where kitchen_id = ${scope.kitchen_id} returning 1`),

@@ -543,6 +543,15 @@ export const ASSURANCE_REGISTRY = {
 	// ── stock-reports.fn.ts
 	closeMonthFn: { require: "none" },
 
+	// ── opening-balance.fn.ts
+	// Carga de abertura: o lançamento é nível 3 e cria o saldo inicial inteiro. Segue `none`
+	// como o ajuste — o piso de MFA é decisão do change de garantia de identidade.
+	importOpeningSheetFn: { require: "none" },
+	applyOpeningCostSuggestionsFn: { require: "none" },
+	setOpeningItemCostFn: { require: "none" },
+	postOpeningBalanceFn: { require: "none" },
+	cancelOpeningBalanceFn: { require: "none" },
+
 	// ── adjustment.fn.ts
 	// Lançar ajuste e aprovar mexem em valor contábil, mas seguem `none` como o
 	// resto do módulo: a classificação existe e o registro sensível é gravado; o

@@ -158,9 +158,12 @@ integração do sisub antes do PR.
 - [ ] 2.9 [root] `LGPD.md` e Política de Privacidade: fotos e documentos de apuração, retenção
 - [ ] 2.10 [sisub] Fns de ajuste (criar, enviar, aprovar, rejeitar, completar evidência) e quarentena (marcar, liberar)
 - [ ] 2.11 [sisub] Tela de ajuste com `ScanInput`, fila de aprovação e pendências de evidência
-- [ ] 2.12 [sisub-domain] Parser de planilha de abertura (colunas, unidades canônicas, rejeições com motivo)
-- [ ] 2.13 [sisub] Documento de abertura: importar planilha ou gerar folha do catálogo por classe
-- [ ] 2.14 [sisub] Sugestão de custo por última ATA/pesquisa, "aceitar todas", fonte por linha; aprovação lança `opening_balance`
+- [x] 2.12 [sisub-domain] Parser de planilha de abertura (colunas, unidades canônicas, rejeições com motivo)
+  > `@iefa/sisub-domain/opening-balance` (`utils/opening-balance-sheet.ts`): coluna por nome, CSV com `;`/`,`/tab, número brasileiro, `1.500` ambíguo recusado, unidade tem de ser a do insumo (sem conversão), linha da recusa = linha do Excel. Aceita CSV; `.xlsx` fica para depois (o `sisub` não tem `xlsx` como dependência).
+- [x] 2.13 [sisub] Documento de abertura: importar planilha ou gerar folha do catálogo por classe
+  > `inventory.opening_balance(_item)` (migration `20260922100000`), tela `/storage/$kitchenId/opening`. Um rascunho por cozinha; reimportar substitui as linhas e preserva o custo das que não mudaram.
+- [x] 2.14 [sisub] Sugestão de custo por última ATA/pesquisa, "aceitar todas", fonte por linha; aprovação lança `opening_balance`
+  > Sugestão recalculada no servidor (ATA homologada > pesquisa de preço; da própria unidade > de outra; mais recente). Sem fator de conversão conhecido, sem sugestão. Cobertura em 2026-09-21: 0 preço de ARP e 66 insumos com pesquisa — o custo digitado vai predominar. `post_opening_balance` (nível 3) cria lotes e `adjustment_in`/`opening_balance`, recusa item já movimentado sob a trava de `stock_cost`; o relatório de perdas exclui o motivo.
 - [ ] 2.15 [sisub] Etiqueta interna: componente de impressão 58/80 mm e A4, individual e em lote
 - [ ] 2.16 [database] `ingredient.shelf_life_after_opening_days`, `shelf_life_after_thaw_days`, `default_shelf_life_days`; função `split_lot`
 - [ ] 2.17 [sisub] Ação abrir/fracionar/descongelar com etiqueta; PR da Fase 2
