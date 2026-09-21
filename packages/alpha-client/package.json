@@ -13,9 +13,9 @@
     "./tracer": "./src/tracer.ts"
   },
   "dependencies": {
-    "@langchain/core": "^1.2.9",
-    "@langchain/openai": "^1.5.11",
-    "zod": "^4.5.4"
+    "@langchain/core": "^1.2.11",
+    "@langchain/openai": "^1.5.13",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
