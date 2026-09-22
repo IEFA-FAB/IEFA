@@ -134,14 +134,23 @@ export async function updateMealType(db: SisubDb, ctx: UserContext, input: Updat
 		requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 		updates.kitchenId = input.kitchenId ?? null
 	}
+	// O escopo que vale é o do DESTINO quando a refeição está sendo movida.
+	const targetKitchenId = "kitchenId" in input ? (input.kitchenId ?? null) : ownerKitchenId
+
 	// `null` aqui é escolha do usuário ("volta ao conjunto padrão"), não ausência —
 	// por isso a ramificação é em `!== undefined`.
 	if (input.groupSetId !== undefined) {
-		if (input.groupSetId != null) {
-			// O escopo que vale é o do DESTINO quando a refeição está sendo movida.
-			await assertGroupSetUsable(db, "kitchenId" in input ? (input.kitchenId ?? null) : ownerKitchenId, input.groupSetId)
-		}
+		if (input.groupSetId != null) await assertGroupSetUsable(db, targetKitchenId, input.groupSetId)
 		updates.groupSetId = input.groupSetId
+	} else if ("kitchenId" in input && targetKitchenId !== ownerKitchenId) {
+		// Mudou de dono sem dizer nada sobre o conjunto: o que já estava gravado pode
+		// ser de uma cozinha que o destino não alcança. Validar só o conjunto NOVO
+		// deixaria a refeição apontando para um conjunto que ela não pode usar, e o
+		// editor abriria com as colunas do padrão sem dizer por quê.
+		const [current] = await runQuery("FETCH_FAILED", () =>
+			db.select({ groupSetId: mealTypeInKitchen.groupSetId }).from(mealTypeInKitchen).where(eq(mealTypeInKitchen.id, input.mealTypeId)).limit(1)
+		)
+		if (current?.groupSetId) await assertGroupSetUsable(db, targetKitchenId, current.groupSetId)
 	}
 
 	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")

@@ -42,7 +42,11 @@ export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFor
 	const { mutate: createMealType, isPending: isCreating } = useCreateMealType()
 	const { mutate: updateMealType, isPending: isUpdating } = useUpdateMealType()
 	// Conjuntos que esta cozinha alcança: os globais da SDAB mais os dela.
-	const { data: groupSets } = useMenuGroupSets(kitchenId)
+	const { data: allGroupSets } = useMenuGroupSets(kitchenId)
+	// Refeição GLOBAL só aceita conjunto global (`assertGroupSetUsable`): oferecer o
+	// conjunto de uma cozinha aqui seria oferecer uma opção que o servidor recusa.
+	const isGlobalMealType = !!mealType && mealType.kitchen_id == null
+	const groupSets = isGlobalMealType ? allGroupSets?.filter((set) => set.kitchen_id == null) : allGroupSets
 
 	const isEditing = !!mealType
 	const isPending = isCreating || isUpdating

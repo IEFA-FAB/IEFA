@@ -8,12 +8,13 @@
  *     `where: isNull(...)` dentro do `with` aninhado.
  */
 
-import { dailyMenuInKitchen, menuGroupInKitchen, menuItemsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { dailyMenuInKitchen, menuGroupInKitchen, menuGroupSetInKitchen, menuItemsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm"
 import { requireKitchen } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenu, resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type { FetchDailyMenuContent } from "../schemas/meal-ops.ts"
+import { DEFAULT_GROUP_SET_SLUG } from "../schemas/menu-groups.ts"
 import type {
 	AddMenuItem,
 	DailyMenuFetch,
@@ -501,7 +502,25 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 	// com o prato de propósito: a visão do comensal exige `diner:1` e não alcança
 	// `kitchen.menu_group_set` por conta própria — buscar o conjunto na tela
 	// devolveria 403 e a tela perderia os cabeçalhos sem dizer por quê.
-	const setIds = [...new Set(rows.map((r) => r.mealTypeInKitchen?.groupSetId).filter((id): id is string => id != null))]
+	//
+	// Refeição sem conjunto (linha antiga) cai no conjunto PADRÃO, como no editor.
+	// Deixá-la sem rótulo empataria todos os pratos no fim da ordenação e a tela do
+	// comensal mostraria as seções em ordem arbitrária, com a chave crua no lugar do
+	// rótulo — a ordenação canônica que o cliente fazia sozinho não existe mais.
+	const needsDefault = rows.some((r) => r.mealTypeInKitchen != null && r.mealTypeInKitchen.groupSetId == null)
+	const defaultSetId = needsDefault
+		? ((
+				await runQuery("FETCH_FAILED", () =>
+					db
+						.select({ id: menuGroupSetInKitchen.id })
+						.from(menuGroupSetInKitchen)
+						.where(and(eq(menuGroupSetInKitchen.slug, DEFAULT_GROUP_SET_SLUG), isNull(menuGroupSetInKitchen.deletedAt)))
+						.limit(1)
+				)
+			)[0]?.id ?? null)
+		: null
+
+	const setIds = [...new Set([...rows.map((r) => r.mealTypeInKitchen?.groupSetId), defaultSetId].filter((id): id is string => id != null))]
 	const groupsBySet = new Map<string, Map<string, { label: string; order: number }>>()
 	if (setIds.length > 0) {
 		const groupRows = await runQuery("FETCH_FAILED", () =>
@@ -551,7 +570,8 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 			}
 
 			const proportion = item.recommendedProportion == null ? null : Number(item.recommendedProportion)
-			const group = menu.mealTypeInKitchen?.groupSetId ? groupsBySet.get(menu.mealTypeInKitchen.groupSetId)?.get(item.itemGroup ?? "") : undefined
+			const setId = menu.mealTypeInKitchen?.groupSetId ?? defaultSetId
+			const group = setId ? groupsBySet.get(setId)?.get(item.itemGroup ?? "") : undefined
 			content[date][mealKey].push({
 				id: item.id,
 				name: dishName,

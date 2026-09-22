@@ -585,7 +585,10 @@ function GlobalPlanEditorPage() {
 															size="sm"
 															variant="ghost"
 															className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
-															onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
+															// Primeira coluna do conjunto DESTA refeição: fixar "prato_principal"
+															// criava item fora do conjunto no café e na ceia, numa coluna que
+															// nem botão de adicionar tem.
+															onClick={() => handleOpenSelector(day.num, mealType.id, groupsFor(mealType.id)[0]?.key ?? null)}
 														>
 															<Plus className="size-3.5" />
 															Adicionar

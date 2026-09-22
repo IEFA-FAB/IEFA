@@ -14,8 +14,10 @@ import {
 	createMenuGroupSet,
 	DEFAULT_GROUP_SET_SLUG,
 	DEFAULT_MENU_GROUP_SETS,
+	deleteMealType,
 	deleteMenuGroupSet,
 	fetchMenuGroupSets,
+	restoreMealType,
 	updateMealType,
 	updateMenuGroupSet,
 } from "@iefa/sisub-domain"
@@ -133,6 +135,12 @@ describeSupabaseIntegration("menu group set operations (regressão)", () => {
 		await updateMealType(db, ctx, { mealTypeId, groupSetId: created.id })
 
 		await expect(deleteMenuGroupSet(db, ctx, { groupSetId: created.id })).rejects.toThrow(/em uso/i)
+
+		// Arquivar a refeição NÃO libera o conjunto: `restoreMealType` a traria de
+		// volta apontando para um conjunto que já não existe.
+		await deleteMealType(db, ctx, { mealTypeId })
+		await expect(deleteMenuGroupSet(db, ctx, { groupSetId: created.id })).rejects.toThrow(/em uso/i)
+		await restoreMealType(db, ctx, { mealTypeId })
 
 		// Soltando a refeição, o conjunto sai. `null` aqui é escolha: volta ao padrão.
 		await updateMealType(db, ctx, { mealTypeId, groupSetId: null })

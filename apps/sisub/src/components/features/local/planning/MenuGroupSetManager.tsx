@@ -158,6 +158,11 @@ export function MenuGroupSetManager({ open, onClose, kitchenId }: { open: boolea
 	const canEditGlobal = can("global", 2)
 	const canEditLocal = kitchenId != null && can("kitchen", 2, { type: "kitchen", id: kitchenId })
 	const canEdit = (set: MenuGroupSetRow) => (set.kitchen_id == null ? canEditGlobal : canEditLocal)
+	// Criar e duplicar gravam no escopo DESTA tela (a cozinha, ou o global quando não
+	// há cozinha). É essa a permissão que o servidor vai cobrar — oferecer o botão
+	// por "tem alguma das duas" faz o usuário preencher o editor inteiro para tomar
+	// um erro de permissão no fim.
+	const canCreate = kitchenId != null ? canEditLocal : canEditGlobal
 
 	const closeEditor = () => {
 		setEditing(null)
@@ -211,10 +216,12 @@ export function MenuGroupSetManager({ open, onClose, kitchenId }: { open: boolea
 											{set.description && <p className="text-xs text-muted-foreground">{set.description}</p>}
 										</div>
 										<div className="flex items-center gap-1 shrink-0">
-											<Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={() => setEditing({ set, mode: "duplicate" })}>
-												<Copy className="size-3.5" />
-												Duplicar
-											</Button>
+											{canCreate && (
+												<Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={() => setEditing({ set, mode: "duplicate" })}>
+													<Copy className="size-3.5" />
+													Duplicar
+												</Button>
+											)}
 											{canEdit(set) && (
 												<Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ set, mode: "edit" })}>
 													Editar
@@ -258,7 +265,7 @@ export function MenuGroupSetManager({ open, onClose, kitchenId }: { open: boolea
 						<Button type="button" variant="outline" onClick={onClose}>
 							Fechar
 						</Button>
-						{(canEditLocal || canEditGlobal) && (
+						{canCreate && (
 							<Button type="button" className="gap-1.5" onClick={() => setCreating(true)}>
 								<Plus className="size-4" />
 								Novo conjunto

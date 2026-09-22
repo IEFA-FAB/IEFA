@@ -213,14 +213,20 @@ export async function updateMenuGroupSet(db: SisubDb, ctx: UserContext, input: U
 export async function deleteMenuGroupSet(db: SisubDb, ctx: UserContext, input: DeleteMenuGroupSet): Promise<void> {
 	const ownerKitchenId = await authorizeAssetMutation(db, ctx, "menu_group_set", input.groupSetId)
 
+	// Inclui refeição ARQUIVADA de propósito: `restoreMealType` a traz de volta
+	// apontando para um conjunto que já não existe, que é exatamente a falha que
+	// este guard existe para impedir.
 	const inUse = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ id: mealTypeInKitchen.id, name: mealTypeInKitchen.name })
+			.select({ id: mealTypeInKitchen.id, name: mealTypeInKitchen.name, deleted_at: mealTypeInKitchen.deletedAt })
 			.from(mealTypeInKitchen)
-			.where(and(eq(mealTypeInKitchen.groupSetId, input.groupSetId), isNull(mealTypeInKitchen.deletedAt)))
+			.where(eq(mealTypeInKitchen.groupSetId, input.groupSetId))
 	)
 	if (inUse.length > 0) {
-		throw new DomainError("GROUP_SET_IN_USE", `conjunto em uso por ${inUse.length} refeição(ões): ${inUse.map((m) => m.name ?? m.id).join(", ")}`)
+		throw new DomainError(
+			"GROUP_SET_IN_USE",
+			`conjunto em uso por ${inUse.length} refeição(ões): ${inUse.map((m) => `${m.name ?? m.id}${m.deleted_at ? " (arquivada)" : ""}`).join(", ")}`
+		)
 	}
 
 	await mutateOrFail("DELETE_FAILED", `menu_group_set ${input.groupSetId} not found`, () =>
