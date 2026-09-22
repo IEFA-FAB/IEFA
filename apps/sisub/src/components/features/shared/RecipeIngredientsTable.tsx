@@ -245,6 +245,15 @@ export function RecipeIngredientsTable({
 		onChange(ingredients.map((current, i) => (i === index ? result.row : current)))
 		select(index, result.selected)
 		toast(`${result.row.ingredient_name || "O substituto"} agora é o insumo principal.`, {
+			// FC e IR são da LINHA e não acompanham a troca (é o modelo da ficha: o
+			// substituto não tem onde guardá-los). Só que eles nascem preenchidos a partir do
+			// insumo, então um par com fatores diferentes — batata inteira (FC 1,35) e batata
+			// pré-descascada (FC 1,00) — passa a imprimir um PB 35% alto sem nada na tela
+			// dizendo de onde veio o número. O aviso só aparece quando há fator para conferir.
+			description:
+				row.correction_factor != null || row.rehydration_index != null
+					? "FC e IR continuam sendo os da linha — confira se valem para o novo principal."
+					: undefined,
 			action: {
 				label: "Desfazer",
 				onClick: () => {
@@ -918,7 +927,9 @@ function CandidatePicker({
 														variant="ghost"
 														size="sm"
 														className="text-muted-foreground"
-														aria-label={`Tornar ${candidate.name} o insumo principal`}
+														// O texto visível ("Tornar principal") tem que ESTAR no nome acessível, ou o
+														// comando de voz que lê o botão na tela não o alcança (WCAG 2.5.3).
+														aria-label={`Tornar principal: ${candidate.name}`}
 														onClick={(event) => {
 															// Mesmo motivo do botão de remover: a linha inteira é o alvo do rádio,
 															// e sem parar aqui promover também marcaria o candidato como "em
@@ -933,8 +944,12 @@ function CandidatePicker({
 												}
 											/>
 											<TooltipContent>
-												{candidate.name} passa a ser a escolha 1 da linha e {row.ingredient_name || "o insumo atual"} vira substituto, com as quantidades de
-												cada um. Ao contrário da marcação de leitura, esta troca é salva com a ficha.
+												{/* Sem insumo na linha não há o que rebaixar: o substituto ocupa a vaga e some
+												    da lista. Prometer "vira substituto" aqui descreveria uma troca que não
+												    acontece. */}
+												{row.ingredient_id
+													? `${candidate.name} passa a ser a escolha 1 da linha e ${row.ingredient_name || "o insumo atual"} vira substituto, com as quantidades de cada um. Ao contrário da marcação de leitura, esta troca é salva com a ficha.`
+													: `${candidate.name} passa a ocupar a linha, que ainda está sem insumo, e sai da lista de substitutos. Ao contrário da marcação de leitura, esta troca é salva com a ficha.`}
 											</TooltipContent>
 										</Tooltip>
 										<Button
