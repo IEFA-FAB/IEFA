@@ -98,7 +98,21 @@ function TriageControls({ finding, runId, submissionId }: { finding: Finding; ru
 	)
 }
 
-function FindingsTab({ run, submissionId, decider, onAsk }: { run: ComplianceRun; submissionId: string; decider: boolean; onAsk: (question: string) => void }) {
+/**
+ * `onAsk` só vem quando a execução mostrada é a MAIS RECENTE: é dela que o chat lê os achados.
+ * Perguntar sobre achado de uma execução antiga daria ao modelo um achado que ele não vê.
+ */
+function FindingsTab({
+	run,
+	submissionId,
+	decider,
+	onAsk,
+}: {
+	run: ComplianceRun
+	submissionId: string
+	decider: boolean
+	onAsk?: (question: string) => void
+}) {
 	const { session } = useAuth()
 	const report = useQuery(complianceRunQueryOptions(session?.access_token, run.id))
 	const [severityFilter, setSeverityFilter] = useState<Severity | "todas">("todas")
@@ -181,10 +195,12 @@ function FindingsTab({ run, submissionId, decider, onAsk }: { run: ComplianceRun
 											</Badge>
 										</p>
 									) : null}
-									<Button size="xs" variant="ghost" className="mt-2 -ml-2" onClick={() => onAsk(findingQuestion(finding))}>
-										<ChatLines />
-										perguntar sobre este achado
-									</Button>
+									{onAsk ? (
+										<Button size="xs" variant="ghost" className="mt-2 -ml-2" onClick={() => onAsk(findingQuestion(finding))}>
+											<ChatLines />
+											perguntar sobre este achado
+										</Button>
+									) : null}
 								</>
 							}
 						/>
@@ -545,7 +561,7 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 					) : null}
 
 					{tab === "achados" && selectedRun?.status === "succeeded" ? (
-						<FindingsTab run={selectedRun} submissionId={submissionId} decider={decider} onAsk={askAbout} />
+						<FindingsTab run={selectedRun} submissionId={submissionId} decider={decider} onAsk={selectedRun.id === runs[0]?.id ? askAbout : undefined} />
 					) : null}
 					{tab === "parecer" && selectedRun?.status === "succeeded" ? (
 						<ReviewTab run={selectedRun} submissionId={submissionId} decider={decider} reportLink={reportLink} />

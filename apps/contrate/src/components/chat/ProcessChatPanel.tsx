@@ -44,7 +44,9 @@ export function ProcessChatPanel({
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="w-full gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl">
+			{/* Montado mesmo fechado: fechar o painel no meio de uma resposta não a corta (o α
+			    gravaria como interrompida e a pergunta contaria no teto diário). */}
+			<SheetContent side="right" keepMounted className="w-full gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl">
 				<SheetHeader className="border-border border-b pr-12">
 					<SheetTitle>Conversar sobre o processo</SheetTitle>
 					<SheetDescription className="truncate">{documentName}</SheetDescription>
