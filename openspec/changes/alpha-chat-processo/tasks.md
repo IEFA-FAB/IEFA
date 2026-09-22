@@ -34,17 +34,17 @@ Dois PRs contra `main`, cada um revisado com `/code-review` antes do merge. O **
 
 ## 4. contrate — cliente e componentes
 
-- [ ] 4.1 [contrate] `lib/alpha/sse.ts`: `parseSseBuffer` portado do portal, com o teste
-- [ ] 4.2 [contrate] `lib/alpha/chat.ts`: query options de lista e conversa, `createChat`, `deleteChat`, `uploadAttachment`, `streamTurn` (fetch + `ReadableStream`, `AbortController`, tradução de 403/404/429) e `splitRedaction` (separa o bloco `redacao` e a linha de seção). Testes das funções puras
-- [ ] 4.3 [contrate] `components/chat/`: `ChatThread`, `MessageBubble` (ReactMarkdown, texto trocado pelo do `complete`), `RedactionBlock` (copiar só o texto proposto, com aviso), `CitationChip` + `CitationPanel` (norma por `/chunks/:id`, achado e documento com `located: false` → "trecho não localizado"), `AttachmentDropzone`, `ChatComposer` e o aviso permanente de apoio. Pale Brutalism: zero radius, sem faixa lateral
-- [ ] 4.3a [contrate] Salvar/deixar de salvar na lista e na conversa. Aviso "será apagada em DD/MM" (Brasília) nas avulsas não salvas, com destaque e botão Salvar a 30 dias ou menos
-- [ ] 4.4 [contrate] Estados de falha: limite diário com horário, modelo indisponível, timeout, resposta interrompida com reenvio e acesso revogado com envio desabilitado
+- [x] 4.1 [contrate] `lib/alpha/sse.ts`: `parseSseBuffer` portado do portal, com o teste
+- [x] 4.2 [contrate] `lib/alpha/chat.ts`: query options de lista e conversa, `createChat`, `deleteChat`, `uploadAttachment`, `streamTurn` (fetch + `ReadableStream`, `AbortController`, tradução de 403/404/429) e `splitRedaction` (separa o bloco `redacao` e a linha de seção). Testes das funções puras
+- [x] 4.3 [contrate] `components/chat/`: `ChatThread`, `MessageBubble` (ReactMarkdown, texto trocado pelo do `complete`), `RedactionBlock` (copiar só o texto proposto, com aviso), `CitationChip` + `CitationPanel` (norma por `/chunks/:id`, achado e documento com `located: false` → "trecho não localizado"), `AttachmentDropzone`, `ChatComposer` e o aviso permanente de apoio. Pale Brutalism: zero radius, sem faixa lateral
+- [x] 4.3a [contrate] Salvar/deixar de salvar na lista e na conversa. Aviso "será apagada em DD/MM" (Brasília) nas avulsas não salvas, com destaque e botão Salvar a 30 dias ou menos
+- [x] 4.4 [contrate] Estados de falha: limite diário com horário, modelo indisponível, timeout, resposta interrompida com reenvio e acesso revogado com envio desabilitado
 
 ## 5. contrate — superfícies
 
-- [ ] 5.1 [contrate] `ProcessView`: botão "Conversar" no cabeçalho e painel lateral com as conversas do usuário sobre o processo (abre a mais recente, "Nova conversa"). Tela cheia em viewport estreito
-- [ ] 5.2 [contrate] `FindingCard`: ação "Perguntar sobre este achado", que abre o painel com a pergunta preenchida, sem enviar
-- [ ] 5.3 [contrate] Rotas `/conversar` (lista + nova conversa) e `/conversar/$threadId`, com entrada na navegação em `lib/modules.ts` gated por `canSubmit`; regenerar o `routeTree.gen.ts`
+- [x] 5.1 [contrate] `ProcessView`: botão "Conversar" no cabeçalho e painel lateral com as conversas do usuário sobre o processo (abre a mais recente, "Nova conversa"). Tela cheia em viewport estreito
+- [x] 5.2 [contrate] `FindingCard`: ação "Perguntar sobre este achado", que abre o painel com a pergunta preenchida, sem enviar
+- [x] 5.3 [contrate] Rotas `/conversar` (lista + nova conversa) e `/conversar/$threadId`, com entrada na navegação em `lib/modules.ts` gated por `canSubmit`; regenerar o `routeTree.gen.ts`
 - [ ] 5.4 [contrate] Validar no navegador: processo como requisitante e como ACI da OM, avulso com PDF e DOCX, citação de norma aberta, redação copiada, limite diário simulado. `react-doctor` sem regressão
 
 ## 6. Fechamento

@@ -32,6 +32,25 @@ export function alphaPath(strings: TemplateStringsArray, ...values: Array<string
 	return strings.reduce((path, chunk, index) => path + chunk + (index < values.length ? encodeURIComponent(String(values[index])) : ""), "")
 }
 
+/**
+ * Erro de uma chamada ao α, com o status e o `code` da resposta. Continua sendo `Error`, com a
+ * mesma mensagem de antes — quem só lê `message` não muda —, e quem precisa distinguir 429 de
+ * 403 (o chat) lê `status`/`code` em vez de adivinhar pelo texto.
+ */
+export class AlphaRequestError extends Error {
+	readonly status: number
+	readonly code: string | null
+	readonly body: Record<string, unknown> | null
+
+	constructor(message: string, status: number, body: Record<string, unknown> | null) {
+		super(message)
+		this.name = "AlphaRequestError"
+		this.status = status
+		this.code = typeof body?.code === "string" ? body.code : null
+		this.body = body
+	}
+}
+
 export async function alphaRequest<T>(path: string, token: string | undefined, init: RequestInit = {}): Promise<T> {
 	const isFormData = init.body instanceof FormData
 
@@ -46,9 +65,11 @@ export async function alphaRequest<T>(path: string, token: string | undefined, i
 	})
 
 	if (!response.ok) {
-		const body = (await response.json().catch(() => null)) as { message?: string; code?: string } | null
-		throw new Error(body?.message ?? body?.code ?? `${path}: ${response.status}`)
+		const body = (await response.json().catch(() => null)) as ({ message?: string; code?: string } & Record<string, unknown>) | null
+		throw new AlphaRequestError(body?.message ?? body?.code ?? `${path}: ${response.status}`, response.status, body)
 	}
 
+	// 204 (o DELETE do chat) não tem corpo: `response.json()` lançaria depois do sucesso.
+	if (response.status === 204) return undefined as T
 	return (await response.json()) as T
 }
