@@ -131,7 +131,7 @@ export const SNACK_REQUEST_MEAL_TYPE_KEY = "snack_request"
 
 /**
  * O tipo de refeição de sistema dos pedidos de lanche (global, criado pela migration
- * `20260922120000_kitchen_snack_requests`). Leitura aberta a quem lê cardápio de alguma
+ * `20260922140000_kitchen_snack_requests`). Leitura aberta a quem lê cardápio de alguma
  * cozinha: é o grupo único do editor de padrão de lanche.
  */
 export async function fetchSnackMealType(db: SisubDb, ctx: UserContext): Promise<MealType> {
@@ -145,6 +145,6 @@ export async function resolveSnackMealType(db: Pick<SisubDb, "select">): Promise
 		db.select(MEAL_TYPE_COLS).from(mealTypeInKitchen).where(eq(mealTypeInKitchen.systemKey, SNACK_REQUEST_MEAL_TYPE_KEY)).limit(1)
 	)
 	const row = rows[0]
-	if (!row) throw new DomainError("SNACK_MEAL_TYPE_MISSING", "Tipo de refeição de sistema dos lanches não existe — migration 20260922120000 não aplicada")
+	if (!row) throw new DomainError("SNACK_MEAL_TYPE_MISSING", "Tipo de refeição de sistema dos lanches não existe — migration 20260922140000 não aplicada")
 	return row
 }

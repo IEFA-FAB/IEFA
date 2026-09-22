@@ -541,7 +541,13 @@ async function fetchLines(db: Pick<SisubDb, "select">, requestIds: string[]): Pr
 			.orderBy(asc(snackRequestLineInKitchen.createdAt))
 	)
 	for (const row of rows) {
-		const wire = toWire<SnackRequestLine>(row)
+		// O snapshot é JSON gravado em camelCase (`SnackStandardSnapshot`) e sai como está:
+		// `toWire` desce em objeto aninhado e trocaria `snackClass` por `snack_class`.
+		const { standardSnapshot, ...columns } = row
+		const wire: SnackRequestLine = {
+			...toWire<Omit<SnackRequestLine, "standard_snapshot">>(columns),
+			standard_snapshot: standardSnapshot as SnackStandardSnapshot,
+		}
 		const list = out.get(row.requestId) ?? []
 		list.push(wire)
 		out.set(row.requestId, list)
@@ -1173,13 +1179,21 @@ async function addToProduction(tx: Tx, request: LockedRequest, lines: (typeof sn
 		.where(and(eq(menuItemsInKitchen.dailyMenuId, menu.id), isNull(menuItemsInKitchen.deletedAt)))
 	let sortOrder = existing.reduce((max, r) => Math.max(max, (r.sortOrder ?? 0) + 1), 0)
 
-	const rows: (typeof menuItemsInKitchen.$inferInsert)[] = []
+	// Um item por (padrão × preparação) no pedido: tripulação e passageiros do mesmo padrão
+	// são o mesmo lote na produção — separados, o quadro mostraria "Café 6" e "Café 3".
+	const byKey = new Map<string, typeof menuItemsInKitchen.$inferInsert>()
 	for (const { line, snapshot } of snapshots) {
 		const kits = line.approvedQuantity ?? line.quantity
 		for (const item of snapshot.items) {
 			const recipe = recipeById.get(item.recipeId)
 			if (!recipe) continue
-			rows.push({
+			const key = `${snapshot.id}:${item.recipeId}`
+			const existing = byKey.get(key)
+			if (existing) {
+				existing.plannedPortionQuantity = Number(existing.plannedPortionQuantity ?? 0) + kits * item.portions
+				continue
+			}
+			byKey.set(key, {
 				dailyMenuId: menu.id,
 				recipeOriginId: item.recipeId,
 				// Snapshot snake_case com `ingredients` aninhado — o mesmo shape de addMenuItem.
@@ -1193,6 +1207,7 @@ async function addToProduction(tx: Tx, request: LockedRequest, lines: (typeof sn
 			})
 		}
 	}
+	const rows = [...byKey.values()]
 	if (rows.length === 0) return
 
 	const inserted = await runQuery("INSERT_ITEMS_FAILED", () => tx.insert(menuItemsInKitchen).values(rows).returning({ id: menuItemsInKitchen.id }))

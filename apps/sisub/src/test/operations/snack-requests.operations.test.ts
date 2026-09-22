@@ -4,7 +4,7 @@
  * Prova o que só o banco prova: o ciclo inteiro com a trava da linha, a materialização no
  * quadro de produção (tipo de refeição de sistema + `origin_snack_request_id`), a disputa
  * aceite × recusa, o histórico apenas-inserção e o tipo de sistema fora dos seletores.
- * Depende da migration 20260922120000_kitchen_snack_requests.
+ * Depende da migration 20260922140000_kitchen_snack_requests.
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
@@ -126,6 +126,9 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		expect(created.status).toBe("submitted")
 		expect(created.requested_by).toBe(ctx.userId)
 		expect(created.lines[0]?.standard_snapshot.items[0]?.portions).toBe(2)
+		// Snapshot JSON sai em camelCase, como foi gravado — `toWire` não pode snake-izá-lo.
+		expect(created.lines[0]?.standard_snapshot.snackClass).toBe("A")
+		expect(created.lines[0]?.standard_snapshot.items[0]?.recipeId).toBe(recipeId)
 
 		const lineId = created.lines[0]?.id as string
 		const accepted = await decideSnackRequest(db, ctx, {
