@@ -9,6 +9,14 @@
 import type { SnackRequestSummary } from "@iefa/sisub-domain"
 import { brasiliaCivilDate, isStandardReviewOverdue, type SnackRequestStatus } from "@iefa/sisub-domain/utils"
 import { z } from "zod"
+import { audienceLabel } from "@/components/features/diner/snack-requests/snack-format"
+
+/**
+ * O vocabulário do público é o MESMO dos dois lados do pedido (comensal e cozinha) e do Anexo E
+ * impresso: em missão terrestre a norma fala em efetivo, não em tripulação. Reexportado daqui
+ * para a cozinha ter um import só — a definição vive no módulo Comensal, sem cópia.
+ */
+export { audienceLabel }
 
 const TIME_ZONE = "America/Sao_Paulo"
 
@@ -71,16 +79,39 @@ export function pickupCivilDate(iso: string): string {
 	return brasiliaCivilDate(iso)
 }
 
+/** Instante → valor do `<input type="datetime-local">` na hora de Brasília. */
+export function brasiliaLocalInput(ms: number): string {
+	return new Date(ms - 3 * 3_600_000).toISOString().slice(0, 16)
+}
+
 /** "agora" em Brasília no formato do `<input type="datetime-local">`. */
 export function nowBrasiliaLocalInput(): string {
-	const shifted = new Date(Date.now() - 3 * 3_600_000)
-	return shifted.toISOString().slice(0, 16)
+	return brasiliaLocalInput(Date.now())
 }
 
 /** Valor do `<input type="datetime-local">` (hora de Brasília) → ISO com fuso. */
 export function localInputToIso(value: string): string | null {
 	if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null
 	return `${value}:00-03:00`
+}
+
+/** Folga para relógio adiantado da máquina — não é permissão para agendar a coleta. */
+export const SAMPLE_FUTURE_TOLERANCE_MS = 5 * 60_000
+/** A amostra do lote é coletada na produção; mais de um dia atrás é ano/dia digitado errado. */
+export const SAMPLE_MAX_AGE_MS = 24 * 3_600_000
+
+/**
+ * Valida a coleta da amostra: esse instante vira a data de FABRICAÇÃO na etiqueta, e a validade
+ * é fabricação + validade do padrão — um ano digitado errado imprime validade em 2062. Devolve a
+ * mensagem do campo, ou `null` quando o valor serve.
+ */
+export function sampleCollectedAtError(localValue: string, now: number): string | null {
+	const iso = localInputToIso(localValue)
+	const ms = iso == null ? Number.NaN : Date.parse(iso)
+	if (!Number.isFinite(ms)) return "Informe data e hora da coleta."
+	if (ms > now + SAMPLE_FUTURE_TOLERANCE_MS) return "A coleta não pode estar no futuro: é ela que vira a fabricação impressa na etiqueta."
+	if (ms < now - SAMPLE_MAX_AGE_MS) return "A coleta não pode ser anterior a 24 h — confira a data."
+	return null
 }
 
 // ── Search params ──────────────────────────────────────────────────────────
@@ -112,11 +143,6 @@ export const FAMILY_LABELS: Record<string, string> = {
 export const FAMILY_SHORT_LABELS: Record<string, string> = {
 	bordo: "Bordo",
 	apoio: "Apoio",
-}
-
-export const AUDIENCE_LABELS: Record<string, string> = {
-	crew: "Tripulação",
-	pax: "Passageiros",
 }
 
 export const VARIANT_LABELS: Record<string, string> = {
@@ -179,10 +205,13 @@ export function classLabel(family: string, snackClass: string): string {
 	return `${FAMILY_SHORT_LABELS[family] ?? family} ${snackClass}`
 }
 
-/** "bordo:C:pax" (chave da calculadora) → "Bordo C · Passageiros". */
-export function entitlementKeyLabel(key: string): string {
+/**
+ * "bordo:C:pax" (chave da calculadora) → "Bordo C · Passageiros" — "Bordo C · Outros" quando a
+ * missão é terrestre. A chave sozinha não sabe o tipo da missão: ele vem sempre do pedido.
+ */
+export function entitlementKeyLabel(key: string, missionKind: string): string {
 	const [family, snackClass, audience] = key.split(":")
-	return `${classLabel(family ?? "", snackClass ?? "")} · ${AUDIENCE_LABELS[audience ?? ""] ?? audience}`
+	return `${classLabel(family ?? "", snackClass ?? "")} · ${audienceLabel(audience ?? "", missionKind)}`
 }
 
 export type RequestFlags = {
@@ -200,8 +229,10 @@ export function requestFlags(request: SnackRequestSummary): RequestFlags {
 		optionalPax: request.lines.some((l) => l.optional),
 		materialPending: request.material_return_pending,
 		// Revisão trimestral (7.4.18) na data do pedido — snapshot antigo sem a data não marca.
+		// A data é a CIVIL de Brasília: `created_at` é UTC, e entre 21h e 24h daqui o corte UTC
+		// já é o dia seguinte — o aviso apareceria (ou sumiria) um dia antes da hora.
 		reviewOverdue: request.lines.some(
-			(l) => l.standard_snapshot.reviewedAt !== undefined && isStandardReviewOverdue(l.standard_snapshot.reviewedAt, request.created_at.slice(0, 10))
+			(l) => l.standard_snapshot.reviewedAt !== undefined && isStandardReviewOverdue(l.standard_snapshot.reviewedAt, brasiliaCivilDate(request.created_at))
 		),
 	}
 }
@@ -212,7 +243,7 @@ export function kitsByClass(request: SnackRequestSummary): { key: string; label:
 	for (const line of request.lines) {
 		const s = line.standard_snapshot
 		const key = `${s.family}:${s.snackClass}:${line.audience}`
-		const row = rows.get(key) ?? { key, label: entitlementKeyLabel(key), kits: 0, requested: 0, optional: false }
+		const row = rows.get(key) ?? { key, label: entitlementKeyLabel(key, request.mission_kind), kits: 0, requested: 0, optional: false }
 		row.kits += lineKits(line)
 		row.requested += line.quantity
 		row.optional ||= line.optional

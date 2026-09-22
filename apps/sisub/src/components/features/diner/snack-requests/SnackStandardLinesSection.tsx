@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { audienceLabel, classLabel, divergenceLabel, formatKcal, PREFERENCE_LABELS } from "./snack-format"
-import { type FormLine, standardMatchesLine } from "./snack-request-form"
+import { type FormLine, MAX_COUNT, MAX_LINES, standardMatchesLine } from "./snack-request-form"
 
 interface SnackStandardLinesSectionProps {
 	missionKind: string
@@ -40,6 +40,7 @@ export function SnackStandardLinesSection(props: SnackStandardLinesSectionProps)
 	const updateLine = (key: string, patch: Partial<FormLine>) => onLinesChange(lines.map((line) => (line.key === key ? { ...line, ...patch } : line)))
 	const removeLine = (key: string) => onLinesChange(lines.filter((line) => line.key !== key))
 	const addLine = () => onLinesChange([...lines, { key: crypto.randomUUID(), standardId: null, audience: "crew", quantity: "" }])
+	const lineLimitReached = lines.length >= MAX_LINES
 
 	const uncovered = entitlement ? entitlement.lines.filter((line) => !standards.some((s) => standardMatchesLine(s, line))) : []
 
@@ -99,11 +100,12 @@ export function SnackStandardLinesSection(props: SnackStandardLinesSectionProps)
 						)}
 						{errors.lines && <FieldError>{errors.lines}</FieldError>}
 
-						<div className="flex flex-wrap gap-2">
-							<Button variant="outline" size="sm" onClick={addLine}>
+						<div className="flex flex-wrap items-center gap-2">
+							<Button variant="outline" size="sm" onClick={addLine} disabled={lineLimitReached}>
 								<Plus className="size-4" aria-hidden />
 								Adicionar padrão
 							</Button>
+							{lineLimitReached && <span className="text-caption text-muted-foreground">Limite de {MAX_LINES} padrões por pedido.</span>}
 							{!props.followsSuggestion && entitlement && (
 								<Button variant="ghost" size="sm" onClick={props.onResetLines}>
 									<RotateCcw className="size-3.5" aria-hidden />
@@ -200,7 +202,7 @@ function LineRow({ line, missionKind, standards, standard, effectiveMinutes, onC
 						type="number"
 						inputMode="numeric"
 						min={1}
-						max={9999}
+						max={MAX_COUNT}
 						value={line.quantity}
 						onChange={(e) => onChange({ quantity: e.target.value })}
 					/>

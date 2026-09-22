@@ -14,6 +14,7 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { kitchenSnackRequestsQueryOptions } from "@/hooks/data/useSnackRequests"
 import {
+	audienceLabel,
 	formatCivilDateLong,
 	formatInt,
 	formatTime,
@@ -240,8 +241,8 @@ function SnackQueueItem({ request, kitchenIdStr }: { request: SnackRequestSummar
 					</span>
 					<span>
 						<span className="font-mono tabular-nums text-foreground">{formatInt(people)}</span> {people === 1 ? "pessoa" : "pessoas"} (
-						<span className="font-mono tabular-nums">{request.crew_count}</span> trip. + <span className="font-mono tabular-nums">{request.pax_count}</span>{" "}
-						pax)
+						{audienceLabel("crew", request.mission_kind)} <span className="font-mono tabular-nums">{request.crew_count}</span> ·{" "}
+						{audienceLabel("pax", request.mission_kind)} <span className="font-mono tabular-nums">{request.pax_count}</span>)
 					</span>
 					{kits.map((k) => (
 						<span key={k.key}>

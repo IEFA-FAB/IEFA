@@ -14,8 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { kitchenSnackRequestQueryOptions } from "@/hooks/data/useSnackRequests"
 import { cn } from "@/lib/cn"
 import {
-	AUDIENCE_LABELS,
 	asStatus,
+	audienceLabel,
 	classLabel,
 	entitlementKeyLabel,
 	FAMILY_LABELS,
@@ -130,7 +130,7 @@ export function KitchenSnackRequestDetail({ kitchenId, kitchenIdStr, requestId }
 
 			<EventsCard request={request} />
 
-			<SnackLabelsDialog open={labelsOpen} onOpenChange={setLabelsOpen} requestIds={[request.id]} title={`Etiquetas — ${request.mission_description}`} />
+			<SnackLabelsDialog open={labelsOpen} onOpenChange={setLabelsOpen} requests={[request]} title={`Etiquetas — ${request.mission_description}`} />
 		</div>
 	)
 }
@@ -245,8 +245,8 @@ function PeopleCard({ request }: { request: SnackRequestDetail }) {
 					rows={[
 						["Requisitante", request.requester.label],
 						["OM requisitante", request.requester_unit_label],
-						["Tripulação", formatInt(request.crew_count), true],
-						["Passageiros", formatInt(request.pax_count), true],
+						[audienceLabel("crew", request.mission_kind), formatInt(request.crew_count), true],
+						[audienceLabel("pax", request.mission_kind), formatInt(request.pax_count), true],
 						["Inclui não militares", yesNo(request.includes_non_military)],
 						["Preferência", VARIANT_LABELS[request.preference] ?? request.preference],
 						["Retirada", formatDateTime(request.pickup_at), true],
@@ -315,7 +315,7 @@ function CalculatorComparison({ request }: { request: SnackRequestDetail }) {
 								const divergent = divergences.has(key)
 								return (
 									<TableRow key={key} className={cn(divergent && "bg-warning/5")}>
-										<TableCell>{entitlementKeyLabel(key)}</TableCell>
+										<TableCell>{entitlementKeyLabel(key, request.mission_kind)}</TableCell>
 										<TableCell className="text-right font-mono tabular-nums">{s ? formatInt(s.quantity) : "—"}</TableCell>
 										<TableCell className="text-right font-mono tabular-nums">{r ? formatInt(r.quantity) : "—"}</TableCell>
 										{decided && <TableCell className="text-right font-mono tabular-nums">{r ? formatInt(r.approved) : "—"}</TableCell>}
@@ -339,7 +339,7 @@ function CalculatorComparison({ request }: { request: SnackRequestDetail }) {
 							{entitlement.lines.map((line) => (
 								<li key={`${line.ruleId}:${line.audience}:${line.snackClass}`} className="text-body text-foreground">
 									<span className="text-subheading">
-										{classLabel(line.family, line.snackClass)} · {AUDIENCE_LABELS[line.audience]}:
+										{classLabel(line.family, line.snackClass)} · {audienceLabel(line.audience, request.mission_kind)}:
 									</span>{" "}
 									{line.reason} <span className="text-caption text-muted-foreground">({line.normRef})</span>
 								</li>
@@ -384,7 +384,7 @@ function LinesCard({ request }: { request: SnackRequestDetail }) {
 									<h3 className="text-subheading text-foreground">{s.name}</h3>
 									<p className="text-caption text-muted-foreground">
 										{FAMILY_LABELS[s.family] ?? s.family} — Classe {s.snackClass} · {VARIANT_LABELS[s.variant] ?? s.variant} ·{" "}
-										{AUDIENCE_LABELS[line.audience] ?? line.audience}
+										{audienceLabel(line.audience, request.mission_kind)}
 									</p>
 								</div>
 								<div className="flex flex-wrap items-center gap-1.5">
@@ -551,7 +551,7 @@ function adjustmentsOf(details: unknown): AdjustmentDetail[] {
 }
 
 function EventsCard({ request }: { request: SnackRequestDetail }) {
-	const lineNames = new Map(request.lines.map((l) => [l.id, `${l.standard_snapshot.name} (${AUDIENCE_LABELS[l.audience] ?? l.audience})`]))
+	const lineNames = new Map(request.lines.map((l) => [l.id, `${l.standard_snapshot.name} (${audienceLabel(l.audience, request.mission_kind)})`]))
 	const events = [...request.events].sort((a, b) => a.created_at.localeCompare(b.created_at))
 	const statusLabel = (s: string | null) => (s ? (SNACK_REQUEST_STATUS_LABELS[asStatus(s)] ?? s) : null)
 

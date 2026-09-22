@@ -278,13 +278,17 @@ async function buildStandardSnapshots(
 						{
 							name: recipe.name ?? "",
 							portionYield: recipe.portionYield != null ? Number(recipe.portionYield) : null,
-							ingredients: recipe.recipeIngredientsInKitchens.map((ri) => ({
-								ingredientId: ri.ingredientId,
-								name: ri.ingredientInKitchen?.description ?? "Insumo",
-								netQuantity: ri.netQuantity,
-								measureUnit: ri.ingredientInKitchen?.measureUnit ?? null,
-								isOptional: Boolean(ri.isOptional),
-							})),
+							// Insumo soft-deletado não compõe mais a ficha — contá-lo inflaria o kcal do kit
+							// (o helper compartilhado traz a linha inteira, sem filtro de `deleted_at`).
+							ingredients: recipe.recipeIngredientsInKitchens
+								.filter((ri) => ri.deletedAt == null)
+								.map((ri) => ({
+									ingredientId: ri.ingredientId,
+									name: ri.ingredientInKitchen?.description ?? "Insumo",
+									netQuantity: ri.netQuantity,
+									measureUnit: ri.ingredientInKitchen?.measureUnit ?? null,
+									isOptional: Boolean(ri.isOptional),
+								})),
 						},
 						energyByIngredient
 					)
@@ -351,6 +355,19 @@ export async function setSnackClassification(db: SisubDb, ctx: UserContext, inpu
 	if (template.templateType !== "exception") throw new DomainError("SNACK_STANDARD_NOT_EXCEPTION", "Só uma exceção pode ser padrão de lanche.")
 
 	const c = input.classification
+	if (c?.orderable) {
+		// Padrão pedível sem preparação vira pedido que o aceite materializa em NADA: cardápio
+		// vazio no dia, zero tarefa, e a cozinha sem saber o que produzir.
+		const [{ count } = { count: 0 }] = await runQuery("FETCH_FAILED", () =>
+			db
+				.select({ count: sql<number>`count(*)::int` })
+				.from(menuTemplateItemsInKitchen)
+				.where(and(eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId), isNotNull(menuTemplateItemsInKitchen.recipeId)))
+		)
+		if (Number(count) === 0) {
+			throw new DomainError("SNACK_STANDARD_EMPTY", "Padrão sem preparação não pode ficar disponível para pedido: monte o kit antes de publicá-lo.")
+		}
+	}
 	if (c?.orderable && ownerKitchenId == null) {
 		throw new DomainError("SNACK_STANDARD_GLOBAL_NOT_ORDERABLE", "Padrão do catálogo global não é pedível: copie-o para a cozinha que vai produzir.")
 	}
@@ -919,8 +936,24 @@ export async function decideSnackRequest(db: SisubDb, ctx: UserContext, input: D
 	return toDetail(db, await loadRequest(db, input.requestId))
 }
 
-export async function advanceSnackRequest(db: SisubDb, ctx: UserContext, input: AdvanceSnackRequest): Promise<SnackRequestDetail> {
+/** Folga de relógio aceita na coleta de amostra: o terminal da cozinha não está sincronizado. */
+const SAMPLE_CLOCK_SKEW_MS = 5 * 60_000
+/** A amostra é do lote que está saindo; 24 h atrás já não é deste lote (7.4.6). */
+const SAMPLE_MAX_AGE_MS = 24 * 3_600_000
+
+export async function advanceSnackRequest(db: SisubDb, ctx: UserContext, input: AdvanceSnackRequest, now = new Date()): Promise<SnackRequestDetail> {
 	await authorizeKitchenRequest(db, ctx, input.requestId, "floor")
+	if (input.to === "ready") {
+		// A coleta vira a DATA DE FABRICAÇÃO impressa na etiqueta, e a validade sai dela: uma
+		// data no futuro imprime comida "válida" por anos.
+		const collected = Date.parse(input.sampleCollectedAt)
+		if (collected > now.getTime() + SAMPLE_CLOCK_SKEW_MS) {
+			throw new DomainError("SNACK_SAMPLE_IN_FUTURE", "A coleta da amostra não pode ser no futuro: ela vira a data de fabricação da etiqueta.")
+		}
+		if (collected < now.getTime() - SAMPLE_MAX_AGE_MS) {
+			throw new DomainError("SNACK_SAMPLE_TOO_OLD", "A coleta da amostra é deste lote: informe uma data das últimas 24 h.")
+		}
+	}
 	await db.transaction(async (tx) => {
 		if (input.to === "in_production") {
 			await transition(tx, input.requestId, "in_production", ctx.userId, {})
@@ -937,6 +970,11 @@ export async function advanceSnackRequest(db: SisubDb, ctx: UserContext, input: 
 
 export async function registerSnackPickup(db: SisubDb, ctx: UserContext, input: RegisterSnackPickup): Promise<SnackRequestDetail> {
 	await authorizeKitchenRequest(db, ctx, input.requestId, "floor")
+	// Sem isto o CHECK do banco recusa o INSERT e derruba a transação INTEIRA: a retirada não
+	// seria registrada, com um `INSERT_FAILED` opaco na tela.
+	if (input.materials.some((m) => m.item === "outro" && !m.description)) {
+		throw new DomainError("SNACK_MATERIAL_DESCRIPTION_REQUIRED", 'Material "outro" precisa de descrição.')
+	}
 	await db.transaction(async (tx) => {
 		await transition(tx, input.requestId, "delivered", ctx.userId, {
 			patch: () => ({ pickedUpAt: new Date().toISOString(), pickedUpByName: input.pickedUpByName, deliveredBy: ctx.userId }),

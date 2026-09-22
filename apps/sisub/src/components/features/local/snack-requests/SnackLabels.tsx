@@ -1,13 +1,13 @@
-import type { SnackLabelData } from "@iefa/sisub-domain"
+import type { SnackLabelData, SnackRequestSummary } from "@iefa/sisub-domain"
 import { DEFAULT_SHELF_LIFE_HOURS, labelExpiresAt } from "@iefa/sisub-domain/utils"
-import { useQueries } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { Printer } from "lucide-react"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { snackLabelQueryOptions } from "@/hooks/data/useSnackRequests"
-import { AUDIENCE_LABELS, FAMILY_LABELS, formatDateTime, lineKits, VARIANT_LABELS } from "./format"
+import { audienceLabel, FAMILY_LABELS, formatDateTime, lineKits, VARIANT_LABELS } from "./format"
 import { SnackLoadError } from "./SnackBadges"
 
 /**
@@ -19,6 +19,9 @@ import { SnackLoadError } from "./SnackBadges"
  * direto no <body> — o app-shell recorta o que passa da primeira dobra, e o diálogo (também
  * em portal) some da folha pelo `@media print`.
  */
+
+/** OM e cozinha que produzem — iguais para todo pedido da mesma cozinha. */
+type LabelProducer = SnackLabelData["producer"]
 
 type LabelEntry = {
 	key: string
@@ -36,9 +39,13 @@ type LabelEntry = {
 	total: number
 }
 
-function buildLabels(data: SnackLabelData): LabelEntry[] {
-	const { request, producer } = data
-	const fabricated = new Date(data.fabricated_at)
+/**
+ * Etiquetas de um pedido. Tudo sai do próprio `SnackRequestSummary` — inclusive a fabricação
+ * (a coleta da amostra) e a validade do padrão no snapshot; só a OM produtora vem de fora.
+ * Sem amostra registrada a fabricação é a hora da impressão, como avisa o diálogo.
+ */
+function buildLabels(request: SnackRequestSummary, producer: LabelProducer, printedAt: string): LabelEntry[] {
+	const fabricated = new Date(request.sample_collected_at ?? printedAt)
 	const entries: LabelEntry[] = []
 	for (const line of request.lines) {
 		const kits = lineKits(line)
@@ -60,7 +67,7 @@ function buildLabels(data: SnackLabelData): LabelEntry[] {
 				expiresAt: formatDateTime(expires.toISOString()),
 				energy,
 				mission: request.mission_description,
-				audience: AUDIENCE_LABELS[line.audience] ?? line.audience,
+				audience: audienceLabel(line.audience, request.mission_kind),
 				index: i,
 				total: kits,
 			})
@@ -69,8 +76,15 @@ function buildLabels(data: SnackLabelData): LabelEntry[] {
 	return entries
 }
 
-export function SnackLabelSheet({ labels }: { labels: SnackLabelData[] }) {
-	const entries = labels.flatMap(buildLabels)
+interface SnackLabelSheetProps {
+	requests: SnackRequestSummary[]
+	producer: LabelProducer
+	/** Fabricação do pedido sem amostra registrada. */
+	printedAt: string
+}
+
+export function SnackLabelSheet({ requests, producer, printedAt }: SnackLabelSheetProps) {
+	const entries = requests.flatMap((request) => buildLabels(request, producer, printedAt))
 	if (entries.length === 0) return <p className="snack-label-empty">Nenhum kit a etiquetar.</p>
 	return (
 		<div className="snack-label-sheet">
@@ -108,23 +122,34 @@ export function SnackLabelSheet({ labels }: { labels: SnackLabelData[] }) {
 interface SnackLabelsDialogProps {
 	open: boolean
 	onOpenChange: (open: boolean) => void
-	requestIds: string[]
+	/** Pedidos a etiquetar — o summary já traz tudo da etiqueta menos a OM produtora. */
+	requests: SnackRequestSummary[]
 	title: string
 }
 
-export function SnackLabelsDialog({ open, onOpenChange, requestIds, title }: SnackLabelsDialogProps) {
-	const results = useQueries({ queries: requestIds.map((id) => ({ ...snackLabelQueryOptions(id), enabled: open })) })
-	const error = results.find((r) => r.error)?.error ?? null
-	const loading = results.some((r) => r.isPending)
-	const labels = results.flatMap((r) => (r.data ? [r.data] : []))
-	const totalKits = labels.reduce((sum, l) => sum + l.request.lines.reduce((s, line) => s + Math.max(0, lineKits(line)), 0), 0)
-	const withoutSample = labels.filter((l) => !l.request.sample_collected_at).length
+export function SnackLabelsDialog({ open, onOpenChange, requests, title }: SnackLabelsDialogProps) {
+	// A OM produtora é a MESMA para todo pedido desta cozinha: UMA chamada, seja 1 pedido ou 30.
+	// Uma requisição por pedido já travou o pool do banco neste app (e virou 502 no ALB).
+	const producerRequestId = requests[0]?.id
+	const producerQuery = useQuery({ ...snackLabelQueryOptions(producerRequestId ?? ""), enabled: open && producerRequestId != null })
+	const { error, isPending: loading, data } = producerQuery
+	const producer = data?.producer ?? null
+
+	const totalKits = requests.reduce((sum, r) => sum + r.lines.reduce((s, line) => s + Math.max(0, lineKits(line)), 0), 0)
+	const withoutSample = requests.filter((r) => !r.sample_collected_at).length
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
 	useEffect(() => setMounted(true), [])
 
-	const ready = !loading && !error
+	// Fabricação do pedido sem amostra: a hora desta impressão, congelada na abertura para não
+	// mudar de uma renderização para a outra (a etiqueta na tela é a que sai na folha).
+	const [printedAt, setPrintedAt] = useState(() => new Date().toISOString())
+	useEffect(() => {
+		if (open) setPrintedAt(new Date().toISOString())
+	}, [open])
+
+	const ready = !loading && !error && producer != null
 
 	return (
 		<>
@@ -138,8 +163,8 @@ export function SnackLabelsDialog({ open, onOpenChange, requestIds, title }: Sna
 					</DialogHeader>
 
 					{error ? (
-						<SnackLoadError what="os dados das etiquetas" error={error} onRetry={() => results.forEach((r) => void r.refetch())} />
-					) : loading ? (
+						<SnackLoadError what="os dados das etiquetas" error={error} onRetry={() => void producerQuery.refetch()} />
+					) : !producer ? (
 						<div className="h-48 animate-pulse rounded-lg bg-muted" aria-hidden="true" />
 					) : (
 						<div className="space-y-3">
@@ -150,7 +175,7 @@ export function SnackLabelsDialog({ open, onOpenChange, requestIds, title }: Sna
 							</p>
 							<div className="max-h-[60vh] overflow-auto rounded-lg border bg-muted/30 p-3">
 								<style>{LABEL_CSS}</style>
-								<SnackLabelSheet labels={labels} />
+								<SnackLabelSheet requests={requests} producer={producer} printedAt={printedAt} />
 							</div>
 						</div>
 					)}
@@ -170,11 +195,11 @@ export function SnackLabelsDialog({ open, onOpenChange, requestIds, title }: Sna
 			{/* Cópia de impressão — só enquanto o diálogo está aberto, para não sequestrar outra impressão da página. */}
 			{mounted &&
 				open &&
-				ready &&
+				producer &&
 				createPortal(
 					<div className="snack-labels-print-portal">
 						<style>{LABEL_CSS}</style>
-						<SnackLabelSheet labels={labels} />
+						<SnackLabelSheet requests={requests} producer={producer} printedAt={printedAt} />
 					</div>,
 					document.body
 				)}

@@ -3,12 +3,12 @@ import { useQuery } from "@tanstack/react-query"
 import { AlertTriangle, Flame, Loader2, Sandwich } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { snackStandardEnergyQueryOptions } from "@/hooks/data/useSnackRequests"
-import { normalizeSnackDraft, SNACK_FAMILY_LABELS, SNACK_VARIANT_LABELS, type SnackStandardDraft } from "@/lib/occasion-menu"
+import { normalizeSnackDraft, SNACK_FAMILY_LABELS, SNACK_VARIANT_LABELS, type SnackStandardDraft, snackDraftIssues } from "@/lib/occasion-menu"
 
 const KCAL = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 })
 
@@ -35,6 +35,9 @@ export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyT
 	const set = (patch: Partial<SnackStandardDraft>) => onChange(normalizeSnackDraft({ ...draft, ...patch }))
 	const today = brasiliaCivilDate(new Date().toISOString())
 	const reviewOverdue = draft.enabled && isStandardReviewOverdue(draft.reviewedAt || null, today)
+	// Valor inválido some calado se não for mostrado: a validade fora da faixa virava o default
+	// de 24 h na etiqueta, e a revisão no futuro desligava o aviso de vencida.
+	const issues = snackDraftIssues(draft, today)
 
 	return (
 		<Card>
@@ -142,8 +145,17 @@ export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyT
 					<FieldGroup className="grid grid-cols-1 gap-4 md:grid-cols-3">
 						<Field>
 							<FieldLabel htmlFor="snack-reviewed">Revisado em</FieldLabel>
-							<Input id="snack-reviewed" type="date" max={today} value={draft.reviewedAt} onChange={(e) => set({ reviewedAt: e.target.value })} />
-							{reviewOverdue ? (
+							<Input
+								id="snack-reviewed"
+								type="date"
+								max={today}
+								aria-invalid={issues.reviewedAt != null}
+								value={draft.reviewedAt}
+								onChange={(e) => set({ reviewedAt: e.target.value })}
+							/>
+							{issues.reviewedAt ? (
+								<FieldError>{issues.reviewedAt}</FieldError>
+							) : reviewOverdue ? (
 								<Badge variant="warning" className="gap-1">
 									<AlertTriangle />
 									Revisão trimestral vencida
@@ -161,10 +173,15 @@ export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyT
 								max={720}
 								inputMode="numeric"
 								value={draft.shelfLifeHours}
+								aria-invalid={issues.shelfLifeHours != null}
 								onChange={(e) => set({ shelfLifeHours: e.target.value })}
 								placeholder={String(DEFAULT_SHELF_LIFE_HOURS)}
 							/>
-							<FieldDescription>Em branco, a etiqueta vale {DEFAULT_SHELF_LIFE_HOURS} h a partir da fabricação.</FieldDescription>
+							{issues.shelfLifeHours ? (
+								<FieldError>{issues.shelfLifeHours}</FieldError>
+							) : (
+								<FieldDescription>Em branco, a etiqueta vale {DEFAULT_SHELF_LIFE_HOURS} h a partir da fabricação.</FieldDescription>
+							)}
 						</Field>
 					</FieldGroup>
 

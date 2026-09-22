@@ -1,4 +1,5 @@
 import type { EditScope, SetSnackClassification } from "@iefa/sisub-domain"
+import { brasiliaCivilDate } from "@iefa/sisub-domain/utils"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type LinkOptions, useNavigate } from "@tanstack/react-router"
 import { CalendarPlus, Check, GitFork, ListChecks, Loader2, Save, Users } from "lucide-react"
@@ -18,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { toast } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
@@ -39,9 +41,11 @@ import {
 	OCCASION_MENU_COPY,
 	type OccasionMenuType,
 	parseMonthlyOccurrences,
+	SNACK_MEAL_TYPE_NAME,
 	type SnackStandardDraft,
 	snackClassificationFromDraft,
 	snackDraftFromTemplate,
+	snackDraftIssues,
 } from "@/lib/occasion-menu"
 import { queryKeys } from "@/lib/query-keys"
 import { replaceRecipeVersions } from "@/lib/recipe-versions"
@@ -170,6 +174,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const { data: snackMealType, error: snackMealTypeError } = useSnackMealType(isException)
 	// Na cozinha tudo termina local (edição in-place ou cópia); no catálogo global é só molde.
 	const isKitchenTemplate = editContext.scope === "kitchen"
+	// Data civil de Brasília: o mesmo "hoje" que o painel usa para cobrar a revisão trimestral.
+	const snackIssues = useMemo(() => snackDraftIssues(snack, brasiliaCivilDate(new Date().toISOString())), [snack])
+	const hasSnackIssues = Object.keys(snackIssues).length > 0
 	const snackPayload = useMemo(() => (isException ? snackClassificationFromDraft(snack, { isKitchenTemplate }) : null), [isException, snack, isKitchenTemplate])
 	const snackSignature = JSON.stringify(snackPayload)
 	// Última classificação gravada — só chama `setSnackClassification` quando ela mudou.
@@ -260,9 +267,20 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 			itemsSignature: string
 		}) => {
 			savedItemsSignatureRef.current = saved.itemsSignature
-			// A cópia (fork) herda a classificação sem `orderable`/`reviewedAt`: grava a completa.
+			// Id diferente = o salvamento caiu numa CÓPIA da cozinha (fork novo OU fork que já
+			// existia). Escrever a classificação do template aberto ali sobrescreveria a do
+			// padrão da cozinha — apagando "disponível para pedido" e a data de revisão dele —,
+			// e num fork novo carimbaria a revisão da origem, que `forkTemplate` limpa de
+			// propósito. A cópia se classifica na tela dela.
 			const idChanged = saved.id !== templateId
-			if (!isException || (!idChanged && saved.snackSignature === savedSnackSignatureRef.current)) {
+			if (idChanged) {
+				queryClient.invalidateQueries({ queryKey: queryKeys.snackRequests.standardEnergy(saved.id) })
+				if (isException && saved.snackSignature !== savedSnackSignatureRef.current) {
+					toast.info("A cópia da cozinha mantém a própria classificação de padrão de lanche — ajuste-a na cópia, se precisar.")
+				}
+				return
+			}
+			if (!isException || saved.snackSignature === savedSnackSignatureRef.current) {
 				queryClient.invalidateQueries({ queryKey: queryKeys.snackRequests.standardEnergy(saved.id) })
 				return
 			}
@@ -297,6 +315,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		// Nada mudou desde a última gravação (o efeito re-executou por troca de rota, não por
 		// edição do usuário) — não há o que salvar.
 		if (contentSignature === savedSignatureRef.current) return
+		// Classificação inválida não entra no auto-save: o painel mostra o erro e o salvamento
+		// explícito cobra. Gravar aqui descartaria o valor digitado em silêncio.
+		if (hasSnackIssues) return
 		setSaveStatus("idle")
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		autoSaveTimerRef.current = setTimeout(() => {
@@ -328,6 +349,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		updates,
 		payloadItems,
 		persistSnackClassification,
+		hasSnackIssues,
 		snackSignature,
 		snackPayload,
 		itemsSignature,
@@ -442,6 +464,10 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 
 	const handleSave = () => {
 		if (!name.trim()) return
+		if (hasSnackIssues) {
+			toast.error("Corrija os campos do padrão de lanche antes de salvar.")
+			return
+		}
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		saveTemplate(
 			{ id: templateId, context: editContext, updates, items: payloadItems },
@@ -472,10 +498,16 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	 */
 	const hasItemsUnder = (mealTypeId: string) => items.some((i) => i.meal_type_id === mealTypeId)
 	const regularMealTypes: MealTypeInfo[] = mealTypes ?? []
+	// Sem o tipo de sistema (falha ou carregando), os itens do padrão ficariam órfãos: eles vivem
+	// sob ele, e o contador continuaria dizendo "N preparações" com a tela vazia. O grupo é
+	// reconstruído a partir dos próprios itens, com o nome canônico.
+	const orphanSnackGroups: MealTypeInfo[] = [...new Set(items.map((i) => i.meal_type_id).filter((id) => !regularMealTypes.some((mt) => mt.id === id)))].map(
+		(id) => ({ id, name: SNACK_MEAL_TYPE_NAME })
+	)
 	const sectionMealTypes: MealTypeInfo[] | undefined = isSnackStandard
 		? snackMealType
 			? [snackMealType, ...regularMealTypes.filter((mt) => mt.id !== snackMealType.id && hasItemsUnder(mt.id))]
-			: regularMealTypes.filter((mt) => hasItemsUnder(mt.id))
+			: [...orphanSnackGroups, ...regularMealTypes.filter((mt) => hasItemsUnder(mt.id))]
 		: mealTypes && [
 				...mealTypes,
 				...(snackMealType && hasItemsUnder(snackMealType.id) && !mealTypes.some((mt) => mt.id === snackMealType.id) ? [snackMealType] : []),

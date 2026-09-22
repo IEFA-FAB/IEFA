@@ -50,7 +50,10 @@ export type SnackRequestFormState = {
 	paxCount: string
 	includesNonMilitary: boolean
 	nonMilitaryReason: string
-	/** Material editado pelo usuário; ausente = valor derivado das pessoas. */
+	/**
+	 * Texto cru do campo de material. Ausente = o campo acompanha o número de pessoas;
+	 * `""` = campo vazio enquanto se digita, que vale 0 no envio e ainda não é ajuste manual.
+	 */
 	materialOverrides: Partial<Record<MaterialKey, string>>
 	preference: SnackVariant
 	/** Vazio = 1 h antes da partida. */
@@ -66,6 +69,22 @@ export type SnackRequestFormState = {
 export type FormLine = { key: string; standardId: string | null; audience: SnackAudience; quantity: string }
 
 export type MaterialKey = "water" | "cups" | "ice" | "coffee"
+
+export const MATERIAL_KEYS: MaterialKey[] = ["water", "cups", "ice", "coffee"]
+
+export const MATERIAL_LABELS: Record<MaterialKey, string> = { water: "Água", cups: "Copos", ice: "Gelo", coffee: "Café" }
+
+/**
+ * Tetos do `CreateSnackRequestSchema` (`packages/sisub-domain/src/schemas/snack.ts`).
+ *
+ * Estouro aqui é rejeitado pelo `.validator()` do server fn ANTES do handler, ou seja,
+ * sem passar por `handleDomainError`: sem estes limites o usuário levaria o erro cru do
+ * Zod num toast, sem campo destacado.
+ */
+export const MAX_COUNT = 9999
+export const MAX_TOTAL_MINUTES = 14 * 24 * 60
+export const MAX_GROUND_MINUTES = 24 * 60
+export const MAX_LINES = 40
 
 export function initialFormState(): SnackRequestFormState {
 	return {
@@ -134,6 +153,26 @@ export function materialValues(state: SnackRequestFormState): Record<MaterialKey
 		return override == null ? derived[key] : toCount(override)
 	}
 	return { water: pick("water"), cups: pick("cups"), ice: pick("ice"), coffee: pick("coffee") }
+}
+
+/** Texto do campo: o que o usuário digitou (inclusive vazio) ou o valor derivado das pessoas. */
+export function materialInputValue(state: SnackRequestFormState, key: MaterialKey): string {
+	return state.materialOverrides[key] ?? String(derivedMaterials(peopleCount(state))[key])
+}
+
+/** Campo vazio ainda não é ajuste manual — só texto em digitação. */
+export function isMaterialOverridden(state: SnackRequestFormState, key: MaterialKey): boolean {
+	const override = state.materialOverrides[key]
+	return override != null && override.trim() !== ""
+}
+
+/** Campo mexido — inclusive apagado, que é como se volta à derivação depois de esvaziar. */
+export function canRecalculateMaterials(state: SnackRequestFormState): boolean {
+	return MATERIAL_KEYS.some((key) => state.materialOverrides[key] != null)
+}
+
+export function materialErrorKey(key: MaterialKey): string {
+	return `material-${key}`
 }
 
 // ── Missão → calculadora ───────────────────────────────────────────────────
@@ -247,6 +286,10 @@ export function validateForm(state: SnackRequestFormState, context: FormContext)
 	if (!departure) errors.departureLocal = "Informe a data e a hora da partida."
 	const total = toMinutes(state.totalHours, state.totalMins)
 	if (total <= 0) errors.totalDuration = "Informe a duração total do deslocamento."
+	else if (total > MAX_TOTAL_MINUTES) errors.totalDuration = `A duração total não pode passar de ${MAX_TOTAL_MINUTES / 60} h.`
+	if (aerial && toMinutes(state.groundHours, state.groundMins) > MAX_GROUND_MINUTES) {
+		errors.groundDuration = `O tempo em solo não pode passar de ${MAX_GROUND_MINUTES / 60} h.`
+	}
 	if (!state.stopsWithoutMess && state.hasMessStop) {
 		const leg = toMinutes(state.legHours, state.legMins)
 		if (leg <= 0) errors.legDuration = "Informe a maior perna até a escala com rancho."
@@ -254,8 +297,22 @@ export function validateForm(state: SnackRequestFormState, context: FormContext)
 	}
 	if (aerial && !state.missionOrderNumber.trim()) errors.missionOrderNumber = "Missão aérea exige o número da ordem de missão."
 	if (peopleCount(state) === 0) errors.people = aerial ? "Informe a tripulação ou os passageiros." : "Informe o efetivo."
+	if (toCount(state.crewCount) > MAX_COUNT) {
+		errors.crewCount = aerial ? `A tripulação não pode passar de ${MAX_COUNT} pessoas.` : `O efetivo não pode passar de ${MAX_COUNT} pessoas.`
+	}
+	if (toCount(state.paxCount) > MAX_COUNT) {
+		errors.paxCount = aerial ? `Os passageiros não podem passar de ${MAX_COUNT} pessoas.` : `Os demais não podem passar de ${MAX_COUNT} pessoas.`
+	}
 	if (state.includesNonMilitary && !state.nonMilitaryReason.trim()) {
 		errors.nonMilitaryReason = "Informe o motivo da participação de civis ou servidores na missão."
+	}
+
+	const materials = materialValues(state)
+	for (const key of MATERIAL_KEYS) {
+		if (materials[key] <= MAX_COUNT) continue
+		errors[materialErrorKey(key)] = isMaterialOverridden(state, key)
+			? `${MATERIAL_LABELS[key]}: no máximo ${MAX_COUNT}.`
+			: `${MATERIAL_LABELS[key]}: o cálculo por pessoa passou de ${MAX_COUNT} — informe a quantidade.`
 	}
 
 	const pickup = pickupIso(state)
@@ -270,8 +327,10 @@ export function validateForm(state: SnackRequestFormState, context: FormContext)
 	}
 
 	const validLines = context.lines.filter((line) => line.standardId && context.standardsById.has(line.standardId) && toCount(line.quantity) > 0)
-	if (validLines.length === 0) errors.lines = "Inclua pelo menos um padrão com quantidade."
+	if (context.lines.length > MAX_LINES) errors.lines = `O pedido aceita no máximo ${MAX_LINES} padrões — remova linhas.`
+	else if (validLines.length === 0) errors.lines = "Inclua pelo menos um padrão com quantidade."
 	else if (validLines.length !== context.lines.length) errors.lines = "Há linha sem padrão ou sem quantidade — complete ou remova."
+	else if (validLines.some((line) => toCount(line.quantity) > MAX_COUNT)) errors.lines = `Cada padrão aceita no máximo ${MAX_COUNT} kits.`
 	if (context.divergences.length > 0 && !state.divergenceReason.trim()) {
 		errors.divergenceReason = "O pedido difere da sugestão da calculadora: explique o motivo."
 	}

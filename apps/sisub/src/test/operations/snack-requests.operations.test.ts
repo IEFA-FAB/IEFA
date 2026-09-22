@@ -230,6 +230,50 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		await expect(db.execute(sql`delete from kitchen.snack_request_event where request_id = ${created.id}`)).rejects.toThrow()
 	}, 60_000)
 
+	test('guardas novas: padrão vazio não fica pedível, amostra não é do futuro, material "outro" exige descrição', async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, ctx, templateId } = await setup()
+
+		// Padrão sem preparação não pode ser publicado — o aceite materializaria nada.
+		const emptyStandard = await (seeder as Seeder).seedTemplate({ kitchenId, templateType: "exception" })
+		await expect(
+			setSnackClassification(db, ctx, {
+				templateId: emptyStandard,
+				classification: {
+					family: "apoio",
+					snackClass: "A",
+					variant: "lanche",
+					requiresGalley: false,
+					requiresOven: false,
+					reviewedAt: null,
+					shelfLifeHours: null,
+					orderable: true,
+				},
+			})
+		).rejects.toMatchObject({ code: "SNACK_STANDARD_EMPTY" })
+
+		const created = await createSnackRequest(db, ctx, requestInput(kitchenId, templateId))
+		await decideSnackRequest(db, ctx, { requestId: created.id, decision: "accept", unitValue: 1 })
+		await advanceSnackRequest(db, ctx, { requestId: created.id, to: "in_production" })
+
+		// A coleta da amostra vira a data de fabricação da etiqueta.
+		const future = new Date(Date.now() + 3 * 3_600_000).toISOString()
+		await expect(advanceSnackRequest(db, ctx, { requestId: created.id, to: "ready", sampleCollectedAt: future })).rejects.toMatchObject({
+			code: "SNACK_SAMPLE_IN_FUTURE",
+		})
+		const old = new Date(Date.now() - 48 * 3_600_000).toISOString()
+		await expect(advanceSnackRequest(db, ctx, { requestId: created.id, to: "ready", sampleCollectedAt: old })).rejects.toMatchObject({
+			code: "SNACK_SAMPLE_TOO_OLD",
+		})
+		await advanceSnackRequest(db, ctx, { requestId: created.id, to: "ready", sampleCollectedAt: new Date().toISOString() })
+
+		// "outro" sem descrição bateria no CHECK do banco e derrubaria a retirada inteira.
+		await expect(
+			registerSnackPickup(db, ctx, { requestId: created.id, pickedUpByName: "[TEST] Cb Souza", materials: [{ item: "outro", quantity: 1 }] })
+		).rejects.toMatchObject({ code: "SNACK_MATERIAL_DESCRIPTION_REQUIRED" })
+		expect((await getKitchenSnackRequest(db, ctx, { requestId: created.id })).status).toBe("ready")
+	}, 60_000)
+
 	test("padrão de lanche não se aplica ao calendário — a produção vem do pedido", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, ctx, templateId } = await setup()

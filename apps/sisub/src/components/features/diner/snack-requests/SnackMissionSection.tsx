@@ -10,11 +10,19 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { FUNDING_SOURCE_LABELS, isoToBrasiliaLocal, MISSION_KIND_LABELS, PREFERENCE_LABELS } from "./snack-format"
 import {
+	canRecalculateMaterials,
 	derivedMaterials,
 	type FormErrors,
 	type FundingSource,
+	isMaterialOverridden,
+	MATERIAL_KEYS,
+	MATERIAL_LABELS,
+	MAX_COUNT,
+	MAX_GROUND_MINUTES,
+	MAX_TOTAL_MINUTES,
 	type MaterialKey,
-	materialValues,
+	materialErrorKey,
+	materialInputValue,
 	peopleCount,
 	pickupIso,
 	type SnackRequestFormState,
@@ -29,19 +37,18 @@ interface SnackMissionSectionProps {
 	refeicaoOk: boolean
 }
 
-const MATERIAL_FIELDS: { key: MaterialKey; label: string; unit: string }[] = [
-	{ key: "water", label: "Água", unit: "garrafas" },
-	{ key: "cups", label: "Copos", unit: "unidades" },
-	{ key: "ice", label: "Gelo", unit: "sacos" },
-	{ key: "coffee", label: "Café", unit: "garrafas térmicas" },
-]
+const MATERIAL_UNITS: Record<MaterialKey, string> = {
+	water: "garrafas",
+	cups: "unidades",
+	ice: "sacos",
+	coffee: "garrafas térmicas",
+}
 
 export function SnackMissionSection({ state, update, errors, kitchens, refeicaoOk }: SnackMissionSectionProps) {
 	const aerial = state.missionKind === "aerea"
 	const kitchen = kitchens.find((k) => k.id === state.kitchenId)
-	const materials = materialValues(state)
 	const derived = derivedMaterials(peopleCount(state))
-	const hasMaterialOverride = Object.keys(state.materialOverrides).length > 0
+	const showRecalculate = canRecalculateMaterials(state)
 	const defaultPickup = pickupIso(state)
 
 	return (
@@ -218,7 +225,9 @@ export function SnackMissionSection({ state, update, errors, kitchens, refeicaoO
 								label="Tempo em solo da tripulação"
 								hours={state.groundHours}
 								minutes={state.groundMins}
+								maxHours={MAX_GROUND_MINUTES / 60}
 								onChange={(groundHours, groundMins) => update({ groundHours, groundMins })}
+								error={errors.groundDuration}
 								description="Pré-voo, briefing e debriefing. Somado ao voo, forma o envolvimento da tripulação."
 							/>
 							<Grid>
@@ -256,8 +265,20 @@ export function SnackMissionSection({ state, update, errors, kitchens, refeicaoO
 					<FieldSet>
 						<FieldLegend variant="label">{aerial ? "Tripulantes e passageiros" : "Efetivo"}</FieldLegend>
 						<Grid>
-							<CountField id="snack-crew" label={aerial ? "Tripulação" : "Efetivo"} value={state.crewCount} onChange={(crewCount) => update({ crewCount })} />
-							<CountField id="snack-pax" label={aerial ? "Passageiros" : "Outros"} value={state.paxCount} onChange={(paxCount) => update({ paxCount })} />
+							<CountField
+								id="snack-crew"
+								label={aerial ? "Tripulação" : "Efetivo"}
+								value={state.crewCount}
+								onChange={(crewCount) => update({ crewCount })}
+								error={errors.crewCount}
+							/>
+							<CountField
+								id="snack-pax"
+								label={aerial ? "Passageiros" : "Outros"}
+								value={state.paxCount}
+								onChange={(paxCount) => update({ paxCount })}
+								error={errors.paxCount}
+							/>
 						</Grid>
 						<FieldError>{errors.people}</FieldError>
 					</FieldSet>
@@ -287,26 +308,31 @@ export function SnackMissionSection({ state, update, errors, kitchens, refeicaoO
 						<FieldLegend variant="label">Material</FieldLegend>
 						<FieldDescription>Calculado pelo número de pessoas — ajuste se a missão pedir outra quantidade.</FieldDescription>
 						<div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-							{MATERIAL_FIELDS.map((m) => (
-								<Field key={m.key}>
-									<FieldLabel htmlFor={`snack-material-${m.key}`}>{m.label}</FieldLabel>
-									<Input
-										id={`snack-material-${m.key}`}
-										type="number"
-										inputMode="numeric"
-										min={0}
-										max={9999}
-										value={String(materials[m.key])}
-										onChange={(e) => update({ materialOverrides: { ...state.materialOverrides, [m.key]: e.target.value } })}
-									/>
-									<FieldDescription>
-										{m.unit}
-										{state.materialOverrides[m.key] != null && ` · sugerido ${derived[m.key]}`}
-									</FieldDescription>
-								</Field>
-							))}
+							{MATERIAL_KEYS.map((key) => {
+								const error = errors[materialErrorKey(key)]
+								return (
+									<Field key={key} data-invalid={!!error}>
+										<FieldLabel htmlFor={`snack-material-${key}`}>{MATERIAL_LABELS[key]}</FieldLabel>
+										<Input
+											id={`snack-material-${key}`}
+											type="number"
+											inputMode="numeric"
+											min={0}
+											max={MAX_COUNT}
+											value={materialInputValue(state, key)}
+											onChange={(e) => update({ materialOverrides: { ...state.materialOverrides, [key]: e.target.value } })}
+											aria-invalid={!!error}
+										/>
+										<FieldDescription>
+											{MATERIAL_UNITS[key]}
+											{isMaterialOverridden(state, key) && ` · sugerido ${derived[key]}`}
+										</FieldDescription>
+										<FieldError>{error}</FieldError>
+									</Field>
+								)
+							})}
 						</div>
-						{hasMaterialOverride && (
+						{showRecalculate && (
 							<div>
 								<Button variant="ghost" size="sm" onClick={() => update({ materialOverrides: {} })}>
 									<RotateCcw className="size-3.5" aria-hidden />
@@ -415,11 +441,22 @@ function TextField({
 	)
 }
 
-function CountField({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (value: string) => void }) {
+function CountField({ id, label, value, onChange, error }: { id: string; label: string; value: string; onChange: (value: string) => void; error?: string }) {
 	return (
-		<Field>
+		<Field data-invalid={!!error}>
 			<FieldLabel htmlFor={id}>{label}</FieldLabel>
-			<Input id={id} type="number" inputMode="numeric" min={0} max={9999} value={value} onChange={(e) => onChange(e.target.value)} placeholder="0" />
+			<Input
+				id={id}
+				type="number"
+				inputMode="numeric"
+				min={0}
+				max={MAX_COUNT}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				placeholder="0"
+				aria-invalid={!!error}
+			/>
+			<FieldError>{error}</FieldError>
 		</Field>
 	)
 }
@@ -432,6 +469,7 @@ function DurationField({
 	onChange,
 	error,
 	description,
+	maxHours = MAX_TOTAL_MINUTES / 60,
 }: {
 	id: string
 	label: string
@@ -440,6 +478,8 @@ function DurationField({
 	onChange: (hours: string, minutes: string) => void
 	error?: string
 	description?: string
+	/** Teto do campo de horas; o total do domínio quando não informado. */
+	maxHours?: number
 }) {
 	return (
 		<Field data-invalid={!!error}>
@@ -450,7 +490,7 @@ function DurationField({
 					type="number"
 					inputMode="numeric"
 					min={0}
-					max={336}
+					max={maxHours}
 					value={hours}
 					onChange={(e) => onChange(e.target.value, minutes)}
 					placeholder="0"

@@ -21,14 +21,16 @@ import {
 } from "@/hooks/data/useSnackRequests"
 import { cn } from "@/lib/cn"
 import {
-	AUDIENCE_LABELS,
 	asStatus,
+	audienceLabel,
+	brasiliaLocalInput,
 	classLabel,
 	localInputToIso,
 	MATERIAL_ITEM_LABELS,
 	MATERIAL_ITEMS,
 	type MaterialItem,
 	nowBrasiliaLocalInput,
+	sampleCollectedAtError,
 } from "./format"
 
 type DialogKind = "accept" | "reject" | "ready" | "pickup" | "return" | "cancel" | null
@@ -264,7 +266,7 @@ function AcceptForm({ request, onDone }: FormProps) {
 										</label>
 										<div className="flex flex-wrap items-center gap-1.5 text-caption text-muted-foreground">
 											<span>
-												{classLabel(line.standard_snapshot.family, line.standard_snapshot.snackClass)} · {AUDIENCE_LABELS[line.audience] ?? line.audience} ·
+												{classLabel(line.standard_snapshot.family, line.standard_snapshot.snackClass)} · {audienceLabel(line.audience, request.mission_kind)} ·
 												pedido <span className="font-mono tabular-nums">{line.quantity}</span>
 											</span>
 											{line.optional && <Badge variant="warning">Opcional</Badge>}
@@ -359,12 +361,18 @@ function ReadyForm({ request, onDone }: FormProps) {
 	const [collectedAt, setCollectedAt] = useState(nowBrasiliaLocalInput)
 	const [notes, setNotes] = useState("")
 	const [submitted, setSubmitted] = useState(false)
-	const iso = localInputToIso(collectedAt)
+	// "Agora" congelado na abertura do diálogo: o `max` do campo e a mensagem do campo têm que
+	// ser estáveis entre renderizações. O envio revalida com o relógio do momento.
+	const [now, setNow] = useState(() => Date.now())
+	const error = submitted ? sampleCollectedAtError(collectedAt, now) : null
 
 	const handleSubmit = (e: FormEvent) => {
 		e.preventDefault()
 		setSubmitted(true)
-		if (!iso) return
+		const current = Date.now()
+		setNow(current)
+		const iso = localInputToIso(collectedAt)
+		if (!iso || sampleCollectedAtError(collectedAt, current)) return
 		advance.mutate({ requestId: request.id, to: "ready", sampleCollectedAt: iso, sampleNotes: notes.trim() || undefined }, { onSuccess: onDone })
 	}
 
@@ -380,17 +388,19 @@ function ReadyForm({ request, onDone }: FormProps) {
 				<AlertDescription>A amostra coletada deste lote fica guardada por 72 horas. A hora da coleta vira a data de fabricação nas etiquetas.</AlertDescription>
 			</Alert>
 			<FieldGroup>
-				<Field data-invalid={submitted && !iso}>
+				<Field data-invalid={!!error}>
 					<FieldLabel htmlFor="snack-sample-at">Coleta da amostra (hora de Brasília)</FieldLabel>
 					<Input
 						id="snack-sample-at"
 						type="datetime-local"
 						value={collectedAt}
+						max={brasiliaLocalInput(now)}
 						onChange={(e) => setCollectedAt(e.target.value)}
-						aria-invalid={submitted && !iso}
+						aria-invalid={!!error}
 						className="font-mono tabular-nums"
 					/>
-					{submitted && !iso && <FieldError>Informe data e hora da coleta.</FieldError>}
+					<FieldDescription>A coleta é o instante do lote pronto: entre agora e 24 h atrás. É ela que vira a fabricação na etiqueta.</FieldDescription>
+					{error && <FieldError>{error}</FieldError>}
 				</Field>
 				<Field>
 					<FieldLabel htmlFor="snack-sample-notes">Observação (opcional)</FieldLabel>

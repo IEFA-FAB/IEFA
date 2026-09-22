@@ -146,10 +146,34 @@ export function normalizeSnackDraft(draft: SnackStandardDraft): SnackStandardDra
 	return draft.family === "apoio" && draft.snackClass === "C" ? { ...draft, snackClass: "B" } : draft
 }
 
-/** "" → null (24 h); inteiro entre 1 e 720, senão nulo. */
+/** Nome canônico do tipo de refeição de sistema dos lanches (migration 20260922140000). */
+export const SNACK_MEAL_TYPE_NAME = "Lanches de Bordo/Apoio"
+
+/** "" → null (24 h); inteiro entre 1 e 720, senão nulo. Fora da faixa é ERRO, não silêncio: ver `snackDraftIssues`. */
 export function parseShelfLifeHours(value: string): number | null {
 	const parsed = Number.parseInt(value, 10)
 	return Number.isFinite(parsed) && parsed >= 1 && parsed <= 720 ? parsed : null
+}
+
+/**
+ * O que impede gravar a classificação, por campo.
+ *
+ * Os dois casos existem porque o valor inválido sumia calado: validade fora de 1–720 h virava
+ * `null` (a etiqueta passava a imprimir as 24 h do default com o campo ainda mostrando o número
+ * digitado), e uma data de revisão no futuro — `2126` por erro de digitação — desligava o aviso
+ * de revisão vencida para sempre.
+ */
+export function snackDraftIssues(draft: SnackStandardDraft, today: string): { reviewedAt?: string; shelfLifeHours?: string } {
+	if (!draft.enabled) return {}
+	const issues: { reviewedAt?: string; shelfLifeHours?: string } = {}
+	if (draft.shelfLifeHours.trim() !== "" && parseShelfLifeHours(draft.shelfLifeHours) == null) {
+		issues.shelfLifeHours = "Informe de 1 a 720 horas, ou deixe em branco para as 24 h padrão."
+	}
+	if (draft.reviewedAt !== "") {
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.reviewedAt)) issues.reviewedAt = "Data inválida."
+		else if (draft.reviewedAt > today) issues.reviewedAt = "A revisão não pode ser no futuro."
+	}
+	return issues
 }
 
 /**

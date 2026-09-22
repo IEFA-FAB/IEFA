@@ -31,7 +31,9 @@ export function SnackProductionDay({ kitchenId, kitchenIdStr, date, today, onDat
 
 	const requests = summary?.requests ?? []
 	const byId = new Map(requests.map((r) => [r.id, r]))
-	const labelRequestIds = requests.filter((r) => r.lines.some((l) => lineKits(l) > 0)).map((r) => r.id)
+	// Os próprios pedidos vão para as etiquetas: o summary já traz missão, kits, preparações,
+	// kcal, coleta da amostra e validade do padrão — não há uma busca por pedido a fazer.
+	const labelRequests = requests.filter((r) => r.lines.some((l) => lineKits(l) > 0))
 
 	const originLinks = (ids: string[]) => (
 		<div className="flex flex-wrap gap-x-3 gap-y-1">
@@ -65,7 +67,7 @@ export function SnackProductionDay({ kitchenId, kitchenIdStr, date, today, onDat
 						</Link>
 					}
 				/>
-				<Button size="sm" onClick={() => setLabelsOpen(true)} disabled={labelRequestIds.length === 0}>
+				<Button size="sm" onClick={() => setLabelsOpen(true)} disabled={labelRequests.length === 0}>
 					<Tag className="size-4 mr-1.5" aria-hidden="true" />
 					Etiquetas do dia
 				</Button>
@@ -241,12 +243,7 @@ export function SnackProductionDay({ kitchenId, kitchenIdStr, date, today, onDat
 				</>
 			)}
 
-			<SnackLabelsDialog
-				open={labelsOpen}
-				onOpenChange={setLabelsOpen}
-				requestIds={labelRequestIds}
-				title={`Etiquetas do dia — ${formatCivilDateLong(date)}`}
-			/>
+			<SnackLabelsDialog open={labelsOpen} onOpenChange={setLabelsOpen} requests={labelRequests} title={`Etiquetas do dia — ${formatCivilDateLong(date)}`} />
 		</div>
 	)
 }
