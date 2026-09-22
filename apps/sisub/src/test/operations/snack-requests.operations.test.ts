@@ -10,6 +10,7 @@
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	advanceSnackRequest,
+	applyTemplate,
 	cancelKitchenSnackRequest,
 	closeSnackRequest,
 	createSnackRequest,
@@ -19,6 +20,7 @@ import {
 	getKitchenSnackRequest,
 	registerSnackMaterialReturn,
 	registerSnackPickup,
+	restoreMenuItem,
 	setSnackClassification,
 } from "@iefa/sisub-domain"
 import { sql } from "drizzle-orm"
@@ -140,6 +142,9 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		expect(accepted.status).toBe("accepted")
 		expect(accepted.lines[0]?.approved_quantity).toBe(3)
 		expect(accepted.production.total).toBe(1)
+		// `details` do evento sai cru (camelCase): a tela casa `adjustments[].lineId`.
+		const acceptEvent = accepted.events.find((e) => e.to_status === "accepted")
+		expect((acceptEvent?.details as { adjustments?: { lineId: string }[] } | null)?.adjustments?.[0]?.lineId).toBe(lineId)
 
 		const board = await fetchProductionBoard(db, ctx, { kitchenId, date: futureDate(10) })
 		const snackItems = board.filter((i) => i.menuItem.snack_request?.id === created.id)
@@ -177,6 +182,29 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		const board = await fetchProductionBoard(db, ctx, { kitchenId, date: futureDate(10) })
 		expect(board.filter((i) => i.menuItem.snack_request?.id === created.id)).toEqual([])
 		expect((await getKitchenSnackRequest(db, ctx, { requestId: created.id })).status).toBe("cancelled")
+
+		// O item cancelado não volta pela lixeira do planejamento.
+		const [item] = (await db.execute(sql`select id::text as id from kitchen.menu_items where origin_snack_request_id = ${created.id} limit 1`)) as unknown as {
+			id: string
+		}[]
+		await expect(restoreMenuItem(db, ctx, { menuItemId: item?.id as string })).rejects.toMatchObject({ code: "SNACK_ITEM_NOT_RESTORABLE" })
+	}, 60_000)
+
+	test("aplicar cardápio semanal com Substituir não apaga a produção de lanche aceita", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, ctx, templateId, recipeId } = await setup()
+		const created = await createSnackRequest(db, ctx, requestInput(kitchenId, templateId))
+		await decideSnackRequest(db, ctx, { requestId: created.id, decision: "accept", unitValue: 1 })
+
+		const mealTypeId = await (seeder as Seeder).seedMealType({ kitchenId })
+		const weekly = await (seeder as Seeder).seedTemplate({ kitchenId, templateType: "weekly" })
+		for (let day = 1; day <= 7; day++)
+			await (seeder as Seeder).seedTemplateItem({ templateId: weekly, mealTypeId, recipeId, dayOfWeek: day, headcountOverride: 10 })
+		const date = futureDate(10)
+		await applyTemplate(db, ctx, { templateId: weekly, kitchenId, startDate: date, endDate: date, startDayOfWeek: 1, conflictMode: "replace" })
+
+		const board = await fetchProductionBoard(db, ctx, { kitchenId, date })
+		expect(board.filter((i) => i.menuItem.snack_request?.id === created.id)).toHaveLength(1)
 	}, 60_000)
 
 	test("aceite e recusa simultâneos: exatamente uma transição vence", async () => {

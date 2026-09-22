@@ -989,6 +989,10 @@ export async function applyTemplate(
 	// Tudo numa transação: soft-delete dos menus existentes (só no replace) + insert
 	// dos novos. Qualquer falha desfaz tudo (bug fix vs sisub: rollback completo).
 	// No skip não há delete algum: só inserimos em células vazias.
+	// O cardápio do tipo de refeição de SISTEMA (pedidos de lanche aceitos) não é planejamento
+	// do rancho: "Substituir" o dia não pode apagá-lo, ou a produção de um pedido aceito some
+	// do quadro sem que o pedido saiba.
+	const notSystemMealTypeMenu = sql`not exists (select 1 from kitchen.meal_type mt where mt.id = ${dailyMenuInKitchen.mealTypeId} and mt.system_key is not null)`
 	await db.transaction(async (tx) => {
 		if (conflictMode === "replace") {
 			const deletedAt = new Date().toISOString()
@@ -1000,7 +1004,12 @@ export async function applyTemplate(
 					.select({ id: dailyMenuInKitchen.id })
 					.from(dailyMenuInKitchen)
 					.where(
-						and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), isNull(dailyMenuInKitchen.deletedAt))
+						and(
+							inArray(dailyMenuInKitchen.serviceDate, allDates),
+							eq(dailyMenuInKitchen.kitchenId, input.kitchenId),
+							isNull(dailyMenuInKitchen.deletedAt),
+							notSystemMealTypeMenu
+						)
 					)
 			)
 			const doomedIds = doomedMenus.map((m) => m.id)
@@ -1017,7 +1026,7 @@ export async function applyTemplate(
 				tx
 					.update(dailyMenuInKitchen)
 					.set({ deletedAt })
-					.where(and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId)))
+					.where(and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), notSystemMealTypeMenu))
 					.then(() => undefined)
 			)
 		}

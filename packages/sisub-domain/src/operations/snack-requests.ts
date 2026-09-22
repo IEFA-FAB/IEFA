@@ -609,7 +609,13 @@ async function toDetail(db: SisubDb, row: typeof snackRequestInKitchen.$inferSel
 	)
 	return {
 		...summary,
-		events: events.map((e) => ({ ...toWire<SnackRequestEventRow>(e), actor_label: actors.get(e.actorId) ?? "" })),
+		// `details` é JSON gravado em camelCase (ex.: `adjustments[].lineId`) e sai como está —
+		// `toWire` desceria nele e a tela não acharia as chaves.
+		events: events.map(({ details, ...e }) => ({
+			...toWire<SnackRequestEventRow>(e),
+			details: details as SnackRequestEventRow["details"],
+			actor_label: actors.get(e.actorId) ?? "",
+		})),
 		materials: materials.map((m) => toWire<SnackRequestMaterialRow>(m)),
 		production: {
 			total: tasks.length,
@@ -848,8 +854,13 @@ export async function listKitchenSnackRequests(db: SisubDb, ctx: UserContext, in
 /** Lê a cozinha da LINHA e exige o nível pedido nela. */
 async function authorizeKitchenRequest(db: SisubDb, ctx: UserContext, requestId: string, level: 1 | 2 | "floor") {
 	const row = await loadRequest(db, requestId)
-	if (level === "floor") requireKitchenFloorWrite(ctx, row.kitchenId)
-	else requireKitchen(ctx, level, row.kitchenId)
+	if (level === "floor") {
+		// Andamento é do chão (`kitchen:2` ou `kitchen-production:1`), mas a tela do pedido e a
+		// etiqueta ficam na Gestão Cozinha (`kitchen:1`). Sem o `kitchen:1` o operador poderia
+		// mudar um pedido que não consegue abrir.
+		requireKitchen(ctx, 1, row.kitchenId)
+		requireKitchenFloorWrite(ctx, row.kitchenId)
+	} else requireKitchen(ctx, level, row.kitchenId)
 	return row
 }
 
@@ -977,6 +988,9 @@ export async function registerSnackMaterialReturn(db: SisubDb, ctx: UserContext,
 export async function closeSnackRequest(db: SisubDb, ctx: UserContext, input: SnackRequestId): Promise<SnackRequestDetail> {
 	await authorizeKitchenRequest(db, ctx, input.requestId, "floor")
 	await db.transaction(async (tx) => {
+		// Trava a linha ANTES de ler a cautela: uma retirada concorrente que cautela material
+		// esperaria esta transação, em vez de gravar material que esta leitura não viu.
+		await tx.select({ id: snackRequestInKitchen.id }).from(snackRequestInKitchen).where(eq(snackRequestInKitchen.id, input.requestId)).for("update")
 		const materials = await tx.select().from(snackRequestMaterialInKitchen).where(eq(snackRequestMaterialInKitchen.requestId, input.requestId))
 		await transition(tx, input.requestId, "closed", ctx.userId, {
 			guard: () => {
@@ -992,6 +1006,9 @@ export async function closeSnackRequest(db: SisubDb, ctx: UserContext, input: Sn
 export async function cancelKitchenSnackRequest(db: SisubDb, ctx: UserContext, input: KitchenCancelSnackRequest): Promise<SnackRequestDetail> {
 	await authorizeKitchenRequest(db, ctx, input.requestId, 2)
 	await db.transaction(async (tx) => {
+		// Trava a linha ANTES de ler a cautela: uma retirada concorrente que cautela material
+		// esperaria esta transação, em vez de gravar material que esta leitura não viu.
+		await tx.select({ id: snackRequestInKitchen.id }).from(snackRequestInKitchen).where(eq(snackRequestInKitchen.id, input.requestId)).for("update")
 		const materials = await tx.select().from(snackRequestMaterialInKitchen).where(eq(snackRequestMaterialInKitchen.requestId, input.requestId))
 		const locked = await transition(tx, input.requestId, "cancelled", ctx.userId, {
 			patch: () => ({
