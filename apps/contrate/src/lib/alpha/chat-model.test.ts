@@ -62,6 +62,10 @@ describe("describeChatError", () => {
 		expect(describeChatError(new TypeError("Failed to fetch"))).toBe("Não foi possível falar com o assistente. Verifique a conexão e tente de novo.")
 	})
 
+	it("turno em andamento em outra aba tem mensagem própria", () => {
+		expect(describeChatError(new ChatTurnError("CHAT_TURN_IN_PROGRESS", "x"))).toContain("resposta em andamento")
+	})
+
 	it("nunca mostra o código cru", () => {
 		expect(describeChatError(new ChatTurnError("MODEL_UNAVAILABLE", "o turno falhou"))).not.toContain("MODEL_UNAVAILABLE")
 	})

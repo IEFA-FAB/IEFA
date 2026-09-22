@@ -100,6 +100,8 @@ export function describeChatError(error: unknown): string {
 			return "O assistente não produziu resposta. Tente reformular a pergunta."
 		case "CONNECTION_LOST":
 			return "A conexão caiu antes do fim da resposta. Envie a pergunta de novo."
+		case "CHAT_TURN_IN_PROGRESS":
+			return "Ainda há uma resposta em andamento nesta conversa (talvez em outra aba). Aguarde ela terminar e envie de novo."
 		case "CHAT_NOT_FOUND":
 			return "Esta conversa não existe mais."
 		case "CHAT_ATTACHMENT_LIMIT":
