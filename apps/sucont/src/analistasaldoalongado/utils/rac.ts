@@ -76,6 +76,19 @@ export const RAC_MAPPING: Record<string, string[]> = {
  * serviam — vinham desalinhados das contas desde o repositório de origem (a antiga
  * Q19 dizia "Intangíveis" sobre contas de bens móveis em trânsito).
  */
+/**
+ * Questões do RAC em ordem numérica.
+ *
+ * Mora aqui porque os três painéis filtram pela MESMA lista — cada um tinha a
+ * sua cópia do mesmo `Object.keys(...).sort(...)`, e questão nova no mapeamento
+ * entrava em três lugares ou em nenhum.
+ */
+export const RAC_QUESTIONS = Object.keys(RAC_MAPPING).sort((a, b) => {
+	const numA = parseInt(a.replace("Questão ", ""), 10)
+	const numB = parseInt(b.replace("Questão ", ""), 10)
+	return numA - numB
+})
+
 export const RAC_DESCRIPTIONS: Record<string, string> = {
 	"Questão 7": "Restos a Pagar — Contas Orçamentárias (Classe 6)",
 	"Questão 8": "Bens Imóveis — Obras em Andamento, Estudos e Projetos, Instalações",

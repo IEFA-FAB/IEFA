@@ -2,7 +2,7 @@ import { ISSUE_VARIANCE_REASON_LABELS, ISSUE_VARIANCE_REASONS, type IssueVarianc
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { CalendarDays, CheckCircle2, PackageMinus, RefreshCw, Undo2 } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { ScanInput } from "@/components/features/storage/scan/ScanInput"
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import {
@@ -120,6 +121,20 @@ function DailyIssuePage() {
 					gtins: [] as string[],
 				},
 			])
+	)
+
+	// Insumos com saldo, para a saída fora da sugestão. A cozinha abastecida tem
+	// centenas de linhas com saldo: sem busca, escolher aqui é rolagem cega.
+	const extraIngredientOptions = useMemo(
+		() =>
+			balance
+				.filter((item) => item.ingredientId != null && item.balance - item.quarantinedBalance - item.expiredBalance > 0)
+				.map((item) => ({
+					value: item.ingredientId as string,
+					label: item.description,
+					hint: `${NUM.format(item.balance - item.quarantinedBalance - item.expiredBalance)} ${item.measureUnit ?? ""}`.trim(),
+				})),
+		[balance]
 	)
 
 	/**
@@ -451,20 +466,16 @@ function DailyIssuePage() {
 						<div className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed p-3">
 							<div className="min-w-72 flex-1 space-y-1">
 								<Label htmlFor="extra">Retirar insumo fora da sugestão</Label>
-								<Select value={extraIngredientId || null} onValueChange={(value) => setExtraIngredientId(value ?? "")}>
-									<SelectTrigger id="extra">
-										<SelectValue>{stockByIngredient.get(extraIngredientId)?.description ?? "Escolha o insumo"}</SelectValue>
-									</SelectTrigger>
-									<SelectContent>
-										{[...stockByIngredient.entries()]
-											.filter(([, item]) => item.available > 0)
-											.map(([ingredientId, item]) => (
-												<SelectItem key={ingredientId} value={ingredientId}>
-													{item.description} · {NUM.format(item.available)} {item.measureUnit ?? ""}
-												</SelectItem>
-											))}
-									</SelectContent>
-								</Select>
+								<SearchableSelect
+									id="extra"
+									value={extraIngredientId || null}
+									onValueChange={(value) => setExtraIngredientId(value ?? "")}
+									options={extraIngredientOptions}
+									placeholder="Escolha o insumo"
+									searchPlaceholder="Pesquisar insumo com saldo…"
+									emptyLabel="Nenhum insumo com saldo."
+									unavailableLabel="Insumo sem saldo"
+								/>
 							</div>
 							<Input
 								className="w-28"

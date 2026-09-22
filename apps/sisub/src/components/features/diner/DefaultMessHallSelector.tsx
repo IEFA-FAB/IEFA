@@ -1,11 +1,11 @@
 // components/DefaultMessHallSelector.tsx
 
 import { AlertTriangle, CheckCircle, Loader2, Settings } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { toast } from "@/components/ui/toast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 
@@ -25,6 +25,8 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 	const selected = messHalls.find((mh) => mh.code === defaultMessHallCode)
 	const selectedMessHallLabel = selected?.display_name || defaultMessHallCode
 	const hasMessHalls = (messHalls?.length ?? 0) > 0
+	// ~70 ranchos: a lista só é percorrível com busca.
+	const messHallOptions = useMemo(() => (messHalls ?? []).map((mh) => ({ value: mh.code, label: mh.display_name ?? mh.code, keywords: mh.code })), [messHalls])
 
 	const handleMessHallChange = (value: string | null) => {
 		if (!value) return
@@ -91,25 +93,17 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 				<div className="space-y-3">
 					<Label className="text-subheading">Selecione o rancho padrão:</Label>
 
-					<Select value={defaultMessHallCode} onValueChange={handleMessHallChange} disabled={isApplying || saving || !hasMessHalls}>
-						<SelectTrigger className="w-full cursor-pointer bg-background border border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:border-accent">
-							<SelectValue placeholder={hasMessHalls ? "Selecione um rancho..." : "Sem ranchos disponíveis"}>
-								{defaultMessHallCode ? selectedMessHallLabel : undefined}
-							</SelectValue>
-						</SelectTrigger>
-						<SelectContent className="max-h-60">
-							{(!messHalls || messHalls.length === 0) && <div className="px-2 py-4 text-sm text-muted-foreground">Nenhum rancho encontrado.</div>}
-							{messHalls?.map((mh) => (
-								<SelectItem
-									key={mh.code}
-									value={mh.code}
-									className="cursor-pointer data-highlighted:bg-accent data-highlighted:text-accent-foreground focus:bg-accent/20"
-								>
-									{mh.display_name ?? mh.code}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+					<SearchableSelect
+						value={defaultMessHallCode || null}
+						onValueChange={handleMessHallChange}
+						options={messHallOptions}
+						disabled={isApplying || saving || !hasMessHalls}
+						placeholder={hasMessHalls ? "Selecione um rancho..." : "Sem ranchos disponíveis"}
+						searchPlaceholder="Pesquisar rancho…"
+						emptyLabel="Nenhum rancho encontrado."
+						className="bg-background hover:border-accent"
+						aria-label="Rancho padrão"
+					/>
 
 					{defaultMessHallCode && (
 						<div className="flex items-center gap-2 text-xs rounded-md border p-2 bg-muted text-muted-foreground border-border">

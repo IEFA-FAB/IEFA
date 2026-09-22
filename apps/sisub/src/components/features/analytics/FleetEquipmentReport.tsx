@@ -13,16 +13,14 @@
  */
 
 import { AlertTriangle } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useEquipmentModels, useEquipmentRoles, useFleetEquipmentReport } from "@/hooks/data/useEquipment"
-
-const ALL = "__all__"
 
 export function FleetEquipmentReport() {
 	const [roleId, setRoleId] = useState<string | null>(null)
@@ -30,6 +28,9 @@ export function FleetEquipmentReport() {
 	const { data: roles = [] } = useEquipmentRoles()
 	const { data: models = [] } = useEquipmentModels(null)
 	const { data, isLoading } = useFleetEquipmentReport({ roleId, modelId })
+
+	const roleOptions = useMemo(() => roles.map((role) => ({ value: role.id, label: role.name })), [roles])
+	const modelOptions = useMemo(() => models.map((model) => ({ value: model.id, label: [model.manufacturer, model.name].filter(Boolean).join(" ") })), [models])
 
 	if (isLoading) return <Skeleton className="h-96 w-full" />
 	if (!data) return null
@@ -39,35 +40,29 @@ export function FleetEquipmentReport() {
 			<div className="flex flex-wrap gap-3">
 				<div className="w-56">
 					<span className="text-caption text-muted-foreground">Função</span>
-					<Select value={roleId ?? ALL} onValueChange={(value) => setRoleId(value === ALL ? null : (value as string))}>
-						<SelectTrigger className="w-full">
-							<SelectValue>{roleId ? (roles.find((r) => r.id === roleId)?.name ?? "Função") : "Todas as funções"}</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value={ALL}>Todas as funções</SelectItem>
-							{roles.map((role) => (
-								<SelectItem key={role.id} value={role.id}>
-									{role.name}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+					<SearchableSelect
+						value={roleId}
+						onValueChange={setRoleId}
+						options={roleOptions}
+						clearLabel="Todas as funções"
+						searchPlaceholder="Pesquisar função…"
+						emptyLabel="Nenhuma função encontrada."
+						unavailableLabel="Função indisponível"
+						aria-label="Filtrar por função"
+					/>
 				</div>
 				<div className="w-64">
 					<span className="text-caption text-muted-foreground">Modelo</span>
-					<Select value={modelId ?? ALL} onValueChange={(value) => setModelId(value === ALL ? null : (value as string))}>
-						<SelectTrigger className="w-full">
-							<SelectValue>{modelId ? (models.find((m) => m.id === modelId)?.name ?? "Modelo") : "Todos os modelos"}</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value={ALL}>Todos os modelos</SelectItem>
-							{models.map((model) => (
-								<SelectItem key={model.id} value={model.id}>
-									{[model.manufacturer, model.name].filter(Boolean).join(" ")}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+					<SearchableSelect
+						value={modelId}
+						onValueChange={setModelId}
+						options={modelOptions}
+						clearLabel="Todos os modelos"
+						searchPlaceholder="Pesquisar modelo…"
+						emptyLabel="Nenhum modelo encontrado."
+						unavailableLabel="Modelo indisponível"
+						aria-label="Filtrar por modelo"
+					/>
 				</div>
 			</div>
 

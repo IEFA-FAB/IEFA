@@ -1,7 +1,7 @@
 import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { NavArrowLeft, NavArrowRight, Search, UserPlus, WarningTriangle, Xmark } from "iconoir-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { GrantRolesForm } from "@/components/access/GrantRolesForm"
 import { PeopleTable } from "@/components/access/PeopleTable"
 import { PersonPanel } from "@/components/access/PersonPanel"
@@ -9,6 +9,7 @@ import { SectionHeader } from "@/components/alpha/SectionNav"
 import { LabelText } from "@/components/LabelText"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -76,6 +77,20 @@ function AcessosPage() {
 	const listedUnits = list.data?.units
 	const unitOptions = listedUnits === undefined ? [] : listedUnits === "all" ? units : units.filter((unit) => listedUnits.includes(unit.id))
 	const showUnitFilter = listedUnits === "all" || unitOptions.length > 1
+	// São dezenas de OMs; o filtro só é usável com busca. "Só global" é uma opção
+	// como outra qualquer — separador não sobrevive a uma lista filtrada.
+	const unitFilterOptions = useMemo(
+		() => [
+			...(listedUnits === "all" ? [{ value: "global", label: "Só global" }] : []),
+			...unitOptions.map((unit) => ({
+				value: String(unit.id),
+				label: unit.code,
+				hint: unit.display_name && unit.display_name !== unit.code ? unit.display_name : undefined,
+				keywords: unit.display_name ?? "",
+			})),
+		],
+		[listedUnits, unitOptions]
+	)
 	const defaultUnit = initialGrantUnit(scopeContext)
 
 	return (
@@ -123,30 +138,18 @@ function AcessosPage() {
 						</Select>
 
 						{showUnitFilter ? (
-							<Select<string> value={search.unit ?? ALL} onValueChange={(value) => updateSearch({ unit: value === ALL || value === null ? undefined : value })}>
-								<SelectTrigger aria-label="Filtrar por OM" className="h-9 min-w-32">
-									<SelectValue>
-										{search.unit === undefined
-											? "Todas as OMs"
-											: search.unit === "global"
-												? "Só global"
-												: (units.find((unit) => String(unit.id) === search.unit)?.code ?? `OM ${search.unit}`)}
-									</SelectValue>
-								</SelectTrigger>
-								<SelectContent alignItemWithTrigger={false} className="max-h-80">
-									<SelectItem value={ALL}>Todas as OMs</SelectItem>
-									{listedUnits === "all" ? <SelectItem value="global">Só global</SelectItem> : null}
-									<SelectSeparator />
-									{unitOptions.map((unit) => (
-										<SelectItem key={unit.id} value={String(unit.id)}>
-											<span className="font-medium">{unit.code}</span>
-											{unit.display_name && unit.display_name !== unit.code ? (
-												<span className="truncate text-muted-foreground">{unit.display_name}</span>
-											) : null}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+							<SearchableSelect
+								value={search.unit ?? null}
+								onValueChange={(value) => updateSearch({ unit: value ?? undefined })}
+								options={unitFilterOptions}
+								clearLabel="Todas as OMs"
+								searchPlaceholder="Pesquisar OM…"
+								emptyLabel="Nenhuma OM encontrada."
+								unavailableLabel={`OM ${search.unit}`}
+								className="h-9 min-w-32"
+								contentClassName="max-h-80"
+								aria-label="Filtrar por OM"
+							/>
 						) : null}
 
 						<Select<string>

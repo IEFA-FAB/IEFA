@@ -2,13 +2,13 @@ import { Activity, AlertTriangle, FileImage, Filter, PieChart as PieChartIcon, S
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Button } from "#/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { Combobox } from "#/components/ui/combobox"
 import { chartChrome, fabScale } from "#/lib/chart-theme"
 import { getConferente } from "#/lib/ug/registry"
 import type { DashboardMetrics, UgConsolidated } from "../utils/analytics"
 import { exportElementToImage } from "../utils/exportUtils"
 import { getUgHierarchy } from "../utils/hierarchy"
-import { getAccountName, getQuestaoByAccount, RAC_MAPPING } from "../utils/rac"
+import { getAccountName, getQuestaoByAccount, RAC_QUESTIONS } from "../utils/rac"
 
 interface ManagerialPanelProps {
 	data: UgConsolidated[]
@@ -19,16 +19,11 @@ const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", { style
 
 type ChartClickEvent = { activePayload?: Array<{ payload: { name?: string } }> }
 
-const RAC_QUESTIONS = Object.keys(RAC_MAPPING).sort((a, b) => {
-	const numA = parseInt(a.replace("Questão ", ""), 10)
-	const numB = parseInt(b.replace("Questão ", ""), 10)
-	return numA - numB
-})
-
 const COLORS = [fabScale[0], fabScale[1], fabScale[2], fabScale[3], fabScale[4]]
 
 export function ManagerialPanel({ data }: ManagerialPanelProps) {
 	const [selectedRac, setSelectedRac] = useState<string>("Geral")
+	const racItems = useMemo(() => [{ value: "Geral", label: "Todas as Questões" }, ...RAC_QUESTIONS.map((q) => ({ value: q, label: q }))], [])
 	const [selectedOdsDetails, setSelectedOdsDetails] = useState<string | null>(null)
 
 	const dynamicAccountNames = useMemo(() => {
@@ -141,23 +136,14 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 				<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
 					<Filter className="w-4 h-4 text-muted-foreground" />
 					<span className="text-caption text-muted-foreground">Questão RAC:</span>
-					<Select
-						items={{ Geral: "Todas as Questões", ...Object.fromEntries(RAC_QUESTIONS.map((q) => [q, q])) }}
+					<Combobox
 						value={selectedRac}
-						onValueChange={(v) => setSelectedRac(v ?? "Geral")}
-					>
-						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-action shadow-none focus-visible:ring-0">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="Geral">Todas as Questões</SelectItem>
-							{RAC_QUESTIONS.map((q) => (
-								<SelectItem key={q} value={q}>
-									{q}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+						onValueChange={setSelectedRac}
+						items={racItems}
+						className="w-44"
+						inputClassName="h-auto cursor-text border-none bg-transparent p-0 pr-7 text-caption text-action shadow-none focus-visible:ring-0 dark:bg-transparent"
+						aria-label="Questão RAC"
+					/>
 				</div>
 			</div>
 

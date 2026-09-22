@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -565,9 +566,6 @@ export function EquipmentCatalogManager() {
 	)
 }
 
-/** Sentinela do "não é equipamento" — o Select não representa `null` como valor de item. */
-const NO_ROLE_VALUE = "__none__"
-
 /**
  * Ponte utensílio → papel de equipamento.
  *
@@ -580,6 +578,8 @@ function UtensilRoleBridge() {
 	const { data: utensils = [], isLoading } = useUtensils(null)
 	const { data: roles = [] } = useEquipmentRoles()
 	const setRole = useSetUtensilRole()
+
+	const roleOptions = useMemo(() => roles.map((role) => ({ value: role.id, label: role.name })), [roles])
 
 	const mapped = utensils.filter((u) => u.role_id != null).length
 
@@ -610,22 +610,16 @@ function UtensilRoleBridge() {
 								<TableRow key={utensil.id}>
 									<TableCell>{utensil.name}</TableCell>
 									<TableCell>
-										<Select
-											value={utensil.role_id ?? NO_ROLE_VALUE}
-											onValueChange={(value) => setRole.mutate({ utensilId: utensil.id, roleId: value === NO_ROLE_VALUE ? null : (value as string) })}
-										>
-											<SelectTrigger className="w-full">
-												<SelectValue>{utensil.role_id ? (roles.find((r) => r.id === utensil.role_id)?.name ?? "Papel") : "Utensílio de mão"}</SelectValue>
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value={NO_ROLE_VALUE}>Utensílio de mão</SelectItem>
-												{roles.map((role) => (
-													<SelectItem key={role.id} value={role.id}>
-														{role.name}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
+										<SearchableSelect
+											value={utensil.role_id ?? null}
+											onValueChange={(value) => setRole.mutate({ utensilId: utensil.id, roleId: value })}
+											options={roleOptions}
+											clearLabel="Utensílio de mão"
+											searchPlaceholder="Pesquisar papel…"
+											emptyLabel="Nenhum papel encontrado."
+											unavailableLabel="Papel indisponível"
+											aria-label={`Papel de equipamento de ${utensil.name}`}
+										/>
 									</TableCell>
 								</TableRow>
 							))}
