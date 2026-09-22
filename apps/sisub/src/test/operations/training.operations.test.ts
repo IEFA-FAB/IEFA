@@ -74,6 +74,11 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// Treino não concede nenhum módulo `alpha-*`, e o α recusa a unidade de treino como OM de
 	// envio, então o treinando do sisub não gera linha aqui.
 	"alpha.submission": "documento de contratação real enviado ao Projeto α (ETP/TR), não dado gerado pelo treinamento do sisub",
+	// `kitchen.snack_request` — migration 20260922120000 (pedido de lanche de bordo/apoio).
+	// Declarada antes de aplicada, pela ordem acima. O PR do recurso a TIRA daqui e a põe no
+	// reset (RESET_STEPS), junto com o código que a usa: até lá o treinando não tem tela que
+	// grave nela.
+	"kitchen.snack_request": "declarada antes da migration 20260922120000; entra no reset junto com o PR do recurso",
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */
