@@ -108,15 +108,20 @@ async function completeAnnouncedDocument(
 	fields: Record<string, unknown>,
 	parsed: ParsedNfe,
 	costByItem: Map<number, number>
-): Promise<{ itemsCount: number; unitId: number | null } | { error: string }> {
+): Promise<{ itemsCount: number; unitId: number | null } | { error: string; conflict?: boolean }> {
 	const itemRows = buildItemRows(existing.id, parsed, costByItem)
+	// Nota ainda anunciada não tem item legítimo: sobra de um completamento que morreu entre o
+	// insert dos itens e o update do documento. Sem limpar, todo reenvio batia no único
+	// (nfe_document_id, n_item) e devolvia 500 para sempre.
+	const { error: cleanupError } = await supabase.from("nfe_item").delete().eq("nfe_document_id", existing.id)
+	if (cleanupError) return { error: `Falha ao limpar itens de completamento anterior: ${cleanupError.message}` }
 	const { error: itemsError } = await supabase.from("nfe_item").insert(itemRows)
 	if (itemsError) return { error: `Falha ao gravar nfe_item: ${itemsError.message}` }
 
 	// Destinatário do XML vence o palpite da chave (a unidade de compra da cozinha que leu);
 	// sem destinatário conhecido, fica o que a leitura da chave registrou.
 	const unitId = (fields.unit_id as number | null) ?? existing.unit_id
-	const { error: docError } = await supabase
+	const { data: completed, error: docError } = await supabase
 		.from("nfe_document")
 		.update({
 			...fields,
@@ -128,9 +133,13 @@ async function completeAnnouncedDocument(
 		})
 		.eq("id", existing.id)
 		.eq("status", "announced")
-	if (docError) {
+		.select("id")
+	// Zero linhas = a nota deixou de estar anunciada entre a leitura e agora (cancelada,
+	// completada por outro envio). Os itens recém-gravados não pertencem a ela.
+	if (docError || !completed || completed.length === 0) {
 		await supabase.from("nfe_item").delete().eq("nfe_document_id", existing.id)
-		return { error: `Falha ao completar nfe_document: ${docError.message}` }
+		if (docError) return { error: `Falha ao completar nfe_document: ${docError.message}` }
+		return { error: "A nota mudou de situação durante a importação — recarregue e confira", conflict: true }
 	}
 	return { itemsCount: itemRows.length, unitId }
 }
@@ -240,7 +249,10 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 						return c.json({ error: "NF-e já pertence a outra cozinha", document_id: undefined }, 409)
 					}
 					const completed = await completeAnnouncedDocument(supabase, existing, documentFields, parsed, costByItem)
-					if ("error" in completed) throw new Error(completed.error)
+					if ("error" in completed) {
+						if (completed.conflict) return c.json({ error: completed.error, document_id: undefined }, 409)
+						throw new Error(completed.error)
+					}
 					console.log(`[nfe-admin] NF-e ${parsed.accessKey} anunciada pela chave completada pelo XML: ${completed.itemsCount} itens`)
 					return c.json(
 						{

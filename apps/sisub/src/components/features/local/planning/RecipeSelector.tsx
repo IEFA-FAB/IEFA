@@ -255,7 +255,6 @@ function RecipeSelectorContent({
 					{selectedCount > 0 ? (
 						<span>
 							{selectedCount} {selectedCount > 1 ? "preparações selecionadas" : "preparação selecionada"}
-							{selectedCount > 1 ? "s" : ""}
 						</span>
 					) : (
 						<span>Nenhuma Preparação selecionada</span>

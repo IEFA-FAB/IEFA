@@ -126,7 +126,14 @@ function NfeSituationCard({
 	const checkedAt = doc.situation_checked_at ? new Date(doc.situation_checked_at) : null
 
 	async function register(result: "authorized" | "cancelled") {
-		const note = result === "cancelled" ? (window.prompt("Motivo/protocolo do cancelamento (opcional)") ?? undefined) : undefined
+		let note: string | undefined
+		if (result === "cancelled") {
+			// Cancelar a nota é irreversível na tela (os botões travam) e bloqueia efetivação e
+			// pagamento: fechar o prompt tem que ABORTAR, não virar "cancelada sem motivo".
+			const answer = window.prompt("A nota será marcada como CANCELADA pelo emitente. Motivo ou protocolo da consulta:")
+			if (answer == null) return
+			note = answer.trim() || undefined
+		}
 		setSaving(true)
 		try {
 			await registerNfeSituationFn({ data: { nfeDocumentId: doc.id, result, note } })

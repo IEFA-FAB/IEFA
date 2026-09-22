@@ -503,6 +503,10 @@ async function assertInvoiceUsable(receiptId: string) {
  * Linha sem conversão (faturado em unidade base nulo) entra com o custo da própria nota:
  * valor da linha ÷ quantidade conferida. Sem isto o lote era efetivado a custo nulo e o
  * estoque ficava valorado a menor exatamente no valor dessas linhas.
+ *
+ * Só vale quando a linha chegou INTEIRA: com recusa ou divergência registrada, o valor da
+ * nota cobre mais do que entrou (25 de 30 fardos com os R$ 825 da linha dariam custo a
+ * maior). Aí o custo fica para quem resolve a pendência — nulo é visível; inflado, não.
  */
 async function fillCostFromInvoiceLine(receiptId: string) {
 	const inv = inventory()
@@ -512,6 +516,7 @@ async function fillCostFromInvoiceLine(receiptId: string) {
 		.eq("receipt_id", receiptId)
 		.is("unit_cost", null)
 		.is("invoiced_qty_base", null)
+		.is("divergence_reason", null)
 		.not("nfe_item_id", "is", null)
 	if (error) throw new Error(`Erro ao ler o custo das linhas: ${error.message}`)
 	for (const line of lines ?? []) {
