@@ -25,10 +25,10 @@
 -- Efeito esperado: Termos e Privacidade são linhas novas, então o aviso de ciência reaparece
 -- para todo usuário com sessão (sem bloquear a navegação — ver LGPD.md).
 --
--- AINDA NÃO APLICADA. Aplicar antes do deploy do contrate que põe o chat no ar, em transação
--- única com o `INSERT INTO supabase_migrations.schema_migrations` no timestamp exato deste
--- arquivo, como a 2.2.0. A vigência é a data em que entrar no ar: ajuste `effective_date` e
--- o texto "em vigor desde" se a aplicação não for em 2026-09-22.
+-- APLICADA em 2026-09-22, antes do merge do #405/#406, em transação única (psql -1) com o
+-- `INSERT INTO supabase_migrations.schema_migrations (version, name)` no timestamp exato
+-- deste arquivo — `apply_migration` carimbaria outro `version`. Vigência: a data em que
+-- entrou no ar.
 
 INSERT INTO iefa.legal_documents (doc_type, version, locale, content_md, effective_date, published_at)
 VALUES
