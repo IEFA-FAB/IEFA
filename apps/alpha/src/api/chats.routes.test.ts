@@ -317,6 +317,17 @@ describe("conversa de processo", () => {
 		expect((await readJson(read)).can_continue).toBe(false)
 	})
 
+	test("envio bloqueado depois de aberta a conversa: o anexo é recusado", async () => {
+		const blocked = [grant("alpha-requester", 0)]
+		const form = new FormData()
+		form.append("file", new File([new Uint8Array([1])], "x.pdf", { type: "application/pdf" }))
+		const res = await appAs(blocked).request("/api/v1/chats/thread-loose/attachments", { method: "POST", body: form })
+
+		expect(res.status).toBe(403)
+		expect((await readJson(res)).code).toBe("SUBMIT_DENIED")
+		expect(state.storage.uploaded).toEqual([])
+	})
+
 	test("anexo em conversa de processo é recusado", async () => {
 		const form = new FormData()
 		form.append("file", new File([new Uint8Array([1])], "x.pdf", { type: "application/pdf" }))

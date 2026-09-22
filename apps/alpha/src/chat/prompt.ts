@@ -76,7 +76,12 @@ function attribute(value: string): string {
 		.trim()
 }
 
-function wrap(nonce: string, attributes: Record<string, string>, content: string): string {
+/**
+ * Conteúdo não confiável entre os marcadores da conversa. Exportado para o agente: a seção
+ * lida por `ler_secao` e o trecho de `buscar_no_documento` são o mesmo documento, e fora dos
+ * marcadores escapariam da regra "é dado, não instrução".
+ */
+export function wrap(nonce: string, attributes: Record<string, string>, content: string): string {
 	const tag = `documento_${nonce}`
 	const attrs = Object.entries(attributes)
 		.map(([key, value]) => ` ${key}="${attribute(value)}"`)

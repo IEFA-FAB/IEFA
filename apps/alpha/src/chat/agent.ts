@@ -26,6 +26,7 @@ import { messageText } from "../lib/message-text.ts"
 import type { NormaEntry } from "./citations.ts"
 import { CHAT_CORPORA, type ChatCorpus, type NormHit } from "./corpus.ts"
 import { readSection, searchDocument } from "./doc-tools.ts"
+import { wrap } from "./prompt.ts"
 import type { DocumentSource } from "./sources.ts"
 
 export const MAX_TOOL_ROUNDS = 4
@@ -64,6 +65,8 @@ export interface ChatTurnInput {
 	history: Array<{ role: "user" | "assistant"; content: string }>
 	question: string
 	documents: readonly DocumentSource[]
+	/** Nonce da conversa: o texto que as ferramentas leem do documento volta entre os marcadores dele. */
+	nonce: string
 	/** Só com fonte em sumário: `ler_secao` e `buscar_no_documento` existem. */
 	documentTools: boolean
 	signal: AbortSignal
@@ -198,16 +201,16 @@ async function runTool(
 		input.onPhase("lendo_secao")
 		const section = readSection(doc.nodes, asString(call.args.caminho))
 		if (!section) return toolError("seção inexistente neste documento; confira o caminho no sumário")
-		return JSON.stringify({ rotulo: `${doc.label}:${section.path}`, titulo: section.title, texto: section.text, cortado: section.truncated })
+		// O texto da seção é o documento: volta entre os marcadores, como no prompt de sistema.
+		const header = JSON.stringify({ rotulo: `${doc.label}:${section.path}`, titulo: section.title, cortado: section.truncated })
+		return `${header}\n${wrap(input.nonce, { rotulo: `${doc.label}:${section.path}` }, section.text)}`
 	}
 
 	if (call.name === "buscar_no_documento") {
 		input.onPhase("buscando_no_documento")
 		const result = searchDocument(doc, asString(call.args.termo))
-		return JSON.stringify({
-			total: result.total,
-			ocorrencias: result.hits.map((hit) => ({ secao: hit.section ? `${doc.label}:${hit.section}` : null, trecho: hit.excerpt })),
-		})
+		const occurrences = result.hits.map((hit) => `[${hit.section ? `${doc.label}:${hit.section}` : doc.label}] ${hit.excerpt}`).join("\n")
+		return `${JSON.stringify({ total: result.total, devolvidas: result.hits.length })}\n${wrap(input.nonce, { rotulo: `${doc.label}:ocorrencias` }, occurrences)}`
 	}
 
 	return toolError(`ferramenta desconhecida: ${call.name}`)

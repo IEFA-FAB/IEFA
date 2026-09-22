@@ -38,6 +38,7 @@ function makeInput(overrides: Partial<ChatTurnInput> = {}): ChatTurnInput & { de
 		history: [],
 		question: "O que a lei exige?",
 		documents: [makeDocument()],
+		nonce: "abc123",
 		documentTools: false,
 		signal: new AbortController().signal,
 		onPhase: (phase) => phases.push(phase),
@@ -159,7 +160,11 @@ describe("runChatTurn", () => {
 		const primary = fakeModel("p", [{ call: { name: "ler_secao", args: { documento: "D1", caminho: "3" } } }, { text: "ok" }], seenSummary)
 		await runChatTurn(makeInput({ documentTools: true }), deps({ primary }))
 		expect(seenSummary[0].tools?.map((tool) => tool.function.name)).toEqual(["buscar_norma", "ler_secao", "buscar_no_documento"])
-		expect(String(seenSummary[1].messages.at(-1)?.content)).toContain('"rotulo":"D1:3"')
+		const toolOutput = String(seenSummary[1].messages.at(-1)?.content)
+		expect(toolOutput).toContain('"rotulo":"D1:3"')
+		// O texto lido do documento volta entre os marcadores da conversa, como no prompt.
+		expect(toolOutput).toContain('<documento_abc123 rotulo="D1:3">\n3 GARANTIA')
+		expect(toolOutput).toContain("</documento_abc123>")
 	})
 
 	it("falha transitória antes do primeiro texto troca para a reserva", async () => {

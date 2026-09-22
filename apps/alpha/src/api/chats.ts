@@ -204,6 +204,12 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 			)
 		}
 
+		// O portão de criar a conversa avulsa vale também para cada arquivo: quem teve o envio
+		// bloqueado depois de abrir a conversa não segue guardando arquivo nela.
+		if (!c.get("access").canSubmit) {
+			return c.json({ error: "Forbidden", code: "SUBMIT_DENIED", message: "o envio de documentos está bloqueado para você" }, 403)
+		}
+
 		const { file } = c.req.valid("form")
 		const storagePath = buildSubmissionStoragePath(`${thread.user_id}/${thread.id}`, file.type)
 		if (!storagePath) return c.json({ error: "Unsupported Media Type", code: "UNSUPPORTED_FORMAT", message: "envie um PDF ou DOCX" }, 415)
@@ -408,6 +414,7 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 						history,
 						question: message,
 						documents: sources.documents,
+						nonce: conversationNonce(thread.id),
 						documentTools: bundle.summarized,
 						signal: run.signal,
 						onPhase: (phase) => send("status", { phase }),
