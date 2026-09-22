@@ -49,6 +49,9 @@ const KEEPALIVE_MS = 15_000
 
 const LIST_LIMIT = 100
 
+/** Código Postgres de `unique_violation`. */
+const UNIQUE_VIOLATION = "23505"
+
 const TITLE_MAX = 120
 
 const CreateBodySchema = z.object({ submission_id: z.uuid().optional() })
@@ -427,6 +430,9 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 						.select("id")
 						.single()
 					if (!error) return (data?.id as string | undefined) ?? null
+					// A tentativa anterior comitou e só a resposta se perdeu: já está gravada (índice
+					// único em `reply_to`, migration 20260922131449). Não duplica.
+					if (error.code === UNIQUE_VIOLATION) return null
 					console.error(`[chat] resposta da conversa ${thread.id} não gravada (tentativa ${attempt}): ${error.message}`)
 				}
 				return null
