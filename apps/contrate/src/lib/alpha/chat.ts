@@ -84,7 +84,9 @@ export function useDeleteChat() {
 		mutationFn: (threadId: string) => alphaRequest<void>(alphaPath`/api/v1/chats/${threadId}`, session?.access_token, { method: "DELETE" }),
 		onSuccess: (_result, threadId) => {
 			queryClient.removeQueries({ queryKey: chatKeys.thread(threadId) })
-			queryClient.invalidateQueries({ queryKey: chatKeys.all })
+			// Só as listas: invalidar `chatKeys.all` refazia a leitura da conversa que acabou de
+			// sumir — um 404 no console antes de a tela sair dela.
+			queryClient.invalidateQueries({ queryKey: [...chatKeys.all, "list"] })
 		},
 	})
 }

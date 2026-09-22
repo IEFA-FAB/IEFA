@@ -45,7 +45,7 @@ Dois PRs contra `main`, cada um revisado com `/code-review` antes do merge. O **
 - [x] 5.1 [contrate] `ProcessView`: botão "Conversar" no cabeçalho e painel lateral com as conversas do usuário sobre o processo (abre a mais recente, "Nova conversa"). Tela cheia em viewport estreito
 - [x] 5.2 [contrate] `FindingCard`: ação "Perguntar sobre este achado", que abre o painel com a pergunta preenchida, sem enviar
 - [x] 5.3 [contrate] Rotas `/conversar` (lista + nova conversa) e `/conversar/$threadId`, com entrada na navegação em `lib/modules.ts` gated por `canSubmit`; regenerar o `routeTree.gen.ts`
-- [ ] 5.4 [contrate] Validar no navegador: processo como requisitante e como ACI da OM, avulso com PDF e DOCX, citação de norma aberta, redação copiada, limite diário simulado. `react-doctor` sem regressão
+- [x] 5.4 [contrate] (2026-09-22, conta de teste dedicada, α e contrate locais contra o banco e o Bedrock reais; pegou: DELETE fora do CORS, citação de seção pela numeração impressa, "Failed to fetch" cru e 404 depois de apagar — corrigidos. Limite diário não simulado no navegador: coberto pelo teste de rota) Validar no navegador: processo como requisitante e como ACI da OM, avulso com PDF e DOCX, citação de norma aberta, redação copiada, limite diário simulado. `react-doctor` sem regressão
 
 ## 6. Fechamento
 

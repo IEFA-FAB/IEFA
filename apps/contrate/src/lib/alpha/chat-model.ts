@@ -110,6 +110,10 @@ export function describeChatError(error: unknown): string {
 		case "NO_TEXT":
 			return error instanceof Error ? error.message : "Arquivo recusado."
 		default:
+			// Falha de rede (α fora do ar, conexão caída, preflight recusado): o `fetch` lança
+			// `TypeError` com a mensagem do navegador em inglês — "Failed to fetch" no Chrome,
+			// "NetworkError when attempting to fetch resource." no Firefox.
+			if (error instanceof TypeError) return "Não foi possível falar com o assistente. Verifique a conexão e tente de novo."
 			return error instanceof Error && error.message ? error.message : "Algo deu errado. Tente de novo."
 	}
 }

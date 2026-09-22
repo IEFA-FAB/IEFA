@@ -58,6 +58,10 @@ describe("describeChatError", () => {
 		)
 	})
 
+	it('falha de rede vira mensagem em português, não o "Failed to fetch" do navegador', () => {
+		expect(describeChatError(new TypeError("Failed to fetch"))).toBe("Não foi possível falar com o assistente. Verifique a conexão e tente de novo.")
+	})
+
 	it("nunca mostra o código cru", () => {
 		expect(describeChatError(new ChatTurnError("MODEL_UNAVAILABLE", "o turno falhou"))).not.toContain("MODEL_UNAVAILABLE")
 	})
