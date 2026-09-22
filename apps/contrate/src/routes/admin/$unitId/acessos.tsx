@@ -145,7 +145,9 @@ function AcessosPage() {
 								clearLabel="Todas as OMs"
 								searchPlaceholder="Pesquisar OM…"
 								emptyLabel="Nenhuma OM encontrada."
-								unavailableLabel={`OM ${search.unit}`}
+								// "Só global" também tem de ser reconhecido aqui: a opção só entra na lista
+								// quando o escopo é "all", mas o valor sobrevive na URL de quem já o filtrou.
+								unavailableLabel={search.unit === "global" ? "Só global" : `OM ${search.unit}`}
 								className="h-9 min-w-32"
 								contentClassName="max-h-80"
 								aria-label="Filtrar por OM"

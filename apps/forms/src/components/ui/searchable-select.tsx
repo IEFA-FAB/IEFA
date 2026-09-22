@@ -44,6 +44,11 @@ const NONE_VALUE = ""
  * rolagem: sem o corte, uma lista grande monta o mesmo popup impraticável que o
  * `Select` que este componente substitui. O rodapé diz quantos ficaram de fora
  * — lista truncada que se anuncia é melhor do que lista que mente.
+ *
+ * Quem corta é o `limit` do primitivo, NÃO um `.slice()` na coleção: fatiar
+ * tirava o item selecionado de `items` sempre que ele caía fora dos 50
+ * primeiros, e aí o Base UI não tinha o que marcar com o check nem para onde
+ * rolar ao abrir.
  */
 const MAX_VISIBLE = 50
 
@@ -89,13 +94,16 @@ export function SearchableSelect({
 
 	const selected = value != null && value !== NONE_VALUE ? (options.find((option) => option.value === value) ?? null) : null
 	const triggerLabel = selected?.label ?? (value != null && value !== NONE_VALUE ? (unavailableLabel ?? value) : (clearLabel ?? placeholder))
-	const isPlaceholder = selected == null
+	// Cinza de placeholder é só para "nada escolhido". Com `clearLabel`, o rótulo
+	// no gatilho é uma escolha legítima ("Todos os Ranchos", "Utensílio de mão")
+	// — e em `EquipmentCatalogManager` é um `role_id = null` gravado. Pintá-lo de
+	// cinza faria filtro ativo e valor salvo lerem como campo em branco.
+	const isPlaceholder = selected == null && !clearLabel
 
-	const { visible, total } = useMemo(() => {
+	const hits = useMemo(() => {
 		const terms = normalize(query).split(/\s+/).filter(Boolean)
 		const pool = clearOption ? [clearOption, ...options] : options
-		const hits = pool.filter((option) => matches(`${option.label} ${option.hint ?? ""} ${option.keywords ?? ""}`, terms))
-		return { visible: hits.slice(0, MAX_VISIBLE), total: hits.length }
+		return pool.filter((option) => matches(`${option.label} ${option.hint ?? ""} ${option.keywords ?? ""}`, terms))
 	}, [query, options, clearOption])
 
 	function handleOpenChange(next: boolean) {
@@ -105,10 +113,17 @@ export function SearchableSelect({
 
 	return (
 		<ComboboxPrimitive.Root
-			items={visible}
-			// A filtragem é nossa (acento, palavra a palavra, teto de itens). Sem
-			// isto o primitivo filtraria de novo, por cima, com outra regra.
+			items={hits}
+			limit={MAX_VISIBLE}
+			// A filtragem é nossa (acento, palavra a palavra). Sem isto o primitivo
+			// filtraria de novo, por cima, com outra regra.
 			filter={null}
+			// Sem isto, digitar e apertar Enter não escolhe nada: com a consulta
+			// mudando, o primitivo não destaca ninguém, e Enter não tem o que
+			// confirmar. O `Select` que este componente substitui casava por
+			// digitação e confirmava com Enter — exigir ArrowDown antes seria
+			// regressão. Mesma correção já feita no combobox do sucont.
+			autoHighlight
 			value={selected ?? clearOption}
 			disabled={disabled}
 			open={open}
@@ -181,7 +196,7 @@ export function SearchableSelect({
 						    desmontado sai da árvore de acessibilidade e o texto inserido depois
 						    não é anunciado, que é justamente o que esta região existe para fazer. */}
 						<ComboboxPrimitive.Status className="border-input text-muted-foreground shrink-0 border-t px-2.5 py-1.5 text-xs empty:border-0 empty:p-0">
-							{total > MAX_VISIBLE ? `Mostrando ${MAX_VISIBLE} de ${total} — refine a busca.` : null}
+							{hits.length > MAX_VISIBLE ? `Mostrando ${MAX_VISIBLE} de ${hits.length} — refine a busca.` : null}
 						</ComboboxPrimitive.Status>
 					</ComboboxPrimitive.Popup>
 				</ComboboxPrimitive.Positioner>
