@@ -18,7 +18,7 @@ import {
 	vUserIdentityInCore,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
-import { and, asc, count, eq, or } from "drizzle-orm"
+import { and, asc, count, eq, inArray, or } from "drizzle-orm"
 import type { PgColumn } from "drizzle-orm/pg-core"
 import { requireMessHall, requirePermission } from "../guards/require-permission.ts"
 import type {
@@ -56,6 +56,23 @@ function trainingFilter(column: PgColumn, input?: ListPlaces) {
 }
 
 /**
+ * Ids que a sessão alcança por grant ESCOPADO explícito (allow, nível > 0) numa das colunas.
+ *
+ * É a única exceção ao filtro de treino: quem tem o "Conjunto Treino" recebe `unit:2` NA
+ * sentinela, e sem isto os seletores de Gestão Unidade, Análises da Unidade e Refeitório
+ * voltavam "Nenhuma unidade disponível" — o aluno tinha a permissão e não tinha a tela. Grant
+ * global (sem escopo) NÃO conta: é exatamente o caso em que o treino não pode vazar.
+ */
+function explicitScopeIds(ctx: UserContext, key: "unit_id" | "kitchen_id" | "mess_hall_id"): number[] {
+	const ids = new Set<number>()
+	for (const p of ctx.permissions) {
+		const id = p[key]
+		if (p.level > 0 && id != null) ids.add(Number(id))
+	}
+	return [...ids]
+}
+
+/**
  * Só as unidades COMPRADORAS (`type = 'purchase'`) — mais a sentinela de treino, quando
  * pedida.
  *
@@ -66,20 +83,23 @@ function trainingFilter(column: PgColumn, input?: ListPlaces) {
  * permissão) — sem o filtro, as apoiadas apareceriam ali como unidades vazias. A sentinela
  * de treino é `consumption` também, e entra pelo `or` quando o chamador a pede.
  */
-function unitListFilter(input?: ListPlaces) {
+function unitListFilter(ctx: UserContext, input?: ListPlaces) {
 	const purchase = eq(unitsInCore.type, "purchase")
-	return input?.includeTraining ? or(purchase, eq(unitsInCore.isTraining, true)) : and(purchase, eq(unitsInCore.isTraining, false))
+	if (input?.includeTraining) return or(purchase, eq(unitsInCore.isTraining, true))
+	const production = and(purchase, eq(unitsInCore.isTraining, false))
+	const granted = explicitScopeIds(ctx, "unit_id")
+	return granted.length > 0 ? or(production, and(eq(unitsInCore.isTraining, true), inArray(unitsInCore.id, granted.map(BigInt)))) : production
 }
 
 export async function listUnits(
 	db: SisubDb,
-	_ctx: UserContext,
+	ctx: UserContext,
 	input?: ListPlaces
 ): Promise<Array<{ id: number; code: string | null; display_name: string | null; type: null }>> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.unitsInCore.findMany({
 			columns: { id: true, code: true, displayName: true },
-			where: unitListFilter(input),
+			where: unitListFilter(ctx, input),
 			orderBy: (u, { asc }) => [asc(u.displayName)],
 		})
 	)
@@ -91,13 +111,22 @@ export async function listUnits(
 
 export async function listAllMessHalls(
 	db: SisubDb,
-	_ctx: UserContext,
+	ctx: UserContext,
 	input?: ListPlaces
 ): Promise<Array<Pick<MessHall, "id" | "unit_id" | "code" | "display_name" | "kitchen_id">>> {
+	// Refeitório de treino: visível a quem tem grant escopado nele, na unidade ou na cozinha dele.
+	const grantedHall = [
+		inArray(messHallsInKitchen.id, explicitScopeIds(ctx, "mess_hall_id").map(BigInt)),
+		inArray(messHallsInKitchen.unitId, explicitScopeIds(ctx, "unit_id")),
+		inArray(messHallsInKitchen.kitchenId, explicitScopeIds(ctx, "kitchen_id")),
+	]
+	const where = input?.includeTraining
+		? undefined
+		: or(eq(messHallsInKitchen.isTraining, false), and(eq(messHallsInKitchen.isTraining, true), or(...grantedHall)))
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.messHallsInKitchen.findMany({
 			columns: { id: true, unitId: true, code: true, displayName: true, kitchenId: true },
-			where: trainingFilter(messHallsInKitchen.isTraining, input),
+			where,
 			orderBy: (m, { asc }) => [asc(m.displayName)],
 		})
 	)

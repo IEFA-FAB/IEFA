@@ -41,42 +41,19 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// de que "o treino não concede módulo financeiro". A premissa era falsa — o
 	// Conjunto Treino concede `unit` nível 2 na unidade sentinela, que é o nível
 	// exigido por essas telas. Hoje elas entram no reset (ver RESET_STEPS).
-	"procurement.procurement_arp": "ARP é registro de preços real, escopado por unidade compradora",
-	"procurement.procurement_list": "ATA da unidade; a unidade de treino não publica ATA",
-	"procurement.procurement_list_snapshot_selection": "snapshot imutável de ATA publicada",
 
 	// ── Estoque ──
-	// O Conjunto Treino NÃO concede o módulo `storage`, então um treinando não consegue
-	// movimentar estoque na cozinha de treino e não há resíduo a limpar. Se algum dia o
-	// treino passar a cobrir estoque, estas entradas saem daqui e entram no reset — e a
-	// premissa não fica só escrita: o teste logo abaixo ("as exclusões de estoque dependem
-	// de o Conjunto Treino não conceder storage") falha no dia em que a política mudar.
-	"inventory.goods_receipt": "estoque fora do escopo de treino — Conjunto Treino não concede o módulo storage",
-	"inventory.inventory_count": "estoque fora do escopo de treino",
-	"inventory.monthly_closing": "estoque fora do escopo de treino; fechamento contábil é imutável",
-	"inventory.nfe_document": "documento fiscal real, nunca sintético",
-	"inventory.stock_cost": "estoque fora do escopo de treino",
-	"inventory.stock_lot": "estoque fora do escopo de treino",
-	"inventory.stock_movement": "ledger append-only — não se apaga movimento de estoque",
+	// O que é DADO operacional do estoque (ledger, lotes, recebimentos, NF-e, ajustes,
+	// contagens, OF, designações, a ATA da sentinela) está no reset desde 20260921191000:
+	// o Conjunto Treino não concede `storage`, mas instrutor e conta de teste concedem, e uma
+	// única baixa por produção na cozinha de treino fazia o reset falhar no ledger imutável.
+	// Fica aqui só a CONFIGURAÇÃO da cozinha sentinela — sem linha valem os defaults, então
+	// apagar não "limpa" nada, só descalibra.
 	"inventory.stock_policy": "parâmetro de reposição, não dado operacional de treino",
-	// Núcleo operável do estoque (migrations `inventory_scanner_profile` e
-	// `inventory_operable_core`, aplicadas em 2026-09-17). Mesma regra da família acima —
-	// sem o módulo `storage` no Conjunto Treino, nenhuma das três recebe linha vinda de
-	// treinamento. Cada uma tem, além disso, motivo PRÓPRIO para continuar fora do reset
-	// mesmo no dia em que o treino cobrir estoque:
-	"inventory.stock_adjustment":
-		"documento de ajuste é dado operacional de estoque, fora do escopo de treino; o movimento só nasce em `posted` e vai para o ledger append-only, que o reset não desfaz",
 	"inventory.kitchen_stock_settings":
 		"configuração da cozinha (tolerância, alçada, segregação), como stock_policy — sem linha valem os defaults, então apagar não 'limpa' nada e sim descalibra a cozinha sentinela",
 	"inventory.scanner_profile":
 		"calibração do leitor por usuário × cozinha — é preferência de dispositivo de quem opera, não dado gerado pelo treinamento; apagar tiraria a calibração do próprio instrutor, como em access_control.user_permissions",
-	"procurement.supply_order": "ordem de fornecimento é documento real de aquisição",
-	// `inventory.stock_issue_request` (migration 20260917220000, já aplicada em
-	// produção). A requisição é o documento que puxa o movimento de saída, e o
-	// ledger é append-only: apagá-la no reset deixaria movimento órfão apontando
-	// para documento inexistente. Mesma razão das demais tabelas de estoque.
-	"inventory.stock_issue_request": "requisição de saída é dado operacional de estoque, fora do escopo de treino, e seus movimentos ficam no ledger",
-	"procurement.contract_designation": "designação de fiscal/gestor é ato administrativo real, não dado de treino",
 	// ── Declaradas ANTES das migrations que as criam, de propósito ──────────────
 	// Este contrato é DEFAULT-DENY: ele varre o banco vivo e cobra que toda
 	// tabela escopada esteja declarada. Quando a migration é aplicada ao banco
@@ -91,13 +68,6 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// `inventory.expiry_alert_policy` — migration 20260919120000 (Fase 5).
 	"inventory.expiry_alert_policy":
 		"antecedência do alerta de validade por item ou classe — parâmetro de operação da cozinha, como kitchen_stock_settings: sem linha valem os defaults, e apagar no reset descalibraria o alerta da cozinha sentinela",
-	// `inventory.count_scope_item` — migration 20260920120000 (Fase 6). O escopo
-	// materializado do inventário. Apagá-lo no reset deixaria os lançamentos da
-	// contagem apontando para um escopo que não existe mais, e o índice de
-	// sobreposição perderia a única linha que impede duas contagens sobre o
-	// mesmo item.
-	"inventory.count_scope_item":
-		"escopo materializado da contagem física — documento operacional de estoque, fora do escopo de treino, e seus lançamentos ficam no ledger",
 	"gs1_integration.gtin_alias": "catálogo compartilhado (GTIN aprendido na conferência); não é dado operacional da cozinha de treino",
 	// `alpha.submission` — migration 20260918123000 (OM da submissão do Projeto α). Declarada
 	// DEPOIS de aplicada, por erro de ordem; este PR é o remédio. O α é outro app: o Conjunto

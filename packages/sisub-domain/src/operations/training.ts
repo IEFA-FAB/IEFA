@@ -49,7 +49,7 @@ import {
 	unitsInCore,
 	utensilInKitchen,
 } from "@iefa/database/drizzle/sisub"
-import { desc, eq, inArray, type SQL, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
 import type { PgColumn } from "drizzle-orm/pg-core"
 import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import { requirePermission } from "../guards/require-permission.ts"
@@ -228,6 +228,50 @@ async function deleteCounting(tx: TrainingTx, table: Parameters<TrainingTx["dele
 }
 
 const RESET_STEPS: ResetStep[] = [
+	// ── Estoque da cozinha sentinela: ledger e saldos (20260921191000) ──
+	// PRIMEIRO de tudo: `stock_movement.production_task_id` aponta para as tarefas com ON
+	// DELETE SET NULL, e o ledger é append-only — apagar as tarefas com movimento vivo fazia o
+	// reset inteiro falhar. Os guards de imutabilidade só liberam DELETE com a flag
+	// `iefa.training_reset` aberta nesta transação e para a cozinha `is_training`.
+	// Ordem: ajuste (aponta para movimento e lote) → movimento → requisição → contagem →
+	// custo → lote. A contagem e o ajuste apontam um para o outro; o vínculo sai antes.
+	{
+		table: "inventory.stock_adjustment",
+		run: async (tx, scope) => {
+			await tx.execute(sql`update inventory.inventory_count set adjustment_id = null where kitchen_id = ${scope.kitchen_id} and adjustment_id is not null`)
+			return deleteRaw(tx, sql`delete from inventory.stock_adjustment where kitchen_id = ${scope.kitchen_id} returning 1`)
+		},
+	},
+	{
+		table: "inventory.stock_movement",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_movement where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
+	{
+		table: "inventory.stock_issue_request",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_issue_request where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
+	{
+		table: "inventory.count_scope_item",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.count_scope_item where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
+	{
+		table: "inventory.inventory_count",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.inventory_count where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
+	{
+		table: "inventory.stock_cost",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_cost where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
+	{ table: "inventory.stock_lot", run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_lot where kitchen_id = ${scope.kitchen_id} returning 1`) },
+	{
+		table: "inventory.monthly_closing",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.monthly_closing where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
+	// OF antes do empenho (FK NO ACTION), que sai no bloco de execução orçamentária.
+	{
+		table: "procurement.supply_order",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.supply_order where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
 	// ── Exigência de equipamento das receitas locais ──
 	// Antes das etapas e das receitas: a linha referencia as duas, e os FKs são NO ACTION.
 	{
@@ -426,6 +470,48 @@ const RESET_STEPS: ResetStep[] = [
 		run: (tx, scope) => deleteRaw(tx, sql`delete from siafi_integration.import_batch where unit_id = ${scope.unit_id} returning 1`),
 	},
 
+	// ── Documentos de estoque e aquisição da sentinela ──
+	// Depois da execução orçamentária: a liquidação aponta para o recebimento e para a NF-e.
+	// As leituras da conferência saem antes do recebimento — o guard resolve a cozinha pelo
+	// recebimento, que ainda precisa existir; itens e lotes vão pelo CASCADE dele.
+	{
+		table: "inventory.receipt_scan_event",
+		run: (tx, scope) =>
+			deleteRaw(
+				tx,
+				sql`delete from inventory.receipt_scan_event where receipt_id in (select id from inventory.goods_receipt where kitchen_id = ${scope.kitchen_id}) returning 1`
+			),
+	},
+	{
+		table: "inventory.goods_receipt",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.goods_receipt where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
+	{
+		table: "inventory.nfe_document",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.nfe_document where kitchen_id = ${scope.kitchen_id} or unit_id = ${scope.unit_id} returning 1`),
+	},
+	{
+		table: "procurement.contract_designation",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.contract_designation where unit_id = ${scope.unit_id} returning 1`),
+	},
+	// ATA da unidade sentinela (o treinando publica: `unit:2` é o nível da tela de atas).
+	{
+		table: "procurement.procurement_list_snapshot_selection",
+		run: (tx, scope) =>
+			deleteRaw(
+				tx,
+				sql`delete from procurement.procurement_list_snapshot_selection where kitchen_id = ${scope.kitchen_id} or list_id in (select id from procurement.procurement_list where unit_id = ${scope.unit_id}) returning 1`
+			),
+	},
+	{
+		table: "procurement.procurement_arp",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.procurement_arp where unit_id = ${scope.unit_id} returning 1`),
+	},
+	{
+		table: "procurement.procurement_list",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.procurement_list where unit_id = ${scope.unit_id} returning 1`),
+	},
+
 	// ── Matriz de efetivo ──
 	// O roster (`kitchen.rancho`) é cadastro e fica de fora, como as sentinelas. Já o que o
 	// treinando PREENCHE é dado operacional e sai: o Conjunto Treino concede `unit` nível 2
@@ -455,16 +541,15 @@ export const RESET_TARGET_TABLES: readonly string[] = RESET_STEPS.map((s) => s.t
  * o próximo reset apaga junto com o resto.
  */
 async function seedTrainingBaseline(tx: TrainingTx, scope: TrainingScope): Promise<void> {
-	const mealTypes = [
-		{ name: "Café da manhã", sortOrder: 1 },
-		{ name: "Almoço", sortOrder: 2 },
-		{ name: "Jantar", sortOrder: 3 },
-	]
-
-	const inserted = await tx
-		.insert(mealTypeInKitchen)
-		.values(mealTypes.map((m) => ({ name: m.name, sortOrder: m.sortOrder, kitchenId: scope.kitchen_id })))
-		.returning({ id: mealTypeInKitchen.id })
+	// Refeições GLOBAIS, as mesmas de toda cozinha real. O seed criava "Café da manhã",
+	// "Almoço" e "Jantar" locais: nenhuma cozinha real tem refeição local, e os planos globais
+	// adaptados pelo treinando apontam para as globais — o dia passava a ter sete refeições,
+	// três delas vazias, e a demanda se dividia entre as duas famílias.
+	const globalMealTypes = await tx
+		.select({ id: mealTypeInKitchen.id, name: mealTypeInKitchen.name })
+		.from(mealTypeInKitchen)
+		.where(and(isNull(mealTypeInKitchen.kitchenId), isNull(mealTypeInKitchen.deletedAt)))
+		.orderBy(mealTypeInKitchen.sortOrder)
 
 	const [template] = await tx
 		.insert(menuTemplateInKitchen)
@@ -481,7 +566,7 @@ async function seedTrainingBaseline(tx: TrainingTx, scope: TrainingScope): Promi
 	// Efetivo base por (dia, refeição) — sem ele a demanda da produção e da ATA fica zerada
 	// e o treinando não tem o que exercitar.
 	const meals = [1, 2, 3, 4, 5].flatMap((dayOfWeek) =>
-		inserted.map((mealType) => ({ menuTemplateId: template.id, dayOfWeek, mealTypeId: mealType.id, baseHeadcount: 100 }))
+		globalMealTypes.map((mealType) => ({ menuTemplateId: template.id, dayOfWeek, mealTypeId: mealType.id, baseHeadcount: 100 }))
 	)
 	if (meals.length > 0) await tx.insert(menuTemplateMealInKitchen).values(meals)
 }
@@ -584,6 +669,10 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext, assuranc
 			}
 			const lockedAt = Date.now()
 			workStartedAt = lockedAt
+
+			// Libera, SÓ nesta transação e SÓ para a cozinha sentinela, o DELETE que os guards
+			// de imutabilidade do estoque recusam (ver 20260921191000).
+			await tx.execute(sql`select set_config('iefa.training_reset', ${String(scope.kitchen_id)}, true)`)
 
 			// Ids dos pais, coletados antes de apagar: os filhos não carregam kitchen_id e só
 			// são alcançáveis por eles.
