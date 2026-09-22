@@ -79,6 +79,12 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// reset (RESET_STEPS), junto com o código que a usa: até lá o treinando não tem tela que
 	// grave nela.
 	"kitchen.snack_request": "declarada antes da migration 20260922120000; entra no reset junto com o PR do recurso",
+	// `kitchen.menu_group_set` — conjunto de grupos por refeição. Declarada DEPOIS de a migration
+	// chegar ao banco compartilhado, por erro de ordem: enquanto isto faltou, `check-sisub` ficou
+	// vermelho na `main` e o sisub parou de fazer deploy — em PR nenhum relacionado ao recurso.
+	// O `kitchen_id` é anulável porque o conjunto pode ser global ou da cozinha, como as pastas.
+	// O PR do recurso (#412) a TIRA daqui e decide o destino dela junto com o código que a usa.
+	"kitchen.menu_group_set": "declarada fora de ordem, depois da migration; destino decidido no PR do recurso (#412)",
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */
