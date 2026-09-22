@@ -10,6 +10,7 @@
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	advanceSnackRequest,
+	applyEventTemplate,
 	applyTemplate,
 	cancelKitchenSnackRequest,
 	closeSnackRequest,
@@ -227,6 +228,14 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		const created = await createSnackRequest(db, ctx, requestInput(kitchenId, templateId))
 		await expect(db.execute(sql`update kitchen.snack_request_event set note = 'x' where request_id = ${created.id}`)).rejects.toThrow()
 		await expect(db.execute(sql`delete from kitchen.snack_request_event where request_id = ${created.id}`)).rejects.toThrow()
+	}, 60_000)
+
+	test("padrão de lanche não se aplica ao calendário — a produção vem do pedido", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, ctx, templateId } = await setup()
+		await expect(applyEventTemplate(db, ctx, { templateId, kitchenId, dates: [futureDate(10)] })).rejects.toMatchObject({
+			code: "SNACK_STANDARD_APPLY_BY_REQUEST",
+		})
 	}, 60_000)
 
 	test("tipo de refeição de sistema não aparece no seletor de cardápio", async () => {

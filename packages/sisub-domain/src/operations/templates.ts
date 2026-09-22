@@ -1076,6 +1076,15 @@ export async function applyEventTemplate(
 	if (template.template_type !== "event" && template.template_type !== "exception") {
 		throw new DomainError("NOT_EVENT_TEMPLATE", `Template ${input.templateId} is ${template.template_type ?? "weekly"}; use applyTemplate`)
 	}
+	// Padrão de lanche não se aplica ao calendário: nele `headcount_override` é PORÇÕES POR KIT,
+	// então aplicar produziria 1 porção por preparação, e o item nasceria sem pedido de origem —
+	// invisível para a cozinha, que acompanha lanche pelo pedido.
+	if (template.snack_family != null) {
+		throw new DomainError(
+			"SNACK_STANDARD_APPLY_BY_REQUEST",
+			"Padrão de lanche entra na produção pelo aceite do pedido, não pelo calendário. Para produzir sem pedido, crie uma exceção comum."
+		)
+	}
 
 	// Itens com receita + ingredientes para o snapshot json (mesmo shape do addMenuItem).
 	const templateItems = await fetchTemplateItemsWithRecipes(db, input.templateId)

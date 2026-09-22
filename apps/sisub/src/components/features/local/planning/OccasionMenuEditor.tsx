@@ -529,8 +529,10 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 							</span>
 						)}
 						<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
-						{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo. */}
-						{kitchenId !== null && (
+						{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo.
+						    Padrão de lanche não entra por aqui: a produção dele nasce do aceite do pedido, e
+						    nele o número do item é porções por KIT, não efetivo do dia. */}
+						{kitchenId !== null && !isSnackStandard && (
 							<Button variant="outline" size="sm" disabled={totalRecipes === 0} onClick={() => setApplyOpen(true)}>
 								<CalendarPlus className="size-4 mr-2" />
 								Aplicar ao Calendário
