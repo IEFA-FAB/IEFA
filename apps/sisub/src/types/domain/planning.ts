@@ -87,7 +87,7 @@ export interface ApplyTemplatePayload {
 
 /**
  * Template com contagem de items e estatísticas de previsão de comensais.
- * headcount_filled = itens com headcount_override preenchido
+ * headcount_filled = itens com comensais resolvidos (override do item, senão efetivo da refeição)
  * avg_headcount_weekday = média de comensais Seg–Qui (refeições mais volumosas)
  * monthly_headcount_total = custeio de exceção (Σ comensais × ocorrências/mês); nulo p/ não-exceção
  */

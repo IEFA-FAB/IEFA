@@ -27,3 +27,15 @@ export function ataItemToNeed(item: AtaItemWithConservation): ProcurementNeed {
 		min_order_quantity: item.min_order_quantity != null ? Number(item.min_order_quantity) : null,
 	}
 }
+
+/**
+ * Unidade do insumo diferente da unidade de compra com fator 1 (ou sem fator): quase sempre
+ * vínculo mal cadastrado, não conversão real — "Mel" em UN comprado em KG virava 60.060 KG.
+ * A ATA não bloqueia (o cadastro é da SDAB), mas a quantidade não pode passar calada.
+ */
+export function hasSuspiciousUnitConversion(item: Pick<ProcurementNeed, "measure_unit" | "purchase_measure_unit" | "conversion_factor">): boolean {
+	const from = item.measure_unit?.trim().toUpperCase()
+	const to = item.purchase_measure_unit?.trim().toUpperCase()
+	if (!from || !to || from === to) return false
+	return (item.conversion_factor ?? 1) === 1
+}

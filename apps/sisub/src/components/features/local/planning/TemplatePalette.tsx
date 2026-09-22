@@ -65,6 +65,7 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 							type="button"
 							size="sm"
 							variant="outline"
+							aria-pressed={isSelected}
 							onClick={() => onSelectTemplate(isSelected ? null : template.id)}
 							className={cn(
 								"flex flex-col items-start gap-2 p-3 min-w-[140px] h-[76px] transition-colors",
@@ -78,8 +79,7 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 
 							<div className="flex items-center gap-2 w-full text-xs text-muted-foreground">
 								<span>
-									{template.recipe_count || 0} Preparação
-									{template.recipe_count !== 1 ? "s" : ""}
+									{template.recipe_count || 0} {template.recipe_count === 1 ? "preparação" : "preparações"}
 								</span>
 								{template.kitchen_id === null && (
 									<Badge variant="outline" className="text-[10px] h-4">

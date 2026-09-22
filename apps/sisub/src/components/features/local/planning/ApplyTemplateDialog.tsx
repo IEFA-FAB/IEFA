@@ -20,6 +20,8 @@ interface ApplyTemplateDialogProps {
 	kitchenId: number
 	/** Datas (YYYY-MM-DD) que já têm planejamento ativo — usado para o aviso de conflito. */
 	plannedDates?: string[]
+	/** Template já escolhido na paleta — sem ele o usuário escolhia duas vezes o mesmo cardápio. */
+	initialTemplateId?: string | null
 }
 
 /** Parse "YYYY-MM-DD" como data no fuso local (evita o shift UTC do `new Date(str)`). */
@@ -38,13 +40,13 @@ const WEEKDAYS = [
 	{ value: 7, label: "Domingo" },
 ]
 
-export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, plannedDates }: ApplyTemplateDialogProps) {
+export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, plannedDates, initialTemplateId = null }: ApplyTemplateDialogProps) {
 	const { data: allTemplates, isLoading, isError, refetch, isRefetching } = useMenuTemplates(kitchenId)
 	// Só semanais: evento e exceção têm aplicador próprio, e escolhê-los aqui terminava em erro
 	// do servidor DEPOIS de o usuário já ter montado as datas.
 	const templates = allTemplates?.filter((t) => t.template_type === "weekly")
 	const { mutate: applyTemplate, isPending } = useApplyTemplate()
-	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(initialTemplateId)
 	const [startDayOfWeek, setStartDayOfWeek] = useState<number>(1) // Monday
 	const [conflictMode, setConflictMode] = useState<"replace" | "skip">("skip")
 
@@ -188,8 +190,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 												<p className="text-subheading">{tpl.name}</p>
 												{tpl.description && <p className="text-xs text-muted-foreground truncate max-w-[250px]">{tpl.description}</p>}
 												<p className="text-xs text-muted-foreground">
-													{tpl.recipe_count || 0} Preparação
-													{tpl.recipe_count !== 1 ? "s" : ""}
+													{tpl.recipe_count || 0} {tpl.recipe_count === 1 ? "preparação" : "preparações"}
 												</p>
 											</div>
 											{selectedTemplateId === tpl.id && <Calendar className="size-4 text-primary" />}

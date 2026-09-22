@@ -45,7 +45,7 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
 import { resolveItemDemand } from "./demand-math.ts"
-import { fetchTemplateMealsSafe } from "./template-meals.ts"
+import { fetchTemplateMealsSafe, type TemplateMealRow } from "./template-meals.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
@@ -94,20 +94,48 @@ const WITH_ITEMS_FULL = {
 type CountRow = MenuTemplate & {
 	templateType?: string | null
 	expectedMonthlyOccurrences?: number | null
-	menuTemplateItemsInKitchens?: { headcountOverride: number | null; dayOfWeek: number | null }[]
+	menuTemplateItemsInKitchens?: CountItem[]
 }
 
-function mapTemplateWithCounts(t: CountRow): TemplateWithCounts {
+type CountItem = {
+	headcountOverride: number | null
+	dayOfWeek: number | null
+	mealTypeId: string | null
+	recommendedProportion: number | null
+}
+
+const COUNT_ITEM_COLUMNS = { headcountOverride: true, dayOfWeek: true, mealTypeId: true, recommendedProportion: true } as const
+
+/**
+ * Comensais de cada item pela MESMA regra da demanda (`resolveItemDemand`): override do item,
+ * senão o efetivo base da refeição (com a porcentagem, se houver). Contar só o override dizia
+ * "0/231 com comensais" num cardápio com o efetivo de todas as refeições preenchido — e a
+ * aquisição, que usa o efetivo da refeição, calculava a demanda normalmente.
+ */
+export function summarizeTemplateDemand(items: CountItem[], meals: Pick<TemplateMealRow, "dayOfWeek" | "mealTypeId" | "baseHeadcount">[]) {
+	const baseByCell = new Map(meals.map((m) => [`${m.dayOfWeek}:${m.mealTypeId}`, m.baseHeadcount]))
+	const demands = items.map((i) => ({
+		dayOfWeek: i.dayOfWeek,
+		demand: resolveItemDemand({
+			headcountOverride: i.headcountOverride,
+			baseHeadcount: baseByCell.get(`${i.dayOfWeek}:${i.mealTypeId}`) ?? null,
+			recommendedProportion: i.recommendedProportion,
+		}),
+	}))
+	const headcount_filled = demands.filter((d) => d.demand !== null).length
+	const weekday = demands.filter((d) => d.dayOfWeek !== null && d.dayOfWeek >= 1 && d.dayOfWeek <= 4 && d.demand !== null)
+	const avg_headcount_weekday = weekday.length > 0 ? Math.round(weekday.reduce((sum, d) => sum + (d.demand ?? 0), 0) / weekday.length) : null
+	const total = demands.reduce((sum, d) => sum + (d.demand ?? 0), 0)
+	return { headcount_filled, avg_headcount_weekday, total }
+}
+
+function mapTemplateWithCounts(t: CountRow, meals: TemplateMealRow[]): TemplateWithCounts {
 	const items = t.menuTemplateItemsInKitchens ?? []
 	const item_count = items.length
-	const headcount_filled = items.filter((i) => i.headcountOverride !== null).length
-	const weekdayItems = items.filter((i) => i.dayOfWeek !== null && i.dayOfWeek >= 1 && i.dayOfWeek <= 4 && i.headcountOverride !== null)
-	const avg_headcount_weekday =
-		weekdayItems.length > 0 ? Math.round(weekdayItems.reduce((sum, i) => sum + (i.headcountOverride ?? 0), 0) / weekdayItems.length) : null
+	const { headcount_filled, avg_headcount_weekday, total } = summarizeTemplateDemand(items, meals)
 	// Custeio de exceção: sem semana. Soma os comensais de todos os itens e multiplica
 	// pelas ocorrências mensais (nulo = 1). Nulo para cardápios não-exceção.
-	const monthly_headcount_total =
-		t.templateType === "exception" ? items.reduce((sum, i) => sum + (i.headcountOverride ?? 0), 0) * (t.expectedMonthlyOccurrences ?? 1) : null
+	const monthly_headcount_total = t.templateType === "exception" ? total * (t.expectedMonthlyOccurrences ?? 1) : null
 	const { menuTemplateItemsInKitchens: _items, ...meta } = t
 	return { ...toWire<MenuTemplate>(meta), item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday, monthly_headcount_total }
 }
@@ -128,12 +156,16 @@ export async function listTemplates(db: SisubDb, ctx: UserContext, input: ListTe
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.menuTemplateInKitchen.findMany({
-			with: { menuTemplateItemsInKitchens: { columns: { headcountOverride: true, dayOfWeek: true } } },
+			with: { menuTemplateItemsInKitchens: { columns: COUNT_ITEM_COLUMNS } },
 			where: and(isNull(menuTemplateInKitchen.deletedAt), templateScopeCondition(input.kitchenId)),
 			orderBy: (t) => [asc(t.name)],
 		})
 	)
-	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow))
+	const meals = await fetchTemplateMealsSafe(
+		db,
+		rows.map((r) => r.id)
+	)
+	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow, meals.get(r.id) ?? []))
 }
 
 export async function listDeletedTemplates(db: SisubDb, ctx: UserContext, input: ListTemplates): Promise<TemplateWithCounts[]> {
@@ -147,12 +179,16 @@ export async function listDeletedTemplates(db: SisubDb, ctx: UserContext, input:
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.menuTemplateInKitchen.findMany({
-			with: { menuTemplateItemsInKitchens: { columns: { headcountOverride: true, dayOfWeek: true } } },
+			with: { menuTemplateItemsInKitchens: { columns: COUNT_ITEM_COLUMNS } },
 			where: and(isNotNull(menuTemplateInKitchen.deletedAt), templateScopeCondition(input.kitchenId)),
 			orderBy: (t, { desc }) => [desc(t.deletedAt)],
 		})
 	)
-	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow))
+	const meals = await fetchTemplateMealsSafe(
+		db,
+		rows.map((r) => r.id)
+	)
+	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow, meals.get(r.id) ?? []))
 }
 
 export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTemplate): Promise<TemplateWithItemsFull> {

@@ -1,3 +1,4 @@
+import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
 import { ArrowLeftRight, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -105,7 +106,13 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated }: MenuIte
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-primary" onClick={() => onSubstitute(item)}>
+								<Button
+									size="icon"
+									variant="ghost"
+									className="size-7 text-muted-foreground hover:text-primary"
+									onClick={() => onSubstitute(item)}
+									aria-label={`Substituir ${recipeName}`}
+								>
 									<ArrowLeftRight className="size-3.5" />
 								</Button>
 							}
@@ -115,7 +122,13 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated }: MenuIte
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button size="icon" variant="ghost" className="size-7 text-destructive hover:bg-destructive/10" onClick={() => onDelete(item.id, recipeName)}>
+								<Button
+									size="icon"
+									variant="ghost"
+									className="size-7 text-destructive hover:bg-destructive/10"
+									onClick={() => onDelete(item.id, recipeName)}
+									aria-label={`Remover ${recipeName}`}
+								>
 									<Trash2 className="size-3.5" />
 								</Button>
 							}
@@ -187,12 +200,12 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated }: MenuIte
 						id={`proportion-${item.id}`}
 						type="number"
 						min="0"
-						max="100"
+						max={MAX_RECOMMENDED_PROPORTION}
 						value={proportion ?? ""}
 						onChange={(e) => {
 							if (e.target.value === "") return setProportion(null)
 							const parsed = Number.parseInt(e.target.value, 10)
-							if (!Number.isNaN(parsed)) setProportion(Math.max(0, Math.min(100, parsed)))
+							if (!Number.isNaN(parsed)) setProportion(Math.max(0, Math.min(MAX_RECOMMENDED_PROPORTION, parsed)))
 						}}
 						onBlur={handleUpdateProportion}
 						placeholder="Ex: 70"

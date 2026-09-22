@@ -50,3 +50,15 @@ describe("buildSnapshotAnnexRows", () => {
 		expect(rows[0]?.itemDescription).toBe("tipo 1")
 	})
 })
+
+describe("unidade do anexo", () => {
+	test("item de compra sem unidade própria herda a do insumo, não cai em UN", () => {
+		const rows = buildSnapshotAnnexRows([component({ measure_unit: "LT", purchase_quantity: 100, purchase_measure_unit: null })], [])
+		expect(rows[0]?.unit).toBe("LT")
+	})
+
+	test("unidade de compra vence a do insumo quando há quantidade de compra", () => {
+		const rows = buildSnapshotAnnexRows([component({ measure_unit: "G", purchase_quantity: 0.1, purchase_measure_unit: "KG" })], [])
+		expect(rows[0]?.unit).toBe("KG")
+	})
+})

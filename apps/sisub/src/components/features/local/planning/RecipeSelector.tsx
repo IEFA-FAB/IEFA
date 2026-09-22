@@ -254,7 +254,7 @@ function RecipeSelectorContent({
 				<div className="text-sm text-muted-foreground">
 					{selectedCount > 0 ? (
 						<span>
-							{selectedCount} Preparação{selectedCount > 1 ? "s" : ""} selecionada
+							{selectedCount} {selectedCount > 1 ? "preparações selecionadas" : "preparação selecionada"}
 							{selectedCount > 1 ? "s" : ""}
 						</span>
 					) : (
