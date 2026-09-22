@@ -5,9 +5,9 @@ Dois PRs contra `main`, cada um revisado com `/code-review` antes do merge. O **
 ## 1. Banco e LGPD
 
 - [x] 1.1 [database] Migration `alpha_document_chat`: `alpha.chat_thread`, `alpha.chat_message`, `alpha.chat_attachment` (FKs com `on delete cascade`, checks de `role`/`status`, coluna `saved_at`, `last_activity_at`, índices `(user_id, last_activity_at desc)`, `(submission_id)`, parcial de expurgo (avulsa não salva), `(thread_id, created_at)`, índice parcial de mensagens `role = 'user'` para o teto), RLS ligada sem policy, bucket privado `alpha-chat-attachments` (25 MiB, MIME de PDF/DOCX)
-- [ ] 1.2 [database] `bun --filter @iefa/database audit:rls` verde, sem entrada nova nas allowlists
-- [ ] 1.3 [database] Aplicar por `apply_migration` ANTES do merge, renomear o arquivo local para o carimbo do remoto e rodar `bun run db:types`. Conferir antes se o `generated.ts` da main não está atrás do banco por migration alheia
-- [ ] 1.4 [legal-kit] Nova versão da Política de Privacidade (linha NOVA em `iefa.legal_documents`) declarando a guarda de conversas e anexos do contrate (avulsa não salva: 180 dias sem uso; salva: até o usuário apagar; de processo: enquanto o processo existir) e o apagamento pelo usuário. `contact.test.ts` segue verde. Aplicar antes do deploy do contrate
+- [x] 1.2 [database] `bun --filter @iefa/database audit:rls` verde, sem entrada nova nas allowlists
+- [x] 1.3 [database] APLICADA em produção em 2026-09-22 por `apply_migration` (carimbo `20260922034921`, arquivo renomeado); `audit:rls` com 0 erro. O `generated.ts` NÃO foi regenerado: a main está atrás do banco (traria `access_control.*`, `inventory.count_scope_item` etc. de outras frentes), e o α usa cliente sem tipo
+- [ ] 1.4 [legal-kit] (REDIGIDA em `20260922120000_legal_documents_v2_3.sql` — Termos e Privacidade 2.3.0, Cookies 1.3.0 reinserida; falta APLICAR antes do deploy do contrate) Nova versão da Política de Privacidade (linha NOVA em `iefa.legal_documents`) declarando a guarda de conversas e anexos do contrate (avulsa não salva: 180 dias sem uso; salva: até o usuário apagar; de processo: enquanto o processo existir) e o apagamento pelo usuário. `contact.test.ts` segue verde. Aplicar antes do deploy do contrate
 
 ## 2. α — núcleo puro (`src/chat/`)
 
@@ -30,7 +30,7 @@ Dois PRs contra `main`, cada um revisado com `/code-review` antes do merge. O **
 - [x] 3.6 [alpha] `body-limits.ts`: teto de 26 MB para `POST /api/v1/chats/:id/attachments`, com teste em `body-limits.test.ts`
 - [x] 3.7 [alpha] `authz.routes.test.ts`: cobrir os cenários da spec `alpha-document-chat` (outro usuário → 404; outra OM → 403; revogado → 403 sem chamar o modelo; teto → 429 sem gravar; anexo em conversa de processo → 409)
 - [x] 3.8 [alpha] `llms.txt`/`agent-discovery.ts` e a seção do α no `AI-PROVIDERS.md` (tier `chat`, teto diário)
-- [ ] 3.9 [alpha] Testar ponta a ponta local contra o banco: conversa de processo com a massa de teste (ETP+TR do forno AMR/IAE) e conversa avulsa com um DOCX. Conferir as citações resolvidas e um bloco `redacao`
+- [x] 3.9 [alpha] (2026-09-22, com `gpt-oss-120b` e com `claude-opus-4-6`; pegou dois bugs — `cachePoint` em modelo sem prompt caching dá 403, e rodada final sem `toolConfig` dá 400 —, ambos corrigidos) Testar ponta a ponta local contra o banco: conversa de processo com a massa de teste (ETP+TR do forno AMR/IAE) e conversa avulsa com um DOCX. Conferir as citações resolvidas e um bloco `redacao`
 
 ## 4. contrate — cliente e componentes
 

@@ -8,13 +8,13 @@
 
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { env } from "../env.ts"
-import { getFallbackLLM, getLLM, isBedrockModel, modelFor } from "../lib/llm.ts"
+import { getFallbackLLM, getLLM, modelFor, supportsPromptCaching } from "../lib/llm.ts"
 import type { ChatModel } from "./agent.ts"
 
 function adapt(llm: BaseChatModel, id: string): ChatModel {
 	return {
 		id,
-		supportsCachePoint: isBedrockModel(llm),
+		supportsCachePoint: supportsPromptCaching(llm, id),
 		async stream(messages, tools, signal) {
 			if (!tools) return llm.stream(messages, { signal })
 			if (!llm.bindTools) throw new Error(`o modelo ${id} não aceita ferramentas`)

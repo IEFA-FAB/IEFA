@@ -104,7 +104,7 @@ deixa rastro nenhum.
 Referência completa: **`LGPD.md`** na raiz (cobertura por app, o que a política
 declara, pendências). O essencial:
 
-- **Canal único de exercício de direitos é `iefa@fab.mil.br`, resposta em 7 dias, exclusão MANUAL** — não existe autoexclusão em app nenhum. Os valores são constantes em `@iefa/legal-kit` (`contact.ts`) e `contact.test.ts` falha se o texto publicado divergir delas.
+- **Canal único de exercício de direitos é `iefa@fab.mil.br`, resposta em 7 dias, exclusão MANUAL** — não existe autoexclusão em app nenhum, com UMA exceção declarada na Privacidade 2.3.0: a conversa do assistente do Contrate (e os anexos dela), que o dono apaga pela tela e que, avulsa e não salva, expira em 180 dias sem uso. Exceção nova exige versão nova da política ANTES do código. Os valores são constantes em `@iefa/legal-kit` (`contact.ts`) e `contact.test.ts` falha se o texto publicado divergir delas.
 - **App que trata dado pessoal tem as três rotas legais e link no rodapé** — termos, privacidade e cookies, servidos de `iefa.legal_documents` via `@iefa/legal-kit`. Serviço sem UI expõe `GET /legal`.
 - **Versão nova de documento é linha NOVA, nunca `UPDATE`** — `user_legal_acceptances.document_id` é FK `ON DELETE RESTRICT`; reescrever a versão antiga destruiria a prova de ciência dela.
 - **O aviso de ciência não bloqueia navegação** — a base legal é art. 7º, III / art. 23 (execução de política pública), não consentimento. Modal obrigatório pediria uma escolha que o usuário não tem.

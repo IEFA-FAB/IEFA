@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { AIMessageChunk, type BaseMessage } from "@langchain/core/messages"
-import { type ChatAgentDeps, type ChatModel, type ChatTurnInput, MAX_TOOL_ROUNDS, runChatTurn, type ToolDefinition } from "./agent.ts"
+import { type ChatAgentDeps, type ChatModel, type ChatTurnInput, MAX_TOOL_ROUNDS, runChatTurn, TOOL_BUDGET_EXHAUSTED, type ToolDefinition } from "./agent.ts"
 import { makeDocument } from "./fixtures.test-helpers.ts"
 
 type Round = { text?: string; call?: { name: string; args: Record<string, unknown> }; error?: Error }
@@ -96,14 +96,30 @@ describe("runChatTurn", () => {
 		expect([...result.normas.keys()]).toEqual(["N1"])
 	})
 
-	it(`no teto de ${MAX_TOOL_ROUNDS} rodadas, a última vem sem ferramentas e o modelo tem de responder`, async () => {
+	it(`no teto de ${MAX_TOOL_ROUNDS} rodadas, avisa o modelo e não executa mais ferramenta`, async () => {
 		const seen: Array<{ tools: ToolDefinition[] | null; messages: BaseMessage[] }> = []
-		const looping = Array.from({ length: MAX_TOOL_ROUNDS }, () => ({ call: { name: "buscar_norma", args: { consulta: "x", corpus: "legislacao" } } }))
-		const primary = fakeModel("primario", [...looping, { text: "Respondo com o que tenho." }], seen)
-		const result = await runChatTurn(makeInput(), deps({ primary }))
+		const search = { call: { name: "buscar_norma", args: { consulta: "x", corpus: "legislacao" } } }
+		const looping = Array.from({ length: MAX_TOOL_ROUNDS }, () => search)
+		let searches = 0
+		const primary = fakeModel("primario", [...looping, { text: "Respondo com o que tenho.", ...search }], seen)
+		const result = await runChatTurn(
+			makeInput(),
+			deps({
+				primary,
+				searchNorms: async () => {
+					searches += 1
+					return { hits: [], unavailable: false }
+				},
+			})
+		)
 
 		expect(seen).toHaveLength(MAX_TOOL_ROUNDS + 1)
-		expect(seen.at(-1)?.tools).toBeNull()
+		// As ferramentas seguem declaradas na rodada final: o Bedrock recusa `toolUse` no
+		// histórico sem `toolConfig`.
+		expect(seen.at(-1)?.tools?.length).toBeGreaterThan(0)
+		expect(String(seen.at(-1)?.messages.at(-1)?.content)).toContain(TOOL_BUDGET_EXHAUSTED)
+		// A chamada da rodada final não roda.
+		expect(searches).toBe(MAX_TOOL_ROUNDS)
 		expect(result.text).toBe("Respondo com o que tenho.")
 	})
 

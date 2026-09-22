@@ -419,7 +419,7 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 					{ ...models, isTransient: isTransientModelFailure, searchNorms }
 				)
 
-				const resolved = resolveCitations(result.text, {
+				const resolved = resolveCitations(result.text.trim(), {
 					normas: result.normas,
 					findings: sources.mode === "processo" ? sources.findings : [],
 					documents: sources.documents,

@@ -4,6 +4,7 @@ import type { BaseLanguageModelInput } from "@langchain/core/language_models/bas
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { env } from "../env.ts"
 import { messageText } from "./message-text.ts"
+import { modelHasPromptCaching } from "./prompt-caching.ts"
 import { MODEL_RETRY_POLICY } from "./retry.ts"
 import { isTransientModelFailure } from "./transient.ts"
 
@@ -59,12 +60,17 @@ export function modelFor(tier: ModelTier): string {
 }
 
 /**
- * O modelo é o Bedrock Converse? Só ele entende o bloco `cachePoint` na mensagem de sistema
- * (conferido no `@langchain/aws` 1.4.5: `convertSystemMessageToConverseMessage` aceita texto
- * e cache point); o `langchain-compat` da reserva o rejeitaria.
+ * O modelo aceita o bloco `cachePoint` na mensagem de sistema?
+ *
+ * Duas condições. O cliente tem de ser o Bedrock Converse — o `@langchain/aws` 1.4.5 repassa
+ * o bloco (`convertSystemMessageToConverseMessage` aceita texto e cache point), e o
+ * `langchain-compat` da reserva o rejeitaria. E o MODELO tem de ter prompt caching no
+ * Bedrock: medido em 2026-09-22, o `openai.gpt-oss-120b-1:0` responde 403
+ * `AccessDeniedException: You invoked an unsupported model or your request did not allow
+ * prompt caching` ao receber o bloco — não ignora, derruba o turno. Só Claude e Nova.
  */
-export function isBedrockModel(llm: BaseChatModel): boolean {
-	return llm instanceof ChatBedrockConverse
+export function supportsPromptCaching(llm: BaseChatModel, modelId: string): boolean {
+	return llm instanceof ChatBedrockConverse && modelHasPromptCaching(modelId)
 }
 
 export function getLLM(temperature: 0 | 0.3 | 0.7 = 0, tier: ModelTier = "primary"): BaseChatModel {

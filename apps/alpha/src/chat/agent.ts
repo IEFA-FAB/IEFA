@@ -2,8 +2,12 @@
  * O laço do agente do chat sobre documento.
  *
  * Um turno é: sistema (regras + fontes) → histórico → pergunta, e até {@link MAX_TOOL_ROUNDS}
- * rodadas em que o modelo pode chamar ferramenta. Na última rodada as ferramentas saem, e o
- * modelo tem de responder com o que já tem — o teto não vira resposta vazia.
+ * rodadas em que o modelo pode chamar ferramenta. A resposta da última ferramenta leva o aviso
+ * de que as consultas acabaram, e na rodada final uma chamada de ferramenta NÃO é executada —
+ * o modelo tem de responder com o que já tem. As ferramentas continuam DECLARADAS até o fim:
+ * com `toolUse` no histórico, o Bedrock recusa a chamada sem `toolConfig` (400
+ * `The toolConfig field must be defined when using toolUse and toolResult content blocks`,
+ * medido em 2026-09-22).
  *
  * Todas as ferramentas são de LEITURA. Não existe caminho do agente até achado, triagem,
  * parecer, submissão ou anexo: a garantia de que o chat "não altera nada" é estrutural,
@@ -25,6 +29,10 @@ import { readSection, searchDocument } from "./doc-tools.ts"
 import type { DocumentSource } from "./sources.ts"
 
 export const MAX_TOOL_ROUNDS = 4
+
+/** Vai no fim da resposta da última ferramenta que o teto permite. */
+export const TOOL_BUDGET_EXHAUSTED =
+	"LIMITE DE CONSULTAS ATINGIDO: não chame mais ferramentas. Responda agora com o que já foi encontrado e diga o que não foi possível conferir."
 
 /** Definição de ferramenta no formato OpenAI — o `ChatBedrockConverse` também a converte. */
 export interface ToolDefinition {
@@ -254,18 +262,18 @@ export async function runChatTurn(input: ChatTurnInput, deps: ChatAgentDeps): Pr
 	]
 
 	for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
-		const offerTools = round < MAX_TOOL_ROUNDS ? tools : null
+		const finalRound = round === MAX_TOOL_ROUNDS
 
 		let reply: AIMessageChunk | null
 		try {
-			reply = await streamRound(model, [systemMessage(input, model), ...conversation], offerTools, input, state)
+			reply = await streamRound(model, [systemMessage(input, model), ...conversation], tools, input, state)
 		} catch (error) {
 			if (input.signal.aborted || state.emitted || !deps.fallback || model === deps.fallback || !deps.isTransient(error)) throw error
 			console.warn(
 				`[chat] ${model.id} falhou de forma transitória antes do primeiro texto, tentando a reserva (${deps.fallback.id}): ${error instanceof Error ? error.message : String(error)}`
 			)
 			model = deps.fallback
-			reply = await streamRound(model, [systemMessage(input, model), ...conversation], offerTools, input, state)
+			reply = await streamRound(model, [systemMessage(input, model), ...conversation], tools, input, state)
 		}
 
 		if (!reply) break
@@ -275,16 +283,19 @@ export async function runChatTurn(input: ChatTurnInput, deps: ChatAgentDeps): Pr
 		const text = messageText(reply.content)
 		if (text) texts.push(text)
 
-		const calls = offerTools ? (reply.tool_calls ?? []) : []
+		// Na rodada final, chamada de ferramenta não é executada: o texto que veio é a resposta.
+		const calls = finalRound ? [] : (reply.tool_calls ?? [])
 		if (calls.length === 0) break
 
 		// Texto antes de uma chamada de ferramenta ("vou conferir na Lei 14.133…") já foi
 		// para a tela; o da rodada seguinte entra depois de um parágrafo.
 		if (text) state.pendingSeparator = true
 		conversation.push(new AIMessage({ content: text, tool_calls: calls }))
-		for (const call of calls) {
+		const lastAllowed = round === MAX_TOOL_ROUNDS - 1
+		for (const [index, call] of calls.entries()) {
 			const output = await runTool({ name: call.name, args: (call.args ?? {}) as Record<string, unknown> }, input, deps, normas)
-			conversation.push(new ToolMessage({ tool_call_id: call.id ?? call.name, content: output }))
+			const notice = lastAllowed && index === calls.length - 1 ? `\n\n${TOOL_BUDGET_EXHAUSTED}` : ""
+			conversation.push(new ToolMessage({ tool_call_id: call.id ?? call.name, content: `${output}${notice}` }))
 		}
 	}
 

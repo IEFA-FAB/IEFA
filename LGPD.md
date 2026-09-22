@@ -12,7 +12,8 @@ falta.
 | Encarregado (art. 41) | **Secretaria do IEFA** — cargo, não pessoa |
 | E-mail | **iefa@fab.mil.br** |
 | Prazo de resposta | **7 dias corridos** (compromisso próprio; art. 19, §1º dá 15) |
-| Exclusão | **Manual.** Não existe autoexclusão em nenhum app |
+| Exclusão | **Manual.** Não existe autoexclusão em nenhum app — com uma exceção: o usuário apaga pela tela as próprias conversas do assistente do Contrate e os anexos delas (Privacidade 2.3.0, seção 9) |
+| Expurgo | Só a conversa avulsa não salva do Contrate: apagada com os anexos após 180 dias sem uso (`apps/alpha/src/jobs/purge-chats.ts`). Nenhum outro dado é apagado por idade |
 
 Esses valores são constantes em `@iefa/legal-kit` (`src/contact.ts`) e o teste
 `contact.test.ts` falha se o texto da migration divergir delas. Ao mudar o
