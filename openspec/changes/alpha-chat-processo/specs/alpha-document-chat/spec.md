@@ -177,6 +177,15 @@ O sistema SHALL responder o turno por SSE com os eventos `status` (fase), `delta
 - **WHEN** o Bedrock e a reserva falham por erro transitório
 - **THEN** o SSE emite `error` com `code: "MODEL_UNAVAILABLE"` e a mensagem é gravada com `status: "error"`
 
+### Requirement: Um turno por vez na conversa
+
+O sistema SHALL recusar com 409 `CHAT_TURN_IN_PROGRESS` a pergunta feita numa conversa que tem pergunta sem resposta há menos do teto de um turno, e SHALL parear no histórico cada resposta com a pergunta que ela responde, não com a posição.
+
+#### Scenario: duas abas na mesma conversa
+- **GIVEN** uma pergunta ainda sem resposta na conversa
+- **WHEN** o dono envia outra
+- **THEN** recebe 409, e nada é gravado
+
 ### Requirement: Turno registrado mesmo sem resposta
 
 O sistema SHALL gravar a mensagem do usuário antes de chamar o modelo, e a do assistente ao fim do turno com `status` `complete`, `aborted` ou `error`.
@@ -188,7 +197,12 @@ O sistema SHALL gravar a mensagem do usuário antes de chamar o modelo, e a do a
 
 ### Requirement: Teto diário de turnos por pessoa
 
-O sistema SHALL recusar com 429 `CHAT_DAILY_LIMIT` e `retry_after`, ANTES de abrir o SSE, o turno de quem já enviou `ALPHA_CHAT_MAX_TURNS_PER_DAY` mensagens nas últimas 24 horas, somando todas as suas conversas.
+O sistema SHALL recusar com 429 `CHAT_DAILY_LIMIT` e `retry_after`, ANTES de abrir o SSE, o turno de quem já enviou `ALPHA_CHAT_MAX_TURNS_PER_DAY` perguntas nas últimas 24 horas, somando todas as suas conversas. A contagem SHALL sobreviver ao apagamento da conversa.
+
+#### Scenario: apagar a conversa para zerar o teto
+- **GIVEN** um usuário no teto diário
+- **WHEN** ele apaga as conversas e pergunta de novo
+- **THEN** recebe 429
 
 #### Scenario: limite atingido
 - **GIVEN** `ALPHA_CHAT_MAX_TURNS_PER_DAY=60` e 60 mensagens do usuário nas últimas 24 h

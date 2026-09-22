@@ -8,20 +8,25 @@ import { beforeEach, describe, expect, mock, test } from "bun:test"
 
 type Row = Record<string, unknown>
 
-const state: { threads: Row[]; attachments: Row[]; failRemoveFor: Set<string>; removed: string[] } = {
+const state: { threads: Row[]; attachments: Row[]; failRemoveFor: Set<string>; removed: string[]; usage: Row[] } = {
 	threads: [],
 	attachments: [],
 	failRemoveFor: new Set(),
 	removed: [],
+	usage: [],
 }
 
 function from(table: string) {
 	const filters: Array<(row: Row) => boolean> = []
 	let verb: "select" | "delete" = "select"
-	const rows = () => (table === "chat_thread" ? state.threads : state.attachments)
+	const rows = () => (table === "chat_thread" ? state.threads : table === "chat_turn_usage" ? state.usage : state.attachments)
 	const matched = () => rows().filter((row) => filters.every((f) => f(row)))
 	const run = () => {
 		const hit = matched()
+		if (verb === "delete" && table === "chat_turn_usage") {
+			state.usage = state.usage.filter((row) => !hit.includes(row))
+			return { data: hit, error: null }
+		}
 		if (verb === "delete") {
 			state.threads = state.threads.filter((row) => !hit.includes(row))
 			state.attachments = state.attachments.filter((row) => !hit.some((thread) => thread.id === row.thread_id))
@@ -40,6 +45,10 @@ function from(table: string) {
 		},
 		is: (column: string, value: unknown) => {
 			filters.push((row) => (row[column] ?? null) === value)
+			return api
+		},
+		lt: (column: string, value: string) => {
+			filters.push((row) => String(row[column]) < value)
 			return api
 		},
 		lte: (column: string, value: string) => {
@@ -83,6 +92,10 @@ beforeEach(() => {
 		{ id: "old-saved", user_id: "u", submission_id: null, saved_at: daysAgo(390), last_activity_at: daysAgo(400) },
 		{ id: "old-process", user_id: "u", submission_id: "sub-1", saved_at: null, last_activity_at: daysAgo(400) },
 	]
+	state.usage = [
+		{ id: "u-old", user_id: "u", created_at: daysAgo(3) },
+		{ id: "u-new", user_id: "u", created_at: daysAgo(0.5) },
+	]
 	state.attachments = [
 		{ thread_id: "old-loose", storage_path: "u/old-loose/a.pdf" },
 		{ thread_id: "old-loose", storage_path: "u/old-loose/b.docx" },
@@ -93,7 +106,9 @@ describe("purgeExpiredChats", () => {
 	test("apaga só a avulsa não salva com 180 dias ou mais, com os arquivos", async () => {
 		const report = await purgeExpiredChats(NOW)
 
-		expect(report).toEqual({ removed: 1, failed: 0 })
+		expect(report).toEqual({ removed: 1, failed: 0, usage: 1 })
+		// O teto diário olha 24 h; o registro de 3 dias atrás sai, o de 12 horas fica.
+		expect(state.usage.map((row) => row.id)).toEqual(["u-new"])
 		expect(state.threads.map((row) => row.id)).toEqual(["young-loose", "old-saved", "old-process"])
 		expect(state.removed).toEqual(["u/old-loose/a.pdf", "u/old-loose/b.docx"])
 		expect(state.attachments).toEqual([])
@@ -103,7 +118,7 @@ describe("purgeExpiredChats", () => {
 		state.failRemoveFor.add("u/old-loose/a.pdf")
 		const report = await purgeExpiredChats(NOW)
 
-		expect(report).toEqual({ removed: 0, failed: 1 })
+		expect(report).toEqual({ removed: 0, failed: 1, usage: 1 })
 		expect(state.threads.map((row) => row.id)).toContain("old-loose")
 		expect(state.attachments).toHaveLength(2)
 	})

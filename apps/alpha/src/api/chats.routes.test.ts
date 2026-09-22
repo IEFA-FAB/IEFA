@@ -99,6 +99,10 @@ function from(table: string) {
 			filters.push((row) => String(row[column]) <= value)
 			return api
 		},
+		lt: (column: string, value: string) => {
+			filters.push((row) => String(row[column]) < value)
+			return api
+		},
 		in: (column: string, values: unknown[]) => {
 			filters.push((row) => values.includes(row[column]))
 			return api
@@ -254,6 +258,7 @@ beforeEach(() => {
 			},
 		],
 		chat_message: [],
+		chat_turn_usage: [],
 		chat_attachment: [{ id: "att-1", thread_id: "thread-loose", storage_path: "me/thread-loose/a.pdf", filename: "a.pdf", mime_type: "application/pdf" }],
 	}
 })
@@ -351,17 +356,20 @@ describe("turno", () => {
 		expect(complete.citations.map((citation: { label: string }) => citation.label)).toEqual(["D1:3"])
 		expect(complete.dropped_citations).toBe(1)
 
-		const inserted = state.writes.filter((write) => write.verb === "insert").map((write) => write.payload.role)
-		expect(inserted).toEqual(["user", "assistant"])
+		// O uso do teto é gravado antes de tudo; depois a pergunta e a resposta que aponta para ela.
+		const inserted = state.writes.filter((write) => write.verb === "insert").map((write) => `${write.table}:${write.payload.role ?? ""}`)
+		expect(inserted).toEqual(["chat_turn_usage:", "chat_message:user", "chat_message:assistant"])
+		const [question, answer] = state.tables.chat_message ?? []
+		expect(answer?.reply_to).toBe(question?.id)
 		// A conversa ganha título da primeira pergunta.
 		expect(state.tables.chat_thread?.[0]?.title).toBe("Qual a garantia?")
 	})
 
 	test("teto diário: 429 antes do SSE, sem gravar a pergunta nem chamar o modelo", async () => {
 		const now = Date.now()
-		state.tables.chat_message = [
-			{ id: "m1", thread_id: "thread-loose", user_id: ME, role: "user", content: "a", status: "complete", created_at: new Date(now - 60_000).toISOString() },
-			{ id: "m2", thread_id: "thread-loose", user_id: ME, role: "user", content: "b", status: "complete", created_at: new Date(now - 120_000).toISOString() },
+		state.tables.chat_turn_usage = [
+			{ id: "u1", user_id: ME, created_at: new Date(now - 60_000).toISOString() },
+			{ id: "u2", user_id: ME, created_at: new Date(now - 120_000).toISOString() },
 		]
 		const res = await appAs(REQUESTER_IAE).request("/api/v1/chats/thread-process/messages/stream", json("POST", { message: "mais uma" }))
 
@@ -369,6 +377,41 @@ describe("turno", () => {
 		const body = await readJson(res)
 		expect(body.code).toBe("CHAT_DAILY_LIMIT")
 		expect(new Date(body.retry_after ?? 0).getTime()).toBe(now - 120_000 + 24 * 60 * 60 * 1000)
+		expect(state.writes).toEqual([])
+		expect(state.modelCalls).toBe(0)
+	})
+
+	test("apagar a conversa não zera o teto diário", async () => {
+		const app = appAs(REQUESTER_IAE)
+		for (const message of ["um", "dois"]) {
+			await (await app.request("/api/v1/chats/thread-loose/messages/stream", json("POST", { message }))).text()
+		}
+		expect(state.tables.chat_turn_usage).toHaveLength(2)
+
+		expect((await app.request("/api/v1/chats/thread-loose", { method: "DELETE" })).status).toBe(204)
+		expect(state.tables.chat_turn_usage).toHaveLength(2)
+
+		const res = await app.request("/api/v1/chats/thread-process/messages/stream", json("POST", { message: "três" }))
+		expect(res.status).toBe(429)
+	})
+
+	test("turno em andamento na conversa: 409, sem gravar nem chamar o modelo", async () => {
+		state.tables.chat_message = [
+			{
+				id: "q1",
+				thread_id: "thread-process",
+				user_id: ME,
+				role: "user",
+				content: "a",
+				status: "complete",
+				reply_to: null,
+				created_at: new Date().toISOString(),
+			},
+		]
+		const res = await appAs(REQUESTER_IAE).request("/api/v1/chats/thread-process/messages/stream", json("POST", { message: "outra" }))
+
+		expect(res.status).toBe(409)
+		expect((await readJson(res)).code).toBe("CHAT_TURN_IN_PROGRESS")
 		expect(state.writes).toEqual([])
 		expect(state.modelCalls).toBe(0)
 	})

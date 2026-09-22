@@ -123,7 +123,8 @@ Reavaliar o processo por turno é o que fecha o caso "perdeu o papel na OM e con
 
 ### D7. Teto de consumo e tempo
 
-- **Teto diário:** `ALPHA_CHAT_MAX_TURNS_PER_DAY` (default 60). Conta as mensagens `role = 'user'` do usuário nas últimas 24 h, em todas as conversas. Estourou: 429 `CHAT_DAILY_LIMIT` com `retry_after`, ANTES de abrir o SSE. Depois que o SSE abre, não há mais status HTTP (regra do `AI-PROVIDERS.md`).
+- **Teto diário:** `ALPHA_CHAT_MAX_TURNS_PER_DAY` (default 60). Conta os registros de `alpha.chat_turn_usage` do usuário nas últimas 24 h — uma linha por pergunta, SEM FK para a conversa (migration `20260922131037`). Contar em `chat_message` deixava o teto ser zerado apagando a conversa, porque as mensagens caem em cascata (achado do `/code-review`). A rotina diária apaga os registros com mais de 48 h. Estourou: 429 `CHAT_DAILY_LIMIT` com `retry_after`, ANTES de abrir o SSE. Depois que o SSE abre, não há mais status HTTP (regra do `AI-PROVIDERS.md`).
+- **Um turno por vez na conversa:** pergunta sem resposta feita há menos de 180 s → 409 `CHAT_TURN_IN_PROGRESS`. A checagem não é atômica, então a resposta grava `reply_to` (a pergunta que ela responde) e o histórico pareia por ele, não pela ordem das linhas — duas abas no mesmo instante não embaralham mais o que o modelo lê.
 - **Corrida:** duas abas podem passar da contagem ao mesmo tempo. É aceito: o teto é freio de custo, não de segurança, e o excesso máximo é o número de abas.
 - **Tempo por turno:** 180 s de teto. O SSE manda comentário de keep-alive a cada 15 s enquanto o agente está em ferramenta, porque o idle do ALB é de 60 s. `c.req.raw.signal` aborta o laço, a lição do #308: cliente que sai não pode deixar o modelo rodando.
 - **Histórico enviado ao modelo:** as últimas 12 mensagens da conversa. As fontes são remontadas a cada turno e não entram no histórico.

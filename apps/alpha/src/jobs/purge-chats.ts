@@ -13,6 +13,7 @@
  * Ligar no deploy não apaga nada — nenhuma conversa alcança 180 dias antes de 180 dias.
  */
 
+import { purgeTurnUsage } from "../chat/rate-limit.ts"
 import { isPurgeable, purgeCutoff } from "../chat/retention.ts"
 import { removeThread, THREAD_COLUMNS, type ThreadRow } from "../chat/threads.ts"
 import { supabase } from "../db/supabase.ts"
@@ -30,10 +31,12 @@ const MAX_BATCHES = 20
 export interface PurgeReport {
 	removed: number
 	failed: number
+	/** Registros do teto diário que já saíram da janela (`chat_turn_usage`). */
+	usage: number
 }
 
 export async function purgeExpiredChats(now: Date = new Date()): Promise<PurgeReport> {
-	const report: PurgeReport = { removed: 0, failed: 0 }
+	const report: PurgeReport = { removed: 0, failed: 0, usage: await purgeTurnUsage(now) }
 	const failedIds = new Set<string>()
 
 	for (let batch = 0; batch < MAX_BATCHES; batch += 1) {

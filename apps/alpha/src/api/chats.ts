@@ -19,12 +19,12 @@ import { z } from "zod"
 import { runChatTurn } from "../chat/agent.ts"
 import { CHAT_ATTACHMENT_BUCKET, MAX_ATTACHMENTS_PER_THREAD } from "../chat/attachment-bucket.ts"
 import { resolveCitations } from "../chat/citations.ts"
-import { buildHistory, type StoredMessage } from "../chat/history.ts"
+import { buildHistory, hasTurnInProgress, type StoredMessage } from "../chat/history.ts"
 import { loadAttachmentSources, loadProcessSources, rememberDocument, SourceLoadError, toSections } from "../chat/load-sources.ts"
 import { chatModels } from "../chat/models.ts"
 import { searchNorms } from "../chat/norm-search.ts"
 import { buildSourcesBlock, CHAT_SYSTEM_RULES, conversationNonce } from "../chat/prompt.ts"
-import { dailyLimitState } from "../chat/rate-limit.ts"
+import { dailyLimitState, recordTurnUsage } from "../chat/rate-limit.ts"
 import { buildSourceBundle, type TurnSources } from "../chat/sources.ts"
 import { loadThread, presentThread, removeThread, THREAD_COLUMNS, type ThreadRow, touchThread } from "../chat/threads.ts"
 import { supabase } from "../db/supabase.ts"
@@ -340,20 +340,36 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 
 		const { data: stored, error: historyError } = await supabase
 			.from("chat_message")
-			.select("role, content, status")
+			.select("id, role, content, status, reply_to, created_at")
 			.eq("thread_id", thread.id)
 			.order("created_at", { ascending: true })
 		if (historyError) return failed(c, "MESSAGES_FAILED")
+		const storedMessages = (stored ?? []) as StoredMessage[]
 
-		// A pergunta é gravada ANTES do modelo: o teto diário a conta, e um turno que cai no
-		// meio continua no histórico da tela, seguido de "resposta interrompida".
-		const { error: insertError } = await supabase.from("chat_message").insert({ thread_id: thread.id, user_id: user.id, role: "user", content: message })
-		if (insertError) return failed(c, "MESSAGE_CREATE_FAILED")
+		// Um turno por vez na conversa: o segundo pagaria o modelo pelo mesmo contexto sem
+		// enxergar a resposta do primeiro. Checagem e gravação não são atômicas — duas abas no
+		// mesmo instante ainda passam —, e é por isso que a resposta aponta a pergunta
+		// (`reply_to`): o histórico continua certo mesmo quando a trava é vencida.
+		if (hasTurnInProgress(storedMessages, new Date(), TURN_TIMEOUT_MS)) {
+			return c.json({ error: "Conflict", code: "CHAT_TURN_IN_PROGRESS", message: "aguarde a resposta anterior terminar" }, 409)
+		}
+
+		// O teto conta ANTES de o modelo rodar, num registro que apagar a conversa não alcança.
+		if (!(await recordTurnUsage(user.id))) return failed(c, "RATE_LIMIT_RECORD_FAILED")
+
+		// A pergunta é gravada ANTES do modelo: um turno que cai no meio continua no histórico
+		// da tela, seguido de "resposta interrompida".
+		const { data: question, error: insertError } = await supabase
+			.from("chat_message")
+			.insert({ thread_id: thread.id, user_id: user.id, role: "user", content: message })
+			.select("id")
+			.single()
+		if (insertError || !question) return failed(c, "MESSAGE_CREATE_FAILED")
 		await touchThread(thread.id, thread.title ? {} : { title: titleFrom(message) })
 
 		const bundle = buildSourceBundle(sources.documents, env.ALPHA_CHAT_DOC_MAX_CHARS)
 		const sourcesBlock = buildSourcesBlock(sources, bundle, conversationNonce(thread.id))
-		const history = buildHistory((stored ?? []) as StoredMessage[])
+		const history = buildHistory(storedMessages)
 
 		return streamSSE(c, async (stream) => {
 			const run = new AbortController()
@@ -390,6 +406,7 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 						thread_id: thread.id,
 						user_id: user.id,
 						role: "assistant",
+						reply_to: question.id,
 						content: row.content,
 						citations: row.citations ?? [],
 						status: row.status,
