@@ -90,6 +90,25 @@ export interface SourceBundle {
 }
 
 /**
+ * Índice das seções com o caminho que o chat cita (`[D1:3.2]`).
+ *
+ * Vai também com o texto INTEGRAL, e não só no sumário: o caminho é o da árvore que
+ * `toSubmissionText` monta (contadores por nível), e nem sempre coincide com a numeração
+ * impressa — um parágrafo "220 V em corrente alternada" vira seção, e o "3. OBJETO" do texto
+ * passa a ser o caminho 4. Sem o índice o modelo citava pela numeração que via, e a citação
+ * resolvia para a seção errada (medido no e2e de 2026-09-22).
+ */
+export function outlineDocument(doc: DocumentSource): string {
+	return doc.nodes.map((node) => `${"  ".repeat(Math.max(0, node.level - 1))}${node.path} ${oneLine(node.title).slice(0, 160)}`).join("\n")
+}
+
+/** Texto integral precedido do índice — o que vai ao modelo quando a fonte cabe no orçamento. */
+export function fullDocument(doc: DocumentSource): string {
+	if (doc.nodes.length === 0) return doc.text
+	return `ÍNDICE DAS SEÇÕES (cite pelo caminho deste índice, que pode diferir da numeração do texto):\n${outlineDocument(doc)}\n\nTEXTO INTEGRAL:\n${doc.text}`
+}
+
+/**
  * Sumário estrutural de uma fonte: a árvore inteira (caminho, título, tamanho) e o começo
  * de cada seção de nível 1. Sem árvore (PDF sem numeração nenhuma), o começo do texto.
  */
@@ -126,7 +145,7 @@ export function buildSourceBundle(documents: readonly DocumentSource[], maxChars
 	}
 
 	const bundled = documents.map((doc): BundledDocument => {
-		if (fullLabels.has(doc.label)) return { label: doc.label, name: doc.name, form: "full", content: doc.text }
+		if (fullLabels.has(doc.label)) return { label: doc.label, name: doc.name, form: "full", content: fullDocument(doc) }
 		return { label: doc.label, name: doc.name, form: "summary", content: summarizeDocument(doc), totalChars: doc.text.length }
 	})
 

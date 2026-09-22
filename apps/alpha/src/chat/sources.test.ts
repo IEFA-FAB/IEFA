@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { makeDocument } from "./fixtures.test-helpers.ts"
-import { buildSourceBundle, labelFindings, SUMMARY_SECTION_PREVIEW_CHARS, summarizeDocument } from "./sources.ts"
+import { buildSourceBundle, fullDocument, labelFindings, SUMMARY_SECTION_PREVIEW_CHARS, summarizeDocument } from "./sources.ts"
 
 describe("buildSourceBundle", () => {
 	it("abaixo do teto, manda o texto integral e não liga as ferramentas de leitura", () => {
@@ -8,7 +8,11 @@ describe("buildSourceBundle", () => {
 		const bundle = buildSourceBundle([doc], 150_000)
 
 		expect(bundle.summarized).toBe(false)
-		expect(bundle.documents).toEqual([{ label: "D1", name: doc.name, form: "full", content: doc.text }])
+		expect(bundle.documents).toEqual([{ label: "D1", name: doc.name, form: "full", content: fullDocument(doc) }])
+		// O índice vai junto com o texto integral: é por ele que o modelo cita `[D1:caminho]`.
+		expect(bundle.documents[0].content).toStartWith("ÍNDICE DAS SEÇÕES")
+		expect(bundle.documents[0].content).toContain("  2.1 Necessidade")
+		expect(bundle.documents[0].content).toEndWith(doc.text)
 	})
 
 	it("acima do teto, manda o sumário e liga as ferramentas", () => {
