@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -149,9 +150,12 @@ function PermissionDialog({
 	const isEdit = dialog?.mode === "edit"
 	const isValid = form.scopeType === "global" || !!form.scopeId
 
-	const selectedUnit = units.find((u) => u.id === Number(form.scopeId))
-	const selectedKitchen = kitchens.find((k) => k.id === Number(form.scopeId))
-	const selectedMessHall = messHalls.find((m) => m.id === Number(form.scopeId))
+	const unitOptions = React.useMemo(() => units.map((u) => ({ value: String(u.id), label: u.display_name ?? u.code, keywords: u.code })), [units])
+	const kitchenOptions = React.useMemo(
+		() => kitchens.map((k) => ({ value: String(k.id), label: k.unit?.display_name ?? k.unit?.code ?? `Cozinha ${k.id}`, keywords: k.unit?.code ?? "" })),
+		[kitchens]
+	)
+	const messHallOptions = React.useMemo(() => messHalls.map((m) => ({ value: String(m.id), label: m.display_name ?? m.code, keywords: m.code })), [messHalls])
 
 	return (
 		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -235,18 +239,17 @@ function PermissionDialog({
 						<div className="grid grid-cols-4 items-center gap-3">
 							<Label className="text-right text-sm">Unidade</Label>
 							<div className="col-span-3">
-								<Select value={form.scopeId} onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}>
-									<SelectTrigger className="w-full">
-										<SelectValue placeholder="Selecione a OM...">{selectedUnit ? (selectedUnit.display_name ?? selectedUnit.code) : undefined}</SelectValue>
-									</SelectTrigger>
-									<SelectContent className={CONTENT_CLS}>
-										{units.map((u) => (
-											<SelectItem key={u.id} value={String(u.id)}>
-												{u.display_name ?? u.code}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<SearchableSelect
+									value={form.scopeId || null}
+									onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}
+									options={unitOptions}
+									placeholder="Selecione a OM..."
+									searchPlaceholder="Pesquisar OM…"
+									emptyLabel="Nenhuma OM encontrada."
+									unavailableLabel="OM indisponível"
+									aria-label="Unidade"
+									contentClassName={CONTENT_CLS}
+								/>
 							</div>
 						</div>
 					)}
@@ -255,20 +258,17 @@ function PermissionDialog({
 						<div className="grid grid-cols-4 items-center gap-3">
 							<Label className="text-right text-sm">Cozinha</Label>
 							<div className="col-span-3">
-								<Select value={form.scopeId} onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}>
-									<SelectTrigger className="w-full">
-										<SelectValue placeholder="Selecione a cozinha...">
-											{selectedKitchen ? (selectedKitchen.unit?.display_name ?? selectedKitchen.unit?.code ?? `Cozinha ${selectedKitchen.id}`) : undefined}
-										</SelectValue>
-									</SelectTrigger>
-									<SelectContent className={CONTENT_CLS}>
-										{kitchens.map((k) => (
-											<SelectItem key={k.id} value={String(k.id)}>
-												{k.unit?.display_name ?? k.unit?.code ?? `Cozinha ${k.id}`}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<SearchableSelect
+									value={form.scopeId || null}
+									onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}
+									options={kitchenOptions}
+									placeholder="Selecione a cozinha..."
+									searchPlaceholder="Pesquisar cozinha…"
+									emptyLabel="Nenhuma cozinha encontrada."
+									unavailableLabel="Cozinha indisponível"
+									aria-label="Cozinha"
+									contentClassName={CONTENT_CLS}
+								/>
 							</div>
 						</div>
 					)}
@@ -277,20 +277,17 @@ function PermissionDialog({
 						<div className="grid grid-cols-4 items-center gap-3">
 							<Label className="text-right text-sm">Refeitório</Label>
 							<div className="col-span-3">
-								<Select value={form.scopeId} onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}>
-									<SelectTrigger className="w-full">
-										<SelectValue placeholder="Selecione o refeitório...">
-											{selectedMessHall ? (selectedMessHall.display_name ?? selectedMessHall.code) : undefined}
-										</SelectValue>
-									</SelectTrigger>
-									<SelectContent className={CONTENT_CLS}>
-										{messHalls.map((m) => (
-											<SelectItem key={m.id} value={String(m.id)}>
-												{m.display_name ?? m.code}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<SearchableSelect
+									value={form.scopeId || null}
+									onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}
+									options={messHallOptions}
+									placeholder="Selecione o refeitório..."
+									searchPlaceholder="Pesquisar refeitório…"
+									emptyLabel="Nenhum refeitório encontrado."
+									unavailableLabel="Refeitório indisponível"
+									aria-label="Refeitório"
+									contentClassName={CONTENT_CLS}
+								/>
 							</div>
 						</div>
 					)}

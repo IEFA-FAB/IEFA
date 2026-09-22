@@ -1,7 +1,7 @@
 import { NATURE_LABELS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASON_LABELS, type StockAdjustmentReason } from "@iefa/sisub-domain"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { AlertTriangle, Check, ShieldAlert, SlidersHorizontal, Trash2, X } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { requirePermission, usePBAC } from "@/auth/pbac"
 import { ScanInput, scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/components/ui/toast"
@@ -108,19 +109,36 @@ function AdjustmentsPage() {
 	const { can } = usePBAC()
 	const canApprove = can("storage", 3, { type: "kitchen", id: Number(kitchenId) })
 
-	const lots: LotOption[] = balance.flatMap((item) =>
-		item.lots
-			.filter((lot) => lot.lot_id != null && lot.balance > 0)
-			.map((lot) => ({
-				lotId: lot.lot_id as string,
-				shortCode: lot.short_code,
-				description: item.description,
-				lotCode: lot.lot_code,
-				expiryDate: lot.expiry_date,
-				balance: lot.balance,
-				measureUnit: item.measureUnit,
-				quarantined: lot.quarantined,
-			}))
+	const lots: LotOption[] = useMemo(
+		() =>
+			balance.flatMap((item) =>
+				item.lots
+					.filter((lot) => lot.lot_id != null && lot.balance > 0)
+					.map((lot) => ({
+						lotId: lot.lot_id as string,
+						shortCode: lot.short_code,
+						description: item.description,
+						lotCode: lot.lot_code,
+						expiryDate: lot.expiry_date,
+						balance: lot.balance,
+						measureUnit: item.measureUnit,
+						quarantined: lot.quarantined,
+					}))
+			),
+		[balance]
+	)
+
+	// Uma cozinha abastecida chega a centenas de lotes com saldo, e o rótulo é
+	// longo (insumo · lote · saldo): sem busca, achar o lote certo é rolagem cega.
+	const lotOptions = useMemo(
+		() =>
+			lots.map((lot) => ({
+				value: lot.lotId,
+				label: `${lot.description} · ${lot.lotCode ?? lot.shortCode} · ${NUM.format(lot.balance)} ${lot.measureUnit ?? ""}`.trim(),
+				hint: [lot.expiryDate ? `val ${lot.expiryDate}` : null, lot.quarantined ? "em quarentena" : null].filter(Boolean).join(" · ") || undefined,
+				keywords: `${lot.shortCode} ${lot.lotCode ?? ""}`,
+			})),
+		[lots]
 	)
 
 	const [selectedLotId, setSelectedLotId] = useState<string>("")
@@ -292,24 +310,16 @@ function AdjustmentsPage() {
 					<div className="grid gap-3 md:grid-cols-2">
 						<div className="space-y-1">
 							<Label htmlFor="lot">Lote</Label>
-							<Select value={selectedLotId || null} onValueChange={(value) => setSelectedLotId(value ?? "")}>
-								<SelectTrigger id="lot">
-									<SelectValue>
-										{selectedLot
-											? `${selectedLot.description} · ${selectedLot.lotCode ?? selectedLot.shortCode} · ${NUM.format(selectedLot.balance)} ${selectedLot.measureUnit ?? ""}`
-											: "Escolha o lote"}
-									</SelectValue>
-								</SelectTrigger>
-								<SelectContent>
-									{lots.map((lot) => (
-										<SelectItem key={lot.lotId} value={lot.lotId}>
-											{lot.description} · {lot.lotCode ?? lot.shortCode} · {NUM.format(lot.balance)} {lot.measureUnit ?? ""}
-											{lot.expiryDate ? ` · val ${lot.expiryDate}` : ""}
-											{lot.quarantined ? " · em quarentena" : ""}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+							<SearchableSelect
+								id="lot"
+								value={selectedLotId || null}
+								onValueChange={(value) => setSelectedLotId(value ?? "")}
+								options={lotOptions}
+								placeholder="Escolha o lote"
+								searchPlaceholder="Pesquisar por insumo ou lote…"
+								emptyLabel="Nenhum lote com saldo."
+								unavailableLabel="Lote indisponível"
+							/>
 						</div>
 
 						<div className="space-y-1">

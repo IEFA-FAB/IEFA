@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -94,11 +95,11 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 		if (!dirty && requirements) setRows(requirements.map(toRow))
 	}, [requirements, dirty])
 
-	const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r])), [roles])
 	// Rótulo da etapa vem das sugestões do fluxo — a única fonte que a aba já carrega. Etapa
 	// sem sugestão cai no rótulo genérico: melhor "Etapa do fluxo" do que um uuid na tela.
 	const stepLabelById = useMemo(() => new Map(suggestions.map((s) => [s.recipe_step_id, s.step_label ?? s.utensil_name])), [suggestions])
-	const modelById = useMemo(() => new Map(models.map((m) => [m.id, m])), [models])
+	const roleOptions = useMemo(() => roles.map((role) => ({ value: role.id, label: role.name })), [roles])
+	const modelOptions = useMemo(() => models.map((model) => ({ value: model.id, label: modelLabel(model) })), [models])
 
 	const update = (key: string, patch: Partial<RequirementRow>) => {
 		setDirty(true)
@@ -208,146 +209,138 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 				</Empty>
 			) : (
 				<ul className="space-y-2">
-					{rows.map((row) => {
-						const selectedRole = row.roleId ? roleById.get(row.roleId) : undefined
-						const selectedModel = row.modelId ? modelById.get(row.modelId) : undefined
-						return (
-							<li key={row.key} className="rounded-lg border border-border p-3">
-								<div className="flex flex-wrap items-end gap-2">
-									<div className="w-28">
-										<span className="text-caption text-muted-foreground">Exigir por</span>
-										<Select
-											value={row.target}
-											onValueChange={(value) => update(row.key, { target: value as RequirementRow["target"], roleId: null, modelId: null })}
-										>
-											<SelectTrigger className="w-full">
-												<SelectValue>{row.target === "role" ? "Tipo" : "Modelo"}</SelectValue>
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="role">Tipo</SelectItem>
-												<SelectItem value="model">Modelo</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
-
-									<div className="min-w-56 flex-1">
-										<span className="text-caption text-muted-foreground">{row.target === "role" ? "Tipo de equipamento" : "Modelo específico"}</span>
-										{row.target === "role" ? (
-											<Select value={row.roleId} onValueChange={(value) => update(row.key, { roleId: value as string })}>
-												<SelectTrigger className="w-full">
-													<SelectValue>{selectedRole?.name ?? "Selecione o tipo"}</SelectValue>
-												</SelectTrigger>
-												<SelectContent>
-													{roles.map((role) => (
-														<SelectItem key={role.id} value={role.id}>
-															{role.name}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
-										) : (
-											<Select value={row.modelId} onValueChange={(value) => update(row.key, { modelId: value as string })}>
-												<SelectTrigger className="w-full">
-													<SelectValue>{selectedModel ? modelLabel(selectedModel) : "Selecione o modelo"}</SelectValue>
-												</SelectTrigger>
-												<SelectContent>
-													{models.map((model) => (
-														<SelectItem key={model.id} value={model.id}>
-															{modelLabel(model)}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
-										)}
-									</div>
-
-									<div className="w-20">
-										<span className="text-caption text-muted-foreground">Qtd.</span>
-										<Input
-											type="number"
-											min={1}
-											max={99}
-											value={row.quantity}
-											onChange={(e) => update(row.key, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-										/>
-									</div>
-
-									<div className="w-28">
-										<span className="text-caption text-muted-foreground">Capac. mín.</span>
-										<Input
-											type="number"
-											min={1}
-											placeholder="opcional"
-											value={row.capacityValue ?? ""}
-											onChange={(e) => update(row.key, { capacityValue: e.target.value === "" ? null : Number(e.target.value) })}
-										/>
-									</div>
-
-									<div className="w-20">
-										<span className="text-caption text-muted-foreground">Unid.</span>
-										<Select value={row.capacityUnit} onValueChange={(value) => update(row.key, { capacityUnit: value as CapacityUnit })}>
-											<SelectTrigger className="w-full">
-												<SelectValue>{row.capacityUnit}</SelectValue>
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="L">L</SelectItem>
-												<SelectItem value="GN">GN</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
-
-									<Button type="button" variant="ghost" size="icon" onClick={() => removeRow(row.key)} aria-label="Remover exigência">
-										<Trash2 className="size-4" />
-									</Button>
+					{rows.map((row) => (
+						<li key={row.key} className="rounded-lg border border-border p-3">
+							<div className="flex flex-wrap items-end gap-2">
+								<div className="w-28">
+									<span className="text-caption text-muted-foreground">Exigir por</span>
+									<Select
+										value={row.target}
+										onValueChange={(value) => update(row.key, { target: value as RequirementRow["target"], roleId: null, modelId: null })}
+									>
+										<SelectTrigger className="w-full">
+											<SelectValue>{row.target === "role" ? "Tipo" : "Modelo"}</SelectValue>
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="role">Tipo</SelectItem>
+											<SelectItem value="model">Modelo</SelectItem>
+										</SelectContent>
+									</Select>
 								</div>
 
-								<div className="mt-2 flex flex-wrap items-end gap-2">
-									{/* O vínculo com a etapa decide concorrência (etapas em níveis diferentes do DAG
-									    não competem), então precisa ser visível — e desfazível sem apagar a linha. */}
-									{row.recipeStepId != null ? (
-										<Badge variant="secondary" className="mb-1">
-											{stepLabelById.get(row.recipeStepId) ?? "Etapa do fluxo"}
-											<button type="button" className="ml-1 underline" onClick={() => update(row.key, { recipeStepId: null })} aria-label="Desamarrar da etapa">
-												desamarrar
-											</button>
-										</Badge>
-									) : null}
-									<div className="w-40">
-										<span className="text-caption text-muted-foreground">Escala</span>
-										<Select value={row.scaling} onValueChange={(value) => update(row.key, { scaling: value as EquipmentScaling })}>
-											<SelectTrigger className="w-full">
-												<SelectValue>{row.scaling === "fixed" ? "Fixo na leva" : "Por batelada"}</SelectValue>
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="per_batch">Por batelada</SelectItem>
-												<SelectItem value="fixed">Fixo na leva</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
+								<div className="min-w-56 flex-1">
+									<span className="text-caption text-muted-foreground">{row.target === "role" ? "Tipo de equipamento" : "Modelo específico"}</span>
+									{row.target === "role" ? (
+										<SearchableSelect
+											value={row.roleId}
+											onValueChange={(value) => update(row.key, { roleId: value })}
+											options={roleOptions}
+											placeholder="Selecione o tipo"
+											searchPlaceholder="Pesquisar tipo…"
+											emptyLabel="Nenhum tipo encontrado."
+											unavailableLabel="Tipo indisponível"
+											aria-label="Tipo de equipamento"
+										/>
+									) : (
+										<SearchableSelect
+											value={row.modelId}
+											onValueChange={(value) => update(row.key, { modelId: value })}
+											options={modelOptions}
+											placeholder="Selecione o modelo"
+											searchPlaceholder="Pesquisar modelo…"
+											emptyLabel="Nenhum modelo encontrado."
+											unavailableLabel="Modelo indisponível"
+											aria-label="Modelo específico"
+										/>
+									)}
+								</div>
 
-									{row.scaling === "per_batch" ? (
-										<div className="w-32">
-											<span className="text-caption text-muted-foreground">Porções/batelada</span>
-											<Input
-												type="number"
-												min={1}
-												placeholder="rendimento"
-												value={row.batchPortions ?? ""}
-												onChange={(e) => update(row.key, { batchPortions: e.target.value === "" ? null : Number(e.target.value) })}
-											/>
-										</div>
-									) : null}
-
+								<div className="w-20">
+									<span className="text-caption text-muted-foreground">Qtd.</span>
 									<Input
-										className="min-w-56 flex-1"
-										placeholder="Observação (ex.: cocção sob pressão por 25 min)"
-										value={row.notes ?? ""}
-										onChange={(e) => update(row.key, { notes: e.target.value === "" ? null : e.target.value })}
+										type="number"
+										min={1}
+										max={99}
+										value={row.quantity}
+										onChange={(e) => update(row.key, { quantity: Math.max(1, Number(e.target.value) || 1) })}
 									/>
 								</div>
-							</li>
-						)
-					})}
+
+								<div className="w-28">
+									<span className="text-caption text-muted-foreground">Capac. mín.</span>
+									<Input
+										type="number"
+										min={1}
+										placeholder="opcional"
+										value={row.capacityValue ?? ""}
+										onChange={(e) => update(row.key, { capacityValue: e.target.value === "" ? null : Number(e.target.value) })}
+									/>
+								</div>
+
+								<div className="w-20">
+									<span className="text-caption text-muted-foreground">Unid.</span>
+									<Select value={row.capacityUnit} onValueChange={(value) => update(row.key, { capacityUnit: value as CapacityUnit })}>
+										<SelectTrigger className="w-full">
+											<SelectValue>{row.capacityUnit}</SelectValue>
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="L">L</SelectItem>
+											<SelectItem value="GN">GN</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+
+								<Button type="button" variant="ghost" size="icon" onClick={() => removeRow(row.key)} aria-label="Remover exigência">
+									<Trash2 className="size-4" />
+								</Button>
+							</div>
+
+							<div className="mt-2 flex flex-wrap items-end gap-2">
+								{/* O vínculo com a etapa decide concorrência (etapas em níveis diferentes do DAG
+									    não competem), então precisa ser visível — e desfazível sem apagar a linha. */}
+								{row.recipeStepId != null ? (
+									<Badge variant="secondary" className="mb-1">
+										{stepLabelById.get(row.recipeStepId) ?? "Etapa do fluxo"}
+										<button type="button" className="ml-1 underline" onClick={() => update(row.key, { recipeStepId: null })} aria-label="Desamarrar da etapa">
+											desamarrar
+										</button>
+									</Badge>
+								) : null}
+								<div className="w-40">
+									<span className="text-caption text-muted-foreground">Escala</span>
+									<Select value={row.scaling} onValueChange={(value) => update(row.key, { scaling: value as EquipmentScaling })}>
+										<SelectTrigger className="w-full">
+											<SelectValue>{row.scaling === "fixed" ? "Fixo na leva" : "Por batelada"}</SelectValue>
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="per_batch">Por batelada</SelectItem>
+											<SelectItem value="fixed">Fixo na leva</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+
+								{row.scaling === "per_batch" ? (
+									<div className="w-32">
+										<span className="text-caption text-muted-foreground">Porções/batelada</span>
+										<Input
+											type="number"
+											min={1}
+											placeholder="rendimento"
+											value={row.batchPortions ?? ""}
+											onChange={(e) => update(row.key, { batchPortions: e.target.value === "" ? null : Number(e.target.value) })}
+										/>
+									</div>
+								) : null}
+
+								<Input
+									className="min-w-56 flex-1"
+									placeholder="Observação (ex.: cocção sob pressão por 25 min)"
+									value={row.notes ?? ""}
+									onChange={(e) => update(row.key, { notes: e.target.value === "" ? null : e.target.value })}
+								/>
+							</div>
+						</li>
+					))}
 				</ul>
 			)}
 

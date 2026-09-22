@@ -29,6 +29,7 @@ import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
+import { Combobox } from "#/components/ui/combobox"
 import { FileDropzone, SPREADSHEET_ACCEPT } from "#/components/ui/file-dropzone"
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
@@ -668,6 +669,11 @@ DIREF/SUCONT/SUCONT-3
 		return Array.from(new Set(list))
 	}, [])
 
+	const racFilterItems = useMemo(
+		() => [{ value: "all", label: "Todas as questões" }, ...racQuestionsList.map((q) => ({ value: q, label: q }))],
+		[racQuestionsList]
+	)
+
 	// ── Render ─────────────────────────────────────────────────────────────────
 
 	const guide = (
@@ -798,19 +804,14 @@ DIREF/SUCONT/SUCONT-3
 							<div className="flex flex-wrap items-end gap-6">
 								<div className="flex flex-col gap-2">
 									<Label htmlFor="rac-filter">Questão do RAC</Label>
-									<Select items={{ all: "Todas as questões" }} value={racFilter} onValueChange={(v) => setRacFilter(v ?? "all")}>
-										<SelectTrigger id="rac-filter" className="w-56">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="all">Todas as questões</SelectItem>
-											{racQuestionsList.map((q) => (
-												<SelectItem key={q} value={q}>
-													{q}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+									<Combobox
+										id="rac-filter"
+										value={racFilter}
+										onValueChange={setRacFilter}
+										items={racFilterItems}
+										className="w-56"
+										aria-label="Questão do RAC"
+									/>
 								</div>
 								<div className="flex flex-col gap-2">
 									<Label htmlFor="conferente-filter-select">Conferente</Label>

@@ -22,6 +22,8 @@ export interface ComboboxOption {
 }
 
 interface ComboboxProps {
+	/** Vai no campo de busca — é ele que o `<Label htmlFor>` precisa alcançar. */
+	id?: string
 	value: string
 	onValueChange: (value: string) => void
 	items: ComboboxOption[]
@@ -29,10 +31,26 @@ interface ComboboxProps {
 	/** Texto do estado vazio da busca. */
 	emptyLabel?: string
 	className?: string
+	/**
+	 * Sobrepõe o campo de busca. Existe para o filtro que mora DENTRO de uma
+	 * pílula ("Questão RAC: …"), onde a borda do campo desenharia uma caixa
+	 * dentro da caixa.
+	 */
+	inputClassName?: string
 	"aria-label"?: string
 }
 
-export function Combobox({ value, onValueChange, items, placeholder = "Selecione…", emptyLabel = "Nenhum resultado", className, ...props }: ComboboxProps) {
+export function Combobox({
+	id,
+	value,
+	onValueChange,
+	items,
+	placeholder = "Selecione…",
+	emptyLabel = "Nenhum resultado",
+	className,
+	inputClassName,
+	...props
+}: ComboboxProps) {
 	const selected = items.find((i) => i.value === value) ?? null
 
 	return (
@@ -51,12 +69,14 @@ export function Combobox({ value, onValueChange, items, placeholder = "Selecione
 		>
 			<div className={cn("relative", className)}>
 				<ComboboxPrimitive.Input
+					id={id}
 					placeholder={placeholder}
 					aria-label={props["aria-label"]}
 					className={cn(
 						"h-9 w-full min-w-0 cursor-pointer rounded-md border border-input bg-transparent py-1 pr-8 pl-3 text-sm shadow-xs outline-none transition-[color,box-shadow]",
 						"placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-						"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+						"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
+						inputClassName
 					)}
 				/>
 				<ComboboxPrimitive.Trigger

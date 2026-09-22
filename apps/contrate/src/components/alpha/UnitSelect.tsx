@@ -1,6 +1,6 @@
 import type { UnitOption } from "@iefa/alpha-client/access"
 import { useMemo } from "react"
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { formatUnit, groupUnitsBySupport } from "@/lib/scope"
 import { cn } from "@/lib/utils"
 
@@ -10,8 +10,12 @@ export const GLOBAL_UNIT = "global"
 export type UnitChoice = number | typeof GLOBAL_UNIT
 
 /**
- * Seletor de OM, agrupado pela hierarquia de APOIO (a apoiadora abre o grupo, as apoiadas
- * vêm em seguida). Serve ao envio do documento e à concessão de acesso.
+ * Seletor de OM, ordenado pela hierarquia de APOIO (a apoiadora abre o bloco, as apoiadas
+ * vêm em seguida) e com busca. Serve ao envio do documento e à concessão de acesso.
+ *
+ * O apoio deixou de ser cabeçalho de grupo e virou a segunda linha de cada item: com filtro
+ * por texto, um rótulo de grupo que some quando a busca corta todos os filhos deixa o
+ * resultado sem o contexto que ele carregava. Na linha do item, o contexto vem junto.
  *
  * `null` é "ainda não escolhida": o placeholder aparece e quem usa desabilita a ação — OM
  * errada decide quem enxerga o documento, então nada é pré-escolhido às cegas.
@@ -36,36 +40,31 @@ export function UnitSelect({
 	className?: string
 	disabled?: boolean
 }) {
-	const groups = useMemo(() => groupUnitsBySupport(units), [units])
-	const selected = typeof value === "number" ? units.find((unit) => unit.id === value) : undefined
-	const label = value === GLOBAL_UNIT ? "Global (todas as OMs)" : selected ? formatUnit(selected) : typeof value === "number" ? `OM ${value}` : placeholder
+	const options = useMemo(() => {
+		const fromGroups = groupUnitsBySupport(units).flatMap((group) =>
+			group.units.map((unit) => ({
+				value: String(unit.id),
+				label: formatUnit(unit),
+				hint: group.label,
+				keywords: `${unit.code} ${unit.display_name ?? ""}`,
+			}))
+		)
+		return allowGlobal ? [{ value: GLOBAL_UNIT, label: "Global (todas as OMs)" }, ...fromGroups] : fromGroups
+	}, [units, allowGlobal])
 
 	return (
-		<Select<UnitChoice | null> value={value} onValueChange={(next) => onChange(next)} disabled={disabled}>
-			<SelectTrigger id={id} className={cn("w-full min-w-0 max-w-md", className)}>
-				<SelectValue className={value === null ? "text-muted-foreground" : undefined}>{label}</SelectValue>
-			</SelectTrigger>
-			<SelectContent className="max-h-80" alignItemWithTrigger={false}>
-				{allowGlobal ? (
-					<>
-						<SelectGroup>
-							<SelectItem value={GLOBAL_UNIT}>Global (todas as OMs)</SelectItem>
-						</SelectGroup>
-						<SelectSeparator />
-					</>
-				) : null}
-				{groups.map((group) => (
-					<SelectGroup key={group.supportingUnitId ?? "demais"}>
-						<SelectLabel className="text-label">{group.label}</SelectLabel>
-						{group.units.map((unit) => (
-							<SelectItem key={unit.id} value={unit.id}>
-								<span className="font-medium">{unit.code}</span>
-								{unit.display_name && unit.display_name !== unit.code ? <span className="truncate text-muted-foreground">{unit.display_name}</span> : null}
-							</SelectItem>
-						))}
-					</SelectGroup>
-				))}
-			</SelectContent>
-		</Select>
+		<SearchableSelect
+			id={id}
+			value={value === null ? null : String(value)}
+			onValueChange={(next) => onChange(next === null ? null : next === GLOBAL_UNIT ? GLOBAL_UNIT : Number(next))}
+			options={options}
+			disabled={disabled}
+			placeholder={placeholder}
+			searchPlaceholder="Pesquisar OM…"
+			emptyLabel="Nenhuma OM encontrada."
+			unavailableLabel={typeof value === "number" ? `OM ${value}` : undefined}
+			className={cn("w-full min-w-0 max-w-md", className)}
+			aria-label="OM"
+		/>
 	)
 }

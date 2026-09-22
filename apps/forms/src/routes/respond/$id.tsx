@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { useAutoSave } from "@/hooks/useAutoSave"
@@ -20,6 +20,9 @@ import { CONFORMITY_OPTIONS, type ConformityOptions } from "@/lib/conformity"
 import { myResponseStateQueryOptions, omOptionsQueryOptions, questionnaireQueryOptions } from "@/lib/queries"
 import { assertUuidParam } from "@/lib/route-params"
 import { type getMyResponseStateFn, getOrCreateResponseSessionFn, submitResponseFn } from "@/server/forms.fn"
+
+/** Sentinela da OM fora da lista — o nome real vem do campo de texto ao lado. */
+const OM_OTHER = "__outro"
 
 export const Route = createFileRoute("/respond/$id")({
 	beforeLoad: ({ context, location, params }) => {
@@ -372,8 +375,10 @@ function MetadataStep({
 	const [state, dispatch] = useReducer(metadataReducer, initialMetadataState)
 	const { evaluationType, om, omCustom, secao } = state
 	const { data: omOptions = [] } = useQuery(omOptionsQueryOptions())
+	// A lista de OMs ativas já passa de 25 — e quem responde procura a própria sigla.
+	const omSelectOptions = useMemo(() => [...omOptions.map((o) => ({ value: o.name, label: o.name })), { value: OM_OTHER, label: "Outro…" }], [omOptions])
 
-	const resolvedOm = om === "__outro" ? omCustom.trim() : (om ?? "")
+	const resolvedOm = om === OM_OTHER ? omCustom.trim() : (om ?? "")
 	const canSubmit = evaluationType && resolvedOm && secao.trim()
 
 	// Criação de sessão é escrita: como mutation ela ganha erro tratado e o
@@ -415,22 +420,16 @@ function MetadataStep({
 
 				<div className="space-y-2">
 					<Label className="text-sm font-medium">OM (Organização Militar)</Label>
-					<Select value={om ?? null} onValueChange={(v) => dispatch({ type: "SET_OM", value: v })}>
-						<SelectTrigger className="w-full">
-							<SelectValue placeholder="Selecione a OM…">
-								{om === "__outro" ? "Outro" : om ? (omOptions.find((o) => o.name === om)?.name ?? om) : undefined}
-							</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							{omOptions.map((o) => (
-								<SelectItem key={o.id} value={o.name}>
-									{o.name}
-								</SelectItem>
-							))}
-							<SelectItem value="__outro">Outro…</SelectItem>
-						</SelectContent>
-					</Select>
-					{om === "__outro" && (
+					<SearchableSelect
+						value={om ?? null}
+						onValueChange={(v) => dispatch({ type: "SET_OM", value: v })}
+						options={omSelectOptions}
+						placeholder="Selecione a OM…"
+						searchPlaceholder="Pesquisar OM…"
+						emptyLabel="Nenhuma OM encontrada."
+						aria-label="OM (Organização Militar)"
+					/>
+					{om === OM_OTHER && (
 						<Input
 							value={omCustom}
 							onChange={(e) => dispatch({ type: "SET_OM_CUSTOM", value: e.target.value })}

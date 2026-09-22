@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -90,6 +91,7 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 
 	const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r])), [roles])
 	const modelById = useMemo(() => new Map(models.map((m) => [m.id, m])), [models])
+	const modelOptions = useMemo(() => models.map((model) => ({ value: model.id, label: modelLabel(model) })), [models])
 	const selectedModel = form.modelId ? modelById.get(form.modelId) : undefined
 	const modelRoleIds = useMemo(() => (selectedModel?.roles ?? []).map((r) => r.role_id), [selectedModel])
 
@@ -230,18 +232,16 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 						<Field>
 							<FieldLabel htmlFor="equipment-model">Modelo</FieldLabel>
 							<FieldContent>
-								<Select value={form.modelId} onValueChange={(value) => setForm((f) => ({ ...f, modelId: value as string }))}>
-									<SelectTrigger id="equipment-model" className="w-full">
-										<SelectValue>{selectedModel ? modelLabel(selectedModel) : "Selecione o modelo"}</SelectValue>
-									</SelectTrigger>
-									<SelectContent>
-										{models.map((model) => (
-											<SelectItem key={model.id} value={model.id}>
-												{modelLabel(model)}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<SearchableSelect
+									id="equipment-model"
+									value={form.modelId}
+									onValueChange={(value) => setForm((f) => ({ ...f, modelId: value }))}
+									options={modelOptions}
+									placeholder="Selecione o modelo"
+									searchPlaceholder="Pesquisar modelo…"
+									emptyLabel="Nenhum modelo encontrado."
+									unavailableLabel="Modelo indisponível"
+								/>
 							</FieldContent>
 						</Field>
 

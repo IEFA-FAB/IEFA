@@ -1,4 +1,3 @@
-import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
 import {
 	closestCorners,
 	DndContext,
@@ -14,6 +13,7 @@ import {
 } from "@dnd-kit/core"
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
 import { ArrowRightLeft, ClipboardPaste, Copy, GripVertical, Percent, Plus, Users, X } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"

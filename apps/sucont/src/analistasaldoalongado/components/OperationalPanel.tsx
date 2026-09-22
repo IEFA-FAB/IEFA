@@ -15,6 +15,7 @@ import {
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, LabelList, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import { Button } from "#/components/ui/button"
+import { Combobox } from "#/components/ui/combobox"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { StatTile } from "#/components/ui/stat-tile"
@@ -23,7 +24,7 @@ import { getConferente } from "#/lib/ug/registry"
 import type { DashboardMetrics, UgConsolidated } from "../utils/analytics"
 import { exportElementToImage, exportToExcel } from "../utils/exportUtils"
 import { getUgHierarchy } from "../utils/hierarchy"
-import { getQuestaoByAccount, RAC_MAPPING } from "../utils/rac"
+import { getQuestaoByAccount, RAC_MAPPING, RAC_QUESTIONS } from "../utils/rac"
 import { ConsolidatedMessageModal } from "./ConsolidatedMessageModal"
 
 interface OperationalPanelProps {
@@ -37,18 +38,13 @@ const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", { style
 type ChartClickEvent = { activePayload?: Array<{ payload: UgConsolidated }> }
 
 const CONFERENTES_LIST = ["1S ELIANA", "1T JEFFERSON LUÍS", "1T ÉRIKA VICENTE", "2S PÂMELA"]
-const RAC_QUESTIONS = Object.keys(RAC_MAPPING).sort((a, b) => {
-	const numA = parseInt(a.replace("Questão ", ""), 10)
-	const numB = parseInt(b.replace("Questão ", ""), 10)
-	return numA - numB
-})
-
 export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps) {
 	const [searchTerm, setSearchTerm] = useState("")
 	const [sortField, setSortField] = useState<keyof UgConsolidated | "conferente" | "orgaoSuperior" | "ods">("saldo_total")
 	const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 	const [selectedConferente, setSelectedConferente] = useState<string>("Geral")
 	const [selectedRac, setSelectedRac] = useState<string>("Geral")
+	const racItems = useMemo(() => [{ value: "Geral", label: "Todas as Questões" }, ...RAC_QUESTIONS.map((q) => ({ value: q, label: q }))], [])
 	const [selectedOds, _setSelectedOds] = useState<string>("Geral")
 	const [isConsolidatedModalOpen, setIsConsolidatedModalOpen] = useState(false)
 
@@ -184,23 +180,14 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 					<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
 						<Filter className="w-4 h-4 text-muted-foreground" />
 						<span className="text-caption text-muted-foreground">Questão RAC:</span>
-						<Select
-							items={{ Geral: "Todas as Questões", ...Object.fromEntries(RAC_QUESTIONS.map((q) => [q, q])) }}
+						<Combobox
 							value={selectedRac}
-							onValueChange={(v) => setSelectedRac(v ?? "Geral")}
-						>
-							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-action shadow-none focus-visible:ring-0">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="Geral">Todas as Questões</SelectItem>
-								{RAC_QUESTIONS.map((q) => (
-									<SelectItem key={q} value={q}>
-										{q}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+							onValueChange={setSelectedRac}
+							items={racItems}
+							className="w-44"
+							inputClassName="h-auto cursor-text border-none bg-transparent p-0 pr-7 text-caption text-action shadow-none focus-visible:ring-0 dark:bg-transparent"
+							aria-label="Questão RAC"
+						/>
 					</div>
 				</div>
 			</div>
