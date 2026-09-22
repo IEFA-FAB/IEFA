@@ -368,6 +368,8 @@ type DigestLine = {
 	preparationName: string | null
 	productionRecipeId: string | null
 	sourceIngredientAllergens: string[] | null
+	/** Insumo ou preparação da linha está na lixeira: o nome segue, os alergênicos não valem. */
+	deleted: boolean
 }
 
 async function loadDigestLines(db: SisubDb, recipeIds: string[]): Promise<DigestLine[]> {
@@ -397,12 +399,15 @@ async function loadDigestLines(db: SisubDb, recipeIds: string[]): Promise<Digest
 		return [
 			{
 				recipeId: r.recipeId,
-				// Insumo/preparação soft-deletado não vaza pela relação — mesmo critério de `fetchRecipe`.
-				ingredientName: r.ingredientDeletedAt ? null : r.ingredientName,
-				ingredientAllergens: r.ingredientDeletedAt ? null : r.ingredientAllergens,
-				preparationName: r.preparationDeletedAt ? null : r.preparationName,
+				ingredientName: r.ingredientName,
+				ingredientAllergens: r.ingredientAllergens,
+				preparationName: r.preparationName,
+				// Preparação na lixeira não desce para a ficha de produção: a linha já é "não conferida".
 				productionRecipeId: r.preparationDeletedAt ? null : r.productionRecipeId,
-				sourceIngredientAllergens: r.preparationDeletedAt ? null : r.sourceIngredientAllergens,
+				sourceIngredientAllergens: r.sourceIngredientAllergens,
+				// Insumo na lixeira ainda está na ficha — a cozinha usa o que a ficha diz. Tratar
+				// como "sem alergênicos" apagaria da folha o glúten da farinha excluída do catálogo.
+				deleted: (r.ingredientName != null && r.ingredientDeletedAt != null) || (r.preparationName != null && r.preparationDeletedAt != null),
 			},
 		]
 	})
@@ -455,6 +460,7 @@ export async function listRecipeIngredientDigests(db: SisubDb, ctx: UserContext,
 		return acc
 	}
 	const lineAllergens = (line: DigestLine, trail: Set<string>): Set<string> | null => {
+		if (line.deleted) return null
 		if (line.ingredientName != null) return new Set(line.ingredientAllergens ?? [])
 		if (line.preparationName == null) return new Set()
 		const fromRecipe = line.productionRecipeId ? recipeAllergens(line.productionRecipeId, trail) : null
@@ -464,20 +470,21 @@ export async function listRecipeIngredientDigests(db: SisubDb, ctx: UserContext,
 	}
 
 	return recipeIds.map((recipeId) => {
-		const ingredients: RecipeIngredientDigest["ingredients"] = []
+		// Nome repetido na ficha (o mesmo insumo em duas linhas, ou dois com a mesma descrição)
+		// sai uma vez só — com a UNIÃO dos alergênicos, nunca só os da primeira linha.
+		const byName = new Map<string, { name: string; allergens: Set<string> }>()
 		const unresolved: string[] = []
-		const seen = new Set<string>()
 		for (const line of linesByRecipe.get(recipeId) ?? []) {
 			const name = (line.ingredientName ?? line.preparationName)?.trim()
 			if (!name) continue
 			const allergens = lineAllergens(line, new Set([recipeId]))
 			if (allergens == null) unresolved.push(name)
-			// A mesma linha pode aparecer duas vezes (insumo repetido na ficha): uma basta na folha.
 			const key = name.toLocaleLowerCase("pt-BR")
-			if (seen.has(key)) continue
-			seen.add(key)
-			ingredients.push({ name, allergens: normalizeAllergens([...(allergens ?? [])]) })
+			const entry = byName.get(key) ?? { name, allergens: new Set<string>() }
+			for (const a of allergens ?? []) entry.allergens.add(a)
+			byName.set(key, entry)
 		}
+		const ingredients = [...byName.values()].map((e) => ({ name: e.name, allergens: normalizeAllergens([...e.allergens]) }))
 		return { recipe_id: recipeId, ingredients, unresolved: [...new Set(unresolved)] }
 	})
 }

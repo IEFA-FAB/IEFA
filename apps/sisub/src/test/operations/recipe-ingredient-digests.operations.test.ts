@@ -107,6 +107,36 @@ describeSupabaseIntegration("recipe ingredient digests (alergênicos)", () => {
 		expect(digest.unresolved[0]).toMatch(/^\[TEST\] Congelada /)
 	})
 
+	test("insumo na lixeira vira 'não conferido'; nome repetido une os alergênicos", async () => {
+		if (!reachable || !seeder || !db) return
+		const farinha = await seeder.seedIngredient()
+		const molhoA = await seeder.seedIngredient()
+		const molhoB = await seeder.seedIngredient()
+		await updateIngredientAllergens(db, ctx, { id: farinha, allergens: ["gluten"] })
+		await updateIngredientAllergens(db, ctx, { id: molhoB, allergens: ["leite"] })
+		const nome = uid("[TEST] Molho branco ")
+		for (const id of [molhoA, molhoB]) {
+			const { error } = await client.schema("kitchen").from("ingredient").update({ description: nome }).eq("id", id)
+			if (error) throw new Error(error.message)
+		}
+		const { error: delError } = await client.schema("kitchen").from("ingredient").update({ deleted_at: new Date().toISOString() }).eq("id", farinha)
+		if (delError) throw new Error(delError.message)
+
+		const prato = await seeder.seedRecipe({
+			ingredients: [
+				{ ingredientId: farinha, netQuantity: 100 },
+				{ ingredientId: molhoA, netQuantity: 50 },
+				{ ingredientId: molhoB, netQuantity: 50 },
+			],
+		})
+
+		const [digest] = await listRecipeIngredientDigests(db, ctx, { recipeIds: [prato] })
+		expect(digest.ingredients).toHaveLength(2)
+		expect(digest.unresolved).toHaveLength(1)
+		expect(digest.unresolved[0]).toMatch(/^\[TEST\] Insumo /)
+		expect(digest.ingredients.find((i) => i.name === nome)?.allergens).toEqual(["leite"])
+	})
+
 	test("valor fora do vocabulário é recusado pelo CHECK do banco", async () => {
 		if (!reachable || !seeder) return
 		const id = await seeder.seedIngredient()

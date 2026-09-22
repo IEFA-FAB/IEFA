@@ -225,7 +225,8 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	})
 	const digestsById = useMemo(() => (digestsQuery.data ? new Map(digestsQuery.data.map((d) => [d.recipe_id, d])) : undefined), [digestsQuery.data])
 	// Sem os ingredientes, a folha sairia sem a informação pedida — segura a impressão até chegar.
-	const ingredientsPending = wantsIngredients && originIds.length > 0 && !digestsQuery.data
+	// Só enquanto CARREGA: em erro a impressão volta (sem ingredientes) e a barra oferece de novo.
+	const ingredientsPending = wantsIngredients && originIds.length > 0 && digestsQuery.isPending
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
 	useEffect(() => setMounted(true), [])
@@ -498,7 +499,14 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 						</SelectContent>
 					</Select>
 				</div>
-				{digestsQuery.isError && <span className="text-destructive">Não foi possível carregar os ingredientes.</span>}
+				{digestsQuery.isError && (
+					<span className="flex items-center gap-2 text-destructive">
+						Não foi possível carregar os ingredientes — a folha sai sem eles.
+						<Button variant="outline" size="sm" onClick={() => void digestsQuery.refetch()}>
+							Tentar de novo
+						</Button>
+					</span>
+				)}
 			</div>
 
 			{/* Documento — cópia editável, na tela */}
