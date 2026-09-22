@@ -8,12 +8,13 @@ import { beforeEach, describe, expect, mock, test } from "bun:test"
 
 type Row = Record<string, unknown>
 
-const state: { threads: Row[]; attachments: Row[]; failRemoveFor: Set<string>; removed: string[]; usage: Row[] } = {
+const state: { threads: Row[]; attachments: Row[]; failRemoveFor: Set<string>; removed: string[]; usage: Row[]; failUsage: boolean } = {
 	threads: [],
 	attachments: [],
 	failRemoveFor: new Set(),
 	removed: [],
 	usage: [],
+	failUsage: false,
 }
 
 function from(table: string) {
@@ -23,6 +24,7 @@ function from(table: string) {
 	const matched = () => rows().filter((row) => filters.every((f) => f(row)))
 	const run = () => {
 		const hit = matched()
+		if (verb === "delete" && table === "chat_turn_usage" && state.failUsage) return { data: null, error: { message: "relation does not exist" } }
 		if (verb === "delete" && table === "chat_turn_usage") {
 			state.usage = state.usage.filter((row) => !hit.includes(row))
 			return { data: hit, error: null }
@@ -84,6 +86,7 @@ const NOW = new Date("2026-09-22T12:00:00Z")
 const daysAgo = (days: number) => new Date(NOW.getTime() - days * 24 * 60 * 60 * 1000).toISOString()
 
 beforeEach(() => {
+	state.failUsage = false
 	state.failRemoveFor = new Set()
 	state.removed = []
 	state.threads = [
@@ -121,5 +124,13 @@ describe("purgeExpiredChats", () => {
 		expect(report).toEqual({ removed: 0, failed: 1, usage: 1 })
 		expect(state.threads.map((row) => row.id)).toContain("old-loose")
 		expect(state.attachments).toHaveLength(2)
+	})
+
+	test("falha na faxina do teto diário não impede o expurgo das conversas", async () => {
+		state.failUsage = true
+		const report = await purgeExpiredChats(NOW)
+
+		expect(report).toEqual({ removed: 1, failed: 0, usage: 0 })
+		expect(state.threads.map((row) => row.id)).not.toContain("old-loose")
 	})
 })

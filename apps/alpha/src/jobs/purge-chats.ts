@@ -36,7 +36,7 @@ export interface PurgeReport {
 }
 
 export async function purgeExpiredChats(now: Date = new Date()): Promise<PurgeReport> {
-	const report: PurgeReport = { removed: 0, failed: 0, usage: await purgeTurnUsage(now) }
+	const report: PurgeReport = { removed: 0, failed: 0, usage: 0 }
 	const failedIds = new Set<string>()
 
 	for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
@@ -65,6 +65,15 @@ export async function purgeExpiredChats(now: Date = new Date()): Promise<PurgeRe
 			}
 		}
 		if (candidates.length < PURGE_BATCH) break
+	}
+
+	// Por ÚLTIMO e isolado: é faxina de registro técnico. Uma falha aqui (a tabela ainda não
+	// existir, o banco oscilar) não pode impedir o expurgo das conversas, que é o compromisso
+	// da Política de Privacidade.
+	try {
+		report.usage = await purgeTurnUsage(now)
+	} catch (error) {
+		console.error("[jobs] registros do teto diário não expurgados", error)
 	}
 
 	return report

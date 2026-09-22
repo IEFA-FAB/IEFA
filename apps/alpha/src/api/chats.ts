@@ -354,9 +354,6 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 			return c.json({ error: "Conflict", code: "CHAT_TURN_IN_PROGRESS", message: "aguarde a resposta anterior terminar" }, 409)
 		}
 
-		// O teto conta ANTES de o modelo rodar, num registro que apagar a conversa não alcança.
-		if (!(await recordTurnUsage(user.id))) return failed(c, "RATE_LIMIT_RECORD_FAILED")
-
 		// A pergunta é gravada ANTES do modelo: um turno que cai no meio continua no histórico
 		// da tela, seguido de "resposta interrompida".
 		const { data: question, error: insertError } = await supabase
@@ -365,6 +362,15 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 			.select("id")
 			.single()
 		if (insertError || !question) return failed(c, "MESSAGE_CREATE_FAILED")
+
+		// O teto conta depois da pergunta gravada — tentativa que nem chegou a gravar não gasta
+		// cota — e antes do modelo, num registro que apagar a conversa não alcança. Sem o
+		// registro não há turno: a pergunta sai, para não ficar como "turno em andamento".
+		if (!(await recordTurnUsage(user.id))) {
+			const { error: rollbackError } = await supabase.from("chat_message").delete().eq("id", question.id)
+			if (rollbackError) console.error(`[chat] pergunta ${question.id} sem registro de uso não removida: ${rollbackError.message}`)
+			return failed(c, "RATE_LIMIT_RECORD_FAILED")
+		}
 		await touchThread(thread.id, thread.title ? {} : { title: titleFrom(message) })
 
 		const bundle = buildSourceBundle(sources.documents, env.ALPHA_CHAT_DOC_MAX_CHARS)
@@ -400,25 +406,30 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 				model?: string
 				usage?: { input_tokens: number; output_tokens: number }
 			}) => {
-				const { data, error } = await supabase
-					.from("chat_message")
-					.insert({
-						thread_id: thread.id,
-						user_id: user.id,
-						role: "assistant",
-						reply_to: question.id,
-						content: row.content,
-						citations: row.citations ?? [],
-						status: row.status,
-						model: row.model ?? null,
-						input_tokens: row.usage?.input_tokens ?? null,
-						output_tokens: row.usage?.output_tokens ?? null,
-						latency_ms: Date.now() - startMs,
-					})
-					.select("id")
-					.single()
-				if (error) console.error(`[chat] resposta da conversa ${thread.id} não gravada: ${error.message}`)
-				return (data?.id as string | undefined) ?? null
+				// Uma segunda tentativa: pergunta sem resposta gravada trava a conversa como "turno
+				// em andamento" até o teto de um turno passar.
+				for (let attempt = 1; attempt <= 2; attempt += 1) {
+					const { data, error } = await supabase
+						.from("chat_message")
+						.insert({
+							thread_id: thread.id,
+							user_id: user.id,
+							role: "assistant",
+							reply_to: question.id,
+							content: row.content,
+							citations: row.citations ?? [],
+							status: row.status,
+							model: row.model ?? null,
+							input_tokens: row.usage?.input_tokens ?? null,
+							output_tokens: row.usage?.output_tokens ?? null,
+							latency_ms: Date.now() - startMs,
+						})
+						.select("id")
+						.single()
+					if (!error) return (data?.id as string | undefined) ?? null
+					console.error(`[chat] resposta da conversa ${thread.id} não gravada (tentativa ${attempt}): ${error.message}`)
+				}
+				return null
 			}
 
 			send("status", { phase: "pensando" })

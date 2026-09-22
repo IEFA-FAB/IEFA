@@ -356,9 +356,10 @@ describe("turno", () => {
 		expect(complete.citations.map((citation: { label: string }) => citation.label)).toEqual(["D1:3"])
 		expect(complete.dropped_citations).toBe(1)
 
-		// O uso do teto é gravado antes de tudo; depois a pergunta e a resposta que aponta para ela.
+		// A pergunta, depois o uso do teto (só conta o que chegou a gravar), depois a resposta
+		// que aponta para ela.
 		const inserted = state.writes.filter((write) => write.verb === "insert").map((write) => `${write.table}:${write.payload.role ?? ""}`)
-		expect(inserted).toEqual(["chat_turn_usage:", "chat_message:user", "chat_message:assistant"])
+		expect(inserted).toEqual(["chat_message:user", "chat_turn_usage:", "chat_message:assistant"])
 		const [question, answer] = state.tables.chat_message ?? []
 		expect(answer?.reply_to).toBe(question?.id)
 		// A conversa ganha título da primeira pergunta.
