@@ -504,6 +504,7 @@ export {
 	divergesFromInvoice,
 	type NfeCostInput,
 	requiresDivergenceReason,
+	unitCostFromInvoiceLine,
 	unitCostFromNfe,
 } from "./receiving-math.ts"
 export {

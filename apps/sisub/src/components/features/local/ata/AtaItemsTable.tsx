@@ -1,9 +1,10 @@
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
-import { MoreHorizontal, Package, Pencil, TrendingUp } from "lucide-react"
+import { AlertTriangle, MoreHorizontal, Package, Pencil, TrendingUp } from "lucide-react"
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { hasSuspiciousUnitConversion } from "@/lib/ata-utils"
 
 interface AtaItemsTableProps {
 	data: ProcurementNeed[]
@@ -175,7 +176,19 @@ export function AtaItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescr
 												</TableCell>
 												<TableCell className="text-right tabular-nums">
 													{item.purchase_quantity !== null ? (
-														<span>
+														<span className="inline-flex items-center justify-end gap-1">
+															{hasSuspiciousUnitConversion(item) && (
+																<AlertTriangle
+																	className="size-3.5 shrink-0 text-warning"
+																	role="img"
+																	aria-label={`Unidade do insumo (${item.measure_unit}) diferente da de compra (${unit}) sem fator de conversão — revise o vínculo no item de compra`}
+																>
+																	<title>
+																		Unidade do insumo ({item.measure_unit}) diferente da de compra ({unit}) sem fator de conversão — revise o vínculo no item de
+																		compra
+																	</title>
+																</AlertTriangle>
+															)}
 															{NUM.format(item.purchase_quantity)} <span className="text-xs text-muted-foreground">{unit}</span>
 														</span>
 													) : (

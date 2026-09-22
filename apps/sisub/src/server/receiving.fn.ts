@@ -28,6 +28,7 @@ import {
 	requiresDivergenceReason,
 	temperatureDivergenceReason,
 	temperatureVerdict,
+	unitCostFromInvoiceLine,
 	unitCostFromNfe,
 } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
@@ -145,7 +146,9 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 
 		const { data: items, error: itemsError } = await inv
 			.from("nfe_item")
-			.select("id, ingredient_id, ingredient_item_id, purchase_item_id, matched_qty_base, unit_price, commercial_qty, lot_code, expiry_date, match_status")
+			.select(
+				"id, n_item, description, ingredient_id, ingredient_item_id, purchase_item_id, matched_qty_base, unit_price, commercial_qty, lot_code, expiry_date, match_status"
+			)
 			.eq("nfe_document_id", data.nfeDocumentId)
 		if (itemsError) throw new Error(`Erro ao carregar itens da NF-e: ${itemsError.message}`)
 
@@ -160,10 +163,12 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 		// caminho honesto é recusar apontando quais faltam.
 		const unresolved = (items ?? []).filter((item: { ingredient_id: string | null }) => item.ingredient_id == null)
 		if (unresolved.length > 0) {
+			// Nº do item na nota + descrição: é o que o conferente acha no DANFE. O id interno
+			// que ia aqui não dizia nada a ninguém.
 			const descriptions = unresolved
 				.slice(0, 5)
-				.map((item: { nfe_item_id?: string; id: string }) => item.id)
-				.join(", ")
+				.map((item: { n_item: number | null; description: string | null; id: string }) => `#${item.n_item ?? "?"} ${item.description ?? item.id}`)
+				.join("; ")
 			throw new Error(
 				`${unresolved.length} item(ns) da NF-e ainda sem insumo vinculado — resolva o matching antes de receber (itens: ${descriptions}${unresolved.length > 5 ? "…" : ""})`
 			)
@@ -494,6 +499,44 @@ async function assertInvoiceUsable(receiptId: string) {
 	if (problem) throw new Error(problem)
 }
 
+/**
+ * Linha sem conversão (faturado em unidade base nulo) entra com o custo da própria nota:
+ * valor da linha ÷ quantidade conferida. Sem isto o lote era efetivado a custo nulo e o
+ * estoque ficava valorado a menor exatamente no valor dessas linhas.
+ *
+ * Só vale quando a linha chegou INTEIRA: com recusa ou divergência registrada, o valor da
+ * nota cobre mais do que entrou (25 de 30 fardos com os R$ 825 da linha dariam custo a
+ * maior). Aí o custo fica para quem resolve a pendência — nulo é visível; inflado, não.
+ */
+async function fillCostFromInvoiceLine(receiptId: string) {
+	const inv = inventory()
+	const { data: lines, error } = await inv
+		.from("goods_receipt_item")
+		.select("id, nfe_item_id, received_qty_base, nfe_item:nfe_item_id (acquisition_cost, product_value, unit_price, commercial_qty)")
+		.eq("receipt_id", receiptId)
+		.is("unit_cost", null)
+		.is("invoiced_qty_base", null)
+		.is("divergence_reason", null)
+		.not("nfe_item_id", "is", null)
+	if (error) throw new Error(`Erro ao ler o custo das linhas: ${error.message}`)
+	for (const line of lines ?? []) {
+		const nfe = line.nfe_item as {
+			acquisition_cost: number | null
+			product_value: number | null
+			unit_price: number | null
+			commercial_qty: number | null
+		} | null
+		const lineValue =
+			nfe?.acquisition_cost ?? nfe?.product_value ?? (nfe?.unit_price != null && nfe?.commercial_qty != null ? nfe.unit_price * nfe.commercial_qty : null)
+		const unitCost = unitCostFromInvoiceLine({ lineValue: lineValue == null ? null : Number(lineValue), receivedQtyBase: Number(line.received_qty_base) })
+		if (unitCost == null) continue
+		const { error: itemError } = await inv.from("goods_receipt_item").update({ unit_cost: unitCost }).eq("id", line.id).is("unit_cost", null)
+		if (itemError) throw new Error(`Erro ao gravar o custo da linha: ${itemError.message}`)
+		const { error: lotError } = await inv.from("goods_receipt_item_lot").update({ unit_cost: unitCost }).eq("receipt_item_id", line.id).is("unit_cost", null)
+		if (lotError) throw new Error(`Erro ao gravar o custo do lote: ${lotError.message}`)
+	}
+}
+
 /** Estágio 1: recebimento provisório (não movimenta estoque). */
 export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 	.validator(z.object({ receiptId: z.uuid() }))
@@ -532,6 +575,8 @@ export const finalizeReceiptFn = createServerFn({ method: "POST" })
 		// sem a designação gravada, o termo sairia sem quem efetivou
 		const { error: designationError } = await inv.from("goods_receipt").update({ definitive_designation_id: designationId }).eq("id", data.receiptId)
 		if (designationError) throw new Error(`Erro ao registrar a designação: ${designationError.message}`)
+
+		await fillCostFromInvoiceLine(data.receiptId)
 
 		const { data: result, error } = await inv.rpc("finalize_goods_receipt", { p_receipt_id: data.receiptId, p_user: userId })
 		if (error) throw new Error(`Efetivação falhou: ${error.message}`)

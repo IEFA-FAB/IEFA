@@ -101,6 +101,8 @@ function DayOverviewCard({
 							{count > 0 && (
 								<Tooltip>
 									<TooltipTrigger
+										// span, não button: o card do dia inteiro já é um <button>, e button aninhado quebra a hidratação.
+										render={<span />}
 										className="text-xs text-muted-foreground shrink-0 tabular-nums underline decoration-dotted cursor-default"
 										onClick={(e) => e.stopPropagation()}
 									>

@@ -63,6 +63,87 @@ const importRoute = createRoute({
 	},
 })
 
+type ParsedNfe = ReturnType<typeof parseNfeXml>
+
+function buildItemRows(documentId: string, parsed: ParsedNfe, costByItem: Map<number, number>) {
+	return parsed.items.map((item) => ({
+		nfe_document_id: documentId,
+		n_item: item.nItem,
+		supplier_code: item.supplierCode,
+		description: item.description,
+		gtin: item.gtin,
+		gtin_trib: item.gtinTrib,
+		ncm: item.ncm,
+		cest: item.cest,
+		cfop: item.cfop,
+		commercial_unit: item.commercialUnit,
+		commercial_qty: item.commercialQty,
+		unit_price: item.unitPrice,
+		taxable_unit: item.taxableUnit,
+		taxable_qty: item.taxableQty,
+		product_value: item.productValue,
+		discount_value: item.discount,
+		freight_value: item.freight,
+		insurance_value: item.insurance,
+		other_expenses_value: item.otherExpenses,
+		ipi_value: item.ipi,
+		icms_st_value: item.icmsSt,
+		fcp_st_value: item.fcpSt,
+		acquisition_cost: costByItem.get(item.nItem) ?? null,
+		lot_code: item.lotCode,
+		lot_qty: item.lotQty,
+		mfg_date: item.mfgDate,
+		expiry_date: item.expiryDate,
+	}))
+}
+
+/**
+ * Completa a nota anunciada pela chave do DANFE com o XML: itens primeiro, documento depois.
+ * Se os itens falham, nada mudou; se o documento falha, os itens inseridos saem — a nota
+ * continua anunciada, como estava.
+ */
+async function completeAnnouncedDocument(
+	supabase: NfeClient,
+	existing: { id: string; kitchen_id: number | null; unit_id: number | null },
+	fields: Record<string, unknown>,
+	parsed: ParsedNfe,
+	costByItem: Map<number, number>
+): Promise<{ itemsCount: number; unitId: number | null } | { error: string; conflict?: boolean }> {
+	const itemRows = buildItemRows(existing.id, parsed, costByItem)
+	// Nota ainda anunciada não tem item legítimo: sobra de um completamento que morreu entre o
+	// insert dos itens e o update do documento. Sem limpar, todo reenvio batia no único
+	// (nfe_document_id, n_item) e devolvia 500 para sempre.
+	const { error: cleanupError } = await supabase.from("nfe_item").delete().eq("nfe_document_id", existing.id)
+	if (cleanupError) return { error: `Falha ao limpar itens de completamento anterior: ${cleanupError.message}` }
+	const { error: itemsError } = await supabase.from("nfe_item").insert(itemRows)
+	if (itemsError) return { error: `Falha ao gravar nfe_item: ${itemsError.message}` }
+
+	// Destinatário do XML vence o palpite da chave (a unidade de compra da cozinha que leu);
+	// sem destinatário conhecido, fica o que a leitura da chave registrou.
+	const unitId = (fields.unit_id as number | null) ?? existing.unit_id
+	const { data: completed, error: docError } = await supabase
+		.from("nfe_document")
+		.update({
+			...fields,
+			access_key: undefined,
+			unit_id: unitId,
+			destination_confirmed: fields.unit_id != null,
+			kitchen_id: existing.kitchen_id ?? fields.kitchen_id,
+			created_by: undefined,
+		})
+		.eq("id", existing.id)
+		.eq("status", "announced")
+		.select("id")
+	// Zero linhas = a nota deixou de estar anunciada entre a leitura e agora (cancelada,
+	// completada por outro envio). Os itens recém-gravados não pertencem a ela.
+	if (docError || !completed || completed.length === 0) {
+		await supabase.from("nfe_item").delete().eq("nfe_document_id", existing.id)
+		if (docError) return { error: `Falha ao completar nfe_document: ${docError.message}` }
+		return { error: "A nota mudou de situação durante a importação — recarregue e confira", conflict: true }
+	}
+	return { itemsCount: itemRows.length, unitId }
+}
+
 export interface NfeAdminRoutesDeps {
 	adminSecret?: string
 	getSupabase?: () => NfeClient
@@ -128,40 +209,70 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 		)
 		const costByItem = new Map(costs.items.map((item) => [item.nItem, item.totalCost]))
 
-		const { data: doc, error: docError } = await supabase
-			.from("nfe_document")
-			.insert({
-				access_key: parsed.accessKey,
-				supplier_cnpj: parsed.supplierCnpj,
-				supplier_cpf: parsed.supplierCpf,
-				supplier_name: parsed.supplierName,
-				dest_cnpj: parsed.destCnpj,
-				dest_cpf: parsed.destCpf,
-				unit_id: unitId,
-				destination_confirmed: unitId != null,
-				issued_at: parsed.issuedAt,
-				total_value: parsed.totalValue,
-				purpose: parsed.purpose,
-				referenced_keys: parsed.referencedKeys,
-				protocol_number: auth.protocolNumber,
-				authenticity: auth,
-				status: "available",
-				xml,
-				kitchen_id: kitchen_id ?? null,
-				created_by: created_by ?? null,
-			})
-			.select("id")
-			.single()
+		const documentFields = {
+			access_key: parsed.accessKey,
+			supplier_cnpj: parsed.supplierCnpj,
+			supplier_cpf: parsed.supplierCpf,
+			supplier_name: parsed.supplierName,
+			dest_cnpj: parsed.destCnpj,
+			dest_cpf: parsed.destCpf,
+			unit_id: unitId,
+			destination_confirmed: unitId != null,
+			issued_at: parsed.issuedAt,
+			total_value: parsed.totalValue,
+			purpose: parsed.purpose,
+			referenced_keys: parsed.referencedKeys,
+			protocol_number: auth.protocolNumber,
+			authenticity: auth,
+			status: "available",
+			xml,
+			kitchen_id: kitchen_id ?? null,
+			created_by: created_by ?? null,
+		}
+
+		const { data: doc, error: docError } = await supabase.from("nfe_document").insert(documentFields).select("id").single()
 
 		if (docError) {
 			if (docError.code === "23505") {
-				const { data: existing } = await supabase.from("nfe_document").select("id").eq("access_key", parsed.accessKey).maybeSingle()
+				const { data: existing } = await supabase
+					.from("nfe_document")
+					.select("id, status, kitchen_id, unit_id")
+					.eq("access_key", parsed.accessKey)
+					.maybeSingle()
+				// Nota ANUNCIADA pela chave do DANFE: o XML é o que a completa — é o fluxo que a tela
+				// promete ("o XML completa os itens quando chegar"). Antes ela caía na auto-cura
+				// abaixo: sem itens, era apagada e o usuário lia "envie de novo"; e como
+				// `goods_receipt` e `finance.liquidacao` apontam para ela com ON DELETE SET NULL, o
+				// recebimento já registrado pela chave perdia a nota em silêncio.
+				if (existing?.status === "announced") {
+					if (existing.kitchen_id != null && kitchen_id != null && Number(existing.kitchen_id) !== kitchen_id) {
+						return c.json({ error: "NF-e já pertence a outra cozinha", document_id: undefined }, 409)
+					}
+					const completed = await completeAnnouncedDocument(supabase, existing, documentFields, parsed, costByItem)
+					if ("error" in completed) {
+						if (completed.conflict) return c.json({ error: completed.error, document_id: undefined }, 409)
+						throw new Error(completed.error)
+					}
+					console.log(`[nfe-admin] NF-e ${parsed.accessKey} anunciada pela chave completada pelo XML: ${completed.itemsCount} itens`)
+					return c.json(
+						{
+							document_id: existing.id as string,
+							access_key: parsed.accessKey,
+							items_count: completed.itemsCount,
+							unit_id: completed.unitId,
+							invoice_difference: costs.invoiceDifference,
+						},
+						201
+					)
+				}
 				// Auto-cura: um import anterior que morreu entre documento e itens
 				// deixa um doc SEM itens reservando a chave — remove e reimporta,
 				// em vez de devolver 409 para sempre (review: cleanup non-atomic).
+				// Só se nada aponta para ele: o SET NULL das FKs desvincularia o recebimento.
 				if (existing) {
 					const { count } = await supabase.from("nfe_item").select("id", { count: "exact", head: true }).eq("nfe_document_id", existing.id)
-					if ((count ?? 0) === 0) {
+					const { count: receipts } = await supabase.from("goods_receipt").select("id", { count: "exact", head: true }).eq("nfe_document_id", existing.id)
+					if ((count ?? 0) === 0 && (receipts ?? 0) === 0) {
 						await supabase.from("nfe_document").delete().eq("id", existing.id)
 						console.warn(`[nfe-admin] Documento órfão (sem itens) removido para reimport: ${parsed.accessKey}`)
 						return c.json({ error: "Import anterior incompleto foi removido — envie o XML novamente", document_id: undefined }, 409)
@@ -172,35 +283,7 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 			throw new Error(`Falha ao gravar nfe_document: ${docError.message}`)
 		}
 
-		const itemRows = parsed.items.map((item) => ({
-			nfe_document_id: doc.id,
-			n_item: item.nItem,
-			supplier_code: item.supplierCode,
-			description: item.description,
-			gtin: item.gtin,
-			gtin_trib: item.gtinTrib,
-			ncm: item.ncm,
-			cest: item.cest,
-			cfop: item.cfop,
-			commercial_unit: item.commercialUnit,
-			commercial_qty: item.commercialQty,
-			unit_price: item.unitPrice,
-			taxable_unit: item.taxableUnit,
-			taxable_qty: item.taxableQty,
-			product_value: item.productValue,
-			discount_value: item.discount,
-			freight_value: item.freight,
-			insurance_value: item.insurance,
-			other_expenses_value: item.otherExpenses,
-			ipi_value: item.ipi,
-			icms_st_value: item.icmsSt,
-			fcp_st_value: item.fcpSt,
-			acquisition_cost: costByItem.get(item.nItem) ?? null,
-			lot_code: item.lotCode,
-			lot_qty: item.lotQty,
-			mfg_date: item.mfgDate,
-			expiry_date: item.expiryDate,
-		}))
+		const itemRows = buildItemRows(doc.id as string, parsed, costByItem)
 
 		const { error: itemsError } = await supabase.from("nfe_item").insert(itemRows)
 		if (itemsError) {

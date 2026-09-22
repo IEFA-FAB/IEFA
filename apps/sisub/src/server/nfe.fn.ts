@@ -27,6 +27,7 @@ type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Reco
 const inventory = () => getServerClient("inventory") as unknown as LooseClient
 const gs1 = () => getServerClient("gs1_integration") as unknown as LooseClient
 const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
+const procurement = () => getServerClient("procurement") as unknown as LooseClient
 
 /** Autentica, resolve a cozinha do documento e aplica o guard escopado. */
 async function requireStorageForDocument(level: 1 | 2, nfeDocumentId: string): Promise<{ userId: string }> {
@@ -71,6 +72,7 @@ export interface NfeDocumentRow {
 	unit_id?: number | null
 	destination_confirmed?: boolean
 	situation_result?: "authorized" | "cancelled" | "unknown" | null
+	situation_checked_at?: string | null
 }
 
 interface IngredientItemLinkRow {
@@ -542,6 +544,25 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 
 		const purchaseItemId = link?.purchase_item_id ?? data.purchaseItemId ?? null
 		const perPackage = link?.unit_content_quantity ?? null
+
+		// Item de compra sem embalagem cadastrada (sem ingredient_item): o insumo vem do vínculo
+		// padrão do item de compra. Sem isto a linha ficava sem insumo, e o recebimento recusa a
+		// nota INTEIRA enquanto houver linha sem insumo — arroz e feijão a granel, sem GTIN,
+		// travavam a nota toda sem a tela oferecer saída. A quantidade fica nula: o conferente
+		// informa o recebido na conferência (o recebimento já trata faturado nulo).
+		// Só com UM insumo padrão: há item de compra que é "padrão" de 16 insumos (o arroz polido
+		// é padrão de "Arroz Doce", "Arroz à Grega"…) e escolher o primeiro seria sortear o estoque.
+		let ingredientId: string | null = link?.ingredient_id ?? null
+		if (ingredientId == null && purchaseItemId != null) {
+			const { data: defaultLinks, error: defaultError } = await procurement()
+				.from("purchase_item_ingredient")
+				.select("ingredient_id")
+				.eq("purchase_item_id", purchaseItemId)
+				.eq("is_default", true)
+				.limit(2)
+			if (defaultError) throw new Error(`Erro ao ler o insumo padrão do item de compra: ${defaultError.message}`)
+			if (defaultLinks?.length === 1) ingredientId = (defaultLinks[0].ingredient_id as string | null) ?? null
+		}
 		const qty = perPackage != null && perPackage > 0 && item.commercial_qty != null && item.commercial_qty > 0 ? item.commercial_qty * perPackage : null
 
 		// Aprendizado ANTES do update do item (review: partial state). Se o mapa
@@ -570,7 +591,7 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 				match_status: qty != null ? "matched" : "review",
 				ingredient_item_id: link?.id ?? null,
 				purchase_item_id: purchaseItemId,
-				ingredient_id: link?.ingredient_id ?? null,
+				ingredient_id: ingredientId,
 				matched_qty_base: qty,
 				updated_at: new Date().toISOString(),
 			})

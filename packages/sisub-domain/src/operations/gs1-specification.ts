@@ -14,7 +14,11 @@
  * arredondado para "atende".
  */
 
-import { createHash } from "node:crypto"
+// Namespace, não named import: o barrel `@iefa/sisub-domain` chega ao bundle do cliente, e no
+// dev o Vite resolve `node:crypto` para um stub que LANÇA ao ler qualquer export — o named
+// import lia `createHash` na carga do módulo e derrubava a hidratação do app inteiro. Assim o
+// acesso só acontece dentro da função, que só roda no servidor.
+import * as nodeCrypto from "node:crypto"
 
 export const SPECIFICATION_VERDICTS = ["atende", "nao_atende", "indeterminado"] as const
 export type SpecificationVerdict = (typeof SPECIFICATION_VERDICTS)[number]
@@ -65,7 +69,7 @@ export function specFingerprint(requirements: readonly GpcRequirement[]): string
 		.filter((entry) => entry.a !== "" && entry.v.length > 0)
 		.sort((left, right) => (left.a < right.a ? -1 : left.a > right.a ? 1 : 0))
 
-	return createHash("sha256").update(JSON.stringify(canonical)).digest("hex").slice(0, 32)
+	return nodeCrypto.createHash("sha256").update(JSON.stringify(canonical)).digest("hex").slice(0, 32)
 }
 
 /** Veredito vencido: a exigência mudou desde que ele foi emitido. */

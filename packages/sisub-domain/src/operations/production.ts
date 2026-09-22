@@ -120,8 +120,14 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 			: []
 	const recipeById = new Map(recipes.map((r) => [r.id, r]))
 
+	// Ordem do turno: café → almoço → jantar → ceia (sort_order da refeição). Sem isto o painel
+	// saía na ordem física do banco — a ceia aparecia antes do café da manhã.
+	const orderedMenus = dailyMenus.toSorted(
+		(a, b) => (a.mealTypeInKitchen?.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.mealTypeInKitchen?.sortOrder ?? Number.MAX_SAFE_INTEGER)
+	)
+
 	const items: BoardItem[] = []
-	for (const menu of dailyMenus) {
+	for (const menu of orderedMenus) {
 		const mealType = menu.mealTypeInKitchen ? toWire<Record<string, unknown>>(menu.mealTypeInKitchen) : null
 
 		for (const menuItem of menu.menuItemsInKitchens ?? []) {

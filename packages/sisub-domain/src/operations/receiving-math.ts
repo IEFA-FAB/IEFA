@@ -44,6 +44,22 @@ export function unitCostFromNfe(input: NfeCostInput): number | null {
 }
 
 /**
+ * Custo unitário quando a nota não permitiu converter a quantidade (item sem embalagem
+ * cadastrada: "30 FD" de arroz sem saber quantos kg tem o fardo).
+ *
+ * O faturado em unidade base fica nulo e `unitCostFromNfe` devolve nulo — e o lote entrava
+ * a custo zero: 150 kg de arroz valorados a R$ 0,00, com a nota de R$ 825. Nesse caso a
+ * conferência É a conversão: o valor da linha dividido pelo que se contou.
+ */
+export function unitCostFromInvoiceLine(input: { lineValue: number | null; receivedQtyBase: number | null }): number | null {
+	const { lineValue, receivedQtyBase } = input
+	if (lineValue == null || !Number.isFinite(lineValue) || lineValue < 0) return null
+	if (receivedQtyBase == null || !(receivedQtyBase > 0)) return null
+	const unitCost = Number((lineValue / receivedQtyBase).toFixed(COST_SCALE))
+	return Number.isFinite(unitCost) ? unitCost : null
+}
+
+/**
  * A quantidade conferida diverge da faturada?
  *
  * Só há divergência quando existe faturado com que comparar: recebimento sem

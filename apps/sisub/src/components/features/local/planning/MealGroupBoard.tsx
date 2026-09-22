@@ -1,3 +1,4 @@
+import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
 import {
 	closestCorners,
 	DndContext,
@@ -200,7 +201,7 @@ function SortableItem({
 					<Input
 						type="number"
 						min="0"
-						max="100"
+						max={MAX_RECOMMENDED_PROPORTION}
 						step="1"
 						className="h-6 w-16 text-xs"
 						value={item.proportion ?? ""}
@@ -211,7 +212,7 @@ function SortableItem({
 							if (raw === "") return onProportionChange(item.id, null)
 							const parsed = Number.parseInt(raw, 10)
 							if (Number.isNaN(parsed)) return
-							onProportionChange(item.id, Math.max(0, Math.min(100, parsed)))
+							onProportionChange(item.id, Math.max(0, Math.min(MAX_RECOMMENDED_PROPORTION, parsed)))
 						}}
 						onClick={(e) => e.stopPropagation()}
 					/>

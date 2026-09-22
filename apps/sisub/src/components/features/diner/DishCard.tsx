@@ -10,7 +10,8 @@ export function DishCard({ dish }: { dish: DishDetails }) {
 				{dish.recommended_proportion != null && (
 					// "70%" sozinho não dizia de quê. É a fatia do efetivo prevista para esta opção.
 					<Badge variant="outline" className="text-xs shrink-0 tabular-nums">
-						{dish.recommended_proportion}% dos comensais
+						{/* Acima de 100% não é fatia do efetivo: é mais de uma porção por pessoa. */}
+						{dish.recommended_proportion > 100 ? `${dish.recommended_proportion}% do per capita` : `${dish.recommended_proportion}% dos comensais`}
 					</Badge>
 				)}
 			</div>

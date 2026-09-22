@@ -51,6 +51,18 @@ export interface AtaAnnexRow {
 	choices: { maxMarginPercent: number | null; minOrderQuantity: number | null } | null
 }
 
+/**
+ * Unidade do anexo — a MESMA que a lista de itens mostra ao lado da quantidade de compra.
+ *
+ * Item de compra sem unidade própria (418 vínculos padrão no catálogo) tem a quantidade de
+ * compra na unidade do insumo (fator 1). O anexo caía direto em "UN" nesse caso: a lista
+ * dizia 17.540 LT de água e o anexo, documento da ata, registrava 17.540 UN.
+ */
+function annexUnit(purchaseQuantity: number | null | undefined, purchaseUnit: string | null | undefined, measureUnit: string | null | undefined): string {
+	if (purchaseQuantity != null) return purchaseUnit ?? measureUnit ?? "UN"
+	return measureUnit ?? "UN"
+}
+
 export function buildDraftAnnexRows(items: ProcurementNeed[], settings: AtaAnnexSettings): AtaAnnexRow[] {
 	return items.map((item) => {
 		const limits = computeAtaItemLimits(
@@ -73,7 +85,7 @@ export function buildDraftAnnexRows(items: ProcurementNeed[], settings: AtaAnnex
 			catmatDescription: item.catmat_item_descricao,
 			description: item.purchase_item_description ?? item.catmat_item_descricao ?? item.ingredient_name,
 			itemDescription: item.item_description,
-			unit: (item.purchase_quantity != null ? item.purchase_measure_unit : item.measure_unit) ?? "UN",
+			unit: annexUnit(item.purchase_quantity, item.purchase_measure_unit, item.measure_unit),
 			targetQuantity: limits.targetQuantity,
 			marginPercent: limits.marginPercent,
 			maxQuantity: limits.maxQuantity,
@@ -126,7 +138,7 @@ export function buildSnapshotAnnexRows(
 			catmatDescription: live?.catmat_item_descricao ?? null,
 			description: c.purchase_item_description ?? c.ingredient_name,
 			itemDescription: live?.item_description ?? null,
-			unit: (purchaseQuantity != null ? c.purchase_measure_unit : c.measure_unit) ?? "UN",
+			unit: annexUnit(purchaseQuantity, c.purchase_measure_unit, c.measure_unit),
 			targetQuantity,
 			marginPercent: c.max_margin_percent,
 			maxQuantity,

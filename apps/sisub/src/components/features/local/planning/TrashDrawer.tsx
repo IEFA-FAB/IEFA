@@ -149,7 +149,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 														</ItemTitle>
 														<ItemDescription className="text-xs">{template.description || "Sem descrição"}</ItemDescription>
 														<ItemDescription className="text-xs text-muted-foreground/70">
-															{template.recipe_count || 0} Preparação{template.recipe_count !== 1 ? "s" : ""}
+															{template.recipe_count || 0} {template.recipe_count === 1 ? "preparação" : "preparações"}
 														</ItemDescription>
 														{template.deleted_at && (
 															<ItemDescription className="text-xs text-muted-foreground/70">

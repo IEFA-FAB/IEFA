@@ -376,6 +376,10 @@ export function PlanningBoard() {
 			<DayDrawer open={isDrawerOpen} onClose={() => dispatch({ type: "SET_DRAWER_OPEN", value: false })} date={selectedDay} kitchenId={kitchenId} />
 
 			<ApplyTemplateDialog
+				// Remonta a cada abertura: o estado interno (template, modo de conflito) nasce da
+				// escolha atual da paleta, e não da abertura anterior.
+				key={isTemplateModalOpen ? `open:${selectedTemplateId ?? ""}` : "closed"}
+				initialTemplateId={selectedTemplateId}
 				open={isTemplateModalOpen}
 				onClose={() => {
 					dispatch({ type: "SET_TEMPLATE_MODAL_OPEN", value: false })

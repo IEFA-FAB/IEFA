@@ -127,7 +127,7 @@ export interface Seeder {
 	}): Promise<string>
 	seedMealType(opts?: { kitchenId?: number | null; sortOrder?: number }): Promise<string>
 	seedDailyMenu(opts: { kitchenId: number; mealTypeId: string; serviceDate?: string }): Promise<{ id: string; serviceDate: string }>
-	seedMenuItem(opts: { dailyMenuId: string; recipeId: string; plannedPortionQuantity?: number; excludedFromProcurement?: 0 | 1 }): Promise<string>
+	seedMenuItem(opts: { dailyMenuId: string; recipeId: string; plannedPortionQuantity?: number; excludedFromProcurement?: 0 | 1 | null }): Promise<string>
 	seedTemplate(opts?: {
 		kitchenId?: number | null
 		templateType?: "weekly" | "event" | "exception"
@@ -360,7 +360,8 @@ export function makeSeeder(client: AnyClient): Seeder {
 				recipe_origin_id: opts.recipeId,
 				recipe: {},
 				planned_portion_quantity: opts.plannedPortionQuantity ?? 100,
-				excluded_from_procurement: opts.excludedFromProcurement ?? 0,
+				// `null` explícito é o que o aplicador de template grava; o default 0 escondia isso.
+				excluded_from_procurement: opts.excludedFromProcurement === undefined ? 0 : opts.excludedFromProcurement,
 			})) as string
 		},
 

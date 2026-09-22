@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { divergesFromInvoice, requiresDivergenceReason, unitCostFromNfe } from "./receiving-math.ts"
+import { divergesFromInvoice, requiresDivergenceReason, unitCostFromInvoiceLine, unitCostFromNfe } from "./receiving-math.ts"
 
 describe("unitCostFromNfe", () => {
 	test("converte o preço da EMBALAGEM para custo da unidade base", () => {
@@ -61,5 +61,15 @@ describe("requiresDivergenceReason", () => {
 	test("sem divergência, motivo não é exigido", () => {
 		expect(requiresDivergenceReason(50, 50, null)).toBe(false)
 		expect(requiresDivergenceReason(null, 48, null)).toBe(false)
+	})
+})
+
+describe("unitCostFromInvoiceLine", () => {
+	test("valor da linha ÷ quantidade conferida (30 FD por R$ 825 → 150 kg)", () => {
+		expect(unitCostFromInvoiceLine({ lineValue: 825, receivedQtyBase: 150 })).toBe(5.5)
+	})
+	test("sem valor ou sem quantidade conferida não inventa custo", () => {
+		expect(unitCostFromInvoiceLine({ lineValue: null, receivedQtyBase: 150 })).toBeNull()
+		expect(unitCostFromInvoiceLine({ lineValue: 825, receivedQtyBase: 0 })).toBeNull()
 	})
 })

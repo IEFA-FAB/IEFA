@@ -47,8 +47,15 @@ export const MENU_ITEM_GROUPS = ["prato_principal", "acompanhamento", "guarnicao
 export const MenuItemGroupSchema = z.enum(MENU_ITEM_GROUPS)
 export type MenuItemGroup = z.infer<typeof MenuItemGroupSchema>
 
+/**
+ * Teto da proporção (%). Acima de 100 é real: turma de curso de formação come mais que o per
+ * capita médio (150% = uma porção e meia por comensal). O teto é só freio contra digitação —
+ * 300 cabe no pior caso medido; o banco tem o mesmo limite (20260921192000).
+ */
+export const MAX_RECOMMENDED_PROPORTION = 300
+
 /** Proporção recomendada de consumo (%). Advisory — sem soma forçada dentro do grupo. */
-export const RecommendedProportionSchema = z.number().min(0).max(100).optional()
+export const RecommendedProportionSchema = z.number().min(0).max(MAX_RECOMMENDED_PROPORTION).optional()
 export type RecommendedProportion = z.infer<typeof RecommendedProportionSchema>
 
 /**

@@ -29,6 +29,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { mutateOrFail, runQuery, toWire } from "../utils/index.ts"
+import { resolveItemDemand } from "./demand-math.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
@@ -208,7 +209,16 @@ export async function updateMenuItem(db: SisubDb, ctx: UserContext, input: Updat
 	} = {}
 	if (input.plannedPortionQuantity != null) updates.plannedPortionQuantity = input.plannedPortionQuantity
 	if (input.excludedFromProcurement != null) updates.excludedFromProcurement = input.excludedFromProcurement
-	if (input.recommendedProportion !== undefined) updates.recommendedProportion = input.recommendedProportion ?? null
+	if (input.recommendedProportion !== undefined) {
+		updates.recommendedProportion = input.recommendedProportion ?? null
+		// A proporção é o que dimensiona o item; as porções planejadas são o que produção,
+		// baixa e compra usam. Mudar uma sem a outra deixava 150% gravado e 120 porções na
+		// cozinha. Recalcula se as porções ainda são as derivadas da proporção antiga.
+		if (input.plannedPortionQuantity == null) {
+			const next = await portionsForNewProportion(db, input.menuItemId, input.recommendedProportion ?? null)
+			if (next != null) updates.plannedPortionQuantity = next
+		}
+	}
 
 	if (input.itemGroup !== undefined) {
 		updates.itemGroup = input.itemGroup
@@ -225,6 +235,26 @@ export async function updateMenuItem(db: SisubDb, ctx: UserContext, input: Updat
 		db.update(menuItemsInKitchen).set(updates).where(eq(menuItemsInKitchen.id, input.menuItemId)).returning()
 	)
 	return updated.map((row) => toWire<MenuItem>(row))
+}
+
+/** Porções do item quando a proporção muda — `null` se foram ajustadas à mão ou não há efetivo. */
+async function portionsForNewProportion(db: SisubDb, menuItemId: string, newProportion: number | null): Promise<number | null> {
+	const [row] = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				planned: menuItemsInKitchen.plannedPortionQuantity,
+				proportion: menuItemsInKitchen.recommendedProportion,
+				headcount: dailyMenuInKitchen.forecastedHeadcount,
+			})
+			.from(menuItemsInKitchen)
+			.innerJoin(dailyMenuInKitchen, eq(menuItemsInKitchen.dailyMenuId, dailyMenuInKitchen.id))
+			.where(eq(menuItemsInKitchen.id, menuItemId))
+	)
+	if (!row || row.headcount == null) return null
+	const derivedOld = resolveItemDemand({ baseHeadcount: row.headcount, recommendedProportion: row.proportion == null ? null : Number(row.proportion) })
+	const planned = row.planned == null ? null : Number(row.planned)
+	if (planned != null && planned !== derivedOld) return null
+	return resolveItemDemand({ baseHeadcount: row.headcount, recommendedProportion: newProportion })
 }
 
 export async function removeMenuItem(db: SisubDb, ctx: UserContext, input: RemoveMenuItem): Promise<void> {
@@ -310,10 +340,67 @@ export async function updateHeadcount(db: SisubDb, ctx: UserContext, input: Upda
 	const kitchenId = await resolveKitchenFromMenu(db, input.dailyMenuId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	const updated = await runQuery("UPDATE_FAILED", () =>
-		db.update(dailyMenuInKitchen).set({ forecastedHeadcount: input.forecastedHeadcount }).where(eq(dailyMenuInKitchen.id, input.dailyMenuId)).returning()
-	)
+	// Previsão e porções andam juntas. A previsão do dia virava 300 e os itens seguiam em
+	// 380 — e são as porções dos itens que a produção, a baixa do estoque e a compra datada
+	// usam. Reescala só o item cujas porções VIERAM da previsão (= previsão antiga × proporção);
+	// o que alguém ajustou à mão fica como está.
+	const updated = await db.transaction(async (tx) => {
+		const [before] = await runQuery("FETCH_FAILED", () =>
+			tx
+				.select({ forecastedHeadcount: dailyMenuInKitchen.forecastedHeadcount })
+				.from(dailyMenuInKitchen)
+				.where(eq(dailyMenuInKitchen.id, input.dailyMenuId))
+				.for("update")
+		)
+		const rows = await runQuery("UPDATE_FAILED", () =>
+			tx.update(dailyMenuInKitchen).set({ forecastedHeadcount: input.forecastedHeadcount }).where(eq(dailyMenuInKitchen.id, input.dailyMenuId)).returning()
+		)
+		const oldHeadcount = before?.forecastedHeadcount ?? null
+		if (oldHeadcount != null && oldHeadcount !== input.forecastedHeadcount) {
+			const items = await runQuery("FETCH_FAILED", () =>
+				tx
+					.select({
+						id: menuItemsInKitchen.id,
+						planned: menuItemsInKitchen.plannedPortionQuantity,
+						proportion: menuItemsInKitchen.recommendedProportion,
+					})
+					.from(menuItemsInKitchen)
+					.where(and(eq(menuItemsInKitchen.dailyMenuId, input.dailyMenuId), isNull(menuItemsInKitchen.deletedAt)))
+			)
+			for (const item of items) {
+				const next = rescaledPortions({
+					planned: item.planned == null ? null : Number(item.planned),
+					proportion: item.proportion == null ? null : Number(item.proportion),
+					oldHeadcount,
+					newHeadcount: input.forecastedHeadcount,
+				})
+				if (next == null) continue
+				await runQuery("UPDATE_FAILED", () =>
+					tx
+						.update(menuItemsInKitchen)
+						.set({ plannedPortionQuantity: next })
+						.where(eq(menuItemsInKitchen.id, item.id))
+						.then(() => undefined)
+				)
+			}
+		}
+		return rows
+	})
 	return updated.map((row) => toWire<DailyMenu>(row))
+}
+
+/**
+ * Novas porções de um item quando a previsão da refeição muda — ou `null` para não mexer.
+ *
+ * Só reescala o item que ainda está no valor derivado da previsão antiga (com a proporção,
+ * se houver); porções digitadas à mão são decisão de alguém e ficam.
+ */
+export function rescaledPortions(input: { planned: number | null; proportion: number | null; oldHeadcount: number; newHeadcount: number }): number | null {
+	const derive = (headcount: number) => resolveItemDemand({ baseHeadcount: headcount, recommendedProportion: input.proportion })
+	const derivedOld = derive(input.oldHeadcount)
+	if (input.planned == null || derivedOld == null || input.planned !== derivedOld) return null
+	const derivedNew = derive(input.newHeadcount)
+	return derivedNew === input.planned ? null : derivedNew
 }
 
 export async function updateSubstitutions(db: SisubDb, ctx: UserContext, input: UpdateSubstitutions): Promise<void> {

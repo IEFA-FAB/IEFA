@@ -78,7 +78,25 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		.order("production_date", { ascending: true })
 		.order("id", { ascending: true })
 	if (taskError) throw new Error(`Erro ao carregar as tarefas do dia: ${taskError.message}`)
-	const taskList = (tasks ?? []) as Array<{ id: string; menu_item_id: string }>
+	const allTasks = (tasks ?? []) as Array<{ id: string; menu_item_id: string }>
+	if (allTasks.length === 0) return { lines: [], taskIds: [] as string[] }
+
+	// Tarefa que já saiu pela "Baixa por Produção" não entra na sugestão do dia. São dois
+	// canais de saída sobre a mesma tarefa: sem isto o café baixado de manhã voltava na
+	// requisição como "sugerido 220 · saiu 0 · desvio 100%", pedindo motivo — e convidando
+	// a baixar de novo.
+	const { data: issuedMoves, error: issuedError } = await inventory()
+		.from("stock_movement")
+		.select("production_task_id")
+		.in(
+			"production_task_id",
+			allTasks.map((task) => task.id)
+		)
+		.eq("type", "production_issue")
+		.is("issue_request_id", null)
+	if (issuedError) throw new Error(`Erro ao conferir as baixas por produção do dia: ${issuedError.message}`)
+	const issuedByProduction = new Set((issuedMoves ?? []).map((move: { production_task_id: string | null }) => move.production_task_id))
+	const taskList = allTasks.filter((task) => !issuedByProduction.has(task.id))
 	if (taskList.length === 0) return { lines: [], taskIds: [] as string[] }
 
 	// `meal_type_id` está em `daily_menu`, NÃO em `menu_items`: pedi-lo aqui fazia

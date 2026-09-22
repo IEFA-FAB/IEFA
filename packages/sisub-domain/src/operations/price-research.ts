@@ -22,7 +22,11 @@
  *   string); os valores continuam indo com a mesma precisão que o PostgREST enviava.
  */
 
-import { createHash } from "node:crypto"
+// Namespace, não named import: o barrel `@iefa/sisub-domain` chega ao bundle do cliente, e no
+// dev o Vite resolve `node:crypto` para um stub que LANÇA ao ler qualquer export — o named
+// import lia `createHash` na carga do módulo e derrubava a hidratação do app inteiro. Assim o
+// acesso só acontece dentro da função, que só roda no servidor.
+import * as nodeCrypto from "node:crypto"
 import {
 	procurementListInProcurement,
 	procurementListItemInProcurement,
@@ -156,7 +160,8 @@ async function authorizeAtaTarget(db: SisubDb, ctx: UserContext, ataId?: string,
  * Dia incluído ⇒ re-pesquisa periódica cria histórico (Lei 14.133/2021, Art. 23).
  */
 function idempotencyKeyFor(input: SavePriceResearchAudit): string {
-	const sampleFingerprint = createHash("sha256")
+	const sampleFingerprint = nodeCrypto
+		.createHash("sha256")
 		.update(
 			[...input.validSamples.map((s) => `v:${s.idCompra}:${s.idItemCompra}`), ...input.outlierSamples.map((s) => `o:${s.idCompra}:${s.idItemCompra}`)]
 				.sort()
