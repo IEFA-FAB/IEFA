@@ -9,12 +9,12 @@ describe("accessibleModules", () => {
 	})
 
 	test("com sessão e sem papel: Requisitante e Pregoeiro", () => {
-		expect(accessibleModules({ isAuthenticated: true, access: meAccess() }).map((m) => m.id)).toEqual(["requisitante", "pregoeiro"])
+		expect(accessibleModules({ isAuthenticated: true, access: meAccess() }).map((m) => m.id)).toEqual(["requisitante", "conversar", "pregoeiro"])
 	})
 
 	test("os quatro papéis globais: todos os módulos, na ordem do registro", () => {
 		const access = meAccess({ requester: "all", procurement: "all", aci: "all", admin: "all" })
-		expect(accessibleModules({ isAuthenticated: true, access }).map((m) => m.id)).toEqual(["aci", "requisitante", "pregoeiro", "alpha", "admin"])
+		expect(accessibleModules({ isAuthenticated: true, access }).map((m) => m.id)).toEqual(["aci", "requisitante", "conversar", "pregoeiro", "alpha", "admin"])
 	})
 
 	// Acúmulo de papéis, sem segregação de funções (mantenedor, 2026-09-19): os quatro na MESMA
@@ -23,11 +23,16 @@ describe("accessibleModules", () => {
 	test("os quatro papéis na mesma OM: todos os módulos da OM, cada um aberto nela", () => {
 		const access = meAccess({ requester: [100], procurement: [100], aci: [100], admin: [100] })
 		const modules = accessibleModules({ isAuthenticated: true, access })
-		expect(modules.map((m) => m.id)).toEqual(["aci", "requisitante", "pregoeiro", "admin"])
+		expect(modules.map((m) => m.id)).toEqual(["aci", "requisitante", "conversar", "pregoeiro", "admin"])
 		for (const id of ["aci", "requisitante", "admin"] as const) {
 			expect(moduleScopeOptions(getModule(id), access).map((option) => option.id)).toContain("100")
 		}
 	})
+})
+
+test("envio bloqueado: o chat avulso some, junto com o que guardaria arquivo", () => {
+	const access = { ...meAccess(), can_submit: false }
+	expect(accessibleModules({ isAuthenticated: true, access }).map((m) => m.id)).not.toContain("conversar")
 })
 
 describe("moduleScopeOptions", () => {

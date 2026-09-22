@@ -1,17 +1,19 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, Page, Undo, WarningTriangle, Xmark } from "iconoir-react"
-import { type ReactElement, useMemo, useState } from "react"
+import { ChatLines, Check, Page, Undo, WarningTriangle, Xmark } from "iconoir-react"
+import { type ReactElement, useCallback, useMemo, useState } from "react"
 import { StageStepper } from "@/components/aci/StageStepper"
 import { StatGrid } from "@/components/aci/StatGrid"
 import { FindingCard } from "@/components/alpha/FindingCard"
 import { SectionHeader } from "@/components/alpha/SectionNav"
 import { ExtractionFieldsView } from "@/components/alpha/SubmissionIntake"
+import { ProcessChatPanel } from "@/components/chat/ProcessChatPanel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/hooks/useAuth"
 import { DECISION_LABEL, DECISIONS, type Decision, processDetailQueryOptions, reviewsQueryOptions, useIssueReview, useTriageFinding } from "@/lib/alpha/aci"
+import { findingQuestion } from "@/lib/alpha/chat-model"
 import {
 	type ComplianceRun,
 	compareSeverity,
@@ -96,7 +98,21 @@ function TriageControls({ finding, runId, submissionId }: { finding: Finding; ru
 	)
 }
 
-function FindingsTab({ run, submissionId, decider }: { run: ComplianceRun; submissionId: string; decider: boolean }) {
+/**
+ * `onAsk` só vem quando a execução mostrada é a MAIS RECENTE: é dela que o chat lê os achados.
+ * Perguntar sobre achado de uma execução antiga daria ao modelo um achado que ele não vê.
+ */
+function FindingsTab({
+	run,
+	submissionId,
+	decider,
+	onAsk,
+}: {
+	run: ComplianceRun
+	submissionId: string
+	decider: boolean
+	onAsk?: (question: string) => void
+}) {
 	const { session } = useAuth()
 	const report = useQuery(complianceRunQueryOptions(session?.access_token, run.id))
 	const [severityFilter, setSeverityFilter] = useState<Severity | "todas">("todas")
@@ -169,15 +185,23 @@ function FindingsTab({ run, submissionId, decider }: { run: ComplianceRun; submi
 							key={finding.id}
 							finding={finding}
 							footer={
-								decider ? (
-									<TriageControls finding={finding} runId={run.id} submissionId={submissionId} />
-								) : finding.triage ? (
-									<p className="mt-3 text-xs">
-										<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
-											{finding.triage}
-										</Badge>
-									</p>
-								) : null
+								<>
+									{decider ? (
+										<TriageControls finding={finding} runId={run.id} submissionId={submissionId} />
+									) : finding.triage ? (
+										<p className="mt-3 text-xs">
+											<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
+												{finding.triage}
+											</Badge>
+										</p>
+									) : null}
+									{onAsk ? (
+										<Button size="xs" variant="ghost" className="mt-2 -ml-2" onClick={() => onAsk(findingQuestion(finding))}>
+											<ChatLines />
+											perguntar sobre este achado
+										</Button>
+									) : null}
+								</>
 							}
 						/>
 					))}
@@ -391,6 +415,14 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 	const runCompliance = useRunCompliance()
 
 	const [tab, setTab] = useState<Tab>("achados")
+	const [chatOpen, setChatOpen] = useState(false)
+	// Pergunta do atalho do achado: vai para o campo do painel, e o usuário decide enviar.
+	const [chatDraft, setChatDraft] = useState<string | null>(null)
+	const clearChatDraft = useCallback(() => setChatDraft(null), [])
+	const askAbout = (question: string) => {
+		setChatDraft(question)
+		setChatOpen(true)
+	}
 	// `null` significa "a execução mais recente" — a escolha do analista é o que
 	// esta variável guarda, e nada a sobrescreve quando os dados chegam.
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
@@ -421,6 +453,10 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 				actions={
 					submission ? (
 						<>
+							<Button size="sm" variant="outline" onClick={() => setChatOpen(true)}>
+								<ChatLines />
+								conversar
+							</Button>
 							<Button size="sm" variant="outline" disabled={runExtraction.isPending} onClick={() => runExtraction.mutate(submissionId, { onSuccess: refresh })}>
 								{runExtraction.isPending ? "extraindo…" : latestExtraction ? "extrair novamente" : "extrair"}
 							</Button>
@@ -524,11 +560,24 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 						</p>
 					) : null}
 
-					{tab === "achados" && selectedRun?.status === "succeeded" ? <FindingsTab run={selectedRun} submissionId={submissionId} decider={decider} /> : null}
+					{tab === "achados" && selectedRun?.status === "succeeded" ? (
+						<FindingsTab run={selectedRun} submissionId={submissionId} decider={decider} onAsk={selectedRun.id === runs[0]?.id ? askAbout : undefined} />
+					) : null}
 					{tab === "parecer" && selectedRun?.status === "succeeded" ? (
 						<ReviewTab run={selectedRun} submissionId={submissionId} decider={decider} reportLink={reportLink} />
 					) : null}
 				</>
+			) : null}
+
+			{submission ? (
+				<ProcessChatPanel
+					submissionId={submissionId}
+					documentName={submission.filename}
+					open={chatOpen}
+					onOpenChange={setChatOpen}
+					draft={chatDraft}
+					onDraftConsumed={clearChatDraft}
+				/>
 			) : null}
 		</div>
 	)

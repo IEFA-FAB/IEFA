@@ -1,6 +1,6 @@
 import type { MeAccess, UnitSet } from "@iefa/alpha-client/access"
 import { isEmptyCoverage, unionCoverage } from "@iefa/pbac"
-import { CloudUpload, Community, Flask, Key, Megaphone, MultiplePages, PageEdit, TaskList } from "iconoir-react"
+import { ChatLines, CloudUpload, Community, Flask, Key, Megaphone, MultiplePages, PageEdit, TaskList } from "iconoir-react"
 import type { ComponentType, SVGProps } from "react"
 import { buildScopeOptions, type ScopeContext, type ScopeOption } from "./scope"
 
@@ -28,7 +28,7 @@ import { buildScopeOptions, type ScopeContext, type ScopeOption } from "./scope"
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>
 
-export type ContrateModuleId = "aci" | "requisitante" | "pregoeiro" | "alpha" | "admin"
+export type ContrateModuleId = "aci" | "requisitante" | "conversar" | "pregoeiro" | "alpha" | "admin"
 
 /** Segmento da OM nos caminhos do registro — trocado pelo escopo aberto (`scopedPath`). */
 export const UNIT_PARAM = "$unitId"
@@ -119,6 +119,21 @@ export const CONTRATE_MODULES: readonly ContrateModule[] = [
 			{ to: "/requisitante/$unitId", label: "Processos", icon: MultiplePages, exact: true },
 			{ to: "/requisitante/$unitId/nova", label: "Enviar documento", icon: CloudUpload },
 		],
+	},
+	{
+		id: "conversar",
+		label: "Conversar",
+		caption: "Assistente com seus arquivos",
+		description: "Solte o ETP, o TR ou o edital e converse com eles: o assistente responde com a Lei 14.133, os modelos da AGU e o RADA-e, citando as fontes.",
+		audience: "Quem elabora e quem confere",
+		icon: ChatLines,
+		home: "/conversar",
+		basePath: "/conversar",
+		// O avulso guarda arquivo do usuário: o mesmo portão de enviar documento (o α exige o
+		// mesmo em `POST /chats`). Sem papel nenhum, abre.
+		gate: { kind: "role", allows: (access) => access.can_submit },
+		scope: null,
+		nav: [{ to: "/conversar", label: "Conversas", icon: ChatLines, exact: true }],
 	},
 	{
 		id: "pregoeiro",

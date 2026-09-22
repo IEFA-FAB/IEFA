@@ -14,6 +14,7 @@ import { Route as AciRouteRouteImport } from './routes/aci/route'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AlphaRouteRouteImport } from './routes/alpha/route'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
+import { Route as ConversarRouteRouteImport } from './routes/conversar/route'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as PoliticaDeCookiesRouteImport } from './routes/politica-de-cookies'
@@ -32,6 +33,8 @@ import { Route as AdminAcessosRouteImport } from './routes/admin/acessos'
 import { Route as AlphaBancadaRouteImport } from './routes/alpha/bancada'
 import { Route as AlphaFontesRouteImport } from './routes/alpha/fontes'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as ConversarIndexRouteImport } from './routes/conversar/index'
+import { Route as ConversarThreadIdRouteImport } from './routes/conversar/$threadId'
 import { Route as PregoeiroIndexRouteImport } from './routes/pregoeiro/index'
 import { Route as RequisitanteIndexRouteImport } from './routes/requisitante/index'
 import { Route as RequisitanteUnitIdRouteRouteImport } from './routes/requisitante/$unitId/route'
@@ -75,6 +78,11 @@ const AlphaRouteRoute = AlphaRouteRouteImport.update({
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConversarRouteRoute = ConversarRouteRouteImport.update({
+  id: '/conversar',
+  path: '/conversar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HealthRoute = HealthRouteImport.update({
@@ -166,6 +174,16 @@ const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthRouteRoute,
+} as any)
+const ConversarIndexRoute = ConversarIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ConversarRouteRoute,
+} as any)
+const ConversarThreadIdRoute = ConversarThreadIdRouteImport.update({
+  id: '/$threadId',
+  path: '/$threadId',
+  getParentRoute: () => ConversarRouteRoute,
 } as any)
 const PregoeiroIndexRoute = PregoeiroIndexRouteImport.update({
   id: '/',
@@ -275,6 +293,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteRouteWithChildren
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
+  '/conversar': typeof ConversarRouteRouteWithChildren
   '/pregoeiro': typeof PregoeiroRouteRouteWithChildren
   '/requisitante': typeof RequisitanteRouteRouteWithChildren
   '/health': typeof HealthRoute
@@ -291,9 +310,11 @@ export interface FileRoutesByFullPath {
   '/admin/acessos': typeof AdminAcessosRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
+  '/conversar/$threadId': typeof ConversarThreadIdRoute
   '/aci/': typeof AciIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/conversar/': typeof ConversarIndexRoute
   '/pregoeiro/': typeof PregoeiroIndexRoute
   '/requisitante/': typeof RequisitanteIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -327,9 +348,11 @@ export interface FileRoutesByTo {
   '/admin/acessos': typeof AdminAcessosRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
+  '/conversar/$threadId': typeof ConversarThreadIdRoute
   '/aci': typeof AciIndexRoute
   '/admin': typeof AdminIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/conversar': typeof ConversarIndexRoute
   '/pregoeiro': typeof PregoeiroIndexRoute
   '/requisitante': typeof RequisitanteIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -356,6 +379,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteRouteWithChildren
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
+  '/conversar': typeof ConversarRouteRouteWithChildren
   '/pregoeiro': typeof PregoeiroRouteRouteWithChildren
   '/requisitante': typeof RequisitanteRouteRouteWithChildren
   '/health': typeof HealthRoute
@@ -372,9 +396,11 @@ export interface FileRoutesById {
   '/admin/acessos': typeof AdminAcessosRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
+  '/conversar/$threadId': typeof ConversarThreadIdRoute
   '/aci/': typeof AciIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/conversar/': typeof ConversarIndexRoute
   '/pregoeiro/': typeof PregoeiroIndexRoute
   '/requisitante/': typeof RequisitanteIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -402,6 +428,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/alpha'
     | '/auth'
+    | '/conversar'
     | '/pregoeiro'
     | '/requisitante'
     | '/health'
@@ -418,9 +445,11 @@ export interface FileRouteTypes {
     | '/admin/acessos'
     | '/alpha/bancada'
     | '/alpha/fontes'
+    | '/conversar/$threadId'
     | '/aci/'
     | '/admin/'
     | '/auth/'
+    | '/conversar/'
     | '/pregoeiro/'
     | '/requisitante/'
     | '/.well-known/agent-skills/index.json'
@@ -454,9 +483,11 @@ export interface FileRouteTypes {
     | '/admin/acessos'
     | '/alpha/bancada'
     | '/alpha/fontes'
+    | '/conversar/$threadId'
     | '/aci'
     | '/admin'
     | '/auth'
+    | '/conversar'
     | '/pregoeiro'
     | '/requisitante'
     | '/.well-known/agent-skills/index.json'
@@ -482,6 +513,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/alpha'
     | '/auth'
+    | '/conversar'
     | '/pregoeiro'
     | '/requisitante'
     | '/health'
@@ -498,9 +530,11 @@ export interface FileRouteTypes {
     | '/admin/acessos'
     | '/alpha/bancada'
     | '/alpha/fontes'
+    | '/conversar/$threadId'
     | '/aci/'
     | '/admin/'
     | '/auth/'
+    | '/conversar/'
     | '/pregoeiro/'
     | '/requisitante/'
     | '/.well-known/agent-skills/index.json'
@@ -527,6 +561,7 @@ export interface RootRouteChildren {
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AlphaRouteRoute: typeof AlphaRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  ConversarRouteRoute: typeof ConversarRouteRouteWithChildren
   PregoeiroRouteRoute: typeof PregoeiroRouteRouteWithChildren
   RequisitanteRouteRoute: typeof RequisitanteRouteRouteWithChildren
   HealthRoute: typeof HealthRoute
@@ -575,6 +610,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conversar': {
+      id: '/conversar'
+      path: '/conversar'
+      fullPath: '/conversar'
+      preLoaderRoute: typeof ConversarRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/health': {
@@ -702,6 +744,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/'
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof AuthRouteRoute
+    }
+    '/conversar/': {
+      id: '/conversar/'
+      path: '/'
+      fullPath: '/conversar/'
+      preLoaderRoute: typeof ConversarIndexRouteImport
+      parentRoute: typeof ConversarRouteRoute
+    }
+    '/conversar/$threadId': {
+      id: '/conversar/$threadId'
+      path: '/$threadId'
+      fullPath: '/conversar/$threadId'
+      preLoaderRoute: typeof ConversarThreadIdRouteImport
+      parentRoute: typeof ConversarRouteRoute
     }
     '/pregoeiro/': {
       id: '/pregoeiro/'
@@ -936,6 +992,20 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
+interface ConversarRouteRouteChildren {
+  ConversarThreadIdRoute: typeof ConversarThreadIdRoute
+  ConversarIndexRoute: typeof ConversarIndexRoute
+}
+
+const ConversarRouteRouteChildren: ConversarRouteRouteChildren = {
+  ConversarThreadIdRoute: ConversarThreadIdRoute,
+  ConversarIndexRoute: ConversarIndexRoute,
+}
+
+const ConversarRouteRouteWithChildren = ConversarRouteRoute._addFileChildren(
+  ConversarRouteRouteChildren,
+)
+
 interface PregoeiroRouteRouteChildren {
   PregoeiroIndexRoute: typeof PregoeiroIndexRoute
 }
@@ -989,6 +1059,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRouteRoute: AdminRouteRouteWithChildren,
   AlphaRouteRoute: AlphaRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
+  ConversarRouteRoute: ConversarRouteRouteWithChildren,
   PregoeiroRouteRoute: PregoeiroRouteRouteWithChildren,
   RequisitanteRouteRoute: RequisitanteRouteRouteWithChildren,
   HealthRoute: HealthRoute,
