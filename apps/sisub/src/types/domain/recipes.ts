@@ -49,6 +49,12 @@ export interface RecipeAlternativeFormRow {
 	ingredient_id: string
 	ingredient_name: string
 	measure_unit: string
+	/**
+	 * Pasta do insumo, como a linha principal também a carrega. Existe para a troca de
+	 * principal (`promoteAlternative`) não perder o dado ao rebaixar a linha a substituta.
+	 * `null` quando o insumo não tem pasta — herança do SISUBWEB, que não tinha o conceito.
+	 */
+	folder_id: string | null
 	/** Peso líquido TOTAL da substituta na preparação — não um fator. */
 	net_quantity: number | null
 }

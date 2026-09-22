@@ -1,4 +1,4 @@
-import { ArrowLeftRight, ChevronDown, ChevronRight, Circle, CircleCheck, Plus, Trash2 } from "lucide-react"
+import { ArrowLeftRight, ArrowUp, ChevronDown, ChevronRight, Circle, CircleCheck, Plus, Trash2 } from "lucide-react"
 import { Fragment, useId, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import { Toggle } from "@/components/ui/toggle"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
+import { promoteAlternative } from "@/lib/recipe-candidates"
 import {
 	correctionFactorFromGross,
 	formatSheetNumber,
@@ -140,6 +141,17 @@ function candidatesOf(row: RecipeIngredientRow): Candidate[] {
  * A ESCOLHA não é persistida: `kitchen.recipe_ingredients` não tem coluna para "candidato
  * em uso", e a ficha técnica é o padrão — quem registra a troca de uma semana é o cardápio,
  * não a ficha. O que persiste são as quantidades, do principal e de cada substituto.
+ *
+ * ── Trocar o principal ──
+ * O que É persistido é QUEM ocupa a escolha 1 da linha, e "Tornar principal" (na expansão)
+ * troca os dois de lugar: o substituto sobe, o principal desce para a vaga dele. É uma
+ * operação diferente do rádio, que só decide o que a tela está lendo agora — e os dois
+ * gestos moram na mesma lista, então cada um diz na tela o que faz.
+ *
+ * Sem isso, corrigir o insumo de uma linha — o cadastro nomeou como principal o que a
+ * cozinha usa como exceção — exigia remover a linha e recadastrá-la, jogando fora FC, IR e
+ * todos os substitutos. A troca em si é `promoteAlternative` (`lib/recipe-candidates.ts`);
+ * aqui ela só é ligada ao desfazer e ao índice do candidato em exibição.
  */
 export function RecipeIngredientsTable({
 	ingredients,
@@ -216,6 +228,32 @@ export function RecipeIngredientsTable({
 			next.set(index, candidate)
 			return next
 		})
+
+	/**
+	 * Troca o principal da linha pelo substituto — esta É gravada, ao contrário da seleção
+	 * de leitura. Daí o desfazer: o clique reescreve o insumo da linha, e sem uma volta o
+	 * caminho de reverter seria promover de novo, que é o mesmo gesto em sentido contrário
+	 * e não devolve a linha recém-adicionada que a troca consumiu.
+	 */
+	const promote = (index: number, altIndex: number) => {
+		const row = ingredients[index]
+		if (!row) return
+		const snapshot = [...ingredients]
+		const previousSelection = selected
+		const result = promoteAlternative(row, altIndex, selectedOf(index, row))
+		if (result.row === row) return
+		onChange(ingredients.map((current, i) => (i === index ? result.row : current)))
+		select(index, result.selected)
+		toast(`${result.row.ingredient_name || "O substituto"} agora é o insumo principal.`, {
+			action: {
+				label: "Desfazer",
+				onClick: () => {
+					onChange(snapshot)
+					setSelected(previousSelection)
+				},
+			},
+		})
+	}
 
 	const removeAlternative = (index: number, altIndex: number) => {
 		const row = ingredients[index]
@@ -553,6 +591,7 @@ export function RecipeIngredientsTable({
 														yieldSafe={yieldSafe}
 														radioName={`${radioName}-${index}`}
 														onSelect={(next) => select(index, next)}
+														onPromote={(altIndex) => promote(index, altIndex)}
 														onRemoveAlternative={(altIndex) => removeAlternative(index, altIndex)}
 														onAdd={() => setSubstituteFor(index)}
 													/>
@@ -593,7 +632,7 @@ export function RecipeIngredientsTable({
 						PB = Peso Bruto · PL = Peso Líquido · FC = PB ÷ PL · IR = Peso reidratado ÷ Peso seco. A faixa PER CAPITA é o valor por porção
 						{portionYield > 0 ? ` (rendimento: ${portionYield} porções)` : " (defina o rendimento na aba Detalhes)"}. Toda coluna aceita digitação: as de{" "}
 						<span className="border-dashed border-b border-muted-foreground/60">borda tracejada</span> são calculadas — passe o mouse para ver a fórmula e o que
-						a digitação ajusta. Expanda a linha para cadastrar substitutos e escolher qual deles a ficha está lendo.
+						a digitação ajusta. Expanda a linha para cadastrar substitutos, escolher qual deles a ficha está lendo e trocar qual é o insumo principal.
 					</p>
 				)}
 
@@ -625,7 +664,7 @@ export function RecipeIngredientsTable({
 				{swapped > 0 && (
 					<p className="text-caption text-primary">
 						{swapped === 1 ? "1 linha está lendo um substituto" : `${swapped} linhas estão lendo um substituto`} — o TOTAL acompanha. A escolha é só de leitura
-						e não é salva; as quantidades, sim.
+						e não é salva; as quantidades, sim. Para trocar o insumo da linha de vez, use <strong className="font-medium">Tornar principal</strong> na expansão.
 					</p>
 				)}
 
@@ -674,6 +713,8 @@ export function RecipeIngredientsTable({
 										ingredient_id: ingredient.id,
 										ingredient_name: ingredient.description ?? "",
 										measure_unit: ingredient.measure_unit ?? "UN",
+										// Só serve para a promoção a principal não perder a pasta do insumo.
+										folder_id: ingredient.folder_id ?? null,
 										// Nasce com a quantidade do principal: é o palpite certo na maioria dos
 										// casos e deixa explícito o que ajustar quando não é.
 										net_quantity: openRow.net_quantity,
@@ -798,6 +839,7 @@ function CandidatePicker({
 	yieldSafe,
 	radioName,
 	onSelect,
+	onPromote,
 	onRemoveAlternative,
 	onAdd,
 }: {
@@ -807,6 +849,7 @@ function CandidatePicker({
 	yieldSafe: number
 	radioName: string
 	onSelect: (candidate: number) => void
+	onPromote: (altIndex: number) => void
 	onRemoveAlternative: (altIndex: number) => void
 	onAdd: () => void
 }) {
@@ -866,22 +909,51 @@ function CandidatePicker({
 							</ItemContent>
 							<ItemActions>
 								{!candidate.isPrimary && (
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon-sm"
-										className="text-muted-foreground hover:text-destructive"
-										aria-label={`Remover ${candidate.name}`}
-										onClick={(event) => {
-											// A linha inteira seleciona o candidato; sem parar aqui, apagar o
-											// substituto A com dois na lista deixava a ficha lendo o B — nome,
-											// unidade, quantidade e TOTAL trocados por um clique de exclusão.
-											event.stopPropagation()
-											onRemoveAlternative(candidateIndex - 1)
-										}}
-									>
-										<Trash2 className="size-3.5" />
-									</Button>
+									<>
+										<Tooltip>
+											<TooltipTrigger
+												render={
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														className="text-muted-foreground"
+														aria-label={`Tornar ${candidate.name} o insumo principal`}
+														onClick={(event) => {
+															// Mesmo motivo do botão de remover: a linha inteira é o alvo do rádio,
+															// e sem parar aqui promover também marcaria o candidato como "em
+															// exibição" — a troca já decide sozinha o que fica em exibição.
+															event.stopPropagation()
+															onPromote(candidateIndex - 1)
+														}}
+													>
+														<ArrowUp className="size-3.5" />
+														Tornar principal
+													</Button>
+												}
+											/>
+											<TooltipContent>
+												{candidate.name} passa a ser a escolha 1 da linha e {row.ingredient_name || "o insumo atual"} vira substituto, com as quantidades de
+												cada um. Ao contrário da marcação de leitura, esta troca é salva com a ficha.
+											</TooltipContent>
+										</Tooltip>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon-sm"
+											className="text-muted-foreground hover:text-destructive"
+											aria-label={`Remover ${candidate.name}`}
+											onClick={(event) => {
+												// A linha inteira seleciona o candidato; sem parar aqui, apagar o
+												// substituto A com dois na lista deixava a ficha lendo o B — nome,
+												// unidade, quantidade e TOTAL trocados por um clique de exclusão.
+												event.stopPropagation()
+												onRemoveAlternative(candidateIndex - 1)
+											}}
+										>
+											<Trash2 className="size-3.5" />
+										</Button>
+									</>
 								)}
 							</ItemActions>
 						</Item>
@@ -890,7 +962,8 @@ function CandidatePicker({
 			</ItemGroup>
 
 			<p className="text-caption text-muted-foreground">
-				A quantidade de quem está marcado é editada na própria linha da tabela, acima. FC e IR são da linha e valem para qualquer candidato.
+				A quantidade de quem está marcado é editada na própria linha da tabela, acima. FC e IR são da linha e valem para qualquer candidato. Marcar o rádio só
+				muda o que a tela lê; <strong className="font-medium text-foreground">Tornar principal</strong> troca o insumo da linha e é salvo com a ficha.
 			</p>
 		</section>
 	)
