@@ -25,6 +25,7 @@ import {
 	mealForecastsInKitchen,
 	mealPresencesInKitchen,
 	mealTypeInKitchen,
+	menuGroupSetInKitchen,
 	menuItemsInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
@@ -435,6 +436,13 @@ const RESET_STEPS: ResetStep[] = [
 		run: (tx, scope) => deleteCounting(tx, equipmentModelInKitchen, eq(equipmentModelInKitchen.kitchenId, scope.kitchen_id)),
 	},
 	{ table: "kitchen.meal_type", run: (tx, scope) => deleteCounting(tx, mealTypeInKitchen, eq(mealTypeInKitchen.kitchenId, scope.kitchen_id)) },
+	// Depois do tipo de refeição, que aponta para o conjunto: inverter a ordem
+	// faria a FK recusar a remoção com a turma inteira já apagada até aqui.
+	// Os grupos do conjunto caem por cascade (menu_group.group_set_id).
+	{
+		table: "kitchen.menu_group_set",
+		run: (tx, scope) => deleteCounting(tx, menuGroupSetInKitchen, eq(menuGroupSetInKitchen.kitchenId, scope.kitchen_id)),
+	},
 
 	// ── Execução orçamentária ──
 	// O Conjunto Treino concede `unit` nível 2 na unidade sentinela, e é

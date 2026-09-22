@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUpdateMenuItem } from "@/hooks/data/usePlanning"
-import { isMenuItemGroup, MENU_ITEM_GROUP_LABELS, MENU_ITEM_GROUPS, type MenuItemGroup, UNGROUPED_KEY, UNGROUPED_LABEL } from "@/lib/menu-item-groups"
+import { DEFAULT_MENU_GROUPS, type MenuGroup, type MenuItemGroup, menuItemGroupLabel, UNGROUPED_KEY, UNGROUPED_LABEL } from "@/lib/menu-item-groups"
 import type { OutdatedRecipe } from "@/lib/recipe-versions"
 import type { MenuItem } from "@/types/domain/planning"
 import { RecipeVersionBadge } from "./RecipeVersionUpdateDialog"
@@ -19,12 +19,14 @@ interface MenuItemCardProps {
 	onDelete: (itemId: string, recipeName: string) => void
 	/** Preenchido quando a ficha deste item tem versão mais nova no catálogo. */
 	outdated?: OutdatedRecipe
+	/** Grupos do conjunto da refeição. Padrão = conjunto do almoço. */
+	groups?: readonly MenuGroup[]
 }
 
 /**
  * Menu Item Card com controles editáveis para porção planejada e quantidade excluída
  */
-export function MenuItemCard({ item, onSubstitute, onDelete, outdated }: MenuItemCardProps) {
+export function MenuItemCard({ item, onSubstitute, onDelete, outdated, groups = DEFAULT_MENU_GROUPS }: MenuItemCardProps) {
 	const { mutate: updateMenuItem } = useUpdateMenuItem()
 
 	const recipeName = (item.recipe as { name?: string })?.name || "Preparação sem nome"
@@ -50,7 +52,10 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated }: MenuIte
 		setProportion(item.recommended_proportion)
 	}
 
-	const groupValue: MenuItemGroup | typeof UNGROUPED_KEY = isMenuItemGroup(item.item_group) ? item.item_group : UNGROUPED_KEY
+	// Chave fora do conjunto continua selecionada e rotulada pelo que ela é — trocar
+	// para "Sem grupo" na tela apagaria a classificação no primeiro salvamento.
+	const groupValue: string = item.item_group ?? UNGROUPED_KEY
+	const isOrphan = item.item_group != null && !groups.some((g) => g.key === item.item_group)
 
 	const handleGroupChange = (value: string | null) => {
 		const nextGroup = value == null || value === UNGROUPED_KEY ? null : (value as MenuItemGroup)
@@ -179,15 +184,16 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated }: MenuIte
 					<Label className="text-xs text-muted-foreground">Grupo</Label>
 					<Select value={groupValue} onValueChange={handleGroupChange}>
 						<SelectTrigger className="h-8 text-xs">
-							<SelectValue>{groupValue === UNGROUPED_KEY ? UNGROUPED_LABEL : MENU_ITEM_GROUP_LABELS[groupValue]}</SelectValue>
+							<SelectValue>{groupValue === UNGROUPED_KEY ? UNGROUPED_LABEL : menuItemGroupLabel(groupValue, groups)}</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value={UNGROUPED_KEY}>{UNGROUPED_LABEL}</SelectItem>
-							{MENU_ITEM_GROUPS.map((g) => (
-								<SelectItem key={g} value={g}>
-									{MENU_ITEM_GROUP_LABELS[g]}
+							{groups.map((g) => (
+								<SelectItem key={g.key} value={g.key}>
+									{g.label}
 								</SelectItem>
 							))}
+							{isOrphan && item.item_group && <SelectItem value={item.item_group}>{menuItemGroupLabel(item.item_group, groups)} (fora do conjunto)</SelectItem>}
 						</SelectContent>
 					</Select>
 				</div>

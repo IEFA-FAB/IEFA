@@ -14,7 +14,6 @@
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { MENU_ITEM_GROUPS } from "../schemas/common.ts"
 import {
 	EQUIPMENT_ISSUE_CATEGORIES,
 	EQUIPMENT_ISSUE_SEVERITIES,
@@ -164,21 +163,10 @@ describe("catalog_scope", () => {
 	})
 })
 
-describe("item_group", () => {
-	// A migration declara o MESMO vocabulário em duas tabelas: menu_template_items
-	// (ocorrência 0) e menu_items (ocorrência 1). Verificar só a primeira deixaria
-	// o cardápio publicado sem contrato — que é justamente onde o valor chega ao
-	// usuário.
-	const GRUPOS = "20260706200000_menu_item_group_order_proportion.sql"
-
-	test("kitchen.menu_template_items", () => {
-		expect(checkValues(GRUPOS, "item_group", 0)).toEqual([...MENU_ITEM_GROUPS].sort())
-	})
-
-	test("kitchen.menu_items", () => {
-		expect(checkValues(GRUPOS, "item_group", 1)).toEqual([...MENU_ITEM_GROUPS].sort())
-	})
-})
+// O vocabulário de `item_group` saiu daqui em 20260922150000: deixou de ser lista
+// fixa no CHECK e virou conjunto por refeição (kitchen.menu_group_set). O contrato
+// do seed e a garantia de que o CHECK não voltou estão em
+// `menu-groups.sql-contract.test.ts`.
 
 describe("particionamento dos tipos de movimento no custeio", () => {
 	// As duas triggers de custo médio listam tipos literalmente, e de formas

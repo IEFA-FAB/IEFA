@@ -356,6 +356,14 @@ export {
 export { createMcpApiKey, deleteMcpApiKey, listMcpApiKeys, type McpApiKeyRow, revokeMcpApiKey } from "./mcp-keys.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
+	createMenuGroupSet,
+	deleteMenuGroupSet,
+	fetchMenuGroupSets,
+	type MenuGroupRow,
+	type MenuGroupSetRow,
+	updateMenuGroupSet,
+} from "./menu-groups.ts"
+export {
 	type ConsumedRecoveryCode,
 	consumeRecoveryCode,
 	type GeneratedRecoveryCodes,

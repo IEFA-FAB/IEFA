@@ -56,6 +56,9 @@ export function useCreateMealType() {
 					name: payload.name ?? "",
 					sortOrder: payload.sort_order ?? undefined,
 					kitchenId: payload.kitchen_id ?? null,
+					// Ausente = a operação resolve o conjunto padrão. A refeição nova
+					// nunca nasce sem colunas no editor.
+					groupSetId: payload.group_set_id ?? undefined,
 				},
 			}),
 		onSuccess: (data) => {
@@ -95,6 +98,9 @@ export function useUpdateMealType() {
 					name: updates.name ?? undefined,
 					sortOrder: updates.sort_order ?? undefined,
 					kitchenId: updates.kitchen_id ?? undefined,
+					// `null` aqui é escolha ("volta ao conjunto padrão"), não ausência —
+					// por isso passa direto em vez de virar `undefined`.
+					groupSetId: "group_set_id" in updates ? updates.group_set_id : undefined,
 				},
 			}),
 		onSuccess: (data) => {

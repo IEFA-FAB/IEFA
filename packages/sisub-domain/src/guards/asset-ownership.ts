@@ -22,6 +22,7 @@
 import {
 	equipmentModelInKitchen,
 	mealTypeInKitchen,
+	menuGroupSetInKitchen,
 	menuTemplateInKitchen,
 	recipesInKitchen,
 	type SisubDb,
@@ -36,7 +37,7 @@ import { runQuery } from "../utils/index.ts"
 import { requireAnyPermission, requireKitchen, requirePermission } from "./require-permission.ts"
 
 /** Tables holding both global and local rows. Keys double as the entity name in errors. */
-export type AssetKind = "recipe" | "menu_template" | "meal_type" | "step_template" | "utensil" | "equipment_model"
+export type AssetKind = "recipe" | "menu_template" | "meal_type" | "menu_group_set" | "step_template" | "utensil" | "equipment_model"
 
 type OwnerRow = { kitchenId: number | null }
 
@@ -49,6 +50,10 @@ const OWNER_RESOLVERS: Record<AssetKind, (db: SisubDb, id: string) => Promise<Ow
 	recipe: (db, id) => db.query.recipesInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(recipesInKitchen.id, id) }),
 	menu_template: (db, id) => db.query.menuTemplateInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(menuTemplateInKitchen.id, id) }),
 	meal_type: (db, id) => db.query.mealTypeInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(mealTypeInKitchen.id, id) }),
+	// Sem relations declaradas (tabela nova, `schema.ts` é gerado): `db.select`
+	// resolve o dono igual, e o builder relacional não acrescenta nada aqui.
+	menu_group_set: async (db, id) =>
+		(await db.select({ kitchenId: menuGroupSetInKitchen.kitchenId }).from(menuGroupSetInKitchen).where(eq(menuGroupSetInKitchen.id, id)).limit(1))[0],
 	step_template: (db, id) => db.query.stepTemplateInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(stepTemplateInKitchen.id, id) }),
 	utensil: (db, id) => db.query.utensilInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(utensilInKitchen.id, id) }),
 	equipment_model: (db, id) => db.query.equipmentModelInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(equipmentModelInKitchen.id, id) }),

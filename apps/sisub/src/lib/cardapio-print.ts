@@ -5,9 +5,18 @@ import { ALLERGEN_LABELS, normalizeAllergens, type RecipeIngredientDigest } from
  * testáveis: o que sai em negrito e o que entra na lista de preparações.
  */
 
+/**
+ * Grupos que saem em negrito na grade impressa — o prato que dá nome à refeição.
+ *
+ * São dois porque nem toda refeição tem "prato principal": no conjunto da ceia o
+ * item que faz esse papel é o `lanche` (salgado assado, pão com frios). Sem ele
+ * a folha da ceia sairia inteira em peso normal.
+ */
+const MAIN_DISH_GROUPS = new Set(["prato_principal", "lanche"])
+
 /** O prato principal sai em negrito na grade; os demais grupos, em peso normal. */
 export function isMainDish(group: string | null | undefined): boolean {
-	return group === "prato_principal"
+	return group != null && MAIN_DISH_GROUPS.has(group)
 }
 
 /**

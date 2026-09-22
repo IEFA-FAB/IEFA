@@ -23,8 +23,12 @@ export interface DishDetails {
 	id: string
 	name: string
 	ingredients: DishIngredient[]
-	/** Grupo canônico da preparação (prato principal, guarnição, …); null = sem grupo. */
+	/** Chave do grupo no conjunto da refeição (`pao`, `prato_principal`, …); null = sem grupo. */
 	group: string | null
+	/** Rótulo do grupo, resolvido no servidor: a tela do comensal não alcança o conjunto. */
+	group_label: string | null
+	/** Posição do grupo na ordem de leitura do conjunto — fora dele, vai para o fim. */
+	group_order: number
 	/** Proporção recomendada de consumo (%), advisory. */
 	recommended_proportion: number | null
 }

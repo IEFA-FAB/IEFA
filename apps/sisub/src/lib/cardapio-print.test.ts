@@ -38,6 +38,11 @@ describe("isMainDish", () => {
 		expect(isMainDish("prato_principal")).toBe(true)
 		for (const g of ["acompanhamento", "guarnicao", "bebida", "sobremesa", null, undefined]) expect(isMainDish(g)).toBe(false)
 	})
+
+	test("na ceia o destaque é o lanche — ela não tem prato principal", () => {
+		expect(isMainDish("lanche")).toBe(true)
+		for (const g of ["complemento", "fruta", "pao", "proteina", "salada"]) expect(isMainDish(g)).toBe(false)
+	})
 })
 
 describe("buildPreparationEntries", () => {

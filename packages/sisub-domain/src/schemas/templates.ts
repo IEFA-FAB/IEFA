@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { DateSchema, EditScopeSchema, KitchenIdSchema, MenuItemGroupSchema, RecommendedProportionSchema, UuidSchema } from "./common.ts"
+import { DateSchema, EditScopeSchema, KitchenIdSchema, MenuGroupKeySchema, RecommendedProportionSchema, UuidSchema } from "./common.ts"
 
 export const ListTemplatesSchema = z.object({
 	kitchenId: KitchenIdSchema.nullable().optional(),
@@ -31,7 +31,7 @@ export const TemplateItemSchema = z.object({
 	 */
 	headcountOverride: z.number().int().positive().nullish(),
 	/** Grupo canônico dentro da refeição (prato principal, guarnição, …). */
-	itemGroup: MenuItemGroupSchema.nullable().optional(),
+	itemGroup: MenuGroupKeySchema.nullable().optional(),
 	/** Posição dentro do grupo, dentro da célula (dia+refeição). `null` cai no índice do array. */
 	sortOrder: z.number().int().nonnegative().nullish(),
 	/** Proporção recomendada de consumo (%), advisory. */

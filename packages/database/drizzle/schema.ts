@@ -183,6 +183,45 @@ export const migrationFolderLookupInKitchen = kitchen.table("migration_folder_lo
 	unique("migration_folder_lookup_new_folder_id_key").on(table.newFolderId),
 ]);
 
+// Conjunto de grupos do cardápio ("template de grupos") — 20260922150000.
+// kitchen_id null = global da SDAB; `slug` só existe nos globais, é o nome
+// estável pelo qual o domínio alcança o conjunto padrão.
+export const menuGroupSetInKitchen = kitchen.table("menu_group_set", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: text().notNull(),
+	description: text(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	slug: text(),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "menu_group_set_kitchen_id_fkey"
+		}),
+]);
+
+// Coluna de um conjunto. `key` é o valor gravado em item_group; `label` é só
+// exibição — trocar o rótulo NÃO reclassifica o que já está no cardápio.
+export const menuGroupInKitchen = kitchen.table("menu_group", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	groupSetId: uuid("group_set_id").notNull(),
+	key: text().notNull(),
+	label: text().notNull(),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.groupSetId],
+			foreignColumns: [menuGroupSetInKitchen.id],
+			name: "menu_group_group_set_id_fkey"
+		}).onDelete("cascade"),
+	unique("menu_group_key_unique").on(table.groupSetId, table.key),
+]);
+
 export const mealTypeInKitchen = kitchen.table("meal_type", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -191,11 +230,19 @@ export const mealTypeInKitchen = kitchen.table("meal_type", {
 	kitchenId: bigint("kitchen_id", { mode: "number" }),
 	sortOrder: smallint("sort_order"),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	// Null = o editor cai no conjunto padrão (slug `principal`): é o estado de
+	// linha antiga, não um modo de operação.
+	groupSetId: uuid("group_set_id"),
 }, (table) => [
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
 			name: "meal_type_kitchen_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.groupSetId],
+			foreignColumns: [menuGroupSetInKitchen.id],
+			name: "meal_type_group_set_id_fkey"
 		}),
 ]);
 

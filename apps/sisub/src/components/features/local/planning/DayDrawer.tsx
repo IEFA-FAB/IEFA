@@ -21,11 +21,12 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { toast } from "@/components/ui/toast"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
+import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useAddMenuItem, useCreateDailyMenu, useDayDetails, useDeleteMenuItem, useUpdateDailyMenu } from "@/hooks/data/usePlanning"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import type { HeadcountPlan, MenuClipboardEntry } from "@/lib/menu-fill"
-import { groupMenuItems } from "@/lib/menu-item-groups"
+import { groupMenuItems, type MenuGroup } from "@/lib/menu-item-groups"
 import { findOutdatedRecipes, indexLatestByLineage, type OutdatedRecipe, type RecipeVersionRef } from "@/lib/recipe-versions"
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
 import { MenuEquipmentAlert } from "./MenuEquipmentAlert"
@@ -47,6 +48,8 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	const { data: dayMenus, isLoading: menusLoading } = useDayDetails(kitchenId, date || new Date())
 
 	const { data: mealTypes, isLoading: mealTypesLoading } = useMealTypes(kitchenId)
+	// Os grupos do dia são os do conjunto da refeição — os mesmos do editor semanal.
+	const { groupsFor } = useMealTypeGroups(kitchenId, mealTypes)
 
 	const isLoading = menusLoading || mealTypesLoading
 
@@ -243,6 +246,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 									onPasteMeal={handlePasteMeal}
 									clipboardCount={clipboard.length}
 									outdatedById={outdatedById}
+									groups={groupsFor(mealType.id)}
 								/>
 							))}
 						</Accordion>
@@ -316,6 +320,7 @@ function MealSection({
 	onPasteMeal,
 	clipboardCount,
 	outdatedById,
+	groups,
 }: {
 	mealType: {
 		id: string
@@ -333,6 +338,8 @@ function MealSection({
 	onPasteMeal: (menu: DailyMenuWithItems) => void
 	clipboardCount: number
 	outdatedById: ReadonlyMap<string, OutdatedRecipe>
+	/** Grupos do conjunto desta refeição — as mesmas colunas do editor semanal. */
+	groups: readonly MenuGroup[]
 }) {
 	const { mutate: createMenu, isPending: isCreating } = useCreateDailyMenu()
 	const { mutate: updateDailyMenu } = useUpdateDailyMenu()
@@ -459,7 +466,7 @@ function MealSection({
 								<div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">Nenhuma preparação adicionada.</div>
 							) : (
 								<div className="space-y-3">
-									{groupMenuItems(menu.menu_items).map((group) => (
+									{groupMenuItems(menu.menu_items, groups).map((group) => (
 										<div key={group.key} className="space-y-2">
 											<p className="text-xs uppercase tracking-wide text-muted-foreground/80">{group.label}</p>
 											<div className="grid gap-2">
@@ -469,6 +476,7 @@ function MealSection({
 														item={item}
 														onSubstitute={onSubstitute}
 														onDelete={onDelete}
+														groups={groups}
 														outdated={item.recipe_origin_id ? outdatedById.get(item.recipe_origin_id) : undefined}
 													/>
 												))}

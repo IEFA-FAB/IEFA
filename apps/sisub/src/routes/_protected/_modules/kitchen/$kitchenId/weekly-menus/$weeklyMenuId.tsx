@@ -23,6 +23,7 @@ import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
+import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
@@ -227,6 +228,9 @@ function WeeklyMenuEditorPage() {
 
 	const { data: template, isLoading: templateLoading } = useTemplate(weeklyMenuId as string)
 	const { data: mealTypes } = useMealTypes(kitchenId)
+	// Colunas do board saem do conjunto de grupos DA refeição (café tem pães, o
+	// almoço tem salada) — não mais de uma lista fixa igual para todas.
+	const { groupsFor } = useMealTypeGroups(kitchenId, mealTypes)
 	// Catálogo global + as preparações DESTA cozinha. Sem o escopo, a listagem volta só com
 	// as globais e a cozinha não enxergava as próprias preparações no cardápio.
 	const { data: allRecipes } = useRecipes({ kitchen_id: kitchenId })
@@ -950,6 +954,7 @@ function WeeklyMenuEditorPage() {
 												<div className="p-3">
 													<MealGroupBoard
 														items={boardItems}
+														groups={groupsFor(mealType.id)}
 														onArrange={(arrangement) => handleArrange(day.num, mealType.id, arrangement)}
 														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
 														onHeadcountChange={(recipeId, value) => handleItemHeadcountChange(day.num, mealType.id, recipeId, value)}

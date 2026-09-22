@@ -40,12 +40,22 @@ export const SortOrderSchema = z.number().int().nonnegative().optional()
 export type SortOrder = z.infer<typeof SortOrderSchema>
 
 /**
- * Grupo canônico de uma preparação dentro de uma refeição. Ordem de declaração =
- * ordem de leitura no cardápio (prato principal → ... → sobremesa). null/ausente = sem grupo.
+ * Chave do grupo de uma preparação dentro da refeição.
+ *
+ * Era um enum de cinco valores fixos, iguais para toda refeição — foi assim que
+ * os pães do café acabaram em "acompanhamento" e os salgados da ceia em "prato
+ * principal". Desde 20260922150000 o vocabulário é do CONJUNTO da refeição
+ * (`kitchen.menu_group_set`), e a chave vale dentro dele: a mesma `bebida`
+ * aparece em conjuntos diferentes, e o almoço ganhou `salada`.
+ *
+ * A validação aqui é de FORMA, não de pertencimento. Quem decide o que a tela
+ * oferece é o conjunto; recusar na escrita uma chave fora dele transformaria
+ * "este item ficou órfão depois que o conjunto mudou" em erro sem saída — hoje
+ * ele aparece na coluna "Fora do conjunto" e se arrasta de volta. null/ausente
+ * = sem grupo, e continua sendo o estado de item legado.
  */
-export const MENU_ITEM_GROUPS = ["prato_principal", "acompanhamento", "guarnicao", "bebida", "sobremesa"] as const
-export const MenuItemGroupSchema = z.enum(MENU_ITEM_GROUPS)
-export type MenuItemGroup = z.infer<typeof MenuItemGroupSchema>
+export const MenuGroupKeySchema = z.string().regex(/^[a-z][a-z0-9_]{1,39}$/, "chave de grupo inválida: use minúsculas, dígitos e _ (2 a 40 caracteres)")
+export type MenuGroupKey = z.infer<typeof MenuGroupKeySchema>
 
 /**
  * Teto da proporção (%). Acima de 100 é real: turma de curso de formação come mais que o per

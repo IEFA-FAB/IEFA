@@ -7,11 +7,15 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useCreateMealType, useUpdateMealType } from "@/hooks/data/useMealTypes"
+import { useMenuGroupSets } from "@/hooks/data/useMenuGroups"
 
 const mealTypeSchema = z.object({
 	name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
 	sort_order: z.number().min(0, "Ordem deve ser maior ou igual a 0"),
+	/** "" = nenhum escolhido; a operação resolve o conjunto padrão. */
+	group_set_id: z.string(),
 })
 
 interface MealTypeFormProps {
@@ -37,6 +41,8 @@ interface MealTypeFormProps {
 export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFormProps) {
 	const { mutate: createMealType, isPending: isCreating } = useCreateMealType()
 	const { mutate: updateMealType, isPending: isUpdating } = useUpdateMealType()
+	// Conjuntos que esta cozinha alcança: os globais da SDAB mais os dela.
+	const { data: groupSets } = useMenuGroupSets(kitchenId)
 
 	const isEditing = !!mealType
 	const isPending = isCreating || isUpdating
@@ -45,6 +51,7 @@ export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFor
 		defaultValues: {
 			name: mealType?.name || "",
 			sort_order: mealType?.sort_order || 0,
+			group_set_id: mealType?.group_set_id || "",
 		},
 		validators: {
 			onChange: mealTypeSchema,
@@ -56,6 +63,9 @@ export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFor
 						id: mealType.id,
 						name: value.name,
 						sort_order: value.sort_order,
+						// "" é "nenhum conjunto": `null` limpa a coluna e a refeição volta
+						// ao conjunto padrão.
+						group_set_id: value.group_set_id || null,
 					},
 					{
 						onSuccess: () => {
@@ -70,6 +80,7 @@ export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFor
 						name: value.name,
 						kitchen_id: kitchenId,
 						sort_order: value.sort_order,
+						group_set_id: value.group_set_id || null,
 					},
 					{
 						onSuccess: () => {
@@ -123,6 +134,40 @@ export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFor
 								{field.state.meta.errors.length > 0 && <p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>}
 							</div>
 						)}
+					</form.Field>
+
+					{/* Conjunto de grupos */}
+					<form.Field name="group_set_id">
+						{(field) => {
+							const selected = groupSets?.find((s) => s.id === field.state.value)
+							return (
+								<div className="space-y-2">
+									<Label htmlFor="group_set_id">Grupos do cardápio</Label>
+									<Select
+										value={field.state.value || "__default__"}
+										onValueChange={(value) => field.handleChange(value === "__default__" ? "" : (value ?? ""))}
+									>
+										<SelectTrigger id="group_set_id">
+											<SelectValue>{selected ? selected.name : "Conjunto padrão (refeição principal)"}</SelectValue>
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="__default__">Conjunto padrão (refeição principal)</SelectItem>
+											{groupSets?.map((set) => (
+												<SelectItem key={set.id} value={set.id}>
+													{set.name}
+													{set.kitchen_id != null ? " (desta cozinha)" : ""}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<p className="text-xs text-muted-foreground">
+										{selected
+											? `Colunas do editor: ${selected.groups.map((g) => g.label).join(" · ")}`
+											: "Define as colunas do editor de cardápio desta refeição — salada, prato principal, pães, lanche…"}
+									</p>
+								</div>
+							)
+						}}
 					</form.Field>
 
 					{/* Sort Order Field */}

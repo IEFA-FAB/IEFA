@@ -1,4 +1,3 @@
-import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
 import {
 	closestCorners,
 	DndContext,
@@ -14,6 +13,7 @@ import {
 } from "@dnd-kit/core"
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
 import { ArrowRightLeft, ClipboardPaste, Copy, GripVertical, Percent, Plus, Users, X } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuGroupLabel, ContextMenuItem
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
-import { MENU_ITEM_GROUP_LABELS, MENU_ITEM_GROUPS, type MenuItemGroup, UNGROUPED_KEY, UNGROUPED_LABEL } from "@/lib/menu-item-groups"
+import { DEFAULT_MENU_GROUPS, type MenuGroup, type MenuItemGroup, menuItemGroupLabel, UNGROUPED_KEY, UNGROUPED_LABEL } from "@/lib/menu-item-groups"
 
 /** Item genérico exibido no board. `id` é a chave estável de drag (recipe_id no template, menu_item.id no dia). */
 export type BoardItem = {
@@ -43,7 +43,7 @@ export type BoardItem = {
 	highlighted?: boolean
 }
 
-type ColumnKey = MenuItemGroup | typeof UNGROUPED_KEY
+type ColumnKey = string
 
 /**
  * Como a demanda da preparação é dita: percentual do efetivo da refeição ou quantidade
@@ -65,20 +65,41 @@ function columnKeyOf(group: MenuItemGroup | null): ColumnKey {
 	return group ?? UNGROUPED_KEY
 }
 
-function buildColumns(items: BoardItem[]): Record<ColumnKey, string[]> {
+/**
+ * Colunas do board: as do conjunto da refeição, MAIS uma por chave que o
+ * conjunto não conhece, mais "Sem grupo".
+ *
+ * A coluna extra é o item que ficou para trás quando o conjunto mudou. Ele
+ * precisa de um lugar visível: sem ela o item sumiria da tela continuando no
+ * cardápio — e some do editor não é some do banco.
+ */
+function columnKeysOf(groups: readonly MenuGroup[], items: BoardItem[]): ColumnKey[] {
+	const known = new Set(groups.map((g) => g.key))
+	const extras: string[] = []
+	for (const item of items) {
+		if (item.group != null && !known.has(item.group) && !extras.includes(item.group)) extras.push(item.group)
+	}
+	return [...groups.map((g) => g.key), ...extras, UNGROUPED_KEY]
+}
+
+function buildColumns(items: BoardItem[], keys: ColumnKey[]): Record<ColumnKey, string[]> {
 	const cols = {} as Record<ColumnKey, string[]>
-	for (const g of MENU_ITEM_GROUPS) cols[g] = []
-	cols[UNGROUPED_KEY] = []
+	for (const key of keys) cols[key] = []
 	const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder)
-	for (const item of sorted) cols[columnKeyOf(item.group)].push(item.id)
+	for (const item of sorted) {
+		const key = columnKeyOf(item.group)
+		// Chave que não virou coluna não pode sumir: vai para "Sem grupo" em vez de
+		// derrubar o item num objeto sem a propriedade.
+		;(cols[key] ?? cols[UNGROUPED_KEY]).push(item.id)
+	}
 	return cols
 }
 
-function columnsToArrangement(cols: Record<ColumnKey, string[]>): BoardArrangement {
+function columnsToArrangement(cols: Record<ColumnKey, string[]>, keys: ColumnKey[]): BoardArrangement {
 	const out: BoardArrangement = []
-	for (const key of [...MENU_ITEM_GROUPS, UNGROUPED_KEY] as ColumnKey[]) {
+	for (const key of keys) {
 		const group = key === UNGROUPED_KEY ? null : key
-		cols[key].forEach((id, index) => {
+		cols[key]?.forEach((id, index) => {
 			out.push({ id, group, sortOrder: index })
 		})
 	}
@@ -100,6 +121,7 @@ function SortableItem({
 	onPaste,
 	canPaste,
 	onMoveToGroup,
+	groups,
 }: {
 	item: BoardItem
 	onProportionChange: (id: string, value: number | null) => void
@@ -115,6 +137,7 @@ function SortableItem({
 	onPaste?: () => void
 	canPaste?: boolean
 	onMoveToGroup: (id: string, group: MenuItemGroup | null) => void
+	groups: readonly MenuGroup[]
 }) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 	const style = { transform: CSS.Translate.toString(transform), transition }
@@ -248,12 +271,14 @@ function SortableItem({
 				<ContextMenuGroupLabel>Mover para</ContextMenuGroupLabel>
 				{/* Trocar o grupo só era possível arrastando — no celular as colunas empilham e
 				    arrastar de "Prato principal" para "Guarnição" é atravessar a tela inteira. */}
-				{MENU_ITEM_GROUPS.filter((g) => g !== item.group).map((g) => (
-					<ContextMenuItem key={g} onClick={() => onMoveToGroup(item.id, g)}>
-						<ArrowRightLeft className="size-4" />
-						{MENU_ITEM_GROUP_LABELS[g]}
-					</ContextMenuItem>
-				))}
+				{groups
+					.filter((g) => g.key !== item.group)
+					.map((g) => (
+						<ContextMenuItem key={g.key} onClick={() => onMoveToGroup(item.id, g.key)}>
+							<ArrowRightLeft className="size-4" />
+							{g.label}
+						</ContextMenuItem>
+					))}
 				<ContextMenuItem onClick={() => onRemove(item.id)}>
 					<X className="size-4" />
 					Remover
@@ -282,6 +307,7 @@ function GroupColumn({
 	onPaste,
 	canPaste,
 	onMoveToGroup,
+	groups,
 }: {
 	columnKey: ColumnKey
 	label: string
@@ -301,6 +327,7 @@ function GroupColumn({
 	onPaste?: () => void
 	canPaste?: boolean
 	onMoveToGroup: (id: string, group: MenuItemGroup | null) => void
+	groups: readonly MenuGroup[]
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: `col:${columnKey}`, data: { isColumn: true, columnKey } })
 	const canAdd = onAdd && columnKey !== UNGROUPED_KEY
@@ -350,6 +377,7 @@ function GroupColumn({
 									onPaste={onPaste}
 									canPaste={canPaste}
 									onMoveToGroup={onMoveToGroup}
+									groups={groups}
 								/>
 							)
 						})
@@ -367,6 +395,7 @@ function GroupColumn({
  */
 export function MealGroupBoard({
 	items,
+	groups = DEFAULT_MENU_GROUPS,
 	onArrange,
 	onProportionChange,
 	onRemove,
@@ -382,6 +411,8 @@ export function MealGroupBoard({
 	canPaste,
 }: {
 	items: BoardItem[]
+	/** Grupos do conjunto DESTA refeição, na ordem de leitura. Padrão = conjunto do almoço. */
+	groups?: readonly MenuGroup[]
 	onArrange: (arrangement: BoardArrangement) => void
 	onProportionChange: (id: string, value: number | null) => void
 	onRemove: (id: string) => void
@@ -421,9 +452,12 @@ export function MealGroupBoard({
 		else onProportionChange(id, null)
 	}
 
+	// As colunas mudam com o conjunto da refeição (e com item órfão que aparece).
+	const columnKeys = useMemo(() => columnKeysOf(groups, items), [groups, items])
+
 	// Estado local das colunas para permitir movimento cross-group durante o drag; ressincroniza
 	// com as props após cada commit (onArrange) ou edição externa.
-	const [columns, setColumns] = useState<Record<ColumnKey, string[]>>(() => buildColumns(items))
+	const [columns, setColumns] = useState<Record<ColumnKey, string[]>>(() => buildColumns(items, columnKeysOf(groups, items)))
 	const [activeId, setActiveId] = useState<string | null>(null)
 
 	// Refs (não deps do efeito): um re-render do pai no meio do drag não pode descartar
@@ -437,8 +471,8 @@ export function MealGroupBoard({
 			pendingItemsRef.current = items
 			return
 		}
-		setColumns(buildColumns(items))
-	}, [items])
+		setColumns(buildColumns(items, columnKeys))
+	}, [items, columnKeys])
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -464,7 +498,7 @@ export function MealGroupBoard({
 		setActiveId(null)
 		const pending = pendingItemsRef.current
 		pendingItemsRef.current = null
-		if (!commit && pending) setColumns(buildColumns(pending))
+		if (!commit && pending) setColumns(buildColumns(pending, columnKeys))
 	}
 
 	function handleDragOver(event: DragOverEvent) {
@@ -515,7 +549,7 @@ export function MealGroupBoard({
 				setColumns(next)
 			}
 		}
-		onArrange(columnsToArrangement(next))
+		onArrange(columnsToArrangement(next, columnKeys))
 	}
 
 	/** Mesmo efeito de arrastar o item para o fim de outra coluna, sem arrastar. */
@@ -523,9 +557,9 @@ export function MealGroupBoard({
 		const target = columnKeyOf(group)
 		const next = {} as Record<ColumnKey, string[]>
 		for (const key of Object.keys(columns) as ColumnKey[]) next[key] = columns[key].filter((itemId) => itemId !== id)
-		next[target] = [...next[target], id]
+		next[target] = [...(next[target] ?? []), id]
 		setColumns(next)
-		onArrange(columnsToArrangement(next))
+		onArrange(columnsToArrangement(next, [...columnKeys, ...(columnKeys.includes(target) ? [] : [target])]))
 	}
 
 	const activeItem = activeId ? itemMap.get(activeId) : null
@@ -540,18 +574,20 @@ export function MealGroupBoard({
 			onDragCancel={() => finishDrag(false)}
 		>
 			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-				{([...MENU_ITEM_GROUPS, UNGROUPED_KEY] as ColumnKey[]).map((key) => {
+				{columnKeys.map((key) => {
 					// Coluna "sem grupo" só aparece quando há itens legados nela.
-					if (key === UNGROUPED_KEY && columns[UNGROUPED_KEY].length === 0) return null
-					const label = key === UNGROUPED_KEY ? UNGROUPED_LABEL : MENU_ITEM_GROUP_LABELS[key]
+					if (key === UNGROUPED_KEY && (columns[UNGROUPED_KEY]?.length ?? 0) === 0) return null
+					const label = key === UNGROUPED_KEY ? UNGROUPED_LABEL : menuItemGroupLabel(key, groups)
 					return (
 						<GroupColumn
 							key={key}
 							columnKey={key}
 							label={label}
-							itemIds={columns[key]}
+							itemIds={columns[key] ?? []}
 							itemMap={itemMap}
-							onAdd={onAdd}
+							// Coluna órfã não recebe preparação nova: ela existe para esvaziar,
+							// não para crescer.
+							onAdd={groups.some((g) => g.key === key) ? onAdd : undefined}
 							onProportionChange={onProportionChange}
 							onHeadcountChange={onHeadcountChange}
 							onRemove={onRemove}
@@ -565,6 +601,7 @@ export function MealGroupBoard({
 							onPaste={onPaste}
 							canPaste={canPaste}
 							onMoveToGroup={moveToGroup}
+							groups={groups}
 						/>
 					)
 				})}

@@ -85,6 +85,11 @@ export const queryKeys = {
 		byKitchen: (kitchenId: number | null) => ["meal_types", kitchenId] as const,
 	},
 
+	menuGroupSets: {
+		all: () => ["menu_group_sets"] as const,
+		byKitchen: (kitchenId: number | null) => ["menu_group_sets", kitchenId] as const,
+	},
+
 	dailyMenus: {
 		all: () => ["daily_menus"] as const,
 		content: (kitchenIds: number[], startDate: string, endDate: string) => ["dailyMenuContent", kitchenIds, startDate, endDate] as const,

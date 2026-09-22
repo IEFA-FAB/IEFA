@@ -32,13 +32,14 @@ export {
 	SaveModuleChatMessageSchema,
 	UpdateMessageChartTypeSchema,
 } from "./chat.ts"
-export type { DateRange, DateString, EditScope, KitchenId, Pagination, SortOrder, Uuid } from "./common.ts"
+export type { DateRange, DateString, EditScope, KitchenId, MenuGroupKey, Pagination, SortOrder, Uuid } from "./common.ts"
 export {
 	DateRangeSchema,
 	DateSchema,
 	EditScopeSchema,
 	KitchenIdSchema,
 	MAX_RECOMMENDED_PROPORTION,
+	MenuGroupKeySchema,
 	PaginationSchema,
 	SortOrderSchema,
 	UuidSchema,
@@ -297,6 +298,23 @@ export {
 	RestoreMealTypeSchema,
 	UpdateMealTypeSchema,
 } from "./meal-types.ts"
+export type {
+	CreateMenuGroupSet,
+	DeleteMenuGroupSet,
+	FetchMenuGroupSets,
+	MenuGroupInput,
+	UpdateMenuGroupSet,
+} from "./menu-groups.ts"
+export {
+	CreateMenuGroupSetSchema,
+	DEFAULT_GROUP_SET_SLUG,
+	DEFAULT_MENU_GROUP_SETS,
+	DeleteMenuGroupSetSchema,
+	FALLBACK_MENU_GROUPS,
+	FetchMenuGroupSetsSchema,
+	MenuGroupSchema,
+	UpdateMenuGroupSetSchema,
+} from "./menu-groups.ts"
 export type { ConsumeRecoveryCode } from "./mfa-recovery.ts"
 export {
 	ConsumeRecoveryCodeSchema,

@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
+import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
@@ -151,6 +152,10 @@ function GlobalPlanEditorPage() {
 		queryFn: () => fetchMealTypesFn({ data: { kitchenId: null } }),
 		staleTime: 5 * 60 * 1000,
 	})
+
+	// Conjunto de grupos de cada refeição genérica: as colunas do board do plano
+	// global são as mesmas que a cozinha vai ver depois de adotar o plano.
+	const { groupsFor } = useMealTypeGroups(null, mealTypes)
 
 	// Receitas globais (kitchenId=null → tudo com kitchen_id=null)
 	const { data: allRecipes } = useRecipes()
@@ -590,6 +595,7 @@ function GlobalPlanEditorPage() {
 												<div className="p-3">
 													<MealGroupBoard
 														items={boardItems}
+														groups={groupsFor(mealType.id)}
 														onArrange={(arrangement) => handleArrange(day.num, mealType.id, arrangement)}
 														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
 														onRemove={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}

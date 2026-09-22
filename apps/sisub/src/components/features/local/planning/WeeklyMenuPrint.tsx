@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/toast"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
+import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate } from "@/hooks/data/useTemplates"
 import {
@@ -173,6 +174,9 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 		staleTime: 5 * 60 * 1000,
 	})
 
+	// Ordem de leitura das colunas impressas: a do conjunto de cada refeição.
+	const { groupsFor } = useMealTypeGroups(mealTypeKitchenId, mealTypes)
+
 	const storageScope = scope.kind === "kitchen" ? String(scope.kitchenId) : "global"
 
 	// Nome da OM impresso no topo: unidade da cozinha (padrão canônico do app),
@@ -283,7 +287,8 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// Ordena os tipos de refeição (linhas da grade) por sort_order → nome.
 	const orderedMealTypes = (mealTypes ?? []).slice().sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999) || (a.name ?? "").localeCompare(b.name ?? ""))
 
-	// Índice (dia → refeição → preparações), ordenadas por grupo canônico e depois posição.
+	// Índice (dia → refeição → preparações), ordenadas pela ordem de leitura do
+	// CONJUNTO daquela refeição e depois pela posição dentro do grupo.
 	const cellIndex = new Map<string, CellEntry[]>()
 	for (const item of template.items) {
 		if (item.day_of_week == null || !item.meal_type_id) continue
@@ -298,8 +303,9 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 		})
 		cellIndex.set(key, list)
 	}
-	for (const list of cellIndex.values()) {
-		list.sort((a, b) => menuItemGroupOrder(a.group) - menuItemGroupOrder(b.group) || a.sortOrder - b.sortOrder)
+	for (const [key, list] of cellIndex) {
+		const groups = groupsFor(key.split(":")[1])
+		list.sort((a, b) => menuItemGroupOrder(a.group, groups) - menuItemGroupOrder(b.group, groups) || a.sortOrder - b.sortOrder)
 	}
 
 	// Efetivo base por (dia + refeição): sai no topo da célula, para "30%" ter do que ser 30%.
