@@ -29,6 +29,7 @@ import {
 	Package,
 	PackageCheck,
 	PackageMinus,
+	PlaneTakeoff,
 	QrCode,
 	Receipt,
 	RefreshCw,
@@ -89,6 +90,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Previsão", url: "/diner/forecast", icon: Calendar },
 			{ title: "Cardápio", url: "/diner/menu", icon: BookOpen },
+			{ title: "Pedido de Lanche", url: "/diner/snack-requests", icon: PlaneTakeoff },
 			{ title: "Meu QR Code", url: "/diner/qr-code", icon: QrCode },
 			{ title: "Perfil", url: "/diner/profile", icon: User },
 			{ title: "Auto Check-in", url: "/diner/self-check-in", icon: ClipboardCheck },
@@ -137,6 +139,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Cardápios Semanais", url: "/kitchen/weekly-menus", icon: CalendarDays },
 			{ title: "Eventos", url: "/kitchen/events", icon: CalendarRange },
 			{ title: "Exceções", url: "/kitchen/exceptions", icon: Sandwich },
+			{ title: "Lanches de Bordo/Apoio", url: "/kitchen/snack-requests", icon: PlaneTakeoff },
 			{ title: "Planejamento", url: "/kitchen/planning", icon: Calendar },
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed },
 			{ title: "Equipamentos", url: "/kitchen/equipment", icon: CookingPot },

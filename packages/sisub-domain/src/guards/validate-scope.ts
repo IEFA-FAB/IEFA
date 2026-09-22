@@ -8,7 +8,19 @@ import { eq } from "drizzle-orm"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
 
-type TemplateRow = { id: string; kitchen_id: number | null; name: string | null; deleted_at: string | null; template_type: string | null }
+type TemplateRow = {
+	id: string
+	kitchen_id: number | null
+	name: string | null
+	deleted_at: string | null
+	template_type: string | null
+	snack_family: string | null
+	snack_class: string | null
+	snack_variant: string | null
+	requires_galley: boolean
+	requires_oven: boolean
+	shelf_life_hours: number | null
+}
 
 export async function validateRecipeAccess(db: SisubDb, recipeId: string, targetKitchenId: number): Promise<void> {
 	const recipe = await runQuery("FETCH_FAILED", () =>
@@ -29,6 +41,12 @@ export async function validateTemplateAccess(db: SisubDb, templateId: string, ki
 				name: menuTemplateInKitchen.name,
 				deleted_at: menuTemplateInKitchen.deletedAt,
 				template_type: menuTemplateInKitchen.templateType,
+				snack_family: menuTemplateInKitchen.snackFamily,
+				snack_class: menuTemplateInKitchen.snackClass,
+				snack_variant: menuTemplateInKitchen.snackVariant,
+				requires_galley: menuTemplateInKitchen.requiresGalley,
+				requires_oven: menuTemplateInKitchen.requiresOven,
+				shelf_life_hours: menuTemplateInKitchen.shelfLifeHours,
 			})
 			.from(menuTemplateInKitchen)
 			.where(eq(menuTemplateInKitchen.id, templateId))

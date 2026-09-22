@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/cn"
 import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/production"
 import { ProductionTaskCard } from "./ProductionTaskCard"
+import { groupBySnackRequest, SnackRequestTag } from "./SnackRequestTag"
 
 // ---------------------------------------------------------------------------
 // Column config
@@ -79,8 +80,22 @@ export function ProductionKanbanColumn({ status, items, onSelectItem, onUpdateSt
 						</p>
 					</div>
 				) : (
-					items.map((item) => (
-						<ProductionTaskCard key={item.task.id} item={item} onSelect={onSelectItem} onUpdateStatus={onUpdateStatus} isUpdating={isUpdating} />
+					// Itens de pedido de lanche ficam sub-agrupados por pedido: kits de missões
+					// diferentes não se misturam na montagem.
+					groupBySnackRequest(items).map((group) => (
+						<div key={group.key} className="space-y-2">
+							{group.snackRequest && (
+								<div className="flex items-center gap-2 pt-1">
+									<SnackRequestTag request={group.snackRequest} withStandard={false} className="min-w-0" />
+									<span className="text-xs text-muted-foreground tabular-nums shrink-0">
+										{group.items.length} {group.items.length === 1 ? "item" : "itens"}
+									</span>
+								</div>
+							)}
+							{group.items.map((item) => (
+								<ProductionTaskCard key={item.task.id} item={item} onSelect={onSelectItem} onUpdateStatus={onUpdateStatus} isUpdating={isUpdating} />
+							))}
+						</div>
 					))
 				)}
 			</div>

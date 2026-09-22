@@ -73,7 +73,9 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 	recommendedProportion: numeric("recommended_proportion", { mode: "number" }),
 	originTemplateId: uuid("origin_template_id"),
 	originTemplateType: text("origin_template_type"),
+	originSnackRequestId: uuid("origin_snack_request_id"),
 }, (table) => [
+	index("menu_items_origin_snack_request_idx").using("btree", table.originSnackRequestId.asc().nullsLast().op("uuid_ops")).where(sql`(origin_snack_request_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.dailyMenuId],
 			foreignColumns: [dailyMenuInKitchen.id],
@@ -89,6 +91,11 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 			foreignColumns: [menuTemplateInKitchen.id],
 			name: "menu_items_origin_template_id_fkey"
 		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.originSnackRequestId],
+			foreignColumns: [snackRequestInKitchen.id],
+			name: "menu_items_origin_snack_request_id_fkey"
+		}),
 	check("menu_items_origin_template_type_check", sql`origin_template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text])`),
 	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
 ]);
@@ -191,12 +198,15 @@ export const mealTypeInKitchen = kitchen.table("meal_type", {
 	kitchenId: bigint("kitchen_id", { mode: "number" }),
 	sortOrder: smallint("sort_order"),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	systemKey: text("system_key"),
 }, (table) => [
+	uniqueIndex("meal_type_system_key_unique").using("btree", table.systemKey.asc().nullsLast().op("text_ops")).where(sql`(system_key IS NOT NULL)`),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
 			name: "meal_type_kitchen_id_fkey"
 		}),
+	check("meal_type_system_key_check", sql`(system_key IS NULL) OR (system_key = 'snack_request'::text)`),
 ]);
 
 export const mealPresencesInKitchen = kitchen.table("meal_presences", {
@@ -1611,6 +1621,14 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 	baseTemplateId: uuid("base_template_id"),
 	templateType: text("template_type").default('weekly').notNull(),
 	expectedMonthlyOccurrences: smallint("expected_monthly_occurrences"),
+	snackFamily: text("snack_family"),
+	snackClass: text("snack_class"),
+	snackVariant: text("snack_variant"),
+	requiresGalley: boolean("requires_galley").default(false).notNull(),
+	requiresOven: boolean("requires_oven").default(false).notNull(),
+	reviewedAt: date("reviewed_at"),
+	shelfLifeHours: smallint("shelf_life_hours"),
+	orderable: boolean().default(false).notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.baseTemplateId],
@@ -1624,6 +1642,12 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 		}),
 	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text])`),
 	check("menu_template_expected_monthly_occurrences_check", sql`expected_monthly_occurrences IS NULL OR expected_monthly_occurrences > 0`),
+	check("menu_template_snack_family_check", sql`(snack_family IS NULL) OR (snack_family = ANY (ARRAY['bordo'::text, 'apoio'::text]))`),
+	check("menu_template_snack_class_check", sql`(snack_class IS NULL) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text, 'C'::text]))`),
+	check("menu_template_snack_variant_check", sql`(snack_variant IS NULL) OR (snack_variant = ANY (ARRAY['lanche'::text, 'refeicao'::text]))`),
+	check("menu_template_snack_complete_check", sql`((snack_family IS NULL) AND (snack_class IS NULL) AND (snack_variant IS NULL) AND (orderable = false)) OR ((snack_family IS NOT NULL) AND (snack_class IS NOT NULL) AND (snack_variant IS NOT NULL) AND (template_type = 'exception'::text))`),
+	check("menu_template_snack_apoio_class_check", sql`(snack_family IS DISTINCT FROM 'apoio'::text) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text]))`),
+	check("menu_template_shelf_life_hours_check", sql`(shelf_life_hours IS NULL) OR ((shelf_life_hours >= 1) AND (shelf_life_hours <= 720))`),
 ]);
 
 export const menuTemplateMealInKitchen = kitchen.table("menu_template_meal", {
@@ -2806,4 +2830,178 @@ export const mfaResetLogInAccessControl = accessControl.table("mfa_reset_log", {
 			name: "mfa_reset_log_performed_by_fkey"
 		}).onDelete("restrict"),
 	check("mfa_reset_log_method_check", sql`method = ANY (ARRAY['recovery-code'::text, 'admin-reset'::text])`),
+]);
+
+export const snackRequestInKitchen = kitchen.table("snack_request", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }).notNull(),
+	requestedBy: uuid("requested_by").notNull(),
+	requesterUnitLabel: text("requester_unit_label").notNull(),
+	missionKind: text("mission_kind").notNull(),
+	vehicleType: text("vehicle_type"),
+	vehicleRegistration: text("vehicle_registration"),
+	vehicleOm: text("vehicle_om"),
+	missionDescription: text("mission_description").notNull(),
+	departureAt: timestamp("departure_at", { withTimezone: true, mode: 'string' }).notNull(),
+	origin: text(),
+	destination: text(),
+	stops: text(),
+	totalMinutes: integer("total_minutes").notNull(),
+	longestLegMinutes: integer("longest_leg_minutes"),
+	stopsWithoutMess: boolean("stops_without_mess").default(false).notNull(),
+	groundMinutes: integer("ground_minutes").default(0).notNull(),
+	missionOrderNumber: text("mission_order_number"),
+	isOperational: boolean("is_operational").notNull(),
+	hasGalley: boolean("has_galley").default(false).notNull(),
+	hasOven: boolean("has_oven").default(false).notNull(),
+	crewCount: integer("crew_count").notNull(),
+	paxCount: integer("pax_count").default(0).notNull(),
+	waterQuantity: integer("water_quantity").default(0).notNull(),
+	cupQuantity: integer("cup_quantity").default(0).notNull(),
+	iceQuantity: integer("ice_quantity").default(0).notNull(),
+	coffeeQuantity: integer("coffee_quantity").default(0).notNull(),
+	includesNonMilitary: boolean("includes_non_military").default(false).notNull(),
+	nonMilitaryReason: text("non_military_reason"),
+	preference: text().notNull(),
+	pickupAt: timestamp("pickup_at", { withTimezone: true, mode: 'string' }).notNull(),
+	pickupResponsible: text("pickup_responsible").notNull(),
+	fundingSource: text("funding_source").notNull(),
+	lateReason: text("late_reason"),
+	divergenceReason: text("divergence_reason"),
+	calculatorSnapshot: jsonb("calculator_snapshot").notNull(),
+	status: text().default('submitted').notNull(),
+	unitValue: numeric("unit_value", { mode: "number", precision: 12, scale: 2 }),
+	decidedBy: uuid("decided_by"),
+	decidedAt: timestamp("decided_at", { withTimezone: true, mode: 'string' }),
+	decisionReason: text("decision_reason"),
+	sampleCollectedAt: timestamp("sample_collected_at", { withTimezone: true, mode: 'string' }),
+	sampleCollectedBy: uuid("sample_collected_by"),
+	sampleNotes: text("sample_notes"),
+	pickedUpAt: timestamp("picked_up_at", { withTimezone: true, mode: 'string' }),
+	pickedUpByName: text("picked_up_by_name"),
+	deliveredBy: uuid("delivered_by"),
+	cancelledBy: uuid("cancelled_by"),
+	cancelReason: text("cancel_reason"),
+	materialReturnPending: boolean("material_return_pending").default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("snack_request_kitchen_pickup_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.pickupAt.asc().nullsLast().op("int8_ops")),
+	index("snack_request_requester_idx").using("btree", table.requestedBy.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "snack_request_kitchen_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.requestedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "snack_request_requested_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.decidedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "snack_request_decided_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.sampleCollectedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "snack_request_sample_collected_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.deliveredBy],
+			foreignColumns: [usersInAuth.id],
+			name: "snack_request_delivered_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.cancelledBy],
+			foreignColumns: [usersInAuth.id],
+			name: "snack_request_cancelled_by_fkey"
+		}),
+	check("snack_request_mission_kind_check", sql`mission_kind = ANY (ARRAY['aerea'::text, 'terrestre'::text])`),
+	check("snack_request_preference_check", sql`preference = ANY (ARRAY['lanche'::text, 'refeicao'::text])`),
+	check("snack_request_funding_source_check", sql`funding_source = ANY (ARRAY['economia_om'::text, 'recurso_missao'::text])`),
+	check("snack_request_status_check", sql`status = ANY (ARRAY['submitted'::text, 'accepted'::text, 'rejected'::text, 'in_production'::text, 'ready'::text, 'delivered'::text, 'closed'::text, 'cancelled'::text])`),
+	check("snack_request_aerial_order_check", sql`(mission_kind <> 'aerea'::text) OR (NULLIF(btrim(mission_order_number), ''::text) IS NOT NULL)`),
+	check("snack_request_non_military_check", sql`(NOT includes_non_military) OR (NULLIF(btrim(non_military_reason), ''::text) IS NOT NULL)`),
+	check("snack_request_rejected_reason_check", sql`(status <> 'rejected'::text) OR (NULLIF(btrim(decision_reason), ''::text) IS NOT NULL)`),
+	check("snack_request_value_after_accept_check", sql`(status <> ALL (ARRAY['accepted'::text, 'in_production'::text, 'ready'::text, 'delivered'::text, 'closed'::text])) OR (unit_value IS NOT NULL)`),
+	check("snack_request_sample_before_ready_check", sql`(status <> ALL (ARRAY['ready'::text, 'delivered'::text, 'closed'::text])) OR (sample_collected_at IS NOT NULL)`),
+	check("snack_request_pickup_after_delivery_check", sql`(status <> ALL (ARRAY['delivered'::text, 'closed'::text])) OR (picked_up_at IS NOT NULL)`),
+	check("snack_request_people_check", sql`(crew_count + pax_count) > 0`),
+]);
+
+export const snackRequestLineInKitchen = kitchen.table("snack_request_line", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	requestId: uuid("request_id").notNull(),
+	standardId: uuid("standard_id").notNull(),
+	audience: text().notNull(),
+	quantity: integer().notNull(),
+	approvedQuantity: integer("approved_quantity"),
+	optional: boolean().default(false).notNull(),
+	standardSnapshot: jsonb("standard_snapshot").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("snack_request_line_request_idx").using("btree", table.requestId.asc().nullsLast().op("uuid_ops")),
+	index("snack_request_line_standard_idx").using("btree", table.standardId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.requestId],
+			foreignColumns: [snackRequestInKitchen.id],
+			name: "snack_request_line_request_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.standardId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "snack_request_line_standard_id_fkey"
+		}),
+	check("snack_request_line_audience_check", sql`audience = ANY (ARRAY['crew'::text, 'pax'::text])`),
+	check("snack_request_line_quantity_check", sql`quantity > 0`),
+	check("snack_request_line_approved_quantity_check", sql`(approved_quantity IS NULL) OR (approved_quantity >= 0)`),
+]);
+
+export const snackRequestEventInKitchen = kitchen.table("snack_request_event", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	requestId: uuid("request_id").notNull(),
+	fromStatus: text("from_status"),
+	toStatus: text("to_status").notNull(),
+	actorId: uuid("actor_id").notNull(),
+	note: text(),
+	details: jsonb(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("snack_request_event_request_idx").using("btree", table.requestId.asc().nullsLast().op("uuid_ops"), table.createdAt.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.requestId],
+			foreignColumns: [snackRequestInKitchen.id],
+			name: "snack_request_event_request_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.actorId],
+			foreignColumns: [usersInAuth.id],
+			name: "snack_request_event_actor_id_fkey"
+		}),
+]);
+
+export const snackRequestMaterialInKitchen = kitchen.table("snack_request_material", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	requestId: uuid("request_id").notNull(),
+	item: text().notNull(),
+	description: text(),
+	quantity: integer().notNull(),
+	returnedQuantity: integer("returned_quantity").default(0).notNull(),
+	issuedAt: timestamp("issued_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	returnedAt: timestamp("returned_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("snack_request_material_request_idx").using("btree", table.requestId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.requestId],
+			foreignColumns: [snackRequestInKitchen.id],
+			name: "snack_request_material_request_id_fkey"
+		}).onDelete("cascade"),
+	check("snack_request_material_item_check", sql`item = ANY (ARRAY['garrafa_termica'::text, 'caixa_termica'::text, 'hotbox'::text, 'cooler'::text, 'outro'::text])`),
+	check("snack_request_material_quantity_check", sql`quantity > 0`),
+	check("snack_request_material_returned_quantity_check", sql`returned_quantity >= 0`),
+	check("snack_request_material_returned_check", sql`returned_quantity <= quantity`),
+	check("snack_request_material_other_check", sql`(item <> 'outro'::text) OR (NULLIF(btrim(description), ''::text) IS NOT NULL)`),
 ]);

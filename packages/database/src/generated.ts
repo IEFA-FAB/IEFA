@@ -8179,6 +8179,7 @@ export type Database = {
           kitchen_id: number | null
           name: string | null
           sort_order: number | null
+          system_key: string | null
         }
         Insert: {
           created_at?: string
@@ -8187,6 +8188,7 @@ export type Database = {
           kitchen_id?: number | null
           name?: string | null
           sort_order?: number | null
+          system_key?: string | null
         }
         Update: {
           created_at?: string
@@ -8195,6 +8197,7 @@ export type Database = {
           kitchen_id?: number | null
           name?: string | null
           sort_order?: number | null
+          system_key?: string | null
         }
         Relationships: [
           {
@@ -8214,6 +8217,7 @@ export type Database = {
           excluded_from_procurement: number | null
           id: string
           item_group: string | null
+          origin_snack_request_id: string | null
           origin_template_id: string | null
           origin_template_type: string | null
           planned_portion_quantity: number | null
@@ -8230,6 +8234,7 @@ export type Database = {
           excluded_from_procurement?: number | null
           id?: string
           item_group?: string | null
+          origin_snack_request_id?: string | null
           origin_template_id?: string | null
           origin_template_type?: string | null
           planned_portion_quantity?: number | null
@@ -8246,6 +8251,7 @@ export type Database = {
           excluded_from_procurement?: number | null
           id?: string
           item_group?: string | null
+          origin_snack_request_id?: string | null
           origin_template_id?: string | null
           origin_template_type?: string | null
           planned_portion_quantity?: number | null
@@ -8256,6 +8262,13 @@ export type Database = {
           substitutions?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "menu_items_origin_snack_request_id_fkey"
+            columns: ["origin_snack_request_id"]
+            isOneToOne: false
+            referencedRelation: "snack_request"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "menu_items_daily_menu_id_fkey"
             columns: ["daily_menu_id"]
@@ -8289,6 +8302,14 @@ export type Database = {
           id: string
           kitchen_id: number | null
           name: string | null
+          orderable: boolean
+          requires_galley: boolean
+          requires_oven: boolean
+          reviewed_at: string | null
+          shelf_life_hours: number | null
+          snack_class: string | null
+          snack_family: string | null
+          snack_variant: string | null
           template_type: string
         }
         Insert: {
@@ -8300,6 +8321,14 @@ export type Database = {
           id?: string
           kitchen_id?: number | null
           name?: string | null
+          orderable?: boolean
+          requires_galley?: boolean
+          requires_oven?: boolean
+          reviewed_at?: string | null
+          shelf_life_hours?: number | null
+          snack_class?: string | null
+          snack_family?: string | null
+          snack_variant?: string | null
           template_type?: string
         }
         Update: {
@@ -8311,6 +8340,14 @@ export type Database = {
           id?: string
           kitchen_id?: number | null
           name?: string | null
+          orderable?: boolean
+          requires_galley?: boolean
+          requires_oven?: boolean
+          reviewed_at?: string | null
+          shelf_life_hours?: number | null
+          snack_class?: string | null
+          snack_family?: string | null
+          snack_variant?: string | null
           template_type?: string
         }
         Relationships: [
@@ -9436,6 +9473,312 @@ export type Database = {
             columns: ["kitchen_id"]
             isOneToOne: false
             referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snack_request: {
+        Row: {
+          calculator_snapshot: Json
+          cancel_reason: string | null
+          cancelled_by: string | null
+          coffee_quantity: number
+          created_at: string
+          crew_count: number
+          cup_quantity: number
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          delivered_by: string | null
+          departure_at: string
+          destination: string | null
+          divergence_reason: string | null
+          funding_source: string
+          ground_minutes: number
+          has_galley: boolean
+          has_oven: boolean
+          ice_quantity: number
+          id: string
+          includes_non_military: boolean
+          is_operational: boolean
+          kitchen_id: number
+          late_reason: string | null
+          longest_leg_minutes: number | null
+          material_return_pending: boolean
+          mission_description: string
+          mission_kind: string
+          mission_order_number: string | null
+          non_military_reason: string | null
+          origin: string | null
+          pax_count: number
+          picked_up_at: string | null
+          picked_up_by_name: string | null
+          pickup_at: string
+          pickup_responsible: string
+          preference: string
+          requested_by: string
+          requester_unit_label: string
+          sample_collected_at: string | null
+          sample_collected_by: string | null
+          sample_notes: string | null
+          status: string
+          stops: string | null
+          stops_without_mess: boolean
+          total_minutes: number
+          unit_value: number | null
+          updated_at: string
+          vehicle_om: string | null
+          vehicle_registration: string | null
+          vehicle_type: string | null
+          water_quantity: number
+        }
+        Insert: {
+          calculator_snapshot: Json
+          cancel_reason?: string | null
+          cancelled_by?: string | null
+          coffee_quantity?: number
+          created_at?: string
+          crew_count: number
+          cup_quantity?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          delivered_by?: string | null
+          departure_at: string
+          destination?: string | null
+          divergence_reason?: string | null
+          funding_source: string
+          ground_minutes?: number
+          has_galley?: boolean
+          has_oven?: boolean
+          ice_quantity?: number
+          id?: string
+          includes_non_military?: boolean
+          is_operational: boolean
+          kitchen_id: number
+          late_reason?: string | null
+          longest_leg_minutes?: number | null
+          material_return_pending?: boolean
+          mission_description: string
+          mission_kind: string
+          mission_order_number?: string | null
+          non_military_reason?: string | null
+          origin?: string | null
+          pax_count?: number
+          picked_up_at?: string | null
+          picked_up_by_name?: string | null
+          pickup_at: string
+          pickup_responsible: string
+          preference: string
+          requested_by: string
+          requester_unit_label: string
+          sample_collected_at?: string | null
+          sample_collected_by?: string | null
+          sample_notes?: string | null
+          status?: string
+          stops?: string | null
+          stops_without_mess?: boolean
+          total_minutes: number
+          unit_value?: number | null
+          updated_at?: string
+          vehicle_om?: string | null
+          vehicle_registration?: string | null
+          vehicle_type?: string | null
+          water_quantity?: number
+        }
+        Update: {
+          calculator_snapshot?: Json
+          cancel_reason?: string | null
+          cancelled_by?: string | null
+          coffee_quantity?: number
+          created_at?: string
+          crew_count?: number
+          cup_quantity?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          delivered_by?: string | null
+          departure_at?: string
+          destination?: string | null
+          divergence_reason?: string | null
+          funding_source?: string
+          ground_minutes?: number
+          has_galley?: boolean
+          has_oven?: boolean
+          ice_quantity?: number
+          id?: string
+          includes_non_military?: boolean
+          is_operational?: boolean
+          kitchen_id?: number
+          late_reason?: string | null
+          longest_leg_minutes?: number | null
+          material_return_pending?: boolean
+          mission_description?: string
+          mission_kind?: string
+          mission_order_number?: string | null
+          non_military_reason?: string | null
+          origin?: string | null
+          pax_count?: number
+          picked_up_at?: string | null
+          picked_up_by_name?: string | null
+          pickup_at?: string
+          pickup_responsible?: string
+          preference?: string
+          requested_by?: string
+          requester_unit_label?: string
+          sample_collected_at?: string | null
+          sample_collected_by?: string | null
+          sample_notes?: string | null
+          status?: string
+          stops?: string | null
+          stops_without_mess?: boolean
+          total_minutes?: number
+          unit_value?: number | null
+          updated_at?: string
+          vehicle_om?: string | null
+          vehicle_registration?: string | null
+          vehicle_type?: string | null
+          water_quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snack_request_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snack_request_event: {
+        Row: {
+          actor_id: string
+          created_at: string
+          details: Json | null
+          from_status: string | null
+          id: string
+          note: string | null
+          request_id: string
+          to_status: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          details?: Json | null
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          request_id: string
+          to_status: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          details?: Json | null
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          request_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snack_request_event_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "snack_request"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snack_request_line: {
+        Row: {
+          approved_quantity: number | null
+          audience: string
+          created_at: string
+          id: string
+          optional: boolean
+          quantity: number
+          request_id: string
+          standard_id: string
+          standard_snapshot: Json
+        }
+        Insert: {
+          approved_quantity?: number | null
+          audience: string
+          created_at?: string
+          id?: string
+          optional?: boolean
+          quantity: number
+          request_id: string
+          standard_id: string
+          standard_snapshot: Json
+        }
+        Update: {
+          approved_quantity?: number | null
+          audience?: string
+          created_at?: string
+          id?: string
+          optional?: boolean
+          quantity?: number
+          request_id?: string
+          standard_id?: string
+          standard_snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snack_request_line_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "snack_request"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "snack_request_line_standard_id_fkey"
+            columns: ["standard_id"]
+            isOneToOne: false
+            referencedRelation: "menu_template"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snack_request_material: {
+        Row: {
+          description: string | null
+          id: string
+          issued_at: string
+          item: string
+          quantity: number
+          request_id: string
+          returned_at: string | null
+          returned_quantity: number
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          issued_at?: string
+          item: string
+          quantity: number
+          request_id: string
+          returned_at?: string | null
+          returned_quantity?: number
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          issued_at?: string
+          item?: string
+          quantity?: number
+          request_id?: string
+          returned_at?: string | null
+          returned_quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snack_request_material_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "snack_request"
             referencedColumns: ["id"]
           },
         ]

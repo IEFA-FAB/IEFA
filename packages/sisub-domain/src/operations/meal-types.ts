@@ -9,7 +9,7 @@ import { mealTypeInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, eq, isNull, or, type SQL } from "drizzle-orm"
 import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
-import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
+import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type { CreateMealType, DeleteMealType, FetchMealTypes, RestoreMealType, UpdateMealType } from "../schemas/meal-types.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
@@ -25,6 +25,7 @@ const MEAL_TYPE_COLS = {
 	kitchen_id: mealTypeInKitchen.kitchenId,
 	sort_order: mealTypeInKitchen.sortOrder,
 	deleted_at: mealTypeInKitchen.deletedAt,
+	system_key: mealTypeInKitchen.systemKey,
 } as const
 
 /**
@@ -38,6 +39,9 @@ const MEAL_TYPE_COLS = {
 function ownedBy(mealTypeId: string, ownerKitchenId: number | null) {
 	return and(
 		eq(mealTypeInKitchen.id, mealTypeId),
+		// Tipo de sistema (`system_key`) é mantido pela migration que o criou: renomear ou apagar
+		// "Lanches de Bordo/Apoio" desligaria a produção dos pedidos de lanche em todas as cozinhas.
+		isNull(mealTypeInKitchen.systemKey),
 		ownerKitchenId == null ? isNull(mealTypeInKitchen.kitchenId) : eq(mealTypeInKitchen.kitchenId, ownerKitchenId)
 	)
 }
@@ -49,7 +53,9 @@ export async function fetchMealTypes(db: SisubDb, ctx: UserContext, input: Fetch
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	const conditions: (SQL | undefined)[] = [isNull(mealTypeInKitchen.deletedAt)]
+	// Tipos de sistema ficam fora dos seletores de cardápio: o de lanche só recebe item pelo
+	// aceite do pedido (`snack-requests.ts`) e pelo editor de padrão de lanche.
+	const conditions: (SQL | undefined)[] = [isNull(mealTypeInKitchen.deletedAt), isNull(mealTypeInKitchen.systemKey)]
 	if (input.kitchenId != null) {
 		conditions.push(or(isNull(mealTypeInKitchen.kitchenId), eq(mealTypeInKitchen.kitchenId, input.kitchenId)))
 	} else {
@@ -118,4 +124,27 @@ export async function restoreMealType(db: SisubDb, ctx: UserContext, input: Rest
 	await mutateOrFail("RESTORE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
 		db.update(mealTypeInKitchen).set({ deletedAt: null }).where(ownedBy(input.mealTypeId, ownerKitchenId)).returning({ id: mealTypeInKitchen.id })
 	)
+}
+
+/** Chave do tipo de refeição sob o qual o pedido de lanche aceito entra na produção. */
+export const SNACK_REQUEST_MEAL_TYPE_KEY = "snack_request"
+
+/**
+ * O tipo de refeição de sistema dos pedidos de lanche (global, criado pela migration
+ * `20260922120000_kitchen_snack_requests`). Leitura aberta a quem lê cardápio de alguma
+ * cozinha: é o grupo único do editor de padrão de lanche.
+ */
+export async function fetchSnackMealType(db: SisubDb, ctx: UserContext): Promise<MealType> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	return resolveSnackMealType(db)
+}
+
+/** Sem guarda — uso interno das operations que materializam o pedido na produção. */
+export async function resolveSnackMealType(db: Pick<SisubDb, "select">): Promise<MealType> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.select(MEAL_TYPE_COLS).from(mealTypeInKitchen).where(eq(mealTypeInKitchen.systemKey, SNACK_REQUEST_MEAL_TYPE_KEY)).limit(1)
+	)
+	const row = rows[0]
+	if (!row) throw new DomainError("SNACK_MEAL_TYPE_MISSING", "Tipo de refeição de sistema dos lanches não existe — migration 20260922120000 não aplicada")
+	return row
 }

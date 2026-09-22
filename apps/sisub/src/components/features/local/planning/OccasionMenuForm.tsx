@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { useTemplate } from "@/hooks/data/useTemplates"
-import { OCCASION_MENU_COPY, type OccasionMenuType, parseMonthlyOccurrences } from "@/lib/occasion-menu"
+import { isSnackStandard, OCCASION_MENU_COPY, type OccasionMenuType, parseMonthlyOccurrences, snackStandardLabel } from "@/lib/occasion-menu"
 import { createBlankTemplateFn, forkTemplateFn } from "@/server/templates.fn"
 
 interface OccasionMenuFormProps {
@@ -139,6 +139,13 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 								<CardDescription>
 									A cópia leva as preparações e o efetivo de cada uma{isException ? ", e as ocorrências por mês" : ""}. Alterações futuras no original não
 									afetam a versão local.
+									{isException && isSnackStandard(baseTemplate) && (
+										<>
+											{" "}
+											É um padrão de lanche ({snackStandardLabel(baseTemplate)}): a cópia leva a classificação, mas nasce fora do pedido e sem data de revisão —
+											publique para o comensal no editor, depois de revisar.
+										</>
+									)}
 								</CardDescription>
 							</CardHeader>
 							<CardContent>
@@ -200,7 +207,10 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 									onChange={(e) => setOccurrences(e.target.value)}
 									placeholder="Ex.: 30 lanches de bordo/mês"
 								/>
-								<p className="text-xs text-muted-foreground">Usado para multiplicar o custeio na Ata. Em branco, conta como 1 ocorrência.</p>
+								<p className="text-xs text-muted-foreground">
+									Usado para multiplicar o custeio na Ata. Em branco, conta como 1 ocorrência. Para um padrão de lanche (Módulo 7), marque-o no editor depois de
+									criar: este número passa a ser kits por mês.
+								</p>
 							</div>
 						)}
 
