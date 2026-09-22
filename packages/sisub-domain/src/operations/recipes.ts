@@ -23,6 +23,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { FrozenPreparation, Ingredient, Recipe, RecipeFolder, RecipeIngredient } from "@iefa/database/sisub"
 import { and, asc, eq, ilike, inArray, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
 import { authorizeAssetMutation, canReadAsset, requireAssetRead, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
@@ -32,6 +33,7 @@ import type {
 	DeleteRecipeFolder,
 	FetchRecipe,
 	ListRecipeFolders,
+	ListRecipeIngredientDigests,
 	ListRecipes,
 	ListRecipeVersions,
 	RenameRecipe,
@@ -43,6 +45,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { containsPattern, insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire, unwrapPgError } from "../utils/index.ts"
+import { type Allergen, normalizeAllergens } from "./allergens.ts"
 import { copyRecipeEquipmentRequirements } from "./equipment.ts"
 import { copyRecipeFlow } from "./recipe-flow.ts"
 
@@ -339,6 +342,144 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
 	return Array.from(familyMap.values())
 		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 		.map((summary) => toNumeric(toWire<RecipeSummary>(summary), RECIPE_NUMERIC_KEYS))
+}
+
+/**
+ * Ingredientes de uma ficha para o cardápio impresso: NOME e alergênicos, nunca quantidade.
+ *
+ * `allergens` da linha de preparação congelada é a união do que a ficha de PRODUÇÃO dela usa
+ * (e do insumo de origem) — o comensal come o que foi para dentro da preparação, não o nome
+ * dela. Quando nem uma nem outro existe, a linha vai para `unresolved`: dizer "sem
+ * alergênicos" ali seria afirmar o que ninguém conferiu.
+ */
+export type RecipeIngredientDigest = {
+	recipe_id: string
+	ingredients: { name: string; allergens: Allergen[] }[]
+	unresolved: string[]
+}
+
+/** Profundidade máxima de preparação dentro de preparação. Guarda contra ciclo e dado torto. */
+const MAX_PREPARATION_DEPTH = 4
+
+type DigestLine = {
+	recipeId: string
+	ingredientName: string | null
+	ingredientAllergens: string[] | null
+	preparationName: string | null
+	productionRecipeId: string | null
+	sourceIngredientAllergens: string[] | null
+}
+
+async function loadDigestLines(db: SisubDb, recipeIds: string[]): Promise<DigestLine[]> {
+	if (recipeIds.length === 0) return []
+	const sourceIngredient = alias(ingredientInKitchen, "source_ingredient")
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				recipeId: recipeIngredientsInKitchen.recipeId,
+				ingredientName: ingredientInKitchen.description,
+				ingredientAllergens: ingredientInKitchen.allergens,
+				ingredientDeletedAt: ingredientInKitchen.deletedAt,
+				preparationName: frozenPreparationInKitchen.description,
+				preparationDeletedAt: frozenPreparationInKitchen.deletedAt,
+				productionRecipeId: frozenPreparationInKitchen.productionRecipeId,
+				sourceIngredientAllergens: sourceIngredient.allergens,
+			})
+			.from(recipeIngredientsInKitchen)
+			.leftJoin(ingredientInKitchen, eq(ingredientInKitchen.id, recipeIngredientsInKitchen.ingredientId))
+			.leftJoin(frozenPreparationInKitchen, eq(frozenPreparationInKitchen.id, recipeIngredientsInKitchen.frozenPreparationId))
+			.leftJoin(sourceIngredient, eq(sourceIngredient.id, frozenPreparationInKitchen.sourceIngredientId))
+			.where(and(inArray(recipeIngredientsInKitchen.recipeId, recipeIds), isNull(recipeIngredientsInKitchen.deletedAt)))
+			.orderBy(asc(recipeIngredientsInKitchen.priorityOrder), asc(recipeIngredientsInKitchen.createdAt))
+	)
+	return rows.flatMap((r) => {
+		if (r.recipeId == null) return []
+		return [
+			{
+				recipeId: r.recipeId,
+				// Insumo/preparação soft-deletado não vaza pela relação — mesmo critério de `fetchRecipe`.
+				ingredientName: r.ingredientDeletedAt ? null : r.ingredientName,
+				ingredientAllergens: r.ingredientDeletedAt ? null : r.ingredientAllergens,
+				preparationName: r.preparationDeletedAt ? null : r.preparationName,
+				productionRecipeId: r.preparationDeletedAt ? null : r.productionRecipeId,
+				sourceIngredientAllergens: r.preparationDeletedAt ? null : r.sourceIngredientAllergens,
+			},
+		]
+	})
+}
+
+export async function listRecipeIngredientDigests(db: SisubDb, ctx: UserContext, input: ListRecipeIngredientDigests): Promise<RecipeIngredientDigest[]> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	const recipeIds = [...new Set(input.recipeIds)]
+	if (recipeIds.length === 0) return []
+
+	// O dono de cada ficha é lido da linha, nunca do input — mesmo critério de `fetchRecipe`.
+	const owners = await runQuery("FETCH_FAILED", () =>
+		db.select({ id: recipesInKitchen.id, kitchenId: recipesInKitchen.kitchenId }).from(recipesInKitchen).where(inArray(recipesInKitchen.id, recipeIds))
+	)
+	for (const owner of owners) requireAssetRead(ctx, owner.kitchenId)
+	const known = new Set(owners.map((o) => o.id))
+
+	// Linhas por ficha, descendo nas fichas de produção das preparações congeladas.
+	const linesByRecipe = new Map<string, DigestLine[]>()
+	let frontier = recipeIds.filter((id) => known.has(id))
+	for (let depth = 0; depth <= MAX_PREPARATION_DEPTH && frontier.length > 0; depth++) {
+		for (const id of frontier) linesByRecipe.set(id, [])
+		for (const line of await loadDigestLines(db, frontier)) linesByRecipe.get(line.recipeId)?.push(line)
+		frontier = [
+			...new Set(
+				frontier.flatMap((id) =>
+					(linesByRecipe.get(id) ?? []).map((l) => l.productionRecipeId).filter((pid): pid is string => pid != null && !linesByRecipe.has(pid))
+				)
+			),
+		]
+	}
+
+	// Alergênicos de uma ficha inteira (união das linhas); `null` = há linha não resolvida.
+	const memo = new Map<string, Set<string> | null>()
+	const recipeAllergens = (id: string, trail: Set<string>): Set<string> | null => {
+		if (memo.has(id)) return memo.get(id) ?? null
+		const lines = linesByRecipe.get(id)
+		if (!lines || trail.has(id)) return null
+		const nextTrail = new Set(trail).add(id)
+		const acc = new Set<string>()
+		for (const line of lines) {
+			const own = lineAllergens(line, nextTrail)
+			if (own == null) {
+				memo.set(id, null)
+				return null
+			}
+			for (const a of own) acc.add(a)
+		}
+		memo.set(id, acc)
+		return acc
+	}
+	const lineAllergens = (line: DigestLine, trail: Set<string>): Set<string> | null => {
+		if (line.ingredientName != null) return new Set(line.ingredientAllergens ?? [])
+		if (line.preparationName == null) return new Set()
+		const fromRecipe = line.productionRecipeId ? recipeAllergens(line.productionRecipeId, trail) : null
+		const fromSource = line.sourceIngredientAllergens
+		if (fromRecipe == null && fromSource == null) return null
+		return new Set([...(fromRecipe ?? []), ...(fromSource ?? [])])
+	}
+
+	return recipeIds.map((recipeId) => {
+		const ingredients: RecipeIngredientDigest["ingredients"] = []
+		const unresolved: string[] = []
+		const seen = new Set<string>()
+		for (const line of linesByRecipe.get(recipeId) ?? []) {
+			const name = (line.ingredientName ?? line.preparationName)?.trim()
+			if (!name) continue
+			const allergens = lineAllergens(line, new Set([recipeId]))
+			if (allergens == null) unresolved.push(name)
+			// A mesma linha pode aparecer duas vezes (insumo repetido na ficha): uma basta na folha.
+			const key = name.toLocaleLowerCase("pt-BR")
+			if (seen.has(key)) continue
+			seen.add(key)
+			ingredients.push({ name, allergens: normalizeAllergens([...(allergens ?? [])]) })
+		}
+		return { recipe_id: recipeId, ingredients, unresolved: [...new Set(unresolved)] }
+	})
 }
 
 /**

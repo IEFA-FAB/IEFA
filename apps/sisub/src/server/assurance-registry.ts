@@ -267,6 +267,7 @@ export const ASSURANCE_REGISTRY = {
 	deleteIngredientFn: { require: "none" },
 	restoreIngredientFn: { require: "none" },
 	updateIngredientDeliveryCycleFn: { require: "none" },
+	updateIngredientAllergensFn: { require: "none" },
 	createIngredientItemFn: { require: "none" },
 	updateIngredientItemFn: { require: "none" },
 	deleteIngredientItemFn: { require: "none" },

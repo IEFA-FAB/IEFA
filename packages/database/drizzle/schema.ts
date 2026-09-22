@@ -633,6 +633,8 @@ export const ingredientInKitchen = kitchen.table("ingredient", {
 	preparationGroupId: uuid("preparation_group_id"),
 	// Ciclo de entrega padrão nas ATAs (weekly = perecível) — 20260916134659.
 	defaultDeliveryCycle: text("default_delivery_cycle"),
+	// Grupos de alergênicos da RDC 26/2015 — 20260922120000. Vocabulário em `ALLERGENS`.
+	allergens: text().array().default([]).notNull(),
 }, (table) => [
 	index("ingredient_preparation_group_id_idx").using("btree", table.preparationGroupId.asc().nullsLast().op("uuid_ops")).where(sql`preparation_group_id IS NOT NULL`),
 	foreignKey({

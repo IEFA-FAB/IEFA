@@ -6,6 +6,15 @@ export const FetchRecipeSchema = z.object({
 })
 export type FetchRecipe = z.infer<typeof FetchRecipeSchema>
 
+/**
+ * Ingredientes (sem quantidade) de várias fichas de uma vez — o cardápio impresso lista os de
+ * cada preparação. Teto folgado: uma semana de cardápio tem algumas dezenas de fichas.
+ */
+export const ListRecipeIngredientDigestsSchema = z.object({
+	recipeIds: z.array(UuidSchema).max(500),
+})
+export type ListRecipeIngredientDigests = z.infer<typeof ListRecipeIngredientDigestsSchema>
+
 export const ListRecipesSchema = z.object({
 	kitchenId: KitchenIdSchema.nullable().optional(),
 	search: z.string().max(200).optional(),

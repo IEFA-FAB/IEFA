@@ -36,9 +36,19 @@ export type CardapioDocxData = {
 	 * Uma linha por tipo de refeição; `cells` e `bases` alinhados às colunas. `demand` é a
 	 * demanda do item já formatada ("120 pax" ou "30%"); `bases`, o efetivo da refeição no dia.
 	 */
-	rows: { meal: string; cells: { name: string; demand: string | null }[][]; bases?: (number | null)[] }[]
-	/** `version` já descrita ("v3" ou "v3 — desatualizada (atual: v5)"). */
-	preparations: { name: string; version?: string | null; prePreparation: string | null; method: string | null }[]
+	rows: { meal: string; cells: { name: string; main?: boolean; demand: string | null }[][]; bases?: (number | null)[] }[]
+	/**
+	 * `version` já descrita ("v3" ou "v3 — desatualizada (atual: v5)"). `ingredients` (nomes, sem
+	 * quantidade) e `allergens` (linha já descrita) só vêm quando a opção de impressão pede.
+	 */
+	preparations: {
+		name: string
+		version?: string | null
+		prePreparation: string | null
+		method: string | null
+		ingredients?: string[] | null
+		allergens?: string | null
+	}[]
 }
 
 const BLACK = "000000"
@@ -101,7 +111,7 @@ function buildGrid(data: CardapioDocxData): Table {
 						borders: cellBorders,
 						shading: { fill: "F4F4F4" },
 						verticalAlign: VerticalAlign.CENTER,
-						children: [new Paragraph({ children: [new TextRun({ text: row.meal.toUpperCase(), bold: true, size: 16 })] })],
+						children: [new Paragraph({ children: [new TextRun({ text: row.meal, bold: true, size: 16 })] })],
 					}),
 					...row.cells.map((entries, colIdx) =>
 						bodyCell(
@@ -113,7 +123,8 @@ function buildGrid(data: CardapioDocxData): Table {
 									(e) =>
 										new Paragraph({
 											children: [
-												new TextRun({ text: e.name.toUpperCase(), size: 16 }),
+												// Prato principal em negrito; os demais, peso normal. Nome como está no banco.
+												new TextRun({ text: e.name, bold: e.main === true, size: 16 }),
 												...(e.demand ? [new TextRun({ text: ` ${e.demand}`, bold: true, size: 16 })] : []),
 											],
 										})
@@ -137,20 +148,29 @@ function buildPreparations(data: CardapioDocxData): Paragraph[] {
 			alignment: AlignmentType.CENTER,
 			children: [new TextRun({ text: "LISTA DE PREPARAÇÕES", bold: true, size: 18 })],
 		}),
-		...data.preparations.map(
-			(p) =>
-				new Paragraph({
-					spacing: { after: 40 },
-					children: [
-						new TextRun({ text: `${p.name.toUpperCase()}${p.version ? ` (${p.version})` : ""} — `, bold: true, size: 16 }),
-						// Pré-preparo rotulado: sem o rótulo, dessalgue e cocção viram um texto só
-						// e a cozinha executa a ordem errada.
-						...(p.prePreparation ? [new TextRun({ text: `Pré-preparo: ${p.prePreparation}${p.method ? " " : ""}`, italics: true, size: 16 })] : []),
-						...(p.method ? [new TextRun({ text: p.method, size: 16 })] : []),
-					],
-				})
-		),
+		...data.preparations.flatMap((p) => [
+			new Paragraph({
+				spacing: { after: p.ingredients || p.allergens ? 0 : 40 },
+				children: [
+					new TextRun({ text: `${p.name}${p.version ? ` (${p.version})` : ""}${p.prePreparation || p.method ? " — " : ""}`, bold: true, size: 16 }),
+					// Pré-preparo rotulado: sem o rótulo, dessalgue e cocção viram um texto só
+					// e a cozinha executa a ordem errada.
+					...(p.prePreparation ? [new TextRun({ text: `Pré-preparo: ${p.prePreparation}${p.method ? " " : ""}`, italics: true, size: 16 })] : []),
+					...(p.method ? [new TextRun({ text: p.method, size: 16 })] : []),
+				],
+			}),
+			...(p.ingredients ? [detailLine("Ingredientes", p.ingredients.join(", "), !p.allergens)] : []),
+			...(p.allergens ? [detailLine("Alergênicos", p.allergens, true)] : []),
+		]),
 	]
+}
+
+/** Linha complementar da preparação (ingredientes, alergênicos): rótulo em itálico. */
+function detailLine(label: string, text: string, last: boolean): Paragraph {
+	return new Paragraph({
+		spacing: { after: last ? 40 : 0 },
+		children: [new TextRun({ text: `${label}: `, italics: true, size: 16 }), new TextRun({ text, size: 16 })],
+	})
 }
 
 function signatureCell(sig: CardapioDocxSignature | undefined): TableCell {

@@ -7659,6 +7659,7 @@ export type Database = {
       }
       ingredient: {
         Row: {
+          allergens: string[]
           ceafa_id: string | null
           correction_factor: number | null
           created_at: string
@@ -7677,6 +7678,7 @@ export type Database = {
           shelf_life_after_thaw_days: number | null
         }
         Insert: {
+          allergens?: string[]
           ceafa_id?: string | null
           correction_factor?: number | null
           created_at?: string
@@ -7695,6 +7697,7 @@ export type Database = {
           shelf_life_after_thaw_days?: number | null
         }
         Update: {
+          allergens?: string[]
           ceafa_id?: string | null
           correction_factor?: number | null
           created_at?: string

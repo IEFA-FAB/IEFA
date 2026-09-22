@@ -20,10 +20,12 @@ import {
 	FetchRecipeSchema,
 	fetchRecipe,
 	ListRecipeFoldersSchema,
+	ListRecipeIngredientDigestsSchema,
 	ListRecipeLastReviewsSchema,
 	ListRecipesSchema,
 	ListRecipeVersionsSchema,
 	listRecipeFolders,
+	listRecipeIngredientDigests,
 	listRecipeLastReviews,
 	listRecipeMenuUsage,
 	listRecipeSummaries,
@@ -78,6 +80,14 @@ export const fetchRecipeFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchRecipe(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+/** Ingredientes (nome + alergênicos, sem quantidade) das fichas de um cardápio — impressão. */
+export const fetchRecipeIngredientDigestsFn = createServerFn({ method: "GET" })
+	.validator(ListRecipeIngredientDigestsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listRecipeIngredientDigests(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 // Alias kept for backward compat

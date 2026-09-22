@@ -53,12 +53,14 @@ import type {
 	SetIngredientNutritionReference,
 	UpdateFolder,
 	UpdateIngredient,
+	UpdateIngredientAllergens,
 	UpdateIngredientDeliveryCycle,
 	UpdateIngredientItem,
 } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire } from "../utils/index.ts"
+import { normalizeAllergens } from "./allergens.ts"
 import { folderCatalogFilter, ingredientCatalogFilter } from "./catalog-scope.ts"
 import { folderOutsidePreparations, ingredientPreparationFilter } from "./preparation-scope.ts"
 
@@ -321,6 +323,22 @@ export async function updateIngredientDeliveryCycle(db: SisubDb, ctx: UserContex
 		db
 			.update(ingredientInKitchen)
 			.set({ defaultDeliveryCycle: input.deliveryCycle })
+			.where(and(eq(ingredientInKitchen.id, input.id), isNull(ingredientInKitchen.deletedAt)))
+			.returning({ id: ingredientInKitchen.id })
+	)
+}
+
+/**
+ * Alergênicos do insumo (RDC 26/2015). Mesma razão do ciclo de entrega para ser operação
+ * própria: `updateIngredient` reescreve a linha a partir do payload do formulário e das ações
+ * em lote, que não conhecem esta coluna. Grava a lista inteira, já deduplicada e ordenada.
+ */
+export async function updateIngredientAllergens(db: SisubDb, ctx: UserContext, input: UpdateIngredientAllergens): Promise<void> {
+	requirePermission(ctx, "global", 2)
+	await mutateOrFail("UPDATE_FAILED", `ingredient ${input.id} not found`, () =>
+		db
+			.update(ingredientInKitchen)
+			.set({ allergens: normalizeAllergens(input.allergens) })
 			.where(and(eq(ingredientInKitchen.id, input.id), isNull(ingredientInKitchen.deletedAt)))
 			.returning({ id: ingredientInKitchen.id })
 	)
