@@ -4,6 +4,7 @@ import type { BaseLanguageModelInput } from "@langchain/core/language_models/bas
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { env } from "../env.ts"
 import { messageText } from "./message-text.ts"
+import { modelHasPromptCaching } from "./prompt-caching.ts"
 import { MODEL_RETRY_POLICY } from "./retry.ts"
 import { isTransientModelFailure } from "./transient.ts"
 
@@ -43,14 +44,33 @@ function build(model: string, region: string, temperature: number): BaseChatMode
 /**
  * Camada do modelo.
  *
+ * `chat` é quem redige a resposta do chat sobre documento (`src/chat/`). Sem
+ * `ALPHA_CHAT_AI_MODEL` ela É o primário.
+ *
  * `fast` é o pré-passe que roda em todo turno antes da recuperação — classificação de
  * intenção e reescrita da pergunta para a busca. Sem `ALPHA_FAST_AI_MODEL` configurado ela
  * É o primário: a camada é uma oportunidade de economia, nunca um requisito de boot.
  */
-export type ModelTier = "primary" | "fast"
+export type ModelTier = "primary" | "fast" | "chat"
 
-function modelFor(tier: ModelTier): string {
-	return tier === "fast" ? env.ALPHA_FAST_AI_MODEL || env.ALPHA_AI_MODEL : env.ALPHA_AI_MODEL
+export function modelFor(tier: ModelTier): string {
+	if (tier === "fast") return env.ALPHA_FAST_AI_MODEL || env.ALPHA_AI_MODEL
+	if (tier === "chat") return env.ALPHA_CHAT_AI_MODEL || env.ALPHA_AI_MODEL
+	return env.ALPHA_AI_MODEL
+}
+
+/**
+ * O modelo aceita o bloco `cachePoint` na mensagem de sistema?
+ *
+ * Duas condições. O cliente tem de ser o Bedrock Converse — o `@langchain/aws` 1.4.5 repassa
+ * o bloco (`convertSystemMessageToConverseMessage` aceita texto e cache point), e o
+ * `langchain-compat` da reserva o rejeitaria. E o MODELO tem de ter prompt caching no
+ * Bedrock: medido em 2026-09-22, o `openai.gpt-oss-120b-1:0` responde 403
+ * `AccessDeniedException: You invoked an unsupported model or your request did not allow
+ * prompt caching` ao receber o bloco — não ignora, derruba o turno. Só Claude e Nova.
+ */
+export function supportsPromptCaching(llm: BaseChatModel, modelId: string): boolean {
+	return llm instanceof ChatBedrockConverse && modelHasPromptCaching(modelId)
 }
 
 export function getLLM(temperature: 0 | 0.3 | 0.7 = 0, tier: ModelTier = "primary"): BaseChatModel {

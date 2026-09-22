@@ -158,3 +158,20 @@ export function legacyAccessFields(access: AlphaAccess): Required<Pick<MeAccess,
 		can_manage_access: hasRole(access, "admin"),
 	}
 }
+
+/** O que decide o acesso a uma conversa do chat: só quem a criou. */
+export type ThreadOwnership = { user_id: string }
+
+/**
+ * O usuário pode ler, continuar, salvar ou apagar esta conversa?
+ *
+ * Dono ou ninguém — nem o ACI da OM lê a conversa de outro servidor sobre o processo, como
+ * na sessão do ChatRADA. Conversa inexistente (`null`) dá a mesma resposta que a de outra
+ * pessoa: a rota responde 404 nos dois casos, e o id alheio não se distingue do que não existe.
+ *
+ * Numa conversa de PROCESSO isto é necessário e não suficiente: cada turno também exige
+ * `canReadSubmission`, porque quem perde o papel na OM perde o direito de consultar o documento.
+ */
+export function decideThreadAccess(thread: ThreadOwnership | null, userId: string): boolean {
+	return thread !== null && thread.user_id === userId
+}

@@ -5,6 +5,7 @@ import {
 	coversUnit,
 	decideSubmissionRead,
 	decideSubmissionReview,
+	decideThreadAccess,
 	hasRole,
 	legacyAccessFields,
 	needsUnitGraph,
@@ -234,5 +235,19 @@ describe("acúmulo de papéis (sem segregação de funções)", () => {
 		// O autor segue lendo o que ele mesmo enviou — como qualquer conta sem papel.
 		expect(decideSubmissionRead(blocked, ME, { user_id: ME, unit_id: IAE })).toBe(true)
 		expect(decideSubmissionReview(blocked, { user_id: ME, unit_id: IAE })).toBe(false)
+	})
+})
+
+describe("decideThreadAccess — conversa do chat é do dono", () => {
+	test("o dono lê", () => {
+		expect(decideThreadAccess({ user_id: "u-1" }, "u-1")).toBe(true)
+	})
+
+	test("outra pessoa não lê — nem o ACI da OM do processo", () => {
+		expect(decideThreadAccess({ user_id: "u-1" }, "u-2")).toBe(false)
+	})
+
+	test("conversa inexistente dá a mesma resposta que a de outra pessoa", () => {
+		expect(decideThreadAccess(null, "u-2")).toBe(decideThreadAccess({ user_id: "u-1" }, "u-2"))
 	})
 })
