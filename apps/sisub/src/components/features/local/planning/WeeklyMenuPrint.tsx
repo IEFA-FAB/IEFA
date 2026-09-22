@@ -6,17 +6,33 @@ import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate } from "@/hooks/data/useTemplates"
+import {
+	buildPreparationEntries,
+	type CardapioPrintOptions,
+	DEFAULT_PRINT_OPTIONS,
+	describeAllergens,
+	INGREDIENTS_MODE_LABELS,
+	INGREDIENTS_MODES,
+	type IngredientsMode,
+	isMainDish,
+	type PreparationEntry,
+	type PreparationSource,
+	parsePrintOptions,
+} from "@/lib/cardapio-print"
 import { formatItemDemand } from "@/lib/menu-fill"
 import { menuItemGroupOrder } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import { describeRecipeVersion } from "@/lib/recipe-versions"
 import { importChunkOrNull, recoverIfStaleChunk } from "@/lib/recover-stale-chunk"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
+import { fetchRecipeIngredientDigestsFn } from "@/server/recipes.fn"
 import type { MenuTemplateWithItems } from "@/types/domain/planning"
 
 /**
@@ -34,7 +50,12 @@ import type { MenuTemplateWithItems } from "@/types/domain/planning"
  *  - lista de preparações gerada automaticamente a partir de
  *    `recipe_origin.preparation_method`, deduplicada e ordenada;
  *  - cabeçalho e blocos de assinatura editáveis e memorizados por cozinha
- *    (localStorage), evitando redigitar a cada semana.
+ *    (localStorage), evitando redigitar a cada semana;
+ *  - opções de impressão (modo de preparo; ingredientes: nenhum, só alergênicos ou todos,
+ *    sempre sem quantidade), memorizadas no navegador.
+ *
+ * Nomes de preparação e de refeição saem como estão no banco — sem caixa alta forçada — e o
+ * prato principal sai em negrito.
  */
 
 const WEEKDAYS = [
@@ -53,7 +74,7 @@ type SignatureBlock = { name: string; role: string }
  * Uma preparação dentro de uma célula (refeição × dia) da grade. `demand` é a medida do item já
  * formatada — "120 pax" ou "30%". Só a porcentagem saía, e o item medido em pessoas ficava em branco.
  */
-type CellEntry = { name: string; group: string | null; sortOrder: number; demand: string | null }
+type CellEntry = { name: string; group: string | null; main: boolean; sortOrder: number; demand: string | null }
 
 type PrintHeader = {
 	organization: string
@@ -84,6 +105,19 @@ const DEFAULT_HEADER: PrintHeader = {
 
 function headerStorageKey(scope: string) {
 	return `sisub:cardapio-print-header:${scope}`
+}
+
+/** Opções valem para o usuário, não para a cozinha: é preferência de leitura da folha. */
+const OPTIONS_STORAGE_KEY = "sisub:cardapio-print-options"
+
+function loadPrintOptions(): CardapioPrintOptions {
+	if (typeof window === "undefined") return DEFAULT_PRINT_OPTIONS
+	try {
+		const raw = window.localStorage.getItem(OPTIONS_STORAGE_KEY)
+		return raw ? parsePrintOptions(JSON.parse(raw)) : DEFAULT_PRINT_OPTIONS
+	} catch {
+		return DEFAULT_PRINT_OPTIONS
+	}
 }
 
 /**
@@ -168,6 +202,31 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const [weekStart, setWeekStart] = useState<Date | null>(null)
 	const [header, setHeader] = useState<PrintHeader>(DEFAULT_HEADER)
 	const [isExporting, setIsExporting] = useState(false)
+	const [options, setOptions] = useState<CardapioPrintOptions>(DEFAULT_PRINT_OPTIONS)
+	useEffect(() => setOptions(loadPrintOptions()), [])
+	const updateOptions = (patch: Partial<CardapioPrintOptions>) => {
+		const next = { ...options, ...patch }
+		setOptions(next)
+		try {
+			window.localStorage.setItem(OPTIONS_STORAGE_KEY, JSON.stringify(next))
+		} catch {
+			// localStorage indisponível — mantém apenas em memória.
+		}
+	}
+
+	// Ingredientes das fichas do cardápio: só buscados quando a opção pede.
+	const originIds = useMemo(() => [...new Set((template?.items ?? []).flatMap((i) => (i.recipe_origin?.id ? [i.recipe_origin.id] : [])))], [template])
+	const wantsIngredients = options.ingredients !== "none"
+	const digestsQuery = useQuery({
+		queryKey: queryKeys.recipes.ingredientDigests(originIds),
+		queryFn: () => fetchRecipeIngredientDigestsFn({ data: { recipeIds: originIds } }),
+		enabled: wantsIngredients && originIds.length > 0,
+		staleTime: 5 * 60 * 1000,
+	})
+	const digestsById = useMemo(() => (digestsQuery.data ? new Map(digestsQuery.data.map((d) => [d.recipe_id, d])) : undefined), [digestsQuery.data])
+	// Sem os ingredientes, a folha sairia sem a informação pedida — segura a impressão até chegar.
+	// Só enquanto CARREGA: em erro a impressão volta (sem ingredientes) e a barra oferece de novo.
+	const ingredientsPending = wantsIngredients && originIds.length > 0 && digestsQuery.isPending
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
 	useEffect(() => setMounted(true), [])
@@ -254,6 +313,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 		list.push({
 			name: itemRecipeName(item),
 			group: item.item_group ?? null,
+			main: isMainDish(item.item_group),
 			sortOrder: item.sort_order ?? 0,
 			demand: formatItemDemand(item),
 		})
@@ -266,27 +326,25 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// Efetivo base por (dia + refeição): sai no topo da célula, para "30%" ter do que ser 30%.
 	const baseByCell = new Map((template.meals ?? []).map((m) => [`${m.day_of_week}:${m.meal_type_id}`, m.base_headcount]))
 
-	// Lista de preparações: receitas distintas com texto de preparo, ordenadas.
+	// Lista de preparações: fichas distintas do cardápio; `buildPreparationEntries` decide,
+	// pelas opções, quais têm algo a mostrar (preparo e/ou ingredientes).
 	//
-	// Entra quem tem QUALQUER um dos dois campos. Filtrar só por `preparation_method`
+	// Preparo conta com QUALQUER um dos dois campos. Filtrar só por `preparation_method`
 	// derrubava da lista impressa a ficha cujo texto foi todo para o pré-preparo — a
 	// preparação continuaria no cardápio e sumiria da folha que a cozinha lê.
-	const prepMap = new Map<string, { id: string; name: string; version: string; prePreparation: string | null; method: string | null }>()
+	const prepMap = new Map<string, PreparationSource>()
 	for (const item of template.items) {
 		const r = item.recipe_origin
-		const method = r?.preparation_method?.trim() || null
-		const prePreparation = r?.pre_preparation_method?.trim() || null
-		if (!r || (!method && !prePreparation)) continue
-		if (!prepMap.has(r.id))
-			prepMap.set(r.id, {
-				id: r.id,
-				name: r.name?.trim() || "Preparação sem nome",
-				version: describeRecipeVersion(r.version ?? 1, outdatedById.get(r.id)),
-				prePreparation,
-				method,
-			})
+		if (!r || prepMap.has(r.id)) continue
+		prepMap.set(r.id, {
+			id: r.id,
+			name: r.name?.trim() || "Preparação sem nome",
+			version: describeRecipeVersion(r.version ?? 1, outdatedById.get(r.id)),
+			prePreparation: r.pre_preparation_method?.trim() || null,
+			method: r.preparation_method?.trim() || null,
+		})
 	}
-	const preparations = Array.from(prepMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+	const preparations = buildPreparationEntries([...prepMap.values()], digestsById, options)
 
 	const dayDate = (dow: number): Date | null => (weekStart ? addDays(weekStart, dow - 1) : null)
 
@@ -330,7 +388,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 			})
 			const rows = orderedMealTypes.map((mt) => ({
 				meal: mt.name ?? "",
-				cells: WEEKDAYS.map((d) => (cellIndex.get(`${d.num}:${mt.id}`) ?? []).map((e) => ({ name: e.name, demand: e.demand }))),
+				cells: WEEKDAYS.map((d) => (cellIndex.get(`${d.num}:${mt.id}`) ?? []).map((e) => ({ name: e.name, main: e.main, demand: e.demand }))),
 				bases: WEEKDAYS.map((d) => baseByCell.get(`${d.num}:${mt.id}`) ?? null),
 			}))
 			await docx.downloadCardapioDocx(
@@ -342,7 +400,14 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 					signatures: header.signatures,
 					columns,
 					rows,
-					preparations: preparations.map((p) => ({ name: p.name, version: p.version, prePreparation: p.prePreparation, method: p.method })),
+					preparations: preparations.map((p) => ({
+						name: p.name,
+						version: p.version,
+						prePreparation: p.prePreparation,
+						method: p.method,
+						ingredients: p.ingredients,
+						allergens: describeAllergens(p),
+					})),
 				},
 				`${header.title} - ${template.name ?? "cardapio"}`
 			)
@@ -397,15 +462,51 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 						onChange={(e) => handleWeekChange(e.target.value)}
 						className="h-9 rounded-none border border-input bg-background px-2 text-sm"
 					/>
-					<Button variant="outline" size="sm" onClick={handleDownloadDocx} disabled={isExporting}>
+					<Button variant="outline" size="sm" onClick={handleDownloadDocx} disabled={isExporting || ingredientsPending}>
 						{isExporting ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
 						Baixar DOCX
 					</Button>
-					<Button size="sm" onClick={() => window.print()}>
-						<Printer className="size-4 mr-2" />
+					<Button size="sm" onClick={() => window.print()} disabled={ingredientsPending}>
+						{ingredientsPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Printer className="size-4 mr-2" />}
 						Imprimir / Baixar PDF
 					</Button>
 				</div>
+			</div>
+
+			{/* Opções de impressão — ocultas na impressão */}
+			<div className="cardapio-no-print flex flex-wrap items-center gap-x-6 gap-y-2 mb-4 text-sm">
+				<label htmlFor="print-show-method" className="flex items-center gap-2">
+					<Checkbox id="print-show-method" checked={options.showMethod} onCheckedChange={(checked) => updateOptions({ showMethod: checked === true })} />
+					Mostrar modo de preparo
+				</label>
+				<div className="flex items-center gap-2">
+					<span className="text-muted-foreground">Ingredientes:</span>
+					<Select
+						value={options.ingredients}
+						onValueChange={(next) => {
+							if (next && (INGREDIENTS_MODES as readonly string[]).includes(next)) updateOptions({ ingredients: next as IngredientsMode })
+						}}
+					>
+						<SelectTrigger className="w-72" aria-label="Ingredientes na lista de preparações">
+							<SelectValue>{INGREDIENTS_MODE_LABELS[options.ingredients]}</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							{INGREDIENTS_MODES.map((mode) => (
+								<SelectItem key={mode} value={mode}>
+									{INGREDIENTS_MODE_LABELS[mode]}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</div>
+				{digestsQuery.isError && (
+					<span className="flex items-center gap-2 text-destructive">
+						Não foi possível carregar os ingredientes — a folha sai sem eles.
+						<Button variant="outline" size="sm" onClick={() => void digestsQuery.refetch()}>
+							Tentar de novo
+						</Button>
+					</span>
+				)}
 			</div>
 
 			{/* Documento — cópia editável, na tela */}
@@ -465,7 +566,7 @@ interface CardapioDocumentProps {
 	cellIndex: Map<string, CellEntry[]>
 	/** Efetivo base por `dia:refeição`. */
 	baseByCell: Map<string, number | null>
-	preparations: { id: string; name: string; version: string; prePreparation: string | null; method: string | null }[]
+	preparations: PreparationEntry[]
 	emptyMessage: string
 	/** Só a cópia da tela edita; a de impressão renderiza texto estático. */
 	editable?: boolean
@@ -533,7 +634,7 @@ function CardapioDocument({
 					) : (
 						mealRows.map((mt) => (
 							<tr key={mt.id}>
-								<th className="cardapio-meal-col">{mt.name.toUpperCase()}</th>
+								<th className="cardapio-meal-col">{mt.name}</th>
 								{dayColumns.map((d) => {
 									const entries = cellIndex.get(`${d.num}:${mt.id}`) ?? []
 									const base = baseByCell.get(`${d.num}:${mt.id}`) ?? null
@@ -541,8 +642,8 @@ function CardapioDocument({
 										<td key={d.num} className={d.num >= 6 ? "cardapio-weekend" : undefined}>
 											{base != null && entries.length > 0 && <div className="cardapio-base">{base} pessoas</div>}
 											{entries.map((entry, i) => (
-												<div key={`${entry.name}-${i}`} className="cardapio-dish">
-													{entry.name.toUpperCase()}
+												<div key={`${entry.name}-${i}`} className={entry.main ? "cardapio-dish cardapio-dish-main" : "cardapio-dish"}>
+													{entry.name}
 													{entry.demand && <span className="cardapio-dish-prop"> {entry.demand}</span>}
 												</div>
 											))}
@@ -569,9 +670,9 @@ function CardapioDocument({
 						{preparations.map((p) => (
 							<li key={p.id}>
 								<span className="cardapio-prep-name">
-									{p.name.toUpperCase()} ({p.version})
+									{p.name} ({p.version})
 								</span>
-								{" — "}
+								{(p.prePreparation || p.method) && " — "}
 								{p.prePreparation && (
 									<span className="cardapio-prep-method">
 										<em>Pré-preparo:</em> {p.prePreparation}
@@ -579,6 +680,16 @@ function CardapioDocument({
 									</span>
 								)}
 								{p.method && <span className="cardapio-prep-method">{p.method}</span>}
+								{p.ingredients && (
+									<div className="cardapio-prep-extra">
+										<em>Ingredientes:</em> {p.ingredients.join(", ")}
+									</div>
+								)}
+								{p.allergens && (
+									<div className="cardapio-prep-extra">
+										<em>Alergênicos:</em> {describeAllergens(p)}
+									</div>
+								)}
 							</li>
 						))}
 					</ul>
@@ -710,6 +821,7 @@ const PRINT_CSS = `
 .cardapio-daynum { font-weight: 400; font-size: 8px; }
 .cardapio-weekend { background: #f4f4f4; }
 .cardapio-dish { font-size: 8px; }
+.cardapio-dish-main { font-weight: 700; }
 .cardapio-dish-prop { font-weight: 700; color: #333; }
 .cardapio-base { font-size: 7px; font-style: italic; color: #555; }
 .cardapio-dish + .cardapio-dish { border-top: 1px dotted #bbb; margin-top: 1px; padding-top: 1px; }
@@ -732,6 +844,7 @@ const PRINT_CSS = `
 }
 .cardapio-preps li { font-size: 8px; margin-bottom: 2px; break-inside: avoid; }
 .cardapio-prep-name { font-weight: 700; }
+.cardapio-prep-extra { margin-top: 1px; }
 .cardapio-footer {
 	display: grid;
 	grid-template-columns: 1fr 1fr;

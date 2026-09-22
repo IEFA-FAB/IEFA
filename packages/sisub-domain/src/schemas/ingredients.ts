@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { ALLERGENS } from "../operations/allergens.ts"
 import { UuidSchema } from "./common.ts"
 import { DeliveryCycleSchema } from "./procurement.ts"
 
@@ -82,6 +83,12 @@ export type RestoreIngredient = z.infer<typeof RestoreIngredientSchema>
 /** Ciclo de entrega padrão do insumo nas ATAs. `null` = não classificado. */
 export const UpdateIngredientDeliveryCycleSchema = z.object({ id: UuidSchema, deliveryCycle: DeliveryCycleSchema.nullable() })
 export type UpdateIngredientDeliveryCycle = z.infer<typeof UpdateIngredientDeliveryCycleSchema>
+
+export const AllergenSchema = z.enum(ALLERGENS)
+
+/** Alergênicos do insumo (RDC 26/2015). Substitui a lista inteira; `[]` = nenhum marcado. */
+export const UpdateIngredientAllergensSchema = z.object({ id: UuidSchema, allergens: z.array(AllergenSchema).max(ALLERGENS.length) })
+export type UpdateIngredientAllergens = z.infer<typeof UpdateIngredientAllergensSchema>
 
 export const ListIngredientItemsSchema = z.object({
 	ingredientId: UuidSchema.optional(),

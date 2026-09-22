@@ -63,11 +63,13 @@ import {
 	setIngredientNutrients,
 	setIngredientNutritionReference,
 	UpdateFolderSchema,
+	UpdateIngredientAllergensSchema,
 	UpdateIngredientDeliveryCycleSchema,
 	UpdateIngredientItemSchema,
 	UpdateIngredientSchema,
 	updateFolder,
 	updateIngredient,
+	updateIngredientAllergens,
 	updateIngredientDeliveryCycle,
 	updateIngredientItem,
 } from "@iefa/sisub-domain"
@@ -226,6 +228,14 @@ export const updateIngredientDeliveryCycleFn = createServerFn({ method: "POST" }
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateIngredientDeliveryCycle(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+/** Alergênicos do insumo (RDC 26/2015) — grava só a coluna, fora do save completo. */
+export const updateIngredientAllergensFn = createServerFn({ method: "POST" })
+	.validator(UpdateIngredientAllergensSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return updateIngredientAllergens(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreIngredientFn = createServerFn({ method: "POST" })

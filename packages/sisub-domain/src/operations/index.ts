@@ -1,5 +1,13 @@
 export { type AccessAudit, type AuditGrade, defaultAccessAudit } from "./access-change.ts"
 export {
+	ALLERGEN_DESCRIPTIONS,
+	ALLERGEN_LABELS,
+	ALLERGENS,
+	type Allergen,
+	isAllergen,
+	normalizeAllergens,
+} from "./allergens.ts"
+export {
 	calculateAtaNeeds,
 	createAta,
 	createAtaDraft,
@@ -277,6 +285,7 @@ export {
 	setIngredientNutritionReference,
 	updateFolder,
 	updateIngredient,
+	updateIngredientAllergens,
 	updateIngredientDeliveryCycle,
 	updateIngredientItem,
 } from "./ingredients.ts"
@@ -530,10 +539,12 @@ export {
 	deleteRecipeFolder,
 	fetchRecipe,
 	listRecipeFolders,
+	listRecipeIngredientDigests,
 	listRecipeMenuUsage,
 	listRecipeSummaries,
 	listRecipes,
 	listRecipeVersions,
+	type RecipeIngredientDigest,
 	type RecipeSummary,
 	renameRecipe,
 	renameRecipeFolder,

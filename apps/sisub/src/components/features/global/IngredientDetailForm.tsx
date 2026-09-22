@@ -41,6 +41,7 @@ import {
 	useSaveIngredientDetails,
 } from "@/services/IngredientsService"
 import { FolderCombobox } from "./FolderCombobox"
+import { IngredientAllergensField } from "./IngredientAllergensField"
 import { IngredientDeliveryCycleField } from "./IngredientDeliveryCycleField"
 import { IngredientHistorySheet } from "./IngredientHistorySheet"
 import { IngredientItemsManager } from "./IngredientItemsManager"
@@ -475,6 +476,8 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 											</form.Field>
 
 											<IngredientDeliveryCycleField ingredientId={ingredient.id} value={ingredient.default_delivery_cycle} />
+
+											<IngredientAllergensField ingredientId={ingredient.id} value={ingredient.allergens} />
 										</CardContent>
 									</Card>
 								</TabsContent>
