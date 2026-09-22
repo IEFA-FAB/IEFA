@@ -24,7 +24,6 @@ import {
 	isMainDish,
 	type PreparationEntry,
 	type PreparationSource,
-	parsePrintOptions,
 } from "@/lib/cardapio-print"
 import { formatItemDemand } from "@/lib/menu-fill"
 import { menuItemGroupOrder } from "@/lib/menu-item-groups"
@@ -52,7 +51,9 @@ import type { MenuTemplateWithItems } from "@/types/domain/planning"
  *  - cabeçalho e blocos de assinatura editáveis e memorizados por cozinha
  *    (localStorage), evitando redigitar a cada semana;
  *  - opções de impressão (modo de preparo; ingredientes: nenhum, só alergênicos ou todos,
- *    sempre sem quantidade), memorizadas no navegador.
+ *    sempre sem quantidade). Ficam só na página, sem armazenamento local: chave nova de
+ *    armazenamento exigiria versão nova da Política de Cookies, e preferência de leitura
+ *    não justifica pedir ciência de novo a todo usuário.
  *
  * Nomes de preparação e de refeição saem como estão no banco — sem caixa alta forçada — e o
  * prato principal sai em negrito.
@@ -105,19 +106,6 @@ const DEFAULT_HEADER: PrintHeader = {
 
 function headerStorageKey(scope: string) {
 	return `sisub:cardapio-print-header:${scope}`
-}
-
-/** Opções valem para o usuário, não para a cozinha: é preferência de leitura da folha. */
-const OPTIONS_STORAGE_KEY = "sisub:cardapio-print-options"
-
-function loadPrintOptions(): CardapioPrintOptions {
-	if (typeof window === "undefined") return DEFAULT_PRINT_OPTIONS
-	try {
-		const raw = window.localStorage.getItem(OPTIONS_STORAGE_KEY)
-		return raw ? parsePrintOptions(JSON.parse(raw)) : DEFAULT_PRINT_OPTIONS
-	} catch {
-		return DEFAULT_PRINT_OPTIONS
-	}
 }
 
 /**
@@ -203,16 +191,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const [header, setHeader] = useState<PrintHeader>(DEFAULT_HEADER)
 	const [isExporting, setIsExporting] = useState(false)
 	const [options, setOptions] = useState<CardapioPrintOptions>(DEFAULT_PRINT_OPTIONS)
-	useEffect(() => setOptions(loadPrintOptions()), [])
-	const updateOptions = (patch: Partial<CardapioPrintOptions>) => {
-		const next = { ...options, ...patch }
-		setOptions(next)
-		try {
-			window.localStorage.setItem(OPTIONS_STORAGE_KEY, JSON.stringify(next))
-		} catch {
-			// localStorage indisponível — mantém apenas em memória.
-		}
-	}
+	const updateOptions = (patch: Partial<CardapioPrintOptions>) => setOptions((prev) => ({ ...prev, ...patch }))
 
 	// Ingredientes das fichas do cardápio: só buscados quando a opção pede.
 	const originIds = useMemo(() => [...new Set((template?.items ?? []).flatMap((i) => (i.recipe_origin?.id ? [i.recipe_origin.id] : [])))], [template])
@@ -473,7 +452,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 				</div>
 			</div>
 
-			{/* Opções de impressão — ocultas na impressão */}
+			{/* Opções de impressão — ocultas na impressão; valem só nesta página */}
 			<div className="cardapio-no-print flex flex-wrap items-center gap-x-6 gap-y-2 mb-4 text-sm">
 				<label htmlFor="print-show-method" className="flex items-center gap-2">
 					<Checkbox id="print-show-method" checked={options.showMethod} onCheckedChange={(checked) => updateOptions({ showMethod: checked === true })} />

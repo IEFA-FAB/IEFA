@@ -1,6 +1,6 @@
 import type { RecipeIngredientDigest } from "@iefa/sisub-domain"
 import { describe, expect, test } from "vitest"
-import { buildPreparationEntries, DEFAULT_PRINT_OPTIONS, describeAllergens, isMainDish, type PreparationSource, parsePrintOptions } from "./cardapio-print"
+import { buildPreparationEntries, DEFAULT_PRINT_OPTIONS, describeAllergens, isMainDish, type PreparationSource } from "./cardapio-print"
 
 const arroz: PreparationSource = { id: "r1", name: "Arroz branco", version: "v2", prePreparation: null, method: "Refogar e cozinhar." }
 const lasanha: PreparationSource = { id: "r2", name: "Lasanha à bolonhesa", version: "v1", prePreparation: "Descongelar a carne.", method: null }
@@ -37,14 +37,6 @@ describe("isMainDish", () => {
 	test("só o grupo prato principal sai em negrito", () => {
 		expect(isMainDish("prato_principal")).toBe(true)
 		for (const g of ["acompanhamento", "guarnicao", "bebida", "sobremesa", null, undefined]) expect(isMainDish(g)).toBe(false)
-	})
-})
-
-describe("parsePrintOptions", () => {
-	test("valor salvo inválido cai no padrão campo a campo", () => {
-		expect(parsePrintOptions(null)).toEqual(DEFAULT_PRINT_OPTIONS)
-		expect(parsePrintOptions({ showMethod: false, ingredients: "tudo" })).toEqual({ showMethod: false, ingredients: "none" })
-		expect(parsePrintOptions({ ingredients: "allergens" })).toEqual({ showMethod: true, ingredients: "allergens" })
 	})
 })
 
