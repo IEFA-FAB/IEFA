@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, CheckCircle2, CircleHelp, RefreshCw, XCircle } from "lucide-react"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
-import { fetchNfeDocumentFn, fetchNfeItemSuggestionsFn, type NfeItemRow, resolveNfeItemFn, runNfeMatchingFn } from "@/server/nfe.fn"
+import { fetchNfeDocumentFn, fetchNfeItemSuggestionsFn, type NfeItemRow, registerNfeSituationFn, resolveNfeItemFn, runNfeMatchingFn } from "@/server/nfe.fn"
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/nfe/$nfeId")({
 	beforeLoad: (opts) => requirePermission(opts, "storage", 1),
@@ -102,6 +102,76 @@ function SuggestionRow({ nfeItemId, suggestion, onResolved }: { nfeItemId: strin
 	)
 }
 
+const SITUATION_LABEL: Record<string, string> = {
+	authorized: "Autorizada",
+	cancelled: "Cancelada",
+	unknown: "Não confirmada",
+}
+
+/**
+ * Registro da consulta de situação na SEFAZ.
+ *
+ * O servidor exigia a consulta (≤ 3 dias) para efetivar o recebimento e liquidar, mas
+ * nenhuma tela a registrava: o definitivo recusava com "consulte a situação na SEFAZ" e
+ * não havia onde dizer o resultado — estoque nenhum entrava.
+ */
+function NfeSituationCard({
+	doc,
+	onSaved,
+}: {
+	doc: { id: string; access_key: string; status: string; situation_result?: string | null; situation_checked_at?: string | null }
+	onSaved: () => void
+}) {
+	const [saving, setSaving] = useState(false)
+	const checkedAt = doc.situation_checked_at ? new Date(doc.situation_checked_at) : null
+
+	async function register(result: "authorized" | "cancelled") {
+		const note = result === "cancelled" ? (window.prompt("Motivo/protocolo do cancelamento (opcional)") ?? undefined) : undefined
+		setSaving(true)
+		try {
+			await registerNfeSituationFn({ data: { nfeDocumentId: doc.id, result, note } })
+			toast.success(result === "authorized" ? "Consulta registrada: nota autorizada" : "Nota marcada como cancelada")
+			onSaved()
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Falha ao registrar a consulta")
+		} finally {
+			setSaving(false)
+		}
+	}
+
+	return (
+		<Card>
+			<CardContent className="pt-4 flex flex-wrap items-center gap-3 text-sm">
+				<div className="flex-1 min-w-60 space-y-0.5">
+					<p className="text-subheading">Situação na SEFAZ</p>
+					<p className="text-xs text-muted-foreground">
+						{checkedAt
+							? `${SITUATION_LABEL[doc.situation_result ?? "unknown"] ?? doc.situation_result} — consultada em ${checkedAt.toLocaleString("pt-BR")}. Vale 3 dias para efetivar e liquidar.`
+							: "Nunca consultada. Consulte a chave no portal da NF-e e registre o resultado — o recebimento definitivo e a liquidação exigem consulta recente."}
+					</p>
+				</div>
+				<Button
+					variant="outline"
+					size="sm"
+					render={<a href="https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo" target="_blank" rel="noopener noreferrer" />}
+					nativeButton={false}
+					onClick={() => void navigator.clipboard?.writeText(doc.access_key)}
+				>
+					Copiar chave e abrir portal
+				</Button>
+				<Button size="sm" onClick={() => register("authorized")} disabled={saving || doc.status === "cancelled"}>
+					{saving ? <Spinner className="size-3.5" /> : <CheckCircle2 className="size-3.5" />}
+					Autorizada
+				</Button>
+				<Button size="sm" variant="outline" onClick={() => register("cancelled")} disabled={saving || doc.status === "cancelled"}>
+					<XCircle className="size-3.5" />
+					Cancelada
+				</Button>
+			</CardContent>
+		</Card>
+	)
+}
+
 function NfeDetailPage() {
 	const doc = Route.useLoaderData()
 	const router = useRouter()
@@ -139,6 +209,8 @@ function NfeDetailPage() {
 				</Button>
 			</PageHeader>
 
+			<NfeSituationCard doc={doc} onSaved={() => router.invalidate()} />
+
 			<Card>
 				<CardContent className="pt-4 px-0 pb-0">
 					<table className="w-full text-sm">
@@ -158,8 +230,8 @@ function NfeDetailPage() {
 								const Icon = meta.icon
 								const needsResolution = item.match_status === "review" || item.match_status === "no_match"
 								return (
-									<>
-										<tr key={item.id}>
+									<Fragment key={item.id}>
+										<tr>
 											<td className="py-2.5 px-3 text-xs font-mono text-muted-foreground">{item.n_item}</td>
 											<td className="py-2.5 px-2 text-xs">
 												<span className="block">{item.description ?? "—"}</span>
@@ -183,13 +255,13 @@ function NfeDetailPage() {
 											</td>
 										</tr>
 										{needsResolution && (
-											<tr key={`${item.id}-resolution`}>
+											<tr>
 												<td colSpan={6} className="bg-muted/20 px-3">
 													<NfeItemResolution item={item} onResolved={() => router.invalidate()} />
 												</td>
 											</tr>
 										)}
-									</>
+									</Fragment>
 								)
 							})}
 						</tbody>

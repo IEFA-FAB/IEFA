@@ -65,6 +65,24 @@ describeSupabaseIntegration("procurement operations (regressão)", () => {
 		expect(need?.folder_id).toBe(folderId)
 	})
 
+	test("fetchProcurementNeeds conta item com excluded_from_procurement NULL (aplicado por template) e ignora o marcado 1", async () => {
+		if (!reachable || !seeder || !db) return
+		const { id: kitchenId } = await seeder.seedKitchen()
+		seeder.trackFn(() => seeder?.purgeKitchenMenus(kitchenId) ?? Promise.resolve())
+
+		const folderId = await seeder.seedFolder()
+		const ingredientId = await seeder.seedIngredient({ folderId, measureUnit: "KG" })
+		const recipeId = await seeder.seedRecipe({ kitchenId: null, portionYield: 100, ingredients: [{ ingredientId, netQuantity: 150 }] })
+		const mealTypeId = await seeder.seedMealType({ kitchenId })
+		const date = "2099-05-02"
+		const { id: dailyMenuId } = await seeder.seedDailyMenu({ kitchenId, mealTypeId, serviceDate: date })
+		await seeder.seedMenuItem({ dailyMenuId, recipeId, plannedPortionQuantity: 100, excludedFromProcurement: null })
+		await seeder.seedMenuItem({ dailyMenuId, recipeId, plannedPortionQuantity: 100, excludedFromProcurement: 1 })
+
+		const needs = await fetchProcurementNeeds(db, ctx, { startDate: date, endDate: date, kitchenId })
+		expect(needs.find((n) => n.ingredient_id === ingredientId)?.total_quantity).toBe(150) // só o NULL
+	})
+
 	test("fetchProcurementNeeds retorna [] quando não há cardápio no intervalo", async () => {
 		if (!reachable || !seeder || !db) return
 		const { id: kitchenId } = await seeder.seedKitchen()

@@ -21,7 +21,7 @@ import {
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
-import { and, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm"
+import { and, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm"
 import { requireAnyPermission, requireUnit, requireUnscopedPermission } from "../guards/require-permission.ts"
 import type { FetchProcurementNeeds, FetchUnitDashboard } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
@@ -81,7 +81,16 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 			})
 			.from(menuItemsInKitchen)
 			.innerJoin(dailyMenuInKitchen, eq(menuItemsInKitchen.dailyMenuId, dailyMenuInKitchen.id))
-			.where(and(...dailyMenuWhere, isNull(menuItemsInKitchen.deletedAt), eq(menuItemsInKitchen.excludedFromProcurement, 0)))
+			// NULL é "não excluído": a coluna é nullable e sem default, e o aplicador de template não a
+			// preenche. Com `= 0` puro, todo item aplicado por template ficava fora — a reposição do
+			// estoque dizia "nenhuma necessidade" com o mês inteiro planejado e o estoque zerado.
+			.where(
+				and(
+					...dailyMenuWhere,
+					isNull(menuItemsInKitchen.deletedAt),
+					or(isNull(menuItemsInKitchen.excludedFromProcurement), eq(menuItemsInKitchen.excludedFromProcurement, 0))
+				)
+			)
 	)
 
 	if (menuRows.length === 0) return []

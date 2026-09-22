@@ -90,6 +90,15 @@ interface ReceiptItemRow {
 	lots: ReceiptLotRow[]
 }
 
+/** Mesmo vocabulário da lista de recebimentos — o enum cru ("draft") vazava para a tela. */
+const RECEIPT_STATUS_LABEL: Record<string, string> = {
+	draft: "Rascunho",
+	provisional: "Provisório",
+	definitive: "Definitivo",
+	divergent: "Divergente",
+	rejected: "Rejeitado",
+}
+
 function requiredRange(conditioning: ConditioningRow | null) {
 	return {
 		minC: conditioning?.storage_temp_min_c != null ? Number(conditioning.storage_temp_min_c) : null,
@@ -455,7 +464,7 @@ function ReceiptDetailPage() {
 	return (
 		<div className="space-y-6">
 			<div className="print:hidden">
-				<PageHeader title="Conferência de Recebimento" description={`Situação: ${receipt.status}`}>
+				<PageHeader title="Conferência de Recebimento" description={`Situação: ${RECEIPT_STATUS_LABEL[receipt.status] ?? receipt.status}`}>
 					<Button
 						variant="ghost"
 						size="sm"
