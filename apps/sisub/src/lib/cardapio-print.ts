@@ -28,17 +28,6 @@ export type CardapioPrintOptions = { showMethod: boolean; ingredients: Ingredien
 /** Padrão = a folha de antes das opções: modo de preparo, sem ingredientes. */
 export const DEFAULT_PRINT_OPTIONS: CardapioPrintOptions = { showMethod: true, ingredients: "none" }
 
-export function parsePrintOptions(raw: unknown): CardapioPrintOptions {
-	if (!raw || typeof raw !== "object") return DEFAULT_PRINT_OPTIONS
-	const value = raw as Partial<Record<keyof CardapioPrintOptions, unknown>>
-	return {
-		showMethod: typeof value.showMethod === "boolean" ? value.showMethod : DEFAULT_PRINT_OPTIONS.showMethod,
-		ingredients: (INGREDIENTS_MODES as readonly unknown[]).includes(value.ingredients)
-			? (value.ingredients as IngredientsMode)
-			: DEFAULT_PRINT_OPTIONS.ingredients,
-	}
-}
-
 /** Uma ficha distinta do cardápio, antes das opções de impressão. */
 export type PreparationSource = { id: string; name: string; version: string; prePreparation: string | null; method: string | null }
 
