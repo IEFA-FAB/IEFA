@@ -43,14 +43,28 @@ function build(model: string, region: string, temperature: number): BaseChatMode
 /**
  * Camada do modelo.
  *
+ * `chat` é quem redige a resposta do chat sobre documento (`src/chat/`). Sem
+ * `ALPHA_CHAT_AI_MODEL` ela É o primário.
+ *
  * `fast` é o pré-passe que roda em todo turno antes da recuperação — classificação de
  * intenção e reescrita da pergunta para a busca. Sem `ALPHA_FAST_AI_MODEL` configurado ela
  * É o primário: a camada é uma oportunidade de economia, nunca um requisito de boot.
  */
-export type ModelTier = "primary" | "fast"
+export type ModelTier = "primary" | "fast" | "chat"
 
-function modelFor(tier: ModelTier): string {
-	return tier === "fast" ? env.ALPHA_FAST_AI_MODEL || env.ALPHA_AI_MODEL : env.ALPHA_AI_MODEL
+export function modelFor(tier: ModelTier): string {
+	if (tier === "fast") return env.ALPHA_FAST_AI_MODEL || env.ALPHA_AI_MODEL
+	if (tier === "chat") return env.ALPHA_CHAT_AI_MODEL || env.ALPHA_AI_MODEL
+	return env.ALPHA_AI_MODEL
+}
+
+/**
+ * O modelo é o Bedrock Converse? Só ele entende o bloco `cachePoint` na mensagem de sistema
+ * (conferido no `@langchain/aws` 1.4.5: `convertSystemMessageToConverseMessage` aceita texto
+ * e cache point); o `langchain-compat` da reserva o rejeitaria.
+ */
+export function isBedrockModel(llm: BaseChatModel): boolean {
+	return llm instanceof ChatBedrockConverse
 }
 
 export function getLLM(temperature: 0 | 0.3 | 0.7 = 0, tier: ModelTier = "primary"): BaseChatModel {

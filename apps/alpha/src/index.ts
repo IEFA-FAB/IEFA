@@ -3,6 +3,7 @@ import { createHealthRoutes } from "./api/health.ts"
 import { legalRoutes } from "./api/legal.ts"
 import apiRoutes from "./api/routes.ts"
 import { env } from "./env.ts"
+import { startChatPurgeWorker } from "./jobs/purge-chats.ts"
 import { refreshAllSources } from "./jobs/refresh-sources.ts"
 import { startSourcesRefreshWorker } from "./jobs/scheduler.ts"
 import { secureCompare } from "./lib/secure-compare.ts"
@@ -25,6 +26,7 @@ const app = apiRoutes
 	})
 
 startSourcesRefreshWorker(env.ALPHA_SOURCES_REFRESH_ENABLED)
+startChatPurgeWorker(env.ALPHA_CHAT_PURGE_ENABLED)
 
 // Estado do serviço, documentos legais e robots.txt/llms.txt/.well-known —
 // registrados fora da cadeia tipada acima para não interferir nos tipos do RPC

@@ -55,6 +55,11 @@ const ENDPOINTS = [
 	{ title: "POST /api/v1/sessions/{id}/messages", summary: "Envia uma mensagem e recebe a resposta completa." },
 	{ title: "POST /api/v1/sessions/{id}/messages/stream", summary: "Mesma operação com resposta em streaming (SSE)." },
 	{ title: "GET /api/v1/sessions/{id}/messages", summary: "Histórico de mensagens da sessão." },
+	{ title: "POST /api/v1/chats", summary: "Abre uma conversa sobre um processo (submission_id) ou avulsa, com anexos." },
+	{ title: "GET /api/v1/chats", summary: "Conversas do próprio usuário, com o prazo de expurgo das avulsas não salvas." },
+	{ title: "GET /api/v1/chats/{id}", summary: "Conversa com mensagens, citações e anexos (só o dono)." },
+	{ title: "POST /api/v1/chats/{id}/attachments", summary: "Anexa um PDF ou DOCX à conversa avulsa (até 5)." },
+	{ title: "POST /api/v1/chats/{id}/messages/stream", summary: "Um turno em SSE (status, delta, complete, error), com citações conferidas no servidor." },
 	{ title: "GET /api/v1/chunks/{id}", summary: "Trecho citado do acervo, para conferir a fonte." },
 ]
 

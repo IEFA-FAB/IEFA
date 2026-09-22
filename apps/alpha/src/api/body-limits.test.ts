@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test"
 import { Hono } from "hono"
-import { MAX_JSON_BODY_BYTES, MAX_UPLOAD_BODY_BYTES, requestBodyLimit } from "./body-limits.ts"
+import { isUploadRequest, MAX_JSON_BODY_BYTES, MAX_UPLOAD_BODY_BYTES, requestBodyLimit } from "./body-limits.ts"
 
 const app = new Hono()
 	.use("/api/v1/*", requestBodyLimit)
 	.post("/api/v1/submissions", async (c) => c.json({ size: (await c.req.arrayBuffer()).byteLength }))
 	.post("/api/v1/sessions/s/messages", async (c) => c.json({ size: (await c.req.arrayBuffer()).byteLength }))
+	.post("/api/v1/chats/:id/attachments", async (c) => c.json({ size: (await c.req.arrayBuffer()).byteLength }))
+	.post("/api/v1/chats/:id/messages/stream", async (c) => c.json({ size: (await c.req.arrayBuffer()).byteLength }))
 
 function post(path: string, bytes: number) {
 	return app.request(path, { method: "POST", body: new Uint8Array(bytes), headers: { "content-length": String(bytes) } })
@@ -25,6 +27,15 @@ describe("requestBodyLimit", () => {
 	test("upload: o teto largo vale só para o POST de submissão", async () => {
 		expect((await post("/api/v1/submissions", MAX_JSON_BODY_BYTES + 1)).status).toBe(200)
 		expect((await post("/api/v1/submissions", MAX_UPLOAD_BODY_BYTES + 1)).status).toBe(413)
+	})
+
+	test("anexo do chat leva o teto largo; a pergunta do chat, não", async () => {
+		expect((await post("/api/v1/chats/abc/attachments", MAX_JSON_BODY_BYTES + 1)).status).toBe(200)
+		expect((await post("/api/v1/chats/abc/attachments", MAX_UPLOAD_BODY_BYTES + 1)).status).toBe(413)
+		expect((await post("/api/v1/chats/abc/messages/stream", MAX_JSON_BODY_BYTES + 1)).status).toBe(413)
+		// O caminho do anexo não pode casar por prefixo: um segmento a mais volta ao teto de JSON.
+		expect(isUploadRequest("POST", "/api/v1/chats/abc/attachments/x")).toBe(false)
+		expect(isUploadRequest("DELETE", "/api/v1/chats/abc/attachments")).toBe(false)
 	})
 
 	// O `routes.ts` monta o app com o `env` do Supabase e não é importável aqui; a ordem

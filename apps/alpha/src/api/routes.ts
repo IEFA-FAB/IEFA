@@ -21,6 +21,7 @@ import { accessRoutes } from "./access.ts"
 import { aciRoutes } from "./aci.ts"
 import { canAccessSession } from "./authorize"
 import { requestBodyLimit } from "./body-limits.ts"
+import { chatRoutes } from "./chats.ts"
 import { complianceRoutes } from "./compliance"
 import { browserCors } from "./cors.ts"
 import { submissionRoutes } from "./submissions"
@@ -251,6 +252,8 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.route("/", complianceRoutes)
 	// Plataforma ACI (Etapa 1.8): fila, processo, triagem, parecer e relatório final.
 	.route("/", aciRoutes)
+	// Chat sobre documento do contrate: conversas de processo e avulsas.
+	.route("/", chatRoutes)
 
 	// POST /api/v1/sessions — cria nova sessão de conversa
 	/**

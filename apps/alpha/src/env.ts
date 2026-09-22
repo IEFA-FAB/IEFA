@@ -71,6 +71,30 @@ const schema = z.object({
 	 * resposta em vez de passar batido.
 	 */
 	ALPHA_EXTRACTION_MAX_CHARS: z.coerce.number().default(24_000),
+
+	// ── Chat sobre documento (contrate) ──────────────────────────────────────
+	// Todas opcionais: sem nenhuma delas o chat funciona com os defaults, e o boot não muda.
+	/**
+	 * Modelo que redige a resposta do chat. Vazio = `ALPHA_AI_MODEL`. Existe para apontar o
+	 * chat — que leva o documento inteiro no contexto a cada turno — para um modelo mais
+	 * barato que o do verificador, sem mexer no verificador.
+	 */
+	ALPHA_CHAT_AI_MODEL: z.string().default(""),
+	/**
+	 * Perguntas por pessoa em 24 h, somando todas as conversas. Conferido ANTES de abrir o
+	 * SSE (429 legível). É freio de custo, não de segurança.
+	 */
+	ALPHA_CHAT_MAX_TURNS_PER_DAY: z.coerce.number().int().positive().default(60),
+	/**
+	 * Orçamento de caracteres das fontes que vão INTEIRAS ao modelo. O que não cabe vai como
+	 * sumário, e o modelo lê a seção por ferramenta. ~150 mil caracteres ≈ 40 mil tokens.
+	 */
+	ALPHA_CHAT_DOC_MAX_CHARS: z.coerce.number().int().positive().default(150_000),
+	/**
+	 * Rotina diária que apaga a conversa avulsa não salva após 180 dias sem uso. Ligada por
+	 * padrão: é compromisso da Política de Privacidade, não otimização.
+	 */
+	ALPHA_CHAT_PURGE_ENABLED: z.stringbool().default(true),
 	PORT: z.coerce.number().default(3001),
 })
 

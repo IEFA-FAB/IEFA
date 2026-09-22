@@ -18,7 +18,8 @@ que não cobre), como os tetos de consumo funcionam e o que ainda falta migrar.
 | sisub — assistente de analytics | `ANALYTICS_AI_*` | **bedrock** | groq | ✅ migrado |
 | sucont — oráculo | `SUCONT_AI_*` | **bedrock** | **bedrock** (`gpt-oss-120b`) | ✅ migrado — primário, reserva e tetos aplicados |
 | portal — redação de comunicações oficiais | `PORTAL_AI_*` | **bedrock** (`opus-4-6`) | **bedrock** (`gpt-oss-120b`) | ⚠️ código e modelo verificados; **env ainda não provisionado em prod** |
-| alpha — grafo LangGraph | `ALPHA_AI_*` | **bedrock** | — (não tem reserva) | ✅ migrado — chat e embeddings; rerank desligado (ver abaixo) |
+| alpha — grafo LangGraph | `ALPHA_AI_*` | **bedrock** | `ALPHA_FALLBACK_AI_MODEL` | ✅ migrado — chat e embeddings; rerank desligado (ver abaixo) |
+| alpha — chat sobre documento (contrate) | `ALPHA_CHAT_*` | **bedrock** (camada `chat`) | `ALPHA_FALLBACK_AI_MODEL` | ✅ código; teto diário e cache de prompt — ver a seção do alpha |
 
 `apps/sisub-mcp` não chama modelo: ele **expõe** ferramentas para o modelo do cliente MCP.
 rumaer, forms, docs e api não usam IA.
@@ -465,6 +466,7 @@ compatível com a da OpenAI, que ficaram como saída de emergência manual.
 | embeddings | `ALPHA_EMBEDDING_PROVIDER = "bedrock"`, `amazon.titan-embed-text-v2:0` | `env.ts:24-25`, `lib/embeddings.ts:37-46` |
 | rerank | `ALPHA_RERANK_MODEL = ""` — **desligado** | `env.ts:27` |
 | pré-passe | `ALPHA_FAST_AI_MODEL = ""` — vazio usa o primário | `env.ts`, `lib/llm.ts` (`ModelTier`) |
+| chat sobre documento | `ALPHA_CHAT_AI_MODEL = ""` — vazio usa o primário | `env.ts`, `lib/llm.ts` (`ModelTier` `chat`), `src/chat/` |
 
 O α **tem** reserva (`ALPHA_FALLBACK_AI_MODEL`), ao contrário do que esta seção afirmava:
 `getFallbackLLM`/`withModelFallback` em `lib/llm.ts`, com a mesma semântica dos demais
@@ -479,6 +481,22 @@ confiável. `No tool calls found in the response` está na lista de falhas trans
 (`lib/transient.ts`), então cada ocorrência repete o pré-passe na reserva — duas chamadas no
 mesmo turno, e a economia vira prejuízo se for frequente. Só quando não há reserva
 configurada é que a falha propaga e o pré-passe cai em `UNKNOWN`, buscando com a pergunta crua.
+
+**O chat sobre documento (`src/chat/`, rotas `/api/v1/chats`) não passa pelo grafo.** É um laço
+de ferramentas próprio (`chat/agent.ts`), com texto transmitido por SSE. Três coisas dele que
+os demais consumidores do α não têm:
+
+- **Teto diário por pessoa** (`ALPHA_CHAT_MAX_TURNS_PER_DAY`, default 60). É conferido ANTES
+  de abrir o SSE e responde 429 `CHAT_DAILY_LIMIT` com `retry_after`. É o único teto de
+  consumo do α. O turno leva o documento inteiro no contexto e é a chamada mais cara do app.
+- **Cache de prompt**: as regras e as fontes vão num bloco de sistema com `cachePoint`. O
+  `@langchain/aws` 1.4.5 repassa o bloco (`convertSystemMessageToConverseMessage`). A reserva
+  (`langchain-compat`) recebe texto puro, porque o bloco a quebraria.
+- **Orçamento de fonte** (`ALPHA_CHAT_DOC_MAX_CHARS`, default 150 000 caracteres). A fonte que
+  não cabe vai como sumário, e o modelo lê a seção por ferramenta.
+
+A reserva segue a regra do repo: só entra em falha transitória e antes do primeiro texto do
+turno (`runChatTurn`).
 
 `ALPHA_AI_MODEL` não tem default: sem ele o boot lança (`env.ts:62-65`). É deliberado — não
 existe id de modelo seguro para cravar, porque a habilitação varia por conta e região.
