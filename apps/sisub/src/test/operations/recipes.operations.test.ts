@@ -291,6 +291,18 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 		expect(alternatives[0].net_quantity).toBe(1.6)
 	})
 
+	/*
+	 * Os quatro casos abaixo chamam `listRecipes` com `kitchenId: null`, que traz o catálogo
+	 * GLOBAL inteiro — ~2.200 receitas com a ficha técnica aninhada. Contra o banco remoto isso
+	 * leva ~30 s por chamada, e o `testTimeout` global de 15 s os deixava VERMELHOS de forma
+	 * permanente no job "full suite" (não-bloqueante), parecendo regressão a cada PR.
+	 *
+	 * O timeout explícito é o conserto certo, e não reduzir a consulta: o app já não usa esta
+	 * operação — `recipes.fn.ts` passou para a versão de resumos por causa desse mesmo peso
+	 * (a listagem cheia chegou a derrubar a task por memória). O que sobrou aqui é a garantia
+	 * de SEMÂNTICA (dedup por família, ordenação pt-BR, soft delete, versão nova na raiz), e
+	 * ela só existe contra o catálogo real.
+	 */
 	test("listRecipes faz dedup por família mantendo a maior versão", async () => {
 		if (!reachable || !seeder || !db) return
 		const v1 = await createRecipe(db, ctx, { name: uid("[TEST] Família "), portionYield: 100, kitchenId: null })
@@ -308,7 +320,7 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 
 		expect(ids).toContain(v2.id) // versão mais nova representa a família
 		expect(ids).not.toContain(v1.id) // versão antiga é suprimida
-	})
+	}, 90_000)
 
 	test("listRecipes ordena por nome em pt-BR", async () => {
 		if (!reachable || !seeder || !db) return
@@ -321,7 +333,7 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 
 		expect(idxA).toBeGreaterThanOrEqual(0)
 		expect(idxZ).toBeGreaterThan(idxA)
-	})
+	}, 90_000)
 
 	test("deleteRecipe (soft) some da listagem default e reaparece com includeDeleted; restoreRecipe reverte", async () => {
 		if (!reachable || !seeder || !db) return
@@ -337,7 +349,7 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 		await restoreRecipe(db, ctx, { id: recipeId })
 		const restaurada = await listRecipes(db, ctx, { kitchenId: null })
 		expect(restaurada.map((r) => r.id)).toContain(recipeId)
-	})
+	}, 180_000)
 
 	test("saveRecipeEdit no contexto global cria nova versão com base_recipe_id na raiz", async () => {
 		if (!reachable || !seeder || !db) return
@@ -377,7 +389,7 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 		expect(ids).toContain(v3.id)
 		expect(ids).not.toContain(v2.id)
 		expect(ids).not.toContain(v1)
-	})
+	}, 90_000)
 
 	test("listRecipeVersions retorna a família ordenada por version asc", async () => {
 		if (!reachable || !seeder || !db) return
