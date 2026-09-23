@@ -138,6 +138,26 @@ três pontos a conferir antes.
 > práticas: não rodar em CI, não rodar em paralelo com outra pessoa na mesma conta
 > (a sessão de um invalida a do outro), e nunca usar conta de usuário real.
 
+### A conta dedicada
+
+`teste.treino.e2e@fab.mil.br` (`dea810c5-717c-4f88-8e6c-632bad65419a`), criada no #403
+com aprovação do mantenedor. Ela é o ALVO da suíte; usar a conta de alguém derruba a
+sessão dessa pessoa a cada run, e foi o que aconteceu enquanto o `.env` apontava para a
+conta pessoal do mantenedor.
+
+O acesso dela, conferido em 2026-09-23 e suficiente para as 7 specs:
+
+| Origem | Módulo · nível · escopo |
+|---|---|
+| Grant inline | `storage:3` na cozinha 920 |
+| Política "Conjunto Treino" | `kitchen:2` e `kitchen-production:2` (cozinha 920), `unit:2` e `local-analytics:2` (OM 1065), `messhall:2`, `global:1`, `analytics:1`, `admin:1` |
+
+Tudo cai na sentinela do treino, então um run que escreva por engano escreve onde o
+reset limpa. O que falta para o baseline (`bun run test:e2e`) é só a SENHA: a que foi
+gerada na criação da conta ficou em arquivo efêmero. Definir uma nova é ato do
+mantenedor no painel do Supabase, e o mesmo par precisa ir para os secrets
+`E2E_TEST_USER_EMAIL`/`E2E_TEST_USER_PASSWORD`.
+
 ### Variáveis
 
 Todas em `apps/sisub/.env` (arquivo local, fora do git — as chaves estão descritas em
@@ -146,12 +166,12 @@ Todas em `apps/sisub/.env` (arquivo local, fora do git — as chaves estão desc
 | Var | Obrigatória | Como obter |
 |---|---|---|
 | `SISUB_RUN_E2E` | sim (`true`) | é a flag da suíte; os scripts `test:e2e*` já a passam |
-| `E2E_TEST_USER_EMAIL` | sim | conta de teste dedicada; existe como secret homônimo no GitHub |
-| `E2E_TEST_USER_PASSWORD` | sim | idem |
+| `E2E_TEST_USER_EMAIL` | sim | `teste.treino.e2e@fab.mil.br` — a conta dedicada (ver abaixo). Existe secret homônimo no GitHub, criado antes dela |
+| `E2E_TEST_USER_PASSWORD` | sim | idem; a senha da conta dedicada foi gerada em arquivo efêmero e não sobreviveu — hoje exige nova definição pelo mantenedor |
 | `VITE_SISUB_SUPABASE_URL` | sim | mesma do dev; `vars` do repositório |
 | `VITE_SISUB_SUPABASE_PUBLISHABLE_KEY` | sim | mesma do dev; `vars` do repositório |
-| `E2E_BUDGET_UNIT_ID` | não | id de uma unidade REAL onde o usuário E2E tenha o módulo `unit` |
-| `E2E_STORAGE_KITCHEN_ID` | não | id de uma cozinha REAL onde o usuário E2E tenha o módulo `storage` |
+| `E2E_BUDGET_UNIT_ID` | não | id de uma unidade REAL onde o usuário E2E tenha o módulo `unit` — para a conta dedicada é **1065** (a OM sentinela do treino) |
+| `E2E_STORAGE_KITCHEN_ID` | não | id de uma cozinha REAL onde o usuário E2E tenha o módulo `storage` — para a conta dedicada é **920** (a cozinha sentinela do treino) |
 
 As duas últimas são opcionais **e ausentes viram skip explícito**, não verde vazio:
 `budget.spec.ts` e `storage.spec.ts` chamam `test.skip(...)` em escopo de arquivo e

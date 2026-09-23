@@ -68,7 +68,7 @@ evidência do que está errado no texto atual do workflow.
 - [x] 7.1 [root] Rodar `bun run check` — Biome lint/format + typecheck passam sem erros
 - [x] 7.2 [root] Verificar que `.auth/`, `playwright-report/`, `test-results/` estão no `.gitignore`
 - [ ] 7.3 [sisub] Rodar `bun run test:e2e` localmente com o `.env` preenchido e registrar quais das 7 specs passam. Sem esse baseline não dá para saber se uma falha no CI é do CI ou da suíte — nunca houve um run verde registrado.
-  > Revisão 2026-09-20: **BLOQUEADA por 8.2** — não rodado de propósito: rodar com a conta pessoal derrubaria a sessão do mantenedor.
+  > Revisão 2026-09-23: **BLOQUEADA só pela SENHA.** A conta dedicada da 8.2 existe e tem o acesso necessário, mas a senha gerada na criação ficou em arquivo efêmero. Definir uma nova é ato do mantenedor (painel do Supabase), e o mesmo par vai para os secrets. Não rodar com a conta pessoal: derruba a sessão de quem a usa.
 
 ## 8. Reativação do gate — o trabalho real
 
@@ -87,7 +87,8 @@ test credentials setup"); a auditoria encontrou sete.
   os dois nomes iguais nos três lugares: workflow, `turbo.json:65-75` e `.env.schema:179/184`.
   Este é o "test credentials setup" da nota, e é a causa mais provável da desativação.
 
-- [ ] 8.2 [sisub] **Provar que o usuário E2E existe e tem PBAC suficiente** — não há seed.
+- [x] 8.2 [sisub] **Provar que o usuário E2E existe e tem PBAC suficiente** — não há seed.
+  > Revisão 2026-09-23: **FEITA.** A conta dedicada existe desde o #403 — `teste.treino.e2e@fab.mil.br` (`dea810c5-717c-4f88-8e6c-632bad65419a`). Acesso conferido no banco: grant inline `storage:3` na cozinha 920 e a política "Conjunto Treino" com `kitchen:2`/`kitchen-production:2` (920), `unit:2`/`local-analytics:2` (OM 1065), `messhall:2`, `global:1`, `analytics:1`, `admin:1`. Cobre as quatro specs do `test:e2e:ci` e as duas opcionais, com `E2E_STORAGE_KITCHEN_ID=920` e `E2E_BUDGET_UNIT_ID=1065`. Tudo na sentinela do treino, onde o reset limpa. Registrado em `TESTING.md`.
   > Revisão 2026-09-20: **BLOQUEADA — a conta E2E não é dedicada.** O `E2E_TEST_USER_EMAIL` do `.env` local do mantenedor é a conta PESSOAL dele (`nannijpsn@`), o que o `TESTING.md` proíbe: o login da suíte invalida a sessão de quem usa a mesma conta. Falta criar uma conta de teste de verdade em `auth.users` com os módulos que as specs exigem (`diner`; `unit` e `storage` para as duas opcionais) e trocar o secret e o `.env`. Quem provê: o mantenedor. Criar usuário em produção fica fora do alcance de um agente.
   `e2e/global-setup.ts:35` faz login por UI e espera redirect para `/hub`;
   `e2e/helpers/supabase.ts:10-11` usa a anon key de PRODUÇÃO (o job passa
