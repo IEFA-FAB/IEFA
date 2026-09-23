@@ -113,5 +113,7 @@
 - [ ] 9.2 [sisub] Executar `bun run test:integration` com `SISUB_INTEGRATION_REQUIRED=true` em ambiente staging/dev e corrigir falhas — nota: o alvo real é o banco de PRODUÇÃO com rollback (ver 2.5); "staging/dev" caducou
 - [ ] 9.3 [sisub] Executar `bun run test:e2e:ci` e validar artifacts em falha
   > Revisão 2026-09-20: **BLOQUEADA** — a conta E2E do `.env` é a conta pessoal do mantenedor (ver `add-playwright-e2e` 8.2); rodar derrubaria a sessão dele.
-- [ ] 9.4 [root] Executar `bunx turbo run build --filter=./apps/sisub` e corrigir falhas
-- [ ] 9.5 [root] Executar `bun run check` e corrigir falhas de Biome/typecheck
+- [x] 9.4 [root] Executar `bunx turbo run build --filter=./apps/sisub` e corrigir falhas
+  > Rodado em 2026-09-23 sobre a `main` de `21db398f` mais a carga de abertura: `bunx turbo run build --filter=./apps/sisub --concurrency=2` verde em 48 s, sem correção necessária.
+- [x] 9.5 [root] Executar `bun run check` e corrigir falhas de Biome/typecheck
+  > Rodado na mesma data e base: `bun run check` (biome + typecheck) verde nas 22 tarefas, e `bunx turbo run test --concurrency=2` verde nas 19 — sem correção necessária.
