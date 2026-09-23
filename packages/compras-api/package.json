@@ -10,7 +10,7 @@
     "./query": "./src/query.ts"
   },
   "scripts": {
-    "generate": "openapi-typescript ./openapi.json -o ./src/types.gen.ts",
+    "generate": "bunx -p typescript@5 -p openapi-typescript@7 openapi-typescript ./openapi.json -o ./src/types.gen.ts",
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
     "typecheck": "tsc --noEmit"
   },
@@ -20,7 +20,6 @@
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
     "@types/bun": "^1.4.2",
-    "openapi-typescript": "^7.13.0",
     "typescript": "^7.0.2"
   }
 }

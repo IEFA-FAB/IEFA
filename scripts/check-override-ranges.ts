@@ -150,7 +150,7 @@ for (const [name, spec] of Object.entries(overrides)) {
 		// Forçar por cima do consumidor É capar, de propósito. Documentado em FORCED, os dois
 		// checks saem: cobrar cap aqui só produziria ruído permanente.
 		stillForcing.add(name)
-		if (!FORCED[name]) {
+		if (!Object.hasOwn(FORCED, name)) {
 			undocumented.push(
 				`  ${name}: "${spec}" resolve ${top}, fora da faixa de ${forcedOn.map((c) => `${c.by} (${c.range})`).join(", ")}\n` +
 					"    → se é intencional, registre em FORCED com motivo e condição de saída."

@@ -3,20 +3,37 @@
  * exceções declaradas.
  *
  * Mora fora dos gates porque são dois lendo a MESMA lista. `check-override-ranges` cobra que
- * todo override que capa um consumidor esteja em FORCED ou MIRRORS; `check-lock-resolution`
- * aceita como intencional só a violação de faixa cujo pacote está em FORCED. Duas cópias do
+ * todo override que capa um consumidor esteja em FORCED ou MIRRORS; `check-installed-ranges`
+ * aceita como intencional só a violação de faixa de um CONSUMIDOR listado em FORCED. Duas cópias do
  * FORCED seriam dois allowlists que um dia discordam.
  */
 
 export type LockPkg = [string, ...unknown[]]
 
-/** Override que sai da faixa do consumidor de propósito. Cada entrada é dívida com saída. */
-export const FORCED: Record<string, string> = {
-	"js-yaml": "@redocly/openapi-core pin `4.1.1`; a correção de GHSA-5p4m-2wfm-xmqj não foi backportada para <=4.1.1. Sai quando o redocly subir.",
-	esbuild:
-		"o alvo é a cópia de @esbuild-kit/core-utils@3.3.2, que pin `~0.18.20` — a faixa que carrega GHSA-67mh-4wv8-2f99 (dev server responde a qualquer origem). drizzle-kit@0.31.10 já pin `^0.25.4`, corrigido, e só é arrastado junto porque override do bun é plano. 0.31.10 é a última do drizzle-kit e ainda depende do @esbuild-kit/esm-loader, deprecado, então não há release para esperar. Cadeia é só dev. Verificado que o drizzle-kit ainda carrega e avalia o drizzle.config.ts sob 0.28.2, que é justamente o caminho do loader. Sai quando o drizzle-kit largar o @esbuild-kit, ou quando o repo largar o drizzle-kit.",
-	undici:
-		"o piso `>=8.9.0` existe por @grafana/faro-bundlers-shared@0.12.0, que pin `^8.5.0` — abaixo do 8.9.0 que corrige GHSA-4cwx-7wf7-3272 (high) e mais quatro medium da mesma leva. get-it@9.5.2 (via @sanity/client 8) pin `^7.29.0`, que JÁ é a linha 7 corrigida: ele não ganha nada e só atravessa o major porque override do bun é plano. Nenhuma versão publicada do get-it aceita undici 8, e o @sanity/client 8.4.0 pin `get-it@^9.5.0`. O get-it importa só `Agent`, `EnvHttpProxyAgent`, `ProxyAgent` e `fetch`, os quatro presentes no undici 8.10.0. Sai quando o get-it subir a faixa, ou quando o bun passar a aceitar override escopado por consumidor.",
+/**
+ * Override que sai da faixa do consumidor de propósito. Cada entrada é dívida com saída.
+ *
+ * `consumers` é quem PODE ficar fora da faixa por causa do override — e só ele. A isenção é por
+ * par (consumidor, pacote), não pelo nome do pacote: listar só `esbuild` desligaria o gate para
+ * todo consumidor NOVO de esbuild que cair fora da faixa, que é justamente o defeito que o
+ * `check-installed-ranges` existe para pegar.
+ */
+export interface Forced {
+	reason: string
+	consumers: readonly string[]
+}
+
+export const FORCED: Record<string, Forced> = {
+	esbuild: {
+		consumers: ["@esbuild-kit/core-utils", "drizzle-kit"],
+		reason:
+			"o alvo é a cópia de @esbuild-kit/core-utils@3.3.2, que pin `~0.18.20` — a faixa que carrega GHSA-67mh-4wv8-2f99 (dev server responde a qualquer origem). drizzle-kit@0.31.10 já pin `^0.25.4`, corrigido, e só é arrastado junto porque override do bun é plano. 0.31.10 é a última do drizzle-kit e ainda depende do @esbuild-kit/esm-loader, deprecado, então não há release para esperar. Cadeia é só dev. Verificado que o drizzle-kit ainda carrega e avalia o drizzle.config.ts sob 0.28.2, que é justamente o caminho do loader. Sai quando o drizzle-kit largar o @esbuild-kit, ou quando o repo largar o drizzle-kit.",
+	},
+	undici: {
+		consumers: ["get-it"],
+		reason:
+			"o piso `>=8.9.0` existe por @grafana/faro-bundlers-shared@0.12.0, que pin `^8.5.0` — abaixo do 8.9.0 que corrige GHSA-4cwx-7wf7-3272 (high) e mais quatro medium da mesma leva. get-it@9.5.2 (via @sanity/client 8) pin `^7.29.0`, que JÁ é a linha 7 corrigida: ele não ganha nada e só atravessa o major porque override do bun é plano. Nenhuma versão publicada do get-it aceita undici 8, e o @sanity/client 8.4.0 pin `get-it@^9.5.0`. O get-it importa só `Agent`, `EnvHttpProxyAgent`, `ProxyAgent` e `fetch`, os quatro presentes no undici 8.10.0. Sai quando o get-it subir a faixa, ou quando o bun passar a aceitar override escopado por consumidor.",
+	},
 }
 
 /**
