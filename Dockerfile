@@ -31,6 +31,7 @@ COPY packages/ai-provider/package.json ./packages/ai-provider/
 COPY packages/alpha-client/package.json ./packages/alpha-client/
 COPY packages/auth-kit/package.json ./packages/auth-kit/
 COPY packages/compras-api/package.json ./packages/compras-api/
+COPY packages/compras-api-codegen/package.json ./packages/compras-api-codegen/
 COPY packages/database/package.json ./packages/database/
 COPY packages/hono-client/package.json ./packages/hono-client/
 COPY packages/legal-kit/package.json ./packages/legal-kit/

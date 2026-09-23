@@ -181,7 +181,12 @@ jobs:
         with:
           bun-version: 1.4.0
 
-      - run: bun install --frozen-lockfile
+      - id: install
+        run: bun install --frozen-lockfile
+
+      # Cada gate abaixo roda desde que o install tenha passado, MESMO que um gate anterior falhe:
+      # são sinais independentes. Em sequência simples, uma faixa de peer quebrada escondia a
+      # vulnerabilidade crítica que o `bun audit` do fim acusaria no mesmo PR.
 
       # Relatório completo no resumo do job — visível sem abrir logs, não bloqueia.
       - name: Relatório (todas as severidades)
@@ -201,7 +206,29 @@ jobs:
       # `^1.19.9 || ^2.0.5`) e `langsmith` virou `>=0.8.11 <1.0.0` e não `^0.8.11` (caret em
       # 0.x tranca o minor; `@langchain/core` declara `>=0.5.0 <1.0.0`).
       - name: Gate (override não capa consumidor)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: bun scripts/check-override-ranges.ts
+
+      # O gate acima olha override contra consumidor e não lê peer. Este lê o que o linker
+      # INSTALOU — de cada pacote da loja e de cada workspace — e cobra que toda dependência e
+      # todo peer obrigatório caia na faixa declarada. Lê o disco e não o lock porque o linker
+      # isolado resolve peer por cadeia de dependente, e o lock não registra essas variantes.
+      # Por isso vem DEPOIS do `bun install --frozen-lockfile` acima.
+      #
+      # Roda também nos PRs do dependabot — que não recebem secrets, então não têm gate de
+      # integração, e cujo `check-<app>` só roda depois do merge. Foi por essa fresta que o #415
+      # trouxe `@tanstack/openai-base` com peer `@tanstack/ai ^0.58` sobre o core 0.54: verde em
+      # install, typecheck, testes e build, quebrado só no fallback de IA.
+      #
+      # `./scripts/` com o `./`: sem ele o `bun test` trata o argumento como filtro de substring e
+      # rodaria qualquer `*.test.ts` do monorepo com `scripts/` no caminho.
+      - name: Testes dos gates de dependência
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: bun test --no-env-file ./scripts/
+
+      - name: Gate (dependência e peer instalados dentro da faixa)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: bun scripts/check-installed-ranges.ts
 
       # Gate real: qualquer CRÍTICA NOVA derruba o job. A baseline de 2026-07-22
       # (GHSA-23hp-3jrh-7fpw em node-tar e GHSA-w7jw-789q-3m8p em shell-quote) foi zerada
@@ -209,6 +236,7 @@ jobs:
       # nenhum --ignore. Se precisar reintroduzir um, ele é dívida com data: registre o ID,
       # a cadeia e a condição de saída aqui, e não converta isto num allowlist permanente.
       - name: Gate (crítica nova)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: bun audit --audit-level=critical
 
   # ============================================
