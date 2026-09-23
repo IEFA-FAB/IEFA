@@ -103,8 +103,15 @@ export function SearchableSelect({
 	const hits = useMemo(() => {
 		const terms = normalize(query).split(/\s+/).filter(Boolean)
 		const pool = clearOption ? [clearOption, ...options] : options
-		return pool.filter((option) => matches(`${option.label} ${option.hint ?? ""} ${option.keywords ?? ""}`, terms))
-	}, [query, options, clearOption])
+		const found = pool.filter((option) => matches(`${option.label} ${option.hint ?? ""} ${option.keywords ?? ""}`, terms))
+		// Com a busca vazia, o item escolhido vai para o topo. Sem isto ele cai fora
+		// da janela do `limit` sempre que estiver além dos primeiros 50 — reabrir uma
+		// lista de milhares mostrava o começo do catálogo, sem o check em lugar nenhum,
+		// como se nada estivesse escolhido. Só com busca vazia: durante a busca, quem
+		// manda na ordem é a relevância do que foi digitado.
+		if (terms.length > 0 || selected == null) return found
+		return [selected, ...found.filter((option) => option.value !== selected.value)]
+	}, [query, options, clearOption, selected])
 
 	function handleOpenChange(next: boolean) {
 		setOpen(next)
