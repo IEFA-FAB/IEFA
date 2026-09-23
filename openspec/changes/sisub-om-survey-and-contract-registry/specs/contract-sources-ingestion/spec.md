@@ -18,7 +18,7 @@ O sistema SHALL projetar para o registro de contratações as ATAs de `procureme
 - **THEN** a projeção não cria nada para aquele tópico — a ausência é exibida como ausência, não como zero apurado
 
 ### Requirement: Sincronização do Compras.gov por UASG
-O sistema SHALL sincronizar contratações do Compras.gov para a UASG de cada OM, gravando com origem `compras_gov` e identificador externo da API. A execução SHALL registrar progresso, passo e falha em `compras_gov_integration.compras_sync_log`/`compras_sync_step`, honrar pedido de parada e ser idempotente. Falha da sincronização MUST NOT impedir cadastro manual nem preenchimento do levantamento.
+O sistema SHALL sincronizar contratações do Compras.gov para a UASG de cada OM, gravando com origem `compras_gov` e identificador externo da API. A execução SHALL registrar progresso, passo e falha em `compras_gov_integration.integration_sync_log`/`integration_sync_step`, honrar pedido de parada e ser idempotente. Falha da sincronização MUST NOT impedir cadastro manual nem preenchimento do levantamento.
 
 #### Scenario: OM sem UASG cadastrada
 - **WHEN** a sincronização é disparada e a OM não tem UASG
@@ -32,20 +32,20 @@ O sistema SHALL sincronizar contratações do Compras.gov para a UASG de cada OM
 - **WHEN** um operador solicita parada durante a sincronização
 - **THEN** a execução encerra no fim do passo corrente e o log reflete o encerramento solicitado
 
-### Requirement: Saneamento das Organizações Militares
-O sistema SHALL preencher a UASG das Organizações Militares que participam do levantamento, criar a OM ausente `BABV` e reconciliar a identificação do `CINDACTA 2` com a grafia `CINDACTA II` usada na planilha. O preenchimento MUST vir de lista explícita conferida contra o mapa UG→sigla já existente, e MUST NOT ser inferido por semelhança de nome. UASG não conferida SHALL permanecer nula.
+### Requirement: OM sem UASG ou sem cadastro não é inventada
+A sincronização SHALL operar sobre as Organizações Militares que já têm UASG em `core.units` e MUST listar as que não têm, em vez de inferir UASG por nome ou preenchê-la por migration. A curadoria de UASG é da tela `/unit/$unitId/settings` (change `sisub-pncp-integration`, tarefa 0.1). A importação da planilha MUST NOT criar Organização Militar nem atribuir uma aba a OM diferente da que ela nomeia.
 
-#### Scenario: Backfill conferido
-- **WHEN** a migration de saneamento é aplicada
-- **THEN** as OMs do levantamento passam a ter UASG, e nenhuma UASG é atribuída a OM que não estava na lista conferida
+#### Scenario: OM sem UASG
+- **WHEN** a sincronização roda e parte das OMs do levantamento não tem UASG
+- **THEN** as OMs com UASG são sincronizadas e o resultado lista, pelo nome, as que ficaram de fora por falta de UASG
 
-#### Scenario: OM ausente
-- **WHEN** a planilha traz a aba BABV, que não existe em `core.units`
-- **THEN** a OM passa a existir com código próprio, e a importação da aba deixa de falhar
+#### Scenario: Aba sem OM correspondente
+- **WHEN** a planilha traz uma aba (por exemplo BABV) que não casa com nenhuma OM de `core.units`
+- **THEN** a importação reporta a aba como não casada, não grava a resposta dela e não a atribui a outra OM — BABV é Boa Vista, e o cadastro que hoje a mantém sob BAPV (Porto Velho) é bug conhecido do #243
 
 #### Scenario: Grafia divergente
 - **WHEN** a aba se chama "CINDACTA II" e o cadastro guarda "CINDACTA 2"
-- **THEN** as duas grafias resolvem para a mesma OM, sem criar unidade duplicada
+- **THEN** as duas grafias resolvem para a mesma OM pela normalização de código (tarefa 2.1), sem criar unidade duplicada
 
 ### Requirement: Origem sempre rastreável
 Toda contratação SHALL indicar sua origem e, quando aplicável, o identificador externo e o instante da última sincronização. Contratação de origem externa MUST ser distinguível na tela da que foi declarada pela OM.
