@@ -38,6 +38,14 @@ describe("isMainDish", () => {
 		expect(isMainDish("prato_principal")).toBe(true)
 		for (const g of ["acompanhamento", "guarnicao", "bebida", "sobremesa", null, undefined]) expect(isMainDish(g)).toBe(false)
 	})
+
+	test("o destaque acompanha o conjunto: lanche na ceia, proteína no café", () => {
+		// `proteina` é onde a migration pôs os ovos e frios que estavam em
+		// `prato_principal`: sem ela, a linha do café sai sem nenhum destaque.
+		expect(isMainDish("lanche")).toBe(true)
+		expect(isMainDish("proteina")).toBe(true)
+		for (const g of ["complemento", "fruta", "pao", "salada"]) expect(isMainDish(g)).toBe(false)
+	})
 })
 
 describe("buildPreparationEntries", () => {

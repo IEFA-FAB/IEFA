@@ -6,6 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { DishDetails } from "@/hooks/data/useDailyMenuContent"
+import { isMainDish } from "@/lib/cardapio-print"
 import { cn } from "@/lib/cn"
 
 interface Meal {
@@ -25,7 +26,10 @@ interface MealButtonProps {
 
 export const MealButton = memo<MealButtonProps>(({ meal, isSelected, onToggle, disabled, compact = false, dishes }) => {
 	const Icon = meal.icon
-	const mainDish = dishes?.[0] // Show first dish for now
+	// A ordem que chega é a de leitura do cardápio, e nela a salada vem antes do
+	// prato principal no almoço: pegar o primeiro faria a prévia da refeição ser
+	// "Alface com tomate". O destaque é o mesmo da folha impressa.
+	const mainDish = dishes?.find((dish) => isMainDish(dish.group)) ?? dishes?.[0]
 
 	const buttonClasses = cn(
 		"w-full rounded-md border-2 transition-colors duration-200 group relative z-10",

@@ -5,12 +5,13 @@
  * `meal_type` é flat (sem relations) → não usa o builder relacional `db.query`.
  */
 
-import { mealTypeInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { mealTypeInKitchen, menuGroupSetInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, eq, isNull, or, type SQL } from "drizzle-orm"
 import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type { CreateMealType, DeleteMealType, FetchMealTypes, RestoreMealType, UpdateMealType } from "../schemas/meal-types.ts"
+import { DEFAULT_GROUP_SET_SLUG } from "../schemas/menu-groups.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery } from "../utils/index.ts"
@@ -25,8 +26,51 @@ const MEAL_TYPE_COLS = {
 	kitchen_id: mealTypeInKitchen.kitchenId,
 	sort_order: mealTypeInKitchen.sortOrder,
 	deleted_at: mealTypeInKitchen.deletedAt,
+	group_set_id: mealTypeInKitchen.groupSetId,
 	system_key: mealTypeInKitchen.systemKey,
 } as const
+
+/**
+ * Conjunto de grupos que esta refeição PODE usar.
+ *
+ * Refeição de cozinha alcança os conjuntos globais e os da própria cozinha;
+ * refeição global só alcança conjunto global — apontar a refeição de toda a FAB
+ * para o conjunto de uma cozinha deixaria aquela cozinha decidindo as colunas do
+ * cardápio de todo mundo. Arquivado também não entra: as colunas sumiriam da
+ * tela sem o cardápio ter mudado.
+ */
+async function assertGroupSetUsable(db: SisubDb | MealTypeTx, mealTypeKitchenId: number | null, groupSetId: string): Promise<void> {
+	// `for share` é o par do `for update` de `deleteMenuGroupSet`: apontar uma
+	// refeição para o conjunto e arquivá-lo passam a serializar, em vez de se
+	// cruzarem e deixarem a refeição apontando para conjunto arquivado.
+	const [set] = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ kitchenId: menuGroupSetInKitchen.kitchenId, deletedAt: menuGroupSetInKitchen.deletedAt })
+			.from(menuGroupSetInKitchen)
+			.where(eq(menuGroupSetInKitchen.id, groupSetId))
+			.for("share")
+			.limit(1)
+	)
+	if (!set || set.deletedAt != null) throw new DomainError("GROUP_SET_NOT_FOUND", `menu_group_set ${groupSetId} not found`)
+	if (set.kitchenId != null && set.kitchenId !== mealTypeKitchenId) {
+		throw new DomainError("GROUP_SET_OUT_OF_SCOPE", "conjunto de grupos pertence a outra cozinha")
+	}
+}
+
+/** A mesma API do `db` dentro de uma transação — o lock só vale enquanto ela dura. */
+type MealTypeTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
+
+/** Conjunto padrão (`principal`) — o que a refeição nova usa quando ninguém escolheu. */
+async function resolveDefaultGroupSetId(db: SisubDb): Promise<string | null> {
+	const [set] = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: menuGroupSetInKitchen.id })
+			.from(menuGroupSetInKitchen)
+			.where(and(eq(menuGroupSetInKitchen.slug, DEFAULT_GROUP_SET_SLUG), isNull(menuGroupSetInKitchen.deletedAt)))
+			.limit(1)
+	)
+	return set?.id ?? null
+}
 
 /**
  * Predicado de mutação amarrado ao dono que FOI autorizado.
@@ -75,10 +119,16 @@ export async function createMealType(db: SisubDb, ctx: UserContext, input: Creat
 	// kitchenId ausente = tipo de refeição GLOBAL (da SDAB) → exige global:2, não kitchen:2.
 	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
+	if (input.groupSetId) await assertGroupSetUsable(db, input.kitchenId ?? null, input.groupSetId)
+	// Sem escolha explícita a refeição nasce no conjunto padrão. Deixar null aqui
+	// funcionaria (a tela cai no padrão), mas a escolha ficaria invisível na linha
+	// — e mudar o padrão depois mudaria o cardápio de quem nunca escolheu nada.
+	const groupSetId = input.groupSetId ?? (await resolveDefaultGroupSetId(db))
+
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(mealTypeInKitchen)
-			.values({ name: input.name, sortOrder: input.sortOrder ?? null, kitchenId: input.kitchenId ?? null })
+			.values({ name: input.name, sortOrder: input.sortOrder ?? null, kitchenId: input.kitchenId ?? null, groupSetId })
 			.returning(MEAL_TYPE_COLS)
 	)
 	return row
@@ -97,13 +147,36 @@ export async function updateMealType(db: SisubDb, ctx: UserContext, input: Updat
 		requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 		updates.kitchenId = input.kitchenId ?? null
 	}
+	// O escopo que vale é o do DESTINO quando a refeição está sendo movida.
+	const targetKitchenId = "kitchenId" in input ? (input.kitchenId ?? null) : ownerKitchenId
 
-	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
+	// Validação do conjunto e escrita na MESMA transação: o `for share` de
+	// `assertGroupSetUsable` só segura o conjunto contra o `for update` de
+	// `deleteMenuGroupSet` enquanto a transação durar. Fora dela, o lock morre no
+	// fim da query e a refeição ainda pode acabar apontando para conjunto arquivado.
+	return db.transaction(async (tx) => {
+		// `null` aqui é escolha do usuário ("volta ao conjunto padrão"), não ausência —
+		// por isso a ramificação é em `!== undefined`.
+		if (input.groupSetId !== undefined) {
+			if (input.groupSetId != null) await assertGroupSetUsable(tx, targetKitchenId, input.groupSetId)
+			updates.groupSetId = input.groupSetId
+		} else if ("kitchenId" in input && targetKitchenId !== ownerKitchenId) {
+			// Mudou de dono sem dizer nada sobre o conjunto: o que já estava gravado pode
+			// ser de uma cozinha que o destino não alcança. Validar só o conjunto NOVO
+			// deixaria a refeição apontando para um conjunto que ela não pode usar, e o
+			// editor abriria com as colunas do padrão sem dizer por quê.
+			const [current] = await runQuery("FETCH_FAILED", () =>
+				tx.select({ groupSetId: mealTypeInKitchen.groupSetId }).from(mealTypeInKitchen).where(eq(mealTypeInKitchen.id, input.mealTypeId)).limit(1)
+			)
+			if (current?.groupSetId) await assertGroupSetUsable(tx, targetKitchenId, current.groupSetId)
+		}
 
-	const row = await insertOneOrFail("UPDATE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
-		db.update(mealTypeInKitchen).set(updates).where(ownedBy(input.mealTypeId, ownerKitchenId)).returning(MEAL_TYPE_COLS)
-	)
-	return row
+		if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
+
+		return insertOneOrFail("UPDATE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
+			tx.update(mealTypeInKitchen).set(updates).where(ownedBy(input.mealTypeId, ownerKitchenId)).returning(MEAL_TYPE_COLS)
+		)
+	})
 }
 
 export async function deleteMealType(db: SisubDb, ctx: UserContext, input: DeleteMealType): Promise<void> {

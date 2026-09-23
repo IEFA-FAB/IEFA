@@ -1,6 +1,6 @@
 import type { EditScope } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { Check, CheckCircle2, Circle, ClipboardPaste, GitFork, ListChecks, Loader2, Percent, Plus, Printer, Save, Users } from "lucide-react"
+import { AlertCircle, Check, CheckCircle2, Circle, ClipboardPaste, GitFork, ListChecks, Loader2, Percent, Plus, Printer, Save, Users } from "lucide-react"
 import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, type DemandType, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
@@ -23,6 +23,7 @@ import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
+import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
@@ -227,6 +228,9 @@ function WeeklyMenuEditorPage() {
 
 	const { data: template, isLoading: templateLoading } = useTemplate(weeklyMenuId as string)
 	const { data: mealTypes } = useMealTypes(kitchenId)
+	// Colunas do board saem do conjunto de grupos DA refeição (café tem pães, o
+	// almoço tem salada) — não mais de uma lista fixa igual para todas.
+	const { groupsFor, isError: groupsFailed } = useMealTypeGroups(kitchenId, mealTypes)
 	// Catálogo global + as preparações DESTA cozinha. Sem o escopo, a listagem volta só com
 	// as globais e a cozinha não enxergava as próprias preparações no cardápio.
 	const { data: allRecipes } = useRecipes({ kitchen_id: kitchenId })
@@ -700,6 +704,17 @@ function WeeklyMenuEditorPage() {
 					</div>
 				</PageHeader>
 
+				{groupsFailed && (
+					<Alert variant="destructive">
+						<AlertCircle className="size-4" />
+						<AlertTitle>Grupos do cardápio não carregaram</AlertTitle>
+						<AlertDescription>
+							As colunas abaixo são as do conjunto padrão, não as de cada refeição: no café e na ceia elas estão erradas, e a preparação que você adicionar
+							entra no grupo errado. Recarregue a página antes de mexer no cardápio.
+						</AlertDescription>
+					</Alert>
+				)}
+
 				{willFork && (
 					<Alert>
 						<GitFork className="size-4" />
@@ -940,7 +955,10 @@ function WeeklyMenuEditorPage() {
 															size="sm"
 															variant="ghost"
 															className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
-															onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
+															// Primeira coluna do conjunto DESTA refeição: fixar "prato_principal"
+															// criava item fora do conjunto no café e na ceia, numa coluna que
+															// nem botão de adicionar tem.
+															onClick={() => handleOpenSelector(day.num, mealType.id, groupsFor(mealType.id)[0]?.key ?? null)}
 														>
 															<Plus className="size-3.5" />
 															Adicionar
@@ -950,6 +968,7 @@ function WeeklyMenuEditorPage() {
 												<div className="p-3">
 													<MealGroupBoard
 														items={boardItems}
+														groups={groupsFor(mealType.id)}
 														onArrange={(arrangement) => handleArrange(day.num, mealType.id, arrangement)}
 														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
 														onHeadcountChange={(recipeId, value) => handleItemHeadcountChange(day.num, mealType.id, recipeId, value)}

@@ -1,94 +1,108 @@
 import { describe, expect, test } from "vitest"
-import { groupMenuItems, isMenuItemGroup, MENU_ITEM_GROUPS, menuItemGroupOrder, UNGROUPED_KEY } from "./menu-item-groups"
+import { DEFAULT_MENU_GROUPS, groupMenuItems, isMenuItemGroup, menuItemGroupLabel, menuItemGroupOrder, UNGROUPED_KEY } from "./menu-item-groups"
+
+/** Conjunto do café: existe para provar que a ordem de leitura é do CONJUNTO, não global. */
+const CAFE = [
+	{ key: "pao", label: "Pães" },
+	{ key: "proteina", label: "Frios e ovos" },
+	{ key: "fruta", label: "Frutas" },
+	{ key: "bebida", label: "Bebidas" },
+]
 
 describe("isMenuItemGroup", () => {
-	test("aceita todos os grupos canônicos", () => {
-		for (const g of MENU_ITEM_GROUPS) expect(isMenuItemGroup(g)).toBe(true)
+	test("reconhece as chaves do conjunto informado", () => {
+		for (const g of CAFE) expect(isMenuItemGroup(g.key, CAFE)).toBe(true)
 	})
 
-	test("rejeita valor desconhecido, null e undefined", () => {
-		expect(isMenuItemGroup("entrada")).toBe(false)
-		expect(isMenuItemGroup(null)).toBe(false)
-		expect(isMenuItemGroup(undefined)).toBe(false)
-		expect(isMenuItemGroup("")).toBe(false)
+	test("chave de OUTRO conjunto não pertence a este", () => {
+		// O mesmo valor é válido no almoço e órfão no café: é essa a diferença que
+		// a lista fixa antiga não sabia fazer.
+		expect(isMenuItemGroup("guarnicao", DEFAULT_MENU_GROUPS)).toBe(true)
+		expect(isMenuItemGroup("guarnicao", CAFE)).toBe(false)
+	})
+
+	test("rejeita valor inexistente, nulo ou vazio", () => {
+		expect(isMenuItemGroup("entrada", CAFE)).toBe(false)
+		expect(isMenuItemGroup(null, CAFE)).toBe(false)
+		expect(isMenuItemGroup(undefined, CAFE)).toBe(false)
+		expect(isMenuItemGroup("", CAFE)).toBe(false)
 	})
 })
 
 describe("menuItemGroupOrder", () => {
-	test("segue a ordem de leitura declarada em MENU_ITEM_GROUPS", () => {
-		expect(menuItemGroupOrder("prato_principal")).toBe(0)
-		expect(menuItemGroupOrder("sobremesa")).toBe(MENU_ITEM_GROUPS.length - 1)
-		expect(menuItemGroupOrder("prato_principal")).toBeLessThan(menuItemGroupOrder("bebida"))
+	test("segue a ordem de leitura do conjunto", () => {
+		expect(menuItemGroupOrder("pao", CAFE)).toBe(0)
+		expect(menuItemGroupOrder("bebida", CAFE)).toBe(CAFE.length - 1)
+		expect(menuItemGroupOrder("pao", CAFE)).toBeLessThan(menuItemGroupOrder("fruta", CAFE))
 	})
 
-	test("itens sem grupo (legado/null/desconhecido) vão para o fim", () => {
-		const last = MENU_ITEM_GROUPS.length
-		expect(menuItemGroupOrder(null)).toBe(last)
-		expect(menuItemGroupOrder(undefined)).toBe(last)
-		expect(menuItemGroupOrder("xpto")).toBe(last)
+	test("o almoço abre por salada — o grupo que não existia", () => {
+		expect(menuItemGroupOrder("salada", DEFAULT_MENU_GROUPS)).toBe(0)
+	})
+
+	test("sem grupo, ou fora do conjunto, vai para o fim", () => {
+		expect(menuItemGroupOrder(null, CAFE)).toBe(CAFE.length)
+		expect(menuItemGroupOrder(undefined, CAFE)).toBe(CAFE.length)
+		expect(menuItemGroupOrder("guarnicao", CAFE)).toBe(CAFE.length)
+	})
+})
+
+describe("menuItemGroupLabel", () => {
+	test("usa o rótulo do conjunto", () => {
+		expect(menuItemGroupLabel("pao", CAFE)).toBe("Pães")
+	})
+
+	test("chave fora do conjunto vira rótulo legível, não 'sem grupo'", () => {
+		expect(menuItemGroupLabel("prato_principal", CAFE)).toBe("Prato principal")
 	})
 })
 
 describe("groupMenuItems", () => {
-	test("ordena grupos pela ordem canônica, independente da ordem de entrada", () => {
+	test("agrupa na ordem do conjunto", () => {
 		const items = [
-			{ id: "d", item_group: "sobremesa", sort_order: 0 },
-			{ id: "p", item_group: "prato_principal", sort_order: 0 },
-			{ id: "b", item_group: "bebida", sort_order: 0 },
+			{ id: "a", item_group: "bebida", sort_order: 0 },
+			{ id: "b", item_group: "pao", sort_order: 0 },
 		]
-		const groups = groupMenuItems(items)
-		expect(groups.map((g) => g.key)).toEqual(["prato_principal", "bebida", "sobremesa"])
+		expect(groupMenuItems(items, CAFE).map((g) => g.key)).toEqual(["pao", "bebida"])
 	})
 
-	test("dentro do grupo ordena por sort_order crescente", () => {
+	test("ordena por sort_order dentro do grupo", () => {
 		const items = [
-			{ id: "a", item_group: "acompanhamento", sort_order: 2 },
-			{ id: "b", item_group: "acompanhamento", sort_order: 0 },
-			{ id: "c", item_group: "acompanhamento", sort_order: 1 },
+			{ id: "segundo", item_group: "pao", sort_order: 1 },
+			{ id: "primeiro", item_group: "pao", sort_order: 0 },
 		]
-		const [group] = groupMenuItems(items)
-		expect(group.items.map((i) => i.id)).toEqual(["b", "c", "a"])
+		const [group] = groupMenuItems(items, CAFE)
+		expect(group.items.map((i) => i.id)).toEqual(["primeiro", "segundo"])
 	})
 
-	test("sort_order ausente é tratado como 0 e mantém ordem estável de inserção", () => {
+	test("chave fora do conjunto ganha coluna própria, antes de 'sem grupo'", () => {
+		// O item classificado como guarnição num café não pode ser confundido com
+		// item que ninguém classificou: são situações diferentes e o conserto é outro.
 		const items = [
-			{ id: "x", item_group: "bebida", sort_order: null },
-			{ id: "y", item_group: "bebida", sort_order: undefined },
-			{ id: "z", item_group: "bebida", sort_order: 0 },
+			{ id: "orfao", item_group: "guarnicao", sort_order: 0 },
+			{ id: "solto", item_group: null, sort_order: 0 },
+			{ id: "pao", item_group: "pao", sort_order: 0 },
 		]
-		const [group] = groupMenuItems(items)
-		expect(group.items.map((i) => i.id)).toEqual(["x", "y", "z"])
+		const groups = groupMenuItems(items, CAFE)
+		expect(groups.map((g) => g.key)).toEqual(["pao", "guarnicao", UNGROUPED_KEY])
+		expect(groups[1].label).toBe("Guarnicao")
 	})
 
-	test("itens legados sem grupo caem em UNGROUPED_KEY no fim", () => {
-		const items = [
-			{ id: "u1", item_group: null, sort_order: 0 },
-			{ id: "p1", item_group: "prato_principal", sort_order: 0 },
-			{ id: "u2", item_group: "invalido", sort_order: 0 },
-		]
-		const groups = groupMenuItems(items)
-		expect(groups.map((g) => g.key)).toEqual(["prato_principal", UNGROUPED_KEY])
-		const ungrouped = groups.find((g) => g.key === UNGROUPED_KEY)
-		expect(ungrouped?.items.map((i) => i.id)).toEqual(["u1", "u2"])
-	})
-
-	test("grupos vazios não aparecem", () => {
-		const groups = groupMenuItems([{ id: "p", item_group: "prato_principal", sort_order: 0 }])
+	test("grupo vazio não vira seção", () => {
+		const groups = groupMenuItems([{ id: "p", item_group: "pao", sort_order: 0 }], CAFE)
 		expect(groups).toHaveLength(1)
-		expect(groups[0].key).toBe("prato_principal")
 	})
 
 	test("lista vazia devolve nenhum grupo", () => {
-		expect(groupMenuItems([])).toEqual([])
+		expect(groupMenuItems([], CAFE)).toEqual([])
 	})
 
-	test("não muta o array de entrada", () => {
+	test("não muta o array recebido", () => {
 		const items = [
-			{ id: "a", item_group: "bebida", sort_order: 2 },
-			{ id: "b", item_group: "bebida", sort_order: 1 },
+			{ id: "b", item_group: "pao", sort_order: 1 },
+			{ id: "a", item_group: "pao", sort_order: 0 },
 		]
-		const snapshot = items.map((i) => i.id)
-		groupMenuItems(items)
-		expect(items.map((i) => i.id)).toEqual(snapshot)
+		groupMenuItems(items, CAFE)
+		expect(items.map((i) => i.id)).toEqual(["b", "a"])
 	})
 })

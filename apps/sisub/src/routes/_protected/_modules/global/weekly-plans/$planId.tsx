@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { CheckCircle2, Circle, ClipboardPaste, ListChecks, Loader2, Plus, Printer, Save } from "lucide-react"
+import { AlertCircle, CheckCircle2, Circle, ClipboardPaste, ListChecks, Loader2, Plus, Printer, Save } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
@@ -10,6 +10,7 @@ import { RecipeSelector } from "@/components/features/local/planning/RecipeSelec
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -19,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
+import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
@@ -151,6 +153,10 @@ function GlobalPlanEditorPage() {
 		queryFn: () => fetchMealTypesFn({ data: { kitchenId: null } }),
 		staleTime: 5 * 60 * 1000,
 	})
+
+	// Conjunto de grupos de cada refeição genérica: as colunas do board do plano
+	// global são as mesmas que a cozinha vai ver depois de adotar o plano.
+	const { groupsFor, isError: groupsFailed } = useMealTypeGroups(null, mealTypes)
 
 	// Receitas globais (kitchenId=null → tudo com kitchen_id=null)
 	const { data: allRecipes } = useRecipes()
@@ -424,6 +430,17 @@ function GlobalPlanEditorPage() {
 					</div>
 				</PageHeader>
 
+				{groupsFailed && (
+					<Alert variant="destructive">
+						<AlertCircle className="size-4" />
+						<AlertTitle>Grupos do cardápio não carregaram</AlertTitle>
+						<AlertDescription>
+							As colunas abaixo são as do conjunto padrão, não as de cada refeição: no café e na ceia elas estão erradas, e a preparação que você adicionar
+							entra no grupo errado. Recarregue a página antes de mexer no plano.
+						</AlertDescription>
+					</Alert>
+				)}
+
 				<div className="space-y-6">
 					{/* Metadata */}
 					<Card>
@@ -580,7 +597,10 @@ function GlobalPlanEditorPage() {
 															size="sm"
 															variant="ghost"
 															className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
-															onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
+															// Primeira coluna do conjunto DESTA refeição: fixar "prato_principal"
+															// criava item fora do conjunto no café e na ceia, numa coluna que
+															// nem botão de adicionar tem.
+															onClick={() => handleOpenSelector(day.num, mealType.id, groupsFor(mealType.id)[0]?.key ?? null)}
 														>
 															<Plus className="size-3.5" />
 															Adicionar
@@ -590,6 +610,7 @@ function GlobalPlanEditorPage() {
 												<div className="p-3">
 													<MealGroupBoard
 														items={boardItems}
+														groups={groupsFor(mealType.id)}
 														onArrange={(arrangement) => handleArrange(day.num, mealType.id, arrangement)}
 														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
 														onRemove={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}

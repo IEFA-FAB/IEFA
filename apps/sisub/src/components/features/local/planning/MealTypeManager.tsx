@@ -1,13 +1,16 @@
 import type { MealType } from "@iefa/database/sisub"
-import { AlertCircle, Edit, Lock, Plus, Trash2 } from "lucide-react"
+import { AlertCircle, Edit, LayoutGrid, Lock, Plus, Trash2 } from "lucide-react"
 import React from "react"
+import { usePBAC } from "@/auth/pbac"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteMealType, useMealTypes } from "@/hooks/data/useMealTypes"
+import { useMenuGroupSets } from "@/hooks/data/useMenuGroups"
 import { MealTypeForm } from "./MealTypeForm"
+import { MenuGroupSetManager } from "./MenuGroupSetManager"
 
 interface MealTypeManagerProps {
 	open: boolean
@@ -33,9 +36,19 @@ interface MealTypeManagerProps {
 export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerProps) {
 	const [formOpen, setFormOpen] = React.useState(false)
 	const [editingMealType, setEditingMealType] = React.useState<MealType | null>(null)
+	const [groupSetsOpen, setGroupSetsOpen] = React.useState(false)
 
 	const { data: mealTypes, isLoading } = useMealTypes(kitchenId)
+	const { data: groupSets } = useMenuGroupSets(kitchenId)
 	const { mutate: deleteMealType, isPending: isDeleting } = useDeleteMealType()
+	const { can } = usePBAC()
+	// Tipo genérico é da SDAB: só `global:2` troca o conjunto dele. Sem isso a tela
+	// ofereceria um botão que o domínio recusa.
+	const canEditGeneric = can("global", 2)
+
+	/** Nome do conjunto da refeição — sem conjunto, a tela usa o padrão. */
+	const groupSetName = (mealType: MealType) =>
+		(mealType.group_set_id ? groupSets?.find((s) => s.id === mealType.group_set_id)?.name : null) ?? "Padrão (refeição principal)"
 
 	const handleEdit = (mealType: MealType) => {
 		setEditingMealType(mealType)
@@ -93,6 +106,13 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 						<DialogDescription>Tipos genéricos são definidos globalmente. Você pode criar tipos customizados para esta cozinha.</DialogDescription>
 					</DialogHeader>
 
+					<div className="flex justify-end">
+						<Button size="sm" variant="outline" className="gap-1.5" onClick={() => setGroupSetsOpen(true)}>
+							<LayoutGrid className="size-4" />
+							Conjuntos de grupos
+						</Button>
+					</div>
+
 					<div className="space-y-6 py-4">
 						{/* Generic Types Section */}
 						<div>
@@ -109,6 +129,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 									<TableHeader>
 										<TableRow>
 											<TableHead>Nome</TableHead>
+											<TableHead>Grupos</TableHead>
 											<TableHead className="w-24">Ordem</TableHead>
 											<TableHead className="w-24 text-right">Ações</TableHead>
 										</TableRow>
@@ -117,15 +138,36 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 										{genericTypes.map((mealType) => (
 											<TableRow key={mealType.id}>
 												<TableCell className="text-subheading">{mealType.name}</TableCell>
+												<TableCell className="text-sm text-muted-foreground">{groupSetName(mealType)}</TableCell>
 												<TableCell>
 													<Badge variant="secondary" className="font-mono text-xs">
 														{mealType.sort_order}
 													</Badge>
 												</TableCell>
 												<TableCell className="text-right">
-													<Badge variant="outline" className="text-xs">
-														Somente Leitura
-													</Badge>
+													{mealType.system_key != null ? (
+														// Tipo de sistema é mantido pela migration que o criou (#409): a
+														// operação recusa a escrita, e um botão que sempre erra é pior do
+														// que botão nenhum.
+														<Badge variant="outline" className="text-xs">
+															Sistema
+														</Badge>
+													) : canEditGeneric ? (
+														<Tooltip>
+															<TooltipTrigger
+																render={
+																	<Button size="icon" variant="ghost" onClick={() => handleEdit(mealType)}>
+																		<Edit className="size-4" />
+																	</Button>
+																}
+															></TooltipTrigger>
+															<TooltipContent>Editar nome, ordem e conjunto de grupos</TooltipContent>
+														</Tooltip>
+													) : (
+														<Badge variant="outline" className="text-xs">
+															Somente Leitura
+														</Badge>
+													)}
 												</TableCell>
 											</TableRow>
 										))}
@@ -158,6 +200,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 									<TableHeader>
 										<TableRow>
 											<TableHead>Nome</TableHead>
+											<TableHead>Grupos</TableHead>
 											<TableHead className="w-24">Ordem</TableHead>
 											<TableHead className="w-32 text-right">Ações</TableHead>
 										</TableRow>
@@ -166,6 +209,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 										{customTypes.map((mealType) => (
 											<TableRow key={mealType.id}>
 												<TableCell className="text-subheading">{mealType.name}</TableCell>
+												<TableCell className="text-sm text-muted-foreground">{groupSetName(mealType)}</TableCell>
 												<TableCell>
 													<Badge variant="secondary" className="font-mono text-xs">
 														{mealType.sort_order}
@@ -215,6 +259,8 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 
 			{/* Form Dialog */}
 			<MealTypeForm open={formOpen} onClose={handleFormClose} kitchenId={kitchenId || 0} mealType={editingMealType} />
+
+			<MenuGroupSetManager open={groupSetsOpen} onClose={() => setGroupSetsOpen(false)} kitchenId={kitchenId} />
 		</>
 	)
 }

@@ -8175,6 +8175,7 @@ export type Database = {
         Row: {
           created_at: string
           deleted_at: string | null
+          group_set_id: string | null
           id: string
           kitchen_id: number | null
           name: string | null
@@ -8184,6 +8185,7 @@ export type Database = {
         Insert: {
           created_at?: string
           deleted_at?: string | null
+          group_set_id?: string | null
           id?: string
           kitchen_id?: number | null
           name?: string | null
@@ -8193,6 +8195,7 @@ export type Database = {
         Update: {
           created_at?: string
           deleted_at?: string | null
+          group_set_id?: string | null
           id?: string
           kitchen_id?: number | null
           name?: string | null
@@ -8201,7 +8204,90 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "meal_type_group_set_id_fkey"
+            columns: ["group_set_id"]
+            isOneToOne: false
+            referencedRelation: "menu_group_set"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "meal_type_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_group: {
+        Row: {
+          created_at: string
+          group_set_id: string
+          id: string
+          key: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          group_set_id: string
+          id?: string
+          key: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          group_set_id?: string
+          id?: string
+          key?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_group_group_set_id_fkey"
+            columns: ["group_set_id"]
+            isOneToOne: false
+            referencedRelation: "menu_group_set"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_group_set: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          kitchen_id: number | null
+          name: string
+          slug: string | null
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          kitchen_id?: number | null
+          name: string
+          slug?: string | null
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          kitchen_id?: number | null
+          name?: string
+          slug?: string | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_group_set_kitchen_id_fkey"
             columns: ["kitchen_id"]
             isOneToOne: false
             referencedRelation: "kitchen"

@@ -312,6 +312,14 @@ export const ASSURANCE_REGISTRY = {
 	deleteMealTypeFn: { require: "none" },
 	restoreMealTypeFn: { require: "none" },
 
+	// ── menu-groups.fn.ts
+	// Conjunto de grupos é composição de cardápio, não acesso nem dinheiro: a
+	// autorização é a mesma dos demais ativos global/local (global:2 ou kitchen:2
+	// escopado), e não há segundo fator a pedir.
+	createMenuGroupSetFn: { require: "none" },
+	updateMenuGroupSetFn: { require: "none" },
+	deleteMenuGroupSetFn: { require: "none" },
+
 	// ── messhall.fn.ts
 	addOtherPresenceFn: { require: "none" },
 

@@ -10,6 +10,12 @@ export const CreateMealTypeSchema = z.object({
 	name: z.string().min(1),
 	sortOrder: z.number().int().nonnegative().optional(),
 	kitchenId: KitchenIdSchema.nullable().optional(),
+	/**
+	 * Conjunto de grupos ("template de grupos") da refeição. Ausente ou null = o
+	 * conjunto padrão (`principal`) é resolvido pela operação — refeição
+	 * personalizada nasce com colunas em vez de nascer sem nenhuma.
+	 */
+	groupSetId: UuidSchema.nullable().optional(),
 })
 export type CreateMealType = z.infer<typeof CreateMealTypeSchema>
 
@@ -18,6 +24,11 @@ export const UpdateMealTypeSchema = z.object({
 	name: z.string().min(1).optional(),
 	sortOrder: z.number().int().nonnegative().optional(),
 	kitchenId: KitchenIdSchema.nullable().optional(),
+	/**
+	 * Ausente = não mexe no conjunto. `null` tem significado no ERP e por isso é
+	 * aceito: limpa a coluna, e a refeição volta a usar o conjunto padrão.
+	 */
+	groupSetId: UuidSchema.nullable().optional(),
 })
 export type UpdateMealType = z.infer<typeof UpdateMealTypeSchema>
 

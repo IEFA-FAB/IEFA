@@ -372,6 +372,15 @@ export {
 	updateMealType,
 } from "./meal-types.ts"
 export {
+	assertItemGroupsInSet,
+	createMenuGroupSet,
+	deleteMenuGroupSet,
+	fetchMenuGroupSets,
+	type MenuGroupRow,
+	type MenuGroupSetRow,
+	updateMenuGroupSet,
+} from "./menu-groups.ts"
+export {
 	type ConsumedRecoveryCode,
 	consumeRecoveryCode,
 	type GeneratedRecoveryCodes,

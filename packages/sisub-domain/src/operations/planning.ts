@@ -8,12 +8,13 @@
  *     `where: isNull(...)` dentro do `with` aninhado.
  */
 
-import { dailyMenuInKitchen, menuItemsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { dailyMenuInKitchen, menuGroupInKitchen, menuGroupSetInKitchen, menuItemsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm"
 import { requireKitchen } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenu, resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type { FetchDailyMenuContent } from "../schemas/meal-ops.ts"
+import { DEFAULT_GROUP_SET_SLUG } from "../schemas/menu-groups.ts"
 import type {
 	AddMenuItem,
 	DailyMenuFetch,
@@ -30,6 +31,7 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 import { resolveItemDemand } from "./demand-math.ts"
+import { assertItemGroupsInSet } from "./menu-groups.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
@@ -131,6 +133,25 @@ export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: Upse
 }
 
 /** Próxima posição livre no fim de um grupo dentro do cardápio do dia (itens ativos). */
+/** Refeição de um cardápio do dia — para validar o grupo contra o conjunto dela. */
+async function mealTypeOfMenu(db: SisubDb, dailyMenuId: string): Promise<string | null> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.dailyMenuInKitchen.findFirst({ columns: { mealTypeId: true }, where: eq(dailyMenuInKitchen.id, dailyMenuId) })
+	)
+	return row?.mealTypeId ?? null
+}
+
+async function mealTypeOfMenuItem(db: SisubDb, menuItemId: string): Promise<string | null> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.menuItemsInKitchen.findFirst({
+			columns: { id: true },
+			with: { dailyMenuInKitchen: { columns: { mealTypeId: true } } },
+			where: eq(menuItemsInKitchen.id, menuItemId),
+		})
+	)
+	return row?.dailyMenuInKitchen?.mealTypeId ?? null
+}
+
 async function nextSortOrder(db: SisubDb, dailyMenuId: string, itemGroup: string | null): Promise<number> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.menuItemsInKitchen.findMany({
@@ -175,6 +196,9 @@ export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuI
 	const recipeSnapshot = toWire<Record<string, unknown>>(recipe, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
 
 	const itemGroup = input.itemGroup ?? null
+	// O CHECK de item_group saiu do banco e `add_menu_item` é tool de MCP: sem isto
+	// o modelo grava uma chave que nenhum conjunto tem e o item nasce órfão.
+	if (itemGroup) await assertItemGroupsInSet(db, [{ mealTypeId: await mealTypeOfMenu(db, input.dailyMenuId), itemGroup }])
 	// Sem sortOrder explícito → posiciona no fim do grupo dentro do cardápio.
 	const sortOrder = input.sortOrder ?? (await nextSortOrder(db, input.dailyMenuId, itemGroup))
 
@@ -221,6 +245,7 @@ export async function updateMenuItem(db: SisubDb, ctx: UserContext, input: Updat
 	}
 
 	if (input.itemGroup !== undefined) {
+		if (input.itemGroup) await assertItemGroupsInSet(db, [{ mealTypeId: await mealTypeOfMenuItem(db, input.menuItemId), itemGroup: input.itemGroup }])
 		updates.itemGroup = input.itemGroup
 		// Trocar de grupo sem posição explícita → recoloca o item no fim do grupo destino
 		// (evita colisão de sort_order herdado do grupo anterior).
@@ -447,7 +472,18 @@ export async function getTrashItems(db: SisubDb, ctx: UserContext, input: GetTra
 // ─── Aggregated daily menu content (diner-facing) ───────────────────────────
 
 type DishIngredient = { ingredient_name: string; quantity: number; measure_unit: string }
-type DishDetails = { id: string; name: string; ingredients: DishIngredient[]; group: string | null; recommended_proportion: number | null }
+type DishDetails = {
+	id: string
+	name: string
+	ingredients: DishIngredient[]
+	/** Chave do grupo, como gravada em `item_group`. */
+	group: string | null
+	/** Rótulo do grupo no conjunto da refeição; null quando a chave não está nele. */
+	group_label: string | null
+	/** Posição do grupo na ordem de leitura do conjunto (fora dele vai para o fim). */
+	group_order: number
+	recommended_proportion: number | null
+}
 type DayMenuContent = { [date: string]: { [mealKey: string]: DishDetails[] } }
 type RecipeSnapshot = { name?: string; ingredients?: DishIngredient[] }
 
@@ -472,7 +508,7 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 		db.query.dailyMenuInKitchen.findMany({
 			columns: { serviceDate: true, kitchenId: true },
 			with: {
-				mealTypeInKitchen: { columns: { name: true } },
+				mealTypeInKitchen: { columns: { name: true, groupSetId: true } },
 				menuItemsInKitchens: {
 					// Não devolver itens soft-deleted ao diner (paridade com as demais queries do arquivo).
 					where: isNull(menuItemsInKitchen.deletedAt),
@@ -491,6 +527,50 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 			),
 		})
 	)
+
+	// Rótulo e ordem de leitura dos grupos saem do CONJUNTO da refeição. Vão junto
+	// com o prato de propósito: a visão do comensal exige `diner:1` e não alcança
+	// `kitchen.menu_group_set` por conta própria — buscar o conjunto na tela
+	// devolveria 403 e a tela perderia os cabeçalhos sem dizer por quê.
+	//
+	// Refeição sem conjunto (linha antiga) cai no conjunto PADRÃO, como no editor.
+	// Deixá-la sem rótulo empataria todos os pratos no fim da ordenação e a tela do
+	// comensal mostraria as seções em ordem arbitrária, com a chave crua no lugar do
+	// rótulo — a ordenação canônica que o cliente fazia sozinho não existe mais.
+	const needsDefault = rows.some((r) => r.mealTypeInKitchen != null && r.mealTypeInKitchen.groupSetId == null)
+	const defaultSetId = needsDefault
+		? ((
+				await runQuery("FETCH_FAILED", () =>
+					db
+						.select({ id: menuGroupSetInKitchen.id })
+						.from(menuGroupSetInKitchen)
+						.where(and(eq(menuGroupSetInKitchen.slug, DEFAULT_GROUP_SET_SLUG), isNull(menuGroupSetInKitchen.deletedAt)))
+						.limit(1)
+				)
+			)[0]?.id ?? null)
+		: null
+
+	const setIds = [...new Set([...rows.map((r) => r.mealTypeInKitchen?.groupSetId), defaultSetId].filter((id): id is string => id != null))]
+	const groupsBySet = new Map<string, Map<string, { label: string; order: number }>>()
+	if (setIds.length > 0) {
+		const groupRows = await runQuery("FETCH_FAILED", () =>
+			db
+				.select({
+					groupSetId: menuGroupInKitchen.groupSetId,
+					key: menuGroupInKitchen.key,
+					label: menuGroupInKitchen.label,
+					sortOrder: menuGroupInKitchen.sortOrder,
+				})
+				.from(menuGroupInKitchen)
+				.where(inArray(menuGroupInKitchen.groupSetId, setIds))
+				.orderBy(asc(menuGroupInKitchen.sortOrder))
+		)
+		for (const g of groupRows) {
+			const bucket = groupsBySet.get(g.groupSetId) ?? new Map()
+			bucket.set(g.key, { label: g.label, order: g.sortOrder })
+			groupsBySet.set(g.groupSetId, bucket)
+		}
+	}
 
 	const content: DayMenuContent = {}
 
@@ -520,7 +600,27 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 			}
 
 			const proportion = item.recommendedProportion == null ? null : Number(item.recommendedProportion)
-			content[date][mealKey].push({ id: item.id, name: dishName, ingredients, group: item.itemGroup ?? null, recommended_proportion: proportion })
+			const setId = menu.mealTypeInKitchen?.groupSetId ?? defaultSetId
+			const group = setId ? groupsBySet.get(setId)?.get(item.itemGroup ?? "") : undefined
+			content[date][mealKey].push({
+				id: item.id,
+				name: dishName,
+				ingredients,
+				group: item.itemGroup ?? null,
+				group_label: group?.label ?? null,
+				// Chave fora do conjunto (ou sem grupo) vai para o fim, como no editor.
+				group_order: group?.order ?? Number.MAX_SAFE_INTEGER,
+				recommended_proportion: proportion,
+			})
+		}
+	}
+
+	// A ordem que chega à tela é a de LEITURA do cardápio: grupo do conjunto e,
+	// dentro dele, a posição. A query já traz por sort_order; sem esta passada os
+	// grupos sairiam intercalados.
+	for (const day of Object.values(content)) {
+		for (const dishes of Object.values(day)) {
+			dishes.sort((a, b) => a.group_order - b.group_order)
 		}
 	}
 
