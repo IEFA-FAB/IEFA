@@ -80,12 +80,6 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// O `kitchen_id` é anulável porque o conjunto pode ser global ou da cozinha, como as pastas.
 	// O PR do recurso (#412) a TIRA daqui e decide o destino dela junto com o código que a usa.
 	"kitchen.menu_group_set": "declarada fora de ordem, depois da migration; destino decidido no PR do recurso (#412)",
-	// `inventory.opening_balance` — migration 20260922100000 (carga de abertura, tarefas 2.12–2.14
-	// do change sisub-inventory-operations). Declarada antes de aplicada, pela ordem acima. O PR
-	// do recurso a TIRA daqui e a põe no RESET_STEPS antes de `stock_movement` e `stock_lot`: a
-	// linha da carga referencia o lote e o movimento que ela criou, então apagá-la depois deles
-	// cairia por FK. `opening_balance_item` não tem coluna de escopo e sai por cascade.
-	"inventory.opening_balance": "declarada antes da migration 20260922100000; entra no reset junto com o PR do recurso",
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */

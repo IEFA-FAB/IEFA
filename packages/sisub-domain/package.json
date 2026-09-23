@@ -10,6 +10,7 @@
     "./operations": "./src/operations/index.ts",
     "./gtin": "./src/operations/gtin.ts",
     "./pncp-pca": "./src/utils/pncp-pca-csv.ts",
+    "./opening-balance": "./src/utils/opening-balance-sheet.ts",
     "./guards": "./src/guards/index.ts",
     "./types": "./src/types/index.ts",
     "./utils": "./src/utils/index.ts"

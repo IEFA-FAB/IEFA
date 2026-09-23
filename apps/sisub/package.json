@@ -14,7 +14,7 @@
     "test": "bun run test:unit",
     "test:unit": "SISUB_RUN_INTEGRATION=false vitest run --config vitest.config.ts",
     "test:integration": "SISUB_RUN_INTEGRATION=true SISUB_INTEGRATION_REQUIRED=true vitest run --config vitest.config.ts",
-    "test:integration:gate": "SISUB_RUN_INTEGRATION=true SISUB_INTEGRATION_REQUIRED=true vitest run --config vitest.config.ts --no-file-parallelism src/test/operations/stock-ledger.operations.test.ts src/test/operations/receiving.operations.test.ts src/test/operations/monthly-closing.operations.test.ts src/test/operations/inventory-cycle.e2e.operations.test.ts src/test/operations/budget-execution.operations.test.ts",
+    "test:integration:gate": "SISUB_RUN_INTEGRATION=true SISUB_INTEGRATION_REQUIRED=true vitest run --config vitest.config.ts --no-file-parallelism src/test/operations/stock-ledger.operations.test.ts src/test/operations/receiving.operations.test.ts src/test/operations/monthly-closing.operations.test.ts src/test/operations/inventory-cycle.e2e.operations.test.ts src/test/operations/budget-execution.operations.test.ts src/test/operations/opening-balance.operations.test.ts",
     "test:integration:janitor": "bun run scripts/purge-test-fixtures.ts",
     "trainees:add": "bun run scripts/add-trainees.ts",
     "mcp-keys:notify-expiry": "bun run scripts/notify-expiring-mcp-keys.ts",

@@ -740,6 +740,10 @@ export const fetchLossReportFn = createServerFn({ method: "GET" })
 		const byReason = new Map<string, { quantity: number; value: number; movements: number }>()
 		for (const row of rows ?? []) {
 			const key = String(row.reason_code)
+			// A carga de abertura é implantação de saldo, não ganho nem perda: fora do relatório
+			// inteiro, não só do total (spec stock-opening-balance). Uma linha "Implantação" de
+			// R$ 80 mil na tabela de perdas do mês de abertura seria lida como prejuízo.
+			if (key === "opening_balance") continue
 			const current = byReason.get(key) ?? { quantity: 0, value: 0, movements: 0 }
 			byReason.set(key, {
 				quantity: current.quantity + Number(row.quantity),
