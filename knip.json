@@ -69,10 +69,6 @@
       "entry": ["src/index.ts", "src/server/index.ts"],
       "project": ["src/**/*.ts"]
     },
-    "packages/alpha-client": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
     "packages/auth-kit": {
       "entry": ["src/index.ts", "src/react.ts"],
       "project": ["src/**/*.ts"]

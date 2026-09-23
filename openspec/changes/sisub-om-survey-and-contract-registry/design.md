@@ -15,7 +15,7 @@ Estado atual do sistema, verificado em produção:
 | Contratação não-alimentar | — | **Não existe** |
 | Catálogo Compras.gov | `compras_gov_integration.*` (material, serviço, sync log) | Só catálogo; nenhuma contratação |
 | SIAFI × SILOMS | `sucont.siloms_siafi_balance` | Não — grão é (competência, UG, grupo de conta), sem natureza de despesa |
-| Levantamento por OM anterior | `core.workforce_survey`/`_submission`/`_headcount`/`_category`/`_note` | É o precedente: populado (1/32/167/6/28) e **sem uma linha de código no repo** |
+| Levantamento anterior (efetivo) | `kitchen.workforce_survey`/`_submission`/`_headcount`/`_category`/`_note` | É o precedente, com código (#243/#245): operations, telas, reset de treino. Grão **rancho**, taxonomia global, contagem inteira — ver decisão 0 |
 
 Restrições que moldam o desenho:
 
@@ -24,7 +24,7 @@ Restrições que moldam o desenho:
 - **Contratação é dado durável; campanha é efêmera.** O registro de contratações precisa fazer sentido sozinho — para sucont, para o portal, para o ano que vem — sem saber que existe DIVISA.
 - **Número de investimento é assinado por gente.** Sugestão automática pode errar; gravar sozinha, não.
 
-Decisão de camada tomada pelo mantenedor: **tabelas no schema `core` do sisub**, operations em `@iefa/sisub-domain`, e não em schema/pacote cross-app novo.
+Decisão de camada original: tabelas no schema `core`, operations em `@iefa/sisub-domain`. **Revista em 2026-09-20**: o #255 (`20260901120400_core_promotion.sql`) redefiniu o `core` como o que é da Força independente de subsistência e moveu `rancho` e `workforce_*` para `kitchen`. Pela doutrina vigente as tabelas deste change nascem em `kitchen`. Operations continuam em `@iefa/sisub-domain`.
 
 ## Goals / Non-Goals
 
@@ -35,16 +35,42 @@ Decisão de camada tomada pelo mantenedor: **tabelas no schema `core` do sisub**
 - O preenchimento é assistido pelo histórico: o sistema propõe valor realizado, situação anterior e prazo, com a evidência que sustentou cada proposta.
 - Consolidado por OM e por categoria calculado pelo sistema, sem depender de fórmula de planilha.
 - Import/export XLSX fechando o ciclo com quem responde no Excel.
-- Reutilizável fora do sisub: `core` sem dependência de cozinha/rancho, tipado em `@iefa/database`, legível por outro app.
+- Reutilizável fora do sisub: sem FK para cozinha/rancho (o grão é `core.units`), tipado em `@iefa/database`, legível por outro app pelo servidor.
 
 **Non-Goals:**
 
-- Migrar `core.workforce_*` (fica registrado como dívida).
+- Migrar ou generalizar `kitchen.workforce_*` — ver decisão 0.
 - Executar orçamento das contratações não-alimentares (`finance` segue exclusivo de gênero).
 - Substituir o `apps/forms` para questionário genérico.
 - Anexo documental, workflow de aprovação, notificação ativa e exposição às tools de IA — todos fora, conforme "Não-objetivos" da proposta.
 
 ## Decisions
+
+### 0. Tabelas irmãs do `workforce_*`, não generalização dele (2026-09-20)
+
+O motor do levantamento de efetivo já está em produção, e a pergunta da revisão foi por que o
+DIVISA não o estende. Resposta: os dois concordam no **formato** (campanha → resposta por
+respondente → linha por categoria; ausência ≠ zero; competência nova é linha nova) e divergem
+em tudo que é **coluna**:
+
+| | `workforce_*` | DIVISA |
+|---|---|---|
+| Respondente | `kitchen.rancho` (66) | `core.units` (OM) |
+| Categoria | taxonomia global (`workforce_category`) | por campanha, muda a cada edição |
+| Valor | `headcount integer` | `realized_amount`/`needed_amount` em R$ + 6 campos de texto |
+| Competência | uma por `reference_date` (único) | ano-base + ano-alvo |
+
+Generalizar exigiria transformar `headcount` em valor polimórfico (EAV, que a decisão 1 já
+descarta), trocar a FK de respondente por uma polimórfica e migrar o dado vivo (1 competência, 32
+submissões, 167 linhas), reescrevendo operations e telas que funcionam. É risco de regressão em
+troca de economizar seis tabelas.
+
+Então: **tabelas irmãs em `kitchen`**, e o reaproveitamento é de código e de convenção, não de
+tabela — `operations/survey.ts` copia o formato de `operations/workforce.ts` (campanha em
+`admin:2`, escopo lido da linha, idempotência de resposta) e o passo de reset copia o de
+`workforce_submission` em `operations/training.ts`. Se aparecer um terceiro levantamento com o
+mesmo formato, aí sim vale extrair o motor — com três casos reais para desenhá-lo, não dois.
+
 
 ### 1. Motor tipado em dinheiro, com categoria como dado
 
@@ -98,9 +124,9 @@ Projeção do `finance`: não cria linha nova por empenho. A cadeia `empenho →
 
 ### 7. Compras.gov por UASG: worker no `apps/api`, reusando o log de sync
 
-Worker novo `apps/api/src/workers/contratacoes-sync`, no padrão de `workers/compras-sync` (cliente com paginação, passos, heartbeat, `stop_requested`), gravando progresso em `compras_gov_integration.compras_sync_log`/`compras_sync_step` com `step_name` próprio por UASG. Entrada: lista de UASGs derivada de `core.units.uasg`; saída: upsert em `core.subsistence_contract` com `external_source='compras_gov'`.
+Worker novo `apps/api/src/workers/contratacoes-sync`, no padrão de `workers/compras-sync` (cliente com paginação, passos, heartbeat, `stop_requested`), gravando progresso em `compras_gov_integration.integration_sync_log`/`integration_sync_step` (renomeados em `20260904012143`) com `source` próprio — a trava `uq_integration_sync_log_one_running_per_source` é por `source` — e `step_name` por UASG. Entrada: UASGs de `core.units.uasg`; saída: upsert em `kitchen.subsistence_contract` com `external_source='compras_gov'`.
 
-**Pré-condição dura**: hoje `uasg` existe em 3 de 31 linhas (AFA `120060`, DIRAD `120133`, GAP-AF `120623`). O backfill usa `UG_INFO` de `apps/sucont/src/subitens/constants.ts`, que já mapeia UG→sigla para toda a FAB (`120643` = BASM, `120641` = BAPV, `120637` = BABV…). No mesmo passo: criar `BABV` (está na planilha, não está em `core.units`) e reconciliar `CINDACTA 2` com a aba `CINDACTA II`.
+**Pré-condição, fora deste change**: `uasg` preenchida em poucas OMs. A curadoria tem dono — `archive/2026-09-08-sisub-pncp-integration`, tarefa 0.1, pela tela `/unit/$unitId/settings` (conferida por humano, com `fetchUasgInfoFn`), apoiada por `/analytics/procurement-plan` (#266). O worker sincroniza as OMs que já têm UASG e lista as que não têm; não há backfill por migration. BABV e `CINDACTA 2`/`CINDACTA II` já foram resolvidos como dado no #243 (`kitchen.rancho.elo_code`, `20260827163100_workforce_matrix_seed.sql:58`) — criar `core.units` BABV contradiria aquela decisão.
 
 *Alternativa descartada:* inferir execução por natureza de despesa a partir do `sucont.siloms_siafi_balance`. O grão de lá é (competência, UG, grupo de conta) — não tem ND/subitem, então não distingue ar-condicionado de reforma. Entraria como terceira fonte só depois que aquela tabela ganhasse subitem.
 
@@ -129,7 +155,7 @@ Colunas monetárias são `numeric(14,2)`. O PostgREST devolve `numeric` como **s
 - **Gate de integração verde e vazio** (a suíte faz early-return quando a tabela não existe) → o teste novo precisa falhar sob `SISUB_INTEGRATION_REQUIRED`, não pular.
 - **Reset de treino cai por FK** → `survey_response_item_contract` e `survey_response_item` entram em `RESET_STEPS` **antes** de `survey_response`; `subsistence_contract` depois dos vínculos.
 - **Backfill de `uasg` errado** → sync do Compras.gov traz contratação de outra OM para dentro do levantamento. Mitigação: backfill por lista explícita conferida contra `UG_INFO`, sem heurística por nome; UASG não conferida fica nula e a OM apenas não sincroniza.
-- **API de dados abertos sem SLA** → worker idempotente, falha registrada no `compras_sync_log`, e o preenchimento manual nunca depende dele.
+- **API de dados abertos sem SLA** → worker idempotente, falha registrada no `integration_sync_log`, e o preenchimento manual nunca depende dele.
 - **Sugestão automática mascarando erro de fonte** → toda sugestão exibe a evidência; aceitar grava snapshot; divergência vira alerta e não correção.
 - **Consolidado do sistema ≠ `Resumo Geral` da planilha** → é esperado (a planilha soma errado), mas precisa de nota explícita no relatório e no PR, senão parece bug.
 - **`xlsx` por tarball da SheetJS** → dependabot não acompanha dependência por URL; o pin `0.20.3` do `sisub` tem de ser bumpado junto com os de `api` e `sucont`.
@@ -137,19 +163,19 @@ Colunas monetárias são `numeric(14,2)`. O PostgREST devolve `numeric` como **s
 
 ## Migration Plan
 
-1. Migration única no `core`: 6 tabelas (`survey_campaign`, `survey_category`, `survey_response`, `survey_response_item`, `subsistence_contract`, `survey_response_item_contract`), RLS ligada sem policy, grants para `service_role`, índices por (campanha, unidade) e por (unidade, tópico, vigência).
-2. Migration de saneamento de `core.units`: `uasg` das 28 OMs, `BABV` novo, code do CINDACTA reconciliado.
+1. Migration única no `kitchen`: 6 tabelas (`survey_campaign`, `survey_category`, `survey_response`, `survey_response_item`, `subsistence_contract`, `survey_response_item_contract`), RLS ligada sem policy, grants para `service_role`, índices por (campanha, unidade) e por (unidade, tópico, vigência). Antes dela, PR só de contrato declarando as tabelas no reset de treino (declara → aplica → mergeia).
+2. (removido) O saneamento de `core.units` saiu deste change — ver decisão 7.
 3. Regenerar `generated.ts` e o schema Drizzle; tipos em `packages/database/src/sisub.ts`.
 4. Domínio: operations + utils puros + testes de unidade da sugestão e da consolidação; passos de reset de treino.
 5. Server fns e telas do `unit`; depois `admin` (campanha, import/export) e `analytics` (consolidado).
 6. Worker `contratacoes-sync` no `apps/api`, atrás da lista de UASG saneada.
 7. Seed da campanha DIVISA 2026 (7 categorias) e importação do arquivo real preenchido como validação de ponta a ponta.
 
-Rollback: as tabelas nascem isoladas — `drop` das 6 e reversão do saneamento de `units` não afetam cardápio, produção nem `finance`. O worker é desligável por não ser agendado.
+Rollback: as tabelas nascem isoladas — `drop` das 6 não afeta cardápio, produção nem `finance`. O worker é desligável por não ser agendado.
 
 ## Open Questions
 
 - **Qual endpoint do Compras.gov cobre contratação por UASG** com valor executado — o módulo de contratos, o de atas ou o OCDS. `packages/compras-api/openapi.json` só descreve Alice/OCDS; o cliente atual usa `dadosabertos.compras.gov.br` para catálogo. A escolha é da tarefa do worker e não bloqueia o resto.
 - **Natureza de despesa por categoria**: o levantamento vai fixar ND/subitem sugerido por categoria (ex.: `33.90.30` vs `44.90.52`)? Se sim, vira coluna preenchida no seed; se não, fica nula e o cruzamento usa só o tópico.
 - **Resposta trava após submissão?** O desenho prevê `draft → submitted → validated`, com reabertura por `admin`. Confirmar se a SDAB quer edição livre até o fechamento da campanha.
-- **`core.workforce_*`**: migrar para o motor novo, manter como está ou arquivar? Fora do corte, mas precisa de destino antes que vire a terceira cópia do mesmo conceito.
+- ~~**`core.workforce_*`**: migrar, manter ou arquivar?~~ **Respondida em 2026-09-20** (decisão 0): mantém; o DIVISA ganha tabelas irmãs; extração do motor só no terceiro caso.

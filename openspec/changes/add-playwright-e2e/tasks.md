@@ -55,9 +55,12 @@ tarefa por obstáculo comprovado, com o arquivo a mexer.
 O bloco existe, mas comentado e com defeitos. Cada item abaixo foi reaberto com a
 evidência do que está errado no texto atual do workflow.
 
-- [ ] 6.1 [ci] Job `e2e-sisub` ATIVO em `.github/workflows/deploy.yml`. Hoje está 100% comentado (linhas 481-520) e `deploy-sisub.needs` é `[build-sisub]` — o E2E não gateia nada. Ver task 8.1/8.5.
-- [ ] 6.2 [ci] Cache de browser com `actions/cache` em `~/.cache/ms-playwright`. O bloco comentado cacheia **apenas** `~/.bun/install/cache` (deploy.yml:492-497) — a task original foi marcada feita sem ter sido escrita. Ver task 8.3.
-- [ ] 6.3 [ci] Secrets com o nome CERTO no job. O bloco usa `secrets.SISUB_E2E_TEST_USER_EMAIL` / `secrets.SISUB_E2E_TEST_USER_PASSWORD` (deploy.yml:508-509); os secrets que existem no repo são `E2E_TEST_USER_EMAIL` / `E2E_TEST_USER_PASSWORD`. Ver task 8.2.
+- [x] 6.1 [ci] Job `e2e-sisub` ATIVO em `.github/workflows/deploy.yml`. Hoje está 100% comentado (linhas 481-520) e `deploy-sisub.needs` é `[build-sisub]` — o E2E não gateia nada. Ver task 8.1/8.5.
+  > Revisão 2026-09-20: **DESCARTADA por decisão de custo (#278)** — o E2E foi desligado do CI de propósito: sobe vite dev + Chromium e autentica no Supabase de PRODUÇÃO via UI. Ver o comentário em `.github/workflows/deploy.yml` ("E2E SISUB DESLIGADO POR DECISÃO DE CUSTO") e `TESTING.md`, seção "E2E do sisub". Reabrir só junto com banco de teste próprio.
+- [x] 6.2 [ci] Cache de browser com `actions/cache` em `~/.cache/ms-playwright`. O bloco comentado cacheia **apenas** `~/.bun/install/cache` (deploy.yml:492-497) — a task original foi marcada feita sem ter sido escrita. Ver task 8.3.
+  > Revisão 2026-09-20: **DESCARTADA por decisão de custo (#278)** — o E2E foi desligado do CI de propósito: sobe vite dev + Chromium e autentica no Supabase de PRODUÇÃO via UI. Ver o comentário em `.github/workflows/deploy.yml` ("E2E SISUB DESLIGADO POR DECISÃO DE CUSTO") e `TESTING.md`, seção "E2E do sisub". Reabrir só junto com banco de teste próprio.
+- [x] 6.3 [ci] Secrets com o nome CERTO no job. O bloco usa `secrets.SISUB_E2E_TEST_USER_EMAIL` / `secrets.SISUB_E2E_TEST_USER_PASSWORD` (deploy.yml:508-509); os secrets que existem no repo são `E2E_TEST_USER_EMAIL` / `E2E_TEST_USER_PASSWORD`. Ver task 8.2.
+  > Revisão 2026-09-20: **DESCARTADA por decisão de custo (#278)** — o E2E foi desligado do CI de propósito: sobe vite dev + Chromium e autentica no Supabase de PRODUÇÃO via UI. Ver o comentário em `.github/workflows/deploy.yml` ("E2E SISUB DESLIGADO POR DECISÃO DE CUSTO") e `TESTING.md`, seção "E2E do sisub". Reabrir só junto com banco de teste próprio.
 - [x] 6.4 [ci] Upload de artifacts (`playwright-report/`, `test-results/`) via `actions/upload-artifact` com `if: always()` — escrito no bloco (deploy.yml:513-520); volta a valer assim que o job for descomentado.
 
 ## 7. Validação Final
@@ -65,13 +68,15 @@ evidência do que está errado no texto atual do workflow.
 - [x] 7.1 [root] Rodar `bun run check` — Biome lint/format + typecheck passam sem erros
 - [x] 7.2 [root] Verificar que `.auth/`, `playwright-report/`, `test-results/` estão no `.gitignore`
 - [ ] 7.3 [sisub] Rodar `bun run test:e2e` localmente com o `.env` preenchido e registrar quais das 7 specs passam. Sem esse baseline não dá para saber se uma falha no CI é do CI ou da suíte — nunca houve um run verde registrado.
+  > Revisão 2026-09-23: **BLOQUEADA só pela SENHA.** A conta dedicada da 8.2 existe e tem o acesso necessário, mas a senha gerada na criação ficou em arquivo efêmero. Definir uma nova é ato do mantenedor (painel do Supabase), e o mesmo par vai para os secrets. Não rodar com a conta pessoal: derruba a sessão de quem a usa.
 
 ## 8. Reativação do gate — o trabalho real
 
 Uma tarefa por obstáculo comprovado. A nota do workflow cita dois ("webServer timeout /
 test credentials setup"); a auditoria encontrou sete.
 
-- [ ] 8.1 [ci] **Corrigir a origem das credenciais** — `.github/workflows/deploy.yml:508-509`.
+- [x] 8.1 [ci] **Corrigir a origem das credenciais** — `.github/workflows/deploy.yml:508-509`.
+  > Revisão 2026-09-20: **feita (#278)** — o workflow comentado e o `TESTING.md` usam `E2E_TEST_USER_EMAIL`/`E2E_TEST_USER_PASSWORD`, os nomes que existem como secret; `turbo.json` declara os mesmos.
   O job pede `secrets.SISUB_E2E_TEST_USER_EMAIL` / `SISUB_E2E_TEST_USER_PASSWORD`, que
   **não existem** no repositório; os que existem são `E2E_TEST_USER_EMAIL` e
   `E2E_TEST_USER_PASSWORD` (criados em 2026-05-30 19:43/19:44 — quatro horas antes do
@@ -82,7 +87,9 @@ test credentials setup"); a auditoria encontrou sete.
   os dois nomes iguais nos três lugares: workflow, `turbo.json:65-75` e `.env.schema:179/184`.
   Este é o "test credentials setup" da nota, e é a causa mais provável da desativação.
 
-- [ ] 8.2 [sisub] **Provar que o usuário E2E existe e tem PBAC suficiente** — não há seed.
+- [x] 8.2 [sisub] **Provar que o usuário E2E existe e tem PBAC suficiente** — não há seed.
+  > Revisão 2026-09-23: **FEITA.** A conta dedicada existe desde o #403 — `teste.treino.e2e@fab.mil.br` (`dea810c5-717c-4f88-8e6c-632bad65419a`). Acesso conferido no banco: grant inline `storage:3` na cozinha 920 e a política "Conjunto Treino" com `kitchen:2`/`kitchen-production:2` (920), `unit:2`/`local-analytics:2` (OM 1065), `messhall:2`, `global:1`, `analytics:1`, `admin:1`. Cobre as quatro specs do `test:e2e:ci` e as duas opcionais, com `E2E_STORAGE_KITCHEN_ID=920` e `E2E_BUDGET_UNIT_ID=1065`. Tudo na sentinela do treino, onde o reset limpa. Registrado em `TESTING.md`.
+  > Revisão 2026-09-20: **BLOQUEADA — a conta E2E não é dedicada.** O `E2E_TEST_USER_EMAIL` do `.env` local do mantenedor é a conta PESSOAL dele (`nannijpsn@`), o que o `TESTING.md` proíbe: o login da suíte invalida a sessão de quem usa a mesma conta. Falta criar uma conta de teste de verdade em `auth.users` com os módulos que as specs exigem (`diner`; `unit` e `storage` para as duas opcionais) e trocar o secret e o `.env`. Quem provê: o mantenedor. Criar usuário em produção fica fora do alcance de um agente.
   `e2e/global-setup.ts:35` faz login por UI e espera redirect para `/hub`;
   `e2e/helpers/supabase.ts:10-11` usa a anon key de PRODUÇÃO (o job passa
   `vars.VITE_SISUB_SUPABASE_URL`, que aponta para o projeto de prod). `navigation.spec.ts`
@@ -93,14 +100,16 @@ test credentials setup"); a auditoria encontrou sete.
   os módulos necessários; se não estiver, criar migration/script de seed. Sem isso,
   reativar o job só troca falha de credencial por falha de permissão.
 
-- [ ] 8.3 [ci] **Cachear o browser do Playwright** — `.github/workflows/deploy.yml:492-497`.
+- [x] 8.3 [ci] **Cachear o browser do Playwright** — `.github/workflows/deploy.yml:492-497`.
+  > Revisão 2026-09-20: **DESCARTADA por decisão de custo (#278)** — o E2E foi desligado do CI de propósito: sobe vite dev + Chromium e autentica no Supabase de PRODUÇÃO via UI. Ver o comentário em `.github/workflows/deploy.yml` ("E2E SISUB DESLIGADO POR DECISÃO DE CUSTO") e `TESTING.md`, seção "E2E do sisub". Reabrir só junto com banco de teste próprio.
   O `actions/cache` do bloco cobre só `~/.bun/install/cache`; `bunx playwright install
   --with-deps chromium` (deploy.yml:503) rebaixa o Chromium e as libs de sistema em todo
   run, dentro de um `timeout-minutes: 20` que ainda precisa acomodar boot do dev server +
   login + 4 specs com `retries: 2` e `workers: 1`. Adicionar o cache de
   `~/.cache/ms-playwright` chaveado pela versão de `@playwright/test` do `bun.lock`.
 
-- [ ] 8.4 [sisub] **Tornar diagnosticável a subida do webServer** — `apps/sisub/playwright.config.ts:64-69`.
+- [x] 8.4 [sisub] **Tornar diagnosticável a subida do webServer** — `apps/sisub/playwright.config.ts:64-69`.
+  > Revisão 2026-09-20: **feita** — `apps/sisub/playwright.config.ts` tem `stdout`/`stderr: "pipe"`; crash de boot deixa de chegar como timeout mudo. Timeout segue 120 s: sem CI, o boot é local.
   Em CI `reuseExistingServer` é `false`: o Playwright sobe `bunx --bun vite dev --port 3000`
   do zero e faz poll em `http://localhost:3000`. A primeira resposta exige o transform SSR
   completo da rota raiz do TanStack Start — num runner de 4 vCPU isso disputa com o resto e
@@ -111,7 +120,8 @@ test credentials setup"); a auditoria encontrou sete.
   e avaliar `vite build` + `vite preview` no lugar do dev server (compilação uma vez, boot
   determinístico — o dev server compila sob demanda a cada rota nova do teste).
 
-- [ ] 8.5 [ci] **Mover o gate para um workflow que dispare em PR** — `.github/workflows/deploy.yml:2-4`
+- [x] 8.5 [ci] **Mover o gate para um workflow que dispare em PR** — `.github/workflows/deploy.yml:2-4`
+  > Revisão 2026-09-20: **DESCARTADA por decisão de custo (#278)** — o E2E foi desligado do CI de propósito: sobe vite dev + Chromium e autentica no Supabase de PRODUÇÃO via UI. Ver o comentário em `.github/workflows/deploy.yml` ("E2E SISUB DESLIGADO POR DECISÃO DE CUSTO") e `TESTING.md`, seção "E2E do sisub". Reabrir só junto com banco de teste próprio.
   vs `.github/workflows/integration.yml:29-35`. `deploy.yml` roda **só em `push` na `main`**:
   mesmo descomentado, o E2E rodaria DEPOIS do merge, e a spec `e2e-ci-integration` exige
   "PR modifica `apps/sisub/**` ou `packages/sisub-domain/**` → job disparado". O
@@ -120,7 +130,8 @@ test credentials setup"); a auditoria encontrou sete.
   `concurrency` de grupo fixo contra runs concorrentes no banco compartilhado. Adicionar o
   job E2E ali e decidir se ele é bloqueante (`gate`) ou `continue-on-error` no primeiro mês.
 
-- [ ] 8.6 [sisub] **Fechar a armadilha do `.env` no runner do Playwright** — `apps/sisub/playwright.config.ts:8-22`.
+- [x] 8.6 [sisub] **Fechar a armadilha do `.env` no runner do Playwright** — `apps/sisub/playwright.config.ts:8-22`.
+  > Revisão 2026-09-20: **feita (#278)** — `applyE2eEnv()` só carrega o `.env` com `SISUB_RUN_E2E=true`, a mesma trava do vitest; os scripts `test:e2e*` passam a flag.
   O config lê e injeta o `.env` do disco à mão. É exatamente a armadilha que o repo já
   fechou nos outros dois runners (`--no-env-file` no `bun test`; `loadEnv` do vitest só
   entregando credencial sob `*_RUN_INTEGRATION=true`) — e o Playwright ficou de fora:
@@ -129,7 +140,8 @@ test credentials setup"); a auditoria encontrou sete.
   a uma flag explícita `SISUB_RUN_E2E`) e falhar cedo, com mensagem, quando a credencial
   não vier de lugar nenhum — hoje o erro só aparece lá dentro do `global-setup`.
 
-- [ ] 8.7 [sisub] **Decidir o destino das 3 specs órfãs** — `apps/sisub/package.json:22`.
+- [x] 8.7 [sisub] **Decidir o destino das 3 specs órfãs** — `apps/sisub/package.json:22`.
+  > Revisão 2026-09-20: **feita** — `budget.spec.ts`/`storage.spec.ts` perderam o default `"1"` e viram skip explícito sem `E2E_BUDGET_UNIT_ID`/`E2E_STORAGE_KITCHEN_ID`, que entraram no `turbo.json`. Ficam fora do `test:e2e:ci` e rodam no `test:e2e`.
   `test:e2e:ci` roda 4 das 7 specs (smoke, auth, navigation, authz). `budget.spec.ts`,
   `storage.spec.ts` e `recipe-form.spec.ts` não rodam em nenhum script de CI. As duas
   primeiras leem `E2E_BUDGET_UNIT_ID` / `E2E_STORAGE_KITCHEN_ID` com default `"1"`, e essas

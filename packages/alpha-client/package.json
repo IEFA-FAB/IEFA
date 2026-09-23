@@ -7,14 +7,9 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./access": "./src/access.ts",
-    "./llm": "./src/llm.ts",
-    "./tracer": "./src/tracer.ts"
+    "./access": "./src/access.ts"
   },
   "dependencies": {
-    "@langchain/core": "^1.2.9",
-    "@langchain/openai": "^1.5.11",
     "zod": "^4.5.4"
   },
   "devDependencies": {

@@ -74,6 +74,14 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// Treino não concede nenhum módulo `alpha-*`, e o α recusa a unidade de treino como OM de
 	// envio, então o treinando do sisub não gera linha aqui.
 	"alpha.submission": "documento de contratação real enviado ao Projeto α (ETP/TR), não dado gerado pelo treinamento do sisub",
+	// `kitchen.menu_group_set` saiu daqui neste PR: ela entrou no RESET_STEPS, depois de
+	// `kitchen.meal_type` (que a referencia).
+	// `inventory.opening_balance` — migration 20260922100000 (carga de abertura, tarefas 2.12–2.14
+	// do change sisub-inventory-operations). Declarada antes de aplicada, pela ordem acima. O PR
+	// do recurso a TIRA daqui e a põe no RESET_STEPS antes de `stock_movement` e `stock_lot`: a
+	// linha da carga referencia o lote e o movimento que ela criou, então apagá-la depois deles
+	// cairia por FK. `opening_balance_item` não tem coluna de escopo e sai por cascade.
+	"inventory.opening_balance": "declarada antes da migration 20260922100000; entra no reset junto com o PR do recurso",
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */

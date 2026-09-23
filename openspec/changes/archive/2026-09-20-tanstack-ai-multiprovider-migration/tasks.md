@@ -72,6 +72,6 @@
 
 - [x] 6.1 [sisub] Remover `@langchain/openai` e `@langchain/core` do `package.json`
 - [x] 6.2 [sisub] Remover arquivos obsoletos: `analytics-chat.stream.ts`, `useChatSession.ts`, helpers SSE manuais
-- [ ] 6.3 [alpha-client] Deprecar `packages/alpha-client` — **VIVA, e só metade andou**: `src/llm.ts` já é código morto (nenhum importador de `@iefa/alpha-client/llm`; o α passou para `@iefa/ai-provider/langchain-compat` em `apps/alpha/src/lib/llm.ts:1`), mas o pacote continua vivo por `createRunCollector` de `src/tracer.ts`, importado em `apps/alpha/src/api/routes.ts:2`. Falta: absorver/mover o `tracer.ts`, apagar `llm.ts` e as deps `@langchain/openai`/`@langchain/core` de `packages/alpha-client/package.json`, e então tirar o pacote de `knip.json:68`, do `Dockerfile` (linhas 30 e 327) e de `.github/paths-filter.yml:147`.
+- [x] 6.3 [alpha-client] Deprecar a parte de LLM de `packages/alpha-client` — **feito, com escopo corrigido**: `src/llm.ts` e `src/index.ts` apagados, deps `@langchain/openai`/`@langchain/core` removidas, `tracer.ts` movido para `apps/alpha/src/lib/run-collector.ts` (único consumidor). O pacote **não** foi apagado: desde o #392 ele é o contrato de acesso α↔contrate (`@iefa/alpha-client/access`, 20+ importadores no `contrate`) e passou a exportar só esse subpath. Por isso seguem no `Dockerfile` e no `paths-filter.yml`; a entrada do `knip.json` saiu porque os `exports` já a cobrem.
 - [x] 6.4 [sucont] Limpar deps não usadas
 - [x] 6.5 [root] `bun run check` — Biome format + lint + typecheck

@@ -2,8 +2,7 @@
  * Contrato de `GET /api/v1/me/access` do Projeto α — o perfil do usuário, para a interface
  * não oferecer o que vai devolver 403. A regra mora no α; o cliente só lê o resultado.
  *
- * Subpath próprio (`@iefa/alpha-client/access`) para quem só precisa do contrato não puxar o
- * LangChain do índice do pacote.
+ * Único subpath do pacote: o contrato de acesso que o α publica e o contrate consome.
  *
  * ## Papéis por OM
  *

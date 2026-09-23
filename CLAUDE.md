@@ -32,7 +32,7 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 | `agent-web` | Camada agent-ready dos apps web (negociação de Markdown, llms.txt, descoberta) |
 | `compras-api` | Client gerado da API do Compras.gov |
 | `hono-client` | Client RPC tipado do `apps/api` |
-| `alpha-client` | Client do `apps/alpha` |
+| `alpha-client` | Contrato de acesso do `apps/alpha` (`/access`), consumido pelo `contrate` |
 | `tsconfig` | Bases de tsconfig (`base`, `library`, `react-app`, `bun-service`) |
 
 ## Conventions
