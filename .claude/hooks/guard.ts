@@ -15,17 +15,33 @@ type HookInput = {
 const input: HookInput = await Bun.stdin.json().catch(() => ({}));
 const projectDir = process.env.CLAUDE_PROJECT_DIR ?? input.cwd ?? process.cwd();
 
-function deny(reason: string): never {
+function decide(permissionDecision: "deny" | "ask", reason: string): never {
 	console.log(
 		JSON.stringify({
-			hookSpecificOutput: {
-				hookEventName: "PreToolUse",
-				permissionDecision: "deny",
-				permissionDecisionReason: reason,
-			},
+			hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision, permissionDecisionReason: reason },
 		}),
 	);
 	process.exit(0);
+}
+const deny = (reason: string) => decide("deny", reason);
+
+// Flags curtas do `git commit` que recebem valor colado (`-mmsg`, `-uno`, `-S<keyid>`): o que
+// vem depois delas no mesmo token é valor, não outra flag.
+const COMMIT_VALUE_FLAGS = new Set(["m", "F", "C", "c", "t", "u", "S"]);
+function skipsCommitHooks(segment: string): boolean {
+	const tokens = segment.trim().split(/\s+/);
+	const git = tokens.indexOf("git");
+	const at = git < 0 ? -1 : tokens.indexOf("commit", git + 1); // cobre `git -C <dir> commit`
+	if (at < 0) return false;
+	for (const token of tokens.slice(at + 1)) {
+		if (token === "--no-verify") return true;
+		if (!/^-[a-zA-Z]/.test(token)) continue;
+		for (const flag of token.slice(1)) {
+			if (flag === "n") return true;
+			if (COMMIT_VALUE_FLAGS.has(flag)) break;
+		}
+	}
+	return false;
 }
 
 const GENERATED: Array<[RegExp, string]> = [
@@ -61,14 +77,17 @@ if (tool === "Bash") {
 		.replace(/<<-?\s*(['"]?)(\w+)\1[^\n]*\n[\s\S]*?\n\s*\2(?=\s|$)/g, "")
 		.replace(/"(?:\\.|[^"\\])*"/g, '""')
 		.replace(/'[^']*'/g, "''");
-	const segments = cmd.split(/&&|\|\||;|\n/);
+	const segments = cmd.split(/&&|\|\||[;|\n]/);
 
+	// `ask`, não `deny`: o push direto é exceção que o mantenedor autoriza caso a caso, e o
+	// pedido de confirmação é exatamente esse caso a caso. O agente não tem como aprovar sozinho.
 	if (segments.some((s) => /\bgit\s+push\b/.test(s) && /(\s|:|\+)(refs\/heads\/)?main(\s|$)/.test(s))) {
-		deny(
+		decide(
+			"ask",
 			"Push direto na main é exceção que só o mantenedor autoriza, caso a caso (AGENTS.md > Workflow). Abra PR a partir de uma branch.",
 		);
 	}
-	if (segments.some((s) => /\bgit\s+commit\b.*(\s--no-verify\b|\s-[a-zA-Z]*n[a-zA-Z]*(\s|$))/.test(s))) {
+	if (segments.some(skipsCommitHooks)) {
 		deny(
 			"Commit sem hooks pula commitlint e gitleaks. Corrija a mensagem ou o achado; falso positivo do gitleaks vai para .gitleaks.toml.",
 		);

@@ -8,9 +8,10 @@ o que depende do harness do Claude Code. -->
 - **Regras por área** ficam em `.claude/rules/` com `paths:` no frontmatter; carregam quando você lê
   um arquivo daquela área. Regra nova de área vai para lá, não para este arquivo.
 - **Hooks do projeto** (`.claude/settings.json`, scripts em `.claude/hooks/`):
-  - `guard.ts` recusa editar arquivo gerado, push na `main`, commit com `--no-verify`, vitest da
-    raiz, `supabase db reset` remoto e `migration repair --status reverted`. Se ele recusar, siga o
-    caminho que a mensagem indica, sem contornar.
+  - `guard.ts` recusa editar arquivo gerado, commit com `--no-verify`, vitest da raiz,
+    `supabase db reset` remoto e `migration repair --status reverted`, e pede confirmação humana
+    para push na `main`. Se ele recusar, siga o caminho que a mensagem indica, sem contornar.
+    Casos em `guard.test.ts` (`bun test ./.claude/hooks/guard.test.ts`).
   - `format.ts` formata e organiza os imports do arquivo editado. O lint continua sendo
     `bun run lint`.
   - `session-start.ts` avisa quando falta `node_modules` ou a sessão está na `main`.
