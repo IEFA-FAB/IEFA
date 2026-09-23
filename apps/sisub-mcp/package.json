@@ -18,7 +18,7 @@
     "@supabase/supabase-js": "^2.116.0",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.9",
-    "zod": "^4.5.4"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",

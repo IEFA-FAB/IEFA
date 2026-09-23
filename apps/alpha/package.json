@@ -27,17 +27,17 @@
     "@iefa/pbac": "workspace:*",
     "@iefa/supabase-kit": "workspace:*",
     "@langchain/aws": "^1.4.5",
-    "@langchain/core": "^1.2.9",
+    "@langchain/core": "^1.2.11",
     "@langchain/langgraph": "^1.4.14",
     "@langchain/langgraph-checkpoint-postgres": "^1.0.5",
-    "@langchain/openai": "^1.5.11",
+    "@langchain/openai": "^1.5.13",
     "@supabase/supabase-js": "^2.116.0",
     "fflate": "^0.8.3",
     "hono": "^4.13.7",
     "pg": "^8.23.0",
     "unpdf": "^1.8.1",
     "uuid": "^14.0.2",
-    "zod": "^4.5.4"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
