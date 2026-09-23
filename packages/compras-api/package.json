@@ -10,7 +10,7 @@
     "./query": "./src/query.ts"
   },
   "scripts": {
-    "generate": "bunx -p typescript@5 -p openapi-typescript@7 openapi-typescript ./openapi.json -o ./src/types.gen.ts",
+    "generate": "bun --filter @iefa/compras-api-codegen generate",
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
     "typecheck": "tsc --noEmit"
   },

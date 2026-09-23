@@ -29,7 +29,7 @@
  */
 
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs"
-import { join } from "node:path"
+import { basename, dirname, join, sep } from "node:path"
 import { FORCED, type Forced, parseLock } from "./lock-registry"
 
 export interface Edge {
@@ -50,6 +50,8 @@ type PackageJson = {
 	devDependencies?: Record<string, string>
 	peerDependencies?: Record<string, string>
 	peerDependenciesMeta?: Record<string, { optional?: boolean }>
+	optionalDependencies?: Record<string, string>
+	overrides?: Record<string, string>
 	workspaces?: string[] | { packages?: string[] }
 }
 
@@ -66,14 +68,38 @@ function readPackageJson(dir: string): PackageJson | undefined {
  * `file:`), atalho de repositório (`owner/repo#tag`) e dist-tag (`latest`) — `Bun.semver`
  * responde `true` para `latest` e para `owner/repo#v1`, e contar isso como conferido seria mentir.
  */
+const COMPARATOR = /^(?:\^|~|>=|<=|>|<|=)?v?(?:\d+|[xX*])(?:\.(?:\d+|[xX*])){0,2}(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
+
 export function isCheckableRange(range: string): boolean {
 	const trimmed = range.trim()
-	if (trimmed === "*" || /^[xX]$/.test(trimmed)) return true
-	if (/[/#:]/.test(trimmed)) return false
-	return /\d/.test(trimmed)
+	if (trimmed === "") return false
+	// Cada alternativa (`||`) é uma sequência de comparadores; ` - ` é faixa por hífen. Token que
+	// não é comparador — `ts5.0`, `next-15`, `canary-2`, protocolo, `owner/repo#tag` — derruba
+	// a faixa inteira: tratar como conferida seria contar como checado o que ninguém checou.
+	return trimmed.split("||").every((alternative) => {
+		const tokens = alternative.trim().split(/\s+/).filter(Boolean)
+		return tokens.length > 0 && tokens.every((token, i) => (token === "-" ? i > 0 && i < tokens.length - 1 : COMPARATOR.test(token)))
+	})
 }
 
-/** Versão do pacote que `from/node_modules/<dep>` (ou o primeiro ancestral que o tenha) instala. */
+/**
+ * Os `node_modules` que o Node consulta a partir do diretório REAL de um pacote, na ordem: o
+ * aninhado do próprio pacote (bundledDependencies), o da variante, o `.bun/node_modules` de
+ * fallback da loja e o da raiz. Parar na variante acusava como "não instalada" a dependência
+ * empacotada, e deixava passar o peer que o Node carrega de um ancestral.
+ */
+export function buildNodeSearchPath(realPackageDir: string, stopAt: string): string[] {
+	const dirs: string[] = []
+	let dir = realPackageDir
+	for (;;) {
+		dirs.push(basename(dir) === "node_modules" ? dir : join(dir, "node_modules"))
+		if (dir === stopAt || dir === dirname(dir)) break
+		dir = dirname(dir)
+	}
+	return [...new Set(dirs)]
+}
+
+/** Versão que o primeiro `node_modules` do caminho de busca instala para `dep`. */
 function readInstalledVersion(searchDirs: readonly string[], dep: string): string | undefined {
 	for (const dir of searchDirs) {
 		const link = join(dir, dep)
@@ -90,21 +116,24 @@ function collectDeclared(pkg: PackageJson, includeDev: boolean): Array<Pick<Edge
 			.map(([name]) => name)
 	)
 	const out: Array<Pick<Edge, "dep" | "range" | "kind">> = []
+	// Pela regra do npm, o nome que também está em `optionalDependencies` é opcional — e o linker
+	// pode nem instalá-lo nesta plataforma.
+	const optional = new Set(Object.keys(pkg.optionalDependencies ?? {}))
 	const deps = { ...pkg.dependencies, ...(includeDev ? pkg.devDependencies : {}) }
-	for (const [dep, range] of Object.entries(deps)) out.push({ dep, range, kind: "dependência" })
+	for (const [dep, range] of Object.entries(deps)) if (!optional.has(dep)) out.push({ dep, range, kind: "dependência" })
 	for (const [dep, range] of Object.entries(pkg.peerDependencies ?? {})) {
 		if (!optionalPeers.has(dep)) out.push({ dep, range, kind: "peer" })
 	}
 	return out.filter((e) => isCheckableRange(e.range))
 }
 
-/** Diretórios de workspace (relativos à raiz) que têm `package.json` com nome. */
+/** Diretórios de workspace relativos à raiz — `""` é a própria raiz — com `package.json` nomeado. */
 function listWorkspaceDirs(root: string): string[] {
 	const rootPkg = readPackageJson(root)
 	const patterns = Array.isArray(rootPkg?.workspaces) ? rootPkg.workspaces : (rootPkg?.workspaces?.packages ?? [])
-	return patterns.flatMap((pattern) =>
-		[...new Bun.Glob(pattern).scanSync({ cwd: root, onlyFiles: false })].filter((dir) => readPackageJson(join(root, dir))?.name)
-	)
+	// A raiz também declara dependências (turbo, biome, knip…) e também pode sair da faixa.
+	const dirs = patterns.flatMap((pattern) => [...new Bun.Glob(pattern).scanSync({ cwd: root, onlyFiles: false })])
+	return ["", ...dirs].filter((dir) => readPackageJson(join(root, dir))?.name)
 }
 
 /** Nomes das entradas de um `node_modules`, com o escopo contando como UM nome (`@a/b`). */
@@ -128,9 +157,13 @@ function findContainingNodeModules(packageDir: string, name: string): string {
  * pacote que já nem está no lock — e gate que dá falso positivo local é gate que se aprende a
  * ignorar. No CI a instalação é limpa; isto é para ele valer igual fora dele.
  */
-export function collectReachable(entryNodeModules: readonly string[]): Set<string> {
+export function collectReachable(entryNodeModules: readonly string[], store: string): Set<string> {
 	const reachable = new Set<string>()
-	const queue: string[] = []
+	const queue: Array<[string, string]> = []
+	// Só pacote DA LOJA é atravessado. Workspace ligado na raiz (`@iefa/x` → `packages/x`) já é
+	// ponto de entrada pelo próprio node_modules; subir a partir dele listaria a raiz do repo como
+	// se fosse pasta de módulos.
+	const insideStore = (real: string) => real.startsWith(store + sep)
 	const enqueueFrom = (nodeModules: string) => {
 		if (!existsSync(nodeModules)) return
 		for (const name of listModuleNames(nodeModules)) {
@@ -142,13 +175,12 @@ export function collectReachable(entryNodeModules: readonly string[]): Set<strin
 			}
 			if (reachable.has(real)) continue
 			reachable.add(real)
-			queue.push(real, name)
+			if (insideStore(real)) queue.push([real, name])
 		}
 	}
 	for (const nm of entryNodeModules) enqueueFrom(nm)
-	while (queue.length > 0) {
-		const real = queue.shift() as string
-		const name = queue.shift() as string
+	for (let i = 0; i < queue.length; i++) {
+		const [real, name] = queue[i] as [string, string]
 		enqueueFrom(findContainingNodeModules(real, name))
 	}
 	return reachable
@@ -162,7 +194,9 @@ export function readLockedVersions(lockText: string): Map<string, Set<string>> {
 	const locked = new Map<string, Set<string>>()
 	for (const entry of Object.values(parseLock(lockText).packages)) {
 		const spec = entry[0]
-		const at = spec.lastIndexOf("@")
+		// O separador é o PRIMEIRO `@` depois do início (o do escopo é o índice 0). `lastIndexOf`
+		// cortava `pkg@git+ssh://git@github.com/...` no `@` da URL.
+		const at = spec.indexOf("@", 1)
 		if (at <= 0) continue
 		const name = spec.slice(0, at)
 		const version = spec.slice(at + 1)
@@ -186,9 +220,13 @@ function isLocked(locked: Map<string, Set<string>>, name: string, version: strin
 export function collectInstalledEdges(root: string, locked?: Map<string, Set<string>>): { edges: Edge[]; stale: string[] } {
 	const edges: Edge[] = []
 	const stale: string[] = []
+	const realRoot = realpathSync(root)
 	const store = join(root, "node_modules/.bun")
 	const workspaceDirs = listWorkspaceDirs(root)
-	const reachable = collectReachable([join(root, "node_modules"), ...workspaceDirs.map((dir) => join(root, dir, "node_modules"))])
+	const reachable = collectReachable(
+		workspaceDirs.map((dir) => join(root, dir, "node_modules")),
+		existsSync(store) ? realpathSync(store) : store
+	)
 
 	if (existsSync(store)) {
 		for (const variant of readdirSync(store)) {
@@ -204,17 +242,18 @@ export function collectInstalledEdges(root: string, locked?: Map<string, Set<str
 				stale.push(`${owner}@${pkg.version}`)
 				continue
 			}
+			const searchPath = buildNodeSearchPath(realpathSync(join(nodeModules, owner)), realRoot)
 			for (const declared of collectDeclared(pkg, false)) {
-				edges.push({ owner, ownerVersion: pkg.version ?? "?", ...declared, installed: readInstalledVersion([nodeModules], declared.dep) })
+				edges.push({ owner, ownerVersion: pkg.version ?? "?", ...declared, installed: readInstalledVersion(searchPath, declared.dep) })
 			}
 		}
 	}
 
-	// Workspaces: o app enxerga o próprio node_modules e, acima dele, o da raiz.
+	// Workspaces (a raiz inclusive): o Node sobe do diretório deles até a raiz.
 	for (const dir of workspaceDirs) {
 		const pkg = readPackageJson(join(root, dir))
 		if (!pkg?.name) continue
-		const searchDirs = [join(root, dir, "node_modules"), join(root, "node_modules")]
+		const searchDirs = buildNodeSearchPath(join(realRoot, dir), realRoot)
 		for (const declared of collectDeclared(pkg, true)) {
 			edges.push({ owner: pkg.name, ownerVersion: "workspace", ...declared, installed: readInstalledVersion(searchDirs, declared.dep) })
 		}
@@ -235,7 +274,13 @@ function buildEdgeKey(e: Edge): string {
 	return `${e.owner}@${e.ownerVersion}|${e.dep}|${e.range}|${e.kind}|${e.installed ?? ""}`
 }
 
-export function judgeEdges(edges: readonly Edge[], forced: Record<string, Forced> = FORCED): Verdict {
+/**
+ * `overrides` é o da raiz. Isenção de FORCED vale só enquanto o instalado é o que o override
+ * força: se o lock regredir para a faixa vulnerável que o override existe para evitar (o
+ * `esbuild ~0.18` do GHSA-67mh), a aresta continua fora da faixa do consumidor mas deixa de ser
+ * a exceção declarada — e falha.
+ */
+export function judgeEdges(edges: readonly Edge[], forced: Record<string, Forced> = FORCED, overrides: Record<string, string> = {}): Verdict {
 	const violations: Edge[] = []
 	const forcedHits: Edge[] = []
 	const seen = new Set<string>()
@@ -251,7 +296,9 @@ export function judgeEdges(edges: readonly Edge[], forced: Record<string, Forced
 		if (!outOfRange) continue
 
 		const exemption = Object.hasOwn(forced, edge.dep) ? forced[edge.dep] : undefined
-		if (exemption?.consumers.includes(edge.owner)) {
+		const overrideSpec = Object.hasOwn(overrides, edge.dep) ? overrides[edge.dep] : undefined
+		const isOverrideTarget = overrideSpec === undefined || (edge.installed !== undefined && Bun.semver.satisfies(edge.installed, overrideSpec))
+		if (exemption?.consumers.includes(edge.owner) && isOverrideTarget) {
 			forcedHits.push(edge)
 			usedExemptions.add(`${edge.dep} ← ${edge.owner}`)
 		} else {
@@ -282,9 +329,19 @@ if (import.meta.main) {
 
 	const locked = readLockedVersions(await Bun.file(join(root, "bun.lock")).text())
 	const { edges, stale } = collectInstalledEdges(root, locked)
-	const { violations, forced, deadConsumers } = judgeEdges(edges)
+	const rootOverrides = readPackageJson(root)?.overrides ?? {}
+	const { violations, forced, deadConsumers } = judgeEdges(edges, FORCED, rootOverrides)
+	// No CI a instalação é sempre limpa: sobra fora do lock ali não é resto de install, é erro de
+	// leitura — um pacote inteiro saindo do julgamento em silêncio.
+	const staleIsFatal = process.env.CI === "true"
 
-	if (stale.length > 0) {
+	if (stale.length > 0 && staleIsFatal) {
+		console.error(
+			`\n❌ ${stale.length} pacote(s) instalado(s) que o bun.lock não tem, numa instalação limpa — ficariam sem julgamento:\n` +
+				stale.map((p) => `    ${p}`).join("\n") +
+				"\n    Se é git/tarball, o parse do spec do lock errou o nome; corrija readLockedVersions.\n"
+		)
+	} else if (stale.length > 0) {
 		console.warn(
 			`⚠️  ${stale.length} pacote(s) instalado(s) que o bun.lock não tem — sobra de install incremental, fora do julgamento:` +
 				`\n${stale.map((p) => `    ${p}`).join("\n")}` +
@@ -309,7 +366,7 @@ if (import.meta.main) {
 		console.error("")
 	}
 
-	if (violations.length > 0 || deadConsumers.length > 0) process.exit(1)
+	if (violations.length > 0 || deadConsumers.length > 0 || (staleIsFatal && stale.length > 0)) process.exit(1)
 
 	console.log(
 		`✅ ${new Set(edges.map(buildEdgeKey)).size} arestas instaladas — toda dependência e peer obrigatório dentro da faixa` +
