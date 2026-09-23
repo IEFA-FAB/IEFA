@@ -365,6 +365,7 @@ export {
 	updateMealType,
 } from "./meal-types.ts"
 export {
+	assertItemGroupsInSet,
 	createMenuGroupSet,
 	deleteMenuGroupSet,
 	fetchMenuGroupSets,

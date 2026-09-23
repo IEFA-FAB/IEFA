@@ -45,6 +45,7 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
 import { resolveItemDemand } from "./demand-math.ts"
+import { assertItemGroupsInSet } from "./menu-groups.ts"
 import { fetchTemplateMealsSafe, type TemplateMealRow } from "./template-meals.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
@@ -381,6 +382,13 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
 
 		if (items.length > 0) {
+			// `update_template` e `create_template` são tools de MCP, e o vocabulário de
+			// grupo deixou de estar no schema que o modelo lê: sem isto ele inventa uma
+			// chave plausível e o item nasce fora do conjunto da refeição.
+			await assertItemGroupsInSet(
+				tx,
+				items.map((i) => ({ mealTypeId: i.mealTypeId, itemGroup: i.itemGroup }))
+			)
 			await runQuery("INSERT_ITEMS_FAILED", () =>
 				tx
 					.insert(menuTemplateItemsInKitchen)
@@ -592,6 +600,10 @@ async function applyTemplateContent(tx: TemplateTx, templateId: string, input: U
 				.then(() => undefined)
 		)
 		if (newItems.length > 0) {
+			await assertItemGroupsInSet(
+				tx,
+				newItems.map((i) => ({ mealTypeId: i.mealTypeId, itemGroup: i.itemGroup }))
+			)
 			await runQuery("INSERT_ITEMS_FAILED", () =>
 				tx
 					.insert(menuTemplateItemsInKitchen)

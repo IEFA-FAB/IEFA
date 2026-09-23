@@ -63,13 +63,18 @@ function GroupSetEditor({
 		setGroups(next)
 	}
 
+	// Linha com rótulo em branco NÃO é "ignore esta linha": como `groups` é
+	// substituição destrutiva, ela sairia do conjunto levando junto a classificação
+	// de todo item que estava nela — com a linha ainda visível na tela e o botão de
+	// salvar habilitado. Remover é pelo X, que é explícito.
+	const hasBlank = groups.some((g) => g.label.trim() === "")
 	const filled = groups.filter((g) => g.label.trim() !== "")
 	// A chave é derivada do rótulo só quando o grupo é NOVO. Regerar a chave de um
 	// grupo existente ao renomear o rótulo desclassificaria o cardápio inteiro
 	// daquela coluna — o item ficaria apontando para uma chave que sumiu.
 	const payloadGroups = filled.map((g) => ({ key: g.key || slugify(g.label), label: g.label.trim() }))
 	const duplicateKey = payloadGroups.find((g, i) => payloadGroups.findIndex((o) => o.key === g.key) !== i)
-	const canSave = name.trim().length > 0 && payloadGroups.length > 0 && !duplicateKey
+	const canSave = name.trim().length > 0 && payloadGroups.length > 0 && !duplicateKey && !hasBlank
 
 	const submit = () => {
 		if (!canSave) return
@@ -127,6 +132,7 @@ function GroupSetEditor({
 					<Plus className="size-3.5" />
 					Adicionar grupo
 				</Button>
+				{hasBlank && <p className="text-sm text-destructive">Dê um nome ao grupo em branco, ou remova a linha no ✕.</p>}
 				{duplicateKey && <p className="text-sm text-destructive">Dois grupos com o mesmo nome técnico ({duplicateKey.key}). Mude um dos rótulos.</p>}
 				{isEditing && (
 					<p className="text-xs text-muted-foreground">

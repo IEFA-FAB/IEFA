@@ -39,9 +39,12 @@ describe("isMainDish", () => {
 		for (const g of ["acompanhamento", "guarnicao", "bebida", "sobremesa", null, undefined]) expect(isMainDish(g)).toBe(false)
 	})
 
-	test("na ceia o destaque é o lanche — ela não tem prato principal", () => {
+	test("o destaque acompanha o conjunto: lanche na ceia, proteína no café", () => {
+		// `proteina` é onde a migration pôs os ovos e frios que estavam em
+		// `prato_principal`: sem ela, a linha do café sai sem nenhum destaque.
 		expect(isMainDish("lanche")).toBe(true)
-		for (const g of ["complemento", "fruta", "pao", "proteina", "salada"]) expect(isMainDish(g)).toBe(false)
+		expect(isMainDish("proteina")).toBe(true)
+		for (const g of ["complemento", "fruta", "pao", "salada"]) expect(isMainDish(g)).toBe(false)
 	})
 })
 

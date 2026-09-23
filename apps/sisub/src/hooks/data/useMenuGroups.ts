@@ -35,7 +35,7 @@ type MealTypeLike = { id: string; group_set_id?: string | null }
  * que é exatamente o tipo de tela que mente calada.
  */
 export function useMealTypeGroups(kitchenId: number | null, mealTypes: MealTypeLike[] | undefined) {
-	const { data: sets } = useMenuGroupSets(kitchenId)
+	const { data: sets, isError } = useMenuGroupSets(kitchenId)
 
 	return useMemo(() => {
 		const byId = new Map((sets ?? []).map((s) => [s.id, s.groups.map((g): MenuGroup => ({ key: g.key, label: g.label }))]))
@@ -61,8 +61,12 @@ export function useMealTypeGroups(kitchenId: number | null, mealTypes: MealTypeL
 		}
 		const allGroups: MenuGroup[] = [...labelByKey].map(([key, label]) => ({ key, label }))
 
-		return { sets: sets ?? [], groupsFor, allGroups }
-	}, [sets, mealTypes])
+		// `isError` sobe junto porque o fallback é indistinguível de um conjunto de
+		// verdade: com a busca falhada, TODA refeição ganha as colunas do almoço, os
+		// itens do café viram órfãos na tela e o "Adicionar" arquiva prato novo em
+		// `salada`. Quem renderiza precisa poder dizer isso ao usuário.
+		return { sets: sets ?? [], groupsFor, allGroups, isError }
+	}, [sets, mealTypes, isError])
 }
 
 export function useCreateMenuGroupSet() {

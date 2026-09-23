@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { CheckCircle2, Circle, ClipboardPaste, ListChecks, Loader2, Plus, Printer, Save } from "lucide-react"
+import { AlertCircle, CheckCircle2, Circle, ClipboardPaste, ListChecks, Loader2, Plus, Printer, Save } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
@@ -10,6 +10,7 @@ import { RecipeSelector } from "@/components/features/local/planning/RecipeSelec
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -155,7 +156,7 @@ function GlobalPlanEditorPage() {
 
 	// Conjunto de grupos de cada refeição genérica: as colunas do board do plano
 	// global são as mesmas que a cozinha vai ver depois de adotar o plano.
-	const { groupsFor } = useMealTypeGroups(null, mealTypes)
+	const { groupsFor, isError: groupsFailed } = useMealTypeGroups(null, mealTypes)
 
 	// Receitas globais (kitchenId=null → tudo com kitchen_id=null)
 	const { data: allRecipes } = useRecipes()
@@ -428,6 +429,17 @@ function GlobalPlanEditorPage() {
 						</Button>
 					</div>
 				</PageHeader>
+
+				{groupsFailed && (
+					<Alert variant="destructive">
+						<AlertCircle className="size-4" />
+						<AlertTitle>Grupos do cardápio não carregaram</AlertTitle>
+						<AlertDescription>
+							As colunas abaixo são as do conjunto padrão, não as de cada refeição: no café e na ceia elas estão erradas, e a preparação que você adicionar
+							entra no grupo errado. Recarregue a página antes de mexer no plano.
+						</AlertDescription>
+					</Alert>
+				)}
 
 				<div className="space-y-6">
 					{/* Metadata */}

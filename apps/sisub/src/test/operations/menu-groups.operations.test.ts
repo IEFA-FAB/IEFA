@@ -11,6 +11,7 @@
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
+	assertItemGroupsInSet,
 	createMenuGroupSet,
 	DEFAULT_GROUP_SET_SLUG,
 	DEFAULT_MENU_GROUP_SETS,
@@ -120,6 +121,27 @@ describeSupabaseIntegration("menu group set operations (regressão)", () => {
 			],
 		})
 		expect(replaced.groups.map((g) => g.key)).toEqual(["salada", "sopa"])
+	})
+
+	test("grupo fora do conjunto da refeição é recusado na escrita, com as chaves válidas no erro", async () => {
+		if (!reachable || !seeder || !db) return
+		const { id: kitchenId } = await seeder.seedKitchen()
+		const created = await createMenuGroupSet(db, ctx, {
+			name: uid("[TEST] Conjunto "),
+			kitchenId,
+			groups: [{ key: "sopa", label: "Sopa" }],
+		})
+		seeder.track("menu_group_set", created.id)
+		const mealTypeId = await seeder.seedMealType({ kitchenId })
+		await updateMealType(db, ctx, { mealTypeId, groupSetId: created.id })
+
+		// É a checagem que substitui o CHECK derrubado. Ela importa sobretudo para o
+		// modelo: `add_menu_item` e `update_template` são tools de MCP e o schema que
+		// ele lê deixou de enumerar os valores — a mensagem tem que dizer quais valem.
+		await expect(assertItemGroupsInSet(db, [{ mealTypeId, itemGroup: "prato_principal" }])).rejects.toThrow(/sopa/)
+		await assertItemGroupsInSet(db, [{ mealTypeId, itemGroup: "sopa" }])
+		// Sem grupo não é grupo inválido: item legado continua podendo ser escrito.
+		await assertItemGroupsInSet(db, [{ mealTypeId, itemGroup: null }])
 	})
 
 	test("deleteMenuGroupSet recusa conjunto em uso por uma refeição", async () => {

@@ -8,11 +8,13 @@ import { ALLERGEN_LABELS, normalizeAllergens, type RecipeIngredientDigest } from
 /**
  * Grupos que saem em negrito na grade impressa — o prato que dá nome à refeição.
  *
- * São dois porque nem toda refeição tem "prato principal": no conjunto da ceia o
- * item que faz esse papel é o `lanche` (salgado assado, pão com frios). Sem ele
- * a folha da ceia sairia inteira em peso normal.
+ * São três porque nem toda refeição tem "prato principal": na ceia esse papel é
+ * do `lanche` (salgado assado, pão com frios) e no café é da `proteina` (ovos e
+ * frios) — que é exatamente o que estava em `prato_principal` antes de a
+ * migration remapear o café. Sem os dois, a linha daquela refeição sai inteira
+ * em peso normal e a folha perde a hierarquia de leitura.
  */
-const MAIN_DISH_GROUPS = new Set(["prato_principal", "lanche"])
+const MAIN_DISH_GROUPS = new Set(["prato_principal", "lanche", "proteina"])
 
 /** O prato principal sai em negrito na grade; os demais grupos, em peso normal. */
 export function isMainDish(group: string | null | undefined): boolean {

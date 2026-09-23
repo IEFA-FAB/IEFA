@@ -1,6 +1,6 @@
 import type { EditScope } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { Check, CheckCircle2, Circle, ClipboardPaste, GitFork, ListChecks, Loader2, Percent, Plus, Printer, Save, Users } from "lucide-react"
+import { AlertCircle, Check, CheckCircle2, Circle, ClipboardPaste, GitFork, ListChecks, Loader2, Percent, Plus, Printer, Save, Users } from "lucide-react"
 import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, type DemandType, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
@@ -230,7 +230,7 @@ function WeeklyMenuEditorPage() {
 	const { data: mealTypes } = useMealTypes(kitchenId)
 	// Colunas do board saem do conjunto de grupos DA refeição (café tem pães, o
 	// almoço tem salada) — não mais de uma lista fixa igual para todas.
-	const { groupsFor } = useMealTypeGroups(kitchenId, mealTypes)
+	const { groupsFor, isError: groupsFailed } = useMealTypeGroups(kitchenId, mealTypes)
 	// Catálogo global + as preparações DESTA cozinha. Sem o escopo, a listagem volta só com
 	// as globais e a cozinha não enxergava as próprias preparações no cardápio.
 	const { data: allRecipes } = useRecipes({ kitchen_id: kitchenId })
@@ -703,6 +703,17 @@ function WeeklyMenuEditorPage() {
 						</Button>
 					</div>
 				</PageHeader>
+
+				{groupsFailed && (
+					<Alert variant="destructive">
+						<AlertCircle className="size-4" />
+						<AlertTitle>Grupos do cardápio não carregaram</AlertTitle>
+						<AlertDescription>
+							As colunas abaixo são as do conjunto padrão, não as de cada refeição: no café e na ceia elas estão erradas, e a preparação que você adicionar
+							entra no grupo errado. Recarregue a página antes de mexer no cardápio.
+						</AlertDescription>
+					</Alert>
+				)}
 
 				{willFork && (
 					<Alert>

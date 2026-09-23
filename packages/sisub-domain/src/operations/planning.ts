@@ -31,6 +31,7 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 import { resolveItemDemand } from "./demand-math.ts"
+import { assertItemGroupsInSet } from "./menu-groups.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
@@ -132,6 +133,25 @@ export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: Upse
 }
 
 /** Próxima posição livre no fim de um grupo dentro do cardápio do dia (itens ativos). */
+/** Refeição de um cardápio do dia — para validar o grupo contra o conjunto dela. */
+async function mealTypeOfMenu(db: SisubDb, dailyMenuId: string): Promise<string | null> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.dailyMenuInKitchen.findFirst({ columns: { mealTypeId: true }, where: eq(dailyMenuInKitchen.id, dailyMenuId) })
+	)
+	return row?.mealTypeId ?? null
+}
+
+async function mealTypeOfMenuItem(db: SisubDb, menuItemId: string): Promise<string | null> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.menuItemsInKitchen.findFirst({
+			columns: { id: true },
+			with: { dailyMenuInKitchen: { columns: { mealTypeId: true } } },
+			where: eq(menuItemsInKitchen.id, menuItemId),
+		})
+	)
+	return row?.dailyMenuInKitchen?.mealTypeId ?? null
+}
+
 async function nextSortOrder(db: SisubDb, dailyMenuId: string, itemGroup: string | null): Promise<number> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.menuItemsInKitchen.findMany({
@@ -176,6 +196,9 @@ export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuI
 	const recipeSnapshot = toWire<Record<string, unknown>>(recipe, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
 
 	const itemGroup = input.itemGroup ?? null
+	// O CHECK de item_group saiu do banco e `add_menu_item` é tool de MCP: sem isto
+	// o modelo grava uma chave que nenhum conjunto tem e o item nasce órfão.
+	if (itemGroup) await assertItemGroupsInSet(db, [{ mealTypeId: await mealTypeOfMenu(db, input.dailyMenuId), itemGroup }])
 	// Sem sortOrder explícito → posiciona no fim do grupo dentro do cardápio.
 	const sortOrder = input.sortOrder ?? (await nextSortOrder(db, input.dailyMenuId, itemGroup))
 
@@ -222,6 +245,7 @@ export async function updateMenuItem(db: SisubDb, ctx: UserContext, input: Updat
 	}
 
 	if (input.itemGroup !== undefined) {
+		if (input.itemGroup) await assertItemGroupsInSet(db, [{ mealTypeId: await mealTypeOfMenuItem(db, input.menuItemId), itemGroup: input.itemGroup }])
 		updates.itemGroup = input.itemGroup
 		// Trocar de grupo sem posição explícita → recoloca o item no fim do grupo destino
 		// (evita colisão de sort_order herdado do grupo anterior).
