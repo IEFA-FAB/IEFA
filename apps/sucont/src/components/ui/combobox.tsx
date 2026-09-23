@@ -12,8 +12,11 @@ import { cn } from "#/lib/utils"
  * primitivo. O que justificava a reescrita era o campo de busca, que o `Select`
  * não tem; o Combobox tem, e acessível.
  *
- * Use quando a lista for longa o bastante para procurar (as ~84 UGs do auditor).
- * Para lista curta e fechada, `Select` continua sendo o certo.
+ * Use quando a lista for longa o bastante para procurar (as ~84 UGs do auditor),
+ * ou quando for curta mas os rótulos não se distinguirem pelo COMEÇO: o typeahead
+ * do `Select` casa com `startsWith`, então nas 20 questões do RAC — todas
+ * "Questão N" — digitar "27" não acha nada, e só resta rolar comparando números.
+ * Para lista curta cujos rótulos começam diferente, `Select` continua sendo o certo.
  */
 
 export interface ComboboxOption {

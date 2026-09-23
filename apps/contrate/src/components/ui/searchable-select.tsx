@@ -69,7 +69,14 @@ function matches(haystack: string, terms: readonly string[]) {
 /**
  * Select com busca, sobre o primitivo `Combobox` do Base UI.
  *
- * Use quando a lista passar de ~25 itens. Abaixo disso o `Select` continua
+ * Use quando a lista passar de ~25 itens — OU quando ela for curta mas os
+ * rótulos não se distinguirem pelo começo. O segundo caso não é detalhe: o
+ * typeahead do `Select` casa com `startsWith` (`useTypeahead`), então numa
+ * lista de "Questão 7", "Questão 21", "Questão 27" digitar "27" não acha nada,
+ * e a única saída é rolar comparando números. É por isso que os filtros de
+ * questão do RAC no `sucont` são combobox com 20 itens, abaixo do corte.
+ *
+ * Abaixo do corte E com rótulos que começam diferente, o `Select` continua
  * certo: o campo de busca custa um foco a mais e não paga.
  */
 export function SearchableSelect({
