@@ -583,6 +583,17 @@ export const ASSURANCE_REGISTRY = {
 	createSupplyOrderFn: { require: "none" },
 	cancelSupplyOrderFn: { require: "none" },
 
+	// ── snack-requests.fn.ts (pedido de lanche de bordo/apoio — não é operação financeira nem de acesso)
+	setSnackClassificationFn: { require: "none" },
+	createSnackRequestFn: { require: "none" },
+	cancelMySnackRequestFn: { require: "none" },
+	decideSnackRequestFn: { require: "none" },
+	advanceSnackRequestFn: { require: "none" },
+	registerSnackPickupFn: { require: "none" },
+	registerSnackMaterialReturnFn: { require: "none" },
+	closeSnackRequestFn: { require: "none" },
+	cancelKitchenSnackRequestFn: { require: "none" },
+
 	// ── templates.fn.ts
 	createTemplateFn: { require: "none" },
 	createBlankTemplateFn: { require: "none" },

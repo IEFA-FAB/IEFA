@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
 import { OCCASION_MENU_COPY, type OccasionMenuType } from "@/lib/occasion-menu"
+import { SnackStandardBadges } from "./SnackStandardBadges"
 
 interface KitchenOccasionMenuListProps {
 	templateType: OccasionMenuType
@@ -107,7 +108,10 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 									<TableBody>
 										{globalTemplates.map((template) => (
 											<TableRow key={template.id}>
-												<TableCell className="text-subheading">{template.name}</TableCell>
+												<TableCell>
+													<p className="text-subheading">{template.name}</p>
+													{isException && <SnackStandardBadges template={template} />}
+												</TableCell>
 												<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
 												{isException && occurrencesCell(template.expected_monthly_occurrences)}
 												<TableCell className="text-center">
@@ -199,6 +203,7 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 												<TableCell>
 													<p className="text-subheading">{template.name}</p>
 													{template.description && <p className="text-xs text-muted-foreground mt-0.5">{template.description}</p>}
+													{isException && <SnackStandardBadges template={template} />}
 												</TableCell>
 												<TableCell>
 													{template.base_template_id ? (

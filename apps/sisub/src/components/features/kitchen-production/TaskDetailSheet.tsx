@@ -7,6 +7,7 @@ import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/produc
 import { ProductionRecordSection } from "./ProductionRecordSection"
 import { RecipeStepsChecklist } from "./RecipeStepsChecklist"
 import { ShiftAdjustmentsSection } from "./ShiftAdjustmentsSection"
+import { SnackRequestTag } from "./SnackRequestTag"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -78,6 +79,12 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, kitc
 							{statusLabel(task.status)}
 						</Badge>
 					</div>
+					{menuItem.snack_request && (
+						<div className="mb-1">
+							<SnackRequestTag request={menuItem.snack_request} />
+							{menuItem.snack_request.destination && <p className="mt-1 text-xs text-muted-foreground">Destino: {menuItem.snack_request.destination}</p>}
+						</div>
+					)}
 					<SheetTitle className="text-lg leading-snug">{recipe?.name ?? menuItem.recipe_origin?.name ?? "Preparação"}</SheetTitle>
 					{(plannedPortions || recipe?.preparation_time_minutes) && (
 						<SheetDescription className="flex flex-wrap items-center gap-3 mt-1">

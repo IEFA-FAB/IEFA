@@ -4,6 +4,7 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Edit, Loader2, type LucideIcon, Plus, RefreshCcw, Trash2 } from "lucide-react"
 import { usePBAC } from "@/auth/pbac"
+import { SnackStandardBadges } from "@/components/features/local/planning/SnackStandardBadges"
 import { QueryErrorState } from "@/components/features/shared/QueryErrorState"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -147,7 +148,10 @@ export function GlobalTemplateCatalog({
 							<TableBody>
 								{templates.map((template) => (
 									<TableRow key={template.id}>
-										<TableCell className="text-subheading">{template.name}</TableCell>
+										<TableCell>
+											<p className="text-subheading">{template.name}</p>
+											{templateType === "exception" && <SnackStandardBadges template={template} />}
+										</TableCell>
 										<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
 										{isException && (
 											<TableCell className="text-center">

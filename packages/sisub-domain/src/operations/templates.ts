@@ -140,6 +140,27 @@ function mapTemplateWithCounts(t: CountRow, meals: TemplateMealRow[]): TemplateW
 	return { ...toWire<MenuTemplate>(meta), item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday, monthly_headcount_total }
 }
 
+type SnackClassificationSource = {
+	snackFamily: string | null
+	snackClass: string | null
+	snackVariant: string | null
+	requiresGalley: boolean
+	requiresOven: boolean
+	shelfLifeHours: number | null
+}
+
+/** Classificação de padrão de lanche carregada numa cópia (fork). `orderable` e `reviewedAt` ficam de fora. */
+function snackClassificationForCopy(source: SnackClassificationSource) {
+	return {
+		snackFamily: source.snackFamily,
+		snackClass: source.snackClass,
+		snackVariant: source.snackVariant,
+		requiresGalley: source.requiresGalley,
+		requiresOven: source.requiresOven,
+		shelfLifeHours: source.shelfLifeHours,
+	}
+}
+
 function templateScopeCondition(kitchenId: number | null | undefined) {
 	if (kitchenId != null) return or(isNull(menuTemplateInKitchen.kitchenId), eq(menuTemplateInKitchen.kitchenId, kitchenId))
 	return isNull(menuTemplateInKitchen.kitchenId)
@@ -404,7 +425,20 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	// Fonte: template + itens juntos (uma query relacional).
 	const source = await runQuery("FETCH_FAILED", () =>
 		db.query.menuTemplateInKitchen.findFirst({
-			columns: { id: true, kitchenId: true, name: true, deletedAt: true, templateType: true, expectedMonthlyOccurrences: true },
+			columns: {
+				id: true,
+				kitchenId: true,
+				name: true,
+				deletedAt: true,
+				templateType: true,
+				expectedMonthlyOccurrences: true,
+				snackFamily: true,
+				snackClass: true,
+				snackVariant: true,
+				requiresGalley: true,
+				requiresOven: true,
+				shelfLifeHours: true,
+			},
 			with: {
 				menuTemplateItemsInKitchens: {
 					columns: {
@@ -470,6 +504,10 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 					templateType: source.templateType ?? "weekly",
 					// Exceção sem a recorrência vira 1 ocorrência no custeio da Ata.
 					expectedMonthlyOccurrences: source.expectedMonthlyOccurrences,
+					// Padrão de lanche: a cópia herda a classificação, mas nasce NÃO pedível e sem
+					// revisão — publicar para o comensal e atestar a revisão trimestral são atos da
+					// cozinha de destino, não herança do molde.
+					...snackClassificationForCopy(source),
 				})
 				.returning()
 		)
@@ -693,6 +731,14 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 				kitchenId: targetKitchenId,
 				baseTemplateId: rootId,
 				templateType: source.template_type ?? "weekly",
+				...snackClassificationForCopy({
+					snackFamily: source.snack_family,
+					snackClass: source.snack_class,
+					snackVariant: source.snack_variant,
+					requiresGalley: source.requires_galley,
+					requiresOven: source.requires_oven,
+					shelfLifeHours: source.shelf_life_hours,
+				}),
 			})
 			.returning()
 
@@ -766,7 +812,7 @@ function fetchTemplateItemRows(db: SisubDb, templateId: string) {
 	)
 }
 
-function fetchRecipesWithIngredients(db: SisubDb, recipeIds: string[]) {
+export function fetchRecipesWithIngredients(db: Pick<SisubDb, "query">, recipeIds: string[]) {
 	return runQuery("FETCH_FAILED", () =>
 		db.query.recipesInKitchen.findMany({
 			with: { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } },
@@ -943,6 +989,10 @@ export async function applyTemplate(
 	// Tudo numa transação: soft-delete dos menus existentes (só no replace) + insert
 	// dos novos. Qualquer falha desfaz tudo (bug fix vs sisub: rollback completo).
 	// No skip não há delete algum: só inserimos em células vazias.
+	// O cardápio do tipo de refeição de SISTEMA (pedidos de lanche aceitos) não é planejamento
+	// do rancho: "Substituir" o dia não pode apagá-lo, ou a produção de um pedido aceito some
+	// do quadro sem que o pedido saiba.
+	const notSystemMealTypeMenu = sql`not exists (select 1 from kitchen.meal_type mt where mt.id = ${dailyMenuInKitchen.mealTypeId} and mt.system_key is not null)`
 	await db.transaction(async (tx) => {
 		if (conflictMode === "replace") {
 			const deletedAt = new Date().toISOString()
@@ -954,7 +1004,12 @@ export async function applyTemplate(
 					.select({ id: dailyMenuInKitchen.id })
 					.from(dailyMenuInKitchen)
 					.where(
-						and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), isNull(dailyMenuInKitchen.deletedAt))
+						and(
+							inArray(dailyMenuInKitchen.serviceDate, allDates),
+							eq(dailyMenuInKitchen.kitchenId, input.kitchenId),
+							isNull(dailyMenuInKitchen.deletedAt),
+							notSystemMealTypeMenu
+						)
 					)
 			)
 			const doomedIds = doomedMenus.map((m) => m.id)
@@ -971,7 +1026,7 @@ export async function applyTemplate(
 				tx
 					.update(dailyMenuInKitchen)
 					.set({ deletedAt })
-					.where(and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId)))
+					.where(and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), notSystemMealTypeMenu))
 					.then(() => undefined)
 			)
 		}
@@ -1020,6 +1075,15 @@ export async function applyEventTemplate(
 	const template = await validateTemplateAccess(db, input.templateId, input.kitchenId)
 	if (template.template_type !== "event" && template.template_type !== "exception") {
 		throw new DomainError("NOT_EVENT_TEMPLATE", `Template ${input.templateId} is ${template.template_type ?? "weekly"}; use applyTemplate`)
+	}
+	// Padrão de lanche não se aplica ao calendário: nele `headcount_override` é PORÇÕES POR KIT,
+	// então aplicar produziria 1 porção por preparação, e o item nasceria sem pedido de origem —
+	// invisível para a cozinha, que acompanha lanche pelo pedido.
+	if (template.snack_family != null) {
+		throw new DomainError(
+			"SNACK_STANDARD_APPLY_BY_REQUEST",
+			"Padrão de lanche entra na produção pelo aceite do pedido, não pelo calendário. Para produzir sem pedido, crie uma exceção comum."
+		)
 	}
 
 	// Itens com receita + ingredientes para o snapshot json (mesmo shape do addMenuItem).
