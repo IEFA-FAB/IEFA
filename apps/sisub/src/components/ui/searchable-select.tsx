@@ -2,15 +2,9 @@ import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxStatus, ComboboxTrigger } from "@/components/ui/combobox"
 import { cn } from "@/lib/cn"
+import { buildHits, NONE_VALUE, type SearchableSelectOption } from "@/lib/searchable-select-filter"
 
-export interface SearchableSelectOption {
-	value: string
-	label: string
-	/** Segunda linha do item: o contexto que desempata homônimos. */
-	hint?: string
-	/** Entra na busca sem aparecer no item — código, sinônimo, caminho da pasta. */
-	keywords?: string
-}
+export type { SearchableSelectOption }
 
 interface SearchableSelectProps {
 	value: string | null
@@ -35,9 +29,6 @@ interface SearchableSelectProps {
 	"aria-invalid"?: boolean
 }
 
-/** Sentinela da opção "nenhuma": string vazia nunca colide com um id real. */
-const NONE_VALUE = ""
-
 /**
  * Teto de itens renderizados por vez.
  *
@@ -53,25 +44,6 @@ const NONE_VALUE = ""
  * rolar ao abrir.
  */
 const MAX_VISIBLE = 50
-
-function normalize(value: string) {
-	return value
-		.normalize("NFD")
-		.replace(/\p{Diacritic}/gu, "")
-		.toLowerCase()
-}
-
-/**
- * Cada palavra da busca tem de aparecer em algum lugar do item, em qualquer
- * ordem — mesma regra do `FolderCombobox`, pelo mesmo motivo: casar a consulta
- * inteira como substring responderia "nenhum resultado" para o item que o
- * usuário está olhando sempre que ele pula um nível do nome.
- */
-function matches(haystack: string, terms: readonly string[]) {
-	if (terms.length === 0) return true
-	const target = normalize(haystack)
-	return terms.every((term) => target.includes(term))
-}
 
 /**
  * Select com busca, sobre o primitivo `Combobox` do Base UI.
@@ -119,18 +91,7 @@ export function SearchableSelect({
 	// cinza faria filtro ativo e valor salvo lerem como campo em branco.
 	const isPlaceholder = selected == null && !clearLabel
 
-	const hits = useMemo(() => {
-		const terms = normalize(query).split(/\s+/).filter(Boolean)
-		const pool = clearOption ? [clearOption, ...options] : options
-		const found = pool.filter((option) => matches(`${option.label} ${option.hint ?? ""} ${option.keywords ?? ""}`, terms))
-		// Com a busca vazia, o item escolhido vai para o topo. Sem isto ele cai fora
-		// da janela do `limit` sempre que estiver além dos primeiros 50 — reabrir uma
-		// lista de milhares mostrava o começo do catálogo, sem o check em lugar nenhum,
-		// como se nada estivesse escolhido. Só com busca vazia: durante a busca, quem
-		// manda na ordem é a relevância do que foi digitado.
-		if (terms.length > 0 || selected == null) return found
-		return [selected, ...found.filter((option) => option.value !== selected.value)]
-	}, [query, options, clearOption, selected])
+	const hits = useMemo(() => buildHits({ options, query, clearOption, selected }), [options, query, clearOption, selected])
 
 	function handleOpenChange(next: boolean) {
 		setOpen(next)
