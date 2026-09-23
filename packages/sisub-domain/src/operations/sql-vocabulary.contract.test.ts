@@ -31,6 +31,9 @@ import {
 	GOODS_RECEIPT_STATUSES,
 	INFLOW_REASONS,
 	LOT_DERIVATIONS,
+	OPENING_BALANCE_SOURCES,
+	OPENING_BALANCE_STATUSES,
+	OPENING_COST_SOURCES,
 	OUTFLOW_REASONS,
 	SEGREGATION_MODES,
 	STOCK_ADJUSTMENT_REASONS,
@@ -123,6 +126,7 @@ const EQUIPAMENTO = "20260825120000_kitchen_equipment.sql"
 const CONDICAO = "20260827120000_kitchen_equipment_condition.sql"
 const EFETIVO = "20260827163000_workforce_matrix.sql"
 const RECEBIMENTO = "20260729170000_procurement_supply_order_goods_receipt.sql"
+const ABERTURA = "20260922100000_inventory_opening_balance.sql"
 
 const PARES: Array<{ nome: string; file: string; column: string; occurrence?: number; ts: readonly string[] }> = [
 	{ nome: "equipment_role.category", file: EQUIPAMENTO, column: "category", ts: EQUIPMENT_ROLE_CATEGORIES },
@@ -139,6 +143,9 @@ const PARES: Array<{ nome: string; file: string; column: string; occurrence?: nu
 	{ nome: "workforce_survey.status", file: EFETIVO, column: "status", ts: WORKFORCE_SURVEY_STATUSES },
 	{ nome: "supply_order.status", file: RECEBIMENTO, column: "status", occurrence: 0, ts: SUPPLY_ORDER_STATUSES },
 	{ nome: "goods_receipt.status", file: RECEBIMENTO, column: "status", occurrence: 1, ts: GOODS_RECEIPT_STATUSES },
+	{ nome: "opening_balance.status", file: ABERTURA, column: "status", occurrence: 0, ts: OPENING_BALANCE_STATUSES },
+	{ nome: "opening_balance.source", file: ABERTURA, column: "source", occurrence: 0, ts: OPENING_BALANCE_SOURCES },
+	{ nome: "opening_balance_item.cost_source", file: ABERTURA, column: "cost_source", occurrence: 0, ts: OPENING_COST_SOURCES },
 ]
 
 describe("vocabulário SQL × TypeScript", () => {
