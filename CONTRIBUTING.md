@@ -61,8 +61,9 @@ into it.
 ### Review
 
 Automated review is on demand, not automatic: run `/code-review` before asking for a merge
-and report the findings on the PR. CI covers Biome, typecheck, Opengrep, CodeQL, Trivy,
-zizmor, gitleaks, the dependency audit and the contract tests — but no linter sees a race
+and report the findings on the PR. CI on the PR covers Biome, typecheck and the unit and
+contract tests of every affected workspace (`pr-check`), plus Opengrep, CodeQL, Trivy,
+zizmor, gitleaks and the dependency audit — but no linter sees a race
 between a check and a mutation, an empty state that hides a failure, or a wrong FK order.
 An absence of bot comments does not mean the code was reviewed.
 
@@ -72,8 +73,9 @@ When a bug traces back to a pattern rather than a typo, the fix includes a rule 
 ## Development Setup
 
 See [README.md](README.md#getting-started) for full setup instructions, and
-[CLAUDE.md](CLAUDE.md) for the conventions this codebase enforces — server function shape,
-Supabase client construction, the two incompatible design systems, the AI tool contract.
+[AGENTS.md](AGENTS.md) for the conventions this codebase enforces — server function shape,
+Supabase client construction, the two incompatible design systems. Area-specific rules (database
+grants, AI tool contract, UI, tests, CI) live in [.claude/rules/](.claude/rules/).
 
 ## Code Style
 
