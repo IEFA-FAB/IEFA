@@ -1,6 +1,6 @@
 # Tasks: sisub-inventory-operations
 
-## Status da entrega (2026-09-18)
+## Status da entrega (2026-09-20)
 
 | Fase | PR | Estado |
 |---|---|---|
@@ -8,15 +8,47 @@
 | 1 — Leitor de código de barras | #356 | mergeado |
 | 2 — Núcleo do estoque operável | #357, #358 | mergeado |
 | 3 — Recebimento rápido | #363, #364 | mergeado |
-| — correções de revisão das fases 0–3 | #367 | aberto |
-| 4 — Saída do dia | #366 | aberto, empilhado no #367 |
-| — contrato de reset, antes das migrations | #373 | **mergeado** |
-| 5 — Vencimentos | #372 | aberto; migration `20260919120000` **aplicada** |
-| 6 — Inventário | #374 | aberto, empilhado no #366; migrations `20260920120000` e `20260920140000` **aplicadas** |
-| 7 — A caminho | #375 | aberto (primeira metade: o painel) |
+| — correções de revisão das fases 0–3 | #367 | mergeado (2026-09-18) |
+| — autenticidade de NF-e sem exagero | #380 | mergeado (2026-09-18) |
+| 4 — Saída do dia | #366 | mergeado (2026-09-19) |
+| — contrato de reset, antes das migrations | #373 | mergeado |
+| 5 — Vencimentos | #372 | mergeado (2026-09-19) |
+| 6 — Inventário | #374 | mergeado (2026-09-19) |
+| 7 — A caminho | #375 | mergeado (primeira metade: o painel) |
+| 3 — conferência por leitura, na tela | #393 (substitui o #365) | mergeado (2026-09-19) |
 | 7 — manifestação e caixa postal | — | não começou (7.2, 7.3, 7.5, 7.6) |
 | 7b — Coletor DF-e | — | **parado**: não há certificado (Q1) |
-| 8 — Piloto | — | não começou |
+| 8 — Piloto | — | **bloqueado** — ver "Prontidão do piloto" abaixo |
+
+**O #393 cobre, pela descrição dele, o grosso de 3.17–3.19 e partes de 3.20 e 3.24**
+(eventos atômicos e idempotentes, ×N de 1 a 999, estorno, aceitar conforme faturado, fila de
+código fora da nota com associação ao insumo, recusa de linha com motivo). As caixas seguem
+desmarcadas pela regra abaixo: marcar exige conferir cada subtarefa contra o código,
+e em 3.20 (troca/ignorar) e 3.24 (recusa do recebimento inteiro) a descrição não basta.
+
+## Prontidão do piloto (levantada em 2026-09-20, leitura no banco de produção)
+
+A Fase 8 não começa só com código. Estado de produção hoje:
+
+| Pré-condição | Estado |
+|---|---|
+| Cozinha operando cardápio/produção (a saída do dia se apoia nisso) | **nenhuma** — 4 `daily_menu` vivos no total, o mais recente para 2026-01-30; 0 `production_task` |
+| CNPJ da unidade (8.2; casar NF-e pelo destinatário) | **0 de 35** unidades |
+| UASG da unidade | 3 de 35 |
+| Movimento de estoque, recebimento | 0 e 0 |
+| Carga de abertura (8.3) | **sem ferramenta** — 2.12–2.14 não entregues; `opening_balance` existe só como motivo de ajuste |
+| E2E 8.4/8.5 | E2E desligado do CI por decisão de custo (#278), e a conta E2E do `.env` é pessoal (ver `add-playwright-e2e` 8.2) |
+
+Ordem que destrava o piloto, e quem decide:
+
+1. **Escolher a cozinha piloto** — decisão do mantenedor/SDAB. Critério: uma cozinha que
+   vá operar cardápio e produção no sisub no mesmo período. Sem isso a Fase 4 não tem o que
+   baixar.
+2. **2.12–2.14 (documento de abertura)** — é código, e é o bloqueio técnico de 8.3. Precisa
+   da ordem de migration de sempre (declara → aplica → mergeia).
+3. **8.2** — CNPJ, designações e comissão da cozinha escolhida, pela tela.
+4. 8.1 e 8.3 com a cozinha escolhida; 8.4/8.5 só se o E2E voltar com banco de teste próprio.
+   Se não voltar, trocar por roteiro manual assinado no início da operação assistida (8.6).
 
 **As caixas abaixo não foram marcadas em massa.** Fase mergeada não garante que cada
 subtarefa dela tenha entrado — e marcar por inferência é pior do que não marcar, porque
