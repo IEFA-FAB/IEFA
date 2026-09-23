@@ -2,6 +2,7 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { ClipboardPaste, Copy, Loader2, Plus, Users } from "lucide-react"
 import { useState } from "react"
+import { SnackDayPanel } from "@/components/features/local/planning/SnackDayPanel"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import {
 	AlertDialog,
@@ -24,6 +25,7 @@ import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useAddMenuItem, useCreateDailyMenu, useDayDetails, useDeleteMenuItem, useUpdateDailyMenu } from "@/hooks/data/usePlanning"
 import { useRecipes } from "@/hooks/data/useRecipes"
+import { useSnackMealType } from "@/hooks/data/useSnackRequests"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import type { HeadcountPlan, MenuClipboardEntry } from "@/lib/menu-fill"
 import { groupMenuItems, type MenuGroup } from "@/lib/menu-item-groups"
@@ -50,6 +52,9 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	const { data: mealTypes, isLoading: mealTypesLoading } = useMealTypes(kitchenId)
 	// Os grupos do dia são os do conjunto da refeição — os mesmos do editor semanal.
 	const { groupsFor } = useMealTypeGroups(kitchenId, mealTypes)
+	// Tipo de refeição de sistema: fica FORA de `mealTypes` (não é planejável), mas o dia pode
+	// ter produção de lanche vinda de pedido aceito.
+	const { data: snackMealType } = useSnackMealType(open)
 
 	const isLoading = menusLoading || mealTypesLoading
 
@@ -76,6 +81,8 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 			mealType,
 			menu: dayMenus?.find((m) => m.meal_type_id === mealType.id),
 		})) || []
+
+	const snackMenu = snackMealType ? dayMenus?.find((m) => m.meal_type_id === snackMealType.id) : undefined
 
 	const formattedDate = date ? format(date, "EEEE, dd 'de' MMMM", { locale: ptBR }) : ""
 
@@ -250,6 +257,12 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 								/>
 							))}
 						</Accordion>
+
+						{snackMenu ? (
+							<div className="pt-4">
+								<SnackDayPanel kitchenId={kitchenId} date={format(date as Date, "yyyy-MM-dd")} menu={snackMenu} />
+							</div>
+						) : null}
 					</ScrollArea>
 				)}
 

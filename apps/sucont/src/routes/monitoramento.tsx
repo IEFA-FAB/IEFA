@@ -32,6 +32,7 @@ import { RacReference } from "#/components/rac-reference"
 import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
+import { Combobox } from "#/components/ui/combobox"
 import { EXCEL_ACCEPT, FileDropzone } from "#/components/ui/file-dropzone"
 import { Label } from "#/components/ui/label"
 import { SectionHeader } from "#/components/ui/section-header"
@@ -316,6 +317,17 @@ function MonitoramentoPage() {
 		setError(null)
 	}
 
+	// As questões presentes na planilha carregada — passam de 25 numa carga completa.
+	const racFilterItems = useMemo(
+		() => [
+			{ value: "TODOS", label: "Todas as questões" },
+			...Array.from(new Set(data.map((r) => r.questaoRAC).filter((rac): rac is string => Boolean(rac))))
+				.sort()
+				.map((rac) => ({ value: rac, label: rac })),
+		],
+		[data]
+	)
+
 	const filteredData = useMemo(() => {
 		let filtered = data
 		if (activeConferenteFilter !== "TODOS") {
@@ -579,21 +591,14 @@ function MonitoramentoPage() {
 					<div className="flex flex-wrap items-end gap-6">
 						<div className="flex flex-col gap-2">
 							<Label htmlFor="rac-filter">Questão do RAC</Label>
-							<Select items={{ TODOS: "Todas as questões" }} value={activeRacFilter} onValueChange={(v) => setActiveRacFilter(v ?? "TODOS")}>
-								<SelectTrigger id="rac-filter" className="w-56">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="TODOS">Todas as questões</SelectItem>
-									{Array.from(new Set(data.map((r) => r.questaoRAC).filter((rac): rac is string => Boolean(rac))))
-										.sort()
-										.map((rac) => (
-											<SelectItem key={rac} value={rac}>
-												{rac}
-											</SelectItem>
-										))}
-								</SelectContent>
-							</Select>
+							<Combobox
+								id="rac-filter"
+								value={activeRacFilter}
+								onValueChange={setActiveRacFilter}
+								items={racFilterItems}
+								className="w-56"
+								aria-label="Questão do RAC"
+							/>
 						</div>
 						<div className="flex flex-col gap-2">
 							<Label htmlFor="conferente-filter">Conferente</Label>

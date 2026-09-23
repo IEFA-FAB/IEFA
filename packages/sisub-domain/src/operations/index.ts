@@ -354,7 +354,16 @@ export {
 	suggestedLiquidationValue,
 } from "./liquidation-math.ts"
 export { createMcpApiKey, deleteMcpApiKey, listMcpApiKeys, type McpApiKeyRow, revokeMcpApiKey } from "./mcp-keys.ts"
-export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
+export {
+	createMealType,
+	deleteMealType,
+	fetchMealTypes,
+	fetchSnackMealType,
+	resolveSnackMealType,
+	restoreMealType,
+	SNACK_REQUEST_MEAL_TYPE_KEY,
+	updateMealType,
+} from "./meal-types.ts"
 export {
 	createMenuGroupSet,
 	deleteMenuGroupSet,
@@ -465,6 +474,7 @@ export {
 	savePriceResearchAudit,
 } from "./price-research.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
+export type { BoardSnackRequest } from "./production.ts"
 export {
 	adjustProductionPortions,
 	ensureProductionTasks,
@@ -580,6 +590,34 @@ export {
 	type ReviewMetrics,
 	type ReviewTypeMetrics,
 } from "./review-metrics.ts"
+export type {
+	SnackLabelData,
+	SnackOrderingContext,
+	SnackRequestDetail,
+	SnackRequestLine,
+	SnackRequestSummary,
+	SnackStandardEnergyDetail,
+} from "./snack-requests.ts"
+export {
+	advanceSnackRequest,
+	cancelKitchenSnackRequest,
+	cancelMySnackRequest,
+	closeSnackRequest,
+	createSnackRequest,
+	decideSnackRequest,
+	fetchSnackProductionSummary,
+	getKitchenSnackRequest,
+	getMySnackRequest,
+	getSnackLabelData,
+	getSnackOrderingContext,
+	getSnackStandardEnergy,
+	listKitchenSnackRequests,
+	listMySnackRequests,
+	listOrderableStandards,
+	registerSnackMaterialReturn,
+	registerSnackPickup,
+	setSnackClassification,
+} from "./snack-requests.ts"
 export {
 	allocateFefo,
 	brasiliaDate,

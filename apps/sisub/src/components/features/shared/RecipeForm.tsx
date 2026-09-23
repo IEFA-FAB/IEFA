@@ -97,6 +97,10 @@ const ingredientSchema = z.object({
 			ingredient_id: z.uuid("Substituto inválido"),
 			ingredient_name: z.string(),
 			measure_unit: z.string(),
+			// Helper de UI, como o `folder_id` da linha principal: existe para a promoção a
+			// principal não perder a pasta. Sem `.optional()` — o tipo de ENTRADA do schema
+			// tem que ser exatamente o dos valores do formulário (ver o topo do arquivo).
+			folder_id: z.string().nullable(),
 			net_quantity: z
 				.number()
 				.nullable()
@@ -448,6 +452,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 								ingredient_id: alt.ingredient_id as string,
 								ingredient_name: alt.ingredient?.description ?? "Insumo",
 								measure_unit: alt.ingredient?.measure_unit ?? "UN",
+								folder_id: alt.ingredient?.folder_id ?? null,
 								net_quantity: alt.net_quantity,
 							})),
 					})) || [],

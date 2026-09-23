@@ -21,6 +21,16 @@ export type RecipeWithHeadcount = Pick<Recipe, "id" | "name" | "rational_id"> & 
 	highlighted?: boolean
 }
 
+/** Rótulos do campo de quantidade por preparação. O padrão é "comensais"; o padrão de lanche usa porções por kit. */
+export type HeadcountCopy = { placeholder: string; title: string; filled: (value: number) => string; empty: string }
+
+const DEFAULT_HEADCOUNT_COPY: HeadcountCopy = {
+	placeholder: "pax",
+	title: "Comensais desta preparação",
+	filled: (value) => `${value} pessoas previstas`,
+	empty: "Informe o nº de comensais",
+}
+
 export function MealTypeSection({
 	mealType,
 	recipes,
@@ -31,6 +41,7 @@ export function MealTypeSection({
 	selectionMode,
 	selectedIds,
 	onSelectChange,
+	headcountCopy = DEFAULT_HEADCOUNT_COPY,
 }: {
 	mealType: MealTypeInfo
 	recipes: RecipeWithHeadcount[]
@@ -42,6 +53,7 @@ export function MealTypeSection({
 	selectionMode?: boolean
 	selectedIds?: ReadonlySet<string>
 	onSelectChange?: (recipeId: string, checked: boolean) => void
+	headcountCopy?: HeadcountCopy
 }) {
 	const hasRecipes = recipes.length > 0
 
@@ -99,16 +111,19 @@ export function MealTypeSection({
 										min="1"
 										className="h-6 w-20 text-xs"
 										value={recipe.headcountOverride ?? ""}
-										placeholder="pax"
-										onChange={(e) => onItemHeadcountChange(recipe.id, e.target.value ? parseInt(e.target.value, 10) : null)}
+										placeholder={headcountCopy.placeholder}
+										// 0 não é quantidade: em padrão de lanche o servidor lê "sem número" como 1 porção
+										// por kit, então gravar 0 produziria a porção que o usuário quis tirar.
+										onChange={(e) => {
+											const parsed = Number.parseInt(e.target.value, 10)
+											onItemHeadcountChange(recipe.id, Number.isFinite(parsed) && parsed > 0 ? parsed : null)
+										}}
 										onClick={(e) => e.stopPropagation()}
 									/>
 								</TooltipTrigger>
 								<TooltipContent side="top">
-									<p className="text-caption">Comensais desta preparação</p>
-									<p className="text-xs opacity-70 mt-0.5">
-										{recipe.headcountOverride ? `${recipe.headcountOverride} pessoas previstas` : "Informe o nº de comensais"}
-									</p>
+									<p className="text-caption">{headcountCopy.title}</p>
+									<p className="text-xs opacity-70 mt-0.5">{recipe.headcountOverride ? headcountCopy.filled(recipe.headcountOverride) : headcountCopy.empty}</p>
 								</TooltipContent>
 							</Tooltip>
 

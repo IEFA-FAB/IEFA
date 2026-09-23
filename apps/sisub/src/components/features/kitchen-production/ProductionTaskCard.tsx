@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/production"
+import { SnackRequestTag } from "./SnackRequestTag"
 
 interface ProductionTaskCardProps {
 	item: ProductionItem
@@ -39,6 +40,7 @@ export function ProductionTaskCard({ item, onSelect, onUpdateStatus, isUpdating 
 						{mealType.name}
 					</Badge>
 				)}
+				{menuItem.snack_request && <SnackRequestTag request={menuItem.snack_request} className="mt-0.5" />}
 			</CardHeader>
 
 			<CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-xs text-muted-foreground">

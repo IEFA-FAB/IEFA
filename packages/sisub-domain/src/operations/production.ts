@@ -11,7 +11,15 @@
  * completed_at) -> PENDING (clears both timestamps).
  */
 
-import { dailyMenuInKitchen, menuItemsInKitchen, productionTaskInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import {
+	dailyMenuInKitchen,
+	menuItemsInKitchen,
+	menuTemplateInKitchen,
+	productionTaskInKitchen,
+	recipesInKitchen,
+	type SisubDb,
+	snackRequestInKitchen,
+} from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, eq, inArray, isNull, sql } from "drizzle-orm"
 import { requireAnyPermission, requireKitchenProduction } from "../guards/require-permission.ts"
@@ -40,8 +48,23 @@ type BoardItem = {
 		substitutions: Record<string, unknown> | null
 		recipe_origin: Record<string, unknown> | null
 		recipe_with_ingredients: Record<string, unknown> | null
+		/**
+		 * Item vindo de pedido de lanche (aceite em `snack-requests.ts`): o quadro mostra de
+		 * qual missão é, para a produção separar os kits por pedido. Nulo = rancho.
+		 */
+		snack_request: BoardSnackRequest | null
 	}
 	mealType: Record<string, unknown> | null
+}
+
+export type BoardSnackRequest = {
+	id: string
+	mission_kind: string
+	mission_description: string
+	destination: string | null
+	pickup_at: string
+	status: string
+	standard_name: string | null
 }
 
 /**
@@ -63,7 +86,7 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 				menuItemsInKitchens: {
 					// Filtra soft-deleted no SQL (Drizzle permite where em relation aninhada — PostgREST não).
 					where: isNull(menuItemsInKitchen.deletedAt),
-					columns: { id: true, recipeOriginId: true, plannedPortionQuantity: true, substitutions: true },
+					columns: { id: true, recipeOriginId: true, plannedPortionQuantity: true, substitutions: true, originTemplateId: true, originSnackRequestId: true },
 					with: {
 						productionTaskInKitchens: {
 							columns: {
@@ -126,6 +149,11 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 		(a, b) => (a.mealTypeInKitchen?.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.mealTypeInKitchen?.sortOrder ?? Number.MAX_SAFE_INTEGER)
 	)
 
+	const snackById = await fetchBoardSnackRequests(
+		db,
+		dailyMenus.flatMap((menu) => menu.menuItemsInKitchens ?? [])
+	)
+
 	const items: BoardItem[] = []
 	for (const menu of orderedMenus) {
 		const mealType = menu.mealTypeInKitchen ? toWire<Record<string, unknown>>(menu.mealTypeInKitchen) : null
@@ -148,6 +176,7 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 					substitutions: (menuItem.substitutions as Record<string, unknown> | null) ?? null,
 					recipe_origin: recipeOrigin,
 					recipe_with_ingredients: recipeOrigin ? { ...recipeOrigin, ingredients: recipeOrigin.ingredients ?? [] } : null,
+					snack_request: menuItem.originSnackRequestId ? (snackById.get(`${menuItem.originSnackRequestId}:${menuItem.originTemplateId ?? ""}`) ?? null) : null,
 				},
 				mealType,
 			})
@@ -155,6 +184,64 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 	}
 
 	return items
+}
+
+/** Pedido de lanche (e nome do padrão) de cada item do quadro que veio de um aceite. */
+async function fetchBoardSnackRequests(
+	db: SisubDb,
+	menuItems: { originSnackRequestId: string | null; originTemplateId: string | null }[]
+): Promise<Map<string, BoardSnackRequest>> {
+	const out = new Map<string, BoardSnackRequest>()
+	const requestIds = [...new Set(menuItems.map((i) => i.originSnackRequestId).filter((id): id is string => id != null))]
+	if (requestIds.length === 0) return out
+	const templateIds = [
+		...new Set(
+			menuItems
+				.filter((i) => i.originSnackRequestId != null)
+				.map((i) => i.originTemplateId)
+				.filter((id): id is string => id != null)
+		),
+	]
+	const [requests, templates] = await Promise.all([
+		runQuery("FETCH_FAILED", () =>
+			db
+				.select({
+					id: snackRequestInKitchen.id,
+					missionKind: snackRequestInKitchen.missionKind,
+					missionDescription: snackRequestInKitchen.missionDescription,
+					destination: snackRequestInKitchen.destination,
+					pickupAt: snackRequestInKitchen.pickupAt,
+					status: snackRequestInKitchen.status,
+				})
+				.from(snackRequestInKitchen)
+				.where(inArray(snackRequestInKitchen.id, requestIds))
+		),
+		templateIds.length > 0
+			? runQuery("FETCH_FAILED", () =>
+					db
+						.select({ id: menuTemplateInKitchen.id, name: menuTemplateInKitchen.name })
+						.from(menuTemplateInKitchen)
+						.where(inArray(menuTemplateInKitchen.id, templateIds))
+				)
+			: Promise.resolve([]),
+	])
+	const requestById = new Map(requests.map((r) => [r.id, r]))
+	const templateName = new Map(templates.map((t) => [t.id, t.name]))
+	for (const item of menuItems) {
+		if (!item.originSnackRequestId) continue
+		const request = requestById.get(item.originSnackRequestId)
+		if (!request) continue
+		out.set(`${item.originSnackRequestId}:${item.originTemplateId ?? ""}`, {
+			id: request.id,
+			mission_kind: request.missionKind,
+			mission_description: request.missionDescription,
+			destination: request.destination,
+			pickup_at: request.pickupAt,
+			status: request.status,
+			standard_name: item.originTemplateId ? (templateName.get(item.originTemplateId) ?? null) : null,
+		})
+	}
+	return out
 }
 
 /**

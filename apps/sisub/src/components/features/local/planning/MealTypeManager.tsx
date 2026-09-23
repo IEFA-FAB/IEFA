@@ -145,7 +145,14 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 													</Badge>
 												</TableCell>
 												<TableCell className="text-right">
-													{canEditGeneric ? (
+													{mealType.system_key != null ? (
+														// Tipo de sistema é mantido pela migration que o criou (#409): a
+														// operação recusa a escrita, e um botão que sempre erra é pior do
+														// que botão nenhum.
+														<Badge variant="outline" className="text-xs">
+															Sistema
+														</Badge>
+													) : canEditGeneric ? (
 														<Tooltip>
 															<TooltipTrigger
 																render={

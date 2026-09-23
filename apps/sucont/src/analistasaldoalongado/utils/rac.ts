@@ -70,6 +70,19 @@ export const RAC_MAPPING: Record<string, string[]> = {
 }
 
 /**
+ * Questões do RAC em ordem numérica.
+ *
+ * Mora aqui porque os três painéis filtram pela MESMA lista — cada um tinha a
+ * sua cópia do mesmo `Object.keys(...).sort(...)`, e questão nova no mapeamento
+ * entrava em três lugares ou em nenhum.
+ */
+export const RAC_QUESTIONS = Object.keys(RAC_MAPPING).sort((a, b) => {
+	const numA = parseInt(a.replace("Questão ", ""), 10)
+	const numB = parseInt(b.replace("Questão ", ""), 10)
+	return numA - numB
+})
+
+/**
  * Rótulo de cada questão. Descrevem o GRUPO DE CONTAS, e não o título do roteiro:
  * a edição vigente repete "Acompanhamento dos Estoques" em sete questões
  * diferentes, o que na tela não distinguiria nada. Os rótulos antigos também não

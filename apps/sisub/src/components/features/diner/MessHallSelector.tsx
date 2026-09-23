@@ -4,7 +4,7 @@ import { AlertCircle, MapPin } from "lucide-react"
 import { memo, useCallback, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { cn } from "@/lib/cn"
 
@@ -42,12 +42,10 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 		const selectorData = useMemo(() => {
 			const selectedMessHall = (messHalls ?? []).find((mh) => mh.code === value)
 			const isValidSelection = Boolean(selectedMessHall)
-			const displayLabel = selectedMessHall?.display_name || value
 
 			return {
 				selectedMessHall,
 				isValidSelection,
-				displayLabel,
 			}
 		}, [value, messHalls])
 
@@ -78,18 +76,9 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 			[disabled, value, onChange]
 		)
 
-		// Itens do select
-		const selectItems = useMemo(
-			() =>
-				(messHalls ?? []).map((mh) => (
-					<SelectItem
-						className="cursor-pointer hover:bg-accent/50 focus:bg-accent/50 data-[state=checked]:bg-accent/60 data-[state=checked]:text-accent-foreground transition-colors"
-						key={mh.code}
-						value={mh.code}
-					>
-						{mh.display_name ?? mh.code}
-					</SelectItem>
-				)),
+		// Opções do combobox — são ~70 ranchos, longe do que se percorre com os olhos.
+		const messHallOptions = useMemo(
+			() => (messHalls ?? []).map((mh) => ({ value: mh.code, label: mh.display_name ?? mh.code, keywords: mh.code })),
 			[messHalls]
 		)
 
@@ -117,7 +106,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 		}, [hasDefault, classes.isInvalid])
 
 		const { isInvalid } = classes
-		const { isValidSelection, displayLabel } = selectorData
+		const { isValidSelection } = selectorData
 
 		return (
 			<div className={classes.container}>
@@ -135,27 +124,18 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 					</Label>
 				)}
 
-				<Select value={value} onValueChange={handleChange} disabled={disabled}>
-					<SelectTrigger className={classes.trigger} aria-invalid={isInvalid}>
-						<SelectValue placeholder={placeholder}>
-							{value && (
-								<div className="flex items-center space-x-2">
-									<span>{displayLabel}</span>
-									{showLabel && hasDefault && (
-										<Badge variant="secondary" className="text-xs">
-											Padrão
-										</Badge>
-									)}
-								</div>
-							)}
-						</SelectValue>
-					</SelectTrigger>
-
-					<SelectContent className="max-h-60" alignItemWithTrigger={false}>
-						<div className="p-2 text-xs text-muted-foreground border-b border-border">Selecione o rancho responsável</div>
-						{selectItems}
-					</SelectContent>
-				</Select>
+				<SearchableSelect
+					value={value || null}
+					onValueChange={handleChange}
+					options={messHallOptions}
+					disabled={disabled}
+					placeholder={placeholder}
+					searchPlaceholder="Pesquisar rancho…"
+					emptyLabel="Nenhum rancho encontrado."
+					className={classes.trigger}
+					aria-invalid={isInvalid}
+					aria-label="Rancho responsável"
+				/>
 
 				{/* Informação adicional para rancho padrão */}
 				{showLabel && hasDefault && (

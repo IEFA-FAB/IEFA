@@ -1,11 +1,11 @@
 // components/DayCard.tsx
 
 import { Eraser, PaintBucket } from "lucide-react"
-import type { ReactNode } from "react"
+import { type ReactNode, useMemo } from "react"
 import { MealButton } from "@/components/features/diner/MealButton"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { MEAL_TYPES } from "@/constants/rancho"
@@ -92,6 +92,8 @@ function DayCard({
 	dishes,
 }: DayCardProps) {
 	const { messHalls } = useMessHalls()
+	// ~70 ranchos: a lista só é percorrível com busca.
+	const messHallOptions = useMemo(() => (messHalls ?? []).map((mh) => ({ value: mh.code, label: mh.display_name ?? mh.code, keywords: mh.code })), [messHalls])
 	const hasPendingChanges = pendingChanges.some((change) => change.date === date)
 	const selectedCount = selectedMealsCount ?? countSelectedMeals(daySelections)
 
@@ -159,26 +161,19 @@ function DayCard({
 			<CardContent className="flex flex-col gap-3">
 				{/* Mess hall selector + action icon buttons */}
 				<div className="flex items-center gap-2">
-					<Select
-						value={dayMessHallId}
+					<SearchableSelect
+						value={dayMessHallId || null}
 						onValueChange={(v) => {
 							if (v && v !== dayMessHallId) handleMessHallChange(v)
 						}}
+						options={messHallOptions}
 						disabled={isDisabled}
-					>
-						<SelectTrigger className="flex-1">
-							<SelectValue placeholder="Selecione um rancho...">
-								{dayMessHallId ? (messHalls?.find((mh) => mh.code === dayMessHallId)?.display_name ?? dayMessHallId) : undefined}
-							</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							{messHalls?.map((mh) => (
-								<SelectItem key={mh.code} value={mh.code}>
-									{mh.display_name ?? mh.code}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+						placeholder="Selecione um rancho..."
+						searchPlaceholder="Pesquisar rancho…"
+						emptyLabel="Nenhum rancho encontrado."
+						className="flex-1"
+						aria-label="Rancho do dia"
+					/>
 					<Tooltip>
 						<TooltipTrigger
 							render={<Button variant="outline" size="icon-sm" onClick={selectAllMeals} disabled={isDisabled} aria-label="Selecionar todas as refeições" />}

@@ -65,6 +65,8 @@ export const SEGMENT_PT: Record<string, string> = {
 	workforce: "Efetivo dos Ranchos",
 	events: "Eventos",
 	exceptions: "Exceções",
+	"snack-requests": "Pedidos de Lanche",
+	production: "Produção do Dia",
 	"compras-sync": "Sincronização Compras",
 	"nutrition-sync": "Sincronização Nutrição",
 	"sync-routines": "Rotinas de Sincronização",
@@ -106,6 +108,7 @@ export const ID_LABEL_BY_PARENT: Record<string, string> = {
 	events: "Evento",
 	exceptions: "Exceção",
 	suprimentos: "Rascunho",
+	"snack-requests": "Pedido",
 	procurement: "ATA",
 	ingredients: "Insumo",
 	nfe: "NF-e",
@@ -120,6 +123,7 @@ export const NEW_LABEL_BY_PARENT: Record<string, string> = {
 	events: "Novo Evento",
 	exceptions: "Nova Exceção",
 	suprimentos: "Novo Rascunho",
+	"snack-requests": "Novo Pedido",
 	procurement: "Nova ATA",
 }
 

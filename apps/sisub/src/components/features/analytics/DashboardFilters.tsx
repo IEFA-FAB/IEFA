@@ -1,10 +1,11 @@
 import type { MessHallAPI } from "@iefa/sisub-domain/types"
 import { Calendar } from "lucide-react"
+import { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 
 interface DashboardFiltersProps {
 	dateRange: { start: string; end: string }
@@ -16,8 +17,11 @@ interface DashboardFiltersProps {
 
 const MESS_HALL_ALL_LABEL = "Todos os Ranchos"
 
+/** Valor com que o painel pede "sem filtro de rancho". */
+const ALL_MESS_HALLS = "all"
+
 export default function DashboardFilters({ dateRange, onDateRangeChange, messHalls, selectedMessHall, onMessHallChange }: DashboardFiltersProps) {
-	const selectedMessHallLabel = selectedMessHall === "all" ? MESS_HALL_ALL_LABEL : messHalls.find((mh) => mh.id.toString() === selectedMessHall)?.display_name
+	const messHallOptions = useMemo(() => messHalls.map((mh) => ({ value: mh.id.toString(), label: mh.display_name })), [messHalls])
 
 	const setToday = () => {
 		const today = new Date().toISOString().split("T")[0]
@@ -74,26 +78,16 @@ export default function DashboardFilters({ dateRange, onDateRangeChange, messHal
 					{/* Mess Hall Selector */}
 					<Field>
 						<FieldLabel htmlFor="mess-hall-select">Rancho</FieldLabel>
-						<Select
-							value={selectedMessHall}
-							onValueChange={(val) => {
-								if (val !== null) {
-									onMessHallChange(val)
-								}
-							}}
-						>
-							<SelectTrigger id="mess-hall-select" className="w-full">
-								<SelectValue placeholder="Selecione o rancho">{selectedMessHallLabel}</SelectValue>
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="all">Todos os Ranchos</SelectItem>
-								{messHalls.map((mh) => (
-									<SelectItem key={mh.id} value={mh.id.toString()}>
-										{mh.display_name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+						<SearchableSelect
+							id="mess-hall-select"
+							value={selectedMessHall === ALL_MESS_HALLS ? null : selectedMessHall}
+							onValueChange={(val) => onMessHallChange(val ?? ALL_MESS_HALLS)}
+							options={messHallOptions}
+							clearLabel={MESS_HALL_ALL_LABEL}
+							searchPlaceholder="Pesquisar rancho…"
+							emptyLabel="Nenhum rancho encontrado."
+							unavailableLabel="Rancho indisponível"
+						/>
 					</Field>
 
 					{/* Quick Actions */}

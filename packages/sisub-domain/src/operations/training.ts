@@ -311,6 +311,15 @@ const RESET_STEPS: ResetStep[] = [
 	{ table: "kitchen.menu_items", run: (tx, _s, ids) => deleteByParent(tx, menuItemsInKitchen, menuItemsInKitchen.dailyMenuId, ids.dailyMenuIds) },
 	{ table: "kitchen.daily_menu", run: (tx, scope) => deleteCounting(tx, dailyMenuInKitchen, eq(dailyMenuInKitchen.kitchenId, scope.kitchen_id)) },
 
+	// ── Pedidos de lanche ──
+	// Depois dos itens de cardápio (que apontam para o pedido por `origin_snack_request_id`) e
+	// antes dos templates (as linhas apontam para o padrão). Linhas, eventos e cautela saem em
+	// cascata; o histórico apenas-inserção libera a cascata (`pg_trigger_depth() > 1`).
+	{
+		table: "kitchen.snack_request",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from kitchen.snack_request where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
+
 	// ── Compras ──
 	// As seleções apontam para o rascunho E para o template; ambas precisam sair antes.
 	{

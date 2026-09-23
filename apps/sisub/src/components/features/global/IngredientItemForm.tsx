@@ -2,11 +2,13 @@ import type { IngredientItem } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { Tag } from "lucide-react"
+import { useMemo } from "react"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { useCreateIngredientItem, useIngredients, usePurchaseItems, useUpdateIngredientItem } from "@/services/IngredientsService"
@@ -39,6 +41,9 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 	const { updateIngredientItem, isUpdating } = useUpdateIngredientItem()
 	// Itens de compra disponíveis para vincular (escopados ao insumo da tela)
 	const { purchaseItems } = usePurchaseItems(defaultIngredientId ?? "")
+
+	// O catálogo inteiro passa de 4,5 mil insumos: a lista só é navegável com busca.
+	const ingredientOptions = useMemo(() => (ingredients ?? []).map((p) => ({ value: p.id, label: p.description ?? "Sem Nome" })), [ingredients])
 
 	const form = useForm({
 		defaultValues: {
@@ -122,20 +127,17 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 										<FieldLabel htmlFor={field.name}>
 											Insumo Genérico <span className="text-destructive">*</span>
 										</FieldLabel>
-										<Select value={field.state.value} onValueChange={(value) => field.handleChange(value || "")}>
-											<SelectTrigger>
-												<SelectValue placeholder="Selecione um insumo">
-													{field.state.value && (ingredients?.find((p) => p.id === field.state.value)?.description ?? field.state.value)}
-												</SelectValue>
-											</SelectTrigger>
-											<SelectContent>
-												{ingredients?.map((p) => (
-													<SelectItem key={p.id} value={p.id}>
-														{p.description}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
+										<SearchableSelect
+											id={field.name}
+											value={field.state.value || null}
+											onValueChange={(value) => field.handleChange(value ?? "")}
+											options={ingredientOptions}
+											placeholder="Selecione um insumo"
+											searchPlaceholder="Pesquisar insumo…"
+											emptyLabel="Nenhum insumo encontrado."
+											unavailableLabel="Insumo indisponível"
+											aria-invalid={!!field.state.meta.errors.length}
+										/>
 										<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 									</Field>
 								)}

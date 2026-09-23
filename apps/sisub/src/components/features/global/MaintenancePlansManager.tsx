@@ -21,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -62,6 +63,7 @@ export function MaintenancePlansManager() {
 	const [form, setForm] = useState<PlanForm>(emptyForm)
 
 	const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r])), [roles])
+	const roleOptions = useMemo(() => roles.map((role) => ({ value: role.id, label: role.name })), [roles])
 
 	const openCreate = () => {
 		setEditingId(null)
@@ -197,18 +199,16 @@ export function MaintenancePlansManager() {
 							<Field>
 								<FieldLabel htmlFor="plan-role">Função do equipamento</FieldLabel>
 								<FieldContent>
-									<Select value={form.roleId} onValueChange={(value) => setForm((f) => ({ ...f, roleId: value as string }))}>
-										<SelectTrigger id="plan-role" className="w-full">
-											<SelectValue>{form.roleId ? (roleById.get(form.roleId)?.name ?? "Função") : "Selecione a função"}</SelectValue>
-										</SelectTrigger>
-										<SelectContent>
-											{roles.map((role) => (
-												<SelectItem key={role.id} value={role.id}>
-													{role.name}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+									<SearchableSelect
+										id="plan-role"
+										value={form.roleId}
+										onValueChange={(value) => setForm((f) => ({ ...f, roleId: value }))}
+										options={roleOptions}
+										placeholder="Selecione a função"
+										searchPlaceholder="Pesquisar função…"
+										emptyLabel="Nenhuma função encontrada."
+										unavailableLabel="Função indisponível"
+									/>
 									<FieldDescription>A âncora não muda depois: mudar a função mudaria o parque inteiro que a rotina cobre.</FieldDescription>
 								</FieldContent>
 							</Field>

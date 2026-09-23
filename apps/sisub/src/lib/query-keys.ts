@@ -164,6 +164,20 @@ export const queryKeys = {
 		graph: () => ["places_graph"] as const,
 	},
 
+	snackRequests: {
+		all: () => ["snack_request"] as const,
+		mine: () => ["snack_request", "mine"] as const,
+		myDetail: (requestId: string) => ["snack_request", "mine", requestId] as const,
+		orderingContext: () => ["snack_request", "ordering-context"] as const,
+		orderable: (kitchenId: number | null) => ["snack_request", "orderable", kitchenId] as const,
+		kitchenList: (kitchenId: number, params: { from?: string; to?: string; statuses?: string[] }) => ["snack_request", "kitchen", kitchenId, params] as const,
+		kitchenDetail: (requestId: string) => ["snack_request", "kitchen-detail", requestId] as const,
+		label: (requestId: string) => ["snack_request", "label", requestId] as const,
+		production: (kitchenId: number, date: string) => ["snack_request", "production", kitchenId, date] as const,
+		standardEnergy: (templateId: string) => ["snack_request", "standard-energy", templateId] as const,
+		snackMealType: () => ["snack_request", "meal-type"] as const,
+	},
+
 	kitchenDraft: {
 		all: () => ["kitchen_ata_draft"] as const,
 		listAll: () => ["kitchen_ata_draft", "list"] as const,

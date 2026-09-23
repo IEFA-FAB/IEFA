@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { type BulkSelectedNode, useBulkIngredientOps } from "@/hooks/business/useBulkIngredientOps"
@@ -90,6 +91,27 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 		return all.filter((f) => !excluded.has(f.id))
 	}, [folders, selectedNodes])
 
+	// Caminho hierárquico de cada alvo (ex.: "Hortifruti / Frutas / Cítricas") — são
+	// mais de 150 pastas, e só o nome da folha não distingue as homônimas. O caminho
+	// é montado sobre a lista COMPLETA, não sobre os alvos: um ancestral excluído da
+	// movimentação continua fazendo parte do endereço dos filhos.
+	const moveOptions = useMemo(() => {
+		const byId = new Map((folders ?? []).map((f) => [f.id, f]))
+		const pathOf = (folder: (typeof moveTargets)[number]) => {
+			const parts: string[] = []
+			let cur = folder as (typeof moveTargets)[number] | undefined
+			const seen = new Set<string>()
+			while (cur && !seen.has(cur.id)) {
+				seen.add(cur.id)
+				parts.unshift(cur.description || "Sem nome")
+				cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
+			}
+			return parts.join(" / ")
+		}
+		const targets = moveTargets.map((f) => ({ value: f.id, label: pathOf(f) })).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"))
+		return [{ value: ROOT_VALUE, label: "Raiz (sem pasta)" }, ...targets]
+	}, [folders, moveTargets])
+
 	const close = () => {
 		if (isRunning) return
 		setActive(null)
@@ -131,11 +153,6 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 	const handleRestore = async () => {
 		const result = await restoreNodes(selectedNodes)
 		afterApply(result, "restaurados")
-	}
-
-	const resolveFolderLabel = (value: string | null) => {
-		if (value === ROOT_VALUE) return "Raiz (sem pasta)"
-		return moveTargets.find((f) => f.id === value)?.description || "Sem nome"
 	}
 
 	return (
@@ -229,19 +246,14 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 					</DialogHeader>
 					<Field>
 						<FieldLabel>Pasta de destino</FieldLabel>
-						<Select value={targetFolder} onValueChange={setTargetFolder}>
-							<SelectTrigger>
-								<SelectValue placeholder="Selecione a pasta">{targetFolder ? resolveFolderLabel(targetFolder) : undefined}</SelectValue>
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value={ROOT_VALUE}>Raiz (sem pasta)</SelectItem>
-								{moveTargets.map((f) => (
-									<SelectItem key={f.id} value={f.id}>
-										{f.description || "Sem nome"}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+						<SearchableSelect
+							value={targetFolder}
+							onValueChange={setTargetFolder}
+							options={moveOptions}
+							placeholder="Selecione a pasta"
+							searchPlaceholder="Pesquisar pasta…"
+							emptyLabel="Nenhuma pasta encontrada."
+						/>
 					</Field>
 					<DialogFooter>
 						<Button variant="outline" onClick={close} disabled={isRunning}>

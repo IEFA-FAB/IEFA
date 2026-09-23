@@ -284,6 +284,7 @@ export async function restoreMenuItem(db: SisubDb, ctx: UserContext, input: Rest
 					serviceDate: dailyMenuInKitchen.serviceDate,
 					mealTypeId: dailyMenuInKitchen.mealTypeId,
 					menuKitchenId: dailyMenuInKitchen.kitchenId,
+					originSnackRequestId: menuItemsInKitchen.originSnackRequestId,
 				})
 				.from(menuItemsInKitchen)
 				.leftJoin(dailyMenuInKitchen, eq(menuItemsInKitchen.dailyMenuId, dailyMenuInKitchen.id))
@@ -298,6 +299,9 @@ export async function restoreMenuItem(db: SisubDb, ctx: UserContext, input: Rest
 		//     inteira falharia; o item entra no menu ativo;
 		//   - não existe: o menu antigo é reativado. Sem isso o item restaurado ficaria
 		//     invisível, porque toda leitura do calendário filtra menu excluído.
+		if (row?.originSnackRequestId) {
+			throw new DomainError("SNACK_ITEM_NOT_RESTORABLE", "Item de pedido de lanche volta ao quadro pelo pedido, não pela lixeira.")
+		}
 		let targetMenuId = row?.dailyMenuId ?? null
 		if (row?.dailyMenuId && row.menuDeletedAt != null && row.serviceDate && row.mealTypeId && row.menuKitchenId != null) {
 			const [active] = await runQuery("FETCH_FAILED", () =>
@@ -428,7 +432,9 @@ export async function getTrashItems(db: SisubDb, ctx: UserContext, input: GetTra
 			.from(menuItemsInKitchen)
 			.innerJoin(dailyMenuInKitchen, eq(menuItemsInKitchen.dailyMenuId, dailyMenuInKitchen.id))
 			.leftJoin(recipesInKitchen, eq(menuItemsInKitchen.recipeOriginId, recipesInKitchen.id))
-			.where(and(isNotNull(menuItemsInKitchen.deletedAt), eq(dailyMenuInKitchen.kitchenId, input.kitchenId)))
+			// Item de pedido de lanche cancelado não é lixo restaurável: quem o tirou do quadro foi
+			// o cancelamento do pedido, e restaurá-lo produziria lanche para pedido cancelado.
+			.where(and(isNotNull(menuItemsInKitchen.deletedAt), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), isNull(menuItemsInKitchen.originSnackRequestId)))
 			.orderBy(desc(menuItemsInKitchen.deletedAt))
 	)
 
