@@ -1,0 +1,83 @@
+# Lint · typecheck · testes unitários NO PULL REQUEST, antes do merge.
+#
+# Até aqui esses gates só existiam nos jobs `check-<app>` do `deploy.yml`, que dispara em
+# push na `main`: o erro aparecia depois do merge, e o deploy do app ficava `skipped`.
+# Medido de 2026-07-29 a 2026-09-23: 59 de 273 pushes na `main` (21,6%) com o CI/CD
+# vermelho. Lint, typecheck, teste unitário e contrato respondem por ~21 desses runs, e
+# todos eram visíveis num PR.
+#
+# Escopo: `turbo --affected` contra a base do PR, com o grafo de workspace (package
+# alterado arrasta os apps que o consomem). Mudança em arquivo global (lockfile, biome,
+# turbo, tsconfig base, este workflow) roda tudo.
+#
+# Sem segredo nenhum, de propósito: roda igual em PR de fork, e teste que precisa de
+# credencial é teste de integração, que tem o próprio workflow (`integration.yml`). As
+# `vars` abaixo são as mesmas que os `check-<app>` recebem e que já vão no bundle público.
+name: pr-check
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: lint · typecheck · test
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Os `lint` dos apps são `biome lint`: formatação só era cobrada pelo pre-commit, que não
+      # existe em worktree sem `bun install` nem em commit feito pela interface do GitHub.
+      - name: Format
+        run: bun run format:check
+
+      - name: Resolve scope
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          if printf '%s\n' "$changed" | grep -qE '^(bun\.lock|package\.json|biome\.json|turbo\.json|bunfig\.toml|packages/tsconfig/|\.github/workflows/pr-check\.yml$)'; then
+            echo "args=" >> "$GITHUB_OUTPUT"
+            echo "Arquivo global alterado: rodando o monorepo inteiro."
+          else
+            echo "args=--affected" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Lint · typecheck · test
+        run: bunx turbo run lint typecheck test ${SCOPE_ARGS:+"$SCOPE_ARGS"} --concurrency=4 --continue
+        env:
+          SCOPE_ARGS: ${{ steps.scope.outputs.args }}
+          TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
+          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_RUMAER_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_ASSIGNMENT_SELECTION_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
