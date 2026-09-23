@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { buildHits, matches, type SearchableSelectOption, toSearchTerms } from "./searchable-select-filter"
+import { buildHits, MAX_VISIBLE, matches, type SearchableSelectOption, toSearchTerms } from "./searchable-select-filter"
 
 const opt = (value: string, label: string, extra: Partial<SearchableSelectOption> = {}): SearchableSelectOption => ({ value, label, ...extra })
 
@@ -63,9 +63,15 @@ describe("buildHits", () => {
 
 	test("o escolhido entra na janela mesmo em lista grande", () => {
 		const many = Array.from({ length: 4557 }, (_, i) => opt(`ing-${i}`, `Insumo ${i}`))
-		const hits = buildHits({ options: many, query: "", clearOption: null, selected: many[3197] })
+		const escolhido = many[3197]
 
-		expect(hits.slice(0, 50)).toContain(many[3197])
+		// Sem o pin ele fica FORA da janela — é este o estado que o navegador
+		// flagrou: lista de milhares reabrindo no começo do catálogo, sem check.
+		const semPin = buildHits({ options: many, query: "", clearOption: null, selected: null })
+		expect(semPin.slice(0, MAX_VISIBLE)).not.toContain(escolhido)
+
+		const comPin = buildHits({ options: many, query: "", clearOption: null, selected: escolhido })
+		expect(comPin.slice(0, MAX_VISIBLE)).toContain(escolhido)
 	})
 
 	// Enquanto se digita, a ordem é do que foi digitado — fixar ali poria um
@@ -86,8 +92,19 @@ describe("buildHits", () => {
 		expect(comPin).toHaveLength(semPin.length)
 	})
 
-	test("valor salvo que não está nas opções não quebra nem entra", () => {
-		const hits = buildHits({ options, query: "", clearOption: null, selected: null })
+	// Fixar um `selected` solto criaria linha fantasma e somaria 1 ao total que o
+	// rodapé imprime. O componente deriva `selected` de `options.find(...)`, mas a
+	// função não pode depender disso.
+	test("escolhido que não está entre as opções não é fixado nem infla o total", () => {
+		const fantasma = opt("zzz", "Insumo apagado")
+		const hits = buildHits({ options, query: "", clearOption: null, selected: fantasma })
+
 		expect(hits).toEqual(options)
+	})
+
+	test("escolhido fora do filtro atual não é fixado", () => {
+		const hits = buildHits({ options, query: "arroz", clearOption: null, selected: options[2] })
+
+		expect(hits).toEqual([options[0]])
 	})
 })

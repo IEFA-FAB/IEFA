@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxStatus, ComboboxTrigger } from "@/components/ui/combobox"
 import { cn } from "@/lib/cn"
-import { buildHits, NONE_VALUE, type SearchableSelectOption } from "@/lib/searchable-select-filter"
+import { buildHits, MAX_VISIBLE, NONE_VALUE, type SearchableSelectOption } from "@/lib/searchable-select-filter"
 
 export type { SearchableSelectOption }
 
@@ -28,22 +28,6 @@ interface SearchableSelectProps {
 	"aria-label"?: string
 	"aria-invalid"?: boolean
 }
-
-/**
- * Teto de itens renderizados por vez.
- *
- * O ganho do combobox é a busca, não a rolagem: uma lista de 4.557 insumos
- * montaria 4.557 nós no popup e travaria a abertura do mesmo jeito que o
- * `Select` que este componente substitui. O corte mantém o DOM pequeno, e o
- * rodapé diz quantos ficaram de fora — estado vazio que mente é pior do que
- * lista truncada que se anuncia.
- *
- * Quem corta é o `limit` do primitivo, NÃO um `.slice()` na coleção: fatiar
- * tirava o item selecionado de `items` sempre que ele caía fora dos 50
- * primeiros, e aí o Base UI não tinha o que marcar com o check nem para onde
- * rolar ao abrir.
- */
-const MAX_VISIBLE = 50
 
 /**
  * Select com busca, sobre o primitivo `Combobox` do Base UI.

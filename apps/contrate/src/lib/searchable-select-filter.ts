@@ -3,7 +3,7 @@ export interface SearchableSelectOption {
 	label: string
 	/** Segunda linha do item: o contexto que desempata homônimos. */
 	hint?: string
-	/** Entra na busca sem aparecer no item — código, sinônimo, caminho da pasta. */
+	/** Entra na busca sem aparecer no item — sigla, código, sinônimo. */
 	keywords?: string
 }
 
@@ -24,15 +24,24 @@ export function toSearchTerms(query: string): string[] {
 
 /**
  * Cada palavra da busca tem de aparecer em algum lugar do item, em qualquer
- * ordem — mesma regra do `FolderCombobox`, pelo mesmo motivo: casar a consulta
- * inteira como substring responderia "nenhum resultado" para o item que o
- * usuário está olhando sempre que ele pula um nível do nome.
+ * ordem. Casar a consulta inteira como substring responderia "nenhum resultado"
+ * para o item que o usuário está olhando sempre que ele pula uma palavra do
+ * meio do rótulo.
  */
 export function matches(haystack: string, terms: readonly string[]): boolean {
 	if (terms.length === 0) return true
 	const target = normalize(haystack)
 	return terms.every((term) => target.includes(term))
 }
+
+/**
+ * Teto de itens renderizados por vez, aplicado pelo `limit` do primitivo.
+ *
+ * O ganho do combobox é a busca, não a rolagem: sem o corte, uma lista de 4.557
+ * insumos montaria 4.557 nós no popup e travaria a abertura do mesmo jeito que o
+ * `Select` que este componente substitui.
+ */
+export const MAX_VISIBLE = 50
 
 /**
  * A lista que o combobox recebe: filtrada pela busca e, com a busca vazia, com
@@ -61,5 +70,11 @@ export function buildHits({
 	const pool = clearOption ? [clearOption, ...options] : options
 	const found = pool.filter((option) => matches(`${option.label} ${option.hint ?? ""} ${option.keywords ?? ""}`, terms))
 	if (terms.length > 0 || selected == null) return found
-	return [selected, ...found.filter((option) => option.value !== selected.value)]
+	// Só fixa o que a lista realmente contém. Fixar um `selected` solto criaria
+	// uma linha fantasma e somaria 1 ao total que o rodapé "Mostrando N de M"
+	// imprime — o componente hoje deriva `selected` de `options.find(...)`, mas
+	// a função não pode depender disso para não mentir.
+	const pinned = found.find((option) => option.value === selected.value)
+	if (pinned == null) return found
+	return [pinned, ...found.filter((option) => option.value !== selected.value)]
 }
