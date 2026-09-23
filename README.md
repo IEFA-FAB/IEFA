@@ -38,7 +38,7 @@ the Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA).
 | `@iefa/agent-web` | Camada agent-ready dos apps web (Markdown negotiation, llms.txt, descoberta) |
 | `@iefa/compras-api` | Client gerado da API do Compras.gov |
 | `@iefa/hono-client` | Client RPC tipado do `apps/api` |
-| `@iefa/alpha-client` | Client do `apps/alpha` |
+| `@iefa/alpha-client` | Contrato de acesso do `apps/alpha`, consumido pelo `contrate` |
 | `@iefa/tsconfig` | Bases de tsconfig (`base`, `library`, `react-app`, `bun-service`) |
 
 ## Getting Started
