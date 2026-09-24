@@ -62,7 +62,7 @@ function ReplenishmentPage() {
 												{row.description}
 												{row.expiringExcluded > 0 && (
 													<Tooltip>
-														<TooltipTrigger className="ml-1.5 align-middle" aria-label="Lotes vencendo">
+														<TooltipTrigger className="ml-1.5 align-middle cursor-default" aria-label="Lotes vencendo">
 															<TriangleAlert className="size-3.5 text-warning inline" />
 														</TooltipTrigger>
 														<TooltipContent>

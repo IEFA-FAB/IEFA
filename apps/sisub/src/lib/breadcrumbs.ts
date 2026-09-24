@@ -14,6 +14,7 @@
  */
 
 import type { NavItem } from "@/components/layout/sidebar/NavItems"
+import { normalizePath, scopeUrl } from "@/lib/nav-paths"
 import type { ScopeContext } from "@/types/domain/scope"
 
 export type Crumb = { to: string; label: string }
@@ -146,8 +147,8 @@ function unscopedPath(segments: string[]): string | null {
 }
 
 export function buildCrumbs(pathname: string, navItems: NavItem[], scopeContext?: ScopeContext): Crumb[] {
-	const path = pathname.replace(/\/+$/, "")
-	if (!path || path === "/") {
+	const path = normalizePath(pathname)
+	if (path === "/") {
 		return [{ to: "/hub", label: "Hub" }]
 	}
 
@@ -193,10 +194,11 @@ export function buildCrumbs(pathname: string, navItems: NavItem[], scopeContext?
 /** O mínimo de `ModuleDef` que a trilha precisa — mantém este arquivo livre da cadeia de env da sidebar. */
 export type CrumbModule = { id: string; name: string; hubUrl?: string; items: { title: string; url: string }[] }
 
-/** Crumb pronto para a UI: `to === null` é texto, não link. */
-export type NavCrumb = { key: string; label: string; to: string | null }
-
-const stripTrailingSlash = (p: string) => p.replace(/\/+$/, "") || "/"
+/**
+ * Crumb pronto para a UI: `to === null` é texto, não link. `isScope` marca o id do escopo
+ * (cozinha/unidade) e `isRecord` o id de um registro — é nele que o nome do registro entra.
+ */
+export type NavCrumb = { key: string; label: string; to: string | null; isScope?: boolean; isRecord?: boolean }
 
 /**
  * Decide para onde cada crumb aponta. A URL acumulada nem sempre é uma página:
@@ -210,33 +212,34 @@ const stripTrailingSlash = (p: string) => p.replace(/\/+$/, "") || "/"
  *
  * Na rota index de um escopo (`/messhall/7`, `/kitchen-production/7`) o último segmento é o id,
  * então a página ganha o crumb do item index da sidebar ("Presenças", "Painel").
+ *
+ * `modules` são as URLs BASE da sidebar (sem escopo); o escopo sai da própria URL.
  */
 export function linkCrumbs(crumbs: Crumb[], pathname: string, modules: CrumbModule[]): NavCrumb[] {
-	const current = stripTrailingSlash(pathname)
+	const current = normalizePath(pathname)
 	const segments = current.split("/").filter(Boolean)
 	const mod = modules.find((m) => m.id === segments[0])
 	const scopeId = segments[1] !== undefined && isId(segments[1]) && mod?.hubUrl ? segments[1] : null
-
-	const scoped = (url: string) => (scopeId && mod ? url.replace(`/${mod.id}/`, `/${mod.id}/${scopeId}/`) : url)
 	const firstItemUrl = mod?.items[0]?.url
 
 	const out: NavCrumb[] = crumbs.map((crumb, i) => {
 		const seg = segments[i] as string
 		const isLast = i === crumbs.length - 1
+		const isScope = i === 1 && scopeId !== null
 		let to: string | null = crumb.to
 		let label = crumb.label
 
 		if (i === 0 && mod) {
 			label = mod.name
 			to = mod.hubUrl ?? firstItemUrl ?? null
-		} else if (i === 1 && scopeId) {
-			to = firstItemUrl ? scoped(firstItemUrl) : null
+		} else if (isScope && mod) {
+			to = firstItemUrl ? scopeUrl(firstItemUrl, mod.id, seg) : null
 		} else if (TRANSPARENT_SEGMENTS.has(seg) && !isLast) {
 			to = null
 		}
 
-		if (to !== null && stripTrailingSlash(to) === current) to = null
-		return { key: crumb.to, label, to }
+		if (to !== null && normalizePath(to) === current) to = null
+		return { key: crumb.to, label, to, isScope, isRecord: !isScope && isId(seg) }
 	})
 
 	// Rota index do escopo: a página é o item index da sidebar (URL base terminada em "/")
@@ -249,20 +252,12 @@ export function linkCrumbs(crumbs: Crumb[], pathname: string, modules: CrumbModu
 }
 
 /**
- * Troca o rótulo genérico do registro aberto ("Preparação", "Evento") pelo nome dele.
- * O alvo é o ÚLTIMO segmento-id que não seja o escopo — em `/recipes/$id/versions` o nome
- * fica no crumb do id, não em "Versões".
+ * Troca o rótulo genérico do registro aberto ("Preparação", "Evento") pelo nome dele — no
+ * ÚLTIMO crumb de registro: em `/recipes/$id/versions` o nome fica no id, não em "Versões".
  */
-export function applyEntityLabel(crumbs: NavCrumb[], pathname: string, label: string | null | undefined, scoped: boolean): NavCrumb[] {
+export function applyEntityLabel(crumbs: NavCrumb[], label: string | null | undefined): NavCrumb[] {
 	if (!label) return crumbs
-	const segments = stripTrailingSlash(pathname).split("/").filter(Boolean)
-	let target = -1
-	for (let i = segments.length - 1; i >= 0; i--) {
-		if (isId(segments[i] as string) && !(scoped && i === 1)) {
-			target = i
-			break
-		}
-	}
-	if (target < 0 || !crumbs[target]) return crumbs
+	const target = crumbs.findLastIndex((c) => c.isRecord)
+	if (target < 0) return crumbs
 	return crumbs.map((c, i) => (i === target ? { ...c, label } : c))
 }

@@ -262,7 +262,7 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 					<div className="flex items-center justify-end gap-1.5">
 						{saldoBaixo && (
 							<Tooltip>
-								<TooltipTrigger aria-label="Saldo baixo">
+								<TooltipTrigger aria-label="Saldo baixo" className="cursor-default">
 									<AlertTriangle className="size-3.5 text-warning shrink-0" />
 								</TooltipTrigger>
 								<TooltipContent>Mais de 90% do saldo empenhado</TooltipContent>

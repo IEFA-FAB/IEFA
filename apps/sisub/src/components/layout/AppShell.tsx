@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 import { useTheme } from "@/hooks/ui/useTheme"
 import { applyEntityLabel, buildCrumbs, linkCrumbs, type NavCrumb } from "@/lib/breadcrumbs"
+import { normalizePath, scopeUrl } from "@/lib/nav-paths"
 import type { ScopeContext } from "@/types/domain/scope"
 import { CrumbLabelContext } from "./crumb-label"
 import { AppSidebar } from "./sidebar/AppSidebar"
@@ -69,15 +70,7 @@ export function AppShell() {
 		// navegação para rotas inválidas (URLs base sem $scopeId não existem no router)
 		if (mod.hubUrl && !scopeContext) return { ...mod, items: [] }
 		if (!scopeContext) return mod
-		const prefix = `/${mod.id}/`
-		const newPrefix = `/${mod.id}/${scopeContext.id}/`
-		return {
-			...mod,
-			items: mod.items.map((item) => ({
-				...item,
-				url: item.url.startsWith(prefix) ? newPrefix + item.url.slice(prefix.length) : item.url,
-			})),
-		}
+		return { ...mod, items: mod.items.map((item) => ({ ...item, url: scopeUrl(item.url, mod.id, scopeContext.id) })) }
 	})
 
 	// Módulo com hubUrl mas sem escopo selecionado → tela de seleção de escopo
@@ -101,18 +94,20 @@ export function AppShell() {
 	// Trilha derivada da URL; `linkCrumbs` troca os destinos que não são página (layout sem
 	// index, `print`, a própria página) e usa os nomes de módulo da sidebar.
 	const navItems: NavItem[] = getNavItemsForPermissions(permissions)
+	const activeEntityLabel = entityLabel && entityLabel.path === normalizePath(location.pathname) ? entityLabel.label : null
 	const crumbs: NavCrumb[] = applyEntityLabel(
 		linkCrumbs(buildCrumbs(location.pathname, navItems, scopeContext), location.pathname, availableModules),
-		location.pathname,
-		entityLabel?.path === location.pathname ? entityLabel.label : null,
-		!!effectiveModule?.hubUrl
+		activeEntityLabel
 	)
 
 	// Título da aba: fonte única — as rotas do AppShell não declaram `title` no head, senão
-	// as duas fontes disputam a aba. Formato: "Página · Escopo — SISUB".
+	// as duas fontes disputam a aba. Formato: "Página · Registro · Escopo — SISUB". O registro
+	// entra quando não é a própria página (Imprimir, Versões): o título vira o nome do PDF salvo.
 	const currentLabel = crumbs[crumbs.length - 1]?.label || R.breadcrumbRoot
-	const documentTitle =
-		scopeContext && currentLabel !== scopeContext.name ? `${currentLabel} · ${scopeContext.name} — ${R.appName}` : `${currentLabel} — ${R.appName}`
+	const titleParts = [currentLabel]
+	if (activeEntityLabel && activeEntityLabel !== currentLabel) titleParts.push(activeEntityLabel)
+	if (scopeContext && currentLabel !== scopeContext.name) titleParts.push(scopeContext.name)
+	const documentTitle = `${titleParts.join(" · ")} — ${R.appName}`
 	useEffect(() => {
 		document.title = documentTitle
 	})

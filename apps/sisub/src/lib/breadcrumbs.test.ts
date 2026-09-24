@@ -219,17 +219,27 @@ describe("linkCrumbs", () => {
 describe("applyEntityLabel", () => {
 	it("troca o rótulo genérico do registro pelo nome", () => {
 		const path = `/kitchen/7/recipes/${FAKE_UUID}/versions`
-		const crumbs = applyEntityLabel(trail(path), path, "Arroz carreteiro", true)
+		const crumbs = applyEntityLabel(trail(path), "Arroz carreteiro")
 		expect(crumbs.map((c) => c.label)).toEqual(["Gestão Cozinha", "GAP-AF", "Preparações", "Arroz carreteiro", "Versões"])
 	})
 
 	it("nunca renomeia o escopo", () => {
-		const crumbs = applyEntityLabel(trail("/storage/7/dashboard"), "/storage/7/dashboard", "Outro nome", true)
+		const crumbs = applyEntityLabel(trail("/storage/7/dashboard"), "Outro nome")
 		expect(crumbs[1]?.label).toBe("GAP-AF")
+	})
+
+	it("rotula o registro, não o escopo, quando os dois são ids", () => {
+		const path = `/storage/7/receiving/${FAKE_UUID}`
+		expect(applyEntityLabel(trail(path), "Recebimento de 24/09/2026").map((c) => c.label)).toEqual([
+			"Estoque",
+			"GAP-AF",
+			"Recebimentos",
+			"Recebimento de 24/09/2026",
+		])
 	})
 
 	it("sem nome mantém o genérico", () => {
 		const path = `/global/recipes/${FAKE_UUID}`
-		expect(applyEntityLabel(trail(path), path, undefined, false).at(-1)?.label).toBe("Preparação")
+		expect(applyEntityLabel(trail(path), undefined).at(-1)?.label).toBe("Preparação")
 	})
 })

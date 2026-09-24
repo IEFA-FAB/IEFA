@@ -20,7 +20,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
-
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"

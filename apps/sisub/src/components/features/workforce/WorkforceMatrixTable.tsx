@@ -165,7 +165,7 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 												<span className="text-subheading">{rancho.total}</span>
 												{rancho.declaredTotalDiverges && (
 													<Tooltip>
-														<TooltipTrigger aria-label="Total declarado diverge da soma" className="inline-flex">
+														<TooltipTrigger aria-label="Total declarado diverge da soma" className="inline-flex cursor-default">
 															<AlertTriangle className="size-3.5 text-warning" aria-hidden="true" />
 														</TooltipTrigger>
 														<TooltipContent>
