@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { type CanOpen, indexEntries, type PaletteEntry, parseRecentScopes, resolveEntryTarget, searchEntries } from "@/lib/command-palette"
+import { type CanOpen, indexEntries, type PaletteEntry, resolveEntryTarget, searchEntries } from "@/lib/command-palette"
 
 const storage = { moduleId: "storage", moduleName: "Estoque", hubUrl: "/storage", scopeType: "kitchen" } as const
 
@@ -95,19 +95,5 @@ describe("resolveEntryTarget", () => {
 			to: "/messhall/32/",
 			scopeName: "AFA",
 		})
-	})
-})
-
-describe("parseRecentScopes", () => {
-	it("aceita o formato gravado", () => {
-		expect(parseRecentScopes('{"kitchen":{"id":7,"name":"GAP-AF"}}')).toEqual({ kitchen: { id: 7, name: "GAP-AF" } })
-	})
-
-	it.each(["null", "[]", "42", "{", '{"kitchen":{"id":"7"}}', '{"outro":{"id":1,"name":"x"}}'])("descarta %s", (raw) => {
-		expect(parseRecentScopes(raw)).toEqual({})
-	})
-
-	it("trata ausência como vazio", () => {
-		expect(parseRecentScopes(null)).toEqual({})
 	})
 })

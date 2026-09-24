@@ -13,7 +13,6 @@ import {
 	type CanOpen,
 	indexEntries,
 	type PaletteEntry,
-	parseRecentScopes,
 	type RecentScopes,
 	type ResolvedTarget,
 	resolveEntryTarget,
@@ -45,26 +44,21 @@ export function useCommandPaletteShortcut(): string {
 	return label
 }
 
-// Por usuário: num terminal compartilhado (rancho, almoxarifado) o escopo de quem saiu não
-// pode virar o destino de quem entrou.
-const recentScopesKey = (userId: string) => `sisub:recent-scopes:${userId}`
+/**
+ * Último escopo aberto de cada tipo, por usuário — em MEMÓRIA do módulo, não em
+ * `localStorage`: sobrevive à navegação do SPA e morre no F5. Chave de armazenamento nova
+ * exigiria versão nova da Política de Cookies (e ciência de novo de todo usuário) por uma
+ * conveniência — mesma escolha do #298. Por usuário porque num terminal compartilhado
+ * (rancho, almoxarifado) o escopo de quem saiu não pode virar o destino de quem entrou.
+ */
+const recentScopesByUser = new Map<string, RecentScopes>()
 
-/** `localStorage` pode não existir ou lançar (armazenamento bloqueado, cota) — nunca derruba a tela. */
 function readRecentScopes(userId: string | undefined): RecentScopes {
-	if (!userId) return {}
-	try {
-		return parseRecentScopes(localStorage.getItem(recentScopesKey(userId)))
-	} catch {
-		return {}
-	}
+	return (userId && recentScopesByUser.get(userId)) || {}
 }
 
 function rememberScope(userId: string, type: ScopeType, scope: ScopeContext) {
-	try {
-		localStorage.setItem(recentScopesKey(userId), JSON.stringify({ ...readRecentScopes(userId), [type]: { id: scope.id, name: scope.name } }))
-	} catch {
-		// sem armazenamento a busca só perde a lembrança do último escopo
-	}
+	recentScopesByUser.set(userId, { ...readRecentScopes(userId), [type]: { id: scope.id, name: scope.name } })
 }
 
 type Entry = PaletteEntry & { icon: LucideIcon; scopeNoun?: string }
