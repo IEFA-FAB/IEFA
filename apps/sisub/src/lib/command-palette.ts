@@ -107,20 +107,3 @@ export function resolveEntryTarget(
 	}
 	return { kind: "hub", to: entry.hubUrl }
 }
-
-/** Lê o que veio do `localStorage` sem confiar no formato — chave alterada à mão vira `{}`. */
-export function parseRecentScopes(raw: string | null): RecentScopes {
-	let value: unknown
-	try {
-		value = JSON.parse(raw ?? "{}")
-	} catch {
-		return {}
-	}
-	if (!value || typeof value !== "object") return {}
-	const out: RecentScopes = {}
-	for (const type of ["kitchen", "unit", "mess_hall"] as const) {
-		const scope = (value as Record<string, unknown>)[type] as { id?: unknown; name?: unknown } | undefined
-		if (scope && typeof scope.id === "number" && typeof scope.name === "string") out[type] = { id: scope.id, name: scope.name }
-	}
-	return out
-}
