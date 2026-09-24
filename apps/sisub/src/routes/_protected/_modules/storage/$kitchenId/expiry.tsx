@@ -52,7 +52,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/ex
 		return { expiring, policies, kitchenId }
 	},
 	component: ExpiryPage,
-	head: () => ({ meta: [{ title: "Estoque — Vencimentos" }] }),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 })

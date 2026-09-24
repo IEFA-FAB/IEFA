@@ -241,7 +241,13 @@ export function PlanningBoard() {
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button variant="ghost" size="sm" onClick={() => dispatch({ type: "SET_MEAL_TYPE_MANAGER_OPEN", value: true })} className="size-9 p-0">
+								<Button
+									aria-label="Gerenciar Tipos de Refeição"
+									variant="ghost"
+									size="sm"
+									onClick={() => dispatch({ type: "SET_MEAL_TYPE_MANAGER_OPEN", value: true })}
+									className="size-9 p-0"
+								>
 									<Settings className="size-4" />
 								</Button>
 							}
@@ -251,7 +257,7 @@ export function PlanningBoard() {
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button variant="ghost" size="sm" onClick={() => dispatch({ type: "SET_TRASH_OPEN", value: true })} className="size-9 p-0">
+								<Button aria-label="Lixeira" variant="ghost" size="sm" onClick={() => dispatch({ type: "SET_TRASH_OPEN", value: true })} className="size-9 p-0">
 									<Trash2 className="size-4" />
 								</Button>
 							}

@@ -15,9 +15,6 @@ const recipesSearchSchema = z.object({
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/recipes/")({
 	component: RecipesPage,
 	validateSearch: recipesSearchSchema,
-	head: () => ({
-		meta: [{ title: "Catálogo de Preparações - SISUB" }],
-	}),
 })
 
 function RecipesPage() {

@@ -14,6 +14,7 @@
  */
 
 import type { NavItem } from "@/components/layout/sidebar/NavItems"
+import { normalizePath, scopeUrl } from "@/lib/nav-paths"
 import type { ScopeContext } from "@/types/domain/scope"
 
 export type Crumb = { to: string; label: string }
@@ -27,10 +28,10 @@ export const SEGMENT_PT: Record<string, string> = {
 	kitchen: "Gestão Cozinha",
 	"kitchen-production": "Produção Cozinha",
 	storage: "Estoque",
-	"local-analytics": "Análises Locais",
+	"local-analytics": "Análises da Unidade",
 	global: "Catálogo Global",
 	admin: "Administração do Sistema",
-	analytics: "Análises",
+	analytics: "Análises Globais",
 	// Páginas
 	hub: "Hub",
 	menu: "Cardápio",
@@ -86,7 +87,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	"production-issue": "Baixa por Produção",
 	counts: "Contagem Física",
 	reports: "Relatórios",
-	replenishment: "Reposição",
+	replenishment: "Sugestões de Reposição",
 	scanner: "Testar leitor",
 	adjustments: "Ajustes",
 	opening: "Carga inicial",
@@ -146,8 +147,8 @@ function unscopedPath(segments: string[]): string | null {
 }
 
 export function buildCrumbs(pathname: string, navItems: NavItem[], scopeContext?: ScopeContext): Crumb[] {
-	const path = pathname.replace(/\/+$/, "")
-	if (!path || path === "/") {
+	const path = normalizePath(pathname)
+	if (path === "/") {
 		return [{ to: "/hub", label: "Hub" }]
 	}
 
@@ -188,4 +189,75 @@ export function buildCrumbs(pathname: string, navItems: NavItem[], scopeContext?
 
 		return { to: acc, label }
 	})
+}
+
+/** O mínimo de `ModuleDef` que a trilha precisa — mantém este arquivo livre da cadeia de env da sidebar. */
+export type CrumbModule = { id: string; name: string; hubUrl?: string; items: { title: string; url: string }[] }
+
+/**
+ * Crumb pronto para a UI: `to === null` é texto, não link. `isScope` marca o id do escopo
+ * (cozinha/unidade) e `isRecord` o id de um registro — é nele que o nome do registro entra.
+ */
+export type NavCrumb = { key: string; label: string; to: string | null; isScope?: boolean; isRecord?: boolean }
+
+/**
+ * Decide para onde cada crumb aponta. A URL acumulada nem sempre é uma página:
+ *
+ *  - raiz do módulo (`/admin`, `/storage`) → hub de escopo ou primeiro item visível do módulo
+ *    (`/admin` não tem rota index e dava "Página não encontrada");
+ *  - id de escopo (`/storage/7`) → primeiro item do módulo dentro do escopo (o layout do
+ *    escopo não tem index em estoque/análises da unidade e renderizava a página em branco);
+ *  - segmento que não é rota por si (`print` em `print/$id`) → texto;
+ *  - destino igual à página atual → texto (a seta "voltar" do mobile levava à própria página).
+ *
+ * Na rota index de um escopo (`/messhall/7`, `/kitchen-production/7`) o último segmento é o id,
+ * então a página ganha o crumb do item index da sidebar ("Presenças", "Painel").
+ *
+ * `modules` são as URLs BASE da sidebar (sem escopo); o escopo sai da própria URL.
+ */
+export function linkCrumbs(crumbs: Crumb[], pathname: string, modules: CrumbModule[]): NavCrumb[] {
+	const current = normalizePath(pathname)
+	const segments = current.split("/").filter(Boolean)
+	const mod = modules.find((m) => m.id === segments[0])
+	const scopeId = segments[1] !== undefined && isId(segments[1]) && mod?.hubUrl ? segments[1] : null
+	const firstItemUrl = mod?.items[0]?.url
+
+	const out: NavCrumb[] = crumbs.map((crumb, i) => {
+		const seg = segments[i] as string
+		const isLast = i === crumbs.length - 1
+		const isScope = i === 1 && scopeId !== null
+		let to: string | null = crumb.to
+		let label = crumb.label
+
+		if (i === 0 && mod) {
+			label = mod.name
+			to = mod.hubUrl ?? firstItemUrl ?? null
+		} else if (isScope && mod) {
+			to = firstItemUrl ? scopeUrl(firstItemUrl, mod.id, seg) : null
+		} else if (TRANSPARENT_SEGMENTS.has(seg) && !isLast) {
+			to = null
+		}
+
+		if (to !== null && normalizePath(to) === current) to = null
+		return { key: crumb.to, label, to, isScope, isRecord: !isScope && isId(seg) }
+	})
+
+	// Rota index do escopo: a página é o item index da sidebar (URL base terminada em "/")
+	if (scopeId && segments.length === 2 && mod) {
+		const indexItem = mod.items.find((it) => it.url === `/${mod.id}/`)
+		if (indexItem) out.push({ key: `${current}#index`, label: indexItem.title, to: null })
+	}
+
+	return out
+}
+
+/**
+ * Troca o rótulo genérico do registro aberto ("Preparação", "Evento") pelo nome dele — no
+ * ÚLTIMO crumb de registro: em `/recipes/$id/versions` o nome fica no id, não em "Versões".
+ */
+export function applyEntityLabel(crumbs: NavCrumb[], label: string | null | undefined): NavCrumb[] {
+	if (!label) return crumbs
+	const target = crumbs.findLastIndex((c) => c.isRecord)
+	if (target < 0) return crumbs
+	return crumbs.map((c, i) => (i === target ? { ...c, label } : c))
 }

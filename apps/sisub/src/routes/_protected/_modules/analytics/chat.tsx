@@ -17,9 +17,6 @@ export const Route = createFileRoute("/_protected/_modules/analytics/chat")({
 	validateSearch: chatSearchSchema,
 	beforeLoad: (opts) => requirePermission(opts, "analytics", 1),
 	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
-	head: () => ({
-		meta: [{ title: "Assistente IA · Analytics" }],
-	}),
 	component: ChatPage,
 })
 

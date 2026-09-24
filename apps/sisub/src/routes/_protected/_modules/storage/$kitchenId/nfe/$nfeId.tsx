@@ -2,6 +2,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, CheckCircle2, CircleHelp, RefreshCw, XCircle } from "lucide-react"
 import { Fragment, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -14,9 +15,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/nf
 	beforeLoad: (opts) => requirePermission(opts, "storage", 1),
 	loader: ({ params }) => fetchNfeDocumentFn({ data: { nfeDocumentId: params.nfeId } }),
 	component: NfeDetailPage,
-	head: () => ({
-		meta: [{ title: "NF-e — SISUB" }],
-	}),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 4 })
@@ -181,6 +179,8 @@ function NfeSituationCard({
 
 function NfeDetailPage() {
 	const doc = Route.useLoaderData()
+	// Sem fornecedor, o fim da chave de acesso identifica a nota sem estourar a trilha (44 dígitos)
+	useCrumbLabel(`NF-e ${doc.supplier_name ?? `…${doc.access_key.slice(-8)}`}`)
 	const router = useRouter()
 	const [rematching, setRematching] = useState(false)
 

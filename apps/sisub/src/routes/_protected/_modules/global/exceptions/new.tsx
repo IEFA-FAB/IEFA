@@ -10,9 +10,6 @@ import { OccasionMenuForm } from "@/components/features/local/planning/OccasionM
 export const Route = createFileRoute("/_protected/_modules/global/exceptions/new")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: NewGlobalExceptionPage,
-	head: () => ({
-		meta: [{ title: "Nova Exceção Modelo - SISUB" }],
-	}),
 })
 
 function NewGlobalExceptionPage() {

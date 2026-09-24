@@ -17,9 +17,6 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/ex
 	}),
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: NewExceptionPage,
-	head: () => ({
-		meta: [{ title: "Nova Exceção - SISUB" }],
-	}),
 })
 
 function NewExceptionPage() {

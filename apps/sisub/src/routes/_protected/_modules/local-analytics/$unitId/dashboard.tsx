@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_protected/_modules/local-analytics/$unit
 	beforeLoad: (opts) => requirePermission(opts, "local-analytics", 1),
 	component: LocalDashboardPage,
 	head: () => ({
-		meta: [{ title: "Dashboard da Unidade" }, { name: "description", content: "Dashboard gerencial com previsões e presença em tempo real" }],
+		meta: [{ name: "description", content: "Dashboard gerencial com previsões e presença em tempo real" }],
 	}),
 })
 
@@ -16,7 +16,7 @@ function LocalDashboardPage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Dashboard" description="Previsões e presença em tempo real" />
+			<PageHeader title="Painel" description="Previsões e presença em tempo real" />
 			<DashboardCard unitId={Number(unitId)} />
 		</div>
 	)

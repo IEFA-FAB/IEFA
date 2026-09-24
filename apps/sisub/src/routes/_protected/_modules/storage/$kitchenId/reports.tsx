@@ -34,9 +34,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/re
 		return { balancete, closings, empenhoPanel, competencia }
 	},
 	component: StockReportsPage,
-	head: () => ({
-		meta: [{ title: "Estoque — Relatórios MCASP" }],
-	}),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 4 })

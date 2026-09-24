@@ -8,9 +8,6 @@ import { useMessHalls } from "@/hooks/data/useMessHalls"
 export const Route = createFileRoute("/_protected/_modules/messhall/")({
 	beforeLoad: (opts) => requirePermission(opts, "messhall", 1),
 	component: MessHallHubPage,
-	head: () => ({
-		meta: [{ title: "Fiscal — Selecionar Refeitório" }],
-	}),
 })
 
 function MessHallHubPage() {

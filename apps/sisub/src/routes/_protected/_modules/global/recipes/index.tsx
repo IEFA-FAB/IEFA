@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_protected/_modules/global/recipes/")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	component: GlobalRecipesPage,
 	head: () => ({
-		meta: [{ title: "Preparações Globais - SISUB" }, { name: "description", content: "Catálogo de preparações padrão FAB" }],
+		meta: [{ name: "description", content: "Catálogo de preparações padrão FAB" }],
 	}),
 })
 

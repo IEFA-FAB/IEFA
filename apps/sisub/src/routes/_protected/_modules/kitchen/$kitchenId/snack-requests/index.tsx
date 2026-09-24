@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/sn
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: KitchenSnackRequestsPage,
 	head: () => ({
-		meta: [{ title: "Lanches de Bordo/Apoio - SISUB" }, { name: "description", content: "Fila de requisições de Lanche de Bordo e de Apoio da cozinha" }],
+		meta: [{ name: "description", content: "Fila de requisições de Lanche de Bordo e de Apoio da cozinha" }],
 	}),
 })
 

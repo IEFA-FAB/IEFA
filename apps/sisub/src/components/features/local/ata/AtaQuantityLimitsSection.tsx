@@ -155,7 +155,7 @@ function WarningMarker({ warnings }: { warnings: QuantityLimitWarning[] }) {
 			<TooltipTrigger className="flex size-6 items-center justify-center text-warning" aria-label={`${warnings.length} aviso(s) no item`}>
 				<AlertTriangle className="size-4" aria-hidden="true" />
 			</TooltipTrigger>
-			<TooltipContent className="max-w-72">
+			<TooltipContent>
 				<ul className="space-y-1">
 					{warnings.map((w) => (
 						<li key={w}>{QUANTITY_LIMIT_WARNING_LABELS[w]}</li>
@@ -177,7 +177,7 @@ function TightMarginFlag({ effectiveMarginPercent }: { effectiveMarginPercent: n
 				<ShieldAlert className="size-3.5" aria-hidden="true" />
 				{effectiveMarginPercent != null ? `${INT.format(effectiveMarginPercent)}%` : ""}
 			</TooltipTrigger>
-			<TooltipContent className="max-w-72">{QUANTITY_LIMIT_WARNING_LABELS.margin_tight}</TooltipContent>
+			<TooltipContent>{QUANTITY_LIMIT_WARNING_LABELS.margin_tight}</TooltipContent>
 		</Tooltip>
 	)
 }

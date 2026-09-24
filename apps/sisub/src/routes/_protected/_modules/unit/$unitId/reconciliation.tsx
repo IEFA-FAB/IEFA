@@ -24,9 +24,6 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/reconcil
 		return { documents, physical }
 	},
 	component: ReconciliationPage,
-	head: () => ({
-		meta: [{ title: "Conciliação SIAFI — SISUB" }],
-	}),
 })
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })

@@ -16,6 +16,7 @@ import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { ScanConference } from "@/components/features/storage/receiving/ScanConference"
 import { scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -48,9 +49,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/re
 		return { receipt, scannerProfile, scanEvents }
 	},
 	component: ReceiptDetailPage,
-	head: () => ({
-		meta: [{ title: "Estoque — Conferência de Recebimento" }],
-	}),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 4 })
@@ -422,6 +420,8 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 
 function ReceiptDetailPage() {
 	const { receipt, scannerProfile, scanEvents } = Route.useLoaderData()
+	// A tela não tem número próprio; a listagem identifica o recebimento pela data de abertura
+	useCrumbLabel(`Recebimento de ${new Date(receipt.created_at).toLocaleDateString("pt-BR")}`)
 	const { kitchenId } = Route.useParams()
 	const router = useRouter()
 	const [busy, setBusy] = useState(false)

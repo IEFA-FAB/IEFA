@@ -262,7 +262,7 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 					<div className="flex items-center justify-end gap-1.5">
 						{saldoBaixo && (
 							<Tooltip>
-								<TooltipTrigger>
+								<TooltipTrigger aria-label="Saldo baixo" className="cursor-default">
 									<AlertTriangle className="size-3.5 text-warning shrink-0" />
 								</TooltipTrigger>
 								<TooltipContent>Mais de 90% do saldo empenhado</TooltipContent>
@@ -430,18 +430,14 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 									<th className="py-2 px-2 text-right text-label w-32">
 										<Tooltip>
 											<TooltipTrigger className="cursor-help underline decoration-dotted">Empenhado (oficial)</TooltipTrigger>
-											<TooltipContent className="max-w-xs">
-												Snapshot do Compras.gov — inclui empenhos de outras UASGs (caronas). Só muda ao sincronizar.
-											</TooltipContent>
+											<TooltipContent>Snapshot do Compras.gov, com caronas de outras UASGs. Muda só ao sincronizar.</TooltipContent>
 										</Tooltip>
 									</th>
 									<th className="py-2 px-2 text-right text-label w-28">Saldo (oficial)</th>
 									<th className="py-2 px-2 text-right text-label w-32">
 										<Tooltip>
 											<TooltipTrigger className="cursor-help underline decoration-dotted">Empenhado (local)</TooltipTrigger>
-											<TooltipContent className="max-w-xs">
-												Soma dos empenhos ativos registrados nesta unidade — em tempo real. Grandeza distinta do oficial; não se somam.
-											</TooltipContent>
+											<TooltipContent>Empenhos ativos desta unidade, em tempo real. Não se somam ao oficial.</TooltipContent>
 										</Tooltip>
 									</th>
 									<th className="py-2 px-2 text-right text-label w-28">Valor Unit.</th>

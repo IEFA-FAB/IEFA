@@ -228,6 +228,7 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 																<TooltipTrigger
 																	render={
 																		<Button
+																			aria-label="Editar"
 																			size="icon"
 																			variant="ghost"
 																			nativeButton={false}
@@ -244,7 +245,13 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 															<Tooltip>
 																<TooltipTrigger
 																	render={
-																		<Button size="icon" variant="ghost" onClick={() => handleDelete(template.id, template.name ?? "")} disabled={isDeleting}>
+																		<Button
+																			aria-label="Remover"
+																			size="icon"
+																			variant="ghost"
+																			onClick={() => handleDelete(template.id, template.name ?? "")}
+																			disabled={isDeleting}
+																		>
 																			<Trash2 className="size-4 text-destructive" />
 																		</Button>
 																	}

@@ -688,7 +688,7 @@ export function RecipeIngredientsTable({
 								</p>
 							}
 						/>
-						<TooltipContent>O modelo em papel tem uma linha TOTAL só, que só faz sentido quando toda a ficha está na mesma unidade.</TooltipContent>
+						<TooltipContent>A linha TOTAL do modelo em papel só faz sentido com a ficha toda na mesma unidade.</TooltipContent>
 					</Tooltip>
 				)}
 
@@ -948,8 +948,8 @@ function CandidatePicker({
 												    da lista. Prometer "vira substituto" aqui descreveria uma troca que não
 												    acontece. */}
 												{row.ingredient_id
-													? `${candidate.name} passa a ser a escolha 1 da linha e ${row.ingredient_name || "o insumo atual"} vira substituto, com as quantidades de cada um. Ao contrário da marcação de leitura, esta troca é salva com a ficha.`
-													: `${candidate.name} passa a ocupar a linha, que ainda está sem insumo, e sai da lista de substitutos. Ao contrário da marcação de leitura, esta troca é salva com a ficha.`}
+													? `${candidate.name} vira a escolha 1 e ${row.ingredient_name || "o insumo atual"} passa a substituto. A troca é salva com a ficha.`
+													: `${candidate.name} ocupa a linha vazia e sai dos substitutos. A troca é salva com a ficha.`}
 											</TooltipContent>
 										</Tooltip>
 										<Button

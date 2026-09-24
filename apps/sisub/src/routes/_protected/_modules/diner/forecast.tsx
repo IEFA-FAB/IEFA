@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/forecast")({
 	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: Forecast,
 	head: () => ({
-		meta: [{ title: "Previsão SISUB" }, { name: "description", content: "Faça sua previsão" }],
+		meta: [{ name: "description", content: "Faça sua previsão" }],
 	}),
 })
 /* ============================

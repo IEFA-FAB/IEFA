@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurem
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: ProcurementIndexPage,
 	head: () => ({
-		meta: [{ title: "Atas de Registro de Preços" }, { name: "description", content: "Gerencie as atas de aquisição da unidade" }],
+		meta: [{ name: "description", content: "Gerencie as atas de aquisição da unidade" }],
 	}),
 })
 

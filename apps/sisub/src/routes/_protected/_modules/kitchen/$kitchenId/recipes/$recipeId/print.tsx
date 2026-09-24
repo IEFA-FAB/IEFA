@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { RecipeTechnicalSheetPrint } from "@/components/features/shared/RecipeTechnicalSheetPrint"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
+import { useRecipe } from "@/hooks/data/useRecipe"
 
 /**
  * COZINHA — Impressão / PDF da Ficha Técnica de Preparação (FTP)
@@ -10,12 +12,11 @@ import { RecipeTechnicalSheetPrint } from "@/components/features/shared/RecipeTe
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/print")({
 	component: KitchenRecipePrintPage,
-	head: () => ({
-		meta: [{ title: "Ficha Técnica de Preparação - SISUB" }],
-	}),
 })
 
 function KitchenRecipePrintPage() {
 	const { kitchenId, recipeId } = Route.useParams()
+	const { data: recipe } = useRecipe(recipeId)
+	useCrumbLabel(recipe?.name)
 	return <RecipeTechnicalSheetPrint recipeId={recipeId} back={{ to: "/kitchen/$kitchenId/recipes/$recipeId", params: { kitchenId, recipeId } }} />
 }

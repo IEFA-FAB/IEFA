@@ -9,6 +9,7 @@ import { EmpenhoBalancePanel } from "@/components/features/local/arp/EmpenhoBala
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
 import { type AtaItemLimitsPatch, AtaQuantityLimitsSection } from "@/components/features/local/ata/AtaQuantityLimitsSection"
 import { type PriceResearchAuditIds, PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,9 +29,6 @@ import { updateAtaItemPricesFn } from "@/server/ata.fn"
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/$ataId")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: AtaDetailPage,
-	head: () => ({
-		meta: [{ title: "Detalhes da Ata" }],
-	}),
 })
 
 const STATUS_LABELS: Record<string, string> = {
@@ -55,6 +53,7 @@ function AtaDetailPage() {
 
 	const queryClient = useQueryClient()
 	const { data: ata, isLoading } = useAtaDetails(ataId || null)
+	useCrumbLabel(ata?.title)
 	const { mutate: updateStatus, isPending: isUpdating } = useUpdateAtaStatus()
 	const { mutate: updateItemDescription } = useUpdateAtaItemDescription()
 	const { mutate: updateQuantityLimits } = useUpdateAtaQuantityLimits()

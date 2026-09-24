@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
 import { DraftEditor } from "@/components/features/local/kitchen-draft/DraftEditor"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { useKitchenDrafts, useSendKitchenDraft, useUpdateKitchenDraft } from "@/hooks/data/useKitchenDraft"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
@@ -9,9 +10,6 @@ import type { TemplateSelection } from "@/types/domain/ata"
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/suprimentos/$draftId")({
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: EditDraftPage,
-	head: () => ({
-		meta: [{ title: "Editar Rascunho de Suprimentos" }],
-	}),
 })
 
 function EditDraftPage() {
@@ -21,6 +19,7 @@ function EditDraftPage() {
 
 	const { data: drafts, isLoading: isLoadingDraft, isFetching: isFetchingDrafts } = useKitchenDrafts(kitchenId)
 	const draft = drafts?.find((d) => d.id === draftId)
+	useCrumbLabel(draft?.title)
 	// Chegar aqui vindo de /suprimentos/new significa cair sobre a listagem em cache, que
 	// ainda é a de antes da criação: o rascunho existe, mas não está nela. Sem esperar o
 	// refetch, a tela diria "não encontrado" no instante seguinte ao toast que confirmou a

@@ -22,9 +22,6 @@ export const Route = createFileRoute("/_protected/_modules/global/review-queues"
 		return { units, barcodes }
 	},
 	component: ReviewQueuesPage,
-	head: () => ({
-		meta: [{ title: "Filas de Revisão — SISUB" }],
-	}),
 })
 
 const SOURCE_LABELS: Record<string, string> = {

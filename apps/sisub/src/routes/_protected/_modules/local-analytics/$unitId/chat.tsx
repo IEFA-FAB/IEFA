@@ -18,9 +18,6 @@ export const Route = createFileRoute("/_protected/_modules/local-analytics/$unit
 	validateSearch: chatSearchSchema,
 	beforeLoad: (opts) => requirePermission(opts, "local-analytics", 1, { type: "unit", id: Number(opts.params.unitId) }),
 	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
-	head: () => ({
-		meta: [{ title: "Assistente IA · Análises da Unidade" }],
-	}),
 	component: LocalAnalyticsChatPage,
 })
 

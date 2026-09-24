@@ -116,7 +116,7 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated, groups = 
 									variant="ghost"
 									className="size-7 text-muted-foreground hover:text-primary"
 									onClick={() => onSubstitute(item)}
-									aria-label={`Substituir ${recipeName}`}
+									aria-label={`Substituir ingredientes de ${recipeName}`}
 								>
 									<ArrowLeftRight className="size-3.5" />
 								</Button>

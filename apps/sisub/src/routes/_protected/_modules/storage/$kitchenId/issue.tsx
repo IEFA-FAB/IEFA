@@ -68,7 +68,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/is
 		return { request, balance, scannerProfile, origin: deps.origin, adHocToday: today.adHocToday }
 	},
 	component: DailyIssuePage,
-	head: () => ({ meta: [{ title: "Estoque — Saída do dia" }] }),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 })

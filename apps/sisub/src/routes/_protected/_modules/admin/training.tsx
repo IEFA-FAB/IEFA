@@ -26,7 +26,6 @@ import { fetchTrainingResetsFn, fetchTrainingScopeFn, resetTrainingScopeFn } fro
 export const Route = createFileRoute("/_protected/_modules/admin/training")({
 	beforeLoad: (opts) => requirePermission(opts, "admin", 1),
 	component: TrainingPage,
-	head: () => ({ meta: [{ title: "Ambiente de Treino — SISUB" }] }),
 })
 
 /** Digitação exigida para confirmar — a ação é irreversível. */

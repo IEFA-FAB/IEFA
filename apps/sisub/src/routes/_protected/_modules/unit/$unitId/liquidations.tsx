@@ -23,9 +23,6 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/liquidat
 		return { liquidacoes, empenhos }
 	},
 	component: LiquidationsPage,
-	head: () => ({
-		meta: [{ title: "Liquidações — SISUB" }],
-	}),
 })
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })

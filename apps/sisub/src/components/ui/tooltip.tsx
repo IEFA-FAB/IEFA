@@ -2,16 +2,17 @@ import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 
 import { cn } from "../../lib/cn"
 
-function TooltipProvider({ delay = 0, ...props }: TooltipPrimitive.Provider.Props) {
-	return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />
+/**
+ * Montado UMA vez, na raiz (`__root.tsx`). Cada `Tooltip` embrulhado no próprio provider
+ * (como era) abria com atraso zero e sem agrupamento: passar o mouse por uma linha de
+ * botões de ícone fazia os tooltips piscarem um atrás do outro.
+ */
+function TooltipProvider({ delay = 400, closeDelay = 0, ...props }: TooltipPrimitive.Provider.Props) {
+	return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} closeDelay={closeDelay} {...props} />
 }
 
 function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
-	return (
-		<TooltipProvider>
-			<TooltipPrimitive.Root data-slot="tooltip" {...props} />
-		</TooltipProvider>
-	)
+	return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
 }
 
 function TooltipTrigger({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {

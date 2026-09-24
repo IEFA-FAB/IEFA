@@ -4,6 +4,7 @@ import { Link, useLocation } from "@tanstack/react-router"
 import type { LucideIcon } from "lucide-react"
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { cn } from "@/lib/cn"
+import { normalizePath } from "@/lib/nav-paths"
 import type { GroupColor } from "./NavItems"
 
 /**
@@ -17,11 +18,6 @@ const MODULE_ACTIVE_CLASSES: Record<GroupColor, string> = {
 	warning: "!text-warning hover:!text-warning",
 	governance: "!text-governance hover:!text-governance",
 	admin: "!text-destructive hover:!text-destructive",
-}
-
-/** Normaliza pathname removendo barras finais para comparação de rotas. */
-function normalizePath(path: string): string {
-	return path.replace(/\/+$/, "") || "/"
 }
 
 export function NavMain({
@@ -52,7 +48,10 @@ export function NavMain({
 						<SidebarMenu>
 							{group.items?.map((item) => {
 								const target = normalizePath(item.url)
-								const isActive = currentPath === target || currentPath.startsWith(`${target}/`)
+								// Item da rota index do escopo (URL terminada em "/", ex. "/kitchen-production/7/")
+								// casa só com ela mesma: por prefixo, ficava ativo em todas as páginas irmãs.
+								const isIndexItem = item.url.endsWith("/")
+								const isActive = currentPath === target || (!isIndexItem && currentPath.startsWith(`${target}/`))
 								return (
 									<SidebarMenuItem key={item.title}>
 										<SidebarMenuButton

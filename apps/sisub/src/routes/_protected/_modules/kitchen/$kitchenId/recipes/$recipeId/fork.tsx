@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { RecipeForm } from "@/components/features/shared/RecipeForm"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { useRecipe } from "@/hooks/data/useRecipe"
 
 /**
@@ -10,14 +11,12 @@ import { useRecipe } from "@/hooks/data/useRecipe"
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork")({
 	component: ForkRecipePage,
-	head: () => ({
-		meta: [{ title: "Adaptar Preparação - SISUB" }],
-	}),
 })
 
 function ForkRecipePage() {
 	const { recipeId } = Route.useParams()
 	const { data: baseRecipe, isLoading, error } = useRecipe(recipeId)
+	useCrumbLabel(baseRecipe?.name)
 
 	if (isLoading) {
 		return (

@@ -31,7 +31,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/sc
 		return { profile }
 	},
 	component: ScannerCalibrationPage,
-	head: () => ({ meta: [{ title: "Estoque — Testar Leitor" }] }),
 })
 
 interface Sample {

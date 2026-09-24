@@ -8,9 +8,6 @@ import { useUserKitchens } from "@/hooks/data/useKitchens"
 export const Route = createFileRoute("/_protected/_modules/kitchen-production/")({
 	beforeLoad: (opts) => requirePermission(opts, "kitchen-production", 1),
 	component: KitchenProductionHubPage,
-	head: () => ({
-		meta: [{ title: "Produção Cozinha - SISUB" }],
-	}),
 })
 
 function KitchenProductionHubPage() {

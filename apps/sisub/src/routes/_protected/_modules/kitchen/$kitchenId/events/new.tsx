@@ -16,9 +16,6 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/ev
 	}),
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: NewEventPage,
-	head: () => ({
-		meta: [{ title: "Novo Evento - SISUB" }],
-	}),
 })
 
 function NewEventPage() {

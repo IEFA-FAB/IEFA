@@ -8,9 +8,6 @@ import { useMessHalls } from "@/hooks/data/useMessHalls"
 export const Route = createFileRoute("/_protected/_modules/local-analytics/")({
 	beforeLoad: (opts) => requirePermission(opts, "local-analytics", 1),
 	component: LocalAnalyticsHubPage,
-	head: () => ({
-		meta: [{ title: "Análises da Unidade — Selecionar OM" }],
-	}),
 })
 
 function LocalAnalyticsHubPage() {

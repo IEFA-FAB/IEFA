@@ -13,10 +13,7 @@ export const Route = createFileRoute("/_protected/_modules/global/exceptions/")(
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	component: GlobalExceptionsPage,
 	head: () => ({
-		meta: [
-			{ title: "Exceções Modelo - SISUB" },
-			{ name: "description", content: "Cardápios de exceções previsíveis (lanches de bordo, cafés de reunião) disponíveis para todas as cozinhas" },
-		],
+		meta: [{ name: "description", content: "Cardápios de exceções previsíveis (lanches de bordo, cafés de reunião) disponíveis para todas as cozinhas" }],
 	}),
 })
 

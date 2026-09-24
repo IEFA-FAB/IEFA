@@ -171,8 +171,8 @@ function Sidebar({
 					side={side}
 				>
 					<SheetHeader className="sr-only">
-						<SheetTitle>Sidebar</SheetTitle>
-						<SheetDescription>Displays the mobile sidebar.</SheetDescription>
+						<SheetTitle>Menu</SheetTitle>
+						<SheetDescription>Navegação do módulo.</SheetDescription>
 					</SheetHeader>
 					<div className="flex size-full flex-col">{children}</div>
 				</SheetContent>
@@ -229,24 +229,32 @@ function Sidebar({
 }
 
 function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<typeof Button>) {
-	const { toggleSidebar } = useSidebar()
+	const { toggleSidebar, state, isMobile } = useSidebar()
+	const label = isMobile ? "Abrir menu" : state === "expanded" ? "Recolher menu" : "Expandir menu"
 
 	return (
-		<Button
-			data-sidebar="trigger"
-			data-slot="sidebar-trigger"
-			variant="ghost"
-			size="icon-sm"
-			className={cn(className)}
-			onClick={(event) => {
-				onClick?.(event)
-				toggleSidebar()
-			}}
-			{...props}
-		>
-			<PanelLeftIcon />
-			<span className="sr-only">Toggle Sidebar</span>
-		</Button>
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<Button
+						data-sidebar="trigger"
+						data-slot="sidebar-trigger"
+						variant="ghost"
+						size="icon-sm"
+						className={cn(className)}
+						aria-label={label}
+						onClick={(event) => {
+							onClick?.(event)
+							toggleSidebar()
+						}}
+						{...props}
+					>
+						<PanelLeftIcon />
+					</Button>
+				}
+			/>
+			<TooltipContent side="bottom">{isMobile ? label : `${label} (Ctrl+B)`}</TooltipContent>
+		</Tooltip>
 	)
 }
 
@@ -260,7 +268,7 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
 					<button
 						data-sidebar="rail"
 						data-slot="sidebar-rail"
-						aria-label="Toggle Sidebar"
+						aria-label="Recolher ou expandir menu"
 						tabIndex={-1}
 						onClick={toggleSidebar}
 						className={cn(
@@ -276,7 +284,7 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
 					/>
 				}
 			/>
-			<TooltipContent>Toggle Sidebar</TooltipContent>
+			<TooltipContent side="right">Recolher ou expandir menu</TooltipContent>
 		</Tooltip>
 	)
 }

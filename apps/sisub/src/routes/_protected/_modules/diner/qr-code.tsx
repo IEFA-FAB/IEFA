@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/qr-code")({
 	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: QrCodePage,
 	head: () => ({
-		meta: [{ title: "Meu QR Code - SISUB" }, { name: "description", content: "Seu QR Code pessoal para identificação no rancho" }],
+		meta: [{ name: "description", content: "Seu QR Code pessoal para identificação no rancho" }],
 	}),
 })
 

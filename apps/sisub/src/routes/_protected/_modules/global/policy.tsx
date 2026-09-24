@@ -37,7 +37,7 @@ export const Route = createFileRoute("/_protected/_modules/global/policy")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: PolicyPage,
 	head: () => ({
-		meta: [{ title: "Política de Revisão" }, { name: "description", content: "Gerenciamento de regras de política para revisão de insumos e preparações" }],
+		meta: [{ name: "description", content: "Gerenciamento de regras de política para revisão de insumos e preparações" }],
 	}),
 })
 

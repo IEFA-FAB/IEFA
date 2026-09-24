@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_protected/_modules/admin/evaluation")({
 	beforeLoad: (opts) => requirePermission(opts, "admin", 2),
 	component: SuperAdminPanel,
 	head: () => ({
-		meta: [{ title: "Avaliação" }, { name: "description", content: "Configuração da pergunta de avaliação" }],
+		meta: [{ name: "description", content: "Configuração da pergunta de avaliação" }],
 	}),
 })
 

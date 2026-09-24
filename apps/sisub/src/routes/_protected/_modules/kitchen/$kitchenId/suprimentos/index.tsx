@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/su
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: KitchenSuprimentosPage,
 	head: () => ({
-		meta: [{ title: "Suprimentos - SISUB" }, { name: "description", content: "Gerencie rascunhos de suprimentos para a ata" }],
+		meta: [{ name: "description", content: "Gerencie rascunhos de suprimentos para a ata" }],
 	}),
 })
 

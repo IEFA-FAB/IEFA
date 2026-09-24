@@ -86,7 +86,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/co
 		return { list, sheet, scannerProfile, kitchenId }
 	},
 	component: CountsPage,
-	head: () => ({ meta: [{ title: "Estoque — Inventário" }] }),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 })
@@ -158,7 +157,7 @@ function CountsPage() {
 	return (
 		<div className="space-y-4">
 			<PageHeader
-				title="Inventário"
+				title="Contagem Física"
 				description="Contagem com escopo, folha cega e aprovação por quem não contou. A cozinha continua trabalhando enquanto se conta."
 			/>
 

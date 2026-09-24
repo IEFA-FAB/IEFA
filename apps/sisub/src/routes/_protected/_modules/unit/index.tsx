@@ -8,9 +8,6 @@ import { useMessHalls } from "@/hooks/data/useMessHalls"
 export const Route = createFileRoute("/_protected/_modules/unit/")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: UnitHubPage,
-	head: () => ({
-		meta: [{ title: "Gestão Unidade — Selecionar OM" }],
-	}),
 })
 
 function UnitHubPage() {

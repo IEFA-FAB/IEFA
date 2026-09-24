@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
 import { RecipeTechnicalSheetPrint } from "@/components/features/shared/RecipeTechnicalSheetPrint"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
+import { useRecipe } from "@/hooks/data/useRecipe"
 
 /**
  * GLOBAL — Impressão / PDF da Ficha Técnica de Preparação (FTP)
@@ -12,12 +14,11 @@ import { RecipeTechnicalSheetPrint } from "@/components/features/shared/RecipeTe
 export const Route = createFileRoute("/_protected/_modules/global/recipes/$recipeId/print")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	component: GlobalRecipePrintPage,
-	head: () => ({
-		meta: [{ title: "Ficha Técnica de Preparação - SISUB" }],
-	}),
 })
 
 function GlobalRecipePrintPage() {
 	const { recipeId } = Route.useParams()
+	const { data: recipe } = useRecipe(recipeId)
+	useCrumbLabel(recipe?.name)
 	return <RecipeTechnicalSheetPrint recipeId={recipeId} back={{ to: "/global/recipes/$recipeId", params: { recipeId } }} />
 }

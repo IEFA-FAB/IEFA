@@ -22,7 +22,6 @@ export const Route = createFileRoute("/_protected/_modules/admin/permissions")({
 	component: PermissionsPage,
 	head: () => ({
 		meta: [
-			{ title: "Gestão de Acesso — SISUB" },
 			{
 				name: "description",
 				content: "Políticas e permissões de acesso dos usuários",
@@ -62,7 +61,7 @@ function PermissionsPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader
-				title="Gestão de Acesso"
+				title="Permissões"
 				description="Políticas são conjuntos nomeados de permissões; grants diretos valem só para um usuário. As permissões efetivas somam as duas origens."
 			/>
 

@@ -172,6 +172,7 @@ export function GlobalTemplateCatalog({
 														<TooltipTrigger
 															render={
 																<Button
+																	aria-label="Editar"
 																	size="icon"
 																	variant="ghost"
 																	nativeButton={false}
@@ -188,7 +189,13 @@ export function GlobalTemplateCatalog({
 													<Tooltip>
 														<TooltipTrigger
 															render={
-																<Button size="icon" variant="ghost" onClick={() => handleDelete(template.id, template.name ?? "")} disabled={isDeleting}>
+																<Button
+																	aria-label="Remover"
+																	size="icon"
+																	variant="ghost"
+																	onClick={() => handleDelete(template.id, template.name ?? "")}
+																	disabled={isDeleting}
+																>
 																	<Trash2 className="size-4 text-destructive" />
 																</Button>
 															}

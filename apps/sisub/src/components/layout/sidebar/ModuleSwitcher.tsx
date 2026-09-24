@@ -48,7 +48,7 @@ export function ModuleSwitcher({
 	value?: string
 	onChange?: (module: Module) => void
 }) {
-	const { isMobile } = useSidebar()
+	const { isMobile, state } = useSidebar()
 	const [internalActive, setInternalActive] = React.useState(modules[0])
 
 	const activeModule = value ? (modules.find((m) => m.name === value) ?? internalActive) : internalActive
@@ -115,7 +115,10 @@ export function ModuleSwitcher({
 								/>
 							}
 						/>
-						<TooltipContent>Mudar de módulo</TooltipContent>
+						{/* Expandida, o nome do módulo já está no botão; recolhida, é o único lugar que o diz */}
+						<TooltipContent side="right" hidden={state !== "collapsed" || isMobile}>
+							{activeModule.name} · trocar de módulo
+						</TooltipContent>
 					</Tooltip>
 
 					<DropdownMenuContent className="min-w-56 p-3" align="start" side={isMobile ? "bottom" : "right"} sideOffset={4}>

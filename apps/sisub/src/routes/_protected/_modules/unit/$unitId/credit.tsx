@@ -10,9 +10,6 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/credit")
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	loader: ({ params }) => fetchBudgetCreditFn({ data: { unitId: Number(params.unitId) } }),
 	component: BudgetCreditPage,
-	head: () => ({
-		meta: [{ title: "Crédito Disponível — SISUB" }],
-	}),
 })
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
@@ -35,19 +32,14 @@ function BudgetRow({ line }: { line: BudgetCreditLine }) {
 			<td className="py-2.5 px-2 text-xs text-right tabular-nums">
 				<Tooltip>
 					<TooltipTrigger className="cursor-help underline decoration-dotted">{BRL.format(line.saldoSiafi)}</TooltipTrigger>
-					<TooltipContent className="max-w-xs">
-						Saldo conforme o SIAFI no momento do snapshot ({new Date(line.snapshotAt).toLocaleString("pt-BR")}). Não inclui empenhos lançados no sisub depois
-						disso.
-					</TooltipContent>
+					<TooltipContent>Saldo do SIAFI em {new Date(line.snapshotAt).toLocaleString("pt-BR")}. Não inclui empenhos lançados depois no sisub.</TooltipContent>
 				</Tooltip>
 			</td>
 			<td className="py-2.5 px-2 text-xs text-right tabular-nums">
 				{line.comprometimentoLocal > 0 ? (
 					<Tooltip>
 						<TooltipTrigger className="cursor-help underline decoration-dotted text-warning">{BRL.format(line.comprometimentoLocal)}</TooltipTrigger>
-						<TooltipContent className="max-w-xs">
-							Empenhos ativos registrados no sisub APÓS o snapshot — grandeza distinta do oficial, nunca somada a ele.
-						</TooltipContent>
+						<TooltipContent>Empenhos lançados no sisub após o snapshot. Não se somam ao saldo oficial.</TooltipContent>
 					</Tooltip>
 				) : (
 					<span className="text-muted-foreground">—</span>

@@ -9,9 +9,6 @@ import type { TemplateSelection } from "@/types/domain/ata"
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/suprimentos/new")({
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: NewDraftPage,
-	head: () => ({
-		meta: [{ title: "Novo Rascunho de Suprimentos" }],
-	}),
 })
 
 function NewDraftPage() {

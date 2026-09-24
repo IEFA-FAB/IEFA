@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/snack-requests/
 	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: NewSnackRequestPage,
 	head: () => ({
-		meta: [{ title: "Novo Pedido de Lanche - SISUB" }, { name: "description", content: "Requisição de Lanche de Bordo ou de Apoio (Anexo E)" }],
+		meta: [{ name: "description", content: "Requisição de Lanche de Bordo ou de Apoio (Anexo E)" }],
 	}),
 })
 

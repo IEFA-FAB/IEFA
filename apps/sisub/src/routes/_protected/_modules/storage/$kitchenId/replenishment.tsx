@@ -11,9 +11,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/re
 	beforeLoad: (opts) => requirePermission(opts, "storage", 1),
 	loader: ({ params }) => fetchReplenishmentSuggestionsFn({ data: { kitchenId: Number(params.kitchenId), horizonDays: 14 } }),
 	component: ReplenishmentPage,
-	head: () => ({
-		meta: [{ title: "Estoque — Sugestões de Reposição" }],
-	}),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 4 })
@@ -65,7 +62,7 @@ function ReplenishmentPage() {
 												{row.description}
 												{row.expiringExcluded > 0 && (
 													<Tooltip>
-														<TooltipTrigger className="ml-1.5 align-middle">
+														<TooltipTrigger className="ml-1.5 align-middle cursor-default" aria-label="Lotes vencendo">
 															<TriangleAlert className="size-3.5 text-warning inline" />
 														</TooltipTrigger>
 														<TooltipContent>

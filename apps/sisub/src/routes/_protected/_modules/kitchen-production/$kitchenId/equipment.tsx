@@ -6,9 +6,6 @@ import { PageHeader } from "@/components/layout/PageHeader"
 export const Route = createFileRoute("/_protected/_modules/kitchen-production/$kitchenId/equipment")({
 	beforeLoad: (opts) => requirePermission(opts, "kitchen-production", 1),
 	component: ProductionEquipmentPage,
-	head: () => ({
-		meta: [{ title: "Equipamentos — Produção" }],
-	}),
 })
 
 function ProductionEquipmentPage() {

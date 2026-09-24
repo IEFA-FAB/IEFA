@@ -3,7 +3,7 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
 import type { NavItem } from "@/components/layout/sidebar/NavItems"
-import { buildCrumbs } from "@/lib/breadcrumbs"
+import { applyEntityLabel, buildCrumbs, type CrumbModule, linkCrumbs } from "@/lib/breadcrumbs"
 import type { ScopeContext } from "@/types/domain/scope"
 
 const MODULES_DIR = fileURLToPath(new URL("../routes/_protected/_modules", import.meta.url))
@@ -122,5 +122,124 @@ describe("buildCrumbs", () => {
 
 	it("trata a raiz como Hub", () => {
 		expect(buildCrumbs("/", ALL_NAV_ITEMS)).toEqual([{ to: "/hub", label: "Hub" }])
+	})
+})
+
+/** Amostra de `ALL_MODULES` no formato que a trilha consome (mesma razão da `ALL_NAV_ITEMS`). */
+const MODULES: CrumbModule[] = [
+	{ id: "admin", name: "Administração do Sistema", items: [{ title: "Ambiente de Treino", url: "/admin/training" }] },
+	{
+		id: "storage",
+		name: "Estoque",
+		hubUrl: "/storage",
+		items: [
+			{ title: "Painel", url: "/storage/dashboard" },
+			{ title: "Recebimentos", url: "/storage/receiving" },
+		],
+	},
+	{ id: "kitchen", name: "Gestão Cozinha", hubUrl: "/kitchen", items: [{ title: "Cardápios Semanais", url: "/kitchen/weekly-menus" }] },
+	{ id: "messhall", name: "Fiscal", hubUrl: "/messhall", items: [{ title: "Presenças", url: "/messhall/" }] },
+	{ id: "global", name: "Catálogo Global", items: [{ title: "Insumos", url: "/global/ingredients" }] },
+	{ id: "local-analytics", name: "Análises da Unidade", hubUrl: "/local-analytics", items: [{ title: "Painel", url: "/local-analytics/dashboard" }] },
+	{ id: "kitchen-production", name: "Produção Cozinha", hubUrl: "/kitchen-production", items: [{ title: "Painel", url: "/kitchen-production/" }] },
+	{ id: "unit", name: "Gestão Unidade", hubUrl: "/unit", items: [{ title: "Painel", url: "/unit/dashboard" }] },
+	{ id: "diner", name: "Comensal", items: [{ title: "Previsão", url: "/diner/forecast" }] },
+	{ id: "analytics", name: "Análises Globais", items: [{ title: "Visão Global", url: "/analytics/global" }] },
+]
+
+const trail = (path: string) => linkCrumbs(buildCrumbs(path, ALL_NAV_ITEMS, SCOPE), path, MODULES)
+
+describe("linkCrumbs", () => {
+	it("aponta a raiz do módulo sem rota index para o primeiro item visível", () => {
+		// `/admin` não existe: o crumb dava "Página não encontrada"
+		expect(trail("/admin/training")[0]).toMatchObject({ label: "Administração do Sistema", to: null })
+		expect(trail("/admin/permissions")[0]).toMatchObject({ to: "/admin/training" })
+	})
+
+	it("aponta a raiz de módulo com escopo para o hub de seleção", () => {
+		expect(trail("/storage/7/receiving")[0]).toMatchObject({ label: "Estoque", to: "/storage" })
+	})
+
+	it("aponta o escopo para o primeiro item dentro dele, não para o layout sem index", () => {
+		expect(trail("/storage/7/receiving")[1]).toMatchObject({ label: "GAP-AF", to: "/storage/7/dashboard" })
+		expect(trail("/local-analytics/7/indicators")[1]).toMatchObject({ to: "/local-analytics/7/dashboard" })
+	})
+
+	it("não linka o crumb que levaria à própria página", () => {
+		// `/kitchen/7` redireciona para o primeiro item — o "voltar" do mobile caía na mesma tela
+		const crumbs = trail("/kitchen/7/weekly-menus")
+		expect(crumbs[1]).toMatchObject({ label: "GAP-AF", to: null })
+		expect(crumbs.at(-1)).toMatchObject({ label: "Cardápios Semanais", to: null })
+	})
+
+	it("não linka segmento que não é rota (`print` antes do id)", () => {
+		const crumbs = trail(`/global/weekly-plans/print/${FAKE_UUID}`)
+		expect(crumbs.map((c) => [c.label, c.to])).toEqual([
+			["Catálogo Global", "/global/ingredients"],
+			["Planos Semanais", "/global/weekly-plans"],
+			["Imprimir", null],
+			["Plano Semanal", null],
+		])
+	})
+
+	it("acrescenta o item index na rota index do escopo", () => {
+		expect(trail("/messhall/7").map((c) => [c.label, c.to])).toEqual([
+			["Fiscal", "/messhall"],
+			["GAP-AF", null],
+			["Presenças", null],
+		])
+	})
+
+	it("usa o nome do módulo da sidebar", () => {
+		expect(trail("/local-analytics/7/indicators")[0]?.label).toBe("Análises da Unidade")
+	})
+
+	it("a amostra cobre todos os módulos do router", () => {
+		const moduleDirs = readdirSync(MODULES_DIR, { withFileTypes: true })
+			.filter((e) => e.isDirectory())
+			.map((e) => e.name)
+		expect(MODULES.map((m) => m.id).sort()).toEqual(moduleDirs.sort())
+	})
+
+	it("cobre todas as rotas sem crumb apontando para layout vazio ou para a própria página", () => {
+		for (const path of ROUTE_PATHS) {
+			const crumbs = linkCrumbs(buildCrumbs(path, ALL_NAV_ITEMS, SCOPE), path, MODULES)
+			const segments = path.split("/").filter(Boolean)
+			for (const c of crumbs) {
+				if (c.to === null) continue
+				expect(c.to.replace(/\/+$/, ""), `crumb "${c.label}" de ${path} aponta para a própria página`).not.toBe(path.replace(/\/+$/, ""))
+				// escopo cru (`/storage/7`) é layout sem página em alguns módulos
+				expect(c.to, `crumb "${c.label}" de ${path} aponta para o layout do escopo`).not.toBe(`/${segments[0]}/${SCOPE.id}`)
+				expect(c.to.endsWith("/print"), `crumb "${c.label}" de ${path} aponta para /print`).toBe(false)
+			}
+		}
+	})
+})
+
+describe("applyEntityLabel", () => {
+	it("troca o rótulo genérico do registro pelo nome", () => {
+		const path = `/kitchen/7/recipes/${FAKE_UUID}/versions`
+		const crumbs = applyEntityLabel(trail(path), "Arroz carreteiro")
+		expect(crumbs.map((c) => c.label)).toEqual(["Gestão Cozinha", "GAP-AF", "Preparações", "Arroz carreteiro", "Versões"])
+	})
+
+	it("nunca renomeia o escopo", () => {
+		const crumbs = applyEntityLabel(trail("/storage/7/dashboard"), "Outro nome")
+		expect(crumbs[1]?.label).toBe("GAP-AF")
+	})
+
+	it("rotula o registro, não o escopo, quando os dois são ids", () => {
+		const path = `/storage/7/receiving/${FAKE_UUID}`
+		expect(applyEntityLabel(trail(path), "Recebimento de 24/09/2026").map((c) => c.label)).toEqual([
+			"Estoque",
+			"GAP-AF",
+			"Recebimentos",
+			"Recebimento de 24/09/2026",
+		])
+	})
+
+	it("sem nome mantém o genérico", () => {
+		const path = `/global/recipes/${FAKE_UUID}`
+		expect(applyEntityLabel(trail(path), undefined).at(-1)?.label).toBe("Preparação")
 	})
 })

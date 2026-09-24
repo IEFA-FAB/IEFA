@@ -118,11 +118,8 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 						<TableHead className="text-right">Carreira</TableHead>
 						<TableHead className="text-right">
 							<Tooltip>
-								<TooltipTrigger render={<span>Refeições/militar</span>} />
-								<TooltipContent>
-									Refeições servidas por dia por militar disponível, no mês da competência. Conta refeições, não comensais distintos: quem almoça e janta conta
-									duas vezes.
-								</TooltipContent>
+								<TooltipTrigger className="cursor-help underline decoration-dotted">Refeições/militar</TooltipTrigger>
+								<TooltipContent>Refeições por dia por militar disponível no mês. Quem almoça e janta conta duas vezes.</TooltipContent>
 							</Tooltip>
 						</TableHead>
 						{editable && <TableHead className="w-24" />}
@@ -168,13 +165,9 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 												<span className="text-subheading">{rancho.total}</span>
 												{rancho.declaredTotalDiverges && (
 													<Tooltip>
-														<TooltipTrigger
-															render={
-																<span>
-																	<AlertTriangle className="size-3.5 text-warning" aria-hidden="true" />
-																</span>
-															}
-														/>
+														<TooltipTrigger aria-label="Total declarado diverge da soma" className="inline-flex cursor-default">
+															<AlertTriangle className="size-3.5 text-warning" aria-hidden="true" />
+														</TooltipTrigger>
 														<TooltipContent>
 															O gestor declarou {rancho.declaredTotal}; as parcelas somam {rancho.total}.
 														</TooltipContent>

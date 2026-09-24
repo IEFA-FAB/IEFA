@@ -129,7 +129,7 @@ function ChangelogEntryItem({ entry }: { entry: ChangelogEntry }) {
 								</a>
 							}
 						/>
-						<TooltipContent>Copiar link desta entrada</TooltipContent>
+						<TooltipContent>Link direto para esta entrada</TooltipContent>
 					</Tooltip>
 					{entry.version && (
 						<span className={cn("inline-flex items-center text-xs font-mono px-2 py-0.5 rounded-full border", toneBadge("primary"))}>v{entry.version}</span>
