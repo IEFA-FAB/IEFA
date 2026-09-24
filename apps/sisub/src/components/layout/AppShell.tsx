@@ -1,16 +1,18 @@
 import { Link, Outlet, useLocation, useMatches, useNavigate } from "@tanstack/react-router"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, Search } from "lucide-react"
 import { Fragment, useCallback, useEffect, useState } from "react"
 import { usePBAC } from "@/auth/pbac"
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
 import { getModuleFromPath, getModulesForPermissions, getNavItemsForPermissions, type ModuleId, type NavItem } from "@/components/layout/sidebar/NavItems"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 import { useTheme } from "@/hooks/ui/useTheme"
 import { applyEntityLabel, buildCrumbs, linkCrumbs, type NavCrumb } from "@/lib/breadcrumbs"
 import { normalizePath, scopeUrl } from "@/lib/nav-paths"
 import type { ScopeContext } from "@/types/domain/scope"
+import { CommandPalette, openCommandPalette } from "./CommandPalette"
 import { CrumbLabelContext } from "./crumb-label"
 import { AppSidebar } from "./sidebar/AppSidebar"
 import { MainSurface } from "./sidebar/MainSurface"
@@ -128,8 +130,14 @@ export function AppShell() {
 				onModuleChange={handleModuleChange}
 				isLoading={levelLoading}
 				scopeLocked={isOnScopeHub}
+				scope={
+					scopeContext && effectiveModule?.hubUrl
+						? { name: scopeContext.name, hubUrl: effectiveModule.hubUrl, noun: effectiveModule.scopeNoun ?? "escopo" }
+						: null
+				}
 				collapsible={showSidebar ? "icon" : "offExamples"}
 			/>
+			<CommandPalette moduleId={effectiveModuleId} scope={scopeContext ?? null} />
 
 			<SidebarInset className="bg-transparent h-full overflow-hidden w-full flex flex-col">
 				<header className="sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
@@ -195,6 +203,12 @@ export function AppShell() {
 						)}
 					</div>
 					<div className="flex items-center gap-2">
+						{/* No celular a sidebar vira gaveta: a busca precisa de um ponto de entrada à vista */}
+						{isMobile && (
+							<Button variant="ghost" size="icon" onClick={openCommandPalette} aria-label="Buscar página" className="text-muted-foreground">
+								<Search className="size-4" />
+							</Button>
+						)}
 						<AnimatedThemeToggler toggle={toggle} />
 					</div>
 				</header>

@@ -1,8 +1,11 @@
+import { Search } from "lucide-react"
 import type * as React from "react"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
+import { Kbd } from "@/components/ui/kbd"
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail } from "@/components/ui/sidebar"
+import { commandPaletteShortcut, openCommandPalette } from "../CommandPalette"
 import { ModuleSwitcher } from "./ModuleSwitcher"
 import type { ModuleDef, ModuleId } from "./NavItems"
-import { NavMain } from "./NavMain"
+import { NavMain, type SidebarScope } from "./NavMain"
 import { NavUser } from "./NavUser"
 import { SidebarLegalLinks } from "./SidebarLegalLinks"
 import type { Module } from "./SidebarTypes"
@@ -13,6 +16,7 @@ export function AppSidebar({
 	onModuleChange,
 	isLoading = false,
 	scopeLocked = false,
+	scope = null,
 	...props
 }: React.ComponentProps<typeof Sidebar> & {
 	modules?: ModuleDef[]
@@ -20,6 +24,8 @@ export function AppSidebar({
 	onModuleChange?: (moduleId: ModuleId) => void
 	isLoading?: boolean
 	scopeLocked?: boolean
+	/** Escopo aberto (cozinha/unidade/refeitório) — mostrado no topo da navegação, com "trocar" */
+	scope?: SidebarScope | null
 }) {
 	if (isLoading) {
 		return (
@@ -57,19 +63,6 @@ export function AppSidebar({
 		color: m.color,
 	}))
 
-	const navMain =
-		activeModule && !scopeLocked
-			? [
-					{
-						title: activeModule.name,
-						icon: activeModule.icon,
-						color: activeModule.color,
-						isActive: true,
-						items: activeModule.items,
-					},
-				]
-			: []
-
 	const handleModuleChange = (module: Module) => {
 		const mod = availableModules.find((m) => m.name === module.name)
 		if (mod && onModuleChange) {
@@ -83,10 +76,17 @@ export function AppSidebar({
 		<Sidebar collapsible="icon" variant="sidebar" {...props}>
 			<SidebarHeader>
 				<ModuleSwitcher modules={sidebarModules} value={activeModule.name} onChange={handleModuleChange} />
+				<SidebarMenu>
+					<SidebarMenuItem>
+						<SidebarMenuButton tooltip={`Buscar página (${commandPaletteShortcut()})`} onClick={openCommandPalette} className="text-muted-foreground">
+							<Search />
+							<span className="flex-1">Buscar página</span>
+							<Kbd suppressHydrationWarning>{commandPaletteShortcut()}</Kbd>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+				</SidebarMenu>
 			</SidebarHeader>
-			<SidebarContent>
-				<NavMain items={navMain} />
-			</SidebarContent>
+			<SidebarContent>{!scopeLocked && <NavMain items={activeModule.items} color={activeModule.color} scope={scope} />}</SidebarContent>
 			<SidebarFooter>
 				<NavUser />
 				<SidebarLegalLinks />
