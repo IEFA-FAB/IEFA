@@ -4,33 +4,66 @@ import { getHotkeyManager } from "@tanstack/hotkeys"
 import { useNavigate } from "@tanstack/react-router"
 import { CornerDownLeft, type LucideIcon, Search } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import { usePBAC } from "@/auth/pbac"
+import { hasPermission, usePBAC } from "@/auth/pbac"
 import { getModulesForPermissions, type ModuleId } from "@/components/layout/sidebar/NavItems"
+import { DialogOverlay, DialogPortal } from "@/components/ui/dialog"
 import { Kbd } from "@/components/ui/kbd"
-import { type PaletteEntry, type RecentScopes, resolveEntryTarget, SCOPE_FAMILY, searchEntries } from "@/lib/command-palette"
+import { useAuth } from "@/hooks/auth/useAuth"
+import {
+	type CanOpen,
+	indexEntries,
+	type PaletteEntry,
+	parseRecentScopes,
+	type RecentScopes,
+	type ResolvedTarget,
+	resolveEntryTarget,
+	type ScopeType,
+	searchEntries,
+} from "@/lib/command-palette"
 import type { ScopeContext } from "@/types/domain/scope"
 
 const OPEN_EVENT = "sisub:command-palette"
-const RECENT_SCOPES_KEY = "sisub:recent-scopes"
 
-/** Abre a busca de qualquer lugar (botão da sidebar, header mobile) sem prop drilling. */
+/** Abre a busca de qualquer lugar (botão da sidebar, hub, header mobile) sem prop drilling. */
 export function openCommandPalette() {
 	window.dispatchEvent(new Event(OPEN_EVENT))
 }
 
-// `navigator.platform` está deprecado; `userAgentData.platform` só existe em Chromium, daí o
-// userAgent como reserva (contém "Macintosh" no Safari e no Firefox).
-export const isMacPlatform = () =>
-	typeof navigator !== "undefined" &&
-	/mac/i.test((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.userAgent)
+/**
+ * Rótulo do atalho. Começa "Ctrl K" (o que o servidor renderiza) e vira "⌘K" no Mac depois de
+ * montar — calcular no render deixava o texto do SSR congelado no Mac, anunciando um atalho
+ * que lá não existe (o `Mod` do hotkey é ⌘).
+ */
+export function useCommandPaletteShortcut(): string {
+	const [label, setLabel] = useState("Ctrl K")
+	useEffect(() => {
+		// `navigator.platform` está deprecado; `userAgentData.platform` só existe em Chromium,
+		// daí o userAgent como reserva (contém "Macintosh" no Safari e no Firefox).
+		const platform = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.userAgent
+		if (/mac/i.test(platform)) setLabel("⌘K")
+	}, [])
+	return label
+}
 
-export const commandPaletteShortcut = () => (isMacPlatform() ? "⌘K" : "Ctrl K")
+// Por usuário: num terminal compartilhado (rancho, almoxarifado) o escopo de quem saiu não
+// pode virar o destino de quem entrou.
+const recentScopesKey = (userId: string) => `sisub:recent-scopes:${userId}`
 
-function readRecentScopes(): RecentScopes {
+/** `localStorage` pode não existir ou lançar (armazenamento bloqueado, cota) — nunca derruba a tela. */
+function readRecentScopes(userId: string | undefined): RecentScopes {
+	if (!userId) return {}
 	try {
-		return JSON.parse(localStorage.getItem(RECENT_SCOPES_KEY) ?? "{}") as RecentScopes
+		return parseRecentScopes(localStorage.getItem(recentScopesKey(userId)))
 	} catch {
 		return {}
+	}
+}
+
+function rememberScope(userId: string, type: ScopeType, scope: ScopeContext) {
+	try {
+		localStorage.setItem(recentScopesKey(userId), JSON.stringify({ ...readRecentScopes(userId), [type]: { id: scope.id, name: scope.name } }))
+	} catch {
+		// sem armazenamento a busca só perde a lembrança do último escopo
 	}
 }
 
@@ -41,11 +74,13 @@ type Entry = PaletteEntry & { icon: LucideIcon; scopeNoun?: string }
  *
  * O índice é a própria sidebar filtrada por permissão (`getModulesForPermissions`), então
  * não oferece página que o usuário não abre. Páginas de módulo com escopo usam o escopo
- * aberto agora ou o último da mesma família (a cozinha 7 da Gestão é a do Estoque); sem
- * nenhum, levam ao hub do módulo para escolher.
+ * aberto agora ou o último do mesmo tipo — só se o usuário abre aquele módulo naquele
+ * escopo; senão levam ao hub do módulo para escolher.
  */
-export function CommandPalette({ moduleId = null, scope = null }: { moduleId?: ModuleId | null; scope?: ScopeContext | null }) {
+export function CommandPalette({ scopeType = null, scope = null }: { scopeType?: ScopeType | null; scope?: ScopeContext | null }) {
 	const navigate = useNavigate()
+	const { user } = useAuth()
+	const userId = user?.id
 	const { permissions } = usePBAC()
 	const [open, setOpen] = useState(false)
 	const [query, setQuery] = useState("")
@@ -53,15 +88,12 @@ export function CommandPalette({ moduleId = null, scope = null }: { moduleId?: M
 
 	// Lembra o escopo aberto para a busca levar direto à mesma cozinha/unidade depois
 	useEffect(() => {
-		const family = moduleId ? SCOPE_FAMILY[moduleId] : undefined
-		if (!family || !scope) return
-		const next = { ...readRecentScopes(), [family]: { id: scope.id, name: scope.name } }
-		localStorage.setItem(RECENT_SCOPES_KEY, JSON.stringify(next))
-	}, [moduleId, scope])
+		if (userId && scopeType && scope) rememberScope(userId, scopeType, scope)
+	}, [userId, scopeType, scope])
 
 	useEffect(() => {
 		const show = () => {
-			setRecent(readRecentScopes())
+			setRecent(readRecentScopes(userId))
 			setOpen(true)
 		}
 		window.addEventListener(OPEN_EVENT, show)
@@ -71,44 +103,49 @@ export function CommandPalette({ moduleId = null, scope = null }: { moduleId?: M
 			window.removeEventListener(OPEN_EVENT, show)
 			handle.unregister()
 		}
-	}, [])
+	}, [userId])
 
-	const entries = useMemo<Entry[]>(
+	const index = useMemo(
 		() =>
-			getModulesForPermissions(permissions).flatMap((m) =>
-				m.items.map((it) => ({
-					id: it.url,
-					label: it.title,
-					moduleId: m.id,
-					moduleName: m.name,
-					group: it.group,
-					keywords: it.keywords,
-					url: it.url,
-					hubUrl: m.hubUrl,
-					scopeNoun: m.scopeNoun,
-					icon: it.icon,
-				}))
+			indexEntries<Entry>(
+				getModulesForPermissions(permissions).flatMap((m) =>
+					m.items.map((it) => ({
+						id: it.url,
+						label: it.title,
+						moduleId: m.id,
+						moduleName: m.name,
+						group: it.group,
+						keywords: it.keywords,
+						url: it.url,
+						minLevel: it.minLevel,
+						hubUrl: m.hubUrl,
+						scopeType: m.scopeType,
+						scopeNoun: m.scopeNoun,
+						icon: it.icon,
+					}))
+				)
 			),
 		[permissions]
 	)
-	const hits = useMemo(() => searchEntries(entries, query), [entries, query])
-	const current = scope && moduleId ? { moduleId, scopeId: scope.id, scopeName: scope.name } : null
+	const hits = useMemo(() => searchEntries(index, query), [index, query])
+
+	const canOpen: CanOpen = (moduleId, minLevel, s) => hasPermission(permissions, moduleId as ModuleId, minLevel, s)
+	const current = scope && scopeType ? { scopeType, id: scope.id, name: scope.name } : null
 
 	const handleOpenChange = (next: boolean) => {
 		setOpen(next)
 		if (!next) setQuery("")
 	}
 
-	const go = (entry: Entry) => {
-		const target = resolveEntryTarget(entry, current, recent)
+	const go = (target: ResolvedTarget) => {
 		handleOpenChange(false)
 		navigate({ to: target.to as Parameters<typeof navigate>[0]["to"] })
 	}
 
 	return (
 		<DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-			<DialogPrimitive.Portal>
-				<DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 duration-100" />
+			<DialogPortal>
+				<DialogOverlay />
 				<DialogPrimitive.Popup className="fixed left-1/2 top-[12vh] z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-xl bg-background ring-1 ring-foreground/10 shadow-lg outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 duration-100">
 					<DialogPrimitive.Title className="sr-only">Buscar página</DialogPrimitive.Title>
 					<Autocomplete.Root
@@ -135,13 +172,13 @@ export function CommandPalette({ moduleId = null, scope = null }: { moduleId?: M
 						</div>
 						<Autocomplete.List className="max-h-[min(60vh,26rem)] overflow-y-auto p-1.5 empty:hidden">
 							{(entry: Entry) => {
-								const target = resolveEntryTarget(entry, current, recent)
+								const target = resolveEntryTarget(entry, current, recent, canOpen)
 								return (
 									<Autocomplete.Item
 										key={entry.id}
 										value={entry}
-										onClick={() => go(entry)}
-										className="group/item flex cursor-default items-center gap-3 rounded-md px-2.5 py-2 text-sm outline-none select-none data-highlighted:bg-accent/10 data-highlighted:text-foreground"
+										onClick={() => go(target)}
+										className="group/item flex items-center gap-3 rounded-md px-2.5 py-2 text-sm outline-none select-none data-highlighted:bg-accent/10 data-highlighted:text-foreground"
 									>
 										<entry.icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 										<span className="min-w-0 flex-1">
@@ -171,7 +208,7 @@ export function CommandPalette({ moduleId = null, scope = null }: { moduleId?: M
 						</span>
 					</div>
 				</DialogPrimitive.Popup>
-			</DialogPrimitive.Portal>
+			</DialogPortal>
 		</DialogPrimitive.Root>
 	)
 }

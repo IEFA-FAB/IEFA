@@ -1,8 +1,18 @@
 import { Search } from "lucide-react"
 import type * as React from "react"
 import { Kbd } from "@/components/ui/kbd"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail } from "@/components/ui/sidebar"
-import { commandPaletteShortcut, openCommandPalette } from "../CommandPalette"
+import {
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarHeader,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarRail,
+	useSidebar,
+} from "@/components/ui/sidebar"
+import { openCommandPalette, useCommandPaletteShortcut } from "../CommandPalette"
 import { ModuleSwitcher } from "./ModuleSwitcher"
 import type { ModuleDef, ModuleId } from "./NavItems"
 import { NavMain, type SidebarScope } from "./NavMain"
@@ -27,6 +37,9 @@ export function AppSidebar({
 	/** Escopo aberto (cozinha/unidade/refeitório) — mostrado no topo da navegação, com "trocar" */
 	scope?: SidebarScope | null
 }) {
+	const { isMobile, setOpenMobile } = useSidebar()
+	const shortcut = useCommandPaletteShortcut()
+
 	if (isLoading) {
 		return (
 			<Sidebar collapsible="icon" variant="sidebar" {...props}>
@@ -78,10 +91,18 @@ export function AppSidebar({
 				<ModuleSwitcher modules={sidebarModules} value={activeModule.name} onChange={handleModuleChange} />
 				<SidebarMenu>
 					<SidebarMenuItem>
-						<SidebarMenuButton tooltip={`Buscar página (${commandPaletteShortcut()})`} onClick={openCommandPalette} className="text-muted-foreground">
+						<SidebarMenuButton
+							tooltip={`Buscar página (${shortcut})`}
+							onClick={() => {
+								// No celular a sidebar é uma gaveta modal: fecha antes, senão a busca abre por baixo dela
+								if (isMobile) setOpenMobile(false)
+								openCommandPalette()
+							}}
+							className="text-muted-foreground"
+						>
 							<Search />
 							<span className="flex-1">Buscar página</span>
-							<Kbd suppressHydrationWarning>{commandPaletteShortcut()}</Kbd>
+							<Kbd>{shortcut}</Kbd>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 				</SidebarMenu>

@@ -61,6 +61,7 @@ import {
 import type { ComponentType, SVGProps } from "react"
 import { hasPermission } from "@/auth/pbac"
 import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
+import type { ScopeType } from "@/lib/command-palette"
 import type { UserPermission } from "@/types/domain/permissions"
 
 export type IconType = ComponentType<SVGProps<SVGSVGElement>>
@@ -88,21 +89,29 @@ export type NavItemDef = {
 	keywords?: readonly string[]
 }
 
+/**
+ * Módulo com escopo (messhall, unit, kitchen, kitchen-production, storage, local-analytics)
+ * declara as três coisas juntas — o tipo impede um módulo novo com hub e sem `scopeType`,
+ * que faria a busca (Ctrl+K) nunca achar o escopo dele.
+ */
+type ModuleScope =
+	| { hubUrl?: undefined; scopeNoun?: undefined; scopeType?: undefined }
+	| {
+			/** Hub de seleção de escopo. O ModuleSwitcher e o Hub usam essa URL ao invés de items[0].url. */
+			hubUrl: string
+			/** O que o escopo é, para "trocar cozinha" / "trocar unidade" */
+			scopeNoun: string
+			/** Tipo de escopo PBAC — o mesmo `{ type }` do `requirePermission` da rota `$id` do módulo */
+			scopeType: ScopeType
+	  }
+
 export type ModuleDef = {
 	id: ModuleId
 	name: string
 	icon: LucideIcon
 	color: GroupColor
-	/**
-	 * Para módulos com escopo (messhall, unit, kitchen, kitchen-production, local-analytics),
-	 * aponta para o hub de seleção de escopo.
-	 * O TeamSwitcher e o Hub page usam essa URL ao invés de items[0].url.
-	 */
-	hubUrl?: string
-	/** O que o escopo é, para "trocar cozinha" / "trocar unidade" */
-	scopeNoun?: string
 	items: NavItemDef[]
-}
+} & ModuleScope
 
 const CHAT_KEYWORDS = ["chat", "ia", "assistente", "perguntar"] as const
 
@@ -143,6 +152,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		color: "primary",
 		hubUrl: "/messhall",
 		scopeNoun: "refeitório",
+		scopeType: "mess_hall",
 		// URLs base — AppShell substitui por /messhall/{id}/... quando dentro de um escopo
 		// "/messhall/" → após substituição vira "/messhall/{id}/" (rota index)
 		items: [{ title: "Presenças", url: "/messhall/", icon: ClipboardCheck, keywords: ["fiscalização", "scanner", "leitor", "presença"] }],
@@ -154,6 +164,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		color: "warning",
 		hubUrl: "/unit",
 		scopeNoun: "unidade",
+		scopeType: "unit",
 		items: [
 			{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard, keywords: ["visão geral", "alertas"] },
 			{ title: "Atas", url: "/unit/procurement", icon: FileText, group: "Contratação", keywords: ["ata", "arp", "registro de preços", "licitação"] },
@@ -174,6 +185,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		color: "warning",
 		hubUrl: "/kitchen",
 		scopeNoun: "cozinha",
+		scopeType: "kitchen",
 		// URLs base — AppShell substitui por /kitchen/{id}/... quando dentro de um escopo
 		items: [
 			{ title: "Cardápios Semanais", url: "/kitchen/weekly-menus", icon: CalendarDays, group: "Cardápio", keywords: ["cardápio", "semana"] },
@@ -202,6 +214,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		color: "primary",
 		hubUrl: "/kitchen-production",
 		scopeNoun: "cozinha",
+		scopeType: "kitchen",
 		items: [
 			{ title: "Painel", url: "/kitchen-production/", icon: LayoutDashboard, keywords: ["produção do dia", "tarefas", "preparo"] },
 			{ title: "Equipamentos", url: "/kitchen-production/equipment", icon: CookingPot, keywords: ["pane", "manutenção"] },
@@ -214,6 +227,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		color: "primary",
 		hubUrl: "/storage",
 		scopeNoun: "cozinha",
+		scopeType: "kitchen",
 		// URLs base — AppShell substitui por /storage/{id}/... quando dentro de um escopo
 		items: [
 			{ title: "Painel", url: "/storage/dashboard", icon: LayoutDashboard, keywords: ["saldo", "estoque atual", "fefo"] },
@@ -318,6 +332,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		color: "governance",
 		hubUrl: "/local-analytics",
 		scopeNoun: "unidade",
+		scopeType: "unit",
 		items: [
 			{ title: "Painel", url: "/local-analytics/dashboard", icon: LayoutDashboard, keywords: ["previsões", "presença em tempo real"] },
 			{ title: "Indicadores", url: "/local-analytics/indicators", icon: BarChart3, keywords: ["power bi", "relatório"] },

@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { z } from "zod"
 import { usePBAC } from "@/auth/pbac"
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
-import { CommandPalette, commandPaletteShortcut, openCommandPalette } from "@/components/layout/CommandPalette"
+import { CommandPalette, openCommandPalette, useCommandPaletteShortcut } from "@/components/layout/CommandPalette"
 import { ALL_MODULES, type GroupColor, getModulesForPermissions, type ModuleDef, type ModuleId } from "@/components/layout/sidebar/NavItems"
 import { UserProfileRow } from "@/components/layout/sidebar/NavUser"
 import { Button } from "@/components/ui/button"
@@ -169,6 +169,7 @@ function HubPage() {
 	}, [denied, navigate])
 
 	const modules = getModulesForPermissions(permissions)
+	const shortcut = useCommandPaletteShortcut()
 
 	const meta = (user?.user_metadata ?? {}) as UserMeta
 	const greetName = toNameCase(military?.nmGuerra ?? meta.full_name ?? meta.name ?? user?.email?.split("@")[0] ?? "Usuário")
@@ -190,7 +191,7 @@ function HubPage() {
 						<Button variant="outline" size="sm" onClick={openCommandPalette} className="text-muted-foreground">
 							<Search className="size-4" />
 							Buscar página
-							<Kbd suppressHydrationWarning>{commandPaletteShortcut()}</Kbd>
+							<Kbd>{shortcut}</Kbd>
 						</Button>
 					</div>
 

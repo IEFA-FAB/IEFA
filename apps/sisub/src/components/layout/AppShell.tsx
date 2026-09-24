@@ -137,7 +137,7 @@ export function AppShell() {
 				}
 				collapsible={showSidebar ? "icon" : "offExamples"}
 			/>
-			<CommandPalette moduleId={effectiveModuleId} scope={scopeContext ?? null} />
+			<CommandPalette scopeType={effectiveModule?.scopeType ?? null} scope={scopeContext ?? null} />
 
 			<SidebarInset className="bg-transparent h-full overflow-hidden w-full flex flex-col">
 				<header className="sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
