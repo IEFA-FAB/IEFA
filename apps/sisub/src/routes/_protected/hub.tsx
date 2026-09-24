@@ -1,13 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { ArrowUpRight } from "lucide-react"
+import { ArrowUpRight, Search } from "lucide-react"
 import { useEffect } from "react"
 import { z } from "zod"
 import { usePBAC } from "@/auth/pbac"
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
+import { CommandPalette, openCommandPalette, useCommandPaletteShortcut } from "@/components/layout/CommandPalette"
 import { ALL_MODULES, type GroupColor, getModulesForPermissions, type ModuleDef, type ModuleId } from "@/components/layout/sidebar/NavItems"
 import { UserProfileRow } from "@/components/layout/sidebar/NavUser"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Container } from "@/components/ui/container"
+import { Kbd } from "@/components/ui/kbd"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/toast"
@@ -166,6 +169,7 @@ function HubPage() {
 	}, [denied, navigate])
 
 	const modules = getModulesForPermissions(permissions)
+	const shortcut = useCommandPaletteShortcut()
 
 	const meta = (user?.user_metadata ?? {}) as UserMeta
 	const greetName = toNameCase(military?.nmGuerra ?? meta.full_name ?? meta.name ?? user?.email?.split("@")[0] ?? "Usuário")
@@ -173,14 +177,22 @@ function HubPage() {
 	return (
 		<div className="flex flex-col h-full overflow-hidden">
 			<HubHeader />
+			<CommandPalette />
 
 			<div className="flex-1 overflow-y-auto">
 				<div className="mx-auto max-w-4xl px-4 py-10 space-y-10">
-					<div className="space-y-1">
-						<h1 className="text-display text-foreground">
-							<span className="text-muted-foreground">Bem-vindo,</span> {greetName}
-						</h1>
-						<p className="text-caption text-muted-foreground">Escolha um módulo</p>
+					<div className="flex flex-wrap items-end justify-between gap-3">
+						<div className="space-y-1">
+							<h1 className="text-display text-foreground">
+								<span className="text-muted-foreground">Bem-vindo,</span> {greetName}
+							</h1>
+							<p className="text-caption text-muted-foreground">Escolha um módulo ou vá direto para uma página</p>
+						</div>
+						<Button variant="outline" size="sm" onClick={openCommandPalette} className="text-muted-foreground">
+							<Search className="size-4" />
+							Buscar página
+							<Kbd>{shortcut}</Kbd>
+						</Button>
 					</div>
 
 					{isLoading ? (

@@ -10,7 +10,8 @@ export interface SearchableSelectOption {
 /** Sentinela da opção "nenhuma": string vazia nunca colide com um id real. */
 export const NONE_VALUE = ""
 
-function normalize(value: string) {
+/** Minúsculas e sem acento — base de todo filtro local ("Previsão" casa com "previsao"). */
+export function normalize(value: string) {
 	return value
 		.normalize("NFD")
 		.replace(/\p{Diacritic}/gu, "")
