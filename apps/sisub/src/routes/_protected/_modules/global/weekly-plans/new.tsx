@@ -17,9 +17,6 @@ import { useCreateTemplate } from "@/hooks/data/useTemplates"
 export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/new")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: NewWeeklyPlanPage,
-	head: () => ({
-		meta: [{ title: "Novo Plano Semanal - SISUB" }],
-	}),
 })
 
 function NewWeeklyPlanPage() {

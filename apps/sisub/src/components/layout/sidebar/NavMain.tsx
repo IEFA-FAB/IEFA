@@ -52,7 +52,10 @@ export function NavMain({
 						<SidebarMenu>
 							{group.items?.map((item) => {
 								const target = normalizePath(item.url)
-								const isActive = currentPath === target || currentPath.startsWith(`${target}/`)
+								// Item da rota index do escopo (URL terminada em "/", ex. "/kitchen-production/7/")
+								// casa só com ela mesma: por prefixo, ficava ativo em todas as páginas irmãs.
+								const isIndexItem = item.url.endsWith("/")
+								const isActive = currentPath === target || (!isIndexItem && currentPath.startsWith(`${target}/`))
 								return (
 									<SidebarMenuItem key={item.title}>
 										<SidebarMenuButton

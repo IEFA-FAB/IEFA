@@ -16,9 +16,6 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/payments
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	loader: ({ params }) => fetchPaymentPanelFn({ data: { unitId: Number(params.unitId) } }),
 	component: PaymentsPage,
-	head: () => ({
-		meta: [{ title: "Pagamentos — SISUB" }],
-	}),
 })
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })

@@ -11,6 +11,7 @@ import { AssuranceElevationProvider } from "@/components/features/assurance/Assu
 import { DefaultCatchBoundary } from "@/components/layout/errors/DefaultCatchBoundary"
 import { NotFound } from "@/components/layout/errors/NotFound"
 import { Toaster } from "@/components/ui/toast"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
@@ -46,7 +47,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
 		const ogImage = `${baseUrl}/og-image.png`
 		const description = "Sistema de Subsistência — planejamento de menus, receitas e analytics para a FAB."
-		const title = "Previsão SISUB"
+		const title = "SISUB — Sistema de Subsistência"
 		return {
 			meta: [
 				{ charSet: "utf-8" },
@@ -166,7 +167,11 @@ function RootDocument() {
 					{/* Acima do <Outlet /> para que o modal de elevação abra SOBRE a tela em uso,
 					    qualquer que seja ela — sem tirar ninguém da rota nem descartar formulário. */}
 					<AssuranceElevationProvider>
-						<Outlet />
+						{/* Provider único: todos os tooltips abrem com o mesmo atraso e, uma vez um
+						    aberto, os vizinhos abrem na hora (varrer uma barra de ícones não pisca). */}
+						<TooltipProvider>
+							<Outlet />
+						</TooltipProvider>
 					</AssuranceElevationProvider>
 					<Toaster position="bottom-center" viewportClassName="z-2147483647" />
 				</ThemeProvider>

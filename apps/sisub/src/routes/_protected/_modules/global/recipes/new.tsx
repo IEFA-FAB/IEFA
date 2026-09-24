@@ -10,9 +10,6 @@ import { RecipeForm } from "@/components/features/shared/RecipeForm"
 export const Route = createFileRoute("/_protected/_modules/global/recipes/new")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: GlobalRecipeNewPage,
-	head: () => ({
-		meta: [{ title: "Nova Preparação Global - SISUB" }],
-	}),
 })
 
 function GlobalRecipeNewPage() {

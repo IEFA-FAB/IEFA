@@ -15,10 +15,7 @@ export const Route = createFileRoute("/_protected/_modules/analytics/workforce")
 	beforeLoad: (opts) => requirePermission(opts, "analytics", 2),
 	component: WorkforceNetworkPage,
 	head: () => ({
-		meta: [
-			{ title: "Efetivo da Rede" },
-			{ name: "description", content: "Matriz de efetivo dos ranchos consolidada por ELO, com as lacunas de cobertura técnica" },
-		],
+		meta: [{ name: "description", content: "Matriz de efetivo dos ranchos consolidada por ELO, com as lacunas de cobertura técnica" }],
 	}),
 })
 

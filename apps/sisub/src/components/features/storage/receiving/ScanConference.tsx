@@ -361,6 +361,7 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 														variant="ghost"
 														className="h-5 px-1"
 														disabled={busy}
+														aria-label="Desfazer leitura"
 														onClick={async () => {
 															const result = await run(() => reverseScanEventFn({ data: { eventId: event.id, clientEventId: newClientEventId() } }))
 															if (result?.alreadyReversed) toast.info("Esta leitura já tinha sido desfeita")

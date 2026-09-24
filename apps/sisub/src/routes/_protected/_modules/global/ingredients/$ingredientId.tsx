@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { IngredientDetailForm } from "@/components/features/global/IngredientDetailForm"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import {
 	ceafaQueryOptions,
 	foldersQueryOptions,
@@ -34,9 +35,6 @@ export const Route = createFileRoute("/_protected/_modules/global/ingredients/$i
 		])
 	},
 	component: IngredientDetailPage,
-	head: () => ({
-		meta: [{ title: "Insumo - SISUB" }],
-	}),
 })
 
 function IngredientDetailPage() {
@@ -44,6 +42,7 @@ function IngredientDetailPage() {
 
 	const { data: ingredient } = useSuspenseQuery(ingredientQueryOptions(ingredientId))
 	const { data: folders } = useSuspenseQuery(foldersQueryOptions())
+	useCrumbLabel(ingredient.description)
 
 	return <IngredientDetailForm ingredient={ingredient} folders={folders} />
 }

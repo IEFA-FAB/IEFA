@@ -8,9 +8,6 @@ import { useUserKitchens } from "@/hooks/data/useKitchens"
 export const Route = createFileRoute("/_protected/_modules/kitchen/")({
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: KitchenHubPage,
-	head: () => ({
-		meta: [{ title: "Gestão Cozinha — Selecionar Cozinha" }],
-	}),
 })
 
 function KitchenHubPage() {

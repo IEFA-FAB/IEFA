@@ -13,10 +13,7 @@ export const Route = createFileRoute("/_protected/_modules/analytics/procurement
 	beforeLoad: (opts) => requirePermission(opts, "analytics", 2),
 	component: ProcurementPlanPage,
 	head: () => ({
-		meta: [
-			{ title: "Plano de Contratações — Gênero" },
-			{ name: "description", content: "Plano de Contratações Anual de gênero alimentício da FAB, por UASG e classe, vindo do PNCP" },
-		],
+		meta: [{ name: "description", content: "Plano de Contratações Anual de gênero alimentício da FAB, por UASG e classe, vindo do PNCP" }],
 	}),
 })
 

@@ -199,6 +199,7 @@ export function StepSidePanel(props: StepSidePanelProps) {
 							variant="outline"
 							size="sm"
 							disabled={!newUtensil.trim()}
+							aria-label="Adicionar utensílio"
 							onClick={() => {
 								props.onQuickCreateUtensil(newUtensil.trim())
 								setNewUtensil("")

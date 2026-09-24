@@ -45,9 +45,6 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurem
 	validateSearch: searchSchema,
 	beforeLoad: (opts) => requirePermission(opts, "unit", 2),
 	component: NewAtaPage,
-	head: () => ({
-		meta: [{ title: "Nova Ata de Registro de Preços" }],
-	}),
 })
 
 /** Vigência típica de uma ARP (Lei 14.133/2021, Art. 84: até 1 ano, prorrogável). */

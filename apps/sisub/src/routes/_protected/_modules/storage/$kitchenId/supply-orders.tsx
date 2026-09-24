@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { checkSupplierSicafFn } from "@/server/replenishment.fn"
 import { cancelSupplyOrderFn, createSupplyOrderFn, listEmpenhosForKitchenFn, listSupplyOrdersFn } from "@/server/supply-order.fn"
 
@@ -21,9 +22,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/su
 		return { orders, empenhos }
 	},
 	component: SupplyOrdersPage,
-	head: () => ({
-		meta: [{ title: "Estoque — Ordens de Fornecimento" }],
-	}),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 4 })
@@ -226,9 +224,22 @@ function SupplyOrdersPage() {
 											{STATUS_LABEL[order.status] ?? order.status}
 										</Badge>
 										{(order.status === "sent" || order.status === "draft") && (
-											<Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive" onClick={() => cancel(order.id)}>
-												<XCircle className="size-3.5" />
-											</Button>
+											<Tooltip>
+												<TooltipTrigger
+													render={
+														<Button
+															size="sm"
+															variant="ghost"
+															className="h-6 text-xs px-2 text-destructive"
+															onClick={() => cancel(order.id)}
+															aria-label="Cancelar ordem"
+														>
+															<XCircle className="size-3.5" />
+														</Button>
+													}
+												/>
+												<TooltipContent>Cancelar ordem</TooltipContent>
+											</Tooltip>
 										)}
 									</div>
 								)

@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/menu")({
 	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: MenuPage,
 	head: () => ({
-		meta: [{ title: "Cardápio - SISUB" }, { name: "description", content: "Visualize o cardápio do rancho" }],
+		meta: [{ name: "description", content: "Visualize o cardápio do rancho" }],
 	}),
 })
 

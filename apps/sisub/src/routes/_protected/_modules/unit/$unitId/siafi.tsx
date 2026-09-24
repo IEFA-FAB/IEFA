@@ -19,9 +19,6 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/siafi")(
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	loader: ({ params }) => listImportBatchesFn({ data: { unitId: Number(params.unitId) } }),
 	component: SiafiPage,
-	head: () => ({
-		meta: [{ title: "SIAFI — Importação — SISUB" }],
-	}),
 })
 
 const REPORT_TYPES = ["credito", "ne", "ns", "ob"] as const

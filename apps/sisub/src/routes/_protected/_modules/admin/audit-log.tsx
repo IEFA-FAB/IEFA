@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { AUDIT_SOURCE_LABELS, describeAuditEntry, sourceOf, staticTitle } from "@/lib/audit-log/describe-entry"
 import { describeRequirement } from "@/lib/audit-log/requirement-label"
 import { queryKeys } from "@/lib/query-keys"
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/_protected/_modules/admin/audit-log")({
 	beforeLoad: (opts) => requirePermission(opts, "admin", 3),
 	component: AuditLogPage,
 	head: () => ({
-		meta: [{ title: "Operações Sensíveis — SISUB" }, { name: "description", content: "Registro das operações sensíveis executadas no sistema" }],
+		meta: [{ name: "description", content: "Registro das operações sensíveis executadas no sistema" }],
 	}),
 })
 
@@ -309,30 +310,42 @@ function AuditRow({ row, onFilterActor, onFilterTarget, activeTargetId }: AuditR
 						{row.actor_nr_ordem && <span className="block text-caption text-muted-foreground">Nº de ordem {row.actor_nr_ordem}</span>}
 					</div>
 					{onFilterActor && (
-						<Button
-							variant="ghost"
-							size="icon-xs"
-							aria-label="Filtrar pelas operações executadas por esta pessoa"
-							title="Filtrar pelas operações executadas por esta pessoa"
-							onClick={() => onFilterActor({ id: row.actor_id, label: actorLabel(row) })}
-						>
-							<ListFilter />
-						</Button>
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button
+										variant="ghost"
+										size="icon-xs"
+										aria-label="Filtrar pelas operações desta pessoa"
+										onClick={() => onFilterActor({ id: row.actor_id, label: actorLabel(row) })}
+									>
+										<ListFilter />
+									</Button>
+								}
+							/>
+							<TooltipContent>Filtrar pelas operações desta pessoa</TooltipContent>
+						</Tooltip>
 					)}
 				</div>
 				{targetId && (
 					<div className="mt-1 flex items-start gap-1">
 						<span className="min-w-0 break-all text-caption text-muted-foreground">→ {selfTarget ? "a própria conta" : targetLabel}</span>
 						{!selfTarget && targetId !== activeTargetId && isFilterableUserId(targetId) && (
-							<Button
-								variant="ghost"
-								size="icon-xs"
-								aria-label="Filtrar pelo histórico de acesso desta pessoa"
-								title="Filtrar pelo histórico de acesso desta pessoa"
-								onClick={() => onFilterTarget({ id: targetId, label: targetLabel ?? targetId })}
-							>
-								<ListFilter />
-							</Button>
+							<Tooltip>
+								<TooltipTrigger
+									render={
+										<Button
+											variant="ghost"
+											size="icon-xs"
+											aria-label="Filtrar pelo histórico de acesso desta pessoa"
+											onClick={() => onFilterTarget({ id: targetId, label: targetLabel ?? targetId })}
+										>
+											<ListFilter />
+										</Button>
+									}
+								/>
+								<TooltipContent>Filtrar pelo histórico de acesso desta pessoa</TooltipContent>
+							</Tooltip>
 						)}
 					</div>
 				)}

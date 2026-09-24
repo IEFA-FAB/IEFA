@@ -25,7 +25,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/se
 	beforeLoad: (opts) => requirePermission(opts, "storage", 3),
 	loader: ({ params }) => fetchStockSettingsFn({ data: { kitchenId: Number(params.kitchenId) } }),
 	component: StockSettingsPage,
-	head: () => ({ meta: [{ title: "Estoque — Configurações" }] }),
 })
 
 function StockSettingsPage() {

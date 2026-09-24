@@ -26,9 +26,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/pr
 		return { pending, variance, frozenPreparations }
 	},
 	component: ProductionIssuePage,
-	head: () => ({
-		meta: [{ title: "Estoque — Baixa por Produção" }],
-	}),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 4 })

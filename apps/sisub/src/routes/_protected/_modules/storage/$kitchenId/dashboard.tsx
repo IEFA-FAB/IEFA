@@ -24,9 +24,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/da
 		return { balance, movements, expiry, kitchenId }
 	},
 	component: StockDashboardPage,
-	head: () => ({
-		meta: [{ title: "Estoque — Painel" }],
-	}),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 4 })

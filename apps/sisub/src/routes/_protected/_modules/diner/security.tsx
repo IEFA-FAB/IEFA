@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/security")({
 	},
 	component: SecurityPage,
 	head: () => ({
-		meta: [{ title: "Segurança — SISUB" }, { name: "description", content: "Verificação em duas etapas, dispositivos e sessões da sua conta." }],
+		meta: [{ name: "description", content: "Verificação em duas etapas, dispositivos e sessões da sua conta." }],
 	}),
 })
 

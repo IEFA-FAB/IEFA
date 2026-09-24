@@ -542,6 +542,7 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 																<Button
 																	variant="ghost"
 																	size="icon-xs"
+																	aria-label="Criar cópia local"
 																	nativeButton={false}
 																	className="hover:bg-accent/10 transition-all"
 																	render={

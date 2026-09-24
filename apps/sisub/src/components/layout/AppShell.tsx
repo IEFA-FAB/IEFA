@@ -1,15 +1,16 @@
 import { Link, Outlet, useLocation, useMatches, useNavigate } from "@tanstack/react-router"
 import { ChevronLeft } from "lucide-react"
-import { useEffect, useState } from "react"
+import { Fragment, useCallback, useEffect, useState } from "react"
 import { usePBAC } from "@/auth/pbac"
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
 import { getModuleFromPath, getModulesForPermissions, getNavItemsForPermissions, type ModuleId, type NavItem } from "@/components/layout/sidebar/NavItems"
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 import { useTheme } from "@/hooks/ui/useTheme"
-import { buildCrumbs } from "@/lib/breadcrumbs"
+import { applyEntityLabel, buildCrumbs, linkCrumbs, type NavCrumb } from "@/lib/breadcrumbs"
 import type { ScopeContext } from "@/types/domain/scope"
+import { CrumbLabelContext } from "./crumb-label"
 import { AppSidebar } from "./sidebar/AppSidebar"
 import { MainSurface } from "./sidebar/MainSurface"
 
@@ -91,18 +92,40 @@ export function AppShell() {
 		if (typeof window !== "undefined") window.location.reload()
 	}
 
-	// Generate breadcrumbs from current path
-	const navItems: NavItem[] = getNavItemsForPermissions(permissions)
-	const crumbs = buildCrumbs(location.pathname, navItems, scopeContext)
+	// Nome do registro aberto, informado pela página de detalhe via `useCrumbLabel`
+	const [entityLabel, setEntityLabel] = useState<{ path: string; label: string } | null>(null)
+	const setCrumbLabel = useCallback((path: string, label: string | null) => {
+		setEntityLabel((prev) => (label ? { path, label } : prev?.path === path ? null : prev))
+	}, [])
 
-	// Update document title based on breadcrumbs
-	const currentLabel = crumbs[crumbs.length - 1]?.label || "Início"
+	// Trilha derivada da URL; `linkCrumbs` troca os destinos que não são página (layout sem
+	// index, `print`, a própria página) e usa os nomes de módulo da sidebar.
+	const navItems: NavItem[] = getNavItemsForPermissions(permissions)
+	const crumbs: NavCrumb[] = applyEntityLabel(
+		linkCrumbs(buildCrumbs(location.pathname, navItems, scopeContext), location.pathname, availableModules),
+		location.pathname,
+		entityLabel?.path === location.pathname ? entityLabel.label : null,
+		!!effectiveModule?.hubUrl
+	)
+
+	// Título da aba: fonte única — as rotas do AppShell não declaram `title` no head, senão
+	// as duas fontes disputam a aba. Formato: "Página · Escopo — SISUB".
+	const currentLabel = crumbs[crumbs.length - 1]?.label || R.breadcrumbRoot
+	const documentTitle =
+		scopeContext && currentLabel !== scopeContext.name ? `${currentLabel} · ${scopeContext.name} — ${R.appName}` : `${currentLabel} — ${R.appName}`
 	useEffect(() => {
-		document.title = `${R.appName} — ${currentLabel}`
-	}, [currentLabel])
+		document.title = documentTitle
+	})
+
+	// Mobile: "voltar" leva ao crumb navegável mais próximo acima da página atual
+	const parentCrumb = crumbs
+		.slice(0, -1)
+		.reverse()
+		.find((c) => c.to !== null)
+	const currentCrumb = crumbs[crumbs.length - 1]
 
 	return (
-		<>
+		<CrumbLabelContext value={setCrumbLabel}>
 			<AppSidebar
 				variant="sidebar"
 				modules={scopedModules}
@@ -116,34 +139,28 @@ export function AppShell() {
 			<SidebarInset className="bg-transparent h-full overflow-hidden w-full flex flex-col">
 				<header className="sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
 					<div className="flex items-center gap-3">
-						{!isOnScopeHub && <SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />}
-						<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
+						{!isOnScopeHub && (
+							<>
+								<SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
+								<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
+							</>
+						)}
 						{isMobile ? (
-							// Mobile: ← pai  /  página atual
+							// Mobile: ← pai navegável  /  página atual
 							<div className="flex items-center gap-1 text-subheading min-w-0">
-								{(() => {
-									const parentCrumb = crumbs.length >= 2 ? crumbs[crumbs.length - 2] : null
-									const currentCrumb = crumbs.length >= 1 ? crumbs[crumbs.length - 1] : null
-									const backTo = parentCrumb?.to ?? "/hub"
-									const backLabel = parentCrumb?.label ?? R.breadcrumbRoot
-									return (
-										<>
-											<Link
-												to={backTo as Parameters<typeof Link>[0]["to"]}
-												className="flex shrink-0 items-center gap-1 text-muted-foreground hover:text-primary transition-colors"
-											>
-												<ChevronLeft className="size-4" />
-												<span>{backLabel}</span>
-											</Link>
-											{currentCrumb && (
-												<>
-													<span className="text-muted-foreground px-1">/</span>
-													<span className="text-subheading truncate">{currentCrumb.label}</span>
-												</>
-											)}
-										</>
-									)
-								})()}
+								<Link
+									to={(parentCrumb?.to ?? "/hub") as Parameters<typeof Link>[0]["to"]}
+									className="flex shrink-0 items-center gap-1 text-muted-foreground hover:text-primary transition-colors"
+								>
+									<ChevronLeft className="size-4" />
+									<span>{parentCrumb?.label ?? R.breadcrumbRoot}</span>
+								</Link>
+								{currentCrumb && (
+									<>
+										<span className="text-muted-foreground px-1">/</span>
+										<span className="text-subheading truncate">{currentCrumb.label}</span>
+									</>
+								)}
 							</div>
 						) : (
 							// Desktop: trilha completa
@@ -159,22 +176,24 @@ export function AppShell() {
 										/>
 									</BreadcrumbItem>
 									{crumbs.map((c, idx) => (
-										<span key={c.to} className="inline-flex items-center">
+										<Fragment key={c.key}>
 											<BreadcrumbSeparator className="text-muted-foreground/50 px-2" />
 											<BreadcrumbItem>
-												{idx === crumbs.length - 1 ? (
-													<span className="text-subheading text-center">{c.label}</span>
-												) : (
+												{c.to !== null ? (
 													<BreadcrumbLink
 														render={
-															<Link to={c.to} className="cursor-pointer hover:text-primary transition-colors text-center items-center">
+															<Link to={c.to} className="cursor-pointer hover:text-primary transition-colors text-center items-center max-w-64 truncate">
 																{c.label}
 															</Link>
 														}
 													/>
+												) : idx === crumbs.length - 1 ? (
+													<BreadcrumbPage className="text-subheading text-center max-w-64 truncate">{c.label}</BreadcrumbPage>
+												) : (
+													<span className="text-muted-foreground text-center max-w-64 truncate">{c.label}</span>
 												)}
 											</BreadcrumbItem>
-										</span>
+										</Fragment>
 									))}
 								</BreadcrumbList>
 							</Breadcrumb>
@@ -196,6 +215,6 @@ export function AppShell() {
 					</MainSurface>
 				</div>
 			</SidebarInset>
-		</>
+		</CrumbLabelContext>
 	)
 }

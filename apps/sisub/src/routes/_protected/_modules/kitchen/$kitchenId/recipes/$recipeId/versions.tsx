@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { GitCompare, Loader2 } from "lucide-react"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { useRecipe } from "@/hooks/data/useRecipe"
@@ -10,15 +11,13 @@ import { useRecipe } from "@/hooks/data/useRecipe"
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions")({
 	component: RecipeVersionsPage,
-	head: () => ({
-		meta: [{ title: "Histórico de Versões - SISUB" }],
-	}),
 })
 
 function RecipeVersionsPage() {
 	const { kitchenId, recipeId } = Route.useParams()
 	const navigate = useNavigate()
 	const { data: recipe, isLoading, error } = useRecipe(recipeId)
+	useCrumbLabel(recipe?.name)
 
 	if (isLoading) {
 		return (

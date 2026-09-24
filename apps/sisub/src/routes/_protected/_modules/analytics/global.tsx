@@ -12,7 +12,6 @@ export const Route = createFileRoute("/_protected/_modules/analytics/global")({
 	component: SuperAdminPanel,
 	head: () => ({
 		meta: [
-			{ title: "Painel SuperAdmin" },
 			{
 				name: "description",
 				content: "Controle o sistema de subsistência",
@@ -26,7 +25,7 @@ function SuperAdminPanel() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Análise Sistêmica">
+			<PageHeader title="Visão Global">
 				<Tooltip>
 					<TooltipTrigger
 						render={

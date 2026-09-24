@@ -9,6 +9,7 @@ import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelec
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -18,7 +19,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/toast"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
@@ -49,9 +50,6 @@ const WEEKDAYS = [
 export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/$planId")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: GlobalPlanEditorPage,
-	head: () => ({
-		meta: [{ title: "Editar Plano Semanal - SISUB" }],
-	}),
 })
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -110,7 +108,7 @@ function DayOverviewCard({
 									>
 										×{count}
 									</TooltipTrigger>
-									<TooltipContent side="left" className="max-w-[220px]">
+									<TooltipContent side="left">
 										<ul className="space-y-1">
 											{entries.map(({ id, name }) =>
 												name === undefined ? (
@@ -146,6 +144,7 @@ function GlobalPlanEditorPage() {
 	const navigate = useNavigate()
 
 	const { data: template, isLoading: templateLoading } = useTemplate(planId)
+	useCrumbLabel(template?.name)
 
 	// Meal types genéricos (kitchen_id = null)
 	const { data: mealTypes } = useQuery({
@@ -398,291 +397,289 @@ function GlobalPlanEditorPage() {
 	}
 
 	return (
-		<TooltipProvider>
+		<div className="space-y-6">
+			<PageHeader title="Editar Plano Semanal Modelo" onBack={() => navigate({ to: "/global/weekly-plans" })}>
+				<div className="flex items-center gap-2">
+					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									nativeButton={false}
+									type="button"
+									variant="outline"
+									size="sm"
+									render={
+										<Link to="/global/weekly-plans/print/$planId" params={{ planId }}>
+											<Printer className="size-4 sm:mr-2" />
+											<span className="hidden sm:inline">Imprimir</span>
+										</Link>
+									}
+								/>
+							}
+						></TooltipTrigger>
+						<TooltipContent>Imprimir / baixar PDF do plano</TooltipContent>
+					</Tooltip>
+					<Button nativeButton={false} type="button" variant="outline" size="sm" render={<Link to="/global/weekly-plans">Cancelar</Link>} />
+					<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
+						{isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
+						Salvar
+					</Button>
+				</div>
+			</PageHeader>
+
+			{groupsFailed && (
+				<Alert variant="destructive">
+					<AlertCircle className="size-4" />
+					<AlertTitle>Grupos do cardápio não carregaram</AlertTitle>
+					<AlertDescription>
+						As colunas abaixo são as do conjunto padrão, não as de cada refeição: no café e na ceia elas estão erradas, e a preparação que você adicionar entra
+						no grupo errado. Recarregue a página antes de mexer no plano.
+					</AlertDescription>
+				</Alert>
+			)}
+
 			<div className="space-y-6">
-				<PageHeader title="Editar Plano Semanal Modelo" onBack={() => navigate({ to: "/global/weekly-plans" })}>
-					<div className="flex items-center gap-2">
-						<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
-						<Tooltip>
-							<TooltipTrigger
-								render={
-									<Button
-										nativeButton={false}
-										type="button"
-										variant="outline"
-										size="sm"
-										render={
-											<Link to="/global/weekly-plans/print/$planId" params={{ planId }}>
-												<Printer className="size-4 sm:mr-2" />
-												<span className="hidden sm:inline">Imprimir</span>
-											</Link>
-										}
-									/>
-								}
-							></TooltipTrigger>
-							<TooltipContent>Imprimir / baixar PDF do plano</TooltipContent>
-						</Tooltip>
-						<Button nativeButton={false} type="button" variant="outline" size="sm" render={<Link to="/global/weekly-plans">Cancelar</Link>} />
-						<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
-							{isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
-							Salvar
-						</Button>
-					</div>
-				</PageHeader>
+				{/* Metadata */}
+				<Card>
+					<CardContent>
+						<FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<Field>
+								<FieldLabel htmlFor="name">
+									Nome <span className="text-destructive">*</span>
+								</FieldLabel>
+								<Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Cardápio Padrão FAB — Semana 1" required />
+							</Field>
+							<Field>
+								<FieldLabel htmlFor="description">Descrição (opcional)</FieldLabel>
+								<Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição do plano" />
+							</Field>
+						</FieldGroup>
+						<div className="mt-4 flex items-center gap-2">
+							<Badge variant="outline" className="text-xs">
+								Global · SDAB
+							</Badge>
+							<span className="text-xs text-muted-foreground">Disponível para fork por todas as cozinhas</span>
+						</div>
+					</CardContent>
+				</Card>
 
-				{groupsFailed && (
-					<Alert variant="destructive">
-						<AlertCircle className="size-4" />
-						<AlertTitle>Grupos do cardápio não carregaram</AlertTitle>
-						<AlertDescription>
-							As colunas abaixo são as do conjunto padrão, não as de cada refeição: no café e na ceia elas estão erradas, e a preparação que você adicionar
-							entra no grupo errado. Recarregue a página antes de mexer no plano.
-						</AlertDescription>
-					</Alert>
-				)}
-
-				<div className="space-y-6">
-					{/* Metadata */}
-					<Card>
-						<CardContent>
-							<FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<Field>
-									<FieldLabel htmlFor="name">
-										Nome <span className="text-destructive">*</span>
-									</FieldLabel>
-									<Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Cardápio Padrão FAB — Semana 1" required />
-								</Field>
-								<Field>
-									<FieldLabel htmlFor="description">Descrição (opcional)</FieldLabel>
-									<Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição do plano" />
-								</Field>
-							</FieldGroup>
-							<div className="mt-4 flex items-center gap-2">
-								<Badge variant="outline" className="text-xs">
-									Global · SDAB
-								</Badge>
-								<span className="text-xs text-muted-foreground">Disponível para fork por todas as cozinhas</span>
-							</div>
-						</CardContent>
-					</Card>
-
-					{/* Preenchimento: localizar e seleção em massa. Sem quantitativo: o plano global não
+				{/* Preenchimento: localizar e seleção em massa. Sem quantitativo: o plano global não
 					    carrega efetivo — cada unidade informa o dela no cardápio da cozinha. */}
-					<div className="flex flex-wrap items-center gap-2">
-						<MenuFindBar
-							items={items}
-							nameOf={(recipeId) => recipeById.get(recipeId)?.name}
-							mealTypeOrder={(mealTypes ?? []).map((m) => m.id)}
-							dayLabel={(day) => WEEKDAYS.find((d) => d.num === day)?.label ?? String(day)}
-							mealLabel={(mealTypeId) => mealTypes?.find((m) => m.id === mealTypeId)?.name ?? "Refeição"}
-							kitchenId={null}
-							onGoTo={(match) => {
-								setActiveTab(String(match.item.day_of_week))
-								setHighlightedKey(match.key)
-							}}
-							onReplaceAll={(keys, recipeId) => setItems(replaceMenuRecipe(items, keys, recipeId))}
-							onSelectMatches={(keys) => {
-								setSelectionMode(true)
-								setSelectedKeys(keys)
-							}}
-						/>
-						<Button
-							type="button"
-							variant={selectionMode ? "default" : "outline"}
-							size="sm"
-							onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
-						>
-							<ListChecks className="size-4 sm:mr-2" />
-							<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
-						</Button>
-					</div>
+				<div className="flex flex-wrap items-center gap-2">
+					<MenuFindBar
+						items={items}
+						nameOf={(recipeId) => recipeById.get(recipeId)?.name}
+						mealTypeOrder={(mealTypes ?? []).map((m) => m.id)}
+						dayLabel={(day) => WEEKDAYS.find((d) => d.num === day)?.label ?? String(day)}
+						mealLabel={(mealTypeId) => mealTypes?.find((m) => m.id === mealTypeId)?.name ?? "Refeição"}
+						kitchenId={null}
+						onGoTo={(match) => {
+							setActiveTab(String(match.item.day_of_week))
+							setHighlightedKey(match.key)
+						}}
+						onReplaceAll={(keys, recipeId) => setItems(replaceMenuRecipe(items, keys, recipeId))}
+						onSelectMatches={(keys) => {
+							setSelectionMode(true)
+							setSelectedKeys(keys)
+						}}
+					/>
+					<Button
+						type="button"
+						variant={selectionMode ? "default" : "outline"}
+						size="sm"
+						onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+					>
+						<ListChecks className="size-4 sm:mr-2" />
+						<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
+					</Button>
+				</div>
 
-					{/* Tabs: Visão Geral + dias */}
-					<Tabs value={activeTab} onValueChange={setActiveTab}>
-						<TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
-							<TabsTrigger value="overview" className="gap-1.5">
-								<span>Visão Geral</span>
-								{totalRecipes > 0 && (
-									<Badge variant="secondary" className="text-xs ml-1">
-										{totalRecipes}
-									</Badge>
-								)}
-							</TabsTrigger>
-							{WEEKDAYS.map((day) => {
-								const count = items.filter((i) => i.day_of_week === day.num).length
-								return (
-									<TabsTrigger key={day.num} value={String(day.num)} className="gap-1">
-										{day.abbr}
-										{count > 0 && (
-											<Badge variant="secondary" className="text-xs">
-												{count}
-											</Badge>
-										)}
-									</TabsTrigger>
-								)
-							})}
-						</TabsList>
-
-						<TabsContent value="overview" className="mt-4 space-y-4 h-full">
-							<div className="flex items-center gap-4 text-sm text-muted-foreground px-1">
-								<span>
-									<strong className="text-foreground tabular-nums">{totalRecipes}</strong> {totalRecipes === 1 ? "preparação" : "preparações"} no plano
-								</span>
-								<span className="text-muted-foreground/40">·</span>
-								<span>
-									<strong className="text-foreground tabular-nums">{daysWithContent}</strong>/7 dias preenchidos
-								</span>
-							</div>
-
-							<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 h-full">
-								{WEEKDAYS.map((day) => (
-									<DayOverviewCard
-										key={day.num}
-										day={day}
-										mealTypes={mealTypes ?? []}
-										items={items}
-										recipeMap={recipeMap}
-										onNavigate={() => setActiveTab(String(day.num))}
-									/>
-								))}
-							</div>
-
-							{totalRecipes === 0 && (
-								<div className="rounded-md border border-dashed p-10 text-center">
-									<p className="text-sm text-muted-foreground mb-1">Plano vazio — nenhuma preparação atribuída ainda.</p>
-									<p className="text-xs text-muted-foreground/60">Clique em um dia acima ou use as abas para começar.</p>
-								</div>
+				{/* Tabs: Visão Geral + dias */}
+				<Tabs value={activeTab} onValueChange={setActiveTab}>
+					<TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
+						<TabsTrigger value="overview" className="gap-1.5">
+							<span>Visão Geral</span>
+							{totalRecipes > 0 && (
+								<Badge variant="secondary" className="text-xs ml-1">
+									{totalRecipes}
+								</Badge>
 							)}
-						</TabsContent>
+						</TabsTrigger>
+						{WEEKDAYS.map((day) => {
+							const count = items.filter((i) => i.day_of_week === day.num).length
+							return (
+								<TabsTrigger key={day.num} value={String(day.num)} className="gap-1">
+									{day.abbr}
+									{count > 0 && (
+										<Badge variant="secondary" className="text-xs">
+											{count}
+										</Badge>
+									)}
+								</TabsTrigger>
+							)
+						})}
+					</TabsList>
 
-						{WEEKDAYS.map((day) => (
-							<TabsContent key={day.num} value={String(day.num)} className="mt-4 space-y-3">
-								<div className="flex items-center justify-between px-1">
-									<h2 className="text-subheading">{day.label}</h2>
-									<span className="text-xs text-muted-foreground">
-										{items.filter((i) => i.day_of_week === day.num).length} preparaç
-										{items.filter((i) => i.day_of_week === day.num).length !== 1 ? "ões" : "ão"}
-									</span>
-								</div>
+					<TabsContent value="overview" className="mt-4 space-y-4 h-full">
+						<div className="flex items-center gap-4 text-sm text-muted-foreground px-1">
+							<span>
+								<strong className="text-foreground tabular-nums">{totalRecipes}</strong> {totalRecipes === 1 ? "preparação" : "preparações"} no plano
+							</span>
+							<span className="text-muted-foreground/40">·</span>
+							<span>
+								<strong className="text-foreground tabular-nums">{daysWithContent}</strong>/7 dias preenchidos
+							</span>
+						</div>
 
-								{mealTypes && mealTypes.length > 0 ? (
-									mealTypes.map((mealType) => {
-										const boardItems = getCellBoardItems(day.num, mealType.id)
-										return (
-											<Card key={mealType.id} className="overflow-hidden p-0 gap-0">
-												<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
-													<div className="flex items-center gap-2">
-														<span className="text-subheading">{mealType.name}</span>
-														{boardItems.length > 0 && (
-															<Badge variant="secondary" className="text-xs">
-																{boardItems.length}
-															</Badge>
-														)}
-													</div>
-													<div className="flex items-center gap-2">
-														{clipboard.length > 0 && (
-															<Button
-																type="button"
-																size="sm"
-																variant="ghost"
-																className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
-																onClick={() => handlePaste(day.num, mealType.id)}
-															>
-																<ClipboardPaste className="size-3.5" />
-																Colar ({clipboard.length})
-															</Button>
-														)}
+						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 h-full">
+							{WEEKDAYS.map((day) => (
+								<DayOverviewCard
+									key={day.num}
+									day={day}
+									mealTypes={mealTypes ?? []}
+									items={items}
+									recipeMap={recipeMap}
+									onNavigate={() => setActiveTab(String(day.num))}
+								/>
+							))}
+						</div>
+
+						{totalRecipes === 0 && (
+							<div className="rounded-md border border-dashed p-10 text-center">
+								<p className="text-sm text-muted-foreground mb-1">Plano vazio — nenhuma preparação atribuída ainda.</p>
+								<p className="text-xs text-muted-foreground/60">Clique em um dia acima ou use as abas para começar.</p>
+							</div>
+						)}
+					</TabsContent>
+
+					{WEEKDAYS.map((day) => (
+						<TabsContent key={day.num} value={String(day.num)} className="mt-4 space-y-3">
+							<div className="flex items-center justify-between px-1">
+								<h2 className="text-subheading">{day.label}</h2>
+								<span className="text-xs text-muted-foreground">
+									{items.filter((i) => i.day_of_week === day.num).length} preparaç
+									{items.filter((i) => i.day_of_week === day.num).length !== 1 ? "ões" : "ão"}
+								</span>
+							</div>
+
+							{mealTypes && mealTypes.length > 0 ? (
+								mealTypes.map((mealType) => {
+									const boardItems = getCellBoardItems(day.num, mealType.id)
+									return (
+										<Card key={mealType.id} className="overflow-hidden p-0 gap-0">
+											<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+												<div className="flex items-center gap-2">
+													<span className="text-subheading">{mealType.name}</span>
+													{boardItems.length > 0 && (
+														<Badge variant="secondary" className="text-xs">
+															{boardItems.length}
+														</Badge>
+													)}
+												</div>
+												<div className="flex items-center gap-2">
+													{clipboard.length > 0 && (
 														<Button
 															type="button"
 															size="sm"
 															variant="ghost"
 															className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
-															// Primeira coluna do conjunto DESTA refeição: fixar "prato_principal"
-															// criava item fora do conjunto no café e na ceia, numa coluna que
-															// nem botão de adicionar tem.
-															onClick={() => handleOpenSelector(day.num, mealType.id, groupsFor(mealType.id)[0]?.key ?? null)}
+															onClick={() => handlePaste(day.num, mealType.id)}
 														>
-															<Plus className="size-3.5" />
-															Adicionar
+															<ClipboardPaste className="size-3.5" />
+															Colar ({clipboard.length})
 														</Button>
-													</div>
+													)}
+													<Button
+														type="button"
+														size="sm"
+														variant="ghost"
+														className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+														// Primeira coluna do conjunto DESTA refeição: fixar "prato_principal"
+														// criava item fora do conjunto no café e na ceia, numa coluna que
+														// nem botão de adicionar tem.
+														onClick={() => handleOpenSelector(day.num, mealType.id, groupsFor(mealType.id)[0]?.key ?? null)}
+													>
+														<Plus className="size-3.5" />
+														Adicionar
+													</Button>
 												</div>
-												<div className="p-3">
-													<MealGroupBoard
-														items={boardItems}
-														groups={groupsFor(mealType.id)}
-														onArrange={(arrangement) => handleArrange(day.num, mealType.id, arrangement)}
-														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
-														onRemove={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
-														onAdd={(group) => handleOpenSelector(day.num, mealType.id, group)}
-														// Plano global não carrega efetivo: a demanda aqui só pode ser dita em % da refeição,
-														// e a cozinha que adotar o plano informa o efetivo dela.
-														allowHeadcount={false}
-														onCopy={(recipeId) =>
-															handleCopyKeys(new Set([menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })]))
-														}
-														onPaste={() => handlePaste(day.num, mealType.id)}
-														canPaste={clipboard.length > 0}
-														selectionMode={selectionMode}
-														selectedIds={
-															new Set(
-																boardItems
-																	.map((boardItem) => boardItem.id)
-																	.filter((recipeId) => selectedKeys.has(menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })))
-															)
-														}
-														onSelectChange={(recipeId, checked) =>
-															toggleSelection(menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId }), checked)
-														}
-													/>
-												</div>
-											</Card>
-										)
-									})
-								) : (
-									<div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-										Nenhum tipo de refeição genérico cadastrado. Configure os tipos de refeição no módulo Gestão.
-									</div>
-								)}
-							</TabsContent>
-						))}
-					</Tabs>
-				</div>
-
-				{selectionMode && selectedKeys.size > 0 && (
-					<MenuSelectionBar
-						count={selectedKeys.size}
-						kitchenId={null}
-						onCopy={() => handleCopyKeys(selectedKeys)}
-						allowHeadcount={false}
-						onSetHeadcount={(headcount) => setItems(setItemHeadcount(items, selectedKeys, headcount))}
-						onReplace={(recipeId) => {
-							setItems(replaceMenuRecipe(items, selectedKeys, recipeId))
-							clearSelection()
-						}}
-						onRemove={() => {
-							setItems(removeMenuItems(items, selectedKeys))
-							clearSelection()
-						}}
-						onClear={clearSelection}
-					/>
-				)}
-
-				<UnsavedChangesGuard isDirty={() => savedSignatureRef.current !== null && contentSignatureRef.current !== savedSignatureRef.current} />
-
-				{/* RecipeSelector — kitchenId=null filtra apenas preparações globais */}
-				<RecipeSelector
-					open={selectorOpen}
-					onClose={() => {
-						setSelectorOpen(false)
-						setSelectedCell(null)
-					}}
-					kitchenId={null}
-					selectedRecipeIds={currentCellRecipeIds}
-					onSelect={handleSelectRecipes}
-					multiSelect
-				/>
+											</div>
+											<div className="p-3">
+												<MealGroupBoard
+													items={boardItems}
+													groups={groupsFor(mealType.id)}
+													onArrange={(arrangement) => handleArrange(day.num, mealType.id, arrangement)}
+													onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
+													onRemove={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
+													onAdd={(group) => handleOpenSelector(day.num, mealType.id, group)}
+													// Plano global não carrega efetivo: a demanda aqui só pode ser dita em % da refeição,
+													// e a cozinha que adotar o plano informa o efetivo dela.
+													allowHeadcount={false}
+													onCopy={(recipeId) =>
+														handleCopyKeys(new Set([menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })]))
+													}
+													onPaste={() => handlePaste(day.num, mealType.id)}
+													canPaste={clipboard.length > 0}
+													selectionMode={selectionMode}
+													selectedIds={
+														new Set(
+															boardItems
+																.map((boardItem) => boardItem.id)
+																.filter((recipeId) => selectedKeys.has(menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })))
+														)
+													}
+													onSelectChange={(recipeId, checked) =>
+														toggleSelection(menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId }), checked)
+													}
+												/>
+											</div>
+										</Card>
+									)
+								})
+							) : (
+								<div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+									Nenhum tipo de refeição genérico cadastrado. Configure os tipos de refeição no módulo Gestão.
+								</div>
+							)}
+						</TabsContent>
+					))}
+				</Tabs>
 			</div>
-		</TooltipProvider>
+
+			{selectionMode && selectedKeys.size > 0 && (
+				<MenuSelectionBar
+					count={selectedKeys.size}
+					kitchenId={null}
+					onCopy={() => handleCopyKeys(selectedKeys)}
+					allowHeadcount={false}
+					onSetHeadcount={(headcount) => setItems(setItemHeadcount(items, selectedKeys, headcount))}
+					onReplace={(recipeId) => {
+						setItems(replaceMenuRecipe(items, selectedKeys, recipeId))
+						clearSelection()
+					}}
+					onRemove={() => {
+						setItems(removeMenuItems(items, selectedKeys))
+						clearSelection()
+					}}
+					onClear={clearSelection}
+				/>
+			)}
+
+			<UnsavedChangesGuard isDirty={() => savedSignatureRef.current !== null && contentSignatureRef.current !== savedSignatureRef.current} />
+
+			{/* RecipeSelector — kitchenId=null filtra apenas preparações globais */}
+			<RecipeSelector
+				open={selectorOpen}
+				onClose={() => {
+					setSelectorOpen(false)
+					setSelectedCell(null)
+				}}
+				kitchenId={null}
+				selectedRecipeIds={currentCellRecipeIds}
+				onSelect={handleSelectRecipes}
+				multiSelect
+			/>
+		</div>
 	)
 }

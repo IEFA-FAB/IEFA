@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface PageHeaderProps {
 	title: ReactNode
@@ -41,9 +42,22 @@ export function PageHeader({ title, description, badge, children, onBack, suppre
 		<header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 border-b border-border/60 pb-4">
 			<div className="flex items-start gap-2 min-w-0">
 				{onBack && (
-					<Button variant="ghost" size="icon" onClick={onBack} className="mt-0.5 size-7 shrink-0 text-muted-foreground hover:text-foreground">
-						<ArrowLeft className="size-4" />
-					</Button>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={onBack}
+									aria-label="Voltar"
+									className="mt-0.5 size-7 shrink-0 text-muted-foreground hover:text-foreground"
+								>
+									<ArrowLeft className="size-4" />
+								</Button>
+							}
+						/>
+						<TooltipContent>Voltar</TooltipContent>
+					</Tooltip>
 				)}
 				<div className="min-w-0">
 					<div className="flex items-center gap-2">

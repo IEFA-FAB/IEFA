@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_protected/_modules/local-analytics/$unit
 	beforeLoad: (opts) => requirePermission(opts, "local-analytics", 1),
 	component: WorkforcePage,
 	head: () => ({
-		meta: [{ title: "Efetivo dos Ranchos" }, { name: "description", content: "Matriz de efetivo por quadro e especialidade dos ranchos da unidade" }],
+		meta: [{ name: "description", content: "Matriz de efetivo por quadro e especialidade dos ranchos da unidade" }],
 	}),
 })
 

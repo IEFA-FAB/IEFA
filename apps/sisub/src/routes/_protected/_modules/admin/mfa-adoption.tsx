@@ -32,10 +32,7 @@ export const Route = createFileRoute("/_protected/_modules/admin/mfa-adoption")(
 	},
 	component: MfaAdoptionPage,
 	head: () => ({
-		meta: [
-			{ title: "Adoção da Verificação em Duas Etapas — SISUB" },
-			{ name: "description", content: "Quem tem segundo fator, quem tem dispositivo reserva e quem ainda não tem nenhum" },
-		],
+		meta: [{ name: "description", content: "Quem tem segundo fator, quem tem dispositivo reserva e quem ainda não tem nenhum" }],
 	}),
 })
 

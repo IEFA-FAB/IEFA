@@ -58,7 +58,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/ad
 		return { balance, adjustments, quarantined, losses, scannerProfile, monthStart, today }
 	},
 	component: AdjustmentsPage,
-	head: () => ({ meta: [{ title: "Estoque — Ajustes" }] }),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 })

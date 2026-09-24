@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/toast"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useAddOtherPresence, useOtherPresencesCount, useScanProcessor } from "@/hooks/business/useFiscalOps"
 import { usePresenceManagement } from "@/hooks/data/usePresenceManagement"
@@ -24,7 +25,7 @@ import type { DialogState, FiscalFilters } from "@/types/domain/presence"
 export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId/")({
 	component: PresencePage,
 	head: () => ({
-		meta: [{ title: "Fiscalização - SISUB" }, { name: "description", content: "Scanner QR e lista de presenças" }],
+		meta: [{ name: "description", content: "Scanner QR e lista de presenças" }],
 	}),
 })
 
@@ -335,9 +336,16 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 						{scannerState.isScanning ? "Pausar" : "Ler"}
 					</Button>
 
-					<Button variant="outline" size="sm" onClick={refresh} disabled={!scannerState.hasPermission} className="shrink-0">
-						<RefreshCw className={cn("size-4", scannerState.isScanning && "animate-spin")} />
-					</Button>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button variant="outline" size="sm" onClick={refresh} disabled={!scannerState.hasPermission} aria-label="Reiniciar câmera" className="shrink-0">
+									<RefreshCw className={cn("size-4", scannerState.isScanning && "animate-spin")} />
+								</Button>
+							}
+						/>
+						<TooltipContent>Reiniciar câmera</TooltipContent>
+					</Tooltip>
 
 					{lastScanResult && (
 						<Button variant="secondary" size="sm" onClick={() => setLastScanResult("")} className="shrink-0">
@@ -424,7 +432,7 @@ function PresencePage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Fiscalização" />
+			<PageHeader title="Presenças" />
 
 			<Tabs defaultValue="scanner" className="w-full">
 				<TabsList className="mb-4">

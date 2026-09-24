@@ -17,9 +17,6 @@ import type { UnitSettingsInput } from "@/server/unit-settings.fn"
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/settings")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: UnitSettingsPage,
-	head: () => ({
-		meta: [{ title: "Configurações da Unidade" }],
-	}),
 })
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

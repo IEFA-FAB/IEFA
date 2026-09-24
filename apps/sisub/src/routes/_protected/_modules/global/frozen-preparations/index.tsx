@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_protected/_modules/global/frozen-prepara
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	component: FrozenPreparationsPage,
 	head: () => ({
-		meta: [{ title: "Preparações Congeladas - SISUB" }, { name: "description", content: "Catálogo de semiacabados congelados (produção + regeneração)" }],
+		meta: [{ name: "description", content: "Catálogo de semiacabados congelados (produção + regeneração)" }],
 	}),
 })
 

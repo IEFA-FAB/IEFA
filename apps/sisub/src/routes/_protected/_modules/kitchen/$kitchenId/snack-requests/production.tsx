@@ -17,9 +17,6 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/sn
 	validateSearch: productionSearchSchema,
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: SnackProductionPage,
-	head: () => ({
-		meta: [{ title: "Produção do dia - Lanches de Bordo/Apoio - SISUB" }],
-	}),
 })
 
 function SnackProductionPage() {

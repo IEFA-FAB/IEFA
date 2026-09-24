@@ -127,7 +127,14 @@ export function DraftEditor({
 									</div>
 									{selected && (
 										<div className="flex items-center gap-1.5 shrink-0">
-											<Button size="icon" variant="outline" className="size-7" onClick={() => handleRepetitions(template.id, -1)} disabled={reps <= 1}>
+											<Button
+												size="icon"
+												variant="outline"
+												className="size-7"
+												onClick={() => handleRepetitions(template.id, -1)}
+												disabled={reps <= 1}
+												aria-label="Diminuir repetições"
+											>
 												<Minus className="size-3" />
 											</Button>
 											<Input
@@ -137,7 +144,13 @@ export function DraftEditor({
 												onChange={(e) => handleRepetitionsInput(template.id, e.target.value)}
 												className="h-7 w-14 text-center tabular-nums text-sm"
 											/>
-											<Button size="icon" variant="outline" className="size-7" onClick={() => handleRepetitions(template.id, 1)}>
+											<Button
+												size="icon"
+												variant="outline"
+												className="size-7"
+												onClick={() => handleRepetitions(template.id, 1)}
+												aria-label="Aumentar repetições"
+											>
 												<Plus className="size-3" />
 											</Button>
 											<span className="text-xs text-muted-foreground ml-1">×</span>

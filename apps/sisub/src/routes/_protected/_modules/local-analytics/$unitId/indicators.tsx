@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_protected/_modules/local-analytics/$unit
 	beforeLoad: (opts) => requirePermission(opts, "local-analytics", 1),
 	component: LocalIndicatorsPage,
 	head: () => ({
-		meta: [{ title: "Indicadores da Unidade" }, { name: "description", content: "Indicadores e relatórios Power BI da unidade" }],
+		meta: [{ name: "description", content: "Indicadores e relatórios Power BI da unidade" }],
 	}),
 })
 

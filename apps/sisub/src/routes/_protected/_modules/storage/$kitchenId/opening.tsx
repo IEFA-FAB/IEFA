@@ -50,7 +50,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/op
 	beforeLoad: (opts) => requirePermission(opts, "storage", 2),
 	loader: async ({ params }) => fetchOpeningBalanceFn({ data: { kitchenId: Number(params.kitchenId) } }),
 	component: OpeningBalancePage,
-	head: () => ({ meta: [{ title: "Estoque — Carga inicial" }] }),
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 })

@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import XyflowStyles from "@xyflow/react/dist/style.css?url"
 import { Loader2 } from "lucide-react"
 import { RecipeForm } from "@/components/features/shared/RecipeForm"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { useRecipe } from "@/hooks/data/useRecipe"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/")({
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/re
 function EditRecipePage() {
 	const { recipeId } = Route.useParams()
 	const { data: recipe, isLoading, error } = useRecipe(recipeId)
+	useCrumbLabel(recipe?.name)
 
 	if (isLoading) {
 		return (

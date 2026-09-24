@@ -8,9 +8,6 @@ import { useUserKitchens } from "@/hooks/data/useKitchens"
 export const Route = createFileRoute("/_protected/_modules/storage/")({
 	beforeLoad: (opts) => requirePermission(opts, "storage", 1),
 	component: StorageHubPage,
-	head: () => ({
-		meta: [{ title: "Estoque — Selecionar Cozinha" }],
-	}),
 })
 
 function StorageHubPage() {

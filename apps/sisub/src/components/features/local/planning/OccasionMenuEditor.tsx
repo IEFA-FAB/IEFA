@@ -20,7 +20,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
-import { TooltipProvider } from "@/components/ui/tooltip"
+
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
@@ -544,250 +544,242 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const namePlaceholder = copy.namePlaceholder.split(",")[0]
 
 	return (
-		<TooltipProvider>
-			<div className="space-y-6">
-				<PageHeader title={`Editar ${copy.singular}`} onBack={() => navigate(listLink)}>
-					<div className="flex items-center gap-2">
-						{saveStatus === "saving" && (
-							<span className="flex items-center gap-1 text-xs text-muted-foreground">
-								<Loader2 className="size-3 animate-spin" />
-								Salvando...
-							</span>
-						)}
-						{saveStatus === "saved" && (
-							<span className="flex items-center gap-1 text-xs text-muted-foreground">
-								<Check className="size-3 text-success" />
-								Salvo
-							</span>
-						)}
-						<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
-						{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo.
+		<div className="space-y-6">
+			<PageHeader title={`Editar ${copy.singular}`} onBack={() => navigate(listLink)}>
+				<div className="flex items-center gap-2">
+					{saveStatus === "saving" && (
+						<span className="flex items-center gap-1 text-xs text-muted-foreground">
+							<Loader2 className="size-3 animate-spin" />
+							Salvando...
+						</span>
+					)}
+					{saveStatus === "saved" && (
+						<span className="flex items-center gap-1 text-xs text-muted-foreground">
+							<Check className="size-3 text-success" />
+							Salvo
+						</span>
+					)}
+					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
+					{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo.
 						    Padrão de lanche não entra por aqui: a produção dele nasce do aceite do pedido, e
 						    nele o número do item é porções por KIT, não efetivo do dia. */}
-						{kitchenId !== null && !isSnackStandard && (
-							<Button variant="outline" size="sm" disabled={totalRecipes === 0} onClick={() => setApplyOpen(true)}>
-								<CalendarPlus className="size-4 mr-2" />
-								Aplicar ao Calendário
-							</Button>
-						)}
-						<Button type="button" variant="outline" size="sm" onClick={() => navigate(listLink)}>
-							Cancelar
+					{kitchenId !== null && !isSnackStandard && (
+						<Button variant="outline" size="sm" disabled={totalRecipes === 0} onClick={() => setApplyOpen(true)}>
+							<CalendarPlus className="size-4 mr-2" />
+							Aplicar ao Calendário
 						</Button>
-						<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
-							{isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
-							Salvar
-						</Button>
-					</div>
-				</PageHeader>
+					)}
+					<Button type="button" variant="outline" size="sm" onClick={() => navigate(listLink)}>
+						Cancelar
+					</Button>
+					<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
+						{isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
+						Salvar
+					</Button>
+				</div>
+			</PageHeader>
 
-				{willFork && (
-					<Alert>
-						<GitFork className="size-4" />
-						<AlertTitle>Modelo global</AlertTitle>
+			{willFork && (
+				<Alert>
+					<GitFork className="size-4" />
+					<AlertTitle>Modelo global</AlertTitle>
+					<AlertDescription>
+						{copy.article === "o" ? "Este" : "Esta"} {copy.noun} é do catálogo global da SDAB. Ao salvar, uma cópia local desta cozinha é criada com as suas
+						alterações — o modelo global permanece intacto e as demais unidades continuam vendo o original. O salvamento automático fica desligado até lá.
+					</AlertDescription>
+				</Alert>
+			)}
+
+			<div className="space-y-6">
+				{/* Metadata */}
+				<Card>
+					<CardContent>
+						<FieldGroup className={isException ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+							<Field>
+								<FieldLabel htmlFor="name">
+									Nome <span className="text-destructive">*</span>
+								</FieldLabel>
+								<Input id="name" value={name} onChange={(e) => dispatch({ type: "SET_NAME", value: e.target.value })} placeholder={namePlaceholder} required />
+							</Field>
+							{isException && (
+								<Field>
+									<FieldLabel htmlFor="occurrences">{isSnackStandard ? "Kits por mês" : "Ocorrências/mês"}</FieldLabel>
+									<Input
+										id="occurrences"
+										type="number"
+										min={1}
+										inputMode="numeric"
+										value={occurrences}
+										onChange={(e) => dispatch({ type: "SET_OCCURRENCES", value: e.target.value })}
+										placeholder={isSnackStandard ? "Ex.: 40" : "Ex.: 30"}
+									/>
+									{isSnackStandard && (
+										<FieldDescription>A Ata multiplica igual: porções por kit × kits por mês × vigência. Em branco, conta como 1 kit.</FieldDescription>
+									)}
+								</Field>
+							)}
+							<Field>
+								<FieldLabel htmlFor="description">Descrição (opcional)</FieldLabel>
+								<Input
+									id="description"
+									value={description}
+									onChange={(e) => dispatch({ type: "SET_DESCRIPTION", value: e.target.value })}
+									placeholder="Contexto ou observações"
+								/>
+							</Field>
+						</FieldGroup>
+					</CardContent>
+				</Card>
+
+				{/* Sumário */}
+				{isException && (
+					<SnackStandardPanel
+						draft={snack}
+						onChange={(value) => dispatch({ type: "SET_SNACK", value })}
+						isKitchenTemplate={isKitchenTemplate}
+						// O kcal é do template gravado. Global aberto na cozinha ainda não tem a cópia:
+						// o número é o do molde até salvar.
+						energyTemplateId={templateId}
+						itemsDirty={itemsSignature !== savedItemsSignatureRef.current}
+					/>
+				)}
+
+				{isSnackStandard && snackMealTypeError && (
+					<Alert variant="destructive">
+						<AlertTitle>Tipo de refeição dos lanches indisponível</AlertTitle>
 						<AlertDescription>
-							{copy.article === "o" ? "Este" : "Esta"} {copy.noun} é do catálogo global da SDAB. Ao salvar, uma cópia local desta cozinha é criada com as suas
-							alterações — o modelo global permanece intacto e as demais unidades continuam vendo o original. O salvamento automático fica desligado até lá.
+							Não foi possível carregar o grupo "Lanches de Bordo/Apoio" ({snackMealTypeError.message}). Os itens do padrão aparecem quando ele carregar.
 						</AlertDescription>
 					</Alert>
 				)}
 
-				<div className="space-y-6">
-					{/* Metadata */}
-					<Card>
-						<CardContent>
-							<FieldGroup className={isException ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
-								<Field>
-									<FieldLabel htmlFor="name">
-										Nome <span className="text-destructive">*</span>
-									</FieldLabel>
-									<Input
-										id="name"
-										value={name}
-										onChange={(e) => dispatch({ type: "SET_NAME", value: e.target.value })}
-										placeholder={namePlaceholder}
-										required
-									/>
-								</Field>
-								{isException && (
-									<Field>
-										<FieldLabel htmlFor="occurrences">{isSnackStandard ? "Kits por mês" : "Ocorrências/mês"}</FieldLabel>
-										<Input
-											id="occurrences"
-											type="number"
-											min={1}
-											inputMode="numeric"
-											value={occurrences}
-											onChange={(e) => dispatch({ type: "SET_OCCURRENCES", value: e.target.value })}
-											placeholder={isSnackStandard ? "Ex.: 40" : "Ex.: 30"}
-										/>
-										{isSnackStandard && (
-											<FieldDescription>A Ata multiplica igual: porções por kit × kits por mês × vigência. Em branco, conta como 1 kit.</FieldDescription>
-										)}
-									</Field>
-								)}
-								<Field>
-									<FieldLabel htmlFor="description">Descrição (opcional)</FieldLabel>
-									<Input
-										id="description"
-										value={description}
-										onChange={(e) => dispatch({ type: "SET_DESCRIPTION", value: e.target.value })}
-										placeholder="Contexto ou observações"
-									/>
-								</Field>
-							</FieldGroup>
-						</CardContent>
-					</Card>
-
-					{/* Sumário */}
-					{isException && (
-						<SnackStandardPanel
-							draft={snack}
-							onChange={(value) => dispatch({ type: "SET_SNACK", value })}
-							isKitchenTemplate={isKitchenTemplate}
-							// O kcal é do template gravado. Global aberto na cozinha ainda não tem a cópia:
-							// o número é o do molde até salvar.
-							energyTemplateId={templateId}
-							itemsDirty={itemsSignature !== savedItemsSignatureRef.current}
-						/>
-					)}
-
-					{isSnackStandard && snackMealTypeError && (
-						<Alert variant="destructive">
-							<AlertTitle>Tipo de refeição dos lanches indisponível</AlertTitle>
-							<AlertDescription>
-								Não foi possível carregar o grupo "Lanches de Bordo/Apoio" ({snackMealTypeError.message}). Os itens do padrão aparecem quando ele carregar.
-							</AlertDescription>
-						</Alert>
-					)}
-
-					{(totalRecipes > 0 || (sectionMealTypes && sectionMealTypes.length > 0)) && (
-						<div className="flex items-center gap-4 text-sm text-muted-foreground px-1">
-							<span>
-								<strong className="text-foreground tabular-nums">{totalRecipes}</strong> {totalRecipes === 1 ? "preparação" : "preparações"}{" "}
-								{copy.article === "o" ? "no" : "na"} {copy.noun}
-							</span>
-							{sectionMealTypes && sectionMealTypes.length > 0 && (
-								<>
-									<span className="text-muted-foreground/40">·</span>
-									<span>
-										<strong className="text-foreground tabular-nums">{groupsWithContent}</strong>/{sectionMealTypes.length} grupos preenchidos
-									</span>
-								</>
-							)}
-						</div>
-					)}
-
-					{/* Preenchimento: localizar, quantitativo por refeição e seleção em massa */}
-					<div className="flex flex-wrap items-center gap-2">
-						<MenuFindBar
-							items={items}
-							nameOf={(recipeId) => recipeById.get(recipeId)?.name}
-							mealTypeOrder={(sectionMealTypes ?? []).map((m) => m.id)}
-							dayLabel={null}
-							mealLabel={(mealTypeId) => sectionMealTypes?.find((m) => m.id === mealTypeId)?.name ?? "Refeição"}
-							kitchenId={kitchenId}
-							onGoTo={(match) => setHighlightedKey(match.key)}
-							onReplaceAll={(keys, recipeId) => dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, keys, recipeId) })}
-							onSelectMatches={(keys) => {
-								setSelectionMode(true)
-								setSelectedKeys(keys)
-							}}
-						/>
-						{/* O auxiliador distribui comensais por refeição — num padrão de lanche o número é porções por kit. */}
-						{!isSnackStandard && (
-							<Button type="button" variant="outline" size="sm" onClick={() => setHeadcountOpen(true)}>
-								<Users className="size-4 sm:mr-2" />
-								<span className="hidden sm:inline">Quantitativo</span>
-							</Button>
+				{(totalRecipes > 0 || (sectionMealTypes && sectionMealTypes.length > 0)) && (
+					<div className="flex items-center gap-4 text-sm text-muted-foreground px-1">
+						<span>
+							<strong className="text-foreground tabular-nums">{totalRecipes}</strong> {totalRecipes === 1 ? "preparação" : "preparações"}{" "}
+							{copy.article === "o" ? "no" : "na"} {copy.noun}
+						</span>
+						{sectionMealTypes && sectionMealTypes.length > 0 && (
+							<>
+								<span className="text-muted-foreground/40">·</span>
+								<span>
+									<strong className="text-foreground tabular-nums">{groupsWithContent}</strong>/{sectionMealTypes.length} grupos preenchidos
+								</span>
+							</>
 						)}
-						<Button
-							type="button"
-							variant={selectionMode ? "default" : "outline"}
-							size="sm"
-							onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
-						>
-							<ListChecks className="size-4 sm:mr-2" />
-							<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
-						</Button>
 					</div>
+				)}
 
-					{/* Grupos de preparações */}
-					{sectionMealTypes && sectionMealTypes.length > 0 ? (
-						<div className="space-y-3">
-							{sectionMealTypes.map((mealType) => (
-								<MealTypeSection
-									key={mealType.id}
-									mealType={mealType}
-									recipes={getGroupItems(mealType.id)}
-									onOpenSelector={() => handleOpenSelector(mealType.id)}
-									onRemoveRecipe={(recipeId) => handleRemoveRecipe(mealType.id, recipeId)}
-									onItemHeadcountChange={(recipeId, value) => handleItemHeadcountChange(mealType.id, recipeId, value)}
-									headcountCopy={isSnackStandard ? SNACK_HEADCOUNT_COPY : undefined}
-									selectionMode={selectionMode}
-									selectedIds={new Set(items.filter((i) => i.meal_type_id === mealType.id && selectedKeys.has(menuItemKey(i))).map((i) => i.recipe_id))}
-									onSelectChange={(recipeId, checked) =>
-										toggleSelection(menuItemKey({ day_of_week: OCCASION_DAY, meal_type_id: mealType.id, recipe_id: recipeId }), checked)
-									}
-								/>
-							))}
-						</div>
-					) : (
-						<div className="rounded-md border border-dashed p-10 text-center">
-							<p className="text-sm text-muted-foreground mb-1">Nenhum tipo de refeição configurado.</p>
-							<p className="text-xs text-muted-foreground/60">
-								{kitchenId !== null
-									? "Configure os tipos de refeição nas configurações da cozinha."
-									: "O catálogo global usa os tipos de refeição genéricos (sem cozinha)."}
-							</p>
-						</div>
+				{/* Preenchimento: localizar, quantitativo por refeição e seleção em massa */}
+				<div className="flex flex-wrap items-center gap-2">
+					<MenuFindBar
+						items={items}
+						nameOf={(recipeId) => recipeById.get(recipeId)?.name}
+						mealTypeOrder={(sectionMealTypes ?? []).map((m) => m.id)}
+						dayLabel={null}
+						mealLabel={(mealTypeId) => sectionMealTypes?.find((m) => m.id === mealTypeId)?.name ?? "Refeição"}
+						kitchenId={kitchenId}
+						onGoTo={(match) => setHighlightedKey(match.key)}
+						onReplaceAll={(keys, recipeId) => dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, keys, recipeId) })}
+						onSelectMatches={(keys) => {
+							setSelectionMode(true)
+							setSelectedKeys(keys)
+						}}
+					/>
+					{/* O auxiliador distribui comensais por refeição — num padrão de lanche o número é porções por kit. */}
+					{!isSnackStandard && (
+						<Button type="button" variant="outline" size="sm" onClick={() => setHeadcountOpen(true)}>
+							<Users className="size-4 sm:mr-2" />
+							<span className="hidden sm:inline">Quantitativo</span>
+						</Button>
 					)}
+					<Button
+						type="button"
+						variant={selectionMode ? "default" : "outline"}
+						size="sm"
+						onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+					>
+						<ListChecks className="size-4 sm:mr-2" />
+						<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
+					</Button>
 				</div>
 
-				<MenuHeadcountDialog
-					open={headcountOpen}
-					onOpenChange={setHeadcountOpen}
-					mealTypes={sectionMealTypes ?? []}
-					scope="item-headcount"
-					countTargets={(plan, overwrite) => countItemHeadcountTargets(items, plan, { overwrite })}
-					onApply={handleApplyHeadcountPlan}
-				/>
-
-				{selectionMode && selectedKeys.size > 0 && (
-					<MenuSelectionBar
-						count={selectedKeys.size}
-						kitchenId={kitchenId}
-						onSetHeadcount={handleBulkHeadcount}
-						onReplace={handleBulkReplace}
-						onRemove={handleBulkRemove}
-						onClear={clearSelection}
-					/>
-				)}
-
-				<UnsavedChangesGuard isDirty={() => savedSignatureRef.current !== null && contentSignatureRef.current !== savedSignatureRef.current} />
-
-				<RecipeSelector
-					open={selectorOpen}
-					onClose={() => {
-						dispatch({ type: "SET_SELECTOR_OPEN", value: false })
-						dispatch({ type: "SET_SELECTED_MEAL_TYPE_ID", value: null })
-					}}
-					kitchenId={kitchenId}
-					selectedRecipeIds={currentSelectorRecipeIds}
-					onSelect={handleSelectRecipes}
-					multiSelect
-				/>
-
-				{kitchenId !== null && (
-					<ApplyEventDialog
-						open={applyOpen}
-						onClose={() => setApplyOpen(false)}
-						templateId={templateId}
-						templateName={name || copy.singular}
-						templateType={templateType}
-						kitchenId={kitchenId}
-					/>
+				{/* Grupos de preparações */}
+				{sectionMealTypes && sectionMealTypes.length > 0 ? (
+					<div className="space-y-3">
+						{sectionMealTypes.map((mealType) => (
+							<MealTypeSection
+								key={mealType.id}
+								mealType={mealType}
+								recipes={getGroupItems(mealType.id)}
+								onOpenSelector={() => handleOpenSelector(mealType.id)}
+								onRemoveRecipe={(recipeId) => handleRemoveRecipe(mealType.id, recipeId)}
+								onItemHeadcountChange={(recipeId, value) => handleItemHeadcountChange(mealType.id, recipeId, value)}
+								headcountCopy={isSnackStandard ? SNACK_HEADCOUNT_COPY : undefined}
+								selectionMode={selectionMode}
+								selectedIds={new Set(items.filter((i) => i.meal_type_id === mealType.id && selectedKeys.has(menuItemKey(i))).map((i) => i.recipe_id))}
+								onSelectChange={(recipeId, checked) =>
+									toggleSelection(menuItemKey({ day_of_week: OCCASION_DAY, meal_type_id: mealType.id, recipe_id: recipeId }), checked)
+								}
+							/>
+						))}
+					</div>
+				) : (
+					<div className="rounded-md border border-dashed p-10 text-center">
+						<p className="text-sm text-muted-foreground mb-1">Nenhum tipo de refeição configurado.</p>
+						<p className="text-xs text-muted-foreground/60">
+							{kitchenId !== null
+								? "Configure os tipos de refeição nas configurações da cozinha."
+								: "O catálogo global usa os tipos de refeição genéricos (sem cozinha)."}
+						</p>
+					</div>
 				)}
 			</div>
-		</TooltipProvider>
+
+			<MenuHeadcountDialog
+				open={headcountOpen}
+				onOpenChange={setHeadcountOpen}
+				mealTypes={sectionMealTypes ?? []}
+				scope="item-headcount"
+				countTargets={(plan, overwrite) => countItemHeadcountTargets(items, plan, { overwrite })}
+				onApply={handleApplyHeadcountPlan}
+			/>
+
+			{selectionMode && selectedKeys.size > 0 && (
+				<MenuSelectionBar
+					count={selectedKeys.size}
+					kitchenId={kitchenId}
+					onSetHeadcount={handleBulkHeadcount}
+					onReplace={handleBulkReplace}
+					onRemove={handleBulkRemove}
+					onClear={clearSelection}
+				/>
+			)}
+
+			<UnsavedChangesGuard isDirty={() => savedSignatureRef.current !== null && contentSignatureRef.current !== savedSignatureRef.current} />
+
+			<RecipeSelector
+				open={selectorOpen}
+				onClose={() => {
+					dispatch({ type: "SET_SELECTOR_OPEN", value: false })
+					dispatch({ type: "SET_SELECTED_MEAL_TYPE_ID", value: null })
+				}}
+				kitchenId={kitchenId}
+				selectedRecipeIds={currentSelectorRecipeIds}
+				onSelect={handleSelectRecipes}
+				multiSelect
+			/>
+
+			{kitchenId !== null && (
+				<ApplyEventDialog
+					open={applyOpen}
+					onClose={() => setApplyOpen(false)}
+					templateId={templateId}
+					templateName={name || copy.singular}
+					templateType={templateType}
+					kitchenId={kitchenId}
+				/>
+			)}
+		</div>
 	)
 }

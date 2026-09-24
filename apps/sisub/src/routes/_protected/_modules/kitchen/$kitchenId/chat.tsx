@@ -18,9 +18,6 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/ch
 	validateSearch: chatSearchSchema,
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1, { type: "kitchen", id: Number(opts.params.kitchenId) }),
 	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
-	head: () => ({
-		meta: [{ title: "Assistente IA · Cozinha" }],
-	}),
 	component: KitchenChatPage,
 })
 

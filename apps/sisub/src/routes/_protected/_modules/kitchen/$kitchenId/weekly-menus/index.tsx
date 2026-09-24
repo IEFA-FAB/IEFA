@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/we
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: WeeklyMenusPage,
 	head: () => ({
-		meta: [{ title: "Cardápios Semanais - SISUB" }, { name: "description", content: "Gerencie os cardápios semanais da sua cozinha" }],
+		meta: [{ name: "description", content: "Gerencie os cardápios semanais da sua cozinha" }],
 	}),
 })
 
@@ -197,6 +197,7 @@ function WeeklyMenusPage() {
 																<TooltipTrigger
 																	render={
 																		<Button
+																			aria-label="Editar"
 																			size="icon"
 																			variant="ghost"
 																			nativeButton={false}
@@ -219,7 +220,13 @@ function WeeklyMenusPage() {
 															<Tooltip>
 																<TooltipTrigger
 																	render={
-																		<Button size="icon" variant="ghost" onClick={() => handleDelete(template.id, template.name ?? "")} disabled={isDeleting}>
+																		<Button
+																			aria-label="Remover"
+																			size="icon"
+																			variant="ghost"
+																			onClick={() => handleDelete(template.id, template.name ?? "")}
+																			disabled={isDeleting}
+																		>
 																			<Trash2 className="size-4 text-destructive" />
 																		</Button>
 																	}

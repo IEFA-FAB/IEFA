@@ -131,6 +131,7 @@ export function MealTypeSection({
 								<TooltipTrigger
 									render={
 										<Button
+											aria-label="Remover"
 											type="button"
 											size="icon"
 											variant="ghost"

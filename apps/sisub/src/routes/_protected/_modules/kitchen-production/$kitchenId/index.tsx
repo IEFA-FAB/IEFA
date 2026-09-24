@@ -8,14 +8,12 @@ import { ProductionSummary } from "@/components/features/kitchen-production/Prod
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useProductionBoard, useUpdateTaskStatus } from "@/hooks/data/useProduction"
 import type { ScopeContext } from "@/types/domain/scope"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen-production/$kitchenId/")({
 	component: KitchenProductionPage,
-	head: () => ({
-		meta: [{ title: "Painel — Produção Cozinha" }],
-	}),
 })
 
 function KitchenProductionPage() {
@@ -58,19 +56,25 @@ function KitchenProductionPage() {
 						<ChevronLeft className="size-4" />
 					</Button>
 
-					<button
-						type="button"
-						className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-subheading hover:bg-muted transition-colors"
-						onClick={goToToday}
-						title="Ir para hoje"
-					>
-						<span className="capitalize">{format(selectedDateObj, "EEEE, d 'de' MMMM", { locale: ptBR })}</span>
-						{isTodaySelected && (
-							<Badge variant="secondary" className="text-xs">
-								hoje
-							</Badge>
-						)}
-					</button>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<button
+									type="button"
+									className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-subheading hover:bg-muted transition-colors"
+									onClick={goToToday}
+								>
+									<span className="capitalize">{format(selectedDateObj, "EEEE, d 'de' MMMM", { locale: ptBR })}</span>
+									{isTodaySelected && (
+										<Badge variant="secondary" className="text-xs">
+											hoje
+										</Badge>
+									)}
+								</button>
+							}
+						/>
+						<TooltipContent>Voltar para hoje</TooltipContent>
+					</Tooltip>
 
 					<Button variant="ghost" size="icon-sm" onClick={goToNextDay} aria-label="Próximo dia">
 						<ChevronRight className="size-4" />

@@ -26,9 +26,6 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/we
 	}),
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: NewWeeklyMenuPage,
-	head: () => ({
-		meta: [{ title: "Novo Cardápio Semanal - SISUB" }],
-	}),
 })
 
 function NewWeeklyMenuPage() {

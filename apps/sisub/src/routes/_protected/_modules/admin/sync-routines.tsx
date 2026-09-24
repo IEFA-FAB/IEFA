@@ -24,9 +24,6 @@ export const Route = createFileRoute("/_protected/_modules/admin/sync-routines")
 		return { compras, nutrition }
 	},
 	component: SyncRoutinesPage,
-	head: () => ({
-		meta: [{ title: "Rotinas de Sincronização — SISUB" }],
-	}),
 })
 
 const NUTRITION_SOURCE_LABELS: Record<string, string> = {

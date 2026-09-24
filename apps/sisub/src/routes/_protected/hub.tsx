@@ -11,7 +11,6 @@ import { Container } from "@/components/ui/container"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/toast"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 import { useTheme } from "@/hooks/ui/useTheme"
@@ -23,6 +22,9 @@ export const Route = createFileRoute("/_protected/hub")({
 		// Módulo cujo acesso foi negado — preenchido por requirePermission ao redirecionar.
 		denied: z.string().optional(),
 	}),
+	// O hub fica fora do AppShell (que titula as páginas dos módulos); sem título próprio a
+	// aba herdaria o da última página visitada.
+	head: () => ({ meta: [{ title: "Início — SISUB" }] }),
 	component: HubPage,
 })
 
@@ -95,52 +97,47 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 	const Icon = module.icon
 
 	return (
-		<Tooltip>
-			<Card className={cn("relative overflow-visible cursor-pointer transition-colors hover:ring-2", CARD_HOVER_CLASSES[color])}>
-				<TooltipTrigger
-					render={
-						<Link
-							to={firstUrl as Parameters<typeof Link>[0]["to"]}
-							// Sem preload: cada card dispararia a cadeia de beforeLoad async dos módulos
-							// (incl. syncUserEmailFn — escrita no DB) a cada hover, além de esbarrar numa
-							// corrida do router-core (getMatch undefined → "_nonReactive") em preloads concorrentes.
-							preload={false}
-							className="absolute inset-0 z-10 rounded-xl focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2"
-							aria-label={`Entrar no módulo ${module.name}`}
-						/>
-					}
-				/>
+		<Card className={cn("relative overflow-visible cursor-pointer transition-colors hover:ring-2", CARD_HOVER_CLASSES[color])}>
+			{/* O card inteiro é o link; a seta ↗ já diz "entrar", então sem tooltip repetindo o aria-label */}
+			<Link
+				to={firstUrl as Parameters<typeof Link>[0]["to"]}
+				// Sem preload: cada card dispararia a cadeia de beforeLoad async dos módulos
+				// (incl. syncUserEmailFn — escrita no DB) a cada hover, além de esbarrar numa
+				// corrida do router-core (getMatch undefined → "_nonReactive") em preloads concorrentes.
+				preload={false}
+				className="absolute inset-0 z-10 rounded-xl focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2"
+				aria-label={`Entrar no módulo ${module.name}`}
+			/>
 
-				<CardContent className="flex flex-col gap-4">
-					{/* Header: icon + name + arrow */}
-					<div className="flex items-start gap-3">
-						<div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0 mt-0.5", ICON_CLASSES[color])}>
-							<Icon className="size-4" />
-						</div>
-						<span className="flex-1 text-heading text-foreground text-sm leading-snug pt-1">{module.name}</span>
-						<ArrowUpRight
-							className={cn(
-								"size-4 shrink-0 mt-0.5 transition-transform group-hover/card:translate-x-0.5 group-hover/card:-translate-y-0.5",
-								ACCENT_CLASSES[color]
-							)}
-						/>
+			<CardContent className="flex flex-col gap-4">
+				{/* Header: icon + name + arrow */}
+				<div className="flex items-start gap-3">
+					<div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0 mt-0.5", ICON_CLASSES[color])}>
+						<Icon className="size-4" />
 					</div>
+					<span className="flex-1 text-heading text-foreground text-sm leading-snug pt-1">{module.name}</span>
+					<ArrowUpRight
+						className={cn(
+							"size-4 shrink-0 mt-0.5 transition-transform group-hover/card:translate-x-0.5 group-hover/card:-translate-y-0.5",
+							ACCENT_CLASSES[color]
+						)}
+					/>
+				</div>
 
-					{/* Pages: two-column grid */}
-					{module.items.length > 0 && (
-						<div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-							{module.items.map((item) => (
-								<div key={item.url} className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
-									<item.icon className="size-3 shrink-0" />
-									<span className="truncate">{item.title}</span>
-								</div>
-							))}
-						</div>
-					)}
-				</CardContent>
-			</Card>
-			<TooltipContent side="bottom">Entrar no módulo {module.name}</TooltipContent>
-		</Tooltip>
+				{/* Pages: two-column grid */}
+				{module.items.length > 0 && (
+					<div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+						{module.items.map((item) => (
+							<div key={item.url} className="flex items-start gap-1.5 text-xs leading-snug text-muted-foreground min-w-0">
+								<item.icon className="size-3 shrink-0 mt-px" />
+								{/* Quebra em vez de truncar: o card não tem como revelar o nome cortado */}
+								<span className="min-w-0">{item.title}</span>
+							</div>
+						))}
+					</div>
+				)}
+			</CardContent>
+		</Card>
 	)
 }
 

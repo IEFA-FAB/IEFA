@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/ex
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: ExceptionsPage,
 	head: () => ({
-		meta: [{ title: "Exceções - SISUB" }, { name: "description", content: "Gerencie cardápios de exceções previsíveis (lanches de bordo, cafés de reunião)" }],
+		meta: [{ name: "description", content: "Gerencie cardápios de exceções previsíveis (lanches de bordo, cafés de reunião)" }],
 	}),
 })
 

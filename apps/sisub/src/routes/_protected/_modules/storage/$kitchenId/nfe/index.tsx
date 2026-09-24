@@ -20,9 +20,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/nf
 		return { documents, scannerProfile }
 	},
 	component: NfeListPage,
-	head: () => ({
-		meta: [{ title: "Notas Fiscais — SISUB" }],
-	}),
 })
 
 const CNPJ_FMT = (cnpj: string | null) => (cnpj ? cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : "—")

@@ -247,19 +247,25 @@ export function IngredientsTreeNode({
 							<>
 								{/* Conferência da pasta: declara que a pasta foi olhada COMO pasta. */}
 								{node.type === "folder" && (
-									<Button
-										variant="ghost"
-										size="icon"
-										onClick={(e) => {
-											e.stopPropagation()
-											setIsReviewDialogOpen(true)
-										}}
-										disabled={isBusy}
-										aria-label={`Marcar a pasta ${node.label} como conferida`}
-										title="Marcar esta pasta como conferida (nome, organização e o que ela contém)"
-									>
-										{isReviewing ? <Loader2 className="animate-spin" /> : <ClipboardCheck />}
-									</Button>
+									<Tooltip>
+										<TooltipTrigger
+											render={
+												<Button
+													variant="ghost"
+													size="icon"
+													onClick={(e) => {
+														e.stopPropagation()
+														setIsReviewDialogOpen(true)
+													}}
+													disabled={isBusy}
+													aria-label={`Marcar a pasta ${node.label} como conferida`}
+												>
+													{isReviewing ? <Loader2 className="animate-spin" /> : <ClipboardCheck />}
+												</Button>
+											}
+										/>
+										<TooltipContent>Marcar pasta como conferida</TooltipContent>
+									</Tooltip>
 								)}
 
 								<Button
@@ -428,10 +434,10 @@ export function IngredientsTreeNode({
 						/>
 						<TooltipContent>
 							{folderConference.addedSince > 0
-								? `Pasta conferida em ${formatReviewDate(folderConference.reviewedAt)}${byWhom}, mas ${
+								? `Conferida em ${formatReviewDate(folderConference.reviewedAt)}${byWhom}; ${
 										folderConference.addedSince === 1 ? "1 item entrou" : `${folderConference.addedSince} itens entraram`
-									} depois disso — quem conferiu não ${folderConference.addedSince === 1 ? "o" : "os"} viu.`
-								: `Pasta conferida em ${formatReviewDate(folderConference.reviewedAt)}${byWhom}. Nada entrou desde então.`}
+									} depois.`
+								: `Conferida em ${formatReviewDate(folderConference.reviewedAt)}${byWhom}. Nada entrou desde então.`}
 						</TooltipContent>
 					</Tooltip>
 				)}

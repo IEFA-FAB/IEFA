@@ -2,6 +2,7 @@ import { CheckCircle2, Clock, PlayCircle, RotateCcw, Timer, Utensils } from "luc
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/production"
 import { SnackRequestTag } from "./SnackRequestTag"
 
@@ -83,9 +84,16 @@ export function ProductionTaskCard({ item, onSelect, onUpdateStatus, isUpdating 
 							<CheckCircle2 className="size-3.5" />
 							Concluir
 						</Button>
-						<Button size="sm" variant="ghost" disabled={isUpdating} onClick={(e) => handleActionClick(e, "PENDING")}>
-							<RotateCcw className="size-3.5" />
-						</Button>
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button size="sm" variant="ghost" disabled={isUpdating} onClick={(e) => handleActionClick(e, "PENDING")} aria-label="Voltar para pendente">
+										<RotateCcw className="size-3.5" />
+									</Button>
+								}
+							/>
+							<TooltipContent>Voltar para pendente</TooltipContent>
+						</Tooltip>
 					</div>
 				)}
 				{task.status === "DONE" && (

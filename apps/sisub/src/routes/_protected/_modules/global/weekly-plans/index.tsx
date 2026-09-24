@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/"
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	component: WeeklyPlansPage,
 	head: () => ({
-		meta: [{ title: "Planos Semanais Modelo - SISUB" }, { name: "description", content: "Templates de cardápio semanal para todas as unidades" }],
+		meta: [{ name: "description", content: "Templates de cardápio semanal para todas as unidades" }],
 	}),
 })
 

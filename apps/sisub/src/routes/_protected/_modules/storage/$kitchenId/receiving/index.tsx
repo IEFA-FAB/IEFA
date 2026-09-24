@@ -19,9 +19,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/re
 		return { receipts, nfeDocs }
 	},
 	component: ReceivingListPage,
-	head: () => ({
-		meta: [{ title: "Estoque — Recebimentos" }],
-	}),
 })
 
 const STATUS_LABEL: Record<string, { label: string; variant: "secondary" | "outline" | "destructive" }> = {

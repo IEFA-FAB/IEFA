@@ -7,10 +7,7 @@ export const Route = createFileRoute("/_protected/_modules/analytics/equipment")
 	beforeLoad: (opts) => requirePermission(opts, "analytics", 2),
 	component: FleetEquipmentPage,
 	head: () => ({
-		meta: [
-			{ title: "Equipamentos da Frota — SISUB" },
-			{ name: "description", content: "Cobertura de equipamento por função, panes abertas e distribuição do parque na FAB." },
-		],
+		meta: [{ name: "description", content: "Cobertura de equipamento por função, panes abertas e distribuição do parque na FAB." }],
 	}),
 })
 

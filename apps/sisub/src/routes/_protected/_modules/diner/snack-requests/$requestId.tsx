@@ -8,6 +8,7 @@ import { CancelSnackRequestDialog } from "@/components/features/diner/snack-requ
 import { SnackRequestDetailView } from "@/components/features/diner/snack-requests/SnackRequestDetailView"
 import { SnackRequestPrintButton } from "@/components/features/diner/snack-requests/SnackRequestPrint"
 import { SnackStatusBadge } from "@/components/features/diner/snack-requests/SnackStatusBadge"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -19,13 +20,14 @@ export const Route = createFileRoute("/_protected/_modules/diner/snack-requests/
 	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: MySnackRequestPage,
 	head: () => ({
-		meta: [{ title: "Pedido de Lanche - SISUB" }, { name: "description", content: "Detalhe do pedido de lanche" }],
+		meta: [{ name: "description", content: "Detalhe do pedido de lanche" }],
 	}),
 })
 
 function MySnackRequestPage() {
 	const { requestId } = Route.useParams()
 	const { data: request, isLoading, error } = useQuery(mySnackRequestQueryOptions(requestId))
+	useCrumbLabel(request?.mission_description)
 
 	const backButton = (
 		<Button

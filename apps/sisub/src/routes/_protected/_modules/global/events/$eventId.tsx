@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
 import { OccasionMenuEditor } from "@/components/features/local/planning/OccasionMenuEditor"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
+import { useTemplate } from "@/hooks/data/useTemplates"
 
 /**
  * GLOBAL — Editor de Evento Modelo (SDAB)
@@ -10,15 +12,14 @@ import { OccasionMenuEditor } from "@/components/features/local/planning/Occasio
 export const Route = createFileRoute("/_protected/_modules/global/events/$eventId")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: GlobalEventEditorPage,
-	head: () => ({
-		meta: [{ title: "Editar Evento Modelo - SISUB" }],
-	}),
 })
 
 const GLOBAL_CONTEXT = { scope: "global" } as const
 
 function GlobalEventEditorPage() {
 	const { eventId } = Route.useParams()
+	const { data: template } = useTemplate(eventId)
+	useCrumbLabel(template?.name)
 	return (
 		<OccasionMenuEditor
 			templateId={eventId}

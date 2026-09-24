@@ -10,7 +10,6 @@ export const Route = createFileRoute("/_protected/_modules/global/places-manager
 	component: PlacesManagerPage,
 	head: () => ({
 		meta: [
-			{ title: "Locais — SISUB" },
 			{
 				name: "description",
 				content: "Visualize e edite as relações entre unidades, cozinhas e refeitórios.",

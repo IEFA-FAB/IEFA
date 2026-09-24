@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import XyflowStyles from "@xyflow/react/dist/style.css?url"
 import { requirePermission } from "@/auth/pbac"
 import { RecipeForm } from "@/components/features/shared/RecipeForm"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useRecipe } from "@/hooks/data/useRecipe"
 
@@ -15,7 +16,6 @@ export const Route = createFileRoute("/_protected/_modules/global/recipes/$recip
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: GlobalRecipeEditPage,
 	head: () => ({
-		meta: [{ title: "Editar Preparação Global - SISUB" }],
 		links: [{ rel: "stylesheet", href: XyflowStyles }],
 	}),
 })
@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_protected/_modules/global/recipes/$recip
 function GlobalRecipeEditPage() {
 	const { recipeId } = Route.useParams()
 	const { data: recipe, isLoading, error } = useRecipe(recipeId)
+	useCrumbLabel(recipe?.name)
 
 	if (isLoading) {
 		return (

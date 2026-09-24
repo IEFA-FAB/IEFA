@@ -18,9 +18,6 @@ export const Route = createFileRoute("/_protected/_modules/global/chat")({
 	validateSearch: chatSearchSchema,
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
-	head: () => ({
-		meta: [{ title: "Assistente IA · Global" }],
-	}),
 	component: GlobalChatPage,
 })
 

@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useMemo } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { OccasionMenuEditor } from "@/components/features/local/planning/OccasionMenuEditor"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
+import { useTemplate } from "@/hooks/data/useTemplates"
 
 /**
  * KITCHEN — Editor de Exceção
@@ -15,13 +17,12 @@ import { OccasionMenuEditor } from "@/components/features/local/planning/Occasio
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/exceptions/$exceptionId")({
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: ExceptionEditorPage,
-	head: () => ({
-		meta: [{ title: "Editar Exceção - SISUB" }],
-	}),
 })
 
 function ExceptionEditorPage() {
 	const { kitchenId, exceptionId } = Route.useParams()
+	const { data: template } = useTemplate(exceptionId)
+	useCrumbLabel(template?.name)
 	// Contexto da edição = a rota. Referência estável: entra nas dependências do auto-save.
 	const editContext = useMemo<EditScope>(() => ({ scope: "kitchen", kitchenId: Number(kitchenId) }), [kitchenId])
 	return (

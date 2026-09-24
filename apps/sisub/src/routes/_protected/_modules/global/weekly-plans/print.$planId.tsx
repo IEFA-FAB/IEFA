@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { WeeklyMenuPrint } from "@/components/features/local/planning/WeeklyMenuPrint"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
+import { useTemplate } from "@/hooks/data/useTemplates"
 
 const printSearchSchema = z.object({
 	// Data-início (YYYY-MM-DD) para datar as colunas da semana. Opcional.
@@ -20,14 +22,13 @@ export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/p
 	validateSearch: printSearchSchema,
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	component: GlobalPlanPrintPage,
-	head: () => ({
-		meta: [{ title: "Imprimir Plano Semanal - SISUB" }],
-	}),
 })
 
 function GlobalPlanPrintPage() {
 	const { planId } = Route.useParams()
 	const { week } = Route.useSearch()
+	const { data: template } = useTemplate(planId)
+	useCrumbLabel(template?.name)
 
 	return <WeeklyMenuPrint templateId={planId} scope={{ kind: "global" }} initialWeek={week} />
 }

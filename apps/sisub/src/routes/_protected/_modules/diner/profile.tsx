@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/profile")({
 	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: ProfilePage,
 	head: () => ({
-		meta: [{ title: "Perfil - SISUB" }, { name: "description", content: "Gerencie seu perfil e dados militares" }],
+		meta: [{ name: "description", content: "Gerencie seu perfil e dados militares" }],
 	}),
 })
 

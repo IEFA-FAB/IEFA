@@ -9,9 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/equipment")({
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: KitchenEquipmentPage,
-	head: () => ({
-		meta: [{ title: "Equipamentos da Cozinha" }],
-	}),
 })
 
 function KitchenEquipmentPage() {

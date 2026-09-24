@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_protected/_modules/global/events/")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	component: GlobalEventsPage,
 	head: () => ({
-		meta: [{ title: "Eventos Modelo - SISUB" }, { name: "description", content: "Cardápios de eventos especiais disponíveis para todas as cozinhas" }],
+		meta: [{ name: "description", content: "Cardápios de eventos especiais disponíveis para todas as cozinhas" }],
 	}),
 })
 

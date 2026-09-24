@@ -34,7 +34,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/in
 		return { incoming: await fetchIncomingFn({ data: { kitchenId } }), kitchenId }
 	},
 	component: IncomingPage,
-	head: () => ({ meta: [{ title: "Estoque — A caminho" }] }),
 })
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })

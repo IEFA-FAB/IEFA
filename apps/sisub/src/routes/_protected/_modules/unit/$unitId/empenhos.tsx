@@ -18,9 +18,6 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/empenhos
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	loader: ({ params }) => listEmpenhosFn({ data: { unitId: Number(params.unitId) } }),
 	component: EmpenhosPage,
-	head: () => ({
-		meta: [{ title: "Empenhos — SISUB" }],
-	}),
 })
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })

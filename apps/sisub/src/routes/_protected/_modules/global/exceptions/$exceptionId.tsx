@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
 import { OccasionMenuEditor } from "@/components/features/local/planning/OccasionMenuEditor"
+import { useCrumbLabel } from "@/components/layout/crumb-label"
+import { useTemplate } from "@/hooks/data/useTemplates"
 
 /**
  * GLOBAL — Editor de Exceção Modelo (SDAB)
@@ -10,15 +12,14 @@ import { OccasionMenuEditor } from "@/components/features/local/planning/Occasio
 export const Route = createFileRoute("/_protected/_modules/global/exceptions/$exceptionId")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: GlobalExceptionEditorPage,
-	head: () => ({
-		meta: [{ title: "Editar Exceção Modelo - SISUB" }],
-	}),
 })
 
 const GLOBAL_CONTEXT = { scope: "global" } as const
 
 function GlobalExceptionEditorPage() {
 	const { exceptionId } = Route.useParams()
+	const { data: template } = useTemplate(exceptionId)
+	useCrumbLabel(template?.name)
 	return (
 		<OccasionMenuEditor
 			templateId={exceptionId}

@@ -16,9 +16,6 @@ import { useUnitDashboard } from "@/hooks/data/useUnitDashboard"
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/dashboard")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: UnitDashboardPage,
-	head: () => ({
-		meta: [{ title: "Painel — Gestão Unidade" }],
-	}),
 })
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

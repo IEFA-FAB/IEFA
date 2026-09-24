@@ -10,9 +10,6 @@ import { OccasionMenuForm } from "@/components/features/local/planning/OccasionM
 export const Route = createFileRoute("/_protected/_modules/global/events/new")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: NewGlobalEventPage,
-	head: () => ({
-		meta: [{ title: "Novo Evento Modelo - SISUB" }],
-	}),
 })
 
 function NewGlobalEventPage() {

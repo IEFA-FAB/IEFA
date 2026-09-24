@@ -51,7 +51,6 @@ export const Route = createFileRoute("/_protected/_modules/global/ingredients/")
 	component: IngredientsPage,
 	head: () => ({
 		meta: [
-			{ title: "Gestão de Insumos - SISUB" },
 			{
 				name: "description",
 				content: "Gerenciar hierarquia de produtos: insumos, preparações do SISUBWEB e itens auxiliares",

@@ -156,7 +156,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 														<Tooltip>
 															<TooltipTrigger
 																render={
-																	<Button size="icon" variant="ghost" onClick={() => handleEdit(mealType)}>
+																	<Button aria-label="Editar nome, ordem e conjunto de grupos" size="icon" variant="ghost" onClick={() => handleEdit(mealType)}>
 																		<Edit className="size-4" />
 																	</Button>
 																}
@@ -220,7 +220,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 														<Tooltip>
 															<TooltipTrigger
 																render={
-																	<Button size="icon" variant="ghost" onClick={() => handleEdit(mealType)}>
+																	<Button aria-label="Editar" size="icon" variant="ghost" onClick={() => handleEdit(mealType)}>
 																		<Edit className="size-4" />
 																	</Button>
 																}
@@ -230,7 +230,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 														<Tooltip>
 															<TooltipTrigger
 																render={
-																	<Button size="icon" variant="ghost" onClick={() => handleDelete(mealType)} disabled={isDeleting}>
+																	<Button aria-label="Remover" size="icon" variant="ghost" onClick={() => handleDelete(mealType)} disabled={isDeleting}>
 																		<Trash2 className="size-4 text-destructive" />
 																	</Button>
 																}

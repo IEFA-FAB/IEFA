@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/ev
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: EventsPage,
 	head: () => ({
-		meta: [{ title: "Eventos - SISUB" }, { name: "description", content: "Gerencie cardápios de eventos especiais da sua cozinha" }],
+		meta: [{ name: "description", content: "Gerencie cardápios de eventos especiais da sua cozinha" }],
 	}),
 })
 

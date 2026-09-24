@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_protected/_modules/global/equipment")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: EquipmentCatalogPage,
 	head: () => ({
-		meta: [{ title: "Equipamentos — SISUB" }, { name: "description", content: "Catálogo global de tipos e modelos de equipamento de cozinha." }],
+		meta: [{ name: "description", content: "Catálogo global de tipos e modelos de equipamento de cozinha." }],
 	}),
 })
 
