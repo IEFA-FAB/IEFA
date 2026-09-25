@@ -115,6 +115,7 @@ function SortableItem({
 	selected,
 	onSelectChange,
 	allowHeadcount,
+	allowProportion,
 	demandType,
 	onSwitchDemandType,
 	onCopy,
@@ -131,6 +132,7 @@ function SortableItem({
 	selected?: boolean
 	onSelectChange?: (checked: boolean) => void
 	allowHeadcount: boolean
+	allowProportion: boolean
 	demandType: DemandType
 	onSwitchDemandType: () => void
 	onCopy?: (id: string) => void
@@ -184,7 +186,7 @@ function SortableItem({
 								size="icon-xs"
 								variant="ghost"
 								className="text-muted-foreground"
-								disabled={!allowHeadcount}
+								disabled={!allowHeadcount || !allowProportion}
 								onClick={onSwitchDemandType}
 								aria-label={demandType === "headcount" ? "Medir por porcentagem do efetivo" : "Medir por número de pessoas"}
 							/>
@@ -193,11 +195,13 @@ function SortableItem({
 						{demandType === "headcount" ? <Users className="size-3" /> : <Percent className="size-3" />}
 					</TooltipTrigger>
 					<TooltipContent>
-						{demandType === "headcount"
-							? "Comensais desta preparação. Clique para medir por % do efetivo da refeição."
-							: allowHeadcount
-								? "% do efetivo da refeição. Clique para informar o número de pessoas."
-								: "% do efetivo da refeição (definido pela cozinha que adotar este plano)."}
+						{!allowProportion
+							? "Comensais desta preparação — aqui não há efetivo de refeição para a porcentagem medir."
+							: demandType === "headcount"
+								? "Comensais desta preparação. Clique para medir por % do efetivo da refeição."
+								: allowHeadcount
+									? "% do efetivo da refeição. Clique para informar o número de pessoas."
+									: "% do efetivo da refeição (definido pela cozinha que adotar este plano)."}
 					</TooltipContent>
 				</Tooltip>
 				{demandType === "headcount" ? (
@@ -301,6 +305,7 @@ function GroupColumn({
 	selectedIds,
 	onSelectChange,
 	allowHeadcount,
+	allowProportion,
 	demandTypeOfItem,
 	onSwitchDemandType,
 	onCopy,
@@ -321,6 +326,7 @@ function GroupColumn({
 	selectedIds?: ReadonlySet<string>
 	onSelectChange?: (id: string, checked: boolean) => void
 	allowHeadcount: boolean
+	allowProportion: boolean
 	demandTypeOfItem: (item: BoardItem) => DemandType
 	onSwitchDemandType: (id: string) => void
 	onCopy?: (id: string) => void
@@ -371,6 +377,7 @@ function GroupColumn({
 									selected={selectedIds?.has(id)}
 									onSelectChange={(checked) => onSelectChange?.(id, checked)}
 									allowHeadcount={allowHeadcount}
+									allowProportion={allowProportion}
 									demandType={demandTypeOfItem(item)}
 									onSwitchDemandType={() => onSwitchDemandType(id)}
 									onCopy={onCopy}
@@ -405,6 +412,7 @@ export function MealGroupBoard({
 	onSelectChange,
 	onHeadcountChange,
 	allowHeadcount = true,
+	allowProportion = true,
 	defaultDemandType = "headcount",
 	onCopy,
 	onPaste,
@@ -420,6 +428,11 @@ export function MealGroupBoard({
 	onHeadcountChange?: (id: string, value: number | null) => void
 	/** `false` no plano global, que não tem efetivo de refeição para a porcentagem morder. */
 	allowHeadcount?: boolean
+	/**
+	 * `false` no evento: lá não existe efetivo de refeição, o quantitativo é por preparação.
+	 * A porcentagem só significa alguma coisa em cima de um efetivo.
+	 */
+	allowProportion?: boolean
 	/** Tipo dos itens que ainda não têm nem % nem pax — ajustável no editor. */
 	defaultDemandType?: DemandType
 	onCopy?: (id: string) => void
@@ -437,13 +450,15 @@ export function MealGroupBoard({
 	// número era perdido sem o usuário nunca alcançar o outro campo.
 	const [demandTypeById, setDemandTypeById] = useState<Record<string, DemandType>>({})
 
-	const resolveDemandType = (item: BoardItem): DemandType =>
-		allowHeadcount ? (demandTypeById[item.id] ?? demandTypeOf(item, defaultDemandType)) : "proportion"
+	const resolveDemandType = (item: BoardItem): DemandType => {
+		if (!allowProportion) return "headcount"
+		return allowHeadcount ? (demandTypeById[item.id] ?? demandTypeOf(item, defaultDemandType)) : "proportion"
+	}
 
 	/** Troca o tipo e zera o campo que fica para trás — os dois preenchidos é o estado que
 	 * fazia a porcentagem ser ignorada pela compra. */
 	const switchDemandType = (id: string) => {
-		if (!allowHeadcount) return
+		if (!allowHeadcount || !allowProportion) return
 		const item = itemMap.get(id)
 		if (!item) return
 		const next: DemandType = resolveDemandType(item) === "headcount" ? "proportion" : "headcount"
@@ -595,6 +610,7 @@ export function MealGroupBoard({
 							selectedIds={selectedIds}
 							onSelectChange={onSelectChange}
 							allowHeadcount={allowHeadcount}
+							allowProportion={allowProportion}
 							demandTypeOfItem={resolveDemandType}
 							onSwitchDemandType={switchDemandType}
 							onCopy={onCopy}

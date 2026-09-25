@@ -118,6 +118,8 @@ export type MenuTemplateMeal = Tables<"menu_template_meal">
 export type MenuTemplateMealInsert = TablesInsert<"menu_template_meal">
 export type MenuTemplateMealUpdate = TablesUpdate<"menu_template_meal">
 
+export type MenuTemplateEventMeal = Tables<"menu_template_event_meal">
+
 export type Ingredient = Tables<"ingredient">
 export type IngredientInsert = TablesInsert<"ingredient">
 export type IngredientUpdate = TablesUpdate<"ingredient">

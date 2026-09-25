@@ -8453,10 +8453,56 @@ export type Database = {
           },
         ]
       }
+      menu_template_event_meal: {
+        Row: {
+          created_at: string
+          groups: Json
+          id: string
+          meal_type_id: string
+          menu_template_id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          groups?: Json
+          id?: string
+          meal_type_id: string
+          menu_template_id: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          groups?: Json
+          id?: string
+          meal_type_id?: string
+          menu_template_id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_template_event_meal_meal_type_id_fkey"
+            columns: ["meal_type_id"]
+            isOneToOne: false
+            referencedRelation: "meal_type"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_template_event_meal_menu_template_id_fkey"
+            columns: ["menu_template_id"]
+            isOneToOne: false
+            referencedRelation: "menu_template"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_template_items: {
         Row: {
           created_at: string
           day_of_week: number | null
+          event_meal_id: string | null
           headcount_override: number | null
           id: string
           item_group: string | null
@@ -8469,6 +8515,7 @@ export type Database = {
         Insert: {
           created_at?: string
           day_of_week?: number | null
+          event_meal_id?: string | null
           headcount_override?: number | null
           id?: string
           item_group?: string | null
@@ -8481,6 +8528,7 @@ export type Database = {
         Update: {
           created_at?: string
           day_of_week?: number | null
+          event_meal_id?: string | null
           headcount_override?: number | null
           id?: string
           item_group?: string | null
@@ -8491,6 +8539,13 @@ export type Database = {
           sort_order?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "menu_template_items_event_meal_id_fkey"
+            columns: ["event_meal_id"]
+            isOneToOne: false
+            referencedRelation: "menu_template_event_meal"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "menu_template_items_meal_type_id_fkey"
             columns: ["meal_type_id"]

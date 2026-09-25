@@ -25,9 +25,21 @@ export interface TemplateMeal {
 	base_headcount: number | null
 }
 
+/** Refeição própria de um evento. Espelha kitchen.menu_template_event_meal (groups já tipado). */
+export interface TemplateEventMealRow {
+	id: string
+	name: string
+	/** Horário do calendário em que a refeição é servida. */
+	meal_type_id: string
+	groups: { key: string; label: string }[]
+	sort_order: number
+}
+
 export type MenuTemplateWithItems = MenuTemplate & {
-	items: (MenuTemplateItem & { recipe_origin: Recipe | null })[]
+	items: (MenuTemplateItem & { recipe_origin: Recipe | null; meal_type?: MealType | null })[]
 	meals: TemplateMeal[]
+	/** Só evento; vazio nos demais tipos. */
+	event_meals: TemplateEventMealRow[]
 }
 
 export interface DailyMenuWithItems extends DailyMenu {

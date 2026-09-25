@@ -82,3 +82,16 @@ export function groupMenuItems<T extends { item_group?: string | null; sort_orde
 	if (ungrouped?.length) out.push({ key: UNGROUPED_KEY, label: UNGROUPED_LABEL, items: [...ungrouped].sort(sortItems) })
 	return out
 }
+
+/** Chave técnica derivada do rótulo — é ela que fica gravada em `item_group`. */
+export function menuGroupKeyFromLabel(label: string): string {
+	const base = label
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/^_+|_+$/g, "")
+	// O banco exige começar por letra e ter ao menos 2 caracteres.
+	const safe = /^[a-z]/.test(base) ? base : `g_${base}`
+	return safe.length >= 2 ? safe.slice(0, 40) : `${safe}_1`
+}

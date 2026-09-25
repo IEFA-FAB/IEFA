@@ -37,6 +37,7 @@ import type {
 	ListTemplates,
 	RestoreTemplate,
 	SaveTemplateEdit,
+	TemplateEventMeal,
 	TemplateItem,
 	TemplateMeal,
 	UpdateTemplate,
@@ -46,6 +47,14 @@ import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
 import { resolveItemDemand } from "./demand-math.ts"
 import { assertItemGroupsInSet } from "./menu-groups.ts"
+import {
+	eventMealsAsInput,
+	fetchEventMeals,
+	remapEventMealIds,
+	resolveEventContent,
+	type TemplateEventMealWire,
+	writeEventMeals,
+} from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe, type TemplateMealRow } from "./template-meals.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
@@ -53,7 +62,8 @@ import { fetchTemplateMealsSafe, type TemplateMealRow } from "./template-meals.t
 type TemplateItemFull = MenuTemplateItem & { meal_type: MealType | null; recipe_origin: Recipe | null }
 // Linha completa do template (o consumidor MenuTemplateWithItems espera todas as colunas, não um subset).
 // meals = efetivo base por (dia + refeição); grão natural do efetivo (item.headcount_override é exceção).
-type TemplateWithItemsFull = MenuTemplate & { items: TemplateItemFull[]; meals: MenuTemplateMeal[] }
+// event_meals = refeições próprias do evento (vazio nos demais tipos).
+type TemplateWithItemsFull = MenuTemplate & { items: TemplateItemFull[]; meals: MenuTemplateMeal[]; event_meals: TemplateEventMealWire[] }
 type TemplateWithCounts = MenuTemplate & {
 	item_count: number
 	recipe_count: number
@@ -238,7 +248,8 @@ export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTempl
 	// Efetivo base lido à parte, tolerante à tabela ausente (migração pendente → meals vazio).
 	const mealRows = (await fetchTemplateMealsSafe(db, [input.templateId])).get(input.templateId) ?? []
 	const meals = mealRows.map((m) => toWire<MenuTemplateMeal>(m))
-	return { ...wire, items, meals }
+	const event_meals = (await fetchEventMeals(db, [input.templateId])).get(input.templateId) ?? []
+	return { ...wire, items, meals, event_meals }
 }
 
 export async function getTemplateItems(db: SisubDb, ctx: UserContext, input: GetTemplate): Promise<TemplateItemFull[]> {
@@ -280,13 +291,21 @@ async function assertTemplateContentInScope(
 	db: SisubDb,
 	templateKitchenId: number | null,
 	items: readonly TemplateItem[] | undefined,
-	meals: readonly TemplateMeal[] | undefined
+	meals: readonly TemplateMeal[] | undefined,
+	eventMeals: readonly TemplateEventMeal[] | undefined
 ): Promise<void> {
 	const outOfScope = await findOutOfScopeRefs(
 		db,
 		templateKitchenId,
 		(items ?? []).map((i) => i.recipeId),
-		[...(items ?? []).map((i) => i.mealTypeId), ...(meals ?? []).map((m) => m.mealTypeId)]
+		// O horário da refeição do evento é tipo de refeição como qualquer outro: global ou da cozinha
+		// do template. O `mealTypeId` do item de evento fica de fora: ele é descartado e substituído
+		// pelo da refeição, que é o que está sendo conferido aqui.
+		[
+			...(items ?? []).filter((i) => i.eventMealId == null).map((i) => i.mealTypeId),
+			...(meals ?? []).map((m) => m.mealTypeId),
+			...(eventMeals ?? []).map((m) => m.mealTypeId),
+		]
 	)
 	// Mesmo erro para "não existe" e "é de outra cozinha": sondar id não distingue os dois.
 	const recipeId = outOfScope.recipeIds[0]
@@ -346,7 +365,36 @@ function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (type
 		// Fallback: preserva a ordem de chegada do array quando o cliente não informa sortOrder.
 		sortOrder: item.sortOrder ?? index,
 		recommendedProportion: item.recommendedProportion ?? null,
+		eventMealId: item.eventMealId ?? null,
 	}))
+}
+
+/**
+ * Grupo de item fora de evento é validado contra o conjunto do tipo de refeição. O de evento
+ * já foi validado contra a composição da refeição dele (`resolveEventContent`).
+ */
+function routineGroupPairs(items: readonly TemplateItem[]) {
+	return items.filter((i) => i.eventMealId == null).map((i) => ({ mealTypeId: i.mealTypeId, itemGroup: i.itemGroup }))
+}
+
+/**
+ * Mantém o `meal_type_id` dos itens de evento igual ao da refeição deles. Precisa rodar quando
+ * as refeições mudam SEM os itens virem junto: mudar o horário de uma refeição tem de mover os
+ * itens dela no calendário, e não só o rótulo.
+ */
+async function syncEventItemMealTypes(tx: TemplateTx, templateId: string): Promise<void> {
+	await runQuery("UPDATE_ITEMS_FAILED", () =>
+		tx
+			.execute(sql`
+				update kitchen.menu_template_items i
+				set meal_type_id = m.meal_type_id
+				from kitchen.menu_template_event_meal m
+				where m.id = i.event_meal_id
+					and i.menu_template_id = ${templateId}
+					and i.meal_type_id is distinct from m.meal_type_id
+			`)
+			.then(() => undefined)
+	)
 }
 
 function buildTemplateMealRows(templateId: string, meals: TemplateMeal[]): (typeof menuTemplateMealInKitchen.$inferInsert)[] {
@@ -362,9 +410,11 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 	// kitchenId ausente = template GLOBAL (plano da SDAB) → exige global:2, não kitchen:2.
 	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
-	const items = input.items ?? []
 	const meals = input.meals ?? []
-	await assertTemplateContentInScope(db, input.kitchenId ?? null, items, meals)
+	const eventMeals = input.eventMeals ?? []
+	// Item de evento sai daqui com o `mealTypeId` da refeição dele.
+	const items = resolveEventContent(input.templateType, eventMeals, input.items ?? [])
+	await assertTemplateContentInScope(db, input.kitchenId ?? null, items, meals, eventMeals)
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
@@ -381,14 +431,14 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 		)
 		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
 
+		// Refeições antes dos itens: o item cita a refeição pela FK.
+		if (eventMeals.length > 0) await writeEventMeals(tx, newTemplate.id, eventMeals)
+
 		if (items.length > 0) {
 			// `update_template` e `create_template` são tools de MCP, e o vocabulário de
 			// grupo deixou de estar no schema que o modelo lê: sem isto ele inventa uma
 			// chave plausível e o item nasce fora do conjunto da refeição.
-			await assertItemGroupsInSet(
-				tx,
-				items.map((i) => ({ mealTypeId: i.mealTypeId, itemGroup: i.itemGroup }))
-			)
+			await assertItemGroupsInSet(tx, routineGroupPairs(items))
 			await runQuery("INSERT_ITEMS_FAILED", () =>
 				tx
 					.insert(menuTemplateItemsInKitchen)
@@ -457,6 +507,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 						itemGroup: true,
 						sortOrder: true,
 						recommendedProportion: true,
+						eventMealId: true,
 					},
 				},
 			},
@@ -481,6 +532,9 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	const sourceItems = source.menuTemplateItemsInKitchens
 	// Efetivo base lido à parte, tolerante à tabela ausente (fork continua mesmo sem a base).
 	const sourceMeals = (await fetchTemplateMealsSafe(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
+	// Refeições do evento: a cópia ganha as suas, com ids novos (o id é chave primária).
+	const sourceEventMeals = (await fetchEventMeals(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
+	const eventMealIdMap = new Map(sourceEventMeals.map((m) => [m.id, crypto.randomUUID()]))
 
 	// A cópia herda as referências da origem — e elas precisam caber no DESTINO, pela mesma
 	// regra de `createTemplate`/`saveTemplateEdit`. Sem isto, `kitchen:1` em A + `kitchen:2` em
@@ -491,7 +545,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 		db,
 		targetKitchenId,
 		sourceItems.map((i) => i.recipeId),
-		[...sourceItems.map((i) => i.mealTypeId), ...sourceMeals.map((m) => m.mealTypeId)]
+		[...sourceItems.map((i) => i.mealTypeId), ...sourceMeals.map((m) => m.mealTypeId), ...sourceEventMeals.map((m) => m.meal_type_id)]
 	)
 	if (outOfScope.recipeIds.length > 0 || outOfScope.mealTypeIds.length > 0) {
 		throw new DomainError(
@@ -521,6 +575,14 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 		)
 		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
 
+		if (sourceEventMeals.length > 0) {
+			await writeEventMeals(
+				tx,
+				newTemplate.id,
+				eventMealsAsInput(sourceEventMeals).map((m) => ({ ...m, id: eventMealIdMap.get(m.id) ?? m.id }))
+			)
+		}
+
 		if (sourceItems.length > 0) {
 			const forkedItems = sourceItems.map((item) => ({
 				menuTemplateId: newTemplate.id,
@@ -533,6 +595,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 				itemGroup: item.itemGroup,
 				sortOrder: item.sortOrder ?? 0,
 				recommendedProportion: item.recommendedProportion,
+				eventMealId: item.eventMealId != null ? (eventMealIdMap.get(item.eventMealId) ?? null) : null,
 			}))
 			await runQuery("INSERT_ITEMS_FAILED", () =>
 				tx
@@ -590,9 +653,27 @@ async function applyTemplateContent(tx: TemplateTx, templateId: string, input: U
 	}
 	if (!row) throw new DomainError("UPDATE_FAILED", "no row returned")
 
+	const isEvent = row.templateType === "event"
+
+	// Refeições do evento, se fornecidas — antes dos itens, que citam a refeição pela FK.
+	const newEventMeals = input.eventMeals
+	if (newEventMeals !== undefined) {
+		// Sem itens: só confere o tipo do template e as repetições dentro das refeições.
+		resolveEventContent(row.templateType, newEventMeals, [])
+		await writeEventMeals(tx, templateId, newEventMeals)
+	} else if (!isEvent && input.templateType != null) {
+		// Deixar de ser evento com refeições gravadas deixaria itens sob refeições que nenhum
+		// editor mostra.
+		const stored = (await fetchEventMeals(tx, [templateId])).get(templateId) ?? []
+		if (stored.length > 0) resolveEventContent(row.templateType, eventMealsAsInput(stored), [])
+	}
+
 	// Substituição destrutiva dos itens, se fornecidos (delete-all + re-insert na transação).
-	const newItems = input.items
-	if (newItems !== undefined) {
+	if (input.items !== undefined) {
+		// Itens de evento conferidos contra as refeições FINAIS: as que vieram agora ou, sem
+		// elas, as gravadas. Saem com o `mealTypeId` da refeição.
+		const eventMeals = isEvent ? (newEventMeals ?? eventMealsAsInput((await fetchEventMeals(tx, [templateId])).get(templateId) ?? [])) : []
+		const newItems = resolveEventContent(row.templateType, eventMeals, input.items)
 		await runQuery("DELETE_ITEMS_FAILED", () =>
 			tx
 				.delete(menuTemplateItemsInKitchen)
@@ -600,10 +681,7 @@ async function applyTemplateContent(tx: TemplateTx, templateId: string, input: U
 				.then(() => undefined)
 		)
 		if (newItems.length > 0) {
-			await assertItemGroupsInSet(
-				tx,
-				newItems.map((i) => ({ mealTypeId: i.mealTypeId, itemGroup: i.itemGroup }))
-			)
+			await assertItemGroupsInSet(tx, routineGroupPairs(newItems))
 			await runQuery("INSERT_ITEMS_FAILED", () =>
 				tx
 					.insert(menuTemplateItemsInKitchen)
@@ -611,6 +689,8 @@ async function applyTemplateContent(tx: TemplateTx, templateId: string, input: U
 					.then(() => undefined)
 			)
 		}
+	} else if (newEventMeals !== undefined) {
+		await syncEventItemMealTypes(tx, templateId)
 	}
 
 	// Substituição destrutiva do efetivo base por refeição, se fornecido.
@@ -668,7 +748,7 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 	// O escopo do template que será GRAVADO: o local in-place mantém a cozinha dele; o global
 	// editado pela SDAB fica global; o fork nasce na cozinha do contexto. Nos três casos,
 	// `targetKitchenId` (o mismatch com um local foi recusado acima).
-	await assertTemplateContentInScope(db, targetKitchenId, input.items, input.meals)
+	await assertTemplateContentInScope(db, targetKitchenId, input.items, input.meals, input.eventMeals)
 
 	// Template local, ou template global editado pela própria SDAB: edição in-place.
 	if (source.kitchen_id !== null || targetKitchenId === null) {
@@ -698,41 +778,26 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 			)
 			.limit(1)
 
-		if (existingFork) return applyTemplateContent(tx, existingFork.id, input)
+		if (existingFork) {
+			// As refeições e os itens enviados citam os ids do MOLDE — que são dele, não da cópia.
+			// Só há o que reapontar quando um dos dois veio; o que não veio sai do molde, pelo
+			// mesmo motivo (os ids do outro são do molde).
+			if (source.template_type === "event" && (input.eventMeals !== undefined || input.items !== undefined)) {
+				const eventMeals = input.eventMeals ?? eventMealsAsInput((await fetchEventMeals(tx, [input.templateId])).get(input.templateId) ?? [])
+				const items = input.items ?? (await readSourceItems(tx, input.templateId))
+				return applyTemplateContent(tx, existingFork.id, { ...input, ...remapEventMealIds(eventMeals, items) })
+			}
+			return applyTemplateContent(tx, existingFork.id, input)
+		}
 
 		// Itens e efetivo base ausentes na entrada são copiados do original, senão o fork
 		// nasceria vazio.
-		let sourceItems: TemplateItem[] = input.items ?? []
-		if (input.items === undefined) {
-			const rows = await tx
-				.select({
-					dayOfWeek: menuTemplateItemsInKitchen.dayOfWeek,
-					mealTypeId: menuTemplateItemsInKitchen.mealTypeId,
-					recipeId: menuTemplateItemsInKitchen.recipeId,
-					itemGroup: menuTemplateItemsInKitchen.itemGroup,
-					sortOrder: menuTemplateItemsInKitchen.sortOrder,
-					recommendedProportion: menuTemplateItemsInKitchen.recommendedProportion,
-					headcountOverride: menuTemplateItemsInKitchen.headcountOverride,
-				})
-				.from(menuTemplateItemsInKitchen)
-				.where(eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId))
-
-			sourceItems = rows
-				// Linhas sem dia, refeição ou preparação não compõem um item válido do contrato —
-				// são nullable no schema, mas não há o que copiar para o fork.
-				.filter((r) => r.dayOfWeek != null && r.mealTypeId != null && r.recipeId != null)
-				.map((r) => ({
-					dayOfWeek: r.dayOfWeek as number,
-					mealTypeId: r.mealTypeId as string,
-					recipeId: r.recipeId as string,
-					headcountOverride: r.headcountOverride ?? undefined,
-					// A coluna é text no banco e o contrato usa o enum; os valores vêm da própria
-					// aplicação, então o cast evita revalidar item a item no fork.
-					itemGroup: (r.itemGroup ?? null) as TemplateItem["itemGroup"],
-					sortOrder: r.sortOrder ?? 0,
-					recommendedProportion: r.recommendedProportion != null ? Number(r.recommendedProportion) : null,
-				}))
-		}
+		const sourceItems: TemplateItem[] = input.items ?? (await readSourceItems(tx, input.templateId))
+		// Refeições do evento idem — e com ids novos, porque os do molde são dele.
+		const forkContent =
+			source.template_type === "event"
+				? remapEventMealIds(input.eventMeals ?? eventMealsAsInput((await fetchEventMeals(tx, [input.templateId])).get(input.templateId) ?? []), sourceItems)
+				: { eventMeals: input.eventMeals, items: sourceItems }
 
 		const sourceMeals: NonNullable<UpdateTemplate["meals"]> = input.meals ?? (await fetchTemplateMealsSafe(tx, [input.templateId])).get(input.templateId) ?? []
 
@@ -756,10 +821,46 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 
 		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
 
-		return applyTemplateContent(tx, newTemplate.id, { ...input, templateId: newTemplate.id, items: sourceItems, meals: sourceMeals })
+		return applyTemplateContent(tx, newTemplate.id, { ...input, templateId: newTemplate.id, ...forkContent, meals: sourceMeals })
 	})
 
 	return { template: toWire<MenuTemplate>(result), forked: true }
+}
+
+/** Itens gravados de um template no formato de entrada — o conteúdo que o fork copia quando a edição não trouxe itens. */
+async function readSourceItems(tx: TemplateTx, templateId: string): Promise<TemplateItem[]> {
+	const rows = await tx
+		.select({
+			dayOfWeek: menuTemplateItemsInKitchen.dayOfWeek,
+			mealTypeId: menuTemplateItemsInKitchen.mealTypeId,
+			recipeId: menuTemplateItemsInKitchen.recipeId,
+			itemGroup: menuTemplateItemsInKitchen.itemGroup,
+			sortOrder: menuTemplateItemsInKitchen.sortOrder,
+			recommendedProportion: menuTemplateItemsInKitchen.recommendedProportion,
+			headcountOverride: menuTemplateItemsInKitchen.headcountOverride,
+			eventMealId: menuTemplateItemsInKitchen.eventMealId,
+		})
+		.from(menuTemplateItemsInKitchen)
+		.where(eq(menuTemplateItemsInKitchen.menuTemplateId, templateId))
+
+	return (
+		rows
+			// Linhas sem dia, refeição ou preparação não compõem um item válido do contrato —
+			// são nullable no schema, mas não há o que copiar para o fork.
+			.filter((r) => r.dayOfWeek != null && r.mealTypeId != null && r.recipeId != null)
+			.map((r) => ({
+				dayOfWeek: r.dayOfWeek as number,
+				mealTypeId: r.mealTypeId as string,
+				recipeId: r.recipeId as string,
+				headcountOverride: r.headcountOverride ?? undefined,
+				// A coluna é text no banco e o contrato usa o enum; os valores vêm da própria
+				// aplicação, então o cast evita revalidar item a item no fork.
+				itemGroup: (r.itemGroup ?? null) as TemplateItem["itemGroup"],
+				sortOrder: r.sortOrder ?? 0,
+				recommendedProportion: r.recommendedProportion != null ? Number(r.recommendedProportion) : null,
+				eventMealId: r.eventMealId,
+			}))
+	)
 }
 
 /** Raiz da linhagem de um template (`base_template_id ?? id`). */

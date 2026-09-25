@@ -260,6 +260,7 @@ function forkDb(recipeOwner: number | null): SisubDb {
 		query: {
 			menuTemplateInKitchen: { findFirst: () => Promise.resolve(source) },
 			menuTemplateMealInKitchen: { findMany: () => Promise.resolve([]) },
+			menuTemplateEventMealInKitchen: { findMany: () => Promise.resolve([]) },
 		},
 		select,
 	} as unknown as SisubDb

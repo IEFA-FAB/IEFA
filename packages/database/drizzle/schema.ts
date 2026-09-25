@@ -348,7 +348,14 @@ export const menuTemplateItemsInKitchen = kitchen.table("menu_template_items", {
 	itemGroup: text("item_group"),
 	sortOrder: smallint("sort_order").default(0).notNull(),
 	recommendedProportion: numeric("recommended_proportion", { mode: "number" }),
+	eventMealId: uuid("event_meal_id"),
 }, (table) => [
+	index("menu_template_items_event_meal_idx").using("btree", table.eventMealId.asc().nullsLast().op("uuid_ops")).where(sql`(event_meal_id IS NOT NULL)`),
+	foreignKey({
+			columns: [table.eventMealId],
+			foreignColumns: [menuTemplateEventMealInKitchen.id],
+			name: "menu_template_items_event_meal_id_fkey"
+		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.mealTypeId],
 			foreignColumns: [mealTypeInKitchen.id],
@@ -1719,6 +1726,30 @@ export const menuTemplateMealInKitchen = kitchen.table("menu_template_meal", {
 	check("menu_template_meal_day_check", sql`day_of_week >= 1 AND day_of_week <= 7`),
 	check("menu_template_meal_headcount_check", sql`base_headcount IS NULL OR base_headcount > 0`),
 	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
+]);
+
+export const menuTemplateEventMealInKitchen = kitchen.table("menu_template_event_meal", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	menuTemplateId: uuid("menu_template_id").notNull(),
+	name: text().notNull(),
+	mealTypeId: uuid("meal_type_id").notNull(),
+	groups: jsonb().default([]).notNull(),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("menu_template_event_meal_template_idx").using("btree", table.menuTemplateId.asc().nullsLast().op("uuid_ops"), table.sortOrder.asc().nullsLast().op("int2_ops")),
+	foreignKey({
+			columns: [table.menuTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "menu_template_event_meal_menu_template_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.mealTypeId],
+			foreignColumns: [mealTypeInKitchen.id],
+			name: "menu_template_event_meal_meal_type_id_fkey"
+		}),
+	check("menu_template_event_meal_name_not_blank", sql`btrim(name) <> ''::text`),
+	check("menu_template_event_meal_groups_is_array", sql`jsonb_typeof(groups) = 'array'::text`),
 ]);
 
 export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {
