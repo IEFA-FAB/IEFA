@@ -559,11 +559,15 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	// itens gravados passam pela mesma arrumação do fork da edição — item sem refeição vai para
 	// a do mesmo horário em vez de nascer na cópia sem refeição nenhuma.
 	const sourceEventMeals = source.templateType === "event" ? ((await fetchEventMeals(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []) : []
-	const mealTypeNames = source.templateType === "event" ? await fetchSlotNamesOfUnplacedItems(db, sourceItems) : new Map<string, string>()
+	// Item sem preparação fica de fora, como na leitura do editor e no fork da edição
+	// (`readSourceItems`) — e não reconstrói refeição para si.
+	const sourceEventItems = source.templateType === "event" ? sourceItems.filter((i) => i.recipeId != null) : []
+	const mealTypeNames =
+		source.templateType === "event" ? await fetchSlotNamesOfUnplacedItems(db, eventMealsAsInput(sourceEventMeals), sourceEventItems) : new Map<string, string>()
 	const eventContent =
 		source.templateType === "event"
 			? (() => {
-					const normalized = normalizeStoredEventContent(eventMealsAsInput(sourceEventMeals), sourceItems, mealTypeNames)
+					const normalized = normalizeStoredEventContent(eventMealsAsInput(sourceEventMeals), sourceEventItems, mealTypeNames)
 					return remapEventMealIds(normalized.eventMeals, normalized.items)
 				})()
 			: null
@@ -608,7 +612,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 		)
 		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
 
-		if (eventContent) await writeEventMeals(tx, newTemplate.id, eventContent.eventMeals, { newTemplate: true })
+		if (eventContent) await writeEventMeals(tx, newTemplate.id, eventContent.eventMeals)
 
 		if (forkedSourceItems.length > 0) {
 			const forkedItems = forkedSourceItems.map((item) => ({
@@ -838,7 +842,7 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 		const forkEventContent = sourceEventMeals
 			? input.items !== undefined
 				? { eventMeals: input.eventMeals ?? sourceEventMeals, items: input.items }
-				: forkStoredEventContent(sourceEventMeals, input.eventMeals, sourceItems, await fetchSlotNamesOfUnplacedItems(tx, sourceItems))
+				: forkStoredEventContent(sourceEventMeals, input.eventMeals, sourceItems, await fetchSlotNamesOfUnplacedItems(tx, sourceEventMeals, sourceItems))
 			: undefined
 		const forkContent = forkEventContent
 			? remapEventMealIds(forkEventContent.eventMeals, forkEventContent.items)
@@ -873,15 +877,18 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 }
 
 /**
- * Nome do horário de cada item de evento gravado SEM refeição — vira o nome da refeição que a
- * cópia reconstrói para ele, como o editor faz ao abrir o evento. Sem item assim (o normal
- * depois da migration), nenhuma consulta.
+ * Nome dos horários em que a cópia vai reconstruir uma refeição — os de item gravado SEM
+ * refeição num horário que nenhuma refeição do evento cobre. Vira o nome da refeição
+ * reconstruída, como o editor faz ao abrir o evento. Sem horário assim (o normal depois da
+ * migration), nenhuma consulta.
  */
 async function fetchSlotNamesOfUnplacedItems(
 	db: SisubDb | TemplateTx,
+	meals: readonly { mealTypeId: string }[],
 	items: readonly { eventMealId?: string | null; mealTypeId?: string | null }[]
 ): Promise<Map<string, string>> {
-	const ids = [...new Set(items.flatMap((i) => (i.eventMealId == null && i.mealTypeId ? [i.mealTypeId] : [])))]
+	const covered = new Set(meals.map((m) => m.mealTypeId))
+	const ids = [...new Set(items.flatMap((i) => (i.eventMealId == null && i.mealTypeId && !covered.has(i.mealTypeId) ? [i.mealTypeId] : [])))]
 	if (ids.length === 0) return new Map()
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.select({ id: mealTypeInKitchen.id, name: mealTypeInKitchen.name }).from(mealTypeInKitchen).where(inArray(mealTypeInKitchen.id, ids))

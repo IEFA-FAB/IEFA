@@ -150,7 +150,7 @@ export {
 export type { SubmitEvaluation, UpsertEvalConfig } from "./evaluation.ts"
 export { SubmitEvaluationSchema, UpsertEvalConfigSchema } from "./evaluation.ts"
 export type { EventItemPlacement, PlaceableEventMeal, RebuiltEventMeal, StoredEventItemRef } from "./event-meal-placement.ts"
-export { placeStoredEventItems } from "./event-meal-placement.ts"
+export { eventMealGroupsOrDefault, placeStoredEventItems } from "./event-meal-placement.ts"
 export type {
 	CreateFrozenPreparation,
 	DeleteFrozenPreparation,

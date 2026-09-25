@@ -176,9 +176,30 @@ describe("mergeSlotItems", () => {
 			],
 			[COQUETEL, GALA]
 		)
+		// Pax desconhecido num lado deixa o item sem pax, em vez de contar só o outro.
 		expect(merged.map((i) => [i.recipeId, i.headcountOverride])).toEqual([
 			[AGUA, 180],
-			[RECIPE, 50],
+			[RECIPE, null],
 		])
+	})
+
+	test("repetição dentro da MESMA refeição passa como está", () => {
+		const merged = mergeSlotItems(
+			[
+				row({ recipeId: AGUA, eventMealId: COQUETEL, sortOrder: 0, headcountOverride: 100 }),
+				row({ recipeId: AGUA, eventMealId: COQUETEL, sortOrder: 1, headcountOverride: 100 }),
+				row({ recipeId: AGUA, eventMealId: GALA, sortOrder: 0, headcountOverride: 80 }),
+			],
+			[COQUETEL, GALA]
+		)
+		expect(merged.map((i) => i.headcountOverride)).toEqual([180, 100])
+	})
+})
+
+describe("normalizeStoredEventContent — refeição gravada sem grupo", () => {
+	test("lê a composição padrão, como o editor, e mantém o grupo do item", () => {
+		const { eventMeals, items } = normalizeStoredEventContent([{ ...coquetel, groups: [] }], [item({ itemGroup: "entrada" })])
+		expect(eventMeals[0]?.groups.length).toBeGreaterThan(0)
+		expect(items[0]?.itemGroup).toBe("entrada")
 	})
 })

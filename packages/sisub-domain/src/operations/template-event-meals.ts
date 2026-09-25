@@ -10,7 +10,7 @@
 
 import { menuTemplateEventMealInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { and, eq, inArray, notInArray } from "drizzle-orm"
-import { placeStoredEventItems, type StoredEventItemRef } from "../schemas/event-meal-placement.ts"
+import { eventMealGroupsOrDefault, placeStoredEventItems, type StoredEventItemRef } from "../schemas/event-meal-placement.ts"
 import type { MenuGroupInput } from "../schemas/menu-groups.ts"
 import type { TemplateEventMeal, TemplateItem } from "../schemas/templates.ts"
 import { DomainError } from "../types/errors.ts"
@@ -162,9 +162,10 @@ export function normalizeStoredEventContent<I extends StoredEventItemRef>(
 	items: readonly I[],
 	mealTypeNames: ReadonlyMap<string, string> = new Map()
 ): { eventMeals: TemplateEventMeal[]; items: (I & { eventMealId: string; itemGroup: string | null })[] } {
-	const { rebuilt, placements } = placeStoredEventItems(meals, items)
+	const readMeals = meals.map((m) => ({ ...m, groups: eventMealGroupsOrDefault(m.groups) }))
+	const { rebuilt, placements } = placeStoredEventItems(readMeals, items)
 	const eventMeals: TemplateEventMeal[] = [
-		...meals,
+		...readMeals,
 		...rebuilt.map((m) => ({ id: m.id, name: mealTypeNames.get(m.mealTypeId)?.trim() || "Refeição", mealTypeId: m.mealTypeId, groups: m.groups })),
 	]
 	return {
@@ -203,8 +204,13 @@ export function forkStoredEventContent(
  *
  * Duas refeições do evento no mesmo horário viram um cardápio só. Os itens saem na ordem das
  * refeições no evento e, dentro de cada uma, na posição gravada — não intercalados pela
- * posição, que recomeça em cada refeição. A preparação que aparece em mais de uma refeição
- * vira um item só, com o pax somado: são pessoas diferentes comendo a mesma coisa.
+ * posição, que recomeça em cada refeição.
+ *
+ * A preparação que aparece em refeições DIFERENTES vira um item só, com o pax somado: são
+ * pessoas diferentes comendo a mesma coisa. Pax desconhecido num dos lados deixa o item sem
+ * pax — somar só o lado conhecido esconderia as pessoas do outro e o item deixaria de pedir o
+ * número. O item fica com o grupo e a proporção da primeira refeição. Repetição DENTRO de uma
+ * refeição (a mesma água em "Bebidas" e "Volantes") é do evento e passa como está.
  */
 export function mergeSlotItems<I extends { recipeId: string | null; eventMealId: string | null; sortOrder: number; headcountOverride: number | null }>(
 	items: readonly I[],
@@ -217,21 +223,19 @@ export function mergeSlotItems<I extends { recipeId: string | null; eventMealId:
 		.toSorted((a, b) => rankOf(a.item) - rankOf(b.item) || a.item.sortOrder - b.item.sortOrder || a.index - b.index)
 
 	const merged: I[] = []
-	const byRecipe = new Map<string, number>()
+	// Por preparação: onde está o item que a representa e de quais refeições ele já soma.
+	const byRecipe = new Map<string, { at: number; meals: Set<string | null> }>()
 	for (const { item } of ordered) {
-		const at = item.recipeId != null ? byRecipe.get(item.recipeId) : undefined
-		if (at === undefined) {
-			if (item.recipeId != null) byRecipe.set(item.recipeId, merged.length)
+		const seen = item.recipeId != null ? byRecipe.get(item.recipeId) : undefined
+		if (!seen || seen.meals.has(item.eventMealId)) {
+			if (item.recipeId != null && !seen) byRecipe.set(item.recipeId, { at: merged.length, meals: new Set([item.eventMealId]) })
 			merged.push({ ...item })
 			continue
 		}
-		const first = merged[at] as I
-		// Pax desconhecido de um lado não apaga o conhecido do outro.
-		const headcount =
-			first.headcountOverride != null && item.headcountOverride != null
-				? first.headcountOverride + item.headcountOverride
-				: (first.headcountOverride ?? item.headcountOverride)
-		merged[at] = { ...first, headcountOverride: headcount }
+		const first = merged[seen.at] as I
+		const headcount = first.headcountOverride != null && item.headcountOverride != null ? first.headcountOverride + item.headcountOverride : null
+		merged[seen.at] = { ...first, headcountOverride: headcount }
+		seen.meals.add(item.eventMealId)
 	}
 	return merged
 }
@@ -248,25 +252,7 @@ function eventMealValues(meal: TemplateEventMeal, index: number) {
  * continua sendo a mesma linha e os itens dela ficam. A que não vier sai — e o `on delete
  * cascade` leva os itens junto, que é o que "tirar a refeição do evento" significa.
  */
-export async function writeEventMeals(
-	tx: EventMealTx,
-	templateId: string,
-	meals: readonly TemplateEventMeal[],
-	options: { newTemplate?: boolean } = {}
-): Promise<void> {
-	// Template criado agora, na mesma transação, com ids recém-gerados: não há refeição gravada
-	// para preservar nem id de outro evento para colidir — só o insert.
-	if (options.newTemplate) {
-		if (meals.length === 0) return
-		await runQuery("INSERT_EVENT_MEAL_FAILED", () =>
-			tx
-				.insert(menuTemplateEventMealInKitchen)
-				.values(meals.map((meal, index) => ({ id: meal.id, menuTemplateId: templateId, ...eventMealValues(meal, index) })))
-				.then(() => undefined)
-		)
-		return
-	}
-
+export async function writeEventMeals(tx: EventMealTx, templateId: string, meals: readonly TemplateEventMeal[]): Promise<void> {
 	const ids = meals.map((m) => m.id)
 
 	const existing = await runQuery("FETCH_FAILED", () =>

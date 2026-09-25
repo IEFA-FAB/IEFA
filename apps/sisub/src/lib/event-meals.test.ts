@@ -7,9 +7,11 @@ import {
 	eventGroupKeyFor,
 	eventItemsPayload,
 	findDuplicateGroup,
+	isSuggestionPresent,
 	moveEventMeal,
 	newEventMeal,
 	removeEventMeal,
+	resolveGroupKeys,
 	upsertEventMeal,
 } from "./event-meals"
 import { menuGroupKeyFromLabel } from "./menu-item-groups"
@@ -127,5 +129,31 @@ describe("grupos novos da refeição", () => {
 				{ key: "volante", label: "Volantes" },
 			])
 		).toBeUndefined()
+	})
+})
+
+describe("chave do grupo novo com a sugestão já ocupada", () => {
+	test("grupo renomeado que manteve a chave da sugestão: o digitado usa a chave derivada", () => {
+		const resolved = resolveGroupKeys([
+			{ key: "entrada", label: "Canapés frios" },
+			{ key: "", label: "Entradas" },
+		])
+		expect(resolved.map((g) => g.key)).toEqual(["entrada", "entradas"])
+		expect(findDuplicateGroup(resolved)).toBeUndefined()
+		expect(eventGroupKeyFor("Entradas", new Set(["entrada"]))).toBe("entradas")
+	})
+
+	test("rótulos longos diferentes além de 40 caracteres não são duplicados", () => {
+		const base = "Sobremesas especiais de chocolate e frutas "
+		expect(
+			findDuplicateGroup([
+				{ key: "a", label: `${base}vermelhas` },
+				{ key: "b", label: `${base}amarelas` },
+			])
+		).toBeUndefined()
+	})
+
+	test("sugestão some pelo rótulo digitado", () => {
+		expect(isSuggestionPresent({ key: "bebida", label: "Bebidas" }, [{ key: "drinks", label: "bebidas" }])).toBe(true)
 	})
 })

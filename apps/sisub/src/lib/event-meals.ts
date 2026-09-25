@@ -1,4 +1,4 @@
-import { DEFAULT_EVENT_MEAL_GROUPS, EVENT_MEAL_GROUP_SUGGESTIONS, placeStoredEventItems } from "@iefa/sisub-domain/schemas"
+import { DEFAULT_EVENT_MEAL_GROUPS, EVENT_MEAL_GROUP_SUGGESTIONS, eventMealGroupsOrDefault, placeStoredEventItems } from "@iefa/sisub-domain/schemas"
 import { type MenuGroup, menuGroupKeyFromLabel } from "@/lib/menu-item-groups"
 import { OCCASION_DAY } from "@/lib/occasion-menu"
 import type { TemplateItemDraft } from "@/types/domain/planning"
@@ -59,7 +59,7 @@ export function eventDraftFrom(
 		id: m.id,
 		name: m.name,
 		meal_type_id: m.meal_type_id,
-		groups: (m.groups.length > 0 ? m.groups : DEFAULT_EVENT_MEAL_GROUPS).map((g) => ({ key: g.key, label: g.label })),
+		groups: eventMealGroupsOrDefault(m.groups),
 	}))
 	// Regra de colocação compartilhada com o servidor (`placeStoredEventItems`): o nome da
 	// refeição reconstruída é o do horário.
@@ -168,15 +168,41 @@ export function moveEventMeal(meals: readonly EventMealDraft[], mealId: string, 
 	return next
 }
 
+/** Rótulo sem caixa, acento nem espaço sobrando — a identidade do nome do grupo, sem o corte de tamanho da chave. */
+function labelIdentity(label: string): string {
+	return label
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.replace(/\s+/g, " ")
+		.trim()
+}
+
 /**
  * Chave de um grupo NOVO da refeição, pelo rótulo digitado. Rótulo de uma sugestão ("Volantes",
  * "bebidas") ganha a chave da sugestão (`volante`, `bebida`): derivada do rótulo ela sairia no
  * plural, e o mesmo "Volantes" — clicado num evento, digitado noutro — cairia em duas colunas
- * quando os dois fossem aplicados no mesmo dia.
+ * quando os dois fossem aplicados no mesmo dia. Se a refeição já usa a chave da sugestão (um
+ * grupo renomeado que a manteve), vale a derivada: senão os dois grupos colidiriam.
  */
-export function eventGroupKeyFor(label: string): string {
+export function eventGroupKeyFor(label: string, takenKeys: ReadonlySet<string> = new Set()): string {
 	const derived = menuGroupKeyFromLabel(label)
-	return EVENT_MEAL_GROUP_SUGGESTIONS.find((s) => menuGroupKeyFromLabel(s.label) === derived)?.key ?? derived
+	const suggested = EVENT_MEAL_GROUP_SUGGESTIONS.find((s) => labelIdentity(s.label) === labelIdentity(label))?.key
+	return suggested != null && !takenKeys.has(suggested) ? suggested : derived
+}
+
+/**
+ * Chaves dos grupos da composição no diálogo. Grupo gravado mantém a chave (regerá-la tiraria
+ * de grupo as preparações dele); grupo novo a deriva do rótulo, sem repetir chave já usada.
+ */
+export function resolveGroupKeys(groups: readonly { key: string; label: string }[]): MenuGroup[] {
+	const taken = new Set(groups.filter((g) => g.key !== "").map((g) => g.key))
+	return groups.map((g) => {
+		if (g.key !== "") return { key: g.key, label: g.label.trim() }
+		const key = eventGroupKeyFor(g.label, taken)
+		taken.add(key)
+		return { key, label: g.label.trim() }
+	})
 }
 
 /**
@@ -185,6 +211,10 @@ export function eventGroupKeyFor(label: string): string {
  * a refeição com duas colunas "Entradas".
  */
 export function findDuplicateGroup(groups: readonly MenuGroup[]): MenuGroup | undefined {
-	const labelOf = (g: MenuGroup) => menuGroupKeyFromLabel(g.label)
-	return groups.find((g, i) => g.label.trim() !== "" && groups.findIndex((o) => o.key === g.key || labelOf(o) === labelOf(g)) !== i)
+	return groups.find((g, i) => g.label.trim() !== "" && groups.findIndex((o) => o.key === g.key || labelIdentity(o.label) === labelIdentity(g.label)) !== i)
+}
+
+/** A sugestão já está na composição — pela chave ou pelo rótulo. */
+export function isSuggestionPresent(suggestion: { key: string; label: string }, groups: readonly MenuGroup[]): boolean {
+	return groups.some((g) => g.key === suggestion.key || labelIdentity(g.label) === labelIdentity(suggestion.label))
 }

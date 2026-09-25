@@ -17,6 +17,15 @@ export type PlaceableEventMeal = { id: string; mealTypeId: string; groups: reado
 /** O que a regra lê de um item gravado. */
 export type StoredEventItemRef = { eventMealId?: string | null; mealTypeId?: string | null; itemGroup?: string | null }
 
+/**
+ * Composição da refeição gravada como a regra a lê: sem grupo nenhum (jsonb vazio ou fora de
+ * forma), vale a composição padrão de evento. Sem coluna nada entraria nela, e o schema recusa
+ * refeição sem grupo — a cópia nasceria inválida.
+ */
+export function eventMealGroupsOrDefault<G extends { key: string; label: string }>(groups: readonly G[]): { key: string; label: string }[] {
+	return (groups.length > 0 ? groups : DEFAULT_EVENT_MEAL_GROUPS).map((g) => ({ key: g.key, label: g.label }))
+}
+
 /** Refeição que a regra precisou criar: nasce com a composição padrão de evento. */
 export type RebuiltEventMeal = { id: string; mealTypeId: string; groups: { key: string; label: string }[] }
 
@@ -24,7 +33,8 @@ export type RebuiltEventMeal = { id: string; mealTypeId: string; groups: { key: 
 export type EventItemPlacement = { mealId: string; itemGroup: string | null } | null
 
 /**
- * Coloca cada item gravado numa refeição do evento.
+ * Coloca cada item gravado numa refeição do evento. As refeições chegam já com a composição
+ * lida por {@link eventMealGroupsOrDefault}.
  *
  * - O item vai para a refeição dele; sem ela, para a refeição do evento no mesmo horário; não
  *   havendo, para uma refeição reconstruída naquele horário, com a composição padrão (uma por
@@ -48,7 +58,7 @@ export function placeStoredEventItems(
 		if (!item.mealTypeId) return null
 		const sameSlot = meals.find((m) => m.mealTypeId === item.mealTypeId) ?? rebuilt.find((m) => m.mealTypeId === item.mealTypeId)
 		if (sameSlot) return sameSlot
-		const meal: RebuiltEventMeal = { id: crypto.randomUUID(), mealTypeId: item.mealTypeId, groups: DEFAULT_EVENT_MEAL_GROUPS.map((g) => ({ ...g })) }
+		const meal: RebuiltEventMeal = { id: crypto.randomUUID(), mealTypeId: item.mealTypeId, groups: eventMealGroupsOrDefault([]) }
 		rebuilt.push(meal)
 		byId.set(meal.id, meal)
 		return meal
