@@ -174,7 +174,7 @@ const forkTemplateTool: ToolDefinition = {
 	schema: {
 		name: "fork_template",
 		description:
-			"Cria uma cópia local de um template existente (global ou de outra cozinha), registrando base_template_id. Os itens são copiados com headcount_override, e a recorrência mensal (exceções) acompanha. Se a inserção dos itens falhar, o template novo é removido (rollback compensatório).",
+			"Cria uma cópia local de um template existente (global ou de outra cozinha), registrando base_template_id. Os itens são copiados com headcount_override, e a recorrência mensal (apoios, template_type exception) acompanha. Se a inserção dos itens falhar, o template novo é removido (rollback compensatório).",
 		inputSchema: toJsonSchema(ForkTemplateSchema),
 	},
 	async handler(args, credential) {

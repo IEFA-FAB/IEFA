@@ -590,19 +590,19 @@ function NewAtaPage() {
 							Cardápios
 						</Button>
 						<Button onClick={() => goToStep(3, true)} className="gap-2">
-							Próximo: Exceções
+							Próximo: Apoios
 							<ArrowRight className="size-4" aria-hidden="true" />
 						</Button>
 					</div>
 				</div>
 			)}
 
-			{/* ── Step 3: Exceções previsíveis ───────────────────────────────── */}
+			{/* ── Step 3: Apoios previsíveis ────────────────────────────────── */}
 			{currentStep === 3 && (
 				<div className="space-y-4">
 					<p className="text-sm text-muted-foreground">
-						Produções fora da rotina que não são eventos — lanches de bordo, cafés de reunião. A quantidade vem das ocorrências mensais cadastradas no módulo
-						Exceções da cozinha, projetadas pela vigência prevista da ata.
+						Produções fora da rotina que não são eventos — lanches de bordo e de apoio, coffee breaks, cafés de reunião. A quantidade vem das ocorrências
+						mensais cadastradas no módulo Apoios da cozinha, projetadas pela vigência prevista da ata.
 					</p>
 
 					<Card>
@@ -623,7 +623,7 @@ function NewAtaPage() {
 										className="w-28 tabular-nums"
 									/>
 									<p className="text-xs text-muted-foreground">
-										Multiplica as ocorrências mensais de cada exceção. Alterar aqui reprojeta as seleções já feitas.
+										Multiplica as ocorrências mensais de cada apoio. Alterar aqui reprojeta as seleções já feitas.
 									</p>
 								</Field>
 							</FieldGroup>
@@ -723,7 +723,7 @@ function NewAtaPage() {
 					<div className="flex items-center justify-between pt-2">
 						<Button variant="outline" onClick={() => goToStep(3)} className="gap-2">
 							<ArrowLeft className="size-4" aria-hidden="true" />
-							Exceções
+							Apoios
 						</Button>
 						<Button size="lg" onClick={handleCalculate} disabled={!hasAnySelection || isCalculating} className="gap-2">
 							<Calculator className="size-5" aria-hidden="true" />

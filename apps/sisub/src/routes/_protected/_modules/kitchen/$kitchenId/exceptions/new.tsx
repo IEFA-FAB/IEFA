@@ -4,7 +4,7 @@ import { requirePermission } from "@/auth/pbac"
 import { OccasionMenuForm } from "@/components/features/local/planning/OccasionMenuForm"
 
 /**
- * KITCHEN — Nova Exceção
+ * KITCHEN — Novo Apoio
  * Cria um cardápio de exceção previsível (template_type = 'exception') vinculado à cozinha, do
  * zero ou adaptando uma exceção modelo do catálogo global.
  * - Search param `forkFrom`: ID da exceção global a ser adaptada

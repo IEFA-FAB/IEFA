@@ -39,7 +39,7 @@ export function ApplyEventDialog({ open, onClose, templateId, templateName, temp
 		setDraftDate("")
 	}
 
-	const typeLabel = templateType === "event" ? "evento" : "exceção"
+	const typeLabel = templateType === "event" ? "evento" : "apoio"
 
 	const addDate = () => {
 		if (!draftDate || dates.includes(draftDate)) return

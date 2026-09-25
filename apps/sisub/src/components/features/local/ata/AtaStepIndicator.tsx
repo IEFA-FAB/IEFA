@@ -13,7 +13,7 @@ interface StepDef {
 const STEPS: StepDef[] = [
 	{ number: 1, label: "Cardápios Semanais" },
 	{ number: 2, label: "Eventos" },
-	{ number: 3, label: "Exceções" },
+	{ number: 3, label: "Apoios" },
 	{ number: 4, label: "Resumo" },
 	{ number: 5, label: "Itens" },
 ]

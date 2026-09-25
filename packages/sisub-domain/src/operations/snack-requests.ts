@@ -352,7 +352,7 @@ export async function setSnackClassification(db: SisubDb, ctx: UserContext, inpu
 	const template = rows[0]
 	if (!template) throw new NotFoundError("menu_template", input.templateId)
 	if (template.deletedAt !== null) throw new DomainError("TEMPLATE_DELETED", "O padrão foi excluído.")
-	if (template.templateType !== "exception") throw new DomainError("SNACK_STANDARD_NOT_EXCEPTION", "Só uma exceção pode ser padrão de lanche.")
+	if (template.templateType !== "exception") throw new DomainError("SNACK_STANDARD_NOT_EXCEPTION", "Só um apoio pode ser padrão de lanche.")
 
 	const c = input.classification
 	if (c?.orderable) {

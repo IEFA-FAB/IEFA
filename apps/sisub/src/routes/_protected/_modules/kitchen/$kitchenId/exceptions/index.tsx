@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/ex
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: ExceptionsPage,
 	head: () => ({
-		meta: [{ name: "description", content: "Gerencie cardápios de exceções previsíveis (lanches de bordo, cafés de reunião)" }],
+		meta: [{ name: "description", content: "Gerencie os cardápios de apoio previsíveis (lanches de bordo e de apoio, coffee breaks, cafés de reunião)" }],
 	}),
 })
 
@@ -23,7 +23,7 @@ function ExceptionsPage() {
 		<KitchenOccasionMenuList
 			templateType="exception"
 			kitchenId={Number(kitchenId)}
-			description="Refeições previsíveis fora da rotina semanal — lanches de bordo, cafés de reunião. Compõem o anexo quantitativo do TR pela recorrência mensal."
+			description="Refeições previsíveis fora da rotina semanal — lanches de bordo e de apoio, coffee breaks, cafés de reunião. Compõem o anexo quantitativo do TR pela recorrência mensal."
 			newLink={{ to: "/kitchen/$kitchenId/exceptions/new", params: { kitchenId } }}
 			forkLink={(forkFrom) => ({ to: "/kitchen/$kitchenId/exceptions/new", params: { kitchenId }, search: { forkFrom } })}
 			editorLink={(exceptionId) => ({ to: "/kitchen/$kitchenId/exceptions/$exceptionId", params: { kitchenId, exceptionId } })}
