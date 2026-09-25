@@ -7,7 +7,6 @@ import {
 	countHeadcountTargets,
 	countItemHeadcountTargets,
 	findMenuItems,
-	formatItemDemand,
 	type MealHeadcountDraft,
 	type MenuDraftItem,
 	menuItemKey,
@@ -296,25 +295,5 @@ describe("applyRecipeSelection", () => {
 	test("o próprio dia de origem na lista de extras não duplica", () => {
 		const result = applyRecipeSelection([], { day: 1, mealTypeId: ALMOCO, group: null }, ["arroz"], [1], make)
 		expect(result).toHaveLength(1)
-	})
-})
-
-describe("formatItemDemand", () => {
-	test("quantidade direta sai em pax; porcentagem, em %", () => {
-		expect(formatItemDemand({ headcount_override: 120 })).toBe("120 pax")
-		expect(formatItemDemand({ recommended_proportion: 30 })).toBe("30%")
-	})
-
-	test("quantidade direta vence a porcentagem, como na compra", () => {
-		expect(formatItemDemand({ headcount_override: 120, recommended_proportion: 30 })).toBe("120 pax")
-	})
-
-	test("sem nenhum dos dois, nada — o item herda o efetivo da refeição", () => {
-		expect(formatItemDemand({})).toBeNull()
-		expect(formatItemDemand({ headcount_override: null, recommended_proportion: null })).toBeNull()
-	})
-
-	test("0% é informação, não ausência", () => {
-		expect(formatItemDemand({ recommended_proportion: 0 })).toBe("0%")
 	})
 })

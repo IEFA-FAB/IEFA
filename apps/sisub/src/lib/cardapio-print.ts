@@ -47,6 +47,8 @@ export type CardapioPrintOptions = {
 	/** Tira da folha as preparações da mesa de comando (porcentagem até `commandTableMaxProportion`). */
 	hideCommandTable: boolean
 	commandTableMaxProportion: number
+	/** Cada preparação da grade ganha a tinta do seu grupo, com legenda. */
+	groupColors: boolean
 }
 
 /**
@@ -58,6 +60,7 @@ export const DEFAULT_PRINT_OPTIONS: CardapioPrintOptions = {
 	ingredients: "none",
 	hideCommandTable: true,
 	commandTableMaxProportion: DEFAULT_COMMAND_TABLE_MAX_PROPORTION,
+	groupColors: true,
 }
 
 /**
@@ -71,6 +74,48 @@ export function isCommandTableItem(
 ): boolean {
 	if (!options.hideCommandTable || item.headcount_override != null || item.recommended_proportion == null) return false
 	return item.recommended_proportion <= options.commandTableMaxProportion
+}
+
+/**
+ * Demanda impressa ao lado da preparação. Só o efetivo fixo ("120 pax"): a porcentagem é
+ * dado de planejamento da cozinha e poluía a folha que o comensal lê.
+ */
+export function formatPrintedDemand(item: { headcount_override?: number | null }): string | null {
+	return item.headcount_override != null ? `${item.headcount_override} pax` : null
+}
+
+/**
+ * Tinta de cada grupo na grade impressa (hex sem `#`, o formato que o DOCX pede). Tons claros
+ * de propósito: o texto segue preto e legível, e a folha em impressora P&B vira cinza claro.
+ * Chave repetida entre conjuntos (`bebida`, `complemento`) tem a mesma cor em toda refeição.
+ */
+const GROUP_PRINT_COLORS: Record<string, string> = {
+	salada: "DCFCE7",
+	prato_principal: "FEE2E2",
+	acompanhamento: "FEF9C3",
+	guarnicao: "FFEDD5",
+	bebida: "DBEAFE",
+	sobremesa: "FCE7F3",
+	pao: "F5E6D3",
+	proteina: "EDE9FE",
+	complemento: "CCFBF1",
+	fruta: "ECFCCB",
+	lanche: "FAE8FF",
+	entrada: "E0E7FF",
+	volante: "CFFAFE",
+}
+
+/** Grupo criado pela cozinha, fora da paleta: cor estável derivada da chave. */
+const FALLBACK_PRINT_COLORS = ["E0F2FE", "FEF3C7", "F3E8FF", "D1FAE5", "FFE4E6", "E2E8F0"]
+
+/** Cor de impressão do grupo; `null` para preparação sem grupo (sai sem tinta). */
+export function groupPrintColor(group: string | null | undefined): string | null {
+	if (group == null) return null
+	const known = GROUP_PRINT_COLORS[group]
+	if (known) return known
+	let hash = 0
+	for (const ch of group) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
+	return FALLBACK_PRINT_COLORS[hash % FALLBACK_PRINT_COLORS.length]
 }
 
 /** Uma ficha distinta do cardápio, antes das opções de impressão. */

@@ -21,6 +21,8 @@ import {
 	DEFAULT_COMMAND_TABLE_MAX_PROPORTION,
 	DEFAULT_PRINT_OPTIONS,
 	describeAllergens,
+	formatPrintedDemand,
+	groupPrintColor,
 	INGREDIENTS_MODE_LABELS,
 	INGREDIENTS_MODES,
 	type IngredientsMode,
@@ -29,8 +31,7 @@ import {
 	type PreparationEntry,
 	type PreparationSource,
 } from "@/lib/cardapio-print"
-import { formatItemDemand } from "@/lib/menu-fill"
-import { menuItemGroupOrder } from "@/lib/menu-item-groups"
+import { menuItemGroupLabel, menuItemGroupOrder } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import { describeRecipeVersion } from "@/lib/recipe-versions"
 import { importChunkOrNull, recoverIfStaleChunk } from "@/lib/recover-stale-chunk"
@@ -55,8 +56,9 @@ import type { MenuTemplateWithItems } from "@/types/domain/planning"
  *  - cabeçalho e blocos de assinatura editáveis e memorizados por cozinha
  *    (localStorage), evitando redigitar a cada semana;
  *  - opções de impressão (modo de preparo; ingredientes: nenhum, só alergênicos ou todos,
- *    sempre sem quantidade). Ficam só na página, sem armazenamento local: chave nova de
- *    armazenamento exigiria versão nova da Política de Cookies, e preferência de leitura
+ *    sempre sem quantidade; cores por grupo, com legenda). Ficam só na página, sem
+ *    armazenamento local: chave nova de armazenamento exigiria versão nova da Política de
+ *    Cookies, e preferência de leitura
  *    não justifica pedir ciência de novo a todo usuário;
  *  - preparações da mesa de comando (porcentagem pequena do efetivo) ficam fora da folha,
  *    por padrão: ela é afixada para o comensal, e esse prato não está à disposição dele.
@@ -78,10 +80,13 @@ const WEEKDAYS = [
 type SignatureBlock = { name: string; role: string }
 
 /**
- * Uma preparação dentro de uma célula (refeição × dia) da grade. `demand` é a medida do item já
- * formatada — "120 pax" ou "30%". Só a porcentagem saía, e o item medido em pessoas ficava em branco.
+ * Uma preparação dentro de uma célula (refeição × dia) da grade. `demand` é o efetivo fixo do item
+ * já formatado ("120 pax"); a porcentagem não sai na folha. `color` é a tinta do grupo, sem `#`.
  */
-type CellEntry = { name: string; group: string | null; main: boolean; sortOrder: number; demand: string | null }
+type CellEntry = { name: string; group: string | null; main: boolean; sortOrder: number; demand: string | null; color: string | null }
+
+/** Item da legenda de cores: um por grupo presente na grade, na ordem de leitura. */
+type GroupLegendEntry = { key: string; label: string; color: string }
 
 type PrintHeader = {
 	organization: string
@@ -180,7 +185,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	})
 
 	// Ordem de leitura das colunas impressas: a do conjunto de cada refeição.
-	const { groupsFor } = useMealTypeGroups(mealTypeKitchenId, mealTypes)
+	const { groupsFor, allGroups } = useMealTypeGroups(mealTypeKitchenId, mealTypes)
 
 	const storageScope = scope.kind === "kitchen" ? String(scope.kitchenId) : "global"
 
@@ -317,7 +322,8 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 			group: item.item_group ?? null,
 			main: isMainDish(item.item_group),
 			sortOrder: item.sort_order ?? 0,
-			demand: formatItemDemand(item),
+			demand: formatPrintedDemand(item),
+			color: groupPrintColor(item.item_group),
 		})
 		cellIndex.set(key, list)
 	}
@@ -326,7 +332,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 		list.sort((a, b) => menuItemGroupOrder(a.group, groups) - menuItemGroupOrder(b.group, groups) || a.sortOrder - b.sortOrder)
 	}
 
-	// Efetivo base por (dia + refeição): sai no topo da célula, para "30%" ter do que ser 30%.
+	// Efetivo base por (dia + refeição): sai no topo da célula.
 	const baseByCell = new Map((template.meals ?? []).map((m) => [`${m.day_of_week}:${m.meal_type_id}`, m.base_headcount]))
 
 	// Lista de preparações: fichas distintas do cardápio; `buildPreparationEntries` decide,
@@ -348,6 +354,26 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 		})
 	}
 	const preparations = buildPreparationEntries([...prepMap.values()], digestsById, options)
+
+	// Legenda das cores: grupos presentes na grade, na ordem das linhas e, dentro de cada
+	// refeição, na ordem do conjunto dela. Sem legenda, a cor não diz nada a quem lê a folha.
+	const groupLegend: GroupLegendEntry[] = []
+	if (options.groupColors) {
+		const seen = new Set<string>()
+		for (const mt of orderedMealTypes) {
+			const groups = groupsFor(mt.id)
+			// As células já vêm na ordem do conjunto; juntar as da semana e reordenar pelo
+			// conjunto põe a legenda na mesma ordem de leitura da linha.
+			const present = WEEKDAYS.flatMap((d) => cellIndex.get(`${d.num}:${mt.id}`) ?? [])
+				.filter((e) => e.group != null && e.color != null)
+				.sort((x, y) => menuItemGroupOrder(x.group, groups) - menuItemGroupOrder(y.group, groups))
+			for (const entry of present) {
+				if (entry.group == null || entry.color == null || seen.has(entry.group)) continue
+				seen.add(entry.group)
+				groupLegend.push({ key: entry.group, label: menuItemGroupLabel(entry.group, [...groups, ...allGroups]), color: entry.color })
+			}
+		}
+	}
 
 	const dayDate = (dow: number): Date | null => (weekStart ? addDays(weekStart, dow - 1) : null)
 
@@ -391,7 +417,14 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 			})
 			const rows = orderedMealTypes.map((mt) => ({
 				meal: mt.name ?? "",
-				cells: WEEKDAYS.map((d) => (cellIndex.get(`${d.num}:${mt.id}`) ?? []).map((e) => ({ name: e.name, main: e.main, demand: e.demand }))),
+				cells: WEEKDAYS.map((d) =>
+					(cellIndex.get(`${d.num}:${mt.id}`) ?? []).map((e) => ({
+						name: e.name,
+						main: e.main,
+						demand: e.demand,
+						color: options.groupColors ? e.color : null,
+					}))
+				),
 				bases: WEEKDAYS.map((d) => baseByCell.get(`${d.num}:${mt.id}`) ?? null),
 			}))
 			await docx.downloadCardapioDocx(
@@ -403,6 +436,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 					signatures: header.signatures,
 					columns,
 					rows,
+					groupLegend,
 					preparations: preparations.map((p) => ({
 						name: p.name,
 						version: p.version,
@@ -482,6 +516,10 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 					<Checkbox id="print-show-method" checked={options.showMethod} onCheckedChange={(checked) => updateOptions({ showMethod: checked === true })} />
 					Mostrar modo de preparo
 				</label>
+				<label htmlFor="print-group-colors" className="flex items-center gap-2">
+					<Checkbox id="print-group-colors" checked={options.groupColors} onCheckedChange={(checked) => updateOptions({ groupColors: checked === true })} />
+					Cores por grupo
+				</label>
 				<div className="flex items-center gap-2">
 					<span className="text-muted-foreground">Ingredientes:</span>
 					<Select
@@ -556,6 +594,8 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 				cellIndex={cellIndex}
 				baseByCell={baseByCell}
 				preparations={preparations}
+				groupColors={options.groupColors}
+				groupLegend={groupLegend}
 				emptyMessage={emptyMessage}
 				onSignatureChange={setSignature}
 				onHeaderChange={persistHeader}
@@ -584,6 +624,8 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 							cellIndex={cellIndex}
 							baseByCell={baseByCell}
 							preparations={preparations}
+							groupColors={options.groupColors}
+							groupLegend={groupLegend}
 							emptyMessage={emptyMessage}
 						/>
 					</div>,
@@ -604,6 +646,9 @@ interface CardapioDocumentProps {
 	/** Efetivo base por `dia:refeição`. */
 	baseByCell: Map<string, number | null>
 	preparations: PreparationEntry[]
+	/** Pinta cada preparação com a cor do grupo e mostra a legenda. */
+	groupColors: boolean
+	groupLegend: GroupLegendEntry[]
 	emptyMessage: string
 	/** Só a cópia da tela edita; a de impressão renderiza texto estático. */
 	editable?: boolean
@@ -619,6 +664,8 @@ function CardapioDocument({
 	cellIndex,
 	baseByCell,
 	preparations,
+	groupColors,
+	groupLegend,
 	emptyMessage,
 	editable = false,
 	onSignatureChange,
@@ -679,7 +726,11 @@ function CardapioDocument({
 										<td key={d.num} className={d.num >= 6 ? "cardapio-weekend" : undefined}>
 											{base != null && entries.length > 0 && <div className="cardapio-base">{base} pessoas</div>}
 											{entries.map((entry, i) => (
-												<div key={`${entry.name}-${i}`} className={entry.main ? "cardapio-dish cardapio-dish-main" : "cardapio-dish"}>
+												<div
+													key={`${entry.name}-${i}`}
+													className={entry.main ? "cardapio-dish cardapio-dish-main" : "cardapio-dish"}
+													style={groupColors && entry.color ? { background: `#${entry.color}` } : undefined}
+												>
 													{entry.name}
 													{entry.demand && <span className="cardapio-dish-prop"> {entry.demand}</span>}
 												</div>
@@ -692,6 +743,17 @@ function CardapioDocument({
 					)}
 				</tbody>
 			</table>
+
+			{groupColors && groupLegend.length > 0 && (
+				<div className="cardapio-legend">
+					{groupLegend.map((g) => (
+						<span key={g.key} className="cardapio-legend-item">
+							<span className="cardapio-legend-swatch" style={{ background: `#${g.color}` }} />
+							{g.label}
+						</span>
+					))}
+				</div>
+			)}
 
 			{/* Assinaturas — antes da quebra, para saírem na mesma folha do cardápio */}
 			<footer className="cardapio-footer">
@@ -858,6 +920,18 @@ const PRINT_CSS = `
 .cardapio-daynum { font-weight: 400; font-size: 8px; }
 .cardapio-weekend { background: #f4f4f4; }
 .cardapio-dish { font-size: 8px; }
+/* Sem isto o navegador descarta o fundo na impressão e as cores somem do PDF. */
+.cardapio-dish, .cardapio-legend-swatch { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.cardapio-dish[style] { padding: 0 2px; }
+.cardapio-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px 10px;
+	margin-top: 4px;
+	font-size: 8px;
+}
+.cardapio-legend-item { display: inline-flex; align-items: center; gap: 3px; }
+.cardapio-legend-swatch { display: inline-block; width: 10px; height: 8px; border: 1px solid #999; }
 .cardapio-dish-main { font-weight: 700; }
 .cardapio-dish-prop { font-weight: 700; color: #333; }
 .cardapio-base { font-size: 7px; font-style: italic; color: #555; }
