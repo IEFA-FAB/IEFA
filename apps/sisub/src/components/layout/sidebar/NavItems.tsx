@@ -202,7 +202,7 @@ export const ALL_MODULES: ModuleDef[] = [
 				url: "/kitchen/exceptions",
 				icon: Sandwich,
 				group: "Cardápio",
-				keywords: ["coffee break", "café de reunião", "lanche de bordo", "exceção"],
+				keywords: ["coffee break", "café de reunião", "exceção"],
 			},
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed, group: "Operação", keywords: ["receita", "ficha técnica"] },
 			{
@@ -300,7 +300,7 @@ export const ALL_MODULES: ModuleDef[] = [
 				url: "/global/exceptions",
 				icon: Sandwich,
 				group: "Modelos de cardápio",
-				keywords: ["apoio modelo", "coffee break", "lanche de bordo", "exceção modelo"],
+				keywords: ["apoio modelo", "coffee break", "café de reunião", "exceção modelo"],
 			},
 			{ title: "Filas de Revisão", url: "/global/review-queues", icon: ListTodo, group: "Curadoria", keywords: ["pendência", "revisar", "unidade de medida"] },
 			{ title: "Política de Revisão", url: "/global/policy", icon: ClipboardList, minLevel: 2, group: "Curadoria", keywords: ["regra", "revisão"] },

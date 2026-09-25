@@ -4,8 +4,8 @@ import { KitchenOccasionMenuList } from "@/components/features/local/planning/Ki
 
 /**
  * KITCHEN — Exceções
- * Lista os cardápios de exceções previsíveis da cozinha (lanches de bordo, cafés de reunião) e
- * as exceções modelo do catálogo global, disponíveis para adaptar.
+ * Lista os cardápios de apoio previsíveis da cozinha (lanches de bordo e de apoio, coffee breaks,
+ * cafés de reunião) e os apoios modelo do catálogo global, disponíveis para adaptar.
  * Esses templates (template_type='exception') alimentam o Step 3 do anexo quantitativo do TR,
  * multiplicados pela recorrência mensal esperada.
  */
