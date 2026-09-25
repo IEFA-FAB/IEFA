@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { EventMealDraft } from "@/lib/event-meals"
+import { type EventMealDraft, eventGroupKeyFor, findDuplicateGroup } from "@/lib/event-meals"
 import { menuGroupKeyFromLabel } from "@/lib/menu-item-groups"
 
 /** Tetos do schema (`TemplateEventMealSchema` / `MenuGroupSchema`): acima deles o salvamento inteiro seria recusado. */
@@ -66,13 +66,15 @@ export function EventMealDialog({
 
 	// A chave só é derivada do rótulo quando o grupo é NOVO: regerá-la ao renomear tiraria de
 	// grupo todas as preparações que já estavam nele.
-	const resolved = groups.map((g) => ({ key: g.key || menuGroupKeyFromLabel(g.label), label: g.label.trim() }))
+	const resolved = groups.map((g) => ({ key: g.key || eventGroupKeyFor(g.label), label: g.label.trim() }))
 	const hasBlank = groups.some((g) => g.label.trim() === "")
-	const duplicate = resolved.find((g, i) => g.label !== "" && resolved.findIndex((o) => o.key === g.key) !== i)
+	const duplicate = findDuplicateGroup(resolved)
 	const tooMany = groups.length > MAX_EVENT_MEAL_GROUPS
 	const leaving = meal ? countLeaving(meal.id, resolved) : 0
+	// Sugestão some quando a chave OU o rótulo já está na composição ("Bebidas" digitado esconde a sugestão "Bebidas").
 	const presentKeys = new Set(resolved.map((g) => g.key))
-	const suggestions = EVENT_MEAL_GROUP_SUGGESTIONS.filter((s) => !presentKeys.has(s.key))
+	const presentLabels = new Set(resolved.map((g) => menuGroupKeyFromLabel(g.label)))
+	const suggestions = EVENT_MEAL_GROUP_SUGGESTIONS.filter((s) => !presentKeys.has(s.key) && !presentLabels.has(menuGroupKeyFromLabel(s.label)))
 	const selectedMealType = mealTypes.find((mt) => mt.id === mealTypeId)
 
 	// `maxLength` segura a digitação; isto segura o que chega colado ou de rascunho antigo.

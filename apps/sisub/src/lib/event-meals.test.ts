@@ -4,7 +4,9 @@ import {
 	countItemsLeavingComposition,
 	type EventMealDraft,
 	eventDraftFrom,
+	eventGroupKeyFor,
 	eventItemsPayload,
+	findDuplicateGroup,
 	moveEventMeal,
 	newEventMeal,
 	removeEventMeal,
@@ -102,5 +104,28 @@ describe("menuGroupKeyFromLabel", () => {
 	test("rótulo vira chave aceita pelo banco", () => {
 		expect(menuGroupKeyFromLabel("Canapés quentes")).toBe("canapes_quentes")
 		expect(menuGroupKeyFromLabel("1º prato")).toMatch(/^[a-z][a-z0-9_]{1,39}$/)
+	})
+})
+
+describe("grupos novos da refeição", () => {
+	test("rótulo de sugestão ganha a chave da sugestão, digitado ou clicado", () => {
+		expect(eventGroupKeyFor("Volantes")).toBe("volante")
+		expect(eventGroupKeyFor("  bebidas ")).toBe("bebida")
+		expect(eventGroupKeyFor("Canapés")).toBe("canape")
+		expect(eventGroupKeyFor("Petiscos")).toBe("petiscos")
+	})
+
+	test("rótulo repetido é duplicado mesmo com chaves diferentes", () => {
+		const dup = findDuplicateGroup([
+			{ key: "entrada", label: "Entradas" },
+			{ key: "volante", label: "entradas" },
+		])
+		expect(dup?.key).toBe("volante")
+		expect(
+			findDuplicateGroup([
+				{ key: "entrada", label: "Entradas" },
+				{ key: "volante", label: "Volantes" },
+			])
+		).toBeUndefined()
 	})
 })

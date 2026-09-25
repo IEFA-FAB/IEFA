@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test"
 import type { TemplateEventMeal, TemplateItem } from "../schemas/templates.ts"
 import { DomainError } from "../types/errors.ts"
-import { forkStoredEventContent, keepItemsOfMeals, normalizeStoredEventContent, remapEventMealIds, resolveEventContent } from "./template-event-meals.ts"
+import {
+	forkStoredEventContent,
+	keepItemsOfMeals,
+	mergeSlotItems,
+	normalizeStoredEventContent,
+	remapEventMealIds,
+	resolveEventContent,
+} from "./template-event-meals.ts"
 
 const JANTAR = "00000000-0000-4000-8000-000000000001"
 const ALMOCO = "00000000-0000-4000-8000-000000000002"
@@ -132,5 +139,46 @@ describe("forkStoredEventContent", () => {
 		const { items } = forkStoredEventContent([coquetel], [semVolante], [item({ itemGroup: "volante" })])
 		expect(items.map((i) => i.itemGroup)).toEqual([null])
 		expect(resolveEventContent("event", [semVolante], items)).toHaveLength(1)
+	})
+})
+
+describe("normalizeStoredEventContent — nome da refeição reconstruída", () => {
+	test("vem do nome do horário quando informado, como no editor", () => {
+		const { eventMeals } = normalizeStoredEventContent([coquetel], [item({ eventMealId: null, mealTypeId: ALMOCO })], new Map([[ALMOCO, "Almoço"]]))
+		expect(eventMeals[1]?.name).toBe("Almoço")
+	})
+})
+
+describe("mergeSlotItems", () => {
+	const row = (o: { recipeId: string; eventMealId: string | null; sortOrder: number; headcountOverride: number | null }) => o
+	const AGUA = "20000000-0000-4000-8000-000000000002"
+
+	test("refeições do mesmo horário entram na ordem do evento, sem intercalar pela posição", () => {
+		const merged = mergeSlotItems(
+			[
+				row({ recipeId: RECIPE, eventMealId: GALA, sortOrder: 0, headcountOverride: 80 }),
+				row({ recipeId: AGUA, eventMealId: COQUETEL, sortOrder: 1, headcountOverride: 100 }),
+				row({ recipeId: "20000000-0000-4000-8000-000000000003", eventMealId: COQUETEL, sortOrder: 0, headcountOverride: 100 }),
+			],
+			[COQUETEL, GALA]
+		)
+		expect(merged.map((i) => i.eventMealId)).toEqual([COQUETEL, COQUETEL, GALA])
+		expect(merged[0]?.sortOrder).toBe(0)
+	})
+
+	test("preparação repetida vira um item com o pax somado", () => {
+		const merged = mergeSlotItems(
+			[
+				row({ recipeId: AGUA, eventMealId: COQUETEL, sortOrder: 0, headcountOverride: 100 }),
+				row({ recipeId: AGUA, eventMealId: GALA, sortOrder: 0, headcountOverride: 80 }),
+				row({ recipeId: RECIPE, eventMealId: GALA, sortOrder: 1, headcountOverride: null }),
+				row({ recipeId: RECIPE, eventMealId: COQUETEL, sortOrder: 1, headcountOverride: 50 }),
+			],
+			[COQUETEL, GALA]
+		)
+		expect(merged.map((i) => [i.recipeId, i.headcountOverride])).toEqual([
+			[AGUA, 180],
+			[RECIPE, 50],
+		])
 	})
 })
