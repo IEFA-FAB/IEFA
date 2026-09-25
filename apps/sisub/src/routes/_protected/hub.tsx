@@ -76,7 +76,7 @@ function HubHeader() {
 				<div className="flex items-center gap-4">
 					<Link
 						to="/"
-						className="font-mono font-bold text-base focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						className="font-mono font-bold text-base focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 						aria-label="Página inicial - SISUB"
 					>
 						SISUB
@@ -108,7 +108,7 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 				// (incl. syncUserEmailFn — escrita no DB) a cada hover, além de esbarrar numa
 				// corrida do router-core (getMatch undefined → "_nonReactive") em preloads concorrentes.
 				preload={false}
-				className="absolute inset-0 z-10 rounded-xl focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2"
+				className="absolute inset-0 z-10 rounded-xl focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2"
 				aria-label={`Entrar no módulo ${module.name}`}
 			/>
 

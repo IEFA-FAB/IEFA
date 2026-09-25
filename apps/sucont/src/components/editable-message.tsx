@@ -37,7 +37,7 @@ export function EditableMessage({ value, onChange, onReset, isEdited, isStale, l
 				spellCheck={false}
 				className={cn(
 					"w-full min-h-0 flex-1 resize-none rounded border border-border bg-muted p-4 text-body text-foreground leading-relaxed outline-none",
-					"focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+					"focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
 					textClassName
 				)}
 			/>

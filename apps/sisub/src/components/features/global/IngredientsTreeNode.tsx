@@ -83,7 +83,7 @@ function IngredientHoverContent({ ingredient }: { ingredient: Ingredient }) {
 	return (
 		<>
 			<div className="flex items-start gap-2">
-				<div className="flex size-7 shrink-0 items-center justify-center rounded-[var(--radius)] border border-primary/20 bg-primary/10">
+				<div className="flex size-7 shrink-0 items-center justify-center rounded-(--radius) border border-primary/20 bg-primary/10">
 					<Package className="size-3.5 text-primary" />
 				</div>
 				<div className="min-w-0">

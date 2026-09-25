@@ -12,7 +12,7 @@ import { cn } from "#/lib/utils"
  * em cada ferramenta, cada um com sua altura e seu peso de fonte.
  */
 const badgeVariants = cva(
-	"h-5 gap-1 rounded-full border border-transparent px-2 py-0.5 text-caption font-medium transition-all [&>svg]:size-3! inline-flex items-center justify-center w-fit whitespace-nowrap shrink-0 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] overflow-hidden group/badge",
+	"h-5 gap-1 rounded-full border border-transparent px-2 py-0.5 text-caption font-medium transition-all [&>svg]:size-3! inline-flex items-center justify-center w-fit whitespace-nowrap shrink-0 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3 overflow-hidden group/badge",
 	{
 		variants: {
 			variant: {

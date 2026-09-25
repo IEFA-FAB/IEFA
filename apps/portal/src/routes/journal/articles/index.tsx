@@ -172,7 +172,7 @@ function ArticleCard({ article }: ArticleCardProps) {
 		<div className="p-6 border border-border hover:bg-accent hover:border-foreground/20 transition-colors bg-card h-full flex flex-col gap-3 cursor-pointer">
 			{/* Tipo + DOI */}
 			<div className="flex items-center justify-between gap-2 flex-wrap">
-				<Badge variant="secondary" className="uppercase tracking-[0.06em]">
+				<Badge variant="secondary" className="uppercase tracking-(--tracking-label)">
 					{ARTICLE_TYPE_LABELS[article.article_type] ?? article.article_type}
 				</Badge>
 				{article.doi && <span className="text-xs text-muted-foreground font-mono truncate">DOI: {article.doi}</span>}

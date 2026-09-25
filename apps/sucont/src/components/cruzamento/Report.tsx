@@ -616,7 +616,7 @@ SUCONT-3 • DIREF • COMAER`
 						<button
 							type="button"
 							onClick={() => setShowConsolidated(!showConsolidated)}
-							className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors border-b border-border focus-visible:ring-[3px] focus-visible:ring-ring/50"
+							className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors border-b border-border focus-visible:ring-3 focus-visible:ring-ring/50"
 						>
 							<div className="flex items-center gap-3">
 								<div className="w-10 h-10 rounded-full bg-action/15 flex items-center justify-center">
@@ -776,7 +776,7 @@ SUCONT-3 • DIREF • COMAER`
 									<button
 										type="button"
 										onClick={() => toggleUg(ug.ug)}
-										className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50"
+										className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors focus-visible:ring-3 focus-visible:ring-ring/50"
 									>
 										<div className="flex items-center gap-6">
 											<div className="flex items-center gap-4">

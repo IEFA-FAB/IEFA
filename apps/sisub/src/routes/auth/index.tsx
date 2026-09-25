@@ -439,7 +439,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 					<button
 						type="button"
 						onClick={onForgotPassword}
-						className="cursor-pointer font-mono text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						className="cursor-pointer font-mono text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 					>
 						Esqueceu a senha?
 					</button>
@@ -464,7 +464,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 					<button
 						type="button"
 						onClick={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
-						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 						aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 					>
 						{showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
@@ -711,7 +711,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					<button
 						type="button"
 						onClick={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
-						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 						aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 					>
 						{showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
@@ -749,7 +749,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					<button
 						type="button"
 						onClick={() => dispatch({ type: "TOGGLE_SHOW_CONFIRM" })}
-						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 						aria-label={showConfirm ? "Ocultar confirmação" : "Mostrar confirmação"}
 					>
 						{showConfirm ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}

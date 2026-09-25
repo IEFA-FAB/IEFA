@@ -25,7 +25,7 @@ export function CitationList({ citations, open, onToggle }: { citations: readonl
 							aria-expanded={open === citation.label}
 						>
 							<span className="font-mono text-[10px]">{citation.label}</span>
-							<span className="text-muted-foreground uppercase tracking-[0.06em] text-[10px]">{KIND_LABEL[citation.kind]}</span>
+							<span className="text-muted-foreground uppercase tracking-(--tracking-label) text-[10px]">{KIND_LABEL[citation.kind]}</span>
 							<span className="truncate">{summary(citation)}</span>
 						</button>
 						{open === citation.label ? <CitationDetail citation={citation} /> : null}

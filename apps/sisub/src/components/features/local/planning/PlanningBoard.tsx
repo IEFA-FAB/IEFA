@@ -330,7 +330,7 @@ export function PlanningBoard() {
 								onClick={(e) => handleDayClick(day, e)}
 								className={cn(
 									"p-2 relative transition-colors cursor-pointer group text-left",
-									"focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2",
+									"focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2",
 									!isCurrentMonth && "bg-muted/10 text-muted-foreground",
 									isCurrentMonth && "bg-background",
 									isToday && "bg-primary/5",

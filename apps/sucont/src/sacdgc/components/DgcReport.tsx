@@ -255,7 +255,7 @@ function IndicatorCard({
 			type="button"
 			onClick={onClick}
 			className={cn(
-				"rounded-xl border p-6 flex flex-col items-center gap-1 transition-all hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50",
+				"rounded-xl border p-6 flex flex-col items-center gap-1 transition-all hover:brightness-95 focus-visible:ring-3 focus-visible:ring-ring/50",
 				tones[tone],
 				active && "ring-2 ring-offset-1 ring-border"
 			)}

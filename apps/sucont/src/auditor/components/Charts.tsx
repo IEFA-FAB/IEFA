@@ -575,7 +575,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 										key={gb}
 										type="button"
 										onClick={() => setTreeGroupBy(gb)}
-										className={`flex items-center gap-1.5 px-2.5 py-1 text-hint rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${treeGroupBy === gb ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+										className={`flex items-center gap-1.5 px-2.5 py-1 text-hint rounded-md transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${treeGroupBy === gb ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 									>
 										{gb === "ODS" && <Layers className="w-3 h-3" />}
 										{gb === "ORGAO" && <Building2 className="w-3 h-3" />}
@@ -599,7 +599,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 								key={mode}
 								type="button"
 								onClick={() => setViewMode(mode)}
-								className={`flex items-center gap-2 px-3 py-1.5 text-label rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+								className={`flex items-center gap-2 px-3 py-1.5 text-label rounded-md transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 							>
 								<Icon className="w-3 h-3" />
 								{label}
@@ -938,7 +938,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 								key={mode}
 								type="button"
 								onClick={() => setViewMode(mode)}
-								className={`px-3 py-1.5 text-hint whitespace-nowrap rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+								className={`px-3 py-1.5 text-hint whitespace-nowrap rounded-md transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 							>
 								{label}
 							</button>

@@ -162,7 +162,7 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 				</div>
 
 				{/* Resumo + Preview */}
-				<div className="rounded-[var(--radius)] border">
+				<div className="rounded-(--radius) border">
 					<div className="border-b bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
 						{find.trim() === "" ? (
 							"Digite um texto para localizar"

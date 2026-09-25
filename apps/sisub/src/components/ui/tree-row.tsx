@@ -153,7 +153,7 @@ export function TreeRow({
 					<div className="w-5" />
 				)}
 
-				<div className={cn("flex items-center justify-center size-7 shrink-0 rounded-[var(--radius)] border", tone.iconBg, tone.border)}>
+				<div className={cn("flex items-center justify-center size-7 shrink-0 rounded-(--radius) border", tone.iconBg, tone.border)}>
 					<Icon className={cn("size-3.5", tone.iconColor)} />
 				</div>
 

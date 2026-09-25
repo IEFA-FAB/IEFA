@@ -73,7 +73,7 @@ function RecipeHoverContent({ recipe }: { recipe: RecipeSummary }) {
 		<>
 			<div className="flex items-start gap-2">
 				<div
-					className={`flex size-7 shrink-0 items-center justify-center rounded-[var(--radius)] border ${
+					className={`flex size-7 shrink-0 items-center justify-center rounded-(--radius) border ${
 						isGlobal ? "border-primary/20 bg-primary/10" : "border-border/30 bg-muted/50"
 					}`}
 				>

@@ -252,7 +252,7 @@ function Home() {
 				</div>
 				<button
 					type="button"
-					className="flex justify-center pb-2 bg-transparent border-0 p-0 cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+					className="flex justify-center pb-2 bg-transparent border-0 p-0 cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"
 					onClick={() => document.getElementById("steps")?.scrollIntoView({ behavior: "smooth" })}
 					aria-label="Rolar para a cadeia operacional"
 				>

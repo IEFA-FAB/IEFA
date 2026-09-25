@@ -133,7 +133,7 @@ const ANALYSIS_NOTES = [
 function AccountFunctions() {
 	return (
 		<details className="group rounded-lg border border-border bg-muted/50">
-			<summary className="cursor-pointer list-none px-4 py-3 text-subheading text-foreground marker:content-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+			<summary className="cursor-pointer list-none px-4 py-3 text-subheading text-foreground marker:content-none focus-visible:ring-3 focus-visible:ring-ring/50">
 				Função contábil das contas confrontadas
 				<span className="ml-2 text-caption text-muted-foreground group-open:hidden">mostrar</span>
 				<span className="ml-2 text-caption text-muted-foreground hidden group-open:inline">ocultar</span>

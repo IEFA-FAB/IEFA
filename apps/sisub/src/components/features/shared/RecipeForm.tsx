@@ -575,8 +575,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											"field-sizing-content min-w-[10ch] max-w-full",
 											"-mx-2 rounded-md px-2 py-0.5",
 											"outline-none transition-colors hover:bg-muted/60 focus:bg-muted/60",
-											"focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground/60",
-											"aria-invalid:bg-destructive/5 aria-invalid:ring-[3px] aria-invalid:ring-destructive/40"
+											"focus-visible:ring-3 focus-visible:ring-ring/50 placeholder:text-muted-foreground/60",
+											"aria-invalid:bg-destructive/5 aria-invalid:ring-3 aria-invalid:ring-destructive/40"
 										)}
 									/>
 									{nameError ? (
