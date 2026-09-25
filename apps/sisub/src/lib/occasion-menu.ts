@@ -1,7 +1,12 @@
 /**
- * Eventos e exceções são o mesmo artefato — `menu_template` sem estrutura de semana, com o
- * pax por preparação — e diferem só no texto e na recorrência mensal da exceção. Cozinha e
+ * Eventos e apoios são o mesmo artefato — `menu_template` sem estrutura de semana, com o
+ * pax por preparação — e diferem só no texto e na recorrência mensal do apoio. Cozinha e
  * catálogo global montam as mesmas telas a partir destes rótulos.
+ *
+ * "Apoio" é o nome na tela do que o código e o banco chamam de `exception` (`template_type`,
+ * rotas `/exceptions`): o artefato nasceu como "Exceção" e foi renomeado só no texto, porque
+ * o valor é dado gravado e a rota é link salvo. Engloba os lanches de bordo e de apoio do
+ * Módulo 7 e os demais apoios previsíveis (coffee break, café de reunião).
  */
 
 import type { SnackClass, SnackFamily, SnackVariant } from "@iefa/sisub-domain/utils"
@@ -15,15 +20,15 @@ export type OccasionMenuType = "event" | "exception"
 export const OCCASION_DAY = 1
 
 type OccasionMenuCopy = {
-	/** "Evento" / "Exceção" */
+	/** "Evento" / "Apoio" */
 	singular: string
-	/** "Eventos" / "Exceções" */
+	/** "Eventos" / "Apoios" */
 	plural: string
-	/** "evento" / "exceção", no meio da frase */
+	/** "evento" / "apoio", no meio da frase */
 	noun: string
-	/** Artigo definido concordando com o gênero: "o" / "a" */
+	/** Artigo definido concordando com o gênero ("o evento", "o apoio") */
 	article: "o" | "a"
-	/** "Novo Evento" / "Nova Exceção" */
+	/** "Novo Evento" / "Novo Apoio" */
 	newLabel: string
 	namePlaceholder: string
 	/** Título da seção de itens desta cozinha / do catálogo */
@@ -45,15 +50,15 @@ export const OCCASION_MENU_COPY: Record<OccasionMenuType, OccasionMenuCopy> = {
 			"Eventos são cardápios de refeições especiais — datas comemorativas, formaturas, exercícios de campo, visitas. Não têm estrutura de semana: as preparações se agrupam por refeição, cada uma com o próprio efetivo.",
 	},
 	exception: {
-		singular: "Exceção",
-		plural: "Exceções",
-		noun: "exceção",
-		article: "a",
-		newLabel: "Nova Exceção",
-		namePlaceholder: "Ex.: Lanche de Bordo, Café de Reunião",
-		sectionTitle: "Cardápios de Exceção",
+		singular: "Apoio",
+		plural: "Apoios",
+		noun: "apoio",
+		article: "o",
+		newLabel: "Novo Apoio",
+		namePlaceholder: "Ex.: Lanche de Bordo, Lanche de Apoio, Coffee Break",
+		sectionTitle: "Cardápios de Apoio",
 		explainer:
-			"Exceções são refeições previsíveis e recorrentes — lanches de bordo, cafés de reunião. Crie um molde por tipo e informe quantas vezes por mês ele ocorre; o custeio do anexo quantitativo multiplica automaticamente.",
+			"Apoios são refeições previsíveis e recorrentes fora da rotina semanal — lanches de bordo e de apoio (Módulo 7), coffee breaks, cafés de reunião. Crie um molde por tipo e informe quantas vezes por mês ele ocorre; o custeio do anexo quantitativo multiplica automaticamente.",
 	},
 }
 

@@ -11,7 +11,7 @@ import { useTemplate } from "@/hooks/data/useTemplates"
  * URL: /kitchen/:kitchenId/exceptions/:exceptionId
  *
  * Exceções são refeições previsíveis fora da rotina semanal (lanche de bordo, café de reunião),
- * com ocorrências mensais que multiplicam o custeio no anexo quantitativo. Uma exceção modelo do catálogo
+ * com ocorrências mensais que multiplicam o custeio no anexo quantitativo. Um apoio modelo do catálogo
  * global aberta aqui vira cópia local desta cozinha ao salvar.
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/exceptions/$exceptionId")({

@@ -112,7 +112,7 @@ describe("buildCrumbs", () => {
 	})
 
 	it("rotula 'new' pelo recurso pai", () => {
-		expect(buildCrumbs("/kitchen/7/exceptions/new", ALL_NAV_ITEMS, SCOPE).at(-1)?.label).toBe("Nova Exceção")
+		expect(buildCrumbs("/kitchen/7/exceptions/new", ALL_NAV_ITEMS, SCOPE).at(-1)?.label).toBe("Novo Apoio")
 	})
 
 	it("resolve o escopo do estoque pelo nome da cozinha", () => {

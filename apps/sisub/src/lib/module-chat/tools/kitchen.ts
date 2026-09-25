@@ -317,7 +317,8 @@ const updateMenuHeadcount: ModuleToolDefinition = {
 
 const listMenuTemplates: ModuleToolDefinition = {
 	name: "list_menu_templates",
-	description: "Lista templates de cardápio semanal. Retorna templates globais (SDAB) e locais da cozinha.",
+	description:
+		'Lista templates de cardápio. Retorna templates globais (SDAB) e locais da cozinha. `template_type` distingue: weekly (plano semanal), event (evento) e exception — na tela, "Apoio" (lanches de bordo/apoio do Módulo 7, coffee break, café de reunião).',
 	parameters: {
 		type: "object",
 		properties: {

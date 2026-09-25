@@ -59,7 +59,7 @@ function KitchenSettingsPage() {
 								Tipos de Refeição
 							</CardTitle>
 							<CardDescription>
-								Além de café, almoço, janta e ceia, crie tipos próprios desta cozinha (ex.: colação). Disponíveis nos cardápios semanais, eventos e exceções.
+								Além de café, almoço, janta e ceia, crie tipos próprios desta cozinha (ex.: colação). Disponíveis nos cardápios semanais, eventos e apoios.
 							</CardDescription>
 						</CardHeader>
 						<CardContent>

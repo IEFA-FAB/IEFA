@@ -98,7 +98,7 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated, groups = 
 					)}
 					{item.origin_template_type === "exception" && (
 						<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-							Exceção
+							Apoio
 						</Badge>
 					)}
 					{item.substitutions && (

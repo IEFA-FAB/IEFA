@@ -22,7 +22,7 @@ interface GlobalTemplateCatalogProps {
 	title: string
 	description?: string
 	icon: LucideIcon
-	/** Singular no meio da frase, com artigo: "o plano", "o evento", "a exceção". */
+	/** Singular no meio da frase, com artigo: "o plano", "o evento", "o apoio". */
 	nounWithArticle: string
 	newLabel: string
 	emptyMessage: string
@@ -34,7 +34,7 @@ interface GlobalTemplateCatalogProps {
 
 /**
  * Listagem de um tipo de modelo do catálogo global (`kitchen_id = null`) — planos semanais,
- * eventos ou exceções —, com a lixeira do próprio catálogo.
+ * eventos ou apoios —, com a lixeira do próprio catálogo.
  * Acesso: leitura com `global:1`; criar, editar, remover e restaurar exigem `global:2`.
  */
 export function GlobalTemplateCatalog({
