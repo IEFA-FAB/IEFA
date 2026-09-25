@@ -2,8 +2,6 @@
 @import 'tw-animate-css';
 @import './fonts.css';
 
-@config "../tailwind.config";
-
 /* `dark:` vale nos dois casos: classe explícita no <html> (escolha do usuário,
    vinda do cookie e renderizada pelo servidor) e preferência do SO de quem ainda
    não escolheu. Sem o segundo caso, quem está no escuro do sistema veria os

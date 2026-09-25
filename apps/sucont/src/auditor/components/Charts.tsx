@@ -506,7 +506,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 		const textShadow = "0 1px 2px rgba(0,0,0,0.8)"
 
 		return (
-			<g className="recharts-treemap-node group cursor-pointer">
+			<g className="recharts-treemap-node cursor-pointer">
 				<rect
 					x={x}
 					y={y}
@@ -518,16 +518,6 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 						strokeWidth: 1.5,
 						transition: "all 0.3s ease",
 					}}
-				/>
-				<rect
-					x={x}
-					y={y}
-					width={width}
-					height={height}
-					fill="white"
-					fillOpacity={0}
-					className="group-hover:fill-opacity-10 transition-all duration-200"
-					style={{ pointerEvents: "none" }}
 				/>
 				<foreignObject x={x} y={y} width={width} height={height}>
 					<div className="w-full h-full flex flex-col items-center justify-center p-0.5 overflow-hidden pointer-events-none">

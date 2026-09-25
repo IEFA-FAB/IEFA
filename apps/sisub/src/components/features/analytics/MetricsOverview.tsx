@@ -64,7 +64,7 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 					<Card key={stat.meal} className={cn("border", color)}>
 						<CardContent className="p-4 md:p-6">
 							<div className="flex items-center gap-2 md:gap-3">
-								<div className={cn("bg", color, " p-2 rounded-md after:bg-foregorund/10")}>
+								<div className={cn(color, "p-2 rounded-md")}>
 									<Icon className={cn("size-4 md:h-5 md:w-5", iconColor)} aria-hidden="true" />
 								</div>
 								<div className="flex-1 min-w-0">

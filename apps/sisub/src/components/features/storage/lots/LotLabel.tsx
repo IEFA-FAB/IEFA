@@ -42,6 +42,7 @@ function Barcode39({ value, height = 44 }: { value: string; height?: number }) {
 	return (
 		<svg viewBox={`0 0 ${bars.total} ${height}`} height={height} width="100%" role="img" aria-label={`Código de barras ${value}`} preserveAspectRatio="none">
 			{bars.rects.map((rect) => (
+				// oxlint-disable-next-line shadcn/no-raw-colors -- código de barras impresso: preto em qualquer tema, senão o leitor não lê
 				<rect key={`${rect.x}-${rect.width}`} x={rect.x} y={0} width={rect.width} height={height} fill="black" />
 			))}
 		</svg>

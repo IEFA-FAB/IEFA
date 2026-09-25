@@ -3,8 +3,6 @@
 @import './fonts.css';
 @import './styles/cinco-s.css';
 
-@config "../tailwind.config";
-
 /* `dark:` vale nos dois casos: classe explícita no <html> (escolha do usuário,
    vinda do cookie e renderizada pelo servidor) e preferência do SO de quem ainda
    não escolheu. Sem o segundo caso, quem está no escuro do sistema veria os
@@ -411,6 +409,17 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--gray-500);
   }
+}
+
+/* Rolagem sem barra visível — a mesma do sisub, de onde veio o `sidebar.tsx`. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* pseudo-elemento precisa ficar fora do @utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* ---- UTILITÁRIOS BRUTALISTAS ---- */
