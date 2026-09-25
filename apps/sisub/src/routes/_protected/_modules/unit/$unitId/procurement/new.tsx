@@ -524,7 +524,7 @@ function NewAtaPage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Nova Ata de Registro de Preços" description="Configure os templates e calcule os quantitativos de aquisição." />
+			<PageHeader title="Novo Anexo Quantitativo do TR" description="Configure os templates e calcule os quantitativos de aquisição do Termo de Referência." />
 
 			{/* Indicador de steps */}
 			<div className="flex items-center justify-center py-2">
@@ -565,7 +565,7 @@ function NewAtaPage() {
 			{currentStep === 2 && (
 				<div className="space-y-4">
 					<p className="text-sm text-muted-foreground">
-						Selecione os eventos pontuais de cada cozinha e informe quantas vezes cada um ocorre durante a vigência da ata.
+						Selecione os eventos pontuais de cada cozinha e informe quantas vezes cada um ocorre durante a vigência prevista da ata.
 					</p>
 					{kitchenSelections.length === 0 ? (
 						<Card>
@@ -602,14 +602,14 @@ function NewAtaPage() {
 				<div className="space-y-4">
 					<p className="text-sm text-muted-foreground">
 						Produções fora da rotina que não são eventos — lanches de bordo, cafés de reunião. A quantidade vem das ocorrências mensais cadastradas no módulo
-						Exceções da cozinha, projetadas pela vigência da ata.
+						Exceções da cozinha, projetadas pela vigência prevista da ata.
 					</p>
 
 					<Card>
 						<CardContent className="pt-6">
 							<FieldGroup>
 								<Field>
-									<FieldLabel htmlFor="ata-validity">Vigência da ata (meses)</FieldLabel>
+									<FieldLabel htmlFor="ata-validity">Vigência prevista da ata (meses)</FieldLabel>
 									<Input
 										id="ata-validity"
 										type="number"
@@ -663,18 +663,18 @@ function NewAtaPage() {
 			{/* ── Step 4: Resumo e geração ────────────────────────────────────── */}
 			{currentStep === 4 && (
 				<div className="space-y-6">
-					{/* Metadados da Ata */}
+					{/* Metadados do anexo */}
 					<Card>
 						<CardContent className="pt-6">
 							<div className="space-y-4">
 								<FieldGroup>
 									<Field>
-										<FieldLabel htmlFor="ata-title">Título da Ata *</FieldLabel>
+										<FieldLabel htmlFor="ata-title">Título do anexo *</FieldLabel>
 										<Input
 											id="ata-title"
 											value={wizardState.title}
 											onChange={(e) => setWizardState((prev) => ({ ...prev, title: e.target.value }))}
-											placeholder="Ex: Ata de Registro de Preços nº 001/2026"
+											placeholder="Ex: Anexo Quantitativo do TR — Pregão 2026"
 											required
 										/>
 									</Field>
@@ -816,7 +816,7 @@ function NewAtaPage() {
 									Resumo
 								</Button>
 								<div className="flex items-center gap-3">
-									{justificationMissing && <span className="text-xs text-warning">Preencha a justificativa da margem no anexo</span>}
+									{justificationMissing && <span className="text-xs text-warning">Preencha a justificativa da margem nos limites de quantidade</span>}
 									{displayItems.length > 0 && (
 										<Button variant="outline" onClick={handleExportCSV} className="gap-2">
 											<Download className="size-4" aria-hidden="true" />
@@ -829,7 +829,7 @@ function NewAtaPage() {
 										className="gap-2"
 									>
 										<Save className="size-4" aria-hidden="true" />
-										{isFinalizing ? "Salvando..." : "Salvar ata"}
+										{isFinalizing ? "Salvando..." : "Salvar anexo"}
 									</Button>
 								</div>
 							</div>

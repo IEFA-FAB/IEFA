@@ -21,7 +21,10 @@ function GlobalEventEditorPage() {
 	const { data: template } = useTemplate(eventId)
 	useCrumbLabel(template?.name)
 	return (
+		// `key`: trocar de evento só pelo parâmetro da rota não remonta o editor, e o rascunho
+		// aberto citaria as refeições do evento anterior no salvamento seguinte.
 		<OccasionMenuEditor
+			key={eventId}
 			templateId={eventId}
 			templateType="event"
 			editContext={GLOBAL_CONTEXT}

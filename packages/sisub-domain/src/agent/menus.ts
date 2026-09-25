@@ -18,6 +18,7 @@ import {
 	dailyMenuInKitchen,
 	mealTypeInKitchen,
 	menuItemsInKitchen,
+	menuTemplateEventMealInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
 	recipesInKitchen,
@@ -146,6 +147,12 @@ export interface AgentTemplateItem {
 	recipe: string | null
 	group: string | null
 	headcount_override: number | null
+	/**
+	 * Refeição do evento (só em evento; nulo nos demais). Duas refeições podem estar no mesmo
+	 * horário — sem isto o modelo não saberia a qual devolver o item num `update_template`.
+	 */
+	event_meal_id: string | null
+	event_meal: string | null
 }
 
 /**
@@ -184,12 +191,20 @@ export async function agentGetTemplateItems(db: SisubDb, ctx: UserContext, input
 				mealType: mealTypeInKitchen.name,
 				mealSortOrder: mealTypeInKitchen.sortOrder,
 				recipe: recipesInKitchen.name,
+				eventMealId: menuTemplateItemsInKitchen.eventMealId,
+				eventMeal: menuTemplateEventMealInKitchen.name,
 			})
 			.from(menuTemplateItemsInKitchen)
 			.leftJoin(mealTypeInKitchen, eq(menuTemplateItemsInKitchen.mealTypeId, mealTypeInKitchen.id))
 			.leftJoin(recipesInKitchen, eq(menuTemplateItemsInKitchen.recipeId, recipesInKitchen.id))
+			.leftJoin(menuTemplateEventMealInKitchen, eq(menuTemplateItemsInKitchen.eventMealId, menuTemplateEventMealInKitchen.id))
 			.where(eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId))
-			.orderBy(asc(menuTemplateItemsInKitchen.dayOfWeek), asc(mealTypeInKitchen.sortOrder), asc(menuTemplateItemsInKitchen.sortOrder))
+			.orderBy(
+				asc(menuTemplateItemsInKitchen.dayOfWeek),
+				asc(mealTypeInKitchen.sortOrder),
+				asc(menuTemplateEventMealInKitchen.sortOrder),
+				asc(menuTemplateItemsInKitchen.sortOrder)
+			)
 	)
 
 	return rows.map((row) => ({
@@ -199,5 +214,7 @@ export async function agentGetTemplateItems(db: SisubDb, ctx: UserContext, input
 		recipe: row.recipe,
 		group: row.group,
 		headcount_override: row.headcountOverride,
+		event_meal_id: row.eventMealId,
+		event_meal: row.eventMeal,
 	}))
 }

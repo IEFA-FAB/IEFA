@@ -68,15 +68,15 @@ function UnitDashboardPage() {
 
 	return (
 		<div className="space-y-8">
-			<PageHeader title="Painel — Gestão Unidade" description="Visão geral das atas, estoques e alertas de suprimentos da unidade." />
+			<PageHeader title="Painel — Gestão Unidade" description="Visão geral dos anexos quantitativos, estoques e alertas de suprimentos da unidade." />
 
 			{/* ── Resumo numérico ──────────────────────────────────────────────── */}
 			<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 				<StatCard
 					icon={FileText}
-					label="Atas em vigor"
+					label="Anexos publicados"
 					value={publishedAtas.length}
-					sub={publishedAtas.length === 1 ? "ata publicada" : "atas publicadas"}
+					sub={publishedAtas.length === 1 ? "anexo quantitativo" : "anexos quantitativos"}
 					variant={publishedAtas.length === 0 ? "default" : "success"}
 				/>
 				<StatCard
@@ -95,10 +95,10 @@ function UnitDashboardPage() {
 				/>
 			</div>
 
-			{/* ── Seção 1: Atas em vigor ────────────────────────────────────────── */}
+			{/* ── Seção 1: Anexos publicados ────────────────────────────────────────── */}
 			<div className="space-y-3">
 				<div className="flex items-center justify-between">
-					<SectionTitle>Atas em vigor</SectionTitle>
+					<SectionTitle>Anexos publicados</SectionTitle>
 					<Button
 						size="sm"
 						variant="ghost"
@@ -116,15 +116,15 @@ function UnitDashboardPage() {
 					<Card>
 						<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 							<PackageSearch className="size-9 text-muted-foreground" />
-							<p className="text-subheading text-muted-foreground">Nenhuma ata publicada</p>
-							<p className="text-sm text-muted-foreground max-w-sm">Publique uma ata de registro de preços para que ela apareça aqui.</p>
+							<p className="text-subheading text-muted-foreground">Nenhum anexo publicado</p>
+							<p className="text-sm text-muted-foreground max-w-sm">Publique um anexo quantitativo do TR para que ele apareça aqui.</p>
 							<Button
 								size="sm"
 								variant="outline"
 								nativeButton={false}
 								render={
 									<Link to="/unit/$unitId/procurement" params={{ unitId: unitIdStr as string }}>
-										Ir para Atas
+										Ir para Anexos
 									</Link>
 								}
 							/>
@@ -142,7 +142,7 @@ function UnitDashboardPage() {
 								</CardHeader>
 								<Separator />
 								<CardContent className="pt-3 pb-3 flex items-center justify-between gap-2">
-									<p className="text-xs text-muted-foreground">Publicada em {fmtDate(ata.updated_at ?? ata.created_at)}</p>
+									<p className="text-xs text-muted-foreground">Publicado em {fmtDate(ata.updated_at ?? ata.created_at)}</p>
 									<Button
 										size="sm"
 										variant="outline"
@@ -183,7 +183,7 @@ function UnitDashboardPage() {
 						</Badge>
 					)}
 				</div>
-				<p className="text-sm text-muted-foreground -mt-1">Itens das ARPs vinculadas às atas publicadas com 80% ou mais do quantitativo já empenhado.</p>
+				<p className="text-sm text-muted-foreground -mt-1">Itens das ARPs vinculadas aos anexos publicados com 80% ou mais do quantitativo já empenhado.</p>
 				<LowBalanceTable items={lowBalanceItems} unitIdStr={unitIdStr as string} />
 			</div>
 

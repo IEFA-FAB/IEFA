@@ -167,7 +167,13 @@ export const ALL_MODULES: ModuleDef[] = [
 		scopeType: "unit",
 		items: [
 			{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard, keywords: ["visão geral", "alertas"] },
-			{ title: "Atas", url: "/unit/procurement", icon: FileText, group: "Contratação", keywords: ["ata", "arp", "registro de preços", "licitação"] },
+			{
+				title: "Anexos Quantitativos",
+				url: "/unit/procurement",
+				icon: FileText,
+				group: "Contratação",
+				keywords: ["anexo", "quantitativo", "tr", "termo de referência", "licitação", "arp", "registro de preços", "ata"],
+			},
 			{ title: "Crédito Disponível", url: "/unit/credit", icon: Landmark, group: "Execução orçamentária", keywords: ["saldo", "orçamento", "nc"] },
 			{ title: "Empenhos", url: "/unit/empenhos", icon: FileSignature, group: "Execução orçamentária", keywords: ["ne", "nota de empenho"] },
 			{ title: "Liquidações", url: "/unit/liquidations", icon: Receipt, minLevel: 2, group: "Execução orçamentária", keywords: ["ns", "liquidar"] },

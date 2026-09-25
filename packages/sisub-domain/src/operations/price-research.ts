@@ -123,16 +123,16 @@ async function authorizeAtaTarget(db: SisubDb, ctx: UserContext, ataId?: string,
 					.from(procurementListItemInProcurement)
 					.where(eq(procurementListItemInProcurement.id, ataItemId))
 					.limit(1),
-			{ prefix: "Erro ao validar item da ATA" }
+			{ prefix: "Erro ao validar item do anexo quantitativo" }
 		)
 		const item = rows[0]
 		if (!item || (listId != null && item.listId !== listId)) {
-			throw new DomainError("VALIDATION_FAILED", "ataItemId não pertence à ATA informada")
+			throw new DomainError("VALIDATION_FAILED", "ataItemId não pertence ao anexo quantitativo informado")
 		}
 		listId = item.listId
 	}
 
-	if (listId == null) throw new DomainError("VALIDATION_FAILED", "ataItemId não pertence à ATA informada")
+	if (listId == null) throw new DomainError("VALIDATION_FAILED", "ataItemId não pertence ao anexo quantitativo informado")
 
 	// `const` antes da query: o narrowing de um `let` não sobrevive à captura pelo callback.
 	const targetListId = listId
@@ -145,7 +145,7 @@ async function authorizeAtaTarget(db: SisubDb, ctx: UserContext, ataId?: string,
 				.from(procurementListInProcurement)
 				.where(eq(procurementListInProcurement.id, targetListId))
 				.limit(1),
-		{ prefix: "Erro ao validar ATA" }
+		{ prefix: "Erro ao validar anexo quantitativo" }
 	)
 	const list = lists[0]
 	if (!list) throw new NotFoundError("ata", targetListId)

@@ -22,7 +22,7 @@ function GlobalExceptionsPage() {
 		<GlobalTemplateCatalog
 			templateType="exception"
 			title="Exceções Modelo"
-			description="Refeições previsíveis fora da rotina semanal — lanches de bordo, cafés de reunião — que as cozinhas adaptam para a própria Ata."
+			description="Refeições previsíveis fora da rotina semanal — lanches de bordo, cafés de reunião — que as cozinhas adaptam para o próprio anexo quantitativo do TR."
 			icon={Sandwich}
 			nounWithArticle="a exceção"
 			newLabel="Nova Exceção"

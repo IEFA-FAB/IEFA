@@ -8,7 +8,7 @@ import { OccasionMenuForm } from "@/components/features/local/planning/OccasionM
  * Cria um cardápio de exceção previsível (template_type = 'exception') vinculado à cozinha, do
  * zero ou adaptando uma exceção modelo do catálogo global.
  * - Search param `forkFrom`: ID da exceção global a ser adaptada
- * Esses templates são selecionados no Step 2 da Ata de Registro de Preços, multiplicados
+ * Esses templates são selecionados no Step 3 do anexo quantitativo do TR, multiplicados
  * pela recorrência mensal esperada.
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/exceptions/new")({

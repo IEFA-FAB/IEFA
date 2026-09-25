@@ -8,7 +8,7 @@ import { OccasionMenuForm } from "@/components/features/local/planning/OccasionM
  * Cria um cardápio de evento especial (template_type = 'event') vinculado à cozinha atual, do
  * zero ou adaptando um evento modelo do catálogo global.
  * - Search param `forkFrom`: ID do evento global a ser adaptado
- * Esses templates são selecionados no Step 2 da Ata de Registro de Preços.
+ * Esses templates são selecionados no Step 2 do anexo quantitativo do TR.
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/events/new")({
 	validateSearch: z.object({

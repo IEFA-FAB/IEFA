@@ -242,14 +242,14 @@ describe("get_ata_details", () => {
 		await expect(tool("get_ata_details").handler({ ataId: UUID }, ctx)).rejects.toThrow(ToolPermissionError)
 	})
 
-	test("ATA inexistente responde 'não encontrada' em vez de vazar erro do banco", async () => {
+	test("anexo inexistente responde 'não encontrado' em vez de vazar erro do banco", async () => {
 		const queries: RecordedQuery[] = []
 		const ctx = ctxFor({ procurement_list: [{ error: { message: "no rows", code: "PGRST116" } }] }, queries)
 
 		const result = await tool("get_ata_details").handler({ ataId: UUID }, ctx)
 
 		expect(result.success).toBe(false)
-		expect(result.error).toBe("ATA não encontrada")
+		expect(result.error).toBe("Anexo quantitativo não encontrado")
 	})
 })
 

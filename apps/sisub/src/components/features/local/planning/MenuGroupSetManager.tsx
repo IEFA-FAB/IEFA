@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useCreateMenuGroupSet, useDeleteMenuGroupSet, useMenuGroupSets, useUpdateMenuGroupSet } from "@/hooks/data/useMenuGroups"
+import { menuGroupKeyFromLabel } from "@/lib/menu-item-groups"
 
 /**
  * Conjuntos de grupos do cardápio — os "templates de grupos" que cada refeição
@@ -17,19 +18,6 @@ import { useCreateMenuGroupSet, useDeleteMenuGroupSet, useMenuGroupSets, useUpda
  * dela (normalmente duplicando um global) sem tocar no de ninguém. A duplicação
  * existe porque começar do zero é o caminho para um conjunto com uma coluna só.
  */
-
-/** Chave técnica derivada do rótulo — é ela que fica gravada em `item_group`. */
-function slugify(label: string): string {
-	const base = label
-		.normalize("NFD")
-		.replace(/[̀-ͯ]/g, "")
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "_")
-		.replace(/^_+|_+$/g, "")
-	// O banco exige começar por letra e ter ao menos 2 caracteres.
-	const safe = /^[a-z]/.test(base) ? base : `g_${base}`
-	return safe.length >= 2 ? safe.slice(0, 40) : `${safe}_1`
-}
 
 type DraftGroup = { key: string; label: string }
 
@@ -72,7 +60,7 @@ function GroupSetEditor({
 	// A chave é derivada do rótulo só quando o grupo é NOVO. Regerar a chave de um
 	// grupo existente ao renomear o rótulo desclassificaria o cardápio inteiro
 	// daquela coluna — o item ficaria apontando para uma chave que sumiu.
-	const payloadGroups = filled.map((g) => ({ key: g.key || slugify(g.label), label: g.label.trim() }))
+	const payloadGroups = filled.map((g) => ({ key: g.key || menuGroupKeyFromLabel(g.label), label: g.label.trim() }))
 	const duplicateKey = payloadGroups.find((g, i) => payloadGroups.findIndex((o) => o.key === g.key) !== i)
 	const canSave = name.trim().length > 0 && payloadGroups.length > 0 && !duplicateKey && !hasBlank
 

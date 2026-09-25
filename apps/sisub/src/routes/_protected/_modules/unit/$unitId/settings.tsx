@@ -245,7 +245,7 @@ function UnitSettingsForm({ unitId, defaultValues }: { unitId: number; defaultVa
 						<Building2 className="size-4 text-muted-foreground" aria-hidden="true" />
 						<CardTitle className="text-base">Dados de Licitação</CardTitle>
 					</div>
-					<CardDescription>Informações utilizadas na geração de atas de Registro de Preços no ComprasNet.</CardDescription>
+					<CardDescription>Informações utilizadas na licitação e na busca de ARPs no Compras.gov.br.</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<FieldGroup>

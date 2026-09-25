@@ -129,7 +129,8 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 				<DialogHeader>
 					<DialogTitle>Vincular ARP ao Compras.gov.br</DialogTitle>
 					<DialogDescription>
-						Busque a Ata de Registro de Preços (ARP) correspondente a esta ATA interna. Os itens serão importados e casados automaticamente por código CATMAT.
+						Busque a Ata de Registro de Preços (ARP) homologada que corresponde a este anexo quantitativo. Os itens serão importados e casados automaticamente
+						por código CATMAT.
 					</DialogDescription>
 				</DialogHeader>
 

@@ -614,4 +614,193 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as { menu_items: { recipe_origin_id: string | null }[] }[]
 		expect(details.flatMap((m) => m.menu_items).map((i) => i.recipe_origin_id)).toEqual([manualRecipe])
 	})
+
+	// ── Refeições próprias do evento ───────────────────────────────────────────
+
+	const EVENT_GROUPS = [
+		{ key: "entrada", label: "Entradas" },
+		{ key: "volante", label: "Volantes" },
+	]
+
+	test("evento: refeições fazem round-trip e o item sai com o horário da refeição", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		const otherMealType = await seeder.seedMealType({ kitchenId })
+		const coquetelId = crypto.randomUUID()
+
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Evento "),
+			kitchenId,
+			templateType: "event",
+			eventMeals: [{ id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS }],
+			// O `mealTypeId` do item de evento é descartado: vale o horário da refeição.
+			items: [{ dayOfWeek: 1, mealTypeId: otherMealType, recipeId, itemGroup: "volante", recommendedProportion: null, eventMealId: coquetelId }],
+		})
+		trackTemplate(tpl.id)
+
+		const full = await getTemplate(db, ctx, { templateId: tpl.id })
+		expect(full.event_meals).toEqual([expect.objectContaining({ id: coquetelId, name: "Coquetel", meal_type_id: mealTypeId, groups: EVENT_GROUPS })])
+		expect(full.items).toHaveLength(1)
+		expect(full.items[0]?.event_meal_id).toBe(coquetelId)
+		expect(full.items[0]?.meal_type_id).toBe(mealTypeId)
+		expect(full.items[0]?.item_group).toBe("volante")
+	})
+
+	test("evento: item sem refeição, ou em grupo fora da composição, é recusado", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		const coquetelId = crypto.randomUUID()
+		const eventMeals = [{ id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS }]
+
+		await expect(
+			createTemplate(db, ctx, {
+				name: uid("[TEST] Evento "),
+				kitchenId,
+				templateType: "event",
+				items: [{ dayOfWeek: 1, mealTypeId, recipeId, recommendedProportion: null }],
+			})
+		).rejects.toThrow(/refeição do evento/)
+		await expect(
+			createTemplate(db, ctx, {
+				name: uid("[TEST] Evento "),
+				kitchenId,
+				templateType: "event",
+				eventMeals,
+				items: [{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "sobremesa", recommendedProportion: null, eventMealId: coquetelId }],
+			})
+		).rejects.toThrow(/não existe na refeição/)
+		await expect(createTemplate(db, ctx, { name: uid("[TEST] Semanal "), kitchenId, templateType: "weekly", eventMeals })).rejects.toThrow(/só em evento/)
+	})
+
+	test("evento: mudar o horário da refeição sem mandar itens move os itens; tirar a refeição leva os itens", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		const almoco = await seeder.seedMealType({ kitchenId })
+		const coquetelId = crypto.randomUUID()
+		const galaId = crypto.randomUUID()
+		const context = { scope: "kitchen" as const, kitchenId }
+
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Evento "),
+			kitchenId,
+			templateType: "event",
+			eventMeals: [
+				{ id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS },
+				{ id: galaId, name: "Gala", mealTypeId, groups: EVENT_GROUPS },
+			],
+			items: [
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "entrada", recommendedProportion: null, eventMealId: coquetelId },
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "entrada", recommendedProportion: null, eventMealId: galaId },
+			],
+		})
+		trackTemplate(tpl.id)
+
+		// Só as refeições: o coquetel vira almoço e a gala sai.
+		await saveTemplateEdit(db, ctx, {
+			templateId: tpl.id,
+			context,
+			eventMeals: [{ id: coquetelId, name: "Coquetel de boas-vindas", mealTypeId: almoco, groups: EVENT_GROUPS }],
+		})
+
+		const full = await getTemplate(db, ctx, { templateId: tpl.id })
+		expect(full.event_meals.map((m) => [m.id, m.name, m.meal_type_id])).toEqual([[coquetelId, "Coquetel de boas-vindas", almoco]])
+		expect(full.items.map((i) => [i.event_meal_id, i.meal_type_id])).toEqual([[coquetelId, almoco]])
+
+		// Só a composição, sem o grupo "entrada" do item: o item fica sem grupo, e a gravação
+		// completa que devolve os itens como estão continua aceita.
+		const semEntrada = EVENT_GROUPS.filter((g) => g.key !== "entrada")
+		const meals = [{ id: coquetelId, name: "Coquetel de boas-vindas", mealTypeId: almoco, groups: semEntrada }]
+		await saveTemplateEdit(db, ctx, { templateId: tpl.id, context, eventMeals: meals })
+		const regrouped = await getTemplate(db, ctx, { templateId: tpl.id })
+		expect(regrouped.items.map((i) => i.item_group)).toEqual([null])
+		await saveTemplateEdit(db, ctx, {
+			templateId: tpl.id,
+			context,
+			eventMeals: meals,
+			items: regrouped.items.map((i) => ({
+				dayOfWeek: i.day_of_week ?? 1,
+				mealTypeId: i.meal_type_id ?? almoco,
+				recipeId: i.recipe_id ?? recipeId,
+				itemGroup: i.item_group,
+				recommendedProportion: null,
+				eventMealId: i.event_meal_id,
+			})),
+		})
+	})
+
+	test("evento global editado na cozinha: a cópia ganha refeições com ids novos, e o molde fica intacto", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, recipeId } = await base()
+		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
+		const coquetelId = crypto.randomUUID()
+		const eventMeals = [{ id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS }]
+		const items = [{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "volante", recommendedProportion: null, headcountOverride: 80, eventMealId: coquetelId }]
+
+		const global = await createTemplate(db, ctx, { name: uid("[TEST] Evento global "), templateType: "event", eventMeals, items })
+		trackTemplate(global.id)
+
+		// O editor manda o conteúdo com os ids do MOLDE — a primeira vez cria a cópia, a segunda
+		// aplica na cópia que já existe. Nas duas os ids precisam ser trocados.
+		for (const name of ["Coquetel da cozinha", "Coquetel da cozinha (2)"]) {
+			const { template: fork, forked } = await saveTemplateEdit(db, ctx, {
+				templateId: global.id,
+				context: { scope: "kitchen", kitchenId },
+				eventMeals: [{ ...eventMeals[0], name } as (typeof eventMeals)[number]],
+				items,
+			})
+			trackTemplate(fork.id)
+			expect(forked).toBe(true)
+
+			const copy = await getTemplate(db, ctx, { templateId: fork.id })
+			expect(copy.event_meals).toHaveLength(1)
+			const [meal] = copy.event_meals
+			expect(meal?.id).not.toBe(coquetelId)
+			expect(meal?.name).toBe(name)
+			expect(copy.items.map((i) => [i.event_meal_id, i.headcount_override])).toEqual([[meal?.id, 80]])
+		}
+
+		const original = await getTemplate(db, ctx, { templateId: global.id })
+		expect(original.event_meals.map((m) => [m.id, m.name])).toEqual([[coquetelId, "Coquetel"]])
+
+		// forkTemplate direto segue a mesma regra.
+		const fork = await forkTemplate(db, ctx, { sourceTemplateId: global.id, targetKitchenId: kitchenId, newName: uid("[TEST] Fork evento ") })
+		trackTemplate(fork.id)
+		const forked = await getTemplate(db, ctx, { templateId: fork.id })
+		expect(forked.event_meals[0]?.id).not.toBe(coquetelId)
+		expect(forked.items[0]?.event_meal_id).toBe(forked.event_meals[0]?.id)
+	})
+
+	test("evento global na cozinha: refeição omitida sai com os itens; com cópia existente, metade do conteúdo é recusada", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, recipeId } = await base()
+		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
+		const coquetelId = crypto.randomUUID()
+		const galaId = crypto.randomUUID()
+		const coquetel = { id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS }
+		const gala = { id: galaId, name: "Gala", mealTypeId, groups: EVENT_GROUPS }
+
+		const global = await createTemplate(db, ctx, {
+			name: uid("[TEST] Evento global "),
+			templateType: "event",
+			eventMeals: [coquetel, gala],
+			items: [
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "entrada", recommendedProportion: null, eventMealId: coquetelId },
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "entrada", recommendedProportion: null, eventMealId: galaId },
+			],
+		})
+		trackTemplate(global.id)
+
+		// Primeira adaptação sem itens e sem a gala: a cópia nasce só com o coquetel e o item dele.
+		const { template: fork } = await saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "kitchen", kitchenId }, eventMeals: [coquetel] })
+		trackTemplate(fork.id)
+		const copy = await getTemplate(db, ctx, { templateId: fork.id })
+		expect(copy.event_meals.map((m) => m.name)).toEqual(["Coquetel"])
+		expect(copy.items).toHaveLength(1)
+		expect(copy.items[0]?.event_meal_id).toBe(copy.event_meals[0]?.id)
+
+		// Com a cópia já existente, só refeições (ou só itens) sobrescreveria a outra metade dela com a do molde.
+		await expect(saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "kitchen", kitchenId }, eventMeals: [coquetel] })).rejects.toThrow(
+			/eventMeals e items juntos/
+		)
+	})
 })

@@ -307,9 +307,11 @@ export type {
 } from "./menu-groups.ts"
 export {
 	CreateMenuGroupSetSchema,
+	DEFAULT_EVENT_MEAL_GROUPS,
 	DEFAULT_GROUP_SET_SLUG,
 	DEFAULT_MENU_GROUP_SETS,
 	DeleteMenuGroupSetSchema,
+	EVENT_MEAL_GROUP_SUGGESTIONS,
 	FALLBACK_MENU_GROUPS,
 	FetchMenuGroupSetsSchema,
 	MenuGroupSchema,
@@ -627,6 +629,7 @@ export type {
 	ListTemplates,
 	RestoreTemplate,
 	SaveTemplateEdit,
+	TemplateEventMeal,
 	TemplateItem,
 	UpdateTemplate,
 } from "./templates.ts"
@@ -639,8 +642,11 @@ export {
 	ForkTemplateSchema,
 	GetTemplateSchema,
 	ListTemplatesSchema,
+	MAX_EVENT_MEAL_GROUPS,
+	MAX_EVENT_MEALS,
 	RestoreTemplateSchema,
 	SaveTemplateEditSchema,
+	TemplateEventMealSchema,
 	TemplateItemSchema,
 	UpdateTemplateSchema,
 } from "./templates.ts"

@@ -24,7 +24,7 @@ interface AtaStepIndicatorProps {
 
 export function AtaStepIndicator({ currentStep }: AtaStepIndicatorProps) {
 	return (
-		<nav aria-label="Etapas da Ata" className="flex items-center gap-0">
+		<nav aria-label="Etapas do anexo quantitativo" className="flex items-center gap-0">
 			{STEPS.map((step, index) => {
 				const isCompleted = step.number < currentStep
 				const isActive = step.number === currentStep

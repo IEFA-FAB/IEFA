@@ -276,7 +276,7 @@ function EmpenhosPage() {
 					{empenhos.length === 0 ? (
 						<div className="text-center py-10 text-muted-foreground">
 							<FileSignature className="size-8 mx-auto mb-2 opacity-50" />
-							<p className="text-sm">Nenhum empenho registrado. Lance pela tela da ATA ou importe as NE do Tesouro Gerencial.</p>
+							<p className="text-sm">Nenhum empenho registrado. Lance pela tela do anexo quantitativo ou importe as NE do Tesouro Gerencial.</p>
 						</div>
 					) : (
 						<table className="w-full text-sm">

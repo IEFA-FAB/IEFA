@@ -33,8 +33,8 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurem
 
 const STATUS_LABELS: Record<string, string> = {
 	draft: "Rascunho",
-	published: "Publicada",
-	archived: "Arquivada",
+	published: "Publicado",
+	archived: "Arquivado",
 }
 
 const STATUS_VARIANTS: Record<string, "secondary" | "default" | "outline"> = {
@@ -73,7 +73,7 @@ function AtaDetailPage() {
 		() => (ata ? { validityMonths: ata.validity_months, maxMarginPercent: ata.max_margin_percent, marginJustification: ata.margin_justification } : null),
 		[ata]
 	)
-	// Rascunho calcula na hora; publicada mostra o que o snapshot congelou — nunca recalcula
+	// Rascunho calcula na hora; publicado mostra o que o snapshot congelou — nunca recalcula
 	// um documento publicado com a regra ou a conservação de hoje.
 	const annexRows = useMemo(() => {
 		if (!ata || !annexSettings) return []
@@ -154,7 +154,7 @@ function AtaDetailPage() {
 	if (!ata) {
 		return (
 			<div className="py-12 text-center">
-				<p className="text-muted-foreground">Ata não encontrada.</p>
+				<p className="text-muted-foreground">Anexo quantitativo não encontrado.</p>
 				<Button
 					variant="outline"
 					size="sm"
@@ -177,7 +177,7 @@ function AtaDetailPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title={ata.title}
-				description={`Criada em ${new Date(ata.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`}
+				description={`Criado em ${new Date(ata.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`}
 			>
 				<div className="flex items-center gap-2">
 					<Button
@@ -187,7 +187,7 @@ function AtaDetailPage() {
 						render={
 							<Link to="/unit/$unitId/procurement" params={{ unitId: unitIdStr as string }}>
 								<ArrowLeft className="size-4 mr-1.5" aria-hidden="true" />
-								Atas
+								Anexos
 							</Link>
 						}
 					/>
@@ -200,7 +200,7 @@ function AtaDetailPage() {
 							size="sm"
 							onClick={() => updateStatus({ ataId: ata.id, status: "published" })}
 							disabled={isUpdating || justificationMissing}
-							title={justificationMissing ? "Preencha a justificativa da margem no anexo de quantitativos" : undefined}
+							title={justificationMissing ? "Preencha a justificativa da margem nos limites de quantidade" : undefined}
 							className="gap-2"
 						>
 							<Send className="size-4" aria-hidden="true" />
@@ -254,8 +254,8 @@ function AtaDetailPage() {
 						<div className="text-sm">
 							<p className="font-medium text-foreground">Quantitativos desatualizados</p>
 							<p className="text-foreground">
-								Um cardápio ou evento desta ATA foi editado após o último cálculo. Refaça o cálculo dos quantitativos para refletir a composição atual antes de
-								publicar.
+								Um cardápio ou evento deste anexo foi editado após o último cálculo. Refaça o cálculo dos quantitativos para refletir a composição atual antes
+								de publicar.
 							</p>
 						</div>
 					</CardContent>
@@ -322,7 +322,7 @@ function AtaDetailPage() {
 				</div>
 			)}
 
-			{/* Itens da Ata */}
+			{/* Itens do anexo */}
 			<AtaItemsTable data={needs} onPesquisarPreco={(item) => setPriceResearchItem(item)} onUpdateDescription={handleDescriptionChange} />
 
 			{annexSettings && annexRows.length > 0 && (
@@ -341,7 +341,7 @@ function AtaDetailPage() {
 					<div>
 						<h2 className="text-heading">ARP & Empenhos</h2>
 						<p className="text-xs text-muted-foreground mt-0.5">
-							Vincule a Ata de Registro de Preços do Compras.gov.br e registre os empenhos emitidos por item.
+							Depois da licitação homologada, vincule a Ata de Registro de Preços do Compras.gov.br e registre os empenhos emitidos por item.
 						</p>
 					</div>
 					{!arp && !isArpLoading && (
@@ -370,9 +370,9 @@ function AtaDetailPage() {
 				) : (
 					<Card>
 						<CardContent className="py-10 text-center space-y-2">
-							<p className="text-sm text-muted-foreground">Nenhuma ARP vinculada a esta ATA.</p>
+							<p className="text-sm text-muted-foreground">Nenhuma ARP vinculada a este anexo.</p>
 							<p className="text-xs text-muted-foreground">
-								Clique em <strong>Vincular ARP</strong> para buscar e importar a Ata de Registro de Preços correspondente no Compras.gov.br.
+								Clique em <strong>Vincular ARP</strong> para buscar e importar a Ata de Registro de Preços homologada no Compras.gov.br.
 							</p>
 						</CardContent>
 					</Card>

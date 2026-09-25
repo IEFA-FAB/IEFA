@@ -106,3 +106,30 @@ export const DEFAULT_MENU_GROUP_SETS = [
 
 /** Grupos do conjunto padrão — a lista que a interface usa quando não há conjunto. */
 export const FALLBACK_MENU_GROUPS: readonly MenuGroupInput[] = DEFAULT_MENU_GROUP_SETS[0].groups
+
+/**
+ * Composição com que uma refeição de EVENTO nasce. Evento não é rotina: um coquetel tem
+ * entradas e volantes, um jantar de gala tem entrada, prato principal e sobremesa. O editor
+ * deixa renomear, reordenar e tirar qualquer um — isto só evita a refeição nascer sem coluna.
+ */
+export const DEFAULT_EVENT_MEAL_GROUPS: readonly MenuGroupInput[] = [
+	{ key: "entrada", label: "Entradas" },
+	{ key: "volante", label: "Volantes" },
+	{ key: "prato_principal", label: "Prato principal" },
+	{ key: "sobremesa", label: "Sobremesas" },
+	{ key: "bebida", label: "Bebidas" },
+]
+
+/**
+ * Grupos que o editor de evento oferece com um clique, além de digitar um novo. A chave é
+ * estável por rótulo: "Volantes" de dois eventos cai na mesma coluna quando os dois são
+ * aplicados no mesmo dia.
+ */
+export const EVENT_MEAL_GROUP_SUGGESTIONS: readonly MenuGroupInput[] = [
+	...DEFAULT_EVENT_MEAL_GROUPS,
+	{ key: "canape", label: "Canapés" },
+	{ key: "salada", label: "Salada" },
+	{ key: "guarnicao", label: "Guarnição" },
+	{ key: "acompanhamento", label: "Acompanhamento" },
+	{ key: "fruta", label: "Frutas" },
+]

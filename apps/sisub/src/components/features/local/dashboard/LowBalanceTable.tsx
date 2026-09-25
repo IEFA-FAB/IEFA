@@ -14,7 +14,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 				<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 					<CheckCircle2 className="size-9 text-success" />
 					<p className="text-subheading">Nenhum item com saldo crítico</p>
-					<p className="text-sm text-muted-foreground max-w-sm">Todos os itens das ARPs vinculadas às atas publicadas estão com saldo confortável.</p>
+					<p className="text-sm text-muted-foreground max-w-sm">Todos os itens das ARPs vinculadas aos anexos publicados estão com saldo confortável.</p>
 				</CardContent>
 			</Card>
 		)
@@ -27,7 +27,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 					<thead>
 						<tr className="border-b bg-muted/40 text-xs text-muted-foreground">
 							<th className="py-2.5 px-3 text-left text-label">Descrição / CATMAT</th>
-							<th className="py-2.5 px-3 text-left text-label hidden md:table-cell">ARP / ATA</th>
+							<th className="py-2.5 px-3 text-left text-label hidden md:table-cell">ARP / Anexo</th>
 							<th className="py-2.5 px-3 text-right text-label w-28 hidden sm:table-cell">Qtd Reg.</th>
 							<th className="py-2.5 px-3 text-right text-label w-28 hidden sm:table-cell">Saldo</th>
 							<th className="py-2.5 px-3 text-left text-label w-40">Consumido</th>

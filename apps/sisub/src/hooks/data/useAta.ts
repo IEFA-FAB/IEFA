@@ -86,9 +86,9 @@ export function useCreateAta() {
 			}),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.listAll() })
-			toast.success(`Ata "${data?.title}" criada com sucesso!`)
+			toast.success(`Anexo "${data?.title}" criado com sucesso!`)
 		},
-		onError: (error) => toast.error(`Erro ao criar ata: ${error.message}`),
+		onError: (error) => toast.error(`Erro ao criar anexo quantitativo: ${error.message}`),
 	})
 }
 
@@ -100,10 +100,10 @@ export function useUpdateAtaStatus() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.all() })
 			const labels: Record<string, string> = {
 				draft: "Rascunho",
-				published: "Publicada",
-				archived: "Arquivada",
+				published: "Publicado",
+				archived: "Arquivado",
 			}
-			toast.success(`Ata atualizada para "${labels[variables.status]}"`)
+			toast.success(`Anexo atualizado para "${labels[variables.status]}"`)
 		},
 		onError: (error) => toast.error(`Erro ao atualizar status: ${error.message}`),
 	})
@@ -115,9 +115,9 @@ export function useDeleteAta() {
 		mutationFn: (ataId: string) => deleteAtaFn({ data: { ataId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.listAll() })
-			toast.success("Ata removida.")
+			toast.success("Anexo removido.")
 		},
-		onError: (error) => toast.error(`Erro ao remover ata: ${error.message}`),
+		onError: (error) => toast.error(`Erro ao remover anexo quantitativo: ${error.message}`),
 	})
 }
 
@@ -227,8 +227,8 @@ export function useFinalizeAtaDraft() {
 		onSuccess: (data, variables) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.listAll() })
 			queryClient.removeQueries({ queryKey: queryKeys.ata.draft(variables.draftId) })
-			toast.success(`Ata "${data?.title}" salva com sucesso!`)
+			toast.success(`Anexo "${data?.title}" salvo com sucesso!`)
 		},
-		onError: (error) => toast.error(`Erro ao finalizar ata: ${error.message}`),
+		onError: (error) => toast.error(`Erro ao finalizar anexo quantitativo: ${error.message}`),
 	})
 }
