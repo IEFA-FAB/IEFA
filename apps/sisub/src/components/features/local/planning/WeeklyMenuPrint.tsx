@@ -18,6 +18,7 @@ import { useTemplate } from "@/hooks/data/useTemplates"
 import {
 	buildPreparationEntries,
 	type CardapioPrintOptions,
+	DEFAULT_COMMAND_TABLE_MAX_PROPORTION,
 	DEFAULT_PRINT_OPTIONS,
 	describeAllergens,
 	INGREDIENTS_MODE_LABELS,
@@ -202,7 +203,20 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const updateOptions = (patch: Partial<CardapioPrintOptions>) => setOptions((prev) => ({ ...prev, ...patch }))
 
 	// Ingredientes das fichas do cardápio: só buscados quando a opção pede.
-	const originIds = useMemo(() => [...new Set((template?.items ?? []).flatMap((i) => (i.recipe_origin?.id ? [i.recipe_origin.id] : [])))], [template])
+	// Mesa de comando sai da grade E da lista de preparações: uma ficha que só ela usa, listada
+	// sem prato correspondente na grade, anunciaria o que a folha acabou de esconder.
+	const { hideCommandTable, commandTableMaxProportion } = options
+	const printedItems = useMemo(
+		() => (template?.items ?? []).filter((item) => !isCommandTableItem(item, { hideCommandTable, commandTableMaxProportion })),
+		[template, hideCommandTable, commandTableMaxProportion]
+	)
+	// Conta o que sumiria da grade: item sem dia ou refeição nunca apareceu nela.
+	const hiddenCount = (template?.items ?? []).filter(
+		(item) => item.day_of_week != null && item.meal_type_id && isCommandTableItem(item, { hideCommandTable, commandTableMaxProportion })
+	).length
+
+	// Só as fichas que saem na folha: ingrediente de ficha oculta seria busca (e espera) à toa.
+	const originIds = useMemo(() => [...new Set(printedItems.flatMap((i) => (i.recipe_origin?.id ? [i.recipe_origin.id] : [])))], [printedItems])
 	const wantsIngredients = options.ingredients !== "none"
 	const digestsQuery = useQuery({
 		queryKey: queryKeys.recipes.ingredientDigests(originIds),
@@ -290,11 +304,6 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 
 	// Ordena os tipos de refeição (linhas da grade) por sort_order → nome.
 	const orderedMealTypes = (mealTypes ?? []).slice().sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999) || (a.name ?? "").localeCompare(b.name ?? ""))
-
-	// Mesa de comando sai da grade E da lista de preparações: uma ficha que só ela usa, listada
-	// sem prato correspondente na grade, anunciaria o que a folha acabou de esconder.
-	const printedItems = template.items.filter((item) => !isCommandTableItem(item, options))
-	const hiddenCount = template.items.length - printedItems.length
 
 	// Índice (dia → refeição → preparações), ordenadas pela ordem de leitura do
 	// CONJUNTO daquela refeição e depois pela posição dentro do grupo.
@@ -511,16 +520,19 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 						aria-label="Porcentagem máxima da mesa de comando"
 						className="w-20"
 						disabled={!options.hideCommandTable}
-						value={options.commandTableMaxProportion}
+						// Não controlado: controlado, apagar o campo para redigitar era desfeito na hora
+						// (valor vazio não vira número) e "3" virava "53".
+						defaultValue={DEFAULT_COMMAND_TABLE_MAX_PROPORTION}
 						onChange={(e) => {
 							const next = e.target.valueAsNumber
-							if (Number.isFinite(next) && next >= 0) updateOptions({ commandTableMaxProportion: next })
+							// Até 100%: acima disso a porcentagem é do per capita, e esconderia o prato principal.
+							if (Number.isFinite(next) && next >= 0 && next <= 100) updateOptions({ commandTableMaxProportion: next })
 						}}
 					/>
 					<span>% do efetivo</span>
 					{hiddenCount > 0 && (
 						<span className="text-muted-foreground">
-							({hiddenCount} {hiddenCount === 1 ? "preparação oculta" : "preparações ocultas"})
+							({hiddenCount} {hiddenCount === 1 ? "item oculto na grade" : "itens ocultos na grade"})
 						</span>
 					)}
 				</div>
