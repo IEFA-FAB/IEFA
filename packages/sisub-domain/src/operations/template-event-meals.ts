@@ -10,7 +10,7 @@
 
 import { menuTemplateEventMealInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { and, eq, inArray, notInArray } from "drizzle-orm"
-import type { MenuGroupInput } from "../schemas/menu-groups.ts"
+import { DEFAULT_EVENT_MEAL_GROUPS, type MenuGroupInput } from "../schemas/menu-groups.ts"
 import type { TemplateEventMeal, TemplateItem } from "../schemas/templates.ts"
 import { DomainError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
@@ -146,6 +146,46 @@ export function remapEventMealIds(
 export function keepItemsOfMeals(meals: readonly TemplateEventMeal[], items: readonly TemplateItem[]): TemplateItem[] {
 	const ids = new Set(meals.map((m) => m.id))
 	return items.filter((i) => i.eventMealId == null || ids.has(i.eventMealId))
+}
+
+/**
+ * Arruma itens GRAVADOS de evento para que passem por {@link resolveEventContent}.
+ *
+ * O fork copia os itens do molde quando a edição não os traz — e item gravado não é entrada de
+ * quem chama: pode ter grupo que a composição perdeu (uma edição que mandou só `eventMeals`) ou
+ * não ter refeição (gravado antes das refeições existirem). Recusar a cópia por isso seria
+ * recusar uma edição de nome. O item vai para a refeição do mesmo horário (ou uma nova, com a
+ * composição padrão) e, fora da composição, fica sem grupo — o editor mostra "Sem grupo".
+ */
+export function normalizeStoredEventContent(
+	meals: readonly TemplateEventMeal[],
+	items: readonly TemplateItem[]
+): { eventMeals: TemplateEventMeal[]; items: TemplateItem[] } {
+	const eventMeals = [...meals]
+	const byId = new Map(eventMeals.map((m) => [m.id, m]))
+	const mealFor = (item: TemplateItem): TemplateEventMeal => {
+		const own = item.eventMealId != null ? byId.get(item.eventMealId) : undefined
+		if (own) return own
+		const sameSlot = eventMeals.find((m) => m.mealTypeId === item.mealTypeId)
+		if (sameSlot) return sameSlot
+		const rebuilt: TemplateEventMeal = {
+			id: crypto.randomUUID(),
+			name: "Refeição",
+			mealTypeId: item.mealTypeId,
+			groups: DEFAULT_EVENT_MEAL_GROUPS.map((g) => ({ ...g })),
+		}
+		eventMeals.push(rebuilt)
+		byId.set(rebuilt.id, rebuilt)
+		return rebuilt
+	}
+	return {
+		eventMeals,
+		items: items.map((item) => {
+			const meal = mealFor(item)
+			const inComposition = item.itemGroup == null || meal.groups.some((g) => g.key === item.itemGroup)
+			return { ...item, eventMealId: meal.id, itemGroup: inComposition ? item.itemGroup : null }
+		}),
+	}
 }
 
 /**
