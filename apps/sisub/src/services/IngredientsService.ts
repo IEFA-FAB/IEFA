@@ -37,6 +37,7 @@ import {
 	fetchFoldersFn,
 	fetchIngredientEffectiveNutrientsFn,
 	fetchIngredientFn,
+	fetchIngredientGlobalMenuUsageFn,
 	fetchIngredientItemsFn,
 	fetchIngredientLastReviewsFn,
 	fetchIngredientsFn,
@@ -138,6 +139,22 @@ export const ingredientsTreeQueryOptions = (includeDeleted = false, preparations
 			}>,
 		staleTime: 10 * 60 * 1000,
 		gcTime: 10 * 60 * 1000,
+	})
+
+/**
+ * IDs dos insumos usados em preparação de cardápio global. Quem consome liga a query só
+ * com o filtro ativo (`enabled`) — nenhuma outra tela precisa dela.
+ *
+ * `staleTime` 0: quem mexe no cardápio é outra tela (templates, fichas técnicas), que não
+ * invalida esta chave. Revalidar a cada montagem mantém o filtro fiel ao cardápio de agora;
+ * o dado em cache aparece na hora e a revalidação corre por trás.
+ */
+export const ingredientGlobalMenuUsageQueryOptions = () =>
+	queryOptions({
+		queryKey: ["ingredients", "global-menu-usage"],
+		queryFn: () => fetchIngredientGlobalMenuUsageFn(),
+		staleTime: 0,
+		gcTime: 5 * 60 * 1000,
 	})
 
 export const nutrientsQueryOptions = () =>

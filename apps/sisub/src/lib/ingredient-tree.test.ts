@@ -253,6 +253,51 @@ describe("somente não revisados", () => {
 	})
 })
 
+// ── Recorte por conjunto de insumos (ex.: cardápio global) ─────────────────
+
+describe("somente os insumos do conjunto", () => {
+	test("mantém só os insumos do conjunto e as pastas que levam a eles", () => {
+		const tree = buildIngredientTree({ folders: BASE_FOLDERS, ingredients: BASE_INGREDIENTS, onlyIngredientIds: new Set(["i-bife"]) })
+
+		expect(includedIds(tree)).toEqual(["f-carnes", "f-raiz", "i-bife"])
+	})
+
+	test("conjunto vazio é filtro ligado: a árvore fica vazia, não inteira", () => {
+		const tree = buildIngredientTree({ folders: BASE_FOLDERS, ingredients: BASE_INGREDIENTS, onlyIngredientIds: new Set() })
+		expect(tree.nodes).toEqual([])
+	})
+
+	test("`null` desliga o filtro", () => {
+		const tree = buildIngredientTree({ folders: BASE_FOLDERS, ingredients: BASE_INGREDIENTS, onlyIngredientIds: null, expandedIds: allExpanded })
+		expect(includedIds(tree)).toContain("i-sal")
+		expect(includedIds(tree)).toContain("i-arroz")
+	})
+
+	test("pasta que casa o texto não readmite insumo fora do conjunto", () => {
+		const tree = buildIngredientTree({
+			folders: BASE_FOLDERS,
+			ingredients: BASE_INGREDIENTS,
+			onlyIngredientIds: new Set(["i-feijao"]),
+			filterText: "grãos",
+		})
+		expect(includedIds(tree)).toContain("i-feijao")
+		expect(includedIds(tree)).not.toContain("i-arroz")
+	})
+
+	test("combina com o filtro de revisão por interseção", () => {
+		const tree = buildIngredientTree({
+			folders: BASE_FOLDERS,
+			ingredients: BASE_INGREDIENTS,
+			lastReviews: [{ ingredient_id: "i-arroz", reviewed_at: "2026-06-01T00:00:00Z" }],
+			onlyNotReviewed: true,
+			onlyIngredientIds: new Set(["i-arroz", "i-feijao"]),
+		})
+		expect(includedIds(tree)).toContain("i-feijao")
+		expect(includedIds(tree)).not.toContain("i-arroz")
+		expect(includedIds(tree)).not.toContain("i-bife")
+	})
+})
+
 // ── Categorias ocultas (chips) ──────────────────────────────────────────────
 
 describe("categorias ocultas", () => {
