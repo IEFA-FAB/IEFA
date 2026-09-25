@@ -44,6 +44,7 @@ const SCOPE_UI = {
 		searchPlaceholder: "Buscar pastas ou insumos...",
 		emptyTitle: "Nenhum insumo encontrado",
 		emptyReview: "Nenhum insumo pendente de revisão neste filtro",
+		emptyGlobalMenu: "Nenhum insumo deste filtro está em preparação de cardápio global",
 		errorTitle: "Erro ao carregar árvore de insumos",
 		noun: ["insumo", "insumos"] as const,
 	},
@@ -54,6 +55,7 @@ const SCOPE_UI = {
 		searchPlaceholder: "Buscar pastas ou itens auxiliares...",
 		emptyTitle: "Nenhum item auxiliar encontrado",
 		emptyReview: "Nenhum item auxiliar pendente de revisão neste filtro",
+		emptyGlobalMenu: "Nenhum item auxiliar deste filtro está em preparação de cardápio global",
 		errorTitle: "Erro ao carregar árvore de itens auxiliares",
 		noun: ["item auxiliar", "itens auxiliares"] as const,
 	},
@@ -142,6 +144,8 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 	const [sortDirection, setSortDirection] = usePersistentState<"asc" | "desc">(`${persistKey}:sort`, "asc")
 	// Filtro: mostrar apenas insumos ainda não revisados (conferência pendente). Persistido por aba.
 	const [onlyNotReviewed, setOnlyNotReviewed] = usePersistentState(`${persistKey}:onlyNotReviewed`, false)
+	// Filtro: mostrar apenas insumos usados em preparação de cardápio global. Persistido por aba.
+	const [onlyGlobalMenu, setOnlyGlobalMenu] = usePersistentState(`${persistKey}:onlyGlobalMenu`, false)
 	// Busca rápida (toggle group multi-seleção). Persistida por aba.
 	const [storedQuickFilters, setQuickFilters] = usePersistentState<string[]>(`${persistKey}:quickFilters`, DEFAULT_QUICK_FILTERS)
 	const quickFilters = useMemo(() => storedQuickFilters.filter((k) => KNOWN_QUICK_FILTERS.has(k)), [storedQuickFilters])
@@ -154,6 +158,7 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 	const searchCaseId = useId()
 	const searchAccentId = useId()
 	const onlyNotReviewedId = useId()
+	const onlyGlobalMenuId = useId()
 
 	const handleSelectChange = (node: IngredientTreeNode, checked: boolean) => {
 		setSelected((prev) => {
@@ -177,6 +182,8 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 	// Hook consumes URL value (already debounced).
 	const {
 		flatTree,
+		isTreeLoaded,
+		globalMenu,
 		stats,
 		itemCountByIngredientId,
 		lastReviewByIngredientId,
@@ -197,7 +204,8 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 		true, // default da tela: abrir tudo recolhido
 		onlyNotReviewed,
 		"exclude",
-		catalog
+		catalog,
+		onlyGlobalMenu
 	)
 
 	// Contagem do que está efetivamente visível (após busca + chips). `byId` contém
@@ -260,7 +268,9 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 		})
 	}
 
-	if (!flatTree && !error) {
+	// Spinner de página só até a árvore crua chegar. O recorte do cardápio global carrega
+	// DENTRO do card da árvore: trocar a página inteira fecharia o popover do próprio switch.
+	if (!isTreeLoaded && !error) {
 		return (
 			<div className="flex items-center justify-center h-96">
 				<Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -305,7 +315,9 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0 gap-2" aria-label="Opções de busca" />}>
 							<SlidersHorizontal className="size-4" />
 							<span className="hidden sm:inline">Opções</span>
-							{(searchCaseSensitive || searchAccentSensitive || onlyNotReviewed) && <span className="size-1.5 rounded-full bg-primary" aria-hidden />}
+							{(searchCaseSensitive || searchAccentSensitive || onlyNotReviewed || onlyGlobalMenu) && (
+								<span className="size-1.5 rounded-full bg-primary" aria-hidden />
+							)}
 						</PopoverTrigger>
 						<PopoverContent align="start" className="w-64">
 							<div className="flex flex-col gap-3 text-sm">
@@ -320,6 +332,10 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 								<label htmlFor={onlyNotReviewedId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
 									Somente não revisados
 									<Switch id={onlyNotReviewedId} checked={onlyNotReviewed} onCheckedChange={setOnlyNotReviewed} size="sm" />
+								</label>
+								<label htmlFor={onlyGlobalMenuId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+									Somente em cardápio global
+									<Switch id={onlyGlobalMenuId} checked={onlyGlobalMenu} onCheckedChange={setOnlyGlobalMenu} size="sm" />
 								</label>
 							</div>
 						</PopoverContent>
@@ -381,13 +397,29 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 			{/* Árvore Virtualizada */}
 			<Card>
 				<div ref={parentRef} className="h-150 overflow-auto" role="tree" aria-label={ui.treeLabel}>
-					{flatTree && flatTree.nodes.length === 0 ? (
+					{globalMenu.error ? (
+						<div className="flex flex-col items-center justify-center h-full gap-3 text-center py-12">
+							<p className="text-destructive">Erro ao carregar os insumos do cardápio global</p>
+							<p className="text-sm text-muted-foreground">{globalMenu.error.message}</p>
+							<Button size="sm" onClick={() => globalMenu.refetch()}>
+								Tentar Novamente
+							</Button>
+						</div>
+					) : globalMenu.isPending ? (
+						<div className="flex items-center justify-center h-full">
+							<Loader2 className="size-8 animate-spin text-muted-foreground" />
+						</div>
+					) : flatTree && flatTree.nodes.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
 							<p className="font-sans">{ui.emptyTitle}</p>
+							{/* Com busca ativa, a dica é ajustar a busca: culpar o recorte do cardápio
+							    global mandaria desligar um filtro que não é a causa. */}
 							{onlyNotReviewed ? (
 								<p className="text-sm mt-2">{ui.emptyReview}</p>
+							) : urlSearch ? (
+								<p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
 							) : (
-								urlSearch && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
+								onlyGlobalMenu && <p className="text-sm mt-2">{ui.emptyGlobalMenu}</p>
 							)}
 						</div>
 					) : (

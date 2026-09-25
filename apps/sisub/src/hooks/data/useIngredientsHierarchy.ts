@@ -1,9 +1,10 @@
 import type { CatalogScope, PreparationScope } from "@iefa/sisub-domain"
+import { useQuery } from "@tanstack/react-query"
 import { useEffect, useMemo, useRef } from "react"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { asArray, buildIngredientTree, type FolderConference, type FolderReviewStats, folderConferenceStatus, folderReviewStats } from "@/lib/ingredient-tree"
 import type { SearchSensitivity } from "@/lib/text-search"
-import { useIngredientsTree } from "@/services/IngredientsService"
+import { ingredientGlobalMenuUsageQueryOptions, useIngredientsTree } from "@/services/IngredientsService"
 import type { FlatIngredientTree } from "@/types/domain/ingredients"
 
 /**
@@ -21,6 +22,11 @@ import type { FlatIngredientTree } from "@/types/domain/ingredients"
  * @param catalog escopo gêneros × itens auxiliares (EPI, limpeza, embalagem…). Padrão
  *   `"include"` — os dois juntos, que é o que o seletor da ficha técnica precisa. As
  *   abas de /global/ingredients pedem `"exclude"` (Insumos) e `"only"` (Itens auxiliares).
+ * @param onlyGlobalMenu restringe aos insumos usados em preparação de cardápio global. A
+ *   lista desses insumos só é buscada com o filtro ligado; até ela chegar (ou se falhar),
+ *   `flatTree` fica `null` — nunca a árvore inteira que depois encolheria. O estado dessa
+ *   busca sai à parte (`globalMenu`), não em `error`: falha dela não pode derrubar a tela
+ *   inteira, senão some junto o switch que desliga o filtro.
  */
 export function useIngredientsHierarchy(
 	filterText = "",
@@ -32,13 +38,16 @@ export function useIngredientsHierarchy(
 	defaultCollapsed = false,
 	onlyNotReviewed = false,
 	preparations: PreparationScope = "exclude",
-	catalog: CatalogScope = "include"
+	catalog: CatalogScope = "include",
+	onlyGlobalMenu = false
 ) {
 	const { caseSensitive, accentSensitive } = sensitivity
 	// Chave estável (ordenada) para o memo: ocultação de categorias por pasta raiz.
 	const hiddenKey = useMemo(() => hiddenCategoryKeys.toSorted().join(","), [hiddenCategoryKeys])
 	// Busca dados via service
 	const { tree, error, refetch } = useIngredientsTree(includeDeleted, preparations, catalog)
+	const globalMenuUsage = useQuery({ ...ingredientGlobalMenuUsageQueryOptions(), enabled: onlyGlobalMenu })
+	const globalMenuIds = useMemo(() => (globalMenuUsage.data ? new Set(globalMenuUsage.data) : null), [globalMenuUsage.data])
 
 	// Estado de expand/collapse
 	// Inicializa com todas as pastas de primeiro nível expandidas — exceto quando
@@ -129,6 +138,7 @@ export function useIngredientsHierarchy(
 	// `lib/ingredient-tree` — é onde ela tem teste.
 	const flatTree = useMemo<FlatIngredientTree | null>(() => {
 		if (!tree) return null
+		if (onlyGlobalMenu && !globalMenuIds) return null
 		return buildIngredientTree({
 			folders: tree.folders,
 			ingredients: tree.ingredients,
@@ -138,9 +148,10 @@ export function useIngredientsHierarchy(
 			hiddenCategoryKeys: hiddenKey ? hiddenKey.split(",") : [],
 			sortDirection,
 			onlyNotReviewed,
+			onlyIngredientIds: onlyGlobalMenu ? globalMenuIds : null,
 			expandedIds,
 		})
-	}, [tree, filterText, expandedIds, caseSensitive, accentSensitive, hiddenKey, sortDirection, onlyNotReviewed])
+	}, [tree, filterText, expandedIds, caseSensitive, accentSensitive, hiddenKey, sortDirection, onlyNotReviewed, onlyGlobalMenu, globalMenuIds])
 
 	// Estatísticas
 	const stats = useMemo(() => {
@@ -156,6 +167,8 @@ export function useIngredientsHierarchy(
 	return {
 		// Dados
 		flatTree,
+		/** A árvore crua já chegou (independe de o recorte do cardápio global estar pronto). */
+		isTreeLoaded: !!tree,
 		stats,
 		itemCountByIngredientId,
 		lastReviewByIngredientId,
@@ -170,6 +183,12 @@ export function useIngredientsHierarchy(
 
 		// Ações
 		refetch,
+		// Filtro "somente em cardápio global": só tem estado com ele ligado.
+		globalMenu: {
+			isPending: onlyGlobalMenu && !globalMenuIds && !globalMenuUsage.error,
+			error: onlyGlobalMenu && !globalMenuIds ? globalMenuUsage.error : null,
+			refetch: () => globalMenuUsage.refetch(),
+		},
 		toggleExpand,
 		expandAll,
 		collapseAll,

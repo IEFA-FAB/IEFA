@@ -37,6 +37,7 @@ import {
 	listFolderLastReviews,
 	listFolders,
 	listIngredientEffectiveNutrients,
+	listIngredientGlobalMenuUsage,
 	listIngredientItems,
 	listIngredientLastReviews,
 	listIngredientNutrients,
@@ -347,6 +348,16 @@ export const fetchIngredientLastReviewsFn = createServerFn({ method: "GET" })
 		const ctx = await requireAuth()
 		return listIngredientLastReviews(getDb(), ctx, data).catch(handleDomainError)
 	})
+
+/**
+ * Insumos usados em preparação de cardápio global. Fora de `fetchIngredientsTreeFn` de
+ * propósito: só a tela de insumos, e só com o filtro ligado, precisa disso — o seletor da
+ * ficha técnica também carrega a árvore e não deve pagar o join.
+ */
+export const fetchIngredientGlobalMenuUsageFn = createServerFn({ method: "GET" }).handler(async () => {
+	const ctx = await requireAuth()
+	return listIngredientGlobalMenuUsage(getDb(), ctx).catch(handleDomainError)
+})
 
 // ── Revisão (conferência da pasta pelos nutricionistas) ───────────────────────
 

@@ -217,6 +217,11 @@ export interface BuildIngredientTreeInput {
 	sortDirection?: "asc" | "desc"
 	/** Mostra apenas insumos nunca conferidos. */
 	onlyNotReviewed?: boolean
+	/**
+	 * Restringe a árvore a estes insumos (ex.: os que estão em preparação de cardápio
+	 * global). `null`/omitido desliga o filtro; conjunto vazio é filtro ligado sem resultado.
+	 */
+	onlyIngredientIds?: ReadonlySet<string> | null
 	/** Pastas abertas. Sob filtro, tudo abre automaticamente e este conjunto é ignorado. */
 	expandedIds?: ReadonlySet<string>
 }
@@ -259,14 +264,15 @@ export function buildIngredientTree(input: BuildIngredientTreeInput): FlatIngred
 	const { caseSensitive = false, accentSensitive = false } = input.sensitivity ?? {}
 	const sortDirection = input.sortDirection ?? "asc"
 	const onlyNotReviewed = input.onlyNotReviewed ?? false
+	const onlyIngredientIds = input.onlyIngredientIds ?? null
 	const expandedIds = input.expandedIds ?? new Set<string>()
 	const hiddenCategoryKeys = input.hiddenCategoryKeys ?? []
 
 	const norm = (value: string) => normalizeForSearch(value, { caseSensitive, accentSensitive })
 	const filter = norm(input.filterText ?? "").trim()
 	const isTextFiltering = !!filter
-	// O filtro de revisão restringe insumos (folhas); combina com o texto por interseção.
-	const isFiltering = isTextFiltering || onlyNotReviewed
+	// Revisão e conjunto de insumos restringem folhas; combinam com o texto por interseção.
+	const isFiltering = isTextFiltering || onlyNotReviewed || onlyIngredientIds !== null
 
 	// Insumos já revisados ao menos uma vez — excluídos quando "somente não revisados" está ativo.
 	const reviewedIngredientIds = new Set<string>()
@@ -275,6 +281,9 @@ export function buildIngredientTree(input: BuildIngredientTreeInput): FlatIngred
 			if (r.ingredient_id) reviewedIngredientIds.add(r.ingredient_id)
 		}
 	}
+	// Recortes de folha (independem do texto): o insumo sai da árvore se falhar em qualquer um.
+	const isLeafFilteredOut = (ingredientId: string) =>
+		(onlyNotReviewed && reviewedIngredientIds.has(ingredientId)) || (onlyIngredientIds !== null && !onlyIngredientIds.has(ingredientId))
 
 	// Lookup de pastas por ID para traversal de ancestrais
 	const folderById: Record<string, Folder> = {}
@@ -340,7 +349,7 @@ export function buildIngredientTree(input: BuildIngredientTreeInput): FlatIngred
 					stack.push(childFolderId)
 				}
 				for (const ingredientId of ingredientsByFolder[fid] ?? []) {
-					if (onlyNotReviewed && reviewedIngredientIds.has(ingredientId)) continue
+					if (isLeafFilteredOut(ingredientId)) continue
 					includedIds.add(ingredientId)
 				}
 			}
@@ -348,7 +357,7 @@ export function buildIngredientTree(input: BuildIngredientTreeInput): FlatIngred
 
 		ingredients.forEach((ingredient) => {
 			if (isIngredientExcluded(ingredient.folder_id)) return
-			if (onlyNotReviewed && reviewedIngredientIds.has(ingredient.id)) return
+			if (isLeafFilteredOut(ingredient.id)) return
 			const description = ingredient.description || "Sem descrição"
 			if (!isTextFiltering || norm(description).includes(filter)) {
 				includedIds.add(ingredient.id)
@@ -356,9 +365,9 @@ export function buildIngredientTree(input: BuildIngredientTreeInput): FlatIngred
 			}
 		})
 
-		// Pastas só casam por texto; o filtro de revisão é escopo de insumo (folha).
+		// Pastas só casam por texto; revisão e conjunto de insumos são escopo de folha.
 		// Quando uma pasta casa o texto, seus descendentes entram via addDescendants
-		// (que já pula insumos revisados sob o filtro de revisão).
+		// (que já pula as folhas recortadas).
 		if (isTextFiltering) {
 			folders.forEach((folder) => {
 				if (isFolderExcluded(folder.id)) return

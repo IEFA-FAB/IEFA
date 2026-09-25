@@ -16,6 +16,8 @@ import {
 	ingredientItemInKitchen,
 	ingredientNutrientInKitchen,
 	ingredientNutritionReferenceInKitchen,
+	menuTemplateInKitchen,
+	menuTemplateItemsInKitchen,
 	nutrientInKitchen,
 	nutritionFoodItemInNutritionReference,
 	nutritionFoodItemRevisionInNutritionReference,
@@ -25,10 +27,12 @@ import {
 	nutritionSourceInNutritionReference,
 	nutritionSourceReleaseInNutritionReference,
 	preparationGroupInKitchen,
+	recipeIngredientAlternativesInKitchen,
+	recipeIngredientsInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
-import { and, asc, eq, ilike, isNull, or, sql } from "drizzle-orm"
+import { and, asc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { requireAnyPermission, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateFolder,
@@ -245,6 +249,49 @@ export async function listIngredients(db: SisubDb, ctx: UserContext, input: List
 	const where = conditions.length > 0 ? and(...conditions) : undefined
 	const rows = await runQuery("QUERY_FAILED", () => db.select().from(ingredientInKitchen).where(where).orderBy(asc(ingredientInKitchen.description)))
 	return rows.map((r) => toNumeric(toWire<Ingredient>(r), INGREDIENT_NUMERIC_KEYS))
+}
+
+/**
+ * IDs dos insumos que entram em alguma preparação de cardápio global — `menu_template`
+ * sem cozinha (catálogo da SDAB) e não excluído, de qualquer tipo (plano semanal, evento,
+ * exceção). Alimenta o filtro "Somente em cardápio global" da árvore de insumos.
+ *
+ * O item do template aponta para a VERSÃO da preparação que foi posta nele, então é dela
+ * que saem os insumos — não da versão mais nova da linhagem. Entra o insumo da linha e o
+ * de cada alternativa dela (o substituto também é comprado para aquele cardápio). Linha de
+ * ficha técnica excluída não conta; linha ou alternativa que aponta para preparação
+ * congelada (sem `ingredient_id`) também não: o congelado é item de estoque próprio.
+ *
+ * Preparação excluída que continua no template CONTA: quem manda é o template — é ele que
+ * vai para o calendário e para o custeio. Tirá-la do cardápio é editar o template.
+ *
+ * Só template global, por isso não há dado de cozinha nenhum na resposta: são ids do
+ * catálogo, que é leitura de quem tem `kitchen` ou `global`.
+ */
+export async function listIngredientGlobalMenuUsage(db: SisubDb, ctx: UserContext): Promise<string[]> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	// Linhas ativas das fichas que estão em template global ativo — base das duas leituras.
+	const globalMenuLines = and(isNull(menuTemplateInKitchen.kitchenId), isNull(menuTemplateInKitchen.deletedAt), isNull(recipeIngredientsInKitchen.deletedAt))
+	const [lineRows, alternativeRows] = await runQuery("QUERY_FAILED", () =>
+		Promise.all([
+			db
+				.selectDistinct({ ingredientId: recipeIngredientsInKitchen.ingredientId })
+				.from(menuTemplateItemsInKitchen)
+				.innerJoin(menuTemplateInKitchen, eq(menuTemplateItemsInKitchen.menuTemplateId, menuTemplateInKitchen.id))
+				.innerJoin(recipeIngredientsInKitchen, eq(recipeIngredientsInKitchen.recipeId, menuTemplateItemsInKitchen.recipeId))
+				.where(and(globalMenuLines, isNotNull(recipeIngredientsInKitchen.ingredientId))),
+			db
+				.selectDistinct({ ingredientId: recipeIngredientAlternativesInKitchen.ingredientId })
+				.from(menuTemplateItemsInKitchen)
+				.innerJoin(menuTemplateInKitchen, eq(menuTemplateItemsInKitchen.menuTemplateId, menuTemplateInKitchen.id))
+				.innerJoin(recipeIngredientsInKitchen, eq(recipeIngredientsInKitchen.recipeId, menuTemplateItemsInKitchen.recipeId))
+				.innerJoin(recipeIngredientAlternativesInKitchen, eq(recipeIngredientAlternativesInKitchen.recipeIngredientId, recipeIngredientsInKitchen.id))
+				.where(and(globalMenuLines, isNotNull(recipeIngredientAlternativesInKitchen.ingredientId))),
+		])
+	)
+	const ids = new Set<string>()
+	for (const r of [...lineRows, ...alternativeRows]) if (r.ingredientId) ids.add(r.ingredientId)
+	return [...ids]
 }
 
 export async function fetchIngredient(db: SisubDb, ctx: UserContext, input: FetchIngredient): Promise<Ingredient> {

@@ -271,6 +271,7 @@ export {
 	listCeafa,
 	listFolders,
 	listIngredientEffectiveNutrients,
+	listIngredientGlobalMenuUsage,
 	listIngredientItems,
 	listIngredientNutrients,
 	listIngredients,
