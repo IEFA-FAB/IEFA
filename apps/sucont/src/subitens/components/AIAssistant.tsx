@@ -93,7 +93,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 				whileTap={{ scale: 0.95 }}
 				onClick={() => setIsOpen(true)}
 				className={cn(
-					"fixed bottom-8 right-8 w-14 h-14 rounded-full bg-tech-blue text-white flex items-center justify-center z-40 transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50",
+					"fixed bottom-8 right-8 w-14 h-14 rounded-full bg-tech-blue text-white flex items-center justify-center z-40 transition-all focus-visible:ring-3 focus-visible:ring-ring/50",
 					isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
 				)}
 			>

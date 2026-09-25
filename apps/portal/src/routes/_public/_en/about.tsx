@@ -146,7 +146,7 @@ function About() {
 
 				{/* Indicador de scroll */}
 				<div className="pb-8 flex flex-col items-center gap-2 text-muted-foreground/60 select-none" aria-hidden="true">
-					<span className="text-[10px] tracking-[0.2em] uppercase">Rolar</span>
+					<span className="text-3xs tracking-[0.2em] uppercase">Rolar</span>
 					<NavArrowDown className="h-5 w-5 animate-bounce" />
 				</div>
 			</section>

@@ -145,7 +145,7 @@ function PublicArticleDetail() {
 					{/* Metadados de topo */}
 					<div className="space-y-4">
 						<div className="flex flex-wrap items-center gap-2">
-							<Badge variant="secondary" className="uppercase tracking-[0.06em]">
+							<Badge variant="secondary" className="uppercase tracking-(--tracking-label)">
 								{ARTICLE_TYPE_LABELS[article.article_type] ?? article.article_type}
 							</Badge>
 							{article.doi && (
@@ -213,20 +213,20 @@ function PublicArticleDetail() {
 
 					{/* Resumo */}
 					<div className="p-6 border border-border bg-card space-y-3">
-						<h2 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground">Resumo</h2>
+						<h2 className="font-semibold text-sm uppercase tracking-(--tracking-label) text-muted-foreground">Resumo</h2>
 						<p className="font-serif text-base text-foreground leading-relaxed">{article.abstract_pt}</p>
 					</div>
 
 					{article.abstract_en && (
 						<div className="p-6 border border-border bg-card space-y-3">
-							<h2 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground">Abstract</h2>
+							<h2 className="font-semibold text-sm uppercase tracking-(--tracking-label) text-muted-foreground">Abstract</h2>
 							<p className="font-serif text-base text-foreground leading-relaxed italic">{article.abstract_en}</p>
 						</div>
 					)}
 
 					{/* Palavras-chave */}
 					<div className="space-y-3">
-						<h2 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground flex items-center gap-1.5">
+						<h2 className="font-semibold text-sm uppercase tracking-(--tracking-label) text-muted-foreground flex items-center gap-1.5">
 							<Hashtag className="size-3.5" aria-hidden="true" />
 							Palavras-chave
 						</h2>
@@ -241,7 +241,7 @@ function PublicArticleDetail() {
 
 					{article.keywords_en && (
 						<div className="space-y-3">
-							<h2 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground flex items-center gap-1.5">
+							<h2 className="font-semibold text-sm uppercase tracking-(--tracking-label) text-muted-foreground flex items-center gap-1.5">
 								<Hashtag className="size-3.5" aria-hidden="true" />
 								Keywords
 							</h2>
@@ -259,7 +259,7 @@ function PublicArticleDetail() {
 
 					{/* Como Citar */}
 					<div className="space-y-4">
-						<h2 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground">Como Citar</h2>
+						<h2 className="font-semibold text-sm uppercase tracking-(--tracking-label) text-muted-foreground">Como Citar</h2>
 
 						{(["apa", "abnt", "bibtex"] as const).map((format) => (
 							<div key={format} className="border border-border bg-card">
@@ -288,7 +288,7 @@ function PublicArticleDetail() {
 				<aside className="space-y-4" aria-label="Informações do artigo">
 					{/* Download */}
 					<div className="p-5 border border-border bg-card space-y-3">
-						<h3 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground">Arquivos</h3>
+						<h3 className="font-semibold text-sm uppercase tracking-(--tracking-label) text-muted-foreground">Arquivos</h3>
 						<Button className="w-full" disabled>
 							<Download className="size-4 mr-2" aria-hidden="true" />
 							Download PDF
@@ -298,7 +298,7 @@ function PublicArticleDetail() {
 
 					{/* Métricas */}
 					<div className="p-5 border border-border bg-card">
-						<h3 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground mb-3">Métricas</h3>
+						<h3 className="font-semibold text-sm uppercase tracking-(--tracking-label) text-muted-foreground mb-3">Métricas</h3>
 						<div className="divide-y divide-border">
 							<div className="flex justify-between py-2.5 text-sm">
 								<span className="text-muted-foreground">Visualizações</span>
@@ -317,7 +317,7 @@ function PublicArticleDetail() {
 
 					{/* Informações */}
 					<div className="p-5 border border-border bg-card">
-						<h3 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground mb-3">Informações</h3>
+						<h3 className="font-semibold text-sm uppercase tracking-(--tracking-label) text-muted-foreground mb-3">Informações</h3>
 						<div className="divide-y divide-border">
 							<div className="py-2.5">
 								<p className="text-label text-muted-foreground mb-0.5">Área do Conhecimento</p>

@@ -67,7 +67,7 @@ function AuthLayout() {
 					<div className="flex items-center gap-4">
 						<Link
 							to="/"
-							className="font-mono font-bold text-base tracking-widest uppercase focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+							className="font-mono font-bold text-base tracking-widest uppercase focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 							aria-label="Página inicial — SISUB"
 						>
 							SISUB

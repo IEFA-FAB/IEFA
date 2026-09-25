@@ -162,7 +162,7 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 				</div>
 
 				{/* Resumo + Preview */}
-				<div className="rounded-[var(--radius)] border">
+				<div className="rounded-(--radius) border">
 					<div className="border-b bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
 						{find.trim() === "" ? (
 							"Digite um texto para localizar"
@@ -179,7 +179,7 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 						{matches.slice(0, PREVIEW_LIMIT).map((m) => (
 							<div key={m.id} className="flex items-start justify-between gap-3 px-3 py-2 text-sm">
 								<div className="flex min-w-0 flex-col gap-0.5">
-									<span className="text-[10px] uppercase tracking-wide text-muted-foreground">{m.kitchenId == null ? "Global" : "Local"}</span>
+									<span className="text-3xs uppercase tracking-wide text-muted-foreground">{m.kitchenId == null ? "Global" : "Local"}</span>
 									<span className="text-muted-foreground line-through">{m.original}</span>
 									<span className="text-foreground">{m.newName}</span>
 								</div>

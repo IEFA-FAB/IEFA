@@ -49,7 +49,7 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 
 	return (
 		<Collapsible defaultOpen={!complete} className="border border-border">
-			<CollapsibleTrigger className="group/dados flex w-full items-baseline justify-between gap-3 p-4 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+			<CollapsibleTrigger className="group/dados flex w-full items-baseline justify-between gap-3 p-4 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
 				<h2 className="text-label text-foreground">Dados do documento</h2>
 				<span className="flex items-baseline gap-2 text-label text-muted-foreground">
 					{filled} de {required.length} preenchidos

@@ -108,7 +108,7 @@ function EmpenhoDetail({ empenhoId, onChanged }: { empenhoId: string; onChanged:
 				<div className="divide-y divide-border/50">
 					{detail?.events.map((event) => (
 						<div key={event.id} className="flex items-center gap-3 py-1.5 text-xs">
-							<Badge variant="outline" className="text-[10px] shrink-0">
+							<Badge variant="outline" className="text-3xs shrink-0">
 								{EVENT_LABEL[event.tipo] ?? event.tipo}
 							</Badge>
 							<span className="tabular-nums">{BRL.format(Number(event.valor))}</span>
@@ -179,7 +179,7 @@ function EmpenhoLine({ empenho, onChanged }: { empenho: EmpenhoRow; onChanged: (
 				<td className="py-2.5 px-2 text-xs text-muted-foreground">{empenho.data_empenho}</td>
 				<td className="py-2.5 px-2 text-xs">
 					{empenho.favorecido_nome ?? "—"}
-					{empenho.nd && <span className="block text-[10px] font-mono text-muted-foreground">ND {empenho.nd}</span>}
+					{empenho.nd && <span className="block text-3xs font-mono text-muted-foreground">ND {empenho.nd}</span>}
 				</td>
 				<td className="py-2.5 px-2 text-xs">{empenho.tipo ? (TIPO_LABEL[empenho.tipo] ?? empenho.tipo) : "—"}</td>
 				<td className="py-2.5 px-2 text-xs text-right tabular-nums">{BRL.format(empenho.valor_vigente ?? 0)}</td>
@@ -188,11 +188,11 @@ function EmpenhoLine({ empenho, onChanged }: { empenho: EmpenhoRow; onChanged: (
 				<td className="py-2.5 px-2 text-xs text-right tabular-nums text-subheading">{BRL.format(empenho.saldo_a_liquidar ?? 0)}</td>
 				<td className="py-2.5 px-2 text-center">
 					{empenho.rp_inscrito ? (
-						<Badge variant="outline" className="text-[10px]">
+						<Badge variant="outline" className="text-3xs">
 							RP {empenho.rp_tipo === "processado" ? "proc." : "não-proc."}
 						</Badge>
 					) : (
-						<Badge variant={empenho.status === "ativo" ? "secondary" : "destructive"} className="text-[10px]">
+						<Badge variant={empenho.status === "ativo" ? "secondary" : "destructive"} className="text-3xs">
 							{empenho.status}
 						</Badge>
 					)}

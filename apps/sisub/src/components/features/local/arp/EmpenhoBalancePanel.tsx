@@ -251,7 +251,7 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 				<td className="py-2.5 px-2 text-xs font-mono">{item.catmat_item_codigo ?? "—"}</td>
 				<td className="py-2.5 px-2 text-xs max-w-[240px]">
 					<span className="line-clamp-1">{item.descricao_item ?? "—"}</span>
-					{item.nome_fornecedor && <span className="block text-muted-foreground text-[10px] truncate">{item.nome_fornecedor}</span>}
+					{item.nome_fornecedor && <span className="block text-muted-foreground text-3xs truncate">{item.nome_fornecedor}</span>}
 				</td>
 				<td className="py-2.5 px-2 text-xs text-right tabular-nums">
 					{qtdHom > 0 ? NUM.format(qtdHom) : "—"}
@@ -289,11 +289,11 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 				<td className="py-2.5 px-2 text-xs text-right tabular-nums">{item.valor_unitario != null ? BRL.format(item.valor_unitario) : "—"}</td>
 				<td className="py-2.5 px-2 text-xs">
 					{item.ata_item_id ? (
-						<Badge variant="secondary" className="text-[10px] h-4">
+						<Badge variant="secondary" className="text-3xs h-4">
 							Vinculado
 						</Badge>
 					) : (
-						<Badge variant="outline" className="text-[10px] h-4 text-muted-foreground">
+						<Badge variant="outline" className="text-3xs h-4 text-muted-foreground">
 							Sem vínculo
 						</Badge>
 					)}

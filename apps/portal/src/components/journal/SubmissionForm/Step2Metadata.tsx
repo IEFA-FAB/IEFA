@@ -89,7 +89,7 @@ export function Step2Metadata() {
 						{(formData.keywords_pt || []).map((kw) => (
 							<span
 								key={kw}
-								className="inline-flex items-center gap-1 px-2 py-0.5 border border-foreground bg-secondary text-foreground text-label uppercase tracking-[0.06em]"
+								className="inline-flex items-center gap-1 px-2 py-0.5 border border-foreground bg-secondary text-foreground text-label uppercase tracking-(--tracking-label)"
 							>
 								{kw}
 								<button
@@ -169,7 +169,7 @@ export function Step2Metadata() {
 						{(formData.keywords_en || []).map((kw) => (
 							<span
 								key={kw}
-								className="inline-flex items-center gap-1 px-2 py-0.5 border border-foreground bg-secondary text-foreground text-label uppercase tracking-[0.06em]"
+								className="inline-flex items-center gap-1 px-2 py-0.5 border border-foreground bg-secondary text-foreground text-label uppercase tracking-(--tracking-label)"
 							>
 								{kw}
 								<button

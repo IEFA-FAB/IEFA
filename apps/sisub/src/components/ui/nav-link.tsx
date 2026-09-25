@@ -9,7 +9,7 @@ const navLinkVariants = cva(
 		"relative inline-flex cursor-pointer items-center pb-0.5",
 		"font-mono text-xs uppercase tracking-widest",
 		"transition-colors duration-150",
-		"focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm",
+		"focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm",
 		// Underline slide-in
 		"after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-primary",
 		"after:scale-x-0 after:origin-left",

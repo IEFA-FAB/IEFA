@@ -63,7 +63,7 @@ export function IngredientVersionPreview({ snapshot, diff, isBaseline }: Ingredi
 		row && row.kind === "changed" && row.details.length > 0 ? (
 			<div className="mt-1 flex flex-col gap-0.5">
 				{row.details.map((d) => (
-					<span key={d.label} className="text-[11px] text-muted-foreground">
+					<span key={d.label} className="text-2xs text-muted-foreground">
 						{d.label}: <span className="text-destructive line-through">{d.from}</span> → <span className="text-success">{d.to}</span>
 					</span>
 				))}

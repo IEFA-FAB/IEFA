@@ -248,7 +248,7 @@ function StockReportsPage() {
 									<span className="text-muted-foreground">
 										{BRL.format(Number(closing.opening_value))} → {BRL.format(Number(closing.closing_value))}
 									</span>
-									<Badge variant="secondary" className="text-[10px] ml-auto gap-1">
+									<Badge variant="secondary" className="text-3xs ml-auto gap-1">
 										<Lock className="size-2.5" />
 										Fechada
 									</Badge>

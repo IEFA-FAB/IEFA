@@ -108,7 +108,7 @@ function ReceivingListPage() {
 										>
 											{new Date(receipt.created_at).toLocaleString("pt-BR")}
 										</Link>
-										<Badge variant={meta?.variant ?? "outline"} className="text-[10px] ml-auto">
+										<Badge variant={meta?.variant ?? "outline"} className="text-3xs ml-auto">
 											{meta?.label ?? receipt.status}
 										</Badge>
 									</div>

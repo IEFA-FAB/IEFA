@@ -77,7 +77,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 								</td>
 								<td className="py-2.5 px-3 text-center">
 									{item.in_upcoming_menu ? (
-										<Badge variant="outline" className="text-[10px] gap-1 border-warning/50 text-warning">
+										<Badge variant="outline" className="text-3xs gap-1 border-warning/50 text-warning">
 											<ChefHat className="size-2.5" />
 											No cardápio
 										</Badge>

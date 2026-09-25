@@ -100,7 +100,7 @@ function HomePage() {
 					onClick={scrollToList}
 					className="group absolute bottom-5 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 rounded-full px-3 py-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 				>
-					<span className="text-label text-[10px]">Todos os uniformes</span>
+					<span className="text-label text-3xs">Todos os uniformes</span>
 					<ArrowDown className="size-4 animate-nudge text-gold-2 motion-reduce:animate-none" aria-hidden="true" />
 				</button>
 			</section>

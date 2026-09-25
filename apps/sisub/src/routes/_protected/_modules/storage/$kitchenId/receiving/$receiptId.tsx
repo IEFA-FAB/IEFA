@@ -244,7 +244,7 @@ function LotEditor({
 				)}
 				{verdict === "sem_faixa" && <span className="text-muted-foreground">sem faixa exigida</span>}
 				{verdict === "nao_medido" && <span className="text-muted-foreground">não medido</span>}
-				{lot?.temperature_ack_by && <span className="block text-[10px] text-muted-foreground">aceite registrado</span>}
+				{lot?.temperature_ack_by && <span className="block text-3xs text-muted-foreground">aceite registrado</span>}
 			</td>
 			<td className="py-1.5 px-2 w-28 text-right print:hidden">
 				{editable && (
@@ -319,7 +319,7 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="min-w-0">
 						<p className="text-sm font-medium">{item.description}</p>
-						{item.gtin && <span className="block text-[10px] font-mono text-muted-foreground">{item.gtin}</span>}
+						{item.gtin && <span className="block text-3xs font-mono text-muted-foreground">{item.gtin}</span>}
 						<ConditioningSummary conditioning={item.conditioning} />
 					</div>
 

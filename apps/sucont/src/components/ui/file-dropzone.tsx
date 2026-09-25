@@ -129,7 +129,7 @@ export function FileDropzone({
 			aria-busy={isLoading || undefined}
 			className={cn(
 				"flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition-colors",
-				"focus-within:ring-[3px] focus-within:ring-ring/50",
+				"focus-within:ring-3 focus-within:ring-ring/50",
 				isDragging ? "border-action bg-action/5" : "border-border bg-muted/50 hover:border-border/80 hover:bg-muted",
 				isLoading && "cursor-wait opacity-50",
 				className

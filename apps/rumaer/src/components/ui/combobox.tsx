@@ -50,7 +50,7 @@ export function Combobox({
 					id={id}
 					placeholder={placeholder}
 					className={cn(
-						"border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 h-8 w-full rounded-lg border bg-background py-2 pr-14 pl-2.5 text-sm transition-colors outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 placeholder:text-muted-foreground"
+						"border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 h-8 w-full rounded-lg border bg-background py-2 pr-14 pl-2.5 text-sm transition-colors outline-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50 placeholder:text-muted-foreground"
 					)}
 				/>
 				<div className="absolute right-1.5 flex items-center gap-0.5">

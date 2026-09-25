@@ -87,7 +87,7 @@ export function ShiftAdjustmentsSection({ item, kitchenId, date }: ShiftAdjustme
 							Ajustar
 						</Button>
 					</div>
-					<p className="text-[10px] text-muted-foreground">As quantidades de ingredientes acima reescalam automaticamente.</p>
+					<p className="text-3xs text-muted-foreground">As quantidades de ingredientes acima reescalam automaticamente.</p>
 				</div>
 
 				{/* Substituição de insumo */}

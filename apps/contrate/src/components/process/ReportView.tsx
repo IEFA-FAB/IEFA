@@ -31,15 +31,15 @@ function ReportFinding({ finding }: { finding: Finding }) {
 	return (
 		<article className="border-border border-b py-4 last:border-b-0 print:break-inside-avoid">
 			<div className="flex flex-wrap items-center gap-2">
-				<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
+				<Badge variant="outline" className="text-3xs uppercase tracking-widest">
 					{finding.severity}
 				</Badge>
-				<span className="text-xs uppercase tracking-[0.1em]">{CATEGORY_LABEL[finding.category] ?? finding.category}</span>
+				<span className="text-xs uppercase tracking-widest">{CATEGORY_LABEL[finding.category] ?? finding.category}</span>
 				{finding.section_path ? <span className="font-mono text-muted-foreground text-xs">seção {finding.section_path}</span> : null}
 			</div>
 			<p className="mt-2 text-sm">{finding.message}</p>
 			{finding.legal_ref.length > 0 ? (
-				<p className="mt-1 font-mono text-[11px] text-muted-foreground">
+				<p className="mt-1 font-mono text-2xs text-muted-foreground">
 					Fundamento: {finding.legal_ref.map((ref) => `${ref.dispositivo} — ${ref.norma}`).join("; ")}
 				</p>
 			) : null}
@@ -48,13 +48,13 @@ function ReportFinding({ finding }: { finding: Finding }) {
 			) : null}
 			{finding.suggestion ? (
 				<p className="mt-2 text-sm">
-					<span className="text-muted-foreground text-xs uppercase tracking-[0.1em]">Sugestão · </span>
+					<span className="text-muted-foreground text-xs uppercase tracking-widest">Sugestão · </span>
 					{finding.suggestion}
 				</p>
 			) : null}
 			{finding.triage === "descartado" && finding.triage_note ? (
 				<p className="mt-2 text-sm">
-					<span className="text-muted-foreground text-xs uppercase tracking-[0.1em]">Motivo do descarte · </span>
+					<span className="text-muted-foreground text-xs uppercase tracking-widest">Motivo do descarte · </span>
 					{finding.triage_note}
 				</p>
 			) : null}
@@ -92,14 +92,14 @@ function ReportBody({ report }: { report: FinalReport }) {
 			</h1>
 
 			<div className="mt-4 flex flex-wrap items-center gap-3">
-				<span className="text-muted-foreground text-xs uppercase tracking-[0.1em]">Parecer</span>
+				<span className="text-muted-foreground text-xs uppercase tracking-widest">Parecer</span>
 				{review ? (
 					<>
-						<Badge className="text-[10px] uppercase tracking-[0.1em]">{DECISION_LABEL[review.decision]}</Badge>
+						<Badge className="text-3xs uppercase tracking-widest">{DECISION_LABEL[review.decision]}</Badge>
 						<span className="text-muted-foreground text-xs">{formatDateTime(review.created_at)}</span>
 					</>
 				) : (
-					<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
+					<Badge variant="outline" className="text-3xs uppercase tracking-widest">
 						não emitido
 					</Badge>
 				)}
@@ -123,7 +123,7 @@ function ReportBody({ report }: { report: FinalReport }) {
 					["Extração", report.extraction ? `${report.extraction.model} · ${report.extraction.id}` : "—"],
 				].map(([label, value]) => (
 					<div key={label} className="bg-card p-3">
-						<dt className="text-muted-foreground text-xs uppercase tracking-[0.1em]">{label}</dt>
+						<dt className="text-muted-foreground text-xs uppercase tracking-widest">{label}</dt>
 						<dd className="mt-0.5 break-all text-sm">{value}</dd>
 					</div>
 				))}
@@ -133,7 +133,7 @@ function ReportBody({ report }: { report: FinalReport }) {
 				<h2 className="border-border border-b pb-2 font-semibold text-lg tracking-tight">Referências usadas</h2>
 				<ul className="mt-3 space-y-1 text-sm">
 					<li>
-						<span className="text-muted-foreground text-xs uppercase tracking-[0.1em]">Modelo AGU · </span>
+						<span className="text-muted-foreground text-xs uppercase tracking-widest">Modelo AGU · </span>
 						{report.model_document
 							? `${report.model_document.title}${report.model_document.version_label ? ` (${report.model_document.version_label})` : ""}`
 							: "nenhum modelo aplicável — comparação estrutural não executada"}
@@ -141,7 +141,7 @@ function ReportBody({ report }: { report: FinalReport }) {
 					{report.law_documents.length === 0 ? <li className="text-muted-foreground">Nenhuma norma vigente registrada na execução.</li> : null}
 					{report.law_documents.map((law) => (
 						<li key={law.id}>
-							<span className="text-muted-foreground text-xs uppercase tracking-[0.1em]">{law.document_type} · </span>
+							<span className="text-muted-foreground text-xs uppercase tracking-widest">{law.document_type} · </span>
 							{law.title}
 							{law.version_label ? ` (${law.version_label})` : ""}
 						</li>

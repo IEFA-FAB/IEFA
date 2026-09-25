@@ -1,3 +1,4 @@
 {
+  "shadcn/no-arbitrary-values": 12,
   "shadcn/no-raw-colors": 8
 }

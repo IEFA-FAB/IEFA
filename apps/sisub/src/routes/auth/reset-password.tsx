@@ -278,7 +278,7 @@ function ResetPasswordPage() {
 			<div className="flex-1 flex items-center justify-center px-4 py-12">
 				<div className="w-full max-w-sm flex flex-col gap-5">
 					<div>
-						<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Redefinição de senha</p>
+						<p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-2">Redefinição de senha</p>
 						<h1 className="text-display mb-1">Link inválido</h1>
 						<p className="text-sm text-muted-foreground leading-relaxed">O link de recuperação expirou ou não é mais válido.</p>
 					</div>
@@ -302,7 +302,7 @@ function ResetPasswordPage() {
 			<div className="w-full max-w-sm">
 				{/* Cabeçalho — mesma linguagem mono do resto da autenticação */}
 				<div className="mb-8">
-					<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Redefinição de senha</p>
+					<p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-2">Redefinição de senha</p>
 					<h1 className="text-display mb-1">Nova senha</h1>
 					<p className="text-sm text-muted-foreground">Escolha uma senha segura para sua conta.</p>
 				</div>
@@ -317,7 +317,7 @@ function ResetPasswordPage() {
 
 					{/* Nova senha */}
 					<div className="space-y-1.5">
-						<Label htmlFor="new-password" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
+						<Label htmlFor="new-password" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
 							Nova senha
 						</Label>
 						<div className="relative">
@@ -342,7 +342,7 @@ function ResetPasswordPage() {
 							<button
 								type="button"
 								onClick={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
-								className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+								className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 								aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 							>
 								{showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
@@ -357,7 +357,7 @@ function ResetPasswordPage() {
 
 					{/* Confirmar senha */}
 					<div className="space-y-1.5">
-						<Label htmlFor="confirm-password" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
+						<Label htmlFor="confirm-password" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
 							Confirmar senha
 						</Label>
 						<div className="relative">
@@ -382,7 +382,7 @@ function ResetPasswordPage() {
 							<button
 								type="button"
 								onClick={() => dispatch({ type: "TOGGLE_SHOW_CONFIRM" })}
-								className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+								className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 								aria-label={showConfirm ? "Ocultar confirmação" : "Mostrar confirmação"}
 							>
 								{showConfirm ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}

@@ -37,7 +37,7 @@ function SeverityCounts({ item }: { item: QueueItem }) {
 	if (!item.latest_run) return <span className="text-muted-foreground text-xs">—</span>
 
 	return (
-		<span className="flex gap-1 font-mono text-[11px]">
+		<span className="flex gap-1 font-mono text-2xs">
 			{SEVERITY_ORDER.map((severity) => {
 				const count = item.severity_counts[severity]
 				return (
@@ -166,7 +166,7 @@ function PainelPage() {
 								className={`border px-3 py-1.5 text-sm ${stageFilter === stage ? "border-foreground bg-foreground text-background" : "border-border"}`}
 							>
 								{STAGE_LABEL[stage]}
-								<Badge variant="outline" className="ml-2 h-4 px-1 font-mono text-[10px] tabular-nums">
+								<Badge variant="outline" className="ml-2 h-4 px-1 font-mono text-3xs tabular-nums">
 									{totals?.by_stage[stage] ?? 0}
 								</Badge>
 							</button>
@@ -184,7 +184,7 @@ function PainelPage() {
 						<div className="overflow-x-auto border border-border">
 							<table className="w-full min-w-[720px] text-left">
 								<thead>
-									<tr className="border-border border-b bg-muted/40 text-muted-foreground text-xs uppercase tracking-[0.1em]">
+									<tr className="border-border border-b bg-muted/40 text-muted-foreground text-xs uppercase tracking-widest">
 										<th className="px-3 py-2 font-medium">Documento</th>
 										<th className="px-3 py-2 font-medium">Etapa</th>
 										<th className="px-3 py-2 font-medium">Achados</th>

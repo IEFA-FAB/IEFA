@@ -26,10 +26,10 @@ export function FindingCard({ finding, footer }: { finding: Finding; footer?: Re
 	return (
 		<article className={`border border-border border-b-0 p-4 last:border-b ${SEVERITY_TINT[finding.severity]}`}>
 			<div className="mb-2 flex flex-wrap items-center gap-2">
-				<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
+				<Badge variant="outline" className="text-3xs uppercase tracking-widest">
 					{finding.severity}
 				</Badge>
-				<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
+				<Badge variant="outline" className="text-3xs uppercase tracking-widest">
 					{finding.category}
 				</Badge>
 				{finding.section_path ? <span className="font-mono text-muted-foreground text-xs">{finding.section_path}</span> : null}
@@ -41,7 +41,7 @@ export function FindingCard({ finding, footer }: { finding: Finding; footer?: Re
 			{finding.legal_ref.length > 0 ? (
 				<ul className="mt-2 space-y-0.5">
 					{finding.legal_ref.map((ref) => (
-						<li key={`${ref.norma}-${ref.dispositivo}`} className="font-mono text-[11px] text-muted-foreground">
+						<li key={`${ref.norma}-${ref.dispositivo}`} className="font-mono text-2xs text-muted-foreground">
 							{ref.dispositivo} — {ref.norma}
 						</li>
 					))}
@@ -52,7 +52,7 @@ export function FindingCard({ finding, footer }: { finding: Finding; footer?: Re
 
 			{finding.suggestion ? (
 				<p className="mt-3 text-sm">
-					<span className="text-muted-foreground text-xs uppercase tracking-[0.1em]">Sugestão · </span>
+					<span className="text-muted-foreground text-xs uppercase tracking-widest">Sugestão · </span>
 					{finding.suggestion}
 				</p>
 			) : null}

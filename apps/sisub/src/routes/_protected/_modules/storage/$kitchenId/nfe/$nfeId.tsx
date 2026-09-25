@@ -89,7 +89,7 @@ function SuggestionRow({ nfeItemId, suggestion, onResolved }: { nfeItemId: strin
 
 	return (
 		<div className="flex items-center gap-2 text-xs">
-			<Badge variant="outline" className="text-[10px] tabular-nums shrink-0">
+			<Badge variant="outline" className="text-3xs tabular-nums shrink-0">
 				{(suggestion.score * 100).toFixed(0)}%
 			</Badge>
 			<span className="truncate">{suggestion.description}</span>
@@ -242,7 +242,7 @@ function NfeDetailPage() {
 											<td className="py-2.5 px-3 text-xs font-mono text-muted-foreground">{item.n_item}</td>
 											<td className="py-2.5 px-2 text-xs">
 												<span className="block">{item.description ?? "—"}</span>
-												<span className="text-muted-foreground text-[10px] font-mono">
+												<span className="text-muted-foreground text-3xs font-mono">
 													{item.supplier_code ?? ""}
 													{item.lot_code ? ` · lote ${item.lot_code}` : ""}
 													{item.expiry_date ? ` · val ${item.expiry_date}` : ""}

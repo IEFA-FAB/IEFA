@@ -32,7 +32,7 @@ export function MessageBody({ content, citations, onCite }: { content: string; c
 					<button
 						type="button"
 						onClick={() => onCite?.(label)}
-						className="mx-0.5 inline-flex h-5 items-center border border-border bg-background px-1 align-baseline font-mono text-[10px] text-foreground hover:bg-muted"
+						className="mx-0.5 inline-flex h-5 items-center border border-border bg-background px-1 align-baseline font-mono text-3xs text-foreground hover:bg-muted"
 						aria-label={`Abrir a fonte ${label}`}
 					>
 						{label}
@@ -96,7 +96,7 @@ export function RedactionBlock({ section, text }: { section: string | null; text
 				</Button>
 			</figcaption>
 			<pre className="whitespace-pre-wrap px-3 py-2 font-serif text-sm leading-relaxed">{text}</pre>
-			<p className="border-border border-t px-3 py-1.5 text-[11px] text-muted-foreground">
+			<p className="border-border border-t px-3 py-1.5 text-2xs text-muted-foreground">
 				Sugestão do assistente — confira com a norma antes de usar no documento.
 			</p>
 		</figure>

@@ -984,7 +984,7 @@ function Roadmap() {
 				</div>
 
 				<div className="pb-8 flex flex-col items-center gap-2 text-muted-foreground/60 select-none" aria-hidden="true">
-					<span className="text-[10px] tracking-[0.2em] uppercase">Rolar</span>
+					<span className="text-3xs tracking-[0.2em] uppercase">Rolar</span>
 					<NavArrowDown className="h-5 w-5 animate-bounce" />
 				</div>
 			</section>
@@ -1026,7 +1026,7 @@ function Roadmap() {
 											<AppIcon className="h-4 w-4 text-foreground" aria-hidden="true" />
 										</div>
 										<div className="flex items-center gap-3 flex-1 min-w-0">
-											<Badge variant="secondary" className="font-mono text-[10px] shrink-0">
+											<Badge variant="secondary" className="font-mono text-3xs shrink-0">
 												{appRoadmap.slug}
 											</Badge>
 											<h3 className="font-bold text-lg tracking-tight truncate">{appRoadmap.title}</h3>
@@ -1067,9 +1067,7 @@ function Roadmap() {
 															return (
 																<li key={step.number} className="flex gap-5 md:gap-6 border-t border-border py-5">
 																	{/* Step number */}
-																	<span className="font-mono text-[10px] text-muted-foreground/40 tabular-nums shrink-0 w-7 pt-1 leading-none">
-																		{step.number}
-																	</span>
+																	<span className="font-mono text-3xs text-muted-foreground/40 tabular-nums shrink-0 w-7 pt-1 leading-none">{step.number}</span>
 
 																	{/* Status icon */}
 																	<div className="shrink-0 pt-0.5">
@@ -1126,7 +1124,7 @@ function Roadmap() {
 										<div className="size-9 border border-border bg-muted flex items-center justify-center shrink-0">
 											<Icon className="h-4 w-4 text-foreground" aria-hidden="true" />
 										</div>
-										<Badge variant="secondary" className="font-mono text-[10px]">
+										<Badge variant="secondary" className="font-mono text-3xs">
 											{slug}
 										</Badge>
 									</div>
@@ -1142,7 +1140,7 @@ function Roadmap() {
 								{/* Stack */}
 								<div className="flex flex-wrap gap-1.5 pt-4 border-t border-border">
 									{stack.map((tech) => (
-										<span key={tech} className="text-[10px] text-muted-foreground border border-border px-2 py-0.5 font-mono">
+										<span key={tech} className="text-3xs text-muted-foreground border border-border px-2 py-0.5 font-mono">
 											{tech}
 										</span>
 									))}
@@ -1172,7 +1170,7 @@ function Roadmap() {
 						{PACKAGES.map((pkg) => (
 							<div key={pkg.slug} className="border-t border-border py-4 flex flex-wrap items-center gap-4">
 								<div className="flex items-center gap-3 shrink-0 w-48">
-									<Badge variant="secondary" className="font-mono text-[10px]">
+									<Badge variant="secondary" className="font-mono text-3xs">
 										{pkg.slug}
 									</Badge>
 								</div>
@@ -1181,7 +1179,7 @@ function Roadmap() {
 								</div>
 								<div className="flex flex-wrap gap-1.5 shrink-0">
 									{pkg.stack.map((t) => (
-										<span key={t} className="text-[10px] text-muted-foreground border border-border px-2 py-0.5 font-mono">
+										<span key={t} className="text-3xs text-muted-foreground border border-border px-2 py-0.5 font-mono">
 											{t}
 										</span>
 									))}

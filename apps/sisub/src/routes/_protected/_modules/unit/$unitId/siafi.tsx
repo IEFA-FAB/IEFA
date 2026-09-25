@@ -166,7 +166,7 @@ function SiafiPage() {
 											{batch.recognized_rows}/{batch.total_rows}
 										</td>
 										<td className="py-2.5 px-2 text-center">
-											<Badge variant={batch.status === "applied" ? "secondary" : "outline"} className="text-[10px]">
+											<Badge variant={batch.status === "applied" ? "secondary" : "outline"} className="text-3xs">
 												{batch.status === "applied" ? "aplicado" : "estacionado"}
 											</Badge>
 										</td>

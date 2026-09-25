@@ -77,14 +77,14 @@ export function Combobox({
 					aria-label={props["aria-label"]}
 					className={cn(
 						"h-9 w-full min-w-0 cursor-pointer rounded-md border border-input bg-transparent py-1 pr-8 pl-3 text-sm shadow-xs outline-none transition-[color,box-shadow]",
-						"placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+						"placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
 						"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
 						inputClassName
 					)}
 				/>
 				<ComboboxPrimitive.Trigger
 					aria-label="Abrir lista"
-					className="absolute inset-y-0 right-0 flex w-8 cursor-pointer items-center justify-center text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+					className="absolute inset-y-0 right-0 flex w-8 cursor-pointer items-center justify-center text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 				>
 					<ComboboxPrimitive.Icon render={<ChevronDownIcon className="size-4 opacity-50" />} />
 				</ComboboxPrimitive.Trigger>

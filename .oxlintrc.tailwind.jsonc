@@ -17,10 +17,18 @@
     "shadcn/no-raw-colors": [
       "warn",
       { "allow": ["text-hero", "text-display", "text-headline", "text-label", "shadow-hard-sm", "shadow-hard-md", "shadow-hard-lg"] }
-    ]
+    ],
+    // Valor fora da escala (`p-[13px]`, `text-[10px]`). Dimensão de layout (largura, margem,
+    // posição) passa: é onde o valor exato costuma ser legítimo. Dívida medida pelo baseline.
+    "shadcn/no-arbitrary-values": ["warn", { "allow": ["layout"] }]
   },
   // A última override que casa com o arquivo decide as opções da regra: a geral vem antes.
   "overrides": [
+    {
+      // Primitivos do design system definem o próprio visual: valor exato ali é implementação.
+      "files": ["apps/*/src/components/ui/**"],
+      "rules": { "shadcn/no-arbitrary-values": "off" }
+    },
     {
       // Ganchos sem CSS: `nodrag`/`nopan` são lidos pelo React Flow; `qr-*` e
       // `main-content-surface` marcam elementos; `recharts-*` é classe do Recharts.

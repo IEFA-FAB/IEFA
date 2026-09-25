@@ -143,7 +143,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
-const LABEL = "text-[11px] font-medium uppercase text-muted-foreground"
+const LABEL = "text-2xs font-medium uppercase text-muted-foreground"
 const LABEL_TRACKING = { letterSpacing: "0.06em" } as const
 
 function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
@@ -444,7 +444,7 @@ function LoginTabContent({ state, dispatch, actions, onNavigate, searchParams, i
 								variant="link"
 								size="sm"
 								onClick={goToForgot}
-								className="h-auto p-0 text-[11px] text-muted-foreground hover:text-foreground"
+								className="h-auto p-0 text-2xs text-muted-foreground hover:text-foreground"
 								style={LABEL_TRACKING}
 							>
 								Esqueceu a senha?

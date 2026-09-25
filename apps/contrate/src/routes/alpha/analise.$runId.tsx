@@ -72,7 +72,7 @@ function RelatorioPage() {
 							["normas usadas", run.law_document_ids.length],
 						].map(([label, value]) => (
 							<div key={label as string} className="bg-background p-4">
-								<dt className="text-muted-foreground text-xs uppercase tracking-[0.1em]">{label}</dt>
+								<dt className="text-muted-foreground text-xs uppercase tracking-widest">{label}</dt>
 								<dd className="mt-1 font-semibold text-2xl tabular-nums">{value}</dd>
 							</div>
 						))}

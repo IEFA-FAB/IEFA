@@ -78,14 +78,14 @@ export function SidebarUser() {
 								className="data-popup-open:border-sidebar-foreground data-popup-open:bg-background"
 							>
 								<span
-									className="flex aspect-square size-8 shrink-0 items-center justify-center border border-sidebar-foreground bg-background font-mono font-semibold text-[11px] text-sidebar-foreground tracking-[0.06em]"
+									className="flex aspect-square size-8 shrink-0 items-center justify-center border border-sidebar-foreground bg-background font-mono font-semibold text-2xs text-sidebar-foreground tracking-(--tracking-label)"
 									aria-hidden="true"
 								>
 									{initials}
 								</span>
 								<span className="grid flex-1 text-left leading-tight">
 									<span className="truncate font-medium text-sm">{displayName}</span>
-									<span className="truncate font-mono text-[11px] text-sidebar-foreground/60">{email}</span>
+									<span className="truncate font-mono text-2xs text-sidebar-foreground/60">{email}</span>
 								</span>
 								<MoreHoriz className="ml-auto size-4 shrink-0 text-sidebar-foreground/60" aria-hidden="true" />
 							</SidebarMenuButton>
@@ -100,8 +100,8 @@ export function SidebarUser() {
 						<DropdownMenuGroup>
 							<DropdownMenuLabel className="p-0 font-normal">
 								<span className="flex flex-col gap-1 border-border border-b px-2 py-2.5">
-									<span className="font-semibold text-[11px] text-foreground uppercase leading-none tracking-[0.06em]">{displayName}</span>
-									<span className="font-mono text-[11px] text-muted-foreground leading-none">{email}</span>
+									<span className="font-semibold text-2xs text-foreground uppercase leading-none tracking-(--tracking-label)">{displayName}</span>
+									<span className="font-mono text-2xs text-muted-foreground leading-none">{email}</span>
 								</span>
 							</DropdownMenuLabel>
 						</DropdownMenuGroup>

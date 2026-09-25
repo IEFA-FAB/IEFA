@@ -149,7 +149,7 @@ export function CincoSLanding() {
 								className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white"
 								style={{ background: color, borderRadius: "2rem" }}
 							>
-								<span className="font-black text-[10px] opacity-70">{index + 1}</span>
+								<span className="font-black text-3xs opacity-70">{index + 1}</span>
 								<span>{name}</span>
 							</div>
 						))}
@@ -215,7 +215,7 @@ export function CincoSLanding() {
 									<span className="text-white">{letter}</span>
 								</div>
 								<div>
-									<p className="text-[10px] text-white/35 font-medium uppercase tracking-wide">Fase {index + 1}</p>
+									<p className="text-3xs text-white/35 font-medium uppercase tracking-wide">Fase {index + 1}</p>
 									<h4 className="font-bold text-sm text-white/90">{name}</h4>
 								</div>
 								<p className="text-xs text-white/45 leading-relaxed hidden sm:block">{description}</p>

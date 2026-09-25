@@ -266,7 +266,7 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients }: RecipeFlowE
 			{/* Insumos + balanço recolhidos por padrão — liberam toda a largura ao DAG.
 			    O status de balanço fica no trigger para feedback mesmo com o painel fechado. */}
 			<Collapsible defaultOpen={false} className="rounded-md border border-border">
-				<CollapsibleTrigger className="group/usage flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+				<CollapsibleTrigger className="group/usage flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
 					<span className="text-label uppercase text-muted-foreground">Insumos e balanço</span>
 					<span className="flex items-center gap-2">
 						{balanceErrors.length > 0 ? (

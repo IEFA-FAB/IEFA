@@ -24,8 +24,8 @@ export function CitationList({ citations, open, onToggle }: { citations: readonl
 							className="flex w-full items-baseline gap-2 py-1.5 text-left text-xs"
 							aria-expanded={open === citation.label}
 						>
-							<span className="font-mono text-[10px]">{citation.label}</span>
-							<span className="text-muted-foreground uppercase tracking-[0.06em] text-[10px]">{KIND_LABEL[citation.kind]}</span>
+							<span className="font-mono text-3xs">{citation.label}</span>
+							<span className="text-muted-foreground uppercase tracking-(--tracking-label) text-3xs">{KIND_LABEL[citation.kind]}</span>
 							<span className="truncate">{summary(citation)}</span>
 						</button>
 						{open === citation.label ? <CitationDetail citation={citation} /> : null}
@@ -47,7 +47,7 @@ function CitationDetail({ citation }: { citation: Citation }) {
 	if (citation.kind === "achado") {
 		return (
 			<div className="mb-2 bg-muted/60 p-2 text-xs">
-				<Badge variant="outline" className="mb-1 text-[10px] uppercase tracking-[0.1em]">
+				<Badge variant="outline" className="mb-1 text-3xs uppercase tracking-widest">
 					{citation.severity}
 				</Badge>
 				<p>{citation.message}</p>

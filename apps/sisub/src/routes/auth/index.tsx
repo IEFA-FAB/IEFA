@@ -248,7 +248,7 @@ function AuthPage() {
 					{view === "verify-error" && (
 						<div className="flex flex-col gap-5">
 							<div>
-								<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Confirmação de email</p>
+								<p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-2">Confirmação de email</p>
 								<h2 className="text-display mb-1">Link inválido</h2>
 								<p className="text-sm text-muted-foreground">O link de confirmação expirou ou não é mais válido.</p>
 							</div>
@@ -402,7 +402,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 
 			{/* Email */}
 			<div className="space-y-1.5">
-				<Label htmlFor="login-email" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
+				<Label htmlFor="login-email" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
 					Email
 				</Label>
 				<div className="relative">
@@ -433,13 +433,13 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 			{/* Senha */}
 			<div className="space-y-1.5">
 				<div className="flex items-center justify-between">
-					<Label htmlFor="login-password" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
+					<Label htmlFor="login-password" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
 						Senha
 					</Label>
 					<button
 						type="button"
 						onClick={onForgotPassword}
-						className="cursor-pointer font-mono text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						className="cursor-pointer font-mono text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 					>
 						Esqueceu a senha?
 					</button>
@@ -464,7 +464,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 					<button
 						type="button"
 						onClick={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
-						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 						aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 					>
 						{showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
@@ -635,7 +635,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 
 			{/* Nome */}
 			<div className="space-y-1.5">
-				<Label htmlFor="reg-name" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
+				<Label htmlFor="reg-name" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
 					Nome completo
 				</Label>
 				<div className="relative">
@@ -658,7 +658,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 
 			{/* Email */}
 			<div className="space-y-1.5">
-				<Label htmlFor="reg-email" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
+				<Label htmlFor="reg-email" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
 					Email institucional
 				</Label>
 				<div className="relative">
@@ -688,7 +688,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 
 			{/* Senha */}
 			<div className="space-y-1.5">
-				<Label htmlFor="reg-password" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
+				<Label htmlFor="reg-password" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
 					Senha
 				</Label>
 				<div className="relative">
@@ -711,7 +711,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					<button
 						type="button"
 						onClick={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
-						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 						aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 					>
 						{showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
@@ -726,7 +726,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 
 			{/* Confirmar Senha */}
 			<div className="space-y-1.5">
-				<Label htmlFor="reg-confirm" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
+				<Label htmlFor="reg-confirm" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
 					Confirmar senha
 				</Label>
 				<div className="relative">
@@ -749,7 +749,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					<button
 						type="button"
 						onClick={() => dispatch({ type: "TOGGLE_SHOW_CONFIRM" })}
-						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-sm"
 						aria-label={showConfirm ? "Ocultar confirmação" : "Mostrar confirmação"}
 					>
 						{showConfirm ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
@@ -849,7 +849,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 		return (
 			<div className="flex flex-col gap-6">
 				<div>
-					<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Recuperação de senha</p>
+					<p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-2">Recuperação de senha</p>
 					<h2 className="text-display mb-1">Email enviado!</h2>
 					<p className="text-sm text-muted-foreground leading-relaxed">Verifique sua caixa de entrada. O link de redefinição expira em alguns minutos.</p>
 				</div>
@@ -864,7 +864,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 	return (
 		<div className="flex flex-col gap-6">
 			<div>
-				<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Recuperação de senha</p>
+				<p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-2">Recuperação de senha</p>
 				<h2 className="text-display mb-1">Esqueceu sua senha?</h2>
 				<p className="text-sm text-muted-foreground leading-relaxed">Informe seu email institucional e enviaremos um link de redefinição.</p>
 			</div>
@@ -878,7 +878,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 				)}
 
 				<div className="space-y-1.5">
-					<Label htmlFor="forgot-email" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
+					<Label htmlFor="forgot-email" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
 						Email
 					</Label>
 					<div className="relative">

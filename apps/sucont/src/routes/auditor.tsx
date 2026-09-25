@@ -758,7 +758,7 @@ function AuditorPage() {
 											key={tab.id}
 											type="button"
 											onClick={() => setSelectedGroup(tab.id)}
-											className={`px-4 py-2 text-label rounded-lg transition-all whitespace-nowrap border border-transparent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
+											className={`px-4 py-2 text-label rounded-lg transition-all whitespace-nowrap border border-transparent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 
                         ${selectedGroup === tab.id ? tab.activeClass : "text-muted-foreground hover:text-foreground hover:bg-muted"}
                       `}
 										>
@@ -775,7 +775,7 @@ function AuditorPage() {
 												key={tf}
 												type="button"
 												onClick={() => setTimeFilter(tf)}
-												className={`px-3 py-2 text-label rounded-lg whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
+												className={`px-3 py-2 text-label rounded-lg whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50
                           ${timeFilter === tf ? "bg-action text-action-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                         `}
 											>
@@ -799,7 +799,7 @@ function AuditorPage() {
 									<button
 										type="button"
 										onClick={() => setHideZeros(!hideZeros)}
-										className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-label whitespace-nowrap border transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
+										className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-label whitespace-nowrap border transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50
                       ${hideZeros ? "bg-warning/10 text-warning border-warning/50" : "text-muted-foreground border-border hover:text-foreground"}
                     `}
 									>

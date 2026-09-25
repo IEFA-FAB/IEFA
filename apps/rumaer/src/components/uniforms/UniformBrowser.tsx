@@ -246,7 +246,7 @@ function GeneroBadge({ genero }: { genero: Genero }) {
 	return (
 		<span
 			className={cn(
-				"rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide",
+				"rounded-full px-2 py-0.5 text-2xs font-semibold tracking-wide",
 				genero === "feminino" ? "bg-governance/12 text-governance" : "bg-primary/10 text-primary"
 			)}
 		>
@@ -298,9 +298,7 @@ function UniformCardMedia({ uniformId, genero, title }: { uniformId: string; gen
 				fallback={isLoading || !inView ? <Spinner className="size-5" /> : <ImageOff className="size-5" aria-hidden="true" />}
 			/>
 			{count > 1 && (
-				<span className="absolute right-2 bottom-2 rounded-full bg-foreground/70 px-1.5 py-0.5 text-[10px] font-medium text-background">
-					+{count - 1} foto(s)
-				</span>
+				<span className="absolute right-2 bottom-2 rounded-full bg-foreground/70 px-1.5 py-0.5 text-3xs font-medium text-background">+{count - 1} foto(s)</span>
 			)}
 		</div>
 	)

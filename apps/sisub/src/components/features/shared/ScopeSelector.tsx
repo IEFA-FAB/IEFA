@@ -89,7 +89,7 @@ export function ScopeSelector({
 							key={item.id}
 							type="button"
 							onClick={() => onSelect(item.id)}
-							className="group flex items-center gap-3 rounded-lg border border-border/50 bg-card px-4 py-3 text-left transition-colors hover:border-primary/25 hover:bg-muted/30 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none cursor-pointer"
+							className="group flex items-center gap-3 rounded-lg border border-border/50 bg-card px-4 py-3 text-left transition-colors hover:border-primary/25 hover:bg-muted/30 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3 outline-none cursor-pointer"
 						>
 							<div className="flex-1 min-w-0">
 								<p className="text-subheading text-foreground leading-tight">{item.name}</p>

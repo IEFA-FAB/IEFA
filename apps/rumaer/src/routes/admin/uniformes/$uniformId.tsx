@@ -741,7 +741,7 @@ function AltImageRow({
 				{image && imageUrl ? (
 					<img src={imageUrl} alt={piece.piece.nome} className="size-full object-contain" />
 				) : (
-					<span className="text-[10px] text-muted-foreground text-center px-1">{image ? "…" : "sem img"}</span>
+					<span className="text-3xs text-muted-foreground text-center px-1">{image ? "…" : "sem img"}</span>
 				)}
 			</div>
 			<div className="flex flex-col gap-0.5 flex-1 min-w-0">

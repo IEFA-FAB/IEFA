@@ -44,7 +44,7 @@ function UnitNodeComponent({ data, selected }: NodeProps) {
 				<div className="flex items-center gap-1 mt-0.5">
 					<span className="text-xs text-muted-foreground font-mono">{record.code}</span>
 					{typeLabel && (
-						<Badge variant={typeVariant} className="text-[10px] h-4 px-1.5">
+						<Badge variant={typeVariant} className="text-3xs h-4 px-1.5">
 							{typeLabel}
 						</Badge>
 					)}

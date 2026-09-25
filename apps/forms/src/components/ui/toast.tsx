@@ -62,7 +62,7 @@ function Toast({ className, ...props }: ToastPrimitive.Root.Props) {
 		<ToastPrimitive.Root
 			data-slot="toast"
 			className={cn(
-				"bg-popover text-popover-foreground focus-visible:border-ring focus-visible:ring-ring/50 group/toast pointer-events-auto absolute right-0 z-[calc(1000-var(--toast-index))] w-full rounded-xl border shadow-lg will-change-transform outline-none select-none focus-visible:ring-[3px]",
+				"bg-popover text-popover-foreground focus-visible:border-ring focus-visible:ring-ring/50 group/toast pointer-events-auto absolute right-0 z-[calc(1000-var(--toast-index))] w-full rounded-xl border shadow-lg will-change-transform outline-none select-none focus-visible:ring-3",
 				"bottom-0 origin-bottom after:top-full data-[position=top]:top-0 data-[position=top]:bottom-auto data-[position=top]:origin-top data-[position=top]:after:top-auto data-[position=top]:after:bottom-full",
 				STACK_VARS,
 				"h-(--height) [transform:translateX(var(--toast-swipe-movement-x))_translateY(var(--collapsed-y))_scale(var(--scale))] [transition:transform_500ms_cubic-bezier(0.22,1,0.36,1),opacity_500ms,height_150ms]",

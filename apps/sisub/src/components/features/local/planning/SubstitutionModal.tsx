@@ -124,7 +124,7 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 							</SelectTrigger>
 							<SelectContent>{/* Populate with fetch */}</SelectContent>
 						</Select>
-						<p className="text-[10px] text-muted-foreground">* Seleção de insumos desativada nesta versão.</p>
+						<p className="text-3xs text-muted-foreground">* Seleção de insumos desativada nesta versão.</p>
 					</div>
 
 					<div className="space-y-2">

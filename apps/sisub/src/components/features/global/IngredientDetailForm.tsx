@@ -295,7 +295,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 											"field-sizing-content min-w-[10ch] max-w-full",
 											"-mx-2 rounded-md px-2 py-0.5",
 											"outline-none transition-colors hover:bg-muted/60 focus:bg-muted/60",
-											"focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground/60"
+											"focus-visible:ring-3 focus-visible:ring-ring/50 placeholder:text-muted-foreground/60"
 										)}
 									/>
 									<Pencil className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/title:opacity-100 group-focus-within/title:opacity-100" />

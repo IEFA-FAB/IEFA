@@ -29,13 +29,13 @@ function SidebarLegalLinks() {
 			{LEGAL_LINKS.map((link, index) => (
 				<span key={link.to} className="flex items-center gap-x-2">
 					{index > 0 && (
-						<span aria-hidden="true" className="text-[11px] text-sidebar-foreground/30">
+						<span aria-hidden="true" className="text-2xs text-sidebar-foreground/30">
 							·
 						</span>
 					)}
 					<Link
 						to={link.to}
-						className="text-[11px] text-sidebar-foreground/60 underline-offset-4 transition-colors hover:text-sidebar-foreground hover:underline focus-visible:outline-2 focus-visible:outline-sidebar-ring focus-visible:outline-offset-2"
+						className="text-2xs text-sidebar-foreground/60 underline-offset-4 transition-colors hover:text-sidebar-foreground hover:underline focus-visible:outline-2 focus-visible:outline-sidebar-ring focus-visible:outline-offset-2"
 					>
 						{link.label}
 					</Link>

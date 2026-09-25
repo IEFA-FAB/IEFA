@@ -314,7 +314,7 @@ function CitationPanel({ chunkId, index }: { chunkId: string; index: number }) {
 	return (
 		<details className="bg-muted/20 border border-border p-2" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
 			<summary className="list-none flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
-				<Badge variant="secondary" className="h-5 text-[11px]">
+				<Badge variant="secondary" className="h-5 text-2xs">
 					[{index + 1}]
 				</Badge>
 				<span className="truncate">{chunk ? chunkLabel(chunk) : "Ver o trecho citado"}</span>
@@ -732,7 +732,7 @@ function ChatRada() {
 					{!isLoggedIn && (
 						<div className="mt-2 flex items-start gap-2 border border-amber-500/30 bg-amber-500/5 px-3 py-2">
 							<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-							<span className="text-[11px] text-muted-foreground">Não logado. Histórico desativado.</span>
+							<span className="text-2xs text-muted-foreground">Não logado. Histórico desativado.</span>
 						</div>
 					)}
 				</div>
@@ -776,7 +776,7 @@ function ChatRada() {
 									{/* Meta */}
 									<div className="flex-1 min-w-0">
 										<p className={cn("text-sm font-medium truncate", active ? "text-primary" : "text-foreground")}>{sessionTitleLikeChatGPT(s)}</p>
-										<p className="text-[11px] text-muted-foreground mt-0.5">{formatDateShort(s.last_message_at || s.created_at)}</p>
+										<p className="text-2xs text-muted-foreground mt-0.5">{formatDateShort(s.last_message_at || s.created_at)}</p>
 									</div>
 								</button>
 							)
@@ -786,7 +786,7 @@ function ChatRada() {
 
 				{/* Footer note */}
 				<div className="shrink-0 border-t border-border px-4 py-3">
-					<div className="flex items-start gap-2 text-[11px] text-muted-foreground">
+					<div className="flex items-start gap-2 text-2xs text-muted-foreground">
 						<WarningCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
 						<span>{isLoggedIn ? "Conversas ficam salvas por 7 dias." : "Entre para ativar o histórico permanente."}</span>
 					</div>
@@ -813,12 +813,12 @@ function ChatRada() {
 
 					<div className="flex-1 min-w-0">
 						<h1 className="text-sm font-semibold leading-tight">Chat RADA</h1>
-						<p className="text-[11px] text-muted-foreground leading-tight hidden sm:block">Assistente sobre o Regulamento de Administração</p>
+						<p className="text-2xs text-muted-foreground leading-tight hidden sm:block">Assistente sobre o Regulamento de Administração</p>
 					</div>
 
 					<div className="flex items-center gap-1.5">
 						{isLoggedIn && sessionId && (
-							<span className="hidden lg:inline border border-border px-2 py-1 text-[11px] text-muted-foreground font-mono">{sessionId.slice(0, 8)}…</span>
+							<span className="hidden lg:inline border border-border px-2 py-1 text-2xs text-muted-foreground font-mono">{sessionId.slice(0, 8)}…</span>
 						)}
 					</div>
 				</header>
@@ -917,8 +917,8 @@ function ChatRada() {
 
 						<div className="mt-2 flex items-center justify-between text-xs">
 							<span className="text-muted-foreground">
-								<kbd className="px-1.5 py-0.5 border border-border font-mono text-[10px] bg-muted">Enter</kbd> para enviar ·{" "}
-								<kbd className="px-1.5 py-0.5 border border-border font-mono text-[10px] bg-muted">Shift + Enter</kbd> para quebra
+								<kbd className="px-1.5 py-0.5 border border-border font-mono text-3xs bg-muted">Enter</kbd> para enviar ·{" "}
+								<kbd className="px-1.5 py-0.5 border border-border font-mono text-3xs bg-muted">Shift + Enter</kbd> para quebra
 							</span>
 						</div>
 					</div>

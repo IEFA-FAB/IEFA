@@ -85,7 +85,7 @@ export function EvaluationDialog({ open, question, selectedRating, isSubmitting,
 							))}
 						</div>
 
-						<div className="mt-2 flex justify-between px-2 text-[11px] text-muted-foreground">
+						<div className="mt-2 flex justify-between px-2 text-2xs text-muted-foreground">
 							<span>Péssimo</span>
 							<span>Excelente</span>
 						</div>

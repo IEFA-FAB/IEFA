@@ -905,7 +905,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 													<button
 														type="button"
 														key={conf}
-														className="bg-muted/50 p-4 rounded-xl border border-border text-center hover:bg-success/10 transition-colors cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50"
+														className="bg-muted/50 p-4 rounded-xl border border-border text-center hover:bg-success/10 transition-colors cursor-pointer focus-visible:ring-3 focus-visible:ring-ring/50"
 														onClick={() => setConferenteFilter(conf)}
 													>
 														<p className="text-label text-muted-foreground mb-1">{conf}</p>

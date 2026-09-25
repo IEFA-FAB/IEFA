@@ -23,7 +23,7 @@ export function StatGrid({
 		<dl className={`grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4 ${className}`}>
 			{items.map(([label, content]) => (
 				<div key={label} className={surface}>
-					<dt className="text-muted-foreground text-xs uppercase tracking-[0.1em]">{label}</dt>
+					<dt className="text-muted-foreground text-xs uppercase tracking-widest">{label}</dt>
 					<dd className={`mt-1 font-semibold tabular-nums ${value}`}>{content}</dd>
 				</div>
 			))}

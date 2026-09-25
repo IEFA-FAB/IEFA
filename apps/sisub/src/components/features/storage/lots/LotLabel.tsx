@@ -51,11 +51,11 @@ function Barcode39({ value, height = 44 }: { value: string; height?: number }) {
 
 export function LotLabel({ lot }: { lot: LotLabelData }) {
 	return (
-		<div className="lot-label break-inside-avoid border border-black bg-white p-2 font-mono text-[10px] leading-tight text-black">
-			<div className="truncate text-[11px] font-bold uppercase">{lot.description}</div>
-			{lot.derivation && <div className="text-[10px] font-bold">{DERIVATION_LABEL[lot.derivation]}</div>}
+		<div className="lot-label break-inside-avoid border border-black bg-white p-2 font-mono text-3xs leading-tight text-black">
+			<div className="truncate text-2xs font-bold uppercase">{lot.description}</div>
+			{lot.derivation && <div className="text-3xs font-bold">{DERIVATION_LABEL[lot.derivation]}</div>}
 			<Barcode39 value={lot.shortCode} />
-			<div className="text-center text-[11px] font-bold tracking-wider">{lot.shortCode}</div>
+			<div className="text-center text-2xs font-bold tracking-wider">{lot.shortCode}</div>
 			<dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-1">
 				{lot.lotCode && (
 					<>

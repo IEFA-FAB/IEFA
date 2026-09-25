@@ -92,17 +92,17 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated, groups = 
 					    ficha antiga sem sinal nenhum. Para atualizar, é no cardápio semanal + reaplicar. */}
 					<RecipeVersionBadge outdated={outdated} />
 					{item.origin_template_type === "event" && (
-						<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+						<Badge variant="outline" className="text-3xs bg-primary/10 text-primary border-primary/30">
 							Evento
 						</Badge>
 					)}
 					{item.origin_template_type === "exception" && (
-						<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+						<Badge variant="outline" className="text-3xs bg-primary/10 text-primary border-primary/30">
 							Exceção
 						</Badge>
 					)}
 					{item.substitutions && (
-						<Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
+						<Badge variant="outline" className="text-3xs bg-warning/10 text-warning border-warning/30">
 							Substituição Ativa
 						</Badge>
 					)}
