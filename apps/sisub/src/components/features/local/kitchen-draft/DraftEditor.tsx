@@ -174,7 +174,13 @@ export function DraftEditor({
 						<FieldGroup>
 							<Field>
 								<FieldLabel htmlFor="draft-title">Título do Rascunho *</FieldLabel>
-								<Input id="draft-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Sugestão Ata Março 2026" required />
+								<Input
+									id="draft-title"
+									value={title}
+									onChange={(e) => setTitle(e.target.value)}
+									placeholder="Ex: Sugestão Anexo Quantitativo Março 2026"
+									required
+								/>
 							</Field>
 						</FieldGroup>
 						<FieldGroup>

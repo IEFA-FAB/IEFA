@@ -1,5 +1,6 @@
 /**
- * Unit module tools — ATAs, ARP, empenhos, dashboard, settings.
+ * Unit module tools — anexos quantitativos do TR (`ata` no código, nome legado), ARP,
+ * empenhos, dashboard, settings.
  * Ported from server functions: ata.fn.ts, arp.fn.ts, unit-dashboard.fn.ts, unit-settings.fn.ts
  *
  * As tabelas deste módulo NÃO moram no schema `kitchen`, que é o default do client do chat:
@@ -34,11 +35,12 @@ function requireCurrentUnitId(ctx: Parameters<ModuleToolDefinition["handler"]>[1
 
 const listAtas: ModuleToolDefinition = {
 	name: "list_atas",
-	description: "Lista ATAs de licitação da unidade atual da rota. Não recebe ID de unidade; o escopo vem do contexto autenticado.",
+	description:
+		"Lista os anexos quantitativos do Termo de Referência (TR) da unidade atual da rota — não são atas; a ARP só existe após a homologação e é vinculada ao anexo. Não recebe ID de unidade; o escopo vem do contexto autenticado.",
 	parameters: {
 		type: "object",
 		properties: {
-			limit: { type: "number", description: `Quantas ATAs retornar, das mais recentes (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
+			limit: { type: "number", description: `Quantos anexos retornar, dos mais recentes (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
 		},
 		required: [],
 		additionalProperties: false,
@@ -65,11 +67,11 @@ const listAtas: ModuleToolDefinition = {
 const getAtaDetails: ModuleToolDefinition = {
 	name: "get_ata_details",
 	description:
-		"Retorna detalhes de uma ATA: cabeçalho, cozinhas com seleções e uma página de itens. Use itemSearch/limit para chegar num item específico sem trazer a lista inteira.",
+		"Retorna detalhes de um anexo quantitativo do TR: cabeçalho, cozinhas com seleções e uma página de itens. Use itemSearch/limit para chegar num item específico sem trazer a lista inteira.",
 	parameters: {
 		type: "object",
 		properties: {
-			ataId: { type: "string", description: "ID (UUID) da ATA" },
+			ataId: { type: "string", description: "ID (UUID) do anexo quantitativo" },
 			itemSearch: { type: "string", description: "Filtra os itens pelo nome do insumo (parcial, sem distinguir caixa)" },
 			limit: { type: "number", description: `Quantos itens retornar (padrão ${ATA_ITEMS_DEFAULT}, máximo ${ATA_ITEMS_MAX})` },
 		},
@@ -88,7 +90,7 @@ const getAtaDetails: ModuleToolDefinition = {
 			.eq("id", ataId)
 			.single()
 
-		if (error || !ata) return toolErr("ATA não encontrada")
+		if (error || !ata) return toolErr("Anexo quantitativo não encontrado")
 
 		requireUnitPermission(ctx, 1, { type: "unit", id: ata.unit_id })
 
@@ -126,11 +128,11 @@ const getAtaDetails: ModuleToolDefinition = {
 
 const updateAtaStatus: ModuleToolDefinition = {
 	name: "update_ata_status",
-	description: "Atualiza o status de uma ATA (draft → published → archived).",
+	description: "Atualiza o status de um anexo quantitativo do TR (draft → published → archived).",
 	parameters: {
 		type: "object",
 		properties: {
-			ataId: { type: "string", description: "ID (UUID) da ATA" },
+			ataId: { type: "string", description: "ID (UUID) do anexo quantitativo" },
 			status: { type: "string", description: "Novo status: draft, published, ou archived" },
 		},
 		required: ["ataId", "status"],
@@ -145,7 +147,7 @@ const updateAtaStatus: ModuleToolDefinition = {
 		}
 
 		const { data: ata, error: fetchError } = await untypedFrom(ctx, "procurement_list", "procurement").select("unit_id").eq("id", ataId).single()
-		if (fetchError || !ata) return toolErr("ATA não encontrada")
+		if (fetchError || !ata) return toolErr("Anexo quantitativo não encontrado")
 
 		requireUnitPermission(ctx, 2, { type: "unit", id: ata.unit_id })
 
@@ -159,7 +161,7 @@ const getUnitDashboard: ModuleToolDefinition = {
 	name: "get_unit_dashboard",
 	// A descrição anterior prometia "itens com saldo baixo, status ARP", que esta tool nunca
 	// devolveu — o modelo chamava por isso e depois inventava o que não veio.
-	description: "Retorna o resumo da unidade atual da rota: quantas ATAs publicadas existem e as 10 ATAs mais recentes (título, status, data).",
+	description: "Retorna o resumo da unidade atual da rota: quantos anexos quantitativos publicados existem e os 10 mais recentes (título, status, data).",
 	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
 	requiredLevel: 1,
 	async handler(_args, ctx) {
@@ -257,7 +259,7 @@ const searchArp: ModuleToolDefinition = {
 
 const listEmpenhos: ModuleToolDefinition = {
 	name: "list_empenhos",
-	description: "Lista empenhos (compromissos orçamentários) de uma ATA, dos mais recentes para os mais antigos.",
+	description: "Lista empenhos (compromissos orçamentários) de um anexo quantitativo, via ARP vinculada, dos mais recentes para os mais antigos.",
 	parameters: {
 		type: "object",
 		properties: {
@@ -272,7 +274,7 @@ const listEmpenhos: ModuleToolDefinition = {
 		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
 		const { data: ata, error: ataError } = await untypedFrom(ctx, "procurement_list", "procurement").select("unit_id").eq("id", ataId).single()
-		if (ataError || !ata) return toolErr("ATA não encontrada")
+		if (ataError || !ata) return toolErr("Anexo quantitativo não encontrado")
 
 		requireUnitPermission(ctx, 1, { type: "unit", id: ata.unit_id })
 

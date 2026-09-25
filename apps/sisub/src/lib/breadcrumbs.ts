@@ -44,7 +44,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	profile: "Perfil",
 	presence: "Presenças",
 	planning: "Planejamento",
-	procurement: "Atas",
+	procurement: "Anexos Quantitativos",
 	suprimentos: "Suprimentos",
 	recipes: "Preparações",
 	equipment: "Equipamentos",
@@ -111,7 +111,7 @@ export const ID_LABEL_BY_PARENT: Record<string, string> = {
 	exceptions: "Exceção",
 	suprimentos: "Rascunho",
 	"snack-requests": "Pedido",
-	procurement: "ATA",
+	procurement: "Anexo",
 	ingredients: "Insumo",
 	nfe: "NF-e",
 	receiving: "Recebimento",
@@ -126,7 +126,7 @@ export const NEW_LABEL_BY_PARENT: Record<string, string> = {
 	exceptions: "Nova Exceção",
 	suprimentos: "Novo Rascunho",
 	"snack-requests": "Novo Pedido",
-	procurement: "Nova ATA",
+	procurement: "Novo Anexo",
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

@@ -1,5 +1,5 @@
 /**
- * Local Analytics module tools — unit dashboard, ATAs, ARPs, cozinhas, cardápios.
+ * Local Analytics module tools — unit dashboard, anexos quantitativos do TR, ARPs, cozinhas, cardápios.
  * Read-only: no write operations. Scoped to the current unit via ctx.scopeId.
  *
  * Só `daily_menu` mora no schema `kitchen` (o default do client do chat). Unidade e cozinha
@@ -43,11 +43,12 @@ const getUnitOverview: ModuleToolDefinition = {
 
 const getAtas: ModuleToolDefinition = {
 	name: "get_atas",
-	description: "Lista as ATAs da unidade atual com status e data de criação, das mais recentes para as mais antigas. Inclui draft, published e archived.",
+	description:
+		"Lista os anexos quantitativos do Termo de Referência (TR) da unidade atual com status e data de criação, das mais recentes para as mais antigas. Inclui draft, published e archived.",
 	parameters: {
 		type: "object",
 		properties: {
-			limit: { type: "number", description: `Quantas ATAs retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
+			limit: { type: "number", description: `Quantos anexos retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
 		},
 		required: [],
 		additionalProperties: false,
@@ -71,7 +72,7 @@ const getAtas: ModuleToolDefinition = {
 const getLowBalanceItems: ModuleToolDefinition = {
 	name: "get_low_balance_items",
 	description:
-		"Lista itens de ARP com consumo ≥80% (saldo crítico) para ATAs publicadas da unidade, os mais críticos primeiro. Inclui flag se o item aparece em menus dos próximos 30 dias.",
+		"Lista itens de ARP com consumo ≥80% (saldo crítico) para os anexos quantitativos publicados da unidade, os mais críticos primeiro. Inclui flag se o item aparece em menus dos próximos 30 dias.",
 	parameters: {
 		type: "object",
 		properties: {
@@ -94,7 +95,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 
 		const publishedAtas = (allAtas ?? []).filter((a: { status: string }) => a.status === "published")
 		const publishedAtaIds = publishedAtas.map((a: { id: string }) => a.id)
-		if (publishedAtaIds.length === 0) return toolOk({ message: "Nenhuma ATA publicada encontrada.", items: [] })
+		if (publishedAtaIds.length === 0) return toolOk({ message: "Nenhum anexo quantitativo publicado encontrado.", items: [] })
 
 		// ARPs linked to published ATAs
 		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement")
@@ -103,7 +104,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		if (arpsError) return toolErr(sanitizeDbError(arpsError, "get_low_balance_items:arps"))
 
 		const arpsData = arps ?? []
-		if (arpsData.length === 0) return toolOk({ message: "Nenhuma ARP vinculada às ATAs publicadas.", items: [] })
+		if (arpsData.length === 0) return toolOk({ message: "Nenhuma ARP vinculada aos anexos quantitativos publicados.", items: [] })
 
 		const arpIds = arpsData.map((a: { id: string }) => a.id)
 		const ataIdToTitle = new Map(publishedAtas.map((a: { id: string; title: string }) => [a.id, a.title]))

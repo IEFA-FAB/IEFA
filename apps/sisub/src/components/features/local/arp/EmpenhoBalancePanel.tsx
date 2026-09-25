@@ -441,7 +441,7 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 										</Tooltip>
 									</th>
 									<th className="py-2 px-2 text-right text-label w-28">Valor Unit.</th>
-									<th className="py-2 px-2 text-center text-label w-24">ATA</th>
+									<th className="py-2 px-2 text-center text-label w-24">Anexo</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-border/60">

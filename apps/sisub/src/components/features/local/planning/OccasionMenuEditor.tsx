@@ -56,10 +56,10 @@ import type { TemplateItemDraft } from "@/types/domain/planning"
  * Não há estrutura de dias/semana: só grupos de preparações por tipo de refeição, e o
  * headcount é por preparação (`headcount_override`), permitindo grupos mistos (50 pax no
  * macarrão, 100 na alcatra, dentro do mesmo Almoço). A exceção acrescenta as ocorrências
- * mensais, que multiplicam o custeio na Ata.
+ * mensais, que multiplicam o custeio no anexo quantitativo.
  *
  * Uma exceção pode ser classificada como padrão de lanche (Módulo 7): o pax de cada item passa
- * a ser porções por kit, as ocorrências passam a ser kits por mês (a Ata multiplica igual), e
+ * a ser porções por kit, as ocorrências passam a ser kits por mês (o anexo quantitativo multiplica igual), e
  * os itens ficam sob o tipo de refeição de sistema "Lanches de Bordo/Apoio".
  *
  * O contexto da edição é o da ROTA, nunca inferido do template: na cozinha, um modelo global
@@ -613,7 +613,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 										placeholder={isSnackStandard ? "Ex.: 40" : "Ex.: 30"}
 									/>
 									{isSnackStandard && (
-										<FieldDescription>A Ata multiplica igual: porções por kit × kits por mês × vigência. Em branco, conta como 1 kit.</FieldDescription>
+										<FieldDescription>
+											O anexo quantitativo multiplica igual: porções por kit × kits por mês × vigência. Em branco, conta como 1 kit.
+										</FieldDescription>
 									)}
 								</Field>
 							)}

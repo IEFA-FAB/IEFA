@@ -53,7 +53,7 @@ export const OCCASION_MENU_COPY: Record<OccasionMenuType, OccasionMenuCopy> = {
 		namePlaceholder: "Ex.: Lanche de Bordo, Café de Reunião",
 		sectionTitle: "Cardápios de Exceção",
 		explainer:
-			"Exceções são refeições previsíveis e recorrentes — lanches de bordo, cafés de reunião. Crie um molde por tipo e informe quantas vezes por mês ele ocorre; o custeio da Ata multiplica automaticamente.",
+			"Exceções são refeições previsíveis e recorrentes — lanches de bordo, cafés de reunião. Crie um molde por tipo e informe quantas vezes por mês ele ocorre; o custeio do anexo quantitativo multiplica automaticamente.",
 	},
 }
 

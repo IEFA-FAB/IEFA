@@ -136,7 +136,7 @@ const toNumber = (value: number | string | null | undefined) => (value == null ?
  */
 export async function suggestOpeningCosts(ingredientIds: readonly string[], unitId: number | null): Promise<Map<string, OpeningCostCandidate>> {
 	const proc = procurement()
-	const listItems = await readAllPagesIn<ListItemRow>("os preços das ATAs", ingredientIds, (chunk, from, to) =>
+	const listItems = await readAllPagesIn<ListItemRow>("os preços dos anexos quantitativos", ingredientIds, (chunk, from, to) =>
 		proc
 			.from("procurement_list_item")
 			.select("id, list_id, ingredient_id, unit_price, conversion_factor, purchase_quantity, computed_at")
@@ -147,7 +147,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 	if (listItems.length === 0) return new Map()
 
 	const lists = await readAllPagesIn<{ id: string; unit_id: number; title: string }>(
-		"as ATAs",
+		"os anexos quantitativos",
 		listItems.map((item) => item.list_id),
 		// ATA descartada não sugere preço: o custo de abertura vira custo médio e depois
 		// valor de balancete, e "aceitar todas" gravaria a fonte como se fosse pesquisa viva.
@@ -212,7 +212,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 		push(item.ingredient_id, {
 			source: "price_research",
 			unitCost,
-			reference: `Pesquisa de preço — ${list?.title ?? "ATA"}`,
+			reference: `Pesquisa de preço — ${list?.title ?? "anexo quantitativo"}`,
 			sameUnit: unitId != null && list != null && Number(list.unit_id) === unitId,
 			date: item.computed_at ? item.computed_at.slice(0, 10) : null,
 		})

@@ -202,10 +202,10 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
 					<Scale className="size-5" aria-hidden="true" />
-					Anexo de quantitativos
+					Limites de quantidade
 				</CardTitle>
 				<CardDescription>
-					A quantidade <strong>máxima</strong> é o que a ata registra para a vigência: o previsto na produção mais a margem. A{" "}
+					A quantidade <strong>máxima</strong> é o que a futura ata registra para a vigência: o previsto na produção mais a margem. A{" "}
 					<strong>mínima por pedido</strong> é o menor lote de cada pedido — sugerida em {MIN_ORDER_SHARE_PERCENT}% do consumo entre duas entregas (semanal ou
 					mensal).
 				</CardDescription>
@@ -241,7 +241,7 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 							<Lock className="size-4 shrink-0" aria-hidden="true" />
 							{hasFrozenLimits
 								? "Números congelados na publicação."
-								: "Esta ata foi publicada antes do anexo de quantitativos existir: não há máxima nem mínima registradas."}
+								: "Este anexo foi publicado antes dos limites de quantidade existirem: não há máxima nem mínima registradas."}
 						</p>
 						{settings.marginJustification && (
 							<div className="rounded-md border bg-muted/40 px-4 py-3 text-sm">
@@ -405,7 +405,7 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 				{maxValue > 0 && (
 					<div className="flex justify-end">
 						<div className="rounded-md border bg-muted/50 px-6 py-3 text-right">
-							<p className="text-sm text-muted-foreground">Valor máximo estimado da ata</p>
+							<p className="text-sm text-muted-foreground">Valor máximo estimado da contratação</p>
 							<p className="text-display tabular-nums">{BRL.format(maxValue)}</p>
 							<p className="text-xs text-muted-foreground">sobre a quantidade máxima × preço estimado</p>
 						</div>

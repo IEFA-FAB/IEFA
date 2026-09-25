@@ -22,7 +22,7 @@ function GlobalEventsPage() {
 		<GlobalTemplateCatalog
 			templateType="event"
 			title="Eventos Modelo"
-			description="Cardápios de refeições especiais que as cozinhas adaptam para a própria Ata de Registro de Preços."
+			description="Cardápios de refeições especiais que as cozinhas adaptam para o próprio anexo quantitativo do TR."
 			icon={CalendarRange}
 			nounWithArticle="o evento"
 			newLabel="Novo Evento"

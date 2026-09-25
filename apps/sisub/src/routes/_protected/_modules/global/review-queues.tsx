@@ -28,8 +28,8 @@ const SOURCE_LABELS: Record<string, string> = {
 	"kitchen.ingredient": "Insumo",
 	"kitchen.ingredient_item": "Item de insumo",
 	"procurement.purchase_item": "Item de compra",
-	"procurement.procurement_list_item": "Item de ATA",
-	"procurement.procurement_list_item (compra)": "Item de ATA (unid. compra)",
+	"procurement.procurement_list_item": "Item de anexo quantitativo",
+	"procurement.procurement_list_item (compra)": "Item de anexo quantitativo (unid. compra)",
 }
 
 function ReviewQueuesPage() {

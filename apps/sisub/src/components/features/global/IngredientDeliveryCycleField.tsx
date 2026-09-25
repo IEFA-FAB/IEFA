@@ -15,7 +15,7 @@ const OPTION_LABELS: Record<DeliveryCycle | typeof UNSET, string> = {
 }
 
 /**
- * Ciclo de entrega padrão do insumo nas ATAs. Grava ao escolher, fora do botão Salvar do
+ * Ciclo de entrega padrão do insumo nos anexos quantitativos do TR. Grava ao escolher, fora do botão Salvar do
  * formulário: o save completo reescreve a linha do insumo e não conhece esta coluna.
  */
 export function IngredientDeliveryCycleField({ ingredientId, value }: { ingredientId: string; value: string | null }) {
@@ -34,10 +34,10 @@ export function IngredientDeliveryCycleField({ ingredientId, value }: { ingredie
 	return (
 		<Field orientation="horizontal" className="border-t border-border/60 pt-4">
 			<FieldContent>
-				<FieldLabel htmlFor="default_delivery_cycle">Ciclo de entrega padrão (ATA)</FieldLabel>
+				<FieldLabel htmlFor="default_delivery_cycle">Ciclo de entrega padrão (anexo quantitativo)</FieldLabel>
 				<FieldDescription>
-					Perecível (salada, fruta, verdura) entra toda semana; não perecível, uma vez por mês. Define o mínimo por pedido sugerido nas atas novas — cada ata
-					guarda o ciclo que escolheu. Salvo ao escolher.
+					Perecível (salada, fruta, verdura) entra toda semana; não perecível, uma vez por mês. Define o mínimo por pedido sugerido nos anexos quantitativos
+					novos — cada anexo guarda o ciclo que escolheu. Salvo ao escolher.
 				</FieldDescription>
 			</FieldContent>
 			<Select

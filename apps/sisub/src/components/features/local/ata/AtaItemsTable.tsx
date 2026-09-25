@@ -232,7 +232,7 @@ export function AtaItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescr
 			{hasPrices && (
 				<div className="flex justify-end">
 					<div className="rounded-md border bg-muted/50 px-6 py-3 text-right">
-						<p className="text-sm text-muted-foreground">Total Estimado da Ata</p>
+						<p className="text-sm text-muted-foreground">Total estimado do anexo</p>
 						<p className="text-display tabular-nums">{BRL.format(grandTotal)}</p>
 					</div>
 				</div>

@@ -230,7 +230,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		const supabase = getProcurementClient()
 		// A ATA apontada TEM que ser da unidade alegada: sem isto, quem tem nível 2 na
 		// unidade A importa ARP para dentro da ata da unidade B.
-		if ((await resolveAtaUnit(supabase, data.ataId)) !== data.unitId) throw new Error("A ata informada não pertence a esta unidade")
+		if ((await resolveAtaUnit(supabase, data.ataId)) !== data.unitId) throw new Error("O anexo quantitativo informado não pertence a esta unidade")
 		const { ataId, unitId, arpData } = data
 
 		// ── 1. Buscar itens e saldos da ARP na API do Compras.gov.br ─────────────
@@ -483,8 +483,8 @@ async function resolveAtaUnit(supabase: ReturnType<typeof getProcurementClient>,
 	// A tabela chama-se `procurement_list` no schema `procurement`; o nome `ata` sobreviveu
 	// nos identificadores da API e nas constraints, não na tabela.
 	const { data, error } = await supabase.from("procurement_list").select("unit_id").eq("id", ataId).maybeSingle()
-	if (error) throw new Error(`Erro ao resolver a unidade da ata: ${error.message}`)
-	if (!data) throw new Error("Ata não encontrada")
+	if (error) throw new Error(`Erro ao resolver a unidade do anexo quantitativo: ${error.message}`)
+	if (!data) throw new Error("Anexo quantitativo não encontrado")
 	return Number(data.unit_id)
 }
 

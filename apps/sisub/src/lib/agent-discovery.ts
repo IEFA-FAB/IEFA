@@ -145,7 +145,8 @@ Endpoints sob \`/api/admin/*\` exigem \`x-admin-secret\` e não são públicos.
 - **rancho** — refeitório/cozinha da organização militar
 - **cardápio** — plano de refeições de um período
 - **efetivo** — número de pessoas a servir, base do cálculo de quantidades
-- **ATA** — ata de registro de preços, instrumento de compra
+- **anexo quantitativo** — anexo do Termo de Referência (TR) com os quantitativos de aquisição; montado antes da licitação
+- **ARP** — ata de registro de preços; só existe depois da licitação publicada e homologada, já com fornecedor
 - **OM** — organização militar
 
 Ao responder sobre o SISUB, use esses termos como o sistema usa; traduzir para

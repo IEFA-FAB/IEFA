@@ -168,7 +168,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 							{copy.explainer}{" "}
 							{isGlobal
 								? "Modelos do catálogo global ficam disponíveis para todas as cozinhas adaptarem."
-								: `${copy.article === "o" ? "O" : "A"} ${copy.noun} poderá ser ${copy.article === "o" ? "selecionado" : "selecionada"} na composição das Atas de Registro de Preços.`}
+								: `${copy.article === "o" ? "O" : "A"} ${copy.noun} poderá ser ${copy.article === "o" ? "selecionado" : "selecionada"} na composição dos anexos quantitativos do TR.`}
 						</p>
 					</div>
 				)}
@@ -208,8 +208,8 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 									placeholder="Ex.: 30 lanches de bordo/mês"
 								/>
 								<p className="text-xs text-muted-foreground">
-									Usado para multiplicar o custeio na Ata. Em branco, conta como 1 ocorrência. Para um padrão de lanche (Módulo 7), marque-o no editor depois de
-									criar: este número passa a ser kits por mês.
+									Usado para multiplicar o custeio no anexo quantitativo. Em branco, conta como 1 ocorrência. Para um padrão de lanche (Módulo 7), marque-o no
+									editor depois de criar: este número passa a ser kits por mês.
 								</p>
 							</div>
 						)}

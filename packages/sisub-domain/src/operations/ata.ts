@@ -88,7 +88,7 @@ async function getListStatus(client: SisubDb | TxClient, listId: string): Promis
 		.select({ status: procurementListInProcurement.status })
 		.from(procurementListInProcurement)
 		.where(eq(procurementListInProcurement.id, listId))
-	if (!rows[0]) throw new DomainError("NOT_FOUND", `ata ${listId} não encontrada`)
+	if (!rows[0]) throw new DomainError("NOT_FOUND", `anexo quantitativo ${listId} não encontrado`)
 	return rows[0].status
 }
 
@@ -96,7 +96,7 @@ async function getListStatus(client: SisubDb | TxClient, listId: string): Promis
 async function assertDraftEditable(client: SisubDb | TxClient, listId: string): Promise<void> {
 	const status = await getListStatus(client, listId)
 	if (status !== "draft") {
-		throw new DomainError("ATA_NOT_DRAFT", `ATA ${listId} está ${status}: composição e quantitativos são imutáveis após publicação`)
+		throw new DomainError("ATA_NOT_DRAFT", `Anexo quantitativo ${listId} está ${status}: composição e quantitativos são imutáveis após publicação`)
 	}
 }
 
@@ -564,7 +564,7 @@ async function authorizeAtaList(db: SisubDb, ctx: UserContext, listId: string, l
 		db.select({ unitId: procurementListInProcurement.unitId }).from(procurementListInProcurement).where(eq(procurementListInProcurement.id, listId)).limit(1)
 	)
 	const unitId = rows[0]?.unitId
-	if (unitId == null) throw new DomainError("NOT_FOUND", `ata ${listId} não encontrada`)
+	if (unitId == null) throw new DomainError("NOT_FOUND", `anexo quantitativo ${listId} não encontrado`)
 	requireUnit(ctx, level, unitId)
 	return unitId
 }
@@ -583,7 +583,7 @@ async function authorizeAtaItem(db: SisubDb, ctx: UserContext, ataItemId: string
 			.limit(1)
 	)
 	const listId = rows[0]?.listId
-	if (listId == null) throw new DomainError("NOT_FOUND", `item de ata ${ataItemId} não encontrado`)
+	if (listId == null) throw new DomainError("NOT_FOUND", `item do anexo quantitativo ${ataItemId} não encontrado`)
 	await authorizeAtaList(db, ctx, listId)
 	return listId
 }
@@ -893,14 +893,14 @@ export async function finalizeAtaDraft(db: SisubDb, ctx: UserContext, input: Fin
 
 		const updated = await insertOneOrFail(
 			"UPDATE_FAILED",
-			`Erro ao finalizar ata: ata ${input.draftId} não encontrada`,
+			`Erro ao finalizar anexo quantitativo: ${input.draftId} não encontrado`,
 			() =>
 				tx
 					.update(procurementListInProcurement)
 					.set({ title: input.title, notes: input.notes || null, wizardStep: null, updatedAt: stamp })
 					.where(eq(procurementListInProcurement.id, input.draftId))
 					.returning(),
-			{ prefix: "Erro ao finalizar ata" }
+			{ prefix: "Erro ao finalizar anexo quantitativo" }
 		)
 		return updated
 	})
@@ -1445,7 +1445,7 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 
 		await mutateOrFail(
 			"UPDATE_FAILED",
-			`Erro ao atualizar status: ata ${input.ataId} não encontrada`,
+			`Erro ao atualizar status: anexo quantitativo ${input.ataId} não encontrado`,
 			() =>
 				tx
 					.update(procurementListInProcurement)
@@ -1487,7 +1487,7 @@ export async function updateAtaItemPrices(db: SisubDb, ctx: UserContext, input: 
 		for (const u of input.updates) {
 			await mutateOrFail(
 				"UPDATE_FAILED",
-				`Erro ao atualizar preço: item ${u.ataItemId} não pertence à ata ${input.ataId}`,
+				`Erro ao atualizar preço: item ${u.ataItemId} não pertence ao anexo quantitativo ${input.ataId}`,
 				() =>
 					tx
 						.update(procurementListItemInProcurement)
@@ -1509,7 +1509,8 @@ export async function updateAtaItemPrices(db: SisubDb, ctx: UserContext, input: 
 			)
 			const ownItemIds = new Set(ownItems.map((i) => i.id))
 			const foreignItem = linkItemIds.find((id) => !ownItemIds.has(id))
-			if (foreignItem) throw new DomainError("UPDATE_FAILED", `Erro ao vincular pesquisa: item ${foreignItem} não pertence à ata ${input.ataId}`)
+			if (foreignItem)
+				throw new DomainError("UPDATE_FAILED", `Erro ao vincular pesquisa: item ${foreignItem} não pertence ao anexo quantitativo ${input.ataId}`)
 
 			for (const link of await filterOwnResearchLinks(tx, unitId, input.researchLinks)) {
 				await tx
@@ -1573,7 +1574,7 @@ export async function updateAtaQuantityLimits(db: SisubDb, ctx: UserContext, inp
 			if (Object.keys(patch).length === 0) continue
 			await mutateOrFail(
 				"UPDATE_FAILED",
-				`Erro ao ajustar limites: item ${item.ataItemId} não pertence à ata ${input.ataId}`,
+				`Erro ao ajustar limites: item ${item.ataItemId} não pertence ao anexo quantitativo ${input.ataId}`,
 				() =>
 					tx
 						.update(procurementListItemInProcurement)
@@ -1594,13 +1595,13 @@ export async function deleteAta(db: SisubDb, ctx: UserContext, input: DeleteAta)
 
 	await mutateOrFail(
 		"DELETE_FAILED",
-		`Erro ao deletar lista: ata ${input.ataId} não encontrada`,
+		`Erro ao deletar anexo quantitativo: ${input.ataId} não encontrado`,
 		() =>
 			db
 				.update(procurementListInProcurement)
 				.set({ deletedAt: new Date().toISOString() })
 				.where(eq(procurementListInProcurement.id, input.ataId))
 				.returning({ id: procurementListInProcurement.id }),
-		{ prefix: "Erro ao deletar lista" }
+		{ prefix: "Erro ao deletar anexo quantitativo" }
 	)
 }

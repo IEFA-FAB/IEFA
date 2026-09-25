@@ -11,14 +11,14 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurem
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: ProcurementIndexPage,
 	head: () => ({
-		meta: [{ name: "description", content: "Gerencie as atas de aquisição da unidade" }],
+		meta: [{ name: "description", content: "Gerencie os anexos quantitativos do Termo de Referência da unidade" }],
 	}),
 })
 
 const STATUS_LABELS: Record<string, string> = {
 	draft: "Rascunho",
-	published: "Publicada",
-	archived: "Arquivada",
+	published: "Publicado",
+	archived: "Arquivado",
 }
 
 const STATUS_VARIANTS: Record<string, "secondary" | "default" | "outline" | "destructive"> = {
@@ -39,21 +39,24 @@ function ProcurementIndexPage() {
 	const { mutate: deleteAta, isPending: isDeleting } = useDeleteAta()
 
 	const handleDelete = (ataId: string, title: string) => {
-		if (window.confirm(`Remover a ata "${title}"? Esta ação não pode ser desfeita.`)) {
+		if (window.confirm(`Remover o anexo "${title}"? Esta ação não pode ser desfeita.`)) {
 			deleteAta(ataId)
 		}
 	}
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Atas de Registro de Preços" description="Gerencie as atas de aquisição de suprimentos da unidade.">
+			<PageHeader
+				title="Anexos Quantitativos do TR"
+				description="Quantitativos de aquisição de suprimentos que a unidade leva ao Termo de Referência. A ata de registro de preços só existe depois da licitação homologada."
+			>
 				<Button
 					size="sm"
 					nativeButton={false}
 					render={
 						<Link to="/unit/$unitId/procurement/new" params={{ unitId: unitIdStr as string }}>
 							<Plus className="size-4 mr-2" />
-							Nova ata
+							Novo anexo
 						</Link>
 					}
 				/>
@@ -69,8 +72,8 @@ function ProcurementIndexPage() {
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-14 text-center">
 						<ShoppingCart className="size-12 text-muted-foreground mb-4" aria-hidden="true" />
-						<p className="text-subheading text-muted-foreground">Nenhuma ata criada ainda.</p>
-						<p className="text-sm text-muted-foreground mt-1">Crie uma nova ata para calcular e registrar os quantitativos de aquisição.</p>
+						<p className="text-subheading text-muted-foreground">Nenhum anexo quantitativo criado ainda.</p>
+						<p className="text-sm text-muted-foreground mt-1">Crie um anexo para calcular os quantitativos de aquisição do Termo de Referência.</p>
 						<Button
 							variant="outline"
 							size="sm"
@@ -79,7 +82,7 @@ function ProcurementIndexPage() {
 							render={
 								<Link to="/unit/$unitId/procurement/new" params={{ unitId: unitIdStr as string }}>
 									<Plus className="size-4 mr-2" />
-									Criar primeira ata
+									Criar primeiro anexo
 								</Link>
 							}
 						/>
@@ -110,7 +113,7 @@ function ProcurementIndexPage() {
 							<CardContent className="pb-3">
 								<div className="flex items-center justify-between gap-2">
 									<p className="text-xs text-muted-foreground">
-										Criada em {new Date(ata.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+										Criado em {new Date(ata.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
 									</p>
 									<div className="flex items-center gap-2">
 										{isWizardInProgress(ata) ? (
@@ -134,7 +137,7 @@ function ProcurementIndexPage() {
 												nativeButton={false}
 												render={
 													<Link to="/unit/$unitId/procurement/$ataId" params={{ unitId: unitIdStr as string, ataId: ata.id }}>
-														Ver ata
+														Ver anexo
 													</Link>
 												}
 											/>
