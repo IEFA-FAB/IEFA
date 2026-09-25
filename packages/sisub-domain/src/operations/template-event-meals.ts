@@ -189,6 +189,27 @@ export function normalizeStoredEventContent(
 }
 
 /**
+ * Conteúdo de evento que a cópia (fork) leva quando a edição não trouxe itens: os itens
+ * GRAVADOS do molde, sob as refeições enviadas — ou as do molde, se nenhuma veio.
+ *
+ * A ordem importa. Os itens são arrumados primeiro contra as refeições DO MOLDE, e só depois sai
+ * quem é de refeição que não veio. Na ordem inversa, item gravado sem refeição sobrevivia ao
+ * filtro (não cita refeição nenhuma) e a arrumação criava uma refeição nova para o horário dele:
+ * a cópia voltava com a refeição e a preparação que o chamador tinha tirado.
+ */
+export function forkStoredEventContent(
+	sourceMeals: readonly TemplateEventMeal[],
+	sentMeals: readonly TemplateEventMeal[] | undefined,
+	storedItems: readonly TemplateItem[]
+): { eventMeals: TemplateEventMeal[]; items: TemplateItem[] } {
+	const fromSource = normalizeStoredEventContent(sourceMeals, storedItems)
+	if (sentMeals === undefined) return fromSource
+	// Aqui todo item já cita uma refeição: o filtro tira o que saiu, e a segunda passada só
+	// arruma o grupo contra a composição enviada.
+	return normalizeStoredEventContent(sentMeals, keepItemsOfMeals(sentMeals, fromSource.items))
+}
+
+/**
  * Substitui as refeições do template pela lista informada, preservando o id de quem continua.
  *
  * Preservar o id é o que deixa `eventMeals` ser enviado SEM `items`: a refeição renomeada

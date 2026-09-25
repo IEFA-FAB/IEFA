@@ -50,9 +50,8 @@ import { assertItemGroupsInSet } from "./menu-groups.ts"
 import {
 	eventMealsAsInput,
 	fetchEventMeals,
+	forkStoredEventContent,
 	freshEventMealIds,
-	keepItemsOfMeals,
-	normalizeStoredEventContent,
 	remapEventMealIds,
 	resolveEventContent,
 	type TemplateEventMealWire,
@@ -381,20 +380,36 @@ function routineGroupPairs(items: readonly TemplateItem[]) {
 }
 
 /**
- * Mantém o `meal_type_id` dos itens de evento igual ao da refeição deles. Precisa rodar quando
- * as refeições mudam SEM os itens virem junto: mudar o horário de uma refeição tem de mover os
- * itens dela no calendário, e não só o rótulo.
+ * Mantém os itens de evento coerentes com a refeição deles. Precisa rodar quando as refeições
+ * mudam SEM os itens virem junto:
+ *   - o `meal_type_id` segue o da refeição — mudar o horário de uma refeição tem de mover os
+ *     itens dela no calendário, e não só o rótulo;
+ *   - o grupo que saiu da composição sai do item. Sem isso o item ficava com uma chave que a
+ *     refeição não tem mais, e a próxima gravação completa, que devolve os itens como estão,
+ *     era recusada com `ITEM_GROUP_NOT_IN_SET`. Fica "Sem grupo", como na cópia do molde
+ *     (`normalizeStoredEventContent`).
  */
-async function syncEventItemMealTypes(tx: TemplateTx, templateId: string): Promise<void> {
+async function syncEventItemsToMeals(tx: TemplateTx, templateId: string): Promise<void> {
 	await runQuery("UPDATE_ITEMS_FAILED", () =>
 		tx
 			.execute(sql`
 				update kitchen.menu_template_items i
-				set meal_type_id = m.meal_type_id
+				set meal_type_id = m.meal_type_id,
+					item_group = case
+						when i.item_group is null
+							or exists (select 1 from jsonb_array_elements(m.groups) g where g ->> 'key' = i.item_group)
+						then i.item_group
+					end
 				from kitchen.menu_template_event_meal m
 				where m.id = i.event_meal_id
 					and i.menu_template_id = ${templateId}
-					and i.meal_type_id is distinct from m.meal_type_id
+					and (
+						i.meal_type_id is distinct from m.meal_type_id
+						or (
+							i.item_group is not null
+							and not exists (select 1 from jsonb_array_elements(m.groups) g where g ->> 'key' = i.item_group)
+						)
+					)
 			`)
 			.then(() => undefined)
 	)
@@ -693,7 +708,7 @@ async function applyTemplateContent(tx: TemplateTx, templateId: string, input: U
 			)
 		}
 	} else if (newEventMeals !== undefined) {
-		await syncEventItemMealTypes(tx, templateId)
+		await syncEventItemsToMeals(tx, templateId)
 	}
 
 	// Substituição destrutiva do efetivo base por refeição, se fornecido.
@@ -801,17 +816,15 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 		// nasceria vazio.
 		const sourceItems: TemplateItem[] = input.items ?? (await readSourceItems(tx, input.templateId))
 		// Refeições do evento idem — e com ids novos, porque os do molde são dele.
-		// Refeição do molde que não veio em `eventMeals` sai com os itens dela, como na edição in-place.
-		const forkEventMeals =
-			source.template_type === "event"
-				? (input.eventMeals ?? eventMealsAsInput((await fetchEventMeals(tx, [input.templateId])).get(input.templateId) ?? []))
-				: undefined
+		const sourceEventMeals =
+			source.template_type === "event" ? eventMealsAsInput((await fetchEventMeals(tx, [input.templateId])).get(input.templateId) ?? []) : undefined
 		// Itens enviados são entrada e passam pela validação como vieram; os copiados do molde são
-		// dado gravado e são arrumados antes (`normalizeStoredEventContent`).
-		const forkEventContent = forkEventMeals
+		// dado gravado e são arrumados antes (`forkStoredEventContent`), que também tira os da
+		// refeição do molde que não veio em `eventMeals`, como na edição in-place.
+		const forkEventContent = sourceEventMeals
 			? input.items !== undefined
-				? { eventMeals: forkEventMeals, items: input.items }
-				: normalizeStoredEventContent(forkEventMeals, keepItemsOfMeals(forkEventMeals, sourceItems))
+				? { eventMeals: input.eventMeals ?? sourceEventMeals, items: input.items }
+				: forkStoredEventContent(sourceEventMeals, input.eventMeals, sourceItems)
 			: undefined
 		const forkContent = forkEventContent
 			? remapEventMealIds(forkEventContent.eventMeals, forkEventContent.items)

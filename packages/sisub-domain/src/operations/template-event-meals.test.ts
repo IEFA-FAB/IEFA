@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { TemplateEventMeal, TemplateItem } from "../schemas/templates.ts"
 import { DomainError } from "../types/errors.ts"
-import { keepItemsOfMeals, normalizeStoredEventContent, remapEventMealIds, resolveEventContent } from "./template-event-meals.ts"
+import { forkStoredEventContent, keepItemsOfMeals, normalizeStoredEventContent, remapEventMealIds, resolveEventContent } from "./template-event-meals.ts"
 
 const JANTAR = "00000000-0000-4000-8000-000000000001"
 const ALMOCO = "00000000-0000-4000-8000-000000000002"
@@ -101,5 +101,36 @@ describe("normalizeStoredEventContent", () => {
 		expect(items.map((i) => i.eventMealId)).toEqual([COQUETEL, COQUETEL, eventMeals[1]?.id])
 		// O resultado passa pelo resolvedor sem erro.
 		expect(resolveEventContent("event", eventMeals, items)).toHaveLength(3)
+	})
+})
+
+describe("forkStoredEventContent", () => {
+	const gala: TemplateEventMeal = { ...coquetel, id: GALA, name: "Gala", mealTypeId: ALMOCO, groups: [{ key: "entrada", label: "Entradas" }] }
+
+	test("refeição tirada na cópia não volta pelo item gravado sem refeição", () => {
+		// O item sem refeição é do horário da gala; a gala não veio em eventMeals.
+		const { eventMeals, items } = forkStoredEventContent(
+			[coquetel, gala],
+			[coquetel],
+			[item(), item({ eventMealId: null, mealTypeId: ALMOCO, itemGroup: "entrada" }), item({ eventMealId: GALA, itemGroup: "entrada" })]
+		)
+		expect(eventMeals.map((m) => m.id)).toEqual([COQUETEL])
+		expect(items.map((i) => i.eventMealId)).toEqual([COQUETEL])
+	})
+
+	test("sem eventMeals, a cópia leva as refeições do molde e arruma os itens gravados", () => {
+		const { eventMeals, items } = forkStoredEventContent([coquetel, gala], undefined, [
+			item(),
+			item({ eventMealId: null, mealTypeId: ALMOCO, itemGroup: "entrada" }),
+		])
+		expect(eventMeals.map((m) => m.id)).toEqual([COQUETEL, GALA])
+		expect(items.map((i) => i.eventMealId)).toEqual([COQUETEL, GALA])
+	})
+
+	test("grupo que a composição enviada perdeu sai do item", () => {
+		const semVolante: TemplateEventMeal = { ...coquetel, groups: [{ key: "entrada", label: "Entradas" }] }
+		const { items } = forkStoredEventContent([coquetel], [semVolante], [item({ itemGroup: "volante" })])
+		expect(items.map((i) => i.itemGroup)).toEqual([null])
+		expect(resolveEventContent("event", [semVolante], items)).toHaveLength(1)
 	})
 })

@@ -705,6 +705,27 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		const full = await getTemplate(db, ctx, { templateId: tpl.id })
 		expect(full.event_meals.map((m) => [m.id, m.name, m.meal_type_id])).toEqual([[coquetelId, "Coquetel de boas-vindas", almoco]])
 		expect(full.items.map((i) => [i.event_meal_id, i.meal_type_id])).toEqual([[coquetelId, almoco]])
+
+		// Só a composição, sem o grupo "entrada" do item: o item fica sem grupo, e a gravação
+		// completa que devolve os itens como estão continua aceita.
+		const semEntrada = EVENT_GROUPS.filter((g) => g.key !== "entrada")
+		const meals = [{ id: coquetelId, name: "Coquetel de boas-vindas", mealTypeId: almoco, groups: semEntrada }]
+		await saveTemplateEdit(db, ctx, { templateId: tpl.id, context, eventMeals: meals })
+		const regrouped = await getTemplate(db, ctx, { templateId: tpl.id })
+		expect(regrouped.items.map((i) => i.item_group)).toEqual([null])
+		await saveTemplateEdit(db, ctx, {
+			templateId: tpl.id,
+			context,
+			eventMeals: meals,
+			items: regrouped.items.map((i) => ({
+				dayOfWeek: i.day_of_week ?? 1,
+				mealTypeId: i.meal_type_id ?? almoco,
+				recipeId: i.recipe_id ?? recipeId,
+				itemGroup: i.item_group,
+				recommendedProportion: null,
+				eventMealId: i.event_meal_id,
+			})),
+		})
 	})
 
 	test("evento global editado na cozinha: a cópia ganha refeições com ids novos, e o molde fica intacto", async () => {
