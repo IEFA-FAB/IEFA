@@ -52,6 +52,7 @@ import {
 	fetchEventMeals,
 	freshEventMealIds,
 	keepItemsOfMeals,
+	normalizeStoredEventContent,
 	remapEventMealIds,
 	resolveEventContent,
 	type TemplateEventMealWire,
@@ -805,8 +806,15 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 			source.template_type === "event"
 				? (input.eventMeals ?? eventMealsAsInput((await fetchEventMeals(tx, [input.templateId])).get(input.templateId) ?? []))
 				: undefined
-		const forkContent = forkEventMeals
-			? remapEventMealIds(forkEventMeals, input.items ?? keepItemsOfMeals(forkEventMeals, sourceItems))
+		// Itens enviados são entrada e passam pela validação como vieram; os copiados do molde são
+		// dado gravado e são arrumados antes (`normalizeStoredEventContent`).
+		const forkEventContent = forkEventMeals
+			? input.items !== undefined
+				? { eventMeals: forkEventMeals, items: input.items }
+				: normalizeStoredEventContent(forkEventMeals, keepItemsOfMeals(forkEventMeals, sourceItems))
+			: undefined
+		const forkContent = forkEventContent
+			? remapEventMealIds(forkEventContent.eventMeals, forkEventContent.items)
 			: { eventMeals: input.eventMeals, items: sourceItems }
 
 		const sourceMeals: NonNullable<UpdateTemplate["meals"]> = input.meals ?? (await fetchTemplateMealsSafe(tx, [input.templateId])).get(input.templateId) ?? []

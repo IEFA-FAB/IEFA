@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { TemplateEventMeal, TemplateItem } from "../schemas/templates.ts"
 import { DomainError } from "../types/errors.ts"
-import { keepItemsOfMeals, remapEventMealIds, resolveEventContent } from "./template-event-meals.ts"
+import { keepItemsOfMeals, normalizeStoredEventContent, remapEventMealIds, resolveEventContent } from "./template-event-meals.ts"
 
 const JANTAR = "00000000-0000-4000-8000-000000000001"
 const ALMOCO = "00000000-0000-4000-8000-000000000002"
@@ -86,5 +86,20 @@ describe("keepItemsOfMeals", () => {
 	test("item de refeição que saiu vai junto; item sem refeição fica para o resolvedor recusar", () => {
 		const kept = keepItemsOfMeals([coquetel], [item(), item({ eventMealId: GALA }), item({ eventMealId: null })])
 		expect(kept.map((i) => i.eventMealId)).toEqual([COQUETEL, null])
+	})
+})
+
+describe("normalizeStoredEventContent", () => {
+	test("item gravado fora da composição fica sem grupo; sem refeição vai para a do horário ou para uma nova", () => {
+		const { eventMeals, items } = normalizeStoredEventContent(
+			[coquetel],
+			[item({ itemGroup: "sobremesa" }), item({ eventMealId: null, mealTypeId: JANTAR }), item({ eventMealId: null, mealTypeId: ALMOCO })]
+		)
+		expect(items.map((i) => i.itemGroup)).toEqual([null, "volante", "volante"])
+		expect(eventMeals).toHaveLength(2)
+		expect(eventMeals[1]?.mealTypeId).toBe(ALMOCO)
+		expect(items.map((i) => i.eventMealId)).toEqual([COQUETEL, COQUETEL, eventMeals[1]?.id])
+		// O resultado passa pelo resolvedor sem erro.
+		expect(resolveEventContent("event", eventMeals, items)).toHaveLength(3)
 	})
 })
