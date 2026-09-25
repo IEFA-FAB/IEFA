@@ -66,7 +66,7 @@ export function SplitLotDialog({ lot, onClose }: SplitLotDialogProps) {
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && onClose()}>
-			<DialogContent className="max-w-lg">
+			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<Scissors className="size-4" />

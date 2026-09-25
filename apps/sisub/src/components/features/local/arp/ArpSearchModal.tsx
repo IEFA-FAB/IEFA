@@ -125,7 +125,7 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+			<DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
 				<DialogHeader>
 					<DialogTitle>Vincular ARP ao Compras.gov.br</DialogTitle>
 					<DialogDescription>

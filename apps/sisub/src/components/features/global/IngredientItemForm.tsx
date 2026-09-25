@@ -88,165 +88,174 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="sm:max-w-2xl max-h-[85dvh] overflow-y-auto">
+			<DialogContent className="sm:max-w-2xl max-h-[85dvh] flex flex-col">
 				<DialogHeader>
 					<DialogTitle>{mode === "create" ? "Novo Item de Produto" : "Editar Item de Produto"}</DialogTitle>
 				</DialogHeader>
 
 				<form
+					className="flex min-h-0 flex-1 flex-col"
 					onSubmit={(e) => {
 						e.preventDefault()
 						form.handleSubmit()
 					}}
 				>
-					<FieldGroup className="gap-4">
-						{/* Descrição */}
-						<form.Field name="description">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Descrição <span className="text-destructive">*</span>
-									</FieldLabel>
-									<Input
-										id={field.name}
-										value={field.state.value}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="Ex: Arroz Marca X Saco 5kg"
-										aria-invalid={!!field.state.meta.errors.length}
-									/>
-									<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
-								</Field>
-							)}
-						</form.Field>
-
-						{/* Insumo Genérico — só exibido fora do contexto de rota com insumo fixo */}
-						{!defaultIngredientId && (
-							<form.Field name="ingredient_id">
+					{/* Só o corpo rola: cabeçalho, botão de fechar e rodapé ficam à vista em tela baixa */}
+					<div className="-mx-4 min-h-0 flex-1 overflow-y-auto px-4 py-1">
+						<FieldGroup className="gap-4">
+							{/* Descrição */}
+							<form.Field name="description">
 								{(field) => (
 									<Field>
 										<FieldLabel htmlFor={field.name}>
-											Insumo Genérico <span className="text-destructive">*</span>
+											Descrição <span className="text-destructive">*</span>
 										</FieldLabel>
-										<SearchableSelect
+										<Input
 											id={field.name}
-											value={field.state.value || null}
-											onValueChange={(value) => field.handleChange(value ?? "")}
-											options={ingredientOptions}
-											placeholder="Selecione um insumo"
-											searchPlaceholder="Pesquisar insumo…"
-											emptyLabel="Nenhum insumo encontrado."
-											unavailableLabel="Insumo indisponível"
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											placeholder="Ex: Arroz Marca X Saco 5kg"
 											aria-invalid={!!field.state.meta.errors.length}
 										/>
 										<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 									</Field>
 								)}
 							</form.Field>
-						)}
 
-						{/* Item de Compra vinculado (herda o CATMAT) */}
-						{defaultIngredientId && (
-							<form.Field name="purchase_item_id">
-								{(field) => {
-									const selected = purchaseItems?.find((pi) => pi.id === field.state.value)
-									return (
+							{/* Insumo Genérico — só exibido fora do contexto de rota com insumo fixo */}
+							{!defaultIngredientId && (
+								<form.Field name="ingredient_id">
+									{(field) => (
 										<Field>
-											<FieldLabel>Item de Compra (CATMAT)</FieldLabel>
-											<Select
-												items={[{ value: null, label: "Sem item de compra" }, ...(purchaseItems ?? []).map((pi) => ({ value: pi.id, label: pi.description }))]}
-												value={field.state.value}
-												onValueChange={(value) => field.handleChange(value)}
-											>
-												<SelectTrigger className="w-full">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value={null}>Sem item de compra</SelectItem>
-													{purchaseItems?.map((pi) => (
-														<SelectItem key={pi.id} value={pi.id}>
-															{pi.description}
-															{pi.catmat_item_codigo != null ? ` — CATMAT ${pi.catmat_item_codigo}` : ""}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
-											<FieldDescription>
-												{selected?.catmat_item_codigo != null ? (
-													<span className="inline-flex items-center gap-1">
-														<Tag className="size-3" />
-														CATMAT {selected.catmat_item_codigo}
-														{selected.catmat_item_descricao ? ` — ${selected.catmat_item_descricao}` : ""}
-													</span>
-												) : (
-													"O item de produto herda o CATMAT do item de compra vinculado"
-												)}
-											</FieldDescription>
+											<FieldLabel htmlFor={field.name}>
+												Insumo Genérico <span className="text-destructive">*</span>
+											</FieldLabel>
+											<SearchableSelect
+												id={field.name}
+												value={field.state.value || null}
+												onValueChange={(value) => field.handleChange(value ?? "")}
+												options={ingredientOptions}
+												placeholder="Selecione um insumo"
+												searchPlaceholder="Pesquisar insumo…"
+												emptyLabel="Nenhum insumo encontrado."
+												unavailableLabel="Insumo indisponível"
+												aria-invalid={!!field.state.meta.errors.length}
+											/>
+											<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 										</Field>
-									)
-								}}
-							</form.Field>
-						)}
-
-						{/* Código de Barras (GTIN / GS1) */}
-						<form.Field name="barcode">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>Código de Barras (GTIN)</FieldLabel>
-									<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: 7891234567890" />
-									<FieldDescription>Código GS1/GTIN do produto físico em estoque</FieldDescription>
-								</Field>
+									)}
+								</form.Field>
 							)}
-						</form.Field>
 
-						{/* Unidade de compra + Qtd por unidade */}
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-							<form.Field name="purchase_measure_unit">
+							{/* Item de Compra vinculado (herda o CATMAT) */}
+							{defaultIngredientId && (
+								<form.Field name="purchase_item_id">
+									{(field) => {
+										const selected = purchaseItems?.find((pi) => pi.id === field.state.value)
+										// Vínculo fora da lista (carregando, ou item de compra removido): sem esta entrada o
+										// Base UI cai no valor cru e mostra o UUID no gatilho.
+										const purchaseItemOptions = [
+											{ value: null, label: "Sem item de compra" },
+											...(purchaseItems ?? []).map((pi) => ({ value: pi.id, label: pi.description })),
+											...(field.state.value && !selected
+												? [{ value: field.state.value, label: purchaseItems ? "Item de compra indisponível" : "Carregando…" }]
+												: []),
+										]
+										return (
+											<Field>
+												<FieldLabel>Item de Compra (CATMAT)</FieldLabel>
+												<Select items={purchaseItemOptions} value={field.state.value} onValueChange={(value) => field.handleChange(value)}>
+													<SelectTrigger className="w-full">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value={null}>Sem item de compra</SelectItem>
+														{purchaseItems?.map((pi) => (
+															<SelectItem key={pi.id} value={pi.id}>
+																{pi.description}
+																{pi.catmat_item_codigo != null ? ` — CATMAT ${pi.catmat_item_codigo}` : ""}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+												<FieldDescription>
+													{selected?.catmat_item_codigo != null ? (
+														<span className="inline-flex items-center gap-1">
+															<Tag className="size-3" />
+															CATMAT {selected.catmat_item_codigo}
+															{selected.catmat_item_descricao ? ` — ${selected.catmat_item_descricao}` : ""}
+														</span>
+													) : (
+														"O item de produto herda o CATMAT do item de compra vinculado"
+													)}
+												</FieldDescription>
+											</Field>
+										)
+									}}
+								</form.Field>
+							)}
+
+							{/* Código de Barras (GTIN / GS1) */}
+							<form.Field name="barcode">
 								{(field) => (
 									<Field>
-										<FieldLabel htmlFor={field.name}>Unidade de Embalagem</FieldLabel>
-										<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: SACO, CAIXA" />
-										<FieldDescription>Embalagem do fornecedor</FieldDescription>
+										<FieldLabel htmlFor={field.name}>Código de Barras (GTIN)</FieldLabel>
+										<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: 7891234567890" />
+										<FieldDescription>Código GS1/GTIN do produto físico em estoque</FieldDescription>
 									</Field>
 								)}
 							</form.Field>
 
-							<form.Field name="unit_content_quantity">
+							{/* Unidade de compra + Qtd por unidade */}
+							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+								<form.Field name="purchase_measure_unit">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Unidade de Embalagem</FieldLabel>
+											<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: SACO, CAIXA" />
+											<FieldDescription>Embalagem do fornecedor</FieldDescription>
+										</Field>
+									)}
+								</form.Field>
+
+								<form.Field name="unit_content_quantity">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Qtd por Unidade</FieldLabel>
+											<Input
+												id={field.name}
+												type="number"
+												step="0.0001"
+												value={field.state.value}
+												onChange={(e) => field.handleChange(Number(e.target.value))}
+												placeholder="5.0"
+											/>
+											<FieldDescription>Ex: 5kg por saco</FieldDescription>
+										</Field>
+									)}
+								</form.Field>
+							</div>
+
+							{/* Fator de Correção */}
+							<form.Field name="correction_factor">
 								{(field) => (
 									<Field>
-										<FieldLabel htmlFor={field.name}>Qtd por Unidade</FieldLabel>
+										<FieldLabel htmlFor={field.name}>Fator de Correção</FieldLabel>
 										<Input
 											id={field.name}
 											type="number"
 											step="0.0001"
 											value={field.state.value}
 											onChange={(e) => field.handleChange(Number(e.target.value))}
-											placeholder="5.0"
+											placeholder="1.0000"
 										/>
-										<FieldDescription>Ex: 5kg por saco</FieldDescription>
 									</Field>
 								)}
 							</form.Field>
-						</div>
+						</FieldGroup>
+					</div>
 
-						{/* Fator de Correção */}
-						<form.Field name="correction_factor">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>Fator de Correção</FieldLabel>
-									<Input
-										id={field.name}
-										type="number"
-										step="0.0001"
-										value={field.state.value}
-										onChange={(e) => field.handleChange(Number(e.target.value))}
-										placeholder="1.0000"
-									/>
-								</Field>
-							)}
-						</form.Field>
-					</FieldGroup>
-
-					<DialogFooter className="mt-6">
+					<DialogFooter className="mt-4">
 						<Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
 							Cancelar
 						</Button>

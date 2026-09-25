@@ -23,6 +23,12 @@ import { toast } from "@/components/ui/toast"
 import { type PurchaseItemWithLink, useCreatePurchaseItem, useUpdatePurchaseItem } from "@/services/IngredientsService"
 import { CatmatCombobox } from "./CatmatCombobox"
 
+// O "sem valor" é `null`, não um sentinela: o Base UI trata qualquer valor não nulo como seleção e,
+// sem rótulo em `items`, mostra o valor cru no gatilho (era assim que "__NONE__" aparecia).
+const CONSERVATION_ITEMS = [{ value: null, label: "Não declarada" }, ...CONSERVATION_CLASSES.map((value) => ({ value, label: CONSERVATION_LABELS[value] }))]
+const TRANSPORT_ITEMS = [{ value: null, label: "Não declarado" }, ...TRANSPORT_REQUIREMENTS.map((value) => ({ value, label: TRANSPORT_LABELS[value] }))]
+const PACKAGE_TYPE_ITEMS = [{ value: null, label: "Não declarada" }, ...PACKAGE_TYPES.map((value) => ({ value, label: PACKAGE_TYPE_LABELS[value] }))]
+
 const purchaseItemSchema = z
 	.object({
 		description: z.string().min(1, "Descrição obrigatória"),
@@ -157,318 +163,304 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="sm:max-w-2xl max-h-[85dvh] overflow-y-auto">
+			<DialogContent className="sm:max-w-2xl max-h-[85dvh] flex flex-col">
 				<DialogHeader>
 					<DialogTitle>{mode === "create" ? "Novo Item de Compra" : "Editar Item de Compra"}</DialogTitle>
 				</DialogHeader>
 
 				<form
+					className="flex min-h-0 flex-1 flex-col"
 					onSubmit={(e) => {
 						e.preventDefault()
 						form.handleSubmit()
 					}}
 				>
-					<FieldGroup className="gap-4">
-						{/* Correlação CATMAT */}
-						<Field>
-							<FieldLabel>Correlação CATMAT</FieldLabel>
-							<CatmatCombobox
-								value={catmat.codigo}
-								descricao={catmat.descricao}
-								onChange={(codigo, descricao) => {
-									setCatmat({ codigo, descricao })
-									// auto-preenche a descrição do item se ainda vazia
-									if (codigo != null && descricao && !form.getFieldValue("description")) {
-										form.setFieldValue("description", descricao)
-									}
-								}}
-							/>
-							<FieldDescription>
-								Consulte também em{" "}
-								<a href="https://catalogo.compras.gov.br/cnbs-web/busca" target="_blank" rel="noopener noreferrer">
-									catalogo.compras.gov.br
-								</a>
-							</FieldDescription>
-						</Field>
+					{/* Só o corpo rola: cabeçalho, botão de fechar e rodapé ficam à vista em tela baixa */}
+					<div className="-mx-4 min-h-0 flex-1 overflow-y-auto px-4 py-1">
+						<FieldGroup className="gap-4">
+							{/* Correlação CATMAT */}
+							<Field>
+								<FieldLabel>Correlação CATMAT</FieldLabel>
+								<CatmatCombobox
+									value={catmat.codigo}
+									descricao={catmat.descricao}
+									onChange={(codigo, descricao) => {
+										setCatmat({ codigo, descricao })
+										// auto-preenche a descrição do item se ainda vazia
+										if (codigo != null && descricao && !form.getFieldValue("description")) {
+											form.setFieldValue("description", descricao)
+										}
+									}}
+								/>
+								<FieldDescription>
+									Consulte também em{" "}
+									<a href="https://catalogo.compras.gov.br/cnbs-web/busca" target="_blank" rel="noopener noreferrer">
+										catalogo.compras.gov.br
+									</a>
+								</FieldDescription>
+							</Field>
 
-						{/* Descrição */}
-						<form.Field name="description">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Descrição <span className="text-destructive">*</span>
-									</FieldLabel>
-									<Input
-										id={field.name}
-										value={field.state.value}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="Ex: Arroz tipo 1, polido, longo fino"
-										aria-invalid={!!field.state.meta.errors.length}
-									/>
-									<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
-								</Field>
-							)}
-						</form.Field>
+							{/* Descrição */}
+							<form.Field name="description">
+								{(field) => (
+									<Field>
+										<FieldLabel htmlFor={field.name}>
+											Descrição <span className="text-destructive">*</span>
+										</FieldLabel>
+										<Input
+											id={field.name}
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											placeholder="Ex: Arroz tipo 1, polido, longo fino"
+											aria-invalid={!!field.state.meta.errors.length}
+										/>
+										<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
+									</Field>
+								)}
+							</form.Field>
 
-						{/* Descrição detalhada */}
-						<form.Field name="detailedDescription">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>Descrição Detalhada</FieldLabel>
-									<Textarea
-										id={field.name}
-										value={field.state.value}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="Especificação completa do item (características, tipo, embalagem, marca de referência...)"
-										rows={3}
-									/>
-									<FieldDescription>Especificação livre do item, além do rótulo curto e do CATMAT.</FieldDescription>
-								</Field>
-							)}
-						</form.Field>
+							{/* Descrição detalhada */}
+							<form.Field name="detailedDescription">
+								{(field) => (
+									<Field>
+										<FieldLabel htmlFor={field.name}>Descrição Detalhada</FieldLabel>
+										<Textarea
+											id={field.name}
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											placeholder="Especificação completa do item (características, tipo, embalagem, marca de referência...)"
+											rows={3}
+										/>
+										<FieldDescription>Especificação livre do item, além do rótulo curto e do CATMAT.</FieldDescription>
+									</Field>
+								)}
+							</form.Field>
 
-						{/* Acondicionamento da entrega */}
-						<form.Field name="deliveryConditioning">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>Acondicionamento da Entrega</FieldLabel>
-									<Textarea
-										id={field.name}
-										value={field.state.value}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="Ex: Entregue congelado em caminhão frigorífico, mantendo cadeia de frio até -12 °C"
-										rows={2}
-									/>
-									<FieldDescription>Como o item deve ser entregue/transportado — critério de aceite na entrega.</FieldDescription>
-								</Field>
-							)}
-						</form.Field>
+							{/* Acondicionamento da entrega */}
+							<form.Field name="deliveryConditioning">
+								{(field) => (
+									<Field>
+										<FieldLabel htmlFor={field.name}>Acondicionamento da Entrega</FieldLabel>
+										<Textarea
+											id={field.name}
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											placeholder="Ex: Entregue congelado em caminhão frigorífico, mantendo cadeia de frio até -12 °C"
+											rows={2}
+										/>
+										<FieldDescription>Como o item deve ser entregue/transportado — critério de aceite na entrega.</FieldDescription>
+									</Field>
+								)}
+							</form.Field>
 
-						{/* Acondicionamento estruturado — o texto livre acima segue valendo para o que não cabe em coluna */}
-						<div className="rounded-md border border-border bg-muted/30 p-4">
-							<p className="text-label font-medium">Conservação e embalagem exigidas</p>
-							<p className="text-caption text-muted-foreground mt-1 mb-4">
-								É desta especificação que a conferência lê o critério de aceite, e é ela que define a classe do lote no estoque. A mesma carne a vácuo e
-								congelada são dois itens de compra do mesmo insumo.
-							</p>
+							{/* Acondicionamento estruturado — o texto livre acima segue valendo para o que não cabe em coluna */}
+							<div className="rounded-md border border-border bg-muted/30 p-4">
+								<p className="text-label font-medium">Conservação e embalagem exigidas</p>
+								<p className="text-caption text-muted-foreground mt-1 mb-4">
+									É desta especificação que a conferência lê o critério de aceite, e é ela que define a classe do lote no estoque. A mesma carne a vácuo e
+									congelada são dois itens de compra do mesmo insumo.
+								</p>
 
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+									<form.Field name="conservationClass">
+										{(field) => (
+											<Field>
+												<FieldLabel>Classe de conservação</FieldLabel>
+												<Select items={CONSERVATION_ITEMS} value={field.state.value} onValueChange={(value) => field.handleChange(value)}>
+													<SelectTrigger className="w-full">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														{CONSERVATION_ITEMS.map((item) => (
+															<SelectItem key={item.value ?? ""} value={item.value}>
+																{item.label}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</Field>
+										)}
+									</form.Field>
+
+									<form.Field name="transportRequirement">
+										{(field) => (
+											<Field>
+												<FieldLabel>Transporte</FieldLabel>
+												<Select items={TRANSPORT_ITEMS} value={field.state.value} onValueChange={(value) => field.handleChange(value)}>
+													<SelectTrigger className="w-full">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														{TRANSPORT_ITEMS.map((item) => (
+															<SelectItem key={item.value ?? ""} value={item.value}>
+																{item.label}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+												<FieldDescription>Pode ser mais estrito que a guarda.</FieldDescription>
+											</Field>
+										)}
+									</form.Field>
+
+									<form.Field name="storageTempMinC">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor={field.name}>Temperatura mínima (°C)</FieldLabel>
+												<Input
+													id={field.name}
+													type="number"
+													step="0.1"
+													value={field.state.value ?? ""}
+													onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
+													placeholder="—"
+													aria-invalid={!!field.state.meta.errors.length}
+												/>
+												<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
+											</Field>
+										)}
+									</form.Field>
+
+									<form.Field name="storageTempMaxC">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor={field.name}>Temperatura máxima (°C)</FieldLabel>
+												<Input
+													id={field.name}
+													type="number"
+													step="0.1"
+													value={field.state.value ?? ""}
+													onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
+													placeholder="Ex: -12"
+												/>
+												<FieldDescription>"-12 °C ou inferior" é só a máxima.</FieldDescription>
+											</Field>
+										)}
+									</form.Field>
+
+									<form.Field name="packageType">
+										{(field) => (
+											<Field>
+												<FieldLabel>Embalagem primária</FieldLabel>
+												<Select items={PACKAGE_TYPE_ITEMS} value={field.state.value} onValueChange={(value) => field.handleChange(value)}>
+													<SelectTrigger className="w-full">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														{PACKAGE_TYPE_ITEMS.map((item) => (
+															<SelectItem key={item.value ?? ""} value={item.value}>
+																{item.label}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+												<FieldDescription>Material/forma — distinto da unidade de compra.</FieldDescription>
+											</Field>
+										)}
+									</form.Field>
+
+									<form.Field name="minShelfLifeDaysOnDelivery">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor={field.name}>Validade mínima na entrega (dias)</FieldLabel>
+												<Input
+													id={field.name}
+													type="number"
+													step="1"
+													min="1"
+													value={field.state.value ?? ""}
+													onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
+													placeholder="Ex: 180"
+												/>
+												<FieldDescription>Cláusula do edital, não vida de prateleira do produto.</FieldDescription>
+											</Field>
+										)}
+									</form.Field>
+
+									<form.Field name="packageNetContent">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor={field.name}>Conteúdo líquido</FieldLabel>
+												<Input
+													id={field.name}
+													type="number"
+													step="0.0001"
+													value={field.state.value ?? ""}
+													onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
+													placeholder="Ex: 5"
+												/>
+											</Field>
+										)}
+									</form.Field>
+
+									<form.Field name="packageNetContentUnit">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor={field.name}>Unidade do conteúdo</FieldLabel>
+												<Input
+													id={field.name}
+													value={field.state.value}
+													onChange={(e) => field.handleChange(e.target.value.toUpperCase())}
+													placeholder="Ex: KG"
+													aria-invalid={!!field.state.meta.errors.length}
+												/>
+												<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
+											</Field>
+										)}
+									</form.Field>
+								</div>
+							</div>
+
+							{/* Unidade de compra + Preço de referência */}
 							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-								<form.Field name="conservationClass">
+								<form.Field name="purchaseMeasureUnit">
 									{(field) => (
 										<Field>
-											<FieldLabel>Classe de conservação</FieldLabel>
-											<Select
-												items={[
-													{ value: null, label: "Não declarada" },
-													...CONSERVATION_CLASSES.map((value) => ({ value, label: CONSERVATION_LABELS[value] })),
-												]}
-												value={field.state.value}
-												onValueChange={(value) => field.handleChange(value)}
-											>
-												<SelectTrigger className="w-full">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value={null}>Não declarada</SelectItem>
-													{CONSERVATION_CLASSES.map((value) => (
-														<SelectItem key={value} value={value}>
-															{CONSERVATION_LABELS[value]}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
+											<FieldLabel htmlFor={field.name}>Unidade de Compra</FieldLabel>
+											<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: KG, SACO, CAIXA" />
 										</Field>
 									)}
 								</form.Field>
 
-								<form.Field name="transportRequirement">
+								<form.Field name="unitPrice">
 									{(field) => (
 										<Field>
-											<FieldLabel>Transporte</FieldLabel>
-											<Select
-												items={[{ value: null, label: "Não declarado" }, ...TRANSPORT_REQUIREMENTS.map((value) => ({ value, label: TRANSPORT_LABELS[value] }))]}
-												value={field.state.value}
-												onValueChange={(value) => field.handleChange(value)}
-											>
-												<SelectTrigger className="w-full">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value={null}>Não declarado</SelectItem>
-													{TRANSPORT_REQUIREMENTS.map((value) => (
-														<SelectItem key={value} value={value}>
-															{TRANSPORT_LABELS[value]}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
-											<FieldDescription>Pode ser mais estrito que a guarda.</FieldDescription>
-										</Field>
-									)}
-								</form.Field>
-
-								<form.Field name="storageTempMinC">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor={field.name}>Temperatura mínima (°C)</FieldLabel>
-											<Input
-												id={field.name}
-												type="number"
-												step="0.1"
-												value={field.state.value ?? ""}
-												onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
-												placeholder="—"
-												aria-invalid={!!field.state.meta.errors.length}
-											/>
-											<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
-										</Field>
-									)}
-								</form.Field>
-
-								<form.Field name="storageTempMaxC">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor={field.name}>Temperatura máxima (°C)</FieldLabel>
-											<Input
-												id={field.name}
-												type="number"
-												step="0.1"
-												value={field.state.value ?? ""}
-												onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
-												placeholder="Ex: -12"
-											/>
-											<FieldDescription>"-12 °C ou inferior" é só a máxima.</FieldDescription>
-										</Field>
-									)}
-								</form.Field>
-
-								<form.Field name="packageType">
-									{(field) => (
-										<Field>
-											<FieldLabel>Embalagem primária</FieldLabel>
-											<Select
-												items={[{ value: null, label: "Não declarada" }, ...PACKAGE_TYPES.map((value) => ({ value, label: PACKAGE_TYPE_LABELS[value] }))]}
-												value={field.state.value}
-												onValueChange={(value) => field.handleChange(value)}
-											>
-												<SelectTrigger className="w-full">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value={null}>Não declarada</SelectItem>
-													{PACKAGE_TYPES.map((value) => (
-														<SelectItem key={value} value={value}>
-															{PACKAGE_TYPE_LABELS[value]}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
-											<FieldDescription>Material/forma — distinto da unidade de compra.</FieldDescription>
-										</Field>
-									)}
-								</form.Field>
-
-								<form.Field name="minShelfLifeDaysOnDelivery">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor={field.name}>Validade mínima na entrega (dias)</FieldLabel>
-											<Input
-												id={field.name}
-												type="number"
-												step="1"
-												min="1"
-												value={field.state.value ?? ""}
-												onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
-												placeholder="Ex: 180"
-											/>
-											<FieldDescription>Cláusula do edital, não vida de prateleira do produto.</FieldDescription>
-										</Field>
-									)}
-								</form.Field>
-
-								<form.Field name="packageNetContent">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor={field.name}>Conteúdo líquido</FieldLabel>
+											<FieldLabel htmlFor={field.name}>Preço de Referência</FieldLabel>
 											<Input
 												id={field.name}
 												type="number"
 												step="0.0001"
 												value={field.state.value ?? ""}
 												onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
-												placeholder="Ex: 5"
+												placeholder="0.0000"
 											/>
-										</Field>
-									)}
-								</form.Field>
-
-								<form.Field name="packageNetContentUnit">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor={field.name}>Unidade do conteúdo</FieldLabel>
-											<Input
-												id={field.name}
-												value={field.state.value}
-												onChange={(e) => field.handleChange(e.target.value.toUpperCase())}
-												placeholder="Ex: KG"
-												aria-invalid={!!field.state.meta.errors.length}
-											/>
-											<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
+											<FieldDescription>Preço unitário (R$)</FieldDescription>
 										</Field>
 									)}
 								</form.Field>
 							</div>
-						</div>
 
-						{/* Unidade de compra + Preço de referência */}
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-							<form.Field name="purchaseMeasureUnit">
+							{/* Fator de Conversão */}
+							<form.Field name="conversionFactor">
 								{(field) => (
 									<Field>
-										<FieldLabel htmlFor={field.name}>Unidade de Compra</FieldLabel>
-										<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: KG, SACO, CAIXA" />
-									</Field>
-								)}
-							</form.Field>
-
-							<form.Field name="unitPrice">
-								{(field) => (
-									<Field>
-										<FieldLabel htmlFor={field.name}>Preço de Referência</FieldLabel>
+										<FieldLabel htmlFor={field.name}>Fator de Conversão</FieldLabel>
 										<Input
 											id={field.name}
 											type="number"
-											step="0.0001"
-											value={field.state.value ?? ""}
-											onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
-											placeholder="0.0000"
+											step="0.000001"
+											value={field.state.value}
+											onChange={(e) => field.handleChange(Number(e.target.value))}
+											placeholder="1.000000"
 										/>
-										<FieldDescription>Preço unitário (R$)</FieldDescription>
+										<FieldDescription>Conversão da unidade de compra para a unidade do insumo (padrão: 1.0)</FieldDescription>
 									</Field>
 								)}
 							</form.Field>
-						</div>
+						</FieldGroup>
+					</div>
 
-						{/* Fator de Conversão */}
-						<form.Field name="conversionFactor">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>Fator de Conversão</FieldLabel>
-									<Input
-										id={field.name}
-										type="number"
-										step="0.000001"
-										value={field.state.value}
-										onChange={(e) => field.handleChange(Number(e.target.value))}
-										placeholder="1.000000"
-									/>
-									<FieldDescription>Conversão da unidade de compra para a unidade do insumo (padrão: 1.0)</FieldDescription>
-								</Field>
-							)}
-						</form.Field>
-					</FieldGroup>
-
-					<DialogFooter className="mt-6">
+					<DialogFooter className="mt-4">
 						<Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
 							Cancelar
 						</Button>
