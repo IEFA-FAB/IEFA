@@ -372,17 +372,3 @@ export function applyRecipeSelection<T extends SelectableMenuItem>(
 	}
 	return next
 }
-
-/**
- * Demanda do item como a folha impressa a mostra: "120 pax" (quantidade direta) ou "30%" (do
- * efetivo da refeição). Nulo quando o item não diz nada — ele herda o efetivo da refeição.
- *
- * A folha só mostrava a porcentagem. Desde que porcentagem e quantidade direta viraram formas
- * igualmente válidas (e excludentes) de dimensionar um item, metade dos pratos saía com número
- * e a outra metade em branco, parecendo erro.
- */
-export function formatItemDemand(item: { headcount_override?: number | null; recommended_proportion?: number | null }): string | null {
-	if (item.headcount_override != null) return `${item.headcount_override} pax`
-	if (item.recommended_proportion != null) return `${item.recommended_proportion}%`
-	return null
-}

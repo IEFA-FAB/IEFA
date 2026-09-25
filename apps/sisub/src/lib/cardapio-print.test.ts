@@ -5,6 +5,8 @@ import {
 	DEFAULT_COMMAND_TABLE_MAX_PROPORTION,
 	DEFAULT_PRINT_OPTIONS,
 	describeAllergens,
+	formatPrintedDemand,
+	groupPrintColor,
 	isCommandTableItem,
 	isMainDish,
 	type PreparationSource,
@@ -53,6 +55,39 @@ describe("isMainDish", () => {
 		expect(isMainDish("lanche")).toBe(true)
 		expect(isMainDish("proteina")).toBe(true)
 		for (const g of ["complemento", "fruta", "pao", "salada"]) expect(isMainDish(g)).toBe(false)
+	})
+})
+
+describe("formatPrintedDemand", () => {
+	test("porcentagem não sai na folha; efetivo fixo sai", () => {
+		const percentOnly = { headcount_override: null, recommended_proportion: 30 }
+		expect(formatPrintedDemand(percentOnly)).toBeNull()
+		expect(formatPrintedDemand({ headcount_override: 120 })).toBe("120 pax")
+		expect(formatPrintedDemand({ headcount_override: null })).toBeNull()
+		const both = { headcount_override: 120, recommended_proportion: 30 }
+		expect(formatPrintedDemand(both)).toBe("120 pax")
+	})
+})
+
+describe("groupPrintColor", () => {
+	test("sem grupo, sem tinta", () => {
+		expect(groupPrintColor(null)).toBeNull()
+		expect(groupPrintColor(undefined)).toBeNull()
+	})
+
+	test("grupos semeados têm cores distintas dentro de cada conjunto", () => {
+		const sets = [
+			["salada", "prato_principal", "acompanhamento", "guarnicao", "bebida", "sobremesa"],
+			["pao", "proteina", "complemento", "fruta", "bebida"],
+			["lanche", "complemento", "fruta", "bebida"],
+		]
+		for (const keys of sets) expect(new Set(keys.map(groupPrintColor)).size).toBe(keys.length)
+	})
+
+	test("grupo criado pela cozinha ganha cor estável, em hex de 6 dígitos", () => {
+		const color = groupPrintColor("petiscos")
+		expect(color).toMatch(/^[0-9A-F]{6}$/)
+		expect(groupPrintColor("petiscos")).toBe(color)
 	})
 })
 

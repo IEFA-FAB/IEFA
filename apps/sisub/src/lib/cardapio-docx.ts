@@ -5,6 +5,7 @@ import {
 	type IBorderOptions,
 	Packer,
 	Paragraph,
+	ShadingType,
 	Table,
 	TableCell,
 	TableRow,
@@ -33,10 +34,17 @@ export type CardapioDocxData = {
 	/** 7 colunas, Segunda→Domingo; `date` já formatada (dd/MM) ou null. */
 	columns: { label: string; date: string | null }[]
 	/**
-	 * Uma linha por tipo de refeição; `cells` e `bases` alinhados às colunas. `demand` é a
-	 * demanda do item já formatada ("120 pax" ou "30%"); `bases`, o efetivo da refeição no dia.
+	 * Uma linha por tipo de refeição; `cells` e `bases` alinhados às colunas. `demand` é o efetivo
+	 * fixo do item já formatado ("120 pax" — porcentagem não sai); `bases`, o efetivo da refeição
+	 * no dia. `color` é a tinta do grupo (hex sem `#`), `null` com as cores desligadas.
 	 */
-	rows: { meal: string; cells: { name: string; main?: boolean; demand: string | null }[][]; bases?: (number | null)[] }[]
+	rows: {
+		meal: string
+		cells: { name: string; main?: boolean; demand: string | null; color?: string | null }[][]
+		bases?: (number | null)[]
+	}[]
+	/** Legenda das cores por grupo; vazia com as cores desligadas. */
+	groupLegend?: { label: string; color: string }[]
 	/**
 	 * `version` já descrita ("v3" ou "v3 — desatualizada (atual: v5)"). `ingredients` (nomes, sem
 	 * quantidade) e `allergens` (linha já descrita) só vêm quando a opção de impressão pede.
@@ -122,6 +130,7 @@ function buildGrid(data: CardapioDocxData): Table {
 								...entries.map(
 									(e) =>
 										new Paragraph({
+											shading: e.color ? { type: ShadingType.CLEAR, fill: e.color, color: "auto" } : undefined,
 											children: [
 												// Prato principal em negrito; os demais, peso normal. Nome como está no banco.
 												new TextRun({ text: e.name, bold: e.main === true, size: 16 }),
@@ -138,6 +147,22 @@ function buildGrid(data: CardapioDocxData): Table {
 	)
 
 	return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [head, ...bodyRows] })
+}
+
+/** Legenda das cores: amostra sombreada + rótulo do grupo, numa linha só. */
+function buildLegend(data: CardapioDocxData): Paragraph[] {
+	const legend = data.groupLegend ?? []
+	if (legend.length === 0) return []
+	return [
+		new Paragraph({
+			spacing: { before: 80 },
+			children: legend.flatMap((g, i) => [
+				...(i > 0 ? [new TextRun({ text: "   ", size: 16 })] : []),
+				new TextRun({ text: "\u2003\u2003", size: 16, shading: { type: ShadingType.CLEAR, fill: g.color, color: "auto" } }),
+				new TextRun({ text: ` ${g.label}`, size: 16 }),
+			]),
+		}),
+	]
 }
 
 function buildPreparations(data: CardapioDocxData): Paragraph[] {
@@ -214,6 +239,7 @@ export function buildCardapioDocument(data: CardapioDocxData): Document {
 					...(data.weekLabel ? [line(data.weekLabel, { bold: true, size: 16 })] : []),
 					new Paragraph({ spacing: { after: 160 }, children: [] }),
 					buildGrid(data),
+					...buildLegend(data),
 					...buildPreparations(data),
 					new Paragraph({ spacing: { after: 160 }, children: [] }),
 					buildSignatures(data),
