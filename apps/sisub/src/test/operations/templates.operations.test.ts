@@ -740,14 +740,29 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 
 		const original = await getTemplate(db, ctx, { templateId: global.id })
 		expect(original.event_meals.map((m) => [m.id, m.name])).toEqual([[coquetelId, "Coquetel"]])
+		// Duas gravações de fork + cinco leituras contra o banco remoto: o teto padrão de 15s não cabe.
+	}, 45_000)
 
-		// forkTemplate direto segue a mesma regra.
+	test("forkTemplate de evento dá ids novos às refeições e reaponta os itens", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, recipeId } = await base()
+		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
+		const coquetelId = crypto.randomUUID()
+		const global = await createTemplate(db, ctx, {
+			name: uid("[TEST] Evento global "),
+			templateType: "event",
+			eventMeals: [{ id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS }],
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "volante", recommendedProportion: null, eventMealId: coquetelId }],
+		})
+		trackTemplate(global.id)
+
 		const fork = await forkTemplate(db, ctx, { sourceTemplateId: global.id, targetKitchenId: kitchenId, newName: uid("[TEST] Fork evento ") })
 		trackTemplate(fork.id)
 		const forked = await getTemplate(db, ctx, { templateId: fork.id })
+		expect(forked.event_meals).toHaveLength(1)
 		expect(forked.event_meals[0]?.id).not.toBe(coquetelId)
 		expect(forked.items[0]?.event_meal_id).toBe(forked.event_meals[0]?.id)
-	})
+	}, 30_000)
 
 	test("evento global na cozinha: refeição omitida sai com os itens; com cópia existente, metade do conteúdo é recusada", async () => {
 		if (!reachable || !seeder || !db) return
@@ -781,5 +796,5 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		await expect(saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "kitchen", kitchenId }, eventMeals: [coquetel] })).rejects.toThrow(
 			/eventMeals e items juntos/
 		)
-	})
+	}, 30_000)
 })
