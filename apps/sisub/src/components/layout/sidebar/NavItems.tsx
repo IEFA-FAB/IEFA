@@ -172,7 +172,7 @@ export const ALL_MODULES: ModuleDef[] = [
 				url: "/unit/procurement",
 				icon: FileText,
 				group: "Contratação",
-				keywords: ["anexo", "quantitativo", "tr", "termo de referência", "licitação", "ata"],
+				keywords: ["anexo", "quantitativo", "tr", "termo de referência", "licitação", "arp", "registro de preços", "ata"],
 			},
 			{ title: "Crédito Disponível", url: "/unit/credit", icon: Landmark, group: "Execução orçamentária", keywords: ["saldo", "orçamento", "nc"] },
 			{ title: "Empenhos", url: "/unit/empenhos", icon: FileSignature, group: "Execução orçamentária", keywords: ["ne", "nota de empenho"] },

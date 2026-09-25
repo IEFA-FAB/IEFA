@@ -263,7 +263,7 @@ const listEmpenhos: ModuleToolDefinition = {
 	parameters: {
 		type: "object",
 		properties: {
-			ataId: { type: "string", description: "ID (UUID) da ATA" },
+			ataId: { type: "string", description: "ID (UUID) do anexo quantitativo" },
 			limit: { type: "number", description: `Quantos empenhos retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
 		},
 		required: ["ataId"],
