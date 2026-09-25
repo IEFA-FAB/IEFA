@@ -103,7 +103,7 @@ function TagBadge({ tag }: { id: string; tag: string }) {
 
 function MarkdownContent({ children }: { children: string }) {
 	return (
-		<div className="prose max-w-none leading-relaxed dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground">
+		<div className="leading-relaxed">
 			<ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>
 				{children}
 			</ReactMarkdown>

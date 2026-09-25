@@ -80,7 +80,7 @@ function NavigationMenuPositioner({
 				)}
 				{...props}
 			>
-				<NavigationMenuPrimitive.Popup className="bg-popover text-popover-foreground border border-border transition-all ease-[cubic-bezier(0.22,1,0.36,1)] outline-none data-[ending-style]:opacity-0 data-[ending-style]:duration-150 data-[starting-style]:opacity-0 xs:w-(--popup-width) relative h-(--popup-height) w-(--popup-width) origin-(--transform-origin)">
+				<NavigationMenuPrimitive.Popup className="bg-popover text-popover-foreground border border-border transition-all ease-[cubic-bezier(0.22,1,0.36,1)] outline-none data-[ending-style]:opacity-0 data-[ending-style]:duration-150 data-[starting-style]:opacity-0 relative h-(--popup-height) w-(--popup-width) origin-(--transform-origin)">
 					<NavigationMenuPrimitive.Viewport className="relative size-full overflow-hidden" />
 				</NavigationMenuPrimitive.Popup>
 			</NavigationMenuPrimitive.Positioner>

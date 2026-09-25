@@ -136,7 +136,7 @@ function PostDetailComponent() {
 			)}
 
 			{/* Conteúdo Rico (Medium Style) */}
-			<div className="prose prose-lg dark:prose-invert max-w-none">
+			<div>
 				<PortableText value={post.body} components={myPortableTextComponents} />
 			</div>
 

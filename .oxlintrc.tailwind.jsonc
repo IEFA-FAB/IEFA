@@ -1,0 +1,38 @@
+{
+  // Lint de Tailwind (@shadcn/lint). Roda por `scripts/lint-tailwind.ts`, que confere os
+  // avisos contra `tailwind-lint-baseline.json` de cada app. Nome fora do padrão de propósito:
+  // o react-doctor adota um `.oxlintrc.json` da raiz e passaria a rodar estas regras também.
+  "plugins": [],
+  "categories": { "correctness": "off" },
+  "jsPlugins": ["@shadcn/lint"],
+  "ignorePatterns": ["**/*.gen.ts", "**/*.test.ts", "**/*.test.tsx", "**/*.d.ts"],
+  "rules": {
+    // Classe que não gera CSS nenhum: erro de digitação, variante inexistente, plugin não carregado.
+    "shadcn/no-unknown-classes": "error",
+    // Paleta crua (`bg-blue-600`) em vez de token do tema. Dívida medida pelo baseline.
+    "shadcn/no-raw-colors": "warn"
+  },
+  // A última override que casa com o arquivo decide as opções da regra: a geral vem antes.
+  "overrides": [
+    {
+      // Ganchos sem CSS: `nodrag`/`nopan` são lidos pelo React Flow; `qr-*` e
+      // `main-content-surface` marcam elementos; `recharts-*` é classe do Recharts.
+      "files": ["apps/sisub/src/**", "apps/sucont/src/**"],
+      "rules": {
+        "shadcn/no-unknown-classes": ["error", { "allow": ["nodrag", "nopan", "qr-reader", "qr-box", "main-content-surface", "recharts-*"] }]
+      }
+    },
+    {
+      // Documentos de impressão: o CSS vem do `<style>` do próprio componente, fora do tema.
+      "files": [
+        "apps/sisub/src/components/features/diner/snack-requests/SnackRequestPrint.tsx",
+        "apps/sisub/src/components/features/local/snack-requests/SnackLabels.tsx",
+        "apps/sisub/src/components/features/local/planning/WeeklyMenuPrint.tsx",
+        "apps/sisub/src/components/features/shared/RecipeTechnicalSheetPrint.tsx"
+      ],
+      "rules": {
+        "shadcn/no-unknown-classes": ["error", { "allow": ["anexo-e-*", "snack-label", "snack-label-*", "snack-labels-*", "cardapio-*", "ftp-*"] }]
+      }
+    }
+  ]
+}

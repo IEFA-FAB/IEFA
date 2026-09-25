@@ -25,6 +25,7 @@
       ]
     },
     "lint": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.tailwind.jsonc", "$TURBO_ROOT$/scripts/lint-tailwind.ts"],
       "outputs": []
     },
     "typecheck": {

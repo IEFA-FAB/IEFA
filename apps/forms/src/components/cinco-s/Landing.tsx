@@ -163,7 +163,7 @@ export function CincoSLanding() {
 					<div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 mb-14">
 						<div>
 							<p className="text-label text-muted-foreground mb-2">BASE 5S</p>
-							<h2 className="text-headline font-bold">Os 5 Sensos</h2>
+							<h2 className="text-headline">Os 5 Sensos</h2>
 						</div>
 						<span className="text-xs text-muted-foreground hidden sm:block italic">Seiri · Seiton · Seiso · Seiketsu · Shitsuke</span>
 					</div>
@@ -230,7 +230,7 @@ export function CincoSLanding() {
 				<div className="max-w-5xl mx-auto">
 					<div className="text-center mb-10">
 						<p className="text-label text-muted-foreground mb-2">PROPÓSITO</p>
-						<h2 className="text-headline font-bold">Nossa Missão</h2>
+						<h2 className="text-headline">Nossa Missão</h2>
 					</div>
 
 					<div className="max-w-3xl mx-auto text-center space-y-5">

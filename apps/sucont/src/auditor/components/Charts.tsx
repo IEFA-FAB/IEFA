@@ -519,16 +519,6 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 						transition: "all 0.3s ease",
 					}}
 				/>
-				<rect
-					x={x}
-					y={y}
-					width={width}
-					height={height}
-					fill="white"
-					fillOpacity={0}
-					className="group-hover:fill-opacity-10 transition-all duration-200"
-					style={{ pointerEvents: "none" }}
-				/>
 				<foreignObject x={x} y={y} width={width} height={height}>
 					<div className="w-full h-full flex flex-col items-center justify-center p-0.5 overflow-hidden pointer-events-none">
 						<span

@@ -2,8 +2,6 @@
 @import 'tw-animate-css';
 @import './fonts.css';
 
-@config "../tailwind.config";
-
 /* `dark:` vale nos dois casos: classe explícita no <html> (escolha do usuário,
    vinda do cookie e renderizada pelo servidor) e preferência do SO de quem ainda
    não escolheu. Sem o segundo caso, quem está no escuro do sistema veria os
@@ -412,31 +410,35 @@
   }
 }
 
+/* ---- UTILITÁRIOS DE ESCALA ----
+   `@utility`, não classe solta em `@layer utilities`: assim aceitam variante
+   (`md:text-label`) e o @shadcn/lint os reconhece como vocabulário do tema — o
+   prefixo `text-`/`shadow-` o faria lê-los como cor não declarada. */
+/* Display tipográfico */
+@utility text-display {
+  font-size: clamp(2.2rem, 4.6vw, 3.4rem);
+  font-weight: 800;
+  letter-spacing: var(--tracking-tighter);
+  line-height: 1.05;
+}
+
+@utility text-headline {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.15;
+}
+
+/* Label/eyebrow uppercase com tracking */
+@utility text-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
 /* ---- UTILITÁRIOS ---- */
 @layer utilities {
-  /* Display tipográfico */
-  .text-display {
-    font-size: clamp(2.2rem, 4.6vw, 3.4rem);
-    font-weight: 800;
-    letter-spacing: var(--tracking-tighter);
-    line-height: 1.05;
-  }
-
-  .text-headline {
-    font-size: clamp(1.5rem, 3vw, 2rem);
-    font-weight: 700;
-    letter-spacing: var(--tracking-tight);
-    line-height: 1.15;
-  }
-
-  /* Label/eyebrow uppercase com tracking */
-  .text-label {
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: var(--tracking-label);
-    text-transform: uppercase;
-  }
-
   /* Separador horizontal de seção */
   .section-rule {
     border: none;
