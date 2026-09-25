@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
@@ -17,11 +18,13 @@ import { useTemplate } from "@/hooks/data/useTemplates"
 import {
 	buildPreparationEntries,
 	type CardapioPrintOptions,
+	DEFAULT_COMMAND_TABLE_MAX_PROPORTION,
 	DEFAULT_PRINT_OPTIONS,
 	describeAllergens,
 	INGREDIENTS_MODE_LABELS,
 	INGREDIENTS_MODES,
 	type IngredientsMode,
+	isCommandTableItem,
 	isMainDish,
 	type PreparationEntry,
 	type PreparationSource,
@@ -54,7 +57,9 @@ import type { MenuTemplateWithItems } from "@/types/domain/planning"
  *  - opções de impressão (modo de preparo; ingredientes: nenhum, só alergênicos ou todos,
  *    sempre sem quantidade). Ficam só na página, sem armazenamento local: chave nova de
  *    armazenamento exigiria versão nova da Política de Cookies, e preferência de leitura
- *    não justifica pedir ciência de novo a todo usuário.
+ *    não justifica pedir ciência de novo a todo usuário;
+ *  - preparações da mesa de comando (porcentagem pequena do efetivo) ficam fora da folha,
+ *    por padrão: ela é afixada para o comensal, e esse prato não está à disposição dele.
  *
  * Nomes de preparação e de refeição saem como estão no banco — sem caixa alta forçada — e o
  * prato principal sai em negrito.
@@ -198,7 +203,20 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const updateOptions = (patch: Partial<CardapioPrintOptions>) => setOptions((prev) => ({ ...prev, ...patch }))
 
 	// Ingredientes das fichas do cardápio: só buscados quando a opção pede.
-	const originIds = useMemo(() => [...new Set((template?.items ?? []).flatMap((i) => (i.recipe_origin?.id ? [i.recipe_origin.id] : [])))], [template])
+	// Mesa de comando sai da grade E da lista de preparações: uma ficha que só ela usa, listada
+	// sem prato correspondente na grade, anunciaria o que a folha acabou de esconder.
+	const { hideCommandTable, commandTableMaxProportion } = options
+	const printedItems = useMemo(
+		() => (template?.items ?? []).filter((item) => !isCommandTableItem(item, { hideCommandTable, commandTableMaxProportion })),
+		[template, hideCommandTable, commandTableMaxProportion]
+	)
+	// Conta o que sumiria da grade: item sem dia ou refeição nunca apareceu nela.
+	const hiddenCount = (template?.items ?? []).filter(
+		(item) => item.day_of_week != null && item.meal_type_id && isCommandTableItem(item, { hideCommandTable, commandTableMaxProportion })
+	).length
+
+	// Só as fichas que saem na folha: ingrediente de ficha oculta seria busca (e espera) à toa.
+	const originIds = useMemo(() => [...new Set(printedItems.flatMap((i) => (i.recipe_origin?.id ? [i.recipe_origin.id] : [])))], [printedItems])
 	const wantsIngredients = options.ingredients !== "none"
 	const digestsQuery = useQuery({
 		queryKey: queryKeys.recipes.ingredientDigests(originIds),
@@ -290,7 +308,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// Índice (dia → refeição → preparações), ordenadas pela ordem de leitura do
 	// CONJUNTO daquela refeição e depois pela posição dentro do grupo.
 	const cellIndex = new Map<string, CellEntry[]>()
-	for (const item of template.items) {
+	for (const item of printedItems) {
 		if (item.day_of_week == null || !item.meal_type_id) continue
 		const key = `${item.day_of_week}:${item.meal_type_id}`
 		const list = cellIndex.get(key) ?? []
@@ -318,7 +336,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// derrubava da lista impressa a ficha cujo texto foi todo para o pré-preparo — a
 	// preparação continuaria no cardápio e sumiria da folha que a cozinha lê.
 	const prepMap = new Map<string, PreparationSource>()
-	for (const item of template.items) {
+	for (const item of printedItems) {
 		const r = item.recipe_origin
 		if (!r || prepMap.has(r.id)) continue
 		prepMap.set(r.id, {
@@ -483,6 +501,40 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 							))}
 						</SelectContent>
 					</Select>
+				</div>
+				<div className="flex items-center gap-2">
+					<label htmlFor="print-hide-command-table" className="flex items-center gap-2">
+						<Checkbox
+							id="print-hide-command-table"
+							checked={options.hideCommandTable}
+							onCheckedChange={(checked) => updateOptions({ hideCommandTable: checked === true })}
+						/>
+						Ocultar mesa de comando: até
+					</label>
+					<Input
+						type="number"
+						min={0}
+						max={100}
+						step={0.5}
+						inputMode="decimal"
+						aria-label="Porcentagem máxima da mesa de comando"
+						className="w-20"
+						disabled={!options.hideCommandTable}
+						// Não controlado: controlado, apagar o campo para redigitar era desfeito na hora
+						// (valor vazio não vira número) e "3" virava "53".
+						defaultValue={DEFAULT_COMMAND_TABLE_MAX_PROPORTION}
+						onChange={(e) => {
+							const next = e.target.valueAsNumber
+							// Até 100%: acima disso a porcentagem é do per capita, e esconderia o prato principal.
+							if (Number.isFinite(next) && next >= 0 && next <= 100) updateOptions({ commandTableMaxProportion: next })
+						}}
+					/>
+					<span>% do efetivo</span>
+					{hiddenCount > 0 && (
+						<span className="text-muted-foreground">
+							({hiddenCount} {hiddenCount === 1 ? "item oculto na grade" : "itens ocultos na grade"})
+						</span>
+					)}
 				</div>
 				{digestsQuery.isError && (
 					<span className="flex items-center gap-2 text-destructive">
