@@ -88,7 +88,7 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="max-w-2xl">
+			<DialogContent className="sm:max-w-2xl max-h-[85dvh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>{mode === "create" ? "Novo Item de Produto" : "Editar Item de Produto"}</DialogTitle>
 				</DialogHeader>
@@ -152,12 +152,16 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 									return (
 										<Field>
 											<FieldLabel>Item de Compra (CATMAT)</FieldLabel>
-											<Select value={field.state.value ?? "__NONE__"} onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? null : v)}>
-												<SelectTrigger>
-													<SelectValue placeholder="Vincular item de compra">{field.state.value && selected ? selected.description : undefined}</SelectValue>
+											<Select
+												items={[{ value: null, label: "Sem item de compra" }, ...(purchaseItems ?? []).map((pi) => ({ value: pi.id, label: pi.description }))]}
+												value={field.state.value}
+												onValueChange={(value) => field.handleChange(value)}
+											>
+												<SelectTrigger className="w-full">
+													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
-													<SelectItem value="__NONE__">Sem item de compra</SelectItem>
+													<SelectItem value={null}>Sem item de compra</SelectItem>
 													{purchaseItems?.map((pi) => (
 														<SelectItem key={pi.id} value={pi.id}>
 															{pi.description}
@@ -195,7 +199,7 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 						</form.Field>
 
 						{/* Unidade de compra + Qtd por unidade */}
-						<div className="grid grid-cols-2 gap-4">
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 							<form.Field name="purchase_measure_unit">
 								{(field) => (
 									<Field>

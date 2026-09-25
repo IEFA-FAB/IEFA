@@ -23,8 +23,6 @@ import { toast } from "@/components/ui/toast"
 import { type PurchaseItemWithLink, useCreatePurchaseItem, useUpdatePurchaseItem } from "@/services/IngredientsService"
 import { CatmatCombobox } from "./CatmatCombobox"
 
-const NONE = "__NONE__"
-
 const purchaseItemSchema = z
 	.object({
 		description: z.string().min(1, "Descrição obrigatória"),
@@ -159,7 +157,7 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="max-w-2xl">
+			<DialogContent className="sm:max-w-2xl max-h-[85dvh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>{mode === "create" ? "Novo Item de Compra" : "Editar Item de Compra"}</DialogTitle>
 				</DialogHeader>
@@ -254,20 +252,24 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 								congelada são dois itens de compra do mesmo insumo.
 							</p>
 
-							<div className="grid grid-cols-2 gap-4">
+							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 								<form.Field name="conservationClass">
 									{(field) => (
 										<Field>
 											<FieldLabel>Classe de conservação</FieldLabel>
 											<Select
-												value={field.state.value ?? NONE}
-												onValueChange={(value) => field.handleChange(value === NONE || value == null ? null : (value as ConservationClass))}
+												items={[
+													{ value: null, label: "Não declarada" },
+													...CONSERVATION_CLASSES.map((value) => ({ value, label: CONSERVATION_LABELS[value] })),
+												]}
+												value={field.state.value}
+												onValueChange={(value) => field.handleChange(value)}
 											>
-												<SelectTrigger>
-													<SelectValue placeholder="Não declarada">{field.state.value ? CONSERVATION_LABELS[field.state.value] : undefined}</SelectValue>
+												<SelectTrigger className="w-full">
+													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
-													<SelectItem value={NONE}>Não declarada</SelectItem>
+													<SelectItem value={null}>Não declarada</SelectItem>
 													{CONSERVATION_CLASSES.map((value) => (
 														<SelectItem key={value} value={value}>
 															{CONSERVATION_LABELS[value]}
@@ -284,14 +286,15 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 										<Field>
 											<FieldLabel>Transporte</FieldLabel>
 											<Select
-												value={field.state.value ?? NONE}
-												onValueChange={(value) => field.handleChange(value === NONE || value == null ? null : (value as TransportRequirement))}
+												items={[{ value: null, label: "Não declarado" }, ...TRANSPORT_REQUIREMENTS.map((value) => ({ value, label: TRANSPORT_LABELS[value] }))]}
+												value={field.state.value}
+												onValueChange={(value) => field.handleChange(value)}
 											>
-												<SelectTrigger>
-													<SelectValue placeholder="Não declarado">{field.state.value ? TRANSPORT_LABELS[field.state.value] : undefined}</SelectValue>
+												<SelectTrigger className="w-full">
+													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
-													<SelectItem value={NONE}>Não declarado</SelectItem>
+													<SelectItem value={null}>Não declarado</SelectItem>
 													{TRANSPORT_REQUIREMENTS.map((value) => (
 														<SelectItem key={value} value={value}>
 															{TRANSPORT_LABELS[value]}
@@ -344,14 +347,15 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 										<Field>
 											<FieldLabel>Embalagem primária</FieldLabel>
 											<Select
-												value={field.state.value ?? NONE}
-												onValueChange={(value) => field.handleChange(value === NONE || value == null ? null : (value as PackageType))}
+												items={[{ value: null, label: "Não declarada" }, ...PACKAGE_TYPES.map((value) => ({ value, label: PACKAGE_TYPE_LABELS[value] }))]}
+												value={field.state.value}
+												onValueChange={(value) => field.handleChange(value)}
 											>
-												<SelectTrigger>
-													<SelectValue placeholder="Não declarada">{field.state.value ? PACKAGE_TYPE_LABELS[field.state.value] : undefined}</SelectValue>
+												<SelectTrigger className="w-full">
+													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
-													<SelectItem value={NONE}>Não declarada</SelectItem>
+													<SelectItem value={null}>Não declarada</SelectItem>
 													{PACKAGE_TYPES.map((value) => (
 														<SelectItem key={value} value={value}>
 															{PACKAGE_TYPE_LABELS[value]}
@@ -417,7 +421,7 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 						</div>
 
 						{/* Unidade de compra + Preço de referência */}
-						<div className="grid grid-cols-2 gap-4">
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 							<form.Field name="purchaseMeasureUnit">
 								{(field) => (
 									<Field>
