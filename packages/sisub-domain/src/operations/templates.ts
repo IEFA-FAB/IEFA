@@ -248,7 +248,11 @@ export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTempl
 	const wire = toWire<TemplateWithItemsFull>(row, TEMPLATE_RELATIONS)
 	const items = [...wire.items].sort(compareTemplateItems)
 	// Efetivo base lido à parte, tolerante à tabela ausente (migração pendente → meals vazio).
-	const [mealsByTemplate, eventMealsByTemplate] = await Promise.all([fetchTemplateMealsSafe(db, [input.templateId]), fetchEventMeals(db, [input.templateId])])
+	// Refeições próprias só existem em evento: nos demais tipos a consulta nunca traria nada.
+	const [mealsByTemplate, eventMealsByTemplate] = await Promise.all([
+		fetchTemplateMealsSafe(db, [input.templateId]),
+		wire.template_type === "event" ? fetchEventMeals(db, [input.templateId]) : new Map<string, TemplateEventMealWire[]>(),
+	])
 	const meals = (mealsByTemplate.get(input.templateId) ?? []).map((m) => toWire<MenuTemplateMeal>(m))
 	const event_meals = eventMealsByTemplate.get(input.templateId) ?? []
 	return { ...wire, items, meals, event_meals }
@@ -551,7 +555,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	// Efetivo base lido à parte, tolerante à tabela ausente (fork continua mesmo sem a base).
 	const sourceMeals = (await fetchTemplateMealsSafe(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
 	// Refeições do evento: a cópia ganha as suas, com ids novos (o id é chave primária).
-	const sourceEventMeals = (await fetchEventMeals(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
+	const sourceEventMeals = source.templateType === "event" ? ((await fetchEventMeals(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []) : []
 	const eventMealIdMap = freshEventMealIds(sourceEventMeals)
 
 	// A cópia herda as referências da origem — e elas precisam caber no DESTINO, pela mesma

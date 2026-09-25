@@ -119,6 +119,11 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	) => {
 		const present = new Set((menu.menu_items ?? []).map((i) => i.recipe_origin_id))
 		const fresh = entries.filter((e) => !present.has(e.recipeId))
+		// Grupo que o conjunto desta refeição não tem entra sem grupo: o servidor recusa a chave
+		// desconhecida, e ela chega aqui ao colar de outro tipo de refeição ou de um evento
+		// aplicado, cujos grupos são da composição da refeição do evento.
+		const validGroups = new Set(groupsFor(menu.meal_type_id).map((g) => g.key))
+		const groupOf = (e: { itemGroup?: string | null }) => (e.itemGroup != null && validGroups.has(e.itemGroup) ? e.itemGroup : null)
 		// Posição calculada AQUI, por grupo: os inserts saem em paralelo, e sem `sort_order` o
 		// servidor calcula "último + 1" para todos no mesmo instante — as preparações nasciam
 		// empatadas e a ordem copiada virava a ordem em que o banco devolve.
@@ -128,7 +133,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 			nextInGroup.set(group, Math.max(nextInGroup.get(group) ?? 0, (item.sort_order ?? 0) + 1))
 		}
 		const positions = fresh.map((e) => {
-			const group = e.itemGroup ?? null
+			const group = groupOf(e)
 			const position = nextInGroup.get(group) ?? 0
 			nextInGroup.set(group, position + 1)
 			return position
@@ -142,7 +147,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 					// um número inventado entrando na compra.
 					planned_portion_quantity: menu.forecasted_headcount || null,
 					excluded_from_procurement: 0,
-					item_group: e.itemGroup ?? null,
+					item_group: groupOf(e),
 					sort_order: positions[index],
 					recommended_proportion: e.recommendedProportion ?? null,
 				})
