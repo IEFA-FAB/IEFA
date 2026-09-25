@@ -1,5 +1,5 @@
 import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@iefa/database/sisub"
-import type { EditScope } from "@iefa/sisub-domain"
+import type { EditScope, TemplateEventMeal } from "@iefa/sisub-domain"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
@@ -132,12 +132,15 @@ export function useSaveTemplateEdit(options?: { silent?: boolean }) {
 			updates,
 			items,
 			meals,
+			eventMeals,
 			context,
 		}: {
 			id: string
 			updates: MenuTemplateUpdate
 			items?: Omit<MenuTemplateItemInsert, "menu_template_id">[]
 			meals?: TemplateMealDraft[]
+			/** Só evento: substitui as refeições do evento (ausente = não mexe). */
+			eventMeals?: TemplateEventMeal[]
 			context: EditScope
 		}) =>
 			saveTemplateEditFn({
@@ -157,8 +160,10 @@ export function useSaveTemplateEdit(options?: { silent?: boolean }) {
 						itemGroup: (i.item_group as MenuItemGroup | null | undefined) ?? null,
 						sortOrder: i.sort_order ?? index,
 						recommendedProportion: i.recommended_proportion ?? null,
+						eventMealId: i.event_meal_id ?? null,
 					})),
 					meals: meals?.map((m) => ({ dayOfWeek: m.day_of_week, mealTypeId: m.meal_type_id, baseHeadcount: m.base_headcount })),
+					eventMeals,
 				},
 			}),
 		onSuccess: (result) => {

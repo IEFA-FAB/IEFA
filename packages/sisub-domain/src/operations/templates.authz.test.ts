@@ -44,6 +44,7 @@ function fakeDb(templateKitchenId: number | null): SisubDb {
 				findFirst: () => Promise.resolve(row),
 			},
 			menuTemplateMealInKitchen: { findMany: () => Promise.resolve([]) },
+			menuTemplateEventMealInKitchen: { findMany: () => Promise.resolve([]) },
 		},
 	} as unknown as SisubDb
 }

@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { DateSchema, EditScopeSchema, KitchenIdSchema, MenuGroupKeySchema, RecommendedProportionSchema, UuidSchema } from "./common.ts"
+import { MenuGroupSchema } from "./menu-groups.ts"
 
 export const ListTemplatesSchema = z.object({
 	kitchenId: KitchenIdSchema.nullable().optional(),
@@ -36,8 +37,38 @@ export const TemplateItemSchema = z.object({
 	sortOrder: z.number().int().nonnegative().nullish(),
 	/** Proporção recomendada de consumo (%), advisory. */
 	recommendedProportion: RecommendedProportionSchema.nullable(),
+	/**
+	 * Refeição do evento a que o item pertence — obrigatória em template de evento, proibida
+	 * nos demais. Num item de evento o `mealTypeId` enviado é ignorado: quem manda é o horário
+	 * da refeição (`TemplateEventMealSchema.mealTypeId`). `.nullish()` pelo mesmo motivo de
+	 * `headcountOverride`: vive dentro de array exposto a modelo.
+	 */
+	eventMealId: UuidSchema.nullish(),
 })
 export type TemplateItem = z.infer<typeof TemplateItemSchema>
+
+/** Teto de refeições num evento e de grupos na composição de cada uma — freio, não regra da norma. */
+export const MAX_EVENT_MEALS = 30
+export const MAX_EVENT_MEAL_GROUPS = 20
+
+/**
+ * Refeição PRÓPRIA de um evento (coquetel, jantar de gala…). O evento tem zero ou mais, e cada
+ * uma tem nome, horário no calendário e composição próprios — nada disso é compartilhado com
+ * os tipos de refeição do rancho nem com os conjuntos de grupos deles.
+ */
+export const TemplateEventMealSchema = z.object({
+	/**
+	 * Id estável da refeição, gerado por quem a cria (o editor). É o que os itens citam em
+	 * `eventMealId` no mesmo payload, antes de a refeição existir no banco.
+	 */
+	id: UuidSchema,
+	name: z.string().trim().min(1).max(80),
+	/** Horário do calendário em que a refeição é servida — onde o "Aplicar ao calendário" põe os itens. */
+	mealTypeId: UuidSchema,
+	/** Composição: as colunas da refeição, na ordem de leitura. Chave repetida é recusada. */
+	groups: z.array(MenuGroupSchema).min(1).max(MAX_EVENT_MEAL_GROUPS),
+})
+export type TemplateEventMeal = z.infer<typeof TemplateEventMealSchema>
 
 /** Efetivo base por (dia + refeição) do template. headcount_override do item é exceção. */
 export const TemplateMealSchema = z.object({
@@ -55,6 +86,8 @@ export const CreateTemplateSchema = z.object({
 	expectedMonthlyOccurrences: ExpectedMonthlyOccurrencesSchema.nullable().optional(),
 	items: z.array(TemplateItemSchema).optional(),
 	meals: z.array(TemplateMealSchema).optional(),
+	/** Só em evento. A ordem do array é a ordem das refeições no evento. */
+	eventMeals: z.array(TemplateEventMealSchema).max(MAX_EVENT_MEALS).optional(),
 })
 export type CreateTemplate = z.infer<typeof CreateTemplateSchema>
 
@@ -84,6 +117,12 @@ export const UpdateTemplateSchema = z.object({
 	expectedMonthlyOccurrences: ExpectedMonthlyOccurrencesSchema.nullable().optional(),
 	items: z.array(TemplateItemSchema).optional(),
 	meals: z.array(TemplateMealSchema).optional(),
+	/**
+	 * Só em evento. Ausente = não mexe nas refeições. Presente = substitui a lista inteira: a
+	 * refeição que não vier SAI, e leva junto os itens dela. Pelo mesmo motivo de `items`,
+	 * não aceita `null` — "não mexi" e "apague as refeições" não podem ser a mesma coisa.
+	 */
+	eventMeals: z.array(TemplateEventMealSchema).max(MAX_EVENT_MEALS).optional(),
 })
 export type UpdateTemplate = z.infer<typeof UpdateTemplateSchema>
 
