@@ -53,11 +53,13 @@ export function eventDraftFrom(
 	rows: readonly EventMealRow[] | undefined,
 	items: readonly TemplateItemRow[]
 ): { meals: EventMealDraft[]; items: TemplateItemDraft[] } {
+	// Refeição gravada sem grupo nenhum ganha a composição padrão: sem coluna, nada entraria
+	// nela, e o servidor recusaria o salvamento (a composição tem ao menos um grupo).
 	const meals: EventMealDraft[] = (rows ?? []).map((m) => ({
 		id: m.id,
 		name: m.name,
 		meal_type_id: m.meal_type_id,
-		groups: m.groups.map((g) => ({ key: g.key, label: g.label })),
+		groups: (m.groups.length > 0 ? m.groups : DEFAULT_EVENT_MEAL_GROUPS).map((g) => ({ key: g.key, label: g.label })),
 	}))
 	const mealById = new Map(meals.map((m) => [m.id, m]))
 

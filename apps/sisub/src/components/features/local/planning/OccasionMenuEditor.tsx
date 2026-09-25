@@ -1,4 +1,5 @@
 import type { EditScope, SetSnackClassification } from "@iefa/sisub-domain"
+import { MAX_EVENT_MEALS } from "@iefa/sisub-domain/schemas"
 import { brasiliaCivilDate } from "@iefa/sisub-domain/utils"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type LinkOptions, useNavigate } from "@tanstack/react-router"
@@ -803,7 +804,13 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
 					</Button>
 					{isEvent && (
-						<Button type="button" size="sm" onClick={() => setMealDialog({ meal: newEventMeal("", ""), isNew: true })}>
+						<Button
+							type="button"
+							size="sm"
+							// Teto do schema: a refeição a mais faria o servidor recusar o evento inteiro.
+							disabled={eventMeals.length >= MAX_EVENT_MEALS}
+							onClick={() => setMealDialog({ meal: newEventMeal("", ""), isNew: true })}
+						>
 							<Plus />
 							Nova refeição
 						</Button>

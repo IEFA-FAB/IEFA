@@ -25,7 +25,11 @@ function EventEditorPage() {
 	// Contexto da edição = a rota. Referência estável: entra nas dependências do auto-save.
 	const editContext = useMemo<EditScope>(() => ({ scope: "kitchen", kitchenId: Number(kitchenId) }), [kitchenId])
 	return (
+		// `key`: salvar um evento global na cozinha cria a cópia e troca a rota para ela. O
+		// rascunho aberto ainda cita as refeições do MOLDE pelo id; remontar recarrega a cópia,
+		// com as refeições dela — sem isto o salvamento seguinte citaria ids de outro evento.
 		<OccasionMenuEditor
+			key={eventId}
 			templateId={eventId}
 			templateType="event"
 			editContext={editContext}

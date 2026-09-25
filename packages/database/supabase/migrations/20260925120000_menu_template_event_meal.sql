@@ -80,6 +80,9 @@ select
 	src.meal_type_id,
 	coalesce(nullif(btrim(mt.name), ''), 'Refeição') as name,
 	(row_number() over (partition by src.menu_template_id order by mt.sort_order nulls last, mt.name, mt.id) - 1)::smallint as sort_order,
+	-- Sem grupo nenhum no conjunto, a refeição nasce com a composição padrão de evento
+	-- (DEFAULT_EVENT_MEAL_GROUPS): o domínio exige ao menos um grupo, e uma refeição vazia
+	-- travaria o salvamento do evento.
 	coalesce(
 		(
 			select jsonb_agg(jsonb_build_object('key', g.key, 'label', g.label) order by g.sort_order, g.key)
@@ -89,7 +92,7 @@ select
 				(select s.id from kitchen.menu_group_set s where s.slug = 'principal' and s.deleted_at is null limit 1)
 			)
 		),
-		'[]'::jsonb
+		'[{"key":"entrada","label":"Entradas"},{"key":"volante","label":"Volantes"},{"key":"prato_principal","label":"Prato principal"},{"key":"sobremesa","label":"Sobremesas"},{"key":"bebida","label":"Bebidas"}]'::jsonb
 	) as groups
 from (
 	select distinct i.menu_template_id, i.meal_type_id

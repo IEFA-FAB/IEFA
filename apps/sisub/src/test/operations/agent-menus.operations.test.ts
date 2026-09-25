@@ -148,6 +148,8 @@ describeSupabaseIntegration("leituras de cardápio para agente (regressão)", ()
 		expect(items[0].day_of_week).toBe(3)
 		expect(items[0].meal_type).toBeTruthy()
 		expect(items[0].recipe).toBeTruthy()
+		// Refeição própria só existe em evento.
+		expect(items[0].event_meal_id).toBeNull()
 		expect(JSON.stringify(items)).not.toContain("cooking_factor")
 	})
 })

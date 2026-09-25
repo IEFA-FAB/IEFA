@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { TemplateEventMeal, TemplateItem } from "../schemas/templates.ts"
 import { DomainError } from "../types/errors.ts"
-import { remapEventMealIds, resolveEventContent } from "./template-event-meals.ts"
+import { keepItemsOfMeals, remapEventMealIds, resolveEventContent } from "./template-event-meals.ts"
 
 const JANTAR = "00000000-0000-4000-8000-000000000001"
 const ALMOCO = "00000000-0000-4000-8000-000000000002"
@@ -79,5 +79,12 @@ describe("remapEventMealIds", () => {
 		expect(newGala?.id).not.toBe(GALA)
 		expect(newCoquetel?.name).toBe("Coquetel")
 		expect(items.map((i) => i.eventMealId)).toEqual([newCoquetel?.id, newGala?.id, null])
+	})
+})
+
+describe("keepItemsOfMeals", () => {
+	test("item de refeição que saiu vai junto; item sem refeição fica para o resolvedor recusar", () => {
+		const kept = keepItemsOfMeals([coquetel], [item(), item({ eventMealId: GALA }), item({ eventMealId: null })])
+		expect(kept.map((i) => i.eventMealId)).toEqual([COQUETEL, null])
 	})
 })
