@@ -77,6 +77,26 @@ const format = (d: Diagnostic) => {
 	return `  ${d.filename}:${span?.line ?? 0}:${span?.column ?? 0}  ${ruleOf(d)}  ${d.message}`
 }
 
+/**
+ * Arquivos alterados desde a main (commitados, no working tree e não rastreados). Quando a contagem
+ * sobe, o aviso novo quase sempre está neles — listar as centenas do app inteiro esconderia o que
+ * entrou. Sem git ou sem `origin/main` (checkout raso), volta vazio e a listagem é a completa.
+ * Com `origin/main` desatualizado o conjunto só fica maior — a listagem continua certa, só mais longa.
+ */
+let changed: Set<string> | undefined
+function changedFiles(): Set<string> {
+	if (changed) return changed
+	const git = (...argv: string[]) => {
+		// quotePath=false: sem isso o git devolve caminho acentuado entre aspas e escapado, que
+		// nunca casa com o `filename` do oxlint.
+		const r = Bun.spawnSync(["git", "-c", "core.quotePath=false", ...argv], { cwd: ROOT, stdout: "pipe", stderr: "pipe" })
+		return r.exitCode === 0 ? r.stdout.toString().split("\n").filter(Boolean) : []
+	}
+	const [base] = git("merge-base", "HEAD", "origin/main")
+	changed = new Set([...(base ? git("diff", "--name-only", base) : []), ...git("ls-files", "--others", "--exclude-standard")])
+	return changed
+}
+
 let failed = false
 if (stderr.trim() !== "") console.error(stderr.trimEnd())
 if (stderr.includes("[@shadcn/lint]")) {
@@ -114,8 +134,13 @@ for (const app of apps) {
 		const found = counts[rule] ?? 0
 		const allowed = baseline[rule] ?? 0
 		if (found > allowed) {
-			const list = warnings.filter((d) => ruleOf(d) === rule)
-			console.error(`\n${app}: ${rule} subiu de ${allowed} para ${found}. Corrija o que entrou:\n${list.map(format).join("\n")}`)
+			const all = warnings.filter((d) => ruleOf(d) === rule)
+			// Aviso novo pode nascer fora do arquivo alterado (wrapper que passa a repassar
+			// `className` acusa nos chamadores; tema que reclassifica classe). Se os arquivos
+			// alterados não explicam o aumento inteiro, a lista é a do app.
+			const touched = all.filter((d) => changedFiles().has(d.filename))
+			const [list, where] = touched.length >= found - allowed ? [touched, "nos arquivos alterados desde a main"] : [all, "em todo o app"]
+			console.error(`\n${app}: ${rule} subiu de ${allowed} para ${found}. Corrija o que entrou (${where}):\n${list.map(format).join("\n")}`)
 			appFailed = true
 		} else if (found < allowed) {
 			console.error(`\n${app}: ${rule} desceu de ${allowed} para ${found}. Baixe o baseline: bun scripts/lint-tailwind.ts ${app} --update`)

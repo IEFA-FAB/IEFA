@@ -1,4 +1,5 @@
 {
   "shadcn/no-arbitrary-values": 15,
-  "shadcn/no-raw-colors": 100
+  "shadcn/no-raw-colors": 100,
+  "shadcn/no-restyle": 10
 }
