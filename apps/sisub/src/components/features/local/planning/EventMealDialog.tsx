@@ -9,6 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { EventMealDraft } from "@/lib/event-meals"
 import { menuGroupKeyFromLabel } from "@/lib/menu-item-groups"
 
+/** Tetos do schema (`TemplateEventMealSchema` / `MenuGroupSchema`): acima deles o salvamento inteiro seria recusado. */
+const MAX_NAME = 80
+const MAX_LABEL = 60
+
 /** Linha da composição no diálogo. `key` vazia = grupo novo, a chave sai do rótulo ao salvar. */
 type DraftGroup = { key: string; label: string }
 
@@ -71,7 +75,9 @@ export function EventMealDialog({
 	const suggestions = EVENT_MEAL_GROUP_SUGGESTIONS.filter((s) => !presentKeys.has(s.key))
 	const selectedMealType = mealTypes.find((mt) => mt.id === mealTypeId)
 
-	const canSave = meal != null && name.trim() !== "" && mealTypeId !== "" && groups.length > 0 && !hasBlank && !duplicate && !tooMany
+	// `maxLength` segura a digitação; isto segura o que chega colado ou de rascunho antigo.
+	const tooLong = name.trim().length > MAX_NAME || resolved.some((g) => g.label.length > MAX_LABEL)
+	const canSave = meal != null && name.trim() !== "" && mealTypeId !== "" && groups.length > 0 && !hasBlank && !duplicate && !tooMany && !tooLong
 
 	const submit = () => {
 		if (!canSave || !meal) return
@@ -100,6 +106,7 @@ export function EventMealDialog({
 						<FieldLabel htmlFor="event-meal-name">Nome</FieldLabel>
 						<Input
 							id="event-meal-name"
+							maxLength={MAX_NAME}
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							placeholder="Ex.: Coquetel, Jantar de gala, Almoço de confraternização"
@@ -133,6 +140,7 @@ export function EventMealDialog({
 									<span className="w-5 text-xs text-muted-foreground tabular-nums">{index + 1}</span>
 									<Input
 										value={group.label}
+										maxLength={MAX_LABEL}
 										onChange={(e) => setGroups(groups.map((g, i) => (i === index ? { ...g, label: e.target.value } : g)))}
 										placeholder="Ex.: Entradas, Volantes, Canapés"
 										aria-label={`Grupo ${index + 1}`}

@@ -50,6 +50,8 @@ import { assertItemGroupsInSet } from "./menu-groups.ts"
 import {
 	eventMealsAsInput,
 	fetchEventMeals,
+	freshEventMealIds,
+	keepItemsOfMeals,
 	remapEventMealIds,
 	resolveEventContent,
 	type TemplateEventMealWire,
@@ -246,9 +248,9 @@ export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTempl
 	const wire = toWire<TemplateWithItemsFull>(row, TEMPLATE_RELATIONS)
 	const items = [...wire.items].sort(compareTemplateItems)
 	// Efetivo base lido à parte, tolerante à tabela ausente (migração pendente → meals vazio).
-	const mealRows = (await fetchTemplateMealsSafe(db, [input.templateId])).get(input.templateId) ?? []
-	const meals = mealRows.map((m) => toWire<MenuTemplateMeal>(m))
-	const event_meals = (await fetchEventMeals(db, [input.templateId])).get(input.templateId) ?? []
+	const [mealsByTemplate, eventMealsByTemplate] = await Promise.all([fetchTemplateMealsSafe(db, [input.templateId]), fetchEventMeals(db, [input.templateId])])
+	const meals = (mealsByTemplate.get(input.templateId) ?? []).map((m) => toWire<MenuTemplateMeal>(m))
+	const event_meals = eventMealsByTemplate.get(input.templateId) ?? []
 	return { ...wire, items, meals, event_meals }
 }
 
@@ -534,7 +536,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	const sourceMeals = (await fetchTemplateMealsSafe(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
 	// Refeições do evento: a cópia ganha as suas, com ids novos (o id é chave primária).
 	const sourceEventMeals = (await fetchEventMeals(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
-	const eventMealIdMap = new Map(sourceEventMeals.map((m) => [m.id, crypto.randomUUID()]))
+	const eventMealIdMap = freshEventMealIds(sourceEventMeals)
 
 	// A cópia herda as referências da origem — e elas precisam caber no DESTINO, pela mesma
 	// regra de `createTemplate`/`saveTemplateEdit`. Sem isto, `kitchen:1` em A + `kitchen:2` em
@@ -779,13 +781,17 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 			.limit(1)
 
 		if (existingFork) {
-			// As refeições e os itens enviados citam os ids do MOLDE — que são dele, não da cópia.
-			// Só há o que reapontar quando um dos dois veio; o que não veio sai do molde, pelo
-			// mesmo motivo (os ids do outro são do molde).
 			if (source.template_type === "event" && (input.eventMeals !== undefined || input.items !== undefined)) {
-				const eventMeals = input.eventMeals ?? eventMealsAsInput((await fetchEventMeals(tx, [input.templateId])).get(input.templateId) ?? [])
-				const items = input.items ?? (await readSourceItems(tx, input.templateId))
-				return applyTemplateContent(tx, existingFork.id, { ...input, ...remapEventMealIds(eventMeals, items) })
+				// Refeições e itens enviados citam os ids do MOLDE, e a cópia tem os dela. Com os dois
+				// juntos, a cópia passa a ser exatamente o que veio (com ids novos). Com um só, a outra
+				// metade teria de sair do molde e sobrescreveria o que a cozinha já adaptou na cópia.
+				if (input.eventMeals === undefined || input.items === undefined) {
+					throw new DomainError(
+						"EVENT_FORK_NEEDS_FULL_CONTENT",
+						"Esta cozinha já tem a cópia deste evento: envie eventMeals e items juntos, ou edite a cópia diretamente."
+					)
+				}
+				return applyTemplateContent(tx, existingFork.id, { ...input, ...remapEventMealIds(input.eventMeals, input.items) })
 			}
 			return applyTemplateContent(tx, existingFork.id, input)
 		}
@@ -794,10 +800,14 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 		// nasceria vazio.
 		const sourceItems: TemplateItem[] = input.items ?? (await readSourceItems(tx, input.templateId))
 		// Refeições do evento idem — e com ids novos, porque os do molde são dele.
-		const forkContent =
+		// Refeição do molde que não veio em `eventMeals` sai com os itens dela, como na edição in-place.
+		const forkEventMeals =
 			source.template_type === "event"
-				? remapEventMealIds(input.eventMeals ?? eventMealsAsInput((await fetchEventMeals(tx, [input.templateId])).get(input.templateId) ?? []), sourceItems)
-				: { eventMeals: input.eventMeals, items: sourceItems }
+				? (input.eventMeals ?? eventMealsAsInput((await fetchEventMeals(tx, [input.templateId])).get(input.templateId) ?? []))
+				: undefined
+		const forkContent = forkEventMeals
+			? remapEventMealIds(forkEventMeals, input.items ?? keepItemsOfMeals(forkEventMeals, sourceItems))
+			: { eventMeals: input.eventMeals, items: sourceItems }
 
 		const sourceMeals: NonNullable<UpdateTemplate["meals"]> = input.meals ?? (await fetchTemplateMealsSafe(tx, [input.templateId])).get(input.templateId) ?? []
 

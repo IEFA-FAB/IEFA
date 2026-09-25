@@ -117,20 +117,35 @@ export function resolveEventContent(templateType: string | null, meals: readonly
 }
 
 /**
- * Dá ids novos às refeições e reaponta os itens para eles.
+ * Id novo para cada refeição, pelo id antigo.
  *
  * Cópia de evento (fork) precisa disto: o id da refeição é chave primária, então a cópia não
- * pode reaproveitar o do molde — e os itens enviados citam o id do molde.
+ * pode reaproveitar o do molde — e os itens citam o id do molde.
  */
+export function freshEventMealIds(meals: readonly { id: string }[]): Map<string, string> {
+	return new Map(meals.map((m) => [m.id, crypto.randomUUID()]))
+}
+
+/** Dá ids novos às refeições e reaponta os itens para eles ({@link freshEventMealIds}). */
 export function remapEventMealIds(
 	meals: readonly TemplateEventMeal[],
 	items: readonly TemplateItem[]
 ): { eventMeals: TemplateEventMeal[]; items: TemplateItem[] } {
-	const nextId = new Map(meals.map((m) => [m.id, crypto.randomUUID()]))
+	const nextId = freshEventMealIds(meals)
 	return {
 		eventMeals: meals.map((m) => ({ ...m, id: nextId.get(m.id) ?? m.id })),
 		items: items.map((i) => (i.eventMealId != null && nextId.has(i.eventMealId) ? { ...i, eventMealId: nextId.get(i.eventMealId) } : i)),
 	}
+}
+
+/**
+ * Itens que continuam no evento quando a lista de refeições é substituída: os das refeições
+ * que ficaram. É o mesmo efeito do `on delete cascade` da escrita in-place, para quem monta o
+ * conteúdo em memória (o fork, que copia os itens do molde).
+ */
+export function keepItemsOfMeals(meals: readonly TemplateEventMeal[], items: readonly TemplateItem[]): TemplateItem[] {
+	const ids = new Set(meals.map((m) => m.id))
+	return items.filter((i) => i.eventMealId == null || ids.has(i.eventMealId))
 }
 
 /**
@@ -176,23 +191,31 @@ export async function writeEventMeals(tx: EventMealTx, templateId: string, meals
 			.then(() => undefined)
 	)
 
+	const valuesOf = (meal: TemplateEventMeal, index: number) => ({
+		name: meal.name,
+		mealTypeId: meal.mealTypeId,
+		groups: meal.groups.map((g) => ({ key: g.key, label: g.label })),
+		sortOrder: index,
+	})
+
+	// As novas num insert só; as que continuam, uma a uma (tipicamente uma ou duas por evento).
+	const inserts = meals.flatMap((meal, index) => (existingIds.has(meal.id) ? [] : [{ id: meal.id, menuTemplateId: templateId, ...valuesOf(meal, index) }]))
+	if (inserts.length > 0) {
+		await runQuery("INSERT_EVENT_MEAL_FAILED", () =>
+			tx
+				.insert(menuTemplateEventMealInKitchen)
+				.values(inserts)
+				.then(() => undefined)
+		)
+	}
 	for (const [index, meal] of meals.entries()) {
-		const values = { name: meal.name, mealTypeId: meal.mealTypeId, groups: meal.groups.map((g) => ({ key: g.key, label: g.label })), sortOrder: index }
-		if (existingIds.has(meal.id)) {
-			await runQuery("UPDATE_EVENT_MEAL_FAILED", () =>
-				tx
-					.update(menuTemplateEventMealInKitchen)
-					.set(values)
-					.where(and(eq(menuTemplateEventMealInKitchen.id, meal.id), eq(menuTemplateEventMealInKitchen.menuTemplateId, templateId)))
-					.then(() => undefined)
-			)
-		} else {
-			await runQuery("INSERT_EVENT_MEAL_FAILED", () =>
-				tx
-					.insert(menuTemplateEventMealInKitchen)
-					.values({ id: meal.id, menuTemplateId: templateId, ...values })
-					.then(() => undefined)
-			)
-		}
+		if (!existingIds.has(meal.id)) continue
+		await runQuery("UPDATE_EVENT_MEAL_FAILED", () =>
+			tx
+				.update(menuTemplateEventMealInKitchen)
+				.set(valuesOf(meal, index))
+				.where(and(eq(menuTemplateEventMealInKitchen.id, meal.id), eq(menuTemplateEventMealInKitchen.menuTemplateId, templateId)))
+				.then(() => undefined)
+		)
 	}
 }

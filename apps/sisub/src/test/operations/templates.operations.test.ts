@@ -748,4 +748,38 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(forked.event_meals[0]?.id).not.toBe(coquetelId)
 		expect(forked.items[0]?.event_meal_id).toBe(forked.event_meals[0]?.id)
 	})
+
+	test("evento global na cozinha: refeição omitida sai com os itens; com cópia existente, metade do conteúdo é recusada", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, recipeId } = await base()
+		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
+		const coquetelId = crypto.randomUUID()
+		const galaId = crypto.randomUUID()
+		const coquetel = { id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS }
+		const gala = { id: galaId, name: "Gala", mealTypeId, groups: EVENT_GROUPS }
+
+		const global = await createTemplate(db, ctx, {
+			name: uid("[TEST] Evento global "),
+			templateType: "event",
+			eventMeals: [coquetel, gala],
+			items: [
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "entrada", recommendedProportion: null, eventMealId: coquetelId },
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "entrada", recommendedProportion: null, eventMealId: galaId },
+			],
+		})
+		trackTemplate(global.id)
+
+		// Primeira adaptação sem itens e sem a gala: a cópia nasce só com o coquetel e o item dele.
+		const { template: fork } = await saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "kitchen", kitchenId }, eventMeals: [coquetel] })
+		trackTemplate(fork.id)
+		const copy = await getTemplate(db, ctx, { templateId: fork.id })
+		expect(copy.event_meals.map((m) => m.name)).toEqual(["Coquetel"])
+		expect(copy.items).toHaveLength(1)
+		expect(copy.items[0]?.event_meal_id).toBe(copy.event_meals[0]?.id)
+
+		// Com a cópia já existente, só refeições (ou só itens) sobrescreveria a outra metade dela com a do molde.
+		await expect(saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "kitchen", kitchenId }, eventMeals: [coquetel] })).rejects.toThrow(
+			/eventMeals e items juntos/
+		)
+	})
 })
