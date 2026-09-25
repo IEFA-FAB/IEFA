@@ -180,7 +180,7 @@ function SupplyOrdersPage() {
 									Consultar
 								</Button>
 								{sicaf && (
-									<Badge variant={sicaf.status === "regular" ? "secondary" : "destructive"} className="text-3xs">
+									<Badge variant={sicaf.status === "regular" ? "secondary" : "destructive"} className="text-[10px]">
 										{sicaf.status}: {sicaf.detail}
 									</Badge>
 								)}
@@ -220,7 +220,7 @@ function SupplyOrdersPage() {
 										<span className="text-muted-foreground">{order.empenho?.numero_empenho}</span>
 										<span className="tabular-nums">{NUM.format(order.items.reduce((acc, item) => acc + Number(item.ordered_qty), 0))}</span>
 										<span className="text-muted-foreground">prevista {order.expected_delivery ?? "—"}</span>
-										<Badge variant={order.status === "received" ? "secondary" : "outline"} className="text-3xs ml-auto">
+										<Badge variant={order.status === "received" ? "secondary" : "outline"} className="text-[10px] ml-auto">
 											{STATUS_LABEL[order.status] ?? order.status}
 										</Badge>
 										{(order.status === "sent" || order.status === "draft") && (

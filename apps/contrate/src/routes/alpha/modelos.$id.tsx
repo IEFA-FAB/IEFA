@@ -96,14 +96,14 @@ function ModeloPage() {
 							["placeholders", counts.placeholders],
 						].map(([label, value]) => (
 							<div key={label as string} className="bg-background p-4">
-								<dt className="text-muted-foreground text-xs uppercase tracking-widest">{label}</dt>
+								<dt className="text-muted-foreground text-xs uppercase tracking-[0.1em]">{label}</dt>
 								<dd className="mt-1 font-semibold text-2xl tabular-nums">{value}</dd>
 							</div>
 						))}
 					</dl>
 
 					<div className="mb-6 flex flex-wrap items-center gap-2 text-sm">
-						<Badge variant="outline" className="text-3xs uppercase tracking-widest">
+						<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
 							{structure.data.document.document_type}
 						</Badge>
 						<span className="text-muted-foreground">versão {structure.data.document.version_label ?? "—"}</span>
@@ -135,7 +135,7 @@ function ModeloPage() {
 
 									{selected.explanatory_note.length > 0 ? (
 										<div>
-											<h3 className="mb-2 text-muted-foreground text-xs uppercase tracking-widest">Notas explicativas</h3>
+											<h3 className="mb-2 text-muted-foreground text-xs uppercase tracking-[0.1em]">Notas explicativas</h3>
 											<ul className="space-y-3">
 												{selected.explanatory_note.map((note) => (
 													<li key={note.id} className="bg-muted/50 p-3 text-xs leading-relaxed">
@@ -143,7 +143,7 @@ function ModeloPage() {
 														{note.cited_refs.length > 0 ? (
 															<ul className="mt-2 space-y-1">
 																{note.cited_refs.map((ref) => (
-																	<li key={`${ref.norma}-${ref.dispositivo}`} className="font-mono text-2xs text-muted-foreground">
+																	<li key={`${ref.norma}-${ref.dispositivo}`} className="font-mono text-[11px] text-muted-foreground">
 																		{ref.dispositivo} — {ref.norma}
 																	</li>
 																))}
@@ -157,7 +157,7 @@ function ModeloPage() {
 
 									{selected.placeholder.length > 0 ? (
 										<div>
-											<h3 className="mb-2 text-muted-foreground text-xs uppercase tracking-widest">Campos de preenchimento</h3>
+											<h3 className="mb-2 text-muted-foreground text-xs uppercase tracking-[0.1em]">Campos de preenchimento</h3>
 											<ul className="space-y-1">
 												{selected.placeholder.map((placeholder) => (
 													<li key={placeholder.id} className="font-mono text-xs">
@@ -170,7 +170,7 @@ function ModeloPage() {
 
 									{selected.body ? (
 										<div>
-											<h3 className="mb-2 text-muted-foreground text-xs uppercase tracking-widest">Texto do modelo</h3>
+											<h3 className="mb-2 text-muted-foreground text-xs uppercase tracking-[0.1em]">Texto do modelo</h3>
 											<p className="whitespace-pre-wrap text-xs leading-relaxed">{selected.body}</p>
 										</div>
 									) : null}

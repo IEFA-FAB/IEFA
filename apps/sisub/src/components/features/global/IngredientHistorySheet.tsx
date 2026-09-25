@@ -107,7 +107,7 @@ export function IngredientHistorySheet({ open, onOpenChange, versions, isLoading
 											) : chips.length > 0 ? (
 												<div className="mt-2 flex flex-wrap gap-1">
 													{chips.map((chip) => (
-														<span key={chip} className="rounded bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">
+														<span key={chip} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
 															{chip}
 														</span>
 													))}

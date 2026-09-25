@@ -72,7 +72,7 @@ export function GraphLegend() {
 							<div className="w-5 h-0.5 flex-shrink-0" style={{ backgroundColor: RELATION_COLORS[relationType] }} />
 							<div className="min-w-0">
 								<span className="text-caption text-foreground">{label}</span>
-								<p className="text-3xs text-muted-foreground leading-tight">{RELATION_DESCRIPTIONS[relationType]}</p>
+								<p className="text-[10px] text-muted-foreground leading-tight">{RELATION_DESCRIPTIONS[relationType]}</p>
 							</div>
 						</div>
 					))}
@@ -87,7 +87,7 @@ export function GraphLegend() {
 							backgroundImage: `repeating-linear-gradient(90deg, var(--color-warning) 0, var(--color-warning) 5px, transparent 5px, transparent 8px)`,
 						}}
 					/>
-					<span className="text-3xs text-muted-foreground">Relação alterada (aguardando salvar)</span>
+					<span className="text-[10px] text-muted-foreground">Relação alterada (aguardando salvar)</span>
 				</div>
 			</PopoverContent>
 		</Popover>

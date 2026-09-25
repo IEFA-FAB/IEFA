@@ -253,11 +253,6 @@
 
 /* ---- MAPEAMENTO @THEME (Tailwind v4) ---- */
 @theme inline {
-  /* Abaixo do `text-xs` (12px): rótulo denso de tabela, badge e gráfico. Sem
-     `--line-height` próprio, de propósito — herda, como o `text-[10px]` que substituem. */
-  --text-3xs: 0.625rem;
-  --text-2xs: 0.6875rem;
-
   --color-background:                var(--background);
   --color-foreground:                var(--foreground);
   --color-card:                      var(--card);

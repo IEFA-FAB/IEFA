@@ -248,7 +248,7 @@ function AuthPage() {
 					{view === "verify-error" && (
 						<div className="flex flex-col gap-5">
 							<div>
-								<p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-2">Confirmação de email</p>
+								<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Confirmação de email</p>
 								<h2 className="text-display mb-1">Link inválido</h2>
 								<p className="text-sm text-muted-foreground">O link de confirmação expirou ou não é mais válido.</p>
 							</div>
@@ -402,7 +402,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 
 			{/* Email */}
 			<div className="space-y-1.5">
-				<Label htmlFor="login-email" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
+				<Label htmlFor="login-email" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
 					Email
 				</Label>
 				<div className="relative">
@@ -433,7 +433,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 			{/* Senha */}
 			<div className="space-y-1.5">
 				<div className="flex items-center justify-between">
-					<Label htmlFor="login-password" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
+					<Label htmlFor="login-password" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
 						Senha
 					</Label>
 					<button
@@ -635,7 +635,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 
 			{/* Nome */}
 			<div className="space-y-1.5">
-				<Label htmlFor="reg-name" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
+				<Label htmlFor="reg-name" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
 					Nome completo
 				</Label>
 				<div className="relative">
@@ -658,7 +658,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 
 			{/* Email */}
 			<div className="space-y-1.5">
-				<Label htmlFor="reg-email" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
+				<Label htmlFor="reg-email" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
 					Email institucional
 				</Label>
 				<div className="relative">
@@ -688,7 +688,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 
 			{/* Senha */}
 			<div className="space-y-1.5">
-				<Label htmlFor="reg-password" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
+				<Label htmlFor="reg-password" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
 					Senha
 				</Label>
 				<div className="relative">
@@ -726,7 +726,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 
 			{/* Confirmar Senha */}
 			<div className="space-y-1.5">
-				<Label htmlFor="reg-confirm" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
+				<Label htmlFor="reg-confirm" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
 					Confirmar senha
 				</Label>
 				<div className="relative">
@@ -849,7 +849,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 		return (
 			<div className="flex flex-col gap-6">
 				<div>
-					<p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-2">Recuperação de senha</p>
+					<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Recuperação de senha</p>
 					<h2 className="text-display mb-1">Email enviado!</h2>
 					<p className="text-sm text-muted-foreground leading-relaxed">Verifique sua caixa de entrada. O link de redefinição expira em alguns minutos.</p>
 				</div>
@@ -864,7 +864,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 	return (
 		<div className="flex flex-col gap-6">
 			<div>
-				<p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-2">Recuperação de senha</p>
+				<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Recuperação de senha</p>
 				<h2 className="text-display mb-1">Esqueceu sua senha?</h2>
 				<p className="text-sm text-muted-foreground leading-relaxed">Informe seu email institucional e enviaremos um link de redefinição.</p>
 			</div>
@@ -878,7 +878,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 				)}
 
 				<div className="space-y-1.5">
-					<Label htmlFor="forgot-email" className="font-mono text-xs text-muted-foreground tracking-widest uppercase">
+					<Label htmlFor="forgot-email" className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase">
 						Email
 					</Label>
 					<div className="relative">

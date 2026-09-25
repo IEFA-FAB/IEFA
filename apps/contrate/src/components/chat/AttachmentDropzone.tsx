@@ -41,7 +41,7 @@ export function AttachmentDropzone({ threadId, attachments, max }: { threadId: s
 				<ul className="mb-2 space-y-1">
 					{attachments.map((attachment) => (
 						<li key={attachment.id} className="flex items-center gap-2 text-xs">
-							<span className="font-mono text-3xs">{attachment.label}</span>
+							<span className="font-mono text-[10px]">{attachment.label}</span>
 							<span className="min-w-0 flex-1 truncate">{attachment.filename}</span>
 							<span className="shrink-0 text-muted-foreground">{formatCount(attachment.text_chars)} caracteres</span>
 							<Button

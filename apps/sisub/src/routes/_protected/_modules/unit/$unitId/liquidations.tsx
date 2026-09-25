@@ -144,11 +144,11 @@ function LiquidationsPage() {
 										<td className={`py-2.5 px-2 text-xs text-right tabular-nums ${row.a_pagar > 0 ? "text-warning" : ""}`}>{BRL.format(row.a_pagar)}</td>
 										<td className="py-2.5 px-2 text-center">
 											{row.goods_receipt_id ? (
-												<Badge variant="secondary" className="text-3xs">
+												<Badge variant="secondary" className="text-[10px]">
 													vinculado
 												</Badge>
 											) : (
-												<Badge variant="outline" className="text-3xs text-muted-foreground">
+												<Badge variant="outline" className="text-[10px] text-muted-foreground">
 													sem lastro
 												</Badge>
 											)}

@@ -183,7 +183,7 @@ function DetailPage() {
 					{uniform.descricao_md && <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{uniform.descricao_md}</p>}
 
 					<section className="flex flex-col gap-2">
-						<h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Categoria — quem pode usar</h2>
+						<h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Categoria — quem pode usar</h2>
 						<div className="flex flex-wrap gap-1.5">
 							{uniform.categories.length === 0 ? (
 								<span className="text-sm text-muted-foreground">Não especificado.</span>
@@ -198,7 +198,7 @@ function DetailPage() {
 					</section>
 
 					<section className="flex flex-col gap-3">
-						<h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Composição</h2>
+						<h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Composição</h2>
 						{!selected || selected.pieces.length === 0 ? (
 							<p className="text-sm text-muted-foreground">Sem peças cadastradas para esta variante.</p>
 						) : (
@@ -237,7 +237,7 @@ function DetailPage() {
 
 					{(uniform.eq_mb || uniform.eq_eb || uniform.eq_civil) && (
 						<section className="flex flex-col gap-2">
-							<h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Equivalências</h2>
+							<h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Equivalências</h2>
 							<Card>
 								<CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
 									<Equivalence label="Marinha (MB)" value={uniform.eq_mb} />

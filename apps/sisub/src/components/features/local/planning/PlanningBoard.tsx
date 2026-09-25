@@ -342,7 +342,7 @@ export function PlanningBoard() {
 										{format(day, "d")}
 									</span>
 									{hasMenus && (
-										<Badge variant="outline" className="text-3xs h-5 px-1 font-normal text-muted-foreground gap-1">
+										<Badge variant="outline" className="text-[10px] h-5 px-1 font-normal text-muted-foreground gap-1">
 											<Users className="size-3" />
 											{totalHeadcount > 0 ? totalHeadcount : "-"}
 										</Badge>

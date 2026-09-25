@@ -88,17 +88,19 @@ function BancadaPage() {
 							className={`block w-full border-border border-b px-4 py-3 text-left hover:bg-muted/60 ${selected?.id === rule.id ? "bg-muted" : ""}`}
 						>
 							<div className="mb-1 flex flex-wrap items-center gap-2">
-								<Badge variant="outline" className="text-3xs uppercase tracking-widest">
+								<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
 									{rule.severity}
 								</Badge>
-								<Badge variant="outline" className="text-3xs uppercase tracking-widest">
+								<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
 									{rule.status}
 								</Badge>
-								<span className="font-mono text-muted-foreground text-2xs">{rule.origin}</span>
+								<span className="font-mono text-muted-foreground text-[11px]">{rule.origin}</span>
 							</div>
 							<p className="line-clamp-3 text-sm">{rule.statement}</p>
 							{rule.legal_ref.length > 0 ? (
-								<p className="mt-1 font-mono text-2xs text-muted-foreground">{rule.legal_ref.map((ref) => `${ref.dispositivo} — ${ref.norma}`).join(" · ")}</p>
+								<p className="mt-1 font-mono text-[11px] text-muted-foreground">
+									{rule.legal_ref.map((ref) => `${ref.dispositivo} — ${ref.norma}`).join(" · ")}
+								</p>
 							) : null}
 						</button>
 					))}
@@ -110,12 +112,12 @@ function BancadaPage() {
 					) : (
 						<div className="space-y-4">
 							<div>
-								<p className="font-mono text-muted-foreground text-2xs">{selected.code}</p>
+								<p className="font-mono text-muted-foreground text-[11px]">{selected.code}</p>
 								<p className="mt-1 text-sm">{selected.statement}</p>
 							</div>
 
 							<div>
-								<label htmlFor="bancada-sample" className="mb-1 block text-muted-foreground text-xs uppercase tracking-widest">
+								<label htmlFor="bancada-sample" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
 									Trecho para testar
 								</label>
 								<textarea
@@ -159,7 +161,7 @@ function BancadaPage() {
 							{evaluate.data ? (
 								<div className="space-y-3 border border-border p-3">
 									<div className="flex flex-wrap items-center gap-2">
-										<Badge variant="outline" className="text-3xs uppercase tracking-widest">
+										<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
 											{evaluate.data.verdict.status}
 										</Badge>
 										<span className="text-muted-foreground text-xs">confiança {evaluate.data.verdict.confidence.toFixed(2)}</span>
@@ -170,7 +172,7 @@ function BancadaPage() {
 									{evaluate.data.verdict.evidence ? <p className="bg-muted/60 p-2 text-xs italic">“{evaluate.data.verdict.evidence}”</p> : null}
 
 									<div className="text-xs">
-										<p className="text-muted-foreground uppercase tracking-widest">Guard de citação</p>
+										<p className="text-muted-foreground uppercase tracking-[0.1em]">Guard de citação</p>
 										<p className="mt-1">
 											{evaluate.data.guard.kept
 												? `manteria o achado (${evaluate.data.guard.resolved_refs.map((ref) => ref.dispositivo).join(", ") || "sem dispositivo"})`

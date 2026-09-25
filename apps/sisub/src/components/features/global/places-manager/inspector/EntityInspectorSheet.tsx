@@ -63,11 +63,11 @@ function RelationsList({ nodeId, edges, nodeNames }: { nodeId: string; edges: Pl
 								<div key={edge.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/40">
 									<ArrowRight className="size-3.5 text-muted-foreground flex-shrink-0" />
 									<div className="flex flex-col min-w-0">
-										<span className="text-3xs text-muted-foreground">{label}</span>
+										<span className="text-[10px] text-muted-foreground">{label}</span>
 										<span className="text-caption text-foreground">{targetName}</span>
 									</div>
 									{edge.data.isDirty && (
-										<Badge variant="warning" className="ml-auto text-3xs h-4 px-1.5">
+										<Badge variant="warning" className="ml-auto text-[10px] h-4 px-1.5">
 											Pendente
 										</Badge>
 									)}
@@ -90,7 +90,7 @@ function RelationsList({ nodeId, edges, nodeNames }: { nodeId: string; edges: Pl
 								<div key={edge.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/40">
 									<ArrowRight className="size-3.5 text-muted-foreground flex-shrink-0 rotate-180" />
 									<div className="flex flex-col min-w-0">
-										<span className="text-3xs text-muted-foreground">{label}</span>
+										<span className="text-[10px] text-muted-foreground">{label}</span>
 										<span className="text-caption text-foreground">{sourceName}</span>
 									</div>
 								</div>

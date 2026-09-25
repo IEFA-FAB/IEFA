@@ -39,7 +39,7 @@ function TriageControls({ finding, runId, submissionId }: { finding: Finding; ru
 	if (finding.triage) {
 		return (
 			<div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-				<Badge variant={finding.triage === "acatado" ? "default" : "outline"} className="text-3xs uppercase tracking-widest">
+				<Badge variant={finding.triage === "acatado" ? "default" : "outline"} className="text-[10px] uppercase tracking-[0.1em]">
 					{finding.triage}
 				</Badge>
 				{finding.triage === "descartado" && finding.triage_note ? <span className="text-muted-foreground">motivo: {finding.triage_note}</span> : null}
@@ -190,7 +190,7 @@ function FindingsTab({
 										<TriageControls finding={finding} runId={run.id} submissionId={submissionId} />
 									) : finding.triage ? (
 										<p className="mt-3 text-xs">
-											<Badge variant="outline" className="text-3xs uppercase tracking-widest">
+											<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
 												{finding.triage}
 											</Badge>
 										</p>
@@ -258,7 +258,7 @@ function ReviewTab({ run, submissionId, decider, reportLink }: { run: Compliance
 				{current ? (
 					<div className="border border-border p-4">
 						<div className="flex flex-wrap items-center gap-2">
-							<Badge className="text-3xs uppercase tracking-widest">{DECISION_LABEL[current.decision]}</Badge>
+							<Badge className="text-[10px] uppercase tracking-[0.1em]">{DECISION_LABEL[current.decision]}</Badge>
 							<span className="text-muted-foreground text-xs">{formatDateTime(current.created_at)}</span>
 						</div>
 						{current.notes ? <p className="mt-3 whitespace-pre-wrap text-sm">{current.notes}</p> : null}
@@ -324,7 +324,7 @@ function ReviewTab({ run, submissionId, decider, reportLink }: { run: Compliance
 				) : (
 					<div className="mt-4 space-y-3">
 						<div>
-							<label htmlFor="aci-decision" className="mb-1 block text-muted-foreground text-xs uppercase tracking-widest">
+							<label htmlFor="aci-decision" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
 								Decisão
 							</label>
 							<Select value={decision} onValueChange={(value) => setDecision(value as Decision | null)}>
@@ -353,7 +353,7 @@ function ReviewTab({ run, submissionId, decider, reportLink }: { run: Compliance
 						) : null}
 
 						<div>
-							<label htmlFor="aci-notes" className="mb-1 block text-muted-foreground text-xs uppercase tracking-widest">
+							<label htmlFor="aci-notes" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
 								Fundamentação
 							</label>
 							<Textarea
@@ -510,7 +510,7 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 
 					{runs.length > 1 ? (
 						<div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-							<span className="text-muted-foreground text-xs uppercase tracking-widest">Execução</span>
+							<span className="text-muted-foreground text-xs uppercase tracking-[0.1em]">Execução</span>
 							<Select value={selectedRun?.id ?? null} onValueChange={(value) => setSelectedRunId(value)}>
 								<SelectTrigger className="w-72" aria-label="Escolher execução">
 									<SelectValue>{selectedRun ? `${formatDateTime(selectedRun.started_at)} · ${selectedRun.status}` : "—"}</SelectValue>

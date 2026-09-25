@@ -321,7 +321,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
 											<div className="min-w-0">
 												<div className="flex items-center gap-2">
 													<span className="truncate font-medium">{item.title}</span>
-													<span className="rounded-full bg-muted px-2 py-0.5 text-3xs font-medium uppercase tracking-wide text-muted-foreground">
+													<span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
 														{item.section}
 													</span>
 												</div>

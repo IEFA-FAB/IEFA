@@ -404,7 +404,7 @@ function MealSection({
 					<div className="flex items-center gap-2">
 						<span className="text-subheading">{mealType.name}</span>
 						{menu && (
-							<Badge variant={menu.status === "PUBLISHED" ? "default" : "secondary"} className="text-3xs h-5">
+							<Badge variant={menu.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px] h-5">
 								{menu.status === "PUBLISHED" ? "Publicado" : "Planejado"}
 							</Badge>
 						)}

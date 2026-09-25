@@ -82,13 +82,13 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 									{template.recipe_count || 0} {template.recipe_count === 1 ? "preparação" : "preparações"}
 								</span>
 								{template.kitchen_id === null && (
-									<Badge variant="outline" className="text-3xs h-4">
+									<Badge variant="outline" className="text-[10px] h-4">
 										Global
 									</Badge>
 								)}
 							</div>
 
-							{isSelected && <Badge className="text-3xs h-5">Ativo</Badge>}
+							{isSelected && <Badge className="text-[10px] h-5">Ativo</Badge>}
 						</Button>
 					)
 				})}

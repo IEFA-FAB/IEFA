@@ -74,7 +74,7 @@ function ReplenishmentPage() {
 											<td className="py-2 px-2 text-xs text-right tabular-nums">
 												<Tooltip>
 													<TooltipTrigger className="cursor-help underline decoration-dotted">{NUM.format(row.grossDemand)}</TooltipTrigger>
-													<TooltipContent className="max-w-sm font-mono text-2xs">{row.calcMemory}</TooltipContent>
+													<TooltipContent className="max-w-sm font-mono text-[11px]">{row.calcMemory}</TooltipContent>
 												</Tooltip>
 											</td>
 											<td className="py-2 px-2 text-xs text-right tabular-nums">{NUM.format(row.availableStock)}</td>
@@ -85,14 +85,14 @@ function ReplenishmentPage() {
 											</td>
 											<td className="py-2 px-2 text-xs text-right">
 												{row.leadTime.days}d
-												<span className="block text-3xs text-muted-foreground">
+												<span className="block text-[10px] text-muted-foreground">
 													{row.leadTime.source === "observed" ? "observado" : row.leadTime.source === "arp_default" ? "prazo ARP" : "default"}
 												</span>
 											</td>
 											<td className="py-2 px-2">
 												<Tooltip>
 													<TooltipTrigger>
-														<Badge className={`text-3xs ${meta?.className}`}>{meta?.label}</Badge>
+														<Badge className={`text-[10px] ${meta?.className}`}>{meta?.label}</Badge>
 													</TooltipTrigger>
 													<TooltipContent className="max-w-sm">{row.reason}</TooltipContent>
 												</Tooltip>

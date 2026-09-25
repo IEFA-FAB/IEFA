@@ -86,7 +86,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 					{parsedArgs && Object.keys(parsedArgs).length > 0 && (
 						<div>
 							<p className="text-label text-muted-foreground/60 mb-1">Parâmetros</p>
-							<pre className="overflow-auto rounded bg-background/60 p-2 text-2xs text-muted-foreground font-mono leading-relaxed">
+							<pre className="overflow-auto rounded bg-background/60 p-2 text-[11px] text-muted-foreground font-mono leading-relaxed">
 								{JSON.stringify(parsedArgs, null, 2)}
 							</pre>
 						</div>
@@ -95,7 +95,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 					{toolCall.result !== undefined && (
 						<div>
 							<p className="text-label text-muted-foreground/60 mb-1">Resultado</p>
-							<pre className="overflow-auto rounded bg-background/60 p-2 text-2xs text-muted-foreground font-mono leading-relaxed max-h-[200px]">
+							<pre className="overflow-auto rounded bg-background/60 p-2 text-[11px] text-muted-foreground font-mono leading-relaxed max-h-[200px]">
 								{typeof toolCall.result === "string" ? toolCall.result : JSON.stringify(toolCall.result, null, 2)}
 							</pre>
 						</div>
@@ -104,7 +104,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 					{toolCall.error && (
 						<div>
 							<p className="text-label text-destructive/80 mb-1">Erro</p>
-							<pre className="overflow-auto rounded border border-destructive/20 bg-destructive/10 p-2 text-2xs text-destructive font-mono leading-relaxed max-h-[200px] whitespace-pre-wrap">
+							<pre className="overflow-auto rounded border border-destructive/20 bg-destructive/10 p-2 text-[11px] text-destructive font-mono leading-relaxed max-h-[200px] whitespace-pre-wrap">
 								{toolCall.error}
 							</pre>
 						</div>

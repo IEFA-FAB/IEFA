@@ -379,7 +379,7 @@ function VersionDownload({ pdfPath }: { pdfPath?: string | null }) {
 function ScorePill({ label, value, highlight = false }: { label: string; value: number | null; highlight?: boolean }) {
 	return (
 		<div className={`rounded-md border p-1.5 ${highlight ? "bg-primary/5 border-primary/40" : ""}`}>
-			<p className="text-3xs text-muted-foreground">{label}</p>
+			<p className="text-[10px] text-muted-foreground">{label}</p>
 			<p className="text-sm font-semibold">{value ?? "-"}</p>
 		</div>
 	)

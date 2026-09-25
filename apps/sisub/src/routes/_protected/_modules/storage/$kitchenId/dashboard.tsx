@@ -56,7 +56,7 @@ function BalanceRow({
 				<td className="py-2 px-2 text-xs">
 					{item.description}
 					{item.frozenPreparationId && (
-						<Badge variant="outline" className="ml-2 text-3xs">
+						<Badge variant="outline" className="ml-2 text-[10px]">
 							Preparação
 						</Badge>
 					)}
@@ -91,23 +91,23 @@ function BalanceRow({
 										<span className="text-muted-foreground">{lot.expiry_date ? `val ${lot.expiry_date}` : "sem validade"}</span>
 										{lot.location && <span className="text-muted-foreground">{lot.location}</span>}
 										{lot.derivation && (
-											<Badge variant="outline" className="text-3xs">
+											<Badge variant="outline" className="text-[10px]">
 												{{ opened: "aberto", portioned: "fracionado", thawed: "descongelado" }[lot.derivation] ?? lot.derivation}
 											</Badge>
 										)}
 										{lot.quarantined && (
-											<Badge variant="outline" className="text-3xs text-warning">
+											<Badge variant="outline" className="text-[10px] text-warning">
 												<ShieldAlert className="mr-1 size-3" />
 												em quarentena — fora da alocação
 											</Badge>
 										)}
 										{lot.lot_id != null && lot.short_code != null && !lot.quarantined && (
 											<span className="flex gap-1">
-												<Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-2xs" onClick={() => onPrint(lot, item)}>
+												<Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => onPrint(lot, item)}>
 													<Printer className="mr-1 size-3" />
 													Etiqueta
 												</Button>
-												<Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-2xs" onClick={() => onSplit(lot, item)}>
+												<Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => onSplit(lot, item)}>
 													<Scissors className="mr-1 size-3" />
 													Fracionar
 												</Button>

@@ -79,7 +79,7 @@ function ProcessosPage() {
 					<div className="overflow-x-auto border border-border">
 						<table className="w-full min-w-[640px] text-left">
 							<thead>
-								<tr className="border-border border-b bg-muted/40 text-muted-foreground text-xs uppercase tracking-widest">
+								<tr className="border-border border-b bg-muted/40 text-muted-foreground text-xs uppercase tracking-[0.1em]">
 									<th className="px-3 py-2 font-medium">Documento</th>
 									<th className="px-3 py-2 font-medium">Tipo</th>
 									{showUnit ? <th className="px-3 py-2 font-medium">OM</th> : null}

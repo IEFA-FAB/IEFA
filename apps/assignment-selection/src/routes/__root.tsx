@@ -46,7 +46,7 @@ function RootDocument() {
 				*/}
 				<LegalFooterLinks
 					className="fixed bottom-2 left-3 z-40 flex items-center gap-x-3"
-					linkClassName="text-3xs text-slate-600 transition-colors hover:text-slate-300"
+					linkClassName="text-[10px] text-slate-600 transition-colors hover:text-slate-300"
 				/>
 				<Toaster position="top-right" viewportClassName="dark" />
 				<Scripts />

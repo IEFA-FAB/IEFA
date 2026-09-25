@@ -65,7 +65,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 								<UtensilsCrossed className="size-4" />
 								Items de Cardápio
 								{trashItems && trashItems.length > 0 && (
-									<Badge variant="secondary" className="ml-1 text-3xs">
+									<Badge variant="secondary" className="ml-1 text-[10px]">
 										{trashItems.length}
 									</Badge>
 								)}
@@ -74,7 +74,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 								<CalendarDays className="size-4" />
 								Templates
 								{deletedTemplates && deletedTemplates.length > 0 && (
-									<Badge variant="secondary" className="ml-1 text-3xs">
+									<Badge variant="secondary" className="ml-1 text-[10px]">
 										{deletedTemplates.length}
 									</Badge>
 								)}
@@ -142,7 +142,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 														<ItemTitle className="gap-2">
 															{template.name}
 															{template.kitchen_id === null && (
-																<Badge variant="outline" className="text-3xs">
+																<Badge variant="outline" className="text-[10px]">
 																	Global
 																</Badge>
 															)}

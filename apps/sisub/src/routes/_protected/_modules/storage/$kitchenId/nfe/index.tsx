@@ -154,7 +154,7 @@ function NfeListPage() {
 											</td>
 											<td className="py-2.5 pr-3 text-xs">
 												<span className="block">{doc.supplier_name ?? "—"}</span>
-												<span className="text-muted-foreground text-3xs font-mono">{CNPJ_FMT(doc.supplier_cnpj)}</span>
+												<span className="text-muted-foreground text-[10px] font-mono">{CNPJ_FMT(doc.supplier_cnpj)}</span>
 											</td>
 											<td className="py-2.5 pr-3 text-xs text-right tabular-nums">{doc.total_value != null ? BRL.format(doc.total_value) : "—"}</td>
 											<td className="py-2.5 pr-3 text-xs text-center tabular-nums">{(counts.matched ?? 0) + pendentes}</td>

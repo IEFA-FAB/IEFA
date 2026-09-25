@@ -182,7 +182,7 @@ export function ChatThreadView({
 						</Button>
 					</form>
 				)}
-				<p className="mt-2 text-2xs text-muted-foreground">
+				<p className="mt-2 text-[11px] text-muted-foreground">
 					O assistente apoia a redação e a leitura da norma; não substitui a verificação nem o parecer do ACI. Confira as fontes.
 				</p>
 			</div>

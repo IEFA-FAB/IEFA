@@ -284,7 +284,7 @@ export function MobileModuleChatList({ config, onSelectSession, onNewChat }: Mob
 								<div className="flex-1 min-w-0">
 									<div className="flex items-baseline justify-between gap-2">
 										<p className="text-subheading text-foreground truncate">{session.title}</p>
-										<span className="shrink-0 text-2xs text-muted-foreground">{formatTime(session.updated_at)}</span>
+										<span className="shrink-0 text-[11px] text-muted-foreground">{formatTime(session.updated_at)}</span>
 									</div>
 									<p className="mt-0.5 text-xs text-muted-foreground truncate">{config.persona.name}</p>
 								</div>

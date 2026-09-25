@@ -49,9 +49,9 @@ export function UserMenu() {
 				render={
 					<Button variant="ghost" size="sm" className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground gap-2 px-2">
 						{/* Iniciais em mono — único identificador visual */}
-						<span className="font-mono text-2xs font-semibold uppercase tracking-(--tracking-label) text-muted-foreground">{initials}</span>
+						<span className="font-mono text-[11px] font-semibold uppercase tracking-(--tracking-label) text-muted-foreground">{initials}</span>
 						{/* Primeiro nome — oculto em mobile */}
-						<span className="hidden sm:block text-2xs font-medium uppercase tracking-(--tracking-label)">{firstName}</span>
+						<span className="hidden sm:block text-[11px] font-medium uppercase tracking-(--tracking-label)">{firstName}</span>
 					</Button>
 				}
 			/>
@@ -60,8 +60,8 @@ export function UserMenu() {
 				<DropdownMenuGroup>
 					<DropdownMenuLabel className="p-0 font-normal">
 						<div className="flex flex-col gap-1 px-2 py-2.5 border-b border-border">
-							<span className="text-2xs font-semibold uppercase tracking-(--tracking-label) text-foreground leading-none">{displayName}</span>
-							<span className="font-mono text-2xs leading-none text-muted-foreground">{email}</span>
+							<span className="text-[11px] font-semibold uppercase tracking-(--tracking-label) text-foreground leading-none">{displayName}</span>
+							<span className="font-mono text-[11px] leading-none text-muted-foreground">{email}</span>
 						</div>
 					</DropdownMenuLabel>
 				</DropdownMenuGroup>

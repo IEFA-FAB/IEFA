@@ -79,7 +79,7 @@ function DivergenceRow({ row, unitId, onResolved }: { row: ReconciliationRow; un
 		<>
 			<tr className="hover:bg-muted/40">
 				<td className="py-2.5 px-3 text-xs">
-					<Badge variant="outline" className="text-3xs mr-1.5">
+					<Badge variant="outline" className="text-[10px] mr-1.5">
 						{TIPO_LABEL[row.documento_tipo] ?? row.documento_tipo}
 					</Badge>
 					<span className="font-mono">{row.numero_documento}</span>
@@ -115,7 +115,7 @@ function DivergenceRow({ row, unitId, onResolved }: { row: ReconciliationRow; un
 							</Button>
 						</div>
 						{row.documento_tipo === "ne" && (
-							<p className="ml-4 pb-2 text-2xs text-muted-foreground">
+							<p className="ml-4 pb-2 text-[11px] text-muted-foreground">
 								Adotar o SIAFI num empenho registra um evento de reforço/anulação — o valor original nunca é editado.
 							</p>
 						)}

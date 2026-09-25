@@ -43,10 +43,10 @@ function SourceRow({ source, token }: { source: NormativeSource; token: string |
 						<button type="button" onClick={() => setExpanded((value) => !value)} className="text-left font-medium text-sm hover:underline">
 							{source.id}
 						</button>
-						<Badge variant="outline" className="text-3xs uppercase tracking-widest">
+						<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
 							{source.authority}
 						</Badge>
-						<Badge variant="outline" className="text-3xs uppercase tracking-widest">
+						<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
 							{source.kind}
 						</Badge>
 						{!source.enabled ? <span className="text-muted-foreground text-xs">desabilitada</span> : null}
@@ -110,7 +110,7 @@ function SourceRow({ source, token }: { source: NormativeSource; token: string |
 										{document.source ? ` · ${document.source}` : ""}
 									</span>
 								</Link>
-								<Badge variant="outline" className="shrink-0 text-3xs uppercase tracking-widest">
+								<Badge variant="outline" className="shrink-0 text-[10px] uppercase tracking-[0.1em]">
 									{document.document_type}
 								</Badge>
 							</li>

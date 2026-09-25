@@ -113,7 +113,7 @@ function IngredientHoverContent({ ingredient }: { ingredient: Ingredient }) {
 							</div>
 						)
 					})}
-					{extra > 0 && <p className="pt-0.5 text-2xs text-muted-foreground">+{extra} outros nutrientes</p>}
+					{extra > 0 && <p className="pt-0.5 text-[11px] text-muted-foreground">+{extra} outros nutrientes</p>}
 				</div>
 			)}
 		</>

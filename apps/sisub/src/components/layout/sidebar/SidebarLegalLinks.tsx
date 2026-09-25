@@ -11,19 +11,19 @@ import { Link } from "@tanstack/react-router"
 export function SidebarLegalLinks() {
 	return (
 		<nav aria-label="Documentos legais" className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 pb-1 group-data-[collapsible=icon]:hidden">
-			<Link to="/termos-de-uso" className="text-3xs text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground">
+			<Link to="/termos-de-uso" className="text-[10px] text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground">
 				Termos
 			</Link>
-			<span aria-hidden="true" className="text-3xs text-sidebar-foreground/30">
+			<span aria-hidden="true" className="text-[10px] text-sidebar-foreground/30">
 				·
 			</span>
-			<Link to="/politica-de-privacidade" className="text-3xs text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground">
+			<Link to="/politica-de-privacidade" className="text-[10px] text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground">
 				Privacidade
 			</Link>
-			<span aria-hidden="true" className="text-3xs text-sidebar-foreground/30">
+			<span aria-hidden="true" className="text-[10px] text-sidebar-foreground/30">
 				·
 			</span>
-			<Link to="/politica-de-cookies" className="text-3xs text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground">
+			<Link to="/politica-de-cookies" className="text-[10px] text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground">
 				Cookies
 			</Link>
 		</nav>

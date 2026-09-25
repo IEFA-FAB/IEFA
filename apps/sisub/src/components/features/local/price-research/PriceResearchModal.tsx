@@ -129,7 +129,7 @@ const multiSelectFilter: FilterFn<Features, ComprasMaterialPriceResult> = (row, 
 function DetailItem({ label, value }: { label: string; value: string }) {
 	return (
 		<div>
-			<p className="text-3xs uppercase tracking-wide text-muted-foreground">{label}</p>
+			<p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
 			<p className="text-xs font-medium leading-snug">{value}</p>
 		</div>
 	)
@@ -146,7 +146,7 @@ function ContractHoverCard({ row }: { row: ComprasMaterialPriceResult }) {
 				<div className="space-y-3">
 					{row.descricaoItem && (
 						<div>
-							<p className="mb-0.5 text-3xs uppercase tracking-wide text-muted-foreground">Descrição</p>
+							<p className="mb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Descrição</p>
 							<p className="text-xs leading-snug">{row.descricaoItem}</p>
 						</div>
 					)}
@@ -162,7 +162,7 @@ function ContractHoverCard({ row }: { row: ComprasMaterialPriceResult }) {
 						)}
 						{row.numeroItemCompra != null && <DetailItem label="Nº item" value={String(row.numeroItemCompra)} />}
 					</div>
-					{row.idCompra && <p className="border-t pt-1.5 font-mono text-3xs text-muted-foreground">{row.idCompra}</p>}
+					{row.idCompra && <p className="border-t pt-1.5 font-mono text-[10px] text-muted-foreground">{row.idCompra}</p>}
 				</div>
 			</HoverCardContent>
 		</HoverCard>
@@ -212,7 +212,7 @@ function ColumnFilterPopover({ column }: { column: Column<Features, ComprasMater
 			</PopoverTrigger>
 			<PopoverContent align="start" side="bottom" className="w-56 p-2">
 				<Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-7 text-xs" />
-				<div className="flex items-center gap-2 text-2xs">
+				<div className="flex items-center gap-2 text-[11px]">
 					<button type="button" className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => column.setFilterValue(undefined)}>
 						Selecionar todos
 					</button>
@@ -234,7 +234,7 @@ function ColumnFilterPopover({ column }: { column: Column<Features, ComprasMater
 						>
 							<Checkbox checked={isChecked(value)} onCheckedChange={() => toggle(value)} className="size-3.5" tabIndex={-1} />
 							<span className="flex-1 truncate">{value || "—"}</span>
-							<span className="tabular-nums text-muted-foreground text-3xs">{facetedValues.get(value) ?? 0}</span>
+							<span className="tabular-nums text-muted-foreground text-[10px]">{facetedValues.get(value) ?? 0}</span>
 						</div>
 					))}
 					{filtered.length === 0 && <p className="py-2 text-center text-xs text-muted-foreground">Nenhum valor</p>}
@@ -637,7 +637,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 				{activeAnalysis && (
 					<div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2">
 						{/* Sample info header */}
-						<p className="text-2xs text-muted-foreground">
+						<p className="text-[11px] text-muted-foreground">
 							{activeAnalysis.fromSelection ? "Seleção manual" : periodMonths ? `Resultados dos últimos ${periodMonths} meses` : "Todo o histórico"}
 							{" · "}
 							<span className="font-medium text-foreground">{activeAnalysis.validCount}</span> amostras válidas
@@ -660,7 +660,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 									<button
 										type="button"
 										disabled={isSavingMethod !== null}
-										className="mt-0.5 text-2xs text-primary hover:underline disabled:opacity-50"
+										className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
 										onClick={() => handleUsePrice(activeAnalysis.stats.mean, "mean")}
 									>
 										{isSavingMethod === "mean" ? "Salvando…" : "Usar"}
@@ -674,7 +674,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 									<button
 										type="button"
 										disabled={isSavingMethod !== null}
-										className="mt-0.5 text-2xs text-primary hover:underline disabled:opacity-50"
+										className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
 										onClick={() => handleUsePrice(activeAnalysis.stats.median, "median")}
 									>
 										{isSavingMethod === "median" ? "Salvando…" : "Usar"}
@@ -692,7 +692,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 						</div>
 
 						{/* Recommendation footer */}
-						<div className="flex items-center gap-2 text-2xs text-muted-foreground border-t pt-2">
+						<div className="flex items-center gap-2 text-[11px] text-muted-foreground border-t pt-2">
 							<span>
 								σ {BRL.format(activeAnalysis.stats.stdDev)} · CV {activeAnalysis.stats.cv.toFixed(1)}%
 							</span>

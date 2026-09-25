@@ -132,7 +132,7 @@ export function ModuleChatInterface({ config, sessionId, onSessionCreated }: Mod
 						</div>
 					)}
 					<ModuleChatInput onSubmit={onSubmit} onAbort={handleAbort} isStreaming={isStreaming} placeholder={config.placeholder} />
-					<p className="mt-1.5 text-center text-2xs text-muted-foreground">{config.disclaimer}</p>
+					<p className="mt-1.5 text-center text-[11px] text-muted-foreground">{config.disclaimer}</p>
 				</div>
 			</div>
 		</div>

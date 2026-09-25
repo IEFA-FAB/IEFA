@@ -91,7 +91,7 @@ function NovaPage() {
 					["3 · Parecer", "O ACI da OM acata ou descarta cada achado, emite o parecer e leva o relatório final ao processo."],
 				].map(([title, text]) => (
 					<div key={title} className="bg-background p-4">
-						<dt className="text-xs uppercase tracking-widest">{title}</dt>
+						<dt className="text-xs uppercase tracking-[0.1em]">{title}</dt>
 						<dd className="mt-1 text-muted-foreground text-sm">{text}</dd>
 					</div>
 				))}

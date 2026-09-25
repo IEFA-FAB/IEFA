@@ -98,7 +98,7 @@ function RecipeHoverContent({ recipe }: { recipe: RecipeSummary }) {
 						<div key={ri.id} className="flex items-baseline justify-between gap-3">
 							<span className="truncate text-muted-foreground">
 								{ri.ingredient?.description ?? "Ingrediente"}
-								{ri.is_optional && <span className="text-3xs uppercase tracking-wide"> · opc</span>}
+								{ri.is_optional && <span className="text-[10px] uppercase tracking-wide"> · opc</span>}
 							</span>
 							{ri.net_quantity != null && (
 								<span className="shrink-0 font-mono tabular-nums">
@@ -108,7 +108,7 @@ function RecipeHoverContent({ recipe }: { recipe: RecipeSummary }) {
 							)}
 						</div>
 					))}
-					{extra > 0 && <p className="pt-0.5 text-2xs text-muted-foreground">+{extra} outros ingredientes</p>}
+					{extra > 0 && <p className="pt-0.5 text-[11px] text-muted-foreground">+{extra} outros ingredientes</p>}
 				</div>
 			)}
 		</>

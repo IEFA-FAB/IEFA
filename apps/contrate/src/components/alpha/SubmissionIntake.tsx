@@ -89,7 +89,7 @@ export function SubmissionIntakeForm({
 	return (
 		<div className="border border-border p-4">
 			<div className="mb-4 flex flex-col">
-				<label htmlFor="alpha-unit" className="mb-1 block text-muted-foreground text-xs uppercase tracking-widest">
+				<label htmlFor="alpha-unit" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
 					OM do documento
 				</label>
 				{units.isError ? (
@@ -112,14 +112,14 @@ export function SubmissionIntakeForm({
 
 			<div className="flex flex-wrap items-end gap-4">
 				<div>
-					<label htmlFor="alpha-file" className="mb-1 block text-muted-foreground text-xs uppercase tracking-widest">
+					<label htmlFor="alpha-file" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
 						Documento
 					</label>
 					<input id="alpha-file" ref={fileRef} type="file" accept=".docx,.pdf" className="text-sm" />
 				</div>
 
 				<div>
-					<label htmlFor="alpha-kind" className="mb-1 block text-muted-foreground text-xs uppercase tracking-widest">
+					<label htmlFor="alpha-kind" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
 						Tipo
 					</label>
 					<Select value={docKind} onValueChange={(value) => setDocKind(value as DocKind)}>
@@ -137,7 +137,7 @@ export function SubmissionIntakeForm({
 				</div>
 
 				<div>
-					<label htmlFor="alpha-objeto" className="mb-1 block text-muted-foreground text-xs uppercase tracking-widest">
+					<label htmlFor="alpha-objeto" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
 						Objeto
 					</label>
 					<Select value={objeto} onValueChange={(value) => setObjeto(value as ObjetoTipo | null)}>
