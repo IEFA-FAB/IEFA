@@ -241,8 +241,9 @@ function WeeklyMenuEditorPage() {
 	// Template global aberto numa cozinha: salvar vai forkar.
 	const willFork = template != null && template.kitchen_id == null
 
-	const { mutate: saveTemplate, isPending: isSaving } = useSaveTemplateEdit()
-	const { mutate: autoSave } = useSaveTemplateEdit({ silent: true })
+	// Mesmo escopo: auto-save e "Salvar" gravam em fila, na ordem em que foram disparados.
+	const { mutate: saveTemplate, isPending: isSaving } = useSaveTemplateEdit({ scopeId: `template-save:${weeklyMenuId}` })
+	const { mutate: autoSave } = useSaveTemplateEdit({ silent: true, scopeId: `template-save:${weeklyMenuId}` })
 
 	const [editorState, dispatch] = useReducer(weeklyMenuEditorReducer, initialWeeklyMenuEditorState)
 	const { name, description, items, meals, initialized, activeTab, selectorOpen, selectedCell } = editorState

@@ -4,10 +4,14 @@ import {
 	countItemsLeavingComposition,
 	type EventMealDraft,
 	eventDraftFrom,
+	eventGroupKeyFor,
 	eventItemsPayload,
+	findDuplicateGroup,
+	isSuggestionPresent,
 	moveEventMeal,
 	newEventMeal,
 	removeEventMeal,
+	resolveGroupKeys,
 	upsertEventMeal,
 } from "./event-meals"
 import { menuGroupKeyFromLabel } from "./menu-item-groups"
@@ -102,5 +106,54 @@ describe("menuGroupKeyFromLabel", () => {
 	test("rótulo vira chave aceita pelo banco", () => {
 		expect(menuGroupKeyFromLabel("Canapés quentes")).toBe("canapes_quentes")
 		expect(menuGroupKeyFromLabel("1º prato")).toMatch(/^[a-z][a-z0-9_]{1,39}$/)
+	})
+})
+
+describe("grupos novos da refeição", () => {
+	test("rótulo de sugestão ganha a chave da sugestão, digitado ou clicado", () => {
+		expect(eventGroupKeyFor("Volantes")).toBe("volante")
+		expect(eventGroupKeyFor("  bebidas ")).toBe("bebida")
+		expect(eventGroupKeyFor("Canapés")).toBe("canape")
+		expect(eventGroupKeyFor("Petiscos")).toBe("petiscos")
+	})
+
+	test("rótulo repetido é duplicado mesmo com chaves diferentes", () => {
+		const dup = findDuplicateGroup([
+			{ key: "entrada", label: "Entradas" },
+			{ key: "volante", label: "entradas" },
+		])
+		expect(dup?.key).toBe("volante")
+		expect(
+			findDuplicateGroup([
+				{ key: "entrada", label: "Entradas" },
+				{ key: "volante", label: "Volantes" },
+			])
+		).toBeUndefined()
+	})
+})
+
+describe("chave do grupo novo com a sugestão já ocupada", () => {
+	test("grupo renomeado que manteve a chave da sugestão: o digitado usa a chave derivada", () => {
+		const resolved = resolveGroupKeys([
+			{ key: "entrada", label: "Canapés frios" },
+			{ key: "", label: "Entradas" },
+		])
+		expect(resolved.map((g) => g.key)).toEqual(["entrada", "entradas"])
+		expect(findDuplicateGroup(resolved)).toBeUndefined()
+		expect(eventGroupKeyFor("Entradas", new Set(["entrada"]))).toBe("entradas")
+	})
+
+	test("rótulos longos diferentes além de 40 caracteres não são duplicados", () => {
+		const base = "Sobremesas especiais de chocolate e frutas "
+		expect(
+			findDuplicateGroup([
+				{ key: "a", label: `${base}vermelhas` },
+				{ key: "b", label: `${base}amarelas` },
+			])
+		).toBeUndefined()
+	})
+
+	test("sugestão some pelo rótulo digitado", () => {
+		expect(isSuggestionPresent({ key: "bebida", label: "Bebidas" }, [{ key: "drinks", label: "bebidas" }])).toBe(true)
 	})
 })

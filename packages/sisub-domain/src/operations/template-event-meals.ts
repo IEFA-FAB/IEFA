@@ -10,7 +10,8 @@
 
 import { menuTemplateEventMealInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { and, eq, inArray, notInArray } from "drizzle-orm"
-import { DEFAULT_EVENT_MEAL_GROUPS, type MenuGroupInput } from "../schemas/menu-groups.ts"
+import { eventMealGroupsOrDefault, placeStoredEventItems, type StoredEventItemRef } from "../schemas/event-meal-placement.ts"
+import type { MenuGroupInput } from "../schemas/menu-groups.ts"
 import type { TemplateEventMeal, TemplateItem } from "../schemas/templates.ts"
 import { DomainError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
@@ -127,10 +128,10 @@ export function freshEventMealIds(meals: readonly { id: string }[]): Map<string,
 }
 
 /** Dá ids novos às refeições e reaponta os itens para eles ({@link freshEventMealIds}). */
-export function remapEventMealIds(
+export function remapEventMealIds<I extends { eventMealId?: string | null }>(
 	meals: readonly TemplateEventMeal[],
-	items: readonly TemplateItem[]
-): { eventMeals: TemplateEventMeal[]; items: TemplateItem[] } {
+	items: readonly I[]
+): { eventMeals: TemplateEventMeal[]; items: I[] } {
 	const nextId = freshEventMealIds(meals)
 	return {
 		eventMeals: meals.map((m) => ({ ...m, id: nextId.get(m.id) ?? m.id })),
@@ -149,41 +150,29 @@ export function keepItemsOfMeals(meals: readonly TemplateEventMeal[], items: rea
 }
 
 /**
- * Arruma itens GRAVADOS de evento para que passem por {@link resolveEventContent}.
+ * Arruma itens GRAVADOS de evento para que passem por {@link resolveEventContent}, pela regra
+ * compartilhada com o editor ({@link placeStoredEventItems}): o item vai para a refeição dele,
+ * a do mesmo horário ou uma reconstruída, e grupo fora da composição vira "Sem grupo".
  *
- * O fork copia os itens do molde quando a edição não os traz — e item gravado não é entrada de
- * quem chama: pode ter grupo que a composição perdeu (uma edição que mandou só `eventMeals`) ou
- * não ter refeição (gravado antes das refeições existirem). Recusar a cópia por isso seria
- * recusar uma edição de nome. O item vai para a refeição do mesmo horário (ou uma nova, com a
- * composição padrão) e, fora da composição, fica sem grupo — o editor mostra "Sem grupo".
+ * `mealTypeNames` dá à refeição reconstruída o nome do horário, como o editor faz; sem ele,
+ * "Refeição". Item sem refeição e sem horário não tem onde entrar e sai.
  */
-export function normalizeStoredEventContent(
+export function normalizeStoredEventContent<I extends StoredEventItemRef>(
 	meals: readonly TemplateEventMeal[],
-	items: readonly TemplateItem[]
-): { eventMeals: TemplateEventMeal[]; items: TemplateItem[] } {
-	const eventMeals = [...meals]
-	const byId = new Map(eventMeals.map((m) => [m.id, m]))
-	const mealFor = (item: TemplateItem): TemplateEventMeal => {
-		const own = item.eventMealId != null ? byId.get(item.eventMealId) : undefined
-		if (own) return own
-		const sameSlot = eventMeals.find((m) => m.mealTypeId === item.mealTypeId)
-		if (sameSlot) return sameSlot
-		const rebuilt: TemplateEventMeal = {
-			id: crypto.randomUUID(),
-			name: "Refeição",
-			mealTypeId: item.mealTypeId,
-			groups: DEFAULT_EVENT_MEAL_GROUPS.map((g) => ({ ...g })),
-		}
-		eventMeals.push(rebuilt)
-		byId.set(rebuilt.id, rebuilt)
-		return rebuilt
-	}
+	items: readonly I[],
+	mealTypeNames: ReadonlyMap<string, string> = new Map()
+): { eventMeals: TemplateEventMeal[]; items: (I & { eventMealId: string; itemGroup: string | null })[] } {
+	const readMeals = meals.map((m) => ({ ...m, groups: eventMealGroupsOrDefault(m.groups) }))
+	const { rebuilt, placements } = placeStoredEventItems(readMeals, items)
+	const eventMeals: TemplateEventMeal[] = [
+		...readMeals,
+		...rebuilt.map((m) => ({ id: m.id, name: mealTypeNames.get(m.mealTypeId)?.trim() || "Refeição", mealTypeId: m.mealTypeId, groups: m.groups })),
+	]
 	return {
 		eventMeals,
-		items: items.map((item) => {
-			const meal = mealFor(item)
-			const inComposition = item.itemGroup == null || meal.groups.some((g) => g.key === item.itemGroup)
-			return { ...item, eventMealId: meal.id, itemGroup: inComposition ? item.itemGroup : null }
+		items: items.flatMap((item, index) => {
+			const placement = placements[index]
+			return placement ? [{ ...item, eventMealId: placement.mealId, itemGroup: placement.itemGroup }] : []
 		}),
 	}
 }
@@ -200,13 +189,60 @@ export function normalizeStoredEventContent(
 export function forkStoredEventContent(
 	sourceMeals: readonly TemplateEventMeal[],
 	sentMeals: readonly TemplateEventMeal[] | undefined,
-	storedItems: readonly TemplateItem[]
+	storedItems: readonly TemplateItem[],
+	mealTypeNames: ReadonlyMap<string, string> = new Map()
 ): { eventMeals: TemplateEventMeal[]; items: TemplateItem[] } {
-	const fromSource = normalizeStoredEventContent(sourceMeals, storedItems)
+	const fromSource = normalizeStoredEventContent(sourceMeals, storedItems, mealTypeNames)
 	if (sentMeals === undefined) return fromSource
 	// Aqui todo item já cita uma refeição: o filtro tira o que saiu, e a segunda passada só
 	// arruma o grupo contra a composição enviada.
 	return normalizeStoredEventContent(sentMeals, keepItemsOfMeals(sentMeals, fromSource.items))
+}
+
+/**
+ * Itens de evento de UM horário do calendário, prontos para o cardápio do dia.
+ *
+ * Duas refeições do evento no mesmo horário viram um cardápio só. Os itens saem na ordem das
+ * refeições no evento e, dentro de cada uma, na posição gravada — não intercalados pela
+ * posição, que recomeça em cada refeição.
+ *
+ * A preparação que aparece em refeições DIFERENTES vira um item só, com o pax somado: são
+ * pessoas diferentes comendo a mesma coisa. Pax desconhecido num dos lados deixa o item sem
+ * pax — somar só o lado conhecido esconderia as pessoas do outro e o item deixaria de pedir o
+ * número. O item fica com o grupo e a proporção da primeira refeição. Repetição DENTRO de uma
+ * refeição (a mesma água em "Bebidas" e "Volantes") é do evento e passa como está.
+ */
+export function mergeSlotItems<I extends { recipeId: string | null; eventMealId: string | null; sortOrder: number; headcountOverride: number | null }>(
+	items: readonly I[],
+	mealOrder: readonly string[]
+): I[] {
+	const rank = new Map(mealOrder.map((id, index) => [id, index]))
+	const rankOf = (item: I) => (item.eventMealId != null ? (rank.get(item.eventMealId) ?? mealOrder.length) : mealOrder.length)
+	const ordered = items
+		.map((item, index) => ({ item, index }))
+		.toSorted((a, b) => rankOf(a.item) - rankOf(b.item) || a.item.sortOrder - b.item.sortOrder || a.index - b.index)
+
+	const merged: I[] = []
+	// Por preparação: onde está o item que a representa e de quais refeições ele já soma.
+	const byRecipe = new Map<string, { at: number; meals: Set<string | null> }>()
+	for (const { item } of ordered) {
+		const seen = item.recipeId != null ? byRecipe.get(item.recipeId) : undefined
+		if (!seen || seen.meals.has(item.eventMealId)) {
+			if (item.recipeId != null && !seen) byRecipe.set(item.recipeId, { at: merged.length, meals: new Set([item.eventMealId]) })
+			merged.push({ ...item })
+			continue
+		}
+		const first = merged[seen.at] as I
+		const headcount = first.headcountOverride != null && item.headcountOverride != null ? first.headcountOverride + item.headcountOverride : null
+		merged[seen.at] = { ...first, headcountOverride: headcount }
+		seen.meals.add(item.eventMealId)
+	}
+	return merged
+}
+
+/** Colunas gravadas de uma refeição; `sort_order` é a posição na lista. */
+function eventMealValues(meal: TemplateEventMeal, index: number) {
+	return { name: meal.name, mealTypeId: meal.mealTypeId, groups: meal.groups.map((g) => ({ key: g.key, label: g.label })), sortOrder: index }
 }
 
 /**
@@ -252,15 +288,10 @@ export async function writeEventMeals(tx: EventMealTx, templateId: string, meals
 			.then(() => undefined)
 	)
 
-	const valuesOf = (meal: TemplateEventMeal, index: number) => ({
-		name: meal.name,
-		mealTypeId: meal.mealTypeId,
-		groups: meal.groups.map((g) => ({ key: g.key, label: g.label })),
-		sortOrder: index,
-	})
-
 	// As novas num insert só; as que continuam, uma a uma (tipicamente uma ou duas por evento).
-	const inserts = meals.flatMap((meal, index) => (existingIds.has(meal.id) ? [] : [{ id: meal.id, menuTemplateId: templateId, ...valuesOf(meal, index) }]))
+	const inserts = meals.flatMap((meal, index) =>
+		existingIds.has(meal.id) ? [] : [{ id: meal.id, menuTemplateId: templateId, ...eventMealValues(meal, index) }]
+	)
 	if (inserts.length > 0) {
 		await runQuery("INSERT_EVENT_MEAL_FAILED", () =>
 			tx
@@ -274,7 +305,7 @@ export async function writeEventMeals(tx: EventMealTx, templateId: string, meals
 		await runQuery("UPDATE_EVENT_MEAL_FAILED", () =>
 			tx
 				.update(menuTemplateEventMealInKitchen)
-				.set(valuesOf(meal, index))
+				.set(eventMealValues(meal, index))
 				.where(and(eq(menuTemplateEventMealInKitchen.id, meal.id), eq(menuTemplateEventMealInKitchen.menuTemplateId, templateId)))
 				.then(() => undefined)
 		)

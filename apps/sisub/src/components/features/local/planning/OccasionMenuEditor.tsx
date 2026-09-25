@@ -191,8 +191,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	// no salvamento (TEMPLATE_SCOPE_MISMATCH) depois de o usuário já ter editado tudo.
 	const outOfContext = template != null && (template.template_type !== templateType || (editContext.scope === "global" && template.kitchen_id != null))
 
-	const { mutate: saveTemplate, isPending: isSaving } = useSaveTemplateEdit()
-	const { mutate: autoSave } = useSaveTemplateEdit({ silent: true })
+	// Mesmo escopo: auto-save e "Salvar" gravam em fila, na ordem em que foram disparados.
+	const { mutate: saveTemplate, isPending: isSaving } = useSaveTemplateEdit({ scopeId: `template-save:${templateId}` })
+	const { mutate: autoSave } = useSaveTemplateEdit({ silent: true, scopeId: `template-save:${templateId}` })
 	const { mutate: setSnackClassification } = useSetSnackClassification()
 	const queryClient = useQueryClient()
 

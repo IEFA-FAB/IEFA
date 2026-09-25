@@ -124,9 +124,18 @@ export function useCreateTemplate() {
  * O id do template salvo pode DIFERIR do enviado (quando forka) — quem chama precisa
  * navegar para `result.template.id`.
  */
-export function useSaveTemplateEdit(options?: { silent?: boolean }) {
+export function useSaveTemplateEdit(options?: {
+	silent?: boolean
+	/**
+	 * Gravações com o mesmo escopo rodam em fila, na ordem em que foram disparadas. O editor passa
+	 * o id do template para o auto-save e o "Salvar": sem a fila, um auto-save ainda em voo com o
+	 * rascunho anterior podia gravar DEPOIS do "Salvar" e desfazer a última edição.
+	 */
+	scopeId?: string
+}) {
 	const queryClient = useQueryClient()
 	return useMutation({
+		scope: options?.scopeId ? { id: options.scopeId } : undefined,
 		mutationFn: ({
 			id,
 			updates,
