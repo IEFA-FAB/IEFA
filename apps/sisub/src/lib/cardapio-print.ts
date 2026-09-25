@@ -34,10 +34,44 @@ export const INGREDIENTS_MODE_LABELS: Record<IngredientsMode, string> = {
 	all: "Todos os ingredientes (sem quantidade)",
 }
 
-export type CardapioPrintOptions = { showMethod: boolean; ingredients: IngredientsMode }
+/**
+ * Teto padrão, em % do efetivo da refeição, do que conta como preparação da mesa de comando.
+ * Porcentagem pequena num plano semanal não é opção do rancho: é o prato servido a poucos
+ * (mesa de comando), que a cozinha produz mas o comensal não escolhe.
+ */
+export const DEFAULT_COMMAND_TABLE_MAX_PROPORTION = 5
 
-/** Padrão = a folha de antes das opções: modo de preparo, sem ingredientes. */
-export const DEFAULT_PRINT_OPTIONS: CardapioPrintOptions = { showMethod: true, ingredients: "none" }
+export type CardapioPrintOptions = {
+	showMethod: boolean
+	ingredients: IngredientsMode
+	/** Tira da folha as preparações da mesa de comando (porcentagem até `commandTableMaxProportion`). */
+	hideCommandTable: boolean
+	commandTableMaxProportion: number
+}
+
+/**
+ * Padrão = a folha de antes das opções (modo de preparo, sem ingredientes), já sem a mesa de
+ * comando: a folha é afixada para o comensal, e o prato dela não está à disposição dele.
+ */
+export const DEFAULT_PRINT_OPTIONS: CardapioPrintOptions = {
+	showMethod: true,
+	ingredients: "none",
+	hideCommandTable: true,
+	commandTableMaxProportion: DEFAULT_COMMAND_TABLE_MAX_PROPORTION,
+}
+
+/**
+ * Item da mesa de comando: dimensionado por porcentagem, e ela não passa do teto. Quantidade
+ * direta ("12 pax") não conta — é ela que dimensiona o item quando existe (`resolveItemDemand`),
+ * e a porcentagem que sobrar ao lado não diz nada sobre ele.
+ */
+export function isCommandTableItem(
+	item: { headcount_override?: number | null; recommended_proportion?: number | null },
+	options: Pick<CardapioPrintOptions, "hideCommandTable" | "commandTableMaxProportion">
+): boolean {
+	if (!options.hideCommandTable || item.headcount_override != null || item.recommended_proportion == null) return false
+	return item.recommended_proportion <= options.commandTableMaxProportion
+}
 
 /** Uma ficha distinta do cardápio, antes das opções de impressão. */
 export type PreparationSource = { id: string; name: string; version: string; prePreparation: string | null; method: string | null }
@@ -65,7 +99,7 @@ export type PreparationEntry = {
 export function buildPreparationEntries(
 	sources: readonly PreparationSource[],
 	digests: ReadonlyMap<string, RecipeIngredientDigest> | undefined,
-	options: CardapioPrintOptions
+	options: Pick<CardapioPrintOptions, "showMethod" | "ingredients">
 ): PreparationEntry[] {
 	const entries: PreparationEntry[] = []
 	for (const source of sources) {

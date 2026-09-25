@@ -1,6 +1,14 @@
 import type { RecipeIngredientDigest } from "@iefa/sisub-domain"
 import { describe, expect, test } from "vitest"
-import { buildPreparationEntries, DEFAULT_PRINT_OPTIONS, describeAllergens, isMainDish, type PreparationSource } from "./cardapio-print"
+import {
+	buildPreparationEntries,
+	DEFAULT_COMMAND_TABLE_MAX_PROPORTION,
+	DEFAULT_PRINT_OPTIONS,
+	describeAllergens,
+	isCommandTableItem,
+	isMainDish,
+	type PreparationSource,
+} from "./cardapio-print"
 
 const arroz: PreparationSource = { id: "r1", name: "Arroz branco", version: "v2", prePreparation: null, method: "Refogar e cozinhar." }
 const lasanha: PreparationSource = { id: "r2", name: "Lasanha à bolonhesa", version: "v1", prePreparation: "Descongelar a carne.", method: null }
@@ -90,5 +98,34 @@ describe("buildPreparationEntries", () => {
 		const [entry] = buildPreparationEntries([arroz], undefined, { showMethod: true, ingredients: "all" })
 		expect(entry.ingredients).toBeNull()
 		expect(entry.method).toBe("Refogar e cozinhar.")
+	})
+})
+
+describe("isCommandTableItem", () => {
+	const on = { hideCommandTable: true, commandTableMaxProportion: 5 }
+
+	test("porcentagem até o teto é mesa de comando; acima dele, prato do rancho", () => {
+		expect(isCommandTableItem({ recommended_proportion: 2 }, on)).toBe(true)
+		expect(isCommandTableItem({ recommended_proportion: 5 }, on)).toBe(true)
+		expect(isCommandTableItem({ recommended_proportion: 5.5 }, on)).toBe(false)
+		expect(isCommandTableItem({ recommended_proportion: 30 }, on)).toBe(false)
+	})
+
+	test("item sem porcentagem herda o efetivo da refeição e fica na folha", () => {
+		expect(isCommandTableItem({ recommended_proportion: null }, on)).toBe(false)
+		expect(isCommandTableItem({}, on)).toBe(false)
+	})
+
+	test("quantidade direta dimensiona o item: a porcentagem ao lado não o esconde", () => {
+		expect(isCommandTableItem({ headcount_override: 12, recommended_proportion: 2 }, on)).toBe(false)
+	})
+
+	test("opção desligada mantém tudo na folha", () => {
+		expect(isCommandTableItem({ recommended_proportion: 2 }, { ...on, hideCommandTable: false })).toBe(false)
+	})
+
+	test("padrão já esconde a mesa de comando", () => {
+		expect(DEFAULT_PRINT_OPTIONS.hideCommandTable).toBe(true)
+		expect(isCommandTableItem({ recommended_proportion: DEFAULT_COMMAND_TABLE_MAX_PROPORTION }, DEFAULT_PRINT_OPTIONS)).toBe(true)
 	})
 })

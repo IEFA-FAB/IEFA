@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
@@ -22,6 +23,7 @@ import {
 	INGREDIENTS_MODE_LABELS,
 	INGREDIENTS_MODES,
 	type IngredientsMode,
+	isCommandTableItem,
 	isMainDish,
 	type PreparationEntry,
 	type PreparationSource,
@@ -54,7 +56,9 @@ import type { MenuTemplateWithItems } from "@/types/domain/planning"
  *  - opções de impressão (modo de preparo; ingredientes: nenhum, só alergênicos ou todos,
  *    sempre sem quantidade). Ficam só na página, sem armazenamento local: chave nova de
  *    armazenamento exigiria versão nova da Política de Cookies, e preferência de leitura
- *    não justifica pedir ciência de novo a todo usuário.
+ *    não justifica pedir ciência de novo a todo usuário;
+ *  - preparações da mesa de comando (porcentagem pequena do efetivo) ficam fora da folha,
+ *    por padrão: ela é afixada para o comensal, e esse prato não está à disposição dele.
  *
  * Nomes de preparação e de refeição saem como estão no banco — sem caixa alta forçada — e o
  * prato principal sai em negrito.
@@ -287,10 +291,15 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// Ordena os tipos de refeição (linhas da grade) por sort_order → nome.
 	const orderedMealTypes = (mealTypes ?? []).slice().sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999) || (a.name ?? "").localeCompare(b.name ?? ""))
 
+	// Mesa de comando sai da grade E da lista de preparações: uma ficha que só ela usa, listada
+	// sem prato correspondente na grade, anunciaria o que a folha acabou de esconder.
+	const printedItems = template.items.filter((item) => !isCommandTableItem(item, options))
+	const hiddenCount = template.items.length - printedItems.length
+
 	// Índice (dia → refeição → preparações), ordenadas pela ordem de leitura do
 	// CONJUNTO daquela refeição e depois pela posição dentro do grupo.
 	const cellIndex = new Map<string, CellEntry[]>()
-	for (const item of template.items) {
+	for (const item of printedItems) {
 		if (item.day_of_week == null || !item.meal_type_id) continue
 		const key = `${item.day_of_week}:${item.meal_type_id}`
 		const list = cellIndex.get(key) ?? []
@@ -318,7 +327,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// derrubava da lista impressa a ficha cujo texto foi todo para o pré-preparo — a
 	// preparação continuaria no cardápio e sumiria da folha que a cozinha lê.
 	const prepMap = new Map<string, PreparationSource>()
-	for (const item of template.items) {
+	for (const item of printedItems) {
 		const r = item.recipe_origin
 		if (!r || prepMap.has(r.id)) continue
 		prepMap.set(r.id, {
@@ -483,6 +492,37 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 							))}
 						</SelectContent>
 					</Select>
+				</div>
+				<div className="flex items-center gap-2">
+					<label htmlFor="print-hide-command-table" className="flex items-center gap-2">
+						<Checkbox
+							id="print-hide-command-table"
+							checked={options.hideCommandTable}
+							onCheckedChange={(checked) => updateOptions({ hideCommandTable: checked === true })}
+						/>
+						Ocultar mesa de comando: até
+					</label>
+					<Input
+						type="number"
+						min={0}
+						max={100}
+						step={0.5}
+						inputMode="decimal"
+						aria-label="Porcentagem máxima da mesa de comando"
+						className="w-20"
+						disabled={!options.hideCommandTable}
+						value={options.commandTableMaxProportion}
+						onChange={(e) => {
+							const next = e.target.valueAsNumber
+							if (Number.isFinite(next) && next >= 0) updateOptions({ commandTableMaxProportion: next })
+						}}
+					/>
+					<span>% do efetivo</span>
+					{hiddenCount > 0 && (
+						<span className="text-muted-foreground">
+							({hiddenCount} {hiddenCount === 1 ? "preparação oculta" : "preparações ocultas"})
+						</span>
+					)}
 				</div>
 				{digestsQuery.isError && (
 					<span className="flex items-center gap-2 text-destructive">
