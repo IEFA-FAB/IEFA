@@ -68,6 +68,7 @@ import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 import { computeAtaItemLimits, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
 import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
+import { fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
 /** Janela legal padrão de validade da pesquisa de preço (IN SEGES 65/2021). */
@@ -194,7 +195,7 @@ export async function calculateAtaNeeds(db: SisubDb, ctx: UserContext, input: Ca
 				columns: { id: true, templateType: true },
 				with: {
 					menuTemplateItemsInKitchens: {
-						columns: { id: true, recipeId: true, headcountOverride: true, dayOfWeek: true, mealTypeId: true, recommendedProportion: true },
+						columns: { id: true, recipeId: true, headcountOverride: true, dayOfWeek: true, mealTypeId: true, recommendedProportion: true, eventMealId: true },
 					},
 				},
 				where: inArray(menuTemplateInKitchen.id, uniqueTemplateIds),
@@ -247,6 +248,8 @@ export async function calculateAtaNeeds(db: SisubDb, ctx: UserContext, input: Ca
 	// a base cobre os itens sem override (que antes eram pulados e não entravam na compra).
 	// Lido à parte, tolerante à tabela ausente (migração pendente → base vazia, sem quebrar a ATA).
 	const mealsByTemplate = await fetchTemplateMealsSafe(db, uniqueTemplateIds)
+	// Evento mede pela própria refeição: o efetivo dela é a base da porcentagem dos itens.
+	const eventMealBases = await fetchEventMealBases(db, uniqueTemplateIds)
 	const baseByTemplateCell = new Map<string, Map<string, number>>()
 	for (const t of templates) {
 		const cells = new Map<string, number>()
@@ -283,7 +286,8 @@ export async function calculateAtaNeeds(db: SisubDb, ctx: UserContext, input: Ca
 			// → não contribui para a compra.
 			const headcount = resolveItemDemand({
 				headcountOverride: item.headcountOverride,
-				baseHeadcount: baseByCell?.get(`${item.dayOfWeek}:${item.mealTypeId}`) ?? null,
+				baseHeadcount:
+					item.eventMealId != null ? (eventMealBases.get(item.eventMealId) ?? null) : (baseByCell?.get(`${item.dayOfWeek}:${item.mealTypeId}`) ?? null),
 				recommendedProportion: item.recommendedProportion != null ? Number(item.recommendedProportion) : null,
 			})
 			if (!headcount) continue

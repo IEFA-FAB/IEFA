@@ -27,6 +27,8 @@ export type TemplateEventMealWire = {
 	meal_type_id: string
 	groups: MenuGroupInput[]
 	sort_order: number
+	/** Efetivo da refeição; nulo = só o pax do item conta. */
+	base_headcount: number | null
 }
 
 /** `groups` é jsonb: o que não tiver a forma de um grupo é descartado na leitura, não repassado. */
@@ -57,6 +59,7 @@ export async function fetchEventMeals(db: EventMealDb, templateIds: string[]): P
 			meal_type_id: row.mealTypeId,
 			groups: parseGroups(row.groups),
 			sort_order: row.sortOrder,
+			base_headcount: row.baseHeadcount,
 		}
 		const list = byTemplate.get(row.menuTemplateId)
 		if (list) list.push(wire)
@@ -65,9 +68,22 @@ export async function fetchEventMeals(db: EventMealDb, templateIds: string[]): P
 	return byTemplate
 }
 
+/**
+ * Efetivo de cada refeição de evento, pelo id da refeição — a base sobre a qual a porcentagem
+ * dos itens dela incide (`resolveItemDemand`), no lugar do efetivo por (dia + refeição) que o
+ * cardápio semanal guarda em `menu_template_meal`.
+ */
+export async function fetchEventMealBases(db: EventMealDb, templateIds: string[]): Promise<Map<string, number | null>> {
+	const bases = new Map<string, number | null>()
+	for (const meals of (await fetchEventMeals(db, templateIds)).values()) {
+		for (const meal of meals) bases.set(meal.id, meal.base_headcount)
+	}
+	return bases
+}
+
 /** Refeições gravadas no formato de entrada — para quem precisa copiá-las ou revalidar itens contra elas. */
 export function eventMealsAsInput(meals: readonly TemplateEventMealWire[]): TemplateEventMeal[] {
-	return meals.map((m) => ({ id: m.id, name: m.name, mealTypeId: m.meal_type_id, groups: m.groups }))
+	return meals.map((m) => ({ id: m.id, name: m.name, mealTypeId: m.meal_type_id, groups: m.groups, baseHeadcount: m.base_headcount }))
 }
 
 /**
@@ -242,7 +258,13 @@ export function mergeSlotItems<I extends { recipeId: string | null; eventMealId:
 
 /** Colunas gravadas de uma refeição; `sort_order` é a posição na lista. */
 function eventMealValues(meal: TemplateEventMeal, index: number) {
-	return { name: meal.name, mealTypeId: meal.mealTypeId, groups: meal.groups.map((g) => ({ key: g.key, label: g.label })), sortOrder: index }
+	return {
+		name: meal.name,
+		mealTypeId: meal.mealTypeId,
+		groups: meal.groups.map((g) => ({ key: g.key, label: g.label })),
+		sortOrder: index,
+		baseHeadcount: meal.baseHeadcount ?? null,
+	}
 }
 
 /**

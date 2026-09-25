@@ -8455,6 +8455,7 @@ export type Database = {
       }
       menu_template_event_meal: {
         Row: {
+          base_headcount: number | null
           created_at: string
           groups: Json
           id: string
@@ -8464,6 +8465,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          base_headcount?: number | null
           created_at?: string
           groups?: Json
           id?: string
@@ -8473,6 +8475,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          base_headcount?: number | null
           created_at?: string
           groups?: Json
           id?: string

@@ -46,12 +46,14 @@ export function EventMealDialog({
 	const [name, setName] = useState("")
 	const [mealTypeId, setMealTypeId] = useState("")
 	const [groups, setGroups] = useState<DraftGroup[]>([])
+	const [baseHeadcount, setBaseHeadcount] = useState("")
 
 	// Reabrir o diálogo recomeça do que está gravado no rascunho do editor.
 	useEffect(() => {
 		if (!open || !meal) return
 		setName(meal.name)
 		setMealTypeId(meal.meal_type_id)
+		setBaseHeadcount(meal.base_headcount != null ? String(meal.base_headcount) : "")
 		setGroups(meal.groups.map((g) => ({ key: g.key, label: g.label })))
 	}, [open, meal])
 
@@ -80,7 +82,14 @@ export function EventMealDialog({
 
 	const submit = () => {
 		if (!canSave || !meal) return
-		onSubmit({ id: meal.id, name: name.trim(), meal_type_id: mealTypeId, groups: resolved })
+		const parsedBase = Number.parseInt(baseHeadcount, 10)
+		onSubmit({
+			id: meal.id,
+			name: name.trim(),
+			meal_type_id: mealTypeId,
+			groups: resolved,
+			base_headcount: Number.isFinite(parsedBase) && parsedBase > 0 ? parsedBase : null,
+		})
 		onOpenChange(false)
 	}
 
@@ -128,6 +137,24 @@ export function EventMealDialog({
 						</Select>
 						<FieldDescription>
 							Ao aplicar o evento no calendário, as preparações desta refeição entram no cardápio deste horário, somadas à rotina do dia.
+						</FieldDescription>
+					</Field>
+
+					<Field>
+						<FieldLabel htmlFor="event-meal-base">Efetivo (opcional)</FieldLabel>
+						<Input
+							id="event-meal-base"
+							type="number"
+							min={1}
+							step={1}
+							inputMode="numeric"
+							value={baseHeadcount}
+							onChange={(e) => setBaseHeadcount(e.target.value)}
+							placeholder="Ex.: 300"
+						/>
+						<FieldDescription>
+							Quantas pessoas comem nesta refeição. Cada preparação pode então pedir uma % desse efetivo — como no cardápio semanal — ou informar o número de
+							pessoas direto.
 						</FieldDescription>
 					</Field>
 

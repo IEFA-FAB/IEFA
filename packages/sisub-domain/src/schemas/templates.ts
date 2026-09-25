@@ -67,6 +67,12 @@ export const TemplateEventMealSchema = z.object({
 	mealTypeId: UuidSchema,
 	/** Composição: as colunas da refeição, na ordem de leitura. Chave repetida é recusada. */
 	groups: z.array(MenuGroupSchema).min(1).max(MAX_EVENT_MEAL_GROUPS),
+	/**
+	 * Efetivo da refeição: a porcentagem de cada item (`recommendedProportion`) incide sobre ele,
+	 * como no cardápio semanal. Ausente/nulo = só o pax do item conta. `.nullish()` porque este
+	 * objeto vive dentro de array exposto a modelo (`eventMeals`).
+	 */
+	baseHeadcount: z.number().int().positive().nullish(),
 })
 export type TemplateEventMeal = z.infer<typeof TemplateEventMealSchema>
 

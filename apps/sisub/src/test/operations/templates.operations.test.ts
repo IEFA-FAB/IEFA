@@ -7,6 +7,7 @@
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
+	applyEventTemplate,
 	applyTemplate,
 	createBlankTemplate,
 	createTemplate,
@@ -817,5 +818,42 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		await expect(saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "kitchen", kitchenId }, eventMeals: [coquetel] })).rejects.toThrow(
 			/eventMeals e items juntos/
 		)
+	}, 30_000)
+
+	test("evento: a porcentagem da preparação incide sobre o efetivo da refeição, no custeio e no calendário", async () => {
+		if (!reachable || !seeder || !db) return
+		const sd = seeder
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		sd.trackFn(() => sd.purgeKitchenMenus(kitchenId))
+		const otherRecipe = await sd.seedRecipe({ kitchenId: null })
+		const coquetelId = crypto.randomUUID()
+
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Evento efetivo "),
+			kitchenId,
+			templateType: "event",
+			eventMeals: [{ id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS, baseHeadcount: 300 }],
+			items: [
+				// 60% de 300 = 180; o pax direto (40) vence a porcentagem.
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "volante", recommendedProportion: 60, eventMealId: coquetelId },
+				{ dayOfWeek: 1, mealTypeId, recipeId: otherRecipe, itemGroup: "entrada", headcountOverride: 40, recommendedProportion: 60, eventMealId: coquetelId },
+			],
+		})
+		trackTemplate(tpl.id)
+
+		const full = await getTemplate(db, ctx, { templateId: tpl.id })
+		expect(full.event_meals[0]?.base_headcount).toBe(300)
+
+		const listed = (await listTemplates(db, ctx, { kitchenId })).find((t) => t.id === tpl.id)
+		expect(listed?.headcount_filled).toBe(2)
+
+		const date = "2099-06-10"
+		await applyEventTemplate(db, ctx, { templateId: tpl.id, kitchenId, dates: [date] })
+		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as {
+			menu_items: { recipe_origin_id: string | null; planned_portion_quantity: number | string | null }[]
+		}[]
+		const planned = new Map(details.flatMap((d) => d.menu_items).map((i) => [i.recipe_origin_id, Number(i.planned_portion_quantity)]))
+		expect(planned.get(recipeId)).toBe(180)
+		expect(planned.get(otherRecipe)).toBe(40)
 	}, 30_000)
 })

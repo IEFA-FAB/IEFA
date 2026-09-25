@@ -22,15 +22,21 @@ export type EventMealDraft = {
 	/** Horário do calendário em que a refeição é servida. */
 	meal_type_id: string
 	groups: MenuGroup[]
+	/**
+	 * Efetivo da refeição. A porcentagem de cada preparação incide sobre ele, como no cardápio
+	 * semanal; `null` = só o pax da preparação conta.
+	 */
+	base_headcount: number | null
 }
 
 /** Forma gravada (leitura do template). */
-type EventMealRow = { id: string; name: string; meal_type_id: string; groups: MenuGroup[] }
+type EventMealRow = { id: string; name: string; meal_type_id: string; groups: MenuGroup[]; base_headcount?: number | null }
 type TemplateItemRow = {
 	meal_type_id: string | null
 	event_meal_id?: string | null
 	recipe_id: string | null
 	headcount_override?: number | null
+	recommended_proportion?: number | null
 	item_group?: string | null
 	sort_order?: number | null
 	/** Tipo de refeição aninhado pela leitura do template — dá nome à refeição reconstruída. */
@@ -60,6 +66,7 @@ export function eventDraftFrom(
 		name: m.name,
 		meal_type_id: m.meal_type_id,
 		groups: eventMealGroupsOrDefault(m.groups),
+		base_headcount: m.base_headcount ?? null,
 	}))
 	// Regra de colocação compartilhada com o servidor (`placeStoredEventItems`): o nome da
 	// refeição reconstruída é o do horário.
@@ -71,7 +78,7 @@ export function eventDraftFrom(
 	)
 	for (const meal of rebuilt) {
 		const slotName = withRecipe.find((i) => i.meal_type_id === meal.mealTypeId)?.meal_type?.name?.trim()
-		meals.push({ id: meal.id, name: slotName || "Refeição", meal_type_id: meal.mealTypeId, groups: meal.groups })
+		meals.push({ id: meal.id, name: slotName || "Refeição", meal_type_id: meal.mealTypeId, groups: meal.groups, base_headcount: null })
 	}
 
 	const drafts = withRecipe.flatMap((item, index): TemplateItemDraft[] => {
@@ -83,6 +90,7 @@ export function eventDraftFrom(
 				meal_type_id: placement.mealId,
 				recipe_id: item.recipe_id,
 				headcount_override: item.headcount_override ?? null,
+				recommended_proportion: item.recommended_proportion != null ? Number(item.recommended_proportion) : null,
 				item_group: placement.itemGroup,
 				sort_order: item.sort_order ?? 0,
 			},
@@ -107,6 +115,7 @@ export function eventItemsPayload(items: readonly TemplateItemDraft[], meals: re
 				event_meal_id: meal.id,
 				recipe_id: item.recipe_id,
 				headcount_override: item.headcount_override ?? null,
+				recommended_proportion: item.recommended_proportion ?? null,
 				item_group: item.item_group ?? null,
 				sort_order: item.sort_order ?? 0,
 			},
@@ -115,12 +124,18 @@ export function eventItemsPayload(items: readonly TemplateItemDraft[], meals: re
 }
 
 export function eventMealsPayload(meals: readonly EventMealDraft[]) {
-	return meals.map((m) => ({ id: m.id, name: m.name.trim(), mealTypeId: m.meal_type_id, groups: m.groups.map((g) => ({ key: g.key, label: g.label.trim() })) }))
+	return meals.map((m) => ({
+		id: m.id,
+		name: m.name.trim(),
+		mealTypeId: m.meal_type_id,
+		groups: m.groups.map((g) => ({ key: g.key, label: g.label.trim() })),
+		baseHeadcount: m.base_headcount,
+	}))
 }
 
 /** Refeição nova: nasce com a composição padrão de evento, que o editor deixa mudar inteira. */
 export function newEventMeal(name: string, mealTypeId: string): EventMealDraft {
-	return { id: crypto.randomUUID(), name, meal_type_id: mealTypeId, groups: DEFAULT_EVENT_MEAL_GROUPS.map((g) => ({ ...g })) }
+	return { id: crypto.randomUUID(), name, meal_type_id: mealTypeId, groups: DEFAULT_EVENT_MEAL_GROUPS.map((g) => ({ ...g })), base_headcount: null }
 }
 
 /** Quantos itens da refeição estão em grupos que a nova composição não tem mais. */
@@ -217,4 +232,36 @@ export function findDuplicateGroup(groups: readonly MenuGroup[]): MenuGroup | un
 /** A sugestão já está na composição — pela chave ou pelo rótulo. */
 export function isSuggestionPresent(suggestion: { key: string; label: string }, groups: readonly MenuGroup[]): boolean {
 	return groups.some((g) => g.key === suggestion.key || labelIdentity(g.label) === labelIdentity(suggestion.label))
+}
+
+/** Efetivo de uma refeição (`null` limpa). */
+export function setEventMealBase(meals: readonly EventMealDraft[], mealId: string, baseHeadcount: number | null): EventMealDraft[] {
+	return meals.map((m) => (m.id === mealId ? { ...m, base_headcount: baseHeadcount } : m))
+}
+
+/**
+ * Quantitativo do auxiliador → efetivo de cada refeição do evento (o plano é por id de
+ * refeição). Mesmo contrato do semanal (`applyHeadcountToMeals`): sem `overwrite`, só preenche
+ * refeição sem efetivo.
+ */
+export function applyHeadcountToEventMeals(
+	meals: readonly EventMealDraft[],
+	plan: ReadonlyMap<string, number | null>,
+	{ overwrite = false } = {}
+): EventMealDraft[] {
+	return meals.map((m) => {
+		const value = plan.get(m.id)
+		if (value == null) return m
+		if (!overwrite && m.base_headcount != null) return m
+		return { ...m, base_headcount: value }
+	})
+}
+
+/** Quantas refeições o plano vai mudar — o número que o botão do auxiliador promete. */
+export function countEventMealHeadcountTargets(meals: readonly EventMealDraft[], plan: ReadonlyMap<string, number | null>, { overwrite = false } = {}): number {
+	return meals.filter((m) => {
+		const value = plan.get(m.id)
+		if (value == null || m.base_headcount === value) return false
+		return overwrite || m.base_headcount == null
+	}).length
 }

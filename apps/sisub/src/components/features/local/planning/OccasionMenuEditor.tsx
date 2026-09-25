@@ -30,6 +30,8 @@ import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSetSnackClassification, useSnackMealType } from "@/hooks/data/useSnackRequests"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import {
+	applyHeadcountToEventMeals,
+	countEventMealHeadcountTargets,
 	countItemsLeavingComposition,
 	type EventMealDraft,
 	eventDraftFrom,
@@ -38,6 +40,7 @@ import {
 	moveEventMeal,
 	newEventMeal,
 	removeEventMeal,
+	setEventMealBase,
 	upsertEventMeal,
 } from "@/lib/event-meals"
 import {
@@ -488,10 +491,25 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		clearSelection()
 	}
 
-	/** Sem efetivo base aqui (`menu_template_meal` é do cardápio semanal): o quantitativo do
-	 * auxiliador vai direto para o pax de cada preparação da refeição. */
+	/**
+	 * Evento: o quantitativo vai para o EFETIVO de cada refeição, como no cardápio semanal — a
+	 * porcentagem das preparações incide sobre ele. Exceção não tem efetivo de refeição: vai
+	 * direto para o pax de cada preparação.
+	 */
 	const handleApplyHeadcountPlan = (plan: HeadcountPlan, overwrite: boolean) => {
+		if (isEvent) {
+			dispatch({ type: "SET_EVENT_CONTENT", meals: applyHeadcountToEventMeals(eventMeals, plan, { overwrite }), items })
+			return
+		}
 		dispatch({ type: "SET_ITEMS", value: applyHeadcountToItems(items, plan, { overwrite }) })
+	}
+
+	/** Porcentagem do efetivo da refeição para uma preparação do evento. */
+	const handleItemProportionChange = (mealId: string, recipeId: string, value: number | null) => {
+		dispatch({
+			type: "SET_ITEMS",
+			value: items.map((i) => (i.meal_type_id === mealId && i.recipe_id === recipeId ? { ...i, recommended_proportion: value } : i)),
+		})
 	}
 
 	const handleBulkHeadcount = (headcount: number | null) => {
@@ -531,7 +549,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 					headcount: item.headcount_override ?? null,
 					group: item.item_group ?? null,
 					sortOrder: item.sort_order ?? 0,
-					proportion: null,
+					proportion: item.recommended_proportion ?? null,
 				},
 			]
 		})
@@ -841,6 +859,8 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 										onAdd={(group) => handleOpenSelector(meal.id, group)}
 										onArrange={(arrangement) => handleEventArrange(meal.id, arrangement)}
 										onHeadcountChange={(recipeId, value) => handleItemHeadcountChange(meal.id, recipeId, value)}
+										onProportionChange={(recipeId, value) => handleItemProportionChange(meal.id, recipeId, value)}
+										onBaseHeadcountChange={(value) => dispatch({ type: "SET_EVENT_CONTENT", meals: setEventMealBase(eventMeals, meal.id, value), items })}
 										onRemoveItem={(recipeId) => handleRemoveRecipe(meal.id, recipeId)}
 										selectionMode={selectionMode}
 										selectedIds={new Set(boardItems.map((b) => b.id).filter((recipeId) => selectedKeys.has(keyOf(recipeId))))}
@@ -910,8 +930,10 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				open={headcountOpen}
 				onOpenChange={setHeadcountOpen}
 				mealTypes={sectionMealTypes ?? []}
-				scope="item-headcount"
-				countTargets={(plan, overwrite) => countItemHeadcountTargets(items, plan, { overwrite })}
+				scope={isEvent ? "meal-base" : "item-headcount"}
+				countTargets={(plan, overwrite) =>
+					isEvent ? countEventMealHeadcountTargets(eventMeals, plan, { overwrite }) : countItemHeadcountTargets(items, plan, { overwrite })
+				}
 				onApply={handleApplyHeadcountPlan}
 			/>
 
