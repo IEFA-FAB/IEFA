@@ -32,8 +32,7 @@
     // `className` num componente de `components/ui` só posiciona (layout: margem, largura,
     // flex, posição). Aparência vem de variante — se o design pede uma que não existe, ela
     // nasce no primitivo, não num `className` repetido em cada tela. Contratos por slot abrem o
-    // que o slot existe para receber. As classes `text-*` semânticas dos temas são nomeadas
-    // porque o linter não as classifica como tipografia. Dívida medida pelo baseline.
+    // que o slot existe para receber. Dívida medida pelo baseline.
     "shadcn/no-restyle": [
       "warn",
       {
@@ -45,49 +44,16 @@
             "allow": ["layout", "spacing"]
           },
           {
-            // Texto: escala e tom são o que o slot carrega.
-            "pattern": "^(Card|Sheet|Dialog|AlertDialog|Drawer)(Title|Description)$|^(Field)?Label$|^FieldDescription$|^Item(Title|Description)$",
-            "allow": [
-              "layout",
-              "typography",
-              "color",
-              "text-body",
-              "text-caption",
-              "text-display",
-              "text-eyebrow",
-              "text-heading",
-              "text-headline",
-              "text-hero",
-              "text-hint",
-              "text-label",
-              "text-lead",
-              "text-section-title",
-              "text-step-number",
-              "text-subheading"
-            ]
+            // Texto (CardTitle, AlertDescription, DropdownMenuLabel…): escala e cor DO TEXTO. Fundo,
+            // borda e anel seguem sendo do primitivo. `text-color` também cobre as classes
+            // semânticas `text-subheading`/`text-hint`…, que o linter lê como cor de texto.
+            "pattern": "(Title|Description|Label)$",
+            "allow": ["layout", "typography", "text-color"]
           },
           {
-            // Célula: alinhamento numérico, fonte mono e cor de status são conteúdo, não restyle.
+            // Célula: alinhamento numérico, fonte mono, respiro e cor de status do texto.
             "pattern": "^Table(Cell|Head)$",
-            "allow": [
-              "layout",
-              "spacing",
-              "typography",
-              "color",
-              "text-body",
-              "text-caption",
-              "text-display",
-              "text-eyebrow",
-              "text-heading",
-              "text-headline",
-              "text-hero",
-              "text-hint",
-              "text-label",
-              "text-lead",
-              "text-section-title",
-              "text-step-number",
-              "text-subheading"
-            ]
+            "allow": ["layout", "spacing", "typography", "text-color"]
           }
         ]
       }
