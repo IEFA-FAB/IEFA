@@ -32,7 +32,7 @@ function GlobalExceptionsPage() {
 			nounWithArticle="o apoio"
 			newLabel="Novo Apoio"
 			emptyMessage="Nenhum apoio modelo cadastrado."
-			emptyHint="Crie um apoio para que as cozinhas possam adaptá-la."
+			emptyHint="Crie um apoio para que as cozinhas possam adaptá-lo."
 			newLink={{ to: "/global/exceptions/new" }}
 			editorLink={(exceptionId) => ({ to: "/global/exceptions/$exceptionId", params: { exceptionId } })}
 		/>
