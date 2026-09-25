@@ -28,14 +28,77 @@
         "allow": ["layout"],
         "message": "\"{{className}}\" é valor fora da escala (o mais próximo nela: {{suggestions|nenhum}}). Tipografia, tracking e sombra vão pela classe semântica do STYLE_CONTRACT do app — trocar por um degrau cru só renomeia a dívida."
       }
+    ],
+    // `className` num componente de `components/ui` só posiciona (layout: margem, largura,
+    // flex, posição). Aparência vem de variante — se o design pede uma que não existe, ela
+    // nasce no primitivo, não num `className` repetido em cada tela. Contratos por slot abrem o
+    // que o slot existe para receber. As classes `text-*` semânticas dos temas são nomeadas
+    // porque o linter não as classifica como tipografia. Dívida medida pelo baseline.
+    "shadcn/no-restyle": [
+      "warn",
+      {
+        "allow": ["layout"],
+        "contracts": [
+          {
+            // Moldura: o respiro interno é decisão da tela.
+            "pattern": "^(Card|Sheet|Dialog|AlertDialog|Drawer|Popover)(Header|Content|Footer)$|^TabsContent$",
+            "allow": ["layout", "spacing"]
+          },
+          {
+            // Texto: escala e tom são o que o slot carrega.
+            "pattern": "^(Card|Sheet|Dialog|AlertDialog|Drawer)(Title|Description)$|^(Field)?Label$|^FieldDescription$|^Item(Title|Description)$",
+            "allow": [
+              "layout",
+              "typography",
+              "color",
+              "text-body",
+              "text-caption",
+              "text-display",
+              "text-eyebrow",
+              "text-heading",
+              "text-headline",
+              "text-hero",
+              "text-hint",
+              "text-label",
+              "text-lead",
+              "text-section-title",
+              "text-step-number",
+              "text-subheading"
+            ]
+          },
+          {
+            // Célula: alinhamento numérico, fonte mono e cor de status são conteúdo, não restyle.
+            "pattern": "^Table(Cell|Head)$",
+            "allow": [
+              "layout",
+              "spacing",
+              "typography",
+              "color",
+              "text-body",
+              "text-caption",
+              "text-display",
+              "text-eyebrow",
+              "text-heading",
+              "text-headline",
+              "text-hero",
+              "text-hint",
+              "text-label",
+              "text-lead",
+              "text-section-title",
+              "text-step-number",
+              "text-subheading"
+            ]
+          }
+        ]
+      }
     ]
   },
   // A última override que casa com o arquivo decide as opções da regra: a geral vem antes.
   "overrides": [
     {
-      // Primitivos do design system definem o próprio visual: valor exato ali é implementação.
+      // Primitivos do design system definem o próprio visual: valor exato e restyle ali são implementação.
       "files": ["apps/*/src/components/ui/**"],
-      "rules": { "shadcn/no-arbitrary-values": "off" }
+      "rules": { "shadcn/no-arbitrary-values": "off", "shadcn/no-restyle": "off" }
     },
     {
       // Ganchos sem CSS: `nodrag`/`nopan` são lidos pelo React Flow; `qr-*` e
