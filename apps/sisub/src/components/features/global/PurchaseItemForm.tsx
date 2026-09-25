@@ -163,7 +163,7 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="sm:max-w-2xl max-h-[85dvh] flex flex-col">
+			<DialogContent className="sm:max-w-2xl max-h-[calc(100%-2rem)] flex flex-col">
 				<DialogHeader>
 					<DialogTitle>{mode === "create" ? "Novo Item de Compra" : "Editar Item de Compra"}</DialogTitle>
 				</DialogHeader>
