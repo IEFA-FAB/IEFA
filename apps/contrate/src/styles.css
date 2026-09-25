@@ -419,56 +419,40 @@
   }
 }
 
-/* ---- UTILITÁRIOS DE ESCALA ----
-   `@utility`, não classe solta em `@layer utilities`: assim aceitam variante
-   (`md:text-label`) e o @shadcn/lint os reconhece como vocabulário do tema — o
-   prefixo `text-`/`shadow-` o faria lê-los como cor não declarada. */
-/* Tipografia: escala de display com tracking negativo */
-/* Hero: título principal de página — máximo visual */
-@utility text-hero {
-  font-size: clamp(3.75rem, 11vw, 8rem);
-  font-weight: 700;
-  letter-spacing: -0.05em;
-  line-height: 1.0;
-}
-
-@utility text-display {
-  font-size: clamp(2.5rem, 6vw, 4.5rem);
-  font-weight: 700;
-  letter-spacing: var(--tracking-tighter);
-  line-height: 1.05;
-}
-
-@utility text-headline {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  font-weight: 600;
-  letter-spacing: var(--tracking-tight);
-  line-height: 1.15;
-}
-
-/* Label/tag: uppercase com tracking largo */
-@utility text-label {
-  font-size: 0.6875rem;     /* 11px */
-  font-weight: 500;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-}
-
-/* Sombra hard offset — modificador brutalista */
-@utility shadow-hard-sm {
-  box-shadow: var(--shadow-hard-sm);
-}
-
-@utility shadow-hard-md {
-  box-shadow: var(--shadow-hard-md);
-}
-
-@utility shadow-hard-lg {
-  box-shadow: var(--shadow-hard-lg);
-}
-
 /* ---- UTILITÁRIOS BRUTALISTAS ---- */
 @layer utilities {
+  /* Tipografia: escala de display com tracking negativo */
+
+  /* Hero: título principal de página — máximo visual */
+  .text-hero {
+    font-size: clamp(3.75rem, 11vw, 8rem);
+    font-weight: 700;
+    letter-spacing: -0.05em;
+    line-height: 1.0;
+  }
+
+  .text-display {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tighter);
+    line-height: 1.05;
+  }
+
+  .text-headline {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 600;
+    letter-spacing: var(--tracking-tight);
+    line-height: 1.15;
+  }
+
+  /* Label/tag: uppercase com tracking largo */
+  .text-label {
+    font-size: 0.6875rem;     /* 11px */
+    font-weight: 500;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+  }
+
   /* Delimitador horizontal como separador de seção (estilo greptile) */
   .section-rule {
     border: none;
@@ -480,6 +464,17 @@
   .page-frame {
     border-left: 1px solid var(--border);
     border-right: 1px solid var(--border);
+  }
+
+  /* Sombra hard offset — modificador brutalista */
+  .shadow-hard-sm {
+    box-shadow: var(--shadow-hard-sm);
+  }
+  .shadow-hard-md {
+    box-shadow: var(--shadow-hard-md);
+  }
+  .shadow-hard-lg {
+    box-shadow: var(--shadow-hard-lg);
   }
 
   /* Variante hover brutalista: sombra some, elemento translada */

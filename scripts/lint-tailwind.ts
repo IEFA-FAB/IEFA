@@ -10,8 +10,15 @@
  *   - **aviso** é dívida medida. A contagem por regra de cada app fica em
  *     `apps/<app>/tailwind-lint-baseline.json` e só pode descer: acima dela falha (aviso novo),
  *     abaixo também (baseline velho esconderia a próxima regressão) — `--update` regrava.
- *   - tema que o linter não consegue montar falha: sem ele `no-unknown-classes` cai numa gramática
- *     embutida que aceita classe inventada, e o verde passaria a mentir.
+ *   - token de cor NÃO declarado (`bg-foregorund`) vem do `@shadcn/lint` como aviso de
+ *     `no-raw-colors`, mas é classe que não gera CSS: sobe para erro aqui. Sem isso, corrigir uma
+ *     cor crua e digitar um token errado deixaria a contagem igual e passaria.
+ *   - qualquer aviso do próprio `@shadcn/lint` no stderr falha — o principal é o tema que não
+ *     montou: sem ele `no-unknown-classes` cai numa gramática embutida que aceita classe inventada.
+ *
+ * As duas últimas dependem do TEXTO das mensagens da versão fixada. Mensagem de `no-raw-colors`
+ * que não casa com nenhum dos dois formatos conhecidos vira erro — ao subir a versão, o lint
+ * quebra alto em vez de passar a contar errado.
  *
  * Uso: `bun scripts/lint-tailwind.ts [app...] [--update]` — sem app, roda em todos.
  */
@@ -61,6 +68,10 @@ try {
 }
 
 const ruleOf = (d: Diagnostic) => d.code.replace(/^shadcn\((.+)\)$/, "shadcn/$1")
+const PALETTE = / uses the raw Tailwind palette\b| hardcodes a color\b/
+const UNDECLARED = / is not a declared theme color\b/
+/** Aviso que é dívida contável; o resto (token não declarado, formato desconhecido) é erro. */
+const isDebt = (d: Diagnostic) => d.severity === "warning" && (ruleOf(d) !== "shadcn/no-raw-colors" || (PALETTE.test(d.message) && !UNDECLARED.test(d.message)))
 const format = (d: Diagnostic) => {
 	const span = d.labels[0]?.span
 	return `  ${d.filename}:${span?.line ?? 0}:${span?.column ?? 0}  ${ruleOf(d)}  ${d.message}`
@@ -68,15 +79,15 @@ const format = (d: Diagnostic) => {
 
 let failed = false
 if (stderr.trim() !== "") console.error(stderr.trimEnd())
-if (stderr.includes("could not be built")) {
-	console.error("lint-tailwind: tema do Tailwind não montou — no-unknown-classes estaria usando a gramática embutida.")
+if (stderr.includes("[@shadcn/lint]")) {
+	console.error("lint-tailwind: o @shadcn/lint avisou algo acima (tema que não montou cai na gramática embutida). Resolva antes de confiar no resultado.")
 	failed = true
 }
 
 for (const app of apps) {
 	const own = diagnostics.filter((d) => d.filename.startsWith(`apps/${app}/`))
-	const errors = own.filter((d) => d.severity === "error")
-	const warnings = own.filter((d) => d.severity === "warning")
+	const warnings = own.filter(isDebt)
+	const errors = own.filter((d) => !isDebt(d))
 	let appFailed = false
 
 	if (errors.length > 0) {
@@ -91,8 +102,10 @@ for (const app of apps) {
 	if (update) {
 		const sorted = Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)))
 		if (Object.keys(sorted).length === 0) rmSync(baselinePath, { force: true })
-		else writeFileSync(baselinePath, `${JSON.stringify(sorted, null, "\t")}\n`)
+		// 2 espaços: é o que o Biome exige de JSON neste repo.
+		else writeFileSync(baselinePath, `${JSON.stringify(sorted, null, 2)}\n`)
 		console.log(`${app}: baseline ${JSON.stringify(sorted)}`)
+		if (appFailed) failed = true
 		continue
 	}
 
@@ -109,7 +122,7 @@ for (const app of apps) {
 			appFailed = true
 		}
 	}
-	if (appFailed) failed = true
+	if (appFailed || failed) failed = true
 	else console.log(`${app}: ok ${JSON.stringify(counts)}`)
 }
 

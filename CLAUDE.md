@@ -48,9 +48,9 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 - **Commits**: Conventional Commits via cz-git. **Os escopos não são uma lista digitada**: `commitlint.config.ts` os deriva de `apps/` + `packages/` + das chaves do `apps.manifest.json` (por isso `5s` vale), mais `deps`, `ci`, `scripts` e `root`. Workspace novo já é escopo válido — não há lista para atualizar.
 - **Formatting**: `bun run format` (Biome). Pre-commit hook runs `format:check`
 - **Lint de Tailwind (`@shadcn/lint` pelo Oxlint)**: `bun run lint:tailwind`, também dentro do `bun run check` e do `lint` de cada app com `components.json` (então roda nos `check-<app>` do CI). Config em `.oxlintrc.tailwind.jsonc` — nome fora do padrão de propósito, o react-doctor adotaria um `.oxlintrc.json`.
-  - **Erro falha sempre**: `no-unknown-classes` é classe que não gera CSS (erro de digitação, variante inexistente, `prose` sem o plugin). Classe de gancho ou de `<style>` próprio entra no `allow` da override do arquivo, não num disable.
+  - **Erro falha sempre**: `no-unknown-classes` é classe que não gera CSS (erro de digitação, variante inexistente, `prose` sem o plugin); token de cor não declarado (`bg-foregorund`) também vira erro. Classe de gancho ou de `<style>` próprio entra no `allow` da override do arquivo, não num disable.
   - **Aviso é dívida contada** em `apps/<app>/tailwind-lint-baseline.json`, que só desce: aviso novo falha, e corrigir sem baixar o número também falha — `bun scripts/lint-tailwind.ts <app> --update` regrava.
-  - **Classe própria do tema é `@utility`, nunca classe solta em `@layer utilities`**: solta ela não aceita variante (`md:text-label` não gera nada) e o linter lê `text-label`/`shadow-hard-sm` como cor não declarada.
+  - **`text-label`/`text-hero`/`shadow-hard-*` ficam classe solta em `@layer utilities`, não `@utility`**: soltas, vêm depois de todo utilitário gerado e vencem qualquer conflito no mesmo elemento — convertidas passariam a perder para `tracking-*`/`text-[10px]` ao lado e mudariam páginas. O linter as leria como cor; por isso estão no `allow` de `no-raw-colors`.
 
 ### Nomenclatura: identificador em inglês, valor de domínio na língua da norma
 

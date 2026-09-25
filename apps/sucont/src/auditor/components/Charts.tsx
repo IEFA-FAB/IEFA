@@ -506,7 +506,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 		const textShadow = "0 1px 2px rgba(0,0,0,0.8)"
 
 		return (
-			<g className="recharts-treemap-node group cursor-pointer">
+			<g className="recharts-treemap-node cursor-pointer">
 				<rect
 					x={x}
 					y={y}
