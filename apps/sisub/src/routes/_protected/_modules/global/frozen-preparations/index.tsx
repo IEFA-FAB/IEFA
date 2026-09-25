@@ -235,7 +235,7 @@ function FrozenPreparationDialog({ open, onOpenChange, editing }: { open: boolea
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-lg">
+			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
 					<DialogTitle>{editing ? "Editar preparação congelada" : "Nova preparação congelada"}</DialogTitle>
 				</DialogHeader>
