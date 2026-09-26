@@ -336,3 +336,29 @@ begin
     execute format('revoke all on legacy_sisubweb.%I from public, anon, authenticated', t.tablename);
   end loop;
 end $$;
+
+-- 8 ─────────────────────────────────────────────────────────────────────────────────────────
+-- Características do CATMAT sem valor codificado. O único (item, característica, valor) é
+-- NULLS DISTINCT: com `codigo_valor_caracteristica` nulo nunca havia conflito, e cada sync
+-- inseria uma cópia nova. Em 2026-09-26: 219.191 linhas com valor nulo em 15.900 chaves, ou
+-- seja, 203.291 cópias — todas de conteúdo idêntico ao da chave (conferido: nenhuma chave com
+-- nome, valor, número, unidade ou status divergentes). Fica a mais recente de cada chave, e o
+-- único passa a tratar nulo como igual, o que o `onConflict` do sync já espera.
+delete from compras_gov_integration.compras_material_caracteristica c
+using (
+  select id,
+         row_number() over (
+           partition by codigo_item, codigo_caracteristica
+           order by synced_at desc nulls last, id desc
+         ) as rn
+  from compras_gov_integration.compras_material_caracteristica
+  where codigo_valor_caracteristica is null
+) d
+where c.id = d.id
+  and d.rn > 1;
+
+alter table compras_gov_integration.compras_material_caracteristica
+  drop constraint if exists compras_material_caracteristi_codigo_item_codigo_caracteris_key;
+alter table compras_gov_integration.compras_material_caracteristica
+  add constraint compras_material_caracteristica_item_caracteristica_valor_key
+  unique nulls not distinct (codigo_item, codigo_caracteristica, codigo_valor_caracteristica);
