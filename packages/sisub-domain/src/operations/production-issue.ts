@@ -68,3 +68,45 @@ export function leftoverExpiryDate(productionDate: string, shelfLifeDays: number
 	base.setUTCDate(base.getUTCDate() + shelfLifeDays)
 	return base.toISOString().substring(0, 10)
 }
+
+/**
+ * O que falta na ficha gravada no dia para a sugestão de saída sair certa dela.
+ *
+ * `computeTheoreticalConsumption` devolve lista vazia quando a ficha não tem insumos ou o item
+ * não tem porções, e trata rendimento ausente como 1 porção — a tela mostrava a sugestão vazia
+ * (ou multiplicada pelo número de porções) sem dizer por quê. Cada lacuna aqui vira o aviso
+ * "ficha incompleta" na tarefa, na sugestão de saída e na pendência da nutricionista. A
+ * preparação provisória (criada no turno só com o nome) é lacuna própria: funciona no dia, mas
+ * a ficha técnica ainda não existe.
+ */
+export type SnapshotGap = "provisional" | "no_ingredients" | "no_yield" | "no_portions"
+
+export const SNAPSHOT_GAP_LABELS: Record<SnapshotGap, string> = {
+	provisional: "preparação provisória, criada no turno sem ficha técnica",
+	no_ingredients: "ficha sem insumos: a sugestão de saída não inclui esta preparação",
+	no_yield: "ficha sem rendimento: a sugestão é calculada como se a receita rendesse 1 porção",
+	no_portions: "item sem porções planejadas: a sugestão de saída não inclui esta preparação",
+}
+
+export interface SnapshotForGaps extends RecipeSnapshotForIssue {
+	provisional_since?: string | null
+}
+
+export function findSnapshotGaps(snapshot: SnapshotForGaps | null | undefined, plannedPortions: number | string | null | undefined): SnapshotGap[] {
+	const gaps: SnapshotGap[] = []
+	if (snapshot?.provisional_since) gaps.push("provisional")
+	const usable = (snapshot?.ingredients ?? []).filter((row) => row.ingredient_id && Number(row.net_quantity ?? 0) > 0)
+	if (usable.length === 0) gaps.push("no_ingredients")
+	// Rendimento só importa quando há insumo para escalar: sem insumo o aviso já é o de cima.
+	const portionYield = Number(snapshot?.portion_yield ?? 0)
+	if (usable.length > 0 && (!Number.isFinite(portionYield) || portionYield <= 0)) gaps.push("no_yield")
+	const portions = Number(plannedPortions ?? 0)
+	if (!Number.isFinite(portions) || portions <= 0) gaps.push("no_portions")
+	return gaps
+}
+
+/** Frase única do aviso, para a tarefa e a sugestão de saída dizerem a mesma coisa. */
+export function describeSnapshotGaps(gaps: readonly SnapshotGap[]): string | null {
+	if (gaps.length === 0) return null
+	return `Ficha incompleta — ${gaps.map((gap) => SNAPSHOT_GAP_LABELS[gap]).join("; ")}.`
+}

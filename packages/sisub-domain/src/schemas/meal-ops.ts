@@ -88,11 +88,18 @@ export const AdjustProductionPortionsSchema = z.object({
 })
 export type AdjustProductionPortions = z.infer<typeof AdjustProductionPortionsSchema>
 
-/** Substituição de insumo registrada durante o turno (chão de fábrica). */
+/**
+ * Substituição de insumo registrada durante o turno (chão de fábrica). Mesmo registro do
+ * agendamento (`RecordMenuSubstitutionSchema`): a chave é o insumo que FALTOU, e o que ENTROU
+ * vai em `substituteDescription` (texto livre, cobre o que não está no catálogo) e, quando é
+ * insumo do catálogo, em `substituteIngredientId`.
+ */
 export const RecordProductionSubstitutionSchema = z.object({
 	menuItemId: z.uuid(),
 	ingredientId: z.string().min(1),
-	rationale: z.string().min(1).max(500),
+	substituteIngredientId: z.uuid().nullable().optional(),
+	substituteDescription: z.string().trim().min(1).max(200),
+	rationale: z.string().trim().min(1).max(500),
 })
 export type RecordProductionSubstitution = z.infer<typeof RecordProductionSubstitutionSchema>
 

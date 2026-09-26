@@ -46,7 +46,7 @@ const MEAL_TYPES = [
  * Stub do Drizzle. `findFirst` ignora o `where` e devolve a linha do id pedido (capturado pelo
  * teste); `findMany` devolve a linhagem inteira; `select().from(t).where()` devolve a tabela.
  */
-function fakeDb(requestedId: string): SisubDb {
+function fakeDb(requestedId: string, provisionalNames: string[] = []): SisubDb {
 	const recipeRow = (r: Row) => ({ ...r, name: "Arroz", deletedAt: null, recipeIngredientsInKitchens: [] })
 	return {
 		query: {
@@ -60,6 +60,8 @@ function fakeDb(requestedId: string): SisubDb {
 				where: () => Promise.resolve(table === recipesInKitchen ? LINEAGE : table === mealTypeInKitchen ? MEAL_TYPES : []),
 			}),
 		}),
+		// Única leitura crua da validação: as preparações provisórias entre as receitas do template.
+		execute: () => Promise.resolve(provisionalNames.map((name) => ({ name }))),
 		transaction: () => Promise.reject(new Error("não deveria chegar à escrita")),
 	} as unknown as SisubDb
 }
@@ -148,5 +150,15 @@ describe("conteúdo gravado num template fica no escopo do template", () => {
 		})
 		// O stub recusa a transação: chegar nela prova que a validação deixou passar.
 		await expect(run).rejects.toThrow("não deveria chegar à escrita")
+	})
+
+	test("preparação provisória (criada no turno) não entra em cardápio-modelo, e a recusa diz o que fazer", async () => {
+		const run = createTemplate(fakeDb(ROOT_ID, ["Farofa de ovo"]), kitchenCtx(KITCHEN_A, 2), {
+			name: "Semana",
+			kitchenId: KITCHEN_A,
+			templateType: "weekly",
+			items: [item(FORK_A_ID)],
+		})
+		await expect(run).rejects.toThrow(/"Farofa de ovo" é preparação provisória.*Complete a ficha/)
 	})
 })

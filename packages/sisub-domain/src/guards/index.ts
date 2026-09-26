@@ -18,6 +18,7 @@ export { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "./req
 export {
 	requireAnyPermission,
 	requireKitchen,
+	requireKitchenExecution,
 	requireKitchenFloorWrite,
 	requireKitchenProduction,
 	requireMessHall,

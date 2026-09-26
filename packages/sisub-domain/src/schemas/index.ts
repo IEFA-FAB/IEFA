@@ -152,6 +152,21 @@ export { SubmitEvaluationSchema, UpsertEvalConfigSchema } from "./evaluation.ts"
 export type { EventItemPlacement, PlaceableEventMeal, RebuiltEventMeal, StoredEventItemRef } from "./event-meal-placement.ts"
 export { eventMealGroupsOrDefault, placeStoredEventItems } from "./event-meal-placement.ts"
 export type {
+	AddExecutionMenuItem,
+	FetchExecutionOptions,
+	FetchExecutionReviewStatus,
+	ReviewExecutionMenuItem,
+	ReviewProvisionalFrozenPreparation,
+} from "./execution.ts"
+export {
+	AddExecutionMenuItemSchema,
+	EXECUTION_REASON_MAX,
+	FetchExecutionOptionsSchema,
+	FetchExecutionReviewStatusSchema,
+	ReviewExecutionMenuItemSchema,
+	ReviewProvisionalFrozenPreparationSchema,
+} from "./execution.ts"
+export type {
 	CreateFrozenPreparation,
 	DeleteFrozenPreparation,
 	FetchFrozenPreparation,
