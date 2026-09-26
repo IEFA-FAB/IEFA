@@ -161,8 +161,22 @@ export const ASSURANCE_REGISTRY = {
 	saveChatMessageFn: { require: "none" },
 	updateMessageChartTypeFn: { require: "none" },
 
+	// ── acquisition.fn.ts (contratação de origem: cadastro, sem efeito financeiro)
+	createAcquisitionFn: { require: "none" },
+	updateAcquisitionFn: { require: "none" },
+	deleteAcquisitionFn: { require: "none" },
+	linkArpAcquisitionFn: { require: "none" },
+	// Vincular a NE à contratação muda a origem declarada da despesa, como a classificação
+	// orçamentária (`updateEmpenhoClassificationFn`): mesma classificação.
+	linkEmpenhoAcquisitionFn: {
+		require: "session",
+		reason: "Esta operação vincula um empenho à contratação de origem.",
+		authorization: [{ kind: "permission", module: "unit", level: 2, note: "Unidade lida da linha do empenho; a contratação tem de ser da mesma unidade." }],
+	},
+
 	// ── arp.fn.ts
 	importArpItemsFn: { require: "none" },
+	createManualArpFn: { require: "none" },
 	syncArpBalanceFn: { require: "none" },
 	createEmpenhoFn: {
 		require: "session",
@@ -198,6 +212,26 @@ export const ASSURANCE_REGISTRY = {
 	// ── compras-sync.fn.ts
 	triggerSyncFn: { require: "none" },
 	stopSyncFn: { require: "none" },
+
+	// ── empenho-document.fn.ts (NE com itens e registro rápido)
+	createEmpenhoWithItemsFn: {
+		require: "session",
+		reason: "Esta operação registra uma nota de empenho.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	quickRegisterEmpenhoFn: {
+		require: "session",
+		reason: "Esta operação registra uma nota de empenho.",
+		authorization: [
+			{ kind: "permission", module: "unit", level: 2 },
+			{
+				kind: "permission",
+				module: "storage",
+				level: 2,
+				note: "Almoxarife que monta a OF: a unidade é a compradora da cozinha, lida do banco, nunca do corpo.",
+			},
+		],
+	},
 
 	// ── empenho.fn.ts
 	updateEmpenhoClassificationFn: {
@@ -616,6 +650,7 @@ export const ASSURANCE_REGISTRY = {
 	// ── supply-order.fn.ts
 	createSupplyOrderFn: { require: "none" },
 	cancelSupplyOrderFn: { require: "none" },
+	linkSupplyOrderEmpenhoFn: { require: "none" },
 
 	// ── snack-requests.fn.ts (pedido de lanche de bordo/apoio — não é operação financeira nem de acesso)
 	setSnackClassificationFn: { require: "none" },

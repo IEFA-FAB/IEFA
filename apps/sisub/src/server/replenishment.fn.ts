@@ -11,12 +11,26 @@
  * @migration 20260729190000_inventory_stock_policy
  */
 
-import { applyCorrectionFactors, calculateNetNeed, decideChannel, estimateLeadTime, fetchProcurementNeeds, type PurchaseChannel } from "@iefa/sisub-domain"
+import {
+	applyCorrectionFactors,
+	calculateNetNeed,
+	computeDispensaSum,
+	type DirectContractLimitRow,
+	type DispensaEntry,
+	decideChannel,
+	estimateLeadTime,
+	fetchProcurementNeeds,
+	fitsDispensaRoom,
+	type PurchaseChannel,
+	resolveDirectContractLimit,
+	resolvePurchaseUnitId,
+} from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { assertNoBlindCountHides } from "@/lib/blind-count.server"
 import { getDb } from "@/lib/db.server"
+import { currentFiscalYear } from "@/lib/expense-execution"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
@@ -24,8 +38,123 @@ import { getServerClient } from "@/lib/supabase.server"
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
 
-/** Teto de dispensa por valor (art. 75, I/II, Lei 14.133) — atualizado por decreto; ajustar quando o índice anual sair. */
-const SMALL_VALUE_DISPENSA_LIMIT = 59_906.02
+/**
+ * Quanto resta do limite da dispensa por valor (Lei 14.133/2021, art. 75, II) no exercício, por
+ * ramo de atividade — a classe do PDM do CATMAT (IN SEGES/ME 67/2021, art. 4º, § 2º) —, para a
+ * unidade gestora que compra pela cozinha (art. 75, § 1º). O limite vem da tabela
+ * `procurement.direct_contract_limit`, não do código. Classe com dispensa sem valor fica `null`:
+ * o total é um piso e a folga não se presume.
+ */
+async function loadDispensaRoomByClass(unitId: number | null, classCodes: readonly string[]): Promise<Map<string, number | null>> {
+	const room = new Map<string, number | null>()
+	if (unitId == null || classCodes.length === 0) return room
+	const year = currentFiscalYear()
+	const [{ data: limitRows, error: limitError }, { data: acquisitions, error: acqError }] = await Promise.all([
+		procurement().from("direct_contract_limit").select("clause, valid_from, value, source_act"),
+		procurement()
+			.from("acquisition")
+			.select("id, kind, direct_contract_clause, fiscal_year, activity_line, nd, estimated_value, deleted_at")
+			.eq("unit_id", unitId)
+			.eq("kind", "dispensa")
+			.eq("fiscal_year", year)
+			.is("deleted_at", null),
+	])
+	if (limitError || acqError) throw new Error(`Erro ao ler o somatório da dispensa: ${(limitError ?? acqError).message}`)
+	const limits: DirectContractLimitRow[] = (limitRows ?? []).map((row: { clause: string; valid_from: string; value: number | string; source_act: string }) => ({
+		clause: row.clause,
+		validFrom: row.valid_from,
+		value: Number(row.value),
+		sourceAct: row.source_act,
+	}))
+	const acquisitionRows = (acquisitions ?? []) as Array<{
+		id: string
+		direct_contract_clause: string | null
+		fiscal_year: number
+		activity_line: string | null
+		nd: string | null
+		estimated_value: number | string | null
+	}>
+	// Valor de cada dispensa: o maior entre o empenhado vigente e o estimado.
+	const committed = new Map<string, number>()
+	if (acquisitionRows.length > 0) {
+		const fin = getServerClient("finance") as unknown as LooseClient
+		const { data: empenhos, error } = await fin
+			.from("empenho")
+			.select("id, acquisition_id")
+			.in(
+				"acquisition_id",
+				acquisitionRows.map((a) => a.id)
+			)
+			.eq("status", "ativo")
+		if (error) throw new Error(`Erro ao ler os empenhos das dispensas: ${error.message}`)
+		const ids = (empenhos ?? []).map((e: { id: string }) => e.id)
+		if (ids.length > 0) {
+			const { data: vigentes, error: vigError } = await fin.from("v_empenho_vigente").select("empenho_id, valor_vigente").in("empenho_id", ids)
+			if (vigError) throw new Error(`Erro ao ler o valor vigente das dispensas: ${vigError.message}`)
+			const byEmpenho = new Map<string, number>(
+				(vigentes ?? []).map((v: { empenho_id: string; valor_vigente: number | string }) => [v.empenho_id, Number(v.valor_vigente)])
+			)
+			for (const e of empenhos ?? []) committed.set(e.acquisition_id, (committed.get(e.acquisition_id) ?? 0) + (byEmpenho.get(e.id) ?? 0))
+		}
+	}
+	const others: DispensaEntry[] = acquisitionRows.map((row) => ({
+		id: row.id,
+		label: row.id,
+		kind: "dispensa",
+		directContractClause: row.direct_contract_clause,
+		fiscalYear: row.fiscal_year,
+		activityLine: row.activity_line,
+		nd: row.nd,
+		estimatedValue: row.estimated_value == null ? null : Number(row.estimated_value),
+		committedValue: committed.get(row.id) ?? 0,
+	}))
+	const limit = resolveDirectContractLimit(limits, "II", year)
+	for (const code of new Set(classCodes)) {
+		const sum = computeDispensaSum({
+			candidate: {
+				id: "__reposicao__",
+				label: "reposição",
+				kind: "dispensa",
+				directContractClause: "II",
+				fiscalYear: year,
+				activityLine: code,
+				nd: null,
+				estimatedValue: 0,
+				committedValue: 0,
+			},
+			others,
+			limit,
+		})
+		room.set(code, sum && !sum.isFloor && sum.remaining != null ? sum.remaining : null)
+	}
+	return room
+}
+
+/** CATMAT → classe do PDM (ramo de atividade de bens). */
+async function loadMaterialClassByCatmat(catmats: readonly number[]): Promise<Map<number, string>> {
+	const byCatmat = new Map<number, string>()
+	if (catmats.length === 0) return byCatmat
+	const compras = getServerClient("compras_gov_integration") as unknown as LooseClient
+	const { data: items, error } = await compras
+		.from("compras_material_item")
+		.select("codigo_item, codigo_pdm")
+		.in("codigo_item", [...new Set(catmats)])
+	if (error) throw new Error(`Erro ao ler o CATMAT: ${error.message}`)
+	const pdms = [
+		...new Set((items ?? []).map((row: { codigo_pdm: number | null }) => row.codigo_pdm).filter((pdm: number | null): pdm is number => pdm != null)),
+	]
+	if (pdms.length === 0) return byCatmat
+	const { data: pdmRows, error: pdmError } = await compras.from("compras_material_pdm").select("codigo_pdm, codigo_classe").in("codigo_pdm", pdms)
+	if (pdmError) throw new Error(`Erro ao ler o PDM: ${pdmError.message}`)
+	const classByPdm = new Map<number, string>(
+		(pdmRows ?? []).map((row: { codigo_pdm: number; codigo_classe: number }) => [row.codigo_pdm, String(row.codigo_classe)])
+	)
+	for (const row of items ?? []) {
+		const code = row.codigo_pdm != null ? classByPdm.get(row.codigo_pdm) : undefined
+		if (code) byCatmat.set(row.codigo_item, code)
+	}
+	return byCatmat
+}
 
 const inventory = () => getServerClient("inventory") as unknown as LooseClient
 const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
@@ -123,6 +252,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		const priceByIngredient = new Map<string, { unitPrice: number | null; conversionFactor: number }>()
 		const purchaseItemIds = [...purchaseQty.keys()]
 		const catmatByIngredient = new Map<string, boolean>()
+		const catmatCodeByIngredient = new Map<string, number>()
 		{
 			const { data: links } = await proc
 				.from("purchase_item_ingredient")
@@ -131,6 +261,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				.eq("is_default", true)
 			for (const link of links ?? []) {
 				catmatByIngredient.set(link.ingredient_id, link.purchase_item?.catmat_item_codigo != null)
+				if (link.purchase_item?.catmat_item_codigo != null) catmatCodeByIngredient.set(link.ingredient_id, Number(link.purchase_item.catmat_item_codigo))
 				defaultPurchaseByIngredient.set(link.ingredient_id, link.purchase_item_id)
 				priceByIngredient.set(link.ingredient_id, {
 					unitPrice: link.purchase_item?.unit_price != null ? Number(link.purchase_item.unit_price) : null,
@@ -195,6 +326,13 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			}
 		}
 
+		// (7) somatório da dispensa por ramo (classe do CATMAT) na unidade gestora que compra pela cozinha
+		const { data: kitchenRow, error: kitchenError } = await kit.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).maybeSingle()
+		if (kitchenError) throw new Error(`Erro ao ler a cozinha: ${kitchenError.message}`)
+		const purchaseUnitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
+		const classByCatmat = await loadMaterialClassByCatmat([...catmatCodeByIngredient.values()])
+		const dispensaRoom = await loadDispensaRoomByClass(purchaseUnitId, [...classByCatmat.values()])
+
 		return needs
 			.map((need) => {
 				const factors = factorsById.get(need.ingredient_id) as { correction_factor: number | null; rehydration_index: number | null } | undefined
@@ -229,6 +367,14 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				// (review: canal ficava permanentemente inalcançável)
 				const price = priceByIngredient.get(need.ingredient_id)
 				const estimatedValue = price?.unitPrice != null ? (netNeed / price.conversionFactor) * price.unitPrice : null
+				// O valor tem de caber no que RESTA do limite no ramo do item — o somatório do exercício,
+				// não o item sozinho (art. 75, § 1º). A folga consumida por uma sugestão desconta das
+				// seguintes do mesmo ramo; sem classe ou com dispensa sem valor, não se presume folga.
+				const catmat = catmatCodeByIngredient.get(need.ingredient_id)
+				const lineCode = catmat != null ? classByCatmat.get(catmat) : undefined
+				const remaining = lineCode ? (dispensaRoom.get(lineCode) ?? null) : null
+				const smallValue = fitsDispensaRoom(estimatedValue, remaining)
+				if (smallValue && lineCode && remaining != null && estimatedValue != null) dispensaRoom.set(lineCode, remaining - estimatedValue)
 				const decision = decideChannel({
 					netNeed,
 					ownArpBalance: arpBalanceById.get(need.ingredient_id) ?? 0,
@@ -238,7 +384,8 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 					hasCatmat: catmatByIngredient.get(need.ingredient_id) ?? false,
 					coverageDays,
 					urgencyThresholdDays: policy?.urgency_threshold_days ?? leadTime.days,
-					smallValue: estimatedValue != null && estimatedValue > 0 && estimatedValue <= SMALL_VALUE_DISPENSA_LIMIT,
+					smallValue,
+					dispensaRemaining: remaining,
 				})
 
 				return {
