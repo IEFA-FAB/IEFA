@@ -15,7 +15,8 @@ o que depende do harness do Claude Code. -->
   - `format.ts` formata e organiza os imports do arquivo editado. O lint continua sendo
     `bun run lint`.
   - `session-start.ts` avisa quando falta `node_modules` ou a sessão está na `main`.
-- **Skills do projeto:** `ship-pr` (do diff verde ao PR revisado), `openspec-*` (propostas de
+- **Skills do projeto:** `ship-pr` (do diff verde ao PR revisado), `edge-cases` (catálogo de
+  imprevistos por módulo, com a cobertura de cada um), `openspec-*` (propostas de
   mudança), `impeccable` (UI), `sucont-upstream`, `split-commits`.
 - **Revisão:** `/code-review` antes de pedir merge; na revisão, reporte tudo o que achar e filtre
   depois, em vez de pedir só achados graves.
