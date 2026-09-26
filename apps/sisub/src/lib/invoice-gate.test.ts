@@ -64,6 +64,13 @@ describe("liquidationLinkProblems — a segunda porta", () => {
 		expect(liquidationLinkProblems({ ...base, receipt: { ...recebimento, definitiveAt: null } }, NOW).join()).toMatch(/EFETIVADO/)
 	})
 
+	test("recebimento RECUSADO não sustenta liquidação, com a mensagem da recusa", () => {
+		// Lei 4.320, art. 63, § 2º, III: a entrega recusada não é comprovante de nada
+		const problems = liquidationLinkProblems({ ...base, receipt: { ...recebimento, status: "rejected", definitiveAt: null } }, NOW)
+		expect(problems.join()).toMatch(/RECUSADO/)
+		expect(problems.join()).not.toMatch(/EFETIVADO/)
+	})
+
 	test("recebimento sem nota não aceita nota informada na liquidação", () => {
 		const semNota = { ...recebimento, nfeDocumentId: null }
 		expect(liquidationLinkProblems({ ...base, receipt: semNota, requestedNfeId: "nfe-9", invoice: { ...autorizada, unitId: 7 } }, NOW).join()).toMatch(

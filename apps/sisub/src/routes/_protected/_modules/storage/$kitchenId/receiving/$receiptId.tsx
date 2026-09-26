@@ -586,10 +586,15 @@ function ReceiptDetailPage() {
 
 			{/* Cabeçalho do termo (só na impressão) */}
 			<div className="hidden print:block">
-				<h1 className="text-heading">Termo de Recebimento — {receipt.status === "definitive" ? "Definitivo" : "Provisório"}</h1>
+				<h1 className="text-heading">
+					{receipt.status === "rejected"
+						? "Termo de Recusa de Recebimento"
+						: `Termo de Recebimento — ${receipt.status === "definitive" ? "Definitivo" : "Provisório"}`}
+				</h1>
 				<p className="text-xs">Recebimento {receipt.id}</p>
 				{receipt.provisional_at && <p className="text-xs">Provisório em: {new Date(receipt.provisional_at).toLocaleString("pt-BR")}</p>}
 				{receipt.definitive_at && <p className="text-xs">Definitivo em: {new Date(receipt.definitive_at).toLocaleString("pt-BR")}</p>}
+				{receipt.rejected_at && <p className="text-xs">Recusado em: {new Date(receipt.rejected_at).toLocaleString("pt-BR")}</p>}
 			</div>
 
 			{Object.keys(conservationTally).length > 0 && (

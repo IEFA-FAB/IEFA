@@ -1140,7 +1140,9 @@ export const refuseReceiptFn = createServerFn({ method: "POST" })
 
 		const { error } = await inv
 			.from("goods_receipt")
-			.update({ status: "rejected", notes: data.reason.trim(), definitive_by: userId, definitive_at: new Date().toISOString() })
+			// A recusa tem colunas próprias: `definitive_at` é "entrega atestada" para todo leitor (e o
+			// banco recusa recusado com ele preenchido — goods_receipt_rejected_not_attested).
+			.update({ status: "rejected", notes: data.reason.trim(), rejected_by: userId, rejected_at: new Date().toISOString() })
 			.eq("id", data.receiptId)
 		if (error) throw new Error(`Erro ao recusar o recebimento: ${error.message}`)
 

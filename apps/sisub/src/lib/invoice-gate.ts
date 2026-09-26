@@ -38,8 +38,8 @@ export interface ReceiptForLiquidation {
 	/** Unidade COMPRADORA da cozinha do recebimento. */
 	unitId: number | null
 	/**
-	 * Lido só para o teste poder variar: a regra NÃO o consulta. Quem diz se a
-	 * entrega foi atestada é `definitiveAt`.
+	 * Só `rejected` é lido, para a mensagem. Quem diz se a entrega foi atestada é
+	 * `definitiveAt` — que a recusa não preenche.
 	 */
 	status: string
 	/** Preenchido na efetivação — vale para `definitive` E para `divergent`. */
@@ -76,7 +76,9 @@ export function liquidationLinkProblems(input: LiquidationLinkInput, now: number
 		// isso é o instante da efetivação — um recebimento efetivado com item
 		// divergente fica em `divergent`, não em `definitive`, e continua sendo
 		// entrega atestada.
-		if (receipt.definitiveAt == null) problems.push("Só recebimento EFETIVADO sustenta liquidação")
+		// Recusado nunca tem `definitiveAt` (o banco garante); a mensagem própria diz por quê.
+		if (receipt.status === "rejected") problems.push("Recebimento RECUSADO não sustenta liquidação — a entrega não foi aceita")
+		else if (receipt.definitiveAt == null) problems.push("Só recebimento EFETIVADO sustenta liquidação")
 		// A falta cobrada do fornecedor tem de ser resolvida antes: liquidar agora
 		// pagaria pelo que não chegou.
 		if (receipt.fiscalPending) problems.push("O recebimento tem pendência fiscal aberta (falta a cobrar) — resolva antes de liquidar")
