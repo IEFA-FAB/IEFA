@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { computeDraftChanges, type DraftChange, type DraftFields, isDraftValueEqual } from "@/lib/drafts/draft-diff"
+import { computeDraftChanges, type DraftChange, type DraftFields, hasSameShape, isDraftValueEqual } from "@/lib/drafts/draft-diff"
 import { type DraftEntry, draftStore } from "@/lib/drafts/draft-store"
 
 /**
@@ -9,7 +9,9 @@ import { type DraftEntry, draftStore } from "@/lib/drafts/draft-store"
  * - Guarda o estado em edição em `draftStore` enquanto ele difere do salvo; sair da tela
  *   e voltar restaura o rascunho (`onRestore`).
  * - Devolve a lista de alterações pendentes, que `PendingChanges` mostra ao lado do Salvar.
- * - Avisa no `beforeunload` enquanto há alteração: o rascunho mora em memória e morre no F5.
+ * - O rascunho fica no armazenamento local (`draft-store`): F5, recarga automática e fechar o
+ *   navegador não o apagam. O aviso de `beforeunload` só volta quando o armazenamento não
+ *   está disponível (bloqueado, cota cheia) — aí o rascunho é só de memória.
  * - `stale`: o registro salvo mudou depois que o rascunho começou (outra pessoa gravou). A
  *   assinatura padrão é o próprio baseline serializado — mudar algo que o formulário não
  *   edita (um item filho que gera versão, por exemplo) não conta. O diff é SEMPRE contra o
@@ -83,7 +85,14 @@ export function useDraft<T extends Record<string, unknown>>({
 		setRestoredAt(null)
 		if (key == null) return
 		const saved = draftStore.get<T>(key)
-		if (!saved || isDraftValueEqual(saved.values, baseline)) return
+		if (!saved) return
+		// Rascunho de antes de uma publicação que mudou o formulário: descarta em vez de
+		// restaurar um objeto de outra forma.
+		if (!hasSameShape(saved.values, baseline)) {
+			draftStore.delete(key)
+			return
+		}
+		if (isDraftValueEqual(saved.values, baseline)) return
 		skipPersist.current = true
 		onRestore(saved.values)
 		setRestoredAt(saved.savedAt)
@@ -115,7 +124,11 @@ export function useDraft<T extends Record<string, unknown>>({
 
 	useEffect(() => {
 		if (!isDirty) return
+		// Decidido NA SAÍDA, não quando a edição começa: a gravação é atrasada, e é na
+		// descarga que se descobre se o armazenamento aceitou (bloqueado, cota cheia).
 		const warn = (event: BeforeUnloadEvent) => {
+			draftStore.flush()
+			if (draftStore.isPersistent()) return
 			event.preventDefault()
 			event.returnValue = ""
 		}

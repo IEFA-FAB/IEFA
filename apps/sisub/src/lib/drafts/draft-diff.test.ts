@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { computeDraftChanges, isDraftValueEqual } from "./draft-diff"
+import { computeDraftChanges, hasSameShape, isDraftValueEqual } from "./draft-diff"
 
 describe("isDraftValueEqual", () => {
 	it("trata vazio, nulo e ausente como o mesmo valor", () => {
@@ -64,5 +64,15 @@ describe("computeDraftChanges com igualdade própria", () => {
 		const fields = { reference: { label: "Tabela", isEqual: (a: { id: string }, b: { id: string }) => a.id === b.id, format: (v: { id: string }) => v.id } }
 		expect(computeDraftChanges({ reference: ref("a") }, { reference: ref("a", "x") }, fields)).toEqual([])
 		expect(computeDraftChanges({ reference: ref("a") }, { reference: ref("b") }, fields)).toEqual([{ key: "reference", label: "Tabela", from: "a", to: "b" }])
+	})
+})
+
+describe("hasSameShape", () => {
+	it("aceita o rascunho com as mesmas chaves e recusa o de outra forma", () => {
+		expect(hasSameShape({ b: 1, a: 2 }, { a: 0, b: 0 })).toBe(true)
+		expect(hasSameShape({ a: 1 }, { a: 0, novo: 0 })).toBe(false)
+		expect(hasSameShape({ a: 1, velho: 0 }, { a: 0 })).toBe(false)
+		expect(hasSameShape(undefined, { a: 0 })).toBe(false)
+		expect(hasSameShape([1], { 0: 0 })).toBe(false)
 	})
 })

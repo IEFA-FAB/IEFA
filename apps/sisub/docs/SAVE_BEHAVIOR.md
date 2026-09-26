@@ -38,8 +38,10 @@ edição é um **rascunho local**.
   Exceções: criar, e personalizar uma preparação global numa cozinha — nesses casos
   Salvar grava mesmo sem alteração.
 - `OpenDraftsMenu`, no cabeçalho do app, lista os rascunhos abertos em qualquer tela, com
-  link de volta. Sem ele, um rascunho esquecido só seria lembrado quando o F5 o apagasse.
-- Aviso de `beforeunload` enquanto há rascunho.
+  link de volta. Sem ele, um rascunho esquecido ficaria esquecido por dias.
+- Sem aviso de `beforeunload`: o rascunho sobrevive a recarregar e a fechar o navegador,
+  então o aviso só incomodaria. Ele volta quando o navegador não deixa guardar (armazenamento
+  bloqueado, cota cheia) — aí o rascunho é só de memória, e a lista de pendências diz isso.
 - **Rascunho desatualizado**: se o registro salvo mudou depois que a edição começou (outra
   pessoa gravou), a lista avisa que Salvar vai gravar por cima. A assinatura é o próprio
   baseline do formulário. Por isso salvar um item filho, que gera versão do insumo mas não
@@ -96,18 +98,33 @@ uns 6 campos) é aceitável. Formulário longo abre a página do registro. Não 
 
 ## Onde o rascunho mora — e por quê
 
-**Em memória do módulo** (`src/lib/drafts/draft-store.ts`): sobrevive à navegação dentro do
-SPA e morre no F5 ou ao fechar a aba.
+**No armazenamento local do navegador**, família `sisub:draft:*`
+(`src/lib/drafts/draft-store.ts`), declarada na Política de Cookies 1.5.0. Sobrevive à
+navegação, ao F5, à recarga automática depois de uma publicação e a fechar o navegador. O
+mapa em memória é o que as telas leem; o armazenamento é espelho gravado a cada mudança.
 
-Não usamos `sessionStorage` ou `localStorage` porque chave de armazenamento nova precisa
-entrar no inventário da Política de Cookies antes de ir ao ar
-(`packages/legal-kit/src/cookie-inventory.test.ts`). Versão nova da política pede ciência
-de novo a todo usuário de todo app. Foi o que o #425 evitou. Para o rascunho sobreviver ao
-F5:
+**Por que local, e não de sessão** (pedido do mantenedor: local, a menos que o dado seja
+sensível). O rascunho guarda dado de **catálogo** que o próprio usuário já vê: nome, pasta,
+unidade, nutrientes, especificação de compra com preço de referência, ficha técnica. Não é
+dado pessoal nem classificado. O mais sensível é o preço de referência, e ele já é visível a
+quem tem acesso ao catálogo; o rascunho só existe no aparelho dessa pessoa. Travas para o
+computador compartilhado:
 
-1. Declare a família `sisub:draft:*` (armazenamento de sessão, SISUB, "rascunho de edição não
-   salva") na próxima versão da política.
-2. Troque o backend em `draft-store.ts`. Nenhum consumidor muda.
+- **Dono:** outra conta entrando no navegador — nesta aba ou em outra — descarta todos os
+  rascunhos. Sair da conta não descarta: quem volta encontra o que deixou. Guarda só uma
+  assinatura curta da conta (FNV-1a de 32 bits), sem volta ao identificador. A amarração
+  acontece no render do cabeçalho, antes de qualquer tela restaurar rascunho.
+- **Validade:** rascunho parado há mais de 7 dias é descartado ao carregar.
+- **Só no dispositivo:** nada vai ao servidor antes do Salvar.
+- **Forma do formulário:** rascunho de antes de uma publicação que mudou o formulário (campo
+  novo ou renomeado) é descartado em vez de restaurado com campo faltando.
+
+A gravação no armazenamento é atrasada (400 ms depois da última mudança) e descarregada ao
+esconder a página: a cada tecla seria serialização e escrita síncrona no thread principal.
+
+Chave nova de armazenamento entra no inventário da política **antes** de ir ao ar
+(`packages/legal-kit/src/cookie-inventory.test.ts` cobra). A família `sisub:draft:*` já
+cobre qualquer tela nova que use `useDraft`.
 
 ## Componentes
 
@@ -209,4 +226,3 @@ aberta sem criar outra:
 - **Dois guards**: `UnsavedChangesGuard` (bloqueia a navegação) e `useDraft` (guarda e
   deixa sair). Quando os editores de cardápio passarem a usar rascunho, o guard deixa de
   ser necessário, porque sair não perde mais nada.
-- **Rascunho perde no F5**: ver "Onde o rascunho mora".
