@@ -7,6 +7,7 @@
  * terceira grandeza derivada, sempre exibida com rótulo próprio.
  */
 
+import { empenhoEventSign } from "./empenho-events.ts"
 import { roundToCents } from "./liquidation-math.ts"
 
 export interface BudgetCreditSnapshot {
@@ -104,4 +105,266 @@ export function checkCreditForEmpenho(valor: number, projection: BudgetProjectio
 		}
 	}
 	return { status: "ok", excedente: 0, message: `Saldo projetado suficiente (crédito do SIAFI capturado ${idade})` }
+}
+
+// ============================================================================
+// Crédito por CLASSIFICAÇÃO (achado F4 da auditoria de 2026-09-26)
+// ============================================================================
+// `localCommitmentAfterSnapshot` soma TODOS os empenhos da unidade contra cada
+// linha de crédito, pelo valor original. Uma NE de gêneros (33903007) consumia
+// o crédito de serviços de terceiros (339039), e reforço ou anulação posterior
+// ao snapshot não aparecia. As funções abaixo filtram pela chave da linha (UG,
+// ND, PTRES, fonte, exercício) e usam o valor VIGENTE.
+
+/** Chave de classificação de uma linha de `finance.budget_credit` (nulo = linha não segmentada por aquele campo). */
+export interface CreditLineKey {
+	ug: string | null
+	nd: string
+	ptres: string | null
+	fonte: string | null
+	/** Competência da linha (`YYYY-MM-DD`): o ano é o exercício do crédito. */
+	competencia: string
+}
+
+/** Classificação de um empenho, como gravada em `finance.empenho`. */
+export interface EmpenhoClassification {
+	ug: string | null
+	nd: string | null
+	ptres: string | null
+	fonte: string | null
+	exercicio: number | null
+}
+
+export interface EmpenhoEventEntry {
+	tipo: string
+	valor: number
+	/** `YYYY-MM-DD` do evento. */
+	data: string
+}
+
+export interface ClassifiedEmpenhoEntry extends EmpenhoClassification {
+	id: string
+	/** `YYYY-MM-DD` (ou ISO) do empenho. */
+	dataEmpenho: string
+	status: string
+	/** Valor vigente (`finance.v_empenho_vigente`): original + reforços − anulações. */
+	valorVigente: number
+	events: readonly EmpenhoEventEntry[]
+}
+
+/** Só os dígitos da ND; `33903000` (subelemento genérico) vale como o elemento `339030`. */
+export function normalizeNdPrefix(nd: string): string {
+	const digits = nd.replace(/\D/g, "")
+	if (digits.length === 8 && digits.endsWith("00")) return digits.substring(0, 6)
+	return digits
+}
+
+function isBlank(value: string | null | undefined): boolean {
+	return value == null || value.trim() === ""
+}
+
+/**
+ * Campo nulo na LINHA é "linha não segmentada por ele". Nulo no empenho é
+ * "desconhecido", não "diferente": conta. É alerta, e deixar de avisar é o erro
+ * caro (Lei 4.320, art. 59).
+ */
+function sameOrOpen(line: string | null, other: string | null): boolean {
+	if (isBlank(line) || isBlank(other)) return true
+	return (line as string).trim() === (other as string).trim()
+}
+
+function yearOf(isoDate: string): number | null {
+	const year = Number(isoDate.substring(0, 4))
+	return Number.isInteger(year) && year > 1900 ? year : null
+}
+
+function dayOf(iso: string): string {
+	return iso.substring(0, 10)
+}
+
+/**
+ * O empenho consome esta linha de crédito?
+ *
+ * - ND por prefixo: a linha costuma vir no elemento (`339030`) e o empenho no
+ *   subelemento (`33903007`). Empenho SEM ND não é atribuível a linha nenhuma:
+ *   somá-lo a todas contaria o mesmo valor N vezes.
+ * - UG, PTRES e fonte: ver `sameOrOpen`.
+ * - Exercício: crédito de 2025 não é consumido por NE de 2026.
+ */
+export function empenhoConsumesCreditLine(line: CreditLineKey, empenho: EmpenhoClassification & { dataEmpenho: string }): boolean {
+	if (isBlank(empenho.nd)) return false
+	const lineNd = normalizeNdPrefix(line.nd)
+	if (lineNd === "" || !normalizeNdPrefix(empenho.nd as string).startsWith(lineNd)) return false
+	const lineYear = yearOf(line.competencia)
+	const empenhoYear = empenho.exercicio ?? yearOf(empenho.dataEmpenho)
+	if (lineYear != null && empenhoYear != null && lineYear !== empenhoYear) return false
+	return sameOrOpen(line.ug, empenho.ug) && sameOrOpen(line.ptres, empenho.ptres) && sameOrOpen(line.fonte, empenho.fonte)
+}
+
+/**
+ * Comprometimento local de UMA linha: o que o sisub empenhou nela depois do snapshot.
+ *
+ * - NE posterior ao snapshot: entra pelo valor VIGENTE (reforço e anulação inclusos);
+ *   anulada, não entra (o SIAFI nunca a viu empenhada).
+ * - NE anterior: o valor dela já está no empenhado do SIAFI; entram só os eventos
+ *   posteriores ao dia do snapshot (reforço consome, anulação devolve crédito).
+ */
+export function commitmentForCreditLine(
+	line: CreditLineKey,
+	snapshotAt: string,
+	empenhos: readonly ClassifiedEmpenhoEntry[],
+	options: { excludeEmpenhoId?: string } = {}
+): { comprometimento: number; empenhoIds: string[] } {
+	const snapshot = Date.parse(snapshotAt)
+	if (Number.isNaN(snapshot)) return { comprometimento: 0, empenhoIds: [] }
+	const snapshotDay = dayOf(new Date(snapshot).toISOString())
+	let total = 0
+	const empenhoIds: string[] = []
+	for (const empenho of empenhos) {
+		if (empenho.id === options.excludeEmpenhoId) continue
+		if (!empenhoConsumesCreditLine(line, empenho)) continue
+		const when = Date.parse(empenho.dataEmpenho)
+		if (Number.isNaN(when)) continue
+		let contribution = 0
+		if (when > snapshot) {
+			if (empenho.status !== "ativo") continue
+			contribution = Number(empenho.valorVigente ?? 0)
+		} else {
+			for (const event of empenho.events) {
+				if (dayOf(event.data) <= snapshotDay) continue
+				contribution += empenhoEventSign(event.tipo) * Number(event.valor ?? 0)
+			}
+		}
+		if (contribution !== 0) {
+			total += contribution
+			empenhoIds.push(empenho.id)
+		}
+	}
+	return { comprometimento: roundToCents(total), empenhoIds }
+}
+
+export interface CreditLineSnapshot extends CreditLineKey, BudgetCreditSnapshot {}
+
+/** Projeção de uma linha com o comprometimento filtrado pela classificação dela. */
+export function projectCreditLine(
+	line: CreditLineSnapshot,
+	empenhos: readonly ClassifiedEmpenhoEntry[],
+	now: number = Date.now(),
+	options: { excludeEmpenhoId?: string } = {}
+): BudgetProjection {
+	const { comprometimento } = commitmentForCreditLine(line, line.snapshotAt, empenhos, options)
+	const parsed = Date.parse(line.snapshotAt)
+	const ageDays = Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : Math.floor((now - parsed) / 86_400_000)
+	return {
+		dotacao: line.dotacao,
+		empenhadoSiafi: line.empenhadoSiafi,
+		saldoSiafi: line.saldoSiafi,
+		comprometimentoLocal: comprometimento,
+		saldoProjetado: roundToCents(line.saldoSiafi - comprometimento),
+		snapshotAt: line.snapshotAt,
+		snapshotAgeDays: ageDays,
+		snapshotStale: ageDays > STALE_AFTER_DAYS,
+	}
+}
+
+function lineSpecificity(line: CreditLineKey): number {
+	return normalizeNdPrefix(line.nd).length * 10 + [line.ug, line.ptres, line.fonte].filter((v) => !isBlank(v)).length
+}
+
+/**
+ * A linha contra a qual uma NE é conferida: a da competência mais recente, entre
+ * as que a NE consumiria, e dentre essas a mais específica (ND mais longa, mais
+ * campos preenchidos).
+ */
+export function pickCreditLineForEmpenho<T extends CreditLineKey>(lines: readonly T[], empenho: EmpenhoClassification & { dataEmpenho: string }): T | null {
+	const candidates = lines.filter((line) => empenhoConsumesCreditLine(line, empenho))
+	if (candidates.length === 0) return null
+	return [...candidates].sort((a, b) => b.competencia.localeCompare(a.competencia) || lineSpecificity(b) - lineSpecificity(a))[0] ?? null
+}
+
+export type CreditNoteKind = "descentralizacao" | "anulacao"
+
+/** Nota de crédito resumida para a soma por linha (`finance.credit_note`). */
+export interface CreditNoteEntry {
+	tipo: string
+	valor: number
+	/** `YYYY-MM-DD`. */
+	dataEmissao: string
+	ugFavorecida: string | null
+	nd: string | null
+	ptres: string | null
+	fonte: string | null
+}
+
+/** Sinal da NC: descentralização traz crédito; anulação (ou devolução) o devolve. */
+export function creditNoteSign(tipo: string): 1 | -1 {
+	return tipo === "anulacao" ? -1 : 1
+}
+
+/**
+ * Σ das NC registradas que alimentam uma linha, no exercício dela. É conferência,
+ * não saldo: o crédito oficial continua sendo o do snapshot do SIAFI. A ND casa
+ * nos dois sentidos (NC no elemento e linha no subelemento, ou o contrário).
+ */
+export function sumCreditNotesForLine(line: CreditLineKey, notes: readonly CreditNoteEntry[]): number {
+	const lineYear = yearOf(line.competencia)
+	const lineNd = normalizeNdPrefix(line.nd)
+	const total = notes.reduce((acc, note) => {
+		if (isBlank(note.nd)) return acc
+		const noteNd = normalizeNdPrefix(note.nd as string)
+		if (!noteNd.startsWith(lineNd) && !lineNd.startsWith(noteNd)) return acc
+		if (lineYear != null && yearOf(note.dataEmissao) !== lineYear) return acc
+		if (!sameOrOpen(line.ug, note.ugFavorecida) || !sameOrOpen(line.ptres, note.ptres) || !sameOrOpen(line.fonte, note.fonte)) return acc
+		return acc + creditNoteSign(note.tipo) * Number(note.valor ?? 0)
+	}, 0)
+	return roundToCents(total)
+}
+
+export interface ClassifiedCreditCheck extends CreditCheck {
+	/** Linha usada na conferência (null sem crédito importado para a classificação). */
+	line: CreditLineKey | null
+	projection: BudgetProjection | null
+}
+
+/**
+ * Conferência de crédito ao registrar uma NE: ALERTA, nunca bloqueio.
+ *
+ * O sisub registra o ato já praticado no SIAFI, que é quem recusa empenho sem
+ * crédito. Aqui a vedação do art. 59 da Lei 4.320 vira aviso: ou o snapshot está
+ * velho, ou a NE foi lançada com outra classificação — as duas coisas se
+ * corrigem depois, sem travar o registro.
+ */
+export function checkCreditForClassifiedEmpenho(
+	valor: number,
+	empenho: EmpenhoClassification & { dataEmpenho: string },
+	lines: readonly CreditLineSnapshot[],
+	empenhos: readonly ClassifiedEmpenhoEntry[],
+	now: number = Date.now(),
+	options: { excludeEmpenhoId?: string } = {}
+): ClassifiedCreditCheck {
+	if (isBlank(empenho.nd)) {
+		return {
+			status: "no_data",
+			excedente: 0,
+			message: "Informe a natureza de despesa (ND) para conferir o crédito. A NE é registrada sem essa conferência.",
+			line: null,
+			projection: null,
+		}
+	}
+	const line = pickCreditLineForEmpenho(lines, empenho)
+	if (!line) return { ...checkCreditForEmpenho(valor, null), line: null, projection: null }
+	const projection = projectCreditLine(line, empenhos, now, options)
+	const check = checkCreditForEmpenho(valor, projection)
+	const classification = [`ND ${line.nd}`, isBlank(line.ptres) ? null : `PTRES ${line.ptres}`, isBlank(line.fonte) ? null : `fonte ${line.fonte}`]
+		.filter(Boolean)
+		.join(", ")
+	if (check.status === "insufficient") {
+		return {
+			...check,
+			message: `Crédito insuficiente em ${classification}: ${check.message.replace(" Confirme para prosseguir.", "")} A NE é registrada mesmo assim; confira a classificação ou importe o crédito atualizado (Lei 4.320, art. 59).`,
+			line,
+			projection,
+		}
+	}
+	return { ...check, message: `${check.message}, em ${classification}`, line, projection }
 }

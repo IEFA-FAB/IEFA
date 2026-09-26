@@ -116,12 +116,28 @@ export {
 export {
 	type BudgetCreditSnapshot,
 	type BudgetProjection,
+	type ClassifiedCreditCheck,
+	type ClassifiedEmpenhoEntry,
 	type CreditCheck,
 	type CreditCheckStatus,
+	type CreditLineKey,
+	type CreditLineSnapshot,
+	type CreditNoteEntry,
+	type CreditNoteKind,
+	checkCreditForClassifiedEmpenho,
 	checkCreditForEmpenho,
+	commitmentForCreditLine,
+	creditNoteSign,
+	type EmpenhoClassification,
+	type EmpenhoEventEntry,
+	empenhoConsumesCreditLine,
 	type LocalEmpenhoEntry,
 	localCommitmentAfterSnapshot,
+	normalizeNdPrefix,
+	pickCreditLineForEmpenho,
 	projectBudget,
+	projectCreditLine,
+	sumCreditNotesForLine,
 } from "./budget-math.ts"
 export type { CatalogScope, CatalogScopeValue } from "./catalog-scope.ts"
 export { CATALOG_SCOPE_VALUES, folderCatalogFilter, ingredientCatalogFilter } from "./catalog-scope.ts"
@@ -234,6 +250,16 @@ export {
 	resolveItemValue,
 	sumEmpenhoItems,
 } from "./empenho-conformity.ts"
+export {
+	EMPENHO_EVENT_KINDS,
+	EMPENHO_EVENT_LABELS,
+	EMPENHO_TOTAL_ANNULMENT_EVENT,
+	type EmpenhoEventKind,
+	empenhoEventSign,
+	isAnnulmentEvent,
+	isTotalAnnulmentEvent,
+	LEGACY_EMPENHO_TOTAL_ANNULMENT_EVENT,
+} from "./empenho-events.ts"
 export type {
 	EquipmentModelRoleWire,
 	EquipmentModelWire,
@@ -473,9 +499,23 @@ export {
 export { type AccessibleKitchen, fetchKitchenSettings, listAccessibleKitchens, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
 export {
 	competenciaFromDate,
+	DEDUCTION_DOCUMENT_KINDS,
+	DEDUCTION_KINDS,
+	DEDUCTION_LABELS,
+	type DeductionDocumentKind,
+	type DeductionEntry,
+	type DeductionKind,
+	deductionExceedsProblem,
+	isLiquidationWithoutReceipt,
 	type KitchenUnitRef,
+	type LiquidationNetBalance,
+	liquidationExceedsReceiptProblem,
+	liquidationNetBalance,
 	normalizeNsNumber,
+	paymentExceedsNetProblem,
+	type ReceiptLiquidationCeiling,
 	type ReceiptValueItem,
+	receiptLiquidationCeiling,
 	resolvePurchaseUnitId,
 	roundToCents,
 	suggestedLiquidationValue,
@@ -818,6 +858,16 @@ export {
 	type NetNeedInput,
 	type PurchaseChannel,
 } from "./replenishment.ts"
+export {
+	type EmpenhoYearEndBalance,
+	legacyRestosAPagarKind,
+	planRestosAPagarInscription,
+	RESTOS_A_PAGAR_LABELS,
+	type RestosAPagarKind,
+	type RestosAPagarParcel,
+	type RestosAPagarSplit,
+	splitRestosAPagar,
+} from "./restos-a-pagar-math.ts"
 export {
 	getReviewMetrics,
 	type ReviewActivityDay,
