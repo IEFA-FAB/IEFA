@@ -120,8 +120,8 @@ melhor padrão do repositório. Falta o equivalente para:
 
 ## E2E do sisub (Playwright) — local, sob demanda
 
-Existem 7 specs em `apps/sisub/e2e/tests/`: `smoke`, `auth`, `navigation`, `authz`,
-`budget`, `storage` e `recipe-form`.
+Existem 8 specs em `apps/sisub/e2e/tests/`: `smoke`, `auth`, `navigation`, `authz`,
+`budget`, `storage`, `recipe-form` e `module-switch`.
 
 **Está DESLIGADO no CI por decisão de custo, não por defeito.** O job `e2e-sisub`
 segue comentado em `.github/workflows/deploy.yml` e nunca teve run verde. Reativar
@@ -145,12 +145,12 @@ com aprovação do mantenedor. Ela é o ALVO da suíte; usar a conta de alguém 
 sessão dessa pessoa a cada run, e foi o que aconteceu enquanto o `.env` apontava para a
 conta pessoal do mantenedor.
 
-O acesso dela, conferido em 2026-09-23 e suficiente para as 7 specs:
+O acesso dela, conferido em 2026-09-26 e suficiente para as 8 specs:
 
 | Origem | Módulo · nível · escopo |
 |---|---|
 | Grant inline | `storage:3` na cozinha 920 |
-| Política "Conjunto Treino" | `kitchen:2` e `kitchen-production:2` (cozinha 920), `unit:2` e `local-analytics:2` (OM 1065), `messhall:2`, `global:1`, `analytics:1`, `admin:1` |
+| Política "Conjunto Treino" | `kitchen:2` e `kitchen-production:2` (cozinha 920), `unit:2` e `local-analytics:2` (OM 1065), `messhall:2` (refeitório 237), `global:1`, `analytics:1`, `admin:1` |
 
 Tudo cai na sentinela do treino, então um run que escreva por engano escreve onde o
 reset limpa. A senha foi redefinida em 2026-09-26 e mora em `/iefa/dev/sisub` (AWS Secrets
@@ -173,14 +173,16 @@ Com vários worktrees abertos, a porta 3000 costuma ser do `vite dev` de OUTRO c
 |---|---|---|
 | `SISUB_RUN_E2E` | sim (`true`) | é a flag da suíte; os scripts `test:e2e*` já a passam |
 | `E2E_TEST_USER_EMAIL` | sim | `teste.treino.e2e@fab.mil.br` — a conta dedicada (ver abaixo). Existe secret homônimo no GitHub, criado antes dela |
-| `E2E_TEST_USER_PASSWORD` | sim | idem; a senha da conta dedicada foi gerada em arquivo efêmero e não sobreviveu — hoje exige nova definição pelo mantenedor |
+| `E2E_TEST_USER_PASSWORD` | sim | idem; redefinida em 2026-09-26, vem de `/iefa/dev/sisub` pelo `env:pull` (ver acima) |
 | `VITE_SISUB_SUPABASE_URL` | sim | mesma do dev; `vars` do repositório |
 | `VITE_SISUB_SUPABASE_PUBLISHABLE_KEY` | sim | mesma do dev; `vars` do repositório |
 | `E2E_BUDGET_UNIT_ID` | não | id de uma unidade REAL onde o usuário E2E tenha o módulo `unit` — para a conta dedicada é **1065** (a OM sentinela do treino) |
 | `E2E_STORAGE_KITCHEN_ID` | não | id de uma cozinha REAL onde o usuário E2E tenha o módulo `storage` — para a conta dedicada é **920** (a cozinha sentinela do treino) |
+| `E2E_MESSHALL_ID` | não | id de um refeitório REAL onde o usuário E2E tenha o módulo `messhall` — para a conta dedicada é **237** (já em `/iefa/dev/sisub`) |
 
-As duas últimas são opcionais **e ausentes viram skip explícito**, não verde vazio:
-`budget.spec.ts` e `storage.spec.ts` chamam `test.skip(...)` em escopo de arquivo e
+As três últimas são opcionais **e ausentes viram skip explícito**, não verde vazio:
+`budget.spec.ts` e `storage.spec.ts` chamam `test.skip(...)` em escopo de arquivo (e
+`module-switch.spec.ts` por cenário, usando as três) e
 aparecem como *skipped* no relatório. Elas tinham default `"1"`, que é o pior dos
 mundos — em base onde a unidade/cozinha 1 não pertence ao usuário E2E, o PBAC devolve
 ao `/hub` e a falha tem cara de bug de tela; onde pertence por coincidência, o teste
@@ -191,9 +193,9 @@ passa sem ninguém ter escolhido o alvo.
 ```bash
 cd apps/sisub
 
-bun run test:e2e         # as 7 specs, chromium
+bun run test:e2e         # as 8 specs, chromium
 bun run test:e2e:ci      # subconjunto crítico: smoke, auth, navigation, authz
-bun run test:e2e:full    # as 7 specs em chromium + firefox + webkit
+bun run test:e2e:full    # as 8 specs em chromium + firefox + webkit
 bun run test:e2e:ui      # modo UI do Playwright
 
 # primeira vez na máquina:
