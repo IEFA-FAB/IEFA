@@ -1,4 +1,5 @@
-import { ArrowLeftRight, CheckCircle2, ChefHat, PlayCircle, RotateCcw, Timer, Utensils } from "lucide-react"
+import { describeSnapshotGaps } from "@iefa/sisub-domain"
+import { AlertTriangle, ArrowLeftRight, CheckCircle2, ChefHat, PlayCircle, RotateCcw, Timer, Utensils } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -113,6 +114,27 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, kitc
 
 				{/* Ingredientes */}
 				<div className="flex-1 overflow-y-auto">
+					{(menuItem.execution || menuItem.recipe_gaps.length > 0) && (
+						<div className="px-4 pt-4 space-y-2">
+							{menuItem.execution && (
+								<p className="text-caption text-muted-foreground">
+									Incluída no turno às{" "}
+									{new Date(menuItem.execution.added_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+									{menuItem.execution.reason ? ` — ${menuItem.execution.reason}` : ""}
+									{menuItem.execution.reviewed ? " · revisada pela nutricionista" : " · aguardando revisão da nutricionista"}
+								</p>
+							)}
+							{menuItem.recipe_gaps.length > 0 && (
+								<div className="flex items-start gap-2 rounded-md border border-warning/20 bg-warning/10 p-3 text-sm text-warning" role="status">
+									<AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+									<p>
+										{describeSnapshotGaps(menuItem.recipe_gaps)} Produza normalmente; a nutricionista completa a ficha e a saída de estoque se lança pela
+										quantidade real.
+									</p>
+								</div>
+							)}
+						</div>
+					)}
 					{recipe?.ingredients && recipe.ingredients.length > 0 ? (
 						<div className="p-4 space-y-2">
 							<h3 className="text-subheading text-foreground flex items-center gap-2">

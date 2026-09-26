@@ -1,9 +1,11 @@
 import { ArrowLeftRight, Loader2, SlidersHorizontal } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useMenuItemSubstituteOptions } from "@/hooks/data/usePlanningAdjustments"
 import { useAdjustPortions, useRecordSubstitution } from "@/hooks/data/useProduction"
 import type { ProductionItem } from "@/types/domain/production"
 
@@ -14,9 +16,13 @@ interface ShiftAdjustmentsSectionProps {
 }
 
 /**
- * Ajustes do turno, direto do chão de fábrica: corrigir porções planejadas
- * (corte de efetivo, demanda extra) e registrar substituição de insumo em falta.
- * Exige nível 2 em kitchen-production ou kitchen — o servidor rejeita sem grant.
+ * Ajustes do turno, direto do chão de fábrica.
+ *
+ * - Substituição de insumo em falta: o turno registra sozinho (`kitchen-production:1`) o que
+ *   faltou E o que entrou no lugar — o mesmo registro do agendamento, que a baixa e a
+ *   nutricionista leem depois. Os substitutos que a ficha prevê aparecem a um clique.
+ * - Porções planejadas: ajuste de planejamento, exige nível 2 em kitchen-production ou kitchen
+ *   (o servidor recusa sem o grant).
  */
 export function ShiftAdjustmentsSection({ item, kitchenId, date }: ShiftAdjustmentsSectionProps) {
 	const { mutate: adjustPortions, isPending: isAdjusting } = useAdjustPortions()
@@ -24,7 +30,9 @@ export function ShiftAdjustmentsSection({ item, kitchenId, date }: ShiftAdjustme
 
 	const plannedPortions = item.menuItem.planned_portion_quantity != null ? Number(item.menuItem.planned_portion_quantity) : null
 	const [portions, setPortions] = useState<string>(plannedPortions?.toString() ?? "")
-	const [substituteIngredientId, setSubstituteIngredientId] = useState<string | null>(null)
+	const [missingIngredientId, setMissingIngredientId] = useState<string | null>(null)
+	const [substituteId, setSubstituteId] = useState<string | null>(null)
+	const [substituteName, setSubstituteName] = useState("")
 	const [rationale, setRationale] = useState("")
 	const [prevItemId, setPrevItemId] = useState(item.menuItem.id)
 
@@ -32,15 +40,20 @@ export function ShiftAdjustmentsSection({ item, kitchenId, date }: ShiftAdjustme
 	if (prevItemId !== item.menuItem.id) {
 		setPrevItemId(item.menuItem.id)
 		setPortions(plannedPortions?.toString() ?? "")
-		setSubstituteIngredientId(null)
+		setMissingIngredientId(null)
+		setSubstituteId(null)
+		setSubstituteName("")
 		setRationale("")
 	}
 
 	const ingredients = item.menuItem.recipe_with_ingredients?.ingredients ?? []
-	const selectedIngredient = ingredients.find((i) => i.ingredient?.id === substituteIngredientId)
+	const missingLine = ingredients.find((i) => i.ingredient?.id === missingIngredientId)
+	const { data: substituteOptions } = useMenuItemSubstituteOptions(missingIngredientId ? item.menuItem.id : null)
+	const suggestions = missingLine ? (substituteOptions?.[missingLine.id] ?? []) : []
 
 	const portionsNum = portions === "" ? null : Number(portions)
 	const portionsChanged = portionsNum != null && portionsNum > 0 && portionsNum !== plannedPortions
+	const canRecord = missingIngredientId != null && substituteName.trim() !== "" && rationale.trim() !== ""
 
 	const handleAdjust = () => {
 		if (portionsNum == null || portionsNum <= 0) return
@@ -48,12 +61,22 @@ export function ShiftAdjustmentsSection({ item, kitchenId, date }: ShiftAdjustme
 	}
 
 	const handleSubstitute = () => {
-		if (!substituteIngredientId || !rationale.trim()) return
+		if (!missingIngredientId || !canRecord) return
 		recordSubstitution(
-			{ menuItemId: item.menuItem.id, ingredientId: substituteIngredientId, rationale: rationale.trim(), kitchenId, date },
+			{
+				menuItemId: item.menuItem.id,
+				ingredientId: missingIngredientId,
+				substituteIngredientId: substituteId,
+				substituteDescription: substituteName.trim(),
+				rationale: rationale.trim(),
+				kitchenId,
+				date,
+			},
 			{
 				onSuccess: () => {
-					setSubstituteIngredientId(null)
+					setMissingIngredientId(null)
+					setSubstituteId(null)
+					setSubstituteName("")
 					setRationale("")
 				},
 			}
@@ -90,15 +113,22 @@ export function ShiftAdjustmentsSection({ item, kitchenId, date }: ShiftAdjustme
 					<p className="text-[10px] text-muted-foreground">As quantidades de ingredientes acima reescalam automaticamente.</p>
 				</div>
 
-				{/* Substituição de insumo */}
-				<div className="space-y-1 pt-2 border-t border-border">
+				{/* Substituição de insumo: o que faltou e o que entrou */}
+				<div className="space-y-2 pt-2 border-t border-border">
 					<Label className="text-xs text-muted-foreground flex items-center gap-1">
 						<ArrowLeftRight className="size-3" />
-						Registrar substituição de insumo
+						Faltou um insumo? Registre o substituto
 					</Label>
-					<Select value={substituteIngredientId} onValueChange={(v) => setSubstituteIngredientId(v)}>
-						<SelectTrigger className="h-8 text-xs">
-							<SelectValue placeholder="Insumo afetado...">{selectedIngredient?.ingredient?.description ?? "Insumo afetado..."}</SelectValue>
+					<Select
+						value={missingIngredientId}
+						onValueChange={(v) => {
+							setMissingIngredientId(v)
+							setSubstituteId(null)
+							setSubstituteName("")
+						}}
+					>
+						<SelectTrigger className="h-8 text-xs" aria-label="Insumo que faltou">
+							<SelectValue placeholder="Insumo que faltou...">{missingLine?.ingredient?.description ?? "Insumo que faltou..."}</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
 							{ingredients.flatMap((ing) =>
@@ -112,14 +142,55 @@ export function ShiftAdjustmentsSection({ item, kitchenId, date }: ShiftAdjustme
 							)}
 						</SelectContent>
 					</Select>
+					{missingLine && (
+						<Field>
+							<FieldLabel htmlFor={`substitute-${item.menuItem.id}`}>O que entrou no lugar?</FieldLabel>
+							{suggestions.length > 0 && (
+								<div className="flex flex-wrap gap-1.5">
+									{suggestions.map((s) => (
+										<Button
+											key={`${s.kind}-${s.id}`}
+											type="button"
+											size="xs"
+											variant={substituteName === (s.description ?? "") ? "default" : "outline"}
+											onClick={() => {
+												// Só insumo do catálogo vira id; preparação congelada vai pelo nome.
+												setSubstituteId(s.kind === "ingredient" ? s.id : null)
+												setSubstituteName(s.description ?? "")
+											}}
+										>
+											{s.description}
+											{s.kind === "frozen_preparation" ? " (congelada)" : ""}
+										</Button>
+									))}
+								</div>
+							)}
+							<Input
+								id={`substitute-${item.menuItem.id}`}
+								value={substituteName}
+								onChange={(e) => {
+									setSubstituteName(e.target.value)
+									setSubstituteId(null)
+								}}
+								placeholder="Ex.: Polpa de acerola"
+								maxLength={200}
+							/>
+							<FieldDescription>
+								{suggestions.length > 0
+									? "Substitutos previstos na ficha acima; ou digite outro."
+									: "Digite o que foi usado — vale o que não está no catálogo."}
+							</FieldDescription>
+						</Field>
+					)}
 					<div className="flex gap-2">
 						<Input
 							value={rationale}
 							onChange={(e) => setRationale(e.target.value)}
-							placeholder="Justificativa (ex: produto em falta)"
+							placeholder="Motivo (ex: produto em falta)"
+							aria-label="Motivo da substituição"
 							className="h-8 text-xs flex-1"
 						/>
-						<Button size="sm" variant="outline" onClick={handleSubstitute} disabled={!substituteIngredientId || !rationale.trim() || isRecording}>
+						<Button size="sm" variant="outline" onClick={handleSubstitute} disabled={!canRecord || isRecording}>
 							{isRecording && <Loader2 className="size-3.5 mr-1 animate-spin" />}
 							Registrar
 						</Button>

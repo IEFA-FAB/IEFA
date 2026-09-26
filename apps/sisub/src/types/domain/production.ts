@@ -1,5 +1,5 @@
 import type { ProductionTask as DBProductionTask, MealType, MenuItem, Recipe } from "@iefa/database/sisub"
-import type { BoardSnackRequest } from "@iefa/sisub-domain"
+import type { BoardExecutionInfo, BoardSnackRequest, SnapshotGap } from "@iefa/sisub-domain"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 export type { ProductionTask as DBProductionTask } from "@iefa/database/sisub"
@@ -29,6 +29,10 @@ export interface ProductionItem {
 		recipe_with_ingredients: RecipeWithIngredients | null
 		/** Item de pedido de lanche: o quadro separa os kits por missão. Nulo = rancho. */
 		snack_request: ProductionSnackRequest | null
+		/** Lacunas da ficha GRAVADA no dia (a da baixa e da sugestão de saída). Vazio = completa. */
+		recipe_gaps: SnapshotGap[]
+		/** Incluída pelo turno (quem/quando/por quê). Nulo = veio do planejamento. */
+		execution: BoardExecutionInfo | null
 	}
 	mealType: MealType | null
 }

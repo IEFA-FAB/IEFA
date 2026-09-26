@@ -269,14 +269,16 @@ describeSupabaseIntegration("production flexibility operations (PR #96)", () => 
 		const { kitchenId, menuItemId, ingredientId, ingredient2Id } = await setupBoardTask(date)
 
 		await Promise.all([
-			recordProductionSubstitution(db, ctx, { menuItemId, ingredientId, rationale: "[TEST] falta A" }),
-			recordProductionSubstitution(db, ctx, { menuItemId, ingredientId: ingredient2Id, rationale: "[TEST] falta B" }),
+			recordProductionSubstitution(db, ctx, { menuItemId, ingredientId, substituteDescription: "[TEST] entrou A", rationale: "[TEST] falta A" }),
+			recordProductionSubstitution(db, ctx, { menuItemId, ingredientId: ingredient2Id, substituteDescription: "[TEST] entrou B", rationale: "[TEST] falta B" }),
 		])
 
 		const board = await fetchProductionBoard(db, ctx, { kitchenId, date })
-		const subs = (board[0]?.menuItem.substitutions ?? {}) as Record<string, { type?: string; rationale?: string }>
+		const subs = (board[0]?.menuItem.substitutions ?? {}) as Record<string, { type?: string; rationale?: string; substitute_description?: string }>
 		expect(Object.keys(subs).sort()).toEqual([ingredientId, ingredient2Id].sort())
 		expect(subs[ingredientId]?.type).toBe("production")
+		// o que ENTROU fica no mesmo formato do agendamento (PC-TRN-01)
+		expect(subs[ingredientId]?.substitute_description).toBe("[TEST] entrou A")
 	})
 
 	test("PBAC: grant de kitchen-production em outra cozinha não abre o board", async () => {

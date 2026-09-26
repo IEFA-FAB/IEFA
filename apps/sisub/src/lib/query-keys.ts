@@ -158,6 +158,7 @@ export const queryKeys = {
 	production: {
 		all: () => ["production"] as const,
 		board: (kitchenId: number, date: string) => ["production", "board", kitchenId, date] as const,
+		executionOptions: (kitchenId: number) => ["production", "execution-options", kitchenId] as const,
 	},
 
 	places: {
@@ -195,6 +196,7 @@ export const queryKeys = {
 		demandForecast: (kitchenId: number | null) => ["flows", "demand-forecast", kitchenId] as const,
 		expenseExecution: (unitId: number | null) => ["flows", "expense-execution", unitId] as const,
 		receivingPending: (kitchenId: number | null) => ["flows", "receiving-pending", kitchenId] as const,
+		executionReview: (kitchenId: number | null) => ["flows", "execution-review", kitchenId] as const,
 	},
 
 	designations: {

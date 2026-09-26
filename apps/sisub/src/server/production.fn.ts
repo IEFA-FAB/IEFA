@@ -8,11 +8,15 @@
  */
 
 import {
+	AddExecutionMenuItemSchema,
 	AdjustProductionPortionsSchema,
+	addExecutionMenuItem,
 	adjustProductionPortions,
 	EnsureProductionTasksSchema,
 	ensureProductionTasks,
+	FetchExecutionOptionsSchema,
 	FetchProductionBoardSchema,
+	fetchExecutionOptions,
 	fetchProductionBoard,
 	RecordProductionSubstitutionSchema,
 	recordProductionSubstitution,
@@ -67,4 +71,23 @@ export const recordProductionSubstitutionFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return recordProductionSubstitution(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+/**
+ * Opções do "Incluir preparação" do turno: refeições e preparações do catálogo. Leitura própria
+ * da execução — o turno em geral não tem `kitchen:1`, que é o que o catálogo do planejamento exige.
+ */
+export const fetchExecutionOptionsFn = createServerFn({ method: "GET" })
+	.validator(FetchExecutionOptionsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return fetchExecutionOptions(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+/** O turno inclui uma preparação no cardápio de HOJE (inclusive uma provisória, só com o nome). */
+export const addExecutionMenuItemFn = createServerFn({ method: "POST" })
+	.validator(AddExecutionMenuItemSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return addExecutionMenuItem(getDb(), ctx, data).catch(handleDomainError)
 	})

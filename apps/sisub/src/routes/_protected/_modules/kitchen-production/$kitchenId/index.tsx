@@ -3,6 +3,7 @@ import { addDays, format, isToday, parseISO, subDays } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useState } from "react"
+import { AddExecutionItemDialog } from "@/components/features/kitchen-production/AddExecutionItemDialog"
 import { ProductionBoard } from "@/components/features/kitchen-production/ProductionBoard"
 import { ProductionSummary } from "@/components/features/kitchen-production/ProductionSummary"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -80,6 +81,8 @@ function KitchenProductionPage() {
 						<ChevronRight className="size-4" />
 					</Button>
 				</div>
+				{/* Só hoje: outro dia é planejamento (Agendamento da Produção). O servidor reconfere no fuso de Brasília. */}
+				{isTodaySelected && items.length > 0 && <AddExecutionItemDialog kitchenId={kitchenId} date={selectedDate} />}
 			</PageHeader>
 
 			<ProductionSummary items={items} />
@@ -90,6 +93,7 @@ function KitchenProductionPage() {
 				kitchenId={kitchenId}
 				date={selectedDate}
 				isUpdating={isUpdating}
+				isToday={isTodaySelected}
 				onUpdateStatus={(taskId, status, kId, date) => updateStatus({ taskId, status, kitchenId: kId, date })}
 			/>
 		</div>

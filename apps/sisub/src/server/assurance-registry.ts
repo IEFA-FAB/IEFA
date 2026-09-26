@@ -549,6 +549,7 @@ export const ASSURANCE_REGISTRY = {
 	updateProductionTaskRecordFn: { require: "none" },
 	adjustProductionPortionsFn: { require: "none" },
 	recordProductionSubstitutionFn: { require: "none" },
+	addExecutionMenuItemFn: { require: "none" },
 
 	// ── purchase_item.fn.ts
 	createPurchaseItemFn: { require: "none" },
