@@ -30,7 +30,7 @@ import type { ListIngredientVersions, RecordIngredientVersion, RestoreIngredient
 import type { UserContext } from "../types/context.ts"
 import { NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery } from "../utils/index.ts"
-import { replaceIngredientNutrients } from "./ingredients.ts"
+import { blankMeasureUnitToNull, replaceIngredientNutrients } from "./ingredients.ts"
 
 // ── Shape do snapshot (deve espelhar o backfill SQL em 20260609_ingredient_versioning.sql) ──
 
@@ -415,7 +415,7 @@ export async function restoreIngredientVersion(
 				.set({
 					description: snap.ingredient.description,
 					folderId: snap.ingredient.folder_id,
-					measureUnit: snap.ingredient.measure_unit,
+					measureUnit: blankMeasureUnitToNull(snap.ingredient.measure_unit),
 					correctionFactor: snap.ingredient.correction_factor ?? null,
 					ceafaId: snap.ingredient.ceafa_id,
 				})
@@ -476,7 +476,7 @@ export async function restoreIngredientVersion(
 					ingredientId: input.ingredientId,
 					description: item.description,
 					barcode: item.barcode,
-					purchaseMeasureUnit: item.purchase_measure_unit,
+					purchaseMeasureUnit: blankMeasureUnitToNull(item.purchase_measure_unit),
 					unitContentQuantity: item.unit_content_quantity ?? null,
 					correctionFactor: item.correction_factor ?? null,
 					purchaseItemId: item.purchase_item_id,
