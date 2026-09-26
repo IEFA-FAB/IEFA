@@ -84,6 +84,8 @@ interface ConditioningRow {
 }
 
 interface ReceiptItemRow {
+	/** Classe sugerida pela especificação, na mesma resolução que o servidor usa ao gravar o lote. */
+	suggested_conservation_class: ConservationClass | null
 	id: string
 	description: string
 	measure_unit: string | null
@@ -202,7 +204,8 @@ function LotEditor({
 					measuredTemperatureC: measured,
 					acceptOutOfRange: accept,
 					conservationClass: conservation,
-					divergenceNote: note.trim() || null,
+					// A nota é da divergência de classe: voltou à sugerida, o campo some e a nota não vai.
+					divergenceNote: classDivergence ? note.trim() || null : null,
 				},
 			})
 			toast.success(lot ? "Lote atualizado" : "Lote adicionado")
@@ -449,7 +452,7 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 									itemId={item.id}
 									editable={editable}
 									range={range}
-									suggested={item.conditioning?.conservation_class ?? null}
+									suggested={item.suggested_conservation_class}
 									onSaved={onSaved}
 								/>
 							))}
@@ -459,7 +462,7 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 									itemId={item.id}
 									editable={editable}
 									range={range}
-									suggested={item.conditioning?.conservation_class ?? null}
+									suggested={item.suggested_conservation_class}
 									onSaved={onSaved}
 									onCancel={() => setAddingLot(false)}
 								/>

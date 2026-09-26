@@ -715,20 +715,21 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 		}
 
 		// Acondicionamento sugerido, por especificação de compra da linha. Linha sem
-		// purchase_item cai na especificação padrão do insumo — a mesma resolução do
-		// servidor ao gravar o lote e de `finalize_goods_receipt`. Sem o fallback, a tela
-		// não mostrava a faixa que a checagem de temperatura usava.
+		// purchase_item — ou com ele sem classe — cai na especificação padrão do insumo, desde
+		// que não excluída: a MESMA resolução de `requiredRangeFor` (que grava o lote) e de
+		// `finalize_goods_receipt`. Tela e servidor divergindo, o conferente via uma sugestão
+		// e o recebimento era julgado por outra.
 		const SPEC_COLUMNS =
-			"id, conservation_class, storage_temp_min_c, storage_temp_max_c, package_type, package_net_content, package_net_content_unit, transport_requirement, min_shelf_life_days_on_delivery, delivery_conditioning"
+			"id, conservation_class, storage_temp_min_c, storage_temp_max_c, package_type, package_net_content, package_net_content_unit, transport_requirement, min_shelf_life_days_on_delivery, delivery_conditioning, deleted_at"
 		const purchaseItemIds = [...new Set(itemRows.map((item) => item.purchase_item_id).filter(Boolean))] as string[]
 		const specById = new Map<string, Record<string, unknown>>()
 		if (purchaseItemIds.length > 0) {
 			const { data: specs } = await procurement().from("purchase_item").select(SPEC_COLUMNS).in("id", purchaseItemIds)
 			for (const spec of (specs ?? []) as Array<Record<string, unknown>>) specById.set(spec.id as string, spec)
 		}
-		const fallbackIngredientIds = [
-			...new Set(itemRows.filter((item) => !item.purchase_item_id && item.ingredient_id).map((item) => item.ingredient_id as string)),
-		]
+		const needsDefault = (item: Record<string, unknown>) =>
+			!!item.ingredient_id && (!item.purchase_item_id || specById.get(item.purchase_item_id as string)?.conservation_class == null)
+		const fallbackIngredientIds = [...new Set(itemRows.filter(needsDefault).map((item) => item.ingredient_id as string))]
 		const defaultSpecByIngredient = new Map<string, Record<string, unknown>>()
 		if (fallbackIngredientIds.length > 0) {
 			const { data: links } = await procurement()
@@ -737,7 +738,7 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 				.in("ingredient_id", fallbackIngredientIds)
 				.eq("is_default", true)
 			for (const link of (links ?? []) as Array<{ ingredient_id: string; purchase_item?: Record<string, unknown> | null }>) {
-				if (link.purchase_item) defaultSpecByIngredient.set(link.ingredient_id, link.purchase_item)
+				if (link.purchase_item && link.purchase_item.deleted_at == null) defaultSpecByIngredient.set(link.ingredient_id, link.purchase_item)
 			}
 		}
 
@@ -748,9 +749,15 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 				description: names.get(item.ingredient_id as string)?.description ?? "—",
 				measure_unit: names.get(item.ingredient_id as string)?.measure_unit ?? null,
 				gtin: item.ingredient_item_id ? (gtinByItemId.get(item.ingredient_item_id as string) ?? null) : null,
-				conditioning: item.purchase_item_id
-					? (specById.get(item.purchase_item_id as string) ?? null)
-					: (defaultSpecByIngredient.get(item.ingredient_id as string) ?? null),
+				conditioning:
+					(item.purchase_item_id ? specById.get(item.purchase_item_id as string) : undefined) ??
+					defaultSpecByIngredient.get(item.ingredient_id as string) ??
+					null,
+				// A classe que a conferência sugere: a da linha, ou a da padrão quando a da linha é nula.
+				suggested_conservation_class:
+					(item.purchase_item_id ? specById.get(item.purchase_item_id as string)?.conservation_class : null) ??
+					(needsDefault(item) ? defaultSpecByIngredient.get(item.ingredient_id as string)?.conservation_class : null) ??
+					null,
 				lots: lotsByItem.get(item.id as string) ?? [],
 			})),
 		}

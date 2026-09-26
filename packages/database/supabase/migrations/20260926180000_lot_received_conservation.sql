@@ -22,6 +22,10 @@
 -- como antes. Funções recriadas a partir do `pg_get_functiondef` de produção, com a mudança
 -- marcada em comentário; `create or replace` preserva dono, grants e comentários.
 -- Edge cases: EST-REC-04 e EST-ARM-01 (.claude/skills/edge-cases/modules/estoque.md).
+--
+-- APLICADA em 2026-09-26, antes do merge, em transação única com o
+-- `INSERT INTO supabase_migrations.schema_migrations (version, name, statements)` no
+-- timestamp exato deste arquivo (decisão do mantenedor, no pedido do PR).
 
 alter table inventory.goods_receipt_item_lot
   add column conservation_class text
