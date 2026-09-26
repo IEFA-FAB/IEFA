@@ -510,21 +510,6 @@ export {
 	savePriceResearchAudit,
 } from "./price-research.ts"
 export {
-	auditReportItem,
-	buildAuditSample,
-	buildResearchSeriesCsv,
-	type CheckSeverity,
-	emitPriceResearchReport,
-	fetchPriceResearchReport,
-	HIGH_CV_PERCENT,
-	type PriceResearchReport,
-	type ReportCheck,
-	type ReportItem,
-	type ReportResearch,
-	type ReportSample,
-	SAMPLE_MAX_AGE_DAYS,
-} from "./price-research-report.ts"
-export {
 	COMPRAS_GOV_ART5_PARAMETER,
 	evaluateResearchCompliance,
 	formatResearchFinding,
@@ -543,6 +528,22 @@ export {
 	type ResearchJustifications,
 	researchNonComplianceReasons,
 } from "./price-research-compliance.ts"
+export {
+	auditReportItem,
+	buildAuditSample,
+	buildResearchSeriesCsv,
+	type CheckSeverity,
+	emitPriceResearchReport,
+	fetchPriceResearchReport,
+	HIGH_CV_PERCENT,
+	justifiableFindingsOf,
+	type PriceResearchReport,
+	type ReportCheck,
+	type ReportItem,
+	type ReportResearch,
+	type ReportSample,
+	SAMPLE_MAX_AGE_DAYS,
+} from "./price-research-report.ts"
 export {
 	convertSamplePrice,
 	isSamePrice,

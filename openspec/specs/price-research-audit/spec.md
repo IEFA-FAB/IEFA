@@ -55,11 +55,23 @@ O relatório SHALL listar, por item, as verificações com base legal e severida
 |---|---|
 | Item sem pesquisa, ou com preço diferente do da pesquisa | bloqueante |
 | Preço acima da mediana (art. 6º, § 6º) | bloqueante |
-| Menos de 3 preços ou fontes, com justificativa e aprovação (art. 6º, § 5º) | aviso |
+| Menos de 3 preços (art. 6º, caput e § 5º) ou de 3 UASGs (critério da unidade), sem justificativa | aviso |
+| Janela maior que 12 meses ou todo o histórico, ou amostra sem data no cálculo (art. 5º, I e II, e § 3º), sem justificativa | aviso |
+| Amostras escolhidas à mão, sem o critério descrito (art. 6º, § 3º; art. 3º, VI) | aviso |
+| Método fora de média, mediana ou menor valor, sem justificativa (art. 6º, § 1º) | aviso |
 | Unidade inferida | aviso |
 | Variação alta, CV acima de 25%, para análise crítica (art. 6º, § 4º) | aviso |
 | Amostra com mais de 1 ano na data da emissão | aviso |
 | Pesquisa com mais de 180 dias (política interna, sem citação legal) | aviso |
+
+A justificativa gravada na pesquisa (`justification_*` do item pesquisado) tira o aviso do
+checklist e o leva às excepcionalidades, com o texto. A regra é a de
+`price-research-compliance.ts`, a mesma da gravação.
+
+#### Scenario: Pesquisa com dois preços justificada
+
+- **WHEN** a pesquisa do item tem 2 preços válidos e a justificativa da amostra reduzida
+- **THEN** o checklist não tem aviso de amostra reduzida, e as excepcionalidades mostram o item com a justificativa
 
 #### Scenario: Preço de catálogo sem pesquisa
 

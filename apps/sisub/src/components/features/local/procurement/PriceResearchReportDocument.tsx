@@ -1,4 +1,11 @@
-import { HIGH_CV_PERCENT, type PriceResearchReport, SAMPLE_MAX_AGE_DAYS } from "@iefa/sisub-domain"
+import {
+	HIGH_CV_PERCENT,
+	justifiableFindingsOf,
+	type PriceResearchReport,
+	type ResearchFinding,
+	type ResearchJustificationKey,
+	SAMPLE_MAX_AGE_DAYS,
+} from "@iefa/sisub-domain"
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const PRICE = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
@@ -22,7 +29,18 @@ export function PriceResearchReportDocument({ report }: { report: PriceResearchR
 	const total = items.reduce((sum, i) => (i.unitPrice != null && i.maxQuantity != null ? sum + i.unitPrice * i.maxQuantity : sum), 0)
 	const checksByOrder = new Map(report.checks.map((c) => [c.order, c.checks]))
 	const blocking = report.checks.filter((c) => c.checks.some((k) => k.severity === "blocking"))
-	const exceptional = items.filter((i) => i.research && (i.research.afterOutlier < 3 || (i.research.uniqueSources ?? 0) < 3))
+	// Excepcionalidades: não conformidades que se resolvem por justificativa, com o texto gravado na
+	// pesquisa (ou o espaço em branco para preencher à mão, se não houver).
+	const exceptional = items.flatMap((i) => {
+		if (!i.research) return []
+		const justifications = i.research.justifications ?? {}
+		const groups = new Map<ResearchJustificationKey, ResearchFinding[]>()
+		for (const finding of justifiableFindingsOf(i.research)) {
+			const key = finding.justification as ResearchJustificationKey
+			groups.set(key, [...(groups.get(key) ?? []), finding])
+		}
+		return [...groups].map(([key, findings]) => ({ item: i, key, findings, text: justifications[key] ?? null }))
+	})
 	const recomputed = items.some((i) => i.research?.samples.some((s) => s.conversionRecomputed))
 
 	return (
@@ -83,8 +101,12 @@ export function PriceResearchReportDocument({ report }: { report: PriceResearchR
 				Os preços de cada amostra são convertidos para a unidade de compra do item (conteúdo da embalagem × fator da unidade de medida). Amostras cujo conteúdo
 				não se mede na unidade do item são desconsideradas como inconsistentes. Das comparáveis, descartam-se como excessivamente elevadas ou inexequíveis as
 				fora do intervalo interquartil ampliado (Q1 − 1,5 × IIQ; Q3 + 1,5 × IIQ), quando há 4 ou mais preços. Sobre as válidas, o preço estimado é a média
-				quando a série é homogênea (coeficiente de variação abaixo de 15%) e a média não supera a mediana; nos demais casos, a mediana. O preço estimado nunca
-				supera a mediana (art. 6º, § 6º).
+				quando a série é homogênea (coeficiente de variação abaixo de 15%) e a média não supera a mediana; nos demais casos, a mediana. O agente pode escolher o
+				menor dos valores (art. 6º, caput). O preço estimado nunca supera a mediana (art. 6º, § 6º).
+			</p>
+			<p>
+				Amostras sem data de referência ficam fora do cálculo, porque sem data não há como mostrar que o preço é de até 1 ano (art. 5º, II). Amostras escolhidas
+				à mão pelo agente, em vez do descarte automático, têm o critério descrito na seção 7 (art. 6º, § 3º).
 			</p>
 			<p>
 				Itens com coeficiente de variação acima de {HIGH_CV_PERCENT}% pedem análise crítica registrada (art. 6º, § 4º). Preços com mais de{" "}
@@ -156,27 +178,36 @@ export function PriceResearchReportDocument({ report }: { report: PriceResearchR
 
 			<h2>7. Excepcionalidades que dependem de aprovação</h2>
 			{exceptional.length === 0 ? (
-				<p>Nenhuma: todos os itens pesquisados têm 3 ou mais preços válidos de 3 ou mais fontes.</p>
+				<p>
+					Nenhuma: todos os itens pesquisados têm 3 ou mais preços válidos de 3 ou mais fontes, na janela de 1 ano, com amostras datadas e o descarte
+					automático.
+				</p>
 			) : (
 				<>
 					<p>
-						Os itens abaixo têm menos de 3 preços válidos ou de 3 fontes. O preço estimado com base em menos de três preços exige justificativa do gestor
-						responsável e aprovação da autoridade competente (art. 6º, § 5º).
+						Os itens abaixo se afastam da regra e dependem de justificativa nos autos: menos de três preços (art. 6º, § 5º, com aprovação da autoridade
+						competente), menos de três UASGs (critério da unidade), preço fora do período de 1 ano ou sem data (art. 5º, § 3º), critério de desconsideração
+						diferente do automático (art. 6º, § 3º) ou outro método (art. 6º, § 1º, com aprovação da autoridade competente). A justificativa registrada na
+						pesquisa sai abaixo; em branco, preencha antes de juntar aos autos.
 					</p>
 					<table>
 						<thead>
 							<tr>
 								<th data-num="">Item</th>
 								<th>Descrição</th>
+								<th>Excepcionalidade</th>
 								<th>Justificativa</th>
 							</tr>
 						</thead>
 						<tbody>
-							{exceptional.map((i) => (
-								<tr key={i.listItemId}>
-									<td data-num="">{i.order}</td>
-									<td>{i.description}</td>
-									<td style={{ height: 36 }} />
+							{exceptional.map((e) => (
+								<tr key={`${e.item.listItemId}-${e.key}`}>
+									<td data-num="">{e.item.order}</td>
+									<td>{e.item.description}</td>
+									<td>
+										{e.findings.map((f) => f.message).join("; ")} ({e.findings[0].basis})
+									</td>
+									<td style={e.text ? undefined : { height: 36 }}>{e.text ?? ""}</td>
 								</tr>
 							))}
 						</tbody>

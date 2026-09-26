@@ -40,7 +40,6 @@ import { requirePermission, requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery } from "../utils/index.ts"
-import { convertSamplePrice, SAMPLE_CONVERSION_REASON_LABELS } from "./price-units.ts"
 import {
 	COMPRAS_GOV_ART5_PARAMETER,
 	justificationsToPersist,
@@ -49,6 +48,7 @@ import {
 	type ResearchJustifications,
 	researchNonComplianceReasons,
 } from "./price-research-compliance.ts"
+import { convertSamplePrice, SAMPLE_CONVERSION_REASON_LABELS } from "./price-units.ts"
 
 type PriceResearchTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 

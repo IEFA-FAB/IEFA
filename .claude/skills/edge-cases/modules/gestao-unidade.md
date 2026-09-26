@@ -87,8 +87,11 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
 - **UX:** no modal da pesquisa, o quadro de não conformidades aparece sob as estatísticas com a
   caixa "Justificativa da amostra reduzida"; preenchida (10+ caracteres), a pendência passa a
   "justificada" e o "Usar" grava a justificativa junto.
+  No relatório de pesquisa de preços, a justificativa tira o aviso do checklist e sai nas
+  excepcionalidades (seção 7), com o texto; sem ela, o espaço fica em branco para preencher.
 - **Cobertura:** `price-research-compliance.test.ts › menos de 3 preços…`, `› a justificativa da
-  amostra reduzida resolve…`. **LACUNA:** o modal não tem teste de componente nem e2e.
+  amostra reduzida resolve…`; `price-research-report.test.ts › justificativa da amostra reduzida
+  tira o aviso…`. **LACUNA:** o modal não tem teste de componente nem e2e.
 
 ### GU-PRC-02 — "Os preços vêm todos do mesmo órgão"
 - **Realidade:** 5 preços, 2 UASGs.

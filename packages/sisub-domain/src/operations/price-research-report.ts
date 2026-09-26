@@ -23,6 +23,7 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
 import { PRICE_RESEARCH_VALIDITY_DAYS, resolveAtaMaxQuantities } from "./ata.ts"
+import { evaluateResearchCompliance, type ResearchFinding, type ResearchJustifications } from "./price-research-compliance.ts"
 import { convertSamplePrice, isSamePrice, PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
 
 /** Variação acima da qual o relatório pede análise crítica (art. 6º, § 4º). Limiar interno, declarado no documento. */
@@ -83,6 +84,11 @@ export interface ReportResearch {
 	uniqueSources: number | null
 	referencePrice: number | null
 	nonComplianceReasons: string[]
+	/**
+	 * Justificativas gravadas na pesquisa (colunas `justification_*`, migration 20260926211000).
+	 * Opcional: emissões anteriores congelaram a pesquisa sem elas.
+	 */
+	justifications?: ResearchJustifications
 	samples: ReportSample[]
 }
 
@@ -203,6 +209,32 @@ export function buildResearchSeriesCsv(items: readonly ReportItem[]): string {
 
 const daysBetween = (from: string, to: string) => (Date.parse(to.slice(0, 10)) - Date.parse(from.slice(0, 10))) / 86_400_000
 
+/** Texto gravado quando as amostras foram escolhidas à mão (`manual_exclusion` de price-research-compliance.ts). */
+const MANUAL_SELECTION_REASON = "escolhidas à mão"
+
+/**
+ * Não conformidades que se resolvem por justificativa (amostra reduzida, período, amostra sem
+ * data, seleção manual, método), pela mesma regra da gravação. Preço acima da mediana e unidade
+ * herdada têm verificação própria no checklist.
+ *
+ * Os fatos saem da pesquisa gravada; a seleção manual não é coluna, então vem do motivo gravado
+ * (ou da justificativa do critério, que só existe se houve seleção manual).
+ */
+export function justifiableFindingsOf(r: ReportResearch): ResearchFinding[] {
+	const justifications = r.justifications ?? {}
+	return evaluateResearchCompliance({
+		validCount: r.afterOutlier,
+		// O teto da mediana tem verificação bloqueante própria no checklist.
+		referencePrice: r.priceMedian ?? 0,
+		stats: { median: r.priceMedian ?? 0, uniqueSources: r.uniqueSources ?? 0 },
+		method: r.method ?? undefined,
+		periodMonths: r.periodMonths,
+		undatedCount: r.samples.filter((s) => s.sampleType === "valid" && !s.referenceDate).length,
+		manualSelection: r.nonComplianceReasons.some((reason) => reason.includes(MANUAL_SELECTION_REASON)) || Boolean(justifications.outlierCriteria),
+		justifications,
+	}).filter((f) => f.justification != null)
+}
+
 /** Verificações do item, com severidade e base legal, na data da emissão. */
 export function auditReportItem(item: ReportItem, emittedAt: string): ReportCheck[] {
 	const checks: ReportCheck[] = []
@@ -227,12 +259,10 @@ export function auditReportItem(item: ReportItem, emittedAt: string): ReportChec
 			basis: "IN SEGES/ME 65/2021, art. 6º, § 6º",
 		})
 	}
-	if (r.afterOutlier < 3 || (r.uniqueSources ?? 0) < 3) {
-		checks.push({
-			severity: "warning",
-			message: `Menos de 3 preços válidos ou de 3 fontes (${r.afterOutlier} preços, ${r.uniqueSources ?? 0} UASGs): exige justificativa aprovada pela autoridade competente.`,
-			basis: "IN SEGES/ME 65/2021, art. 6º, § 5º",
-		})
+	// Não conformidade justificada sai do checklist e vai para as excepcionalidades (seção 7).
+	for (const finding of justifiableFindingsOf(r)) {
+		if (finding.justified) continue
+		checks.push({ severity: "warning", message: `${finding.message}. ${finding.remedy}`, basis: finding.basis })
 	}
 	if (r.nonComplianceReasons.some((reason) => reason.includes("sem unidade declarada"))) {
 		checks.push({
@@ -450,6 +480,13 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 			uniqueSources: num(h.unique_sources),
 			referencePrice: num(h.reference_price),
 			nonComplianceReasons: (Array.isArray(h.non_compliance_reasons) ? h.non_compliance_reasons : []).filter(Boolean) as string[],
+			// `ri.*` traz as colunas quando a migration 20260926211000 está aplicada; antes, ficam nulas.
+			justifications: {
+				lowSample: str(h.justification_low_sample),
+				method: str(h.justification_method),
+				outlierCriteria: str(h.justification_outlier_criteria),
+				outOfPeriod: str(h.justification_out_of_period),
+			},
 			samples: own.map((s) => {
 				const stored = s.converted_price != null
 				// Pesquisa anterior à gravação da conversão: refaz pela mesma regra pura, e o relatório diz.

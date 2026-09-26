@@ -3,6 +3,7 @@ import {
 	auditReportItem,
 	buildAuditSample,
 	buildResearchSeriesCsv,
+	justifiableFindingsOf,
 	type ReportItem,
 	type ReportResearch,
 	type ReportSample,
@@ -132,9 +133,51 @@ describe("auditReportItem", () => {
 			}),
 			at
 		)
-		expect(checks.map((c) => c.severity)).toEqual(["warning", "warning", "warning", "warning"])
+		expect(checks.map((c) => c.severity)).toEqual(["warning", "warning", "warning", "warning", "warning"])
 		expect(checks.map((c) => c.basis).join(" | ")).toContain("§ 5º")
 		expect(checks.map((c) => c.basis).join(" | ")).toContain("§ 4º")
+		// 3 UASGs é critério da unidade, não da IN.
+		expect(checks.find((c) => c.message.startsWith("Menos de 3 UASGs"))?.basis).toContain("Critério da unidade")
+	})
+
+	test("justificativa da amostra reduzida tira o aviso do checklist e o leva às excepcionalidades", () => {
+		const justified = research({
+			afterOutlier: 2,
+			uniqueSources: 2,
+			justifications: { lowSample: "Item regional: só dois órgãos compraram no último ano." },
+		})
+		expect(auditReportItem(item(1, { research: justified }), at)).toEqual([])
+		expect(justifiableFindingsOf(justified).map((f) => [f.code, f.justified])).toEqual([
+			["low_sample", true],
+			["few_sources", true],
+		])
+	})
+
+	test("todo o histórico, amostra sem data e seleção manual viram aviso com a base", () => {
+		const checks = auditReportItem(
+			item(1, {
+				research: research({
+					periodMonths: null,
+					samples: [sample({ referenceDate: null })],
+					nonComplianceReasons: [
+						"Amostras escolhidas à mão (seleção ou filtro), sem o descarte automático por IQR (IN SEGES/ME 65/2021, art. 6º, § 3º, e art. 3º, VI)",
+					],
+				}),
+			}),
+			at
+		)
+		expect(checks.map((c) => c.basis)).toEqual([
+			"IN SEGES/ME 65/2021, art. 5º, I e II, e § 3º",
+			"IN SEGES/ME 65/2021, art. 5º, II, e § 3º: sem data, não há como mostrar que o preço é de até 1 ano",
+			"IN SEGES/ME 65/2021, art. 6º, § 3º, e art. 3º, VI",
+		])
+	})
+
+	test("emissão antiga, sem justificativas congeladas, continua legível", () => {
+		// `research()` não traz `justifications`, como a pesquisa congelada antes da migration.
+		const old = research({ afterOutlier: 2 })
+		expect(old.justifications).toBeUndefined()
+		expect(auditReportItem(item(1, { research: old }), at).map((c) => c.basis)).toEqual(["IN SEGES/ME 65/2021, art. 6º, caput e § 5º"])
 	})
 })
 
