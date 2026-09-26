@@ -47,6 +47,12 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null
 let snapshot: DraftEntry[] = []
 let keySnapshot = ""
 let owner: string | null = null
+/**
+ * Assinatura da conta que entrou em OUTRA aba. Enquanto definida, esta aba está com a
+ * sessão antiga em cache e não pode se re-amarrar à conta anterior — se pudesse, as duas
+ * abas reescreveriam o dono uma da outra e esta gravaria as edições da conta que saiu.
+ */
+let foreignOwner: string | null = null
 let hydrated = false
 let writable = true
 
@@ -217,8 +223,20 @@ export const draftStore = {
 	 */
 	bindOwner(userId: string | null) {
 		if (!userId) return
-		hydrate()
 		const signature = ownerSignature(userId)
+		if (foreignOwner) {
+			// Sessão desta aba ainda é a antiga: espera o auth dela alcançar a conta nova.
+			if (signature !== foreignOwner) return
+			// Alcançou: amarra à conta nova e carrega os rascunhos dela.
+			foreignOwner = null
+			owner = signature
+			entries.clear()
+			hydrated = false
+			hydrate()
+			queueMicrotask(emit)
+			return
+		}
+		hydrate()
 		if (owner === signature) return
 		const known = owner ?? readOwner()
 		owner = signature
@@ -265,6 +283,7 @@ export const draftStore = {
 			// idem flush
 		}
 		owner = null
+		foreignOwner = null
 		hydrated = false
 		writable = true
 		emit()
@@ -284,9 +303,10 @@ if (typeof window !== "undefined") {
 			// Outra conta entrou em outra aba: a sessão do navegador é dela agora, e o que
 			// esta aba tem em memória é da conta anterior.
 			if (event.newValue && event.newValue !== owner) {
-				// Sem dono até o cabeçalho desta aba se amarrar à conta nova (`bindOwner`): até
-				// lá nada desta aba vai para o armazenamento.
+				// Sem dono até o cabeçalho desta aba se amarrar à conta NOVA (`bindOwner`): até
+				// lá nada desta aba vai para o armazenamento, e ela não aceita re-amarrar à antiga.
 				owner = null
+				foreignOwner = event.newValue
 				entries.clear()
 				pendingWrites.clear()
 				emit()
@@ -294,6 +314,8 @@ if (typeof window !== "undefined") {
 			return
 		}
 		if (!event.key?.startsWith(STORAGE_PREFIX)) return
+		// Aba sem dono (outra conta entrou em outra aba): não adota rascunho de ninguém.
+		if (owner === null) return
 		const key = event.key.slice(STORAGE_PREFIX.length)
 		const before = summaryOf(entries.get(key))
 		if (event.newValue == null) entries.delete(key)

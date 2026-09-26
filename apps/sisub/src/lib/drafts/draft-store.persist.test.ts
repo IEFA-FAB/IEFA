@@ -135,6 +135,30 @@ describe("draftStore — persistência local", () => {
 		store.set(entry("k2"))
 		store.flush()
 		expect(storage.data.has("sisub:draft:k2")).toBe(false)
+
+		// o cabeçalho da aba 1 re-renderiza com a sessão antiga em cache: não pode re-amarrar
+		// à conta anterior nem regravar o dono dela
+		store.bindOwner("user-1")
+		expect(storage.data.get("sisub:draft:owner")).toBe("outra-assinatura")
+		store.set(entry("k3"))
+		store.flush()
+		expect(storage.data.has("sisub:draft:k3")).toBe(false)
+	})
+
+	it("depois que a sessão da aba alcança a conta nova, ela carrega os rascunhos dessa conta", async () => {
+		const store = await loadStore()
+		store.bindOwner("user-1")
+		const { ownerSignature } = await import("./draft-store")
+		const signature2 = ownerSignature("user-2")
+		storage.setItem("sisub:draft:owner", signature2)
+		storage.setItem("sisub:draft:dela", JSON.stringify(entry("dela")))
+		otherTabWrote("sisub:draft:owner", signature2)
+
+		store.bindOwner("user-2")
+		expect(store.get("dela")).toBeDefined()
+		store.set(entry("nova"))
+		store.flush()
+		expect(storage.data.has("sisub:draft:nova")).toBe(true)
 	})
 
 	it("entrada inválida vinda de outra aba é ignorada", async () => {

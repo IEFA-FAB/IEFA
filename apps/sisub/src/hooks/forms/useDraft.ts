@@ -123,8 +123,12 @@ export function useDraft<T extends Record<string, unknown>>({
 	}, [key, currentJson, baselineJson, changes.length])
 
 	useEffect(() => {
-		if (!isDirty || draftStore.isPersistent()) return
+		if (!isDirty) return
+		// Decidido NA SAÍDA, não quando a edição começa: a gravação é atrasada, e é na
+		// descarga que se descobre se o armazenamento aceitou (bloqueado, cota cheia).
 		const warn = (event: BeforeUnloadEvent) => {
+			draftStore.flush()
+			if (draftStore.isPersistent()) return
 			event.preventDefault()
 			event.returnValue = ""
 		}
