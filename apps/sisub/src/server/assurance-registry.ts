@@ -276,6 +276,13 @@ export const ASSURANCE_REGISTRY = {
 	recordIngredientReviewFn: { require: "none" },
 	recordFolderReviewFn: { require: "none" },
 
+	// ── procurement-segments.fn.ts (cadastro da segmentação; sem efeito financeiro nem de acesso)
+	createProcurementSegmentFn: { require: "none" },
+	updateProcurementSegmentFn: { require: "none" },
+	deleteProcurementSegmentFn: { require: "none" },
+	addProcurementSegmentRuleFn: { require: "none" },
+	removeProcurementSegmentRuleFn: { require: "none" },
+
 	// ── kitchen-draft.fn.ts
 	createKitchenDraftFn: { require: "none" },
 	updateKitchenDraftFn: { require: "none" },

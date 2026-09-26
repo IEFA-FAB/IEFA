@@ -69,6 +69,7 @@ import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.
 import { computeAtaItemLimits, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
 import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { isSamePrice } from "./price-units.ts"
+import { findSegmentConflicts, lineKey, loadLiveSegment, resolveNeedsForSegment } from "./procurement-segments.ts"
 import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
@@ -564,6 +565,49 @@ async function filterOwnResearchLinks<T extends { researchId: string; researchIt
 	return links.filter((l) => ownHeaders.has(l.researchId) && researchOfOwnItem.get(l.researchItemId) === l.researchId)
 }
 
+// ─── Anexo de uma contratação ─────────────────────────────────────────────────
+
+/** Contratação viva da MESMA OM do anexo; a apagada não serve para anexo novo. */
+async function assertSegmentOfUnit(client: SisubDb | TxClient, segmentId: string, unitId: number): Promise<void> {
+	const segment = await loadLiveSegment(client, segmentId)
+	if (segment.unitId !== unitId) throw new DomainError("SEGMENT_NOT_IN_UNIT", "A contratação é de outra OM.")
+}
+
+/** Quantos itens do cálculo ficaram fora do anexo desta contratação, por motivo. */
+export interface SegmentExclusion {
+	otherSegment: number
+	unassigned: number
+	conflict: number
+}
+
+/**
+ * Cálculo do anexo de UMA contratação: o cálculo completo, filtrado pela resolução de cada
+ * linha (item de compra) — planejar X produções e comprar só o segmento Y. Devolve também
+ * quantos itens ficaram de fora, para o wizard dizer onde estão.
+ */
+export async function calculateAtaNeedsForSegment(
+	db: SisubDb,
+	ctx: UserContext,
+	input: CalculateAtaNeeds & { segmentId: string }
+): Promise<{ items: ProcurementNeed[]; excluded: SegmentExclusion }> {
+	const segment = await loadLiveSegment(db, input.segmentId)
+	requireUnit(ctx, 1, segment.unitId)
+	await assertSelectionsBelongToUnit(db, segment.unitId, input.kitchenSelections)
+
+	const needs = await calculateAtaNeeds(db, ctx, input)
+	const resolutions = await resolveNeedsForSegment(db, segment.unitId, needs)
+	const excluded: SegmentExclusion = { otherSegment: 0, unassigned: 0, conflict: 0 }
+	const items: ProcurementNeed[] = []
+	for (const need of needs) {
+		const resolution = resolutions.get(lineKey({ ingredientId: need.ingredient_id, purchaseItemId: need.purchase_item_id }))
+		if (resolution?.kind === "assigned" && resolution.segmentId === input.segmentId) items.push(need)
+		else if (resolution?.kind === "assigned") excluded.otherSegment++
+		else if (resolution?.kind === "conflict") excluded.conflict++
+		else excluded.unassigned++
+	}
+	return { items, excluded }
+}
+
 // ─── Criar rascunho vazio (wizard step 1) ────────────────────────────────────
 
 /**
@@ -630,6 +674,10 @@ export async function updateAtaDraft(db: SisubDb, ctx: UserContext, input: Updat
 		if (input.notes !== undefined) updateData.notes = input.notes || null
 		if (input.wizardStep !== undefined) updateData.wizardStep = input.wizardStep
 		if (input.validityMonths !== undefined) updateData.validityMonths = input.validityMonths
+		if (input.segmentId !== undefined) {
+			if (input.segmentId) await assertSegmentOfUnit(tx, input.segmentId, unitId)
+			updateData.segmentId = input.segmentId
+		}
 
 		// Detecta draft inexistente (deletado mid-session) em vez de no-op silencioso — paridade com updateAtaStatus/deleteAta.
 		await mutateOrFail(
@@ -1454,6 +1502,28 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 					.returning({ id: procurementListInProcurement.id }),
 			{ prefix: "Erro ao atualizar status" }
 		)
+
+		// Anexo de uma contratação não conclui com item em conflito entre ela e outra: o item
+		// ficaria fora de qualquer anexo, ou em dois (Lei 14.133/2021, art. 82, VIII).
+		if (current === "draft" && input.status === "published") {
+			const lists = await runQuery("FETCH_FAILED", () =>
+				tx
+					.select({ unitId: procurementListInProcurement.unitId, segmentId: procurementListInProcurement.segmentId })
+					.from(procurementListInProcurement)
+					.where(eq(procurementListInProcurement.id, input.ataId))
+					.limit(1)
+			)
+			const list = lists[0]
+			if (list?.segmentId) {
+				const conflicts = await findSegmentConflicts(tx, list.unitId, list.segmentId)
+				if (conflicts.length > 0) {
+					throw new DomainError(
+						"SEGMENT_CONFLICT",
+						`Há ${conflicts.length} item(ns) em duas contratações (${conflicts.slice(0, 3).join("; ")}${conflicts.length > 3 ? "…" : ""}): ajuste a segmentação antes de concluir.`
+					)
+				}
+			}
+		}
 
 		// A justificativa da margem é exigida na PUBLICAÇÃO, uma vez por ata. Arquivar direto
 		// um rascunho não publica nada, então não cobra.
