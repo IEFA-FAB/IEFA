@@ -38,11 +38,18 @@ ciência dela, e apagar a linha falha. Mesmo com a migration ainda não aplicada
 produção, editá-la no lugar faria o número nomear dois textos — quem já a tivesse
 rodado localmente nunca receberia o novo (`ON CONFLICT … DO NOTHING`), e os testes
 leem o `.sql`, não o banco, então continuariam verdes. Vigente no repositório:
-**Termos e Privacidade 2.2.0, Cookies 1.3.0**, em
-`20260921120000_legal_documents_v2_2.sql`, **aplicada em produção em 2026-09-19**
-(vigência nessa data; substitui 2.1.0 / cookies 1.2.0 de
-`20260907120000_legal_documents_cookies_v1_2.sql`). A 2.2.0 existe porque o
-Contrate foi ao ar sem constar de documento nenhum.
+**Termos e Privacidade 2.3.0, Cookies 1.4.0**, em
+`20260926120000_legal_documents_cookies_v1_4.sql`, **aplicada em produção em
+2026-09-26**. Histórico recente: a 2.2.0 (2026-09-19) existe porque o Contrate foi
+ao ar sem constar de documento nenhum; a 2.3.0 (2026-09-22), pelo chat do
+Contrate, que cria a única exceção à autoexclusão e ao expurgo; os Cookies 1.4.0
+(2026-09-26), porque o SISUB passou a chamar o artefato "Exceção" de "Apoio" e o
+inventário nomeava uma tela que não existe mais.
+
+A migration vigente tem que conter o conjunto COMPLETO dos três documentos: os
+guards leem só o arquivo de maior timestamp. Documento que não muda é reinserido
+com a mesma versão, e o `ON CONFLICT DO NOTHING` impede que isso vire versão nova
+ou peça ciência de novo.
 
 ## Cobertura por app
 
