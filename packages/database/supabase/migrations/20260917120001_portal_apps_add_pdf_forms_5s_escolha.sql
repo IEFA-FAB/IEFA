@@ -1,3 +1,9 @@
+-- Versão 20260917120001, e não 20260917120000 como nasceu no #348: o #355 criou
+-- 20260917120000_inventory_phase0_hardening.sql no mesmo timestamp, e versão duplicada quebra o
+-- `supabase db push`/`db reset` (a chave de `supabase_migrations.schema_migrations` é a versão).
+-- O histórico remoto já tinha 20260917120000 = inventory_phase0_hardening, então quem mudou de
+-- número foi esta. O conteúdo é o mesmo e é idempotente; o efeito já estava em produção.
+
 -- Portal suite (iefa.apps):
 --  1) Documentação saiu do Fly (iefa-docs.fly.dev) para docs.iefa.com.br.
 --  2) Adiciona os apps publicados depois do último seed: PDF (BentoPDF),

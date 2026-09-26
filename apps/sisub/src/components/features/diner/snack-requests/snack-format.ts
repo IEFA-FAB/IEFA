@@ -86,8 +86,13 @@ export function audienceLabel(audience: SnackAudience | string, missionKind: str
 	return audience === "crew" ? "Tripulação" : "Passageiros"
 }
 
-export function classLabel(family: SnackFamily, snackClass: SnackClass): string {
-	return `${FAMILY_LABELS[family]} “Classe ${snackClass}”`
+/**
+ * "Lanche de Bordo “Classe C”" — o mesmo rótulo no Comensal e na Gestão Cozinha (que o reexporta
+ * em `local/snack-requests/format.ts`). Nome completo, nunca "Bordo"/"Apoio" solto: "Apoio" também
+ * é o nome do cardápio de apoio (`/exceptions`).
+ */
+export function classLabel(family: SnackFamily | string, snackClass: SnackClass | string): string {
+	return `${(FAMILY_LABELS as Record<string, string>)[family] ?? family} “Classe ${snackClass}”`
 }
 
 /** Chave de divergência da calculadora ("bordo:B:crew") → texto legível. */
