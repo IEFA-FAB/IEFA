@@ -5,14 +5,10 @@ vi.mock("@/auth/pbac", () => ({ hasPermission: () => true }))
 vi.mock("@/lib/assurance/mfa-availability", () => ({ MFA_AVAILABLE: true }))
 
 const { ALL_MODULES } = await import("@/components/layout/sidebar/NavItems")
-const { indexEntries, searchEntries } = await import("@/lib/command-palette")
+const { indexEntries, searchEntries, toPaletteEntries } = await import("@/lib/command-palette")
 
-/** O mesmo índice que a paleta monta (`CommandPalette.tsx`), com a sidebar real. */
-const INDEX = indexEntries(
-	ALL_MODULES.flatMap((m) =>
-		m.items.map((it) => ({ id: `${m.id}:${it.url}`, label: it.title, moduleId: m.id, moduleName: m.name, group: it.group, keywords: it.keywords, url: it.url }))
-	)
-)
+/** O mesmo índice que a paleta monta (`CommandPalette.tsx`), sobre a sidebar real sem filtro de permissão. */
+const INDEX = indexEntries(toPaletteEntries(ALL_MODULES))
 const urls = (query: string) => searchEntries(INDEX, query).map((e) => e.url)
 
 /**
@@ -31,6 +27,7 @@ describe("busca da paleta: apoio × lanche de apoio", () => {
 			const hits = urls(query)
 			expect(hits, query).toContain("/kitchen/snack-requests")
 			expect(hits, query).not.toContain("/kitchen/exceptions")
+			expect(hits, query).not.toContain("/global/exceptions")
 		}
 	})
 

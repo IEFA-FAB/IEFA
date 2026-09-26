@@ -44,6 +44,42 @@ export type ResolvedTarget =
 /** O usuário abre `moduleId` no nível `minLevel` dentro deste escopo? (`hasPermission` com escopo) */
 export type CanOpen = (moduleId: string, minLevel: number, scope: { type: ScopeType; id: number }) => boolean
 
+/** O que a paleta lê de um item da sidebar (`NavItems.tsx`), sem importar a sidebar. */
+type PaletteSourceItem = { url: string; title: string; group?: string; keywords?: readonly string[]; minLevel?: number; icon: unknown }
+type PaletteSourceModule<I extends PaletteSourceItem> = {
+	id: string
+	name: string
+	items: readonly I[]
+	hubUrl?: string
+	scopeType?: ScopeType
+	scopeNoun?: string
+}
+
+/**
+ * Sidebar → entradas da paleta. Um lugar só: a paleta (`CommandPalette.tsx`) e o teste que fixa a
+ * busca sobre a sidebar real (`command-palette.nav.test.ts`) montam o índice por aqui.
+ */
+export function toPaletteEntries<I extends PaletteSourceItem>(
+	modules: readonly PaletteSourceModule<I>[]
+): (PaletteEntry & { icon: I["icon"]; scopeNoun?: string })[] {
+	return modules.flatMap((m) =>
+		m.items.map((it) => ({
+			id: it.url,
+			label: it.title,
+			moduleId: m.id,
+			moduleName: m.name,
+			group: it.group,
+			keywords: it.keywords,
+			url: it.url,
+			minLevel: it.minLevel,
+			hubUrl: m.hubUrl,
+			scopeType: m.scopeType,
+			scopeNoun: m.scopeNoun,
+			icon: it.icon,
+		}))
+	)
+}
+
 /** Entrada com os textos já normalizados — calculado uma vez por índice, não a cada tecla. */
 export type IndexedEntry<T extends PaletteEntry> = { entry: T; label: string; rest: string }
 

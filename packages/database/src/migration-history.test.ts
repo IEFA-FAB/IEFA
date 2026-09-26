@@ -30,10 +30,12 @@ function executable(sql: string): string {
 
 describe("histórico de migrations", () => {
 	test("todo arquivo é <versão>_<nome>.sql, com versão de 14 dígitos", () => {
-		// As 29 de 8 dígitos (até 2026-05-30) são legado e estão assim no histórico remoto:
-		// renomear mudaria a versão delas. Arquivo novo sempre com hora (`supabase migration new`).
-		const legacy = (name: string) => /^\d{8}_/.test(name) && name.slice(0, 8) <= "20260530"
-		expect(FILES.filter((name) => !legacy(name) && !/^\d{14}_[a-z0-9_]+\.sql$/.test(name))).toEqual([])
+		// As 29 de 8 dígitos (20241215…20260530) são legado e estão assim no histórico remoto:
+		// renomear mudaria a versão delas. Arquivo novo sempre com hora (`supabase migration new`),
+		// e a contagem fixa impede que um "20260415_fix.sql" retroativo entre pela exceção.
+		const legacy = FILES.filter((name) => /^\d{8}_[a-z0-9_]+\.sql$/.test(name) && name.slice(0, 8) <= "20260530")
+		expect(legacy.length).toBe(29)
+		expect(FILES.filter((name) => !legacy.includes(name) && !/^\d{14}_[a-z0-9_]+\.sql$/.test(name))).toEqual([])
 	})
 
 	test("nenhuma versão se repete", () => {

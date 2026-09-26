@@ -9,7 +9,7 @@
 import type { SnackRequestSummary } from "@iefa/sisub-domain"
 import { brasiliaCivilDate, isStandardReviewOverdue, type SnackRequestStatus } from "@iefa/sisub-domain/utils"
 import { z } from "zod"
-import { audienceLabel } from "@/components/features/diner/snack-requests/snack-format"
+import { audienceLabel, classLabel } from "@/components/features/diner/snack-requests/snack-format"
 import { SNACK_FAMILY_LABELS, SNACK_VARIANT_LABELS } from "@/lib/occasion-menu"
 
 /**
@@ -192,16 +192,10 @@ export function lineKits(line: SnackRequestSummary["lines"][number]): number {
 	return line.approved_quantity ?? line.quantity
 }
 
-/**
- * "Lanche de Bordo C". Nome completo, nunca "Bordo"/"Apoio" solto: "Apoio" também é o nome do
- * cardápio de apoio (`/exceptions`), e "Apoio A" não diz qual dos dois é.
- */
-export function classLabel(family: string, snackClass: string): string {
-	return `${FAMILY_LABELS[family] ?? family} ${snackClass}`
-}
+export { classLabel }
 
 /**
- * "bordo:C:pax" (chave da calculadora) → "Lanche de Bordo C · Passageiros" — "… · Outros" quando a
+ * "bordo:C:pax" (chave da calculadora) → "Lanche de Bordo “Classe C” · Passageiros" — "… · Outros" quando a
  * missão é terrestre. A chave sozinha não sabe o tipo da missão: ele vem sempre do pedido.
  */
 export function entitlementKeyLabel(key: string, missionKind: string): string {
@@ -232,7 +226,7 @@ export function requestFlags(request: SnackRequestSummary): RequestFlags {
 	}
 }
 
-/** Kits por classe e público, na ordem do pedido: "Bordo B · Tripulação" → 4. */
+/** Kits por classe e público, na ordem do pedido: "Lanche de Bordo “Classe B” · Tripulação" → 4. */
 export function kitsByClass(request: SnackRequestSummary): { key: string; label: string; kits: number; requested: number; optional: boolean }[] {
 	const rows = new Map<string, { key: string; label: string; kits: number; requested: number; optional: boolean }>()
 	for (const line of request.lines) {

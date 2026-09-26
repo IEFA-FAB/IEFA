@@ -18,6 +18,7 @@ import {
 	resolveEntryTarget,
 	type ScopeType,
 	searchEntries,
+	toPaletteEntries,
 } from "@/lib/command-palette"
 import type { ScopeContext } from "@/types/domain/scope"
 
@@ -99,28 +100,7 @@ export function CommandPalette({ scopeType = null, scope = null }: { scopeType?:
 		}
 	}, [userId])
 
-	const index = useMemo(
-		() =>
-			indexEntries<Entry>(
-				getModulesForPermissions(permissions).flatMap((m) =>
-					m.items.map((it) => ({
-						id: it.url,
-						label: it.title,
-						moduleId: m.id,
-						moduleName: m.name,
-						group: it.group,
-						keywords: it.keywords,
-						url: it.url,
-						minLevel: it.minLevel,
-						hubUrl: m.hubUrl,
-						scopeType: m.scopeType,
-						scopeNoun: m.scopeNoun,
-						icon: it.icon,
-					}))
-				)
-			),
-		[permissions]
-	)
+	const index = useMemo(() => indexEntries<Entry>(toPaletteEntries(getModulesForPermissions(permissions))), [permissions])
 	const hits = useMemo(() => searchEntries(index, query), [index, query])
 
 	const canOpen: CanOpen = (moduleId, minLevel, s) => hasPermission(permissions, moduleId as ModuleId, minLevel, s)
