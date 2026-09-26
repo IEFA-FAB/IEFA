@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
 	type ArpItemFacts,
+	availableArpBalance,
 	checkEmpenhoAgainstArp,
 	empenhoItemProblems,
 	isEmpenhoWithoutOrigin,
@@ -14,6 +15,7 @@ const arpItem = (id: string, patch: Partial<ArpItemFacts> = {}): ArpItemFacts =>
 	description: "ARROZ",
 	unitPrice: 5,
 	officialBalance: 1000,
+	homologatedQuantity: 1000,
 	localCommitted: 0,
 	validFrom: "2026-01-01",
 	validTo: "2026-12-31",
@@ -78,6 +80,20 @@ describe("conferência NE × ARP", () => {
 			arpItems,
 		})
 		expect(warnings.map((w) => w.code)).toEqual(["above_balance"])
+	})
+
+	test("o saldo que vale é o menor entre o oficial e o homologado menos o já empenhado aqui", () => {
+		expect(availableArpBalance({ officialBalance: 1000, homologatedQuantity: 1000, localCommitted: 700 })).toBe(300)
+		expect(availableArpBalance({ officialBalance: 200, homologatedQuantity: 1000, localCommitted: 100 })).toBe(200)
+		expect(availableArpBalance({ officialBalance: null, homologatedQuantity: 100, localCommitted: 30 })).toBe(70)
+		expect(availableArpBalance({ officialBalance: null, homologatedQuantity: null, localCommitted: 30 })).toBeNull()
+	})
+
+	test("ARP à mão: a segunda NE que passa do homologado avisa, mesmo com o saldo oficial cheio", () => {
+		const manual = new Map([["m", arpItem("m", { officialBalance: 100, homologatedQuantity: 100, localCommitted: 80 })]])
+		const warnings = checkEmpenhoAgainstArp({ empenhoDate: "2026-05-01", items: [{ arpItemId: "m", quantity: 30, unitPrice: 5 }], arpItems: manual })
+		expect(warnings.map((w) => w.code)).toEqual(["above_balance"])
+		expect(warnings[0]?.message).toContain("20")
 	})
 
 	test("ARP à mão não sincronizada avisa que o saldo não foi conferido", () => {

@@ -12,7 +12,8 @@
 import type { Empenho, ProcurementArpItem } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { aggregateLocalCommitments, type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
+import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
+import { loadLocalCommitments } from "@/lib/arp-commitments.server"
 import { type ArpSaldo, anoFromNumeroAta, assertVigenciaWindow, formatNumeroAta, parseBrDate, parseNumeroItem, resolveArpSaldos } from "@/lib/arp-compras"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
@@ -20,7 +21,7 @@ import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import { todayInBrasilia } from "@/lib/expense-execution"
 import { getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
-import { insertEmpenhoEventSerialized, toEmpenhoEventError } from "@/server/empenho.fn"
+import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho.fn"
 import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage } from "@/types/domain/arp"
 
 // TODO: regenerar tipos após aplicar 20260926214000 — `acquisition_id`/`source` da ARP,
@@ -751,7 +752,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 			.order("numero_item", { ascending: true })
 		if (itemsError) throw new Error(`Erro ao listar itens das ARPs: ${itemsError.message}`)
 		const itemRows = (items ?? []) as ProcurementArpItem[]
-		const committed = await localCommitmentsFor(itemRows.map((item) => item.id))
+		const committed = await loadLocalCommitments(itemRows.map((item) => item.id))
 
 		return list.map((arp) => ({
 			id: arp.id,
@@ -782,34 +783,6 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 				})),
 		}))
 	})
-
-/**
- * Comprometimento local por item de ARP, lido de `finance.empenho_item` (NE com vários itens
- * conta em cada um). O retrato oficial (`procurement_arp_item.quantidade_empenhada`) NÃO é
- * tocado: só a sincronização o escreve.
- */
-async function localCommitmentsFor(arpItemIds: readonly string[]): Promise<Map<string, LocalCommitment>> {
-	if (arpItemIds.length === 0) return new Map()
-	const fin = getProcurementClient().schema("finance") as unknown as LooseProcurement
-	const { data: items, error } = await fin.from("empenho_item").select("empenho_id, arp_item_id, quantity, value").in("arp_item_id", arpItemIds)
-	if (error) throw new Error(`Erro ao buscar itens de empenho: ${error.message}`)
-	const rows = (items ?? []) as Array<{ empenho_id: string; arp_item_id: string; quantity: number | string | null; value: number | string }>
-	const empenhoIds = [...new Set(rows.map((row) => row.empenho_id))]
-	const statusById = new Map<string, string>()
-	if (empenhoIds.length > 0) {
-		const { data: empenhos, error: empError } = await fin.from("empenho").select("id, status").in("id", empenhoIds)
-		if (empError) throw new Error(`Erro ao buscar empenhos: ${empError.message}`)
-		for (const e of empenhos ?? []) statusById.set(e.id, e.status)
-	}
-	return aggregateLocalCommitments(
-		rows.map((row) => ({
-			arp_item_id: row.arp_item_id,
-			status: statusById.get(row.empenho_id) ?? "anulado",
-			quantidade_empenhada: row.quantity,
-			valor_total: row.value,
-		}))
-	)
-}
 
 // ─── 5. Buscar empenhos de um item da ARP ────────────────────────────────────
 
@@ -962,7 +935,7 @@ export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
 		if (itemIds.length === 0) return {}
 
 		// Pelos itens da NE: agrupar por `empenho.arp_item_id` deixava de fora a NE com vários itens.
-		return Object.fromEntries(await localCommitmentsFor(itemIds))
+		return Object.fromEntries(await loadLocalCommitments(itemIds))
 	})
 
 /**
@@ -1050,32 +1023,17 @@ export const anularEmpenhoFn = createServerFn({ method: "POST" })
 		if (lookupError) throw new Error(`Erro ao buscar empenho: ${lookupError.message}`)
 		if (!empenho) throw new Error("Empenho não encontrado")
 		const ctx = await requireUnitScope(2, Number(empenho.unit_id))
-		if (empenho.status === "anulado") throw new Error(`O empenho ${empenho.numero_empenho} já está anulado`)
 
-		// Pré-checagem para a mensagem com instrução; quem decide é o piso dentro da transação.
-		const { data: saldo, error: saldoError } = await (fin as unknown as LooseProcurement)
-			.from("v_empenho_saldo")
-			.select("valor_vigente, valor_liquidado, saldo_a_liquidar")
-			.eq("empenho_id", data.empenhoId)
-			.maybeSingle()
-		if (saldoError) throw new Error(`Erro ao ler o saldo do empenho: ${saldoError.message}`)
-		const vigente = Number(saldo?.valor_vigente ?? 0)
-		const liquidado = Number(saldo?.valor_liquidado ?? 0)
-		if (liquidado > 0.009) {
-			throw new Error(
-				`O empenho ${empenho.numero_empenho} já tem R$ ${liquidado.toFixed(2)} liquidados e não se anula inteiro. Anule só o saldo a liquidar (R$ ${Number(saldo?.saldo_a_liquidar ?? 0).toFixed(2)}) em Empenhos → Anulação.`
-			)
-		}
-
+		// Vigente, liquidado e status são lidos DENTRO da transação do evento, sob os locks dele
+		// (`cancelEmpenhoSerialized`): um reforço concorrente não sobra numa NE "anulada". O piso do
+		// banco confere de novo o liquidado e o já pedido em Ordens de Fornecimento.
 		return withSensitiveAudit(
 			"anularEmpenhoFn",
 			ctx,
 			async () => {
 				try {
-					await insertEmpenhoEventSerialized({
+					return await cancelEmpenhoSerialized({
 						empenhoId: data.empenhoId,
-						tipo: "cancelamento",
-						valor: Math.max(0, vigente),
 						data: todayInBrasilia(),
 						justificativa: data.justificativa ?? "Anulação total da nota de empenho",
 						userId: ctx.userId,
@@ -1084,6 +1042,6 @@ export const anularEmpenhoFn = createServerFn({ method: "POST" })
 					throw toEmpenhoEventError(error)
 				}
 			},
-			() => ({ empenhoId: data.empenhoId, unitId: Number(empenho.unit_id), valorAnulado: vigente })
+			(result) => ({ empenhoId: data.empenhoId, unitId: Number(empenho.unit_id), numeroEmpenho: empenho.numero_empenho, valorAnulado: result.valor })
 		)
 	})

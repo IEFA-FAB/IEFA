@@ -143,6 +143,36 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 		).resolves.toBe("rolled-back")
 	}, 60_000)
 
+	test("anulação não desce abaixo do que as OFs já pediram ao fornecedor", async () => {
+		await expect(
+			inRollback(sql, async (tx) => {
+				const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-PISO', 'unit teste piso') returning id`
+				const [kitchen] = await tx`insert into kitchen.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha piso') returning id`
+				const [ne] =
+					await tx`insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total) values (${unit.id}, '2026NE000950', '2026-09-01', 1000) returning id`
+				const [of] = await tx`
+					insert into procurement.supply_order (empenho_id, kitchen_id, sent_at, expected_delivery, status)
+					values (${ne.id}, ${kitchen.id}, '2026-09-02', '2026-09-10', 'sent') returning id`
+				await tx`insert into procurement.supply_order_item (supply_order_id, ordered_qty, unit_price) values (${of.id}, 10, 60)`
+
+				// 1.000 − 500 = 500 < 600 pedidos → recusa com a instrução
+				await expect(
+					tx.savepoint(
+						(sp) =>
+							sp`insert into finance.empenho_event (empenho_id, tipo, valor, data, justificativa) values (${ne.id}, 'anulacao', 500, '2026-09-03', 'teste')`
+					)
+				).rejects.toThrow(/cancele ou reduza a OF/)
+				// até o pedido, passa
+				await tx`insert into finance.empenho_event (empenho_id, tipo, valor, data, justificativa) values (${ne.id}, 'anulacao', 400, '2026-09-03', 'teste')`
+				// cancelada a OF, a anulação total passa
+				await tx`update procurement.supply_order set status = 'cancelled' where id = ${of.id}`
+				await tx`insert into finance.empenho_event (empenho_id, tipo, valor, data, justificativa) values (${ne.id}, 'cancelamento', 600, '2026-09-04', 'teste')`
+				const [vigente] = await tx`select valor_vigente from finance.v_empenho_vigente where empenho_id = ${ne.id}`
+				expect(Number(vigente.valor_vigente)).toBe(0)
+			})
+		).resolves.toBe("rolled-back")
+	}, 60_000)
+
 	test("anexo apagado não leva ARP nem empenho; item de ARP com empenho não se apaga", async () => {
 		await expect(
 			inRollback(sql, async (tx) => {
@@ -235,6 +265,10 @@ describeIf("import do SIAFI sem perda (DB)", () => {
 				const [parked] = await tx`select parse_status, parse_error from siafi_integration.import_row where batch_id = ${ns}`
 				expect(parked.parse_status).toBe("waiting_parent")
 				expect(parked.parse_error).toBe("Aguardando a NE 2026NE000123")
+				// Estacionada não some da conciliação: aparece como "aguardando o documento de origem".
+				const [recon] = await tx`
+					select situacao from finance.v_siafi_reconciliation where unit_id = ${unit.id} and documento_tipo = 'ns' and numero_documento = '2026NS000010'`
+				expect(recon.situacao).toBe("aguardando_documento_pai")
 
 				const ob = await batch("ob", { numero_ob: "2026OB000005", ns_origem: "2026NS000010", valor: 100, data: "2026-09-12" }, "hash-ob")
 				await tx`select siafi_integration.apply_document_batch(${ob}::uuid)`

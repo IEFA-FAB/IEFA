@@ -194,6 +194,7 @@ export {
 	type ArpConformityCode,
 	type ArpConformityWarning,
 	type ArpItemFacts,
+	availableArpBalance,
 	checkEmpenhoAgainstArp,
 	EMPENHO_TYPES,
 	type EmpenhoItemDraft,

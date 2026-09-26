@@ -33,6 +33,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { sql } from "drizzle-orm"
 import { z } from "zod"
 import { resolveSaldoOficial } from "@/lib/arp-balance"
+import { loadLocalCommitments } from "@/lib/arp-commitments.server"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
@@ -189,6 +190,9 @@ export const createEmpenhoWithItemsFn = createServerFn({ method: "POST" })
 				.in("id", arpIds)
 			if (arpError) throw new Error(`Erro ao conferir as ARPs: ${arpError.message}`)
 			const arpById = new Map(((arpRows ?? []) as ArpRow[]).map((arp) => [arp.id, arp]))
+			// Já empenhado AQUI em NEs ativas: numa ARP cadastrada à mão o saldo oficial é o
+			// homologado cheio até a primeira sincronização, e sem o local duas NEs passariam do total.
+			const committed = await loadLocalCommitments(arpItemIds)
 			for (const row of rows) {
 				const arp = arpById.get(row.arp_id)
 				if (!arp || Number(arp.unit_id) !== data.unitId) throw new Error("O item da ARP informado não pertence a esta unidade")
@@ -199,7 +203,8 @@ export const createEmpenhoWithItemsFn = createServerFn({ method: "POST" })
 					description: row.descricao_item,
 					unitPrice: row.valor_unitario == null ? null : Number(row.valor_unitario),
 					officialBalance: row.quantidade_homologada == null && row.saldo_empenho == null ? null : resolveSaldoOficial(row),
-					localCommitted: 0,
+					homologatedQuantity: row.quantidade_homologada == null ? null : Number(row.quantidade_homologada),
+					localCommitted: committed.get(row.id)?.quantidade ?? 0,
 					validFrom: arp.data_vigencia_inicio,
 					validTo: arp.data_vigencia_fim,
 				})

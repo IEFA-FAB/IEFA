@@ -73,6 +73,8 @@ export interface ArpItemFacts {
 	unitPrice: number | null
 	/** Saldo oficial (Compras.gov.br): homologada − empenhada, ou `saldo_empenho`. */
 	officialBalance: number | null
+	/** Quantidade registrada (homologada) do item na ata. */
+	homologatedQuantity: number | null
 	/** Já empenhado por ESTA unidade em NEs ativas (soma dos `empenho_item`). */
 	localCommitted: number
 	/** Vigência da ARP ("YYYY-MM-DD"). */
@@ -86,6 +88,19 @@ export interface ArpConformityWarning {
 	arpItemId: string
 	code: ArpConformityCode
 	message: string
+}
+
+/**
+ * Saldo que a NE pode usar: o MENOR entre o saldo oficial e o homologado menos o já empenhado por
+ * esta unidade. O oficial só muda na sincronização — numa ARP cadastrada à mão ele é o homologado
+ * cheio até a primeira importação —, então sem o local duas NEs seguidas empenhariam o dobro sem
+ * aviso. Sem nenhum dos dois conhecido, null (não se confere).
+ */
+export function availableArpBalance(arp: Pick<ArpItemFacts, "officialBalance" | "homologatedQuantity" | "localCommitted">): number | null {
+	const local = arp.homologatedQuantity != null ? arp.homologatedQuantity - arp.localCommitted : null
+	if (arp.officialBalance == null) return local
+	if (local == null) return arp.officialBalance
+	return Math.min(arp.officialBalance, local)
 }
 
 /**
@@ -124,8 +139,8 @@ export function checkEmpenhoAgainstArp(input: {
 		}
 
 		const requested = requestedByItem.get(arp.id) ?? 0
-		if (requested > 0 && arp.officialBalance != null) {
-			const available = arp.officialBalance
+		const available = availableArpBalance(arp)
+		if (requested > 0 && available != null) {
 			if (requested > available + 0.00005) {
 				warnings.push({
 					arpItemId: arp.id,

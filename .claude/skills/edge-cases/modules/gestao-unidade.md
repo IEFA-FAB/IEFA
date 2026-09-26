@@ -249,12 +249,16 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **Cobertura:** `acquisition-origin.operations.test.ts › NE registrada à mão… erro de gravação não
   grava nada e o lote se reaplica`.
 
-### GU-SIAFI-03 — "Anular a NE que já tem liquidação"
-- **O sistema precisa:** a anulação passa pelo evento e pelo piso (o liquidado não se desfaz por
-  anulação). A NE liquidada não se anula inteira: a recusa diz para anular só o saldo a liquidar em
-  Empenhos.
-- **Cobertura:** `budget-execution.operations.test.ts` (piso do evento); a mensagem com instrução está
-  em `anularEmpenhoFn` — **LACUNA:** teste da server fn.
+### GU-SIAFI-03 — "Anular a NE que já tem liquidação ou OF enviada"
+- **O sistema precisa:** a anulação passa pelo evento e pelo piso, que é o MAIOR entre o liquidado
+  (o que foi liquidado não se desfaz por anulação) e o já pedido em Ordens de Fornecimento não
+  canceladas (o fornecedor recebeu a ordem e vai entregar). A NE liquidada não se anula inteira: a
+  recusa diz para anular só o saldo a liquidar; abaixo do pedido, diz para cancelar ou reduzir a OF
+  antes. O valor da anulação total é lido dentro da transação, sob o lock do evento: um reforço
+  concorrente não sobra numa NE "anulada".
+- **Cobertura:** `budget-execution.operations.test.ts` (piso do liquidado);
+  `acquisition-origin.operations.test.ts › anulação não desce abaixo do que as OFs já pediram…`;
+  `expense-execution.test.ts › planEmpenhoCancellation`.
 
 ### GU-REP-01 — "Estoque baixo: o sistema sugeriu supermercado virtual"
 - **O sistema precisa:** Supermercado Virtual e Contrata+Brasil só quando o valor cabe no que resta do

@@ -18,6 +18,7 @@ import { sql } from "drizzle-orm"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { getDb } from "@/lib/db.server"
+import { planEmpenhoCancellation } from "@/lib/expense-execution"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -277,6 +278,45 @@ export async function insertEmpenhoEventSerialized(input: {
 		if (input.tipo === "cancelamento") {
 			await tx.execute(sql`update finance.empenho set status = 'anulado' where id = ${input.empenhoId}::uuid`)
 		}
+	})
+}
+
+/**
+ * Anulação TOTAL da NE, com o valor lido DENTRO da transação e sob os mesmos locks do evento.
+ *
+ * Ler o vigente antes (fora da transação) e anular "esse valor" depois deixava uma janela: um
+ * reforço concorrente entrava no meio, e a NE ficava `anulado` com valor vigente sobrando. Aqui o
+ * vigente, o liquidado e o status são lidos depois dos locks, na mesma transação do evento e do
+ * status. O piso do banco (liquidado e já pedido em OF) confere de novo no insert.
+ */
+export async function cancelEmpenhoSerialized(input: { empenhoId: string; data: string; justificativa: string; userId: string }): Promise<{ valor: number }> {
+	return getDb().transaction(async (tx) => {
+		await tx.execute(sql`select set_config('lock_timeout', ${EVENT_LOCK_TIMEOUT}, true)`)
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`empenho_event:${input.empenhoId}`}::text, 42))`)
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`liq_empenho:${input.empenhoId}`}::text, 42))`)
+
+		const [row] = await tx.execute<{ numero: string; status: string; vigente: string | null; liquidado: string | null }>(sql`
+			select
+				e.numero_empenho as numero,
+				e.status,
+				(select valor_vigente from finance.v_empenho_vigente where empenho_id = e.id)::text as vigente,
+				(select coalesce(sum(valor), 0) from finance.liquidacao where empenho_id = e.id)::text as liquidado
+			from finance.empenho e
+			where e.id = ${input.empenhoId}::uuid
+			for update
+		`)
+		if (!row) throw new EmpenhoFloorError("Empenho não encontrado")
+		const vigente = Number(row.vigente ?? 0)
+		const liquidado = Number(row.liquidado ?? 0)
+		const plan = planEmpenhoCancellation({ numero: row.numero, status: row.status, vigente, liquidado, aLiquidar: vigente - liquidado })
+		if (!plan.ok) throw new EmpenhoFloorError(plan.message)
+
+		await tx.execute(sql`
+			insert into finance.empenho_event (empenho_id, tipo, valor, data, justificativa, created_by)
+			values (${input.empenhoId}::uuid, 'cancelamento', ${plan.valor}, ${input.data}::date, ${input.justificativa.trim()}, ${input.userId}::uuid)
+		`)
+		await tx.execute(sql`update finance.empenho set status = 'anulado' where id = ${input.empenhoId}::uuid`)
+		return { valor: plan.valor }
 	})
 }
 
