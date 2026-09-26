@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router"
 import { FilePen } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
 import { useAuth } from "@/hooks/auth/useAuth"
@@ -8,16 +8,18 @@ import { useOpenDrafts } from "@/hooks/forms/useDraft"
 import { draftStore } from "@/lib/drafts/draft-store"
 
 /**
- * Rascunhos não salvos abertos nesta aba, de qualquer tela. O rascunho sobrevive a sair
- * da tela — sem este lembrete ele ficaria esquecido até o F5 o apagar.
+ * Rascunhos não salvos deste navegador, de qualquer tela. O rascunho sobrevive a sair da
+ * tela, ao F5 e a fechar o navegador — sem este lembrete ele ficaria esquecido.
  */
 export function OpenDraftsMenu() {
 	const drafts = useOpenDrafts()
 	const navigate = useNavigate()
 	const { user } = useAuth()
 	const userId = user?.id ?? null
-	// Rascunho é do usuário: outra sessão na mesma aba (logout não recarrega) começa sem eles.
-	useEffect(() => draftStore.bindOwner(userId), [userId])
+	// Rascunho é da conta: outra conta no mesmo navegador começa sem eles. No RENDER, não num
+	// efeito — o cabeçalho renderiza antes da tela, e os efeitos da tela (que restauram o
+	// rascunho) rodariam antes de um efeito daqui.
+	draftStore.bindOwner(userId)
 	const [open, setOpen] = useState(false)
 	if (drafts.length === 0) return null
 	const label = drafts.length === 1 ? "1 rascunho não salvo" : `${drafts.length} rascunhos não salvos`
@@ -34,7 +36,7 @@ export function OpenDraftsMenu() {
 			<PopoverContent align="end" className="w-80">
 				<PopoverHeader>
 					<PopoverTitle>{label}</PopoverTitle>
-					<PopoverDescription>Ficam nesta aba até você salvar; recarregar a página os descarta.</PopoverDescription>
+					<PopoverDescription>Ficam só neste navegador até você salvar ou descartar, por até 7 dias sem uso.</PopoverDescription>
 				</PopoverHeader>
 				<ul className="space-y-1">
 					{drafts.map((draft) => (

@@ -29,7 +29,7 @@ export function PendingChanges({ draft, onDiscard, disabled }: PendingChangesPro
 				<PopoverHeader>
 					<PopoverTitle>{count}</PopoverTitle>
 					<PopoverDescription>
-						{restoredAt ? "Rascunho restaurado. " : ""}O rascunho fica nesta aba do navegador até você salvar; recarregar a página o descarta.
+						{restoredAt ? "Rascunho restaurado. " : ""}O rascunho fica só neste navegador até você salvar ou descartar, por até 7 dias sem uso.
 					</PopoverDescription>
 				</PopoverHeader>
 				{stale && (

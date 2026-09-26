@@ -9,7 +9,8 @@ import { type DraftEntry, draftStore } from "@/lib/drafts/draft-store"
  * - Guarda o estado em edição em `draftStore` enquanto ele difere do salvo; sair da tela
  *   e voltar restaura o rascunho (`onRestore`).
  * - Devolve a lista de alterações pendentes, que `PendingChanges` mostra ao lado do Salvar.
- * - Avisa no `beforeunload` enquanto há alteração: o rascunho mora em memória e morre no F5.
+ * - O rascunho fica no armazenamento local (`draft-store`): F5, recarga automática e fechar o
+ *   navegador não o apagam, então não há aviso de `beforeunload` — ele só incomodaria.
  * - `stale`: o registro salvo mudou depois que o rascunho começou (outra pessoa gravou). A
  *   assinatura padrão é o próprio baseline serializado — mudar algo que o formulário não
  *   edita (um item filho que gera versão, por exemplo) não conta. O diff é SEMPRE contra o
@@ -112,16 +113,6 @@ export function useDraft<T extends Record<string, unknown>>({
 			savedAt: Date.now(),
 		})
 	}, [key, currentJson, baselineJson, changes.length])
-
-	useEffect(() => {
-		if (!isDirty) return
-		const warn = (event: BeforeUnloadEvent) => {
-			event.preventDefault()
-			event.returnValue = ""
-		}
-		window.addEventListener("beforeunload", warn)
-		return () => window.removeEventListener("beforeunload", warn)
-	}, [isDirty])
 
 	return {
 		changes,
