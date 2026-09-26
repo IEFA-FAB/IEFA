@@ -199,6 +199,15 @@ export const queryKeys = {
 		overview: (unitId: number | null) => ["procurement_segments", "overview", unitId] as const,
 	},
 
+	/** Contratação de origem, ARP sem anexo e NE com itens (execução flexível da despesa). */
+	acquisitions: {
+		all: (unitId: number | null) => ["acquisitions", unitId] as const,
+		overview: (unitId: number | null) => ["acquisitions", unitId, "overview"] as const,
+		dispensaPreview: (unitId: number | null, params: Record<string, unknown>) => ["acquisitions", unitId, "dispensa-preview", params] as const,
+		activityLines: (unitId: number | null) => ["acquisitions", unitId, "activity-lines"] as const,
+		unitArps: (unitId: number | null, acquisitionId: string | null) => ["acquisitions", unitId, "arps", acquisitionId] as const,
+	},
+
 	ata: {
 		all: () => ["procurement_list"] as const,
 		listAll: () => ["procurement_list", "list"] as const,

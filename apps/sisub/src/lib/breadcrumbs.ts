@@ -80,6 +80,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	"places-manager": "Gerenciador de Locais",
 	policy: "Política",
 	// Orçamento / execução financeira (unit)
+	acquisitions: "Contratações de origem",
 	credit: "Crédito Disponível",
 	empenhos: "Empenhos",
 	liquidations: "Liquidações",

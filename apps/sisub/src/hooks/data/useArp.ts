@@ -70,6 +70,9 @@ export function useImportArp(ataId: string) {
 			const n = data.items.length
 			// numero_ata já guarda o formato canônico NNNNN/AAAA da API.
 			toast.success(`ARP ${data.numero_ata} importada com ${n} ${n === 1 ? "item" : "itens"}`)
+			// Reimportar de outro anexo mantém o vínculo existente, e item que saiu da ata mas tem
+			// empenho fica: a tela diz, em vez de trocar em silêncio.
+			for (const warning of data.warnings) toast.warning(warning)
 		},
 		onError: (error) => toast.error(`Erro ao importar ARP: ${error.message}`),
 	})
