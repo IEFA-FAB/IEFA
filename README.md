@@ -141,7 +141,7 @@ files by hand. Terraform stacks, the shared ALB and the OIDC deploy role are doc
 
 | Document | What it covers |
 |----------|----------------|
-| [CLAUDE.md](CLAUDE.md) | Conventions of the repo — server functions, design systems, workflow. Read first |
+| [AGENTS.md](AGENTS.md) | Conventions of the repo — server functions, design systems, workflow. Read first (`CLAUDE.md` imports it; area rules in `.claude/rules/`) |
 | [AI-PROVIDERS.md](AI-PROVIDERS.md) | Every model consumer, the Bedrock-first rule, reserve semantics, consumption caps |
 | [LGPD.md](LGPD.md) | Personal-data coverage per app, legal documents, rights channel |
 | [PRODUCT.md](PRODUCT.md) | Who the suite serves and the design direction of each surface |

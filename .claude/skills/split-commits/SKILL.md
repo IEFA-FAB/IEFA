@@ -143,16 +143,16 @@ If validation fails:
 
 ## Finalize via Pull Request (apply mode)
 
-This repo is open-source and eligible for **Greptile** automated code review, which runs on PRs. So every change MUST land through a PR — never commit/merge straight to `main`.
+Every change lands through a PR — never commit or merge straight to `main`.
 
 After all commits are created and validated:
 
-1. If currently on `main`, move the new commits to a feature branch before pushing:
-   `git branch <type>/<short-slug>` then `git reset --hard origin/main` on `main`... — simpler: create the branch from the current HEAD and check it out (`git switch -c <type>/<short-slug>`), so `main` is untouched. Name it after the dominant concern (e.g. `feat/sisub-observability`).
-2. Push the branch: `git push -u origin <branch>`.
-3. Open a PR to `main` with `gh pr create --base main` — title in English (Conventional Commits style), body summarizing the commits and the `bun run check` validation.
-4. **Do NOT auto-merge.** Leave the PR open so Greptile (and the user) can review. Report the PR URL.
-5. Only merge when the user explicitly asks (`gh pr merge <n> --merge`), then sync local `main`.
+1. If currently on `main`, create the branch from the current HEAD and switch to it
+   (`git switch -c <type>/<short-slug>`), so `main` is untouched. Name it after the dominant
+   concern (e.g. `feat/sisub-observability`).
+2. Hand off to the `ship-pr` skill from its step 4 (PR body with evidence, `/code-review`, checks).
+   It merges with `--auto --squash` when AGENTS.md > Workflow allows it, and otherwise stops at the
+   open PR; the PR title becomes the commit on `main`.
 
 ## Commit message rules
 
