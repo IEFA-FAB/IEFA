@@ -1,4 +1,4 @@
-import { pgEnum, pgSchema, index, foreignKey, unique, uuid, varchar, text, timestamp, integer, boolean, bigserial, numeric, bigint, check, jsonb, uniqueIndex, date, smallint, pgPolicy, char, doublePrecision, json, primaryKey } from "drizzle-orm/pg-core"
+import { pgEnum, pgSchema, index, foreignKey, unique, uuid, varchar, text, timestamp, integer, boolean, bigserial, bigint, check, numeric, jsonb, uniqueIndex, date, smallint, pgPolicy, char, doublePrecision, json, primaryKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const accessControl = pgSchema("access_control");
@@ -70,15 +70,6 @@ export const comprasServicoClasseInComprasGovIntegration = comprasGovIntegration
 		}),
 ]);
 
-export const comprasServicoSubclasseInComprasGovIntegration = comprasGovIntegration.table("compras_servico_subclasse", {
-	codigoSubclasse: integer("codigo_subclasse").primaryKey().notNull(),
-	codigoClasse: integer("codigo_classe").notNull(),
-	nomeSubclasse: text("nome_subclasse").notNull(),
-	statusSubclasse: boolean("status_subclasse").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-});
-
 export const comprasServicoItemInComprasGovIntegration = comprasGovIntegration.table("compras_servico_item", {
 	codigoServico: integer("codigo_servico").primaryKey().notNull(),
 	codigoSubclasse: integer("codigo_subclasse"),
@@ -121,22 +112,6 @@ export const comprasMaterialItemInComprasGovIntegration = comprasGovIntegration.
 }, (table) => [
 	index("idx_compras_material_item_descricao_trgm").using("gin", table.descricaoItem.asc().nullsLast().op("gin_trgm_ops")),
 	index("idx_compras_material_item_pdm").using("btree", table.codigoPdm.asc().nullsLast().op("int4_ops")),
-]);
-
-export const comprasMaterialUnidadeFornecimentoInComprasGovIntegration = comprasGovIntegration.table("compras_material_unidade_fornecimento", {
-	id: bigserial({ mode: "number" }).primaryKey().notNull(),
-	codigoPdm: integer("codigo_pdm").notNull(),
-	numeroSequencialUnidadeFornecimento: integer("numero_sequencial_unidade_fornecimento"),
-	siglaUnidadeFornecimento: text("sigla_unidade_fornecimento"),
-	nomeUnidadeFornecimento: text("nome_unidade_fornecimento"),
-	descricaoUnidadeFornecimento: text("descricao_unidade_fornecimento"),
-	siglaUnidadeMedida: text("sigla_unidade_medida"),
-	capacidadeUnidadeFornecimento: numeric("capacidade_unidade_fornecimento", { mode: "number", precision: 12, scale: 4 }),
-	statusUnidadeFornecimentoPdm: boolean("status_unidade_fornecimento_pdm").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	unique("compras_material_unidade_forn_codigo_pdm_numero_sequencial__key").on(table.codigoPdm, table.numeroSequencialUnidadeFornecimento),
 ]);
 
 export const comprasServicoSecaoInComprasGovIntegration = comprasGovIntegration.table("compras_servico_secao", {
@@ -186,6 +161,7 @@ export const integrationSyncStepInComprasGovIntegration = comprasGovIntegration.
 	errorMessage: text("error_message"),
 	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }),
 	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
+	recordsProcessed: integer("records_processed"),
 }, (table) => [
 	foreignKey({
 			columns: [table.syncId],
@@ -873,23 +849,6 @@ export const menuTemplateEventMealInKitchen = kitchen.table("menu_template_event
 	check("menu_template_event_meal_name_not_blank", sql`btrim(name) <> ''::text`),
 ]);
 
-export const comprasMaterialCaracteristicaInComprasGovIntegration = comprasGovIntegration.table("compras_material_caracteristica", {
-	id: bigserial({ mode: "number" }).primaryKey().notNull(),
-	codigoItem: integer("codigo_item").notNull(),
-	codigoCaracteristica: text("codigo_caracteristica").notNull(),
-	nomeCaracteristica: text("nome_caracteristica").notNull(),
-	statusCaracteristica: boolean("status_caracteristica").default(true).notNull(),
-	codigoValorCaracteristica: text("codigo_valor_caracteristica"),
-	nomeValorCaracteristica: text("nome_valor_caracteristica"),
-	statusValorCaracteristica: boolean("status_valor_caracteristica"),
-	numeroCaracteristica: integer("numero_caracteristica"),
-	siglaUnidadeMedida: text("sigla_unidade_medida"),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	unique("compras_material_caracteristi_codigo_item_codigo_caracteris_key").on(table.codigoItem, table.codigoCaracteristica, table.codigoValorCaracteristica),
-]);
-
 export const gpcBrickInGs1Integration = gs1Integration.table("gpc_brick", {
 	brickCode: text("brick_code").primaryKey().notNull(),
 	brickTitle: text("brick_title").notNull(),
@@ -914,6 +873,23 @@ export const changelogInKitchen = kitchen.table("changelog", {
 	publishedAt: timestamp("published_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	published: boolean().default(true).notNull(),
 });
+
+export const comprasMaterialCaracteristicaInComprasGovIntegration = comprasGovIntegration.table("compras_material_caracteristica", {
+	id: bigserial({ mode: "number" }).primaryKey().notNull(),
+	codigoItem: integer("codigo_item").notNull(),
+	codigoCaracteristica: text("codigo_caracteristica").notNull(),
+	nomeCaracteristica: text("nome_caracteristica").notNull(),
+	statusCaracteristica: boolean("status_caracteristica").default(true).notNull(),
+	codigoValorCaracteristica: text("codigo_valor_caracteristica"),
+	nomeValorCaracteristica: text("nome_valor_caracteristica"),
+	statusValorCaracteristica: boolean("status_valor_caracteristica"),
+	numeroCaracteristica: integer("numero_caracteristica"),
+	siglaUnidadeMedida: text("sigla_unidade_medida"),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("compras_material_caracteristi_codigo_item_codigo_caracteris_key").on(table.codigoItem, table.codigoCaracteristica, table.codigoValorCaracteristica),
+]);
 
 export const personInCore = core.table("person", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -1075,6 +1051,17 @@ export const procurementSegmentInProcurement = procurement.table("procurement_se
 	check("procurement_segment_validity_months_check", sql`(validity_months >= 1) AND (validity_months <= 120)`),
 ]);
 
+export const comprasServicoNaturezaDespesaInComprasGovIntegration = comprasGovIntegration.table("compras_servico_natureza_despesa", {
+	id: bigserial({ mode: "number" }).primaryKey().notNull(),
+	codigoServico: integer("codigo_servico").notNull(),
+	codigoNaturezaDespesa: text("codigo_natureza_despesa").notNull(),
+	nomeNaturezaDespesa: text("nome_natureza_despesa").notNull(),
+	statusNaturezaDespesa: boolean("status_natureza_despesa").default(true).notNull(),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("compras_servico_natureza_desp_codigo_servico_codigo_naturez_key").on(table.codigoServico, table.codigoNaturezaDespesa),
+]);
+
 export const integrationSyncLogInComprasGovIntegration = comprasGovIntegration.table("integration_sync_log", {
 	id: bigserial({ mode: "number" }).primaryKey().notNull(),
 	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -1095,17 +1082,6 @@ export const integrationSyncLogInComprasGovIntegration = comprasGovIntegration.t
 	index("idx_compras_sync_log_started_at").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
 	index("idx_integration_sync_log_source_started").using("btree", table.source.asc().nullsLast().op("text_ops"), table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
 	uniqueIndex("uq_integration_sync_log_one_running_per_source").using("btree", table.source.asc().nullsLast().op("text_ops")).where(sql`(status = 'running'::text)`),
-]);
-
-export const comprasServicoNaturezaDespesaInComprasGovIntegration = comprasGovIntegration.table("compras_servico_natureza_despesa", {
-	id: bigserial({ mode: "number" }).primaryKey().notNull(),
-	codigoServico: integer("codigo_servico").notNull(),
-	codigoNaturezaDespesa: text("codigo_natureza_despesa").notNull(),
-	nomeNaturezaDespesa: text("nome_natureza_despesa").notNull(),
-	statusNaturezaDespesa: boolean("status_natureza_despesa").default(true).notNull(),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	unique("compras_servico_natureza_desp_codigo_servico_codigo_naturez_key").on(table.codigoServico, table.codigoNaturezaDespesa),
 ]);
 
 export const contractDesignationInProcurement = procurement.table("contract_designation", {
@@ -3938,6 +3914,31 @@ export const empenhoEventInFinance = finance.table("empenho_event", {
 	check("empenho_event_tipo_check", sql`tipo = ANY (ARRAY['reforco'::text, 'anulacao'::text, 'cancelamento'::text, 'rp_inscricao'::text])`),
 	check("empenho_event_valor_check", sql`valor >= (0)::numeric`),
 ]);
+
+export const comprasMaterialUnidadeFornecimentoInComprasGovIntegration = comprasGovIntegration.table("compras_material_unidade_fornecimento", {
+	id: bigserial({ mode: "number" }).primaryKey().notNull(),
+	codigoPdm: integer("codigo_pdm").notNull(),
+	numeroSequencialUnidadeFornecimento: integer("numero_sequencial_unidade_fornecimento"),
+	siglaUnidadeFornecimento: text("sigla_unidade_fornecimento"),
+	nomeUnidadeFornecimento: text("nome_unidade_fornecimento"),
+	descricaoUnidadeFornecimento: text("descricao_unidade_fornecimento"),
+	siglaUnidadeMedida: text("sigla_unidade_medida"),
+	capacidadeUnidadeFornecimento: numeric("capacidade_unidade_fornecimento", { mode: "number", precision: 12, scale: 4 }),
+	statusUnidadeFornecimentoPdm: boolean("status_unidade_fornecimento_pdm").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("compras_material_unidade_forn_codigo_pdm_numero_sequencial__key").on(table.codigoPdm, table.numeroSequencialUnidadeFornecimento),
+]);
+
+export const comprasServicoSubclasseInComprasGovIntegration = comprasGovIntegration.table("compras_servico_subclasse", {
+	codigoSubclasse: integer("codigo_subclasse").primaryKey().notNull(),
+	codigoClasse: integer("codigo_classe").notNull(),
+	nomeSubclasse: text("nome_subclasse").notNull(),
+	statusSubclasse: boolean("status_subclasse").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
 
 export const liquidacaoInFinance = finance.table("liquidacao", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
