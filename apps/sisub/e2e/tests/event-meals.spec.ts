@@ -39,7 +39,8 @@ test.describe("Evento — refeições próprias com efetivo e porcentagem", () =
 			const mealDialog = page.locator('[data-slot="dialog-content"]')
 			await mealDialog.locator("#event-meal-name").fill("Coquetel")
 			await mealDialog.locator("#event-meal-slot").click()
-			await page.getByRole("option").first().click()
+			// Horário real (fixture `[TEST]` vazada de outra suíte não serve de horário de evento).
+			await page.getByRole("option").filter({ hasNotText: "[TEST]" }).first().click()
 			await mealDialog.locator("#event-meal-base").fill("300")
 			await mealDialog.getByRole("button", { name: "Adicionar refeição" }).click()
 			await expect(mealDialog).toBeHidden()

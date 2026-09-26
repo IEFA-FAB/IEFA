@@ -71,9 +71,9 @@ export function EventMealCard({
 				</CardTitle>
 				<CardAction>
 					<div className="flex items-center gap-1">
-						<div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-							<Users className="size-3.5" />
-							<label htmlFor={`event-meal-base-${meal.id}`} className="hidden sm:inline">
+						<div className="flex items-center gap-1.5">
+							<Users className="size-3.5 text-muted-foreground" />
+							<label htmlFor={`event-meal-base-${meal.id}`} className="hidden text-xs text-muted-foreground sm:inline">
 								Efetivo
 							</label>
 							<Input

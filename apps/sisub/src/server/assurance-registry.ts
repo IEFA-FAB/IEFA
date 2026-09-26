@@ -400,6 +400,11 @@ export const ASSURANCE_REGISTRY = {
 	updatePlacesEntityFn: { require: "none" },
 	applyPlacesDiffFn: { require: "none" },
 
+	// ── planning-adjustments.fn.ts (imprevistos do agendamento: mesmo peso de remover/adicionar item)
+	removeOriginFromDayFn: { require: "none" },
+	moveOriginToDateFn: { require: "none" },
+	replaceDayWithTemplateFn: { require: "none" },
+	replaceMenuItemRecipeFn: { require: "none" },
 	// ── planning.fn.ts
 	upsertDailyMenuFn: { require: "none" },
 	addMenuItemFn: { require: "none" },

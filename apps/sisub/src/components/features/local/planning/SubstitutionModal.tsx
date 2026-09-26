@@ -1,13 +1,14 @@
 import { AlertTriangle, Loader2 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useMenuItemSubstituteOptions } from "@/hooks/data/usePlanningAdjustments"
 import { useUpdateSubstitutions } from "@/hooks/data/useSubstitutions"
 import { cn } from "@/lib/cn"
+import { type SnapshotIngredientLine, type SubstitutionEntry, snapshotIngredientLines } from "@/lib/menu-substitutions"
 import type { MenuItem } from "@/types/domain/planning"
 
 interface SubstitutionModalProps {
@@ -16,130 +17,154 @@ interface SubstitutionModalProps {
 	menuItem: MenuItem | null
 }
 
-// Helper type for the snapshot structure
-interface RecipeSnapshot {
-	id: string
-	name: string
-	description?: string
-	ingredients?: Array<{
-		ingredient_id: string
-		ingredient_name: string // Assuming snapshot includes denormalized name
-		quantity: number
-		measure_unit: string
-	}>
-	// ... other fields
-}
-
+/**
+ * Faltou um insumo: registra o que entrou no lugar DENTRO da preparação deste dia. A ficha
+ * técnica não muda — o registro fica no item e é o que a Produção Cozinha mostra ao turno.
+ *
+ * Os substitutos que a ficha já prevê aparecem primeiro, a um clique; o que não está previsto
+ * se digita. Antes o seletor vinha desligado e a lista lia o snapshot num formato que ele não
+ * tem ("Insumo Inexistente" em todo insumo) — a substituição acontecia no caderno.
+ */
 export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModalProps) {
+	const [line, setLine] = useState<SnapshotIngredientLine | null>(null)
+	const [substituteId, setSubstituteId] = useState<string | null>(null)
+	const [substituteName, setSubstituteName] = useState("")
 	const [rationale, setRationale] = useState("")
-	const [selectedIngredientId, setSelectedIngredientId] = useState<string | null>(null)
 	const { mutate: updateSubstitutions, isPending } = useUpdateSubstitutions()
+	const { data: options } = useMenuItemSubstituteOptions(open ? (menuItem?.id ?? null) : null)
 
-	// Safely parse recipe snapshot
-	const recipe = menuItem?.recipe as unknown as RecipeSnapshot
-	const ingredients = recipe?.ingredients || []
+	useEffect(() => {
+		if (!open) return
+		setLine(null)
+		setSubstituteId(null)
+		setSubstituteName("")
+		setRationale("")
+	}, [open])
+
+	const recipeName = (menuItem?.recipe as { name?: string } | null)?.name ?? "Preparação"
+	const lines = snapshotIngredientLines(menuItem?.recipe)
+	const existing = (menuItem?.substitutions as Record<string, SubstitutionEntry> | null) ?? {}
+	const suggestions = line ? (options?.[line.lineId] ?? []) : []
+
+	const canSave = line != null && substituteName.trim() !== "" && rationale.trim() !== ""
 
 	const handleSave = () => {
-		if (!menuItem) return
-
-		// In a real implementation we would capture:
-		// - original_ingredient_id
-		// - new_ingredient_id (from a search/selector)
-		// - quantity conversion
-
-		const substitutions = {
-			...(menuItem.substitutions as object),
-			[selectedIngredientId || "generic"]: {
-				type: "manual",
-				rationale,
-				updated_at: new Date().toISOString(),
-			},
+		if (!menuItem || !line || !canSave) return
+		const entry: SubstitutionEntry = {
+			type: "manual",
+			rationale: rationale.trim(),
+			updated_at: new Date().toISOString(),
+			substitute_ingredient_id: substituteId,
+			substitute_description: substituteName.trim(),
 		}
-
-		updateSubstitutions(
-			{
-				menuItemId: menuItem.id,
-				substitutions,
-			},
-			{
-				onSuccess: () => {
-					onClose()
-					setRationale("")
-					setSelectedIngredientId(null)
-				},
-			}
-		)
+		updateSubstitutions({ menuItemId: menuItem.id, substitutions: { ...existing, [line.ingredientId]: entry } }, { onSuccess: onClose })
 	}
 
 	return (
 		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
 			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>Substituições</DialogTitle>
-					<DialogDescription>{recipe?.name || "Preparação"}</DialogDescription>
+					<DialogTitle>Substituir insumo</DialogTitle>
+					<DialogDescription>{recipeName}</DialogDescription>
 				</DialogHeader>
 
-				<div className="space-y-4 py-4">
-					<div className="bg-warning/10 border border-warning/20 p-3 rounded-md text-sm text-warning flex items-start gap-2">
-						<AlertTriangle className="size-4 mt-0.5 shrink-0" />
-						<p>Substituições alteram a ficha técnica apenas para este dia. O histórico original da Preparação é preservado.</p>
+				<div className="space-y-4">
+					<div className="flex items-start gap-2 rounded-md border border-warning/20 bg-warning/10 p-3 text-sm text-warning">
+						<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+						<p>Vale só para este dia. A ficha técnica da preparação não muda.</p>
 					</div>
 
-					<ScrollArea className="h-48 border rounded-md p-2">
-						{ingredients.length === 0 ? (
-							<div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm p-4">
-								<p>Não foi possível ler os ingredientes do snapshot.</p>
-								<p className="text-hint text-muted-foreground mt-1">(Isso pode ocorrer se o snapshot for antigo ou estiver em formato incompatível)</p>
-							</div>
-						) : (
-							<div className="space-y-2">
-								{/* List ingredients to select for substitution */}
-								{ingredients.map((ing) => (
-									<button
-										key={ing.ingredient_id}
-										type="button"
-										className={cn(
-											"w-full text-left p-2 rounded border cursor-pointer hover:bg-accent",
-											selectedIngredientId === ing.ingredient_id && "border-primary bg-primary/5"
-										)}
-										onClick={() => setSelectedIngredientId(ing.ingredient_id)}
-									>
-										<div className="flex justify-between text-sm">
-											<span className="text-subheading">{ing.ingredient_name || "Insumo Inexistente"}</span>
-											<span className="text-muted-foreground">
-												{ing.quantity} {ing.measure_unit}
-											</span>
-										</div>
-									</button>
-								))}
-							</div>
-						)}
-					</ScrollArea>
+					<Field>
+						<FieldLabel>Qual insumo faltou?</FieldLabel>
+						<ScrollArea className="h-44 rounded-md border p-2">
+							{lines.length === 0 ? (
+								<p className="p-4 text-center text-sm text-muted-foreground">Esta preparação não tem insumos na ficha gravada no dia.</p>
+							) : (
+								<div className="space-y-1.5">
+									{lines.map((l) => {
+										const done = existing[l.ingredientId]?.substitute_description
+										return (
+											<button
+												key={l.lineId}
+												type="button"
+												aria-pressed={line?.lineId === l.lineId}
+												className={cn("w-full rounded border p-2 text-left hover:bg-accent", line?.lineId === l.lineId && "border-primary bg-primary/5")}
+												onClick={() => {
+													setLine(l)
+													setSubstituteId(null)
+													setSubstituteName("")
+												}}
+											>
+												<div className="flex justify-between gap-2 text-sm">
+													<span className="text-subheading">{l.name}</span>
+													<span className="shrink-0 text-muted-foreground tabular-nums">{l.quantityLabel}</span>
+												</div>
+												{done && <p className="text-xs text-muted-foreground">Substituído por {done}</p>}
+											</button>
+										)
+									})}
+								</div>
+							)}
+						</ScrollArea>
+					</Field>
 
-					<div className="space-y-2">
-						<Label>Insumo Substituto</Label>
-						<Select disabled>
-							<SelectTrigger>
-								<SelectValue placeholder="Selecione um insumo..." />
-							</SelectTrigger>
-							<SelectContent>{/* Populate with fetch */}</SelectContent>
-						</Select>
-						<p className="text-[10px] text-muted-foreground">* Seleção de insumos desativada nesta versão.</p>
-					</div>
+					{line && (
+						<Field>
+							<FieldLabel htmlFor="substitute-name">O que entrou no lugar de {line.name}?</FieldLabel>
+							{suggestions.length > 0 && (
+								<div className="flex flex-wrap gap-1.5">
+									{suggestions.map((s) => (
+										<Button
+											key={s.ingredient_id}
+											type="button"
+											size="xs"
+											variant={substituteId === s.ingredient_id ? "default" : "outline"}
+											onClick={() => {
+												setSubstituteId(s.ingredient_id)
+												setSubstituteName(s.description ?? "")
+											}}
+										>
+											{s.description}
+										</Button>
+									))}
+								</div>
+							)}
+							<Input
+								id="substitute-name"
+								value={substituteName}
+								onChange={(e) => {
+									setSubstituteName(e.target.value)
+									setSubstituteId(null)
+								}}
+								placeholder="Ex.: Polpa de acerola"
+								maxLength={200}
+							/>
+							<FieldDescription>
+								{suggestions.length > 0
+									? "Substitutos previstos na ficha acima; ou digite outro."
+									: "A ficha não prevê substituto para este insumo — digite o que foi usado."}
+							</FieldDescription>
+						</Field>
+					)}
 
-					<div className="space-y-2">
-						<Label>Justificativa</Label>
-						<Input value={rationale} onChange={(e) => setRationale(e.target.value)} placeholder="Ex: Produto em falta" />
-					</div>
+					<Field>
+						<FieldLabel htmlFor="substitute-rationale">Motivo</FieldLabel>
+						<Input
+							id="substitute-rationale"
+							value={rationale}
+							onChange={(e) => setRationale(e.target.value)}
+							placeholder="Ex.: Produto em falta no fornecedor"
+						/>
+					</Field>
 				</div>
 
 				<DialogFooter>
 					<Button variant="outline" onClick={onClose}>
 						Cancelar
 					</Button>
-					<Button onClick={handleSave} disabled={isPending || !rationale}>
-						{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
-						Salvar Substituição
+					<Button onClick={handleSave} disabled={isPending || !canSave}>
+						{isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+						Registrar substituição
 					</Button>
 				</DialogFooter>
 			</DialogContent>
