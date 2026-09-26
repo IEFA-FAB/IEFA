@@ -26,6 +26,14 @@
 -- tabela nova: o guard default-deny do reset de treino não muda.
 -- Funções novas nascem executáveis só por postgres e service_role
 -- (20260920210000); nada aqui concede a cliente.
+--
+-- Toda função criada ou recriada aqui leva `set search_path = ''` (regra de
+-- 20260926212000): os corpos qualificam tabela, tipo e função pelo schema, e só
+-- os built-ins de `pg_catalog` ficam sem prefixo. `create or replace` sem o SET
+-- apagaria o que 20260926212000 fixou em `approve_inventory_count` e no guard do
+-- `occurred_at`. As funções que estas chamam ou disparam (`register_leftover`,
+-- `post_stock_adjustment`, `count_lines`, os gatilhos do ledger) também
+-- qualificam tudo — conferido no `pg_get_functiondef` de cada uma.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -148,9 +156,7 @@ create function inventory.register_leftover_provisional(
   p_user uuid
 ) returns table (lot_id uuid, frozen_preparation_id uuid)
 language plpgsql
--- sem `set search_path`: chama `register_leftover` e os gatilhos do ledger, que
--- resolvem nomes pelo caminho de quem chama (todos já qualificados, mas a
--- garantia não é desta função)
+set search_path = ''
 as $$
 declare
   v_description text := nullif(btrim(coalesce(p_description, '')), '');
@@ -226,6 +232,7 @@ comment on column inventory.stock_issue_request.explanation is
 create or replace function inventory.stock_movement_occurred_at_guard()
 returns trigger
 language plpgsql
+set search_path = ''
 as $function$
 begin
   if new.occurred_at > now() + interval '1 minute' then
@@ -542,6 +549,7 @@ comment on column inventory.inventory_count.pending_production_waiver is
 create or replace function inventory.approve_inventory_count(p_count_id uuid, p_actor uuid, p_exception_reason text DEFAULT NULL::text)
  RETURNS TABLE(adjustment_id uuid, lines integer, difference_value numeric)
  LANGUAGE plpgsql
+ SET search_path = ''
 AS $function$
 declare
   v_count inventory.inventory_count%rowtype;
@@ -798,8 +806,7 @@ create function inventory.approve_inventory_count_with_waiver(
   p_pending_production_reason text
 ) returns table (adjustment_id uuid, lines integer, difference_value numeric)
 language plpgsql
--- sem `set search_path`: o caminho vazio valeria também dentro de
--- `approve_inventory_count` e de `post_stock_adjustment`, que não o declaram
+set search_path = ''
 as $$
 declare
   v_reason text := nullif(btrim(coalesce(p_pending_production_reason, '')), '');
