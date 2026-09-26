@@ -11,7 +11,8 @@
     "lint": "biome lint && bun ../../scripts/lint-tailwind.ts contrate",
     "check": "biome check",
     "typecheck": "tsc --noEmit",
-    "validate-env": "bun run src/env.ts"
+    "validate-env": "bun run src/env.ts",
+    "test:e2e": "CONTRATE_RUN_E2E=true bunx playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -51,6 +52,7 @@
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
+    "@playwright/test": "^1.63.0",
     "@rolldown/plugin-babel": "^0.2.4",
     "@tanstack/devtools-vite": "^0.8.5",
     "@types/node": "^26.5.0",
