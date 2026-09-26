@@ -40,6 +40,8 @@ export interface ImportBatchRow {
 	applied_rows: number
 	created_at: string
 	applied_at: string | null
+	/** Mensagem do último erro de aplicação (lote `failed`, reaplicável). */
+	error_message: string | null
 }
 
 /**
@@ -112,7 +114,7 @@ export const listImportBatchesFn = createServerFn({ method: "GET" })
 		await requireUnitScope(1, data.unitId)
 		const { data: batches, error } = await siafi()
 			.from("import_batch")
-			.select("id, report_type, file_name, competencia, status, total_rows, recognized_rows, applied_rows, created_at, applied_at")
+			.select("id, report_type, file_name, competencia, status, total_rows, recognized_rows, applied_rows, created_at, applied_at, error_message")
 			.eq("unit_id", data.unitId)
 			.order("created_at", { ascending: false })
 			.limit(50)

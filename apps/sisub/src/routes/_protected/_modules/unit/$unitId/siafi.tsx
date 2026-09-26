@@ -1,8 +1,9 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { FileUp, RefreshCw } from "lucide-react"
+import { Clock, FileUp, RefreshCw } from "lucide-react"
 import { useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,12 +13,16 @@ import { toast } from "@/components/ui/toast"
 import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { applyCreditBatchFn } from "@/server/budget.fn"
-import { applyDocumentBatchFn } from "@/server/reconciliation.fn"
+import { applyDocumentBatchFn, listWaitingDocumentsFn } from "@/server/reconciliation.fn"
 import { type ImportBatchRow, listImportBatchesFn, REPORT_TYPE_LABEL, uploadSiafiReportFn } from "@/server/siafi-import.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/siafi")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
-	loader: ({ params }) => listImportBatchesFn({ data: { unitId: Number(params.unitId) } }),
+	loader: async ({ params }) => {
+		const unitId = Number(params.unitId)
+		const [batches, waiting] = await Promise.all([listImportBatchesFn({ data: { unitId } }), listWaitingDocumentsFn({ data: { unitId } })])
+		return { batches, waiting }
+	},
 	component: SiafiPage,
 })
 
@@ -34,7 +39,7 @@ function toBase64(buffer: ArrayBuffer): string {
 }
 
 function SiafiPage() {
-	const batches = Route.useLoaderData()
+	const { batches, waiting } = Route.useLoaderData()
 	const { unitId } = Route.useParams()
 	const router = useRouter()
 	const fileInput = useRef<HTMLInputElement>(null)
@@ -76,9 +81,11 @@ function SiafiPage() {
 				toast.success(`${result.applied} classificação(ões) de crédito atualizadas`)
 			} else {
 				const result = await runAssured(() => applyDocumentBatchFn({ data: { batchId: batch.id } }))
-				toast.success(
-					`${result.created} documento(s) criado(s), ${result.enriched} enriquecido(s)${result.divergent > 0 ? ` — ${result.divergent} divergência(s) na conciliação` : ""}`
-				)
+				const parts = [`${result.created} documento(s) criado(s)`, `${result.enriched} completado(s)`]
+				if (result.waiting > 0) parts.push(`${result.waiting} à espera do documento de origem`)
+				if (result.relinked > 0) parts.push(`${result.relinked} estacionado(s) religado(s)`)
+				if (result.divergent > 0) parts.push(`${result.divergent} divergência(s) na conciliação`)
+				toast.success(parts.join(" · "))
 			}
 			router.invalidate()
 		} catch (err) {
@@ -139,6 +146,28 @@ function SiafiPage() {
 				</CardContent>
 			</Card>
 
+			{waiting.length > 0 && (
+				<Alert>
+					<Clock className="size-4" aria-hidden="true" />
+					<AlertTitle>
+						{waiting.length} documento{waiting.length === 1 ? "" : "s"} à espera do documento de origem
+					</AlertTitle>
+					<AlertDescription>
+						<p>
+							Ficam estacionados e viram liquidação ou pagamento sozinhos quando a NE ou a NS chegar — por relatório do SIAFI ou pelo registro rápido da NE.
+							Nada precisa ser importado de novo.
+						</p>
+						<ul className="mt-2 space-y-1">
+							{waiting.slice(0, 10).map((doc) => (
+								<li key={doc.rowId}>
+									{doc.reportType === "ns" ? "NS" : "OB"} {doc.numero} aguardando a {doc.reportType === "ns" ? "NE" : "NS"} {doc.parentNumber ?? "—"}
+								</li>
+							))}
+						</ul>
+					</AlertDescription>
+				</Alert>
+			)}
+
 			<Card>
 				<CardHeader className="pb-2">
 					<CardTitle className="text-subheading">Lotes importados</CardTitle>
@@ -166,15 +195,16 @@ function SiafiPage() {
 											{batch.recognized_rows}/{batch.total_rows}
 										</td>
 										<td className="py-2.5 px-2 text-center">
-											<Badge variant={batch.status === "applied" ? "secondary" : "outline"} className="text-[10px]">
-												{batch.status === "applied" ? "aplicado" : "estacionado"}
+											<Badge variant={batch.status === "applied" ? "secondary" : batch.status === "failed" ? "destructive" : "outline"}>
+												{batch.status === "applied" ? "aplicado" : batch.status === "failed" ? "falhou" : "estacionado"}
 											</Badge>
+											{batch.status === "failed" && batch.error_message && <p className="mt-1 text-hint text-destructive">{batch.error_message}</p>}
 										</td>
 										<td className="py-2.5 px-2 text-right">
 											{batch.status !== "applied" && (
 												<Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5" disabled={busy} onClick={() => applyBatch(batch)}>
 													<RefreshCw className="size-3.5" />
-													Aplicar
+													{batch.status === "failed" ? "Aplicar de novo" : "Aplicar"}
 												</Button>
 											)}
 										</td>
