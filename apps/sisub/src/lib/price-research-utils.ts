@@ -87,7 +87,7 @@ function calcMediana(values: number[]): number {
 	return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
-export function computeStats(prices: number[]) {
+function computeStats(prices: number[]) {
 	if (prices.length === 0) return null
 	const n = prices.length
 	const mean = prices.reduce((s, v) => s + v, 0) / n

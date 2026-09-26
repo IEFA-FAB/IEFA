@@ -519,7 +519,9 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 		if (selectedRows.length === 0 || !unit) return fullAnalysis
 		const samples = selectedRows.map((r) => r.original)
 		const analysis = analyzeSamples(samples, unit, { removeOutliers: false })
-		if (!analysis) return fullAnalysis
+		// Seleção sem nenhuma amostra comparável não cai na análise completa em silêncio: sem
+		// análise, não há "Usar", e o aviso abaixo diz por quê.
+		if (!analysis) return null
 		return {
 			stats: analysis.stats,
 			consideredCount: samples.filter((s) => s.precoUnitario !== null).length,
@@ -722,6 +724,12 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 							<span className={`ml-1 ${getRecommendation(activeAnalysis.stats.cv).colorClass}`}>{getRecommendation(activeAnalysis.stats.cv).text}</span>
 						</div>
 					</div>
+				)}
+
+				{selectedRows.length > 0 && !activeAnalysis && (
+					<p className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning">
+						Nenhuma das amostras selecionadas é comparável com {unit ?? "a unidade do item"}. Selecione amostras com preço convertido.
+					</p>
 				)}
 
 				{/* ── Table ── */}

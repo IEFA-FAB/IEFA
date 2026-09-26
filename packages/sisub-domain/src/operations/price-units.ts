@@ -38,39 +38,58 @@ const UNIT_TABLE: Record<string, ParsedMeasureUnit> = {
 	KGS: MASS(1),
 	KILO: MASS(1),
 	KILOGRAMA: MASS(1),
+	KILOGRAMAS: MASS(1),
 	QUILO: MASS(1),
+	QUILOS: MASS(1),
 	QUILOGRAMA: MASS(1),
+	QUILOGRAMAS: MASS(1),
 	G: MASS(0.001),
 	GR: MASS(0.001),
 	GRS: MASS(0.001),
 	GRAMA: MASS(0.001),
+	GRAMAS: MASS(0.001),
 	MG: MASS(0.000001),
 	MILIGRAMA: MASS(0.000001),
+	MILIGRAMAS: MASS(0.000001),
 	T: MASS(1000),
 	TON: MASS(1000),
 	TONELADA: MASS(1000),
+	TONELADAS: MASS(1000),
 	L: VOLUME(1),
 	LT: VOLUME(1),
 	LTS: VOLUME(1),
 	LITRO: VOLUME(1),
+	LITROS: VOLUME(1),
 	ML: VOLUME(0.001),
 	MILILITRO: VOLUME(0.001),
+	MILILITROS: VOLUME(0.001),
 	UN: COUNT(1),
 	UND: COUNT(1),
 	UNID: COUNT(1),
 	UNIDADE: COUNT(1),
+	UNIDADES: COUNT(1),
 	DZ: COUNT(12),
 	DUZIA: COUNT(12),
+	DUZIAS: COUNT(12),
 }
 
-function normalizeSigla(value: string): string {
+function normalizeUnitCode(value: string): string {
 	return value.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase().replace(/\.$/, "")
+}
+
+/**
+ * Tolerância para comparar dois preços que passaram por `numeric(12,4)`: o maior entre o
+ * arredondamento da 4ª casa e 0,05% do valor. Absoluta pura (meio centavo) aceitava ±50% num
+ * preço por grama de R$ 0,01.
+ */
+export function isSamePrice(a: number, b: number): boolean {
+	return Math.abs(a - b) <= Math.max(0.00005, Math.abs(b) * 0.0005)
 }
 
 /** Lê uma sigla livre ("kg", "Litro", "UNIDADE") ou devolve null quando não é unidade de medida. */
 export function parseMeasureUnit(value: string | null | undefined): ParsedMeasureUnit | null {
 	if (!value) return null
-	return UNIT_TABLE[normalizeSigla(value)] ?? null
+	return UNIT_TABLE[normalizeUnitCode(value)] ?? null
 }
 
 /** Os campos da amostra do Compras.gov.br que a conversão usa. */
@@ -132,7 +151,7 @@ export function convertSamplePrice(sample: PriceSampleUnitFields, targetUnit: st
 		ok: true,
 		price: sample.precoUnitario / contentInTarget,
 		contentInTarget,
-		explanation: `${content.label} = ${formatAmount(contentInTarget)} ${normalizeSigla(targetUnit as string)}`,
+		explanation: `${content.label} = ${formatAmount(contentInTarget)} ${normalizeUnitCode(targetUnit as string)}`,
 	}
 }
 
@@ -143,7 +162,7 @@ export function convertSamplePrice(sample: PriceSampleUnitFields, targetUnit: st
  * a quantidade do anexo, nesse caso, também está numa unidade que ninguém declarou.
  */
 export function resolveResearchUnit(targetUnit: string | null | undefined, samples: PriceSampleUnitFields[]): { unit: string; inferred: boolean } | null {
-	if (parseMeasureUnit(targetUnit)) return { unit: normalizeSigla(targetUnit as string), inferred: false }
+	if (parseMeasureUnit(targetUnit)) return { unit: normalizeUnitCode(targetUnit as string), inferred: false }
 
 	const votes = new Map<string, number>()
 	for (const s of samples) {

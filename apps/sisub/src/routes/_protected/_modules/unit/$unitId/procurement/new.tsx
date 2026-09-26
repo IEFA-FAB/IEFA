@@ -31,7 +31,7 @@ import {
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { usePendingDraft } from "@/hooks/data/useKitchenDraft"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
-import { buildAnnexCsv, buildDraftAnnexRows, downloadCsv } from "@/lib/ata-annex"
+import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, downloadCsv } from "@/lib/ata-annex"
 import { ataItemToNeed } from "@/lib/ata-utils"
 import { fetchUnitKitchensFn } from "@/server/unit-kitchens.fn"
 import type { AtaWizardState, KitchenSelectionState, SelectionBucket, TemplateSelection } from "@/types/domain/ata"
@@ -850,7 +850,7 @@ function NewAtaPage() {
 					// pesquisando o mesmo item no mesmo dia compartilhariam o registro.
 					ataId={draftId}
 					ataItemId={priceResearchItem.ata_item_id ?? undefined}
-					targetUnit={priceResearchItem.purchase_measure_unit}
+					targetUnit={annexItemUnit(priceResearchItem)}
 					onApplyPrice={(price, auditIds) => {
 						const newOverrides = {
 							...priceOverrides,

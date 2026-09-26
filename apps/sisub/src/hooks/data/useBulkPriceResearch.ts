@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { PriceResearchAuditIds } from "@/components/features/local/price-research/PriceResearchModal"
+import { annexItemUnit } from "@/lib/ata-annex"
 import { autoSelectPrice, fetchAllPagesForCatmat } from "@/lib/price-research-utils"
 import { savePrecoAuditFn } from "@/server/price-research.fn"
 
@@ -11,6 +12,9 @@ export interface BulkResearchItem {
 	ata_item_id?: string | null
 	/** Unidade de compra do item: os preços das amostras são convertidos para ela. */
 	purchase_measure_unit?: string | null
+	/** Unidade do insumo: é a do anexo quando o item de compra não declara a própria. */
+	measure_unit?: string | null
+	purchase_quantity?: number | null
 }
 
 export interface BulkResearchResult {
@@ -49,7 +53,7 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 		const processItem = async (item: BulkResearchItem) => {
 			try {
 				const { results: samples } = await fetchAllPagesForCatmat(item.catmat_item_codigo as number)
-				const selected = autoSelectPrice(samples, { targetUnit: item.purchase_measure_unit })
+				const selected = autoSelectPrice(samples, { targetUnit: annexItemUnit(item) })
 
 				if (!selected) {
 					setProgress((prev) => ({ ...prev, done: prev.done + 1, errors: prev.errors + 1 }))
@@ -81,13 +85,10 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 				})
 
 				const result: BulkResearchResult = { ingredientId: item.ingredient_id, ataItemId: item.ata_item_id, price: selected.price, auditIds }
+				// Se quem aplica o preço falhar (o servidor recusa preço sem pesquisa que o sustente), o
+				// item conta como erro: engolir a falha fazia o toast anunciar preço que não foi gravado.
+				await onItemResultRef.current?.(result)
 				results.push(result)
-
-				try {
-					await onItemResultRef.current?.(result)
-				} catch {
-					// per-item callback failure is non-fatal
-				}
 
 				setProgress((prev) => ({ ...prev, done: prev.done + 1 }))
 			} catch {

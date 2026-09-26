@@ -500,6 +500,7 @@ export {
 } from "./price-research.ts"
 export {
 	convertSamplePrice,
+	isSamePrice,
 	type MeasureDimension,
 	type ParsedMeasureUnit,
 	type PriceSampleUnitFields,

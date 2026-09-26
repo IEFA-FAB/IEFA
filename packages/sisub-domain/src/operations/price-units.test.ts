@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { convertSamplePrice, parseMeasureUnit, resolveResearchUnit } from "./price-units.ts"
+import { convertSamplePrice, isSamePrice, parseMeasureUnit, resolveResearchUnit } from "./price-units.ts"
 
 describe("parseMeasureUnit", () => {
 	test("reconhece siglas livres do catálogo, sem caixa nem acento", () => {
@@ -8,6 +8,9 @@ describe("parseMeasureUnit", () => {
 		expect(parseMeasureUnit("LT")?.base).toBe("L")
 		expect(parseMeasureUnit("unidade")?.dimension).toBe("count")
 		expect(parseMeasureUnit("Dúzia")?.toBase).toBe(12)
+		expect(parseMeasureUnit("GRAMAS")?.toBase).toBe(0.001)
+		expect(parseMeasureUnit("Litros")?.base).toBe("L")
+		expect(parseMeasureUnit("UNIDADES")?.dimension).toBe("count")
 	})
 
 	test("unidade que não mede nada devolve null", () => {
@@ -63,6 +66,16 @@ describe("convertSamplePrice", () => {
 	test("amostra sem preço e item sem unidade reconhecida", () => {
 		expect(convertSamplePrice({ precoUnitario: null, siglaUnidadeFornecimento: "KG" }, "KG")).toEqual({ ok: false, reason: "no_price" })
 		expect(convertSamplePrice({ precoUnitario: 1, siglaUnidadeFornecimento: "KG" }, "PCT")).toEqual({ ok: false, reason: "unknown_target_unit" })
+	})
+})
+
+describe("isSamePrice", () => {
+	test("aceita só o arredondamento da 4ª casa ou 0,05% do valor", () => {
+		expect(isSamePrice(12.34, 12.34)).toBe(true)
+		expect(isSamePrice(12.345, 12.34)).toBe(true)
+		expect(isSamePrice(12.4, 12.34)).toBe(false)
+		expect(isSamePrice(0.009925, 0.0099)).toBe(true)
+		expect(isSamePrice(0.0149, 0.0099)).toBe(false)
 	})
 })
 

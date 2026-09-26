@@ -68,6 +68,7 @@ import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 import { computeAtaItemLimits, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
 import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
+import { isSamePrice } from "./price-units.ts"
 import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
@@ -824,7 +825,7 @@ async function persistDraftItems(
 	// A que não tem sobrevivente fica sem item (ON DELETE SET NULL) e CONTINUA gravada: é trilha
 	// de auditoria, e o cabeçalho segue ligado à ata. Apagá-la sumia com a memória de cálculo de
 	// uma pesquisa que de fato aconteceu. A contagem avisa só as desvinculadas NESTE salvamento.
-	let unlinkedResearchCount = 0
+	const unlinkedResearch = new Set<string>()
 	if (toDelete.length > 0) {
 		const deleteSet = new Set(toDelete)
 		const research = await tx
@@ -837,7 +838,7 @@ async function persistDraftItems(
 			if (target && !deleteSet.has(target)) {
 				await tx.update(procurementPesquisaPrecoItemInProcurement).set({ ataItemId: target }).where(eq(procurementPesquisaPrecoItemInProcurement.id, r.id))
 			} else {
-				unlinkedResearchCount++
+				unlinkedResearch.add(r.id)
 			}
 		}
 		// Deletar itens removidos (o que não foi remapeado vira ata_item_id NULL via ON DELETE SET NULL).
@@ -861,10 +862,12 @@ async function persistDraftItems(
 				.set({ ataItemId: newItemId })
 				.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
 			await tx.update(procurementPesquisaPrecoInProcurement).set({ ataId: draftId }).where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
+			// Religada ao item reinserido no mesmo salvamento: não ficou desvinculada.
+			unlinkedResearch.delete(link.researchItemId)
 		}
 	}
 
-	return { unlinkedResearchCount }
+	return { unlinkedResearchCount: unlinkedResearch.size }
 }
 
 // ─── Finalizar rascunho (wizard_step → null, ata pronta para publicação) ──────
@@ -1469,40 +1472,59 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 
 // ─── Atualizar preços de itens de uma ATA já salva ───────────────────────────
 
-/** Tolerância da conferência preço × pesquisa: meio centavo, o arredondamento do JSON. */
-const PRICE_MATCH_TOLERANCE = 0.005
-
 /**
  * Todo preço gravado depois do rascunho tem de vir de uma pesquisa registrada DESTA unidade,
- * ligada ao MESMO item, com o mesmo valor. O preço segue editável depois de concluir o anexo
- * (a pesquisa se refaz perto do edital: IN SEGES/ME 65/2021, art. 5º), mas nunca sem a
- * memória de cálculo que o sustenta: era o caminho do "Usar" por linha e da gravação que
- * seguia mesmo quando a pesquisa falhava ao salvar.
+ * do MESMO item e do MESMO CATMAT, com o mesmo valor. O preço segue editável depois de concluir
+ * o anexo (a pesquisa se refaz perto do edital: IN SEGES/ME 65/2021, art. 5º), mas nunca sem a
+ * memória de cálculo que o sustenta: era o caminho do "Usar" por linha e da gravação que seguia
+ * mesmo quando a pesquisa falhava ao salvar.
+ *
+ * O item e o CATMAT são conferidos na linha GRAVADA da pesquisa, não no vínculo do corpo: senão a
+ * pesquisa do item A (mesmo valor) lastreava o preço do item B e era religada a ele.
  */
 async function assertPricesBackedByResearch(tx: TxClient, unitId: number, input: UpdateAtaItemPrices): Promise<void> {
 	const ownLinks = await filterOwnResearchLinks(tx, unitId, input.researchLinks ?? [])
 	const researchItemIds = [...new Set(ownLinks.map((l) => l.researchItemId))]
-	const references =
+	const itemIds = [...new Set(input.updates.map((u) => u.ataItemId))]
+
+	const [research, items] = await Promise.all([
 		researchItemIds.length === 0
 			? []
-			: await runQuery("FETCH_FAILED", () =>
+			: runQuery("FETCH_FAILED", () =>
 					tx
-						.select({ id: procurementPesquisaPrecoItemInProcurement.id, referencePrice: procurementPesquisaPrecoItemInProcurement.referencePrice })
+						.select({
+							id: procurementPesquisaPrecoItemInProcurement.id,
+							ataItemId: procurementPesquisaPrecoItemInProcurement.ataItemId,
+							catmat: procurementPesquisaPrecoItemInProcurement.catmatCodigo,
+							referencePrice: procurementPesquisaPrecoItemInProcurement.referencePrice,
+						})
 						.from(procurementPesquisaPrecoItemInProcurement)
 						.where(inArray(procurementPesquisaPrecoItemInProcurement.id, researchItemIds))
-				)
-	const referenceById = new Map(references.map((r) => [r.id, r.referencePrice == null ? null : Number(r.referencePrice)]))
+				),
+		runQuery("FETCH_FAILED", () =>
+			tx
+				.select({ id: procurementListItemInProcurement.id, catmat: procurementListItemInProcurement.catmatItemCodigo })
+				.from(procurementListItemInProcurement)
+				.where(and(inArray(procurementListItemInProcurement.id, itemIds), eq(procurementListItemInProcurement.listId, input.ataId)))
+		),
+	])
+	const researchById = new Map(research.map((r) => [r.id, r]))
+	const catmatByItem = new Map(items.map((i) => [i.id, i.catmat]))
 
 	for (const update of input.updates) {
 		const backed = ownLinks.some((link) => {
 			if (link.ataItemId !== update.ataItemId) return false
-			const reference = referenceById.get(link.researchItemId)
-			return reference != null && Math.abs(reference - update.price) <= PRICE_MATCH_TOLERANCE
+			const row = researchById.get(link.researchItemId)
+			if (!row || row.referencePrice == null) return false
+			// Pesquisa ainda solta (recém-feita) ou já deste item; nunca a de outro item.
+			if (row.ataItemId != null && row.ataItemId !== update.ataItemId) return false
+			if (row.catmat == null || row.catmat !== catmatByItem.get(update.ataItemId)) return false
+			return isSamePrice(Number(row.referencePrice), update.price)
 		})
 		if (!backed) {
 			throw new DomainError(
 				"PRICE_WITHOUT_RESEARCH",
-				`Preço do item ${update.ataItemId} sem pesquisa de preços registrada com o mesmo valor: refaça a pesquisa do item.`
+				`Preço do item ${update.ataItemId} sem pesquisa de preços registrada para o mesmo item, CATMAT e valor: refaça a pesquisa do item.`
 			)
 		}
 	}

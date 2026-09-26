@@ -16,7 +16,8 @@ const KITCHEN_ID = Number(process.env.E2E_KITCHEN_ID ?? process.env.E2E_STORAGE_
 const RUN = `E2E ${Date.now().toString(36)}`
 
 let templateId: string | null = null
-let startedAt = ""
+/** Rascunho que o wizard criou nesta execução (lido da URL): a limpeza apaga só ele. */
+let draftId: string | null = null
 
 test.describe.configure({ mode: "serial" })
 test.use({ actionTimeout: 30_000 })
@@ -29,7 +30,6 @@ test.describe("Anexo quantitativo — pesquisa de preços", () => {
 
 	test.beforeAll(async () => {
 		const db = createE2EServiceClient()
-		startedAt = new Date().toISOString()
 
 		const { data: mealTypes, error: mtError } = await db
 			.from("meal_type")
@@ -72,18 +72,19 @@ test.describe("Anexo quantitativo — pesquisa de preços", () => {
 
 	test.afterAll(async () => {
 		const db = createE2EServiceClient()
-		// O wizard cria o rascunho ao entrar; apaga só os desta execução. A pesquisa de preço ligada
-		// a ele cai junto (ON DELETE CASCADE).
 		// O salvamento do rascunho que a tela disparou pode ainda estar em voo: deadlock aqui é
-		// concorrência com ele, não erro da limpeza. Tenta de novo algumas vezes.
-		let lastError: string | null = null
-		for (let attempt = 0; attempt < 5; attempt++) {
-			const lists = await db.schema("procurement").from("procurement_list").delete().eq("unit_id", UNIT_ID).gte("created_at", startedAt)
-			lastError = lists.error?.message ?? null
-			if (!lastError) break
-			await new Promise((resolve) => setTimeout(resolve, 2_000))
+		// concorrência com ele, não erro da limpeza. Tenta de novo algumas vezes. A pesquisa de preço
+		// ligada ao rascunho cai junto (ON DELETE CASCADE).
+		if (draftId) {
+			let lastError: string | null = null
+			for (let attempt = 0; attempt < 5; attempt++) {
+				const lists = await db.schema("procurement").from("procurement_list").delete().eq("id", draftId).eq("unit_id", UNIT_ID)
+				lastError = lists.error?.message ?? null
+				if (!lastError) break
+				await new Promise((resolve) => setTimeout(resolve, 2_000))
+			}
+			if (lastError) throw new Error(`limpeza do anexo: ${lastError}`)
 		}
-		if (lastError) throw new Error(`limpeza dos anexos: ${lastError}`)
 		if (templateId) {
 			const items = await db.from("menu_template_items").delete().eq("menu_template_id", templateId)
 			if (items.error) throw new Error(`limpeza dos itens do cardápio: ${items.error.message}`)
@@ -95,6 +96,9 @@ test.describe("Anexo quantitativo — pesquisa de preços", () => {
 	test("converte as embalagens para a unidade do item e só aplica o preço com memória de cálculo", async ({ authenticatedPage: page }) => {
 		await page.goto(`/unit/${UNIT_ID}/procurement/new`)
 		await waitForHydration(page, `[id="template-${templateId}"]`)
+		// O wizard cria o rascunho ao entrar e grava o id na URL.
+		await page.waitForURL(/draft=/)
+		draftId = new URL(page.url()).searchParams.get("draft")
 
 		// O aviso de documentos legais é fixo no rodapé e cobre os botões do wizard enquanto pendente.
 		const legalNotice = page.getByRole("region", { name: "Aviso sobre documentos legais" })

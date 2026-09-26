@@ -40,6 +40,7 @@ import { requirePermission, requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery } from "../utils/index.ts"
+import { isSamePrice } from "./price-units.ts"
 
 type PriceResearchTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 
@@ -128,8 +129,8 @@ export function researchNonComplianceReasons(
 	const reasons: string[] = []
 	if (input.validCount < MIN_COMPLIANT_SAMPLES) reasons.push("Menos de 3 amostras válidas")
 	if (input.stats.uniqueSources < MIN_COMPLIANT_SAMPLES) reasons.push("Menos de 3 UASGs distintas")
-	// Tolerância de meio centavo: a mediana chega do cliente já arredondada pelo JSON.
-	if (input.referencePrice > input.stats.median + 0.005) reasons.push("Preço estimado acima da mediana (IN 65/2021, art. 6º, § 6º)")
+	if (input.referencePrice > input.stats.median && !isSamePrice(input.referencePrice, input.stats.median))
+		reasons.push("Preço estimado acima da mediana (IN 65/2021, art. 6º, § 6º)")
 	if (input.unitInferred) reasons.push(`Item de compra sem unidade declarada: preço calculado por ${input.measureUnit ?? "unidade predominante"}`)
 	return reasons
 }
@@ -212,7 +213,9 @@ function idempotencyKeyFor(input: SavePriceResearchAudit): string {
 	// UTC distintos e gerariam registros duplicados.
 	const day = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
 
-	return `audit:v1:${scope}:${input.method}:${day}:${sampleFingerprint}`
+	// v2: a unidade e o preço entram na chave. Mesmas amostras em outra unidade (ou gravadas antes
+	// da conversão) são OUTRA pesquisa; com a chave v1 voltava o registro antigo com outro preço.
+	return `audit:v2:${scope}:${input.method}:${input.measureUnit ?? "-"}:${input.referencePrice.toFixed(4)}:${day}:${sampleFingerprint}`
 }
 
 /**

@@ -63,6 +63,14 @@ function annexUnit(purchaseQuantity: number | null | undefined, purchaseUnit: st
 	return measureUnit ?? "UN"
 }
 
+/**
+ * Unidade em que o anexo conta o item. É também a unidade-alvo da pesquisa de preços: preço e
+ * quantidade têm de estar na mesma unidade, senão o valor estimado multiplica coisas diferentes.
+ */
+export function annexItemUnit(item: { purchase_quantity?: number | null; purchase_measure_unit?: string | null; measure_unit?: string | null }): string {
+	return annexUnit(item.purchase_quantity, item.purchase_measure_unit, item.measure_unit)
+}
+
 export function buildDraftAnnexRows(items: ProcurementNeed[], settings: AtaAnnexSettings): AtaAnnexRow[] {
 	return items.map((item) => {
 		const limits = computeAtaItemLimits(

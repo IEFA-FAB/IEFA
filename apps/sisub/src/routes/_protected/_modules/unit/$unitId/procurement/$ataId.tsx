@@ -21,7 +21,7 @@ import { useArpForAta } from "@/hooks/data/useArp"
 import { useAtaDetails, useUpdateAtaItemDescription, useUpdateAtaQuantityLimits, useUpdateAtaStatus } from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { useUnitSettings } from "@/hooks/data/useUnitSettings"
-import { type AtaAnnexSettings, buildAnnexCsv, buildDraftAnnexRows, buildSnapshotAnnexRows, downloadCsv } from "@/lib/ata-annex"
+import { type AtaAnnexSettings, annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, buildSnapshotAnnexRows, downloadCsv } from "@/lib/ata-annex"
 import { ataItemToNeed } from "@/lib/ata-utils"
 import { queryKeys } from "@/lib/query-keys"
 import { updateAtaItemPricesFn } from "@/server/ata.fn"
@@ -394,7 +394,7 @@ function AtaDetailPage() {
 					catmatDescription={priceResearchItem.catmat_item_descricao}
 					ataId={ataId}
 					ataItemId={priceResearchItem.ata_item_id ?? undefined}
-					targetUnit={priceResearchItem.purchase_measure_unit}
+					targetUnit={annexItemUnit(priceResearchItem)}
 					onApplyPrice={(price, auditIds) => handleApplyPrice(priceResearchItem, price, auditIds)}
 				/>
 			)}
