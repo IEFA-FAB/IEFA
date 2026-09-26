@@ -74,3 +74,16 @@ export function computeDraftChanges<T extends Record<string, unknown>>(baseline:
 	}
 	return changes
 }
+
+/**
+ * O rascunho guardado ainda cabe no formulário? Guardado por até 7 dias, ele atravessa
+ * publicações que mudam o formulário (campo novo, renomeado). Restaurar um objeto de outra
+ * forma deixaria campo `undefined` no form — melhor descartar. Compara as chaves do primeiro
+ * nível, que é onde os formulários mudam.
+ */
+export function hasSameShape(saved: unknown, baseline: Record<string, unknown>): boolean {
+	if (!saved || typeof saved !== "object" || Array.isArray(saved)) return false
+	const a = Object.keys(saved).sort()
+	const b = Object.keys(baseline).sort()
+	return a.length === b.length && a.every((key, index) => key === b[index])
+}

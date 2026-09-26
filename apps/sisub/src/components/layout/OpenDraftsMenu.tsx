@@ -12,14 +12,13 @@ import { draftStore } from "@/lib/drafts/draft-store"
  * tela, ao F5 e a fechar o navegador — sem este lembrete ele ficaria esquecido.
  */
 export function OpenDraftsMenu() {
+	const { user } = useAuth()
+	// Rascunho é da conta: outra conta no mesmo navegador começa sem eles. No RENDER e antes
+	// de ler a lista — o cabeçalho renderiza antes da tela, e os efeitos da tela (que
+	// restauram o rascunho) rodariam antes de um efeito daqui.
+	draftStore.bindOwner(user?.id ?? null)
 	const drafts = useOpenDrafts()
 	const navigate = useNavigate()
-	const { user } = useAuth()
-	const userId = user?.id ?? null
-	// Rascunho é da conta: outra conta no mesmo navegador começa sem eles. No RENDER, não num
-	// efeito — o cabeçalho renderiza antes da tela, e os efeitos da tela (que restauram o
-	// rascunho) rodariam antes de um efeito daqui.
-	draftStore.bindOwner(userId)
 	const [open, setOpen] = useState(false)
 	if (drafts.length === 0) return null
 	const label = drafts.length === 1 ? "1 rascunho não salvo" : `${drafts.length} rascunhos não salvos`

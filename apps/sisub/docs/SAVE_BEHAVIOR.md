@@ -40,7 +40,8 @@ edição é um **rascunho local**.
 - `OpenDraftsMenu`, no cabeçalho do app, lista os rascunhos abertos em qualquer tela, com
   link de volta. Sem ele, um rascunho esquecido ficaria esquecido por dias.
 - Sem aviso de `beforeunload`: o rascunho sobrevive a recarregar e a fechar o navegador,
-  então o aviso só incomodaria.
+  então o aviso só incomodaria. Ele volta quando o navegador não deixa guardar (armazenamento
+  bloqueado, cota cheia) — aí o rascunho é só de memória, e a lista de pendências diz isso.
 - **Rascunho desatualizado**: se o registro salvo mudou depois que a edição começou (outra
   pessoa gravou), a lista avisa que Salvar vai gravar por cima. A assinatura é o próprio
   baseline do formulário. Por isso salvar um item filho, que gera versão do insumo mas não
@@ -109,11 +110,17 @@ dado pessoal nem classificado. O mais sensível é o preço de referência, e el
 quem tem acesso ao catálogo; o rascunho só existe no aparelho dessa pessoa. Travas para o
 computador compartilhado:
 
-- **Dono:** outra conta entrando no navegador descarta todos os rascunhos. Guarda só uma
+- **Dono:** outra conta entrando no navegador — nesta aba ou em outra — descarta todos os
+  rascunhos. Sair da conta não descarta: quem volta encontra o que deixou. Guarda só uma
   assinatura curta da conta (FNV-1a de 32 bits), sem volta ao identificador. A amarração
   acontece no render do cabeçalho, antes de qualquer tela restaurar rascunho.
 - **Validade:** rascunho parado há mais de 7 dias é descartado ao carregar.
 - **Só no dispositivo:** nada vai ao servidor antes do Salvar.
+- **Forma do formulário:** rascunho de antes de uma publicação que mudou o formulário (campo
+  novo ou renomeado) é descartado em vez de restaurado com campo faltando.
+
+A gravação no armazenamento é atrasada (400 ms depois da última mudança) e descarregada ao
+esconder a página: a cada tecla seria serialização e escrita síncrona no thread principal.
 
 Chave nova de armazenamento entra no inventário da política **antes** de ir ao ar
 (`packages/legal-kit/src/cookie-inventory.test.ts` cobra). A família `sisub:draft:*` já

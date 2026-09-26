@@ -35,14 +35,19 @@
 -- com a mesma vigência — a 1.4.0 e esta 1.5.0 entram no ar no mesmo dia — deixavam o
 -- DISTINCT ON escolher qualquer uma: o aviso de ciência podia alternar entre as duas e a
 -- página publicada mostrar a versão antiga. Agora desempata pela publicação mais recente
--- (e pela versão, para linhas carregadas no mesmo instante). Mesmas colunas, mesma ordem;
+-- (e pela versão, comparada como números, para linhas carregadas no mesmo instante). Mesmas colunas, mesma ordem;
 -- `security_invoker` e o revoke de 20260825155457 reafirmados.
 CREATE OR REPLACE VIEW iefa.legal_documents_current WITH (security_invoker = on) AS
 SELECT DISTINCT ON (doc_type, locale)
   id, doc_type, version, locale, content_md, effective_date, published_at, metadata, created_at, updated_at
 FROM iefa.legal_documents
 WHERE published_at IS NOT NULL
-ORDER BY doc_type, locale, effective_date DESC, published_at DESC, version DESC;
+ORDER BY doc_type, locale, effective_date DESC, published_at DESC,
+  -- versão como números ("1.10.0" > "1.9.0"); parte não numérica vira 0 em vez de quebrar a view
+  array(
+    SELECT coalesce(nullif(regexp_replace(part, '[^0-9]', '', 'g'), ''), '0')::int
+    FROM unnest(string_to_array(version, '.')) AS part
+  ) DESC;
 
 REVOKE ALL ON iefa.legal_documents_current FROM anon, authenticated;
 

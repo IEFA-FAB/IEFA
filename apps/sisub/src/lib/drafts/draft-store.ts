@@ -6,13 +6,17 @@
  * O que o rascunho guarda é dado de catálogo que o usuário já pode ver (insumo, nutrientes,
  * especificação de compra, ficha técnica) — não é dado pessoal nem classificado. Mesmo
  * assim, três travas para o computador compartilhado:
- *   - **dono**: `bindOwner` descarta tudo quando outra conta entra no navegador. Guarda só
- *     uma assinatura curta da conta (`ownerSignature`), nunca o identificador;
+ *   - **dono**: outra conta entrando no navegador — nesta aba ou em outra — descarta tudo.
+ *     Guarda só uma assinatura curta da conta (`ownerSignature`), nunca o identificador.
+ *     Sair da conta NÃO descarta: quem volta encontra o que deixou;
  *   - **validade**: rascunho sem uso há mais de 7 dias é descartado ao carregar;
  *   - **só no dispositivo**: nada daqui vai ao servidor antes de o usuário salvar.
  *
- * O mapa em memória é o que os componentes leem; o armazenamento é espelho gravado a cada
- * mudança. Sem `localStorage` (SSR, modo privado cheio) o store segue só em memória.
+ * O mapa em memória é a fonte que as telas leem; o armazenamento é espelho, gravado com
+ * atraso curto (a cada tecla seria `JSON.stringify` + escrita síncrona no thread principal)
+ * e descarregado ao esconder a página. Sem armazenamento utilizável (SSR, bloqueado, cota
+ * cheia) o store segue em memória e `isPersistent()` diz isso — `useDraft` volta a avisar
+ * antes de sair.
  */
 
 export interface DraftEntry<T = unknown> {
@@ -29,6 +33,8 @@ export interface DraftEntry<T = unknown> {
 
 /** Rascunho parado há mais que isto é descartado ao carregar. */
 export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000
+/** Atraso da gravação no armazenamento depois da última mudança. */
+const PERSIST_DELAY_MS = 400
 
 const DRAFT_OWNER_KEY = "sisub:draft:owner"
 const draftStorageKey = (key: string) => `sisub:draft:${key}`
@@ -36,10 +42,13 @@ const STORAGE_PREFIX = draftStorageKey("")
 
 const entries = new Map<string, DraftEntry>()
 const listeners = new Set<() => void>()
+const pendingWrites = new Set<string>()
+let persistTimer: ReturnType<typeof setTimeout> | null = null
 let snapshot: DraftEntry[] = []
 let keySnapshot = ""
-let owner: string | null | undefined
+let owner: string | null = null
 let hydrated = false
+let writable = true
 
 function storage(): Storage | null {
 	try {
@@ -49,19 +58,11 @@ function storage(): Storage | null {
 	}
 }
 
-function persist(entry: DraftEntry) {
+function readOwner(): string | null {
 	try {
-		storage()?.setItem(draftStorageKey(entry.key), JSON.stringify(entry))
+		return storage()?.getItem(DRAFT_OWNER_KEY) ?? null
 	} catch {
-		// Cota cheia ou armazenamento bloqueado: o rascunho segue em memória nesta aba.
-	}
-}
-
-function unpersist(key: string) {
-	try {
-		storage()?.removeItem(draftStorageKey(key))
-	} catch {
-		// idem persist
+		return null
 	}
 }
 
@@ -78,31 +79,20 @@ export function ownerSignature(userId: string): string {
 	return (hash >>> 0).toString(16).padStart(8, "0")
 }
 
-/** Lê o armazenamento uma vez, descartando o que venceu ou não é rascunho válido. */
-function hydrate() {
-	if (hydrated) return
-	hydrated = true
-	const store = storage()
-	if (!store) return
-	const now = Date.now()
-	const keys: string[] = []
-	for (let i = 0; i < store.length; i++) {
-		const name = store.key(i)
-		if (name?.startsWith(STORAGE_PREFIX) && name !== DRAFT_OWNER_KEY) keys.push(name)
-	}
-	for (const name of keys) {
-		try {
-			const entry = JSON.parse(store.getItem(name) ?? "null") as DraftEntry | null
-			if (!entry || typeof entry.key !== "string" || now - entry.savedAt > DRAFT_TTL_MS) {
-				store.removeItem(name)
-				continue
-			}
-			entries.set(entry.key, entry)
-		} catch {
-			store.removeItem(name)
-		}
-	}
-	rebuildSnapshots()
+/** Rascunho lido do armazenamento (ou de outra aba) só entra se tiver a forma certa e estiver no prazo. */
+function isLiveEntry(value: unknown, now: number): value is DraftEntry {
+	if (!value || typeof value !== "object") return false
+	const entry = value as Partial<DraftEntry>
+	return (
+		typeof entry.key === "string" &&
+		typeof entry.title === "string" &&
+		typeof entry.changeCount === "number" &&
+		typeof entry.savedAt === "number" &&
+		Number.isFinite(entry.savedAt) &&
+		now - entry.savedAt <= DRAFT_TTL_MS &&
+		!!entry.values &&
+		typeof entry.values === "object"
+	)
 }
 
 function rebuildSnapshots() {
@@ -120,9 +110,79 @@ function summaryOf(entry: DraftEntry | undefined): string {
 	return entry ? `${entry.key}|${entry.title}|${entry.href}|${entry.changeCount}` : ""
 }
 
-function clearAll() {
-	for (const key of entries.keys()) unpersist(key)
+/** Grava no armazenamento o que mudou desde a última descarga. */
+function flush() {
+	if (persistTimer) clearTimeout(persistTimer)
+	persistTimer = null
+	const store = storage()
+	if (!store) {
+		writable = false
+		pendingWrites.clear()
+		return
+	}
+	// Outra aba entrou com outra conta: o que está em memória aqui é da conta anterior e
+	// não pode ser gravado sob a assinatura da nova.
+	if (readOwner() !== owner) {
+		pendingWrites.clear()
+		return
+	}
+	for (const key of pendingWrites) {
+		const entry = entries.get(key)
+		try {
+			if (entry) store.setItem(draftStorageKey(key), JSON.stringify(entry))
+			else store.removeItem(draftStorageKey(key))
+			writable = true
+		} catch {
+			// Cota cheia ou armazenamento bloqueado: segue em memória, e `isPersistent()` avisa.
+			writable = false
+		}
+	}
+	pendingWrites.clear()
+}
+
+function schedule(key: string) {
+	pendingWrites.add(key)
+	if (persistTimer) clearTimeout(persistTimer)
+	persistTimer = setTimeout(flush, PERSIST_DELAY_MS)
+}
+
+/** Descarta tudo: memória, gravações pendentes e armazenamento. */
+function discardAll() {
+	const store = storage()
+	for (const key of entries.keys()) {
+		try {
+			store?.removeItem(draftStorageKey(key))
+		} catch {
+			// idem flush
+		}
+	}
 	entries.clear()
+	pendingWrites.clear()
+	rebuildSnapshots()
+}
+
+/** Lê o armazenamento uma vez, descartando o que venceu ou não é rascunho válido. */
+function hydrate() {
+	if (hydrated) return
+	hydrated = true
+	const store = storage()
+	if (!store) return
+	const now = Date.now()
+	const names: string[] = []
+	for (let i = 0; i < store.length; i++) {
+		const name = store.key(i)
+		if (name?.startsWith(STORAGE_PREFIX) && name !== DRAFT_OWNER_KEY) names.push(name)
+	}
+	for (const name of names) {
+		try {
+			const entry: unknown = JSON.parse(store.getItem(name) ?? "null")
+			if (isLiveEntry(entry, now)) entries.set(entry.key, entry)
+			else store.removeItem(name)
+		} catch {
+			store.removeItem(name)
+		}
+	}
+	rebuildSnapshots()
 }
 
 export const draftStore = {
@@ -131,52 +191,52 @@ export const draftStore = {
 		return entries.get(key) as DraftEntry<T> | undefined
 	},
 	/**
-	 * Grava o rascunho. Só notifica quando o resumo muda: gravar a cada tecla notificando
+	 * Grava o rascunho. Só notifica quando o resumo muda: notificar a cada tecla
 	 * re-renderizava o indicador global e as listas inteiras (com o editor aberto dentro).
 	 */
 	set<T>(entry: DraftEntry<T>) {
 		hydrate()
 		const changed = summaryOf(entries.get(entry.key)) !== summaryOf(entry as DraftEntry)
-		entries.set(entry.key, entry)
-		persist(entry as DraftEntry)
+		entries.set(entry.key, entry as DraftEntry)
+		schedule(entry.key)
 		if (changed) emit()
 	},
 	delete(key: string) {
 		hydrate()
-		unpersist(key)
-		if (entries.delete(key)) emit()
+		const existed = entries.delete(key)
+		schedule(key)
+		if (existed) emit()
 	},
 	/**
-	 * Amarra os rascunhos à conta da sessão; outra conta descarta todos. Chamado no render do
-	 * cabeçalho do app — antes dos efeitos das telas, que restauram o rascunho — para que a
-	 * tela de quem acabou de entrar nunca restaure o rascunho de quem saiu.
+	 * Amarra os rascunhos à conta da sessão; OUTRA conta descarta todos. Sessão sem usuário
+	 * (logout, expiração) não descarta nada: a política promete o rascunho até outra conta
+	 * entrar, e quem volta encontra o que deixou.
+	 *
+	 * Chamar no render do cabeçalho, ANTES de ler a lista: o cabeçalho renderiza antes da
+	 * tela, e os efeitos da tela (que restauram o rascunho) rodam depois do render dele.
 	 */
 	bindOwner(userId: string | null) {
+		if (!userId) return
 		hydrate()
-		const signature = userId ? ownerSignature(userId) : null
+		const signature = ownerSignature(userId)
 		if (owner === signature) return
-		const store = storage()
-		let stored: string | null = null
-		try {
-			stored = store?.getItem(DRAFT_OWNER_KEY) ?? null
-		} catch {
-			stored = null
-		}
-		// Dono conhecido: o desta página, ou — logo depois do F5 — o que ficou gravado.
-		const known = owner !== undefined ? owner : stored
+		const known = owner ?? readOwner()
 		owner = signature
 		if (known !== signature && entries.size > 0) {
-			clearAll()
-			// Notificar fora do render em curso: outro componente inscrito não pode ser
-			// atualizado no meio do render de quem chamou.
+			// Snapshot já refeito aqui (quem lê logo depois não vê os títulos da conta
+			// anterior); a notificação vai fora do render em curso.
+			discardAll()
 			queueMicrotask(emit)
 		}
 		try {
-			if (signature) store?.setItem(DRAFT_OWNER_KEY, signature)
-			else store?.removeItem(DRAFT_OWNER_KEY)
+			storage()?.setItem(DRAFT_OWNER_KEY, signature)
 		} catch {
-			// idem persist
+			writable = false
 		}
+	},
+	/** O rascunho sobrevive a recarregar? `false` sem armazenamento ou depois de uma gravação que falhou. */
+	isPersistent(): boolean {
+		return storage() != null && writable
 	},
 	/** Snapshot estável para `useSyncExternalStore` (mesma referência até a próxima mudança). */
 	list(): DraftEntry[] {
@@ -194,41 +254,60 @@ export const draftStore = {
 			listeners.delete(listener)
 		}
 	},
+	/** Descarrega as gravações pendentes agora. */
+	flush,
 	/** Só para testes: esquece tudo, inclusive o que está no armazenamento. */
 	clear() {
-		clearAll()
+		discardAll()
 		try {
 			storage()?.removeItem(DRAFT_OWNER_KEY)
 		} catch {
-			// idem persist
+			// idem flush
 		}
-		owner = undefined
+		owner = null
 		hydrated = false
+		writable = true
 		emit()
-	},
-	/** Só para testes: relê o armazenamento como numa página recém-carregada. */
-	reloadFromStorage() {
-		entries.clear()
-		owner = undefined
-		hydrated = false
-		hydrate()
 	},
 }
 
-// Outra aba gravou ou apagou um rascunho: o indicador desta aba acompanha. O conteúdo
-// restaurado numa tela já aberta não muda — a restauração acontece só ao abrir a tela.
 if (typeof window !== "undefined") {
+	// A página vai sumir (fechar, trocar de aba no celular): grava o que falta.
+	window.addEventListener("pagehide", flush)
+	window.addEventListener("visibilitychange", () => {
+		if (typeof document !== "undefined" && document.visibilityState === "hidden") flush()
+	})
+
+	// Outra aba mudou o armazenamento.
 	window.addEventListener("storage", (event) => {
-		if (!event.key?.startsWith(STORAGE_PREFIX) || event.key === DRAFT_OWNER_KEY) return
+		if (event.key === DRAFT_OWNER_KEY) {
+			// Outra conta entrou em outra aba: a sessão do navegador é dela agora, e o que
+			// esta aba tem em memória é da conta anterior.
+			if (event.newValue && event.newValue !== owner) {
+				// Sem dono até o cabeçalho desta aba se amarrar à conta nova (`bindOwner`): até
+				// lá nada desta aba vai para o armazenamento.
+				owner = null
+				entries.clear()
+				pendingWrites.clear()
+				emit()
+			}
+			return
+		}
+		if (!event.key?.startsWith(STORAGE_PREFIX)) return
 		const key = event.key.slice(STORAGE_PREFIX.length)
+		const before = summaryOf(entries.get(key))
 		if (event.newValue == null) entries.delete(key)
 		else {
+			let parsed: unknown
 			try {
-				entries.set(key, JSON.parse(event.newValue) as DraftEntry)
+				parsed = JSON.parse(event.newValue)
 			} catch {
 				return
 			}
+			if (!isLiveEntry(parsed, Date.now())) return
+			entries.set(key, parsed)
 		}
-		emit()
+		// Tecla na outra aba só muda valores: notificar re-renderizaria esta a cada tecla.
+		if (summaryOf(entries.get(key)) !== before) emit()
 	})
 }

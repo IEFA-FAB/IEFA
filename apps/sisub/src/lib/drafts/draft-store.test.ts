@@ -34,12 +34,14 @@ describe("draftStore", () => {
 })
 
 describe("draftStore — dono e notificação", () => {
-	it("descarta os rascunhos quando o usuário da sessão muda", () => {
+	it("descarta os rascunhos quando OUTRA conta entra; sair da conta não descarta", () => {
 		draftStore.bindOwner("user-1")
 		draftStore.set(entry("a", 1))
 		draftStore.bindOwner("user-1")
 		expect(draftStore.get("a")).toBeDefined()
 		draftStore.bindOwner(null)
+		expect(draftStore.get("a")).toBeDefined()
+		draftStore.bindOwner("user-2")
 		expect(draftStore.get("a")).toBeUndefined()
 	})
 
