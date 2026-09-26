@@ -178,6 +178,7 @@ Com vários worktrees abertos, a porta 3000 costuma ser do `vite dev` de OUTRO c
 | `VITE_SISUB_SUPABASE_PUBLISHABLE_KEY` | sim | mesma do dev; `vars` do repositório |
 | `E2E_BUDGET_UNIT_ID` | não | id de uma unidade REAL onde o usuário E2E tenha o módulo `unit` — para a conta dedicada é **1065** (a OM sentinela do treino) |
 | `E2E_STORAGE_KITCHEN_ID` | não | id de uma cozinha REAL onde o usuário E2E tenha o módulo `storage` — para a conta dedicada é **920** (a cozinha sentinela do treino) |
+| `E2E_KITCHEN_ID` | não | id da cozinha sentinela para as specs que ESCREVEM (`event-meals`, `global-catalog-events`) e para `mobile-shell`/`page-stability` — **920** para a conta dedicada (já em `/iefa/dev/sisub`); as que escrevem caem em `E2E_STORAGE_KITCHEN_ID` na ausência |
 | `E2E_MESSHALL_ID` | não | id de um refeitório REAL onde o usuário E2E tenha o módulo `messhall` — para a conta dedicada é **237** (já em `/iefa/dev/sisub`) |
 
 As três últimas são opcionais **e ausentes viram skip explícito**, não verde vazio:
