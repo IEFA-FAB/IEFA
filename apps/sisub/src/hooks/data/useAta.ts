@@ -100,7 +100,7 @@ export function useUpdateAtaStatus() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.all() })
 			const labels: Record<string, string> = {
 				draft: "Rascunho",
-				published: "Publicado",
+				published: "Concluído",
 				archived: "Arquivado",
 			}
 			toast.success(`Anexo atualizado para "${labels[variables.status]}"`)

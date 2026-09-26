@@ -50,7 +50,7 @@ function EditDraftPage() {
 	if (!draft) {
 		return (
 			<div className="py-12 text-center">
-				<p className="text-muted-foreground">Rascunho não encontrado.</p>
+				<p className="text-muted-foreground">Previsão não encontrada.</p>
 			</div>
 		)
 	}
@@ -85,7 +85,7 @@ function EditDraftPage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Editar Rascunho" description={`Editando: ${draft.title}`} />
+			<PageHeader title="Editar previsão" description={`Editando: ${draft.title}`} />
 			<DraftEditor
 				initialTitle={draft.title}
 				initialNotes={draft.notes || ""}

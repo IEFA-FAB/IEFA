@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurem
 
 const STATUS_LABELS: Record<string, string> = {
 	draft: "Rascunho",
-	published: "Publicado",
+	published: "Concluído",
 	archived: "Arquivado",
 }
 

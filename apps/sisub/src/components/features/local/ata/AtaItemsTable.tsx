@@ -51,7 +51,7 @@ export function AtaItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescr
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Package className="size-5" aria-hidden="true" />
-						Lista de Itens da Ata
+						Itens do anexo quantitativo
 					</CardTitle>
 					<CardDescription>Calculando quantitativos...</CardDescription>
 				</CardHeader>
@@ -72,7 +72,7 @@ export function AtaItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescr
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Package className="size-5" aria-hidden="true" />
-						Lista de Itens da Ata
+						Itens do anexo quantitativo
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-col items-center justify-center py-12 text-center">

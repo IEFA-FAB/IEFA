@@ -74,7 +74,7 @@ function UnitDashboardPage() {
 			<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 				<StatCard
 					icon={FileText}
-					label="Anexos publicados"
+					label="Anexos concluídos"
 					value={publishedAtas.length}
 					sub={publishedAtas.length === 1 ? "anexo quantitativo" : "anexos quantitativos"}
 					variant={publishedAtas.length === 0 ? "default" : "success"}
@@ -98,7 +98,7 @@ function UnitDashboardPage() {
 			{/* ── Seção 1: Anexos publicados ────────────────────────────────────────── */}
 			<div className="space-y-3">
 				<div className="flex items-center justify-between">
-					<SectionTitle>Anexos publicados</SectionTitle>
+					<SectionTitle>Anexos concluídos</SectionTitle>
 					<Button
 						size="sm"
 						variant="ghost"
@@ -116,8 +116,8 @@ function UnitDashboardPage() {
 					<Card>
 						<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 							<PackageSearch className="size-9 text-muted-foreground" />
-							<p className="text-subheading text-muted-foreground">Nenhum anexo publicado</p>
-							<p className="text-sm text-muted-foreground max-w-sm">Publique um anexo quantitativo do TR para que ele apareça aqui.</p>
+							<p className="text-subheading text-muted-foreground">Nenhum anexo concluído</p>
+							<p className="text-sm text-muted-foreground max-w-sm">Conclua um anexo quantitativo do TR para que ele apareça aqui.</p>
 							<Button
 								size="sm"
 								variant="outline"
@@ -142,7 +142,7 @@ function UnitDashboardPage() {
 								</CardHeader>
 								<Separator />
 								<CardContent className="pt-3 pb-3 flex items-center justify-between gap-2">
-									<p className="text-xs text-muted-foreground">Publicado em {fmtDate(ata.updated_at ?? ata.created_at)}</p>
+									<p className="text-xs text-muted-foreground">Concluído em {fmtDate(ata.updated_at ?? ata.created_at)}</p>
 									<Button
 										size="sm"
 										variant="outline"
@@ -183,7 +183,7 @@ function UnitDashboardPage() {
 						</Badge>
 					)}
 				</div>
-				<p className="text-sm text-muted-foreground -mt-1">Itens das ARPs vinculadas aos anexos publicados com 80% ou mais do quantitativo já empenhado.</p>
+				<p className="text-sm text-muted-foreground -mt-1">Itens das ARPs vinculadas aos anexos concluídos com 80% ou mais do quantitativo já empenhado.</p>
 				<LowBalanceTable items={lowBalanceItems} unitIdStr={unitIdStr as string} />
 			</div>
 

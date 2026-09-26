@@ -173,7 +173,7 @@ export function DraftEditor({
 					<div className="space-y-4">
 						<FieldGroup>
 							<Field>
-								<FieldLabel htmlFor="draft-title">Título do Rascunho *</FieldLabel>
+								<FieldLabel htmlFor="draft-title">Título da previsão *</FieldLabel>
 								<Input
 									id="draft-title"
 									value={title}
@@ -221,11 +221,11 @@ export function DraftEditor({
 
 			<div className="flex items-center justify-end gap-3">
 				<Button variant="outline" onClick={handleSave} disabled={!title.trim() || isSaving || isSending}>
-					{isSaving ? "Salvando..." : "Salvar Rascunho"}
+					{isSaving ? "Salvando..." : "Salvar previsão"}
 				</Button>
 				{onSend && (
 					<Button onClick={handleSend} disabled={!title.trim() || selections.length === 0 || isSaving || isSending}>
-						{isSending ? "Enviando..." : "Enviar para Gestão"}
+						{isSending ? "Enviando..." : "Enviar à unidade"}
 					</Button>
 				)}
 			</div>

@@ -67,7 +67,7 @@ function NewDraftPage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Novo Rascunho de Suprimentos" description="Selecione os templates e eventos para sugerir à gestão da unidade." />
+			<PageHeader title="Nova previsão de demanda" description="Selecione os cardápios, eventos e apoios que a cozinha vai produzir e quantas vezes." />
 			<DraftEditor
 				weeklyTemplates={weeklyTemplates}
 				eventTemplates={eventTemplates}

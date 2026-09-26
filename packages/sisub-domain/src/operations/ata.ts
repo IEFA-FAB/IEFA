@@ -73,11 +73,14 @@ import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
 /**
- * Idade a partir da qual a pesquisa de preço pede renovação. Referência: os 6 meses que a IN
- * SEGES/ME 65/2021 (art. 5º, III e IV) admite entre a coleta e a divulgação do edital. Não é
- * "vencimento" legal da pesquisa inteira: preço de sistema oficial conta 1 ano da data da pesquisa.
+ * Idade a partir da qual a pesquisa de preço pede renovação. É POLÍTICA INTERNA, sem citação
+ * legal: os 6 meses do art. 5º, III e IV, da IN SEGES/ME 65/2021 valem para sítios e cotações, não
+ * para a fonte oficial que o sisub consulta (preços de contratações de até 1 ano antes da pesquisa).
  */
 const PRICE_RESEARCH_VALIDITY_DAYS = 180
+
+/** Status do anexo como a tela os chama (o enum `published` é "concluído": publicar é divulgar no PNCP). */
+const LIST_STATUS_LABELS: Record<string, string> = { draft: "em rascunho", published: "concluído", archived: "arquivado" }
 
 /** Transições de status permitidas da ATA. Publicada e arquivada são terminais quanto a downgrade. */
 const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -102,7 +105,10 @@ async function getListStatus(client: SisubDb | TxClient, listId: string): Promis
 async function assertDraftEditable(client: SisubDb | TxClient, listId: string): Promise<void> {
 	const status = await getListStatus(client, listId)
 	if (status !== "draft") {
-		throw new DomainError("ATA_NOT_DRAFT", `Anexo quantitativo ${listId} está ${status}: composição e quantitativos são imutáveis após publicação`)
+		throw new DomainError(
+			"ATA_NOT_DRAFT",
+			`O anexo quantitativo está ${LIST_STATUS_LABELS[status] ?? status}: composição e quantitativos são imutáveis depois de concluído`
+		)
 	}
 }
 
@@ -1456,7 +1462,7 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 			if (requiresMarginJustification(items.map((i) => i.limits)) && !list?.marginJustification?.trim()) {
 				throw new DomainError(
 					"MARGIN_JUSTIFICATION_REQUIRED",
-					"Há itens com margem acima da referência: preencha a justificativa da margem no anexo de quantitativos antes de publicar."
+					"Há itens com acréscimo acima da referência: preencha a justificativa da quantidade máxima no anexo quantitativo antes de concluir."
 				)
 			}
 		}

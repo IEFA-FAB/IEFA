@@ -34,8 +34,8 @@ const TOOL_LABELS: Record<string, string> = {
 	get_unit_settings: "Consultando configurações",
 	search_arp: "Buscando ARPs",
 	list_empenhos: "Listando empenhos",
-	list_kitchen_drafts: "Listando rascunhos",
-	create_kitchen_draft: "Criando rascunho",
+	list_kitchen_drafts: "Listando previsões de demanda",
+	create_kitchen_draft: "Criando previsão de demanda",
 	get_kitchen_settings: "Consultando configurações",
 }
 

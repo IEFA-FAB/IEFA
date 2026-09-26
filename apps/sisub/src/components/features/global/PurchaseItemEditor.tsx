@@ -103,7 +103,7 @@ const DRAFT_FIELDS: DraftFields<PurchaseItemDraft> = {
 	packageNetContent: { label: "Conteúdo líquido" },
 	packageNetContentUnit: { label: "Unidade do conteúdo" },
 	purchaseMeasureUnit: { label: "Unidade de compra" },
-	unitPrice: { label: "Preço de referência" },
+	unitPrice: { label: "Preço de catálogo" },
 	conversionFactor: { label: "Fator de conversão" },
 }
 
@@ -481,7 +481,7 @@ export function PurchaseItemEditor({ mode, purchaseItem, ingredientId, ingredien
 					<form.Field name="unitPrice">
 						{(field) => (
 							<Field>
-								<FieldLabel htmlFor={field.name}>Preço de Referência</FieldLabel>
+								<FieldLabel htmlFor={field.name}>Preço de catálogo</FieldLabel>
 								<Input
 									id={field.name}
 									type="number"

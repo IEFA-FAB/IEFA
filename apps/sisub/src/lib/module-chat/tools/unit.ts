@@ -161,7 +161,8 @@ const getUnitDashboard: ModuleToolDefinition = {
 	name: "get_unit_dashboard",
 	// A descrição anterior prometia "itens com saldo baixo, status ARP", que esta tool nunca
 	// devolveu — o modelo chamava por isso e depois inventava o que não veio.
-	description: "Retorna o resumo da unidade atual da rota: quantos anexos quantitativos publicados existem e os 10 mais recentes (título, status, data).",
+	description:
+		"Retorna o resumo da unidade atual da rota: quantos anexos quantitativos concluídos (status published) existem e os 10 mais recentes (título, status, data).",
 	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
 	requiredLevel: 1,
 	async handler(_args, ctx) {

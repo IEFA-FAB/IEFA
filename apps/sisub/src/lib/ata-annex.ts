@@ -182,15 +182,15 @@ export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string 
 		"CATMAT",
 		"Descrição CATMAT",
 		"Descrição",
-		"Descrição Adicional",
+		"Descrição adicional",
 		"Unidade",
-		"Qtd Alvo",
-		"Margem (%)",
-		"Qtd Máxima",
+		"Quantidade estimada",
+		"Acréscimo sobre a estimada (%)",
+		"Quantidade máxima",
 		"Ciclo de Entrega",
-		"Qtd Mínima por Pedido",
-		"Preço Un. Estimado",
-		"Valor Máximo Estimado",
+		"Quantidade mínima por ordem de fornecimento",
+		"Preço unitário estimado",
+		"Valor máximo estimado",
 	]
 	const lines: Array<Array<string | number | null>> = rows.map((r, index) => [
 		index + 1,
@@ -208,7 +208,7 @@ export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string 
 		csvNumber(r.unitPrice, 4),
 		r.unitPrice != null && r.maxQuantity != null ? (r.maxQuantity * r.unitPrice).toFixed(2) : "",
 	])
-	if (marginJustification?.trim()) lines.push([], ["Justificativa da margem", marginJustification.trim()])
+	if (marginJustification?.trim()) lines.push([], ["Justificativa da quantidade máxima", marginJustification.trim()])
 	return [headers, ...lines].map((line) => line.map(csvCell).join(",")).join("\n")
 }
 

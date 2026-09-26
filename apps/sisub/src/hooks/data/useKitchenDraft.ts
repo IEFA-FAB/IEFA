@@ -46,9 +46,9 @@ export function useCreateKitchenDraft() {
 			}),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.listAll() })
-			toast.success(`Rascunho "${data?.title}" criado!`)
+			toast.success(`Previsão "${data?.title}" criada!`)
 		},
-		onError: (error) => toast.error(`Erro ao criar rascunho: ${error.message}`),
+		onError: (error) => toast.error(error.message),
 	})
 }
 
@@ -61,9 +61,9 @@ export function useUpdateKitchenDraft() {
 			}),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.all() })
-			toast.success(`Rascunho "${data?.title}" atualizado!`)
+			toast.success(`Previsão "${data?.title}" atualizada!`)
 		},
-		onError: (error) => toast.error(`Erro ao atualizar rascunho: ${error.message}`),
+		onError: (error) => toast.error(error.message),
 	})
 }
 
@@ -73,9 +73,9 @@ export function useSendKitchenDraft() {
 		mutationFn: (draftId: string) => sendKitchenDraftFn({ data: { draftId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.all() })
-			toast.success("Rascunho enviado para a gestão da unidade!")
+			toast.success("Previsão enviada à unidade!")
 		},
-		onError: (error) => toast.error(`Erro ao enviar rascunho: ${error.message}`),
+		onError: (error) => toast.error(error.message),
 	})
 }
 
@@ -85,8 +85,8 @@ export function useDeleteKitchenDraft() {
 		mutationFn: (draftId: string) => deleteKitchenDraftFn({ data: { draftId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.listAll() })
-			toast.success("Rascunho removido.")
+			toast.success("Previsão removida.")
 		},
-		onError: (error) => toast.error(`Erro ao remover rascunho: ${error.message}`),
+		onError: (error) => toast.error(error.message),
 	})
 }

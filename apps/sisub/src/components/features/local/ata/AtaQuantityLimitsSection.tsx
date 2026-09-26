@@ -128,7 +128,7 @@ function JustificationField({ value, required, onCommit }: { value: string | nul
 
 	return (
 		<Field>
-			<FieldLabel htmlFor="ata-margin-justification">Justificativa da margem{required ? " *" : ""}</FieldLabel>
+			<FieldLabel htmlFor="ata-margin-justification">Justificativa da quantidade máxima{required ? " *" : ""}</FieldLabel>
 			<Textarea
 				id="ata-margin-justification"
 				value={draft}
@@ -142,7 +142,7 @@ function JustificationField({ value, required, onCommit }: { value: string | nul
 				}}
 			/>
 			<FieldDescription>
-				Uma justificativa para a ata inteira, cobrindo todos os itens acima de {JUSTIFICATION_MARGIN_PERCENT}%. Exigida para publicar.
+				Uma justificativa para o anexo inteiro, cobrindo todos os itens com acréscimo acima de {JUSTIFICATION_MARGIN_PERCENT}%. Exigida para concluir.
 			</FieldDescription>
 		</Field>
 	)
@@ -205,19 +205,19 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 					Limites de quantidade
 				</CardTitle>
 				<CardDescription>
-					A quantidade <strong>máxima</strong> é o que a futura ata registra para a vigência: o previsto na produção mais a margem. A{" "}
-					<strong>mínima por pedido</strong> é o menor lote de cada pedido — sugerida em {MIN_ORDER_SHARE_PERCENT}% do consumo entre duas entregas (semanal ou
-					mensal).
+					A quantidade <strong>máxima</strong> é o que a futura ata de registro de preços registra para a vigência (Lei 14.133/2021, art. 82, I): a quantidade
+					estimada na produção mais o acréscimo. A <strong>mínima por ordem de fornecimento</strong> é a menor quantidade de cada ordem — sugerida em{" "}
+					{MIN_ORDER_SHARE_PERCENT}% do consumo entre duas entregas (semanal ou mensal).
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-5">
 				{editable ? (
 					<FieldGroup className="grid gap-4 lg:grid-cols-[16rem_1fr]">
 						<Field>
-							<FieldLabel htmlFor="ata-max-margin">Margem da quantidade máxima (%)</FieldLabel>
+							<FieldLabel htmlFor="ata-max-margin">Acréscimo sobre a estimada (%)</FieldLabel>
 							<CommitNumberInput
 								id="ata-max-margin"
-								label="Margem da quantidade máxima (%)"
+								label="Acréscimo sobre a estimada (%)"
 								value={settings.maxMarginPercent}
 								min={0}
 								max={100}
@@ -225,7 +225,9 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 								onCommit={(v) => v != null && onSettingsChange?.({ maxMarginPercent: v })}
 								className="w-28 tabular-nums"
 							/>
-							<FieldDescription>Vale para todo item sem margem própria. A ata não admite acréscimo depois (Decreto 11.462/2023, art. 23).</FieldDescription>
+							<FieldDescription>
+								Vale para todo item sem acréscimo próprio. A ata de registro de preços não admite acréscimo depois (Decreto 11.462/2023, art. 23).
+							</FieldDescription>
 						</Field>
 						{(justificationRequired || settings.marginJustification) && (
 							<JustificationField
@@ -240,12 +242,12 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 						<p className="flex items-center gap-2 text-sm text-muted-foreground">
 							<Lock className="size-4 shrink-0" aria-hidden="true" />
 							{hasFrozenLimits
-								? "Números congelados na publicação."
-								: "Este anexo foi publicado antes dos limites de quantidade existirem: não há máxima nem mínima registradas."}
+								? "Números congelados na conclusão."
+								: "Este anexo foi concluído antes dos limites de quantidade existirem: não há máxima nem mínima registradas."}
 						</p>
 						{settings.marginJustification && (
 							<div className="rounded-md border bg-muted/40 px-4 py-3 text-sm">
-								<p className="text-subheading">Justificativa da margem</p>
+								<p className="text-subheading">Justificativa da quantidade máxima</p>
 								<p className="whitespace-pre-wrap text-muted-foreground">{settings.marginJustification}</p>
 							</div>
 						)}
@@ -266,7 +268,7 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 						{justificationMissing && editable && (
 							<li className="flex items-start gap-2 text-warning">
 								<AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-								<span>Há itens com margem acima de {JUSTIFICATION_MARGIN_PERCENT}%: preencha a justificativa da margem para publicar.</span>
+								<span>Há itens com acréscimo acima de {JUSTIFICATION_MARGIN_PERCENT}%: preencha a justificativa da quantidade máxima para concluir.</span>
 							</li>
 						)}
 						{reviewCount > 0 && (
@@ -285,11 +287,11 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 						<TableHeader>
 							<TableRow>
 								<TableHead>Item</TableHead>
-								<TableHead className="text-right">Previsto</TableHead>
-								<TableHead className="text-right">Margem %</TableHead>
+								<TableHead className="text-right">Estimada</TableHead>
+								<TableHead className="text-right">Acréscimo %</TableHead>
 								<TableHead className="text-right">Máxima</TableHead>
 								<TableHead>Entrega</TableHead>
-								<TableHead className="text-right">Mín. por pedido</TableHead>
+								<TableHead className="text-right">Mín. por OF</TableHead>
 								<TableHead className="w-8">
 									<span className="sr-only">Avisos</span>
 								</TableHead>
@@ -323,7 +325,7 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 												<TableCell className="text-right">
 													{itemEditable ? (
 														<CommitNumberInput
-															label={`Margem de ${row.description}`}
+															label={`Acréscimo de ${row.description}`}
 															value={row.choices?.maxMarginPercent ?? null}
 															placeholder={String(settings.maxMarginPercent)}
 															min={0}

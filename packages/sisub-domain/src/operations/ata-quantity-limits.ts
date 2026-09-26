@@ -238,9 +238,9 @@ export function requiresMarginJustification(limits: readonly Pick<QuantityLimits
 }
 
 export const QUANTITY_LIMIT_WARNING_LABELS: Record<QuantityLimitWarning, string> = {
-	margin_tight: `Folga abaixo de ${TIGHT_MARGIN_PERCENT}% sobre o previsto: pode faltar numa situação anormal — perda de estoque, ou fornecedor de outro item que deixa de entregar e joga a demanda neste até chamar o reserva ou abrir novo pregão.`,
-	margin_requires_justification: `Margem acima de ${JUSTIFICATION_MARGIN_PERCENT}%: entra na justificativa da ata, exigida para publicar.`,
-	min_exceeds_max: "O mínimo por pedido é maior que a quantidade máxima — nenhum pedido cabe na ata.",
-	min_exceeds_cycle_consumption: "Cada pedido traria mais do que se consome até a próxima entrega.",
+	margin_tight: `Acréscimo abaixo de ${TIGHT_MARGIN_PERCENT}% sobre a quantidade estimada: pode faltar numa situação anormal — perda de estoque, ou fornecedor de outro item que deixa de entregar e joga a demanda neste até chamar o reserva ou abrir novo pregão.`,
+	margin_requires_justification: `Acréscimo acima de ${JUSTIFICATION_MARGIN_PERCENT}%: entra na justificativa da quantidade máxima, exigida para concluir o anexo.`,
+	min_exceeds_max: "O mínimo por ordem de fornecimento é maior que a quantidade máxima: nenhuma ordem cabe na ata.",
+	min_exceeds_cycle_consumption: "Cada ordem de fornecimento traria mais do que se consome até a próxima entrega.",
 	min_exhausts_before_validity: "Pedindo sempre o mínimo, a quantidade máxima acaba antes do fim da vigência.",
 }
