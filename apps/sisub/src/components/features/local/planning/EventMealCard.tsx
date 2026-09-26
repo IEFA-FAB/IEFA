@@ -122,6 +122,7 @@ export function EventMealCard({
 					onHeadcountChange={onHeadcountChange}
 					// Com efetivo, a preparação nova nasce em % dele; sem, em número de pessoas.
 					defaultDemandType={meal.base_headcount != null ? "proportion" : "headcount"}
+					baseHeadcount={meal.base_headcount}
 					onRemove={onRemoveItem}
 					onAdd={onAdd}
 					selectionMode={selectionMode}

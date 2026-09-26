@@ -116,6 +116,7 @@ function SortableItem({
 	onSelectChange,
 	allowHeadcount,
 	allowProportion,
+	baseHeadcount,
 	demandType,
 	onSwitchDemandType,
 	onCopy,
@@ -133,6 +134,7 @@ function SortableItem({
 	onSelectChange?: (checked: boolean) => void
 	allowHeadcount: boolean
 	allowProportion: boolean
+	baseHeadcount?: number | null
 	demandType: DemandType
 	onSwitchDemandType: () => void
 	onCopy?: (id: string) => void
@@ -244,6 +246,12 @@ function SortableItem({
 						onClick={(e) => e.stopPropagation()}
 					/>
 				)}
+				{/* A % só vira gente sobre o efetivo: mostra quantas pessoas ela dá. */}
+				{demandType === "proportion" && item.proportion != null && baseHeadcount != null && (
+					<span className="text-xs text-muted-foreground tabular-nums" title={`${item.proportion}% de ${baseHeadcount} pessoas`}>
+						= {Math.round((baseHeadcount * item.proportion) / 100)}
+					</span>
+				)}
 			</div>
 
 			<Button
@@ -306,6 +314,7 @@ function GroupColumn({
 	onSelectChange,
 	allowHeadcount,
 	allowProportion,
+	baseHeadcount,
 	demandTypeOfItem,
 	onSwitchDemandType,
 	onCopy,
@@ -327,6 +336,7 @@ function GroupColumn({
 	onSelectChange?: (id: string, checked: boolean) => void
 	allowHeadcount: boolean
 	allowProportion: boolean
+	baseHeadcount?: number | null
 	demandTypeOfItem: (item: BoardItem) => DemandType
 	onSwitchDemandType: (id: string) => void
 	onCopy?: (id: string) => void
@@ -378,6 +388,7 @@ function GroupColumn({
 									onSelectChange={(checked) => onSelectChange?.(id, checked)}
 									allowHeadcount={allowHeadcount}
 									allowProportion={allowProportion}
+									baseHeadcount={baseHeadcount}
 									demandType={demandTypeOfItem(item)}
 									onSwitchDemandType={() => onSwitchDemandType(id)}
 									onCopy={onCopy}
@@ -413,6 +424,7 @@ export function MealGroupBoard({
 	onHeadcountChange,
 	allowHeadcount = true,
 	allowProportion = true,
+	baseHeadcount,
 	defaultDemandType = "headcount",
 	onCopy,
 	onPaste,
@@ -433,6 +445,8 @@ export function MealGroupBoard({
 	 * A porcentagem só significa alguma coisa em cima de um efetivo.
 	 */
 	allowProportion?: boolean
+	/** Efetivo da refeição — com ele, a preparação em % mostra quantas pessoas a % dá. */
+	baseHeadcount?: number | null
 	/** Tipo dos itens que ainda não têm nem % nem pax — ajustável no editor. */
 	defaultDemandType?: DemandType
 	onCopy?: (id: string) => void
@@ -611,6 +625,7 @@ export function MealGroupBoard({
 							onSelectChange={onSelectChange}
 							allowHeadcount={allowHeadcount}
 							allowProportion={allowProportion}
+							baseHeadcount={baseHeadcount}
 							demandTypeOfItem={resolveDemandType}
 							onSwitchDemandType={switchDemandType}
 							onCopy={onCopy}

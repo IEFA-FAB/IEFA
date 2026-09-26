@@ -227,7 +227,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const [headcountOpen, setHeadcountOpen] = useState(false)
 	const [applyOpen, setApplyOpen] = useState(false)
 	/** Refeição do evento no diálogo: nova (ainda fora do rascunho) ou existente. */
-	const [mealDialog, setMealDialog] = useState<{ meal: EventMealDraft; isNew: boolean } | null>(null)
+	// `open` à parte do conteúdo: fechar mantém refeição e modo até a animação terminar — sem
+	// isso o título trocava para "Editar refeição" enquanto o diálogo de uma NOVA saía da tela.
+	const [mealDialog, setMealDialog] = useState<{ meal: EventMealDraft; isNew: boolean; open: boolean } | null>(null)
 	const prevInitializedRef = useRef(false)
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	// Conteúdo da última gravação bem-sucedida. O efeito de auto-save também reage à troca
@@ -830,7 +832,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 							size="sm"
 							// Teto do schema: a refeição a mais faria o servidor recusar o evento inteiro.
 							disabled={eventMeals.length >= MAX_EVENT_MEALS}
-							onClick={() => setMealDialog({ meal: newEventMeal("", ""), isNew: true })}
+							onClick={() => setMealDialog({ meal: newEventMeal("", ""), isNew: true, open: true })}
 						>
 							<Plus />
 							Nova refeição
@@ -853,7 +855,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 										items={boardItems}
 										isFirst={index === 0}
 										isLast={index === eventMeals.length - 1}
-										onEdit={() => setMealDialog({ meal, isNew: false })}
+										onEdit={() => setMealDialog({ meal, isNew: false, open: true })}
 										onRemove={() => handleRemoveEventMeal(meal)}
 										onMove={(delta) => dispatch({ type: "SET_EVENT_CONTENT", meals: moveEventMeal(eventMeals, meal.id, delta), items })}
 										onAdd={(group) => handleOpenSelector(meal.id, group)}
@@ -875,7 +877,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 							<p className="text-xs text-muted-foreground/60 mb-3">
 								Crie as refeições do evento — coquetel, jantar de gala… — e monte a composição de cada uma: entradas, volantes, prato principal.
 							</p>
-							<Button type="button" size="sm" variant="outline" onClick={() => setMealDialog({ meal: newEventMeal("", ""), isNew: true })}>
+							<Button type="button" size="sm" variant="outline" onClick={() => setMealDialog({ meal: newEventMeal("", ""), isNew: true, open: true })}>
 								<Plus />
 								Nova refeição
 							</Button>
@@ -914,9 +916,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 
 			{isEvent && (
 				<EventMealDialog
-					open={mealDialog != null}
+					open={mealDialog?.open ?? false}
 					onOpenChange={(open) => {
-						if (!open) setMealDialog(null)
+						if (!open) setMealDialog((current) => (current ? { ...current, open: false } : null))
 					}}
 					meal={mealDialog?.meal ?? null}
 					isNew={mealDialog?.isNew ?? false}

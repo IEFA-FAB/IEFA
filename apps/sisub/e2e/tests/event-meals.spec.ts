@@ -36,7 +36,7 @@ test.describe("Evento — refeições próprias com efetivo e porcentagem", () =
 			// 2. Refeição do evento: nome, horário e efetivo
 			await expect(page.getByText("Este evento ainda não tem refeições.")).toBeVisible({ timeout: 30_000 })
 			await page.getByRole("button", { name: "Nova refeição" }).first().click()
-			const mealDialog = page.getByRole("dialog")
+			const mealDialog = page.locator('[data-slot="dialog-content"]')
 			await mealDialog.locator("#event-meal-name").fill("Coquetel")
 			await mealDialog.locator("#event-meal-slot").click()
 			await page.getByRole("option").first().click()
@@ -48,7 +48,7 @@ test.describe("Evento — refeições próprias com efetivo e porcentagem", () =
 
 			// 3. Preparação pelo "Adicionar" do cabeçalho da refeição
 			await page.getByRole("button", { name: "Adicionar", exact: true }).first().click()
-			const selector = page.getByRole("dialog")
+			const selector = page.locator('[data-slot="dialog-content"]')
 			await expect(selector.getByText("Selecionar Preparações")).toBeVisible()
 			await selector.getByRole("checkbox").first().click()
 			await selector.getByRole("button", { name: /Confirmar \(1\)/ }).click()
@@ -58,6 +58,22 @@ test.describe("Evento — refeições próprias com efetivo e porcentagem", () =
 			const proportion = page.getByLabel("Porcentagem do efetivo da refeição").first()
 			await expect(proportion).toBeVisible()
 			await proportion.fill("60")
+			// 60% de 300: o quadro mostra quantas pessoas a % dá.
+			await expect(page.getByText("= 180")).toBeVisible()
+
+			// 4b. Segunda preparação pela coluna "Volantes", medida em pessoas (vence a %)
+			const volantes = page.locator("div.rounded-md.border", { hasText: "Volantes" }).first()
+			await volantes.getByRole("button", { name: "Adicionar" }).click()
+			await expect(selector.getByText("Selecionar Preparações")).toBeVisible()
+			await selector.getByRole("checkbox").nth(1).click()
+			await selector.getByRole("button", { name: /Confirmar \(2\)/ }).click()
+			await expect(selector).toBeHidden()
+			const secondRow = volantes
+				.locator("[id]")
+				.filter({ has: page.getByRole("button", { name: "Remover preparação" }) })
+				.first()
+			await secondRow.getByRole("button", { name: "Medir por número de pessoas" }).click()
+			await secondRow.getByLabel("Comensais desta preparação").fill("40")
 
 			// 5. Auto-save (1,5s de pausa) e recarregamento
 			await expect(page.getByText("Salvo")).toBeVisible({ timeout: 30_000 })
@@ -65,6 +81,8 @@ test.describe("Evento — refeições próprias com efetivo e porcentagem", () =
 			await expect(page.getByLabel("Efetivo de Coquetel")).toHaveValue("300", { timeout: 30_000 })
 			await expect(page.getByLabel("Porcentagem do efetivo da refeição").first()).toHaveValue("60")
 			await expect(page.getByText("Entradas").first()).toBeVisible()
+			await expect(page.getByLabel("Comensais desta preparação").first()).toHaveValue("40")
+			await page.screenshot({ path: "test-results/event-meals-editor.png", fullPage: true })
 		} finally {
 			// Limpeza: o evento vai para a lixeira mesmo se uma asserção acima falhar.
 			await page.goto(`/kitchen/${KITCHEN_ID}/events`)
