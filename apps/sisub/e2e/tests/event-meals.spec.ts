@@ -86,7 +86,7 @@ test.describe("Evento — refeições próprias com efetivo e porcentagem", () =
 		} finally {
 			// Limpeza: o evento vai para a lixeira mesmo se uma asserção acima falhar.
 			await page.goto(`/kitchen/${KITCHEN_ID}/events`)
-			const row = page.getByRole("row", { name: new RegExp(eventName.replace(/[[\]]/g, "\\$&")) })
+			const row = page.getByRole("row").filter({ hasText: eventName })
 			await row.getByRole("button", { name: "Remover" }).click()
 			await expect(row).toBeHidden({ timeout: 30_000 })
 		}
