@@ -204,9 +204,12 @@ export function snackClassificationFromDraft(draft: SnackStandardDraft, { isKitc
 	}
 }
 
-/** "Bordo B · Lanche" */
+/**
+ * "Lanche de Bordo B" / "Lanche de Apoio A · Refeição". A variante só aparece quando é refeição:
+ * a família já diz "Lanche", e "Lanche de Bordo B · Lanche" repetiria a palavra.
+ */
 export function snackStandardLabel(template: Pick<SnackStandardColumns, "snack_family" | "snack_class" | "snack_variant">): string | null {
 	if (!isSnackFamily(template.snack_family) || !isSnackClass(template.snack_class)) return null
-	const variant = isSnackVariant(template.snack_variant) ? ` · ${SNACK_VARIANT_LABELS[template.snack_variant]}` : ""
+	const variant = template.snack_variant === "refeicao" ? ` · ${SNACK_VARIANT_LABELS.refeicao}` : ""
 	return `${SNACK_FAMILY_LABELS[template.snack_family]} ${template.snack_class}${variant}`
 }

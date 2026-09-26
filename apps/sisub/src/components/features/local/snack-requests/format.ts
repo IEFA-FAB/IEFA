@@ -10,6 +10,7 @@ import type { SnackRequestSummary } from "@iefa/sisub-domain"
 import { brasiliaCivilDate, isStandardReviewOverdue, type SnackRequestStatus } from "@iefa/sisub-domain/utils"
 import { z } from "zod"
 import { audienceLabel } from "@/components/features/diner/snack-requests/snack-format"
+import { SNACK_FAMILY_LABELS, SNACK_VARIANT_LABELS } from "@/lib/occasion-menu"
 
 /**
  * O vocabulário do público é o MESMO dos dois lados do pedido (comensal e cozinha) e do Anexo E
@@ -135,20 +136,15 @@ export const MISSION_KIND_LABELS: Record<string, string> = {
 	terrestre: "Missão terrestre",
 }
 
-export const FAMILY_LABELS: Record<string, string> = {
-	bordo: "Lanche de Bordo",
-	apoio: "Lanche de Apoio",
-}
+/** Mesmos rótulos do editor do padrão (`@/lib/occasion-menu`): um lugar só para o vocabulário do Módulo 7. */
+export const FAMILY_LABELS: Record<string, string> = SNACK_FAMILY_LABELS
 
 export const FAMILY_SHORT_LABELS: Record<string, string> = {
 	bordo: "Bordo",
 	apoio: "Apoio",
 }
 
-export const VARIANT_LABELS: Record<string, string> = {
-	lanche: "Lanche",
-	refeicao: "Refeição",
-}
+export const VARIANT_LABELS: Record<string, string> = SNACK_VARIANT_LABELS
 
 export const FUNDING_LABELS: Record<string, string> = {
 	economia_om: "Economia da OM",
