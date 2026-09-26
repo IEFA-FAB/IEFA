@@ -6,9 +6,14 @@ import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 // o módulo para evitar carregar o runtime de server function no teste.
 vi.mock("@/server/price-research.fn", () => ({ searchMaterialPricesFn: vi.fn() }))
 
-const { autoSelectPrice, filterByPeriod, periodCutoff } = await import("./price-research-utils")
+const { autoSelectPrice, chooseReferencePrice, filterByPeriod, isMethodAllowed, periodCutoff } = await import("./price-research-utils")
 
-function priceResult(precoUnitario: number | null, codigoUasg: string | null = null, dataResultado: string | null = null): ComprasMaterialPriceResult {
+function priceResult(
+	precoUnitario: number | null,
+	codigoUasg: string | null = null,
+	dataResultado: string | null = null,
+	unit: Partial<Pick<ComprasMaterialPriceResult, "siglaUnidadeFornecimento" | "siglaUnidadeMedida" | "capacidadeUnidadeFornecimento">> = {}
+): ComprasMaterialPriceResult {
 	return {
 		idCompra: "c",
 		idItemCompra: 1,
@@ -19,10 +24,10 @@ function priceResult(precoUnitario: number | null, codigoUasg: string | null = n
 		descricaoItem: null,
 		codigoItemCatalogo: null,
 		nomeUnidadeMedida: null,
-		siglaUnidadeMedida: null,
+		siglaUnidadeMedida: unit.siglaUnidadeMedida ?? null,
 		nomeUnidadeFornecimento: null,
-		siglaUnidadeFornecimento: null,
-		capacidadeUnidadeFornecimento: null,
+		siglaUnidadeFornecimento: unit.siglaUnidadeFornecimento ?? "KG",
+		capacidadeUnidadeFornecimento: unit.capacidadeUnidadeFornecimento ?? null,
 		quantidade: null,
 		precoUnitario,
 		percentualMaiorDesconto: null,
@@ -50,10 +55,17 @@ describe("autoSelectPrice", () => {
 		expect(autoSelectPrice([priceResult(null), priceResult(null)])).toBeNull()
 	})
 
-	test("distribuição homogênea (CV < 15) usa a média — IN SEGES 65/2021 Art. 5º", () => {
-		const r = autoSelectPrice([priceResult(10), priceResult(10), priceResult(12)])
+	test("distribuição homogênea (CV < 15) usa a média quando ela não passa da mediana", () => {
+		const r = autoSelectPrice([priceResult(10), priceResult(12), priceResult(12)])
 		expect(r?.method).toBe("mean")
-		expect(r?.price).toBeCloseTo(10.667, 2)
+		expect(r?.price).toBeCloseTo(11.333, 2)
+	})
+
+	test("média acima da mediana cai na mediana (art. 6º, § 6º, da IN 65/2021)", () => {
+		// CV < 15, mas a média (10,667) passa da mediana (10).
+		const r = autoSelectPrice([priceResult(10), priceResult(10), priceResult(12)])
+		expect(r?.method).toBe("median")
+		expect(r?.price).toBe(10)
 	})
 
 	test("distribuição heterogênea (CV ≥ 15) usa a mediana", () => {
@@ -90,10 +102,11 @@ describe("autoSelectPrice", () => {
 		expect(r?.price).toBe(10)
 	})
 
-	test("amostras de preço nulo permanecem em validSamples e não viram outlier", () => {
+	test("amostra sem preço não entra em nenhuma lista nem vira outlier", () => {
 		const r = autoSelectPrice([priceResult(10), priceResult(11), priceResult(12), priceResult(13), priceResult(100), priceResult(null)])
-		expect(r?.validSamples).toHaveLength(5) // 10,11,12,13 e o nulo
+		expect(r?.validSamples).toHaveLength(4)
 		expect(r?.outlierSamples).toHaveLength(1) // 100
+		expect(r?.inconsistentSamples).toHaveLength(0)
 		// rawCount = preços não-nulos (10,11,12,13,100); validCount exclui o outlier 100
 		expect(r?.rawCount).toBe(5)
 		expect(r?.validCount).toBe(4)
@@ -111,6 +124,59 @@ describe("autoSelectPrice", () => {
 		const r = autoSelectPrice([priceResult(10, "A"), priceResult(11, "A"), priceResult(12, "B"), priceResult(13, "B"), priceResult(1000, "C")])
 		expect(r?.outlierCount).toBe(1)
 		expect(r?.stats.uniqueSources).toBe(2)
+	})
+})
+
+describe("unidade da pesquisa", () => {
+	test("converte embalagens para a unidade do item antes da estatística", () => {
+		// Mesmo produto em três embalagens: 750 ml, 500 ml e litro. Por litro, todos custam ~R$ 5,50.
+		const r = autoSelectPrice(
+			[
+				priceResult(4.13, "A", null, { siglaUnidadeFornecimento: "FR", siglaUnidadeMedida: "ML", capacidadeUnidadeFornecimento: 750 }),
+				priceResult(2.75, "B", null, { siglaUnidadeFornecimento: "FR", siglaUnidadeMedida: "ML", capacidadeUnidadeFornecimento: 500 }),
+				priceResult(5.5, "C", null, { siglaUnidadeFornecimento: "L" }),
+			],
+			{ targetUnit: "LT", periodMonths: null }
+		)
+		expect(r?.unit).toBe("LT")
+		expect(r?.unitInferred).toBe(false)
+		expect(r?.stats.min).toBeCloseTo(5.5, 1)
+		expect(r?.stats.max).toBeCloseTo(5.51, 1)
+		expect(r?.validCount).toBe(3)
+	})
+
+	test("amostra incomparável sai como inconsistente, não como outlier", () => {
+		const r = autoSelectPrice([priceResult(10), priceResult(11), priceResult(12), priceResult(20.93, "X", null, { siglaUnidadeFornecimento: "UN" })], {
+			targetUnit: "KG",
+			periodMonths: null,
+		})
+		expect(r?.inconsistentSamples.map((s) => s.precoUnitario)).toEqual([20.93])
+		expect(r?.validCount).toBe(3)
+		expect(r?.outlierCount).toBe(0)
+	})
+
+	test("item sem unidade herda a predominante e marca a inferência", () => {
+		const r = autoSelectPrice([priceResult(10), priceResult(11)], { targetUnit: null, periodMonths: null })
+		expect(r?.unit).toBe("KG")
+		expect(r?.unitInferred).toBe(true)
+	})
+
+	test("nenhuma amostra comparável devolve null", () => {
+		expect(autoSelectPrice([priceResult(5, "A", null, { siglaUnidadeFornecimento: "UN" })], { targetUnit: "KG", periodMonths: null })).toBeNull()
+	})
+})
+
+describe("teto da mediana", () => {
+	test("chooseReferencePrice nunca devolve valor acima da mediana", () => {
+		expect(chooseReferencePrice({ mean: 11, median: 10, cv: 5 })).toEqual({ method: "median", price: 10 })
+		expect(chooseReferencePrice({ mean: 9, median: 10, cv: 5 })).toEqual({ method: "mean", price: 9 })
+		expect(chooseReferencePrice({ mean: 9, median: 10, cv: 40 })).toEqual({ method: "median", price: 10 })
+	})
+
+	test("isMethodAllowed recusa a média acima da mediana", () => {
+		expect(isMethodAllowed("mean", { mean: 11, median: 10 })).toBe(false)
+		expect(isMethodAllowed("mean", { mean: 10, median: 10 })).toBe(true)
+		expect(isMethodAllowed("median", { mean: 11, median: 10 })).toBe(true)
 	})
 })
 

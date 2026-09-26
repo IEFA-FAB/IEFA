@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { PriceResearchAuditIds } from "@/components/features/local/price-research/PriceResearchModal"
+import { annexItemUnit } from "@/lib/ata-annex"
 import { autoSelectPrice, fetchAllPagesForCatmat } from "@/lib/price-research-utils"
 import { savePrecoAuditFn } from "@/server/price-research.fn"
 
@@ -9,13 +10,19 @@ export interface BulkResearchItem {
 	ingredient_id: string
 	ingredient_name: string
 	ata_item_id?: string | null
+	/** Unidade de compra do item: os preços das amostras são convertidos para ela. */
+	purchase_measure_unit?: string | null
+	/** Unidade do insumo: é a do anexo quando o item de compra não declara a própria. */
+	measure_unit?: string | null
+	purchase_quantity?: number | null
 }
 
 export interface BulkResearchResult {
 	ingredientId: string
 	ataItemId?: string | null
 	price: number
-	auditIds: PriceResearchAuditIds | null
+	/** Memória de cálculo gravada. Sem ela o preço não é aplicado: preço sem pesquisa não se audita. */
+	auditIds: PriceResearchAuditIds
 }
 
 export interface BulkPriceProgress {
@@ -46,45 +53,42 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 		const processItem = async (item: BulkResearchItem) => {
 			try {
 				const { results: samples } = await fetchAllPagesForCatmat(item.catmat_item_codigo as number)
-				const selected = autoSelectPrice(samples)
+				const selected = autoSelectPrice(samples, { targetUnit: annexItemUnit(item) })
 
 				if (!selected) {
 					setProgress((prev) => ({ ...prev, done: prev.done + 1, errors: prev.errors + 1 }))
 					return
 				}
 
-				let auditIds: PriceResearchAuditIds | null = null
-				try {
-					auditIds = await savePrecoAuditFn({
-						data: {
-							catmatCodigo: item.catmat_item_codigo as number,
-							catmatDescricao: item.catmat_item_descricao ?? null,
-							method: selected.method,
-							referencePrice: selected.price,
-							stats: selected.stats,
-							rawCount: selected.rawCount,
-							dateFilteredCount: selected.dateFilteredCount,
-							periodMonths: selected.periodMonths,
-							validCount: selected.validCount,
-							outlierCount: selected.outlierCount,
-							validSamples: selected.validSamples,
-							outlierSamples: selected.outlierSamples,
-							ataId,
-							ataItemId: item.ata_item_id ?? undefined,
-						},
-					})
-				} catch {
-					// audit save is non-fatal — price still applied
-				}
+				// Sem memória de cálculo gravada o preço não entra no anexo: a falha conta como erro
+				// do item, e a pesquisa pode ser refeita. Aplicar mesmo assim deixava preço sem suporte.
+				const auditIds: PriceResearchAuditIds = await savePrecoAuditFn({
+					data: {
+						catmatCodigo: item.catmat_item_codigo as number,
+						catmatDescricao: item.catmat_item_descricao ?? null,
+						method: selected.method,
+						referencePrice: selected.price,
+						stats: selected.stats,
+						rawCount: selected.rawCount,
+						dateFilteredCount: selected.dateFilteredCount,
+						periodMonths: selected.periodMonths,
+						validCount: selected.validCount,
+						outlierCount: selected.outlierCount,
+						validSamples: selected.validSamples,
+						outlierSamples: selected.outlierSamples,
+						inconsistentSamples: selected.inconsistentSamples,
+						measureUnit: selected.unit,
+						unitInferred: selected.unitInferred,
+						ataId,
+						ataItemId: item.ata_item_id ?? undefined,
+					},
+				})
 
 				const result: BulkResearchResult = { ingredientId: item.ingredient_id, ataItemId: item.ata_item_id, price: selected.price, auditIds }
+				// Se quem aplica o preço falhar (o servidor recusa preço sem pesquisa que o sustente), o
+				// item conta como erro: engolir a falha fazia o toast anunciar preço que não foi gravado.
+				await onItemResultRef.current?.(result)
 				results.push(result)
-
-				try {
-					await onItemResultRef.current?.(result)
-				} catch {
-					// per-item callback failure is non-fatal
-				}
 
 				setProgress((prev) => ({ ...prev, done: prev.done + 1 }))
 			} catch {

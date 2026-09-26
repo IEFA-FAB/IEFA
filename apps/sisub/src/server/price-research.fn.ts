@@ -101,6 +101,10 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 			outlierCount: z.number().int(),
 			validSamples: z.array(SampleSchema),
 			outlierSamples: z.array(SampleSchema),
+			// Descartadas por unidade incomparável (inconsistentes, art. 6º da IN 65/2021).
+			inconsistentSamples: z.array(SampleSchema).optional(),
+			measureUnit: z.string().max(16).nullable().optional(),
+			unitInferred: z.boolean().optional(),
 			// Se fornecidos, linka imediatamente (caso ATA já existente)
 			ataId: z.uuid().optional(),
 			ataItemId: z.uuid().optional(),

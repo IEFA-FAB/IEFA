@@ -21,7 +21,7 @@ import { useArpForAta } from "@/hooks/data/useArp"
 import { useAtaDetails, useUpdateAtaItemDescription, useUpdateAtaQuantityLimits, useUpdateAtaStatus } from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { useUnitSettings } from "@/hooks/data/useUnitSettings"
-import { type AtaAnnexSettings, buildAnnexCsv, buildDraftAnnexRows, buildSnapshotAnnexRows, downloadCsv } from "@/lib/ata-annex"
+import { type AtaAnnexSettings, annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, buildSnapshotAnnexRows, downloadCsv } from "@/lib/ata-annex"
 import { ataItemToNeed } from "@/lib/ata-utils"
 import { queryKeys } from "@/lib/query-keys"
 import { updateAtaItemPricesFn } from "@/server/ata.fn"
@@ -104,9 +104,7 @@ function AtaDetailPage() {
 			data: {
 				ataId,
 				updates: [{ ataItemId: result.ataItemId as string, price: result.price }],
-				researchLinks: result.auditIds
-					? [{ ataItemId: result.ataItemId as string, researchId: result.auditIds.researchId, researchItemId: result.auditIds.researchItemId }]
-					: undefined,
+				researchLinks: [{ ataItemId: result.ataItemId as string, researchId: result.auditIds.researchId, researchItemId: result.auditIds.researchItemId }],
 			},
 		})
 	})
@@ -114,7 +112,7 @@ function AtaDetailPage() {
 	// Aplicação manual de um preço vindo do modal (item único). O vínculo da memória
 	// de cálculo já foi gravado pelo próprio modal via ataId/ataItemId; researchLinks
 	// aqui é reforço para o caso de o item ter sido relinkado no meio do caminho.
-	const handleApplyPrice = async (item: ProcurementNeed, price: number, auditIds: PriceResearchAuditIds | null) => {
+	const handleApplyPrice = async (item: ProcurementNeed, price: number, auditIds: PriceResearchAuditIds) => {
 		const ataItemId = item.ata_item_id
 		if (!ataId || !ataItemId) return
 		try {
@@ -122,7 +120,7 @@ function AtaDetailPage() {
 				data: {
 					ataId,
 					updates: [{ ataItemId, price }],
-					researchLinks: auditIds ? [{ ataItemId, researchId: auditIds.researchId, researchItemId: auditIds.researchItemId }] : undefined,
+					researchLinks: [{ ataItemId, researchId: auditIds.researchId, researchItemId: auditIds.researchItemId }],
 				},
 			})
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.details(ataId) })
@@ -232,9 +230,13 @@ function AtaDetailPage() {
 					</Badge>
 				)}
 				{ata.meta.price_research.is_expired && (
-					<Badge variant="outline" className="gap-1.5 border-warning/50 text-warning">
+					<Badge
+						variant="outline"
+						className="gap-1.5 border-warning/50 text-warning"
+						title="Preços de sítios e cotações valem até 6 meses antes da divulgação do edital (IN SEGES/ME 65/2021, art. 5º, III e IV). Refaça a pesquisa antes de divulgar."
+					>
 						<AlertTriangle className="size-3" aria-hidden="true" />
-						Pesquisa vencida (&gt; {ata.meta.price_research.validity_days}d)
+						Pesquisa feita há mais de {ata.meta.price_research.validity_days} dias
 					</Badge>
 				)}
 				{hasPrices && (
@@ -392,6 +394,7 @@ function AtaDetailPage() {
 					catmatDescription={priceResearchItem.catmat_item_descricao}
 					ataId={ataId}
 					ataItemId={priceResearchItem.ata_item_id ?? undefined}
+					targetUnit={annexItemUnit(priceResearchItem)}
 					onApplyPrice={(price, auditIds) => handleApplyPrice(priceResearchItem, price, auditIds)}
 				/>
 			)}

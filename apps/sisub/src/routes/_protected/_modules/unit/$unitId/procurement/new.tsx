@@ -31,7 +31,7 @@ import {
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { usePendingDraft } from "@/hooks/data/useKitchenDraft"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
-import { buildAnnexCsv, buildDraftAnnexRows, downloadCsv } from "@/lib/ata-annex"
+import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, downloadCsv } from "@/lib/ata-annex"
 import { ataItemToNeed } from "@/lib/ata-utils"
 import { fetchUnitKitchensFn } from "@/server/unit-kitchens.fn"
 import type { AtaWizardState, KitchenSelectionState, SelectionBucket, TemplateSelection } from "@/types/domain/ata"
@@ -331,8 +331,8 @@ function NewAtaPage() {
 			...prev,
 			[result.ingredientId]: {
 				price: result.price,
-				researchId: result.auditIds?.researchId ?? null,
-				researchItemId: result.auditIds?.researchItemId ?? null,
+				researchId: result.auditIds.researchId,
+				researchItemId: result.auditIds.researchItemId,
 			},
 		}))
 	})
@@ -345,8 +345,8 @@ function NewAtaPage() {
 		for (const r of results) {
 			mergedOverrides[r.ingredientId] = {
 				price: r.price,
-				researchId: r.auditIds?.researchId ?? null,
-				researchItemId: r.auditIds?.researchItemId ?? null,
+				researchId: r.auditIds.researchId,
+				researchItemId: r.auditIds.researchItemId,
 			}
 		}
 		const updatedItems = rawItems.map((item) => ({
@@ -850,13 +850,14 @@ function NewAtaPage() {
 					// pesquisando o mesmo item no mesmo dia compartilhariam o registro.
 					ataId={draftId}
 					ataItemId={priceResearchItem.ata_item_id ?? undefined}
+					targetUnit={annexItemUnit(priceResearchItem)}
 					onApplyPrice={(price, auditIds) => {
 						const newOverrides = {
 							...priceOverrides,
 							[priceResearchItem.ingredient_id]: {
 								price,
-								researchId: auditIds?.researchId ?? null,
-								researchItemId: auditIds?.researchItemId ?? null,
+								researchId: auditIds.researchId,
+								researchItemId: auditIds.researchItemId,
 							},
 						}
 						setPriceOverrides(newOverrides)

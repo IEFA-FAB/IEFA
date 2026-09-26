@@ -40,6 +40,7 @@ import { requirePermission, requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery } from "../utils/index.ts"
+import { isSamePrice } from "./price-units.ts"
 
 type PriceResearchTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 
@@ -94,6 +95,16 @@ export type SavePriceResearchAudit = {
 	validCount: number
 	validSamples: PriceResearchSample[]
 	outlierSamples: PriceResearchSample[]
+	/**
+	 * Amostras descartadas por não terem conteúdo comparável com a unidade do item
+	 * (inconsistentes, art. 6º da IN SEGES/ME 65/2021). Gravadas como `pollution`: a etapa do
+	 * funil que descarta amostra que não é do mesmo produto na mesma unidade.
+	 */
+	inconsistentSamples?: PriceResearchSample[]
+	/** Unidade em que os preços foram comparados e o preço estimado vale. */
+	measureUnit?: string | null
+	/** true quando o item não declara unidade e a pesquisa herdou a predominante das amostras. */
+	unitInferred?: boolean
 	/** Se fornecidos, linka imediatamente (caso ATA já existente). */
 	ataId?: string
 	ataItemId?: string
@@ -103,6 +114,26 @@ export type PriceResearchAuditIds = { researchId: string; researchItemId: string
 
 /** Amostra mínima de conformidade da IN SEGES 65/2021: 3 preços de 3 UASGs distintas. */
 const MIN_COMPLIANT_SAMPLES = 3
+
+/**
+ * Motivos de não conformidade do item pesquisado. Vazio = conforme.
+ *
+ * - menos de 3 preços ou de 3 fontes: art. 6º, caput e § 5º (exige justificativa aprovada);
+ * - preço acima da mediana com base única no sistema oficial: art. 6º, § 6º;
+ * - unidade herdada das amostras: a quantidade do anexo está numa unidade que o item de compra
+ *   não declara, e o preço só vale se as duas coincidirem.
+ */
+export function researchNonComplianceReasons(
+	input: Pick<SavePriceResearchAudit, "validCount" | "stats" | "referencePrice" | "measureUnit" | "unitInferred">
+): string[] {
+	const reasons: string[] = []
+	if (input.validCount < MIN_COMPLIANT_SAMPLES) reasons.push("Menos de 3 amostras válidas")
+	if (input.stats.uniqueSources < MIN_COMPLIANT_SAMPLES) reasons.push("Menos de 3 UASGs distintas")
+	if (input.referencePrice > input.stats.median && !isSamePrice(input.referencePrice, input.stats.median))
+		reasons.push("Preço estimado acima da mediana (IN 65/2021, art. 6º, § 6º)")
+	if (input.unitInferred) reasons.push(`Item de compra sem unidade declarada: preço calculado por ${input.measureUnit ?? "unidade predominante"}`)
+	return reasons
+}
 
 /**
  * Resolve a ATA alvo e exige `unit:2` na unidade DONA dela.
@@ -163,7 +194,11 @@ function idempotencyKeyFor(input: SavePriceResearchAudit): string {
 	const sampleFingerprint = nodeCrypto
 		.createHash("sha256")
 		.update(
-			[...input.validSamples.map((s) => `v:${s.idCompra}:${s.idItemCompra}`), ...input.outlierSamples.map((s) => `o:${s.idCompra}:${s.idItemCompra}`)]
+			[
+				...input.validSamples.map((s) => `v:${s.idCompra}:${s.idItemCompra}`),
+				...input.outlierSamples.map((s) => `o:${s.idCompra}:${s.idItemCompra}`),
+				...(input.inconsistentSamples ?? []).map((s) => `i:${s.idCompra}:${s.idItemCompra}`),
+			]
 				.sort()
 				.join("|")
 		)
@@ -178,7 +213,9 @@ function idempotencyKeyFor(input: SavePriceResearchAudit): string {
 	// UTC distintos e gerariam registros duplicados.
 	const day = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
 
-	return `audit:v1:${scope}:${input.method}:${day}:${sampleFingerprint}`
+	// v2: a unidade e o preço entram na chave. Mesmas amostras em outra unidade (ou gravadas antes
+	// da conversão) são OUTRA pesquisa; com a chave v1 voltava o registro antigo com outro preço.
+	return `audit:v2:${scope}:${input.method}:${input.measureUnit ?? "-"}:${input.referencePrice.toFixed(4)}:${day}:${sampleFingerprint}`
 }
 
 /**
@@ -231,6 +268,7 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 	const classified = [
 		...input.validSamples.map((sample) => ({ sample, type: "valid" as const })),
 		...input.outlierSamples.map((sample) => ({ sample, type: "outlier" as const })),
+		...(input.inconsistentSamples ?? []).map((sample) => ({ sample, type: "pollution" as const })),
 	]
 	if (classified.length === 0) return
 
@@ -345,6 +383,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 			if (!research) return loadIdempotentResearch(tx, idempotencyKey)
 
 			const dateFiltered = input.dateFilteredCount ?? input.rawCount
+			const nonComplianceReasons = researchNonComplianceReasons(input)
 			const researchItem = await insertOneOrFail(
 				"INSERT_FAILED",
 				"Erro ao salvar item da pesquisa: no row returned",
@@ -359,9 +398,8 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 							productName: input.catmatDescricao ?? String(input.catmatCodigo),
 							totalRaw: input.rawCount,
 							totalAfterDateFilter: dateFiltered,
-							// Não há filtro de similaridade/poluição CATMAT nesta pesquisa — a etapa é
-							// registrada como passa-tudo (nenhuma amostra descartada por poluição).
-							totalAfterPollutionFilter: dateFiltered,
+							// Poluição = amostra que não é comparável com o item na unidade dele.
+							totalAfterPollutionFilter: dateFiltered - (input.inconsistentSamples?.length ?? 0),
 							totalAfterOutlier: input.validCount,
 							priceMin: input.stats.min,
 							priceMax: input.stats.max,
@@ -372,11 +410,9 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 							uniqueSources: input.stats.uniqueSources,
 							referencePrice: input.referencePrice,
 							referenceMethod: input.method,
-							isCompliant: input.validCount >= MIN_COMPLIANT_SAMPLES && input.stats.uniqueSources >= MIN_COMPLIANT_SAMPLES,
-							nonComplianceReasons: [
-								...(input.validCount < MIN_COMPLIANT_SAMPLES ? ["Menos de 3 amostras válidas"] : []),
-								...(input.stats.uniqueSources < MIN_COMPLIANT_SAMPLES ? ["Menos de 3 UASGs distintas"] : []),
-							],
+							measureUnit: input.measureUnit ?? null,
+							isCompliant: nonComplianceReasons.length === 0,
+							nonComplianceReasons,
 						})
 						.returning({ id: procurementPesquisaPrecoItemInProcurement.id }),
 				{ prefix: "Erro ao salvar item da pesquisa" }
