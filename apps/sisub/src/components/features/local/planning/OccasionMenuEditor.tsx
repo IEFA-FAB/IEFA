@@ -30,6 +30,8 @@ import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSetSnackClassification, useSnackMealType } from "@/hooks/data/useSnackRequests"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import {
+	applyHeadcountToEventMeals,
+	countEventMealHeadcountTargets,
 	countItemsLeavingComposition,
 	type EventMealDraft,
 	eventDraftFrom,
@@ -38,6 +40,7 @@ import {
 	moveEventMeal,
 	newEventMeal,
 	removeEventMeal,
+	setEventMealBase,
 	upsertEventMeal,
 } from "@/lib/event-meals"
 import {
@@ -69,8 +72,10 @@ import type { TemplateItemDraft } from "@/types/domain/planning"
 /**
  * Editor de evento ou exceção — na cozinha e no catálogo global.
  *
- * Não há estrutura de dias/semana, e o headcount é por preparação (`headcount_override`),
- * permitindo grupos mistos (50 pax no macarrão, 100 na alcatra, dentro da mesma refeição).
+ * Não há estrutura de dias/semana. Na EXCEÇÃO o headcount é por preparação
+ * (`headcount_override`), permitindo grupos mistos (50 pax no macarrão, 100 na alcatra). No
+ * EVENTO a refeição tem efetivo e cada preparação diz a % dele ou o pax direto, como no
+ * cardápio semanal (`resolveItemDemand`).
  *
  * O EVENTO tem refeições próprias (zero ou mais): nome, horário no calendário e composição
  * (entradas, volantes…) definidos nele, sem relação com os tipos de refeição do rancho —
@@ -224,7 +229,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const [headcountOpen, setHeadcountOpen] = useState(false)
 	const [applyOpen, setApplyOpen] = useState(false)
 	/** Refeição do evento no diálogo: nova (ainda fora do rascunho) ou existente. */
-	const [mealDialog, setMealDialog] = useState<{ meal: EventMealDraft; isNew: boolean } | null>(null)
+	// `open` à parte do conteúdo: fechar mantém refeição e modo até a animação terminar — sem
+	// isso o título trocava para "Editar refeição" enquanto o diálogo de uma NOVA saía da tela.
+	const [mealDialog, setMealDialog] = useState<{ meal: EventMealDraft; isNew: boolean; open: boolean } | null>(null)
 	const prevInitializedRef = useRef(false)
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	// Conteúdo da última gravação bem-sucedida. O efeito de auto-save também reage à troca
@@ -431,13 +438,17 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		})
 	}
 
-	/** Atualiza o headcount de uma preparação específica dentro de um grupo. */
-	const handleItemHeadcountChange = (mealTypeId: string, recipeId: string, value: number | null) => {
+	/** Altera campos de UMA preparação de uma refeição (pax, porcentagem). */
+	const patchItem = (mealTypeId: string, recipeId: string, patch: Partial<TemplateItemDraft>) => {
 		dispatch({
 			type: "SET_ITEMS",
-			value: items.map((i) => (i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, headcount_override: value } : i)),
+			value: items.map((i) => (i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, ...patch } : i)),
 		})
 	}
+
+	/** Atualiza o headcount de uma preparação específica dentro de um grupo. */
+	const handleItemHeadcountChange = (mealTypeId: string, recipeId: string, value: number | null) =>
+		patchItem(mealTypeId, recipeId, { headcount_override: value })
 
 	const handleOpenSelector = (mealTypeId: string, group: string | null = null) => {
 		dispatch({ type: "SET_SELECTED_MEAL_TYPE_ID", value: mealTypeId, group })
@@ -488,11 +499,21 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		clearSelection()
 	}
 
-	/** Sem efetivo base aqui (`menu_template_meal` é do cardápio semanal): o quantitativo do
-	 * auxiliador vai direto para o pax de cada preparação da refeição. */
+	/**
+	 * Evento: o quantitativo vai para o EFETIVO de cada refeição, como no cardápio semanal — a
+	 * porcentagem das preparações incide sobre ele. Exceção não tem efetivo de refeição: vai
+	 * direto para o pax de cada preparação.
+	 */
 	const handleApplyHeadcountPlan = (plan: HeadcountPlan, overwrite: boolean) => {
+		if (isEvent) {
+			dispatch({ type: "SET_EVENT_CONTENT", meals: applyHeadcountToEventMeals(eventMeals, plan, { overwrite }), items })
+			return
+		}
 		dispatch({ type: "SET_ITEMS", value: applyHeadcountToItems(items, plan, { overwrite }) })
 	}
+
+	/** Porcentagem do efetivo da refeição para uma preparação do evento. */
+	const handleItemProportionChange = (mealId: string, recipeId: string, value: number | null) => patchItem(mealId, recipeId, { recommended_proportion: value })
 
 	const handleBulkHeadcount = (headcount: number | null) => {
 		dispatch({ type: "SET_ITEMS", value: setItemHeadcount(items, selectedKeys, headcount) })
@@ -531,7 +552,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 					headcount: item.headcount_override ?? null,
 					group: item.item_group ?? null,
 					sortOrder: item.sort_order ?? 0,
-					proportion: null,
+					proportion: item.recommended_proportion ?? null,
 				},
 			]
 		})
@@ -812,7 +833,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 							size="sm"
 							// Teto do schema: a refeição a mais faria o servidor recusar o evento inteiro.
 							disabled={eventMeals.length >= MAX_EVENT_MEALS}
-							onClick={() => setMealDialog({ meal: newEventMeal("", ""), isNew: true })}
+							onClick={() => setMealDialog({ meal: newEventMeal("", ""), isNew: true, open: true })}
 						>
 							<Plus />
 							Nova refeição
@@ -835,12 +856,14 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 										items={boardItems}
 										isFirst={index === 0}
 										isLast={index === eventMeals.length - 1}
-										onEdit={() => setMealDialog({ meal, isNew: false })}
+										onEdit={() => setMealDialog({ meal, isNew: false, open: true })}
 										onRemove={() => handleRemoveEventMeal(meal)}
 										onMove={(delta) => dispatch({ type: "SET_EVENT_CONTENT", meals: moveEventMeal(eventMeals, meal.id, delta), items })}
 										onAdd={(group) => handleOpenSelector(meal.id, group)}
 										onArrange={(arrangement) => handleEventArrange(meal.id, arrangement)}
 										onHeadcountChange={(recipeId, value) => handleItemHeadcountChange(meal.id, recipeId, value)}
+										onProportionChange={(recipeId, value) => handleItemProportionChange(meal.id, recipeId, value)}
+										onBaseHeadcountChange={(value) => dispatch({ type: "SET_EVENT_CONTENT", meals: setEventMealBase(eventMeals, meal.id, value), items })}
 										onRemoveItem={(recipeId) => handleRemoveRecipe(meal.id, recipeId)}
 										selectionMode={selectionMode}
 										selectedIds={new Set(boardItems.map((b) => b.id).filter((recipeId) => selectedKeys.has(keyOf(recipeId))))}
@@ -855,7 +878,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 							<p className="text-xs text-muted-foreground/60 mb-3">
 								Crie as refeições do evento — coquetel, jantar de gala… — e monte a composição de cada uma: entradas, volantes, prato principal.
 							</p>
-							<Button type="button" size="sm" variant="outline" onClick={() => setMealDialog({ meal: newEventMeal("", ""), isNew: true })}>
+							<Button type="button" size="sm" variant="outline" onClick={() => setMealDialog({ meal: newEventMeal("", ""), isNew: true, open: true })}>
 								<Plus />
 								Nova refeição
 							</Button>
@@ -894,9 +917,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 
 			{isEvent && (
 				<EventMealDialog
-					open={mealDialog != null}
+					open={mealDialog?.open ?? false}
 					onOpenChange={(open) => {
-						if (!open) setMealDialog(null)
+						if (!open) setMealDialog((current) => (current ? { ...current, open: false } : null))
 					}}
 					meal={mealDialog?.meal ?? null}
 					isNew={mealDialog?.isNew ?? false}
@@ -910,8 +933,10 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				open={headcountOpen}
 				onOpenChange={setHeadcountOpen}
 				mealTypes={sectionMealTypes ?? []}
-				scope="item-headcount"
-				countTargets={(plan, overwrite) => countItemHeadcountTargets(items, plan, { overwrite })}
+				scope={isEvent ? "event-meal-base" : "item-headcount"}
+				countTargets={(plan, overwrite) =>
+					isEvent ? countEventMealHeadcountTargets(eventMeals, plan, { overwrite }) : countItemHeadcountTargets(items, plan, { overwrite })
+				}
 				onApply={handleApplyHeadcountPlan}
 			/>
 

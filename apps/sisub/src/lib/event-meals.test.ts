@@ -1,11 +1,14 @@
 import { describe, expect, test } from "vitest"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 import {
+	applyHeadcountToEventMeals,
+	countEventMealHeadcountTargets,
 	countItemsLeavingComposition,
 	type EventMealDraft,
 	eventDraftFrom,
 	eventGroupKeyFor,
 	eventItemsPayload,
+	eventMealsPayload,
 	findDuplicateGroup,
 	isSuggestionPresent,
 	moveEventMeal,
@@ -26,8 +29,15 @@ const coquetel: EventMealDraft = {
 		{ key: "entrada", label: "Entradas" },
 		{ key: "volante", label: "Volantes" },
 	],
+	base_headcount: null,
 }
-const gala: EventMealDraft = { id: "gala", name: "Jantar de gala", meal_type_id: JANTAR, groups: [{ key: "prato_principal", label: "Prato principal" }] }
+const gala: EventMealDraft = {
+	id: "gala",
+	name: "Jantar de gala",
+	meal_type_id: JANTAR,
+	groups: [{ key: "prato_principal", label: "Prato principal" }],
+	base_headcount: 200,
+}
 
 function draft(mealId: string, recipeId: string, group: string | null = null): TemplateItemDraft {
 	return { day_of_week: OCCASION_DAY, meal_type_id: mealId, recipe_id: recipeId, headcount_override: 50, item_group: group, sort_order: 0 }
@@ -155,5 +165,28 @@ describe("chave do grupo novo com a sugestão já ocupada", () => {
 
 	test("sugestão some pelo rótulo digitado", () => {
 		expect(isSuggestionPresent({ key: "bebida", label: "Bebidas" }, [{ key: "drinks", label: "bebidas" }])).toBe(true)
+	})
+})
+
+describe("efetivo da refeição", () => {
+	test("porcentagem da preparação e efetivo da refeição fazem round-trip até o payload", () => {
+		const { meals, items } = eventDraftFrom(
+			[{ ...coquetel, base_headcount: 300 }],
+			[{ meal_type_id: JANTAR, event_meal_id: "coquetel", recipe_id: "canape", item_group: "volante", recommended_proportion: 60 }]
+		)
+		expect(meals[0]?.base_headcount).toBe(300)
+		expect(items[0]?.recommended_proportion).toBe(60)
+		expect(eventItemsPayload(items, meals)[0]).toMatchObject({ recommended_proportion: 60, headcount_override: null })
+		expect(eventMealsPayload(meals)[0]).toMatchObject({ baseHeadcount: 300 })
+	})
+
+	test("auxiliador de quantitativo preenche o efetivo das refeições sem sobrescrever o que já existe", () => {
+		const plan = new Map([
+			["coquetel", 300],
+			["gala", 250],
+		])
+		expect(countEventMealHeadcountTargets([coquetel, gala], plan)).toBe(1)
+		expect(applyHeadcountToEventMeals([coquetel, gala], plan).map((m) => m.base_headcount)).toEqual([300, 200])
+		expect(applyHeadcountToEventMeals([coquetel, gala], plan, { overwrite: true }).map((m) => m.base_headcount)).toEqual([300, 250])
 	})
 })

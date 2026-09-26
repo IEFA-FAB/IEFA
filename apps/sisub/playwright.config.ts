@@ -43,6 +43,15 @@ const e2eEnabled = applyE2eEnv()
 
 const allBrowsers = !!process.env.ALL_BROWSERS
 
+/**
+ * Porta do dev server da suíte. Com vários worktrees abertos, a 3000 costuma ser de OUTRO
+ * checkout — e `reuseExistingServer` testaria o código dele, não o deste. `E2E_PORT` dá a cada
+ * worktree o próprio servidor; o `global-setup` lê a mesma origem via `E2E_BASE_URL`.
+ */
+const port = Number(process.env.E2E_PORT ?? 3000)
+const baseURL = `http://localhost:${port}`
+process.env.E2E_BASE_URL = baseURL
+
 export default defineConfig({
 	testDir: "./e2e/tests",
 	fullyParallel: true,
@@ -54,7 +63,7 @@ export default defineConfig({
 	globalSetup: "./e2e/global-setup.ts",
 
 	use: {
-		baseURL: "http://localhost:3000",
+		baseURL,
 		trace: "on-first-retry",
 		storageState: ".auth/user.json",
 	},
@@ -79,8 +88,8 @@ export default defineConfig({
 	],
 
 	webServer: {
-		command: "bunx --bun vite dev --port 3000",
-		url: "http://localhost:3000",
+		command: `bunx --bun vite dev --port ${port} --strictPort`,
+		url: baseURL,
 		reuseExistingServer: !process.env.CI,
 		timeout: 120_000,
 		// Sem os dois pipes, um crash de boot do vite (env inválida, porta ocupada, erro

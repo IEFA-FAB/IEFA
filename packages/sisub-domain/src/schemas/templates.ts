@@ -50,6 +50,8 @@ export type TemplateItem = z.infer<typeof TemplateItemSchema>
 /** Teto de refeições num evento e de grupos na composição de cada uma — freio, não regra da norma. */
 export const MAX_EVENT_MEALS = 30
 export const MAX_EVENT_MEAL_GROUPS = 20
+/** Teto do efetivo de uma refeição de evento — freio contra digitação (a coluna é integer). */
+export const MAX_EVENT_MEAL_HEADCOUNT = 100_000
 
 /**
  * Refeição PRÓPRIA de um evento (coquetel, jantar de gala…). O evento tem zero ou mais, e cada
@@ -67,6 +69,13 @@ export const TemplateEventMealSchema = z.object({
 	mealTypeId: UuidSchema,
 	/** Composição: as colunas da refeição, na ordem de leitura. Chave repetida é recusada. */
 	groups: z.array(MenuGroupSchema).min(1).max(MAX_EVENT_MEAL_GROUPS),
+	/**
+	 * Efetivo da refeição: a porcentagem de cada item (`recommendedProportion`) incide sobre ele,
+	 * como no cardápio semanal. Ausente = NÃO MEXE no efetivo gravado (renomear a refeição não
+	 * exige reenviá-lo); `null` = limpa, e aí só o pax do item conta. `.nullish()` porque este
+	 * objeto vive dentro de array exposto a modelo (`eventMeals`).
+	 */
+	baseHeadcount: z.number().int().positive().max(MAX_EVENT_MEAL_HEADCOUNT).nullish(),
 })
 export type TemplateEventMeal = z.infer<typeof TemplateEventMealSchema>
 

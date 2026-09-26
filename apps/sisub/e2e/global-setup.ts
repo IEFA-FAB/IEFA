@@ -64,7 +64,7 @@ async function globalSetup() {
 	const page = await context.newPage()
 
 	// Navega para a página de login
-	await page.goto("http://localhost:3000/auth")
+	await page.goto(`${process.env.E2E_BASE_URL ?? "http://localhost:3000"}/auth`)
 
 	// Aguarda o formulário estar visível no DOM (pode ser SSR)
 	await page.waitForSelector("#login-email", { timeout: 30_000 })

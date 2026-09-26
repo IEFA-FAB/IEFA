@@ -32,3 +32,20 @@ describe("summarizeTemplateDemand", () => {
 		expect(summarizeTemplateDemand(items, meals)).toEqual({ headcount_filled: 1, avg_headcount_weekday: null, total: 60 })
 	})
 })
+
+describe("summarizeTemplateDemand — evento", () => {
+	test("item de evento mede a porcentagem sobre o efetivo da refeição do evento, não da célula", () => {
+		const items = [
+			{ dayOfWeek: 1, mealTypeId: ALMOCO, headcountOverride: null, recommendedProportion: 60, eventMealId: "coquetel" },
+			{ dayOfWeek: 1, mealTypeId: ALMOCO, headcountOverride: 40, recommendedProportion: 60, eventMealId: "coquetel" },
+			{ dayOfWeek: 1, mealTypeId: ALMOCO, headcountOverride: null, recommendedProportion: null, eventMealId: "gala" },
+		]
+		// Célula do almoço com efetivo 800 não pode vazar para o evento.
+		const meals = [{ dayOfWeek: 1, mealTypeId: ALMOCO, baseHeadcount: 800 }]
+		const bases = new Map<string, number | null>([
+			["coquetel", 300],
+			["gala", null],
+		])
+		expect(summarizeTemplateDemand(items, meals, bases)).toMatchObject({ headcount_filled: 2, total: 180 + 40 })
+	})
+})

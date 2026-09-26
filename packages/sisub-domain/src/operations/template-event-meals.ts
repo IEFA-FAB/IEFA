@@ -27,6 +27,8 @@ export type TemplateEventMealWire = {
 	meal_type_id: string
 	groups: MenuGroupInput[]
 	sort_order: number
+	/** Efetivo da refeição; nulo = só o pax do item conta. */
+	base_headcount: number | null
 }
 
 /** `groups` é jsonb: o que não tiver a forma de um grupo é descartado na leitura, não repassado. */
@@ -57,6 +59,7 @@ export async function fetchEventMeals(db: EventMealDb, templateIds: string[]): P
 			meal_type_id: row.mealTypeId,
 			groups: parseGroups(row.groups),
 			sort_order: row.sortOrder,
+			base_headcount: row.baseHeadcount,
 		}
 		const list = byTemplate.get(row.menuTemplateId)
 		if (list) list.push(wire)
@@ -65,9 +68,41 @@ export async function fetchEventMeals(db: EventMealDb, templateIds: string[]): P
 	return byTemplate
 }
 
+/**
+ * Efetivo de cada refeição de evento, pelo id da refeição — a base sobre a qual a porcentagem
+ * dos itens dela incide (`resolveItemDemand`), no lugar do efetivo por (dia + refeição) que o
+ * cardápio semanal guarda em `menu_template_meal`.
+ */
+export async function fetchEventMealBases(db: EventMealDb, templateIds: string[]): Promise<Map<string, number | null>> {
+	const bases = new Map<string, number | null>()
+	if (templateIds.length === 0) return bases
+	// Só id e efetivo: a composição (jsonb) não entra na conta de demanda.
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateEventMealInKitchen.findMany({
+			columns: { id: true, baseHeadcount: true },
+			where: inArray(menuTemplateEventMealInKitchen.menuTemplateId, templateIds),
+		})
+	)
+	for (const row of rows) bases.set(row.id, row.baseHeadcount)
+	return bases
+}
+
+/**
+ * Base da porcentagem de um item: o efetivo da refeição do evento, para item de evento; para
+ * os demais, a base que o chamador tem (a célula dia + refeição do semanal, ou nada na
+ * exceção). Um lugar só para os três consumidores — custeio, contagens e calendário.
+ */
+export function eventItemBase(
+	eventMealId: string | null | undefined,
+	eventMealBases: ReadonlyMap<string, number | null>,
+	fallback: number | null = null
+): number | null {
+	return eventMealId != null ? (eventMealBases.get(eventMealId) ?? null) : fallback
+}
+
 /** Refeições gravadas no formato de entrada — para quem precisa copiá-las ou revalidar itens contra elas. */
 export function eventMealsAsInput(meals: readonly TemplateEventMealWire[]): TemplateEventMeal[] {
-	return meals.map((m) => ({ id: m.id, name: m.name, mealTypeId: m.meal_type_id, groups: m.groups }))
+	return meals.map((m) => ({ id: m.id, name: m.name, mealTypeId: m.meal_type_id, groups: m.groups, baseHeadcount: m.base_headcount }))
 }
 
 /**
@@ -242,7 +277,15 @@ export function mergeSlotItems<I extends { recipeId: string | null; eventMealId:
 
 /** Colunas gravadas de uma refeição; `sort_order` é a posição na lista. */
 function eventMealValues(meal: TemplateEventMeal, index: number) {
-	return { name: meal.name, mealTypeId: meal.mealTypeId, groups: meal.groups.map((g) => ({ key: g.key, label: g.label })), sortOrder: index }
+	return {
+		name: meal.name,
+		mealTypeId: meal.mealTypeId,
+		groups: meal.groups.map((g) => ({ key: g.key, label: g.label })),
+		sortOrder: index,
+		// Ausente = não mexe no efetivo gravado (quem renomeia a refeição não precisa reenviá-lo);
+		// `null` = limpa. Na inserção, ausente vira nulo.
+		...(meal.baseHeadcount !== undefined && { baseHeadcount: meal.baseHeadcount }),
+	}
 }
 
 /**

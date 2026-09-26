@@ -1736,6 +1736,7 @@ export const menuTemplateEventMealInKitchen = kitchen.table("menu_template_event
 	groups: jsonb().default([]).notNull(),
 	sortOrder: smallint("sort_order").default(0).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	baseHeadcount: integer("base_headcount"),
 }, (table) => [
 	index("menu_template_event_meal_template_idx").using("btree", table.menuTemplateId.asc().nullsLast().op("uuid_ops"), table.sortOrder.asc().nullsLast().op("int2_ops")),
 	foreignKey({
@@ -1750,6 +1751,7 @@ export const menuTemplateEventMealInKitchen = kitchen.table("menu_template_event
 		}),
 	check("menu_template_event_meal_name_not_blank", sql`btrim(name) <> ''::text`),
 	check("menu_template_event_meal_groups_is_array", sql`jsonb_typeof(groups) = 'array'::text`),
+	check("menu_template_event_meal_base_headcount_check", sql`base_headcount IS NULL OR base_headcount > 0`),
 ]);
 
 export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {

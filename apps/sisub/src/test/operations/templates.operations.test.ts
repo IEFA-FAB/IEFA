@@ -7,6 +7,7 @@
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
+	applyEventTemplate,
 	applyTemplate,
 	createBlankTemplate,
 	createTemplate,
@@ -817,5 +818,103 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		await expect(saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "kitchen", kitchenId }, eventMeals: [coquetel] })).rejects.toThrow(
 			/eventMeals e items juntos/
 		)
+	}, 30_000)
+
+	test("evento: a porcentagem da preparação incide sobre o efetivo da refeição, no custeio e no calendário", async () => {
+		if (!reachable || !seeder || !db) return
+		const sd = seeder
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		sd.trackFn(() => sd.purgeKitchenMenus(kitchenId))
+		const otherRecipe = await sd.seedRecipe({ kitchenId: null })
+		const coquetelId = crypto.randomUUID()
+
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Evento efetivo "),
+			kitchenId,
+			templateType: "event",
+			eventMeals: [{ id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS, baseHeadcount: 300 }],
+			items: [
+				// 60% de 300 = 180; o pax direto (40) vence a porcentagem.
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "volante", recommendedProportion: 60, eventMealId: coquetelId },
+				{ dayOfWeek: 1, mealTypeId, recipeId: otherRecipe, itemGroup: "entrada", headcountOverride: 40, recommendedProportion: 60, eventMealId: coquetelId },
+			],
+		})
+		trackTemplate(tpl.id)
+
+		const full = await getTemplate(db, ctx, { templateId: tpl.id })
+		expect(full.event_meals[0]?.base_headcount).toBe(300)
+
+		const listed = (await listTemplates(db, ctx, { kitchenId })).find((t) => t.id === tpl.id)
+		expect(listed?.headcount_filled).toBe(2)
+
+		const date = "2099-06-10"
+		await applyEventTemplate(db, ctx, { templateId: tpl.id, kitchenId, dates: [date] })
+		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as {
+			menu_items: { recipe_origin_id: string | null; planned_portion_quantity: number | string | null }[]
+		}[]
+		const planned = new Map(details.flatMap((d) => d.menu_items).map((i) => [i.recipe_origin_id, Number(i.planned_portion_quantity)]))
+		expect(planned.get(recipeId)).toBe(180)
+		expect(planned.get(otherRecipe)).toBe(40)
+	}, 30_000)
+
+	test("evento: duas refeições no mesmo horário somam a demanda de cada uma, pelo efetivo de cada uma", async () => {
+		if (!reachable || !seeder || !db) return
+		const sd = seeder
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		sd.trackFn(() => sd.purgeKitchenMenus(kitchenId))
+		const coquetelId = crypto.randomUUID()
+		const galaId = crypto.randomUUID()
+
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Evento mesmo horário "),
+			kitchenId,
+			templateType: "event",
+			eventMeals: [
+				{ id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS, baseHeadcount: 300 },
+				{ id: galaId, name: "Jantar", mealTypeId, groups: EVENT_GROUPS, baseHeadcount: 200 },
+			],
+			items: [
+				// Sem pax nem %: o efetivo cheio de cada refeição — 300 + 200.
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "volante", recommendedProportion: null, eventMealId: coquetelId },
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "entrada", recommendedProportion: null, eventMealId: galaId },
+			],
+		})
+		trackTemplate(tpl.id)
+
+		const date = "2099-06-11"
+		await applyEventTemplate(db, ctx, { templateId: tpl.id, kitchenId, dates: [date] })
+		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as {
+			menu_items: { recipe_origin_id: string | null; planned_portion_quantity: number | string | null }[]
+		}[]
+		const items = details.flatMap((d) => d.menu_items).filter((i) => i.recipe_origin_id === recipeId)
+		expect(items.map((i) => Number(i.planned_portion_quantity))).toEqual([500])
+	}, 30_000)
+
+	test("evento: reenviar a refeição sem baseHeadcount preserva o efetivo; null limpa", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId } = await base()
+		const coquetelId = crypto.randomUUID()
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Evento efetivo preservado "),
+			kitchenId,
+			templateType: "event",
+			eventMeals: [{ id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS, baseHeadcount: 300 }],
+		})
+		trackTemplate(tpl.id)
+		const context = { scope: "kitchen" as const, kitchenId }
+
+		await saveTemplateEdit(db, ctx, {
+			templateId: tpl.id,
+			context,
+			eventMeals: [{ id: coquetelId, name: "Coquetel de gala", mealTypeId, groups: EVENT_GROUPS }],
+		})
+		expect((await getTemplate(db, ctx, { templateId: tpl.id })).event_meals[0]?.base_headcount).toBe(300)
+
+		await saveTemplateEdit(db, ctx, {
+			templateId: tpl.id,
+			context,
+			eventMeals: [{ id: coquetelId, name: "Coquetel de gala", mealTypeId, groups: EVENT_GROUPS, baseHeadcount: null }],
+		})
+		expect((await getTemplate(db, ctx, { templateId: tpl.id })).event_meals[0]?.base_headcount).toBeNull()
 	}, 30_000)
 })

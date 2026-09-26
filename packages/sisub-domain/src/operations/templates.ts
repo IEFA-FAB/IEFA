@@ -48,7 +48,9 @@ import { runQuery, toWire } from "../utils/index.ts"
 import { resolveItemDemand } from "./demand-math.ts"
 import { assertItemGroupsInSet } from "./menu-groups.ts"
 import {
+	eventItemBase,
 	eventMealsAsInput,
+	fetchEventMealBases,
 	fetchEventMeals,
 	forkStoredEventContent,
 	mergeSlotItems,
@@ -116,9 +118,11 @@ type CountItem = {
 	dayOfWeek: number | null
 	mealTypeId: string | null
 	recommendedProportion: number | null
+	/** Item de evento: a base da porcentagem é o efetivo da refeição do evento. */
+	eventMealId?: string | null
 }
 
-const COUNT_ITEM_COLUMNS = { headcountOverride: true, dayOfWeek: true, mealTypeId: true, recommendedProportion: true } as const
+const COUNT_ITEM_COLUMNS = { headcountOverride: true, dayOfWeek: true, mealTypeId: true, recommendedProportion: true, eventMealId: true } as const
 
 /**
  * Comensais de cada item pela MESMA regra da demanda (`resolveItemDemand`): override do item,
@@ -126,13 +130,18 @@ const COUNT_ITEM_COLUMNS = { headcountOverride: true, dayOfWeek: true, mealTypeI
  * "0/231 com comensais" num cardápio com o efetivo de todas as refeições preenchido — e a
  * aquisição, que usa o efetivo da refeição, calculava a demanda normalmente.
  */
-export function summarizeTemplateDemand(items: CountItem[], meals: Pick<TemplateMealRow, "dayOfWeek" | "mealTypeId" | "baseHeadcount">[]) {
+export function summarizeTemplateDemand(
+	items: CountItem[],
+	meals: Pick<TemplateMealRow, "dayOfWeek" | "mealTypeId" | "baseHeadcount">[],
+	eventMealBases: ReadonlyMap<string, number | null> = new Map()
+) {
 	const baseByCell = new Map(meals.map((m) => [`${m.dayOfWeek}:${m.mealTypeId}`, m.baseHeadcount]))
 	const demands = items.map((i) => ({
 		dayOfWeek: i.dayOfWeek,
 		demand: resolveItemDemand({
 			headcountOverride: i.headcountOverride,
-			baseHeadcount: baseByCell.get(`${i.dayOfWeek}:${i.mealTypeId}`) ?? null,
+			// Item de evento mede pela refeição do evento; os demais, pela célula (dia + refeição).
+			baseHeadcount: eventItemBase(i.eventMealId, eventMealBases, baseByCell.get(`${i.dayOfWeek}:${i.mealTypeId}`) ?? null),
 			recommendedProportion: i.recommendedProportion,
 		}),
 	}))
@@ -143,10 +152,10 @@ export function summarizeTemplateDemand(items: CountItem[], meals: Pick<Template
 	return { headcount_filled, avg_headcount_weekday, total }
 }
 
-function mapTemplateWithCounts(t: CountRow, meals: TemplateMealRow[]): TemplateWithCounts {
+function mapTemplateWithCounts(t: CountRow, meals: TemplateMealRow[], eventMealBases: ReadonlyMap<string, number | null>): TemplateWithCounts {
 	const items = t.menuTemplateItemsInKitchens ?? []
 	const item_count = items.length
-	const { headcount_filled, avg_headcount_weekday, total } = summarizeTemplateDemand(items, meals)
+	const { headcount_filled, avg_headcount_weekday, total } = summarizeTemplateDemand(items, meals, eventMealBases)
 	// Custeio de exceção: sem semana. Soma os comensais de todos os itens e multiplica
 	// pelas ocorrências mensais (nulo = 1). Nulo para cardápios não-exceção.
 	const monthly_headcount_total = t.templateType === "exception" ? total * (t.expectedMonthlyOccurrences ?? 1) : null
@@ -196,11 +205,11 @@ export async function listTemplates(db: SisubDb, ctx: UserContext, input: ListTe
 			orderBy: (t) => [asc(t.name)],
 		})
 	)
-	const meals = await fetchTemplateMealsSafe(
-		db,
-		rows.map((r) => r.id)
-	)
-	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow, meals.get(r.id) ?? []))
+	const ids = rows.map((r) => r.id)
+	// Efetivo de refeição de evento só existe em evento: não há o que buscar para os demais.
+	const eventIds = rows.filter((r) => r.templateType === "event").map((r) => r.id)
+	const [meals, eventMealBases] = await Promise.all([fetchTemplateMealsSafe(db, ids), fetchEventMealBases(db, eventIds)])
+	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow, meals.get(r.id) ?? [], eventMealBases))
 }
 
 export async function listDeletedTemplates(db: SisubDb, ctx: UserContext, input: ListTemplates): Promise<TemplateWithCounts[]> {
@@ -219,11 +228,11 @@ export async function listDeletedTemplates(db: SisubDb, ctx: UserContext, input:
 			orderBy: (t, { desc }) => [desc(t.deletedAt)],
 		})
 	)
-	const meals = await fetchTemplateMealsSafe(
-		db,
-		rows.map((r) => r.id)
-	)
-	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow, meals.get(r.id) ?? []))
+	const ids = rows.map((r) => r.id)
+	// Efetivo de refeição de evento só existe em evento: não há o que buscar para os demais.
+	const eventIds = rows.filter((r) => r.templateType === "event").map((r) => r.id)
+	const [meals, eventMealBases] = await Promise.all([fetchTemplateMealsSafe(db, ids), fetchEventMealBases(db, eventIds)])
+	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow, meals.get(r.id) ?? [], eventMealBases))
 }
 
 export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTemplate): Promise<TemplateWithItemsFull> {
@@ -1244,7 +1253,8 @@ export async function applyTemplate(
  * ADITIVO por desenho: o planejamento rotineiro do dia permanece intacto — os
  * itens do evento são acrescentados ao cardápio (daily_menu) existente da mesma
  * refeição, criando-o quando não há. `day_of_week` do template é placeholder e é
- * ignorado; o headcount é por item (headcount_override → planned_portion_quantity).
+ * ignorado. `planned_portion_quantity` sai de `resolveItemDemand` por item: pax, senão a %
+ * sobre o efetivo da refeição do evento, senão o efetivo cheio (exceção: só o pax).
  * Tudo numa transação: falha em qualquer data desfaz a aplicação inteira.
  */
 export async function applyEventTemplate(
@@ -1269,7 +1279,24 @@ export async function applyEventTemplate(
 	}
 
 	// Itens com receita + ingredientes para o snapshot json (mesmo shape do addMenuItem).
-	const templateItems = await fetchTemplateItemsWithRecipes(db, input.templateId)
+	const isEvent = template.template_type === "event"
+	const [rawItems, eventMeals] = await Promise.all([
+		fetchTemplateItemsWithRecipes(db, input.templateId),
+		isEvent ? fetchEventMeals(db, [input.templateId]).then((m) => m.get(input.templateId) ?? []) : Promise.resolve([]),
+	])
+	// Demanda de cada item resolvida AQUI, antes de juntar refeições do mesmo horário: cada item
+	// mede pela própria refeição (pax, senão % do efetivo dela, senão o efetivo cheio). Resolver
+	// depois de juntar faria a primeira refeição falar pelas duas — 300 em vez de 300 + 200.
+	// Exceção não tem refeição própria: só o pax do item conta.
+	const eventMealBases = new Map(eventMeals.map((m) => [m.id, m.base_headcount]))
+	const templateItems = rawItems.map((item) => ({
+		...item,
+		headcountOverride: resolveItemDemand({
+			headcountOverride: item.headcountOverride,
+			baseHeadcount: eventItemBase(item.eventMealId, eventMealBases),
+			recommendedProportion: item.recommendedProportion != null ? Number(item.recommendedProportion) : null,
+		}),
+	}))
 
 	// Agrupa por refeição, ignorando day_of_week (placeholder em evento/exceção).
 	let itemsSkipped = 0
@@ -1286,8 +1313,8 @@ export async function applyEventTemplate(
 	// Evento com duas refeições no mesmo horário (coquetel e jantar, os dois à noite) cai num
 	// cardápio do dia só: as refeições entram na ordem do evento, e a preparação repetida vira um
 	// item com o pax somado — dois itens da mesma preparação furavam a chave de idempotência.
-	if (template.template_type === "event") {
-		const mealOrder = ((await fetchEventMeals(db, [input.templateId])).get(input.templateId) ?? []).map((m) => m.id)
+	if (isEvent) {
+		const mealOrder = eventMeals.map((m) => m.id)
 		for (const [mealTypeId, items] of itemsByMealType) itemsByMealType.set(mealTypeId, mergeSlotItems(items, mealOrder))
 	}
 
@@ -1363,7 +1390,7 @@ export async function applyEventTemplate(
 						dailyMenuId: targetMenuId,
 						recipeOriginId: item.recipeId,
 						recipe: recipeSnapshot,
-						// Headcount por preparação (contrato de evento): sem fallback de refeição.
+						// Já resolvido por item (e somado entre refeições do mesmo horário) acima.
 						plannedPortionQuantity: item.headcountOverride ?? null,
 						itemGroup: item.itemGroup,
 						sortOrder: baseSort + index,

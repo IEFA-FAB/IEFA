@@ -33,6 +33,8 @@ export interface TemplateEventMealRow {
 	meal_type_id: string
 	groups: { key: string; label: string }[]
 	sort_order: number
+	/** Efetivo da refeição; a porcentagem das preparações incide sobre ele. */
+	base_headcount: number | null
 }
 
 export type MenuTemplateWithItems = MenuTemplate & {
