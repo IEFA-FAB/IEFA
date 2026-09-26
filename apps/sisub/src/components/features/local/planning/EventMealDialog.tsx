@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { type EventMealDraft, findDuplicateGroup, isSuggestionPresent, resolveGroupKeys } from "@/lib/event-meals"
+import { type EventMealDraft, findDuplicateGroup, isSuggestionPresent, parseEventMealHeadcount, resolveGroupKeys } from "@/lib/event-meals"
 
 /** Tetos do schema (`TemplateEventMealSchema` / `MenuGroupSchema`): acima deles o salvamento inteiro seria recusado. */
 const MAX_NAME = 80
@@ -82,13 +82,12 @@ export function EventMealDialog({
 
 	const submit = () => {
 		if (!canSave || !meal) return
-		const parsedBase = Number.parseInt(baseHeadcount, 10)
 		onSubmit({
 			id: meal.id,
 			name: name.trim(),
 			meal_type_id: mealTypeId,
 			groups: resolved,
-			base_headcount: Number.isFinite(parsedBase) && parsedBase > 0 ? parsedBase : null,
+			base_headcount: parseEventMealHeadcount(baseHeadcount),
 		})
 		onOpenChange(false)
 	}

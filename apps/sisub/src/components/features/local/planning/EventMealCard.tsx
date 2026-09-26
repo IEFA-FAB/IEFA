@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import type { EventMealDraft } from "@/lib/event-meals"
+import { type EventMealDraft, parseEventMealHeadcount } from "@/lib/event-meals"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 
 /**
@@ -86,11 +86,7 @@ export function EventMealCard({
 								placeholder="pessoas"
 								aria-label={`Efetivo de ${meal.name}`}
 								value={meal.base_headcount ?? ""}
-								onChange={(e) => {
-									const parsed = Number.parseInt(e.target.value, 10)
-									// Mesmo piso do semanal: efetivo é positivo; vazio limpa.
-									onBaseHeadcountChange(Number.isFinite(parsed) && parsed > 0 ? parsed : null)
-								}}
+								onChange={(e) => onBaseHeadcountChange(parseEventMealHeadcount(e.target.value))}
 							/>
 						</div>
 						<Button type="button" size="sm" variant="ghost" onClick={() => onAdd(meal.groups[0]?.key ?? "")} disabled={meal.groups.length === 0}>

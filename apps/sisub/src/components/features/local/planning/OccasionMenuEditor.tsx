@@ -72,8 +72,10 @@ import type { TemplateItemDraft } from "@/types/domain/planning"
 /**
  * Editor de evento ou exceção — na cozinha e no catálogo global.
  *
- * Não há estrutura de dias/semana, e o headcount é por preparação (`headcount_override`),
- * permitindo grupos mistos (50 pax no macarrão, 100 na alcatra, dentro da mesma refeição).
+ * Não há estrutura de dias/semana. Na EXCEÇÃO o headcount é por preparação
+ * (`headcount_override`), permitindo grupos mistos (50 pax no macarrão, 100 na alcatra). No
+ * EVENTO a refeição tem efetivo e cada preparação diz a % dele ou o pax direto, como no
+ * cardápio semanal (`resolveItemDemand`).
  *
  * O EVENTO tem refeições próprias (zero ou mais): nome, horário no calendário e composição
  * (entradas, volantes…) definidos nele, sem relação com os tipos de refeição do rancho —
@@ -436,13 +438,17 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		})
 	}
 
-	/** Atualiza o headcount de uma preparação específica dentro de um grupo. */
-	const handleItemHeadcountChange = (mealTypeId: string, recipeId: string, value: number | null) => {
+	/** Altera campos de UMA preparação de uma refeição (pax, porcentagem). */
+	const patchItem = (mealTypeId: string, recipeId: string, patch: Partial<TemplateItemDraft>) => {
 		dispatch({
 			type: "SET_ITEMS",
-			value: items.map((i) => (i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, headcount_override: value } : i)),
+			value: items.map((i) => (i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, ...patch } : i)),
 		})
 	}
+
+	/** Atualiza o headcount de uma preparação específica dentro de um grupo. */
+	const handleItemHeadcountChange = (mealTypeId: string, recipeId: string, value: number | null) =>
+		patchItem(mealTypeId, recipeId, { headcount_override: value })
 
 	const handleOpenSelector = (mealTypeId: string, group: string | null = null) => {
 		dispatch({ type: "SET_SELECTED_MEAL_TYPE_ID", value: mealTypeId, group })
@@ -507,12 +513,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	}
 
 	/** Porcentagem do efetivo da refeição para uma preparação do evento. */
-	const handleItemProportionChange = (mealId: string, recipeId: string, value: number | null) => {
-		dispatch({
-			type: "SET_ITEMS",
-			value: items.map((i) => (i.meal_type_id === mealId && i.recipe_id === recipeId ? { ...i, recommended_proportion: value } : i)),
-		})
-	}
+	const handleItemProportionChange = (mealId: string, recipeId: string, value: number | null) => patchItem(mealId, recipeId, { recommended_proportion: value })
 
 	const handleBulkHeadcount = (headcount: number | null) => {
 		dispatch({ type: "SET_ITEMS", value: setItemHeadcount(items, selectedKeys, headcount) })
@@ -932,7 +933,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				open={headcountOpen}
 				onOpenChange={setHeadcountOpen}
 				mealTypes={sectionMealTypes ?? []}
-				scope={isEvent ? "meal-base" : "item-headcount"}
+				scope={isEvent ? "event-meal-base" : "item-headcount"}
 				countTargets={(plan, overwrite) =>
 					isEvent ? countEventMealHeadcountTargets(eventMeals, plan, { overwrite }) : countItemHeadcountTargets(items, plan, { overwrite })
 				}

@@ -131,7 +131,7 @@ const createTemplateTool: ToolDefinition = {
 	schema: {
 		name: "create_template",
 		description:
-			"Cria um novo template de cardápio com metadados e opcionalmente seus itens. Se a inserção dos itens falhar, o template é removido (rollback compensatório). kitchen_id=null cria um template global (SDAB). `template_type` distingue: weekly (plano semanal), event (evento) e exception — na tela, \"Apoio\" (lanches de bordo/apoio do Módulo 7, coffee break, café de reunião). Evento (templateType='event') tem refeições próprias em `eventMeals` (id UUID gerado por você, nome, mealTypeId = horário do calendário, groups = composição como entradas/volantes); cada item de evento cita a refeição em `eventMealId` e usa um grupo da composição dela.",
+			"Cria um novo template de cardápio com metadados e opcionalmente seus itens. Se a inserção dos itens falhar, o template é removido (rollback compensatório). kitchen_id=null cria um template global (SDAB). `template_type` distingue: weekly (plano semanal), event (evento) e exception — na tela, \"Apoio\" (lanches de bordo/apoio do Módulo 7, coffee break, café de reunião). Evento (templateType='event') tem refeições próprias em `eventMeals` (id UUID gerado por você, nome, mealTypeId = horário do calendário, groups = composição como entradas/volantes, baseHeadcount = efetivo da refeição); cada item de evento cita a refeição em `eventMealId`, usa um grupo da composição dela e se dimensiona por `headcountOverride` (pessoas) ou `recommendedProportion` (% do efetivo da refeição).",
 		inputSchema: toJsonSchema(CreateTemplateSchema),
 	},
 	async handler(args, credential) {
@@ -197,7 +197,7 @@ const updateTemplateTool: ToolDefinition = {
 	schema: {
 		name: "update_template",
 		description:
-			"Atualiza metadados de um template e, opcionalmente, substitui TODOS os seus itens (delete-all + re-insert). Se items for omitido, apenas os metadados são atualizados. Se items=[] vazio, todos os itens são removidos. Exige `context`: com {scope:'kitchen',kitchenId} a edição de um template GLOBAL não o altera — cria uma cópia local daquela cozinha. Com {scope:'global'} edita o template global (exige permissão global nível 2). Em evento, `eventMeals` substitui TODAS as refeições do evento (a que não vier sai com os itens dela; omita para não mexer) e todo item precisa de `eventMealId`. Se a cozinha já tem a cópia de um evento global, envie eventMeals e items juntos.",
+			"Atualiza metadados de um template e, opcionalmente, substitui TODOS os seus itens (delete-all + re-insert). Se items for omitido, apenas os metadados são atualizados. Se items=[] vazio, todos os itens são removidos. Exige `context`: com {scope:'kitchen',kitchenId} a edição de um template GLOBAL não o altera — cria uma cópia local daquela cozinha. Com {scope:'global'} edita o template global (exige permissão global nível 2). Em evento, `eventMeals` substitui TODAS as refeições do evento (a que não vier sai com os itens dela; omita para não mexer) e todo item precisa de `eventMealId`. Se a cozinha já tem a cópia de um evento global, envie eventMeals e items juntos. Em `eventMeals`, omitir `baseHeadcount` preserva o efetivo gravado; `null` o limpa.",
 		inputSchema: toJsonSchema(SaveTemplateEditSchema),
 	},
 	async handler(args, credential) {

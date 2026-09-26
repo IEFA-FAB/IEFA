@@ -645,6 +645,7 @@ export {
 	GetTemplateSchema,
 	ListTemplatesSchema,
 	MAX_EVENT_MEAL_GROUPS,
+	MAX_EVENT_MEAL_HEADCOUNT,
 	MAX_EVENT_MEALS,
 	RestoreTemplateSchema,
 	SaveTemplateEditSchema,

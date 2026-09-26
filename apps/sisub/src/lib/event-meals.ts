@@ -1,4 +1,10 @@
-import { DEFAULT_EVENT_MEAL_GROUPS, EVENT_MEAL_GROUP_SUGGESTIONS, eventMealGroupsOrDefault, placeStoredEventItems } from "@iefa/sisub-domain/schemas"
+import {
+	DEFAULT_EVENT_MEAL_GROUPS,
+	EVENT_MEAL_GROUP_SUGGESTIONS,
+	eventMealGroupsOrDefault,
+	MAX_EVENT_MEAL_HEADCOUNT,
+	placeStoredEventItems,
+} from "@iefa/sisub-domain/schemas"
 import { type MenuGroup, menuGroupKeyFromLabel } from "@/lib/menu-item-groups"
 import { OCCASION_DAY } from "@/lib/occasion-menu"
 import type { TemplateItemDraft } from "@/types/domain/planning"
@@ -264,4 +270,14 @@ export function countEventMealHeadcountTargets(meals: readonly EventMealDraft[],
 		if (value == null || m.base_headcount === value) return false
 		return overwrite || m.base_headcount == null
 	}).length
+}
+
+/**
+ * Efetivo digitado → valor gravável: inteiro de 1 até o teto do schema; vazio, zero ou lixo =
+ * `null`. Acima do teto o servidor recusaria o evento inteiro e o auto-save só não diria "Salvo".
+ */
+export function parseEventMealHeadcount(raw: string): number | null {
+	const parsed = Number.parseInt(raw, 10)
+	if (!Number.isFinite(parsed) || parsed < 1) return null
+	return Math.min(parsed, MAX_EVENT_MEAL_HEADCOUNT)
 }

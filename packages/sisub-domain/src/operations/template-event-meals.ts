@@ -75,10 +75,29 @@ export async function fetchEventMeals(db: EventMealDb, templateIds: string[]): P
  */
 export async function fetchEventMealBases(db: EventMealDb, templateIds: string[]): Promise<Map<string, number | null>> {
 	const bases = new Map<string, number | null>()
-	for (const meals of (await fetchEventMeals(db, templateIds)).values()) {
-		for (const meal of meals) bases.set(meal.id, meal.base_headcount)
-	}
+	if (templateIds.length === 0) return bases
+	// Só id e efetivo: a composição (jsonb) não entra na conta de demanda.
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateEventMealInKitchen.findMany({
+			columns: { id: true, baseHeadcount: true },
+			where: inArray(menuTemplateEventMealInKitchen.menuTemplateId, templateIds),
+		})
+	)
+	for (const row of rows) bases.set(row.id, row.baseHeadcount)
 	return bases
+}
+
+/**
+ * Base da porcentagem de um item: o efetivo da refeição do evento, para item de evento; para
+ * os demais, a base que o chamador tem (a célula dia + refeição do semanal, ou nada na
+ * exceção). Um lugar só para os três consumidores — custeio, contagens e calendário.
+ */
+export function eventItemBase(
+	eventMealId: string | null | undefined,
+	eventMealBases: ReadonlyMap<string, number | null>,
+	fallback: number | null = null
+): number | null {
+	return eventMealId != null ? (eventMealBases.get(eventMealId) ?? null) : fallback
 }
 
 /** Refeições gravadas no formato de entrada — para quem precisa copiá-las ou revalidar itens contra elas. */
@@ -263,7 +282,9 @@ function eventMealValues(meal: TemplateEventMeal, index: number) {
 		mealTypeId: meal.mealTypeId,
 		groups: meal.groups.map((g) => ({ key: g.key, label: g.label })),
 		sortOrder: index,
-		baseHeadcount: meal.baseHeadcount ?? null,
+		// Ausente = não mexe no efetivo gravado (quem renomeia a refeição não precisa reenviá-lo);
+		// `null` = limpa. Na inserção, ausente vira nulo.
+		...(meal.baseHeadcount !== undefined && { baseHeadcount: meal.baseHeadcount }),
 	}
 }
 

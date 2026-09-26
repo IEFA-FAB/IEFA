@@ -247,7 +247,7 @@ function SortableItem({
 					/>
 				)}
 				{/* A % só vira gente sobre o efetivo: mostra quantas pessoas ela dá. */}
-				{demandType === "proportion" && item.proportion != null && baseHeadcount != null && (
+				{demandType === "proportion" && item.headcount == null && item.proportion != null && baseHeadcount != null && (
 					<span className="text-xs text-muted-foreground tabular-nums" title={`${item.proportion}% de ${baseHeadcount} pessoas`}>
 						= {Math.round((baseHeadcount * item.proportion) / 100)}
 					</span>
@@ -466,6 +466,10 @@ export function MealGroupBoard({
 
 	const resolveDemandType = (item: BoardItem): DemandType => {
 		if (!allowProportion) return "headcount"
+		// Pax preenchido é o que vale na demanda (`resolveItemDemand`), mesmo que a escolha
+		// guardada diga %: a barra de seleção grava pax sem passar por aqui, e a linha seguia
+		// mostrando a porcentagem que a compra já não usa.
+		if (allowHeadcount && item.headcount != null) return "headcount"
 		return allowHeadcount ? (demandTypeById[item.id] ?? demandTypeOf(item, defaultDemandType)) : "proportion"
 	}
 

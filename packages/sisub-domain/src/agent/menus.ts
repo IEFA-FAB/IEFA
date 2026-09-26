@@ -153,6 +153,8 @@ export interface AgentTemplateItem {
 	 */
 	event_meal_id: string | null
 	event_meal: string | null
+	/** % do efetivo da refeição (do evento, ou da célula no semanal). O pax direto vence. */
+	recommended_proportion: number | null
 }
 
 /**
@@ -192,6 +194,7 @@ export async function agentGetTemplateItems(db: SisubDb, ctx: UserContext, input
 				mealSortOrder: mealTypeInKitchen.sortOrder,
 				recipe: recipesInKitchen.name,
 				eventMealId: menuTemplateItemsInKitchen.eventMealId,
+				recommendedProportion: menuTemplateItemsInKitchen.recommendedProportion,
 				eventMeal: menuTemplateEventMealInKitchen.name,
 			})
 			.from(menuTemplateItemsInKitchen)
@@ -215,6 +218,7 @@ export async function agentGetTemplateItems(db: SisubDb, ctx: UserContext, input
 		group: row.group,
 		headcount_override: row.headcountOverride,
 		event_meal_id: row.eventMealId,
+		recommended_proportion: row.recommendedProportion != null ? Number(row.recommendedProportion) : null,
 		event_meal: row.eventMeal,
 	}))
 }
