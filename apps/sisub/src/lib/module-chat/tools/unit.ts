@@ -298,30 +298,49 @@ const listEmpenhos: ModuleToolDefinition = {
 
 		// Uma ATA grande tem centenas de itens, e `in.(…)` viaja na query string: um `IN` único
 		// com 300 UUIDs estoura o limite de linha de requisição do gateway. Vai em lotes.
+		// O vínculo é pelos ITENS da NE (20260926214000): uma NE com arroz, feijão e óleo cobre
+		// três itens da ata, e o cabeçalho antigo (`empenho.arp_item_id`) fica nulo nela.
 		const itemIds = Array.from(itemById.keys())
-		const rows: Record<string, unknown>[] = []
-		let total = 0
+		const neItems: Array<{ empenho_id: string; arp_item_id: string; quantity: number | null; value: number }> = []
 		for (let start = 0; start < itemIds.length; start += EMPENHO_ID_BATCH) {
-			const { data, error, count } = await untypedFrom(ctx, "empenho", "finance")
-				.select("id, arp_item_id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, valor_total, nota_lancamento, status", { count: "exact" })
+			const { data, error } = await untypedFrom(ctx, "empenho_item", "finance")
+				.select("empenho_id, arp_item_id, quantity, value")
 				.in("arp_item_id", itemIds.slice(start, start + EMPENHO_ID_BATCH))
-				.order("data_empenho", { ascending: false })
-				.limit(limit)
+			if (error) return toolErr(sanitizeDbError(error, "list_empenhos:itens"))
+			neItems.push(...(data ?? []))
+		}
+		const empenhoIds = [...new Set(neItems.map((row) => row.empenho_id))]
+		const total = empenhoIds.length
+		const rows: Record<string, unknown>[] = []
+		for (let start = 0; start < empenhoIds.length; start += EMPENHO_ID_BATCH) {
+			const { data, error } = await untypedFrom(ctx, "empenho", "finance")
+				.select("id, numero_empenho, data_empenho, valor_total, nota_lancamento, status")
+				.in("id", empenhoIds.slice(start, start + EMPENHO_ID_BATCH))
 			if (error) return toolErr(sanitizeDbError(error, "list_empenhos"))
 			rows.push(...(data ?? []))
-			total += count ?? data?.length ?? 0
 		}
 
 		// O item entra pela descrição: `arp_item_id` sozinho não diz o que foi empenhado.
 		const empenhos = rows
 			.sort((a, b) => String(b.data_empenho ?? "").localeCompare(String(a.data_empenho ?? "")))
 			.slice(0, limit)
-			.map(({ arp_item_id, ...empenho }) => {
-				const item = itemById.get(String(arp_item_id)) as
-					| { numero_item?: number | null; descricao_item?: string | null; medida_catmat?: string | null }
-					| undefined
-				return { ...empenho, item: item?.descricao_item ?? null, item_numero: item?.numero_item ?? null, item_medida: item?.medida_catmat ?? null }
-			})
+			.map((empenho) => ({
+				...empenho,
+				itens: neItems
+					.filter((row) => row.empenho_id === empenho.id)
+					.map((row) => {
+						const item = itemById.get(String(row.arp_item_id)) as
+							| { numero_item?: number | null; descricao_item?: string | null; medida_catmat?: string | null }
+							| undefined
+						return {
+							item: item?.descricao_item ?? null,
+							item_numero: item?.numero_item ?? null,
+							item_medida: item?.medida_catmat ?? null,
+							quantidade: row.quantity,
+							valor: row.value,
+						}
+					}),
+			}))
 
 		return toolOk({ empenhos, returned: empenhos.length, total, limit })
 	},

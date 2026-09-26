@@ -30,6 +30,7 @@ const TABLE_SCHEMA: Record<string, string> = {
 	procurement_arp: "procurement",
 	procurement_arp_item: "procurement",
 	empenho: "finance",
+	empenho_item: "finance",
 	daily_menu: "kitchen",
 	menu_items: "kitchen",
 	meal_type: "kitchen",
