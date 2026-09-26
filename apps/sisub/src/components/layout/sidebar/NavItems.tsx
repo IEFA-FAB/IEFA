@@ -56,6 +56,7 @@ import {
 	Star,
 	Truck,
 	User,
+	UserCheck,
 	UserCog,
 	Users,
 	UtensilsCrossed,
@@ -174,7 +175,7 @@ export const ALL_MODULES: ModuleDef[] = [
 				title: "Fluxos",
 				url: "/unit/flows",
 				icon: Route,
-				keywords: ["passo a passo", "guia", "planejar contratação", "o que fazer", "pendências", "roteiro"],
+				keywords: ["passo a passo", "guia", "planejar contratação", "executar despesa", "o que fazer", "pendências", "roteiro"],
 			},
 			{
 				title: "Anexos Quantitativos",
@@ -189,6 +190,13 @@ export const ALL_MODULES: ModuleDef[] = [
 				icon: Layers,
 				group: "Contratação",
 				keywords: ["contratação", "segmento", "calendário de contratação", "pca", "pregão por grupo", "carnes", "estocáveis"],
+			},
+			{
+				title: "Designações",
+				url: "/unit/designations",
+				icon: UserCheck,
+				group: "Contratação",
+				keywords: ["fiscal", "gestor do contrato", "comissão de recebimento", "portaria", "boletim", "art. 140", "recebimento definitivo"],
 			},
 			{
 				title: "Contratações de origem",

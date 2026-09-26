@@ -51,6 +51,8 @@ export const SEGMENT_PT: Record<string, string> = {
 	flows: "Fluxos",
 	"procurement-planning": "Planejar contratação",
 	"demand-forecast": "Prever demanda para compra",
+	"expense-execution": "Executar despesa",
+	designations: "Designações",
 	suprimentos: "Previsão de demanda",
 	recipes: "Preparações",
 	equipment: "Equipamentos",

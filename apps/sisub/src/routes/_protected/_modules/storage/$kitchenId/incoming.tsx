@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { AlertTriangle, FileText, PackageCheck, Truck } from "lucide-react"
 import { requirePermission, usePBAC } from "@/auth/pbac"
+import { FlowIssueList } from "@/components/features/flows/FlowView"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useReceivingPendingStatus } from "@/hooks/data/useExpenseExecution"
+import { buildReceivingPendingIssues } from "@/lib/flows/receiving-pending"
 import { fetchIncomingFn, type IncomingKind } from "@/server/incoming.fn"
 
 /**
@@ -44,6 +47,9 @@ function IncomingPage() {
 	// ela só aparece para quem vai conseguir abri-la
 	const { can } = usePBAC()
 	const canOpenSupplyOrders = can("storage", 2, { type: "kitchen", id: kitchenId })
+	// Pendências do que JÁ chegou (D9): entrega sem nota, sem empenho, conferência sem fiscal…
+	const pending = useReceivingPendingStatus(kitchenId)
+	const pendingIssues = pending.data ? buildReceivingPendingIssues(pending.data) : []
 
 	return (
 		<div className="space-y-4">
@@ -173,6 +179,27 @@ function IncomingPage() {
 						<p className="mt-2 text-xs text-muted-foreground">
 							Mostrando {incoming.rows.length} de {incoming.total}.
 						</p>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>O que já chegou e ainda falta documento</CardTitle>
+					<CardDescription>
+						A entrega entrou sem esperar ninguém; aqui fica o que ela ainda deve — a nota, a OF, o empenho, a designação de quem confirma. Cada linha leva ao
+						recebimento, onde se vincula.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{pending.isLoading ? (
+						<div className="h-16 animate-pulse rounded-lg bg-muted" aria-hidden="true" />
+					) : pending.isError ? (
+						<p className="text-body text-destructive">Não foi possível ler as pendências do recebimento.</p>
+					) : pendingIssues.length === 0 ? (
+						<p className="text-body text-muted-foreground">Todo recebimento dos últimos 90 dias está com os documentos em dia.</p>
+					) : (
+						<FlowIssueList issues={pendingIssues} origin={{ href: `/storage/${kitchenId}/incoming`, label: "A caminho" }} />
 					)}
 				</CardContent>
 			</Card>

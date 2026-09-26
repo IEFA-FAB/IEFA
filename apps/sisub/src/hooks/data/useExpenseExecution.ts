@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useAssuredMutation } from "@/hooks/auth/useAssuredMutation"
 import { queryKeys } from "@/lib/query-keys"
 import { createDesignationFn, endDesignationFn, listDesignationCandidatesFn, listDesignationScopesFn, listDesignationsFn } from "@/server/designation.fn"
 import { fetchExpenseExecutionStatusFn, fetchReceivingPendingStatusFn } from "@/server/expense-execution.fn"
@@ -56,7 +57,8 @@ type CreateDesignationInput = Parameters<typeof createDesignationFn>[0]["data"]
 
 export function useCreateDesignation(unitId: number | null) {
 	const queryClient = useQueryClient()
-	return useMutation({
+	// operação classificada (`createDesignationFn`, "session"): eleva quando o piso subir
+	return useAssuredMutation({
 		mutationFn: (data: CreateDesignationInput) => createDesignationFn({ data }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.designations.list(unitId) })
@@ -67,7 +69,7 @@ export function useCreateDesignation(unitId: number | null) {
 
 export function useEndDesignation(unitId: number | null) {
 	const queryClient = useQueryClient()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (designationId: string) => endDesignationFn({ data: { designationId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.designations.list(unitId) })
