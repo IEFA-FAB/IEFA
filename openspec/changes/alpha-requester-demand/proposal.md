@@ -57,7 +57,7 @@ Os atritos observados no Compras.gov.br em 2026-09-25/26:
   `components/demand/`, aba no `ProcessView`), `alpha` (`api/demands.ts`, `demand/docx.ts`,
   `decideDemandEdit`).
 - **Packages**: `alpha-client` ganha o subpath `./demand`.
-- **Banco**: migration `20260926210000_alpha_requester_demand.sql` (tabela `alpha.demand`, coluna
+- **Banco**: migration `20260926233000_alpha_requester_demand.sql` (tabela `alpha.demand`, coluna
   `alpha.submission.demand_id`). **Aplicar antes do deploy do α**: as rotas de submissão e de
   processo passam a selecionar `demand_id`. `alpha.demand` declarada no guard do reset do sisub
   antes de aplicada.

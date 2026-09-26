@@ -1063,6 +1063,45 @@ export type Database = {
           },
         ]
       }
+      demand: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json
+          status: string
+          submitted_at: string | null
+          title: string
+          unit_id: number
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          status?: string
+          submitted_at?: string | null
+          title: string
+          unit_id: number
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          status?: string
+          submitted_at?: string | null
+          title?: string
+          unit_id?: number
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       document: {
         Row: {
           content_hash: string | null
@@ -1423,6 +1462,7 @@ export type Database = {
       submission: {
         Row: {
           created_at: string
+          demand_id: string | null
           doc_kind: string
           filename: string
           id: string
@@ -1435,6 +1475,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          demand_id?: string | null
           doc_kind: string
           filename: string
           id?: string
@@ -1447,6 +1488,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          demand_id?: string | null
           doc_kind?: string
           filename?: string
           id?: string
@@ -1457,7 +1499,15 @@ export type Database = {
           unit_id?: number
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "submission_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demand"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -8669,7 +8719,15 @@ export type Database = {
           legacy_id?: number | null
           parent_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "folder_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "folder"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       folder_review: {
         Row: {
@@ -10756,6 +10814,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "recipes_base_recipe_id_fkey"
+            columns: ["base_recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "recipes_folder_id_fkey"
             columns: ["folder_id"]
