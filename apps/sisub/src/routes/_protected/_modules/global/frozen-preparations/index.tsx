@@ -81,7 +81,7 @@ function FrozenPreparationsPage() {
 
 			<div className="flex flex-wrap items-center gap-2">
 				<Input placeholder="Buscar por nome…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
-				<div className="flex gap-1">
+				<div className="flex flex-wrap gap-1">
 					<Button variant={category === undefined ? "default" : "outline"} size="sm" onClick={() => setCategory(undefined)}>
 						Todas
 					</Button>
