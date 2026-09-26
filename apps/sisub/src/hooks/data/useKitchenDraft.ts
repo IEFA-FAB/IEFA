@@ -6,6 +6,7 @@ import {
 	deleteKitchenDraftFn,
 	fetchKitchenDraftsFn,
 	fetchPendingDraftFn,
+	recordKitchenDraftImportFn,
 	sendKitchenDraftFn,
 	updateKitchenDraftFn,
 } from "@/server/kitchen-draft.fn"
@@ -23,8 +24,8 @@ export function useKitchenDrafts(kitchenId: number | null) {
 }
 
 /**
- * Busca o rascunho com status 'sent' mais recente da cozinha.
- * Usado pelo gestor da unidade para importar sugestões da cozinha no wizard.
+ * A previsão de demanda mais recente enviada pela cozinha (enviada ou já recebida), com os
+ * anexos em que a unidade já a importou. Usada no wizard do anexo.
  */
 export function usePendingDraft(kitchenId: number | null) {
 	return useQuery({
@@ -88,5 +89,21 @@ export function useDeleteKitchenDraft() {
 			toast.success("Previsão removida.")
 		},
 		onError: (error) => toast.error(error.message),
+	})
+}
+
+/**
+ * A unidade importou a previsão num anexo: registra a importação e, na primeira, a previsão passa
+ * a "Recebida pela unidade" do lado da cozinha.
+ */
+export function useRecordDraftImport(kitchenId: number) {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (data: { draftId: string; listId: string }) => recordKitchenDraftImportFn({ data }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.pending(kitchenId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.list(kitchenId) })
+		},
+		onError: (error) => toast.error(`A previsão foi importada, mas o retorno à cozinha não foi registrado: ${error.message}`),
 	})
 }

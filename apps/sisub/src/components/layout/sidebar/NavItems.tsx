@@ -40,6 +40,7 @@ import {
 	QrCode,
 	Receipt,
 	RefreshCw,
+	Route,
 	Sandwich,
 	Scale,
 	ScanQrCode,
@@ -169,6 +170,12 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard, keywords: ["visão geral", "alertas"] },
 			{
+				title: "Fluxos",
+				url: "/unit/flows",
+				icon: Route,
+				keywords: ["passo a passo", "guia", "planejar contratação", "o que fazer", "pendências", "roteiro"],
+			},
+			{
 				title: "Anexos Quantitativos",
 				url: "/unit/procurement",
 				icon: FileText,
@@ -202,6 +209,12 @@ export const ALL_MODULES: ModuleDef[] = [
 		scopeType: "kitchen",
 		// URLs base — AppShell substitui por /kitchen/{id}/... quando dentro de um escopo
 		items: [
+			{
+				title: "Fluxos",
+				url: "/kitchen/flows",
+				icon: Route,
+				keywords: ["passo a passo", "guia", "prever demanda", "o que fazer", "pendências", "roteiro"],
+			},
 			// Ordem de leitura do planejamento: o que se repete (semanal), o que é pontual (evento,
 			// apoio) e, por último, onde tudo isso vira o que a cozinha produz em cada dia.
 			{

@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation, useMatches, useNavigate } from "@tanstack/re
 import { ChevronLeft, Search } from "lucide-react"
 import { Fragment, useCallback, useEffect, useState } from "react"
 import { usePBAC } from "@/auth/pbac"
+import { FlowReturn } from "@/components/features/flows/FlowReturn"
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
 import { getModuleFromPath, getModulesForPermissions, getNavItemsForPermissions, type ModuleId, type NavItem } from "@/components/layout/sidebar/NavItems"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
@@ -227,6 +228,7 @@ export function AppShell() {
 					<MainSurface showInitialError={showInitialError} showInitialLoading={showInitialLoading} onRetry={handleRetry}>
 						<main className="h-full overflow-y-auto focus:outline-none">
 							<div className="mx-auto w-full max-w-screen-2xl min-h-full px-3 py-6 sm:px-6 md:py-8">
+								<FlowReturn />
 								<Outlet />
 							</div>
 						</main>

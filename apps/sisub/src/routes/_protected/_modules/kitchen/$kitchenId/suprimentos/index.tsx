@@ -110,6 +110,15 @@ function KitchenSuprimentosPage() {
 								</div>
 							</CardHeader>
 							<CardContent className="pb-3">
+								{draft.status === "reviewed" && (
+									<p className="mb-2 text-xs text-success">
+										Recebida pela unidade
+										{draft.reviewed_at ? ` em ${new Date(draft.reviewed_at).toLocaleDateString("pt-BR")}` : ""}
+										{draft.imports?.length
+											? ` · no${draft.imports.length === 1 ? "" : "s"} anexo${draft.imports.length === 1 ? "" : "s"} ${draft.imports.map((i) => `"${i.title}"`).join(", ")}`
+											: ""}
+									</p>
+								)}
 								<div className="flex items-center justify-between gap-2">
 									<p className="text-xs text-muted-foreground">
 										{draft.selections.length} {draft.selections.length === 1 ? "seleção" : "seleções"}

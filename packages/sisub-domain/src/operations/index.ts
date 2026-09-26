@@ -353,9 +353,11 @@ export {
 } from "./issue-variance.ts"
 export {
 	createKitchenDraft,
+	type DraftImportWire,
 	deleteKitchenDraft,
 	fetchKitchenDrafts,
 	fetchPendingDraft,
+	recordKitchenDraftImport,
 	sendKitchenDraft,
 	updateKitchenDraft,
 } from "./kitchen-draft.ts"
@@ -512,6 +514,16 @@ export {
 	type SampleConversion,
 } from "./price-units.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
+export { type CalendarCycle, contractingCycle } from "./procurement-calendar.ts"
+export {
+	type AnnexPricingState,
+	type DemandForecastStatus,
+	fetchDemandForecastStatus,
+	fetchProcurementPlanningStatus,
+	type KitchenPlanningState,
+	type ProcurementPlanningStatus,
+	type SegmentCalendarEntry,
+} from "./procurement-flows.ts"
 export {
 	addProcurementSegmentRule,
 	createProcurementSegment,

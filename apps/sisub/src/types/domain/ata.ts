@@ -84,6 +84,8 @@ export interface DraftWithSelections extends KitchenAtaDraft {
 			template_type: string
 		}
 	})[]
+	/** Anexos quantitativos em que a unidade já importou esta previsão. */
+	imports: { list_id: string; title: string; imported_at: string }[]
 }
 
 // ─── Estado do Wizard (não persiste até salvar) ───────────────────────────────
