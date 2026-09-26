@@ -97,6 +97,18 @@ type Fk = {
 	parentSchema: string
 	parentTable: string
 	parentCols: string[]
+	/** `pg_constraint.confdeltype`: a = NO ACTION, r = RESTRICT, c = CASCADE, n = SET NULL, d = SET DEFAULT. */
+	onDelete: string
+}
+
+/**
+ * FK que o fecho segue: as que BARRAM o delete do pai (NO ACTION, RESTRICT) e a CASCADE, cujo
+ * filho o banco apagaria de qualquer jeito (e que pode ter neto NO ACTION a coletar). SET NULL e
+ * SET DEFAULT ficam de fora: o banco só zera a coluna do filho, que é dado real e não pode sumir
+ * junto com a fixture (`procurement_list_item.folder_id` de uma pasta `[TEST]`).
+ */
+function isFollowedOnDelete(onDelete: string): boolean {
+	return onDelete === "a" || onDelete === "r" || onDelete === "c"
 }
 
 const qualified = (schema: string, table: string) => `"${schema}"."${table}"`
@@ -180,6 +192,7 @@ async function loadForeignKeys(tx: postgres.TransactionSql): Promise<Fk[]> {
 			parent_schema: string
 			parent_table: string
 			parent_cols: string[]
+			on_delete: string
 		}[]
 	>`
 		select
@@ -188,7 +201,8 @@ async function loadForeignKeys(tx: postgres.TransactionSql): Promise<Fk[]> {
 			array(select a.attname from unnest(cn.conkey) k join pg_attribute a on a.attrelid = cn.conrelid and a.attnum = k) as child_cols,
 			pc.relnamespace::regnamespace::text as parent_schema,
 			pc.relname                          as parent_table,
-			array(select a.attname from unnest(cn.confkey) k join pg_attribute a on a.attrelid = cn.confrelid and a.attnum = k) as parent_cols
+			array(select a.attname from unnest(cn.confkey) k join pg_attribute a on a.attrelid = cn.confrelid and a.attnum = k) as parent_cols,
+			cn.confdeltype::text                as on_delete
 		from pg_constraint cn
 		join pg_class cc on cc.oid = cn.conrelid
 		join pg_class pc on pc.oid = cn.confrelid
@@ -202,6 +216,7 @@ async function loadForeignKeys(tx: postgres.TransactionSql): Promise<Fk[]> {
 		parentSchema: r.parent_schema,
 		parentTable: r.parent_table,
 		parentCols: r.parent_cols,
+		onDelete: r.on_delete,
 	}))
 }
 
@@ -275,7 +290,7 @@ async function findCandidates(
 /**
  * Fecho transitivo de filhos por FK. Linhas-filhas (`recipe_ingredients`, `menu_items`,
  * `purchase_item_ingredient`…) não carregam marcador; sem isto o delete do pai bate em FK
- * NO ACTION e a faxina não sai do lugar.
+ * NO ACTION e a faxina não sai do lugar. FK SET NULL/SET DEFAULT não entra (`isFollowedOnDelete`).
  */
 async function expandDescendants(tx: postgres.TransactionSql, fks: Fk[], frontier: Row[], collected: Map<string, Row>) {
 	let current = frontier
@@ -297,6 +312,7 @@ async function expandDescendants(tx: postgres.TransactionSql, fks: Fk[], frontie
 			const ctids = parents.map((p) => p.ctid)
 			for (const fk of fks) {
 				if (fk.parentSchema !== parentSchema || fk.parentTable !== parentTable) continue
+				if (!isFollowedOnDelete(fk.onDelete)) continue
 				const on = fk.childCols.map((c, i) => `c."${c}" = p."${fk.parentCols[i]}"`).join(" and ")
 				const rows = await tx.unsafe<{ ctid: string }[]>(
 					`select distinct c.ctid::text as ctid

@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { ALLERGENS } from "../operations/allergens.ts"
+import { toMeasureUnitCode } from "../operations/price-units.ts"
 import { UuidSchema } from "./common.ts"
 import { DeliveryCycleSchema } from "./procurement.ts"
 
@@ -62,10 +63,28 @@ export type ListIngredients = z.infer<typeof ListIngredientsSchema>
 export const FetchIngredientSchema = z.object({ id: UuidSchema })
 export type FetchIngredient = z.infer<typeof FetchIngredientSchema>
 
+/**
+ * Unidade do insumo normalizada na entrada: todo chamador (server fn, tool, bulk) grava o código
+ * do catálogo em maiúsculas ou NULL. `.optional()` DEPOIS do transform: ausente continua ausente,
+ * e o update não apaga a unidade que o payload nem trouxe.
+ */
+const MeasureUnitCodeSchema = z.string().nullable().transform(toMeasureUnitCode).optional()
+
+/**
+ * Unidade de EMBALAGEM do item ("Lata com 150 g", "maço"): texto livre à espera da fila de
+ * revisão, então só apara e troca vazio por NULL. Pôr em maiúscula sem acento destruiria o texto
+ * ("maço" → "MACO") sem torná-lo código do catálogo.
+ */
+const PackageUnitSchema = z
+	.string()
+	.nullable()
+	.transform((value) => value?.trim() || null)
+	.optional()
+
 export const CreateIngredientSchema = z.object({
 	description: z.string().min(1),
 	folderId: UuidSchema.nullable().optional(),
-	measureUnit: z.string().nullable().optional(),
+	measureUnit: MeasureUnitCodeSchema,
 	correctionFactor: z.number().nullable().optional(),
 	ceafaId: UuidSchema.nullable().optional(),
 })
@@ -99,7 +118,7 @@ export const CreateIngredientItemSchema = z.object({
 	ingredientId: UuidSchema.nullable().optional(),
 	description: z.string().nullable().optional(),
 	barcode: z.string().nullable().optional(),
-	purchaseMeasureUnit: z.string().nullable().optional(),
+	purchaseMeasureUnit: PackageUnitSchema,
 	unitContentQuantity: z.number().nullable().optional(),
 	correctionFactor: z.number().nullable().optional(),
 	purchaseItemId: UuidSchema.nullable().optional(),

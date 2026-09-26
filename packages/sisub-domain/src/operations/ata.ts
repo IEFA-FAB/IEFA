@@ -68,7 +68,7 @@ import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 import { computeAtaItemLimits, computeMinQuoteQuantity, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
 import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
-import { isSamePrice } from "./price-units.ts"
+import { isSamePrice, toMeasureUnitCode } from "./price-units.ts"
 import { findSegmentConflicts, lineKey, loadLiveSegment, resolveNeedsForSegment } from "./procurement-segments.ts"
 import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
@@ -841,7 +841,9 @@ function buildItemPayload(item: DraftItem, draftId: string, computedAt: string):
 		ingredientName: item.ingredient_name,
 		folderId: item.folder_id || null,
 		folderDescription: item.folder_description || null,
-		measureUnit: item.measure_unit || null,
+		// Mesma forma do código do catálogo que o insumo grava: rascunho antigo no cliente ("kg") não
+		// vira linha fora do catálogo no anexo.
+		measureUnit: toMeasureUnitCode(item.measure_unit),
 		totalQuantity: item.total_quantity,
 		purchaseItemId: item.purchase_item_id || null,
 		purchaseItemDescription: item.purchase_item_description || null,

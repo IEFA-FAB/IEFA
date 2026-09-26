@@ -137,16 +137,6 @@ const PURCHASE_ITEM_COLS = {
 	},
 } as const
 
-/**
- * Unidade em branco é "sem unidade" (NULL), não um código. Os formulários mandam "" quando
- * nada foi escolhido, e "" não existe em `core.measure_unit`: é o que impede a FK da unidade
- * do insumo (fase de contract da migration 20260926213000). `undefined` segue `undefined`
- * para o update não apagar a unidade que o payload nem trouxe.
- */
-export function blankMeasureUnitToNull(unit: string | null | undefined): string | null | undefined {
-	return unit === undefined ? undefined : unit?.trim() || null
-}
-
 function isMissingNutritionReferenceRelation(error: unknown): boolean {
 	const message = error instanceof Error ? error.message : String(error)
 	return /relation .*ingredient_nutrition_reference.* does not exist|relation .*nutrition_reference\..* does not exist|schema "nutrition_reference" does not exist/i.test(
@@ -321,7 +311,7 @@ export async function createIngredient(db: SisubDb, ctx: UserContext, input: Cre
 			.values({
 				description: input.description,
 				folderId: input.folderId,
-				measureUnit: blankMeasureUnitToNull(input.measureUnit),
+				measureUnit: input.measureUnit,
 				correctionFactor: input.correctionFactor ?? null,
 				ceafaId: input.ceafaId,
 			})
@@ -338,7 +328,7 @@ export async function updateIngredient(db: SisubDb, ctx: UserContext, input: Upd
 			.set({
 				description: input.description,
 				folderId: input.folderId,
-				measureUnit: blankMeasureUnitToNull(input.measureUnit),
+				measureUnit: input.measureUnit,
 				correctionFactor: input.correctionFactor ?? null,
 				ceafaId: input.ceafaId,
 			})
@@ -427,7 +417,7 @@ export async function createIngredientItem(db: SisubDb, ctx: UserContext, input:
 				ingredientId: input.ingredientId,
 				description: input.description,
 				barcode: input.barcode,
-				purchaseMeasureUnit: blankMeasureUnitToNull(input.purchaseMeasureUnit),
+				purchaseMeasureUnit: input.purchaseMeasureUnit,
 				unitContentQuantity: input.unitContentQuantity ?? null,
 				correctionFactor: input.correctionFactor ?? null,
 				purchaseItemId: input.purchaseItemId,
@@ -446,7 +436,7 @@ export async function updateIngredientItem(db: SisubDb, ctx: UserContext, input:
 				ingredientId: input.ingredientId,
 				description: input.description,
 				barcode: input.barcode,
-				purchaseMeasureUnit: blankMeasureUnitToNull(input.purchaseMeasureUnit),
+				purchaseMeasureUnit: input.purchaseMeasureUnit,
 				unitContentQuantity: input.unitContentQuantity ?? null,
 				correctionFactor: input.correctionFactor ?? null,
 				purchaseItemId: input.purchaseItemId,

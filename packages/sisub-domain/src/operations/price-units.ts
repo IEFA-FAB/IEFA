@@ -78,6 +78,16 @@ function normalizeUnitCode(value: string): string {
 }
 
 /**
+ * Unidade do insumo na forma em que `core.measure_unit` guarda o código: sem acento, aparada,
+ * maiúscula ("kg" → "KG"). Vazio é "sem unidade" (NULL), nunca "": os formulários mandam ""
+ * quando nada foi escolhido, e "" não existe no catálogo. Não traduz sinônimo ("KILO" segue
+ * "KILO"): quem decide o código de um valor fora do catálogo é a fila de revisão.
+ */
+export function toMeasureUnitCode(value: string | null | undefined): string | null {
+	return value == null ? null : normalizeUnitCode(value) || null
+}
+
+/**
  * Tolerância para comparar dois preços que passaram por `numeric(12,4)`: o maior entre o
  * arredondamento da 4ª casa e 0,05% do valor. Absoluta pura (meio centavo) aceitava ±50% num
  * preço por grama de R$ 0,01.
