@@ -21,14 +21,24 @@ import {
 	brasiliaToday,
 	CONSERVATION_CLASSES,
 	type ConservationClass,
+	canDesignateInUnit,
 	composeLotDivergence,
 	conservationDivergence,
+	DEFINITIVE_RECEIPT_ROLES,
+	designationMissingMessage,
 	divergesFromInvoice,
 	isReceiptEditable,
 	isTemperatureOutOfRange,
+	matchReceiptLinesToInvoice,
 	matchScanToLine,
+	normalizeSupplierDocument,
+	PROVISIONAL_RECEIPT_ROLES,
 	parseNfeAccessKey,
 	type ReceiptLineForScan,
+	type ReceiptSource,
+	type ReceiptStage,
+	receiptLinkWarnings,
+	receiptWithoutInvoiceProblems,
 	requiresDivergenceReason,
 	shelfLifeDivergence,
 	temperatureDivergenceReason,
@@ -36,11 +46,14 @@ import {
 	unitCostFromInvoiceLine,
 	unitCostFromNfe,
 } from "@iefa/sisub-domain/operations"
+import type { UserContext } from "@iefa/sisub-domain/types"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { withDeferralRollback } from "@/lib/deferral-mark"
 import { invoiceSituationProblem } from "@/lib/invoice-gate"
 import { readAllPages } from "@/lib/read-all-pages"
+import { decideReceiptInvoice, isInvoiceCancelled } from "@/lib/receipt-invoice-gate"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -50,6 +63,7 @@ type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Reco
 const inventory = () => getServerClient("inventory") as unknown as LooseClient
 const procurement = () => getServerClient("procurement") as unknown as LooseClient
 const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
+const finance = () => getServerClient("finance") as unknown as LooseClient
 
 const IsoDate = z
 	.string()
@@ -160,6 +174,21 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 			const { data: order } = await proc.from("supply_order").select("kitchen_id").eq("id", data.supplyOrderId).maybeSingle()
 			if (!order || Number(order.kitchen_id) !== data.kitchenId) throw new Error("OF não encontrada ou de outra cozinha")
 		}
+		// Nota que já fecha entregas recebidas sem ela (o pão da semana) não gera recebimento
+		// próprio: o estoque seria contado duas vezes. O banco também recusa
+		// (`goods_receipt_nfe_single_use`); aqui a frase diz o que fazer.
+		const { count: linkedDeliveries, error: linkedError } = await inv
+			.from("goods_receipt")
+			.select("id", { count: "exact", head: true })
+			.eq("nfe_document_id", data.nfeDocumentId)
+			.neq("source", "nfe")
+			.neq("status", "rejected")
+		if (linkedError) throw new Error(`Erro ao conferir as entregas da nota: ${linkedError.message}`)
+		if ((linkedDeliveries ?? 0) > 0) {
+			throw new Error(
+				`Esta NF-e já está vinculada a ${linkedDeliveries} entrega(s) recebida(s) sem nota — não crie outro recebimento: confira os itens nas entregas vinculadas`
+			)
+		}
 
 		const { data: items, error: itemsError } = await inv
 			.from("nfe_item")
@@ -196,6 +225,7 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 			.insert({
 				kitchen_id: data.kitchenId,
 				nfe_document_id: data.nfeDocumentId,
+				source: "nfe",
 				supply_order_id: data.supplyOrderId ?? null,
 				empenho_id: data.empenhoId ?? null,
 				created_by: userId,
@@ -476,46 +506,59 @@ export const deleteReceiptLotFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(`Erro ao remover lote: ${error.message}`)
 	})
 
-/**
- * Competência para receber (Decreto 11.246/2022, art. 25).
- *
- * Nível de PBAC é pré-condição, não competência: o provisório é do FISCAL
- * designado, o definitivo é do GESTOR do contrato ou de membro de comissão.
- * Termo assinado por quem não tem competência vicia a liquidação apoiada nele.
- *
- * A designação pode vir de ato (boletim/portaria), do próprio empenho — caso
- * comum — ou de ato permanente da OM para recebimento de gêneros, que é o que
- * cobre a entrega sem contrato.
- */
-async function requireDesignation(receiptId: string, userId: string, stage: "provisional" | "definitive"): Promise<string> {
-	const inv = inventory()
-	const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id, empenho_id").eq("id", receiptId).maybeSingle()
-	if (!receipt) throw new Error("Recebimento não encontrado")
-
-	const kit = kitchen()
-	const { data: kitchenRow } = await kit.from("kitchen").select("unit_id, purchase_unit_id").eq("id", receipt.kitchen_id).single()
+/** Unidade COMPRADORA da cozinha: é nela que a designação e o empenho moram. */
+async function purchaseUnitOfKitchen(kitchenId: number): Promise<number> {
+	const { data: kitchenRow, error } = await kitchen().from("kitchen").select("unit_id, purchase_unit_id").eq("id", kitchenId).maybeSingle()
+	if (error) throw new Error(`Erro ao carregar a cozinha: ${error.message}`)
 	const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
 	if (unitId == null) throw new Error("Cozinha sem unidade vinculada — não há como verificar a designação")
+	return Number(unitId)
+}
 
-	const roles =
-		stage === "provisional"
-			? ["technical_inspector", "administrative_inspector", "sectoral_inspector", "manager", "committee_member"]
-			: ["manager", "committee_member"]
+/** O que a busca de designação precisa do recebimento: a unidade compradora e o empenho. */
+interface DesignationScope {
+	unitId: number
+	empenhoId: string | null
+}
 
-	const { data: designationId } = await inv.rpc("find_designation", {
+async function designationScopeOf(receiptId: string): Promise<DesignationScope> {
+	const { data: receipt, error } = await inventory().from("goods_receipt").select("kitchen_id, empenho_id").eq("id", receiptId).maybeSingle()
+	if (error) throw new Error(`Erro ao carregar o recebimento: ${error.message}`)
+	if (!receipt) throw new Error("Recebimento não encontrado")
+	return { unitId: await purchaseUnitOfKitchen(Number(receipt.kitchen_id)), empenhoId: (receipt.empenho_id as string | null) ?? null }
+}
+
+/** A designação vigente da pessoa para o recebimento, ou `null`. */
+async function findDesignation(scope: DesignationScope, userId: string, stage: ReceiptStage): Promise<string | null> {
+	const { data: designationId, error } = await inventory().rpc("find_designation", {
 		p_person: userId,
-		p_unit_id: Number(unitId),
-		p_empenho_id: receipt.empenho_id ?? null,
-		p_roles: roles,
+		p_unit_id: scope.unitId,
+		p_empenho_id: scope.empenhoId,
+		p_roles: stage === "provisional" ? [...PROVISIONAL_RECEIPT_ROLES] : [...DEFINITIVE_RECEIPT_ROLES],
 	})
-	if (!designationId) {
-		throw new Error(
-			stage === "provisional"
-				? "Recebimento provisório exige designação vigente de fiscal (Decreto 11.246/2022, art. 25) — cadastre a designação na unidade"
-				: "Recebimento definitivo exige designação vigente de gestor do contrato ou de comissão (Decreto 11.246/2022, art. 25)"
-		)
-	}
-	return designationId as string
+	// Falha de leitura não pode virar "sem designação": a recusa mandaria designar quem já está.
+	if (error) throw new Error(`Erro ao conferir a designação: ${error.message}`)
+	return (designationId as string | null) ?? null
+}
+
+/**
+ * Competência para receber (Lei 14.133/2021, art. 140, II; Decreto 11.246/2022).
+ *
+ * Nível de PBAC é pré-condição, não competência: o provisório é do fiscal designado (alínea
+ * a), o definitivo é de servidor ou comissão designada — gestor do contrato ou membro de
+ * comissão (alínea b). Termo assinado por quem não tem competência vicia a liquidação apoiada
+ * nele. O que NÃO depende de designação é a conferência física (itens, lotes, temperatura,
+ * validade): ela fica registrada e o fiscal a confirma depois, sem redigitar.
+ *
+ * A designação vem de ato (boletim/portaria) do contrato ou de ato permanente da OM para
+ * recebimento de gêneros. A recusa diz quem designa e onde; para quem tem `unit:2` na OM,
+ * que dá para designar ali mesmo.
+ */
+async function requireDesignation(receiptId: string, ctx: UserContext, stage: ReceiptStage): Promise<string> {
+	const scope = await designationScopeOf(receiptId)
+	const designationId = await findDesignation(scope, ctx.userId, stage)
+	if (!designationId) throw new Error(designationMissingMessage(stage, canDesignateInUnit(ctx.permissions, scope.unitId)))
+	return designationId
 }
 
 /**
@@ -526,7 +569,7 @@ async function requireDesignation(receiptId: string, userId: string, stage: "pro
  * documento hábil (Lei 4.320, art. 63). Por isso a consulta de situação, feita
  * no portal da SEFAZ e registrada no sistema, precisa ser recente.
  */
-async function assertInvoiceUsable(receiptId: string) {
+async function readReceiptInvoice(receiptId: string): Promise<{ status: string; situationResult: string | null; situationCheckedAt: string | null } | null> {
 	const inv = inventory()
 	const { data: receipt, error: receiptError } = await inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle()
 	// Esta é a ÚNICA trava de autenticidade da cadeia. Se a leitura falha e o
@@ -534,25 +577,35 @@ async function assertInvoiceUsable(receiptId: string) {
 	// nota" — e a nota nunca confirmada seria efetivada.
 	if (receiptError) throw new Error(`Erro ao conferir a nota do recebimento: ${receiptError.message}`)
 	if (!receipt) throw new Error("Recebimento não encontrado")
-	if (!receipt.nfe_document_id) return // recebimento sem nota (guia, avulso)
+	return readInvoiceSituation((receipt.nfe_document_id as string | null) ?? null)
+}
 
-	const { data: doc, error: docError } = await inv
+/** Situação da NF-e pelo id; `null` = recebimento sem nota (guia, avulso). */
+async function readInvoiceSituation(
+	nfeDocumentId: string | null
+): Promise<{ status: string; situationResult: string | null; situationCheckedAt: string | null } | null> {
+	if (!nfeDocumentId) return null
+	const { data: doc, error: docError } = await inventory()
 		.from("nfe_document")
 		.select("status, situation_result, situation_checked_at")
-		.eq("id", receipt.nfe_document_id)
+		.eq("id", nfeDocumentId)
 		.maybeSingle()
 	if (docError) throw new Error(`Erro ao conferir a situação da NF-e: ${docError.message}`)
 	// recebimento que aponta para nota que não se encontra NÃO é recebimento sem
 	// nota: antes, este caso passava calado pela trava
 	if (!doc) throw new Error("A NF-e deste recebimento não foi encontrada")
+	return { status: doc.status, situationResult: doc.situation_result, situationCheckedAt: doc.situation_checked_at }
+}
 
-	// A MESMA regra da liquidação, de um lugar só (`invoice-gate.ts`).
-	const problem = invoiceSituationProblem({
-		status: doc.status,
-		situationResult: doc.situation_result,
-		situationCheckedAt: doc.situation_checked_at,
-	})
-	if (problem) throw new Error(problem)
+/**
+ * A nota ainda vale para EFETIVAR? A regra da nota é a da liquidação, de um lugar só
+ * (`invoice-gate.ts`). Com a SEFAZ fora do ar e o motivo informado, o estoque entra com a
+ * consulta pendente (`decideReceiptInvoice`); a liquidação continua exigindo a consulta.
+ */
+async function assertInvoiceUsable(receiptId: string, deferral: { reason: string } | null): Promise<{ deferred: boolean }> {
+	const decision = decideReceiptInvoice(await readReceiptInvoice(receiptId), deferral)
+	if (decision.kind === "refuse") throw new Error(decision.message)
+	return { deferred: decision.kind === "defer" }
 }
 
 /**
@@ -566,6 +619,12 @@ async function assertInvoiceUsable(receiptId: string) {
  */
 async function fillCostFromInvoiceLine(receiptId: string) {
 	const inv = inventory()
+	// Só no recebimento criado DA nota. A entrega vinculada depois a uma nota semanal (o pão)
+	// divide o valor da semana pelo pão de um dia: o custo sairia cinco vezes maior. Essa já
+	// recebe o custo pela linha da nota, no vínculo (`linkReceiptDocumentsFn`).
+	const { data: receipt, error: receiptError } = await inv.from("goods_receipt").select("source").eq("id", receiptId).maybeSingle()
+	if (receiptError) throw new Error(`Erro ao ler a origem do recebimento: ${receiptError.message}`)
+	if (receipt?.source !== "nfe") return
 	const { data: lines, error } = await inv
 		.from("goods_receipt_item")
 		.select("id, nfe_item_id, received_qty_base, nfe_item:nfe_item_id (acquisition_cost, product_value, unit_price, commercial_qty)")
@@ -593,14 +652,18 @@ async function fillCostFromInvoiceLine(receiptId: string) {
 	}
 }
 
-/** Estágio 1: recebimento provisório (não movimenta estoque). */
+/**
+ * Estágio 1: recebimento provisório (não movimenta estoque). Confirma a conferência que já
+ * está registrada — quem conferiu pode não ser o fiscal, e nada é redigitado.
+ */
 export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
-		const { userId } = await requireStorageForKitchen(2, Number(receipt.kitchen_id))
-		const designationId = await requireDesignation(data.receiptId, userId, "provisional")
+		const ctx = await requireStorageForKitchen(2, Number(receipt.kitchen_id))
+		const { userId } = ctx
+		const designationId = await requireDesignation(data.receiptId, ctx, "provisional")
 		const { error } = await inventory()
 			.from("goods_receipt")
 			.update({
@@ -614,28 +677,63 @@ export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(`Erro no recebimento provisório: ${error.message}`)
 	})
 
-/** Estágio 2: efetivação atômica (função SQL) — lotes + movimentos + OF. */
+/**
+ * Estágio 2: efetivação atômica (função SQL) — lotes + movimentos + OF.
+ *
+ * `invoiceCheckDeferral`: a SEFAZ está fora do ar e a consulta da nota não pôde ser feita. O
+ * estoque entra, a pendência fica registrada com quem, quando e por quê, e a liquidação
+ * continua exigindo a consulta recente (`invoice-gate.ts`). Nota cancelada nunca passa.
+ */
 export const finalizeReceiptFn = createServerFn({ method: "POST" })
-	.validator(z.object({ receiptId: z.uuid() }))
+	.validator(z.object({ receiptId: z.uuid(), invoiceCheckDeferral: z.object({ reason: z.string().trim().max(300) }).optional() }))
 	.handler(async ({ data }) => {
 		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
-		const { userId } = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
-		const designationId = await requireDesignation(data.receiptId, userId, "definitive")
-		await assertInvoiceUsable(data.receiptId)
+		const ctx = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
+		const { userId } = ctx
+		const designationId = await requireDesignation(data.receiptId, ctx, "definitive")
+		const { deferred } = await assertInvoiceUsable(data.receiptId, data.invoiceCheckDeferral ?? null)
 
 		const inv = inventory()
 		// Divergência sem motivo não efetiva (art. 140) — a checagem mora em
 		// `finalize_goods_receipt`, depois da trava do recebimento (20260920250000).
 		// Aqui, antes da RPC, uma leitura que entrasse no meio passava por ela.
 		// sem a designação gravada, o termo sairia sem quem efetivou
-		const { error: designationError } = await inv.from("goods_receipt").update({ definitive_designation_id: designationId }).eq("id", data.receiptId)
+		// A consulta adiada vai junto, ANTES da efetivação: gravada depois, uma falha deixaria o
+		// estoque dentro sem o registro de que a nota não foi confirmada.
+		// Sem adiamento, os três campos vão nulos: apagam a marca de uma tentativa anterior.
+		const deferral = deferred
+			? {
+					invoice_check_deferred_at: new Date().toISOString(),
+					invoice_check_deferred_by: userId,
+					invoice_check_deferred_reason: data.invoiceCheckDeferral?.reason.trim() ?? null,
+				}
+			: { invoice_check_deferred_at: null, invoice_check_deferred_by: null, invoice_check_deferred_reason: null }
+		const { error: designationError } = await inv
+			.from("goods_receipt")
+			.update({ definitive_designation_id: designationId, ...deferral })
+			.eq("id", data.receiptId)
 		if (designationError) throw new Error(`Erro ao registrar a designação: ${designationError.message}`)
 
-		await fillCostFromInvoiceLine(data.receiptId)
-
-		const { data: result, error } = await inv.rpc("finalize_goods_receipt", { p_receipt_id: data.receiptId, p_user: userId })
-		if (error) throw new Error(`Efetivação falhou: ${error.message}`)
+		// Qualquer falha daqui até a efetivação (custo da nota, a própria RPC) desfaz a marca:
+		// a consulta adiada não vale para uma tentativa que não aconteceu.
+		const result = await withDeferralRollback(
+			deferred,
+			async () => {
+				await fillCostFromInvoiceLine(data.receiptId)
+				const { data: finalized, error } = await inv.rpc("finalize_goods_receipt", { p_receipt_id: data.receiptId, p_user: userId })
+				if (error) throw new Error(`Efetivação falhou: ${error.message}`)
+				return finalized
+			},
+			async () => {
+				const { error: clearError } = await inv
+					.from("goods_receipt")
+					.update({ invoice_check_deferred_at: null, invoice_check_deferred_by: null, invoice_check_deferred_reason: null })
+					.eq("id", data.receiptId)
+					.is("definitive_at", null)
+				if (clearError) throw new Error(clearError.message)
+			}
+		)
 
 		// Pendência fiscal: recebido a MENOR que o faturado deixa a nota dizendo
 		// 100 e o estoque 90. Carta de correção não altera quantidade nem valor
@@ -661,7 +759,9 @@ export const listReceiptsFn = createServerFn({ method: "GET" })
 		await requireStorageForKitchen(1, data.kitchenId)
 		const { data: receipts, error } = await inventory()
 			.from("goods_receipt")
-			.select("id, nfe_document_id, supply_order_id, status, provisional_at, definitive_at, created_at")
+			.select(
+				"id, nfe_document_id, supply_order_id, empenho_id, status, source, delivery_note_number, supplier_name, provisional_at, definitive_at, rejected_at, created_at"
+			)
 			.eq("kitchen_id", data.kitchenId)
 			.order("created_at", { ascending: false })
 			.limit(50)
@@ -1132,11 +1232,13 @@ export const refuseReceiptFn = createServerFn({ method: "POST" })
 	.validator(z.object({ receiptId: z.uuid(), reason: z.string().min(5).max(500) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id, status, nfe_document_id").eq("id", data.receiptId).maybeSingle()
+		const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id, status, nfe_document_id, source").eq("id", data.receiptId).maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
-		const { userId } = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
+		const ctx = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
+		const { userId } = ctx
 		if (!isReceiptEditable(receipt.status as string)) throw new Error("Recebimento já efetivado")
-		await requireDesignation(data.receiptId, userId, "definitive")
+		// Recusar o todo é decisão de quem recebe definitivamente (art. 140, II, b; § 1º).
+		await requireDesignation(data.receiptId, ctx, "definitive")
 
 		const { error } = await inv
 			.from("goods_receipt")
@@ -1146,7 +1248,9 @@ export const refuseReceiptFn = createServerFn({ method: "POST" })
 			.eq("id", data.receiptId)
 		if (error) throw new Error(`Erro ao recusar o recebimento: ${error.message}`)
 
-		if (receipt.nfe_document_id) {
+		// Só a nota do recebimento criado DELA vira recusada: a NF-e semanal vinculada à entrega
+		// de um dia cobre as outras entregas da semana, que foram aceitas.
+		if (receipt.nfe_document_id && receipt.source === "nfe") {
 			await inv.from("nfe_document").update({ status: "refused" }).eq("id", receipt.nfe_document_id)
 		}
 		return { refused: true }
@@ -1213,4 +1317,507 @@ export const listScanEventsFn = createServerFn({ method: "GET" })
 				.order("seq", { ascending: false })
 				.range(from, to)
 		)
+	})
+
+// ────────────────────────────────────────────────────────────────────────────
+// Recebimento sem NF-e e vínculo posterior (change sisub-flexible-expense-execution, D5)
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Insumos para a linha da entrega sem nota. Catálogo global, busca no servidor. */
+export const searchReceivableIngredientsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ kitchenId: z.number().int().positive(), query: z.string().trim().min(2).max(80) }))
+	.handler(async ({ data }) => {
+		await requireStorageForKitchen(2, data.kitchenId)
+		const pattern = `%${data.query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
+		const { data: rows, error } = await kitchen()
+			.from("ingredient")
+			.select("id, description, measure_unit")
+			.is("deleted_at", null)
+			.ilike("description", pattern)
+			.order("description")
+			.limit(20)
+		if (error) throw new Error(`Erro ao buscar insumos: ${error.message}`)
+		return (rows ?? []) as Array<{ id: string; description: string; measure_unit: string | null }>
+	})
+
+/** OF da cozinha e empenho da unidade compradora, conferidos como na criação pela NF-e. */
+async function resolveOrderAndEmpenho(kitchenId: number, unitId: number, supplyOrderId: string | null, empenhoId: string | null) {
+	let resolvedEmpenhoId = empenhoId
+	if (supplyOrderId) {
+		const { data: order, error } = await procurement().from("supply_order").select("kitchen_id, empenho_id, status").eq("id", supplyOrderId).maybeSingle()
+		if (error) throw new Error(`Erro ao carregar a OF: ${error.message}`)
+		if (!order || Number(order.kitchen_id) !== kitchenId) throw new Error("OF não encontrada ou de outra cozinha")
+		if (order.status === "draft" || order.status === "cancelled") throw new Error("Só OF enviada sustenta a entrega — envie a OF ou registre sem ela")
+		if (order.empenho_id) {
+			if (resolvedEmpenhoId && resolvedEmpenhoId !== order.empenho_id) throw new Error("A OF é de outro empenho — escolha o empenho da OF, ou registre sem OF")
+			resolvedEmpenhoId = order.empenho_id as string
+		} else if (resolvedEmpenhoId) {
+			// a mesma regra de `link_receipt_documents`: a NE da OF aguardando empenho entra NA OF (SICAF)
+			throw new Error("A OF está aguardando empenho: vincule a NE na própria OF, que confere o SICAF — ou registre a entrega com a OF e sem NE")
+		}
+	}
+	let empenho: { favorecido_nome: string | null; favorecido_cnpj: string | null } | null = null
+	if (resolvedEmpenhoId) {
+		const { data: row, error } = await finance()
+			.from("empenho")
+			.select("unit_id, status, favorecido_nome, favorecido_cnpj")
+			.eq("id", resolvedEmpenhoId)
+			.maybeSingle()
+		if (error) throw new Error(`Erro ao carregar o empenho: ${error.message}`)
+		if (!row || Number(row.unit_id) !== unitId) throw new Error("Empenho não encontrado nesta unidade")
+		if (row.status === "anulado") throw new Error("Empenho anulado não sustenta entrega — registre sem empenho e vincule a NE vigente depois")
+		empenho = row
+	}
+	return { empenhoId: resolvedEmpenhoId, empenho }
+}
+
+/**
+ * Registra a entrega que chegou sem NF-e: guia de remessa (o pão diário, a remessa do
+ * depósito) ou sem documento nenhum. Os itens são os que a conferência informa; a nota,
+ * a OF e o empenho se vinculam depois (`linkReceiptDocumentsFn`), sem refazer nada.
+ *
+ * A quantidade de cada linha entra como evento `typed` da conferência — a quantidade da
+ * linha tem UMA fonte, os eventos —, e o lote informado substitui o lote sem código que a
+ * conferência cria. Sem lote, a efetivação cria o sintético como sempre.
+ */
+export const createReceiptWithoutInvoiceFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			kitchenId: z.number().int().positive(),
+			source: z.enum(["delivery_note", "ad_hoc"]),
+			deliveryNoteNumber: z.string().trim().max(60).nullable().optional(),
+			supplierName: z.string().trim().max(200).nullable().optional(),
+			supplierDocument: z.string().trim().max(20).nullable().optional(),
+			/** Falso na remessa de depósito e no apoio de outra OM: não haverá NF-e de fornecedor. */
+			invoiceExpected: z.boolean().default(true),
+			supplyOrderId: z.uuid().nullable().optional(),
+			empenhoId: z.uuid().nullable().optional(),
+			notes: z.string().trim().max(500).nullable().optional(),
+			lines: z
+				.array(
+					z.object({
+						ingredientId: z.uuid(),
+						quantityBase: z.number().positive(),
+						unitCost: z.number().nonnegative().nullable().optional(),
+						lotCode: z.string().trim().max(40).nullable().optional(),
+						expiryDate: IsoDate.optional(),
+					})
+				)
+				.min(1)
+				.max(100),
+		})
+	)
+	.handler(async ({ data }) => {
+		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
+		const problems = receiptWithoutInvoiceProblems({
+			source: data.source,
+			deliveryNoteNumber: data.deliveryNoteNumber ?? null,
+			supplierDocument: data.supplierDocument ?? null,
+			lines: data.lines,
+		})
+		if (problems.length > 0) throw new Error(problems.join(". "))
+
+		const unitId = await purchaseUnitOfKitchen(data.kitchenId)
+		const { empenhoId, empenho } = await resolveOrderAndEmpenho(data.kitchenId, unitId, data.supplyOrderId ?? null, data.empenhoId ?? null)
+
+		const ingredientIds = data.lines.map((line) => line.ingredientId)
+		const { data: ingredients, error: ingredientError } = await kitchen().from("ingredient").select("id, description, deleted_at").in("id", ingredientIds)
+		if (ingredientError) throw new Error(`Erro ao carregar os insumos: ${ingredientError.message}`)
+		const known = new Map<string, string>()
+		for (const row of (ingredients ?? []) as Array<{ id: string; description: string; deleted_at: string | null }>) {
+			if (row.deleted_at == null) known.set(row.id, row.description)
+		}
+		if (ingredientIds.some((id) => !known.has(id))) throw new Error("Insumo não encontrado ou excluído — escolha outro no catálogo")
+
+		// A especificação padrão do insumo dá a conservação sugerida e a validade mínima (EST-REC-04/05).
+		const { data: defaults, error: defaultsError } = await procurement()
+			.from("purchase_item_ingredient")
+			.select("ingredient_id, purchase_item_id")
+			.in("ingredient_id", ingredientIds)
+			.eq("is_default", true)
+		if (defaultsError) throw new Error(`Erro ao carregar as especificações de compra: ${defaultsError.message}`)
+		const purchaseItemBy = new Map<string, string>()
+		for (const row of (defaults ?? []) as Array<{ ingredient_id: string; purchase_item_id: string }>)
+			purchaseItemBy.set(row.ingredient_id, row.purchase_item_id)
+
+		const inv = inventory()
+		const { data: receipt, error } = await inv
+			.from("goods_receipt")
+			.insert({
+				kitchen_id: data.kitchenId,
+				source: data.source,
+				delivery_note_number: data.deliveryNoteNumber?.trim() || null,
+				supplier_name: data.supplierName?.trim() || empenho?.favorecido_nome || null,
+				supplier_document: normalizeSupplierDocument(data.supplierDocument) ?? empenho?.favorecido_cnpj ?? null,
+				invoice_expected: data.invoiceExpected,
+				supply_order_id: data.supplyOrderId ?? null,
+				empenho_id: empenhoId,
+				notes: data.notes?.trim() || null,
+				created_by: userId,
+			})
+			.select("id, created_at")
+			.single()
+		if (error || !receipt) throw new Error(`Erro ao registrar a entrega: ${error?.message}`)
+
+		const { data: items, error: itemsError } = await inv
+			.from("goods_receipt_item")
+			.insert(
+				data.lines.map((line) => ({
+					receipt_id: receipt.id,
+					ingredient_id: line.ingredientId,
+					frozen_preparation_id: null,
+					purchase_item_id: purchaseItemBy.get(line.ingredientId) ?? null,
+					// sem nota, não há faturado: a linha não é "divergente" de nada
+					invoiced_qty_base: null,
+					received_qty_base: 0,
+					unit_cost: line.unitCost ?? null,
+				}))
+			)
+			.select("id, ingredient_id, purchase_item_id")
+		if (itemsError || !items) {
+			// ainda sem evento de conferência: o recebimento se apaga inteiro
+			const { error: rollbackError } = await inv.from("goods_receipt").delete().eq("id", receipt.id)
+			throw new Error(
+				`Erro ao registrar os itens da entrega: ${itemsError?.message}${rollbackError ? ` (e o recebimento vazio ficou em rascunho: ${rollbackError.message})` : ""}`
+			)
+		}
+
+		// Daqui em diante há eventos (append-only): uma falha deixa o recebimento em rascunho
+		// com a linha a conferir, e diz qual — nunca apaga o que já foi registrado.
+		const itemByIngredient = new Map<string, { id: string; ingredient_id: string; purchase_item_id: string | null }>()
+		for (const item of items as Array<{ id: string; ingredient_id: string; purchase_item_id: string | null }>) itemByIngredient.set(item.ingredient_id, item)
+		const warnings: string[] = []
+		const arrival = arrivalDate(receipt.created_at as string)
+		for (const line of data.lines) {
+			const item = itemByIngredient.get(line.ingredientId)
+			if (!item) continue
+			const label = known.get(line.ingredientId) ?? line.ingredientId
+			try {
+				await recordReceiptEvent({
+					receiptId: receipt.id,
+					receiptItemId: item.id,
+					clientEventId: crypto.randomUUID(),
+					method: "typed",
+					quantityBase: line.quantityBase,
+					userId,
+				})
+			} catch (eventError) {
+				warnings.push(`${label}: quantidade não registrada (${eventError instanceof Error ? eventError.message : "erro"}) — informe na conferência`)
+				continue
+			}
+			if (!line.lotCode?.trim() && !line.expiryDate) continue
+			const spec = line.expiryDate ? await requiredRangeFor(item.purchase_item_id, item.ingredient_id) : null
+			const { error: lotError } = await inv
+				.from("goods_receipt_item_lot")
+				.update({
+					...(line.lotCode?.trim() ? { lot_code: line.lotCode.trim() } : {}),
+					expiry_date: line.expiryDate ?? null,
+					divergence_reason: shelfLifeDivergence(line.expiryDate ?? null, arrival, spec?.minShelfLifeDays ?? null),
+				})
+				.eq("receipt_item_id", item.id)
+				.like("lot_code", "SEM-LOTE-%")
+			if (lotError) warnings.push(`${label}: lote e validade não gravados (${lotError.message}) — informe na conferência`)
+		}
+
+		return { receiptId: receipt.id as string, itemsCount: items.length, warnings }
+	})
+
+/** NF-e, OF e empenho que podem ser ligados ao recebimento, com a sugestão pelo fornecedor. */
+export const listReceiptLinkCandidatesFn = createServerFn({ method: "GET" })
+	.validator(z.object({ receiptId: z.uuid() }))
+	.handler(async ({ data }) => {
+		const inv = inventory()
+		const { data: receipt, error: receiptError } = await inv
+			.from("goods_receipt")
+			.select("kitchen_id, supplier_document, empenho_id, nfe_document_id")
+			.eq("id", data.receiptId)
+			.maybeSingle()
+		if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${receiptError.message}`)
+		if (!receipt) throw new Error("Recebimento não encontrado")
+		const kitchenId = Number(receipt.kitchen_id)
+		await requireStorageForKitchen(2, kitchenId)
+		const unitId = await purchaseUnitOfKitchen(kitchenId)
+		const supplier = normalizeSupplierDocument(receipt.supplier_document)
+
+		const since = new Date(Date.now() - 120 * 86_400_000).toISOString()
+		const [notes, orders, empenhos] = await Promise.all([
+			inv
+				.from("nfe_document")
+				.select("id, access_key, supplier_name, supplier_cnpj, supplier_cpf, issued_at, total_value, situation_result")
+				.or(`kitchen_id.eq.${kitchenId},and(kitchen_id.is.null,unit_id.eq.${unitId})`)
+				.not("status", "in", "(cancelled,refused)")
+				.gte("created_at", since)
+				.order("issued_at", { ascending: false })
+				.limit(100),
+			procurement()
+				.from("supply_order")
+				.select("id, number, sent_at, empenho_id")
+				.eq("kitchen_id", kitchenId)
+				.in("status", ["sent", "partially_received", "received"])
+				.order("sent_at", { ascending: false })
+				.limit(50),
+			finance()
+				.from("empenho")
+				.select("id, numero_empenho, favorecido_nome, favorecido_cnpj")
+				.eq("unit_id", unitId)
+				.eq("status", "ativo")
+				.order("data_empenho", { ascending: false })
+				.limit(100),
+		])
+		for (const result of [notes, orders, empenhos]) {
+			if (result.error) throw new Error(`Erro ao carregar os documentos: ${result.error.message}`)
+		}
+
+		type Note = {
+			id: string
+			access_key: string
+			supplier_name: string | null
+			supplier_cnpj: string | null
+			supplier_cpf: string | null
+			issued_at: string | null
+			total_value: number | null
+			situation_result: string | null
+		}
+		const noteList = (notes.data ?? []) as Note[]
+		// Nota com recebimento PRÓPRIO não fecha outra entrega (o estoque seria contado duas vezes).
+		const taken = new Set<string>()
+		if (noteList.length > 0) {
+			const { data: own, error: ownError } = await inv
+				.from("goods_receipt")
+				.select("nfe_document_id")
+				.eq("source", "nfe")
+				.neq("status", "rejected")
+				.in(
+					"nfe_document_id",
+					noteList.map((note) => note.id)
+				)
+			if (ownError) throw new Error(`Erro ao conferir as notas já recebidas: ${ownError.message}`)
+			for (const row of (own ?? []) as Array<{ nfe_document_id: string }>) taken.add(row.nfe_document_id)
+		}
+		const matchesSupplier = (document: string | null | undefined) => supplier != null && normalizeSupplierDocument(document) === supplier
+
+		const noteRows = noteList
+			.filter((note) => !taken.has(note.id) || note.id === receipt.nfe_document_id)
+			.map((note) => ({
+				id: note.id,
+				label: `NF-e ${note.access_key.slice(25, 34)} · ${note.supplier_name ?? note.supplier_cnpj ?? "emitente não identificado"}`,
+				issuedAt: note.issued_at,
+				totalValue: note.total_value == null ? null : Number(note.total_value),
+				suggested: matchesSupplier(note.supplier_cnpj ?? note.supplier_cpf),
+				cancelled: note.situation_result === "cancelled",
+			}))
+			.sort((a, b) => Number(b.suggested) - Number(a.suggested))
+		type Empenho = { id: string; numero_empenho: string; favorecido_nome: string | null; favorecido_cnpj: string | null }
+		const empenhoRows = ((empenhos.data ?? []) as Empenho[])
+			.map((row) => ({
+				id: row.id,
+				label: `${row.numero_empenho}${row.favorecido_nome ? ` · ${row.favorecido_nome}` : ""}`,
+				suggested: matchesSupplier(row.favorecido_cnpj),
+			}))
+			.sort((a, b) => Number(b.suggested) - Number(a.suggested))
+		type Order = { id: string; number: string | null; sent_at: string | null; empenho_id: string | null }
+		const orderRows = ((orders.data ?? []) as Order[]).map((row) => ({
+			id: row.id,
+			label: `${row.number ? `OF ${row.number}` : "OF sem número"}${row.sent_at ? ` · enviada em ${new Date(`${row.sent_at}T12:00:00Z`).toLocaleDateString("pt-BR")}` : ""}`,
+			empenhoId: row.empenho_id,
+			suggested: receipt.empenho_id != null && row.empenho_id === receipt.empenho_id,
+		}))
+
+		return { notes: noteRows, supplyOrders: orderRows, empenhos: empenhoRows }
+	})
+
+/**
+ * Vincula NF-e, OF e empenho a um recebimento já registrado — inclusive efetivado.
+ *
+ * A NF-e casa as linhas pelos itens (`matchReceiptLinesToInvoice`); com o recebimento ainda
+ * aberto, a linha sem custo ganha o custo da linha da nota. Efetivado, nada muda no estoque:
+ * o vínculo é documental. Chamado sem documento novo, refaz o casamento dos itens (o XML
+ * que chegou depois da chave). A aplicação é atômica no banco (`link_receipt_documents`),
+ * que recusa o que a regra de unidade, cozinha e liquidação não permite.
+ */
+export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			receiptId: z.uuid(),
+			nfeDocumentId: z.uuid().nullable().optional(),
+			supplyOrderId: z.uuid().nullable().optional(),
+			// também a NE recém-registrada pelo `QuickEmpenhoDialog`, que devolve o id dela
+			empenhoId: z.uuid().nullable().optional(),
+		})
+	)
+	.handler(async ({ data }) => {
+		const inv = inventory()
+		const { data: receipt, error: receiptError } = await inv
+			.from("goods_receipt")
+			.select("kitchen_id, definitive_at, nfe_document_id, supplier_document, empenho_id")
+			.eq("id", data.receiptId)
+			.maybeSingle()
+		if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${receiptError.message}`)
+		if (!receipt) throw new Error("Recebimento não encontrado")
+		const { userId } = await requireStorageForKitchen(2, Number(receipt.kitchen_id))
+
+		const nfeDocumentId = data.nfeDocumentId ?? (receipt.nfe_document_id as string | null)
+		let links: Array<{ receipt_item_id: string; nfe_item_id: string }> = []
+		let costs: Array<{ receipt_item_id: string; unit_cost: number }> = []
+		let unmatchedLines: string[] = []
+		let warnings: string[] = []
+
+		if (nfeDocumentId) {
+			const [doc, nfeItems, lines] = await Promise.all([
+				inv.from("nfe_document").select("supplier_cnpj, supplier_cpf").eq("id", nfeDocumentId).maybeSingle(),
+				inv
+					.from("nfe_item")
+					.select("id, n_item, description, ingredient_id, purchase_item_id, matched_qty_base, unit_price, commercial_qty")
+					.eq("nfe_document_id", nfeDocumentId),
+				inv.from("goods_receipt_item").select("id, ingredient_id, purchase_item_id, nfe_item_id, unit_cost, unit_cost_source").eq("receipt_id", data.receiptId),
+			])
+			for (const result of [doc, nfeItems, lines]) {
+				if (result.error) throw new Error(`Erro ao carregar a nota e as linhas: ${result.error.message}`)
+			}
+			if (!doc.data) throw new Error("NF-e não encontrada")
+			const toNumber = (value: unknown) => (value == null ? null : Number(value))
+			const lineRows = (lines.data ?? []) as Array<Record<string, unknown>>
+			// Trocando de nota: o custo que veio da nota antiga sai no banco e a nova o repõe onde
+			// casar — então, para o casamento, ele não existe. O item da nota antiga também não.
+			const switchingNfe = data.nfeDocumentId != null && receipt.nfe_document_id != null && data.nfeDocumentId !== receipt.nfe_document_id
+			const match = matchReceiptLinesToInvoice(
+				lineRows.map((line) => ({
+					id: String(line.id),
+					ingredientId: (line.ingredient_id as string | null) ?? null,
+					purchaseItemId: (line.purchase_item_id as string | null) ?? null,
+					nfeItemId: switchingNfe ? null : ((line.nfe_item_id as string | null) ?? null),
+					unitCost: switchingNfe && line.unit_cost_source === "invoice_link" ? null : toNumber(line.unit_cost),
+				})),
+				((nfeItems.data ?? []) as Array<Record<string, unknown>>).map((item) => ({
+					id: String(item.id),
+					nItem: toNumber(item.n_item),
+					description: (item.description as string | null) ?? null,
+					ingredientId: (item.ingredient_id as string | null) ?? null,
+					purchaseItemId: (item.purchase_item_id as string | null) ?? null,
+					matchedQtyBase: toNumber(item.matched_qty_base),
+					unitPrice: toNumber(item.unit_price),
+					commercialQty: toNumber(item.commercial_qty),
+				}))
+			)
+			links = match.links.map((link) => ({ receipt_item_id: link.receiptItemId, nfe_item_id: link.nfeItemId }))
+			// efetivado: o custo já está no estoque e não muda
+			costs = receipt.definitive_at ? [] : match.costs.map((cost) => ({ receipt_item_id: cost.receiptItemId, unit_cost: cost.unitCost }))
+
+			const unmatchedIds = new Set(match.unmatchedLineIds)
+			const unmatchedIngredients = lineRows.filter((line) => unmatchedIds.has(String(line.id)) && line.ingredient_id).map((line) => String(line.ingredient_id))
+			if (unmatchedIngredients.length > 0) {
+				const { data: names, error: namesError } = await kitchen().from("ingredient").select("description").in("id", unmatchedIngredients)
+				if (namesError) throw new Error(`Erro ao carregar os insumos: ${namesError.message}`)
+				unmatchedLines = ((names ?? []) as Array<{ description: string }>).map((row) => row.description)
+			}
+
+			const empenhoId = data.empenhoId ?? (receipt.empenho_id as string | null)
+			let empenhoSupplierCnpj: string | null = null
+			if (empenhoId) {
+				const { data: empenho, error: empenhoError } = await finance().from("empenho").select("favorecido_cnpj").eq("id", empenhoId).maybeSingle()
+				if (empenhoError) throw new Error(`Erro ao carregar o empenho: ${empenhoError.message}`)
+				empenhoSupplierCnpj = (empenho?.favorecido_cnpj as string | null) ?? null
+			}
+			warnings = receiptLinkWarnings({
+				receiptSupplierDocument: (receipt.supplier_document as string | null) ?? null,
+				empenhoSupplierCnpj,
+				invoiceSupplierDocument: (doc.data.supplier_cnpj as string | null) ?? (doc.data.supplier_cpf as string | null) ?? null,
+				invoiceHasItems: (nfeItems.data ?? []).length > 0,
+				attested: receipt.definitive_at != null,
+			})
+		}
+
+		const { data: result, error } = await inv.rpc("link_receipt_documents", {
+			p_receipt_id: data.receiptId,
+			p_user: userId,
+			p_nfe_document_id: data.nfeDocumentId ?? null,
+			p_supply_order_id: data.supplyOrderId ?? null,
+			p_empenho_id: data.empenhoId ?? null,
+			p_item_links: links,
+			p_line_costs: costs,
+		})
+		// As recusas da função já dizem o que fazer ("A OF é de outro empenho — …").
+		if (error) throw new Error(error.message)
+		const row = ((result ?? []) as Array<{ linked_items: number; costed_items: number }>)[0]
+		return {
+			linkedItems: Number(row?.linked_items ?? 0),
+			costedItems: Number(row?.costed_items ?? 0),
+			unmatchedLines,
+			warnings,
+		}
+	})
+
+/**
+ * O que a tela do recebimento precisa saber além das linhas: a designação de quem está
+ * olhando (e se pode designar ali mesmo), a situação da nota para efetivar, os documentos
+ * ligados e se já há liquidação.
+ */
+export const fetchReceiptContextFn = createServerFn({ method: "GET" })
+	.validator(z.object({ receiptId: z.uuid() }))
+	.handler(async ({ data }) => {
+		const inv = inventory()
+		// Recebimento e cozinha lidos UMA vez; designação e nota recebem o que já está em mãos.
+		const { data: receipt, error } = await inv
+			.from("goods_receipt")
+			.select("kitchen_id, empenho_id, supply_order_id, nfe_document_id, source")
+			.eq("id", data.receiptId)
+			.maybeSingle()
+		if (error) throw new Error(`Erro ao carregar o recebimento: ${error.message}`)
+		if (!receipt) throw new Error("Recebimento não encontrado")
+		const ctx = await requireStorageForKitchen(1, Number(receipt.kitchen_id))
+		const scope: DesignationScope = {
+			unitId: await purchaseUnitOfKitchen(Number(receipt.kitchen_id)),
+			empenhoId: (receipt.empenho_id as string | null) ?? null,
+		}
+
+		const [provisional, definitive, note, order, empenho, liquidations] = await Promise.all([
+			findDesignation(scope, ctx.userId, "provisional"),
+			findDesignation(scope, ctx.userId, "definitive"),
+			receipt.nfe_document_id
+				? inv
+						.from("nfe_document")
+						.select("access_key, supplier_name, status, situation_result, situation_checked_at")
+						.eq("id", receipt.nfe_document_id)
+						.maybeSingle()
+				: Promise.resolve({ data: null, error: null }),
+			receipt.supply_order_id
+				? procurement().from("supply_order").select("number, empenho_id").eq("id", receipt.supply_order_id).maybeSingle()
+				: Promise.resolve({ data: null, error: null }),
+			receipt.empenho_id
+				? finance().from("empenho").select("numero_empenho, favorecido_nome").eq("id", receipt.empenho_id).maybeSingle()
+				: Promise.resolve({ data: null, error: null }),
+			finance().from("liquidacao").select("id", { count: "exact", head: true }).eq("goods_receipt_id", data.receiptId),
+		])
+		for (const result of [note, order, empenho, liquidations]) {
+			if (result.error) throw new Error(`Erro ao carregar os documentos do recebimento: ${result.error.message}`)
+		}
+		if (receipt.nfe_document_id && !note.data) throw new Error("A NF-e deste recebimento não foi encontrada")
+		const invoice = note.data
+			? { status: String(note.data.status), situationResult: note.data.situation_result ?? null, situationCheckedAt: note.data.situation_checked_at ?? null }
+			: null
+
+		return {
+			unitId: scope.unitId,
+			source: String(receipt.source) as ReceiptSource,
+			canDesignate: canDesignateInUnit(ctx.permissions, scope.unitId),
+			designation: { provisional, definitive },
+			invoice:
+				invoice && note.data
+					? {
+							problem: invoiceSituationProblem(invoice),
+							cancelled: isInvoiceCancelled(invoice),
+							label: `NF-e ${String(note.data.access_key).slice(25, 34)}${note.data.supplier_name ? ` · ${note.data.supplier_name}` : ""}`,
+						}
+					: null,
+			supplyOrder: order.data
+				? {
+						id: String(receipt.supply_order_id),
+						label: order.data.number ? `OF ${order.data.number}` : "OF sem número",
+						// a NE desta entrega se vincula na OF (SICAF), e o recebimento a acompanha
+						awaitingEmpenho: order.data.empenho_id == null,
+					}
+				: null,
+			empenho: empenho.data ? { label: `${empenho.data.numero_empenho}${empenho.data.favorecido_nome ? ` · ${empenho.data.favorecido_nome}` : ""}` } : null,
+			liquidated: (liquidations.count ?? 0) > 0,
+		}
 	})

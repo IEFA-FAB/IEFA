@@ -193,6 +193,14 @@ export const queryKeys = {
 	flows: {
 		procurementPlanning: (unitId: number | null) => ["flows", "procurement-planning", unitId] as const,
 		demandForecast: (kitchenId: number | null) => ["flows", "demand-forecast", kitchenId] as const,
+		expenseExecution: (unitId: number | null) => ["flows", "expense-execution", unitId] as const,
+		receivingPending: (kitchenId: number | null) => ["flows", "receiving-pending", kitchenId] as const,
+	},
+
+	designations: {
+		list: (unitId: number | null) => ["designations", "list", unitId] as const,
+		candidates: (unitId: number | null) => ["designations", "candidates", unitId] as const,
+		scopes: (unitId: number | null) => ["designations", "scopes", unitId] as const,
 	},
 
 	procurementSegments: {

@@ -8,18 +8,24 @@ import {
 	isTemperatureOutOfRange,
 	lotBalance,
 	type PackageType,
+	RECEIPT_SOURCE_LABELS,
 	type ReceiptLotDraft,
+	type ReceiptSource,
 	type TransportRequirement,
 	temperatureVerdict,
 } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
-import { ArrowLeft, CheckCheck, ClipboardCheck, Plus, Printer, Thermometer, Trash2, TriangleAlert } from "lucide-react"
+import { ArrowLeft, Ban, CheckCheck, ClipboardCheck, Plus, Printer, Thermometer, Trash2, TriangleAlert } from "lucide-react"
 import { useState } from "react"
-import { requirePermission } from "@/auth/pbac"
+import { requirePermission, usePBAC } from "@/auth/pbac"
+import { FinalizeWithPendingCheckDialog, RefuseReceiptDialog } from "@/components/features/storage/receiving/ReceiptDecisionDialogs"
+import { ReceiptDesignationNotice } from "@/components/features/storage/receiving/ReceiptDesignationNotice"
+import { ReceiptDocumentsCard } from "@/components/features/storage/receiving/ReceiptDocumentsCard"
 import { ScanConference } from "@/components/features/storage/receiving/ScanConference"
 import { scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
 import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -29,6 +35,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import {
 	deleteReceiptLotFn,
+	fetchReceiptContextFn,
 	fetchReceiptFn,
 	finalizeReceiptFn,
 	listScanEventsFn,
@@ -44,12 +51,14 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/re
 	loader: async ({ params }) => {
 		// o perfil calibrado do leitor vem junto: sem prefixo/sufixo/substituto do
 		// GS, etiqueta GS1 lida nesta estação chega com lote e validade grudados
-		const [receipt, scannerProfile, scanEvents] = await Promise.all([
+		const [receipt, scannerProfile, scanEvents, context] = await Promise.all([
 			fetchReceiptFn({ data: { receiptId: params.receiptId } }),
 			fetchScannerProfileFn({ data: { kitchenId: Number(params.kitchenId) } }),
 			listScanEventsFn({ data: { receiptId: params.receiptId } }),
+			// designação de quem olha, situação da nota e documentos ligados
+			fetchReceiptContextFn({ data: { receiptId: params.receiptId } }),
 		])
-		return { receipt, scannerProfile, scanEvents }
+		return { receipt, scannerProfile, scanEvents, context }
 	},
 	component: ReceiptDetailPage,
 })
@@ -507,16 +516,48 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 	)
 }
 
+// TODO(db:types): regenerar os tipos após aplicar 20260926215000 e tirar este tipo local
+type ReceiptLinkColumns = {
+	source?: string | null
+	delivery_note_number?: string | null
+	supplier_name?: string | null
+	supplier_document?: string | null
+	invoice_expected?: boolean | null
+	invoice_check_deferred_at?: string | null
+	invoice_check_deferred_reason?: string | null
+	rejected_at?: string | null
+	notes?: string | null
+	empenho_id?: string | null
+}
+
 function ReceiptDetailPage() {
-	const { receipt, scannerProfile, scanEvents } = Route.useLoaderData()
+	const { receipt, scannerProfile, scanEvents, context } = Route.useLoaderData()
 	// A tela não tem número próprio; a listagem identifica o recebimento pela data de abertura
 	useCrumbLabel(`Recebimento de ${new Date(receipt.created_at).toLocaleDateString("pt-BR")}`)
 	const { kitchenId } = Route.useParams()
 	const router = useRouter()
+	const { can } = usePBAC()
 	const [busy, setBusy] = useState(false)
+	const [refusing, setRefusing] = useState(false)
+	const [deferring, setDeferring] = useState(false)
 
 	const items: ReceiptItemRow[] = receipt.items
 	const editable = isReceiptEditable(receipt.status)
+	const links = receipt as typeof receipt & ReceiptLinkColumns
+	const source = links.source ?? "nfe"
+	const sourceText = `${RECEIPT_SOURCE_LABELS[source as ReceiptSource] ?? source}${links.delivery_note_number ? ` ${links.delivery_note_number}` : ""}${links.supplier_name ? ` · ${links.supplier_name}` : ""}`
+	const kitchenScope = { type: "kitchen" as const, id: Number(kitchenId) }
+	const canLink = can("storage", 2, kitchenScope)
+	const canDecide = can("storage", 3, kitchenScope)
+	const awaitingDefinitive = (receipt.status === "provisional" || receipt.status === "divergent") && receipt.definitive_at == null
+	// A nota que a SEFAZ não confirmou ainda: o definitivo pode entrar com a consulta pendente.
+	const invoiceBlocked = context.invoice?.problem != null
+	const needsDesignation: "provisional" | "definitive" | null =
+		receipt.status === "draft" && context.designation.provisional == null
+			? "provisional"
+			: awaitingDefinitive && context.designation.definitive == null
+				? "definitive"
+				: null
 
 	async function toProvisional() {
 		setBusy(true)
@@ -532,6 +573,14 @@ function ReceiptDetailPage() {
 	}
 
 	async function toDefinitive() {
+		if (invoiceBlocked) {
+			if (context.invoice?.cancelled) {
+				toast.error(context.invoice.problem ?? "NF-e cancelada")
+				return
+			}
+			setDeferring(true)
+			return
+		}
 		setBusy(true)
 		try {
 			const result = await finalizeReceiptFn({ data: { receiptId: receipt.id } })
@@ -553,7 +602,12 @@ function ReceiptDetailPage() {
 	return (
 		<div className="space-y-6">
 			<div className="print:hidden">
-				<PageHeader title="Conferência de Recebimento" description={`Situação: ${RECEIPT_STATUS_LABEL[receipt.status] ?? receipt.status}`}>
+				<PageHeader
+					title="Conferência de Recebimento"
+					description={`Situação: ${RECEIPT_STATUS_LABEL[receipt.status] ?? receipt.status} · ${sourceText}${
+						links.rejected_at ? ` · Recusado em ${new Date(links.rejected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""
+					}`}
+				>
 					<Button
 						variant="ghost"
 						size="sm"
@@ -581,8 +635,83 @@ function ReceiptDetailPage() {
 							Efetivar definitivo
 						</Button>
 					)}
+					{editable && canDecide && (
+						<Button size="sm" variant="destructive" disabled={busy} onClick={() => setRefusing(true)}>
+							<Ban data-icon="inline-start" aria-hidden="true" />
+							Recusar entrega
+						</Button>
+					)}
 				</PageHeader>
 			</div>
+
+			{needsDesignation && (
+				<ReceiptDesignationNotice
+					stage={needsDesignation}
+					unitId={context.unitId}
+					canDesignate={context.canDesignate}
+					empenhoId={links.empenho_id ?? null}
+					onDesignated={() => router.invalidate()}
+				/>
+			)}
+
+			{awaitingDefinitive && context.invoice?.problem && (
+				<Alert variant={context.invoice.cancelled ? "destructive" : "default"} className="print:hidden">
+					<TriangleAlert aria-hidden="true" />
+					<AlertTitle>{context.invoice.cancelled ? "NF-e cancelada na SEFAZ" : "Consulta da NF-e pendente"}</AlertTitle>
+					<AlertDescription>
+						{context.invoice.cancelled
+							? `${context.invoice.problem}. Recuse a entrega ou peça a nota substituta ao fornecedor.`
+							: `${context.invoice.problem}. Se a SEFAZ está fora do ar, efetive com a consulta pendente: o estoque entra agora e a liquidação continua exigindo a consulta.`}
+					</AlertDescription>
+				</Alert>
+			)}
+
+			{receipt.status === "rejected" && links.notes && (
+				<Alert variant="destructive">
+					<Ban aria-hidden="true" />
+					<AlertTitle>
+						Entrega recusada{links.rejected_at ? ` em ${new Date(links.rejected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}
+					</AlertTitle>
+					<AlertDescription>{links.notes}</AlertDescription>
+				</Alert>
+			)}
+
+			{links.invoice_check_deferred_at && (
+				<Alert className="print:hidden">
+					<TriangleAlert aria-hidden="true" />
+					<AlertTitle>Efetivado com a consulta da NF-e pendente</AlertTitle>
+					<AlertDescription>
+						{`Em ${new Date(links.invoice_check_deferred_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}: ${links.invoice_check_deferred_reason ?? ""}. Registre a consulta na SEFAZ (NF-e) — sem ela, não há liquidação.`}
+					</AlertDescription>
+				</Alert>
+			)}
+
+			{receipt.status !== "rejected" && (
+				<ReceiptDocumentsCard
+					receiptId={receipt.id}
+					kitchenId={Number(kitchenId)}
+					source={context.source}
+					supplier={{ name: links.supplier_name ?? null, document: links.supplier_document ?? null }}
+					documents={{ nfe: context.invoice, supplyOrder: context.supplyOrder, empenho: context.empenho, liquidated: context.liquidated }}
+					invoiceExpected={links.invoice_expected ?? true}
+					canLink={canLink}
+					onLinked={() => router.invalidate()}
+				/>
+			)}
+
+			<RefuseReceiptDialog receiptId={receipt.id} open={refusing} onOpenChange={setRefusing} onDone={() => router.invalidate()} />
+			{context.invoice?.problem && !context.invoice.cancelled && (
+				<FinalizeWithPendingCheckDialog
+					receiptId={receipt.id}
+					problem={context.invoice.problem}
+					open={deferring}
+					onOpenChange={setDeferring}
+					onDone={(movements) => {
+						toast.success(`Recebimento definitivo com a consulta da NF-e pendente: ${movements} lote(s)/movimento(s) criados`)
+						router.invalidate()
+					}}
+				/>
+			)}
 
 			{/* Cabeçalho do termo (só na impressão) */}
 			<div className="hidden print:block">
@@ -592,6 +721,7 @@ function ReceiptDetailPage() {
 						: `Termo de Recebimento — ${receipt.status === "definitive" ? "Definitivo" : "Provisório"}`}
 				</h1>
 				<p className="text-xs">Recebimento {receipt.id}</p>
+				<p className="text-caption">Origem: {sourceText}</p>
 				{receipt.provisional_at && <p className="text-xs">Provisório em: {new Date(receipt.provisional_at).toLocaleString("pt-BR")}</p>}
 				{receipt.definitive_at && <p className="text-xs">Definitivo em: {new Date(receipt.definitive_at).toLocaleString("pt-BR")}</p>}
 				{receipt.rejected_at && <p className="text-xs">Recusado em: {new Date(receipt.rejected_at).toLocaleString("pt-BR")}</p>}

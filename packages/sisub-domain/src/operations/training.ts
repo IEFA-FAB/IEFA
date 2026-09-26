@@ -467,7 +467,7 @@ const RESET_STEPS: ResetStep[] = [
 	// e conciliação exigem: o aluno GERA esses registros. Logo eles saem no
 	// reset como qualquer outro dado sintético — sem isso, a turma seguinte
 	// herda empenho e pagamento fictícios da anterior.
-	// Ordem: filho antes do pai (pagamento → liquidação → evento → empenho) e
+	// Ordem: filho antes do pai (pagamento → liquidação → evento; o empenho, lá embaixo) e
 	// crédito antes do lote de importação que o originou.
 	{ table: "finance.pagamento", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.pagamento where unit_id = ${scope.unit_id} returning 1`) },
 	{ table: "finance.liquidacao", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.liquidacao where unit_id = ${scope.unit_id} returning 1`) },
@@ -480,7 +480,6 @@ const RESET_STEPS: ResetStep[] = [
 		run: (tx, scope) =>
 			deleteRaw(tx, sql`delete from finance.empenho_event where empenho_id in (select id from finance.empenho where unit_id = ${scope.unit_id}) returning 1`),
 	},
-	{ table: "finance.empenho", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.empenho where unit_id = ${scope.unit_id} returning 1`) },
 	{ table: "finance.budget_credit", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.budget_credit where unit_id = ${scope.unit_id} returning 1`) },
 	{
 		table: "siafi_integration.import_row",
@@ -519,6 +518,9 @@ const RESET_STEPS: ResetStep[] = [
 		table: "procurement.contract_designation",
 		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.contract_designation where unit_id = ${scope.unit_id} returning 1`),
 	},
+	// O empenho sai DEPOIS da designação (a FK dela passou a RESTRICT em 20260926215000: a
+	// designação é prova do ato) e do recebimento, e ANTES da ARP, cujo item ele referencia.
+	{ table: "finance.empenho", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.empenho where unit_id = ${scope.unit_id} returning 1`) },
 	// ATA da unidade sentinela (o treinando publica: `unit:2` é o nível da tela de atas).
 	{
 		table: "procurement.procurement_list_snapshot_selection",

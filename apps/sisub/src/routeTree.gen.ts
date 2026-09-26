@@ -124,6 +124,7 @@ import { Route as ProtectedModulesUnitUnitIdAcquisitionsRouteImport } from './ro
 import { Route as ProtectedModulesUnitUnitIdChatRouteImport } from './routes/_protected/_modules/unit/$unitId/chat'
 import { Route as ProtectedModulesUnitUnitIdCreditRouteImport } from './routes/_protected/_modules/unit/$unitId/credit'
 import { Route as ProtectedModulesUnitUnitIdDashboardRouteImport } from './routes/_protected/_modules/unit/$unitId/dashboard'
+import { Route as ProtectedModulesUnitUnitIdDesignationsRouteImport } from './routes/_protected/_modules/unit/$unitId/designations'
 import { Route as ProtectedModulesUnitUnitIdEmpenhosRouteImport } from './routes/_protected/_modules/unit/$unitId/empenhos'
 import { Route as ProtectedModulesUnitUnitIdLiquidationsRouteImport } from './routes/_protected/_modules/unit/$unitId/liquidations'
 import { Route as ProtectedModulesUnitUnitIdPaymentsRouteImport } from './routes/_protected/_modules/unit/$unitId/payments'
@@ -161,6 +162,7 @@ import { Route as ProtectedModulesStorageKitchenIdNfeNfeIdRouteImport } from './
 import { Route as ProtectedModulesStorageKitchenIdReceivingIndexRouteImport } from './routes/_protected/_modules/storage/$kitchenId/receiving/index'
 import { Route as ProtectedModulesStorageKitchenIdReceivingReceiptIdRouteImport } from './routes/_protected/_modules/storage/$kitchenId/receiving/$receiptId'
 import { Route as ProtectedModulesUnitUnitIdFlowsIndexRouteImport } from './routes/_protected/_modules/unit/$unitId/flows/index'
+import { Route as ProtectedModulesUnitUnitIdFlowsExpenseExecutionRouteImport } from './routes/_protected/_modules/unit/$unitId/flows/expense-execution'
 import { Route as ProtectedModulesUnitUnitIdFlowsProcurementPlanningRouteImport } from './routes/_protected/_modules/unit/$unitId/flows/procurement-planning'
 import { Route as ProtectedModulesUnitUnitIdProcurementIndexRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement/index'
 import { Route as ProtectedModulesUnitUnitIdProcurementAtaIdRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement/$ataId'
@@ -841,6 +843,12 @@ const ProtectedModulesUnitUnitIdDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
+const ProtectedModulesUnitUnitIdDesignationsRoute =
+  ProtectedModulesUnitUnitIdDesignationsRouteImport.update({
+    id: '/designations',
+    path: '/designations',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
 const ProtectedModulesUnitUnitIdEmpenhosRoute =
   ProtectedModulesUnitUnitIdEmpenhosRouteImport.update({
     id: '/empenhos',
@@ -1063,6 +1071,12 @@ const ProtectedModulesUnitUnitIdFlowsIndexRoute =
     path: '/flows/',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
+const ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute =
+  ProtectedModulesUnitUnitIdFlowsExpenseExecutionRouteImport.update({
+    id: '/flows/expense-execution',
+    path: '/flows/expense-execution',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
 const ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute =
   ProtectedModulesUnitUnitIdFlowsProcurementPlanningRouteImport.update({
     id: '/flows/procurement-planning',
@@ -1240,6 +1254,7 @@ export interface FileRoutesByFullPath {
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/unit/$unitId/credit': typeof ProtectedModulesUnitUnitIdCreditRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
+  '/unit/$unitId/designations': typeof ProtectedModulesUnitUnitIdDesignationsRoute
   '/unit/$unitId/empenhos': typeof ProtectedModulesUnitUnitIdEmpenhosRoute
   '/unit/$unitId/liquidations': typeof ProtectedModulesUnitUnitIdLiquidationsRoute
   '/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
@@ -1277,6 +1292,7 @@ export interface FileRoutesByFullPath {
   '/kitchen/$kitchenId/weekly-menus/new': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
   '/storage/$kitchenId/nfe/$nfeId': typeof ProtectedModulesStorageKitchenIdNfeNfeIdRoute
   '/storage/$kitchenId/receiving/$receiptId': typeof ProtectedModulesStorageKitchenIdReceivingReceiptIdRoute
+  '/unit/$unitId/flows/expense-execution': typeof ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute
   '/unit/$unitId/flows/procurement-planning': typeof ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute
   '/unit/$unitId/procurement/$ataId': typeof ProtectedModulesUnitUnitIdProcurementAtaIdRoute
   '/unit/$unitId/procurement/new': typeof ProtectedModulesUnitUnitIdProcurementNewRoute
@@ -1396,6 +1412,7 @@ export interface FileRoutesByTo {
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/unit/$unitId/credit': typeof ProtectedModulesUnitUnitIdCreditRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
+  '/unit/$unitId/designations': typeof ProtectedModulesUnitUnitIdDesignationsRoute
   '/unit/$unitId/empenhos': typeof ProtectedModulesUnitUnitIdEmpenhosRoute
   '/unit/$unitId/liquidations': typeof ProtectedModulesUnitUnitIdLiquidationsRoute
   '/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
@@ -1431,6 +1448,7 @@ export interface FileRoutesByTo {
   '/kitchen/$kitchenId/weekly-menus/new': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
   '/storage/$kitchenId/nfe/$nfeId': typeof ProtectedModulesStorageKitchenIdNfeNfeIdRoute
   '/storage/$kitchenId/receiving/$receiptId': typeof ProtectedModulesStorageKitchenIdReceivingReceiptIdRoute
+  '/unit/$unitId/flows/expense-execution': typeof ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute
   '/unit/$unitId/flows/procurement-planning': typeof ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute
   '/unit/$unitId/procurement/$ataId': typeof ProtectedModulesUnitUnitIdProcurementAtaIdRoute
   '/unit/$unitId/procurement/new': typeof ProtectedModulesUnitUnitIdProcurementNewRoute
@@ -1560,6 +1578,7 @@ export interface FileRoutesById {
   '/_protected/_modules/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/_protected/_modules/unit/$unitId/credit': typeof ProtectedModulesUnitUnitIdCreditRoute
   '/_protected/_modules/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
+  '/_protected/_modules/unit/$unitId/designations': typeof ProtectedModulesUnitUnitIdDesignationsRoute
   '/_protected/_modules/unit/$unitId/empenhos': typeof ProtectedModulesUnitUnitIdEmpenhosRoute
   '/_protected/_modules/unit/$unitId/liquidations': typeof ProtectedModulesUnitUnitIdLiquidationsRoute
   '/_protected/_modules/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
@@ -1597,6 +1616,7 @@ export interface FileRoutesById {
   '/_protected/_modules/kitchen/$kitchenId/weekly-menus/new': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
   '/_protected/_modules/storage/$kitchenId/nfe/$nfeId': typeof ProtectedModulesStorageKitchenIdNfeNfeIdRoute
   '/_protected/_modules/storage/$kitchenId/receiving/$receiptId': typeof ProtectedModulesStorageKitchenIdReceivingReceiptIdRoute
+  '/_protected/_modules/unit/$unitId/flows/expense-execution': typeof ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute
   '/_protected/_modules/unit/$unitId/flows/procurement-planning': typeof ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute
   '/_protected/_modules/unit/$unitId/procurement/$ataId': typeof ProtectedModulesUnitUnitIdProcurementAtaIdRoute
   '/_protected/_modules/unit/$unitId/procurement/new': typeof ProtectedModulesUnitUnitIdProcurementNewRoute
@@ -1724,6 +1744,7 @@ export interface FileRouteTypes {
     | '/unit/$unitId/chat'
     | '/unit/$unitId/credit'
     | '/unit/$unitId/dashboard'
+    | '/unit/$unitId/designations'
     | '/unit/$unitId/empenhos'
     | '/unit/$unitId/liquidations'
     | '/unit/$unitId/payments'
@@ -1761,6 +1782,7 @@ export interface FileRouteTypes {
     | '/kitchen/$kitchenId/weekly-menus/new'
     | '/storage/$kitchenId/nfe/$nfeId'
     | '/storage/$kitchenId/receiving/$receiptId'
+    | '/unit/$unitId/flows/expense-execution'
     | '/unit/$unitId/flows/procurement-planning'
     | '/unit/$unitId/procurement/$ataId'
     | '/unit/$unitId/procurement/new'
@@ -1880,6 +1902,7 @@ export interface FileRouteTypes {
     | '/unit/$unitId/chat'
     | '/unit/$unitId/credit'
     | '/unit/$unitId/dashboard'
+    | '/unit/$unitId/designations'
     | '/unit/$unitId/empenhos'
     | '/unit/$unitId/liquidations'
     | '/unit/$unitId/payments'
@@ -1915,6 +1938,7 @@ export interface FileRouteTypes {
     | '/kitchen/$kitchenId/weekly-menus/new'
     | '/storage/$kitchenId/nfe/$nfeId'
     | '/storage/$kitchenId/receiving/$receiptId'
+    | '/unit/$unitId/flows/expense-execution'
     | '/unit/$unitId/flows/procurement-planning'
     | '/unit/$unitId/procurement/$ataId'
     | '/unit/$unitId/procurement/new'
@@ -2043,6 +2067,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/unit/$unitId/chat'
     | '/_protected/_modules/unit/$unitId/credit'
     | '/_protected/_modules/unit/$unitId/dashboard'
+    | '/_protected/_modules/unit/$unitId/designations'
     | '/_protected/_modules/unit/$unitId/empenhos'
     | '/_protected/_modules/unit/$unitId/liquidations'
     | '/_protected/_modules/unit/$unitId/payments'
@@ -2080,6 +2105,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/kitchen/$kitchenId/weekly-menus/new'
     | '/_protected/_modules/storage/$kitchenId/nfe/$nfeId'
     | '/_protected/_modules/storage/$kitchenId/receiving/$receiptId'
+    | '/_protected/_modules/unit/$unitId/flows/expense-execution'
     | '/_protected/_modules/unit/$unitId/flows/procurement-planning'
     | '/_protected/_modules/unit/$unitId/procurement/$ataId'
     | '/_protected/_modules/unit/$unitId/procurement/new'
@@ -2923,6 +2949,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdDashboardRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
+    '/_protected/_modules/unit/$unitId/designations': {
+      id: '/_protected/_modules/unit/$unitId/designations'
+      path: '/designations'
+      fullPath: '/unit/$unitId/designations'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdDesignationsRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
     '/_protected/_modules/unit/$unitId/empenhos': {
       id: '/_protected/_modules/unit/$unitId/empenhos'
       path: '/empenhos'
@@ -3180,6 +3213,13 @@ declare module '@tanstack/react-router' {
       path: '/flows'
       fullPath: '/unit/$unitId/flows/'
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdFlowsIndexRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
+    '/_protected/_modules/unit/$unitId/flows/expense-execution': {
+      id: '/_protected/_modules/unit/$unitId/flows/expense-execution'
+      path: '/flows/expense-execution'
+      fullPath: '/unit/$unitId/flows/expense-execution'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdFlowsExpenseExecutionRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
     '/_protected/_modules/unit/$unitId/flows/procurement-planning': {
@@ -3558,6 +3598,7 @@ interface ProtectedModulesUnitUnitIdRouteRouteChildren {
   ProtectedModulesUnitUnitIdChatRoute: typeof ProtectedModulesUnitUnitIdChatRoute
   ProtectedModulesUnitUnitIdCreditRoute: typeof ProtectedModulesUnitUnitIdCreditRoute
   ProtectedModulesUnitUnitIdDashboardRoute: typeof ProtectedModulesUnitUnitIdDashboardRoute
+  ProtectedModulesUnitUnitIdDesignationsRoute: typeof ProtectedModulesUnitUnitIdDesignationsRoute
   ProtectedModulesUnitUnitIdEmpenhosRoute: typeof ProtectedModulesUnitUnitIdEmpenhosRoute
   ProtectedModulesUnitUnitIdLiquidationsRoute: typeof ProtectedModulesUnitUnitIdLiquidationsRoute
   ProtectedModulesUnitUnitIdPaymentsRoute: typeof ProtectedModulesUnitUnitIdPaymentsRoute
@@ -3567,6 +3608,7 @@ interface ProtectedModulesUnitUnitIdRouteRouteChildren {
   ProtectedModulesUnitUnitIdSettingsRoute: typeof ProtectedModulesUnitUnitIdSettingsRoute
   ProtectedModulesUnitUnitIdSiafiRoute: typeof ProtectedModulesUnitUnitIdSiafiRoute
   ProtectedModulesUnitUnitIdIndexRoute: typeof ProtectedModulesUnitUnitIdIndexRoute
+  ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute: typeof ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute
   ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute: typeof ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute
   ProtectedModulesUnitUnitIdFlowsIndexRoute: typeof ProtectedModulesUnitUnitIdFlowsIndexRoute
 }
@@ -3580,6 +3622,8 @@ const ProtectedModulesUnitUnitIdRouteRouteChildren: ProtectedModulesUnitUnitIdRo
       ProtectedModulesUnitUnitIdCreditRoute,
     ProtectedModulesUnitUnitIdDashboardRoute:
       ProtectedModulesUnitUnitIdDashboardRoute,
+    ProtectedModulesUnitUnitIdDesignationsRoute:
+      ProtectedModulesUnitUnitIdDesignationsRoute,
     ProtectedModulesUnitUnitIdEmpenhosRoute:
       ProtectedModulesUnitUnitIdEmpenhosRoute,
     ProtectedModulesUnitUnitIdLiquidationsRoute:
@@ -3596,6 +3640,8 @@ const ProtectedModulesUnitUnitIdRouteRouteChildren: ProtectedModulesUnitUnitIdRo
       ProtectedModulesUnitUnitIdSettingsRoute,
     ProtectedModulesUnitUnitIdSiafiRoute: ProtectedModulesUnitUnitIdSiafiRoute,
     ProtectedModulesUnitUnitIdIndexRoute: ProtectedModulesUnitUnitIdIndexRoute,
+    ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute:
+      ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute,
     ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute:
       ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute,
     ProtectedModulesUnitUnitIdFlowsIndexRoute:

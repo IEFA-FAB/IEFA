@@ -2,7 +2,7 @@
 
 - [x] 1.1 [sisub] Declarar `procurement.acquisition` e `finance.credit_note` em `RESET_EXCLUSIONS` (PR #461)
 - [x] 1.2 [database] `20260926214000_acquisition_origin`: `acquisition`, `direct_contract_limit` (semeada 2024–2026, conferida em planalto.gov.br), `empenho_item`; ARP com `ata_id` anulável `SET NULL`, `acquisition_id`, `source`; empenho com `acquisition_id`, colunas antigas anuláveis, FKs `RESTRICT`; OF com `empenho_id` anulável e limite pelo valor vigente; `import_row.parse_status = 'waiting_parent'` e as funções `apply_document_batch`/`relink_waiting_rows` (movidas da 1.3). Sem `unit_role` nem `link_status` (design revisado)
-- [ ] 1.3 [database] `20260926215000_receiving_links`: recebimento sem NF-e, vínculos posteriores, `contract_designation.acquisition_id` (`RESTRICT`, D6), CHECK de `contract_designation.source_reference` (`waiting_parent` já entrou na 1.2)
+- [x] 1.3 [database] `20260926215000_receiving_links`: recebimento sem NF-e, vínculos posteriores, CHECK de `contract_designation.source_reference`, `contract_designation.acquisition_id` e FKs `RESTRICT`, view de conciliação pela liquidação (escrita, NÃO aplicada; depende de 214000). `waiting_parent` entrou na 1.2
 - [ ] 1.4 [database] `20260926216000_finance_compliance`: `credit_note`, `empenho_rp_inscription`, `liquidacao_deduction`
 - [ ] 1.5 [database] Aplicar (`db:push --dry-run`, push) e regerar `generated.ts` e Drizzle; `audit:rls` verde
 
@@ -18,14 +18,14 @@
 
 ## 3. Estoque: recebimento e designação
 
-- [ ] 3.1 [sisub] Recebimento `delivery_note` e `ad_hoc`; vincular NF-e, OF e empenho depois
-- [ ] 3.2 [sisub] Designações (Gestão Unidade) e "Designar agora" no recebimento; provisório sem designação com pendência
-- [ ] 3.3 [sisub] Efetivação do estoque com SEFAZ indisponível: entra no estoque, liquidação continua exigindo a consulta
+- [x] 3.1 [sisub] Recebimento `delivery_note` e `ad_hoc`; vincular NF-e, OF e empenho depois (registro rápido da NE pelo `QuickEmpenhoDialog`)
+- [x] 3.2 [sisub] Designações (Gestão Unidade) e "Designar agora" no recebimento; conferência física sem designação com pendência (provisório e definitivo exigem designação — art. 140, II, a e b)
+- [x] 3.3 [sisub] Efetivação do estoque com SEFAZ indisponível: entra no estoque, liquidação continua exigindo a consulta
 
 ## 4. Pendências
 
-- [ ] 4.1 [sisub-domain] `fetchExpenseExecutionStatus(unitId)` e `fetchReceivingPendingStatus(kitchenId)`
-- [ ] 4.2 [sisub] Fluxo "Executar despesa" e pendências no painel "a caminho"
+- [x] 4.1 [sisub-domain] `fetchExpenseExecutionStatus(unitId)` e `fetchReceivingPendingStatus(kitchenId)`
+- [x] 4.2 [sisub] Fluxo "Executar despesa" e pendências no painel "a caminho"
 
 ## 5. Execução financeira conforme
 
@@ -39,6 +39,6 @@
 
 ## 7. Fechamento
 
-- [ ] 7.1 [sisub] Catálogo de edge cases (`gestao-unidade.md`, `estoque.md`, `producao-cozinha.md`) com cada caso e a cobertura
+- [ ] 7.1 [sisub] Catálogo de edge cases (`gestao-unidade.md`, `estoque.md`, `producao-cozinha.md`) com cada caso e a cobertura — feito para recebimento, designação e fluxo (EST-REC-06..12, GU-DES-01..03, GU-EXE-01..05)
 - [ ] 7.2 [sisub] Integração no banco real dos caminhos novos; promover `acquisition` e `credit_note` a `RESET_STEPS`
 - [ ] 7.3 [root] `bun run check`, `bun run lint --concurrency=2`, `bun run test --concurrency=2`

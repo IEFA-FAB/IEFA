@@ -330,24 +330,33 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		// tem documento fiscal ainda — some do painel se a lista for só de notas.
 		//
 		// Três cortes, e cada um fecha uma forma de a lista crescer para sempre:
-		//  • só entrega de COMPRA (com ordem de fornecimento) espera nota. A mesma
+		//  • só entrega que ESPERA nota (`invoice_expected`, 20260926215000). A mesma
 		//    origem `delivery_note` cobre a remessa de depósito e o apoio de outra
 		//    OM, que nunca terão NF-e de fornecedor — e ficavam "aguardando a nota"
-		//    eternamente;
+		//    eternamente. Antes da coluna, o corte era "tem OF", e a entrega de pão
+		//    sem OF sumia do painel;
 		//  • rascunho não entra: ainda não é entrega, e aparecia como "Entregue";
 		//  • só os últimos 45 dias: a nota semanal do pão chega em dias; entrega de
 		//    mês e meio atrás sem nota é pendência para a revisão fiscal, não algo
 		//    "a caminho".
 		const horizon = new Date(Date.now() - UNBILLED_HORIZON_DAYS * 86_400_000).toISOString()
-		type Receipt = { id: string; supply_order_id: string; status: string; delivery_note_number: string | null; created_at: string }
+		type Receipt = {
+			id: string
+			supply_order_id: string | null
+			status: string
+			delivery_note_number: string | null
+			supplier_name: string | null
+			supplier_document: string | null
+			created_at: string
+		}
 		const unbilled = await readAllPages<Receipt>("as entregas sem nota", (from, to) =>
 			inv
 				.from("goods_receipt")
-				.select("id, supply_order_id, status, delivery_note_number, created_at")
+				.select("id, supply_order_id, status, delivery_note_number, supplier_name, supplier_document, created_at")
 				.eq("kitchen_id", data.kitchenId)
 				.is("nfe_document_id", null)
 				.neq("source", "nfe")
-				.not("supply_order_id", "is", null)
+				.eq("invoice_expected", true)
 				// `goods_receipt.status` não tem `cancelled`: os valores são draft,
 				// provisional, definitive, divergent e rejected
 				.not("status", "in", "(rejected,draft)")
@@ -359,8 +368,8 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 			rows.push({
 				key: `sem-nota:${receipt.id}`,
 				kind: "delivery_without_invoice",
-				supplierName: null,
-				supplierDocument: null,
+				supplierName: receipt.supplier_name,
+				supplierDocument: receipt.supplier_document,
 				reference: receipt.delivery_note_number ? `Remessa ${receipt.delivery_note_number}` : "Entrega sem nota",
 				referenceDate: civilDate(receipt.created_at),
 				daysLate: 0,

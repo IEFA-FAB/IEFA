@@ -26,6 +26,7 @@ import {
 import { WORKFORCE_NOTE_KINDS, WORKFORCE_SURVEY_STATUSES } from "../schemas/workforce.ts"
 import { CATALOG_SCOPE_VALUES } from "./catalog-scope.ts"
 import { CONSERVATION_CLASSES } from "./conditioning.ts"
+import { DESIGNATION_ROLES, DESIGNATION_SOURCES } from "./designations.ts"
 import {
 	EXPIRY_DEFAULT_ALERT_DAYS,
 	GOODS_RECEIPT_STATUSES,
@@ -44,6 +45,7 @@ import {
 	STOCK_OUTFLOW_TYPES,
 	SUPPLY_ORDER_STATUSES,
 } from "./inventory-vocabulary.ts"
+import { RECEIPT_SOURCES } from "./receiving-links.ts"
 
 const MIGRATIONS = join(import.meta.dir, "..", "..", "..", "database", "supabase", "migrations")
 
@@ -298,5 +300,28 @@ describe("antecedência default do alerta de vencimento", () => {
 	test("as classes com default próprio são classes de conservação existentes", () => {
 		const classes = Object.keys(EXPIRY_DEFAULT_ALERT_DAYS).filter((key) => key !== "outras")
 		expect(classes.every((klass) => (CONSERVATION_CLASSES as readonly string[]).includes(klass))).toBe(true)
+	})
+})
+
+describe("recebimento e designação (20260917200000, 20260926215000)", () => {
+	/** Valores do CHECK nomeado na definição VIGENTE (a última migration que o declara). */
+	function namedCheck(constraint: string, column: string): string[] {
+		const pattern = new RegExp(`constraint ${constraint} check \\(${column} in \\(([^)]*)\\)`, "i")
+		const { sql } = latestSqlWith(pattern)
+		const match = sql.match(pattern)
+		if (!match) throw new Error(`CHECK nomeado ${constraint} não encontrado`)
+		return [...(match[1] as string).matchAll(/'([^']+)'/g)].map((value) => value[1] as string).sort()
+	}
+
+	test("goods_receipt.source", () => {
+		expect(checkValues("20260917200000_receiving_designation_and_scan.sql", "source", 1)).toEqual([...RECEIPT_SOURCES].sort())
+	})
+
+	test("contract_designation.role", () => {
+		expect(checkValues("20260917200000_receiving_designation_and_scan.sql", "role", 0)).toEqual([...DESIGNATION_ROLES].sort())
+	})
+
+	test("contract_designation.source: a NE não designa (sem 'empenho')", () => {
+		expect(namedCheck("contract_designation_source_check", "source")).toEqual([...DESIGNATION_SOURCES].sort())
 	})
 })

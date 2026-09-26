@@ -265,3 +265,77 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
   limite da dispensa no ramo (classe do CATMAT) da unidade compradora; urgência sozinha não autoriza
   dispensa (a de emergência, art. 75, VIII, tem processo próprio).
 - **Cobertura:** `replenishment.test.ts › decideChannel`; `acquisition.test.ts`.
+## Execução da despesa (fluxo "Executar despesa", designação)
+
+### GU-DES-01 — "Ninguém sabe quem é o fiscal do contrato"
+- **Realidade:** a designação saiu em boletim, mas não havia onde registrá-la: todo
+  recebimento parava no provisório.
+- **O sistema precisa:** tela de designações (`unit:2`) de fiscal, gestor e comissão, com o ato
+  (número do boletim ou da portaria, obrigatório no `ato`), a vigência e o escopo (OM toda,
+  contratação, ARP ou empenho). A nota de empenho não designa ninguém (Lei 4.320, art. 58).
+  Registro auditado.
+- **UX:** Gestão Unidade → Designações → "Nova designação"; o fluxo "Executar despesa" mostra
+  "Nenhum fiscal designado" e "Nenhum gestor ou comissão designada", com o atalho.
+- **Cobertura:** `lib/flows/expense-execution.test.ts › sem fiscal nem gestor designado…`;
+  `receiving-links.operations.test.ts › designar agora…` (CHECK do ato e fonte `empenho`
+  recusada). **LACUNA:** `createDesignation` pelo domínio no banco real (a pessoa precisa de
+  permissão na OM, e o seed de permissão passa pela função auditada).
+
+### GU-DES-04 — "O chefe do rancho quer se designar gestor e efetivar ele mesmo"
+- **O sistema precisa:** quem pode efetivar o definitivo não se designa gestor nem comissão do
+  definitivo (segregação de funções, Lei 14.133/2021, art. 7º, § 1º; art. 140, II, b). A recusa
+  lista quem mais tem Gestão Unidade nível 2 na OM; sem ninguém, diz para pedir a concessão.
+  Designar-se fiscal passa. O formulário não pré-escolhe a própria pessoa.
+- **Cobertura:** `designations.test.ts › selfDesignationProblem`. **LACUNA:** caso no banco real.
+
+### GU-DES-05 — "Destituíram o fiscal às 9h"
+- **O sistema precisa:** encerrar vale a partir de hoje (`valid_to` = ontem); a que começou hoje
+  e já sustenta termo não se apaga.
+- **Cobertura:** `designations.test.ts › planEndDesignation`;
+  `receiving-links.operations.test.ts › designação encerrada hoje deixa de valer hoje`.
+
+### GU-DES-02 — "O fiscal saiu de férias; o substituto recebe"
+- **O sistema precisa:** designação marcada como substituto; a busca prefere a do titular e a
+  mais específica (empenho, ARP, contratação, OM).
+- **Cobertura:** hipótese (a ordem está em `inventory.find_designation`; sem teste).
+
+### GU-DES-03 — "Apagaram a ARP (ou o empenho) de uma designação"
+- **O sistema precisa:** a designação é a prova do ato que sustenta o termo: empenho, ARP e
+  contratação passam a `ON DELETE RESTRICT`; o reset de treino apaga a designação antes do
+  empenho.
+- **Cobertura:** **LACUNA** no banco real (validado no smoke local da migration 20260926215000).
+
+### GU-EXE-01 — "A NE foi importada do SIAFI e ninguém sabe de que contratação ela é"
+- **O sistema precisa:** a NE entra e é usável; "sem contratação de origem" (sem
+  `acquisition_id` e sem item de ARP) é pendência no fluxo, e some quando a NE é vinculada.
+- **UX:** o atalho leva a Gestão Unidade → Contratações de origem, que lista as NEs sem origem.
+- **Cobertura:** `lib/flows/expense-execution.test.ts › NE sem contratação de origem…` e
+  `› pendência some quando o dado aparece`. A leitura (`fetchExpenseExecutionStatus`) não tem
+  caso no banco real: **LACUNA**.
+
+### GU-EXE-02 — "A OF saiu em emergência, sem empenho"
+- **O sistema precisa:** a etapa "Ordens de fornecimento" bloqueia (a OF não), citando a Lei
+  4.320, art. 60, e leva a registrar a NE.
+- **Cobertura:** `lib/flows/expense-execution.test.ts › OF enviada sem empenho bloqueia a
+  etapa`. A OF sem empenho é do PR da contratação de origem (tarefa 2.6).
+
+### GU-EXE-03 — "A NS chegou do SIAFI antes da NE"
+- **O sistema precisa:** a NS estacionada aparece no fluxo com o número da NE que falta, e o
+  atalho para o SIAFI.
+- **Cobertura:** `lib/flows/expense-execution.test.ts › NS estacionada…`;
+  `expense-execution.test.ts (domínio) › groupSiafiWaiting`. O estacionamento é do PR do SIAFI.
+
+### GU-EXE-04 — "A conciliação dizia 'sem liquidação' para todo recebimento"
+- **Realidade:** a view físico × contábil ligava por `goods_receipt.liquidacao_id`, que deixou
+  de ser gravado; e uma entrega liquidada em duas NS não somava.
+- **O sistema precisa:** ligar pela liquidação que aponta o recebimento, somando as parcelas;
+  recusado fora (não tem `definitive_at`).
+- **Cobertura:** `receiving-links.operations.test.ts › físico × contábil liga pela liquidação…`.
+
+### GU-EXE-05 — "Dispensa sem valor, ou acima do limite sem justificativa"
+- **O sistema precisa:** o fluxo usa as regras da tela de contratações (`acquisitionGaps`,
+  `computeDispensaSum`): dispensa sem valor avisa que o somatório do art. 75, § 1º, é um piso;
+  acima do limite sem justificativa pede a justificativa, com o atalho para a contratação.
+- **Cobertura:** `expense-execution.test.ts (domínio) › summarizeAcquisitions`;
+  `lib/flows/expense-execution.test.ts › dispensa acima do limite sem justificativa…` e
+  `› contratação incompleta… dispensa sem valor…`.

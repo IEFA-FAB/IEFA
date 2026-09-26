@@ -595,6 +595,23 @@ export const ASSURANCE_REGISTRY = {
 	refuseReceiptLineFn: { require: "none" },
 	refuseReceiptFn: { require: "none" },
 	resolveFiscalPendingFn: { require: "none" },
+	// Recebimento sem NF-e e vínculo posterior (change sisub-flexible-expense-execution, D5).
+	createReceiptWithoutInvoiceFn: { require: "none" },
+	linkReceiptDocumentsFn: { require: "none" },
+
+	// ── designation.fn.ts
+	// A designação é a competência que sustenta o termo de recebimento — e, por ele, a
+	// liquidação (Lei 14.133, art. 140, II). Registrada como operação sensível.
+	createDesignationFn: {
+		require: "session",
+		reason: "Esta operação designa quem pode receber e atestar entregas em nome da OM.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	endDesignationFn: {
+		require: "session",
+		reason: "Esta operação encerra a designação de quem recebe e atesta entregas.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
 
 	// ── scanner.fn.ts
 	saveScannerProfileFn: { require: "none" },

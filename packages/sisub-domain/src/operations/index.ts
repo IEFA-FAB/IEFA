@@ -191,6 +191,34 @@ export {
 export { getUnitDashboard, type UnitDashboardData } from "./dashboard.ts"
 export { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 export {
+	canDesignateInUnit,
+	createDesignation,
+	DEFINITIVE_RECEIPT_ROLES,
+	DESIGNATION_ROLE_LABELS,
+	DESIGNATION_ROLES,
+	DESIGNATION_SCREEN_LABEL,
+	DESIGNATION_SOURCE_LABELS,
+	DESIGNATION_SOURCES,
+	type DesignationCandidate,
+	type DesignationInput,
+	type DesignationRole,
+	type DesignationRow,
+	type DesignationScopes,
+	type DesignationSource,
+	designationInputProblems,
+	designationMissingMessage,
+	type EndDesignationPlan,
+	endDesignation,
+	isDesignationActive,
+	listDesignationCandidates,
+	listDesignationScopes,
+	listDesignations,
+	PROVISIONAL_RECEIPT_ROLES,
+	planEndDesignation,
+	type ReceiptStage,
+	selfDesignationProblem,
+} from "./designations.ts"
+export {
 	type ArpConformityCode,
 	type ArpConformityWarning,
 	type ArpItemFacts,
@@ -273,6 +301,27 @@ export type {
 export { countByCondition, getFleetEquipmentReport, getKitchenEquipmentCondition, getKitchenMaintenanceMatrix } from "./equipment-reports.ts"
 export type { EvalConfig, EvaluationForUser } from "./evaluation.ts"
 export { fetchEvalConfig, fetchEvaluationForUser, submitEvaluation, upsertEvalConfig } from "./evaluation.ts"
+export {
+	type AcquisitionForStatus,
+	type AcquisitionsSummary,
+	countReceiptPending,
+	type ExpenseExecutionStatus,
+	emptyReceiptPendingCounts,
+	fetchExpenseExecutionStatus,
+	fetchReceivingPendingStatus,
+	groupSiafiWaiting,
+	type IncompleteAcquisition,
+	type PendingSeverity,
+	RECEIPT_PENDING_KINDS,
+	RECEIPT_PENDING_SEVERITY,
+	type ReceiptPendingCounts,
+	type ReceiptPendingKind,
+	type ReceiptPendingRow,
+	type ReceivingPendingStatus,
+	receiptPendingKinds,
+	type SiafiWaitingGroup,
+	summarizeAcquisitions,
+} from "./expense-execution.ts"
 export { type FolderLastReview, type FolderReviewRow, listFolderLastReviews, recordFolderReview } from "./folder-reviews.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
@@ -689,6 +738,20 @@ export {
 	syntheticLotCode,
 	validateReceiptLots,
 } from "./receipt-lots.ts"
+export {
+	type InvoiceItemForLink,
+	matchReceiptLinesToInvoice,
+	normalizeSupplierDocument,
+	RECEIPT_SOURCE_LABELS,
+	RECEIPT_SOURCES,
+	type ReceiptInvoiceMatch,
+	type ReceiptLineForLink,
+	type ReceiptLineInput,
+	type ReceiptLinkCheckInput,
+	type ReceiptSource,
+	receiptLinkWarnings,
+	receiptWithoutInvoiceProblems,
+} from "./receiving-links.ts"
 export {
 	divergesFromInvoice,
 	type NfeCostInput,

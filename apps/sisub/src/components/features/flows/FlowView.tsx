@@ -97,6 +97,17 @@ function IssueRow({ issue, origin }: { issue: FlowIssue; origin: FlowOrigin }) {
 	)
 }
 
+/** Pendências soltas, fora de um fluxo (o painel "a caminho" do Estoque), no mesmo formato. */
+export function FlowIssueList({ issues, origin }: { issues: FlowIssue[]; origin: FlowOrigin }) {
+	return (
+		<ItemGroup>
+			{issues.map((issue) => (
+				<IssueRow key={`${issue.severity}:${issue.message}`} issue={issue} origin={origin} />
+			))}
+		</ItemGroup>
+	)
+}
+
 /**
  * Um fluxo guiado: as etapas em ordem, cada uma com o objetivo, o que já está feito, o que falta
  * (com quem resolve) e o atalho para a tela que resolve.
