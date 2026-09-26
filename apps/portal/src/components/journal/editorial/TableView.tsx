@@ -4,6 +4,7 @@ import { ptBR } from "date-fns/locale"
 import { ArrowDown, ArrowSeparateVertical, ArrowUp } from "iconoir-react"
 import { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { displaySubmitterName } from "@/lib/journal/profile"
 import type { EditorialDashboardArticle } from "@/lib/journal/types"
 
 interface TableViewProps {
@@ -104,7 +105,7 @@ export function TableView({ articles }: TableViewProps) {
 										{article.title_pt}
 									</Link>
 								</TableCell>
-								<TableCell className="text-sm text-muted-foreground">{article.submitter_name}</TableCell>
+								<TableCell className="text-sm text-muted-foreground">{displaySubmitterName(article.submitter_name)}</TableCell>
 								<TableCell>
 									<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted">{getStatusLabel(article.status)}</span>
 								</TableCell>

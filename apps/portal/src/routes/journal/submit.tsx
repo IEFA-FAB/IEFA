@@ -37,10 +37,14 @@ export const Route = createFileRoute("/journal/submit")({
 		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (auth.user) {
 			// Pre-load user profile and active draft in parallel
-			await Promise.all([
+			const [profile] = await Promise.all([
 				context.queryClient.query({ ...userProfileQueryOptions(auth.user.id), staleTime: "static" }),
 				context.queryClient.query({ ...userActiveDraftQueryOptions(auth.user.id), staleTime: "static" }),
 			])
+			// O perfil nasce no primeiro uso do journal, não no cadastro: sem ele, a entrada do
+			// journal mostra o "Complete seu perfil". O servidor recusa a submissão do mesmo jeito
+			// (`requireJournalProfile`).
+			if (!profile) throw redirect({ to: "/journal" })
 		}
 	},
 	component: RouteComponent,

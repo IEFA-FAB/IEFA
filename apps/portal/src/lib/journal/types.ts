@@ -237,7 +237,8 @@ export interface EditorialDashboardArticle {
 	subject_area: string
 	submitted_at: string | null
 	days_since_submission: number
-	submitter_name: string
+	/** `null` quando o submissor ainda não tem perfil no journal (LEFT JOIN desde 20260926218000). */
+	submitter_name: string | null
 	review_count?: number
 	completed_reviews: number
 	pending_reviews: number

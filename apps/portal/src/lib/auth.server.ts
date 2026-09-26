@@ -16,6 +16,7 @@
  */
 
 import { createRequestAuth, forbidden as denyWithStatus, unauthorized as unauthenticatedWithStatus } from "@iefa/pbac/start"
+import { JOURNAL_PROFILE_REQUIRED_MESSAGE } from "./journal/profile"
 import { AUTHOR_EDITABLE_STATUSES } from "./journal/write-schemas"
 import { getIefaAuthClient, getJournalServerClient } from "./supabase.server"
 
@@ -61,6 +62,17 @@ export async function requireSelf(claimedUserId: string): Promise<string> {
 export async function isEditor(userId: string): Promise<boolean> {
 	const { data } = await getJournalServerClient().from("user_profiles").select("role").eq("id", userId).maybeSingle()
 	return data?.role === "editor"
+}
+
+/**
+ * Exige que o usuário já tenha perfil no journal. O perfil nasce no primeiro uso, pelo formulário
+ * (`journal.save_user_profile`), e não mais no cadastro do Auth (20260926218000): quem chega à
+ * submissão sem ele completa o perfil antes. @throws 403 sem perfil
+ */
+export async function requireJournalProfile(userId: string): Promise<void> {
+	const { data, error } = await getJournalServerClient().from("user_profiles").select("id").eq("id", userId).maybeSingle()
+	if (error) throw new Error(error.message)
+	if (!data) forbidden(JOURNAL_PROFILE_REQUIRED_MESSAGE)
 }
 
 /** Exige papel `editor` no journal. @throws 401 sem sessão, 403 sem o papel */
