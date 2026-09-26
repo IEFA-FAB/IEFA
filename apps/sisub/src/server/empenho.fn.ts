@@ -238,7 +238,7 @@ class EmpenhoFloorError extends Error {}
  * commit). A ordem é sempre evento → liquidação, e o trigger de liquidação só toma a segunda:
  * não há ciclo.
  */
-async function insertEmpenhoEventSerialized(input: {
+export async function insertEmpenhoEventSerialized(input: {
 	empenhoId: string
 	tipo: "reforco" | "anulacao" | "cancelamento"
 	valor: number
@@ -284,7 +284,7 @@ async function insertEmpenhoEventSerialized(input: {
  * O erro que chega ao cliente. O do driver traz o SQL e os parâmetros na mensagem — isso fica
  * no log; o cliente lê o motivo de negócio (piso, espera esgotada) ou uma mensagem genérica.
  */
-function toEmpenhoEventError(error: unknown): Error {
+export function toEmpenhoEventError(error: unknown): Error {
 	if (error instanceof EmpenhoFloorError) return error
 	const pg = unwrapPgError(error)
 	// O trigger do banco tem a mesma regra e a mesma frase — repassa a dele.

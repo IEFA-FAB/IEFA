@@ -3,22 +3,30 @@
  * Integration with Compras.gov.br ARP (Ata de Registro de Preços) API + local empenho management.
  * CLIENT: getProcurementClient (service role). External: dadosabertos.compras.gov.br via
  *   `comprasApi` (@/lib/compras.server — 30 s timeout, 3 tentativas, backoff exponencial).
- * TABLES: procurement_arp, procurement_arp_item, empenho.
+ *   ARP sem anexo quantitativo (importada sem anexo ou cadastrada à mão) desde 20260926214000.
+ * TABLES: procurement_arp, procurement_arp_item, empenho, empenho_item, empenho_event.
  * @domain external
- * @migration n-a
+ * @migration 20260926214000_acquisition_origin
  */
 
-import type { Empenho } from "@iefa/database/sisub"
+import type { Empenho, ProcurementArpItem } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { aggregateLocalCommitments, type LocalCommitment } from "@/lib/arp-balance"
+import { aggregateLocalCommitments, type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 import { type ArpSaldo, anoFromNumeroAta, assertVigenciaWindow, formatNumeroAta, parseBrDate, parseNumeroItem, resolveArpSaldos } from "@/lib/arp-compras"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
+import { todayInBrasilia } from "@/lib/expense-execution"
 import { getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
+import { insertEmpenhoEventSerialized, toEmpenhoEventError } from "@/server/empenho.fn"
 import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage } from "@/types/domain/arp"
+
+// TODO: regenerar tipos após aplicar 20260926214000 — `acquisition_id`/`source` da ARP,
+// `finance.empenho_item` e `procurement.acquisition` ainda não estão em `generated.ts`.
+// biome-ignore lint/suspicious/noExplicitAny: tabelas e colunas novas fora dos tipos gerados até o regen
+type LooseProcurement = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -216,12 +224,18 @@ const ArpDataSchema = z.object({
 export const importArpItemsFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			ataId: z.uuid(),
+			/**
+			 * Anexo quantitativo, quando há. ARP de outro órgão (carona) ou anterior ao sistema entra
+			 * sem anexo; o casamento com o anexo pelo CATMAT acontece quando houver um.
+			 */
+			ataId: z.uuid().nullable().optional(),
+			/** Contratação de origem (registro de preços) que a ARP sustenta. */
+			acquisitionId: z.uuid().nullable().optional(),
 			unitId: z.number().int().positive(),
 			arpData: ArpDataSchema,
 		})
 	)
-	.handler(async ({ data }): Promise<ArpWithItems> => {
+	.handler(async ({ data }): Promise<ArpWithItems & { warnings: string[] }> => {
 		// Escrita em `procurement_arp`/`procurement_arp_item` da unidade alvo: exige
 		// nível 2 NAQUELA unidade. `requireAuth()` sozinho deixava qualquer sessão
 		// autenticada importar ARP para qualquer unidade — a service role não tem RLS
@@ -230,8 +244,34 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		const supabase = getProcurementClient()
 		// A ATA apontada TEM que ser da unidade alegada: sem isto, quem tem nível 2 na
 		// unidade A importa ARP para dentro da ata da unidade B.
-		if ((await resolveAtaUnit(supabase, data.ataId)) !== data.unitId) throw new Error("O anexo quantitativo informado não pertence a esta unidade")
-		const { ataId, unitId, arpData } = data
+		if (data.ataId && (await resolveAtaUnit(supabase, data.ataId)) !== data.unitId)
+			throw new Error("O anexo quantitativo informado não pertence a esta unidade")
+		if (data.acquisitionId && (await resolveAcquisitionUnit(data.acquisitionId)) !== data.unitId) {
+			throw new Error("A contratação de origem informada não pertence a esta unidade")
+		}
+		const { unitId, arpData } = data
+		const warnings: string[] = []
+
+		// O upsert pela chave (unidade, número, UASG) trocava o anexo da ARP em silêncio quando ela
+		// era reimportada de outro anexo. Agora o vínculo existente é mantido e a tela avisa.
+		const { data: existingArp, error: existingError } = await (supabase as unknown as LooseProcurement)
+			.from("procurement_arp")
+			.select("id, ata_id, acquisition_id")
+			.eq("unit_id", unitId)
+			.eq("numero_ata", arpData.numeroAtaRegistroPreco)
+			.eq("uasg_gerenciadora", arpData.codigoUnidadeGerenciadora)
+			.maybeSingle()
+		if (existingError) throw new Error(`Erro ao procurar a ARP: ${existingError.message}`)
+		let ataId: string | null = data.ataId ?? existingArp?.ata_id ?? null
+		if (existingArp?.ata_id && data.ataId && existingArp.ata_id !== data.ataId) {
+			ataId = existingArp.ata_id
+			warnings.push(`A ARP ${arpData.numeroAtaRegistroPreco} já está vinculada a outro anexo quantitativo; o vínculo existente foi mantido`)
+		}
+		let acquisitionId: string | null = data.acquisitionId ?? existingArp?.acquisition_id ?? null
+		if (existingArp?.acquisition_id && data.acquisitionId && existingArp.acquisition_id !== data.acquisitionId) {
+			acquisitionId = existingArp.acquisition_id
+			warnings.push(`A ARP ${arpData.numeroAtaRegistroPreco} já está vinculada a outra contratação de origem; o vínculo existente foi mantido`)
+		}
 
 		// ── 1. Buscar itens e saldos da ARP na API do Compras.gov.br ─────────────
 
@@ -259,7 +299,9 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		// ── 2. Buscar os itens da ATA interna para fazer o match por catmat ──────
 
-		const { data: ataItems } = await supabase.from("procurement_list_item").select("id, catmat_item_codigo, measure_unit").eq("list_id", ataId)
+		const { data: ataItems } = ataId
+			? await supabase.from("procurement_list_item").select("id, catmat_item_codigo, measure_unit").eq("list_id", ataId)
+			: { data: [] as Array<{ id: string; catmat_item_codigo: number | null; measure_unit: string | null }> }
 
 		const catmatToAtaItemId = new Map<number, string>()
 		// `2_consultarARPItem` não traz unidade de fornecimento; a medida vem do
@@ -274,12 +316,16 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		// ── 3. Upsert procurement_arp ─────────────────────────────────────────────
 
-		const { data: arp, error: arpError } = await supabase
+		const { data: arp, error: arpError } = await (supabase as unknown as LooseProcurement)
 			.from("procurement_arp")
 			.upsert(
 				{
 					unit_id: unitId,
 					ata_id: ataId,
+					acquisition_id: acquisitionId,
+					// Cadastrada à mão antes (API fora do ar): a primeira importação bem-sucedida a
+					// torna sincronizada, e os itens são atualizados pelo número, sem duplicar.
+					source: "compras_gov",
 					numero_ata: arpData.numeroAtaRegistroPreco,
 					ano_ata: anoFromNumeroAta(arpData.numeroAtaRegistroPreco),
 					uasg_gerenciadora: arpData.codigoUnidadeGerenciadora,
@@ -331,6 +377,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 				// `??` sobre o saldo resolvido conflataria os dois casos.
 				quantidade_empenhada: saldo ? saldo.quantidadeEmpenhada : 0,
 				saldo_empenho: saldo ? saldo.saldoEmpenho : (item.quantidadeHomologadaItem ?? null),
+				source: "compras_gov",
 				synced_at: now,
 			}
 		}
@@ -341,7 +388,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			const existingId = numero != null ? byNumeroItem.get(numero) : undefined
 			if (existingId) {
 				matchedIds.add(existingId)
-				const { error } = await supabase.from("procurement_arp_item").update(toRow(item)).eq("id", existingId)
+				const { error } = await (supabase as unknown as LooseProcurement).from("procurement_arp_item").update(toRow(item)).eq("id", existingId)
 				if (error) throw new Error(`Erro ao atualizar item ${item.numeroItem} da ARP: ${error.message}`)
 			}
 		}
@@ -353,19 +400,29 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			})
 			.map(toRow)
 		if (newRows.length > 0) {
-			const { error } = await supabase.from("procurement_arp_item").insert(newRows)
+			const { error } = await (supabase as unknown as LooseProcurement).from("procurement_arp_item").insert(newRows)
 			if (error) throw new Error(`Erro ao salvar itens da ARP: ${error.message}`)
 		}
 
 		// Itens locais que a API não retornou: remover apenas os sem empenho local.
 		const staleIds = (existingItems ?? []).map((item) => item.id).filter((id) => !matchedIds.has(id))
 		if (staleIds.length > 0) {
-			const { data: referencedRows } = await supabase.schema("finance").from("empenho").select("arp_item_id").in("arp_item_id", staleIds)
-			const referenced = new Set((referencedRows ?? []).map((row) => row.arp_item_id))
+			// Item com empenho fica (o FK é RESTRICT desde 20260926214000): o empenho aponta pelo
+			// cabeçalho antigo OU por um item da NE, e os dois contam.
+			const fin = supabase.schema("finance") as unknown as LooseProcurement
+			const [{ data: headerRefs, error: headerError }, { data: itemRefs, error: itemError }] = await Promise.all([
+				fin.from("empenho").select("arp_item_id").in("arp_item_id", staleIds),
+				fin.from("empenho_item").select("arp_item_id").in("arp_item_id", staleIds),
+			])
+			if (headerError || itemError) throw new Error(`Erro ao conferir empenhos dos itens retirados: ${(headerError ?? itemError).message}`)
+			const referenced = new Set([...(headerRefs ?? []), ...(itemRefs ?? [])].map((row: { arp_item_id: string }) => row.arp_item_id))
 			const deletableIds = staleIds.filter((id) => !referenced.has(id))
 			if (deletableIds.length > 0) {
-				await supabase.from("procurement_arp_item").delete().in("id", deletableIds)
+				const { error } = await supabase.from("procurement_arp_item").delete().in("id", deletableIds)
+				if (error) throw new Error(`Erro ao retirar itens que saíram da ARP: ${error.message}`)
 			}
+			const kept = staleIds.length - deletableIds.length
+			if (kept > 0) warnings.push(`${kept} item(ns) que saíram da ARP no Compras.gov.br continuam aqui porque têm empenho`)
 		}
 
 		const { data: finalItems, error: finalError } = await supabase
@@ -376,7 +433,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		if (finalError) throw new Error(`Erro ao carregar itens da ARP: ${finalError.message}`)
 
-		return { ...arp, items: finalItems ?? [] }
+		return { ...(arp as ArpWithItems), items: finalItems ?? [], warnings }
 	})
 
 // ─── 3. Sincronizar saldo de empenhos via Compras.gov.br ─────────────────────
@@ -488,6 +545,18 @@ async function resolveAtaUnit(supabase: ReturnType<typeof getProcurementClient>,
 	return Number(data.unit_id)
 }
 
+async function resolveAcquisitionUnit(acquisitionId: string): Promise<number> {
+	const { data, error } = await (getProcurementClient() as unknown as LooseProcurement)
+		.from("acquisition")
+		.select("unit_id")
+		.eq("id", acquisitionId)
+		.is("deleted_at", null)
+		.maybeSingle()
+	if (error) throw new Error(`Erro ao resolver a unidade da contratação: ${error.message}`)
+	if (!data) throw new Error("Contratação de origem não encontrada")
+	return Number(data.unit_id)
+}
+
 async function resolveArpUnit(supabase: ReturnType<typeof getProcurementClient>, arpId: string): Promise<number> {
 	const { data, error } = await supabase.from("procurement_arp").select("unit_id").eq("id", arpId).maybeSingle()
 	if (error) throw new Error(`Erro ao resolver a unidade da ARP: ${error.message}`)
@@ -520,27 +589,278 @@ export const fetchArpForAtaFn = createServerFn({ method: "GET" })
 		return { ...arp, items: items ?? [] }
 	})
 
+// ─── 4b. ARP sem anexo: cadastro à mão e lista da unidade ────────────────────
+
+const ManualArpItemSchema = z.object({
+	numeroItem: z.number().int().positive(),
+	descricaoItem: z.string().trim().min(1, "Descrição do item obrigatória").max(500),
+	catmatItemCodigo: z.number().int().positive().nullable().optional(),
+	niFornecedor: z
+		.string()
+		.regex(/^(\d{11}|\d{14})$/, "CNPJ com 14 dígitos")
+		.nullable()
+		.optional(),
+	nomeFornecedor: z.string().max(200).nullable().optional(),
+	valorUnitario: z.number().nonnegative(),
+	quantidadeHomologada: z.number().positive(),
+	medida: z.string().max(40).nullable().optional(),
+})
+
+/**
+ * Cadastra a ARP e os itens à mão — a API do Compras.gov.br fora do ar, ou a ata de outro órgão
+ * que não aparece na busca. Fica `source = 'manual'` e "não sincronizada" (`last_synced_at` nulo)
+ * até a primeira importação bem-sucedida, que atualiza os itens pelo número, sem duplicar.
+ */
+export const createManualArpFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			unitId: z.number().int().positive(),
+			acquisitionId: z.uuid().nullable().optional(),
+			ataId: z.uuid().nullable().optional(),
+			numeroAta: z.string().trim().min(1, "Número da ata obrigatório").max(20),
+			anoAta: z.string().regex(/^\d{4}$/, "Ano com 4 dígitos"),
+			uasgGerenciadora: z.string().regex(/^\d{6}$/, "UASG com 6 dígitos"),
+			nomeUasgGerenciadora: z.string().max(200).nullable().optional(),
+			objeto: z.string().max(2000).nullable().optional(),
+			vigenciaInicio: z.string().regex(ISO_DATE).nullable().optional(),
+			vigenciaFim: z.string().regex(ISO_DATE).nullable().optional(),
+			items: z.array(ManualArpItemSchema).min(1, "Informe ao menos um item da ata").max(500),
+		})
+	)
+	.handler(async ({ data }): Promise<{ arpId: string; numeroAta: string }> => {
+		await requireUnitScope(2, data.unitId)
+		const supabase = getProcurementClient()
+		if (data.ataId && (await resolveAtaUnit(supabase, data.ataId)) !== data.unitId)
+			throw new Error("O anexo quantitativo informado não pertence a esta unidade")
+		if (data.acquisitionId && (await resolveAcquisitionUnit(data.acquisitionId)) !== data.unitId) {
+			throw new Error("A contratação de origem informada não pertence a esta unidade")
+		}
+		const numeros = data.items.map((item) => item.numeroItem)
+		if (new Set(numeros).size !== numeros.length) throw new Error("Dois itens com o mesmo número: cada item da ata tem um número")
+
+		const numeroAta = formatNumeroAta(data.numeroAta.split("/")[0] ?? data.numeroAta, data.anoAta)
+		const proc = supabase as unknown as LooseProcurement
+		const { data: arp, error } = await proc
+			.from("procurement_arp")
+			.insert({
+				unit_id: data.unitId,
+				ata_id: data.ataId ?? null,
+				acquisition_id: data.acquisitionId ?? null,
+				numero_ata: numeroAta,
+				ano_ata: data.anoAta,
+				uasg_gerenciadora: data.uasgGerenciadora,
+				nome_uasg_gerenciadora: data.nomeUasgGerenciadora?.trim() || null,
+				objeto: data.objeto?.trim() || null,
+				data_vigencia_inicio: data.vigenciaInicio ?? null,
+				data_vigencia_fim: data.vigenciaFim ?? null,
+				source: "manual",
+				last_synced_at: null,
+			})
+			.select("id")
+			.single()
+		if (error) {
+			if (error.code === "23505") throw new Error(`A ARP ${numeroAta} da UASG ${data.uasgGerenciadora} já está cadastrada nesta unidade`)
+			throw new Error(`Erro ao cadastrar a ARP: ${error.message}`)
+		}
+
+		const { error: itemsError } = await proc.from("procurement_arp_item").insert(
+			data.items.map((item) => ({
+				arp_id: arp.id,
+				numero_item: item.numeroItem,
+				descricao_item: item.descricaoItem,
+				catmat_item_codigo: item.catmatItemCodigo ?? null,
+				ni_fornecedor: item.niFornecedor ?? null,
+				nome_fornecedor: item.nomeFornecedor?.trim() || null,
+				valor_unitario: item.valorUnitario,
+				quantidade_homologada: item.quantidadeHomologada,
+				quantidade_empenhada: 0,
+				saldo_empenho: item.quantidadeHomologada,
+				medida_catmat: item.medida?.trim() || null,
+				source: "manual",
+			}))
+		)
+		if (itemsError) {
+			// Sem os itens a ARP não serve para empenhar: desfaz o cabeçalho em vez de deixar uma
+			// ata vazia dizendo "cadastrada".
+			const { error: undoError } = await proc.from("procurement_arp").delete().eq("id", arp.id)
+			if (undoError) throw new Error(`Erro ao cadastrar os itens (${itemsError.message}) e ao desfazer a ARP (${undoError.message})`)
+			throw new Error(`Erro ao cadastrar os itens da ARP: ${itemsError.message}`)
+		}
+		return { arpId: arp.id as string, numeroAta }
+	})
+
+export interface UnitArpItem {
+	id: string
+	numeroItem: number | null
+	catmatItemCodigo: number | null
+	descricaoItem: string | null
+	niFornecedor: string | null
+	nomeFornecedor: string | null
+	valorUnitario: number | null
+	quantidadeHomologada: number | null
+	medida: string | null
+	/** Saldo oficial (Compras.gov.br). */
+	saldoOficial: number
+	/** Empenhado por esta unidade em NEs ativas (soma dos itens de NE). */
+	localCommitted: number
+}
+
+export interface UnitArp {
+	id: string
+	numeroAta: string
+	uasgGerenciadora: string
+	nomeUasgGerenciadora: string | null
+	objeto: string | null
+	vigenciaInicio: string | null
+	vigenciaFim: string | null
+	source: "compras_gov" | "manual"
+	lastSyncedAt: string | null
+	ataId: string | null
+	acquisitionId: string | null
+	items: UnitArpItem[]
+}
+
+/** ARPs da unidade — com e sem anexo — com os itens e o comprometimento local de cada um. */
+export const listUnitArpsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ unitId: z.number().int().positive(), acquisitionId: z.uuid().optional() }))
+	.handler(async ({ data }): Promise<UnitArp[]> => {
+		await requireUnitScope(1, data.unitId)
+		const proc = getProcurementClient() as unknown as LooseProcurement
+		let query = proc
+			.from("procurement_arp")
+			.select(
+				"id, numero_ata, uasg_gerenciadora, nome_uasg_gerenciadora, objeto, data_vigencia_inicio, data_vigencia_fim, source, last_synced_at, ata_id, acquisition_id"
+			)
+			.eq("unit_id", data.unitId)
+			.order("created_at", { ascending: false })
+		if (data.acquisitionId) query = query.eq("acquisition_id", data.acquisitionId)
+		const { data: arps, error } = await query
+		if (error) throw new Error(`Erro ao listar ARPs: ${error.message}`)
+		const list = (arps ?? []) as Array<Record<string, unknown> & { id: string }>
+		if (list.length === 0) return []
+
+		const { data: items, error: itemsError } = await proc
+			.from("procurement_arp_item")
+			.select(
+				"id, arp_id, numero_item, catmat_item_codigo, descricao_item, ni_fornecedor, nome_fornecedor, valor_unitario, quantidade_homologada, quantidade_empenhada, saldo_empenho, medida_catmat"
+			)
+			.in(
+				"arp_id",
+				list.map((arp) => arp.id)
+			)
+			.order("numero_item", { ascending: true })
+		if (itemsError) throw new Error(`Erro ao listar itens das ARPs: ${itemsError.message}`)
+		const itemRows = (items ?? []) as ProcurementArpItem[]
+		const committed = await localCommitmentsFor(itemRows.map((item) => item.id))
+
+		return list.map((arp) => ({
+			id: arp.id,
+			numeroAta: String(arp.numero_ata),
+			uasgGerenciadora: String(arp.uasg_gerenciadora),
+			nomeUasgGerenciadora: (arp.nome_uasg_gerenciadora as string | null) ?? null,
+			objeto: (arp.objeto as string | null) ?? null,
+			vigenciaInicio: (arp.data_vigencia_inicio as string | null) ?? null,
+			vigenciaFim: (arp.data_vigencia_fim as string | null) ?? null,
+			source: arp.source === "manual" ? "manual" : "compras_gov",
+			lastSyncedAt: (arp.last_synced_at as string | null) ?? null,
+			ataId: (arp.ata_id as string | null) ?? null,
+			acquisitionId: (arp.acquisition_id as string | null) ?? null,
+			items: itemRows
+				.filter((item) => item.arp_id === arp.id)
+				.map((item) => ({
+					id: item.id,
+					numeroItem: item.numero_item,
+					catmatItemCodigo: item.catmat_item_codigo,
+					descricaoItem: item.descricao_item,
+					niFornecedor: item.ni_fornecedor,
+					nomeFornecedor: item.nome_fornecedor,
+					valorUnitario: item.valor_unitario == null ? null : Number(item.valor_unitario),
+					quantidadeHomologada: item.quantidade_homologada == null ? null : Number(item.quantidade_homologada),
+					medida: item.medida_catmat,
+					saldoOficial: resolveSaldoOficial(item),
+					localCommitted: committed.get(item.id)?.quantidade ?? 0,
+				})),
+		}))
+	})
+
+/**
+ * Comprometimento local por item de ARP, lido de `finance.empenho_item` (NE com vários itens
+ * conta em cada um). O retrato oficial (`procurement_arp_item.quantidade_empenhada`) NÃO é
+ * tocado: só a sincronização o escreve.
+ */
+async function localCommitmentsFor(arpItemIds: readonly string[]): Promise<Map<string, LocalCommitment>> {
+	if (arpItemIds.length === 0) return new Map()
+	const fin = getProcurementClient().schema("finance") as unknown as LooseProcurement
+	const { data: items, error } = await fin.from("empenho_item").select("empenho_id, arp_item_id, quantity, value").in("arp_item_id", arpItemIds)
+	if (error) throw new Error(`Erro ao buscar itens de empenho: ${error.message}`)
+	const rows = (items ?? []) as Array<{ empenho_id: string; arp_item_id: string; quantity: number | string | null; value: number | string }>
+	const empenhoIds = [...new Set(rows.map((row) => row.empenho_id))]
+	const statusById = new Map<string, string>()
+	if (empenhoIds.length > 0) {
+		const { data: empenhos, error: empError } = await fin.from("empenho").select("id, status").in("id", empenhoIds)
+		if (empError) throw new Error(`Erro ao buscar empenhos: ${empError.message}`)
+		for (const e of empenhos ?? []) statusById.set(e.id, e.status)
+	}
+	return aggregateLocalCommitments(
+		rows.map((row) => ({
+			arp_item_id: row.arp_item_id,
+			status: statusById.get(row.empenho_id) ?? "anulado",
+			quantidade_empenhada: row.quantity,
+			valor_total: row.value,
+		}))
+	)
+}
+
 // ─── 5. Buscar empenhos de um item da ARP ────────────────────────────────────
 
 /**
- * Lists all empenhos for an ARP item ordered by data_empenho descending.
+ * Empenhos que cobrem um item da ARP — pelo item da NE (NE com vários itens aparece em cada um),
+ * com a quantidade e o preço DESTE item no lugar das colunas antigas do cabeçalho.
  *
  * @throws {Error} on Supabase query failure.
  */
 export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 	.validator(z.object({ arpItemId: z.uuid() }))
-	.handler(async ({ data }): Promise<Empenho[]> => {
+	.handler(async ({ data }): Promise<Array<Empenho & { item_value: number }>> => {
 		await requireAuth()
 		await requireUnitScope(1, await resolveArpItemUnit(getProcurementClient(), data.arpItemId))
-		const { data: empenhos, error } = await getProcurementClient()
-			.schema("finance")
+		const fin = getProcurementClient().schema("finance") as unknown as LooseProcurement
+		const { data: items, error: itemsError } = await fin
+			.from("empenho_item")
+			.select("empenho_id, quantity, unit_price, value")
+			.eq("arp_item_id", data.arpItemId)
+		if (itemsError) throw new Error(`Erro ao buscar itens de empenho: ${itemsError.message}`)
+		const byEmpenho = new Map<string, { quantity: number; unitPrice: number | null; value: number }>()
+		for (const item of (items ?? []) as Array<{
+			empenho_id: string
+			quantity: number | string | null
+			unit_price: number | string | null
+			value: number | string
+		}>) {
+			const acc = byEmpenho.get(item.empenho_id) ?? { quantity: 0, unitPrice: null, value: 0 }
+			acc.quantity += Number(item.quantity ?? 0)
+			acc.unitPrice = acc.unitPrice ?? (item.unit_price == null ? null : Number(item.unit_price))
+			acc.value += Number(item.value)
+			byEmpenho.set(item.empenho_id, acc)
+		}
+		if (byEmpenho.size === 0) return []
+
+		const { data: empenhos, error } = await fin
 			.from("empenho")
 			.select("*")
-			.eq("arp_item_id", data.arpItemId)
+			.in("id", [...byEmpenho.keys()])
 			.order("data_empenho", { ascending: false })
 
 		if (error) throw new Error(`Erro ao buscar empenhos: ${error.message}`)
-		return empenhos ?? []
+		return ((empenhos ?? []) as Empenho[]).map((empenho) => {
+			const item = byEmpenho.get(empenho.id)
+			return {
+				...empenho,
+				quantidade_empenhada: item?.quantity ?? empenho.quantidade_empenhada,
+				valor_unitario: item?.unitPrice ?? empenho.valor_unitario,
+				item_value: item?.value ?? Number(empenho.valor_total),
+			}
+		})
 	})
 
 // ─── 6. Registrar empenho ─────────────────────────────────────────────────────
@@ -641,14 +961,8 @@ export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
 		const itemIds = (items ?? []).map((item) => item.id)
 		if (itemIds.length === 0) return {}
 
-		const { data: empenhos, error } = await supabase
-			.schema("finance")
-			.from("empenho")
-			.select("arp_item_id, status, quantidade_empenhada, valor_total")
-			.in("arp_item_id", itemIds)
-		if (error) throw new Error(`Erro ao buscar empenhos: ${error.message}`)
-
-		return Object.fromEntries(aggregateLocalCommitments(empenhos ?? []))
+		// Pelos itens da NE: agrupar por `empenho.arp_item_id` deixava de fora a NE com vários itens.
+		return Object.fromEntries(await localCommitmentsFor(itemIds))
 	})
 
 /**
@@ -668,32 +982,41 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 		const itemIds = (items ?? []).map((item) => item.id)
 		if (itemIds.length === 0) return {}
 
-		const { data: empenhos } = await supabase.schema("finance").from("empenho").select("id, arp_item_id").in("arp_item_id", itemIds).eq("status", "ativo")
-		const empenhoRows = empenhos ?? []
-		if (empenhoRows.length === 0) return {}
+		// Pelos itens da NE. A liquidação é da NE inteira; numa NE com vários itens ela se reparte
+		// entre eles na proporção do valor de cada item — é leitura de acompanhamento, não lançamento.
+		const financeClient = supabase.schema("finance") as unknown as LooseProcurement
+		const { data: arpNeItems, error: arpNeError } = await financeClient.from("empenho_item").select("empenho_id, arp_item_id, value").in("arp_item_id", itemIds)
+		if (arpNeError) throw new Error(`Erro ao buscar itens de empenho: ${arpNeError.message}`)
+		const empenhoIds = [...new Set(((arpNeItems ?? []) as Array<{ empenho_id: string }>).map((row) => row.empenho_id))]
+		if (empenhoIds.length === 0) return {}
 
-		// biome-ignore lint/suspicious/noExplicitAny: view nova fora dos tipos gerados
-		const financeClient = supabase.schema("finance") as any
-		const { data: saldos } = await financeClient
-			.from("v_empenho_saldo")
-			.select("empenho_id, valor_liquidado, valor_pago, saldo_a_liquidar")
-			.in(
-				"empenho_id",
-				empenhoRows.map((e) => e.id)
-			)
+		const [{ data: active, error: activeError }, { data: allItems, error: allItemsError }, { data: saldos, error: saldoError }] = await Promise.all([
+			financeClient.from("empenho").select("id").in("id", empenhoIds).eq("status", "ativo"),
+			financeClient.from("empenho_item").select("empenho_id, value").in("empenho_id", empenhoIds),
+			financeClient.from("v_empenho_saldo").select("empenho_id, valor_liquidado, valor_pago, saldo_a_liquidar").in("empenho_id", empenhoIds),
+		])
+		if (activeError || allItemsError || saldoError)
+			throw new Error(`Erro ao ler a execução dos empenhos: ${(activeError ?? allItemsError ?? saldoError).message}`)
+		const activeIds = new Set(((active ?? []) as Array<{ id: string }>).map((row) => row.id))
+		const totalByEmpenho = new Map<string, number>()
+		for (const row of (allItems ?? []) as Array<{ empenho_id: string; value: number | string }>) {
+			totalByEmpenho.set(row.empenho_id, (totalByEmpenho.get(row.empenho_id) ?? 0) + Number(row.value))
+		}
 		const saldoByEmpenho = new Map<string, { valor_liquidado: number; valor_pago: number; saldo_a_liquidar: number }>()
 		for (const saldo of saldos ?? []) saldoByEmpenho.set(saldo.empenho_id, saldo)
 
 		const byItem: Record<string, { liquidado: number; pago: number; aLiquidar: number }> = {}
-		for (const empenho of empenhoRows) {
-			if (!empenho.arp_item_id) continue
-			const saldo = saldoByEmpenho.get(empenho.id)
+		for (const row of (arpNeItems ?? []) as Array<{ empenho_id: string; arp_item_id: string; value: number | string }>) {
+			if (!activeIds.has(row.empenho_id)) continue
+			const saldo = saldoByEmpenho.get(row.empenho_id)
 			if (!saldo) continue
-			const acc = byItem[empenho.arp_item_id] ?? { liquidado: 0, pago: 0, aLiquidar: 0 }
-			acc.liquidado += Number(saldo.valor_liquidado ?? 0)
-			acc.pago += Number(saldo.valor_pago ?? 0)
-			acc.aLiquidar += Number(saldo.saldo_a_liquidar ?? 0)
-			byItem[empenho.arp_item_id] = acc
+			const total = totalByEmpenho.get(row.empenho_id) ?? 0
+			const share = total > 0 ? Number(row.value) / total : 1
+			const acc = byItem[row.arp_item_id] ?? { liquidado: 0, pago: 0, aLiquidar: 0 }
+			acc.liquidado += Number(saldo.valor_liquidado ?? 0) * share
+			acc.pago += Number(saldo.valor_pago ?? 0) * share
+			acc.aLiquidar += Number(saldo.saldo_a_liquidar ?? 0) * share
+			byItem[row.arp_item_id] = acc
 		}
 		return byItem
 	})
@@ -701,12 +1024,18 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 // ─── 7. Anular empenho ────────────────────────────────────────────────────────
 
 /**
- * Cancels an empenho by setting status to "anulado" — no hard delete, saldo on ARP item is NOT auto-restored.
+ * Anula a NE inteira pelo EVENTO de cancelamento do valor vigente — o mesmo caminho de
+ * `registerEmpenhoEventFn`, com o piso e os locks dela — e marca o status na mesma transação.
+ * Antes o status mudava sozinho: a NE "anulada" continuava com o valor vigente cheio na view, e
+ * nada impedia anular o que já tinha sido liquidado.
  *
- * @throws {Error} on Supabase update failure.
+ * Com liquidação, a NE não se anula inteira (o que foi liquidado não se desfaz por anulação): a
+ * recusa diz para anular só o saldo a liquidar.
+ *
+ * @throws {Error} on lookup failure, with liquidation, or when the floor refuses.
  */
 export const anularEmpenhoFn = createServerFn({ method: "POST" })
-	.validator(z.object({ empenhoId: z.uuid() }))
+	.validator(z.object({ empenhoId: z.uuid(), justificativa: z.string().trim().min(5).max(1000).optional() }))
 	.handler(async ({ data }) => {
 		// Autenticação primeiro (o contrato `server-fn-auth` exige guard antes de
 		// qualquer client de DB); o escopo de unidade só é conhecido depois de ler a
@@ -715,21 +1044,46 @@ export const anularEmpenhoFn = createServerFn({ method: "POST" })
 		const fin = getProcurementClient().schema("finance")
 		// Sem o guard de unidade abaixo, qualquer sessão autenticada anulava qualquer
 		// empenho do sistema.
-		const { data: empenho, error: lookupError } = await fin.from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
+		const { data: empenho, error: lookupError } = await fin.from("empenho").select("unit_id, status, numero_empenho").eq("id", data.empenhoId).maybeSingle()
 		// Falha de consulta NÃO pode virar "não encontrado": o diagnóstico errado manda o
 		// usuário procurar um empenho que existe.
 		if (lookupError) throw new Error(`Erro ao buscar empenho: ${lookupError.message}`)
 		if (!empenho) throw new Error("Empenho não encontrado")
 		const ctx = await requireUnitScope(2, Number(empenho.unit_id))
+		if (empenho.status === "anulado") throw new Error(`O empenho ${empenho.numero_empenho} já está anulado`)
+
+		// Pré-checagem para a mensagem com instrução; quem decide é o piso dentro da transação.
+		const { data: saldo, error: saldoError } = await (fin as unknown as LooseProcurement)
+			.from("v_empenho_saldo")
+			.select("valor_vigente, valor_liquidado, saldo_a_liquidar")
+			.eq("empenho_id", data.empenhoId)
+			.maybeSingle()
+		if (saldoError) throw new Error(`Erro ao ler o saldo do empenho: ${saldoError.message}`)
+		const vigente = Number(saldo?.valor_vigente ?? 0)
+		const liquidado = Number(saldo?.valor_liquidado ?? 0)
+		if (liquidado > 0.009) {
+			throw new Error(
+				`O empenho ${empenho.numero_empenho} já tem R$ ${liquidado.toFixed(2)} liquidados e não se anula inteiro. Anule só o saldo a liquidar (R$ ${Number(saldo?.saldo_a_liquidar ?? 0).toFixed(2)}) em Empenhos → Anulação.`
+			)
+		}
 
 		return withSensitiveAudit(
 			"anularEmpenhoFn",
 			ctx,
 			async () => {
-				const { error } = await fin.from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
-
-				if (error) throw new Error(`Erro ao anular empenho: ${error.message}`)
+				try {
+					await insertEmpenhoEventSerialized({
+						empenhoId: data.empenhoId,
+						tipo: "cancelamento",
+						valor: Math.max(0, vigente),
+						data: todayInBrasilia(),
+						justificativa: data.justificativa ?? "Anulação total da nota de empenho",
+						userId: ctx.userId,
+					})
+				} catch (error) {
+					throw toEmpenhoEventError(error)
+				}
 			},
-			() => ({ empenhoId: data.empenhoId, unitId: Number(empenho.unit_id) })
+			() => ({ empenhoId: data.empenhoId, unitId: Number(empenho.unit_id), valorAnulado: vigente })
 		)
 	})
