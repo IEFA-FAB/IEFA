@@ -140,7 +140,9 @@ jobs:
     needs: gate
     if: github.event_name != 'pull_request'
     continue-on-error: true
-    timeout-minutes: 25
+    # A suíte sequencial (--no-file-parallelism) leva ~26 min: com 25 o timeout a matava depois
+    # de tudo verde (run 36249089235: 1613 testes passando, job `cancelled`).
+    timeout-minutes: 45
     concurrency:
       group: sisub-integration-real-db
       cancel-in-progress: false
