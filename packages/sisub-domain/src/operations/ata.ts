@@ -36,7 +36,6 @@ import {
 	procurementListSnapshotSelectionInProcurement,
 	procurementPesquisaPrecoInProcurement,
 	procurementPesquisaPrecoItemInProcurement,
-	procurementSegmentInProcurement,
 	purchaseItemIngredientInProcurement,
 	purchaseItemInProcurement,
 	recipeIngredientsInKitchen,
@@ -70,7 +69,7 @@ import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.
 import { computeAtaItemLimits, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
 import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { isSamePrice } from "./price-units.ts"
-import { lineKey, resolveNeedsForSegment } from "./procurement-segments.ts"
+import { findSegmentConflicts, lineKey, loadLiveSegment, resolveNeedsForSegment } from "./procurement-segments.ts"
 import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
@@ -564,15 +563,7 @@ async function filterOwnResearchLinks<T extends { researchId: string; researchIt
 
 /** Contratação viva da MESMA OM do anexo; a apagada não serve para anexo novo. */
 async function assertSegmentOfUnit(client: SisubDb | TxClient, segmentId: string, unitId: number): Promise<void> {
-	const rows = await runQuery("QUERY_FAILED", () =>
-		client
-			.select({ unitId: procurementSegmentInProcurement.unitId, deletedAt: procurementSegmentInProcurement.deletedAt })
-			.from(procurementSegmentInProcurement)
-			.where(eq(procurementSegmentInProcurement.id, segmentId))
-			.limit(1)
-	)
-	const segment = rows[0]
-	if (!segment || segment.deletedAt) throw new DomainError("SEGMENT_NOT_FOUND", "Contratação não encontrada ou removida: escolha outra.")
+	const segment = await loadLiveSegment(client, segmentId)
 	if (segment.unitId !== unitId) throw new DomainError("SEGMENT_NOT_IN_UNIT", "A contratação é de outra OM.")
 }
 
@@ -593,20 +584,12 @@ export async function calculateAtaNeedsForSegment(
 	ctx: UserContext,
 	input: CalculateAtaNeeds & { segmentId: string }
 ): Promise<{ items: ProcurementNeed[]; excluded: SegmentExclusion }> {
-	const rows = await runQuery("QUERY_FAILED", () =>
-		db
-			.select({ unitId: procurementSegmentInProcurement.unitId, deletedAt: procurementSegmentInProcurement.deletedAt })
-			.from(procurementSegmentInProcurement)
-			.where(eq(procurementSegmentInProcurement.id, input.segmentId))
-			.limit(1)
-	)
-	const segment = rows[0]
-	if (!segment || segment.deletedAt) throw new DomainError("SEGMENT_NOT_FOUND", "Contratação não encontrada ou removida: escolha outra.")
+	const segment = await loadLiveSegment(db, input.segmentId)
 	requireUnit(ctx, 1, segment.unitId)
 	await assertSelectionsBelongToUnit(db, segment.unitId, input.kitchenSelections)
 
 	const needs = await calculateAtaNeeds(db, ctx, input)
-	const { resolutions } = await resolveNeedsForSegment(db, segment.unitId, needs)
+	const resolutions = await resolveNeedsForSegment(db, segment.unitId, needs)
 	const excluded: SegmentExclusion = { otherSegment: 0, unassigned: 0, conflict: 0 }
 	const items: ProcurementNeed[] = []
 	for (const need of needs) {
@@ -1513,6 +1496,28 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 					.returning({ id: procurementListInProcurement.id }),
 			{ prefix: "Erro ao atualizar status" }
 		)
+
+		// Anexo de uma contratação não conclui com item em conflito entre ela e outra: o item
+		// ficaria fora de qualquer anexo, ou em dois (Lei 14.133/2021, art. 82, VIII).
+		if (current === "draft" && input.status === "published") {
+			const lists = await runQuery("FETCH_FAILED", () =>
+				tx
+					.select({ unitId: procurementListInProcurement.unitId, segmentId: procurementListInProcurement.segmentId })
+					.from(procurementListInProcurement)
+					.where(eq(procurementListInProcurement.id, input.ataId))
+					.limit(1)
+			)
+			const list = lists[0]
+			if (list?.segmentId) {
+				const conflicts = await findSegmentConflicts(tx, list.unitId, list.segmentId)
+				if (conflicts.length > 0) {
+					throw new DomainError(
+						"SEGMENT_CONFLICT",
+						`Há ${conflicts.length} item(ns) em duas contratações (${conflicts.slice(0, 3).join("; ")}${conflicts.length > 3 ? "…" : ""}): ajuste a segmentação antes de concluir.`
+					)
+				}
+			}
+		}
 
 		// A justificativa da margem é exigida na PUBLICAÇÃO, uma vez por ata. Arquivar direto
 		// um rascunho não publica nada, então não cobra.

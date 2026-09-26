@@ -191,8 +191,9 @@ export function lineKey(row: { ingredientId: string; purchaseItemId: string | nu
 
 /**
  * Universo avaliado: os insumos alcançáveis pelos cardápios (semanais, eventos e apoios, não
- * apagados) das cozinhas da OM, com o item de compra padrão. É o universo que o cálculo do
- * anexo percorre.
+ * apagados) das cozinhas da OM, onde ela está (`unit_id`) ou para quem compra
+ * (`purchase_unit_id`), mais os planos globais que algum anexo dela já usou, com o item de compra
+ * padrão. É o universo que o cálculo do anexo percorre.
  */
 async function loadUnitUniverse(client: Client, unitId: number) {
 	const rows = (await runQuery(
@@ -207,13 +208,24 @@ async function loadUnitUniverse(client: Client, unitId: number) {
 					pi.description as purchase_item_description,
 					pi.catmat_item_codigo
 				from kitchen.menu_template t
-				join kitchen.kitchen k on k.id = t.kitchen_id
 				join kitchen.menu_template_items ti on ti.menu_template_id = t.id
 				join kitchen.recipe_ingredients ri on ri.recipe_id = ti.recipe_id and ri.deleted_at is null
 				join kitchen.ingredient i on i.id = ri.ingredient_id
 				left join procurement.purchase_item_ingredient pii on pii.ingredient_id = i.id and pii.is_default
 				left join procurement.purchase_item pi on pi.id = pii.purchase_item_id and pi.deleted_at is null
-				where k.unit_id = ${unitId} and t.deleted_at is null
+				where t.deleted_at is null
+					and (
+						-- cardápios das cozinhas da OM: onde ela está ou para quem ela compra
+						t.kitchen_id in (select k.id from kitchen.kitchen k where k.unit_id = ${unitId} or k.purchase_unit_id = ${unitId})
+						-- planos globais que algum anexo da OM já usou
+						or t.id in (
+							select s.template_id
+							from procurement.procurement_list_selection s
+							join procurement.procurement_list_kitchen lk on lk.id = s.list_kitchen_id
+							join procurement.procurement_list l on l.id = lk.list_id
+							where l.unit_id = ${unitId} and l.deleted_at is null
+						)
+					)
 			`),
 		{ prefix: "Erro ao buscar os itens dos cardápios da OM" }
 	)) as unknown as Array<{
@@ -239,8 +251,8 @@ async function loadUnitUniverse(client: Client, unitId: number) {
 /** Contratações da OM e a resolução de cada item que os cardápios dela usam. */
 export async function fetchSegmentationOverview(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<SegmentationOverview> {
 	requireUnit(ctx, 1, input.unitId)
-	const { parentOf, pathOf, activeIds } = await loadFolderTree(db)
-	const [segments, universe] = await Promise.all([loadUnitSegments(db, input.unitId, pathOf), loadUnitUniverse(db, input.unitId)])
+	const [{ parentOf, pathOf, activeIds }, universe] = await Promise.all([loadFolderTree(db), loadUnitUniverse(db, input.unitId)])
+	const segments = await loadUnitSegments(db, input.unitId, pathOf)
 	const resolutions = resolveLines(universe, segmentRuleInputs(segments), parentOf)
 
 	const lines = new Map<string, SegmentationLine>()
@@ -327,19 +339,49 @@ export async function createProcurementSegment(db: SisubDb, ctx: UserContext, in
 	)
 }
 
-/** OM dona da contratação, lida do banco; recusa a apagada. */
-async function authorizeSegment(client: Client, ctx: UserContext, segmentId: string, level: 1 | 2): Promise<number> {
+/**
+ * A contratação viva, lida do banco: única leitura da regra "existe e não foi apagada", usada
+ * pela edição, pelo rascunho do anexo e pelo cálculo por contratação.
+ */
+export async function loadLiveSegment(client: Client, segmentId: string): Promise<{ id: string; unitId: number; name: string }> {
 	const rows = await runQuery("QUERY_FAILED", () =>
 		client
-			.select({ unitId: procurementSegmentInProcurement.unitId, deletedAt: procurementSegmentInProcurement.deletedAt })
+			.select({
+				id: procurementSegmentInProcurement.id,
+				unitId: procurementSegmentInProcurement.unitId,
+				name: procurementSegmentInProcurement.name,
+				deletedAt: procurementSegmentInProcurement.deletedAt,
+			})
 			.from(procurementSegmentInProcurement)
 			.where(eq(procurementSegmentInProcurement.id, segmentId))
 			.limit(1)
 	)
 	const row = rows[0]
-	if (!row || row.deletedAt) throw new NotFoundError("contratação", segmentId)
-	requireUnit(ctx, level, row.unitId)
-	return row.unitId
+	if (!row || row.deletedAt) throw new DomainError("SEGMENT_NOT_FOUND", "Contratação não encontrada ou removida: escolha outra.")
+	return { id: row.id, unitId: row.unitId, name: row.name }
+}
+
+/** OM dona da contratação, lida do banco; recusa a apagada. */
+async function authorizeSegment(client: Client, ctx: UserContext, segmentId: string, level: 1 | 2): Promise<number> {
+	const segment = await loadLiveSegment(client, segmentId)
+	requireUnit(ctx, level, segment.unitId)
+	return segment.unitId
+}
+
+/**
+ * Itens da OM em conflito que envolvem esta contratação. Concluir o anexo dela com conflito
+ * aberto deixaria o item fora de qualquer anexo, ou em dois (Lei 14.133/2021, art. 82, VIII).
+ */
+export async function findSegmentConflicts(client: Client, unitId: number, segmentId: string): Promise<string[]> {
+	const [{ parentOf, pathOf }, universe] = await Promise.all([loadFolderTree(client), loadUnitUniverse(client, unitId)])
+	const segments = await loadUnitSegments(client, unitId, pathOf)
+	const resolutions = resolveLines(universe, segmentRuleInputs(segments), parentOf)
+	const descriptions = new Map(universe.map((row) => [lineKey(row), row.purchaseItemDescription ?? row.ingredientName]))
+	const conflicts: string[] = []
+	for (const [key, resolution] of resolutions) {
+		if (resolution.kind === "conflict" && resolution.segmentIds.includes(segmentId)) conflicts.push(descriptions.get(key) ?? key)
+	}
+	return conflicts.sort((a, b) => a.localeCompare(b, "pt-BR"))
 }
 
 export async function updateProcurementSegment(db: SisubDb, ctx: UserContext, input: { segmentId: string } & Partial<SegmentFields>): Promise<void> {
@@ -409,8 +451,19 @@ export async function addProcurementSegmentRule(
 			.limit(1)
 	)
 	if (existing[0]) {
-		await db.update(procurementSegmentRuleInProcurement).set({ mode: input.mode }).where(eq(procurementSegmentRuleInProcurement.id, existing[0].id))
-		return { id: existing[0].id }
+		const ruleId = existing[0].id
+		await mutateOrFail(
+			"UPDATE_FAILED",
+			`Erro ao trocar o modo da regra: ${ruleId} não encontrada`,
+			() =>
+				db
+					.update(procurementSegmentRuleInProcurement)
+					.set({ mode: input.mode })
+					.where(eq(procurementSegmentRuleInProcurement.id, ruleId))
+					.returning({ id: procurementSegmentRuleInProcurement.id }),
+			{ prefix: "Erro ao trocar o modo da regra" }
+		)
+		return { id: ruleId }
 	}
 	return insertOneOrFail(
 		"INSERT_FAILED",
@@ -434,7 +487,17 @@ export async function removeProcurementSegmentRule(db: SisubDb, ctx: UserContext
 	)
 	if (!rows[0]) throw new NotFoundError("regra", input.ruleId)
 	await authorizeSegment(db, ctx, rows[0].segmentId, 2)
-	await db.delete(procurementSegmentRuleInProcurement).where(eq(procurementSegmentRuleInProcurement.id, input.ruleId))
+	// Regra que outra aba já apagou não é sucesso silencioso.
+	await mutateOrFail(
+		"DELETE_FAILED",
+		"A regra já não existe: recarregue a segmentação.",
+		() =>
+			db
+				.delete(procurementSegmentRuleInProcurement)
+				.where(eq(procurementSegmentRuleInProcurement.id, input.ruleId))
+				.returning({ id: procurementSegmentRuleInProcurement.id }),
+		{ prefix: "Erro ao remover regra" }
+	)
 }
 
 /**
@@ -446,12 +509,12 @@ export async function resolveNeedsForSegment(
 	client: Client,
 	unitId: number,
 	needs: ReadonlyArray<{ ingredient_id: string; folder_id: string | null; purchase_item_id: string | null }>
-): Promise<{ resolutions: Map<string, SegmentResolution>; segmentIds: Set<string> }> {
-	const { parentOf, pathOf } = await loadFolderTree(client)
-	const [segments, universe] = await Promise.all([loadUnitSegments(client, unitId, pathOf), loadUnitUniverse(client, unitId)])
+): Promise<Map<string, SegmentResolution>> {
+	const [{ parentOf, pathOf }, universe] = await Promise.all([loadFolderTree(client), loadUnitUniverse(client, unitId)])
+	const segments = await loadUnitSegments(client, unitId, pathOf)
 	// O universo da OM entra junto: um item cujo outro insumo está num cardápio fora deste anexo
 	// continua em conflito aqui, como na tela de segmentação. Resolver só com as linhas do
 	// cálculo esconderia o conflito justamente no anexo.
 	const rows = [...universe, ...needs.map((n) => ({ ingredientId: n.ingredient_id, folderId: n.folder_id, purchaseItemId: n.purchase_item_id }))]
-	return { resolutions: resolveLines(rows, segmentRuleInputs(segments), parentOf), segmentIds: new Set(segments.map((s) => s.id)) }
+	return resolveLines(rows, segmentRuleInputs(segments), parentOf)
 }

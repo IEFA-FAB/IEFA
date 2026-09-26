@@ -38,20 +38,6 @@ export function useSegmentMutations(unitId: number) {
 		onError: (error) => toast.error(`Não criou a contratação: ${error.message}`),
 		scope,
 	})
-	const update = useMutation({
-		mutationFn: (data: {
-			segmentId: string
-			name?: string
-			description?: string | null
-			plannedMonth?: number | null
-			leadTimeMonths?: number
-			validityMonths?: number
-			pcaIdentifier?: string | null
-		}) => updateProcurementSegmentFn({ data }),
-		onSuccess: invalidate,
-		onError: (error) => toast.error(`Não salvou a contratação: ${error.message}`),
-		scope,
-	})
 	const remove = useMutation({
 		mutationFn: (segmentId: string) => deleteProcurementSegmentFn({ data: { segmentId } }),
 		onSuccess: invalidate,
@@ -71,5 +57,28 @@ export function useSegmentMutations(unitId: number) {
 		onError: (error) => toast.error(`Não removeu a regra: ${error.message}`),
 		scope,
 	})
-	return { create, update, remove, addRule, removeRule }
+	return { create, remove, addRule, removeRule }
+}
+
+export type SegmentPatch = {
+	name?: string
+	description?: string | null
+	plannedMonth?: number | null
+	leadTimeMonths?: number
+	validityMonths?: number
+	pcaIdentifier?: string | null
+}
+
+/**
+ * Edição de UMA contratação. Uma mutation por card: com a mutation compartilhada, gravar o PCA de
+ * Carnes fazia o "Salvando…/Salvo" (e o erro) aparecer em todos os cards.
+ */
+export function useUpdateSegment(unitId: number, segmentId: string) {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (patch: SegmentPatch) => updateProcurementSegmentFn({ data: { segmentId, ...patch } }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.procurementSegments.overview(unitId) }),
+		onError: (error) => toast.error(`Não salvou a contratação: ${error.message}`),
+		scope: { id: `procurement-segments-${unitId}` },
+	})
 }

@@ -13,7 +13,7 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle }
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { useSegmentMutations } from "@/hooks/data/useProcurementSegments"
+import { type SegmentPatch, useSegmentMutations, useUpdateSegment } from "@/hooks/data/useProcurementSegments"
 
 export const MONTH_LABELS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
 const NO_MONTH = "none"
@@ -86,7 +86,7 @@ export function SegmentationEditor({ unitId, overview, canEdit }: { unitId: numb
 			) : (
 				<div className="space-y-4">
 					{overview.segments.map((segment) => (
-						<SegmentCard key={segment.id} segment={segment} overview={overview} mutations={mutations} canEdit={canEdit} />
+						<SegmentCard key={segment.id} unitId={unitId} segment={segment} overview={overview} mutations={mutations} canEdit={canEdit} />
 					))}
 				</div>
 			)}
@@ -135,7 +135,7 @@ function CreateSegmentDialog({ mutations, onClose }: { mutations: Mutations; onC
 								min={1}
 								max={120}
 								value={validityMonths}
-								onChange={(e) => setValidityMonths(Math.max(1, Number(e.target.value) || 1))}
+								onChange={(e) => setValidityMonths(Math.min(120, Math.max(1, Number(e.target.value) || 1)))}
 							/>
 						</Field>
 						<Field>
@@ -190,10 +190,24 @@ function MonthSelect({ id, value, onChange, disabled }: { id: string; value: num
  * Uma contratação, editada no próprio card (SAVE_BEHAVIOR, modo B): campo discreto grava na
  * mudança, texto grava no blur, e o estado aparece no `AutoSaveStatus` no lugar de um Salvar.
  */
-function SegmentCard({ segment, overview, mutations, canEdit }: { segment: Segment; overview: SegmentationOverview; mutations: Mutations; canEdit: boolean }) {
+function SegmentCard({
+	unitId,
+	segment,
+	overview,
+	mutations,
+	canEdit,
+}: {
+	unitId: number
+	segment: Segment
+	overview: SegmentationOverview
+	mutations: Mutations
+	canEdit: boolean
+}) {
 	const [name, setName] = useState(segment.name)
 	const [pca, setPca] = useState(segment.pcaIdentifier ?? "")
-	const save = (patch: Omit<Parameters<Mutations["update"]["mutate"]>[0], "segmentId">) => mutations.update.mutate({ segmentId: segment.id, ...patch })
+	const [validity, setValidity] = useState(String(segment.validityMonths))
+	const update = useUpdateSegment(unitId, segment.id)
+	const save = (patch: SegmentPatch) => update.mutate(patch)
 
 	return (
 		<Card>
@@ -208,7 +222,7 @@ function SegmentCard({ segment, overview, mutations, canEdit }: { segment: Segme
 						</CardDescription>
 					</div>
 					<div className="flex items-center gap-2">
-						<AutoSaveStatus status={autoSaveStateOf(mutations.update)} />
+						<AutoSaveStatus status={autoSaveStateOf(update)} />
 						{canEdit && (
 							<Button
 								variant="ghost"
@@ -248,10 +262,17 @@ function SegmentCard({ segment, overview, mutations, canEdit }: { segment: Segme
 								type="number"
 								min={1}
 								max={120}
-								defaultValue={segment.validityMonths}
-								onBlur={(e) => {
-									const next = Number(e.target.value)
-									if (next >= 1 && next <= 120 && next !== segment.validityMonths) save({ validityMonths: next })
+								value={validity}
+								aria-invalid={!(Number(validity) >= 1 && Number(validity) <= 120) || undefined}
+								onChange={(e) => setValidity(e.target.value)}
+								onBlur={() => {
+									const next = Number(validity)
+									// Inválido não grava: volta ao valor salvo em vez de ficar na tela sem existir.
+									if (!(Number.isInteger(next) && next >= 1 && next <= 120)) {
+										setValidity(String(segment.validityMonths))
+										return
+									}
+									if (next !== segment.validityMonths) save({ validityMonths: next })
 								}}
 							/>
 						</Field>
