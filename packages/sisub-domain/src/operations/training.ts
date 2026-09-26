@@ -470,10 +470,29 @@ const RESET_STEPS: ResetStep[] = [
 	// Ordem: filho antes do pai (pagamento → liquidação → evento; o empenho, lá embaixo) e
 	// crédito antes do lote de importação que o originou.
 	{ table: "finance.pagamento", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.pagamento where unit_id = ${scope.unit_id} returning 1`) },
+	// Retenções da NS (20260926216000): sem `unit_id`, alcançadas pela liquidação. Cairiam pelo
+	// CASCADE dela; o passo explícito é para a contagem do reset dizer quantas saíram.
+	{
+		table: "finance.liquidacao_deduction",
+		run: (tx, scope) =>
+			deleteRaw(
+				tx,
+				sql`delete from finance.liquidacao_deduction where liquidacao_id in (select id from finance.liquidacao where unit_id = ${scope.unit_id}) returning 1`
+			),
+	},
 	{ table: "finance.liquidacao", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.liquidacao where unit_id = ${scope.unit_id} returning 1`) },
 	{
 		table: "finance.reconciliation_decision",
 		run: (tx, scope) => deleteRaw(tx, sql`delete from finance.reconciliation_decision where unit_id = ${scope.unit_id} returning 1`),
+	},
+	// Parcelas de RP (20260926216000): sem `unit_id`, alcançadas pelo empenho (CASCADE dele).
+	{
+		table: "finance.empenho_rp_inscription",
+		run: (tx, scope) =>
+			deleteRaw(
+				tx,
+				sql`delete from finance.empenho_rp_inscription where empenho_id in (select id from finance.empenho where unit_id = ${scope.unit_id}) returning 1`
+			),
 	},
 	{
 		table: "finance.empenho_event",
@@ -481,6 +500,9 @@ const RESET_STEPS: ResetStep[] = [
 			deleteRaw(tx, sql`delete from finance.empenho_event where empenho_id in (select id from finance.empenho where unit_id = ${scope.unit_id}) returning 1`),
 	},
 	{ table: "finance.budget_credit", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.budget_credit where unit_id = ${scope.unit_id} returning 1`) },
+	// Notas de crédito que o treinando registra (`unit:2`, tela de crédito). Promovida de
+	// RESET_EXCLUSIONS no PR do recurso; sai antes do lote de importação (FK SET NULL).
+	{ table: "finance.credit_note", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.credit_note where unit_id = ${scope.unit_id} returning 1`) },
 	{
 		table: "siafi_integration.import_row",
 		run: (tx, scope) =>
