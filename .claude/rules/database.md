@@ -37,8 +37,13 @@ publicável (`anon`/`authenticated`) está no bundle de todo app. Desde `2026092
   arquivo, com o motivo, e na publicação se for Realtime.
 - Gate: `bun --filter @iefa/database audit:rls` roda no job `gate` do `integration.yml` e falha em
   função executável por cliente, função que o `service_role` não executa, default que abra função
-  nova, USAGE/grant de cliente fora da allowlist, RLS desligada alcançável e SECURITY DEFINER sem
-  `search_path` ou exposta.
+  nova, USAGE/grant de cliente fora da allowlist, RLS desligada alcançável, função sem `search_path`
+  fixo (definer ou não) e SECURITY DEFINER exposta.
+- Função nova ou recriada fixa `set search_path` (de preferência `''`, com tudo qualificado; built-in
+  de `pg_catalog` dispensa schema). `create or replace` sem a cláusula apaga o `search_path` que a
+  função tinha. A regra `migration-function-without-search-path` do opengrep acusa na migration
+  (posterior a `20260926212000`), e o `audit:rls` (`function_search_path`) no banco vivo.
+  `pg_trgm` e `unaccent` vivem em `public` neste banco, não em `extensions`.
 
 ## Mudança de acesso: só por função auditada
 

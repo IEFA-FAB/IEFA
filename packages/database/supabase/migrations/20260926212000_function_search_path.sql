@@ -24,6 +24,15 @@
 --   Nenhuma aparece em índice. `inventory.expiry_alert_days` (view `inventory.v_lot_expiry`)
 --   e `inventory.lot_short_code` (default de `inventory.stock_lot.short_code`, plpgsql) já
 --   não eram inlináveis: ganham só a troca de GUC por chamada.
+-- * `sisub.catmat_similarity` roda duas vezes por linha de `procurement.purchase_item` em
+--   `inventory.suggest_purchase_items` (~1.965 linhas). Ela continua plpgsql com SET, em vez
+--   de virar SQL inlinável sem SET: o despacho em runtime entre `extensions.similarity` e
+--   `public.similarity` é o que a deixa rodar onde o `pg_trgm` estiver (aqui, `public`), e sem
+--   SET o advisor e o `audit:rls` continuariam acusando. Medido em PG 17 local, 19.650
+--   chamadas: 43–45 ms com SET contra 42–46 ms sem, diferença dentro do ruído. O custo real é o
+--   wrapper em si (no banco, 70 ms contra 36 ms chamando `public.similarity` direto), que
+--   já existe hoje e sai quando o `pg_trgm` tiver schema fixo em todo ambiente e
+--   `suggest_purchase_items` chamar a `similarity` qualificada direto.
 --
 -- Fora daqui: as funções que `20260926210000_database_cleanup.sql` dropa, e a mudança de
 -- `pg_trgm`/`unaccent` de `public` para `extensions` (advisor `extension_in_public`, dívida).

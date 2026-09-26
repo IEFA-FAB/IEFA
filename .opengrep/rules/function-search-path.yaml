@@ -1,0 +1,49 @@
+##
+# Função criada ou recriada em migration fixa o search_path no mesmo statement.
+#
+# Como as outras regras deste diretório, nasceu de bug real: em 2026-09-26 o advisor do
+# Supabase acusava 85 funções com search_path mutável (`function_search_path_mutable`).
+# Sem `set search_path`, a função resolve nome sem schema pelo caminho de quem chama:
+# `"$user", public` no service_role, o schema do perfil no PostgREST, o do statement que
+# dispara o trigger. `20260926212000_function_search_path.sql` fixou todas; um
+# `create or replace` sem a cláusula regrava `proconfig` e desfaz o fix sem aviso.
+#
+# O `audit:rls` (`function_search_path`) cobra o mesmo no banco vivo; esta regra acusa
+# antes, no PR que escreve a migration. Vale só para migrations depois de
+# 20260926212000: as anteriores estão aplicadas, e o que elas deixaram sem path foi
+# corrigido por `alter function` naquela migration.
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: migration-function-without-search-path
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      `create function` sem `set search_path` no mesmo statement. Fixe o caminho, de
+      preferência `set search_path = ''` com tudo qualificado (`inventory.stock_lot`,
+      `extensions.similarity`); built-ins de `pg_catalog` resolvem sem schema. Se a função
+      usa nome sem schema, liste o menor conjunto explícito
+      (`set search_path = pg_catalog, inventory`). `create or replace` sem a cláusula apaga
+      o search_path que a função tinha. Ver `.claude/rules/database.md`.
+    paths:
+      include:
+        - "packages/database/supabase/migrations/*.sql"
+      exclude:
+        # Tudo até 20260926212000 inclusive (aplicado antes do gate existir).
+        - "packages/database/supabase/migrations/2024*"
+        - "packages/database/supabase/migrations/2025*"
+        - "packages/database/supabase/migrations/20260[1-8]*"
+        - "packages/database/supabase/migrations/202609[0-1]*"
+        - "packages/database/supabase/migrations/2026092[0-5]*"
+        - "packages/database/supabase/migrations/20260926[0-1]*"
+        - "packages/database/supabase/migrations/2026092620*"
+        - "packages/database/supabase/migrations/2026092621[0-1]*"
+        - "packages/database/supabase/migrations/20260926212000_*"
+    # Do `create` até o `;` que fecha o statement: cabeçalho, corpo entre dollar quotes
+    # (a mesma tag abre e fecha, e o corpo não atravessa para a função seguinte) e as
+    # opções depois do corpo. Casa só se nenhum dos trechos fora do corpo tiver
+    # `set search_path`. Corpo entre aspas simples ou `begin atomic` não é coberto: as
+    # migrations do repo usam dollar quote.
+    pattern-regex: >-
+      (?is)\bcreate\s+(?:or\s+replace\s+)?function\s+(?:(?!\bset\s+search_path\b)[^;$])*?\bas\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*\1(?:(?!\bset\s+search_path\b)[^;])*;
