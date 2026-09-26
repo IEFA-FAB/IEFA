@@ -55,13 +55,17 @@ jobs:
       - name: Format
         run: bun run format:check
 
+      # Fora dos workspaces: o turbo não enxerga, e um guard quebrado só apareceria em sessão real.
+      - name: Agent guard cases
+        run: bun test ./.claude/hooks/guard.test.ts
+
       - name: Resolve scope
         id: scope
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           changed=$(git diff --name-only "$BASE_SHA"...HEAD)
-          if printf '%s\n' "$changed" | grep -qE '^(bun\.lock|package\.json|biome\.json|turbo\.json|bunfig\.toml|packages/tsconfig/|\.github/workflows/pr-check\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -qE '^(bun\.lock|package\.json|biome\.json|turbo\.json|bunfig\.toml|packages/tsconfig/|\.oxlintrc\.tailwind\.jsonc$|scripts/lint-tailwind\.ts$|\.github/workflows/pr-check\.yml$)'; then
             echo "args=" >> "$GITHUB_OUTPUT"
             echo "Arquivo global alterado: rodando o monorepo inteiro."
           else
