@@ -29,6 +29,12 @@ export function AppShell() {
 	const { toggle } = useTheme()
 	const matches = useMatches()
 
+	// Caminho da página MONTADA, não da URL pedida: o `useLocation` troca no clique, enquanto
+	// `matches` (e o `scopeContext` que sai deles) só troca quando os loaders da rota nova
+	// terminam. Misturar os dois montava a sidebar do módulo novo com o id de escopo do antigo
+	// (`/unit/<id da cozinha>/…`) durante a navegação — clicar nela abria escopo inexistente.
+	const pathname = matches[matches.length - 1]?.pathname ?? location.pathname
+
 	// Reutiliza o isMobile já computado pelo SidebarProvider (768px breakpoint),
 	// consistente com o modo sheet/drawer do sidebar em mobile.
 	const { isMobile } = useSidebar()
@@ -42,7 +48,7 @@ export function AppShell() {
 	const availableModules = getModulesForPermissions(permissions)
 
 	// Auto-detect active module from current path
-	const pathModuleId = getModuleFromPath(location.pathname)
+	const pathModuleId = getModuleFromPath(pathname)
 	const [selectedModuleId, setSelectedModuleId] = useState<ModuleId | null>(pathModuleId)
 
 	// Sync selected module when path changes to a different module
@@ -97,11 +103,8 @@ export function AppShell() {
 	// Trilha derivada da URL; `linkCrumbs` troca os destinos que não são página (layout sem
 	// index, `print`, a própria página) e usa os nomes de módulo da sidebar.
 	const navItems: NavItem[] = getNavItemsForPermissions(permissions)
-	const activeEntityLabel = entityLabel && entityLabel.path === normalizePath(location.pathname) ? entityLabel.label : null
-	const crumbs: NavCrumb[] = applyEntityLabel(
-		linkCrumbs(buildCrumbs(location.pathname, navItems, scopeContext), location.pathname, availableModules),
-		activeEntityLabel
-	)
+	const activeEntityLabel = entityLabel && entityLabel.path === normalizePath(pathname) ? entityLabel.label : null
+	const crumbs: NavCrumb[] = applyEntityLabel(linkCrumbs(buildCrumbs(pathname, navItems, scopeContext), pathname, availableModules), activeEntityLabel)
 
 	// Título da aba: fonte única — as rotas do AppShell não declaram `title` no head, senão
 	// as duas fontes disputam a aba. Formato: "Página · Registro · Escopo — SISUB". O registro
