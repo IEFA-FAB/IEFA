@@ -14,6 +14,7 @@ import { normalizePath, scopeUrl } from "@/lib/nav-paths"
 import type { ScopeContext } from "@/types/domain/scope"
 import { CommandPalette, openCommandPalette } from "./CommandPalette"
 import { CrumbLabelContext } from "./crumb-label"
+import { OpenDraftsMenu } from "./OpenDraftsMenu"
 import { AppSidebar } from "./sidebar/AppSidebar"
 import { MainSurface } from "./sidebar/MainSurface"
 
@@ -209,6 +210,7 @@ export function AppShell() {
 								<Search className="size-4" />
 							</Button>
 						)}
+						<OpenDraftsMenu />
 						<AnimatedThemeToggler toggle={toggle} />
 					</div>
 				</header>
