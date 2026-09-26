@@ -66,10 +66,9 @@ export async function loadCanonicalUnits(): Promise<Set<string>> {
  */
 export async function loadMovedIngredientIds(kitchenId: number): Promise<Set<string>> {
 	const rows = await readAllPages<{ ingredient_id: string | null }>("os itens já movimentados", (from, to) =>
-		// Paginado por `ingredient_id`: `stock_cost` NÃO tem `id` — a chave é
-		// (kitchen_id, ingredient_id), única por índice parcial, e é ela que dá a ordem
-		// estável que a paginação exige. Pedir coluna inexistente devolve 42703 e
-		// derrubaria a importação inteira.
+		// Paginado por `ingredient_id`: filtrada por cozinha, a chave de negócio de `stock_cost` é
+		// o insumo — (kitchen_id, ingredient_id), única por índice parcial —, e ela já dá a ordem
+		// estável que a paginação exige. O `id` (PK física desde 20260926210000) não acrescenta nada.
 		inventory().from("stock_cost").select("ingredient_id").eq("kitchen_id", kitchenId).not("ingredient_id", "is", null).order("ingredient_id").range(from, to)
 	)
 	return new Set(rows.map((row) => row.ingredient_id).filter((id): id is string => Boolean(id)))
