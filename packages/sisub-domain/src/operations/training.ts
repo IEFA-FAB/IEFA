@@ -536,6 +536,12 @@ const RESET_STEPS: ResetStep[] = [
 		table: "procurement.procurement_list",
 		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.procurement_list where unit_id = ${scope.unit_id} returning 1`),
 	},
+	// Contratações da OM sentinela (segmentação). DEPOIS dos anexos: `procurement_list.segment_id`
+	// aponta para cá sem ação de delete. As regras caem por cascade.
+	{
+		table: "procurement.procurement_segment",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.procurement_segment where unit_id = ${scope.unit_id} returning 1`),
+	},
 
 	// ── Matriz de efetivo ──
 	// O roster (`kitchen.rancho`) é cadastro e fica de fora, como as sentinelas. Já o que o

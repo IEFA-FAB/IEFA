@@ -9,12 +9,14 @@ export {
 } from "./allergens.ts"
 export {
 	calculateAtaNeeds,
+	calculateAtaNeedsForSegment,
 	createAta,
 	createAtaDraft,
 	deleteAta,
 	fetchAtaDetails,
 	fetchAtaList,
 	finalizeAtaDraft,
+	type SegmentExclusion,
 	saveAtaDraftItems,
 	updateAtaDraft,
 	updateAtaItemDescription,
@@ -510,6 +512,18 @@ export {
 	type SampleConversion,
 } from "./price-units.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
+export {
+	addProcurementSegmentRule,
+	createProcurementSegment,
+	deleteProcurementSegment,
+	fetchSegmentationOverview,
+	type ProcurementSegment,
+	type ProcurementSegmentRule,
+	removeProcurementSegmentRule,
+	type SegmentationLine,
+	type SegmentationOverview,
+	updateProcurementSegment,
+} from "./procurement-segments.ts"
 export type { BoardSnackRequest } from "./production.ts"
 export {
 	adjustProductionPortions,
@@ -626,6 +640,15 @@ export {
 	type ReviewMetrics,
 	type ReviewTypeMetrics,
 } from "./review-metrics.ts"
+export {
+	folderChain,
+	indexSegmentRules,
+	resolveSegment,
+	type SegmentLineInput,
+	type SegmentResolution,
+	type SegmentRuleInput,
+	type SegmentRuleMode,
+} from "./segment-resolution.ts"
 export type {
 	SnackLabelData,
 	SnackOrderingContext,

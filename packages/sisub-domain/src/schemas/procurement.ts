@@ -170,6 +170,8 @@ export type KitchenSelectionInput = z.infer<typeof KitchenSelectionSchema>
 
 export const CalculateAtaNeedsSchema = z.object({
 	kitchenSelections: z.array(KitchenSelectionSchema),
+	/** Anexo de uma contratação: o cálculo devolve só os itens que resolvem para ela. */
+	segmentId: UuidSchema.nullable().optional(),
 })
 export type CalculateAtaNeeds = z.infer<typeof CalculateAtaNeedsSchema>
 
@@ -183,6 +185,8 @@ export const UpdateAtaDraftSchema = z.object({
 	wizardStep: z.number().min(1).max(5).optional(),
 	validityMonths: ValidityMonthsSchema.nullable().optional(),
 	kitchenSelections: z.array(KitchenSelectionSchema).optional(),
+	/** Contratação do anexo; null = anexo de todos os itens (comportamento anterior). */
+	segmentId: UuidSchema.nullable().optional(),
 })
 export type UpdateAtaDraft = z.infer<typeof UpdateAtaDraftSchema>
 
@@ -327,3 +331,26 @@ export type UpdateAtaQuantityLimits = z.infer<typeof UpdateAtaQuantityLimitsSche
 
 export const DeleteAtaSchema = z.object({ ataId: z.string() })
 export type DeleteAta = z.infer<typeof DeleteAtaSchema>
+
+// ─── Segmentação das contratações ──────────────────────────────────────────────
+
+const SegmentFieldsSchema = z.object({
+	name: z.string().trim().min(1, "Informe o nome da contratação").max(120),
+	description: z.string().max(2000).nullable().optional(),
+	plannedMonth: z.number().int().min(1).max(12).nullable().optional(),
+	leadTimeMonths: z.number().int().min(0).max(12).optional(),
+	validityMonths: z.number().int().min(1).max(120).optional(),
+	pcaIdentifier: z.string().max(120).nullable().optional(),
+})
+
+export const FetchSegmentationSchema = z.object({ unitId: z.number().int().positive() })
+export const CreateProcurementSegmentSchema = SegmentFieldsSchema.extend({ unitId: z.number().int().positive() })
+export const UpdateProcurementSegmentSchema = SegmentFieldsSchema.partial().extend({ segmentId: UuidSchema })
+export const DeleteProcurementSegmentSchema = z.object({ segmentId: UuidSchema })
+export const AddProcurementSegmentRuleSchema = z.object({
+	segmentId: UuidSchema,
+	mode: z.enum(["include", "exclude"]),
+	folderId: UuidSchema.nullable().optional(),
+	purchaseItemId: UuidSchema.nullable().optional(),
+})
+export const RemoveProcurementSegmentRuleSchema = z.object({ ruleId: UuidSchema })

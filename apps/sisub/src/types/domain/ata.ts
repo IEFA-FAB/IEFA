@@ -129,4 +129,6 @@ export interface AtaWizardState {
 	/** Vigência em meses; multiplica as ocorrências mensais das exceções. */
 	validityMonths: number
 	kitchenSelections: KitchenSelectionState[]
+	/** Contratação (segmento) do anexo; null = todos os itens. */
+	segmentId?: string | null
 }

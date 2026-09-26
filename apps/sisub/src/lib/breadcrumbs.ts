@@ -45,6 +45,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	presence: "Presenças",
 	planning: "Agendamento da Produção",
 	procurement: "Anexos Quantitativos",
+	segments: "Segmentação das contratações",
 	suprimentos: "Suprimentos",
 	recipes: "Preparações",
 	equipment: "Equipamentos",

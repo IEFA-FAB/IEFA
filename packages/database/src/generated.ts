@@ -11937,6 +11937,8 @@ export type Database = {
           id_item_compra: number | null
           marca: string | null
           municipio: string | null
+          ni_fornecedor: string | null
+          nome_fornecedor: string | null
           nome_uasg: string | null
           normalized_price: number | null
           preco_unitario: number | null
@@ -11958,6 +11960,8 @@ export type Database = {
           id_item_compra?: number | null
           marca?: string | null
           municipio?: string | null
+          ni_fornecedor?: string | null
+          nome_fornecedor?: string | null
           nome_uasg?: string | null
           normalized_price?: number | null
           preco_unitario?: number | null
@@ -11979,6 +11983,8 @@ export type Database = {
           id_item_compra?: number | null
           marca?: string | null
           municipio?: string | null
+          ni_fornecedor?: string | null
+          nome_fornecedor?: string | null
           nome_uasg?: string | null
           normalized_price?: number | null
           preco_unitario?: number | null
@@ -12051,6 +12057,8 @@ export type Database = {
           id: string
           kitchen_id: number
           notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: string
           title: string
           updated_at: string | null
@@ -12060,6 +12068,8 @@ export type Database = {
           id?: string
           kitchen_id: number
           notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
           title: string
           updated_at?: string | null
@@ -12069,11 +12079,49 @@ export type Database = {
           id?: string
           kitchen_id?: number
           notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
           title?: string
           updated_at?: string | null
         }
         Relationships: []
+      }
+      kitchen_ata_draft_import: {
+        Row: {
+          draft_id: string
+          imported_at: string
+          imported_by: string | null
+          list_id: string
+        }
+        Insert: {
+          draft_id: string
+          imported_at?: string
+          imported_by?: string | null
+          list_id: string
+        }
+        Update: {
+          draft_id?: string
+          imported_at?: string
+          imported_by?: string | null
+          list_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_ata_draft_import_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_ata_draft"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_ata_draft_import_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kitchen_ata_draft_selection: {
         Row: {
@@ -12139,6 +12187,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      price_research_emission: {
+        Row: {
+          emitted_at: string
+          emitted_by: string | null
+          id: string
+          items: Json
+          list_id: string
+          sequence: number
+          sha256: string
+        }
+        Insert: {
+          emitted_at?: string
+          emitted_by?: string | null
+          id?: string
+          items: Json
+          list_id: string
+          sequence: number
+          sha256: string
+        }
+        Update: {
+          emitted_at?: string
+          emitted_by?: string | null
+          id?: string
+          items?: Json
+          list_id?: string
+          sequence?: number
+          sha256?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_research_emission_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       procurement_arp: {
         Row: {
@@ -12267,9 +12353,12 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           id: string
+          is_budget_confidential: boolean
           margin_justification: string | null
           max_margin_percent: number
+          min_quote_percent: number
           notes: string | null
+          segment_id: string | null
           status: string
           title: string
           unit_id: number
@@ -12281,9 +12370,12 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          is_budget_confidential?: boolean
           margin_justification?: string | null
           max_margin_percent?: number
+          min_quote_percent?: number
           notes?: string | null
+          segment_id?: string | null
           status?: string
           title: string
           unit_id: number
@@ -12295,9 +12387,12 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          is_budget_confidential?: boolean
           margin_justification?: string | null
           max_margin_percent?: number
+          min_quote_percent?: number
           notes?: string | null
+          segment_id?: string | null
           status?: string
           title?: string
           unit_id?: number
@@ -12305,7 +12400,15 @@ export type Database = {
           validity_months?: number | null
           wizard_step?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "procurement_list_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_segment"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       procurement_list_item: {
         Row: {
@@ -12476,6 +12579,7 @@ export type Database = {
           max_quantity: number | null
           measure_unit: string | null
           min_order_quantity: number | null
+          min_quote_quantity: number | null
           purchase_item_description: string | null
           purchase_item_id: string | null
           purchase_measure_unit: string | null
@@ -12497,6 +12601,7 @@ export type Database = {
           max_quantity?: number | null
           measure_unit?: string | null
           min_order_quantity?: number | null
+          min_quote_quantity?: number | null
           purchase_item_description?: string | null
           purchase_item_id?: string | null
           purchase_measure_unit?: string | null
@@ -12518,6 +12623,7 @@ export type Database = {
           max_quantity?: number | null
           measure_unit?: string | null
           min_order_quantity?: number | null
+          min_quote_quantity?: number | null
           purchase_item_description?: string | null
           purchase_item_id?: string | null
           purchase_measure_unit?: string | null
@@ -12587,6 +12693,7 @@ export type Database = {
         Row: {
           ata_id: string | null
           created_at: string
+          created_by: string | null
           filter_estado: string | null
           filter_municipio_code: number | null
           filter_uasg_code: string | null
@@ -12603,6 +12710,7 @@ export type Database = {
         Insert: {
           ata_id?: string | null
           created_at?: string
+          created_by?: string | null
           filter_estado?: string | null
           filter_municipio_code?: number | null
           filter_uasg_code?: string | null
@@ -12619,6 +12727,7 @@ export type Database = {
         Update: {
           ata_id?: string | null
           created_at?: string
+          created_by?: string | null
           filter_estado?: string | null
           filter_municipio_code?: number | null
           filter_uasg_code?: string | null
@@ -12645,6 +12754,9 @@ export type Database = {
       procurement_pesquisa_preco_amostra: {
         Row: {
           amostra_id: string
+          content_in_unit: number | null
+          conversion: string | null
+          converted_price: number | null
           id: string
           research_item_id: string
           sample_type: string
@@ -12652,6 +12764,9 @@ export type Database = {
         }
         Insert: {
           amostra_id: string
+          content_in_unit?: number | null
+          conversion?: string | null
+          converted_price?: number | null
           id?: string
           research_item_id: string
           sample_type: string
@@ -12659,6 +12774,9 @@ export type Database = {
         }
         Update: {
           amostra_id?: string
+          content_in_unit?: number | null
+          conversion?: string | null
+          converted_price?: number | null
           id?: string
           research_item_id?: string
           sample_type?: string
@@ -12773,6 +12891,100 @@ export type Database = {
             columns: ["research_id"]
             isOneToOne: false
             referencedRelation: "procurement_pesquisa_preco"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_segment: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string
+          lead_time_months: number
+          name: string
+          pca_identifier: string | null
+          planned_month: number | null
+          unit_id: number
+          updated_at: string
+          validity_months: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          lead_time_months?: number
+          name: string
+          pca_identifier?: string | null
+          planned_month?: number | null
+          unit_id: number
+          updated_at?: string
+          validity_months?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          lead_time_months?: number
+          name?: string
+          pca_identifier?: string | null
+          planned_month?: number | null
+          unit_id?: number
+          updated_at?: string
+          validity_months?: number
+        }
+        Relationships: []
+      }
+      procurement_segment_rule: {
+        Row: {
+          created_at: string
+          folder_id: string | null
+          id: string
+          mode: string
+          purchase_item_id: string | null
+          segment_id: string
+        }
+        Insert: {
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          mode: string
+          purchase_item_id?: string | null
+          segment_id: string
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          mode?: string
+          purchase_item_id?: string | null
+          segment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_segment_rule_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_segment_rule_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_item_conditioning_review"
+            referencedColumns: ["purchase_item_id"]
+          },
+          {
+            foreignKeyName: "procurement_segment_rule_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_segment"
             referencedColumns: ["id"]
           },
         ]
