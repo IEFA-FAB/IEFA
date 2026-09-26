@@ -19,7 +19,7 @@
 # =============================================================================
 
 ARG NODE_IMAGE=public.ecr.aws/docker/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
-ARG NGINX_IMAGE=quay.io/nginx/nginx-unprivileged:alpine-slim@sha256:dcc9bf9c084901dddbbce305130a7295c5637b6a8fce3e29cf678d86336982e4
+ARG NGINX_IMAGE=quay.io/nginx/nginx-unprivileged:alpine-slim@sha256:123fb7283ffb4788e260d4e980005a978995fefedcdbb04d268077a19b84576d
 
 # ---- Código-fonte do upstream, na versão fixada ------------------------------
 FROM ${NODE_IMAGE} AS source
