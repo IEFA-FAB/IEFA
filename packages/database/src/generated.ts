@@ -5357,6 +5357,8 @@ export type Database = {
           provisional_at: string | null
           provisional_by: string | null
           provisional_designation_id: string | null
+          rejected_at: string | null
+          rejected_by: string | null
           source: string
           status: string
           supply_order_id: string | null
@@ -5383,6 +5385,8 @@ export type Database = {
           provisional_at?: string | null
           provisional_by?: string | null
           provisional_designation_id?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
           source?: string
           status?: string
           supply_order_id?: string | null
@@ -5409,6 +5413,8 @@ export type Database = {
           provisional_at?: string | null
           provisional_by?: string | null
           provisional_designation_id?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
           source?: string
           status?: string
           supply_order_id?: string | null

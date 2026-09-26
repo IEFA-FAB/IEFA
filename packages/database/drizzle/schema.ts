@@ -1135,92 +1135,6 @@ export const integrationSyncLogInComprasGovIntegration = comprasGovIntegration.t
 	uniqueIndex("uq_integration_sync_log_one_running_per_source").using("btree", table.source.asc().nullsLast().op("text_ops")).where(sql`(status = 'running'::text)`),
 ]);
 
-export const goodsReceiptInInventory = inventory.table("goods_receipt", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }).notNull(),
-	supplyOrderId: uuid("supply_order_id"),
-	nfeDocumentId: uuid("nfe_document_id"),
-	empenhoId: uuid("empenho_id"),
-	status: text().default('draft').notNull(),
-	provisionalBy: uuid("provisional_by"),
-	provisionalAt: timestamp("provisional_at", { withTimezone: true, mode: 'string' }),
-	definitiveBy: uuid("definitive_by"),
-	definitiveAt: timestamp("definitive_at", { withTimezone: true, mode: 'string' }),
-	notes: text(),
-	createdBy: uuid("created_by"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	liquidacaoId: uuid("liquidacao_id"),
-	source: text().default('nfe').notNull(),
-	deliveryNoteNumber: text("delivery_note_number"),
-	provisionalDesignationId: uuid("provisional_designation_id"),
-	definitiveDesignationId: uuid("definitive_designation_id"),
-	fiscalPending: boolean("fiscal_pending").default(false).notNull(),
-	fiscalPendingValue: numeric("fiscal_pending_value", { mode: "number", precision: 14, scale: 2 }),
-	fiscalResolution: text("fiscal_resolution"),
-	fiscalResolutionReference: text("fiscal_resolution_reference"),
-	fiscalResolvedAt: timestamp("fiscal_resolved_at", { withTimezone: true, mode: 'string' }),
-	fiscalResolvedBy: uuid("fiscal_resolved_by"),
-}, (table) => [
-	index("goods_receipt_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("text_ops"), table.status.asc().nullsLast().op("int8_ops")),
-	uniqueIndex("goods_receipt_nfe_document_unique").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")).where(sql`((nfe_document_id IS NOT NULL) AND (status <> 'rejected'::text))`),
-	index("goods_receipt_nfe_idx").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")),
-	foreignKey({
-			columns: [table.createdBy],
-			foreignColumns: [usersInAuth.id],
-			name: "goods_receipt_created_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.definitiveBy],
-			foreignColumns: [usersInAuth.id],
-			name: "goods_receipt_definitive_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.definitiveDesignationId],
-			foreignColumns: [contractDesignationInProcurement.id],
-			name: "goods_receipt_definitive_designation_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.empenhoId],
-			foreignColumns: [empenhoInFinance.id],
-			name: "goods_receipt_empenho_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.fiscalResolvedBy],
-			foreignColumns: [usersInAuth.id],
-			name: "goods_receipt_fiscal_resolved_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.kitchenId],
-			foreignColumns: [kitchenInKitchen.id],
-			name: "goods_receipt_kitchen_id_fkey"
-		}),
-	// FK "goods_receipt_liquidacao_id_fkey" omitida (patch-drizzle-pull.ts): ciclo com liquidacaoInFinance faria o TS inferir any. Existe no banco; a relação segue em relations.ts.
-	foreignKey({
-			columns: [table.nfeDocumentId],
-			foreignColumns: [nfeDocumentInInventory.id],
-			name: "goods_receipt_nfe_document_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.provisionalBy],
-			foreignColumns: [usersInAuth.id],
-			name: "goods_receipt_provisional_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.provisionalDesignationId],
-			foreignColumns: [contractDesignationInProcurement.id],
-			name: "goods_receipt_provisional_designation_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.supplyOrderId],
-			foreignColumns: [supplyOrderInProcurement.id],
-			name: "goods_receipt_supply_order_id_fkey"
-		}).onDelete("set null"),
-	check("goods_receipt_fiscal_resolution_check", sql`fiscal_resolution = ANY (ARRAY['return_nfe'::text, 'replacement_nfe'::text, 'glosa'::text])`),
-	check("goods_receipt_source_check", sql`source = ANY (ARRAY['nfe'::text, 'delivery_note'::text, 'ad_hoc'::text])`),
-	check("goods_receipt_status_check", sql`status = ANY (ARRAY['draft'::text, 'provisional'::text, 'definitive'::text, 'divergent'::text, 'rejected'::text])`),
-]);
-
 export const comprasServicoNaturezaDespesaInComprasGovIntegration = comprasGovIntegration.table("compras_servico_natureza_despesa", {
 	id: bigserial({ mode: "number" }).primaryKey().notNull(),
 	codigoServico: integer("codigo_servico").notNull(),
@@ -1303,6 +1217,101 @@ export const purchaseItemIngredientInProcurement = procurement.table("purchase_i
 			name: "purchase_item_ingredient_purchase_item_id_fkey"
 		}).onDelete("cascade"),
 	unique("purchase_item_ingredient_purchase_item_id_ingredient_id_key").on(table.purchaseItemId, table.ingredientId),
+]);
+
+export const goodsReceiptInInventory = inventory.table("goods_receipt", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }).notNull(),
+	supplyOrderId: uuid("supply_order_id"),
+	nfeDocumentId: uuid("nfe_document_id"),
+	empenhoId: uuid("empenho_id"),
+	status: text().default('draft').notNull(),
+	provisionalBy: uuid("provisional_by"),
+	provisionalAt: timestamp("provisional_at", { withTimezone: true, mode: 'string' }),
+	definitiveBy: uuid("definitive_by"),
+	definitiveAt: timestamp("definitive_at", { withTimezone: true, mode: 'string' }),
+	notes: text(),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	liquidacaoId: uuid("liquidacao_id"),
+	source: text().default('nfe').notNull(),
+	deliveryNoteNumber: text("delivery_note_number"),
+	provisionalDesignationId: uuid("provisional_designation_id"),
+	definitiveDesignationId: uuid("definitive_designation_id"),
+	fiscalPending: boolean("fiscal_pending").default(false).notNull(),
+	fiscalPendingValue: numeric("fiscal_pending_value", { mode: "number", precision: 14, scale: 2 }),
+	fiscalResolution: text("fiscal_resolution"),
+	fiscalResolutionReference: text("fiscal_resolution_reference"),
+	fiscalResolvedAt: timestamp("fiscal_resolved_at", { withTimezone: true, mode: 'string' }),
+	fiscalResolvedBy: uuid("fiscal_resolved_by"),
+	rejectedAt: timestamp("rejected_at", { withTimezone: true, mode: 'string' }),
+	rejectedBy: uuid("rejected_by"),
+}, (table) => [
+	index("goods_receipt_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.status.asc().nullsLast().op("int8_ops")),
+	uniqueIndex("goods_receipt_nfe_document_unique").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")).where(sql`((nfe_document_id IS NOT NULL) AND (status <> 'rejected'::text))`),
+	index("goods_receipt_nfe_idx").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")),
+	index("goods_receipt_rejected_by_fk_idx").using("btree", table.rejectedBy.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.definitiveBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_definitive_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.definitiveDesignationId],
+			foreignColumns: [contractDesignationInProcurement.id],
+			name: "goods_receipt_definitive_designation_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.empenhoId],
+			foreignColumns: [empenhoInFinance.id],
+			name: "goods_receipt_empenho_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.fiscalResolvedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_fiscal_resolved_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "goods_receipt_kitchen_id_fkey"
+		}),
+	// FK "goods_receipt_liquidacao_id_fkey" omitida (patch-drizzle-pull.ts): ciclo com liquidacaoInFinance faria o TS inferir any. Existe no banco; a relação segue em relations.ts.
+	foreignKey({
+			columns: [table.nfeDocumentId],
+			foreignColumns: [nfeDocumentInInventory.id],
+			name: "goods_receipt_nfe_document_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.provisionalBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_provisional_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.provisionalDesignationId],
+			foreignColumns: [contractDesignationInProcurement.id],
+			name: "goods_receipt_provisional_designation_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.rejectedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_rejected_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.supplyOrderId],
+			foreignColumns: [supplyOrderInProcurement.id],
+			name: "goods_receipt_supply_order_id_fkey"
+		}).onDelete("set null"),
+	check("goods_receipt_fiscal_resolution_check", sql`fiscal_resolution = ANY (ARRAY['return_nfe'::text, 'replacement_nfe'::text, 'glosa'::text])`),
+	check("goods_receipt_rejected_not_attested", sql`(status <> 'rejected'::text) OR (definitive_at IS NULL)`),
+	check("goods_receipt_source_check", sql`source = ANY (ARRAY['nfe'::text, 'delivery_note'::text, 'ad_hoc'::text])`),
+	check("goods_receipt_status_check", sql`status = ANY (ARRAY['draft'::text, 'provisional'::text, 'definitive'::text, 'divergent'::text, 'rejected'::text])`),
 ]);
 
 export const procurementSegmentRuleInProcurement = procurement.table("procurement_segment_rule", {

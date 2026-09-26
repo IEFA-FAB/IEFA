@@ -594,10 +594,7 @@ function ReceiptDetailPage() {
 				<p className="text-xs">Recebimento {receipt.id}</p>
 				{receipt.provisional_at && <p className="text-xs">Provisório em: {new Date(receipt.provisional_at).toLocaleString("pt-BR")}</p>}
 				{receipt.definitive_at && <p className="text-xs">Definitivo em: {new Date(receipt.definitive_at).toLocaleString("pt-BR")}</p>}
-				{/* TODO(db:types): regenerar os tipos após aplicar 20260926205000 e tirar o cast */}
-				{(receipt as { rejected_at?: string | null }).rejected_at && (
-					<p className="text-xs">Recusado em: {new Date((receipt as { rejected_at: string }).rejected_at).toLocaleString("pt-BR")}</p>
-				)}
+				{receipt.rejected_at && <p className="text-xs">Recusado em: {new Date(receipt.rejected_at).toLocaleString("pt-BR")}</p>}
 			</div>
 
 			{Object.keys(conservationTally).length > 0 && (
