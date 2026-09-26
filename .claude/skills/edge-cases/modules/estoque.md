@@ -148,6 +148,58 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 - **O sistema precisa:** ajuste com motivo e trilha, sem apagar o histórico.
 - **Cobertura:** suíte de contagem — verificar.
 
+`ENB` = `apps/sisub/src/test/operations/execution-never-blocks.operations.test.ts` (banco real) ·
+`EXU` = `packages/sisub-domain/src/operations/execution.test.ts` (unitário).
+
 ### EST-SAI-01 — "Saiu insumo para a produção sem requisição (emergência)"
-- **O sistema precisa:** registrar a saída depois, ligada ao dia/preparação.
-- **Cobertura:** hipótese.
+- **O sistema precisa:** registrar a saída depois, com a data REAL e motivo obrigatório, ligada ao
+  dia (requisição da produção daquela data, em qualquer status) e, se escolhida, à preparação
+  (a tarefa passa a contar como baixada). Limites imprescindíveis: competência fechada, e insumo
+  contado depois da data numa contagem aprovada (baixaria duas vezes).
+- **UX:** Saída do dia → "Lançar saída de outro dia" → data, preparação (opcional), insumo,
+  quantidade, motivo. Sem saldo em lote, o aviso diz que entra como falta a regularizar.
+- **Cobertura:** `ENB › saída tardia: data real e motivo…` (retry, sem motivo, competência fechada,
+  dupla baixa, e o retroativo solto segue recusado).
+
+### EST-SAI-02 — "O insumo está na minha mão, mas o sistema diz que não tem saldo"
+- **O sistema precisa:** aceitar a saída de qualquer insumo do catálogo; sem saldo registrado, a saída
+  vai sem lote ("regularizar na contagem") — o banco já aceitava, a tela é que recusava.
+- **UX:** "Retirar insumo fora da sugestão" lista o catálogo inteiro (com saldo primeiro); o insumo
+  sem saldo mostra "Sem saldo registrado — entra como falta a regularizar na contagem". A leitura
+  do código de um insumo sem saldo cai no mesmo campo, com o aviso.
+- **Cobertura:** banco: `issue_stock` sem lote (`stock-issue.operations.test.ts` — verificar o caso
+  sem lote nenhum). Tela sem e2e — hipótese visual.
+
+### EST-SAI-03 — "Abri a requisição do dia antes de a produção abrir o quadro"
+- **O sistema precisa:** a sugestão não pode depender de alguém ter aberto o quadro: abrir (ou
+  recalcular) a requisição cria as tarefas que faltam.
+- **Cobertura:** `ENB › a tarefa do dia nasce sem o quadro aberto…` (a chamada em `openIssueRequestFn` é da server fn, sem teste próprio).
+
+### EST-SAI-04 — "O dia já fechou e ainda saiu insumo"
+- **O sistema precisa:** a requisição fechada não aceita emissão (a variância foi julgada), mas a
+  saída entra pelo lançamento tardio com a data de hoje, ligada ao mesmo dia.
+- **Cobertura:** `ENB › saída tardia…` (ligada ao dia fechado).
+
+### EST-SAI-05 — "Ninguém fechou o dia"
+- **Realidade:** a requisição ficava aberta indefinidamente e travava a aprovação da contagem.
+- **O sistema precisa:** fechar sozinha a partir das 03h do dia seguinte (pg_cron de hora em hora,
+  `inventory.close_stale_issue_requests`): `closed` sem desvio relevante; `closed_unexplained`
+  quando alguma linha passa das duas tolerâncias sem motivo — pendência de justificativa no documento.
+- **UX:** banner "N dias fecharam sozinhos…" na Saída do dia → o dia → "Registrar justificativa". A
+  nutricionista vê o dia em "Revisar a execução" como pendência do Estoque.
+- **Cobertura:** `ENB › o dia esquecido aberto fecha sozinho…` (inclui o job agendado).
+
+### EST-SAI-06 — "A tarefa concluída há mais de 30 dias sumiu da Baixa por Produção"
+- **O sistema precisa:** a janela é a competência ABERTA (depois do último fechamento mensal), não 30 dias.
+- **Cobertura:** `EXU › janela da Baixa por Produção: competência aberta`.
+
+### EST-CNT-02 — "A contagem não aprova porque a produção foi baixada pela Baixa por Produção"
+- **O sistema precisa:** tarefa com saída ligada a ela (Baixa por Produção, lançamento tardio) não
+  conta como "produção sem saída" na aprovação.
+- **Cobertura:** `ENB › contagem: tarefa já baixada pela produção não trava…`.
+
+### EST-CNT-03 — "Houve produção sem saída nenhuma e preciso aprovar a contagem"
+- **O sistema precisa:** a recusa diz as três saídas (fechar a requisição, lançar a saída tardia,
+  aprovar com ressalva), e a aprovação com ressalva grava o dia e o motivo
+  (`pending_production_waiver`), separada da exceção de segregação.
+- **Cobertura:** `ENB › contagem: …sem baixa, aprova com ressalva registrada`.

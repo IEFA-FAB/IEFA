@@ -124,3 +124,25 @@ Arquivos de teste citados:
   quem vincula (catálogo global), em vez de o item sumir do anexo sem explicação.
 - **Cobertura:** `lib/flows/flows.test.ts`. **LACUNA:** não há aviso para o catálogo global; a
   nutricionista precisa comunicar por fora.
+
+## Execução do dia (fluxo "Revisar a execução")
+
+O turno não espera o planejamento (Produção Cozinha, PC-TRN-06 a 09). O que ele resolveu chega à
+nutricionista em Fluxos → "Revisar a execução", com quem, quando e por quê. Nada ali é bloqueio.
+`ENB` = `apps/sisub/src/test/operations/execution-never-blocks.operations.test.ts`.
+
+### GC-EXE-01 — "O turno incluiu uma preparação no dia sem me avisar"
+- **O sistema precisa:** a inclusão fica no item (`added_in_execution_*`, `execution_reason`) e
+  aparece como pendência até a nutricionista marcar revisada (`kitchen:2`); o turno não revisa.
+- **UX:** Fluxos → "Revisar a execução" → "Inclusões do turno para revisar" → "Marcar revisada".
+- **Cobertura:** `ENB › o turno inclui preparação do catálogo HOJE…` (pendência e revisão) · `lib/flows/execution-review.test.ts`.
+
+### GC-EXE-02 — "Tem ficha provisória para completar"
+- **O sistema precisa:** listar a provisória sem versão posterior, com quantas vezes já foi usada;
+  ela some sozinha quando a ficha é salva (nova versão).
+- **Cobertura:** `ENB › preparação que não existe nasce provisória…` · `execution-review.test.ts › ficha provisória leva à tela…`.
+
+### GC-EXE-03 — "Quero pôr no cardápio-modelo a preparação criada no turno"
+- **O sistema precisa:** recusar com a instrução ("complete a ficha"): o anexo quantitativo e a
+  compra saem do modelo, e sem ficha eles não compram nada. É o bloqueio imprescindível da execução.
+- **Cobertura:** `recipes.authz.test.ts › preparação provisória…` · `ENB`.
