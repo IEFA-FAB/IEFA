@@ -7,8 +7,8 @@ const P = resolve(import.meta.dir, "../..");
 const GUARD = `${import.meta.dir}/guard.ts`;
 
 const CASES: Array<[string, boolean | "ask", object]> = [
-	["push main", "ask", { tool_name: "Bash", tool_input: { command: "git push origin " + "main" } }],
-	["HEAD:main", "ask", { tool_name: "Bash", tool_input: { command: "git push -u origin HEAD:" + "main" } }],
+	["push main", true, { tool_name: "Bash", tool_input: { command: "git push origin " + "main" } }],
+	["HEAD:main", true, { tool_name: "Bash", tool_input: { command: "git push -u origin HEAD:" + "main" } }],
 	["branch contendo main", false, { tool_name: "Bash", tool_input: { command: "git push -u origin chore/main-fix" } }],
 	["push + checkout main", false, { tool_name: "Bash", tool_input: { command: "git push -u origin chore/x && git checkout main" } }],
 	["no-verify", true, { tool_name: "Bash", tool_input: { command: "git commit --no-verify -m x" } }],
@@ -21,7 +21,7 @@ const CASES: Array<[string, boolean | "ask", object]> = [
 	["repair applied", false, { tool_name: "Bash", tool_input: { command: "bunx supabase migration repair --status applied 1" } }],
 	["repair citado em heredoc", false, { tool_name: "Bash", tool_input: { command: "git commit -F - <<'EOF'\nfix: never run migration repair --status reverted\nEOF" } }],
 	["push main citado em -m", false, { tool_name: "Bash", tool_input: { command: 'git commit -m "docs: explain git push origin main"' } }],
-	["heredoc + push main real", "ask", { tool_name: "Bash", tool_input: { command: "cat <<EOF > x\nhi\nEOF\ngit push origin " + "main" } }],
+	["heredoc + push main real", true, { tool_name: "Bash", tool_input: { command: "cat <<EOF > x\nhi\nEOF\ngit push origin " + "main" } }],
 	["no-verify depois de -m", true, { tool_name: "Bash", tool_input: { command: 'git commit -m "x" --no-verify' } }],
 	["commit | tail -n", false, { tool_name: "Bash", tool_input: { command: 'git commit -m "feat: x" 2>&1 | tail -n 20' } }],
 	["commit -uno", false, { tool_name: "Bash", tool_input: { command: "git commit -uno -m x" } }],

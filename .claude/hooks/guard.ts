@@ -79,13 +79,9 @@ if (tool === "Bash") {
 		.replace(/'[^']*'/g, "''");
 	const segments = cmd.split(/&&|\|\||[;|\n]/);
 
-	// `ask`, não `deny`: o push direto é exceção que o mantenedor autoriza caso a caso, e o
-	// pedido de confirmação é exatamente esse caso a caso. O agente não tem como aprovar sozinho.
+	// O ruleset da `main` já recusa o push no servidor; barrar aqui poupa a volta e diz o caminho.
 	if (segments.some((s) => /\bgit\s+push\b/.test(s) && /(\s|:|\+)(refs\/heads\/)?main(\s|$)/.test(s))) {
-		decide(
-			"ask",
-			"Push direto na main é exceção que só o mantenedor autoriza, caso a caso (AGENTS.md > Workflow). Abra PR a partir de uma branch.",
-		);
+		deny("A main não aceita push direto (ruleset sem bypass). Abra PR a partir de uma branch: skill ship-pr.");
 	}
 	if (segments.some(skipsCommitHooks)) {
 		deny(

@@ -23,6 +23,12 @@ paths:
 
 ## Armadilhas conhecidas
 
+- **Nome de job é contrato do ruleset da `main`.** Os checks obrigatórios são casados pelo nome
+  (`lint · typecheck · test`, `opengrep (regras do repo)`, `bun audit`,
+  `deploy artifacts (manifest drift)`, `título do PR (Conventional Commits)`). Renomear o job, ou
+  pôr `paths:` no workflow dele, deixa todo PR esperando um check que nunca chega. Job que não se
+  aplica ao PR roda e sai por `if:`: `skipped` conta como verde.
+
 - **`check-sisub` na main roda a integração inteira; o PR roda só o subconjunto do gate.** O que
   mais derruba a main é o guard de reset de treino (`training.operations.test.ts`), que o PR não
   roda: siga a ordem declara → aplica → mergeia de `.claude/rules/database.md`.

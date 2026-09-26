@@ -90,7 +90,8 @@ estoura a RAM das máquinas de desenvolvimento.
 - **MFA:** remover o MFA de alguém é sempre ato registrado; pelo dashboard do Supabase o `insert` em
   `access_control.mfa_reset_log` é manual. Ver `MFA-RECOVERY.md`.
 - **UI:** `sisub` e `portal` têm design systems incompatíveis; leia o `STYLE_CONTRACT.md` do app.
-  Base UI, nunca Radix. Faixa de acento lateral colorida é proibida em todos os apps.
+  Base UI, nunca Radix. Faixa de acento lateral colorida é proibida em todos os apps. O lint de
+  Tailwind (`bun run lint:tailwind`) conta aviso como dívida num baseline que só desce.
 
 ## Referência por área
 
@@ -107,18 +108,21 @@ Leia antes de mexer na área (o Claude Code carrega sozinho pelo caminho do arqu
 
 ## Workflow
 
-- **Todo trabalho vai por Pull Request.** Branch → push → `gh pr create --base main`. Não mergear
-  por conta própria. Pedido explícito do mantenedor para "fazer o PR e o merge" autoriza
-  `gh pr merge <n> --squash --delete-branch --admin` (a proteção da `main` exige uma aprovação e o
-  autor não aprova o próprio PR). Auto-merge está desabilitado no repositório; `--auto` não serve.
-- Push direto na `main` só com pedido explícito do mantenedor, caso a caso, e só para texto visível
-  ou código morto comprovado, com os gates locais verdes antes e o run do CI conferido depois.
-- **Antes de pedir merge:** `bun run check`, `bun run lint --concurrency=2` e
-  `bun run test --concurrency=2` verdes local, checks do PR verdes (`pr-check`, `security`, e
-  `integration` quando o PR toca sisub/database/sisub-domain) e `/code-review` rodado com os
-  achados relatados no PR. A skill `ship-pr` faz esse caminho inteiro.
-  Revisão libera merge com achado aberto só se o achado não foi introduzido pelo PR e o PR é
-  estritamente melhor que a `main`.
+- **Todo trabalho vai por Pull Request.** Branch → push → `gh pr create --base main`. A `main` tem
+  um ruleset sem bypass: PR obrigatório, zero aprovações e checks obrigatórios verdes
+  (`lint · typecheck · test`, opengrep, `bun audit`, drift do manifesto, título do PR). Push direto
+  na `main` é recusado pelo GitHub, e `--admin` não fura o ruleset.
+- **Antes do merge:** `bun run check`, `bun run lint --concurrency=2` e
+  `bun run test --concurrency=2` verdes local, e `/code-review` rodado com os achados publicados no
+  PR. A skill `ship-pr` faz esse caminho inteiro. Achado aberto só não impede o merge se não foi
+  introduzido pelo PR e o PR é estritamente melhor que a `main`.
+- **O agente mergeia o próprio PR** com `gh pr merge <n> --squash --delete-branch --auto` quando os
+  dois itens acima valem e o PR não está na lista abaixo. O `--auto` espera os checks obrigatórios;
+  check vermelho segura o merge sem ninguém olhar. O mantenedor revisa depois, por amostragem.
+- **Esperam o mantenedor** (abra o PR, publique a revisão e pare): migration nova ou alterada;
+  grant, RLS, policy ou tabela de acesso; `infra/**`, `deploy.yml` e demais workflows de deploy;
+  segredo ou variável de produção; texto de documento legal. Esses o mantenedor mergeia, ou pede
+  explicitamente que o agente mergeie.
 - **Commits e título do PR:** Conventional Commits em inglês (subject e body). Os escopos derivam de
   `apps/` + `packages/` + chaves do `apps.manifest.json` + `deps`, `ci`, `scripts`, `root`
   (`database`, não `db`). O merge é squash: o título do PR vira o commit da `main`.

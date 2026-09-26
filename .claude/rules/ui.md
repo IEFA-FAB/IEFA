@@ -2,6 +2,9 @@
 paths:
   - "apps/**/*.tsx"
   - "apps/**/*.css"
+  - "apps/*/tailwind-lint-baseline.json"
+  - ".oxlintrc.tailwind.jsonc"
+  - "scripts/lint-tailwind.ts"
 ---
 
 # UI: design systems e proibições globais
@@ -26,6 +29,32 @@ Leia o `STYLE_CONTRACT.md` do app antes de mudar UI nele.
   nunca `.slice()` em `items`.
 - Select: `value={x ?? null}` e `<SelectValue>` com label. Button com `render` exige
   `nativeButton={false}`. `MenuItem` usa `onClick`, não `onSelect`.
+
+## Lint de Tailwind (`@shadcn/lint` pelo Oxlint)
+
+`bun run lint:tailwind`, também dentro do `bun run check` e do `lint` de cada app com
+`components.json`. Config em `.oxlintrc.tailwind.jsonc` — nome fora do padrão de propósito, o
+react-doctor adotaria um `.oxlintrc.json`.
+
+- **Erro falha sempre.** `no-unknown-classes` é classe que não gera CSS (erro de digitação, variante
+  inexistente, `prose` sem o plugin); token de cor não declarado (`bg-foregorund`) também é erro.
+  Classe de gancho ou de `<style>` próprio entra no `allow` da override do arquivo, não num disable.
+- **Aviso é dívida contada** em `apps/<app>/tailwind-lint-baseline.json`, que só desce: aviso novo
+  falha, e corrigir sem baixar o número também falha. `bun scripts/lint-tailwind.ts <app> --update`
+  regrava.
+- **Valor fora da escala (`no-arbitrary-values`) é aviso; dimensão de layout passa.** Resolve-se pela
+  classe semântica do STYLE_CONTRACT do app (`.text-hint`, `.text-label`, `var(--tracking-label)`…),
+  não trocando `text-[10px]` por um degrau cru ou token novo: isso só renomeia a dívida e a tira da
+  contagem.
+- **`no-restyle`: `className` em componente de `components/ui` só posiciona** (margem, largura,
+  flex). Cor, forma, padding e tipografia de `Button`/`Input`/`Badge`/`SelectTrigger` vêm de
+  variante; faltando uma, ela nasce no primitivo. Os slots que aceitam mais estão nos contratos de
+  `.oxlintrc.tailwind.jsonc` (moldura aceita espaçamento; `*Title`/`*Description`/`*Label` aceitam
+  tipografia e cor do texto; célula de tabela, os dois).
+- **`text-label`/`text-hero`/`shadow-hard-*` ficam classe solta em `@layer utilities`, não
+  `@utility`.** Soltas, vêm depois de todo utilitário gerado e vencem conflito no mesmo elemento;
+  convertidas, perderiam para `tracking-*`/`text-[10px]` ao lado e mudariam páginas. O linter as
+  leria como cor; por isso estão no `allow` de `no-raw-colors`.
 
 ## Proibições globais (todos os apps)
 

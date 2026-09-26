@@ -1,13 +1,13 @@
 ---
 name: ship-pr
-description: Leva uma mudança pronta até um PR que o mantenedor só precisa aprovar — branch, gates locais iguais aos do CI, commit, PR com evidência, /code-review com os achados no PR e conferência dos checks. Use quando o pedido for "abre o PR", "manda pra revisão", "finaliza e sobe", "faz o PR e o merge" ou quando uma tarefa de código terminar e for hora de entregar.
-argument-hint: "[merge]"
+description: Leva uma mudança pronta da branch ao merge — gates locais iguais aos do CI, commit, PR com evidência, /code-review com os achados no PR, merge com --auto quando a política permite e conferência do deploy. Use quando o pedido for "abre o PR", "manda pra revisão", "finaliza e sobe", "faz o PR e o merge" ou quando uma tarefa de código terminar e for hora de entregar.
 ---
 
 # Ship PR
 
-Objetivo: o mantenedor abre o PR e encontra tudo de que precisa para decidir o merge sem rodar
-nada. Cada passo abaixo existe porque, sem ele, a verificação voltava para o mantenedor.
+Objetivo: a mudança chega à `main` sem o mantenedor precisar rodar nada, e quando ele abrir o PR
+depois encontra a evidência de cada passo. Cada passo abaixo existe porque, sem ele, a verificação
+voltava para o mantenedor.
 
 ## 1. Branch e escopo
 
@@ -55,13 +55,19 @@ Rode `/code-review` sobre o PR e publique os achados como comentário. Corrija o
 próprio PR introduziu; para os demais, registre por que ficam (critério em AGENTS.md > Workflow).
 Rodada seguinte revisa só a diferença entre os heads, não o PR inteiro.
 
-## 6. Checks
+## 6. Merge
 
-Espere os workflows do PR registrarem e terminarem (`gh pr checks <n> --watch`). `cancelled` no
-gate de integração costuma ser disputa da fila global, não reprovação: confira com
-`gh run list --workflow "sisub integration (real db)" --limit 10` e reexecute.
+Leia a política em AGENTS.md > Workflow.
 
-## 7. Merge (só com `merge` no argumento ou pedido explícito)
+- **PR fora da lista "esperam o mantenedor"**, gates locais verdes e nenhum achado do próprio PR em
+  aberto: `gh pr merge <n> --squash --delete-branch --auto`. O GitHub mergeia quando os checks
+  obrigatórios passarem.
+- **PR na lista:** não mergeie. Diga no PR e na resposta o que o mantenedor precisa decidir.
+- Sem `--admin`: o ruleset não tem bypass, e check vermelho é para ser corrigido.
 
-`gh pr merge <n> --squash --delete-branch --admin`, e depois confira o run do `CI/CD` na `main`
-pelo SHA: deploy `skipped` é check vermelho.
+## 7. Depois do merge
+
+`gh pr checks <n> --watch` até o merge acontecer (ou um check falhar: corrija e empurre de novo).
+`cancelled` no gate de integração costuma ser disputa da fila, não reprovação: reexecute com
+`gh run rerun <id>`. Mergeado, confira o run do `CI/CD` na `main` pelo SHA: deploy `skipped` é
+check vermelho.
