@@ -25,6 +25,7 @@ import { hasPermission } from "@iefa/pbac"
 import { evaluateCountLine } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { PENDING_PRODUCTION_SQLSTATE, parsePendingProductionDays } from "@/lib/count-waiver"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
@@ -544,9 +545,15 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 					p_actor: userId,
 					p_exception_reason: data.exceptionReason?.trim() || null,
 				})
+		// Produção sem saída lançada (SQLSTATE próprio, dias no HINT): não é erro para a tela, é a
+		// pergunta da ressalva. Decidida pelo CÓDIGO — o texto da mensagem pode mudar.
+		if (error?.code === PENDING_PRODUCTION_SQLSTATE && !data.pendingProductionWaiver) {
+			return { status: "needs_waiver" as const, pendingDays: parsePendingProductionDays(error.hint), message: String(error.message) }
+		}
 		if (error) throw new Error(`Erro ao aprovar a contagem: ${error.message}`)
 		const row = result?.[0]
 		return {
+			status: "approved" as const,
 			adjustmentId: (row?.adjustment_id as string | null) ?? null,
 			lines: Number(row?.lines ?? 0),
 			differenceValue: Number(row?.difference_value ?? 0),

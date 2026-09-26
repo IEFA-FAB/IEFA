@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { listIssueDayTasksFn, registerLateIssueFn } from "@/server/issue.fn"
+import { IngredientSearchCombobox, type IssuableIngredient } from "./IngredientSearchCombobox"
 
 const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 })
 
@@ -19,7 +19,8 @@ interface LateIssueCardProps {
 	kitchenId: number
 	/** Hoje, em Brasília ("AAAA-MM-DD"): o limite do campo de data. */
 	today: string
-	ingredientOptions: readonly SearchableSelectOption[]
+	/** Saldo disponível por insumo, para a dica da busca. */
+	availableById: ReadonlyMap<string, number>
 	onDone: () => void
 }
 
@@ -28,9 +29,10 @@ interface LateIssueCardProps {
  * depois de o dia fechar, e o almoxarife lança na quinta. Vale enquanto a competência estiver
  * aberta; o motivo é obrigatório e fica no movimento, ligado ao dia e, se escolhida, à preparação.
  */
-export function LateIssueCard({ kitchenId, today, ingredientOptions, onDone }: LateIssueCardProps) {
+export function LateIssueCard({ kitchenId, today, availableById, onDone }: LateIssueCardProps) {
 	const [occurredOn, setOccurredOn] = useState(today)
-	const [ingredientId, setIngredientId] = useState<string | null>(null)
+	const [ingredient, setIngredient] = useState<IssuableIngredient | null>(null)
+	const ingredientId = ingredient?.id ?? null
 	const [quantity, setQuantity] = useState("")
 	const [reason, setReason] = useState("")
 	const [taskId, setTaskId] = useState<string>(NO_TASK)
@@ -75,7 +77,7 @@ export function LateIssueCard({ kitchenId, today, ingredientOptions, onDone }: L
 			setEmission(null)
 			setQuantity("")
 			setReason("")
-			setIngredientId(null)
+			setIngredient(null)
 			setTaskId(NO_TASK)
 			onDone()
 		} catch (error) {
@@ -97,8 +99,8 @@ export function LateIssueCard({ kitchenId, today, ingredientOptions, onDone }: L
 					</span>
 				</CardTitle>
 				<CardDescription>
-					Saiu sem requisição, ou depois de o dia fechar? Lance com a data em que aconteceu. Vale enquanto o mês não estiver fechado; insumo já acertado numa
-					contagem aprovada depois dessa data é recusado, para não baixar duas vezes.
+					Saiu sem requisição, ou depois de o dia fechar? Lance com a data em que aconteceu. Vale enquanto o mês não estiver fechado; insumo contado numa
+					contagem aprovada no mesmo dia ou depois é recusado, para não baixar duas vezes.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
@@ -132,20 +134,15 @@ export function LateIssueCard({ kitchenId, today, ingredientOptions, onDone }: L
 									))}
 								</SelectContent>
 							</Select>
-							<FieldDescription>Ligada a uma preparação, a saída conta como a baixa dela.</FieldDescription>
+							<FieldDescription>
+								Fica registrada na preparação só para este insumo: a Baixa por Produção dela continua pendente e desconta o que já saiu aqui.
+							</FieldDescription>
 						</Field>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
 						<Field>
 							<FieldLabel htmlFor="late-ingredient">Insumo</FieldLabel>
-							<SearchableSelect
-								id="late-ingredient"
-								value={ingredientId}
-								onValueChange={setIngredientId}
-								options={ingredientOptions}
-								placeholder="Escolha o insumo"
-								searchPlaceholder="Pesquisar insumo…"
-							/>
+							<IngredientSearchCombobox id="late-ingredient" kitchenId={kitchenId} value={ingredient} onChange={setIngredient} availableById={availableById} />
 						</Field>
 						<Field>
 							<FieldLabel htmlFor="late-quantity">Quantidade</FieldLabel>

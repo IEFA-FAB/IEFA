@@ -154,12 +154,18 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 ### EST-SAI-01 — "Saiu insumo para a produção sem requisição (emergência)"
 - **O sistema precisa:** registrar a saída depois, com a data REAL e motivo obrigatório, ligada ao
   dia (requisição da produção daquela data, em qualquer status) e, se escolhida, à preparação
-  (a tarefa passa a contar como baixada). Limites imprescindíveis: competência fechada, e insumo
-  contado depois da data numa contagem aprovada (baixaria duas vezes).
-- **UX:** Saída do dia → "Lançar saída de outro dia" → data, preparação (opcional), insumo,
-  quantidade, motivo. Sem saldo em lote, o aviso diz que entra como falta a regularizar.
+  (só para aquele insumo: `is_late_issue`; a Baixa por Produção da tarefa continua pendente e
+  desconta, por insumo, o que já saiu tarde). Limites imprescindíveis: competência fechada, e
+  insumo contado numa contagem aprovada no DIA da saída ou depois (baixaria duas vezes; a hora da
+  saída tardia é desconhecida, então o mesmo dia recusa). O reenvio da mesma emissão espera a
+  primeira (trava pelo `emission_id`).
+- **UX:** Saída do dia → "Lançar saída de outro dia" → data, preparação (opcional), insumo
+  (busca no catálogo inteiro, no servidor), quantidade, motivo. Sem saldo em lote, o aviso diz
+  que entra como falta a regularizar.
 - **Cobertura:** `ENB › saída tardia: data real e motivo…` (retry, sem motivo, competência fechada,
-  dupla baixa, e o retroativo solto segue recusado).
+  dupla baixa pelo dia civil, e o retroativo solto segue recusado) · `ENB › saída tardia: reenvio
+  simultâneo…` · `ENB › contagem: …` (saída tardia não baixa a tarefa) · `EXU › saída tardia de um
+  insumo não é a baixa da tarefa`.
 
 ### EST-SAI-02 — "O insumo está na minha mão, mas o sistema diz que não tem saldo"
 - **O sistema precisa:** aceitar a saída de qualquer insumo do catálogo; sem saldo registrado, a saída

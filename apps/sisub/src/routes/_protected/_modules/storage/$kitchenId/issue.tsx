@@ -2,9 +2,10 @@ import { brasiliaToday, ISSUE_VARIANCE_REASON_LABELS, ISSUE_VARIANCE_REASONS, ty
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { AlertTriangle, CalendarDays, CheckCircle2, PackageMinus, RefreshCw, Undo2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
+import { IngredientSearchCombobox, type IssuableIngredient } from "@/components/features/storage/issue/IngredientSearchCombobox"
 import { LateIssueCard } from "@/components/features/storage/issue/LateIssueCard"
 import { UnexplainedDayCard } from "@/components/features/storage/issue/UnexplainedDayCard"
 import { ScanInput } from "@/components/features/storage/scan/ScanInput"
@@ -14,7 +15,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import {
@@ -24,7 +24,6 @@ import {
 	fetchReturnableLotsFn,
 	fetchTodayIssueRequestFn,
 	issueStockFn,
-	listIssuableIngredientsFn,
 	listUnexplainedIssueDaysFn,
 	openIssueRequestFn,
 	returnIssueFn,
@@ -98,7 +97,8 @@ function DailyIssuePage() {
 	// existe para dar: depois de um 502, a segunda tentativa retirava de novo.
 	const [emissionIds, setEmissionIds] = useState<Record<string, string>>({})
 	// insumo fora da sugestão (cozinha sem planejamento, retirada extra)
-	const [extraIngredientId, setExtraIngredientId] = useState("")
+	const [extraIngredient, setExtraIngredient] = useState<IssuableIngredient | null>(null)
+	const extraIngredientId = extraIngredient?.id ?? ""
 	// linha apontada pela última leitura — some assim que a saída é lançada
 	const [scannedIngredientId, setScannedIngredientId] = useState<string | null>(null)
 	// Lote lido na etiqueta: a saída daquele insumo sai DESSE lote, o que está
@@ -111,12 +111,6 @@ function DailyIssuePage() {
 	const today = brasiliaToday()
 	const issueDate = request?.request.issue_date ?? today
 
-	// O catálogo inteiro, não só o que tem saldo: o sistema atrasado não impede a saída.
-	const { data: catalog } = useQuery({
-		queryKey: ["issuable-ingredients", kitchenId],
-		queryFn: () => listIssuableIngredientsFn({ data: { kitchenId: Number(kitchenId) } }),
-		staleTime: 10 * 60_000,
-	})
 	// Preparações do dia com ficha que não dá sugestão: o aviso que faltava na sugestão vazia.
 	const { data: gaps } = useQuery({
 		queryKey: ["issue-day-gaps", kitchenId, issueDate, request?.request.id ?? null],
@@ -154,23 +148,10 @@ function DailyIssuePage() {
 			])
 	)
 
-	// Insumos para a saída fora da sugestão: os com saldo primeiro, depois o catálogo inteiro.
-	// A tela aceitava só saldo > 0, e o banco já aceitava a saída sem lote ("regularizar na
-	// contagem"): o saco na mão do almoxarife não saía porque o sistema estava atrasado.
-	const extraIngredientOptions = useMemo(() => {
-		const withStock = balance
-			.filter((item) => item.ingredientId != null && item.balance - item.quarantinedBalance - item.expiredBalance > 0)
-			.map((item) => ({
-				value: item.ingredientId as string,
-				label: item.description,
-				hint: `${NUM.format(item.balance - item.quarantinedBalance - item.expiredBalance)} ${item.measureUnit ?? ""}`.trim(),
-			}))
-		const seen = new Set(withStock.map((option) => option.value))
-		const withoutStock = (catalog ?? [])
-			.filter((ingredient) => !seen.has(ingredient.id))
-			.map((ingredient) => ({ value: ingredient.id, label: ingredient.description, hint: "sem saldo registrado" }))
-		return [...withStock, ...withoutStock]
-	}, [balance, catalog])
+	// Saída fora da sugestão: qualquer insumo do catálogo, buscado no servidor. A tela aceitava
+	// só saldo > 0, e o banco já aceitava a saída sem lote ("regularizar na contagem"): o saco
+	// na mão do almoxarife não saía porque o sistema estava atrasado.
+	const availableById = new Map([...stockByIngredient.entries()].map(([id, stock]) => [id, stock.available]))
 	const extraWithoutStock = extraIngredientId !== "" && (stockByIngredient.get(extraIngredientId)?.available ?? 0) <= 0
 
 	/**
@@ -198,7 +179,7 @@ function DailyIssuePage() {
 			setScannedLot(found.matchedBy === "lot" && found.lotId ? { ingredientId, lotId: found.lotId, description: label } : null)
 			const inSuggestion = request?.lines.some((line) => line.ingredientId === ingredientId) ?? false
 			if (!inSuggestion) {
-				setExtraIngredientId(ingredientId)
+				setExtraIngredient({ id: ingredientId, description: label, measure_unit: stockByIngredient.get(ingredientId)?.measureUnit ?? null })
 				if (!stockByIngredient.has(ingredientId)) {
 					// Sem saldo no sistema não é "não sai": entra como falta a regularizar na contagem.
 					toast.warning(`${label} — sem saldo registrado nesta cozinha: a saída entra como falta a regularizar na contagem. Informe a quantidade`)
@@ -334,7 +315,7 @@ function DailyIssuePage() {
 				</Card>
 				<UnexplainedDaysBanner days={unexplainedDays ?? []} origin={origin} />
 				{origin === "production" && (
-					<LateIssueCard kitchenId={Number(kitchenId)} today={today} ingredientOptions={extraIngredientOptions} onDone={() => router.invalidate()} />
+					<LateIssueCard kitchenId={Number(kitchenId)} today={today} availableById={availableById} onDone={() => router.invalidate()} />
 				)}
 			</div>
 		)
@@ -542,15 +523,12 @@ function DailyIssuePage() {
 						<div className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed p-3">
 							<div className="min-w-72 flex-1 space-y-1">
 								<Label htmlFor="extra">Retirar insumo fora da sugestão</Label>
-								<SearchableSelect
+								<IngredientSearchCombobox
 									id="extra"
-									value={extraIngredientId || null}
-									onValueChange={(value) => setExtraIngredientId(value ?? "")}
-									options={extraIngredientOptions}
-									placeholder="Escolha o insumo"
-									searchPlaceholder="Pesquisar insumo…"
-									emptyLabel="Nenhum insumo com esse nome no catálogo."
-									unavailableLabel="Insumo fora do catálogo"
+									kitchenId={Number(kitchenId)}
+									value={extraIngredient}
+									onChange={setExtraIngredient}
+									availableById={availableById}
 								/>
 								{extraWithoutStock && (
 									<p className="flex items-center gap-1 text-xs text-warning" role="status">
@@ -683,7 +661,7 @@ function DailyIssuePage() {
 			</Card>
 
 			{origin === "production" && (
-				<LateIssueCard kitchenId={Number(kitchenId)} today={today} ingredientOptions={extraIngredientOptions} onDone={() => router.invalidate()} />
+				<LateIssueCard kitchenId={Number(kitchenId)} today={today} availableById={availableById} onDone={() => router.invalidate()} />
 			)}
 		</div>
 	)

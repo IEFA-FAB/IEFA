@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/components/ui/toast"
+import { formatPendingProductionDays } from "@/lib/count-waiver"
 import {
 	acceptNotCountedFn,
 	addFoundItemFn,
@@ -468,19 +469,16 @@ function CountsPage() {
 										void run(async () => {
 											const countId = sheet.count.id
 											const reason = exceptionReason?.trim() || undefined
-											try {
-												return await approveInventoryCountFn({ data: { countId, exceptionReason: reason } })
-											} catch (error) {
-												// Produção concluída sem saída lançada: a aprovação não trava — oferece
-												// a ressalva registrada, com o dia que o banco apontou.
-												const message = error instanceof Error ? error.message : ""
-												if (!message.includes("aprove com ressalva")) throw error
-												const waiver = window.prompt(
-													`${message.replace(/^Erro ao aprovar a contagem: /, "")}\n\nPara aprovar mesmo assim, registre a ressalva (mínimo 5 letras):`
-												)
-												if (!waiver || waiver.trim().length < 5) throw error
-												return approveInventoryCountFn({ data: { countId, exceptionReason: reason, pendingProductionWaiver: waiver.trim() } })
-											}
+											const first = await approveInventoryCountFn({ data: { countId, exceptionReason: reason } })
+											if (first.status === "approved") return first
+											// Produção concluída sem saída lançada: a aprovação não trava — oferece a
+											// ressalva, com TODOS os dias que o banco apontou (pelo código, não pelo texto).
+											const days = formatPendingProductionDays(first.pendingDays)
+											const waiver = window.prompt(
+												`Produção concluída sem saída lançada${days ? ` em ${days}` : ""}: a contagem acusaria falta do que já saiu. Feche a requisição ou lance a saída tardia; para aprovar mesmo assim, registre a ressalva (mínimo 5 letras):`
+											)
+											if (!waiver || waiver.trim().length < 5) throw new Error(first.message)
+											return approveInventoryCountFn({ data: { countId, exceptionReason: reason, pendingProductionWaiver: waiver.trim() } })
 										}, "Inventário aprovado")
 									}}
 								>

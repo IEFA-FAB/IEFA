@@ -18,6 +18,7 @@
  */
 
 import { dailyMenuInKitchen, menuItemsInKitchen, productionTaskInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { hasPermission } from "@iefa/pbac"
 import { and, eq, isNull, sql } from "drizzle-orm"
 import { requireKitchen, requireKitchenExecution, requirePermission } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
@@ -29,9 +30,10 @@ import type {
 	ReviewProvisionalFrozenPreparation,
 } from "../schemas/execution.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError, NotFoundError } from "../types/errors.ts"
+import { DomainError, NotFoundError, PermissionDeniedError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
 import { findSnapshotGaps, type SnapshotForGaps, type SnapshotGap } from "./production-issue.ts"
+import { buildLineageWinnerFilter } from "./recipes.ts"
 import { brasiliaToday } from "./stock-math.ts"
 
 type Row = Record<string, unknown>
@@ -67,13 +69,6 @@ export function describeProvisionalTemplateRefusal(provisionalNames: readonly st
 	const list = provisionalNames.map((name) => `"${name}"`).join(", ")
 	const one = provisionalNames.length === 1
 	return `${list} ${one ? "é preparação provisória" : "são preparações provisórias"}, criada${one ? "" : "s"} no turno sem ficha técnica. Complete a ficha em Preparações antes de usá-la${one ? "" : "s"} num cardápio-modelo: o anexo quantitativo e a compra dependem dela${one ? "" : "s"}.`
-}
-
-/** Precedência de linhagem da listagem (a local vence a global; no mesmo escopo, a maior versão). */
-function winsLineage(candidate: { kitchenId: number | null; version: number }, incumbent: { kitchenId: number | null; version: number }): boolean {
-	const candidateIsLocal = candidate.kitchenId != null
-	if (candidateIsLocal !== (incumbent.kitchenId != null)) return candidateIsLocal
-	return candidate.version > incumbent.version
 }
 
 // ── Opções da tela do turno ─────────────────────────────────────────────────
@@ -113,37 +108,34 @@ export async function fetchExecutionOptions(db: SisubDb, ctx: UserContext, input
 				`),
 			{ prefix: "Erro ao ler as refeições" }
 		) as unknown as Promise<Row[]>,
+		// Uma por linhagem, escolhida pelo Postgres com a MESMA regra das listagens
+		// (`buildLineageWinnerFilter`, #465): local antes de global, maior versão, `id` no empate.
 		runQuery(
 			"FETCH_FAILED",
 			() =>
-				db.execute(sql`
-					select r.id, r.name, r.version, r.kitchen_id, r.base_recipe_id, r.portion_yield, r.provisional_since
-					from kitchen.recipes r
-					where r.deleted_at is null and (r.kitchen_id is null or r.kitchen_id = ${input.kitchenId})
-				`),
+				db
+					.select({
+						id: recipesInKitchen.id,
+						name: recipesInKitchen.name,
+						portionYield: recipesInKitchen.portionYield,
+						// Coluna da migration 20260926217000 (TODO: regenerar tipos após aplicá-la).
+						provisional: sql<boolean>`("recipes"."provisional_since" is not null)`,
+					})
+					.from(recipesInKitchen)
+					.where(buildLineageWinnerFilter(db, { kitchenId: input.kitchenId })),
 			{ prefix: "Erro ao ler as preparações" }
-		) as unknown as Promise<Row[]>,
+		),
 	])
-
-	const byFamily = new Map<string, Row>()
-	for (const row of recipeRows) {
-		const root = String(row.base_recipe_id ?? row.id)
-		const candidate = { kitchenId: row.kitchen_id == null ? null : Number(row.kitchen_id), version: num(row.version) }
-		const existing = byFamily.get(root)
-		if (!existing || winsLineage(candidate, { kitchenId: existing.kitchen_id == null ? null : Number(existing.kitchen_id), version: num(existing.version) })) {
-			byFamily.set(root, row)
-		}
-	}
 
 	return {
 		today: brasiliaToday(),
 		mealTypes: mealRows.map((row) => ({ id: String(row.id), name: String(row.name) })),
-		recipes: [...byFamily.values()]
+		recipes: recipeRows
 			.map((row) => ({
-				id: String(row.id),
-				name: String(row.name),
-				portion_yield: row.portion_yield == null ? null : Number(row.portion_yield),
-				provisional: row.provisional_since != null,
+				id: row.id,
+				name: row.name,
+				portion_yield: row.portionYield == null ? null : Number(row.portionYield),
+				provisional: Boolean(row.provisional),
 			}))
 			.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
 	}
@@ -189,6 +181,13 @@ export async function addExecutionMenuItem(
 	)) as unknown as Row[]
 	if (!mealType) throw new NotFoundError("meal_type", input.mealTypeId)
 
+	// Dentro de `runQuery`: constraint, FK ou deadlock no meio da transação vira
+	// `QueryFailedError` com o prefixo de negócio, e não o erro cru do driver com o SQL.
+	// O `DomainError` lançado lá dentro passa intacto.
+	return runQuery("INSERT_FAILED", () => addExecutionMenuItemTx(db, ctx, input), { prefix: "Erro ao incluir a preparação no dia" })
+}
+
+async function addExecutionMenuItemTx(db: SisubDb, ctx: UserContext, input: AddExecutionMenuItem): Promise<AddExecutionMenuItemResult> {
 	return db.transaction(async (tx) => {
 		// ── a preparação ──────────────────────────────────────────────────────
 		let recipeId: string
@@ -210,8 +209,10 @@ export async function addExecutionMenuItem(
 				recipeId = String(existing.id)
 			} else {
 				const [created] = (await tx.execute(sql`
+					-- Sem rendimento: rendimento é da ficha. As porções do dia vão no ITEM; gravadas
+					-- aqui, dividiriam a quantidade quando a ficha fosse completada por receita.
 					insert into kitchen.recipes (name, kitchen_id, version, portion_yield, provisional_since, provisional_by)
-					values (${name}, ${input.kitchenId}, 1, ${input.plannedPortionQuantity ?? null}, now(), ${ctx.userId})
+					values (${name}, ${input.kitchenId}, 1, null, now(), ${ctx.userId})
 					returning id
 				`)) as unknown as Row[]
 				if (!created) throw new DomainError("INSERT_FAILED", "Não foi possível criar a preparação provisória")
@@ -564,12 +565,22 @@ export async function reviewProvisionalFrozenPreparation(
 // ── Tarefas de produção do dia sem o quadro aberto ──────────────────────────
 
 /**
- * Cria as tarefas PENDENTES que faltam para os itens do dia. SEM guarda: o chamador já
- * autorizou (o quadro por `kitchen-production`, a requisição do dia por `storage`).
+ * Cria as tarefas PENDENTES que faltam para os itens do dia.
  *
  * A sugestão de saída lê `production_task`, que só nascia quando alguém abria o quadro da
- * produção: a cozinha que abre o estoque antes ficava com a sugestão vazia.
+ * produção: a cozinha que abre o estoque antes ficava com a sugestão vazia. Autoriza por
+ * dentro, como toda operation exportada: quem opera o quadro (`kitchen-production:1`) ou quem
+ * abre a requisição do dia (`storage:2`), sempre na cozinha do input.
  */
+export async function ensureIssueDayProductionTasks(db: SisubDb, ctx: UserContext, input: { kitchenId: number; date: string }): Promise<{ created: number }> {
+	const scope = { type: "kitchen", id: input.kitchenId } as const
+	if (!hasPermission(ctx.permissions, "kitchen-production", 1, scope) && !hasPermission(ctx.permissions, "storage", 2, scope)) {
+		throw new PermissionDeniedError("kitchen-production:1 | storage:2", 1, scope)
+	}
+	return createMissingProductionTasks(db, input)
+}
+
+/** SEM guarda — só para as operations deste pacote que já autorizaram (`ensureProductionTasks`). Fora do índice. */
 export async function createMissingProductionTasks(db: SisubDb, input: { kitchenId: number; date: string }): Promise<{ created: number }> {
 	const dailyMenus = await runQuery("FETCH_FAILED", () =>
 		db.query.dailyMenuInKitchen.findMany({

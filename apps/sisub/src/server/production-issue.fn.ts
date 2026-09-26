@@ -18,6 +18,7 @@ import {
 	leftoverExpiryDate,
 	pendingIssueWindowStart,
 	type RecipeSnapshotForIssue,
+	remainingAfterLateIssues,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -148,15 +149,30 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		const taskList = tasks ?? []
 		if (taskList.length === 0) return []
 
-		const { data: issued } = await inv
+		// `is_late_issue`: migration 20260926217000 (TODO: regenerar tipos após aplicá-la).
+		const { data: issued, error: issuedError } = await inv
 			.from("stock_movement")
-			.select("production_task_id")
+			.select("production_task_id, ingredient_id, quantity, is_late_issue")
 			.eq("type", "production_issue")
 			.in(
 				"production_task_id",
 				taskList.map((t: { id: string }) => t.id)
 			)
-		const issuedIds = new Set((issued ?? []).map((m: { production_task_id: string }) => m.production_task_id))
+		if (issuedError) throw new Error(`Erro ao conferir as baixas das tarefas: ${issuedError.message}`)
+		// Baixada é a tarefa com saída que NÃO é tardia. A saída tardia ligada à tarefa é de um
+		// insumo: a baixa segue pendente, com o que já saiu tarde descontado por insumo.
+		const issuedIds = new Set<string>()
+		const lateByTask = new Map<string, Map<string, number>>()
+		for (const move of (issued ?? []) as Array<{ production_task_id: string; ingredient_id: string | null; quantity: number; is_late_issue: boolean }>) {
+			if (!move.is_late_issue) {
+				issuedIds.add(move.production_task_id)
+				continue
+			}
+			if (move.ingredient_id == null) continue
+			const byIngredient = lateByTask.get(move.production_task_id) ?? new Map<string, number>()
+			byIngredient.set(move.ingredient_id, (byIngredient.get(move.ingredient_id) ?? 0) + Number(move.quantity))
+			lateByTask.set(move.production_task_id, byIngredient)
+		}
 		const pending = taskList.filter((t: { id: string }) => !issuedIds.has(t.id))
 		if (pending.length === 0) return []
 
@@ -172,7 +188,10 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		const results = []
 		for (const task of pending) {
 			const menuItem = menuById.get(task.menu_item_id) as { recipe: RecipeSnapshotForIssue | null; planned_portion_quantity: number | null } | undefined
-			const theoretical = computeTheoreticalConsumption(menuItem?.recipe ?? null, Number(menuItem?.planned_portion_quantity ?? 0))
+			const theoretical = remainingAfterLateIssues(
+				computeTheoreticalConsumption(menuItem?.recipe ?? null, Number(menuItem?.planned_portion_quantity ?? 0)),
+				lateByTask.get(task.id) ?? new Map()
+			)
 			const balances = await lotBalancesForIngredients(
 				data.kitchenId,
 				theoretical.map((t) => t.ingredientId)

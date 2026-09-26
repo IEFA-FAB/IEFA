@@ -13,9 +13,17 @@ import type { UserPermission } from "@iefa/pbac"
 import { requireKitchenExecution } from "../guards/require-permission.ts"
 import { AddExecutionMenuItemSchema } from "../schemas/execution.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError, PermissionDeniedError } from "../types/errors.ts"
-import { addExecutionMenuItem, assertExecutionDate, describeProvisionalTemplateRefusal, fetchExecutionOptions, isExecutionDate } from "./execution.ts"
-import { describeSnapshotGaps, findSnapshotGaps, pendingIssueWindowStart } from "./production-issue.ts"
+import { DomainError, PermissionDeniedError, QueryFailedError } from "../types/errors.ts"
+import {
+	addExecutionMenuItem,
+	assertExecutionDate,
+	describeProvisionalTemplateRefusal,
+	ensureIssueDayProductionTasks,
+	fetchExecutionOptions,
+	isExecutionDate,
+} from "./execution.ts"
+import * as operationsIndex from "./index.ts"
+import { describeSnapshotGaps, findSnapshotGaps, pendingIssueWindowStart, remainingAfterLateIssues } from "./production-issue.ts"
 import { brasiliaToday } from "./stock-math.ts"
 
 const KITCHEN = 7
@@ -159,5 +167,78 @@ describe("janela da Baixa por Produção: competência aberta", () => {
 
 	test("nunca além do teto, mesmo sem estoque nenhum", () => {
 		expect(pendingIssueWindowStart({ lastClosedCompetencia: null, firstMovementDate: null, today: "2026-09-26", maxDays: 100 })).toBe("2026-06-18")
+	})
+})
+
+describe("tarefas do dia sem o quadro aberto: autoriza por dentro", () => {
+	test("não é exportada sem guarda no índice público", () => {
+		expect("createMissingProductionTasks" in operationsIndex).toBe(false)
+		expect(typeof operationsIndex.ensureIssueDayProductionTasks).toBe("function")
+	})
+
+	test("quem só planeja (kitchen:2) ou só lê o estoque (storage:1) não cria tarefa", async () => {
+		const input = { kitchenId: KITCHEN, date: "2026-09-26" }
+		await expect(ensureIssueDayProductionTasks(untouchableDb, ctx([perm("kitchen", 2)]), input)).rejects.toThrow(PermissionDeniedError)
+		await expect(ensureIssueDayProductionTasks(untouchableDb, ctx([perm("storage", 1)]), input)).rejects.toThrow(PermissionDeniedError)
+		await expect(ensureIssueDayProductionTasks(untouchableDb, ctx([perm("storage", 2, 99)]), input)).rejects.toThrow(PermissionDeniedError)
+	})
+
+	test("o turno e quem abre a requisição passam da guarda (e só então tocam o banco)", async () => {
+		const input = { kitchenId: KITCHEN, date: "2026-09-26" }
+		await expect(ensureIssueDayProductionTasks(untouchableDb, ctx([perm("kitchen-production", 1)]), input)).rejects.toThrow("o banco não deveria ser tocado")
+		await expect(ensureIssueDayProductionTasks(untouchableDb, ctx([perm("storage", 2)]), input)).rejects.toThrow("o banco não deveria ser tocado")
+	})
+})
+
+describe("falha dentro da transação da inclusão vira erro de domínio", () => {
+	test("erro do driver sai como QueryFailedError com o prefixo de negócio, sem o SQL", async () => {
+		const db = {
+			execute: () => Promise.resolve([{ id: MEAL }]),
+			transaction: () => Promise.reject(new Error('insert into kitchen.menu_items … violates check constraint "menu_items_execution_reason_required"')),
+		} as unknown as SisubDb
+		const today = brasiliaToday()
+		const run = addExecutionMenuItem(db, ctx([perm("kitchen-production", 1)]), {
+			kitchenId: KITCHEN,
+			serviceDate: today,
+			mealTypeId: MEAL,
+			recipeId: RECIPE,
+			reason: "faltou o feijão",
+		})
+		const error = await run.then(
+			() => null,
+			(e: unknown) => e
+		)
+		expect(error).toBeInstanceOf(QueryFailedError)
+		expect((error as QueryFailedError).publicMessage).toBe("Erro ao incluir a preparação no dia")
+	})
+})
+
+describe("saída tardia de um insumo não é a baixa da tarefa", () => {
+	const lines = [
+		{ ingredientId: "oleo", description: "Óleo", measureUnit: "L", quantity: 2 },
+		{ ingredientId: "arroz", description: "Arroz", measureUnit: "KG", quantity: 10 },
+		{ ingredientId: "sal", description: "Sal", measureUnit: "KG", quantity: 0.5 },
+	]
+
+	test("sem saída tardia, a baixa sugere tudo", () => {
+		expect(remainingAfterLateIssues(lines, new Map()).map((l) => [l.ingredientId, l.quantity])).toEqual([
+			["oleo", 2],
+			["arroz", 10],
+			["sal", 0.5],
+		])
+	})
+
+	test("o insumo já baixado tarde sai da lista; o parcial vem com o restante; os outros seguem", () => {
+		const out = remainingAfterLateIssues(
+			lines,
+			new Map([
+				["oleo", 2],
+				["arroz", 3.5],
+			])
+		)
+		expect(out.map((l) => [l.ingredientId, l.quantity, l.lateIssued])).toEqual([
+			["arroz", 6.5, 3.5],
+			["sal", 0.5, 0],
+		])
 	})
 })

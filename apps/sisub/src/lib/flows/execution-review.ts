@@ -52,20 +52,18 @@ export function buildExecutionReviewSteps(status: ExecutionReviewStatus): FlowSt
 		["item com ficha incompleta", "itens com ficha incompleta"]
 	)
 
-	const stockIssues: FlowIssue[] = capped(
-		status.unexplainedIssueDays.map((day) => ({
+	// Um só `capped` para a lista inteira: as congeladas provisórias também contam no limite.
+	const otherModuleIssues: FlowIssue[] = [
+		...status.unexplainedIssueDays.map((day) => ({
 			severity: "info" as const,
 			message: `A saída de estoque de ${dayMonth(day.issueDate)} fechou sozinha com desvio sem motivo. Quem justifica é o Estoque.`,
 		})),
-		status.unexplainedIssueDays.length,
-		["dia sem justificativa", "dias sem justificativa"]
-	)
-	for (const frozen of status.provisionalFrozenPreparations) {
-		stockIssues.push({
-			severity: "info",
+		...status.provisionalFrozenPreparations.map((frozen) => ({
+			severity: "info" as const,
 			message: `A sobra foi guardada em "${frozen.description}", congelada provisória criada em ${formatShortDate(frozen.since)}. Quem revisa é a SDAB (catálogo global).`,
-		})
-	}
+		})),
+	]
+	const stockIssues = capped(otherModuleIssues, otherModuleIssues.length, ["pendência de outro módulo", "pendências de outros módulos"])
 
 	return [
 		{

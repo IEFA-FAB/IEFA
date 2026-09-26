@@ -60,6 +60,27 @@ export function computeTheoreticalConsumption(snapshot: RecipeSnapshotForIssue |
 	return [...byIngredient.values()]
 }
 
+/**
+ * O que falta baixar de cada insumo depois das saídas TARDIAS já ligadas à tarefa.
+ *
+ * A saída tardia é de um insumo (o óleo que faltou lançar), não a baixa da tarefa: a Baixa por
+ * Produção segue possível e sugere só o que falta — o insumo já baixado por inteiro sai da
+ * lista, o parcial vem com o restante. `lateIssued` é a quantidade líquida por insumo.
+ */
+export function remainingAfterLateIssues<T extends TheoreticalConsumption>(
+	lines: readonly T[],
+	lateIssued: ReadonlyMap<string, number>
+): Array<T & { lateIssued: number }> {
+	const out: Array<T & { lateIssued: number }> = []
+	for (const line of lines) {
+		const already = lateIssued.get(line.ingredientId) ?? 0
+		const remaining = Number((line.quantity - already).toFixed(4))
+		if (remaining <= 0) continue
+		out.push({ ...line, quantity: remaining, lateIssued: already })
+	}
+	return out
+}
+
 /** Validade de sobra congelada: data da produção + shelf_life_days (null = sem validade). */
 export function leftoverExpiryDate(productionDate: string, shelfLifeDays: number | null | undefined): string | null {
 	if (shelfLifeDays == null || shelfLifeDays <= 0) return null

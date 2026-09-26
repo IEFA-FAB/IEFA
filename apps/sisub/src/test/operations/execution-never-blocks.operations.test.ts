@@ -26,8 +26,8 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	addExecutionMenuItem,
 	brasiliaToday,
-	createMissingProductionTasks,
 	createTemplate,
+	ensureIssueDayProductionTasks,
 	fetchExecutionReviewStatus,
 	fetchProductionBoard,
 	ISSUE_VARIANCE_CONTRACT_CASES,
@@ -36,6 +36,7 @@ import {
 	saveRecipeEdit,
 	type UserContext,
 } from "@iefa/sisub-domain"
+import { sql as dsql } from "drizzle-orm"
 import postgres from "postgres"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration } from "@/test/operations-fixtures"
@@ -170,9 +171,16 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 			serviceDate: today,
 			mealTypeId,
 			provisionalRecipeName: name,
+			plannedPortionQuantity: 300,
 			reason: "[TEST] sobrou ovo",
 		})
 		expect(first.provisional).toBe(true)
+		// rendimento é da ficha: a provisória nasce sem ele, mesmo com as porções do dia
+		const [provisionalRecipe] = (await db.execute(
+			dsql`select portion_yield, provisional_since from kitchen.recipes where id = ${first.recipeId}`
+		)) as unknown as Array<{ portion_yield: unknown; provisional_since: unknown }>
+		expect(provisionalRecipe?.portion_yield).toBeNull()
+		expect(provisionalRecipe?.provisional_since).not.toBeNull()
 		const second = await addExecutionMenuItem(db, shiftCtx(kitchenId), {
 			kitchenId,
 			serviceDate: today,
@@ -244,8 +252,17 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 		const { id: dailyMenuId } = await seeder.seedDailyMenu({ kitchenId, mealTypeId, serviceDate: date })
 		await seeder.seedMenuItem({ dailyMenuId, recipeId, plannedPortionQuantity: 40 })
 
-		expect((await createMissingProductionTasks(db, { kitchenId, date })).created).toBe(1)
-		expect((await createMissingProductionTasks(db, { kitchenId, date })).created).toBe(0)
+		// quem abre a requisição do dia (storage:2) cria; quem só planeja não
+		const storageCtx: UserContext = {
+			userId: "00000000-0000-4000-8000-000000000005",
+			permissions: [{ module: "storage", level: 2, kitchen_id: kitchenId, unit_id: null, mess_hall_id: null }],
+			aal: 1,
+			lastFactorAt: null,
+			origin: "session",
+		}
+		await expect(ensureIssueDayProductionTasks(db, plannerReadCtx(kitchenId), { kitchenId, date })).rejects.toThrow()
+		expect((await ensureIssueDayProductionTasks(db, storageCtx, { kitchenId, date })).created).toBe(1)
+		expect((await ensureIssueDayProductionTasks(db, storageCtx, { kitchenId, date })).created).toBe(0)
 	}, 60_000)
 })
 
@@ -420,19 +437,32 @@ describeIf("execução do dia no estoque (DB)", () => {
 						)
 					).rejects.toThrow(/competência .* já foi fechada/)
 
-					// contagem aprovada que viu o insumo DEPOIS da data: baixaria duas vezes
+					// Dupla baixa pelo DIA civil. Contagem aprovada às 08h do dia 5 (antes do meio-dia
+					// que a saída tardia usa como posição): no mesmo dia, sem saber a ordem, recusa.
 					const [countRow] = await tx`
 							insert into inventory.inventory_count (kitchen_id, status, created_by) values (${kitchenId}, 'counting', ${userId}) returning id`
 					await tx`
 							insert into inventory.inventory_count_entry (count_id, lot_id, quantity, client_event_id, counted_by, counted_at)
-							values (${countRow.id}, ${lotId}, 95, 'enb-count-1', ${userId}, now() - interval '1 minute')`
+							values (${countRow.id}, ${lotId}, 95, 'enb-count-1', ${userId},
+								(${brDay(tx, 5)} + time '08:00') at time zone 'America/Sao_Paulo')`
 					await tx`update inventory.inventory_count set status = 'approved', approved_at = now() where id = ${countRow.id}`
 					await expect(
 						tx.savepoint(
 							(sp) =>
-								sp`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 1, ${brDay(tx, 3)}, '[TEST] antes da contagem', ${userId}, 'enb-late-0004')`
+								sp`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 1, ${brDay(tx, 5)}, '[TEST] mesmo dia da contagem', ${userId}, 'enb-late-0004')`
 						)
 					).rejects.toThrow(/baixaria duas vezes/)
+					// dia anterior à contagem: também recusa (a contagem viu a prateleira depois)
+					await expect(
+						tx.savepoint(
+							(sp) =>
+								sp`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 1, ${brDay(tx, 6)}, '[TEST] antes da contagem', ${userId}, 'enb-late-0005')`
+						)
+					).rejects.toThrow(/baixaria duas vezes/)
+					// dia DEPOIS da contagem: a contagem não viu esta saída, passa
+					const [after] = await tx`
+							select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 1, ${brDay(tx, 4)}, '[TEST] depois da contagem', ${userId}, 'enb-late-0006')`
+					expect(Number(after.movements)).toBeGreaterThan(0)
 
 					// o retroativo continua recusado fora da saída tardia
 					await expect(
@@ -448,6 +478,39 @@ describeIf("execução do dia no estoque (DB)", () => {
 					if (!(e instanceof Rollback)) throw e
 				})
 		).resolves.toBeUndefined()
+	}, 60_000)
+
+	test("saída tardia: reenvio simultâneo da mesma emissão espera a primeira em vez de sacar de novo", async () => {
+		// Duas conexões. A primeira lança e segura a transação aberta; o reenvio (mesmo
+		// `emission_id`, como depois de um 502) tem de ESPERAR a trava da emissão — sem ela, as
+		// duas passavam no `exists` e as duas inseriam. Prova: com timeout curto, o reenvio
+		// estoura esperando, e não volta com movimento próprio. Tudo desfeito no fim.
+		const other = postgres(url as string, { max: 1, prepare: false })
+		try {
+			await expect(
+				sql
+					.begin(async (tx) => {
+						const { kitchenId, ingredientId, userId } = await kitchenWithRice(tx, "RACE")
+						await tx`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 2, ${brDay(tx, 2)}, '[TEST] primeira', ${userId}, 'enb-race-0001')`
+						const retry = await other
+							.begin(async (tx2) => {
+								await tx2`set local lock_timeout = '1s'`
+								await tx2`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 2, ${brDay(tx2, 2)}, '[TEST] primeira', ${userId}, 'enb-race-0001')`
+								return "inseriu"
+							})
+							.catch((e: { code?: string }) => e.code ?? "erro")
+						// 55P03 = lock_not_available (esperou a trava da emissão). A cozinha nem existe
+						// para a segunda conexão (a primeira não commitou), e mesmo assim ela não passou.
+						expect(retry).toBe("55P03")
+						throw new Rollback()
+					})
+					.catch((e) => {
+						if (!(e instanceof Rollback)) throw e
+					})
+			).resolves.toBeUndefined()
+		} finally {
+			await other.end({ timeout: 5 })
+		}
 	}, 60_000)
 
 	test("contagem: tarefa já baixada pela produção não trava; sem baixa, aprova com ressalva registrada", async () => {
@@ -466,20 +529,69 @@ describeIf("execução do dia no estoque (DB)", () => {
 					const [contagem] = await tx`
 							insert into inventory.inventory_count (kitchen_id, status, created_by) values (${kitchenId}, 'review', ${autor?.id}) returning id`
 
-					// sem saída nenhuma: recusa dizendo as saídas
-					await expect(tx.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${contagem.id}, ${outro?.id}, null)`)).rejects.toThrow(
-						/aprove com ressalva registrada/
-					)
-					// com ressalva: aprova e grava
+					// um SEGUNDO dia pendente: a ressalva registra os dois, não só o primeiro
+					const [prato2] = await tx`insert into kitchen.menu_items default values returning id`
+					await tx`
+							insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status)
+							values (${kitchenId}, ${prato2.id}, ${brDay(tx, 1)}, 'DONE')`
+
+					// sem saída nenhuma: recusa com o código próprio e os dias no HINT (a tela lê o código)
+					const refusal = await tx
+						.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${contagem.id}, ${outro?.id}, null)`)
+						.then(
+							() => null,
+							(e: { code?: string; hint?: string; message?: string }) => e
+						)
+					expect(refusal?.code).toBe("P0W01")
+					const [days] = await tx`select to_char(${brDay(tx, 1)}, 'YYYY-MM-DD') || ',' || to_char(${brDay(tx, 0)}, 'YYYY-MM-DD') as hint`
+					expect(refusal?.hint).toBe(days.hint)
+
+					// a saída TARDIA de um insumo ligada à tarefa não é a baixa dela: segue pendente
+					await tx`
+							insert into inventory.stock_movement (kitchen_id, ingredient_id, type, quantity, production_task_id, is_late_issue, justification)
+							values (${kitchenId}, ${ingredientId}, 'production_issue', 1, ${task.id}, true, 'Lançamento tardio: [TEST] óleo')`
+					const stillPending = await tx
+						.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${contagem.id}, ${outro?.id}, null)`)
+						.then(
+							() => null,
+							(e: { code?: string }) => e
+						)
+					expect(stillPending?.code).toBe("P0W01")
+					// …e a Baixa por Produção da tarefa continua possível (não "já teve baixa")
+					class Undo extends Error {}
+					await tx
+						.savepoint(async (sp) => {
+							await sp`select * from inventory.register_production_issue(${task.id},
+								${sp.json([{ kitchen_id: kitchenId, ingredient_id: ingredientId, quantity: 1, override_lot_id: null, justification: null }])}, ${autor?.id})`
+							throw new Undo()
+						})
+						.catch((e) => {
+							if (!(e instanceof Undo)) throw e
+						})
+
+					// com ressalva: aprova e grava os DOIS dias
+					let waived: { status: string; pending_production_waiver: string } | undefined
 					await tx
 						.savepoint(async (sp) => {
 							await sp`select * from inventory.approve_inventory_count_with_waiver(${contagem.id}, ${outro?.id}, null, '[TEST] dia sem requisição, conferido')`
-							const [row] = await sp`select status, pending_production_waiver from inventory.inventory_count where id = ${contagem.id}`
-							expect(row.status).toBe("approved")
-							expect(row.pending_production_waiver).toMatch(/sem saída lançada: \[TEST\] dia sem requisição/)
-							throw new Error("desfaz a aprovação")
+							;[waived] = (await sp`select status, pending_production_waiver from inventory.inventory_count where id = ${contagem.id}`) as unknown as Array<{
+								status: string
+								pending_production_waiver: string
+							}>
+							throw new Undo()
 						})
-						.catch(() => undefined)
+						.catch((e) => {
+							if (!(e instanceof Undo)) throw e
+						})
+					expect(waived?.status).toBe("approved")
+					expect(waived?.pending_production_waiver).toMatch(
+						/^Produção de \d{2}\/\d{2}\/\d{4}, \d{2}\/\d{2}\/\d{4} sem saída lançada: \[TEST\] dia sem requisição/
+					)
+
+					// o segundo dia baixado pela produção; o primeiro também: não trava mais
+					await tx`
+							insert into inventory.stock_movement (kitchen_id, ingredient_id, type, quantity, production_task_id)
+							select ${kitchenId}, ${ingredientId}, 'production_issue', 1, t.id from kitchen.production_task t where t.menu_item_id = ${prato2.id}`
 
 					// baixada pela "Baixa por Produção": não trava mais
 					await tx`

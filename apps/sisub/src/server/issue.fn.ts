@@ -19,8 +19,8 @@ import {
 	brasiliaToday,
 	checkDayClosure,
 	computeTheoreticalConsumption,
-	createMissingProductionTasks,
 	describeSnapshotGaps,
+	ensureIssueDayProductionTasks,
 	findSnapshotGaps,
 	ISSUE_VARIANCE_REASONS,
 	type IssueLineForVariance,
@@ -29,6 +29,7 @@ import {
 	roundToIssuePackage,
 	type SnapshotForGaps,
 } from "@iefa/sisub-domain"
+import { containsPattern } from "@iefa/sisub-domain/utils"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getDb } from "@/lib/db.server"
@@ -99,6 +100,8 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		)
 		.eq("type", "production_issue")
 		.is("issue_request_id", null)
+		// A saída TARDIA ligada à tarefa é de um insumo, não a baixa da tarefa (20260926217000).
+		.eq("is_late_issue", false)
 	if (issuedError) throw new Error(`Erro ao conferir as baixas por produção do dia: ${issuedError.message}`)
 	const issuedByProduction = new Set((issuedMoves ?? []).map((move: { production_task_id: string | null }) => move.production_task_id))
 	const taskList = allTasks.filter((task) => !issuedByProduction.has(task.id))
@@ -201,7 +204,8 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
+		const ctx = await requireStorageForKitchen(2, data.kitchenId)
+		const { userId } = ctx
 		const inv = inventory()
 		const issueDate = data.issueDate ?? brasiliaToday()
 
@@ -268,7 +272,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		// A sugestão lê `production_task`, que só nascia quando alguém abria o quadro da
 		// produção: a cozinha que abre o estoque antes ficava com a sugestão vazia sem saber
 		// por quê. As tarefas que faltam nascem aqui (idempotente; o índice único do item segura).
-		await createMissingProductionTasks(getDb(), { kitchenId: data.kitchenId, date: issueDate })
+		await ensureIssueDayProductionTasks(getDb(), ctx, { kitchenId: data.kitchenId, date: issueDate })
 
 		// Enquanto aberta, a sugestão acompanha o planejamento: o efetivo muda.
 		// O conflito é por (requisição, ingrediente) e NÃO inclui a refeição: em
@@ -722,22 +726,30 @@ export const fetchIssueDayGapsFn = createServerFn({ method: "GET" })
 		return { items: out }
 	})
 
+/** Resultados por busca: o combobox mostra poucos; a busca é que precisa alcançar o catálogo inteiro. */
+const INGREDIENT_SEARCH_LIMIT = 40
+
 /**
- * Catálogo inteiro de insumos para a saída fora da sugestão. A tela aceitava só insumo com
- * saldo > 0, e o banco já aceitava a saída sem lote: o almoxarife com o saco na mão e o
+ * Busca no catálogo inteiro de insumos para a saída fora da sugestão. A tela aceitava só insumo
+ * com saldo > 0, e o banco já aceitava a saída sem lote: o almoxarife com o saco na mão e o
  * sistema atrasado não conseguia lançar. Sem saldo, a saída entra como falta a regularizar.
+ *
+ * Busca NO SERVIDOR pelo texto digitado, e não a lista inteira: o PostgREST corta em 1000
+ * linhas calado, e o catálogo tem mais de 3000 insumos ativos — o que ficasse depois do corte
+ * alfabético não aparecia nunca.
  */
-export const listIssuableIngredientsFn = createServerFn({ method: "GET" })
-	.validator(z.object({ kitchenId: z.number().int().positive() }))
+export const searchIssuableIngredientsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ kitchenId: z.number().int().positive(), search: z.string().trim().min(2).max(100) }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
 		const { data: rows, error } = await kitchen()
 			.from("ingredient")
 			.select("id, description, measure_unit")
 			.is("deleted_at", null)
+			.ilike("description", containsPattern(data.search))
 			.order("description", { ascending: true })
-			.limit(10_000)
-		if (error) throw new Error(`Erro ao carregar o catálogo de insumos: ${error.message}`)
+			.limit(INGREDIENT_SEARCH_LIMIT)
+		if (error) throw new Error(`Erro ao buscar insumos: ${error.message}`)
 		return (rows ?? []) as Array<{ id: string; description: string; measure_unit: string | null }>
 	})
 

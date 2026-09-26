@@ -87,6 +87,14 @@ describe("fluxo Revisar a execução", () => {
 		expect(s?.status).toBe("done")
 	})
 
+	test("as congeladas provisórias entram no mesmo corte das pendências de outros módulos", () => {
+		const frozen = Array.from({ length: 6 }, (_, i) => ({ id: `f${i}`, description: `Sobra ${i}`, since: "2026-09-25T18:00:00Z" }))
+		const days = Array.from({ length: 5 }, (_, i) => ({ requestId: `q${i}`, issueDate: `2026-09-2${i}` }))
+		const s = step({ ...empty, unexplainedIssueDays: days, provisionalFrozenPreparations: frozen }, "others")
+		expect(s?.issues).toHaveLength(9)
+		expect(s?.issues.at(-1)?.message).toBe("E mais 3 pendências de outros módulos.")
+	})
+
 	test("lista longa corta e diz quantas faltam", () => {
 		const many = Array.from({ length: 11 }, (_, i) => ({ id: `p${i}`, name: `Prep ${i}`, since: "2026-09-25T14:00:00Z", createdBy: null, uses: 1 }))
 		const s = step({ ...empty, provisionalRecipes: many }, "provisional")

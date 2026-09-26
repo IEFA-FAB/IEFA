@@ -30,8 +30,8 @@
 -- Toda função criada ou recriada aqui leva `set search_path = ''` (regra de
 -- 20260926212000): os corpos qualificam tabela, tipo e função pelo schema, e só
 -- os built-ins de `pg_catalog` ficam sem prefixo. `create or replace` sem o SET
--- apagaria o que 20260926212000 fixou em `approve_inventory_count` e no guard do
--- `occurred_at`. As funções que estas chamam ou disparam (`register_leftover`,
+-- apagaria o que 20260926212000 fixou em `approve_inventory_count`,
+-- `register_production_issue` e no guard do `occurred_at`. As funções que estas chamam ou disparam (`register_leftover`,
 -- `post_stock_adjustment`, `count_lines`, os gatilhos do ledger) também
 -- qualificam tudo — conferido no `pg_get_functiondef` de cada uma.
 -- ============================================================================
@@ -210,6 +210,16 @@ $$;
 -- ----------------------------------------------------------------------------
 -- 4. Saída tardia com a data real
 -- ----------------------------------------------------------------------------
+-- A saída tardia ligada a uma preparação é de UM insumo: não é a baixa da tarefa.
+-- A marca separa as duas — a "Baixa por Produção" e a aprovação da contagem só
+-- tratam como baixada a tarefa com saída que NÃO é tardia, e a tela da baixa
+-- desconta, por insumo, o que já saiu tarde.
+alter table inventory.stock_movement
+  add column is_late_issue boolean not null default false;
+
+comment on column inventory.stock_movement.is_late_issue is
+  'Lançado por inventory.register_late_issue (data real anterior, motivo obrigatório). Ligado a tarefa, conta só o insumo — não a baixa da tarefa.';
+
 alter table inventory.stock_issue_request
   add column auto_closed_at timestamptz,
   add column explained_at timestamptz,
@@ -258,14 +268,17 @@ $function$;
  * Saída lançada depois, com a data em que de fato aconteceu.
  *
  * Liga-se ao DIA (a requisição da produção daquela data, se existir, em
- * qualquer status) e, opcionalmente, à PREPARAÇÃO (tarefa de produção). A
- * tarefa ligada passa a contar como baixada: é o lançamento tardio da baixa
- * dela, e `register_production_issue` recusa baixá-la de novo.
+ * qualquer status) e, opcionalmente, à PREPARAÇÃO (tarefa de produção). Ligada
+ * à tarefa, vale só para AQUELE insumo (`is_late_issue`): a tarefa não passa a
+ * contar como baixada, e a Baixa por Produção desconta, por insumo, o que já saiu.
  *
  * Recusa só o imprescindível:
  *  - competência fechada (também recusada pelo trigger de período);
- *  - insumo contado DEPOIS da data numa contagem aprovada: o ajuste da
- *    contagem já tirou a falta do saldo, e a saída agora baixaria duas vezes.
+ *  - insumo contado no DIA da saída ou depois numa contagem aprovada: o ajuste
+ *    da contagem já tirou a falta do saldo, e a saída agora baixaria duas vezes.
+ *
+ * O reenvio da mesma emissão é serializado por trava consultiva no
+ * `emission_id` antes da conferência do retry.
  *
  * A alocação é a da emissão do dia (FEFO, pula quarentena), restrita aos lotes
  * que já existiam na data e não estavam vencidos nela. O que não couber em lote
@@ -310,6 +323,13 @@ begin
     raise exception 'A data real da saída não pode ser futura';
   end if;
 
+  -- Trava pela EMISSÃO antes de conferir o retry. Sem ela, o reenvio depois de um
+  -- 502 chegava com a primeira chamada ainda aberta: as duas passavam no `exists`
+  -- (a primeira não tinha commitado) e as duas inseriam — o estoque saía duas vezes.
+  -- `issue_stock` resolve travando a requisição; aqui pode não haver requisição, e a
+  -- chave natural do pedido é o identificador da emissão.
+  perform pg_advisory_xact_lock(hashtextextended('late-issue:' || p_emission_id, 42));
+
   -- Retry da MESMA emissão devolve o que já foi feito (mesmo contrato de issue_stock).
   if exists (select 1 from inventory.stock_movement m where m.emission_id = p_emission_id) then
     if exists (
@@ -349,7 +369,12 @@ begin
     else (p_occurred_on + time '12:00') at time zone 'America/Sao_Paulo'
   end;
 
-  -- Dupla baixa: contagem APROVADA que viu este insumo depois da data real.
+  -- Dupla baixa: contagem APROVADA que viu este insumo no DIA da saída ou depois.
+  -- Comparação pelo dia civil, e não pelo instante: a hora da saída tardia é
+  -- desconhecida (o meio-dia é só a posição no ledger). Contagem das 11h com a saída
+  -- real das 9h já tirou a falta; comparar com o meio-dia deixava passar e baixava de
+  -- novo. No mesmo dia, sem saber a ordem, recusa-se — o que faltou explicar vai
+  -- como diferença da contagem (ou ajuste), que é onde o saldo já foi acertado.
   select max((e.counted_at at time zone 'America/Sao_Paulo')::date) into v_counted_on
     from inventory.inventory_count c
     join inventory.inventory_count_entry e on e.count_id = c.id
@@ -357,9 +382,9 @@ begin
    where c.kitchen_id = p_kitchen_id
      and c.status = 'approved'
      and coalesce(e.ingredient_id, l.ingredient_id) = p_ingredient_id
-     and e.counted_at > v_occurred;
+     and (e.counted_at at time zone 'America/Sao_Paulo')::date >= p_occurred_on;
   if v_counted_on is not null then
-    raise exception 'Este insumo foi contado em % numa contagem já aprovada, depois da data informada: o ajuste da contagem já tirou do saldo o que faltava, e a saída agora baixaria duas vezes',
+    raise exception 'Este insumo foi contado em % numa contagem já aprovada, no dia da saída ou depois: o ajuste da contagem já tirou do saldo o que faltava, e a saída agora baixaria duas vezes. Registre a diferença como ajuste justificado',
       to_char(v_counted_on, 'DD/MM/YYYY');
   end if;
 
@@ -401,10 +426,10 @@ begin
     v_take := least(v_lot.balance, v_remaining);
     insert into inventory.stock_movement
       (kitchen_id, ingredient_id, lot_id, type, quantity, justification, issue_request_id, emission_id,
-       production_task_id, created_by, occurred_at)
+       production_task_id, created_by, occurred_at, is_late_issue)
     values
       (p_kitchen_id, p_ingredient_id, v_lot.id, 'production_issue', v_take, v_justification, v_request_id, p_emission_id,
-       p_production_task_id, p_user, v_occurred);
+       p_production_task_id, p_user, v_occurred, true);
     v_count := v_count + 1;
     v_remaining := v_remaining - v_take;
   end loop;
@@ -412,11 +437,11 @@ begin
   if v_remaining > 0 then
     insert into inventory.stock_movement
       (kitchen_id, ingredient_id, lot_id, type, quantity, justification, issue_request_id, emission_id,
-       production_task_id, created_by, occurred_at)
+       production_task_id, created_by, occurred_at, is_late_issue)
     values
       (p_kitchen_id, p_ingredient_id, null, 'production_issue', v_remaining,
        v_justification || ' — sem saldo em lote, regularizar na contagem', v_request_id, p_emission_id,
-       p_production_task_id, p_user, v_occurred);
+       p_production_task_id, p_user, v_occurred, true);
     v_count := v_count + 1;
     v_without_lot := v_remaining;
   end if;
@@ -540,12 +565,13 @@ alter table inventory.inventory_count
 comment on column inventory.inventory_count.pending_production_waiver is
   'Ressalva registrada ao aprovar com produção concluída sem saída lançada (dia e motivo). Nulo = aprovada sem essa pendência.';
 
--- Corpo idêntico ao de 20260920180000, com duas mudanças no bloco da produção:
---  - a tarefa que já tem saída ligada a ela (Baixa por Produção ou lançamento
---    tardio) não conta: o que saiu já está no saldo, e era isso que a checagem
---    protegia;
+-- Corpo idêntico ao de 20260920180000, com três mudanças no bloco da produção:
+--  - a tarefa que já foi baixada (saída ligada a ela que NÃO é tardia) não conta:
+--    o que saiu já está no saldo, e era isso que a checagem protegia. A saída
+--    tardia de um insumo não é a baixa da tarefa;
+--  - a recusa sai com SQLSTATE próprio `P0W01` e os dias pendentes (ISO) no HINT;
 --  - com a ressalva (`inventory.pending_production_waiver`, ligada por
---    `approve_inventory_count_with_waiver`), aprova e grava a ressalva.
+--    `approve_inventory_count_with_waiver`), aprova e grava TODOS os dias pendentes.
 create or replace function inventory.approve_inventory_count(p_count_id uuid, p_actor uuid, p_exception_reason text DEFAULT NULL::text)
  RETURNS TABLE(adjustment_id uuid, lines integer, difference_value numeric)
  LANGUAGE plpgsql
@@ -569,6 +595,7 @@ declare
   v_chain uuid[];
   v_waiver text := nullif(btrim(coalesce(current_setting('inventory.pending_production_waiver', true), '')), '');
   v_waiver_note text;
+  v_pending_days date[];
 begin
   perform set_config('inventory.via_rpc', 'on', true);
 
@@ -605,7 +632,8 @@ begin
   -- e a contagem aberta depois das 21h pulava o dia anterior.
   -- Tarefa com saída ligada a ela (Baixa por Produção, lançamento tardio) já
   -- está no saldo: contá-la travava a contagem de quem baixa pela produção.
-  select t.id, t.production_date into v_pending
+  -- TODOS os dias pendentes, não só o primeiro: a ressalva registra cada um.
+  select array_agg(distinct t.production_date order by t.production_date) into v_pending_days
     from kitchen.production_task t
    where t.kitchen_id = v_count.kitchen_id
      and t.status = 'DONE'
@@ -619,16 +647,19 @@ begin
      )
      and not exists (
        select 1 from inventory.stock_movement m
-        where m.production_task_id = t.id and m.type = 'production_issue'
-     )
-   order by t.production_date
-   limit 1;
-  if found then
+        where m.production_task_id = t.id and m.type = 'production_issue' and not m.is_late_issue
+     );
+  if v_pending_days is not null then
     if v_waiver is null then
+      -- Código próprio (P0W01) e os dias em ISO no HINT: a tela decide oferecer a
+      -- ressalva pelo código, não pelo texto — reescrever a mensagem não a desliga.
       raise exception 'Há produção concluída em % sem a requisição do dia fechada: a contagem acusaria falta do que já saiu. Feche a requisição, lance a saída tardia, ou aprove com ressalva registrada',
-        to_char(v_pending.production_date, 'DD/MM');
+        (select string_agg(to_char(d, 'DD/MM'), ', ' order by d) from unnest(v_pending_days) d)
+        using errcode = 'P0W01',
+              hint = (select string_agg(to_char(d, 'YYYY-MM-DD'), ',' order by d) from unnest(v_pending_days) d);
     end if;
-    v_waiver_note := 'Produção de ' || to_char(v_pending.production_date, 'DD/MM/YYYY') || ' sem saída lançada: ' || v_waiver;
+    v_waiver_note := 'Produção de ' || (select string_agg(to_char(d, 'DD/MM/YYYY'), ', ' order by d) from unnest(v_pending_days) d)
+      || ' sem saída lançada: ' || v_waiver;
   end if;
 
   -- ── pré-condição: recebimento provisório ──────────────────────────────────
@@ -793,6 +824,119 @@ begin
   return query select v_adjustment_id, v_lines, v_value;
 end;
 $function$;
+
+-- Baixa por Produção: corpo idêntico ao de 20260918160000, com uma mudança — a saída
+-- TARDIA ligada à tarefa (`is_late_issue`) não conta como "tarefa já baixada". Ela é de
+-- um insumo; a baixa da tarefa segue possível, e a tela desconta, por insumo, o que já
+-- saiu tarde (`fetchPendingIssuesFn`).
+create or replace function inventory.register_production_issue(p_task_id uuid, p_lines jsonb, p_user uuid)
+ RETURNS TABLE(movements integer)
+ LANGUAGE plpgsql
+ SET search_path = ''
+AS $function$
+declare
+  v_count int := 0;
+  v_line record;
+  v_lot record;
+  v_remaining numeric(14,4);
+  v_take numeric(14,4);
+  v_today date := (now() at time zone 'America/Sao_Paulo')::date;
+begin
+  perform set_config('inventory.via_rpc', 'on', true);
+  perform pg_advisory_xact_lock(hashtextextended(p_task_id::text, 42));
+
+  if exists (
+    select 1 from inventory.stock_movement
+    where production_task_id = p_task_id and type = 'production_issue' and not is_late_issue
+  ) then
+    raise exception 'Esta tarefa já teve baixa de estoque registrada';
+  end if;
+
+  for v_line in
+    select * from jsonb_to_recordset(p_lines) as x(
+      kitchen_id bigint,
+      ingredient_id uuid,
+      quantity numeric,
+      override_lot_id uuid,
+      justification text
+    )
+  loop
+    if v_line.quantity is null or v_line.quantity <= 0 then
+      raise exception 'Quantidade deve ser positiva';
+    end if;
+
+    if v_line.override_lot_id is not null then
+      perform 1 from inventory.stock_lot
+        where id = v_line.override_lot_id
+          and kitchen_id = v_line.kitchen_id
+          and ingredient_id is not distinct from v_line.ingredient_id
+        for update;
+      if not found then
+        raise exception 'Lote % não pertence à cozinha/ingrediente do movimento (override inválido)', v_line.override_lot_id;
+      end if;
+      insert into inventory.stock_movement
+        (kitchen_id, ingredient_id, lot_id, type, quantity, justification, production_task_id, created_by)
+      values
+        (v_line.kitchen_id, v_line.ingredient_id, v_line.override_lot_id, 'production_issue',
+         v_line.quantity, v_line.justification, p_task_id, p_user);
+      v_count := v_count + 1;
+      continue;
+    end if;
+
+    v_remaining := v_line.quantity;
+
+    perform 1 from inventory.stock_lot
+      where kitchen_id = v_line.kitchen_id
+        and ingredient_id is not distinct from v_line.ingredient_id
+      order by id
+      for update;
+
+    -- Ordem: "usar primeiro" (painel de vencimentos) → validade → entrada → id.
+    -- Fora: lote vencido e lote em quarentena. (Ver 20260918160000.)
+    for v_lot in
+      select l.id,
+             coalesce(sum(case when m.type in ('receipt','issue_return','leftover_return','transfer_in','lot_split_in','adjustment_in')
+                               then m.quantity else -m.quantity end), 0) as balance
+        from inventory.stock_lot l
+        left join inventory.stock_movement m on m.lot_id = l.id
+        where l.kitchen_id = v_line.kitchen_id
+          and l.ingredient_id is not distinct from v_line.ingredient_id
+          and l.quarantined_at is null
+          and (l.expiry_date is null or l.expiry_date >= v_today)
+        group by l.id, l.use_first, l.expiry_date, l.received_at
+        having coalesce(sum(case when m.type in ('receipt','issue_return','leftover_return','transfer_in','lot_split_in','adjustment_in')
+                                 then m.quantity else -m.quantity end), 0) > 0
+        order by l.use_first desc,
+                 coalesce(l.expiry_date, (l.received_at at time zone 'America/Sao_Paulo')::date) asc,
+                 l.received_at asc,
+                 l.id asc
+    loop
+      exit when v_remaining <= 0;
+      v_take := least(v_lot.balance, v_remaining);
+      insert into inventory.stock_movement
+        (kitchen_id, ingredient_id, lot_id, type, quantity, justification, production_task_id, created_by)
+      values
+        (v_line.kitchen_id, v_line.ingredient_id, v_lot.id, 'production_issue',
+         v_take, v_line.justification, p_task_id, p_user);
+      v_count := v_count + 1;
+      v_remaining := v_remaining - v_take;
+    end loop;
+
+    if v_remaining > 0 then
+      insert into inventory.stock_movement
+        (kitchen_id, ingredient_id, lot_id, type, quantity, justification, production_task_id, created_by)
+      values
+        (v_line.kitchen_id, v_line.ingredient_id, null, 'production_issue', v_remaining,
+         coalesce(v_line.justification, 'Consumo além do saldo em lotes (estoque negativo — regularizar na contagem)'),
+         p_task_id, p_user);
+      v_count := v_count + 1;
+    end if;
+  end loop;
+
+  return query select v_count;
+end;
+$function$;
+
 
 /**
  * Aprovação com ressalva: a produção de algum dia recente foi concluída sem
