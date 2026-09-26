@@ -2,40 +2,45 @@
  * @module restos-a-pagar.fn
  * Inscrição em restos a pagar em DUAS parcelas por empenho (achado F6 da auditoria de
  * 2026-09-26): liquidado e não pago → RP processado; empenhado e não liquidado → RP não
- * processado (Lei 4.320, art. 36; Decreto 93.872/1986, arts. 67-68). A conta é pura
- * (`splitRestosAPagar`/`planRestosAPagarInscription` em `@iefa/sisub-domain`); aqui só se lê e
- * se grava.
+ * processado (Lei 4.320, art. 36; Decreto 93.872/1986, arts. 67-68).
  *
- * Expand: `finance.empenho.rp_inscrito/rp_tipo/rp_exercicio` continuam sendo espelhados (o
- * `rp_tipo` com a escolha antiga, `legacyRestosAPagarKind`) e o evento `rp_inscricao` continua
- * sendo gravado, um por parcela. `inscribeRestosAPagarFn` (empenho.fn.ts) é o caminho antigo,
- * de um tipo só; a tela nova usa este.
- * CLIENT: getServerClient (leitura) e getDb (Drizzle) para a gravação, numa transação.
+ * A inscrição é do EXERCÍCIO, sobre o saldo de 31/12 (`empenhoBalanceAtYearEnd`), não sobre o
+ * saldo do dia em que roda: a OB de janeiro paga RP e não muda o inscrito. Rodar de novo só
+ * mexe no que mudou em 31/12 (lançamento retroativo), e aí o conjunto do empenho é
+ * SUBSTITUÍDO, com trilha (`superseded_at`), nunca somado (`reconcileRestosAPagar`).
+ *
+ * Expand: empenho inscrito pelo caminho antigo (`rp_inscrito`, um tipo só) é migrado para
+ * parcelas sem evento novo; `rp_inscrito/rp_tipo/rp_exercicio` continuam espelhados e o evento
+ * `rp_inscricao` continua sendo gravado, um por parcela nova. `inscribeRestosAPagarFn`
+ * (empenho.fn.ts) está desligado.
+ * CLIENT: getDb (Drizzle) — leitura e gravação por SQL, a gravação numa transação.
  * AUTH: `unit` escopado — 1 leitura, 3 inscrever (encerramento do exercício, como o antigo).
- * TABLES: finance.empenho, finance.v_empenho_saldo, finance.empenho_rp_inscription, finance.empenho_event.
+ * TABLES: finance.empenho, finance.empenho_event, finance.liquidacao, finance.pagamento,
+ *   finance.liquidacao_deduction, finance.empenho_rp_inscription.
  * @domain core
  * @migration 20260926216000_finance_compliance
  */
 
-import { legacyRestosAPagarKind, planRestosAPagarInscription, type RestosAPagarKind, splitRestosAPagar } from "@iefa/sisub-domain"
+import {
+	type ActiveRpParcel,
+	type EmpenhoLedger,
+	empenhoBalanceAtYearEnd,
+	legacyRestosAPagarKind,
+	type RestosAPagarAction,
+	type RestosAPagarKind,
+	reconcileRestosAPagar,
+	splitRestosAPagar,
+} from "@iefa/sisub-domain"
 import { describeDriverError } from "@iefa/sisub-domain/utils"
 import { createServerFn } from "@tanstack/react-start"
 import { sql } from "drizzle-orm"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { getDb } from "@/lib/db.server"
-import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
-
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
-type LooseClient = { from: (table: string) => any }
-
-const finance = () => getServerClient("finance") as unknown as LooseClient
 
 // TODO: regenerar tipos após aplicar 20260926216000 e trocar este tipo local pelo gerado.
 export interface RpInscriptionRow {
-	empenho_id: string
-	fiscal_year: number
 	kind: RestosAPagarKind
 	amount: number
 	inscribed_on: string
@@ -45,90 +50,163 @@ export interface RestosAPagarPreviewRow {
 	empenhoId: string
 	numeroEmpenho: string
 	favorecido: string | null
+	/** Saldos em 31/12 do exercício. */
 	valorVigente: number
 	valorLiquidado: number
 	valorPago: number
-	/** Liquidado e não pago (inclui retenção ainda não recolhida). */
+	/** Liquidado e não pago em 31/12 (inclui retenção ainda não recolhida). */
 	processado: number
-	/** Empenhado e não liquidado. */
+	/** Empenhado e não liquidado em 31/12. */
 	naoProcessado: number
-	/** Parcelas já gravadas para este exercício. */
+	/** Parcelas vigentes já gravadas para este exercício. */
 	inscribed: RpInscriptionRow[]
+	/** O que a inscrição faria com este empenho agora. */
+	action: RestosAPagarAction["kind"]
 }
 
-/** O que o encerramento do exercício inscreveria, empenho a empenho, e o que já foi inscrito. */
-export const previewRestosAPagarFn = createServerFn({ method: "GET" })
-	.validator(z.object({ unitId: z.number().int().positive(), exercicio: z.number().int().min(2000).max(2100) }))
-	.handler(async ({ data }): Promise<RestosAPagarPreviewRow[]> => {
-		await requireUnitScope(1, data.unitId)
-		const fin = finance()
+type Executor = Pick<ReturnType<typeof getDb>, "execute">
 
-		const { data: empenhos, error } = await fin
-			.from("empenho")
-			.select("id, numero_empenho, favorecido_nome, favorecido_cnpj")
-			.eq("unit_id", data.unitId)
-			.eq("exercicio", data.exercicio)
-			.eq("status", "ativo")
-			.order("numero_empenho")
-			.limit(1000)
-		if (error) throw new Error(`Erro ao listar empenhos do exercício: ${error.message}`)
-		const rows = (empenhos ?? []) as Array<{ id: string; numero_empenho: string; favorecido_nome: string | null; favorecido_cnpj: string | null }>
-		if (rows.length === 0) return []
+interface EmpenhoRpInput {
+	empenhoId: string
+	numeroEmpenho: string
+	favorecido: string | null
+	rpInscrito: boolean
+	rpExercicio: number | null
+	ledger: EmpenhoLedger
+	active: (ActiveRpParcel & { inscribed_on: string })[]
+}
 
-		const [{ data: saldos, error: saldoError }, { data: inscriptions, error: inscriptionError }] = await Promise.all([
-			fin.from("v_empenho_saldo").select("empenho_id, valor_vigente, valor_liquidado, valor_pago").eq("unit_id", data.unitId).limit(5000),
-			fin
-				.from("empenho_rp_inscription")
-				.select("empenho_id, fiscal_year, kind, amount, inscribed_on")
-				.eq("fiscal_year", data.exercicio)
-				.in(
-					"empenho_id",
-					rows.map((row) => row.id)
-				),
-		])
-		if (saldoError) throw new Error(`Erro ao ler os saldos: ${saldoError.message}`)
-		if (inscriptionError) throw new Error(`Erro ao ler as inscrições em RP: ${inscriptionError.message}`)
+/**
+ * Tudo o que a conta de 31/12 precisa, em seis leituras (sem N+1). Entram os empenhos do
+ * exercício ativos, e os anulados por inteiro DEPOIS de 31/12 (em 31/12 eles ainda eram saldo).
+ */
+async function loadRpInputs(db: Executor, unitId: number, exercicio: number): Promise<EmpenhoRpInput[]> {
+	const yearEnd = `${exercicio}-12-31`
+	const scope = sql`
+		select e.id from finance.empenho e
+		 where e.unit_id = ${unitId} and e.exercicio = ${exercicio}
+		   and (e.status = 'ativo' or exists (
+		         select 1 from finance.empenho_event ev
+		          where ev.empenho_id = e.id and ev.tipo in ('anulacao_total', 'cancelamento') and ev.data > ${yearEnd}::date))`
 
-		const saldoById = new Map<string, { valor_vigente: number; valor_liquidado: number; valor_pago: number }>()
-		for (const saldo of saldos ?? []) saldoById.set(saldo.empenho_id, saldo)
-		const inscribedById = new Map<string, RpInscriptionRow[]>()
-		for (const row of (inscriptions ?? []) as RpInscriptionRow[]) {
-			const list = inscribedById.get(row.empenho_id) ?? []
-			list.push({ ...row, amount: Number(row.amount) })
-			inscribedById.set(row.empenho_id, list)
+	const empenhos = await db.execute<{
+		id: string
+		numero_empenho: string
+		favorecido: string | null
+		valor_total: string
+		rp_inscrito: boolean
+		rp_exercicio: number | null
+	}>(sql`
+		select e.id, e.numero_empenho, coalesce(e.favorecido_nome, e.favorecido_cnpj) as favorecido,
+		       e.valor_total::text, e.rp_inscrito, e.rp_exercicio
+		  from finance.empenho e where e.id in (${scope}) order by e.numero_empenho`)
+	if (empenhos.length === 0) return []
+
+	const [events, liquidacoes, pagamentos, retencoes, active] = await Promise.all([
+		db.execute<{ empenho_id: string; tipo: string; valor: string; data: string }>(sql`
+			select ev.empenho_id, ev.tipo, ev.valor::text, ev.data::text from finance.empenho_event ev where ev.empenho_id in (${scope})`),
+		db.execute<{ empenho_id: string; valor: string; data: string }>(sql`
+			select l.empenho_id, l.valor::text, l.data::text from finance.liquidacao l where l.empenho_id in (${scope})`),
+		db.execute<{ empenho_id: string; valor: string; data: string }>(sql`
+			select l.empenho_id, p.valor::text, p.data::text
+			  from finance.pagamento p join finance.liquidacao l on l.id = p.liquidacao_id where l.empenho_id in (${scope})`),
+		db.execute<{ empenho_id: string; valor: string; data: string }>(sql`
+			select l.empenho_id, d.amount::text as valor, d.paid_on::text as data
+			  from finance.liquidacao_deduction d join finance.liquidacao l on l.id = d.liquidacao_id
+			 where d.paid_on is not null and l.empenho_id in (${scope})`),
+		db.execute<{ id: string; empenho_id: string; kind: string; amount: string; inscribed_on: string }>(sql`
+			select r.id, r.empenho_id, r.kind, r.amount::text, r.inscribed_on::text
+			  from finance.empenho_rp_inscription r
+			 where r.fiscal_year = ${exercicio} and r.superseded_at is null and r.empenho_id in (${scope})`),
+	])
+
+	const group = <T extends { empenho_id: string }>(rows: Iterable<T>) => {
+		const map = new Map<string, T[]>()
+		for (const row of rows) {
+			const list = map.get(row.empenho_id) ?? []
+			list.push(row)
+			map.set(row.empenho_id, list)
 		}
+		return map
+	}
+	const eventsBy = group(events)
+	const liqBy = group(liquidacoes)
+	const pagBy = group(pagamentos)
+	const retBy = group(retencoes)
+	const activeBy = group(active)
+	const dated = (rows: { valor: string; data: string }[] | undefined) => (rows ?? []).map((row) => ({ valor: Number(row.valor), data: row.data }))
 
-		return rows.map((row) => {
-			const saldo = saldoById.get(row.id)
-			const balance = {
-				valorVigente: Number(saldo?.valor_vigente ?? 0),
-				valorLiquidado: Number(saldo?.valor_liquidado ?? 0),
-				valorPago: Number(saldo?.valor_pago ?? 0),
-			}
-			const split = splitRestosAPagar(balance)
+	return [...empenhos].map((row) => ({
+		empenhoId: row.id,
+		numeroEmpenho: row.numero_empenho,
+		favorecido: row.favorecido,
+		rpInscrito: row.rp_inscrito === true,
+		rpExercicio: row.rp_exercicio == null ? null : Number(row.rp_exercicio),
+		ledger: {
+			valorOriginal: Number(row.valor_total),
+			events: (eventsBy.get(row.id) ?? []).map((event) => ({ tipo: event.tipo, valor: Number(event.valor), data: event.data })),
+			liquidacoes: dated(liqBy.get(row.id)),
+			pagamentos: dated(pagBy.get(row.id)),
+			retencoesRecolhidas: dated(retBy.get(row.id)),
+		},
+		active: (activeBy.get(row.id) ?? []).map((parcel) => ({
+			id: parcel.id,
+			kind: parcel.kind,
+			amount: Number(parcel.amount),
+			inscribed_on: parcel.inscribed_on,
+		})),
+	}))
+}
+
+function planFor(input: EmpenhoRpInput, exercicio: number) {
+	const balance = empenhoBalanceAtYearEnd(input.ledger, exercicio)
+	const split = splitRestosAPagar(balance)
+	const action = reconcileRestosAPagar({
+		empenhoId: input.empenhoId,
+		exercicio,
+		split,
+		active: input.active,
+		legacy: { rpInscrito: input.rpInscrito, rpExercicio: input.rpExercicio },
+	})
+	return { balance, split, action }
+}
+
+const exercicioInput = z.object({ unitId: z.number().int().positive(), exercicio: z.number().int().min(2000).max(2100) })
+
+/** O que o encerramento do exercício inscreve, empenho a empenho, pelo saldo de 31/12. */
+export const previewRestosAPagarFn = createServerFn({ method: "GET" })
+	.validator(exercicioInput)
+	.handler(async ({ data }): Promise<{ rows: RestosAPagarPreviewRow[]; hasPending: boolean }> => {
+		await requireUnitScope(1, data.unitId)
+		const inputs = await loadRpInputs(getDb(), data.unitId, data.exercicio)
+		const rows = inputs.map((input) => {
+			const { balance, split, action } = planFor(input, data.exercicio)
 			return {
-				empenhoId: row.id,
-				numeroEmpenho: row.numero_empenho,
-				favorecido: row.favorecido_nome ?? row.favorecido_cnpj,
+				empenhoId: input.empenhoId,
+				numeroEmpenho: input.numeroEmpenho,
+				favorecido: input.favorecido,
 				...balance,
 				processado: split.processado,
 				naoProcessado: split.naoProcessado,
-				inscribed: inscribedById.get(row.id) ?? [],
+				inscribed: input.active.map((parcel) => ({ kind: parcel.kind as RestosAPagarKind, amount: parcel.amount, inscribed_on: parcel.inscribed_on })),
+				action: action.kind,
 			}
 		})
+		// o botão só fica ativo quando há de fato algo a gravar
+		return { rows, hasPending: rows.some((row) => row.action !== "none") }
 	})
 
 /** Mesmo teto de espera do evento de empenho: vira erro com mensagem antes dos 60 s do ALB. */
 const RP_LOCK_TIMEOUT = "10s"
 
 /**
- * Inscreve em RP as duas parcelas de cada empenho ativo do exercício. Idempotente: parcela
- * já gravada não se repete (plano puro + `on conflict do nothing` na unicidade
- * `(empenho_id, fiscal_year, kind)`), então rodar de novo depois de uma liquidação só
- * acrescenta o que faltou. Tudo numa transação, serializada por unidade e exercício.
+ * Inscreve em RP as parcelas do exercício pelo saldo de 31/12. Idempotente e sem soma dupla:
+ * conjunto igual → nada; primeira vez → grava; inscrito pelo caminho antigo → migra para
+ * parcelas; saldo de 31/12 mudou → substitui o conjunto (as antigas ficam como trilha).
+ * Tudo numa transação, serializada por unidade e exercício.
  */
 export const inscribeRpParcelsFn = createServerFn({ method: "POST" })
-	.validator(z.object({ unitId: z.number().int().positive(), exercicio: z.number().int().min(2000).max(2100) }))
+	.validator(exercicioInput)
 	.handler(async ({ data }) => {
 		const ctx = await requireUnitScope(3, data.unitId)
 		const { userId } = ctx
@@ -142,67 +220,68 @@ export const inscribeRpParcelsFn = createServerFn({ method: "POST" })
 						await tx.execute(sql`select set_config('lock_timeout', ${RP_LOCK_TIMEOUT}, true)`)
 						await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`rp_inscription:${data.unitId}:${data.exercicio}`}::text, 42))`)
 
-						const balances = await tx.execute<{ empenho_id: string; valor_vigente: string; valor_liquidado: string; valor_pago: string }>(sql`
-							select s.empenho_id, s.valor_vigente::text, s.valor_liquidado::text, s.valor_pago::text
-							  from finance.v_empenho_saldo s
-							  join finance.empenho e on e.id = s.empenho_id
-							 where e.unit_id = ${data.unitId} and e.exercicio = ${data.exercicio} and e.status = 'ativo'
-						`)
-						const existing = await tx.execute<{ empenho_id: string; kind: string }>(sql`
-							select r.empenho_id, r.kind
-							  from finance.empenho_rp_inscription r
-							  join finance.empenho e on e.id = r.empenho_id
-							 where e.unit_id = ${data.unitId} and r.fiscal_year = ${data.exercicio}
-						`)
+						const inputs = await loadRpInputs(tx, data.unitId, data.exercicio)
+						const yearEnd = `${data.exercicio}-12-31`
+						const counts = { inserted: 0, migrated: 0, replaced: 0, parcelas: 0, processado: 0, naoProcessado: 0 }
 
-						const empenhos = [...balances].map((row) => ({
-							empenhoId: row.empenho_id,
-							valorVigente: Number(row.valor_vigente),
-							valorLiquidado: Number(row.valor_liquidado),
-							valorPago: Number(row.valor_pago),
-						}))
-						const plan = planRestosAPagarInscription(
-							data.exercicio,
-							empenhos,
-							[...existing].map((row) => ({ empenhoId: row.empenho_id, exercicio: data.exercicio, tipo: row.kind }))
-						)
-						const inscribedOn = `${data.exercicio}-12-31`
+						for (const input of inputs) {
+							const { split, action } = planFor(input, data.exercicio)
+							if (action.kind === "none") continue
 
-						for (const parcel of plan) {
-							await tx.execute(sql`
-								insert into finance.empenho_rp_inscription (empenho_id, fiscal_year, kind, amount, inscribed_on, created_by)
-								values (${parcel.empenhoId}::uuid, ${parcel.exercicio}, ${parcel.tipo}, ${parcel.valor}, ${inscribedOn}::date, ${userId}::uuid)
-								on conflict (empenho_id, fiscal_year, kind) do nothing
-							`)
-							// histórico no livro do empenho (não altera o vigente: rp_inscricao tem sinal 0)
-							await tx.execute(sql`
-								insert into finance.empenho_event (empenho_id, tipo, valor, data, justificativa, created_by)
-								values (
-									${parcel.empenhoId}::uuid, 'rp_inscricao', ${parcel.valor}, ${inscribedOn}::date,
-									${`Inscrição em restos a pagar ${parcel.tipo === "processado" ? "processados" : "não processados"} do exercício ${data.exercicio}`},
-									${userId}::uuid
-								)
-							`)
-						}
+							if (action.kind === "replace") {
+								const previous = input.active.map((p) => `${p.kind} R$ ${p.amount.toFixed(2)}`).join(", ")
+								for (const id of action.supersede) {
+									await tx.execute(sql`
+										update finance.empenho_rp_inscription
+										   set superseded_at = now(), superseded_by = ${userId}::uuid,
+										       supersede_reason = ${`Saldo de 31/12/${data.exercicio} recalculado (antes: ${previous})`}
+										 where id = ${id}::uuid and superseded_at is null`)
+								}
+							}
 
-						// espelho legado (expand): rp_inscrito/rp_tipo/rp_exercicio de quem ganhou parcela
-						const touched = new Set(plan.map((parcel) => parcel.empenhoId))
-						for (const empenho of empenhos) {
-							if (!touched.has(empenho.empenhoId)) continue
-							const legacy = legacyRestosAPagarKind(splitRestosAPagar(empenho))
+							for (const parcel of action.parcels) {
+								const notes =
+									action.kind === "migrate_legacy"
+										? "Migrada da inscrição de um tipo só (rp_inscrito)"
+										: action.kind === "replace"
+											? "Recalculada: substitui a inscrição anterior do exercício"
+											: null
+								await tx.execute(sql`
+									insert into finance.empenho_rp_inscription (empenho_id, fiscal_year, kind, amount, inscribed_on, notes, created_by)
+									values (${parcel.empenhoId}::uuid, ${parcel.exercicio}, ${parcel.tipo}, ${parcel.valor}, ${yearEnd}::date, ${notes}, ${userId}::uuid)`)
+								// histórico no livro do empenho (sinal 0: não altera o vigente). A migração do
+								// legado não grava evento: o caminho antigo já gravou o dele.
+								if (action.kind !== "migrate_legacy") {
+									const verb = action.kind === "replace" ? "Reinscrição" : "Inscrição"
+									await tx.execute(sql`
+										insert into finance.empenho_event (empenho_id, tipo, valor, data, justificativa, created_by)
+										values (
+											${parcel.empenhoId}::uuid, 'rp_inscricao', ${parcel.valor}, ${yearEnd}::date,
+											${`${verb} em restos a pagar ${parcel.tipo === "processado" ? "processados" : "não processados"} do exercício ${data.exercicio}`},
+											${userId}::uuid
+										)`)
+								}
+								counts.parcelas++
+								if (parcel.tipo === "processado") counts.processado += parcel.valor
+								else counts.naoProcessado += parcel.valor
+							}
+
+							// espelho legado (expand)
 							await tx.execute(sql`
 								update finance.empenho
-								   set rp_inscrito = true, rp_tipo = ${legacy}, rp_exercicio = ${data.exercicio}
-								 where id = ${empenho.empenhoId}::uuid
-							`)
+								   set rp_inscrito = ${action.parcels.length > 0}, rp_tipo = ${legacyRestosAPagarKind(split)},
+								       rp_exercicio = ${action.parcels.length > 0 ? data.exercicio : null}
+								 where id = ${input.empenhoId}::uuid`)
+							if (action.kind === "insert") counts.inserted++
+							else if (action.kind === "migrate_legacy") counts.migrated++
+							else counts.replaced++
 						}
 
-						const total = (tipo: RestosAPagarKind) => plan.filter((p) => p.tipo === tipo).reduce((acc, p) => acc + p.valor, 0)
 						return {
-							parcelas: plan.length,
-							empenhos: touched.size,
-							processado: Math.round(total("processado") * 100) / 100,
-							naoProcessado: Math.round(total("nao_processado") * 100) / 100,
+							...counts,
+							empenhos: counts.inserted + counts.migrated + counts.replaced,
+							processado: Math.round(counts.processado * 100) / 100,
+							naoProcessado: Math.round(counts.naoProcessado * 100) / 100,
 						}
 					})
 				} catch (error) {
@@ -212,6 +291,13 @@ export const inscribeRpParcelsFn = createServerFn({ method: "POST" })
 				}
 			},
 			// A execução que não inscreveu nada também deixa linha: "nada a inscrever" é resposta.
-			(result) => ({ unitId: data.unitId, exercicio: data.exercicio, parcelas: result.parcelas, empenhos: result.empenhos })
+			(result) => ({
+				unitId: data.unitId,
+				exercicio: data.exercicio,
+				parcelas: result.parcelas,
+				inseridos: result.inserted,
+				migrados: result.migrated,
+				recalculados: result.replaced,
+			})
 		)
 	})

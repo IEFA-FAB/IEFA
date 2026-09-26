@@ -299,7 +299,18 @@ describeIf("budget execution chain (DB)", () => {
 							(sp) => sp`insert into finance.empenho_rp_inscription (empenho_id, fiscal_year, kind, amount, inscribed_on)
 								values (${empenho.id}, extract(year from current_date)::int, 'processado', 1, current_date)`
 						)
-					).rejects.toThrow(/empenho_rp_inscription_parcel_key/)
+					).rejects.toThrow(/empenho_rp_inscription_active_parcel_key/)
+					// recálculo: a parcela substituída fica como trilha e libera a nova
+					await tx`
+						update finance.empenho_rp_inscription set superseded_at = now(), supersede_reason = 'saldo de 31/12 recalculado'
+						where empenho_id = ${empenho.id} and kind = 'processado' and superseded_at is null`
+					await tx`
+						insert into finance.empenho_rp_inscription (empenho_id, fiscal_year, kind, amount, inscribed_on)
+						values (${empenho.id}, extract(year from current_date)::int, 'processado', 400, current_date)`
+					const parcels = await tx`
+						select kind, amount, superseded_at is not null as superseded from finance.empenho_rp_inscription
+						where empenho_id = ${empenho.id} and kind = 'processado' order by created_at, superseded_at nulls last`
+					expect(parcels.map((p) => p.superseded)).toEqual([true, false])
 
 					// ── (F8) anulação total pelo nome novo: reduz o vigente e respeita o piso
 					await expect(

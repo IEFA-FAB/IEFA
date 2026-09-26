@@ -2,13 +2,14 @@ import { describe, expect, test } from "bun:test"
 import { empenhoEventSign, isAnnulmentEvent, isTotalAnnulmentEvent } from "./empenho-events.ts"
 import {
 	deductionExceedsProblem,
+	deductionPaymentProblem,
 	isLiquidationWithoutReceipt,
 	liquidationExceedsReceiptProblem,
 	liquidationNetBalance,
 	paymentExceedsNetProblem,
 	receiptLiquidationCeiling,
 } from "./liquidation-math.ts"
-import { legacyRestosAPagarKind, planRestosAPagarInscription, splitRestosAPagar } from "./restos-a-pagar-math.ts"
+import { empenhoBalanceAtYearEnd, legacyRestosAPagarKind, reconcileRestosAPagar, splitRestosAPagar } from "./restos-a-pagar-math.ts"
 
 describe("restos a pagar em duas parcelas", () => {
 	test("o mesmo empenho tem RP processado e não processado", () => {
@@ -21,23 +22,94 @@ describe("restos a pagar em duas parcelas", () => {
 		expect(splitRestosAPagar({ valorVigente: 5_000, valorLiquidado: 6_000, valorPago: 7_000 })).toEqual({ processado: 0, naoProcessado: 0 })
 	})
 
-	test("o plano grava as duas parcelas e não repete o que já foi inscrito", () => {
-		const plan = planRestosAPagarInscription(
-			2026,
-			[
-				{ empenhoId: "a", valorVigente: 10_000, valorLiquidado: 6_000, valorPago: 4_000 },
-				{ empenhoId: "b", valorVigente: 3_000, valorLiquidado: 3_000, valorPago: 1_000 },
-			],
-			[
-				{ empenhoId: "a", exercicio: 2026, tipo: "processado" },
-				// inscrição de outro exercício não conta
-				{ empenhoId: "b", exercicio: 2025, tipo: "processado" },
-			]
-		)
-		expect(plan).toEqual([
+	const noLegacy = { rpInscrito: false, rpExercicio: null }
+
+	test("primeira inscrição grava as duas parcelas", () => {
+		const action = reconcileRestosAPagar({ empenhoId: "a", exercicio: 2026, split: { processado: 2_000, naoProcessado: 4_000 }, active: [], legacy: noLegacy })
+		expect(action.kind).toBe("insert")
+		expect(action.parcels).toEqual([
+			{ empenhoId: "a", exercicio: 2026, tipo: "processado", valor: 2_000 },
 			{ empenhoId: "a", exercicio: 2026, tipo: "nao_processado", valor: 4_000 },
-			{ empenhoId: "b", exercicio: 2026, tipo: "processado", valor: 2_000 },
 		])
+	})
+
+	test("rodar de novo com o mesmo saldo de 31/12 não faz nada (e o botão não fica pendente)", () => {
+		const action = reconcileRestosAPagar({
+			empenhoId: "a",
+			exercicio: 2026,
+			split: { processado: 2_000, naoProcessado: 4_000 },
+			active: [
+				{ id: "p1", kind: "processado", amount: 2_000 },
+				{ id: "p2", kind: "nao_processado", amount: 4_000 },
+			],
+			legacy: noLegacy,
+		})
+		expect(action.kind).toBe("none")
+	})
+
+	test("NS retroativa a 31/12 depois da inscrição: o conjunto é substituído, nunca somado", () => {
+		// vigente 100: 1ª inscrição gravou não processado 100. Depois entra NS de 40 datada de dezembro.
+		const action = reconcileRestosAPagar({
+			empenhoId: "a",
+			exercicio: 2026,
+			split: { processado: 40, naoProcessado: 60 },
+			active: [{ id: "np", kind: "nao_processado", amount: 100 }],
+			legacy: noLegacy,
+		})
+		expect(action.kind).toBe("replace")
+		expect(action.supersede).toEqual(["np"])
+		// o total inscrito continua 100, não 140
+		expect(action.parcels.reduce((acc, p) => acc + p.valor, 0)).toBe(100)
+	})
+
+	test("empenho inscrito pelo caminho antigo vira parcelas, sem inscrever de novo", () => {
+		const legacy = reconcileRestosAPagar({
+			empenhoId: "a",
+			exercicio: 2026,
+			split: { processado: 2_000, naoProcessado: 4_000 },
+			active: [],
+			legacy: { rpInscrito: true, rpExercicio: 2026 },
+		})
+		expect(legacy.kind).toBe("migrate_legacy")
+		// inscrição antiga de OUTRO exercício não conta
+		expect(
+			reconcileRestosAPagar({
+				empenhoId: "a",
+				exercicio: 2026,
+				split: { processado: 1, naoProcessado: 0 },
+				active: [],
+				legacy: { rpInscrito: true, rpExercicio: 2025 },
+			}).kind
+		).toBe("insert")
+	})
+
+	test("o saldo é o de 31/12: OB paga em janeiro não reduz o RP processado", () => {
+		const balance = empenhoBalanceAtYearEnd(
+			{
+				valorOriginal: 10_000,
+				events: [
+					{ tipo: "reforco", valor: 1_000, data: "2026-11-10" },
+					// anulação de janeiro é do RP, não do saldo de 31/12
+					{ tipo: "anulacao", valor: 500, data: "2027-01-08" },
+					{ tipo: "rp_inscricao", valor: 9_999, data: "2026-12-31" },
+				],
+				liquidacoes: [
+					{ valor: 6_000, data: "2026-12-20" },
+					{ valor: 2_000, data: "2027-01-15" },
+				],
+				pagamentos: [
+					{ valor: 3_000, data: "2026-12-28" },
+					{ valor: 2_500, data: "2027-01-05" },
+				],
+				retencoesRecolhidas: [
+					{ valor: 351, data: "2026-12-30" },
+					{ valor: 149, data: "2027-01-05" },
+				],
+			},
+			2026
+		)
+		expect(balance).toEqual({ valorVigente: 11_000, valorLiquidado: 6_000, valorPago: 3_351 })
+		expect(splitRestosAPagar(balance)).toEqual({ processado: 2_649, naoProcessado: 5_000 })
 	})
 
 	test("o rp_tipo legado segue a escolha antiga", () => {
@@ -78,6 +150,18 @@ describe("OB pelo líquido", () => {
 		const balance = liquidationNetBalance({ bruto, deducoes: [{ valor: 500, recolhidaEm: null }], pagamentos: [9_000] })
 		expect(deductionExceedsProblem(balance, 500)).toBeNull()
 		expect(deductionExceedsProblem(balance, 500.01)).toContain("Registre a retenção antes da OB")
+	})
+})
+
+describe("recolhimento da retenção", () => {
+	test("retenção ainda não recolhida aceita o registro do DARF", () => {
+		expect(deductionPaymentProblem({ paidOn: null, documentNumber: null })).toBeNull()
+	})
+
+	test("retenção já recolhida não é sobrescrita", () => {
+		const problem = deductionPaymentProblem({ paidOn: "2026-09-20", documentNumber: "0000000000000001" })
+		expect(problem).toContain("já foi recolhida em 2026-09-20")
+		expect(problem).toContain("0000000000000001")
 	})
 })
 

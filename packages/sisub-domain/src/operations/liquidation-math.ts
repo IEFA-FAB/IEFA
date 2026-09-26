@@ -191,6 +191,17 @@ export function paymentExceedsNetProblem(balance: LiquidationNetBalance, valor: 
 	return `A OB paga o líquido: bruto R$ ${balance.bruto.toFixed(2)} − deduções R$ ${balance.deducoes.toFixed(2)} = R$ ${balance.liquido.toFixed(2)} (já pago R$ ${balance.pago.toFixed(2)}). Pague no máximo R$ ${Math.max(0, balance.aPagar).toFixed(2)}; a retenção é recolhida por DARF/DAR/GPS.`
 }
 
+/**
+ * Recusa do segundo registro de recolhimento: retenção já recolhida tem documento e data, e
+ * sobrescrevê-los apagaria o DARF que de fato pagou o tributo. Correção de recolhimento errado
+ * é no SIAFI (retificação/restituição), não por cima da linha.
+ */
+export function deductionPaymentProblem(deduction: { paidOn: string | null; documentNumber: string | null }): string | null {
+	if (deduction.paidOn == null) return null
+	const doc = deduction.documentNumber ? ` pelo documento ${deduction.documentNumber}` : ""
+	return `Esta retenção já foi recolhida em ${deduction.paidOn}${doc}. Se o documento está errado, retifique no SIAFI; o registro não é sobrescrito.`
+}
+
 /** Recusa da dedução que, somada ao já pago, passaria o bruto. */
 export function deductionExceedsProblem(balance: LiquidationNetBalance, valor: number): string | null {
 	if (roundToCents(balance.deducoes + balance.pago + valor) <= balance.bruto) return null

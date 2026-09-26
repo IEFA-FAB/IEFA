@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ChevronDown, ChevronRight, FileSignature, Minus, Plus } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
@@ -12,7 +12,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
-import { type EmpenhoRow, fetchEmpenhoFn, inscribeRestosAPagarFn, listEmpenhosFn, registerEmpenhoEventFn } from "@/server/empenho.fn"
+import { type EmpenhoRow, fetchEmpenhoFn, listEmpenhosFn, registerEmpenhoEventFn } from "@/server/empenho.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/empenhos")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
@@ -31,7 +31,9 @@ const TIPO_LABEL: Record<string, string> = {
 const EVENT_LABEL: Record<string, string> = {
 	reforco: "Reforço",
 	anulacao: "Anulação",
-	cancelamento: "Cancelamento",
+	anulacao_total: "Anulação total",
+	// legado: a anulação total era gravada como `cancelamento` (termo de RP); lida com o nome certo
+	cancelamento: "Anulação total",
 	rp_inscricao: "Inscrição em RP",
 }
 
@@ -213,10 +215,6 @@ function EmpenhosPage() {
 	const empenhos = Route.useLoaderData()
 	const { unitId } = Route.useParams()
 	const router = useRouter()
-	const [busy, setBusy] = useState(false)
-	// `inscribeRestosAPagarFn` é `"session"` no registro de garantia (`unit` nível 3).
-	const runAssured = useAssuredAction()
-
 	const totals = empenhos.reduce(
 		(acc, e) => ({
 			vigente: acc.vigente + (e.valor_vigente ?? 0),
@@ -227,28 +225,15 @@ function EmpenhosPage() {
 		{ vigente: 0, liquidado: 0, pago: 0, aLiquidar: 0 }
 	)
 
-	async function inscribeRp() {
-		setBusy(true)
-		try {
-			const exercicio = new Date().getFullYear()
-			const result = await runAssured(() => inscribeRestosAPagarFn({ data: { unitId: Number(unitId), exercicio } }))
-			toast.success(`${result.inscritos} empenho(s) inscrito(s) em restos a pagar de ${exercicio}`)
-			router.invalidate()
-		} catch (err) {
-			if (!isElevationCancelled(err)) toast.error(err instanceof Error ? err.message : "Falha ao inscrever RP")
-		} finally {
-			setBusy(false)
-		}
-	}
-
 	return (
 		<div className="space-y-6">
 			<PageHeader
 				title="Empenhos"
 				description="Documento orçamentário completo: classificação, favorecido e execução (liquidado, pago, a liquidar). Reforço e anulação entram como eventos — o valor original nunca é editado."
 			>
-				<Button variant="outline" size="sm" disabled={busy} onClick={inscribeRp}>
-					{busy ? <Spinner className="size-4" /> : "Inscrever restos a pagar"}
+				{/* A inscrição em RP é em duas parcelas por empenho e mora em Pagamentos (`inscribeRpParcelsFn`). */}
+				<Button variant="outline" size="sm" nativeButton={false} render={<Link to="/unit/$unitId/payments" params={{ unitId }} />}>
+					Restos a pagar
 				</Button>
 			</PageHeader>
 

@@ -19,7 +19,8 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 /**
  * Encerramento do exercício: cada empenho com saldo vira até DUAS parcelas de restos a pagar —
  * processado (liquidado e não pago) e não processado (empenhado e não liquidado), Lei 4.320,
- * art. 36. A inscrição é idempotente: rodar de novo só acrescenta a parcela que faltou.
+ * art. 36. A conta é sobre o saldo de 31/12, não o de hoje. Rodar de novo não soma nada: ou o
+ * conjunto já é o de 31/12, ou ele é recalculado e substituído (com trilha).
  */
 export function RestosAPagarCard({ unitId }: { unitId: number }) {
 	const [exercicio, setExercicio] = useState(new Date().getFullYear())
@@ -34,25 +35,29 @@ export function RestosAPagarCard({ unitId }: { unitId: number }) {
 		enabled: exercicio >= 2000 && exercicio <= 2100,
 	})
 
-	const rows = (preview.data ?? []).filter((row) => row.processado > 0 || row.naoProcessado > 0 || row.inscribed.length > 0)
+	const rows = (preview.data?.rows ?? []).filter((row) => row.processado > 0 || row.naoProcessado > 0 || row.inscribed.length > 0)
 	const totals = rows.reduce((acc, row) => ({ processado: acc.processado + row.processado, naoProcessado: acc.naoProcessado + row.naoProcessado }), {
 		processado: 0,
 		naoProcessado: 0,
 	})
-	const pending = rows.some(
-		(row) =>
-			(row.processado > 0 && !row.inscribed.some((i) => i.kind === "processado")) ||
-			(row.naoProcessado > 0 && !row.inscribed.some((i) => i.kind === "nao_processado"))
-	)
+	// a regra é a do servidor (`reconcileRestosAPagar`): só há o que fazer quando o conjunto
+	// gravado não é o saldo de 31/12
+	const pending = preview.data?.hasPending === true
 
 	async function inscribe() {
 		setBusy(true)
 		try {
 			const result = await runAssured(() => inscribeRpParcelsFn({ data: { unitId, exercicio } }))
 			toast.success(
-				result.parcelas === 0
-					? "Nada a inscrever: as parcelas deste exercício já estão inscritas."
-					: `${result.parcelas} parcela(s) em ${result.empenhos} empenho(s): ${BRL.format(result.processado)} processados e ${BRL.format(result.naoProcessado)} não processados.`
+				result.empenhos === 0
+					? "Nada a inscrever: as parcelas deste exercício já são o saldo de 31/12."
+					: [
+							`${result.parcelas} parcela(s) em ${result.empenhos} empenho(s): ${BRL.format(result.processado)} processados e ${BRL.format(result.naoProcessado)} não processados.`,
+							result.migrated > 0 ? `${result.migrated} migrado(s) da inscrição antiga.` : null,
+							result.replaced > 0 ? `${result.replaced} recalculado(s): o saldo de 31/12 mudou e as parcelas anteriores ficaram como histórico.` : null,
+						]
+							.filter(Boolean)
+							.join(" ")
 			)
 			await queryClient.invalidateQueries({ queryKey })
 		} catch (err) {
@@ -80,7 +85,7 @@ export function RestosAPagarCard({ unitId }: { unitId: number }) {
 					<Button size="sm" onClick={inscribe} disabled={busy || !pending}>
 						{busy ? <Spinner className="size-3.5" /> : "Inscrever em restos a pagar"}
 					</Button>
-					{!pending && rows.length > 0 && <p className="text-caption text-muted-foreground">Todas as parcelas deste exercício já estão inscritas.</p>}
+					{!pending && rows.length > 0 && <p className="text-caption text-muted-foreground">As parcelas deste exercício já são o saldo de 31/12.</p>}
 				</div>
 
 				{preview.isLoading ? (
@@ -111,7 +116,7 @@ export function RestosAPagarCard({ unitId }: { unitId: number }) {
 										<TableCell className="text-caption text-right tabular-nums">{row.naoProcessado > 0 ? BRL.format(row.naoProcessado) : "—"}</TableCell>
 										<TableCell className="space-x-1">
 											{row.inscribed.length === 0 ? (
-												<Badge variant="outline">não inscrito</Badge>
+												<Badge variant="outline">{row.action === "migrate_legacy" ? "inscrição antiga (migrar)" : "não inscrito"}</Badge>
 											) : (
 												row.inscribed.map((parcel) => (
 													<Badge key={parcel.kind} variant="secondary">
@@ -119,6 +124,7 @@ export function RestosAPagarCard({ unitId }: { unitId: number }) {
 													</Badge>
 												))
 											)}
+											{row.action === "replace" && <Badge variant="warning">saldo de 31/12 mudou: recalcular</Badge>}
 										</TableCell>
 									</TableRow>
 								))}

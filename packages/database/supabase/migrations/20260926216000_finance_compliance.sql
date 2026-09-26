@@ -113,11 +113,23 @@ create table finance.empenho_rp_inscription (
   notes text,
   created_by uuid references auth.users (id),
   created_at timestamptz not null default now(),
-  constraint empenho_rp_inscription_parcel_key unique (empenho_id, fiscal_year, kind)
+  -- trilha do recálculo: a inscrição é do exercício, sobre o saldo de 31/12. Se esse saldo muda
+  -- (lançamento retroativo), o conjunto vigente é substituído, nunca somado: as linhas antigas
+  -- ficam, marcadas como substituídas, com quem, quando e por quê.
+  superseded_at timestamptz,
+  superseded_by uuid references auth.users (id),
+  supersede_reason text,
+  constraint empenho_rp_inscription_superseded_check
+    check ((superseded_at is null) = (supersede_reason is null))
 );
 
 comment on table finance.empenho_rp_inscription is
-  'Inscrição em restos a pagar por parcela (Lei 4.320, art. 36): processado = liquidado e não pago; não processado = empenhado e não liquidado. O mesmo empenho pode ter as duas. empenho.rp_inscrito/rp_tipo/rp_exercicio são espelho durante o expand.';
+  'Inscrição em restos a pagar por parcela (Lei 4.320, art. 36), sobre o saldo de 31/12 do exercício: processado = liquidado e não pago; não processado = empenhado e não liquidado. O mesmo empenho pode ter as duas. Parcela vigente = superseded_at nulo. empenho.rp_inscrito/rp_tipo/rp_exercicio são espelho durante o expand.';
+
+-- uma parcela VIGENTE por (empenho, exercício, tipo); as substituídas ficam como trilha
+create unique index empenho_rp_inscription_active_parcel_key
+  on finance.empenho_rp_inscription (empenho_id, fiscal_year, kind)
+  where superseded_at is null;
 
 create index empenho_rp_inscription_empenho_idx on finance.empenho_rp_inscription (empenho_id);
 
