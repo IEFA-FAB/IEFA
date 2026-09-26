@@ -3,6 +3,8 @@ import {
 	CONSERVATION_CLASSES,
 	CONSERVATION_LABELS,
 	type ConservationClass,
+	composeLotDivergence,
+	conservationDivergence,
 	describeConditioning,
 	isConservationClass,
 	isPackageType,
@@ -13,6 +15,7 @@ import {
 	parseConservationFromCatmat,
 	parseTemperatureCeiling,
 	requiresRefrigeratedTransport,
+	shelfLifeDivergence,
 	TEMPERATURE_CONTROLLED,
 	TEMPERATURE_VERDICTS,
 	TRANSPORT_LABELS,
@@ -206,5 +209,28 @@ describe("meetsMinimumShelfLife", () => {
 
 	test("data ilegível não reprova — reprovar por parse seria recusar carga por bug", () => {
 		expect(meetsMinimumShelfLife("31/12/2026", "2026-09-01", 180)).toBe(true)
+	})
+})
+
+describe("divergência do que chegou em relação ao sugerido", () => {
+	test("classe diferente da sugerida vira frase; igual, ausente ou sem sugestão, não", () => {
+		expect(conservationDivergence("congelado", "resfriado")).toBe("Recebido resfriado (sugerido pela especificação: congelado)")
+		expect(conservationDivergence("congelado", "congelado")).toBeNull()
+		expect(conservationDivergence("congelado", null)).toBeNull()
+		expect(conservationDivergence(null, "resfriado")).toBeNull()
+	})
+
+	test("validade abaixo do mínimo vira frase com os dias que sobraram", () => {
+		expect(shelfLifeDivergence("2026-10-06", "2026-09-26", 30)).toBe("Validade de 10 dias na entrega, abaixo do mínimo de 30 da especificação")
+		expect(shelfLifeDivergence("2026-09-27", "2026-09-26", 30)).toBe("Validade de 1 dia na entrega, abaixo do mínimo de 30 da especificação")
+		expect(shelfLifeDivergence("2026-12-31", "2026-09-26", 30)).toBeNull()
+		expect(shelfLifeDivergence(null, "2026-09-26", 30)).toBeNull()
+		expect(shelfLifeDivergence("2026-10-06", "2026-09-26", null)).toBeNull()
+	})
+
+	test("motivo junta as frases e a nota; nota sozinha não é divergência", () => {
+		expect(composeLotDivergence(["A", null, "B"], " freezer quebrado ")).toBe("A; B — freezer quebrado")
+		expect(composeLotDivergence(["A"])).toBe("A")
+		expect(composeLotDivergence([null], "nota")).toBeNull()
 	})
 })

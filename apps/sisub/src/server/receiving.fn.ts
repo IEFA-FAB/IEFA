@@ -18,7 +18,11 @@
  */
 
 import {
+	brasiliaToday,
+	CONSERVATION_CLASSES,
 	type ConservationClass,
+	composeLotDivergence,
+	conservationDivergence,
 	divergesFromInvoice,
 	isReceiptEditable,
 	isTemperatureOutOfRange,
@@ -26,6 +30,7 @@ import {
 	parseNfeAccessKey,
 	type ReceiptLineForScan,
 	requiresDivergenceReason,
+	shelfLifeDivergence,
 	temperatureDivergenceReason,
 	temperatureVerdict,
 	unitCostFromInvoiceLine,
@@ -79,16 +84,16 @@ async function receiptIdForLotItem(receiptItemId: string): Promise<string> {
 }
 
 /**
- * Faixa de temperatura exigida pela especificação de compra da linha.
- * Sem purchase_item na linha, cai na especificação padrão do insumo — a mesma
- * resolução que `finalize_goods_receipt` faz para gravar a classe no lote.
+ * O que a especificação de compra da linha SUGERE: classe, faixa de temperatura e validade
+ * mínima na entrega. Sem purchase_item na linha, cai na especificação padrão do insumo — a
+ * mesma resolução que `finalize_goods_receipt` faz para gravar a classe no lote.
  */
 async function requiredRangeFor(
 	purchaseItemId: string | null,
 	ingredientId: string | null
-): Promise<{ minC: number | null; maxC: number | null; conservationClass: ConservationClass | null }> {
+): Promise<{ minC: number | null; maxC: number | null; conservationClass: ConservationClass | null; minShelfLifeDays: number | null }> {
 	const proc = procurement()
-	const columns = "conservation_class, storage_temp_min_c, storage_temp_max_c"
+	const columns = "conservation_class, storage_temp_min_c, storage_temp_max_c, min_shelf_life_days_on_delivery"
 
 	let spec: Record<string, unknown> | null = null
 	if (purchaseItemId) {
@@ -109,6 +114,7 @@ async function requiredRangeFor(
 		minC: spec?.storage_temp_min_c != null ? Number(spec.storage_temp_min_c) : null,
 		maxC: spec?.storage_temp_max_c != null ? Number(spec.storage_temp_max_c) : null,
 		conservationClass: (spec?.conservation_class as ConservationClass | undefined) ?? null,
+		minShelfLifeDays: spec?.min_shelf_life_days_on_delivery != null ? Number(spec.min_shelf_life_days_on_delivery) : null,
 	}
 }
 
@@ -340,10 +346,15 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 /**
  * Cria ou atualiza um lote da linha.
  *
- * A temperatura NÃO bloqueia: fora da faixa exigida, o lote é gravado com
- * motivo de divergência preenchido e o registro de quem aceitou. Travar aqui
- * faria a cozinha sem termômetro calibrado digitar um número plausível — pior
- * que a ausência, porque parece prova.
+ * Nada aqui bloqueia o que chegou diferente do sugerido — registra:
+ *   - temperatura fora da faixa: grava o motivo e quem aceitou. Travar faria a cozinha sem
+ *     termômetro calibrado digitar um número plausível — pior que a ausência, porque parece prova;
+ *   - classe de conservação diferente da sugerida (EST-REC-04: freezer quebrado, chegou
+ *     resfriado a vácuo em vez de congelado): o lote entra na classe que CHEGOU, e a faixa de
+ *     temperatura da especificação deixa de valer para ele — era a da outra classe;
+ *   - validade abaixo do mínimo da especificação.
+ * Cada caso vira uma frase no `divergence_reason`, com a nota opcional do conferente, e o
+ * recebimento termina como `divergent`.
  */
 export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 	.validator(
@@ -357,6 +368,10 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 			measuredTemperatureC: z.number().nullable().optional(),
 			/** Confirmação explícita de aceite quando a temperatura sai da faixa. */
 			acceptOutOfRange: z.boolean().optional(),
+			/** Classe em que o lote chegou. Ausente/nula = a sugerida pela especificação. */
+			conservationClass: z.enum(CONSERVATION_CLASSES).nullable().optional(),
+			/** Nota opcional do conferente, anexada ao motivo quando há divergência. */
+			divergenceNote: z.string().trim().max(280).nullable().optional(),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -367,7 +382,11 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 		const { data: item } = await inv.from("goods_receipt_item").select("id, purchase_item_id, ingredient_id").eq("id", data.receiptItemId).single()
 		if (!item) throw new Error("Item do recebimento não encontrado")
 
-		const range = await requiredRangeFor(item.purchase_item_id ?? null, item.ingredient_id ?? null)
+		const spec = await requiredRangeFor(item.purchase_item_id ?? null, item.ingredient_id ?? null)
+		const received = data.conservationClass ?? null
+		const classReason = conservationDivergence(spec.conservationClass, received)
+		// Chegou em outra classe: a faixa sugerida era a da classe sugerida, não a desta.
+		const range = classReason ? { minC: null, maxC: null } : spec
 		const measured = data.measuredTemperatureC ?? null
 		const verdict = temperatureVerdict(measured, range)
 		const outOfRange = isTemperatureOutOfRange(verdict)
@@ -376,6 +395,15 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 			throw new Error(`${temperatureDivergenceReason(measured as number, range)} Confirme o aceite para registrar mesmo assim.`)
 		}
 
+		const divergence = composeLotDivergence(
+			[
+				classReason,
+				outOfRange ? temperatureDivergenceReason(measured as number, range) : null,
+				shelfLifeDivergence(data.expiryDate ?? null, brasiliaToday(), spec.minShelfLifeDays),
+			],
+			data.divergenceNote
+		)
+
 		const payload = {
 			receipt_item_id: data.receiptItemId,
 			lot_code: data.lotCode.trim(),
@@ -383,7 +411,9 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 			quantity_base: data.quantityBase,
 			unit_cost: data.unitCost ?? null,
 			measured_temperature_c: measured,
-			divergence_reason: outOfRange ? temperatureDivergenceReason(measured as number, range) : null,
+			// Nula quando seguiu a sugestão: o lote de estoque herda a da especificação na efetivação.
+			conservation_class: received && received !== spec.conservationClass ? received : null,
+			divergence_reason: divergence,
 			temperature_ack_by: outOfRange ? userId : null,
 			temperature_ack_at: outOfRange ? new Date().toISOString() : null,
 		}
@@ -408,7 +438,7 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 			const { error } = await inv.from("goods_receipt_item_lot").insert(payload)
 			if (error) throw lotError(error)
 		}
-		return { verdict, outOfRange }
+		return { verdict, outOfRange, divergence }
 	})
 
 export const deleteReceiptLotFn = createServerFn({ method: "POST" })
@@ -658,17 +688,31 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 			for (const sku of skus ?? []) gtinByItemId.set(sku.id, sku.gtin)
 		}
 
-		// Acondicionamento exigido, por especificação de compra da linha.
+		// Acondicionamento sugerido, por especificação de compra da linha. Linha sem
+		// purchase_item cai na especificação padrão do insumo — a mesma resolução do
+		// servidor ao gravar o lote e de `finalize_goods_receipt`. Sem o fallback, a tela
+		// não mostrava a faixa que a checagem de temperatura usava.
+		const SPEC_COLUMNS =
+			"id, conservation_class, storage_temp_min_c, storage_temp_max_c, package_type, package_net_content, package_net_content_unit, transport_requirement, min_shelf_life_days_on_delivery, delivery_conditioning"
 		const purchaseItemIds = [...new Set(itemRows.map((item) => item.purchase_item_id).filter(Boolean))] as string[]
 		const specById = new Map<string, Record<string, unknown>>()
 		if (purchaseItemIds.length > 0) {
-			const { data: specs } = await procurement()
-				.from("purchase_item")
-				.select(
-					"id, conservation_class, storage_temp_min_c, storage_temp_max_c, package_type, package_net_content, package_net_content_unit, transport_requirement, min_shelf_life_days_on_delivery, delivery_conditioning"
-				)
-				.in("id", purchaseItemIds)
+			const { data: specs } = await procurement().from("purchase_item").select(SPEC_COLUMNS).in("id", purchaseItemIds)
 			for (const spec of (specs ?? []) as Array<Record<string, unknown>>) specById.set(spec.id as string, spec)
+		}
+		const fallbackIngredientIds = [
+			...new Set(itemRows.filter((item) => !item.purchase_item_id && item.ingredient_id).map((item) => item.ingredient_id as string)),
+		]
+		const defaultSpecByIngredient = new Map<string, Record<string, unknown>>()
+		if (fallbackIngredientIds.length > 0) {
+			const { data: links } = await procurement()
+				.from("purchase_item_ingredient")
+				.select(`ingredient_id, purchase_item:purchase_item_id (${SPEC_COLUMNS})`)
+				.in("ingredient_id", fallbackIngredientIds)
+				.eq("is_default", true)
+			for (const link of (links ?? []) as Array<{ ingredient_id: string; purchase_item?: Record<string, unknown> | null }>) {
+				if (link.purchase_item) defaultSpecByIngredient.set(link.ingredient_id, link.purchase_item)
+			}
 		}
 
 		return {
@@ -678,7 +722,9 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 				description: names.get(item.ingredient_id as string)?.description ?? "—",
 				measure_unit: names.get(item.ingredient_id as string)?.measure_unit ?? null,
 				gtin: item.ingredient_item_id ? (gtinByItemId.get(item.ingredient_item_id as string) ?? null) : null,
-				conditioning: item.purchase_item_id ? (specById.get(item.purchase_item_id as string) ?? null) : null,
+				conditioning: item.purchase_item_id
+					? (specById.get(item.purchase_item_id as string) ?? null)
+					: (defaultSpecByIngredient.get(item.ingredient_id as string) ?? null),
 				lots: lotsByItem.get(item.id as string) ?? [],
 			})),
 		}

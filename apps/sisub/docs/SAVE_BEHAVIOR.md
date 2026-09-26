@@ -136,7 +136,7 @@ F5:
 | Insumo: itens de produto (`IngredientItemEditor`, card na lista) | Feito — era dialog |
 | Insumo: editar pelo dialog da árvore (`IngredientForm`) | Feito: agora grava versão (antes não gravava). Rascunho não se aplica a dialog curto |
 | Preparação (`RecipeForm`, 5 rotas) | Feito |
-| Insumo: ações em lote e localizar/substituir | **Pendente**: alteram insumos sem gravar versão |
+| Insumo: ações em lote e localizar/substituir | Feito: cada insumo alterado ganha versão, no servidor (ver "O que entra na versão") |
 
 ### Modo B — autosave
 
@@ -163,11 +163,49 @@ Os dialogs de "Novo …" (pasta, insumo, preparação, local, equipamento, tipo 
 e os formulários de novo cardápio (que já guardam rascunho próprio em `sessionStorage`,
 declarado na política). **Já seguem o padrão.**
 
+## O que entra na versão — e quem a grava
+
+**A versão é gravada pelo servidor, na mesma transação da escrita.** Toda server function
+que altera o agregado do insumo roda dentro de `withIngredientVersions`
+(`src/server/ingredient-versioning.server.ts`) e declara quais insumos tocou. Não existe
+mais versão pedida pelo cliente depois: fora da transação, ela podia não acontecer, e as
+ações em lote e o localizar/substituir nunca pediam.
+`ingredient-versioning.contract.test.ts` reprova POST novo em `ingredients.fn.ts` ou
+`purchase_item.fn.ts` que não versione nem esteja isento com motivo.
+
+- **Item de compra é catálogo compartilhado (N:N).** Editar ou apagar um item de compra
+  grava versão de **todo** insumo vinculado, não só do que está aberto na tela.
+- **Item de produto que muda de insumo** grava versão nos dois insumos.
+- **Gravações simultâneas** não colidem no número da versão: há um lock consultivo por
+  insumo, e a segunda gravação deduplica.
+
+**Fica fora da versão, por decisão (2026-09-26):**
+
+| O quê | Por quê |
+|-------|---------|
+| Renomear ou mover pasta | Não é mudança do insumo. A versão guarda o nome da pasta da época, e o próximo save do insumo leva o nome novo |
+| Apagar e restaurar insumo | Ciclo de vida, não conteúdo. Restaurar devolve o insumo idêntico ao histórico |
+| Alergênicos | Quase imutáveis. Gravam sozinhos, e a tela diz que ficam fora do histórico |
+| Ciclo de entrega | É **sugestão** de compra. O que vale é o ciclo que cada item de ATA grava para si |
+| Conservação, temperatura, validade mínima e atributos GS1 do item de compra | São a **sugestão** da especificação. O que aconteceu de fato fica registrado no lote, no recebimento (classe recebida e divergência) |
+
+### Preparações
+
+Versão da preparação é linha nova (`saveRecipeEdit`). Alguns caminhos alteram a versão
+aberta sem criar outra:
+
+- **Renomear pelo localizar/substituir e mover de pasta:** metadados de listagem, não
+  conteúdo da ficha. Continuam sem versão.
+- **Fluxo de produção e equipamentos:** gravam na versão atual e são copiados para a
+  próxima. É dívida: uma ficha antiga pode ter o fluxo alterado depois. Vão virar autosave
+  com versão própria quando entrarem no modo B.
+
 ## Pendências conhecidas
 
-- **Versão fora do alcance**: ações em lote e localizar/substituir de insumos não gravam
-  versão. O snapshot também não cobre alergênicos, ciclo de entrega nem os campos de
-  conservação/embalagem do item de compra. Restaurar uma versão não volta esses campos.
+- **Script de correlação CATMAT** (`apps/api/scripts/catmat-match-orchestrator.ts`): altera
+  o código CATMAT de itens de compra direto no banco, sem versão. O próximo save de cada
+  insumo leva o valor, mas o autor fica errado. Roda à mão e raramente; quando voltar a
+  rodar, deve passar pelo mesmo registro.
 - **Dois guards**: `UnsavedChangesGuard` (bloqueia a navegação) e `useDraft` (guarda e
   deixa sair). Quando os editores de cardápio passarem a usar rascunho, o guard deixa de
   ser necessário, porque sair não perde mais nada.
