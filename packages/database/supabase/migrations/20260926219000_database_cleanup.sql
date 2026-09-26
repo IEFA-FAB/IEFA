@@ -8,7 +8,7 @@
 --    normalizadores sem uso em função, view, default ou índice.
 -- 3. Índices idênticos (advisor `duplicate_index`) e índice não único contido no único de mesmas
 --    colunas. `profiles_admin` fica para o PR que remove a tabela (tabela de acesso).
--- 4. (Os índices das FKs estão em 20260926210500_foreign_key_indexes, separados para as travas
+-- 4. (Os índices das FKs estão em 20260926219500_foreign_key_indexes, separados para as travas
 --    de cada migration durarem menos.)
 -- 5. `inventory.stock_cost` ganha PK (advisor `no_primary_key`).
 -- 6. Legado do SISUBWEB. As 14 tabelas cruas em `public` estão 100% refletidas em

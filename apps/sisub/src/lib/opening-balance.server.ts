@@ -68,7 +68,7 @@ export async function loadMovedIngredientIds(kitchenId: number): Promise<Set<str
 	const rows = await readAllPages<{ ingredient_id: string | null }>("os itens já movimentados", (from, to) =>
 		// Paginado por `ingredient_id`: filtrada por cozinha, a chave de negócio de `stock_cost` é
 		// o insumo — (kitchen_id, ingredient_id), única por índice parcial —, e ela já dá a ordem
-		// estável que a paginação exige. O `id` (PK física desde 20260926210000) não acrescenta nada.
+		// estável que a paginação exige. O `id` (PK física desde 20260926219000) não acrescenta nada.
 		inventory().from("stock_cost").select("ingredient_id").eq("kitchen_id", kitchenId).not("ingredient_id", "is", null).order("ingredient_id").range(from, to)
 	)
 	return new Set(rows.map((row) => row.ingredient_id).filter((id): id is string => Boolean(id)))
