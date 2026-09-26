@@ -31,7 +31,7 @@ export interface ReconciliationRow {
 	numero_documento: string
 	valor_sisub: number | null
 	valor_siafi: number | null
-	situacao: "apenas_sisub" | "apenas_siafi" | "divergente" | "conciliado"
+	situacao: "apenas_sisub" | "apenas_siafi" | "aguardando_documento_pai" | "divergente" | "conciliado"
 	diferenca: number
 	decisao: string | null
 	justificativa: string | null
@@ -40,7 +40,7 @@ export interface ReconciliationRow {
 }
 
 /** Ordem de severidade: divergência primeiro, depois faltantes de cada lado. */
-const SEVERITY: Record<string, number> = { divergente: 0, apenas_siafi: 1, apenas_sisub: 2, conciliado: 3 }
+const SEVERITY: Record<string, number> = { divergente: 0, apenas_siafi: 1, aguardando_documento_pai: 1, apenas_sisub: 2, conciliado: 3 }
 
 /** Painel de divergências por documento (decisões vigentes saem da lista ativa). */
 export const fetchReconciliationFn = createServerFn({ method: "GET" })
