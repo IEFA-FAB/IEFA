@@ -1,8 +1,11 @@
 import { createFileRoute, useParams } from "@tanstack/react-router"
+import { useState } from "react"
 import { requirePermission, usePBAC } from "@/auth/pbac"
 import { AcquisitionsPanel } from "@/components/features/unit/acquisition/AcquisitionsPanel"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAcquisitionsOverview } from "@/hooks/data/useAcquisitions"
+import { currentFiscalYear } from "@/lib/expense-execution"
 
 /**
  * GESTÃO UNIDADE — Contratações de origem
@@ -24,7 +27,10 @@ function AcquisitionsPage() {
 	const { unitId: unitIdStr } = useParams({ strict: false })
 	const unitId = Number(unitIdStr)
 	const { can } = usePBAC()
-	const { data: overview, isLoading, isError, error } = useAcquisitionsOverview(unitId)
+	const thisYear = currentFiscalYear()
+	// O somatório da dispensa é do exercício (art. 75, § 1º, I): a tela mostra um por vez.
+	const [fiscalYear, setFiscalYear] = useState(thisYear)
+	const { data: overview, isLoading, isError, error } = useAcquisitionsOverview(unitId, fiscalYear)
 
 	return (
 		<div className="space-y-6">
@@ -32,6 +38,21 @@ function AcquisitionsPage() {
 				title="Contratações de origem"
 				description="O que sustenta cada empenho: a ata (própria ou de outro órgão), o contrato, a dispensa, a inexigibilidade. Registre com o mínimo e complete depois; o que falta aparece como pendência."
 			/>
+			<div className="flex items-center gap-2">
+				<span className="text-caption text-muted-foreground">Exercício</span>
+				<Select value={String(fiscalYear)} onValueChange={(next) => next && setFiscalYear(Number(next))}>
+					<SelectTrigger aria-label="Exercício" className="w-28">
+						<SelectValue>{fiscalYear}</SelectValue>
+					</SelectTrigger>
+					<SelectContent>
+						{[thisYear + 1, thisYear, thisYear - 1, thisYear - 2].map((year) => (
+							<SelectItem key={year} value={String(year)}>
+								{year}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</div>
 			{isLoading ? (
 				<div className="h-48 animate-pulse rounded-md border bg-muted" aria-hidden="true" />
 			) : isError || !overview ? (

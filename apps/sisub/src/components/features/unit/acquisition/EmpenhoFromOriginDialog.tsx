@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/components/ui/toast"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { type CreateEmpenhoWithItemsInput, useCreateEmpenhoWithItems, useUnitArps } from "@/hooks/data/useAcquisitions"
-import { BRL, normalizeDocument, todayInBrasilia } from "@/lib/expense-execution"
+import { BRL, normalizeDocument, parseMoneyInput, todayInBrasilia } from "@/lib/expense-execution"
 
 const TIPO_LABEL: Record<EmpenhoType, string> = { ordinario: "Ordinário", estimativo: "Estimativo", global: "Global" }
 
@@ -24,12 +24,12 @@ interface FreeItem {
 	unitPrice: string
 }
 
+/** Número digitado em pt-BR ("1.234,56"); inválido ou vazio vira `null`. */
 const toNumber = (value: string): number | null => {
-	const normalized = value.replace(/\./g, "").replace(",", ".").trim()
-	if (normalized === "") return null
-	const number = Number(normalized)
-	return Number.isFinite(number) ? number : null
+	const parsed = parseMoneyInput(value)
+	return parsed.ok ? parsed.value : null
 }
+
 const cents = (value: number) => Math.round(value * 100) / 100
 
 export interface EmpenhoOrigin {

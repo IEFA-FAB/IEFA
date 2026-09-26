@@ -33,6 +33,7 @@ import {
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { loadUnitExecution } from "@/lib/acquisition-execution"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { currentFiscalYear } from "@/lib/expense-execution"
@@ -201,76 +202,12 @@ async function loadLimits(): Promise<DirectContractLimitRow[]> {
 	}))
 }
 
-/** Dados de execução da unidade que a tela e o somatório precisam, lidos de uma vez. */
-async function loadUnitExecution(unitId: number) {
-	const [acqRes, empRes, arpRes] = await Promise.all([
-		procurement().from("acquisition").select(ACQUISITION_COLUMNS).eq("unit_id", unitId).is("deleted_at", null).order("created_at", { ascending: false }),
-		finance()
-			.from("empenho")
-			.select("id, numero_empenho, data_empenho, status, acquisition_id, favorecido_nome, origem")
-			.eq("unit_id", unitId)
-			.order("data_empenho", { ascending: false })
-			.limit(1000),
-		procurement()
-			.from("procurement_arp")
-			.select("id, numero_ata, uasg_gerenciadora, nome_uasg_gerenciadora, source, last_synced_at, ata_id, acquisition_id, data_vigencia_fim")
-			.eq("unit_id", unitId)
-			.order("created_at", { ascending: false }),
-	])
-	if (acqRes.error) throw new Error(`Erro ao listar contratações: ${acqRes.error.message}`)
-	if (empRes.error) throw new Error(`Erro ao listar empenhos: ${empRes.error.message}`)
-	if (arpRes.error) throw new Error(`Erro ao listar ARPs: ${arpRes.error.message}`)
-
-	const empenhos = (empRes.data ?? []) as Array<{
-		id: string
-		numero_empenho: string
-		data_empenho: string
-		status: string
-		acquisition_id: string | null
-		favorecido_nome: string | null
-		origem: string
-	}>
-	const empenhoIds = empenhos.map((e) => e.id)
-	const vigenteById = new Map<string, number>()
-	const arpItemIdsByEmpenho = new Map<string, Array<string | null>>()
-	if (empenhoIds.length > 0) {
-		const [vigRes, itemRes] = await Promise.all([
-			finance().from("v_empenho_vigente").select("empenho_id, valor_vigente").in("empenho_id", empenhoIds),
-			finance().from("empenho_item").select("empenho_id, arp_item_id").in("empenho_id", empenhoIds),
-		])
-		if (vigRes.error) throw new Error(`Erro ao ler o valor vigente dos empenhos: ${vigRes.error.message}`)
-		if (itemRes.error) throw new Error(`Erro ao ler os itens dos empenhos: ${itemRes.error.message}`)
-		for (const row of vigRes.data ?? []) vigenteById.set(row.empenho_id, Number(row.valor_vigente ?? 0))
-		for (const row of itemRes.data ?? []) {
-			arpItemIdsByEmpenho.set(row.empenho_id, [...(arpItemIdsByEmpenho.get(row.empenho_id) ?? []), row.arp_item_id])
-		}
-	}
-
-	const arps = (arpRes.data ?? []) as Array<{
-		id: string
-		numero_ata: string
-		uasg_gerenciadora: string
-		nome_uasg_gerenciadora: string | null
-		source: "compras_gov" | "manual"
-		last_synced_at: string | null
-		ata_id: string | null
-		acquisition_id: string | null
-		data_vigencia_fim: string | null
-	}>
-	const itemCountByArp = new Map<string, number>()
-	if (arps.length > 0) {
-		const { data: items, error } = await procurement()
-			.from("procurement_arp_item")
-			.select("arp_id")
-			.in(
-				"arp_id",
-				arps.map((a) => a.id)
-			)
-		if (error) throw new Error(`Erro ao contar itens das ARPs: ${error.message}`)
-		for (const item of items ?? []) itemCountByArp.set(item.arp_id, (itemCountByArp.get(item.arp_id) ?? 0) + 1)
-	}
-
-	return { acquisitions: (acqRes.data ?? []) as AcquisitionRow[], empenhos, vigenteById, arpItemIdsByEmpenho, arps, itemCountByArp }
+/** Dados de execução da unidade no exercício, paginados (ver `lib/acquisition-execution`). */
+function loadExecution(unitId: number, fiscalYear: number) {
+	return loadUnitExecution<AcquisitionRow & { [column: string]: unknown }>(
+		{ procurement: procurement(), finance: finance() },
+		{ unitId, fiscalYear, acquisitionColumns: ACQUISITION_COLUMNS }
+	)
 }
 
 function arpRefOf(
@@ -310,10 +247,12 @@ async function loadActivityLineNames(codes: readonly string[]): Promise<Map<stri
 
 /** Contratações da unidade com pendências, somatório e vínculos; e as NEs sem contratação. */
 export const listAcquisitionsFn = createServerFn({ method: "GET" })
-	.validator(z.object({ unitId: z.number().int().positive() }))
+	.validator(z.object({ unitId: z.number().int().positive(), fiscalYear: z.number().int().min(2000).max(2100).optional() }))
 	.handler(async ({ data }): Promise<AcquisitionsOverview> => {
 		await requireUnitScope(1, data.unitId)
-		const [execution, limits] = await Promise.all([loadUnitExecution(data.unitId), loadLimits()])
+		// O somatório da dispensa é do exercício (art. 75, § 1º, I): a tela lê um exercício por vez.
+		const fiscalYear = data.fiscalYear ?? currentFiscalYear()
+		const [execution, limits] = await Promise.all([loadExecution(data.unitId, fiscalYear), loadLimits()])
 		const { acquisitions, empenhos, vigenteById, arpItemIdsByEmpenho, arps, itemCountByArp } = execution
 
 		const committedByAcquisition = new Map<string, number>()
@@ -376,7 +315,7 @@ export const listAcquisitionsFn = createServerFn({ method: "GET" })
 			}
 		})
 
-		const year = currentFiscalYear()
+		const year = fiscalYear
 		return {
 			acquisitions: views,
 			limits,
@@ -417,7 +356,7 @@ export const previewDispensaSumFn = createServerFn({ method: "GET" })
 	)
 	.handler(async ({ data }): Promise<{ sum: DispensaSum | null; warning: string | null }> => {
 		await requireUnitScope(1, data.unitId)
-		const [execution, limits] = await Promise.all([loadUnitExecution(data.unitId), loadLimits()])
+		const [execution, limits] = await Promise.all([loadExecution(data.unitId, data.fiscalYear), loadLimits()])
 		const committed = new Map<string, number>()
 		for (const empenho of execution.empenhos) {
 			if (empenho.acquisition_id && empenho.status === "ativo") {

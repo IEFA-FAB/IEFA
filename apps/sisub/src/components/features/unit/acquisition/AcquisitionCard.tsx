@@ -10,18 +10,17 @@ import { Input } from "@/components/ui/input"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item"
 import { Textarea } from "@/components/ui/textarea"
 import { type AcquisitionPatch, useAcquisitionMutations, useUpdateAcquisition } from "@/hooks/data/useAcquisitions"
-import { BRL, formatIsoDate, normalizeDocument } from "@/lib/expense-execution"
+import { BRL, formatIsoDate, normalizeDocument, parseMoneyInput } from "@/lib/expense-execution"
 import type { AcquisitionView } from "@/server/acquisition.fn"
 import { ActivityLineField, InstrumentSelect, SrpRoleSelect } from "./AcquisitionFields"
 import { DispensaSumNotice } from "./DispensaSumNotice"
 import { EmpenhoFromOriginDialog, type EmpenhoOrigin } from "./EmpenhoFromOriginDialog"
 import { ManualArpDialog } from "./ManualArpDialog"
 
+/** Valor digitado em pt-BR ("1.234,56"); inválido vira `null` e a tela diz por quê. */
 const parseMoney = (value: string): number | null => {
-	const normalized = value.replace(/\./g, "").replace(",", ".").trim()
-	if (normalized === "") return null
-	const number = Number(normalized)
-	return Number.isFinite(number) && number >= 0 ? number : null
+	const parsed = parseMoneyInput(value)
+	return parsed.ok ? parsed.value : null
 }
 
 /** Campo de texto que grava no blur (SAVE_BEHAVIOR, modo B). */

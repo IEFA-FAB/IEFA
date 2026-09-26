@@ -6,7 +6,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useAcquisitionMutations, useDispensaPreview } from "@/hooks/data/useAcquisitions"
-import { currentFiscalYear, normalizeDocument } from "@/lib/expense-execution"
+import { currentFiscalYear, normalizeDocument, parseMoneyInput } from "@/lib/expense-execution"
 import { ActivityLineField, InstrumentSelect, KindSelect, SrpRoleSelect } from "./AcquisitionFields"
 import { DispensaSumNotice } from "./DispensaSumNotice"
 
@@ -18,11 +18,10 @@ const DEFAULT_INSTRUMENT: Partial<Record<AcquisitionKind, AcquisitionInstrument>
 	contrata_mais_brasil: "nota_empenho",
 }
 
+/** Valor digitado em pt-BR ("1.234,56"); inválido vira `null` e a tela diz por quê. */
 const parseMoney = (value: string): number | null => {
-	const normalized = value.replace(/\./g, "").replace(",", ".").trim()
-	if (normalized === "") return null
-	const number = Number(normalized)
-	return Number.isFinite(number) && number >= 0 ? number : null
+	const parsed = parseMoneyInput(value)
+	return parsed.ok ? parsed.value : null
 }
 
 /**

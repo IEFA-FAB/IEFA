@@ -6,7 +6,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useCreateManualArp } from "@/hooks/data/useAcquisitions"
-import { normalizeDocument } from "@/lib/expense-execution"
+import { normalizeDocument, parseMoneyInput } from "@/lib/expense-execution"
 
 interface ItemDraft {
 	key: number
@@ -32,7 +32,11 @@ const emptyItem = (key: number, numero: number): ItemDraft => ({
 	medida: "",
 })
 
-const toNumber = (value: string): number => Number(value.replace(/\./g, "").replace(",", "."))
+/** Número digitado em pt-BR ("1.234,56"); inválido ou vazio vira `null`. */
+const toNumber = (value: string): number | null => {
+	const parsed = parseMoneyInput(value)
+	return parsed.ok ? parsed.value : null
+}
 
 /**
  * Cadastro da ARP e dos itens à mão: a API do Compras.gov.br fora do ar, ou a ata de outro órgão
@@ -54,8 +58,8 @@ export function ManualArpDialog({ unitId, acquisitionId, onClose }: { unitId: nu
 	const itemProblems = items.flatMap((item, index) => {
 		const problems: string[] = []
 		if (!item.descricao.trim()) problems.push(`item ${index + 1} sem descrição`)
-		if (!(toNumber(item.quantidade) > 0)) problems.push(`item ${index + 1} sem quantidade`)
-		if (!(toNumber(item.valorUnitario) >= 0) || item.valorUnitario.trim() === "") problems.push(`item ${index + 1} sem valor unitário`)
+		if (!((toNumber(item.quantidade) ?? 0) > 0)) problems.push(`item ${index + 1} sem quantidade`)
+		if (toNumber(item.valorUnitario) == null) problems.push(`item ${index + 1} sem valor unitário`)
 		if (item.cnpj.trim() && normalizeDocument(item.cnpj)?.length !== 14) problems.push(`item ${index + 1} com CNPJ inválido`)
 		return problems
 	})
@@ -80,8 +84,8 @@ export function ManualArpDialog({ unitId, acquisitionId, onClose }: { unitId: nu
 					catmatItemCodigo: item.catmat.trim() ? Number(item.catmat) : null,
 					niFornecedor: normalizeDocument(item.cnpj),
 					nomeFornecedor: item.fornecedor.trim() || null,
-					valorUnitario: toNumber(item.valorUnitario),
-					quantidadeHomologada: toNumber(item.quantidade),
+					valorUnitario: toNumber(item.valorUnitario) ?? 0,
+					quantidadeHomologada: toNumber(item.quantidade) ?? 0,
 					medida: item.medida.trim() || null,
 				})),
 			},

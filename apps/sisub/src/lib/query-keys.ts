@@ -202,7 +202,7 @@ export const queryKeys = {
 	/** Contratação de origem, ARP sem anexo e NE com itens (execução flexível da despesa). */
 	acquisitions: {
 		all: (unitId: number | null) => ["acquisitions", unitId] as const,
-		overview: (unitId: number | null) => ["acquisitions", unitId, "overview"] as const,
+		overview: (unitId: number | null, fiscalYear: number) => ["acquisitions", unitId, "overview", fiscalYear] as const,
 		dispensaPreview: (unitId: number | null, params: Record<string, unknown>) => ["acquisitions", unitId, "dispensa-preview", params] as const,
 		activityLines: (unitId: number | null) => ["acquisitions", unitId, "activity-lines"] as const,
 		unitArps: (unitId: number | null, acquisitionId: string | null) => ["acquisitions", unitId, "arps", acquisitionId] as const,

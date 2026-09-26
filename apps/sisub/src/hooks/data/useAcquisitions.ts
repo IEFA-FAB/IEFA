@@ -25,10 +25,10 @@ export type CreateEmpenhoWithItemsInput = Parameters<typeof createEmpenhoWithIte
 export type QuickEmpenhoInput = Parameters<typeof quickRegisterEmpenhoFn>[0]["data"]
 
 /** Contratações da unidade, NEs sem contratação de origem e ARPs sem contratação. */
-export function useAcquisitionsOverview(unitId: number | null) {
+export function useAcquisitionsOverview(unitId: number | null, fiscalYear: number) {
 	return useQuery({
-		queryKey: queryKeys.acquisitions.overview(unitId),
-		queryFn: () => listAcquisitionsFn({ data: { unitId: unitId as number } }),
+		queryKey: queryKeys.acquisitions.overview(unitId, fiscalYear),
+		queryFn: () => listAcquisitionsFn({ data: { unitId: unitId as number, fiscalYear } }),
 		enabled: unitId != null,
 		staleTime: 30 * 1000,
 	})

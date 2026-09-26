@@ -7,7 +7,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { useQuickRegisterEmpenho } from "@/hooks/data/useAcquisitions"
-import { BRL, normalizeDocument, todayInBrasilia } from "@/lib/expense-execution"
+import { BRL, normalizeDocument, parseMoneyInput, todayInBrasilia } from "@/lib/expense-execution"
 import type { QuickEmpenhoResult } from "@/server/empenho-document.fn"
 
 export type { QuickEmpenhoResult }
@@ -54,13 +54,20 @@ export function QuickEmpenhoForm({
 	const id = useId()
 	const [numero, setNumero] = useState(defaultNumber)
 	const [data, setData] = useState(todayInBrasilia())
-	const [valor, setValor] = useState(defaultValue != null ? String(defaultValue) : "")
+	const [valor, setValor] = useState(defaultValue != null ? String(defaultValue).replace(".", ",") : "")
 	const [cnpj, setCnpj] = useState(defaultFavorecido?.cnpj ?? "")
 	const [nome, setNome] = useState(defaultFavorecido?.nome ?? "")
 	const [existing, setExisting] = useState<QuickEmpenhoResult | null>(null)
 	const register = useQuickRegisterEmpenho(unitId ?? null)
 
-	const valorNumber = Number(valor.replace(",", "."))
+	// "1.234,56" é o jeito de escrever dinheiro aqui; o parser recusa o ambíguo com a instrução.
+	const valorParse = parseMoneyInput(valor)
+	const valorNumber = valorParse.ok ? (valorParse.value ?? 0) : 0
+	const valorError = !valorParse.ok
+		? `Valor inválido: ${valorParse.reason}`
+		: valor.trim() !== "" && valorNumber <= 0
+			? "O valor deve ser maior que zero"
+			: null
 	const cnpjInvalid = cnpj.trim() !== "" && normalizeDocument(cnpj) == null
 	const canSubmit = numero.trim() !== "" && /^\d{4}-\d{2}-\d{2}$/.test(data) && valorNumber > 0 && !cnpjInvalid && !register.isPending
 
@@ -99,9 +106,17 @@ export function QuickEmpenhoForm({
 						<FieldLabel htmlFor={`${id}-data`}>Data</FieldLabel>
 						<Input id={`${id}-data`} type="date" value={data} onChange={(e) => setData(e.target.value)} />
 					</Field>
-					<Field>
+					<Field data-invalid={valorError != null || undefined}>
 						<FieldLabel htmlFor={`${id}-valor`}>Valor (R$)</FieldLabel>
-						<Input id={`${id}-valor`} inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
+						<Input
+							id={`${id}-valor`}
+							inputMode="decimal"
+							value={valor}
+							onChange={(e) => setValor(e.target.value)}
+							placeholder="1.234,56"
+							aria-invalid={valorError != null || undefined}
+						/>
+						{valorError && <FieldError>{valorError}</FieldError>}
 					</Field>
 				</div>
 				<div className="grid gap-4 sm:grid-cols-2">
