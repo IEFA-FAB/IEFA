@@ -1,3 +1,4 @@
+import { creditNotesAboveLines } from "@iefa/sisub-domain"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Landmark, TriangleAlert } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
@@ -92,6 +93,20 @@ function BudgetCreditPage() {
 	const { unitId } = Route.useParams()
 	const router = useRouter()
 	const stale = lines.filter((line) => line.snapshotStale).length
+	// NC num nível mais genérico que as linhas (ex.: no elemento 339030, linhas nos
+	// subelementos): aparece UMA vez aqui, em vez de somada em cada linha irmã.
+	const notesAbove = creditNotesAboveLines(
+		lines,
+		notes.map((note) => ({
+			tipo: note.kind,
+			valor: note.amount,
+			dataEmissao: note.issued_on,
+			ugFavorecida: note.beneficiary_ug,
+			nd: note.nd,
+			ptres: note.ptres,
+			fonte: note.fonte,
+		}))
+	)
 
 	return (
 		<div className="space-y-6">
@@ -155,6 +170,19 @@ function BudgetCreditPage() {
 				<p className="text-xs text-muted-foreground">
 					Competência mais recente: {fmtCompetencia(lines[0]?.competencia ?? "")}. O sisub não recalcula o saldo oficial — ele reflete o SIAFI e mostra o que
 					foi comprometido aqui depois da captura, na mesma classificação.
+				</p>
+			)}
+
+			{lines.length > 0 && notesAbove.length > 0 && (
+				<p className="text-xs text-muted-foreground">
+					NC registradas num nível acima das linhas, que não se repartem entre elas:{" "}
+					{notesAbove
+						.map(
+							(group) =>
+								`ND ${group.nd}${group.ptres ? ` · PTRES ${group.ptres}` : ""}${group.fonte ? ` · fonte ${group.fonte}` : ""} (${group.exercicio ?? "—"}): ${BRL.format(group.total)}`
+						)
+						.join("; ")}
+					.
 				</p>
 			)}
 

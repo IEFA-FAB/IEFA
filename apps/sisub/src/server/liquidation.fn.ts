@@ -17,6 +17,7 @@ import {
 	DEDUCTION_DOCUMENT_KINDS,
 	DEDUCTION_KINDS,
 	deductionExceedsProblem,
+	deductionPaymentProblem,
 	isLiquidationWithoutReceipt,
 	liquidationExceedsReceiptProblem,
 	liquidationNetBalance,
@@ -205,40 +206,69 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
  * A regra é `receiptLiquidationCeiling` (pura, testada); o trigger
  * `finance.check_liquidacao_within_receipt` repete a mesma conta no banco.
  */
-async function readReceiptCeiling(
-	receiptId: string,
-	options: { excludeLiquidacaoId?: string } = {}
-): Promise<{ ceiling: ReceiptLiquidationCeiling; alreadyLiquidated: number; liquidationCount: number }> {
+async function readReceiptCeiling(receiptId: string): Promise<ReceiptCeilingRead> {
+	const map = await readReceiptCeilings([receiptId])
+	return map.get(receiptId) ?? { ceiling: receiptLiquidationCeiling([], null), alreadyLiquidated: 0, liquidationCount: 0 }
+}
+
+interface ReceiptCeilingRead {
+	ceiling: ReceiptLiquidationCeiling
+	alreadyLiquidated: number
+	liquidationCount: number
+}
+
+/**
+ * Teto de VÁRIOS recebimentos em quatro leituras agregadas (itens, recebimentos, NF-e e
+ * liquidações), não quatro por recebimento — a lista do formulário de NS lia N+1.
+ */
+async function readReceiptCeilings(receiptIds: readonly string[]): Promise<Map<string, ReceiptCeilingRead>> {
+	const result = new Map<string, ReceiptCeilingRead>()
+	if (receiptIds.length === 0) return result
+	const ids = [...receiptIds]
 	const inv = inventory()
-	const [{ data: items, error: itemsError }, { data: receipt, error: receiptError }, { data: liquidacoes, error: liqError }] = await Promise.all([
-		inv.from("goods_receipt_item").select("received_qty_base, unit_cost").eq("receipt_id", receiptId),
-		inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle(),
-		finance().from("liquidacao").select("id, valor").eq("goods_receipt_id", receiptId),
+	const [{ data: items, error: itemsError }, { data: receipts, error: receiptError }, { data: liquidacoes, error: liqError }] = await Promise.all([
+		inv.from("goods_receipt_item").select("receipt_id, received_qty_base, unit_cost").in("receipt_id", ids),
+		inv.from("goods_receipt").select("id, nfe_document_id").in("id", ids),
+		finance().from("liquidacao").select("id, valor, goods_receipt_id").in("goods_receipt_id", ids),
 	])
 	if (itemsError) throw new Error(`Erro ao ler os itens do recebimento: ${itemsError.message}`)
 	if (receiptError) throw new Error(`Erro ao ler o recebimento: ${receiptError.message}`)
 	if (liqError) throw new Error(`Erro ao ler as liquidações do recebimento: ${liqError.message}`)
 
-	let nfeTotal: number | null = null
-	if (receipt?.nfe_document_id) {
-		const { data: nfe, error } = await inv.from("nfe_document").select("total_value").eq("id", receipt.nfe_document_id).maybeSingle()
+	const nfeIds = [
+		...new Set(((receipts ?? []) as Array<{ nfe_document_id: string | null }>).map((r) => r.nfe_document_id).filter((id): id is string => id != null)),
+	]
+	const nfeTotalById = new Map<string, number>()
+	if (nfeIds.length > 0) {
+		const { data: nfes, error } = await inv.from("nfe_document").select("id, total_value").in("id", nfeIds)
 		if (error) throw new Error(`Erro ao ler a NF-e do recebimento: ${error.message}`)
-		nfeTotal = nfe?.total_value != null ? Number(nfe.total_value) : null
+		for (const nfe of (nfes ?? []) as Array<{ id: string; total_value: number | string | null }>) {
+			if (nfe.total_value != null) nfeTotalById.set(nfe.id, Number(nfe.total_value))
+		}
 	}
 
-	const ceiling = receiptLiquidationCeiling(
-		((items ?? []) as Array<{ received_qty_base: number; unit_cost: number | null }>).map((item) => ({
-			receivedQtyBase: Number(item.received_qty_base),
-			unitCost: item.unit_cost != null ? Number(item.unit_cost) : null,
-		})),
-		nfeTotal
-	)
-	const counted = ((liquidacoes ?? []) as Array<{ id: string; valor: number | string }>).filter((row) => row.id !== options.excludeLiquidacaoId)
-	return {
-		ceiling,
-		alreadyLiquidated: roundToCents(counted.reduce((acc, row) => acc + Number(row.valor), 0)),
-		liquidationCount: counted.length,
+	const itemsByReceipt = new Map<string, { receivedQtyBase: number; unitCost: number | null }[]>()
+	for (const item of (items ?? []) as Array<{ receipt_id: string; received_qty_base: number; unit_cost: number | null }>) {
+		const list = itemsByReceipt.get(item.receipt_id) ?? []
+		list.push({ receivedQtyBase: Number(item.received_qty_base), unitCost: item.unit_cost != null ? Number(item.unit_cost) : null })
+		itemsByReceipt.set(item.receipt_id, list)
 	}
+	const liquidatedByReceipt = new Map<string, { total: number; count: number }>()
+	for (const row of (liquidacoes ?? []) as Array<{ valor: number | string; goods_receipt_id: string }>) {
+		const acc = liquidatedByReceipt.get(row.goods_receipt_id) ?? { total: 0, count: 0 }
+		liquidatedByReceipt.set(row.goods_receipt_id, { total: acc.total + Number(row.valor), count: acc.count + 1 })
+	}
+
+	for (const receipt of (receipts ?? []) as Array<{ id: string; nfe_document_id: string | null }>) {
+		const nfeTotal = receipt.nfe_document_id ? (nfeTotalById.get(receipt.nfe_document_id) ?? null) : null
+		const liquidated = liquidatedByReceipt.get(receipt.id) ?? { total: 0, count: 0 }
+		result.set(receipt.id, {
+			ceiling: receiptLiquidationCeiling(itemsByReceipt.get(receipt.id) ?? [], nfeTotal),
+			alreadyLiquidated: roundToCents(liquidated.total),
+			liquidationCount: liquidated.count,
+		})
+	}
+	return result
 }
 
 /** Pendência que a liquidação registrada deixa — a lista da execução as recolhe. */
@@ -592,29 +622,29 @@ export const listReceiptsForLiquidationFn = createServerFn({ method: "GET" })
 			.from("goods_receipt")
 			.select("id, kitchen_id, status, definitive_at, nfe_document_id")
 			.eq("empenho_id", data.empenhoId)
-			.order("definitive_at", { ascending: false })
+			// atestado = efetivado: a recusa grava rejected_at, e o banco impede definitive_at nela
+			// (20260926205000). O filtro vai NA consulta, antes do limite: filtrar depois deixava
+			// rascunhos ocuparem o limite e esconderem os atestados.
+			.not("definitive_at", "is", null)
+			.order("definitive_at", { ascending: false, nullsFirst: false })
 			.limit(100)
 		if (error) throw new Error(`Erro ao listar os recebimentos do empenho: ${error.message}`)
 
-		// atestado = efetivado: a recusa grava rejected_at, e o banco impede definitive_at nela (20260926205000)
-		const attested = (
-			(receipts ?? []) as Array<{ id: string; kitchen_id: number; status: string; definitive_at: string | null; nfe_document_id: string | null }>
-		).filter((row) => row.definitive_at != null)
-		return Promise.all(
-			attested.map(async (row) => {
-				const { ceiling, alreadyLiquidated } = await readReceiptCeiling(row.id)
-				return {
-					id: row.id,
-					kitchenId: Number(row.kitchen_id),
-					definitiveAt: row.definitive_at,
-					nfeDocumentId: row.nfe_document_id,
-					teto: ceiling.value,
-					tetoBase: ceiling.basis,
-					jaLiquidado: alreadyLiquidated,
-					saldo: ceiling.value == null ? null : Math.max(0, roundToCents(ceiling.value - alreadyLiquidated)),
-				}
-			})
-		)
+		const attested = (receipts ?? []) as Array<{ id: string; kitchen_id: number; definitive_at: string | null; nfe_document_id: string | null }>
+		const ceilings = await readReceiptCeilings(attested.map((row) => row.id))
+		return attested.map((row) => {
+			const read = ceilings.get(row.id) ?? { ceiling: receiptLiquidationCeiling([], null), alreadyLiquidated: 0, liquidationCount: 0 }
+			return {
+				id: row.id,
+				kitchenId: Number(row.kitchen_id),
+				definitiveAt: row.definitive_at,
+				nfeDocumentId: row.nfe_document_id,
+				teto: read.ceiling.value,
+				tetoBase: read.ceiling.basis,
+				jaLiquidado: read.alreadyLiquidated,
+				saldo: read.ceiling.value == null ? null : Math.max(0, roundToCents(read.ceiling.value - read.alreadyLiquidated)),
+			}
+		})
 	})
 
 // ============================================================================
@@ -687,9 +717,12 @@ export const addLiquidacaoDeductionFn = createServerFn({ method: "POST" })
 	})
 
 /** A retenção da NS, conferida contra a unidade pela liquidação — nunca pelo corpo. */
-async function readDeductionOfUnit(unitId: number, deductionId: string): Promise<{ id: string; liquidacao_id: string; paid_on: string | null }> {
+async function readDeductionOfUnit(
+	unitId: number,
+	deductionId: string
+): Promise<{ id: string; liquidacao_id: string; paid_on: string | null; document_number: string | null }> {
 	const fin = finance()
-	const { data: row, error } = await fin.from("liquidacao_deduction").select("id, liquidacao_id, paid_on").eq("id", deductionId).maybeSingle()
+	const { data: row, error } = await fin.from("liquidacao_deduction").select("id, liquidacao_id, paid_on, document_number").eq("id", deductionId).maybeSingle()
 	if (error) throw new Error(`Erro ao conferir a dedução: ${error.message}`)
 	if (!row) throw new Error("Dedução não encontrada nesta unidade")
 	await assertLiquidacaoOfUnit(unitId, row.liquidacao_id).catch(() => {
@@ -712,13 +745,17 @@ export const registerDeductionPaymentFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const ctx = await requireUnitScope(2, data.unitId)
-		await readDeductionOfUnit(data.unitId, data.deductionId)
+		const current = await readDeductionOfUnit(data.unitId, data.deductionId)
+		const already = deductionPaymentProblem({ paidOn: current.paid_on, documentNumber: current.document_number })
+		if (already) throw new Error(already)
 
 		return withSensitiveAudit(
 			"registerDeductionPaymentFn",
 			ctx,
 			async () => {
-				const { error } = await finance()
+				// `paid_on is null` NA escrita: dois operadores registrando o mesmo recolhimento ao
+				// mesmo tempo — o segundo não sobrescreve o DARF do primeiro.
+				const { data: updated, error } = await finance()
 					.from("liquidacao_deduction")
 					.update({
 						document_kind: data.documentKind,
@@ -727,7 +764,16 @@ export const registerDeductionPaymentFn = createServerFn({ method: "POST" })
 						paid_on: data.paidOn,
 					})
 					.eq("id", data.deductionId)
+					.is("paid_on", null)
+					.select("id")
 				if (error) throw new Error(`Erro ao registrar o recolhimento: ${error.message}`)
+				if ((updated ?? []).length === 0) {
+					const { data: now } = await finance().from("liquidacao_deduction").select("paid_on, document_number").eq("id", data.deductionId).maybeSingle()
+					throw new Error(
+						deductionPaymentProblem({ paidOn: now?.paid_on ?? "outra data", documentNumber: now?.document_number ?? null }) ??
+							"Esta retenção já foi recolhida; o registro não é sobrescrito."
+					)
+				}
 			},
 			() => ({ deductionId: data.deductionId, unitId: data.unitId, documentKind: data.documentKind, paidOn: data.paidOn })
 		)

@@ -12,6 +12,10 @@ import { type BudgetCheckForEmpenhoInput, checkBudgetForEmpenhoFn } from "@/serv
  * SIAFI (Lei 4.320, art. 59 vira alerta aqui).
  *
  * Ao completar uma NE já registrada, passe `excludeEmpenhoId` para ela não contar contra si.
+ *
+ * Ligado hoje no registro de empenho do painel da ARP (`EmpenhoBalancePanel` → `EmpenhoForm`).
+ * A tela de NE com itens (contratação de origem, PR #473) usa o mesmo hook: valor da NE, ND,
+ * PTRES, fonte e data do formulário; mostrar `data.message` e seguir com o registro.
  */
 export function useBudgetCheckForEmpenho(input: Partial<BudgetCheckForEmpenhoInput> & { unitId: number }) {
 	const valor = Number(input.valor ?? 0)

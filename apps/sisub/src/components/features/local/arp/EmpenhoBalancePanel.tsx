@@ -5,14 +5,20 @@ import { usePBAC } from "@/auth/pbac"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
 import { useAnularEmpenho, useArpLocalCommitments, useCreateEmpenho, useEmpenhos, useSyncArpBalance } from "@/hooks/data/useArp"
+import { useBudgetCheckForEmpenho } from "@/hooks/data/useBudgetCheck"
 import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
+import { updateEmpenhoClassificationFn } from "@/server/empenho.fn"
 
 // ─── Formatadores ─────────────────────────────────────────────────────────────
 
@@ -125,10 +131,19 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 	const [qtd, setQtd] = useState("")
 	const [valor, setValor] = useState("")
 	const [nota, setNota] = useState("")
+	// classificação: alimenta a conferência de crédito e é gravada no empenho depois do registro
+	const [nd, setNd] = useState("")
+	const [ptres, setPtres] = useState("")
+	const [fonte, setFonte] = useState("")
 
 	const { mutate: create, isPending } = useCreateEmpenho(arpItemId, arpId)
+	// `updateEmpenhoClassificationFn` é `"session"` no registro de garantia (`unit` nível 2).
+	const runAssured = useAssuredAction()
 
 	const valorTotal = Number(qtd) > 0 && Number(valor) > 0 ? Number(qtd) * Number(valor) : null
+	// Conferência de crédito pela classificação da NE (F4): AVISO, nunca bloqueio — a NE já foi
+	// emitida no SIAFI (Lei 4.320, art. 59). Sem ND a consulta não dispara.
+	const creditCheck = useBudgetCheckForEmpenho({ unitId, valor: valorTotal ?? 0, nd, ptres, fonte, dataEmpenho: data })
 
 	function handleSubmit(e: React.SyntheticEvent) {
 		e.preventDefault()
@@ -144,12 +159,25 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 				notaLancamento: nota || undefined,
 			},
 			{
-				onSuccess: () => {
+				onSuccess: async (empenho) => {
+					if (nd || ptres || fonte) {
+						try {
+							await runAssured(() =>
+								updateEmpenhoClassificationFn({ data: { empenhoId: empenho.id, nd: nd || null, ptres: ptres || null, fonte: fonte || null } })
+							)
+						} catch (err) {
+							if (!isElevationCancelled(err))
+								toast.error(`Empenho registrado, mas a classificação não foi gravada: ${err instanceof Error ? err.message : "erro"}`)
+						}
+					}
 					onSuccess()
 					setNumero("")
 					setQtd("")
 					setValor("")
 					setNota("")
+					setNd("")
+					setPtres("")
+					setFonte("")
 				},
 			}
 		)
@@ -194,6 +222,30 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 					/>
 				</div>
 			</div>
+			<div className="grid grid-cols-3 gap-3">
+				<Field>
+					<FieldLabel htmlFor={`nd-${arpItemId}`}>Natureza de despesa</FieldLabel>
+					<Input
+						id={`nd-${arpItemId}`}
+						inputMode="numeric"
+						maxLength={8}
+						placeholder="33903007"
+						value={nd}
+						onChange={(e) => setNd(e.target.value.replace(/\D/g, ""))}
+					/>
+				</Field>
+				<Field>
+					<FieldLabel htmlFor={`ptres-${arpItemId}`}>PTRES</FieldLabel>
+					<Input id={`ptres-${arpItemId}`} value={ptres} onChange={(e) => setPtres(e.target.value)} />
+				</Field>
+				<Field>
+					<FieldLabel htmlFor={`fonte-${arpItemId}`}>Fonte</FieldLabel>
+					<Input id={`fonte-${arpItemId}`} value={fonte} onChange={(e) => setFonte(e.target.value)} />
+				</Field>
+			</div>
+			{creditCheck.data && (
+				<FieldDescription className={creditCheck.data.status === "insufficient" ? "text-warning" : undefined}>{creditCheck.data.message}</FieldDescription>
+			)}
 			<div className="space-y-1">
 				<Label className="text-xs">Nota de lançamento</Label>
 				<Textarea

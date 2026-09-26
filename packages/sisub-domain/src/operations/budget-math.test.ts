@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import {
+	brasiliaCivilDay,
 	type ClassifiedEmpenhoEntry,
 	type CreditLineSnapshot,
 	checkCreditForClassifiedEmpenho,
 	commitmentForCreditLine,
+	creditNotesAboveLines,
 	empenhoConsumesCreditLine,
 	normalizeNdPrefix,
 	pickCreditLineForEmpenho,
@@ -104,6 +106,27 @@ describe("commitmentForCreditLine", () => {
 		expect(result.comprometimento).toBe(-5_000)
 	})
 
+	test("NE com data do mesmo dia (Brasília) do snapshot entra no comprometimento", () => {
+		// snapshot às 12h UTC = 09h de Brasília de 20/07; a NE de 20/07 não pode sumir
+		const result = commitmentForCreditLine(generos, SNAPSHOT, [empenho({ id: "same", dataEmpenho: "2026-07-20", valorVigente: 7_000 })])
+		expect(result.comprometimento).toBe(7_000)
+	})
+
+	test("reforço do mesmo dia do snapshot numa NE anterior entra", () => {
+		const result = commitmentForCreditLine(generos, SNAPSHOT, [
+			empenho({ id: "old", dataEmpenho: "2026-07-01", events: [{ tipo: "reforco", valor: 800, data: "2026-07-20" }] }),
+		])
+		expect(result.comprometimento).toBe(800)
+	})
+
+	test("o dia do snapshot é o de Brasília, não o UTC", () => {
+		// 01h UTC de 21/07 ainda é 22h de 20/07 em Brasília
+		expect(brasiliaCivilDay("2026-07-21T01:00:00.000Z")).toBe("2026-07-20")
+		expect(brasiliaCivilDay("2026-07-20")).toBe("2026-07-20")
+		const late = commitmentForCreditLine(generos, "2026-07-21T01:00:00.000Z", [empenho({ id: "d20", dataEmpenho: "2026-07-20", valorVigente: 500 })])
+		expect(late.comprometimento).toBe(500)
+	})
+
 	test("a própria NE em edição fica de fora", () => {
 		expect(commitmentForCreditLine(generos, SNAPSHOT, [empenho({ id: "self" })], { excludeEmpenhoId: "self" }).comprometimento).toBe(0)
 	})
@@ -142,6 +165,27 @@ describe("checkCreditForClassifiedEmpenho", () => {
 	test("sem ND ou sem crédito importado: no_data", () => {
 		expect(checkCreditForClassifiedEmpenho(1, empenho({ nd: null }), [generos], [], NOW).status).toBe("no_data")
 		expect(checkCreditForClassifiedEmpenho(1, empenho({ nd: "449052" }), [generos], [], NOW).status).toBe("no_data")
+	})
+})
+
+describe("NC por linha, sem replicar entre subelementos", () => {
+	const sub07 = { ...generos, nd: "33903007" }
+	const sub10 = { ...generos, nd: "33903010" }
+	const nc = { ugFavorecida: "120070", ptres: "170963", fonte: "1000", tipo: "descentralizacao", dataEmissao: "2026-03-01" }
+
+	test("NC no elemento não é somada em cada linha de subelemento; aparece uma vez no nível dela", () => {
+		const notes = [{ ...nc, nd: "339030", valor: 10_000 }]
+		expect(sumCreditNotesForLine(sub07, notes)).toBe(0)
+		expect(sumCreditNotesForLine(sub10, notes)).toBe(0)
+		expect(creditNotesAboveLines([sub07, sub10], notes)).toEqual([{ nd: "339030", ptres: "170963", fonte: "1000", exercicio: 2026, total: 10_000, count: 1 }])
+	})
+
+	test("NC no subelemento alimenta a própria linha e a do elemento, não a irmã", () => {
+		const notes = [{ ...nc, nd: "33903007", valor: 4_000 }]
+		expect(sumCreditNotesForLine(sub07, notes)).toBe(4_000)
+		expect(sumCreditNotesForLine(sub10, notes)).toBe(0)
+		expect(sumCreditNotesForLine(generos, notes)).toBe(4_000)
+		expect(creditNotesAboveLines([sub07, sub10], notes)).toEqual([])
 	})
 })
 

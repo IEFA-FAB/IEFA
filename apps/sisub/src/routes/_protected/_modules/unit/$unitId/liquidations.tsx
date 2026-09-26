@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { ChevronDown, ChevronRight, Receipt } from "lucide-react"
 import { Fragment, useState } from "react"
@@ -44,6 +44,7 @@ function LiquidationsPage() {
 	const { liquidacoes, empenhos } = Route.useLoaderData()
 	const { unitId } = Route.useParams()
 	const router = useRouter()
+	const queryClient = useQueryClient()
 	const [busy, setBusy] = useState(false)
 	// `createLiquidacaoFn` é `"session"` no registro de garantia (`unit` nível 2).
 	const runAssured = useAssuredAction()
@@ -102,6 +103,8 @@ function LiquidationsPage() {
 			setNumeroNs("")
 			setValor("")
 			setReceiptId(NO_RECEIPT)
+			// o saldo "cabe R$ X" de cada recebimento mudou: a lista é do react-query, não do loader
+			await queryClient.invalidateQueries({ queryKey: ["sisub", "liquidation-receipts"] })
 			router.invalidate()
 		} catch (err) {
 			// Desistir da confirmação de identidade não é falha: o formulário continua preenchido.

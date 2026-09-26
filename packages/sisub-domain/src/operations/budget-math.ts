@@ -178,8 +178,17 @@ function yearOf(isoDate: string): number | null {
 	return Number.isInteger(year) && year > 1900 ? year : null
 }
 
-function dayOf(iso: string): string {
-	return iso.substring(0, 10)
+/**
+ * Dia civil de Brasília (`YYYY-MM-DD`). Data pura (`2026-09-26`) já é dia civil e passa como
+ * está; instante (o `snapshot_at`, um timestamp) é convertido para o fuso de Brasília. Comparar
+ * `Date.parse` de uma data pura (meia-noite UTC) com um timestamp jogava a NE do próprio dia do
+ * snapshot para "antes" dele.
+ */
+export function brasiliaCivilDay(value: string): string | null {
+	if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+	const ms = Date.parse(value)
+	if (Number.isNaN(ms)) return null
+	return new Date(ms).toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).substring(0, 10)
 }
 
 /**
@@ -204,10 +213,14 @@ export function empenhoConsumesCreditLine(line: CreditLineKey, empenho: EmpenhoC
 /**
  * Comprometimento local de UMA linha: o que o sisub empenhou nela depois do snapshot.
  *
- * - NE posterior ao snapshot: entra pelo valor VIGENTE (reforço e anulação inclusos);
- *   anulada, não entra (o SIAFI nunca a viu empenhada).
- * - NE anterior: o valor dela já está no empenhado do SIAFI; entram só os eventos
- *   posteriores ao dia do snapshot (reforço consome, anulação devolve crédito).
+ * A comparação é por DIA CIVIL de Brasília (`brasiliaCivilDay`): a NE só tem data, sem hora.
+ * - NE de dia posterior ao do snapshot: entra pelo valor VIGENTE (reforço e anulação
+ *   inclusos); anulada, não entra (o SIAFI nunca a viu empenhada).
+ * - NE do MESMO dia do snapshot: entra também. Sem hora não há como saber se o snapshot já a
+ *   viu; a escolha é avisar a mais (o risco é contar duas vezes) em vez de deixar passar um
+ *   empenho sem crédito (Lei 4.320, art. 59). O aviso diz a idade do snapshot.
+ * - NE de dia anterior: o valor dela já está no empenhado do SIAFI; entram só os eventos do
+ *   dia do snapshot em diante (reforço consome, anulação devolve crédito), pela mesma regra.
  */
 export function commitmentForCreditLine(
 	line: CreditLineKey,
@@ -215,23 +228,23 @@ export function commitmentForCreditLine(
 	empenhos: readonly ClassifiedEmpenhoEntry[],
 	options: { excludeEmpenhoId?: string } = {}
 ): { comprometimento: number; empenhoIds: string[] } {
-	const snapshot = Date.parse(snapshotAt)
-	if (Number.isNaN(snapshot)) return { comprometimento: 0, empenhoIds: [] }
-	const snapshotDay = dayOf(new Date(snapshot).toISOString())
+	const snapshotDay = brasiliaCivilDay(snapshotAt)
+	if (snapshotDay == null) return { comprometimento: 0, empenhoIds: [] }
 	let total = 0
 	const empenhoIds: string[] = []
 	for (const empenho of empenhos) {
 		if (empenho.id === options.excludeEmpenhoId) continue
 		if (!empenhoConsumesCreditLine(line, empenho)) continue
-		const when = Date.parse(empenho.dataEmpenho)
-		if (Number.isNaN(when)) continue
+		const empenhoDay = brasiliaCivilDay(empenho.dataEmpenho)
+		if (empenhoDay == null) continue
 		let contribution = 0
-		if (when > snapshot) {
+		if (empenhoDay >= snapshotDay) {
 			if (empenho.status !== "ativo") continue
 			contribution = Number(empenho.valorVigente ?? 0)
 		} else {
 			for (const event of empenho.events) {
-				if (dayOf(event.data) <= snapshotDay) continue
+				const eventDay = brasiliaCivilDay(event.data)
+				if (eventDay == null || eventDay < snapshotDay) continue
 				contribution += empenhoEventSign(event.tipo) * Number(event.valor ?? 0)
 			}
 		}
@@ -301,23 +314,55 @@ export function creditNoteSign(tipo: string): 1 | -1 {
 	return tipo === "anulacao" ? -1 : 1
 }
 
+function creditNoteFeedsLine(line: CreditLineKey, note: CreditNoteEntry): boolean {
+	if (isBlank(note.nd)) return false
+	// um sentido só: a NC alimenta a linha quando está no nível dela ou abaixo (NC em 33903007
+	// alimenta a linha 339030). NC no elemento (339030) NÃO se reparte entre as linhas de
+	// subelemento (33903007, 33903010): contada em cada uma, a mesma NC apareceria N vezes.
+	if (!normalizeNdPrefix(note.nd as string).startsWith(normalizeNdPrefix(line.nd))) return false
+	const lineYear = yearOf(line.competencia)
+	if (lineYear != null && yearOf(note.dataEmissao) !== lineYear) return false
+	return sameOrOpen(line.ug, note.ugFavorecida) && sameOrOpen(line.ptres, note.ptres) && sameOrOpen(line.fonte, note.fonte)
+}
+
 /**
- * Σ das NC registradas que alimentam uma linha, no exercício dela. É conferência,
- * não saldo: o crédito oficial continua sendo o do snapshot do SIAFI. A ND casa
- * nos dois sentidos (NC no elemento e linha no subelemento, ou o contrário).
+ * Σ das NC registradas que alimentam uma linha, no exercício dela. É conferência, não saldo:
+ * o crédito oficial continua sendo o do snapshot do SIAFI. ND num sentido só (ver
+ * `creditNoteFeedsLine`); a NC num nível mais genérico que todas as linhas aparece uma vez,
+ * no nível dela, por `creditNotesAboveLines`.
  */
 export function sumCreditNotesForLine(line: CreditLineKey, notes: readonly CreditNoteEntry[]): number {
-	const lineYear = yearOf(line.competencia)
-	const lineNd = normalizeNdPrefix(line.nd)
-	const total = notes.reduce((acc, note) => {
-		if (isBlank(note.nd)) return acc
-		const noteNd = normalizeNdPrefix(note.nd as string)
-		if (!noteNd.startsWith(lineNd) && !lineNd.startsWith(noteNd)) return acc
-		if (lineYear != null && yearOf(note.dataEmissao) !== lineYear) return acc
-		if (!sameOrOpen(line.ug, note.ugFavorecida) || !sameOrOpen(line.ptres, note.ptres) || !sameOrOpen(line.fonte, note.fonte)) return acc
-		return acc + creditNoteSign(note.tipo) * Number(note.valor ?? 0)
-	}, 0)
+	const total = notes.reduce((acc, note) => (creditNoteFeedsLine(line, note) ? acc + creditNoteSign(note.tipo) * Number(note.valor ?? 0) : acc), 0)
 	return roundToCents(total)
+}
+
+export interface CreditNoteGroup {
+	nd: string
+	ptres: string | null
+	fonte: string | null
+	exercicio: number | null
+	total: number
+	count: number
+}
+
+/**
+ * As NC que não alimentam linha nenhuma (tipicamente: NC no elemento, linhas no subelemento),
+ * agrupadas por ND/PTRES/fonte/exercício. É assim que a NC genérica aparece UMA vez, no nível
+ * dela, em vez de somada em cada linha irmã.
+ */
+export function creditNotesAboveLines(lines: readonly CreditLineKey[], notes: readonly CreditNoteEntry[]): CreditNoteGroup[] {
+	const groups = new Map<string, CreditNoteGroup>()
+	for (const note of notes) {
+		if (isBlank(note.nd) || lines.some((line) => creditNoteFeedsLine(line, note))) continue
+		const nd = normalizeNdPrefix(note.nd as string)
+		const exercicio = yearOf(note.dataEmissao)
+		const key = [nd, note.ptres ?? "", note.fonte ?? "", exercicio ?? ""].join("|")
+		const group = groups.get(key) ?? { nd, ptres: note.ptres, fonte: note.fonte, exercicio, total: 0, count: 0 }
+		group.total = roundToCents(group.total + creditNoteSign(note.tipo) * Number(note.valor ?? 0))
+		group.count += 1
+		groups.set(key, group)
+	}
+	return [...groups.values()].sort((a, b) => a.nd.localeCompare(b.nd))
 }
 
 export interface ClassifiedCreditCheck extends CreditCheck {

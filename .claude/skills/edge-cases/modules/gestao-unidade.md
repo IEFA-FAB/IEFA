@@ -354,7 +354,9 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
   ND 339030…"), e o registro segue.
 - **Cobertura:** `packages/sisub-domain/src/operations/budget-math.test.ts ›
   checkCreditForClassifiedEmpenho` (o empenho de outra ND não derruba o crédito desta).
-  **LACUNA:** a tela de NE ainda não chama `useBudgetCheckForEmpenho` (tarefa 2.4).
+  Ligado no registro de empenho do painel da ARP (`EmpenhoBalancePanel`). NE do mesmo dia do
+  snapshot entra (dia civil de Brasília): `budget-math.test.ts › NE com data do mesmo dia…`.
+  **LACUNA:** a tela de NE com itens (tarefa 2.4) ainda não chama o hook.
 
 ### GU-FIN-02 — "Chegou uma NC nova, e depois devolveram parte do crédito"
 - **O sistema precisa:** registrar a NC (número, UG emitente e favorecida, esfera, PTRES, fonte,
@@ -369,11 +371,15 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 ### GU-FIN-03 — "Em 31/12 parte do empenho foi liquidada e não paga, parte nem liquidada"
 - **Realidade:** NE de R$ 10.000; entregas de R$ 6.000 liquidadas, R$ 4.000 pagos; o resto da
   entrega fica para janeiro.
-- **O sistema precisa:** inscrever as DUAS parcelas: R$ 2.000 em RP processado e R$ 4.000 em RP
-  não processado (Lei 4.320, art. 36). Rodar o encerramento de novo não duplica.
+- **O sistema precisa:** inscrever as DUAS parcelas pelo saldo de 31/12: R$ 2.000 em RP
+  processado e R$ 4.000 em RP não processado (Lei 4.320, art. 36). A OB de janeiro não muda o
+  inscrito. Rodar de novo não soma: se o saldo de 31/12 mudou (NS retroativa), o conjunto é
+  substituído e as parcelas antigas ficam como histórico. Empenho inscrito pelo caminho antigo
+  (um tipo só) vira parcelas, sem inscrever de novo.
 - **UX:** Pagamentos → "Restos a pagar": prévia por empenho com as duas colunas, e um botão.
-- **Cobertura:** `finance-compliance-math.test.ts › restos a pagar em duas parcelas`; integração
-  `budget-execution.operations.test.ts` (unicidade da parcela). **LACUNA:** a conversão do RP não
+- **Cobertura:** `finance-compliance-math.test.ts › restos a pagar em duas parcelas` (saldo de
+  31/12 com OB em janeiro, recálculo sem soma, migração do legado); integração
+  `budget-execution.operations.test.ts` (unicidade da parcela vigente e trilha). **LACUNA:** a conversão do RP não
   processado em processado quando a entrega de janeiro é liquidada não é modelada.
 
 ### GU-FIN-04 — "A OB saiu pelo líquido, com DARF de IR e CSLL retidos"
@@ -405,5 +411,5 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **O sistema precisa:** anulação total é `anulacao_total`; "cancelamento" é termo de RP. O banco
   aceita os dois e os lê igual (expand).
 - **Cobertura:** `finance-compliance-math.test.ts › anulação total`; integração
-  `budget-execution.operations.test.ts`. **LACUNA:** `registerEmpenhoEventFn` ainda grava
-  `cancelamento` (tarefa 2.4).
+  `budget-execution.operations.test.ts`. `registerEmpenhoEventFn` grava `anulacao_total` (o valor
+  legado na entrada é convertido).

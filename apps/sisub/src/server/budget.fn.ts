@@ -452,8 +452,17 @@ export const deleteCreditNoteFn = createServerFn({ method: "POST" })
 			"deleteCreditNoteFn",
 			ctx,
 			async () => {
-				const { error: deleteError } = await fin.from("credit_note").delete().eq("id", data.creditNoteId).eq("unit_id", data.unitId)
+				// `origin = 'manual'` NA escrita, não só na leitura: a NC que o import do SIAFI
+				// completou entre a conferência e o delete não sai por aqui.
+				const { data: deleted, error: deleteError } = await fin
+					.from("credit_note")
+					.delete()
+					.eq("id", data.creditNoteId)
+					.eq("unit_id", data.unitId)
+					.eq("origin", "manual")
+					.select("id")
 				if (deleteError) throw new Error(`Erro ao apagar a nota de crédito: ${deleteError.message}`)
+				if ((deleted ?? []).length === 0) throw new Error("NC importada do SIAFI não se apaga aqui: registre a NC de anulação")
 			},
 			() => ({ creditNoteId: data.creditNoteId, unitId: data.unitId, number: row.number as string })
 		)
