@@ -5,7 +5,10 @@ export type SyncStep = {
 	status: "pending" | "running" | "success" | "error"
 	current_page: number
 	total_pages: number | null
+	/** Linhas gravadas no step (no Compras.gov, só as novas ou alteradas). */
 	records_upserted: number
+	/** Linhas recebidas da fonte; null onde o step não distingue das gravadas. */
+	records_processed: number | null
 	records_deactivated: number
 	error_message: string | null
 	started_at: string | null

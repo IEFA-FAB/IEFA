@@ -46,11 +46,13 @@ function SyncRoutinesPage() {
 		progressUnit: "steps concluídos",
 		stepColumnHeader: "Step",
 		showPageColumn: true,
+		showProcessedColumn: true,
 		stepLabel: (name) => ({ primary: name }),
 		stopDescription: "Será aplicada ao fim do step atual",
 		metrics: (s) => [
-			["Inseridos/Atualizados", s.total_upserted],
-			["Desativados", s.total_deactivated],
+			// Processados = recebidos da API; Gravados = novos ou alterados (linha idêntica não é regravada).
+			["Processados", s.steps.reduce((sum, step) => sum + (step.records_processed ?? 0), 0)],
+			["Gravados", s.total_upserted],
 			["Steps OK", s.successful_steps],
 			["Steps Falhos", s.failed_steps],
 		],

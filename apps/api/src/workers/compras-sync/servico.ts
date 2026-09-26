@@ -1,7 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { createWriteTally, upsertChangedRows } from "./changed-rows.ts"
 import { comprasRequest, fetchAllPages } from "./client.ts"
-import { ROW_SPECS } from "./row-specs.ts"
 import type {
 	ComprasClasseServico,
 	ComprasDivisaoServico,
@@ -12,13 +10,12 @@ import type {
 	ComprasSubclasseServico,
 	ComprasUnidadeMedidaServico,
 } from "./types.ts"
-
-type UpdateProgress = (pageNumber: number, totalPages: number, upserted: number) => Promise<void>
+import { createStepCounts, type StepCounts, type UpdateProgress, upsertCountingWrites } from "./upsert.ts"
 
 // ─── Step 8: Seção ────────────────────────────────────────────────────────────
 
-export async function syncServicoSecao(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	const tally = createWriteTally(ROW_SPECS.servicoSecao.table)
+export async function syncServicoSecao(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<StepCounts> {
+	const counts = createStepCounts()
 	for await (const { page, pageNumber } of fetchAllPages<ComprasSecaoServico>(comprasRequest("/modulo-servico/1_consultarSecaoServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_secao: r.codigoSecao,
@@ -27,17 +24,16 @@ export async function syncServicoSecao(supabase: SupabaseClient, updateProgress:
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
-		const totalWritten = tally.add(await upsertChangedRows(supabase, ROW_SPECS.servicoSecao, rows, { label: "upsert servico_secao" }))
-		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
+		const written = await upsertCountingWrites(supabase, "compras_servico_secao", rows, { label: "upsert servico_secao" })
+		await updateProgress(pageNumber, page.totalPaginas, counts.add(rows.length, written))
 	}
-	tally.log()
-	return tally.written
+	return { processed: counts.processed, written: counts.written }
 }
 
 // ─── Step 9: Divisão ──────────────────────────────────────────────────────────
 
-export async function syncServicoDivisao(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	const tally = createWriteTally(ROW_SPECS.servicoDivisao.table)
+export async function syncServicoDivisao(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<StepCounts> {
+	const counts = createStepCounts()
 	for await (const { page, pageNumber } of fetchAllPages<ComprasDivisaoServico>(comprasRequest("/modulo-servico/2_consultarDivisaoServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_divisao: r.codigoDivisao,
@@ -47,17 +43,16 @@ export async function syncServicoDivisao(supabase: SupabaseClient, updateProgres
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
-		const totalWritten = tally.add(await upsertChangedRows(supabase, ROW_SPECS.servicoDivisao, rows, { label: "upsert servico_divisao" }))
-		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
+		const written = await upsertCountingWrites(supabase, "compras_servico_divisao", rows, { label: "upsert servico_divisao" })
+		await updateProgress(pageNumber, page.totalPaginas, counts.add(rows.length, written))
 	}
-	tally.log()
-	return tally.written
+	return { processed: counts.processed, written: counts.written }
 }
 
 // ─── Step 10: Grupo ───────────────────────────────────────────────────────────
 
-export async function syncServicoGrupo(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	const tally = createWriteTally(ROW_SPECS.servicoGrupo.table)
+export async function syncServicoGrupo(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<StepCounts> {
+	const counts = createStepCounts()
 	for await (const { page, pageNumber } of fetchAllPages<ComprasGrupoServico>(comprasRequest("/modulo-servico/3_consultarGrupoServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_grupo: r.codigoGrupo,
@@ -67,17 +62,16 @@ export async function syncServicoGrupo(supabase: SupabaseClient, updateProgress:
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
-		const totalWritten = tally.add(await upsertChangedRows(supabase, ROW_SPECS.servicoGrupo, rows, { label: "upsert servico_grupo" }))
-		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
+		const written = await upsertCountingWrites(supabase, "compras_servico_grupo", rows, { label: "upsert servico_grupo" })
+		await updateProgress(pageNumber, page.totalPaginas, counts.add(rows.length, written))
 	}
-	tally.log()
-	return tally.written
+	return { processed: counts.processed, written: counts.written }
 }
 
 // ─── Step 11: Classe ──────────────────────────────────────────────────────────
 
-export async function syncServicoClasse(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	const tally = createWriteTally(ROW_SPECS.servicoClasse.table)
+export async function syncServicoClasse(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<StepCounts> {
+	const counts = createStepCounts()
 	for await (const { page, pageNumber } of fetchAllPages<ComprasClasseServico>(comprasRequest("/modulo-servico/4_consultarClasseServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_classe: r.codigoClasse,
@@ -87,17 +81,16 @@ export async function syncServicoClasse(supabase: SupabaseClient, updateProgress
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
-		const totalWritten = tally.add(await upsertChangedRows(supabase, ROW_SPECS.servicoClasse, rows, { label: "upsert servico_classe" }))
-		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
+		const written = await upsertCountingWrites(supabase, "compras_servico_classe", rows, { label: "upsert servico_classe" })
+		await updateProgress(pageNumber, page.totalPaginas, counts.add(rows.length, written))
 	}
-	tally.log()
-	return tally.written
+	return { processed: counts.processed, written: counts.written }
 }
 
 // ─── Step 12: Subclasse ───────────────────────────────────────────────────────
 
-export async function syncServicoSubclasse(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	const tally = createWriteTally(ROW_SPECS.servicoSubclasse.table)
+export async function syncServicoSubclasse(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<StepCounts> {
+	const counts = createStepCounts()
 	for await (const { page, pageNumber } of fetchAllPages<ComprasSubclasseServico>(comprasRequest("/modulo-servico/5_consultarSubClasseServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_subclasse: r.codigoSubclasse,
@@ -107,17 +100,16 @@ export async function syncServicoSubclasse(supabase: SupabaseClient, updateProgr
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
-		const totalWritten = tally.add(await upsertChangedRows(supabase, ROW_SPECS.servicoSubclasse, rows, { label: "upsert servico_subclasse" }))
-		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
+		const written = await upsertCountingWrites(supabase, "compras_servico_subclasse", rows, { label: "upsert servico_subclasse" })
+		await updateProgress(pageNumber, page.totalPaginas, counts.add(rows.length, written))
 	}
-	tally.log()
-	return tally.written
+	return { processed: counts.processed, written: counts.written }
 }
 
 // ─── Step 13: Item ────────────────────────────────────────────────────────────
 
-export async function syncServicoItem(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	const tally = createWriteTally(ROW_SPECS.servicoItem.table)
+export async function syncServicoItem(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<StepCounts> {
+	const counts = createStepCounts()
 	// Sem filtro de status — necessário para detectar itens desativados
 	for await (const { page, pageNumber } of fetchAllPages<ComprasItemServico>(comprasRequest("/modulo-servico/6_consultarItemServico"))) {
 		const rows = page.resultado.map((r) => ({
@@ -130,19 +122,18 @@ export async function syncServicoItem(supabase: SupabaseClient, updateProgress: 
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
-		// Trigger no banco cuida do first_deactivation_detected_at; a desativação chega como
-		// `status_servico` alterado, então passa pelo diff e é gravada.
-		const totalWritten = tally.add(await upsertChangedRows(supabase, ROW_SPECS.servicoItem, rows, { label: "upsert servico_item" }))
-		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
+		// Triggers no banco: a_skip_unchanged_sync_row descarta a linha idêntica, e o de
+		// desativação cuida do first_deactivation_detected_at
+		const written = await upsertCountingWrites(supabase, "compras_servico_item", rows, { label: "upsert servico_item" })
+		await updateProgress(pageNumber, page.totalPaginas, counts.add(rows.length, written))
 	}
-	tally.log()
-	return tally.written
+	return { processed: counts.processed, written: counts.written }
 }
 
 // ─── Step 14: Unidade de Medida ───────────────────────────────────────────────
 
-export async function syncServicoUnidadeMedida(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	const tally = createWriteTally(ROW_SPECS.servicoUnidadeMedida.table)
+export async function syncServicoUnidadeMedida(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<StepCounts> {
+	const counts = createStepCounts()
 	for await (const { page, pageNumber } of fetchAllPages<ComprasUnidadeMedidaServico>(comprasRequest("/modulo-servico/7_consultarUndMedidaServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_servico: r.codigoServico,
@@ -151,22 +142,19 @@ export async function syncServicoUnidadeMedida(supabase: SupabaseClient, updateP
 			status_unidade_medida: r.statusUnidadeMedida,
 			synced_at: new Date().toISOString(),
 		}))
-		const totalWritten = tally.add(
-			await upsertChangedRows(supabase, ROW_SPECS.servicoUnidadeMedida, rows, {
-				label: "upsert servico_unidade_medida",
-				onConflict: "codigo_servico,sigla_unidade_medida",
-			})
-		)
-		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
+		const written = await upsertCountingWrites(supabase, "compras_servico_unidade_medida", rows, {
+			label: "upsert servico_unidade_medida",
+			onConflict: "codigo_servico,sigla_unidade_medida",
+		})
+		await updateProgress(pageNumber, page.totalPaginas, counts.add(rows.length, written))
 	}
-	tally.log()
-	return tally.written
+	return { processed: counts.processed, written: counts.written }
 }
 
 // ─── Step 15: Natureza Despesa ────────────────────────────────────────────────
 
-export async function syncServicoNaturezaDespesa(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	const tally = createWriteTally(ROW_SPECS.servicoNaturezaDespesa.table)
+export async function syncServicoNaturezaDespesa(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<StepCounts> {
+	const counts = createStepCounts()
 	for await (const { page, pageNumber } of fetchAllPages<ComprasNaturezaDespesaServico>(comprasRequest("/modulo-servico/8_consultarNaturezaDespesaServico"))) {
 		const rows = page.resultado
 			.filter((r) => r.nomeNaturezaDespesa != null)
@@ -178,17 +166,14 @@ export async function syncServicoNaturezaDespesa(supabase: SupabaseClient, updat
 				synced_at: new Date().toISOString(),
 			}))
 		if (rows.length === 0) {
-			await updateProgress(pageNumber, page.totalPaginas, tally.written)
+			await updateProgress(pageNumber, page.totalPaginas, counts.add(0, 0))
 			continue
 		}
-		const totalWritten = tally.add(
-			await upsertChangedRows(supabase, ROW_SPECS.servicoNaturezaDespesa, rows, {
-				label: "upsert servico_natureza_despesa",
-				onConflict: "codigo_servico,codigo_natureza_despesa",
-			})
-		)
-		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
+		const written = await upsertCountingWrites(supabase, "compras_servico_natureza_despesa", rows, {
+			label: "upsert servico_natureza_despesa",
+			onConflict: "codigo_servico,codigo_natureza_despesa",
+		})
+		await updateProgress(pageNumber, page.totalPaginas, counts.add(rows.length, written))
 	}
-	tally.log()
-	return tally.written
+	return { processed: counts.processed, written: counts.written }
 }

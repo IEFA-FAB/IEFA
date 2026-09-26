@@ -1,8 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
-import { selectChangedRows } from "./changed-rows.ts"
 import { comprasRequest, fetchAllPages } from "./client.ts"
-import { ROW_SPECS } from "./row-specs.ts"
 import type { ComprasItemMaterial, ComprasPdmMaterial, ComprasUnidadeFornecimento } from "./types.ts"
 
 export const FOOD_CLASS_CODES = [8905, 8910, 8915, 8920, 8925, 8930, 8935, 8940, 8945, 8950, 8955, 8960, 8965, 8970] as const
@@ -33,10 +31,6 @@ export interface FoodMaterialSyncSummary {
 	pdmsUpserted: number
 	unitsUpserted: number
 	itemsUpserted: number
-	/** Linhas efetivamente gravadas (novas ou alteradas), somando todas as tabelas. */
-	rowsWritten: number
-	/** Linhas que já estavam iguais no banco e não foram regravadas. */
-	rowsUnchanged: number
 	errors: Array<{ scope: string; message: string }>
 }
 
@@ -89,16 +83,18 @@ async function retrySupabaseWrite(operation: () => Promise<{ error: { message: s
 	}
 }
 
-type WriteCounts = Pick<FoodMaterialSyncSummary, "rowsWritten" | "rowsUnchanged">
-
-async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmResponse[], counts: WriteCounts): Promise<void> {
+async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmResponse[]): Promise<void> {
 	if (pdms.length === 0) return
 
+	// Grupo e classe são do sync principal (material.grupo / material.classe), que grava status e
+	// data de atualização reais. O endpoint de PDM não traz nenhum dos dois, então aqui só se cria
+	// o que falta para a FK do PDM (ON CONFLICT DO NOTHING): o status provisório `true` e a data
+	// nula valem até o próximo sync principal, e linha existente nunca é sobrescrita.
 	const groupRows = [...new Map(pdms.map((pdm) => [pdm.codigoGrupo, pdm])).values()].map((pdm) => ({
 		codigo_grupo: pdm.codigoGrupo,
 		nome_grupo: pdm.nomeGrupo,
 		status_grupo: true,
-		data_hora_atualizacao: pdm.dataHoraAtualizacao ?? null,
+		data_hora_atualizacao: null,
 		synced_at: new Date().toISOString(),
 	}))
 
@@ -107,7 +103,7 @@ async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmR
 		codigo_grupo: pdm.codigoGrupo,
 		nome_classe: pdm.nomeClasse,
 		status_classe: true,
-		data_hora_atualizacao: pdm.dataHoraAtualizacao ?? null,
+		data_hora_atualizacao: null,
 		synced_at: new Date().toISOString(),
 	}))
 
@@ -120,29 +116,16 @@ async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmR
 		synced_at: new Date().toISOString(),
 	}))
 
-	const [groupDiff, classDiff, pdmDiff] = await Promise.all([
-		selectChangedRows(supabase, ROW_SPECS.materialGrupo, groupRows),
-		selectChangedRows(supabase, ROW_SPECS.materialClasse, classRows),
-		selectChangedRows(supabase, ROW_SPECS.materialPdm, pdmRows),
-	])
-	for (const diff of [groupDiff, classDiff, pdmDiff]) {
-		counts.rowsWritten += diff.changed.length
-		counts.rowsUnchanged += diff.unchanged
-	}
-
-	const noError = { error: null }
-	const [groupResult, classResult, pdmResult] = await Promise.all([
-		groupDiff.changed.length > 0 ? supabase.from("compras_material_grupo").upsert(groupDiff.changed) : noError,
-		classDiff.changed.length > 0 ? supabase.from("compras_material_classe").upsert(classDiff.changed) : noError,
-		pdmDiff.changed.length > 0 ? supabase.from("compras_material_pdm").upsert(pdmDiff.changed) : noError,
-	])
-
+	// Em sequência: classe tem FK para grupo, e PDM para classe.
+	const groupResult = await supabase.from("compras_material_grupo").upsert(groupRows, { ignoreDuplicates: true })
 	if (groupResult.error) throw new Error(`upsert grupo alimentar: ${groupResult.error.message}`)
+	const classResult = await supabase.from("compras_material_classe").upsert(classRows, { ignoreDuplicates: true })
 	if (classResult.error) throw new Error(`upsert classe alimentar: ${classResult.error.message}`)
+	const pdmResult = await supabase.from("compras_material_pdm").upsert(pdmRows)
 	if (pdmResult.error) throw new Error(`upsert pdm alimentar: ${pdmResult.error.message}`)
 }
 
-async function upsertFoodItems(supabase: SupabaseClient<any, any>, items: FoodItemResponse[], counts: WriteCounts): Promise<void> {
+async function upsertFoodItems(supabase: SupabaseClient<any, any>, items: FoodItemResponse[]): Promise<void> {
 	if (items.length === 0) return
 
 	const rows = items.map((item) => ({
@@ -159,15 +142,11 @@ async function upsertFoodItems(supabase: SupabaseClient<any, any>, items: FoodIt
 	}))
 
 	for (const batch of chunk(rows, UPSERT_BATCH_SIZE)) {
-		const { changed, unchanged } = await selectChangedRows(supabase, ROW_SPECS.materialItem, batch)
-		counts.rowsWritten += changed.length
-		counts.rowsUnchanged += unchanged
-		if (changed.length === 0) continue
-		await retrySupabaseWrite(async () => await supabase.from("compras_material_item").upsert(changed, { onConflict: "codigo_item" }), "upsert item alimentar")
+		await retrySupabaseWrite(async () => await supabase.from("compras_material_item").upsert(batch, { onConflict: "codigo_item" }), "upsert item alimentar")
 	}
 }
 
-async function upsertFoodUnits(supabase: SupabaseClient<any, any>, units: ComprasUnidadeFornecimento[], counts: WriteCounts): Promise<void> {
+async function upsertFoodUnits(supabase: SupabaseClient<any, any>, units: ComprasUnidadeFornecimento[]): Promise<void> {
 	if (units.length === 0) return
 
 	const rows = units
@@ -190,13 +169,9 @@ async function upsertFoodUnits(supabase: SupabaseClient<any, any>, units: Compra
 	const deduped = [...new Map(rows.map((row) => [`${row.codigo_pdm}|${row.numero_sequencial_unidade_fornecimento}`, row])).values()]
 
 	for (const batch of chunk(deduped, UPSERT_BATCH_SIZE)) {
-		const { changed, unchanged } = await selectChangedRows(supabase, ROW_SPECS.materialUnidadeFornecimento, batch)
-		counts.rowsWritten += changed.length
-		counts.rowsUnchanged += unchanged
-		if (changed.length === 0) continue
 		await retrySupabaseWrite(
 			async () =>
-				await supabase.from("compras_material_unidade_fornecimento").upsert(changed, { onConflict: "codigo_pdm,numero_sequencial_unidade_fornecimento" }),
+				await supabase.from("compras_material_unidade_fornecimento").upsert(batch, { onConflict: "codigo_pdm,numero_sequencial_unidade_fornecimento" }),
 			"upsert unidade alimentar"
 		)
 	}
@@ -215,7 +190,7 @@ async function syncPdmDetails(
 				statusUnidadeFornecimentoPdm: true,
 			})
 		)) {
-			await upsertFoodUnits(supabase, page.resultado, summary)
+			await upsertFoodUnits(supabase, page.resultado)
 			summary.unitsUpserted += page.resultado.filter((row) => row.numeroSequencialUnidadeFornecimento != null).length
 		}
 	}
@@ -225,7 +200,7 @@ async function syncPdmDetails(
 			codigoPdm: pdm.codigoPdm,
 		})
 	)) {
-		await upsertFoodItems(supabase, page.resultado, summary)
+		await upsertFoodItems(supabase, page.resultado)
 		summary.itemsUpserted += page.resultado.length
 	}
 }
@@ -240,8 +215,6 @@ export async function runFoodMaterialSync(options: FoodMaterialSyncOptions = {})
 		pdmsUpserted: 0,
 		unitsUpserted: 0,
 		itemsUpserted: 0,
-		rowsWritten: 0,
-		rowsUnchanged: 0,
 		errors: [],
 	}
 
@@ -256,7 +229,7 @@ export async function runFoodMaterialSync(options: FoodMaterialSyncOptions = {})
 					statusPdm: true,
 				})
 			)) {
-				await upsertFoodPdms(supabase, page.resultado, summary)
+				await upsertFoodPdms(supabase, page.resultado)
 				summary.pdmsUpserted += page.resultado.length
 				classPdms += page.resultado.length
 
