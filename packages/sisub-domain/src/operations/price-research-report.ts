@@ -23,6 +23,7 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
 import { PRICE_RESEARCH_VALIDITY_DAYS, resolveAtaMaxQuantities } from "./ata.ts"
+import { evaluateResearchCompliance, type ResearchFinding, type ResearchJustificationKey, type ResearchJustifications } from "./price-research-compliance.ts"
 import { convertSamplePrice, isSamePrice, PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
 
 /** Variação acima da qual o relatório pede análise crítica (art. 6º, § 4º). Limiar interno, declarado no documento. */
@@ -83,7 +84,36 @@ export interface ReportResearch {
 	uniqueSources: number | null
 	referencePrice: number | null
 	nonComplianceReasons: string[]
+	/**
+	 * Justificativas gravadas na pesquisa (colunas `justification_*`, migration 20260926211000).
+	 * Opcional: emissões anteriores congelaram a pesquisa sem elas.
+	 */
+	justifications?: ResearchJustifications
+	/**
+	 * Amostras escolhidas à mão, derivado e gravado no servidor (`manual_selection`). Opcional:
+	 * emissões anteriores congelaram a pesquisa sem ele.
+	 */
+	manualSelection?: boolean
 	samples: ReportSample[]
+}
+
+/** Uma excepcionalidade (seção 7): as não conformidades que a mesma justificativa resolve. */
+export interface ReportException {
+	justification: ResearchJustificationKey
+	/** Cada achado com a própria base: "3 UASGs" é critério da unidade, não da IN. */
+	findings: Array<{ code: string; message: string; basis: string }>
+	/** Justificativa gravada na pesquisa; null = em branco, para preencher antes de juntar aos autos. */
+	text: string | null
+}
+
+/**
+ * Checklist e excepcionalidades CONGELADOS na emissão: o documento emitido não muda quando a
+ * regra muda depois. Ausente nas emissões anteriores a 20260926211000, que se leem pela regra da
+ * época (`auditReportItemV1`).
+ */
+export interface FrozenItemAudit {
+	checks: ReportCheck[]
+	exceptions: ReportException[]
 }
 
 export interface ReportItem {
@@ -96,6 +126,8 @@ export interface ReportItem {
 	/** Preço do item no momento da emissão. */
 	unitPrice: number | null
 	research: ReportResearch | null
+	/** Presente nas emissões que congelaram o checklist (regra 2). */
+	audit?: FrozenItemAudit
 }
 
 export type CheckSeverity = "blocking" | "warning"
@@ -203,8 +235,28 @@ export function buildResearchSeriesCsv(items: readonly ReportItem[]): string {
 
 const daysBetween = (from: string, to: string) => (Date.parse(to.slice(0, 10)) - Date.parse(from.slice(0, 10))) / 86_400_000
 
-/** Verificações do item, com severidade e base legal, na data da emissão. */
-export function auditReportItem(item: ReportItem, emittedAt: string): ReportCheck[] {
+/**
+ * Não conformidades que se resolvem por justificativa (amostra reduzida, período, amostra sem
+ * data, seleção manual, método), pela mesma regra da gravação. Preço acima da mediana e unidade
+ * herdada têm verificação própria no checklist. A seleção manual é o fato gravado
+ * (`manual_selection`), nunca o texto do motivo.
+ */
+export function justifiableFindingsOf(r: ReportResearch): ResearchFinding[] {
+	return evaluateResearchCompliance({
+		validCount: r.afterOutlier,
+		// O teto da mediana tem verificação bloqueante própria no checklist.
+		referencePrice: r.priceMedian ?? 0,
+		stats: { median: r.priceMedian ?? 0, uniqueSources: r.uniqueSources ?? 0 },
+		method: r.method ?? undefined,
+		periodMonths: r.periodMonths,
+		undatedCount: r.samples.filter((s) => s.sampleType === "valid" && !s.referenceDate).length,
+		manualSelection: r.manualSelection === true,
+		justifications: r.justifications ?? {},
+	}).filter((f) => f.justification != null)
+}
+
+/** Verificações comuns às duas regras (sem pesquisa, preço, teto da mediana, unidade, CV, idade). */
+function commonChecks(item: ReportItem, emittedAt: string, sampleChecks: (r: ReportResearch) => ReportCheck[]): ReportCheck[] {
 	const checks: ReportCheck[] = []
 	const r = item.research
 	if (!r) {
@@ -227,13 +279,7 @@ export function auditReportItem(item: ReportItem, emittedAt: string): ReportChec
 			basis: "IN SEGES/ME 65/2021, art. 6º, § 6º",
 		})
 	}
-	if (r.afterOutlier < 3 || (r.uniqueSources ?? 0) < 3) {
-		checks.push({
-			severity: "warning",
-			message: `Menos de 3 preços válidos ou de 3 fontes (${r.afterOutlier} preços, ${r.uniqueSources ?? 0} UASGs): exige justificativa aprovada pela autoridade competente.`,
-			basis: "IN SEGES/ME 65/2021, art. 6º, § 5º",
-		})
-	}
+	checks.push(...sampleChecks(r))
 	if (r.nonComplianceReasons.some((reason) => reason.includes("sem unidade declarada"))) {
 		checks.push({
 			severity: "warning",
@@ -266,6 +312,73 @@ export function auditReportItem(item: ReportItem, emittedAt: string): ReportChec
 		})
 	}
 	return checks
+}
+
+/**
+ * Verificações do item na data da emissão, pela regra vigente (2): as não conformidades
+ * justificáveis sem justificativa viram aviso; justificadas, saem daqui para a seção 7.
+ */
+export function auditReportItem(item: ReportItem, emittedAt: string): ReportCheck[] {
+	return commonChecks(item, emittedAt, (r) =>
+		justifiableFindingsOf(r)
+			.filter((f) => !f.justified)
+			.map((f) => ({ severity: "warning" as const, message: `${f.message}. ${f.remedy}`, basis: f.basis }))
+	)
+}
+
+/**
+ * Regra 1 (emissões anteriores a 20260926211000, sem checklist congelado), mantida como era para
+ * o documento emitido continuar o mesmo: amostra reduzida num aviso só, pelo art. 6º, § 5º.
+ */
+export function auditReportItemV1(item: ReportItem, emittedAt: string): ReportCheck[] {
+	return commonChecks(item, emittedAt, (r) =>
+		r.afterOutlier < 3 || (r.uniqueSources ?? 0) < 3
+			? [
+					{
+						severity: "warning",
+						message: `Menos de 3 preços válidos ou de 3 fontes (${r.afterOutlier} preços, ${r.uniqueSources ?? 0} UASGs): exige justificativa aprovada pela autoridade competente.`,
+						basis: "IN SEGES/ME 65/2021, art. 6º, § 5º",
+					},
+				]
+			: []
+	)
+}
+
+/** Excepcionalidades pela regra vigente: uma linha por justificativa, cada achado com a sua base. */
+export function reportExceptionsOf(item: ReportItem): ReportException[] {
+	if (!item.research) return []
+	const justifications = item.research.justifications ?? {}
+	const groups = new Map<ResearchJustificationKey, ReportException>()
+	for (const f of justifiableFindingsOf(item.research)) {
+		const key = f.justification as ResearchJustificationKey
+		const group = groups.get(key) ?? { justification: key, findings: [], text: justifications[key] ?? null }
+		group.findings.push({ code: f.code, message: f.message, basis: f.basis })
+		groups.set(key, group)
+	}
+	return [...groups.values()]
+}
+
+/** Excepcionalidades da regra 1: o item com menos de 3 preços ou fontes, justificativa em branco. */
+function reportExceptionsV1(item: ReportItem): ReportException[] {
+	const r = item.research
+	if (!r || (r.afterOutlier >= 3 && (r.uniqueSources ?? 0) >= 3)) return []
+	return [
+		{
+			justification: "lowSample",
+			findings: [{ code: "low_sample", message: "Menos de 3 preços válidos ou de 3 fontes", basis: "IN SEGES/ME 65/2021, art. 6º, § 5º" }],
+			text: null,
+		},
+	]
+}
+
+/** O que a emissão congela do item: checklist e excepcionalidades na data dela. */
+export function freezeItemAudit(item: ReportItem, emittedAt: string): FrozenItemAudit {
+	return { checks: auditReportItem(item, emittedAt), exceptions: reportExceptionsOf(item) }
+}
+
+/** Checklist e excepcionalidades de um item emitido: os congelados, ou a regra 1 para emissão antiga. */
+export function emittedItemAudit(item: ReportItem, emittedAt: string): FrozenItemAudit {
+	return item.audit ?? { checks: auditReportItemV1(item, emittedAt), exceptions: reportExceptionsV1(item) }
 }
 
 // ─── Puro: roteiro de auditoria por amostragem ──────────────────────────────────
@@ -450,6 +563,14 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 			uniqueSources: num(h.unique_sources),
 			referencePrice: num(h.reference_price),
 			nonComplianceReasons: (Array.isArray(h.non_compliance_reasons) ? h.non_compliance_reasons : []).filter(Boolean) as string[],
+			// `ri.*` traz as colunas quando a migration 20260926211000 está aplicada; antes, ficam nulas.
+			justifications: {
+				lowSample: str(h.justification_low_sample),
+				method: str(h.justification_method),
+				outlierCriteria: str(h.justification_outlier_criteria),
+				outOfPeriod: str(h.justification_out_of_period),
+			},
+			manualSelection: h.manual_selection === true,
 			samples: own.map((s) => {
 				const stored = s.converted_price != null
 				// Pesquisa anterior à gravação da conversão: refaz pela mesma regra pura, e o relatório diz.
@@ -532,6 +653,13 @@ export interface PriceResearchReport {
 	items: ReportItem[]
 	csv: string
 	checks: Array<{ order: number; checks: ReportCheck[] }>
+	/** Excepcionalidades por item (seção 7), congeladas na emissão ou pela regra 1. */
+	exceptions: Array<{ order: number; description: string; exceptions: ReportException[] }>
+	/**
+	 * Regra com que a emissão foi feita: 1 = anterior a 20260926211000 (checklist recalculado pela
+	 * regra da época); 2 = checklist e excepcionalidades congelados. O texto do documento acompanha.
+	 */
+	ruleVersion: 1 | 2
 	auditSample: { curveA: number[]; sampled: number[] }
 	emissions: Array<{ id: string; sequence: number; emittedAt: string }>
 }
@@ -550,7 +678,14 @@ export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, inp
 	)
 	const research = await loadResearch(db, [...new Set(latest.values())])
 	// O que a emissão congela: o relatório inteiro sai daqui depois, nunca do estado de agora.
-	const frozen: ReportItem[] = items.map((i) => ({ ...i, research: research.get(latest.get(i.listItemId) ?? "") ?? null }))
+	// O checklist e as excepcionalidades também: reabrir a emissão depois de uma mudança de regra
+	// mostra o que foi emitido. A data da emissão é fixada aqui e gravada igual.
+	const emittedAt = new Date().toISOString()
+	const frozen: ReportItem[] = items.map((i) => {
+		const withResearch = { ...i, research: research.get(latest.get(i.listItemId) ?? "") ?? null }
+		return { ...withResearch, audit: freezeItemAudit(withResearch, emittedAt) }
+	})
+	// A série não leva `audit`: o CSV (e o hash) de emissões antigas e novas tem as mesmas colunas.
 	const sha256 = sha256Hex(buildResearchSeriesCsv(frozen))
 
 	return runQuery("TRANSACTION_FAILED", () =>
@@ -566,7 +701,7 @@ export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, inp
 			const sequence = (last?.sequence ?? 0) + 1
 			const [row] = await tx
 				.insert(priceResearchEmissionInProcurement)
-				.values({ listId: input.ataId, sequence, emittedBy: ctx.userId, sha256, items: frozen })
+				.values({ listId: input.ataId, sequence, emittedBy: ctx.userId, emittedAt, sha256, items: frozen })
 				.returning({ id: priceResearchEmissionInProcurement.id })
 			return { id: row.id, sequence }
 		})
@@ -635,7 +770,9 @@ export async function fetchPriceResearchReport(
 		},
 		items,
 		csv,
-		checks: items.map((i) => ({ order: i.order, checks: auditReportItem(i, emittedAt) })),
+		checks: items.map((i) => ({ order: i.order, checks: emittedItemAudit(i, emittedAt).checks })),
+		exceptions: items.map((i) => ({ order: i.order, description: i.description, exceptions: emittedItemAudit(i, emittedAt).exceptions })),
+		ruleVersion: items.some((i) => i.audit) ? 2 : 1,
 		auditSample: buildAuditSample(items, sha256),
 		emissions: emissions.map((e) => ({ id: e.id, sequence: e.sequence, emittedAt: e.emittedAt })),
 	}

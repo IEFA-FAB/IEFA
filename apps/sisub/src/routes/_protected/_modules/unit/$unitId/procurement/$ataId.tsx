@@ -20,7 +20,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { useArpForAta } from "@/hooks/data/useArp"
 import { useAtaDetails, useUpdateAtaItemDescription, useUpdateAtaQuantityLimits, useUpdateAtaStatus } from "@/hooks/data/useAta"
-import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
+import { bulkFindingsNotice, useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { useUnitSettings } from "@/hooks/data/useUnitSettings"
 import { type AtaAnnexSettings, annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, buildSnapshotAnnexRows, downloadCsv } from "@/lib/ata-annex"
 import { ataItemToNeed } from "@/lib/ata-utils"
@@ -151,6 +151,8 @@ function AtaDetailPage() {
 		toast.success(
 			`${results.length} preço${results.length !== 1 ? "s" : ""} pesquisado${results.length !== 1 ? "s" : ""} e aplicado${results.length !== 1 ? "s" : ""}.`
 		)
+		const notice = bulkFindingsNotice(results)
+		if (notice) toast.warning(notice)
 	}
 
 	if (isLoading) {

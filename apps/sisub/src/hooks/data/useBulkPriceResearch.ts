@@ -1,3 +1,4 @@
+import type { OpenResearchFinding } from "@iefa/sisub-domain"
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { PriceResearchAuditIds } from "@/components/features/local/price-research/PriceResearchModal"
 import { annexItemUnit } from "@/lib/ata-annex"
@@ -23,6 +24,11 @@ export interface BulkResearchResult {
 	price: number
 	/** Memória de cálculo gravada. Sem ela o preço não é aplicado: preço sem pesquisa não se audita. */
 	auditIds: PriceResearchAuditIds
+	/**
+	 * Não conformidades em aberto gravadas na pesquisa (ex.: menos de 3 preços). Não travam o
+	 * preço; resolve-se abrindo a pesquisa do item e preenchendo a justificativa ali.
+	 */
+	openFindings: OpenResearchFinding[]
 }
 
 export interface BulkPriceProgress {
@@ -33,6 +39,26 @@ export interface BulkPriceProgress {
 }
 
 const CONCURRENCY = 4
+
+/**
+ * Aviso de fim do lote sobre as pesquisas não conformes: quantas e onde se resolve. null quando
+ * todas estão conformes.
+ */
+export function bulkFindingsNotice(results: BulkResearchResult[]): string | null {
+	const toJustify = results.filter((r) => r.openFindings.some((f) => f.justifiable)).length
+	const toRedo = results.filter((r) => r.openFindings.some((f) => !f.justifiable)).length
+	if (toJustify === 0 && toRedo === 0) return null
+	const parts: string[] = []
+	if (toJustify > 0)
+		parts.push(
+			`${toJustify} ${toJustify === 1 ? "pesquisa ficou" : "pesquisas ficaram"} com não conformidade que se resolve por justificativa (ex.: menos de 3 preços): abra a pesquisa do item e registre a justificativa.`
+		)
+	if (toRedo > 0)
+		parts.push(
+			`${toRedo} ${toRedo === 1 ? "pesquisa pede" : "pesquisas pedem"} correção antes de refazer (ex.: item de compra sem unidade declarada): o motivo está na pesquisa do item.`
+		)
+	return `O preço foi aplicado. ${parts.join(" ")}`
+}
 
 export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, onItemResult?: (result: BulkResearchResult) => Promise<void> | void) {
 	const [progress, setProgress] = useState<BulkPriceProgress>({ done: 0, total: 0, errors: 0, isRunning: false })
@@ -62,7 +88,7 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 
 				// Sem memória de cálculo gravada o preço não entra no anexo: a falha conta como erro
 				// do item, e a pesquisa pode ser refeita. Aplicar mesmo assim deixava preço sem suporte.
-				const auditIds: PriceResearchAuditIds = await savePrecoAuditFn({
+				const saved = await savePrecoAuditFn({
 					data: {
 						catmatCodigo: item.catmat_item_codigo as number,
 						catmatDescricao: item.catmat_item_descricao ?? null,
@@ -79,12 +105,22 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 						inconsistentSamples: selected.inconsistentSamples,
 						measureUnit: selected.unit,
 						unitInferred: selected.unitInferred,
+						// O lote não escolhe amostra à mão; o servidor confere pela classificação recebida.
+						manualSelection: false,
 						ataId,
 						ataItemId: item.ata_item_id ?? undefined,
 					},
 				})
 
-				const result: BulkResearchResult = { ingredientId: item.ingredient_id, ataItemId: item.ata_item_id, price: selected.price, auditIds }
+				// Não conformidades como o servidor as calculou e gravou; o cliente não refaz a conta.
+				const auditIds: PriceResearchAuditIds = { researchId: saved.researchId, researchItemId: saved.researchItemId }
+				const result: BulkResearchResult = {
+					ingredientId: item.ingredient_id,
+					ataItemId: item.ata_item_id,
+					price: selected.price,
+					auditIds,
+					openFindings: saved.openFindings,
+				}
 				// Se quem aplica o preço falhar (o servidor recusa preço sem pesquisa que o sustente), o
 				// item conta como erro: engolir a falha fazia o toast anunciar preço que não foi gravado.
 				await onItemResultRef.current?.(result)

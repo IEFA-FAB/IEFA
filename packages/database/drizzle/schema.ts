@@ -666,46 +666,6 @@ export const procurementPesquisaPrecoInProcurement = procurement.table("procurem
 	check("procurement_pesquisa_preco_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
 ]);
 
-export const procurementPesquisaPrecoItemInProcurement = procurement.table("procurement_pesquisa_preco_item", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	researchId: uuid("research_id").notNull(),
-	ataItemId: uuid("ata_item_id"),
-	catmatCodigo: integer("catmat_codigo"),
-	catmatDescricao: text("catmat_descricao"),
-	productName: text("product_name").notNull(),
-	totalRaw: integer("total_raw").default(0).notNull(),
-	totalAfterDateFilter: integer("total_after_date_filter").default(0).notNull(),
-	totalAfterPollutionFilter: integer("total_after_pollution_filter").default(0).notNull(),
-	totalAfterOutlier: integer("total_after_outlier").default(0).notNull(),
-	priceMin: numeric("price_min", { mode: "number", precision: 12, scale: 4 }),
-	priceMax: numeric("price_max", { mode: "number", precision: 12, scale: 4 }),
-	priceMean: numeric("price_mean", { mode: "number", precision: 12, scale: 4 }),
-	priceMedian: numeric("price_median", { mode: "number", precision: 12, scale: 4 }),
-	stdDev: numeric("std_dev", { mode: "number", precision: 12, scale: 4 }),
-	cvPct: numeric("cv_pct", { mode: "number", precision: 8, scale: 2 }),
-	uniqueSources: integer("unique_sources"),
-	referencePrice: numeric("reference_price", { mode: "number", precision: 12, scale: 4 }),
-	referenceMethod: text("reference_method"),
-	measureUnit: text("measure_unit"),
-	isCompliant: boolean("is_compliant").default(false).notNull(),
-	nonComplianceReasons: text("non_compliance_reasons").array().default([""]).notNull(),
-	error: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("idx_pesquisa_preco_item_ata_item").using("btree", table.ataItemId.asc().nullsLast().op("uuid_ops")),
-	index("idx_pesquisa_preco_item_research").using("btree", table.researchId.asc().nullsLast().op("uuid_ops")),
-	foreignKey({
-			columns: [table.ataItemId],
-			foreignColumns: [procurementListItemInProcurement.id],
-			name: "procurement_pesquisa_preco_item_ata_item_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.researchId],
-			foreignColumns: [procurementPesquisaPrecoInProcurement.id],
-			name: "procurement_pesquisa_preco_item_research_id_fkey"
-		}).onDelete("cascade"),
-]);
-
 export const nfeItemInInventory = inventory.table("nfe_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	nfeDocumentId: uuid("nfe_document_id").notNull(),
@@ -838,6 +798,7 @@ export const procurementPesquisaPrecoAmostraInProcurement = procurement.table("p
 	convertedPrice: numeric("converted_price", { mode: "number", precision: 14, scale: 6 }),
 	contentInUnit: numeric("content_in_unit", { mode: "number", precision: 14, scale: 6 }),
 	conversion: text(),
+	art5Parameter: text("art5_parameter").default('I').notNull(),
 }, (table) => [
 	index("idx_pesquisa_preco_amostra_item_type").using("btree", table.researchItemId.asc().nullsLast().op("uuid_ops"), table.sampleType.asc().nullsLast().op("text_ops")),
 	uniqueIndex("uq_amostra_research_item_amostra").using("btree", table.researchItemId.asc().nullsLast().op("uuid_ops"), table.amostraId.asc().nullsLast().op("uuid_ops")),
@@ -851,6 +812,7 @@ export const procurementPesquisaPrecoAmostraInProcurement = procurement.table("p
 			foreignColumns: [procurementPesquisaPrecoItemInProcurement.id],
 			name: "procurement_pesquisa_preco_amostra_research_item_id_fkey"
 		}).onDelete("cascade"),
+	check("procurement_pesquisa_preco_amostra_art5_parameter_check", sql`art5_parameter = ANY (ARRAY['I'::text, 'II'::text, 'III'::text, 'IV'::text, 'V'::text])`),
 	check("procurement_pesquisa_preco_amostra_sample_type_check", sql`sample_type = ANY (ARRAY['valid'::text, 'outlier'::text, 'pollution'::text])`),
 ]);
 
@@ -3749,6 +3711,56 @@ export const policyInAccessControl = accessControl.table("policy", {
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	uniqueIndex("policy_name_unique_alive_idx").using("btree", table.name.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
+]);
+
+export const procurementPesquisaPrecoItemInProcurement = procurement.table("procurement_pesquisa_preco_item", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	researchId: uuid("research_id").notNull(),
+	ataItemId: uuid("ata_item_id"),
+	catmatCodigo: integer("catmat_codigo"),
+	catmatDescricao: text("catmat_descricao"),
+	productName: text("product_name").notNull(),
+	totalRaw: integer("total_raw").default(0).notNull(),
+	totalAfterDateFilter: integer("total_after_date_filter").default(0).notNull(),
+	totalAfterPollutionFilter: integer("total_after_pollution_filter").default(0).notNull(),
+	totalAfterOutlier: integer("total_after_outlier").default(0).notNull(),
+	priceMin: numeric("price_min", { mode: "number", precision: 12, scale: 4 }),
+	priceMax: numeric("price_max", { mode: "number", precision: 12, scale: 4 }),
+	priceMean: numeric("price_mean", { mode: "number", precision: 12, scale: 4 }),
+	priceMedian: numeric("price_median", { mode: "number", precision: 12, scale: 4 }),
+	stdDev: numeric("std_dev", { mode: "number", precision: 12, scale: 4 }),
+	cvPct: numeric("cv_pct", { mode: "number", precision: 8, scale: 2 }),
+	uniqueSources: integer("unique_sources"),
+	referencePrice: numeric("reference_price", { mode: "number", precision: 12, scale: 4 }),
+	referenceMethod: text("reference_method"),
+	measureUnit: text("measure_unit"),
+	isCompliant: boolean("is_compliant").default(false).notNull(),
+	nonComplianceReasons: text("non_compliance_reasons").array().default([""]).notNull(),
+	error: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	justificationLowSample: text("justification_low_sample"),
+	justificationMethod: text("justification_method"),
+	justificationOutlierCriteria: text("justification_outlier_criteria"),
+	justificationOutOfPeriod: text("justification_out_of_period"),
+	manualSelection: boolean("manual_selection").default(false).notNull(),
+}, (table) => [
+	index("idx_pesquisa_preco_item_ata_item").using("btree", table.ataItemId.asc().nullsLast().op("uuid_ops")),
+	index("idx_pesquisa_preco_item_research").using("btree", table.researchId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.ataItemId],
+			foreignColumns: [procurementListItemInProcurement.id],
+			name: "procurement_pesquisa_preco_item_ata_item_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.researchId],
+			foreignColumns: [procurementPesquisaPrecoInProcurement.id],
+			name: "procurement_pesquisa_preco_item_research_id_fkey"
+		}).onDelete("cascade"),
+	check("procurement_pesquisa_preco_i_justification_outlier_criter_check", sql`char_length(justification_outlier_criteria) <= 4000`),
+	check("procurement_pesquisa_preco_it_justification_out_of_period_check", sql`char_length(justification_out_of_period) <= 4000`),
+	check("procurement_pesquisa_preco_item_justification_low_sample_check", sql`char_length(justification_low_sample) <= 4000`),
+	check("procurement_pesquisa_preco_item_justification_method_check", sql`char_length(justification_method) <= 4000`),
+	check("procurement_pesquisa_preco_item_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
 ]);
 
 export const importBatchInSiafiIntegration = siafiIntegration.table("import_batch", {

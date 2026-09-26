@@ -1,3 +1,4 @@
+import { researchNonComplianceReasons } from "@iefa/sisub-domain"
 import type { AmostraPreco, ComprasMaterialPrecoItem, LegalCompliance, PriceAnalysis, PriceStatistics } from "./types.ts"
 
 // ─── Normalização de texto para comparação ───────────────────────────────────
@@ -190,23 +191,20 @@ function calcularStatistics(samples: AmostraPreco[]): PriceStatistics | null {
 
 // ─── Conformidade Lei 14.133 / IN SEGES 65/2021 ──────────────────────────────
 
-const MIN_SAMPLES = 3
-const MIN_SOURCES = 3
-const MAX_PERIOD_MONTHS = 12
-
-function avaliarCompliance(samples: AmostraPreco[], months: number): LegalCompliance {
-	const reasons: string[] = []
+/**
+ * Mesma regra (e redação) das não conformidades do sisub, que é quem as mostra e resolve com
+ * justificativa. O preço de referência daqui é a mediana, então o teto do art. 6º, § 6º, não
+ * dispara; sem data, a amostra já ficou fora no passo 1.
+ */
+function avaliarCompliance(samples: AmostraPreco[], months: number, median: number): LegalCompliance {
 	const uniqueSources = new Set(samples.map((a) => a.codigoUasg)).size
-
-	if (samples.length < MIN_SAMPLES) {
-		reasons.push(`Amostras válidas insuficientes: ${samples.length} (mínimo: ${MIN_SAMPLES} — Art. 5º IN 65/2021)`)
-	}
-	if (uniqueSources < MIN_SOURCES) {
-		reasons.push(`Fontes distintas insuficientes: ${uniqueSources} UASG(s) (mínimo: ${MIN_SOURCES} — independência das amostras)`)
-	}
-	if (months > MAX_PERIOD_MONTHS) {
-		reasons.push(`Período solicitado (${months} meses) superior ao recomendado de ${MAX_PERIOD_MONTHS} meses (IN 65/2021)`)
-	}
+	const reasons = researchNonComplianceReasons({
+		validCount: samples.length,
+		referencePrice: median,
+		stats: { median, uniqueSources },
+		method: "median",
+		periodMonths: months,
+	})
 
 	return {
 		compliant: reasons.length === 0,
@@ -257,10 +255,12 @@ export function analisarPrecos(
 	const consultedAt = new Date().toISOString()
 
 	// ── Passo 1: Filtrar por data e validade básica ───────────────────────────
+	// Sem data não há como mostrar que o preço é de até 1 ano (IN SEGES/ME 65/2021, art. 5º, II):
+	// a amostra fica fora do cálculo, como no sisub (`filterByPeriod`).
 	const afterDateFilter = rawItems.filter((item) => {
 		if (!item.precoUnitario || item.precoUnitario <= 0) return false
 		const d = extrairReferenceDate(item)
-		if (!d) return true // sem data → não filtrar
+		if (!d) return false
 		return d >= cutoffDate
 	})
 
@@ -302,7 +302,7 @@ export function analisarPrecos(
 
 	// ── Passo 4: Estatísticas e conformidade ──────────────────────────────────
 	const statistics = calcularStatistics(samples)
-	const compliance = avaliarCompliance(samples, months)
+	const compliance = avaliarCompliance(samples, months, statistics?.median ?? 0)
 
 	// ── Passo 5: Unidade de medida predominante ───────────────────────────────
 	const unitCounts: Record<string, number> = {}

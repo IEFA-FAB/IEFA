@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test"
 import {
 	auditReportItem,
+	auditReportItemV1,
 	buildAuditSample,
 	buildResearchSeriesCsv,
+	emittedItemAudit,
+	freezeItemAudit,
+	justifiableFindingsOf,
 	type ReportItem,
 	type ReportResearch,
 	type ReportSample,
+	reportExceptionsOf,
 	sha256Hex,
 } from "./price-research-report.ts"
 
@@ -132,9 +137,102 @@ describe("auditReportItem", () => {
 			}),
 			at
 		)
-		expect(checks.map((c) => c.severity)).toEqual(["warning", "warning", "warning", "warning"])
+		expect(checks.map((c) => c.severity)).toEqual(["warning", "warning", "warning", "warning", "warning"])
 		expect(checks.map((c) => c.basis).join(" | ")).toContain("§ 5º")
 		expect(checks.map((c) => c.basis).join(" | ")).toContain("§ 4º")
+		// 3 UASGs é critério da unidade, não da IN.
+		expect(checks.find((c) => c.message.startsWith("Menos de 3 UASGs"))?.basis).toContain("Critério da unidade")
+	})
+
+	test("justificativa da amostra reduzida tira o aviso do checklist e o leva às excepcionalidades", () => {
+		const justified = research({
+			afterOutlier: 2,
+			uniqueSources: 2,
+			justifications: { lowSample: "Item regional: só dois órgãos compraram no último ano." },
+		})
+		expect(auditReportItem(item(1, { research: justified }), at)).toEqual([])
+		expect(justifiableFindingsOf(justified).map((f) => [f.code, f.justified])).toEqual([
+			["low_sample", true],
+			["few_sources", true],
+		])
+	})
+
+	test("todo o histórico, amostra sem data e seleção manual viram aviso com a base", () => {
+		const checks = auditReportItem(
+			item(1, { research: research({ periodMonths: null, samples: [sample({ referenceDate: null })], manualSelection: true }) }),
+			at
+		)
+		expect(checks.map((c) => c.basis)).toEqual([
+			"IN SEGES/ME 65/2021, art. 5º, I e II, e § 3º",
+			"IN SEGES/ME 65/2021, art. 5º, II, e § 3º: sem data, não há como mostrar que o preço é de até 1 ano",
+			"IN SEGES/ME 65/2021, art. 6º, § 3º, e art. 3º, VI",
+		])
+	})
+
+	test("seleção manual sai do fato gravado, não do texto do motivo", () => {
+		const reasonOnly = research({
+			nonComplianceReasons: [
+				"Amostras escolhidas à mão (seleção ou filtro), sem o descarte automático por IQR (IN SEGES/ME 65/2021, art. 6º, § 3º, e art. 3º, VI)",
+			],
+		})
+		expect(justifiableFindingsOf(reasonOnly)).toEqual([])
+		expect(justifiableFindingsOf(research({ manualSelection: true })).map((f) => f.code)).toEqual(["manual_exclusion"])
+	})
+})
+
+describe("excepcionalidades (seção 7)", () => {
+	test("cada achado leva a própria base; 3 UASGs é critério da unidade", () => {
+		const [exception] = reportExceptionsOf(item(1, { research: research({ afterOutlier: 2, uniqueSources: 1 }) }))
+		expect(exception.justification).toBe("lowSample")
+		expect(exception.text).toBeNull()
+		expect(exception.findings.map((f) => [f.code, f.basis])).toEqual([
+			["low_sample", "IN SEGES/ME 65/2021, art. 6º, caput e § 5º"],
+			["few_sources", "Critério da unidade; a IN 65/2021 não fixa número de órgãos"],
+		])
+	})
+
+	test("a justificativa gravada sai no texto", () => {
+		const text = "Item regional: só dois órgãos compraram no último ano."
+		const [exception] = reportExceptionsOf(item(1, { research: research({ afterOutlier: 2, justifications: { lowSample: text } }) }))
+		expect(exception.text).toBe(text)
+	})
+})
+
+describe("emissão registrada", () => {
+	const at = "2026-09-26T12:00:00.000Z"
+
+	test("emissão nova mostra o checklist congelado, mesmo que a regra mude depois", () => {
+		const frozen = { checks: [{ severity: "warning" as const, message: "congelado", basis: "regra da emissão" }], exceptions: [] }
+		const emitted = item(1, { research: research({ afterOutlier: 2 }), audit: frozen })
+		expect(emittedItemAudit(emitted, at)).toBe(frozen)
+	})
+
+	test("freezeItemAudit congela a regra vigente na data da emissão", () => {
+		const it = item(1, { research: research({ afterOutlier: 2 }) })
+		const audit = freezeItemAudit(it, at)
+		expect(audit.checks).toEqual(auditReportItem(it, at))
+		expect(audit.exceptions).toEqual(reportExceptionsOf(it))
+	})
+
+	test("congelar não muda a série nem o hash", () => {
+		const it = item(1)
+		expect(buildResearchSeriesCsv([{ ...it, audit: freezeItemAudit(it, at) }])).toBe(buildResearchSeriesCsv([it]))
+	})
+
+	test("emissão antiga (sem checklist congelado) usa a regra da época: nada de avisos novos", () => {
+		// Pesquisa antiga com amostra sem data e sem janela: a regra 1 não as sinalizava.
+		const old = item(1, { research: research({ afterOutlier: 2, uniqueSources: 2, periodMonths: null, samples: [sample({ referenceDate: null })] }) })
+		const audit = emittedItemAudit(old, at)
+		expect(audit.checks).toEqual(auditReportItemV1(old, at))
+		expect(audit.checks.map((c) => c.basis)).toEqual(["IN SEGES/ME 65/2021, art. 6º, § 5º"])
+		expect(audit.checks[0].message).toContain("Menos de 3 preços válidos ou de 3 fontes (2 preços, 2 UASGs)")
+		expect(audit.exceptions).toEqual([
+			{
+				justification: "lowSample",
+				findings: [{ code: "low_sample", message: "Menos de 3 preços válidos ou de 3 fontes", basis: "IN SEGES/ME 65/2021, art. 6º, § 5º" }],
+				text: null,
+			},
+		])
 	})
 })
 

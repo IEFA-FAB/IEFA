@@ -1,4 +1,15 @@
-import { convertSamplePrice, resolveResearchUnit, SAMPLE_CONVERSION_REASON_LABELS } from "@iefa/sisub-domain"
+import {
+	convertSamplePrice,
+	evaluateResearchCompliance,
+	MIN_JUSTIFICATION_LENGTH,
+	type PriceResearchMethod,
+	RESEARCH_JUSTIFICATION_LABELS,
+	type ResearchFinding,
+	type ResearchJustificationKey,
+	type ResearchJustifications,
+	resolveResearchUnit,
+	SAMPLE_CONVERSION_REASON_LABELS,
+} from "@iefa/sisub-domain"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
 	type Column,
@@ -35,16 +46,19 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/cn"
 import {
 	analyzeSamples,
 	DEFAULT_PERIOD_MONTHS,
 	fetchAllPagesForCatmat,
-	filterByPeriod,
 	isMethodAllowed,
+	isSampleSelectable,
 	MAX_PAGES,
 	type PriceStatsSummary,
+	partitionByPeriod,
+	priceForMethod,
 } from "@/lib/price-research-utils"
 import { savePrecoAuditFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
@@ -69,6 +83,78 @@ function getRecommendation(cv: number): { text: string; colorClass: string } {
 	if (cv < 15) return { text: "Distribuição homogênea — média e mediana equivalentes.", colorClass: "text-success" }
 	if (cv < 30) return { text: "Variabilidade moderada — prefira a mediana.", colorClass: "text-warning" }
 	return { text: "Alta variabilidade — mediana recomendada (IN SEGES/ME 65/2021, art. 6º).", colorClass: "text-destructive" }
+}
+
+function hasReferenceDate(r: ComprasMaterialPriceResult): boolean {
+	return Boolean(r.dataResultado ?? r.dataCompra)
+}
+
+/** Não conformidades agrupadas pela justificativa que as resolve (uma caixa de texto por grupo). */
+function groupFindings(findings: ResearchFinding[]): Array<{ key: ResearchJustificationKey | null; findings: ResearchFinding[] }> {
+	const groups: Array<{ key: ResearchJustificationKey | null; findings: ResearchFinding[] }> = []
+	for (const finding of findings) {
+		const group = finding.justification ? groups.find((g) => g.key === finding.justification) : undefined
+		if (group) group.findings.push(finding)
+		else groups.push({ key: finding.justification, findings: [finding] })
+	}
+	return groups
+}
+
+/**
+ * Não conformidades da pesquisa, no lugar onde ela é feita, com a justificativa ao lado. Não
+ * impedem usar o preço: ficam gravadas na memória de cálculo, e a justificativa as resolve.
+ */
+function ComplianceFindings({
+	findings,
+	justifications,
+	onJustify,
+}: {
+	findings: ResearchFinding[]
+	justifications: ResearchJustifications
+	onJustify: (key: ResearchJustificationKey, value: string) => void
+}) {
+	if (findings.length === 0) return null
+	const open = findings.filter((f) => !f.justified).length
+	return (
+		<section aria-label="Não conformidades da pesquisa" className="space-y-3 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-caption">
+			<p className="text-foreground">
+				<span className="font-medium">{open > 0 ? `${open} não conformidade${open !== 1 ? "s" : ""} em aberto` : "Não conformidades justificadas"}</span>
+				<span className="text-muted-foreground"> · não impedem usar o preço: ficam registradas na memória de cálculo, com a justificativa.</span>
+			</p>
+			{groupFindings(findings).map((group) => (
+				<div key={group.key ?? group.findings[0].code} className="space-y-1.5">
+					<ul className="space-y-1">
+						{group.findings.map((f) => (
+							<li key={f.code}>
+								<p className={f.justified ? "text-muted-foreground" : "font-medium text-warning"}>
+									{f.message}
+									{f.justified && " · justificada"}
+								</p>
+								<p className="text-muted-foreground">
+									{f.basis}.{f.justified ? "" : ` ${f.remedy}`}
+								</p>
+							</li>
+						))}
+					</ul>
+					{group.key && (
+						<div className="space-y-1">
+							<label htmlFor={`price-research-justification-${group.key}`} className="block text-foreground">
+								{RESEARCH_JUSTIFICATION_LABELS[group.key]}
+							</label>
+							<Textarea
+								id={`price-research-justification-${group.key}`}
+								value={justifications[group.key] ?? ""}
+								onChange={(e) => onJustify(group.key as ResearchJustificationKey, e.target.value)}
+								maxLength={4000}
+								rows={2}
+								placeholder={`Mínimo de ${MIN_JUSTIFICATION_LENGTH} caracteres. Vai para os autos da contratação.`}
+							/>
+						</div>
+					)}
+				</div>
+			))}
+		</section>
+	)
 }
 
 /** Recorte usado no cálculo do preço de referência (seleção manual ou todos os resultados exibidos). */
@@ -285,6 +371,9 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 	// Janela de recência (IN SEGES 65/2021 Art. 5º) aplicada antes da tabela — o
 	// que o usuário vê é exatamente o que entra no cálculo e na memória de auditoria.
 	const [periodMonths, setPeriodMonths] = useState<number | null>(DEFAULT_PERIOD_MONTHS)
+	// Amostra sem data fica visível mas fora do cálculo; incluí-la registra a não conformidade.
+	const [includeUndated, setIncludeUndated] = useState(false)
+	const [justifications, setJustifications] = useState<ResearchJustifications>({})
 	const queryClient = useQueryClient()
 
 	// Reseta o estado da tabela quando o item muda — ajustado durante o render
@@ -296,6 +385,8 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 		setColumnFilters([])
 		setSorting([])
 		setPeriodMonths(DEFAULT_PERIOD_MONTHS)
+		setIncludeUndated(false)
+		setJustifications({})
 	}
 
 	// ── Data fetching (all pages) ─────────────────────────────────────────────
@@ -308,9 +399,14 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 	})
 	const allResults = data?.results ?? EMPTY_RESULTS
 
-	const scopedResults = useMemo(() => (periodMonths ? filterByPeriod(allResults, periodMonths) : allResults), [allResults, periodMonths])
-	const outOfPeriodCount = allResults.length - scopedResults.length
-	const researchUnit = useMemo(() => resolveResearchUnit(targetUnit, scopedResults), [targetUnit, scopedResults])
+	// A tabela mostra a janela e as amostras sem data (visíveis, marcadas); o cálculo só leva as
+	// sem data quando o usuário as inclui ou seleciona.
+	const partition = useMemo(() => partitionByPeriod(allResults, periodMonths), [allResults, periodMonths])
+	const scopedResults = partition.visible
+	const outOfPeriodCount = partition.outOfWindow.length
+	const undatedCount = partition.undated.length
+	const calculationBase = includeUndated ? partition.visible : partition.inWindow
+	const researchUnit = useMemo(() => resolveResearchUnit(targetUnit, calculationBase), [targetUnit, calculationBase])
 	const unit = researchUnit?.unit ?? null
 
 	// ── Columns ───────────────────────────────────────────────────────────────
@@ -328,7 +424,12 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 					/>
 				),
 				cell: ({ row }) => (
-					<Checkbox checked={row.getIsSelected()} onCheckedChange={(checked) => row.toggleSelected(!!checked)} aria-label="Selecionar linha" />
+					<Checkbox
+						checked={row.getIsSelected()}
+						disabled={!row.getCanSelect()}
+						onCheckedChange={(checked) => row.toggleSelected(!!checked)}
+						aria-label="Selecionar linha"
+					/>
 				),
 				enableSorting: false,
 				enableColumnFilter: false,
@@ -338,7 +439,17 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 				id: "data",
 				accessorFn: (row) => formatDate(row.dataResultado ?? row.dataCompra),
 				header: ({ column }) => <SortableHeader column={column} title="Data" />,
-				cell: ({ getValue }) => <span className="tabular-nums text-xs text-muted-foreground">{getValue() as string}</span>,
+				cell: ({ row, getValue }) =>
+					hasReferenceDate(row.original) ? (
+						<span className="tabular-nums text-xs text-muted-foreground">{getValue() as string}</span>
+					) : (
+						<Badge
+							variant="outline"
+							title="Sem data de referência: fora do cálculo, a menos que você a inclua ou selecione (IN SEGES/ME 65/2021, art. 5º, II)."
+						>
+							sem data
+						</Badge>
+					),
 				filterFn: multiSelectFilter,
 				size: 96,
 			},
@@ -464,7 +575,8 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 		onSortingChange: setSorting,
 		onColumnFiltersChange: setColumnFilters,
 		onRowSelectionChange: setRowSelection,
-		enableRowSelection: true,
+		// Sem data só se seleciona depois de incluída: "Selecionar todos" não a põe no cálculo.
+		enableRowSelection: (row) => isSampleSelectable(row.original, includeUndated),
 		enableSortingRemoval: true,
 		getRowId: (row, index) => `${row.idCompra}-${row.idItemCompra}-${index}`,
 	})
@@ -495,15 +607,12 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 	// recortadas pela janela de recência, daí periodMonths: null aqui.
 	const fullAnalysis = useMemo<Analysis | null>(() => {
 		if (!unit) return null
-		const analysis = analyzeSamples(
-			filteredRows.map((r) => r.original),
-			unit,
-			{ removeOutliers: true }
-		)
+		const considered = filteredRows.map((r) => r.original).filter((r) => includeUndated || hasReferenceDate(r))
+		const analysis = analyzeSamples(considered, unit, { removeOutliers: true })
 		if (!analysis) return null
 		return {
 			stats: analysis.stats,
-			consideredCount: filteredRows.filter((r) => r.original.precoUnitario !== null).length,
+			consideredCount: considered.filter((r) => r.precoUnitario !== null).length,
 			validCount: analysis.validSamples.length,
 			outlierCount: analysis.outlierSamples.length,
 			validSamples: analysis.validSamples,
@@ -511,7 +620,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 			inconsistentSamples: analysis.inconsistentSamples,
 			fromSelection: false,
 		}
-	}, [filteredRows, unit])
+	}, [filteredRows, unit, includeUndated])
 
 	// Seleção manual: sem IQR (o usuário escolheu as linhas), mas com a mesma conversão de
 	// unidade — linha incomparável selecionada sai como inconsistente, não entra na conta.
@@ -534,16 +643,40 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 		}
 	}, [selectedRows, fullAnalysis, unit])
 
+	// ── Conformidade (IN SEGES/ME 65/2021) ───────────────────────────────────
+
+	// Filtro de coluna também escolhe amostras à mão: o critério precisa ser descrito (art. 6º, § 3º).
+	const manualSelection = Boolean(activeAnalysis?.fromSelection) || columnFilters.length > 0
+	// Preço de referência = mediana: o teto do art. 6º, § 6º, já é imposto no botão da média.
+	const findings = useMemo(
+		() =>
+			activeAnalysis
+				? evaluateResearchCompliance({
+						validCount: activeAnalysis.validCount,
+						referencePrice: activeAnalysis.stats.median,
+						stats: activeAnalysis.stats,
+						measureUnit: unit,
+						unitInferred: researchUnit?.inferred,
+						periodMonths,
+						undatedCount: activeAnalysis.validSamples.filter((s) => !hasReferenceDate(s)).length,
+						manualSelection,
+						justifications,
+					})
+				: [],
+		[activeAnalysis, unit, researchUnit, periodMonths, manualSelection, justifications]
+	)
+
 	// ── Audit save ────────────────────────────────────────────────────────────
 
-	const [isSavingMethod, setIsSavingMethod] = useState<"mean" | "median" | null>(null)
+	const [isSavingMethod, setIsSavingMethod] = useState<PriceResearchMethod | null>(null)
 
 	const { mutateAsync: saveAudit } = useMutation({
 		mutationFn: savePrecoAuditFn,
 	})
 
-	async function handleUsePrice(price: number, method: "mean" | "median") {
+	async function handleUsePrice(method: PriceResearchMethod) {
 		if (!onApplyPrice || !activeAnalysis || !researchUnit) return
+		const price = priceForMethod(method, activeAnalysis.stats)
 		setIsSavingMethod(method)
 		try {
 			const auditIds = await saveAudit({
@@ -555,7 +688,9 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 					stats: activeAnalysis.stats,
 					// Funil auditável: bruto da API → recorte considerado → comparáveis → válidas pós-IQR.
 					rawCount: allResults.filter((r) => r.precoUnitario !== null).length,
-					dateFilteredCount: activeAnalysis.consideredCount,
+					// Preços da janela (com as sem data incluídas), antes de filtro ou seleção: o servidor
+					// compara com as amostras classificadas para derivar a seleção manual.
+					dateFilteredCount: calculationBase.filter((r) => r.precoUnitario !== null).length,
 					periodMonths,
 					validCount: activeAnalysis.validCount,
 					outlierCount: activeAnalysis.outlierCount,
@@ -564,6 +699,8 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 					inconsistentSamples: activeAnalysis.inconsistentSamples,
 					measureUnit: researchUnit.unit,
 					unitInferred: researchUnit.inferred,
+					manualSelection,
+					justifications,
 					ataId: ataId ?? undefined,
 					ataItemId: ataItemId ?? undefined,
 				},
@@ -612,6 +749,20 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 						>
 							<CalendarClock className="size-3.5" aria-hidden="true" />
 							{periodMonths ? `Últimos ${periodMonths} meses${outOfPeriodCount > 0 ? ` (${outOfPeriodCount} fora)` : ""}` : "Todo o histórico"}
+						</Button>
+					)}
+					{!isLoading && undatedCount > 0 && (
+						<Button
+							size="sm"
+							variant="ghost"
+							onClick={() => {
+								// Ao tirar as sem data do cálculo, a seleção que as continha deixa de valer.
+								if (includeUndated) setRowSelection({})
+								setIncludeUndated(!includeUndated)
+							}}
+							title="Sem data de referência não há como mostrar que o preço é de até 1 ano (IN SEGES/ME 65/2021, art. 5º, II)."
+						>
+							{includeUndated ? `${undatedCount} sem data no cálculo` : `${undatedCount} sem data: fora do cálculo`}
 						</Button>
 					)}
 					{data?.truncated && (
@@ -686,7 +837,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 												: "A média passa da mediana: o preço estimado não pode superá-la (IN SEGES/ME 65/2021, art. 6º, § 6º)."
 										}
 										className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
-										onClick={() => handleUsePrice(activeAnalysis.stats.mean, "mean")}
+										onClick={() => handleUsePrice("mean")}
 									>
 										{isSavingMethod === "mean" ? "Salvando…" : "Usar"}
 									</button>
@@ -700,7 +851,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 										type="button"
 										disabled={isSavingMethod !== null}
 										className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
-										onClick={() => handleUsePrice(activeAnalysis.stats.median, "median")}
+										onClick={() => handleUsePrice("median")}
 									>
 										{isSavingMethod === "median" ? "Salvando…" : "Usar"}
 									</button>
@@ -709,6 +860,17 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 							<div className="border-l text-center">
 								<p className="text-xs text-muted-foreground">Mínimo</p>
 								<p className="text-sm font-semibold tabular-nums">{BRL.format(activeAnalysis.stats.min)}</p>
+								{onApplyPrice && (
+									<button
+										type="button"
+										disabled={isSavingMethod !== null}
+										title="Menor dos valores válidos (IN SEGES/ME 65/2021, art. 6º, caput)."
+										className="mt-0.5 text-hint text-primary hover:underline disabled:opacity-50"
+										onClick={() => handleUsePrice("lowest")}
+									>
+										{isSavingMethod === "lowest" ? "Salvando…" : "Usar"}
+									</button>
+								)}
 							</div>
 							<div className="border-l text-center">
 								<p className="text-xs text-muted-foreground">Máximo</p>
@@ -724,6 +886,14 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 							<span className={`ml-1 ${getRecommendation(activeAnalysis.stats.cv).colorClass}`}>{getRecommendation(activeAnalysis.stats.cv).text}</span>
 						</div>
 					</div>
+				)}
+
+				{activeAnalysis && onApplyPrice && (
+					<ComplianceFindings
+						findings={findings}
+						justifications={justifications}
+						onJustify={(key, value) => setJustifications((prev) => ({ ...prev, [key]: value }))}
+					/>
 				)}
 
 				{selectedRows.length > 0 && !activeAnalysis && (

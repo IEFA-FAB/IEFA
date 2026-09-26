@@ -71,3 +71,87 @@ Hipóteses a verificar.
 - **O sistema precisa:** a janela do calendário (mês previsto − antecedência) abre a pendência
   nos dois fluxos; o anexo concluído dentro da janela a fecha.
 - **Cobertura:** `procurement-calendar.test.ts`; `procurement-flows.operations.test.ts`.
+
+## Pesquisa de preços (IN SEGES/ME 65/2021)
+
+Irregularidade na pesquisa não trava o preço: vira não conformidade gravada no item pesquisado
+(`non_compliance_reasons`), com a base e o que fazer, e a justificativa correspondente a resolve
+(colunas `justification_*`, migration `20260926211000`). A regra é uma só
+(`sisub-domain/operations/price-research-compliance.ts`), usada pelo modal, pela gravação, pelo
+lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
+
+### GU-PRC-01 — "A pesquisa só achou 2 preços"
+- **Realidade:** item regional ou pouco comprado; o Compras.gov.br devolve 2 contratações no ano.
+- **O sistema precisa:** o preço pode ser usado; a pesquisa fica não conforme ("Menos de 3 preços
+  válidos", art. 6º, caput e § 5º) até a justificativa, que vai à aprovação da autoridade.
+- **UX:** no modal da pesquisa, o quadro de não conformidades aparece sob as estatísticas com a
+  caixa "Justificativa da amostra reduzida"; preenchida (10+ caracteres), a pendência passa a
+  "justificada" e o "Usar" grava a justificativa junto.
+  No relatório de pesquisa de preços, a justificativa tira o aviso do checklist e sai nas
+  excepcionalidades (seção 7), com o texto; sem ela, o espaço fica em branco para preencher.
+- **Cobertura:** `price-research-compliance.test.ts › menos de 3 preços…`, `› a justificativa da
+  amostra reduzida resolve…`; `price-research-report.test.ts › justificativa da amostra reduzida
+  tira o aviso…`. **LACUNA:** o modal não tem teste de componente nem e2e.
+
+### GU-PRC-02 — "Os preços vêm todos do mesmo órgão"
+- **Realidade:** 5 preços, 2 UASGs.
+- **O sistema precisa:** não conformidade "Menos de 3 UASGs distintas", atribuída ao critério da
+  unidade (a IN não fixa número de órgãos), resolvida pela mesma justificativa da amostra reduzida.
+- **Cobertura:** `price-research-compliance.test.ts › 3 UASGs é critério da unidade, não da IN`.
+
+### GU-PRC-03 — "A amostra não tem data"
+- **Realidade:** a API devolve contratação sem `dataResultado` nem `dataCompra`.
+- **O sistema precisa:** a amostra aparece na tabela (selo "sem data") e fica fora do cálculo:
+  sem data não há como mostrar que o preço é de até 1 ano (art. 5º, II). Quem a inclui (botão
+  "N sem data: fora do cálculo") registra a não conformidade "amostra sem data de referência",
+  resolvida pela justificativa do período (art. 5º, § 3º). Antes de incluídas, as linhas sem data
+  não se selecionam, e "Selecionar todos" não as pega. O lote e o worker da API sempre as deixam
+  fora.
+- **Cobertura:** `price-research-utils.test.ts › janela de recência` (filtro, partição, funil do
+  `autoSelectPrice`, `› sem data só é selecionável depois de incluída…`);
+  `price-research-compliance.test.ts › amostra sem data no cálculo…`,
+  `› complianceFactsOf…`; `apps/api/.../analyzer.test.ts › amostra sem data fica fora…`.
+
+### GU-PRC-04 — "Quero ver o histórico todo do item"
+- **Realidade:** consulta exploratória, ou item sem compra no último ano.
+- **O sistema precisa:** "Todo o histórico" continua disponível; a pesquisa gravada com ele (ou com
+  janela > 12 meses) fica não conforme citando o art. 5º, I e II, e § 3º, até a justificativa do
+  preço fora do prazo (que pede o índice de atualização, não aplicado pelo sistema).
+- **Cobertura:** `price-research-compliance.test.ts › todo o histórico e janela maior que 12 meses…`.
+- **Decisão:** a janela conta da data da pesquisa, não do edital: é o marco do art. 5º, II (e a
+  fonte daqui é o inciso I, Painel de Preços). A divulgação do edital só é marco dos incisos III,
+  IV e V. **LACUNA:** quando o sistema tiver essas fontes, a janela delas precisa da data prevista
+  de divulgação, que não existe com confiança (`procurement_segment.planned_month` é o mês de
+  início do processo, não do edital).
+
+### GU-PRC-05 — "Tirei amostras à mão"
+- **Realidade:** o pregoeiro desmarca preços de outro estado ou de embalagem atípica, por
+  seleção de linhas ou filtro de coluna, em vez do IQR automático.
+- **O sistema precisa:** não conformidade "amostras escolhidas à mão" (art. 6º, § 3º, e art. 3º,
+  VI) até o critério ser descrito. O servidor não confia no flag do cliente: deriva a seleção
+  manual quando somem amostras entre a janela e a classificação, ou quando a classificação não é a
+  do IQR automático, e grava o fato em `manual_selection`, que o relatório lê.
+- **Cobertura:** `price-research-compliance.test.ts › seleção manual pede o critério…`,
+  `› deriveManualSelection`; `price-research-report.test.ts › seleção manual sai do fato gravado…`.
+
+### GU-PRC-06 — "Quero usar o menor preço"
+- **O sistema precisa:** o menor valor é método do art. 6º, caput: "Usar" no Mínimo grava
+  `lowest`, sem pendência. Método fora de média/mediana/menor pede justificativa (art. 6º, § 1º);
+  hoje nenhuma tela o oferece.
+- **Cobertura:** `price-research-utils.test.ts › menor valor é método do art. 6º, caput…`;
+  `price-research-compliance.test.ts › menor preço é método do caput…`.
+
+### GU-PRC-08 — "Reabri o relatório do mês passado"
+- **O sistema precisa:** a emissão mostra o que foi emitido. O checklist e as excepcionalidades
+  ficam congelados na emissão; emissão anterior a esta regra se lê pela regra da época, com o
+  texto da época.
+- **Cobertura:** `price-research-report.test.ts › emissão registrada`.
+
+### GU-PRC-07 — "O lote pesquisou 200 itens e 12 ficaram com poucos preços"
+- **O sistema precisa:** o preço é aplicado; o toast do lote usa as não conformidades que o
+  servidor gravou e separa as que se resolvem por justificativa (abrir a pesquisa do item e
+  justificar) das que só refazendo resolvem (unidade herdada). A nova pesquisa com justificativa é
+  outra memória de cálculo (chave de idempotência v3 inclui janela, seleção e justificativas).
+- **Cobertura:** **LACUNA:** o toast não tem teste, e a tabela do anexo não marca quais itens
+  estão não conformes (o usuário só descobre reabrindo a pesquisa de cada um). Menor caminho:
+  selo "não conforme" por item na `AtaItemsTable`, lido do último `procurement_pesquisa_preco_item`.
