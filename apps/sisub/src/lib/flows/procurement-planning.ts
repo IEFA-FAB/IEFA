@@ -1,11 +1,11 @@
-import type { ProcurementPlanningStatus } from "@iefa/sisub-domain"
-import { type FlowIssue, type FlowStep, monthYear, plural, shortDate, statusFromIssues } from "./model"
+import { PRICE_RESEARCH_VALIDITY_DAYS, type ProcurementPlanningStatus } from "@iefa/sisub-domain"
+import { deriveStatusFromIssues, type FlowIssue, type FlowStep, formatMonthYear, formatShortDate, pluralize } from "./model"
 
 /**
  * Fluxo "Planejar contratação" da Gestão Unidade: do cardápio das cozinhas aos documentos do
  * processo. A ordem das etapas é a ordem em que o trabalho depende do anterior.
  */
-export function procurementPlanningSteps(status: ProcurementPlanningStatus): FlowStep[] {
+export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus): FlowStep[] {
 	const unit = `/unit/${status.unitId}`
 
 	// 1. Cardápios das cozinhas ─────────────────────────────────────────────────
@@ -35,7 +35,7 @@ export function procurementPlanningSteps(status: ProcurementPlanningStatus): Flo
 		} else if (k.forecast.status === "sent") {
 			forecastIssues.push({
 				severity: "info",
-				message: `${k.name} enviou "${k.forecast.title}"${k.forecast.updatedAt ? ` em ${shortDate(k.forecast.updatedAt)}` : ""}: importe no primeiro passo do anexo.`,
+				message: `${k.name} enviou "${k.forecast.title}"${k.forecast.updatedAt ? ` em ${formatShortDate(k.forecast.updatedAt)}` : ""}: importe no primeiro passo do anexo.`,
 			})
 		}
 	}
@@ -47,14 +47,14 @@ export function procurementPlanningSteps(status: ProcurementPlanningStatus): Flo
 	if (seg.conflictCount > 0) {
 		segIssues.push({
 			severity: "blocking",
-			message: `${plural(seg.conflictCount, "item está", "itens estão")} em duas contratações. A lei veda duas atas com o mesmo objeto (Lei 14.133/2021, art. 82, VIII).`,
+			message: `${pluralize(seg.conflictCount, "item está", "itens estão")} em duas contratações. A lei veda duas atas com o mesmo objeto (Lei 14.133/2021, art. 82, VIII).`,
 			action: { label: "Resolver conflitos", href: `${unit}/segments` },
 		})
 	}
 	if (seg.segmentCount > 0 && seg.unassignedCount > 0) {
 		segIssues.push({
 			severity: "warning",
-			message: `${plural(seg.unassignedCount, "item dos cardápios não entra", "itens dos cardápios não entram")} em nenhuma contratação. Pode ser compra fora do rancho; se não for, inclua a pasta.`,
+			message: `${pluralize(seg.unassignedCount, "item dos cardápios não entra", "itens dos cardápios não entram")} em nenhuma contratação. Pode ser compra fora do rancho; se não for, inclua a pasta.`,
 			action: { label: "Ver itens sem contratação", href: `${unit}/segments` },
 		})
 	}
@@ -80,7 +80,7 @@ export function procurementPlanningSteps(status: ProcurementPlanningStatus): Flo
 		if (entry.cycle.active && !entry.cycle.closed) {
 			calendarIssues.push({
 				severity: "warning",
-				message: `${entry.name}: prevista para ${monthYear(entry.cycle.due)} e sem anexo concluído neste ciclo.`,
+				message: `${entry.name}: prevista para ${formatMonthYear(entry.cycle.due)} e sem anexo concluído neste ciclo.`,
 				action:
 					entry.lastAnnex?.status === "draft"
 						? {
@@ -114,21 +114,21 @@ export function procurementPlanningSteps(status: ProcurementPlanningStatus): Flo
 		if (p.withoutResearch > 0) {
 			priceIssues.push({
 				severity: "blocking",
-				message: `"${p.title}": ${plural(p.withoutResearch, "item com preço sem pesquisa registrada", "itens com preço sem pesquisa registrada")} (IN SEGES/ME 65/2021, art. 3º).`,
+				message: `"${p.title}": ${pluralize(p.withoutResearch, "item com preço sem pesquisa registrada", "itens com preço sem pesquisa registrada")} (IN SEGES/ME 65/2021, art. 3º).`,
 				action: { label: "Pesquisar preços", href },
 			})
 		}
 		if (p.withoutPrice > 0) {
 			priceIssues.push({
 				severity: "warning",
-				message: `"${p.title}": ${plural(p.withoutPrice, "item sem preço", "itens sem preço")}.`,
+				message: `"${p.title}": ${pluralize(p.withoutPrice, "item sem preço", "itens sem preço")}.`,
 				action: { label: "Pesquisar preços", href },
 			})
 		}
 		if (p.oldResearch > 0) {
 			priceIssues.push({
 				severity: "warning",
-				message: `"${p.title}": ${plural(p.oldResearch, "item com pesquisa de mais de 180 dias", "itens com pesquisa de mais de 180 dias")}; refaça antes de divulgar o edital.`,
+				message: `"${p.title}": ${pluralize(p.oldResearch, `item com pesquisa de mais de ${PRICE_RESEARCH_VALIDITY_DAYS} dias`, `itens com pesquisa de mais de ${PRICE_RESEARCH_VALIDITY_DAYS} dias`)}; refaça antes de divulgar o edital.`,
 				action: { label: "Refazer pesquisa", href },
 			})
 		}
@@ -139,15 +139,15 @@ export function procurementPlanningSteps(status: ProcurementPlanningStatus): Flo
 			id: "menus",
 			title: "Cardápios das cozinhas",
 			objective: "As cozinhas da OM têm cadastrado o que vão produzir: é a base de toda quantidade.",
-			status: statusFromIssues(menuIssues),
-			summary: `${plural(withMenus.length, "cozinha", "cozinhas")} de ${status.kitchens.length} com cardápio semanal`,
+			status: deriveStatusFromIssues(menuIssues),
+			summary: `${pluralize(withMenus.length, "cozinha", "cozinhas")} de ${status.kitchens.length} com cardápio semanal`,
 			issues: menuIssues,
 		},
 		{
 			id: "forecasts",
 			title: "Previsão de demanda das cozinhas",
 			objective: "Cada nutricionista diz quais cardápios, eventos e apoios vai produzir e quantas vezes.",
-			status: status.kitchens.length === 0 ? "todo" : statusFromIssues(forecastIssues),
+			status: status.kitchens.length === 0 ? "todo" : deriveStatusFromIssues(forecastIssues),
 			summary: `${received} de ${status.kitchens.length} enviada${received === 1 ? "" : "s"}`,
 			issues: forecastIssues,
 		},
@@ -155,11 +155,11 @@ export function procurementPlanningSteps(status: ProcurementPlanningStatus): Flo
 			id: "segments",
 			title: "Segmentação das contratações",
 			objective: "Diga o que a OM compra em cada processo (carnes, estocáveis, bebidas…).",
-			status: statusFromIssues(segIssues, seg.segmentCount === 0 ? "todo" : "done"),
+			status: deriveStatusFromIssues(segIssues, seg.segmentCount === 0 ? "todo" : "done"),
 			summary:
 				seg.segmentCount === 0
 					? "Nenhuma contratação"
-					: `${plural(seg.segmentCount, "contratação", "contratações")} · ${seg.lineCount - seg.unassignedCount - seg.conflictCount} de ${seg.lineCount} itens com contratação`,
+					: `${pluralize(seg.segmentCount, "contratação", "contratações")} · ${seg.lineCount - seg.unassignedCount - seg.conflictCount} de ${seg.lineCount} itens com contratação`,
 			issues: segIssues,
 			action: { label: "Abrir segmentação", href: `${unit}/segments` },
 		},
@@ -167,8 +167,8 @@ export function procurementPlanningSteps(status: ProcurementPlanningStatus): Flo
 			id: "calendar",
 			title: "Calendário de contratação",
 			objective: "Comece cada contratação com antecedência, para a ata não vencer sem substituta.",
-			status: status.calendar.length === 0 ? "todo" : statusFromIssues(calendarIssues),
-			summary: status.calendar.length === 0 ? "Sem contratações no calendário" : `${plural(openCycles, "contratação na janela", "contratações na janela")}`,
+			status: status.calendar.length === 0 ? "todo" : deriveStatusFromIssues(calendarIssues),
+			summary: status.calendar.length === 0 ? "Sem contratações no calendário" : `${pluralize(openCycles, "contratação na janela", "contratações na janela")}`,
 			issues: calendarIssues,
 		},
 		{
@@ -176,7 +176,7 @@ export function procurementPlanningSteps(status: ProcurementPlanningStatus): Flo
 			title: "Anexo quantitativo",
 			objective: "Calcule a quantidade de cada item a partir das produções previstas.",
 			status: status.drafts.length > 0 ? "attention" : concluded.length > 0 ? "done" : "todo",
-			summary: `${plural(status.drafts.length, "em andamento", "em andamento")} · ${plural(concluded.length, "concluído", "concluídos")} recente${concluded.length === 1 ? "" : "s"}`,
+			summary: `${pluralize(status.drafts.length, "em andamento", "em andamento")} · ${pluralize(concluded.length, "concluído", "concluídos")} recente${concluded.length === 1 ? "" : "s"}`,
 			issues: annexIssues,
 			action: { label: "Novo anexo", href: `${unit}/procurement/new` },
 		},
@@ -184,7 +184,7 @@ export function procurementPlanningSteps(status: ProcurementPlanningStatus): Flo
 			id: "prices",
 			title: "Pesquisa de preços",
 			objective: "Cada preço do anexo vem de uma pesquisa registrada, conferível na fonte.",
-			status: status.pricing.length === 0 ? "todo" : statusFromIssues(priceIssues),
+			status: status.pricing.length === 0 ? "todo" : deriveStatusFromIssues(priceIssues),
 			issues: priceIssues,
 		},
 		{

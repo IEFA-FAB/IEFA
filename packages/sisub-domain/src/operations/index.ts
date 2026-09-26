@@ -16,6 +16,7 @@ export {
 	fetchAtaDetails,
 	fetchAtaList,
 	finalizeAtaDraft,
+	PRICE_RESEARCH_VALIDITY_DAYS,
 	type SegmentExclusion,
 	saveAtaDraftItems,
 	updateAtaDraft,
@@ -507,6 +508,8 @@ export {
 	isSamePrice,
 	type MeasureDimension,
 	type ParsedMeasureUnit,
+	PRICE_MATCH_ABSOLUTE,
+	PRICE_MATCH_RELATIVE,
 	type PriceSampleUnitFields,
 	parseMeasureUnit,
 	resolveResearchUnit,
@@ -514,7 +517,7 @@ export {
 	type SampleConversion,
 } from "./price-units.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
-export { type CalendarCycle, contractingCycle } from "./procurement-calendar.ts"
+export { type CalendarCycle, computeContractingCycle } from "./procurement-calendar.ts"
 export {
 	type AnnexPricingState,
 	type DemandForecastStatus,

@@ -3,9 +3,10 @@
  *
  * `planned_month` não tem ano: o ciclo se calcula a partir de hoje.
  *
- * - vencimento = dia 1 do mês previsto no ano corrente, ou no seguinte quando ele já passou há
- *   mais de 2 meses (a janela que cruza o ano — março com 5 meses de antecedência começa em
- *   outubro — sai desta conta);
+ * - vencimento = o primeiro dia 1 do mês previsto (no ano anterior, no corrente ou no seguinte)
+ *   cuja carência de 2 meses ainda não acabou: dezembro continua sendo o ciclo corrente em
+ *   janeiro e fevereiro, e a janela que cruza o ano (março com 5 meses de antecedência começa
+ *   em outubro) sai da mesma conta;
  * - início da janela = vencimento − antecedência;
  * - a pendência "planejar a contratação" fica ativa do início da janela até vencimento + 2 meses;
  * - ela se encerra quando existe anexo concluído da contratação depois do início da janela.
@@ -33,7 +34,7 @@ function addMonths(year: number, month: number, delta: number): { year: number; 
 
 const iso = (year: number, month: number) => `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`
 
-export function contractingCycle(
+export function computeContractingCycle(
 	plannedMonth: number | null,
 	leadTimeMonths: number,
 	today: string,
@@ -41,16 +42,21 @@ export function contractingCycle(
 ): CalendarCycle | null {
 	if (plannedMonth == null || plannedMonth < 1 || plannedMonth > 12) return null
 	const [year, month] = today.split("-").map(Number) as [number, number]
-	// Vencimento no ano corrente; se já passou há mais de GRACE_MONTHS, é o do ano seguinte.
-	let due = { year, month: plannedMonth }
-	const graceEnd = addMonths(due.year, due.month, GRACE_MONTHS)
-	if (iso(graceEnd.year, graceEnd.month) < iso(year, month)) due = { year: year + 1, month: plannedMonth }
+	const todayMonth = iso(year, month)
+	// O ciclo corrente é o primeiro vencimento cuja carência ainda não acabou.
+	let due = { year: year + 1, month: plannedMonth }
+	for (const candidate of [year - 1, year, year + 1]) {
+		const graceEnd = addMonths(candidate, plannedMonth, GRACE_MONTHS)
+		if (iso(graceEnd.year, graceEnd.month) >= todayMonth) {
+			due = { year: candidate, month: plannedMonth }
+			break
+		}
+	}
 
 	const start = addMonths(due.year, due.month, -leadTimeMonths)
 	const end = addMonths(due.year, due.month, GRACE_MONTHS)
 	const windowStart = iso(start.year, start.month)
 	const windowEnd = iso(end.year, end.month)
-	const todayMonth = iso(year, month)
 	return {
 		due: iso(due.year, due.month),
 		windowStart,

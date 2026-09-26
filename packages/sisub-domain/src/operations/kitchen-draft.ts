@@ -22,7 +22,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, desc, eq, inArray } from "drizzle-orm"
-import { requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
+import { kitchenBelongsToUnit, requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
 import { requireKitchen, requireUnit } from "../guards/require-permission.ts"
 import type {
 	CreateKitchenDraft,
@@ -329,7 +329,7 @@ export async function recordKitchenDraftImport(db: SisubDb, ctx: UserContext, in
 			.limit(1)
 	)
 	if (!draft) throw new NotFoundError("previsão de demanda", input.draftId)
-	if (draft.unitId !== list.unitId && draft.purchaseUnitId !== list.unitId) {
+	if (!kitchenBelongsToUnit({ id: 0, unitId: draft.unitId, purchaseUnitId: draft.purchaseUnitId }, list.unitId)) {
 		throw new DomainError("KITCHEN_NOT_IN_UNIT", "A previsão é de uma cozinha de outra OM.")
 	}
 	if (draft.status === "pending") throw new DomainError("DRAFT_NOT_SENT", "A cozinha ainda não enviou esta previsão.")
@@ -346,7 +346,9 @@ export async function recordKitchenDraftImport(db: SisubDb, ctx: UserContext, in
 					const now = new Date().toISOString()
 					await tx
 						.update(kitchenAtaDraftInProcurement)
-						.set({ status: "reviewed", reviewedAt: now, reviewedBy: ctx.userId, updatedAt: now })
+						// Sem tocar updated_at: ele é a data da cozinha (edição, envio). Carimbar aqui
+						// reordenava as previsões e fazia uma antiga parecer "atualizada".
+						.set({ status: "reviewed", reviewedAt: now, reviewedBy: ctx.userId })
 						.where(and(eq(kitchenAtaDraftInProcurement.id, input.draftId), eq(kitchenAtaDraftInProcurement.status, "sent")))
 				}
 			}),

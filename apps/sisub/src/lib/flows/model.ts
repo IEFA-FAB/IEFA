@@ -35,14 +35,14 @@ export interface FlowStep {
 }
 
 /** Status da etapa pelas pendências: bloqueio vence aviso, que vence o "a fazer" da própria etapa. */
-export function statusFromIssues(issues: readonly FlowIssue[], fallback: StepStatus = "done"): StepStatus {
+export function deriveStatusFromIssues(issues: readonly FlowIssue[], fallback: StepStatus = "done"): StepStatus {
 	if (issues.some((i) => i.severity === "blocking")) return "blocked"
 	if (issues.some((i) => i.severity === "warning")) return "attention"
 	return fallback
 }
 
 /** O pior status entre as etapas: é o que o índice de fluxos mostra no card. */
-export function overallStatus(steps: readonly FlowStep[]): StepStatus {
+export function computeOverallStatus(steps: readonly FlowStep[]): StepStatus {
 	const order: StepStatus[] = ["blocked", "attention", "todo", "done"]
 	for (const status of order) if (steps.some((s) => s.status === status)) return status
 	return "done"
@@ -51,15 +51,15 @@ export function overallStatus(steps: readonly FlowStep[]): StepStatus {
 export const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
 
 /** "2027-03-01" → "março/2027". */
-export function monthYear(isoDate: string): string {
+export function formatMonthYear(isoDate: string): string {
 	const [year, month] = isoDate.split("-").map(Number) as [number, number]
 	return `${MONTHS[month - 1]}/${year}`
 }
 
 /** "2026-11-20T13:00:00Z" → "20/11/2026". Data civil de Brasília. */
-export function shortDate(value: string | null | undefined): string {
+export function formatShortDate(value: string | null | undefined): string {
 	if (!value) return ""
 	return new Date(value).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
 }
 
-export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+export const pluralize = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`

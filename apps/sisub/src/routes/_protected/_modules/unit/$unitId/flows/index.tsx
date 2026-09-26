@@ -3,7 +3,7 @@ import { requirePermission } from "@/auth/pbac"
 import { FlowHubCard } from "@/components/features/flows/FlowHubCard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { useProcurementPlanningStatus } from "@/hooks/data/useProcurementFlows"
-import { procurementPlanningSteps } from "@/lib/flows/procurement-planning"
+import { buildProcurementPlanningSteps } from "@/lib/flows/procurement-planning"
 
 /**
  * GESTÃO UNIDADE — Fluxos
@@ -29,7 +29,7 @@ function UnitFlowsPage() {
 				title="Planejar contratação"
 				description="Dos cardápios das cozinhas aos documentos do processo: previsão de demanda, segmentação, anexo quantitativo e pesquisa de preços."
 				href={`/unit/${unitId}/flows/procurement-planning`}
-				steps={data ? procurementPlanningSteps(data) : null}
+				steps={data ? buildProcurementPlanningSteps(data) : null}
 			/>
 		</div>
 	)

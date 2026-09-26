@@ -3,7 +3,7 @@ import { requirePermission } from "@/auth/pbac"
 import { FlowHubCard } from "@/components/features/flows/FlowHubCard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { useDemandForecastStatus } from "@/hooks/data/useProcurementFlows"
-import { demandForecastSteps } from "@/lib/flows/demand-forecast"
+import { buildDemandForecastSteps } from "@/lib/flows/demand-forecast"
 
 /**
  * GESTÃO COZINHA — Fluxos
@@ -26,7 +26,7 @@ function KitchenFlowsPage() {
 				title="Prever demanda para compra"
 				description="Cardápios, eventos e apoios em ordem para a unidade calcular o que comprar, e o envio da previsão."
 				href={`/kitchen/${kitchenId}/flows/demand-forecast`}
-				steps={data ? demandForecastSteps(data) : null}
+				steps={data ? buildDemandForecastSteps(data) : null}
 			/>
 		</div>
 	)

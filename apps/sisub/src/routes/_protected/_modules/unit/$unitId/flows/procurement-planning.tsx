@@ -3,7 +3,7 @@ import { requirePermission } from "@/auth/pbac"
 import { FlowView } from "@/components/features/flows/FlowView"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { useProcurementPlanningStatus } from "@/hooks/data/useProcurementFlows"
-import { procurementPlanningSteps } from "@/lib/flows/procurement-planning"
+import { buildProcurementPlanningSteps } from "@/lib/flows/procurement-planning"
 
 /**
  * GESTÃO UNIDADE — Fluxo "Planejar contratação"
@@ -32,7 +32,7 @@ function ProcurementPlanningFlowPage() {
 			) : isError || !data ? (
 				<p className="text-sm text-destructive">Não foi possível ler o estado do planejamento.</p>
 			) : (
-				<FlowView steps={procurementPlanningSteps(data)} origin={{ href, label: "Planejar contratação" }} />
+				<FlowView steps={buildProcurementPlanningSteps(data)} origin={{ href, label: "Planejar contratação" }} />
 			)}
 		</div>
 	)

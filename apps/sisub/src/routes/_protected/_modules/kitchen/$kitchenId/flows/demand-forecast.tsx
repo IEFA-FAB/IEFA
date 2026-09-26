@@ -3,7 +3,7 @@ import { requirePermission } from "@/auth/pbac"
 import { FlowView } from "@/components/features/flows/FlowView"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { useDemandForecastStatus } from "@/hooks/data/useProcurementFlows"
-import { demandForecastSteps } from "@/lib/flows/demand-forecast"
+import { buildDemandForecastSteps } from "@/lib/flows/demand-forecast"
 
 /**
  * GESTÃO COZINHA — Fluxo "Prever demanda para compra"
@@ -32,7 +32,7 @@ function DemandForecastFlowPage() {
 			) : isError || !data ? (
 				<p className="text-sm text-destructive">Não foi possível ler o estado da previsão.</p>
 			) : (
-				<FlowView steps={demandForecastSteps(data)} origin={{ href, label: "Prever demanda para compra" }} />
+				<FlowView steps={buildDemandForecastSteps(data)} origin={{ href, label: "Prever demanda para compra" }} />
 			)}
 		</div>
 	)

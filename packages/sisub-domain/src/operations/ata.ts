@@ -78,7 +78,7 @@ import { fetchTemplateMealsSafe } from "./template-meals.ts"
  * legal: os 6 meses do art. 5º, III e IV, da IN SEGES/ME 65/2021 valem para sítios e cotações, não
  * para a fonte oficial que o sisub consulta (preços de contratações de até 1 ano antes da pesquisa).
  */
-const PRICE_RESEARCH_VALIDITY_DAYS = 180
+export const PRICE_RESEARCH_VALIDITY_DAYS = 180
 
 /** Status do anexo como a tela os chama (o enum `published` é "concluído": publicar é divulgar no PNCP). */
 const LIST_STATUS_LABELS: Record<string, string> = { draft: "em rascunho", published: "concluído", archived: "arquivado" }

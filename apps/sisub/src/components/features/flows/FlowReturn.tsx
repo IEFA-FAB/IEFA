@@ -15,11 +15,16 @@ export function FlowReturn() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const incoming = useRouterState({ select: (s) => (s.location.state as { fromFlow?: FlowOrigin } | undefined)?.fromFlow })
 	const [origin, setOrigin] = useState<FlowOrigin | null>(null)
+	// Fluxo cujo atalho o usuário fechou: o `fromFlow` segue no history state da tela de chegada,
+	// e sem isto o próximo render o traria de volta.
+	const [dismissedHref, setDismissedHref] = useState<string | null>(null)
 
-	// Ajuste durante o render (sem efeito): a origem nova substitui a guardada.
-	if (incoming && incoming.href !== origin?.href) setOrigin(incoming)
-	if (origin && pathname === origin.href) {
-		setOrigin(null)
+	// Ajustes durante o render (sem efeito): a origem nova substitui a guardada; voltar ao fluxo
+	// encerra o atalho e libera o fechamento para a próxima ida.
+	if (incoming && incoming.href !== origin?.href && incoming.href !== dismissedHref) setOrigin(incoming)
+	if (pathname === (origin?.href ?? dismissedHref)) {
+		if (origin) setOrigin(null)
+		if (dismissedHref) setDismissedHref(null)
 		return null
 	}
 	if (!origin) return null
@@ -37,7 +42,15 @@ export function FlowReturn() {
 					</Link>
 				}
 			/>
-			<Button size="icon-sm" variant="ghost" onClick={() => setOrigin(null)} aria-label="Esconder atalho do fluxo">
+			<Button
+				size="icon-sm"
+				variant="ghost"
+				onClick={() => {
+					setDismissedHref(origin.href)
+					setOrigin(null)
+				}}
+				aria-label="Esconder atalho do fluxo"
+			>
 				<X aria-hidden="true" />
 			</Button>
 		</div>

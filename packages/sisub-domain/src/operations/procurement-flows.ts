@@ -12,16 +12,15 @@
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { sql } from "drizzle-orm"
-import { requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
+import { kitchenUnitIds, requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
 import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { runQuery } from "../utils/index.ts"
-import { type CalendarCycle, contractingCycle } from "./procurement-calendar.ts"
-import { fetchSegmentationOverview } from "./procurement-segments.ts"
+import { PRICE_RESEARCH_VALIDITY_DAYS } from "./ata.ts"
+import { PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
+import { type CalendarCycle, computeContractingCycle } from "./procurement-calendar.ts"
+import { summarizeSegmentation } from "./procurement-segments.ts"
 import { brasiliaToday } from "./stock-math.ts"
-
-/** Idade (dias) a partir da qual a pesquisa de preço pede renovação — mesma política do anexo. */
-const RESEARCH_RENEWAL_DAYS = 180
 
 export interface KitchenPlanningState {
 	id: number
@@ -85,7 +84,7 @@ async function loadKitchenStates(db: SisubDb, where: ReturnType<typeof sql>): Pr
 				left join lateral (
 					select * from procurement.kitchen_ata_draft d
 					where d.kitchen_id = k.id and d.status in ('sent', 'reviewed')
-					order by d.updated_at desc nulls last, d.created_at desc
+					order by d.created_at desc
 					limit 1
 				) d on true
 				where ${where}
@@ -120,7 +119,13 @@ async function loadCalendar(db: SisubDb, unitIds: readonly number[], today: stri
 			db.execute(sql`
 				select
 					s.id, s.name, s.planned_month, s.lead_time_months,
-					(select coalesce(json_agg(l.updated_at), '[]'::json) from procurement.procurement_list l
+					-- Conclusão = quando o snapshot foi congelado (a saída do rascunho), em data civil de
+					-- Brasília. updated_at não serve: arquivar um anexo antigo o carimbaria de novo e
+					-- encerraria o ciclo corrente sem anexo novo.
+					(select coalesce(json_agg(to_char(
+							(coalesce((select min(ss.created_at) from procurement.procurement_list_snapshot_selection ss where ss.list_id = l.id), l.updated_at)
+								at time zone 'America/Sao_Paulo'), 'YYYY-MM-DD')), '[]'::json)
+						from procurement.procurement_list l
 						where l.segment_id = s.id and l.deleted_at is null and l.status in ('published', 'archived')) as concluded_at,
 					la.id as annex_id, la.title as annex_title, la.status as annex_status, la.wizard_step as annex_step, la.updated_at as annex_updated_at
 				from procurement.procurement_segment s
@@ -144,7 +149,7 @@ async function loadCalendar(db: SisubDb, unitIds: readonly number[], today: stri
 			segmentId: String(r.id),
 			name: String(r.name),
 			plannedMonth: r.planned_month == null ? null : num(r.planned_month),
-			cycle: contractingCycle(r.planned_month == null ? null : num(r.planned_month), num(r.lead_time_months), today, concluded),
+			cycle: computeContractingCycle(r.planned_month == null ? null : num(r.planned_month), num(r.lead_time_months), today, concluded),
 			lastAnnex: r.annex_id
 				? {
 						id: String(r.annex_id),
@@ -165,7 +170,7 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 
 	const [kitchens, overview, calendar, drafts, pricing] = await Promise.all([
 		loadKitchenStates(db, sql`(k.unit_id = ${unitId} or k.purchase_unit_id = ${unitId})`),
-		fetchSegmentationOverview(db, ctx, { unitId }),
+		summarizeSegmentation(db, unitId),
 		loadCalendar(db, [unitId], today),
 		runQuery(
 			"QUERY_FAILED",
@@ -192,13 +197,13 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 							where i.unit_price is not null and not exists (
 								select 1 from procurement.procurement_pesquisa_preco_item r
 								where r.ata_item_id = i.id and r.reference_price is not null
-									and abs(r.reference_price - i.unit_price) <= greatest(0.00005, abs(i.unit_price) * 0.0005)
+									-- Mesma tolerância de isSamePrice (price-units.ts).
+									and abs(r.reference_price - i.unit_price) <= greatest(${PRICE_MATCH_ABSOLUTE}, abs(i.unit_price) * ${PRICE_MATCH_RELATIVE})
 							)
 						) as without_research,
 						count(i.id) filter (
-							where exists (select 1 from procurement.procurement_pesquisa_preco_item r where r.ata_item_id = i.id)
-								and (select max(r.created_at) from procurement.procurement_pesquisa_preco_item r where r.ata_item_id = i.id)
-									< now() - make_interval(days => ${RESEARCH_RENEWAL_DAYS})
+							where (select max(r.created_at) from procurement.procurement_pesquisa_preco_item r where r.ata_item_id = i.id)
+								< now() - make_interval(days => ${PRICE_RESEARCH_VALIDITY_DAYS})
 						) as old_research
 					from procurement.procurement_list l
 					left join procurement.procurement_segment s on s.id = l.segment_id
@@ -216,12 +221,7 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 		unitId,
 		today,
 		kitchens,
-		segmentation: {
-			segmentCount: overview.segments.length,
-			lineCount: overview.lines.length,
-			unassignedCount: overview.unassignedCount,
-			conflictCount: overview.conflictCount,
-		},
+		segmentation: overview,
 		calendar,
 		drafts: drafts.map((r) => ({
 			id: String(r.id),
@@ -317,7 +317,7 @@ export async function fetchDemandForecastStatus(db: SisubDb, ctx: UserContext, i
 							where i.draft_id = d.id) as imports
 					from procurement.kitchen_ata_draft d
 					where d.kitchen_id = ${kitchenId} and d.status in ('sent', 'reviewed')
-					order by d.updated_at desc nulls last, d.created_at desc
+					order by d.created_at desc
 					limit 1
 				`),
 			{ prefix: "Erro ao ler a previsão de demanda" }
@@ -325,8 +325,12 @@ export async function fetchDemandForecastStatus(db: SisubDb, ctx: UserContext, i
 	])
 
 	const summary = summaryRows[0] ?? {}
-	const unitIds = [summary.unit_id, summary.purchase_unit_id].filter((id): id is number | string => id != null).map(Number)
-	const calendar = await loadCalendar(db, [...new Set(unitIds)], today)
+	const unitIds = kitchenUnitIds({
+		id: kitchenId,
+		unitId: summary.unit_id == null ? null : Number(summary.unit_id),
+		purchaseUnitId: summary.purchase_unit_id == null ? null : Number(summary.purchase_unit_id),
+	})
+	const calendar = await loadCalendar(db, unitIds, today)
 	const forecast = forecastRows[0]
 
 	return {

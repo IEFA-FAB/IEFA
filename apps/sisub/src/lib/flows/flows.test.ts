@@ -1,8 +1,8 @@
 import type { DemandForecastStatus, ProcurementPlanningStatus } from "@iefa/sisub-domain"
 import { describe, expect, test } from "vitest"
-import { demandForecastSteps } from "./demand-forecast"
-import { monthYear, overallStatus, statusFromIssues } from "./model"
-import { procurementPlanningSteps } from "./procurement-planning"
+import { buildDemandForecastSteps } from "./demand-forecast"
+import { computeOverallStatus, deriveStatusFromIssues, formatMonthYear } from "./model"
+import { buildProcurementPlanningSteps } from "./procurement-planning"
 
 const baseUnit: ProcurementPlanningStatus = {
 	unitId: 10,
@@ -13,38 +13,38 @@ const baseUnit: ProcurementPlanningStatus = {
 	drafts: [],
 	pricing: [],
 }
-const step = (steps: ReturnType<typeof procurementPlanningSteps>, id: string) => steps.find((s) => s.id === id)
+const step = (steps: ReturnType<typeof buildProcurementPlanningSteps>, id: string) => steps.find((s) => s.id === id)
 
 describe("modelo", () => {
 	test("bloqueio vence aviso, que vence o status padrão", () => {
-		expect(statusFromIssues([{ severity: "info", message: "" }])).toBe("done")
+		expect(deriveStatusFromIssues([{ severity: "info", message: "" }])).toBe("done")
 		expect(
-			statusFromIssues([
+			deriveStatusFromIssues([
 				{ severity: "warning", message: "" },
 				{ severity: "blocking", message: "" },
 			])
 		).toBe("blocked")
-		expect(statusFromIssues([], "todo")).toBe("todo")
+		expect(deriveStatusFromIssues([], "todo")).toBe("todo")
 	})
 
 	test("status geral é o pior entre as etapas", () => {
-		expect(overallStatus([{ id: "a", title: "", objective: "", status: "done", issues: [] }])).toBe("done")
+		expect(computeOverallStatus([{ id: "a", title: "", objective: "", status: "done", issues: [] }])).toBe("done")
 		expect(
-			overallStatus([
+			computeOverallStatus([
 				{ id: "a", title: "", objective: "", status: "todo", issues: [] },
 				{ id: "b", title: "", objective: "", status: "attention", issues: [] },
 			])
 		).toBe("attention")
 	})
 
-	test("monthYear", () => {
-		expect(monthYear("2027-03-01")).toBe("março/2027")
+	test("formatMonthYear", () => {
+		expect(formatMonthYear("2027-03-01")).toBe("março/2027")
 	})
 })
 
 describe("Planejar contratação", () => {
 	test("sem cardápio semanal em nenhuma cozinha, a primeira etapa bloqueia e diz quem resolve", () => {
-		const steps = procurementPlanningSteps({ ...baseUnit, kitchens: [{ ...baseUnit.kitchens[0], weeklyWithItems: 0 }] })
+		const steps = buildProcurementPlanningSteps({ ...baseUnit, kitchens: [{ ...baseUnit.kitchens[0], weeklyWithItems: 0 }] })
 		const menus = step(steps, "menus")
 		expect(menus?.status).toBe("blocked")
 		expect(menus?.issues[0].message).toMatch(/nutricionista/)
@@ -53,7 +53,7 @@ describe("Planejar contratação", () => {
 	})
 
 	test("cozinha sem previsão vira aviso sem link; previsão enviada vira informação para importar", () => {
-		const steps = procurementPlanningSteps({
+		const steps = buildProcurementPlanningSteps({
 			...baseUnit,
 			kitchens: [
 				{ ...baseUnit.kitchens[0] },
@@ -75,7 +75,7 @@ describe("Planejar contratação", () => {
 	})
 
 	test("conflito de segmentação bloqueia e leva à segmentação", () => {
-		const steps = procurementPlanningSteps({ ...baseUnit, segmentation: { segmentCount: 2, lineCount: 30, unassignedCount: 3, conflictCount: 1 } })
+		const steps = buildProcurementPlanningSteps({ ...baseUnit, segmentation: { segmentCount: 2, lineCount: 30, unassignedCount: 3, conflictCount: 1 } })
 		const segments = step(steps, "segments")
 		expect(segments?.status).toBe("blocked")
 		expect(segments?.issues[0].action?.href).toBe("/unit/10/segments")
@@ -83,11 +83,11 @@ describe("Planejar contratação", () => {
 	})
 
 	test("sem contratações a segmentação é 'a fazer', com orientação", () => {
-		expect(step(procurementPlanningSteps(baseUnit), "segments")?.status).toBe("todo")
+		expect(step(buildProcurementPlanningSteps(baseUnit), "segments")?.status).toBe("todo")
 	})
 
 	test("contratação na janela sem anexo concluído aponta o rascunho em andamento", () => {
-		const steps = procurementPlanningSteps({
+		const steps = buildProcurementPlanningSteps({
 			...baseUnit,
 			calendar: [
 				{
@@ -106,7 +106,7 @@ describe("Planejar contratação", () => {
 	})
 
 	test("preço sem pesquisa bloqueia a etapa de preços", () => {
-		const steps = procurementPlanningSteps({
+		const steps = buildProcurementPlanningSteps({
 			...baseUnit,
 			pricing: [{ listId: "l1", title: "Carnes", status: "draft", segmentName: "Carnes", items: 10, withoutPrice: 2, withoutResearch: 3, oldResearch: 0 }],
 		})
@@ -134,17 +134,17 @@ describe("Prever demanda para compra", () => {
 	const cycle = { due: "2027-03-01", windowStart: "2026-10-01", windowEnd: "2027-05-01", active: true, closed: false }
 
 	test("sem previsão enviada, a última etapa é 'a fazer' com o atalho para criar", () => {
-		const send = demandForecastSteps(base).find((s) => s.id === "send")
+		const send = buildDemandForecastSteps(base).find((s) => s.id === "send")
 		expect(send?.status).toBe("todo")
 		expect(send?.action?.href).toBe("/kitchen/5/suprimentos/new")
 	})
 
 	test("contratação da OM na janela pede a previsão; previsão atualizada na janela a cobre", () => {
-		const pending = demandForecastSteps({ ...base, unitCalendar: [{ name: "Carnes", plannedMonth: 3, cycle }] }).find((s) => s.id === "send")
+		const pending = buildDemandForecastSteps({ ...base, unitCalendar: [{ name: "Carnes", plannedMonth: 3, cycle }] }).find((s) => s.id === "send")
 		expect(pending?.issues[0]).toMatchObject({ severity: "warning" })
 		expect(pending?.issues[0].message).toContain("Carnes")
 
-		const covered = demandForecastSteps({
+		const covered = buildDemandForecastSteps({
 			...base,
 			forecast: {
 				id: "f",
@@ -162,14 +162,24 @@ describe("Prever demanda para compra", () => {
 	})
 
 	test("apoio sem ocorrências e insumo sem item de compra são avisos", () => {
-		const steps = demandForecastSteps({ ...base, exceptionsWithoutOccurrences: 1, ingredientsWithoutPurchaseItem: 3 })
+		const steps = buildDemandForecastSteps({ ...base, exceptionsWithoutOccurrences: 1, ingredientsWithoutPurchaseItem: 3 })
 		expect(steps.find((s) => s.id === "occasions")?.status).toBe("attention")
 		const catalog = steps.find((s) => s.id === "catalog")
 		expect(catalog?.status).toBe("attention")
 		expect(catalog?.issues[0].action).toBeUndefined()
 	})
 
+	test("previsão em elaboração aparece mesmo com outra já recebida", () => {
+		const send = buildDemandForecastSteps({
+			...base,
+			pendingForecasts: 1,
+			forecast: { id: "f", title: "Jan", status: "reviewed", updatedAt: "2026-01-05T10:00:00Z", reviewedAt: "2026-01-06T10:00:00Z", imports: [] },
+		}).find((s) => s.id === "send")
+		expect(send?.status).toBe("attention")
+		expect(send?.issues[0].action?.label).toBe("Revisar e enviar")
+	})
+
 	test("nenhum cardápio semanal bloqueia", () => {
-		expect(demandForecastSteps({ ...base, weeklyWithItems: 0 })[0].status).toBe("blocked")
+		expect(buildDemandForecastSteps({ ...base, weeklyWithItems: 0 })[0].status).toBe("blocked")
 	})
 })
