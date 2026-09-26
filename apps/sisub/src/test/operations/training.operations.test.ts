@@ -74,6 +74,11 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// Treino não concede nenhum módulo `alpha-*`, e o α recusa a unidade de treino como OM de
 	// envio, então o treinando do sisub não gera linha aqui.
 	"alpha.submission": "documento de contratação real enviado ao Projeto α (ETP/TR), não dado gerado pelo treinamento do sisub",
+	// `procurement.procurement_segment` — migration da change `sisub-procurement-planning-flows`
+	// (segmentação das contratações da OM). Declarada ANTES da migration, aqui, porque um passo de
+	// reset para tabela que ainda não existe falharia o reset; o PR do recurso a promove a
+	// RESET_STEPS (a sentinela do treino monta contratações pela tela) e remove esta linha.
+	"procurement.procurement_segment": "declarada antes da migration que a cria; sobe para RESET_STEPS no PR do recurso",
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */
