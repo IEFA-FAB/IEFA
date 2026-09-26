@@ -54,7 +54,8 @@
     "upgrade": "bun update --latest",
     "gen-all-types": "turbo run generate",
     "commit": "bun run format:check && bunx turbo run lint typecheck && cz",
-    "prepare": "husky",
+    "prepare": "husky && if [ -f scripts/env-pull.ts ]; then bun scripts/env-pull.ts --if-missing --quiet; fi",
+    "env:pull": "bun scripts/env-pull.ts",
     "quicksave": "git add . && git commit -m \"chore(root): wip unstable\""
   },
   "config": {
