@@ -17,6 +17,10 @@ function withLibpqCompat(url: string | undefined): string {
  * o CATMAT search em operations/ingredients.ts cruza os dois schemas — Drizzle
  * faz isso numa única conexão sem a limitação de embed do PostgREST.)
  *
+ * **Só introspecção — nunca `drizzle-kit generate` nem `push`.** O DDL é das migrations do
+ * Supabase CLI, e o `schema.ts` omite de propósito as FKs de ciclo mútuo (ver
+ * `scripts/patch-drizzle-pull.ts`, passo 8): um `generate` a partir dele proporia derrubá-las.
+ *
  * Connection: transaction pooler (port 6543) — see SISUB_DATABASE_URL in
  * apps/sisub/.env.schema. `drizzle-kit pull` tolerates either pooler.
  */
@@ -24,7 +28,19 @@ export default defineConfig({
 	dialect: "postgresql",
 	schema: "./drizzle/schema.ts",
 	out: "./drizzle",
-	schemaFilter: ["sisub", "core", "access_control", "kitchen", "procurement", "finance", "compras_gov_integration"],
+	schemaFilter: [
+		"sisub",
+		"core",
+		"access_control",
+		"kitchen",
+		"procurement",
+		"finance",
+		"compras_gov_integration",
+		"nutrition_reference",
+		"inventory",
+		"gs1_integration",
+		"siafi_integration",
+	],
 	dbCredentials: {
 		// O driver `pg` (usado só pelo `drizzle-kit pull`) passou a tratar
 		// `sslmode=require` como `verify-full`; sem CA verificável o pooler do

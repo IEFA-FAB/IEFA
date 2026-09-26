@@ -219,10 +219,7 @@ aberta sem criar outra:
 
 ## Pendências conhecidas
 
-- **Script de correlação CATMAT** (`apps/api/scripts/catmat-match-orchestrator.ts`): altera
-  o código CATMAT de itens de compra direto no banco, sem versão. O próximo save de cada
-  insumo leva o valor, mas o autor fica errado. Roda à mão e raramente; quando voltar a
-  rodar, deve passar pelo mesmo registro.
-- **Dois guards**: `UnsavedChangesGuard` (bloqueia a navegação) e `useDraft` (guarda e
-  deixa sair). Quando os editores de cardápio passarem a usar rascunho, o guard deixa de
-  ser necessário, porque sair não perde mais nada.
+- **Script de correlação CATMAT: removido** (2026-09-26). Ele decidia o CATMAT por
+  similaridade de texto e gravava por cima do que as nutricionistas escolheram na tela —
+  inclusive `null` quando não achava candidato. `curated-catalog.test.ts` (`@iefa/database`)
+  reprova qualquer script ou worker que volte a escrever em `procurement.purchase_item`.

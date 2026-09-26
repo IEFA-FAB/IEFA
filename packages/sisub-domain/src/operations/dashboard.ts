@@ -53,9 +53,8 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 			.orderBy(asc(messHallsInKitchen.code))
 	)
 
-	// `mess_halls.id` é bigint no Drizzle e `meal_*.mess_hall_id` é bigint-53 (number). O
-	// contrato da tela é `number`, então a conversão acontece aqui, uma vez, e não espalhada
-	// por cada comparação.
+	// O contrato da tela é `number`; o `Number()` fica como cinto — o id já chega number
+	// desde que o patcher do pull uniformizou os `bigserial`.
 	const messHalls: MessHallAPI[] = messHallRows.map((m) => ({
 		id: Number(m.id),
 		unit_id: m.unit_id,

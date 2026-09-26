@@ -804,18 +804,10 @@ export async function fetchTrainingScope(db: SisubDb, ctx: UserContext): Promise
 	const scope = await resolveTrainingScope(db)
 
 	const [unit, kitchen, messHall, dailyMenus, templates, tasks] = await Promise.all([
-		runQuery("FETCH_FAILED", () =>
-			db
-				.select({ name: unitsInCore.displayName })
-				.from(unitsInCore)
-				.where(eq(unitsInCore.id, BigInt(scope.unit_id)))
-		),
+		runQuery("FETCH_FAILED", () => db.select({ name: unitsInCore.displayName }).from(unitsInCore).where(eq(unitsInCore.id, scope.unit_id))),
 		runQuery("FETCH_FAILED", () => db.select({ name: kitchenInKitchen.displayName }).from(kitchenInKitchen).where(eq(kitchenInKitchen.id, scope.kitchen_id))),
 		runQuery("FETCH_FAILED", () =>
-			db
-				.select({ name: messHallsInKitchen.displayName })
-				.from(messHallsInKitchen)
-				.where(eq(messHallsInKitchen.id, BigInt(scope.mess_hall_id)))
+			db.select({ name: messHallsInKitchen.displayName }).from(messHallsInKitchen).where(eq(messHallsInKitchen.id, scope.mess_hall_id))
 		),
 		runQuery("FETCH_FAILED", () => db.select({ id: dailyMenuInKitchen.id }).from(dailyMenuInKitchen).where(eq(dailyMenuInKitchen.kitchenId, scope.kitchen_id))),
 		runQuery("FETCH_FAILED", () =>
