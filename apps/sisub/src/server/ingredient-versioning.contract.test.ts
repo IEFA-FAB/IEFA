@@ -11,8 +11,8 @@
  * com o motivo. POST novo sem classificação reprova a suíte: é o único momento em que
  * alguém ainda lembra se ele mexe no que a versão guarda.
  *
- * Escopo: as server functions do app. Escritor fora delas (o script de correlação CATMAT
- * em `apps/api/scripts/`) não é varrido aqui — está nas pendências de `docs/SAVE_BEHAVIOR.md`.
+ * Escopo: as server functions do app. Script ou worker em lote não escreve no catálogo de
+ * itens de compra — `curated-catalog.test.ts` (`@iefa/database`) cobra isso.
  */
 
 import { readFileSync } from "node:fs"
