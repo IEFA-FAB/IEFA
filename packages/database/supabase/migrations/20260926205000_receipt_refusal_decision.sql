@@ -23,6 +23,33 @@ update inventory.goods_receipt
  where status = 'rejected'
    and definitive_at is not null;
 
+-- Escrita antiga (o `refuseReceiptFn` da `main` até este PR entrar) continua funcionando: o
+-- gatilho desloca o instante e o autor da decisão para as colunas da recusa antes do CHECK. Sem
+-- ele, entre aplicar a migration e deployar o código, recusar um recebimento daria 23514.
+create or replace function inventory.goods_receipt_refusal_columns()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.status = 'rejected' and new.definitive_at is not null then
+    new.rejected_at := coalesce(new.rejected_at, new.definitive_at);
+    new.rejected_by := coalesce(new.rejected_by, new.definitive_by);
+    new.definitive_at := null;
+    new.definitive_by := null;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function inventory.goods_receipt_refusal_columns() from public, anon, authenticated;
+grant execute on function inventory.goods_receipt_refusal_columns() to service_role;
+
+drop trigger if exists goods_receipt_refusal_columns on inventory.goods_receipt;
+create trigger goods_receipt_refusal_columns
+  before insert or update of status, definitive_at on inventory.goods_receipt
+  for each row execute function inventory.goods_receipt_refusal_columns();
+
 alter table inventory.goods_receipt
   add constraint goods_receipt_rejected_not_attested
   check (status <> 'rejected' or definitive_at is null);
