@@ -532,6 +532,13 @@ const RESET_STEPS: ResetStep[] = [
 		table: "procurement.procurement_arp",
 		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.procurement_arp where unit_id = ${scope.unit_id} returning 1`),
 	},
+	// Contratação de origem (20260926214000). DEPOIS de empenho, designação e ARP, que apontam
+	// para ela (ON DELETE SET NULL): apagada antes, o SET NULL só faria trabalho à toa. Os itens
+	// da NE (`finance.empenho_item`, sem escopo próprio) já saíram pelo CASCADE do empenho.
+	{
+		table: "procurement.acquisition",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.acquisition where unit_id = ${scope.unit_id} returning 1`),
+	},
 	{
 		table: "procurement.procurement_list",
 		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.procurement_list where unit_id = ${scope.unit_id} returning 1`),
