@@ -389,6 +389,15 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			await expect(
 				tx.savepoint((sp) => sp`select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, null, null, ${e2})`)
 			).rejects.toThrow(/OF desta entrega é de outro empenho/)
+
+			// OF aguardando empenho: a NE entra na OF (SICAF), não só no recebimento
+			const [waiting] = await tx`
+				insert into procurement.supply_order (empenho_id, kitchen_id, sent_at, status) values (null, ${kitchenId}, current_date, 'sent') returning id`
+			const other = await deliveredWithoutInvoice(tx, { kitchenId, ingredientId, source: "ad_hoc", qty: 1, finalize: false })
+			await tx`select * from inventory.link_receipt_documents(${other.receiptId}, ${personId}, null, ${waiting.id}, null)`
+			await expect(
+				tx.savepoint((sp) => sp`select * from inventory.link_receipt_documents(${other.receiptId}, ${personId}, null, null, ${e2})`)
+			).rejects.toThrow(/aguardando empenho: vincule a NE na própria OF/)
 		})
 	}, 60_000)
 

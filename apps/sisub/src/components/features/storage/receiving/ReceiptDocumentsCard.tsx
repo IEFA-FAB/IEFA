@@ -5,6 +5,7 @@ import { QuickEmpenhoDialog } from "@/components/features/unit/finance/QuickEmpe
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
@@ -12,6 +13,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { linkReceiptDocumentsFn, listReceiptLinkCandidatesFn } from "@/server/receiving.fn"
+import { linkSupplyOrderEmpenhoFn } from "@/server/supply-order.fn"
 
 type Kind = "nfe" | "supplyOrder" | "empenho"
 
@@ -23,7 +25,7 @@ const KIND_LABELS: Record<Kind, { title: string; missing: string; pick: string }
 
 export interface ReceiptDocuments {
 	nfe: { label: string } | null
-	supplyOrder: { label: string } | null
+	supplyOrder: { id: string; label: string; awaitingEmpenho: boolean } | null
 	empenho: { label: string } | null
 	liquidated: boolean
 }
@@ -63,11 +65,17 @@ export function ReceiptDocumentsCard({
 		// a NE que já existia pelo número também serve: vincula e fecha
 		setRegisteringEmpenho(false)
 		try {
-			const result = await linkReceiptDocumentsFn({ data: { receiptId, empenhoId } })
+			const result = await linkEmpenho(receiptId, documents.supplyOrder, empenhoId, false)
 			reportLink(result)
 			onLinked()
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "NE registrada, mas não foi possível vinculá-la — vincule na lista")
+			const message = error instanceof Error ? error.message : ""
+			toast.error(
+				SICAF_ACK_REQUIRED.test(message)
+					? `NE registrada. ${message}: abra "Vincular" na nota de empenho e confirme.`
+					: message || "NE registrada, mas não foi possível vinculá-la — vincule na lista"
+			)
+			onLinked()
 		}
 	}
 
@@ -140,6 +148,7 @@ export function ReceiptDocumentsCard({
 			{editing && (
 				<LinkDocumentDialog
 					receiptId={receiptId}
+					supplyOrder={documents.supplyOrder}
 					kind={editing}
 					onClose={() => setEditing(null)}
 					onLinked={() => {
@@ -164,6 +173,22 @@ export function ReceiptDocumentsCard({
 	)
 }
 
+/** Recusa do SICAF que pede o reconhecimento explícito (`sicafDecision`, supply-order-gate). */
+const SICAF_ACK_REQUIRED = /SICAF — confirme explicitamente/
+
+/**
+ * Vincula a NE ao recebimento. Com a OF da entrega aguardando empenho, a NE entra NA OF
+ * (`linkSupplyOrderEmpenhoFn`, que confere o SICAF do fornecedor) e o recebimento a acompanha —
+ * o banco recusa ligar a NE só no recebimento nesse caso.
+ */
+async function linkEmpenho(receiptId: string, supplyOrder: ReceiptDocuments["supplyOrder"], empenhoId: string, sicafAcknowledged: boolean) {
+	if (supplyOrder?.awaitingEmpenho) {
+		await linkSupplyOrderEmpenhoFn({ data: { supplyOrderId: supplyOrder.id, empenhoId, sicafAcknowledged } })
+		return linkReceiptDocumentsFn({ data: { receiptId } })
+	}
+	return linkReceiptDocumentsFn({ data: { receiptId, empenhoId } })
+}
+
 function reportLink(result: { linkedItems: number; costedItems: number; unmatchedLines: string[]; warnings: string[] }) {
 	for (const warning of result.warnings) toast.warning(warning)
 	if (result.unmatchedLines.length > 0) toast.warning(`Sem item correspondente na nota: ${result.unmatchedLines.join(", ")}.`)
@@ -173,20 +198,26 @@ function reportLink(result: { linkedItems: number; costedItems: number; unmatche
 
 function LinkDocumentDialog({
 	receiptId,
+	supplyOrder,
 	kind,
 	onClose,
 	onLinked,
 	onRegisterEmpenho,
 }: {
 	receiptId: string
+	supplyOrder: ReceiptDocuments["supplyOrder"]
 	kind: Kind
 	onClose: () => void
 	onLinked: () => void
 	onRegisterEmpenho: () => void
 }) {
 	const fieldId = useId()
+	const ackId = useId()
 	const [value, setValue] = useState<string | null>(null)
 	const [saving, setSaving] = useState(false)
+	// SICAF irregular na OF aguardando empenho: o vínculo só segue com a confirmação explícita
+	const [sicafProblem, setSicafProblem] = useState<string | null>(null)
+	const [sicafAcknowledged, setSicafAcknowledged] = useState(false)
 	const candidates = useQuery({
 		queryKey: ["receiving", "link-candidates", receiptId],
 		queryFn: () => listReceiptLinkCandidatesFn({ data: { receiptId } }),
@@ -221,18 +252,22 @@ function LinkDocumentDialog({
 		if (!value) return
 		setSaving(true)
 		try {
-			const result = await linkReceiptDocumentsFn({
-				data: {
-					receiptId,
-					nfeDocumentId: kind === "nfe" ? value : undefined,
-					supplyOrderId: kind === "supplyOrder" ? value : undefined,
-					empenhoId: kind === "empenho" ? value : undefined,
-				},
-			})
+			const result =
+				kind === "empenho"
+					? await linkEmpenho(receiptId, supplyOrder, value, sicafAcknowledged)
+					: await linkReceiptDocumentsFn({
+							data: {
+								receiptId,
+								nfeDocumentId: kind === "nfe" ? value : undefined,
+								supplyOrderId: kind === "supplyOrder" ? value : undefined,
+							},
+						})
 			reportLink(result)
 			onLinked()
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Não foi possível vincular")
+			const message = error instanceof Error ? error.message : "Não foi possível vincular"
+			if (kind === "empenho" && SICAF_ACK_REQUIRED.test(message)) setSicafProblem(message)
+			else toast.error(message)
 		} finally {
 			setSaving(false)
 		}
@@ -262,6 +297,12 @@ function LinkDocumentDialog({
 							placeholder={candidates.isLoading ? "Carregando…" : KIND_LABELS[kind].pick}
 							emptyLabel="Nada para vincular nesta cozinha"
 						/>
+						{kind === "empenho" && supplyOrder?.awaitingEmpenho && (
+							<FieldDescription>
+								A {supplyOrder.label} desta entrega está aguardando empenho: a NE entra na OF, com a consulta do fornecedor no SICAF, e o recebimento a
+								acompanha.
+							</FieldDescription>
+						)}
 						{kind === "empenho" && (
 							<FieldDescription>
 								A NE já saiu no SIAFI e ainda não está aqui? Registre o mínimo (número, data, valor, favorecido) e ela sai vinculada; o import do SIAFI completa
@@ -269,6 +310,12 @@ function LinkDocumentDialog({
 							</FieldDescription>
 						)}
 					</Field>
+					{sicafProblem && (
+						<Field orientation="horizontal">
+							<Checkbox id={ackId} checked={sicafAcknowledged} onCheckedChange={(checked) => setSicafAcknowledged(checked === true)} />
+							<FieldLabel htmlFor={ackId}>{sicafProblem}. Ciente da pendência no SICAF — decido prosseguir (registrado com meu usuário na OF).</FieldLabel>
+						</Field>
+					)}
 				</FieldGroup>
 				<DialogFooter>
 					{kind === "empenho" && (
@@ -280,7 +327,7 @@ function LinkDocumentDialog({
 					<Button variant="outline" onClick={onClose}>
 						Cancelar
 					</Button>
-					<Button disabled={!value || saving} onClick={save}>
+					<Button disabled={!value || saving || (sicafProblem != null && !sicafAcknowledged)} onClick={save}>
 						{saving && <Spinner data-icon="inline-start" />}
 						Vincular
 					</Button>

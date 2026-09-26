@@ -1351,6 +1351,9 @@ async function resolveOrderAndEmpenho(kitchenId: number, unitId: number, supplyO
 		if (order.empenho_id) {
 			if (resolvedEmpenhoId && resolvedEmpenhoId !== order.empenho_id) throw new Error("A OF é de outro empenho — escolha o empenho da OF, ou registre sem OF")
 			resolvedEmpenhoId = order.empenho_id as string
+		} else if (resolvedEmpenhoId) {
+			// a mesma regra de `link_receipt_documents`: a NE da OF aguardando empenho entra NA OF (SICAF)
+			throw new Error("A OF está aguardando empenho: vincule a NE na própria OF, que confere o SICAF — ou registre a entrega com a OF e sem NE")
 		}
 	}
 	let empenho: { favorecido_nome: string | null; favorecido_cnpj: string | null } | null = null
@@ -1778,7 +1781,7 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 						.maybeSingle()
 				: Promise.resolve({ data: null, error: null }),
 			receipt.supply_order_id
-				? procurement().from("supply_order").select("number").eq("id", receipt.supply_order_id).maybeSingle()
+				? procurement().from("supply_order").select("number, empenho_id").eq("id", receipt.supply_order_id).maybeSingle()
 				: Promise.resolve({ data: null, error: null }),
 			receipt.empenho_id
 				? finance().from("empenho").select("numero_empenho, favorecido_nome").eq("id", receipt.empenho_id).maybeSingle()
@@ -1806,7 +1809,14 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 							label: `NF-e ${String(note.data.access_key).slice(25, 34)}${note.data.supplier_name ? ` · ${note.data.supplier_name}` : ""}`,
 						}
 					: null,
-			supplyOrder: order.data ? { label: order.data.number ? `OF ${order.data.number}` : "OF sem número" } : null,
+			supplyOrder: order.data
+				? {
+						id: String(receipt.supply_order_id),
+						label: order.data.number ? `OF ${order.data.number}` : "OF sem número",
+						// a NE desta entrega se vincula na OF (SICAF), e o recebimento a acompanha
+						awaitingEmpenho: order.data.empenho_id == null,
+					}
+				: null,
 			empenho: empenho.data ? { label: `${empenho.data.numero_empenho}${empenho.data.favorecido_nome ? ` · ${empenho.data.favorecido_nome}` : ""}` } : null,
 			liquidated: (liquidations.count ?? 0) > 0,
 		}

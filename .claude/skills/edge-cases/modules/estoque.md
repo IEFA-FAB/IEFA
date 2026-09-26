@@ -124,7 +124,11 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 - **O sistema precisa:** trocar a nota enquanto não houver liquidação; depois dela, a NF-e e o
   empenho em que a NS se apoia não mudam (a função recusa dizendo por quê). O recebimento
   criado DA nota não troca de nota.
-- **Cobertura:** **LACUNA** (validado só no smoke local da migration; falta o caso no banco real).
+  Trocar de nota desliga as linhas que não casam com a nova e, aberto o recebimento, tira o
+  custo que veio da antiga. Liquidado, o empenho só pode ser a NE que a NS debitou; com OF, o
+  empenho é o da OF, e a OF aguardando empenho recebe a NE nela mesma (com o SICAF).
+- **Cobertura:** `receiving-links.operations.test.ts › trocar de NF-e…`, `› recebimento
+  liquidado…`, `› OF de E1 não convive com o empenho E2…` (escritos, não rodados).
 
 ### EST-ARM-01 — "O freezer parou: o congelado foi para a geladeira"
 - **Realidade:** o freezer para durante a semana. O que estava congelado vai para a

@@ -281,6 +281,19 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
   recusada). **LACUNA:** `createDesignation` pelo domínio no banco real (a pessoa precisa de
   permissão na OM, e o seed de permissão passa pela função auditada).
 
+### GU-DES-04 — "O chefe do rancho quer se designar gestor e efetivar ele mesmo"
+- **O sistema precisa:** quem pode efetivar o definitivo não se designa gestor nem comissão do
+  definitivo (segregação de funções, Lei 14.133/2021, art. 7º, § 1º; art. 140, II, b). A recusa
+  lista quem mais tem Gestão Unidade nível 2 na OM; sem ninguém, diz para pedir a concessão.
+  Designar-se fiscal passa. O formulário não pré-escolhe a própria pessoa.
+- **Cobertura:** `designations.test.ts › selfDesignationProblem`. **LACUNA:** caso no banco real.
+
+### GU-DES-05 — "Destituíram o fiscal às 9h"
+- **O sistema precisa:** encerrar vale a partir de hoje (`valid_to` = ontem); a que começou hoje
+  e já sustenta termo não se apaga.
+- **Cobertura:** `designations.test.ts › planEndDesignation`;
+  `receiving-links.operations.test.ts › designação encerrada hoje deixa de valer hoje`.
+
 ### GU-DES-02 — "O fiscal saiu de férias; o substituto recebe"
 - **O sistema precisa:** designação marcada como substituto; a busca prefere a do titular e a
   mais específica (empenho, ARP, contratação, OM).

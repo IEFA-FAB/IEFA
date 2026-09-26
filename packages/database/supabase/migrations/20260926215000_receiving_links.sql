@@ -317,6 +317,11 @@ begin
         raise exception 'A OF desta entrega é de outro empenho — vincule a NE da OF, ou troque a OF antes';
       end if;
       v_empenho_id := v_order_empenho;
+    elsif p_empenho_id is not null then
+      -- OF aguardando empenho: a NE se vincula NA OF (que confere o SICAF do fornecedor,
+      -- 20260926214000/`linkSupplyOrderEmpenhoFn`) e o recebimento a acompanha. Ligar só
+      -- no recebimento deixaria a OF "enviada sem empenho" com a entrega já sob uma NE.
+      raise exception 'A OF desta entrega está aguardando empenho: vincule a NE na própria OF, que confere o SICAF; o recebimento acompanha';
     end if;
   end if;
 
