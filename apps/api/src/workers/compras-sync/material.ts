@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { createWriteTally, upsertChangedRows } from "./changed-rows.ts"
 import { calcConcurrency, comprasRequest, fetchAllPages, fetchAllPagesParallel } from "./client.ts"
+import { ROW_SPECS } from "./row-specs.ts"
 import type {
 	ComprasCaracteristicaMaterial,
 	ComprasClasseMaterial,
@@ -26,7 +28,7 @@ function parseSupplyCapacity(value: number | string | null | undefined): number 
 // ─── Step 1: Grupo ────────────────────────────────────────────────────────────
 
 export async function syncMaterialGrupo(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	let totalUpserted = 0
+	const tally = createWriteTally(ROW_SPECS.materialGrupo.table)
 	for await (const { page, pageNumber } of fetchAllPages<ComprasGrupoMaterial>(comprasRequest("/modulo-material/1_consultarGrupoMaterial"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_grupo: r.codigoGrupo,
@@ -35,18 +37,17 @@ export async function syncMaterialGrupo(supabase: SupabaseClient, updateProgress
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
-		const { error } = await supabase.from("compras_material_grupo").upsert(rows)
-		if (error) throw new Error(`upsert grupo: ${error.message}`)
-		totalUpserted += rows.length
-		await updateProgress(pageNumber, page.totalPaginas, totalUpserted)
+		const totalWritten = tally.add(await upsertChangedRows(supabase, ROW_SPECS.materialGrupo, rows, { label: "upsert grupo" }))
+		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
 	}
-	return totalUpserted
+	tally.log()
+	return tally.written
 }
 
 // ─── Step 2: Classe ───────────────────────────────────────────────────────────
 
 export async function syncMaterialClasse(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	let totalUpserted = 0
+	const tally = createWriteTally(ROW_SPECS.materialClasse.table)
 	for await (const { page, pageNumber } of fetchAllPages<ComprasClasseMaterial>(comprasRequest("/modulo-material/2_consultarClasseMaterial"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_classe: r.codigoClasse,
@@ -56,18 +57,17 @@ export async function syncMaterialClasse(supabase: SupabaseClient, updateProgres
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
-		const { error } = await supabase.from("compras_material_classe").upsert(rows)
-		if (error) throw new Error(`upsert classe: ${error.message}`)
-		totalUpserted += rows.length
-		await updateProgress(pageNumber, page.totalPaginas, totalUpserted)
+		const totalWritten = tally.add(await upsertChangedRows(supabase, ROW_SPECS.materialClasse, rows, { label: "upsert classe" }))
+		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
 	}
-	return totalUpserted
+	tally.log()
+	return tally.written
 }
 
 // ─── Step 3: PDM ──────────────────────────────────────────────────────────────
 
 export async function syncMaterialPdm(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	let totalUpserted = 0
+	const tally = createWriteTally(ROW_SPECS.materialPdm.table)
 	for await (const { page, pageNumber } of fetchAllPages<ComprasPdmMaterial>(comprasRequest("/modulo-material/3_consultarPdmMaterial"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_pdm: r.codigoPdm,
@@ -77,19 +77,18 @@ export async function syncMaterialPdm(supabase: SupabaseClient, updateProgress: 
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
-		const { error } = await supabase.from("compras_material_pdm").upsert(rows)
-		if (error) throw new Error(`upsert pdm: ${error.message}`)
-		totalUpserted += rows.length
-		await updateProgress(pageNumber, page.totalPaginas, totalUpserted)
+		const totalWritten = tally.add(await upsertChangedRows(supabase, ROW_SPECS.materialPdm, rows, { label: "upsert pdm" }))
+		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
 	}
-	return totalUpserted
+	tally.log()
+	return tally.written
 }
 
 // ─── Step 4: Item ─────────────────────────────────────────────────────────────
 
 export async function syncMaterialItem(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	// Sem filtro de status — necessário para detectar itens desativados
-	let totalUpserted = 0
+	const tally = createWriteTally(ROW_SPECS.materialItem.table)
 	let completedPages = 0
 	let totalPages = 0
 
@@ -110,24 +109,25 @@ export async function syncMaterialItem(supabase: SupabaseClient, updateProgress:
 			synced_at: new Date().toISOString(),
 		}))
 
-		// Trigger no banco cuida do first_deactivation_detected_at
-		const { error } = await supabase.from("compras_material_item").upsert(rows)
-		if (error) throw new Error(`upsert item (p${pageNumber}): ${error.message}`)
+		// Trigger no banco cuida do first_deactivation_detected_at. Item igual não é regravado: a
+		// desativação chega como `status_item` alterado, então passa pelo diff e dispara o trigger.
+		const result = await upsertChangedRows(supabase, ROW_SPECS.materialItem, rows, { label: `upsert item (p${pageNumber})` })
 
 		// Acumuladores são seguros: JS usa event loop cooperativo (single-thread)
-		totalUpserted += rows.length
+		const totalWritten = tally.add(result)
 		completedPages++
 		// current_page aqui representa páginas concluídas (não a página em curso)
-		await updateProgress(completedPages, totalPages, totalUpserted)
+		await updateProgress(completedPages, totalPages, totalWritten)
 	})
 
-	return totalUpserted
+	tally.log()
+	return tally.written
 }
 
 // ─── Step 5: Natureza Despesa ─────────────────────────────────────────────────
 
 export async function syncMaterialNaturezaDespesa(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	let totalUpserted = 0
+	const tally = createWriteTally(ROW_SPECS.materialNaturezaDespesa.table)
 	for await (const { page, pageNumber } of fetchAllPages<ComprasNaturezaDespesaMaterial>(
 		comprasRequest("/modulo-material/5_consultarMaterialNaturezaDespesa")
 	)) {
@@ -141,21 +141,25 @@ export async function syncMaterialNaturezaDespesa(supabase: SupabaseClient, upda
 				synced_at: new Date().toISOString(),
 			}))
 		if (rows.length === 0) {
-			await updateProgress(pageNumber, page.totalPaginas, totalUpserted)
+			await updateProgress(pageNumber, page.totalPaginas, tally.written)
 			continue
 		}
-		const { error } = await supabase.from("compras_material_natureza_despesa").upsert(rows, { onConflict: "codigo_pdm,codigo_natureza_despesa" })
-		if (error) throw new Error(`upsert natureza_despesa: ${error.message}`)
-		totalUpserted += rows.length
-		await updateProgress(pageNumber, page.totalPaginas, totalUpserted)
+		const totalWritten = tally.add(
+			await upsertChangedRows(supabase, ROW_SPECS.materialNaturezaDespesa, rows, {
+				label: "upsert natureza_despesa",
+				onConflict: "codigo_pdm,codigo_natureza_despesa",
+			})
+		)
+		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
 	}
-	return totalUpserted
+	tally.log()
+	return tally.written
 }
 
 // ─── Step 6: Unidade de Fornecimento ─────────────────────────────────────────
 
 export async function syncMaterialUnidadeFornecimento(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	let totalUpserted = 0
+	const tally = createWriteTally(ROW_SPECS.materialUnidadeFornecimento.table)
 	for await (const { page, pageNumber } of fetchAllPages<ComprasUnidadeFornecimento>(
 		comprasRequest("/modulo-material/6_consultarMaterialUnidadeFornecimento")
 	)) {
@@ -174,25 +178,27 @@ export async function syncMaterialUnidadeFornecimento(supabase: SupabaseClient, 
 		// Filtrar rows sem numero_sequencial (parte da unique constraint) para evitar erro
 		const withSeq = rows.filter((r) => r.numero_sequencial_unidade_fornecimento !== null)
 		if (withSeq.length === 0) {
-			await updateProgress(pageNumber, page.totalPaginas, totalUpserted)
+			await updateProgress(pageNumber, page.totalPaginas, tally.written)
 			continue
 		}
 		// Deduplicate dentro da página para evitar "ON CONFLICT DO UPDATE cannot affect row a second time"
 		const deduped = [...new Map(withSeq.map((r) => [`${r.codigo_pdm}|${r.numero_sequencial_unidade_fornecimento}`, r])).values()]
-		const { error } = await supabase
-			.from("compras_material_unidade_fornecimento")
-			.upsert(deduped, { onConflict: "codigo_pdm,numero_sequencial_unidade_fornecimento" })
-		if (error) throw new Error(`upsert unidade_fornecimento: ${error.message}`)
-		totalUpserted += withSeq.length
-		await updateProgress(pageNumber, page.totalPaginas, totalUpserted)
+		const totalWritten = tally.add(
+			await upsertChangedRows(supabase, ROW_SPECS.materialUnidadeFornecimento, deduped, {
+				label: "upsert unidade_fornecimento",
+				onConflict: "codigo_pdm,numero_sequencial_unidade_fornecimento",
+			})
+		)
+		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
 	}
-	return totalUpserted
+	tally.log()
+	return tally.written
 }
 
 // ─── Step 7: Características ──────────────────────────────────────────────────
 
 export async function syncMaterialCaracteristica(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	let totalUpserted = 0
+	const tally = createWriteTally(ROW_SPECS.materialCaracteristica.table)
 	// Sem filtro de status (plano: sem filtro de status)
 	for await (const { page, pageNumber } of fetchAllPages<ComprasCaracteristicaMaterial>(
 		comprasRequest("/modulo-material/7_consultarMaterialCaracteristicas")
@@ -210,12 +216,16 @@ export async function syncMaterialCaracteristica(supabase: SupabaseClient, updat
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
-		const { error } = await supabase
-			.from("compras_material_caracteristica")
-			.upsert(rows, { onConflict: "codigo_item,codigo_caracteristica,codigo_valor_caracteristica" })
-		if (error) throw new Error(`upsert caracteristica: ${error.message}`)
-		totalUpserted += rows.length
-		await updateProgress(pageNumber, page.totalPaginas, totalUpserted)
+		// A leitura prévia é por `codigo_item` (prefixo do unique), trazendo as características dos
+		// itens da página; o diff casa pela chave completa.
+		const totalWritten = tally.add(
+			await upsertChangedRows(supabase, ROW_SPECS.materialCaracteristica, rows, {
+				label: "upsert caracteristica",
+				onConflict: "codigo_item,codigo_caracteristica,codigo_valor_caracteristica",
+			})
+		)
+		await updateProgress(pageNumber, page.totalPaginas, totalWritten)
 	}
-	return totalUpserted
+	tally.log()
+	return tally.written
 }

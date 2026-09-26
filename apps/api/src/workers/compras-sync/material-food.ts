@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
+import { selectChangedRows } from "./changed-rows.ts"
 import { comprasRequest, fetchAllPages } from "./client.ts"
+import { ROW_SPECS } from "./row-specs.ts"
 import type { ComprasItemMaterial, ComprasPdmMaterial, ComprasUnidadeFornecimento } from "./types.ts"
 
 export const FOOD_CLASS_CODES = [8905, 8910, 8915, 8920, 8925, 8930, 8935, 8940, 8945, 8950, 8955, 8960, 8965, 8970] as const
@@ -31,6 +33,10 @@ export interface FoodMaterialSyncSummary {
 	pdmsUpserted: number
 	unitsUpserted: number
 	itemsUpserted: number
+	/** Linhas efetivamente gravadas (novas ou alteradas), somando todas as tabelas. */
+	rowsWritten: number
+	/** Linhas que já estavam iguais no banco e não foram regravadas. */
+	rowsUnchanged: number
 	errors: Array<{ scope: string; message: string }>
 }
 
@@ -83,7 +89,9 @@ async function retrySupabaseWrite(operation: () => Promise<{ error: { message: s
 	}
 }
 
-async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmResponse[]): Promise<void> {
+type WriteCounts = Pick<FoodMaterialSyncSummary, "rowsWritten" | "rowsUnchanged">
+
+async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmResponse[], counts: WriteCounts): Promise<void> {
 	if (pdms.length === 0) return
 
 	const groupRows = [...new Map(pdms.map((pdm) => [pdm.codigoGrupo, pdm])).values()].map((pdm) => ({
@@ -112,10 +120,21 @@ async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmR
 		synced_at: new Date().toISOString(),
 	}))
 
+	const [groupDiff, classDiff, pdmDiff] = await Promise.all([
+		selectChangedRows(supabase, ROW_SPECS.materialGrupo, groupRows),
+		selectChangedRows(supabase, ROW_SPECS.materialClasse, classRows),
+		selectChangedRows(supabase, ROW_SPECS.materialPdm, pdmRows),
+	])
+	for (const diff of [groupDiff, classDiff, pdmDiff]) {
+		counts.rowsWritten += diff.changed.length
+		counts.rowsUnchanged += diff.unchanged
+	}
+
+	const noError = { error: null }
 	const [groupResult, classResult, pdmResult] = await Promise.all([
-		supabase.from("compras_material_grupo").upsert(groupRows),
-		supabase.from("compras_material_classe").upsert(classRows),
-		supabase.from("compras_material_pdm").upsert(pdmRows),
+		groupDiff.changed.length > 0 ? supabase.from("compras_material_grupo").upsert(groupDiff.changed) : noError,
+		classDiff.changed.length > 0 ? supabase.from("compras_material_classe").upsert(classDiff.changed) : noError,
+		pdmDiff.changed.length > 0 ? supabase.from("compras_material_pdm").upsert(pdmDiff.changed) : noError,
 	])
 
 	if (groupResult.error) throw new Error(`upsert grupo alimentar: ${groupResult.error.message}`)
@@ -123,7 +142,7 @@ async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmR
 	if (pdmResult.error) throw new Error(`upsert pdm alimentar: ${pdmResult.error.message}`)
 }
 
-async function upsertFoodItems(supabase: SupabaseClient<any, any>, items: FoodItemResponse[]): Promise<void> {
+async function upsertFoodItems(supabase: SupabaseClient<any, any>, items: FoodItemResponse[], counts: WriteCounts): Promise<void> {
 	if (items.length === 0) return
 
 	const rows = items.map((item) => ({
@@ -140,11 +159,15 @@ async function upsertFoodItems(supabase: SupabaseClient<any, any>, items: FoodIt
 	}))
 
 	for (const batch of chunk(rows, UPSERT_BATCH_SIZE)) {
-		await retrySupabaseWrite(async () => await supabase.from("compras_material_item").upsert(batch, { onConflict: "codigo_item" }), "upsert item alimentar")
+		const { changed, unchanged } = await selectChangedRows(supabase, ROW_SPECS.materialItem, batch)
+		counts.rowsWritten += changed.length
+		counts.rowsUnchanged += unchanged
+		if (changed.length === 0) continue
+		await retrySupabaseWrite(async () => await supabase.from("compras_material_item").upsert(changed, { onConflict: "codigo_item" }), "upsert item alimentar")
 	}
 }
 
-async function upsertFoodUnits(supabase: SupabaseClient<any, any>, units: ComprasUnidadeFornecimento[]): Promise<void> {
+async function upsertFoodUnits(supabase: SupabaseClient<any, any>, units: ComprasUnidadeFornecimento[], counts: WriteCounts): Promise<void> {
 	if (units.length === 0) return
 
 	const rows = units
@@ -167,9 +190,13 @@ async function upsertFoodUnits(supabase: SupabaseClient<any, any>, units: Compra
 	const deduped = [...new Map(rows.map((row) => [`${row.codigo_pdm}|${row.numero_sequencial_unidade_fornecimento}`, row])).values()]
 
 	for (const batch of chunk(deduped, UPSERT_BATCH_SIZE)) {
+		const { changed, unchanged } = await selectChangedRows(supabase, ROW_SPECS.materialUnidadeFornecimento, batch)
+		counts.rowsWritten += changed.length
+		counts.rowsUnchanged += unchanged
+		if (changed.length === 0) continue
 		await retrySupabaseWrite(
 			async () =>
-				await supabase.from("compras_material_unidade_fornecimento").upsert(batch, { onConflict: "codigo_pdm,numero_sequencial_unidade_fornecimento" }),
+				await supabase.from("compras_material_unidade_fornecimento").upsert(changed, { onConflict: "codigo_pdm,numero_sequencial_unidade_fornecimento" }),
 			"upsert unidade alimentar"
 		)
 	}
@@ -188,7 +215,7 @@ async function syncPdmDetails(
 				statusUnidadeFornecimentoPdm: true,
 			})
 		)) {
-			await upsertFoodUnits(supabase, page.resultado)
+			await upsertFoodUnits(supabase, page.resultado, summary)
 			summary.unitsUpserted += page.resultado.filter((row) => row.numeroSequencialUnidadeFornecimento != null).length
 		}
 	}
@@ -198,7 +225,7 @@ async function syncPdmDetails(
 			codigoPdm: pdm.codigoPdm,
 		})
 	)) {
-		await upsertFoodItems(supabase, page.resultado)
+		await upsertFoodItems(supabase, page.resultado, summary)
 		summary.itemsUpserted += page.resultado.length
 	}
 }
@@ -213,6 +240,8 @@ export async function runFoodMaterialSync(options: FoodMaterialSyncOptions = {})
 		pdmsUpserted: 0,
 		unitsUpserted: 0,
 		itemsUpserted: 0,
+		rowsWritten: 0,
+		rowsUnchanged: 0,
 		errors: [],
 	}
 
@@ -227,7 +256,7 @@ export async function runFoodMaterialSync(options: FoodMaterialSyncOptions = {})
 					statusPdm: true,
 				})
 			)) {
-				await upsertFoodPdms(supabase, page.resultado)
+				await upsertFoodPdms(supabase, page.resultado, summary)
 				summary.pdmsUpserted += page.resultado.length
 				classPdms += page.resultado.length
 
