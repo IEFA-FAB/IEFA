@@ -4,6 +4,7 @@ import { Banknote } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { DeductionPaymentForm } from "@/components/features/finance/DeductionsPanel"
+import { RestosAPagarCard } from "@/components/features/finance/RestosAPagarCard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -208,6 +209,8 @@ function PaymentsPage() {
 					</CardContent>
 				</Card>
 			)}
+
+			<RestosAPagarCard unitId={Number(unitId)} />
 
 			{averageDays.length > 0 && (
 				<Card>

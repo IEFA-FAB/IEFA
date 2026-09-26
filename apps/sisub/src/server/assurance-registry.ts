@@ -566,6 +566,13 @@ export const ASSURANCE_REGISTRY = {
 	setReceiptProvisionalFn: { require: "none" },
 	finalizeReceiptFn: { require: "none" },
 
+	// ── restos-a-pagar.fn.ts
+	inscribeRpParcelsFn: {
+		require: "session",
+		reason: "Esta operação inscreve empenhos em restos a pagar.",
+		authorization: [{ kind: "permission", module: "unit", level: 3 }],
+	},
+
 	// ── recipe-flow.fn.ts
 	saveRecipeFlowFn: { require: "none" },
 	createStepTemplateFn: { require: "none" },
