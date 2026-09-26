@@ -74,6 +74,11 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// Treino não concede nenhum módulo `alpha-*`, e o α recusa a unidade de treino como OM de
 	// envio, então o treinando do sisub não gera linha aqui.
 	"alpha.submission": "documento de contratação real enviado ao Projeto α (ETP/TR), não dado gerado pelo treinamento do sisub",
+	// `procurement.acquisition` e `finance.credit_note` — execução flexível da despesa
+	// (openspec/changes/sisub-flexible-expense-execution). Declaradas antes da migration; o PR
+	// do recurso as promove a RESET_STEPS (o treinando cria contratação e NC com `unit:2`).
+	"procurement.acquisition": "declarada antes da migration da contratação de origem; o PR do recurso a move para o reset",
+	"finance.credit_note": "declarada antes da migration da nota de crédito; o PR do recurso a move para o reset",
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */
