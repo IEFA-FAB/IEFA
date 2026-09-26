@@ -1675,9 +1675,8 @@ export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
 			// efetivado: o custo já está no estoque e não muda
 			costs = receipt.definitive_at ? [] : match.costs.map((cost) => ({ receipt_item_id: cost.receiptItemId, unit_cost: cost.unitCost }))
 
-			const unmatchedIngredients = lineRows
-				.filter((line) => match.unmatchedLineIds.includes(String(line.id)) && line.ingredient_id)
-				.map((line) => String(line.ingredient_id))
+			const unmatchedIds = new Set(match.unmatchedLineIds)
+			const unmatchedIngredients = lineRows.filter((line) => unmatchedIds.has(String(line.id)) && line.ingredient_id).map((line) => String(line.ingredient_id))
 			if (unmatchedIngredients.length > 0) {
 				const { data: names, error: namesError } = await kitchen().from("ingredient").select("description").in("id", unmatchedIngredients)
 				if (namesError) throw new Error(`Erro ao carregar os insumos: ${namesError.message}`)

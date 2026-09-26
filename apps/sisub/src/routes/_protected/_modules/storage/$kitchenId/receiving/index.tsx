@@ -150,7 +150,7 @@ function ReceivingListPage() {
 										</Link>
 										<span className="truncate text-caption text-muted-foreground">
 											{origin}
-											{receipt.rejected_at ? ` · recusado em ${new Date(receipt.rejected_at).toLocaleString("pt-BR")}` : ""}
+											{receipt.rejected_at ? ` · recusado em ${new Date(receipt.rejected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}
 										</span>
 										<Badge variant={meta?.variant ?? "outline"} className="text-[10px] ml-auto">
 											{meta?.label ?? receipt.status}

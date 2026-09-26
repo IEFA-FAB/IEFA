@@ -609,7 +609,7 @@ function ReceiptDetailPage() {
 				<PageHeader
 					title="Conferência de Recebimento"
 					description={`Situação: ${RECEIPT_STATUS_LABEL[receipt.status] ?? receipt.status} · ${sourceText}${
-						links.rejected_at ? ` · Recusado em ${new Date(links.rejected_at).toLocaleString("pt-BR")}` : ""
+						links.rejected_at ? ` · Recusado em ${new Date(links.rejected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""
 					}`}
 				>
 					<Button
@@ -673,7 +673,9 @@ function ReceiptDetailPage() {
 			{receipt.status === "rejected" && links.notes && (
 				<Alert variant="destructive">
 					<Ban aria-hidden="true" />
-					<AlertTitle>Entrega recusada{links.rejected_at ? ` em ${new Date(links.rejected_at).toLocaleString("pt-BR")}` : ""}</AlertTitle>
+					<AlertTitle>
+						Entrega recusada{links.rejected_at ? ` em ${new Date(links.rejected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}
+					</AlertTitle>
 					<AlertDescription>{links.notes}</AlertDescription>
 				</Alert>
 			)}
@@ -683,7 +685,7 @@ function ReceiptDetailPage() {
 					<TriangleAlert aria-hidden="true" />
 					<AlertTitle>Efetivado com a consulta da NF-e pendente</AlertTitle>
 					<AlertDescription>
-						{`Em ${new Date(links.invoice_check_deferred_at).toLocaleString("pt-BR")}: ${links.invoice_check_deferred_reason ?? ""}. Registre a consulta na SEFAZ (NF-e) — sem ela, não há liquidação.`}
+						{`Em ${new Date(links.invoice_check_deferred_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}: ${links.invoice_check_deferred_reason ?? ""}. Registre a consulta na SEFAZ (NF-e) — sem ela, não há liquidação.`}
 					</AlertDescription>
 				</Alert>
 			)}

@@ -62,7 +62,7 @@ export function DesignationForm({ unitId, preset, onSaved }: { unitId: number; p
 	const [role, setRole] = useState<DesignationRole>(preset?.role ?? roles[0])
 	const [source, setSource] = useState<DesignationSource>("ato")
 	const [reference, setReference] = useState("")
-	const [validFrom, setValidFrom] = useState(brasiliaToday())
+	const [validFrom, setValidFrom] = useState(() => brasiliaToday())
 	const [validTo, setValidTo] = useState("")
 	const [isSubstitute, setIsSubstitute] = useState(false)
 	const [scope, setScope] = useState<ScopeKind>(preset?.empenhoId ? "empenho" : "unit")
