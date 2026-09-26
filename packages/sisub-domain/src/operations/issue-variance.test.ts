@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test"
+import { DEFAULT_ISSUE_TOLERANCE, ISSUE_VARIANCE_CONTRACT_CASES } from "./issue-variance.cases.ts"
 import { checkDayClosure, evaluateVariance, type IssueToleranceSettings, issueSuggestionFingerprint, roundToIssuePackage } from "./issue-variance.ts"
 
 const SETTINGS: IssueToleranceSettings = { tolerancePct: 10, toleranceFloorValue: 20 }
@@ -133,4 +134,29 @@ describe("issueSuggestionFingerprint", () => {
 	test("requisição sem linhas é a string vazia, como no banco", () => {
 		expect(issueSuggestionFingerprint([])).toBe("")
 	})
+})
+
+/**
+ * Mesma tabela que o teste de integração passa ao fechamento automático em SQL
+ * (`inventory.close_stale_issue_requests`). Se uma implementação mudar e a outra não, um dos
+ * dois testes falha.
+ */
+describe("contrato com o fechamento automático (issue-variance.cases.ts)", () => {
+	for (const c of ISSUE_VARIANCE_CONTRACT_CASES) {
+		test(c.name, () => {
+			const closure = checkDayClosure(
+				[
+					{
+						ingredientId: "insumo",
+						suggestedQty: c.suggestedQty,
+						issuedNetQty: Number((c.issuedQty - (c.returnedQty ?? 0)).toFixed(4)),
+						unitCost: c.unitCost,
+						reason: c.reason ?? null,
+					},
+				],
+				c.settings ?? DEFAULT_ISSUE_TOLERANCE
+			)
+			expect(!closure.canClose).toBe(c.pending)
+		})
+	}
 })

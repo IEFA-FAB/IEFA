@@ -496,6 +496,7 @@ export {
 	SUPPLY_ORDER_STATUSES,
 	type SupplyOrderStatus,
 } from "./inventory-vocabulary.ts"
+export { DEFAULT_ISSUE_TOLERANCE, ISSUE_VARIANCE_CONTRACT_CASES, type IssueVarianceContractCase } from "./issue-variance.cases.ts"
 export {
 	type CloseDayCheck,
 	checkDayClosure,

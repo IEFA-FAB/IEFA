@@ -187,7 +187,10 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   quando alguma linha passa das duas tolerâncias sem motivo — pendência de justificativa no documento.
 - **UX:** banner "N dias fecharam sozinhos…" na Saída do dia → o dia → "Registrar justificativa". A
   nutricionista vê o dia em "Revisar a execução" como pendência do Estoque.
-- **Cobertura:** `ENB › o dia esquecido aberto fecha sozinho…` (inclui o job agendado).
+- **Cobertura:** `ENB › o dia esquecido aberto fecha sozinho…` (inclui o job agendado). A regra da
+  tolerância existe em SQL (fechamento automático) e em TS (`checkDayClosure`): as duas passam pela
+  mesma tabela `packages/sisub-domain/src/operations/issue-variance.cases.ts` —
+  `issue-variance.test.ts › contrato com o fechamento automático` e `ENB › contrato da tolerância…`.
 
 ### EST-SAI-06 — "A tarefa concluída há mais de 30 dias sumiu da Baixa por Produção"
 - **O sistema precisa:** a janela é a competência ABERTA (depois do último fechamento mensal), não 30 dias.

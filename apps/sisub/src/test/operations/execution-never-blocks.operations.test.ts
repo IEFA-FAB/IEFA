@@ -30,6 +30,7 @@ import {
 	createTemplate,
 	fetchExecutionReviewStatus,
 	fetchProductionBoard,
+	ISSUE_VARIANCE_CONTRACT_CASES,
 	recordProductionSubstitution,
 	reviewExecutionMenuItem,
 	saveRecipeEdit,
@@ -283,6 +284,58 @@ describeIf("execução do dia no estoque (DB)", () => {
 		const [user] = await tx`select id from auth.users limit 1`
 		return { kitchenId: Number(kitchenRow.id), ingredientId: String(arroz.id), lotId: String(lot.id), userId: String(user.id) }
 	}
+
+	/**
+	 * Contrato da tolerância: a MESMA tabela (`issue-variance.cases.ts`) que o unitário passa a
+	 * `checkDayClosure` (TS) passa aqui ao fechamento automático (SQL). Divergência entre as duas
+	 * implementações falha um dos dois testes.
+	 */
+	test("contrato da tolerância: o fechamento automático (SQL) julga como checkDayClosure (TS)", async () => {
+		await expect(
+			sql
+				.begin(async (tx) => {
+					const [user] = await tx`select id from auth.users limit 1`
+					for (const [index, c] of ISSUE_VARIANCE_CONTRACT_CASES.entries()) {
+						const [unit] = await tx`insert into core.units (code, display_name) values (${`ZZTEST-ENB-TOL-${index}`}, 'unit contrato tolerância') returning id`
+						const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha contrato tolerância') returning id`
+						const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values (${`INSUMO CONTRATO ${index}`}, 'KG') returning id`
+						if (c.settings) {
+							await tx`
+								insert into inventory.kitchen_stock_settings (kitchen_id, issue_tolerance_pct, issue_tolerance_floor_value)
+								values (${kitchenRow.id}, ${c.settings.tolerancePct}, ${c.settings.toleranceFloorValue})`
+						}
+						// custo médio da cozinha: é o que vale quando nada saiu
+						await tx`
+							insert into inventory.stock_cost (kitchen_id, ingredient_id, avg_unit_cost)
+							values (${kitchenRow.id}, ${ingredient.id}, ${c.unitCost ?? 0})`
+						const [request] = await tx`
+							insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, created_by)
+							values (${kitchenRow.id}, ${brDay(tx, 2)}, 'production', ${user.id}) returning id`
+						await tx`
+							insert into inventory.stock_issue_request_item (request_id, ingredient_id, suggested_qty, variance_reason)
+							values (${request.id}, ${ingredient.id}, ${c.suggestedQty}, ${c.reason ?? null})`
+						if (c.issuedQty > 0) {
+							await tx`
+								insert into inventory.stock_movement (kitchen_id, ingredient_id, type, quantity, unit_cost, issue_request_id)
+								values (${kitchenRow.id}, ${ingredient.id}, 'production_issue', ${c.issuedQty}, ${c.unitCost}, ${request.id})`
+						}
+						if (c.returnedQty) {
+							await tx`
+								insert into inventory.stock_movement (kitchen_id, ingredient_id, type, quantity, unit_cost, issue_request_id)
+								values (${kitchenRow.id}, ${ingredient.id}, 'issue_return', ${c.returnedQty}, ${c.unitCost}, ${request.id})`
+						}
+
+						await tx`select inventory.close_stale_issue_requests(${kitchenRow.id})`
+						const [closed] = await tx`select status from inventory.stock_issue_request where id = ${request.id}`
+						expect({ caso: c.name, status: closed.status }).toEqual({ caso: c.name, status: c.pending ? "closed_unexplained" : "closed" })
+					}
+					throw new Rollback()
+				})
+				.catch((e) => {
+					if (!(e instanceof Rollback)) throw e
+				})
+		).resolves.toBeUndefined()
+	}, 120_000)
 
 	test("o dia esquecido aberto fecha sozinho: closed_unexplained só com desvio acima das duas tolerâncias", async () => {
 		await expect(
