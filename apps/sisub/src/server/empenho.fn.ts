@@ -12,6 +12,7 @@
  * @migration 20260731140000_finance_empenho_document
  */
 
+import { EMPENHO_TOTAL_ANNULMENT_EVENT, LEGACY_EMPENHO_TOTAL_ANNULMENT_EVENT } from "@iefa/sisub-domain"
 import { describeDriverError, unwrapPgError } from "@iefa/sisub-domain/utils"
 import { createServerFn } from "@tanstack/react-start"
 import { sql } from "drizzle-orm"
@@ -173,14 +174,18 @@ export const updateEmpenhoClassificationFn = createServerFn({ method: "POST" })
 	})
 
 /**
- * Reforço / anulação / cancelamento — o valor do empenho NUNCA é editado.
+ * Reforço / anulação parcial / anulação total — o valor do empenho NUNCA é editado.
+ * A anulação total grava `anulacao_total` (F8, migration 20260926216000): `cancelamento` é
+ * termo de restos a pagar. O valor legado ainda é aceito na entrada e gravado com o nome novo.
  * Justificativa é obrigatória (constraint no banco também).
  */
 export const registerEmpenhoEventFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			empenhoId: z.uuid(),
-			tipo: z.enum(["reforco", "anulacao", "cancelamento"]),
+			tipo: z
+				.enum(["reforco", "anulacao", EMPENHO_TOTAL_ANNULMENT_EVENT, LEGACY_EMPENHO_TOTAL_ANNULMENT_EVENT])
+				.transform((tipo) => (tipo === LEGACY_EMPENHO_TOTAL_ANNULMENT_EVENT ? EMPENHO_TOTAL_ANNULMENT_EVENT : tipo)),
 			valor: z.number().positive(),
 			data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 			documento: z.string().optional(),
@@ -241,7 +246,7 @@ class EmpenhoFloorError extends Error {}
  */
 export async function insertEmpenhoEventSerialized(input: {
 	empenhoId: string
-	tipo: "reforco" | "anulacao" | "cancelamento"
+	tipo: "reforco" | "anulacao" | typeof EMPENHO_TOTAL_ANNULMENT_EVENT
 	valor: number
 	data: string
 	documento?: string
@@ -273,9 +278,9 @@ export async function insertEmpenhoEventSerialized(input: {
 			)
 		`)
 
-		// cancelamento total também marca o status do documento — na MESMA transação: antes o
+		// anulação total também marca o status do documento — na MESMA transação: antes o
 		// update ia solto e, se falhasse, o evento ficava gravado com o empenho ainda "ativo".
-		if (input.tipo === "cancelamento") {
+		if (input.tipo === EMPENHO_TOTAL_ANNULMENT_EVENT) {
 			await tx.execute(sql`update finance.empenho set status = 'anulado' where id = ${input.empenhoId}::uuid`)
 		}
 	})
@@ -336,51 +341,20 @@ export function toEmpenhoEventError(error: unknown): Error {
 }
 
 /**
- * Inscrição em restos a pagar no encerramento do exercício: saldo a liquidar
- * → não-processado; liquidado e não pago → processado. Ação explícita.
+ * Caminho antigo da inscrição em restos a pagar: gravava UM tipo por empenho
+ * (`rp_tipo`) e escolhia o não processado sempre que havia saldo a liquidar, perdendo a
+ * parte processada do mesmo empenho (Lei 4.320, art. 36). Desligado: a inscrição é
+ * `inscribeRpParcelsFn` (restos-a-pagar.fn.ts), em duas parcelas pelo saldo de 31/12, que
+ * também migra para parcelas o que este caminho já tinha gravado. Mantido só para recusar
+ * com instrução quem ainda o chame (a fn continua classificada no registro de garantia).
  */
 export const inscribeRestosAPagarFn = createServerFn({ method: "POST" })
 	.validator(z.object({ unitId: z.number().int().positive(), exercicio: z.number().int() }))
-	.handler(async ({ data }) => {
+	.handler(async ({ data }): Promise<{ inscritos: number }> => {
 		const ctx = await requireUnitScope(3, data.unitId)
-		const { userId } = ctx
-		const fin = finance()
-
-		return withSensitiveAudit(
-			"inscribeRestosAPagarFn",
-			ctx,
-			async () => {
-				const { data: rows } = await fin
-					.from("empenho")
-					.select("id")
-					.eq("unit_id", data.unitId)
-					.eq("exercicio", data.exercicio)
-					.eq("status", "ativo")
-					.eq("rp_inscrito", false)
-				const ids = (rows ?? []).map((row: { id: string }) => row.id)
-				if (ids.length === 0) return { inscritos: 0 }
-
-				const saldos = await fetchSaldos(ids)
-				let inscritos = 0
-				for (const [empenhoId, saldo] of saldos) {
-					const tipo = saldo.saldo_a_liquidar > 0 ? "nao_processado" : saldo.valor_a_pagar > 0 ? "processado" : null
-					if (!tipo) continue
-
-					await fin.from("empenho").update({ rp_inscrito: true, rp_tipo: tipo, rp_exercicio: data.exercicio }).eq("id", empenhoId)
-					await fin.from("empenho_event").insert({
-						empenho_id: empenhoId,
-						tipo: "rp_inscricao",
-						valor: tipo === "nao_processado" ? saldo.saldo_a_liquidar : saldo.valor_a_pagar,
-						data: `${data.exercicio}-12-31`,
-						justificativa: `Inscrição em restos a pagar ${tipo === "nao_processado" ? "não-processados" : "processados"} do exercício ${data.exercicio}`,
-						created_by: userId,
-					})
-					inscritos++
-				}
-				return { inscritos }
-			},
-			// A execução que não inscreveu nada também deixa linha: "o encerramento foi
-			// disparado e nada havia a inscrever" é uma resposta, ausência de linha não é.
-			(result) => ({ unitId: data.unitId, exercicio: data.exercicio, inscritos: result.inscritos })
-		)
+		// continua no envelope de auditoria (contrato `audit-wiring`); o corpo só recusa, e
+		// execução recusada não grava linha
+		return withSensitiveAudit("inscribeRestosAPagarFn", ctx, async (): Promise<{ inscritos: number }> => {
+			throw new Error("A inscrição em restos a pagar passou para Pagamentos → Restos a pagar, em duas parcelas por empenho (processado e não processado).")
+		})
 	})

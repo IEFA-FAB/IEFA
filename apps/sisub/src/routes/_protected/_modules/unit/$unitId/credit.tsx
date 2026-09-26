@@ -1,14 +1,21 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { creditNotesAboveLines } from "@iefa/sisub-domain"
+import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Landmark, TriangleAlert } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
+import { CreditNotesCard } from "@/components/features/finance/CreditNotesCard"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { type BudgetCreditLine, fetchBudgetCreditFn } from "@/server/budget.fn"
+import { type BudgetCreditLine, fetchBudgetCreditFn, listCreditNotesFn } from "@/server/budget.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/credit")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
-	loader: ({ params }) => fetchBudgetCreditFn({ data: { unitId: Number(params.unitId) } }),
+	loader: async ({ params }) => {
+		const unitId = Number(params.unitId)
+		const [lines, notes] = await Promise.all([fetchBudgetCreditFn({ data: { unitId } }), listCreditNotesFn({ data: { unitId } })])
+		return { lines, notes }
+	},
 	component: BudgetCreditPage,
 })
 
@@ -21,25 +28,50 @@ function fmtCompetencia(iso: string): string {
 
 function BudgetRow({ line }: { line: BudgetCreditLine }) {
 	const negative = line.saldoProjetado < 0
+	// NC registradas que não fecham com o crédito recebido do SIAFI: falta NC (ou sobra)
+	const ncDiverge = line.notasCredito !== 0 && Math.abs(line.notasCredito - line.dotacao) > 0.009
 
 	return (
 		<tr className="hover:bg-muted/40">
 			<td className="py-2.5 px-3 text-xs font-mono">{line.nd}</td>
 			<td className="py-2.5 px-2 text-xs font-mono text-muted-foreground">{line.ptres ?? "—"}</td>
 			<td className="py-2.5 px-2 text-xs font-mono text-muted-foreground">{line.fonte ?? "—"}</td>
+			<td className="py-2.5 px-2 text-xs font-mono text-muted-foreground">{[line.pi, line.ugr].map((v) => v ?? "—").join(" · ")}</td>
 			<td className="py-2.5 px-2 text-xs text-right tabular-nums">{BRL.format(line.dotacao)}</td>
+			<td className="py-2.5 px-2 text-xs text-right tabular-nums">
+				{line.notasCredito === 0 ? (
+					<span className="text-muted-foreground">—</span>
+				) : (
+					<Tooltip>
+						<TooltipTrigger className="cursor-help inline-flex items-center gap-1">
+							{BRL.format(line.notasCredito)}
+							{ncDiverge && <Badge variant="warning">não fecha</Badge>}
+						</TooltipTrigger>
+						<TooltipContent>
+							{ncDiverge
+								? "A soma das NC registradas no sisub não fecha com o crédito recebido do SIAFI: falta registrar NC, ou uma foi registrada em outra classificação."
+								: "Soma das NC registradas no sisub nesta classificação e exercício. Fecha com o crédito recebido do SIAFI."}
+						</TooltipContent>
+					</Tooltip>
+				)}
+			</td>
 			<td className="py-2.5 px-2 text-xs text-right tabular-nums text-muted-foreground">{BRL.format(line.empenhadoSiafi)}</td>
 			<td className="py-2.5 px-2 text-xs text-right tabular-nums">
 				<Tooltip>
 					<TooltipTrigger className="cursor-help underline decoration-dotted">{BRL.format(line.saldoSiafi)}</TooltipTrigger>
-					<TooltipContent>Saldo do SIAFI em {new Date(line.snapshotAt).toLocaleString("pt-BR")}. Não inclui empenhos lançados depois no sisub.</TooltipContent>
+					<TooltipContent>
+						Crédito disponível no SIAFI em {new Date(line.snapshotAt).toLocaleString("pt-BR")}. Não inclui empenhos lançados depois no sisub.
+					</TooltipContent>
 				</Tooltip>
 			</td>
 			<td className="py-2.5 px-2 text-xs text-right tabular-nums">
-				{line.comprometimentoLocal > 0 ? (
+				{line.comprometimentoLocal !== 0 ? (
 					<Tooltip>
 						<TooltipTrigger className="cursor-help underline decoration-dotted text-warning">{BRL.format(line.comprometimentoLocal)}</TooltipTrigger>
-						<TooltipContent>Empenhos lançados no sisub após o snapshot. Não se somam ao saldo oficial.</TooltipContent>
+						<TooltipContent>
+							Empenhos desta classificação (ND, PTRES, fonte e exercício) lançados no sisub após o snapshot, pelo valor vigente. Reforço e anulação posteriores
+							entram também. Não se somam ao saldo oficial.
+						</TooltipContent>
 					</Tooltip>
 				) : (
 					<span className="text-muted-foreground">—</span>
@@ -57,14 +89,30 @@ function BudgetRow({ line }: { line: BudgetCreditLine }) {
 }
 
 function BudgetCreditPage() {
-	const lines = Route.useLoaderData()
+	const { lines, notes } = Route.useLoaderData()
+	const { unitId } = Route.useParams()
+	const router = useRouter()
 	const stale = lines.filter((line) => line.snapshotStale).length
+	// NC num nível mais genérico que as linhas (ex.: no elemento 339030, linhas nos
+	// subelementos): aparece UMA vez aqui, em vez de somada em cada linha irmã.
+	const notesAbove = creditNotesAboveLines(
+		lines,
+		notes.map((note) => ({
+			tipo: note.kind,
+			valor: note.amount,
+			dataEmissao: note.issued_on,
+			ugFavorecida: note.beneficiary_ug,
+			nd: note.nd,
+			ptres: note.ptres,
+			fonte: note.fonte,
+		}))
+	)
 
 	return (
 		<div className="space-y-6">
 			<PageHeader
 				title="Crédito Disponível"
-				description="Snapshot do SIAFI (importado do Tesouro Gerencial) ao lado do comprometimento local do sisub. As duas grandezas têm origens diferentes e nunca são somadas — o saldo projetado é a leitura derivada."
+				description="Snapshot do SIAFI (importado do Tesouro Gerencial) ao lado do comprometimento local do sisub, por classificação. As duas grandezas têm origens diferentes e nunca são somadas — o saldo projetado é a leitura derivada."
 			/>
 
 			{stale > 0 && (
@@ -90,9 +138,19 @@ function BudgetCreditPage() {
 									<th className="py-2 px-3 text-left text-label w-28">ND</th>
 									<th className="py-2 px-2 text-left text-label w-24">PTRES</th>
 									<th className="py-2 px-2 text-left text-label w-20">Fonte</th>
-									<th className="py-2 px-2 text-right text-label w-32">Dotação</th>
+									<th className="py-2 px-2 text-left text-label w-28">PI · UGR</th>
+									<th className="py-2 px-2 text-right text-label w-32">
+										<Tooltip>
+											<TooltipTrigger className="cursor-help">Crédito recebido</TooltipTrigger>
+											<TooltipContent>
+												Numa UG executora não há dotação (ela é da LOA, do órgão): há crédito descentralizado por nota de crédito (provisão ou destaque). É esse
+												o valor desta coluna.
+											</TooltipContent>
+										</Tooltip>
+									</th>
+									<th className="py-2 px-2 text-right text-label w-32">NC registradas</th>
 									<th className="py-2 px-2 text-right text-label w-32">Empenhado (SIAFI)</th>
-									<th className="py-2 px-2 text-right text-label w-32">Saldo (SIAFI)</th>
+									<th className="py-2 px-2 text-right text-label w-32">Disponível (SIAFI)</th>
 									<th className="py-2 px-2 text-right text-label w-36">Comprometido (local)</th>
 									<th className="py-2 px-2 text-right text-label w-32">Saldo projetado</th>
 									<th className="py-2 px-2 text-right text-label w-20">Snapshot</th>
@@ -111,9 +169,24 @@ function BudgetCreditPage() {
 			{lines.length > 0 && (
 				<p className="text-xs text-muted-foreground">
 					Competência mais recente: {fmtCompetencia(lines[0]?.competencia ?? "")}. O sisub não recalcula o saldo oficial — ele reflete o SIAFI e mostra o que
-					foi comprometido aqui depois da captura.
+					foi comprometido aqui depois da captura, na mesma classificação.
 				</p>
 			)}
+
+			{lines.length > 0 && notesAbove.length > 0 && (
+				<p className="text-xs text-muted-foreground">
+					NC registradas num nível acima das linhas, que não se repartem entre elas:{" "}
+					{notesAbove
+						.map(
+							(group) =>
+								`ND ${group.nd}${group.ptres ? ` · PTRES ${group.ptres}` : ""}${group.fonte ? ` · fonte ${group.fonte}` : ""} (${group.exercicio ?? "—"}): ${BRL.format(group.total)}`
+						)
+						.join("; ")}
+					.
+				</p>
+			)}
+
+			<CreditNotesCard unitId={Number(unitId)} notes={notes} onChanged={() => router.invalidate()} />
 		</div>
 	)
 }

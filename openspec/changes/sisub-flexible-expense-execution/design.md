@@ -194,6 +194,33 @@ motivo, pendente de revisão da nutricionista), cria preparação provisória s�
 substituto que entrou, lança saída tardia com data real e motivo, e o dia se fecha sozinho com
 pendência de justificativa. Planejamento de datas futuras e modelos continua exclusivo de `kitchen:2`.
 
+### D11. Execução financeira conforme (migration `20260926216000`)
+
+- **Crédito por classificação.** O comprometimento local de uma linha de `budget_credit` soma só
+  os empenhos da mesma UG, ND (por prefixo: linha no elemento, NE no subelemento), PTRES, fonte e
+  exercício, pelo valor VIGENTE; NE anterior ao snapshot entra só pelos eventos posteriores. NE
+  sem ND não é atribuível. A conferência ao registrar a NE é aviso (Lei 4.320, art. 59), exposta
+  como `checkBudgetForEmpenhoFn` / `useBudgetCheckForEmpenho`.
+- **"Dotação" numa UG executora.** A coluna `budget_credit.dotacao` fica (renomear quebraria a
+  `main`); a tela rotula "Crédito recebido" (o crédito descentralizado por NC) e a coluna de saldo
+  "Disponível (SIAFI)", que é o crédito disponível do MCASP (recebido − empenhado).
+- **NC** (`finance.credit_note`): documento, não saldo. Anulação/devolução é outra NC
+  (`kind = 'anulacao'`). PI e UGR entram em `budget_credit` fora da chave única (o upsert da
+  `main` usa a chave antiga).
+- **RP em parcelas** (`finance.empenho_rp_inscription`): processado = liquidado − pago (pago
+  inclui a retenção recolhida); não processado = vigente − liquidado. `empenho.rp_inscrito`,
+  `rp_tipo` e `rp_exercicio` são espelho no expand; o evento `rp_inscricao` continua, um por
+  parcela. Contract: ler só da tabela nova e remover as três colunas.
+- **Retenções** (`finance.liquidacao_deduction`): a OB paga o líquido; o trigger do pagamento
+  compara com bruto − deduções (sem dedução, mesma mensagem de antes). Dedução não passa
+  bruto − pago. `v_empenho_saldo.valor_pago` soma a retenção recolhida.
+- **NS ≤ recebido** quando há recebimento (trigger `liquidacao_within_receipt`); item sem custo
+  usa o total da NF-e; sem NF-e, aceita com pendência.
+- **`anulacao_total`** substitui `cancelamento` para a anulação total da NE (cancelamento é termo
+  de RP, Decreto 93.872/1986). Expand: CHECK aceita os dois, view e piso leem os dois. Contract:
+  `update … set tipo = 'anulacao_total' where tipo = 'cancelamento'` depois que todo escritor
+  gravar o nome novo.
+
 ## Risks / Trade-offs
 
 - **Expand/contract no empenho.** Durante a transição, empenho tem as colunas antigas e os itens. O

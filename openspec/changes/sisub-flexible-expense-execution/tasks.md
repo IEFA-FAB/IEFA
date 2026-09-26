@@ -3,7 +3,7 @@
 - [x] 1.1 [sisub] Declarar `procurement.acquisition` e `finance.credit_note` em `RESET_EXCLUSIONS` (PR #461)
 - [x] 1.2 [database] `20260926214000_acquisition_origin`: `acquisition`, `direct_contract_limit` (semeada 2024–2026, conferida em planalto.gov.br), `empenho_item`; ARP com `ata_id` anulável `SET NULL`, `acquisition_id`, `source`; empenho com `acquisition_id`, colunas antigas anuláveis, FKs `RESTRICT`; OF com `empenho_id` anulável e limite pelo valor vigente; `import_row.parse_status = 'waiting_parent'` e as funções `apply_document_batch`/`relink_waiting_rows` (movidas da 1.3). Sem `unit_role` nem `link_status` (design revisado)
 - [x] 1.3 [database] `20260926215000_receiving_links`: recebimento sem NF-e, vínculos posteriores, CHECK de `contract_designation.source_reference`, `contract_designation.acquisition_id` e FKs `RESTRICT`, view de conciliação pela liquidação (escrita, NÃO aplicada; depende de 214000). `waiting_parent` entrou na 1.2
-- [ ] 1.4 [database] `20260926216000_finance_compliance`: `credit_note`, `empenho_rp_inscription`, `liquidacao_deduction`
+- [x] 1.4 [database] `20260926216000_finance_compliance`: `credit_note`, `empenho_rp_inscription`, `liquidacao_deduction`
 - [ ] 1.5 [database] Aplicar (`db:push --dry-run`, push) e regerar `generated.ts` e Drizzle; `audit:rls` verde
 
 ## 2. Contratação de origem, ARP e NE (Gestão Unidade)
@@ -29,9 +29,9 @@
 
 ## 5. Execução financeira conforme
 
-- [ ] 5.1 [sisub] Nota de crédito (NC) com PI e UGR; verificação de crédito filtrada por ND/PTRES/fonte e ligada ao registro da NE (aviso)
-- [ ] 5.2 [sisub] Inscrição em restos a pagar por valor e tipo; deduções da NS e pagamento pelo líquido
-- [ ] 5.3 [sisub] Liquidação: teto pelo valor recebido quando há recebimento; sem recebimento vira pendência
+- [x] 5.1 [sisub] Nota de crédito (NC) com PI e UGR; verificação de crédito filtrada por ND/PTRES/fonte e ligada ao registro da NE (aviso) — `checkBudgetForEmpenhoFn`/`useBudgetCheckForEmpenho` prontos; o encaixe na tela de NE é da 2.4. Import de NC pelo SIAFI fica pendente (toca `reconciliation.fn.ts`)
+- [x] 5.2 [sisub] Inscrição em restos a pagar por valor e tipo; deduções da NS e pagamento pelo líquido
+- [x] 5.3 [sisub] Liquidação: teto pelo valor recebido quando há recebimento; sem recebimento vira pendência (`isLiquidationWithoutReceipt` para a 4.1)
 
 ## 6. Execução do dia (cozinha)
 

@@ -3727,10 +3727,12 @@ export type Database = {
           id: string
           import_batch_id: string | null
           nd: string
+          pi: string | null
           ptres: string | null
           saldo_siafi: number
           snapshot_at: string
           ug: string | null
+          ugr: string | null
           unit_id: number
         }
         Insert: {
@@ -3742,10 +3744,12 @@ export type Database = {
           id?: string
           import_batch_id?: string | null
           nd: string
+          pi?: string | null
           ptres?: string | null
           saldo_siafi?: number
           snapshot_at?: string
           ug?: string | null
+          ugr?: string | null
           unit_id: number
         }
         Update: {
@@ -3757,15 +3761,91 @@ export type Database = {
           id?: string
           import_batch_id?: string | null
           nd?: string
+          pi?: string | null
           ptres?: string | null
           saldo_siafi?: number
           snapshot_at?: string
           ug?: string | null
+          ugr?: string | null
           unit_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "budget_credit_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_siafi_reconciliation"
+            referencedColumns: ["batch_id"]
+          },
+        ]
+      }
+      credit_note: {
+        Row: {
+          amount: number
+          beneficiary_ug: string | null
+          budget_sphere: string | null
+          created_at: string
+          created_by: string | null
+          fonte: string | null
+          id: string
+          import_batch_id: string | null
+          issued_on: string
+          issuer_ug: string | null
+          kind: string
+          nd: string | null
+          notes: string | null
+          number: string
+          origin: string
+          pi: string | null
+          ptres: string | null
+          ugr: string | null
+          unit_id: number
+        }
+        Insert: {
+          amount: number
+          beneficiary_ug?: string | null
+          budget_sphere?: string | null
+          created_at?: string
+          created_by?: string | null
+          fonte?: string | null
+          id?: string
+          import_batch_id?: string | null
+          issued_on: string
+          issuer_ug?: string | null
+          kind?: string
+          nd?: string | null
+          notes?: string | null
+          number: string
+          origin?: string
+          pi?: string | null
+          ptres?: string | null
+          ugr?: string | null
+          unit_id: number
+        }
+        Update: {
+          amount?: number
+          beneficiary_ug?: string | null
+          budget_sphere?: string | null
+          created_at?: string
+          created_by?: string | null
+          fonte?: string | null
+          id?: string
+          import_batch_id?: string | null
+          issued_on?: string
+          issuer_ug?: string | null
+          kind?: string
+          nd?: string | null
+          notes?: string | null
+          number?: string
+          origin?: string
+          pi?: string | null
+          ptres?: string | null
+          ugr?: string | null
+          unit_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_note_import_batch_id_fkey"
             columns: ["import_batch_id"]
             isOneToOne: false
             referencedRelation: "v_siafi_reconciliation"
@@ -3996,6 +4076,76 @@ export type Database = {
           },
         ]
       }
+      empenho_rp_inscription: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          empenho_id: string
+          fiscal_year: number
+          id: string
+          inscribed_on: string
+          kind: string
+          notes: string | null
+          origin: string
+          supersede_reason: string | null
+          superseded_at: string | null
+          superseded_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          empenho_id: string
+          fiscal_year: number
+          id?: string
+          inscribed_on: string
+          kind: string
+          notes?: string | null
+          origin?: string
+          supersede_reason?: string | null
+          superseded_at?: string | null
+          superseded_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          empenho_id?: string
+          fiscal_year?: number
+          id?: string
+          inscribed_on?: string
+          kind?: string
+          notes?: string | null
+          origin?: string
+          supersede_reason?: string | null
+          superseded_at?: string | null
+          superseded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "empenho_rp_inscription_empenho_id_fkey"
+            columns: ["empenho_id"]
+            isOneToOne: false
+            referencedRelation: "empenho"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "empenho_rp_inscription_empenho_id_fkey"
+            columns: ["empenho_id"]
+            isOneToOne: false
+            referencedRelation: "v_empenho_saldo"
+            referencedColumns: ["empenho_id"]
+          },
+          {
+            foreignKeyName: "empenho_rp_inscription_empenho_id_fkey"
+            columns: ["empenho_id"]
+            isOneToOne: false
+            referencedRelation: "v_empenho_vigente"
+            referencedColumns: ["empenho_id"]
+          },
+        ]
+      }
       liquidacao: {
         Row: {
           competencia: string | null
@@ -4080,6 +4230,56 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_siafi_reconciliation"
             referencedColumns: ["batch_id"]
+          },
+        ]
+      }
+      liquidacao_deduction: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          document_kind: string | null
+          document_number: string | null
+          id: string
+          kind: string
+          liquidacao_id: string
+          notes: string | null
+          paid_on: string | null
+          revenue_code: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          document_kind?: string | null
+          document_number?: string | null
+          id?: string
+          kind: string
+          liquidacao_id: string
+          notes?: string | null
+          paid_on?: string | null
+          revenue_code?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          document_kind?: string | null
+          document_number?: string | null
+          id?: string
+          kind?: string
+          liquidacao_id?: string
+          notes?: string | null
+          paid_on?: string | null
+          revenue_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "liquidacao_deduction_liquidacao_id_fkey"
+            columns: ["liquidacao_id"]
+            isOneToOne: false
+            referencedRelation: "liquidacao"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -4190,6 +4390,8 @@ export type Database = {
       v_empenho_saldo: {
         Row: {
           ajustes: number | null
+          deductions_to_remit: number | null
+          deductions_total: number | null
           empenho_id: string | null
           saldo_a_liquidar: number | null
           unit_id: number | null

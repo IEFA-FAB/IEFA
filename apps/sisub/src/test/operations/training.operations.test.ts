@@ -77,11 +77,9 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// `alpha.demand` — migration 20260926233000 (demanda do requisitante no contrate). Declarada
 	// ANTES de aplicada. Mesmo motivo de `alpha.submission`: o α recusa a unidade de treino.
 	"alpha.demand": "demanda de contratação real estruturada no contrate (Projeto α), não dado gerado pelo treinamento do sisub",
-	// `finance.credit_note` — execução flexível da despesa
-	// (openspec/changes/sisub-flexible-expense-execution). Declarada antes da migration; o PR
-	// do recurso a promove a RESET_STEPS (o treinando cria NC com `unit:2`).
-	// `procurement.acquisition` já foi promovida a RESET_STEPS (20260926214000).
-	"finance.credit_note": "declarada antes da migration da nota de crédito; o PR do recurso a move para o reset",
+	// `procurement.acquisition` (20260926214000) e `finance.credit_note` (20260926216000), da
+	// execução flexível da despesa, foram declaradas aqui antes das migrations e já estão em
+	// RESET_STEPS.
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */

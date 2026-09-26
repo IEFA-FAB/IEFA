@@ -208,6 +208,16 @@ export const ASSURANCE_REGISTRY = {
 		reason: "Esta operação aplica um lote de crédito orçamentário.",
 		authorization: [{ kind: "permission", module: "unit", level: 2 }],
 	},
+	createCreditNoteFn: {
+		require: "session",
+		reason: "Esta operação registra uma nota de crédito.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	deleteCreditNoteFn: {
+		require: "session",
+		reason: "Esta operação apaga uma nota de crédito registrada à mão.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
 
 	// ── compras-sync.fn.ts
 	triggerSyncFn: { require: "none" },
@@ -341,6 +351,21 @@ export const ASSURANCE_REGISTRY = {
 		authorization: [{ kind: "permission", module: "unit", level: 2 }],
 	},
 	createPagamentoFn: { require: "session", reason: "Esta operação registra um pagamento.", authorization: [{ kind: "permission", module: "unit", level: 2 }] },
+	addLiquidacaoDeductionFn: {
+		require: "session",
+		reason: "Esta operação registra uma retenção na liquidação, e o pagamento passa a ser pelo líquido.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	registerDeductionPaymentFn: {
+		require: "session",
+		reason: "Esta operação registra o recolhimento de uma retenção (DARF, DAR ou GPS).",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	deleteLiquidacaoDeductionFn: {
+		require: "session",
+		reason: "Esta operação apaga uma retenção não recolhida da liquidação.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
 
 	// ── mcp-keys.fn.ts
 	createMcpKeyFn: {
@@ -540,6 +565,13 @@ export const ASSURANCE_REGISTRY = {
 	deleteReceiptLotFn: { require: "none" },
 	setReceiptProvisionalFn: { require: "none" },
 	finalizeReceiptFn: { require: "none" },
+
+	// ── restos-a-pagar.fn.ts
+	inscribeRpParcelsFn: {
+		require: "session",
+		reason: "Esta operação inscreve empenhos em restos a pagar.",
+		authorization: [{ kind: "permission", module: "unit", level: 3 }],
+	},
 
 	// ── recipe-flow.fn.ts
 	saveRecipeFlowFn: { require: "none" },
