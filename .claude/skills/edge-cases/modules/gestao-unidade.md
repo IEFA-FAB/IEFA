@@ -339,3 +339,71 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **Cobertura:** `expense-execution.test.ts (domínio) › summarizeAcquisitions`;
   `lib/flows/expense-execution.test.ts › dispensa acima do limite sem justificativa…` e
   `› contratação incompleta… dispensa sem valor…`.
+
+
+## Execução financeira (crédito, NC, NS, OB, restos a pagar)
+
+### GU-FIN-01 — "A NE saiu em 339030 e o crédito dessa ND já tinha acabado"
+- **Realidade:** o SIAFI emitiu a NE (ou ela foi emitida antes da NC chegar), e o crédito de
+  material de consumo da UG estava zerado; o de serviços (339039) tinha sobra.
+- **O sistema precisa:** conferir a NE contra a linha de crédito DA classificação dela (UG, ND,
+  PTRES, fonte, exercício), somando só os empenhos daquela classificação, pelo valor vigente.
+  Crédito de outra ND não "cobre" a NE. Insuficiente vira AVISO com a norma (Lei 4.320, art. 59),
+  nunca recusa: o ato já foi praticado no SIAFI.
+- **UX:** na tela de NE, ao digitar valor e ND, o aviso aparece ao lado ("Crédito insuficiente em
+  ND 339030…"), e o registro segue.
+- **Cobertura:** `packages/sisub-domain/src/operations/budget-math.test.ts ›
+  checkCreditForClassifiedEmpenho` (o empenho de outra ND não derruba o crédito desta).
+  **LACUNA:** a tela de NE ainda não chama `useBudgetCheckForEmpenho` (tarefa 2.4).
+
+### GU-FIN-02 — "Chegou uma NC nova, e depois devolveram parte do crédito"
+- **O sistema precisa:** registrar a NC (número, UG emitente e favorecida, esfera, PTRES, fonte,
+  ND, PI, UGR, valor) e a anulação dela como outra NC, sem editar a primeira; a soma das NC da
+  classificação aparece ao lado do crédito recebido do snapshot e avisa quando não fecha.
+- **UX:** Crédito Disponível → "Notas de crédito" → Registrar NC. Coluna "NC registradas" com
+  "não fecha" quando falta NC.
+- **Cobertura:** `budget-math.test.ts › sumCreditNotesForLine`; integração
+  `budget-execution.operations.test.ts › NC, RP em duas parcelas…` (escrita, não rodada no PR).
+  **LACUNA:** import de NC pelo SIAFI (`import_batch.report_type` não aceita `nc`).
+
+### GU-FIN-03 — "Em 31/12 parte do empenho foi liquidada e não paga, parte nem liquidada"
+- **Realidade:** NE de R$ 10.000; entregas de R$ 6.000 liquidadas, R$ 4.000 pagos; o resto da
+  entrega fica para janeiro.
+- **O sistema precisa:** inscrever as DUAS parcelas: R$ 2.000 em RP processado e R$ 4.000 em RP
+  não processado (Lei 4.320, art. 36). Rodar o encerramento de novo não duplica.
+- **UX:** Pagamentos → "Restos a pagar": prévia por empenho com as duas colunas, e um botão.
+- **Cobertura:** `finance-compliance-math.test.ts › restos a pagar em duas parcelas`; integração
+  `budget-execution.operations.test.ts` (unicidade da parcela). **LACUNA:** a conversão do RP não
+  processado em processado quando a entrega de janeiro é liquidada não é modelada.
+
+### GU-FIN-04 — "A OB saiu pelo líquido, com DARF de IR e CSLL retidos"
+- **Realidade:** NS de R$ 10.000; retenção de 5,85% (IN RFB 1.234/2012) — o fornecedor recebe
+  R$ 9.415 e o DARF paga R$ 585.
+- **O sistema precisa:** a retenção fica na NS; o teto da OB é o líquido; a retenção é "a
+  recolher" até o DARF/DAR/GPS ser registrado. Sem retenção, nada muda.
+- **UX:** Liquidações → abrir a NS → Registrar retenção (alíquota calcula o valor); Pagamentos →
+  "Retenções a recolher" → Registrar recolhimento.
+- **Cobertura:** `finance-compliance-math.test.ts › OB pelo líquido`; integração
+  `budget-execution.operations.test.ts` (trigger do pagamento e da dedução).
+
+### GU-FIN-05 — "A NS veio maior do que o que chegou"
+- **O sistema precisa:** com recebimento vinculado, Σ NS do recebimento ≤ valor recebido
+  (Σ quantidade × custo; com item sem custo, o total da NF-e). Recusa com o quanto ainda cabe
+  (Lei 4.320, art. 63, § 2º, III). Recebimento com item sem custo e sem NF-e: aceita, com a
+  pendência de precificar.
+- **Cobertura:** `finance-compliance-math.test.ts › teto da liquidação pelo recebido`; integração
+  `budget-execution.operations.test.ts` (trigger `liquidacao_within_receipt`).
+
+### GU-FIN-06 — "Liquidaram sem recebimento (serviço, ou o recebimento ainda vai ser vinculado)"
+- **O sistema precisa:** aceitar a NS e deixar a pendência "liquidação sem recebimento vinculado".
+- **UX:** badge "pendente: sem recebimento" na lista de liquidações.
+- **Cobertura:** `finance-compliance-math.test.ts › liquidação sem recebimento é pendência`.
+  **LACUNA:** a pendência ainda não entra no fluxo "Executar despesa" (tarefa 4.1, que deve usar
+  `isLiquidationWithoutReceipt`), e não há ação de vincular o recebimento depois da NS.
+
+### GU-FIN-07 — "Anularam a NE inteira"
+- **O sistema precisa:** anulação total é `anulacao_total`; "cancelamento" é termo de RP. O banco
+  aceita os dois e os lê igual (expand).
+- **Cobertura:** `finance-compliance-math.test.ts › anulação total`; integração
+  `budget-execution.operations.test.ts`. **LACUNA:** `registerEmpenhoEventFn` ainda grava
+  `cancelamento` (tarefa 2.4).
