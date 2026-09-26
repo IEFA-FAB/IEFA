@@ -20,10 +20,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { useDraft } from "@/hooks/forms/useDraft"
+import { itemDraftKey } from "@/hooks/forms/useItemCards"
 import type { DraftFields } from "@/lib/drafts/draft-diff"
 import { type PurchaseItemWithLink, useCreatePurchaseItem, useUpdatePurchaseItem } from "@/services/IngredientsService"
 import { PendingChanges } from "../shared/PendingChanges"
 import { CatmatCombobox } from "./CatmatCombobox"
+
+/** Prefixo das chaves de rascunho destes itens — a lista usa o mesmo para o selo "Rascunho não salvo". */
+export const PURCHASE_ITEM_DRAFT_PREFIX = "sisub:purchase-item"
 
 // O "sem valor" é `null`, não um sentinela: o Base UI trata qualquer valor não nulo como seleção e,
 // sem rótulo em `items`, mostra o valor cru no gatilho (era assim que "__NONE__" aparecia).
@@ -203,7 +207,7 @@ export function PurchaseItemEditor({ mode, purchaseItem, ingredientId, ingredien
 
 	const values = useStore(form.store, (state) => state.values)
 	const draft = useDraft<PurchaseItemDraft>({
-		key: `sisub:purchase-item:${purchaseItem?.id ?? `new:${ingredientId}`}`,
+		key: itemDraftKey(PURCHASE_ITEM_DRAFT_PREFIX, purchaseItem?.id, ingredientId),
 		title: mode === "create" ? `Novo item de compra — ${ingredientName}` : `Item de compra: ${purchaseItem?.description ?? ""}`,
 		href: ingredientHref,
 		baseline: { ...purchaseItemValues(purchaseItem), catmat: savedCatmat },

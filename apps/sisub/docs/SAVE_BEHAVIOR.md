@@ -40,9 +40,23 @@ edição é um **rascunho local**.
 - `OpenDraftsMenu`, no cabeçalho do app, lista os rascunhos abertos em qualquer tela, com
   link de volta. Sem ele, um rascunho esquecido só seria lembrado quando o F5 o apagasse.
 - Aviso de `beforeunload` enquanto há rascunho.
-- **Rascunho desatualizado**: se o registro mudou no servidor depois que a edição começou,
-  a lista avisa que Salvar vai gravar por cima. O diff é sempre contra o salvo **atual**:
+- **Rascunho desatualizado**: se o registro salvo mudou depois que a edição começou (outra
+  pessoa gravou), a lista avisa que Salvar vai gravar por cima. A assinatura é o próprio
+  baseline do formulário. Por isso salvar um item filho, que gera versão do insumo mas não
+  muda os campos do form, não conta como mudança. O diff é sempre contra o salvo **atual**:
   a lista mostra exatamente o que o Salvar muda.
+- **Rascunho é do usuário**: trocar de sessão na aba (o logout não recarrega a página)
+  descarta todos. Num terminal compartilhado, o próximo usuário não vê, nem salva em nome
+  próprio, o rascunho de quem saiu.
+- **Um rascunho por registro**: a tela que usa `useDraft` remonta ao trocar de registro
+  (`key` na rota). Reaproveitado pelo router, o form levava os valores editados de um
+  insumo para o próximo. Na preparação, a chave é a **versão** aberta: um rascunho da v3
+  nunca é aplicado sobre a v4.
+- **Depois de salvar, o baseline vem primeiro**: espere o refetch e só então limpe o
+  rascunho e redefina o form. Na ordem inversa, o form mostra o valor novo contra o
+  baseline antigo e o rascunho renasce.
+- A barra (`DraftSaveBar`) é o componente que assina os valores do form. Assinar no topo do
+  formulário re-renderizava todas as abas a cada tecla.
 
 Onde a barra fixa convive com sub-editores que salvam por conta própria (itens de compra e
 de produto no insumo; fluxo e equipamentos na preparação), **a barra da entidade só aparece
@@ -102,6 +116,8 @@ F5:
 | `useDraft` | `src/hooks/forms/useDraft.ts` | Rascunho + alterações pendentes + aviso de saída (modo A) |
 | `computeDraftChanges` | `src/lib/drafts/draft-diff.ts` | Diff puro com rótulos. Campo sem especificação ainda conta (rótulo = nome do campo) |
 | `PendingChanges` | `src/components/features/shared/PendingChanges.tsx` | Ao lado do Salvar (modo A) |
+| `DraftSaveBar` | `src/components/features/shared/DraftSaveBar.tsx` | Barra fixa do modo A: rascunho, pendências, Voltar, Salvar |
+| `useItemCards` / `itemDraftKey` | `src/hooks/forms/useItemCards.ts` | Lista de itens editados no próprio card, com o selo de rascunho |
 | `OpenDraftsMenu` | `src/components/layout/OpenDraftsMenu.tsx` | Cabeçalho do app; lista os rascunhos abertos |
 | `AutoSaveStatus` / `autoSaveStateOf` | `src/components/features/shared/AutoSaveStatus.tsx` | No lugar do Salvar (modo B) |
 | `CollapsibleItemCard` | `src/components/features/shared/CollapsibleItemCard.tsx` | Item de lista que edita no próprio card |

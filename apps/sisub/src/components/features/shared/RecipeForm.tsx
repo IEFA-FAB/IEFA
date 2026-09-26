@@ -1,13 +1,13 @@
 import type { EditScope } from "@iefa/sisub-domain"
-import { useForm, useStore } from "@tanstack/react-form"
+import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { CalendarCheck, CircleCheck, GitFork, Loader2, Pencil, Printer, Save, TriangleAlert } from "lucide-react"
+import { CalendarCheck, CircleCheck, GitFork, Loader2, Pencil, Printer, TriangleAlert } from "lucide-react"
 import { useMemo, useState } from "react"
 import { z } from "zod"
+import { DraftSaveBar } from "@/components/features/shared/DraftSaveBar"
 import { RecipeEquipmentPanel } from "@/components/features/shared/equipment/RecipeEquipmentPanel"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
-import { PendingChanges } from "@/components/features/shared/PendingChanges"
 import { RecipeIngredientsTable } from "@/components/features/shared/RecipeIngredientsTable"
 import { RecipeFlowEditor } from "@/components/features/shared/recipe-flow/RecipeFlowEditor"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -27,7 +27,7 @@ import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { useCreateRecipe, useSaveRecipeEdit } from "@/hooks/data/useRecipeMutations"
 import { type RecipeNutritionInputIngredient, useRecipeNutrition } from "@/hooks/data/useRecipeNutrition"
 import { recipeLastReviewQueryOptions, useRecordRecipeReview } from "@/hooks/data/useRecipes"
-import { useDraft } from "@/hooks/forms/useDraft"
+import { discardDraft } from "@/hooks/forms/useDraft"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { cn } from "@/lib/cn"
 import { type DraftChange, type DraftFields, formatDraftValue } from "@/lib/drafts/draft-diff"
@@ -587,7 +587,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					kitchen_id: editContext.scope === "kitchen" ? editContext.kitchenId : null,
 					ingredients: mappedIngredients,
 				})
-				draft.clear()
+				discardDraft(draftKey)
 				stayOnSavedRecipe(created.id)
 			} else if (initialData) {
 				// "edit" e "fork" convergem: o servidor decide versionar ou forkar a partir do
@@ -597,7 +597,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					context: editContext,
 					data: { ...recipeData, ingredients: mappedIngredients },
 				})
-				draft.clear()
+				discardDraft(draftKey)
 				stayOnSavedRecipe(saved.id)
 			}
 		},
@@ -606,38 +606,25 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	const isPending = createMutation.isPending || saveEditMutation.isPending
 
 	// ── Rascunho local + alterações pendentes (salvamento explícito: cada Salvar é uma versão) ──
-	// A chave segue a LINHAGEM e o contexto, não o id da versão: salvar troca o id da URL, e
-	// um rascunho da v3 continua sendo rascunho da preparação quando a v4 aparece.
-	const lineageId = initialData ? (initialData.base_recipe_id ?? initialData.id) : null
+	// A chave é a VERSÃO aberta (e o contexto): versões são imutáveis, então um rascunho da v3
+	// nunca é aplicado sobre a v4 de outra pessoa. Salvar troca o id e começa limpo.
 	const draftKey =
 		mode === "create"
 			? `sisub:recipe:new:${kitchenId ?? "global"}`
-			: `sisub:recipe:${mode}:${editContext.scope === "kitchen" ? editContext.kitchenId : "global"}:${lineageId}`
-	const recipeValues = useStore(form.store, (state) => state.values)
+			: `sisub:recipe:${mode}:${editContext.scope === "kitchen" ? editContext.kitchenId : "global"}:${initialData?.id}`
 	const draftFields: DraftFields<RecipeFormValues> = {
 		...Object.fromEntries(Object.entries(RECIPE_DRAFT_LABELS).map(([key, label]) => [key, { label }])),
 		folder_id: { label: "Pasta", format: (id) => (id ? (folderNameById.get(id) ?? "Pasta") : "Sem pasta") },
 		ingredients: { label: "Insumos", expand: diffRecipeIngredients },
 	}
-	const draft = useDraft<RecipeFormValues>({
-		key: draftKey,
-		title: mode === "create" ? "Nova preparação" : `Preparação: ${initialData?.name ?? ""}`,
-		href: typeof window === "undefined" ? null : `${window.location.pathname}${window.location.search}`,
-		baseline: recipeFormValues(initialData),
-		current: recipeValues,
-		baseStamp: initialData?.id ?? null,
-		fields: draftFields,
-		onRestore: (restored) => form.reset(restored, { keepDefaultValues: true }),
-	})
-	const discardDraft = () => {
+	const discardRecipeDraft = () => {
 		form.reset(recipeFormValues(initialData))
-		draft.clear()
+		discardDraft(draftKey)
 	}
 
 	// Fluxo e Equipamentos salvam por conta própria: a barra da preparação só aparece nelas se
 	// houver alteração da preparação pendente — senão seriam dois "Salvar" na mesma tela.
 	const isRecipeTab = activeTab !== "fluxo" && activeTab !== "equipamentos"
-	const showSaveBar = isRecipeTab || draft.isDirty
 
 	// Contexto do modo — distinto do nome (editado no título da página)
 	const modeBadge =
@@ -1151,26 +1138,32 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				</Tabs>
 			</div>
 
-			{/* Barra de ação do form — efeito do salvamento explícito. Nas abas Fluxo/Equipamentos só
-			    aparece com alteração pendente da preparação. */}
-			{showSaveBar && (
-				<div className="sticky bottom-0 z-10 -mx-3 border-t border-border bg-background px-3 py-3 sm:-mx-6 sm:px-6">
-					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-						<p className="text-caption text-muted-foreground">{isRecipeTab ? saveCaption : "Há alterações na preparação ainda não salvas."}</p>
-						<div className="flex flex-wrap items-center justify-end gap-2 sm:shrink-0 sm:flex-nowrap">
-							<PendingChanges draft={draft} onDiscard={discardDraft} disabled={isPending} />
-							<Button type="button" variant="outline" onClick={handleBack}>
-								Voltar
-							</Button>
-							{/* Editar sem mudança não grava versão; criar e personalizar sempre gravam. */}
-							<Button type="submit" form="recipe-form" disabled={isPending || (mode === "edit" && !willFork && !draft.isDirty)}>
-								{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
-								Salvar Preparação
-							</Button>
-						</div>
-					</div>
-				</div>
-			)}
+			{/* Barra de ação do form — efeito do salvamento explícito. Sempre montada (é ela que
+			    restaura e grava o rascunho); nas abas Fluxo/Equipamentos só aparece com alteração
+			    pendente da preparação. Recebe os valores por `form.Subscribe` para só ela
+			    re-renderizar a cada tecla. */}
+			<form.Subscribe selector={(state) => state.values}>
+				{(values) => (
+					<DraftSaveBar<RecipeFormValues>
+						draftKey={draftKey}
+						primary={isRecipeTab}
+						caption={isRecipeTab ? saveCaption : "Há alterações na preparação ainda não salvas."}
+						formId="recipe-form"
+						saveLabel="Salvar Preparação"
+						onBack={handleBack}
+						isPending={isPending}
+						// Editar sem mudança não grava versão; criar e personalizar sempre gravam.
+						allowCleanSave={mode !== "edit" || willFork}
+						title={mode === "create" ? "Nova preparação" : `Preparação: ${initialData?.name ?? ""}`}
+						href={typeof window === "undefined" ? null : `${window.location.pathname}${window.location.search}`}
+						baseline={recipeFormValues(initialData)}
+						current={values}
+						fields={draftFields}
+						onRestore={(restored) => form.reset(restored, { keepDefaultValues: true })}
+						onDiscard={discardRecipeDraft}
+					/>
+				)}
+			</form.Subscribe>
 
 			{/* Ingredient Selector Modal — adiciona ingrediente principal à preparação */}
 			{selectorOpen && (

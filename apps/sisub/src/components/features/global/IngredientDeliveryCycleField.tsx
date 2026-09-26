@@ -1,5 +1,6 @@
 import { DELIVERY_CYCLE_LABELS, type DeliveryCycle, isDeliveryCycle } from "@iefa/sisub-domain"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
@@ -23,9 +24,12 @@ export function IngredientDeliveryCycleField({ ingredientId, value }: { ingredie
 	const queryClient = useQueryClient()
 	const current = isDeliveryCycle(value) ? value : UNSET
 
+	// Hora em que a gravação TERMINOU — `submittedAt` seria a do clique.
+	const [savedAt, setSavedAt] = useState<number | null>(null)
 	const mutation = useMutation({
 		mutationFn: (deliveryCycle: DeliveryCycle | null) => updateIngredientDeliveryCycleFn({ data: { id: ingredientId, deliveryCycle } }),
 		onSuccess: () => {
+			setSavedAt(Date.now())
 			queryClient.invalidateQueries({ queryKey: ingredientQueryOptions(ingredientId).queryKey })
 		},
 		onError: (error) => toast.error(`Erro ao atualizar ciclo de entrega: ${error.message}`),
@@ -41,7 +45,7 @@ export function IngredientDeliveryCycleField({ ingredientId, value }: { ingredie
 				</FieldDescription>
 				<AutoSaveStatus
 					status={autoSaveStateOf(mutation)}
-					savedAt={mutation.submittedAt}
+					savedAt={savedAt}
 					onRetry={() => mutation.variables !== undefined && mutation.mutate(mutation.variables)}
 				/>
 			</FieldContent>

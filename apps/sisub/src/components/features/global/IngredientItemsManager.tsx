@@ -14,11 +14,10 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
-import { useOpenDrafts } from "@/hooks/forms/useDraft"
-import { draftStore } from "@/lib/drafts/draft-store"
+import { useItemCards } from "@/hooks/forms/useItemCards"
 import { type IngredientItemWithPurchase, useDeleteIngredientItem, useIngredientItems } from "@/services/IngredientsService"
 import { CollapsibleItemCard } from "../shared/CollapsibleItemCard"
-import { IngredientItemEditor } from "./IngredientItemEditor"
+import { INGREDIENT_ITEM_DRAFT_PREFIX, IngredientItemEditor } from "./IngredientItemEditor"
 
 interface IngredientItemsManagerProps {
 	ingredientId: string
@@ -27,11 +26,6 @@ interface IngredientItemsManagerProps {
 	/** Chamado após qualquer alteração (criar/editar/remover) para registrar uma versão do insumo. */
 	onChanged?: () => void
 }
-
-/** Card aberto: o id do item, "new" para o item em criação, ou nenhum. */
-type OpenCard = string | null
-
-const draftKey = (id: string) => `sisub:ingredient-item:${id}`
 
 /** Resumo físico em linha única (embalagem + GTIN), omitindo campos ausentes. */
 function stockSummary(item: IngredientItemWithPurchase): string {
@@ -53,20 +47,14 @@ export function IngredientItemsManager({ ingredientId, ingredientName, ingredien
 	const queryClient = useQueryClient()
 	const { ingredientItems } = useIngredientItems(ingredientId)
 	const { deleteIngredientItem, isDeleting } = useDeleteIngredientItem()
-	const drafts = new Set(useOpenDrafts().map((draft) => draft.key))
-
-	const [openCard, setOpenCard] = useState<OpenCard>(null)
+	const cards = useItemCards(INGREDIENT_ITEM_DRAFT_PREFIX, ingredientId)
 	const [deleteTarget, setDeleteTarget] = useState<IngredientItemWithPurchase | null>(null)
-
-	const newDraftKey = draftKey(`new:${ingredientId}`)
-	const showNewCard = openCard === "new" || drafts.has(newDraftKey)
 
 	const handleDeleteConfirm = async () => {
 		if (!deleteTarget) return
 		try {
 			await deleteIngredientItem(deleteTarget.id)
-			draftStore.delete(draftKey(deleteTarget.id))
-			if (openCard === deleteTarget.id) setOpenCard(null)
+			cards.forget(deleteTarget.id)
 			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 			onChanged?.()
 			toast.success("Item de produto excluído com sucesso!")
@@ -77,8 +65,7 @@ export function IngredientItemsManager({ ingredientId, ingredientName, ingredien
 		}
 	}
 
-	const toggle = (card: string) => (open: boolean) => setOpenCard(open ? card : null)
-	const isEmpty = (!ingredientItems || ingredientItems.length === 0) && !showNewCard
+	const isEmpty = (!ingredientItems || ingredientItems.length === 0) && !cards.showNewCard
 
 	return (
 		<section className="space-y-3">
@@ -92,7 +79,7 @@ export function IngredientItemsManager({ ingredientId, ingredientName, ingredien
 					</div>
 					<p className="text-caption text-muted-foreground">Produtos físicos em estoque (GTIN), cada um vinculado a um item de compra.</p>
 				</div>
-				<Button size="sm" onClick={() => setOpenCard("new")} className="gap-2 shrink-0">
+				<Button size="sm" onClick={() => cards.open("new")} className="gap-2 shrink-0">
 					<PackagePlus className="size-4" />
 					Novo Item
 				</Button>
@@ -103,20 +90,20 @@ export function IngredientItemsManager({ ingredientId, ingredientName, ingredien
 				<div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border py-12 text-muted-foreground">
 					<Boxes className="size-10 opacity-30" />
 					<p className="text-body">Nenhum item de produto cadastrado</p>
-					<Button variant="outline" size="sm" onClick={() => setOpenCard("new")}>
+					<Button variant="outline" size="sm" onClick={() => cards.open("new")}>
 						<PackagePlus className="size-4 mr-2" />
 						Adicionar primeiro item
 					</Button>
 				</div>
 			) : (
 				<div className="flex flex-col gap-3">
-					{showNewCard && (
+					{cards.showNewCard && (
 						<CollapsibleItemCard
-							open={openCard === "new"}
-							onOpenChange={toggle("new")}
+							open={cards.isOpen("new")}
+							onOpenChange={cards.toggle("new")}
 							icon={<PackagePlus className="text-muted-foreground" />}
 							title="Novo item de produto"
-							hasDraft={drafts.has(newDraftKey)}
+							hasDraft={cards.hasNewDraft}
 							itemLabel="novo item de produto"
 						>
 							<IngredientItemEditor
@@ -124,7 +111,7 @@ export function IngredientItemsManager({ ingredientId, ingredientName, ingredien
 								ingredientId={ingredientId}
 								ingredientName={ingredientName}
 								ingredientHref={ingredientHref}
-								onClose={() => setOpenCard(null)}
+								onClose={cards.close}
 								onChanged={onChanged}
 							/>
 						</CollapsibleItemCard>
@@ -135,8 +122,8 @@ export function IngredientItemsManager({ ingredientId, ingredientName, ingredien
 						return (
 							<CollapsibleItemCard
 								key={item.id}
-								open={openCard === item.id}
-								onOpenChange={toggle(item.id)}
+								open={cards.isOpen(item.id)}
+								onOpenChange={cards.toggle(item.id)}
 								icon={<Boxes className="text-muted-foreground" />}
 								title={item.description}
 								description={
@@ -155,7 +142,7 @@ export function IngredientItemsManager({ ingredientId, ingredientName, ingredien
 										{summary && <span className="block w-full font-mono">{summary}</span>}
 									</>
 								}
-								hasDraft={drafts.has(draftKey(item.id))}
+								hasDraft={cards.hasDraft(item.id)}
 								itemLabel={item.description ?? "item de produto"}
 								onDelete={() => setDeleteTarget(item)}
 								deleteLabel="Excluir"
@@ -167,7 +154,7 @@ export function IngredientItemsManager({ ingredientId, ingredientName, ingredien
 									ingredientId={ingredientId}
 									ingredientName={ingredientName}
 									ingredientHref={ingredientHref}
-									onClose={() => setOpenCard(null)}
+									onClose={cards.close}
 									onChanged={onChanged}
 								/>
 							</CollapsibleItemCard>

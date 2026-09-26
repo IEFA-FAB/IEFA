@@ -23,9 +23,12 @@ export function IngredientAllergensField({ ingredientId, value }: { ingredientId
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `savedKey` é a identidade de `saved`
 	useEffect(() => setCurrent(saved), [savedKey])
 
+	// Hora em que a gravação TERMINOU — `submittedAt` seria a do clique.
+	const [savedAt, setSavedAt] = useState<number | null>(null)
 	const mutation = useMutation({
 		mutationFn: (allergens: Allergen[]) => updateIngredientAllergensFn({ data: { id: ingredientId, allergens } }),
 		onSuccess: () => {
+			setSavedAt(Date.now())
 			queryClient.invalidateQueries({ queryKey: ingredientQueryOptions(ingredientId).queryKey })
 		},
 		onError: (error) => {
@@ -50,7 +53,7 @@ export function IngredientAllergensField({ ingredientId, value }: { ingredientId
 				</FieldDescription>
 				<AutoSaveStatus
 					status={autoSaveStateOf(mutation)}
-					savedAt={mutation.submittedAt}
+					savedAt={savedAt}
 					onRetry={() => mutation.variables !== undefined && mutation.mutate(mutation.variables)}
 				/>
 			</FieldContent>

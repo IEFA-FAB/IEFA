@@ -30,5 +30,5 @@ function EditRecipePage() {
 		return <div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">Preparação não encontrada ou erro ao carregar.</div>
 	}
 
-	return <RecipeForm mode="edit" initialData={recipe} />
+	return <RecipeForm key={recipe.id} mode="edit" initialData={recipe} />
 }

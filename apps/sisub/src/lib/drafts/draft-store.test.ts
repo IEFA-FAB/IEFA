@@ -32,3 +32,31 @@ describe("draftStore", () => {
 		expect(listener).not.toHaveBeenCalled()
 	})
 })
+
+describe("draftStore — dono e notificação", () => {
+	it("descarta os rascunhos quando o usuário da sessão muda", () => {
+		draftStore.bindOwner("user-1")
+		draftStore.set(entry("a", 1))
+		draftStore.bindOwner("user-1")
+		expect(draftStore.get("a")).toBeDefined()
+		draftStore.bindOwner(null)
+		expect(draftStore.get("a")).toBeUndefined()
+	})
+
+	it("gravar só os valores não notifica; mudar a contagem notifica", () => {
+		draftStore.set(entry("a", 1))
+		const listener = vi.fn()
+		draftStore.subscribe(listener)
+		draftStore.set({ ...entry("a", 2), values: { a: 2 } })
+		expect(listener).not.toHaveBeenCalled()
+		expect(draftStore.get("a")?.values).toEqual({ a: 2 })
+		draftStore.set({ ...entry("a", 3), changeCount: 2 })
+		expect(listener).toHaveBeenCalledTimes(1)
+	})
+
+	it("expõe o conjunto de chaves como string estável", () => {
+		draftStore.set(entry("b", 1))
+		draftStore.set(entry("a", 1))
+		expect(draftStore.keys()).toBe("a\nb")
+	})
+})

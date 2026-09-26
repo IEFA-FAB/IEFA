@@ -670,7 +670,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		<div className="space-y-6">
 			<PageHeader title={`Editar ${copy.singular}`} onBack={() => navigate(listLink)}>
 				<div className="flex items-center gap-2">
-					<AutoSaveStatus status={saveStatus} />
+					<AutoSaveStatus status={saveStatus} onRetry={handleSave} />
 					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
 					{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo.
 						    Padrão de lanche não entra por aqui: a produção dele nasce do aceite do pedido, e

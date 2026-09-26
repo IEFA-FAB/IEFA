@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { computeDraftChanges, type DraftChange, type DraftFields, isDraftValueEqual } from "@/lib/drafts/draft-diff"
 import { type DraftEntry, draftStore } from "@/lib/drafts/draft-store"
 
@@ -10,11 +10,17 @@ import { type DraftEntry, draftStore } from "@/lib/drafts/draft-store"
  *   e voltar restaura o rascunho (`onRestore`).
  * - Devolve a lista de alterações pendentes, que `PendingChanges` mostra ao lado do Salvar.
  * - Avisa no `beforeunload` enquanto há alteração: o rascunho mora em memória e morre no F5.
- * - `baseStamp` (ex.: `updated_at`) marca o rascunho como `stale` quando o registro mudou
- *   no servidor depois que a edição começou. O diff é SEMPRE contra o salvo atual, então a
- *   lista mostra exatamente o que o Salvar vai sobrescrever.
+ * - `stale`: o registro salvo mudou depois que o rascunho começou (outra pessoa gravou). A
+ *   assinatura padrão é o próprio baseline serializado — mudar algo que o formulário não
+ *   edita (um item filho que gera versão, por exemplo) não conta. O diff é SEMPRE contra o
+ *   salvo atual, então a lista mostra exatamente o que o Salvar vai sobrescrever.
  *
- * Depois de salvar, chame `clear()` e redefina o baseline do formulário (`form.reset(values)`).
+ * O componente que usa este hook deve ser remontado ao trocar de registro (`key` na rota):
+ * a restauração roda uma vez por montagem.
+ *
+ * Depois de salvar, espere o baseline refletir o servidor (refetch) e só então chame
+ * `clear()`/`discardDraft(key)` e redefina o formulário — na ordem inversa, o formulário
+ * volta ao valor novo enquanto o baseline ainda é o antigo, e o rascunho renasce.
  */
 export interface UseDraftOptions<T extends Record<string, unknown>> {
 	/** `null` desliga o rascunho (ex.: modo preview de versão). */
@@ -23,6 +29,10 @@ export interface UseDraftOptions<T extends Record<string, unknown>> {
 	href?: string | null
 	baseline: T
 	current: T
+	/**
+	 * Assinatura própria do registro salvo. Padrão (`undefined`): o baseline serializado.
+	 * `null` = ainda não se sabe (baseline carregando) — não acusa desatualizado.
+	 */
 	baseStamp?: string | null
 	fields?: DraftFields<T>
 	onRestore: (values: T) => void
@@ -31,9 +41,16 @@ export interface UseDraftOptions<T extends Record<string, unknown>> {
 export interface DraftState {
 	changes: DraftChange[]
 	isDirty: boolean
-	/** Preenchido quando a tela abriu restaurando um rascunho. */
-	restored: { savedAt: number; stale: boolean } | null
+	/** O registro mudou no servidor depois que o rascunho começou. */
+	stale: boolean
+	/** Quando a tela abriu restaurando um rascunho, a hora em que ele foi gravado. */
+	restoredAt: number | null
 	clear: () => void
+}
+
+/** Apaga o rascunho de uma chave — para quem salva fora do componente que tem o hook. */
+export function discardDraft(key: string) {
+	draftStore.delete(key)
 }
 
 export function useDraft<T extends Record<string, unknown>>({
@@ -42,31 +59,34 @@ export function useDraft<T extends Record<string, unknown>>({
 	href = null,
 	baseline,
 	current,
-	baseStamp = null,
+	baseStamp,
 	fields,
 	onRestore,
 }: UseDraftOptions<T>): DraftState {
-	const [restored, setRestored] = useState<DraftState["restored"]>(null)
+	const [restoredAt, setRestoredAt] = useState<number | null>(null)
 	// Pula a gravação no mesmo commit da restauração: `current` ainda é o valor salvo
 	// e apagaria o rascunho que acabou de ser aplicado.
 	const skipPersist = useRef(false)
 
-	// Os objetos chegam novos a cada render; a identidade que importa é a do conteúdo.
 	const baselineJson = JSON.stringify(baseline)
 	const currentJson = JSON.stringify(current)
-	// biome-ignore lint/correctness/useExhaustiveDependencies: recalcula pelo conteúdo serializado, não pela referência
-	const changes = useMemo(() => computeDraftChanges(baseline, current, fields), [baselineJson, currentJson])
-	const isDirty = key != null && changes.length > 0
+	const stamp = baseStamp === undefined ? baselineJson : baseStamp
+	// Sem memo de propósito: `format`/`expand` leem listas que carregam depois (pastas, itens
+	// de compra); memorizado pelo conteúdo, o rótulo ficava preso ao "indisponível".
+	const changes = key == null ? [] : computeDraftChanges(baseline, current, fields)
+	const isDirty = changes.length > 0
+	const entry = key == null ? undefined : draftStore.get<T>(key)
+	const stale = isDirty && entry?.baseStamp != null && stamp != null && entry.baseStamp !== stamp
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: restaura uma vez por chave; baseline/onRestore do primeiro render bastam
 	useEffect(() => {
-		setRestored(null)
+		setRestoredAt(null)
 		if (key == null) return
-		const entry = draftStore.get<T>(key)
-		if (!entry || isDraftValueEqual(entry.values, baseline)) return
+		const saved = draftStore.get<T>(key)
+		if (!saved || isDraftValueEqual(saved.values, baseline)) return
 		skipPersist.current = true
-		onRestore(entry.values)
-		setRestored({ savedAt: entry.savedAt, stale: entry.baseStamp != null && baseStamp != null && entry.baseStamp !== baseStamp })
+		onRestore(saved.values)
+		setRestoredAt(saved.savedAt)
 	}, [key])
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: grava pelo conteúdo serializado; título/href/stamp acompanham
@@ -81,19 +101,17 @@ export function useDraft<T extends Record<string, unknown>>({
 			return
 		}
 		const existing = draftStore.get<T>(key)
-		// Sem isto cada render regravaria o store, que notifica o indicador global, que
-		// re-renderiza a tela: laço.
-		if (existing && JSON.stringify(existing.values) === currentJson) return
+		if (existing && existing.baseStamp != null && JSON.stringify(existing.values) === currentJson && existing.changeCount === changes.length) return
 		draftStore.set<T>({
 			key,
 			values: current,
-			baseStamp: existing?.baseStamp ?? baseStamp,
+			baseStamp: existing?.baseStamp ?? stamp,
 			title,
 			href,
 			changeCount: changes.length,
 			savedAt: Date.now(),
 		})
-	}, [key, currentJson, changes.length])
+	}, [key, currentJson, baselineJson, changes.length])
 
 	useEffect(() => {
 		if (!isDirty) return
@@ -106,12 +124,13 @@ export function useDraft<T extends Record<string, unknown>>({
 	}, [isDirty])
 
 	return {
-		changes: key == null ? [] : changes,
+		changes,
 		isDirty,
-		restored,
+		stale,
+		restoredAt,
 		clear: () => {
 			if (key != null) draftStore.delete(key)
-			setRestored(null)
+			setRestoredAt(null)
 		},
 	}
 }
@@ -119,6 +138,15 @@ export function useDraft<T extends Record<string, unknown>>({
 /** Todos os rascunhos abertos na aba — alimenta o indicador global. */
 export function useOpenDrafts(): DraftEntry[] {
 	return useSyncExternalStore(draftStore.subscribe, draftStore.list, () => EMPTY)
+}
+
+/**
+ * Conjunto de chaves com rascunho. Só re-renderiza quando o CONJUNTO muda — as listas
+ * de itens usam isto para o selo "Rascunho não salvo" sem re-renderizar a cada tecla.
+ */
+export function useDraftKeys(): Set<string> {
+	const keys = useSyncExternalStore(draftStore.subscribe, draftStore.keys, () => "")
+	return new Set(keys ? keys.split("\n") : [])
 }
 
 const EMPTY: DraftEntry[] = []

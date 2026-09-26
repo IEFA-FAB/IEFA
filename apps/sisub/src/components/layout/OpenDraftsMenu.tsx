@@ -1,9 +1,11 @@
 import { useNavigate } from "@tanstack/react-router"
 import { FilePen } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
+import { useAuth } from "@/hooks/auth/useAuth"
 import { useOpenDrafts } from "@/hooks/forms/useDraft"
+import { draftStore } from "@/lib/drafts/draft-store"
 
 /**
  * Rascunhos não salvos abertos nesta aba, de qualquer tela. O rascunho sobrevive a sair
@@ -12,6 +14,10 @@ import { useOpenDrafts } from "@/hooks/forms/useDraft"
 export function OpenDraftsMenu() {
 	const drafts = useOpenDrafts()
 	const navigate = useNavigate()
+	const { user } = useAuth()
+	const userId = user?.id ?? null
+	// Rascunho é do usuário: outra sessão na mesma aba (logout não recarrega) começa sem eles.
+	useEffect(() => draftStore.bindOwner(userId), [userId])
 	const [open, setOpen] = useState(false)
 	if (drafts.length === 0) return null
 	const label = drafts.length === 1 ? "1 rascunho não salvo" : `${drafts.length} rascunhos não salvos`

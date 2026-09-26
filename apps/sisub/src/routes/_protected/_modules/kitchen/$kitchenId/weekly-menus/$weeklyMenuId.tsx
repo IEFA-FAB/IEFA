@@ -651,7 +651,7 @@ function WeeklyMenuEditorPage() {
 				}
 			>
 				<div className="flex items-center gap-2">
-					<AutoSaveStatus status={saveStatus} />
+					<AutoSaveStatus status={saveStatus} onRetry={handleSave} />
 					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
 					<Tooltip>
 						<TooltipTrigger

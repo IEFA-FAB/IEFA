@@ -15,7 +15,7 @@ interface PendingChangesProps {
  * Salvar vai gravar e, ao abrir, quais — campo, valor salvo e valor novo.
  */
 export function PendingChanges({ draft, onDiscard, disabled }: PendingChangesProps) {
-	const { changes, restored } = draft
+	const { changes, restoredAt, stale } = draft
 	if (changes.length === 0) return null
 	const count = changes.length === 1 ? "1 alteração não salva" : `${changes.length} alterações não salvas`
 
@@ -29,10 +29,10 @@ export function PendingChanges({ draft, onDiscard, disabled }: PendingChangesPro
 				<PopoverHeader>
 					<PopoverTitle>{count}</PopoverTitle>
 					<PopoverDescription>
-						{restored ? "Rascunho restaurado. " : ""}O rascunho fica nesta aba do navegador até você salvar; recarregar a página o descarta.
+						{restoredAt ? "Rascunho restaurado. " : ""}O rascunho fica nesta aba do navegador até você salvar; recarregar a página o descarta.
 					</PopoverDescription>
 				</PopoverHeader>
-				{restored?.stale && (
+				{stale && (
 					<p className="flex gap-2 rounded-md bg-warning/10 p-2 text-caption text-foreground">
 						<TriangleAlert className="size-4 shrink-0 text-warning" />O registro foi alterado depois que você começou a editar. Salvar grava os valores abaixo
 						por cima.

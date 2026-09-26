@@ -9,9 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { useDraft } from "@/hooks/forms/useDraft"
+import { itemDraftKey } from "@/hooks/forms/useItemCards"
 import type { DraftFields } from "@/lib/drafts/draft-diff"
 import { type PurchaseItemWithLink, useCreateIngredientItem, usePurchaseItems, useUpdateIngredientItem } from "@/services/IngredientsService"
 import { PendingChanges } from "../shared/PendingChanges"
+
+/** Prefixo das chaves de rascunho destes itens — a lista usa o mesmo para o selo "Rascunho não salvo". */
+export const INGREDIENT_ITEM_DRAFT_PREFIX = "sisub:ingredient-item"
 
 const ingredientItemSchema = z.object({
 	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
@@ -111,7 +115,7 @@ export function IngredientItemEditor({ mode, ingredientItem, ingredientId, ingre
 
 	const values = useStore(form.store, (state) => state.values)
 	const draft = useDraft<IngredientItemValues>({
-		key: `sisub:ingredient-item:${ingredientItem?.id ?? `new:${ingredientId}`}`,
+		key: itemDraftKey(INGREDIENT_ITEM_DRAFT_PREFIX, ingredientItem?.id, ingredientId),
 		title: mode === "create" ? `Novo item de produto — ${ingredientName}` : `Item de produto: ${ingredientItem?.description ?? ""}`,
 		href: ingredientHref,
 		baseline: ingredientItemValues(ingredientId, ingredientItem),
