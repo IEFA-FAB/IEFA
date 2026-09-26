@@ -8,21 +8,21 @@
  */
 
 import {
+	foodItemInNutritionReference,
+	foodItemRevisionInNutritionReference,
+	foodNutrientValueInNutritionReference,
 	ingredientInKitchen,
 	ingredientItemInKitchen,
 	ingredientNutrientInKitchen,
 	ingredientNutritionReferenceInKitchen,
 	ingredientVersionInKitchen,
+	nutrientComponentMappingInNutritionReference,
 	nutrientInKitchen,
-	nutritionFoodItemInNutritionReference,
-	nutritionFoodItemRevisionInNutritionReference,
-	nutritionFoodNutrientValueInNutritionReference,
-	nutritionNutrientComponentMappingInNutritionReference,
-	nutritionSourceInNutritionReference,
-	nutritionSourceReleaseInNutritionReference,
 	purchaseItemIngredientInProcurement,
 	purchaseItemInProcurement,
 	type SisubDb,
+	sourceInNutritionReference,
+	sourceReleaseInNutritionReference,
 } from "@iefa/database/drizzle/sisub"
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
@@ -132,34 +132,25 @@ export async function buildIngredientSnapshot(db: SisubDb, ingredientId: string)
 		() =>
 			db
 				.select({
-					food_revision_id: nutritionFoodItemRevisionInNutritionReference.id,
-					food_item_id: nutritionFoodItemInNutritionReference.id,
-					source_id: nutritionSourceInNutritionReference.id,
-					source_name: nutritionSourceInNutritionReference.displayName,
-					external_code: nutritionFoodItemInNutritionReference.externalCode,
-					display_name: nutritionFoodItemRevisionInNutritionReference.displayName,
-					group_name: nutritionFoodItemRevisionInNutritionReference.groupName,
-					version_label: nutritionSourceReleaseInNutritionReference.versionLabel,
-					citation: nutritionSourceInNutritionReference.citation,
-					base_quantity: nutritionFoodItemRevisionInNutritionReference.baseQuantity,
-					base_unit: nutritionFoodItemRevisionInNutritionReference.baseUnit,
+					food_revision_id: foodItemRevisionInNutritionReference.id,
+					food_item_id: foodItemInNutritionReference.id,
+					source_id: sourceInNutritionReference.id,
+					source_name: sourceInNutritionReference.displayName,
+					external_code: foodItemInNutritionReference.externalCode,
+					display_name: foodItemRevisionInNutritionReference.displayName,
+					group_name: foodItemRevisionInNutritionReference.groupName,
+					version_label: sourceReleaseInNutritionReference.versionLabel,
+					citation: sourceInNutritionReference.citation,
+					base_quantity: foodItemRevisionInNutritionReference.baseQuantity,
+					base_unit: foodItemRevisionInNutritionReference.baseUnit,
 					match_status: ingredientNutritionReferenceInKitchen.matchStatus,
 					linked_at: ingredientNutritionReferenceInKitchen.linkedAt,
 				})
 				.from(ingredientNutritionReferenceInKitchen)
-				.innerJoin(
-					nutritionFoodItemRevisionInNutritionReference,
-					eq(ingredientNutritionReferenceInKitchen.foodRevisionId, nutritionFoodItemRevisionInNutritionReference.id)
-				)
-				.innerJoin(
-					nutritionFoodItemInNutritionReference,
-					eq(nutritionFoodItemRevisionInNutritionReference.foodItemId, nutritionFoodItemInNutritionReference.id)
-				)
-				.innerJoin(nutritionSourceInNutritionReference, eq(nutritionFoodItemInNutritionReference.sourceId, nutritionSourceInNutritionReference.id))
-				.innerJoin(
-					nutritionSourceReleaseInNutritionReference,
-					eq(nutritionFoodItemRevisionInNutritionReference.sourceReleaseId, nutritionSourceReleaseInNutritionReference.id)
-				)
+				.innerJoin(foodItemRevisionInNutritionReference, eq(ingredientNutritionReferenceInKitchen.foodRevisionId, foodItemRevisionInNutritionReference.id))
+				.innerJoin(foodItemInNutritionReference, eq(foodItemRevisionInNutritionReference.foodItemId, foodItemInNutritionReference.id))
+				.innerJoin(sourceInNutritionReference, eq(foodItemInNutritionReference.sourceId, sourceInNutritionReference.id))
+				.innerJoin(sourceReleaseInNutritionReference, eq(foodItemRevisionInNutritionReference.sourceReleaseId, sourceReleaseInNutritionReference.id))
 				.where(eq(ingredientNutritionReferenceInKitchen.ingredientId, ingredientId))
 				.limit(1),
 		{ includeCode: true, prefix: "Falha ao buscar vínculo nutricional do snapshot" }
@@ -183,22 +174,22 @@ export async function buildIngredientSnapshot(db: SisubDb, ingredientId: string)
 							name: nutrientInKitchen.name,
 							value: sql<
 								number | null
-							>`(${nutritionFoodNutrientValueInNutritionReference.value} * ${nutritionNutrientComponentMappingInNutritionReference.conversionMultiplier}) + ${nutritionNutrientComponentMappingInNutritionReference.conversionOffset}`,
+							>`(${foodNutrientValueInNutritionReference.value} * ${nutrientComponentMappingInNutritionReference.conversionMultiplier}) + ${nutrientComponentMappingInNutritionReference.conversionOffset}`,
 						})
 						.from(ingredientNutritionReferenceInKitchen)
 						.innerJoin(
-							nutritionFoodNutrientValueInNutritionReference,
-							eq(ingredientNutritionReferenceInKitchen.foodRevisionId, nutritionFoodNutrientValueInNutritionReference.foodRevisionId)
+							foodNutrientValueInNutritionReference,
+							eq(ingredientNutritionReferenceInKitchen.foodRevisionId, foodNutrientValueInNutritionReference.foodRevisionId)
 						)
 						.innerJoin(
-							nutritionNutrientComponentMappingInNutritionReference,
-							eq(nutritionFoodNutrientValueInNutritionReference.componentId, nutritionNutrientComponentMappingInNutritionReference.componentId)
+							nutrientComponentMappingInNutritionReference,
+							eq(foodNutrientValueInNutritionReference.componentId, nutrientComponentMappingInNutritionReference.componentId)
 						)
-						.innerJoin(nutrientInKitchen, eq(nutritionNutrientComponentMappingInNutritionReference.nutrientId, nutrientInKitchen.id))
+						.innerJoin(nutrientInKitchen, eq(nutrientComponentMappingInNutritionReference.nutrientId, nutrientInKitchen.id))
 						.where(
 							and(
 								eq(ingredientNutritionReferenceInKitchen.ingredientId, ingredientId),
-								eq(nutritionNutrientComponentMappingInNutritionReference.isPreferred, true),
+								eq(nutrientComponentMappingInNutritionReference.isPreferred, true),
 								isNull(nutrientInKitchen.deletedAt)
 							)
 						)
@@ -434,9 +425,9 @@ export async function restoreIngredientVersion(
 			// snapshots manuais limpam o link e repõem ingredient_nutrient.
 			if (snap.nutrition_reference?.food_revision_id) {
 				const revisionExists = await tx
-					.select({ id: nutritionFoodItemRevisionInNutritionReference.id })
-					.from(nutritionFoodItemRevisionInNutritionReference)
-					.where(eq(nutritionFoodItemRevisionInNutritionReference.id, snap.nutrition_reference.food_revision_id))
+					.select({ id: foodItemRevisionInNutritionReference.id })
+					.from(foodItemRevisionInNutritionReference)
+					.where(eq(foodItemRevisionInNutritionReference.id, snap.nutrition_reference.food_revision_id))
 					.limit(1)
 				if (revisionExists.length > 0) {
 					await tx

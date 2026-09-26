@@ -24,15 +24,15 @@
 
 import {
 	dailyMenuInKitchen,
+	foodNutrientValueInNutritionReference,
 	ingredientNutrientInKitchen,
 	ingredientNutritionReferenceInKitchen,
 	kitchenInKitchen,
 	menuItemsInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
+	nutrientComponentMappingInNutritionReference,
 	nutrientInKitchen,
-	nutritionFoodNutrientValueInNutritionReference,
-	nutritionNutrientComponentMappingInNutritionReference,
 	productionTaskInKitchen,
 	type SisubDb,
 	snackRequestEventInKitchen,
@@ -148,22 +148,22 @@ async function loadEnergyPer100g(db: Pick<SisubDb, "select">, ingredientIds: str
 					ingredientId: ingredientNutritionReferenceInKitchen.ingredientId,
 					kcal: sql<
 						number | null
-					>`(${nutritionFoodNutrientValueInNutritionReference.value} * ${nutritionNutrientComponentMappingInNutritionReference.conversionMultiplier}) + ${nutritionNutrientComponentMappingInNutritionReference.conversionOffset}`,
+					>`(${foodNutrientValueInNutritionReference.value} * ${nutrientComponentMappingInNutritionReference.conversionMultiplier}) + ${nutrientComponentMappingInNutritionReference.conversionOffset}`,
 				})
 				.from(ingredientNutritionReferenceInKitchen)
 				.innerJoin(
-					nutritionFoodNutrientValueInNutritionReference,
-					eq(ingredientNutritionReferenceInKitchen.foodRevisionId, nutritionFoodNutrientValueInNutritionReference.foodRevisionId)
+					foodNutrientValueInNutritionReference,
+					eq(ingredientNutritionReferenceInKitchen.foodRevisionId, foodNutrientValueInNutritionReference.foodRevisionId)
 				)
 				.innerJoin(
-					nutritionNutrientComponentMappingInNutritionReference,
-					eq(nutritionFoodNutrientValueInNutritionReference.componentId, nutritionNutrientComponentMappingInNutritionReference.componentId)
+					nutrientComponentMappingInNutritionReference,
+					eq(foodNutrientValueInNutritionReference.componentId, nutrientComponentMappingInNutritionReference.componentId)
 				)
-				.innerJoin(nutrientInKitchen, eq(nutritionNutrientComponentMappingInNutritionReference.nutrientId, nutrientInKitchen.id))
+				.innerJoin(nutrientInKitchen, eq(nutrientComponentMappingInNutritionReference.nutrientId, nutrientInKitchen.id))
 				.where(
 					and(
 						inArray(ingredientNutritionReferenceInKitchen.ingredientId, [...linkedIds]),
-						eq(nutritionNutrientComponentMappingInNutritionReference.isPreferred, true),
+						eq(nutrientComponentMappingInNutritionReference.isPreferred, true),
 						eq(nutrientInKitchen.isEnergyValue, true),
 						isNull(nutrientInKitchen.deletedAt)
 					)
@@ -1119,7 +1119,7 @@ export async function getSnackLabelData(db: SisubDb, ctx: UserContext, input: Sn
 					db
 						.select({ name: unitsInCore.displayName, code: unitsInCore.code })
 						.from(unitsInCore)
-						.where(eq(unitsInCore.id, BigInt(unitId)))
+						.where(eq(unitsInCore.id, Number(unitId)))
 						.limit(1)
 				)
 			: []

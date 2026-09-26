@@ -26,9 +26,26 @@
  *        to remember a `Number()`/`toNumeric`; the ones that forgot sent the string back
  *        into a `z.number()` validator (weekly plan save, day-menu item card). All
  *        numeric columns here fit a double (money is `numeric(12,4)`).
+ *     8. Mutual FK cycles (A → B and B → A in the `foreignKey()` extras) make TypeScript
+ *        infer `any` for both tables (TS7022/TS7024), and the `any` leaks into every
+ *        relation typing. The entry in the table declared FIRST is dropped, with a comment:
+ *        the constraint stays in the DB, and `relations.ts` (what `db.query … with` reads)
+ *        still has both directions. Found: food_item ↔ food_item_revision,
+ *        goods_receipt ↔ liquidacao, inventory_count ↔ stock_adjustment.
+ *     9. Drop the `AnyPgColumn` import and `(table) =>` params the pull leaves unused.
+ *    10. `bigserial({ mode: "bigint" })` → `{ mode: "number" }`. The pull emits JS `bigint` for
+ *        serial ids while every `bigint(...)` column already comes as `number`; with the mix,
+ *        `eq(rancho.id, ranchoId)` stops type-checking. Ids here fit a double.
+ *    11. Default that calls a DB function (`.default(inventory.lot_short_code())`) is emitted
+ *        as a TS call on the schema object → becomes `sql\`inventory.lot_short_code()\``.
  *   relations.ts
  *     7. Drop duplicate relation properties (redundant duplicate FK constraints in
  *        the DB emit identical relation keys → TS1117 "duplicate property").
+ *     8. Logical relations the DB does not declare as FK. `purchase_item_ingredient.ingredient_id`
+ *        points at `core.item` since the item nucleus migration, and `kitchen.ingredient.id` is
+ *        the same id (1:1, trigger `ingredient_sync_item`). The domain reads the ingredient
+ *        through the link (`with: { ingredientInKitchen }`), so the relation is re-added here —
+ *        before, it lived in a hand-edited relations.ts that nobody could regenerate.
  */
 import { readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
@@ -111,6 +128,70 @@ async function patchSchema(src: string): Promise<string> {
 		return `numeric(${args})${def ? def.replace(/'/g, "") : ""}`
 	})
 
+	// 8. mutual FK cycles
+	out = breakForeignKeyCycles(out)
+
+	// 10. serial ids as number
+	out = out.replace(/bigserial\(\{ mode: "bigint" \}\)/g, 'bigserial({ mode: "number" })')
+
+	// 11. DB-function defaults
+	const schemaNames = new Map([...out.matchAll(/export const (\w+) = pgSchema\("([^"]+)"\)/g)].map((m) => [m[1] as string, m[2] as string]))
+	out = out.replace(/\.default\((\w+)\.(\w+)\(\)\)/g, (whole, schemaVar: string, fn: string) => {
+		const dbSchema = schemaNames.get(schemaVar)
+		return dbSchema ? `.default(sql\`${dbSchema}.${fn}()\`)` : whole
+	})
+
+	// 9. unused leftovers of the pull
+	if (!/\(\): AnyPgColumn|: AnyPgColumn\b/.test(out.replace(/import \{[^}]*\} from "drizzle-orm\/pg-core"/, ""))) {
+		out = out.replace(
+			/import \{ ([^}]*) \} from "drizzle-orm\/pg-core"/,
+			(_m, names: string) =>
+				`import { ${names
+					.split(",")
+					.map((n) => n.trim())
+					.filter((n) => n && n !== "AnyPgColumn" && n !== "type AnyPgColumn")
+					.join(", ")} } from "drizzle-orm/pg-core"`
+		)
+	}
+	// `}, (table) => [` whose body never reads `table` (only `unique(...).on(...)` literals, etc.)
+	out = out.replace(/\}, \(table\) => \[([\s\S]*?)\n\]\)/g, (whole, body: string) => (/\btable\./.test(body) ? whole : `}, () => [${body}\n])`))
+
+	return out
+}
+
+/** Nome da tabela de cada `export const X = <schema>.table(` e o trecho do arquivo que ela ocupa. */
+function tableBlocks(src: string): { name: string; start: number; end: number }[] {
+	const starts = [...src.matchAll(/export const (\w+) = \w+\.(?:table|view|materializedView)\(/g)].map((m) => ({ name: m[1] as string, start: m.index ?? 0 }))
+	return starts.map((s, i) => ({ ...s, end: starts[i + 1]?.start ?? src.length }))
+}
+
+function breakForeignKeyCycles(src: string): string {
+	const blocks = tableBlocks(src)
+	const refs = new Map(blocks.map((b) => [b.name, new Set([...src.slice(b.start, b.end).matchAll(/foreignColumns: \[(\w+)\./g)].map((m) => m[1] as string))]))
+	const position = new Map(blocks.map((b, i) => [b.name, i]))
+	const drops: { table: string; target: string }[] = []
+	for (const [table, targets] of refs) {
+		for (const target of targets) {
+			if (target === table || !refs.get(target)?.has(table)) continue
+			if ((position.get(table) ?? 0) < (position.get(target) ?? 0)) drops.push({ table, target })
+		}
+	}
+	let out = src
+	for (const { table, target } of drops) {
+		const block = tableBlocks(out).find((b) => b.name === table)
+		if (!block) continue
+		const body = out.slice(block.start, block.end)
+		const fk = new RegExp(
+			`\\tforeignKey\\(\\{\\s*columns: \\[[^\\]]*\\],\\s*foreignColumns: \\[${target}\\.[^\\]]*\\],\\s*name: "([^"]+)"\\s*\\}\\)(?:\\.on\\w+\\("[^"]*"\\))*,\\n`,
+			"g"
+		)
+		const patched = body.replace(
+			fk,
+			(_m, name: string) =>
+				`\t// FK "${name}" omitida (patch-drizzle-pull.ts): ciclo com ${target} faria o TS inferir any. Existe no banco; a relação segue em relations.ts.\n`
+		)
+		out = out.slice(0, block.start) + patched + out.slice(block.end)
+	}
 	return out
 }
 
@@ -119,6 +200,35 @@ async function patchSchema(src: string): Promise<string> {
  * A property spans from `\t<key>: one|many(` to its closing `\t}),`. Keep the first
  * occurrence of each key per block; drop later identical keys.
  */
+/** Relações lógicas que o banco não declara como FK (ver cabeçalho, relations.ts 8). */
+const LOGICAL_RELATIONS: { block: string; property: string; code: string }[] = [
+	{
+		block: "purchaseItemIngredientInProcurementRelations",
+		property: "ingredientInKitchen",
+		code: `\tingredientInKitchen: one(ingredientInKitchen, {\n\t\tfields: [purchaseItemIngredientInProcurement.ingredientId],\n\t\treferences: [ingredientInKitchen.id]\n\t}),`,
+	},
+]
+
+function addLogicalRelations(src: string): string {
+	let out = src
+	for (const { block, property, code } of LOGICAL_RELATIONS) {
+		const head = new RegExp(`(export const ${block} = relations\\([^,]+, \\(\\{)([^}]*)(\\}\\) => \\(\\{\\n)`)
+		const match = out.match(head)
+		if (!match || match.index === undefined) continue
+		const start = match.index
+		const end = out.indexOf("\n}));", start)
+		if (out.slice(start, end).includes(`\t${property}:`)) continue
+		const helpers = (match[2] as string)
+			.split(",")
+			.map((h) => h.trim())
+			.filter(Boolean)
+		const needs = code.includes("one(") ? "one" : "many"
+		const header = helpers.includes(needs) ? match[0] : `${match[1]}${[...helpers, needs].join(", ")}${match[3]}`
+		out = out.slice(0, start) + header + code + "\n" + out.slice(start + match[0].length)
+	}
+	return out
+}
+
 function patchRelations(src: string): string {
 	const lines = src.split("\n")
 	const result: string[] = []
@@ -162,7 +272,7 @@ const patchedSchema = await patchSchema(schema)
 if (patchedSchema !== schema) writeFileSync(schemaPath, patchedSchema)
 
 const relations = readFileSync(relationsPath, "utf8")
-const patchedRelations = patchRelations(relations)
+const patchedRelations = addLogicalRelations(patchRelations(relations))
 if (patchedRelations !== relations) writeFileSync(relationsPath, patchedRelations)
 
 console.log(`patched: schema=${patchedSchema !== schema} relations=${patchedRelations !== relations}`)

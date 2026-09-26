@@ -76,6 +76,14 @@ e cobra que ela esteja em `RESET_TARGET_TABLES` ou `RESET_EXCLUSIONS`. "Migratio
 - Arquivo em `supabase/migrations/` tem timestamp de 14 dígitos e único. Conferir colisão antes de
   criar: `ls packages/database/supabase/migrations | grep -oE '^[0-9]{14}' | sort | uniq -d`.
 - `db:push` roda sempre com `--dry-run` antes, conferindo que a lista tem só a sua migration.
+- **Migration que muda tabela, coluna, view ou função regera os tipos no mesmo PR**:
+  `bun --filter @iefa/database db:types` (`generated.ts`) e `db:drizzle:pull` (`drizzle/schema.ts`
+  e `relations.ts`), depois de aplicada. Nunca editar esses arquivos à mão: o que o pull gera
+  errado se corrige em `scripts/patch-drizzle-pull.ts` (ciclo de FK, `bigserial` como number,
+  relação lógica sem FK…), senão o próximo pull desfaz. Em 2026-09-26 os dois estavam meses
+  atrás do banco porque o schema Drizzle tinha remendo manual e o pull cru não compilava.
+  `db-types-drift.contract.test.ts` (integração) reprova tipo que aponta para o que o banco
+  não tem, e avisa o que o banco tem e os tipos ainda não.
 - Nunca seguir a sugestão da CLI de `migration repair --status reverted`: há versões aplicadas no
   remoto com carimbo diferente do arquivo local, e o reparo declara não aplicado o que está em
   produção; o push seguinte arrasta migrations de contract junto.

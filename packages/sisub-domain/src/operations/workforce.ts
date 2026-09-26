@@ -303,8 +303,8 @@ async function buildMatrix(db: SisubDb, ranchos: Rancho[], survey: WorkforceSurv
 							db
 								.select({ id: messHallsInKitchen.id, code: messHallsInKitchen.code, displayName: messHallsInKitchen.displayName })
 								.from(messHallsInKitchen)
-								// `mess_halls.id` é bigserial mode "bigint" no schema Drizzle: o inArray exige BigInt.
-								.where(inArray(messHallsInKitchen.id, messHallIds.map(BigInt)))
+								// `mess_halls.id` é bigserial lido como number (patch-drizzle-pull.ts, passo 10).
+								.where(inArray(messHallsInKitchen.id, messHallIds.map(Number)))
 						)
 					).map((m) => [Number(m.id), m.displayName ?? m.code])
 				)
