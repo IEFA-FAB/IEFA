@@ -10,10 +10,17 @@
  * @migration 20260729160000_inventory_stock_core
  */
 
-import { brasiliaToday, computeTheoreticalConsumption, type LotBalance, leftoverExpiryDate, type RecipeSnapshotForIssue } from "@iefa/sisub-domain"
+import {
+	brasiliaDate,
+	brasiliaToday,
+	computeTheoreticalConsumption,
+	type LotBalance,
+	leftoverExpiryDate,
+	pendingIssueWindowStart,
+	type RecipeSnapshotForIssue,
+} from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireAuthWithPermission } from "@/lib/auth.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -98,7 +105,29 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 	return byIngredient
 }
 
-/** Tarefas DONE dos últimos 30 dias ainda sem baixa, com suficiência de estoque. */
+/** Teto de tarefas por leitura: a suficiência é calculada por tarefa. */
+const PENDING_ISSUES_LIMIT = 300
+
+/**
+ * Primeiro dia da competência ABERTA da cozinha (fechamento mensal), e não mais "30 dias atrás":
+ * a tarefa do mês aberto some da lista só quando o fechamento a torna imbaixável.
+ */
+async function openPeriodStart(kitchenId: number): Promise<string> {
+	const inv = inventory()
+	const [{ data: closing, error: closingError }, { data: first, error: firstError }] = await Promise.all([
+		inv.from("monthly_closing").select("competencia").eq("kitchen_id", kitchenId).order("competencia", { ascending: false }).limit(1).maybeSingle(),
+		inv.from("stock_movement").select("occurred_at").eq("kitchen_id", kitchenId).order("occurred_at", { ascending: true }).limit(1).maybeSingle(),
+	])
+	if (closingError) throw new Error(`Erro ao ler o fechamento mensal: ${closingError.message}`)
+	if (firstError) throw new Error(`Erro ao ler o início do estoque: ${firstError.message}`)
+	return pendingIssueWindowStart({
+		lastClosedCompetencia: (closing?.competencia as string | undefined) ?? null,
+		firstMovementDate: first?.occurred_at ? brasiliaDate(String(first.occurred_at)) : null,
+		today: brasiliaToday(),
+	})
+}
+
+/** Tarefas DONE da competência aberta ainda sem baixa, com suficiência de estoque. */
 export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
@@ -106,7 +135,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		const kit = kitchen()
 		const inv = inventory()
 
-		const since = new Date(Date.now() - 30 * 86_400_000).toISOString().substring(0, 10)
+		const since = await openPeriodStart(data.kitchenId)
 		const { data: tasks, error } = await kit
 			.from("production_task")
 			.select("id, menu_item_id, production_date, status")
@@ -114,6 +143,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 			.eq("status", "DONE")
 			.gte("production_date", since)
 			.order("production_date", { ascending: false })
+			.limit(PENDING_ISSUES_LIMIT)
 		if (error) throw new Error(`Erro ao listar tarefas: ${error.message}`)
 		const taskList = tasks ?? []
 		if (taskList.length === 0) return []
@@ -220,16 +250,34 @@ export const confirmIssueFn = createServerFn({ method: "POST" })
 		return { movements: Number(result?.[0]?.movements ?? lines.length) }
 	})
 
-/** Sobra reaproveitável → lote de PREPARAÇÃO CONGELADA (validade = shelf_life_days). */
+/**
+ * Sobra reaproveitável → lote de PREPARAÇÃO CONGELADA (validade = shelf_life_days).
+ *
+ * Congelada que não está no catálogo (só a SDAB cadastra) não trava a sobra: `newFrozenPreparation`
+ * cria uma PROVISÓRIA da cozinha, na mesma transação da sobra, e ela fica pendente de revisão
+ * da SDAB. Sem isso, a sobra de estrogonofe das 14h ia para o caderno.
+ */
 export const registerLeftoverFn = createServerFn({ method: "POST" })
 	.validator(
-		z.object({
-			taskId: z.uuid(),
-			frozenPreparationId: z.uuid(),
-			quantity: z.number().positive(),
-			discard: z.boolean().default(false),
-			discardReason: z.string().optional(),
-		})
+		z
+			.object({
+				taskId: z.uuid(),
+				frozenPreparationId: z.uuid().optional(),
+				newFrozenPreparation: z
+					.object({
+						description: z.string().trim().min(3, "Nome com ao menos 3 letras").max(120),
+						shelfLifeDays: z.number().int().positive().max(3650).optional(),
+						measureUnit: z.string().trim().max(20).optional(),
+					})
+					.optional(),
+				quantity: z.number().positive(),
+				discard: z.boolean().default(false),
+				discardReason: z.string().optional(),
+			})
+			.refine((input) => (input.frozenPreparationId == null) !== (input.newFrozenPreparation == null), {
+				message: "Escolha a preparação congelada ou informe o nome de uma nova — uma das duas",
+				path: ["frozenPreparationId"],
+			})
 	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
@@ -238,6 +286,25 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 		const { userId } = await requireStorageForKitchen(2, kitchenId)
 
 		if (data.discard && !data.discardReason?.trim()) throw new Error("Descarte exige motivo")
+
+		if (data.newFrozenPreparation) {
+			// Cria (ou reaproveita pelo nome) e registra numa transação: sem congelada órfã no retry.
+			const { data: result, error } = await inv.rpc("register_leftover_provisional", {
+				p_kitchen_id: kitchenId,
+				p_description: data.newFrozenPreparation.description,
+				p_measure_unit: data.newFrozenPreparation.measureUnit ?? null,
+				p_shelf_life_days: data.newFrozenPreparation.shelfLifeDays ?? null,
+				p_lot_code: `SOBRA-${task.production_date}`,
+				p_production_date: task.production_date,
+				p_quantity: data.quantity,
+				p_task_id: data.taskId,
+				p_discard: data.discard,
+				p_reason: data.discardReason?.trim() ?? null,
+				p_user: userId,
+			})
+			if (error) throw new Error(`Erro ao registrar sobra: ${error.message}`)
+			return { lotId: (result?.[0]?.lot_id as string) ?? null, discarded: data.discard, provisional: true }
+		}
 
 		const { data: prep } = await kit.from("frozen_preparation").select("id, shelf_life_days").eq("id", data.frozenPreparationId).single()
 		if (!prep) throw new Error("Preparação congelada não encontrada")
@@ -256,21 +323,41 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 			p_user: userId,
 		})
 		if (error) throw new Error(`Erro ao registrar sobra: ${error.message}`)
-		return { lotId: (result?.[0]?.lot_id as string) ?? null, discarded: data.discard }
+		return { lotId: (result?.[0]?.lot_id as string) ?? null, discarded: data.discard, provisional: false }
 	})
 
-/** Preparações congeladas disponíveis para destino de sobra. */
-export const listFrozenPreparationsLiteFn = createServerFn({ method: "GET" }).handler(async () => {
-	await requireAuthWithPermission("storage", 1)
-	const { data, error } = await kitchen()
-		.from("frozen_preparation")
-		.select("id, description, shelf_life_days")
-		.is("deleted_at", null)
-		.order("description")
-		.limit(200)
-	if (error) throw new Error(`Erro ao listar preparações: ${error.message}`)
-	return data ?? []
-})
+/**
+ * Preparações congeladas disponíveis para destino de sobra: o catálogo e as provisórias DESTA
+ * cozinha ainda não revisadas (as de outra cozinha só entram depois da SDAB).
+ * TODO: regenerar tipos após aplicar 20260926217000 (colunas `provisional_*`).
+ */
+export const listFrozenPreparationsLiteFn = createServerFn({ method: "GET" })
+	.validator(z.object({ kitchenId: z.number().int().positive() }))
+	.handler(async ({ data: input }) => {
+		await requireStorageForKitchen(1, input.kitchenId)
+		const { data, error } = await kitchen()
+			.from("frozen_preparation")
+			.select("id, description, shelf_life_days, provisional_since, provisional_reviewed_at")
+			.is("deleted_at", null)
+			.or(`provisional_since.is.null,provisional_reviewed_at.not.is.null,provisional_kitchen_id.eq.${input.kitchenId}`)
+			.order("description")
+			.limit(500)
+		if (error) throw new Error(`Erro ao listar preparações: ${error.message}`)
+		return (
+			(data ?? []) as Array<{
+				id: string
+				description: string
+				shelf_life_days: number | null
+				provisional_since: string | null
+				provisional_reviewed_at: string | null
+			}>
+		).map((row) => ({
+			id: row.id,
+			description: row.description,
+			shelf_life_days: row.shelf_life_days,
+			provisional: row.provisional_since != null && row.provisional_reviewed_at == null,
+		}))
+	})
 
 /** Variância teórico × real por ingrediente no período (default: mês corrente). */
 export const fetchVarianceFn = createServerFn({ method: "GET" })

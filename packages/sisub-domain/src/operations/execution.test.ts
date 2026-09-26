@@ -15,7 +15,7 @@ import { AddExecutionMenuItemSchema } from "../schemas/execution.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import { addExecutionMenuItem, assertExecutionDate, describeProvisionalTemplateRefusal, fetchExecutionOptions, isExecutionDate } from "./execution.ts"
-import { describeSnapshotGaps, findSnapshotGaps } from "./production-issue.ts"
+import { describeSnapshotGaps, findSnapshotGaps, pendingIssueWindowStart } from "./production-issue.ts"
 import { brasiliaToday } from "./stock-math.ts"
 
 const KITCHEN = 7
@@ -141,5 +141,23 @@ describe("provisória no cardápio-modelo", () => {
 	test("a recusa nomeia a preparação e diz como destravar", () => {
 		expect(describeProvisionalTemplateRefusal(["Farofa"])).toMatch(/"Farofa" é preparação provisória.*Complete a ficha/)
 		expect(describeProvisionalTemplateRefusal(["Farofa", "Suco"])).toMatch(/"Farofa", "Suco" são preparações provisórias/)
+	})
+})
+
+describe("janela da Baixa por Produção: competência aberta", () => {
+	test("começa no mês seguinte ao último fechado, não 30 dias atrás", () => {
+		expect(pendingIssueWindowStart({ lastClosedCompetencia: "2026-07-01", firstMovementDate: "2026-01-10", today: "2026-09-26" })).toBe("2026-08-01")
+	})
+
+	test("dezembro fechado abre janeiro do ano seguinte", () => {
+		expect(pendingIssueWindowStart({ lastClosedCompetencia: "2025-12-01", firstMovementDate: null, today: "2026-02-10" })).toBe("2026-01-01")
+	})
+
+	test("sem fechamento, desde o primeiro movimento de estoque", () => {
+		expect(pendingIssueWindowStart({ lastClosedCompetencia: null, firstMovementDate: "2026-05-03", today: "2026-09-26" })).toBe("2026-05-03")
+	})
+
+	test("nunca além do teto, mesmo sem estoque nenhum", () => {
+		expect(pendingIssueWindowStart({ lastClosedCompetencia: null, firstMovementDate: null, today: "2026-09-26", maxDays: 100 })).toBe("2026-06-18")
 	})
 })

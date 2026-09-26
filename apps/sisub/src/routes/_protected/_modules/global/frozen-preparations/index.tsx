@@ -5,6 +5,7 @@ import { Pencil, Plus, Snowflake, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
+import { ProvisionalFrozenReviewCard } from "@/components/features/global/ProvisionalFrozenReviewCard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -78,6 +79,8 @@ function FrozenPreparationsPage() {
 					</Button>
 				)}
 			</PageHeader>
+
+			<ProvisionalFrozenReviewCard canWrite={canWrite} />
 
 			<div className="flex flex-wrap items-center gap-2">
 				<Input placeholder="Buscar por nome…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { confirmIssueFn, fetchPendingIssuesFn, fetchVarianceFn, listFrozenPreparationsLiteFn, registerLeftoverFn } from "@/server/production-issue.fn"
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/pr
 		const [pending, variance, frozenPreparations] = await Promise.all([
 			fetchPendingIssuesFn({ data: { kitchenId } }),
 			fetchVarianceFn({ data: { kitchenId, from, to } }),
-			listFrozenPreparationsLiteFn(),
+			listFrozenPreparationsLiteFn({ data: { kitchenId } }),
 		])
 		return { pending, variance, frozenPreparations }
 	},
@@ -54,7 +55,7 @@ function TaskCard({
 	onDone,
 }: {
 	task: PendingTask
-	frozenPreparations: { id: string; description: string | null }[]
+	frozenPreparations: { id: string; description: string | null; provisional: boolean }[]
 	onDone: () => void
 }) {
 	const [expanded, setExpanded] = useState(false)
@@ -64,6 +65,10 @@ function TaskCard({
 	const [leftoverPrep, setLeftoverPrep] = useState("")
 	const [discard, setDiscard] = useState(false)
 	const [discardReason, setDiscardReason] = useState("")
+	// Congelada que não está no catálogo: nasce provisória desta cozinha, pendente da SDAB.
+	const [newPrepName, setNewPrepName] = useState("")
+	const [newPrepShelfLife, setNewPrepShelfLife] = useState("")
+	const creatingPrep = leftoverPrep === "" && newPrepName.trim().length >= 3
 
 	async function confirm() {
 		setBusy(true)
@@ -83,19 +88,33 @@ function TaskCard({
 	}
 
 	async function saveLeftover() {
-		if (!leftoverPrep || !leftoverQty) return
+		if ((!leftoverPrep && !creatingPrep) || !leftoverQty) return
+		const shelfLife = newPrepShelfLife.trim() === "" ? undefined : Number(newPrepShelfLife)
 		setBusy(true)
 		try {
-			await registerLeftoverFn({
+			const result = await registerLeftoverFn({
 				data: {
 					taskId: task.taskId,
-					frozenPreparationId: leftoverPrep,
+					...(leftoverPrep
+						? { frozenPreparationId: leftoverPrep }
+						: {
+								newFrozenPreparation: {
+									description: newPrepName.trim(),
+									...(shelfLife != null && Number.isFinite(shelfLife) && shelfLife > 0 && { shelfLifeDays: Math.round(shelfLife) }),
+								},
+							}),
 					quantity: Number(leftoverQty),
 					discard,
 					discardReason: discard ? discardReason : undefined,
 				},
 			})
-			toast.success(discard ? "Descarte documentado (retorno + perda)" : "Sobra registrada como preparação congelada (validade pelo shelf life)")
+			toast.success(
+				discard
+					? "Descarte documentado (retorno + perda)"
+					: result.provisional
+						? "Sobra registrada numa preparação congelada provisória. A SDAB revisa o cadastro depois."
+						: "Sobra registrada como preparação congelada (validade pelo shelf life)"
+			)
 			onDone()
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Falha ao registrar sobra")
@@ -171,10 +190,14 @@ function TaskCard({
 									<button
 										key={prep.id}
 										type="button"
-										onClick={() => setLeftoverPrep(prep.id)}
+										onClick={() => {
+											setLeftoverPrep(prep.id)
+											setNewPrepName("")
+										}}
 										className={`w-full text-left text-xs px-2 py-0.5 rounded ${leftoverPrep === prep.id ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
 									>
 										{prep.description}
+										{prep.provisional ? " (provisória)" : ""}
 									</button>
 								))}
 							</div>
@@ -187,10 +210,41 @@ function TaskCard({
 								value={leftoverQty}
 								onChange={(e) => setLeftoverQty(e.target.value)}
 							/>
-							<Button size="sm" variant="outline" disabled={busy || !leftoverPrep || !leftoverQty} onClick={saveLeftover}>
+							<Button size="sm" variant="outline" disabled={busy || (!leftoverPrep && !creatingPrep) || !leftoverQty} onClick={saveLeftover}>
 								Registrar
 							</Button>
 						</div>
+						<div className="grid gap-2 sm:grid-cols-4 items-end">
+							<div className="sm:col-span-2 space-y-1">
+								<Label htmlFor={`new-prep-${task.taskId}`}>Não está na lista? Nome da congelada</Label>
+								<Input
+									id={`new-prep-${task.taskId}`}
+									placeholder="Ex.: Estrogonofe de frango"
+									value={newPrepName}
+									onChange={(e) => {
+										setNewPrepName(e.target.value)
+										if (e.target.value.trim()) setLeftoverPrep("")
+									}}
+									maxLength={120}
+								/>
+							</div>
+							<div className="space-y-1">
+								<Label htmlFor={`new-prep-days-${task.taskId}`}>Validade (dias)</Label>
+								<Input
+									id={`new-prep-days-${task.taskId}`}
+									type="number"
+									min="1"
+									placeholder="opcional"
+									value={newPrepShelfLife}
+									onChange={(e) => setNewPrepShelfLife(e.target.value)}
+								/>
+							</div>
+						</div>
+						{creatingPrep && (
+							<p className="text-xs text-muted-foreground">
+								Nasce provisória, desta cozinha: a sobra entra no estoque agora e a SDAB revisa o cadastro depois.
+							</p>
+						)}
 						<label className="flex items-center gap-2 text-xs">
 							<input type="checkbox" checked={discard} onChange={(e) => setDiscard(e.target.checked)} />
 							Descartar (perda documentada)
@@ -225,7 +279,7 @@ function ProductionIssuePage() {
 				<Card>
 					<CardContent className="py-10 text-center text-muted-foreground">
 						<FlameKindling className="size-8 mx-auto mb-2 opacity-50" />
-						<p className="text-sm">Nenhuma produção concluída aguardando baixa nos últimos 30 dias.</p>
+						<p className="text-sm">Nenhuma produção concluída aguardando baixa na competência aberta.</p>
 					</CardContent>
 				</Card>
 			) : (

@@ -772,6 +772,7 @@ export {
 	describeSnapshotGaps,
 	findSnapshotGaps,
 	leftoverExpiryDate,
+	pendingIssueWindowStart,
 	type RecipeSnapshotForIssue,
 	SNAPSHOT_GAP_LABELS,
 	type SnapshotForGaps,

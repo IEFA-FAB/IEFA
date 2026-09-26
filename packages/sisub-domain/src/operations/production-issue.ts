@@ -70,6 +70,36 @@ export function leftoverExpiryDate(productionDate: string, shelfLifeDays: number
 }
 
 /**
+ * Primeiro dia da janela da "Baixa por Produção": a competência ABERTA.
+ *
+ * Era "os últimos 30 dias": a tarefa do dia 31 atrás sumia da lista mesmo com o mês aberto, e
+ * a baixa dela só se fazia por ajuste. O limite que importa é o fechamento mensal — depois dele
+ * o período lock recusa o movimento. Sem fechamento nenhum, a janela começa no primeiro
+ * movimento de estoque da cozinha (antes dele não havia estoque a baixar), e nunca antes de
+ * `maxDays` atrás, para a tela não varrer anos de tarefas de uma cozinha que nunca controlou estoque.
+ */
+export function pendingIssueWindowStart(input: {
+	/** Última competência fechada (primeiro dia do mês, "AAAA-MM-01"), ou nula. */
+	lastClosedCompetencia: string | null
+	/** Data civil do primeiro movimento de estoque da cozinha, ou nula. */
+	firstMovementDate: string | null
+	today: string
+	maxDays?: number
+}): string {
+	const maxDays = input.maxDays ?? 400
+	const floor = new Date(`${input.today}T00:00:00Z`)
+	floor.setUTCDate(floor.getUTCDate() - maxDays)
+	let start = floor.toISOString().slice(0, 10)
+	if (input.firstMovementDate && input.firstMovementDate > start) start = input.firstMovementDate
+	if (input.lastClosedCompetencia) {
+		const [year, month] = input.lastClosedCompetencia.split("-").map(Number) as [number, number]
+		const next = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`
+		if (next > start) start = next
+	}
+	return start
+}
+
+/**
  * O que falta na ficha gravada no dia para a sugestão de saída sair certa dela.
  *
  * `computeTheoreticalConsumption` devolve lista vazia quando a ficha não tem insumos ou o item
