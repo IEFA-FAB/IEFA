@@ -5,6 +5,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
+import { format } from "date-fns"
 import { useEffect, useReducer, useRef } from "react"
 import { z } from "zod"
 import { MessHallSelector } from "@/components/features/diner/MessHallSelector"
@@ -27,8 +28,9 @@ const selfCheckinSearchSchema = z.object({
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Hoje no calendário LOCAL — `toISOString()` é UTC e, depois das 21h em Brasília, marcava a ceia no dia seguinte. */
 function todayISO(): string {
-	return new Date().toISOString().split("T")[0]
+	return format(new Date(), "yyyy-MM-dd")
 }
 
 function todayDisplay(): string {
@@ -79,6 +81,9 @@ function selfCheckinReducer(state: SelfCheckinState, action: SelfCheckinAction):
 // ─── Route ───────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/_protected/_modules/diner/self-check-in")({
+	// Dia e refeição saem do relógio LOCAL (`todayISO`, `inferDefaultMeal`). No servidor (UTC) o
+	// prefetch buscava a previsão de outra refeição e o HTML divergia do cliente na hidratação.
+	ssr: false,
 	validateSearch: selfCheckinSearchSchema,
 	beforeLoad: async ({ context, search, location }) => {
 		const { user } = context.auth
