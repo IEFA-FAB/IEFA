@@ -1,5 +1,5 @@
 /**
- * Nitro plugin — 404 de asset com hash nunca vai para o cache.
+ * Nitro plugin — erro em rota `immutable` nunca vai para o cache.
  *
  * A routeRule de `/assets/**` (vite.config.ts) marca a resposta como
  * `immutable` por um ano, e o Nitro aplica o header também quando o arquivo não
@@ -11,12 +11,11 @@
  */
 import { definePlugin as defineNitroPlugin } from "nitro"
 
-/** Prefixos servidos com `immutable` pelas routeRules. */
-const IMMUTABLE_PREFIX = /^\/(?:assets|fonts)\//
-
 export default defineNitroPlugin((nitroApp) => {
-	nitroApp.hooks.hook("response", (res, event) => {
-		if (res.status === 404 && IMMUTABLE_PREFIX.test(new URL(event.req.url).pathname)) {
+	nitroApp.hooks.hook("response", (res) => {
+		// Pelo header e não por prefixo: vale para toda routeRule `immutable`, atual ou futura,
+		// e para qualquer erro (404 do build trocado, 5xx de task em drain).
+		if (res.status >= 400 && res.headers.get("cache-control")?.includes("immutable")) {
 			res.headers.set("cache-control", "no-store")
 		}
 	})

@@ -171,6 +171,8 @@ function Sidebar({
 					side={side}
 					// Gaveta modal: tocar num link navega e fecha, senão ela fica por cima da página nova
 					onClick={(event) => {
+						// Com modificador o link abre outra aba e esta página fica onde está
+						if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return
 						if (event.target instanceof Element && event.target.closest("a[href]")) setOpenMobile(false)
 					}}
 				>

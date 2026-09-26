@@ -33,8 +33,10 @@ test.describe("Estabilidade das páginas", () => {
 		// nenhuma busca se repete sozinha. O laço repetia a mesma ~40 vezes nessa janela.
 		const calls = new Map<string, number>()
 		page.on("request", (request) => {
-			const url = request.url()
-			if (url.includes("/_serverFn/")) calls.set(url, (calls.get(url) ?? 0) + 1)
+			if (!request.url().includes("/_serverFn/")) return
+			// GET leva o payload na URL; POST, no corpo
+			const key = `${request.url()} ${request.postData() ?? ""}`
+			calls.set(key, (calls.get(key) ?? 0) + 1)
 		})
 		await page.waitForTimeout(4_000)
 
