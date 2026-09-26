@@ -27,7 +27,7 @@ cobertura de domínio está em `packages/alpha-client/src/demand/demand.test.ts`
 - **Realidade:** o requisitante corrige o objeto depois do primeiro parecer.
 - **O sistema precisa:** a demanda continua editável; o novo envio gera novas submissões, e as antigas ficam no histórico.
 - **UX:** botão "enviar nova versão" no passo Documentos, com a lista das enviadas antes.
-- **Cobertura:** hipótese (rota `POST /api/v1/demands/:id/submissions` sem teste de integração).
+- **Cobertura:** hipótese (rota `POST /api/v1/demands/:id/submissions` sem teste de integração). O envio reserva a demanda pelo `updated_at`: envio duplo da mesma versão recebe 409.
 
 ### CT-DEM-05 — "Um colega editou a mesma demanda ao mesmo tempo"
 - **O sistema precisa:** não sobrescrever em silêncio.

@@ -11,8 +11,9 @@ import {
 	type DemandCheck,
 	type DemandPayload,
 	type DemandStep,
-	type FieldTable,
 	type FormField,
+	fieldContentHtml,
+	fieldContentText,
 	formatBRL,
 	renderFillingGuide,
 	type SystemForm,
@@ -33,28 +34,9 @@ import { CheckList, StepIntro } from "./fields"
 // Copiar campo
 // ─────────────────────────────────────────────────────────────────────────────
 
-function escapeHtml(value: string): string {
-	return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-}
-
-function tableHtml(table: FieldTable): string {
-	return `<table border="1"><thead><tr>${table.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr></thead><tbody>${table.rows
-		.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
-		.join("")}</tbody></table>`
-}
-
-/** HTML para o editor do sistema (mantém parágrafos e tabela) e texto para o resto. */
-function fieldClipboard(field: FormField): { html: string; text: string } {
-	const paragraphs = field.value.split(/\n{2,}/).filter((paragraph) => paragraph.trim())
-	const html = `${paragraphs.map((paragraph) => `<p>${paragraph.split("\n").map(escapeHtml).join("<br>")}</p>`).join("")}${field.table ? tableHtml(field.table) : ""}`
-	const text = [field.value.trim(), field.table ? [field.table.columns, ...field.table.rows].map((row) => row.join("\t")).join("\n") : ""]
-		.filter(Boolean)
-		.join("\n\n")
-	return { html, text }
-}
-
 async function copyField(field: FormField): Promise<void> {
-	const { html, text } = fieldClipboard(field)
+	const html = fieldContentHtml(field)
+	const text = fieldContentText(field)
 	if (typeof ClipboardItem !== "undefined") {
 		await navigator.clipboard.write([
 			new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([text], { type: "text/plain" }) }),
@@ -189,7 +171,7 @@ interface PipelineEntry {
 	error?: string
 }
 
-function useSendToAci(demandId: string) {
+function useSendToAci(demandId: string, updatedAt: () => string, onSubmitted: (updatedAt: string) => void) {
 	const submit = useSubmitDemand(demandId)
 	const extract = useRunExtraction()
 	const verify = useRunCompliance()
@@ -202,7 +184,8 @@ function useSendToAci(demandId: string) {
 	const run = async () => {
 		setBlocked([])
 		try {
-			const { submissions } = await submit.mutateAsync()
+			const { submissions, updated_at } = await submit.mutateAsync({ expected_updated_at: updatedAt() })
+			onSubmitted(updated_at)
 			setEntries(submissions.map((submission) => ({ submissionId: submission.id, docKind: submission.doc_kind, stage: "extraindo" })))
 			// Em sequência: a extração e a verificação chamam o modelo, e o teto por usuário vale
 			// para as duas peças juntas.
@@ -217,6 +200,8 @@ function useSendToAci(demandId: string) {
 				}
 			}
 		} catch (error) {
+			// Envio desfeito no α: a versão mudou na reversão, e a gravação seguinte precisa dela.
+			if (error instanceof AlphaRequestError && typeof error.body?.updated_at === "string") onSubmitted(error.body.updated_at)
 			if (error instanceof AlphaRequestError && error.code === "DEMAND_BLOCKED") {
 				setBlocked((error.body?.checks as Array<{ step: DemandStep; message: string }> | undefined) ?? [])
 			}
@@ -266,6 +251,8 @@ export function ReviewStep({
 	unitLabel,
 	scopeId,
 	isSaved,
+	updatedAt,
+	onSubmitted,
 	onGoto,
 }: {
 	demand: DemandPayload
@@ -275,13 +262,16 @@ export function ReviewStep({
 	scopeId: string
 	/** Envio só com tudo gravado: o α gera as peças do que está no banco. */
 	isSaved: boolean
+	/** `updated_at` da última gravação: o envio só vale sobre a versão que a pessoa está vendo. */
+	updatedAt: () => string
+	onSubmitted: (updatedAt: string) => void
 	onGoto: (step: DemandStep) => void
 }) {
 	const documents = useMemo(() => buildDocuments(demand), [demand])
 	const checks = useMemo(() => checkDemand(demand), [demand])
 	const blocking = checks.filter((check) => check.severity === "bloqueia")
 	const { framing, prices } = documents
-	const send = useSendToAci(detail.id)
+	const send = useSendToAci(detail.id, updatedAt, onSubmitted)
 	const [tab, setTab] = useState<string>("dfd")
 
 	return (

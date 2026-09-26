@@ -219,6 +219,23 @@ describe("checkDemand", () => {
 		expect(summarizePrices(demand).items[0]?.values).toHaveLength(3)
 	})
 
+	test('"às pressas" com acento é apontado', () => {
+		const demand = windowsDemand()
+		demand.context.problem += " A medição foi feita às pressas."
+		expect(checkDemand(demand, TODAY).some((check) => check.id.startsWith("admits-contexto"))).toBe(true)
+	})
+
+	test("ids das pendências são únicos", () => {
+		const demand = windowsDemand()
+		demand.solution.requirements.push(
+			{ id: "r2", text: "Perfil reforçado — linha Suprema", kind: "tecnico", objectiveId: "m1" },
+			{ id: "r3", text: "Fecho tipo punho — preto", kind: "tecnico", objectiveId: "m1" }
+		)
+		demand.risks.push({ ...demand.risks[0], id: "k3", risk: "Atraso na habilitação do fornecedor" } as DemandPayload["risks"][number])
+		const ids = checkDemand(demand, TODAY).map((check) => check.id)
+		expect(new Set(ids).size).toBe(ids.length)
+	})
+
 	test("4.4.90.52 lembra a incorporabilidade", () => {
 		const demand = windowsDemand()
 		const item = demand.items[0]

@@ -44,8 +44,23 @@ function tableHtml(table: FieldTable): string {
 	return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
 }
 
+/**
+ * O conteúdo de um campo em HTML: parágrafos e tabela. É o que o botão Copiar entrega ao
+ * editor do sistema, no guia e na tela do contrate (uma serialização só, para as duas não
+ * divergirem).
+ */
+export function fieldContentHtml(field: Pick<FormField, "value" | "table">): string {
+	return `${valueHtml(field.value)}${field.table ? tableHtml(field.table) : ""}`
+}
+
+/** O mesmo conteúdo em texto: parágrafos e tabela separada por tabulação (cola em planilha). */
+export function fieldContentText(field: Pick<FormField, "value" | "table">): string {
+	const table = field.table ? [field.table.columns, ...field.table.rows].map((row) => row.join("\t")).join("\n") : ""
+	return [field.value.trim(), table].filter(Boolean).join("\n\n")
+}
+
 function fieldHtml(field: FormField, anchor: string): string {
-	const content = `${valueHtml(field.value)}${field.table ? tableHtml(field.table) : ""}`
+	const content = fieldContentHtml(field)
 	const length = field.value.trim().length
 	const over = field.maxLength !== undefined && length > field.maxLength
 	const counter = field.maxLength !== undefined ? `<span class="count${over ? " over" : ""}">${length}/${field.maxLength} caracteres</span>` : ""

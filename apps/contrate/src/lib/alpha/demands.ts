@@ -75,9 +75,19 @@ export function useCreateDemand() {
 
 export function useSaveDemand(demandId: string) {
 	const { session } = useAuth()
+	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (input: { payload: DemandPayload; title?: string; expected_updated_at?: string }) =>
 			alphaRequest<DemandSummary>(alphaPath`/api/v1/demands/${demandId}`, session?.access_token, { method: "PATCH", body: JSON.stringify(input) }),
+		// O detalhe tem `staleTime` infinito (o editor é dono do estado enquanto aberto): sem
+		// atualizar o cache, reabrir a demanda mostraria o rascunho de antes da gravação, com o
+		// `updated_at` velho, e a primeira edição daria um falso 409.
+		onSuccess: (saved, input) => {
+			queryClient.setQueryData<DemandDetail>(["alpha", "demands", demandId], (current) =>
+				current ? { ...current, ...saved, payload: input.payload } : current
+			)
+			queryClient.invalidateQueries({ queryKey: ["alpha", "demands", "list"] })
+		},
 	})
 }
 
@@ -94,10 +104,12 @@ export function useSubmitDemand(demandId: string) {
 	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: () =>
-			alphaRequest<{ demand_id: string; submissions: DemandSubmission[] }>(alphaPath`/api/v1/demands/${demandId}/submissions`, session?.access_token, {
-				method: "POST",
-			}),
+		mutationFn: (input: { expected_updated_at: string }) =>
+			alphaRequest<{ demand_id: string; updated_at: string; submissions: DemandSubmission[] }>(
+				alphaPath`/api/v1/demands/${demandId}/submissions`,
+				session?.access_token,
+				{ method: "POST", body: JSON.stringify(input) }
+			),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["alpha", "demands"] })
 			queryClient.invalidateQueries({ queryKey: ["alpha", "submissions"] })

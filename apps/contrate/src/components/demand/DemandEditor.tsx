@@ -39,8 +39,19 @@ const SAVE_LABEL: Record<SaveState, string> = {
 /** Pausa na digitação antes de gravar. */
 const SAVE_DELAY_MS = 1200
 
+/** Mensagem do erro de gravação, com o campo quando o α diz qual foi recusado (422). */
+function saveErrorMessage(failure: unknown): string {
+	if (failure instanceof AlphaRequestError && failure.code === "INVALID_PAYLOAD") {
+		const issues = (failure.body?.issues as Array<{ path: string; message: string }> | undefined) ?? []
+		if (issues.length) return `campo recusado: ${issues.map((issue) => `${issue.path} (${issue.message})`).join("; ")}`
+	}
+	return (failure as Error).message
+}
+
 function useAutosave(detail: DemandDetail, draft: DemandPayload, title: string, version: number) {
-	const save = useSaveDemand(detail.id)
+	// `mutateAsync` é estável entre renders; o objeto de `useMutation` não é. Depender do objeto
+	// recriava `flush` a cada render e o efeito de agendamento devolvia o estado a "pendente".
+	const { mutateAsync } = useSaveDemand(detail.id)
 	const [state, setState] = useState<SaveState>("salvo")
 	const [error, setError] = useState<string | null>(null)
 	const updatedAt = useRef(detail.updated_at)
@@ -58,7 +69,7 @@ function useAutosave(detail: DemandDetail, draft: DemandPayload, title: string, 
 		inFlight.current = true
 		setState("salvando")
 		try {
-			const saved = await save.mutateAsync({ payload, title: currentTitle.trim() || undefined, expected_updated_at: updatedAt.current })
+			const saved = await mutateAsync({ payload, title: currentTitle.trim() || undefined, expected_updated_at: updatedAt.current })
 			updatedAt.current = saved.updated_at
 			savedVersion.current = target
 			setError(null)
@@ -69,12 +80,12 @@ function useAutosave(detail: DemandDetail, draft: DemandPayload, title: string, 
 				setState("conflito")
 			} else {
 				setState("erro")
-				setError((failure as Error).message)
+				setError(saveErrorMessage(failure))
 			}
 		} finally {
 			inFlight.current = false
 		}
-	}, [save])
+	}, [mutateAsync])
 
 	useEffect(() => {
 		if (version === 0 || !detail.can_edit || detail.payload_invalid || conflicted.current) return
@@ -99,7 +110,16 @@ function useAutosave(detail: DemandDetail, draft: DemandPayload, title: string, 
 		return () => window.removeEventListener("beforeunload", warn)
 	}, [state])
 
-	return { state, error, retry: flush }
+	return {
+		state,
+		error,
+		retry: flush,
+		/** `updated_at` da última gravação conhecida: o envio à ACI o leva, e o devolve novo. */
+		updatedAt: () => updatedAt.current,
+		setUpdatedAt: (value: string) => {
+			updatedAt.current = value
+		},
+	}
 }
 
 export function DemandEditor({
@@ -251,6 +271,8 @@ export function DemandEditor({
 						unitLabel={unitLabel}
 						scopeId={scopeId}
 						isSaved={autosave.state === "salvo" && !detail.payload_invalid}
+						updatedAt={autosave.updatedAt}
+						onSubmitted={autosave.setUpdatedAt}
 						onGoto={(target: DemandStep) => onStep(target)}
 					/>
 				) : null}

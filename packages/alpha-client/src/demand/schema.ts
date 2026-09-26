@@ -285,12 +285,12 @@ export const PlanningSchema = z.object({
 	pcaId: text(80),
 	budget: z
 		.object({
-			fonte: text(40),
+			source: text(40),
 			ptres: text(40),
 			pi: text(40),
-			acao: text(80),
+			action: text(80),
 		})
-		.default(() => ({ fonte: "", ptres: "", pi: "", acao: "" })),
+		.default(() => ({ source: "", ptres: "", pi: "", action: "" })),
 	/** Já gasto no exercício com objeto da mesma natureza: soma no limite do art. 75, § 1º. */
 	sameNatureSpent: money.default(0),
 	related: z

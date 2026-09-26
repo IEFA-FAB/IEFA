@@ -55,7 +55,7 @@ const ADMITS_FAILURE: ReadonlyArray<[RegExp, string]> = [
 	[/\btende a subestimar\b/i, "tende a subestimar"],
 	[/\bpor (?:falha|erro|esquecimento|descuido)\b/i, "por falha/erro/esquecimento"],
 	[/\bn[ãa]o foi (?:previst[oa]|planejad[oa]|feit[oa]) a tempo\b/i, "não foi previsto/planejado a tempo"],
-	[/\b[àa]s pressas\b/i, "às pressas"],
+	[/(?<![\p{L}\d])[àa]s pressas(?![\p{L}\d])/iu, "às pressas"],
 	[/\bimproviso\b/i, "improviso"],
 ]
 
@@ -109,7 +109,14 @@ export function todayIso(today: Date): string {
 
 export function checkDemand(demand: DemandPayload, today: Date = new Date()): DemandCheck[] {
 	const checks: DemandCheck[] = []
-	const add = (check: DemandCheck) => checks.push(check)
+	// Ids únicos: viram chave de lista na tela, e o mesmo teste pode disparar duas vezes no
+	// mesmo lugar (dois requisitos com travessão, um risco que casa com dois genéricos).
+	const seen = new Map<string, number>()
+	const add = (check: DemandCheck) => {
+		const count = seen.get(check.id) ?? 0
+		seen.set(check.id, count + 1)
+		checks.push(count === 0 ? check : { ...check, id: `${check.id}-${count + 1}` })
+	}
 	const { context, solution, planning } = demand
 	const fundamentals = demand.objectives.filter((objective) => objective.kind === "fundamental" && objective.text.trim())
 	const means = demand.objectives.filter((objective) => objective.kind === "means" && objective.text.trim())

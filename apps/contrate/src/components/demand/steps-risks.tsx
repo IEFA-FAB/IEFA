@@ -299,10 +299,10 @@ export function PlanningStep({ demand, update }: StepProps) {
 				<Grid cols={4}>
 					<TextInput
 						label="Fonte"
-						value={planning.budget.fonte}
+						value={planning.budget.source}
 						onChange={(value) =>
 							update((draft) => {
-								draft.planning.budget.fonte = value
+								draft.planning.budget.source = value
 							})
 						}
 					/>
@@ -326,10 +326,10 @@ export function PlanningStep({ demand, update }: StepProps) {
 					/>
 					<TextInput
 						label="Ação"
-						value={planning.budget.acao}
+						value={planning.budget.action}
 						onChange={(value) =>
 							update((draft) => {
-								draft.planning.budget.acao = value
+								draft.planning.budget.action = value
 							})
 						}
 					/>

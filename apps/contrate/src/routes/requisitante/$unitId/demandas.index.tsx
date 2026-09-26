@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { Plus, WarningTriangle } from "iconoir-react"
+import { Plus, Trash, WarningTriangle } from "iconoir-react"
 import { useMemo, useState } from "react"
 import { UnitSelect } from "@/components/alpha/UnitSelect"
 import { RequesterNav } from "@/components/requisitante/RequesterNav"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/hooks/useAuth"
-import { DEMAND_LIST_LIMIT, demandsQueryOptions, useCreateDemand } from "@/lib/alpha/demands"
+import { DEMAND_LIST_LIMIT, demandsQueryOptions, useCreateDemand, useDeleteDemand } from "@/lib/alpha/demands"
 import { formatDateTime } from "@/lib/alpha/format"
 import { alphaAccessQueryOptions } from "@/lib/alpha/role"
 import { unitsQueryOptions } from "@/lib/alpha/units"
@@ -41,6 +41,8 @@ function DemandasPage() {
 	const access = useQuery(alphaAccessQueryOptions(token))
 	const unitCodes = useMemo(() => new Map((units.data ?? []).map((unit) => [unit.id, unit.code])), [units.data])
 	const create = useCreateDemand()
+	const remove = useDeleteDemand()
+	const userId = session?.user.id
 
 	const [creating, setCreating] = useState(false)
 	const [title, setTitle] = useState("")
@@ -107,6 +109,8 @@ function DemandasPage() {
 				</form>
 			) : null}
 
+			{remove.isError ? <p className="mb-4 text-sm">{(remove.error as Error).message}</p> : null}
+
 			{demands.isLoading ? <p className="text-muted-foreground text-sm">carregando as demandas…</p> : null}
 			{demands.isError ? (
 				<p className="flex items-center gap-2 text-sm">
@@ -135,6 +139,9 @@ function DemandasPage() {
 									<th className="text-label px-3 py-2 font-medium text-muted-foreground">Situação</th>
 									<th className="text-label px-3 py-2 font-medium text-muted-foreground">OM</th>
 									<th className="text-label px-3 py-2 font-medium text-muted-foreground">Atualizada</th>
+									<th className="px-3 py-2">
+										<span className="sr-only">Ações</span>
+									</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -152,6 +159,21 @@ function DemandasPage() {
 										<td className="px-3 py-3 align-top text-sm">{STATUS_LABEL[demand.status]}</td>
 										<td className="px-3 py-3 align-top text-sm">{unitCodes.get(demand.unit_id) ?? `OM ${demand.unit_id}`}</td>
 										<td className="px-3 py-3 align-top text-muted-foreground text-xs tabular-nums">{formatDateTime(demand.updated_at)}</td>
+										<td className="px-3 py-2 text-right align-top">
+											{demand.status === "rascunho" && demand.user_id === userId ? (
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													aria-label={`Apagar o rascunho ${demand.title}`}
+													disabled={remove.isPending}
+													onClick={() => {
+														if (window.confirm(`Apagar o rascunho "${demand.title}"? Não há como desfazer.`)) remove.mutate(demand.id)
+													}}
+												>
+													<Trash />
+												</Button>
+											) : null}
+										</td>
 									</tr>
 								))}
 							</tbody>

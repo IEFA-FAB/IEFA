@@ -34,7 +34,7 @@ export {
 	sortedRisks,
 } from "./documents"
 export { DIRECT_PURCHASE_LIMITS, type Framing, formatBRL, formatSystemNumber, frameProcurement, limitsFor, ROUTE_LABEL, type Route } from "./framing"
-export { escapeHtml, type GuideMeta, renderFillingGuide } from "./guide"
+export { escapeHtml, fieldContentHtml, fieldContentText, type GuideMeta, renderFillingGuide } from "./guide"
 export {
 	CV_THRESHOLD,
 	coefficientOfVariation,

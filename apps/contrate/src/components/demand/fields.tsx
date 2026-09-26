@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { parseDecimal } from "@/lib/decimal"
 
 export function FieldBlock({
 	label,
@@ -105,15 +106,6 @@ export function TextInput({
 
 const DECIMAL = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 })
 const MONEY = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-/** "1.234,56" ou "1234.56" → 1234.56; vazio → null; texto inválido → NaN. */
-export function parseDecimal(raw: string): number | null {
-	const trimmed = raw.trim()
-	if (!trimmed) return null
-	const normalized = trimmed.includes(",") ? trimmed.replace(/\./g, "").replace(",", ".") : trimmed
-	const value = Number(normalized)
-	return Number.isFinite(value) && value >= 0 ? value : Number.NaN
-}
 
 /**
  * Número em pt-BR (vírgula decimal), com o texto local enquanto se digita: formatar a cada

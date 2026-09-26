@@ -39,6 +39,12 @@ Gravação automática com concorrência otimista: o `PATCH` leva o `updated_at`
 com 409 se outra pessoa gravou. A tela para de gravar e oferece recarregar. O CORS do α libera
 `PATCH` (não `PUT`), então a rota é `PATCH`.
 
+O envio também leva o `updated_at` e começa reservando a demanda (`status = 'enviada'` com o
+`updated_at` no filtro). Dois envios da mesma versão (clique duplo, dois colegas, retentativa)
+não geram dois pares de peças: o segundo recebe 409. Se a geração falhar, a reserva é desfeita e
+o `updated_at` novo volta na resposta, para a tela não cair num falso conflito. Demanda com
+submissão não se apaga, mesmo em rascunho.
+
 ### Documento para a ACI
 
 `.docx` mínimo com `fflate` (já dependência do α): títulos em `HeadingN`, parágrafos, e tabela

@@ -266,7 +266,7 @@ export function SolutionStep({ demand, update }: StepProps) {
 					value={solution.deliveryDays}
 					onChange={(value) =>
 						update((draft) => {
-							draft.solution.deliveryDays = value === null ? null : Math.max(1, Math.round(value))
+							draft.solution.deliveryDays = value === null ? null : Math.min(3650, Math.max(1, Math.round(value)))
 						})
 					}
 				/>
@@ -275,7 +275,7 @@ export function SolutionStep({ demand, update }: StepProps) {
 					value={solution.warrantyMonths}
 					onChange={(value) =>
 						update((draft) => {
-							draft.solution.warrantyMonths = value === null ? null : Math.round(value)
+							draft.solution.warrantyMonths = value === null ? null : Math.min(240, Math.round(value))
 						})
 					}
 				/>

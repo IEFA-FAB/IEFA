@@ -817,7 +817,7 @@ function buildTr(demand: DemandPayload, framing: Framing, prices: PriceSummary, 
 			editable(
 				"budget",
 				"11. ADEQUAÇÃO ORÇAMENTÁRIA",
-				`As despesas decorrentes da presente contratação correrão à conta de recursos específicos consignados no Orçamento Geral da União, na natureza de despesa ${natures.length ? natures.join(", ") : pending("natureza de despesa")}${budget.fonte.trim() ? `, fonte ${budget.fonte.trim()}` : ""}${budget.ptres.trim() ? `, PTRES ${budget.ptres.trim()}` : ""}${budget.pi.trim() ? `, PI ${budget.pi.trim()}` : ""}${budget.acao.trim() ? `, ação ${budget.acao.trim()}` : ""}.`
+				`As despesas decorrentes da presente contratação correrão à conta de recursos específicos consignados no Orçamento Geral da União, na natureza de despesa ${natures.length ? natures.join(", ") : pending("natureza de despesa")}${budget.source.trim() ? `, fonte ${budget.source.trim()}` : ""}${budget.ptres.trim() ? `, PTRES ${budget.ptres.trim()}` : ""}${budget.pi.trim() ? `, PI ${budget.pi.trim()}` : ""}${budget.action.trim() ? `, ação ${budget.action.trim()}` : ""}.`
 			),
 			keep("final", "12. DISPOSIÇÕES FINAIS", "Manter o texto do modelo."),
 		],
@@ -828,7 +828,7 @@ function buildTr(demand: DemandPayload, framing: Framing, prices: PriceSummary, 
 // Peças dos autos
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildMemoria(demand: DemandPayload): SystemForm {
+function buildQuantityMemo(demand: DemandPayload): SystemForm {
 	return {
 		id: "memoria",
 		title: "Memória de Cálculo das Quantidades",
@@ -861,7 +861,7 @@ function buildMemoria(demand: DemandPayload): SystemForm {
 	}
 }
 
-function buildPesquisa(demand: DemandPayload, framing: Framing, prices: PriceSummary): SystemForm {
+function buildPriceReport(demand: DemandPayload, framing: Framing, prices: PriceSummary): SystemForm {
 	const quotes = demand.quotes
 	return {
 		id: "pesquisa",
@@ -940,8 +940,8 @@ export function buildDocuments(demand: DemandPayload, today: Date = new Date()):
 			buildEtp(demand, framing, prices, year),
 			buildMr(demand, framing),
 			buildTr(demand, framing, prices, year),
-			buildMemoria(demand),
-			buildPesquisa(demand, framing, prices),
+			buildQuantityMemo(demand),
+			buildPriceReport(demand, framing, prices),
 		],
 	}
 }

@@ -50,6 +50,11 @@ const UpdateSchema = z.object({
 	expected_updated_at: z.string().optional(),
 })
 
+const SubmitSchema = z.object({
+	/** A versão que a pessoa está vendo: o envio reserva a demanda por ela (ver a rota). */
+	expected_updated_at: z.string().min(1),
+})
+
 type DemandRow = {
 	id: string
 	user_id: string
@@ -203,13 +208,19 @@ export const demandRoutes = new Hono<{ Variables: Variables }>()
 		if (!row || row.user_id !== user.id) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		if (row.status !== "rascunho") return c.json({ error: "Conflict", code: "DEMAND_SUBMITTED", message: "demanda já enviada à ACI não se apaga" }, 409)
 
+		// Submissão com `demand_id` perderia a origem em silêncio (`on delete set null`): a
+		// demanda que gerou documento não se apaga, mesmo que o status tenha ficado em rascunho.
+		const { count, error: countError } = await supabase.from("submission").select("id", { count: "exact", head: true }).eq("demand_id", row.id)
+		if (countError) return c.json({ error: "Internal Server Error", code: "SUBMISSIONS_FAILED" }, 500)
+		if ((count ?? 0) > 0) return c.json({ error: "Conflict", code: "DEMAND_SUBMITTED", message: "demanda já enviada à ACI não se apaga" }, 409)
+
 		const { error } = await supabase.from("demand").delete().eq("id", row.id).eq("status", "rascunho")
 		if (error) return c.json({ error: "Internal Server Error", code: "DEMAND_DELETE_FAILED" }, 500)
 		return c.body(null, 204)
 	})
 
 	// POST /api/v1/demands/:id/submissions — gera o ETP e o TR e os envia à ACI.
-	.post("/api/v1/demands/:id/submissions", async (c) => {
+	.post("/api/v1/demands/:id/submissions", zValidator("json", SubmitSchema), async (c) => {
 		const user = c.get("user")
 		const access = c.get("access")
 		if (!access.canSubmit) return c.json({ error: "Forbidden", code: "SUBMIT_DENIED", message: "o envio de documentos está bloqueado para você" }, 403)
@@ -239,6 +250,22 @@ export const demandRoutes = new Hono<{ Variables: Variables }>()
 		if (real === null) return c.json({ error: "Internal Server Error", code: "UNIT_LOOKUP_FAILED" }, 500)
 		if (!real) return c.json({ error: "Unprocessable Entity", code: "UNIT_NOT_FOUND", message: "OM inexistente" }, 422)
 
+		// Reserva: o UPDATE só casa com o `updated_at` que a pessoa viu, e ele muda (trigger). Dois
+		// envios da mesma versão (clique duplo, dois colegas, retentativa) não geram dois pares de
+		// peças: o segundo recebe 409. O status só volta se a geração falhar.
+		const { expected_updated_at } = c.req.valid("json")
+		const previous = { status: row.status, submitted_at: row.submitted_at }
+		const { data: claimed, error: claimError } = await supabase
+			.from("demand")
+			.update({ status: "enviada", submitted_at: new Date().toISOString(), updated_by: user.id })
+			.eq("id", row.id)
+			.eq("updated_at", expected_updated_at)
+			.select("updated_at")
+			.maybeSingle()
+		if (claimError) return c.json({ error: "Internal Server Error", code: "DEMAND_UPDATE_FAILED" }, 500)
+		if (!claimed)
+			return c.json({ error: "Conflict", code: "DEMAND_CHANGED", message: "a demanda mudou depois que você a abriu; recarregue antes de enviar" }, 409)
+
 		const documents = buildDocuments(demand)
 		const header = {
 			object: demand.solution.object.trim() || row.title,
@@ -248,7 +275,13 @@ export const demandRoutes = new Hono<{ Variables: Variables }>()
 
 		const uploaded: string[] = []
 		const created: Array<{ id: string; doc_kind: string; filename: string; created_at: string }> = []
-		const cleanup = async () => {
+		/**
+		 * Desfaz o envio. Devolve o `updated_at` depois da reversão (o trigger o muda), que vai na
+		 * resposta de erro: sem ele, a próxima gravação da tela daria um falso 409.
+		 */
+		const cleanup = async (): Promise<string | null> => {
+			const { data: reverted, error: revertError } = await supabase.from("demand").update(previous).eq("id", row.id).select("updated_at").maybeSingle()
+			if (revertError) console.error(`[demands] status da demanda ${row.id} não revertido: ${revertError.message}`)
 			if (created.length)
 				await supabase
 					.from("submission")
@@ -261,6 +294,7 @@ export const demandRoutes = new Hono<{ Variables: Variables }>()
 				const { error } = await supabase.storage.from(SUBMISSION_BUCKET).remove(uploaded)
 				if (error) console.error(`[demands] arquivos órfãos ${uploaded.join(", ")}: ${error.message}`)
 			}
+			return (reverted?.updated_at as string | undefined) ?? null
 		}
 
 		for (const form of documents.forms) {
@@ -272,8 +306,8 @@ export const demandRoutes = new Hono<{ Variables: Variables }>()
 			const { error: uploadError } = await supabase.storage.from(SUBMISSION_BUCKET).upload(storagePath, bytes, { contentType: DOCX_MIME, upsert: false })
 			if (uploadError) {
 				console.error(`[demands] upload de ${storagePath} falhou: ${uploadError.message}`)
-				await cleanup()
-				return c.json({ error: "Internal Server Error", code: "UPLOAD_FAILED", message: "falha ao gravar o documento gerado" }, 500)
+				const updated_at = await cleanup()
+				return c.json({ error: "Internal Server Error", code: "UPLOAD_FAILED", message: "falha ao gravar o documento gerado", updated_at }, 500)
 			}
 			uploaded.push(storagePath)
 
@@ -293,17 +327,11 @@ export const demandRoutes = new Hono<{ Variables: Variables }>()
 				.select("id, doc_kind, filename, created_at")
 				.single()
 			if (error || !data) {
-				await cleanup()
-				return c.json({ error: "Internal Server Error", code: "SUBMISSION_FAILED" }, 500)
+				const updated_at = await cleanup()
+				return c.json({ error: "Internal Server Error", code: "SUBMISSION_FAILED", updated_at }, 500)
 			}
 			created.push(data as (typeof created)[number])
 		}
 
-		const { error: statusError } = await supabase
-			.from("demand")
-			.update({ status: "enviada", submitted_at: new Date().toISOString(), updated_by: user.id })
-			.eq("id", row.id)
-		if (statusError) console.error(`[demands] status da demanda ${row.id} não atualizado: ${statusError.message}`)
-
-		return c.json({ demand_id: row.id, submissions: created }, 201)
+		return c.json({ demand_id: row.id, updated_at: claimed.updated_at as string, submissions: created }, 201)
 	})
