@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)"
   },
   "exports": {
-    "./access": "./src/access.ts"
+    "./access": "./src/access.ts",
+    "./demand": "./src/demand/index.ts"
   },
   "dependencies": {
     "zod": "^4.6.5"

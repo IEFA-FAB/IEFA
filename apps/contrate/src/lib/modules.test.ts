@@ -54,7 +54,11 @@ describe("scopedPath e resolveNavItems", () => {
 	test("dentro de uma OM, os itens levam a OM; no hub, os que dependem dela somem", () => {
 		const requisitante = getModule("requisitante")
 		const [scope] = buildScopeOptions([26], [{ id: 26, code: "GAP-SJ", display_name: null }])
-		expect(resolveNavItems(requisitante, scope ?? null).map((item) => item.to)).toEqual(["/requisitante/26", "/requisitante/26/nova"])
+		expect(resolveNavItems(requisitante, scope ?? null).map((item) => item.to)).toEqual([
+			"/requisitante/26/demandas",
+			"/requisitante/26",
+			"/requisitante/26/nova",
+		])
 		expect(resolveNavItems(requisitante, null)).toEqual([])
 		expect(resolveNavItems(getModule("alpha"), null).map((item) => item.to)).toEqual(["/alpha/fontes", "/alpha/bancada"])
 	})

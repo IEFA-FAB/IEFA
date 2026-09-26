@@ -52,6 +52,8 @@ import { Route as RequisitanteUnitIdNovaRouteImport } from './routes/requisitant
 import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
 import { Route as AciUnitIdProcessosSubmissionIdRouteImport } from './routes/aci/$unitId/processos.$submissionId'
 import { Route as AciUnitIdRelatorioRunIdRouteImport } from './routes/aci/$unitId/relatorio.$runId'
+import { Route as RequisitanteUnitIdDemandasIndexRouteImport } from './routes/requisitante/$unitId/demandas.index'
+import { Route as RequisitanteUnitIdDemandasDemandIdRouteImport } from './routes/requisitante/$unitId/demandas.$demandId'
 import { Route as RequisitanteUnitIdProcessosSubmissionIdRouteImport } from './routes/requisitante/$unitId/processos.$submissionId'
 import { Route as RequisitanteUnitIdRelatorioRunIdRouteImport } from './routes/requisitante/$unitId/relatorio.$runId'
 
@@ -274,6 +276,18 @@ const AciUnitIdRelatorioRunIdRoute = AciUnitIdRelatorioRunIdRouteImport.update({
   path: '/relatorio/$runId',
   getParentRoute: () => AciUnitIdRouteRoute,
 } as any)
+const RequisitanteUnitIdDemandasIndexRoute =
+  RequisitanteUnitIdDemandasIndexRouteImport.update({
+    id: '/demandas/',
+    path: '/demandas/',
+    getParentRoute: () => RequisitanteUnitIdRouteRoute,
+  } as any)
+const RequisitanteUnitIdDemandasDemandIdRoute =
+  RequisitanteUnitIdDemandasDemandIdRouteImport.update({
+    id: '/demandas/$demandId',
+    path: '/demandas/$demandId',
+    getParentRoute: () => RequisitanteUnitIdRouteRoute,
+  } as any)
 const RequisitanteUnitIdProcessosSubmissionIdRoute =
   RequisitanteUnitIdProcessosSubmissionIdRouteImport.update({
     id: '/processos/$submissionId',
@@ -331,8 +345,10 @@ export interface FileRoutesByFullPath {
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/aci/$unitId/processos/$submissionId': typeof AciUnitIdProcessosSubmissionIdRoute
   '/aci/$unitId/relatorio/$runId': typeof AciUnitIdRelatorioRunIdRoute
+  '/requisitante/$unitId/demandas/$demandId': typeof RequisitanteUnitIdDemandasDemandIdRoute
   '/requisitante/$unitId/processos/$submissionId': typeof RequisitanteUnitIdProcessosSubmissionIdRoute
   '/requisitante/$unitId/relatorio/$runId': typeof RequisitanteUnitIdRelatorioRunIdRoute
+  '/requisitante/$unitId/demandas/': typeof RequisitanteUnitIdDemandasIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -369,8 +385,10 @@ export interface FileRoutesByTo {
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/aci/$unitId/processos/$submissionId': typeof AciUnitIdProcessosSubmissionIdRoute
   '/aci/$unitId/relatorio/$runId': typeof AciUnitIdRelatorioRunIdRoute
+  '/requisitante/$unitId/demandas/$demandId': typeof RequisitanteUnitIdDemandasDemandIdRoute
   '/requisitante/$unitId/processos/$submissionId': typeof RequisitanteUnitIdProcessosSubmissionIdRoute
   '/requisitante/$unitId/relatorio/$runId': typeof RequisitanteUnitIdRelatorioRunIdRoute
+  '/requisitante/$unitId/demandas': typeof RequisitanteUnitIdDemandasIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -417,8 +435,10 @@ export interface FileRoutesById {
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/aci/$unitId/processos/$submissionId': typeof AciUnitIdProcessosSubmissionIdRoute
   '/aci/$unitId/relatorio/$runId': typeof AciUnitIdRelatorioRunIdRoute
+  '/requisitante/$unitId/demandas/$demandId': typeof RequisitanteUnitIdDemandasDemandIdRoute
   '/requisitante/$unitId/processos/$submissionId': typeof RequisitanteUnitIdProcessosSubmissionIdRoute
   '/requisitante/$unitId/relatorio/$runId': typeof RequisitanteUnitIdRelatorioRunIdRoute
+  '/requisitante/$unitId/demandas/': typeof RequisitanteUnitIdDemandasIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -466,8 +486,10 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/aci/$unitId/processos/$submissionId'
     | '/aci/$unitId/relatorio/$runId'
+    | '/requisitante/$unitId/demandas/$demandId'
     | '/requisitante/$unitId/processos/$submissionId'
     | '/requisitante/$unitId/relatorio/$runId'
+    | '/requisitante/$unitId/demandas/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -504,8 +526,10 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/aci/$unitId/processos/$submissionId'
     | '/aci/$unitId/relatorio/$runId'
+    | '/requisitante/$unitId/demandas/$demandId'
     | '/requisitante/$unitId/processos/$submissionId'
     | '/requisitante/$unitId/relatorio/$runId'
+    | '/requisitante/$unitId/demandas'
   id:
     | '__root__'
     | '/'
@@ -551,8 +575,10 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/aci/$unitId/processos/$submissionId'
     | '/aci/$unitId/relatorio/$runId'
+    | '/requisitante/$unitId/demandas/$demandId'
     | '/requisitante/$unitId/processos/$submissionId'
     | '/requisitante/$unitId/relatorio/$runId'
+    | '/requisitante/$unitId/demandas/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -878,6 +904,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AciUnitIdRelatorioRunIdRouteImport
       parentRoute: typeof AciUnitIdRouteRoute
     }
+    '/requisitante/$unitId/demandas/': {
+      id: '/requisitante/$unitId/demandas/'
+      path: '/demandas'
+      fullPath: '/requisitante/$unitId/demandas/'
+      preLoaderRoute: typeof RequisitanteUnitIdDemandasIndexRouteImport
+      parentRoute: typeof RequisitanteUnitIdRouteRoute
+    }
+    '/requisitante/$unitId/demandas/$demandId': {
+      id: '/requisitante/$unitId/demandas/$demandId'
+      path: '/demandas/$demandId'
+      fullPath: '/requisitante/$unitId/demandas/$demandId'
+      preLoaderRoute: typeof RequisitanteUnitIdDemandasDemandIdRouteImport
+      parentRoute: typeof RequisitanteUnitIdRouteRoute
+    }
     '/requisitante/$unitId/processos/$submissionId': {
       id: '/requisitante/$unitId/processos/$submissionId'
       path: '/processos/$submissionId'
@@ -1021,18 +1061,23 @@ const PregoeiroRouteRouteWithChildren = PregoeiroRouteRoute._addFileChildren(
 interface RequisitanteUnitIdRouteRouteChildren {
   RequisitanteUnitIdNovaRoute: typeof RequisitanteUnitIdNovaRoute
   RequisitanteUnitIdIndexRoute: typeof RequisitanteUnitIdIndexRoute
+  RequisitanteUnitIdDemandasDemandIdRoute: typeof RequisitanteUnitIdDemandasDemandIdRoute
   RequisitanteUnitIdProcessosSubmissionIdRoute: typeof RequisitanteUnitIdProcessosSubmissionIdRoute
   RequisitanteUnitIdRelatorioRunIdRoute: typeof RequisitanteUnitIdRelatorioRunIdRoute
+  RequisitanteUnitIdDemandasIndexRoute: typeof RequisitanteUnitIdDemandasIndexRoute
 }
 
 const RequisitanteUnitIdRouteRouteChildren: RequisitanteUnitIdRouteRouteChildren =
   {
     RequisitanteUnitIdNovaRoute: RequisitanteUnitIdNovaRoute,
     RequisitanteUnitIdIndexRoute: RequisitanteUnitIdIndexRoute,
+    RequisitanteUnitIdDemandasDemandIdRoute:
+      RequisitanteUnitIdDemandasDemandIdRoute,
     RequisitanteUnitIdProcessosSubmissionIdRoute:
       RequisitanteUnitIdProcessosSubmissionIdRoute,
     RequisitanteUnitIdRelatorioRunIdRoute:
       RequisitanteUnitIdRelatorioRunIdRoute,
+    RequisitanteUnitIdDemandasIndexRoute: RequisitanteUnitIdDemandasIndexRoute,
   }
 
 const RequisitanteUnitIdRouteRouteWithChildren =

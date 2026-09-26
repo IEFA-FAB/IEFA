@@ -109,7 +109,7 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 
 		const { data: submission, error } = await supabase
 			.from("submission")
-			.select("id, user_id, unit_id, filename, doc_kind, modalidade, objeto, mime_type, created_at")
+			.select("id, user_id, unit_id, filename, doc_kind, modalidade, objeto, mime_type, demand_id, created_at")
 			.eq("id", id)
 			.maybeSingle()
 

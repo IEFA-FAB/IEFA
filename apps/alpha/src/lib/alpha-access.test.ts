@@ -3,6 +3,7 @@ import type { UnitSupportEdge, UserPermission } from "@iefa/pbac"
 import {
 	type AlphaAccess,
 	coversUnit,
+	decideDemandEdit,
 	decideSubmissionRead,
 	decideSubmissionReview,
 	decideThreadAccess,
@@ -137,6 +138,24 @@ describe("decideSubmissionRead", () => {
 
 	test("alpha-admin não lê processo — administrar acesso não é papel de fluxo", () => {
 		expect(decideSubmissionRead(access([grant("alpha-admin", 3)]), ME, { user_id: COLLEAGUE, unit_id: IAE })).toBe(false)
+	})
+})
+
+describe("decideDemandEdit", () => {
+	test("o autor edita a própria demanda, sem papel nenhum", () => {
+		expect(decideDemandEdit(access([]), ME, { user_id: ME, unit_id: GAP_RJ })).toBe(true)
+	})
+
+	test("o requisitante que cobre a OM edita a demanda do colega", () => {
+		expect(decideDemandEdit(access([grant("alpha-requester", 1, IAE)]), ME, { user_id: COLLEAGUE, unit_id: IAE })).toBe(true)
+	})
+
+	test("licitações e ACI leem, mas não editam", () => {
+		expect(decideDemandEdit(access([grant("alpha-procurement", 1, IAE), grant("alpha-aci", 1, IAE)]), ME, { user_id: COLLEAGUE, unit_id: IAE })).toBe(false)
+	})
+
+	test("requisitante de outra OM não edita", () => {
+		expect(decideDemandEdit(access([grant("alpha-requester", 1, GAP_RJ)]), ME, { user_id: COLLEAGUE, unit_id: IAE })).toBe(false)
 	})
 })
 

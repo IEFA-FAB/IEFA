@@ -126,6 +126,17 @@ export function decideSubmissionRead(access: AlphaAccess, userId: string, submis
 }
 
 /**
+ * O usuário pode editar (e enviar à ACI) esta demanda? O autor, ou o requisitante que cobre a
+ * OM dela: a demanda é trabalho da área requisitante, e segue quando quem a começou não está,
+ * como a lista de processos da OM. Licitações e ACI LEEM (`decideSubmissionRead`), não editam:
+ * quem confere não escreve a peça que vai conferir.
+ */
+export function decideDemandEdit(access: AlphaAccess, userId: string, demand: SubmissionOwnership): boolean {
+	if (demand.user_id === userId) return true
+	return coversUnit(access.roles.requester, demand.unit_id)
+}
+
+/**
  * O usuário pode triar achado e emitir parecer nesta submissão? Só o ACI que cobre a OM
  * dela — ser o autor, sozinho, NÃO basta, e ser ACI de outra OM também não.
  *
