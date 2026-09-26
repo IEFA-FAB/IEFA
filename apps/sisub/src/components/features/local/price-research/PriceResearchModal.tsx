@@ -1,3 +1,4 @@
+import { convertSamplePrice, resolveResearchUnit, SAMPLE_CONVERSION_REASON_LABELS } from "@iefa/sisub-domain"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
 	type Column,
@@ -34,8 +35,17 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/cn"
-import { autoSelectPrice, DEFAULT_PERIOD_MONTHS, fetchAllPagesForCatmat, filterByPeriod, MAX_PAGES } from "@/lib/price-research-utils"
+import {
+	analyzeSamples,
+	DEFAULT_PERIOD_MONTHS,
+	fetchAllPagesForCatmat,
+	filterByPeriod,
+	isMethodAllowed,
+	MAX_PAGES,
+	type PriceStatsSummary,
+} from "@/lib/price-research-utils"
 import { savePrecoAuditFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 
@@ -55,47 +65,22 @@ function formatDate(value: string | null | undefined): string {
 	return value.substring(0, 10)
 }
 
-function calcMediana(values: number[]): number {
-	const sorted = values.toSorted((a, b) => a - b)
-	const mid = Math.floor(sorted.length / 2)
-	return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
-}
-
-interface PriceStats {
-	mean: number
-	median: number
-	stdDev: number
-	cv: number
-	min: number
-	max: number
-}
-
-function computeStats(prices: number[]): PriceStats | null {
-	if (prices.length === 0) return null
-	const n = prices.length
-	const mean = prices.reduce((s, v) => s + v, 0) / n
-	const median = calcMediana(prices)
-	const variance = prices.reduce((s, v) => s + (v - mean) ** 2, 0) / n
-	const stdDev = Math.sqrt(variance)
-	const cv = mean > 0 ? (stdDev / mean) * 100 : 0
-	return { mean, median, stdDev, cv, min: Math.min(...prices), max: Math.max(...prices) }
-}
-
 function getRecommendation(cv: number): { text: string; colorClass: string } {
 	if (cv < 15) return { text: "Distribuição homogênea — média e mediana equivalentes.", colorClass: "text-success" }
 	if (cv < 30) return { text: "Variabilidade moderada — prefira a mediana.", colorClass: "text-warning" }
-	return { text: "Alta variabilidade — mediana recomendada (IN SEGES 65/2021 Art. 5º).", colorClass: "text-destructive" }
+	return { text: "Alta variabilidade — mediana recomendada (IN SEGES/ME 65/2021, art. 6º).", colorClass: "text-destructive" }
 }
 
 /** Recorte usado no cálculo do preço de referência (seleção manual ou todos os resultados exibidos). */
 interface Analysis {
-	stats: PriceStats & { uniqueSources: number }
+	stats: PriceStatsSummary
 	/** Amostras com preço consideradas neste recorte (pós-janela e pós-filtros de coluna). */
 	consideredCount: number
 	validCount: number
 	outlierCount: number
 	validSamples: ComprasMaterialPriceResult[]
 	outlierSamples: ComprasMaterialPriceResult[]
+	inconsistentSamples: ComprasMaterialPriceResult[]
 	fromSelection: boolean
 }
 
@@ -281,7 +266,10 @@ interface PriceResearchModalProps {
 	ataId?: string
 	/** UUID do item da ATA já existente (opcional — permite link imediato) */
 	ataItemId?: string
-	onApplyPrice?: (price: number, auditIds: PriceResearchAuditIds | null) => void
+	/** Unidade de compra do item: todo preço é convertido para ela antes da estatística. */
+	targetUnit?: string | null
+	/** Só chamado com a memória de cálculo gravada: preço sem registro não entra no anexo. */
+	onApplyPrice?: (price: number, auditIds: PriceResearchAuditIds) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -289,7 +277,7 @@ interface PriceResearchModalProps {
 /** Referência estável para o estado vazio — evita recriar o array a cada render. */
 const EMPTY_RESULTS: ComprasMaterialPriceResult[] = []
 
-export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescription, ataId, ataItemId, onApplyPrice }: PriceResearchModalProps) {
+export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescription, ataId, ataItemId, targetUnit, onApplyPrice }: PriceResearchModalProps) {
 	const [sorting, setSorting] = useState<SortingState>([])
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
@@ -322,6 +310,8 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 
 	const scopedResults = useMemo(() => (periodMonths ? filterByPeriod(allResults, periodMonths) : allResults), [allResults, periodMonths])
 	const outOfPeriodCount = allResults.length - scopedResults.length
+	const researchUnit = useMemo(() => resolveResearchUnit(targetUnit, scopedResults), [targetUnit, scopedResults])
+	const unit = researchUnit?.unit ?? null
 
 	// ── Columns ───────────────────────────────────────────────────────────────
 
@@ -396,13 +386,40 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 			},
 			{
 				accessorKey: "precoUnitario",
-				header: ({ column }) => <SortableHeader column={column} title="Preço Un." align="right" />,
+				header: ({ column }) => <SortableHeader column={column} title="Preço (embalagem)" align="right" />,
 				cell: ({ row }) =>
 					row.original.precoUnitario !== null ? (
-						<span className="tabular-nums font-medium">{BRL.format(row.original.precoUnitario)}</span>
+						<span className="tabular-nums text-xs text-muted-foreground">{BRL.format(row.original.precoUnitario)}</span>
 					) : (
 						<span className="text-muted-foreground">—</span>
 					),
+				enableColumnFilter: false,
+				size: 112,
+			},
+			{
+				id: "convertedPrice",
+				accessorFn: (row) => {
+					if (!unit) return null
+					const conversion = convertSamplePrice(row, unit)
+					return conversion.ok ? conversion.price : null
+				},
+				header: ({ column }) => <SortableHeader column={column} title={unit ? `Preço / ${unit}` : "Preço convertido"} align="right" />,
+				cell: ({ row }) => {
+					if (!unit || row.original.precoUnitario === null) return <span className="text-muted-foreground">—</span>
+					const conversion = convertSamplePrice(row.original, unit)
+					if (!conversion.ok) {
+						return (
+							<Badge variant="outline" className="text-xs font-normal" title={SAMPLE_CONVERSION_REASON_LABELS[conversion.reason]}>
+								incomparável
+							</Badge>
+						)
+					}
+					return (
+						<span className="tabular-nums font-medium" title={conversion.explanation}>
+							{BRL.format(conversion.price)}
+						</span>
+					)
+				},
 				enableColumnFilter: false,
 				size: 112,
 			},
@@ -423,7 +440,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 				filterFn: multiSelectFilter,
 			},
 		],
-		[]
+		[unit]
 	)
 
 	const columns = useMemo<ColumnDef<Features, ComprasMaterialPriceResult>[]>(() => {
@@ -434,29 +451,8 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 			enableColumnFilter: false,
 			size: 32,
 		}
-		if (!onApplyPrice) return [...baseColumns, detailsCol]
-		const applyCol: ColumnDef<Features, ComprasMaterialPriceResult> = {
-			id: "apply",
-			cell: ({ row }) =>
-				row.original.precoUnitario !== null ? (
-					<Button
-						size="sm"
-						variant="ghost"
-						className="h-6 px-2 text-xs gap-1 text-primary hover:text-primary"
-						onClick={() => {
-							onApplyPrice(row.original.precoUnitario as number, null)
-							onOpenChange(false)
-						}}
-					>
-						Usar
-					</Button>
-				) : null,
-			enableSorting: false,
-			enableColumnFilter: false,
-			size: 56,
-		}
-		return [...baseColumns, applyCol, detailsCol]
-	}, [baseColumns, onApplyPrice, onOpenChange])
+		return [...baseColumns, detailsCol]
+	}, [baseColumns])
 
 	// ── Table instance ────────────────────────────────────────────────────────
 
@@ -498,41 +494,43 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 	// em lote, para que manual e automático não divirjam. As linhas já vêm
 	// recortadas pela janela de recência, daí periodMonths: null aqui.
 	const fullAnalysis = useMemo<Analysis | null>(() => {
-		const selected = autoSelectPrice(
+		if (!unit) return null
+		const analysis = analyzeSamples(
 			filteredRows.map((r) => r.original),
-			{ periodMonths: null }
+			unit,
+			{ removeOutliers: true }
 		)
-		if (!selected) return null
+		if (!analysis) return null
 		return {
-			stats: selected.stats,
-			consideredCount: selected.dateFilteredCount,
-			validCount: selected.validCount,
-			outlierCount: selected.outlierCount,
-			validSamples: selected.validSamples,
-			outlierSamples: selected.outlierSamples,
+			stats: analysis.stats,
+			consideredCount: filteredRows.filter((r) => r.original.precoUnitario !== null).length,
+			validCount: analysis.validSamples.length,
+			outlierCount: analysis.outlierSamples.length,
+			validSamples: analysis.validSamples,
+			outlierSamples: analysis.outlierSamples,
+			inconsistentSamples: analysis.inconsistentSamples,
 			fromSelection: false,
 		}
-	}, [filteredRows])
+	}, [filteredRows, unit])
 
-	// Active analysis: selected rows (no IQR — user chose those explicitly) OR full analysis
+	// Seleção manual: sem IQR (o usuário escolheu as linhas), mas com a mesma conversão de
+	// unidade — linha incomparável selecionada sai como inconsistente, não entra na conta.
 	const activeAnalysis = useMemo<Analysis | null>(() => {
-		if (selectedRows.length === 0) return fullAnalysis
+		if (selectedRows.length === 0 || !unit) return fullAnalysis
 		const samples = selectedRows.map((r) => r.original)
-		const prices = samples.map((s) => s.precoUnitario).filter((p): p is number => p !== null)
-		if (prices.length === 0) return fullAnalysis
-		const stats = computeStats(prices)
-		if (!stats) return null
-		const uniqueSources = new Set(samples.flatMap((s) => (s.codigoUasg ? [s.codigoUasg] : []))).size
+		const analysis = analyzeSamples(samples, unit, { removeOutliers: false })
+		if (!analysis) return fullAnalysis
 		return {
-			stats: { ...stats, uniqueSources },
-			consideredCount: prices.length,
-			validCount: prices.length,
+			stats: analysis.stats,
+			consideredCount: samples.filter((s) => s.precoUnitario !== null).length,
+			validCount: analysis.validSamples.length,
 			outlierCount: 0,
-			validSamples: samples,
+			validSamples: analysis.validSamples,
 			outlierSamples: [],
+			inconsistentSamples: analysis.inconsistentSamples,
 			fromSelection: true,
 		}
-	}, [selectedRows, fullAnalysis])
+	}, [selectedRows, fullAnalysis, unit])
 
 	// ── Audit save ────────────────────────────────────────────────────────────
 
@@ -543,18 +541,17 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 	})
 
 	async function handleUsePrice(price: number, method: "mean" | "median") {
-		if (!onApplyPrice || !activeAnalysis) return
+		if (!onApplyPrice || !activeAnalysis || !researchUnit) return
 		setIsSavingMethod(method)
-		let auditIds: PriceResearchAuditIds | null = null
 		try {
-			const result = await saveAudit({
+			const auditIds = await saveAudit({
 				data: {
 					catmatCodigo: catmatCode,
 					catmatDescricao: catmatDescription ?? null,
 					method,
 					referencePrice: price,
 					stats: activeAnalysis.stats,
-					// Funil auditável: bruto da API → recorte considerado → válidas pós-IQR.
+					// Funil auditável: bruto da API → recorte considerado → comparáveis → válidas pós-IQR.
 					rawCount: allResults.filter((r) => r.precoUnitario !== null).length,
 					dateFilteredCount: activeAnalysis.consideredCount,
 					periodMonths,
@@ -562,17 +559,21 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 					outlierCount: activeAnalysis.outlierCount,
 					validSamples: activeAnalysis.validSamples,
 					outlierSamples: activeAnalysis.outlierSamples,
+					inconsistentSamples: activeAnalysis.inconsistentSamples,
+					measureUnit: researchUnit.unit,
+					unitInferred: researchUnit.inferred,
 					ataId: ataId ?? undefined,
 					ataItemId: ataItemId ?? undefined,
 				},
 			})
-			auditIds = result
-		} catch {
-			// Audit save failing is non-fatal — price is still applied
+			onApplyPrice(price, auditIds)
+			onOpenChange(false)
+		} catch (err) {
+			// Sem memória de cálculo o preço não é aplicado: preço sem registro não se audita.
+			toast.error(err instanceof Error ? `Preço não aplicado: ${err.message}` : "Preço não aplicado: a memória de cálculo não foi gravada.")
+		} finally {
+			setIsSavingMethod(null)
 		}
-		onApplyPrice(price, auditIds)
-		onOpenChange(false)
-		setIsSavingMethod(null)
 	}
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
@@ -647,9 +648,26 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 									· <span className="text-warning">{activeAnalysis.outlierCount} outlier(s) removido(s) (IQR)</span>
 								</>
 							)}
+							{activeAnalysis.inconsistentSamples.length > 0 && (
+								<>
+									{" "}
+									·{" "}
+									<span className="text-warning">
+										{activeAnalysis.inconsistentSamples.length} incomparáve{activeAnalysis.inconsistentSamples.length !== 1 ? "is" : "l"} com {unit}
+									</span>
+								</>
+							)}
 							{" · "}
 							{activeAnalysis.stats.uniqueSources} UASG(s)
+							{" · "}
+							preços por <span className="font-medium text-foreground">{unit}</span>
 						</p>
+						{researchUnit?.inferred && (
+							<p className="text-hint text-warning">
+								O item de compra não declara unidade. Os preços foram convertidos para {unit}, a unidade predominante nas amostras: confira se a quantidade do
+								anexo está na mesma unidade.
+							</p>
+						)}
 
 						{/* 4-column grid: Média | Mediana | Mínimo | Máximo */}
 						<div className="grid grid-cols-4 gap-3">
@@ -659,7 +677,12 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 								{onApplyPrice && (
 									<button
 										type="button"
-										disabled={isSavingMethod !== null}
+										disabled={isSavingMethod !== null || !isMethodAllowed("mean", activeAnalysis.stats)}
+										title={
+											isMethodAllowed("mean", activeAnalysis.stats)
+												? undefined
+												: "A média passa da mediana: o preço estimado não pode superá-la (IN SEGES/ME 65/2021, art. 6º, § 6º)."
+										}
 										className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
 										onClick={() => handleUsePrice(activeAnalysis.stats.mean, "mean")}
 									>

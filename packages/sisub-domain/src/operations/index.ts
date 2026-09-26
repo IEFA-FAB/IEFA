@@ -494,9 +494,20 @@ export {
 	type PriceResearchAuditIds,
 	type PriceResearchSample,
 	type PriceResearchStats,
+	researchNonComplianceReasons,
 	type SavePriceResearchAudit,
 	savePriceResearchAudit,
 } from "./price-research.ts"
+export {
+	convertSamplePrice,
+	type MeasureDimension,
+	type ParsedMeasureUnit,
+	type PriceSampleUnitFields,
+	parseMeasureUnit,
+	resolveResearchUnit,
+	SAMPLE_CONVERSION_REASON_LABELS,
+	type SampleConversion,
+} from "./price-units.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
 export type { BoardSnackRequest } from "./production.ts"
 export {

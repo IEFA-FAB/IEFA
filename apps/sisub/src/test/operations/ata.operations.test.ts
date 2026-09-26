@@ -8,7 +8,12 @@
  * então rastrear o procurement_list (hard delete) limpa cozinhas, seleções e itens.
  */
 
-import { procurementListInProcurement, type SisubDb } from "@iefa/database/drizzle/sisub"
+import {
+	procurementListInProcurement,
+	procurementPesquisaPrecoInProcurement,
+	procurementPesquisaPrecoItemInProcurement,
+	type SisubDb,
+} from "@iefa/database/drizzle/sisub"
 import {
 	calculateAtaNeeds,
 	createAta,
@@ -409,8 +414,56 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 		const itemOfB = (await fetchAtaDetails(db, ctx, { ataId: b.id }))?.items[0]
 		if (!itemOfB) throw new Error("item não persistido")
 
-		await expect(updateAtaItemPrices(db, ctx, { ataId: a.id, updates: [{ ataItemId: itemOfB.id, price: 999 }] })).rejects.toThrow(/não pertence/i)
+		// Sem pesquisa, a conferência de suporte recusa antes; com o vínculo de outra ata, o
+		// predicado do list_id recusa. Nos dois casos o item de B continua sem preço.
+		await expect(updateAtaItemPrices(db, ctx, { ataId: a.id, updates: [{ ataItemId: itemOfB.id, price: 999 }] })).rejects.toThrow(/não pertence|sem pesquisa/i)
 		expect((await fetchAtaDetails(db, ctx, { ataId: b.id }))?.items[0]?.unit_price).toBeNull()
+	})
+
+	test("updateAtaItemPrices só grava preço sustentado por pesquisa do mesmo item e mesmo valor", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const ata = await createAta(db, ctx, {
+			unitId,
+			title: uid("[TEST] ATA "),
+			kitchenSelections: [],
+			items: [{ ingredient_name: "Arroz", total_quantity: 10 }],
+		})
+		seeder.track("procurement_list", ata.id)
+		const item = (await fetchAtaDetails(db, ctx, { ataId: ata.id }))?.items[0]
+		if (!item) throw new Error("item não persistido")
+
+		// Memória de cálculo mínima, ligada à ata (ON DELETE CASCADE limpa junto com a lista).
+		const [research] = await db
+			.insert(procurementPesquisaPrecoInProcurement)
+			.values({ ataId: ata.id, referenceMethod: "median", totalItems: 1, itemsWithPrice: 1, itemsWithoutCatmat: 0, nonCompliantItems: 0 })
+			.returning({ id: procurementPesquisaPrecoInProcurement.id })
+		const [researchItem] = await db
+			.insert(procurementPesquisaPrecoItemInProcurement)
+			.values({
+				researchId: research.id,
+				ataItemId: item.id,
+				catmatCodigo: 1,
+				productName: "Arroz",
+				totalRaw: 3,
+				totalAfterDateFilter: 3,
+				totalAfterPollutionFilter: 3,
+				totalAfterOutlier: 3,
+				referencePrice: 12.34,
+				referenceMethod: "median",
+			})
+			.returning({ id: procurementPesquisaPrecoItemInProcurement.id })
+		const link = { ataItemId: item.id, researchId: research.id, researchItemId: researchItem.id }
+
+		await expect(updateAtaItemPrices(db, ctx, { ataId: ata.id, updates: [{ ataItemId: item.id, price: 12.34 }] })).rejects.toMatchObject({
+			code: "PRICE_WITHOUT_RESEARCH",
+		})
+		await expect(updateAtaItemPrices(db, ctx, { ataId: ata.id, updates: [{ ataItemId: item.id, price: 20 }], researchLinks: [link] })).rejects.toMatchObject({
+			code: "PRICE_WITHOUT_RESEARCH",
+		})
+
+		await updateAtaItemPrices(db, ctx, { ataId: ata.id, updates: [{ ataItemId: item.id, price: 12.34 }], researchLinks: [link] })
+		expect(Number((await fetchAtaDetails(db, ctx, { ataId: ata.id }))?.items[0]?.unit_price)).toBe(12.34)
 	})
 
 	test("createAta recusa cozinha de outra unidade e plano local de outra cozinha", async () => {

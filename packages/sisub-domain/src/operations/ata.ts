@@ -71,7 +71,11 @@ import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
-/** Janela legal padrão de validade da pesquisa de preço (IN SEGES 65/2021). */
+/**
+ * Idade a partir da qual a pesquisa de preço pede renovação. Referência: os 6 meses que a IN
+ * SEGES/ME 65/2021 (art. 5º, III e IV) admite entre a coleta e a divulgação do edital. Não é
+ * "vencimento" legal da pesquisa inteira: preço de sistema oficial conta 1 ano da data da pesquisa.
+ */
 const PRICE_RESEARCH_VALIDITY_DAYS = 180
 
 /** Transições de status permitidas da ATA. Publicada e arquivada são terminais quanto a downgrade. */
@@ -817,6 +821,10 @@ async function persistDraftItems(
 	}
 
 	// Reconciliar pesquisas dos itens que vão sumir: mover o vínculo para um sobrevivente de mesma chave.
+	// A que não tem sobrevivente fica sem item (ON DELETE SET NULL) e CONTINUA gravada: é trilha
+	// de auditoria, e o cabeçalho segue ligado à ata. Apagá-la sumia com a memória de cálculo de
+	// uma pesquisa que de fato aconteceu. A contagem avisa só as desvinculadas NESTE salvamento.
+	let unlinkedResearchCount = 0
 	if (toDelete.length > 0) {
 		const deleteSet = new Set(toDelete)
 		const research = await tx
@@ -828,6 +836,8 @@ async function persistDraftItems(
 			const target = key ? survivorByKey.get(key) : undefined
 			if (target && !deleteSet.has(target)) {
 				await tx.update(procurementPesquisaPrecoItemInProcurement).set({ ataItemId: target }).where(eq(procurementPesquisaPrecoItemInProcurement.id, r.id))
+			} else {
+				unlinkedResearchCount++
 			}
 		}
 		// Deletar itens removidos (o que não foi remapeado vira ata_item_id NULL via ON DELETE SET NULL).
@@ -852,28 +862,6 @@ async function persistDraftItems(
 				.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
 			await tx.update(procurementPesquisaPrecoInProcurement).set({ ataId: draftId }).where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
 		}
-	}
-
-	// Limpar pesquisas realmente órfãs desta ATA (item removido de vez, sem sobrevivente de mesma chave).
-	let unlinkedResearchCount = 0
-	const headers = await tx
-		.select({ id: procurementPesquisaPrecoInProcurement.id })
-		.from(procurementPesquisaPrecoInProcurement)
-		.where(eq(procurementPesquisaPrecoInProcurement.ataId, draftId))
-	if (headers.length > 0) {
-		const deleted = await tx
-			.delete(procurementPesquisaPrecoItemInProcurement)
-			.where(
-				and(
-					isNull(procurementPesquisaPrecoItemInProcurement.ataItemId),
-					inArray(
-						procurementPesquisaPrecoItemInProcurement.researchId,
-						headers.map((h) => h.id)
-					)
-				)
-			)
-			.returning({ id: procurementPesquisaPrecoItemInProcurement.id })
-		unlinkedResearchCount = deleted.length
 	}
 
 	return { unlinkedResearchCount }
@@ -1481,10 +1469,51 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 
 // ─── Atualizar preços de itens de uma ATA já salva ───────────────────────────
 
+/** Tolerância da conferência preço × pesquisa: meio centavo, o arredondamento do JSON. */
+const PRICE_MATCH_TOLERANCE = 0.005
+
+/**
+ * Todo preço gravado depois do rascunho tem de vir de uma pesquisa registrada DESTA unidade,
+ * ligada ao MESMO item, com o mesmo valor. O preço segue editável depois de concluir o anexo
+ * (a pesquisa se refaz perto do edital: IN SEGES/ME 65/2021, art. 5º), mas nunca sem a
+ * memória de cálculo que o sustenta: era o caminho do "Usar" por linha e da gravação que
+ * seguia mesmo quando a pesquisa falhava ao salvar.
+ */
+async function assertPricesBackedByResearch(tx: TxClient, unitId: number, input: UpdateAtaItemPrices): Promise<void> {
+	const ownLinks = await filterOwnResearchLinks(tx, unitId, input.researchLinks ?? [])
+	const researchItemIds = [...new Set(ownLinks.map((l) => l.researchItemId))]
+	const references =
+		researchItemIds.length === 0
+			? []
+			: await runQuery("FETCH_FAILED", () =>
+					tx
+						.select({ id: procurementPesquisaPrecoItemInProcurement.id, referencePrice: procurementPesquisaPrecoItemInProcurement.referencePrice })
+						.from(procurementPesquisaPrecoItemInProcurement)
+						.where(inArray(procurementPesquisaPrecoItemInProcurement.id, researchItemIds))
+				)
+	const referenceById = new Map(references.map((r) => [r.id, r.referencePrice == null ? null : Number(r.referencePrice)]))
+
+	for (const update of input.updates) {
+		const backed = ownLinks.some((link) => {
+			if (link.ataItemId !== update.ataItemId) return false
+			const reference = referenceById.get(link.researchItemId)
+			return reference != null && Math.abs(reference - update.price) <= PRICE_MATCH_TOLERANCE
+		})
+		if (!backed) {
+			throw new DomainError(
+				"PRICE_WITHOUT_RESEARCH",
+				`Preço do item ${update.ataItemId} sem pesquisa de preços registrada com o mesmo valor: refaça a pesquisa do item.`
+			)
+		}
+	}
+}
+
 export async function updateAtaItemPrices(db: SisubDb, ctx: UserContext, input: UpdateAtaItemPrices): Promise<void> {
 	const unitId = await authorizeAtaList(db, ctx, input.ataId)
 
 	await db.transaction(async (tx) => {
+		await assertPricesBackedByResearch(tx, unitId, input)
+
 		// Preço só em item DESTA ata: o `ataItemId` vem do corpo, e o update por id cru repreçava
 		// o item de qualquer ata — o guard acima prova só a ata informada.
 		for (const u of input.updates) {
