@@ -149,7 +149,7 @@ test.describe("Agendamento da Produção — imprevistos", () => {
 		)
 		if (miError) throw new Error(miError.message)
 
-		setup = { mealTypeId: mealType.id, mealTypeName: mealType.name, recipes, viagem, contingencia, evento, semanal, freeDates, startedAt }
+		setup = { mealTypeId: mealType.id, mealTypeName: mealType.name ?? "almoço", recipes, viagem, contingencia, evento, semanal, freeDates, startedAt }
 	})
 
 	test.afterAll(async () => {
@@ -157,14 +157,22 @@ test.describe("Agendamento da Produção — imprevistos", () => {
 		const db = createE2EServiceClient()
 		const ids = [setup.viagem, setup.contingencia, setup.evento, setup.semanal]
 		const dates = [isoDate(0), isoDate(7), isoDate(9), ...setup.freeDates]
-		// Itens que estes cardápios puseram em qualquer dia (inclusive os da lixeira) e os
-		// cardápios do dia que a spec criou; depois os próprios cardápios.
+		// Só o que ESTA spec criou: itens das origens dela (inclusive os da lixeira) e, depois, os
+		// cardápios do dia criados durante a execução que ficaram sem item nenhum. Cardápio de
+		// outra pessoa na sentinela tem itens dela e não casa — nada alheio sai por data.
+		const { data: touched } = await db.from("menu_items").select("daily_menu_id").in("origin_template_id", ids)
 		await db.from("menu_items").delete().in("origin_template_id", ids)
-		const { data: created } = await db.from("daily_menu").select("id").eq("kitchen_id", KITCHEN_ID).in("service_date", dates).gte("created_at", setup.startedAt)
-		const createdIds = (created ?? []).map((m) => m.id as string)
-		if (createdIds.length > 0) {
-			await db.from("menu_items").delete().in("daily_menu_id", createdIds)
-			await db.from("daily_menu").delete().in("id", createdIds)
+		const candidates = [...new Set((touched ?? []).map((r) => r.daily_menu_id as string | null).filter((id): id is string => id != null))]
+		if (candidates.length > 0) {
+			const { data: created } = await db
+				.from("daily_menu")
+				.select("id, menu_items(id)")
+				.eq("kitchen_id", KITCHEN_ID)
+				.in("id", candidates)
+				.in("service_date", dates)
+				.gte("created_at", setup.startedAt)
+			const empty = (created ?? []).filter((m) => ((m.menu_items as unknown[] | null) ?? []).length === 0).map((m) => m.id as string)
+			if (empty.length > 0) await db.from("daily_menu").delete().in("id", empty)
 		}
 		await db.from("menu_template_items").delete().in("menu_template_id", ids)
 		await db.from("menu_template").delete().in("id", ids)

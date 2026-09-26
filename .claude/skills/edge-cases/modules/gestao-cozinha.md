@@ -29,7 +29,7 @@ Arquivos de teste citados:
 - **O sistema precisa:** os itens MUDAM de dia com porções, trocas, substitutos e tarefas pendentes;
   adiar para uma data que já tem o mesmo apoio é recusado (não dobra a produção). Antecipar é o mesmo gesto.
 - **UX:** "Neste dia" → "Adiar" → nova data → toast "N preparações foram para dd/mm/aaaa".
-- **Cobertura:** `INT › viagem adiada…` · `E2E › …adiou para a semana que vem, adiou de novo…`
+- **Cobertura:** `INT › viagem adiada…` (o dia de origem não fica "planejado" e vazio) · `INT › adiar para uma data que já passou é recusado…` · `E2E › …adiou para a semana que vem, adiou de novo…`
 
 ### GC-AGD-04 — "Era hoje e adiou"
 - **Realidade:** adiamento no dia; o turno pode já ter começado a produzir.
@@ -45,14 +45,14 @@ Arquivos de teste citados:
 - **O sistema precisa:** o item troca de preparação mantendo porções, porcentagem, grupo, posição e
   origem; o motivo fica no item e chega à Produção Cozinha.
 - **UX:** no item → "Trocar preparação" → escolhe a nova → informa o motivo → selo "Trocada (era X)".
-- **Cobertura:** `INT › faltou um alimento…` · `E2E › cardápio semanal: faltou um alimento…`
+- **Cobertura:** `INT › faltou um alimento…` (inclui: reaplicar o mesmo cardápio não traz a original de volta) · `E2E › cardápio semanal: faltou um alimento…`
 
 ### GC-AGD-06 — "Faltou um insumo: substituto dentro da preparação"
 - **Realidade:** a preparação fica, um ingrediente muda (laranja → acerola).
 - **O sistema precisa:** o substituto fica registrado no item do dia (a ficha técnica não muda);
   os substitutos previstos na ficha aparecem primeiro, o resto se digita.
 - **UX:** no item → "Substituir insumo" → escolhe o insumo que faltou → substituto → motivo → selo "1 insumo substituído".
-- **Cobertura:** `INT › faltou um insumo…` · `E2E › …faltou um insumo…`
+- **Cobertura:** `INT › faltou um insumo…` (dois registros seguidos não se apagam: merge atômico) · `E2E › …faltou um insumo…`
 
 ### GC-AGD-07 — "Faltou luz (ou água): o dia inteiro muda"
 - **Realidade:** sem cocção; entra o cardápio de contingência (refeição fria).

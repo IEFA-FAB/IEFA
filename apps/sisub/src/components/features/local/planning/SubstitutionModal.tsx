@@ -5,8 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useMenuItemSubstituteOptions } from "@/hooks/data/usePlanningAdjustments"
-import { useUpdateSubstitutions } from "@/hooks/data/useSubstitutions"
+import { useMenuItemSubstituteOptions, useRecordMenuSubstitution } from "@/hooks/data/usePlanningAdjustments"
 import { cn } from "@/lib/cn"
 import { type SnapshotIngredientLine, type SubstitutionEntry, snapshotIngredientLines } from "@/lib/menu-substitutions"
 import type { MenuItem } from "@/types/domain/planning"
@@ -30,7 +29,7 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 	const [substituteId, setSubstituteId] = useState<string | null>(null)
 	const [substituteName, setSubstituteName] = useState("")
 	const [rationale, setRationale] = useState("")
-	const { mutate: updateSubstitutions, isPending } = useUpdateSubstitutions()
+	const { mutate: recordSubstitution, isPending } = useRecordMenuSubstitution()
 	const { data: options } = useMenuItemSubstituteOptions(open ? (menuItem?.id ?? null) : null)
 
 	useEffect(() => {
@@ -50,14 +49,17 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 
 	const handleSave = () => {
 		if (!menuItem || !line || !canSave) return
-		const entry: SubstitutionEntry = {
-			type: "manual",
-			rationale: rationale.trim(),
-			updated_at: new Date().toISOString(),
-			substitute_ingredient_id: substituteId,
-			substitute_description: substituteName.trim(),
-		}
-		updateSubstitutions({ menuItemId: menuItem.id, substitutions: { ...existing, [line.ingredientId]: entry } }, { onSuccess: onClose })
+		// Merge atômico no servidor: o turno pode ter registrado outro substituto neste item.
+		recordSubstitution(
+			{
+				menuItemId: menuItem.id,
+				ingredientId: line.ingredientId,
+				substituteIngredientId: substituteId,
+				substituteDescription: substituteName.trim(),
+				rationale: rationale.trim(),
+			},
+			{ onSuccess: onClose }
+		)
 	}
 
 	return (
@@ -115,16 +117,18 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 								<div className="flex flex-wrap gap-1.5">
 									{suggestions.map((s) => (
 										<Button
-											key={s.ingredient_id}
+											key={`${s.kind}-${s.id}`}
 											type="button"
 											size="xs"
-											variant={substituteId === s.ingredient_id ? "default" : "outline"}
+											variant={substituteName === (s.description ?? "") ? "default" : "outline"}
 											onClick={() => {
-												setSubstituteId(s.ingredient_id)
+												// Só insumo do catálogo vira id; preparação congelada vai pelo nome.
+												setSubstituteId(s.kind === "ingredient" ? s.id : null)
 												setSubstituteName(s.description ?? "")
 											}}
 										>
 											{s.description}
+											{s.kind === "frozen_preparation" ? " (congelada)" : ""}
 										</Button>
 									))}
 								</div>

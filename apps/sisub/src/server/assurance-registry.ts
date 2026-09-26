@@ -405,6 +405,7 @@ export const ASSURANCE_REGISTRY = {
 	moveOriginToDateFn: { require: "none" },
 	replaceDayWithTemplateFn: { require: "none" },
 	replaceMenuItemRecipeFn: { require: "none" },
+	recordMenuSubstitutionFn: { require: "none" },
 	// ── planning.fn.ts
 	upsertDailyMenuFn: { require: "none" },
 	addMenuItemFn: { require: "none" },

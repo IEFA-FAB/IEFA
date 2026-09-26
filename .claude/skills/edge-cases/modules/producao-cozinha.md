@@ -18,8 +18,10 @@ aconteceu. Casos aqui são **hipóteses a verificar**, salvo onde "Cobertura" ap
 - **Cobertura:** hipótese.
 
 ### PC-TRN-04 — "A preparação foi trocada no agendamento com a tarefa pendente"
-- **O sistema precisa:** a tarefa passa a mostrar a preparação nova e o motivo da troca.
-- **Cobertura:** a troca mantém o item (mesmo id) — verificar a tela do turno (TaskDetailSheet lista `substitutions`).
+- **O sistema precisa:** a tarefa passa a mostrar a preparação nova, de qual veio e o motivo; o
+  substituto de insumo registrado no agendamento aparece como "insumo → substituto".
+- **Cobertura:** a troca mantém o item (mesmo id) e o `TaskDetailSheet` lê `recipe_swap` e
+  `substitute_description`; tela do turno sem e2e — hipótese visual.
 
 ### PC-TRN-05 — "Cancelaram depois que a produção começou"
 - **O sistema precisa:** o agendamento recusa tirar/adiar (GC-AGD-04); o turno registra a sobra.

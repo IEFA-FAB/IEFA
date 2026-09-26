@@ -31,6 +31,8 @@ export function DayOriginsPanel({ kitchenId, date, menus }: { kitchenId: number;
 	const [moving, setMoving] = useState<DayOrigin | null>(null)
 	const [toDate, setToDate] = useState("")
 	const [removing, setRemoving] = useState<DayOrigin | null>(null)
+	// Adiar para trás é quase sempre ano errado; o servidor também recusa.
+	const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date())
 	const { mutate: moveOrigin, isPending: isMoving } = useMoveOriginToDate()
 	const { mutate: removeOrigin, isPending: isRemoving } = useRemoveOriginFromDay()
 
@@ -86,13 +88,13 @@ export function DayOriginsPanel({ kitchenId, date, menus }: { kitchenId: number;
 					</AlertDialogHeader>
 					<Field>
 						<FieldLabel htmlFor="origin-move-date">Nova data</FieldLabel>
-						<Input id="origin-move-date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+						<Input id="origin-move-date" type="date" value={toDate} min={today} onChange={(e) => setToDate(e.target.value)} />
 						<FieldDescription>Se a data nova já tiver este cardápio, nada muda — tire o de lá antes.</FieldDescription>
 					</Field>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancelar</AlertDialogCancel>
 						<AlertDialogAction
-							disabled={!toDate || toDate === date || isMoving}
+							disabled={!toDate || toDate === date || toDate < today || isMoving}
 							onClick={() => {
 								if (!moving || !toDate) return
 								moveOrigin({ kitchenId, date, toDate, originTemplateId: moving.templateId }, { onSuccess: () => setMoving(null) })

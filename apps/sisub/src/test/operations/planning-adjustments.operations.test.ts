@@ -15,10 +15,10 @@ import {
 	fetchDayDetails,
 	getTrashItems,
 	moveOriginToDate,
+	recordMenuSubstitution,
 	removeOriginFromDay,
 	replaceDayWithTemplate,
 	replaceMenuItemRecipe,
-	updateSubstitutions,
 } from "@iefa/sisub-domain"
 import { eq } from "drizzle-orm"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
@@ -138,6 +138,8 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		const result = await moveOriginToDate(db, ctx, { kitchenId, date: from, toDate: to, originTemplateId: viagemId })
 		expect(result.moved).toBe(2)
 		expect(await day(kitchenId, from)).toEqual([])
+		// O cardápio do dia que só existia por causa do apoio não fica "planejado" e vazio.
+		expect(await fetchDayDetails(db, ctx, { kitchenId, date: from })).toEqual([])
 		const moved = await day(kitchenId, to)
 		expect(moved.map((i) => i.id)).toContain(sanduiche.id)
 		expect(moved.map((i) => Number(i.planned_portion_quantity))).toEqual([100, 100])
@@ -192,6 +194,20 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		expect(swapped?.origin_template_id).toBe(viagemId)
 		expect(swapped?.substitutions?.recipe_swap?.from_recipe_id).toBe(lanche)
 		expect(swapped?.substitutions?.recipe_swap?.rationale).toBe("Faltou pão francês")
+
+		// Reaplicar o mesmo apoio não traz a preparação original de volta ao lado da trocada.
+		const again = await applyEventTemplate(db, ctx, { templateId: viagemId, kitchenId, dates: [date] })
+		expect(again.itemsCreated).toBe(0)
+		expect((await day(kitchenId, date)).map((i) => i.recipe_origin_id)).not.toContain(lanche)
+	}, 30_000)
+
+	test("adiar para uma data que já passou é recusado (ano digitado errado)", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, viagemId } = await scenario()
+		const date = "2099-08-17"
+		await applyEventTemplate(db, ctx, { templateId: viagemId, kitchenId, dates: [date] })
+		await expect(moveOriginToDate(db, ctx, { kitchenId, date, toDate: "2020-01-02", originTemplateId: viagemId })).rejects.toThrow(/já passou/)
+		expect(await day(kitchenId, date)).toHaveLength(2)
 	}, 30_000)
 
 	test("faltou um insumo: o substituto fica registrado dentro da preparação, com o nome que o turno lê", async () => {
@@ -203,14 +219,18 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		if (!item) throw new Error("apoio não aplicado")
 		const missing = "00000000-0000-4000-8000-00000000abcd"
 
-		await updateSubstitutions(db, ctx, {
+		// Dois registros em sequência (planejamento e turno, por exemplo): o segundo não apaga o primeiro.
+		await recordMenuSubstitution(db, ctx, {
 			menuItemId: item.id,
-			substitutions: {
-				[missing]: { type: "manual", rationale: "Laranja em falta", updated_at: new Date().toISOString(), substitute_description: "Polpa de acerola" },
-			},
+			ingredientId: missing,
+			rationale: "Laranja em falta",
+			substituteDescription: "Polpa de acerola",
 		})
+		const other = "00000000-0000-4000-8000-00000000abce"
+		await recordMenuSubstitution(db, ctx, { menuItemId: item.id, ingredientId: other, rationale: "Açúcar em falta", substituteDescription: "Adoçante" })
 		const [after] = (await day(kitchenId, date)).filter((i) => i.id === item.id)
 		expect(after?.substitutions?.[missing]?.substitute_description).toBe("Polpa de acerola")
+		expect(after?.substitutions?.[other]?.substitute_description).toBe("Adoçante")
 	}, 30_000)
 
 	test("faltou luz ou água: o dia inteiro vira o cardápio de contingência, numa transação só", async () => {

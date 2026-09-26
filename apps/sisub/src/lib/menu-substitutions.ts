@@ -1,3 +1,5 @@
+import type { SubstitutionEntry } from "@iefa/sisub-domain/schemas"
+
 /**
  * Leitura do snapshot da preparação gravado no item do dia (`menu_items.recipe`) e dos registros
  * de substituição (`menu_items.substitutions`).
@@ -15,15 +17,8 @@ export type SnapshotIngredientLine = {
 	quantityLabel: string
 }
 
-export type SubstitutionEntry = {
-	type: string
-	rationale: string
-	updated_at: string
-	substitute_ingredient_id?: string | null
-	substitute_description?: string | null
-	from_recipe_id?: string | null
-	from_recipe_name?: string | null
-}
+/** Registro de substituição — o tipo é o do schema do domínio, para não divergir dele. */
+export type { SubstitutionEntry }
 
 type SnapshotLine = {
 	id?: string

@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import type { SubstitutionEntry } from "@/lib/menu-substitutions"
 import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/production"
 import { ProductionRecordSection } from "./ProductionRecordSection"
 import { RecipeStepsChecklist } from "./RecipeStepsChecklist"
@@ -63,7 +64,7 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, kitc
 	const recipe = menuItem.recipe_with_ingredients
 	const portionYield = recipe?.portion_yield ?? null
 	const plannedPortions = menuItem.planned_portion_quantity ?? null
-	const substitutionEntries = Object.entries((menuItem.substitutions as Record<string, { rationale?: string }> | null) ?? {})
+	const substitutionEntries = Object.entries((menuItem.substitutions as Record<string, SubstitutionEntry> | null) ?? {})
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -160,10 +161,21 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, kitc
 							</h3>
 							<div className="rounded-md border border-warning/30 bg-warning/5 p-2 space-y-1">
 								{substitutionEntries.map(([key, entry]) => {
+									// Troca de preparação feita no agendamento: o turno precisa saber de onde veio.
+									if (key === "recipe_swap") {
+										return (
+											<p key={key} className="text-xs text-foreground">
+												<span className="text-subheading">Preparação trocada</span>
+												{entry?.from_recipe_name ? <span> (era {entry.from_recipe_name})</span> : null}
+												{entry?.rationale ? <span className="text-muted-foreground"> — {entry.rationale}</span> : null}
+											</p>
+										)
+									}
 									const ingredientName = recipe?.ingredients?.find((i) => i.ingredient?.id === key)?.ingredient?.description
 									return (
 										<p key={key} className="text-xs text-foreground">
 											<span className="text-subheading">{ingredientName ?? "Insumo"}</span>
+											{entry?.substitute_description ? <span> → {entry.substitute_description}</span> : null}
 											{entry?.rationale ? <span className="text-muted-foreground"> — {entry.rationale}</span> : null}
 										</p>
 									)

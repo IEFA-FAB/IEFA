@@ -59,7 +59,8 @@ export const UpdateHeadcountSchema = z.object({
 })
 export type UpdateHeadcount = z.infer<typeof UpdateHeadcountSchema>
 
-const SubstitutionEntrySchema = z.object({
+/** Registro de substituição no item do dia (`menu_items.substitutions`, chave = insumo que faltou ou `recipe_swap`). */
+export const SubstitutionEntrySchema = z.object({
 	type: z.string(),
 	rationale: z.string(),
 	updated_at: z.string(),
@@ -71,6 +72,8 @@ const SubstitutionEntrySchema = z.object({
 	from_recipe_id: UuidSchema.nullable().optional(),
 	from_recipe_name: z.string().nullable().optional(),
 })
+
+export type SubstitutionEntry = z.infer<typeof SubstitutionEntrySchema>
 
 export const UpdateSubstitutionsSchema = z.object({
 	menuItemId: UuidSchema,
@@ -134,3 +137,14 @@ export const MenuItemSubstituteOptionsSchema = z.object({
 	menuItemId: UuidSchema,
 })
 export type MenuItemSubstituteOptions = z.infer<typeof MenuItemSubstituteOptionsSchema>
+
+/** Um substituto de insumo registrado no item do dia (merge atômico, não reescreve o mapa). */
+export const RecordMenuSubstitutionSchema = z.object({
+	menuItemId: UuidSchema,
+	/** Insumo que faltou — a chave do registro. */
+	ingredientId: UuidSchema,
+	substituteIngredientId: UuidSchema.nullable().optional(),
+	substituteDescription: z.string().trim().min(1).max(200),
+	rationale: z.string().trim().min(1).max(300),
+})
+export type RecordMenuSubstitution = z.infer<typeof RecordMenuSubstitutionSchema>

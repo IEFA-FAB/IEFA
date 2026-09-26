@@ -447,6 +447,7 @@ export {
 export {
 	fetchMenuItemSubstituteOptions,
 	moveOriginToDate,
+	recordMenuSubstitution,
 	removeOriginFromDay,
 	replaceDayWithTemplate,
 	replaceMenuItemRecipe,

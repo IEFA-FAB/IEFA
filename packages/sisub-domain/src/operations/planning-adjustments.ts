@@ -21,6 +21,7 @@
 
 import {
 	dailyMenuInKitchen,
+	frozenPreparationInKitchen,
 	ingredientInKitchen,
 	menuItemsInKitchen,
 	productionTaskInKitchen,
@@ -29,13 +30,21 @@ import {
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { MenuItem } from "@iefa/database/sisub"
-import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm"
+import { and, eq, inArray, isNull, sql } from "drizzle-orm"
 import { requireKitchen } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
-import type { MenuItemSubstituteOptions, MoveOriginToDate, RemoveOriginFromDay, ReplaceDayWithTemplate, ReplaceMenuItemRecipe } from "../schemas/planning.ts"
+import type {
+	MenuItemSubstituteOptions,
+	MoveOriginToDate,
+	RecordMenuSubstitution,
+	RemoveOriginFromDay,
+	ReplaceDayWithTemplate,
+	ReplaceMenuItemRecipe,
+	SubstitutionEntry,
+} from "../schemas/planning.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { runQuery, toWire } from "../utils/index.ts"
+import { brasiliaCivilDate, runQuery, toWire } from "../utils/index.ts"
 import { applyEventTemplate } from "./templates.ts"
 
 type PlanningTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
@@ -78,13 +87,17 @@ async function activeItemsOfDay(db: PlanningDb, kitchenId: number, date: string,
  */
 async function assertNoStartedProduction(db: PlanningDb, itemIds: string[]): Promise<void> {
 	if (itemIds.length === 0) return
-	const started = await runQuery("FETCH_FAILED", () =>
+	// `for update` em TODAS as tarefas dos itens, não só nas já iniciadas: o turno que clica
+	// "Iniciar" ao mesmo tempo espera esta transação terminar, em vez de começar uma produção
+	// que o ajuste já tirou (ou mudou de dia) entre a checagem e a escrita.
+	const tasks = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ id: productionTaskInKitchen.id })
+			.select({ id: productionTaskInKitchen.id, status: productionTaskInKitchen.status })
 			.from(productionTaskInKitchen)
-			.where(and(inArray(productionTaskInKitchen.menuItemId, itemIds), ne(productionTaskInKitchen.status, "PENDING")))
-			.limit(1)
+			.where(inArray(productionTaskInKitchen.menuItemId, itemIds))
+			.for("update")
 	)
+	const started = tasks.filter((t) => t.status !== "PENDING")
 	if (started.length > 0) {
 		throw new DomainError(
 			"PRODUCTION_ALREADY_STARTED",
@@ -106,6 +119,31 @@ async function softDeleteItems(db: PlanningDb, itemIds: string[]): Promise<void>
 }
 
 /**
+ * Aposenta o cardápio do dia que ficou sem preparação nenhuma depois de um ajuste — o do apoio
+ * que foi adiado ou cancelado. Sem isto o dia continuava "com 1 refeição planejada" no
+ * calendário, sem nada para produzir. Cardápio com efetivo informado fica: alguém decidiu que
+ * aquela refeição acontece. A lixeira continua funcionando — restaurar um item reativa o cardápio.
+ */
+async function retireEmptyMenus(db: PlanningDb, menuIds: readonly (string | null)[]): Promise<void> {
+	const ids = [...new Set(menuIds.filter((id): id is string => id != null))]
+	if (ids.length === 0) return
+	await runQuery("DELETE_FAILED", () =>
+		db
+			.update(dailyMenuInKitchen)
+			.set({ deletedAt: new Date().toISOString() })
+			.where(
+				and(
+					inArray(dailyMenuInKitchen.id, ids),
+					isNull(dailyMenuInKitchen.deletedAt),
+					sql`coalesce(${dailyMenuInKitchen.forecastedHeadcount}, 0) = 0`,
+					sql`not exists (select 1 from kitchen.menu_items mi where mi.daily_menu_id = ${dailyMenuInKitchen.id} and mi.deleted_at is null)`
+				)
+			)
+			.then(() => undefined)
+	)
+}
+
+/**
  * Tira do dia tudo o que UM cardápio (evento, apoio, semanal) pôs nele — a viagem cancelada,
  * o evento que não vai mais acontecer. Os itens vão para a lixeira (restauráveis); o resto do
  * dia fica como está.
@@ -118,6 +156,10 @@ export async function removeOriginFromDay(db: SisubDb, ctx: UserContext, input: 
 		const ids = items.map((i) => i.id)
 		await assertNoStartedProduction(tx, ids)
 		await softDeleteItems(tx, ids)
+		await retireEmptyMenus(
+			tx,
+			items.map((i) => i.dailyMenuId)
+		)
 		return { removed: ids.length }
 	})
 }
@@ -131,6 +173,11 @@ export async function removeOriginFromDay(db: SisubDb, ctx: UserContext, input: 
 export async function moveOriginToDate(db: SisubDb, ctx: UserContext, input: MoveOriginToDate): Promise<{ moved: number; menusCreated: number }> {
 	requireKitchen(ctx, 2, input.kitchenId)
 	if (input.toDate === input.date) throw new DomainError("SAME_DATE", "Escolha uma data diferente da atual.")
+	// Para trás é quase sempre ano digitado errado: os itens cairiam num dia já servido, sumiriam de
+	// todo quadro futuro e inflariam o consumo histórico. Registrar o que já passou se faz no dia.
+	if (input.toDate < brasiliaCivilDate(new Date().toISOString())) {
+		throw new DomainError("PAST_DATE", "A nova data já passou. Confira o dia (e o ano) escolhido.")
+	}
 
 	return db.transaction(async (tx) => {
 		const items = await activeItemsOfDay(tx, input.kitchenId, input.date, input.originTemplateId)
@@ -212,6 +259,10 @@ export async function moveOriginToDate(db: SisubDb, ctx: UserContext, input: Mov
 				.then(() => undefined)
 		)
 
+		await retireEmptyMenus(
+			tx,
+			items.map((i) => i.dailyMenuId)
+		)
 		return { moved: ids.length, menusCreated }
 	})
 }
@@ -301,13 +352,20 @@ export async function replaceMenuItemRecipe(db: SisubDb, ctx: UserContext, input
 	})
 }
 
-/** Substituto cadastrado na ficha para um insumo da preparação. */
-export type SubstituteOption = { ingredient_id: string; description: string | null; measure_unit: string | null; net_quantity: number | null }
+/** Substituto cadastrado na ficha para um insumo da preparação (insumo ou preparação congelada). */
+export type SubstituteOption = {
+	kind: "ingredient" | "frozen_preparation"
+	id: string
+	description: string | null
+	measure_unit: string | null
+	net_quantity: number | null
+}
 
 /**
  * Substitutos que a ficha técnica já prevê para cada insumo de um item do dia
  * (`recipe_ingredient_alternatives`, por prioridade), indexados pelo `recipe_ingredient` do
- * snapshot. É a lista que o "faltou um insumo" oferece antes de pedir que se digite um.
+ * snapshot. Insumo descontinuado fica de fora; preparação congelada prevista entra — é
+ * justamente o que costuma estar no freezer quando o fresco falta.
  */
 export async function fetchMenuItemSubstituteOptions(
 	db: SisubDb,
@@ -318,7 +376,11 @@ export async function fetchMenuItemSubstituteOptions(
 	requireKitchen(ctx, 1, kitchenId)
 
 	const [item] = await runQuery("FETCH_FAILED", () =>
-		db.select({ recipe: menuItemsInKitchen.recipe }).from(menuItemsInKitchen).where(eq(menuItemsInKitchen.id, input.menuItemId)).limit(1)
+		db
+			.select({ recipe: menuItemsInKitchen.recipe })
+			.from(menuItemsInKitchen)
+			.where(and(eq(menuItemsInKitchen.id, input.menuItemId), isNull(menuItemsInKitchen.deletedAt)))
+			.limit(1)
 	)
 	if (!item) throw new NotFoundError("menu_item", input.menuItemId)
 	const lines = ((item.recipe as { ingredients?: { id?: string }[] } | null)?.ingredients ?? []).flatMap((l) => (l.id ? [l.id] : []))
@@ -329,22 +391,73 @@ export async function fetchMenuItemSubstituteOptions(
 			.select({
 				recipeIngredientId: recipeIngredientAlternativesInKitchen.recipeIngredientId,
 				ingredientId: recipeIngredientAlternativesInKitchen.ingredientId,
+				frozenPreparationId: recipeIngredientAlternativesInKitchen.frozenPreparationId,
 				netQuantity: recipeIngredientAlternativesInKitchen.netQuantity,
-				priority: recipeIngredientAlternativesInKitchen.priorityOrder,
-				description: ingredientInKitchen.description,
-				measureUnit: ingredientInKitchen.measureUnit,
+				ingredientDescription: ingredientInKitchen.description,
+				ingredientUnit: ingredientInKitchen.measureUnit,
+				ingredientDeletedAt: ingredientInKitchen.deletedAt,
+				frozenDescription: frozenPreparationInKitchen.description,
+				frozenUnit: frozenPreparationInKitchen.measureUnit,
+				frozenDeletedAt: frozenPreparationInKitchen.deletedAt,
 			})
 			.from(recipeIngredientAlternativesInKitchen)
-			.innerJoin(ingredientInKitchen, eq(recipeIngredientAlternativesInKitchen.ingredientId, ingredientInKitchen.id))
+			.leftJoin(ingredientInKitchen, eq(recipeIngredientAlternativesInKitchen.ingredientId, ingredientInKitchen.id))
+			.leftJoin(frozenPreparationInKitchen, eq(recipeIngredientAlternativesInKitchen.frozenPreparationId, frozenPreparationInKitchen.id))
 			.where(inArray(recipeIngredientAlternativesInKitchen.recipeIngredientId, lines))
 			.orderBy(recipeIngredientAlternativesInKitchen.priorityOrder)
 	)
 	const out: Record<string, SubstituteOption[]> = {}
 	for (const row of rows) {
-		if (!row.ingredientId) continue
+		let option: SubstituteOption | null = null
+		if (row.ingredientId && row.ingredientDeletedAt == null && row.ingredientDescription != null) {
+			option = {
+				kind: "ingredient",
+				id: row.ingredientId,
+				description: row.ingredientDescription,
+				measure_unit: row.ingredientUnit,
+				net_quantity: row.netQuantity,
+			}
+		} else if (row.frozenPreparationId && row.frozenDeletedAt == null && row.frozenDescription != null) {
+			option = {
+				kind: "frozen_preparation",
+				id: row.frozenPreparationId,
+				description: row.frozenDescription,
+				measure_unit: row.frozenUnit,
+				net_quantity: row.netQuantity,
+			}
+		}
+		if (!option) continue
 		const list = out[row.recipeIngredientId] ?? []
-		list.push({ ingredient_id: row.ingredientId, description: row.description, measure_unit: row.measureUnit, net_quantity: row.netQuantity })
+		list.push(option)
 		out[row.recipeIngredientId] = list
 	}
 	return out
+}
+
+/**
+ * Registra UM substituto de insumo no item do dia — merge atômico no JSON `substitutions`
+ * (`jsonb ||`), como o do turno (`recordProductionSubstitution`). Reescrever o mapa inteiro a
+ * partir do que a tela tinha em memória apagava o registro que o turno gravou nesse meio-tempo.
+ */
+export async function recordMenuSubstitution(db: SisubDb, ctx: UserContext, input: RecordMenuSubstitution): Promise<void> {
+	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
+	requireKitchen(ctx, 2, kitchenId)
+
+	const entry: SubstitutionEntry = {
+		type: "manual",
+		rationale: input.rationale,
+		updated_at: new Date().toISOString(),
+		substitute_ingredient_id: input.substituteIngredientId ?? null,
+		substitute_description: input.substituteDescription,
+	}
+	const updated = await runQuery("UPDATE_FAILED", () =>
+		db
+			.update(menuItemsInKitchen)
+			.set({
+				substitutions: sql`(coalesce(${menuItemsInKitchen.substitutions}::jsonb, '{}'::jsonb) || ${JSON.stringify({ [input.ingredientId]: entry })}::jsonb)::json`,
+			})
+			.where(and(eq(menuItemsInKitchen.id, input.menuItemId), isNull(menuItemsInKitchen.deletedAt)))
+			.returning({ id: menuItemsInKitchen.id })
+	)
+	if (updated.length === 0) throw new NotFoundError("menu_item", input.menuItemId)
 }

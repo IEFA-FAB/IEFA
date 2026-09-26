@@ -11,9 +11,11 @@ import {
 	MenuItemSubstituteOptionsSchema,
 	MoveOriginToDateSchema,
 	moveOriginToDate,
+	RecordMenuSubstitutionSchema,
 	RemoveOriginFromDaySchema,
 	ReplaceDayWithTemplateSchema,
 	ReplaceMenuItemRecipeSchema,
+	recordMenuSubstitution,
 	removeOriginFromDay,
 	replaceDayWithTemplate,
 	replaceMenuItemRecipe,
@@ -56,4 +58,11 @@ export const fetchMenuItemSubstituteOptionsFn = createServerFn({ method: "GET" }
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchMenuItemSubstituteOptions(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const recordMenuSubstitutionFn = createServerFn({ method: "POST" })
+	.validator(RecordMenuSubstitutionSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return recordMenuSubstitution(getDb(), ctx, data).catch(handleDomainError)
 	})
