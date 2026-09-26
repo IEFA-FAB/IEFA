@@ -88,7 +88,7 @@ export function KitchenSnackQueue({ kitchenId, kitchenIdStr, search, defaultRang
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Lanches de Bordo/Apoio" description="Requisições de lanche para missões aéreas e terrestres, ordenadas pela retirada.">
+			<PageHeader title="Pedidos de Lanche" description="Requisições de lanche para missões aéreas e terrestres, ordenadas pela retirada.">
 				<Button
 					size="sm"
 					variant="outline"

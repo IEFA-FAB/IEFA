@@ -55,7 +55,7 @@ export function SnackProductionDay({ kitchenId, kitchenIdStr, date, today, onDat
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Produção do dia — Lanches de Bordo/Apoio" description={formatCivilDateLong(date)}>
+			<PageHeader title="Produção do dia — Pedidos de Lanche" description={formatCivilDateLong(date)}>
 				<Button
 					size="sm"
 					variant="ghost"

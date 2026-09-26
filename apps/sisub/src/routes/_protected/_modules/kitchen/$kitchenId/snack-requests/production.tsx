@@ -10,7 +10,7 @@ const productionSearchSchema = z.object({
 })
 
 /**
- * KITCHEN — Produção do dia dos Lanches de Bordo/Apoio.
+ * KITCHEN — Produção do dia dos Pedidos de Lanche (Bordo/Apoio).
  * URL: /kitchen/:kitchenId/snack-requests/production?date=YYYY-MM-DD
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/snack-requests/production")({

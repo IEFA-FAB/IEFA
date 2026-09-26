@@ -25,7 +25,7 @@ export function SnackDayPanel({ kitchenId, date, menu }: { kitchenId: number; da
 			</CardHeader>
 			<CardContent className="space-y-3">
 				<p className="text-caption text-muted-foreground">
-					Produção vinda de pedidos de lanche aceitos. Não se edita aqui: as quantidades mudam pelo pedido, na tela de Lanches de Bordo/Apoio.
+					Produção vinda de pedidos de lanche aceitos. Não se edita aqui: as quantidades mudam pelo pedido, na tela de Pedidos de Lanche.
 				</p>
 				{items.length === 0 ? (
 					<p className="text-sm text-muted-foreground">Nenhuma preparação de lanche neste dia.</p>

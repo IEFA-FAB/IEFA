@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge"
 import { isSnackStandard, type SnackStandardColumns, snackStandardLabel } from "@/lib/occasion-menu"
 
 /**
- * Selos de padrão de lanche na lista de exceções: classificação ("Bordo B · Lanche"), se o
- * comensal pode pedir e se a revisão trimestral venceu. Exceção comum não recebe nada.
+ * Selos de padrão de lanche na lista de apoios: classificação ("Lanche de Bordo B"), se o
+ * comensal pode pedir e se a revisão trimestral venceu. Apoio comum não recebe nada.
  */
 export function SnackStandardBadges({ template }: { template: SnackStandardColumns & { kitchen_id: number | null } }) {
 	if (!isSnackStandard(template)) return null

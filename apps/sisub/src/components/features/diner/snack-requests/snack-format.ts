@@ -7,6 +7,7 @@
 
 import type { SnackAudience, SnackClass, SnackFamily, SnackRequestStatus } from "@iefa/sisub-domain/utils"
 import { SNACK_REQUEST_STATUS_LABELS } from "@iefa/sisub-domain/utils"
+import { SNACK_FAMILY_LABELS } from "@/lib/occasion-menu"
 
 const DATE_TIME = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" })
 const DATE_ONLY = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Sao_Paulo" })
@@ -70,7 +71,7 @@ export const STATUS_BADGE_VARIANT: Record<SnackRequestStatus, BadgeVariant> = {
 export const MISSION_KIND_LABELS: Record<string, string> = { aerea: "Aérea", terrestre: "Terrestre" }
 export const FUNDING_SOURCE_LABELS: Record<string, string> = { economia_om: "Economia de alimentação da OM", recurso_missao: "Recurso próprio da missão" }
 export const PREFERENCE_LABELS: Record<string, string> = { lanche: "Lanche", refeicao: "Refeição (marmita)" }
-export const FAMILY_LABELS: Record<SnackFamily, string> = { bordo: "Lanche de Bordo", apoio: "Lanche de Apoio" }
+export const FAMILY_LABELS: Record<SnackFamily, string> = SNACK_FAMILY_LABELS
 export const MATERIAL_ITEM_LABELS: Record<string, string> = {
 	garrafa_termica: "Garrafa térmica",
 	caixa_termica: "Caixa térmica",

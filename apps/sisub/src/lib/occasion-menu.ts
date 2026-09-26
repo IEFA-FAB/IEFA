@@ -74,7 +74,11 @@ type SnackFamilyValue = SnackFamily
 type SnackClassValue = SnackClass
 type SnackVariantValue = SnackVariant
 
-export const SNACK_FAMILY_LABELS: Record<SnackFamilyValue, string> = { bordo: "Bordo", apoio: "Apoio" }
+/**
+ * Nome completo da norma, nunca "Bordo"/"Apoio" solto: o artefato inteiro já se chama "Apoio" na tela
+ * (`OCCASION_MENU_COPY.exception`), e "Apoio B" dentro de um Apoio não diz qual dos dois é.
+ */
+export const SNACK_FAMILY_LABELS: Record<SnackFamilyValue, string> = { bordo: "Lanche de Bordo", apoio: "Lanche de Apoio" }
 export const SNACK_VARIANT_LABELS: Record<SnackVariantValue, string> = { lanche: "Lanche", refeicao: "Refeição" }
 
 /** Colunas da classificação como vêm do `menu_template` (snake_case no wire). */
@@ -200,9 +204,12 @@ export function snackClassificationFromDraft(draft: SnackStandardDraft, { isKitc
 	}
 }
 
-/** "Bordo B · Lanche" */
+/**
+ * "Lanche de Bordo B" / "Lanche de Apoio A · Refeição". A variante só aparece quando é refeição:
+ * a família já diz "Lanche", e "Lanche de Bordo B · Lanche" repetiria a palavra.
+ */
 export function snackStandardLabel(template: Pick<SnackStandardColumns, "snack_family" | "snack_class" | "snack_variant">): string | null {
 	if (!isSnackFamily(template.snack_family) || !isSnackClass(template.snack_class)) return null
-	const variant = isSnackVariant(template.snack_variant) ? ` · ${SNACK_VARIANT_LABELS[template.snack_variant]}` : ""
+	const variant = template.snack_variant === "refeicao" ? ` · ${SNACK_VARIANT_LABELS.refeicao}` : ""
 	return `${SNACK_FAMILY_LABELS[template.snack_family]} ${template.snack_class}${variant}`
 }
