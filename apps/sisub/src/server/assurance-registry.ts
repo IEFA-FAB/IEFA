@@ -611,6 +611,8 @@ export const ASSURANCE_REGISTRY = {
 	// ── issue.fn.ts (saída do dia)
 	openIssueRequestFn: { require: "none" },
 	issueStockFn: { require: "none" },
+	registerLateIssueFn: { require: "none" },
+	explainIssueRequestFn: { require: "none" },
 	returnIssueFn: { require: "none" },
 	setVarianceReasonFn: { require: "none" },
 	closeIssueRequestFn: { require: "none" },

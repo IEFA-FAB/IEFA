@@ -465,10 +465,23 @@ function CountsPage() {
 											sheet.count.created_by == null
 												? undefined
 												: (window.prompt("Se você abriu esta contagem, registre a exceção (deixe vazio para tentar sem):") ?? undefined)
-										void run(
-											() => approveInventoryCountFn({ data: { countId: sheet.count.id, exceptionReason: exceptionReason?.trim() || undefined } }),
-											"Inventário aprovado"
-										)
+										void run(async () => {
+											const countId = sheet.count.id
+											const reason = exceptionReason?.trim() || undefined
+											try {
+												return await approveInventoryCountFn({ data: { countId, exceptionReason: reason } })
+											} catch (error) {
+												// Produção concluída sem saída lançada: a aprovação não trava — oferece
+												// a ressalva registrada, com o dia que o banco apontou.
+												const message = error instanceof Error ? error.message : ""
+												if (!message.includes("aprove com ressalva")) throw error
+												const waiver = window.prompt(
+													`${message.replace(/^Erro ao aprovar a contagem: /, "")}\n\nPara aprovar mesmo assim, registre a ressalva (mínimo 5 letras):`
+												)
+												if (!waiver || waiver.trim().length < 5) throw error
+												return approveInventoryCountFn({ data: { countId, exceptionReason: reason, pendingProductionWaiver: waiver.trim() } })
+											}
+										}, "Inventário aprovado")
 									}}
 								>
 									Aprovar e lançar o ajuste

@@ -508,8 +508,22 @@ export const openRecountFn = createServerFn({ method: "POST" })
 		return { countId: created as string, round: Number(count.round) + 1 }
 	})
 
+/**
+ * Aprova a contagem e lança o ajuste.
+ *
+ * `pendingProductionWaiver`: a produção de um dia recente foi concluída sem saída lançada, e a
+ * contagem precisa ser aprovada assim mesmo. A ressalva é própria — não a exceção de
+ * segregação — e fica gravada na contagem (`pending_production_waiver`). Sem ela, o banco
+ * recusa e diz as três saídas: fechar a requisição, lançar a saída tardia ou aprovar com ressalva.
+ */
 export const approveInventoryCountFn = createServerFn({ method: "POST" })
-	.validator(z.object({ countId: z.uuid(), exceptionReason: z.string().max(300).optional() }))
+	.validator(
+		z.object({
+			countId: z.uuid(),
+			exceptionReason: z.string().max(300).optional(),
+			pendingProductionWaiver: z.string().trim().min(5, "Ressalva com ao menos 5 letras").max(300).optional(),
+		})
+	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
@@ -517,11 +531,19 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 		if (!count) throw new Error("Contagem não encontrada")
 		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
 
-		const { data: result, error } = await inv.rpc("approve_inventory_count", {
-			p_count_id: data.countId,
-			p_actor: userId,
-			p_exception_reason: data.exceptionReason?.trim() || null,
-		})
+		// `approve_inventory_count_with_waiver`: migration 20260926217000.
+		const { data: result, error } = data.pendingProductionWaiver
+			? await inv.rpc("approve_inventory_count_with_waiver", {
+					p_count_id: data.countId,
+					p_actor: userId,
+					p_exception_reason: data.exceptionReason?.trim() || null,
+					p_pending_production_reason: data.pendingProductionWaiver,
+				})
+			: await inv.rpc("approve_inventory_count", {
+					p_count_id: data.countId,
+					p_actor: userId,
+					p_exception_reason: data.exceptionReason?.trim() || null,
+				})
 		if (error) throw new Error(`Erro ao aprovar a contagem: ${error.message}`)
 		const row = result?.[0]
 		return {
