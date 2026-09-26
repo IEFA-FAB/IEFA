@@ -14,7 +14,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 				<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 					<CheckCircle2 className="size-9 text-success" />
 					<p className="text-subheading">Nenhum item com saldo crítico</p>
-					<p className="text-sm text-muted-foreground max-w-sm">Todos os itens das ARPs vinculadas aos anexos publicados estão com saldo confortável.</p>
+					<p className="text-sm text-muted-foreground max-w-sm">Todos os itens das ARPs vinculadas aos anexos concluídos estão com saldo confortável.</p>
 				</CardContent>
 			</Card>
 		)

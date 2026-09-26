@@ -184,11 +184,11 @@ export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string 
 		"Descrição",
 		"Descrição Adicional",
 		"Unidade",
-		"Qtd Alvo",
-		"Margem (%)",
+		"Quantidade estimada",
+		"Acréscimo sobre a estimada (%)",
 		"Qtd Máxima",
 		"Ciclo de Entrega",
-		"Qtd Mínima por Pedido",
+		"Quantidade mínima por ordem de fornecimento",
 		"Preço Un. Estimado",
 		"Valor Máximo Estimado",
 	]
@@ -208,7 +208,7 @@ export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string 
 		csvNumber(r.unitPrice, 4),
 		r.unitPrice != null && r.maxQuantity != null ? (r.maxQuantity * r.unitPrice).toFixed(2) : "",
 	])
-	if (marginJustification?.trim()) lines.push([], ["Justificativa da margem", marginJustification.trim()])
+	if (marginJustification?.trim()) lines.push([], ["Justificativa da quantidade máxima", marginJustification.trim()])
 	return [headers, ...lines].map((line) => line.map(csvCell).join(",")).join("\n")
 }
 

@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurem
 
 const STATUS_LABELS: Record<string, string> = {
 	draft: "Rascunho",
-	published: "Publicado",
+	published: "Concluído",
 	archived: "Arquivado",
 }
 
@@ -198,11 +198,11 @@ function AtaDetailPage() {
 							size="sm"
 							onClick={() => updateStatus({ ataId: ata.id, status: "published" })}
 							disabled={isUpdating || justificationMissing}
-							title={justificationMissing ? "Preencha a justificativa da margem nos limites de quantidade" : undefined}
+							title={justificationMissing ? "Preencha a justificativa da quantidade máxima nos limites de quantidade" : undefined}
 							className="gap-2"
 						>
 							<Send className="size-4" aria-hidden="true" />
-							Publicar
+							Concluir anexo
 						</Button>
 					)}
 					{ata.status === "published" && (
@@ -233,7 +233,7 @@ function AtaDetailPage() {
 					<Badge
 						variant="outline"
 						className="gap-1.5 border-warning/50 text-warning"
-						title="Preços de sítios e cotações valem até 6 meses antes da divulgação do edital (IN SEGES/ME 65/2021, art. 5º, III e IV). Refaça a pesquisa antes de divulgar."
+						title="Política interna: pesquisa com mais de 180 dias deve ser refeita antes de divulgar o edital. Os preços do sistema oficial são de contratações de até 1 ano antes da pesquisa."
 					>
 						<AlertTriangle className="size-3" aria-hidden="true" />
 						Pesquisa feita há mais de {ata.meta.price_research.validity_days} dias
@@ -257,7 +257,7 @@ function AtaDetailPage() {
 							<p className="font-medium text-foreground">Quantitativos desatualizados</p>
 							<p className="text-foreground">
 								Um cardápio ou evento deste anexo foi editado após o último cálculo. Refaça o cálculo dos quantitativos para refletir a composição atual antes
-								de publicar.
+								de concluir.
 							</p>
 						</div>
 					</CardContent>

@@ -102,7 +102,7 @@ async function getListStatus(client: SisubDb | TxClient, listId: string): Promis
 async function assertDraftEditable(client: SisubDb | TxClient, listId: string): Promise<void> {
 	const status = await getListStatus(client, listId)
 	if (status !== "draft") {
-		throw new DomainError("ATA_NOT_DRAFT", `Anexo quantitativo ${listId} está ${status}: composição e quantitativos são imutáveis após publicação`)
+		throw new DomainError("ATA_NOT_DRAFT", `Anexo quantitativo ${listId} está ${status}: composição e quantitativos são imutáveis após a conclusão`)
 	}
 }
 
@@ -1456,7 +1456,7 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 			if (requiresMarginJustification(items.map((i) => i.limits)) && !list?.marginJustification?.trim()) {
 				throw new DomainError(
 					"MARGIN_JUSTIFICATION_REQUIRED",
-					"Há itens com margem acima da referência: preencha a justificativa da margem no anexo de quantitativos antes de publicar."
+					"Há itens com acréscimo acima da referência: preencha a justificativa da quantidade máxima no anexo quantitativo antes de concluir."
 				)
 			}
 		}

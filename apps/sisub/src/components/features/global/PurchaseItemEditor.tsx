@@ -481,7 +481,7 @@ export function PurchaseItemEditor({ mode, purchaseItem, ingredientId, ingredien
 					<form.Field name="unitPrice">
 						{(field) => (
 							<Field>
-								<FieldLabel htmlFor={field.name}>Preço de Referência</FieldLabel>
+								<FieldLabel htmlFor={field.name}>Preço de catálogo</FieldLabel>
 								<Input
 									id={field.name}
 									type="number"

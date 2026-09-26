@@ -11,14 +11,14 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/su
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: KitchenSuprimentosPage,
 	head: () => ({
-		meta: [{ name: "description", content: "Gerencie rascunhos de suprimentos para o anexo quantitativo do TR" }],
+		meta: [{ name: "description", content: "Monte e envie à unidade a previsão de demanda que alimenta o anexo quantitativo do TR" }],
 	}),
 })
 
 const STATUS_LABELS: Record<string, string> = {
-	pending: "Rascunho",
-	sent: "Enviado",
-	reviewed: "Revisado",
+	pending: "Em elaboração",
+	sent: "Enviada à unidade",
+	reviewed: "Recebida pela unidade",
 }
 
 const STATUS_VARIANTS: Record<string, "secondary" | "default" | "outline"> = {
@@ -36,27 +36,30 @@ function KitchenSuprimentosPage() {
 	const { mutate: deleteDraft, isPending: isDeleting } = useDeleteKitchenDraft()
 
 	const handleSend = (draftId: string, title: string) => {
-		if (window.confirm(`Enviar o rascunho "${title}" para a gestão da unidade?`)) {
+		if (window.confirm(`Enviar a previsão "${title}" à unidade?`)) {
 			sendDraft(draftId)
 		}
 	}
 
 	const handleDelete = (draftId: string, title: string) => {
-		if (window.confirm(`Remover o rascunho "${title}"?`)) {
+		if (window.confirm(`Remover a previsão "${title}"?`)) {
 			deleteDraft(draftId)
 		}
 	}
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Suprimentos" description="Crie e envie rascunhos de necessidades para a gestão da unidade.">
+			<PageHeader
+				title="Previsão de demanda"
+				description="Diga à unidade quais cardápios, eventos e apoios a cozinha vai produzir, e quantas vezes: é a base do quantitativo de compra."
+			>
 				<Button
 					size="sm"
 					nativeButton={false}
 					render={
 						<Link to="/kitchen/$kitchenId/suprimentos/new" params={{ kitchenId: kitchenIdStr as string }}>
 							<Plus className="size-4 mr-2" />
-							Novo Rascunho
+							Nova previsão
 						</Link>
 					}
 				/>
@@ -72,9 +75,9 @@ function KitchenSuprimentosPage() {
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-14 text-center">
 						<ShoppingCart className="size-12 text-muted-foreground mb-4" aria-hidden="true" />
-						<p className="text-subheading text-muted-foreground">Nenhum rascunho criado ainda.</p>
+						<p className="text-subheading text-muted-foreground">Nenhuma previsão criada ainda.</p>
 						<p className="text-sm text-muted-foreground mt-1">
-							Crie um rascunho com os templates que você quer sugerir para o próximo anexo quantitativo do TR.
+							Monte a previsão com os cardápios que a cozinha vai produzir; a unidade usa ela no anexo quantitativo do TR.
 						</p>
 						<Button
 							variant="outline"
@@ -84,7 +87,7 @@ function KitchenSuprimentosPage() {
 							render={
 								<Link to="/kitchen/$kitchenId/suprimentos/new" params={{ kitchenId: kitchenIdStr as string }}>
 									<Plus className="size-4 mr-2" />
-									Criar primeiro rascunho
+									Criar primeira previsão
 								</Link>
 							}
 						/>

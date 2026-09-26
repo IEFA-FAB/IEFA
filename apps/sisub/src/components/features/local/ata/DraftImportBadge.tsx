@@ -37,15 +37,15 @@ export function DraftImportBadge({ draft, kitchenState, onImport }: DraftImportB
 	return (
 		<Alert className="border-info/30 bg-info/10">
 			<Send className="size-4 text-info" aria-hidden="true" />
-			<AlertTitle className="text-info text-subheading">Rascunho enviado pela cozinha</AlertTitle>
+			<AlertTitle className="text-info text-subheading">Previsão de demanda enviada pela cozinha</AlertTitle>
 			<AlertDescription className="flex items-center justify-between gap-2 mt-1">
 				<span className="text-sm text-info">
-					<strong>{kitchenState.kitchenName}</strong> enviou o rascunho <strong>"{draft.title}"</strong> com {draft.selections.length}{" "}
+					<strong>{kitchenState.kitchenName}</strong> enviou a previsão <strong>"{draft.title}"</strong> com {draft.selections.length}{" "}
 					{draft.selections.length === 1 ? "seleção" : "seleções"}.
 				</span>
 				<Button size="sm" variant="outline" onClick={handleImport} className="shrink-0 border-info/30 text-info hover:bg-info/10">
 					<Download className="size-3.5 mr-1.5" aria-hidden="true" />
-					Importar Rascunho
+					Importar previsão
 				</Button>
 			</AlertDescription>
 		</Alert>
