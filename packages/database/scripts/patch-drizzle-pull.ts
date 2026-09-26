@@ -36,6 +36,9 @@
  *    10. `bigserial({ mode: "bigint" })` → `{ mode: "number" }`. The pull emits JS `bigint` for
  *        serial ids while every `bigint(...)` column already comes as `number`; with the mix,
  *        `eq(rancho.id, ranchoId)` stops type-checking. Ids here fit a double.
+ *    12. Defaults the pull truncates at a nested parenthesis
+ *        (`sql\`((now() AT TIME ZONE 'America/Sao_Paulo'\``) are replaced by the live default
+ *        read from `pg_attrdef`, so the file never carries invalid SQL.
  *    11. Default that calls a DB function (`.default(inventory.lot_short_code())`) is emitted
  *        as a TS call on the schema object → becomes `sql\`inventory.lot_short_code()\``.
  *   relations.ts
@@ -131,8 +134,8 @@ async function patchSchema(src: string): Promise<string> {
 	// 8. mutual FK cycles
 	out = breakForeignKeyCycles(out)
 
-	// 10. serial ids as number
-	out = out.replace(/bigserial\(\{ mode: "bigint" \}\)/g, 'bigserial({ mode: "number" })')
+	// 10. serial ids as number (unnamed and named: `bigserial("order_seq", { mode: "bigint" })`)
+	out = out.replace(/bigserial\((\s*"[^"]+",\s*)?\{ mode: "bigint" \}\)/g, (_m, name: string | undefined) => `bigserial(${name ?? ""}{ mode: "number" })`)
 
 	// 11. DB-function defaults
 	const schemaNames = new Map([...out.matchAll(/export const (\w+) = pgSchema\("([^"]+)"\)/g)].map((m) => [m[1] as string, m[2] as string]))
@@ -156,7 +159,44 @@ async function patchSchema(src: string): Promise<string> {
 	// `}, (table) => [` whose body never reads `table` (only `unique(...).on(...)` literals, etc.)
 	out = out.replace(/\}, \(table\) => \[([\s\S]*?)\n\]\)/g, (whole, body: string) => (/\btable\./.test(body) ? whole : `}, () => [${body}\n])`))
 
+	// 12. truncated defaults
+	out = await restoreTruncatedDefaults(out)
+
 	return out
+}
+
+/** Defaults `sql\`…\`` com parênteses desbalanceados → o default real do banco. */
+async function restoreTruncatedDefaults(src: string): Promise<string> {
+	const broken = [...src.matchAll(/\.default\(sql`([^`]*)`\)/g)].filter((m) => (m[1]?.split("(").length ?? 0) !== (m[1]?.split(")").length ?? 0))
+	if (broken.length === 0) return src
+	const url = process.env.SISUB_DATABASE_URL
+	if (!url) throw new Error("SISUB_DATABASE_URL unset — required to restore truncated defaults")
+	const db = postgres(url, { max: 1 })
+	let defaults: { schema: string; table: string; column: string; expr: string }[]
+	try {
+		defaults = await db<{ schema: string; table: string; column: string; expr: string }[]>`
+			select n.nspname as schema, c.relname as table, a.attname as column, pg_get_expr(d.adbin, d.adrelid) as expr
+			  from pg_attrdef d
+			  join pg_attribute a on a.attrelid = d.adrelid and a.attnum = d.adnum
+			  join pg_class c on c.oid = d.adrelid
+			  join pg_namespace n on n.oid = c.relnamespace`
+	} finally {
+		await db.end()
+	}
+	const schemaNames = new Map([...src.matchAll(/export const (\w+) = pgSchema\("([^"]+)"\)/g)].map((m) => [m[1] as string, m[2] as string]))
+	// Linha a linha: `\t<chave>: <tipo>("<coluna>"?…).default(sql\`<truncado>\`)`
+	return src.replace(
+		/^(\t(\w+): \w+\((?:"([^"]+)")?[^\n]*?\.default\(sql`)([^`]*)(`\)[^\n]*)$/gm,
+		(line, pre: string, key: string, name: string | undefined, expr: string, post: string, offset: number) => {
+			if (expr.split("(").length === expr.split(")").length) return line
+			const block = tableBlocks(src).find((b) => offset >= b.start && offset < b.end)
+			const head = block ? /export const \w+ = (\w+)\.(?:table|view|materializedView)\("([^"]+)"/.exec(src.slice(block.start, block.end)) : null
+			const schema = head ? schemaNames.get(head[1] as string) : undefined
+			const column = name ?? key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
+			const live = defaults.find((d) => d.schema === schema && d.table === head?.[2] && d.column === column)
+			return live ? `${pre}${live.expr.replace(/`/g, "\\`")}${post}` : line
+		}
+	)
 }
 
 /** Nome da tabela de cada `export const X = <schema>.table(` e o trecho do arquivo que ela ocupa. */
@@ -178,7 +218,7 @@ function breakForeignKeyCycles(src: string): string {
 	}
 	let out = src
 	for (const { table, target } of drops) {
-		const block = tableBlocks(out).find((b) => b.name === table)
+		const block = tableBlocks(src).find((b) => b.name === table)
 		if (!block) continue
 		const body = out.slice(block.start, block.end)
 		const fk = new RegExp(

@@ -49,7 +49,7 @@ export async function fetchUnitSettings(db: SisubDb, ctx: UserContext, input: Fe
 				addressUf: true,
 				addressCep: true,
 			},
-			where: eq(unitsInCore.id, Number(input.unitId)),
+			where: eq(unitsInCore.id, input.unitId),
 		})
 	)
 	if (!row) throw new DomainError("FETCH_FAILED", `unit ${input.unitId} not found`)
@@ -75,7 +75,7 @@ export async function updateUnitSettings(db: SisubDb, ctx: UserContext, input: U
 				addressUf: input.settings.address_uf,
 				addressCep: input.settings.address_cep,
 			})
-			.where(eq(unitsInCore.id, Number(input.unitId)))
+			.where(eq(unitsInCore.id, input.unitId))
 			.returning({ id: unitsInCore.id })
 	)
 	return { ok: true as const }

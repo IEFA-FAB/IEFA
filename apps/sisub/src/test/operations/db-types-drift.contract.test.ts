@@ -23,6 +23,9 @@
 
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import * as schema from "@iefa/database/drizzle/sisub"
+import { is } from "drizzle-orm"
+import { getMaterializedViewConfig, getTableConfig, getViewConfig, PgMaterializedView, PgTable, PgView } from "drizzle-orm/pg-core"
 import postgres from "postgres"
 import { afterAll, beforeAll, describe, expect, test } from "vitest"
 import { describeSupabaseIntegration, getSisubDatabaseUrl } from "../supabase"
@@ -75,22 +78,26 @@ function generatedShape(): Shape {
 	return shape
 }
 
-/** Tabelas e views de `drizzle/schema.ts`, com o nome SQL de cada coluna. */
+/**
+ * Tabelas e views de `drizzle/schema.ts`, lidas pelos próprios objetos do Drizzle — não pelo
+ * texto do arquivo, cuja formatação muda com o drizzle-kit (a primeira coluna de uma view vem
+ * na linha da declaração; views terminam em `.with(...)`) e fazia a leitura perder colunas.
+ */
 function drizzleShape(): Shape {
-	const source = readFileSync(join(DATABASE_PKG, "drizzle", "schema.ts"), "utf8")
-	const schemaNames = new Map([...source.matchAll(/export const (\w+) = pgSchema\("([^"]+)"\)/g)].map((m) => [m[1] as string, m[2] as string]))
 	const shape: Shape = new Map()
-	const decls = [...source.matchAll(/export const \w+ = (\w+)\.(?:table|view|materializedView)\("([^"]+)", \{/g)]
-	decls.forEach((decl, i) => {
-		const schema = schemaNames.get(decl[1] as string)
-		if (!schema || schema === "auth") return
-		const end = decls[i + 1]?.index ?? source.length
-		const body = source.slice(decl.index ?? 0, end)
-		const columnsBlock = body.slice(0, body.search(/\n\}(?:, \(|\)\.as|\);)/))
-		const columns = new Set<string>()
-		for (const m of columnsBlock.matchAll(/^\t(\w+): \w+\((?:"([^"]+)")?/gm)) columns.add((m[2] ?? m[1]) as string)
-		shape.set(`${schema}.${decl[2]}`, columns)
-	})
+	for (const value of Object.values(schema)) {
+		if (is(value, PgTable)) {
+			const config = getTableConfig(value)
+			if (config.schema === "auth") continue
+			shape.set(`${config.schema ?? "public"}.${config.name}`, new Set(config.columns.map((column) => column.name)))
+		} else if (is(value, PgView)) {
+			const config = getViewConfig(value)
+			shape.set(`${config.schema ?? "public"}.${config.name}`, new Set(Object.values(config.selectedFields).map((field) => (field as { name: string }).name)))
+		} else if (is(value, PgMaterializedView)) {
+			const config = getMaterializedViewConfig(value)
+			shape.set(`${config.schema ?? "public"}.${config.name}`, new Set(Object.values(config.selectedFields).map((field) => (field as { name: string }).name)))
+		}
+	}
 	return shape
 }
 
@@ -101,9 +108,16 @@ describeIf("tipos do banco × schema real", () => {
 	beforeAll(async () => {
 		if (!url) throw new Error("SISUB_DATABASE_URL ausente")
 		sql = postgres(url, { max: 1, prepare: false })
+		// pg_attribute, não information_schema.columns: este deixa de fora view materializada e
+		// só lista o que o papel da conexão pode ver — e a ausência viraria falso "não existe".
 		const rows = await sql<{ table_schema: string; table_name: string; column_name: string }[]>`
-			select table_schema, table_name, column_name from information_schema.columns
-			where table_schema not in ('pg_catalog', 'information_schema')`
+			select n.nspname as table_schema, c.relname as table_name, a.attname as column_name
+			  from pg_attribute a
+			  join pg_class c on c.oid = a.attrelid
+			  join pg_namespace n on n.oid = c.relnamespace
+			 where c.relkind in ('r', 'v', 'm', 'p', 'f')
+			   and a.attnum > 0 and not a.attisdropped
+			   and n.nspname not in ('pg_catalog', 'information_schema', 'pg_toast')`
 		live = new Map()
 		for (const row of rows) {
 			const key = `${row.table_schema}.${row.table_name}`

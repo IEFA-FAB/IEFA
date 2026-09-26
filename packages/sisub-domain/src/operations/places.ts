@@ -88,7 +88,7 @@ function unitListFilter(ctx: UserContext, input?: ListPlaces) {
 	if (input?.includeTraining) return or(purchase, eq(unitsInCore.isTraining, true))
 	const production = and(purchase, eq(unitsInCore.isTraining, false))
 	const granted = explicitScopeIds(ctx, "unit_id")
-	return granted.length > 0 ? or(production, and(eq(unitsInCore.isTraining, true), inArray(unitsInCore.id, granted.map(Number)))) : production
+	return granted.length > 0 ? or(production, and(eq(unitsInCore.isTraining, true), inArray(unitsInCore.id, granted))) : production
 }
 
 export async function listUnits(
@@ -116,7 +116,7 @@ export async function listAllMessHalls(
 ): Promise<Array<Pick<MessHall, "id" | "unit_id" | "code" | "display_name" | "kitchen_id">>> {
 	// Refeitório de treino: visível a quem tem grant escopado nele, na unidade ou na cozinha dele.
 	const grantedHall = [
-		inArray(messHallsInKitchen.id, explicitScopeIds(ctx, "mess_hall_id").map(Number)),
+		inArray(messHallsInKitchen.id, explicitScopeIds(ctx, "mess_hall_id")),
 		inArray(messHallsInKitchen.unitId, explicitScopeIds(ctx, "unit_id")),
 		inArray(messHallsInKitchen.kitchenId, explicitScopeIds(ctx, "kitchen_id")),
 	]
@@ -161,18 +161,12 @@ export async function updatePlacesEntity(db: SisubDb, ctx: UserContext, input: U
 
 	await runQuery("UPDATE_FAILED", () => {
 		if (input.entityType === "unit") {
-			return db
-				.update(unitsInCore)
-				.set({ displayName: input.display_name, code: input.code, type: input.type })
-				.where(eq(unitsInCore.id, Number(input.id)))
+			return db.update(unitsInCore).set({ displayName: input.display_name, code: input.code, type: input.type }).where(eq(unitsInCore.id, input.id))
 		}
 		if (input.entityType === "kitchen") {
 			return db.update(kitchenInKitchen).set({ displayName: input.display_name, type: input.type }).where(eq(kitchenInKitchen.id, input.id))
 		}
-		return db
-			.update(messHallsInKitchen)
-			.set({ displayName: input.display_name, code: input.code })
-			.where(eq(messHallsInKitchen.id, Number(input.id)))
+		return db.update(messHallsInKitchen).set({ displayName: input.display_name, code: input.code }).where(eq(messHallsInKitchen.id, input.id))
 	})
 	return { ok: true as const }
 }
@@ -202,7 +196,7 @@ export async function applyPlacesDiff(db: SisubDb, ctx: UserContext, input: Appl
 					await db
 						.update(messHallsInKitchen)
 						.set({ [MESS_HALL_DIFF_KEY[diff.column]]: diff.newValue })
-						.where(eq(messHallsInKitchen.id, Number(diff.recordId)))
+						.where(eq(messHallsInKitchen.id, diff.recordId))
 				}
 			} catch (e) {
 				throw driverFailure("UPDATE_FAILED", e, `Falha ao atualizar ${diff.table} (id ${diff.recordId})`, `Falha ao atualizar ${diff.table}`)

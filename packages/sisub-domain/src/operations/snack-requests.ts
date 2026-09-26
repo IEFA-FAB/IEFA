@@ -1116,11 +1116,7 @@ export async function getSnackLabelData(db: SisubDb, ctx: UserContext, input: Sn
 	const unit =
 		unitId != null
 			? await runQuery("FETCH_FAILED", () =>
-					db
-						.select({ name: unitsInCore.displayName, code: unitsInCore.code })
-						.from(unitsInCore)
-						.where(eq(unitsInCore.id, Number(unitId)))
-						.limit(1)
+					db.select({ name: unitsInCore.displayName, code: unitsInCore.code }).from(unitsInCore).where(eq(unitsInCore.id, unitId)).limit(1)
 				)
 			: []
 	return {
