@@ -1,0 +1,338 @@
+-- Limpeza da auditoria do banco de 2026-09-26 (pg_stat_statements desde 2025-07-10).
+--
+-- 1. Matcher CATMAT sem chamador. `sisub.catmat_match_candidates` respondia por ~44% de todo o
+--    tempo de execução acumulado (74 mil chamadas, média de 1,3 s: aplica uma função PL/pgSQL a
+--    cada um dos 312 mil itens e não usa o índice trigram). O script que a chamava saiu no #453.
+--    `sisub.catmat_similarity` fica: `inventory.suggest_purchase_items` a usa.
+-- 2. Funções de trigger de views que já não existem (`rancho_presencas`, `others_presence`) e
+--    normalizadores sem uso em função, view, default ou índice.
+-- 3. Índices idênticos (advisor `duplicate_index`) e índice não único contido no único de mesmas
+--    colunas. `profiles_admin` fica para o PR que remove a tabela (tabela de acesso).
+-- 4. Índice em toda FK sem índice (advisor `unindexed_foreign_keys`, 199 casos fora do legado).
+--    Sem ele, apagar a linha referenciada varre a tabela filha: o Auth apaga usuário de teste
+--    ~10 mil vezes, e cada `created_by`/`*_by` sem índice vira um seq scan por apagamento.
+-- 5. `inventory.stock_cost` ganha PK (advisor `no_primary_key`).
+-- 6. Recebimento RECUSADO: `refuseReceiptFn` grava `definitive_at` como o instante da decisão.
+--    As duas views que liam `definitive_at` como "entrega atestada" passam a excluir `rejected`
+--    (a conciliação listava o recusado como `sem_liquidacao`; o prazo de entrega o contava).
+-- 7. Legado do SISUBWEB. As 14 tabelas cruas em `public` estão 100% refletidas em
+--    `kitchen.ingredient.legacy_id` / `kitchen.recipes.legacy_id` / `kitchen.ceafa` /
+--    `kitchen.nutrient`, e nada no banco ou no código as lê. Saem de `public` (exposto pelo
+--    PostgREST) para `legacy_sisubweb`, sem USAGE para cliente. O DROP fica para depois de um
+--    ciclo sem ninguém sentir falta. As tabelas de lookup da migração
+--    (`kitchen.migration_*_lookup`) e as views `core.migration_*_lookup` saem: o `legacy_id` já
+--    guarda a rastreabilidade, e o lookup de pastas tinha 106 de 232 linhas apontando para pasta
+--    que não existe mais.
+
+-- 1 e 2 ─────────────────────────────────────────────────────────────────────────────────────
+drop function if exists sisub.catmat_match_candidates(text, integer);
+drop function if exists sisub.catmat_word_similarity(text, text);
+drop function if exists sisub.normalize_catmat_match_text(text);
+drop function if exists sisub.normalize_label_text(text);
+drop function if exists sisub.normalize_recipe_name(text);
+drop function if exists sisub.others_presence_del();
+drop function if exists sisub.others_presence_ins();
+drop function if exists sisub.others_presence_upd();
+drop function if exists sisub.rancho_presencas_view_del();
+drop function if exists sisub.rancho_presencas_view_ins();
+
+-- 3 ─────────────────────────────────────────────────────────────────────────────────────────
+alter table kitchen.meal_forecasts drop constraint if exists rancho_previsoes_user_data_refeicao_key;
+drop index if exists kitchen.rancho_presencas_date_meal_idx;
+alter table kitchen.super_admin_controller drop constraint if exists super_admin_controller_key_key;
+drop index if exists journal.idx_review_assignments_token;
+-- O único (ingredient_id, version_number) atende a leitura "última versão" em varredura reversa.
+drop index if exists kitchen.ingredient_version_ingredient_idx;
+drop index if exists inventory.monthly_closing_kitchen_idx;
+
+-- 4 ─────────────────────────────────────────────────────────────────────────────────────────
+create index if not exists mcp_api_keys_user_id_fk_idx on access_control.mcp_api_keys (user_id);
+create index if not exists policy_statement_kitchen_id_fk_idx on access_control.policy_statement (kitchen_id);
+create index if not exists policy_statement_mess_hall_id_fk_idx on access_control.policy_statement (mess_hall_id);
+create index if not exists policy_statement_unit_id_fk_idx on access_control.policy_statement (unit_id);
+create index if not exists user_permissions_kitchen_id_fk_idx on access_control.user_permissions (kitchen_id);
+create index if not exists user_permissions_mess_hall_id_fk_idx on access_control.user_permissions (mess_hall_id);
+create index if not exists user_permissions_unit_id_fk_idx on access_control.user_permissions (unit_id);
+create index if not exists checklist_rule_origin_document_id_fk_idx on alpha.checklist_rule (origin_document_id);
+create index if not exists checklist_rule_origin_note_id_fk_idx on alpha.checklist_rule (origin_note_id);
+create index if not exists compliance_finding_rule_id_fk_idx on alpha.compliance_finding (rule_id);
+create index if not exists compliance_run_extraction_id_fk_idx on alpha.compliance_run (extraction_id);
+create index if not exists compliance_run_model_document_id_fk_idx on alpha.compliance_run (model_document_id);
+create index if not exists compras_material_classe_codigo_grupo_fk_idx on compras_gov_integration.compras_material_classe (codigo_grupo);
+create index if not exists compras_material_pdm_codigo_classe_fk_idx on compras_gov_integration.compras_material_pdm (codigo_classe);
+create index if not exists compras_servico_classe_codigo_grupo_fk_idx on compras_gov_integration.compras_servico_classe (codigo_grupo);
+create index if not exists compras_servico_divisao_codigo_secao_fk_idx on compras_gov_integration.compras_servico_divisao (codigo_secao);
+create index if not exists compras_servico_grupo_codigo_divisao_fk_idx on compras_gov_integration.compras_servico_grupo (codigo_divisao);
+create index if not exists item_measure_unit_fk_idx on core.item (measure_unit);
+create index if not exists user_data_default_mess_hall_id_fk_idx on core.user_data (default_mess_hall_id);
+create index if not exists ai_generation_document_id_fk_idx on documents.ai_generation (document_id);
+create index if not exists budget_credit_import_batch_id_fk_idx on finance.budget_credit (import_batch_id);
+create index if not exists empenho_created_by_fk_idx on finance.empenho (created_by);
+create index if not exists empenho_import_batch_id_fk_idx on finance.empenho (import_batch_id);
+create index if not exists empenho_event_created_by_fk_idx on finance.empenho_event (created_by);
+create index if not exists liquidacao_created_by_fk_idx on finance.liquidacao (created_by);
+create index if not exists liquidacao_import_batch_id_fk_idx on finance.liquidacao (import_batch_id);
+create index if not exists liquidacao_nfe_document_id_fk_idx on finance.liquidacao (nfe_document_id);
+create index if not exists pagamento_created_by_fk_idx on finance.pagamento (created_by);
+create index if not exists pagamento_import_batch_id_fk_idx on finance.pagamento (import_batch_id);
+create index if not exists reconciliation_decision_decided_by_fk_idx on finance.reconciliation_decision (decided_by);
+create index if not exists questionnaire_created_by_fk_idx on forms.questionnaire (created_by);
+create index if not exists questionnaire_editor_added_by_fk_idx on forms.questionnaire_editor (added_by);
+create index if not exists questionnaire_response_respondent_id_fk_idx on forms.questionnaire_response (respondent_id);
+create index if not exists response_question_id_fk_idx on forms.response (question_id);
+create index if not exists response_viewer_added_by_fk_idx on forms.response_viewer (added_by);
+create index if not exists gtin_net_content_unit_fk_idx on gs1_integration.gtin (net_content_unit);
+create index if not exists gtin_alias_created_by_fk_idx on gs1_integration.gtin_alias (created_by);
+create index if not exists gtin_alias_ingredient_item_id_fk_idx on gs1_integration.gtin_alias (ingredient_item_id);
+create index if not exists gtin_alias_kitchen_id_fk_idx on gs1_integration.gtin_alias (kitchen_id);
+create index if not exists gtin_alias_reviewed_by_fk_idx on gs1_integration.gtin_alias (reviewed_by);
+create index if not exists gtin_gpc_attribute_declared_by_fk_idx on gs1_integration.gtin_gpc_attribute (declared_by);
+create index if not exists gtin_gpc_attribute_value_code_fk_idx on gs1_integration.gtin_gpc_attribute (value_code);
+create index if not exists gtin_specification_check_checked_by_fk_idx on gs1_integration.gtin_specification_check (checked_by);
+create index if not exists app_contributors_app_id_fk_idx on iefa.app_contributors (app_id);
+create index if not exists facilities_pregoeiro_owner_id_fk_idx on iefa.facilities_pregoeiro (owner_id);
+create index if not exists user_legal_acceptances_document_id_fk_idx on iefa.user_legal_acceptances (document_id);
+create index if not exists count_scope_item_frozen_preparation_id_fk_idx on inventory.count_scope_item (frozen_preparation_id);
+create index if not exists count_scope_item_ingredient_id_fk_idx on inventory.count_scope_item (ingredient_id);
+create index if not exists expiry_alert_policy_created_by_fk_idx on inventory.expiry_alert_policy (created_by);
+create index if not exists expiry_alert_policy_ingredient_id_fk_idx on inventory.expiry_alert_policy (ingredient_id);
+create index if not exists expiry_alert_policy_kitchen_id_fk_idx on inventory.expiry_alert_policy (kitchen_id);
+create index if not exists goods_receipt_created_by_fk_idx on inventory.goods_receipt (created_by);
+create index if not exists goods_receipt_definitive_by_fk_idx on inventory.goods_receipt (definitive_by);
+create index if not exists goods_receipt_definitive_designation_id_fk_idx on inventory.goods_receipt (definitive_designation_id);
+create index if not exists goods_receipt_empenho_id_fk_idx on inventory.goods_receipt (empenho_id);
+create index if not exists goods_receipt_fiscal_resolved_by_fk_idx on inventory.goods_receipt (fiscal_resolved_by);
+create index if not exists goods_receipt_liquidacao_id_fk_idx on inventory.goods_receipt (liquidacao_id);
+create index if not exists goods_receipt_provisional_by_fk_idx on inventory.goods_receipt (provisional_by);
+create index if not exists goods_receipt_provisional_designation_id_fk_idx on inventory.goods_receipt (provisional_designation_id);
+create index if not exists goods_receipt_supply_order_id_fk_idx on inventory.goods_receipt (supply_order_id);
+create index if not exists goods_receipt_item_frozen_preparation_id_fk_idx on inventory.goods_receipt_item (frozen_preparation_id);
+create index if not exists goods_receipt_item_ingredient_id_fk_idx on inventory.goods_receipt_item (ingredient_id);
+create index if not exists goods_receipt_item_ingredient_item_id_fk_idx on inventory.goods_receipt_item (ingredient_item_id);
+create index if not exists goods_receipt_item_nfe_item_id_fk_idx on inventory.goods_receipt_item (nfe_item_id);
+create index if not exists goods_receipt_item_purchase_item_id_fk_idx on inventory.goods_receipt_item (purchase_item_id);
+create index if not exists goods_receipt_item_lot_temperature_ack_by_fk_idx on inventory.goods_receipt_item_lot (temperature_ack_by);
+create index if not exists inventory_count_adjustment_id_fk_idx on inventory.inventory_count (adjustment_id);
+create index if not exists inventory_count_approved_by_fk_idx on inventory.inventory_count (approved_by);
+create index if not exists inventory_count_confirmed_by_fk_idx on inventory.inventory_count (confirmed_by);
+create index if not exists inventory_count_created_by_fk_idx on inventory.inventory_count (created_by);
+create index if not exists inventory_count_kitchen_id_fk_idx on inventory.inventory_count (kitchen_id);
+create index if not exists inventory_count_parent_count_id_fk_idx on inventory.inventory_count (parent_count_id);
+create index if not exists inventory_count_entry_counted_by_fk_idx on inventory.inventory_count_entry (counted_by);
+create index if not exists inventory_count_entry_frozen_preparation_id_fk_idx on inventory.inventory_count_entry (frozen_preparation_id);
+create index if not exists inventory_count_entry_ingredient_id_fk_idx on inventory.inventory_count_entry (ingredient_id);
+create index if not exists inventory_count_entry_lot_id_fk_idx on inventory.inventory_count_entry (lot_id);
+create index if not exists inventory_count_item_lot_id_fk_idx on inventory.inventory_count_item (lot_id);
+create index if not exists kitchen_stock_settings_updated_by_fk_idx on inventory.kitchen_stock_settings (updated_by);
+create index if not exists monthly_closing_closed_by_fk_idx on inventory.monthly_closing (closed_by);
+create index if not exists nfe_document_created_by_fk_idx on inventory.nfe_document (created_by);
+create index if not exists nfe_document_situation_checked_by_fk_idx on inventory.nfe_document (situation_checked_by);
+create index if not exists nfe_item_ingredient_id_fk_idx on inventory.nfe_item (ingredient_id);
+create index if not exists nfe_item_ingredient_item_id_fk_idx on inventory.nfe_item (ingredient_item_id);
+create index if not exists nfe_item_purchase_item_id_fk_idx on inventory.nfe_item (purchase_item_id);
+create index if not exists opening_balance_cancelled_by_fk_idx on inventory.opening_balance (cancelled_by);
+create index if not exists opening_balance_created_by_fk_idx on inventory.opening_balance (created_by);
+create index if not exists opening_balance_posted_by_fk_idx on inventory.opening_balance (posted_by);
+create index if not exists opening_balance_item_ingredient_id_fk_idx on inventory.opening_balance_item (ingredient_id);
+create index if not exists opening_balance_item_lot_id_fk_idx on inventory.opening_balance_item (lot_id);
+create index if not exists opening_balance_item_movement_id_fk_idx on inventory.opening_balance_item (movement_id);
+create index if not exists receipt_scan_event_created_by_fk_idx on inventory.receipt_scan_event (created_by);
+create index if not exists scanner_profile_kitchen_id_fk_idx on inventory.scanner_profile (kitchen_id);
+create index if not exists stock_adjustment_created_by_fk_idx on inventory.stock_adjustment (created_by);
+create index if not exists stock_adjustment_decided_by_fk_idx on inventory.stock_adjustment (decided_by);
+create index if not exists stock_adjustment_inventory_count_id_fk_idx on inventory.stock_adjustment (inventory_count_id);
+create index if not exists stock_adjustment_attachment_adjustment_id_fk_idx on inventory.stock_adjustment_attachment (adjustment_id);
+create index if not exists stock_adjustment_attachment_uploaded_by_fk_idx on inventory.stock_adjustment_attachment (uploaded_by);
+create index if not exists stock_adjustment_item_corrected_movement_id_fk_idx on inventory.stock_adjustment_item (corrected_movement_id);
+create index if not exists stock_adjustment_item_frozen_preparation_id_fk_idx on inventory.stock_adjustment_item (frozen_preparation_id);
+create index if not exists stock_adjustment_item_ingredient_id_fk_idx on inventory.stock_adjustment_item (ingredient_id);
+create index if not exists stock_adjustment_item_lot_id_fk_idx on inventory.stock_adjustment_item (lot_id);
+create index if not exists stock_adjustment_item_movement_id_fk_idx on inventory.stock_adjustment_item (movement_id);
+create index if not exists stock_cost_frozen_preparation_id_fk_idx on inventory.stock_cost (frozen_preparation_id);
+create index if not exists stock_cost_ingredient_id_fk_idx on inventory.stock_cost (ingredient_id);
+create index if not exists stock_issue_request_closed_by_fk_idx on inventory.stock_issue_request (closed_by);
+create index if not exists stock_issue_request_created_by_fk_idx on inventory.stock_issue_request (created_by);
+create index if not exists stock_issue_request_item_ingredient_id_fk_idx on inventory.stock_issue_request_item (ingredient_id);
+create index if not exists stock_issue_request_item_meal_type_id_fk_idx on inventory.stock_issue_request_item (meal_type_id);
+create index if not exists stock_lot_frozen_preparation_id_fk_idx on inventory.stock_lot (frozen_preparation_id);
+create index if not exists stock_lot_goods_receipt_item_id_fk_idx on inventory.stock_lot (goods_receipt_item_id);
+create index if not exists stock_lot_goods_receipt_item_lot_id_fk_idx on inventory.stock_lot (goods_receipt_item_lot_id);
+create index if not exists stock_lot_ingredient_id_fk_idx on inventory.stock_lot (ingredient_id);
+create index if not exists stock_lot_quarantined_by_fk_idx on inventory.stock_lot (quarantined_by);
+create index if not exists stock_movement_created_by_fk_idx on inventory.stock_movement (created_by);
+create index if not exists stock_movement_frozen_preparation_id_fk_idx on inventory.stock_movement (frozen_preparation_id);
+create index if not exists stock_movement_goods_receipt_item_id_fk_idx on inventory.stock_movement (goods_receipt_item_id);
+create index if not exists stock_movement_ingredient_id_fk_idx on inventory.stock_movement (ingredient_id);
+create index if not exists stock_movement_inventory_count_id_fk_idx on inventory.stock_movement (inventory_count_id);
+create index if not exists stock_policy_ingredient_id_fk_idx on inventory.stock_policy (ingredient_id);
+create index if not exists article_events_user_id_fk_idx on journal.article_events (user_id);
+create index if not exists article_versions_uploaded_by_fk_idx on journal.article_versions (uploaded_by);
+create index if not exists notifications_article_id_fk_idx on journal.notifications (article_id);
+create index if not exists review_assignments_invited_by_fk_idx on journal.review_assignments (invited_by);
+create index if not exists daily_menu_kitchen_id_fk_idx on kitchen.daily_menu (kitchen_id);
+create index if not exists daily_menu_meal_type_id_fk_idx on kitchen.daily_menu (meal_type_id);
+create index if not exists equipment_issue_reported_by_fk_idx on kitchen.equipment_issue (reported_by);
+create index if not exists equipment_issue_resolved_by_fk_idx on kitchen.equipment_issue (resolved_by);
+create index if not exists equipment_maintenance_log_performed_by_fk_idx on kitchen.equipment_maintenance_log (performed_by);
+create index if not exists equipment_unit_role_role_id_fk_idx on kitchen.equipment_unit_role (role_id);
+create index if not exists frozen_preparation_ceafa_id_fk_idx on kitchen.frozen_preparation (ceafa_id);
+create index if not exists frozen_preparation_regeneration_recipe_id_fk_idx on kitchen.frozen_preparation (regeneration_recipe_id);
+create index if not exists ingredient_ceafa_id_fk_idx on kitchen.ingredient (ceafa_id);
+create index if not exists ingredient_folder_id_fk_idx on kitchen.ingredient (folder_id);
+create index if not exists ingredient_item_ingredient_id_fk_idx on kitchen.ingredient_item (ingredient_id);
+create index if not exists ingredient_nutrient_nutrient_id_fk_idx on kitchen.ingredient_nutrient (nutrient_id);
+create index if not exists ingredient_substitution_substitute_ingredient_id_fk_idx on kitchen.ingredient_substitution (substitute_ingredient_id);
+create index if not exists kitchen_kitchen_id_fk_idx on kitchen.kitchen (kitchen_id);
+create index if not exists kitchen_purchase_unit_id_fk_idx on kitchen.kitchen (purchase_unit_id);
+create index if not exists kitchen_unit_id_fk_idx on kitchen.kitchen (unit_id);
+create index if not exists meal_type_kitchen_id_fk_idx on kitchen.meal_type (kitchen_id);
+create index if not exists menu_items_daily_menu_id_fk_idx on kitchen.menu_items (daily_menu_id);
+create index if not exists menu_items_recipe_origin_id_fk_idx on kitchen.menu_items (recipe_origin_id);
+create index if not exists menu_template_base_template_id_fk_idx on kitchen.menu_template (base_template_id);
+create index if not exists menu_template_event_meal_meal_type_id_fk_idx on kitchen.menu_template_event_meal (meal_type_id);
+create index if not exists menu_template_items_meal_type_id_fk_idx on kitchen.menu_template_items (meal_type_id);
+create index if not exists menu_template_items_menu_template_id_fk_idx on kitchen.menu_template_items (menu_template_id);
+create index if not exists menu_template_items_recipe_id_fk_idx on kitchen.menu_template_items (recipe_id);
+create index if not exists menu_template_meal_meal_type_id_fk_idx on kitchen.menu_template_meal (meal_type_id);
+create index if not exists mess_halls_kitchen_id_fk_idx on kitchen.mess_halls (kitchen_id);
+create index if not exists "opinions_userId_fk_idx" on kitchen.opinions ("userId");
+create index if not exists rancho_kitchen_id_fk_idx on kitchen.rancho (kitchen_id);
+create index if not exists recipe_equipment_requirement_model_id_fk_idx on kitchen.recipe_equipment_requirement (model_id);
+create index if not exists recipe_equipment_requirement_role_id_fk_idx on kitchen.recipe_equipment_requirement (role_id);
+create index if not exists recipe_ingredient_alternatives_ingredient_id_fk_idx on kitchen.recipe_ingredient_alternatives (ingredient_id);
+create index if not exists recipe_ingredients_ingredient_id_fk_idx on kitchen.recipe_ingredients (ingredient_id);
+create index if not exists recipe_step_step_template_id_fk_idx on kitchen.recipe_step (step_template_id);
+create index if not exists recipe_step_utensil_utensil_id_fk_idx on kitchen.recipe_step_utensil (utensil_id);
+create index if not exists snack_request_cancelled_by_fk_idx on kitchen.snack_request (cancelled_by);
+create index if not exists snack_request_decided_by_fk_idx on kitchen.snack_request (decided_by);
+create index if not exists snack_request_delivered_by_fk_idx on kitchen.snack_request (delivered_by);
+create index if not exists snack_request_sample_collected_by_fk_idx on kitchen.snack_request (sample_collected_by);
+create index if not exists snack_request_event_actor_id_fk_idx on kitchen.snack_request_event (actor_id);
+create index if not exists step_template_kitchen_id_fk_idx on kitchen.step_template (kitchen_id);
+create index if not exists step_template_utensil_utensil_id_fk_idx on kitchen.step_template_utensil (utensil_id);
+create index if not exists utensil_kitchen_id_fk_idx on kitchen.utensil (kitchen_id);
+create index if not exists workforce_headcount_category_id_fk_idx on kitchen.workforce_headcount (category_id);
+create index if not exists workforce_submission_submitted_by_fk_idx on kitchen.workforce_submission (submitted_by);
+create index if not exists workforce_survey_created_by_fk_idx on kitchen.workforce_survey (created_by);
+create index if not exists food_item_current_revision_id_fk_idx on nutrition_reference.food_item (current_revision_id);
+create index if not exists food_item_revision_source_release_id_fk_idx on nutrition_reference.food_item_revision (source_release_id);
+create index if not exists food_nutrient_value_component_id_fk_idx on nutrition_reference.food_nutrient_value (component_id);
+create index if not exists nutrient_component_mapping_nutrient_id_fk_idx on nutrition_reference.nutrient_component_mapping (nutrient_id);
+create index if not exists contract_designation_arp_id_fk_idx on procurement.contract_designation (arp_id);
+create index if not exists contract_designation_created_by_fk_idx on procurement.contract_designation (created_by);
+create index if not exists kitchen_ata_draft_kitchen_id_fk_idx on procurement.kitchen_ata_draft (kitchen_id);
+create index if not exists kitchen_ata_draft_reviewed_by_fk_idx on procurement.kitchen_ata_draft (reviewed_by);
+create index if not exists kitchen_ata_draft_import_imported_by_fk_idx on procurement.kitchen_ata_draft_import (imported_by);
+create index if not exists kitchen_ata_draft_selection_draft_id_fk_idx on procurement.kitchen_ata_draft_selection (draft_id);
+create index if not exists kitchen_ata_draft_selection_template_id_fk_idx on procurement.kitchen_ata_draft_selection (template_id);
+create index if not exists price_research_emission_emitted_by_fk_idx on procurement.price_research_emission (emitted_by);
+create index if not exists procurement_list_item_ingredient_id_fk_idx on procurement.procurement_list_item (ingredient_id);
+create index if not exists procurement_list_kitchen_kitchen_id_fk_idx on procurement.procurement_list_kitchen (kitchen_id);
+create index if not exists procurement_list_selection_list_kitchen_id_fk_idx on procurement.procurement_list_selection (list_kitchen_id);
+create index if not exists procurement_list_selection_origin_template_id_fk_idx on procurement.procurement_list_selection (origin_template_id);
+create index if not exists procurement_list_selection_template_id_fk_idx on procurement.procurement_list_selection (template_id);
+create index if not exists procurement_pesquisa_preco_created_by_fk_idx on procurement.procurement_pesquisa_preco (created_by);
+create index if not exists procurement_pesquisa_preco_amostra_amostra_id_fk_idx on procurement.procurement_pesquisa_preco_amostra (amostra_id);
+create index if not exists procurement_segment_created_by_fk_idx on procurement.procurement_segment (created_by);
+create index if not exists procurement_segment_rule_folder_id_fk_idx on procurement.procurement_segment_rule (folder_id);
+create index if not exists procurement_segment_rule_purchase_item_id_fk_idx on procurement.procurement_segment_rule (purchase_item_id);
+create index if not exists purchase_item_package_net_content_unit_fk_idx on procurement.purchase_item (package_net_content_unit);
+create index if not exists purchase_item_gpc_requirement_attribute_code_fk_idx on procurement.purchase_item_gpc_requirement (attribute_code);
+create index if not exists supply_order_created_by_fk_idx on procurement.supply_order (created_by);
+create index if not exists supply_order_sicaf_ack_by_fk_idx on procurement.supply_order (sicaf_ack_by);
+create index if not exists supply_order_item_arp_item_id_fk_idx on procurement.supply_order_item (arp_item_id);
+create index if not exists supply_order_item_purchase_item_id_fk_idx on procurement.supply_order_item (purchase_item_id);
+create index if not exists uniform_variant_image_piece_id_fk_idx on rumaer.uniform_variant_image (piece_id);
+create index if not exists import_batch_created_by_fk_idx on siafi_integration.import_batch (created_by);
+create index if not exists generated_message_analysis_run_id_fk_idx on sucont.generated_message (analysis_run_id);
+
+-- 5 ─────────────────────────────────────────────────────────────────────────────────────────
+-- A identidade de negócio continua nos dois únicos parciais (cozinha + insumo | preparação
+-- congelada); a PK é só a chave física que o advisor e a replicação lógica esperam.
+alter table inventory.stock_cost add column if not exists id uuid not null default gen_random_uuid();
+alter table inventory.stock_cost add constraint stock_cost_pkey primary key (id);
+
+-- 6 ─────────────────────────────────────────────────────────────────────────────────────────
+create or replace view finance.v_physical_accounting_reconciliation
+with (security_invoker = true) as
+select
+  gr.id as goods_receipt_id,
+  gr.kitchen_id,
+  gr.definitive_at,
+  coalesce(sum(gri.received_qty_base * coalesce(gri.unit_cost, 0::numeric)), 0::numeric) as valor_recebido,
+  l.id as liquidacao_id,
+  l.numero_ns,
+  l.valor as valor_liquidado,
+  case
+    when l.id is null then 'sem_liquidacao'::text
+    when abs(coalesce(sum(gri.received_qty_base * coalesce(gri.unit_cost, 0::numeric)), 0::numeric) - l.valor) > 0.009 then 'valor_divergente'::text
+    else 'conciliado'::text
+  end as situacao,
+  current_date - gr.definitive_at::date as dias_desde_recebimento
+from inventory.goods_receipt gr
+join inventory.goods_receipt_item gri on gri.receipt_id = gr.id
+left join finance.liquidacao l on l.id = gr.liquidacao_id
+-- recusado também tem `definitive_at` (o instante da decisão) e não é entrega atestada
+where gr.definitive_at is not null
+  and gr.status <> 'rejected'
+group by gr.id, gr.kitchen_id, gr.definitive_at, l.id, l.numero_ns, l.valor;
+
+create or replace view inventory.v_supplier_lead_time
+with (security_invoker = true) as
+select
+  arpitem.ni_fornecedor,
+  soi.purchase_item_id,
+  so.id as supply_order_id,
+  so.sent_at,
+  so.expected_delivery,
+  gr.definitive_at::date as received_at,
+  gr.definitive_at::date - so.sent_at as lead_time_days,
+  gr.definitive_at::date - so.expected_delivery as deviation_days
+from procurement.supply_order so
+join inventory.goods_receipt gr
+  on gr.supply_order_id = so.id
+ and gr.definitive_at is not null
+ and gr.status <> 'rejected'
+join procurement.supply_order_item soi on soi.supply_order_id = so.id
+left join procurement.procurement_arp_item arpitem on arpitem.id = soi.arp_item_id
+where so.sent_at is not null;
+
+-- 7 ─────────────────────────────────────────────────────────────────────────────────────────
+drop view if exists core.migration_folder_lookup;
+drop view if exists core.migration_nutrient_lookup;
+drop view if exists core.migration_product_lookup;
+drop view if exists core.migration_recipe_lookup;
+drop table if exists kitchen.migration_folder_lookup;
+drop table if exists kitchen.migration_nutrient_lookup;
+drop table if exists kitchen.migration_product_lookup;
+drop table if exists kitchen.migration_recipe_lookup;
+drop view if exists kitchen.v_ingredient_kg_lt_items;
+
+create schema if not exists legacy_sisubweb;
+comment on schema legacy_sisubweb is
+  'Cópia crua do SISUBWEB, já migrada para kitchen.* (legacy_id). Fora do PostgREST e sem acesso de cliente. Candidata a DROP a partir de 2026-12.';
+revoke all on schema legacy_sisubweb from public, anon, authenticated;
+
+alter table if exists public.ingrediente_preparacao set schema legacy_sisubweb;
+alter table if exists public.ingrediente_preparacao_original set schema legacy_sisubweb;
+alter table if exists public.produto_nutriente set schema legacy_sisubweb;
+alter table if exists public.item_produto set schema legacy_sisubweb;
+alter table if exists public.embalagem set schema legacy_sisubweb;
+alter table if exists public.insumo set schema legacy_sisubweb;
+alter table if exists public.insumo_original set schema legacy_sisubweb;
+alter table if exists public.preparacao_base set schema legacy_sisubweb;
+alter table if exists public.preparacao_original set schema legacy_sisubweb;
+alter table if exists public.produto set schema legacy_sisubweb;
+alter table if exists public.grupo_produto set schema legacy_sisubweb;
+alter table if exists public.nutriente set schema legacy_sisubweb;
+alter table if exists public.unidade_medida set schema legacy_sisubweb;
+alter table if exists public.ceafa set schema legacy_sisubweb;
+
+do $$
+declare
+  t record;
+begin
+  for t in select tablename from pg_tables where schemaname = 'legacy_sisubweb' loop
+    execute format('revoke all on legacy_sisubweb.%I from public, anon, authenticated', t.tablename);
+  end loop;
+end $$;
