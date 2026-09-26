@@ -29,7 +29,7 @@ export default defineConfig(async ({ mode, isSsrBuild }) => {
 				preset: "bun",
 				compressPublicAssets: true,
 				// Sink central de exceptions server-side (SSR + server fns) → OTel/OTLP.
-				plugins: ["./src/lib/observability/nitro-otel.ts"],
+				plugins: ["./src/lib/observability/nitro-otel.ts", "./src/lib/observability/nitro-asset-404.ts"],
 				handlers: [
 					{
 						route: "/api/analytics/stream",
