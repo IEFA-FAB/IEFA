@@ -75,7 +75,6 @@ jobs:
         with:
           filters: |
             extra:
-              - 'bun.lock'
               - '.github/workflows/integration.yml'
       - id: scope
         env:
