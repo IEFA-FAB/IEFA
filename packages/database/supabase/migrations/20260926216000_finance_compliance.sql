@@ -37,6 +37,11 @@
 --     chegam pelo pai, com ON DELETE CASCADE (o reset apaga `finance.empenho` e
 --     `finance.liquidacao` por unidade).
 --
+-- ORDEM: aplica DEPOIS de 20260926214000 (PR #473). Esta migration recria
+-- `check_empenho_event_floor` com o piso das OFs daquela (e usa a função
+-- `procurement.supply_order_empenho_usage` criada lá), e recria `v_empenho_vigente` com as
+-- mesmas colunas que a 214000 lê (teto da OF) e que `v_siafi_reconciliation` usa.
+--
 -- Tudo só do servidor: RLS ligada, sem policy, sem grant a anon/authenticated (o default do
 -- schema `finance` concede só a `service_role`). Nenhuma função nova é SECURITY DEFINER.
 -- ============================================================================
@@ -305,6 +310,11 @@ from finance.empenho e
 left join finance.empenho_event ev on ev.empenho_id = e.id
 group by e.id, e.unit_id, e.valor_total;
 
+-- Recria o piso de 20260926214000 (contratação de origem, PR #473) SEM perder nada dele: o
+-- piso continua sendo max(já liquidado, já pedido em OFs não canceladas), com as três chaves de
+-- lock na mesma ordem (evento → liquidação → OF). Só acrescenta `anulacao_total` aos tipos que
+-- passam pelo piso. Depende de `procurement.supply_order_empenho_usage` (criada lá): esta
+-- migration aplica DEPOIS da 20260926214000.
 create or replace function finance.check_empenho_event_floor() returns trigger
 language plpgsql
 set search_path = ''
@@ -312,20 +322,30 @@ as $$
 declare
   v_vigente numeric(14,2);
   v_liquidado numeric(14,2);
+  v_ordered numeric(14,2);
 begin
   if new.tipo not in ('anulacao', 'anulacao_total', 'cancelamento') then return new; end if;
 
   -- serializa eventos concorrentes do mesmo empenho
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('empenho_event:' || new.empenho_id::text, 42));
-  -- ...e contra liquidação concorrente do mesmo empenho (ordem fixa evento → liquidação)
+  -- ...e contra liquidação concorrente do mesmo empenho: é a chave que
+  -- `check_liquidacao_within_empenho` toma. Ordem fixa evento → liquidação → OF.
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('liq_empenho:' || new.empenho_id::text, 42));
+  -- ...e contra OF concorrente: a chave de `procurement.supply_order_check_empenho`.
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('of_empenho:' || new.empenho_id::text, 42));
 
   select v.valor_vigente into v_vigente from finance.v_empenho_vigente v where v.empenho_id = new.empenho_id;
   select coalesce(sum(l.valor), 0) into v_liquidado from finance.liquidacao l where l.empenho_id = new.empenho_id;
+  select u.priced_total into v_ordered from procurement.supply_order_empenho_usage(new.empenho_id) u;
 
+  -- v_vigente já inclui os eventos anteriores; o novo ainda não está gravado
   if coalesce(v_vigente, 0) - new.valor < v_liquidado then
     raise exception 'Anulação deixaria o empenho vigente (%) abaixo do já liquidado (%)',
       coalesce(v_vigente, 0) - new.valor, v_liquidado;
+  end if;
+  if coalesce(v_vigente, 0) - new.valor < coalesce(v_ordered, 0) - 0.005 then
+    raise exception 'Anulação deixaria o empenho vigente (%) abaixo do já pedido em Ordens de Fornecimento (%): cancele ou reduza a OF antes de anular',
+      coalesce(v_vigente, 0) - new.valor, coalesce(v_ordered, 0);
   end if;
   return new;
 end;
