@@ -12760,6 +12760,7 @@ export type Database = {
       procurement_pesquisa_preco_amostra: {
         Row: {
           amostra_id: string
+          art5_parameter: string
           content_in_unit: number | null
           conversion: string | null
           converted_price: number | null
@@ -12770,6 +12771,7 @@ export type Database = {
         }
         Insert: {
           amostra_id: string
+          art5_parameter?: string
           content_in_unit?: number | null
           conversion?: string | null
           converted_price?: number | null
@@ -12780,6 +12782,7 @@ export type Database = {
         }
         Update: {
           amostra_id?: string
+          art5_parameter?: string
           content_in_unit?: number | null
           conversion?: string | null
           converted_price?: number | null
@@ -12815,6 +12818,11 @@ export type Database = {
           error: string | null
           id: string
           is_compliant: boolean
+          justification_low_sample: string | null
+          justification_method: string | null
+          justification_out_of_period: string | null
+          justification_outlier_criteria: string | null
+          manual_selection: boolean
           measure_unit: string | null
           non_compliance_reasons: string[]
           price_max: number | null
@@ -12841,6 +12849,11 @@ export type Database = {
           error?: string | null
           id?: string
           is_compliant?: boolean
+          justification_low_sample?: string | null
+          justification_method?: string | null
+          justification_out_of_period?: string | null
+          justification_outlier_criteria?: string | null
+          manual_selection?: boolean
           measure_unit?: string | null
           non_compliance_reasons?: string[]
           price_max?: number | null
@@ -12867,6 +12880,11 @@ export type Database = {
           error?: string | null
           id?: string
           is_compliant?: boolean
+          justification_low_sample?: string | null
+          justification_method?: string | null
+          justification_out_of_period?: string | null
+          justification_outlier_criteria?: string | null
+          manual_selection?: boolean
           measure_unit?: string | null
           non_compliance_reasons?: string[]
           price_max?: number | null
