@@ -233,7 +233,7 @@ function AtaDetailPage() {
 					<Badge
 						variant="outline"
 						className="gap-1.5 border-warning/50 text-warning"
-						title="Política interna: pesquisa com mais de 180 dias deve ser refeita antes de divulgar o edital. Os preços do sistema oficial são de contratações de até 1 ano antes da pesquisa."
+						title={`Política interna: pesquisa com mais de ${ata.meta.price_research.validity_days} dias deve ser refeita antes de divulgar o edital. Os preços do sistema oficial são de contratações de até 1 ano antes da pesquisa.`}
 					>
 						<AlertTriangle className="size-3" aria-hidden="true" />
 						Pesquisa feita há mais de {ata.meta.price_research.validity_days} dias

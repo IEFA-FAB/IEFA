@@ -103,7 +103,7 @@ const DRAFT_FIELDS: DraftFields<PurchaseItemDraft> = {
 	packageNetContent: { label: "Conteúdo líquido" },
 	packageNetContentUnit: { label: "Unidade do conteúdo" },
 	purchaseMeasureUnit: { label: "Unidade de compra" },
-	unitPrice: { label: "Preço de referência" },
+	unitPrice: { label: "Preço de catálogo" },
 	conversionFactor: { label: "Fator de conversão" },
 }
 

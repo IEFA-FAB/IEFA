@@ -117,7 +117,7 @@ function UnitDashboardPage() {
 						<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 							<PackageSearch className="size-9 text-muted-foreground" />
 							<p className="text-subheading text-muted-foreground">Nenhum anexo concluído</p>
-							<p className="text-sm text-muted-foreground max-w-sm">Publique um anexo quantitativo do TR para que ele apareça aqui.</p>
+							<p className="text-sm text-muted-foreground max-w-sm">Conclua um anexo quantitativo do TR para que ele apareça aqui.</p>
 							<Button
 								size="sm"
 								variant="outline"

@@ -224,6 +224,13 @@ export const ALL_MODULES: ModuleDef[] = [
 				group: "Planejamento da Produção",
 				keywords: ["calendário", "planejamento", "agenda", "dia", "o que produzir"],
 			},
+			{
+				title: "Previsão de demanda",
+				url: "/kitchen/suprimentos",
+				icon: ShoppingCart,
+				group: "Planejamento da Produção",
+				keywords: ["suprimentos", "compras", "solicitação de compra", "pedido de compra", "enviar à unidade", "anexo quantitativo"],
+			},
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed, group: "Operação", keywords: ["receita", "ficha técnica"] },
 			{
 				title: "Pedidos de Lanche",
@@ -231,13 +238,6 @@ export const ALL_MODULES: ModuleDef[] = [
 				icon: PlaneTakeoff,
 				group: "Operação",
 				keywords: ["lanche de bordo", "lanche de apoio", "missão", "requisição"],
-			},
-			{
-				title: "Previsão de demanda",
-				url: "/kitchen/suprimentos",
-				icon: ShoppingCart,
-				group: "Planejamento da Produção",
-				keywords: ["suprimentos", "compras", "solicitação de compra", "pedido de compra", "enviar à unidade", "anexo quantitativo"],
 			},
 			{ title: "Equipamentos", url: "/kitchen/equipment", icon: CookingPot, group: "Operação", keywords: ["forno", "manutenção", "pane"] },
 			{ title: "QR Check-in", url: "/kitchen/qr-code", icon: QrCode, minLevel: 2, group: "Operação", keywords: ["qr code", "check-in"] },

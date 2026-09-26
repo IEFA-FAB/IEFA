@@ -23,6 +23,6 @@ test.describe("Terminologia do planejamento da contratação", () => {
 		test.skip(!UNIT_ID, "E2E_BUDGET_UNIT_ID ausente")
 		await page.goto(`/unit/${UNIT_ID}/dashboard`)
 		await expect(page.getByText("Anexos concluídos").first()).toBeVisible({ timeout: 20_000 })
-		await expect(page.getByText(/Anexos? publicad/)).toHaveCount(0)
+		await expect(page.getByText(/publicad|publique/i)).toHaveCount(0)
 	})
 })

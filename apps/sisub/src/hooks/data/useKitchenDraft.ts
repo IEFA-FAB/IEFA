@@ -48,7 +48,7 @@ export function useCreateKitchenDraft() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.listAll() })
 			toast.success(`Previsão "${data?.title}" criada!`)
 		},
-		onError: (error) => toast.error(`Erro ao criar previsão: ${error.message}`),
+		onError: (error) => toast.error(error.message),
 	})
 }
 
@@ -63,7 +63,7 @@ export function useUpdateKitchenDraft() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.all() })
 			toast.success(`Previsão "${data?.title}" atualizada!`)
 		},
-		onError: (error) => toast.error(`Erro ao atualizar previsão: ${error.message}`),
+		onError: (error) => toast.error(error.message),
 	})
 }
 
@@ -75,7 +75,7 @@ export function useSendKitchenDraft() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.all() })
 			toast.success("Previsão enviada à unidade!")
 		},
-		onError: (error) => toast.error(`Erro ao enviar previsão: ${error.message}`),
+		onError: (error) => toast.error(error.message),
 	})
 }
 
@@ -87,6 +87,6 @@ export function useDeleteKitchenDraft() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.listAll() })
 			toast.success("Previsão removida.")
 		},
-		onError: (error) => toast.error(`Erro ao remover previsão: ${error.message}`),
+		onError: (error) => toast.error(error.message),
 	})
 }

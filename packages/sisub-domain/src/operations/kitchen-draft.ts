@@ -186,12 +186,14 @@ export async function createKitchenDraft(db: SisubDb, ctx: UserContext, input: C
 					.insert(kitchenAtaDraftInProcurement)
 					.values({ kitchenId: input.kitchenId, title: input.title, notes: input.notes || null, status: "pending" })
 					.returning(),
-			{ prefix: "Erro ao criar rascunho" }
+			{ prefix: "Erro ao criar previsão de demanda" }
 		)
 
 		if (input.selections.length > 0) {
 			const rows = input.selections.map((s) => ({ draftId: inserted.id, templateId: s.templateId, repetitions: s.repetitions }))
-			await runQuery("INSERT_FAILED", () => tx.insert(kitchenAtaDraftSelectionInProcurement).values(rows), { prefix: "Erro ao salvar seleções do rascunho" })
+			await runQuery("INSERT_FAILED", () => tx.insert(kitchenAtaDraftSelectionInProcurement).values(rows), {
+				prefix: "Erro ao salvar seleções da previsão de demanda",
+			})
 		}
 		return inserted
 	})
@@ -218,7 +220,7 @@ export async function updateKitchenDraft(db: SisubDb, ctx: UserContext, input: U
 			"UPDATE_FAILED",
 			`Erro ao atualizar rascunho: rascunho ${input.draftId} não encontrado`,
 			() => tx.update(kitchenAtaDraftInProcurement).set(set).where(eq(kitchenAtaDraftInProcurement.id, input.draftId)).returning(),
-			{ prefix: "Erro ao atualizar rascunho" }
+			{ prefix: "Erro ao atualizar previsão de demanda" }
 		)
 
 		if (input.selections !== undefined) {
@@ -246,7 +248,7 @@ export async function sendKitchenDraft(db: SisubDb, ctx: UserContext, input: Sen
 				.set({ status: "sent", updatedAt: new Date().toISOString() })
 				.where(eq(kitchenAtaDraftInProcurement.id, input.draftId))
 				.returning({ id: kitchenAtaDraftInProcurement.id }),
-		{ prefix: "Erro ao enviar rascunho" }
+		{ prefix: "Erro ao enviar previsão de demanda" }
 	)
 }
 
@@ -258,6 +260,6 @@ export async function deleteKitchenDraft(db: SisubDb, ctx: UserContext, input: D
 		"DELETE_FAILED",
 		`Erro ao deletar rascunho: rascunho ${input.draftId} não encontrado`,
 		() => db.delete(kitchenAtaDraftInProcurement).where(eq(kitchenAtaDraftInProcurement.id, input.draftId)).returning({ id: kitchenAtaDraftInProcurement.id }),
-		{ prefix: "Erro ao deletar rascunho" }
+		{ prefix: "Erro ao remover previsão de demanda" }
 	)
 }
