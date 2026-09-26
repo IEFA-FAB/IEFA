@@ -27,6 +27,16 @@
  */
 
 import { chmodSync, existsSync, readFileSync, renameSync, writeFileSync } from "node:fs"
+
+/** Conteúdo atual do arquivo, ou `null` se não existe — uma leitura só, sem checar antes. */
+function readIfPresent(path: string): string | null {
+	try {
+		return readFileSync(path, "utf8")
+	} catch {
+		return null
+	}
+}
+
 import { join, resolve } from "node:path"
 
 const ROOT = resolve(import.meta.dir, "..")
@@ -90,12 +100,16 @@ async function readSecret(id: string): Promise<SecretResult> {
  * entre aspas simples e não desfaz `\"` — aspas duplas com escape trocavam a senha de um
  * `SISUB_DATABASE_URL` com `$` por outra, e o login falhava sem causa aparente. Aspas simples
  * com `$` escapado (`\$`) preservam tudo; o Vite (dotenv-expand) lê `\$` do mesmo jeito.
- * Valor com aspa simples não tem forma segura: `null`, e a chave é pulada com aviso.
+ *
+ * A barra invertida NÃO é escapada de propósito: o Bun não desfaz `\\` entre aspas simples, e
+ * escapá-la dobraria a barra no valor lido (medido). Sem forma segura, e por isso `null` (a
+ * chave é pulada com aviso): valor com aspa simples, ou terminado em barra invertida — ela
+ * escaparia a aspa de fechamento.
  */
 function formatValue(value: string): string | null {
 	if (/^[\w@%+=:,./~-]*$/.test(value)) return value
-	if (value.includes("'")) return null
-	return `'${value.replace(/\$/g, "\\$")}'`
+	if (value.includes("'") || value.endsWith("\\")) return null
+	return `'${value.split("$").join("\\$")}'`
 }
 
 function render(app: ManifestApp, values: Record<string, string>, sources: string[]): string {
@@ -146,9 +160,10 @@ async function main(): Promise<number> {
 	let failed = 0
 	for (const app of pending) {
 		const envPath = join(ROOT, app.path, ".env")
-		const exists = existsSync(envPath)
+		const current = readIfPresent(envPath)
+		const exists = current != null
 		if (ifMissing && exists) continue
-		const managed = exists && readFileSync(envPath, "utf8").startsWith(HEADER)
+		const managed = current?.startsWith(HEADER) ?? false
 		if (exists && !managed && !force) {
 			log(`• ${app.key}: .env escrito à mão — mantido (use --force para trocar pelo do Secrets Manager)`)
 			continue
