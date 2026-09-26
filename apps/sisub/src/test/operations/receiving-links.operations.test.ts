@@ -7,7 +7,7 @@
  * transação é o usuário de auth do seeder (fiscal/gestor designado), apagado no `afterAll`.
  *
  * Depende de 20260926214000 (acquisition, empenho_item) e 20260926215000 aplicadas: é o que
- * `inventory.designations_covering` lê. Edge cases: EST-REC-06..11, GU-DES-01..03.
+ * `inventory.designations_covering` lê. Edge cases: EST-REC-06..10, GU-DES-01, GU-EXE-04.
  */
 
 import { sisubSchema } from "@iefa/database/drizzle/sisub"
