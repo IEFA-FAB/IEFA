@@ -143,9 +143,18 @@ consulta por agente em vez de ler a página.
   Fumadocs na Documentação, o identificador do Faro): esse entra à mão.
 - **Nova versão de documento**: migration nova com `effective_date` posterior. O
   aviso de ciência reaparece sozinho para todo mundo.
+- **Dado pessoal nasce quando a pessoa usa o recurso**, não no cadastro: nada de
+  trigger em `auth.users` gravando linha de app para toda conta (art. 6º, III). Até
+  `20260926218000` o `on_auth_user_created` criava um perfil `author` do journal,
+  com o nome tirado do e-mail, para quem entrasse em qualquer app; hoje o perfil
+  nasce no formulário do journal (`journal.save_user_profile`).
 
 ## Pendências conhecidas
 
+- Perfis `author` do journal criados pelo cadastro antes de `20260926218000`, sem
+  artigo, revisão, evento nem notificação (1434 em 2026-09-26): a exclusão espera
+  decisão do mantenedor. A query está no PR da migration e em
+  `packages/database/scripts/access-audit/legacy-access-profiles.test.sql`.
 - Sem política de retenção implementada — a permanência é decisão declarada, não
   ausência de decisão, mas segue sem revisão periódica agendada.
 - `xlsx` congelado no npm com 2 advisories `high` insolúveis, e ele parseia upload

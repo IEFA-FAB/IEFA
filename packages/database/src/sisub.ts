@@ -39,10 +39,6 @@ export type TablesUpdate<T extends keyof DomainTables> = DomainTables[T]["Update
 export type Views<T extends keyof DomainViews> = DomainViews[T]["Row"]
 export type Enums<T extends keyof DomainEnums> = DomainEnums[T]
 
-export type ProfileAdmin = Tables<"profiles_admin">
-export type ProfileAdminInsert = TablesInsert<"profiles_admin">
-export type ProfileAdminUpdate = TablesUpdate<"profiles_admin">
-
 export type UserData = Tables<"user_data">
 export type UserDataInsert = TablesInsert<"user_data">
 export type UserDataUpdate = TablesUpdate<"user_data">

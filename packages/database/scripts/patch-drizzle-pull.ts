@@ -9,10 +9,11 @@
  * Fixes:
  *   schema.ts
  *     1. Drop unused `pgTable` import (everything uses `sisub.table`) → TS6133.
- *     2. Inject `usersInAuth` (auth.users) stub + `userLevels` public enum, which
- *        the introspection references but never declares (schemaFilter = sisub).
- *        Enum values are read from the live DB (`pg_enum`) so they never drift —
- *        a new label (e.g. 'moderator') flows through on the next pull.
+ *     2. Inject `usersInAuth` (auth.users) stub, which the introspection references but
+ *        never declares (schemaFilter = sisub). The `userLevels` public enum is injected
+ *        too, but only while a pulled column still uses it: its only table
+ *        (`profiles_admin`) was archived to `legacy_access` in 20260926218000, outside the
+ *        pull. Enum values are read from the live DB (`pg_enum`) so they never drift.
  *     3. `role: unknown("role")` (unparsed `public.userLevels`) → `userLevels("role")`,
  *        and strip the stale `// TODO: failed to parse database type 'userLevels'`
  *        comment drizzle-kit emits above it.
@@ -92,17 +93,19 @@ async function patchSchema(src: string): Promise<string> {
 	// 1. unused pgTable import
 	out = out.replace(/import \{ pgTable, /, "import { ")
 
-	// 2. inject auth.users stub + public userLevels enum right after the sisub schema decl.
+	// 2. inject auth.users stub (+ public userLevels enum, while a column uses it) right after
+	// the sisub schema decl.
 	const anchor = 'export const sisub = pgSchema("sisub");'
 	if (out.includes(anchor) && !out.includes("export const usersInAuth")) {
-		const levels = await fetchUserLevels()
+		const usesUserLevels = /\bunknown\("role"\)|\/\/ TODO: failed to parse database type 'userLevels'/.test(out)
+		const levels = usesUserLevels ? await fetchUserLevels() : []
 		const literals = levels.map((v) => `'${v}'`).join(", ")
 		out = out.replace(
 			anchor,
 			`${anchor}\n` +
 				`// Patched (patch-drizzle-pull.ts): cross-schema/custom-type refs the pull leaves dangling.\n` +
-				`export const usersInAuth = pgSchema("auth").table("users", { id: uuid().primaryKey().notNull() });\n` +
-				`export const userLevels = pgEnum("userLevels", [${literals}]);`
+				`export const usersInAuth = pgSchema("auth").table("users", { id: uuid().primaryKey().notNull() });` +
+				(usesUserLevels ? `\nexport const userLevels = pgEnum("userLevels", [${literals}]);` : "")
 		)
 	}
 	// ensure pgEnum is imported (used by the injected enum)

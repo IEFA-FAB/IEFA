@@ -66,9 +66,6 @@ const bodies = latestFunctionBodies()
 const EXEMPT: Record<string, string> = {
 	// Interna: só roda dentro das funções de visualizador, que já abriram o contexto e gravam o log.
 	"forms.replace_viewer_bindings": "chamada só por forms.add_response_viewer/update_response_viewer_policy",
-	// Trigger do cadastro (auth.users): insere o perfil com papel `author`, o default — fora do
-	// WHEN do journal, e não é concessão de nada.
-	"public.handle_new_user": "perfil `author` do cadastro, fora do que a fase 2 vigia",
 	// Escreve só colunas de perfil (whitelist; `role` recusado em p_fields) e nasce `author`; a
 	// troca de papel é delegada a journal.change_user_role, que abre o contexto e grava o log.
 	"journal.save_user_profile": "só campos de perfil; o papel vai por journal.change_user_role",

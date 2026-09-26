@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Valida as migrations de auditoria de acesso num Postgres DESCARTÁVEL — nunca no banco
 # compartilhado. Sobe um cluster temporário (initdb), aplica stub.sql + fase 1, roda os testes
-# da fase 1 e a corrida, aplica a fase 2 e roda os testes dela. Apaga o cluster no fim.
+# da fase 1 e a corrida, aplica a fase 2 e roda os testes dela, e por fim o arquivamento de
+# 20260926218000. Apaga o cluster no fim.
 #
 #   bash packages/database/scripts/access-audit/run.sh
 #
@@ -37,4 +38,6 @@ bash "$HERE/concurrency.sh"
 run "$MIGRATIONS/20260921130100_access_change_enforcement.sql"
 run "$MIGRATIONS/20260921130100_access_change_enforcement.sql"
 run "$HERE/phase2.test.sql"
+# 20260926218000: aplicada (duas vezes) de dentro do próprio teste, depois do estado de antes.
+run "$HERE/legacy-access-profiles.test.sql"
 echo "access-audit: tudo verde"
