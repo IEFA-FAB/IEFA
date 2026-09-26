@@ -2275,6 +2275,7 @@ export type Database = {
           finished_at: string | null
           id: number
           records_deactivated: number
+          records_processed: number | null
           records_upserted: number
           started_at: string | null
           status: string
@@ -2288,6 +2289,7 @@ export type Database = {
           finished_at?: string | null
           id?: number
           records_deactivated?: number
+          records_processed?: number | null
           records_upserted?: number
           started_at?: string | null
           status?: string
@@ -2301,6 +2303,7 @@ export type Database = {
           finished_at?: string | null
           id?: number
           records_deactivated?: number
+          records_processed?: number | null
           records_upserted?: number
           started_at?: string | null
           status?: string

@@ -48,6 +48,8 @@ const SyncStepSchema = z.object({
 	current_page: z.number(),
 	total_pages: z.number().nullable(),
 	records_upserted: z.number(),
+	// Linhas recebidas da fonte; NULL onde o step não distingue de records_upserted (gravadas).
+	records_processed: z.number().nullable().default(null),
 	records_deactivated: z.number(),
 	error_message: z.string().nullable(),
 	started_at: z.string().nullable(),

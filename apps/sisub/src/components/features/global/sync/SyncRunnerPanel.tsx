@@ -23,6 +23,11 @@ export type SyncPanelConfig = {
 	stepColumnHeader: string
 	/** Whether the step table shows the "Página" column (paginated syncs only). */
 	showPageColumn: boolean
+	/**
+	 * Mostra "Processados" (recebidos da fonte) ao lado de "Gravados" (novos ou alterados). Sem os
+	 * dois, um sync saudável sem mudanças e uma fonte que devolveu vazio aparecem iguais (0).
+	 */
+	showProcessedColumn?: boolean
 	/** Maps a raw step_name to a display label (+ optional mono subtitle). */
 	stepLabel: (stepName: string) => { primary: string; secondary?: string }
 	/** The 4 metric tiles derived from the sync log. */
@@ -194,7 +199,8 @@ export function SyncRunnerPanel({ config }: { config: SyncPanelConfig }) {
 												<th className="px-4 py-2.5 text-left text-subheading">{config.stepColumnHeader}</th>
 												<th className="px-4 py-2.5 text-left text-subheading">Status</th>
 												{config.showPageColumn && <th className="px-4 py-2.5 text-right text-subheading">Página</th>}
-												<th className="px-4 py-2.5 text-right text-subheading">Registros</th>
+												{config.showProcessedColumn && <th className="px-4 py-2.5 text-right text-subheading">Processados</th>}
+												<th className="px-4 py-2.5 text-right text-subheading">{config.showProcessedColumn ? "Gravados" : "Registros"}</th>
 												<th className="px-4 py-2.5 text-left text-subheading">Erro</th>
 											</tr>
 										</thead>
@@ -222,6 +228,11 @@ export function SyncRunnerPanel({ config }: { config: SyncPanelConfig }) {
 														{config.showPageColumn && (
 															<td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
 																{step.total_pages != null ? `${step.current_page} / ${step.total_pages}` : step.current_page > 0 ? step.current_page : "—"}
+															</td>
+														)}
+														{config.showProcessedColumn && (
+															<td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+																{step.records_processed != null ? step.records_processed.toLocaleString("pt-BR") : "—"}
 															</td>
 														)}
 														<td className="px-4 py-2.5 text-right tabular-nums">{step.records_upserted.toLocaleString("pt-BR")}</td>

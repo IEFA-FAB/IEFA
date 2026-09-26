@@ -20,12 +20,13 @@ import {
 	syncServicoSubclasse,
 	syncServicoUnidadeMedida,
 } from "./servico.ts"
+import type { StepCounts, UpdateProgress } from "./upsert.ts"
 
 const TOTAL_STEPS = 15
 
 // Heartbeat timeout: se não atualizar em 90s, o processo é considerado morto
 
-type StepFn = (supabase: SupabaseClient<any, any>, updateProgress: (page: number, totalPages: number, upserted: number) => Promise<void>) => Promise<number>
+type StepFn = (supabase: SupabaseClient<any, any>, updateProgress: UpdateProgress) => Promise<StepCounts>
 
 /**
  * Cada wave é um array de steps executados em paralelo entre si.
@@ -184,12 +185,14 @@ async function runStep(supabase: SupabaseClient<any, any>, syncId: number, stepN
 		supabase.from("integration_sync_log").update({ heartbeat_at: now }).eq("id", syncId),
 	])
 
-	const updateProgress = async (page: number, totalPages: number, upserted: number) => {
+	// records_processed = linhas recebidas da API; records_upserted = linhas gravadas (novas ou
+	// alteradas). Os dois distinguem "sync saudável sem mudanças" de "API devolveu vazio".
+	const updateProgress: UpdateProgress = async (page, totalPages, counts) => {
 		const ts = new Date().toISOString()
 		await Promise.all([
 			supabase
 				.from("integration_sync_step")
-				.update({ current_page: page, total_pages: totalPages, records_upserted: upserted })
+				.update({ current_page: page, total_pages: totalPages, records_upserted: counts.written, records_processed: counts.processed })
 				.eq("sync_id", syncId)
 				.eq("step_name", stepName),
 			// Heartbeat por página — mantém o lock vivo durante processamento longo
@@ -198,17 +201,17 @@ async function runStep(supabase: SupabaseClient<any, any>, syncId: number, stepN
 	}
 
 	try {
-		const upserted = await fn(supabase, updateProgress)
+		const { processed, written } = await fn(supabase, updateProgress)
 
 		await supabase
 			.from("integration_sync_step")
-			.update({ status: "success", finished_at: new Date().toISOString(), records_upserted: upserted })
+			.update({ status: "success", finished_at: new Date().toISOString(), records_upserted: written, records_processed: processed })
 			.eq("sync_id", syncId)
 			.eq("step_name", stepName)
 
-		await supabase.rpc("integration_sync_step_success", { p_sync_id: syncId, p_upserted: upserted })
+		await supabase.rpc("integration_sync_step_success", { p_sync_id: syncId, p_upserted: written })
 
-		console.log(`[compras-sync] Step '${stepName}' concluído: ${upserted} registros`)
+		console.log(`[compras-sync] Step '${stepName}' concluído: ${processed} processados, ${written} gravados`)
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err)
 		console.error(`[compras-sync] Step '${stepName}' falhou:`, message)

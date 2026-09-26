@@ -86,11 +86,15 @@ async function retrySupabaseWrite(operation: () => Promise<{ error: { message: s
 async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmResponse[]): Promise<void> {
 	if (pdms.length === 0) return
 
+	// Grupo e classe são do sync principal (material.grupo / material.classe), que grava status e
+	// data de atualização reais. O endpoint de PDM não traz nenhum dos dois, então aqui só se cria
+	// o que falta para a FK do PDM (ON CONFLICT DO NOTHING): o status provisório `true` e a data
+	// nula valem até o próximo sync principal, e linha existente nunca é sobrescrita.
 	const groupRows = [...new Map(pdms.map((pdm) => [pdm.codigoGrupo, pdm])).values()].map((pdm) => ({
 		codigo_grupo: pdm.codigoGrupo,
 		nome_grupo: pdm.nomeGrupo,
 		status_grupo: true,
-		data_hora_atualizacao: pdm.dataHoraAtualizacao ?? null,
+		data_hora_atualizacao: null,
 		synced_at: new Date().toISOString(),
 	}))
 
@@ -99,7 +103,7 @@ async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmR
 		codigo_grupo: pdm.codigoGrupo,
 		nome_classe: pdm.nomeClasse,
 		status_classe: true,
-		data_hora_atualizacao: pdm.dataHoraAtualizacao ?? null,
+		data_hora_atualizacao: null,
 		synced_at: new Date().toISOString(),
 	}))
 
@@ -112,14 +116,12 @@ async function upsertFoodPdms(supabase: SupabaseClient<any, any>, pdms: FoodPdmR
 		synced_at: new Date().toISOString(),
 	}))
 
-	const [groupResult, classResult, pdmResult] = await Promise.all([
-		supabase.from("compras_material_grupo").upsert(groupRows),
-		supabase.from("compras_material_classe").upsert(classRows),
-		supabase.from("compras_material_pdm").upsert(pdmRows),
-	])
-
+	// Em sequência: classe tem FK para grupo, e PDM para classe.
+	const groupResult = await supabase.from("compras_material_grupo").upsert(groupRows, { ignoreDuplicates: true })
 	if (groupResult.error) throw new Error(`upsert grupo alimentar: ${groupResult.error.message}`)
+	const classResult = await supabase.from("compras_material_classe").upsert(classRows, { ignoreDuplicates: true })
 	if (classResult.error) throw new Error(`upsert classe alimentar: ${classResult.error.message}`)
+	const pdmResult = await supabase.from("compras_material_pdm").upsert(pdmRows)
 	if (pdmResult.error) throw new Error(`upsert pdm alimentar: ${pdmResult.error.message}`)
 }
 
