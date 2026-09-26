@@ -550,6 +550,8 @@ export const ASSURANCE_REGISTRY = {
 	adjustProductionPortionsFn: { require: "none" },
 	recordProductionSubstitutionFn: { require: "none" },
 	addExecutionMenuItemFn: { require: "none" },
+	reviewExecutionMenuItemFn: { require: "none" },
+	reviewProvisionalFrozenPreparationFn: { require: "none" },
 
 	// ── purchase_item.fn.ts
 	createPurchaseItemFn: { require: "none" },

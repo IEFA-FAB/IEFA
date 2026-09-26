@@ -53,6 +53,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	"demand-forecast": "Prever demanda para compra",
 	"expense-execution": "Executar despesa",
 	designations: "Designações",
+	"execution-review": "Revisar a execução",
 	suprimentos: "Previsão de demanda",
 	recipes: "Preparações",
 	equipment: "Equipamentos",
