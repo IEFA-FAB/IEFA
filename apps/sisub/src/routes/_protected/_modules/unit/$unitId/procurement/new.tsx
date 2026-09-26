@@ -547,6 +547,7 @@ function NewAtaPage() {
 					<SegmentChoice
 						unitId={unitIdStr as string}
 						segments={segments}
+						loaded={segmentation != null}
 						value={wizardState.segmentId ?? null}
 						onChange={(segment) => {
 							setWizardState((prev) => ({ ...prev, segmentId: segment?.id ?? null }))

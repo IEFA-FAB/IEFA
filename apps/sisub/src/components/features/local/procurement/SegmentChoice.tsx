@@ -18,16 +18,19 @@ const ALL_ITEMS = "all"
 export function SegmentChoice({
 	unitId,
 	segments,
+	loaded,
 	value,
 	onChange,
 }: {
 	unitId: string
 	segments: Segment[]
+	/** A segmentação já chegou: antes disso, contratação "sumida" é só carregamento. */
+	loaded: boolean
 	value: string | null
 	onChange: (segment: Segment | null) => void
 }) {
 	const selected = segments.find((s) => s.id === value) ?? null
-	const removed = value != null && !selected
+	const removed = loaded && value != null && !selected
 
 	return (
 		<Card>
@@ -35,11 +38,15 @@ export function SegmentChoice({
 				<Field>
 					<FieldLabel htmlFor="ata-segment">Contratação deste anexo</FieldLabel>
 					<Select
-						value={selected ? selected.id : ALL_ITEMS}
+						// O id guardado segue como valor mesmo quando a contratação sumiu: assim escolher
+						// "Todos os itens" é uma mudança de verdade e dispara `onValueChange`.
+						value={value ?? ALL_ITEMS}
 						onValueChange={(next) => onChange(next == null || next === ALL_ITEMS ? null : (segments.find((s) => s.id === next) ?? null))}
 					>
 						<SelectTrigger id="ata-segment" className="w-full sm:w-96">
-							<SelectValue>{selected ? selected.name : "Todos os itens (sem contratação)"}</SelectValue>
+							<SelectValue>
+								{selected ? selected.name : value && loaded ? "Contratação removida" : value ? "Carregando…" : "Todos os itens (sem contratação)"}
+							</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value={ALL_ITEMS}>Todos os itens (sem contratação)</SelectItem>

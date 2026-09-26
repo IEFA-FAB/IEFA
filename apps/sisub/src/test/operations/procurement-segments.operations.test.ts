@@ -15,6 +15,7 @@ import {
 	deleteProcurementSegment,
 	fetchSegmentationOverview,
 	updateAtaDraft,
+	updateAtaStatus,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -134,6 +135,12 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 		let overview = await fetchSegmentationOverview(db, ctx, { unitId })
 		const peixe = overview.lines.find((l) => l.key === `ing:${ingredients.peixe}`)
 		expect(peixe?.resolution).toEqual({ kind: "conflict", segmentIds: [a.id, b.id].toSorted() })
+
+		// Anexo da contratação A não conclui enquanto o peixe está em A e em B.
+		const { id: conflictDraft } = await createAtaDraft(db, ctx, { unitId })
+		seeder.track("procurement_list", conflictDraft)
+		await updateAtaDraft(db, ctx, { draftId: conflictDraft, segmentId: a.id })
+		await expect(updateAtaStatus(db, ctx, { ataId: conflictDraft, status: "published" })).rejects.toMatchObject({ code: "SEGMENT_CONFLICT" })
 
 		await deleteProcurementSegment(db, ctx, { segmentId: b.id })
 		overview = await fetchSegmentationOverview(db, ctx, { unitId })
