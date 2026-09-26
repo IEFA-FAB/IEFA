@@ -74,7 +74,8 @@
         "E2E_TEST_USER_EMAIL",
         "E2E_TEST_USER_PASSWORD",
         "E2E_BUDGET_UNIT_ID",
-        "E2E_STORAGE_KITCHEN_ID"
+        "E2E_STORAGE_KITCHEN_ID",
+        "E2E_MESSHALL_ID"
       ]
     },
     "test:e2e:ci": {
@@ -90,7 +91,8 @@
         "E2E_TEST_USER_EMAIL",
         "E2E_TEST_USER_PASSWORD",
         "E2E_BUDGET_UNIT_ID",
-        "E2E_STORAGE_KITCHEN_ID"
+        "E2E_STORAGE_KITCHEN_ID",
+        "E2E_MESSHALL_ID"
       ]
     },
     "test:e2e:full": {
@@ -106,7 +108,8 @@
         "E2E_TEST_USER_EMAIL",
         "E2E_TEST_USER_PASSWORD",
         "E2E_BUDGET_UNIT_ID",
-        "E2E_STORAGE_KITCHEN_ID"
+        "E2E_STORAGE_KITCHEN_ID",
+        "E2E_MESSHALL_ID"
       ]
     },
     "test:e2e:ui": {
@@ -122,7 +125,8 @@
         "E2E_TEST_USER_EMAIL",
         "E2E_TEST_USER_PASSWORD",
         "E2E_BUDGET_UNIT_ID",
-        "E2E_STORAGE_KITCHEN_ID"
+        "E2E_STORAGE_KITCHEN_ID",
+        "E2E_MESSHALL_ID"
       ]
     },
     "generate": {

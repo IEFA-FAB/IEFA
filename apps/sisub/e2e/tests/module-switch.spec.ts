@@ -88,18 +88,34 @@ async function waitForSidebarHydration(page: Page) {
 	)
 }
 
-/** Grava, a cada mutação do DOM, todos os hrefs que estão na sidebar naquele instante. */
+/**
+ * Grava todo href que passou pela sidebar. Lê os REGISTROS de mutação, não só o DOM do
+ * momento: um link inserido e trocado na mesma task já saiu do DOM quando o callback roda,
+ * mas continua no `addedNodes` do registro (e o `target` diz onde ele foi inserido).
+ */
 async function recordSidebarHrefs(page: Page) {
 	await page.evaluate(() => {
+		const SIDEBAR = '[data-sidebar="sidebar"]'
 		const seen = new Set<string>()
-		const collect = () => {
-			for (const a of document.querySelectorAll('[data-sidebar="sidebar"] a[href]')) {
-				const href = a.getAttribute("href")
-				if (href) seen.add(href)
-			}
+		const add = (a: Element) => {
+			const href = a.getAttribute("href")
+			if (href) seen.add(href)
 		}
-		collect()
-		new MutationObserver(collect).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["href"] })
+		for (const a of document.querySelectorAll(`${SIDEBAR} a[href]`)) add(a)
+		new MutationObserver((records) => {
+			for (const record of records) {
+				if (!(record.target instanceof Element) || !record.target.closest(SIDEBAR)) continue
+				if (record.type === "attributes") {
+					if (record.target.matches("a[href]")) add(record.target)
+					continue
+				}
+				for (const node of record.addedNodes) {
+					if (!(node instanceof Element)) continue
+					if (node.matches("a[href]")) add(node)
+					for (const a of node.querySelectorAll("a[href]")) add(a)
+				}
+			}
+		}).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["href"] })
 		;(window as unknown as { __sidebarHrefs: Set<string> }).__sidebarHrefs = seen
 	})
 	return () => page.evaluate(() => [...(window as unknown as { __sidebarHrefs: Set<string> }).__sidebarHrefs])
@@ -116,7 +132,10 @@ async function holdTargetRouteChunk(page: Page, moduleId: string) {
 		async (route) => {
 			held++
 			await new Promise((resolve) => setTimeout(resolve, HOLD_MS))
-			await route.continue()
+			// O teste pode terminar (e fechar a página) antes do fim da retenção — o clique na
+			// sidebar cancela a navegação que pediu o chunk. Continuar numa página fechada não
+			// é falha do teste.
+			await route.continue().catch(() => {})
 		}
 	)
 	return () => held
@@ -173,7 +192,7 @@ for (const s of SCENARIOS) {
 			// fica de fora, senão o teste clicaria nele e passaria sem tocar nos itens.
 			const navLink = sidebar(page).locator('[data-sidebar="content"] a[href]:not([aria-label])').first()
 			await expect(navLink).toBeVisible()
-			const href = await navLink.getAttribute("href")
+			const href = (await navLink.getAttribute("href")) ?? ""
 			// soft: com o link errado o clique ainda acontece, e o relatório mostra também onde ele leva
 			expect.soft(href, "o item clicado aponta para o módulo novo com o escopo antigo").not.toMatch(new RegExp(`^${wrongPrefix}(/|$)`))
 			await navLink.click()
@@ -181,7 +200,7 @@ for (const s of SCENARIOS) {
 			// O link errado não dava erro na tela: o PBAC negava o escopo alheio e devolvia ao
 			// /hub (que limpa o `?denied`). Então a prova é chegar exatamente onde o link apontava.
 			const trim = (path: string) => path.replace(/\/+$/, "")
-			const landing = trim(new URL(href ?? "", page.url()).pathname)
+			const landing = trim(new URL(href, page.url()).pathname)
 			await expect(page).toHaveURL((url) => trim(url.pathname) === landing, { timeout: 15_000 })
 			await expect(page.getByText(/Página não encontrada|Algo deu errado/)).toHaveCount(0)
 		})

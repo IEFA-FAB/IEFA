@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 import { useTheme } from "@/hooks/ui/useTheme"
 import { applyEntityLabel, buildCrumbs, linkCrumbs, type NavCrumb } from "@/lib/breadcrumbs"
-import { normalizePath, scopeUrl } from "@/lib/nav-paths"
+import { isScopeInPath, normalizePath, presentedPath, scopeUrl } from "@/lib/nav-paths"
 import type { ScopeContext } from "@/types/domain/scope"
 import { CommandPalette, openCommandPalette } from "./CommandPalette"
 import { CrumbLabelContext } from "./crumb-label"
@@ -29,11 +29,9 @@ export function AppShell() {
 	const { toggle } = useTheme()
 	const matches = useMatches()
 
-	// Caminho da página MONTADA, não da URL pedida: o `useLocation` troca no clique, enquanto
-	// `matches` (e o `scopeContext` que sai deles) só troca quando os loaders da rota nova
-	// terminam. Misturar os dois montava a sidebar do módulo novo com o id de escopo do antigo
-	// (`/unit/<id da cozinha>/…`) durante a navegação — clicar nela abria escopo inexistente.
-	const pathname = matches[matches.length - 1]?.pathname ?? location.pathname
+	// Caminho da página MONTADA, não da URL pedida — ver `presentedPath`. Misturar os dois
+	// montava a sidebar do módulo novo com o id de escopo do antigo durante a navegação.
+	const pathname = presentedPath(location.pathname, matches[matches.length - 1]?.pathname)
 
 	// Reutiliza o isMobile já computado pelo SidebarProvider (768px breakpoint),
 	// consistente com o modo sheet/drawer do sidebar em mobile.
@@ -42,8 +40,10 @@ export function AppShell() {
 	const { permissions, isLoading: levelLoading } = usePBAC()
 	const levelError = false
 
-	// Lê o ScopeContext injetado pelo layout route do módulo ativo (ex: $messHallId/route.tsx)
-	const scopeContext = matches.map((m) => (m.context as Record<string, unknown>)?.scopeContext as ScopeContext | undefined).find(Boolean)
+	// Lê o ScopeContext injetado pelo layout route do módulo ativo (ex: $messHallId/route.tsx),
+	// e só o aceita se o id dele estiver na URL descrita — escopo de outra página não vaza.
+	const matchedScope = matches.map((m) => (m.context as Record<string, unknown>)?.scopeContext as ScopeContext | undefined).find(Boolean)
+	const scopeContext = matchedScope && isScopeInPath(pathname, matchedScope.id) ? matchedScope : undefined
 
 	const availableModules = getModulesForPermissions(permissions)
 
