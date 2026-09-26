@@ -374,6 +374,7 @@ export const userDataInCore = core.table("user_data", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	defaultMessHallId: bigint("default_mess_hall_id", { mode: "number" }),
 }, (table) => [
+	index("user_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast().op("text_ops")),
 	foreignKey({
 			columns: [table.defaultMessHallId],
 			foreignColumns: [messHallsInKitchen.id],
@@ -382,9 +383,9 @@ export const userDataInCore = core.table("user_data", {
 	foreignKey({
 			columns: [table.id],
 			foreignColumns: [usersInAuth.id],
-			name: "user_email_id_fkey"
+			name: "user_data_id_fkey"
 		}),
-	unique("user_email_email_key").on(table.email),
+	unique("user_data_email_key").on(table.email),
 ]);
 
 export const foodItemRevisionInNutritionReference = nutritionReference.table("food_item_revision", {
@@ -980,6 +981,11 @@ export const recipesInKitchen = kitchen.table("recipes", {
 	index("recipes_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.baseRecipeId.asc().nullsLast().op("int8_ops")).where(sql`(base_recipe_id IS NOT NULL)`),
 	uniqueIndex("recipes_lineage_version_unique_idx").using("btree", sql`base_recipe_id`, sql`COALESCE(kitchen_id, ('-1'::integer)::bigint)`, sql`version`).where(sql`(base_recipe_id IS NOT NULL)`),
 	index("recipes_name_idx").using("btree", table.name.asc().nullsLast().op("text_ops")),
+	foreignKey({
+			columns: [table.baseRecipeId],
+			foreignColumns: [table.id],
+			name: "recipes_base_recipe_id_fkey"
+		}),
 	foreignKey({
 			columns: [table.folderId],
 			foreignColumns: [recipeFolderInKitchen.id],
@@ -1883,6 +1889,11 @@ export const folderInKitchen = kitchen.table("folder", {
 	index("folder_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast().op("timestamptz_ops")),
 	index("folder_description_idx").using("btree", table.description.asc().nullsLast().op("text_ops")),
 	index("folder_parent_id_idx").using("btree", table.parentId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.parentId],
+			foreignColumns: [table.id],
+			name: "folder_parent_id_fkey"
+		}),
 	check("folder_catalog_scope_check", sql`catalog_scope = ANY (ARRAY['alimentacao'::text, 'auxiliar'::text])`),
 ]);
 
@@ -3674,6 +3685,11 @@ export const userPolicyAttachmentInAccessControl = accessControl.table("user_pol
 			foreignColumns: [policyInAccessControl.id],
 			name: "user_policy_attachment_policy_id_fkey"
 		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [usersInAuth.id],
+			name: "user_policy_attachment_user_id_fkey"
+		}).onDelete("restrict"),
 	unique("user_policy_attachment_unique").on(table.userId, table.policyId),
 ]);
 
@@ -4087,7 +4103,7 @@ export const procurementListItemInProcurement = procurement.table("procurement_l
 	catmatItemCodigo: integer("catmat_item_codigo"),
 	catmatItemDescricao: text("catmat_item_descricao"),
 	ingredientName: text("ingredient_name").notNull(),
-	folderId: text("folder_id"),
+	folderId: uuid("folder_id"),
 	folderDescription: text("folder_description"),
 	measureUnit: text("measure_unit"),
 	totalQuantity: numeric("total_quantity", { mode: "number", precision: 14, scale: 4 }).notNull(),
@@ -4104,6 +4120,7 @@ export const procurementListItemInProcurement = procurement.table("procurement_l
 	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
 }, (table) => [
 	index("idx_procurement_list_item_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
+	index("procurement_list_item_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast().op("uuid_ops")).where(sql`(folder_id IS NOT NULL)`),
 	index("procurement_list_item_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")).where(sql`(purchase_item_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.listId],
@@ -4115,6 +4132,11 @@ export const procurementListItemInProcurement = procurement.table("procurement_l
 			foreignColumns: [ingredientInKitchen.id],
 			name: "procurement_ata_item_product_id_fkey"
 		}),
+	foreignKey({
+			columns: [table.folderId],
+			foreignColumns: [folderInKitchen.id],
+			name: "procurement_list_item_folder_id_fkey"
+		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.purchaseItemId],
 			foreignColumns: [purchaseItemInProcurement.id],
