@@ -218,7 +218,8 @@ function breakForeignKeyCycles(src: string): string {
 	}
 	let out = src
 	for (const { table, target } of drops) {
-		const block = tableBlocks(src).find((b) => b.name === table)
+		// Blocos de `out`, recalculados a cada volta: a remoção anterior mudou os tamanhos.
+		const block = tableBlocks(out).find((b) => b.name === table)
 		if (!block) continue
 		const body = out.slice(block.start, block.end)
 		const fk = new RegExp(

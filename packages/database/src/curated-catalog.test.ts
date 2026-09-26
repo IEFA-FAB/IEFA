@@ -49,7 +49,11 @@ function sourceFiles(dir: string): string[] {
 function writesPurchaseItem(source: string): boolean {
 	if (/\.from\(\s*["'`]purchase_item["'`]\s*\)[\s\S]{0,400}?\.(?:update|upsert|insert|delete)\(/.test(source)) return true
 	const drizzleNames = ["purchaseItemInProcurement", ...[...source.matchAll(/purchaseItemInProcurement\s+as\s+(\w+)/g)].map((m) => m[1] as string)]
-	if (drizzleNames.some((name) => new RegExp(`\\.(?:update|insert|delete)\\(\\s*${name}\\s*\\)`).test(source))) return true
+	for (const name of drizzleNames) {
+		// `db.update(t)`, `db.update(ns.t)` (import por namespace, `sisubSchema.t`) e `sql\`update ${t} …\``
+		if (new RegExp(`\\.(?:update|insert|delete)\\(\\s*(?:[\\w$]+\\.)?${name}\\s*\\)`).test(source)) return true
+		if (new RegExp(`\\b(?:update|insert\\s+into|delete\\s+from)\\s+\\$\\{\\s*(?:[\\w$]+\\.)?${name}\\s*\\}`, "i").test(source)) return true
+	}
 	return /\b(?:update|insert\s+into|delete\s+from)\s+"?procurement"?\s*\.\s*"?purchase_item"?(?![_\w])/i.test(source)
 }
 
@@ -66,6 +70,8 @@ describe("catálogo de itens de compra curado", () => {
 		expect(writesPurchaseItem(`supabase.schema("procurement").from("purchase_item").update({ catmat_item_codigo: 1 })`)).toBe(true)
 		expect(writesPurchaseItem(`import { purchaseItemInProcurement as pi } from "x"; db.update(pi).set({})`)).toBe(true)
 		expect(writesPurchaseItem(`sql\`UPDATE "procurement"."purchase_item" SET catmat_item_codigo = 1\``)).toBe(true)
+		expect(writesPurchaseItem(`db.update(sisubSchema.purchaseItemInProcurement).set({})`)).toBe(true)
+		expect(writesPurchaseItem("sql`update ${purchaseItemInProcurement} set catmat_item_codigo = 1`")).toBe(true)
 		expect(writesPurchaseItem(`db.select().from(purchaseItemInProcurement)`)).toBe(false)
 		expect(writesPurchaseItem(`update procurement.purchase_item_ingredient set is_default = false`)).toBe(false)
 	})

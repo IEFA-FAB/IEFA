@@ -14,6 +14,12 @@
  * **Tipo não pode apontar para o que o banco não tem.** Tabela ou coluna nos tipos que não
  * existe no `information_schema` é erro em runtime esperando acontecer — reprova.
  *
+ * **Migration que DERRUBA ou RENOMEIA** tabela/coluna faz este teste reprovar em todo PR
+ * aberto até o PR dela entrar (os tipos da `main` ainda apontam para o que sumiu — e o código
+ * da `main` que usa aquilo quebra em produção nessa janela, então o alarme é verdadeiro).
+ * Por isso a migration destrutiva segue expandir/contrair: primeiro um PR tira o uso do código
+ * e regera os tipos; a remoção no banco vem depois, aplicada e mergeada juntas.
+ *
  * O contrário (banco com coisa que os tipos ainda não têm) só é AVISADO: a regra do repo é
  * aplicar a migration antes do merge, e nessa janela todo PR baseado na `main` veria o banco
  * à frente dos tipos. O remédio é o PR da migration regerar os dois arquivos
