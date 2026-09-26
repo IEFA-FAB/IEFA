@@ -12,7 +12,12 @@ O sistema SHALL gerar, por anexo, o relatório de pesquisa de preços com os ele
 - justificativas da metodologia e dos descartes;
 - memória de cálculo do valor estimado por item.
 
-A série completa MUST sair num CSV anexo, cujo SHA-256 vem impresso no relatório.
+A série completa MUST sair num CSV anexo, cujo SHA-256 vem impresso no relatório. Cada relatório gerado MUST ser uma emissão registrada (data, autor, SHA-256, pesquisas usadas por item e preço de cada item no momento), reproduzível depois mesmo que o preço do anexo mude.
+
+#### Scenario: Emissão antiga reproduzível
+
+- **WHEN** um item é repesquisado depois da emissão nº 1 e o auditor reabre a emissão nº 1
+- **THEN** o CSV regenerado tem o mesmo SHA-256 gravado na emissão, e o roteiro de amostragem sorteia os mesmos itens
 
 #### Scenario: Série conferível
 
@@ -49,7 +54,8 @@ O relatório SHALL listar, por item, as verificações com base legal e severida
 | Menos de 3 preços ou fontes, com justificativa e aprovação (art. 6º, § 5º) | aviso |
 | Unidade inferida | aviso |
 | Variação alta, CV acima de 25%, para análise crítica (art. 6º, § 4º) | aviso |
-| Pesquisa com mais de 180 dias | aviso |
+| Amostra com mais de 1 ano na data da emissão | aviso |
+| Pesquisa com mais de 180 dias (política interna, sem citação legal) | aviso |
 
 #### Scenario: Preço de catálogo sem pesquisa
 
@@ -65,5 +71,5 @@ O relatório SHALL trazer um roteiro de conferência:
 
 #### Scenario: Sorteio reproduzível
 
-- **WHEN** dois auditores geram o roteiro da mesma versão do anexo
+- **WHEN** dois auditores geram o roteiro da mesma emissão
 - **THEN** os dois recebem a mesma lista de itens sorteados

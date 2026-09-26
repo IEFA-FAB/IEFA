@@ -7,7 +7,7 @@
 
 Nada junta as pendências. O envio da cozinha nunca fecha: o status `reviewed` não é gravado por ninguém. E o anexo não sabe que as unidades compram por **segmento**: carnes num pregão, estocáveis em outro, bebidas em outro, um por mês, para as atas não vencerem juntas.
 
-A saída também não serve ao destino real. O quantitativo alimenta o ETP (estimativa das quantidades, com memória de cálculo: Lei 14.133/2021, art. 18, IV) e o TR, em cujo editor o anexo é **colado** como tabela. A pesquisa de preços precisa virar o documento do art. 3º da IN SEGES/ME 65/2021, com série de preços, método, justificativas e memória de cálculo. No rancho isso é uma contratação de milhões, com centenas de itens.
+A saída também não serve ao destino real. O quantitativo alimenta o ETP (estimativa das quantidades, com memória de cálculo: Lei 14.133/2021, art. 18, § 1º, IV) e o TR, em cujo editor o anexo é **colado** como tabela. A pesquisa de preços precisa virar o documento do art. 3º da IN SEGES/ME 65/2021, com série de preços, método, justificativas e memória de cálculo. No rancho isso é uma contratação de milhões, com centenas de itens.
 
 Por fim, o vocabulário do sistema diverge da lei em pontos que confundem o processo: "ata" para o anexo, "publicar" o anexo interno, "margem" para o acréscimo de quantidade.
 
@@ -23,12 +23,14 @@ Por fim, o vocabulário do sistema diverge da lei em pontos que confundem o proc
 - **Anexo por contratação.** O anexo quantitativo passa a ser de uma contratação: o cálculo filtra os itens do segmento, e a vigência vem dele. Planejar X produções e comprar só o segmento Y é o caso de uso central.
 - **Previsão de demanda com retorno.**
   - A aba "Suprimentos" vira **"Previsão de demanda"**.
-  - Ao importar a previsão no anexo, ela passa a "Recebida pela unidade", com o anexo em que entrou, e a nutricionista vê isso.
+  - Ao importar a previsão num anexo, ela passa a "Recebida pela unidade" e registra cada anexo em que entrou, e a nutricionista vê isso.
+  - A previsão continua disponível para os anexos das outras contratações.
 - **Documentos para o processo.** Todos saem da mesma versão do anexo e se conferem entre si:
   - **tabela do anexo para colar no TR:** HTML na área de transferência, sem colunas de preço quando o orçamento é sigiloso;
   - **CSV** do anexo;
   - **memória de cálculo das quantidades** (PDF pela impressão do navegador);
-  - **relatório de pesquisa de preços** conforme o art. 3º da IN 65/2021 (PDF), com a série completa em CSV, SHA-256 impresso, checklist de conformidade e roteiro de auditoria por amostragem.
+  - **relatório de pesquisa de preços** conforme o art. 3º da IN 65/2021 (PDF), com a série completa em CSV, checklist de conformidade e roteiro de auditoria por amostragem;
+  - cada relatório é uma **emissão registrada** (data, autor, SHA-256 e pesquisas usadas), reproduzível depois mesmo que o preço do anexo mude.
 - **Pesquisa de preços auditável:**
   - o agente responsável e o fornecedor (CNPJ e nome) passam a ser gravados;
   - o preço convertido e o fator de cada amostra são gravados;
@@ -61,11 +63,11 @@ Por fim, o vocabulário do sistema diverge da lei em pontos que confundem o proc
 **Packages:** `@iefa/sisub-domain` (segmentação, status dos fluxos, dossiê de pesquisa, schemas) e `@iefa/database` (migration e tipos).
 
 **Banco (uma migration, schema `procurement`):**
-- tabelas novas `procurement_segment` (com `unit_id`) e `procurement_segment_rule`;
+- tabelas novas `procurement_segment` (com `unit_id`), `procurement_segment_rule`, `kitchen_ata_draft_import` e `price_research_emission`;
 - colunas novas:
   - em `procurement_list`: `segment_id`, `is_budget_confidential`, `min_quote_percent`;
   - em `procurement_list_snapshot_component`: `min_quote_quantity`;
-  - em `kitchen_ata_draft`: `reviewed_at`, `reviewed_by`, `included_list_id`;
+  - em `kitchen_ata_draft`: `reviewed_at`, `reviewed_by`;
   - em `procurement_pesquisa_preco`: `created_by`;
   - em `procurement_pesquisa_preco_amostra`: `converted_price`, `content_in_unit`, `conversion`;
   - em `compras_amostra`: `ni_fornecedor`, `nome_fornecedor`;

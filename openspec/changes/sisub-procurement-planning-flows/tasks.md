@@ -5,7 +5,7 @@
 ## 1. Declaração e migration
 
 - [ ] 1.1 [sisub] Declarar `procurement.procurement_segment` em `RESET_EXCLUSIONS` (antes da migration)
-- [ ] 1.2 [database] Migration `procurement_planning_flows`: tabelas `procurement_segment` e `procurement_segment_rule`; colunas em `procurement_list`, `procurement_list_snapshot_component`, `kitchen_ata_draft`, `procurement_pesquisa_preco`, `procurement_pesquisa_preco_amostra` e `compras_amostra`; `upsert_compras_amostras` com fornecedor
+- [ ] 1.2 [database] Migration `procurement_planning_flows`: tabelas `procurement_segment`, `procurement_segment_rule`, `kitchen_ata_draft_import` e `price_research_emission`; colunas em `procurement_list`, `procurement_list_snapshot_component`, `kitchen_ata_draft`, `procurement_pesquisa_preco`, `procurement_pesquisa_preco_amostra` e `compras_amostra`; `upsert_compras_amostras` completa o fornecedor sem mexer no fingerprint
 - [ ] 1.3 [database] Aplicar no banco compartilhado (`db:push --dry-run` e depois push); `audit:rls` verde
 - [ ] 1.4 [database] Regerar `generated.ts` (`db:types`) e Drizzle (`db:drizzle:pull`)
 
@@ -22,7 +22,7 @@
 
 - [ ] 3.1 [sisub] Textos do anexo, do CSV e dos limites (tabela D9 do design)
 - [ ] 3.2 [sisub] "Suprimentos" → "Previsão de demanda" (navegação, páginas, editor, selo de importação)
-- [ ] 3.3 [sisub-domain] `markKitchenDraftReviewed` (`unit:2` na OM da cozinha) ao importar; retorno visível na cozinha
+- [ ] 3.3 [sisub-domain] `recordKitchenDraftImport` (`unit:2` na OM da cozinha) ao importar; `fetchPendingDraft` com `sent` ou `reviewed`; retorno visível na cozinha
 
 ## 4. Fluxos
 
@@ -37,7 +37,7 @@
 - [ ] 5.2 [sisub] `auditPriceResearch` e amostragem reproduzível (puros, com testes)
 - [ ] 5.3 [sisub] Copiar tabela (HTML e TSV, em partes), CSV com colunas novas, orçamento sigiloso, percentual de cotação mínima
 - [ ] 5.4 [sisub] Impressão da memória de cálculo das quantidades
-- [ ] 5.5 [sisub] Impressão do relatório de pesquisa de preços, CSV da série e SHA-256
+- [ ] 5.5 [sisub] Emissão registrada do relatório de pesquisa de preços (SHA-256 no servidor), impressão, CSV da série e reabertura de emissões antigas
 
 ## 6. Verificação
 

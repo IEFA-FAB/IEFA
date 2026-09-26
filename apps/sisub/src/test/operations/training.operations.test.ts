@@ -127,6 +127,11 @@ describeSupabaseIntegration("training operations (integração)", () => {
 		// Guarda contra query vazia passar como verde — a suíte já rodou vacuosa neste repo.
 		expect(scoped.length).toBeGreaterThan(10)
 
+		// As duas listas são disjuntas: tabela que subiu para o reset e ficou na exclusão (a
+		// declaração feita antes da migration, esquecida no PR do recurso) passaria calada.
+		const inBoth = RESET_TARGET_TABLES.filter((table) => table in RESET_EXCLUSIONS)
+		expect(inBoth, `tabelas no reset E na lista de exclusão: ${inBoth.join(", ")}`).toEqual([])
+
 		const covered = new Set([...RESET_TARGET_TABLES, ...Object.keys(RESET_EXCLUSIONS)])
 		const uncovered = scoped.filter((t) => !covered.has(t))
 

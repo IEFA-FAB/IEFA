@@ -18,16 +18,21 @@ Com orçamento sigiloso marcado no anexo, as colunas de preço e valor MUST ser 
 
 ### Requirement: Quantidade mínima a ser cotada
 
-O anexo SHALL ter um percentual de quantidade mínima a ser cotada (Lei 14.133/2021, art. 82, II), com padrão de 100%. A quantidade mínima de cada item MUST ser `ceil(quantidade máxima × percentual)` e ser congelada no snapshot na conclusão.
+O anexo SHALL ter um percentual de quantidade mínima a ser cotada (Lei 14.133/2021, art. 82, II), com padrão de 100%. A quantidade mínima de cada item MUST ser o teto de `quantidade máxima × percentual ÷ 100`, com o produto arredondado em 6 casas antes do teto para não errar por ponto flutuante, e ser congelada no snapshot na conclusão.
 
 #### Scenario: Cotação parcial admitida
 
 - **WHEN** o percentual é 25% e a quantidade máxima de um item é 1.000 kg
 - **THEN** a quantidade mínima a ser cotada do item é 250 kg
 
+#### Scenario: Ponto flutuante não soma uma unidade
+
+- **WHEN** o percentual é 7% e a quantidade máxima é 100
+- **THEN** a quantidade mínima a ser cotada é 7, não 8
+
 ### Requirement: Memória de cálculo das quantidades
 
-O sistema SHALL gerar, para imprimir ou salvar em PDF, a memória de cálculo das quantidades do anexo (Lei 14.133/2021, art. 18, IV). Por item, ela MUST trazer:
+O sistema SHALL gerar, para imprimir ou salvar em PDF, a memória de cálculo das quantidades do anexo (Lei 14.133/2021, art. 18, § 1º, IV). Por item, ela MUST trazer:
 
 - cada parcela: cozinha, cardápio e tipo, preparação, comensais, per capita líquido, rendimento, repetições e quantidade;
 - o total no insumo e o fator de conversão;

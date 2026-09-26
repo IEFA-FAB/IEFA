@@ -49,6 +49,13 @@ Um fluxo é uma lista de etapas `{ id, título, objetivo, status, pendências[],
 - **O reflexo do lado da cozinha:** o fluxo da cozinha lê o calendário das contratações da OM dela (só nome e mês previsto) e mostra "a unidade planeja a contratação Carnes para março: envie a previsão até lá".
 - Não há notificação ativa; cada lado vê a pendência no próprio fluxo.
 
+**Ciclo do calendário.** `planned_month` não tem ano; o ciclo se calcula a partir de hoje:
+
+- `vencimento` = dia 1 do `planned_month` no ano corrente, ou no seguinte quando ele já passou há mais de 2 meses. A janela que cruza o ano (março com 5 meses de antecedência começa em outubro) sai dessa conta;
+- `início da janela` = vencimento − `lead_time_months`;
+- a pendência "planejar a contratação X" fica ativa de `início da janela` até `vencimento + 2 meses`;
+- ela se **encerra** quando existe anexo concluído da contratação com conclusão depois do `início da janela` do ciclo corrente.
+
 ### D3. Segmentação: contratações montadas pela unidade
 
 **Nome.** "Segmentação" é a tela; cada segmento é uma **contratação**, posicionada no **calendário de contratação** (Decreto 10.947/2022, art. 11, III).
@@ -72,9 +79,12 @@ Um fluxo é uma lista de etapas `{ id, título, objetivo, status, pendências[],
   - **exatamente um** de `folder_id` (FK `kitchen.folder`) ou `purchase_item_id` (FK `procurement.purchase_item`);
   - único por `(segment_id, folder_id)` e por `(segment_id, purchase_item_id)`.
 
-**Resolução do item.** Função pura `resolveSegment(item, segments)` em `@iefa/sisub-domain`.
+**Resolução do item.** Função pura `resolveSegment(item, segments)` em `@iefa/sisub-domain`. A unidade resolvida é a **linha do anexo**: o item de compra, ou o insumo quando não há item de compra, porque é por ela que o anexo agrega e é ela que entra na ata.
 
-- **Entrada:** o item de compra e a cadeia de pastas do insumo, da folha para a raiz.
+- **Entrada:** o item de compra e as cadeias de pastas (da folha para a raiz) de **todos** os insumos que o usam como item padrão. `purchase_item_ingredient` é N:N: dois insumos em pastas diferentes podem apontar para o mesmo item de compra.
+- **Regra de item de compra** decide sozinha, acima de qualquer pasta.
+- **Sem regra de item:** cada insumo resolve pela própria cadeia. Se os insumos do mesmo item resolvem para contratações diferentes, o item é **conflito**; se só parte deles resolve, vale a contratação resolvida.
+- Contratação apagada (`deleted_at`) não entra na resolução.
 - **Especificidade dentro de um segmento:**
   - regra de item de compra vale 1000;
   - regra de pasta vale `100 − distância` (folha = 0, pai = 1…).
@@ -94,7 +104,8 @@ Um fluxo é uma lista de etapas `{ id, título, objetivo, status, pendências[],
 
 ### D4. Anexo de uma contratação
 
-- `procurement_list.segment_id` (nullable, FK `procurement_segment`, `on delete set null`).
+- `procurement_list.segment_id` (nullable, FK `procurement_segment` sem ação de delete: a contratação é apagada por soft delete, e o anexo guarda a referência histórica).
+  - Rascunho cuja contratação foi apagada mostra "contratação removida" e exige escolher outra, ou nenhuma, antes de calcular.
   - O wizard mostra no passo 1 a escolha da contratação, que é opcional: sem ela, o comportamento é o de hoje.
   - A vigência do anexo nasce da vigência do segmento.
 - `calculateAtaNeeds` recebe `segmentId` opcional:
@@ -105,9 +116,11 @@ Um fluxo é uma lista de etapas `{ id, título, objetivo, status, pendências[],
 ### D5. Previsão de demanda com retorno
 
 - UI: "Suprimentos" vira **"Previsão de demanda"**; "Rascunho" vira "Previsão"; "Enviar para Gestão" vira "Enviar à unidade". A URL `/kitchen/$kitchenId/suprimentos` fica, como dívida registrada.
-- `kitchen_ata_draft` ganha `reviewed_at`, `reviewed_by` e `included_list_id` (FK `procurement_list`, `on delete set null`).
-- **Importar a previsão no wizard** chama `markKitchenDraftReviewed(draftId, listId)`, com `unit:2` na OM dona da cozinha: status `reviewed`, carimbo, anexo.
-- **Na cozinha:** "Recebida pela unidade em dd/mm, no anexo X". Com o anexo apagado, fica "Recebida pela unidade".
+- `kitchen_ata_draft` ganha `reviewed_at` e `reviewed_by`, gravados na **primeira** importação.
+- Tabela nova `procurement.kitchen_ata_draft_import (draft_id, list_id, imported_by, imported_at)`, com PK composta e as duas FKs em cascade. Uma previsão entra em **vários** anexos, um por contratação.
+- **Importar a previsão no wizard** chama `recordKitchenDraftImport(draftId, listId)`, com `unit:2` na OM dona da cozinha: grava a importação e, na primeira, `status = reviewed` com o carimbo.
+- `fetchPendingDraft` passa a devolver a previsão mais recente com status `sent` **ou** `reviewed`, indicando em quais anexos ela já entrou. Marcar como recebida não a esconde do wizard das outras contratações.
+- **Na cozinha:** "Recebida pela unidade em dd/mm", com a lista dos anexos em que entrou.
 
 ### D6. Documentos
 
@@ -136,7 +149,7 @@ Impressão pela mesma técnica da Ficha Técnica: portal no `<body>` e `window.p
 **Gravação nova:**
 - `procurement_pesquisa_preco.created_by`: o agente responsável (art. 3º, II), da sessão.
 - Em `procurement_pesquisa_preco_amostra`: `converted_price numeric(14,6)`, `content_in_unit numeric(14,6)` e `conversion text` (ex.: "FR 750 ML = 0,75 LT"), gravados na hora da pesquisa. A ponte é por item pesquisado, então a conversão não colide entre itens de unidades diferentes.
-- `compras_amostra.ni_fornecedor` e `nome_fornecedor`, que a API devolve e hoje se perdem. Entram no fingerprint só para linhas novas; as antigas ficam nulas.
+- `compras_amostra.ni_fornecedor` e `nome_fornecedor`, que a API devolve e hoje se perdem. **Não** entram no `fingerprint` (coluna `GENERATED STORED`, que é a chave da deduplicação): o upsert completa o fornecedor na linha existente quando ele estava nulo, e a mesma observação nunca vira duas linhas.
 
 **Relatório.** Estrutura do art. 3º da IN 65/2021:
 
@@ -159,18 +172,24 @@ Impressão pela mesma técnica da Ficha Técnica: portal no `<body>` e `window.p
 | Preço acima da mediana | bloqueia (art. 6º, § 6º) |
 | Unidade inferida | aviso |
 | CV > 25% | aviso de análise crítica (art. 6º, § 4º); limiar interno, declarado no documento |
-| Pesquisa com mais de 180 dias | aviso (art. 5º, III e IV, contados até o edital) |
+| Amostra com mais de 1 ano na data da emissão | aviso: a janela usada é a do inciso II do art. 5º, aplicada por prudência à fonte oficial |
+| Pesquisa com mais de 180 dias | aviso de política interna: refazer antes de divulgar o edital; sem citação legal, porque os prazos de 6 meses do art. 5º (III e IV) não se aplicam à fonte oficial |
 
 **Roteiro de auditoria:**
 - curva ABC por valor: os itens que somam 80% são conferidos por inteiro;
 - dos demais, amostra reproduzível de 10% (mínimo 5), sorteada com semente derivada do SHA-256 do CSV.
 
-**Integridade:** o CSV é gerado de forma determinística (ordem por item e depois por amostra), o hash é calculado no navegador (`crypto.subtle`), e o botão de download entrega exatamente os bytes hasheados.
+**Integridade e reprodução.** O preço do anexo segue vivo (a pesquisa se refaz perto do edital), então o documento não pode depender do estado de "agora":
+
+- cada relatório gerado é uma **emissão** em `procurement.price_research_emission`: `list_id`, `emitted_at`, `emitted_by`, `sha256`, os ids das pesquisas usadas por item e o preço de cada item no momento;
+- o CSV da série é gerado de forma determinística (ordem por item e depois por amostra) **a partir das pesquisas da emissão**, e o servidor calcula e grava o SHA-256;
+- reabrir uma emissão antiga regenera os mesmos bytes e o mesmo hash, e o roteiro de amostragem usa a semente da emissão;
+- o relatório imprime o número e a data da emissão, e cada nova emissão é uma linha nova, nunca `UPDATE`.
 
 ### D8. Quantidade mínima a ser cotada
 
 - `procurement_list.min_quote_percent` (0–100, default 100: o licitante cota a máxima inteira).
-- Por item: `ceil(máxima × percentual)`, congelado em `procurement_list_snapshot_component.min_quote_quantity` na conclusão.
+- Por item: `ceil(máxima × percentual ÷ 100)`, com o produto arredondado em 6 casas antes do teto (mesma técnica de `computeMaxQuantity`: `Math.ceil(100 × 0.07)` daria 8), congelado em `procurement_list_snapshot_component.min_quote_quantity` na conclusão.
 - Alternativa descartada: um valor por item. É raro que o rancho diferencie, e o percentual cobre o edital típico.
 
 ### D9. Terminologia
@@ -181,7 +200,7 @@ Só texto de UI e CSV nesta change; identificadores `ata*` do código e do banco
 |---|---|---|
 | Publicar / Publicado (anexo) | Concluir / Concluído | publicar = divulgar no PNCP (art. 54) |
 | Margem (%) / Justificativa da margem | Acréscimo sobre a estimada (%) / Justificativa da quantidade máxima | margem de preferência (art. 26); quantidade máxima (art. 82, I) |
-| Qtd Alvo / Previsto | Quantidade estimada | art. 18, IV; art. 40, III |
+| Qtd Alvo / Previsto | Quantidade estimada | art. 18, § 1º, IV; art. 40, III |
 | Qtd Mínima por Pedido / menor lote | Quantidade mínima por ordem de fornecimento | ordem de fornecimento (art. 6º, X); lote (art. 40, § 2º, I) |
 | Preço de Referência (catálogo) | Preço de catálogo | não é pesquisa (IN 65/2021) |
 | Lista de Itens da Ata | Itens do anexo quantitativo | ata = art. 6º, XLVI |

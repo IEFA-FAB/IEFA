@@ -16,7 +16,12 @@ O sistema SHALL permitir que quem tem `unit:2` na OM cadastre contratações (se
 
 ### Requirement: Item disputado bloqueia, item sem contratação avisa
 
-O sistema SHALL resolver cada item para exatamente uma contratação, pela regra mais específica. Empate de especificidade entre duas contratações MUST ser conflito bloqueante, porque o órgão não pode participar de duas atas com o mesmo objeto (Lei 14.133/2021, art. 82, VIII). Item que não casa com nenhuma contratação MUST aparecer como aviso.
+O sistema SHALL resolver cada linha do anexo (o item de compra, ou o insumo sem item de compra) para exatamente uma contratação, pela regra mais específica. Regra de item de compra vale sobre qualquer pasta. Sem ela, se os insumos do mesmo item de compra resolvem para contratações diferentes, o item MUST ser conflito. Contratação apagada não entra na resolução. Empate de especificidade entre duas contratações MUST ser conflito bloqueante, porque o órgão não pode participar de duas atas com o mesmo objeto (Lei 14.133/2021, art. 82, VIII). Item que não casa com nenhuma contratação MUST aparecer como aviso.
+
+#### Scenario: Item de compra com insumos em pastas de contratações diferentes
+
+- **WHEN** "Frango inteiro" (Proteínas) e "Frango para caldo" (Congelados) usam o mesmo item de compra, e Proteínas está em "Carnes" e Congelados em "Congelados"
+- **THEN** o item de compra aparece como conflito entre "Carnes" e "Congelados"
 
 #### Scenario: Mesma pasta em duas contratações
 
