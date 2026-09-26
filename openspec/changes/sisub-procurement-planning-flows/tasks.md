@@ -33,14 +33,14 @@
 
 ## 5. Documentos e pesquisa auditável
 
-- [ ] 5.1 [sisub-domain] Gravar `created_by`, fornecedor e conversão por amostra; `explainAtaNeeds`; `fetchPriceResearchDossier(ataId)`
-- [ ] 5.2 [sisub] `auditPriceResearch` e amostragem reproduzível (puros, com testes)
-- [ ] 5.3 [sisub] Copiar tabela (HTML e TSV, em partes), CSV com colunas novas, orçamento sigiloso, percentual de cotação mínima
-- [ ] 5.4 [sisub] Impressão da memória de cálculo das quantidades
-- [ ] 5.5 [sisub] Emissão registrada do relatório de pesquisa de preços (SHA-256 no servidor), impressão, CSV da série e reabertura de emissões antigas
+- [x] 5.1 [sisub-domain] Gravar `created_by`, fornecedor e conversão por amostra; `explainAtaNeeds`; `fetchPriceResearchDossier(ataId)`
+- [x] 5.2 [sisub] `auditPriceResearch` e amostragem reproduzível (puros, com testes)
+- [x] 5.3 [sisub] Copiar tabela (HTML e TSV, em partes), CSV com colunas novas, orçamento sigiloso, percentual de cotação mínima
+- [x] 5.4 [sisub] Impressão da memória de cálculo das quantidades
+- [x] 5.5 [sisub] Emissão registrada do relatório de pesquisa de preços (SHA-256 no servidor), impressão, CSV da série e reabertura de emissões antigas
 
 ## 6. Verificação
 
-- [ ] 6.1 [sisub] E2E na sentinela: fluxo da cozinha → envio → fluxo da unidade → segmentação → anexo por contratação → pesquisa → documentos
-- [ ] 6.2 [sisub] Catálogo de edge cases (Gestão Unidade e Gestão Cozinha) com os casos novos
+- [x] 6.1 [sisub] E2E na sentinela: fluxo da cozinha → envio → fluxo da unidade → segmentação → anexo por contratação → pesquisa → documentos
+- [x] 6.2 [sisub] Catálogo de edge cases (Gestão Unidade e Gestão Cozinha) com os casos novos
 - [ ] 6.3 [root] `bun run check`, `bun run lint --concurrency=2`, `bun run test --concurrency=2`

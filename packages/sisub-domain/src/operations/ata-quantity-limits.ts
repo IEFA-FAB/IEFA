@@ -144,6 +144,20 @@ export function computeMaxQuantity(targetQuantity: number, marginPercent: number
 	return Math.ceil(Number((targetQuantity * (1 + marginPercent / 100)).toFixed(6)))
 }
 
+/** Percentual padrão da quantidade mínima a ser cotada: o licitante cota a máxima inteira. */
+export const DEFAULT_MIN_QUOTE_PERCENT = 100
+
+/**
+ * Quantidade mínima a ser cotada (Lei 14.133/2021, art. 82, II): percentual da quantidade máxima,
+ * arredondado para cima. O produto é arredondado em 6 casas antes do teto, como em
+ * `computeMaxQuantity`: `Math.ceil(100 * 0.07)` daria 8.
+ */
+export function computeMinQuoteQuantity(maxQuantity: number | null | undefined, percent: number | null | undefined): number | null {
+	if (maxQuantity == null || !(maxQuantity > 0)) return maxQuantity == null ? null : 0
+	const share = percent ?? DEFAULT_MIN_QUOTE_PERCENT
+	return Math.ceil(Number(((maxQuantity * share) / 100).toFixed(6)))
+}
+
 export function computeQuantityLimits({
 	targetQuantity,
 	validityMonths,

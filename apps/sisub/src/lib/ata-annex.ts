@@ -1,5 +1,6 @@
 import {
 	computeAtaItemLimits,
+	computeMinQuoteQuantity,
 	type DeliveryCycle,
 	type DeliveryCycleSource,
 	isDeliveryCycle,
@@ -15,6 +16,8 @@ export interface AtaAnnexSettings {
 	validityMonths: number | null
 	maxMarginPercent: number
 	marginJustification: string | null
+	/** Quantidade mínima a ser cotada, em % da máxima (Lei 14.133/2021, art. 82, II). */
+	minQuotePercent: number
 }
 
 /**
@@ -25,6 +28,11 @@ export interface AtaAnnexSettings {
 export interface AtaAnnexRow {
 	key: string
 	ataItemId: string | null
+	/** Insumo da linha: liga a linha às parcelas da memória de cálculo. */
+	ingredientId: string | null
+	/** Quantidade no insumo (antes do fator de conversão) e a unidade dele. */
+	ingredientQuantity: number
+	ingredientUnit: string | null
 	folder: string
 	catmat: number | null
 	catmatDescription: string | null
@@ -34,6 +42,8 @@ export interface AtaAnnexRow {
 	targetQuantity: number
 	marginPercent: number | null
 	maxQuantity: number | null
+	/** Quantidade mínima a ser cotada (art. 82, II). */
+	minQuoteQuantity: number | null
 	/** Folga da máxima sobre o alvo depois do arredondamento, em %. */
 	effectiveMarginPercent: number | null
 	deliveryCycle: DeliveryCycle | null
@@ -88,6 +98,9 @@ export function buildDraftAnnexRows(items: ProcurementNeed[], settings: AtaAnnex
 		return {
 			key: item.ata_item_id ?? item.ingredient_id,
 			ataItemId: item.ata_item_id ?? null,
+			ingredientId: item.ingredient_id ?? null,
+			ingredientQuantity: item.total_quantity,
+			ingredientUnit: item.measure_unit ?? null,
 			folder: item.folder_description || "Sem categoria",
 			catmat: item.catmat_item_codigo,
 			catmatDescription: item.catmat_item_descricao,
@@ -97,6 +110,7 @@ export function buildDraftAnnexRows(items: ProcurementNeed[], settings: AtaAnnex
 			targetQuantity: limits.targetQuantity,
 			marginPercent: limits.marginPercent,
 			maxQuantity: limits.maxQuantity,
+			minQuoteQuantity: computeMinQuoteQuantity(limits.maxQuantity, settings.minQuotePercent),
 			effectiveMarginPercent: limits.effectiveMarginPercent,
 			deliveryCycle: limits.deliveryCycle,
 			deliveryCycleSource: limits.deliveryCycleSource,
@@ -141,6 +155,9 @@ export function buildSnapshotAnnexRows(
 		return {
 			key: `snapshot-${index}`,
 			ataItemId: null,
+			ingredientId: c.ingredient_id,
+			ingredientQuantity: Number(c.total_quantity),
+			ingredientUnit: c.measure_unit,
 			folder: c.folder_description || "Sem categoria",
 			catmat: c.catmat_item_codigo,
 			catmatDescription: live?.catmat_item_descricao ?? null,
@@ -150,6 +167,7 @@ export function buildSnapshotAnnexRows(
 			targetQuantity,
 			marginPercent: c.max_margin_percent,
 			maxQuantity,
+			minQuoteQuantity: c.min_quote_quantity ?? null,
 			effectiveMarginPercent: maxQuantity != null && targetQuantity > 0 ? ((maxQuantity - targetQuantity) / targetQuantity) * 100 : null,
 			deliveryCycle: isDeliveryCycle(c.delivery_cycle) ? c.delivery_cycle : null,
 			deliveryCycleSource: null,
@@ -187,6 +205,7 @@ export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string 
 		"Quantidade estimada",
 		"Acréscimo sobre a estimada (%)",
 		"Quantidade máxima",
+		"Quantidade mínima a ser cotada",
 		"Ciclo de Entrega",
 		"Quantidade mínima por ordem de fornecimento",
 		"Preço unitário estimado",
@@ -203,6 +222,7 @@ export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string 
 		csvNumber(r.targetQuantity, 4),
 		r.marginPercent,
 		csvNumber(r.maxQuantity, 0),
+		csvNumber(r.minQuoteQuantity, 0),
 		r.deliveryCycle ? CYCLE_CSV[r.deliveryCycle] : "",
 		csvNumber(r.minOrderQuantity, r.minOrderQuantity != null && Number.isInteger(r.minOrderQuantity) ? 0 : 4),
 		csvNumber(r.unitPrice, 4),

@@ -66,7 +66,7 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
-import { computeAtaItemLimits, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
+import { computeAtaItemLimits, computeMinQuoteQuantity, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
 import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { isSamePrice } from "./price-units.ts"
 import { findSegmentConflicts, lineKey, loadLiveSegment, resolveNeedsForSegment } from "./procurement-segments.ts"
@@ -147,6 +147,7 @@ type AtaSnapshotComponent = {
 	max_quantity: number | null
 	delivery_cycle: string | null
 	min_order_quantity: number | null
+	min_quote_quantity: number | null
 }
 /** Metadados de integridade computados por request (não persistidos). */
 type AtaMeta = {
@@ -176,10 +177,33 @@ const DETAILS_RELATIONS: Record<string, string> = {
  * Translates ingredient → purchase_item via is_default link, then sorts by folder_description → ingredient_name (pt-BR).
  */
 export async function calculateAtaNeeds(db: SisubDb, ctx: UserContext, input: CalculateAtaNeeds): Promise<ProcurementNeed[]> {
-	const { kitchenSelections } = input
 	// Não grava nada, mas LÊ planos, receitas e insumos das cozinhas citadas — que vinham do
 	// corpo. Sem isto, qualquer sessão abria o plano local de qualquer cozinha pelo cálculo.
-	await authorizeNeedsSelections(db, ctx, kitchenSelections)
+	await authorizeNeedsSelections(db, ctx, input.kitchenSelections)
+	return computeAtaNeeds(db, input)
+}
+
+/** Uma parcela da quantidade de um insumo: um item de cardápio × as repetições da seleção. */
+export interface NeedContribution {
+	ingredientId: string
+	kitchenId: number
+	templateId: string
+	templateType: string | null
+	recipeId: string
+	headcount: number
+	netQuantity: number
+	portionYield: number
+	repetitions: number
+	quantity: number
+}
+
+/**
+ * O cálculo em si, sem autorização (quem chama já autorizou). Com `collect`, registra cada
+ * parcela: é a memória de cálculo das quantidades (Lei 14.133/2021, art. 18, § 1º, IV), e sai da
+ * MESMA travessia que produz o número — não de uma reconstrução à parte que pudesse divergir.
+ */
+async function computeAtaNeeds(db: SisubDb, input: CalculateAtaNeeds, collect?: NeedContribution[]): Promise<ProcurementNeed[]> {
+	const { kitchenSelections } = input
 
 	// Coletar as seleções dos três regimes (weekly, event, exception). `repetitions`
 	// já chega normalizado como "vezes dentro da vigência da ata" — a projeção
@@ -321,6 +345,18 @@ export async function calculateAtaNeeds(db: SisubDb, ctx: UserContext, input: Ca
 
 				// Aquisição: projeta o cardápio × repetições da seleção da ATA.
 				const quantityNeeded = scaleIngredientQuantity(Number(ri.netQuantity ?? 0), headcount, portionYield, selection.repetitions)
+				collect?.push({
+					ingredientId: ri.ingredientId,
+					kitchenId: selection.kitchenId,
+					templateId: selection.templateId,
+					templateType: template.templateType ?? null,
+					recipeId: item.recipeId as string,
+					headcount,
+					netQuantity: Number(ri.netQuantity ?? 0),
+					portionYield,
+					repetitions: selection.repetitions,
+					quantity: quantityNeeded,
+				})
 
 				const existing = needsMap.get(ri.ingredientId)
 				if (existing) {
@@ -606,6 +642,84 @@ export async function calculateAtaNeedsForSegment(
 		else excluded.unassigned++
 	}
 	return { items, excluded }
+}
+
+// ─── Memória de cálculo das quantidades ───────────────────────────────────────
+
+export interface QuantityMemory {
+	/** Itens recalculados com as seleções gravadas no anexo. */
+	needs: ProcurementNeed[]
+	/** Parcelas por insumo, já com os nomes de cozinha, cardápio e preparação. */
+	contributions: Array<NeedContribution & { kitchenName: string; templateName: string; recipeName: string }>
+}
+
+/**
+ * Memória de cálculo das quantidades do anexo: refaz o cálculo com as seleções GRAVADAS no anexo
+ * (cozinhas, cardápios, repetições) e devolve cada parcela. Em anexo concluído, os números
+ * congelados continuam sendo os do snapshot; quem imprime compara e declara a divergência.
+ */
+export async function explainAtaNeeds(db: SisubDb, ctx: UserContext, input: { ataId: string }): Promise<QuantityMemory> {
+	await authorizeAtaList(db, ctx, input.ataId, 1)
+	const rows = await runQuery(
+		"FETCH_FAILED",
+		() =>
+			db
+				.select({
+					kitchenId: procurementListKitchenInProcurement.kitchenId,
+					kitchenName: kitchenInKitchen.displayName,
+					templateId: procurementListSelectionInProcurement.templateId,
+					templateName: menuTemplateInKitchen.name,
+					templateType: menuTemplateInKitchen.templateType,
+					repetitions: procurementListSelectionInProcurement.repetitions,
+				})
+				.from(procurementListSelectionInProcurement)
+				.innerJoin(procurementListKitchenInProcurement, eq(procurementListKitchenInProcurement.id, procurementListSelectionInProcurement.listKitchenId))
+				.leftJoin(kitchenInKitchen, eq(kitchenInKitchen.id, procurementListKitchenInProcurement.kitchenId))
+				.leftJoin(menuTemplateInKitchen, eq(menuTemplateInKitchen.id, procurementListSelectionInProcurement.templateId))
+				.where(eq(procurementListKitchenInProcurement.listId, input.ataId)),
+		{ prefix: "Erro ao ler as seleções do anexo" }
+	)
+
+	const byKitchen = new Map<number, CalculateAtaNeeds["kitchenSelections"][number]>()
+	for (const row of rows) {
+		const entry = byKitchen.get(row.kitchenId) ?? {
+			kitchenId: row.kitchenId,
+			kitchenName: row.kitchenName ?? `Cozinha ${row.kitchenId}`,
+			deliveryNotes: "",
+			templateSelections: [],
+			eventSelections: [],
+			exceptionSelections: [],
+		}
+		const selection = { templateId: row.templateId, templateName: row.templateName ?? "", repetitions: row.repetitions }
+		if (row.templateType === "event") entry.eventSelections.push(selection)
+		else if (row.templateType === "exception") entry.exceptionSelections.push(selection)
+		else entry.templateSelections.push(selection)
+		byKitchen.set(row.kitchenId, entry)
+	}
+
+	const collected: NeedContribution[] = []
+	const needs = await computeAtaNeeds(db, { kitchenSelections: [...byKitchen.values()] }, collected)
+
+	const recipeIds = [...new Set(collected.map((c) => c.recipeId))]
+	const recipes =
+		recipeIds.length === 0
+			? []
+			: await runQuery("FETCH_FAILED", () =>
+					db.select({ id: recipesInKitchen.id, name: recipesInKitchen.name }).from(recipesInKitchen).where(inArray(recipesInKitchen.id, recipeIds))
+				)
+	const recipeName = new Map(recipes.map((r) => [r.id, r.name ?? "Preparação"]))
+	const kitchenName = new Map(rows.map((r) => [r.kitchenId, r.kitchenName ?? `Cozinha ${r.kitchenId}`]))
+	const templateName = new Map(rows.map((r) => [r.templateId, r.templateName ?? "Cardápio"]))
+
+	return {
+		needs,
+		contributions: collected.map((c) => ({
+			...c,
+			kitchenName: kitchenName.get(c.kitchenId) ?? `Cozinha ${c.kitchenId}`,
+			templateName: templateName.get(c.templateId) ?? "Cardápio",
+			recipeName: recipeName.get(c.recipeId) ?? "Preparação",
+		})),
+	}
 }
 
 // ─── Criar rascunho vazio (wizard step 1) ────────────────────────────────────
@@ -1221,7 +1335,7 @@ async function fetchCycleContext(
 	}
 }
 
-type ListLimitsRow = { validityMonths: number | null; maxMarginPercent: number; marginJustification: string | null }
+type ListLimitsRow = { validityMonths: number | null; maxMarginPercent: number; marginJustification: string | null; minQuotePercent: number }
 type ItemRowFull = typeof procurementListItemInProcurement.$inferSelect
 
 /** Limites resolvidos de todos os itens de uma ata — mesma entrada para a trava de publicação e o snapshot. */
@@ -1234,6 +1348,7 @@ async function loadAtaLimits(
 			validityMonths: procurementListInProcurement.validityMonths,
 			maxMarginPercent: procurementListInProcurement.maxMarginPercent,
 			marginJustification: procurementListInProcurement.marginJustification,
+			minQuotePercent: procurementListInProcurement.minQuotePercent,
 		})
 		.from(procurementListInProcurement)
 		.where(eq(procurementListInProcurement.id, listId))
@@ -1389,6 +1504,7 @@ async function computeAtaMeta(
 					max_quantity: c.maxQuantity,
 					delivery_cycle: c.deliveryCycle,
 					min_order_quantity: c.minOrderQuantity,
+					min_quote_quantity: c.minQuoteQuantity,
 				})),
 			}
 		}
@@ -1446,7 +1562,7 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 
 	// Componentes (cópia imutável dos itens agregados), com os limites do anexo RESOLVIDOS:
 	// a ata publicada guarda o número que foi publicado, não a regra que o produziu.
-	const { items } = await loadAtaLimits(tx, listId)
+	const { list, items } = await loadAtaLimits(tx, listId)
 	if (items.length > 0) {
 		await tx.insert(procurementListSnapshotComponentInProcurement).values(
 			items.map(({ item: i, limits }) => ({
@@ -1468,6 +1584,8 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 				maxQuantity: limits.maxQuantity,
 				deliveryCycle: limits.deliveryCycle,
 				minOrderQuantity: limits.minOrderQuantity,
+				// Quantidade mínima a ser cotada (art. 82, II) congelada junto com a máxima.
+				minQuoteQuantity: computeMinQuoteQuantity(limits.maxQuantity, list?.minQuotePercent == null ? null : Number(list.minQuotePercent)),
 			}))
 		)
 	}
@@ -1691,6 +1809,7 @@ export async function updateAtaQuantityLimits(db: SisubDb, ctx: UserContext, inp
 		const listPatch: Partial<typeof procurementListInProcurement.$inferInsert> = {}
 		if (input.maxMarginPercent !== undefined) listPatch.maxMarginPercent = input.maxMarginPercent
 		if (input.marginJustification !== undefined) listPatch.marginJustification = input.marginJustification?.trim() || null
+		if (input.minQuotePercent !== undefined) listPatch.minQuotePercent = input.minQuotePercent
 		if (Object.keys(listPatch).length > 0) {
 			// Sem `updated_at`: limite não muda o alvo, então não pode marcar o cálculo como defasado.
 			await tx.update(procurementListInProcurement).set(listPatch).where(eq(procurementListInProcurement.id, input.ataId))
@@ -1715,6 +1834,28 @@ export async function updateAtaQuantityLimits(db: SisubDb, ctx: UserContext, inp
 			)
 		}
 	})
+}
+
+// ─── Configuração dos documentos do anexo ─────────────────────────────────────
+
+/**
+ * Orçamento sigiloso (Lei 14.133/2021, art. 24; IN SEGES/ME 65/2021, art. 10): a tabela do anexo
+ * copiada para o TR sai sem preço e valor. Muda só a saída dos documentos, não os números
+ * congelados, então vale em qualquer status.
+ */
+export async function updateAtaDocumentSettings(db: SisubDb, ctx: UserContext, input: { ataId: string; isBudgetConfidential: boolean }): Promise<void> {
+	await authorizeAtaList(db, ctx, input.ataId)
+	await mutateOrFail(
+		"UPDATE_FAILED",
+		`Erro ao ajustar o anexo: ${input.ataId} não encontrado`,
+		() =>
+			db
+				.update(procurementListInProcurement)
+				.set({ isBudgetConfidential: input.isBudgetConfidential })
+				.where(eq(procurementListInProcurement.id, input.ataId))
+				.returning({ id: procurementListInProcurement.id }),
+		{ prefix: "Erro ao ajustar o anexo" }
+	)
 }
 
 // ─── Deletar ATA (soft delete) ────────────────────────────────────────────────

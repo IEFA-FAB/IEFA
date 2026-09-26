@@ -276,6 +276,10 @@ export const ASSURANCE_REGISTRY = {
 	recordIngredientReviewFn: { require: "none" },
 	recordFolderReviewFn: { require: "none" },
 
+	// ── procurement-documents.fn.ts (emissão de documento e configuração de saída; sem efeito financeiro)
+	emitPriceResearchReportFn: { require: "none" },
+	updateAtaDocumentSettingsFn: { require: "none" },
+
 	// ── procurement-segments.fn.ts (cadastro da segmentação; sem efeito financeiro nem de acesso)
 	createProcurementSegmentFn: { require: "none" },
 	updateProcurementSegmentFn: { require: "none" },

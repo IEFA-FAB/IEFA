@@ -3,12 +3,13 @@ import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
 import { AlertTriangle, Archive, ArrowLeft, Download, Link2, Lock, Search, Send } from "lucide-react"
 import { useMemo, useState } from "react"
-import { requirePermission } from "@/auth/pbac"
+import { requirePermission, usePBAC } from "@/auth/pbac"
 import { ArpSearchModal } from "@/components/features/local/arp/ArpSearchModal"
 import { EmpenhoBalancePanel } from "@/components/features/local/arp/EmpenhoBalancePanel"
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
 import { type AtaItemLimitsPatch, AtaQuantityLimitsSection } from "@/components/features/local/ata/AtaQuantityLimitsSection"
 import { type PriceResearchAuditIds, PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
+import { AnnexDocumentsCard } from "@/components/features/local/procurement/AnnexDocumentsCard"
 import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -48,6 +49,7 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 function AtaDetailPage() {
 	const { unitId: unitIdStr, ataId } = useParams({ strict: false })
 	const unitId = Number(unitIdStr)
+	const { can } = usePBAC()
 	const [arpModalOpen, setArpModalOpen] = useState(false)
 	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
 
@@ -70,7 +72,15 @@ function AtaDetailPage() {
 	const needs = useMemo(() => ata?.items.map(ataItemToNeed) ?? [], [ata?.items])
 
 	const annexSettings = useMemo<AtaAnnexSettings | null>(
-		() => (ata ? { validityMonths: ata.validity_months, maxMarginPercent: ata.max_margin_percent, marginJustification: ata.margin_justification } : null),
+		() =>
+			ata
+				? {
+						validityMonths: ata.validity_months,
+						maxMarginPercent: ata.max_margin_percent,
+						marginJustification: ata.margin_justification,
+						minQuotePercent: Number(ata.min_quote_percent ?? 100),
+					}
+				: null,
 		[ata]
 	)
 	// Rascunho calcula na hora; publicado mostra o que o snapshot congelou — nunca recalcula
@@ -326,6 +336,17 @@ function AtaDetailPage() {
 
 			{/* Itens do anexo */}
 			<AtaItemsTable data={needs} onPesquisarPreco={(item) => setPriceResearchItem(item)} onUpdateDescription={handleDescriptionChange} />
+
+			{annexRows.length > 0 && (
+				<AnnexDocumentsCard
+					unitId={unitIdStr as string}
+					ataId={ata.id}
+					rows={annexRows}
+					isBudgetConfidential={Boolean(ata.is_budget_confidential)}
+					canEdit={can("unit", 2, { type: "unit", id: unitId })}
+					onDownloadCsv={handleExportCSV}
+				/>
+			)}
 
 			{annexSettings && annexRows.length > 0 && (
 				<AtaQuantityLimitsSection

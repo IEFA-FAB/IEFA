@@ -123,6 +123,11 @@ melhor padrão do repositório. Falta o equivalente para:
 Existem 8 specs em `apps/sisub/e2e/tests/`: `smoke`, `auth`, `navigation`, `authz`,
 `budget`, `storage`, `recipe-form` e `module-switch`.
 
+As specs `procurement-*` (pesquisa de preços, terminologia, segmentação, fluxos e documentos)
+**escrevem** na OM 1065 e na cozinha 920 do treino: montam o cenário com a chave de serviço
+(`e2e/helpers/procurement.ts`), fazem a ação pela tela e apagam o que criaram. Exigem também
+`E2E_KITCHEN_ID` (ou `E2E_STORAGE_KITCHEN_ID`) e `SISUB_SUPABASE_SECRET_KEY`.
+
 **Está DESLIGADO no CI por decisão de custo, não por defeito.** O job `e2e-sisub`
 segue comentado em `.github/workflows/deploy.yml` e nunca teve run verde. Reativar
 custa minutos de runner em todo push na `main` (vite dev + install do Chromium +

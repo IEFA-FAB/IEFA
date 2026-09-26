@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
 	computeAtaItemLimits,
 	computeMaxQuantity,
+	computeMinQuoteQuantity,
 	computeQuantityLimits,
 	countDeliveries,
 	DEFAULT_MAX_MARGIN_PERCENT,
@@ -192,5 +193,19 @@ describe("requiresMarginJustification", () => {
 		const high = computeAtaItemLimits({ purchaseQuantity: 100, totalQuantity: 0, maxMarginPercent: 60 }, { maxMarginPercent: 20 })
 		expect(requiresMarginJustification([ok])).toBe(false)
 		expect(requiresMarginJustification([ok, high])).toBe(true)
+	})
+})
+
+describe("computeMinQuoteQuantity", () => {
+	test("percentual da máxima, arredondado para cima sem erro de ponto flutuante", () => {
+		expect(computeMinQuoteQuantity(1000, 25)).toBe(250)
+		expect(computeMinQuoteQuantity(100, 7)).toBe(7)
+		expect(computeMinQuoteQuantity(10, 33)).toBe(4)
+	})
+
+	test("padrão é a máxima inteira; sem máxima não há mínima", () => {
+		expect(computeMinQuoteQuantity(40, null)).toBe(40)
+		expect(computeMinQuoteQuantity(null, 25)).toBeNull()
+		expect(computeMinQuoteQuantity(0, 25)).toBe(0)
 	})
 })

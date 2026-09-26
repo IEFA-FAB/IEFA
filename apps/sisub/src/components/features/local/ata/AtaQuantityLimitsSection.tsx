@@ -28,6 +28,7 @@ export interface AtaItemLimitsPatch {
 export interface AtaLimitSettingsPatch {
 	maxMarginPercent?: number
 	marginJustification?: string | null
+	minQuotePercent?: number
 }
 
 interface AtaQuantityLimitsSectionProps {
@@ -212,7 +213,7 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 			</CardHeader>
 			<CardContent className="space-y-5">
 				{editable ? (
-					<FieldGroup className="grid gap-4 lg:grid-cols-[16rem_1fr]">
+					<FieldGroup className="grid gap-4 lg:grid-cols-[16rem_16rem_1fr]">
 						<Field>
 							<FieldLabel htmlFor="ata-max-margin">Acréscimo sobre a estimada (%)</FieldLabel>
 							<CommitNumberInput
@@ -227,6 +228,22 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 							/>
 							<FieldDescription>
 								Vale para todo item sem acréscimo próprio. A ata de registro de preços não admite acréscimo depois (Decreto 11.462/2023, art. 23).
+							</FieldDescription>
+						</Field>
+						<Field>
+							<FieldLabel htmlFor="ata-min-quote">Mínima a ser cotada (% da máxima)</FieldLabel>
+							<CommitNumberInput
+								id="ata-min-quote"
+								label="Quantidade mínima a ser cotada (% da máxima)"
+								value={settings.minQuotePercent}
+								min={1}
+								max={100}
+								allowEmpty={false}
+								onCommit={(v) => v != null && onSettingsChange?.({ minQuotePercent: v })}
+								className="w-28"
+							/>
+							<FieldDescription>
+								Quanto o licitante precisa cotar, no mínimo (Lei 14.133/2021, art. 82, II). 100% = a máxima inteira; menos admite proposta parcial.
 							</FieldDescription>
 						</Field>
 						{(justificationRequired || settings.marginJustification) && (
@@ -290,6 +307,7 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 								<TableHead className="text-right">Estimada</TableHead>
 								<TableHead className="text-right">Acréscimo %</TableHead>
 								<TableHead className="text-right">Máxima</TableHead>
+								<TableHead className="text-right">Mín. cotada</TableHead>
 								<TableHead>Entrega</TableHead>
 								<TableHead className="text-right">Mín. por OF</TableHead>
 								<TableHead className="w-8">
@@ -342,6 +360,7 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 														{isTight && <TightMarginFlag effectiveMarginPercent={row.effectiveMarginPercent} />}
 													</div>
 												</TableCell>
+												<TableCell className="text-right tabular-nums">{row.minQuoteQuantity != null ? INT.format(row.minQuoteQuantity) : "—"}</TableCell>
 												<TableCell>
 													{itemEditable && row.deliveryCycle ? (
 														<div className="flex flex-col gap-0.5">

@@ -40,7 +40,7 @@ import { requirePermission, requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery } from "../utils/index.ts"
-import { isSamePrice } from "./price-units.ts"
+import { convertSamplePrice, isSamePrice, SAMPLE_CONVERSION_REASON_LABELS } from "./price-units.ts"
 
 type PriceResearchTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 
@@ -64,6 +64,9 @@ export type PriceResearchSample = {
 	marca?: string | null
 	dataCompra?: string | null
 	dataResultado?: string | null
+	/** Fornecedor da compra de origem (CNPJ/CPF e nome), quando a fonte informa. */
+	niFornecedor?: string | null
+	nomeFornecedor?: string | null
 }
 
 export type PriceResearchStats = {
@@ -292,6 +295,8 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 			marca: sample.marca ?? null,
 			normalized_price: preco !== null && cap > 0 ? preco / cap : preco,
 			reference_date: sample.dataResultado ?? sample.dataCompra ?? null,
+			ni_fornecedor: sample.niFornecedor ?? null,
+			nome_fornecedor: sample.nomeFornecedor ?? null,
 		}
 	})
 
@@ -307,12 +312,20 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 		throw new DomainError("INSERT_FAILED", "Catálogo de amostras retornou contagem inesperada")
 	}
 
-	const bridge = classified.map(({ type }, i) => ({
-		researchItemId,
-		amostraId: returned[i].id,
-		sampleType: type,
-		similarity: null,
-	}))
+	// Conversão para a unidade da pesquisa, calculada AQUI (não recebida do cliente) e gravada por
+	// item pesquisado: o auditor lê o preço convertido e o fator de cada amostra no relatório.
+	const bridge = classified.map(({ sample, type }, i) => {
+		const conversion = input.measureUnit ? convertSamplePrice(sample, input.measureUnit) : null
+		return {
+			researchItemId,
+			amostraId: returned[i].id,
+			sampleType: type,
+			similarity: null,
+			convertedPrice: conversion?.ok ? conversion.price : null,
+			contentInUnit: conversion?.ok ? conversion.contentInTarget : null,
+			conversion: conversion?.ok ? conversion.explanation : conversion ? SAMPLE_CONVERSION_REASON_LABELS[conversion.reason] : null,
+		}
+	})
 
 	await runQuery(
 		"INSERT_FAILED",
@@ -367,6 +380,8 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 							itemsWithoutCatmat: 0,
 							nonCompliantItems: 0,
 							idempotencyKey,
+							// Agente responsável pela pesquisa (IN SEGES/ME 65/2021, art. 3º, II): a sessão.
+							createdBy: ctx.userId,
 						})
 						// O `where` repete o predicado do índice parcial — sem ele o Postgres não
 						// infere o árbitro e recusa o comando inteiro (42P10).
