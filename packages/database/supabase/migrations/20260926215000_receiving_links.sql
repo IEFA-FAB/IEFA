@@ -146,8 +146,11 @@ create trigger goods_receipt_nfe_single_use
 -- marcado. Ligar `nfe_item_id` não muda quantidade, custo nem lote — o termo
 -- assinado continua dizendo o que disse —, e é o que a NF-e semanal precisa
 -- para casar os itens das entregas já efetivadas.
+-- `search_path = ''` (regra de #468): todo objeto do corpo já é qualificado por schema.
 create or replace function inventory.receipt_must_be_open() returns trigger
-language plpgsql as $$
+language plpgsql
+set search_path = ''
+as $$
 declare
   v_row record;
   v_receipt_id uuid;
