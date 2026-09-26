@@ -45,22 +45,24 @@ documento de despesa:
 | `srp_role` | só em `registro_precos`: `gerenciador` · `participante` · `nao_participante` (adesão) |
 | `instrument` | `ata` · `contrato` · `nota_empenho` (art. 95: a NE substitui o contrato) · `outro` |
 | `legal_basis` | texto livre ("Lei 14.133/2021, art. 75, II") |
-| `dispensa_inciso` | `I` · `II` · … (só em `dispensa`; alimenta o somatório) |
-| `natureza_despesa` | ND até o subitem (ex. `33903007`), o **ramo de atividade** padrão do somatório |
+| `direct_contract_clause` | inciso do art. 75: `I` · `II` · … (só em `dispensa`; alimenta o somatório) |
+| `nd` | natureza de despesa até o subitem (ex. `33903007`), como em `finance.empenho.nd` |
+| `activity_line` | **ramo de atividade** do somatório: classe de materiais do PDM (CATMAT) ou descrição do serviço (IN SEGES/ME 67/2021, art. 4º, § 2º); sugerida pelos itens, editável |
 | `process_nup`, `object`, `supplier_cnpj`, `supplier_name`, `valid_from`, `valid_to`, `estimated_value`, `pncp_control_number`, `notes` | todos anuláveis |
 
 - Valores de domínio em português, como a norma; identificadores em inglês (AGENTS.md).
 - **Nasce incompleta.** Só `unit_id` e `kind` são obrigatórios. O que falta vira pendência
   ("contratação sem fundamento legal", "sem vigência"), nunca recusa.
 - `procurement_arp.acquisition_id` liga a ARP à sua contratação (`kind = registro_precos`); a ARP
-  continua sendo o espelho da ata do Compras.gov.br.
+  continua sendo o espelho da ata do Compras.gov.br. O papel da unidade na ata é o `srp_role` da
+  contratação, não uma coluna da ARP.
 - Alternativa descartada: um `kind` no próprio empenho. O mesmo contrato ou dispensa sustenta vários
   empenhos, e o somatório e a vigência são da contratação, não da NE.
 
 ### D2. ARP sem anexo quantitativo
 
-- `procurement_arp.ata_id` anulável, `ON DELETE SET NULL`; `unit_role` (papel da unidade: gerenciador,
-  participante, não participante); `source` (`compras_gov` · `manual`).
+- `procurement_arp.ata_id` anulável, `ON DELETE SET NULL`; `acquisition_id` (`ON DELETE SET NULL`);
+  `source` (`compras_gov` · `manual`).
 - Cadastro manual da ARP e dos itens (número, UASG gerenciadora, vigência, item, fornecedor, valor,
   quantidade), marcado "não sincronizado" até a primeira sincronização bem-sucedida.
 - Importar do Compras.gov.br **sem** anexo passa a ser possível; o casamento com o anexo pelo CATMAT
@@ -77,7 +79,11 @@ documento de despesa:
 - Colunas antigas do empenho (`arp_item_id`, `quantidade_empenhada`, `valor_unitario`) ficam
   anuláveis nesta fase (expand) e são preenchidas pelo item único quando houver só um, para o código
   existente continuar lendo; saem num contract posterior.
-- `arp_item.quantidade_empenhada` passa a ser a soma dos `empenho_item` da ARP.
+- `arp_item.quantidade_empenhada` **continua** sendo o retrato oficial do Compras.gov.br (inclui o
+  consumo de outros órgãos e das caronas), e só a sincronização o escreve. O comprometimento local é
+  a soma dos `empenho_item` da ARP, calculada na leitura; os dois aparecem lado a lado.
+- **Todo leitor** que hoje agrupa por `finance.empenho.arp_item_id` (ex. `aggregateLocalCommitments`)
+  passa a ler `empenho_item`; as colunas antigas só existem para a `main` durante a transição.
 - `finance.empenho.arp_item_id` e `empenho_item.arp_item_id`: `ON DELETE RESTRICT`. Apagar anexo,
   ARP ou item de ARP nunca apaga empenho.
 
@@ -85,23 +91,29 @@ documento de despesa:
 
 - Onde a tela precisa de um empenho que ainda não está no sistema (OF, recebimento, liquidação), o
   usuário registra o mínimo no próprio lugar: número da NE, data, valor, favorecido. O registro fica
-  `origem = 'manual'`, `link_status = 'sem_origem'` se não houver contratação.
+  `origem = 'manual'`. "Sem contratação de origem" é **derivado** (`acquisition_id` nulo e nenhum item
+  com ARP), não uma coluna.
 - O import de NE do SIAFI **completa** a NE existente com o mesmo `(unit_id, numero_empenho)` —
-  classificação, favorecido, valor — em vez de recusá-la ou duplicar. Divergência de valor entre o
-  registrado e o SIAFI vira pendência de conciliação (já existe `reconciliation_decision`).
-- NE importada sem contratação conhecida entra com `link_status = 'sem_origem'`: é pendência
-  "vincular a contratação de origem", e é usável na OF e na liquidação.
+  classificação (ND, PTRES, fonte, UG) e favorecido — em vez de recusá-la ou duplicar. O **valor não
+  é sobrescrito**: `valor_total` é imutável (reforço e anulação são eventos), e a divergência entre o
+  registrado e o SIAFI vira pendência de conciliação (`reconciliation_decision`).
+- NE importada sem contratação conhecida entra sem vínculo: é pendência "vincular a contratação de
+  origem", e é usável na OF e na liquidação.
 - NS cuja NE ainda não está no sistema, e OB cuja NS ainda não está, ficam **estacionadas** na
   `import_row` (`parse_status = 'waiting_parent'`). Cada aplicação de lote tenta religar as
   estacionadas da unidade antes de terminar. Erro de gravação de qualquer linha deixa o lote
-  `failed` com a mensagem, nunca `applied`.
+  `failed` com a mensagem, nunca `applied`. A religação também roda quando a NE ou a NS nasce por
+  registro rápido ou manual: é uma função única chamada pelos dois caminhos.
 
 ### D5. OF, recebimento e vínculos posteriores
 
 - `supply_order.empenho_id` anulável: OF **aguardando empenho** pode ser montada e enviada (a
   emergência acontece); fica pendência de gravidade alta "OF enviada sem empenho — regularize
   (Lei 4.320, art. 60)". O limite da OF passa a ser o **valor vigente** do empenho
-  (`v_empenho_vigente`), não a quantidade original, e o trigger recusa empenho anulado.
+  (`v_empenho_vigente`), não a quantidade original, e o trigger recusa empenho anulado. O valor de
+  cada linha da OF é `ordered_qty × preço`, com o preço da própria linha, do item do empenho ou do
+  item da ARP, nesta ordem. Linha sem preço nos três é conferida pela quantidade do item do empenho,
+  se houver, e senão vira pendência "OF sem preço".
 - Recebimento sem NF-e: origens `delivery_note` (guia de remessa, nota semanal do pão) e `ad_hoc`,
   com itens informados na conferência. A NF-e se vincula depois e casa os itens.
 - `linkReceiptDocuments`: vincular NF-e, OF e empenho a um recebimento já feito, com as mesmas
@@ -110,12 +122,17 @@ documento de despesa:
 ### D6. Designação
 
 - Tela de designação (Gestão Unidade, `unit:2`) de fiscal, gestor e comissão por contratação, ARP ou
-  empenho, com o ato (`source` + `source_reference` obrigatório quando `source = 'ato'`) e vigência.
-- No recebimento, faltando designação, o botão vira "Designar agora" para quem tem `unit:2`; para
-  quem não tem, o recebimento **provisório** é registrado com a pendência "sem fiscal designado"
-  (art. 140, I — o provisório é do responsável pelo acompanhamento). O **definitivo** continua
-  exigindo designação vigente (art. 140, II): é o ato que a lei atribui a servidor ou comissão
-  designada. A recusa diz quem designa e onde.
+  empenho (`contract_designation.acquisition_id` novo), com o ato (`source` + `source_reference`
+  obrigatório quando `source = 'ato'`) e vigência. `arp_id`, `empenho_id` e `acquisition_id` com
+  `ON DELETE RESTRICT`: a designação é prova do ato (o reset de treino a apaga antes).
+- Lei 14.133, art. 140, II (compras): o **provisório** é do responsável pelo acompanhamento e
+  fiscalização (alínea a) e o **definitivo**, de servidor ou comissão designada (alínea b). Os dois
+  continuam exigindo designação vigente.
+- O que **não** trava é a chegada da mercadoria: quem tem `storage:2` registra a **conferência
+  física** (itens, lotes, temperatura, validade) sem designação; o fiscal confirma o provisório
+  depois sobre o que já foi conferido. Faltando designação, quem tem `unit:2` vê "Designar agora"
+  no próprio recebimento; quem não tem vê quem designa e onde, e a pendência "conferência sem fiscal
+  designado" aparece para a unidade.
 
 ### D7. Somatório da dispensa por valor
 
@@ -123,10 +140,15 @@ documento de despesa:
   tabela, não do código. Semeada com os valores atualizados pelo Decreto 11.871/2023 (vigência 2024)
   e pelo Decreto 12.343/2024 (vigência 2025), **a conferir** no PR; ano sem linha vira pendência
   "cadastre o limite vigente" e o cálculo usa o último conhecido.
-- Somatório: contratações `dispensa` do inciso, da mesma unidade, no mesmo exercício e no mesmo
-  **ramo de atividade** (padrão: `natureza_despesa` até o subitem; editável na contratação com
-  justificativa), mais o valor da nova. Acima do limite: aviso com o total e a composição, e
-  justificativa gravada na contratação. Não recusa: o sisub registra a dispensa já feita.
+- Limites de 2026 pelo Decreto 12.807/2025 (inciso I: R$ 130.984,20; inciso II: R$ 65.492,11);
+  semeados também 2024 (Decreto 11.871/2023) e 2025 (Decreto 12.343/2024), a conferir no PR.
+- Somatório (art. 75, § 1º; IN 67/2021, art. 4º, § 1º): contratações `dispensa` do inciso, da mesma
+  **unidade gestora**, no mesmo exercício e no mesmo **ramo de atividade** (`activity_line`: classe
+  do PDM no CATMAT para bens, descrição do serviço para serviços — IN 67/2021, art. 4º, § 2º), mais
+  a nova. O valor de cada dispensa é o maior entre a soma das NEs vinculadas e o `estimated_value`.
+  Dispensa sem valor nenhum **não conta como zero**: vira pendência "dispensa sem valor — somatório
+  incompleto" e o aviso diz que o total é um piso. Acima do limite: aviso com o total e a composição,
+  e justificativa gravada na contratação. Não recusa: o sisub registra a dispensa já feita.
 - A reposição (`replenishment.ts`) passa a consultar o somatório em vez do valor do item, e
   "supermercado virtual" deixa de ser sugerido por urgência operacional sozinha.
 
@@ -138,7 +160,7 @@ documento de despesa:
 | Liquidar recebimento recusado ou não efetivado | Lei 4.320, art. 63, § 2º, III |
 | Liquidar com NF-e cancelada ou sem consulta de situação recente | a nota é o comprovante do art. 63 |
 | Anular empenho abaixo do já liquidado | o que foi liquidado não se desfaz por anulação |
-| Recebimento definitivo sem designação vigente | Lei 14.133, art. 140, II |
+| Recebimento provisório ou definitivo sem designação vigente (a conferência física não trava) | Lei 14.133, art. 140, II, a e b |
 | Efetivar duas vezes; lotes que não somam a quantidade conferida | integridade do estoque |
 | Movimento em competência fechada | fechamento mensal |
 

@@ -41,13 +41,15 @@ OF sem empenho, recebimento sem NF-e, sem OF ou sem empenho SHALL ser aceitos e 
 
 ### Requirement: Recusas imprescindíveis dizem o que fazer
 
-O sistema SHALL continuar recusando: pagamento acima do liquidado; liquidação acima do vigente do empenho; liquidação de recebimento recusado ou não efetivado; liquidação com NF-e cancelada ou sem consulta de situação recente; anulação abaixo do liquidado; recebimento definitivo sem designação vigente; efetivação dupla; movimento em competência fechada. Cada recusa MUST dizer o que fazer em vez disso.
+O sistema SHALL continuar recusando: pagamento acima do liquidado; liquidação acima do vigente do empenho; liquidação de recebimento recusado ou não efetivado; liquidação com NF-e cancelada ou sem consulta de situação recente; anulação abaixo do liquidado; recebimento provisório ou definitivo sem designação vigente (Lei 14.133, art. 140, II); efetivação dupla; movimento em competência fechada. Cada recusa MUST dizer o que fazer em vez disso. A conferência física da entrega MUST NOT depender de designação.
 
-#### Scenario: Definitivo sem fiscal designado
+#### Scenario: Entrega chegou e ninguém foi designado fiscal
 
-- **WHEN** o recebimento vai para o definitivo e não há designação vigente
-- **THEN** quem tem `unit:2` vê "Designar agora" no próprio recebimento
-- **AND** quem não tem vê "Peça a designação ao chefe do rancho (Gestão Unidade → Designações)"; o provisório fica registrado
+- **WHEN** a carne chega e não há fiscal designado para a contratação
+- **THEN** o almoxarife registra a conferência física (itens, lotes, temperatura, validade)
+- **AND** quem tem `unit:2` vê "Designar agora" no próprio recebimento; quem não tem vê "Peça a designação ao chefe do rancho (Gestão Unidade → Designações)"
+- **WHEN** a designação é feita
+- **THEN** o fiscal confirma o provisório sobre a conferência já registrada, sem redigitar
 
 ### Requirement: Pendências da execução
 

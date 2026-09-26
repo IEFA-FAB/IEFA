@@ -1,9 +1,9 @@
 ## 1. Declaração e migrations
 
-- [ ] 1.1 [sisub] Declarar `procurement.acquisition` e `finance.credit_note` em `RESET_EXCLUSIONS` (PR próprio, antes das migrations)
+- [x] 1.1 [sisub] Declarar `procurement.acquisition` e `finance.credit_note` em `RESET_EXCLUSIONS` (PR #461)
 - [ ] 1.2 [database] `20260926214000_acquisition_origin`: `acquisition`, `direct_contract_limit` (semeada, a conferir), `empenho_item`; ARP com `ata_id` anulável `SET NULL`, `acquisition_id`, `unit_role`, `source`; empenho com `acquisition_id`, `link_status`, colunas antigas anuláveis, FKs `RESTRICT`; OF com `empenho_id` anulável e limite pelo valor vigente
 - [ ] 1.3 [database] `20260926215000_receiving_links`: recebimento sem NF-e, vínculos posteriores, `import_row.parse_status = 'waiting_parent'`, CHECK de `contract_designation.source_reference`
-- [ ] 1.4 [database] `20260926216000_finance_compliance`: `credit_note`, `empenho_rp`, `liquidacao_deducao`
+- [ ] 1.4 [database] `20260926216000_finance_compliance`: `credit_note`, `empenho_rp_inscription`, `liquidacao_deduction`
 - [ ] 1.5 [database] Aplicar (`db:push --dry-run`, push) e regerar `generated.ts` e Drizzle; `audit:rls` verde
 
 ## 2. Contratação de origem, ARP e NE (Gestão Unidade)

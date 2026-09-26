@@ -19,8 +19,8 @@ O rancho é rápido: a falta de um trabalho deve impedir o mínimo do outro. Que
 - **Registro rápido e reconciliação**: onde falta um documento (NE não importada), o usuário registra o mínimo (número, valor, favorecido) no próprio lugar; o import do SIAFI completa o registro pelo número em vez de duplicar.
 - **Import do SIAFI sem perda**: NE sem vínculo entra como empenho "sem contratação de origem" (pendência); NS e OB cujo pai ainda não chegou ficam estacionadas e se religam sozinhas quando ele chega. Erro de gravação reprova o lote em vez de marcá-lo aplicado.
 - **OF aguardando empenho**, **recebimento sem NF-e** (guia de remessa ou avulso), **vincular depois** (NF-e, OF, empenho ao recebimento; NE à OF).
-- **Designação de fiscal e gestor** com tela e atalho "designar agora" no recebimento.
-- **Dispensa por valor com somatório** no exercício por unidade e ramo de atividade (art. 75, §1º), com os limites em tabela atualizável; ultrapassar vira aviso com justificativa, não recusa.
+- **Designação de fiscal e gestor** com tela e atalho "designar agora" no recebimento; a conferência física da entrega não depende dela.
+- **Dispensa por valor com somatório** no exercício por unidade gestora e ramo de atividade (art. 75, § 1º; IN SEGES/ME 67/2021, art. 4º), com os limites em tabela atualizável (2026: Decreto 12.807/2025); ultrapassar vira aviso com justificativa, não recusa.
 - **Pendências da execução**: fluxo "Executar despesa" na Gestão Unidade e pendências no Estoque, derivadas dos dados, cada uma com ação.
 - **Cascata segura**: apagar anexo quantitativo não apaga ARP nem empenho.
 
@@ -41,9 +41,9 @@ O rancho é rápido: a falta de um trabalho deve impedir o mínimo do outro. Que
 **Packages:** `@iefa/sisub-domain` (regras puras de pendência, somatório da dispensa, reset de treino), `@iefa/database` (migrations e tipos).
 
 **Banco:**
-- tabelas novas: `procurement.acquisition` (com `unit_id`, declarada antes no guard de reset), `finance.empenho_item`, `procurement.direct_contract_limit`, `finance.credit_note` (com `unit_id`, declarada antes), `finance.empenho_rp`, `finance.liquidacao_deducao`;
-- `finance.empenho`: `arp_item_id`, `quantidade_empenhada` e `valor_unitario` anuláveis; `acquisition_id`; `link_status`;
-- `procurement.procurement_arp`: `ata_id` anulável com `ON DELETE SET NULL`, `acquisition_id`, `unit_role`, `source`;
+- tabelas novas: `procurement.acquisition` (com `unit_id`, declarada antes no guard de reset), `finance.empenho_item`, `procurement.direct_contract_limit`, `finance.credit_note` (com `unit_id`, declarada antes), `finance.empenho_rp_inscription` e `finance.liquidacao_deduction` (sem `unit_id`, filhas com `ON DELETE CASCADE`);
+- `finance.empenho`: `arp_item_id`, `quantidade_empenhada` e `valor_unitario` anuláveis; `acquisition_id`;
+- `procurement.procurement_arp`: `ata_id` anulável com `ON DELETE SET NULL`, `acquisition_id`, `source`;
 - `finance.empenho.arp_item_id`: `ON DELETE RESTRICT` no lugar de `CASCADE`;
 - `procurement.supply_order.empenho_id` anulável (OF aguardando empenho); limite da OF pelo **valor vigente** do empenho;
 - `finance.liquidacao.empenho_id` e `finance.pagamento.liquidacao_id` continuam obrigatórios; a NS/OB sem pai fica em `siafi_integration.import_row` estacionada.

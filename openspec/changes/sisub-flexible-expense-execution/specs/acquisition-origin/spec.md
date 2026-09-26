@@ -43,11 +43,11 @@ Um empenho SHALL ter um ou mais itens, cada um com valor e, quando houver, item 
 
 ### Requirement: Somatório da dispensa por valor
 
-Ao registrar uma dispensa por valor, o sistema SHALL somar as dispensas do mesmo inciso, unidade, exercício e ramo de atividade e comparar com o limite vigente da tabela de limites. Acima do limite, o sistema MUST avisar com o total e a composição e MUST pedir justificativa; MUST NOT recusar o registro.
+Ao registrar uma dispensa por valor, o sistema SHALL somar as dispensas do mesmo inciso, unidade gestora, exercício e ramo de atividade (classe do PDM no CATMAT, ou descrição do serviço — IN SEGES/ME 67/2021, art. 4º, § 2º) e comparar com o limite vigente da tabela de limites. Dispensa sem valor MUST NOT contar como zero: o aviso diz que o total é um piso. Acima do limite, o sistema MUST avisar com o total e a composição e MUST pedir justificativa; MUST NOT recusar o registro.
 
 #### Scenario: Terceira dispensa de gêneros no ano
 
-- **WHEN** a soma das dispensas do inciso II em `33903007` no exercício, com a nova, passa do limite vigente
+- **WHEN** a soma das dispensas do inciso II na classe 8905 (carnes) no exercício, com a nova, passa do limite vigente (R$ 65.492,11 em 2026)
 - **THEN** o aviso mostra o limite, o total, as dispensas que compõem a soma e cita o art. 75, § 1º
 - **AND** a contratação só fica completa com a justificativa preenchida
 
