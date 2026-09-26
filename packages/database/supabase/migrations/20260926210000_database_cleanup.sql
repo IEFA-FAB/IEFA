@@ -12,10 +12,7 @@
 --    Sem ele, apagar a linha referenciada varre a tabela filha: o Auth apaga usuário de teste
 --    ~10 mil vezes, e cada `created_by`/`*_by` sem índice vira um seq scan por apagamento.
 -- 5. `inventory.stock_cost` ganha PK (advisor `no_primary_key`).
--- 6. Recebimento RECUSADO: `refuseReceiptFn` grava `definitive_at` como o instante da decisão.
---    As duas views que liam `definitive_at` como "entrega atestada" passam a excluir `rejected`
---    (a conciliação listava o recusado como `sem_liquidacao`; o prazo de entrega o contava).
--- 7. Legado do SISUBWEB. As 14 tabelas cruas em `public` estão 100% refletidas em
+-- 6. Legado do SISUBWEB. As 14 tabelas cruas em `public` estão 100% refletidas em
 --    `kitchen.ingredient.legacy_id` / `kitchen.recipes.legacy_id` / `kitchen.ceafa` /
 --    `kitchen.nutrient`, e nada no banco ou no código as lê. Saem de `public` (exposto pelo
 --    PostgREST) para `legacy_sisubweb`, sem USAGE para cliente. O DROP fica para depois de um
@@ -253,51 +250,6 @@ alter table inventory.stock_cost add column if not exists id uuid not null defau
 alter table inventory.stock_cost add constraint stock_cost_pkey primary key (id);
 
 -- 6 ─────────────────────────────────────────────────────────────────────────────────────────
-create or replace view finance.v_physical_accounting_reconciliation
-with (security_invoker = true) as
-select
-  gr.id as goods_receipt_id,
-  gr.kitchen_id,
-  gr.definitive_at,
-  coalesce(sum(gri.received_qty_base * coalesce(gri.unit_cost, 0::numeric)), 0::numeric) as valor_recebido,
-  l.id as liquidacao_id,
-  l.numero_ns,
-  l.valor as valor_liquidado,
-  case
-    when l.id is null then 'sem_liquidacao'::text
-    when abs(coalesce(sum(gri.received_qty_base * coalesce(gri.unit_cost, 0::numeric)), 0::numeric) - l.valor) > 0.009 then 'valor_divergente'::text
-    else 'conciliado'::text
-  end as situacao,
-  current_date - gr.definitive_at::date as dias_desde_recebimento
-from inventory.goods_receipt gr
-join inventory.goods_receipt_item gri on gri.receipt_id = gr.id
-left join finance.liquidacao l on l.id = gr.liquidacao_id
--- recusado também tem `definitive_at` (o instante da decisão) e não é entrega atestada
-where gr.definitive_at is not null
-  and gr.status <> 'rejected'
-group by gr.id, gr.kitchen_id, gr.definitive_at, l.id, l.numero_ns, l.valor;
-
-create or replace view inventory.v_supplier_lead_time
-with (security_invoker = true) as
-select
-  arpitem.ni_fornecedor,
-  soi.purchase_item_id,
-  so.id as supply_order_id,
-  so.sent_at,
-  so.expected_delivery,
-  gr.definitive_at::date as received_at,
-  gr.definitive_at::date - so.sent_at as lead_time_days,
-  gr.definitive_at::date - so.expected_delivery as deviation_days
-from procurement.supply_order so
-join inventory.goods_receipt gr
-  on gr.supply_order_id = so.id
- and gr.definitive_at is not null
- and gr.status <> 'rejected'
-join procurement.supply_order_item soi on soi.supply_order_id = so.id
-left join procurement.procurement_arp_item arpitem on arpitem.id = soi.arp_item_id
-where so.sent_at is not null;
-
--- 7 ─────────────────────────────────────────────────────────────────────────────────────────
 drop view if exists core.migration_folder_lookup;
 drop view if exists core.migration_nutrient_lookup;
 drop view if exists core.migration_product_lookup;
@@ -337,7 +289,7 @@ begin
   end loop;
 end $$;
 
--- 8 ─────────────────────────────────────────────────────────────────────────────────────────
+-- 7 ─────────────────────────────────────────────────────────────────────────────────────────
 -- Características do CATMAT sem valor codificado. O único (item, característica, valor) é
 -- NULLS DISTINCT: com `codigo_valor_caracteristica` nulo nunca havia conflito, e cada sync
 -- inseria uma cópia nova. Em 2026-09-26: 219.191 linhas com valor nulo em 15.900 chaves, ou
