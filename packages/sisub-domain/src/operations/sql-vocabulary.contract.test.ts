@@ -102,10 +102,14 @@ function valuesIn(sql: string, column: string, occurrence = 0): string[] {
 	return [...match[1].matchAll(/'([^']+)'/g)].map((value) => value[1]).sort()
 }
 
-/** Corpo da definição vigente de uma função do schema `inventory`. */
+/**
+ * Corpo da definição vigente de uma função do schema `inventory`. Só `create [or replace]
+ * function` define corpo: `alter function … set search_path` menciona a função sem redefini-la.
+ */
 function latestFunctionBody(name: string): string {
-	const { sql } = latestSqlWith(new RegExp(`function\\s+inventory\\.${name}\\b`, "i"))
-	const start = sql.search(new RegExp(`function\\s+inventory\\.${name}\\b`, "i"))
+	const definition = new RegExp(`create\\s+(?:or\\s+replace\\s+)?function\\s+inventory\\.${name}\\b`, "i")
+	const { sql } = latestSqlWith(definition)
+	const start = sql.search(definition)
 	// da assinatura até o fim do corpo: `$$;` ou `$function$;`
 	const rest = sql.slice(start)
 	const end = rest.search(/\$(?:function)?\$\s*;/)
