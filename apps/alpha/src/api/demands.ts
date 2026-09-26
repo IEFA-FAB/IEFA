@@ -282,14 +282,16 @@ export const demandRoutes = new Hono<{ Variables: Variables }>()
 		const cleanup = async (): Promise<string | null> => {
 			const { data: reverted, error: revertError } = await supabase.from("demand").update(previous).eq("id", row.id).select("updated_at").maybeSingle()
 			if (revertError) console.error(`[demands] status da demanda ${row.id} não revertido: ${revertError.message}`)
-			if (created.length)
-				await supabase
+			if (created.length) {
+				const { error } = await supabase
 					.from("submission")
 					.delete()
 					.in(
 						"id",
 						created.map((submission) => submission.id)
 					)
+				if (error) console.error(`[demands] submissões órfãs ${created.map((submission) => submission.id).join(", ")}: ${error.message}`)
+			}
 			if (uploaded.length) {
 				const { error } = await supabase.storage.from(SUBMISSION_BUCKET).remove(uploaded)
 				if (error) console.error(`[demands] arquivos órfãos ${uploaded.join(", ")}: ${error.message}`)

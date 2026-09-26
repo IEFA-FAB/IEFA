@@ -104,11 +104,24 @@ function letter(index: number): string {
 	return index < LETTERS.length ? (LETTERS[index] as string) : `${LETTERS[Math.floor(index / LETTERS.length) - 1]}${LETTERS[index % LETTERS.length]}`
 }
 
+/**
+ * Texto sem espaço nas pontas nem ponto ou ponto e vírgula no fim, para encaixar numa frase.
+ * Laço em vez de `/[.;]+$/`: sobre texto do usuário, a expressão regular é polinomial
+ * (CodeQL `js/polynomial-redos`) numa sequência longa de pontos.
+ */
+function clause(value: string): string {
+	let text = value.trim()
+	let end = text.length
+	while (end > 0 && (text[end - 1] === "." || text[end - 1] === ";")) end--
+	text = text.slice(0, end)
+	return text.trimEnd()
+}
+
 /** Lista com alíneas: "a) …;" com ponto final no último. */
 function alineas(entries: string[]): string {
 	return entries
 		.map((entry, index) => {
-			const clean = entry.trim().replace(/[.;]+$/, "")
+			const clean = clause(entry)
 			return `${letter(index)}) ${clean}${index === entries.length - 1 ? "." : ";"}`
 		})
 		.join("\n")
@@ -162,7 +175,7 @@ const ROLE_LABEL: Record<TeamRole, string> = {
 const PRIORITY_LABEL = { baixa: "Baixa", media: "Média", alta: "Alta" } as const
 
 function objectiveLabel(objective: Objective): string {
-	return objective.text.trim().replace(/[.;]+$/, "")
+	return clause(objective.text)
 }
 
 function expenseNatures(demand: DemandPayload): string[] {
@@ -217,12 +230,7 @@ function exclusionsText(demand: DemandPayload): string | null {
 	if (exclusions.length === 0) return null
 	return paragraphs(
 		"Não integram o objeto:",
-		alineas(
-			exclusions.map(
-				(exclusion) =>
-					`${exclusion.text.trim().replace(/[.;]+$/, "")}${exclusion.reason.trim() ? `, porque ${lowerFirst(exclusion.reason.trim().replace(/[.;]+$/, ""))}` : ""}`
-			)
-		)
+		alineas(exclusions.map((exclusion) => `${clause(exclusion.text)}${exclusion.reason.trim() ? `, porque ${lowerFirst(clause(exclusion.reason))}` : ""}`))
 	)
 }
 
@@ -262,7 +270,7 @@ function buildDfd(demand: DemandPayload, framing: Framing, prices: PriceSummary)
 	const priorityReason =
 		context.priorityReason.trim() ||
 		(deadline
-			? `A contratação precisa estar concluída até ${deadline}${context.deadlineReason.trim() ? `, ${lowerFirst(context.deadlineReason.trim().replace(/[.;]+$/, ""))}` : ""}.`
+			? `A contratação precisa estar concluída até ${deadline}${context.deadlineReason.trim() ? `, ${lowerFirst(clause(context.deadlineReason))}` : ""}.`
 			: "")
 
 	const sections: FormSection[] = [
@@ -375,12 +383,10 @@ function alternativesText(demand: DemandPayload): string {
 			})
 			.filter((part): part is string => part !== null)
 		return [
-			`${alternative.name.trim()}${alternative.description.trim() ? `: ${lowerFirst(alternative.description.trim().replace(/[.;]+$/, ""))}` : ""}`,
+			`${alternative.name.trim()}${alternative.description.trim() ? `: ${lowerFirst(clause(alternative.description))}` : ""}`,
 			evaluation.length ? `; ${evaluation.join("; ")}` : "",
 			alternative.estimatedCost !== null ? `; custo aproximado de ${formatBRL(alternative.estimatedCost)}` : "",
-			alternative.id !== demand.chosenAlternativeId && alternative.notes.trim()
-				? `. Descartada: ${lowerFirst(alternative.notes.trim().replace(/[.;]+$/, ""))}`
-				: "",
+			alternative.id !== demand.chosenAlternativeId && alternative.notes.trim() ? `. Descartada: ${lowerFirst(clause(alternative.notes))}` : "",
 		].join("")
 	})
 
@@ -388,9 +394,7 @@ function alternativesText(demand: DemandPayload): string {
 	return paragraphs(
 		"Foram examinadas as seguintes alternativas para atender à necessidade, avaliadas pelos objetivos da contratação:",
 		alineas(entries),
-		chosen
-			? `A alternativa escolhida é ${lowerFirst(chosen.name.trim().replace(/[.;]+$/, ""))}. ${demand.choiceRationale.trim()}`
-			: pending("alternativa escolhida e justificativa")
+		chosen ? `A alternativa escolhida é ${lowerFirst(clause(chosen.name))}. ${demand.choiceRationale.trim()}` : pending("alternativa escolhida e justificativa")
 	)
 }
 
@@ -415,7 +419,7 @@ function priceText(demand: DemandPayload, framing: Framing, prices: PriceSummary
 			? "Por se tratar de inexigibilidade, a justificativa do preço observa o art. 7º da IN SEGES/ME nº 65/2021, com notas fiscais ou contratos do próprio fornecedor com outros contratantes."
 			: null,
 		excluded.length
-			? `Foram desconsideradas: ${excluded.map((quote) => `${quote.supplier.trim() || "cotação sem fornecedor"}, ${lowerFirst(quote.excludedReason.trim().replace(/[.;]+$/, ""))}`).join("; ")}.`
+			? `Foram desconsideradas: ${excluded.map((quote) => `${quote.supplier.trim() || "cotação sem fornecedor"}, ${lowerFirst(clause(quote.excludedReason))}`).join("; ")}.`
 			: null,
 		"O detalhamento das cotações consta do relatório da pesquisa de preços, juntado aos autos."
 	)
@@ -460,9 +464,7 @@ function viabilityText(demand: DemandPayload, framing: Framing): string {
 	const chosen = demand.alternatives.find((alternative) => alternative.id === demand.chosenAlternativeId)
 	return paragraphs(
 		`Os estudos demonstram a necessidade da contratação${fundamentals.length ? `, a adequação da solução escolhida aos objetivos de ${fundamentals.map((objective) => lowerFirst(objectiveLabel(objective))).join(", ")}` : ""} e a compatibilidade do valor estimado com os preços de mercado.`,
-		chosen
-			? `A alternativa adotada, ${lowerFirst(chosen.name.trim().replace(/[.;]+$/, ""))}, é a que melhor atende a esses objetivos entre as examinadas.`
-			: null,
+		chosen ? `A alternativa adotada, ${lowerFirst(clause(chosen.name))}, é a que melhor atende a esses objetivos entre as examinadas.` : null,
 		`Declara-se, portanto, a viabilidade da contratação${framing.route ? `, por ${lowerFirst(framing.label)}` : ""}.`
 	)
 }
@@ -583,7 +585,7 @@ function buildEtp(demand: DemandPayload, framing: Framing, prices: PriceSummary,
 				"related",
 				"10. Contratações Correlatas e/ou Interdependentes",
 				related.length
-					? alineas(related.map((entry) => `${entry.description.trim().replace(/[.;]+$/, "")} (contratação ${entry.relation})`))
+					? alineas(related.map((entry) => `${clause(entry.description)} (contratação ${entry.relation})`))
 					: "Não há contratações correlatas nem interdependentes."
 			),
 			field("planning", "11. Alinhamento entre a Contratação e o Planejamento", pcaSentence(demand, year)),
