@@ -16,9 +16,9 @@ paths:
 |----------|--------|------|
 | `pr-check.yml` | PR | format + `turbo run lint typecheck test --affected` (sem segredo; arquivo global alterado roda tudo) |
 | `security.yml` | PR, push na main, semanal | opengrep (ERROR bloqueia), `bun audit` crítico, drift do manifesto, headers; CodeQL/Trivy só reportam |
-| `integration.yml` | PR que toca `apps/sisub`, `packages/database`, `packages/sisub-domain` | `test:integration:gate` contra o banco real (fila global) + `audit:rls` |
+| `integration.yml` | todo PR, push na main, dispatch; `changes` usa o escopo sisub do `paths-filter.yml` | PR: `gate` (`test:integration:gate` transacional + `audit:rls`, fila por PR, check obrigatório). Main e dispatch: `gate` + `full` (suíte inteira, monitor, trava global do banco) |
 | `commit-lint.yml` | PR | título do PR (e subject do commit único) no commitlint |
-| `deploy.yml` (`CI/CD`) | push na main | `changes` → `check-<app>` → `build-<app>` → `deploy-<app>` por app (paths-filter) |
+| `deploy.yml` (`CI/CD`) | push na main | `changes` → `check-<app>` → `build-<app>` → `deploy-<app>` por app (paths-filter); sem integração |
 | `terraform-plan/apply` | PR / push em `infra/**` | plan com role de PR; apply só na main |
 
 ## Armadilhas conhecidas
@@ -29,20 +29,23 @@ paths:
   pôr `paths:` no workflow dele, deixa todo PR esperando um check que nunca chega. Job que não se
   aplica ao PR roda e sai por `if:`: `skipped` conta como verde.
 
-- **`check-sisub` na main roda a integração inteira; o PR roda só o subconjunto do gate.** O que
-  mais derruba a main é o guard de reset de treino (`training.operations.test.ts`), que o PR não
-  roda: siga a ordem declara → aplica → mergeia de `.claude/rules/database.md`.
+- **A integração bloqueia no PR, não no deploy.** O `gate` do PR é transacional. A suíte inteira
+  (`full`) roda no push da `main` como monitor, com a trava `sisub-integration-real-db`, porque os
+  arquivos seed-cleanup não aguentam duas execuções no mesmo banco. `full` vermelho na `main` é
+  regressão a corrigir, mesmo com o deploy verde. Para rodá-la antes do merge:
+  `gh workflow run "sisub integration (real db)" --ref <branch>`. O que mais a derruba é o guard
+  de reset de treino (`training.operations.test.ts`): siga a ordem declara → aplica → mergeia de
+  `.claude/rules/database.md`.
 - **Check vermelho deixa build/deploy `skipped`, não `failed`.** Depois de mergear, confira o run do
   `CI/CD` pelo SHA (`git merge-base --is-ancestor <seu_sha> <sha_do_run>`): merge seguido de outro
   cancela o run do primeiro.
-- **`cancelled` no gate de integração é disputa da fila global** (`concurrency.group` fixo, um
-  pendente por vez), não reprovação. `gh pr checks` mostra os dois como `fail`. Reexecute com
-  `gh run rerun <id>` quando o grupo esvaziar. `gh pr checks` só lista check já registrado: confira o
-  workflow pelo SHA.
+- **`cancelled` no `full` da `main` é commit mais novo na fila da trava**, não reprovação: o run do
+  commit seguinte cobre os dois. No PR, `cancelled` só vem de push novo no mesmo PR. `gh pr checks`
+  mostra `cancelled` como `fail` e só lista check já registrado: confira o workflow pelo SHA.
 - **Pacote novo em `packages/`** entra no manifesto e no `package.json`; `bun run generate:deploy`
   cuida das linhas `COPY` do Dockerfile. Sem isso o `warm-deps` quebra o build de todos os apps.
-- **PR do Dependabot** não recebe segredo: o gate de integração dele sempre falha. Valide local e,
-  se precisar, dispare o workflow numa branch-cópia.
+- **PR do Dependabot e de fork** não recebem segredo: o `gate` pula (verde) e a integração deles
+  roda no push da `main`. Para validar antes, dispare o workflow numa branch-cópia.
 
 ## Segurança dos workflows (repo público)
 
@@ -52,5 +55,7 @@ paths:
 - Action de terceiro com pin por SHA; `actions/*`, `github/*`, `docker/*`, `aws-actions/*` e
   `oven-sh/*` podem usar tag (`.github/zizmor.yml`).
 - `checkout` com `persist-credentials: false` em job que não faz push.
+- `id-token: write` só no job que assume role AWS, nunca no topo do workflow.
+- Binário baixado por `curl` (opengrep, gitleaks) confere sha256 fixado no workflow.
 - A role de deploy AWS confia só na `main`; job de PR que precise de AWS usa role própria, com
   permissão mínima.

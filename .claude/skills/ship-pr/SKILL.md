@@ -24,6 +24,7 @@ bun run format:check
 bun run lint --concurrency=2
 bun run typecheck --concurrency=2
 bun run test --concurrency=2
+bun run scan:rules          # se o binário `opengrep` estiver no PATH; senão, o CI roda
 ```
 
 Se o diff tocar `Dockerfile`/manifesto/package.json de workspace: `bun run check:deploy`.
@@ -68,6 +69,6 @@ Leia a política em AGENTS.md > Workflow.
 ## 7. Depois do merge
 
 `gh pr checks <n> --watch` até o merge acontecer (ou um check falhar: corrija e empurre de novo).
-`cancelled` no gate de integração costuma ser disputa da fila, não reprovação: reexecute com
-`gh run rerun <id>`. Mergeado, confira o run do `CI/CD` na `main` pelo SHA: deploy `skipped` é
-check vermelho.
+`cancelled` no `gate` de integração só vem de push novo no mesmo PR: confira o run do último
+commit. Mergeado, confira pelo SHA o run do `CI/CD` na `main` (deploy `skipped` é check
+vermelho) e, se o PR tocou o sisub, o `full` do `sisub integration (real db)`.

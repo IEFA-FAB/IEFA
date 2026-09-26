@@ -57,10 +57,11 @@ on:
         type: boolean
         default: false
 
-# id-token: write → OIDC para assumir a role de deploy AWS (sem chaves estaticas).
+# id-token: write → OIDC para assumir a role de deploy AWS (sem chaves estaticas). Concedido
+# só nos jobs que assumem a role (build-*, deploy-*): um check-* roda código de teste de
+# terceiros, e a role de deploy confia em qualquer job da `main`.
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   # ============================================
@@ -84,7 +85,7 @@ jobs:
       pdf: ${{ steps.final.outputs.pdf }}
     steps:
       - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           # Lista gerada: .github/paths-filter.yml sai de apps.manifest.json + o grafo
@@ -215,6 +216,9 @@ jobs:
         run: bunx turbo run lint typecheck test --filter=./apps/api
 
   build-api:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-api, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -222,6 +226,9 @@ jobs:
     secrets: inherit
 
   deploy-api:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-api]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -284,6 +291,9 @@ jobs:
           VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
   build-portal:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-portal, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -294,6 +304,9 @@ jobs:
     secrets: inherit
 
   deploy-portal:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-portal]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -331,6 +344,9 @@ jobs:
           VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
 
   build-rumaer:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-rumaer, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -341,6 +357,9 @@ jobs:
     secrets: inherit
 
   deploy-rumaer:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-rumaer]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -376,6 +395,9 @@ jobs:
         run: bunx turbo run lint typecheck test --filter=./apps/sucont
 
   build-sucont:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-sucont, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -386,6 +408,9 @@ jobs:
     secrets: inherit
 
   deploy-sucont:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-sucont]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -423,6 +448,9 @@ jobs:
           VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
 
   build-assignment-selection:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-assignment-selection, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -433,6 +461,9 @@ jobs:
     secrets: inherit
 
   deploy-assignment-selection:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-assignment-selection]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -460,28 +491,21 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Lint · types · unit · integration tests
+      - name: Lint · types · unit tests
         run: |
-          bunx turbo run lint typecheck test:unit test:integration --filter=./apps/sisub
+          bunx turbo run lint typecheck test:unit --filter=./apps/sisub
           bunx turbo run test --filter=./packages/pbac
           bunx turbo run test --filter=./packages/sisub-domain
         env:
-          # SISUB_DATABASE_URL faltava: os testes de integração via Drizzle
-          # skipavam em silêncio ("verde vazio") — o guard SISUB_INTEGRATION_REQUIRED
-          # do harness passou a expor isso como falha. Com o secret, a suíte
-          # inteira roda contra o banco real também no deploy.
-          SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
+          # Sem segredo: teste unitário não lê credencial. A integração roda no integration.yml
+          # (gate no PR, suíte inteira como monitor no push da `main`), fora do caminho do deploy.
           VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
-          ANALYTICS_AI_PROVIDER: ${{ vars.ANALYTICS_AI_PROVIDER }}
-          ANALYTICS_AI_MODEL: ${{ vars.ANALYTICS_AI_MODEL }}
-          ANALYTICS_AI_API_KEY: ${{ secrets.ANALYTICS_AI_API_KEY }}
-          MODULE_CHAT_AI_PROVIDER: ${{ vars.MODULE_CHAT_AI_PROVIDER }}
-          MODULE_CHAT_AI_MODEL: ${{ vars.MODULE_CHAT_AI_MODEL }}
-          MODULE_CHAT_AI_API_KEY: ${{ secrets.MODULE_CHAT_AI_API_KEY }}
 
   build-sisub:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-sisub, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -557,6 +581,9 @@ jobs:
   #         if-no-files-found: ignore
 
   deploy-sisub:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-sisub]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -591,6 +618,9 @@ jobs:
           VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
   build-forms:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-forms, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -602,6 +632,9 @@ jobs:
     secrets: inherit
 
   deploy-forms:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-forms]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -642,6 +675,9 @@ jobs:
           VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
   build-contrate:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-contrate, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -653,6 +689,9 @@ jobs:
 
   # `vars.CONTRATE_HEALTH_URL` ausente só pula a verificação de saúde.
   deploy-contrate:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-contrate]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -816,6 +855,9 @@ jobs:
           VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
   build-5s:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-5s, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -827,6 +869,9 @@ jobs:
     secrets: inherit
 
   deploy-5s:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-5s]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -858,6 +903,9 @@ jobs:
         run: bunx turbo run lint typecheck --filter=./apps/sisub-mcp
 
   build-mcp:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-mcp, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -865,6 +913,9 @@ jobs:
     secrets: inherit
 
   deploy-mcp:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-mcp]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -922,6 +973,9 @@ jobs:
   # `alpha` não tem build arg: o env dele é de runtime, não de bundle — por isso o
   # caller de build não passa `bake_set`.
   build-alpha:
+    permissions:
+      contents: read
+      id-token: write
     needs: [check-alpha, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
@@ -933,6 +987,9 @@ jobs:
   # para a AWS, e falharia o deploy contra um host morto. Variável ausente só pula a
   # verificação de saúde (o reusable checa `health_url != ''`), não quebra o deploy.
   deploy-alpha:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-alpha]
     uses: ./.github/workflows/_app-deploy.yml
     with:
@@ -951,6 +1008,9 @@ jobs:
   # isso o timeout maior. O cache do bake (scope `pdf`) só é refeito quando o
   # Dockerfile muda.
   build-pdf:
+    permissions:
+      contents: read
+      id-token: write
     needs: [changes]
     if: needs.changes.outputs.pdf == 'true'
     uses: ./.github/workflows/_app-build.yml
@@ -960,6 +1020,9 @@ jobs:
     secrets: inherit
 
   deploy-pdf:
+    permissions:
+      contents: read
+      id-token: write
     needs: [build-pdf]
     uses: ./.github/workflows/_app-deploy.yml
     with:

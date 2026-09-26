@@ -29,8 +29,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  OPENGREP_VERSION: "1.25.0"
+  OPENGREP_VERSION: "1.30.0"
+  # sha256 do asset opengrep_manylinux_x86 da release (`gh release view v<versão>
+  # -R opengrep/opengrep --json assets`, campo `digest`). Troca de versão troca os dois.
+  OPENGREP_SHA256: "35779bdd72e92129c8df2a77f0c55e8c08356801ea92591ef32108d6b28d564c"
   GITLEAKS_VERSION: "8.30.1"
+  # Linha linux_x64 do gitleaks_<versão>_checksums.txt da release.
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
 
 jobs:
   # ============================================
@@ -52,6 +57,7 @@ jobs:
         run: |
           curl -fsSL -o opengrep \
             "https://github.com/opengrep/opengrep/releases/download/v${OPENGREP_VERSION}/opengrep_manylinux_x86"
+          echo "${OPENGREP_SHA256}  opengrep" | sha256sum -c -
           chmod +x opengrep
           sudo mv opengrep /usr/local/bin/
           opengrep --version
@@ -149,6 +155,7 @@ jobs:
         run: |
           curl -fsSL -o gitleaks.tar.gz \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
           tar -xzf gitleaks.tar.gz gitleaks
           sudo mv gitleaks /usr/local/bin/
           gitleaks version
