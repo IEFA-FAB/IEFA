@@ -169,6 +169,8 @@ import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRouteImport
 import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdPrintRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/print'
 import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions'
 import { Route as ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/weekly-menus/print.$weeklyMenuId'
+import { Route as ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement/print.price-research.$ataId'
+import { Route as ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement/print.quantities.$ataId'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
@@ -1114,6 +1116,20 @@ const ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute =
       getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
     } as any,
   )
+const ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute =
+  ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRouteImport.update(
+    {
+      id: '/print/price-research/$ataId',
+      path: '/print/price-research/$ataId',
+      getParentRoute: () => ProtectedModulesUnitUnitIdProcurementRoute,
+    } as any,
+  )
+const ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute =
+  ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRouteImport.update({
+    id: '/print/quantities/$ataId',
+    path: '/print/quantities/$ataId',
+    getParentRoute: () => ProtectedModulesUnitUnitIdProcurementRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
@@ -1273,6 +1289,8 @@ export interface FileRoutesByFullPath {
   '/kitchen/$kitchenId/recipes/$recipeId/versions': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute
   '/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute
   '/kitchen/$kitchenId/recipes/$recipeId/': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute
+  '/unit/$unitId/procurement/print/price-research/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute
+  '/unit/$unitId/procurement/print/quantities/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -1424,6 +1442,8 @@ export interface FileRoutesByTo {
   '/kitchen/$kitchenId/recipes/$recipeId/versions': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute
   '/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute
   '/kitchen/$kitchenId/recipes/$recipeId': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute
+  '/unit/$unitId/procurement/print/price-research/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute
+  '/unit/$unitId/procurement/print/quantities/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1587,6 +1607,8 @@ export interface FileRoutesById {
   '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute
   '/_protected/_modules/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute
   '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute
+  '/_protected/_modules/unit/$unitId/procurement/print/price-research/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute
+  '/_protected/_modules/unit/$unitId/procurement/print/quantities/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1748,6 +1770,8 @@ export interface FileRouteTypes {
     | '/kitchen/$kitchenId/recipes/$recipeId/versions'
     | '/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId'
     | '/kitchen/$kitchenId/recipes/$recipeId/'
+    | '/unit/$unitId/procurement/print/price-research/$ataId'
+    | '/unit/$unitId/procurement/print/quantities/$ataId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1899,6 +1923,8 @@ export interface FileRouteTypes {
     | '/kitchen/$kitchenId/recipes/$recipeId/versions'
     | '/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId'
     | '/kitchen/$kitchenId/recipes/$recipeId'
+    | '/unit/$unitId/procurement/print/price-research/$ataId'
+    | '/unit/$unitId/procurement/print/quantities/$ataId'
   id:
     | '__root__'
     | '/_protected'
@@ -2061,6 +2087,8 @@ export interface FileRouteTypes {
     | '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions'
     | '/_protected/_modules/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId'
     | '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/'
+    | '/_protected/_modules/unit/$unitId/procurement/print/price-research/$ataId'
+    | '/_protected/_modules/unit/$unitId/procurement/print/quantities/$ataId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -3197,6 +3225,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRouteImport
       parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
     }
+    '/_protected/_modules/unit/$unitId/procurement/print/price-research/$ataId': {
+      id: '/_protected/_modules/unit/$unitId/procurement/print/price-research/$ataId'
+      path: '/print/price-research/$ataId'
+      fullPath: '/unit/$unitId/procurement/print/price-research/$ataId'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdProcurementRoute
+    }
+    '/_protected/_modules/unit/$unitId/procurement/print/quantities/$ataId': {
+      id: '/_protected/_modules/unit/$unitId/procurement/print/quantities/$ataId'
+      path: '/print/quantities/$ataId'
+      fullPath: '/unit/$unitId/procurement/print/quantities/$ataId'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdProcurementRoute
+    }
   }
 }
 
@@ -3468,6 +3510,8 @@ interface ProtectedModulesUnitUnitIdProcurementRouteChildren {
   ProtectedModulesUnitUnitIdProcurementAtaIdRoute: typeof ProtectedModulesUnitUnitIdProcurementAtaIdRoute
   ProtectedModulesUnitUnitIdProcurementNewRoute: typeof ProtectedModulesUnitUnitIdProcurementNewRoute
   ProtectedModulesUnitUnitIdProcurementIndexRoute: typeof ProtectedModulesUnitUnitIdProcurementIndexRoute
+  ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute: typeof ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute
+  ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute: typeof ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute
 }
 
 const ProtectedModulesUnitUnitIdProcurementRouteChildren: ProtectedModulesUnitUnitIdProcurementRouteChildren =
@@ -3478,6 +3522,10 @@ const ProtectedModulesUnitUnitIdProcurementRouteChildren: ProtectedModulesUnitUn
       ProtectedModulesUnitUnitIdProcurementNewRoute,
     ProtectedModulesUnitUnitIdProcurementIndexRoute:
       ProtectedModulesUnitUnitIdProcurementIndexRoute,
+    ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute:
+      ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute,
+    ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute:
+      ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute,
   }
 
 const ProtectedModulesUnitUnitIdProcurementRouteWithChildren =

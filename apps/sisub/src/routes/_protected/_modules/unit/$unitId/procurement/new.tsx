@@ -1,4 +1,4 @@
-import { DEFAULT_MAX_MARGIN_PERCENT, type SegmentExclusion } from "@iefa/sisub-domain"
+import { DEFAULT_MAX_MARGIN_PERCENT, DEFAULT_MIN_QUOTE_PERCENT, type SegmentExclusion } from "@iefa/sisub-domain"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
@@ -161,7 +161,7 @@ function NewAtaPage() {
 	const { data: segmentation } = useSegmentationOverview(unitId)
 	const segments = segmentation?.segments ?? []
 	// Margem padrão e justificativa do anexo de quantitativos; a vigência vem do próprio wizard.
-	const [limitSettings, setLimitSettings] = useState<{ maxMarginPercent: number; marginJustification: string | null } | null>(null)
+	const [limitSettings, setLimitSettings] = useState<{ maxMarginPercent: number; marginJustification: string | null; minQuotePercent: number } | null>(null)
 	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
 	const [priceOverrides, setPriceOverrides] = useState<Record<string, { price: number; researchId: string | null; researchItemId: string | null }>>({})
 	const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, string>>({})
@@ -196,7 +196,11 @@ function NewAtaPage() {
 		draftRestoredRef.current = true
 
 		const restoredValidity = (existingDraft as typeof existingDraft & { validity_months?: number | null }).validity_months ?? DEFAULT_VALIDITY_MONTHS
-		setLimitSettings({ maxMarginPercent: existingDraft.max_margin_percent, marginJustification: existingDraft.margin_justification })
+		setLimitSettings({
+			maxMarginPercent: existingDraft.max_margin_percent,
+			marginJustification: existingDraft.margin_justification,
+			minQuotePercent: Number(existingDraft.min_quote_percent ?? DEFAULT_MIN_QUOTE_PERCENT),
+		})
 
 		setWizardState({
 			title: existingDraft.title === "Sem nome" ? "" : existingDraft.title,
@@ -487,6 +491,7 @@ function NewAtaPage() {
 			validityMonths: wizardState.validityMonths,
 			maxMarginPercent: limitSettings?.maxMarginPercent ?? DEFAULT_MAX_MARGIN_PERCENT,
 			marginJustification: limitSettings?.marginJustification ?? null,
+			minQuotePercent: limitSettings?.minQuotePercent ?? DEFAULT_MIN_QUOTE_PERCENT,
 		}),
 		[wizardState.validityMonths, limitSettings]
 	)
@@ -505,6 +510,7 @@ function NewAtaPage() {
 		setLimitSettings({
 			maxMarginPercent: patch.maxMarginPercent ?? annexSettings.maxMarginPercent,
 			marginJustification: patch.marginJustification !== undefined ? patch.marginJustification : annexSettings.marginJustification,
+			minQuotePercent: patch.minQuotePercent ?? annexSettings.minQuotePercent,
 		})
 		updateQuantityLimits({ ataId: draftId, ...patch })
 	}

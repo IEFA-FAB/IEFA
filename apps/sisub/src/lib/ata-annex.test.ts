@@ -62,3 +62,15 @@ describe("unidade do anexo", () => {
 		expect(rows[0]?.unit).toBe("KG")
 	})
 })
+
+describe("buildAnnexCsv com orçamento sigiloso", () => {
+	test("tira as colunas de preço e valor, cabeçalho e linhas", () => {
+		const rows = buildSnapshotAnnexRows([component({})], [{ ingredient_id: "ing-1", item_description: null, catmat_item_descricao: null, unit_price: 12 }])
+		const open = buildAnnexCsv(rows, null)
+		const confidential = buildAnnexCsv(rows, null, { confidential: true })
+		expect(open.split("\n")[0]).toContain("Preço unitário estimado")
+		expect(confidential.split("\n")[0]).not.toContain("Preço unitário estimado")
+		expect(confidential.split("\n")[0]).not.toContain("Valor máximo estimado")
+		expect(confidential.split("\n")[1].split(",").length).toBe(open.split("\n")[1].split(",").length - 2)
+	})
+})

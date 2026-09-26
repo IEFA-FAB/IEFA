@@ -50,6 +50,8 @@ export interface AtaSnapshotComponent {
 	max_quantity: number | null
 	delivery_cycle: string | null
 	min_order_quantity: number | null
+	/** Quantidade mínima a ser cotada (art. 82, II), congelada na conclusão; nula em anexos anteriores. */
+	min_quote_quantity?: number | null
 }
 
 /** Metadados de integridade computados por request (não persistidos). */

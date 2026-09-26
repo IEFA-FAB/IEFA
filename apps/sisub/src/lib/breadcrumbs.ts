@@ -46,6 +46,8 @@ export const SEGMENT_PT: Record<string, string> = {
 	planning: "Agendamento da Produção",
 	procurement: "Anexos Quantitativos",
 	segments: "Segmentação das contratações",
+	quantities: "Memória de cálculo",
+	"price-research": "Pesquisa de preços",
 	flows: "Fluxos",
 	"procurement-planning": "Planejar contratação",
 	"demand-forecast": "Prever demanda para compra",
@@ -116,6 +118,8 @@ export const ID_LABEL_BY_PARENT: Record<string, string> = {
 	suprimentos: "Previsão",
 	"snack-requests": "Pedido",
 	procurement: "Anexo",
+	quantities: "Anexo",
+	"price-research": "Anexo",
 	ingredients: "Insumo",
 	nfe: "NF-e",
 	receiving: "Recebimento",
@@ -139,7 +143,8 @@ const NUMERIC_RE = /^\d+$/
 export const isId = (seg: string) => UUID_RE.test(seg) || NUMERIC_RE.test(seg)
 
 /** Segmentos que não nomeiam um recurso — pulados ao procurar o pai de um id */
-const TRANSPARENT_SEGMENTS = new Set(["print"])
+// `quantities` e `price-research` só existem como `print/<documento>/$ataId`: não são rota.
+const TRANSPARENT_SEGMENTS = new Set(["print", "quantities", "price-research"])
 
 /**
  * Caminho sem o id de escopo: `/unit/3/reconciliation` → `/unit/reconciliation`.

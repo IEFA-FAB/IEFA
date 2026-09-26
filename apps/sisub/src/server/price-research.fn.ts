@@ -71,6 +71,8 @@ const SampleSchema = z.object({
 	marca: z.string().nullable().optional(),
 	dataCompra: z.string().nullable().optional(),
 	dataResultado: z.string().nullable().optional(),
+	niFornecedor: z.string().nullable().optional(),
+	nomeFornecedor: z.string().nullable().optional(),
 })
 
 // ─── Salvar memória de cálculo para auditoria (Lei 14.133/2021) ───────────────

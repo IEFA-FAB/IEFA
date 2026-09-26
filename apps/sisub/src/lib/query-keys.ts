@@ -185,6 +185,11 @@ export const queryKeys = {
 		pending: (kitchenId: number | null) => ["kitchen_ata_draft", "pending", kitchenId] as const,
 	},
 
+	procurementDocuments: {
+		quantityMemory: (ataId: string | null) => ["procurement_documents", "quantity_memory", ataId] as const,
+		priceResearchReport: (ataId: string | null, emissionId: string | null) => ["procurement_documents", "price_research", ataId, emissionId] as const,
+	},
+
 	flows: {
 		procurementPlanning: (unitId: number | null) => ["flows", "procurement-planning", unitId] as const,
 		demandForecast: (kitchenId: number | null) => ["flows", "demand-forecast", kitchenId] as const,

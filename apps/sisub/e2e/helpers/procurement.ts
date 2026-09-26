@@ -71,8 +71,21 @@ export async function deleteProcurementRows(table: "procurement_list" | "procure
 	throw new Error(`limpeza de ${table}: ${lastError}`)
 }
 
+/**
+ * O `vite dev` frio às vezes mostra o overlay de erro enquanto reotimiza dependências, e ele cobre
+ * a página inteira. Não é erro do app (some ao recarregar): registra a mensagem e recarrega uma vez.
+ */
+export async function recoverFromViteOverlay(page: Page): Promise<void> {
+	const message = await page.evaluate(() => document.querySelector("vite-error-overlay")?.shadowRoot?.querySelector(".message")?.textContent ?? null)
+	if (message == null) return
+	console.warn(`[e2e] overlay do vite dev, recarregando: ${message.slice(0, 200)}`)
+	await page.reload()
+	await page.waitForLoadState("networkidle")
+}
+
 /** O aviso de documentos legais é fixo no rodapé e cobre os botões enquanto pendente. */
 export async function dismissLegalNotice(page: Page): Promise<void> {
+	await recoverFromViteOverlay(page)
 	const legalNotice = page.getByRole("region", { name: "Aviso sobre documentos legais" })
 	if (await legalNotice.isVisible().catch(() => false)) {
 		await legalNotice.getByRole("button", { name: "Estou ciente" }).click()

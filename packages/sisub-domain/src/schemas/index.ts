@@ -526,6 +526,7 @@ export {
 	SendKitchenDraftSchema,
 	SetDefaultPurchaseItemIngredientSchema,
 	TemplateSelectionSchema,
+	UpdateAtaDocumentSettingsSchema,
 	UpdateAtaDraftSchema,
 	UpdateAtaItemDescriptionSchema,
 	UpdateAtaItemPricesSchema,

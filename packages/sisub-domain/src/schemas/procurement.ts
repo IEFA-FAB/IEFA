@@ -315,6 +315,8 @@ export const UpdateAtaQuantityLimitsSchema = z.object({
 	ataId: UuidSchema,
 	maxMarginPercent: MarginPercentSchema.optional(),
 	marginJustification: z.string().max(4000).nullable().optional(),
+	/** Quantidade mínima a ser cotada, em % da máxima (Lei 14.133/2021, art. 82, II). */
+	minQuotePercent: z.number().gt(0).max(100).optional(),
 	items: z
 		.array(
 			z.object({
@@ -354,3 +356,5 @@ export const AddProcurementSegmentRuleSchema = z.object({
 	purchaseItemId: UuidSchema.nullable().optional(),
 })
 export const RemoveProcurementSegmentRuleSchema = z.object({ ruleId: UuidSchema })
+
+export const UpdateAtaDocumentSettingsSchema = z.object({ ataId: UuidSchema, isBudgetConfidential: z.boolean() })
