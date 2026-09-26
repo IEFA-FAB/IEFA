@@ -44,6 +44,7 @@ bun run test --concurrency=2           # todos os testes (turbo)
 cd apps/<app> && bunx vitest run       # vitest de um app (sisub, assignment-selection)
 bun run generate:deploy                # regenera Dockerfile/bake/paths-filter do manifesto
 bun --filter @iefa/database <script>   # scripts do banco (db:types, audit:rls, ...)
+bun run scan:rules                     # gate do opengrep local (~15 s; binário `opengrep` no PATH)
 ```
 
 Em rodada full-repo, passe `--concurrency=2` (`--concurrency=1` em `build`): o default do turbo
@@ -110,7 +111,8 @@ Leia antes de mexer na área (o Claude Code carrega sozinho pelo caminho do arqu
 
 - **Todo trabalho vai por Pull Request.** Branch → push → `gh pr create --base main`. A `main` tem
   um ruleset sem bypass: PR obrigatório, zero aprovações e checks obrigatórios verdes
-  (`lint · typecheck · test`, opengrep, `bun audit`, drift do manifesto, título do PR). Push direto
+  (`lint · typecheck · test`, opengrep, `bun audit`, drift do manifesto, título do PR e o `gate` de
+  integração). Push direto
   na `main` é recusado pelo GitHub, e `--admin` não fura o ruleset.
 - **Antes do merge:** `bun run check`, `bun run lint --concurrency=2` e
   `bun run test --concurrency=2` verdes local, e `/code-review` rodado com os achados publicados no

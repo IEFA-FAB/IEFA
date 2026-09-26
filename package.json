@@ -51,6 +51,7 @@
     "generate:deploy": "bun scripts/generate-deploy-artifacts.ts",
     "check:deploy": "bun scripts/generate-deploy-artifacts.ts --check",
     "check:security-headers": "bun scripts/check-security-headers.ts",
+    "scan:rules": "opengrep scan --config .opengrep/rules --severity ERROR --error apps packages",
     "upgrade": "bun update --latest",
     "gen-all-types": "turbo run generate",
     "commit": "bun run format:check && bunx turbo run lint typecheck && cz",

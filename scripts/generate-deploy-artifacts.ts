@@ -337,8 +337,10 @@ const PIPELINE_TRIGGERS = [
 	".github/workflows/_app-deploy.yml",
 ]
 
-/** Arquivos que reconstroem qualquer imagem do monorepo, então disparam todos os apps dele. */
-const GLOBAL_TRIGGERS = ["Dockerfile", ...PIPELINE_TRIGGERS, "package.json", "turbo.json"]
+/** Arquivos que reconstroem qualquer imagem do monorepo, então disparam todos os apps dele.
+ * `bun.lock` entra porque patch transitivo (Dependabot de segurança) muda só ele: sem o
+ * gatilho, a correção não chegava a produção até outro deploy do app. */
+const GLOBAL_TRIGGERS = ["Dockerfile", ...PIPELINE_TRIGGERS, "package.json", "bun.lock", "turbo.json"]
 
 function renderPathsFilter() {
 	const lines = [

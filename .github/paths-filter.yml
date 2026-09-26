@@ -22,6 +22,7 @@ api:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 portal:
@@ -41,6 +42,7 @@ portal:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 rumaer:
@@ -60,6 +62,7 @@ rumaer:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 sucont:
@@ -80,6 +83,7 @@ sucont:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 assignment_selection:
@@ -99,6 +103,7 @@ assignment_selection:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 sisub:
@@ -121,6 +126,7 @@ sisub:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 forms:
@@ -140,6 +146,7 @@ forms:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 contrate:
@@ -160,6 +167,7 @@ contrate:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 alpha:
@@ -180,6 +188,7 @@ alpha:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 docs:
@@ -194,6 +203,7 @@ docs:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 mcp:
@@ -210,6 +220,7 @@ mcp:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 5s:
@@ -229,6 +240,7 @@ mcp:
   - '.github/workflows/_app-build.yml'
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
+  - 'bun.lock'
   - 'turbo.json'
 
 pdf:
