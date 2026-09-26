@@ -33,17 +33,23 @@ export const dailyMenusQueryOptions = (kitchenId: number | null, startDate: Date
 		enabled: !!kitchenId,
 	})
 
-export const dayDetailsQueryOptions = (kitchenId: number | null, date: Date) =>
+/**
+ * Detalhe de UM dia. A chave é a data civil (`yyyy-MM-dd`), nunca `Date.toISOString()`: o
+ * painel do dia fica montado com o calendário, e um `new Date()` de fallback a cada render
+ * virava chave nova a cada render — a busca rodava em laço, ~11 vezes por segundo. Sem dia
+ * escolhido (`null`), não busca.
+ */
+export const dayDetailsQueryOptions = (kitchenId: number | null, date: string | null) =>
 	queryOptions({
-		queryKey: queryKeys.planning.dayDetail(kitchenId, date.toISOString()),
+		queryKey: queryKeys.planning.dayDetail(kitchenId, date ?? ""),
 		queryFn: () =>
 			fetchDayDetailsFn({
 				data: {
 					kitchenId: kitchenId as number,
-					date: format(date, "yyyy-MM-dd"),
+					date: date as string,
 				},
 			}),
-		enabled: !!kitchenId,
+		enabled: !!kitchenId && !!date,
 	})
 
 // --- Hooks ---
@@ -52,7 +58,7 @@ export function useDailyMenus(kitchenId: number | null, startDate: Date, endDate
 	return useQuery(dailyMenusQueryOptions(kitchenId, startDate, endDate))
 }
 
-export function useDayDetails(kitchenId: number | null, date: Date) {
+export function useDayDetails(kitchenId: number | null, date: string | null) {
 	return useQuery(dayDetailsQueryOptions(kitchenId, date))
 }
 

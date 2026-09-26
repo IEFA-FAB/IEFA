@@ -11,6 +11,7 @@
  */
 
 import type { MaintenanceLogKind, MaintenanceProvider } from "@iefa/sisub-domain"
+import { format } from "date-fns"
 import { Loader2, Wrench } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -51,7 +52,7 @@ export function LogMaintenanceDialog({
 
 	const [planId, setPlanId] = useState<string | null>(defaultPlanId)
 	const [kind, setKind] = useState<MaintenanceLogKind>(issueId != null ? "corrective" : "preventive")
-	const [performedOn, setPerformedOn] = useState(() => new Date().toISOString().slice(0, 10))
+	const [performedOn, setPerformedOn] = useState(() => format(new Date(), "yyyy-MM-dd"))
 	const [provider, setProvider] = useState<MaintenanceProvider>("in_house")
 	const [cost, setCost] = useState("")
 	const [notes, setNotes] = useState("")
@@ -65,7 +66,8 @@ export function LogMaintenanceDialog({
 		if (!open) return
 		setPlanId(defaultPlanId)
 		setKind(issueId != null ? "corrective" : "preventive")
-		setPerformedOn(new Date().toISOString().slice(0, 10))
+		// Data LOCAL: em UTC, um conserto lançado à noite ia para o dia seguinte
+		setPerformedOn(format(new Date(), "yyyy-MM-dd"))
 		setProvider("in_house")
 		setCost("")
 		setNotes("")

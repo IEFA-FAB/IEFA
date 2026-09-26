@@ -1,18 +1,5 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import {
-	addDays,
-	addMonths,
-	eachDayOfInterval,
-	endOfMonth,
-	endOfWeek,
-	format,
-	isSameDay,
-	isSameMonth,
-	startOfDay,
-	startOfMonth,
-	startOfWeek,
-	subMonths,
-} from "date-fns"
+import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { CalendarDays, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Trash2, Users } from "lucide-react"
 import { useReducer } from "react"
@@ -110,23 +97,20 @@ export function PlanningBoard() {
 
 	const monthStart = startOfMonth(currentMonth)
 	const monthEnd = endOfMonth(monthStart)
-	const startDate = startOfWeek(monthStart)
-	const endDate = endOfWeek(monthEnd)
+	// Semana de segunda a domingo, a mesma do cardápio semanal (dia 1 = segunda): com o grid
+	// começando no domingo, tocar num domingo aplicava o cardápio na semana da linha de cima.
+	const startDate = startOfWeek(monthStart, { weekStartsOn: 1 })
+	const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 })
 
 	const { data: menus } = useDailyMenus(kitchenId, startDate, endDate)
 	const { data: templates, isLoading: templatesLoading } = useMenuTemplates(kitchenId)
 
 	const calendarDays = eachDayOfInterval({ start: startDate, end: endDate })
 
-	const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
+	const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 
 	// Week calculation helpers
-	const getWeekStart = (date: Date): Date => {
-		const d = startOfDay(date)
-		const day = d.getDay()
-		const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Monday
-		return new Date(d.setDate(diff))
-	}
+	const getWeekStart = (date: Date): Date => startOfWeek(date, { weekStartsOn: 1 })
 
 	const getWeekDays = (weekStart: Date): Date[] => {
 		return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -200,7 +184,7 @@ export function PlanningBoard() {
 								<TooltipTrigger
 									render={
 										<Button variant="ghost" size="sm" onClick={() => handleMonthChange(0)} className="h-8 px-2 text-xs">
-											<h2 suppressHydrationWarning className="w-sm text-xl sm:text-display capitalize">
+											<h2 suppressHydrationWarning className="text-xl capitalize sm:w-sm sm:text-display">
 												{format(currentMonth, "MMMM yyyy", { locale: ptBR })}
 											</h2>
 										</Button>

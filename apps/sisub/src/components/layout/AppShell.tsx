@@ -35,7 +35,7 @@ export function AppShell() {
 
 	// Reutiliza o isMobile já computado pelo SidebarProvider (768px breakpoint),
 	// consistente com o modo sheet/drawer do sidebar em mobile.
-	const { isMobile } = useSidebar()
+	const { isMobile, setOpenMobile } = useSidebar()
 
 	const { permissions, isLoading: levelLoading } = usePBAC()
 	const levelError = false
@@ -66,6 +66,8 @@ export function AppShell() {
 		const mod = availableModules.find((m) => m.id === moduleId)
 		// Módulos com escopo navegam para o hub; demais para o primeiro item
 		const targetUrl = mod?.hubUrl ?? mod?.items[0]?.url
+		// A troca de módulo sai de um menu (não é link), então a gaveta do celular não fecha sozinha
+		if (isMobile) setOpenMobile(false)
 		if (targetUrl) {
 			navigate({ to: targetUrl as Parameters<typeof navigate>[0]["to"] })
 		}
@@ -145,8 +147,10 @@ export function AppShell() {
 
 			<SidebarInset className="bg-transparent h-full overflow-hidden w-full flex flex-col">
 				<header className="sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
-					<div className="flex items-center gap-3">
-						{!isOnScopeHub && (
+					<div className="flex min-w-0 flex-1 items-center gap-3">
+						{/* No hub de escopo a sidebar do desktop já está à vista; no celular a gaveta é o
+						    único caminho para trocar de módulo ou sair, então o gatilho fica */}
+						{(!isOnScopeHub || isMobile) && (
 							<>
 								<SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
 								<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
@@ -157,10 +161,10 @@ export function AppShell() {
 							<div className="flex items-center gap-1 text-subheading min-w-0">
 								<Link
 									to={(parentCrumb?.to ?? "/hub") as Parameters<typeof Link>[0]["to"]}
-									className="flex shrink-0 items-center gap-1 text-muted-foreground hover:text-primary transition-colors"
+									className="flex min-w-0 max-w-[50%] items-center gap-1 text-muted-foreground hover:text-primary transition-colors"
 								>
-									<ChevronLeft className="size-4" />
-									<span>{parentCrumb?.label ?? R.breadcrumbRoot}</span>
+									<ChevronLeft className="size-4 shrink-0" />
+									<span className="truncate">{parentCrumb?.label ?? R.breadcrumbRoot}</span>
 								</Link>
 								{currentCrumb && (
 									<>
@@ -206,7 +210,7 @@ export function AppShell() {
 							</Breadcrumb>
 						)}
 					</div>
-					<div className="flex items-center gap-2">
+					<div className="flex shrink-0 items-center gap-2">
 						{/* No celular a sidebar vira gaveta: a busca precisa de um ponto de entrada à vista */}
 						{isMobile && (
 							<Button variant="ghost" size="icon" onClick={openCommandPalette} aria-label="Buscar página" className="text-muted-foreground">

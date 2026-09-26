@@ -169,6 +169,12 @@ function Sidebar({
 						} as React.CSSProperties
 					}
 					side={side}
+					// Gaveta modal: tocar num link navega e fecha, senão ela fica por cima da página nova
+					onClick={(event) => {
+						// Com modificador o link abre outra aba e esta página fica onde está
+						if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return
+						if (event.target instanceof Element && event.target.closest("a[href]")) setOpenMobile(false)
+					}}
 				>
 					<SheetHeader className="sr-only">
 						<SheetTitle>Menu</SheetTitle>
@@ -289,9 +295,11 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
 	)
 }
 
-function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
+// `div`, não `main`: o inset leva o header do shell junto, e o landmark `main` é o conteúdo
+// dentro dele (AppShell). Com os dois, a página tinha dois `main` aninhados.
+function SidebarInset({ className, ...props }: React.ComponentProps<"div">) {
 	return (
-		<main
+		<div
 			data-slot="sidebar-inset"
 			className={cn(
 				"bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 relative flex w-full flex-1 flex-col",

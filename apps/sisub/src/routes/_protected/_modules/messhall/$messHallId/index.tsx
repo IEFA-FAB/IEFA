@@ -23,6 +23,10 @@ import type { MealKey } from "@/types/domain/meal"
 import type { DialogState, FiscalFilters } from "@/types/domain/presence"
 
 export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId/")({
+	// Refeição e dia padrão saem do relógio LOCAL (`inferDefaultMeal`, `generateRestrictedDates`).
+	// No SSR o relógio é o do servidor, em UTC: o HTML vinha com outra refeição e a hidratação
+	// quebrava (React #418). A tela é o scanner da fiscalização — não ganha nada com SSR.
+	ssr: false,
 	component: PresencePage,
 	head: () => ({
 		meta: [{ name: "description", content: "Scanner QR e lista de presenças" }],
