@@ -50,7 +50,8 @@ interface DayDrawerProps {
 export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	"use no memo"
 
-	const { data: dayMenus, isLoading: menusLoading } = useDayDetails(kitchenId, date || new Date())
+	const isoDate = date ? format(date, "yyyy-MM-dd") : ""
+	const { data: dayMenus, isLoading: menusLoading } = useDayDetails(kitchenId, isoDate || null)
 
 	const { data: mealTypes, isLoading: mealTypesLoading } = useMealTypes(kitchenId)
 	// Os grupos do dia são os do conjunto da refeição — os mesmos do editor semanal.
@@ -98,7 +99,6 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	const [pendingReplace, setPendingReplace] = useState<{ item: MenuItem; recipeId: string } | null>(null)
 	const [replaceRationale, setReplaceRationale] = useState("")
 	const { mutate: replaceRecipe, isPending: isReplacingRecipe } = useReplaceMenuItemRecipe()
-	const isoDate = date ? format(date, "yyyy-MM-dd") : ""
 
 	// State for recipe selector
 	const [recipeSelectorMenu, setRecipeSelectorMenu] = useState<DailyMenuWithItems | null>(null)
