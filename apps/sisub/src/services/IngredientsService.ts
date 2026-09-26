@@ -47,7 +47,6 @@ import {
 	fetchNutritionReferenceFoodsFn,
 	recordFolderReviewFn,
 	recordIngredientReviewFn,
-	recordIngredientVersionFn,
 	restoreFolderFn,
 	restoreIngredientFn,
 	restoreIngredientVersionFn,
@@ -657,18 +656,6 @@ export function useSaveIngredientDetails() {
 			}),
 	})
 	return { saveIngredientDetails: mutation.mutateAsync, isSaving: mutation.isPending, error: mutation.error }
-}
-
-/** Registra uma versão do insumo após mudanças feitas por fluxos separados (itens de compra/produto). */
-export function useRecordIngredientVersion() {
-	const queryClient = useQueryClient()
-	const mutation = useMutation({
-		mutationFn: (ingredientId: string) => recordIngredientVersionFn({ data: { ingredientId } }),
-		onSuccess: (_res, ingredientId) => {
-			queryClient.invalidateQueries({ queryKey: ["ingredients", "versions", ingredientId] })
-		},
-	})
-	return { recordIngredientVersion: mutation.mutateAsync, isRecording: mutation.isPending }
 }
 
 export function useRestoreIngredientVersion() {

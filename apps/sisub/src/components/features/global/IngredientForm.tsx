@@ -9,7 +9,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
-import { useCreateIngredient, useFolders, useRecordIngredientVersion, useUpdateIngredient } from "@/services/IngredientsService"
+import { useCreateIngredient, useFolders, useUpdateIngredient } from "@/services/IngredientsService"
 import { FolderCombobox } from "./FolderCombobox"
 
 // Schema de validação
@@ -61,7 +61,6 @@ export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolde
 	const { folders } = useFolders(catalog)
 	const { createIngredient, isCreating } = useCreateIngredient()
 	const { updateIngredient, isUpdating } = useUpdateIngredient()
-	const { recordIngredientVersion } = useRecordIngredientVersion()
 	const productSchema = useMemo(() => buildProductSchema(catalog), [catalog])
 
 	// Caminho hierárquico de cada pasta (ex.: "Hortifruti / Frutas / Cítricas") — exibe a
@@ -96,15 +95,12 @@ export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolde
 		onSubmit: async ({ value }) => {
 			try {
 				if (mode === "create") {
-					const created = await createIngredient(value)
-					// A v1 nasce com o insumo: sem ela o histórico começa só no primeiro save da tela
-					// de detalhe, e a restauração não tem para onde voltar.
-					if (created?.id) recordIngredientVersion(created.id).catch(() => {})
+					// A v1 nasce com o insumo, no servidor (`createIngredientFn`).
+					await createIngredient(value)
 					toast.success("Insumo criado com sucesso!")
 				} else if (ingredient) {
 					await updateIngredient({ id: ingredient.id, payload: value })
-					// Editar pela árvore também é um evento de salvamento do insumo versionado.
-					recordIngredientVersion(ingredient.id).catch(() => {})
+					// A versão é gravada pelo servidor, na mesma transação (`updateIngredientFn`).
 					toast.success("Insumo atualizado com sucesso!")
 				}
 

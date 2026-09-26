@@ -179,14 +179,21 @@ export async function deletePurchaseItemIngredient(db: SisubDb, ctx: UserContext
 export async function setDefaultPurchaseItemIngredient(db: SisubDb, ctx: UserContext, input: SetDefaultPurchaseItemIngredient) {
 	requirePermission(ctx, "global", 2)
 
-	// Atômico: zera os defaults da compra e marca o novo — em transação para não deixar
-	// o purchase_item sem default (ou com dois) se o segundo update falhar.
+	// "Padrão" é o item de compra preferido de UM insumo — o índice único
+	// `purchase_item_ingredient_default_uniq` é por `ingredient_id`. Zerar pelos vínculos do
+	// item de compra (como era) deixava o padrão anterior do insumo de pé e o segundo update
+	// batia no índice. Atômico: sem default (ou com dois) se o segundo update falhar.
 	await runQuery("UPDATE_FAILED", () =>
 		db.transaction(async (tx) => {
+			const link = await tx.query.purchaseItemIngredientInProcurement.findFirst({
+				columns: { ingredientId: true },
+				where: and(eq(purchaseItemIngredientInProcurement.id, input.id), eq(purchaseItemIngredientInProcurement.purchaseItemId, input.purchaseItemId)),
+			})
+			if (!link) throw new DomainError("UPDATE_FAILED", `purchase_item_ingredient ${input.id} not found`)
 			await tx
 				.update(purchaseItemIngredientInProcurement)
 				.set({ isDefault: false })
-				.where(eq(purchaseItemIngredientInProcurement.purchaseItemId, input.purchaseItemId))
+				.where(eq(purchaseItemIngredientInProcurement.ingredientId, link.ingredientId))
 			const marked = await tx
 				.update(purchaseItemIngredientInProcurement)
 				.set({ isDefault: true })
