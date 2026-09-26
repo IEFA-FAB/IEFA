@@ -65,8 +65,10 @@ interface ReceiptLotRow {
 	measured_temperature_c: number | null
 	divergence_reason: string | null
 	temperature_ack_by: string | null
-	/** Classe em que o lote chegou; nula = a sugerida pela especificação. */
+	/** Classe em que o lote chegou; nula = não informada (vale a sugerida). */
 	conservation_class: ConservationClass | null
+	/** Nota do conferente sobre a divergência, guardada à parte para sobreviver a novas gravações. */
+	divergence_note: string | null
 }
 
 interface ConditioningRow {
@@ -167,7 +169,7 @@ function LotEditor({
 	const [quantity, setQuantity] = useState(lot != null ? String(lot.quantity_base) : "")
 	const [temperature, setTemperature] = useState(lot?.measured_temperature_c != null ? String(lot.measured_temperature_c) : "")
 	const [conservation, setConservation] = useState<ConservationClass | null>(lot?.conservation_class ?? suggested)
-	const [note, setNote] = useState("")
+	const [note, setNote] = useState(lot?.divergence_note ?? "")
 	const [busy, setBusy] = useState(false)
 
 	const classDivergence = conservationDivergence(suggested, conservation)

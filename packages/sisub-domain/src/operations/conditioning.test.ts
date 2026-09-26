@@ -218,6 +218,8 @@ describe("divergência do que chegou em relação ao sugerido", () => {
 		expect(conservationDivergence("congelado", "congelado")).toBeNull()
 		expect(conservationDivergence("congelado", null)).toBeNull()
 		expect(conservationDivergence(null, "resfriado")).toBeNull()
+		// a temperatura medida vai para a frase: a faixa sugerida era a da outra classe
+		expect(conservationDivergence("congelado", "resfriado", 4)).toBe("Recebido resfriado, medido 4 °C (sugerido pela especificação: congelado)")
 	})
 
 	test("validade abaixo do mínimo vira frase com os dias que sobraram", () => {

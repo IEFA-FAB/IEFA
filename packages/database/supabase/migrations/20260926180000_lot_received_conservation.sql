@@ -7,7 +7,8 @@
 -- validade de 15 dias em vez de 3. Não se bloqueia a situação; ela é registrada.
 --
 -- 1. `goods_receipt_item_lot.conservation_class`: a classe em que o lote CHEGOU, informada
---    na conferência. Nula = seguiu a sugestão. Diferente da sugestão, o servidor preenche
+--    na conferência (nula = não informada, vale a sugestão); `divergence_note`, a nota
+--    opcional do conferente. Diferente da sugestão, o servidor preenche
 --    `divergence_reason` ("Recebido resfriado (sugerido pela especificação: congelado)"),
 --    e o recebimento termina como `divergent` — o mesmo caminho da temperatura fora da
 --    faixa: registrado, nunca recusado.
@@ -29,6 +30,16 @@ alter table inventory.goods_receipt_item_lot
 
 comment on column inventory.goods_receipt_item_lot.conservation_class is
   'Classe em que o lote chegou, informada na conferência. Nula = a sugerida pela especificação de compra. É a que o stock_lot recebe na efetivação.';
+
+-- A nota do conferente mora à parte: `divergence_reason` é recomposto a cada gravação do
+-- lote (as frases de classe, temperatura e validade + a nota), e sem a nota guardada
+-- sozinha ela se perdia no próximo save que só corrigisse a quantidade.
+alter table inventory.goods_receipt_item_lot
+  add column divergence_note text
+  constraint goods_receipt_item_lot_divergence_note_len check (char_length(divergence_note) <= 280);
+
+comment on column inventory.goods_receipt_item_lot.divergence_note is
+  'Nota livre do conferente sobre a divergência do lote. Também vai anexada ao divergence_reason.';
 
 CREATE OR REPLACE FUNCTION inventory.finalize_goods_receipt(p_receipt_id uuid, p_user uuid)
  RETURNS TABLE(movements integer)
@@ -407,6 +418,7 @@ begin
                from procurement.purchase_item_ingredient pii
                join procurement.purchase_item pi on pi.id = pii.purchase_item_id
               where pii.ingredient_id = l.ingredient_id and pii.is_default
+                and pi.deleted_at is null and pi.conservation_class is not null
               limit 1
            )) as conservation_class,
            l.location

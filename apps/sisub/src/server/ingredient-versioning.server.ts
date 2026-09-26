@@ -15,14 +15,14 @@
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { recordIngredientVersion } from "@iefa/sisub-domain"
 import type { UserContext } from "@iefa/sisub-domain/types"
+import { getRequestUser } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
-import { getSupabaseAuthClient } from "@/lib/supabase.server"
 
 /** Identidade legível do autor, a partir da sessão (vai para `changed_by_name`). */
 export async function resolveActor(): Promise<{ id: string | null; name: string | null }> {
-	const {
-		data: { user },
-	} = await getSupabaseAuthClient().auth.getUser()
+	// `getRequestUser` reaproveita o getUser() que o `requireAuth` já fez nesta request: sem
+	// ele, cada escrita versionada (e cada insumo de uma ação em lote) ia de novo ao GoTrue.
+	const user = await getRequestUser()
 	if (!user) return { id: null, name: null }
 	const meta = (user.user_metadata ?? {}) as Record<string, unknown>
 	const name = (meta.full_name as string) ?? (meta.name as string) ?? (meta.display_name as string) ?? user.email ?? null
@@ -49,7 +49,10 @@ export async function withIngredientVersions<T>(
 		const result = await work(db, (...ids) => {
 			for (const id of ids) if (id) touched.add(id)
 		})
-		for (const ingredientId of touched) {
+		// Ordem estável: cada versão toma o lock consultivo do insumo até o commit. Em ordem
+		// de chegada, duas escritas com insumos em comum (item de compra compartilhado) podiam
+		// travar A→B e B→A e cair em deadlock.
+		for (const ingredientId of [...touched].sort()) {
 			await recordIngredientVersion(db, ctx, { ingredientId, changeSummary }, actor)
 		}
 		return result

@@ -10,6 +10,9 @@
  * `withIngredientVersions(` — escrita e versão na mesma transação — ou estar em `EXEMPT`
  * com o motivo. POST novo sem classificação reprova a suíte: é o único momento em que
  * alguém ainda lembra se ele mexe no que a versão guarda.
+ *
+ * Escopo: as server functions do app. Escritor fora delas (o script de correlação CATMAT
+ * em `apps/api/scripts/`) não é varrido aqui — está nas pendências de `docs/SAVE_BEHAVIOR.md`.
  */
 
 import { readFileSync } from "node:fs"

@@ -218,10 +218,21 @@ export function meetsMinimumShelfLife(expiryDate: string | null, receivedOn: str
 // `divergence_reason` do lote, e o recebimento termina como `divergent` — o mesmo destino
 // da temperatura fora da faixa.
 
-/** Frase da classe recebida diferente da sugerida. Sem sugestão, não há divergência. */
-export function conservationDivergence(suggested: ConservationClass | null, received: ConservationClass | null): string | null {
+/**
+ * Frase da classe recebida diferente da sugerida. Sem sugestão, não há divergência.
+ *
+ * A faixa de temperatura da especificação é a da classe SUGERIDA e não julga o lote que
+ * chegou em outra — e o sistema não inventa faixa normativa por classe. Por isso a
+ * temperatura medida entra na própria frase: fica no registro para quem fiscaliza julgar.
+ */
+export function conservationDivergence(
+	suggested: ConservationClass | null,
+	received: ConservationClass | null,
+	measuredTemperatureC?: number | null
+): string | null {
 	if (!suggested || !received || suggested === received) return null
-	return `Recebido ${CONSERVATION_LABELS[received].toLowerCase()} (sugerido pela especificação: ${CONSERVATION_LABELS[suggested].toLowerCase()})`
+	const measured = measuredTemperatureC != null ? `, medido ${formatCelsius(measuredTemperatureC)}` : ""
+	return `Recebido ${CONSERVATION_LABELS[received].toLowerCase()}${measured} (sugerido pela especificação: ${CONSERVATION_LABELS[suggested].toLowerCase()})`
 }
 
 /** Frase da validade remanescente abaixo do mínimo exigido na entrega. */

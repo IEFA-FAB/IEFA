@@ -59,7 +59,7 @@ const IsoDate = z
 /** Recebimento já efetivado não aceita mais escrita — nem de lote. */
 async function requireOpenReceipt(receiptId: string, level: 2 | 3) {
 	const inv = inventory()
-	const { data: receipt } = await inv.from("goods_receipt").select("id, status, kitchen_id").eq("id", receiptId).maybeSingle()
+	const { data: receipt } = await inv.from("goods_receipt").select("id, status, kitchen_id, created_at").eq("id", receiptId).maybeSingle()
 	if (!receipt) throw new Error("Recebimento não encontrado")
 	const auth = await requireStorageForKitchen(level, Number(receipt.kitchen_id))
 	// `divergent` e `rejected` JÁ passaram pela efetivação (o ledger foi gravado
@@ -85,37 +85,48 @@ async function receiptIdForLotItem(receiptItemId: string): Promise<string> {
 
 /**
  * O que a especificação de compra da linha SUGERE: classe, faixa de temperatura e validade
- * mínima na entrega. Sem purchase_item na linha, cai na especificação padrão do insumo — a
- * mesma resolução que `finalize_goods_receipt` faz para gravar a classe no lote.
+ * mínima na entrega.
+ *
+ * A classe segue EXATAMENTE a resolução de `finalize_goods_receipt`: a do purchase_item da
+ * linha; nula (ou sem purchase_item), a da especificação padrão do insumo, desde que não
+ * excluída. Faixa e validade vêm da especificação da linha quando ela existe, senão da padrão.
  */
 async function requiredRangeFor(
 	purchaseItemId: string | null,
 	ingredientId: string | null
 ): Promise<{ minC: number | null; maxC: number | null; conservationClass: ConservationClass | null; minShelfLifeDays: number | null }> {
 	const proc = procurement()
-	const columns = "conservation_class, storage_temp_min_c, storage_temp_max_c, min_shelf_life_days_on_delivery"
+	const columns = "conservation_class, storage_temp_min_c, storage_temp_max_c, min_shelf_life_days_on_delivery, deleted_at"
 
-	let spec: Record<string, unknown> | null = null
+	let lineSpec: Record<string, unknown> | null = null
 	if (purchaseItemId) {
 		const { data } = await proc.from("purchase_item").select(columns).eq("id", purchaseItemId).maybeSingle()
-		spec = data ?? null
+		lineSpec = data ?? null
 	}
-	if (!spec && ingredientId) {
+	let defaultSpec: Record<string, unknown> | null = null
+	if ((!lineSpec || lineSpec.conservation_class == null) && ingredientId) {
 		const { data } = await proc
 			.from("purchase_item_ingredient")
 			.select(`purchase_item:purchase_item_id (${columns})`)
 			.eq("ingredient_id", ingredientId)
 			.eq("is_default", true)
 			.maybeSingle()
-		spec = (data as { purchase_item?: Record<string, unknown> } | null)?.purchase_item ?? null
+		const candidate = (data as { purchase_item?: Record<string, unknown> | null } | null)?.purchase_item ?? null
+		defaultSpec = candidate && candidate.deleted_at == null ? candidate : null
 	}
 
+	const spec = lineSpec ?? defaultSpec
 	return {
 		minC: spec?.storage_temp_min_c != null ? Number(spec.storage_temp_min_c) : null,
 		maxC: spec?.storage_temp_max_c != null ? Number(spec.storage_temp_max_c) : null,
-		conservationClass: (spec?.conservation_class as ConservationClass | undefined) ?? null,
+		conservationClass: ((lineSpec?.conservation_class ?? defaultSpec?.conservation_class) as ConservationClass | undefined) ?? null,
 		minShelfLifeDays: spec?.min_shelf_life_days_on_delivery != null ? Number(spec.min_shelf_life_days_on_delivery) : null,
 	}
+}
+
+/** Data (Brasília) em que a carga chegou: a criação do recebimento. É contra ela que se mede a validade. */
+function arrivalDate(receiptCreatedAt: string | null | undefined): string {
+	return brasiliaToday(receiptCreatedAt ? new Date(receiptCreatedAt) : new Date())
 }
 
 /**
@@ -243,18 +254,28 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 		// check `quantity_base > 0` recusaria, e um item faturado com zero é
 		// justamente o que o conferente ainda vai preencher.
 		const byNfeItem = new Map(prepared.map((entry) => [entry.row.nfe_item_id, entry]))
-		const lotRows = (inserted as Array<{ id: string; nfe_item_id: string; received_qty_base: number; unit_cost: number | null }>)
-			.filter((item) => Number(item.received_qty_base) > 0)
-			.map((item, index) => {
-				const source = byNfeItem.get(item.nfe_item_id)
-				return {
-					receipt_item_id: item.id,
-					lot_code: source?.lotCode?.trim() || `SEM-LOTE-${new Date().toISOString().slice(0, 10)}-${index + 1}`,
-					expiry_date: source?.expiryDate ?? null,
-					quantity_base: Number(item.received_qty_base),
-					unit_cost: item.unit_cost,
-				}
-			})
+		const today = arrivalDate(null)
+		const lotRows = await Promise.all(
+			(inserted as Array<{ id: string; nfe_item_id: string; received_qty_base: number; unit_cost: number | null }>)
+				.filter((item) => Number(item.received_qty_base) > 0)
+				.map(async (item, index) => {
+					const source = byNfeItem.get(item.nfe_item_id)
+					const expiryDate = source?.expiryDate ?? null
+					// A validade que veio na nota também é julgada contra o mínimo da especificação:
+					// lote que ninguém edita antes de efetivar não pode escapar do critério (EST-REC-05).
+					const minShelfLifeDays = expiryDate
+						? (await requiredRangeFor(source?.row.purchase_item_id ?? null, source?.row.ingredient_id ?? null)).minShelfLifeDays
+						: null
+					return {
+						receipt_item_id: item.id,
+						lot_code: source?.lotCode?.trim() || `SEM-LOTE-${new Date().toISOString().slice(0, 10)}-${index + 1}`,
+						expiry_date: expiryDate,
+						quantity_base: Number(item.received_qty_base),
+						unit_cost: item.unit_cost,
+						divergence_reason: shelfLifeDivergence(expiryDate, today, minShelfLifeDays),
+					}
+				})
+		)
 
 		if (lotRows.length > 0) {
 			const { error: lotError } = await inv.from("goods_receipt_item_lot").insert(lotRows)
@@ -376,7 +397,7 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const receiptId = await receiptIdForLotItem(data.receiptItemId)
-		const { userId } = await requireOpenReceipt(receiptId, 2)
+		const { userId, receipt } = await requireOpenReceipt(receiptId, 2)
 		const inv = inventory()
 
 		const { data: item } = await inv.from("goods_receipt_item").select("id, purchase_item_id, ingredient_id").eq("id", data.receiptItemId).single()
@@ -384,10 +405,11 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 
 		const spec = await requiredRangeFor(item.purchase_item_id ?? null, item.ingredient_id ?? null)
 		const received = data.conservationClass ?? null
-		const classReason = conservationDivergence(spec.conservationClass, received)
-		// Chegou em outra classe: a faixa sugerida era a da classe sugerida, não a desta.
-		const range = classReason ? { minC: null, maxC: null } : spec
 		const measured = data.measuredTemperatureC ?? null
+		const classReason = conservationDivergence(spec.conservationClass, received, measured)
+		// Chegou em outra classe: a faixa sugerida era a da classe sugerida, não a desta. A
+		// temperatura medida vai na frase da classe, para quem fiscaliza julgar.
+		const range = classReason ? { minC: null, maxC: null } : spec
 		const verdict = temperatureVerdict(measured, range)
 		const outOfRange = isTemperatureOutOfRange(verdict)
 
@@ -399,7 +421,8 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 			[
 				classReason,
 				outOfRange ? temperatureDivergenceReason(measured as number, range) : null,
-				shelfLifeDivergence(data.expiryDate ?? null, brasiliaToday(), spec.minShelfLifeDays),
+				// Contra o dia em que a carga CHEGOU: editar o lote dias depois não pode torná-lo divergente.
+				shelfLifeDivergence(data.expiryDate ?? null, arrivalDate(receipt.created_at as string | null), spec.minShelfLifeDays),
 			],
 			data.divergenceNote
 		)
@@ -411,8 +434,11 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 			quantity_base: data.quantityBase,
 			unit_cost: data.unitCost ?? null,
 			measured_temperature_c: measured,
-			// Nula quando seguiu a sugestão: o lote de estoque herda a da especificação na efetivação.
-			conservation_class: received && received !== spec.conservationClass ? received : null,
+			// Gravada sempre que informada — igual à sugerida inclusive. Nula só quando ninguém
+			// escolheu; aí a efetivação usa a da especificação. Assim o lote de estoque recebe
+			// exatamente o que a tela mostrou, sem depender de as duas resoluções coincidirem.
+			conservation_class: received,
+			divergence_note: data.divergenceNote?.trim() || null,
 			divergence_reason: divergence,
 			temperature_ack_by: outOfRange ? userId : null,
 			temperature_ack_at: outOfRange ? new Date().toISOString() : null,
