@@ -241,7 +241,8 @@ export const resolveDivergenceFn = createServerFn({ method: "POST" })
 							})
 							if (error) throw new Error(`Erro ao ajustar empenho: ${error.message}`)
 						}
-						await fin.from("empenho").update({ origem: "siafi", siafi_synced_at: new Date().toISOString() }).eq("id", empenho.id)
+						const { error: originError } = await fin.from("empenho").update({ origem: "siafi", siafi_synced_at: new Date().toISOString() }).eq("id", empenho.id)
+						if (originError) throw new Error(`Erro ao marcar a origem do empenho: ${originError.message}`)
 					}
 				}
 
