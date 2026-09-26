@@ -1,4 +1,4 @@
-import { convertSamplePrice, type PriceResearchMethod, resolveResearchUnit } from "@iefa/sisub-domain"
+import { convertSamplePrice, type PriceResearchMethod, resolveResearchUnit, splitOutliersByIqr } from "@iefa/sisub-domain"
 import { searchMaterialPricesFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 
@@ -70,19 +70,33 @@ export interface PeriodPartition {
 	outOfWindow: ComprasMaterialPriceResult[]
 	/** Sem data de referência: não há como mostrar que o preço é de até 1 ano. */
 	undated: ComprasMaterialPriceResult[]
+	/** Na janela ou sem data, na ordem original: o que a tabela mostra. */
+	visible: ComprasMaterialPriceResult[]
 }
 
-/** Separa as amostras pela janela de recência; `months` null = sem janela (todo o histórico). */
+/** Separa as amostras pela janela de recência, num passe só; `months` null = sem janela (todo o histórico). */
 export function partitionByPeriod(results: ComprasMaterialPriceResult[], months: number | null, now?: Date): PeriodPartition {
 	const cutoff = months ? periodCutoff(months, now) : null
-	const partition: PeriodPartition = { inWindow: [], outOfWindow: [], undated: [] }
+	const partition: PeriodPartition = { inWindow: [], outOfWindow: [], undated: [], visible: [] }
 	for (const r of results) {
 		const date = sampleReferenceDate(r)
-		if (!date) partition.undated.push(r)
-		else if (cutoff && date.slice(0, 10) < cutoff) partition.outOfWindow.push(r)
-		else partition.inWindow.push(r)
+		if (cutoff && date && date.slice(0, 10) < cutoff) {
+			partition.outOfWindow.push(r)
+			continue
+		}
+		partition.visible.push(r)
+		if (date) partition.inWindow.push(r)
+		else partition.undated.push(r)
 	}
 	return partition
+}
+
+/**
+ * true quando a amostra pode entrar no cálculo (e ser selecionada): com data, ou sem data depois
+ * que o usuário as incluiu. "Selecionar todos" não põe sem data no cálculo por tabela.
+ */
+export function isSampleSelectable(sample: ComprasMaterialPriceResult, includeUndated: boolean): boolean {
+	return includeUndated || sampleReferenceDate(sample) != null
 }
 
 /**
@@ -97,10 +111,8 @@ export function filterByPeriod(
 	now?: Date,
 	options: { includeUndated?: boolean } = {}
 ): ComprasMaterialPriceResult[] {
-	const { inWindow, undated } = partitionByPeriod(results, months, now)
-	if (!options.includeUndated || undated.length === 0) return inWindow
-	const keep = new Set([...inWindow, ...undated])
-	return results.filter((r) => keep.has(r))
+	const partition = partitionByPeriod(results, months, now)
+	return options.includeUndated ? partition.visible : partition.inWindow
 }
 
 export interface CatmatPriceFetch {
@@ -185,21 +197,8 @@ export function analyzeSamples(samples: ComprasMaterialPriceResult[], unit: stri
 	}
 	if (comparable.length === 0) return null
 
-	let valid = comparable
-	let outliers: typeof comparable = []
-	if (options.removeOutliers && comparable.length >= 4) {
-		const sorted = comparable.map((c) => c.price).toSorted((a, b) => a - b)
-		const n = sorted.length
-		const q1 = sorted[Math.floor(n * 0.25)]
-		const q3 = sorted[Math.floor(n * 0.75)]
-		const iqr = q3 - q1
-		if (iqr > 0) {
-			const lower = q1 - 1.5 * iqr
-			const upper = q3 + 1.5 * iqr
-			valid = comparable.filter((c) => c.price >= lower && c.price <= upper)
-			outliers = comparable.filter((c) => c.price < lower || c.price > upper)
-		}
-	}
+	// Mesmo critério que o servidor usa para conferir a classificação recebida.
+	const { valid, outliers } = options.removeOutliers ? splitOutliersByIqr(comparable, (c) => c.price) : { valid: comparable, outliers: [] }
 
 	const stats = computeStats(valid.map((c) => c.price))
 	if (!stats) return null

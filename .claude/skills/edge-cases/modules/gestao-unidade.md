@@ -103,11 +103,13 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
 - **Realidade:** a API devolve contratação sem `dataResultado` nem `dataCompra`.
 - **O sistema precisa:** a amostra aparece na tabela (selo "sem data") e fica fora do cálculo:
   sem data não há como mostrar que o preço é de até 1 ano (art. 5º, II). Quem a inclui (botão
-  "N sem data: fora do cálculo" ou seleção da linha) registra a não conformidade "amostra sem data
-  de referência", resolvida pela justificativa do período (art. 5º, § 3º). O lote e o worker da
-  API sempre a deixam fora.
+  "N sem data: fora do cálculo") registra a não conformidade "amostra sem data de referência",
+  resolvida pela justificativa do período (art. 5º, § 3º). Antes de incluídas, as linhas sem data
+  não se selecionam, e "Selecionar todos" não as pega. O lote e o worker da API sempre as deixam
+  fora.
 - **Cobertura:** `price-research-utils.test.ts › janela de recência` (filtro, partição, funil do
-  `autoSelectPrice`); `price-research-compliance.test.ts › amostra sem data no cálculo…`,
+  `autoSelectPrice`, `› sem data só é selecionável depois de incluída…`);
+  `price-research-compliance.test.ts › amostra sem data no cálculo…`,
   `› complianceFactsOf…`; `apps/api/.../analyzer.test.ts › amostra sem data fica fora…`.
 
 ### GU-PRC-04 — "Quero ver o histórico todo do item"
@@ -126,8 +128,11 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
 - **Realidade:** o pregoeiro desmarca preços de outro estado ou de embalagem atípica, por
   seleção de linhas ou filtro de coluna, em vez do IQR automático.
 - **O sistema precisa:** não conformidade "amostras escolhidas à mão" (art. 6º, § 3º, e art. 3º,
-  VI) até o critério ser descrito.
-- **Cobertura:** `price-research-compliance.test.ts › seleção manual pede o critério…`.
+  VI) até o critério ser descrito. O servidor não confia no flag do cliente: deriva a seleção
+  manual quando somem amostras entre a janela e a classificação, ou quando a classificação não é a
+  do IQR automático, e grava o fato em `manual_selection`, que o relatório lê.
+- **Cobertura:** `price-research-compliance.test.ts › seleção manual pede o critério…`,
+  `› deriveManualSelection`; `price-research-report.test.ts › seleção manual sai do fato gravado…`.
 
 ### GU-PRC-06 — "Quero usar o menor preço"
 - **O sistema precisa:** o menor valor é método do art. 6º, caput: "Usar" no Mínimo grava
@@ -136,9 +141,16 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
 - **Cobertura:** `price-research-utils.test.ts › menor valor é método do art. 6º, caput…`;
   `price-research-compliance.test.ts › menor preço é método do caput…`.
 
+### GU-PRC-08 — "Reabri o relatório do mês passado"
+- **O sistema precisa:** a emissão mostra o que foi emitido. O checklist e as excepcionalidades
+  ficam congelados na emissão; emissão anterior a esta regra se lê pela regra da época, com o
+  texto da época.
+- **Cobertura:** `price-research-report.test.ts › emissão registrada`.
+
 ### GU-PRC-07 — "O lote pesquisou 200 itens e 12 ficaram com poucos preços"
-- **O sistema precisa:** o preço é aplicado; o toast do lote diz quantas pesquisas ficaram não
-  conformes e manda abrir a pesquisa do item para justificar. A nova pesquisa com justificativa é
+- **O sistema precisa:** o preço é aplicado; o toast do lote usa as não conformidades que o
+  servidor gravou e separa as que se resolvem por justificativa (abrir a pesquisa do item e
+  justificar) das que só refazendo resolvem (unidade herdada). A nova pesquisa com justificativa é
   outra memória de cálculo (chave de idempotência v3 inclui janela, seleção e justificativas).
 - **Cobertura:** **LACUNA:** o toast não tem teste, e a tabela do anexo não marca quais itens
   estão não conformes (o usuário só descobre reabrindo a pesquisa de cada um). Menor caminho:

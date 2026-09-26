@@ -6,9 +6,8 @@ import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 // o módulo para evitar carregar o runtime de server function no teste.
 vi.mock("@/server/price-research.fn", () => ({ searchMaterialPricesFn: vi.fn() }))
 
-const { autoSelectPrice, chooseReferencePrice, filterByPeriod, isMethodAllowed, partitionByPeriod, periodCutoff, priceForMethod } = await import(
-	"./price-research-utils"
-)
+const { autoSelectPrice, chooseReferencePrice, filterByPeriod, isMethodAllowed, isSampleSelectable, partitionByPeriod, periodCutoff, priceForMethod } =
+	await import("./price-research-utils")
 
 /** Data dentro da janela padrão contada de hoje: amostra sem data fica fora do cálculo. */
 const RECENT = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -220,11 +219,25 @@ describe("janela de recência", () => {
 		expect(filterByPeriod([semData, antiga], null, NOW)).toEqual([antiga])
 	})
 
-	test("partitionByPeriod separa na janela, fora dela e sem data", () => {
+	test("partitionByPeriod separa na janela, fora dela e sem data, num passe", () => {
 		const recente = priceResult(10, "A", "2026-06-01")
 		const antiga = priceResult(99, "B", "2020-01-01")
 		const semData = priceResult(11, "C", null)
-		expect(partitionByPeriod([recente, antiga, semData], 12, NOW)).toEqual({ inWindow: [recente], outOfWindow: [antiga], undated: [semData] })
+		expect(partitionByPeriod([semData, recente, antiga], 12, NOW)).toEqual({
+			inWindow: [recente],
+			outOfWindow: [antiga],
+			undated: [semData],
+			// O que a tabela mostra, na ordem original.
+			visible: [semData, recente],
+		})
+	})
+
+	test("sem data só é selecionável depois de incluída ('Selecionar todos' não a põe no cálculo)", () => {
+		const semData = priceResult(11, "C", null)
+		const recente = priceResult(10, "A", "2026-06-01")
+		expect(isSampleSelectable(semData, false)).toBe(false)
+		expect(isSampleSelectable(semData, true)).toBe(true)
+		expect(isSampleSelectable(recente, false)).toBe(true)
 	})
 
 	test("autoSelectPrice deixa a amostra sem data fora do cálculo e a conta no funil", () => {

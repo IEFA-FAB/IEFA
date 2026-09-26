@@ -503,7 +503,9 @@ export {
 export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
 export {
 	complianceFactsOf,
+	deriveManualSelection,
 	type PriceResearchAuditIds,
+	type PriceResearchAuditResult,
 	type PriceResearchSample,
 	type PriceResearchStats,
 	type SavePriceResearchAudit,
@@ -517,6 +519,9 @@ export {
 	justificationsToPersist,
 	MAX_PERIOD_MONTHS,
 	MIN_JUSTIFICATION_LENGTH,
+	MIN_SAMPLES_FOR_IQR,
+	type OpenResearchFinding,
+	openFindingsOf,
 	PRICE_RESEARCH_METHODS,
 	type PriceResearchMethod,
 	RESEARCH_JUSTIFICATION_KEYS,
@@ -527,21 +532,28 @@ export {
 	type ResearchJustificationKey,
 	type ResearchJustifications,
 	researchNonComplianceReasons,
+	splitOutliersByIqr,
 } from "./price-research-compliance.ts"
 export {
 	auditReportItem,
+	auditReportItemV1,
 	buildAuditSample,
 	buildResearchSeriesCsv,
 	type CheckSeverity,
 	emitPriceResearchReport,
+	emittedItemAudit,
+	type FrozenItemAudit,
 	fetchPriceResearchReport,
+	freezeItemAudit,
 	HIGH_CV_PERCENT,
 	justifiableFindingsOf,
 	type PriceResearchReport,
 	type ReportCheck,
+	type ReportException,
 	type ReportItem,
 	type ReportResearch,
 	type ReportSample,
+	reportExceptionsOf,
 	SAMPLE_MAX_AGE_DAYS,
 } from "./price-research-report.ts"
 export {

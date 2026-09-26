@@ -8,7 +8,7 @@
  */
 
 import { COMPRAS_MAX_PAGE_SIZE, COMPRAS_MIN_PAGE_SIZE } from "@iefa/compras-api"
-import { PRICE_RESEARCH_METHODS, savePriceResearchAudit } from "@iefa/sisub-domain"
+import { PRICE_RESEARCH_METHODS, type PriceResearchAuditResult, savePriceResearchAudit } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
@@ -112,7 +112,8 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 			measureUnit: z.string().max(16).nullable().optional(),
 			unitInferred: z.boolean().optional(),
 			// Amostras escolhidas à mão (seleção ou filtro): o critério pede justificativa (art. 6º, § 3º).
-			manualSelection: z.boolean().optional(),
+			// Obrigatório: o cliente declara; o servidor ainda deriva a seleção manual da classificação.
+			manualSelection: z.boolean(),
 			// Justificativas das não conformidades (colunas `justification_*` do item pesquisado).
 			justifications: z
 				.object({
@@ -127,7 +128,7 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 			ataItemId: z.uuid().optional(),
 		})
 	)
-	.handler(async ({ data }): Promise<{ researchId: string; researchItemId: string }> => {
+	.handler(async ({ data }): Promise<PriceResearchAuditResult> => {
 		// WRITE numa trilha de auditoria de preço (Lei 14.133/2021). Sessão sozinha deixava
 		// qualquer autenticado forjar memória de cálculo. Postura: membro do módulo `unit` (L1)
 		// para pesquisa avulsa; quando o registro é ligado a ataId/ataItemId, a operação de

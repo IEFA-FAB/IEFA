@@ -41,12 +41,14 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery } from "../utils/index.ts"
 import {
-	COMPRAS_GOV_ART5_PARAMETER,
 	justificationsToPersist,
+	type OpenResearchFinding,
+	openFindingsOf,
 	type PriceResearchMethod,
 	type ResearchComplianceFacts,
 	type ResearchJustifications,
 	researchNonComplianceReasons,
+	splitOutliersByIqr,
 } from "./price-research-compliance.ts"
 import { convertSamplePrice, SAMPLE_CONVERSION_REASON_LABELS } from "./price-units.ts"
 
@@ -117,8 +119,9 @@ export type SavePriceResearchAudit = {
 	/** true quando o item não declara unidade e a pesquisa herdou a predominante das amostras. */
 	unitInferred?: boolean
 	/**
-	 * true quando o usuário escolheu as amostras à mão (seleção de linhas ou filtro de coluna) em
-	 * vez do descarte automático por IQR: o critério precisa ser descrito (art. 6º, § 3º).
+	 * O que o cliente declara: amostras escolhidas à mão (seleção de linhas ou filtro de coluna) em
+	 * vez do descarte automático. O servidor não depende disso para marcar conforme: deriva a
+	 * seleção manual também dos números recebidos (`deriveManualSelection`).
 	 */
 	manualSelection?: boolean
 	/** Justificativas da pesquisa; só as que respondem a uma não conformidade dela são gravadas. */
@@ -129,6 +132,31 @@ export type SavePriceResearchAudit = {
 }
 
 export type PriceResearchAuditIds = { researchId: string; researchItemId: string }
+
+/** Ids gravados e as não conformidades em aberto, como o servidor as calculou e gravou. */
+export type PriceResearchAuditResult = PriceResearchAuditIds & { openFindings: OpenResearchFinding[] }
+
+/**
+ * Seleção manual derivada do que o servidor recebe, sem confiar no flag do cliente:
+ * - amostras sumiram entre a janela e a classificação: a janela tinha `dateFilteredCount` preços, e
+ *   válidas + descartadas + inconsistentes somam menos (seleção de linhas, filtro de coluna);
+ * - a classificação válida/descartada não é a do IQR automático sobre os mesmos preços, na mesma
+ *   unidade (`splitOutliersByIqr`, o critério do modal e do lote).
+ * Qualquer um dos dois, ou o flag do cliente, marca a seleção manual (art. 6º, § 3º).
+ */
+export function deriveManualSelection(input: SavePriceResearchAudit): boolean {
+	if (input.manualSelection) return true
+	const classified = input.validSamples.length + input.outlierSamples.length + (input.inconsistentSamples?.length ?? 0)
+	if (input.dateFilteredCount != null && input.dateFilteredCount > classified) return true
+	if (!input.measureUnit) return false
+	const unit = input.measureUnit
+	const comparable = [...input.validSamples.map((s) => ({ s, valid: true })), ...input.outlierSamples.map((s) => ({ s, valid: false }))].flatMap((c) => {
+		const conversion = convertSamplePrice(c.s, unit)
+		return conversion.ok ? [{ ...c, price: conversion.price }] : []
+	})
+	const expectedOutliers = new Set(splitOutliersByIqr(comparable, (c) => c.price).outliers)
+	return comparable.some((c) => c.valid === expectedOutliers.has(c))
+}
 
 /**
  * Fatos de conformidade da entrada gravada. Amostra válida sem data de referência conta como
@@ -144,7 +172,7 @@ export function complianceFactsOf(input: SavePriceResearchAudit): ResearchCompli
 		method: input.method,
 		periodMonths: input.periodMonths,
 		undatedCount: input.validSamples.filter((s) => !(s.dataResultado ?? s.dataCompra)).length,
-		manualSelection: input.manualSelection,
+		manualSelection: deriveManualSelection(input),
 		justifications: input.justifications,
 	}
 }
@@ -204,7 +232,7 @@ async function authorizeAtaTarget(db: SisubDb, ctx: UserContext, ataId?: string,
  * amostras. Seleção diferente ⇒ chave diferente ⇒ novo registro (refino legítimo preservado).
  * Dia incluído ⇒ re-pesquisa periódica cria histórico (Lei 14.133/2021, Art. 23).
  */
-function idempotencyKeyFor(input: SavePriceResearchAudit): string {
+function idempotencyKeyFor(input: SavePriceResearchAudit, facts: ResearchComplianceFacts): string {
 	const sampleFingerprint = nodeCrypto
 		.createHash("sha256")
 		.update(
@@ -230,10 +258,10 @@ function idempotencyKeyFor(input: SavePriceResearchAudit): string {
 	// v3: janela, seleção manual e justificativas entram na chave. Justificar no mesmo dia a
 	// pesquisa que o lote gravou sem justificativa é OUTRA memória de cálculo; com a chave v2
 	// voltava o registro antigo, ainda não conforme, e a justificativa se perdia.
-	const justifications = justificationsToPersist(complianceFactsOf(input))
+	const justifications = justificationsToPersist(facts)
 	const decisionFingerprint = nodeCrypto
 		.createHash("sha256")
-		.update(JSON.stringify([input.periodMonths ?? null, input.manualSelection === true, justifications]))
+		.update(JSON.stringify([input.periodMonths ?? null, facts.manualSelection === true, justifications]))
 		.digest("hex")
 		.slice(0, 12)
 
@@ -359,34 +387,27 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 				}),
 		{ prefix: "Erro ao salvar amostras" }
 	)
-
-	// Parâmetro do art. 5º de cada amostra, explícito mesmo igual ao default da coluna: o default
-	// só existe porque hoje a fonte é uma só.
-	// TODO(db:types): regenerar os tipos após aplicar 20260926211000 e passar `art5Parameter` no
-	// `values` acima; até lá a coluna não existe no schema Drizzle e vai por SQL.
-	await runQuery(
-		"INSERT_FAILED",
-		() =>
-			tx.execute(
-				sql`update procurement.procurement_pesquisa_preco_amostra set art5_parameter = ${COMPRAS_GOV_ART5_PARAMETER} where research_item_id = ${researchItemId}`
-			),
-		{ prefix: "Erro ao salvar o parâmetro das amostras" }
-	)
+	// Parâmetro do art. 5º: toda amostra daqui vem do Compras.gov.br (inciso I,
+	// `COMPRAS_GOV_ART5_PARAMETER`), que é o default da coluna `art5_parameter`. Fonte nova grava o
+	// próprio inciso no `values` acima.
 }
 
 /**
- * Grava as justificativas do item pesquisado.
+ * Grava a seleção manual (derivada no servidor) e as justificativas do item pesquisado. Só roda
+ * quando há o que gravar: a pesquisa automática sem justificativa não toca as colunas novas, que
+ * ficam no default.
  * TODO(db:types): regenerar os tipos após aplicar 20260926211000 e mover estas colunas para o
  * `values` do insert do item; até lá elas não existem no schema Drizzle e vão por SQL.
  */
-async function persistJustifications(tx: PriceResearchTx, researchItemId: string, input: SavePriceResearchAudit): Promise<void> {
-	const j = justificationsToPersist(complianceFactsOf(input))
-	if (!j.lowSample && !j.method && !j.outlierCriteria && !j.outOfPeriod) return
+async function persistResearchDecisions(tx: PriceResearchTx, researchItemId: string, facts: ResearchComplianceFacts): Promise<void> {
+	const j = justificationsToPersist(facts)
+	if (!facts.manualSelection && !j.lowSample && !j.method && !j.outlierCriteria && !j.outOfPeriod) return
 	await runQuery(
 		"INSERT_FAILED",
 		() =>
 			tx.execute(sql`
 				update procurement.procurement_pesquisa_preco_item set
+					manual_selection = ${facts.manualSelection === true},
 					justification_low_sample = ${j.lowSample},
 					justification_method = ${j.method},
 					justification_outlier_criteria = ${j.outlierCriteria},
@@ -407,7 +428,7 @@ async function persistJustifications(tx: PriceResearchTx, researchItemId: string
  * comandos soltos, e uma falha no meio deixava cabeçalho órfão SEGURANDO a chave de
  * idempotência: a re-tentativa achava a pesquisa sem item e falhava para sempre naquele dia.
  */
-export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, input: SavePriceResearchAudit): Promise<PriceResearchAuditIds> {
+export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, input: SavePriceResearchAudit): Promise<PriceResearchAuditResult> {
 	// WRITE numa trilha de auditoria de preço. Sessão sozinha deixava qualquer autenticado
 	// forjar memória de cálculo; guard sem escopo ainda deixava membro de qualquer unidade
 	// gravar/ligar auditoria em ATA alheia.
@@ -416,9 +437,13 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 		await authorizeAtaTarget(db, ctx, input.ataId, input.ataItemId)
 	}
 
-	const idempotencyKey = idempotencyKeyFor(input)
+	const facts = complianceFactsOf(input)
+	const idempotencyKey = idempotencyKeyFor(input, facts)
 	// Não conformidade não trava a gravação: fica registrada no item, e a justificativa a resolve.
-	const nonComplianceReasons = researchNonComplianceReasons(complianceFactsOf(input))
+	// Devolvida ao chamador como o servidor a calculou: a chave cobre todos os fatos, então a
+	// pesquisa idempotente tem as mesmas.
+	const nonComplianceReasons = researchNonComplianceReasons(facts)
+	const openFindings = openFindingsOf(facts)
 
 	// `runQuery` por FORA da transação também: o erro de BEGIN/COMMIT ou de aquisição de
 	// conexão não passa pelos `runQuery` internos, e cru ele chega como o SQL despejado, com
@@ -454,7 +479,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 
 			// Conflito: pesquisa idêntica já existe hoje — devolve a existente sem duplicar.
 			const research = inserted[0]
-			if (!research) return loadIdempotentResearch(tx, idempotencyKey)
+			if (!research) return { ...(await loadIdempotentResearch(tx, idempotencyKey)), openFindings }
 
 			const dateFiltered = input.dateFilteredCount ?? input.rawCount
 			const researchItem = await insertOneOrFail(
@@ -491,10 +516,10 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 				{ prefix: "Erro ao salvar item da pesquisa" }
 			)
 
-			await persistJustifications(tx, researchItem.id, input)
+			await persistResearchDecisions(tx, researchItem.id, facts)
 			await persistSamples(tx, researchItem.id, input)
 
-			return { researchId: research.id, researchItemId: researchItem.id }
+			return { researchId: research.id, researchItemId: researchItem.id, openFindings }
 		})
 	)
 }

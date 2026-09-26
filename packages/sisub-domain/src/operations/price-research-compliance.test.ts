@@ -4,8 +4,15 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { complianceFactsOf, type SavePriceResearchAudit } from "./price-research.ts"
-import { evaluateResearchCompliance, justificationsToPersist, type ResearchComplianceFacts, researchNonComplianceReasons } from "./price-research-compliance.ts"
+import { complianceFactsOf, deriveManualSelection, type SavePriceResearchAudit } from "./price-research.ts"
+import {
+	evaluateResearchCompliance,
+	justificationsToPersist,
+	openFindingsOf,
+	type ResearchComplianceFacts,
+	researchNonComplianceReasons,
+	splitOutliersByIqr,
+} from "./price-research-compliance.ts"
 
 /** Pesquisa conforme: 5 preços de 4 UASGs, mediana, janela de 12 meses. */
 function facts(overrides: Partial<ResearchComplianceFacts> = {}): ResearchComplianceFacts {
@@ -132,6 +139,73 @@ describe("complianceFactsOf", () => {
 		expect(complianceFactsOf(input).undatedCount).toBe(1)
 		expect(researchNonComplianceReasons(complianceFactsOf(input))).toEqual([
 			"1 amostra sem data de referência no cálculo (IN SEGES/ME 65/2021, art. 5º, II, e § 3º: sem data, não há como mostrar que o preço é de até 1 ano)",
+		])
+	})
+})
+
+describe("splitOutliersByIqr", () => {
+	test("com menos de 4 preços não descarta", () => {
+		expect(splitOutliersByIqr([1, 100, 2], (p) => p)).toEqual({ valid: [1, 100, 2], outliers: [] })
+	})
+
+	test("descarta fora de Q1 − 1,5 IIQ e Q3 + 1,5 IIQ", () => {
+		expect(splitOutliersByIqr([10, 11, 12, 13, 100], (p) => p)).toEqual({ valid: [10, 11, 12, 13], outliers: [100] })
+	})
+})
+
+describe("deriveManualSelection", () => {
+	const kg = (idItemCompra: number, precoUnitario: number) => ({
+		idCompra: "c",
+		idItemCompra,
+		precoUnitario,
+		siglaUnidadeFornecimento: "KG",
+		dataResultado: "2026-06-01",
+	})
+	const base = (over: Partial<SavePriceResearchAudit>): SavePriceResearchAudit => ({
+		catmatCodigo: 1,
+		method: "median",
+		referencePrice: 11.5,
+		stats: { mean: 11.5, median: 11.5, stdDev: 1, cv: 9, min: 10, max: 13, uniqueSources: 4 },
+		rawCount: 5,
+		dateFilteredCount: 5,
+		periodMonths: 12,
+		validCount: 4,
+		validSamples: [kg(1, 10), kg(2, 11), kg(3, 12), kg(4, 13)],
+		outlierSamples: [kg(5, 100)],
+		measureUnit: "KG",
+		manualSelection: false,
+		...over,
+	})
+
+	test("a classificação do IQR automático, com todas as amostras da janela, não é manual", () => {
+		expect(deriveManualSelection(base({}))).toBe(false)
+	})
+
+	test("amostras que somem entre a janela e a classificação são seleção manual, mesmo sem o flag", () => {
+		expect(deriveManualSelection(base({ dateFilteredCount: 8 }))).toBe(true)
+	})
+
+	test("outlier mantido como válido (IQR não aplicado) é seleção manual, mesmo sem o flag", () => {
+		const input = base({ validSamples: [kg(1, 10), kg(2, 11), kg(3, 12), kg(4, 13), kg(5, 100)], outlierSamples: [], validCount: 5 })
+		expect(deriveManualSelection(input)).toBe(true)
+		expect(complianceFactsOf(input).manualSelection).toBe(true)
+		expect(evaluateResearchCompliance(complianceFactsOf(input)).map((f) => f.code)).toContain("manual_exclusion")
+	})
+
+	test("preço válido marcado como descartado é seleção manual", () => {
+		expect(deriveManualSelection(base({ validSamples: [kg(1, 10), kg(2, 11), kg(3, 12)], outlierSamples: [kg(4, 13), kg(5, 100)], validCount: 3 }))).toBe(true)
+	})
+
+	test("o flag do cliente basta para marcar", () => {
+		expect(deriveManualSelection(base({ manualSelection: true }))).toBe(true)
+	})
+})
+
+describe("openFindingsOf", () => {
+	test("diz o que se resolve por justificativa e o que só refazendo", () => {
+		expect(openFindingsOf(facts({ validCount: 2, unitInferred: true })).map((f) => [f.code, f.justifiable])).toEqual([
+			["low_sample", true],
+			["unit_inferred", false],
 		])
 	})
 })

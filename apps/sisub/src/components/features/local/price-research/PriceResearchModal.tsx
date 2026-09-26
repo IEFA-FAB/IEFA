@@ -53,8 +53,8 @@ import {
 	analyzeSamples,
 	DEFAULT_PERIOD_MONTHS,
 	fetchAllPagesForCatmat,
-	filterByPeriod,
 	isMethodAllowed,
+	isSampleSelectable,
 	MAX_PAGES,
 	type PriceStatsSummary,
 	partitionByPeriod,
@@ -401,11 +401,11 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 
 	// A tabela mostra a janela e as amostras sem data (visíveis, marcadas); o cálculo só leva as
 	// sem data quando o usuário as inclui ou seleciona.
-	const scopedResults = useMemo(() => filterByPeriod(allResults, periodMonths, undefined, { includeUndated: true }), [allResults, periodMonths])
 	const partition = useMemo(() => partitionByPeriod(allResults, periodMonths), [allResults, periodMonths])
+	const scopedResults = partition.visible
 	const outOfPeriodCount = partition.outOfWindow.length
 	const undatedCount = partition.undated.length
-	const calculationBase = includeUndated ? scopedResults : partition.inWindow
+	const calculationBase = includeUndated ? partition.visible : partition.inWindow
 	const researchUnit = useMemo(() => resolveResearchUnit(targetUnit, calculationBase), [targetUnit, calculationBase])
 	const unit = researchUnit?.unit ?? null
 
@@ -424,7 +424,12 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 					/>
 				),
 				cell: ({ row }) => (
-					<Checkbox checked={row.getIsSelected()} onCheckedChange={(checked) => row.toggleSelected(!!checked)} aria-label="Selecionar linha" />
+					<Checkbox
+						checked={row.getIsSelected()}
+						disabled={!row.getCanSelect()}
+						onCheckedChange={(checked) => row.toggleSelected(!!checked)}
+						aria-label="Selecionar linha"
+					/>
 				),
 				enableSorting: false,
 				enableColumnFilter: false,
@@ -570,7 +575,8 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 		onSortingChange: setSorting,
 		onColumnFiltersChange: setColumnFilters,
 		onRowSelectionChange: setRowSelection,
-		enableRowSelection: true,
+		// Sem data só se seleciona depois de incluída: "Selecionar todos" não a põe no cálculo.
+		enableRowSelection: (row) => isSampleSelectable(row.original, includeUndated),
 		enableSortingRemoval: true,
 		getRowId: (row, index) => `${row.idCompra}-${row.idItemCompra}-${index}`,
 	})
@@ -682,7 +688,9 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 					stats: activeAnalysis.stats,
 					// Funil auditável: bruto da API → recorte considerado → comparáveis → válidas pós-IQR.
 					rawCount: allResults.filter((r) => r.precoUnitario !== null).length,
-					dateFilteredCount: activeAnalysis.consideredCount,
+					// Preços da janela (com as sem data incluídas), antes de filtro ou seleção: o servidor
+					// compara com as amostras classificadas para derivar a seleção manual.
+					dateFilteredCount: calculationBase.filter((r) => r.precoUnitario !== null).length,
 					periodMonths,
 					validCount: activeAnalysis.validCount,
 					outlierCount: activeAnalysis.outlierCount,
@@ -747,7 +755,11 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 						<Button
 							size="sm"
 							variant="ghost"
-							onClick={() => setIncludeUndated((prev) => !prev)}
+							onClick={() => {
+								// Ao tirar as sem data do cálculo, a seleção que as continha deixa de valer.
+								if (includeUndated) setRowSelection({})
+								setIncludeUndated(!includeUndated)
+							}}
 							title="Sem data de referência não há como mostrar que o preço é de até 1 ano (IN SEGES/ME 65/2021, art. 5º, II)."
 						>
 							{includeUndated ? `${undatedCount} sem data no cálculo` : `${undatedCount} sem data: fora do cálculo`}

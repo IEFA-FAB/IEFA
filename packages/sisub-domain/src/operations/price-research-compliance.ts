@@ -105,6 +105,43 @@ export type ResearchComplianceFacts = {
 	justifications?: ResearchJustifications
 }
 
+/** Mínimo de preços comparáveis para o descarte automático por IQR rodar. */
+export const MIN_SAMPLES_FOR_IQR = 4
+
+/**
+ * Descarte automático de preços inexequíveis ou excessivos (art. 6º, § 3º): fora de
+ * [Q1 − 1,5 × IIQ; Q3 + 1,5 × IIQ], com 4 ou mais preços e IIQ positivo. O critério descrito no
+ * relatório; o modal, o lote e o servidor (que confere a classificação recebida) usam este mesmo.
+ */
+export function splitOutliersByIqr<T>(items: readonly T[], priceOf: (item: T) => number): { valid: T[]; outliers: T[] } {
+	if (items.length < MIN_SAMPLES_FOR_IQR) return { valid: [...items], outliers: [] }
+	const sorted = items.map(priceOf).toSorted((a, b) => a - b)
+	const n = sorted.length
+	const q1 = sorted[Math.floor(n * 0.25)]
+	const q3 = sorted[Math.floor(n * 0.75)]
+	const iqr = q3 - q1
+	if (!(iqr > 0)) return { valid: [...items], outliers: [] }
+	const lower = q1 - 1.5 * iqr
+	const upper = q3 + 1.5 * iqr
+	const valid: T[] = []
+	const outliers: T[] = []
+	for (const item of items) {
+		const price = priceOf(item)
+		if (price >= lower && price <= upper) valid.push(item)
+		else outliers.push(item)
+	}
+	return { valid, outliers }
+}
+
+/** Não conformidade em aberto como o servidor a devolve: código estável, texto e se a justificativa resolve. */
+export type OpenResearchFinding = Pick<ResearchFinding, "code" | "message" | "basis" | "remedy"> & { justifiable: boolean }
+
+export function openFindingsOf(facts: ResearchComplianceFacts): OpenResearchFinding[] {
+	return evaluateResearchCompliance(facts)
+		.filter((f) => !f.justified)
+		.map((f) => ({ code: f.code, message: f.message, basis: f.basis, remedy: f.remedy, justifiable: f.justification != null }))
+}
+
 export function isJustificationFilled(value: string | null | undefined): boolean {
 	return (value?.trim().length ?? 0) >= MIN_JUSTIFICATION_LENGTH
 }
