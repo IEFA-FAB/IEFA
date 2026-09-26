@@ -293,15 +293,18 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 
 	/*
 	 * Os quatro casos abaixo chamam `listRecipes` com `kitchenId: null`, que traz o catálogo
-	 * GLOBAL inteiro — ~2.200 receitas com a ficha técnica aninhada. Contra o banco remoto isso
-	 * leva ~30 s por chamada, e o `testTimeout` global de 15 s os deixava VERMELHOS de forma
+	 * GLOBAL inteiro — ~1.650 receitas com a ficha técnica aninhada. Contra o banco remoto isso
+	 * levava ~30 s por chamada, e o `testTimeout` global de 15 s os deixava VERMELHOS de forma
 	 * permanente no job "full suite" (não-bloqueante), parecendo regressão a cada PR.
 	 *
-	 * O timeout explícito é o conserto certo, e não reduzir a consulta: o app já não usa esta
-	 * operação — `recipes.fn.ts` passou para a versão de resumos por causa desse mesmo peso
-	 * (a listagem cheia chegou a derrubar a task por memória). O que sobrou aqui é a garantia
-	 * de SEMÂNTICA (dedup por família, ordenação pt-BR, soft delete, versão nova na raiz), e
-	 * ela só existe contra o catálogo real.
+	 * O app já não usa esta operação — `recipes.fn.ts` passou para a versão de resumos por
+	 * causa desse mesmo peso (a listagem cheia chegou a derrubar a task por memória). Estes
+	 * testes eram, em 2026-09, a origem de todas as consultas de catálogo inteiro com ficha
+	 * técnica no pg_stat_statements (5 sem lixeira : 1 com lixeira por rodada). A operação
+	 * agora resolve a linhagem em colunas leves e só carrega a ficha dos vencedores; o
+	 * timeout explícito continua. O que sobrou aqui é a garantia de SEMÂNTICA (dedup por
+	 * família, ordenação pt-BR, soft delete, versão nova na raiz), e ela só existe contra o
+	 * catálogo real.
 	 */
 	test("listRecipes faz dedup por família mantendo a maior versão", async () => {
 		if (!reachable || !seeder || !db) return

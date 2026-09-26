@@ -19,6 +19,8 @@ export type { MaintenanceDue, MaintenanceDueAnchor, MaintenanceDueInput, Mainten
 export { computeMaintenanceDue, MAINTENANCE_DUE_STATES } from "./maintenance-due.ts"
 export type { BalanceStatus, DeclaredIngredient, FlowGraphStep, FlowValidationResult, IngredientBalance } from "./recipe-flow-graph.ts"
 export { collectFinalOutputs, computeMaterialBalance, computeStepLevels, findFlowCycle, validateFlow } from "./recipe-flow-graph.ts"
+export type { LineageRank } from "./recipe-lineage.ts"
+export { isLineageWinner } from "./recipe-lineage.ts"
 export type {
 	KcalRange,
 	MealWindowKey,
