@@ -3560,6 +3560,39 @@ export const inventoryCountInInventory = inventory.table("inventory_count", {
 	check("inventory_count_type_check", sql`type = ANY (ARRAY['annual'::text, 'responsibility_transfer'::text, 'eventual'::text, 'rotating'::text])`),
 ]);
 
+export const budgetCreditInFinance = finance.table("budget_credit", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	unitId: bigint("unit_id", { mode: "number" }).notNull(),
+	ug: text(),
+	nd: text().notNull(),
+	ptres: text(),
+	fonte: text(),
+	competencia: date().notNull(),
+	dotacao: numeric({ mode: "number", precision: 14, scale: 2 }).default(0).notNull(),
+	empenhadoSiafi: numeric("empenhado_siafi", { mode: "number", precision: 14, scale: 2 }).default(0).notNull(),
+	saldoSiafi: numeric("saldo_siafi", { mode: "number", precision: 14, scale: 2 }).default(0).notNull(),
+	snapshotAt: timestamp("snapshot_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	importBatchId: uuid("import_batch_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	pi: text(),
+	ugr: text(),
+}, (table) => [
+	index("budget_credit_nd_idx").using("btree", table.unitId.asc().nullsLast().op("text_ops"), table.nd.asc().nullsLast().op("int8_ops")),
+	index("budget_credit_unit_competencia_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops"), table.competencia.desc().nullsFirst().op("int8_ops")),
+	foreignKey({
+			columns: [table.importBatchId],
+			foreignColumns: [importBatchInSiafiIntegration.id],
+			name: "budget_credit_import_batch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.unitId],
+			foreignColumns: [unitsInCore.id],
+			name: "budget_credit_unit_id_fkey"
+		}),
+	unique("budget_credit_classification_key").on(table.unitId, table.ug, table.nd, table.ptres, table.fonte, table.competencia),
+]);
+
 export const gpcAttributeInGs1Integration = gs1Integration.table("gpc_attribute", {
 	attributeCode: text("attribute_code").primaryKey().notNull(),
 	attributeTitle: text("attribute_title").notNull(),
@@ -3763,6 +3796,55 @@ export const equipmentIssueInKitchen = kitchen.table("equipment_issue", {
 	check("equipment_issue_status_check", sql`status = ANY (ARRAY['open'::text, 'in_repair'::text, 'resolved'::text, 'dismissed'::text])`),
 ]);
 
+export const creditNoteInFinance = finance.table("credit_note", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	unitId: bigint("unit_id", { mode: "number" }).notNull(),
+	number: text().notNull(),
+	issuedOn: date("issued_on").notNull(),
+	kind: text().default('descentralizacao').notNull(),
+	issuerUg: text("issuer_ug"),
+	beneficiaryUg: text("beneficiary_ug"),
+	budgetSphere: text("budget_sphere"),
+	ptres: text(),
+	fonte: text(),
+	nd: text(),
+	pi: text(),
+	ugr: text(),
+	amount: numeric({ mode: "number", precision: 14, scale: 2 }).notNull(),
+	notes: text(),
+	origin: text().default('manual').notNull(),
+	importBatchId: uuid("import_batch_id"),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("credit_note_unit_issued_idx").using("btree", table.unitId.asc().nullsLast().op("date_ops"), table.issuedOn.desc().nullsFirst().op("date_ops")),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "credit_note_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.importBatchId],
+			foreignColumns: [importBatchInSiafiIntegration.id],
+			name: "credit_note_import_batch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.unitId],
+			foreignColumns: [unitsInCore.id],
+			name: "credit_note_unit_id_fkey"
+		}),
+	unique("credit_note_number_key").on(table.unitId, table.number, table.issuerUg),
+	check("credit_note_amount_check", sql`amount > (0)::numeric`),
+	check("credit_note_beneficiary_ug_check", sql`(beneficiary_ug IS NULL) OR (beneficiary_ug ~ '^[0-9]{6}$'::text)`),
+	check("credit_note_budget_sphere_check", sql`(budget_sphere IS NULL) OR (budget_sphere = ANY (ARRAY['1'::text, '2'::text, '3'::text]))`),
+	check("credit_note_issuer_ug_check", sql`(issuer_ug IS NULL) OR (issuer_ug ~ '^[0-9]{6}$'::text)`),
+	check("credit_note_kind_check", sql`kind = ANY (ARRAY['descentralizacao'::text, 'anulacao'::text])`),
+	check("credit_note_nd_check", sql`(nd IS NULL) OR (nd ~ '^[0-9]{6}([0-9]{2})?$'::text)`),
+	check("credit_note_number_check", sql`btrim(number) <> ''::text`),
+	check("credit_note_origin_check", sql`origin = ANY (ARRAY['manual'::text, 'siafi'::text])`),
+]);
+
 export const policyStatementInAccessControl = accessControl.table("policy_statement", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	policyId: uuid("policy_id").notNull(),
@@ -3848,6 +3930,45 @@ export const policyInAccessControl = accessControl.table("policy", {
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	uniqueIndex("policy_name_unique_alive_idx").using("btree", table.name.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
+]);
+
+export const empenhoRpInscriptionInFinance = finance.table("empenho_rp_inscription", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	empenhoId: uuid("empenho_id").notNull(),
+	fiscalYear: integer("fiscal_year").notNull(),
+	kind: text().notNull(),
+	amount: numeric({ mode: "number", precision: 14, scale: 2 }).notNull(),
+	inscribedOn: date("inscribed_on").notNull(),
+	origin: text().default('manual').notNull(),
+	notes: text(),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	supersededAt: timestamp("superseded_at", { withTimezone: true, mode: 'string' }),
+	supersededBy: uuid("superseded_by"),
+	supersedeReason: text("supersede_reason"),
+}, (table) => [
+	uniqueIndex("empenho_rp_inscription_active_parcel_key").using("btree", table.empenhoId.asc().nullsLast().op("int4_ops"), table.fiscalYear.asc().nullsLast().op("uuid_ops"), table.kind.asc().nullsLast().op("text_ops")).where(sql`(superseded_at IS NULL)`),
+	index("empenho_rp_inscription_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "empenho_rp_inscription_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.empenhoId],
+			foreignColumns: [empenhoInFinance.id],
+			name: "empenho_rp_inscription_empenho_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.supersededBy],
+			foreignColumns: [usersInAuth.id],
+			name: "empenho_rp_inscription_superseded_by_fkey"
+		}),
+	check("empenho_rp_inscription_amount_check", sql`amount > (0)::numeric`),
+	check("empenho_rp_inscription_fiscal_year_check", sql`(fiscal_year >= 2000) AND (fiscal_year <= 2100)`),
+	check("empenho_rp_inscription_kind_check", sql`kind = ANY (ARRAY['processado'::text, 'nao_processado'::text])`),
+	check("empenho_rp_inscription_origin_check", sql`origin = ANY (ARRAY['manual'::text, 'siafi'::text])`),
+	check("empenho_rp_inscription_superseded_check", sql`(superseded_at IS NULL) = (supersede_reason IS NULL)`),
 ]);
 
 export const procurementPesquisaPrecoItemInProcurement = procurement.table("procurement_pesquisa_preco_item", {
@@ -3955,66 +4076,6 @@ export const importRowInSiafiIntegration = siafiIntegration.table("import_row", 
 	check("import_row_parse_status_check", sql`parse_status = ANY (ARRAY['pending'::text, 'parsed'::text, 'unrecognized'::text, 'invalid'::text, 'waiting_parent'::text])`),
 ]);
 
-export const budgetCreditInFinance = finance.table("budget_credit", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	unitId: bigint("unit_id", { mode: "number" }).notNull(),
-	ug: text(),
-	nd: text().notNull(),
-	ptres: text(),
-	fonte: text(),
-	competencia: date().notNull(),
-	dotacao: numeric({ mode: "number", precision: 14, scale: 2 }).default(0).notNull(),
-	empenhadoSiafi: numeric("empenhado_siafi", { mode: "number", precision: 14, scale: 2 }).default(0).notNull(),
-	saldoSiafi: numeric("saldo_siafi", { mode: "number", precision: 14, scale: 2 }).default(0).notNull(),
-	snapshotAt: timestamp("snapshot_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	importBatchId: uuid("import_batch_id"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("budget_credit_nd_idx").using("btree", table.unitId.asc().nullsLast().op("text_ops"), table.nd.asc().nullsLast().op("int8_ops")),
-	index("budget_credit_unit_competencia_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops"), table.competencia.desc().nullsFirst().op("int8_ops")),
-	foreignKey({
-			columns: [table.importBatchId],
-			foreignColumns: [importBatchInSiafiIntegration.id],
-			name: "budget_credit_import_batch_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.unitId],
-			foreignColumns: [unitsInCore.id],
-			name: "budget_credit_unit_id_fkey"
-		}),
-	unique("budget_credit_classification_key").on(table.unitId, table.ug, table.nd, table.ptres, table.fonte, table.competencia),
-]);
-
-export const empenhoEventInFinance = finance.table("empenho_event", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	empenhoId: uuid("empenho_id").notNull(),
-	tipo: text().notNull(),
-	valor: numeric({ mode: "number", precision: 14, scale: 2 }).notNull(),
-	data: date().default(sql`CURRENT_DATE`).notNull(),
-	documento: text(),
-	justificativa: text().notNull(),
-	origem: text().default('manual').notNull(),
-	createdBy: uuid("created_by"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("empenho_event_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("date_ops"), table.data.asc().nullsLast().op("date_ops")),
-	foreignKey({
-			columns: [table.createdBy],
-			foreignColumns: [usersInAuth.id],
-			name: "empenho_event_created_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.empenhoId],
-			foreignColumns: [empenhoInFinance.id],
-			name: "empenho_event_empenho_id_fkey"
-		}).onDelete("cascade"),
-	check("empenho_event_justificativa_check", sql`btrim(justificativa) <> ''::text`),
-	check("empenho_event_origem_check", sql`origem = ANY (ARRAY['manual'::text, 'siafi'::text])`),
-	check("empenho_event_tipo_check", sql`tipo = ANY (ARRAY['reforco'::text, 'anulacao'::text, 'cancelamento'::text, 'rp_inscricao'::text])`),
-	check("empenho_event_valor_check", sql`valor >= (0)::numeric`),
-]);
-
 export const empenhoInFinance = finance.table("empenho", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	unitId: integer("unit_id").notNull(),
@@ -4108,6 +4169,64 @@ export const comprasServicoSubclasseInComprasGovIntegration = comprasGovIntegrat
 	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
+
+export const liquidacaoDeductionInFinance = finance.table("liquidacao_deduction", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	liquidacaoId: uuid("liquidacao_id").notNull(),
+	kind: text().notNull(),
+	amount: numeric({ mode: "number", precision: 14, scale: 2 }).notNull(),
+	documentKind: text("document_kind"),
+	documentNumber: text("document_number"),
+	revenueCode: text("revenue_code"),
+	paidOn: date("paid_on"),
+	notes: text(),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("liquidacao_deduction_liquidacao_idx").using("btree", table.liquidacaoId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "liquidacao_deduction_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.liquidacaoId],
+			foreignColumns: [liquidacaoInFinance.id],
+			name: "liquidacao_deduction_liquidacao_id_fkey"
+		}).onDelete("cascade"),
+	check("liquidacao_deduction_amount_check", sql`amount > (0)::numeric`),
+	check("liquidacao_deduction_document_kind_check", sql`(document_kind IS NULL) OR (document_kind = ANY (ARRAY['darf'::text, 'dar'::text, 'gps'::text, 'outro'::text]))`),
+	check("liquidacao_deduction_kind_check", sql`kind = ANY (ARRAY['ir'::text, 'csll'::text, 'cofins'::text, 'pis'::text, 'inss'::text, 'iss'::text, 'outra'::text])`),
+]);
+
+export const empenhoEventInFinance = finance.table("empenho_event", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	empenhoId: uuid("empenho_id").notNull(),
+	tipo: text().notNull(),
+	valor: numeric({ mode: "number", precision: 14, scale: 2 }).notNull(),
+	data: date().default(sql`CURRENT_DATE`).notNull(),
+	documento: text(),
+	justificativa: text().notNull(),
+	origem: text().default('manual').notNull(),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("empenho_event_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("date_ops"), table.data.asc().nullsLast().op("date_ops")),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "empenho_event_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.empenhoId],
+			foreignColumns: [empenhoInFinance.id],
+			name: "empenho_event_empenho_id_fkey"
+		}).onDelete("cascade"),
+	check("empenho_event_justificativa_check", sql`btrim(justificativa) <> ''::text`),
+	check("empenho_event_origem_check", sql`origem = ANY (ARRAY['manual'::text, 'siafi'::text])`),
+	check("empenho_event_tipo_check", sql`tipo = ANY (ARRAY['reforco'::text, 'anulacao'::text, 'anulacao_total'::text, 'cancelamento'::text, 'rp_inscricao'::text])`),
+	check("empenho_event_valor_check", sql`valor >= (0)::numeric`),
+]);
 
 export const liquidacaoInFinance = finance.table("liquidacao", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -5375,7 +5494,13 @@ export const vEmpenhoVigenteInFinance = finance.view("v_empenho_vigente", {	empe
 	valorOriginal: numeric("valor_original", { mode: "number", precision: 14, scale: 4 }),
 	ajustes: numeric({ mode: "number" }),
 	valorVigente: numeric("valor_vigente", { mode: "number" }),
-}).with({"securityInvoker":true}).as(sql`SELECT e.id AS empenho_id, e.unit_id, e.valor_total AS valor_original, COALESCE(sum( CASE WHEN ev.tipo = 'reforco'::text THEN ev.valor WHEN ev.tipo = ANY (ARRAY['anulacao'::text, 'cancelamento'::text]) THEN - ev.valor ELSE 0::numeric END), 0::numeric) AS ajustes, e.valor_total + COALESCE(sum( CASE WHEN ev.tipo = 'reforco'::text THEN ev.valor WHEN ev.tipo = ANY (ARRAY['anulacao'::text, 'cancelamento'::text]) THEN - ev.valor ELSE 0::numeric END), 0::numeric) AS valor_vigente FROM finance.empenho e LEFT JOIN finance.empenho_event ev ON ev.empenho_id = e.id GROUP BY e.id, e.unit_id, e.valor_total`);
+}).with({"securityInvoker":true}).as(sql`SELECT e.id AS empenho_id, e.unit_id, e.valor_total AS valor_original, COALESCE(sum( CASE WHEN ev.tipo = 'reforco'::text THEN ev.valor WHEN ev.tipo = ANY (ARRAY['anulacao'::text, 'anulacao_total'::text, 'cancelamento'::text]) THEN - ev.valor ELSE 0::numeric END), 0::numeric) AS ajustes, e.valor_total + COALESCE(sum( CASE WHEN ev.tipo = 'reforco'::text THEN ev.valor WHEN ev.tipo = ANY (ARRAY['anulacao'::text, 'anulacao_total'::text, 'cancelamento'::text]) THEN - ev.valor ELSE 0::numeric END), 0::numeric) AS valor_vigente FROM finance.empenho e LEFT JOIN finance.empenho_event ev ON ev.empenho_id = e.id GROUP BY e.id, e.unit_id, e.valor_total`);
+
+export const folderLastReviewInKitchen = kitchen.view("folder_last_review", {	folderId: uuid("folder_id"),
+	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),
+	reviewedBy: uuid("reviewed_by"),
+	reviewedByName: text("reviewed_by_name"),
+}).with({ securityInvoker: true }).as(sql`SELECT DISTINCT ON (folder_id) folder_id, reviewed_at, reviewed_by, reviewed_by_name FROM kitchen.folder_review ORDER BY folder_id, reviewed_at DESC`);
 
 export const vEmpenhoSaldoInFinance = finance.view("v_empenho_saldo", {	empenhoId: uuid("empenho_id"),
 	unitId: integer("unit_id"),
@@ -5386,13 +5511,9 @@ export const vEmpenhoSaldoInFinance = finance.view("v_empenho_saldo", {	empenhoI
 	valorPago: numeric("valor_pago", { mode: "number" }),
 	saldoALiquidar: numeric("saldo_a_liquidar", { mode: "number" }),
 	valorAPagar: numeric("valor_a_pagar", { mode: "number" }),
-}).with({"securityInvoker":true}).as(sql`SELECT v.empenho_id, v.unit_id, v.valor_original, v.ajustes, v.valor_vigente, COALESCE(l.liquidado, 0::numeric) AS valor_liquidado, COALESCE(p.pago, 0::numeric) AS valor_pago, v.valor_vigente - COALESCE(l.liquidado, 0::numeric) AS saldo_a_liquidar, COALESCE(l.liquidado, 0::numeric) - COALESCE(p.pago, 0::numeric) AS valor_a_pagar FROM finance.v_empenho_vigente v LEFT JOIN ( SELECT liquidacao.empenho_id, sum(liquidacao.valor) AS liquidado FROM finance.liquidacao GROUP BY liquidacao.empenho_id) l ON l.empenho_id = v.empenho_id LEFT JOIN ( SELECT li.empenho_id, sum(pg.valor) AS pago FROM finance.pagamento pg JOIN finance.liquidacao li ON li.id = pg.liquidacao_id GROUP BY li.empenho_id) p ON p.empenho_id = v.empenho_id`);
-
-export const folderLastReviewInKitchen = kitchen.view("folder_last_review", {	folderId: uuid("folder_id"),
-	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),
-	reviewedBy: uuid("reviewed_by"),
-	reviewedByName: text("reviewed_by_name"),
-}).with({ securityInvoker: true }).as(sql`SELECT DISTINCT ON (folder_id) folder_id, reviewed_at, reviewed_by, reviewed_by_name FROM kitchen.folder_review ORDER BY folder_id, reviewed_at DESC`);
+	deductionsTotal: numeric("deductions_total", { mode: "number" }),
+	deductionsToRemit: numeric("deductions_to_remit", { mode: "number" }),
+}).with({"securityInvoker":true}).as(sql`SELECT v.empenho_id, v.unit_id, v.valor_original, v.ajustes, v.valor_vigente, COALESCE(l.liquidado, 0::numeric) AS valor_liquidado, COALESCE(p.pago, 0::numeric) + COALESCE(d.paid, 0::numeric) AS valor_pago, v.valor_vigente - COALESCE(l.liquidado, 0::numeric) AS saldo_a_liquidar, COALESCE(l.liquidado, 0::numeric) - COALESCE(p.pago, 0::numeric) - COALESCE(d.paid, 0::numeric) AS valor_a_pagar, COALESCE(d.total, 0::numeric) AS deductions_total, COALESCE(d.total, 0::numeric) - COALESCE(d.paid, 0::numeric) AS deductions_to_remit FROM finance.v_empenho_vigente v LEFT JOIN ( SELECT liquidacao.empenho_id, sum(liquidacao.valor) AS liquidado FROM finance.liquidacao GROUP BY liquidacao.empenho_id) l ON l.empenho_id = v.empenho_id LEFT JOIN ( SELECT li.empenho_id, sum(pg.valor) AS pago FROM finance.pagamento pg JOIN finance.liquidacao li ON li.id = pg.liquidacao_id GROUP BY li.empenho_id) p ON p.empenho_id = v.empenho_id LEFT JOIN ( SELECT li.empenho_id, sum(dd.amount) AS total, sum(dd.amount) FILTER (WHERE dd.paid_on IS NOT NULL) AS paid FROM finance.liquidacao_deduction dd JOIN finance.liquidacao li ON li.id = dd.liquidacao_id GROUP BY li.empenho_id) d ON d.empenho_id = v.empenho_id`);
 
 export const vPhysicalAccountingReconciliationInFinance = finance.view("v_physical_accounting_reconciliation", {	goodsReceiptId: uuid("goods_receipt_id"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
