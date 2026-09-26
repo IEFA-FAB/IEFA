@@ -4144,13 +4144,6 @@ export type Database = {
             referencedRelation: "liquidacao"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "pagamento_liquidacao_id_fkey"
-            columns: ["liquidacao_id"]
-            isOneToOne: false
-            referencedRelation: "v_physical_accounting_reconciliation"
-            referencedColumns: ["liquidacao_id"]
-          },
         ]
       }
       reconciliation_decision: {
@@ -5462,6 +5455,8 @@ export type Database = {
           definitive_by: string | null
           definitive_designation_id: string | null
           delivery_note_number: string | null
+          documents_linked_at: string | null
+          documents_linked_by: string | null
           empenho_id: string | null
           fiscal_pending: boolean
           fiscal_pending_value: number | null
@@ -5470,6 +5465,10 @@ export type Database = {
           fiscal_resolved_at: string | null
           fiscal_resolved_by: string | null
           id: string
+          invoice_check_deferred_at: string | null
+          invoice_check_deferred_by: string | null
+          invoice_check_deferred_reason: string | null
+          invoice_expected: boolean
           kitchen_id: number
           liquidacao_id: string | null
           nfe_document_id: string | null
@@ -5481,6 +5480,8 @@ export type Database = {
           rejected_by: string | null
           source: string
           status: string
+          supplier_document: string | null
+          supplier_name: string | null
           supply_order_id: string | null
         }
         Insert: {
@@ -5490,6 +5491,8 @@ export type Database = {
           definitive_by?: string | null
           definitive_designation_id?: string | null
           delivery_note_number?: string | null
+          documents_linked_at?: string | null
+          documents_linked_by?: string | null
           empenho_id?: string | null
           fiscal_pending?: boolean
           fiscal_pending_value?: number | null
@@ -5498,6 +5501,10 @@ export type Database = {
           fiscal_resolved_at?: string | null
           fiscal_resolved_by?: string | null
           id?: string
+          invoice_check_deferred_at?: string | null
+          invoice_check_deferred_by?: string | null
+          invoice_check_deferred_reason?: string | null
+          invoice_expected?: boolean
           kitchen_id: number
           liquidacao_id?: string | null
           nfe_document_id?: string | null
@@ -5509,6 +5516,8 @@ export type Database = {
           rejected_by?: string | null
           source?: string
           status?: string
+          supplier_document?: string | null
+          supplier_name?: string | null
           supply_order_id?: string | null
         }
         Update: {
@@ -5518,6 +5527,8 @@ export type Database = {
           definitive_by?: string | null
           definitive_designation_id?: string | null
           delivery_note_number?: string | null
+          documents_linked_at?: string | null
+          documents_linked_by?: string | null
           empenho_id?: string | null
           fiscal_pending?: boolean
           fiscal_pending_value?: number | null
@@ -5526,6 +5537,10 @@ export type Database = {
           fiscal_resolved_at?: string | null
           fiscal_resolved_by?: string | null
           id?: string
+          invoice_check_deferred_at?: string | null
+          invoice_check_deferred_by?: string | null
+          invoice_check_deferred_reason?: string | null
+          invoice_expected?: boolean
           kitchen_id?: number
           liquidacao_id?: string | null
           nfe_document_id?: string | null
@@ -5537,6 +5552,8 @@ export type Database = {
           rejected_by?: string | null
           source?: string
           status?: string
+          supplier_document?: string | null
+          supplier_name?: string | null
           supply_order_id?: string | null
         }
         Relationships: [
@@ -5569,6 +5586,7 @@ export type Database = {
           receipt_id: string
           received_qty_base: number
           unit_cost: number | null
+          unit_cost_source: string | null
         }
         Insert: {
           divergence_reason?: string | null
@@ -5582,6 +5600,7 @@ export type Database = {
           receipt_id: string
           received_qty_base: number
           unit_cost?: number | null
+          unit_cost_source?: string | null
         }
         Update: {
           divergence_reason?: string | null
@@ -5595,6 +5614,7 @@ export type Database = {
           receipt_id?: string
           received_qty_base?: number
           unit_cost?: number | null
+          unit_cost_source?: string | null
         }
         Relationships: [
           {
@@ -7111,6 +7131,18 @@ export type Database = {
           owner_count_id: string
         }[]
       }
+      designations_covering: {
+        Args: { p_empenho_id: string; p_roles: string[]; p_unit_id: number }
+        Returns: {
+          by_acquisition: boolean
+          by_arp: boolean
+          by_empenho: boolean
+          designation_id: string
+          is_substitute: boolean
+          person_id: string
+          valid_from: string
+        }[]
+      }
       expiry_alert_days: {
         Args: {
           p_conservation_class: string
@@ -7173,6 +7205,21 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      link_receipt_documents: {
+        Args: {
+          p_empenho_id?: string
+          p_item_links?: Json
+          p_line_costs?: Json
+          p_nfe_document_id?: string
+          p_receipt_id: string
+          p_supply_order_id?: string
+          p_user: string
+        }
+        Returns: {
+          costed_items: number
+          linked_items: number
+        }[]
       }
       lot_short_code: { Args: never; Returns: string }
       mark_module_transaction: { Args: never; Returns: undefined }
@@ -12219,6 +12266,7 @@ export type Database = {
       }
       contract_designation: {
         Row: {
+          acquisition_id: string | null
           arp_id: string | null
           created_at: string
           created_by: string | null
@@ -12234,6 +12282,7 @@ export type Database = {
           valid_to: string | null
         }
         Insert: {
+          acquisition_id?: string | null
           arp_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -12249,6 +12298,7 @@ export type Database = {
           valid_to?: string | null
         }
         Update: {
+          acquisition_id?: string | null
           arp_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -12264,6 +12314,13 @@ export type Database = {
           valid_to?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contract_designation_acquisition_id_fkey"
+            columns: ["acquisition_id"]
+            isOneToOne: false
+            referencedRelation: "acquisition"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contract_designation_arp_id_fkey"
             columns: ["arp_id"]

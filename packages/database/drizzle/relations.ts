@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { usersInAuth, profilesAdminInAccessControl, comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, comprasMaterialClasseInComprasGovIntegration, comprasMaterialPdmInComprasGovIntegration, comprasServicoSecaoInComprasGovIntegration, integrationSyncLogInComprasGovIntegration, integrationSyncStepInComprasGovIntegration, nfeDocumentInInventory, kitchenInKitchen, unitsInCore, measureUnitInCore, gtinInGs1Integration, ingredientItemInKitchen, supplierProductMapInGs1Integration, purchaseItemInProcurement, sourceInNutritionReference, sourceReleaseInNutritionReference, foodItemRevisionInNutritionReference, foodItemInNutritionReference, messHallsInKitchen, userDataInCore, nutrientComponentInNutritionReference, nutrientComponentMappingInNutritionReference, nutrientInKitchen, foodNutrientValueInNutritionReference, supplyOrderInProcurement, empenhoInFinance, procurementArpItemInProcurement, supplyOrderItemInProcurement, procurementListInProcurement, procurementListSnapshotSelectionInProcurement, procurementArpInProcurement, procurementListItemInProcurement, procurementListSnapshotComponentInProcurement, procurementPesquisaPrecoInProcurement, ingredientInKitchen, nfeItemInInventory, kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement, menuTemplateInKitchen, comprasAmostraInProcurement, procurementPesquisaPrecoAmostraInProcurement, procurementPesquisaPrecoItemInProcurement, mcpApiKeysInAccessControl, mealTypeInKitchen, menuTemplateEventMealInKitchen, personInCore, recipesInKitchen, recipeFolderInKitchen, recipeReviewInKitchen, procurementSegmentInProcurement, contractDesignationInProcurement, itemInCore, purchaseItemIngredientInProcurement, goodsReceiptInInventory, liquidacaoInFinance, folderInKitchen, procurementSegmentRuleInProcurement, receiptScanEventInInventory, goodsReceiptItemInInventory, acquisitionInProcurement, procurementListKitchenInProcurement, procurementListSelectionInProcurement, preparationGroupInKitchen, ceafaInKitchen, comprasMaterialItemInComprasGovIntegration, equipmentModelInKitchen, equipmentModelRoleInKitchen, equipmentRoleInKitchen, equipmentUnitRoleInKitchen, equipmentUnitInKitchen, gtinAliasInGs1Integration, recipeEquipmentRequirementInKitchen, recipeStepInKitchen, analyticsChatSessionInKitchen, analyticsChatMessageInKitchen, productionTaskInKitchen, menuItemsInKitchen, priceResearchEmissionInProcurement, ranchoInKitchen, workforceSurveyInKitchen, workforceSubmissionInKitchen, stockIssueRequestInInventory, stockIssueRequestItemInInventory, workforceCategoryInKitchen, workforceHeadcountInKitchen, mealPresencesInKitchen, workforceNoteInKitchen, ingredientNutritionReferenceInKitchen, menuTemplateMealInKitchen, otherPresencesInKitchen, stepTemplateInKitchen, stepTemplateUtensilInKitchen, utensilInKitchen, frozenPreparationInKitchen, recipeIngredientAlternativesInKitchen, recipeIngredientsInKitchen, ingredientNutrientInKitchen, ingredientVersionInKitchen, moduleChatSessionInKitchen, moduleChatMessageInKitchen, mealForecastsInKitchen, dailyMenuInKitchen, inventoryCountInInventory, inventoryCountItemInInventory, stockLotInInventory, menuGroupSetInKitchen, stockCostInInventory, sensitiveOperationLogInAccessControl, recipeStepOutputInKitchen, ingredientSubstitutionInKitchen, empenhoItemInFinance, recipeStepInputInKitchen, recipeStepUtensilInKitchen, mfaRecoveryCodeInAccessControl, opinionsInKitchen, mfaResetLogInAccessControl, menuTemplateItemsInKitchen, ingredientReviewInKitchen, snackRequestInKitchen, snackRequestLineInKitchen, snackRequestEventInKitchen, monthlyClosingInInventory, snackRequestMaterialInKitchen, stockPolicyInInventory, expiryAlertPolicyInInventory, stockAdjustmentInInventory, gpcAttributeInGs1Integration, gpcAttributeValueInGs1Integration, gtinSpecificationCheckInGs1Integration, purchaseItemGpcRequirementInProcurement, equipmentMaintenancePlanInKitchen, equipmentIssueInKitchen, equipmentMaintenanceLogInKitchen, policyStatementInAccessControl, policyInAccessControl, userPolicyAttachmentInAccessControl, importBatchInSiafiIntegration, importRowInSiafiIntegration, budgetCreditInFinance, empenhoEventInFinance, pagamentoInFinance, folderReviewInKitchen, reconciliationDecisionInFinance, userPermissionsInAccessControl, openingBalanceInInventory, openingBalanceItemInInventory, stockMovementInInventory, comprasMaterialGrupoInComprasGovIntegration, kitchenStockSettingsInInventory, menuGroupInKitchen, countScopeItemInInventory, goodsReceiptItemLotInInventory, inventoryCountEntryInInventory, stockAdjustmentItemInInventory, stockAdjustmentAttachmentInInventory, gpcBrickAttributeInGs1Integration, kitchenAtaDraftImportInProcurement, gtinGpcAttributeInGs1Integration, scannerProfileInInventory } from "./schema";
+import { usersInAuth, profilesAdminInAccessControl, comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, comprasMaterialClasseInComprasGovIntegration, comprasMaterialPdmInComprasGovIntegration, comprasServicoSecaoInComprasGovIntegration, integrationSyncLogInComprasGovIntegration, integrationSyncStepInComprasGovIntegration, nfeDocumentInInventory, kitchenInKitchen, unitsInCore, measureUnitInCore, gtinInGs1Integration, ingredientItemInKitchen, supplierProductMapInGs1Integration, purchaseItemInProcurement, sourceInNutritionReference, sourceReleaseInNutritionReference, foodItemRevisionInNutritionReference, foodItemInNutritionReference, messHallsInKitchen, userDataInCore, nutrientComponentInNutritionReference, nutrientComponentMappingInNutritionReference, nutrientInKitchen, foodNutrientValueInNutritionReference, supplyOrderInProcurement, empenhoInFinance, procurementArpItemInProcurement, supplyOrderItemInProcurement, procurementListInProcurement, procurementListSnapshotSelectionInProcurement, procurementArpInProcurement, procurementListItemInProcurement, procurementListSnapshotComponentInProcurement, procurementPesquisaPrecoInProcurement, ingredientInKitchen, nfeItemInInventory, kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement, menuTemplateInKitchen, comprasAmostraInProcurement, procurementPesquisaPrecoAmostraInProcurement, procurementPesquisaPrecoItemInProcurement, mcpApiKeysInAccessControl, mealTypeInKitchen, menuTemplateEventMealInKitchen, personInCore, recipesInKitchen, recipeFolderInKitchen, recipeReviewInKitchen, procurementSegmentInProcurement, itemInCore, purchaseItemIngredientInProcurement, folderInKitchen, procurementSegmentRuleInProcurement, receiptScanEventInInventory, goodsReceiptInInventory, goodsReceiptItemInInventory, acquisitionInProcurement, procurementListKitchenInProcurement, procurementListSelectionInProcurement, preparationGroupInKitchen, ceafaInKitchen, comprasMaterialItemInComprasGovIntegration, equipmentModelInKitchen, equipmentModelRoleInKitchen, equipmentRoleInKitchen, equipmentUnitRoleInKitchen, equipmentUnitInKitchen, gtinAliasInGs1Integration, recipeEquipmentRequirementInKitchen, recipeStepInKitchen, analyticsChatSessionInKitchen, analyticsChatMessageInKitchen, productionTaskInKitchen, menuItemsInKitchen, priceResearchEmissionInProcurement, ranchoInKitchen, workforceSurveyInKitchen, workforceSubmissionInKitchen, stockIssueRequestInInventory, stockIssueRequestItemInInventory, workforceCategoryInKitchen, workforceHeadcountInKitchen, mealPresencesInKitchen, workforceNoteInKitchen, ingredientNutritionReferenceInKitchen, menuTemplateMealInKitchen, otherPresencesInKitchen, stepTemplateInKitchen, stepTemplateUtensilInKitchen, utensilInKitchen, frozenPreparationInKitchen, recipeIngredientAlternativesInKitchen, recipeIngredientsInKitchen, ingredientNutrientInKitchen, ingredientVersionInKitchen, moduleChatSessionInKitchen, moduleChatMessageInKitchen, mealForecastsInKitchen, dailyMenuInKitchen, inventoryCountInInventory, inventoryCountItemInInventory, stockLotInInventory, menuGroupSetInKitchen, stockCostInInventory, sensitiveOperationLogInAccessControl, recipeStepOutputInKitchen, ingredientSubstitutionInKitchen, empenhoItemInFinance, recipeStepInputInKitchen, recipeStepUtensilInKitchen, mfaRecoveryCodeInAccessControl, opinionsInKitchen, mfaResetLogInAccessControl, menuTemplateItemsInKitchen, ingredientReviewInKitchen, snackRequestInKitchen, snackRequestLineInKitchen, snackRequestEventInKitchen, monthlyClosingInInventory, snackRequestMaterialInKitchen, stockPolicyInInventory, contractDesignationInProcurement, liquidacaoInFinance, expiryAlertPolicyInInventory, stockAdjustmentInInventory, gpcAttributeInGs1Integration, gpcAttributeValueInGs1Integration, gtinSpecificationCheckInGs1Integration, purchaseItemGpcRequirementInProcurement, equipmentMaintenancePlanInKitchen, equipmentIssueInKitchen, equipmentMaintenanceLogInKitchen, policyStatementInAccessControl, policyInAccessControl, userPolicyAttachmentInAccessControl, importBatchInSiafiIntegration, importRowInSiafiIntegration, budgetCreditInFinance, empenhoEventInFinance, pagamentoInFinance, folderReviewInKitchen, reconciliationDecisionInFinance, userPermissionsInAccessControl, openingBalanceInInventory, openingBalanceItemInInventory, stockMovementInInventory, comprasMaterialGrupoInComprasGovIntegration, kitchenStockSettingsInInventory, menuGroupInKitchen, countScopeItemInInventory, goodsReceiptItemLotInInventory, inventoryCountEntryInInventory, stockAdjustmentItemInInventory, stockAdjustmentAttachmentInInventory, gpcBrickAttributeInGs1Integration, kitchenAtaDraftImportInProcurement, gtinGpcAttributeInGs1Integration, scannerProfileInInventory } from "./schema";
 
 export const profilesAdminInAccessControlRelations = relations(profilesAdminInAccessControl, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
@@ -28,27 +28,6 @@ export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	mcpApiKeysInAccessControls: many(mcpApiKeysInAccessControl),
 	personInCores: many(personInCore),
 	procurementSegmentInProcurements: many(procurementSegmentInProcurement),
-	contractDesignationInProcurements_createdBy: many(contractDesignationInProcurement, {
-		relationName: "contractDesignationInProcurement_createdBy_usersInAuth_id"
-	}),
-	contractDesignationInProcurements_personId: many(contractDesignationInProcurement, {
-		relationName: "contractDesignationInProcurement_personId_usersInAuth_id"
-	}),
-	goodsReceiptInInventories_createdBy: many(goodsReceiptInInventory, {
-		relationName: "goodsReceiptInInventory_createdBy_usersInAuth_id"
-	}),
-	goodsReceiptInInventories_definitiveBy: many(goodsReceiptInInventory, {
-		relationName: "goodsReceiptInInventory_definitiveBy_usersInAuth_id"
-	}),
-	goodsReceiptInInventories_fiscalResolvedBy: many(goodsReceiptInInventory, {
-		relationName: "goodsReceiptInInventory_fiscalResolvedBy_usersInAuth_id"
-	}),
-	goodsReceiptInInventories_provisionalBy: many(goodsReceiptInInventory, {
-		relationName: "goodsReceiptInInventory_provisionalBy_usersInAuth_id"
-	}),
-	goodsReceiptInInventories_rejectedBy: many(goodsReceiptInInventory, {
-		relationName: "goodsReceiptInInventory_rejectedBy_usersInAuth_id"
-	}),
 	receiptScanEventInInventories: many(receiptScanEventInInventory),
 	acquisitionInProcurements: many(acquisitionInProcurement),
 	gtinAliasInGs1Integrations_createdBy: many(gtinAliasInGs1Integration, {
@@ -97,6 +76,33 @@ export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	}),
 	snackRequestEventInKitchens: many(snackRequestEventInKitchen),
 	monthlyClosingInInventories: many(monthlyClosingInInventory),
+	goodsReceiptInInventories_createdBy: many(goodsReceiptInInventory, {
+		relationName: "goodsReceiptInInventory_createdBy_usersInAuth_id"
+	}),
+	goodsReceiptInInventories_definitiveBy: many(goodsReceiptInInventory, {
+		relationName: "goodsReceiptInInventory_definitiveBy_usersInAuth_id"
+	}),
+	goodsReceiptInInventories_documentsLinkedBy: many(goodsReceiptInInventory, {
+		relationName: "goodsReceiptInInventory_documentsLinkedBy_usersInAuth_id"
+	}),
+	goodsReceiptInInventories_fiscalResolvedBy: many(goodsReceiptInInventory, {
+		relationName: "goodsReceiptInInventory_fiscalResolvedBy_usersInAuth_id"
+	}),
+	goodsReceiptInInventories_invoiceCheckDeferredBy: many(goodsReceiptInInventory, {
+		relationName: "goodsReceiptInInventory_invoiceCheckDeferredBy_usersInAuth_id"
+	}),
+	goodsReceiptInInventories_provisionalBy: many(goodsReceiptInInventory, {
+		relationName: "goodsReceiptInInventory_provisionalBy_usersInAuth_id"
+	}),
+	goodsReceiptInInventories_rejectedBy: many(goodsReceiptInInventory, {
+		relationName: "goodsReceiptInInventory_rejectedBy_usersInAuth_id"
+	}),
+	contractDesignationInProcurements_createdBy: many(contractDesignationInProcurement, {
+		relationName: "contractDesignationInProcurement_createdBy_usersInAuth_id"
+	}),
+	contractDesignationInProcurements_personId: many(contractDesignationInProcurement, {
+		relationName: "contractDesignationInProcurement_personId_usersInAuth_id"
+	}),
 	expiryAlertPolicyInInventories: many(expiryAlertPolicyInInventory),
 	inventoryCountInInventories_approvedBy: many(inventoryCountInInventory, {
 		relationName: "inventoryCountInInventory_approvedBy_usersInAuth_id"
@@ -249,7 +255,6 @@ export const kitchenInKitchenRelations = relations(kitchenInKitchen, ({one, many
 		relationName: "kitchenInKitchen_unitId_unitsInCore_id"
 	}),
 	recipesInKitchens: many(recipesInKitchen),
-	goodsReceiptInInventories: many(goodsReceiptInInventory),
 	procurementListKitchenInProcurements: many(procurementListKitchenInProcurement),
 	gtinAliasInGs1Integrations: many(gtinAliasInGs1Integration),
 	productionTaskInKitchens: many(productionTaskInKitchen),
@@ -267,6 +272,7 @@ export const kitchenInKitchenRelations = relations(kitchenInKitchen, ({one, many
 	stockPolicyInInventories: many(stockPolicyInInventory),
 	equipmentModelInKitchens: many(equipmentModelInKitchen),
 	equipmentUnitInKitchens: many(equipmentUnitInKitchen),
+	goodsReceiptInInventories: many(goodsReceiptInInventory),
 	expiryAlertPolicyInInventories: many(expiryAlertPolicyInInventory),
 	inventoryCountInInventories: many(inventoryCountInInventory),
 	equipmentMaintenancePlanInKitchens: many(equipmentMaintenancePlanInKitchen),
@@ -291,7 +297,6 @@ export const unitsInCoreRelations = relations(unitsInCore, ({one, many}) => ({
 		relationName: "kitchenInKitchen_unitId_unitsInCore_id"
 	}),
 	procurementSegmentInProcurements: many(procurementSegmentInProcurement),
-	contractDesignationInProcurements: many(contractDesignationInProcurement),
 	acquisitionInProcurements: many(acquisitionInProcurement),
 	unitsInCore_parentUnitId: one(unitsInCore, {
 		fields: [unitsInCore.parentUnitId],
@@ -315,6 +320,7 @@ export const unitsInCoreRelations = relations(unitsInCore, ({one, many}) => ({
 	messHallsInKitchens_unitId: many(messHallsInKitchen, {
 		relationName: "messHallsInKitchen_unitId_unitsInCore_id"
 	}),
+	contractDesignationInProcurements: many(contractDesignationInProcurement),
 	policyStatementInAccessControls: many(policyStatementInAccessControl),
 	importBatchInSiafiIntegrations: many(importBatchInSiafiIntegration),
 	budgetCreditInFinances: many(budgetCreditInFinance),
@@ -537,9 +543,9 @@ export const supplyOrderInProcurementRelations = relations(supplyOrderInProcurem
 
 export const empenhoInFinanceRelations = relations(empenhoInFinance, ({one, many}) => ({
 	supplyOrderInProcurements: many(supplyOrderInProcurement),
-	contractDesignationInProcurements: many(contractDesignationInProcurement),
-	goodsReceiptInInventories: many(goodsReceiptInInventory),
 	empenhoItemInFinances: many(empenhoItemInFinance),
+	goodsReceiptInInventories: many(goodsReceiptInInventory),
+	contractDesignationInProcurements: many(contractDesignationInProcurement),
 	empenhoEventInFinances: many(empenhoEventInFinance),
 	acquisitionInProcurement: one(acquisitionInProcurement, {
 		fields: [empenhoInFinance.acquisitionId],
@@ -621,7 +627,6 @@ export const procurementListInProcurementRelations = relations(procurementListIn
 
 export const procurementArpInProcurementRelations = relations(procurementArpInProcurement, ({one, many}) => ({
 	procurementArpItemInProcurements: many(procurementArpItemInProcurement),
-	contractDesignationInProcurements: many(contractDesignationInProcurement),
 	acquisitionInProcurement: one(acquisitionInProcurement, {
 		fields: [procurementArpInProcurement.acquisitionId],
 		references: [acquisitionInProcurement.id]
@@ -634,6 +639,7 @@ export const procurementArpInProcurementRelations = relations(procurementArpInPr
 		fields: [procurementArpInProcurement.unitId],
 		references: [unitsInCore.id]
 	}),
+	contractDesignationInProcurements: many(contractDesignationInProcurement),
 }));
 
 export const procurementListItemInProcurementRelations = relations(procurementListItemInProcurement, ({one, many}) => ({
@@ -918,37 +924,6 @@ export const procurementSegmentInProcurementRelations = relations(procurementSeg
 	procurementListInProcurements: many(procurementListInProcurement),
 }));
 
-export const contractDesignationInProcurementRelations = relations(contractDesignationInProcurement, ({one, many}) => ({
-	procurementArpInProcurement: one(procurementArpInProcurement, {
-		fields: [contractDesignationInProcurement.arpId],
-		references: [procurementArpInProcurement.id]
-	}),
-	usersInAuth_createdBy: one(usersInAuth, {
-		fields: [contractDesignationInProcurement.createdBy],
-		references: [usersInAuth.id],
-		relationName: "contractDesignationInProcurement_createdBy_usersInAuth_id"
-	}),
-	empenhoInFinance: one(empenhoInFinance, {
-		fields: [contractDesignationInProcurement.empenhoId],
-		references: [empenhoInFinance.id]
-	}),
-	usersInAuth_personId: one(usersInAuth, {
-		fields: [contractDesignationInProcurement.personId],
-		references: [usersInAuth.id],
-		relationName: "contractDesignationInProcurement_personId_usersInAuth_id"
-	}),
-	unitsInCore: one(unitsInCore, {
-		fields: [contractDesignationInProcurement.unitId],
-		references: [unitsInCore.id]
-	}),
-	goodsReceiptInInventories_definitiveDesignationId: many(goodsReceiptInInventory, {
-		relationName: "goodsReceiptInInventory_definitiveDesignationId_contractDesignationInProcurement_id"
-	}),
-	goodsReceiptInInventories_provisionalDesignationId: many(goodsReceiptInInventory, {
-		relationName: "goodsReceiptInInventory_provisionalDesignationId_contractDesignationInProcurement_id"
-	}),
-}));
-
 export const purchaseItemIngredientInProcurementRelations = relations(purchaseItemIngredientInProcurement, ({one}) => ({
 	ingredientInKitchen: one(ingredientInKitchen, {
 		fields: [purchaseItemIngredientInProcurement.ingredientId],
@@ -971,102 +946,6 @@ export const itemInCoreRelations = relations(itemInCore, ({one, many}) => ({
 		fields: [itemInCore.measureUnit],
 		references: [measureUnitInCore.code]
 	}),
-}));
-
-export const goodsReceiptInInventoryRelations = relations(goodsReceiptInInventory, ({one, many}) => ({
-	usersInAuth_createdBy: one(usersInAuth, {
-		fields: [goodsReceiptInInventory.createdBy],
-		references: [usersInAuth.id],
-		relationName: "goodsReceiptInInventory_createdBy_usersInAuth_id"
-	}),
-	usersInAuth_definitiveBy: one(usersInAuth, {
-		fields: [goodsReceiptInInventory.definitiveBy],
-		references: [usersInAuth.id],
-		relationName: "goodsReceiptInInventory_definitiveBy_usersInAuth_id"
-	}),
-	contractDesignationInProcurement_definitiveDesignationId: one(contractDesignationInProcurement, {
-		fields: [goodsReceiptInInventory.definitiveDesignationId],
-		references: [contractDesignationInProcurement.id],
-		relationName: "goodsReceiptInInventory_definitiveDesignationId_contractDesignationInProcurement_id"
-	}),
-	empenhoInFinance: one(empenhoInFinance, {
-		fields: [goodsReceiptInInventory.empenhoId],
-		references: [empenhoInFinance.id]
-	}),
-	usersInAuth_fiscalResolvedBy: one(usersInAuth, {
-		fields: [goodsReceiptInInventory.fiscalResolvedBy],
-		references: [usersInAuth.id],
-		relationName: "goodsReceiptInInventory_fiscalResolvedBy_usersInAuth_id"
-	}),
-	kitchenInKitchen: one(kitchenInKitchen, {
-		fields: [goodsReceiptInInventory.kitchenId],
-		references: [kitchenInKitchen.id]
-	}),
-	liquidacaoInFinance: one(liquidacaoInFinance, {
-		fields: [goodsReceiptInInventory.liquidacaoId],
-		references: [liquidacaoInFinance.id],
-		relationName: "goodsReceiptInInventory_liquidacaoId_liquidacaoInFinance_id"
-	}),
-	nfeDocumentInInventory: one(nfeDocumentInInventory, {
-		fields: [goodsReceiptInInventory.nfeDocumentId],
-		references: [nfeDocumentInInventory.id]
-	}),
-	usersInAuth_provisionalBy: one(usersInAuth, {
-		fields: [goodsReceiptInInventory.provisionalBy],
-		references: [usersInAuth.id],
-		relationName: "goodsReceiptInInventory_provisionalBy_usersInAuth_id"
-	}),
-	contractDesignationInProcurement_provisionalDesignationId: one(contractDesignationInProcurement, {
-		fields: [goodsReceiptInInventory.provisionalDesignationId],
-		references: [contractDesignationInProcurement.id],
-		relationName: "goodsReceiptInInventory_provisionalDesignationId_contractDesignationInProcurement_id"
-	}),
-	usersInAuth_rejectedBy: one(usersInAuth, {
-		fields: [goodsReceiptInInventory.rejectedBy],
-		references: [usersInAuth.id],
-		relationName: "goodsReceiptInInventory_rejectedBy_usersInAuth_id"
-	}),
-	supplyOrderInProcurement: one(supplyOrderInProcurement, {
-		fields: [goodsReceiptInInventory.supplyOrderId],
-		references: [supplyOrderInProcurement.id]
-	}),
-	receiptScanEventInInventories: many(receiptScanEventInInventory),
-	liquidacaoInFinances: many(liquidacaoInFinance, {
-		relationName: "liquidacaoInFinance_goodsReceiptId_goodsReceiptInInventory_id"
-	}),
-	goodsReceiptItemInInventories: many(goodsReceiptItemInInventory),
-}));
-
-export const liquidacaoInFinanceRelations = relations(liquidacaoInFinance, ({one, many}) => ({
-	goodsReceiptInInventories: many(goodsReceiptInInventory, {
-		relationName: "goodsReceiptInInventory_liquidacaoId_liquidacaoInFinance_id"
-	}),
-	usersInAuth: one(usersInAuth, {
-		fields: [liquidacaoInFinance.createdBy],
-		references: [usersInAuth.id]
-	}),
-	empenhoInFinance: one(empenhoInFinance, {
-		fields: [liquidacaoInFinance.empenhoId],
-		references: [empenhoInFinance.id]
-	}),
-	goodsReceiptInInventory: one(goodsReceiptInInventory, {
-		fields: [liquidacaoInFinance.goodsReceiptId],
-		references: [goodsReceiptInInventory.id],
-		relationName: "liquidacaoInFinance_goodsReceiptId_goodsReceiptInInventory_id"
-	}),
-	importBatchInSiafiIntegration: one(importBatchInSiafiIntegration, {
-		fields: [liquidacaoInFinance.importBatchId],
-		references: [importBatchInSiafiIntegration.id]
-	}),
-	nfeDocumentInInventory: one(nfeDocumentInInventory, {
-		fields: [liquidacaoInFinance.nfeDocumentId],
-		references: [nfeDocumentInInventory.id]
-	}),
-	unitsInCore: one(unitsInCore, {
-		fields: [liquidacaoInFinance.unitId],
-		references: [unitsInCore.id]
-	}),
-	pagamentoInFinances: many(pagamentoInFinance),
 }));
 
 export const procurementSegmentRuleInProcurementRelations = relations(procurementSegmentRuleInProcurement, ({one}) => ({
@@ -1122,6 +1001,80 @@ export const receiptScanEventInInventoryRelations = relations(receiptScanEventIn
 	}),
 }));
 
+export const goodsReceiptInInventoryRelations = relations(goodsReceiptInInventory, ({one, many}) => ({
+	receiptScanEventInInventories: many(receiptScanEventInInventory),
+	usersInAuth_createdBy: one(usersInAuth, {
+		fields: [goodsReceiptInInventory.createdBy],
+		references: [usersInAuth.id],
+		relationName: "goodsReceiptInInventory_createdBy_usersInAuth_id"
+	}),
+	usersInAuth_definitiveBy: one(usersInAuth, {
+		fields: [goodsReceiptInInventory.definitiveBy],
+		references: [usersInAuth.id],
+		relationName: "goodsReceiptInInventory_definitiveBy_usersInAuth_id"
+	}),
+	contractDesignationInProcurement_definitiveDesignationId: one(contractDesignationInProcurement, {
+		fields: [goodsReceiptInInventory.definitiveDesignationId],
+		references: [contractDesignationInProcurement.id],
+		relationName: "goodsReceiptInInventory_definitiveDesignationId_contractDesignationInProcurement_id"
+	}),
+	usersInAuth_documentsLinkedBy: one(usersInAuth, {
+		fields: [goodsReceiptInInventory.documentsLinkedBy],
+		references: [usersInAuth.id],
+		relationName: "goodsReceiptInInventory_documentsLinkedBy_usersInAuth_id"
+	}),
+	empenhoInFinance: one(empenhoInFinance, {
+		fields: [goodsReceiptInInventory.empenhoId],
+		references: [empenhoInFinance.id]
+	}),
+	usersInAuth_fiscalResolvedBy: one(usersInAuth, {
+		fields: [goodsReceiptInInventory.fiscalResolvedBy],
+		references: [usersInAuth.id],
+		relationName: "goodsReceiptInInventory_fiscalResolvedBy_usersInAuth_id"
+	}),
+	usersInAuth_invoiceCheckDeferredBy: one(usersInAuth, {
+		fields: [goodsReceiptInInventory.invoiceCheckDeferredBy],
+		references: [usersInAuth.id],
+		relationName: "goodsReceiptInInventory_invoiceCheckDeferredBy_usersInAuth_id"
+	}),
+	kitchenInKitchen: one(kitchenInKitchen, {
+		fields: [goodsReceiptInInventory.kitchenId],
+		references: [kitchenInKitchen.id]
+	}),
+	liquidacaoInFinance: one(liquidacaoInFinance, {
+		fields: [goodsReceiptInInventory.liquidacaoId],
+		references: [liquidacaoInFinance.id],
+		relationName: "goodsReceiptInInventory_liquidacaoId_liquidacaoInFinance_id"
+	}),
+	nfeDocumentInInventory: one(nfeDocumentInInventory, {
+		fields: [goodsReceiptInInventory.nfeDocumentId],
+		references: [nfeDocumentInInventory.id]
+	}),
+	usersInAuth_provisionalBy: one(usersInAuth, {
+		fields: [goodsReceiptInInventory.provisionalBy],
+		references: [usersInAuth.id],
+		relationName: "goodsReceiptInInventory_provisionalBy_usersInAuth_id"
+	}),
+	contractDesignationInProcurement_provisionalDesignationId: one(contractDesignationInProcurement, {
+		fields: [goodsReceiptInInventory.provisionalDesignationId],
+		references: [contractDesignationInProcurement.id],
+		relationName: "goodsReceiptInInventory_provisionalDesignationId_contractDesignationInProcurement_id"
+	}),
+	usersInAuth_rejectedBy: one(usersInAuth, {
+		fields: [goodsReceiptInInventory.rejectedBy],
+		references: [usersInAuth.id],
+		relationName: "goodsReceiptInInventory_rejectedBy_usersInAuth_id"
+	}),
+	supplyOrderInProcurement: one(supplyOrderInProcurement, {
+		fields: [goodsReceiptInInventory.supplyOrderId],
+		references: [supplyOrderInProcurement.id]
+	}),
+	liquidacaoInFinances: many(liquidacaoInFinance, {
+		relationName: "liquidacaoInFinance_goodsReceiptId_goodsReceiptInInventory_id"
+	}),
+	goodsReceiptItemInInventories: many(goodsReceiptItemInInventory),
+}));
+
 export const goodsReceiptItemInInventoryRelations = relations(goodsReceiptItemInInventory, ({one, many}) => ({
 	receiptScanEventInInventories: many(receiptScanEventInInventory),
 	frozenPreparationInKitchen: one(frozenPreparationInKitchen, {
@@ -1163,6 +1116,7 @@ export const acquisitionInProcurementRelations = relations(acquisitionInProcurem
 		references: [unitsInCore.id]
 	}),
 	procurementArpInProcurements: many(procurementArpInProcurement),
+	contractDesignationInProcurements: many(contractDesignationInProcurement),
 	empenhoInFinances: many(empenhoInFinance),
 }));
 
@@ -2004,6 +1958,73 @@ export const stockPolicyInInventoryRelations = relations(stockPolicyInInventory,
 		fields: [stockPolicyInInventory.kitchenId],
 		references: [kitchenInKitchen.id]
 	}),
+}));
+
+export const contractDesignationInProcurementRelations = relations(contractDesignationInProcurement, ({one, many}) => ({
+	goodsReceiptInInventories_definitiveDesignationId: many(goodsReceiptInInventory, {
+		relationName: "goodsReceiptInInventory_definitiveDesignationId_contractDesignationInProcurement_id"
+	}),
+	goodsReceiptInInventories_provisionalDesignationId: many(goodsReceiptInInventory, {
+		relationName: "goodsReceiptInInventory_provisionalDesignationId_contractDesignationInProcurement_id"
+	}),
+	acquisitionInProcurement: one(acquisitionInProcurement, {
+		fields: [contractDesignationInProcurement.acquisitionId],
+		references: [acquisitionInProcurement.id]
+	}),
+	procurementArpInProcurement: one(procurementArpInProcurement, {
+		fields: [contractDesignationInProcurement.arpId],
+		references: [procurementArpInProcurement.id]
+	}),
+	usersInAuth_createdBy: one(usersInAuth, {
+		fields: [contractDesignationInProcurement.createdBy],
+		references: [usersInAuth.id],
+		relationName: "contractDesignationInProcurement_createdBy_usersInAuth_id"
+	}),
+	empenhoInFinance: one(empenhoInFinance, {
+		fields: [contractDesignationInProcurement.empenhoId],
+		references: [empenhoInFinance.id]
+	}),
+	usersInAuth_personId: one(usersInAuth, {
+		fields: [contractDesignationInProcurement.personId],
+		references: [usersInAuth.id],
+		relationName: "contractDesignationInProcurement_personId_usersInAuth_id"
+	}),
+	unitsInCore: one(unitsInCore, {
+		fields: [contractDesignationInProcurement.unitId],
+		references: [unitsInCore.id]
+	}),
+}));
+
+export const liquidacaoInFinanceRelations = relations(liquidacaoInFinance, ({one, many}) => ({
+	goodsReceiptInInventories: many(goodsReceiptInInventory, {
+		relationName: "goodsReceiptInInventory_liquidacaoId_liquidacaoInFinance_id"
+	}),
+	usersInAuth: one(usersInAuth, {
+		fields: [liquidacaoInFinance.createdBy],
+		references: [usersInAuth.id]
+	}),
+	empenhoInFinance: one(empenhoInFinance, {
+		fields: [liquidacaoInFinance.empenhoId],
+		references: [empenhoInFinance.id]
+	}),
+	goodsReceiptInInventory: one(goodsReceiptInInventory, {
+		fields: [liquidacaoInFinance.goodsReceiptId],
+		references: [goodsReceiptInInventory.id],
+		relationName: "liquidacaoInFinance_goodsReceiptId_goodsReceiptInInventory_id"
+	}),
+	importBatchInSiafiIntegration: one(importBatchInSiafiIntegration, {
+		fields: [liquidacaoInFinance.importBatchId],
+		references: [importBatchInSiafiIntegration.id]
+	}),
+	nfeDocumentInInventory: one(nfeDocumentInInventory, {
+		fields: [liquidacaoInFinance.nfeDocumentId],
+		references: [nfeDocumentInInventory.id]
+	}),
+	unitsInCore: one(unitsInCore, {
+		fields: [liquidacaoInFinance.unitId],
+		references: [unitsInCore.id]
+	}),
+	pagamentoInFinances: many(pagamentoInFinance),
 }));
 
 export const expiryAlertPolicyInInventoryRelations = relations(expiryAlertPolicyInInventory, ({one}) => ({

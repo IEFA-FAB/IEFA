@@ -1093,55 +1093,6 @@ export const integrationSyncLogInComprasGovIntegration = comprasGovIntegration.t
 	uniqueIndex("uq_integration_sync_log_one_running_per_source").using("btree", table.source.asc().nullsLast().op("text_ops")).where(sql`(status = 'running'::text)`),
 ]);
 
-export const contractDesignationInProcurement = procurement.table("contract_designation", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	unitId: bigint("unit_id", { mode: "number" }).notNull(),
-	empenhoId: uuid("empenho_id"),
-	arpId: uuid("arp_id"),
-	personId: uuid("person_id").notNull(),
-	role: text().notNull(),
-	isSubstitute: boolean("is_substitute").default(false).notNull(),
-	source: text().notNull(),
-	sourceReference: text("source_reference"),
-	validFrom: date("valid_from").default(sql`((now() AT TIME ZONE 'America/Sao_Paulo'::text))::date`).notNull(),
-	validTo: date("valid_to"),
-	createdBy: uuid("created_by"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("contract_designation_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("uuid_ops")).where(sql`(empenho_id IS NOT NULL)`),
-	index("contract_designation_person_idx").using("btree", table.personId.asc().nullsLast().op("uuid_ops")),
-	index("contract_designation_unit_idx").using("btree", table.unitId.asc().nullsLast().op("text_ops"), table.role.asc().nullsLast().op("int8_ops")),
-	foreignKey({
-			columns: [table.arpId],
-			foreignColumns: [procurementArpInProcurement.id],
-			name: "contract_designation_arp_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.createdBy],
-			foreignColumns: [usersInAuth.id],
-			name: "contract_designation_created_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.empenhoId],
-			foreignColumns: [empenhoInFinance.id],
-			name: "contract_designation_empenho_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.personId],
-			foreignColumns: [usersInAuth.id],
-			name: "contract_designation_person_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.unitId],
-			foreignColumns: [unitsInCore.id],
-			name: "contract_designation_unit_id_fkey"
-		}),
-	check("contract_designation_period", sql`(valid_to IS NULL) OR (valid_to >= valid_from)`),
-	check("contract_designation_role_check", sql`role = ANY (ARRAY['manager'::text, 'technical_inspector'::text, 'administrative_inspector'::text, 'sectoral_inspector'::text, 'committee_member'::text])`),
-	check("contract_designation_source_check", sql`source = ANY (ARRAY['ato'::text, 'empenho'::text, 'permanente'::text])`),
-]);
-
 export const purchaseItemIngredientInProcurement = procurement.table("purchase_item_ingredient", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	purchaseItemId: uuid("purchase_item_id").notNull(),
@@ -1164,101 +1115,6 @@ export const purchaseItemIngredientInProcurement = procurement.table("purchase_i
 			name: "purchase_item_ingredient_purchase_item_id_fkey"
 		}).onDelete("cascade"),
 	unique("purchase_item_ingredient_purchase_item_id_ingredient_id_key").on(table.purchaseItemId, table.ingredientId),
-]);
-
-export const goodsReceiptInInventory = inventory.table("goods_receipt", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }).notNull(),
-	supplyOrderId: uuid("supply_order_id"),
-	nfeDocumentId: uuid("nfe_document_id"),
-	empenhoId: uuid("empenho_id"),
-	status: text().default('draft').notNull(),
-	provisionalBy: uuid("provisional_by"),
-	provisionalAt: timestamp("provisional_at", { withTimezone: true, mode: 'string' }),
-	definitiveBy: uuid("definitive_by"),
-	definitiveAt: timestamp("definitive_at", { withTimezone: true, mode: 'string' }),
-	notes: text(),
-	createdBy: uuid("created_by"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	liquidacaoId: uuid("liquidacao_id"),
-	source: text().default('nfe').notNull(),
-	deliveryNoteNumber: text("delivery_note_number"),
-	provisionalDesignationId: uuid("provisional_designation_id"),
-	definitiveDesignationId: uuid("definitive_designation_id"),
-	fiscalPending: boolean("fiscal_pending").default(false).notNull(),
-	fiscalPendingValue: numeric("fiscal_pending_value", { mode: "number", precision: 14, scale: 2 }),
-	fiscalResolution: text("fiscal_resolution"),
-	fiscalResolutionReference: text("fiscal_resolution_reference"),
-	fiscalResolvedAt: timestamp("fiscal_resolved_at", { withTimezone: true, mode: 'string' }),
-	fiscalResolvedBy: uuid("fiscal_resolved_by"),
-	rejectedAt: timestamp("rejected_at", { withTimezone: true, mode: 'string' }),
-	rejectedBy: uuid("rejected_by"),
-}, (table) => [
-	index("goods_receipt_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.status.asc().nullsLast().op("int8_ops")),
-	uniqueIndex("goods_receipt_nfe_document_unique").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")).where(sql`((nfe_document_id IS NOT NULL) AND (status <> 'rejected'::text))`),
-	index("goods_receipt_nfe_idx").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_rejected_by_fk_idx").using("btree", table.rejectedBy.asc().nullsLast().op("uuid_ops")),
-	foreignKey({
-			columns: [table.createdBy],
-			foreignColumns: [usersInAuth.id],
-			name: "goods_receipt_created_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.definitiveBy],
-			foreignColumns: [usersInAuth.id],
-			name: "goods_receipt_definitive_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.definitiveDesignationId],
-			foreignColumns: [contractDesignationInProcurement.id],
-			name: "goods_receipt_definitive_designation_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.empenhoId],
-			foreignColumns: [empenhoInFinance.id],
-			name: "goods_receipt_empenho_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.fiscalResolvedBy],
-			foreignColumns: [usersInAuth.id],
-			name: "goods_receipt_fiscal_resolved_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.kitchenId],
-			foreignColumns: [kitchenInKitchen.id],
-			name: "goods_receipt_kitchen_id_fkey"
-		}),
-	// FK "goods_receipt_liquidacao_id_fkey" omitida (patch-drizzle-pull.ts): ciclo com liquidacaoInFinance faria o TS inferir any. Existe no banco; a relação segue em relations.ts.
-	foreignKey({
-			columns: [table.nfeDocumentId],
-			foreignColumns: [nfeDocumentInInventory.id],
-			name: "goods_receipt_nfe_document_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.provisionalBy],
-			foreignColumns: [usersInAuth.id],
-			name: "goods_receipt_provisional_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.provisionalDesignationId],
-			foreignColumns: [contractDesignationInProcurement.id],
-			name: "goods_receipt_provisional_designation_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.rejectedBy],
-			foreignColumns: [usersInAuth.id],
-			name: "goods_receipt_rejected_by_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.supplyOrderId],
-			foreignColumns: [supplyOrderInProcurement.id],
-			name: "goods_receipt_supply_order_id_fkey"
-		}).onDelete("set null"),
-	check("goods_receipt_fiscal_resolution_check", sql`fiscal_resolution = ANY (ARRAY['return_nfe'::text, 'replacement_nfe'::text, 'glosa'::text])`),
-	check("goods_receipt_rejected_not_attested", sql`(status <> 'rejected'::text) OR (definitive_at IS NULL)`),
-	check("goods_receipt_source_check", sql`source = ANY (ARRAY['nfe'::text, 'delivery_note'::text, 'ad_hoc'::text])`),
-	check("goods_receipt_status_check", sql`status = ANY (ARRAY['draft'::text, 'provisional'::text, 'definitive'::text, 'divergent'::text, 'rejected'::text])`),
 ]);
 
 export const procurementSegmentRuleInProcurement = procurement.table("procurement_segment_rule", {
@@ -3424,6 +3280,184 @@ export const equipmentUnitInKitchen = kitchen.table("equipment_unit", {
 	check("equipment_unit_status_check", sql`status = ANY (ARRAY['active'::text, 'maintenance'::text, 'decommissioned'::text])`),
 ]);
 
+export const goodsReceiptInInventory = inventory.table("goods_receipt", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }).notNull(),
+	supplyOrderId: uuid("supply_order_id"),
+	nfeDocumentId: uuid("nfe_document_id"),
+	empenhoId: uuid("empenho_id"),
+	status: text().default('draft').notNull(),
+	provisionalBy: uuid("provisional_by"),
+	provisionalAt: timestamp("provisional_at", { withTimezone: true, mode: 'string' }),
+	definitiveBy: uuid("definitive_by"),
+	definitiveAt: timestamp("definitive_at", { withTimezone: true, mode: 'string' }),
+	notes: text(),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	liquidacaoId: uuid("liquidacao_id"),
+	source: text().default('nfe').notNull(),
+	deliveryNoteNumber: text("delivery_note_number"),
+	provisionalDesignationId: uuid("provisional_designation_id"),
+	definitiveDesignationId: uuid("definitive_designation_id"),
+	fiscalPending: boolean("fiscal_pending").default(false).notNull(),
+	fiscalPendingValue: numeric("fiscal_pending_value", { mode: "number", precision: 14, scale: 2 }),
+	fiscalResolution: text("fiscal_resolution"),
+	fiscalResolutionReference: text("fiscal_resolution_reference"),
+	fiscalResolvedAt: timestamp("fiscal_resolved_at", { withTimezone: true, mode: 'string' }),
+	fiscalResolvedBy: uuid("fiscal_resolved_by"),
+	rejectedAt: timestamp("rejected_at", { withTimezone: true, mode: 'string' }),
+	rejectedBy: uuid("rejected_by"),
+	invoiceExpected: boolean("invoice_expected").default(true).notNull(),
+	supplierName: text("supplier_name"),
+	supplierDocument: text("supplier_document"),
+	invoiceCheckDeferredAt: timestamp("invoice_check_deferred_at", { withTimezone: true, mode: 'string' }),
+	invoiceCheckDeferredBy: uuid("invoice_check_deferred_by"),
+	invoiceCheckDeferredReason: text("invoice_check_deferred_reason"),
+	documentsLinkedAt: timestamp("documents_linked_at", { withTimezone: true, mode: 'string' }),
+	documentsLinkedBy: uuid("documents_linked_by"),
+}, (table) => [
+	index("goods_receipt_documents_linked_by_fk_idx").using("btree", table.documentsLinkedBy.asc().nullsLast().op("uuid_ops")).where(sql`(documents_linked_by IS NOT NULL)`),
+	index("goods_receipt_invoice_check_deferred_by_fk_idx").using("btree", table.invoiceCheckDeferredBy.asc().nullsLast().op("uuid_ops")).where(sql`(invoice_check_deferred_by IS NOT NULL)`),
+	index("goods_receipt_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("text_ops"), table.status.asc().nullsLast().op("text_ops")),
+	uniqueIndex("goods_receipt_nfe_document_unique").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")).where(sql`((nfe_document_id IS NOT NULL) AND (status <> 'rejected'::text) AND (source = 'nfe'::text))`),
+	index("goods_receipt_nfe_idx").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")),
+	index("goods_receipt_rejected_by_fk_idx").using("btree", table.rejectedBy.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.definitiveBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_definitive_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.definitiveDesignationId],
+			foreignColumns: [contractDesignationInProcurement.id],
+			name: "goods_receipt_definitive_designation_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.documentsLinkedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_documents_linked_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.empenhoId],
+			foreignColumns: [empenhoInFinance.id],
+			name: "goods_receipt_empenho_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.fiscalResolvedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_fiscal_resolved_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.invoiceCheckDeferredBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_invoice_check_deferred_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "goods_receipt_kitchen_id_fkey"
+		}),
+	// FK "goods_receipt_liquidacao_id_fkey" omitida (patch-drizzle-pull.ts): ciclo com liquidacaoInFinance faria o TS inferir any. Existe no banco; a relação segue em relations.ts.
+	foreignKey({
+			columns: [table.nfeDocumentId],
+			foreignColumns: [nfeDocumentInInventory.id],
+			name: "goods_receipt_nfe_document_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.provisionalBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_provisional_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.provisionalDesignationId],
+			foreignColumns: [contractDesignationInProcurement.id],
+			name: "goods_receipt_provisional_designation_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.rejectedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "goods_receipt_rejected_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.supplyOrderId],
+			foreignColumns: [supplyOrderInProcurement.id],
+			name: "goods_receipt_supply_order_id_fkey"
+		}).onDelete("set null"),
+	check("goods_receipt_delivery_note_number", sql`(source <> 'delivery_note'::text) OR (NULLIF(btrim(delivery_note_number), ''::text) IS NOT NULL)`),
+	check("goods_receipt_fiscal_resolution_check", sql`fiscal_resolution = ANY (ARRAY['return_nfe'::text, 'replacement_nfe'::text, 'glosa'::text])`),
+	check("goods_receipt_invoice_check_deferral", sql`(invoice_check_deferred_at IS NULL) OR ((invoice_check_deferred_by IS NOT NULL) AND (NULLIF(btrim(invoice_check_deferred_reason), ''::text) IS NOT NULL))`),
+	check("goods_receipt_rejected_not_attested", sql`(status <> 'rejected'::text) OR (definitive_at IS NULL)`),
+	check("goods_receipt_source_check", sql`source = ANY (ARRAY['nfe'::text, 'delivery_note'::text, 'ad_hoc'::text])`),
+	check("goods_receipt_status_check", sql`status = ANY (ARRAY['draft'::text, 'provisional'::text, 'definitive'::text, 'divergent'::text, 'rejected'::text])`),
+	check("goods_receipt_supplier_document_digits", sql`(supplier_document IS NULL) OR (supplier_document ~ '^([0-9]{11}|[0-9]{14})$'::text)`),
+]);
+
+export const contractDesignationInProcurement = procurement.table("contract_designation", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	unitId: bigint("unit_id", { mode: "number" }).notNull(),
+	empenhoId: uuid("empenho_id"),
+	arpId: uuid("arp_id"),
+	personId: uuid("person_id").notNull(),
+	role: text().notNull(),
+	isSubstitute: boolean("is_substitute").default(false).notNull(),
+	source: text().notNull(),
+	sourceReference: text("source_reference"),
+	validFrom: date("valid_from").default(sql`((now() AT TIME ZONE 'America/Sao_Paulo'::text))::date`).notNull(),
+	validTo: date("valid_to"),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	acquisitionId: uuid("acquisition_id"),
+}, (table) => [
+	index("contract_designation_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast().op("uuid_ops")).where(sql`(acquisition_id IS NOT NULL)`),
+	index("contract_designation_arp_idx").using("btree", table.arpId.asc().nullsLast().op("uuid_ops")).where(sql`(arp_id IS NOT NULL)`),
+	index("contract_designation_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
+	index("contract_designation_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("uuid_ops")).where(sql`(empenho_id IS NOT NULL)`),
+	index("contract_designation_person_idx").using("btree", table.personId.asc().nullsLast().op("uuid_ops")),
+	index("contract_designation_unit_idx").using("btree", table.unitId.asc().nullsLast().op("text_ops"), table.role.asc().nullsLast().op("int8_ops")),
+	foreignKey({
+			columns: [table.acquisitionId],
+			foreignColumns: [acquisitionInProcurement.id],
+			name: "contract_designation_acquisition_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.arpId],
+			foreignColumns: [procurementArpInProcurement.id],
+			name: "contract_designation_arp_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "contract_designation_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.empenhoId],
+			foreignColumns: [empenhoInFinance.id],
+			name: "contract_designation_empenho_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.personId],
+			foreignColumns: [usersInAuth.id],
+			name: "contract_designation_person_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.unitId],
+			foreignColumns: [unitsInCore.id],
+			name: "contract_designation_unit_id_fkey"
+		}),
+	check("contract_designation_ato_reference", sql`(source <> 'ato'::text) OR (NULLIF(btrim(source_reference), ''::text) IS NOT NULL)`),
+	check("contract_designation_period", sql`(valid_to IS NULL) OR (valid_to >= valid_from)`),
+	check("contract_designation_role_check", sql`role = ANY (ARRAY['manager'::text, 'technical_inspector'::text, 'administrative_inspector'::text, 'sectoral_inspector'::text, 'committee_member'::text])`),
+	check("contract_designation_single_scope", sql`num_nonnulls(empenho_id, arp_id, acquisition_id) <= 1`),
+	check("contract_designation_source_check", sql`source = ANY (ARRAY['ato'::text, 'permanente'::text])`),
+]);
+
 export const expiryAlertPolicyInInventory = inventory.table("expiry_alert_policy", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -4467,32 +4501,6 @@ export const comprasMaterialGrupoInComprasGovIntegration = comprasGovIntegration
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
 
-export const comprasMaterialClasseInComprasGovIntegration = comprasGovIntegration.table("compras_material_classe", {
-	codigoClasse: integer("codigo_classe").primaryKey().notNull(),
-	codigoGrupo: integer("codigo_grupo").notNull(),
-	nomeClasse: text("nome_classe").notNull(),
-	statusClasse: boolean("status_classe").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.codigoGrupo],
-			foreignColumns: [comprasMaterialGrupoInComprasGovIntegration.codigoGrupo],
-			name: "compras_material_classe_codigo_grupo_fkey"
-		}),
-]);
-
-export const comprasMaterialNaturezaDespesaInComprasGovIntegration = comprasGovIntegration.table("compras_material_natureza_despesa", {
-	id: bigserial({ mode: "number" }).primaryKey().notNull(),
-	codigoPdm: integer("codigo_pdm").notNull(),
-	codigoNaturezaDespesa: text("codigo_natureza_despesa").notNull(),
-	nomeNaturezaDespesa: text("nome_natureza_despesa").notNull(),
-	statusNaturezaDespesa: boolean("status_natureza_despesa").default(true).notNull(),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	unique("compras_material_natureza_des_codigo_pdm_codigo_natureza_de_key").on(table.codigoPdm, table.codigoNaturezaDespesa),
-]);
-
 export const goodsReceiptItemInInventory = inventory.table("goods_receipt_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	receiptId: uuid("receipt_id").notNull(),
@@ -4505,6 +4513,7 @@ export const goodsReceiptItemInInventory = inventory.table("goods_receipt_item",
 	receivedQtyBase: numeric("received_qty_base", { mode: "number", precision: 14, scale: 4 }).notNull(),
 	unitCost: numeric("unit_cost", { mode: "number", precision: 12, scale: 4 }),
 	divergenceReason: text("divergence_reason"),
+	unitCostSource: text("unit_cost_source"),
 }, (table) => [
 	index("goods_receipt_item_receipt_idx").using("btree", table.receiptId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
@@ -4538,7 +4547,34 @@ export const goodsReceiptItemInInventory = inventory.table("goods_receipt_item",
 			name: "goods_receipt_item_receipt_id_fkey"
 		}).onDelete("cascade"),
 	check("goods_receipt_item_received_qty_base_check", sql`received_qty_base >= (0)::numeric`),
+	check("goods_receipt_item_unit_cost_source_check", sql`unit_cost_source = 'invoice_link'::text`),
 	check("goods_receipt_item_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) = 1`),
+]);
+
+export const comprasMaterialClasseInComprasGovIntegration = comprasGovIntegration.table("compras_material_classe", {
+	codigoClasse: integer("codigo_classe").primaryKey().notNull(),
+	codigoGrupo: integer("codigo_grupo").notNull(),
+	nomeClasse: text("nome_classe").notNull(),
+	statusClasse: boolean("status_classe").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.codigoGrupo],
+			foreignColumns: [comprasMaterialGrupoInComprasGovIntegration.codigoGrupo],
+			name: "compras_material_classe_codigo_grupo_fkey"
+		}),
+]);
+
+export const comprasMaterialNaturezaDespesaInComprasGovIntegration = comprasGovIntegration.table("compras_material_natureza_despesa", {
+	id: bigserial({ mode: "number" }).primaryKey().notNull(),
+	codigoPdm: integer("codigo_pdm").notNull(),
+	codigoNaturezaDespesa: text("codigo_natureza_despesa").notNull(),
+	nomeNaturezaDespesa: text("nome_natureza_despesa").notNull(),
+	statusNaturezaDespesa: boolean("status_natureza_despesa").default(true).notNull(),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("compras_material_natureza_des_codigo_pdm_codigo_natureza_de_key").on(table.codigoPdm, table.codigoNaturezaDespesa),
 ]);
 
 export const kitchenStockSettingsInInventory = inventory.table("kitchen_stock_settings", {
@@ -5358,6 +5394,18 @@ export const folderLastReviewInKitchen = kitchen.view("folder_last_review", {	fo
 	reviewedByName: text("reviewed_by_name"),
 }).with({ securityInvoker: true }).as(sql`SELECT DISTINCT ON (folder_id) folder_id, reviewed_at, reviewed_by, reviewed_by_name FROM kitchen.folder_review ORDER BY folder_id, reviewed_at DESC`);
 
+export const vPhysicalAccountingReconciliationInFinance = finance.view("v_physical_accounting_reconciliation", {	goodsReceiptId: uuid("goods_receipt_id"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	definitiveAt: timestamp("definitive_at", { withTimezone: true, mode: 'string' }),
+	valorRecebido: numeric("valor_recebido", { mode: "number" }),
+	liquidacaoId: uuid("liquidacao_id"),
+	numeroNs: text("numero_ns"),
+	valorLiquidado: numeric("valor_liquidado", { mode: "number", precision: 14, scale: 2 }),
+	situacao: text(),
+	diasDesdeRecebimento: integer("dias_desde_recebimento"),
+}).with({"securityInvoker":true}).as(sql`WITH received AS ( SELECT gr.id, gr.kitchen_id, gr.definitive_at, gr.liquidacao_id, COALESCE(sum(gri.received_qty_base * COALESCE(gri.unit_cost, 0::numeric)), 0::numeric) AS valor_recebido FROM inventory.goods_receipt gr JOIN inventory.goods_receipt_item gri ON gri.receipt_id = gr.id WHERE gr.definitive_at IS NOT NULL AND gr.invoice_expected GROUP BY gr.id, gr.kitchen_id, gr.definitive_at, gr.liquidacao_id ), liquidated AS ( SELECT r_1.id AS goods_receipt_id, (array_agg(l.id ORDER BY l.data DESC, l.created_at DESC))[1] AS liquidacao_id, string_agg(l.numero_ns, ', '::text ORDER BY l.data, l.numero_ns) AS numero_ns, sum(l.valor)::numeric(14,2) AS valor FROM received r_1 JOIN finance.liquidacao l ON l.goods_receipt_id = r_1.id OR l.id = r_1.liquidacao_id GROUP BY r_1.id ) SELECT r.id AS goods_receipt_id, r.kitchen_id, r.definitive_at, r.valor_recebido, q.liquidacao_id, q.numero_ns, q.valor AS valor_liquidado, CASE WHEN q.liquidacao_id IS NULL THEN 'sem_liquidacao'::text WHEN abs(r.valor_recebido - q.valor) > 0.009 THEN 'valor_divergente'::text ELSE 'conciliado'::text END AS situacao, CURRENT_DATE - r.definitive_at::date AS dias_desde_recebimento FROM received r LEFT JOIN liquidated q ON q.goods_receipt_id = r.id`);
+
 export const vSiafiReconciliationInFinance = finance.view("v_siafi_reconciliation", {	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	unitId: bigint("unit_id", { mode: "number" }),
 	documentoTipo: text("documento_tipo"),
@@ -5372,18 +5420,6 @@ export const vSiafiReconciliationInFinance = finance.view("v_siafi_reconciliatio
 	justificativa: text(),
 	decisaoVigente: boolean("decisao_vigente"),
 }).with({"securityInvoker":true}).as(sql`WITH siafi_rows AS ( SELECT b.unit_id, b.report_type AS documento_tipo, CASE b.report_type WHEN 'ne'::text THEN r.parsed ->> 'numero_ne'::text WHEN 'ns'::text THEN r.parsed ->> 'numero_ns'::text WHEN 'ob'::text THEN r.parsed ->> 'numero_ob'::text ELSE NULL::text END AS numero_documento, (r.parsed ->> 'valor'::text)::numeric AS valor_siafi, b.created_at AS lote_em, b.id AS batch_id, r.parse_status, row_number() OVER (PARTITION BY b.unit_id, b.report_type, ( CASE b.report_type WHEN 'ne'::text THEN r.parsed ->> 'numero_ne'::text WHEN 'ns'::text THEN r.parsed ->> 'numero_ns'::text WHEN 'ob'::text THEN r.parsed ->> 'numero_ob'::text ELSE NULL::text END) ORDER BY b.created_at DESC) AS recencia FROM siafi_integration.import_row r JOIN siafi_integration.import_batch b ON b.id = r.batch_id WHERE (r.parse_status = ANY (ARRAY['parsed'::text, 'waiting_parent'::text])) AND (b.report_type = ANY (ARRAY['ne'::text, 'ns'::text, 'ob'::text])) ), latest_siafi AS ( SELECT siafi_rows.unit_id, siafi_rows.documento_tipo, siafi_rows.numero_documento, siafi_rows.valor_siafi, siafi_rows.lote_em, siafi_rows.batch_id, siafi_rows.parse_status, siafi_rows.recencia FROM siafi_rows WHERE siafi_rows.recencia = 1 AND siafi_rows.numero_documento IS NOT NULL ), sisub_rows AS ( SELECT e.unit_id, 'ne'::text AS documento_tipo, e.numero_empenho AS numero_documento, v.valor_vigente AS valor_sisub FROM finance.empenho e JOIN finance.v_empenho_vigente v ON v.empenho_id = e.id UNION ALL SELECT l.unit_id, 'ns'::text AS text, l.numero_ns, l.valor FROM finance.liquidacao l UNION ALL SELECT p.unit_id, 'ob'::text AS text, p.numero_ob, p.valor FROM finance.pagamento p ) SELECT COALESCE(s.unit_id, f.unit_id) AS unit_id, COALESCE(s.documento_tipo, f.documento_tipo) AS documento_tipo, COALESCE(s.numero_documento, f.numero_documento) AS numero_documento, s.valor_sisub, f.valor_siafi, f.batch_id, f.lote_em, CASE WHEN f.numero_documento IS NULL THEN 'apenas_sisub'::text WHEN s.numero_documento IS NULL AND f.parse_status = 'waiting_parent'::text THEN 'aguardando_documento_pai'::text WHEN s.numero_documento IS NULL THEN 'apenas_siafi'::text WHEN abs(COALESCE(s.valor_sisub, 0::numeric) - COALESCE(f.valor_siafi, 0::numeric)) > 0.009 THEN 'divergente'::text ELSE 'conciliado'::text END AS situacao, COALESCE(f.valor_siafi, 0::numeric) - COALESCE(s.valor_sisub, 0::numeric) AS diferenca, d.decisao, d.justificativa, d.id IS NOT NULL AND NOT d.valor_sisub IS DISTINCT FROM s.valor_sisub AND NOT d.valor_siafi IS DISTINCT FROM f.valor_siafi AS decisao_vigente FROM sisub_rows s FULL JOIN latest_siafi f ON f.unit_id = s.unit_id AND f.documento_tipo = s.documento_tipo AND f.numero_documento = s.numero_documento LEFT JOIN finance.reconciliation_decision d ON d.unit_id = COALESCE(s.unit_id, f.unit_id) AND d.documento_tipo = COALESCE(s.documento_tipo, f.documento_tipo) AND d.numero_documento = COALESCE(s.numero_documento, f.numero_documento)`);
-
-export const vPhysicalAccountingReconciliationInFinance = finance.view("v_physical_accounting_reconciliation", {	goodsReceiptId: uuid("goods_receipt_id"),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }),
-	definitiveAt: timestamp("definitive_at", { withTimezone: true, mode: 'string' }),
-	valorRecebido: numeric("valor_recebido", { mode: "number" }),
-	liquidacaoId: uuid("liquidacao_id"),
-	numeroNs: text("numero_ns"),
-	valorLiquidado: numeric("valor_liquidado", { mode: "number", precision: 14, scale: 2 }),
-	situacao: text(),
-	diasDesdeRecebimento: integer("dias_desde_recebimento"),
-}).with({"securityInvoker":true}).as(sql`SELECT gr.id AS goods_receipt_id, gr.kitchen_id, gr.definitive_at, COALESCE(sum(gri.received_qty_base * COALESCE(gri.unit_cost, 0::numeric)), 0::numeric) AS valor_recebido, l.id AS liquidacao_id, l.numero_ns, l.valor AS valor_liquidado, CASE WHEN l.id IS NULL THEN 'sem_liquidacao'::text WHEN abs(COALESCE(sum(gri.received_qty_base * COALESCE(gri.unit_cost, 0::numeric)), 0::numeric) - l.valor) > 0.009 THEN 'valor_divergente'::text ELSE 'conciliado'::text END AS situacao, CURRENT_DATE - gr.definitive_at::date AS dias_desde_recebimento FROM inventory.goods_receipt gr JOIN inventory.goods_receipt_item gri ON gri.receipt_id = gr.id LEFT JOIN finance.liquidacao l ON l.id = gr.liquidacao_id WHERE gr.definitive_at IS NOT NULL GROUP BY gr.id, gr.kitchen_id, gr.definitive_at, l.id, l.numero_ns, l.valor`);
 
 export const ingredientLastReviewInKitchen = kitchen.view("ingredient_last_review", {	ingredientId: uuid("ingredient_id"),
 	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),
