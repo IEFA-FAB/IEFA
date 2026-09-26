@@ -23,6 +23,8 @@
 --    (`import_row.parse_status = 'waiting_parent'`) e é religada por UMA função,
 --    chamada pelo import e pelo registro rápido/manual da NE ou da NS. O lote é
 --    aplicado numa transação só: erro em qualquer linha não grava nada.
+-- 8. O piso da anulação passa a ser o maior entre o liquidado e o já pedido em OF.
+-- 9. A conciliação passa a mostrar a NS/OB estacionada (`aguardando_documento_pai`).
 --
 -- Compatível com a `main` enquanto este PR não mergeia: nenhuma coluna sai,
 -- nada que a `main` grava nulo fica obrigatório, nomes mantidos. Tudo só do
@@ -751,6 +753,133 @@ begin
   );
 end;
 $$;
+
+-- ----------------------------------------------------------------------------
+-- 8. Piso da anulação: o já liquidado E o já pedido ao fornecedor
+-- ----------------------------------------------------------------------------
+-- O teto "Σ OFs ≤ vigente" só era conferido quando a OF era gravada: uma anulação
+-- parcial depois deixava o vigente abaixo do que as OFs já tinham pedido, sem aviso.
+-- Anular abaixo do que a OF comprometeu é irregular — o fornecedor recebeu a ordem
+-- e vai entregar —, então a anulação é RECUSADA com a instrução (cancele ou reduza
+-- a OF antes), e não vira pendência.
+--
+-- Mesmas chaves de lock de antes, na mesma ordem (evento → liquidação), mais a da OF
+-- por último: o trigger da OF só toma a chave dela, então não há ciclo de espera.
+create or replace function finance.check_empenho_event_floor() returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_vigente numeric(14,2);
+  v_liquidado numeric(14,2);
+  v_ordered numeric(14,2);
+begin
+  if new.tipo not in ('anulacao', 'cancelamento') then return new; end if;
+
+  -- serializa eventos concorrentes do mesmo empenho
+  perform pg_advisory_xact_lock(hashtextextended('empenho_event:' || new.empenho_id::text, 42));
+  -- ...e contra liquidação concorrente do mesmo empenho: é a chave que
+  -- `check_liquidacao_within_empenho` toma. Ordem fixa evento → liquidação → OF.
+  perform pg_advisory_xact_lock(hashtextextended('liq_empenho:' || new.empenho_id::text, 42));
+  -- ...e contra OF concorrente: a chave de `procurement.supply_order_check_empenho`.
+  perform pg_advisory_xact_lock(hashtextextended('of_empenho:' || new.empenho_id::text, 42));
+
+  select v.valor_vigente into v_vigente from finance.v_empenho_vigente v where v.empenho_id = new.empenho_id;
+  select coalesce(sum(l.valor), 0) into v_liquidado from finance.liquidacao l where l.empenho_id = new.empenho_id;
+  select u.priced_total into v_ordered from procurement.supply_order_empenho_usage(new.empenho_id) u;
+
+  -- v_vigente já inclui os eventos anteriores; o novo ainda não está gravado
+  if coalesce(v_vigente, 0) - new.valor < v_liquidado then
+    raise exception 'Anulação deixaria o empenho vigente (%) abaixo do já liquidado (%)',
+      coalesce(v_vigente, 0) - new.valor, v_liquidado;
+  end if;
+  if coalesce(v_vigente, 0) - new.valor < coalesce(v_ordered, 0) - 0.005 then
+    raise exception 'Anulação deixaria o empenho vigente (%) abaixo do já pedido em Ordens de Fornecimento (%): cancele ou reduza a OF antes de anular',
+      coalesce(v_vigente, 0) - new.valor, coalesce(v_ordered, 0);
+  end if;
+  return new;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- 9. Conciliação enxerga o documento estacionado
+-- ----------------------------------------------------------------------------
+-- A NS/OB estacionada (`waiting_parent`) sumia da conciliação, que só lia `parsed`:
+-- a divergência mais importante — o SIAFI tem o documento e o sisub não — ficava
+-- invisível. Ela entra como `aguardando_documento_pai` (e deixa de aparecer quando
+-- a religação a transforma em liquidação/pagamento).
+--
+-- O número do documento passa a ser o do TIPO do relatório: o relatório de NS traz
+-- também a coluna da NE, e o `coalesce(numero_ne, numero_ns, …)` de antes tomava o
+-- número da NE como se fosse o da NS.
+create or replace view finance.v_siafi_reconciliation
+with (security_invoker = true)
+as
+with siafi_rows as (
+  select b.unit_id,
+    b.report_type as documento_tipo,
+    case b.report_type
+      when 'ne' then r.parsed ->> 'numero_ne'
+      when 'ns' then r.parsed ->> 'numero_ns'
+      when 'ob' then r.parsed ->> 'numero_ob'
+    end as numero_documento,
+    (r.parsed ->> 'valor')::numeric as valor_siafi,
+    b.created_at as lote_em,
+    b.id as batch_id,
+    r.parse_status,
+    row_number() over (
+      partition by b.unit_id, b.report_type,
+        case b.report_type
+          when 'ne' then r.parsed ->> 'numero_ne'
+          when 'ns' then r.parsed ->> 'numero_ns'
+          when 'ob' then r.parsed ->> 'numero_ob'
+        end
+      order by b.created_at desc
+    ) as recencia
+  from siafi_integration.import_row r
+  join siafi_integration.import_batch b on b.id = r.batch_id
+  where r.parse_status in ('parsed', 'waiting_parent') and b.report_type in ('ne', 'ns', 'ob')
+), latest_siafi as (
+  select unit_id, documento_tipo, numero_documento, valor_siafi, lote_em, batch_id, parse_status, recencia
+  from siafi_rows
+  where recencia = 1 and numero_documento is not null
+), sisub_rows as (
+  select e.unit_id, 'ne'::text as documento_tipo, e.numero_empenho as numero_documento, v.valor_vigente as valor_sisub
+    from finance.empenho e
+    join finance.v_empenho_vigente v on v.empenho_id = e.id
+  union all
+  select l.unit_id, 'ns'::text, l.numero_ns, l.valor from finance.liquidacao l
+  union all
+  select p.unit_id, 'ob'::text, p.numero_ob, p.valor from finance.pagamento p
+)
+select coalesce(s.unit_id, f.unit_id) as unit_id,
+  coalesce(s.documento_tipo, f.documento_tipo) as documento_tipo,
+  coalesce(s.numero_documento, f.numero_documento) as numero_documento,
+  s.valor_sisub,
+  f.valor_siafi,
+  f.batch_id,
+  f.lote_em,
+  case
+    when f.numero_documento is null then 'apenas_sisub'
+    when s.numero_documento is null and f.parse_status = 'waiting_parent' then 'aguardando_documento_pai'
+    when s.numero_documento is null then 'apenas_siafi'
+    when abs(coalesce(s.valor_sisub, 0) - coalesce(f.valor_siafi, 0)) > 0.009 then 'divergente'
+    else 'conciliado'
+  end as situacao,
+  coalesce(f.valor_siafi, 0) - coalesce(s.valor_sisub, 0) as diferenca,
+  d.decisao,
+  d.justificativa,
+  (d.id is not null and not (d.valor_sisub is distinct from s.valor_sisub) and not (d.valor_siafi is distinct from f.valor_siafi)) as decisao_vigente
+from sisub_rows s
+full join latest_siafi f
+  on f.unit_id = s.unit_id and f.documento_tipo = s.documento_tipo and f.numero_documento = s.numero_documento
+left join finance.reconciliation_decision d
+  on d.unit_id = coalesce(s.unit_id, f.unit_id)
+ and d.documento_tipo = coalesce(s.documento_tipo, f.documento_tipo)
+ and d.numero_documento = coalesce(s.numero_documento, f.numero_documento);
+
+comment on view finance.v_siafi_reconciliation is
+  'Documento a documento: apenas_sisub | apenas_siafi | aguardando_documento_pai (NS/OB estacionada à espera da NE/NS) | divergente | conciliado, comparando o domínio com o LOTE MAIS RECENTE de cada número.';
 
 -- ----------------------------------------------------------------------------
 -- Conferência depois de aplicar (esperado: zero linhas)
