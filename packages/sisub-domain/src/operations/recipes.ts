@@ -45,6 +45,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { containsPattern, insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire, unwrapPgError } from "../utils/index.ts"
+import { pickLineageWinners } from "../utils/recipe-lineage.ts"
 import { type Allergen, normalizeAllergens } from "./allergens.ts"
 import { copyRecipeEquipmentRequirements } from "./equipment.ts"
 import { copyRecipeFlow } from "./recipe-flow.ts"
@@ -211,30 +212,14 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 }
 
 /**
- * Precedência dentro de uma linhagem, para a dedup da listagem.
- *
- * A linha LOCAL sombreia a global **incondicionalmente** — semântica de branch de git: o
- * fork da cozinha vence o upstream na visão dela. Entre linhas do mesmo escopo, vence a
- * maior versão.
- *
- * Comparar apenas `version` (comportamento anterior) empatava fork e global quando os dois
- * chegavam ao mesmo número, e o vencedor passava a depender da ordem em que o Postgres
- * devolvia as linhas — não-determinístico. A listagem de uma cozinha só traz o global e as
- * linhas dela própria, então "local" aqui só pode ser a cozinha que consultou.
+ * Teto de ids por consulta na fase 2 de `listRecipes`. O catálogo global tem ~1.650
+ * linhagens (2026-09): duas consultas. O teto existe para o `IN (...)` e o JSON montado pelo
+ * Postgres não crescerem sem limite junto com o catálogo.
  */
-function lineageWinner(candidate: { kitchenId: number | null; version: number }, incumbent: { kitchenId: number | null; version: number }): boolean {
-	const candidateIsLocal = candidate.kitchenId != null
-	if (candidateIsLocal !== (incumbent.kitchenId != null)) return candidateIsLocal
-	return candidate.version > incumbent.version
-}
+const LIST_RECIPES_BATCH = 1000
 
-export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListRecipes): Promise<RecipeWithIngredients[]> {
-	if (input.kitchenId != null) {
-		requireKitchen(ctx, 1, input.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 1)
-	}
-
+/** Filtros comuns a `listRecipes` e `listRecipeSummaries` — mesmo recorte, mesma dedup. */
+function listRecipesConditions(input: ListRecipes): SQL | undefined {
 	const conditions: (SQL | undefined)[] = []
 	if (!input.includeDeleted) conditions.push(isNull(recipesInKitchen.deletedAt))
 	if (input.kitchenId != null && !input.globalOnly) {
@@ -243,27 +228,57 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 		conditions.push(isNull(recipesInKitchen.kitchenId))
 	}
 	if (input.search) conditions.push(ilike(recipesInKitchen.name, containsPattern(input.search)))
+	return and(...conditions)
+}
 
-	// Sem orderBy no SQL: o sort pt-BR em JS (após o dedup) determina a ordem final;
-	// ordenar no Postgres seria um passo sem efeito observável.
-	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInKitchen.findMany({
-			where: and(...conditions),
-			with: WITH_INGREDIENTS,
-		})
-	)
+function findRecipesWithIngredients(db: SisubDb, where: SQL | undefined) {
+	return runQuery("FETCH_FAILED", () => db.query.recipesInKitchen.findMany({ where, with: WITH_INGREDIENTS }))
+}
+type RecipeWithIngredientsRow = Awaited<ReturnType<typeof findRecipesWithIngredients>>[number]
 
-	// Dedup por família: uma linha por linhagem (versões inserem novas linhas com
-	// base_recipe_id → raiz). Opera sobre as linhas Drizzle (camelCase) e só converte
-	// para o contrato no final.
-	const familyMap = new Map<string, (typeof rows)[number]>()
-	for (const recipe of rows) {
-		const rootId = recipe.baseRecipeId ?? recipe.id
-		const existing = familyMap.get(rootId)
-		if (!existing || lineageWinner(recipe, existing)) familyMap.set(rootId, recipe)
+export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListRecipes): Promise<RecipeWithIngredients[]> {
+	if (input.kitchenId != null) {
+		requireKitchen(ctx, 1, input.kitchenId)
+	} else {
+		requirePermission(ctx, "kitchen", 1)
 	}
 
-	return Array.from(familyMap.values())
+	const where = listRecipesConditions(input)
+
+	// Fase 1 — só o que a dedup por família usa. A versão anterior carregava a ficha técnica
+	// de TODAS as versões (4.597 linhas no global em 2026-09, ~30 mil linhas de ingrediente,
+	// cada uma com um lateral no insumo e outro na preparação congelada) para descartar
+	// dois terços em JS. Aqui a linhagem é resolvida sobre quatro colunas.
+	const lineage = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				id: recipesInKitchen.id,
+				baseRecipeId: recipesInKitchen.baseRecipeId,
+				kitchenId: recipesInKitchen.kitchenId,
+				version: recipesInKitchen.version,
+			})
+			.from(recipesInKitchen)
+			.where(where)
+	)
+	const winnerIds = pickLineageWinners(lineage).map((r) => r.id)
+	if (winnerIds.length === 0) return []
+
+	// Fase 2 — ficha técnica só dos vencedores. O `where` da fase 1 é reaplicado: receita
+	// excluída entre as duas consultas não volta pela porta dos fundos.
+	const byId = new Map<string, RecipeWithIngredientsRow>()
+	for (let i = 0; i < winnerIds.length; i += LIST_RECIPES_BATCH) {
+		const batch = winnerIds.slice(i, i + LIST_RECIPES_BATCH)
+		for (const row of await findRecipesWithIngredients(db, and(inArray(recipesInKitchen.id, batch), where))) byId.set(row.id, row)
+	}
+
+	// Sem orderBy no SQL: o sort pt-BR em JS determina a ordem final. O sort é estável e parte
+	// da ordem dos vencedores, então empate de nome segue a ordem da fase 1, como antes seguia
+	// a da consulta única.
+	return winnerIds
+		.flatMap((id) => {
+			const row = byId.get(id)
+			return row ? [row] : []
+		})
 		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 		.map((r) => {
 			scrubDeletedFrozenPreparations(r)
@@ -304,15 +319,6 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
 		requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	}
 
-	const conditions: (SQL | undefined)[] = []
-	if (!input.includeDeleted) conditions.push(isNull(recipesInKitchen.deletedAt))
-	if (input.kitchenId != null && !input.globalOnly) {
-		conditions.push(or(isNull(recipesInKitchen.kitchenId), eq(recipesInKitchen.kitchenId, input.kitchenId)))
-	} else {
-		conditions.push(isNull(recipesInKitchen.kitchenId))
-	}
-	if (input.search) conditions.push(ilike(recipesInKitchen.name, containsPattern(input.search)))
-
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
@@ -328,18 +334,11 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
 				baseRecipeId: recipesInKitchen.baseRecipeId,
 			})
 			.from(recipesInKitchen)
-			.where(and(...conditions))
+			.where(listRecipesConditions(input))
 	)
 
-	// Dedup por família — idêntica à de `listRecipes`: uma linha por linhagem.
-	const familyMap = new Map<string, (typeof rows)[number]>()
-	for (const recipe of rows) {
-		const rootId = recipe.baseRecipeId ?? recipe.id
-		const existing = familyMap.get(rootId)
-		if (!existing || lineageWinner(recipe, existing)) familyMap.set(rootId, recipe)
-	}
-
-	return Array.from(familyMap.values())
+	// Dedup por família — a mesma de `listRecipes`: uma linha por linhagem.
+	return pickLineageWinners(rows)
 		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 		.map((summary) => toNumeric(toWire<RecipeSummary>(summary), RECIPE_NUMERIC_KEYS))
 }
