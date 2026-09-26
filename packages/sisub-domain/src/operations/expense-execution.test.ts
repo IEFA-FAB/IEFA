@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test"
-import { countReceiptPending, groupSiafiWaiting, type ReceiptPendingRow, receiptPendingKinds } from "./expense-execution.ts"
+import {
+	type AcquisitionForStatus,
+	countReceiptPending,
+	groupSiafiWaiting,
+	type ReceiptPendingRow,
+	receiptPendingKinds,
+	summarizeAcquisitions,
+} from "./expense-execution.ts"
 
 const receipt = (over: Partial<ReceiptPendingRow> = {}): ReceiptPendingRow => ({
 	receiptId: "r1",
@@ -107,5 +114,65 @@ describe("groupSiafiWaiting", () => {
 			{ reportType: "ns", count: 2, parents: ["2026NE000123"] },
 			{ reportType: "ob", count: 1, parents: [] },
 		])
+	})
+})
+
+describe("summarizeAcquisitions", () => {
+	const limits = [{ clause: "II", validFrom: "2026-01-01", value: 65492.11, sourceAct: "Decreto nº 12.807/2025" }]
+	const acquisition = (over: Partial<AcquisitionForStatus> = {}): AcquisitionForStatus => ({
+		id: "a1",
+		label: "Dispensa — carnes",
+		kind: "dispensa",
+		srpRole: null,
+		legalBasis: "Lei 14.133/2021, art. 75, II",
+		directContractClause: "II",
+		nd: "33903007",
+		activityLine: "8905",
+		object: "Carnes para a formatura",
+		supplierCnpj: "12345678000190",
+		supplierName: "Frigorífico",
+		validFrom: "2026-09-01",
+		validTo: "2026-12-31",
+		estimatedValue: 20000,
+		overLimitJustification: null,
+		fiscalYear: 2026,
+		committedValue: 0,
+		...over,
+	})
+
+	test("dispensa completa dentro do limite não tem pendência", () => {
+		const summary = summarizeAcquisitions([acquisition()], limits, 2026)
+		expect(summary.incomplete.count).toBe(0)
+		expect(summary.dispensasOverLimitWithoutJustification).toBe(0)
+	})
+
+	test("terceira dispensa de carnes passa do limite: pendência de justificativa até gravá-la", () => {
+		const three = [
+			acquisition({ id: "a1", estimatedValue: 30000 }),
+			acquisition({ id: "a2", estimatedValue: 18000 }),
+			acquisition({ id: "a3", estimatedValue: 20000 }),
+		]
+		const over = summarizeAcquisitions(three, limits, 2026)
+		expect(over.dispensasOverLimitWithoutJustification).toBe(3)
+		expect(over.incomplete.sample[0]?.summary).toMatch(/justificativa do somatório/)
+		const justified = summarizeAcquisitions(
+			three.map((a) => ({ ...a, overLimitJustification: "Fracionamento afastado: fornecimentos distintos" })),
+			limits,
+			2026
+		)
+		expect(justified.dispensasOverLimitWithoutJustification).toBe(0)
+	})
+
+	test("dispensa sem valor nenhum conta como sem valor, não como zero", () => {
+		const summary = summarizeAcquisitions([acquisition({ estimatedValue: null, committedValue: 0 })], limits, 2026)
+		expect(summary.dispensasWithoutValue).toBe(1)
+		expect(summary.incomplete.sample[0]?.summary).toMatch(/sem valor/)
+	})
+
+	test("inciso sem limite no exercício pede o cadastro", () => {
+		// falta o inciso I
+		expect(summarizeAcquisitions([], limits, 2026).dispensaLimitMissing).toBe(true)
+		const both = [...limits, { clause: "I", validFrom: "2026-01-01", value: 130984.2, sourceAct: "Decreto nº 12.807/2025" }]
+		expect(summarizeAcquisitions([], both, 2026).dispensaLimitMissing).toBe(false)
 	})
 })

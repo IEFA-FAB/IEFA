@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
-import { FileCheck2, FileQuestion, Link2, RefreshCw } from "lucide-react"
+import { FileCheck2, FilePlus2, FileQuestion, Link2, RefreshCw } from "lucide-react"
 import { useId, useState } from "react"
+import { QuickEmpenhoDialog } from "@/components/features/unit/finance/QuickEmpenhoForm"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -34,19 +35,38 @@ export interface ReceiptDocuments {
  */
 export function ReceiptDocumentsCard({
 	receiptId,
+	kitchenId,
+	supplier,
 	documents,
 	invoiceExpected,
 	canLink,
 	onLinked,
 }: {
 	receiptId: string
+	kitchenId: number
+	/** Quem entregou, para sugerir o favorecido da NE registrada na hora. */
+	supplier: { name: string | null; document: string | null }
 	documents: ReceiptDocuments
 	invoiceExpected: boolean
 	canLink: boolean
 	onLinked: () => void
 }) {
 	const [editing, setEditing] = useState<Kind | null>(null)
+	const [registeringEmpenho, setRegisteringEmpenho] = useState(false)
 	const [rematching, setRematching] = useState(false)
+
+	/** A NE que acabou de ser registrada (ou que já existia pelo número) já sai vinculada. */
+	async function linkRegisteredEmpenho(empenhoId: string) {
+		// a NE que já existia pelo número também serve: vincula e fecha
+		setRegisteringEmpenho(false)
+		try {
+			const result = await linkReceiptDocumentsFn({ data: { receiptId, empenhoId } })
+			reportLink(result)
+			onLinked()
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "NE registrada, mas não foi possível vinculá-la — vincule na lista")
+		}
+	}
 
 	async function rematch() {
 		setRematching(true)
@@ -123,8 +143,20 @@ export function ReceiptDocumentsCard({
 						setEditing(null)
 						onLinked()
 					}}
+					onRegisterEmpenho={() => {
+						setEditing(null)
+						setRegisteringEmpenho(true)
+					}}
 				/>
 			)}
+			<QuickEmpenhoDialog
+				kitchenId={kitchenId}
+				open={registeringEmpenho}
+				onOpenChange={setRegisteringEmpenho}
+				defaultFavorecido={{ cnpj: supplier.document?.length === 14 ? supplier.document : null, nome: supplier.name }}
+				submitLabel="Registrar e vincular"
+				onRegistered={(result) => linkRegisteredEmpenho(result.empenhoId)}
+			/>
 		</Card>
 	)
 }
@@ -136,7 +168,19 @@ function reportLink(result: { linkedItems: number; costedItems: number; unmatche
 	toast.success(`Vinculado${result.linkedItems > 0 ? `: ${result.linkedItems} ${result.linkedItems === 1 ? "linha casada" : "linhas casadas"}${costed}` : ""}.`)
 }
 
-function LinkDocumentDialog({ receiptId, kind, onClose, onLinked }: { receiptId: string; kind: Kind; onClose: () => void; onLinked: () => void }) {
+function LinkDocumentDialog({
+	receiptId,
+	kind,
+	onClose,
+	onLinked,
+	onRegisterEmpenho,
+}: {
+	receiptId: string
+	kind: Kind
+	onClose: () => void
+	onLinked: () => void
+	onRegisterEmpenho: () => void
+}) {
 	const fieldId = useId()
 	const [value, setValue] = useState<string | null>(null)
 	const [saving, setSaving] = useState(false)
@@ -216,16 +260,20 @@ function LinkDocumentDialog({ receiptId, kind, onClose, onLinked }: { receiptId:
 							emptyLabel="Nada para vincular nesta cozinha"
 						/>
 						{kind === "empenho" && (
-							// TODO: registro rápido da NE aqui mesmo (`QuickEmpenhoForm`, em
-							// components/features/unit/finance, do PR de NC/RP/liquidação). Ao registrar,
-							// ele devolve o id da NE, que entra em `linkReceiptDocumentsFn` como `empenhoId`.
 							<FieldDescription>
-								A NE ainda não está no sistema? Quem registra é a Gestão Unidade (Empenhos); o import do SIAFI completa depois.
+								A NE já saiu no SIAFI e ainda não está aqui? Registre o mínimo (número, data, valor, favorecido) e ela sai vinculada; o import do SIAFI completa
+								depois, pelo número.
 							</FieldDescription>
 						)}
 					</Field>
 				</FieldGroup>
 				<DialogFooter>
+					{kind === "empenho" && (
+						<Button variant="ghost" onClick={onRegisterEmpenho}>
+							<FilePlus2 data-icon="inline-start" aria-hidden="true" />
+							Registrar NE
+						</Button>
+					)}
 					<Button variant="outline" onClick={onClose}>
 						Cancelar
 					</Button>

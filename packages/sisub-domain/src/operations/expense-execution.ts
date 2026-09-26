@@ -11,11 +11,10 @@
  * - Estoque → painel "a caminho" (`fetchReceivingPendingStatus`, `storage:1` na cozinha ou
  *   `unit:1` na OM dela).
  *
- * Dependência: lê `procurement.acquisition`, `finance.empenho.acquisition_id` e
- * `finance.empenho_item` (20260926214000, do mesmo change), que a migration deste recurso
- * (20260926215000) já exige aplicadas. As colunas de COMPLETUDE da contratação e a tabela de
- * limites da dispensa são lidas de forma tolerante (`presentColumns`): o nome exato é do outro
- * PR, e coluna ausente vira "sem pendência" em vez de erro.
+ * Lê `procurement.acquisition`, `procurement.direct_contract_limit`, `finance.empenho_item` e
+ * as linhas estacionadas do SIAFI (20260926214000), com as regras puras do PR da contratação de
+ * origem (`acquisition.ts`): a completude e o somatório da dispensa são os da tela de
+ * contratações.
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
@@ -26,6 +25,20 @@ import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { PermissionDeniedError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
+import {
+	ACQUISITION_KIND_LABEL,
+	type AcquisitionFacts,
+	type AcquisitionKind,
+	acquisitionGaps,
+	computeDispensaSum,
+	DIRECT_CONTRACT_VALUE_CLAUSES,
+	type DirectContractLimitRow,
+	type DispensaEntry,
+	describeAcquisitionGaps,
+	dispensaValue,
+	isValueDispensa,
+	resolveDirectContractLimit,
+} from "./acquisition.ts"
 import { DEFINITIVE_RECEIPT_ROLES, PROVISIONAL_RECEIPT_ROLES } from "./designations.ts"
 import type { ReceiptSource } from "./receiving-links.ts"
 import { brasiliaToday } from "./stock-math.ts"
@@ -155,32 +168,6 @@ const textArray = (roles: readonly string[]) =>
 		sql`, `
 	)}]::text[]`
 
-/**
- * Quais das colunas `schema.tabela.coluna` existem. Lê o catálogo, não `information_schema`
- * (que esconde o que o papel não alcança).
- */
-async function presentColumns(db: SisubDb, keys: readonly string[]): Promise<Set<string>> {
-	if (keys.length === 0) return new Set()
-	const rows = (await runQuery(
-		"QUERY_FAILED",
-		() =>
-			db.execute(sql`
-				select c.key
-				from (values ${sql.join(
-					keys.map((key) => sql`(${key})`),
-					sql`, `
-				)}) as c(key)
-				where exists (
-					select 1 from pg_attribute a
-					where a.attrelid = to_regclass(split_part(c.key, '.', 1) || '.' || split_part(c.key, '.', 2))
-						and a.attname = split_part(c.key, '.', 3) and a.attnum > 0 and not a.attisdropped
-				)
-			`),
-		{ prefix: "Erro ao ler o catálogo do banco" }
-	)) as unknown as Row[]
-	return new Set(rows.map((r) => String(r.key)))
-}
-
 /** Recebimentos das cozinhas: os abertos, e os efetivados nos últimos 90 dias. */
 async function loadReceiptRows(db: SisubDb, kitchenIds: readonly number[]): Promise<ReceiptPendingRow[]> {
 	if (kitchenIds.length === 0) return []
@@ -284,19 +271,11 @@ export async function fetchReceivingPendingStatus(db: SisubDb, ctx: UserContext,
 // Unidade: fluxo "Executar despesa"
 // ────────────────────────────────────────────────────────────────────────────
 
-/** O que falta numa contratação para ela ficar completa (D1). Nunca impede o uso. */
-export const ACQUISITION_MISSING_LABELS = {
-	legal_basis: "fundamento legal",
-	supplier: "fornecedor",
-	validity: "vigência",
-} as const
-export type AcquisitionMissing = keyof typeof ACQUISITION_MISSING_LABELS
-
 export interface IncompleteAcquisition {
 	id: string
-	kind: string
-	title: string
-	missing: AcquisitionMissing[]
+	kind: AcquisitionKind
+	/** "Dispensa sem fundamento legal e sem vigência" (`describeAcquisitionGaps`). */
+	summary: string
 }
 
 export interface SiafiWaitingGroup {
@@ -324,24 +303,79 @@ export function groupSiafiWaiting(rows: ReadonlyArray<{ reportType: string; pare
 		})
 }
 
-export interface ExpenseExecutionStatus {
+/** Contratação como a leitura do fluxo a traz: os fatos da completude, o empenhado e o rótulo. */
+export interface AcquisitionForStatus extends AcquisitionFacts {
+	id: string
+	label: string
+	fiscalYear: number
+	/** Soma do valor vigente das NEs vinculadas. */
+	committedValue: number
+}
+
+export interface AcquisitionsSummary {
+	incomplete: { count: number; sample: IncompleteAcquisition[] }
+	/** Dispensa por valor sem valor nenhum: o somatório do art. 75, § 1º, vira piso. */
+	dispensasWithoutValue: number
+	/** Dispensa cujo somatório passou do limite e ainda sem a justificativa gravada. */
+	dispensasOverLimitWithoutJustification: number
+	/** Algum inciso (I, II) sem limite com vigência iniciada no exercício. */
+	dispensaLimitMissing: boolean
+}
+
+/**
+ * As pendências das contratações da OM, com as regras do PR da contratação de origem
+ * (`acquisitionGaps`, `computeDispensaSum`, `resolveDirectContractLimit`): a mesma conta que a
+ * tela de contratações mostra, para o fluxo não dizer outra coisa.
+ */
+export function summarizeAcquisitions(
+	acquisitions: readonly AcquisitionForStatus[],
+	limits: readonly DirectContractLimitRow[],
+	fiscalYear: number
+): AcquisitionsSummary {
+	const entries: DispensaEntry[] = acquisitions.map((a) => ({
+		id: a.id,
+		label: a.label,
+		kind: a.kind,
+		directContractClause: a.directContractClause,
+		fiscalYear: a.fiscalYear,
+		activityLine: a.activityLine,
+		nd: a.nd,
+		estimatedValue: a.estimatedValue,
+		committedValue: a.committedValue,
+	}))
+	const incomplete: IncompleteAcquisition[] = []
+	let withoutValue = 0
+	let overLimit = 0
+	acquisitions.forEach((acquisition, index) => {
+		const entry = entries[index] as DispensaEntry
+		const sum = isValueDispensa(acquisition)
+			? computeDispensaSum({
+					candidate: entry,
+					others: entries,
+					limit: resolveDirectContractLimit(limits, acquisition.directContractClause as string, acquisition.fiscalYear),
+				})
+			: null
+		if (isValueDispensa(acquisition) && dispensaValue(entry) == null) withoutValue++
+		const exceeded = sum?.exceeded ?? false
+		if (exceeded && !acquisition.overLimitJustification?.trim()) overLimit++
+		const summary = describeAcquisitionGaps(acquisition.kind, acquisitionGaps(acquisition, { overLimit: exceeded }))
+		if (summary) incomplete.push({ id: acquisition.id, kind: acquisition.kind, summary })
+	})
+	const dispensaLimitMissing = DIRECT_CONTRACT_VALUE_CLAUSES.some((clause) => resolveDirectContractLimit(limits, clause, fiscalYear).isOutdated)
+	return {
+		incomplete: { count: incomplete.length, sample: incomplete.slice(0, 20) },
+		dispensasWithoutValue: withoutValue,
+		dispensasOverLimitWithoutJustification: overLimit,
+		dispensaLimitMissing,
+	}
+}
+
+export interface ExpenseExecutionStatus extends AcquisitionsSummary {
 	unitId: number
 	today: string
 	kitchens: Array<{ id: number; name: string; counts: ReceiptPendingCounts }>
-	/** NE sem contratação de origem: sem `acquisition_id` e sem item de ARP. */
+	/** NE sem contratação de origem (`isEmpenhoWithoutOrigin`): sem `acquisition_id` e sem item de ARP. */
 	empenhosWithoutOrigin: { count: number; sample: Array<{ id: string; number: string; value: number; supplier: string | null }> }
-	/** `null` quando o banco ainda não tem as colunas de completude (leitura tolerante). */
-	incompleteAcquisitions: { count: number; sample: IncompleteAcquisition[] } | null
-	/** Dispensa sem valor nenhum (nem estimado, nem NE): o somatório do art. 75, § 1º, fica incompleto. */
-	dispensasWithoutValue: number | null
-	/**
-	 * Dispensa acima do limite sem justificativa. `null` enquanto a regra pura do somatório
-	 * (outro PR do change, D7) não estiver no domínio.
-	 * TODO: ligar à regra do somatório da dispensa quando ela for exportada.
-	 */
-	dispensasOverLimitWithoutJustification: number | null
-	/** Nenhum limite de dispensa com vigência no exercício (`null` = tabela ainda ausente). */
-	dispensaLimitMissing: boolean | null
 	supplyOrdersWithoutEmpenho: Array<{ id: string; number: string | null; kitchenName: string; sentAt: string | null }>
 	designations: { provisional: number; definitive: number }
 	siafiWaiting: SiafiWaitingGroup[]
@@ -349,16 +383,9 @@ export interface ExpenseExecutionStatus {
 	unliquidated: { count: number; oldestDays: number | null; divergent: number }
 }
 
-const ACQUISITION_COMPLETENESS_COLUMNS = [
-	"procurement.acquisition.kind",
-	"procurement.acquisition.legal_basis",
-	"procurement.acquisition.supplier_cnpj",
-	"procurement.acquisition.supplier_name",
-	"procurement.acquisition.valid_to",
-	"procurement.acquisition.object",
-	"procurement.acquisition.estimated_value",
-	"procurement.direct_contract_limit.valid_from",
-] as const
+const dateText = (value: unknown): string | null =>
+	value == null ? null : value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10)
+const numOrNull = (value: unknown): number | null => (value == null ? null : Number(value))
 
 export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<ExpenseExecutionStatus> {
 	requireUnit(ctx, 1, input.unitId)
@@ -384,20 +411,13 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 			)})`
 		: sql`in (null)`
 
-	const columns = await presentColumns(db, ACQUISITION_COMPLETENESS_COLUMNS)
-	const has = (key: (typeof ACQUISITION_COMPLETENESS_COLUMNS)[number]) => columns.has(key)
-	const completenessReadable =
-		has("procurement.acquisition.kind") &&
-		has("procurement.acquisition.legal_basis") &&
-		has("procurement.acquisition.supplier_cnpj") &&
-		has("procurement.acquisition.supplier_name") &&
-		has("procurement.acquisition.valid_to")
-
-	const [receipts, empenhoRows, acquisitionRows, dispensaRows, limitRows, orderRows, designationRows, siafiRows, unliquidatedRows] = await Promise.all([
+	const [receipts, empenhoRows, acquisitionRows, limitRows, orderRows, designationRows, siafiRows, unliquidatedRows] = await Promise.all([
 		loadReceiptRows(db, kitchenIds),
 		runQuery(
 			"QUERY_FAILED",
 			() =>
+				// A regra de `isEmpenhoWithoutOrigin` (empenho-conformity.ts), em SQL: sem contratação
+				// e sem nenhum item com item de ARP (o `arp_item_id` legado espelha o item único).
 				db.execute(sql`
 					select e.id, e.numero_empenho, e.valor_total, e.favorecido_nome, count(*) over () as total
 					from finance.empenho e
@@ -409,53 +429,26 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 				`),
 			{ prefix: "Erro ao ler os empenhos sem contratação" }
 		) as unknown as Promise<Row[]>,
-		completenessReadable
-			? (runQuery(
-					"QUERY_FAILED",
-					() =>
-						db.execute(sql`
-							select a.id, a.kind, ${has("procurement.acquisition.object") ? sql`a.object` : sql`null::text`} as title,
-								a.legal_basis is null or btrim(a.legal_basis) = '' as without_legal_basis,
-								a.supplier_cnpj is null and (a.supplier_name is null or btrim(a.supplier_name) = '') as without_supplier,
-								a.valid_to is null as without_validity,
-								count(*) over () as total
-							from procurement.acquisition a
-							where a.unit_id = ${unitId}
-								and (a.legal_basis is null or btrim(a.legal_basis) = ''
-									or (a.supplier_cnpj is null and (a.supplier_name is null or btrim(a.supplier_name) = ''))
-									or a.valid_to is null)
-							order by a.valid_to nulls first
-							limit 20
-						`),
-					{ prefix: "Erro ao ler as contratações incompletas" }
-				) as unknown as Promise<Row[]>)
-			: Promise.resolve(null),
-		has("procurement.acquisition.kind") && has("procurement.acquisition.estimated_value")
-			? (runQuery(
-					"QUERY_FAILED",
-					() =>
-						db.execute(sql`
-							select count(*) as total
-							from procurement.acquisition a
-							where a.unit_id = ${unitId} and a.kind = 'dispensa' and a.estimated_value is null
-								and not exists (select 1 from finance.empenho e where e.acquisition_id = a.id and e.status <> 'anulado')
-						`),
-					{ prefix: "Erro ao ler as dispensas" }
-				) as unknown as Promise<Row[]>)
-			: Promise.resolve(null),
-		has("procurement.direct_contract_limit.valid_from")
-			? (runQuery(
-					"QUERY_FAILED",
-					() =>
-						db.execute(sql`
-							select exists (
-								select 1 from procurement.direct_contract_limit l
-								where extract(year from l.valid_from) = ${Number(today.slice(0, 4))}
-							) as present
-						`),
-					{ prefix: "Erro ao ler os limites da dispensa" }
-				) as unknown as Promise<Row[]>)
-			: Promise.resolve(null),
+		runQuery(
+			"QUERY_FAILED",
+			() =>
+				db.execute(sql`
+					select a.id, a.kind, a.srp_role, a.legal_basis, a.direct_contract_clause, a.nd, a.activity_line, a.object,
+						a.supplier_cnpj, a.supplier_name, a.valid_from, a.valid_to, a.estimated_value, a.over_limit_justification,
+						a.fiscal_year, a.process_nup,
+						coalesce((select sum(v.valor_vigente) from finance.empenho e
+							join finance.v_empenho_vigente v on v.empenho_id = e.id
+							where e.acquisition_id = a.id and e.status <> 'anulado'), 0) as committed_value
+					from procurement.acquisition a
+					where a.unit_id = ${unitId} and a.deleted_at is null
+					order by a.created_at desc
+					limit 1000
+				`),
+			{ prefix: "Erro ao ler as contratações" }
+		) as unknown as Promise<Row[]>,
+		runQuery("QUERY_FAILED", () => db.execute(sql`select clause, valid_from, value, source_act from procurement.direct_contract_limit order by valid_from`), {
+			prefix: "Erro ao ler os limites da dispensa",
+		}) as unknown as Promise<Row[]>,
 		runQuery(
 			"QUERY_FAILED",
 			() =>
@@ -485,12 +478,13 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 		runQuery(
 			"QUERY_FAILED",
 			() =>
-				// TODO: a chave do documento pai é do PR do SIAFI (D4); lidas as duas grafias.
+				// Mesma chave do documento pai que `siafi_integration.apply_document_row` usa para
+				// estacionar (20260926214000): NS → `ne_origem`/`numero_ne`; OB → `ns_origem`/`numero_ns`.
 				db.execute(sql`
 					select b.report_type,
 						case b.report_type
-							when 'ns' then coalesce(r.parsed ->> 'numero_ne', r.parsed ->> 'numero_empenho')
-							else r.parsed ->> 'numero_ns'
+							when 'ns' then coalesce(r.parsed ->> 'ne_origem', r.parsed ->> 'numero_ne')
+							else coalesce(r.parsed ->> 'ns_origem', r.parsed ->> 'numero_ns')
 						end as parent
 					from siafi_integration.import_row r
 					join siafi_integration.import_batch b on b.id = r.batch_id
@@ -516,6 +510,36 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 	const receiptsByKitchen = new Map<number, ReceiptPendingRow[]>()
 	for (const row of receipts) receiptsByKitchen.set(row.kitchenId, [...(receiptsByKitchen.get(row.kitchenId) ?? []), row])
 
+	const acquisitions: AcquisitionForStatus[] = acquisitionRows.map((r) => {
+		const kind = String(r.kind) as AcquisitionKind
+		const detail = str(r.object) ?? str(r.supplier_name) ?? str(r.process_nup)
+		return {
+			id: String(r.id),
+			label: detail ? `${ACQUISITION_KIND_LABEL[kind]} — ${detail}` : ACQUISITION_KIND_LABEL[kind],
+			kind,
+			srpRole: (str(r.srp_role) as AcquisitionFacts["srpRole"]) ?? null,
+			legalBasis: str(r.legal_basis),
+			directContractClause: str(r.direct_contract_clause),
+			nd: str(r.nd),
+			activityLine: str(r.activity_line),
+			object: str(r.object),
+			supplierCnpj: str(r.supplier_cnpj),
+			supplierName: str(r.supplier_name),
+			validFrom: dateText(r.valid_from),
+			validTo: dateText(r.valid_to),
+			estimatedValue: numOrNull(r.estimated_value),
+			overLimitJustification: str(r.over_limit_justification),
+			fiscalYear: num(r.fiscal_year),
+			committedValue: num(r.committed_value),
+		}
+	})
+	const limits: DirectContractLimitRow[] = limitRows.map((r) => ({
+		clause: String(r.clause),
+		validFrom: dateText(r.valid_from) as string,
+		value: num(r.value),
+		sourceAct: String(r.source_act),
+	}))
+
 	const designations = designationRows[0] ?? {}
 	const unliquidated = unliquidatedRows[0] ?? {}
 
@@ -527,24 +551,7 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 			count: num(empenhoRows[0]?.total),
 			sample: empenhoRows.map((r) => ({ id: String(r.id), number: String(r.numero_empenho), value: num(r.valor_total), supplier: str(r.favorecido_nome) })),
 		},
-		incompleteAcquisitions: acquisitionRows
-			? {
-					count: num(acquisitionRows[0]?.total),
-					sample: acquisitionRows.map((r) => ({
-						id: String(r.id),
-						kind: String(r.kind),
-						title: str(r.title) ?? "Contratação sem objeto",
-						missing: [
-							...(r.without_legal_basis ? (["legal_basis"] as const) : []),
-							...(r.without_supplier ? (["supplier"] as const) : []),
-							...(r.without_validity ? (["validity"] as const) : []),
-						],
-					})),
-				}
-			: null,
-		dispensasWithoutValue: dispensaRows ? num(dispensaRows[0]?.total) : null,
-		dispensasOverLimitWithoutJustification: null,
-		dispensaLimitMissing: limitRows ? !limitRows[0]?.present : null,
+		...summarizeAcquisitions(acquisitions, limits, Number(today.slice(0, 4))),
 		supplyOrdersWithoutEmpenho: orderRows.map((r) => ({
 			id: String(r.id),
 			number: str(r.number),

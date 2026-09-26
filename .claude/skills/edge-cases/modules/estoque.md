@@ -59,7 +59,8 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   entregas não recusa a nota das outras.
 - **UX:** Recebimentos → "Entrega sem NF-e" (guia, quem entregou, itens). Na sexta, em cada
   recebimento, "Documentos → NF-e → Vincular"; a lista sugere a nota do mesmo CNPJ. "A caminho"
-  mostra as entregas da semana sem nota até o vínculo.
+  mostra as entregas da semana sem nota até o vínculo. A NE que ainda não está no sistema se
+  registra no próprio vínculo ("Registrar NE"), e sai vinculada.
 - **Cobertura:** `receiving-links.operations.test.ts › pão: guia de remessa todo dia, NF-e
   semanal vinculada depois…` (banco real; escrito, depende de 20260926214000/215000 aplicadas);
   `receiving-links.test.ts › cinco entregas da semana podem casar com o MESMO item` e

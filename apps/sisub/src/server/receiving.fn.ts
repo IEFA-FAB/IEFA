@@ -1615,8 +1615,7 @@ export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
 			receiptId: z.uuid(),
 			nfeDocumentId: z.uuid().nullable().optional(),
 			supplyOrderId: z.uuid().nullable().optional(),
-			// TODO: o registro rápido da NE (`QuickEmpenhoForm`, do PR de NC/RP/liquidação) devolve o
-			// id da NE recém-registrada, que chega aqui como `empenhoId`.
+			// também a NE recém-registrada pelo `QuickEmpenhoDialog`, que devolve o id dela
 			empenhoId: z.uuid().nullable().optional(),
 		})
 	)

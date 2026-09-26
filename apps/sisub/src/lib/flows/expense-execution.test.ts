@@ -8,9 +8,9 @@ const base: ExpenseExecutionStatus = {
 	today: "2026-09-26",
 	kitchens: [{ id: 1, name: "Rancho A", counts: emptyReceiptPendingCounts() }],
 	empenhosWithoutOrigin: { count: 0, sample: [] },
-	incompleteAcquisitions: { count: 0, sample: [] },
+	incomplete: { count: 0, sample: [] },
 	dispensasWithoutValue: 0,
-	dispensasOverLimitWithoutJustification: null,
+	dispensasOverLimitWithoutJustification: 0,
 	dispensaLimitMissing: false,
 	supplyOrdersWithoutEmpenho: [],
 	designations: { provisional: 2, definitive: 1 },
@@ -32,7 +32,7 @@ describe("Executar despesa", () => {
 		const origin = step(steps, "origin")
 		expect(origin?.status).toBe("attention")
 		expect(origin?.issues[0].message).toContain("2026NE000123")
-		expect(origin?.issues[0].action?.href).toBe("/unit/10/empenhos")
+		expect(origin?.issues[0].action?.href).toBe("/unit/10/acquisitions")
 	})
 
 	test("pendência some quando o dado aparece (NE vinculada a uma dispensa)", () => {
@@ -47,19 +47,21 @@ describe("Executar despesa", () => {
 	test("contratação incompleta diz o que falta; dispensa sem valor avisa que o somatório é um piso", () => {
 		const steps = buildExpenseExecutionSteps({
 			...base,
-			incompleteAcquisitions: { count: 1, sample: [{ id: "a", kind: "dispensa", title: "Pão francês", missing: ["legal_basis", "supplier", "validity"] }] },
+			incomplete: { count: 1, sample: [{ id: "a", kind: "dispensa", summary: "Dispensa sem fundamento legal, sem fornecedor e sem vigência" }] },
 			dispensasWithoutValue: 2,
 			dispensaLimitMissing: true,
 		})
-		const messages = step(steps, "origin")?.issues.map((i) => i.message) ?? []
-		expect(messages[0]).toBe('"Pão francês" sem fundamento legal, fornecedor, vigência: complete a contratação.')
-		expect(messages[1]).toMatch(/art\. 75, § 1º.*piso/)
-		expect(messages[2]).toMatch(/limite de dispensa cadastrado para 2026/)
+		const issues = step(steps, "origin")?.issues ?? []
+		expect(issues[0].message).toBe("Dispensa sem fundamento legal, sem fornecedor e sem vigência: complete a contratação.")
+		expect(issues[0].action?.href).toBe("/unit/10/acquisitions")
+		expect(issues[1].message).toMatch(/art\. 75, § 1º.*piso/)
+		expect(issues[2].message).toMatch(/limite de dispensa cadastrado para 2026/)
 	})
 
-	test("leitura tolerante: sem as colunas da contratação, a etapa não inventa pendência", () => {
-		const steps = buildExpenseExecutionSteps({ ...base, incompleteAcquisitions: null, dispensasWithoutValue: null, dispensaLimitMissing: null })
-		expect(step(steps, "origin")?.issues).toEqual([])
+	test("dispensa acima do limite sem justificativa leva à contratação", () => {
+		const issues = step(buildExpenseExecutionSteps({ ...base, dispensasOverLimitWithoutJustification: 1 }), "origin")?.issues ?? []
+		expect(issues[0].message).toBe("1 dispensa acima do limite sem justificativa (Lei 14.133/2021, art. 75, § 1º): registre a justificativa na contratação.")
+		expect(issues[0].action?.href).toBe("/unit/10/acquisitions")
 	})
 
 	test("sem fiscal nem gestor designado: a etapa cita as alíneas do art. 140, II, e leva às designações", () => {

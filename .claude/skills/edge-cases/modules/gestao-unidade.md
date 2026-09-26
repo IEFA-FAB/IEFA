@@ -295,6 +295,7 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 ### GU-EXE-01 — "A NE foi importada do SIAFI e ninguém sabe de que contratação ela é"
 - **O sistema precisa:** a NE entra e é usável; "sem contratação de origem" (sem
   `acquisition_id` e sem item de ARP) é pendência no fluxo, e some quando a NE é vinculada.
+- **UX:** o atalho leva a Gestão Unidade → Contratações de origem, que lista as NEs sem origem.
 - **Cobertura:** `lib/flows/expense-execution.test.ts › NE sem contratação de origem…` e
   `› pendência some quando o dado aparece`. A leitura (`fetchExpenseExecutionStatus`) não tem
   caso no banco real: **LACUNA**.
@@ -318,10 +319,10 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
   recusado fora (não tem `definitive_at`).
 - **Cobertura:** `receiving-links.operations.test.ts › físico × contábil liga pela liquidação…`.
 
-### GU-EXE-05 — "Dispensa registrada sem valor"
-- **O sistema precisa:** o fluxo avisa que o somatório do art. 75, § 1º, está incompleto e que o
-  total mostrado é um piso. A dispensa acima do limite sem justificativa entra quando a regra
-  do somatório (PR da contratação de origem) estiver no domínio.
-- **Cobertura:** `lib/flows/expense-execution.test.ts › contratação incompleta… dispensa sem
-  valor…`. **LACUNA:** "acima do limite sem justificativa" (`dispensasOverLimitWithoutJustification`
-  segue nulo).
+### GU-EXE-05 — "Dispensa sem valor, ou acima do limite sem justificativa"
+- **O sistema precisa:** o fluxo usa as regras da tela de contratações (`acquisitionGaps`,
+  `computeDispensaSum`): dispensa sem valor avisa que o somatório do art. 75, § 1º, é um piso;
+  acima do limite sem justificativa pede a justificativa, com o atalho para a contratação.
+- **Cobertura:** `expense-execution.test.ts (domínio) › summarizeAcquisitions`;
+  `lib/flows/expense-execution.test.ts › dispensa acima do limite sem justificativa…` e
+  `› contratação incompleta… dispensa sem valor…`.

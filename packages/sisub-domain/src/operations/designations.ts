@@ -21,6 +21,7 @@ import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
+import { ACQUISITION_KIND_LABEL, type AcquisitionKind } from "./acquisition.ts"
 import { brasiliaToday } from "./stock-math.ts"
 
 export const DESIGNATION_ROLES = ["manager", "technical_inspector", "administrative_inspector", "sectoral_inspector", "committee_member"] as const
@@ -238,7 +239,7 @@ export async function createDesignation(db: SisubDb, ctx: UserContext, input: De
 
 	if (input.acquisitionId) {
 		const [row] = (await runQuery("QUERY_FAILED", () =>
-			db.execute(sql`select unit_id from procurement.acquisition where id = ${input.acquisitionId}`)
+			db.execute(sql`select unit_id from procurement.acquisition where id = ${input.acquisitionId} and deleted_at is null`)
 		)) as unknown as Row[]
 		if (!row || Number(row.unit_id) !== input.unitId) throw new DomainError("DESIGNATION_SCOPE_OUT_OF_UNIT", "A contratação não é desta OM")
 	}
@@ -265,11 +266,7 @@ export interface DesignationScopes {
 	empenhos: Array<{ id: string; label: string }>
 }
 
-/**
- * Onde a designação pode valer: contratação, ARP ou empenho da OM. A contratação é lida por
- * `to_jsonb` para não depender do nome das colunas descritivas do outro PR do change
- * (`object`, `process_nup`): só `id`, `unit_id` e `kind` são garantidos.
- */
+/** Onde a designação pode valer: contratação (não apagada), ARP ou empenho da OM. */
 export async function listDesignationScopes(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<DesignationScopes> {
 	requireUnit(ctx, 2, input.unitId)
 	const [acquisitions, arps, empenhos] = (await Promise.all([
@@ -277,10 +274,10 @@ export async function listDesignationScopes(db: SisubDb, ctx: UserContext, input
 			"QUERY_FAILED",
 			() =>
 				db.execute(sql`
-					select a.id, a.kind, to_jsonb(a) ->> 'object' as title, to_jsonb(a) ->> 'process_nup' as nup
+					select a.id, a.kind, a.object as title, a.process_nup as nup
 					from procurement.acquisition a
-					where a.unit_id = ${input.unitId}
-					order by to_jsonb(a) ->> 'created_at' desc nulls last
+					where a.unit_id = ${input.unitId} and a.deleted_at is null
+					order by a.created_at desc
 					limit 200
 				`),
 			{ prefix: "Erro ao ler as contratações" }
@@ -313,7 +310,7 @@ export async function listDesignationScopes(db: SisubDb, ctx: UserContext, input
 	return {
 		acquisitions: acquisitions.map((r) => ({
 			id: String(r.id),
-			label: [str(r.title) ?? `Contratação (${String(r.kind)})`, str(r.nup) ? `NUP ${str(r.nup)}` : null].filter(Boolean).join(" · "),
+			label: [str(r.title) ?? ACQUISITION_KIND_LABEL[String(r.kind) as AcquisitionKind], str(r.nup) ? `NUP ${str(r.nup)}` : null].filter(Boolean).join(" · "),
 		})),
 		arps: arps.map((r) => ({
 			id: String(r.id),

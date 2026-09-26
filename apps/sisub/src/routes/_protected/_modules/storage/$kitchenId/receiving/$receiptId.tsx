@@ -526,6 +526,7 @@ type ReceiptLinkColumns = {
 	source?: string | null
 	delivery_note_number?: string | null
 	supplier_name?: string | null
+	supplier_document?: string | null
 	invoice_expected?: boolean | null
 	invoice_check_deferred_at?: string | null
 	invoice_check_deferred_reason?: string | null
@@ -693,6 +694,8 @@ function ReceiptDetailPage() {
 			{receipt.status !== "rejected" && (
 				<ReceiptDocumentsCard
 					receiptId={receipt.id}
+					kitchenId={Number(kitchenId)}
+					supplier={{ name: links.supplier_name ?? null, document: links.supplier_document ?? null }}
 					documents={{ nfe: context.invoice, supplyOrder: context.supplyOrder, empenho: context.empenho, liquidated: context.liquidated }}
 					invoiceExpected={links.invoice_expected ?? true}
 					canLink={canLink}

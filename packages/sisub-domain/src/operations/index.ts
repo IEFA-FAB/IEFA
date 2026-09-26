@@ -298,8 +298,8 @@ export { countByCondition, getFleetEquipmentReport, getKitchenEquipmentCondition
 export type { EvalConfig, EvaluationForUser } from "./evaluation.ts"
 export { fetchEvalConfig, fetchEvaluationForUser, submitEvaluation, upsertEvalConfig } from "./evaluation.ts"
 export {
-	ACQUISITION_MISSING_LABELS,
-	type AcquisitionMissing,
+	type AcquisitionForStatus,
+	type AcquisitionsSummary,
 	countReceiptPending,
 	type ExpenseExecutionStatus,
 	emptyReceiptPendingCounts,
@@ -316,6 +316,7 @@ export {
 	type ReceivingPendingStatus,
 	receiptPendingKinds,
 	type SiafiWaitingGroup,
+	summarizeAcquisitions,
 } from "./expense-execution.ts"
 export { type FolderLastReview, type FolderReviewRow, listFolderLastReviews, recordFolderReview } from "./folder-reviews.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"

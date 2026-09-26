@@ -1,4 +1,4 @@
-import { ACQUISITION_MISSING_LABELS, type ExpenseExecutionStatus, type ReceiptPendingCounts } from "@iefa/sisub-domain"
+import type { ExpenseExecutionStatus, ReceiptPendingCounts } from "@iefa/sisub-domain"
 import { deriveStatusFromIssues, type FlowIssue, type FlowStep, pluralize } from "./model"
 
 /**
@@ -35,6 +35,7 @@ export function buildExpenseExecutionSteps(status: ExpenseExecutionStatus): Flow
 
 	// 1. Contratação de origem ─────────────────────────────────────────────────
 	const originIssues: FlowIssue[] = []
+	const acquisitionsAction = { label: "Abrir contratações", href: `${unit}/acquisitions` }
 	const orphan = status.empenhosWithoutOrigin
 	if (orphan.count > 0) {
 		const sample = orphan.sample
@@ -44,29 +45,27 @@ export function buildExpenseExecutionSteps(status: ExpenseExecutionStatus): Flow
 		originIssues.push({
 			severity: "warning",
 			message: `${pluralize(orphan.count, "NE sem contratação de origem", "NEs sem contratação de origem")} (${sample}${orphan.count > 3 ? "…" : ""}): vincule a dispensa, a ARP ou o contrato que a sustenta.`,
-			// TODO: levar à tela de contratações quando ela existir (PR da contratação de origem).
-			action: { label: "Abrir empenhos", href: `${unit}/empenhos` },
+			action: { label: "Vincular contratação", href: `${unit}/acquisitions` },
 		})
 	}
-	for (const acquisition of status.incompleteAcquisitions?.sample.slice(0, 5) ?? []) {
-		originIssues.push({
-			severity: "warning",
-			message: `"${acquisition.title}" sem ${acquisition.missing.map((m) => ACQUISITION_MISSING_LABELS[m]).join(", ")}: complete a contratação.`,
-		})
+	for (const acquisition of status.incomplete.sample.slice(0, 5)) {
+		originIssues.push({ severity: "warning", message: `${acquisition.summary}: complete a contratação.`, action: acquisitionsAction })
 	}
-	const moreIncomplete = (status.incompleteAcquisitions?.count ?? 0) - Math.min(5, status.incompleteAcquisitions?.sample.length ?? 0)
+	const moreIncomplete = status.incomplete.count - Math.min(5, status.incomplete.sample.length)
 	if (moreIncomplete > 0)
 		originIssues.push({ severity: "warning", message: `E mais ${pluralize(moreIncomplete, "contratação incompleta", "contratações incompletas")}.` })
 	if (status.dispensasWithoutValue) {
 		originIssues.push({
 			severity: "warning",
 			message: `${pluralize(status.dispensasWithoutValue, "dispensa sem valor", "dispensas sem valor")}: o somatório do exercício (Lei 14.133/2021, art. 75, § 1º) fica incompleto, e o total mostrado é um piso.`,
+			action: acquisitionsAction,
 		})
 	}
 	if (status.dispensasOverLimitWithoutJustification) {
 		originIssues.push({
 			severity: "warning",
-			message: `${pluralize(status.dispensasOverLimitWithoutJustification, "dispensa acima do limite sem justificativa", "dispensas acima do limite sem justificativa")}: registre a justificativa na contratação.`,
+			message: `${pluralize(status.dispensasOverLimitWithoutJustification, "dispensa acima do limite sem justificativa", "dispensas acima do limite sem justificativa")} (Lei 14.133/2021, art. 75, § 1º): registre a justificativa na contratação.`,
+			action: acquisitionsAction,
 		})
 	}
 	if (status.dispensaLimitMissing) {
@@ -157,7 +156,7 @@ export function buildExpenseExecutionSteps(status: ExpenseExecutionStatus): Flow
 			status: deriveStatusFromIssues(originIssues),
 			summary: orphan.count === 0 ? "Todas as NEs com contratação de origem" : undefined,
 			issues: originIssues,
-			action: { label: "Empenhos", href: `${unit}/empenhos` },
+			action: { label: "Contratações de origem", href: `${unit}/acquisitions` },
 		},
 		{
 			id: "designations",
