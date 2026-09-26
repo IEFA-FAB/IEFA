@@ -34,8 +34,9 @@ function ingredientItemValues(ingredientId: string, ingredientItem?: IngredientI
 		ingredient_id: ingredientItem?.ingredient_id || ingredientId,
 		barcode: ingredientItem?.barcode || "",
 		purchase_measure_unit: ingredientItem?.purchase_measure_unit || "",
-		unit_content_quantity: ingredientItem?.unit_content_quantity ? Number(ingredientItem.unit_content_quantity) : 1.0,
-		correction_factor: ingredientItem?.correction_factor ? Number(ingredientItem.correction_factor) : 1.0,
+		unit_content_quantity: ingredientItem?.unit_content_quantity != null ? Number(ingredientItem.unit_content_quantity) : 1.0,
+		// `!= null`, não truthiness: 0 é valor válido e virava 1 no baseline (rascunho fantasma).
+		correction_factor: ingredientItem?.correction_factor != null ? Number(ingredientItem.correction_factor) : 1.0,
 		purchase_item_id: ingredientItem?.purchase_item_id ?? null,
 	}
 }

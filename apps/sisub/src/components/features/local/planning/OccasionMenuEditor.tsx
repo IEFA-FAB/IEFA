@@ -590,6 +590,8 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 			return
 		}
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+		// O mesmo indicador do autosave: é também o "Tentar de novo" dele.
+		setSaveStatus("saving")
 		saveTemplate(
 			{ id: templateId, context: editContext, updates, items: payloadItems, eventMeals: payloadEventMeals },
 			{
@@ -599,6 +601,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				// global na cozinha cria a cópia local (id novo) e a URL precisa passar a apontar
 				// para ela, senão a tela continuaria editando — e forkando de novo — o global.
 				onSuccess: (result) => {
+					setSaveStatus("saved")
 					savedSignatureRef.current = contentSignature
 					persistSnackClassification({ id: result?.template?.id ?? templateId, contentSignature, snackSignature, snackPayload, itemsSignature })
 					const savedId = result?.template?.id
@@ -606,6 +609,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						navigate({ ...editorLink(savedId), replace: true })
 					}
 				},
+				onError: () => setSaveStatus("error"),
 			}
 		)
 	}

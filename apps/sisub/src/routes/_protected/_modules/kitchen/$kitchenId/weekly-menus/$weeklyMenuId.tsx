@@ -564,6 +564,8 @@ function WeeklyMenuEditorPage() {
 	const handleSave = () => {
 		if (!name.trim()) return
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+		// O mesmo indicador do autosave: é também o "Tentar de novo" dele.
+		setSaveStatus("saving")
 		saveTemplate(
 			{
 				id: weeklyMenuId as string,
@@ -590,6 +592,7 @@ function WeeklyMenuEditorPage() {
 				// global cria a cópia local (id novo) e a URL precisa passar a apontar para ela,
 				// senão a tela continuaria editando — e forkando de novo — o global.
 				onSuccess: (result) => {
+					setSaveStatus("saved")
 					savedSignatureRef.current = contentSignature
 					const savedId = result?.template?.id
 					if (savedId && savedId !== weeklyMenuId) {
@@ -600,6 +603,7 @@ function WeeklyMenuEditorPage() {
 						})
 					}
 				},
+				onError: () => setSaveStatus("error"),
 			}
 		)
 	}

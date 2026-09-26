@@ -96,7 +96,7 @@ function ingredientFormValues(ingredient: Ingredient) {
 		description: ingredient.description ?? "",
 		folder_id: ingredient.folder_id ?? null,
 		measure_unit: ingredient.measure_unit ?? "",
-		correction_factor: ingredient.correction_factor ? Number(ingredient.correction_factor) : 1.0,
+		correction_factor: ingredient.correction_factor != null ? Number(ingredient.correction_factor) : 1.0,
 		ceafa_id: ingredient.ceafa_id ?? null,
 	}
 }
