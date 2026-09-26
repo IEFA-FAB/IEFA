@@ -220,6 +220,25 @@ Referência: cabeçalhos de `20260921130000_access_change_audited_functions.sql`
   transação: `select set_config('iefa.audit_bypass', '<motivo>', true);`. Sem ele, a migration falha.
   No código TS o bypass só é permitido nos arquivos da allowlist de `.opengrep/rules/access-audit.yaml`.
 
+## Env local: `bun run env:pull`
+
+O `.env` de cada app é **derivado do AWS Secrets Manager** — a mesma fonte que o ECS injeta em
+produção (`/iefa/prod/<app>`, chave do `apps.manifest.json`), mais uma sobreposição opcional
+só de dev em `/iefa/dev/<app>` (hoje só `sisub`: conta do e2e e ids da sentinela do treino).
+`scripts/env-pull.ts`.
+
+- **Worktree nova já nasce com `.env`**: o `prepare` do `bun install` roda
+  `env:pull --if-missing`. Sem AWS CLI, sem credencial (`aws login`) ou em CI ele só avisa e
+  sai 0 — o install nunca quebra por isso.
+- **Nunca editar o `.env` gerado** (cabeçalho `# GERADO por`): a próxima execução sobrescreve.
+  Ajuste só da máquina vai em `.env.local`, que o Bun e o Vite leem por cima. `.env` escrito à
+  mão não é tocado sem `--force` (a cópia vai para `.env.backup.local`, ignorado pelo git).
+- **Valor mudou em produção?** `bun run env:pull` de novo. Chave NOVA de uma app entra no
+  `sync-secrets.yml` (GitHub → `/iefa/prod/*`), nunca num `.env` à mão — é assim que dev e
+  prod não divergem.
+- **São credenciais de PRODUÇÃO no disco** (banco, service role). As suítes ignoram o `.env`
+  sem a flag de cada uma — `bun run test` com os `.env` gerados dá o mesmo resultado do CI.
+
 ## Commands
 
 ```bash
@@ -227,4 +246,5 @@ bun run dev          # all apps (turbo)
 bun run sisub:dev    # sisub only
 bun run check        # biome check + typecheck
 bun run commit       # format:check → lint → typecheck → cz interactive
+bun run env:pull     # .env de todas as apps a partir do Secrets Manager (ou: env:pull sisub)
 ```

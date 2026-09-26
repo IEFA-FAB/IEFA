@@ -153,15 +153,21 @@ O acesso dela, conferido em 2026-09-23 e suficiente para as 7 specs:
 | Política "Conjunto Treino" | `kitchen:2` e `kitchen-production:2` (cozinha 920), `unit:2` e `local-analytics:2` (OM 1065), `messhall:2`, `global:1`, `analytics:1`, `admin:1` |
 
 Tudo cai na sentinela do treino, então um run que escreva por engano escreve onde o
-reset limpa. O que falta para o baseline (`bun run test:e2e`) é só a SENHA: a que foi
-gerada na criação da conta ficou em arquivo efêmero. Definir uma nova é ato do
-mantenedor no painel do Supabase, e o mesmo par precisa ir para os secrets
-`E2E_TEST_USER_EMAIL`/`E2E_TEST_USER_PASSWORD`.
+reset limpa. A senha foi redefinida em 2026-09-26 e mora em `/iefa/dev/sisub` (AWS Secrets
+Manager, `sa-east-1`) junto com os ids da sentinela — `bun run env:pull sisub` põe tudo no
+`apps/sisub/.env`. Os secrets homônimos do GitHub continuam desatualizados; só importam se o
+job `e2e-sisub` for religado.
 
 ### Variáveis
 
 Todas em `apps/sisub/.env` (arquivo local, fora do git — as chaves estão descritas em
-`apps/sisub/.env.schema`), ou exportadas no shell; o shell vence o arquivo.
+`apps/sisub/.env.schema`), ou exportadas no shell; o shell vence o arquivo. O `.env` sai
+pronto de `bun run env:pull sisub` (ver "Env local" no CLAUDE.md): `/iefa/prod/sisub` +
+`/iefa/dev/sisub`, que traz as variáveis `E2E_*` abaixo.
+
+Com vários worktrees abertos, a porta 3000 costuma ser do `vite dev` de OUTRO checkout, e o
+`reuseExistingServer` do Playwright testaria o código dele. Rode com uma porta própria:
+`E2E_PORT=3217 bun run test:e2e`.
 
 | Var | Obrigatória | Como obter |
 |---|---|---|
