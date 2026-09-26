@@ -19,6 +19,12 @@ import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
 
+/** NE com vários itens, estimativa ou global não tem quantidade × preço no cabeçalho. */
+function formatQuantityTimesPrice(quantity: number | null, unitPrice: number | null): string {
+	if (quantity == null || unitPrice == null) return "valor global"
+	return `${NUM.format(quantity)} × ${BRL.format(unitPrice)}`
+}
+
 function fmtDate(iso: string | null | undefined): string {
 	if (!iso) return "—"
 	const [y, m, d] = iso.substring(0, 10).split("-")
@@ -51,9 +57,7 @@ function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: Empenho;
 				<XCircle className="size-3.5 shrink-0 text-destructive" />
 				<span className="font-mono">{empenho.numero_empenho}</span>
 				<span>{fmtDate(empenho.data_empenho)}</span>
-				<span>
-					{NUM.format(empenho.quantidade_empenhada)} × {BRL.format(empenho.valor_unitario)}
-				</span>
+				<span>{formatQuantityTimesPrice(empenho.quantidade_empenhada, empenho.valor_unitario)}</span>
 				<span className="text-caption text-foreground">{BRL.format(empenho.valor_total)}</span>
 				<Badge variant="outline" className="ml-auto text-xs">
 					Anulado
@@ -67,9 +71,7 @@ function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: Empenho;
 			<CheckCircle2 className="size-3.5 shrink-0 text-success" />
 			<span className="font-mono text-caption text-foreground">{empenho.numero_empenho}</span>
 			<span className="text-muted-foreground">{fmtDate(empenho.data_empenho)}</span>
-			<span>
-				{NUM.format(empenho.quantidade_empenhada)} × {BRL.format(empenho.valor_unitario)}
-			</span>
+			<span>{formatQuantityTimesPrice(empenho.quantidade_empenhada, empenho.valor_unitario)}</span>
 			<span className="text-caption text-foreground">{BRL.format(empenho.valor_total)}</span>
 			{empenho.nota_lancamento && (
 				<Tooltip>
