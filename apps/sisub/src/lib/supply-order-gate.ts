@@ -28,6 +28,32 @@ export interface SupplyOrderLinkInput {
 	itemArpItemIds: ReadonlyArray<string | null | undefined>
 }
 
+/**
+ * Resultado da consulta SICAF, na emissão da OF ou no vínculo posterior da NE. Fornecedor fora da
+ * situação regular exige o reconhecimento EXPLÍCITO de quem emite; sem ele, a operação é recusada
+ * dizendo o que fazer. O texto devolvido é o que fica gravado em `supply_order.sicaf_status`.
+ */
+export function sicafDecision(
+	sicaf: { status: string; detail: string },
+	cnpj: string,
+	acknowledged: boolean,
+	moment: "na emissão" | "no vínculo da NE"
+): { ok: true; sicafStatus: string } | { ok: false; message: string } {
+	if (sicaf.status !== "regular" && !acknowledged) {
+		return { ok: false, message: `Fornecedor ${cnpj} com situação "${sicaf.detail}" no SICAF — confirme explicitamente para prosseguir` }
+	}
+	return { ok: true, sicafStatus: `${sicaf.status}: ${sicaf.detail} (CNPJ ${cnpj}, verificado ${moment})` }
+}
+
+/**
+ * O vínculo da NE à OF é um `update … where empenho_id is null`: sob corrida, o segundo clique
+ * não casa linha nenhuma e o PostgREST responde sem erro. Zero linhas é recusa, não sucesso.
+ */
+export function supplyOrderLinkUpdateProblem(updatedRows: number): string | null {
+	if (updatedRows === 0) return "A OF já recebeu um empenho (ou foi cancelada) enquanto você vinculava — recarregue a tela e confira"
+	return null
+}
+
 /** Problemas do vínculo da OF. Lista vazia = pode emitir. */
 export function supplyOrderLinkProblems(input: SupplyOrderLinkInput): string[] {
 	const problems: string[] = []

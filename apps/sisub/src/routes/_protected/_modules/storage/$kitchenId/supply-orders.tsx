@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { parseMoneyInput } from "@/lib/expense-execution"
 import { checkSupplierSicafFn } from "@/server/replenishment.fn"
 import { cancelSupplyOrderFn, createSupplyOrderFn, listEmpenhosForKitchenFn, listSupplyOrdersFn } from "@/server/supply-order.fn"
 
@@ -35,12 +36,26 @@ const STATUS_LABEL: Record<string, string> = {
 	expired: "Expirada",
 }
 
+/** Item da NE como `listEmpenhosForKitchenFn` devolve: a OF se monta a partir dele. */
+interface EmpenhoItemOption {
+	id: string
+	arp_item_id: string | null
+	purchase_item_id: string | null
+	description: string | null
+	quantity: number | null
+	unit: string | null
+	unit_price: number | null
+	arp_numero_item: number | null
+}
+
 function SupplyOrdersPage() {
 	const { orders, empenhos } = Route.useLoaderData()
 	const { kitchenId } = Route.useParams()
 	const router = useRouter()
 	const [busy, setBusy] = useState(false)
 	const [empenhoId, setEmpenhoId] = useState("")
+	const [neItemId, setNeItemId] = useState("")
+	const [priceInput, setPriceInput] = useState("")
 	const [qty, setQty] = useState("")
 	const [expected, setExpected] = useState("")
 	const [number, setNumber] = useState("")
@@ -78,7 +93,23 @@ function SupplyOrdersPage() {
 			toast.error("Fornecedor com pendência/indeterminado no SICAF — confirme explicitamente para prosseguir")
 			return
 		}
-		const empenho = empenhos.find((emp: { id: string }) => emp.id === empenhoId)
+		// O item da OF é um item da NE: com a ARP e o preço DELE. Numa NE com vários itens, o
+		// cabeçalho não tem item de ARP nem preço, e o teto somaria quantidades de unidades diferentes.
+		const neItem = selectedItems.find((item) => item.id === neItemId)
+		if (!neItem) {
+			toast.error("Escolha o item da NE que esta OF pede")
+			return
+		}
+		const typedPrice = parseMoneyInput(priceInput)
+		if (neItem.unit_price == null && !typedPrice.ok) {
+			toast.error(`Preço inválido: ${typedPrice.reason}`)
+			return
+		}
+		const unitPrice = neItem.unit_price ?? (typedPrice.ok ? typedPrice.value : null)
+		if (unitPrice == null) {
+			toast.error("Informe o preço unitário: a NE é conferida pelo valor")
+			return
+		}
 		setBusy(true)
 		try {
 			await createSupplyOrderFn({
@@ -87,13 +118,22 @@ function SupplyOrdersPage() {
 					kitchenId: Number(kitchenId),
 					number: number || undefined,
 					expectedDelivery: expected,
-					items: [{ arpItemId: empenho?.arp_item_id ?? undefined, orderedQty: Number(qty), unitPrice: empenho?.valor_unitario ?? undefined }],
+					items: [
+						{
+							arpItemId: neItem.arp_item_id ?? undefined,
+							purchaseItemId: neItem.purchase_item_id ?? undefined,
+							orderedQty: Number(qty),
+							unitPrice,
+						},
+					],
 					sicafStatus: sicaf ? `${sicaf.status}: ${sicaf.detail}` : undefined,
 					sicafAcknowledged: sicafAck,
 				},
 			})
 			toast.success("OF emitida")
 			setEmpenhoId("")
+			setNeItemId("")
+			setPriceInput("")
 			setQty("")
 			setNumber("")
 			router.invalidate()
@@ -103,6 +143,10 @@ function SupplyOrdersPage() {
 			setBusy(false)
 		}
 	}
+
+	const selectedEmpenho = empenhos.find((emp: { id: string }) => emp.id === empenhoId) as { items?: EmpenhoItemOption[] } | undefined
+	const selectedItems: EmpenhoItemOption[] = selectedEmpenho?.items ?? []
+	const selectedItem = selectedItems.find((item) => item.id === neItemId)
 
 	async function cancel(supplyOrderId: string) {
 		try {
@@ -138,6 +182,9 @@ function SupplyOrdersPage() {
 										type="button"
 										onClick={() => {
 											setEmpenhoId(emp.id)
+											const items = (emp as { items?: EmpenhoItemOption[] }).items ?? []
+											setNeItemId(items.length === 1 ? (items[0]?.id ?? "") : "")
+											setPriceInput("")
 											const cnpj = (emp as { arp_item?: { ni_fornecedor?: string | null } | null }).arp_item?.ni_fornecedor?.replace(/\D/g, "") ?? ""
 											setSicafCnpj(cnpj)
 											setSicaf(null)
@@ -151,6 +198,37 @@ function SupplyOrdersPage() {
 								))}
 							</div>
 						</div>
+						{selectedItems.length > 1 && (
+							<div className="space-y-1 sm:col-span-5">
+								<Label className="text-xs">Item da NE *</Label>
+								<div className="max-h-32 overflow-y-auto rounded-md border p-1 space-y-0.5">
+									{selectedItems.map((item) => (
+										<button
+											key={item.id}
+											type="button"
+											onClick={() => {
+												setNeItemId(item.id)
+												setPriceInput("")
+											}}
+											className={`w-full text-left text-xs px-2 py-1 rounded ${neItemId === item.id ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
+										>
+											{item.arp_numero_item != null && <span className="font-mono">item {item.arp_numero_item} · </span>}
+											{item.description ?? "Item sem descrição"}
+											<span className="text-muted-foreground ml-2">
+												{item.quantity != null ? `${NUM.format(item.quantity)} ${item.unit ?? ""}` : "por valor"}
+												{item.unit_price != null ? ` · R$ ${NUM.format(item.unit_price)}` : ""}
+											</span>
+										</button>
+									))}
+								</div>
+							</div>
+						)}
+						{selectedItem != null && selectedItem.unit_price == null && (
+							<div className="space-y-1">
+								<Label className="text-xs">Preço unitário (R$) *</Label>
+								<Input inputMode="decimal" value={priceInput} onChange={(e) => setPriceInput(e.target.value)} placeholder="0,00" />
+							</div>
+						)}
 						<div className="space-y-1">
 							<Label className="text-xs">Nº OF</Label>
 							<Input className="h-8 text-xs" value={number} onChange={(e) => setNumber(e.target.value)} placeholder="OF-2026-001" />
@@ -163,7 +241,7 @@ function SupplyOrdersPage() {
 							<Label className="text-xs">Entrega prevista *</Label>
 							<Input className="h-8 text-xs" type="date" value={expected} onChange={(e) => setExpected(e.target.value)} required />
 						</div>
-						<Button type="submit" size="sm" className="gap-1.5" disabled={busy || !empenhoId}>
+						<Button type="submit" size="sm" className="gap-1.5" disabled={busy || !empenhoId || !neItemId}>
 							{busy ? <Spinner className="size-3.5" /> : <Send className="size-3.5" />}
 							Emitir
 						</Button>

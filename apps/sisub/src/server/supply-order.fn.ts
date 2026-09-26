@@ -17,10 +17,11 @@ import { resolvePurchaseUnitId } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
+import { readAllPagesIn } from "@/lib/read-all-pages"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
-import { supplyOrderLinkProblems } from "@/lib/supply-order-gate"
+import { sicafDecision, supplyOrderLinkProblems, supplyOrderLinkUpdateProblem } from "@/lib/supply-order-gate"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -197,11 +198,9 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		if (empenhoRow) {
 			const cnpj = await supplierCnpjFor(empenhoRow.favorecido_cnpj, covered)
 			if (cnpj) {
-				const sicaf = await checkSupplierSicaf(cnpj)
-				sicafStatus = `${sicaf.status}: ${sicaf.detail} (CNPJ ${cnpj}, verificado na emissão)`
-				if (sicaf.status !== "regular" && !data.sicafAcknowledged) {
-					throw new Error(`Fornecedor ${cnpj} com situação "${sicaf.detail}" no SICAF — confirme explicitamente para emitir mesmo assim`)
-				}
+				const decision = sicafDecision(await checkSupplierSicaf(cnpj), cnpj, Boolean(data.sicafAcknowledged), "na emissão")
+				if (!decision.ok) throw new Error(decision.message)
+				sicafStatus = decision.sicafStatus
 			}
 		}
 
@@ -253,7 +252,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
  * vigente, conferido pelo trigger do banco no momento do vínculo.
  */
 export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
-	.validator(z.object({ supplyOrderId: z.uuid(), empenhoId: z.uuid() }))
+	.validator(z.object({ supplyOrderId: z.uuid(), empenhoId: z.uuid(), sicafAcknowledged: z.boolean().optional() }))
 	.handler(async ({ data }): Promise<void> => {
 		await requireAuth()
 		const { data: order, error: orderError } = await procurement()
@@ -263,14 +262,14 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 			.maybeSingle()
 		if (orderError) throw new Error(`Erro ao buscar a OF: ${orderError.message}`)
 		if (!order) throw new Error("OF não encontrada")
-		await requireStorageForKitchen(2, Number(order.kitchen_id))
+		const { userId } = await requireStorageForKitchen(2, Number(order.kitchen_id))
 		if (order.empenho_id != null) throw new Error("A OF já tem empenho vinculado")
 		if (order.status === "cancelled") throw new Error("OF cancelada não recebe empenho")
 
 		const finance = getServerClient("finance") as unknown as LooseClient
 		const { data: empenhoRow, error: empenhoError } = await finance
 			.from("empenho")
-			.select("arp_item_id, unit_id, status")
+			.select("arp_item_id, unit_id, status, favorecido_cnpj")
 			.eq("id", data.empenhoId)
 			.maybeSingle()
 		if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${empenhoError.message}`)
@@ -283,27 +282,58 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${kitchenError.message}`)
 		const { data: items, error: itemsError } = await procurement().from("supply_order_item").select("arp_item_id").eq("supply_order_id", data.supplyOrderId)
 		if (itemsError) throw new Error(`Erro ao ler os itens da OF: ${itemsError.message}`)
+		const covered = await coveredArpItemIds(data.empenhoId, empenhoRow.arp_item_id)
 
 		const problems = supplyOrderLinkProblems({
 			kitchenPurchaseUnitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
 			empenho: {
 				unitId: empenhoRow.unit_id == null ? null : Number(empenhoRow.unit_id),
 				status: String(empenhoRow.status),
-				coveredArpItemIds: await coveredArpItemIds(data.empenhoId, empenhoRow.arp_item_id),
+				coveredArpItemIds: covered,
 			},
 			itemArpItemIds: (items ?? []).map((item: { arp_item_id: string | null }) => item.arp_item_id),
 		})
 		if (problems.length > 0) throw new Error(problems.join("; "))
 
-		const { error } = await procurement()
+		// A OF emitida aguardando empenho não passou pelo SICAF (o fornecedor vem da NE): a
+		// consulta acontece aqui, com o mesmo reconhecimento explícito da emissão.
+		let sicafStatus: string | null = null
+		const cnpj = await supplierCnpjFor(empenhoRow.favorecido_cnpj, covered)
+		if (cnpj) {
+			const decision = sicafDecision(await checkSupplierSicaf(cnpj), cnpj, Boolean(data.sicafAcknowledged), "no vínculo da NE")
+			if (!decision.ok) throw new Error(decision.message)
+			sicafStatus = decision.sicafStatus
+		}
+
+		const { data: updated, error } = await procurement()
 			.from("supply_order")
-			.update({ empenho_id: data.empenhoId, updated_at: new Date().toISOString() })
+			.update({
+				empenho_id: data.empenhoId,
+				updated_at: new Date().toISOString(),
+				...(sicafStatus ? { sicaf_status: sicafStatus, sicaf_ack_by: data.sicafAcknowledged ? userId : null } : {}),
+			})
 			.eq("id", data.supplyOrderId)
 			.is("empenho_id", null)
+			.neq("status", "cancelled")
+			.select("id")
 		if (error) throw new Error(/excede|anulado|preço/.test(error.message) ? error.message : `Erro ao vincular o empenho: ${error.message}`)
+		const problem = supplyOrderLinkUpdateProblem((updated ?? []).length)
+		if (problem) throw new Error(problem)
 	})
 
-/** Empenhos ativos da unidade da cozinha (para emitir OF). */
+interface EmpenhoItemForOrder {
+	id: string
+	position: number
+	arp_item_id: string | null
+	purchase_item_id: string | null
+	description: string | null
+	quantity: number | string | null
+	unit: string | null
+	unit_price: number | string | null
+	value: number | string
+}
+
+/** Empenhos ativos da unidade da cozinha (para emitir OF), com os itens de cada NE. */
 export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
@@ -327,15 +357,65 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 		if (error) throw new Error(`Erro ao listar empenhos: ${error.message}`)
 		const list = empenhos ?? []
 
-		// fornecedor vem da ARP (ou do favorecido, na NE sem ata) — query separada: embed cross-schema
-		// (finance → procurement) não resolve no PostgREST (pego pelo E2E)
-		const arpItemIds = [...new Set(list.map((e: { arp_item_id: string | null }) => e.arp_item_id).filter(Boolean))]
-		const supplierByArpItem = new Map<string, { ni_fornecedor: string | null; nome_fornecedor: string | null }>()
+		// Itens da NE: a OF se monta a partir deles (NE com vários itens tem o cabeçalho nulo, e
+		// somar a quantidade de itens diferentes no teto misturaria quilo com litro).
+		const empenhoIds = list.map((e: { id: string }) => e.id)
+		const neItems =
+			empenhoIds.length === 0
+				? []
+				: await readAllPagesIn<EmpenhoItemForOrder & { empenho_id: string }>("itens das NEs", empenhoIds, (chunk, from, to) =>
+						finance
+							.from("empenho_item")
+							.select("id, empenho_id, position, arp_item_id, purchase_item_id, description, quantity, unit, unit_price, value")
+							.in("empenho_id", chunk)
+							.order("empenho_id")
+							.order("position")
+							.range(from, to)
+					)
+
+		// fornecedor e descrição vêm da ARP (ou do favorecido, na NE sem ata) — query separada: embed
+		// cross-schema (finance → procurement) não resolve no PostgREST (pego pelo E2E)
+		const arpItemIds = [
+			...new Set(
+				[...list.map((e: { arp_item_id: string | null }) => e.arp_item_id), ...neItems.map((item) => item.arp_item_id)].filter((id): id is string =>
+					Boolean(id)
+				)
+			),
+		]
+		const arpItemById = new Map<
+			string,
+			{ ni_fornecedor: string | null; nome_fornecedor: string | null; descricao_item: string | null; numero_item: number | null; valor_unitario: number | null }
+		>()
 		if (arpItemIds.length > 0) {
-			const { data: arpItems } = await procurement().from("procurement_arp_item").select("id, ni_fornecedor, nome_fornecedor").in("id", arpItemIds)
-			for (const item of arpItems ?? []) supplierByArpItem.set(item.id, item)
+			const { data: arpItems, error: arpError } = await procurement()
+				.from("procurement_arp_item")
+				.select("id, ni_fornecedor, nome_fornecedor, descricao_item, numero_item, valor_unitario")
+				.in("id", arpItemIds)
+			if (arpError) throw new Error(`Erro ao ler os itens da ARP: ${arpError.message}`)
+			for (const item of arpItems ?? []) arpItemById.set(item.id, item)
 		}
-		return list.map((e: { arp_item_id: string | null }) => ({ ...e, arp_item: e.arp_item_id ? (supplierByArpItem.get(e.arp_item_id) ?? null) : null }))
+		return list.map((e: { id: string; arp_item_id: string | null }) => ({
+			...e,
+			arp_item: e.arp_item_id ? (arpItemById.get(e.arp_item_id) ?? null) : null,
+			items: neItems
+				.filter((item) => item.empenho_id === e.id)
+				.map((item) => {
+					const arp = item.arp_item_id ? arpItemById.get(item.arp_item_id) : undefined
+					return {
+						id: item.id,
+						position: item.position,
+						arp_item_id: item.arp_item_id,
+						purchase_item_id: item.purchase_item_id,
+						description: item.description ?? arp?.descricao_item ?? null,
+						quantity: item.quantity == null ? null : Number(item.quantity),
+						unit: item.unit,
+						// Preço da OF: o do item da NE; sem ele, o registrado na ARP (a mesma ordem do teto).
+						unit_price: item.unit_price != null ? Number(item.unit_price) : arp?.valor_unitario != null ? Number(arp.valor_unitario) : null,
+						value: Number(item.value),
+						arp_numero_item: arp?.numero_item ?? null,
+					}
+				}),
+		}))
 	})
 
 export const cancelSupplyOrderFn = createServerFn({ method: "POST" })

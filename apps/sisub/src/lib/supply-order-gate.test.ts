@@ -1,5 +1,21 @@
 import { describe, expect, test } from "vitest"
-import { supplyOrderLinkProblems } from "@/lib/supply-order-gate"
+import { sicafDecision, supplyOrderLinkProblems, supplyOrderLinkUpdateProblem } from "@/lib/supply-order-gate"
+
+describe("vínculo posterior da NE à OF", () => {
+	test("zero linhas atualizadas é recusa, não sucesso (outro usuário vinculou antes)", () => {
+		expect(supplyOrderLinkUpdateProblem(0)).toMatch(/já recebeu um empenho/)
+		expect(supplyOrderLinkUpdateProblem(1)).toBeNull()
+	})
+
+	test("SICAF irregular exige reconhecimento explícito também no vínculo", () => {
+		const irregular = { status: "irregular", detail: "certidão vencida" }
+		const refused = sicafDecision(irregular, "12345678000199", false, "no vínculo da NE")
+		expect(refused.ok).toBe(false)
+		const acknowledged = sicafDecision(irregular, "12345678000199", true, "no vínculo da NE")
+		expect(acknowledged).toEqual({ ok: true, sicafStatus: "irregular: certidão vencida (CNPJ 12345678000199, verificado no vínculo da NE)" })
+		expect(sicafDecision({ status: "regular", detail: "ok" }, "12345678000199", false, "na emissão").ok).toBe(true)
+	})
+})
 
 describe("supplyOrderLinkProblems — OF só contra empenho da própria unidade compradora", () => {
 	const empenho = { unitId: 7, status: "ativo", coveredArpItemIds: ["arp-1"] }
