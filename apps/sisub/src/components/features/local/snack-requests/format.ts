@@ -139,11 +139,6 @@ export const MISSION_KIND_LABELS: Record<string, string> = {
 /** Mesmos rótulos do editor do padrão (`@/lib/occasion-menu`): um lugar só para o vocabulário do Módulo 7. */
 export const FAMILY_LABELS: Record<string, string> = SNACK_FAMILY_LABELS
 
-export const FAMILY_SHORT_LABELS: Record<string, string> = {
-	bordo: "Bordo",
-	apoio: "Apoio",
-}
-
 export const VARIANT_LABELS: Record<string, string> = SNACK_VARIANT_LABELS
 
 export const FUNDING_LABELS: Record<string, string> = {
@@ -197,12 +192,16 @@ export function lineKits(line: SnackRequestSummary["lines"][number]): number {
 	return line.approved_quantity ?? line.quantity
 }
 
+/**
+ * "Lanche de Bordo C". Nome completo, nunca "Bordo"/"Apoio" solto: "Apoio" também é o nome do
+ * cardápio de apoio (`/exceptions`), e "Apoio A" não diz qual dos dois é.
+ */
 export function classLabel(family: string, snackClass: string): string {
-	return `${FAMILY_SHORT_LABELS[family] ?? family} ${snackClass}`
+	return `${FAMILY_LABELS[family] ?? family} ${snackClass}`
 }
 
 /**
- * "bordo:C:pax" (chave da calculadora) → "Bordo C · Passageiros" — "Bordo C · Outros" quando a
+ * "bordo:C:pax" (chave da calculadora) → "Lanche de Bordo C · Passageiros" — "… · Outros" quando a
  * missão é terrestre. A chave sozinha não sabe o tipo da missão: ele vem sempre do pedido.
  */
 export function entitlementKeyLabel(key: string, missionKind: string): string {
