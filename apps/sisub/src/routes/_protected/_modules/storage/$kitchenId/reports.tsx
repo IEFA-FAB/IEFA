@@ -218,12 +218,12 @@ function StockReportsPage() {
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-border/50">
-								{empenhoPanel.map((row: { empenhoId: string; numeroEmpenho: string; empenhada: number; recebida: number; aReceber: number }) => (
+								{empenhoPanel.map((row: { empenhoId: string; numeroEmpenho: string; empenhada: number | null; recebida: number; aReceber: number | null }) => (
 									<tr key={row.empenhoId}>
 										<td className="py-1.5 pr-2 text-xs font-mono">{row.numeroEmpenho}</td>
-										<td className="py-1.5 px-2 text-xs text-right tabular-nums">{NUM.format(row.empenhada)}</td>
+										<td className="py-1.5 px-2 text-xs text-right tabular-nums">{row.empenhada == null ? "—" : NUM.format(row.empenhada)}</td>
 										<td className="py-1.5 px-2 text-xs text-right tabular-nums">{NUM.format(row.recebida)}</td>
-										<td className="py-1.5 px-2 text-xs text-right tabular-nums">{NUM.format(row.aReceber)}</td>
+										<td className="py-1.5 px-2 text-xs text-right tabular-nums">{row.aReceber == null ? "—" : NUM.format(row.aReceber)}</td>
 									</tr>
 								))}
 							</tbody>

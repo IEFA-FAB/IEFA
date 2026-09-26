@@ -16,6 +16,7 @@ import { roundToCents } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
+import { requireAuth } from "@/lib/auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -30,7 +31,7 @@ export interface ReconciliationRow {
 	numero_documento: string
 	valor_sisub: number | null
 	valor_siafi: number | null
-	situacao: "apenas_sisub" | "apenas_siafi" | "divergente" | "conciliado"
+	situacao: "apenas_sisub" | "apenas_siafi" | "aguardando_documento_pai" | "divergente" | "conciliado"
 	diferenca: number
 	decisao: string | null
 	justificativa: string | null
@@ -39,7 +40,7 @@ export interface ReconciliationRow {
 }
 
 /** Ordem de severidade: divergência primeiro, depois faltantes de cada lado. */
-const SEVERITY: Record<string, number> = { divergente: 0, apenas_siafi: 1, apenas_sisub: 2, conciliado: 3 }
+const SEVERITY: Record<string, number> = { divergente: 0, apenas_siafi: 1, aguardando_documento_pai: 1, apenas_sisub: 2, conciliado: 3 }
 
 /** Painel de divergências por documento (decisões vigentes saem da lista ativa). */
 export const fetchReconciliationFn = createServerFn({ method: "GET" })
@@ -77,130 +78,125 @@ export const fetchPhysicalAccountingFn = createServerFn({ method: "GET" })
 		return rows ?? []
 	})
 
+export interface DocumentBatchResult {
+	created: number
+	enriched: number
+	/** NE com valor diferente do registrado, ou NS/OB sem o documento de origem no relatório. */
+	divergent: number
+	/** Linhas deste lote estacionadas à espera do documento pai (NE da NS, NS da OB). */
+	waiting: number
+	unlinked: number
+	/** Linhas estacionadas (deste e de lotes anteriores) religadas agora. */
+	relinked: number
+	/** Estacionadas que continuam esperando. */
+	stillWaiting: number
+}
+
 /**
- * Aplica um lote NE/NS/OB ao domínio: documento novo é criado; existente é
- * enriquecido (campos ausentes) sem sobrescrever valor divergente.
+ * Aplica um lote NE/NS/OB ao domínio, numa transação só (`siafi_integration.apply_document_batch`):
+ *
+ * - NE nova entra sem contratação de origem (pendência "vincular"), usável na OF e na liquidação;
+ *   NE já registrada (registro rápido, manual) é COMPLETADA pelo número na classificação e no
+ *   favorecido — o valor nunca é sobrescrito, e a diferença aparece na conciliação;
+ * - NS/OB cujo documento pai ainda não está no sistema fica estacionada e é religada sozinha
+ *   quando ele chega (por lote ou por registro rápido);
+ * - erro de gravação em QUALQUER linha não grava nada: o lote fica `failed` com a mensagem e pode
+ *   ser aplicado de novo. Antes, a NE sem item de ARP morria na constraint, o erro era ignorado e
+ *   o lote ficava `applied` sem o documento.
  */
 export const applyDocumentBatchFn = createServerFn({ method: "POST" })
 	.validator(z.object({ batchId: z.uuid() }))
-	.handler(async ({ data }) => {
+	.handler(async ({ data }): Promise<DocumentBatchResult> => {
+		await requireAuth()
 		const si = siafi()
-		const { data: batch, error: batchError } = await si.from("import_batch").select("*").eq("id", data.batchId).single()
-		if (batchError || !batch) throw new Error("Lote não encontrado")
+		const { data: batch, error: batchError } = await si.from("import_batch").select("unit_id, report_type, status").eq("id", data.batchId).maybeSingle()
+		if (batchError) throw new Error(`Erro ao buscar o lote: ${batchError.message}`)
+		if (!batch) throw new Error("Lote não encontrado")
 		const ctx = await requireUnitScope(2, Number(batch.unit_id))
 		if (batch.report_type === "credito") throw new Error("Use a aplicação de crédito para este lote")
+		if (batch.status === "applied") throw new Error("Lote já aplicado")
 
 		return withSensitiveAudit(
 			"applyDocumentBatchFn",
 			ctx,
-			async () => {
-				// reserva sob advisory lock: dois cliques simultâneos não aplicam duas vezes
-				const { error: claimError } = await si.rpc("claim_import_batch", { p_batch_id: data.batchId })
-				if (claimError) throw new Error(claimError.message)
-
-				const { data: rows } = await si.from("import_row").select("id, parsed").eq("batch_id", data.batchId).eq("parse_status", "parsed")
-				const parsedRows = (rows ?? []) as { id: string; parsed: Record<string, unknown> }[]
-				if (parsedRows.length === 0) throw new Error("Lote sem linhas válidas para aplicar")
-
-				const fin = finance()
-				const now = new Date().toISOString()
-				let created = 0
-				let enriched = 0
-				let divergent = 0
-
-				for (const { id: rowId, parsed } of parsedRows) {
-					if (batch.report_type === "ne") {
-						const numero = String(parsed.numero_ne ?? "")
-							.trim()
-							.toUpperCase()
-						if (!numero) continue
-						const valor = Number(parsed.valor ?? 0)
-
-						const { data: existing } = await fin
-							.from("empenho")
-							.select("id, valor_total, nd, ptres, fonte, favorecido_cnpj")
-							.eq("unit_id", batch.unit_id)
-							.eq("numero_empenho", numero)
-							.maybeSingle()
-						if (existing) {
-							// enriquece o que falta; valor divergente NÃO é sobrescrito
-							await fin
-								.from("empenho")
-								.update({
-									nd: existing.nd ?? (parsed.nd as string) ?? null,
-									ptres: existing.ptres ?? (parsed.ptres as string) ?? null,
-									fonte: existing.fonte ?? (parsed.fonte as string) ?? null,
-									favorecido_cnpj: existing.favorecido_cnpj ?? (parsed.favorecido_cnpj as string) ?? null,
-									favorecido_nome: (parsed.favorecido_nome as string) ?? null,
-									siafi_synced_at: now,
-								})
-								.eq("id", existing.id)
-							if (Math.abs(Number(existing.valor_total) - valor) > 0.009) divergent++
-							enriched++
-							await si.from("import_row").update({ applied_table: "finance.empenho", applied_id: existing.id }).eq("id", rowId)
-						} else {
-							const { data: inserted } = await fin
-								.from("empenho")
-								.insert({
-									unit_id: batch.unit_id,
-									numero_empenho: numero,
-									data_empenho: (parsed.data as string) ?? now.substring(0, 10),
-									quantidade_empenhada: 1,
-									valor_unitario: valor,
-									valor_total: valor,
-									nd: (parsed.nd as string) ?? null,
-									ptres: (parsed.ptres as string) ?? null,
-									fonte: (parsed.fonte as string) ?? null,
-									favorecido_cnpj: (parsed.favorecido_cnpj as string) ?? null,
-									favorecido_nome: (parsed.favorecido_nome as string) ?? null,
-									exercicio: Number(String(parsed.data ?? now).substring(0, 4)),
-									origem: "siafi",
-									siafi_synced_at: now,
-									import_batch_id: data.batchId,
-								})
-								.select("id")
-								.maybeSingle()
-							if (inserted) {
-								created++
-								await si.from("import_row").update({ applied_table: "finance.empenho", applied_id: inserted.id }).eq("id", rowId)
-							}
-						}
-					} else {
-						// NS e OB só entram quando o documento de origem existe no sisub —
-						// sem empenho/liquidação não há onde pendurar a fase seguinte.
-						const numero = String(parsed[batch.report_type === "ns" ? "numero_ns" : "numero_ob"] ?? "")
-							.trim()
-							.toUpperCase()
-						if (!numero) continue
-						const table = batch.report_type === "ns" ? "liquidacao" : "pagamento"
-						const numberColumn = batch.report_type === "ns" ? "numero_ns" : "numero_ob"
-
-						const { data: existing } = await fin.from(table).select("id").eq("unit_id", batch.unit_id).eq(numberColumn, numero).maybeSingle()
-						if (existing) {
-							await fin.from(table).update({ origem: "siafi" }).eq("id", existing.id)
-							enriched++
-							await si
-								.from("import_row")
-								.update({ applied_table: `finance.${table}`, applied_id: existing.id })
-								.eq("id", rowId)
-							continue
-						}
-						// documento só no SIAFI: fica visível na conciliação como
-						// "apenas_siafi" — criar às cegas exigiria adivinhar o vínculo
-						divergent++
-					}
+			async (): Promise<DocumentBatchResult> => {
+				const { data: result, error } = await si.rpc("apply_document_batch", { p_batch_id: data.batchId, p_actor: ctx.userId })
+				if (error) {
+					// A transação do lote já foi desfeita; marcar `failed` é uma escrita à parte, e um
+					// lote aplicado por outro clique no meio do caminho não pode virar `failed`.
+					const { error: markError } = await si
+						.from("import_batch")
+						.update({ status: "failed", error_message: error.message })
+						.eq("id", data.batchId)
+						.neq("status", "applied")
+					if (markError) throw new Error(`Lote não aplicado (${error.message}) e não marcado como falho (${markError.message})`)
+					throw new Error(`Lote não aplicado: ${error.message}. Nada foi gravado; corrija e aplique de novo.`)
 				}
-
-				await si
-					.from("import_batch")
-					.update({ status: "applied", applied_rows: created + enriched, applied_at: now })
-					.eq("id", data.batchId)
-				return { created, enriched, divergent }
+				const summary = (result ?? {}) as Partial<DocumentBatchResult>
+				return {
+					created: Number(summary.created ?? 0),
+					enriched: Number(summary.enriched ?? 0),
+					divergent: Number(summary.divergent ?? 0),
+					waiting: Number(summary.waiting ?? 0),
+					unlinked: Number(summary.unlinked ?? 0),
+					relinked: Number(summary.relinked ?? 0),
+					stillWaiting: Number(summary.stillWaiting ?? 0),
+				}
 			},
 			// O lote é o alvo: as linhas que ele criou e enriqueceu estão em
 			// `siafi_integration.import_row`, apontando para cada documento aplicado.
 			(result) => ({ batchId: data.batchId, unitId: Number(batch.unit_id), reportType: batch.report_type, ...result })
 		)
+	})
+
+export interface WaitingDocument {
+	rowId: string
+	reportType: "ns" | "ob"
+	numero: string
+	parentNumber: string | null
+	valor: number | null
+	message: string | null
+	batchCreatedAt: string
+}
+
+/** NS e OB estacionadas da unidade, à espera do documento pai — para a pendência e a tela do SIAFI. */
+export const listWaitingDocumentsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ unitId: z.number().int().positive() }))
+	.handler(async ({ data }): Promise<WaitingDocument[]> => {
+		await requireUnitScope(1, data.unitId)
+		const si = siafi()
+		const { data: batches, error: batchError } = await si
+			.from("import_batch")
+			.select("id, report_type, created_at")
+			.eq("unit_id", data.unitId)
+			.in("report_type", ["ns", "ob"])
+			.order("created_at", { ascending: false })
+			.limit(200)
+		if (batchError) throw new Error(`Erro ao listar lotes: ${batchError.message}`)
+		const byBatch = new Map(((batches ?? []) as Array<{ id: string; report_type: "ns" | "ob"; created_at: string }>).map((b) => [b.id, b]))
+		if (byBatch.size === 0) return []
+		const { data: rows, error } = await si
+			.from("import_row")
+			.select("id, batch_id, parsed, parse_error")
+			.in("batch_id", [...byBatch.keys()])
+			.eq("parse_status", "waiting_parent")
+			.limit(500)
+		if (error) throw new Error(`Erro ao listar documentos estacionados: ${error.message}`)
+		return ((rows ?? []) as Array<{ id: string; batch_id: string; parsed: Record<string, unknown> | null; parse_error: string | null }>).map((row) => {
+			const batch = byBatch.get(row.batch_id) as { report_type: "ns" | "ob"; created_at: string }
+			const parsed = row.parsed ?? {}
+			const isNs = batch.report_type === "ns"
+			const parent = isNs ? (parsed.ne_origem ?? parsed.numero_ne) : (parsed.ns_origem ?? parsed.numero_ns)
+			return {
+				rowId: row.id,
+				reportType: batch.report_type,
+				numero: String((isNs ? parsed.numero_ns : parsed.numero_ob) ?? ""),
+				parentNumber: parent == null ? null : String(parent).trim().toUpperCase(),
+				valor: parsed.valor == null ? null : Number(parsed.valor),
+				message: row.parse_error,
+				batchCreatedAt: batch.created_at,
+			}
+		})
 	})
 
 /** Resolução explícita: adotar o valor do SIAFI ou manter o local com justificativa. */
@@ -245,7 +241,8 @@ export const resolveDivergenceFn = createServerFn({ method: "POST" })
 							})
 							if (error) throw new Error(`Erro ao ajustar empenho: ${error.message}`)
 						}
-						await fin.from("empenho").update({ origem: "siafi", siafi_synced_at: new Date().toISOString() }).eq("id", empenho.id)
+						const { error: originError } = await fin.from("empenho").update({ origem: "siafi", siafi_synced_at: new Date().toISOString() }).eq("id", empenho.id)
+						if (originError) throw new Error(`Erro ao marcar a origem do empenho: ${originError.message}`)
 					}
 				}
 

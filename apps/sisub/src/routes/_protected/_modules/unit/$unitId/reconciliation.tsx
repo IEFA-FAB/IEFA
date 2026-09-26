@@ -31,6 +31,8 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 const SITUACAO_META: Record<string, { label: string; className: string }> = {
 	divergente: { label: "Valor divergente", className: "text-destructive" },
 	apenas_siafi: { label: "Apenas no SIAFI", className: "text-warning" },
+	// NS/OB estacionada: o SIAFI tem o documento e o sisub espera a NE/NS de origem para religar.
+	aguardando_documento_pai: { label: "Aguardando o documento de origem", className: "text-warning" },
 	apenas_sisub: { label: "Apenas no sisub", className: "text-warning" },
 }
 

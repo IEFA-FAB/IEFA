@@ -3775,7 +3775,8 @@ export type Database = {
       }
       empenho: {
         Row: {
-          arp_item_id: string
+          acquisition_id: string | null
+          arp_item_id: string | null
           created_at: string
           created_by: string | null
           data_empenho: string
@@ -3790,7 +3791,7 @@ export type Database = {
           numero_empenho: string
           origem: string
           ptres: string | null
-          quantidade_empenhada: number
+          quantidade_empenhada: number | null
           rp_exercicio: number | null
           rp_inscrito: boolean
           rp_tipo: string | null
@@ -3800,10 +3801,11 @@ export type Database = {
           ug_emitente: string | null
           unit_id: number
           valor_total: number
-          valor_unitario: number
+          valor_unitario: number | null
         }
         Insert: {
-          arp_item_id: string
+          acquisition_id?: string | null
+          arp_item_id?: string | null
           created_at?: string
           created_by?: string | null
           data_empenho: string
@@ -3818,7 +3820,7 @@ export type Database = {
           numero_empenho: string
           origem?: string
           ptres?: string | null
-          quantidade_empenhada: number
+          quantidade_empenhada?: number | null
           rp_exercicio?: number | null
           rp_inscrito?: boolean
           rp_tipo?: string | null
@@ -3828,10 +3830,11 @@ export type Database = {
           ug_emitente?: string | null
           unit_id: number
           valor_total: number
-          valor_unitario: number
+          valor_unitario?: number | null
         }
         Update: {
-          arp_item_id?: string
+          acquisition_id?: string | null
+          arp_item_id?: string | null
           created_at?: string
           created_by?: string | null
           data_empenho?: string
@@ -3846,7 +3849,7 @@ export type Database = {
           numero_empenho?: string
           origem?: string
           ptres?: string | null
-          quantidade_empenhada?: number
+          quantidade_empenhada?: number | null
           rp_exercicio?: number | null
           rp_inscrito?: boolean
           rp_tipo?: string | null
@@ -3856,7 +3859,7 @@ export type Database = {
           ug_emitente?: string | null
           unit_id?: number
           valor_total?: number
-          valor_unitario?: number
+          valor_unitario?: number | null
         }
         Relationships: [
           {
@@ -3922,6 +3925,70 @@ export type Database = {
           },
           {
             foreignKeyName: "empenho_event_empenho_id_fkey"
+            columns: ["empenho_id"]
+            isOneToOne: false
+            referencedRelation: "v_empenho_vigente"
+            referencedColumns: ["empenho_id"]
+          },
+        ]
+      }
+      empenho_item: {
+        Row: {
+          arp_item_id: string | null
+          created_at: string
+          description: string | null
+          empenho_id: string
+          id: string
+          position: number
+          purchase_item_id: string | null
+          quantity: number | null
+          unit: string | null
+          unit_price: number | null
+          value: number
+        }
+        Insert: {
+          arp_item_id?: string | null
+          created_at?: string
+          description?: string | null
+          empenho_id: string
+          id?: string
+          position?: number
+          purchase_item_id?: string | null
+          quantity?: number | null
+          unit?: string | null
+          unit_price?: number | null
+          value: number
+        }
+        Update: {
+          arp_item_id?: string | null
+          created_at?: string
+          description?: string | null
+          empenho_id?: string
+          id?: string
+          position?: number
+          purchase_item_id?: string | null
+          quantity?: number | null
+          unit?: string | null
+          unit_price?: number | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "empenho_item_empenho_id_fkey"
+            columns: ["empenho_id"]
+            isOneToOne: false
+            referencedRelation: "empenho"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "empenho_item_empenho_id_fkey"
+            columns: ["empenho_id"]
+            isOneToOne: false
+            referencedRelation: "v_empenho_saldo"
+            referencedColumns: ["empenho_id"]
+          },
+          {
+            foreignKeyName: "empenho_item_empenho_id_fkey"
             columns: ["empenho_id"]
             isOneToOne: false
             referencedRelation: "v_empenho_vigente"
@@ -11997,6 +12064,87 @@ export type Database = {
   }
   procurement: {
     Tables: {
+      acquisition: {
+        Row: {
+          activity_line: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          direct_contract_clause: string | null
+          estimated_value: number | null
+          fiscal_year: number
+          id: string
+          instrument: string | null
+          kind: string
+          legal_basis: string | null
+          nd: string | null
+          notes: string | null
+          object: string | null
+          over_limit_justification: string | null
+          pncp_control_number: string | null
+          process_nup: string | null
+          srp_role: string | null
+          supplier_cnpj: string | null
+          supplier_name: string | null
+          unit_id: number
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          activity_line?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          direct_contract_clause?: string | null
+          estimated_value?: number | null
+          fiscal_year?: number
+          id?: string
+          instrument?: string | null
+          kind: string
+          legal_basis?: string | null
+          nd?: string | null
+          notes?: string | null
+          object?: string | null
+          over_limit_justification?: string | null
+          pncp_control_number?: string | null
+          process_nup?: string | null
+          srp_role?: string | null
+          supplier_cnpj?: string | null
+          supplier_name?: string | null
+          unit_id: number
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          activity_line?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          direct_contract_clause?: string | null
+          estimated_value?: number | null
+          fiscal_year?: number
+          id?: string
+          instrument?: string | null
+          kind?: string
+          legal_basis?: string | null
+          nd?: string | null
+          notes?: string | null
+          object?: string | null
+          over_limit_justification?: string | null
+          pncp_control_number?: string | null
+          process_nup?: string | null
+          srp_role?: string | null
+          supplier_cnpj?: string | null
+          supplier_name?: string | null
+          unit_id?: number
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
       compras_amostra: {
         Row: {
           capacidade_unidade_fornecimento: number | null
@@ -12124,6 +12272,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      direct_contract_limit: {
+        Row: {
+          clause: string
+          created_at: string
+          id: string
+          source_act: string
+          valid_from: string
+          value: number
+        }
+        Insert: {
+          clause: string
+          created_at?: string
+          id?: string
+          source_act: string
+          valid_from: string
+          value: number
+        }
+        Update: {
+          clause?: string
+          created_at?: string
+          id?: string
+          source_act?: string
+          valid_from?: string
+          value?: number
+        }
+        Relationships: []
       }
       kitchen_ata_draft: {
         Row: {
@@ -12302,8 +12477,9 @@ export type Database = {
       }
       procurement_arp: {
         Row: {
+          acquisition_id: string | null
           ano_ata: string | null
-          ata_id: string
+          ata_id: string | null
           created_at: string
           data_vigencia_fim: string | null
           data_vigencia_inicio: string | null
@@ -12312,13 +12488,15 @@ export type Database = {
           nome_uasg_gerenciadora: string | null
           numero_ata: string
           objeto: string | null
+          source: string
           status_ata: string | null
           uasg_gerenciadora: string
           unit_id: number
         }
         Insert: {
+          acquisition_id?: string | null
           ano_ata?: string | null
-          ata_id: string
+          ata_id?: string | null
           created_at?: string
           data_vigencia_fim?: string | null
           data_vigencia_inicio?: string | null
@@ -12327,13 +12505,15 @@ export type Database = {
           nome_uasg_gerenciadora?: string | null
           numero_ata: string
           objeto?: string | null
+          source?: string
           status_ata?: string | null
           uasg_gerenciadora: string
           unit_id: number
         }
         Update: {
+          acquisition_id?: string | null
           ano_ata?: string | null
-          ata_id?: string
+          ata_id?: string | null
           created_at?: string
           data_vigencia_fim?: string | null
           data_vigencia_inicio?: string | null
@@ -12342,11 +12522,19 @@ export type Database = {
           nome_uasg_gerenciadora?: string | null
           numero_ata?: string
           objeto?: string | null
+          source?: string
           status_ata?: string | null
           uasg_gerenciadora?: string
           unit_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "procurement_arp_acquisition_id_fkey"
+            columns: ["acquisition_id"]
+            isOneToOne: false
+            referencedRelation: "acquisition"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "procurement_arp_ata_id_fkey"
             columns: ["ata_id"]
@@ -12370,6 +12558,7 @@ export type Database = {
           quantidade_empenhada: number | null
           quantidade_homologada: number | null
           saldo_empenho: number | null
+          source: string
           synced_at: string
           valor_unitario: number | null
         }
@@ -12386,6 +12575,7 @@ export type Database = {
           quantidade_empenhada?: number | null
           quantidade_homologada?: number | null
           saldo_empenho?: number | null
+          source?: string
           synced_at?: string
           valor_unitario?: number | null
         }
@@ -12402,6 +12592,7 @@ export type Database = {
           quantidade_empenhada?: number | null
           quantidade_homologada?: number | null
           saldo_empenho?: number | null
+          source?: string
           synced_at?: string
           valor_unitario?: number | null
         }
@@ -13262,7 +13453,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
-          empenho_id: string
+          empenho_id: string | null
           expected_delivery: string | null
           id: string
           kitchen_id: number
@@ -13277,7 +13468,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
-          empenho_id: string
+          empenho_id?: string | null
           expected_delivery?: string | null
           id?: string
           kitchen_id: number
@@ -13292,7 +13483,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
-          empenho_id?: string
+          empenho_id?: string | null
           expected_delivery?: string | null
           id?: string
           kitchen_id?: number
@@ -13399,6 +13590,15 @@ export type Database = {
       }
     }
     Functions: {
+      supply_order_empenho_usage: {
+        Args: { p_empenho_id: string }
+        Returns: {
+          empenho_qty: number
+          priced_total: number
+          unpriced_lines: number
+          unpriced_qty: number
+        }[]
+      }
       upsert_compras_amostras: { Args: { p_samples: Json }; Returns: string[] }
     }
     Enums: {
@@ -13886,6 +14086,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_document_batch: {
+        Args: { p_actor?: string; p_batch_id: string }
+        Returns: Json
+      }
+      apply_document_row: {
+        Args: {
+          p_actor: string
+          p_batch_id: string
+          p_competencia: string
+          p_parsed: Json
+          p_report_type: string
+          p_row_id: string
+          p_unit_id: number
+        }
+        Returns: string
+      }
       claim_import_batch: {
         Args: { p_batch_id: string }
         Returns: {
@@ -13893,6 +14109,14 @@ export type Database = {
           competencia: string
           report_type: string
           unit_id: number
+        }[]
+      }
+      parsed_date: { Args: { p_value: string }; Returns: string }
+      relink_waiting_rows: {
+        Args: { p_actor?: string; p_unit_id: number }
+        Returns: {
+          relinked: number
+          still_waiting: number
         }[]
       }
     }

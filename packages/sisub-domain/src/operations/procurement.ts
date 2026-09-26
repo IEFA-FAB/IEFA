@@ -227,7 +227,8 @@ type DashboardArpItemRow = {
 	arp_numero_ata: string
 	arp_ano_ata: string | null
 	arp_vigencia_fim: string | null
-	ata_id: string
+	/** Nulo quando a ARP não teve anexo quantitativo feito no sistema (ata de outro órgão, carona). */
+	ata_id: string | null
 	ata_title: string
 	ingredient_id: string | null
 	ingredient_name: string | null
@@ -423,7 +424,7 @@ export async function fetchUnitDashboard(
 			arp_ano_ata: arp.anoAta,
 			arp_vigencia_fim: arp.dataVigenciaFim,
 			ata_id: arp.ataId,
-			ata_title: ataIdToTitle.get(arp.ataId) ?? "—",
+			ata_title: arp.ataId ? (ataIdToTitle.get(arp.ataId) ?? "—") : "Sem anexo quantitativo",
 			ingredient_id: ingredientId,
 			ingredient_name: ataItem?.ingredientName ?? item.descricaoItem,
 			in_upcoming_menu: ingredientId ? upcomingIngredientIds.has(ingredientId) : false,

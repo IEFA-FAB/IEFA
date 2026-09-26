@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
+import { useImportArpForAcquisition } from "@/hooks/data/useAcquisitions"
 import { useImportArp, useSearchArp } from "@/hooks/data/useArp"
 import { defaultVigenciaWindow } from "@/lib/arp-compras"
 import type { ComprasArpResult } from "@/types/domain/arp"
@@ -16,7 +17,13 @@ import type { ComprasArpResult } from "@/types/domain/arp"
 interface ArpSearchModalProps {
 	open: boolean
 	onOpenChange: (open: boolean) => void
-	ataId: string
+	/**
+	 * Anexo quantitativo da ARP. Sem anexo (ata de outro órgão, anterior ao sistema), a ARP entra
+	 * direto na contratação de origem e casa com um anexo depois, se houver.
+	 */
+	ataId?: string | null
+	/** Contratação de origem (registro de preços) que a ARP sustenta. */
+	acquisitionId?: string | null
 	unitId: number
 	/** UASG da unidade, pré-preenche o campo de busca quando disponível */
 	defaultUasg?: string | null
@@ -57,7 +64,7 @@ function vigenciaStatus(fim: string | null | undefined): "ativa" | "vencida" | "
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
-export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg }: ArpSearchModalProps) {
+export function ArpSearchModal({ open, onOpenChange, ataId = null, acquisitionId = null, unitId, defaultUasg }: ArpSearchModalProps) {
 	const initialWindow = defaultVigenciaWindow()
 	const [uasg, setUasg] = useState(defaultUasg ?? "")
 	const [numero, setNumero] = useState("")
@@ -67,7 +74,10 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 	const [importingId, setImportingId] = useState<string | null>(null)
 
 	const { mutate: search, data: searchResult, isPending: isSearching, reset: resetSearch } = useSearchArp()
-	const { mutate: importArp, isPending: isImporting } = useImportArp(ataId)
+	const importForAta = useImportArp(ataId ?? "")
+	const importForAcquisition = useImportArpForAcquisition(unitId)
+	// Com anexo, o cache é o da tela do anexo; sem anexo, o da tela de contratações.
+	const { mutate: importArp, isPending: isImporting } = ataId ? importForAta : importForAcquisition
 
 	const results = searchResult?.resultado ?? []
 	const days = windowDays(vigenciaMin, vigenciaMax)
@@ -102,6 +112,7 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 		importArp(
 			{
 				ataId,
+				acquisitionId,
 				unitId,
 				arpData: {
 					numeroAtaRegistroPreco: item.numeroAtaRegistroPreco,
@@ -129,8 +140,9 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 				<DialogHeader>
 					<DialogTitle>Vincular ARP ao Compras.gov.br</DialogTitle>
 					<DialogDescription>
-						Busque a Ata de Registro de Preços (ARP) homologada que corresponde a este anexo quantitativo. Os itens serão importados e casados automaticamente
-						por código CATMAT.
+						{ataId
+							? "Busque a Ata de Registro de Preços (ARP) homologada que corresponde a este anexo quantitativo. Os itens serão importados e casados automaticamente por código CATMAT."
+							: "Busque a Ata de Registro de Preços (ARP) no Compras.gov.br — inclusive de outro órgão, na adesão. Ela entra sem anexo quantitativo; o casamento com um anexo pelo CATMAT pode ser feito depois."}
 					</DialogDescription>
 				</DialogHeader>
 

@@ -262,6 +262,27 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 		const list = empenhos ?? []
 		if (list.length === 0) return []
 
+		// Quantidade empenhada pelos ITENS da NE (20260926214000): numa NE com vários itens o
+		// cabeçalho antigo é nulo, e ler dele dava "empenhada 0" e "a receber" negativo. NE só por
+		// valor (estimativa/global) não tem quantidade: sai nula, e a tela mostra "—".
+		const { data: neItems, error: neItemsError } = await finance
+			.from("empenho_item")
+			.select("empenho_id, quantity")
+			.in(
+				"empenho_id",
+				list.map((e: { id: string }) => e.id)
+			)
+		if (neItemsError) throw new Error(`Erro ao ler os itens dos empenhos: ${neItemsError.message}`)
+		const quantityByEmpenho = new Map<string, number | null>()
+		for (const item of (neItems ?? []) as Array<{ empenho_id: string; quantity: number | string | null }>) {
+			const current = quantityByEmpenho.get(item.empenho_id)
+			if (item.quantity == null) {
+				if (!quantityByEmpenho.has(item.empenho_id)) quantityByEmpenho.set(item.empenho_id, null)
+				continue
+			}
+			quantityByEmpenho.set(item.empenho_id, (current ?? 0) + Number(item.quantity))
+		}
+
 		const { data: receipts } = await inv
 			.from("goods_receipt")
 			.select("id, empenho_id, definitive_at")
@@ -282,14 +303,20 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 			}
 		}
 
-		return list.map((empenho: { id: string; numero_empenho: string; quantidade_empenhada: number; valor_total: number }) => {
+		return list.map((empenho: { id: string; numero_empenho: string; quantidade_empenhada: number | null; valor_total: number }) => {
 			const received = Number((receivedByEmpenho.get(empenho.id) ?? 0).toFixed(4))
+			// Item ainda não criado (NE do caminho antigo, antes do commit): o cabeçalho fala por ele.
+			const empenhada = quantityByEmpenho.has(empenho.id)
+				? (quantityByEmpenho.get(empenho.id) ?? null)
+				: empenho.quantidade_empenhada == null
+					? null
+					: Number(empenho.quantidade_empenhada)
 			return {
 				empenhoId: empenho.id,
 				numeroEmpenho: empenho.numero_empenho,
-				empenhada: Number(empenho.quantidade_empenhada),
+				empenhada,
 				recebida: received,
-				aReceber: Number((Number(empenho.quantidade_empenhada) - received).toFixed(4)),
+				aReceber: empenhada == null ? null : Number((empenhada - received).toFixed(4)),
 				valorTotal: Number(empenho.valor_total),
 			}
 		})

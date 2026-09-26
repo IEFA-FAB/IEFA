@@ -1,4 +1,4 @@
-# Gestão Unidade — anexo quantitativo do TR, ARP, empenho
+# Gestão Unidade — anexo quantitativo do TR, ARP, empenho, contratação de origem
 
 Hipóteses a verificar.
 
@@ -155,3 +155,113 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
 - **Cobertura:** **LACUNA:** o toast não tem teste, e a tabela do anexo não marca quais itens
   estão não conformes (o usuário só descobre reabrindo a pesquisa de cada um). Menor caminho:
   selo "não conforme" por item na `AtaItemsTable`, lido do último `procurement_pesquisa_preco_item`.
+
+
+## Execução da despesa (contratação de origem, NE, SIAFI)
+
+Change `sisub-flexible-expense-execution`. A regra: quem esqueceu um documento não trava quem está
+trabalhando; o sistema registra o fato e mostra a pendência. Os testes de integração abaixo estão
+escritos e só rodam depois de aplicada a migration `20260926214000`.
+
+### GU-ORG-01 — "Comprei por dispensa; não tenho ata nem anexo"
+- **Realidade:** carne para a formatura por dispensa do art. 75, II. Ninguém fez anexo quantitativo;
+  a NE já saiu no SIAFI.
+- **O sistema precisa:** a contratação `dispensa` nasce só com o tipo; o que falta (fundamento,
+  fornecedor, vigência, objeto, ramo, valor) vira pendência "Dispensa sem …", nunca recusa. A NE
+  aponta para ela.
+- **UX:** Gestão Unidade → Contratações de origem → Nova contratação (só o tipo é obrigatório);
+  completa no card, que grava sozinho.
+- **Cobertura:** `acquisition-origin.operations.test.ts › dispensa só com o tipo…`;
+  `acquisition.test.ts › completude da contratação`.
+
+### GU-ORG-02 — "Terceira dispensa de carnes no ano"
+- **Realidade:** duas dispensas de carnes (classe 8905) já somam R$ 48 mil; a nova, de R$ 20 mil,
+  passa do limite de 2026 (R$ 65.492,11, Decreto 12.807/2025).
+- **O sistema precisa:** somatório por unidade gestora, exercício, inciso e ramo de atividade (art.
+  75, § 1º; IN SEGES/ME 67/2021, art. 4º), com o limite da tabela `direct_contract_limit`. Acima do
+  limite: aviso com o total e a composição; a contratação só fica completa com a justificativa.
+  Dispensa sem valor não conta como zero — o total vira piso e o aviso diz isso. Ano sem limite
+  cadastrado usa o último e pede o cadastro.
+- **UX:** a prévia do somatório aparece no diálogo de criação, antes de gravar, e no card.
+- **Cobertura:** `acquisition.test.ts › somatório da dispensa (art. 75, § 1º)`;
+  `acquisition-origin.operations.test.ts` (limites semeados). **LACUNA:** tela para cadastrar o
+  limite de um ano novo (hoje é linha nova na tabela, por migration).
+
+### GU-ORG-03 — "Aderi à ata de outro órgão (carona)"
+- **Realidade:** a unidade não participou do registro de preços da UASG 120001 e quer aderir.
+- **O sistema precisa:** contratação `registro_precos` com papel `nao_participante`; a ARP entra sem
+  anexo quantitativo, ligada à contratação, e os empenhos apontam para os itens dela.
+- **UX:** no card da contratação, "Buscar no Compras.gov.br" (importa sem anexo) ou "Cadastrar à mão".
+- **Cobertura:** `acquisition-origin.operations.test.ts › carona sem anexo → uma NE com três itens…`.
+
+### GU-ORG-04 — "O Compras.gov.br está fora do ar e preciso empenhar hoje"
+- **O sistema precisa:** ARP e itens cadastrados à mão, marcados "não sincronizada"
+  (`source = 'manual'`, `last_synced_at` nulo); a primeira importação bem-sucedida atualiza os itens
+  pelo número (índice único por ARP + número), sem duplicar. A NE sobre ARP não sincronizada avisa
+  que o saldo oficial não foi conferido.
+- **UX:** "Cadastrar à mão" no card da contratação; badge "não sincronizada" até importar.
+- **Cobertura:** `empenho-conformity.test.ts › ARP à mão não sincronizada…`; a atualização pelo
+  número está em `importArpItemsFn` (sem teste de integração: depende da API externa — **LACUNA**).
+
+### GU-ORG-05 — "Apagaram o anexo quantitativo que tinha ARP e empenhos"
+- **O sistema precisa:** a ARP fica sem anexo (`SET NULL`), os empenhos ficam intactos; apagar item
+  de ARP ou ARP com empenho é recusado (`RESTRICT`). Reimportar a ARP de outro anexo mantém o
+  vínculo existente e avisa, em vez de trocar em silêncio.
+- **Cobertura:** `acquisition-origin.operations.test.ts › anexo apagado não leva ARP nem empenho…`.
+
+### GU-NE-01 — "Uma NE para arroz, feijão e óleo da mesma ata"
+- **O sistema precisa:** um empenho com três itens (`finance.empenho_item`); o comprometimento local
+  de cada item da ARP soma só o seu item; o retrato oficial do Compras.gov.br não é tocado. A OF de
+  qualquer dos três é conferida pelo valor vigente da NE. Preço diferente do registrado, quantidade
+  acima do saldo e data fora da vigência da ata são avisos.
+- **UX:** "Empenhar itens" na ARP ou "Registrar NE" na contratação: quantidade por item da ata,
+  itens livres, ou só o valor (estimativa/global).
+- **Cobertura:** `acquisition-origin.operations.test.ts › carona sem anexo → uma NE com três itens…`;
+  `empenho-conformity.test.ts`; `supply-order-gate.test.ts › NE com três itens…`.
+
+### GU-NE-02 — "A NE saiu no SIAFI e ninguém importou; a carne chega amanhã"
+- **O sistema precisa:** registro rápido (número, data, valor, favorecido) no próprio lugar — Gestão
+  Unidade ou, pelo almoxarife com `storage:2`, na cozinha —, idempotente pelo número. A OF pode sair
+  aguardando empenho e a NE se vincula depois, com o teto conferido no vínculo. O import do SIAFI
+  completa a NE pelo número (classificação e favorecido), sem trocar o valor; diferença de valor fica
+  na conciliação.
+- **UX:** `QuickEmpenhoForm`/`QuickEmpenhoDialog` (`components/features/unit/finance/QuickEmpenhoForm.tsx`);
+  "Registro rápido de NE" na tela de contratações; a NE aparece em "NE sem contratação de origem"
+  com o vínculo ao lado.
+- **Cobertura:** `acquisition-origin.operations.test.ts` (OF aguardando empenho e vínculo depois;
+  NE registrada à mão completada pelo número). **LACUNA:** o botão na tela da OF e do recebimento é do
+  PR de Estoque (tarefas 3.x), que usa o componente.
+
+### GU-SIAFI-01 — "A NS foi importada antes da NE"
+- **O sistema precisa:** a NS fica estacionada (`import_row.parse_status = 'waiting_parent'`) com
+  "Aguardando a NE …"; quando a NE chega (lote do SIAFI ou registro rápido), a NS vira liquidação
+  sem nova ação. OB à espera da NS, idem. A religação é uma função só
+  (`siafi_integration.relink_waiting_rows`), chamada pelo import e pelo registro da NE.
+- **UX:** a tela do SIAFI lista os documentos à espera e o que cada um espera.
+- **Cobertura:** `acquisition-origin.operations.test.ts › NS antes da NE fica estacionada…`.
+
+### GU-SIAFI-02 — "Uma linha do lote não gravou"
+- **Realidade:** antes, a NE sem item de ARP morria na constraint, o erro era ignorado e o lote
+  ficava "aplicado" sem o documento.
+- **O sistema precisa:** o lote aplica numa transação só; erro em qualquer linha não grava nada, o
+  lote fica `failed` com a mensagem e pode ser aplicado de novo.
+- **UX:** badge "falhou" com a mensagem e o botão "Aplicar de novo".
+- **Cobertura:** `acquisition-origin.operations.test.ts › NE registrada à mão… erro de gravação não
+  grava nada e o lote se reaplica`.
+
+### GU-SIAFI-03 — "Anular a NE que já tem liquidação ou OF enviada"
+- **O sistema precisa:** a anulação passa pelo evento e pelo piso, que é o MAIOR entre o liquidado
+  (o que foi liquidado não se desfaz por anulação) e o já pedido em Ordens de Fornecimento não
+  canceladas (o fornecedor recebeu a ordem e vai entregar). A NE liquidada não se anula inteira: a
+  recusa diz para anular só o saldo a liquidar; abaixo do pedido, diz para cancelar ou reduzir a OF
+  antes. O valor da anulação total é lido dentro da transação, sob o lock do evento: um reforço
+  concorrente não sobra numa NE "anulada".
+- **Cobertura:** `budget-execution.operations.test.ts` (piso do liquidado);
+  `acquisition-origin.operations.test.ts › anulação não desce abaixo do que as OFs já pediram…`;
+  `expense-execution.test.ts › planEmpenhoCancellation`.
+
+### GU-REP-01 — "Estoque baixo: o sistema sugeriu supermercado virtual"
+- **O sistema precisa:** Supermercado Virtual e Contrata+Brasil só quando o valor cabe no que resta do
+  limite da dispensa no ramo (classe do CATMAT) da unidade compradora; urgência sozinha não autoriza
+  dispensa (a de emergência, art. 75, VIII, tem processo próprio).
+- **Cobertura:** `replenishment.test.ts › decideChannel`; `acquisition.test.ts`.

@@ -22,7 +22,7 @@ Um arquivo por módulo, com o nome que aparece no seletor de módulos do app:
 | Pedidos de Lanche (Módulo 7) | `modules/pedidos-de-lanche.md` |
 | Estoque | `modules/estoque.md` |
 | Comensal e Fiscal | `modules/comensal-fiscal.md` |
-| Gestão Unidade (anexo quantitativo, ARP, empenho) | `modules/gestao-unidade.md` |
+| Gestão Unidade (anexo quantitativo, ARP, empenho, contratação de origem, SIAFI) | `modules/gestao-unidade.md` |
 | Catálogo Global (modelos da SDAB) | `modules/catalogo-global.md` |
 | Contrate: demanda do requisitante (Projeto α) | `modules/contrate-demanda.md` |
 

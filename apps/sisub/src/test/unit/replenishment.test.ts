@@ -61,12 +61,22 @@ describe("decideChannel — ordem determinística", () => {
 		expect(decideChannel({ ...base, caronaAvailable: true }).channel).toBe("carona")
 	})
 
-	test("3) Supermercado Virtual: CATMAT + cobertura abaixo do limiar", () => {
-		expect(decideChannel({ ...base, coverageDays: 3 }).channel).toBe("supermercado_virtual")
+	test("3) Supermercado Virtual: CATMAT + cobertura abaixo do limiar + valor dentro do somatório", () => {
+		expect(decideChannel({ ...base, coverageDays: 3, smallValue: true }).channel).toBe("supermercado_virtual")
 	})
 
-	test("3-neg) urgente sem CATMAT não vai pro Supermercado Virtual", () => {
-		expect(decideChannel({ ...base, coverageDays: 3, hasCatmat: false }).channel).toBe("licitacao")
+	test("3-neg) urgência sozinha não é dispensa: fora do somatório vai para licitação", () => {
+		const decision = decideChannel({ ...base, coverageDays: 3 })
+		expect(decision.channel).toBe("licitacao")
+		expect(decision.reason).toContain("urgência sozinha não autoriza dispensa")
+	})
+
+	test("3-neg) urgente sem CATMAT e dentro do somatório vai para o Contrata+Brasil", () => {
+		expect(decideChannel({ ...base, coverageDays: 3, hasCatmat: false, smallValue: true }).channel).toBe("contrata_mais")
+	})
+
+	test("memória de cálculo mostra quanto resta do limite", () => {
+		expect(decideChannel({ ...base, smallValue: true, dispensaRemaining: 1000 }).reason).toContain("resta")
 	})
 
 	test("4) pequeno valor → Contrata+Brasil", () => {

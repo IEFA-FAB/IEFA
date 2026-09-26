@@ -75,8 +75,13 @@ export interface ChannelDecisionInput {
 	coverageDays: number
 	/** Limiar de urgência (default: lead time estimado; configurável na política). */
 	urgencyThresholdDays: number
-	/** Valor estimado dentro dos limites de dispensa do art. 75 da Lei 14.133. */
+	/**
+	 * O valor estimado CABE no que resta do limite da dispensa por valor no exercício (art. 75, II,
+	 * e § 1º: somatório da unidade gestora no ramo de atividade). Não é o valor do item sozinho.
+	 */
 	smallValue: boolean
+	/** Quanto resta do limite do inciso II no ramo, para a memória de cálculo (null = desconhecido). */
+	dispensaRemaining?: number | null
 }
 
 export interface ChannelDecision {
@@ -84,7 +89,15 @@ export interface ChannelDecision {
 	reason: string
 }
 
-/** Ordem determinística do spec: ARP própria → carona → Supermercado Virtual → Contrata+ → licitação. */
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+
+/**
+ * Ordem determinística do spec: ARP própria → carona → Supermercado Virtual → Contrata+ → licitação.
+ *
+ * Supermercado Virtual e Contrata+Brasil são dispensa por valor: os dois só entram quando o valor
+ * cabe no somatório do exercício. Urgência operacional sozinha não autoriza dispensa — a de
+ * emergência (art. 75, VIII) tem requisitos próprios e é decisão documentada, não sugestão.
+ */
 export function decideChannel(input: ChannelDecisionInput): ChannelDecision {
 	if (input.ownArpBalance >= input.netNeed && input.netNeed > 0) {
 		return { channel: "own_arp", reason: `ARP própria vigente com saldo (${input.ownArpBalance}) cobre a necessidade (${input.netNeed}) — emitir empenho/OF` }
@@ -93,14 +106,26 @@ export function decideChannel(input: ChannelDecisionInput): ChannelDecision {
 		return { channel: "carona", reason: "Sem saldo em ARP própria; há ARP de outra UASG localizável — solicitar adesão (carona)" }
 	}
 	const urgent = input.coverageDays < input.urgencyThresholdDays
-	if (input.hasCatmat && urgent) {
+	const room = input.dispensaRemaining != null ? ` (resta ${BRL.format(Math.max(0, input.dispensaRemaining))} do limite no ramo)` : ""
+	if (input.smallValue && input.hasCatmat && urgent) {
 		return {
 			channel: "supermercado_virtual",
-			reason: `Cobertura (${input.coverageDays}d) abaixo do limiar de urgência (${input.urgencyThresholdDays}d) e item tem CATMAT — dispensa eletrônica via Supermercado Virtual`,
+			reason: `Cobertura (${input.coverageDays}d) abaixo do limiar de urgência (${input.urgencyThresholdDays}d), item com CATMAT e valor dentro do somatório da dispensa${room} — dispensa eletrônica via Supermercado Virtual`,
 		}
 	}
 	if (input.smallValue) {
-		return { channel: "contrata_mais", reason: "Pequeno valor (art. 75 da Lei 14.133) fora de ata — Contrata+Brasil" }
+		return { channel: "contrata_mais", reason: `Valor dentro do somatório da dispensa (art. 75, II e § 1º, da Lei 14.133)${room} — Contrata+Brasil` }
+	}
+	if (urgent) {
+		return {
+			channel: "licitacao",
+			reason: `Cobertura (${input.coverageDays}d) abaixo do limiar, mas o valor não cabe no somatório da dispensa${room} — urgência sozinha não autoriza dispensa (a de emergência, art. 75, VIII, exige processo próprio); abrir planejamento de licitação`,
+		}
 	}
 	return { channel: "licitacao", reason: "Nenhum canal direto se aplica — abrir novo planejamento de licitação (procurement_list)" }
+}
+
+/** O valor estimado cabe no que resta do limite? Sem limite conhecido, não cabe (não se presume). */
+export function fitsDispensaRoom(estimatedValue: number | null, remaining: number | null): boolean {
+	return estimatedValue != null && estimatedValue > 0 && remaining != null && estimatedValue <= remaining + 0.005
 }

@@ -6,20 +6,52 @@
  * operava o almoxarifado de uma cozinha emitia OF contra o empenho de outra OM
  * (consumindo o saldo dela) e ainda podia citar um item de ARP que o empenho
  * não cobre. A regra é pura para ser testável; a server fn só lê do banco.
+ *
+ * Desde 20260926214000 a NE tem itens (`finance.empenho_item`): o item da OF tem de
+ * ser um dos itens de ARP que a NE cobre, e a OF pode ser emitida AGUARDANDO
+ * empenho (a emergência acontece; fica a pendência "regularize a NE").
  */
 
 export interface EmpenhoForSupplyOrder {
 	unitId: number | null
 	status: string
-	arpItemId: string | null
+	/** Itens de ARP cobertos pela NE (os `arp_item_id` dos itens dela). Vazio = NE sem ata. */
+	coveredArpItemIds: readonly string[]
 }
 
 export interface SupplyOrderLinkInput {
 	/** Unidade COMPRADORA da cozinha (`purchase_unit_id ?? unit_id`, ver `resolvePurchaseUnitId`). */
 	kitchenPurchaseUnitId: number | null
-	empenho: EmpenhoForSupplyOrder
+	/** null = OF aguardando empenho. */
+	empenho: EmpenhoForSupplyOrder | null
 	/** `arpItemId` de cada item da OF, na ordem em que chegaram (`undefined` = sem item de ARP). */
 	itemArpItemIds: ReadonlyArray<string | null | undefined>
+}
+
+/**
+ * Resultado da consulta SICAF, na emissão da OF ou no vínculo posterior da NE. Fornecedor fora da
+ * situação regular exige o reconhecimento EXPLÍCITO de quem emite; sem ele, a operação é recusada
+ * dizendo o que fazer. O texto devolvido é o que fica gravado em `supply_order.sicaf_status`.
+ */
+export function sicafDecision(
+	sicaf: { status: string; detail: string },
+	cnpj: string,
+	acknowledged: boolean,
+	moment: "na emissão" | "no vínculo da NE"
+): { ok: true; sicafStatus: string } | { ok: false; message: string } {
+	if (sicaf.status !== "regular" && !acknowledged) {
+		return { ok: false, message: `Fornecedor ${cnpj} com situação "${sicaf.detail}" no SICAF — confirme explicitamente para prosseguir` }
+	}
+	return { ok: true, sicafStatus: `${sicaf.status}: ${sicaf.detail} (CNPJ ${cnpj}, verificado ${moment})` }
+}
+
+/**
+ * O vínculo da NE à OF é um `update … where empenho_id is null`: sob corrida, o segundo clique
+ * não casa linha nenhuma e o PostgREST responde sem erro. Zero linhas é recusa, não sucesso.
+ */
+export function supplyOrderLinkUpdateProblem(updatedRows: number): string | null {
+	if (updatedRows === 0) return "A OF já recebeu um empenho (ou foi cancelada) enquanto você vinculava — recarregue a tela e confira"
+	return null
 }
 
 /** Problemas do vínculo da OF. Lista vazia = pode emitir. */
@@ -27,16 +59,25 @@ export function supplyOrderLinkProblems(input: SupplyOrderLinkInput): string[] {
 	const problems: string[] = []
 	const { empenho } = input
 
+	if (input.kitchenPurchaseUnitId == null) {
+		problems.push("A cozinha não tem unidade compradora: a OF não tem de quem ser")
+		return problems
+	}
+	// OF aguardando empenho: não há vínculo a conferir agora; ele se confere quando a NE for
+	// vinculada (`linkSupplyOrderEmpenhoFn` e o trigger do banco).
+	if (empenho == null) return problems
+
 	// Mesmo critério de `listEmpenhosForKitchenFn`, que é de onde a tela tira o
 	// empenho: só o que aparece ali pode ser usado aqui.
-	if (input.kitchenPurchaseUnitId == null || empenho.unitId == null || empenho.unitId !== input.kitchenPurchaseUnitId) {
+	if (empenho.unitId == null || empenho.unitId !== input.kitchenPurchaseUnitId) {
 		problems.push("O empenho não é da unidade compradora desta cozinha")
 	}
 	if (empenho.status !== "ativo") problems.push("Empenho anulado não sustenta Ordem de Fornecimento")
 
-	// O item da OF tem de ser o item que o empenho empenhou: outro item de ARP
-	// seria entregar (e depois liquidar) o que ninguém empenhou.
-	const foreign = input.itemArpItemIds.filter((id) => id != null && id !== empenho.arpItemId)
+	// O item da OF tem de ser um item que a NE empenhou: outro item de ARP seria
+	// entregar (e depois liquidar) o que ninguém empenhou.
+	const covered = new Set(empenho.coveredArpItemIds)
+	const foreign = input.itemArpItemIds.filter((id) => id != null && !covered.has(id))
 	if (foreign.length > 0) problems.push("Item de ARP que o empenho não cobre")
 
 	return problems
