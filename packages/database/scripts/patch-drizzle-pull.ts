@@ -54,6 +54,7 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import postgres from "postgres"
+import { escapeTemplateLiteral } from "../src/template-literal.ts"
 
 const drizzleDir = join(dirname(fileURLToPath(import.meta.url)), "..", "drizzle")
 const schemaPath = join(drizzleDir, "schema.ts")
@@ -194,7 +195,7 @@ async function restoreTruncatedDefaults(src: string): Promise<string> {
 			const schema = head ? schemaNames.get(head[1] as string) : undefined
 			const column = name ?? key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 			const live = defaults.find((d) => d.schema === schema && d.table === head?.[2] && d.column === column)
-			return live ? `${pre}${live.expr.replace(/`/g, "\\`")}${post}` : line
+			return live ? `${pre}${escapeTemplateLiteral(live.expr)}${post}` : line
 		}
 	)
 }
