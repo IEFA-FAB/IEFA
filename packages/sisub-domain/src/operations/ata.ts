@@ -36,6 +36,7 @@ import {
 	procurementListSnapshotSelectionInProcurement,
 	procurementPesquisaPrecoInProcurement,
 	procurementPesquisaPrecoItemInProcurement,
+	procurementSegmentInProcurement,
 	purchaseItemIngredientInProcurement,
 	purchaseItemInProcurement,
 	recipeIngredientsInKitchen,
@@ -69,6 +70,7 @@ import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.
 import { computeAtaItemLimits, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
 import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { isSamePrice } from "./price-units.ts"
+import { lineKey, resolveNeedsForSegment } from "./procurement-segments.ts"
 import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
@@ -558,6 +560,65 @@ async function filterOwnResearchLinks<T extends { researchId: string; researchIt
 	return links.filter((l) => ownHeaders.has(l.researchId) && researchOfOwnItem.get(l.researchItemId) === l.researchId)
 }
 
+// ─── Anexo de uma contratação ─────────────────────────────────────────────────
+
+/** Contratação viva da MESMA OM do anexo; a apagada não serve para anexo novo. */
+async function assertSegmentOfUnit(client: SisubDb | TxClient, segmentId: string, unitId: number): Promise<void> {
+	const rows = await runQuery("QUERY_FAILED", () =>
+		client
+			.select({ unitId: procurementSegmentInProcurement.unitId, deletedAt: procurementSegmentInProcurement.deletedAt })
+			.from(procurementSegmentInProcurement)
+			.where(eq(procurementSegmentInProcurement.id, segmentId))
+			.limit(1)
+	)
+	const segment = rows[0]
+	if (!segment || segment.deletedAt) throw new DomainError("SEGMENT_NOT_FOUND", "Contratação não encontrada ou removida: escolha outra.")
+	if (segment.unitId !== unitId) throw new DomainError("SEGMENT_NOT_IN_UNIT", "A contratação é de outra OM.")
+}
+
+/** Quantos itens do cálculo ficaram fora do anexo desta contratação, por motivo. */
+export interface SegmentExclusion {
+	otherSegment: number
+	unassigned: number
+	conflict: number
+}
+
+/**
+ * Cálculo do anexo de UMA contratação: o cálculo completo, filtrado pela resolução de cada
+ * linha (item de compra) — planejar X produções e comprar só o segmento Y. Devolve também
+ * quantos itens ficaram de fora, para o wizard dizer onde estão.
+ */
+export async function calculateAtaNeedsForSegment(
+	db: SisubDb,
+	ctx: UserContext,
+	input: CalculateAtaNeeds & { segmentId: string }
+): Promise<{ items: ProcurementNeed[]; excluded: SegmentExclusion }> {
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db
+			.select({ unitId: procurementSegmentInProcurement.unitId, deletedAt: procurementSegmentInProcurement.deletedAt })
+			.from(procurementSegmentInProcurement)
+			.where(eq(procurementSegmentInProcurement.id, input.segmentId))
+			.limit(1)
+	)
+	const segment = rows[0]
+	if (!segment || segment.deletedAt) throw new DomainError("SEGMENT_NOT_FOUND", "Contratação não encontrada ou removida: escolha outra.")
+	requireUnit(ctx, 1, segment.unitId)
+	await assertSelectionsBelongToUnit(db, segment.unitId, input.kitchenSelections)
+
+	const needs = await calculateAtaNeeds(db, ctx, input)
+	const { resolutions } = await resolveNeedsForSegment(db, segment.unitId, needs)
+	const excluded: SegmentExclusion = { otherSegment: 0, unassigned: 0, conflict: 0 }
+	const items: ProcurementNeed[] = []
+	for (const need of needs) {
+		const resolution = resolutions.get(lineKey({ ingredientId: need.ingredient_id, purchaseItemId: need.purchase_item_id }))
+		if (resolution?.kind === "assigned" && resolution.segmentId === input.segmentId) items.push(need)
+		else if (resolution?.kind === "assigned") excluded.otherSegment++
+		else if (resolution?.kind === "conflict") excluded.conflict++
+		else excluded.unassigned++
+	}
+	return { items, excluded }
+}
+
 // ─── Criar rascunho vazio (wizard step 1) ────────────────────────────────────
 
 /**
@@ -624,6 +685,10 @@ export async function updateAtaDraft(db: SisubDb, ctx: UserContext, input: Updat
 		if (input.notes !== undefined) updateData.notes = input.notes || null
 		if (input.wizardStep !== undefined) updateData.wizardStep = input.wizardStep
 		if (input.validityMonths !== undefined) updateData.validityMonths = input.validityMonths
+		if (input.segmentId !== undefined) {
+			if (input.segmentId) await assertSegmentOfUnit(tx, input.segmentId, unitId)
+			updateData.segmentId = input.segmentId
+		}
 
 		// Detecta draft inexistente (deletado mid-session) em vez de no-op silencioso — paridade com updateAtaStatus/deleteAta.
 		await mutateOrFail(

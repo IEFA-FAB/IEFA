@@ -13,6 +13,7 @@ import {
 	CreateAtaDraftSchema,
 	CreateAtaSchema,
 	calculateAtaNeeds,
+	calculateAtaNeedsForSegment,
 	createAta,
 	createAtaDraft,
 	DeleteAtaSchema,
@@ -25,6 +26,7 @@ import {
 	finalizeAtaDraft,
 	type ProcurementNeed,
 	SaveAtaDraftItemsSchema,
+	type SegmentExclusion,
 	saveAtaDraftItems,
 	UpdateAtaDraftSchema,
 	UpdateAtaItemDescriptionSchema,
@@ -47,9 +49,13 @@ import type { AtaWithDetails } from "@/types/domain/ata"
 
 export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 	.validator(CalculateAtaNeedsSchema)
-	.handler(async ({ data }): Promise<ProcurementNeed[]> => {
+	.handler(async ({ data }): Promise<{ items: ProcurementNeed[]; excluded: SegmentExclusion | null }> => {
 		const ctx = await requireAuth()
-		return calculateAtaNeeds(getDb(), ctx, data).catch(handleDomainError)
+		// Anexo de uma contratação: só os itens dela, com a contagem do que ficou de fora.
+		if (data.segmentId) return calculateAtaNeedsForSegment(getDb(), ctx, { ...data, segmentId: data.segmentId }).catch(handleDomainError)
+		return calculateAtaNeeds(getDb(), ctx, data)
+			.then((items) => ({ items, excluded: null }))
+			.catch(handleDomainError)
 	})
 
 // ─── Criar rascunho vazio (wizard step 1) ────────────────────────────────────

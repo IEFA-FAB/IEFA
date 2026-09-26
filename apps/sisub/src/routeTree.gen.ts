@@ -128,6 +128,7 @@ import { Route as ProtectedModulesUnitUnitIdLiquidationsRouteImport } from './ro
 import { Route as ProtectedModulesUnitUnitIdPaymentsRouteImport } from './routes/_protected/_modules/unit/$unitId/payments'
 import { Route as ProtectedModulesUnitUnitIdProcurementRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement'
 import { Route as ProtectedModulesUnitUnitIdReconciliationRouteImport } from './routes/_protected/_modules/unit/$unitId/reconciliation'
+import { Route as ProtectedModulesUnitUnitIdSegmentsRouteImport } from './routes/_protected/_modules/unit/$unitId/segments'
 import { Route as ProtectedModulesUnitUnitIdSettingsRouteImport } from './routes/_protected/_modules/unit/$unitId/settings'
 import { Route as ProtectedModulesUnitUnitIdSiafiRouteImport } from './routes/_protected/_modules/unit/$unitId/siafi'
 import { Route as ProtectedModulesGlobalRecipesRecipeIdIndexRouteImport } from './routes/_protected/_modules/global/recipes/$recipeId/index'
@@ -857,6 +858,12 @@ const ProtectedModulesUnitUnitIdReconciliationRoute =
     path: '/reconciliation',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
+const ProtectedModulesUnitUnitIdSegmentsRoute =
+  ProtectedModulesUnitUnitIdSegmentsRouteImport.update({
+    id: '/segments',
+    path: '/segments',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
 const ProtectedModulesUnitUnitIdSettingsRoute =
   ProtectedModulesUnitUnitIdSettingsRouteImport.update({
     id: '/settings',
@@ -1186,6 +1193,7 @@ export interface FileRoutesByFullPath {
   '/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
   '/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
+  '/unit/$unitId/segments': typeof ProtectedModulesUnitUnitIdSegmentsRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/diner/snack-requests/': typeof ProtectedModulesDinerSnackRequestsIndexRoute
@@ -1333,6 +1341,7 @@ export interface FileRoutesByTo {
   '/unit/$unitId/liquidations': typeof ProtectedModulesUnitUnitIdLiquidationsRoute
   '/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
   '/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
+  '/unit/$unitId/segments': typeof ProtectedModulesUnitUnitIdSegmentsRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/diner/snack-requests': typeof ProtectedModulesDinerSnackRequestsIndexRoute
@@ -1490,6 +1499,7 @@ export interface FileRoutesById {
   '/_protected/_modules/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
   '/_protected/_modules/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/_protected/_modules/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
+  '/_protected/_modules/unit/$unitId/segments': typeof ProtectedModulesUnitUnitIdSegmentsRoute
   '/_protected/_modules/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/_protected/_modules/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/_protected/_modules/diner/snack-requests/': typeof ProtectedModulesDinerSnackRequestsIndexRoute
@@ -1646,6 +1656,7 @@ export interface FileRouteTypes {
     | '/unit/$unitId/payments'
     | '/unit/$unitId/procurement'
     | '/unit/$unitId/reconciliation'
+    | '/unit/$unitId/segments'
     | '/unit/$unitId/settings'
     | '/unit/$unitId/siafi'
     | '/diner/snack-requests/'
@@ -1793,6 +1804,7 @@ export interface FileRouteTypes {
     | '/unit/$unitId/liquidations'
     | '/unit/$unitId/payments'
     | '/unit/$unitId/reconciliation'
+    | '/unit/$unitId/segments'
     | '/unit/$unitId/settings'
     | '/unit/$unitId/siafi'
     | '/diner/snack-requests'
@@ -1949,6 +1961,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/unit/$unitId/payments'
     | '/_protected/_modules/unit/$unitId/procurement'
     | '/_protected/_modules/unit/$unitId/reconciliation'
+    | '/_protected/_modules/unit/$unitId/segments'
     | '/_protected/_modules/unit/$unitId/settings'
     | '/_protected/_modules/unit/$unitId/siafi'
     | '/_protected/_modules/diner/snack-requests/'
@@ -2845,6 +2858,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdReconciliationRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
+    '/_protected/_modules/unit/$unitId/segments': {
+      id: '/_protected/_modules/unit/$unitId/segments'
+      path: '/segments'
+      fullPath: '/unit/$unitId/segments'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdSegmentsRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
     '/_protected/_modules/unit/$unitId/settings': {
       id: '/_protected/_modules/unit/$unitId/settings'
       path: '/settings'
@@ -3388,6 +3408,7 @@ interface ProtectedModulesUnitUnitIdRouteRouteChildren {
   ProtectedModulesUnitUnitIdPaymentsRoute: typeof ProtectedModulesUnitUnitIdPaymentsRoute
   ProtectedModulesUnitUnitIdProcurementRoute: typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   ProtectedModulesUnitUnitIdReconciliationRoute: typeof ProtectedModulesUnitUnitIdReconciliationRoute
+  ProtectedModulesUnitUnitIdSegmentsRoute: typeof ProtectedModulesUnitUnitIdSegmentsRoute
   ProtectedModulesUnitUnitIdSettingsRoute: typeof ProtectedModulesUnitUnitIdSettingsRoute
   ProtectedModulesUnitUnitIdSiafiRoute: typeof ProtectedModulesUnitUnitIdSiafiRoute
   ProtectedModulesUnitUnitIdIndexRoute: typeof ProtectedModulesUnitUnitIdIndexRoute
@@ -3410,6 +3431,8 @@ const ProtectedModulesUnitUnitIdRouteRouteChildren: ProtectedModulesUnitUnitIdRo
       ProtectedModulesUnitUnitIdProcurementRouteWithChildren,
     ProtectedModulesUnitUnitIdReconciliationRoute:
       ProtectedModulesUnitUnitIdReconciliationRoute,
+    ProtectedModulesUnitUnitIdSegmentsRoute:
+      ProtectedModulesUnitUnitIdSegmentsRoute,
     ProtectedModulesUnitUnitIdSettingsRoute:
       ProtectedModulesUnitUnitIdSettingsRoute,
     ProtectedModulesUnitUnitIdSiafiRoute: ProtectedModulesUnitUnitIdSiafiRoute,

@@ -204,6 +204,7 @@ const TABLE_SCHEMA: Record<string, string> = {
 	procurement_list_item: "procurement",
 	kitchen_ata_draft: "procurement",
 	kitchen_ata_draft_selection: "procurement",
+	procurement_segment: "procurement",
 	// kitchen (default p/ o resto)
 }
 const schemaFor = (table: string): string => TABLE_SCHEMA[table] ?? "kitchen"

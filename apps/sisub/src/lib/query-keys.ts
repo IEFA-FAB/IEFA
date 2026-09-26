@@ -185,6 +185,10 @@ export const queryKeys = {
 		pending: (kitchenId: number | null) => ["kitchen_ata_draft", "pending", kitchenId] as const,
 	},
 
+	procurementSegments: {
+		overview: (unitId: number | null) => ["procurement_segments", "overview", unitId] as const,
+	},
+
 	ata: {
 		all: () => ["procurement_list"] as const,
 		listAll: () => ["procurement_list", "list"] as const,

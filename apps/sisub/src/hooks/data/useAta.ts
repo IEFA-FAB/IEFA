@@ -1,4 +1,5 @@
 import type { ProcurementList } from "@iefa/database/sisub"
+import type { ProcurementNeed } from "@iefa/sisub-domain"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
@@ -54,7 +55,7 @@ export function useCalculateAtaNeeds() {
 	return useMutation({
 		mutationFn: (state: AtaWizardState) =>
 			calculateAtaNeedsFn({
-				data: { kitchenSelections: state.kitchenSelections },
+				data: { kitchenSelections: state.kitchenSelections, segmentId: state.segmentId ?? null },
 			}),
 		onError: (error) => toast.error(`Erro ao calcular necessidades: ${error.message}`),
 	})
@@ -71,7 +72,7 @@ export function useCreateAta() {
 		}: {
 			unitId: number
 			wizardState: AtaWizardState
-			items: Awaited<ReturnType<typeof calculateAtaNeedsFn>>
+			items: ProcurementNeed[]
 			researchLinks?: Array<{ ingredientId: string; researchId: string; researchItemId: string }>
 		}) =>
 			createAtaFn({
@@ -141,6 +142,7 @@ export function useUpdateAtaDraft() {
 			wizardStep?: number
 			validityMonths?: number
 			kitchenSelections?: AtaWizardState["kitchenSelections"]
+			segmentId?: string | null
 		}) => updateAtaDraftFn({ data: params }),
 		onError: (error) => toast.error(`Erro ao salvar rascunho: ${error.message}`),
 	})
@@ -151,7 +153,7 @@ export function useSaveAtaDraftItems() {
 	return useMutation({
 		mutationFn: (params: {
 			draftId: string
-			items: Awaited<ReturnType<typeof calculateAtaNeedsFn>>
+			items: ProcurementNeed[]
 			researchLinks?: Array<{ ingredientId: string; researchId: string; researchItemId: string }>
 		}) =>
 			saveAtaDraftItemsFn({ data: params }) as Promise<{
@@ -221,7 +223,7 @@ export function useFinalizeAtaDraft() {
 			draftId: string
 			title: string
 			notes?: string
-			items: Awaited<ReturnType<typeof calculateAtaNeedsFn>>
+			items: ProcurementNeed[]
 			researchLinks?: Array<{ ingredientId: string; researchId: string; researchItemId: string }>
 		}) => finalizeAtaDraftFn({ data: params }),
 		onSuccess: (data, variables) => {
