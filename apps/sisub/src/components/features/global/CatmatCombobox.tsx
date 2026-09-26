@@ -99,7 +99,7 @@ export function CatmatCombobox({ value, descricao, onChange }: CatmatComboboxPro
 			}}
 		>
 			<div className="flex w-full items-center gap-1">
-				<ComboboxTrigger render={<Button type="button" variant="outline" className="h-auto min-h-9 w-full justify-between font-normal" />}>
+				<ComboboxTrigger render={<Button type="button" variant="outline" className="h-auto min-h-9 min-w-0 flex-1 justify-between font-normal" />}>
 					{value ? (
 						<span className="flex min-w-0 items-center gap-2">
 							<span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">#{value}</span>

@@ -1,6 +1,6 @@
 import type { Ceafa, Folder, Ingredient, Nutrient } from "@iefa/database/sisub"
 import type { NutritionReferenceSummary } from "@iefa/sisub-domain"
-import { useForm } from "@tanstack/react-form"
+import { useForm, useStore } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi } from "@tanstack/react-router"
 import { ArrowLeft, CalendarCheck, CircleCheck, History, Loader2, Lock, Pencil, RotateCcw, Save, X } from "lucide-react"
@@ -27,7 +27,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useDraft } from "@/hooks/forms/useDraft"
 import { cn } from "@/lib/cn"
+import type { DraftChange, DraftFields } from "@/lib/drafts/draft-diff"
 import { computeIngredientDiff } from "@/lib/ingredient-diff"
 import {
 	ceafaQueryOptions,
@@ -40,6 +42,7 @@ import {
 	useRestoreIngredientVersion,
 	useSaveIngredientDetails,
 } from "@/services/IngredientsService"
+import { PendingChanges } from "../shared/PendingChanges"
 import { FolderCombobox } from "./FolderCombobox"
 import { IngredientAllergensField } from "./IngredientAllergensField"
 import { IngredientDeliveryCycleField } from "./IngredientDeliveryCycleField"
@@ -85,6 +88,22 @@ const MEASURE_UNIT_LABELS: Record<string, string> = {
 	LT: "LT (Litro)",
 	G: "G (Grama)",
 	ML: "ML (Mililitro)",
+}
+
+/** Campos do form a partir do insumo salvo — é também o baseline do rascunho. */
+function ingredientFormValues(ingredient: Ingredient) {
+	return {
+		description: ingredient.description ?? "",
+		folder_id: ingredient.folder_id ?? null,
+		measure_unit: ingredient.measure_unit ?? "",
+		correction_factor: ingredient.correction_factor ? Number(ingredient.correction_factor) : 1.0,
+		ceafa_id: ingredient.ceafa_id ?? null,
+	}
+}
+
+type IngredientDraft = ReturnType<typeof ingredientFormValues> & {
+	nutritionReference: NutritionReferenceSummary | null
+	nutrients: Record<string, string>
 }
 
 interface IngredientDetailFormProps {
@@ -167,13 +186,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const currentCeafa = ingredient.ceafa_id ? queryClient.getQueryData<Ceafa[]>(ceafaQueryOptions("").queryKey)?.find((c) => c.id === ingredient.ceafa_id) : null
 
 	const form = useForm({
-		defaultValues: {
-			description: ingredient.description ?? "",
-			folder_id: ingredient.folder_id ?? null,
-			measure_unit: ingredient.measure_unit ?? "",
-			correction_factor: ingredient.correction_factor ? Number(ingredient.correction_factor) : 1.0,
-			ceafa_id: ingredient.ceafa_id ?? null,
-		},
+		defaultValues: ingredientFormValues(ingredient),
 		onSubmit: async ({ value }) => {
 			const validation = productSchema.safeParse(value)
 			if (!validation.success) {
@@ -207,8 +220,10 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 					nutrients: nutrientsPayload,
 				})
 
+				draft.clear()
 				setNutrientOverrides({})
 				setNutritionReferenceOverride(undefined)
+				form.reset(value)
 				await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 				toast.success("Insumo atualizado com sucesso!")
 			} catch (err) {
@@ -219,6 +234,61 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	})
 
 	const isPending = isSaving
+
+	// ── Rascunho local + alterações pendentes (salvamento explícito: cada Salvar é uma versão) ──
+	const ingredientHref = `/global/ingredients/${ingredient.id}`
+	const formValues = useStore(form.store, (state) => state.values)
+	const draftFields: DraftFields<IngredientDraft> = {
+		description: { label: "Nome do insumo" },
+		measure_unit: { label: "Unidade de medida", format: (value) => (value ? (MEASURE_UNIT_LABELS[value] ?? value) : "—") },
+		folder_id: { label: "Pasta", format: (id) => (id ? (folderOptions.find((option) => option.id === id)?.path ?? "Pasta") : "Sem pasta") },
+		correction_factor: { label: "Fator de correção" },
+		ceafa_id: {
+			label: "Correlação CEAFA",
+			format: (id) => (id ? (ceafaList.find((c) => c.id === id)?.description ?? currentCeafa?.description ?? "CEAFA selecionado") : "—"),
+		},
+		nutritionReference: {
+			label: "Tabela alimentar",
+			isEqual: (a, b) => (a?.food_revision_id ?? null) === (b?.food_revision_id ?? null),
+			format: (value) => value?.display_name ?? "Sem vínculo (manual)",
+		},
+		nutrients: {
+			label: "Nutrientes",
+			expand: (from, to) =>
+				syncedNutrients.flatMap((nutrient): DraftChange[] => {
+					const before = from[nutrient.id] ?? ""
+					const after = to[nutrient.id] ?? ""
+					if (before === after) return []
+					return [{ key: `nutrients:${nutrient.id}`, label: nutrient.name ?? "Nutriente", from: before || "—", to: after || "—" }]
+				}),
+		},
+	}
+	const draft = useDraft<IngredientDraft>({
+		key: `sisub:ingredient:${ingredient.id}`,
+		title: `Insumo: ${ingredient.description ?? ""}`,
+		href: ingredientHref,
+		baseline: { ...ingredientFormValues(ingredient), nutritionReference: serverNutritionReference, nutrients: baseNutrientValues },
+		current: { ...formValues, nutritionReference, nutrients: nutrientValues },
+		baseStamp: versions?.[0]?.id ?? null,
+		fields: draftFields,
+		onRestore: ({ nutritionReference: restoredReference, nutrients: restoredNutrients, ...restored }) => {
+			form.reset(restored, { keepDefaultValues: true })
+			setNutritionReferenceOverride(restoredReference)
+			setNutrientOverrides(Object.fromEntries(Object.entries(restoredNutrients).filter(([id, value]) => (baseNutrientValues[id] ?? "") !== value)))
+		},
+	})
+
+	const discardDraft = () => {
+		form.reset(ingredientFormValues(ingredient))
+		setNutrientOverrides({})
+		setNutritionReferenceOverride(undefined)
+		draft.clear()
+	}
+
+	// Abas de itens salvam por conta própria: a barra do insumo só aparece nelas se houver
+	// alteração do insumo pendente — senão seriam dois "Salvar" disputando a mesma tela.
+	const isIngredientTab = activeTab === "detalhes" || activeTab === "nutricao"
+	const showSaveBar = isIngredientTab || draft.isDirty
 
 	const folder = folders.find((f) => f.id === ingredient.folder_id)
 
@@ -248,6 +318,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 				correction_factor: snap.correction_factor ?? 1.0,
 				ceafa_id: snap.ceafa_id ?? null,
 			})
+			draft.clear()
 			setNutrientOverrides({})
 			setNutritionReferenceOverride(undefined)
 			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
@@ -377,23 +448,33 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 					<div className="flex-1 space-y-8 pb-24">
 						{/* Escopo do form: identificação + informação nutricional (salvos juntos pela barra inferior).
 						    Itens de compra/produto ficam em abas próprias — persistidos separadamente. */}
-						<form
-							id="ingredient-form"
-							onSubmit={(e) => {
-								e.preventDefault()
-								e.stopPropagation()
-								form.handleSubmit()
-							}}
-						>
-							<Tabs value={activeTab} onValueChange={(value) => setTab(value as IngredientFormTab)}>
-								{/* grid-cols-4: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba */}
-								<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-4">
-									<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
-									<TabsTrigger value="nutricao">Nutrição</TabsTrigger>
-									<TabsTrigger value="compra">Itens de compra</TabsTrigger>
-									<TabsTrigger value="produto">Itens de produto</TabsTrigger>
-								</TabsList>
+						<Tabs value={activeTab} onValueChange={(value) => setTab(value as IngredientFormTab)}>
+							{/* grid-cols-4: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
+							    No celular os rótulos longos encolhem: 4 colunas em 390px não cabem "Itens de produto". */}
+							<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-4">
+								<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
+								<TabsTrigger value="nutricao">Nutrição</TabsTrigger>
+								<TabsTrigger value="compra">
+									<span className="sm:hidden">Compra</span>
+									<span className="hidden sm:inline">Itens de compra</span>
+								</TabsTrigger>
+								<TabsTrigger value="produto">
+									<span className="sm:hidden">Produto</span>
+									<span className="hidden sm:inline">Itens de produto</span>
+								</TabsTrigger>
+							</TabsList>
 
+							{/* O form do insumo cobre só Detalhes e Nutrição. As abas de itens ficam FORA dele: cada
+							    item tem o próprio Salvar, e um campo de item dentro deste form faria Enter salvar o
+							    insumo em vez do item. */}
+							<form
+								id="ingredient-form"
+								onSubmit={(e) => {
+									e.preventDefault()
+									e.stopPropagation()
+									form.handleSubmit()
+								}}
+							>
 								{/* Detalhes — classificação e medida (o nome do insumo é editado no título da página) */}
 								<TabsContent value="detalhes" className={READING_PANEL}>
 									<Card>
@@ -518,7 +599,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 																	}}
 																>
 																	<div className="flex w-full items-center gap-1">
-																		<ComboboxTrigger render={<Button type="button" variant="outline" className="w-full justify-between font-normal" />}>
+																		<ComboboxTrigger render={<Button type="button" variant="outline" className="min-w-0 flex-1 justify-between font-normal" />}>
 																			<span className="truncate">
 																				{selectedCeafa ? (selectedCeafa.description ?? "CEAFA selecionado") : "Buscar alimento CEAFA..."}
 																			</span>
@@ -576,37 +657,52 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 										</CardContent>
 									</Card>
 								</TabsContent>
+							</form>
 
-								{/* Itens de compra (purchase_item + CATMAT) — persistidos separadamente */}
-								<TabsContent value="compra" className={READING_PANEL}>
-									<PurchaseItemsManager ingredientId={ingredient.id} onChanged={handleVersionChanged} />
-								</TabsContent>
+							{/* Itens de compra (purchase_item + CATMAT) — persistidos separadamente */}
+							<TabsContent value="compra" className={READING_PANEL}>
+								<PurchaseItemsManager
+									ingredientId={ingredient.id}
+									ingredientName={ingredient.description ?? "Insumo"}
+									ingredientHref={`${ingredientHref}?tab=compra`}
+									onChanged={handleVersionChanged}
+								/>
+							</TabsContent>
 
-								{/* Itens de produto (ingredient_item — estoque/GS1, vinculado a 1 item de compra) — persistidos separadamente */}
-								<TabsContent value="produto" className={READING_PANEL}>
-									<IngredientItemsManager ingredientId={ingredient.id} onChanged={handleVersionChanged} />
-								</TabsContent>
-							</Tabs>
-						</form>
+							{/* Itens de produto (ingredient_item — estoque/GS1, vinculado a 1 item de compra) — persistidos separadamente */}
+							<TabsContent value="produto" className={READING_PANEL}>
+								<IngredientItemsManager
+									ingredientId={ingredient.id}
+									ingredientName={ingredient.description ?? "Insumo"}
+									ingredientHref={`${ingredientHref}?tab=produto`}
+									onChanged={handleVersionChanged}
+								/>
+							</TabsContent>
+						</Tabs>
 					</div>
 
-					{/* Barra de ação do form — sempre acessível, escopo explícito */}
-					<div className="sticky bottom-0 z-10 -mx-3 border-t border-border bg-background px-3 py-3 sm:-mx-6 sm:px-6">
-						<div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-							<p className="text-caption text-muted-foreground">
-								Salva identificação e informação nutricional. Itens de compra e produto são salvos separadamente.
-							</p>
-							<div className="flex justify-end gap-2">
-								<Button type="button" variant="outline" onClick={() => window.history.back()}>
-									Cancelar
-								</Button>
-								<Button type="submit" form="ingredient-form" disabled={isPending}>
-									{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
-									Salvar Insumo
-								</Button>
+					{/* Barra de ação do insumo — escopo explícito. Nas abas de itens só aparece com alteração pendente do insumo. */}
+					{showSaveBar && (
+						<div className="sticky bottom-0 z-10 -mx-3 border-t border-border bg-background px-3 py-3 sm:-mx-6 sm:px-6">
+							<div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+								<p className="text-caption text-muted-foreground">
+									{isIngredientTab
+										? "Salva identificação e informação nutricional, e registra uma versão. Itens de compra e produto são salvos nas próprias abas."
+										: "Há alterações em Detalhes ou Nutrição ainda não salvas."}
+								</p>
+								<div className="flex flex-wrap items-center justify-end gap-2 sm:shrink-0 sm:flex-nowrap">
+									<PendingChanges draft={draft} onDiscard={discardDraft} disabled={isPending} />
+									<Button type="button" variant="outline" onClick={() => window.history.back()}>
+										Voltar
+									</Button>
+									<Button type="submit" form="ingredient-form" disabled={isPending || !draft.isDirty}>
+										{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
+										Salvar Insumo
+									</Button>
+								</div>
 							</div>
 						</div>
-					</div>
+					)}
 				</>
 			)}
 
