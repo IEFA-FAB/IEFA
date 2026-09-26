@@ -3,7 +3,7 @@ import type { NutritionReferenceSummary } from "@iefa/sisub-domain"
 import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi } from "@tanstack/react-router"
-import { ArrowLeft, CalendarCheck, CircleCheck, History, Loader2, Lock, Pencil, RotateCcw, Save, X } from "lucide-react"
+import { ArrowLeft, CalendarCheck, CircleCheck, History, Loader2, Lock, Pencil, RotateCcw, X } from "lucide-react"
 import { type Dispatch, type SetStateAction, useMemo, useState } from "react"
 import { z } from "zod"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -27,7 +27,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { discardDraft } from "@/hooks/forms/useDraft"
 import { cn } from "@/lib/cn"
+import type { DraftChange, DraftFields } from "@/lib/drafts/draft-diff"
 import { computeIngredientDiff } from "@/lib/ingredient-diff"
 import {
 	ceafaQueryOptions,
@@ -40,6 +42,7 @@ import {
 	useRestoreIngredientVersion,
 	useSaveIngredientDetails,
 } from "@/services/IngredientsService"
+import { DraftSaveBar } from "../shared/DraftSaveBar"
 import { FolderCombobox } from "./FolderCombobox"
 import { IngredientAllergensField } from "./IngredientAllergensField"
 import { IngredientDeliveryCycleField } from "./IngredientDeliveryCycleField"
@@ -85,6 +88,25 @@ const MEASURE_UNIT_LABELS: Record<string, string> = {
 	LT: "LT (Litro)",
 	G: "G (Grama)",
 	ML: "ML (Mililitro)",
+}
+
+/** Campos do form a partir do insumo salvo — é também o baseline do rascunho. */
+function ingredientFormValues(ingredient: Ingredient) {
+	return {
+		description: ingredient.description ?? "",
+		folder_id: ingredient.folder_id ?? null,
+		measure_unit: ingredient.measure_unit ?? "",
+		correction_factor: ingredient.correction_factor != null ? Number(ingredient.correction_factor) : 1.0,
+		ceafa_id: ingredient.ceafa_id ?? null,
+	}
+}
+
+type IngredientDraft = ReturnType<typeof ingredientFormValues> & {
+	nutritionReference: NutritionReferenceSummary | null
+	/** Valores efetivos (salvo + editado) — é o que o diff compara. */
+	nutrients: Record<string, string>
+	/** Só as edições, para restaurar exatamente o que foi digitado (fora do diff). */
+	nutrientOverrides: Record<string, string>
 }
 
 interface IngredientDetailFormProps {
@@ -167,13 +189,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const currentCeafa = ingredient.ceafa_id ? queryClient.getQueryData<Ceafa[]>(ceafaQueryOptions("").queryKey)?.find((c) => c.id === ingredient.ceafa_id) : null
 
 	const form = useForm({
-		defaultValues: {
-			description: ingredient.description ?? "",
-			folder_id: ingredient.folder_id ?? null,
-			measure_unit: ingredient.measure_unit ?? "",
-			correction_factor: ingredient.correction_factor ? Number(ingredient.correction_factor) : 1.0,
-			ceafa_id: ingredient.ceafa_id ?? null,
-		},
+		defaultValues: ingredientFormValues(ingredient),
 		onSubmit: async ({ value }) => {
 			const validation = productSchema.safeParse(value)
 			if (!validation.success) {
@@ -207,9 +223,13 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 					nutrients: nutrientsPayload,
 				})
 
+				// Baseline primeiro: só depois do refetch o form volta ao "salvo". Na ordem inversa o
+				// form já mostra o valor novo contra um baseline antigo e o rascunho renasce.
+				await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 				setNutrientOverrides({})
 				setNutritionReferenceOverride(undefined)
-				await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
+				form.reset(value)
+				discardDraft(ingredientDraftKey)
 				toast.success("Insumo atualizado com sucesso!")
 			} catch (err) {
 				const msg = err instanceof Error ? err.message : String(err)
@@ -219,6 +239,62 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	})
 
 	const isPending = isSaving
+
+	// ── Rascunho local + alterações pendentes (salvamento explícito: cada Salvar é uma versão) ──
+	// Os valores do form entram pela barra (`form.Subscribe`), não aqui: assinar no topo
+	// re-renderizava a tela inteira a cada tecla.
+	const ingredientHref = `/global/ingredients/${ingredient.id}`
+	const ingredientDraftKey = `sisub:ingredient:${ingredient.id}`
+	const draftFields: DraftFields<IngredientDraft> = {
+		description: { label: "Nome do insumo" },
+		measure_unit: { label: "Unidade de medida", format: (value) => (value ? (MEASURE_UNIT_LABELS[value] ?? value) : "—") },
+		folder_id: { label: "Pasta", format: (id) => (id ? (folderOptions.find((option) => option.id === id)?.path ?? "Pasta") : "Sem pasta") },
+		correction_factor: { label: "Fator de correção" },
+		ceafa_id: {
+			label: "Correlação CEAFA",
+			format: (id) => (id ? (ceafaList.find((c) => c.id === id)?.description ?? currentCeafa?.description ?? "CEAFA selecionado") : "—"),
+		},
+		nutritionReference: {
+			label: "Tabela alimentar",
+			isEqual: (a, b) => (a?.food_revision_id ?? null) === (b?.food_revision_id ?? null),
+			format: (value) => value?.display_name ?? "Sem vínculo (manual)",
+		},
+		nutrients: {
+			label: "Nutrientes",
+			expand: (from, to) =>
+				syncedNutrients.flatMap((nutrient): DraftChange[] => {
+					const before = from[nutrient.id] ?? ""
+					const after = to[nutrient.id] ?? ""
+					if (before === after) return []
+					return [{ key: `nutrients:${nutrient.id}`, label: nutrient.name ?? "Nutriente", from: before || "—", to: after || "—" }]
+				}),
+		},
+		nutrientOverrides: { label: "Nutrientes editados", isEqual: () => true },
+	}
+	const draftBaseline: IngredientDraft = {
+		...ingredientFormValues(ingredient),
+		nutritionReference: serverNutritionReference,
+		nutrients: baseNutrientValues,
+		nutrientOverrides: {},
+	}
+	const restoreDraft = ({
+		nutritionReference: restoredReference,
+		nutrients: _nutrients,
+		nutrientOverrides: restoredOverrides,
+		...restored
+	}: IngredientDraft) => {
+		form.reset(restored, { keepDefaultValues: true })
+		setNutritionReferenceOverride(restoredReference)
+		setNutrientOverrides(restoredOverrides)
+	}
+	const discardIngredientDraft = () => {
+		form.reset(ingredientFormValues(ingredient))
+		setNutrientOverrides({})
+		setNutritionReferenceOverride(undefined)
+		discardDraft(ingredientDraftKey)
+	}
+
+	const isIngredientTab = activeTab === "detalhes" || activeTab === "nutricao"
 
 	const folder = folders.find((f) => f.id === ingredient.folder_id)
 
@@ -240,6 +316,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 		if (!selectedVersion) return
 		try {
 			await restoreIngredientVersion({ ingredientId: ingredient.id, versionId: selectedVersion.id })
+			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 			const snap = selectedVersion.snapshot.ingredient
 			form.reset({
 				description: snap.description ?? "",
@@ -250,7 +327,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 			})
 			setNutrientOverrides({})
 			setNutritionReferenceOverride(undefined)
-			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
+			discardDraft(ingredientDraftKey)
 			toast.success(`Insumo restaurado para a versão v${selectedVersion.version_number}`)
 			setRestoreConfirmOpen(false)
 			setSelectedVersionId(null)
@@ -373,10 +450,28 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 			{selectedVersion && previewDiff ? (
 				<IngredientVersionPreview snapshot={selectedVersion.snapshot} diff={previewDiff} isBaseline={!previousVersion} />
 			) : (
-				<>
-					<div className="flex-1 space-y-8 pb-24">
-						{/* Escopo do form: identificação + informação nutricional (salvos juntos pela barra inferior).
+				<div className="flex-1 space-y-8 pb-24">
+					{/* Escopo do form: identificação + informação nutricional (salvos juntos pela barra inferior).
 						    Itens de compra/produto ficam em abas próprias — persistidos separadamente. */}
+					<Tabs value={activeTab} onValueChange={(value) => setTab(value as IngredientFormTab)}>
+						{/* grid-cols-4: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
+							    No celular os rótulos longos encolhem: 4 colunas em 390px não cabem "Itens de produto". */}
+						<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-4">
+							<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
+							<TabsTrigger value="nutricao">Nutrição</TabsTrigger>
+							<TabsTrigger value="compra">
+								<span className="sm:hidden">Compra</span>
+								<span className="hidden sm:inline">Itens de compra</span>
+							</TabsTrigger>
+							<TabsTrigger value="produto">
+								<span className="sm:hidden">Produto</span>
+								<span className="hidden sm:inline">Itens de produto</span>
+							</TabsTrigger>
+						</TabsList>
+
+						{/* O form do insumo cobre só Detalhes e Nutrição. As abas de itens ficam FORA dele: cada
+							    item tem o próprio Salvar, e um campo de item dentro deste form faria Enter salvar o
+							    insumo em vez do item. */}
 						<form
 							id="ingredient-form"
 							onSubmit={(e) => {
@@ -385,230 +480,240 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 								form.handleSubmit()
 							}}
 						>
-							<Tabs value={activeTab} onValueChange={(value) => setTab(value as IngredientFormTab)}>
-								{/* grid-cols-4: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba */}
-								<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-4">
-									<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
-									<TabsTrigger value="nutricao">Nutrição</TabsTrigger>
-									<TabsTrigger value="compra">Itens de compra</TabsTrigger>
-									<TabsTrigger value="produto">Itens de produto</TabsTrigger>
-								</TabsList>
-
-								{/* Detalhes — classificação e medida (o nome do insumo é editado no título da página) */}
-								<TabsContent value="detalhes" className={READING_PANEL}>
-									<Card>
-										<CardHeader>
-											<CardTitle>Classificação e medida</CardTitle>
-										</CardHeader>
-										<CardContent className="space-y-4">
-											<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-												<form.Field name="measure_unit">
-													{(field) => (
-														<Field>
-															<FieldLabel>Unidade de Medida</FieldLabel>
-															<FieldContent>
-																<Select
-																	value={field.state.value ?? "__NONE__"}
-																	onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? "" : v)}
-																>
-																	<SelectTrigger>
-																		<SelectValue placeholder="Selecione">
-																			{field.state.value && field.state.value !== "__NONE__"
-																				? (MEASURE_UNIT_LABELS[field.state.value] ?? field.state.value)
-																				: undefined}
-																		</SelectValue>
-																	</SelectTrigger>
-																	<SelectContent>
-																		<SelectItem value="__NONE__">Selecione</SelectItem>
-																		<SelectItem value="UN">UN (Unidade)</SelectItem>
-																		<SelectItem value="KG">KG (Quilograma)</SelectItem>
-																		<SelectItem value="LT">LT (Litro)</SelectItem>
-																		<SelectItem value="G">G (Grama)</SelectItem>
-																		<SelectItem value="ML">ML (Mililitro)</SelectItem>
-																	</SelectContent>
-																</Select>
-																<FieldDescription>Como o insumo é quantificado em receitas e planejamento.</FieldDescription>
-															</FieldContent>
-														</Field>
-													)}
-												</form.Field>
-
-												<form.Field name="folder_id">
-													{(field) => {
-														return (
-															<Field>
-																<FieldLabel>Pasta (Categoria)</FieldLabel>
-																<FieldContent>
-																	<FolderCombobox
-																		value={field.state.value ?? null}
-																		onChange={(id) => field.handleChange(id as string)}
-																		options={folderOptions}
-																		clearLabel="Sem pasta"
-																		contentClassName="min-w-[400px]"
-																	/>
-																</FieldContent>
-															</Field>
-														)
-													}}
-												</form.Field>
-											</div>
-
-											<form.Field name="correction_factor">
+							{/* Detalhes — classificação e medida (o nome do insumo é editado no título da página) */}
+							<TabsContent value="detalhes" className={READING_PANEL}>
+								<Card>
+									<CardHeader>
+										<CardTitle>Classificação e medida</CardTitle>
+									</CardHeader>
+									<CardContent className="space-y-4">
+										<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+											<form.Field name="measure_unit">
 												{(field) => (
-													<Field orientation="horizontal" className="border-t border-border/60 pt-4">
+													<Field>
+														<FieldLabel>Unidade de Medida</FieldLabel>
 														<FieldContent>
-															<FieldLabel htmlFor="correction_factor">Fator de Correção (FC)</FieldLabel>
-															<FieldDescription>
-																Parâmetro avançado do insumo genérico (padrão: 1.0). Itens de compra e produto têm fatores próprios.
-															</FieldDescription>
+															<Select value={field.state.value ?? "__NONE__"} onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? "" : v)}>
+																<SelectTrigger>
+																	<SelectValue placeholder="Selecione">
+																		{field.state.value && field.state.value !== "__NONE__"
+																			? (MEASURE_UNIT_LABELS[field.state.value] ?? field.state.value)
+																			: undefined}
+																	</SelectValue>
+																</SelectTrigger>
+																<SelectContent>
+																	<SelectItem value="__NONE__">Selecione</SelectItem>
+																	<SelectItem value="UN">UN (Unidade)</SelectItem>
+																	<SelectItem value="KG">KG (Quilograma)</SelectItem>
+																	<SelectItem value="LT">LT (Litro)</SelectItem>
+																	<SelectItem value="G">G (Grama)</SelectItem>
+																	<SelectItem value="ML">ML (Mililitro)</SelectItem>
+																</SelectContent>
+															</Select>
+															<FieldDescription>Como o insumo é quantificado em receitas e planejamento.</FieldDescription>
 														</FieldContent>
-														<Input
-															id="correction_factor"
-															type="number"
-															step="0.0001"
-															value={field.state.value ?? ""}
-															onChange={(e) => field.handleChange(Number(e.target.value))}
-															placeholder="1.0000"
-															className="w-28 shrink-0"
-														/>
 													</Field>
 												)}
 											</form.Field>
 
-											<IngredientDeliveryCycleField ingredientId={ingredient.id} value={ingredient.default_delivery_cycle} />
-
-											<IngredientAllergensField ingredientId={ingredient.id} value={ingredient.allergens} />
-										</CardContent>
-									</Card>
-								</TabsContent>
-
-								{/* Nutrição — CEAFA (alimento de referência) + tabela por 100 g */}
-								<TabsContent value="nutricao" className={READING_PANEL}>
-									<Card>
-										<CardHeader>
-											<CardTitle>Informação Nutricional</CardTitle>
-											<CardDescription>
-												Valores por 100 g do insumo. O %VD é calculado sobre os valores diários de referência. Deixe em branco para não informar.
-											</CardDescription>
-										</CardHeader>
-										<CardContent className="space-y-5">
-											<form.Field name="ceafa_id">
+											<form.Field name="folder_id">
 												{(field) => {
-													const selectedCeafa = field.state.value ? (ceafaList.find((c) => c.id === field.state.value) ?? currentCeafa ?? null) : null
 													return (
 														<Field>
-															<FieldLabel>Correlação CEAFA</FieldLabel>
+															<FieldLabel>Pasta (Categoria)</FieldLabel>
 															<FieldContent>
-																<Combobox
-																	items={ceafaList}
-																	filter={null}
-																	value={selectedCeafa}
-																	isItemEqualToValue={(item: Ceafa, current: Ceafa) => item.id === current.id}
-																	itemToStringLabel={(item: Ceafa) => item.description ?? ""}
-																	open={ceafaOpen}
-																	onOpenChange={setCeafaOpen}
-																	onInputValueChange={(next, { reason }) => {
-																		if (reason === "item-press") return
-																		setCeafaSearch(next)
-																		queryClient.query(ceafaQueryOptions(next))
-																	}}
-																	onValueChange={(next) => {
-																		field.handleChange((next as Ceafa | null)?.id as string)
-																		setCeafaOpen(false)
-																	}}
-																>
-																	<div className="flex w-full items-center gap-1">
-																		<ComboboxTrigger render={<Button type="button" variant="outline" className="w-full justify-between font-normal" />}>
-																			<span className="truncate">
-																				{selectedCeafa ? (selectedCeafa.description ?? "CEAFA selecionado") : "Buscar alimento CEAFA..."}
-																			</span>
-																		</ComboboxTrigger>
-																		{field.state.value && (
-																			<Button
-																				type="button"
-																				variant="ghost"
-																				size="icon-sm"
-																				aria-label="Remover correlação CEAFA"
-																				onClick={() => field.handleChange(null as unknown as string)}
-																			>
-																				<X />
-																			</Button>
-																		)}
-																	</div>
-
-																	<ComboboxContent className="min-w-[400px]">
-																		<ComboboxInput showTrigger={false} placeholder="Pesquisar CEAFA..." aria-label="Pesquisar alimento na base CEAFA" />
-																		<ComboboxEmpty>Nenhum resultado encontrado.</ComboboxEmpty>
-																		<ComboboxList>
-																			{(ceafa: Ceafa) => (
-																				<ComboboxItem key={ceafa.id} value={ceafa}>
-																					<span className="truncate">{ceafa.description}</span>
-																					<span className="ml-auto shrink-0 text-xs text-muted-foreground">{ceafa.quantity}g</span>
-																				</ComboboxItem>
-																			)}
-																		</ComboboxList>
-																	</ComboboxContent>
-																</Combobox>
-																<FieldDescription>Alimento de referência da base CEAFA usado para validar e comparar os valores nutricionais.</FieldDescription>
+																<FolderCombobox
+																	value={field.state.value ?? null}
+																	onChange={(id) => field.handleChange(id as string)}
+																	options={folderOptions}
+																	clearLabel="Sem pasta"
+																	contentClassName="min-w-[400px]"
+																/>
 															</FieldContent>
 														</Field>
 													)
 												}}
 											</form.Field>
+										</div>
 
-											<Field>
-												<FieldLabel>Tabela alimentar</FieldLabel>
-												<FieldContent>
-													<NutritionReferenceCombobox value={nutritionReference} onChange={setNutritionReferenceOverride} />
-													<FieldDescription>
-														Sem vínculo, os dados nutricionais são informados manualmente. Com vínculo, os valores vêm da tabela selecionada.
-													</FieldDescription>
-												</FieldContent>
-											</Field>
+										<form.Field name="correction_factor">
+											{(field) => (
+												<Field orientation="horizontal" className="border-t border-border/60 pt-4">
+													<FieldContent>
+														<FieldLabel htmlFor="correction_factor">Fator de Correção (FC)</FieldLabel>
+														<FieldDescription>
+															Parâmetro avançado do insumo genérico (padrão: 1.0). Itens de compra e produto têm fatores próprios.
+														</FieldDescription>
+													</FieldContent>
+													<Input
+														id="correction_factor"
+														type="number"
+														step="0.0001"
+														value={field.state.value ?? ""}
+														onChange={(e) => field.handleChange(Number(e.target.value))}
+														placeholder="1.0000"
+														className="w-28 shrink-0"
+													/>
+												</Field>
+											)}
+										</form.Field>
 
-											<NutrientsTable
-												nutrients={syncedNutrients}
-												values={nutrientValues}
-												onChange={setNutrientValues}
-												readOnly={nutritionReferenceLocked}
-												reference={nutritionReference}
-											/>
-										</CardContent>
-									</Card>
-								</TabsContent>
+										<IngredientDeliveryCycleField ingredientId={ingredient.id} value={ingredient.default_delivery_cycle} />
 
-								{/* Itens de compra (purchase_item + CATMAT) — persistidos separadamente */}
-								<TabsContent value="compra" className={READING_PANEL}>
-									<PurchaseItemsManager ingredientId={ingredient.id} onChanged={handleVersionChanged} />
-								</TabsContent>
+										<IngredientAllergensField ingredientId={ingredient.id} value={ingredient.allergens} />
+									</CardContent>
+								</Card>
+							</TabsContent>
 
-								{/* Itens de produto (ingredient_item — estoque/GS1, vinculado a 1 item de compra) — persistidos separadamente */}
-								<TabsContent value="produto" className={READING_PANEL}>
-									<IngredientItemsManager ingredientId={ingredient.id} onChanged={handleVersionChanged} />
-								</TabsContent>
-							</Tabs>
+							{/* Nutrição — CEAFA (alimento de referência) + tabela por 100 g */}
+							<TabsContent value="nutricao" className={READING_PANEL}>
+								<Card>
+									<CardHeader>
+										<CardTitle>Informação Nutricional</CardTitle>
+										<CardDescription>
+											Valores por 100 g do insumo. O %VD é calculado sobre os valores diários de referência. Deixe em branco para não informar.
+										</CardDescription>
+									</CardHeader>
+									<CardContent className="space-y-5">
+										<form.Field name="ceafa_id">
+											{(field) => {
+												const selectedCeafa = field.state.value ? (ceafaList.find((c) => c.id === field.state.value) ?? currentCeafa ?? null) : null
+												return (
+													<Field>
+														<FieldLabel>Correlação CEAFA</FieldLabel>
+														<FieldContent>
+															<Combobox
+																items={ceafaList}
+																filter={null}
+																value={selectedCeafa}
+																isItemEqualToValue={(item: Ceafa, current: Ceafa) => item.id === current.id}
+																itemToStringLabel={(item: Ceafa) => item.description ?? ""}
+																open={ceafaOpen}
+																onOpenChange={setCeafaOpen}
+																onInputValueChange={(next, { reason }) => {
+																	if (reason === "item-press") return
+																	setCeafaSearch(next)
+																	queryClient.query(ceafaQueryOptions(next))
+																}}
+																onValueChange={(next) => {
+																	field.handleChange((next as Ceafa | null)?.id as string)
+																	setCeafaOpen(false)
+																}}
+															>
+																<div className="flex w-full items-center gap-1">
+																	<ComboboxTrigger render={<Button type="button" variant="outline" className="min-w-0 flex-1 justify-between font-normal" />}>
+																		<span className="truncate">
+																			{selectedCeafa ? (selectedCeafa.description ?? "CEAFA selecionado") : "Buscar alimento CEAFA..."}
+																		</span>
+																	</ComboboxTrigger>
+																	{field.state.value && (
+																		<Button
+																			type="button"
+																			variant="ghost"
+																			size="icon-sm"
+																			aria-label="Remover correlação CEAFA"
+																			onClick={() => field.handleChange(null as unknown as string)}
+																		>
+																			<X />
+																		</Button>
+																	)}
+																</div>
+
+																<ComboboxContent className="min-w-[400px]">
+																	<ComboboxInput showTrigger={false} placeholder="Pesquisar CEAFA..." aria-label="Pesquisar alimento na base CEAFA" />
+																	<ComboboxEmpty>Nenhum resultado encontrado.</ComboboxEmpty>
+																	<ComboboxList>
+																		{(ceafa: Ceafa) => (
+																			<ComboboxItem key={ceafa.id} value={ceafa}>
+																				<span className="truncate">{ceafa.description}</span>
+																				<span className="ml-auto shrink-0 text-xs text-muted-foreground">{ceafa.quantity}g</span>
+																			</ComboboxItem>
+																		)}
+																	</ComboboxList>
+																</ComboboxContent>
+															</Combobox>
+															<FieldDescription>Alimento de referência da base CEAFA usado para validar e comparar os valores nutricionais.</FieldDescription>
+														</FieldContent>
+													</Field>
+												)
+											}}
+										</form.Field>
+
+										<Field>
+											<FieldLabel>Tabela alimentar</FieldLabel>
+											<FieldContent>
+												<NutritionReferenceCombobox value={nutritionReference} onChange={setNutritionReferenceOverride} />
+												<FieldDescription>
+													Sem vínculo, os dados nutricionais são informados manualmente. Com vínculo, os valores vêm da tabela selecionada.
+												</FieldDescription>
+											</FieldContent>
+										</Field>
+
+										<NutrientsTable
+											nutrients={syncedNutrients}
+											values={nutrientValues}
+											onChange={setNutrientValues}
+											readOnly={nutritionReferenceLocked}
+											reference={nutritionReference}
+										/>
+									</CardContent>
+								</Card>
+							</TabsContent>
 						</form>
-					</div>
 
-					{/* Barra de ação do form — sempre acessível, escopo explícito */}
-					<div className="sticky bottom-0 z-10 -mx-3 border-t border-border bg-background px-3 py-3 sm:-mx-6 sm:px-6">
-						<div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-							<p className="text-caption text-muted-foreground">
-								Salva identificação e informação nutricional. Itens de compra e produto são salvos separadamente.
-							</p>
-							<div className="flex justify-end gap-2">
-								<Button type="button" variant="outline" onClick={() => window.history.back()}>
-									Cancelar
-								</Button>
-								<Button type="submit" form="ingredient-form" disabled={isPending}>
-									{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
-									Salvar Insumo
-								</Button>
-							</div>
-						</div>
-					</div>
-				</>
+						{/* Itens de compra (purchase_item + CATMAT) — persistidos separadamente */}
+						<TabsContent value="compra" className={READING_PANEL}>
+							<PurchaseItemsManager
+								ingredientId={ingredient.id}
+								ingredientName={ingredient.description ?? "Insumo"}
+								ingredientHref={`${ingredientHref}?tab=compra`}
+								onChanged={handleVersionChanged}
+							/>
+						</TabsContent>
+
+						{/* Itens de produto (ingredient_item — estoque/GS1, vinculado a 1 item de compra) — persistidos separadamente */}
+						<TabsContent value="produto" className={READING_PANEL}>
+							<IngredientItemsManager
+								ingredientId={ingredient.id}
+								ingredientName={ingredient.description ?? "Insumo"}
+								ingredientHref={`${ingredientHref}?tab=produto`}
+								onChanged={handleVersionChanged}
+							/>
+						</TabsContent>
+					</Tabs>
+				</div>
 			)}
+
+			{/* Barra do insumo: sempre montada (é ela que restaura e grava o rascunho), mesmo no preview. */}
+			<form.Subscribe selector={(state) => state.values}>
+				{(values) => (
+					<DraftSaveBar<IngredientDraft>
+						draftKey={ingredientDraftKey}
+						// Barra fixa com escopo explícito. Nas abas de itens só aparece com alteração pendente do insumo.
+						primary={isIngredientTab}
+						hidden={isPreviewing}
+						caption={
+							isIngredientTab
+								? "Salva identificação e informação nutricional, e registra uma versão. Itens de compra e produto são salvos nas próprias abas."
+								: "Há alterações em Detalhes ou Nutrição ainda não salvas."
+						}
+						formId="ingredient-form"
+						saveLabel="Salvar Insumo"
+						onBack={() => window.history.back()}
+						isPending={isPending}
+						contentClassName="mx-auto max-w-5xl"
+						title={`Insumo: ${ingredient.description ?? ""}`}
+						href={ingredientHref}
+						baseline={draftBaseline}
+						current={{ ...values, nutritionReference, nutrients: nutrientValues, nutrientOverrides }}
+						// Sem os nutrientes carregados o baseline ainda não é o salvo: não acusa desatualizado.
+						baseStamp={effectiveNutrients ? undefined : null}
+						fields={draftFields}
+						onRestore={restoreDraft}
+						onDiscard={discardIngredientDraft}
+					/>
+				)}
+			</form.Subscribe>
 
 			<IngredientHistorySheet
 				open={historyOpen}

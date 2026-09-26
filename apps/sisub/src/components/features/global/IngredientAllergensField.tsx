@@ -6,6 +6,7 @@ import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/
 import { toast } from "@/components/ui/toast"
 import { updateIngredientAllergensFn } from "@/server/ingredients.fn"
 import { ingredientQueryOptions } from "@/services/IngredientsService"
+import { AutoSaveStatus, autoSaveStateOf } from "../shared/AutoSaveStatus"
 
 /**
  * Alergênicos do insumo (grupos da RDC ANVISA 26/2015). Grava a cada marcação, fora do botão
@@ -22,11 +23,13 @@ export function IngredientAllergensField({ ingredientId, value }: { ingredientId
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `savedKey` é a identidade de `saved`
 	useEffect(() => setCurrent(saved), [savedKey])
 
-	const { mutate, isPending } = useMutation({
+	// Hora em que a gravação TERMINOU — `submittedAt` seria a do clique.
+	const [savedAt, setSavedAt] = useState<number | null>(null)
+	const mutation = useMutation({
 		mutationFn: (allergens: Allergen[]) => updateIngredientAllergensFn({ data: { id: ingredientId, allergens } }),
 		onSuccess: () => {
+			setSavedAt(Date.now())
 			queryClient.invalidateQueries({ queryKey: ingredientQueryOptions(ingredientId).queryKey })
-			toast.success("Alergênicos atualizados.")
 		},
 		onError: (error) => {
 			setCurrent(saved)
@@ -37,7 +40,7 @@ export function IngredientAllergensField({ ingredientId, value }: { ingredientId
 	const toggle = (allergen: Allergen, checked: boolean) => {
 		const next = normalizeAllergens(checked ? [...current, allergen] : current.filter((a) => a !== allergen))
 		setCurrent(next)
-		mutate(next)
+		mutation.mutate(next)
 	}
 
 	return (
@@ -46,8 +49,13 @@ export function IngredientAllergensField({ ingredientId, value }: { ingredientId
 				<FieldLabel>Alergênicos (RDC 26/2015)</FieldLabel>
 				<FieldDescription>
 					Marque os grupos presentes no insumo. Saem no cardápio impresso, em cada preparação que o usa. Nenhum marcado não significa isento — só que ninguém
-					marcou. Salvo ao marcar.
+					marcou. Salvo ao marcar, fora do histórico de versões do insumo.
 				</FieldDescription>
+				<AutoSaveStatus
+					status={autoSaveStateOf(mutation)}
+					savedAt={savedAt}
+					onRetry={() => mutation.variables !== undefined && mutation.mutate(mutation.variables)}
+				/>
 			</FieldContent>
 			<div className="grid gap-2 sm:grid-cols-2">
 				{ALLERGENS.map((allergen) => {
@@ -57,7 +65,7 @@ export function IngredientAllergensField({ ingredientId, value }: { ingredientId
 							<Checkbox
 								id={id}
 								checked={current.includes(allergen)}
-								disabled={isPending}
+								disabled={mutation.isPending}
 								onCheckedChange={(checked) => toggle(allergen, checked === true)}
 								className="mt-0.5"
 							/>

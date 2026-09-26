@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { Boxes, Edit, Link2, PackagePlus, Trash2 } from "lucide-react"
+import { Boxes, Link2, PackagePlus } from "lucide-react"
 import { useState } from "react"
 import {
 	AlertDialog,
@@ -13,21 +13,18 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { toast } from "@/components/ui/toast"
+import { useItemCards } from "@/hooks/forms/useItemCards"
 import { type IngredientItemWithPurchase, useDeleteIngredientItem, useIngredientItems } from "@/services/IngredientsService"
-import { IngredientItemForm } from "./IngredientItemForm"
+import { CollapsibleItemCard } from "../shared/CollapsibleItemCard"
+import { INGREDIENT_ITEM_DRAFT_PREFIX, IngredientItemEditor } from "./IngredientItemEditor"
 
 interface IngredientItemsManagerProps {
 	ingredientId: string
+	ingredientName: string
+	ingredientHref: string
 	/** Chamado após qualquer alteração (criar/editar/remover) para registrar uma versão do insumo. */
 	onChanged?: () => void
-}
-
-interface DialogState {
-	isOpen: boolean
-	mode: "create" | "edit"
-	item?: IngredientItemWithPurchase
 }
 
 /** Resumo físico em linha única (embalagem + GTIN), omitindo campos ausentes. */
@@ -43,19 +40,21 @@ function stockSummary(item: IngredientItemWithPurchase): string {
 /**
  * Gerenciador de itens de produto (ingredient_item) de um insumo.
  * Item de produto = item de estoque/GS1 (GTIN), vinculado a 1 item de compra (CATMAT).
+ * Mesmo padrão dos itens de compra: edição no próprio card, um aberto por vez, rascunho
+ * que sobrevive a fechar o card.
  */
-export function IngredientItemsManager({ ingredientId, onChanged }: IngredientItemsManagerProps) {
+export function IngredientItemsManager({ ingredientId, ingredientName, ingredientHref, onChanged }: IngredientItemsManagerProps) {
 	const queryClient = useQueryClient()
 	const { ingredientItems } = useIngredientItems(ingredientId)
 	const { deleteIngredientItem, isDeleting } = useDeleteIngredientItem()
-
-	const [dialogState, setDialogState] = useState<DialogState>({ isOpen: false, mode: "create" })
+	const cards = useItemCards(INGREDIENT_ITEM_DRAFT_PREFIX, ingredientId)
 	const [deleteTarget, setDeleteTarget] = useState<IngredientItemWithPurchase | null>(null)
 
 	const handleDeleteConfirm = async () => {
 		if (!deleteTarget) return
 		try {
 			await deleteIngredientItem(deleteTarget.id)
+			cards.forget(deleteTarget.id)
 			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 			onChanged?.()
 			toast.success("Item de produto excluído com sucesso!")
@@ -66,11 +65,7 @@ export function IngredientItemsManager({ ingredientId, onChanged }: IngredientIt
 		}
 	}
 
-	const openCreate = () => setDialogState({ isOpen: true, mode: "create" })
-	const openEdit = (item: IngredientItemWithPurchase) => setDialogState({ isOpen: true, mode: "edit", item })
-	const closeDialog = () => setDialogState({ isOpen: false, mode: "create" })
-
-	const isEmpty = !ingredientItems || ingredientItems.length === 0
+	const isEmpty = (!ingredientItems || ingredientItems.length === 0) && !cards.showNewCard
 
 	return (
 		<section className="space-y-3">
@@ -84,7 +79,7 @@ export function IngredientItemsManager({ ingredientId, onChanged }: IngredientIt
 					</div>
 					<p className="text-caption text-muted-foreground">Produtos físicos em estoque (GTIN), cada um vinculado a um item de compra.</p>
 				</div>
-				<Button size="sm" onClick={openCreate} className="gap-2 shrink-0">
+				<Button size="sm" onClick={() => cards.open("new")} className="gap-2 shrink-0">
 					<PackagePlus className="size-4" />
 					Novo Item
 				</Button>
@@ -95,24 +90,44 @@ export function IngredientItemsManager({ ingredientId, onChanged }: IngredientIt
 				<div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border py-12 text-muted-foreground">
 					<Boxes className="size-10 opacity-30" />
 					<p className="text-body">Nenhum item de produto cadastrado</p>
-					<Button variant="outline" size="sm" onClick={openCreate}>
+					<Button variant="outline" size="sm" onClick={() => cards.open("new")}>
 						<PackagePlus className="size-4 mr-2" />
 						Adicionar primeiro item
 					</Button>
 				</div>
 			) : (
-				<ItemGroup>
+				<div className="flex flex-col gap-3">
+					{cards.showNewCard && (
+						<CollapsibleItemCard
+							open={cards.isOpen("new")}
+							onOpenChange={cards.toggle("new")}
+							icon={<PackagePlus className="text-muted-foreground" />}
+							title="Novo item de produto"
+							hasDraft={cards.hasNewDraft}
+							itemLabel="novo item de produto"
+						>
+							<IngredientItemEditor
+								mode="create"
+								ingredientId={ingredientId}
+								ingredientName={ingredientName}
+								ingredientHref={ingredientHref}
+								onClose={cards.close}
+								onChanged={onChanged}
+							/>
+						</CollapsibleItemCard>
+					)}
 					{ingredientItems?.map((item) => {
 						const summary = stockSummary(item)
 						const linked = item.purchase_item
 						return (
-							<Item key={item.id} variant="outline">
-								<ItemMedia variant="icon">
-									<Boxes className="text-muted-foreground" />
-								</ItemMedia>
-								<ItemContent>
-									<ItemTitle>{item.description}</ItemTitle>
-									<ItemDescription className="space-y-0.5">
+							<CollapsibleItemCard
+								key={item.id}
+								open={cards.isOpen(item.id)}
+								onOpenChange={cards.toggle(item.id)}
+								icon={<Boxes className="text-muted-foreground" />}
+								title={item.description}
+								description={
+									<>
 										<span className="flex items-center gap-1.5">
 											<Link2 className="size-3 shrink-0" />
 											{linked ? (
@@ -124,46 +139,29 @@ export function IngredientItemsManager({ ingredientId, onChanged }: IngredientIt
 												<span>Sem item de compra vinculado</span>
 											)}
 										</span>
-										{summary && <span className="block font-mono">{summary}</span>}
-									</ItemDescription>
-								</ItemContent>
-								<ItemActions>
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										onClick={() => openEdit(item)}
-										disabled={isDeleting}
-										aria-label={`Editar ${item.description}`}
-										className="text-muted-foreground"
-									>
-										<Edit className="size-3.5" />
-									</Button>
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										onClick={() => setDeleteTarget(item)}
-										disabled={isDeleting}
-										aria-label={`Excluir ${item.description}`}
-										className="text-muted-foreground hover:text-destructive"
-									>
-										<Trash2 className="size-3.5" />
-									</Button>
-								</ItemActions>
-							</Item>
+										{summary && <span className="block w-full font-mono">{summary}</span>}
+									</>
+								}
+								hasDraft={cards.hasDraft(item.id)}
+								itemLabel={item.description ?? "item de produto"}
+								onDelete={() => setDeleteTarget(item)}
+								deleteLabel="Excluir"
+								disabled={isDeleting}
+							>
+								<IngredientItemEditor
+									mode="edit"
+									ingredientItem={item}
+									ingredientId={ingredientId}
+									ingredientName={ingredientName}
+									ingredientHref={ingredientHref}
+									onClose={cards.close}
+									onChanged={onChanged}
+								/>
+							</CollapsibleItemCard>
 						)
 					})}
-				</ItemGroup>
+				</div>
 			)}
-
-			{/* Dialog de criação/edição */}
-			<IngredientItemForm
-				isOpen={dialogState.isOpen}
-				onClose={closeDialog}
-				mode={dialogState.mode}
-				ingredientItem={dialogState.item}
-				defaultIngredientId={ingredientId}
-				onChanged={onChanged}
-			/>
 
 			{/* AlertDialog de confirmação de exclusão */}
 			<AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

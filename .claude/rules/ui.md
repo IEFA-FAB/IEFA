@@ -29,6 +29,13 @@ Leia o `STYLE_CONTRACT.md` do app antes de mudar UI nele.
   nunca `.slice()` em `items`.
 - Select: `value={x ?? null}` e `<SelectValue>` com label. Button com `render` exige
   `nativeButton={false}`. `MenuItem` usa `onClick`, não `onSelect`.
+- **Salvamento no sisub:** a regra está em `apps/sisub/docs/SAVE_BEHAVIOR.md`.
+  - Entidade versionada (insumo, preparação) usa Salvar explícito, com rascunho local
+    (`useDraft`/`DraftSaveBar`) e `PendingChanges` ao lado do botão.
+  - Registro sem versão grava sozinho, com `AutoSaveStatus` no lugar do Salvar.
+  - Evento irreversível usa ação nomeada.
+  - Editor de sub-item nunca fica dentro do `<form>` da entidade: Enter nele gravaria uma
+    versão.
 
 ## Lint de Tailwind (`@shadcn/lint` pelo Oxlint)
 

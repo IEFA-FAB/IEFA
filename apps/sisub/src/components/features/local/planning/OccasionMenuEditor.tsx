@@ -3,7 +3,7 @@ import { MAX_EVENT_MEALS } from "@iefa/sisub-domain/schemas"
 import { brasiliaCivilDate } from "@iefa/sisub-domain/utils"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type LinkOptions, useNavigate } from "@tanstack/react-router"
-import { CalendarPlus, Check, GitFork, ListChecks, Loader2, Plus, Save, Users } from "lucide-react"
+import { CalendarPlus, GitFork, ListChecks, Loader2, Plus, Save, Users } from "lucide-react"
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { ApplyEventDialog } from "@/components/features/local/planning/ApplyEventDialog"
 import { EventMealCard } from "@/components/features/local/planning/EventMealCard"
@@ -17,6 +17,7 @@ import { RecipeSelector } from "@/components/features/local/planning/RecipeSelec
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { SnackStandardPanel } from "@/components/features/local/planning/SnackStandardPanel"
 import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
+import { type AutoSaveState, AutoSaveStatus } from "@/components/features/shared/AutoSaveStatus"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -219,7 +220,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const savedSnackSignatureRef = useRef<string | null>(null)
 	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 
-	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+	const [saveStatus, setSaveStatus] = useState<AutoSaveState>("idle")
 	// Conteúdo recém-carregado já conta como gravado. Sem esta marca, `savedSignatureRef`
 	// fica nulo e qualquer saída pareceria ter alteração pendente.
 	const loadedSignatureRef = useRef(false)
@@ -378,7 +379,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						setSaveStatus("saved")
 						persistSnackClassification({ id: result?.template?.id ?? templateId, contentSignature, snackSignature, snackPayload, itemsSignature })
 					},
-					onError: () => setSaveStatus("idle"),
+					onError: () => setSaveStatus("error"),
 				}
 			)
 		}, 1500)
@@ -589,6 +590,8 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 			return
 		}
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+		// O mesmo indicador do autosave: é também o "Tentar de novo" dele.
+		setSaveStatus("saving")
 		saveTemplate(
 			{ id: templateId, context: editContext, updates, items: payloadItems, eventMeals: payloadEventMeals },
 			{
@@ -598,6 +601,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				// global na cozinha cria a cópia local (id novo) e a URL precisa passar a apontar
 				// para ela, senão a tela continuaria editando — e forkando de novo — o global.
 				onSuccess: (result) => {
+					setSaveStatus("saved")
 					savedSignatureRef.current = contentSignature
 					persistSnackClassification({ id: result?.template?.id ?? templateId, contentSignature, snackSignature, snackPayload, itemsSignature })
 					const savedId = result?.template?.id
@@ -605,6 +609,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						navigate({ ...editorLink(savedId), replace: true })
 					}
 				},
+				onError: () => setSaveStatus("error"),
 			}
 		)
 	}
@@ -669,18 +674,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		<div className="space-y-6">
 			<PageHeader title={`Editar ${copy.singular}`} onBack={() => navigate(listLink)}>
 				<div className="flex items-center gap-2">
-					{saveStatus === "saving" && (
-						<span className="flex items-center gap-1 text-xs text-muted-foreground">
-							<Loader2 className="size-3 animate-spin" />
-							Salvando...
-						</span>
-					)}
-					{saveStatus === "saved" && (
-						<span className="flex items-center gap-1 text-xs text-muted-foreground">
-							<Check className="size-3 text-success" />
-							Salvo
-						</span>
-					)}
+					<AutoSaveStatus status={saveStatus} onRetry={handleSave} />
 					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
 					{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo.
 						    Padrão de lanche não entra por aqui: a produção dele nasce do aceite do pedido, e

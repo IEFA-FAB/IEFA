@@ -46,5 +46,5 @@ function GlobalRecipeEditPage() {
 		)
 	}
 
-	return <RecipeForm mode="edit" initialData={recipe} />
+	return <RecipeForm key={recipe.id} mode="edit" initialData={recipe} />
 }

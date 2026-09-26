@@ -44,5 +44,7 @@ function IngredientDetailPage() {
 	const { data: folders } = useSuspenseQuery(foldersQueryOptions())
 	useCrumbLabel(ingredient.description)
 
-	return <IngredientDetailForm ingredient={ingredient} folders={folders} />
+	// key: trocar de insumo na mesma rota remonta o form. Reaproveitado, os valores editados do
+	// anterior viravam rascunho (e Salvar) do próximo.
+	return <IngredientDetailForm key={ingredient.id} ingredient={ingredient} folders={folders} />
 }

@@ -30,5 +30,5 @@ function ForkRecipePage() {
 		return <div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">Preparação de origem não encontrada ou erro ao carregar.</div>
 	}
 
-	return <RecipeForm mode="fork" initialData={baseRecipe} />
+	return <RecipeForm key={baseRecipe.id} mode="fork" initialData={baseRecipe} />
 }

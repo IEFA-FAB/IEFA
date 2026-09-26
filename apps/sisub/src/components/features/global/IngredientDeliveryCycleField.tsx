@@ -1,10 +1,12 @@
 import { DELIVERY_CYCLE_LABELS, type DeliveryCycle, isDeliveryCycle } from "@iefa/sisub-domain"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { updateIngredientDeliveryCycleFn } from "@/server/ingredients.fn"
 import { ingredientQueryOptions } from "@/services/IngredientsService"
+import { AutoSaveStatus, autoSaveStateOf } from "../shared/AutoSaveStatus"
 
 const UNSET = "__UNSET__"
 
@@ -22,11 +24,13 @@ export function IngredientDeliveryCycleField({ ingredientId, value }: { ingredie
 	const queryClient = useQueryClient()
 	const current = isDeliveryCycle(value) ? value : UNSET
 
-	const { mutate, isPending } = useMutation({
+	// Hora em que a gravação TERMINOU — `submittedAt` seria a do clique.
+	const [savedAt, setSavedAt] = useState<number | null>(null)
+	const mutation = useMutation({
 		mutationFn: (deliveryCycle: DeliveryCycle | null) => updateIngredientDeliveryCycleFn({ data: { id: ingredientId, deliveryCycle } }),
 		onSuccess: () => {
+			setSavedAt(Date.now())
 			queryClient.invalidateQueries({ queryKey: ingredientQueryOptions(ingredientId).queryKey })
-			toast.success("Ciclo de entrega atualizado.")
 		},
 		onError: (error) => toast.error(`Erro ao atualizar ciclo de entrega: ${error.message}`),
 	})
@@ -37,15 +41,20 @@ export function IngredientDeliveryCycleField({ ingredientId, value }: { ingredie
 				<FieldLabel htmlFor="default_delivery_cycle">Ciclo de entrega padrão (anexo quantitativo)</FieldLabel>
 				<FieldDescription>
 					Perecível (salada, fruta, verdura) entra toda semana; não perecível, uma vez por mês. Define o mínimo por pedido sugerido nos anexos quantitativos
-					novos — cada anexo guarda o ciclo que escolheu. Salvo ao escolher.
+					novos — cada anexo guarda o ciclo que escolheu. Salvo ao escolher, fora do histórico de versões do insumo.
 				</FieldDescription>
+				<AutoSaveStatus
+					status={autoSaveStateOf(mutation)}
+					savedAt={savedAt}
+					onRetry={() => mutation.variables !== undefined && mutation.mutate(mutation.variables)}
+				/>
 			</FieldContent>
 			<Select
 				value={current}
-				disabled={isPending}
+				disabled={mutation.isPending}
 				onValueChange={(next) => {
 					if (next == null || next === current) return
-					mutate(isDeliveryCycle(next) ? next : null)
+					mutation.mutate(isDeliveryCycle(next) ? next : null)
 				}}
 			>
 				<SelectTrigger id="default_delivery_cycle" className="w-56 shrink-0">

@@ -1,6 +1,6 @@
 import type { EditScope } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { AlertCircle, Check, CheckCircle2, Circle, ClipboardPaste, GitFork, ListChecks, Loader2, Percent, Plus, Printer, Save, Users } from "lucide-react"
+import { AlertCircle, CheckCircle2, Circle, ClipboardPaste, GitFork, ListChecks, Loader2, Percent, Plus, Printer, Save, Users } from "lucide-react"
 import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, type DemandType, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
@@ -11,6 +11,7 @@ import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelec
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
+import { type AutoSaveState, AutoSaveStatus } from "@/components/features/shared/AutoSaveStatus"
 import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -249,7 +250,7 @@ function WeeklyMenuEditorPage() {
 	const { name, description, items, meals, initialized, activeTab, selectorOpen, selectedCell } = editorState
 	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 
-	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+	const [saveStatus, setSaveStatus] = useState<AutoSaveState>("idle")
 	// Conteúdo recém-carregado já conta como gravado. Sem esta marca, `savedSignatureRef`
 	// fica nulo e qualquer saída pareceria ter alteração pendente.
 	const loadedSignatureRef = useRef(false)
@@ -355,7 +356,7 @@ function WeeklyMenuEditorPage() {
 						savedSignatureRef.current = contentSignature
 						setSaveStatus("saved")
 					},
-					onError: () => setSaveStatus("idle"),
+					onError: () => setSaveStatus("error"),
 				}
 			)
 		}, 1500)
@@ -563,6 +564,8 @@ function WeeklyMenuEditorPage() {
 	const handleSave = () => {
 		if (!name.trim()) return
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+		// O mesmo indicador do autosave: é também o "Tentar de novo" dele.
+		setSaveStatus("saving")
 		saveTemplate(
 			{
 				id: weeklyMenuId as string,
@@ -589,6 +592,7 @@ function WeeklyMenuEditorPage() {
 				// global cria a cópia local (id novo) e a URL precisa passar a apontar para ela,
 				// senão a tela continuaria editando — e forkando de novo — o global.
 				onSuccess: (result) => {
+					setSaveStatus("saved")
 					savedSignatureRef.current = contentSignature
 					const savedId = result?.template?.id
 					if (savedId && savedId !== weeklyMenuId) {
@@ -599,6 +603,7 @@ function WeeklyMenuEditorPage() {
 						})
 					}
 				},
+				onError: () => setSaveStatus("error"),
 			}
 		)
 	}
@@ -650,18 +655,7 @@ function WeeklyMenuEditorPage() {
 				}
 			>
 				<div className="flex items-center gap-2">
-					{saveStatus === "saving" && (
-						<span className="flex items-center gap-1 text-xs text-muted-foreground">
-							<Loader2 className="size-3 animate-spin" />
-							Salvando...
-						</span>
-					)}
-					{saveStatus === "saved" && (
-						<span className="flex items-center gap-1 text-xs text-muted-foreground">
-							<Check className="size-3 text-success" />
-							Salvo
-						</span>
-					)}
+					<AutoSaveStatus status={saveStatus} onRetry={handleSave} />
 					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
 					<Tooltip>
 						<TooltipTrigger

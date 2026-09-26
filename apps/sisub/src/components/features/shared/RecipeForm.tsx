@@ -2,9 +2,10 @@ import type { EditScope } from "@iefa/sisub-domain"
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { CalendarCheck, CircleCheck, GitFork, Loader2, Pencil, Printer, Save, TriangleAlert } from "lucide-react"
+import { CalendarCheck, CircleCheck, GitFork, Loader2, Pencil, Printer, TriangleAlert } from "lucide-react"
 import { useMemo, useState } from "react"
 import { z } from "zod"
+import { DraftSaveBar } from "@/components/features/shared/DraftSaveBar"
 import { RecipeEquipmentPanel } from "@/components/features/shared/equipment/RecipeEquipmentPanel"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
 import { RecipeIngredientsTable } from "@/components/features/shared/RecipeIngredientsTable"
@@ -26,8 +27,10 @@ import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { useCreateRecipe, useSaveRecipeEdit } from "@/hooks/data/useRecipeMutations"
 import { type RecipeNutritionInputIngredient, useRecipeNutrition } from "@/hooks/data/useRecipeNutrition"
 import { recipeLastReviewQueryOptions, useRecordRecipeReview } from "@/hooks/data/useRecipes"
+import { discardDraft } from "@/hooks/forms/useDraft"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { cn } from "@/lib/cn"
+import { type DraftChange, type DraftFields, formatDraftValue } from "@/lib/drafts/draft-diff"
 import type { QuantityBasis } from "@/lib/technical-sheet"
 import type { RecipeIngredientSource } from "@/types/domain/recipe-flow"
 import type { RecipeAlternativeFormRow, RecipeWithIngredients } from "@/types/domain/recipes"
@@ -308,6 +311,112 @@ function toFieldErrors(errors: readonly unknown[]): Array<{ message?: string }> 
 	return errors.map((error) => ({ message: typeof error === "string" ? error : (error as { message?: string } | undefined)?.message }))
 }
 
+/** Campos do form a partir da versão carregada — é também o baseline do rascunho. */
+function recipeFormValues(initialData: RecipeWithIngredients | null | undefined) {
+	return {
+		name: initialData?.name || "",
+		pre_preparation_method: initialData?.pre_preparation_method || "",
+		preparation_method: initialData?.preparation_method || "",
+		portion_yield: initialData?.portion_yield || 1,
+		preparation_time_minutes: initialData?.preparation_time_minutes ?? 0,
+		pre_preparation_time_minutes: initialData?.pre_preparation_time_minutes ?? null,
+		cooking_time_minutes: initialData?.cooking_time_minutes ?? null,
+		cooking_method: initialData?.cooking_method || "",
+		cooking_temperature_celsius: initialData?.cooking_temperature_celsius ?? null,
+		cooking_factor: initialData?.cooking_factor || 1.0,
+		folder_id: initialData?.folder_id ?? null,
+		ingredients:
+			// `fetchRecipe` traz a relação inteira (o Drizzle não aceita `where` numa relação
+			// `many` aninhada), então a linha soft-deletada vem junto. O hovercard da listagem
+			// e a folha impressa já a descartam; sem o mesmo filtro aqui, o TOTAL da tabela
+			// contaria um ingrediente que a ficha não tem mais.
+			initialData?.ingredients
+				?.filter((ing) => !ing.deleted_at)
+				.map((ing) => ({
+					ingredient_id: ing.ingredient_id,
+					ingredient_name: ing.ingredient?.description || "Insumo Desconhecido",
+					measure_unit: ing.ingredient?.measure_unit || "UN",
+					folder_id: ing.ingredient?.folder_id ?? null,
+					net_quantity: ing.net_quantity,
+					is_optional: ing.is_optional || false,
+					priority_order: ing.priority_order || 0,
+					correction_factor: ing.correction_factor ?? null,
+					rehydration_index: ing.rehydration_index ?? null,
+					alternatives: (ing.alternatives ?? [])
+						// Substituta apagada do catálogo deixaria uma linha sem nome nem unidade,
+						// que o usuário vê e não sabe remover. Some da ficha; a FK garante que ela
+						// não desaparece do banco sem passar por aqui.
+						.filter((alt) => !!alt.ingredient_id && !!alt.ingredient)
+						.map((alt) => ({
+							ingredient_id: alt.ingredient_id as string,
+							ingredient_name: alt.ingredient?.description ?? "Insumo",
+							measure_unit: alt.ingredient?.measure_unit ?? "UN",
+							folder_id: alt.ingredient?.folder_id ?? null,
+							net_quantity: alt.net_quantity,
+						})),
+				})) || [],
+	}
+}
+
+type RecipeFormValues = ReturnType<typeof recipeFormValues>
+type RecipeIngredientRow = RecipeFormValues["ingredients"][number]
+
+const RECIPE_DRAFT_LABELS: Partial<Record<keyof RecipeFormValues, string>> = {
+	name: "Nome",
+	portion_yield: "Rendimento (porções)",
+	preparation_time_minutes: "Tempo de preparo (min)",
+	pre_preparation_time_minutes: "Tempo de pré-preparo (min)",
+	cooking_time_minutes: "Tempo de cocção (min)",
+	cooking_method: "Método de cocção",
+	cooking_temperature_celsius: "Temperatura de cocção (°C)",
+	cooking_factor: "Fator de cocção",
+	folder_id: "Pasta",
+	pre_preparation_method: "Modo de pré-preparo",
+	preparation_method: "Modo de preparo",
+}
+
+/** Uma linha por insumo acrescentado, removido ou alterado; reordenar vira uma linha só. */
+function diffRecipeIngredients(from: RecipeIngredientRow[], to: RecipeIngredientRow[]): DraftChange[] {
+	const describe = (row: RecipeIngredientRow) => {
+		const parts = [row.net_quantity != null ? `${formatDraftValue(row.net_quantity)} ${row.measure_unit}` : "sem quantidade"]
+		if (row.is_optional) parts.push("opcional")
+		if (row.correction_factor != null) parts.push(`FC ${formatDraftValue(row.correction_factor)}`)
+		if (row.rehydration_index != null) parts.push(`reidratação ${formatDraftValue(row.rehydration_index)}`)
+		if (row.alternatives.length > 0) parts.push(`${row.alternatives.length} substituta(s)`)
+		return parts.join(" · ")
+	}
+	// O mesmo insumo pode entrar duas vezes na ficha: casa pela ocorrência, não só pelo id.
+	const keyed = (rows: RecipeIngredientRow[]) => {
+		const seen = new Map<string, number>()
+		return rows.map((row) => {
+			const id = row.ingredient_id ?? "sem-insumo"
+			const n = (seen.get(id) ?? 0) + 1
+			seen.set(id, n)
+			return { key: `${id}#${n}`, row }
+		})
+	}
+	const before = keyed(from)
+	const after = keyed(to)
+	const beforeByKey = new Map(before.map((item) => [item.key, item.row]))
+	const afterKeys = new Set(after.map((item) => item.key))
+	const changes: DraftChange[] = []
+	for (const { key, row } of after) {
+		const previous = beforeByKey.get(key)
+		const label = `Insumo: ${row.ingredient_name}`
+		if (!previous) changes.push({ key: `ingredients:${key}`, label, from: "—", to: describe(row) })
+		else if (describe(previous) !== describe(row) || JSON.stringify(previous.alternatives) !== JSON.stringify(row.alternatives))
+			changes.push({ key: `ingredients:${key}`, label, from: describe(previous), to: describe(row) })
+	}
+	for (const { key, row } of before) {
+		if (!afterKeys.has(key)) changes.push({ key: `ingredients:${key}`, label: `Insumo: ${row.ingredient_name}`, from: describe(row), to: "removido" })
+	}
+	const sameSet = before.length === after.length && before.every((item) => afterKeys.has(item.key))
+	if (changes.length === 0 && sameSet && before.some((item, index) => item.key !== after[index]?.key)) {
+		changes.push({ key: "ingredients:order", label: "Ordem dos insumos", from: "anterior", to: "nova ordem" })
+	}
+	return changes
+}
+
 interface RecipeFormProps {
 	initialData?: RecipeWithIngredients | null
 	mode: "create" | "edit" | "fork"
@@ -414,49 +523,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 
 	// Form setup
 	const form = useForm({
-		defaultValues: {
-			name: initialData?.name || "",
-			pre_preparation_method: initialData?.pre_preparation_method || "",
-			preparation_method: initialData?.preparation_method || "",
-			portion_yield: initialData?.portion_yield || 1,
-			preparation_time_minutes: initialData?.preparation_time_minutes ?? 0,
-			pre_preparation_time_minutes: initialData?.pre_preparation_time_minutes ?? null,
-			cooking_time_minutes: initialData?.cooking_time_minutes ?? null,
-			cooking_method: initialData?.cooking_method || "",
-			cooking_temperature_celsius: initialData?.cooking_temperature_celsius ?? null,
-			cooking_factor: initialData?.cooking_factor || 1.0,
-			folder_id: initialData?.folder_id ?? null,
-			ingredients:
-				// `fetchRecipe` traz a relação inteira (o Drizzle não aceita `where` numa relação
-				// `many` aninhada), então a linha soft-deletada vem junto. O hovercard da listagem
-				// e a folha impressa já a descartam; sem o mesmo filtro aqui, o TOTAL da tabela
-				// contaria um ingrediente que a ficha não tem mais.
-				initialData?.ingredients
-					?.filter((ing) => !ing.deleted_at)
-					.map((ing) => ({
-						ingredient_id: ing.ingredient_id,
-						ingredient_name: ing.ingredient?.description || "Insumo Desconhecido",
-						measure_unit: ing.ingredient?.measure_unit || "UN",
-						folder_id: ing.ingredient?.folder_id ?? null,
-						net_quantity: ing.net_quantity,
-						is_optional: ing.is_optional || false,
-						priority_order: ing.priority_order || 0,
-						correction_factor: ing.correction_factor ?? null,
-						rehydration_index: ing.rehydration_index ?? null,
-						alternatives: (ing.alternatives ?? [])
-							// Substituta apagada do catálogo deixaria uma linha sem nome nem unidade,
-							// que o usuário vê e não sabe remover. Some da ficha; a FK garante que ela
-							// não desaparece do banco sem passar por aqui.
-							.filter((alt) => !!alt.ingredient_id && !!alt.ingredient)
-							.map((alt) => ({
-								ingredient_id: alt.ingredient_id as string,
-								ingredient_name: alt.ingredient?.description ?? "Insumo",
-								measure_unit: alt.ingredient?.measure_unit ?? "UN",
-								folder_id: alt.ingredient?.folder_id ?? null,
-								net_quantity: alt.net_quantity,
-							})),
-					})) || [],
-		},
+		defaultValues: recipeFormValues(initialData),
 		// Gate do salvamento. Com o schema aqui, `field.state.meta.errors` passa a ser
 		// preenchido e os realces em vermelho (que já existiam no JSX) acendem sozinhos;
 		// no submit o TanStack roda os validadores onChange antes de chamar onSubmit.
@@ -520,6 +587,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					kitchen_id: editContext.scope === "kitchen" ? editContext.kitchenId : null,
 					ingredients: mappedIngredients,
 				})
+				discardDraft(draftKey)
 				stayOnSavedRecipe(created.id)
 			} else if (initialData) {
 				// "edit" e "fork" convergem: o servidor decide versionar ou forkar a partir do
@@ -529,12 +597,34 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					context: editContext,
 					data: { ...recipeData, ingredients: mappedIngredients },
 				})
+				discardDraft(draftKey)
 				stayOnSavedRecipe(saved.id)
 			}
 		},
 	})
 
 	const isPending = createMutation.isPending || saveEditMutation.isPending
+
+	// ── Rascunho local + alterações pendentes (salvamento explícito: cada Salvar é uma versão) ──
+	// A chave é a VERSÃO aberta (e o contexto): versões são imutáveis, então um rascunho da v3
+	// nunca é aplicado sobre a v4 de outra pessoa. Salvar troca o id e começa limpo.
+	const draftKey =
+		mode === "create"
+			? `sisub:recipe:new:${kitchenId ?? "global"}`
+			: `sisub:recipe:${mode}:${editContext.scope === "kitchen" ? editContext.kitchenId : "global"}:${initialData?.id}`
+	const draftFields: DraftFields<RecipeFormValues> = {
+		...Object.fromEntries(Object.entries(RECIPE_DRAFT_LABELS).map(([key, label]) => [key, { label }])),
+		folder_id: { label: "Pasta", format: (id) => (id ? (folderNameById.get(id) ?? "Pasta") : "Sem pasta") },
+		ingredients: { label: "Insumos", expand: diffRecipeIngredients },
+	}
+	const discardRecipeDraft = () => {
+		form.reset(recipeFormValues(initialData))
+		discardDraft(draftKey)
+	}
+
+	// Fluxo e Equipamentos salvam por conta própria: a barra da preparação só aparece nelas se
+	// houver alteração da preparação pendente — senão seriam dois "Salvar" na mesma tela.
+	const isRecipeTab = activeTab !== "fluxo" && activeTab !== "equipamentos"
 
 	// Contexto do modo — distinto do nome (editado no título da página)
 	const modeBadge =
@@ -636,16 +726,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			    recebem cap interno via READING_PANEL; a aba de fluxo usa a largura inteira.
 			    flex-1 empurra a barra de salvar para o rodapé mesmo com abas curtas. */}
 			<div className="flex-1 space-y-8 pb-24">
-				<form
-					id="recipe-form"
-					onSubmit={(e) => {
-						e.preventDefault()
-						e.stopPropagation()
-						form.handleSubmit()
-					}}
-				>
-					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
-						{/* Larguras iguais só a partir de `lg`, onde os seis rótulos cabem — é ali que o
+				<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
+					{/* Larguras iguais só a partir de `lg`, onde os seis rótulos cabem — é ali que o
 						    grid vale a pena: o pill ativo não muda de tamanho ao trocar de aba.
 						    Abaixo disso a barra vira uma FILA ROLÁVEL. Um grid de 6 colunas usa trilhas
 						    `minmax(0,1fr)`, que encolhem abaixo do conteúdo: com "Fluxo de produção" e
@@ -661,42 +743,50 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						    o traço, que lá é a única pista de que há mais aba fora da tela.
 						    Cada trigger carrega a contagem de erros da sua aba: com o campo errado em outra aba,
 						    a barra é o único lugar onde o usuário enxerga que existe pendência. */}
-						<form.Subscribe selector={encodeTabProblems}>
-							{(encoded) => {
-								const counts = decodeTabProblems(encoded)
-								return (
-									<TabsList className="mx-auto flex w-full max-w-3xl justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none] lg:grid lg:grid-cols-6 lg:justify-center [&::-webkit-scrollbar]:hidden">
-										{RECIPE_FORM_TABS.map((tab) => {
-											const errorCount = counts[tab]
-											// O par com `data-active` é necessário: a aba selecionada força `text-foreground`
-											// com a mesma especificidade, e sem o seletor duplo o vermelho sumiria justo na
-											// aba que o usuário está olhando.
-											return (
-												<TabsTrigger
-													key={tab}
-													value={tab}
-													data-invalid={errorCount > 0 || undefined}
-													className="data-[invalid]:text-destructive data-[invalid]:data-active:text-destructive"
-												>
-													{TAB_LABEL[tab]}
-													{errorCount > 0 ? (
-														<Badge variant="destructive">
-															{errorCount}
-															<span className="sr-only">{errorCount === 1 ? " campo com erro" : " campos com erro"}</span>
-														</Badge>
-													) : tab === "ingredientes" ? (
-														<form.Subscribe selector={(state) => state.values.ingredients.length}>
-															{(count) => (count > 0 ? <Badge variant="secondary">{count}</Badge> : null)}
-														</form.Subscribe>
-													) : null}
-												</TabsTrigger>
-											)
-										})}
-									</TabsList>
-								)
-							}}
-						</form.Subscribe>
+					<form.Subscribe selector={encodeTabProblems}>
+						{(encoded) => {
+							const counts = decodeTabProblems(encoded)
+							return (
+								<TabsList className="mx-auto flex w-full max-w-3xl justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none] lg:grid lg:grid-cols-6 lg:justify-center [&::-webkit-scrollbar]:hidden">
+									{RECIPE_FORM_TABS.map((tab) => {
+										const errorCount = counts[tab]
+										// O par com `data-active` é necessário: a aba selecionada força `text-foreground`
+										// com a mesma especificidade, e sem o seletor duplo o vermelho sumiria justo na
+										// aba que o usuário está olhando.
+										return (
+											<TabsTrigger
+												key={tab}
+												value={tab}
+												data-invalid={errorCount > 0 || undefined}
+												className="data-[invalid]:text-destructive data-[invalid]:data-active:text-destructive"
+											>
+												{TAB_LABEL[tab]}
+												{errorCount > 0 ? (
+													<Badge variant="destructive">
+														{errorCount}
+														<span className="sr-only">{errorCount === 1 ? " campo com erro" : " campos com erro"}</span>
+													</Badge>
+												) : tab === "ingredientes" ? (
+													<form.Subscribe selector={(state) => state.values.ingredients.length}>
+														{(count) => (count > 0 ? <Badge variant="secondary">{count}</Badge> : null)}
+													</form.Subscribe>
+												) : null}
+											</TabsTrigger>
+										)
+									})}
+								</TabsList>
+							)
+						}}
+					</form.Subscribe>
 
+					<form
+						id="recipe-form"
+						onSubmit={(e) => {
+							e.preventDefault()
+							e.stopPropagation()
+							form.handleSubmit()
+						}}
+					>
 						{/* Detalhes — rendimento e cocção dimensionam a preparação */}
 						<TabsContent value="detalhes" className={READING_PANEL}>
 							{/* Rendimento e cocção — parâmetros que dimensionam a preparação */}
@@ -999,68 +1089,81 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 								{(ingredients) => <RecipeNutritionPanel ingredients={ingredients as IngredientFormItem[]} />}
 							</form.Subscribe>
 						</TabsContent>
+					</form>
 
-						{/* Fluxo de produção — DAG estruturado, salvo separadamente da preparação */}
-						<TabsContent value="fluxo" className={FLOW_PANEL}>
-							<Card>
-								<CardHeader>
-									<CardTitle>Fluxo de produção</CardTitle>
-								</CardHeader>
-								<CardContent>
-									{flowEnabled && initialData ? (
-										<>
-											<p className="text-caption text-muted-foreground pb-3">
-												O fluxo é salvo separadamente (botão "Salvar fluxo") na versão atual. Ao salvar a preparação, ele é copiado para a nova versão.
-											</p>
-											<RecipeFlowEditor recipeId={initialData.id} kitchenId={initialData.kitchen_id ?? null} ingredients={flowIngredients} />
-										</>
-									) : (
-										<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border py-10 text-center text-muted-foreground">
-											<p className="text-body">O fluxo de produção fica disponível após salvar a preparação.</p>
-											<p className="text-caption">Salve a preparação e abra-a em edição para montar o fluxo.</p>
-										</div>
-									)}
-								</CardContent>
-							</Card>
-						</TabsContent>
+					{/* Fluxo e Equipamentos ficam FORA do form da preparação: têm inputs e Salvar próprios,
+						    e Enter num campo deles gravaria uma versão nova da preparação. */}
+					{/* Fluxo de produção — DAG estruturado, salvo separadamente da preparação */}
+					<TabsContent value="fluxo" className={FLOW_PANEL}>
+						<Card>
+							<CardHeader>
+								<CardTitle>Fluxo de produção</CardTitle>
+							</CardHeader>
+							<CardContent>
+								{flowEnabled && initialData ? (
+									<>
+										<p className="text-caption text-muted-foreground pb-3">
+											O fluxo é salvo separadamente (botão "Salvar fluxo") na versão atual. Ao salvar a preparação, ele é copiado para a nova versão.
+										</p>
+										<RecipeFlowEditor recipeId={initialData.id} kitchenId={initialData.kitchen_id ?? null} ingredients={flowIngredients} />
+									</>
+								) : (
+									<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border py-10 text-center text-muted-foreground">
+										<p className="text-body">O fluxo de produção fica disponível após salvar a preparação.</p>
+										<p className="text-caption">Salve a preparação e abra-a em edição para montar o fluxo.</p>
+									</div>
+								)}
+							</CardContent>
+						</Card>
+					</TabsContent>
 
-						{/* Equipamentos — lista mínima da preparação, salva separadamente (como o fluxo) */}
-						<TabsContent value="equipamentos" className={READING_PANEL}>
-							<Card>
-								<CardHeader>
-									<CardTitle>Equipamentos necessários</CardTitle>
-								</CardHeader>
-								<CardContent>
-									{flowEnabled && initialData ? (
-										<RecipeEquipmentPanel recipeId={initialData.id} kitchenId={initialData.kitchen_id ?? null} />
-									) : (
-										<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border py-10 text-center text-muted-foreground">
-											<p className="text-body">A lista de equipamentos fica disponível após salvar a preparação.</p>
-											<p className="text-caption">Salve a preparação e abra-a em edição para declarar o que ela exige.</p>
-										</div>
-									)}
-								</CardContent>
-							</Card>
-						</TabsContent>
-					</Tabs>
-				</form>
+					{/* Equipamentos — lista mínima da preparação, salva separadamente (como o fluxo) */}
+					<TabsContent value="equipamentos" className={READING_PANEL}>
+						<Card>
+							<CardHeader>
+								<CardTitle>Equipamentos necessários</CardTitle>
+							</CardHeader>
+							<CardContent>
+								{flowEnabled && initialData ? (
+									<RecipeEquipmentPanel recipeId={initialData.id} kitchenId={initialData.kitchen_id ?? null} />
+								) : (
+									<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border py-10 text-center text-muted-foreground">
+										<p className="text-body">A lista de equipamentos fica disponível após salvar a preparação.</p>
+										<p className="text-caption">Salve a preparação e abra-a em edição para declarar o que ela exige.</p>
+									</div>
+								)}
+							</CardContent>
+						</Card>
+					</TabsContent>
+				</Tabs>
 			</div>
 
-			{/* Barra de ação do form — sempre acessível, efeito do salvamento explícito */}
-			<div className="sticky bottom-0 z-10 -mx-3 border-t border-border bg-background px-3 py-3 sm:-mx-6 sm:px-6">
-				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-					<p className="text-caption text-muted-foreground">{saveCaption}</p>
-					<div className="flex justify-end gap-2">
-						<Button type="button" variant="outline" onClick={handleBack}>
-							Cancelar
-						</Button>
-						<Button type="submit" form="recipe-form" disabled={isPending}>
-							{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
-							Salvar Preparação
-						</Button>
-					</div>
-				</div>
-			</div>
+			{/* Barra de ação do form — efeito do salvamento explícito. Sempre montada (é ela que
+			    restaura e grava o rascunho); nas abas Fluxo/Equipamentos só aparece com alteração
+			    pendente da preparação. Recebe os valores por `form.Subscribe` para só ela
+			    re-renderizar a cada tecla. */}
+			<form.Subscribe selector={(state) => state.values}>
+				{(values) => (
+					<DraftSaveBar<RecipeFormValues>
+						draftKey={draftKey}
+						primary={isRecipeTab}
+						caption={isRecipeTab ? saveCaption : "Há alterações na preparação ainda não salvas."}
+						formId="recipe-form"
+						saveLabel="Salvar Preparação"
+						onBack={handleBack}
+						isPending={isPending}
+						// Editar sem mudança não grava versão; criar e personalizar sempre gravam.
+						allowCleanSave={mode !== "edit" || willFork}
+						title={mode === "create" ? "Nova preparação" : `Preparação: ${initialData?.name ?? ""}`}
+						href={typeof window === "undefined" ? null : `${window.location.pathname}${window.location.search}`}
+						baseline={recipeFormValues(initialData)}
+						current={values}
+						fields={draftFields}
+						onRestore={(restored) => form.reset(restored, { keepDefaultValues: true })}
+						onDiscard={discardRecipeDraft}
+					/>
+				)}
+			</form.Subscribe>
 
 			{/* Ingredient Selector Modal — adiciona ingrediente principal à preparação */}
 			{selectorOpen && (
