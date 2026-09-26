@@ -2,11 +2,12 @@
  * Relatório de pesquisa de preços do anexo quantitativo (IN SEGES/ME 65/2021, art. 3º), como
  * EMISSÃO registrada (change `sisub-procurement-planning-flows`, D7).
  *
- * O preço do anexo segue vivo (a pesquisa se refaz perto do edital), então o documento não pode
- * depender do estado de "agora". Cada emissão grava, em `procurement.price_research_emission`, as
- * pesquisas e os preços que usou e o SHA-256 da série de preços. Reabrir a emissão regenera os
- * mesmos bytes a partir das pesquisas gravadas e confere o hash: é isso que torna o documento
- * conferível pelo auditor meses depois.
+ * O anexo e as pesquisas mudam depois (preço repesquisado, descrição editada, fornecedor completado
+ * no catálogo), então o documento não pode ser regenerado do estado de "agora". Cada emissão CONGELA
+ * em `procurement.price_research_emission.items` tudo o que o relatório usa (itens na ordem do TR,
+ * preço, pesquisa e amostras, com a conversão) e grava o SHA-256 da série. Reabrir a emissão
+ * regenera a série do congelado e confere o hash: "verificado" passa a significar que nada no
+ * registro foi alterado, não que o anexo continua igual.
  *
  * O que é puro (CSV, checklist, amostragem) fica exportado e testado; o que lê o banco monta o
  * dossiê a partir do anexo e das pesquisas.
@@ -21,9 +22,8 @@ import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
-import { PRICE_RESEARCH_VALIDITY_DAYS } from "./ata.ts"
-import { computeMaxQuantity, DEFAULT_MAX_MARGIN_PERCENT } from "./ata-quantity-limits.ts"
-import { convertSamplePrice, isSamePrice } from "./price-units.ts"
+import { PRICE_RESEARCH_VALIDITY_DAYS, resolveAtaMaxQuantities } from "./ata.ts"
+import { convertSamplePrice, isSamePrice, PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
 
 /** Variação acima da qual o relatório pede análise crítica (art. 6º, § 4º). Limiar interno, declarado no documento. */
 export const HIGH_CV_PERCENT = 25
@@ -340,35 +340,49 @@ async function authorizeList(db: SisubDb, ctx: UserContext, listId: string, leve
 	return list
 }
 
-/** Itens do anexo na ordem do documento, com a quantidade máxima (congelada, se concluído). */
-async function loadItems(db: SisubDb, listId: string): Promise<Omit<ReportItem, "research">[]> {
+/**
+ * Itens do anexo na ordem da tabela do TR (pasta, com as sem pasta no fim, depois o insumo), com a
+ * quantidade máxima: a congelada no snapshot quando o anexo foi concluído, senão a da regra de
+ * agora (`resolveAtaMaxQuantities`, a mesma dos limites do anexo).
+ */
+async function loadItems(db: SisubDb, listId: string, status: string): Promise<Omit<ReportItem, "research">[]> {
 	const rows = (await runQuery(
 		"FETCH_FAILED",
 		() =>
 			db.execute(sql`
-				select i.id, i.catmat_item_codigo, coalesce(i.purchase_item_description, i.catmat_item_descricao, i.ingredient_name) as description,
+				select i.id, i.ingredient_id, i.catmat_item_codigo,
+					coalesce(i.purchase_item_description, i.catmat_item_descricao, i.ingredient_name) as description,
 					coalesce(case when i.purchase_quantity is not null then i.purchase_measure_unit end, i.measure_unit, 'UN') as unit,
-					i.unit_price, i.purchase_quantity, i.total_quantity, i.folder_description, i.max_margin_percent,
-					(select l.max_margin_percent from procurement.procurement_list l where l.id = i.list_id) as list_margin,
-					(select c.max_quantity from procurement.procurement_list_snapshot_component c
-						where c.list_id = i.list_id and c.ingredient_id is not distinct from i.ingredient_id limit 1) as snapshot_max
+					i.unit_price
 				from procurement.procurement_list_item i
 				where i.list_id = ${listId}
-				order by coalesce(i.folder_description, 'Sem categoria'), coalesce(i.purchase_item_description, i.ingredient_name), i.id
+				order by i.folder_description asc nulls last, i.ingredient_name, i.id
 			`),
 		{ prefix: "Erro ao ler os itens do anexo" }
 	)) as unknown as Row[]
+
+	let maxById: Map<string, number>
+	if (status === "draft") {
+		maxById = await resolveAtaMaxQuantities(db, listId)
+	} else {
+		const components = (await runQuery("FETCH_FAILED", () =>
+			db.execute(sql`select ingredient_id, max_quantity from procurement.procurement_list_snapshot_component where list_id = ${listId}`)
+		)) as unknown as Row[]
+		const byIngredient = new Map(components.filter((c) => c.ingredient_id != null).map((c) => [String(c.ingredient_id), num(c.max_quantity)]))
+		maxById = new Map()
+		for (const r of rows) {
+			const max = r.ingredient_id != null ? byIngredient.get(String(r.ingredient_id)) : undefined
+			if (max != null) maxById.set(String(r.id), max)
+		}
+	}
+
 	return rows.map((r, index) => ({
 		order: index + 1,
 		listItemId: String(r.id),
 		catmat: num(r.catmat_item_codigo),
 		description: String(r.description ?? ""),
 		unit: String(r.unit ?? "UN"),
-		// Concluído: a máxima congelada. Rascunho: a máxima pela regra de agora (estimada + acréscimo),
-		// que ainda muda até concluir.
-		maxQuantity:
-			num(r.snapshot_max) ??
-			computeMaxQuantity(num(r.purchase_quantity) ?? num(r.total_quantity) ?? 0, num(r.max_margin_percent) ?? num(r.list_margin) ?? DEFAULT_MAX_MARGIN_PERCENT),
+		maxQuantity: maxById.get(String(r.id)) ?? null,
 		unitPrice: num(r.unit_price),
 	}))
 }
@@ -479,18 +493,25 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 	return result
 }
 
-/** Pesquisa mais recente de cada item do anexo. */
+/**
+ * Pesquisa de cada item: a mais recente que SUSTENTA o preço aplicado (mesmo valor), senão a mais
+ * recente. Uma pesquisa gravada cuja aplicação falhou não pode passar à frente da que vale.
+ */
 async function latestResearchByItem(db: SisubDb, listItemIds: readonly string[]): Promise<Map<string, string>> {
 	if (listItemIds.length === 0) return new Map()
 	const rows = (await runQuery("FETCH_FAILED", () =>
 		db.execute(sql`
 			select distinct on (ri.ata_item_id) ri.ata_item_id, ri.id
 			from procurement.procurement_pesquisa_preco_item ri
+			join procurement.procurement_list_item i on i.id = ri.ata_item_id
 			where ri.ata_item_id in (${sql.join(
 				listItemIds.map((id) => sql`${id}::uuid`),
 				sql`, `
 			)})
-			order by ri.ata_item_id, ri.created_at desc
+			order by ri.ata_item_id,
+				(i.unit_price is not null and ri.reference_price is not null
+					and abs(ri.reference_price - i.unit_price) <= greatest(${PRICE_MATCH_ABSOLUTE}, abs(i.unit_price) * ${PRICE_MATCH_RELATIVE})) desc,
+				ri.created_at desc
 		`)
 	)) as unknown as Row[]
 	return new Map(rows.map((r) => [String(r.ata_item_id), String(r.id)]))
@@ -515,31 +536,27 @@ export interface PriceResearchReport {
 	emissions: Array<{ id: string; sequence: number; emittedAt: string }>
 }
 
-type EmissionItem = { list_item_id: string; research_item_id: string | null; unit_price: number | null }
-
 /**
  * Gera uma emissão nova: a pesquisa mais recente de cada item e o preço de agora. Exige `unit:2`
  * na OM do anexo (grava). Devolve o id; o relatório se lê por `fetchPriceResearchReport`.
  */
 export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, input: { ataId: string }): Promise<{ id: string; sequence: number }> {
-	await authorizeList(db, ctx, input.ataId, 2)
-	const items = await loadItems(db, input.ataId)
+	const list = await authorizeList(db, ctx, input.ataId, 2)
+	const items = await loadItems(db, input.ataId, String(list.status))
 	if (items.length === 0) throw new DomainError("EMPTY_ANNEX", "O anexo não tem itens para o relatório de pesquisa de preços.")
 	const latest = await latestResearchByItem(
 		db,
 		items.map((i) => i.listItemId)
 	)
 	const research = await loadResearch(db, [...new Set(latest.values())])
-	const full: ReportItem[] = items.map((i) => ({ ...i, research: research.get(latest.get(i.listItemId) ?? "") ?? null }))
-	const sha256 = sha256Hex(buildResearchSeriesCsv(full))
-	const payload: EmissionItem[] = full.map((i) => ({
-		list_item_id: i.listItemId,
-		research_item_id: i.research?.researchItemId ?? null,
-		unit_price: i.unitPrice,
-	}))
+	// O que a emissão congela: o relatório inteiro sai daqui depois, nunca do estado de agora.
+	const frozen: ReportItem[] = items.map((i) => ({ ...i, research: research.get(latest.get(i.listItemId) ?? "") ?? null }))
+	const sha256 = sha256Hex(buildResearchSeriesCsv(frozen))
 
 	return runQuery("TRANSACTION_FAILED", () =>
 		db.transaction(async (tx) => {
+			// Trava a linha do anexo: duas emissões simultâneas disputariam o mesmo número.
+			await tx.execute(sql`select id from procurement.procurement_list where id = ${input.ataId} for update`)
 			const [last] = await tx
 				.select({ sequence: priceResearchEmissionInProcurement.sequence })
 				.from(priceResearchEmissionInProcurement)
@@ -549,7 +566,7 @@ export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, inp
 			const sequence = (last?.sequence ?? 0) + 1
 			const [row] = await tx
 				.insert(priceResearchEmissionInProcurement)
-				.values({ listId: input.ataId, sequence, emittedBy: ctx.userId, sha256, items: payload })
+				.values({ listId: input.ataId, sequence, emittedBy: ctx.userId, sha256, items: frozen })
 				.returning({ id: priceResearchEmissionInProcurement.id })
 			return { id: row.id, sequence }
 		})
@@ -592,22 +609,8 @@ export async function fetchPriceResearchReport(
 	)) as unknown as Row[]
 	if (!emission) throw new NotFoundError("emissão", chosenId)
 
-	const payload = (Array.isArray(emission.items) ? emission.items : JSON.parse(String(emission.items))) as EmissionItem[]
-	const base = new Map((await loadItems(db, input.ataId)).map((i) => [i.listItemId, i]))
-	const research = await loadResearch(db, [...new Set(payload.map((p) => p.research_item_id).filter((id): id is string => id != null))])
-	const items: ReportItem[] = payload.map((p, index) => {
-		const item = base.get(p.list_item_id)
-		return {
-			order: index + 1,
-			listItemId: p.list_item_id,
-			catmat: item?.catmat ?? null,
-			description: item?.description ?? "Item removido do anexo",
-			unit: item?.unit ?? "",
-			maxQuantity: item?.maxQuantity ?? null,
-			unitPrice: p.unit_price == null ? null : Number(p.unit_price),
-			research: p.research_item_id ? (research.get(p.research_item_id) ?? null) : null,
-		}
-	})
+	// O relatório sai do que a emissão congelou (itens, preços, pesquisas e amostras).
+	const items = (Array.isArray(emission.items) ? emission.items : JSON.parse(String(emission.items))) as ReportItem[]
 	const csv = buildResearchSeriesCsv(items)
 	const sha256 = String(emission.sha256)
 	const emittedAt = new Date(String(emission.emitted_at)).toISOString()

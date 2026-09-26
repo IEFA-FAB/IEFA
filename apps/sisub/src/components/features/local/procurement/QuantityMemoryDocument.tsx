@@ -37,7 +37,11 @@ export function QuantityMemoryDocument({
 	memory: QuantityMemory
 }) {
 	const byIngredient = new Map<string, QuantityMemory["contributions"]>()
-	for (const c of memory.contributions) byIngredient.set(c.ingredientId, [...(byIngredient.get(c.ingredientId) ?? []), c])
+	for (const c of memory.contributions) {
+		const list = byIngredient.get(c.ingredientId)
+		if (list) list.push(c)
+		else byIngredient.set(c.ingredientId, [c])
+	}
 	const divergent = rows.filter((r) => {
 		const sum = (r.ingredientId ? byIngredient.get(r.ingredientId) : undefined)?.reduce((s, c) => s + c.quantity, 0) ?? 0
 		return Math.abs(sum - r.ingredientQuantity) > SAME_QUANTITY * Math.max(1, r.ingredientQuantity)
@@ -67,10 +71,11 @@ export function QuantityMemoryDocument({
 				82, I). A quantidade mínima a ser cotada é {INT.format(minQuotePercent)}% da máxima, arredondada para cima (art. 82, II). A mínima por ordem de
 				fornecimento parte do consumo entre duas entregas (semanal ou mensal).
 			</p>
-			{concluded && divergent.length > 0 && (
+			{divergent.length > 0 && (
 				<p data-proc="alert">
-					Atenção: {divergent.length} item(ns) têm hoje soma de parcelas diferente da quantidade congelada na conclusão — os cardápios mudaram depois. As
-					quantidades do anexo são as congeladas; as parcelas abaixo são as de hoje.
+					{concluded
+						? `Atenção: ${divergent.length} item(ns) têm hoje soma de parcelas diferente da quantidade congelada na conclusão: os cardápios mudaram depois. As quantidades do anexo são as congeladas; as parcelas abaixo são as de hoje.`
+						: `Atenção: ${divergent.length} item(ns) têm soma de parcelas diferente da quantidade do anexo: os cardápios mudaram depois do último cálculo. Recalcule o anexo antes de juntar esta memória aos autos.`}
 				</p>
 			)}
 

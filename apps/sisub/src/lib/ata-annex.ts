@@ -193,7 +193,7 @@ const CYCLE_CSV: Record<DeliveryCycle, string> = { weekly: "Semanal", monthly: "
 const csvNumber = (value: number | null, digits: number): string => (value == null ? "" : value.toFixed(digits))
 
 /** Anexo de quantitativos em CSV: uma linha por item, na ordem da tela; justificativa ao final. */
-export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string | null): string {
+export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string | null, options: { confidential?: boolean } = {}): string {
 	const headers = [
 		"Item",
 		"Categoria",
@@ -229,7 +229,11 @@ export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string 
 		r.unitPrice != null && r.maxQuantity != null ? (r.maxQuantity * r.unitPrice).toFixed(2) : "",
 	])
 	if (marginJustification?.trim()) lines.push([], ["Justificativa da quantidade máxima", marginJustification.trim()])
-	return [headers, ...lines].map((line) => line.map(csvCell).join(",")).join("\n")
+	// Orçamento sigiloso (Lei 14.133/2021, art. 24): as duas últimas colunas (preço e valor) não saem.
+	const all = options.confidential
+		? [headers.slice(0, -2), ...lines.map((line) => (line.length === headers.length ? line.slice(0, -2) : line))]
+		: [headers, ...lines]
+	return all.map((line) => line.map(csvCell).join(",")).join("\n")
 }
 
 export function downloadCsv(filename: string, csv: string): void {

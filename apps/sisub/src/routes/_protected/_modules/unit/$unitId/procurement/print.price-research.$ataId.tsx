@@ -32,7 +32,8 @@ function downloadExact(filename: string, text: string) {
 	a.href = url
 	a.download = filename
 	a.click()
-	URL.revokeObjectURL(url)
+	// Revogar no mesmo tick aborta o download no Firefox e no Safari (mesmo cuidado de downloadCsv).
+	setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function PriceResearchReportPage() {

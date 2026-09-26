@@ -16,6 +16,7 @@ import {
 	savePriceResearchAudit,
 	updateAtaDocumentSettings,
 	updateAtaDraft,
+	updateAtaItemDescription,
 	updateAtaItemPrices,
 	updateAtaQuantityLimits,
 	updateAtaStatus,
@@ -145,6 +146,9 @@ describeSupabaseIntegration("documentos do anexo quantitativo", () => {
 			nomeFornecedor: "Fornecedor de teste",
 		})
 		expect(report?.csv.split("\n").filter(Boolean)).toHaveLength(4)
+
+		// Editar o anexo depois da emissão não a invalida: ela congelou o que usou.
+		await updateAtaItemDescription(db, ctx, { ataItemId: item.id, description: "descrição editada depois" })
 
 		// Repesquisou e o preço mudou: a emissão nº 1 continua reproduzível, com o preço dela.
 		await research([20, 21, 22])

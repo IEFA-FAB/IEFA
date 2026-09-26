@@ -93,7 +93,10 @@ function AtaDetailPage() {
 
 	const handleExportCSV = () => {
 		if (!ata) return
-		downloadCsv(`anexo-quantitativos-${ata.title}-${ata.created_at.split("T")[0]}.csv`, buildAnnexCsv(annexRows, ata.margin_justification))
+		downloadCsv(
+			`anexo-quantitativos-${ata.title}-${ata.created_at.split("T")[0]}.csv`,
+			buildAnnexCsv(annexRows, ata.margin_justification, { confidential: Boolean(ata.is_budget_confidential) })
+		)
 	}
 
 	// A trava real é do servidor na publicação; aqui só evita o clique que já sabemos que falha.

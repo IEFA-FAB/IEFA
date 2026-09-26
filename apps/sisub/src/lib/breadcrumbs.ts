@@ -143,7 +143,8 @@ const NUMERIC_RE = /^\d+$/
 export const isId = (seg: string) => UUID_RE.test(seg) || NUMERIC_RE.test(seg)
 
 /** Segmentos que não nomeiam um recurso — pulados ao procurar o pai de um id */
-const TRANSPARENT_SEGMENTS = new Set(["print"])
+// `quantities` e `price-research` só existem como `print/<documento>/$ataId`: não são rota.
+const TRANSPARENT_SEGMENTS = new Set(["print", "quantities", "price-research"])
 
 /**
  * Caminho sem o id de escopo: `/unit/3/reconciliation` → `/unit/reconciliation`.

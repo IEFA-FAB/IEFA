@@ -1338,6 +1338,17 @@ async function fetchCycleContext(
 type ListLimitsRow = { validityMonths: number | null; maxMarginPercent: number; marginJustification: string | null; minQuotePercent: number }
 type ItemRowFull = typeof procurementListItemInProcurement.$inferSelect
 
+/**
+ * Quantidade máxima de cada item do anexo pela regra de agora (a mesma de `loadAtaLimits`), por id
+ * do item. Para quem precisa do número sem reimplementar a regra (o relatório de pesquisa de preços).
+ */
+export async function resolveAtaMaxQuantities(db: SisubDb, listId: string): Promise<Map<string, number>> {
+	return db.transaction(async (tx) => {
+		const { items } = await loadAtaLimits(tx, listId)
+		return new Map(items.map(({ item, limits }) => [item.id, limits.maxQuantity]))
+	})
+}
+
 /** Limites resolvidos de todos os itens de uma ata — mesma entrada para a trava de publicação e o snapshot. */
 async function loadAtaLimits(
 	tx: TxClient,
@@ -1474,7 +1485,17 @@ async function computeAtaMeta(
 			),
 			runQuery(
 				"QUERY_FAILED",
-				() => db.select().from(procurementListSnapshotComponentInProcurement).where(eq(procurementListSnapshotComponentInProcurement.listId, listId)),
+				() =>
+					db
+						.select()
+						.from(procurementListSnapshotComponentInProcurement)
+						.where(eq(procurementListSnapshotComponentInProcurement.listId, listId))
+						// Mesma ordem dos itens do rascunho (fetchAtaDetails): a numeração da tabela do TR e a do
+						// relatório de pesquisa de preços têm de apontar o mesmo item.
+						.orderBy(
+							sql`${procurementListSnapshotComponentInProcurement.folderDescription} asc nulls last`,
+							asc(procurementListSnapshotComponentInProcurement.ingredientName)
+						),
 				{ prefix: "Erro ao buscar snapshot" }
 			),
 		])
