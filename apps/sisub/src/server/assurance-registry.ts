@@ -208,6 +208,16 @@ export const ASSURANCE_REGISTRY = {
 		reason: "Esta operação aplica um lote de crédito orçamentário.",
 		authorization: [{ kind: "permission", module: "unit", level: 2 }],
 	},
+	createCreditNoteFn: {
+		require: "session",
+		reason: "Esta operação registra uma nota de crédito.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	deleteCreditNoteFn: {
+		require: "session",
+		reason: "Esta operação apaga uma nota de crédito registrada à mão.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
 
 	// ── compras-sync.fn.ts
 	triggerSyncFn: { require: "none" },

@@ -1,16 +1,27 @@
 /**
  * @module budget.fn
  * Crédito disponível (Fase 2 da execução orçamentária): snapshot do SIAFI por
- * classificação + comprometimento local + saldo projetado, e a verificação
- * (não-bloqueante) antes de empenhar.
+ * classificação + comprometimento local FILTRADO pela classificação + saldo
+ * projetado; a verificação (não-bloqueante) ao registrar a NE; e as Notas de
+ * Crédito (NC) que explicam o crédito recebido.
  * CLIENT: getServerClient (service role, schemas finance/siafi_integration).
- * AUTH: `unit` escopado — nível 1 leitura, 2 aplicar snapshot de lote.
- * TABLES: finance.budget_credit, finance.empenho (leitura), siafi_integration.*
+ * AUTH: `unit` escopado — nível 1 leitura, 2 aplicar snapshot de lote e registrar NC.
+ * TABLES: finance.budget_credit, finance.credit_note, finance.empenho(_event),
+ *   finance.v_empenho_vigente (leitura), siafi_integration.*
  * @domain core
- * @migration 20260731130000_finance_budget_credit
+ * @migration 20260731130000_finance_budget_credit, 20260926216000_finance_compliance
  */
 
-import { type BudgetProjection, checkCreditForEmpenho, type LocalEmpenhoEntry, projectBudget } from "@iefa/sisub-domain"
+import {
+	type BudgetProjection,
+	type ClassifiedCreditCheck,
+	type ClassifiedEmpenhoEntry,
+	type CreditLineSnapshot,
+	type CreditNoteEntry,
+	checkCreditForClassifiedEmpenho,
+	projectCreditLine,
+	sumCreditNotesForLine,
+} from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
@@ -23,26 +34,150 @@ type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Reco
 const finance = () => getServerClient("finance") as unknown as LooseClient
 const siafi = () => getServerClient("siafi_integration") as unknown as LooseClient
 
+// TODO: regenerar tipos após aplicar 20260926216000 e trocar estes tipos locais estreitos pelos gerados.
+interface BudgetCreditDbRow {
+	id: string
+	ug: string | null
+	nd: string
+	ptres: string | null
+	fonte: string | null
+	pi: string | null
+	ugr: string | null
+	competencia: string
+	dotacao: number | string
+	empenhado_siafi: number | string
+	saldo_siafi: number | string
+	snapshot_at: string
+}
+
+// TODO: regenerar tipos após aplicar 20260926216000.
+export interface CreditNoteRow {
+	id: string
+	number: string
+	issued_on: string
+	kind: "descentralizacao" | "anulacao"
+	issuer_ug: string | null
+	beneficiary_ug: string | null
+	budget_sphere: "1" | "2" | "3" | null
+	ptres: string | null
+	fonte: string | null
+	nd: string | null
+	pi: string | null
+	ugr: string | null
+	amount: number
+	notes: string | null
+	origin: "manual" | "siafi"
+	created_at: string
+}
+
 export interface BudgetCreditLine extends BudgetProjection {
 	id: string
 	ug: string | null
 	nd: string
 	ptres: string | null
 	fonte: string | null
+	pi: string | null
+	ugr: string | null
 	competencia: string
+	/** Σ das NC registradas no sisub que alimentam a linha no exercício (conferência, não saldo). */
+	notasCredito: number
 }
 
-/** Empenhos ativos da unidade — base do comprometimento local. */
-async function fetchLocalEmpenhos(unitId: number): Promise<LocalEmpenhoEntry[]> {
-	const { data } = await finance().from("empenho").select("data_empenho, valor_total, status").eq("unit_id", unitId).eq("status", "ativo").limit(1000)
-	return (data ?? []).map((row: { data_empenho: string; valor_total: number; status: string }) => ({
-		dataEmpenho: row.data_empenho,
-		valor: Number(row.valor_total ?? 0),
-		status: row.status,
-	}))
+const BUDGET_CREDIT_COLUMNS = "id, ug, nd, ptres, fonte, pi, ugr, competencia, dotacao, empenhado_siafi, saldo_siafi, snapshot_at"
+
+function toCreditLineSnapshot(row: BudgetCreditDbRow): CreditLineSnapshot & { id: string; pi: string | null; ugr: string | null } {
+	return {
+		id: row.id,
+		ug: row.ug,
+		nd: row.nd,
+		ptres: row.ptres,
+		fonte: row.fonte,
+		pi: row.pi ?? null,
+		ugr: row.ugr ?? null,
+		competencia: row.competencia,
+		dotacao: Number(row.dotacao),
+		empenhadoSiafi: Number(row.empenhado_siafi),
+		saldoSiafi: Number(row.saldo_siafi),
+		snapshotAt: row.snapshot_at,
+	}
 }
 
-/** Linhas de crédito da unidade com as três grandezas já projetadas. */
+/**
+ * Empenhos da unidade com classificação, valor VIGENTE e eventos — a base do
+ * comprometimento filtrado. Anulados entram também: a anulação posterior ao
+ * snapshot devolve crédito à linha.
+ */
+async function fetchClassifiedEmpenhos(unitId: number): Promise<ClassifiedEmpenhoEntry[]> {
+	const fin = finance()
+	const [{ data: rows, error }, { data: vigentes, error: vigenteError }] = await Promise.all([
+		fin
+			.from("empenho")
+			.select("id, data_empenho, status, nd, ptres, fonte, ug_emitente, exercicio, empenho_event(tipo, valor, data)")
+			.eq("unit_id", unitId)
+			.order("data_empenho", { ascending: false })
+			.limit(2000),
+		fin.from("v_empenho_vigente").select("empenho_id, valor_vigente").eq("unit_id", unitId).limit(2000),
+	])
+	if (error) throw new Error(`Erro ao consultar empenhos: ${error.message}`)
+	if (vigenteError) throw new Error(`Erro ao consultar o valor vigente dos empenhos: ${vigenteError.message}`)
+	const vigenteById = new Map<string, number>(
+		(vigentes ?? []).map((row: { empenho_id: string; valor_vigente: number | string }) => [row.empenho_id, Number(row.valor_vigente)])
+	)
+	return (rows ?? []).map(
+		(row: {
+			id: string
+			data_empenho: string
+			status: string
+			nd: string | null
+			ptres: string | null
+			fonte: string | null
+			ug_emitente: string | null
+			exercicio: number | null
+			empenho_event: { tipo: string; valor: number | string; data: string }[] | null
+		}) => ({
+			id: row.id,
+			dataEmpenho: row.data_empenho,
+			status: row.status,
+			nd: row.nd,
+			ptres: row.ptres,
+			fonte: row.fonte,
+			ug: row.ug_emitente,
+			exercicio: row.exercicio,
+			valorVigente: vigenteById.get(row.id) ?? 0,
+			events: (row.empenho_event ?? []).map((event) => ({ tipo: event.tipo, valor: Number(event.valor), data: event.data })),
+		})
+	)
+}
+
+async function fetchCreditNoteEntries(unitId: number): Promise<CreditNoteEntry[]> {
+	const { data, error } = await finance()
+		.from("credit_note")
+		.select("kind, amount, issued_on, beneficiary_ug, nd, ptres, fonte")
+		.eq("unit_id", unitId)
+		.limit(2000)
+	if (error) throw new Error(`Erro ao consultar notas de crédito: ${error.message}`)
+	return (data ?? []).map(
+		(row: {
+			kind: string
+			amount: number | string
+			issued_on: string
+			beneficiary_ug: string | null
+			nd: string | null
+			ptres: string | null
+			fonte: string | null
+		}) => ({
+			tipo: row.kind,
+			valor: Number(row.amount),
+			dataEmissao: row.issued_on,
+			ugFavorecida: row.beneficiary_ug,
+			nd: row.nd,
+			ptres: row.ptres,
+			fonte: row.fonte,
+		})
+	)
+}
+
+/** Linhas de crédito da unidade com as três grandezas já projetadas, por classificação. */
 export const fetchBudgetCreditFn = createServerFn({ method: "GET" })
 	.validator(
 		z.object({
@@ -56,93 +191,86 @@ export const fetchBudgetCreditFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<BudgetCreditLine[]> => {
 		await requireUnitScope(1, data.unitId)
 
-		let query = finance()
-			.from("budget_credit")
-			.select("id, ug, nd, ptres, fonte, competencia, dotacao, empenhado_siafi, saldo_siafi, snapshot_at")
-			.eq("unit_id", data.unitId)
-			.order("competencia", { ascending: false })
-			.order("nd")
+		let query = finance().from("budget_credit").select(BUDGET_CREDIT_COLUMNS).eq("unit_id", data.unitId).order("competencia", { ascending: false }).order("nd")
 		if (data.competencia) query = query.eq("competencia", `${data.competencia}-01`)
 
 		const { data: rows, error } = await query
 		if (error) throw new Error(`Erro ao consultar crédito: ${error.message}`)
 		if ((rows ?? []).length === 0) return []
 
-		const empenhos = await fetchLocalEmpenhos(data.unitId)
-		return (rows ?? []).map(
-			(row: {
-				id: string
-				ug: string | null
-				nd: string
-				ptres: string | null
-				fonte: string | null
-				competencia: string
-				dotacao: number
-				empenhado_siafi: number
-				saldo_siafi: number
-				snapshot_at: string
-			}) => ({
-				id: row.id,
-				ug: row.ug,
-				nd: row.nd,
-				ptres: row.ptres,
-				fonte: row.fonte,
-				competencia: row.competencia,
-				...projectBudget(
-					{
-						dotacao: Number(row.dotacao),
-						empenhadoSiafi: Number(row.empenhado_siafi),
-						saldoSiafi: Number(row.saldo_siafi),
-						snapshotAt: row.snapshot_at,
-					},
-					empenhos
-				),
-			})
-		)
+		const [empenhos, notes] = await Promise.all([fetchClassifiedEmpenhos(data.unitId), fetchCreditNoteEntries(data.unitId)])
+		const now = Date.now()
+		return ((rows ?? []) as BudgetCreditDbRow[]).map((row) => {
+			const line = toCreditLineSnapshot(row)
+			return {
+				...line,
+				...projectCreditLine(line, empenhos, now),
+				notasCredito: sumCreditNotesForLine(line, notes),
+			}
+		})
 	})
 
+const creditCheckInput = z.object({
+	unitId: z.number().int().positive(),
+	valor: z.number().positive(),
+	nd: z.string().trim().min(1).nullable().optional(),
+	ptres: z.string().trim().nullable().optional(),
+	fonte: z.string().trim().nullable().optional(),
+	/** UG emitente da NE; sem ela, qualquer UG da unidade. */
+	ug: z.string().trim().nullable().optional(),
+	/** `YYYY-MM-DD` da NE; decide o exercício e se o comprometimento é anterior ao snapshot. */
+	dataEmpenho: z
+		.string()
+		.regex(/^\d{4}-\d{2}-\d{2}$/)
+		.optional(),
+	exercicio: z.number().int().optional(),
+	/** A NE já registrada que está sendo completada: fica fora do próprio comprometimento. */
+	excludeEmpenhoId: z.uuid().optional(),
+})
+
+export type BudgetCheckForEmpenhoInput = z.infer<typeof creditCheckInput>
+
 /**
- * Verificação de crédito antes de registrar empenho — ALERTA, nunca bloqueio
- * (o snapshot pode estar defasado; a decisão é do ordenador).
+ * Conferência de crédito ao registrar (ou completar) uma NE — AVISO, nunca bloqueio.
+ *
+ * O sisub registra o ato já praticado no SIAFI; a vedação de empenho sem crédito
+ * (Lei 4.320, art. 59) vira alerta com a classificação e a idade do snapshot. A
+ * linha conferida é a da classificação da NE (UG/ND/PTRES/fonte/exercício), e o
+ * comprometimento soma só os empenhos DAQUELA classificação, pelo valor vigente.
+ *
+ * Uso pela tela de NE: `useBudgetCheckForEmpenho` (`@/hooks/data/useBudgetCheck`).
  */
 export const checkBudgetForEmpenhoFn = createServerFn({ method: "GET" })
-	.validator(
-		z.object({
-			unitId: z.number().int().positive(),
-			valor: z.number().positive(),
-			nd: z.string().optional(),
-			ptres: z.string().optional(),
-			fonte: z.string().optional(),
-		})
-	)
-	.handler(async ({ data }) => {
+	.validator(creditCheckInput)
+	.handler(async ({ data }): Promise<ClassifiedCreditCheck> => {
 		await requireUnitScope(1, data.unitId)
 
-		let query = finance()
+		const { data: rows, error } = await finance()
 			.from("budget_credit")
-			.select("dotacao, empenhado_siafi, saldo_siafi, snapshot_at")
+			.select(BUDGET_CREDIT_COLUMNS)
 			.eq("unit_id", data.unitId)
 			.order("competencia", { ascending: false })
-			.limit(1)
-		if (data.nd) query = query.eq("nd", data.nd)
-		if (data.ptres) query = query.eq("ptres", data.ptres)
-		if (data.fonte) query = query.eq("fonte", data.fonte)
+			.limit(500)
+		if (error) throw new Error(`Erro ao consultar crédito: ${error.message}`)
+		const lines = ((rows ?? []) as BudgetCreditDbRow[]).map(toCreditLineSnapshot)
 
-		const { data: rows } = await query
-		const row = (rows ?? [])[0]
-		if (!row) return checkCreditForEmpenho(data.valor, null)
-
-		const empenhos = await fetchLocalEmpenhos(data.unitId)
-		const projection = projectBudget(
+		const dataEmpenho = data.dataEmpenho ?? new Date().toISOString().substring(0, 10)
+		const empenhos = lines.length > 0 ? await fetchClassifiedEmpenhos(data.unitId) : []
+		return checkCreditForClassifiedEmpenho(
+			data.valor,
 			{
-				dotacao: Number(row.dotacao),
-				empenhadoSiafi: Number(row.empenhado_siafi),
-				saldoSiafi: Number(row.saldo_siafi),
-				snapshotAt: row.snapshot_at,
+				nd: data.nd ?? null,
+				ptres: data.ptres || null,
+				fonte: data.fonte || null,
+				ug: data.ug || null,
+				exercicio: data.exercicio ?? Number(dataEmpenho.substring(0, 4)),
+				dataEmpenho,
 			},
-			empenhos
+			lines,
+			empenhos,
+			Date.now(),
+			{ excludeEmpenhoId: data.excludeEmpenhoId }
 		)
-		return checkCreditForEmpenho(data.valor, projection)
 	})
 
 /**
@@ -178,6 +306,9 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 					nd: String(parsed.nd),
 					ptres: (parsed.ptres as string) ?? null,
 					fonte: (parsed.fonte as string) ?? null,
+					// PI e UGR vêm quando o relatório os traz; fora da chave única nesta fase
+					pi: (parsed.pi as string) ?? null,
+					ugr: (parsed.ugr as string) ?? null,
 					competencia,
 					dotacao: Number(parsed.dotacao ?? 0),
 					empenhado_siafi: Number(parsed.empenhado ?? 0),
@@ -199,5 +330,131 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 			// crédito não tem competência, quando ele tem — e é a competência que decide
 			// a qual mês o dinheiro foi lançado.
 			(result) => ({ batchId: data.batchId, unitId: Number(batch.unit_id), competencia: result.competencia, applied: result.applied })
+		)
+	})
+
+// ============================================================================
+// Notas de Crédito (NC)
+// ============================================================================
+
+const CREDIT_NOTE_COLUMNS =
+	"id, number, issued_on, kind, issuer_ug, beneficiary_ug, budget_sphere, ptres, fonte, nd, pi, ugr, amount, notes, origin, created_at"
+
+/** NC da unidade, mais recentes primeiro. */
+export const listCreditNotesFn = createServerFn({ method: "GET" })
+	.validator(z.object({ unitId: z.number().int().positive(), exercicio: z.number().int().optional() }))
+	.handler(async ({ data }): Promise<CreditNoteRow[]> => {
+		await requireUnitScope(1, data.unitId)
+		let query = finance()
+			.from("credit_note")
+			.select(CREDIT_NOTE_COLUMNS)
+			.eq("unit_id", data.unitId)
+			.order("issued_on", { ascending: false })
+			.order("created_at", { ascending: false })
+			.limit(500)
+		if (data.exercicio) query = query.gte("issued_on", `${data.exercicio}-01-01`).lte("issued_on", `${data.exercicio}-12-31`)
+		const { data: rows, error } = await query
+		if (error) throw new Error(`Erro ao listar notas de crédito: ${error.message}`)
+		return ((rows ?? []) as CreditNoteRow[]).map((row) => ({ ...row, amount: Number(row.amount) }))
+	})
+
+const optionalCode = (pattern: RegExp, message: string) =>
+	z
+		.string()
+		.trim()
+		.transform((value) => (value === "" ? null : value))
+		.nullable()
+		.optional()
+		.refine((value) => value == null || pattern.test(value), message)
+
+const optionalText = z
+	.string()
+	.trim()
+	.transform((value) => (value === "" ? null : value))
+	.nullable()
+	.optional()
+
+/** Registra a NC que chegou (ou a anulação dela). O ato é do SIAFI; aqui é registro. */
+export const createCreditNoteFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			unitId: z.number().int().positive(),
+			number: z.string().trim().min(1, "Informe o número da NC"),
+			issuedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+			kind: z.enum(["descentralizacao", "anulacao"]).default("descentralizacao"),
+			issuerUg: optionalCode(/^\d{6}$/, "UG emitente tem 6 dígitos"),
+			beneficiaryUg: optionalCode(/^\d{6}$/, "UG favorecida tem 6 dígitos"),
+			budgetSphere: z.enum(["1", "2", "3"]).nullable().optional(),
+			ptres: optionalText,
+			fonte: optionalText,
+			nd: optionalCode(/^\d{6}(\d{2})?$/, "ND com 6 ou 8 dígitos, sem pontos"),
+			pi: optionalText,
+			ugr: optionalText,
+			amount: z.number().positive(),
+			notes: optionalText,
+		})
+	)
+	.handler(async ({ data }) => {
+		const ctx = await requireUnitScope(2, data.unitId)
+		const number = data.number.toUpperCase()
+
+		return withSensitiveAudit(
+			"createCreditNoteFn",
+			ctx,
+			async () => {
+				const { data: row, error } = await finance()
+					.from("credit_note")
+					.insert({
+						unit_id: data.unitId,
+						number,
+						issued_on: data.issuedOn,
+						kind: data.kind,
+						issuer_ug: data.issuerUg ?? null,
+						beneficiary_ug: data.beneficiaryUg ?? null,
+						budget_sphere: data.budgetSphere ?? null,
+						ptres: data.ptres ?? null,
+						fonte: data.fonte ?? null,
+						nd: data.nd ?? null,
+						pi: data.pi ?? null,
+						ugr: data.ugr ?? null,
+						amount: data.amount,
+						notes: data.notes ?? null,
+						origin: "manual",
+						created_by: ctx.userId,
+					})
+					.select("id")
+					.single()
+				if (error || !row) {
+					if (error?.code === "23505") throw new Error(`NC "${number}" já registrada para esta UG emitente`)
+					throw new Error(`Erro ao registrar a nota de crédito: ${error?.message}`)
+				}
+				return { creditNoteId: row.id as string }
+			},
+			(result) => ({ creditNoteId: result.creditNoteId, unitId: data.unitId, number, kind: data.kind, amount: data.amount, nd: data.nd ?? null })
+		)
+	})
+
+/**
+ * Apaga uma NC registrada à mão por engano (número ou valor errado). A anulação de
+ * uma NC verdadeira não é isto: é outra NC, do tipo `anulacao`.
+ */
+export const deleteCreditNoteFn = createServerFn({ method: "POST" })
+	.validator(z.object({ unitId: z.number().int().positive(), creditNoteId: z.uuid() }))
+	.handler(async ({ data }) => {
+		const ctx = await requireUnitScope(2, data.unitId)
+		const fin = finance()
+		const { data: row, error } = await fin.from("credit_note").select("id, number, origin").eq("id", data.creditNoteId).eq("unit_id", data.unitId).maybeSingle()
+		if (error) throw new Error(`Erro ao conferir a nota de crédito: ${error.message}`)
+		if (!row) throw new Error("Nota de crédito não encontrada nesta unidade")
+		if (row.origin !== "manual") throw new Error("NC importada do SIAFI não se apaga aqui: registre a NC de anulação")
+
+		return withSensitiveAudit(
+			"deleteCreditNoteFn",
+			ctx,
+			async () => {
+				const { error: deleteError } = await fin.from("credit_note").delete().eq("id", data.creditNoteId).eq("unit_id", data.unitId)
+				if (deleteError) throw new Error(`Erro ao apagar a nota de crédito: ${deleteError.message}`)
+			},
+			() => ({ creditNoteId: data.creditNoteId, unitId: data.unitId, number: row.number as string })
 		)
 	})
