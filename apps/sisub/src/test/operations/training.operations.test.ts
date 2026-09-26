@@ -74,6 +74,9 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// Treino não concede nenhum módulo `alpha-*`, e o α recusa a unidade de treino como OM de
 	// envio, então o treinando do sisub não gera linha aqui.
 	"alpha.submission": "documento de contratação real enviado ao Projeto α (ETP/TR), não dado gerado pelo treinamento do sisub",
+	// `alpha.demand` — migration 20260926210000 (demanda do requisitante no contrate). Declarada
+	// ANTES de aplicada. Mesmo motivo de `alpha.submission`: o α recusa a unidade de treino.
+	"alpha.demand": "demanda de contratação real estruturada no contrate (Projeto α), não dado gerado pelo treinamento do sisub",
 	// `procurement.acquisition` e `finance.credit_note` — execução flexível da despesa
 	// (openspec/changes/sisub-flexible-expense-execution). Declaradas antes da migration; o PR
 	// do recurso as promove a RESET_STEPS (o treinando cria contratação e NC com `unit:2`).
