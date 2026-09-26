@@ -31,6 +31,7 @@ import { join, resolve } from "node:path"
 
 const ROOT = resolve(import.meta.dir, "..")
 const HEADER = "# GERADO por `bun run env:pull`"
+// biome-ignore lint/suspicious/noUndeclaredEnvVars: script avulso, fora do grafo de tarefas do turbo
 const REGION = process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "sa-east-1"
 
 type ManifestApp = { key: string; path: string; aliasOf?: string }
@@ -84,10 +85,17 @@ async function readSecret(id: string): Promise<SecretResult> {
 	}
 }
 
-/** Valor seguro para `.env`: aspas só quando precisa, com escape do que o parser do Bun/dotenv lê. */
-function formatValue(value: string): string {
+/**
+ * Valor para `.env` que volta IGUAL no `process.env`. Medido no Bun: ele expande `$VAR` até
+ * entre aspas simples e não desfaz `\"` — aspas duplas com escape trocavam a senha de um
+ * `SISUB_DATABASE_URL` com `$` por outra, e o login falhava sem causa aparente. Aspas simples
+ * com `$` escapado (`\$`) preservam tudo; o Vite (dotenv-expand) lê `\$` do mesmo jeito.
+ * Valor com aspa simples não tem forma segura: `null`, e a chave é pulada com aviso.
+ */
+function formatValue(value: string): string | null {
 	if (/^[\w@%+=:,./~-]*$/.test(value)) return value
-	return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`
+	if (value.includes("'")) return null
+	return `'${value.replace(/\$/g, "\\$")}'`
 }
 
 function render(app: ManifestApp, values: Record<string, string>, sources: string[]): string {
@@ -100,7 +108,12 @@ function render(app: ManifestApp, values: Record<string, string>, sources: strin
 	for (const key of Object.keys(values).toSorted()) {
 		const value = values[key]
 		if (value == null || value === "") continue
-		lines.push(`${key}=${formatValue(String(value))}`)
+		const formatted = formatValue(String(value))
+		if (formatted == null) {
+			hint(`${app.key}: ${key} tem aspa simples e não tem forma segura no .env — pulada; defina-a em .env.local`)
+			continue
+		}
+		lines.push(`${key}=${formatted}`)
 	}
 	return `${lines.join("\n")}\n`
 }
@@ -157,6 +170,14 @@ async function main(): Promise<number> {
 			hint(`${app.key}: ${why}`)
 			// Sem acesso à AWS nenhuma app vai dar certo: um aviso basta.
 			if (prod.reason !== "error") return ifMissing ? 0 : 1
+			failed++
+			continue
+		}
+
+		// Sobreposição dev que EXISTE mas não foi lida: gravar só com o de prod deixaria um .env
+		// "gerado" sem as chaves de dev, e o `--if-missing` nunca voltaria a ele.
+		if (!dev.ok && dev.reason !== "missing") {
+			hint(`${app.key}: /iefa/dev/${app.key} não pôde ser lido (${dev.detail}) — .env não gravado`)
 			failed++
 			continue
 		}
