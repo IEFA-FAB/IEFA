@@ -351,6 +351,21 @@ export const ASSURANCE_REGISTRY = {
 		authorization: [{ kind: "permission", module: "unit", level: 2 }],
 	},
 	createPagamentoFn: { require: "session", reason: "Esta operação registra um pagamento.", authorization: [{ kind: "permission", module: "unit", level: 2 }] },
+	addLiquidacaoDeductionFn: {
+		require: "session",
+		reason: "Esta operação registra uma retenção na liquidação, e o pagamento passa a ser pelo líquido.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	registerDeductionPaymentFn: {
+		require: "session",
+		reason: "Esta operação registra o recolhimento de uma retenção (DARF, DAR ou GPS).",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	deleteLiquidacaoDeductionFn: {
+		require: "session",
+		reason: "Esta operação apaga uma retenção não recolhida da liquidação.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
 
 	// ── mcp-keys.fn.ts
 	createMcpKeyFn: {
