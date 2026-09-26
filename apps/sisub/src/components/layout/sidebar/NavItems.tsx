@@ -206,11 +206,11 @@ export const ALL_MODULES: ModuleDef[] = [
 			},
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed, group: "Operação", keywords: ["receita", "ficha técnica"] },
 			{
-				title: "Lanches de Bordo/Apoio",
+				title: "Pedidos de Lanche",
 				url: "/kitchen/snack-requests",
 				icon: PlaneTakeoff,
 				group: "Operação",
-				keywords: ["lanche", "pedido de lanche", "missão"],
+				keywords: ["lanche de bordo", "lanche de apoio", "missão", "requisição"],
 			},
 			{ title: "Suprimentos", url: "/kitchen/suprimentos", icon: ShoppingCart, group: "Operação", keywords: ["compras", "rascunho", "pedido de compra"] },
 			{ title: "Equipamentos", url: "/kitchen/equipment", icon: CookingPot, group: "Operação", keywords: ["forno", "manutenção", "pane"] },

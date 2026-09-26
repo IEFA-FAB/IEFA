@@ -74,7 +74,11 @@ type SnackFamilyValue = SnackFamily
 type SnackClassValue = SnackClass
 type SnackVariantValue = SnackVariant
 
-export const SNACK_FAMILY_LABELS: Record<SnackFamilyValue, string> = { bordo: "Bordo", apoio: "Apoio" }
+/**
+ * Nome completo da norma, nunca "Bordo"/"Apoio" solto: o artefato inteiro já se chama "Apoio" na tela
+ * (`OCCASION_MENU_COPY.exception`), e "Apoio B" dentro de um Apoio não diz qual dos dois é.
+ */
+export const SNACK_FAMILY_LABELS: Record<SnackFamilyValue, string> = { bordo: "Lanche de Bordo", apoio: "Lanche de Apoio" }
 export const SNACK_VARIANT_LABELS: Record<SnackVariantValue, string> = { lanche: "Lanche", refeicao: "Refeição" }
 
 /** Colunas da classificação como vêm do `menu_template` (snake_case no wire). */

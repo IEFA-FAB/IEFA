@@ -14,7 +14,7 @@ const queueSearchSchema = z.object({
 })
 
 /**
- * KITCHEN — Lanches de Bordo/Apoio: fila das requisições da cozinha.
+ * KITCHEN — Pedidos de Lanche (Bordo/Apoio, Módulo 7): fila das requisições da cozinha.
  * URL: /kitchen/:kitchenId/snack-requests?tab=&from=&to=
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/snack-requests/")({

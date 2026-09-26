@@ -59,8 +59,9 @@ export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyT
 
 			{draft.enabled && (
 				<CardContent className="space-y-6">
-					<FieldGroup className="grid grid-cols-1 gap-4 md:grid-cols-3">
-						<Field>
+					{/* Colunas pelo conteúdo, não em terços: "Lanche de Bordo" + "Lanche de Apoio" não cabem num terço do card em tela de 1024 px. */}
+					<div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:gap-x-10">
+						<Field className="md:w-auto">
 							<FieldLabel>Família</FieldLabel>
 							<ToggleGroup
 								value={[draft.family]}
@@ -77,7 +78,7 @@ export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyT
 								<ToggleGroupItem value="apoio">{SNACK_FAMILY_LABELS.apoio}</ToggleGroupItem>
 							</ToggleGroup>
 						</Field>
-						<Field>
+						<Field className="md:w-auto">
 							<FieldLabel>Classe</FieldLabel>
 							<ToggleGroup
 								value={[draft.snackClass]}
@@ -97,7 +98,7 @@ export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyT
 							</ToggleGroup>
 							{draft.family === "apoio" && <FieldDescription>Lanche de Apoio só tem as classes A e B.</FieldDescription>}
 						</Field>
-						<Field>
+						<Field className="md:w-auto">
 							<FieldLabel>Variante</FieldLabel>
 							<ToggleGroup
 								value={[draft.variant]}
@@ -113,7 +114,7 @@ export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyT
 								<ToggleGroupItem value="refeicao">{SNACK_VARIANT_LABELS.refeicao}</ToggleGroupItem>
 							</ToggleGroup>
 						</Field>
-					</FieldGroup>
+					</div>
 
 					<FieldGroup className="grid grid-cols-1 gap-4 md:grid-cols-3">
 						<Field orientation="horizontal">
