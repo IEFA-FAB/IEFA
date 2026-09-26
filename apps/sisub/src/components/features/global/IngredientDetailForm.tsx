@@ -34,11 +34,11 @@ import { computeIngredientDiff } from "@/lib/ingredient-diff"
 import {
 	ceafaQueryOptions,
 	ingredientLastReviewQueryOptions,
+	ingredientVersionsQueryOptions,
 	useIngredientEffectiveNutrients,
 	useIngredientVersions,
 	useNutrients,
 	useRecordIngredientReview,
-	useRecordIngredientVersion,
 	useRestoreIngredientVersion,
 	useSaveIngredientDetails,
 } from "@/services/IngredientsService"
@@ -125,7 +125,6 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const setTab = (tab: IngredientFormTab) => navigate({ search: (prev) => ({ ...prev, tab }), replace: true })
 
 	const { saveIngredientDetails, isSaving } = useSaveIngredientDetails()
-	const { recordIngredientVersion } = useRecordIngredientVersion()
 	const { recordIngredientReview, isReviewing } = useRecordIngredientReview()
 	const { restoreIngredientVersion, isRestoring } = useRestoreIngredientVersion()
 	const { versions, isLoading: versionsLoading } = useIngredientVersions(ingredient.id)
@@ -306,10 +305,9 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const isPreviewing = selectedVersion != null
 	const previewDiff = selectedVersion ? computeIngredientDiff(previousVersion?.snapshot ?? null, selectedVersion.snapshot) : null
 
+	// Itens de compra/produto gravam a versão no servidor; aqui só atualiza o histórico na tela.
 	const handleVersionChanged = () => {
-		recordIngredientVersion(ingredient.id).catch(() => {
-			/* registro de versão é best-effort — não bloqueia o fluxo do usuário */
-		})
+		queryClient.invalidateQueries({ queryKey: ingredientVersionsQueryOptions(ingredient.id).queryKey })
 	}
 
 	const confirmRestore = async () => {

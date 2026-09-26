@@ -1,6 +1,8 @@
 import {
+	CONSERVATION_CLASSES,
 	CONSERVATION_LABELS,
 	type ConservationClass,
+	conservationDivergence,
 	describeConditioning,
 	isReceiptEditable,
 	isTemperatureOutOfRange,
@@ -22,6 +24,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import {
@@ -62,6 +65,10 @@ interface ReceiptLotRow {
 	measured_temperature_c: number | null
 	divergence_reason: string | null
 	temperature_ack_by: string | null
+	/** Classe em que o lote chegou; nula = não informada (vale a sugerida). */
+	conservation_class: ConservationClass | null
+	/** Nota do conferente sobre a divergência, guardada à parte para sobreviver a novas gravações. */
+	divergence_note: string | null
 }
 
 interface ConditioningRow {
@@ -77,6 +84,8 @@ interface ConditioningRow {
 }
 
 interface ReceiptItemRow {
+	/** Classe sugerida pela especificação, na mesma resolução que o servidor usa ao gravar o lote. */
+	suggested_conservation_class: ConservationClass | null
 	id: string
 	description: string
 	measure_unit: string | null
@@ -133,12 +142,19 @@ function ConditioningSummary({ conditioning }: { conditioning: ConditioningRow |
 	)
 }
 
-/** Linha de lote em edição. Lote existente tem id; o rascunho de inclusão, não. */
+/**
+ * Linha de lote em edição. Lote existente tem id; o rascunho de inclusão, não.
+ *
+ * A conservação vem preenchida com a SUGERIDA pela especificação e pode ser trocada: o lote
+ * que chegou resfriado a vácuo em vez de congelado (freezer quebrado — EST-REC-04) entra
+ * como resfriado, com a divergência registrada, sem bloquear a entrada.
+ */
 function LotEditor({
 	lot,
 	itemId,
 	editable,
 	range,
+	suggested,
 	onSaved,
 	onCancel,
 }: {
@@ -146,6 +162,7 @@ function LotEditor({
 	itemId: string
 	editable: boolean
 	range: { minC: number | null; maxC: number | null }
+	suggested: ConservationClass | null
 	onSaved: () => void
 	onCancel?: () => void
 }) {
@@ -153,11 +170,20 @@ function LotEditor({
 	const [expiry, setExpiry] = useState(lot?.expiry_date ?? "")
 	const [quantity, setQuantity] = useState(lot != null ? String(lot.quantity_base) : "")
 	const [temperature, setTemperature] = useState(lot?.measured_temperature_c != null ? String(lot.measured_temperature_c) : "")
+	const [conservation, setConservation] = useState<ConservationClass | null>(lot?.conservation_class ?? suggested)
+	const [note, setNote] = useState(lot?.divergence_note ?? "")
 	const [busy, setBusy] = useState(false)
 
+	const classDivergence = conservationDivergence(suggested, conservation)
+	// A faixa sugerida é a da classe sugerida: chegou em outra, ela não se aplica.
+	const effectiveRange = classDivergence ? { minC: null, maxC: null } : range
 	const measured = temperature.trim() === "" ? null : Number(temperature)
-	const verdict = temperatureVerdict(measured, range)
+	const verdict = temperatureVerdict(measured, effectiveRange)
 	const outOfRange = isTemperatureOutOfRange(verdict)
+	const conservationItems = [
+		...(suggested ? [] : [{ value: null, label: "Não declarada" }]),
+		...CONSERVATION_CLASSES.map((value) => ({ value, label: CONSERVATION_LABELS[value] })),
+	]
 
 	async function save() {
 		setBusy(true)
@@ -177,6 +203,9 @@ function LotEditor({
 					quantityBase: Number(quantity),
 					measuredTemperatureC: measured,
 					acceptOutOfRange: accept,
+					conservationClass: conservation,
+					// A nota é da divergência de classe: voltou à sugerida, o campo some e a nota não vai.
+					divergenceNote: classDivergence ? note.trim() || null : null,
 				},
 			})
 			toast.success(lot ? "Lote atualizado" : "Lote adicionado")
@@ -204,67 +233,108 @@ function LotEditor({
 	}
 
 	return (
-		<tr className={outOfRange ? "bg-destructive/5" : undefined}>
-			<td className="py-1.5 px-2">
-				<Input className="h-7 text-xs font-mono" placeholder="lote" value={code} disabled={!editable} onChange={(e) => setCode(e.target.value)} />
-			</td>
-			<td className="py-1.5 px-2 w-36">
-				<Input type="date" className="h-7 text-xs" value={expiry} disabled={!editable} onChange={(e) => setExpiry(e.target.value)} />
-			</td>
-			<td className="py-1.5 px-2 w-28">
-				<Input
-					type="number"
-					min="0"
-					step="any"
-					className="h-7 text-xs text-right"
-					placeholder="qtd"
-					value={quantity}
-					disabled={!editable}
-					onChange={(e) => setQuantity(e.target.value)}
-				/>
-			</td>
-			<td className="py-1.5 px-2 w-32">
-				<Input
-					type="number"
-					step="0.1"
-					className="h-7 text-xs text-right"
-					placeholder="°C (opcional)"
-					value={temperature}
-					disabled={!editable}
-					onChange={(e) => setTemperature(e.target.value)}
-				/>
-			</td>
-			<td className="py-1.5 px-2 w-40 text-xs">
-				{verdict === "dentro" && <Badge variant="secondary">na faixa</Badge>}
-				{outOfRange && (
-					<Badge variant="destructive" className="gap-1">
-						<Thermometer className="size-3" />
-						fora da faixa
-					</Badge>
-				)}
-				{verdict === "sem_faixa" && <span className="text-muted-foreground">sem faixa exigida</span>}
-				{verdict === "nao_medido" && <span className="text-muted-foreground">não medido</span>}
-				{lot?.temperature_ack_by && <span className="block text-[10px] text-muted-foreground">aceite registrado</span>}
-			</td>
-			<td className="py-1.5 px-2 w-28 text-right print:hidden">
-				{editable && (
-					<div className="flex justify-end gap-1">
-						<Button size="sm" variant="ghost" className="h-7 text-xs" disabled={busy} onClick={save}>
-							{busy ? <Spinner className="size-3" /> : "Salvar"}
-						</Button>
-						{lot ? (
-							<Button size="sm" variant="ghost" className="h-7 px-2" disabled={busy} onClick={remove} aria-label="Remover lote">
-								<Trash2 className="size-3.5" />
+		<>
+			<tr className={outOfRange ? "bg-destructive/5" : classDivergence ? "bg-warning/5" : undefined}>
+				<td className="py-1.5 px-2">
+					<Input className="h-7 text-xs font-mono" placeholder="lote" value={code} disabled={!editable} onChange={(e) => setCode(e.target.value)} />
+				</td>
+				<td className="py-1.5 px-2 w-36">
+					<Input type="date" className="h-7 text-xs" value={expiry} disabled={!editable} onChange={(e) => setExpiry(e.target.value)} />
+				</td>
+				<td className="py-1.5 px-2 w-28">
+					<Input
+						type="number"
+						min="0"
+						step="any"
+						className="h-7 text-xs text-right"
+						placeholder="qtd"
+						value={quantity}
+						disabled={!editable}
+						onChange={(e) => setQuantity(e.target.value)}
+					/>
+				</td>
+				<td className="py-1.5 px-2 w-36">
+					<Select items={conservationItems} value={conservation} onValueChange={(value) => setConservation(value)} disabled={!editable}>
+						<SelectTrigger size="sm" className="w-full" aria-label="Conservação em que o lote chegou">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{conservationItems.map((option) => (
+								<SelectItem key={option.value ?? "none"} value={option.value}>
+									{option.label}
+									{option.value != null && option.value === suggested ? " (sugerida)" : ""}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</td>
+				<td className="py-1.5 px-2 w-32">
+					<Input
+						type="number"
+						step="0.1"
+						className="h-7 text-xs text-right"
+						placeholder="°C (opcional)"
+						value={temperature}
+						disabled={!editable}
+						onChange={(e) => setTemperature(e.target.value)}
+					/>
+				</td>
+				<td className="py-1.5 px-2 w-40 text-xs">
+					{verdict === "dentro" && <Badge variant="secondary">na faixa</Badge>}
+					{outOfRange && (
+						<Badge variant="destructive" className="gap-1">
+							<Thermometer className="size-3" />
+							fora da faixa
+						</Badge>
+					)}
+					{verdict === "sem_faixa" && <span className="text-muted-foreground">{classDivergence ? "faixa sugerida não se aplica" : "sem faixa exigida"}</span>}
+					{verdict === "nao_medido" && <span className="text-muted-foreground">não medido</span>}
+					{lot?.temperature_ack_by && <span className="block text-[10px] text-muted-foreground">aceite registrado</span>}
+				</td>
+				<td className="py-1.5 px-2 w-28 text-right print:hidden">
+					{editable && (
+						<div className="flex justify-end gap-1">
+							<Button size="sm" variant="ghost" className="h-7 text-xs" disabled={busy} onClick={save}>
+								{busy ? <Spinner className="size-3" /> : "Salvar"}
 							</Button>
-						) : (
-							<Button size="sm" variant="ghost" className="h-7 text-xs" disabled={busy} onClick={onCancel}>
-								Cancelar
-							</Button>
-						)}
-					</div>
-				)}
-			</td>
-		</tr>
+							{lot ? (
+								<Button size="sm" variant="ghost" className="h-7 px-2" disabled={busy} onClick={remove} aria-label="Remover lote">
+									<Trash2 className="size-3.5" />
+								</Button>
+							) : (
+								<Button size="sm" variant="ghost" className="h-7 text-xs" disabled={busy} onClick={onCancel}>
+									Cancelar
+								</Button>
+							)}
+						</div>
+					)}
+				</td>
+			</tr>
+			{(classDivergence || lot?.divergence_reason) && (
+				<tr className={classDivergence ? "bg-warning/5" : undefined}>
+					<td colSpan={7} className="px-2 pb-2">
+						<div className="flex flex-col gap-1.5 sm:flex-row sm:items-center">
+							<p className="flex items-start gap-1.5 text-caption text-foreground">
+								<TriangleAlert className="size-3.5 shrink-0 translate-y-0.5 text-warning" />
+								{classDivergence
+									? `${classDivergence}. O lote entra como ${CONSERVATION_LABELS[conservation as ConservationClass].toLowerCase()}, e o recebimento fica registrado com divergência.`
+									: lot?.divergence_reason}
+							</p>
+							{classDivergence && editable && (
+								<Input
+									className="h-7 sm:max-w-xs"
+									placeholder="motivo (opcional) — ex.: freezer em manutenção"
+									aria-label="Motivo da conservação diferente (opcional)"
+									value={note}
+									maxLength={280}
+									onChange={(e) => setNote(e.target.value)}
+								/>
+							)}
+						</div>
+					</td>
+				</tr>
+			)}
+		</>
 	)
 }
 
@@ -368,6 +438,7 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 								<th className="py-1.5 px-2 text-left text-label">Lote</th>
 								<th className="py-1.5 px-2 text-left text-label w-36">Validade</th>
 								<th className="py-1.5 px-2 text-left text-label w-28">Quantidade</th>
+								<th className="py-1.5 px-2 text-left text-label w-36">Conservação</th>
 								<th className="py-1.5 px-2 text-left text-label w-32">Temperatura</th>
 								<th className="py-1.5 px-2 text-left text-label w-40">Aferição</th>
 								<th className="py-1.5 px-2 w-28 print:hidden" />
@@ -375,12 +446,30 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 						</thead>
 						<tbody className="divide-y divide-border/60">
 							{item.lots.map((lot) => (
-								<LotEditor key={lot.id} lot={lot} itemId={item.id} editable={editable} range={range} onSaved={onSaved} />
+								<LotEditor
+									key={lot.id}
+									lot={lot}
+									itemId={item.id}
+									editable={editable}
+									range={range}
+									suggested={item.suggested_conservation_class}
+									onSaved={onSaved}
+								/>
 							))}
-							{addingLot && <LotEditor lot={null} itemId={item.id} editable={editable} range={range} onSaved={onSaved} onCancel={() => setAddingLot(false)} />}
+							{addingLot && (
+								<LotEditor
+									lot={null}
+									itemId={item.id}
+									editable={editable}
+									range={range}
+									suggested={item.suggested_conservation_class}
+									onSaved={onSaved}
+									onCancel={() => setAddingLot(false)}
+								/>
+							)}
 							{item.lots.length === 0 && !addingLot && (
 								<tr>
-									<td colSpan={6} className="py-3 px-2 text-xs text-muted-foreground">
+									<td colSpan={7} className="py-3 px-2 text-xs text-muted-foreground">
 										Sem lote lançado. A efetivação criará um lote sintético com a quantidade inteira — informe os lotes se a carga veio com validades
 										diferentes.
 									</td>

@@ -24,6 +24,7 @@ import {
 	FetchIngredientSchema,
 	fetchIngredient,
 	getIngredientNutritionReference,
+	ingredientIdOfItem,
 	ListCatmatSchema,
 	ListCeafaSchema,
 	ListFoldersSchema,
@@ -49,13 +50,11 @@ import {
 	PreparationScopeSchema,
 	RecordFolderReviewSchema,
 	RecordIngredientReviewSchema,
-	RecordIngredientVersionSchema,
 	RestoreFolderSchema,
 	RestoreIngredientSchema,
 	RestoreIngredientVersionSchema,
 	recordFolderReview,
 	recordIngredientReview,
-	recordIngredientVersion,
 	restoreFolder,
 	restoreIngredient,
 	restoreIngredientVersion,
@@ -79,18 +78,7 @@ import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseAuthClient } from "@/lib/supabase.server"
-
-/** Resolve a identidade legível do autor da alteração a partir da sessão. */
-async function resolveActor(): Promise<{ id: string | null; name: string | null }> {
-	const {
-		data: { user },
-	} = await getSupabaseAuthClient().auth.getUser()
-	if (!user) return { id: null, name: null }
-	const meta = (user.user_metadata ?? {}) as Record<string, unknown>
-	const name = (meta.full_name as string) ?? (meta.name as string) ?? (meta.display_name as string) ?? user.email ?? null
-	return { id: user.id, name }
-}
+import { resolveActor, withIngredientVersions } from "./ingredient-versioning.server"
 
 export const fetchNutrientsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const ctx = await requireAuth()
@@ -122,14 +110,20 @@ export const setIngredientNutrientsFn = createServerFn({ method: "POST" })
 	.validator(SetIngredientNutrientsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return setIngredientNutrients(getDb(), ctx, data).catch(handleDomainError)
+		return withIngredientVersions(ctx, (db, touch) => {
+			touch(data.ingredientId)
+			return setIngredientNutrients(db, ctx, data)
+		}).catch(handleDomainError)
 	})
 
 export const setIngredientNutritionReferenceFn = createServerFn({ method: "POST" })
 	.validator(SetIngredientNutritionReferenceSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return setIngredientNutritionReference(getDb(), ctx, data).catch(handleDomainError)
+		return withIngredientVersions(ctx, (db, touch) => {
+			touch(data.ingredientId)
+			return setIngredientNutritionReference(db, ctx, data)
+		}).catch(handleDomainError)
 	})
 
 export const fetchCeafaFn = createServerFn({ method: "GET" })
@@ -206,14 +200,27 @@ export const createIngredientFn = createServerFn({ method: "POST" })
 	.validator(CreateIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createIngredient(getDb(), ctx, data).catch(handleDomainError)
+		// A v1 nasce com o insumo: sem ela o histórico começava no primeiro save da tela de detalhe.
+		return withIngredientVersions(
+			ctx,
+			async (db, touch) => {
+				const created = await createIngredient(db, ctx, data)
+				touch(created.id)
+				return created
+			},
+			"Insumo criado"
+		).catch(handleDomainError)
 	})
 
 export const updateIngredientFn = createServerFn({ method: "POST" })
 	.validator(UpdateIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateIngredient(getDb(), ctx, data).catch(handleDomainError)
+		// Caminho do dialog da árvore, das ações em lote e do localizar/substituir.
+		return withIngredientVersions(ctx, (db, touch) => {
+			touch(data.id)
+			return updateIngredient(db, ctx, data)
+		}).catch(handleDomainError)
 	})
 
 export const deleteIngredientFn = createServerFn({ method: "POST" })
@@ -257,21 +264,34 @@ export const createIngredientItemFn = createServerFn({ method: "POST" })
 	.validator(CreateIngredientItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createIngredientItem(getDb(), ctx, data).catch(handleDomainError)
+		return withIngredientVersions(ctx, async (db, touch) => {
+			const created = await createIngredientItem(db, ctx, data)
+			touch(created.ingredient_id)
+			return created
+		}).catch(handleDomainError)
 	})
 
 export const updateIngredientItemFn = createServerFn({ method: "POST" })
 	.validator(UpdateIngredientItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateIngredientItem(getDb(), ctx, data).catch(handleDomainError)
+		// O item pode mudar de insumo: os dois ganham versão.
+		return withIngredientVersions(ctx, async (db, touch) => {
+			touch(await ingredientIdOfItem(db, data.id))
+			const updated = await updateIngredientItem(db, ctx, data)
+			touch(updated.ingredient_id)
+			return updated
+		}).catch(handleDomainError)
 	})
 
 export const deleteIngredientItemFn = createServerFn({ method: "POST" })
 	.validator(DeleteIngredientItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deleteIngredientItem(getDb(), ctx, data).catch(handleDomainError)
+		return withIngredientVersions(ctx, async (db, touch) => {
+			touch(await ingredientIdOfItem(db, data.id))
+			return deleteIngredientItem(db, ctx, data)
+		}).catch(handleDomainError)
 	})
 
 // ── Substituições de insumo (direcionais, vivem no insumo) ────────────────────
@@ -293,30 +313,25 @@ export const saveIngredientDetailsFn = createServerFn({ method: "POST" })
 	.validator(SaveIngredientDetailsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		const client = getDb()
 		const { nutrients, nutritionReferenceFoodRevisionId, ...ingredient } = data
-		await updateIngredient(client, ctx, ingredient).catch(handleDomainError)
-		if (nutritionReferenceFoodRevisionId) {
-			// Linked to a table: values come from the reference. Manual rows are preserved
-			// (not touched) so they reappear if the link is removed later.
-			await setIngredientNutritionReference(client, ctx, { ingredientId: data.id, foodRevisionId: nutritionReferenceFoodRevisionId }).catch(handleDomainError)
-		} else {
-			await setIngredientNutritionReference(client, ctx, { ingredientId: data.id, foodRevisionId: null }).catch(handleDomainError)
-			// Only rewrite manual nutrients when the client actually sends them (user edited
-			// the table). A plain unlink sends nothing, so the preserved rows stay intact.
-			if (nutrients !== undefined) {
-				await setIngredientNutrients(client, ctx, { ingredientId: data.id, nutrients }).catch(handleDomainError)
+		// As três escritas e a versão são UMA transação: antes eram quatro comandos soltos, e uma
+		// falha no meio deixava o insumo meio salvo e sem versão.
+		await withIngredientVersions(ctx, async (db, touch) => {
+			touch(data.id)
+			await updateIngredient(db, ctx, ingredient)
+			if (nutritionReferenceFoodRevisionId) {
+				// Linked to a table: values come from the reference. Manual rows are preserved
+				// (not touched) so they reappear if the link is removed later.
+				await setIngredientNutritionReference(db, ctx, { ingredientId: data.id, foodRevisionId: nutritionReferenceFoodRevisionId })
+			} else {
+				await setIngredientNutritionReference(db, ctx, { ingredientId: data.id, foodRevisionId: null })
+				// Only rewrite manual nutrients when the client actually sends them (user edited
+				// the table). A plain unlink sends nothing, so the preserved rows stay intact.
+				if (nutrients !== undefined) {
+					await setIngredientNutrients(db, ctx, { ingredientId: data.id, nutrients })
+				}
 			}
-		}
-		const actor = await resolveActor()
-		return recordIngredientVersion(client, ctx, { ingredientId: data.id }, actor).catch(handleDomainError)
-	})
-
-export const recordIngredientVersionFn = createServerFn({ method: "POST" })
-	.validator(RecordIngredientVersionSchema)
-	.handler(async ({ data }) => {
-		const [ctx, actor] = await Promise.all([requireAuth(), resolveActor()])
-		return recordIngredientVersion(getDb(), ctx, data, actor).catch(handleDomainError)
+		}).catch(handleDomainError)
 	})
 
 export const fetchIngredientVersionsFn = createServerFn({ method: "GET" })

@@ -307,6 +307,10 @@ export async function buildIngredientSnapshot(db: SisubDb, ingredientId: string)
 /**
  * Registra uma nova versão do insumo se o snapshot atual divergir da última registrada.
  * Idempotente: chamadas repetidas com o mesmo estado não criam versões duplicadas.
+ *
+ * Roda na própria transação (savepoint, quando chamada dentro de outra) com um lock
+ * consultivo por insumo: duas gravações simultâneas liam o mesmo "último número" e a
+ * segunda caía em `INSERT_FAILED` no `UNIQUE (ingredient_id, version_number)`.
  * @returns a versão criada, ou null se nada mudou (dedup).
  */
 export async function recordIngredientVersion(
@@ -316,6 +320,16 @@ export async function recordIngredientVersion(
 	actor?: VersionActor
 ): Promise<IngredientVersionRow | null> {
 	requirePermission(ctx, "global", 2)
+	return runQuery("INSERT_FAILED", () => db.transaction(async (tx) => insertIngredientVersion(tx as unknown as SisubDb, ctx, input, actor)))
+}
+
+async function insertIngredientVersion(
+	db: SisubDb,
+	ctx: UserContext,
+	input: RecordIngredientVersion,
+	actor?: VersionActor
+): Promise<IngredientVersionRow | null> {
+	await db.execute(sql`select pg_advisory_xact_lock(hashtext(${`ingredient-version:${input.ingredientId}`}))`)
 
 	const snapshot = await buildIngredientSnapshot(db, input.ingredientId)
 
@@ -400,7 +414,9 @@ export async function restoreIngredientVersion(
 
 	const snap = version.snapshot as IngredientSnapshot
 
-	await runQuery("UPDATE_FAILED", () =>
+	// A restauração e a versão que a registra são UMA transação: falhar a versão desfaz a
+	// restauração, em vez de deixar o insumo restaurado sem registro no histórico.
+	return runQuery("UPDATE_FAILED", () =>
 		db.transaction(async (tx) => {
 			// 1) Campos do insumo
 			await tx
@@ -515,9 +531,52 @@ export async function restoreIngredientVersion(
 						},
 					})
 			}
+			// 5) Registra a restauração como nova versão
+			return recordIngredientVersion(
+				tx as unknown as SisubDb,
+				ctx,
+				{ ingredientId: input.ingredientId, changeSummary: `Restaurado da versão ${version.versionNumber}` },
+				actor
+			)
 		})
 	)
+}
 
-	// 5) Registra a restauração como nova versão
-	return recordIngredientVersion(db, ctx, { ingredientId: input.ingredientId, changeSummary: `Restaurado da versão ${version.versionNumber}` }, actor)
+// ── Quais insumos uma escrita alcança ─────────────────────────────────────────
+// O snapshot do insumo inclui os vínculos de compra e o item de compra vinculado. Um item
+// de compra pode estar ligado a vários insumos (N:N), então editá-lo muda o snapshot de
+// TODOS eles — cada um ganha versão. As leituras vêm ANTES da escrita quando a escrita
+// apaga a linha que diz de qual insumo ela era.
+
+/** Insumos vinculados a um item de compra. */
+export async function ingredientIdsOfPurchaseItem(db: SisubDb, purchaseItemId: string): Promise<string[]> {
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db
+			.select({ ingredientId: purchaseItemIngredientInProcurement.ingredientId })
+			.from(purchaseItemIngredientInProcurement)
+			.where(eq(purchaseItemIngredientInProcurement.purchaseItemId, purchaseItemId))
+	)
+	return rows.map((row) => row.ingredientId)
+}
+
+/** Insumo de um vínculo de compra (`purchase_item_ingredient.id`). */
+export async function ingredientIdOfPurchaseLink(db: SisubDb, linkId: string): Promise<string | null> {
+	const row = await runQuery("QUERY_FAILED", () =>
+		db.query.purchaseItemIngredientInProcurement.findFirst({
+			columns: { ingredientId: true },
+			where: eq(purchaseItemIngredientInProcurement.id, linkId),
+		})
+	)
+	return row?.ingredientId ?? null
+}
+
+/** Insumo de um item de produto (`ingredient_item.id`). */
+export async function ingredientIdOfItem(db: SisubDb, itemId: string): Promise<string | null> {
+	const row = await runQuery("QUERY_FAILED", () =>
+		db.query.ingredientItemInKitchen.findFirst({
+			columns: { ingredientId: true },
+			where: eq(ingredientItemInKitchen.id, itemId),
+		})
+	)
+	return row?.ingredientId ?? null
 }

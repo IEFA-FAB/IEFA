@@ -311,10 +311,10 @@ export function PurchaseItemEditor({ mode, purchaseItem, ingredientId, ingredien
 
 				{/* Acondicionamento estruturado — o texto livre acima segue valendo para o que não cabe em coluna */}
 				<div className="rounded-md border border-border bg-muted/30 p-4">
-					<p className="text-label font-medium">Conservação e embalagem exigidas</p>
+					<p className="text-label font-medium">Conservação e embalagem sugeridas</p>
 					<p className="text-caption text-muted-foreground mt-1 mb-4">
-						É desta especificação que a conferência lê o critério de aceite, e é ela que define a classe do lote no estoque. A mesma carne a vácuo e congelada
-						são dois itens de compra do mesmo insumo.
+						É a <strong>sugestão</strong> que a conferência mostra como critério de aceite e usa como classe do lote. Se chegar diferente (carne resfriada a
+						vácuo com o freezer em manutenção), o lote entra como chegou e a divergência fica registrada no recebimento, sem bloquear.
 					</p>
 
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

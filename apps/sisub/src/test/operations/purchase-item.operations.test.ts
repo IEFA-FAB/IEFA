@@ -112,19 +112,26 @@ describeSupabaseIntegration("purchase-item operations (regressão)", () => {
 		expect(rows[0].id).toBe(activePi) // ...pi achatado: id do purchase_item
 	})
 
-	test("setDefaultPurchaseItemIngredient torna exclusivo o is_default", async () => {
+	test("setDefaultPurchaseItemIngredient torna exclusivo o is_default DO INSUMO", async () => {
 		if (!reachable || !seeder || !db) return
-		const purchaseItemId = await seeder.seedPurchaseItem()
+		// Padrão é por insumo (índice `purchase_item_ingredient_default_uniq` em ingredient_id):
+		// trocar o preferido do insumo A não mexe no padrão do insumo B, mesmo que B use o
+		// mesmo item de compra.
+		const piOld = await seeder.seedPurchaseItem()
+		const piNew = await seeder.seedPurchaseItem()
 		const ingA = await seeder.seedIngredient()
 		const ingB = await seeder.seedIngredient()
-		const linkA = await seeder.seedPurchaseItemIngredient({ purchaseItemId, ingredientId: ingA, isDefault: true })
-		const linkB = await seeder.seedPurchaseItemIngredient({ purchaseItemId, ingredientId: ingB, isDefault: false })
+		const linkOld = await seeder.seedPurchaseItemIngredient({ purchaseItemId: piOld, ingredientId: ingA, isDefault: true })
+		const linkNew = await seeder.seedPurchaseItemIngredient({ purchaseItemId: piNew, ingredientId: ingA, isDefault: false })
+		const linkB = await seeder.seedPurchaseItemIngredient({ purchaseItemId: piNew, ingredientId: ingB, isDefault: true })
 
-		await setDefaultPurchaseItemIngredient(db, ctx, { purchaseItemId, id: linkB })
+		await setDefaultPurchaseItemIngredient(db, ctx, { purchaseItemId: piNew, id: linkNew })
 
-		const links = await fetchPurchaseItemIngredients(db, ctx, { purchaseItemId })
-		const byId = new Map(links.map((l) => [l.id, l.is_default]))
-		expect(byId.get(linkA)).toBe(false)
+		const oldLinks = await fetchPurchaseItemIngredients(db, ctx, { purchaseItemId: piOld })
+		const newLinks = await fetchPurchaseItemIngredients(db, ctx, { purchaseItemId: piNew })
+		const byId = new Map([...oldLinks, ...newLinks].map((l) => [l.id, l.is_default]))
+		expect(byId.get(linkOld)).toBe(false)
+		expect(byId.get(linkNew)).toBe(true)
 		expect(byId.get(linkB)).toBe(true)
 	})
 

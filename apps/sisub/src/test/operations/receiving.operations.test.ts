@@ -409,4 +409,63 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 				})
 		).resolves.toBe("rolled-back")
 	}, 30_000)
+
+	test("conservação: o lote entra na classe em que CHEGOU; descongelado vira resfriado; transferido leva a classe (EST-REC-04, EST-ARM-01)", async () => {
+		// A especificação SUGERE congelado. Com o freezer quebrado, chegou resfriado a vácuo:
+		// o sistema não recusa — o lote de estoque é resfriado e o recebimento fica divergente.
+		await expect(
+			sql
+				.begin(async (tx) => {
+					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-CONS', 'unit teste conservação') returning id`
+					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha conservação') returning id`
+					const [kitchenB] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha destino conservação') returning id`
+					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('CARNE TESTE CONS', 'KG') returning id`
+					const [spec] = await tx`
+						insert into procurement.purchase_item (description, purchase_measure_unit, conservation_class, storage_temp_max_c)
+						values ('CARNE BOVINA CONGELADA TESTE', 'KG', 'congelado', -12) returning id`
+					const [receipt] = await tx`insert into inventory.goods_receipt (kitchen_id) values (${kitchenRow.id}) returning id`
+					const [item] = await tx`
+						insert into inventory.goods_receipt_item (receipt_id, ingredient_id, purchase_item_id, invoiced_qty_base, received_qty_base, unit_cost)
+						values (${receipt.id}, ${ingredient.id}, ${spec.id}, 20, 20, 30) returning id`
+					// um lote chegou como sugerido, outro chegou resfriado (com o motivo que o servidor compõe)
+					await tx`
+						insert into inventory.goods_receipt_item_lot (receipt_item_id, lot_code, expiry_date, quantity_base, unit_cost)
+						values (${item.id}, 'L-CONG', '2027-01-31', 12, 30)`
+					await tx`
+						insert into inventory.goods_receipt_item_lot (receipt_item_id, lot_code, expiry_date, quantity_base, unit_cost, conservation_class, divergence_reason)
+						values (${item.id}, 'L-RESF', '2026-10-10', 8, 30, 'resfriado', 'Recebido resfriado (sugerido pela especificação: congelado)')`
+
+					await tx`update inventory.goods_receipt set status = 'provisional', provisional_at = now() where id = ${receipt.id}`
+					await tx`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
+
+					const lots = await tx`select lot_code, conservation_class, id from inventory.stock_lot where goods_receipt_item_id = ${item.id} order by lot_code`
+					expect(lots.map((l) => [l.lot_code, l.conservation_class])).toEqual([
+						["L-CONG", "congelado"],
+						["L-RESF", "resfriado"],
+					])
+					const [status] = await tx`select status from inventory.goods_receipt where id = ${receipt.id}`
+					expect(status.status).toBe("divergent")
+
+					// EST-ARM-01: o freezer parou e o congelado foi para a geladeira — descongelar é
+					// fracionar como `thawed`, e o derivado é resfriado (antes nascia sem classe e a
+					// validade caía na especificação: carne descongelada aparecia como congelada).
+					const frozen = lots.find((l) => l.lot_code === "L-CONG")
+					const [author] = await tx`select id from auth.users limit 1`
+					const [thawed] = await tx`select * from inventory.split_lot(${frozen?.id}, 5, 'thawed', ${author.id}, null, null)`
+					const [thawedRow] = await tx`select conservation_class from inventory.stock_lot where id = ${thawed.new_lot_id}`
+					expect(thawedRow.conservation_class).toBe("resfriado")
+
+					// transferência leva a classe para a cozinha de destino
+					await tx`select * from inventory.transfer_stock(${frozen?.id}, ${kitchenB.id}, 2, ${author.id})`
+					const [moved] = await tx`select conservation_class from inventory.stock_lot where kitchen_id = ${kitchenB.id} and lot_code = 'L-CONG'`
+					expect(moved.conservation_class).toBe("congelado")
+
+					throw new Rollback()
+				})
+				.catch((err) => {
+					if (err instanceof Rollback) return "rolled-back"
+					throw err
+				})
+		).resolves.toBe("rolled-back")
+	}, 30_000)
 })

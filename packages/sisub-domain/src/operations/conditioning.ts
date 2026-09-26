@@ -210,6 +210,49 @@ export function meetsMinimumShelfLife(expiryDate: string | null, receivedOn: str
 	return days >= minDays
 }
 
+// ─── O que chegou × o que foi sugerido ───────────────────────────────────────
+//
+// A especificação de compra SUGERE; a realidade pode ser outra, e o sistema registra em
+// vez de recusar (edge case EST-REC-04: freezer quebrado, a unidade compra carne a vácuo
+// resfriada em vez de congelada). Cada divergência vira uma frase no
+// `divergence_reason` do lote, e o recebimento termina como `divergent` — o mesmo destino
+// da temperatura fora da faixa.
+
+/**
+ * Frase da classe recebida diferente da sugerida. Sem sugestão, não há divergência.
+ *
+ * A faixa de temperatura da especificação é a da classe SUGERIDA e não julga o lote que
+ * chegou em outra — e o sistema não inventa faixa normativa por classe. Por isso a
+ * temperatura medida entra na própria frase: fica no registro para quem fiscaliza julgar.
+ */
+export function conservationDivergence(
+	suggested: ConservationClass | null,
+	received: ConservationClass | null,
+	measuredTemperatureC?: number | null
+): string | null {
+	if (!suggested || !received || suggested === received) return null
+	const measured = measuredTemperatureC != null ? `, medido ${formatCelsius(measuredTemperatureC)}` : ""
+	return `Recebido ${CONSERVATION_LABELS[received].toLowerCase()}${measured} (sugerido pela especificação: ${CONSERVATION_LABELS[suggested].toLowerCase()})`
+}
+
+/** Frase da validade remanescente abaixo do mínimo exigido na entrega. */
+export function shelfLifeDivergence(expiryDate: string | null, receivedOn: string, minDays: number | null): string | null {
+	if (meetsMinimumShelfLife(expiryDate, receivedOn, minDays)) return null
+	const days = Math.floor((Date.parse(`${expiryDate}T00:00:00Z`) - Date.parse(`${receivedOn}T00:00:00Z`)) / 86_400_000)
+	return `Validade de ${days} dia${days === 1 ? "" : "s"} na entrega, abaixo do mínimo de ${minDays} da especificação`
+}
+
+/**
+ * Motivo de divergência do lote: as frases que se aplicam, mais a nota do conferente.
+ * A nota sozinha não é divergência — sem nada divergente, ela não é gravada.
+ */
+export function composeLotDivergence(reasons: (string | null)[], note?: string | null): string | null {
+	const parts = reasons.filter((reason): reason is string => !!reason)
+	if (parts.length === 0) return null
+	const trimmed = note?.trim()
+	return trimmed ? `${parts.join("; ")} — ${trimmed}` : parts.join("; ")
+}
+
 function formatCelsius(value: number): string {
 	return `${Number.isInteger(value) ? value : value.toFixed(1)} °C`
 }

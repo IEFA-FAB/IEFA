@@ -5,7 +5,14 @@
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { buildIngredientSnapshot, listIngredientVersions, recordIngredientVersion, restoreIngredientVersion, updateIngredient } from "@iefa/sisub-domain"
+import {
+	buildIngredientSnapshot,
+	ingredientIdsOfPurchaseItem,
+	listIngredientVersions,
+	recordIngredientVersion,
+	restoreIngredientVersion,
+	updateIngredient,
+} from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -74,6 +81,35 @@ describeSupabaseIntegration("ingredient-versions operations (regressão)", () =>
 		// Sem alteração no insumo → snapshot idêntico → dedup → null
 		const dup = await recordIngredientVersion(db, ctx, { ingredientId })
 		expect(dup).toBeNull()
+	})
+
+	test("recordIngredientVersion simultâneos não colidem no número da versão", async () => {
+		if (!reachable || !seeder || !db) return
+		// Sem o lock consultivo, as duas leituras viam o mesmo "último número" e a segunda
+		// inserção caía em INSERT_FAILED no UNIQUE (ingredient_id, version_number).
+		const ingredientId = await seeder.seedIngredient()
+		seeder.trackWhere("ingredient_version", "ingredient_id", ingredientId)
+		await recordIngredientVersion(db, ctx, { ingredientId })
+		await updateIngredient(db, ctx, { id: ingredientId, description: uid("[TEST] Concorrente ") })
+
+		const results = await Promise.all([recordIngredientVersion(db, ctx, { ingredientId }), recordIngredientVersion(db, ctx, { ingredientId })])
+
+		// Uma grava a v2; a outra, já depois do lock, vê o snapshot igual e deduplica.
+		expect(results.filter((r) => r !== null)).toHaveLength(1)
+		const versions = await listIngredientVersions(db, ctx, { ingredientId })
+		expect(versions.map((v) => v.version_number)).toEqual([2, 1])
+	})
+
+	test("ingredientIdsOfPurchaseItem devolve todo insumo vinculado ao item de compra", async () => {
+		if (!reachable || !seeder || !db) return
+		// Item de compra é catálogo N:N: editar um muda o snapshot de cada insumo vinculado.
+		const purchaseItemId = await seeder.seedPurchaseItem()
+		const ingA = await seeder.seedIngredient()
+		const ingB = await seeder.seedIngredient()
+		await seeder.seedPurchaseItemIngredient({ purchaseItemId, ingredientId: ingA })
+		await seeder.seedPurchaseItemIngredient({ purchaseItemId, ingredientId: ingB })
+
+		expect((await ingredientIdsOfPurchaseItem(db, purchaseItemId)).sort()).toEqual([ingA, ingB].sort())
 	})
 
 	test("listIngredientVersions retorna versões em ordem desc por version_number", async () => {
