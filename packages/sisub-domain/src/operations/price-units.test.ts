@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { convertSamplePrice, isSamePrice, parseMeasureUnit, resolveResearchUnit } from "./price-units.ts"
+import { convertSamplePrice, isSamePrice, parseMeasureUnit, resolveResearchUnit, toMeasureUnitCode } from "./price-units.ts"
 
 describe("parseMeasureUnit", () => {
 	test("reconhece siglas livres do catálogo, sem caixa nem acento", () => {
@@ -95,5 +95,25 @@ describe("resolveResearchUnit", () => {
 
 	test("sem unidade no item nem amostra mensurável, não há unidade", () => {
 		expect(resolveResearchUnit(null, [{ precoUnitario: 1, siglaUnidadeFornecimento: "EMB" }])).toBeNull()
+	})
+})
+
+describe("toMeasureUnitCode", () => {
+	test("grava o código do catálogo: maiúscula, sem acento, aparado, sem ponto final", () => {
+		expect(toMeasureUnitCode("kg")).toBe("KG")
+		expect(toMeasureUnitCode(" Kg ")).toBe("KG")
+		expect(toMeasureUnitCode("lt.")).toBe("LT")
+		expect(toMeasureUnitCode("UN")).toBe("UN")
+	})
+
+	test('vazio é sem unidade (NULL), nunca "": "" não existe em core.measure_unit', () => {
+		expect(toMeasureUnitCode("")).toBeNull()
+		expect(toMeasureUnitCode("   ")).toBeNull()
+		expect(toMeasureUnitCode(null)).toBeNull()
+		expect(toMeasureUnitCode(undefined)).toBeNull()
+	})
+
+	test("não inventa código: sinônimo fora do catálogo segue para a fila de revisão", () => {
+		expect(toMeasureUnitCode("quilo")).toBe("QUILO")
 	})
 })

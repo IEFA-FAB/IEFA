@@ -8,8 +8,10 @@
  * então rastrear o procurement_list (hard delete) limpa cozinhas, seleções e itens.
  */
 
+import { randomUUID } from "node:crypto"
 import {
 	procurementListInProcurement,
+	procurementListItemInProcurement,
 	procurementPesquisaPrecoInProcurement,
 	procurementPesquisaPrecoItemInProcurement,
 	type SisubDb,
@@ -203,6 +205,34 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 		expect(details?.wizard_step).toBe(5)
 		expect(details?.items).toHaveLength(1)
 		expect(details?.items[0].ingredient_name).toBe("Óleo")
+	})
+
+	// 20260926213000: `folder_id` virou uuid com FK para kitchen.folder, e a unidade do item do
+	// anexo sai no formato do código do catálogo (a FK de unidade vem no contract).
+	test("saveAtaDraftItems grava a pasta como uuid com FK e a unidade como código do catálogo", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const folderId = await seeder.seedFolder()
+		const ingredientId = await seeder.seedIngredient({ folderId })
+		const { id: draftId } = await createAtaDraft(db, ctx, { unitId })
+		seeder.track("procurement_list", draftId)
+
+		await saveAtaDraftItems(db, ctx, {
+			draftId,
+			items: [
+				{ ingredient_id: ingredientId, ingredient_name: "Arroz", folder_id: folderId, folder_description: "Grãos", measure_unit: " kg ", total_quantity: 3 },
+			],
+		})
+		const rows = await db
+			.select({ folderId: procurementListItemInProcurement.folderId, measureUnit: procurementListItemInProcurement.measureUnit })
+			.from(procurementListItemInProcurement)
+			.where(eq(procurementListItemInProcurement.listId, draftId))
+		expect(rows).toEqual([{ folderId, measureUnit: "KG" }])
+
+		// Pasta que não existe: a FK recusa o save inteiro em vez de gravar um vínculo órfão.
+		await expect(
+			saveAtaDraftItems(db, ctx, { draftId, items: [{ ingredient_name: "Sal", folder_id: randomUUID(), measure_unit: "", total_quantity: 1 }] })
+		).rejects.toThrow()
 	})
 
 	test("calculateAtaNeeds agrega net_quantity × (headcount/portion_yield) × repetitions", async () => {

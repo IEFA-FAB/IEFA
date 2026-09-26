@@ -106,7 +106,7 @@ describe("isDuplicateGrantViolation", () => {
 	})
 
 	test("não confunde com a unicidade de OUTRA tabela", () => {
-		expect(isDuplicateGrantViolation(driverError({ code: "23505", constraint_name: "user_email_email_key" }))).toBe(false)
+		expect(isDuplicateGrantViolation(driverError({ code: "23505", constraint_name: "user_data_email_key" }))).toBe(false)
 	})
 
 	test("não confunde com outro SQLSTATE na mesma constraint", () => {

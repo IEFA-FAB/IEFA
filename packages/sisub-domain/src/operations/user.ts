@@ -18,10 +18,10 @@ import { DomainError } from "../types/errors.ts"
 import { driverFailure, runQuery, unwrapPgError } from "../utils/index.ts"
 
 /**
- * `sisub.user_data` tem UNIQUE(email) (constraint `user_email_email_key`) além da
+ * `sisub.user_data` tem UNIQUE(email) (constraint `user_data_email_key`) além da
  * PK em `id` (FK → auth.users). Um upsert por `id` só reconcilia a PK; se o email
  * já pertence a OUTRA linha (id diferente), estoura 23505 no email — origem do
- * `duplicate key value violates unique constraint "user_email_email_key"`.
+ * `duplicate key value violates unique constraint "user_data_email_key"`.
  *
  * postgres.js lança um erro com `.code`/`.constraint_name` (≠ do `{ error }` do supabase-js).
  */
