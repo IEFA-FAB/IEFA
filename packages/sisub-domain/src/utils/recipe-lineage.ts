@@ -1,52 +1,36 @@
 /**
- * Dedup por família das listagens de receitas: uma linha por linhagem.
+ * Precedência dentro de uma linhagem de receitas (dedup por família).
  *
  * Versões inserem linhas novas com `base_recipe_id` → raiz; a raiz tem `base_recipe_id` nulo.
- * Função pura, sem banco: `listRecipes` a aplica sobre as colunas leves ANTES de carregar a
- * ficha técnica, e `listRecipeSummaries` sobre o resumo. As duas listagens precisam escolher o
- * mesmo vencedor, então a regra mora num lugar só.
+ * A regra tem duas encarnações e as duas saem daqui:
+ *   - no servidor, o `ORDER BY` do `DISTINCT ON` de `buildLineageWinnerFilter`
+ *     (`operations/recipes.ts`), que escolhe a vencedora das listagens no próprio Postgres;
+ *   - no navegador, `isSupersededBy` (`apps/sisub/src/lib/recipe-versions.ts`), que decide se
+ *     o item do cardápio está numa versão desatualizada.
+ * `recipes.list.test.ts` prende a equivalência entre as duas.
  */
 
-export type LineageCandidate = {
-	id: string
-	baseRecipeId: string | null
+export type LineageRank = {
 	kitchenId: number | null
 	version: number
 }
 
 /**
- * Precedência dentro de uma linhagem.
+ * `candidate` precede `incumbent` na mesma linhagem?
  *
  * A linha LOCAL sombreia a global **incondicionalmente** — semântica de branch de git: o
  * fork da cozinha vence o upstream na visão dela. Entre linhas do mesmo escopo, vence a
- * maior versão.
+ * maior versão. Empate (mesmo escopo, mesma versão) não troca o vencedor; na listagem, o
+ * `id` decide, e o índice único `recipes_lineage_version_unique_idx` impede esse empate em
+ * toda linha com `base_recipe_id`.
  *
  * Comparar apenas `version` (comportamento anterior) empatava fork e global quando os dois
  * chegavam ao mesmo número, e o vencedor passava a depender da ordem em que o Postgres
  * devolvia as linhas — não-determinístico. A listagem de uma cozinha só traz o global e as
  * linhas dela própria, então "local" aqui só pode ser a cozinha que consultou.
  */
-export function isLineageWinner(
-	candidate: Pick<LineageCandidate, "kitchenId" | "version">,
-	incumbent: Pick<LineageCandidate, "kitchenId" | "version">
-): boolean {
+export function isLineageWinner(candidate: LineageRank, incumbent: LineageRank): boolean {
 	const candidateIsLocal = candidate.kitchenId != null
 	if (candidateIsLocal !== (incumbent.kitchenId != null)) return candidateIsLocal
 	return candidate.version > incumbent.version
-}
-
-/**
- * Vencedor de cada linhagem, na ordem em que a raiz apareceu pela primeira vez.
- *
- * Empate exato (mesmo escopo, mesma versão) fica com a primeira linha vista — o
- * comportamento de sempre da listagem.
- */
-export function pickLineageWinners<T extends LineageCandidate>(rows: readonly T[]): T[] {
-	const byRoot = new Map<string, T>()
-	for (const row of rows) {
-		const rootId = row.baseRecipeId ?? row.id
-		const incumbent = byRoot.get(rootId)
-		if (!incumbent || isLineageWinner(row, incumbent)) byRoot.set(rootId, row)
-	}
-	return Array.from(byRoot.values())
 }

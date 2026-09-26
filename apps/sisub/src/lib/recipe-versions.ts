@@ -8,6 +8,8 @@
  * versão nova de novo acabava com a preparação duplicada na refeição.
  */
 
+import { isLineageWinner } from "@iefa/sisub-domain/utils"
+
 /** O mínimo de uma linha de `kitchen.recipes` para situar a versão na linhagem. */
 export type RecipeVersionRef = {
 	id: string
@@ -23,17 +25,16 @@ export function lineageRootOf(recipe: Pick<RecipeVersionRef, "id" | "base_recipe
 }
 
 /**
- * `candidate` substitui `current` na mesma linhagem? Espelha `lineageWinner` do domínio: a linha
- * local sombreia a global incondicionalmente; no mesmo escopo, vence a maior versão. Comparar só
- * o número daria "desatualizada" a um fork local diante do global — e sugeriria trocar a
- * adaptação da cozinha pelo original.
+ * `candidate` substitui `current` na mesma linhagem? A precedência é a do domínio
+ * (`isLineageWinner`, a mesma que escolhe a vencedora da listagem): a linha local sombreia a
+ * global incondicionalmente; no mesmo escopo, vence a maior versão. Comparar só o número daria
+ * "desatualizada" a um fork local diante do global — e sugeriria trocar a adaptação da cozinha
+ * pelo original.
  */
 export function isSupersededBy(current: RecipeVersionRef, candidate: RecipeVersionRef): boolean {
 	if (current.id === candidate.id) return false
 	if (lineageRootOf(current) !== lineageRootOf(candidate)) return false
-	const candidateIsLocal = candidate.kitchen_id != null
-	if (candidateIsLocal !== (current.kitchen_id != null)) return candidateIsLocal
-	return candidate.version > current.version
+	return isLineageWinner({ kitchenId: candidate.kitchen_id, version: candidate.version }, { kitchenId: current.kitchen_id, version: current.version })
 }
 
 /** Uma linha por linhagem — a listagem já vem deduplicada, mas o índice não depende disso. */
