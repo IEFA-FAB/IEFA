@@ -151,8 +151,8 @@ After all commits are created and validated:
    (`git switch -c <type>/<short-slug>`), so `main` is untouched. Name it after the dominant
    concern (e.g. `feat/sisub-observability`).
 2. Hand off to the `ship-pr` skill from its step 4 (PR body with evidence, `/code-review`, checks).
-   It merges only on explicit request, and always with `--squash`: the PR title becomes the commit
-   on `main`.
+   It merges with `--auto --squash` when AGENTS.md > Workflow allows it, and otherwise stops at the
+   open PR; the PR title becomes the commit on `main`.
 
 ## Commit message rules
 

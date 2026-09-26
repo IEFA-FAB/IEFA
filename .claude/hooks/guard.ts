@@ -29,12 +29,15 @@ const deny = (reason: string) => decide("deny", reason);
 // vem depois delas no mesmo token é valor, não outra flag.
 const COMMIT_VALUE_FLAGS = new Set(["m", "F", "C", "c", "t", "u", "S"]);
 function skipsCommitHooks(segment: string): boolean {
+	// Husky desligado por variável ou hooksPath desviado pula os mesmos hooks que `--no-verify`.
+	if (/\bgit\b/.test(segment) && /\bHUSKY=0\b|core\.hooksPath/.test(segment)) return true;
 	const tokens = segment.trim().split(/\s+/);
 	const git = tokens.indexOf("git");
 	const at = git < 0 ? -1 : tokens.indexOf("commit", git + 1); // cobre `git -C <dir> commit`
 	if (at < 0) return false;
 	for (const token of tokens.slice(at + 1)) {
-		if (token === "--no-verify") return true;
+		// O git aceita prefixo não ambíguo de opção longa: `--no-veri` é `--no-verify`.
+		if (token.length > 5 && "--no-verify".startsWith(token)) return true;
 		if (!/^-[a-zA-Z]/.test(token)) continue;
 		for (const flag of token.slice(1)) {
 			if (flag === "n") return true;
@@ -80,7 +83,12 @@ if (tool === "Bash") {
 	const segments = cmd.split(/&&|\|\||[;|\n]/);
 
 	// O ruleset da `main` já recusa o push no servidor; barrar aqui poupa a volta e diz o caminho.
-	if (segments.some((s) => /\bgit\s+push\b/.test(s) && /(\s|:|\+)(refs\/heads\/)?main(\s|$)/.test(s))) {
+	// Da `main`, qualquer push sai para ela (`git push`, `git push origin HEAD`), com ou sem nome.
+	const pushes = segments.filter((s) => /\bgit\b.*\bpush\b/.test(s));
+	const onMain = () =>
+		Bun.spawnSync(["git", "branch", "--show-current"], { cwd: input.cwd ?? projectDir }).stdout.toString().trim() ===
+		"main";
+	if (pushes.some((s) => /(\s|:|\+)(refs\/heads\/)?main(\s|$)/.test(s)) || (pushes.length > 0 && onMain())) {
 		deny("A main não aceita push direto (ruleset sem bypass). Abra PR a partir de uma branch: skill ship-pr.");
 	}
 	if (segments.some(skipsCommitHooks)) {
@@ -88,13 +96,18 @@ if (tool === "Bash") {
 			"Commit sem hooks pula commitlint e gitleaks. Corrija a mensagem ou o achado; falso positivo do gitleaks vai para .gitleaks.toml.",
 		);
 	}
-	if (/\bmigration\s+repair\b.*--status\s+reverted\b/.test(cmd)) {
+	if (/\bmigration\s+repair\b.*--status[=\s]+reverted\b|\bdb:repair:reverted\b/.test(cmd)) {
 		deny(
 			"`migration repair --status reverted` declara não aplicado o que está em produção e faz o próximo push arrastar migrations de contract. Veja .claude/rules/database.md.",
 		);
 	}
-	if (/\bsupabase\s+db\s+reset\b/.test(cmd) && !/--local\b/.test(cmd)) {
-		deny("`supabase db reset` fora de `--local` apaga o banco compartilhado (produção + treino).");
+	if (/\bdb\s+reset\b.*--(linked|db-url)\b/.test(cmd)) {
+		deny("`supabase db reset` com `--linked`/`--db-url` apaga o banco compartilhado (produção + treino). Sem flag ele reseta só o local.");
+	}
+	// Aplicar migration no banco compartilhado só com pedido explícito (declara → aplica → mergeia):
+	// `ask` devolve a decisão ao humano em vez de negar um passo que às vezes é o pedido.
+	if (/\bsupabase\s+(db\s+push|migration\s+repair)\b|\bdb:(push|repair:applied)\b/.test(cmd)) {
+		decide("ask", "Isto escreve no banco compartilhado (produção + treino). Só com pedido explícito do mantenedor.");
 	}
 	const cwd = input.cwd ?? projectDir;
 	const cdTarget = cmd.match(/^\s*cd\s+(\S+)/)?.[1];

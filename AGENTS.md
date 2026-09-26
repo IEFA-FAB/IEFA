@@ -120,8 +120,10 @@ Leia antes de mexer na área (o Claude Code carrega sozinho pelo caminho do arqu
   dois itens acima valem e o PR não está na lista abaixo. O `--auto` espera os checks obrigatórios;
   check vermelho segura o merge sem ninguém olhar. O mantenedor revisa depois, por amostragem.
 - **Esperam o mantenedor** (abra o PR, publique a revisão e pare): migration nova ou alterada;
-  grant, RLS, policy ou tabela de acesso; `infra/**`, `deploy.yml` e demais workflows de deploy;
-  segredo ou variável de produção; texto de documento legal. Esses o mantenedor mergeia, ou pede
+  grant, RLS, policy ou tabela de acesso; `infra/**`; segredo ou variável de produção; texto de
+  documento legal; e qualquer definição de gate, porque o PR roda a versão dele mesmo: `.github/**`,
+  `.opengrep/rules/`, `.claude/hooks/`, `.claude/settings.json`, `commitlint.config.ts`,
+  `biome.json`, `.oxlintrc.tailwind.jsonc`, `turbo.json`. Esses o mantenedor mergeia, ou pede
   explicitamente que o agente mergeie.
 - **Commits e título do PR:** Conventional Commits em inglês (subject e body). Os escopos derivam de
   `apps/` + `packages/` + chaves do `apps.manifest.json` + `deps`, `ci`, `scripts`, `root`
