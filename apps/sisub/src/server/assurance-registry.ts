@@ -284,6 +284,7 @@ export const ASSURANCE_REGISTRY = {
 	removeProcurementSegmentRuleFn: { require: "none" },
 
 	// ── kitchen-draft.fn.ts
+	recordKitchenDraftImportFn: { require: "none" },
 	createKitchenDraftFn: { require: "none" },
 	updateKitchenDraftFn: { require: "none" },
 	sendKitchenDraftFn: { require: "none" },

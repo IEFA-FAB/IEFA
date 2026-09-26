@@ -17,12 +17,14 @@ import {
 	FetchPendingDraftSchema,
 	fetchKitchenDrafts,
 	fetchPendingDraft,
+	recordKitchenDraftImport,
 	SendKitchenDraftSchema,
 	sendKitchenDraft,
 	UpdateKitchenDraftSchema,
 	updateKitchenDraft,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
@@ -80,4 +82,13 @@ export const deleteKitchenDraftFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<void> => {
 		const ctx = await requireAuth()
 		await deleteKitchenDraft(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+// ─── Registrar importação da previsão num anexo ──────────────────────────────
+
+export const recordKitchenDraftImportFn = createServerFn({ method: "POST" })
+	.validator(z.object({ draftId: z.uuid(), listId: z.uuid() }))
+	.handler(async ({ data }): Promise<void> => {
+		const ctx = await requireAuth()
+		await recordKitchenDraftImport(getDb(), ctx, data).catch(handleDomainError)
 	})

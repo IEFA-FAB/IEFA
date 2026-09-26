@@ -1,0 +1,130 @@
+/**
+ * Fluxos guiados do planejamento da contratação (change `sisub-procurement-planning-flows`), no
+ * banco real: o status lido pelos dois fluxos, o retorno da previsão à cozinha e o fechamento do
+ * ciclo do calendário por anexo concluído.
+ */
+
+import type { SisubDb } from "@iefa/database/drizzle/sisub"
+import {
+	brasiliaToday,
+	createAtaDraft,
+	createKitchenDraft,
+	createProcurementSegment,
+	fetchDemandForecastStatus,
+	fetchPendingDraft,
+	fetchProcurementPlanningStatus,
+	recordKitchenDraftImport,
+	sendKitchenDraft,
+	updateAtaDraft,
+	updateAtaStatus,
+} from "@iefa/sisub-domain"
+import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
+import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
+import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
+
+describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
+	let reachable = false
+	let client: AnyClient
+	let seeder: Seeder | null = null
+	let db: SisubDb | null = null
+	let closeDb: (() => Promise<void>) | null = null
+
+	beforeAll(async () => {
+		const s = await setupIntegration("procurement_segment")
+		reachable = s.reachable
+		if (s.client) client = s.client
+		const url = getSisubDatabaseUrl()
+		if (reachable && url) {
+			const t = createSisubTestDb(url)
+			db = t.db
+			closeDb = t.close
+		}
+	}, 30_000)
+
+	beforeEach(() => {
+		seeder = reachable ? makeSeeder(client) : null
+	})
+
+	afterEach(async () => {
+		await seeder?.cleanup()
+	}, 60_000)
+
+	afterAll(async () => {
+		await closeDb?.()
+	})
+
+	test("previsão enviada → importada no anexo → recebida na cozinha; anexo concluído fecha o ciclo do calendário", async () => {
+		if (!reachable || !seeder || !db) return
+		const ctx = { ...fullAccessCtx(), userId: await seeder.seedAuthUser() }
+		const unitId = await seeder.seedUnit()
+		const { id: kitchenId } = await seeder.seedKitchen({ unitId })
+		const ingredientId = await seeder.seedIngredient()
+		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 1, ingredients: [{ ingredientId, netQuantity: 0.1 }] })
+		const mealTypeId = await seeder.seedMealType({ kitchenId })
+		const templateId = await seeder.seedTemplate({ kitchenId, templateType: "weekly" })
+		await seeder.seedTemplateItem({ templateId, mealTypeId, recipeId, dayOfWeek: 1, headcountOverride: 50 })
+
+		// Cozinha: previsão enviada.
+		const draft = (await createKitchenDraft(db, ctx, {
+			kitchenId,
+			title: uid("[TEST] Previsão "),
+			selections: [{ templateId, templateName: "T", repetitions: 4 }],
+		})) as { id: string }
+		seeder.track("kitchen_ata_draft", draft.id)
+		await sendKitchenDraft(db, ctx, { draftId: draft.id })
+
+		let kitchenStatus = await fetchDemandForecastStatus(db, ctx, { kitchenId })
+		expect(kitchenStatus.weeklyWithItems).toBe(1)
+		expect(kitchenStatus.forecast).toMatchObject({ id: draft.id, status: "sent", imports: [] })
+
+		// Unidade: contratação no mês corrente, com a janela aberta.
+		const month = Number(brasiliaToday().slice(5, 7))
+		const segment = await createProcurementSegment(db, ctx, { unitId, name: uid("Carnes "), plannedMonth: month, leadTimeMonths: 1 })
+		seeder.track("procurement_segment", segment.id)
+
+		let unitStatus = await fetchProcurementPlanningStatus(db, ctx, { unitId })
+		expect(unitStatus.kitchens).toHaveLength(1)
+		expect(unitStatus.kitchens[0]).toMatchObject({ id: kitchenId, weeklyWithItems: 1, forecast: { status: "sent", imports: 0 } })
+		expect(unitStatus.calendar[0].cycle).toMatchObject({ active: true, closed: false })
+
+		// Importar a previsão num anexo: a cozinha passa a ver "recebida", e a previsão continua
+		// disponível para o anexo de outra contratação.
+		const { id: listId } = await createAtaDraft(db, ctx, { unitId })
+		seeder.track("procurement_list", listId)
+		await updateAtaDraft(db, ctx, { draftId: listId, title: "Carnes 2027", segmentId: segment.id })
+		await recordKitchenDraftImport(db, ctx, { draftId: draft.id, listId })
+		await recordKitchenDraftImport(db, ctx, { draftId: draft.id, listId }) // idempotente
+
+		kitchenStatus = await fetchDemandForecastStatus(db, ctx, { kitchenId })
+		expect(kitchenStatus.forecast?.status).toBe("reviewed")
+		expect(kitchenStatus.forecast?.reviewedAt).not.toBeNull()
+		expect(kitchenStatus.forecast?.imports.map((i) => i.title)).toEqual(["Carnes 2027"])
+		const pending = await fetchPendingDraft(db, ctx, { kitchenId })
+		expect(pending?.id).toBe(draft.id)
+		expect((pending as { imports: unknown[] }).imports).toHaveLength(1)
+
+		// Concluir o anexo da contratação fecha o ciclo do calendário.
+		await updateAtaStatus(db, ctx, { ataId: listId, status: "published" })
+		unitStatus = await fetchProcurementPlanningStatus(db, ctx, { unitId })
+		expect(unitStatus.calendar[0].cycle?.closed).toBe(true)
+		expect(unitStatus.kitchens[0].forecast?.imports).toBe(1)
+	}, 90_000)
+
+	test("previsão de cozinha de outra OM não entra no anexo", async () => {
+		if (!reachable || !seeder || !db) return
+		const ctx = { ...fullAccessCtx(), userId: await seeder.seedAuthUser() }
+		const unitId = await seeder.seedUnit()
+		const { id: foreignKitchen } = await seeder.seedKitchen()
+		const templateId = await seeder.seedTemplate({ kitchenId: foreignKitchen, templateType: "weekly" })
+		const draft = (await createKitchenDraft(db, ctx, {
+			kitchenId: foreignKitchen,
+			title: uid("[TEST] Previsão "),
+			selections: [{ templateId, templateName: "T", repetitions: 1 }],
+		})) as { id: string }
+		seeder.track("kitchen_ata_draft", draft.id)
+		await sendKitchenDraft(db, ctx, { draftId: draft.id })
+		const { id: listId } = await createAtaDraft(db, ctx, { unitId })
+		seeder.track("procurement_list", listId)
+		await expect(recordKitchenDraftImport(db, ctx, { draftId: draft.id, listId })).rejects.toMatchObject({ code: "KITCHEN_NOT_IN_UNIT" })
+	}, 60_000)
+})

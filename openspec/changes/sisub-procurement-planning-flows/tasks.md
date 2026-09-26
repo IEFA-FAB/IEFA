@@ -20,16 +20,16 @@
 
 ## 3. Terminologia e previsão de demanda
 
-- [ ] 3.1 [sisub] Textos do anexo, do CSV e dos limites (tabela D9 do design)
-- [ ] 3.2 [sisub] "Suprimentos" → "Previsão de demanda" (navegação, páginas, editor, selo de importação)
-- [ ] 3.3 [sisub-domain] `recordKitchenDraftImport` (`unit:2` na OM da cozinha) ao importar; `fetchPendingDraft` com `sent` ou `reviewed`; retorno visível na cozinha
+- [x] 3.1 [sisub] Textos do anexo, do CSV e dos limites (tabela D9 do design)
+- [x] 3.2 [sisub] "Suprimentos" → "Previsão de demanda" (navegação, páginas, editor, selo de importação)
+- [x] 3.3 [sisub-domain] `recordKitchenDraftImport` (`unit:2` na OM da cozinha) ao importar; `fetchPendingDraft` com `sent` ou `reviewed`; retorno visível na cozinha
 
 ## 4. Fluxos
 
-- [ ] 4.1 [sisub-domain] `fetchProcurementPlanningStatus(unitId)` e `fetchDemandForecastStatus(kitchenId)`
-- [ ] 4.2 [sisub] Modelo de etapas puro (`src/lib/flows/`) com testes
-- [ ] 4.3 [sisub] Componentes de fluxo (índice, etapa, pendência) e rotas nos dois módulos; "Voltar ao fluxo" nas telas de destino
-- [ ] 4.4 [sisub] Item "Fluxos" na navegação e breadcrumbs
+- [x] 4.1 [sisub-domain] `fetchProcurementPlanningStatus(unitId)` e `fetchDemandForecastStatus(kitchenId)`
+- [x] 4.2 [sisub] Modelo de etapas puro (`src/lib/flows/`) com testes
+- [x] 4.3 [sisub] Componentes de fluxo (índice, etapa, pendência) e rotas nos dois módulos; "Voltar ao fluxo" nas telas de destino
+- [x] 4.4 [sisub] Item "Fluxos" na navegação e breadcrumbs
 
 ## 5. Documentos e pesquisa auditável
 

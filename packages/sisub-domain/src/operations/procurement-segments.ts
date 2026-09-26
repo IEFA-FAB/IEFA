@@ -289,6 +289,25 @@ export async function fetchSegmentationOverview(db: SisubDb, ctx: UserContext, i
 	}
 }
 
+/**
+ * Só as contagens da segmentação, para o status do fluxo: sem montar a lista de linhas e de
+ * pastas que a tela de segmentação precisa.
+ */
+export async function summarizeSegmentation(
+	client: Client,
+	unitId: number
+): Promise<{ segmentCount: number; lineCount: number; unassignedCount: number; conflictCount: number }> {
+	const [{ parentOf, pathOf }, universe] = await Promise.all([loadFolderTree(client), loadUnitUniverse(client, unitId)])
+	const segments = await loadUnitSegments(client, unitId, pathOf)
+	const resolutions = [...resolveLines(universe, segmentRuleInputs(segments), parentOf).values()]
+	return {
+		segmentCount: segments.length,
+		lineCount: resolutions.length,
+		unassignedCount: resolutions.filter((r) => r.kind === "unassigned").length,
+		conflictCount: resolutions.filter((r) => r.kind === "conflict").length,
+	}
+}
+
 export interface SegmentFields {
 	name: string
 	description?: string | null

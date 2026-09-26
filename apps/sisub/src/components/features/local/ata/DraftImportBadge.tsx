@@ -6,10 +6,15 @@ import type { DraftWithSelections, KitchenSelectionState, TemplateSelection } fr
 interface DraftImportBadgeProps {
 	draft: DraftWithSelections
 	kitchenState: KitchenSelectionState
+	/** Rascunho do anexo aberto: diz se a previsão já entrou nele. */
+	listId: string | null
 	onImport: (kitchenId: number, templateSelections: TemplateSelection[], eventSelections: TemplateSelection[], exceptionSelections: TemplateSelection[]) => void
 }
 
-export function DraftImportBadge({ draft, kitchenState, onImport }: DraftImportBadgeProps) {
+export function DraftImportBadge({ draft, kitchenState, listId, onImport }: DraftImportBadgeProps) {
+	const imports = draft.imports ?? []
+	const inThisAnnex = listId != null && imports.some((i) => i.list_id === listId)
+	const elsewhere = imports.filter((i) => i.list_id !== listId)
 	const handleImport = () => {
 		const templateSelections: TemplateSelection[] = []
 		const eventSelections: TemplateSelection[] = []
@@ -41,7 +46,8 @@ export function DraftImportBadge({ draft, kitchenState, onImport }: DraftImportB
 			<AlertDescription className="flex items-center justify-between gap-2 mt-1">
 				<span className="text-sm text-info">
 					<strong>{kitchenState.kitchenName}</strong> enviou a previsão <strong>"{draft.title}"</strong> com {draft.selections.length}{" "}
-					{draft.selections.length === 1 ? "seleção" : "seleções"}.
+					{draft.selections.length === 1 ? "seleção" : "seleções"}.{inThisAnnex && " Já importada neste anexo."}
+					{elsewhere.length > 0 && ` Já entrou em: ${elsewhere.map((i) => i.title).join(", ")}.`}
 				</span>
 				<Button size="sm" variant="outline" onClick={handleImport} className="shrink-0 border-info/30 text-info hover:bg-info/10">
 					<Download className="size-3.5 mr-1.5" aria-hidden="true" />

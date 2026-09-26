@@ -105,3 +105,22 @@ Arquivos de teste citados:
 ### GC-AGD-14 — "Feriado/ponto facultativo: o semanal não vale naquele dia"
 - **Hoje:** "Tirar do dia" no cardápio semanal resolve (mesma operação de GC-AGD-02).
 - **Cobertura:** hipótese — coberto pela operação, sem teste dedicado.
+
+## Previsão de demanda (fluxo "Prever demanda para compra")
+
+### GC-PRV-01 — "Enviei a previsão e não sei se a unidade usou"
+- **O sistema precisa:** a previsão passa a "Recebida pela unidade" com data e o nome dos anexos
+  em que entrou.
+- **UX:** aparece na lista de previsões e no fluxo da cozinha.
+- **Cobertura:** `procurement-flows.operations.test.ts`; e2e `procurement-flows.spec.ts`.
+
+### GC-PRV-02 — "Apoio cadastrado sem ocorrências mensais"
+- **O sistema precisa:** avisar antes do envio: a unidade multiplica o apoio pelas ocorrências e
+  zero não compra nada.
+- **Cobertura:** `lib/flows/flows.test.ts`.
+
+### GC-PRV-03 — "Insumo do cardápio sem item de compra"
+- **O sistema precisa:** avisar a nutricionista de que a unidade não consegue comprá-lo, dizendo
+  quem vincula (catálogo global), em vez de o item sumir do anexo sem explicação.
+- **Cobertura:** `lib/flows/flows.test.ts`. **LACUNA:** não há aviso para o catálogo global; a
+  nutricionista precisa comunicar por fora.

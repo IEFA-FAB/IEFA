@@ -82,8 +82,11 @@ function normalizeUnitCode(value: string): string {
  * arredondamento da 4ª casa e 0,05% do valor. Absoluta pura (meio centavo) aceitava ±50% num
  * preço por grama de R$ 0,01.
  */
+export const PRICE_MATCH_ABSOLUTE = 0.00005
+export const PRICE_MATCH_RELATIVE = 0.0005
+
 export function isSamePrice(a: number, b: number): boolean {
-	return Math.abs(a - b) <= Math.max(0.00005, Math.abs(b) * 0.0005)
+	return Math.abs(a - b) <= Math.max(PRICE_MATCH_ABSOLUTE, Math.abs(b) * PRICE_MATCH_RELATIVE)
 }
 
 /** Lê uma sigla livre ("kg", "Litro", "UNIDADE") ou devolve null quando não é unidade de medida. */

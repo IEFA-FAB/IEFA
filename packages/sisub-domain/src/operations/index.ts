@@ -16,6 +16,7 @@ export {
 	fetchAtaDetails,
 	fetchAtaList,
 	finalizeAtaDraft,
+	PRICE_RESEARCH_VALIDITY_DAYS,
 	type SegmentExclusion,
 	saveAtaDraftItems,
 	updateAtaDraft,
@@ -353,9 +354,11 @@ export {
 } from "./issue-variance.ts"
 export {
 	createKitchenDraft,
+	type DraftImportWire,
 	deleteKitchenDraft,
 	fetchKitchenDrafts,
 	fetchPendingDraft,
+	recordKitchenDraftImport,
 	sendKitchenDraft,
 	updateKitchenDraft,
 } from "./kitchen-draft.ts"
@@ -505,6 +508,8 @@ export {
 	isSamePrice,
 	type MeasureDimension,
 	type ParsedMeasureUnit,
+	PRICE_MATCH_ABSOLUTE,
+	PRICE_MATCH_RELATIVE,
 	type PriceSampleUnitFields,
 	parseMeasureUnit,
 	resolveResearchUnit,
@@ -512,6 +517,16 @@ export {
 	type SampleConversion,
 } from "./price-units.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
+export { type CalendarCycle, computeContractingCycle } from "./procurement-calendar.ts"
+export {
+	type AnnexPricingState,
+	type DemandForecastStatus,
+	fetchDemandForecastStatus,
+	fetchProcurementPlanningStatus,
+	type KitchenPlanningState,
+	type ProcurementPlanningStatus,
+	type SegmentCalendarEntry,
+} from "./procurement-flows.ts"
 export {
 	addProcurementSegmentRule,
 	createProcurementSegment,

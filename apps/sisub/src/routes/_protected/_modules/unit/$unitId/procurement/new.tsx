@@ -30,7 +30,7 @@ import {
 	useUpdateAtaQuantityLimits,
 } from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
-import { usePendingDraft } from "@/hooks/data/useKitchenDraft"
+import { usePendingDraft, useRecordDraftImport } from "@/hooks/data/useKitchenDraft"
 import { useSegmentationOverview } from "@/hooks/data/useProcurementSegments"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, downloadCsv } from "@/lib/ata-annex"
@@ -76,15 +76,19 @@ function KitchenStepSection({
 	kitchenState,
 	selectionType,
 	validityMonths,
+	listId,
 	onUpdateSelection,
 }: {
 	kitchenState: KitchenSelectionState
 	selectionType: SelectionBucket
 	validityMonths: number
+	/** Rascunho do anexo: a importação da previsão fica registrada nele. */
+	listId: string | null
 	onUpdateSelection: (kitchenId: number, type: SelectionBucket, selections: TemplateSelection[]) => void
 }) {
 	const { data: templates, isLoading } = useMenuTemplates(kitchenState.kitchenId)
 	const { data: pendingDraft } = usePendingDraft(kitchenState.kitchenId)
+	const { mutate: recordImport } = useRecordDraftImport(kitchenState.kitchenId)
 
 	// Um passo por template_type. Template sem tipo (legado) conta como weekly.
 	const expectedType = TEMPLATE_TYPE_BY_BUCKET[selectionType]
@@ -99,11 +103,14 @@ function KitchenStepSection({
 		onUpdateSelection(kitchenState.kitchenId, "templateSelections", templateSels)
 		onUpdateSelection(kitchenState.kitchenId, "eventSelections", eventSels)
 		onUpdateSelection(kitchenState.kitchenId, "exceptionSelections", exceptionSels)
+		if (pendingDraft && listId) recordImport({ draftId: pendingDraft.id, listId })
 	}
 
 	return (
 		<div className="space-y-3">
-			{pendingDraft && selectionType === "templateSelections" && <DraftImportBadge draft={pendingDraft} kitchenState={kitchenState} onImport={handleImport} />}
+			{pendingDraft && selectionType === "templateSelections" && (
+				<DraftImportBadge draft={pendingDraft} kitchenState={kitchenState} listId={listId} onImport={handleImport} />
+			)}
 			<KitchenTemplateSection
 				kitchenState={kitchenState}
 				templates={filteredTemplates}
@@ -568,6 +575,7 @@ function NewAtaPage() {
 									kitchenState={ks}
 									selectionType="templateSelections"
 									validityMonths={wizardState.validityMonths}
+									listId={draftId ?? null}
 									onUpdateSelection={handleUpdateSelection}
 								/>
 							))}
@@ -600,6 +608,7 @@ function NewAtaPage() {
 									kitchenState={ks}
 									selectionType="eventSelections"
 									validityMonths={wizardState.validityMonths}
+									listId={draftId ?? null}
 									onUpdateSelection={handleUpdateSelection}
 								/>
 							))}
@@ -663,6 +672,7 @@ function NewAtaPage() {
 									kitchenState={ks}
 									selectionType="exceptionSelections"
 									validityMonths={wizardState.validityMonths}
+									listId={draftId ?? null}
 									onUpdateSelection={handleUpdateSelection}
 								/>
 							))}
