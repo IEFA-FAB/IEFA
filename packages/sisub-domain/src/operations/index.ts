@@ -202,6 +202,8 @@ export {
 	type DesignationInput,
 	type DesignationRole,
 	type DesignationRow,
+	type DesignationScopes,
+	listDesignationScopes,
 	type DesignationSource,
 	designationInputProblems,
 	designationMissingMessage,

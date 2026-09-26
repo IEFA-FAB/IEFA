@@ -259,6 +259,70 @@ export async function createDesignation(db: SisubDb, ctx: UserContext, input: De
 	return { id: String(inserted.id) }
 }
 
+export interface DesignationScopes {
+	acquisitions: Array<{ id: string; label: string }>
+	arps: Array<{ id: string; label: string }>
+	empenhos: Array<{ id: string; label: string }>
+}
+
+/**
+ * Onde a designação pode valer: contratação, ARP ou empenho da OM. A contratação é lida por
+ * `to_jsonb` para não depender do nome das colunas descritivas do outro PR do change
+ * (`object`, `process_nup`): só `id`, `unit_id` e `kind` são garantidos.
+ */
+export async function listDesignationScopes(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<DesignationScopes> {
+	requireUnit(ctx, 2, input.unitId)
+	const [acquisitions, arps, empenhos] = (await Promise.all([
+		runQuery(
+			"QUERY_FAILED",
+			() =>
+				db.execute(sql`
+					select a.id, a.kind, to_jsonb(a) ->> 'object' as title, to_jsonb(a) ->> 'process_nup' as nup
+					from procurement.acquisition a
+					where a.unit_id = ${input.unitId}
+					order by to_jsonb(a) ->> 'created_at' desc nulls last
+					limit 200
+				`),
+			{ prefix: "Erro ao ler as contratações" }
+		),
+		runQuery(
+			"QUERY_FAILED",
+			() =>
+				db.execute(sql`
+					select a.id, a.numero_ata, a.ano_ata, a.nome_uasg_gerenciadora
+					from procurement.procurement_arp a
+					where a.unit_id = ${input.unitId}
+					order by a.data_vigencia_fim desc nulls last
+					limit 200
+				`),
+			{ prefix: "Erro ao ler as ARPs" }
+		),
+		runQuery(
+			"QUERY_FAILED",
+			() =>
+				db.execute(sql`
+					select e.id, e.numero_empenho, e.favorecido_nome
+					from finance.empenho e
+					where e.unit_id = ${input.unitId} and e.status <> 'anulado'
+					order by e.data_empenho desc
+					limit 300
+				`),
+			{ prefix: "Erro ao ler os empenhos" }
+		),
+	])) as unknown as [Row[], Row[], Row[]]
+	return {
+		acquisitions: acquisitions.map((r) => ({
+			id: String(r.id),
+			label: [str(r.title) ?? `Contratação (${String(r.kind)})`, str(r.nup) ? `NUP ${str(r.nup)}` : null].filter(Boolean).join(" · "),
+		})),
+		arps: arps.map((r) => ({
+			id: String(r.id),
+			label: [`ARP ${String(r.numero_ata)}${r.ano_ata ? `/${String(r.ano_ata)}` : ""}`, str(r.nome_uasg_gerenciadora)].filter(Boolean).join(" · "),
+		})),
+		empenhos: empenhos.map((r) => ({ id: String(r.id), label: [String(r.numero_empenho), str(r.favorecido_nome)].filter(Boolean).join(" · ") })),
+	}
+}
+
 /**
  * Encerra a designação hoje. A designação não se apaga depois de valer: o termo de
  * recebimento aponta para ela. A que ainda não começou é removida — nenhum termo a usou.
