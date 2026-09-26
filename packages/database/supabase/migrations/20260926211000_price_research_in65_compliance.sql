@@ -19,7 +19,7 @@
 --                                   sem data de referência no cálculo).
 --
 -- Texto em português, nulo quando não há o que justificar. Tudo aditivo: coluna
--- nova nula, CHECK que nenhuma linha existente reprova (conferido por SELECT em
+-- nova nula ou com default, CHECK que nenhuma linha existente reprova (conferido por SELECT em
 -- 2026-09-26: `reference_method` do item só tem 'mean' e 'median').
 -- ============================================================================
 
@@ -41,6 +41,15 @@ comment on column procurement.procurement_pesquisa_preco_item.justification_outl
   'Critério fundamentado de desconsideração de valores inexequíveis, inconsistentes ou excessivos quando não é o IQR automático (IN SEGES/ME 65/2021, art. 6º, § 3º; art. 3º, VI).';
 comment on column procurement.procurement_pesquisa_preco_item.justification_out_of_period is
   'Justificativa de preço fora do período de 1 ano ou sem data de referência (IN SEGES/ME 65/2021, art. 5º, § 3º).';
+
+-- Amostras escolhidas à mão (seleção de linhas ou filtro de coluna) em vez do descarte
+-- automático por IQR. É um FATO da pesquisa, derivado no servidor (não autodeclarado), e o
+-- relatório o lê daqui: o texto de `non_compliance_reasons` não é contrato.
+alter table procurement.procurement_pesquisa_preco_item
+  add column manual_selection boolean not null default false;
+
+comment on column procurement.procurement_pesquisa_preco_item.manual_selection is
+  'Amostras escolhidas à mão em vez do descarte automático por IQR: o critério de desconsideração vai em justification_outlier_criteria (IN SEGES/ME 65/2021, art. 6º, § 3º).';
 
 -- O cabeçalho já aceitava 'lowest' (art. 6º, caput: "o menor dos valores"); o
 -- snapshot no item passa a ter o mesmo domínio.
