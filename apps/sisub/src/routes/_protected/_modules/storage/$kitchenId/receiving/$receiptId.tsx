@@ -8,7 +8,9 @@ import {
 	isTemperatureOutOfRange,
 	lotBalance,
 	type PackageType,
+	RECEIPT_SOURCE_LABELS,
 	type ReceiptLotDraft,
+	type ReceiptSource,
 	type TransportRequirement,
 	temperatureVerdict,
 } from "@iefa/sisub-domain"
@@ -514,13 +516,6 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 	)
 }
 
-/** Origem do recebimento, para o cabeçalho e o termo. */
-const RECEIPT_SOURCE_TEXT: Record<string, string> = {
-	nfe: "NF-e",
-	delivery_note: "Guia de remessa",
-	ad_hoc: "Entrega sem documento",
-}
-
 // TODO(db:types): regenerar os tipos após aplicar 20260926215000 e tirar este tipo local
 type ReceiptLinkColumns = {
 	source?: string | null
@@ -550,7 +545,7 @@ function ReceiptDetailPage() {
 	const editable = isReceiptEditable(receipt.status)
 	const links = receipt as typeof receipt & ReceiptLinkColumns
 	const source = links.source ?? "nfe"
-	const sourceText = `${RECEIPT_SOURCE_TEXT[source] ?? source}${links.delivery_note_number ? ` ${links.delivery_note_number}` : ""}${links.supplier_name ? ` · ${links.supplier_name}` : ""}`
+	const sourceText = `${RECEIPT_SOURCE_LABELS[source as ReceiptSource] ?? source}${links.delivery_note_number ? ` ${links.delivery_note_number}` : ""}${links.supplier_name ? ` · ${links.supplier_name}` : ""}`
 	const kitchenScope = { type: "kitchen" as const, id: Number(kitchenId) }
 	const canLink = can("storage", 2, kitchenScope)
 	const canDecide = can("storage", 3, kitchenScope)
@@ -695,6 +690,7 @@ function ReceiptDetailPage() {
 				<ReceiptDocumentsCard
 					receiptId={receipt.id}
 					kitchenId={Number(kitchenId)}
+					source={context.source}
 					supplier={{ name: links.supplier_name ?? null, document: links.supplier_document ?? null }}
 					documents={{ nfe: context.invoice, supplyOrder: context.supplyOrder, empenho: context.empenho, liquidated: context.liquidated }}
 					invoiceExpected={links.invoice_expected ?? true}

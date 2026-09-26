@@ -191,6 +191,7 @@ export {
 export { getUnitDashboard, type UnitDashboardData } from "./dashboard.ts"
 export { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 export {
+	canDesignateInUnit,
 	createDesignation,
 	DEFINITIVE_RECEIPT_ROLES,
 	DESIGNATION_ROLE_LABELS,
@@ -206,13 +207,16 @@ export {
 	type DesignationSource,
 	designationInputProblems,
 	designationMissingMessage,
+	type EndDesignationPlan,
 	endDesignation,
 	isDesignationActive,
 	listDesignationCandidates,
 	listDesignationScopes,
 	listDesignations,
 	PROVISIONAL_RECEIPT_ROLES,
+	planEndDesignation,
 	type ReceiptStage,
+	selfDesignationProblem,
 } from "./designations.ts"
 export {
 	type ArpConformityCode,

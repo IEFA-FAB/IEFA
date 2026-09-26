@@ -39,7 +39,7 @@ import {
 	isValueDispensa,
 	resolveDirectContractLimit,
 } from "./acquisition.ts"
-import { DEFINITIVE_RECEIPT_ROLES, PROVISIONAL_RECEIPT_ROLES } from "./designations.ts"
+import { canDesignateInUnit, DEFINITIVE_RECEIPT_ROLES, PROVISIONAL_RECEIPT_ROLES } from "./designations.ts"
 import type { ReceiptSource } from "./receiving-links.ts"
 import { brasiliaToday } from "./stock-math.ts"
 
@@ -263,7 +263,7 @@ export async function fetchReceivingPendingStatus(db: SisubDb, ctx: UserContext,
 		today: brasiliaToday(),
 		receipts,
 		counts: countReceiptPending(rows),
-		canDesignate: unitIds.some((unitId) => hasPermission(ctx.permissions, "unit", 2, { type: "unit", id: unitId })),
+		canDesignate: canDesignateInUnit(ctx.permissions, kitchen.purchaseUnitId ?? kitchen.unitId),
 	}
 }
 

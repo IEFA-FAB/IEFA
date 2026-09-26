@@ -38,7 +38,8 @@
 --    aponta o recebimento (`finance.liquidacao.goods_receipt_id`, N por
 --    recebimento) em vez de `goods_receipt.liquidacao_id`, que não é mais
 --    gravado desde a correção de unidade da liquidação: todo recebimento
---    aparecia "sem_liquidacao". Recusado fica de fora sem filtro próprio: desde
+--    aparecia "sem_liquidacao". A entrega que não terá NF-e (remessa, apoio)
+--    fica de fora: ela nunca terá NS. Recusado fica de fora sem filtro próprio: desde
 --    20260926205000 ele não tem `definitive_at` (CHECK
 --    `goods_receipt_rejected_not_attested`).
 --
@@ -86,6 +87,12 @@ comment on column inventory.goods_receipt.invoice_check_deferred_at is
   'Efetivado com a consulta de situação da NF-e pendente (SEFAZ indisponível). O estoque entra; a liquidação continua exigindo a consulta recente.';
 comment on column inventory.goods_receipt.documents_linked_at is
   'Último vínculo posterior de NF-e, OF ou empenho (`inventory.link_receipt_documents`). Não reabre a efetivação.';
+
+-- De onde veio o custo da linha: `invoice_link` = da linha da NF-e vinculada depois
+-- (`link_receipt_documents`). É o que a troca de nota sabe desfazer: custo digitado
+-- na conferência não se apaga.
+alter table inventory.goods_receipt_item
+  add column unit_cost_source text check (unit_cost_source in ('invoice_link'));
 
 create index goods_receipt_invoice_check_deferred_by_fk_idx on inventory.goods_receipt (invoice_check_deferred_by)
   where invoice_check_deferred_by is not null;
@@ -203,10 +210,13 @@ $$;
  * Regras (as mesmas da criação):
  *  - NF-e da cozinha do recebimento, ou da unidade compradora sem cozinha (é
  *    assumida por esta cozinha); cancelada ou recusada não se vincula;
- *  - OF da mesma cozinha; se a OF tem empenho, é esse o empenho do recebimento;
+ *  - OF da mesma cozinha; se a OF tem empenho, é esse o empenho do recebimento,
+ *    em TODO vínculo (não só quando a OF muda): OF de E1 não convive com E2;
  *  - empenho da unidade compradora, não anulado;
- *  - recebimento já liquidado não troca de empenho nem de NF-e: a NS se apoia
- *    neles (Lei 4.320, art. 63).
+ *  - recebimento já liquidado não troca de NF-e, e o empenho dele só pode ser o
+ *    que a NS debitou (Lei 4.320, art. 63) — inclusive quando estava sem empenho;
+ *  - trocar a NF-e desliga as linhas que não casam com a nova e, com o
+ *    recebimento aberto, tira o custo que tinha vindo da nota antiga.
  * O vínculo não reabre a efetivação nem movimenta estoque; ligar OF a entrega
  * já atestada recalcula o status da OF.
  */
@@ -226,6 +236,9 @@ declare
   v_receipt inventory.goods_receipt%rowtype;
   v_unit bigint;
   v_liquidated boolean;
+  v_liquidation_empenhos uuid[];
+  v_switching_nfe boolean := false;
+  v_order_empenho uuid;
   v_nfe record;
   v_order record;
   v_empenho record;
@@ -246,10 +259,11 @@ begin
   select coalesce(k.purchase_unit_id, k.unit_id) into v_unit
     from kitchen.kitchen k where k.id = v_receipt.kitchen_id;
 
-  select exists (
-    select 1 from finance.liquidacao l
-     where l.goods_receipt_id = v_receipt.id or l.id = v_receipt.liquidacao_id
-  ) into v_liquidated;
+  -- a(s) NE(s) que as NS deste recebimento já debitaram
+  select array_agg(distinct l.empenho_id) into v_liquidation_empenhos
+    from finance.liquidacao l
+   where l.goods_receipt_id = v_receipt.id or l.id = v_receipt.liquidacao_id;
+  v_liquidated := v_liquidation_empenhos is not null;
 
   v_nfe_id := coalesce(p_nfe_document_id, v_receipt.nfe_document_id);
   v_order_id := coalesce(p_supply_order_id, v_receipt.supply_order_id);
@@ -278,6 +292,7 @@ begin
     if v_nfe.kitchen_id is null then
       update inventory.nfe_document set kitchen_id = v_receipt.kitchen_id where id = p_nfe_document_id;
     end if;
+    v_switching_nfe := v_receipt.nfe_document_id is not null;
   end if;
 
   -- OF ──────────────────────────────────────────────────────────────────────
@@ -291,18 +306,27 @@ begin
     if v_order.status in ('draft', 'cancelled') then
       raise exception 'A OF está % — só OF enviada sustenta a entrega', case v_order.status when 'draft' then 'em rascunho' else 'cancelada' end;
     end if;
-    if v_order.empenho_id is not null then
-      if v_empenho_id is not null and v_empenho_id <> v_order.empenho_id then
-        raise exception 'A OF é de outro empenho — vincule a OF do empenho da entrega, ou corrija o empenho';
+  end if;
+
+  -- OF × empenho em TODO vínculo (a mesma regra de `resolveOrderAndEmpenho`): com OF
+  -- de empenho, o empenho do recebimento é o dela.
+  if v_order_id is not null then
+    select so.empenho_id into v_order_empenho from procurement.supply_order so where so.id = v_order_id;
+    if v_order_empenho is not null then
+      if p_empenho_id is not null and p_empenho_id <> v_order_empenho then
+        raise exception 'A OF desta entrega é de outro empenho — vincule a NE da OF, ou troque a OF antes';
       end if;
-      v_empenho_id := v_order.empenho_id;
+      v_empenho_id := v_order_empenho;
     end if;
   end if;
 
   -- Empenho ─────────────────────────────────────────────────────────────────
   if v_empenho_id is distinct from v_receipt.empenho_id then
-    if v_receipt.empenho_id is not null and v_liquidated then
-      raise exception 'Recebimento já liquidado sob outro empenho: a NS debitou aquele empenho e o vínculo não muda';
+    -- Liquidado, o empenho do recebimento só pode ser o que a NS debitou: com ele
+    -- sem empenho, aceita essa NE; qualquer outra, recusa (ele diria E2 com a NS em E1).
+    if v_liquidated and not (cardinality(v_liquidation_empenhos) = 1 and v_empenho_id = v_liquidation_empenhos[1]) then
+      raise exception 'Recebimento já liquidado: a NS debitou a NE %. O empenho do recebimento só pode ser essa NE — para mudar, estorne a NS no SIAFI e registre a liquidação de novo',
+        (select string_agg(e.numero_empenho, ', ' order by e.numero_empenho) from finance.empenho e where e.id = any(v_liquidation_empenhos));
     end if;
     select id, unit_id, status into v_empenho from finance.empenho where id = v_empenho_id;
     if not found then raise exception 'Empenho não encontrado'; end if;
@@ -345,12 +369,33 @@ begin
     v_linked := v_linked + v_updated;
   end loop;
 
+  -- Troca de NF-e ───────────────────────────────────────────────────────────
+  -- A linha que não casou com a nota nova não pode seguir apontando item da antiga
+  -- (e passa a contar em "linhas sem item de nota"); aberto o recebimento, o custo que
+  -- veio da antiga sai, e a nova o repõe onde casar (logo abaixo).
+  if v_switching_nfe then
+    update inventory.goods_receipt_item gri
+       set nfe_item_id = null
+     where gri.receipt_id = p_receipt_id and gri.nfe_item_id is not null
+       and not exists (select 1 from inventory.nfe_item ni where ni.id = gri.nfe_item_id and ni.nfe_document_id = v_nfe_id);
+    if v_receipt.definitive_at is null then
+      update inventory.goods_receipt_item_lot l
+         set unit_cost = null
+        from inventory.goods_receipt_item gri
+       where gri.id = l.receipt_item_id and gri.receipt_id = p_receipt_id
+         and gri.unit_cost_source = 'invoice_link' and l.unit_cost is not distinct from gri.unit_cost;
+      update inventory.goods_receipt_item
+         set unit_cost = null, unit_cost_source = null
+       where receipt_id = p_receipt_id and unit_cost_source = 'invoice_link';
+    end if;
+  end if;
+
   -- Custo das linhas sem custo, só com o recebimento aberto ─────────────────
   if v_receipt.definitive_at is null then
     for v_link in select * from jsonb_array_elements(coalesce(p_line_costs, '[]'::jsonb))
     loop
       update inventory.goods_receipt_item
-         set unit_cost = (v_link ->> 'unit_cost')::numeric
+         set unit_cost = (v_link ->> 'unit_cost')::numeric, unit_cost_source = 'invoice_link'
        where id = (v_link ->> 'receipt_item_id')::uuid and receipt_id = p_receipt_id and unit_cost is null;
       get diagnostics v_updated = row_count;
       if v_updated > 0 then
@@ -521,8 +566,11 @@ with received as (
     coalesce(sum(gri.received_qty_base * coalesce(gri.unit_cost, 0::numeric)), 0::numeric) as valor_recebido
   from inventory.goods_receipt gr
   join inventory.goods_receipt_item gri on gri.receipt_id = gr.id
-  -- entrega atestada; o recusado não tem `definitive_at` (20260926205000)
+  -- entrega atestada; o recusado não tem `definitive_at` (20260926205000). A remessa
+  -- de depósito e o apoio de outra OM (`invoice_expected = false`) nunca terão NS:
+  -- contá-los "sem liquidação" seria pendência sem solução.
   where gr.definitive_at is not null
+    and gr.invoice_expected
   group by gr.id, gr.kitchen_id, gr.definitive_at, gr.liquidacao_id
 ),
 liquidated as (

@@ -1,3 +1,4 @@
+import { RECEIPT_SOURCE_LABELS, type ReceiptSource } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { PackagePlus, Truck } from "lucide-react"
 import { useState } from "react"
@@ -28,13 +29,6 @@ const STATUS_LABEL: Record<string, { label: string; variant: "secondary" | "outl
 	definitive: { label: "Definitivo", variant: "secondary" },
 	divergent: { label: "Divergente", variant: "destructive" },
 	rejected: { label: "Rejeitado", variant: "destructive" },
-}
-
-/** Origem do recebimento na lista: a entrega sem nota precisa se distinguir da que veio com ela. */
-const SOURCE_LABEL: Record<string, string> = {
-	nfe: "NF-e",
-	delivery_note: "Guia",
-	ad_hoc: "Sem documento",
 }
 
 // TODO(db:types): regenerar os tipos após aplicar 20260926215000 e tirar este tipo local
@@ -131,7 +125,7 @@ function ReceivingListPage() {
 							{(receipts as ReceiptListRow[]).map((receipt) => {
 								const meta = STATUS_LABEL[receipt.status] ?? STATUS_LABEL.draft
 								const origin = [
-									SOURCE_LABEL[receipt.source ?? "nfe"] ?? receipt.source,
+									RECEIPT_SOURCE_LABELS[(receipt.source ?? "nfe") as ReceiptSource] ?? receipt.source,
 									receipt.delivery_note_number,
 									receipt.supplier_name,
 									receipt.source !== "nfe" && receipt.source != null && !receipt.nfe_document_id ? "sem NF-e vinculada" : null,

@@ -17,11 +17,11 @@
  * @migration 20260901120200_goods_receipt_lots
  */
 
-import { hasPermission } from "@iefa/pbac"
 import {
 	brasiliaToday,
 	CONSERVATION_CLASSES,
 	type ConservationClass,
+	canDesignateInUnit,
 	composeLotDivergence,
 	conservationDivergence,
 	DEFINITIVE_RECEIPT_ROLES,
@@ -35,6 +35,7 @@ import {
 	PROVISIONAL_RECEIPT_ROLES,
 	parseNfeAccessKey,
 	type ReceiptLineForScan,
+	type ReceiptSource,
 	type ReceiptStage,
 	receiptLinkWarnings,
 	receiptWithoutInvoiceProblems,
@@ -49,6 +50,7 @@ import type { UserContext } from "@iefa/sisub-domain/types"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { withDeferralRollback } from "@/lib/deferral-mark"
 import { invoiceSituationProblem } from "@/lib/invoice-gate"
 import { readAllPages } from "@/lib/read-all-pages"
 import { decideReceiptInvoice, isInvoiceCancelled } from "@/lib/receipt-invoice-gate"
@@ -513,21 +515,30 @@ async function purchaseUnitOfKitchen(kitchenId: number): Promise<number> {
 	return Number(unitId)
 }
 
-/** A designação vigente da pessoa para o recebimento, ou `null`. */
-async function findDesignation(receiptId: string, userId: string, stage: ReceiptStage): Promise<{ designationId: string | null; unitId: number }> {
-	const inv = inventory()
-	const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id, empenho_id").eq("id", receiptId).maybeSingle()
+/** O que a busca de designação precisa do recebimento: a unidade compradora e o empenho. */
+interface DesignationScope {
+	unitId: number
+	empenhoId: string | null
+}
+
+async function designationScopeOf(receiptId: string): Promise<DesignationScope> {
+	const { data: receipt, error } = await inventory().from("goods_receipt").select("kitchen_id, empenho_id").eq("id", receiptId).maybeSingle()
+	if (error) throw new Error(`Erro ao carregar o recebimento: ${error.message}`)
 	if (!receipt) throw new Error("Recebimento não encontrado")
-	const unitId = await purchaseUnitOfKitchen(Number(receipt.kitchen_id))
-	const { data: designationId, error } = await inv.rpc("find_designation", {
+	return { unitId: await purchaseUnitOfKitchen(Number(receipt.kitchen_id)), empenhoId: (receipt.empenho_id as string | null) ?? null }
+}
+
+/** A designação vigente da pessoa para o recebimento, ou `null`. */
+async function findDesignation(scope: DesignationScope, userId: string, stage: ReceiptStage): Promise<string | null> {
+	const { data: designationId, error } = await inventory().rpc("find_designation", {
 		p_person: userId,
-		p_unit_id: unitId,
-		p_empenho_id: receipt.empenho_id ?? null,
+		p_unit_id: scope.unitId,
+		p_empenho_id: scope.empenhoId,
 		p_roles: stage === "provisional" ? [...PROVISIONAL_RECEIPT_ROLES] : [...DEFINITIVE_RECEIPT_ROLES],
 	})
 	// Falha de leitura não pode virar "sem designação": a recusa mandaria designar quem já está.
 	if (error) throw new Error(`Erro ao conferir a designação: ${error.message}`)
-	return { designationId: (designationId as string | null) ?? null, unitId }
+	return (designationId as string | null) ?? null
 }
 
 /**
@@ -544,11 +555,9 @@ async function findDesignation(receiptId: string, userId: string, stage: Receipt
  * que dá para designar ali mesmo.
  */
 async function requireDesignation(receiptId: string, ctx: UserContext, stage: ReceiptStage): Promise<string> {
-	const { designationId, unitId } = await findDesignation(receiptId, ctx.userId, stage)
-	if (!designationId) {
-		const canDesignate = hasPermission(ctx.permissions, "unit", 2, { type: "unit", id: unitId })
-		throw new Error(designationMissingMessage(stage, canDesignate))
-	}
+	const scope = await designationScopeOf(receiptId)
+	const designationId = await findDesignation(scope, ctx.userId, stage)
+	if (!designationId) throw new Error(designationMissingMessage(stage, canDesignateInUnit(ctx.permissions, scope.unitId)))
 	return designationId
 }
 
@@ -568,12 +577,18 @@ async function readReceiptInvoice(receiptId: string): Promise<{ status: string; 
 	// nota" — e a nota nunca confirmada seria efetivada.
 	if (receiptError) throw new Error(`Erro ao conferir a nota do recebimento: ${receiptError.message}`)
 	if (!receipt) throw new Error("Recebimento não encontrado")
-	if (!receipt.nfe_document_id) return null // recebimento sem nota (guia, avulso)
+	return readInvoiceSituation((receipt.nfe_document_id as string | null) ?? null)
+}
 
-	const { data: doc, error: docError } = await inv
+/** Situação da NF-e pelo id; `null` = recebimento sem nota (guia, avulso). */
+async function readInvoiceSituation(
+	nfeDocumentId: string | null
+): Promise<{ status: string; situationResult: string | null; situationCheckedAt: string | null } | null> {
+	if (!nfeDocumentId) return null
+	const { data: doc, error: docError } = await inventory()
 		.from("nfe_document")
 		.select("status, situation_result, situation_checked_at")
-		.eq("id", receipt.nfe_document_id)
+		.eq("id", nfeDocumentId)
 		.maybeSingle()
 	if (docError) throw new Error(`Erro ao conferir a situação da NF-e: ${docError.message}`)
 	// recebimento que aponta para nota que não se encontra NÃO é recebimento sem
@@ -686,33 +701,39 @@ export const finalizeReceiptFn = createServerFn({ method: "POST" })
 		// sem a designação gravada, o termo sairia sem quem efetivou
 		// A consulta adiada vai junto, ANTES da efetivação: gravada depois, uma falha deixaria o
 		// estoque dentro sem o registro de que a nota não foi confirmada.
+		// Sem adiamento, os três campos vão nulos: apagam a marca de uma tentativa anterior.
 		const deferral = deferred
 			? {
 					invoice_check_deferred_at: new Date().toISOString(),
 					invoice_check_deferred_by: userId,
 					invoice_check_deferred_reason: data.invoiceCheckDeferral?.reason.trim() ?? null,
 				}
-			: {}
+			: { invoice_check_deferred_at: null, invoice_check_deferred_by: null, invoice_check_deferred_reason: null }
 		const { error: designationError } = await inv
 			.from("goods_receipt")
 			.update({ definitive_designation_id: designationId, ...deferral })
 			.eq("id", data.receiptId)
 		if (designationError) throw new Error(`Erro ao registrar a designação: ${designationError.message}`)
 
-		await fillCostFromInvoiceLine(data.receiptId)
-
-		const { data: result, error } = await inv.rpc("finalize_goods_receipt", { p_receipt_id: data.receiptId, p_user: userId })
-		if (error) {
-			// não efetivou: a consulta adiada não vale para uma tentativa que não aconteceu
-			if (deferred) {
-				await inv
+		// Qualquer falha daqui até a efetivação (custo da nota, a própria RPC) desfaz a marca:
+		// a consulta adiada não vale para uma tentativa que não aconteceu.
+		const result = await withDeferralRollback(
+			deferred,
+			async () => {
+				await fillCostFromInvoiceLine(data.receiptId)
+				const { data: finalized, error } = await inv.rpc("finalize_goods_receipt", { p_receipt_id: data.receiptId, p_user: userId })
+				if (error) throw new Error(`Efetivação falhou: ${error.message}`)
+				return finalized
+			},
+			async () => {
+				const { error: clearError } = await inv
 					.from("goods_receipt")
 					.update({ invoice_check_deferred_at: null, invoice_check_deferred_by: null, invoice_check_deferred_reason: null })
 					.eq("id", data.receiptId)
 					.is("definitive_at", null)
+				if (clearError) throw new Error(clearError.message)
 			}
-			throw new Error(`Efetivação falhou: ${error.message}`)
-		}
+		)
 
 		// Pendência fiscal: recebido a MENOR que o faturado deixa a nota dizendo
 		// 100 e o estoque 90. Carta de correção não altera quantidade nem valor
@@ -1452,8 +1473,10 @@ export const createReceiptWithoutInvoiceFn = createServerFn({ method: "POST" })
 			.select("id, ingredient_id, purchase_item_id")
 		if (itemsError || !items) {
 			// ainda sem evento de conferência: o recebimento se apaga inteiro
-			await inv.from("goods_receipt").delete().eq("id", receipt.id)
-			throw new Error(`Erro ao registrar os itens da entrega: ${itemsError?.message}`)
+			const { error: rollbackError } = await inv.from("goods_receipt").delete().eq("id", receipt.id)
+			throw new Error(
+				`Erro ao registrar os itens da entrega: ${itemsError?.message}${rollbackError ? ` (e o recebimento vazio ficou em rascunho: ${rollbackError.message})` : ""}`
+			)
 		}
 
 		// Daqui em diante há eventos (append-only): uma falha deixa o recebimento em rascunho
@@ -1643,7 +1666,7 @@ export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
 					.from("nfe_item")
 					.select("id, n_item, description, ingredient_id, purchase_item_id, matched_qty_base, unit_price, commercial_qty")
 					.eq("nfe_document_id", nfeDocumentId),
-				inv.from("goods_receipt_item").select("id, ingredient_id, purchase_item_id, nfe_item_id, unit_cost").eq("receipt_id", data.receiptId),
+				inv.from("goods_receipt_item").select("id, ingredient_id, purchase_item_id, nfe_item_id, unit_cost, unit_cost_source").eq("receipt_id", data.receiptId),
 			])
 			for (const result of [doc, nfeItems, lines]) {
 				if (result.error) throw new Error(`Erro ao carregar a nota e as linhas: ${result.error.message}`)
@@ -1651,13 +1674,16 @@ export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
 			if (!doc.data) throw new Error("NF-e não encontrada")
 			const toNumber = (value: unknown) => (value == null ? null : Number(value))
 			const lineRows = (lines.data ?? []) as Array<Record<string, unknown>>
+			// Trocando de nota: o custo que veio da nota antiga sai no banco e a nova o repõe onde
+			// casar — então, para o casamento, ele não existe. O item da nota antiga também não.
+			const switchingNfe = data.nfeDocumentId != null && receipt.nfe_document_id != null && data.nfeDocumentId !== receipt.nfe_document_id
 			const match = matchReceiptLinesToInvoice(
 				lineRows.map((line) => ({
 					id: String(line.id),
 					ingredientId: (line.ingredient_id as string | null) ?? null,
 					purchaseItemId: (line.purchase_item_id as string | null) ?? null,
-					nfeItemId: (line.nfe_item_id as string | null) ?? null,
-					unitCost: toNumber(line.unit_cost),
+					nfeItemId: switchingNfe ? null : ((line.nfe_item_id as string | null) ?? null),
+					unitCost: switchingNfe && line.unit_cost_source === "invoice_link" ? null : toNumber(line.unit_cost),
 				})),
 				((nfeItems.data ?? []) as Array<Record<string, unknown>>).map((item) => ({
 					id: String(item.id),
@@ -1727,46 +1753,59 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
+		// Recebimento e cozinha lidos UMA vez; designação e nota recebem o que já está em mãos.
 		const { data: receipt, error } = await inv
 			.from("goods_receipt")
-			.select("kitchen_id, empenho_id, supply_order_id, nfe_document_id")
+			.select("kitchen_id, empenho_id, supply_order_id, nfe_document_id, source")
 			.eq("id", data.receiptId)
 			.maybeSingle()
 		if (error) throw new Error(`Erro ao carregar o recebimento: ${error.message}`)
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const ctx = await requireStorageForKitchen(1, Number(receipt.kitchen_id))
-		const unitId = await purchaseUnitOfKitchen(Number(receipt.kitchen_id))
+		const scope: DesignationScope = {
+			unitId: await purchaseUnitOfKitchen(Number(receipt.kitchen_id)),
+			empenhoId: (receipt.empenho_id as string | null) ?? null,
+		}
 
-		const [provisional, definitive, invoice, order, empenho, note, liquidations] = await Promise.all([
-			findDesignation(data.receiptId, ctx.userId, "provisional"),
-			findDesignation(data.receiptId, ctx.userId, "definitive"),
-			readReceiptInvoice(data.receiptId),
+		const [provisional, definitive, note, order, empenho, liquidations] = await Promise.all([
+			findDesignation(scope, ctx.userId, "provisional"),
+			findDesignation(scope, ctx.userId, "definitive"),
+			receipt.nfe_document_id
+				? inv
+						.from("nfe_document")
+						.select("access_key, supplier_name, status, situation_result, situation_checked_at")
+						.eq("id", receipt.nfe_document_id)
+						.maybeSingle()
+				: Promise.resolve({ data: null, error: null }),
 			receipt.supply_order_id
 				? procurement().from("supply_order").select("number").eq("id", receipt.supply_order_id).maybeSingle()
 				: Promise.resolve({ data: null, error: null }),
 			receipt.empenho_id
 				? finance().from("empenho").select("numero_empenho, favorecido_nome").eq("id", receipt.empenho_id).maybeSingle()
 				: Promise.resolve({ data: null, error: null }),
-			receipt.nfe_document_id
-				? inv.from("nfe_document").select("access_key, supplier_name").eq("id", receipt.nfe_document_id).maybeSingle()
-				: Promise.resolve({ data: null, error: null }),
 			finance().from("liquidacao").select("id", { count: "exact", head: true }).eq("goods_receipt_id", data.receiptId),
 		])
-		for (const result of [order, empenho, note, liquidations]) {
+		for (const result of [note, order, empenho, liquidations]) {
 			if (result.error) throw new Error(`Erro ao carregar os documentos do recebimento: ${result.error.message}`)
 		}
+		if (receipt.nfe_document_id && !note.data) throw new Error("A NF-e deste recebimento não foi encontrada")
+		const invoice = note.data
+			? { status: String(note.data.status), situationResult: note.data.situation_result ?? null, situationCheckedAt: note.data.situation_checked_at ?? null }
+			: null
 
 		return {
-			unitId,
-			canDesignate: hasPermission(ctx.permissions, "unit", 2, { type: "unit", id: unitId }),
-			designation: { provisional: provisional.designationId, definitive: definitive.designationId },
-			invoice: invoice
-				? {
-						problem: invoiceSituationProblem(invoice),
-						cancelled: isInvoiceCancelled(invoice),
-						label: note.data ? `NF-e ${String(note.data.access_key).slice(25, 34)}${note.data.supplier_name ? ` · ${note.data.supplier_name}` : ""}` : "NF-e",
-					}
-				: null,
+			unitId: scope.unitId,
+			source: String(receipt.source) as ReceiptSource,
+			canDesignate: canDesignateInUnit(ctx.permissions, scope.unitId),
+			designation: { provisional, definitive },
+			invoice:
+				invoice && note.data
+					? {
+							problem: invoiceSituationProblem(invoice),
+							cancelled: isInvoiceCancelled(invoice),
+							label: `NF-e ${String(note.data.access_key).slice(25, 34)}${note.data.supplier_name ? ` · ${note.data.supplier_name}` : ""}`,
+						}
+					: null,
 			supplyOrder: order.data ? { label: order.data.number ? `OF ${order.data.number}` : "OF sem número" } : null,
 			empenho: empenho.data ? { label: `${empenho.data.numero_empenho}${empenho.data.favorecido_nome ? ` · ${empenho.data.favorecido_nome}` : ""}` } : null,
 			liquidated: (liquidations.count ?? 0) > 0,

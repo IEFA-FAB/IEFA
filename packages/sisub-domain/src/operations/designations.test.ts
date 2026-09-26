@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test"
 import {
+	canDesignateInUnit,
 	DEFINITIVE_RECEIPT_ROLES,
 	DESIGNATION_SCREEN_LABEL,
 	designationInputProblems,
 	designationMissingMessage,
 	isDesignationActive,
 	PROVISIONAL_RECEIPT_ROLES,
+	planEndDesignation,
+	selfDesignationProblem,
 } from "./designations.ts"
 
 describe("designationMissingMessage", () => {
@@ -67,5 +70,72 @@ describe("isDesignationActive", () => {
 		expect(isDesignationActive({ validFrom: "2026-09-27", validTo: null }, "2026-09-26")).toBe(false)
 		expect(isDesignationActive({ validFrom: "2026-01-01", validTo: "2026-09-26" }, "2026-09-26")).toBe(true)
 		expect(isDesignationActive({ validFrom: "2026-01-01", validTo: "2026-09-25" }, "2026-09-26")).toBe(false)
+	})
+})
+
+describe("planEndDesignation", () => {
+	const today = "2026-09-26"
+
+	test("destituído não assina no mesmo dia: a vigência termina ONTEM", () => {
+		const plan = planEndDesignation({ validFrom: "2026-01-10", validTo: null, today, usedByReceipt: true })
+		expect(plan).toEqual({ action: "end", validTo: "2026-09-25" })
+		// e a busca (valid_to >= hoje) deixa de achá-la hoje
+		expect(isDesignationActive({ validFrom: "2026-01-10", validTo: "2026-09-25" }, today)).toBe(false)
+	})
+
+	test("vira o mês e o ano", () => {
+		expect(planEndDesignation({ validFrom: "2025-06-01", validTo: null, today: "2026-01-01", usedByReceipt: false })).toEqual({
+			action: "end",
+			validTo: "2025-12-31",
+		})
+	})
+
+	test("a que começa hoje (ou depois) e nenhum termo usou é removida", () => {
+		expect(planEndDesignation({ validFrom: today, validTo: null, today, usedByReceipt: false })).toEqual({ action: "remove" })
+		expect(planEndDesignation({ validFrom: "2026-10-01", validTo: null, today, usedByReceipt: false })).toEqual({ action: "remove" })
+	})
+
+	test("a que começou hoje e já sustenta termo não se apaga; a já encerrada não se encerra de novo", () => {
+		expect(planEndDesignation({ validFrom: today, validTo: null, today, usedByReceipt: true })).toMatchObject({
+			action: "refuse",
+			code: "DESIGNATION_IN_USE_TODAY",
+		})
+		expect(planEndDesignation({ validFrom: "2026-01-01", validTo: "2026-09-01", today, usedByReceipt: true })).toMatchObject({
+			action: "refuse",
+			code: "DESIGNATION_ALREADY_ENDED",
+		})
+	})
+})
+
+describe("selfDesignationProblem (segregação de funções)", () => {
+	const base = { isSelf: true, role: "manager" as const, designatorCanFinalize: true, otherDesignators: ["CAP SILVA", "TEN SOUZA"] }
+
+	test("quem efetiva o definitivo não se designa gestor nem comissão, e lê quem mais pode designar", () => {
+		const problem = selfDesignationProblem(base)
+		expect(problem).toMatch(/feita por outra pessoa/)
+		expect(problem).toMatch(/art\. 7º, § 1º/)
+		expect(problem).toContain("CAP SILVA, TEN SOUZA")
+		expect(selfDesignationProblem({ ...base, role: "committee_member" })).not.toBeNull()
+	})
+
+	test("rancho de uma pessoa só: a recusa diz o caminho", () => {
+		expect(selfDesignationProblem({ ...base, otherDesignators: [] })).toMatch(/Ninguém mais tem Gestão Unidade nível 2/)
+	})
+
+	test("designar outra pessoa, designar-se fiscal ou não poder efetivar passa", () => {
+		expect(selfDesignationProblem({ ...base, isSelf: false })).toBeNull()
+		expect(selfDesignationProblem({ ...base, role: "technical_inspector" })).toBeNull()
+		expect(selfDesignationProblem({ ...base, designatorCanFinalize: false })).toBeNull()
+	})
+})
+
+describe("canDesignateInUnit", () => {
+	const perm = (unitId: number | null, level = 2) => ({ module: "unit" as const, level, mess_hall_id: null, kitchen_id: null, unit_id: unitId })
+
+	test("só unit:2 na unidade COMPRADORA", () => {
+		expect(canDesignateInUnit([perm(7)], 7)).toBe(true)
+		expect(canDesignateInUnit([perm(8)], 7)).toBe(false)
+		expect(canDesignateInUnit([perm(7, 1)], 7)).toBe(false)
+		expect(canDesignateInUnit([perm(7)], null)).toBe(false)
 	})
 })

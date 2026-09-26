@@ -14,6 +14,7 @@ import { sisubSchema } from "@iefa/database/drizzle/sisub"
 import {
 	DEFINITIVE_RECEIPT_ROLES,
 	designationMissingMessage,
+	endDesignation,
 	fetchReceivingPendingStatus,
 	matchReceiptLinesToInvoice,
 	PROVISIONAL_RECEIPT_ROLES,
@@ -342,6 +343,99 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			const [after] = await tx`select situacao, valor_liquidado from finance.v_physical_accounting_reconciliation where goods_receipt_id = ${receipt.id}`
 			expect(after.situacao).toBe("conciliado")
 			expect(Number(after.valor_liquidado)).toBe(100)
+		})
+	}, 60_000)
+
+	/** NE da unidade sem ARP (a 214000 permite): basta número, data e valor. */
+	async function seedEmpenho(tx: Tx, unitId: number, value = 1000) {
+		const [row] = await tx`
+			insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total)
+			values (${unitId}, ${uid("2026NE")}, current_date, ${value}) returning id`
+		return String(row.id)
+	}
+
+	test("recebimento liquidado: o empenho só pode ser a NE que a NS debitou, mesmo estando sem empenho", async () => {
+		await inRollback(async (tx) => {
+			const { unitId, kitchenId, ingredientId } = await seedKitchen(tx, "LIQNE")
+			const e1 = await seedEmpenho(tx, unitId)
+			const e2 = await seedEmpenho(tx, unitId)
+			const delivery = await deliveredWithoutInvoice(tx, { kitchenId, ingredientId, source: "ad_hoc", qty: 4, finalize: true })
+			// entrega sem NE, liquidada sob E1
+			await tx`
+				insert into finance.liquidacao (unit_id, empenho_id, numero_ns, data, valor, goods_receipt_id)
+				values (${unitId}, ${e1}, ${uid("2026NS")}, current_date, 40, ${delivery.receiptId})`
+
+			await expect(
+				tx.savepoint((sp) => sp`select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, null, null, ${e2})`)
+			).rejects.toThrow(/já liquidado: a NS debitou a NE/)
+			await tx`select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, null, null, ${e1})`
+			const [row] = await tx`select empenho_id from inventory.goods_receipt where id = ${delivery.receiptId}`
+			expect(row.empenho_id).toBe(e1)
+		})
+	}, 60_000)
+
+	test("OF de E1 não convive com o empenho E2, mesmo vinculando só a NE", async () => {
+		await inRollback(async (tx) => {
+			const { unitId, kitchenId, ingredientId } = await seedKitchen(tx, "OFNE")
+			const e1 = await seedEmpenho(tx, unitId)
+			const e2 = await seedEmpenho(tx, unitId)
+			const [order] = await tx`
+				insert into procurement.supply_order (empenho_id, kitchen_id, sent_at, status) values (${e1}, ${kitchenId}, current_date, 'sent') returning id`
+			const delivery = await deliveredWithoutInvoice(tx, { kitchenId, ingredientId, source: "ad_hoc", qty: 2, finalize: false })
+			await tx`select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, null, ${order.id}, null)`
+			const [linked] = await tx`select empenho_id from inventory.goods_receipt where id = ${delivery.receiptId}`
+			// a OF trouxe o empenho dela
+			expect(linked.empenho_id).toBe(e1)
+			await expect(
+				tx.savepoint((sp) => sp`select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, null, null, ${e2})`)
+			).rejects.toThrow(/OF desta entrega é de outro empenho/)
+		})
+	}, 60_000)
+
+	test("trocar de NF-e desliga a linha que não casa com a nova e tira o custo que veio da antiga", async () => {
+		await inRollback(async (tx) => {
+			const { unitId, kitchenId, ingredientId } = await seedKitchen(tx, "TROCA")
+			const delivery = await deliveredWithoutInvoice(tx, { kitchenId, ingredientId, source: "ad_hoc", qty: 7, finalize: false })
+			const key = (digit: string) => `${digit.repeat(25)}${String(Date.now()).slice(-9)}${digit.repeat(10)}`
+			const [noteA] =
+				await tx`insert into inventory.nfe_document (access_key, kitchen_id, unit_id, status) values (${key("5")}, ${kitchenId}, ${unitId}, 'imported') returning id`
+			const [itemA] = await tx`
+				insert into inventory.nfe_item (nfe_document_id, n_item, description, ingredient_id, matched_qty_base, unit_price, commercial_qty, match_status)
+				values (${noteA.id}, 1, 'PAO', ${ingredientId}, 7, 14, 7, 'matched') returning id`
+			await tx`
+				select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, ${noteA.id}, null, null,
+					${tx.json([{ receipt_item_id: delivery.itemId, nfe_item_id: String(itemA.id) }])},
+					${tx.json([{ receipt_item_id: delivery.itemId, unit_cost: 14 }])})`
+			const [withA] = await tx`select nfe_item_id, unit_cost, unit_cost_source from inventory.goods_receipt_item where id = ${delivery.itemId}`
+			expect(withA).toMatchObject({ nfe_item_id: itemA.id, unit_cost_source: "invoice_link" })
+			expect(Number(withA.unit_cost)).toBe(14)
+
+			// a nota B não tem o pão: a linha fica sem item e sem o custo de A
+			const [noteB] =
+				await tx`insert into inventory.nfe_document (access_key, kitchen_id, unit_id, status) values (${key("6")}, ${kitchenId}, ${unitId}, 'imported') returning id`
+			await tx`select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, ${noteB.id}, null, null, ${tx.json([])}, ${tx.json([])})`
+			const [withB] = await tx`select nfe_item_id, unit_cost, unit_cost_source from inventory.goods_receipt_item where id = ${delivery.itemId}`
+			expect(withB).toEqual({ nfe_item_id: null, unit_cost: null, unit_cost_source: null })
+			const [lot] = await tx`select unit_cost from inventory.goods_receipt_item_lot where receipt_item_id = ${delivery.itemId}`
+			expect(lot.unit_cost).toBeNull()
+			const pending = await pendingOf(tx, kitchenId)
+			expect(pending.get(delivery.receiptId)).toContain("lines_without_invoice_item")
+		})
+	}, 60_000)
+
+	test("designação encerrada hoje deixa de valer hoje: o destituído não assina", async () => {
+		await inRollback(async (tx) => {
+			const { unitId } = await seedKitchen(tx, "ENCER")
+			const [designation] = await tx`
+				insert into procurement.contract_designation (unit_id, person_id, role, source, source_reference, valid_from)
+				values (${unitId}, ${personId}, 'manager', 'ato', 'BI nº 10/2026', current_date - 30) returning id`
+			const [before] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...DEFINITIVE_RECEIPT_ROLES])}) as id`
+			expect(before.id).toBe(designation.id)
+
+			const result = await endDesignation(dbOf(tx), fullAccessCtx(), { designationId: String(designation.id) })
+			expect(result.ended).toBe("ended")
+			const [after] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...DEFINITIVE_RECEIPT_ROLES])}) as id`
+			expect(after.id).toBeNull()
 		})
 	}, 60_000)
 })

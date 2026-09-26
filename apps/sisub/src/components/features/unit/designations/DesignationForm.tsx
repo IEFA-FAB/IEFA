@@ -17,7 +17,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/toast"
-import { useAuth } from "@/hooks/auth/useAuth"
 import { useCreateDesignation, useDesignationCandidates, useDesignationScopes } from "@/hooks/data/useExpenseExecution"
 
 type ScopeKind = "unit" | "acquisition" | "arp" | "empenho"
@@ -41,7 +40,6 @@ export interface DesignationPreset {
  * de SAVE_BEHAVIOR): o ato já existe no boletim; aqui se registra o número e a vigência.
  */
 export function DesignationForm({ unitId, preset, onSaved }: { unitId: number; preset?: DesignationPreset; onSaved: () => void }) {
-	const { user } = useAuth()
 	const ids = {
 		person: useId(),
 		role: useId(),
@@ -69,9 +67,9 @@ export function DesignationForm({ unitId, preset, onSaved }: { unitId: number; p
 	const [target, setTarget] = useState<string | null>(preset?.empenhoId ?? null)
 	const [submitted, setSubmitted] = useState(false)
 
-	// quem está designando costuma ser quem vai receber: vem pré-escolhido se puder ser designado
-	const selfCandidate = candidates.data?.find((c) => c.personId === user?.id)?.personId ?? null
-	const person = personId ?? selfCandidate
+	// Ninguém vem pré-escolhido: a designação é ato de outro papel, e sugerir a própria pessoa
+	// ensinaria a se designar (segregação de funções — o domínio recusa o gestor que efetiva).
+	const person = personId
 
 	const scopeOptions =
 		scope === "acquisition" ? scopes.data?.acquisitions : scope === "arp" ? scopes.data?.arps : scope === "empenho" ? scopes.data?.empenhos : []

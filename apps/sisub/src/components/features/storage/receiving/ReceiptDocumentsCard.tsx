@@ -36,6 +36,7 @@ export interface ReceiptDocuments {
 export function ReceiptDocumentsCard({
 	receiptId,
 	kitchenId,
+	source,
 	supplier,
 	documents,
 	invoiceExpected,
@@ -44,6 +45,8 @@ export function ReceiptDocumentsCard({
 }: {
 	receiptId: string
 	kitchenId: number
+	/** Recebimento criado DA NF-e não troca de nota (os itens vieram dela): o botão nem aparece. */
+	source: string
 	/** Quem entregou, para sugerir o favorecido da NE registrada na hora. */
 	supplier: { name: string | null; document: string | null }
 	documents: ReceiptDocuments
@@ -121,7 +124,7 @@ export function ReceiptDocumentsCard({
 												Casar itens
 											</Button>
 										)}
-										{!(documents.liquidated && value && kind !== "supplyOrder") && (
+										{!(documents.liquidated && value && kind !== "supplyOrder") && !(kind === "nfe" && value && source === "nfe") && (
 											<Button size="sm" variant="outline" onClick={() => setEditing(kind)}>
 												<Link2 data-icon="inline-start" aria-hidden="true" />
 												{value ? "Trocar" : "Vincular"}

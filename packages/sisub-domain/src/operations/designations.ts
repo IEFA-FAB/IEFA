@@ -16,6 +16,7 @@
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
+import { hasPermission } from "@iefa/pbac"
 import { sql } from "drizzle-orm"
 import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
@@ -49,6 +50,36 @@ export const DESIGNATION_SOURCE_LABELS: Record<DesignationSource, string> = {
 }
 
 export type ReceiptStage = "provisional" | "definitive"
+
+/**
+ * Quem pode designar ali mesmo ("Designar agora"): `unit:2` na unidade COMPRADORA da cozinha,
+ * que é onde a designação mora e onde `inventory.designations_covering` procura. Regra única
+ * do painel "A caminho" e da tela do recebimento.
+ */
+export function canDesignateInUnit(permissions: UserContext["permissions"], purchaseUnitId: number | null): boolean {
+	return purchaseUnitId != null && hasPermission(permissions, "unit", 2, { type: "unit", id: purchaseUnitId })
+}
+
+/**
+ * Segregação de funções (Lei 14.133/2021, art. 7º, § 1º): quem pode efetivar o definitivo não
+ * se designa gestor ou comissão do definitivo — o ato é "de servidor ou comissão designada
+ * pela autoridade competente" (art. 140, II, b), e a designação é o controle de outro papel.
+ * Designar-se fiscal (o provisório) não entra na trava: o definitivo continua sendo de outra
+ * pessoa. Quando ninguém mais na OM pode designar, a mensagem diz isso e o caminho.
+ */
+export function selfDesignationProblem(input: {
+	isSelf: boolean
+	role: DesignationRole
+	designatorCanFinalize: boolean
+	otherDesignators: readonly string[]
+}): string | null {
+	if (!input.isSelf || !DEFINITIVE_RECEIPT_ROLES.includes(input.role) || !input.designatorCanFinalize) return null
+	const who =
+		input.otherDesignators.length > 0
+			? `Quem pode designar nesta OM: ${input.otherDesignators.slice(0, 5).join(", ")}${input.otherDesignators.length > 5 ? "…" : ""}.`
+			: "Ninguém mais tem Gestão Unidade nível 2 nesta OM: peça a concessão ao administrador do sisub, ou que o comandante designe outro servidor."
+	return `A designação de gestor ou de comissão para o recebimento definitivo é feita por outra pessoa: você também efetiva o definitivo nesta OM (segregação de funções, Lei 14.133/2021, art. 7º, § 1º). ${who}`
+}
 
 /** Onde se designa: é o que toda recusa por falta de designação diz. */
 export const DESIGNATION_SCREEN_LABEL = "Gestão Unidade → Designações"
@@ -226,6 +257,28 @@ export async function createDesignation(db: SisubDb, ctx: UserContext, input: De
 	if (!candidates.some((c) => c.personId === input.personId)) {
 		throw new DomainError("DESIGNATION_PERSON_OUT_OF_UNIT", "Esta pessoa não opera o estoque nem a gestão desta OM — conceda o acesso antes de designá-la")
 	}
+	if (input.personId === ctx.userId && DEFINITIVE_RECEIPT_ROLES.includes(input.role)) {
+		const rows = (await runQuery("QUERY_FAILED", () =>
+			db.execute(sql`
+				select
+					(select coalesce(array_agg(k.id), '{}') from kitchen.kitchen k where k.unit_id = ${input.unitId} or k.purchase_unit_id = ${input.unitId}) as kitchen_ids,
+					(select coalesce(array_agg(distinct ${PERSON_LABEL}), '{}')
+						from access_control.user_permissions p
+						left join core.user_data u on u.id = p.user_id
+						left join core.user_military_data m on m."nrOrdem" = u."nrOrdem"
+						where p.module = 'unit' and p.level >= 2 and p.unit_id = ${input.unitId}
+							and p.user_id <> ${ctx.userId} and (p.expires_at is null or p.expires_at > now())) as designators
+			`)
+		)) as unknown as Row[]
+		const kitchenIds = ((rows[0]?.kitchen_ids as unknown[]) ?? []).map(Number)
+		const problem = selfDesignationProblem({
+			isSelf: true,
+			role: input.role,
+			designatorCanFinalize: kitchenIds.some((id) => hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id })),
+			otherDesignators: ((rows[0]?.designators as unknown[]) ?? []).map(String),
+		})
+		if (problem) throw new DomainError("DESIGNATION_SELF_SEGREGATION", problem)
+	}
 	if (input.empenhoId) {
 		const [row] = (await runQuery("QUERY_FAILED", () => db.execute(sql`select unit_id from finance.empenho where id = ${input.empenhoId}`))) as unknown as Row[]
 		if (!row || Number(row.unit_id) !== input.unitId) throw new DomainError("DESIGNATION_SCOPE_OUT_OF_UNIT", "O empenho não é desta OM")
@@ -320,30 +373,69 @@ export async function listDesignationScopes(db: SisubDb, ctx: UserContext, input
 	}
 }
 
+/** Véspera de uma data civil "YYYY-MM-DD". */
+function previousDay(date: string): string {
+	const d = new Date(`${date}T12:00:00Z`)
+	d.setUTCDate(d.getUTCDate() - 1)
+	return d.toISOString().slice(0, 10)
+}
+
+export type EndDesignationPlan = { action: "remove" } | { action: "end"; validTo: string } | { action: "refuse"; code: string; message: string }
+
 /**
- * Encerra a designação hoje. A designação não se apaga depois de valer: o termo de
- * recebimento aponta para ela. A que ainda não começou é removida — nenhum termo a usou.
+ * Como encerrar uma designação HOJE.
+ *
+ * Destituído não assina mais no mesmo dia: o fim da vigência vai para ONTEM (a busca aceita
+ * `valid_to >= hoje`). A que começa hoje ou depois não tem ontem: sem termo que a use, é
+ * removida; com termo, não se apaga (o termo aponta para ela) — encerra-se amanhã.
+ */
+export function planEndDesignation(input: { validFrom: string; validTo: string | null; today: string; usedByReceipt: boolean }): EndDesignationPlan {
+	if (input.validTo != null && input.validTo < input.today) {
+		return { action: "refuse", code: "DESIGNATION_ALREADY_ENDED", message: "Esta designação já terminou" }
+	}
+	if (input.validFrom >= input.today) {
+		if (!input.usedByReceipt) return { action: "remove" }
+		return {
+			action: "refuse",
+			code: "DESIGNATION_IN_USE_TODAY",
+			message: "A designação começou hoje e já sustenta um termo de recebimento: não se apaga. Encerre-a amanhã; até lá, ela vale.",
+		}
+	}
+	return { action: "end", validTo: previousDay(input.today) }
+}
+
+/**
+ * Encerra a designação a partir de hoje (`planEndDesignation`). A designação não se apaga
+ * depois de valer: o termo de recebimento aponta para ela.
  */
 export async function endDesignation(db: SisubDb, ctx: UserContext, input: { designationId: string }): Promise<{ unitId: number; ended: "removed" | "ended" }> {
 	const [row] = (await runQuery("QUERY_FAILED", () =>
-		db.execute(sql`select unit_id, valid_from, valid_to from procurement.contract_designation where id = ${input.designationId}`)
+		db.execute(sql`
+			select d.unit_id, d.valid_from, d.valid_to,
+				exists (select 1 from inventory.goods_receipt gr
+					where gr.provisional_designation_id = d.id or gr.definitive_designation_id = d.id) as used
+			from procurement.contract_designation d where d.id = ${input.designationId}
+		`)
 	)) as unknown as Row[]
 	if (!row) throw new DomainError("NOT_FOUND", "Designação não encontrada")
 	const unitId = Number(row.unit_id)
 	requireUnit(ctx, 2, unitId)
-	const today = brasiliaToday()
-	const validFrom = isoDate(row.valid_from)
-	if (validFrom > today) {
+	const plan = planEndDesignation({
+		validFrom: isoDate(row.valid_from),
+		validTo: row.valid_to == null ? null : isoDate(row.valid_to),
+		today: brasiliaToday(),
+		usedByReceipt: Boolean(row.used),
+	})
+	if (plan.action === "refuse") throw new DomainError(plan.code, plan.message)
+	if (plan.action === "remove") {
 		await runQuery("QUERY_FAILED", () => db.execute(sql`delete from procurement.contract_designation where id = ${input.designationId}`), {
 			prefix: "Erro ao remover a designação",
 		})
 		return { unitId, ended: "removed" }
 	}
-	const validTo = row.valid_to == null ? null : isoDate(row.valid_to)
-	if (validTo != null && validTo < today) throw new DomainError("DESIGNATION_ALREADY_ENDED", "Esta designação já terminou")
 	await runQuery(
 		"QUERY_FAILED",
-		() => db.execute(sql`update procurement.contract_designation set valid_to = ${today}::date where id = ${input.designationId}`),
+		() => db.execute(sql`update procurement.contract_designation set valid_to = ${plan.validTo}::date where id = ${input.designationId}`),
 		{ prefix: "Erro ao encerrar a designação" }
 	)
 	return { unitId, ended: "ended" }
