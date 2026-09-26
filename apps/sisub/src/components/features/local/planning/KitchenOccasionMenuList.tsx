@@ -46,7 +46,11 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 	const handleDelete = (id: string, name: string) => {
 		const pronoun = copy.article === "o" ? "Ele" : "Ela"
 		const recovered = copy.article === "o" ? "recuperado" : "recuperada"
-		if (window.confirm(`Tem certeza que deseja remover ${copy.article} ${noun} "${name}"?\n\n${pronoun} poderá ser ${recovered} na lixeira do Planejamento.`)) {
+		if (
+			window.confirm(
+				`Tem certeza que deseja remover ${copy.article} ${noun} "${name}"?\n\n${pronoun} poderá ser ${recovered} na lixeira do Agendamento da Produção.`
+			)
+		) {
 			deleteTemplate(id)
 		}
 	}

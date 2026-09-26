@@ -1,5 +1,5 @@
 import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
-import { ArrowLeftRight, Trash2 } from "lucide-react"
+import { ArrowLeftRight, Replace, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUpdateMenuItem } from "@/hooks/data/usePlanning"
 import { DEFAULT_MENU_GROUPS, type MenuGroup, type MenuItemGroup, menuItemGroupLabel, UNGROUPED_KEY, UNGROUPED_LABEL } from "@/lib/menu-item-groups"
+import { substitutionCount, substitutionLabel } from "@/lib/menu-substitutions"
 import type { OutdatedRecipe } from "@/lib/recipe-versions"
 import type { MenuItem } from "@/types/domain/planning"
 import { RecipeVersionBadge } from "./RecipeVersionUpdateDialog"
@@ -16,6 +17,8 @@ import { RecipeVersionBadge } from "./RecipeVersionUpdateDialog"
 interface MenuItemCardProps {
 	item: MenuItem
 	onSubstitute: (item: MenuItem) => void
+	/** Faltou o alimento: troca a preparação mantendo porções, grupo e origem. */
+	onReplaceRecipe?: (item: MenuItem) => void
 	onDelete: (itemId: string, recipeName: string) => void
 	/** Preenchido quando a ficha deste item tem versão mais nova no catálogo. */
 	outdated?: OutdatedRecipe
@@ -26,7 +29,7 @@ interface MenuItemCardProps {
 /**
  * Menu Item Card com controles editáveis para porção planejada e quantidade excluída
  */
-export function MenuItemCard({ item, onSubstitute, onDelete, outdated, groups = DEFAULT_MENU_GROUPS }: MenuItemCardProps) {
+export function MenuItemCard({ item, onSubstitute, onReplaceRecipe, onDelete, outdated, groups = DEFAULT_MENU_GROUPS }: MenuItemCardProps) {
 	const { mutate: updateMenuItem } = useUpdateMenuItem()
 
 	const recipeName = (item.recipe as { name?: string })?.name || "Preparação sem nome"
@@ -85,8 +88,10 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated, groups = 
 	return (
 		<div className="border rounded-md p-3 bg-background space-y-3">
 			{/* Recipe Name Header */}
-			<div className="flex items-center justify-between">
-				<div className="flex items-center gap-2">
+			{/* Nome e selos quebram linha; as ações ficam sempre visíveis à direita. Com selo longo
+			    ("Trocada (era …)") a linha única empurrava os botões para fora do cartão. */}
+			<div className="flex items-start justify-between gap-2">
+				<div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
 					<p className="text-subheading">{recipeName}</p>
 					{/* O dia guarda a ficha da versão aplicada; sem este selo a cozinha produzia por uma
 					    ficha antiga sem sinal nenhum. Para atualizar, é no cardápio semanal + reaplicar. */}
@@ -101,13 +106,13 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated, groups = 
 							Apoio
 						</Badge>
 					)}
-					{item.substitutions && (
+					{substitutionCount(item.substitutions) > 0 && (
 						<Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
-							Substituição Ativa
+							{substitutionLabel(item.substitutions)}
 						</Badge>
 					)}
 				</div>
-				<div className="flex items-center gap-1">
+				<div className="flex shrink-0 items-center gap-1">
 					<Tooltip>
 						<TooltipTrigger
 							render={
@@ -122,8 +127,20 @@ export function MenuItemCard({ item, onSubstitute, onDelete, outdated, groups = 
 								</Button>
 							}
 						></TooltipTrigger>
-						<TooltipContent>Substituir ingredientes</TooltipContent>
+						<TooltipContent>Substituir insumo</TooltipContent>
 					</Tooltip>
+					{onReplaceRecipe && (
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button size="icon-sm" variant="ghost" onClick={() => onReplaceRecipe(item)} aria-label={`Trocar preparação ${recipeName}`}>
+										<Replace />
+									</Button>
+								}
+							></TooltipTrigger>
+							<TooltipContent>Trocar preparação</TooltipContent>
+						</Tooltip>
+					)}
 					<Tooltip>
 						<TooltipTrigger
 							render={

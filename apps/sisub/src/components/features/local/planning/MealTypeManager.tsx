@@ -61,7 +61,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 	}
 
 	const handleDelete = (mealType: MealType) => {
-		// Não há lixeira para tipo de refeição (a de Planejamento só guarda itens e templates), então
+		// Não há lixeira para tipo de refeição (a do Agendamento da Produção só guarda itens e templates), então
 		// o aviso diz o que acontece em vez de prometer uma recuperação que a interface não oferece.
 		if (
 			window.confirm(

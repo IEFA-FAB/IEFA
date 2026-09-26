@@ -445,6 +445,15 @@ export {
 	upsertDailyMenu,
 } from "./planning.ts"
 export {
+	fetchMenuItemSubstituteOptions,
+	moveOriginToDate,
+	recordMenuSubstitution,
+	removeOriginFromDay,
+	replaceDayWithTemplate,
+	replaceMenuItemRecipe,
+	type SubstituteOption,
+} from "./planning-adjustments.ts"
+export {
 	addPolicyStatement,
 	attachPolicy,
 	createPolicy,

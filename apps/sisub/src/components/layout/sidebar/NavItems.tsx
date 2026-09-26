@@ -194,15 +194,35 @@ export const ALL_MODULES: ModuleDef[] = [
 		scopeType: "kitchen",
 		// URLs base — AppShell substitui por /kitchen/{id}/... quando dentro de um escopo
 		items: [
-			{ title: "Cardápios Semanais", url: "/kitchen/weekly-menus", icon: CalendarDays, group: "Cardápio", keywords: ["cardápio", "semana"] },
-			{ title: "Planejamento", url: "/kitchen/planning", icon: Calendar, group: "Cardápio", keywords: ["calendário", "planejar", "dia"] },
-			{ title: "Eventos", url: "/kitchen/events", icon: CalendarRange, group: "Cardápio", keywords: ["evento especial", "festa", "solenidade"] },
+			// Ordem de leitura do planejamento: o que se repete (semanal), o que é pontual (evento,
+			// apoio) e, por último, onde tudo isso vira o que a cozinha produz em cada dia.
+			{
+				title: "Cardápios Semanais",
+				url: "/kitchen/weekly-menus",
+				icon: CalendarDays,
+				group: "Planejamento da Produção",
+				keywords: ["cardápio", "semana"],
+			},
+			{
+				title: "Eventos",
+				url: "/kitchen/events",
+				icon: CalendarRange,
+				group: "Planejamento da Produção",
+				keywords: ["evento especial", "festa", "solenidade"],
+			},
 			{
 				title: "Apoios",
 				url: "/kitchen/exceptions",
 				icon: Sandwich,
-				group: "Cardápio",
+				group: "Planejamento da Produção",
 				keywords: ["coffee break", "café de reunião", "exceção"],
+			},
+			{
+				title: "Agendamento da Produção",
+				url: "/kitchen/planning",
+				icon: Calendar,
+				group: "Planejamento da Produção",
+				keywords: ["calendário", "planejamento", "agenda", "dia", "o que produzir"],
 			},
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed, group: "Operação", keywords: ["receita", "ficha técnica"] },
 			{

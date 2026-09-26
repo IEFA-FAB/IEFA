@@ -43,6 +43,15 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 	const [description, setDescription] = useState("")
 	const [occurrences, setOccurrences] = useState("")
 
+	// Adaptação nasce com o nome do modelo: exigir que se redigite um nome para copiar era o
+	// passo a mais que fazia a cozinha montar o evento "na mão" em vez de adaptar o da SDAB.
+	const prefilledRef = useRef(false)
+	useEffect(() => {
+		if (!isFork || prefilledRef.current || !baseTemplate?.name) return
+		prefilledRef.current = true
+		setName((current) => current || (baseTemplate.name ?? ""))
+	}, [isFork, baseTemplate])
+
 	const storageKey = `${templateType === "event" ? "events" : "exceptions"}-new-draft-${kitchenId ?? "global"}`
 	const storageLoadedRef = useRef(false)
 

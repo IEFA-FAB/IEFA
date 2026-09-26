@@ -1,6 +1,6 @@
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { ClipboardPaste, Copy, Loader2, Plus, Users } from "lucide-react"
+import { CalendarPlus, ClipboardPaste, Copy, Loader2, Plus, RefreshCcw, Users } from "lucide-react"
 import { useState } from "react"
 import { SnackDayPanel } from "@/components/features/local/planning/SnackDayPanel"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -24,6 +24,7 @@ import { toast } from "@/components/ui/toast"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useAddMenuItem, useCreateDailyMenu, useDayDetails, useDeleteMenuItem, useUpdateDailyMenu } from "@/hooks/data/usePlanning"
+import { useReplaceMenuItemRecipe } from "@/hooks/data/usePlanningAdjustments"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSnackMealType } from "@/hooks/data/useSnackRequests"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
@@ -31,6 +32,8 @@ import type { HeadcountPlan, MenuClipboardEntry } from "@/lib/menu-fill"
 import { groupMenuItems, type MenuGroup } from "@/lib/menu-item-groups"
 import { findOutdatedRecipes, indexLatestByLineage, type OutdatedRecipe, type RecipeVersionRef } from "@/lib/recipe-versions"
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
+import { DayOccasionDialog } from "./DayOccasionDialog"
+import { DayOriginsPanel } from "./DayOriginsPanel"
 import { MenuEquipmentAlert } from "./MenuEquipmentAlert"
 import { MenuHeadcountDialog } from "./MenuHeadcountDialog"
 import { MenuItemCard } from "./MenuItemCard"
@@ -88,6 +91,14 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 
 	// State for substitutions
 	const [substitutionItem, setSubstitutionItem] = useState<MenuItem | null>(null)
+
+	// Imprevistos do dia: evento/apoio que surgiu, contingência do dia inteiro, troca de preparação.
+	const [occasionMode, setOccasionMode] = useState<"add" | "replace" | null>(null)
+	const [replaceItem, setReplaceItem] = useState<MenuItem | null>(null)
+	const [pendingReplace, setPendingReplace] = useState<{ item: MenuItem; recipeId: string } | null>(null)
+	const [replaceRationale, setReplaceRationale] = useState("")
+	const { mutate: replaceRecipe, isPending: isReplacingRecipe } = useReplaceMenuItemRecipe()
+	const isoDate = date ? format(date, "yyyy-MM-dd") : ""
 
 	// State for recipe selector
 	const [recipeSelectorMenu, setRecipeSelectorMenu] = useState<DailyMenuWithItems | null>(null)
@@ -226,15 +237,25 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 			<SheetContent className="sm:max-w-xl w-full pl-4 ">
 				<SheetHeader className="mb-6">
 					<SheetTitle className="capitalize">{formattedDate}</SheetTitle>
-					<SheetDescription>Planejamento de cardápio do dia.</SheetDescription>
-					{plannedMeals.length > 0 && (
-						<div>
+					<SheetDescription>O que a cozinha produz neste dia — e os ajustes quando a realidade muda.</SheetDescription>
+					<div className="flex flex-wrap gap-2">
+						{plannedMeals.length > 0 && (
 							<Button type="button" size="sm" variant="outline" onClick={() => setHeadcountOpen(true)}>
-								<Users className="size-4 mr-2" />
+								<Users />
 								Quantitativo do dia
 							</Button>
-						</div>
-					)}
+						)}
+						<Button type="button" size="sm" variant="outline" onClick={() => setOccasionMode("add")}>
+							<CalendarPlus />
+							Aplicar evento ou apoio
+						</Button>
+						{plannedMeals.length > 0 && (
+							<Button type="button" size="sm" variant="outline" onClick={() => setOccasionMode("replace")}>
+								<RefreshCcw />
+								Trocar o dia
+							</Button>
+						)}
+					</div>
 				</SheetHeader>
 
 				{isLoading ? (
@@ -243,6 +264,9 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 					</div>
 				) : (
 					<ScrollArea className="h-[calc(100vh-180px)] pr-4">
+						<div className="pb-4">
+							<DayOriginsPanel kitchenId={kitchenId} date={isoDate} menus={dayMenus ?? []} />
+						</div>
 						<Accordion className="w-full space-y-4">
 							{meals.map(({ mealType, menu }) => (
 								<MealSection
@@ -252,6 +276,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 									date={date}
 									kitchenId={kitchenId}
 									onSubstitute={(item) => setSubstitutionItem(item)}
+									onReplaceRecipe={setReplaceItem}
 									onDelete={handleDeleteItem}
 									onAddRecipe={setRecipeSelectorMenu}
 									onCopyMeal={handleCopyMeal}
@@ -281,6 +306,69 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 				/>
 
 				<SubstitutionModal open={!!substitutionItem} onClose={() => setSubstitutionItem(null)} menuItem={substitutionItem} />
+
+				<DayOccasionDialog
+					open={occasionMode != null}
+					onOpenChange={(open) => !open && setOccasionMode(null)}
+					mode={occasionMode ?? "add"}
+					kitchenId={kitchenId}
+					date={isoDate}
+					dateLabel={formattedDate}
+				/>
+
+				{/* Trocar preparação: escolhe a nova, depois diz o motivo (vai para o turno). */}
+				<RecipeSelector
+					key={`replace-${replaceItem?.id ?? "none"}`}
+					open={!!replaceItem}
+					onClose={() => setReplaceItem(null)}
+					kitchenId={kitchenId}
+					selectedRecipeIds={[]}
+					multiSelect={false}
+					title="Trocar preparação"
+					description={`No lugar de “${(replaceItem?.recipe as { name?: string } | null)?.name ?? "preparação"}”. Porções, grupo e origem ficam.`}
+					onSelect={(recipeIds) => {
+						const item = replaceItem
+						setReplaceItem(null)
+						const recipeId = recipeIds[0]
+						if (!item || !recipeId) return
+						setReplaceRationale("")
+						setPendingReplace({ item, recipeId })
+					}}
+				/>
+
+				<AlertDialog open={!!pendingReplace} onOpenChange={(open) => !open && setPendingReplace(null)}>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Por que a preparação mudou?</AlertDialogTitle>
+							<AlertDialogDescription>O motivo fica no item e aparece para o turno na Produção Cozinha.</AlertDialogDescription>
+						</AlertDialogHeader>
+						<Field>
+							<FieldLabel htmlFor="replace-rationale">Motivo</FieldLabel>
+							<Input
+								id="replace-rationale"
+								value={replaceRationale}
+								onChange={(e) => setReplaceRationale(e.target.value)}
+								placeholder="Ex.: faltou frango no fornecedor"
+								maxLength={300}
+							/>
+						</Field>
+						<AlertDialogFooter>
+							<AlertDialogCancel>Cancelar</AlertDialogCancel>
+							<AlertDialogAction
+								disabled={!replaceRationale.trim() || isReplacingRecipe}
+								onClick={() => {
+									if (!pendingReplace) return
+									replaceRecipe(
+										{ menuItemId: pendingReplace.item.id, recipeId: pendingReplace.recipeId, rationale: replaceRationale.trim() },
+										{ onSuccess: () => setPendingReplace(null) }
+									)
+								}}
+							>
+								Trocar preparação
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
 
 				<RecipeSelector
 					key={recipeSelectorMenu?.id || "none"}
@@ -332,6 +420,7 @@ function MealSection({
 	date,
 	kitchenId,
 	onSubstitute,
+	onReplaceRecipe,
 	onDelete,
 	onAddRecipe,
 	onCopyMeal,
@@ -350,6 +439,7 @@ function MealSection({
 	date: Date | null
 	kitchenId: number
 	onSubstitute: (item: MenuItem) => void
+	onReplaceRecipe: (item: MenuItem) => void
 	onDelete: (itemId: string, recipeName: string) => void
 	onAddRecipe: (menu: DailyMenuWithItems) => void
 	onCopyMeal: (menu: DailyMenuWithItems) => void
@@ -493,6 +583,7 @@ function MealSection({
 														key={item.id}
 														item={item}
 														onSubstitute={onSubstitute}
+														onReplaceRecipe={onReplaceRecipe}
 														onDelete={onDelete}
 														groups={groups}
 														outdated={item.recipe_origin_id ? outdatedById.get(item.recipe_origin_id) : undefined}

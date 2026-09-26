@@ -1,0 +1,18 @@
+# Gestão Unidade — anexo quantitativo do TR, ARP, empenho
+
+Hipóteses a verificar.
+
+### GU-ANX-01 — "O cardápio semanal mudou depois de montado o anexo quantitativo"
+- **O sistema precisa:** o anexo mostra a divergência (ou é recalculável) em vez de ficar com números velhos.
+- **Cobertura:** hipótese.
+
+### GU-ANX-02 — "Um evento grande entrou no ano (formatura)"
+- **O sistema precisa:** o evento, com efetivo e %, entra no custeio (`calculateAtaNeeds` usa a demanda do evento).
+- **Cobertura:** `templates.operations.test.ts` (demanda do evento) — verificar no anexo.
+
+### GU-ARP-01 — "A ARP venceu / o item ficou deserto"
+- **O sistema precisa:** o item sem cobertura aparece como pendente, não some.
+- **Cobertura:** hipótese.
+
+### GU-EMP-01 — "Saldo do empenho acabou antes do mês"
+- **Cobertura:** `EmpenhoBalancePanel` — verificar alerta de saldo baixo.

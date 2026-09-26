@@ -43,7 +43,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	chat: "Assistente IA",
 	profile: "Perfil",
 	presence: "Presenças",
-	planning: "Planejamento",
+	planning: "Agendamento da Produção",
 	procurement: "Anexos Quantitativos",
 	suprimentos: "Suprimentos",
 	recipes: "Preparações",

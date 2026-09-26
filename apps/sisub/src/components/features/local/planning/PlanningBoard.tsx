@@ -327,6 +327,9 @@ export function PlanningBoard() {
 							<button
 								key={day.toString()}
 								type="button"
+								// Nome acessível com a data inteira: "25" sozinho não diz de que mês é o dia.
+								aria-label={`${format(day, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}${hasMenus ? ` — ${dayMenus.length} ${dayMenus.length === 1 ? "refeição planejada" : "refeições planejadas"}` : ""}`}
+								data-date={format(day, "yyyy-MM-dd")}
 								onClick={(e) => handleDayClick(day, e)}
 								className={cn(
 									"p-2 relative transition-colors cursor-pointer group text-left",

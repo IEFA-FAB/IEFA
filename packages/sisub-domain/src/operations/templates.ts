@@ -1366,15 +1366,26 @@ export async function applyEventTemplate(
 							sortOrder: menuItemsInKitchen.sortOrder,
 							recipeOriginId: menuItemsInKitchen.recipeOriginId,
 							originTemplateId: menuItemsInKitchen.originTemplateId,
+							substitutions: menuItemsInKitchen.substitutions,
 						})
 						.from(menuItemsInKitchen)
 						.where(and(eq(menuItemsInKitchen.dailyMenuId, targetMenuId), isNull(menuItemsInKitchen.deletedAt)))
 				)
 				const baseSort = existingItems.reduce((max, r) => Math.max(max, (r.sortOrder ?? 0) + 1), 0)
-				const alreadyApplied = new Set(existingItems.filter((r) => r.originTemplateId === input.templateId).map((r) => r.recipeOriginId))
+				// A preparação trocada no dia (faltou o alimento) continua sendo a aplicação daquela
+				// linha do cardápio: reaplicar não pode trazer de volta a original ao lado da nova.
+				const alreadyApplied = new Set(
+					existingItems
+						.filter((r) => r.originTemplateId === input.templateId)
+						.flatMap((r) => [
+							r.recipeOriginId,
+							(r.substitutions as { recipe_swap?: { from_recipe_id?: string | null } } | null)?.recipe_swap?.from_recipe_id ?? null,
+						])
+						.filter((id): id is string => id != null)
+				)
 
 				const freshItems = items.filter((item) => {
-					if (alreadyApplied.has(item.recipeId)) {
+					if (item.recipeId != null && alreadyApplied.has(item.recipeId)) {
 						itemsAlreadyApplied++
 						return false
 					}

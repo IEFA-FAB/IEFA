@@ -133,6 +133,10 @@ Leia antes de mexer na área (o Claude Code carrega sozinho pelo caminho do arqu
 - **Depois do merge:** confira o run do `CI/CD` pelo SHA
   (`gh run list --branch main --workflow "CI/CD"`). Deploy `skipped` significa check vermelho, não
   "nada a fazer".
+- **Feature de módulo passa pelo catálogo de edge cases** (`.claude/skills/edge-cases`, um arquivo
+  por módulo): a pergunta é qual imprevisto real (cancelou, adiou, surgiu, faltou) a mudança passa a
+  cobrir ou quebra. Imprevisto sem caminho na tela vira controle paralelo e desuso; ele entra no
+  catálogo como LACUNA mesmo antes de resolvido.
 - Padrão que causou bug vira regra em `.opengrep/rules/`, não só correção pontual.
 - Quando uma decisão tem default defensável, siga com ele e registre a escolha e o motivo no PR ou
   no design. Pergunte só quando uma suposição errada inutilizaria o trabalho.
