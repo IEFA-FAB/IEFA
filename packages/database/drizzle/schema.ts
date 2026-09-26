@@ -1,4 +1,4 @@
-import { pgEnum, pgSchema, index, foreignKey, unique, uuid, varchar, text, timestamp, integer, boolean, bigserial, bigint, check, numeric, jsonb, uniqueIndex, date, smallint, pgPolicy, char, doublePrecision, json, primaryKey } from "drizzle-orm/pg-core"
+import { pgEnum, pgSchema, index, foreignKey, unique, uuid, varchar, text, timestamp, integer, boolean, bigserial, bigint, check, numeric, jsonb, uniqueIndex, date, smallint, char, pgPolicy, doublePrecision, json, primaryKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const accessControl = pgSchema("access_control");
@@ -955,56 +955,6 @@ export const kitchenInKitchen = kitchen.table("kitchen", {
 		}),
 ]);
 
-export const recipesInKitchen = kitchen.table("recipes", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	version: smallint().notNull(),
-	name: text().notNull(),
-	preparationMethod: text("preparation_method"),
-	portionYield: numeric("portion_yield", { mode: "number" }),
-	preparationTimeMinutes: smallint("preparation_time_minutes"),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }),
-	baseRecipeId: uuid("base_recipe_id"),
-	upstreamVersionSnapshot: smallint("upstream_version_snapshot"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
-	rationalId: text("rational_id"),
-	cookingFactor: numeric("cooking_factor", { mode: "number" }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	legacyId: bigint("legacy_id", { mode: "number" }),
-	folderId: uuid("folder_id"),
-	prePreparationMethod: text("pre_preparation_method"),
-	prePreparationTimeMinutes: smallint("pre_preparation_time_minutes"),
-	cookingTimeMinutes: smallint("cooking_time_minutes"),
-	cookingMethod: text("cooking_method"),
-	cookingTemperatureCelsius: smallint("cooking_temperature_celsius"),
-}, (table) => [
-	index("recipes_base_recipe_idx").using("btree", table.baseRecipeId.asc().nullsLast().op("uuid_ops")).where(sql`(base_recipe_id IS NOT NULL)`),
-	index("recipes_folder_id_idx").using("btree", table.folderId.asc().nullsLast().op("uuid_ops")),
-	index("recipes_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.baseRecipeId.asc().nullsLast().op("int8_ops")).where(sql`(base_recipe_id IS NOT NULL)`),
-	uniqueIndex("recipes_lineage_version_unique_idx").using("btree", sql`base_recipe_id`, sql`COALESCE(kitchen_id, ('-1'::integer)::bigint)`, sql`version`).where(sql`(base_recipe_id IS NOT NULL)`),
-	index("recipes_name_idx").using("btree", table.name.asc().nullsLast().op("text_ops")),
-	foreignKey({
-			columns: [table.baseRecipeId],
-			foreignColumns: [table.id],
-			name: "recipes_base_recipe_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.folderId],
-			foreignColumns: [recipeFolderInKitchen.id],
-			name: "recipes_folder_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.kitchenId],
-			foreignColumns: [kitchenInKitchen.id],
-			name: "recipes_kitchen_id_fkey"
-		}),
-	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
-	check("recipes_cooking_temperature_range", sql`(cooking_temperature_celsius IS NULL) OR ((cooking_temperature_celsius >= '-40'::integer) AND (cooking_temperature_celsius <= 500))`),
-	check("recipes_cooking_time_nonnegative", sql`(cooking_time_minutes IS NULL) OR (cooking_time_minutes >= 0)`),
-	check("recipes_pre_preparation_time_nonnegative", sql`(pre_preparation_time_minutes IS NULL) OR (pre_preparation_time_minutes >= 0)`),
-]);
-
 export const migrationNutrientLookupInKitchen = kitchen.table("migration_nutrient_lookup", {
 	legacyIdNutriente: integer("legacy_id_nutriente").primaryKey().notNull(),
 	newNutrientId: uuid("new_nutrient_id").notNull(),
@@ -1930,42 +1880,6 @@ export const workforceSubmissionInKitchen = kitchen.table("workforce_submission"
 			name: "workforce_submission_survey_id_fkey"
 		}).onDelete("restrict"),
 	check("workforce_submission_declared_total_check", sql`(declared_total IS NULL) OR (declared_total >= 0)`),
-]);
-
-export const stockIssueRequestInInventory = inventory.table("stock_issue_request", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }).notNull(),
-	issueDate: date("issue_date").notNull(),
-	origin: text().default('production').notNull(),
-	status: text().default('open').notNull(),
-	destination: text(),
-	purpose: text(),
-	authorizationReference: text("authorization_reference"),
-	createdBy: uuid("created_by"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	closedBy: uuid("closed_by"),
-	closedAt: timestamp("closed_at", { withTimezone: true, mode: 'string' }),
-}, (table) => [
-	index("stock_issue_request_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("date_ops"), table.issueDate.desc().nullsFirst().op("int8_ops")),
-	uniqueIndex("stock_issue_request_production_day_key").using("btree", table.kitchenId.asc().nullsLast().op("date_ops"), table.issueDate.asc().nullsLast().op("date_ops")).where(sql`(origin = 'production'::text)`),
-	foreignKey({
-			columns: [table.closedBy],
-			foreignColumns: [usersInAuth.id],
-			name: "stock_issue_request_closed_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.createdBy],
-			foreignColumns: [usersInAuth.id],
-			name: "stock_issue_request_created_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.kitchenId],
-			foreignColumns: [kitchenInKitchen.id],
-			name: "stock_issue_request_kitchen_id_fkey"
-		}),
-	check("stock_issue_request_origin_check", sql`origin = ANY (ARRAY['production'::text, 'ad_hoc'::text])`),
-	check("stock_issue_request_status_check", sql`status = ANY (ARRAY['open'::text, 'closed'::text, 'closed_unexplained'::text])`),
 ]);
 
 export const stockIssueRequestItemInInventory = inventory.table("stock_issue_request_item", {
@@ -2931,10 +2845,17 @@ export const frozenPreparationInKitchen = kitchen.table("frozen_preparation", {
 	legacyId: bigint("legacy_id", { mode: "number" }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	provisionalKitchenId: bigint("provisional_kitchen_id", { mode: "number" }),
+	provisionalSince: timestamp("provisional_since", { withTimezone: true, mode: 'string' }),
+	provisionalBy: uuid("provisional_by"),
+	provisionalReviewedAt: timestamp("provisional_reviewed_at", { withTimezone: true, mode: 'string' }),
+	provisionalReviewedBy: uuid("provisional_reviewed_by"),
 }, (table) => [
 	index("frozen_preparation_category_idx").using("btree", table.category.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
 	index("frozen_preparation_legacy_id_idx").using("btree", table.legacyId.asc().nullsLast().op("int8_ops")).where(sql`(deleted_at IS NULL)`),
 	index("frozen_preparation_production_recipe_idx").using("btree", table.productionRecipeId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	index("frozen_preparation_provisional_pending_idx").using("btree", table.provisionalKitchenId.asc().nullsLast().op("int8_ops")).where(sql`((provisional_since IS NOT NULL) AND (provisional_reviewed_at IS NULL) AND (deleted_at IS NULL))`),
 	index("frozen_preparation_source_ingredient_idx").using("btree", table.sourceIngredientId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.ceafaId],
@@ -2947,6 +2868,21 @@ export const frozenPreparationInKitchen = kitchen.table("frozen_preparation", {
 			name: "frozen_preparation_production_recipe_id_fkey"
 		}),
 	foreignKey({
+			columns: [table.provisionalBy],
+			foreignColumns: [usersInAuth.id],
+			name: "frozen_preparation_provisional_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.provisionalKitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "frozen_preparation_provisional_kitchen_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.provisionalReviewedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "frozen_preparation_provisional_reviewed_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
 			columns: [table.regenerationRecipeId],
 			foreignColumns: [recipesInKitchen.id],
 			name: "frozen_preparation_regeneration_recipe_id_fkey"
@@ -2957,6 +2893,8 @@ export const frozenPreparationInKitchen = kitchen.table("frozen_preparation", {
 			name: "frozen_preparation_source_ingredient_id_fkey"
 		}),
 	check("frozen_preparation_category_check", sql`category = ANY (ARRAY['preparacao'::text, 'prato_pronto'::text, 'lanche_pronto'::text])`),
+	check("frozen_preparation_provisional_pair", sql`(provisional_since IS NULL) = (provisional_kitchen_id IS NULL)`),
+	check("frozen_preparation_review_needs_provisional", sql`(provisional_reviewed_at IS NULL) OR (provisional_since IS NOT NULL)`),
 ]);
 
 export const snackRequestInKitchen = kitchen.table("snack_request", {
@@ -3527,6 +3465,7 @@ export const inventoryCountInInventory = inventory.table("inventory_count", {
 	approvedBy: uuid("approved_by"),
 	adjustmentId: uuid("adjustment_id"),
 	approvedByOwnEntry: boolean("approved_by_own_entry").default(false).notNull(),
+	pendingProductionWaiver: text("pending_production_waiver"),
 }, (table) => [
 	// FK "inventory_count_adjustment_fkey" omitida (patch-drizzle-pull.ts): ciclo com stockAdjustmentInInventory faria o TS inferir any. Existe no banco; a relação segue em relations.ts.
 	foreignKey({
@@ -4368,6 +4307,196 @@ export const reconciliationDecisionInFinance = finance.table("reconciliation_dec
 	check("reconciliation_decision_documento_tipo_check", sql`documento_tipo = ANY (ARRAY['ne'::text, 'ns'::text, 'ob'::text])`),
 ]);
 
+export const recipesInKitchen = kitchen.table("recipes", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	version: smallint().notNull(),
+	name: text().notNull(),
+	preparationMethod: text("preparation_method"),
+	portionYield: numeric("portion_yield", { mode: "number" }),
+	preparationTimeMinutes: smallint("preparation_time_minutes"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	baseRecipeId: uuid("base_recipe_id"),
+	upstreamVersionSnapshot: smallint("upstream_version_snapshot"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	rationalId: text("rational_id"),
+	cookingFactor: numeric("cooking_factor", { mode: "number" }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	legacyId: bigint("legacy_id", { mode: "number" }),
+	folderId: uuid("folder_id"),
+	prePreparationMethod: text("pre_preparation_method"),
+	prePreparationTimeMinutes: smallint("pre_preparation_time_minutes"),
+	cookingTimeMinutes: smallint("cooking_time_minutes"),
+	cookingMethod: text("cooking_method"),
+	cookingTemperatureCelsius: smallint("cooking_temperature_celsius"),
+	provisionalSince: timestamp("provisional_since", { withTimezone: true, mode: 'string' }),
+	provisionalBy: uuid("provisional_by"),
+}, (table) => [
+	index("recipes_base_recipe_idx").using("btree", table.baseRecipeId.asc().nullsLast().op("uuid_ops")).where(sql`(base_recipe_id IS NOT NULL)`),
+	index("recipes_folder_id_idx").using("btree", table.folderId.asc().nullsLast().op("uuid_ops")),
+	index("recipes_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.baseRecipeId.asc().nullsLast().op("int8_ops")).where(sql`(base_recipe_id IS NOT NULL)`),
+	uniqueIndex("recipes_lineage_version_unique_idx").using("btree", sql`base_recipe_id`, sql`COALESCE(kitchen_id, ('-1'::integer)::bigint)`, sql`version`).where(sql`(base_recipe_id IS NOT NULL)`),
+	index("recipes_name_idx").using("btree", table.name.asc().nullsLast().op("text_ops")),
+	index("recipes_provisional_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`((provisional_since IS NOT NULL) AND (deleted_at IS NULL))`),
+	foreignKey({
+			columns: [table.baseRecipeId],
+			foreignColumns: [table.id],
+			name: "recipes_base_recipe_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.folderId],
+			foreignColumns: [recipeFolderInKitchen.id],
+			name: "recipes_folder_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "recipes_kitchen_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.provisionalBy],
+			foreignColumns: [usersInAuth.id],
+			name: "recipes_provisional_by_fkey"
+		}).onDelete("set null"),
+	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
+	check("recipes_cooking_temperature_range", sql`(cooking_temperature_celsius IS NULL) OR ((cooking_temperature_celsius >= '-40'::integer) AND (cooking_temperature_celsius <= 500))`),
+	check("recipes_cooking_time_nonnegative", sql`(cooking_time_minutes IS NULL) OR (cooking_time_minutes >= 0)`),
+	check("recipes_pre_preparation_time_nonnegative", sql`(pre_preparation_time_minutes IS NULL) OR (pre_preparation_time_minutes >= 0)`),
+	check("recipes_provisional_is_local", sql`(provisional_since IS NULL) OR (kitchen_id IS NOT NULL)`),
+]);
+
+export const stockMovementInInventory = inventory.table("stock_movement", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }).notNull(),
+	ingredientId: uuid("ingredient_id"),
+	frozenPreparationId: uuid("frozen_preparation_id"),
+	lotId: uuid("lot_id"),
+	type: text().notNull(),
+	quantity: numeric({ mode: "number", precision: 14, scale: 4 }).notNull(),
+	unitCost: numeric("unit_cost", { mode: "number", precision: 12, scale: 4 }),
+	totalCost: numeric("total_cost", { mode: "number", precision: 14, scale: 4 }),
+	justification: text(),
+	productionTaskId: uuid("production_task_id"),
+	inventoryCountId: uuid("inventory_count_id"),
+	transferPairId: uuid("transfer_pair_id"),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	goodsReceiptItemId: uuid("goods_receipt_item_id"),
+	occurredAt: timestamp("occurred_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	reasonCode: text("reason_code"),
+	issueRequestId: uuid("issue_request_id"),
+	emissionId: text("emission_id"),
+	isLateIssue: boolean("is_late_issue").default(false).notNull(),
+}, (table) => [
+	index("stock_movement_created_idx").using("btree", table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	uniqueIndex("stock_movement_emission_key").using("btree", sql`emission_id`, sql`COALESCE(lot_id, '00000000-0000-0000-0000-000000000000'::uuid)`).where(sql`(emission_id IS NOT NULL)`),
+	index("stock_movement_issue_request_idx").using("btree", table.issueRequestId.asc().nullsLast().op("uuid_ops")).where(sql`(issue_request_id IS NOT NULL)`),
+	index("stock_movement_kitchen_item_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.ingredientId.asc().nullsLast().op("uuid_ops"), table.frozenPreparationId.asc().nullsLast().op("int8_ops")),
+	index("stock_movement_lot_idx").using("btree", table.lotId.asc().nullsLast().op("uuid_ops")),
+	index("stock_movement_occurred_idx").using("btree", table.kitchenId.asc().nullsLast().op("timestamptz_ops"), table.occurredAt.desc().nullsFirst().op("int8_ops")),
+	index("stock_movement_task_idx").using("btree", table.productionTaskId.asc().nullsLast().op("uuid_ops")).where(sql`(production_task_id IS NOT NULL)`),
+	foreignKey({
+			columns: [table.inventoryCountId],
+			foreignColumns: [inventoryCountInInventory.id],
+			name: "stock_movement_count_fk"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "stock_movement_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.frozenPreparationId],
+			foreignColumns: [frozenPreparationInKitchen.id],
+			name: "stock_movement_frozen_preparation_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.goodsReceiptItemId],
+			foreignColumns: [goodsReceiptItemInInventory.id],
+			name: "stock_movement_goods_receipt_item_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.ingredientId],
+			foreignColumns: [ingredientInKitchen.id],
+			name: "stock_movement_ingredient_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.issueRequestId],
+			foreignColumns: [stockIssueRequestInInventory.id],
+			name: "stock_movement_issue_request_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "stock_movement_kitchen_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.lotId],
+			foreignColumns: [stockLotInInventory.id],
+			name: "stock_movement_lot_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.productionTaskId],
+			foreignColumns: [productionTaskInKitchen.id],
+			name: "stock_movement_production_task_id_fkey"
+		}).onDelete("set null"),
+	check("stock_movement_adjustment_justified", sql`(type <> ALL (ARRAY['adjustment_in'::text, 'adjustment_out'::text])) OR (justification IS NOT NULL)`),
+	check("stock_movement_item_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) = 1`),
+	check("stock_movement_quantity_check", sql`quantity > (0)::numeric`),
+	check("stock_movement_reason_code_check", sql`reason_code = ANY (ARRAY['expired'::text, 'spoiled'::text, 'damaged'::text, 'cold_chain_failure'::text, 'sanitary_recall'::text, 'lost'::text, 'theft'::text, 'quality_sample'::text, 'supplier_return'::text, 'donation'::text, 'entry_error_in'::text, 'entry_error_out'::text, 'count_gain'::text, 'count_loss'::text, 'found_stock'::text, 'opening_balance'::text, 'production_leftover_discard'::text])`),
+	check("stock_movement_reason_direction", sql`(reason_code IS NULL) OR ((reason_code = ANY (ARRAY['entry_error_in'::text, 'count_gain'::text, 'found_stock'::text, 'opening_balance'::text])) AND (type = 'adjustment_in'::text)) OR ((reason_code = ANY (ARRAY['expired'::text, 'spoiled'::text, 'damaged'::text, 'cold_chain_failure'::text, 'sanitary_recall'::text, 'lost'::text, 'theft'::text, 'quality_sample'::text, 'supplier_return'::text, 'donation'::text, 'entry_error_out'::text, 'count_loss'::text])) AND (type = 'adjustment_out'::text)) OR ((reason_code = 'production_leftover_discard'::text) AND (type = 'waste'::text))`),
+	check("stock_movement_reason_required", sql`(type <> ALL (ARRAY['waste'::text, 'adjustment_in'::text, 'adjustment_out'::text])) OR (reason_code IS NOT NULL)`),
+	check("stock_movement_type_check", sql`type = ANY (ARRAY['receipt'::text, 'production_issue'::text, 'issue_return'::text, 'leftover_return'::text, 'waste'::text, 'transfer_in'::text, 'transfer_out'::text, 'lot_split_in'::text, 'lot_split_out'::text, 'adjustment_in'::text, 'adjustment_out'::text])`),
+]);
+
+export const stockIssueRequestInInventory = inventory.table("stock_issue_request", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }).notNull(),
+	issueDate: date("issue_date").notNull(),
+	origin: text().default('production').notNull(),
+	status: text().default('open').notNull(),
+	destination: text(),
+	purpose: text(),
+	authorizationReference: text("authorization_reference"),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	closedBy: uuid("closed_by"),
+	closedAt: timestamp("closed_at", { withTimezone: true, mode: 'string' }),
+	autoClosedAt: timestamp("auto_closed_at", { withTimezone: true, mode: 'string' }),
+	explainedAt: timestamp("explained_at", { withTimezone: true, mode: 'string' }),
+	explainedBy: uuid("explained_by"),
+	explanation: text(),
+}, (table) => [
+	index("stock_issue_request_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("date_ops"), table.issueDate.desc().nullsFirst().op("int8_ops")),
+	uniqueIndex("stock_issue_request_production_day_key").using("btree", table.kitchenId.asc().nullsLast().op("date_ops"), table.issueDate.asc().nullsLast().op("date_ops")).where(sql`(origin = 'production'::text)`),
+	foreignKey({
+			columns: [table.closedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "stock_issue_request_closed_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "stock_issue_request_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.explainedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "stock_issue_request_explained_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "stock_issue_request_kitchen_id_fkey"
+		}),
+	check("stock_issue_request_explanation_required", sql`(explained_at IS NULL) OR (NULLIF(btrim(explanation), ''::text) IS NOT NULL)`),
+	check("stock_issue_request_origin_check", sql`origin = ANY (ARRAY['production'::text, 'ad_hoc'::text])`),
+	check("stock_issue_request_status_check", sql`status = ANY (ARRAY['open'::text, 'closed'::text, 'closed_unexplained'::text])`),
+]);
+
 export const procurementListItemInProcurement = procurement.table("procurement_list_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	listId: uuid("list_id").notNull(),
@@ -4768,50 +4897,6 @@ export const menuGroupInKitchen = kitchen.table("menu_group", {
 	check("menu_group_label_not_blank", sql`btrim(label) <> ''::text`),
 ]);
 
-export const menuItemsInKitchen = kitchen.table("menu_items", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	dailyMenuId: uuid("daily_menu_id"),
-	recipe: json(),
-	plannedPortionQuantity: numeric("planned_portion_quantity", { mode: "number" }),
-	excludedFromProcurement: numeric("excluded_from_procurement", { mode: "number" }),
-	substitutions: json(),
-	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
-	recipeOriginId: uuid("recipe_origin_id"),
-	itemGroup: text("item_group"),
-	sortOrder: smallint("sort_order").default(0).notNull(),
-	recommendedProportion: numeric("recommended_proportion", { mode: "number" }),
-	originTemplateId: uuid("origin_template_id"),
-	originTemplateType: text("origin_template_type"),
-	originSnackRequestId: uuid("origin_snack_request_id"),
-}, (table) => [
-	index("menu_items_origin_snack_request_idx").using("btree", table.originSnackRequestId.asc().nullsLast().op("uuid_ops")).where(sql`(origin_snack_request_id IS NOT NULL)`),
-	index("menu_items_origin_template_id_idx").using("btree", table.originTemplateId.asc().nullsLast().op("uuid_ops")).where(sql`(origin_template_id IS NOT NULL)`),
-	foreignKey({
-			columns: [table.dailyMenuId],
-			foreignColumns: [dailyMenuInKitchen.id],
-			name: "menu_items_daily_menu_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.originSnackRequestId],
-			foreignColumns: [snackRequestInKitchen.id],
-			name: "menu_items_origin_snack_request_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.originTemplateId],
-			foreignColumns: [menuTemplateInKitchen.id],
-			name: "menu_items_origin_template_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.recipeOriginId],
-			foreignColumns: [recipesInKitchen.id],
-			name: "menu_items_recipe_origin_id_fkey"
-		}),
-	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
-	check("menu_items_origin_template_type_check", sql`origin_template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text])`),
-	check("menu_items_recommended_proportion_range", sql`(recommended_proportion IS NULL) OR ((recommended_proportion >= (0)::numeric) AND (recommended_proportion <= (300)::numeric))`),
-]);
-
 export const measureUnitInCore = core.table("measure_unit", {
 	code: text().primaryKey().notNull(),
 	description: text().notNull(),
@@ -4821,90 +4906,6 @@ export const measureUnitInCore = core.table("measure_unit", {
 	pgPolicy("measure_unit_read", { as: "permissive", for: "select", to: ["anon", "authenticated"], using: sql`true` }),
 	check("measure_unit_code_check", sql`(code = upper(btrim(code))) AND (code <> ''::text)`),
 	check("measure_unit_dimension_check", sql`dimension = ANY (ARRAY['mass'::text, 'volume'::text, 'count'::text, 'package'::text])`),
-]);
-
-export const stockMovementInInventory = inventory.table("stock_movement", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }).notNull(),
-	ingredientId: uuid("ingredient_id"),
-	frozenPreparationId: uuid("frozen_preparation_id"),
-	lotId: uuid("lot_id"),
-	type: text().notNull(),
-	quantity: numeric({ mode: "number", precision: 14, scale: 4 }).notNull(),
-	unitCost: numeric("unit_cost", { mode: "number", precision: 12, scale: 4 }),
-	totalCost: numeric("total_cost", { mode: "number", precision: 14, scale: 4 }),
-	justification: text(),
-	productionTaskId: uuid("production_task_id"),
-	inventoryCountId: uuid("inventory_count_id"),
-	transferPairId: uuid("transfer_pair_id"),
-	createdBy: uuid("created_by"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	goodsReceiptItemId: uuid("goods_receipt_item_id"),
-	occurredAt: timestamp("occurred_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	reasonCode: text("reason_code"),
-	issueRequestId: uuid("issue_request_id"),
-	emissionId: text("emission_id"),
-}, (table) => [
-	index("stock_movement_created_idx").using("btree", table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
-	uniqueIndex("stock_movement_emission_key").using("btree", sql`emission_id`, sql`COALESCE(lot_id, '00000000-0000-0000-0000-000000000000'::uuid)`).where(sql`(emission_id IS NOT NULL)`),
-	index("stock_movement_issue_request_idx").using("btree", table.issueRequestId.asc().nullsLast().op("uuid_ops")).where(sql`(issue_request_id IS NOT NULL)`),
-	index("stock_movement_kitchen_item_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.ingredientId.asc().nullsLast().op("uuid_ops"), table.frozenPreparationId.asc().nullsLast().op("int8_ops")),
-	index("stock_movement_lot_idx").using("btree", table.lotId.asc().nullsLast().op("uuid_ops")),
-	index("stock_movement_occurred_idx").using("btree", table.kitchenId.asc().nullsLast().op("timestamptz_ops"), table.occurredAt.desc().nullsFirst().op("int8_ops")),
-	index("stock_movement_task_idx").using("btree", table.productionTaskId.asc().nullsLast().op("uuid_ops")).where(sql`(production_task_id IS NOT NULL)`),
-	foreignKey({
-			columns: [table.inventoryCountId],
-			foreignColumns: [inventoryCountInInventory.id],
-			name: "stock_movement_count_fk"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.createdBy],
-			foreignColumns: [usersInAuth.id],
-			name: "stock_movement_created_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.frozenPreparationId],
-			foreignColumns: [frozenPreparationInKitchen.id],
-			name: "stock_movement_frozen_preparation_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.goodsReceiptItemId],
-			foreignColumns: [goodsReceiptItemInInventory.id],
-			name: "stock_movement_goods_receipt_item_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.ingredientId],
-			foreignColumns: [ingredientInKitchen.id],
-			name: "stock_movement_ingredient_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.issueRequestId],
-			foreignColumns: [stockIssueRequestInInventory.id],
-			name: "stock_movement_issue_request_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.kitchenId],
-			foreignColumns: [kitchenInKitchen.id],
-			name: "stock_movement_kitchen_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.lotId],
-			foreignColumns: [stockLotInInventory.id],
-			name: "stock_movement_lot_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.productionTaskId],
-			foreignColumns: [productionTaskInKitchen.id],
-			name: "stock_movement_production_task_id_fkey"
-		}).onDelete("set null"),
-	check("stock_movement_adjustment_justified", sql`(type <> ALL (ARRAY['adjustment_in'::text, 'adjustment_out'::text])) OR (justification IS NOT NULL)`),
-	check("stock_movement_item_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) = 1`),
-	check("stock_movement_quantity_check", sql`quantity > (0)::numeric`),
-	check("stock_movement_reason_code_check", sql`reason_code = ANY (ARRAY['expired'::text, 'spoiled'::text, 'damaged'::text, 'cold_chain_failure'::text, 'sanitary_recall'::text, 'lost'::text, 'theft'::text, 'quality_sample'::text, 'supplier_return'::text, 'donation'::text, 'entry_error_in'::text, 'entry_error_out'::text, 'count_gain'::text, 'count_loss'::text, 'found_stock'::text, 'opening_balance'::text, 'production_leftover_discard'::text])`),
-	check("stock_movement_reason_direction", sql`(reason_code IS NULL) OR ((reason_code = ANY (ARRAY['entry_error_in'::text, 'count_gain'::text, 'found_stock'::text, 'opening_balance'::text])) AND (type = 'adjustment_in'::text)) OR ((reason_code = ANY (ARRAY['expired'::text, 'spoiled'::text, 'damaged'::text, 'cold_chain_failure'::text, 'sanitary_recall'::text, 'lost'::text, 'theft'::text, 'quality_sample'::text, 'supplier_return'::text, 'donation'::text, 'entry_error_out'::text, 'count_loss'::text])) AND (type = 'adjustment_out'::text)) OR ((reason_code = 'production_leftover_discard'::text) AND (type = 'waste'::text))`),
-	check("stock_movement_reason_required", sql`(type <> ALL (ARRAY['waste'::text, 'adjustment_in'::text, 'adjustment_out'::text])) OR (reason_code IS NOT NULL)`),
-	check("stock_movement_type_check", sql`type = ANY (ARRAY['receipt'::text, 'production_issue'::text, 'issue_return'::text, 'leftover_return'::text, 'waste'::text, 'transfer_in'::text, 'transfer_out'::text, 'lot_split_in'::text, 'lot_split_out'::text, 'adjustment_in'::text, 'adjustment_out'::text])`),
 ]);
 
 export const countScopeItemInInventory = inventory.table("count_scope_item", {
@@ -4965,6 +4966,68 @@ export const itemInCore = core.table("item", {
 	check("item_catalog_scope_check", sql`catalog_scope = ANY (ARRAY['alimentacao'::text, 'auxiliar'::text, 'permanente'::text])`),
 	check("item_description_check", sql`btrim(description) <> ''::text`),
 	check("item_kind_check", sql`kind = ANY (ARRAY['insumo'::text, 'equipamento'::text, 'material'::text])`),
+]);
+
+export const menuItemsInKitchen = kitchen.table("menu_items", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	dailyMenuId: uuid("daily_menu_id"),
+	recipe: json(),
+	plannedPortionQuantity: numeric("planned_portion_quantity", { mode: "number" }),
+	excludedFromProcurement: numeric("excluded_from_procurement", { mode: "number" }),
+	substitutions: json(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	recipeOriginId: uuid("recipe_origin_id"),
+	itemGroup: text("item_group"),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+	recommendedProportion: numeric("recommended_proportion", { mode: "number" }),
+	originTemplateId: uuid("origin_template_id"),
+	originTemplateType: text("origin_template_type"),
+	originSnackRequestId: uuid("origin_snack_request_id"),
+	addedInExecutionAt: timestamp("added_in_execution_at", { withTimezone: true, mode: 'string' }),
+	addedInExecutionBy: uuid("added_in_execution_by"),
+	executionReason: text("execution_reason"),
+	executionReviewedAt: timestamp("execution_reviewed_at", { withTimezone: true, mode: 'string' }),
+	executionReviewedBy: uuid("execution_reviewed_by"),
+}, (table) => [
+	index("menu_items_execution_pending_idx").using("btree", table.addedInExecutionAt.asc().nullsLast().op("timestamptz_ops")).where(sql`((added_in_execution_at IS NOT NULL) AND (execution_reviewed_at IS NULL) AND (deleted_at IS NULL))`),
+	index("menu_items_origin_snack_request_idx").using("btree", table.originSnackRequestId.asc().nullsLast().op("uuid_ops")).where(sql`(origin_snack_request_id IS NOT NULL)`),
+	index("menu_items_origin_template_id_idx").using("btree", table.originTemplateId.asc().nullsLast().op("uuid_ops")).where(sql`(origin_template_id IS NOT NULL)`),
+	foreignKey({
+			columns: [table.addedInExecutionBy],
+			foreignColumns: [usersInAuth.id],
+			name: "menu_items_added_in_execution_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.dailyMenuId],
+			foreignColumns: [dailyMenuInKitchen.id],
+			name: "menu_items_daily_menu_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.executionReviewedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "menu_items_execution_reviewed_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.originSnackRequestId],
+			foreignColumns: [snackRequestInKitchen.id],
+			name: "menu_items_origin_snack_request_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.originTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "menu_items_origin_template_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.recipeOriginId],
+			foreignColumns: [recipesInKitchen.id],
+			name: "menu_items_recipe_origin_id_fkey"
+		}),
+	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
+	check("menu_items_execution_reason_required", sql`(added_in_execution_at IS NULL) OR (NULLIF(btrim(execution_reason), ''::text) IS NOT NULL)`),
+	check("menu_items_execution_review_needs_add", sql`(execution_reviewed_at IS NULL) OR (added_in_execution_at IS NOT NULL)`),
+	check("menu_items_origin_template_type_check", sql`origin_template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text])`),
+	check("menu_items_recommended_proportion_range", sql`(recommended_proportion IS NULL) OR ((recommended_proportion >= (0)::numeric) AND (recommended_proportion <= (300)::numeric))`),
 ]);
 
 export const stockLotInInventory = inventory.table("stock_lot", {
