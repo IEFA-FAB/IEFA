@@ -116,7 +116,8 @@ export interface ExtractionSummary {
 }
 
 export interface ProcessDetail {
-	submission: QueueSubmission & { mime_type: string }
+	/** `demand_id`: a demanda de origem, quando o documento foi gerado no contrate. Ausente em α anterior à coluna. */
+	submission: QueueSubmission & { mime_type: string; demand_id?: string | null }
 	/** A OM do processo — a mesma de `submission.unit_id`, no nível de cima. */
 	unit_id: number
 	/** Triagem e parecer: ACI que cobre a OM DESTE processo. Decidido no α; a tela não recalcula. */

@@ -24,6 +24,7 @@ Um arquivo por módulo, com o nome que aparece no seletor de módulos do app:
 | Comensal e Fiscal | `modules/comensal-fiscal.md` |
 | Gestão Unidade (anexo quantitativo, ARP, empenho) | `modules/gestao-unidade.md` |
 | Catálogo Global (modelos da SDAB) | `modules/catalogo-global.md` |
+| Contrate: demanda do requisitante (Projeto α) | `modules/contrate-demanda.md` |
 
 ## Formato de um caso
 

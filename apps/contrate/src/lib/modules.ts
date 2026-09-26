@@ -1,6 +1,6 @@
 import type { MeAccess, UnitSet } from "@iefa/alpha-client/access"
 import { isEmptyCoverage, unionCoverage } from "@iefa/pbac"
-import { ChatLines, CloudUpload, Community, Flask, Key, Megaphone, MultiplePages, PageEdit, TaskList } from "iconoir-react"
+import { ChatLines, CloudUpload, Community, Flask, Key, LightBulb, Megaphone, MultiplePages, PageEdit, TaskList } from "iconoir-react"
 import type { ComponentType, SVGProps } from "react"
 import { buildScopeOptions, type ScopeContext, type ScopeOption } from "./scope"
 
@@ -105,8 +105,9 @@ export const CONTRATE_MODULES: readonly ContrateModule[] = [
 	{
 		id: "requisitante",
 		label: "Requisitante",
-		caption: "Envio e acompanhamento",
-		description: "Envio do ETP, TR ou edital e acompanhamento da verificação — os processos da sua OM, inclusive os dos colegas.",
+		caption: "Demanda, envio e acompanhamento",
+		description:
+			"Estruturação da demanda, do problema às peças do Compras.gov.br; envio do ETP, TR ou edital e acompanhamento da verificação, inclusive dos colegas da OM.",
 		audience: "Quem elabora a contratação",
 		icon: PageEdit,
 		home: "/requisitante",
@@ -116,6 +117,7 @@ export const CONTRATE_MODULES: readonly ContrateModule[] = [
 		gate: { kind: "authenticated" },
 		scope: { coverage: (access) => access.roles.requester, personal: true, index: "/requisitante/$unitId" },
 		nav: [
+			{ to: "/requisitante/$unitId/demandas", label: "Demandas", icon: LightBulb },
 			{ to: "/requisitante/$unitId", label: "Processos", icon: MultiplePages, exact: true },
 			{ to: "/requisitante/$unitId/nova", label: "Enviar documento", icon: CloudUpload },
 		],

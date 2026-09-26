@@ -67,7 +67,7 @@ const SubmissionListQuerySchema = z.object({
 	mine: z.enum(["true", "false"]).optional(),
 })
 
-const SUBMISSION_COLUMNS = "id, unit_id, filename, doc_kind, modalidade, objeto, created_at"
+const SUBMISSION_COLUMNS = "id, unit_id, filename, doc_kind, modalidade, objeto, demand_id, created_at"
 
 /** Código Postgres de `foreign_key_violation`: a OM sumiu entre a conferência e o insert. */
 const FOREIGN_KEY_VIOLATION = "23503"

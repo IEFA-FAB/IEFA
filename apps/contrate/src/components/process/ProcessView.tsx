@@ -7,6 +7,7 @@ import { FindingCard } from "@/components/alpha/FindingCard"
 import { SectionHeader } from "@/components/alpha/SectionNav"
 import { ExtractionFieldsView } from "@/components/alpha/SubmissionIntake"
 import { ProcessChatPanel } from "@/components/chat/ProcessChatPanel"
+import { DemandOverview } from "@/components/demand/DemandOverview"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -29,7 +30,9 @@ import { extractionsQueryOptions, useRunExtraction } from "@/lib/alpha/submissio
 /** O link para o relatório final, montado pela rota — cada módulo tem o seu caminho. */
 export type ReportLink = (runId: string) => ReactElement
 
-type Tab = "achados" | "extracao" | "parecer"
+type Tab = "achados" | "extracao" | "parecer" | "demanda"
+
+const TAB_LABEL: Record<Tab, string> = { achados: "Achados", extracao: "Extração", parecer: "Parecer", demanda: "Demanda de origem" }
 
 function TriageControls({ finding, runId, submissionId }: { finding: Finding; runId: string; submissionId: string }) {
 	const triage = useTriageFinding()
@@ -432,6 +435,7 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 
 	const latestExtraction = detail.data?.extractions[0] ?? null
 	const submission = detail.data?.submission
+	const demandId = submission?.demand_id ?? null
 
 	const refresh = () => {
 		queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "process", submissionId] })
@@ -528,22 +532,23 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 
 					<div className="mb-6 border-border border-b">
 						<nav className="-mb-px flex gap-6">
-							{(["achados", "extracao", "parecer"] as Tab[]).map((value) => (
+							{(["achados", "extracao", "parecer", ...(demandId ? (["demanda"] as const) : [])] as Tab[]).map((value) => (
 								<button
 									key={value}
 									type="button"
 									onClick={() => setTab(value)}
 									className={`border-b-2 pb-3 text-sm ${tab === value ? "border-foreground font-medium" : "border-transparent text-muted-foreground"}`}
 								>
-									{value === "achados" ? "Achados" : value === "extracao" ? "Extração" : "Parecer"}
+									{TAB_LABEL[value]}
 								</button>
 							))}
 						</nav>
 					</div>
 
 					{tab === "extracao" ? <ExtractionTab submissionId={submissionId} /> : null}
+					{tab === "demanda" && demandId ? <DemandOverview demandId={demandId} /> : null}
 
-					{tab !== "extracao" && !selectedRun ? (
+					{(tab === "achados" || tab === "parecer") && !selectedRun ? (
 						<div className="border border-border p-8 text-center">
 							<p className="font-medium text-sm">Este processo ainda não foi verificado.</p>
 							<p className="mt-1 text-muted-foreground text-sm">
@@ -554,7 +559,7 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 						</div>
 					) : null}
 
-					{tab !== "extracao" && selectedRun && selectedRun.status !== "succeeded" ? (
+					{(tab === "achados" || tab === "parecer") && selectedRun && selectedRun.status !== "succeeded" ? (
 						<p className="border border-border p-4 text-sm">
 							Esta execução terminou como <span className="font-mono">{selectedRun.status}</span>. Verifique novamente para obter achados.
 						</p>

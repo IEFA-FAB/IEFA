@@ -24,6 +24,7 @@ import { requestBodyLimit } from "./body-limits.ts"
 import { chatRoutes } from "./chats.ts"
 import { complianceRoutes } from "./compliance"
 import { browserCors } from "./cors.ts"
+import { demandRoutes } from "./demands.ts"
 import { submissionRoutes } from "./submissions"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -248,6 +249,8 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.route("/", accessRoutes)
 	// Submissão e extração (Etapa 1.4) — montadas depois do middleware de auth.
 	.route("/", submissionRoutes)
+	// Demanda do requisitante: rascunho estruturado e envio do ETP/TR gerados à ACI.
+	.route("/", demandRoutes)
 	// Conformidade e bancada de regras (Etapas 1.5–1.7).
 	.route("/", complianceRoutes)
 	// Plataforma ACI (Etapa 1.8): fila, processo, triagem, parecer e relatório final.

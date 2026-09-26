@@ -1,0 +1,98 @@
+/**
+ * Demanda do requisitante: estrutura (Value-Focused Thinking), enquadramento, pesquisa de
+ * preços, conferências e peças para o Compras.gov.br.
+ *
+ * Puro de propósito (sem rede, sem banco): o contrate usa ao vivo, enquanto a pessoa escreve,
+ * e o α usa ao gerar o ETP e o TR que vão à ACI. A mesma função nos dois lados é o que garante
+ * que o que a pessoa viu na tela é o que a ACI confere.
+ */
+
+export {
+	type CheckSeverity,
+	checkDemand,
+	countBySeverity,
+	DEMAND_STEP_LABEL,
+	DEMAND_STEPS,
+	type DemandCheck,
+	type DemandStep,
+	DFD_SUMMARY_MAX,
+	todayIso,
+} from "./checks"
+export {
+	buildDocuments,
+	type DemandDocuments,
+	type DocBlock,
+	type DocumentId,
+	type FieldKind,
+	type FieldTable,
+	type FormField,
+	type FormSection,
+	formBlocks,
+	natureLabel,
+	pending,
+	type SystemForm,
+	sortedRisks,
+} from "./documents"
+export { DIRECT_PURCHASE_LIMITS, type Framing, formatBRL, formatSystemNumber, frameProcurement, limitsFor, ROUTE_LABEL, type Route } from "./framing"
+export { escapeHtml, type GuideMeta, renderFillingGuide } from "./guide"
+export {
+	CV_THRESHOLD,
+	coefficientOfVariation,
+	dependentQuotes,
+	expiredQuotes,
+	type ItemPriceSummary,
+	MIN_QUOTES,
+	mean,
+	median,
+	type PriceSummary,
+	QUOTE_SOURCE_LABEL,
+	summarizeItem,
+	summarizePrices,
+} from "./prices"
+export {
+	ALTERNATIVE_KINDS,
+	type Alternative,
+	type AlternativeKind,
+	AlternativeSchema,
+	DEMAND_SCHEMA_VERSION,
+	type DemandContext,
+	DemandContextSchema,
+	type DemandPayload,
+	DemandPayloadSchema,
+	type Exclusion,
+	ExclusionSchema,
+	emptyDemand,
+	type Item,
+	ItemSchema,
+	NATURES,
+	type Nature,
+	newId,
+	type Objective,
+	type ObjectiveAttribute,
+	ObjectiveAttributeSchema,
+	ObjectiveSchema,
+	type Planning,
+	PlanningSchema,
+	PRICE_METHODS,
+	type PriceMethod,
+	QUOTE_SOURCES,
+	type Quote,
+	QuoteSchema,
+	type QuoteSource,
+	RATINGS,
+	type Rating,
+	REQUIREMENT_KINDS,
+	type Requirement,
+	type RequirementKind,
+	RequirementSchema,
+	RISK_PHASES,
+	type Risk,
+	type RiskPhase,
+	RiskSchema,
+	type Solution,
+	SolutionSchema,
+	TEAM_ROLES,
+	type TeamMember,
+	TeamMemberSchema,
+	type TeamRole,
+} from "./schema"
