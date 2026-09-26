@@ -997,7 +997,7 @@ function WeeklyMenuEditorPage() {
 								})
 							) : (
 								<div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-									Nenhum tipo de refeição disponível. Configure os tipos de refeição no Planejamento.
+									Nenhum tipo de refeição disponível. Configure os tipos de refeição no Agendamento da Produção.
 								</div>
 							)}
 						</TabsContent>

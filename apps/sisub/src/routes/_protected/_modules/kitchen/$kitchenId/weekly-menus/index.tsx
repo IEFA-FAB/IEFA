@@ -40,7 +40,7 @@ function WeeklyMenusPage() {
 	const localTemplates = templates?.filter((t) => t.kitchen_id !== null && t.template_type === "weekly") || []
 
 	const handleDelete = (id: string, name: string) => {
-		if (window.confirm(`Tem certeza que deseja remover o cardápio semanal "${name}"?\n\nEle poderá ser recuperado na lixeira do Planejamento.`)) {
+		if (window.confirm(`Tem certeza que deseja remover o cardápio semanal "${name}"?\n\nEle poderá ser recuperado na lixeira do Agendamento da Produção.`)) {
 			deleteTemplate(id)
 		}
 	}

@@ -83,7 +83,7 @@ export function ProductionBoard({ items, isLoading, onUpdateStatus, kitchenId, d
 					</div>
 					<p className="text-subheading text-foreground">Nenhuma preparação planejada</p>
 					<p className="text-xs text-muted-foreground">
-						Não há itens no cardápio para esta data. Planeje as refeições no módulo de Planejamento para que apareçam aqui.
+						Não há itens no cardápio para esta data. Agende as refeições em Agendamento da Produção para que apareçam aqui.
 					</p>
 				</div>
 			</div>
