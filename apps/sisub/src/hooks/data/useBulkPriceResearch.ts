@@ -1,3 +1,4 @@
+import { researchNonComplianceReasons } from "@iefa/sisub-domain"
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { PriceResearchAuditIds } from "@/components/features/local/price-research/PriceResearchModal"
 import { annexItemUnit } from "@/lib/ata-annex"
@@ -23,6 +24,11 @@ export interface BulkResearchResult {
 	price: number
 	/** Memória de cálculo gravada. Sem ela o preço não é aplicado: preço sem pesquisa não se audita. */
 	auditIds: PriceResearchAuditIds
+	/**
+	 * Não conformidades em aberto gravadas na pesquisa (ex.: menos de 3 preços). Não travam o
+	 * preço; resolve-se abrindo a pesquisa do item e preenchendo a justificativa ali.
+	 */
+	openFindings: string[]
 }
 
 export interface BulkPriceProgress {
@@ -33,6 +39,16 @@ export interface BulkPriceProgress {
 }
 
 const CONCURRENCY = 4
+
+/**
+ * Aviso de fim do lote sobre as pesquisas não conformes: quantas e onde se resolve. null quando
+ * todas estão conformes.
+ */
+export function bulkFindingsNotice(results: BulkResearchResult[]): string | null {
+	const flagged = results.filter((r) => r.openFindings.length > 0).length
+	if (flagged === 0) return null
+	return `${flagged} ${flagged === 1 ? "pesquisa ficou" : "pesquisas ficaram"} com não conformidade (ex.: menos de 3 preços). O preço foi aplicado; abra a pesquisa do item para ver o motivo e registrar a justificativa.`
+}
 
 export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, onItemResult?: (result: BulkResearchResult) => Promise<void> | void) {
 	const [progress, setProgress] = useState<BulkPriceProgress>({ done: 0, total: 0, errors: 0, isRunning: false })
@@ -84,7 +100,17 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 					},
 				})
 
-				const result: BulkResearchResult = { ingredientId: item.ingredient_id, ataItemId: item.ata_item_id, price: selected.price, auditIds }
+				// Mesma regra da gravação: o lote não escolhe amostra à mão e deixa as sem data fora.
+				const openFindings = researchNonComplianceReasons({
+					validCount: selected.validCount,
+					referencePrice: selected.price,
+					stats: selected.stats,
+					measureUnit: selected.unit,
+					unitInferred: selected.unitInferred,
+					method: selected.method,
+					periodMonths: selected.periodMonths,
+				})
+				const result: BulkResearchResult = { ingredientId: item.ingredient_id, ataItemId: item.ata_item_id, price: selected.price, auditIds, openFindings }
 				// Se quem aplica o preço falhar (o servidor recusa preço sem pesquisa que o sustente), o
 				// item conta como erro: engolir a falha fazia o toast anunciar preço que não foi gravado.
 				await onItemResultRef.current?.(result)

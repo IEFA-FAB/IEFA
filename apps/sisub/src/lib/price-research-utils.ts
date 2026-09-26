@@ -1,4 +1,4 @@
-import { convertSamplePrice, resolveResearchUnit } from "@iefa/sisub-domain"
+import { convertSamplePrice, type PriceResearchMethod, resolveResearchUnit } from "@iefa/sisub-domain"
 import { searchMaterialPricesFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 
@@ -14,7 +14,7 @@ export interface PriceStatsSummary {
 
 export interface AutoSelectResult {
 	price: number
-	method: "mean" | "median"
+	method: PriceResearchMethod
 	stats: PriceStatsSummary
 	/** Unidade em que os preços foram comparados (a do item, ou a predominante quando o item não tem). */
 	unit: string
@@ -22,8 +22,10 @@ export interface AutoSelectResult {
 	unitInferred: boolean
 	/** Amostras com preço, antes da janela de recência. */
 	rawCount: number
-	/** Amostras com preço que sobraram após a janela de recência. */
+	/** Amostras com preço e data que sobraram após a janela de recência. */
 	dateFilteredCount: number
+	/** Amostras com preço SEM data de referência: ficam fora do cálculo (art. 5º, II, da IN 65/2021). */
+	undatedCount: number
 	/** Janela de recência aplicada, em meses; null quando a análise usou todo o histórico. */
 	periodMonths: number | null
 	validCount: number
@@ -35,8 +37,9 @@ export interface AutoSelectResult {
 }
 
 /**
- * Janela de recência padrão da pesquisa de preços.
- * IN SEGES/ME 65/2021, Art. 5º: preços de até 1 ano da data da pesquisa.
+ * Janela de recência padrão da pesquisa de preços. IN SEGES/ME 65/2021, art. 5º, II:
+ * contratações de até 1 ano antes da DATA DA PESQUISA (o marco é a pesquisa, não o edital; a
+ * divulgação do edital só é o marco dos incisos III, IV e V, fontes que o sistema não tem).
  */
 export const DEFAULT_PERIOD_MONTHS = 12
 
@@ -60,17 +63,44 @@ export function periodCutoff(months: number, now: Date = new Date()): string {
 	return cutoff.toISOString().slice(0, 10)
 }
 
-/**
- * Mantém apenas amostras dentro da janela de recência.
- * Amostra SEM data é mantida de propósito: não há como provar que é antiga, e
- * descartá-la reduziria a base sem justificativa auditável.
- */
-export function filterByPeriod(results: ComprasMaterialPriceResult[], months: number, now?: Date): ComprasMaterialPriceResult[] {
-	const cutoff = periodCutoff(months, now)
-	return results.filter((r) => {
+export interface PeriodPartition {
+	/** Com data dentro da janela (ou todas as datadas, sem janela). */
+	inWindow: ComprasMaterialPriceResult[]
+	/** Com data anterior ao início da janela. */
+	outOfWindow: ComprasMaterialPriceResult[]
+	/** Sem data de referência: não há como mostrar que o preço é de até 1 ano. */
+	undated: ComprasMaterialPriceResult[]
+}
+
+/** Separa as amostras pela janela de recência; `months` null = sem janela (todo o histórico). */
+export function partitionByPeriod(results: ComprasMaterialPriceResult[], months: number | null, now?: Date): PeriodPartition {
+	const cutoff = months ? periodCutoff(months, now) : null
+	const partition: PeriodPartition = { inWindow: [], outOfWindow: [], undated: [] }
+	for (const r of results) {
 		const date = sampleReferenceDate(r)
-		return !date || date.slice(0, 10) >= cutoff
-	})
+		if (!date) partition.undated.push(r)
+		else if (cutoff && date.slice(0, 10) < cutoff) partition.outOfWindow.push(r)
+		else partition.inWindow.push(r)
+	}
+	return partition
+}
+
+/**
+ * Amostras que entram no cálculo pela janela de recência. Amostra SEM data fica fora por
+ * padrão: sem data não há como mostrar que o preço é de até 1 ano (art. 5º, II, da IN 65/2021).
+ * Ela continua visível na tabela, e quem a inclui (`includeUndated`) registra a não
+ * conformidade "amostra sem data de referência" na pesquisa.
+ */
+export function filterByPeriod(
+	results: ComprasMaterialPriceResult[],
+	months: number | null,
+	now?: Date,
+	options: { includeUndated?: boolean } = {}
+): ComprasMaterialPriceResult[] {
+	const { inWindow, undated } = partitionByPeriod(results, months, now)
+	if (!options.includeUndated || undated.length === 0) return inWindow
+	const keep = new Set([...inWindow, ...undated])
+	return results.filter((r) => keep.has(r))
 }
 
 export interface CatmatPriceFetch {
@@ -111,14 +141,24 @@ export function samplePriceIn(sample: ComprasMaterialPriceResult, unit: string):
  * oficial de preços (inciso I do art. 5º da IN SEGES/ME 65/2021), e o art. 6º, § 6º, proíbe
  * preço estimado acima da mediana quando ele é a base única. Nos demais casos, a mediana.
  */
-export function chooseReferencePrice(stats: { mean: number; median: number; cv: number }): { method: "mean" | "median"; price: number } {
+export function chooseReferencePrice(stats: { mean: number; median: number; cv: number }): { method: PriceResearchMethod; price: number } {
 	if (stats.cv < 15 && stats.mean <= stats.median) return { method: "mean", price: stats.mean }
 	return { method: "median", price: stats.median }
 }
 
-/** true quando o método pedido respeita o teto da mediana (art. 6º, § 6º, da IN 65/2021). */
-export function isMethodAllowed(method: "mean" | "median", stats: { mean: number; median: number }): boolean {
-	return method === "median" || stats.mean <= stats.median
+/**
+ * true quando o método pedido respeita o teto da mediana (art. 6º, § 6º, da IN 65/2021). O menor
+ * valor (art. 6º, caput) nunca passa da mediana.
+ */
+export function isMethodAllowed(method: PriceResearchMethod, stats: { mean: number; median: number }): boolean {
+	return method !== "mean" || stats.mean <= stats.median
+}
+
+/** Preço do método sobre as estatísticas do recorte. */
+export function priceForMethod(method: PriceResearchMethod, stats: { mean: number; median: number; min: number }): number {
+	if (method === "mean") return stats.mean
+	if (method === "lowest") return stats.min
+	return stats.median
 }
 
 export interface PriceAnalysis {
@@ -198,8 +238,9 @@ export async function fetchAllPagesForCatmat(code: number): Promise<CatmatPriceF
 }
 
 /**
- * Pesquisa automática de um item: janela de recência → conversão para a unidade do item
- * (descarta inconsistentes) → IQR → estatística → preço estimado com teto na mediana.
+ * Pesquisa automática de um item: janela de recência (amostra sem data fica fora) → conversão
+ * para a unidade do item (descarta inconsistentes) → IQR → estatística → preço estimado com teto
+ * na mediana.
  */
 export function autoSelectPrice(
 	allResults: ComprasMaterialPriceResult[],
@@ -207,8 +248,10 @@ export function autoSelectPrice(
 ): AutoSelectResult | null {
 	const periodMonths = options?.periodMonths === undefined ? DEFAULT_PERIOD_MONTHS : options.periodMonths
 	const rawCount = allResults.filter((r) => r.precoUnitario !== null).length
-	const results = periodMonths ? filterByPeriod(allResults, periodMonths, options?.now) : allResults
+	const partition = partitionByPeriod(allResults, periodMonths, options?.now)
+	const results = partition.inWindow
 	const dateFilteredCount = results.filter((r) => r.precoUnitario !== null).length
+	const undatedCount = partition.undated.filter((r) => r.precoUnitario !== null).length
 
 	const researchUnit = resolveResearchUnit(options?.targetUnit, results)
 	if (!researchUnit) return null
@@ -225,6 +268,7 @@ export function autoSelectPrice(
 		unitInferred: researchUnit.inferred,
 		rawCount,
 		dateFilteredCount,
+		undatedCount,
 		periodMonths,
 		validCount: analysis.validSamples.length,
 		outlierCount: analysis.outlierSamples.length,

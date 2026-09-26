@@ -502,10 +502,10 @@ export {
 } from "./preparation-scope.ts"
 export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
 export {
+	complianceFactsOf,
 	type PriceResearchAuditIds,
 	type PriceResearchSample,
 	type PriceResearchStats,
-	researchNonComplianceReasons,
 	type SavePriceResearchAudit,
 	savePriceResearchAudit,
 } from "./price-research.ts"
@@ -524,6 +524,25 @@ export {
 	type ReportSample,
 	SAMPLE_MAX_AGE_DAYS,
 } from "./price-research-report.ts"
+export {
+	COMPRAS_GOV_ART5_PARAMETER,
+	evaluateResearchCompliance,
+	formatResearchFinding,
+	isJustificationFilled,
+	justificationsToPersist,
+	MAX_PERIOD_MONTHS,
+	MIN_JUSTIFICATION_LENGTH,
+	PRICE_RESEARCH_METHODS,
+	type PriceResearchMethod,
+	RESEARCH_JUSTIFICATION_KEYS,
+	RESEARCH_JUSTIFICATION_LABELS,
+	type ResearchComplianceFacts,
+	type ResearchFinding,
+	type ResearchFindingCode,
+	type ResearchJustificationKey,
+	type ResearchJustifications,
+	researchNonComplianceReasons,
+} from "./price-research-compliance.ts"
 export {
 	convertSamplePrice,
 	isSamePrice,

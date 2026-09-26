@@ -173,6 +173,7 @@ Impressão pela mesma técnica da Ficha Técnica: portal no `<body>` e `window.p
 | Unidade inferida | aviso |
 | CV > 25% | aviso de análise crítica (art. 6º, § 4º); limiar interno, declarado no documento |
 | Amostra com mais de 1 ano na data da emissão | aviso: a janela usada é a do inciso II do art. 5º, aplicada por prudência à fonte oficial |
+| Não conformidade gravada no item (`non_compliance_reasons`: janela > 12 meses ou todo o histórico, amostra sem data no cálculo, seleção manual, método fora do caput) | aviso; o relatório imprime a justificativa (`justification_*` do item, art. 5º, § 3º; art. 6º, §§ 1º, 3º e 5º) e o parâmetro do art. 5º de cada amostra (`art5_parameter`). Regra única em `price-research-compliance.ts` |
 | Pesquisa com mais de 180 dias | aviso de política interna: refazer antes de divulgar o edital; sem citação legal, porque os prazos de 6 meses do art. 5º (III e IV) não se aplicam à fonte oficial |
 
 **Roteiro de auditoria:**

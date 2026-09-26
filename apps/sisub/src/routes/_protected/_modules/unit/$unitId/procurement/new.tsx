@@ -20,6 +20,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/components/ui/toast"
 import {
 	useAtaDraft,
 	useCalculateAtaNeeds,
@@ -29,7 +30,7 @@ import {
 	useUpdateAtaDraft,
 	useUpdateAtaQuantityLimits,
 } from "@/hooks/data/useAta"
-import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
+import { bulkFindingsNotice, useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { usePendingDraft, useRecordDraftImport } from "@/hooks/data/useKitchenDraft"
 import { useSegmentationOverview } from "@/hooks/data/useProcurementSegments"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
@@ -375,6 +376,8 @@ function NewAtaPage() {
 			.filter(([, v]) => v.researchId && v.researchItemId)
 			.map(([ingredientId, v]) => ({ ingredientId, researchId: v.researchId as string, researchItemId: v.researchItemId as string }))
 		saveDraftItems({ draftId, items: updatedItems, researchLinks })
+		const notice = bulkFindingsNotice(results)
+		if (notice) toast.warning(notice)
 	}
 	const handleDescriptionChange = (ingredientId: string, _ataItemId: string | null | undefined, description: string) => {
 		const nextOverrides = { ...descriptionOverrides, [ingredientId]: description }

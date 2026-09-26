@@ -40,7 +40,15 @@ import { requirePermission, requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery } from "../utils/index.ts"
-import { convertSamplePrice, isSamePrice, SAMPLE_CONVERSION_REASON_LABELS } from "./price-units.ts"
+import { convertSamplePrice, SAMPLE_CONVERSION_REASON_LABELS } from "./price-units.ts"
+import {
+	COMPRAS_GOV_ART5_PARAMETER,
+	justificationsToPersist,
+	type PriceResearchMethod,
+	type ResearchComplianceFacts,
+	type ResearchJustifications,
+	researchNonComplianceReasons,
+} from "./price-research-compliance.ts"
 
 type PriceResearchTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 
@@ -87,7 +95,7 @@ export type PriceResearchStats = {
 export type SavePriceResearchAudit = {
 	catmatCodigo: number
 	catmatDescricao?: string | null
-	method: "mean" | "median"
+	method: PriceResearchMethod
 	referencePrice: number
 	stats: PriceResearchStats
 	rawCount: number
@@ -108,6 +116,13 @@ export type SavePriceResearchAudit = {
 	measureUnit?: string | null
 	/** true quando o item não declara unidade e a pesquisa herdou a predominante das amostras. */
 	unitInferred?: boolean
+	/**
+	 * true quando o usuário escolheu as amostras à mão (seleção de linhas ou filtro de coluna) em
+	 * vez do descarte automático por IQR: o critério precisa ser descrito (art. 6º, § 3º).
+	 */
+	manualSelection?: boolean
+	/** Justificativas da pesquisa; só as que respondem a uma não conformidade dela são gravadas. */
+	justifications?: ResearchJustifications
 	/** Se fornecidos, linka imediatamente (caso ATA já existente). */
 	ataId?: string
 	ataItemId?: string
@@ -115,27 +130,23 @@ export type SavePriceResearchAudit = {
 
 export type PriceResearchAuditIds = { researchId: string; researchItemId: string }
 
-/** Amostra mínima de conformidade da IN SEGES 65/2021: 3 preços de 3 UASGs distintas. */
-const MIN_COMPLIANT_SAMPLES = 3
-
 /**
- * Motivos de não conformidade do item pesquisado. Vazio = conforme.
- *
- * - menos de 3 preços ou de 3 fontes: art. 6º, caput e § 5º (exige justificativa aprovada);
- * - preço acima da mediana com base única no sistema oficial: art. 6º, § 6º;
- * - unidade herdada das amostras: a quantidade do anexo está numa unidade que o item de compra
- *   não declara, e o preço só vale se as duas coincidirem.
+ * Fatos de conformidade da entrada gravada. Amostra válida sem data de referência conta como
+ * "sem data no cálculo": a janela a deixa de fora, então ela só chega aqui escolhida pelo usuário.
  */
-export function researchNonComplianceReasons(
-	input: Pick<SavePriceResearchAudit, "validCount" | "stats" | "referencePrice" | "measureUnit" | "unitInferred">
-): string[] {
-	const reasons: string[] = []
-	if (input.validCount < MIN_COMPLIANT_SAMPLES) reasons.push("Menos de 3 amostras válidas")
-	if (input.stats.uniqueSources < MIN_COMPLIANT_SAMPLES) reasons.push("Menos de 3 UASGs distintas")
-	if (input.referencePrice > input.stats.median && !isSamePrice(input.referencePrice, input.stats.median))
-		reasons.push("Preço estimado acima da mediana (IN 65/2021, art. 6º, § 6º)")
-	if (input.unitInferred) reasons.push(`Item de compra sem unidade declarada: preço calculado por ${input.measureUnit ?? "unidade predominante"}`)
-	return reasons
+export function complianceFactsOf(input: SavePriceResearchAudit): ResearchComplianceFacts {
+	return {
+		validCount: input.validCount,
+		referencePrice: input.referencePrice,
+		stats: input.stats,
+		measureUnit: input.measureUnit,
+		unitInferred: input.unitInferred,
+		method: input.method,
+		periodMonths: input.periodMonths,
+		undatedCount: input.validSamples.filter((s) => !(s.dataResultado ?? s.dataCompra)).length,
+		manualSelection: input.manualSelection,
+		justifications: input.justifications,
+	}
 }
 
 /**
@@ -216,9 +227,19 @@ function idempotencyKeyFor(input: SavePriceResearchAudit): string {
 	// UTC distintos e gerariam registros duplicados.
 	const day = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
 
+	// v3: janela, seleção manual e justificativas entram na chave. Justificar no mesmo dia a
+	// pesquisa que o lote gravou sem justificativa é OUTRA memória de cálculo; com a chave v2
+	// voltava o registro antigo, ainda não conforme, e a justificativa se perdia.
+	const justifications = justificationsToPersist(complianceFactsOf(input))
+	const decisionFingerprint = nodeCrypto
+		.createHash("sha256")
+		.update(JSON.stringify([input.periodMonths ?? null, input.manualSelection === true, justifications]))
+		.digest("hex")
+		.slice(0, 12)
+
 	// v2: a unidade e o preço entram na chave. Mesmas amostras em outra unidade (ou gravadas antes
 	// da conversão) são OUTRA pesquisa; com a chave v1 voltava o registro antigo com outro preço.
-	return `audit:v2:${scope}:${input.method}:${input.measureUnit ?? "-"}:${input.referencePrice.toFixed(4)}:${day}:${sampleFingerprint}`
+	return `audit:v3:${scope}:${input.method}:${input.measureUnit ?? "-"}:${input.referencePrice.toFixed(4)}:${day}:${sampleFingerprint}:${decisionFingerprint}`
 }
 
 /**
@@ -338,6 +359,42 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 				}),
 		{ prefix: "Erro ao salvar amostras" }
 	)
+
+	// Parâmetro do art. 5º de cada amostra, explícito mesmo igual ao default da coluna: o default
+	// só existe porque hoje a fonte é uma só.
+	// TODO(db:types): regenerar os tipos após aplicar 20260926211000 e passar `art5Parameter` no
+	// `values` acima; até lá a coluna não existe no schema Drizzle e vai por SQL.
+	await runQuery(
+		"INSERT_FAILED",
+		() =>
+			tx.execute(
+				sql`update procurement.procurement_pesquisa_preco_amostra set art5_parameter = ${COMPRAS_GOV_ART5_PARAMETER} where research_item_id = ${researchItemId}`
+			),
+		{ prefix: "Erro ao salvar o parâmetro das amostras" }
+	)
+}
+
+/**
+ * Grava as justificativas do item pesquisado.
+ * TODO(db:types): regenerar os tipos após aplicar 20260926211000 e mover estas colunas para o
+ * `values` do insert do item; até lá elas não existem no schema Drizzle e vão por SQL.
+ */
+async function persistJustifications(tx: PriceResearchTx, researchItemId: string, input: SavePriceResearchAudit): Promise<void> {
+	const j = justificationsToPersist(complianceFactsOf(input))
+	if (!j.lowSample && !j.method && !j.outlierCriteria && !j.outOfPeriod) return
+	await runQuery(
+		"INSERT_FAILED",
+		() =>
+			tx.execute(sql`
+				update procurement.procurement_pesquisa_preco_item set
+					justification_low_sample = ${j.lowSample},
+					justification_method = ${j.method},
+					justification_outlier_criteria = ${j.outlierCriteria},
+					justification_out_of_period = ${j.outOfPeriod}
+				where id = ${researchItemId}
+			`),
+		{ prefix: "Erro ao salvar as justificativas da pesquisa" }
+	)
 }
 
 /**
@@ -360,6 +417,8 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 	}
 
 	const idempotencyKey = idempotencyKeyFor(input)
+	// Não conformidade não trava a gravação: fica registrada no item, e a justificativa a resolve.
+	const nonComplianceReasons = researchNonComplianceReasons(complianceFactsOf(input))
 
 	// `runQuery` por FORA da transação também: o erro de BEGIN/COMMIT ou de aquisição de
 	// conexão não passa pelos `runQuery` internos, e cru ele chega como o SQL despejado, com
@@ -378,7 +437,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 							totalItems: 1,
 							itemsWithPrice: input.validCount > 0 ? 1 : 0,
 							itemsWithoutCatmat: 0,
-							nonCompliantItems: 0,
+							nonCompliantItems: nonComplianceReasons.length > 0 ? 1 : 0,
 							idempotencyKey,
 							// Agente responsável pela pesquisa (IN SEGES/ME 65/2021, art. 3º, II): a sessão.
 							createdBy: ctx.userId,
@@ -398,7 +457,6 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 			if (!research) return loadIdempotentResearch(tx, idempotencyKey)
 
 			const dateFiltered = input.dateFilteredCount ?? input.rawCount
-			const nonComplianceReasons = researchNonComplianceReasons(input)
 			const researchItem = await insertOneOrFail(
 				"INSERT_FAILED",
 				"Erro ao salvar item da pesquisa: no row returned",
@@ -433,6 +491,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 				{ prefix: "Erro ao salvar item da pesquisa" }
 			)
 
+			await persistJustifications(tx, researchItem.id, input)
 			await persistSamples(tx, researchItem.id, input)
 
 			return { researchId: research.id, researchItemId: researchItem.id }

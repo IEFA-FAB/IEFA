@@ -6,12 +6,17 @@ import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 // o módulo para evitar carregar o runtime de server function no teste.
 vi.mock("@/server/price-research.fn", () => ({ searchMaterialPricesFn: vi.fn() }))
 
-const { autoSelectPrice, chooseReferencePrice, filterByPeriod, isMethodAllowed, periodCutoff } = await import("./price-research-utils")
+const { autoSelectPrice, chooseReferencePrice, filterByPeriod, isMethodAllowed, partitionByPeriod, periodCutoff, priceForMethod } = await import(
+	"./price-research-utils"
+)
+
+/** Data dentro da janela padrão contada de hoje: amostra sem data fica fora do cálculo. */
+const RECENT = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
 function priceResult(
 	precoUnitario: number | null,
 	codigoUasg: string | null = null,
-	dataResultado: string | null = null,
+	dataResultado: string | null = RECENT,
 	unit: Partial<Pick<ComprasMaterialPriceResult, "siglaUnidadeFornecimento" | "siglaUnidadeMedida" | "capacidadeUnidadeFornecimento">> = {}
 ): ComprasMaterialPriceResult {
 	return {
@@ -132,9 +137,9 @@ describe("unidade da pesquisa", () => {
 		// Mesmo produto em três embalagens: 750 ml, 500 ml e litro. Por litro, todos custam ~R$ 5,50.
 		const r = autoSelectPrice(
 			[
-				priceResult(4.13, "A", null, { siglaUnidadeFornecimento: "FR", siglaUnidadeMedida: "ML", capacidadeUnidadeFornecimento: 750 }),
-				priceResult(2.75, "B", null, { siglaUnidadeFornecimento: "FR", siglaUnidadeMedida: "ML", capacidadeUnidadeFornecimento: 500 }),
-				priceResult(5.5, "C", null, { siglaUnidadeFornecimento: "L" }),
+				priceResult(4.13, "A", undefined, { siglaUnidadeFornecimento: "FR", siglaUnidadeMedida: "ML", capacidadeUnidadeFornecimento: 750 }),
+				priceResult(2.75, "B", undefined, { siglaUnidadeFornecimento: "FR", siglaUnidadeMedida: "ML", capacidadeUnidadeFornecimento: 500 }),
+				priceResult(5.5, "C", undefined, { siglaUnidadeFornecimento: "L" }),
 			],
 			{ targetUnit: "LT", periodMonths: null }
 		)
@@ -146,7 +151,7 @@ describe("unidade da pesquisa", () => {
 	})
 
 	test("amostra incomparável sai como inconsistente, não como outlier", () => {
-		const r = autoSelectPrice([priceResult(10), priceResult(11), priceResult(12), priceResult(20.93, "X", null, { siglaUnidadeFornecimento: "UN" })], {
+		const r = autoSelectPrice([priceResult(10), priceResult(11), priceResult(12), priceResult(20.93, "X", undefined, { siglaUnidadeFornecimento: "UN" })], {
 			targetUnit: "KG",
 			periodMonths: null,
 		})
@@ -162,7 +167,7 @@ describe("unidade da pesquisa", () => {
 	})
 
 	test("nenhuma amostra comparável devolve null", () => {
-		expect(autoSelectPrice([priceResult(5, "A", null, { siglaUnidadeFornecimento: "UN" })], { targetUnit: "KG", periodMonths: null })).toBeNull()
+		expect(autoSelectPrice([priceResult(5, "A", undefined, { siglaUnidadeFornecimento: "UN" })], { targetUnit: "KG", periodMonths: null })).toBeNull()
 	})
 })
 
@@ -178,6 +183,13 @@ describe("teto da mediana", () => {
 		expect(isMethodAllowed("mean", { mean: 10, median: 10 })).toBe(true)
 		expect(isMethodAllowed("median", { mean: 11, median: 10 })).toBe(true)
 	})
+
+	test("menor valor é método do art. 6º, caput, e nunca passa da mediana", () => {
+		expect(isMethodAllowed("lowest", { mean: 11, median: 10 })).toBe(true)
+		expect(priceForMethod("lowest", { mean: 11, median: 10, min: 8 })).toBe(8)
+		expect(priceForMethod("mean", { mean: 11, median: 10, min: 8 })).toBe(11)
+		expect(priceForMethod("median", { mean: 11, median: 10, min: 8 })).toBe(10)
+	})
 })
 
 describe("janela de recência", () => {
@@ -188,11 +200,45 @@ describe("janela de recência", () => {
 		expect(periodCutoff(6, NOW)).toBe("2026-01-28")
 	})
 
-	test("filterByPeriod descarta amostras antigas e mantém as sem data", () => {
+	test("filterByPeriod descarta amostras antigas e, por padrão, as sem data", () => {
 		const recente = priceResult(10, "A", "2026-06-01")
 		const antiga = priceResult(99, "B", "2020-01-01")
 		const semData = priceResult(11, "C", null)
-		expect(filterByPeriod([recente, antiga, semData], 12, NOW)).toEqual([recente, semData])
+		expect(filterByPeriod([recente, antiga, semData], 12, NOW)).toEqual([recente])
+	})
+
+	test("filterByPeriod inclui a sem data só quando pedido, na ordem original", () => {
+		const semData = priceResult(11, "C", null)
+		const recente = priceResult(10, "A", "2026-06-01")
+		const antiga = priceResult(99, "B", "2020-01-01")
+		expect(filterByPeriod([semData, recente, antiga], 12, NOW, { includeUndated: true })).toEqual([semData, recente])
+	})
+
+	test("sem janela, a sem data continua fora do cálculo", () => {
+		const semData = priceResult(11, "C", null)
+		const antiga = priceResult(99, "B", "2020-01-01")
+		expect(filterByPeriod([semData, antiga], null, NOW)).toEqual([antiga])
+	})
+
+	test("partitionByPeriod separa na janela, fora dela e sem data", () => {
+		const recente = priceResult(10, "A", "2026-06-01")
+		const antiga = priceResult(99, "B", "2020-01-01")
+		const semData = priceResult(11, "C", null)
+		expect(partitionByPeriod([recente, antiga, semData], 12, NOW)).toEqual({ inWindow: [recente], outOfWindow: [antiga], undated: [semData] })
+	})
+
+	test("autoSelectPrice deixa a amostra sem data fora do cálculo e a conta no funil", () => {
+		const r = autoSelectPrice([priceResult(10, "A", "2026-06-01"), priceResult(12, "B", "2026-05-01"), priceResult(1, "C", null)], {
+			periodMonths: 12,
+			now: NOW,
+		})
+		expect(r?.validCount).toBe(2)
+		expect(r?.undatedCount).toBe(1)
+		expect(r?.stats.min).toBe(10)
+	})
+
+	test("autoSelectPrice só com amostras sem data não estima preço", () => {
+		expect(autoSelectPrice([priceResult(10, "A", null), priceResult(11, "B", null)], { periodMonths: 12, now: NOW })).toBeNull()
 	})
 
 	test("autoSelectPrice aplica a janela padrão e registra o funil", () => {

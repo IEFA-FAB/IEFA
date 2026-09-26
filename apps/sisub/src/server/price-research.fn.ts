@@ -8,7 +8,7 @@
  */
 
 import { COMPRAS_MAX_PAGE_SIZE, COMPRAS_MIN_PAGE_SIZE } from "@iefa/compras-api"
-import { savePriceResearchAudit } from "@iefa/sisub-domain"
+import { PRICE_RESEARCH_METHODS, savePriceResearchAudit } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
@@ -75,6 +75,9 @@ const SampleSchema = z.object({
 	nomeFornecedor: z.string().nullable().optional(),
 })
 
+// Mesmo teto do CHECK das colunas `justification_*` (migration 20260926211000).
+const JustificationSchema = z.string().max(4000).nullable().optional()
+
 // ─── Salvar memória de cálculo para auditoria (Lei 14.133/2021) ───────────────
 
 export const savePrecoAuditFn = createServerFn({ method: "POST" })
@@ -82,7 +85,8 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 		z.object({
 			catmatCodigo: z.number().int().positive(),
 			catmatDescricao: z.string().nullable().optional(),
-			method: z.enum(["mean", "median"]),
+			// Art. 6º, caput, da IN SEGES/ME 65/2021: média, mediana ou menor valor.
+			method: z.enum(PRICE_RESEARCH_METHODS),
 			referencePrice: z.number(),
 			stats: z.object({
 				mean: z.number(),
@@ -107,6 +111,17 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 			inconsistentSamples: z.array(SampleSchema).optional(),
 			measureUnit: z.string().max(16).nullable().optional(),
 			unitInferred: z.boolean().optional(),
+			// Amostras escolhidas à mão (seleção ou filtro): o critério pede justificativa (art. 6º, § 3º).
+			manualSelection: z.boolean().optional(),
+			// Justificativas das não conformidades (colunas `justification_*` do item pesquisado).
+			justifications: z
+				.object({
+					lowSample: JustificationSchema,
+					method: JustificationSchema,
+					outlierCriteria: JustificationSchema,
+					outOfPeriod: JustificationSchema,
+				})
+				.optional(),
 			// Se fornecidos, linka imediatamente (caso ATA já existente)
 			ataId: z.uuid().optional(),
 			ataItemId: z.uuid().optional(),
