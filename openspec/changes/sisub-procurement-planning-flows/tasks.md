@@ -4,19 +4,19 @@
 
 ## 1. Declaração e migration
 
-- [ ] 1.1 [sisub] Declarar `procurement.procurement_segment` em `RESET_EXCLUSIONS` (antes da migration)
-- [ ] 1.2 [database] Migration `procurement_planning_flows`: tabelas `procurement_segment`, `procurement_segment_rule`, `kitchen_ata_draft_import` e `price_research_emission`; colunas em `procurement_list`, `procurement_list_snapshot_component`, `kitchen_ata_draft`, `procurement_pesquisa_preco`, `procurement_pesquisa_preco_amostra` e `compras_amostra`; `upsert_compras_amostras` completa o fornecedor sem mexer no fingerprint
-- [ ] 1.3 [database] Aplicar no banco compartilhado (`db:push --dry-run` e depois push); `audit:rls` verde
-- [ ] 1.4 [database] Regerar `generated.ts` (`db:types`) e Drizzle (`db:drizzle:pull`)
+- [x] 1.1 [sisub] Declarar `procurement.procurement_segment` em `RESET_EXCLUSIONS` (antes da migration)
+- [x] 1.2 [database] Migration `procurement_planning_flows`: tabelas `procurement_segment`, `procurement_segment_rule`, `kitchen_ata_draft_import` e `price_research_emission`; colunas em `procurement_list`, `procurement_list_snapshot_component`, `kitchen_ata_draft`, `procurement_pesquisa_preco`, `procurement_pesquisa_preco_amostra` e `compras_amostra`; `upsert_compras_amostras` completa o fornecedor sem mexer no fingerprint
+- [x] 1.3 [database] Aplicar no banco compartilhado (`db:push --dry-run` e depois push); `audit:rls` verde
+- [x] 1.4 [database] Regerar `generated.ts` (`db:types`) e Drizzle (`db:drizzle:pull`)
 
 ## 2. Segmentação
 
-- [ ] 2.1 [sisub-domain] `resolveSegment` puro (especificidade, exclusão, conflito) com testes
-- [ ] 2.2 [sisub-domain] Operações: listar, criar, editar e remover contratação e regras (`unit:2`), avaliação do universo de itens da OM (atribuídos, sem contratação, conflitos)
-- [ ] 2.3 [sisub-domain] `calculateAtaNeeds` com `segmentId` opcional e contagem de excluídos; `procurement_list.segment_id` no rascunho
-- [ ] 2.4 [sisub] Tela `/unit/$unitId/procurement/segments`: lista, editor de regras com árvore de pastas pesquisável, prévia de itens, conflitos e sem contratação
-- [ ] 2.5 [sisub] Wizard: escolha da contratação no passo 1, vigência herdada, aviso de itens fora
-- [ ] 2.6 [sisub] Promover `procurement_segment` a `RESET_STEPS`; integração de segmentação no banco real
+- [x] 2.1 [sisub-domain] `resolveSegment` puro (especificidade, exclusão, conflito) com testes
+- [x] 2.2 [sisub-domain] Operações: listar, criar, editar e remover contratação e regras (`unit:2`), avaliação do universo de itens da OM (atribuídos, sem contratação, conflitos)
+- [x] 2.3 [sisub-domain] `calculateAtaNeeds` com `segmentId` opcional e contagem de excluídos; `procurement_list.segment_id` no rascunho
+- [x] 2.4 [sisub] Tela `/unit/$unitId/segments`: lista, editor de regras com árvore de pastas pesquisável, prévia de itens, conflitos e sem contratação
+- [x] 2.5 [sisub] Wizard: escolha da contratação no passo 1, vigência herdada, aviso de itens fora
+- [x] 2.6 [sisub] Promover `procurement_segment` a `RESET_STEPS`; integração de segmentação no banco real
 
 ## 3. Terminologia e previsão de demanda
 

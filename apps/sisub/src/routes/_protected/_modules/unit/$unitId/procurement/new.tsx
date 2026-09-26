@@ -1,4 +1,4 @@
-import { DEFAULT_MAX_MARGIN_PERCENT } from "@iefa/sisub-domain"
+import { DEFAULT_MAX_MARGIN_PERCENT, type SegmentExclusion } from "@iefa/sisub-domain"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
@@ -12,6 +12,7 @@ import { type AtaStep, AtaStepIndicator } from "@/components/features/local/ata/
 import { DraftImportBadge } from "@/components/features/local/ata/DraftImportBadge"
 import { KitchenTemplateSection } from "@/components/features/local/ata/KitchenTemplateSection"
 import { PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
+import { SegmentChoice, SegmentExclusionNotice } from "@/components/features/local/procurement/SegmentChoice"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -30,6 +31,7 @@ import {
 } from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { usePendingDraft } from "@/hooks/data/useKitchenDraft"
+import { useSegmentationOverview } from "@/hooks/data/useProcurementSegments"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, downloadCsv } from "@/lib/ata-annex"
 import { ataItemToNeed } from "@/lib/ata-utils"
@@ -147,6 +149,10 @@ function NewAtaPage() {
 	})
 
 	const [savedItems, setSavedItems] = useState<ProcurementNeed[]>([])
+	// Itens do cálculo que ficaram para outras contratações (só no anexo de uma contratação).
+	const [segmentExclusion, setSegmentExclusion] = useState<SegmentExclusion | null>(null)
+	const { data: segmentation } = useSegmentationOverview(unitId)
+	const segments = segmentation?.segments ?? []
 	// Margem padrão e justificativa do anexo de quantitativos; a vigência vem do próprio wizard.
 	const [limitSettings, setLimitSettings] = useState<{ maxMarginPercent: number; marginJustification: string | null } | null>(null)
 	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
@@ -190,6 +196,7 @@ function NewAtaPage() {
 			notes: existingDraft.notes || "",
 			validityMonths: restoredValidity,
 			kitchenSelections: [],
+			segmentId: existingDraft.segment_id ?? null,
 		})
 
 		if (existingDraft.kitchens?.length) {
@@ -396,6 +403,7 @@ function NewAtaPage() {
 				title: wizardState.title || undefined,
 				notes: wizardState.notes || undefined,
 				validityMonths: wizardState.validityMonths,
+				segmentId: wizardState.segmentId ?? null,
 			})
 		}
 		navigate({
@@ -409,7 +417,9 @@ function NewAtaPage() {
 		const stateToCalc: AtaWizardState = { ...wizardState, kitchenSelections }
 		let needs: ProcurementNeed[]
 		try {
-			needs = (await calculateNeedsAsync(stateToCalc)) as ProcurementNeed[]
+			const result = await calculateNeedsAsync(stateToCalc)
+			needs = result.items
+			setSegmentExclusion(result.excluded)
 		} catch {
 			return // error toast handled by useCalculateAtaNeeds
 		}
@@ -534,6 +544,16 @@ function NewAtaPage() {
 			{/* ── Step 1: Cardápios Semanais ─────────────────────────────────── */}
 			{currentStep === 1 && (
 				<div className="space-y-4">
+					<SegmentChoice
+						unitId={unitIdStr as string}
+						segments={segments}
+						value={wizardState.segmentId ?? null}
+						onChange={(segment) => {
+							setWizardState((prev) => ({ ...prev, segmentId: segment?.id ?? null }))
+							// A vigência do anexo nasce da vigência da contratação (e reprojeta os apoios).
+							if (segment) handleValidityMonthsChange(segment.validityMonths)
+						}}
+					/>
 					<p className="text-sm text-muted-foreground">Selecione os cardápios semanais para cada cozinha e defina o número de repetições.</p>
 					{kitchenSelections.length === 0 ? (
 						<Card>
@@ -755,6 +775,14 @@ function NewAtaPage() {
 									</div>
 								)}
 							</div>
+
+							{segmentExclusion && (
+								<SegmentExclusionNotice
+									exclusion={segmentExclusion}
+									segmentName={segments.find((s) => s.id === wizardState.segmentId)?.name ?? "esta contratação"}
+									unitId={unitIdStr as string}
+								/>
+							)}
 
 							{/* Aviso para itens sem vínculo */}
 							{unmatchedItems.length > 0 && (
