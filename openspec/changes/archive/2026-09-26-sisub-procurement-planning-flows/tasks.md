@@ -43,4 +43,4 @@
 
 - [x] 6.1 [sisub] E2E na sentinela: fluxo da cozinha → envio → fluxo da unidade → segmentação → anexo por contratação → pesquisa → documentos
 - [x] 6.2 [sisub] Catálogo de edge cases (Gestão Unidade e Gestão Cozinha) com os casos novos
-- [ ] 6.3 [root] `bun run check`, `bun run lint --concurrency=2`, `bun run test --concurrency=2`
+- [x] 6.3 [root] `bun run check`, `bun run lint --concurrency=2`, `bun run test --concurrency=2`
