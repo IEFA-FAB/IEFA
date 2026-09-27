@@ -31,7 +31,7 @@ test.describe("Segmentação das contratações", () => {
 	})
 
 	test.afterAll(async () => {
-		if (draftId) await deleteProcurementRows("procurement_list", [draftId])
+		if (draftId) await deleteProcurementRows("quantity_estimate", [draftId])
 		const db = createE2EServiceClient()
 		const { data } = await db.schema("procurement").from("procurement_segment").select("id").eq("unit_id", UNIT_ID).like("name", `${RUN}%`)
 		await deleteProcurementRows(
@@ -73,7 +73,7 @@ test.describe("Segmentação das contratações", () => {
 	})
 
 	test("o anexo da contratação leva só os itens dela", async ({ authenticatedPage: page }) => {
-		await page.goto(`/unit/${UNIT_ID}/procurement/new`)
+		await page.goto(`/unit/${UNIT_ID}/quantity-estimates/new`)
 		await page.waitForURL(/draft=/)
 		draftId = new URL(page.url()).searchParams.get("draft")
 		// O wizard cria o rascunho, troca a URL e remonta a tela ao carregá-lo: clicar antes disso
@@ -83,7 +83,7 @@ test.describe("Segmentação das contratações", () => {
 
 		// A lista de contratações chega depois do SSR; o link "Ver a segmentação" só aparece com ela.
 		await expect(page.getByRole("link", { name: "Ver a segmentação" })).toBeVisible()
-		await page.locator("#ata-segment").click()
+		await page.locator("#quantity-estimate-segment").click()
 		await page.getByRole("option", { name: new RegExp(SEGMENT) }).click()
 		await expect(page.getByText(new RegExp(`O cálculo leva só (o item|os \\d+ itens) de ${SEGMENT}`))).toBeVisible()
 

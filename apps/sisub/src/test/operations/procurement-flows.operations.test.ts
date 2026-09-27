@@ -7,16 +7,16 @@
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	brasiliaToday,
-	createAtaDraft,
 	createDemandForecast,
 	createProcurementSegment,
+	createQuantityEstimateDraft,
 	fetchDemandForecastStatus,
 	fetchPendingDemandForecast,
 	fetchProcurementPlanningStatus,
 	recordDemandForecastImport,
 	sendDemandForecast,
-	updateAtaDraft,
-	updateAtaStatus,
+	updateQuantityEstimateDraft,
+	updateQuantityEstimateStatus,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -89,11 +89,11 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 
 		// Importar a previsão num anexo: a cozinha passa a ver "recebida", e a previsão continua
 		// disponível para o anexo de outra contratação.
-		const { id: listId } = await createAtaDraft(db, ctx, { unitId })
-		seeder.track("procurement_list", listId)
-		await updateAtaDraft(db, ctx, { draftId: listId, title: "Carnes 2027", segmentId: segment.id })
-		await recordDemandForecastImport(db, ctx, { forecastId: draft.id, listId })
-		await recordDemandForecastImport(db, ctx, { forecastId: draft.id, listId }) // idempotente
+		const { id: quantityEstimateId } = await createQuantityEstimateDraft(db, ctx, { unitId })
+		seeder.track("quantity_estimate", quantityEstimateId)
+		await updateQuantityEstimateDraft(db, ctx, { draftId: quantityEstimateId, title: "Carnes 2027", segmentId: segment.id })
+		await recordDemandForecastImport(db, ctx, { forecastId: draft.id, quantityEstimateId })
+		await recordDemandForecastImport(db, ctx, { forecastId: draft.id, quantityEstimateId }) // idempotente
 
 		kitchenStatus = await fetchDemandForecastStatus(db, ctx, { kitchenId })
 		expect(kitchenStatus.forecast?.status).toBe("reviewed")
@@ -104,7 +104,7 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 		expect((pending as { imports: unknown[] }).imports).toHaveLength(1)
 
 		// Concluir o anexo da contratação fecha o ciclo do calendário.
-		await updateAtaStatus(db, ctx, { ataId: listId, status: "published" })
+		await updateQuantityEstimateStatus(db, ctx, { quantityEstimateId: quantityEstimateId, status: "completed" })
 		unitStatus = await fetchProcurementPlanningStatus(db, ctx, { unitId })
 		expect(unitStatus.calendar[0].cycle?.closed).toBe(true)
 		expect(unitStatus.kitchens[0].forecast?.imports).toBe(1)
@@ -123,8 +123,8 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 		})) as { id: string }
 		seeder.track("kitchen_demand_forecast", draft.id)
 		await sendDemandForecast(db, ctx, { forecastId: draft.id })
-		const { id: listId } = await createAtaDraft(db, ctx, { unitId })
-		seeder.track("procurement_list", listId)
-		await expect(recordDemandForecastImport(db, ctx, { forecastId: draft.id, listId })).rejects.toMatchObject({ code: "KITCHEN_NOT_IN_UNIT" })
+		const { id: quantityEstimateId } = await createQuantityEstimateDraft(db, ctx, { unitId })
+		seeder.track("quantity_estimate", quantityEstimateId)
+		await expect(recordDemandForecastImport(db, ctx, { forecastId: draft.id, quantityEstimateId })).rejects.toMatchObject({ code: "KITCHEN_NOT_IN_UNIT" })
 	}, 60_000)
 })

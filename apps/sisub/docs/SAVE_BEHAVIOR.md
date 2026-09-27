@@ -86,7 +86,7 @@ A tela grava sozinha e **não tem botão Salvar**.
 
 ### C — Ação explícita (eventos irreversíveis e de fluxo)
 
-Lançamento de estoque, eventos financeiros, publicação de ATA, mudança de status, acesso.
+Lançamento de estoque, eventos financeiros, conclusão do anexo quantitativo, mudança de status, acesso.
 O botão nomeia a ação ("Lançar entrada", "Publicar", "Conceder"), nunca "Salvar". Sem
 desfazer, pede confirmação.
 
@@ -161,7 +161,7 @@ cobre qualquer tela nova que use `useDraft`.
 |------|--------|
 | Insumo: ciclo de entrega, alergênicos | Feito (fora do snapshot da versão; o rótulo diz isso) |
 | Cardápio semanal da cozinha, eventos/exceções | Feito (autosave 1,5 s + `AutoSaveStatus`). O Salvar explícito continua só para o fork de template global |
-| Previsão do comensal, descrição de item de ATA, itens do cardápio do dia, custo da abertura de estoque | Já gravam sozinhos. **Pendente**: trocar o indicador próprio (ou nenhum) por `AutoSaveStatus` |
+| Previsão do comensal, descrição de item do anexo quantitativo, itens do cardápio do dia, custo da abertura de estoque | Já gravam sozinhos. **Pendente**: trocar o indicador próprio (ou nenhum) por `AutoSaveStatus` |
 | Plano semanal global | **Pendente**: hoje só explícito |
 | Configurações da cozinha, da unidade e do estoque; política de validade; avaliação; perfil | **Pendente**: hoje botão na página |
 | Fluxo de produção e equipamentos da preparação | **Pendente**: hoje "Salvar fluxo" / botão da aba. Gravam na versão atual, sem versão própria |
@@ -170,7 +170,7 @@ cobre qualquer tela nova que use `useDraft`.
 ### Modo C — ação explícita
 
 Estoque (entrada, contagem, saída, ajuste, abertura), financeiro (empenho, liquidação,
-pagamento, conciliação, SIAFI), publicação e status de ATA, pedidos de lanche, status de
+pagamento, conciliação, SIAFI), conclusão e status do anexo quantitativo, pedidos de lanche, status de
 equipamento e de tarefa, permissões, políticas, MFA. **Já seguem o padrão**; o que falta é
 só a revisão de rótulo ("Salvar" → nome da ação) onde o botão ainda diz "Salvar".
 
@@ -203,7 +203,7 @@ ações em lote e o localizar/substituir nunca pediam.
 | Renomear ou mover pasta | Não é mudança do insumo. A versão guarda o nome da pasta da época, e o próximo save do insumo leva o nome novo |
 | Apagar e restaurar insumo | Ciclo de vida, não conteúdo. Restaurar devolve o insumo idêntico ao histórico |
 | Alergênicos | Quase imutáveis. Gravam sozinhos, e a tela diz que ficam fora do histórico |
-| Ciclo de entrega | É **sugestão** de compra. O que vale é o ciclo que cada item de ATA grava para si |
+| Ciclo de entrega | É **sugestão** de compra. O que vale é o ciclo que cada item do anexo quantitativo grava para si |
 | Conservação, temperatura, validade mínima e atributos GS1 do item de compra | São a **sugestão** da especificação. O que aconteceu de fato fica registrado no lote, no recebimento (classe recebida e divergência) |
 
 ### Preparações

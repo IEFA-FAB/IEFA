@@ -2,18 +2,18 @@ import type { Tables } from "@iefa/database/sisub"
 
 // ─── Base Table Types ─────────────────────────────────────────────────────────
 
-export type ProcurementList = Tables<"procurement_list">
-export type ProcurementListKitchen = Tables<"procurement_list_kitchen">
-export type ProcurementListSelection = Tables<"procurement_list_selection">
-export type ProcurementListItem = Tables<"procurement_list_item">
-/** Item como o detalhe da ATA devolve: com o padrão do insumo e a conservação, que decidem o ciclo não gravado. */
-export type AtaItemWithConservation = ProcurementListItem & { conservation_class?: string | null; ingredient_delivery_cycle?: string | null }
+export type QuantityEstimate = Tables<"quantity_estimate">
+export type QuantityEstimateKitchen = Tables<"quantity_estimate_kitchen">
+export type QuantityEstimateSelection = Tables<"quantity_estimate_selection">
+export type QuantityEstimateItem = Tables<"quantity_estimate_item">
+/** Item como o detalhe do anexo devolve: com o padrão do insumo e a conservação, que decidem o ciclo não gravado. */
+export type QuantityEstimateItemWithConservation = QuantityEstimateItem & { conservation_class?: string | null; ingredient_delivery_cycle?: string | null }
 
 // ─── List com detalhes carregados ─────────────────────────────────────────────
 
-export interface AtaKitchenWithDetails extends ProcurementListKitchen {
+export interface QuantityEstimateKitchenWithDetails extends QuantityEstimateKitchen {
 	kitchen: { id: number; display_name: string | null }
-	selections: (ProcurementListSelection & {
+	selections: (QuantityEstimateSelection & {
 		template: {
 			name: string | null
 			template_type: string
@@ -21,7 +21,7 @@ export interface AtaKitchenWithDetails extends ProcurementListKitchen {
 	})[]
 }
 
-export interface AtaSnapshotSelection {
+export interface QuantityEstimateSnapshotSelection {
 	template_name: string | null
 	template_type: string | null
 	kitchen_id: number | null
@@ -30,20 +30,20 @@ export interface AtaSnapshotSelection {
 	snapshot_source: string
 }
 
-export interface AtaSnapshotComponent {
+export interface QuantityEstimateSnapshotComponent {
 	ingredient_id: string | null
 	ingredient_name: string
 	folder_description: string | null
 	measure_unit: string | null
-	total_quantity: number
+	estimated_quantity: number
 	purchase_item_description: string | null
 	purchase_measure_unit: string | null
 	purchase_quantity: number | null
 	catmat_item_codigo: number | null
 	unit_price: number | null
 	snapshot_source: string
-	/** Limites resolvidos na publicação; nulos em atas publicadas antes do anexo existir. */
-	max_margin_percent: number | null
+	/** Limites resolvidos na conclusão; nulos em anexos concluídos antes de os limites existirem. */
+	max_increase_percent: number | null
 	max_quantity: number | null
 	delivery_cycle: string | null
 	min_order_quantity: number | null
@@ -52,7 +52,7 @@ export interface AtaSnapshotComponent {
 }
 
 /** Metadados de integridade computados por request (não persistidos). */
-export interface AtaMeta {
+export interface QuantityEstimateMeta {
 	/** Rascunho com quantitativos desatualizados vs. edição do cardápio. */
 	is_stale: boolean
 	price_research: {
@@ -60,17 +60,17 @@ export interface AtaMeta {
 		validity_days: number
 		is_expired: boolean
 	}
-	/** Composição congelada (só existe após publicação). */
+	/** Composição congelada (só existe após conclusão). */
 	snapshot: {
-		selections: AtaSnapshotSelection[]
-		components: AtaSnapshotComponent[]
+		selections: QuantityEstimateSnapshotSelection[]
+		components: QuantityEstimateSnapshotComponent[]
 	} | null
 }
 
-export interface AtaWithDetails extends ProcurementList {
-	kitchens: AtaKitchenWithDetails[]
-	items: AtaItemWithConservation[]
-	meta: AtaMeta
+export interface QuantityEstimateWithDetails extends QuantityEstimate {
+	kitchens: QuantityEstimateKitchenWithDetails[]
+	items: QuantityEstimateItemWithConservation[]
+	meta: QuantityEstimateMeta
 }
 
 // ─── Estado do Wizard (não persiste até salvar) ───────────────────────────────
@@ -83,7 +83,7 @@ export interface AtaWithDetails extends ProcurementList {
 export interface TemplateSelection {
 	templateId: string
 	templateName: string
-	/** Vezes que o cardápio é produzido dentro da vigência da ata (mesma unidade nos três regimes). */
+	/** Vezes que o cardápio é produzido dentro da vigência do anexo (mesma unidade nos três regimes). */
 	repetitions: number
 	/**
 	 * Só para exceções: ocorrências mensais esperadas do template. `repetitions` é
@@ -108,9 +108,9 @@ export interface KitchenSelectionState {
 export type SelectionBucket = "templateSelections" | "eventSelections" | "exceptionSelections"
 
 /**
- * Estado completo do wizard da ATA
+ * Estado completo do wizard do anexo
  */
-export interface AtaWizardState {
+export interface QuantityEstimateWizardState {
 	title: string
 	notes: string
 	/** Vigência em meses; multiplica as ocorrências mensais das exceções. */

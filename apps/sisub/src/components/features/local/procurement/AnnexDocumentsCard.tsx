@@ -5,9 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/toast"
-import { useUpdateAtaDocumentSettings } from "@/hooks/data/useProcurementDocuments"
+import { useUpdateQuantityEstimateDocumentSettings } from "@/hooks/data/useProcurementDocuments"
 import { buildAnnexTable, chunkTable, copyTableToClipboard } from "@/lib/annex-table"
-import type { AtaAnnexRow } from "@/lib/ata-annex"
+import type { QuantityEstimateAnnexRow } from "@/lib/quantity-estimate-annex"
 
 /**
  * Documentos do anexo para o processo: a tabela para colar no Anexo do TR, o CSV, a memória de
@@ -16,20 +16,20 @@ import type { AtaAnnexRow } from "@/lib/ata-annex"
  */
 export function AnnexDocumentsCard({
 	unitId,
-	ataId,
+	quantityEstimateId,
 	rows,
 	isBudgetConfidential,
 	canEdit,
 	onDownloadCsv,
 }: {
 	unitId: string
-	ataId: string
-	rows: AtaAnnexRow[]
+	quantityEstimateId: string
+	rows: QuantityEstimateAnnexRow[]
 	isBudgetConfidential: boolean
 	canEdit: boolean
 	onDownloadCsv: () => void
 }) {
-	const settings = useUpdateAtaDocumentSettings(ataId)
+	const settings = useUpdateQuantityEstimateDocumentSettings(quantityEstimateId)
 	const parts = chunkTable(buildAnnexTable(rows, { confidential: isBudgetConfidential }))
 
 	const copy = async (index: number) => {
@@ -59,13 +59,13 @@ export function AnnexDocumentsCard({
 			<CardContent className="space-y-5">
 				<Field orientation="horizontal">
 					<Switch
-						id="ata-confidential"
+						id="quantity-estimate-confidential"
 						checked={isBudgetConfidential}
 						disabled={!canEdit || settings.isPending}
 						onCheckedChange={(checked) => settings.mutate(checked)}
 					/>
 					<div>
-						<FieldLabel htmlFor="ata-confidential">Orçamento sigiloso</FieldLabel>
+						<FieldLabel htmlFor="quantity-estimate-confidential">Orçamento sigiloso</FieldLabel>
 						<FieldDescription>
 							A tabela do TR sai sem preço e valor (Lei 14.133/2021, art. 24). O relatório de pesquisa continua completo, para os autos.
 						</FieldDescription>
@@ -97,7 +97,7 @@ export function AnnexDocumentsCard({
 						variant="outline"
 						nativeButton={false}
 						render={
-							<Link to="/unit/$unitId/procurement/print/quantities/$ataId" params={{ unitId, ataId }}>
+							<Link to="/unit/$unitId/quantity-estimates/print/calculation-memory/$quantityEstimateId" params={{ unitId, quantityEstimateId }}>
 								<FileText data-icon="inline-start" aria-hidden="true" />
 								Memória de cálculo das quantidades
 							</Link>
@@ -108,7 +108,7 @@ export function AnnexDocumentsCard({
 						variant="outline"
 						nativeButton={false}
 						render={
-							<Link to="/unit/$unitId/procurement/print/price-research/$ataId" params={{ unitId, ataId }}>
+							<Link to="/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId" params={{ unitId, quantityEstimateId }}>
 								<FileSpreadsheet data-icon="inline-start" aria-hidden="true" />
 								Relatório de pesquisa de preços
 							</Link>

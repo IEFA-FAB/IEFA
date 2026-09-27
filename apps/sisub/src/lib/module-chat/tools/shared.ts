@@ -185,7 +185,7 @@ export function sanitizeDbError(error: { message?: string; code?: string } | Err
 /**
  * Schemas do banco que as tools alcançam. O banco foi dividido por domínio: a cozinha
  * (cardápios, receitas, insumos) mora em `kitchen`, mas unidade e cozinha-entidade moram
- * em `core`, ATAs e ARPs em `procurement` e empenhos em `finance`.
+ * em `core`, anexos quantitativos e ARPs em `procurement` e empenhos em `finance`.
  */
 export type ToolTableSchema = "kitchen" | "core" | "procurement" | "finance"
 
@@ -194,7 +194,7 @@ export type ToolTableSchema = "kitchen" | "core" | "procurement" | "finance"
  *
  * **O schema é obrigatório na cabeça de quem chama.** O client do chat nasce com
  * `db: { schema: "kitchen" }`, então `untypedFrom(ctx, "procurement_list")` pedia
- * `kitchen.procurement_list` — tabela que não existe. O PostgREST devolvia PGRST205 e o
+ * `kitchen.quantity_estimate` — tabela que não existe. O PostgREST devolvia PGRST205 e o
  * módulo `unit` inteiro (menos `get_ata_details`, que já usava `.schema()` explícito) e os
  * quatro tools de `local-analytics` respondiam "Erro ao executar…" em toda pergunta. Nada
  * disso o typecheck via: o retorno é `any` de propósito.

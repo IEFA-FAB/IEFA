@@ -3,7 +3,7 @@
  *
  * O evento tem zero ou mais refeições, cada uma com nome, horário no calendário e composição
  * (grupos) próprios. O item do evento aponta para a refeição em `event_meal_id` e carrega o
- * `meal_type_id` DELA — é o domínio quem grava esse valor, nunca o chamador: Ata, custeio,
+ * `meal_type_id` DELA — é o domínio quem grava esse valor, nunca o chamador: anexo quantitativo, custeio,
  * previsão e a aplicação ao calendário leem o `meal_type_id` do item e continuam funcionando
  * sem saber das refeições do evento.
  */

@@ -56,7 +56,7 @@ describeIf("inventory opening balance (DB)", () => {
 					// ── custo numa linha, e a reimportação o preserva ────────────────
 					const [a1] = await tx`select id from inventory.opening_balance_item where opening_balance_id = ${doc} and lot_code = 'A1'`
 					await tx`select inventory.set_opening_balance_costs(${doc}, ${author.id},
-						${tx.json([{ item_id: a1.id, unit_cost: 6, cost_source: "ata", cost_reference: "ATA teste" }])})`
+						${tx.json([{ item_id: a1.id, unit_cost: 6, cost_source: "ata", cost_reference: "ARP teste" }])})`
 					const [{ again }] = await tx`
 						select inventory.save_opening_balance_draft(
 							${kitchenRow.id}, ${author.id}, 'catalog_sheet', 'folha-v2.csv', ${tx.json(items)}, ${tx.json([])}) as again`

@@ -2,7 +2,7 @@
  * Unit settings operations — UASG code + address fields. Drizzle query layer.
  *
  * Auth: LEITURA exige `unit:1` na própria unidade — as duas telas que a leem (configurações
- * da OM e o anexo da ATA) são da unidade, e nenhuma lista OMs alheias; a ESCRITA (UASG e
+ * da OM e o anexo quantitativo) são da unidade, e nenhuma lista OMs alheias; a ESCRITA (UASG e
  * endereço da OM) exige `unit:2`.
  */
 

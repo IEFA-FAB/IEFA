@@ -14,5 +14,5 @@ export interface DemandForecastWithSelections extends DemandForecast {
 		}
 	})[]
 	/** Anexos quantitativos em que a unidade já importou esta previsão. */
-	imports: { list_id: string; title: string; imported_at: string }[]
+	imports: { quantity_estimate_id: string; title: string; imported_at: string }[]
 }

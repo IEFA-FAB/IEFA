@@ -6,7 +6,7 @@
 
 // ── Identificadores ─────────────────────────────────────────────────────────
 
-// ruleid: ubiquitous-language-lot1-identifier
+// ruleid: ubiquitous-language-lot1-identifier, ubiquitous-language-lot2-identifier
 export type KitchenAtaDraft = { id: string }
 // ruleid: ubiquitous-language-lot1-identifier
 export function fetchKitchenDrafts() {}
@@ -95,3 +95,97 @@ const askOk = "Peça a designação a quem tem Gestão Unidade"
 const toolDescription = "exception — na tela, \"Apoio\" (lanches de bordo)"
 // ok: ubiquitous-language-lot1-label
 const toolDescriptionOk = "exception — na tela, \"Cardápio de apoio\" (lanches de bordo)"
+
+// ══ Lote 2: anexo quantitativo ══════════════════════════════════════════════
+
+// ── Identificadores ─────────────────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-lot2-identifier
+export function loadAta(ataId: string) {}
+// ruleid: ubiquitous-language-lot2-identifier
+const rows = await db.select().from(procurementListInProcurement)
+// ruleid: ubiquitous-language-lot2-identifier
+const items = await supabase.from("procurement_list_item").select("id").eq("list_id", id)
+// ruleid: ubiquitous-language-lot2-identifier
+type Limits = { maxMarginPercent: number; marginJustification: string | null }
+// ruleid: ubiquitous-language-lot2-identifier
+const need = { total_quantity: 10 }
+// ruleid: ubiquitous-language-lot2-identifier
+const listTool = { name: "list_atas" }
+// ruleid: ubiquitous-language-lot2-identifier
+const ata = await fetchQuantityEstimateDetails(db, ctx, input)
+// ruleid: ubiquitous-language-lot2-identifier
+requireUnit(ctx, 1, ata.unit_id)
+// ruleid: ubiquitous-language-lot2-identifier
+import { AtaWizard } from "@/components/features/local/ata/AtaWizard"
+// ruleid: ubiquitous-language-lot2-identifier
+const key = queryKeys.ata.detail(id)
+// ruleid: ubiquitous-language-lot2-identifier
+throw new DomainError("ATA_NOT_DRAFT", "fora do rascunho")
+
+// ok: ubiquitous-language-lot2-identifier
+const detail = await fetchQuantityEstimateDetails(db, ctx, { quantityEstimateId })
+// ok: ubiquitous-language-lot2-identifier
+const numero = arp.numeroAtaRegistroPreco ?? formatNumeroAta(arp.numeroAta, arp.anoAta)
+// ok: ubiquitous-language-lot2-identifier
+const arpRow = await supabase.from("procurement_arp").select("numero_ata, ano_ata, status_ata")
+// ok: ubiquitous-language-lot2-identifier
+export const ACQUISITION_INSTRUMENTS = ["ata", "contrato", "nota_empenho", "outro"] as const
+// ok: ubiquitous-language-lot2-identifier
+const instrumentLabel = { ata: "Ata de registro de preços" }
+// ok: ubiquitous-language-lot2-identifier
+const role = "Papel da unidade na ata"
+// ok: ubiquitous-language-lot2-identifier
+const hint = "Busque a ata no Compras.gov.br ou, se a API não responder, cadastre à mão."
+// ok: ubiquitous-language-lot2-identifier
+const limits = { maxIncreasePercent: 20, maxQuantityJustification: null, estimated_quantity: 10 }
+// ok: ubiquitous-language-lot2-identifier
+// a antiga `procurement_list`, renomeada em 20260927040000
+
+// ── Rotas ───────────────────────────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-lot2-route
+const toAnnex = { to: "/unit/$unitId/procurement/$quantityEstimateId" }
+// ruleid: ubiquitous-language-lot2-route
+await page.goto(`/unit/${UNIT_ID}/procurement/new`)
+// ruleid: ubiquitous-language-lot2-route
+const nav = { url: "/unit/procurement" }
+// ruleid: ubiquitous-language-lot2-route
+const printQuantities = { to: "/unit/$unitId/quantity-estimates/print/quantities/$quantityEstimateId" }
+// ruleid: ubiquitous-language-lot2-identifier, ubiquitous-language-lot2-route
+routes.post("/ata/:ataId", handler)
+
+// ok: ubiquitous-language-lot2-route
+const toAnnexOk = { to: "/unit/$unitId/quantity-estimates/$quantityEstimateId" }
+// ok: ubiquitous-language-lot2-route
+const legacyAnnex = { from: "/unit/:unitId/procurement", to: "/unit/:unitId/quantity-estimates" }
+// ok: ubiquitous-language-lot2-route
+const pca = { url: "/analytics/procurement-plan", flow: `/unit/${unitId}/flows/procurement-planning` }
+// ok: ubiquitous-language-lot2-route
+routes.post("/quantity-estimates/:quantityEstimateId", handler)
+// ok: ubiquitous-language-lot2-route
+import { seedWeeklyTemplate } from "../helpers/procurement"
+
+// ── Rótulos ─────────────────────────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-lot2-label
+const publish = <Button>Publicar anexo</Button>
+// ruleid: ubiquitous-language-lot2-label
+const marginLabel = <Label>Margem padrão (%)</Label>
+// ruleid: ubiquitous-language-lot2-label
+const targetHead = <TableHead>Qtd Alvo</TableHead>
+// ruleid: ubiquitous-language-lot2-label
+updateStatus({ quantityEstimateId, status: "published" })
+// ruleid: ubiquitous-language-lot2-label
+const STATUS_LABELS = { draft: "Rascunho", published: "Concluído", archived: "Arquivado" }
+
+// ok: ubiquitous-language-lot2-label
+const conclude = <Button>Concluir anexo</Button>
+// ok: ubiquitous-language-lot2-label
+const STATUS_LABELS_OK = { draft: "Rascunho", completed: "Concluído", archived: "Arquivado" }
+// ok: ubiquitous-language-lot2-label
+const increaseLabel = <Label>Acréscimo sobre a estimada (%)</Label>
+// ok: ubiquitous-language-lot2-label
+const note = "Publicar é divulgar no PNCP (Lei 14.133, art. 54)."
+// ok: ubiquitous-language-lot2-label
+const preference = "margem de preferência (art. 26)"

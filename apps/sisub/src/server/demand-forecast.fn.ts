@@ -87,7 +87,7 @@ export const deleteDemandForecastFn = createServerFn({ method: "POST" })
 // ─── Registrar importação da previsão num anexo ──────────────────────────────
 
 export const recordDemandForecastImportFn = createServerFn({ method: "POST" })
-	.validator(z.object({ forecastId: z.uuid(), listId: z.uuid() }))
+	.validator(z.object({ forecastId: z.uuid(), quantityEstimateId: z.uuid() }))
 	.handler(async ({ data }): Promise<void> => {
 		const ctx = await requireAuth()
 		await recordDemandForecastImport(getDb(), ctx, data).catch(handleDomainError)

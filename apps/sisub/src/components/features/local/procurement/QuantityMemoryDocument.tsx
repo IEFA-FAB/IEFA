@@ -1,5 +1,5 @@
 import type { QuantityMemory } from "@iefa/sisub-domain"
-import type { AtaAnnexRow } from "@/lib/ata-annex"
+import type { QuantityEstimateAnnexRow } from "@/lib/quantity-estimate-annex"
 
 const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 })
 const INT = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 })
@@ -21,7 +21,7 @@ export function QuantityMemoryDocument({
 	segmentName,
 	status,
 	validityMonths,
-	maxMarginPercent,
+	maxIncreasePercent,
 	minQuotePercent,
 	rows,
 	memory,
@@ -31,9 +31,9 @@ export function QuantityMemoryDocument({
 	segmentName: string | null
 	status: string
 	validityMonths: number | null
-	maxMarginPercent: number
+	maxIncreasePercent: number
 	minQuotePercent: number
-	rows: AtaAnnexRow[]
+	rows: QuantityEstimateAnnexRow[]
 	memory: QuantityMemory
 }) {
 	const byIngredient = new Map<string, QuantityMemory["contributions"]>()
@@ -56,7 +56,7 @@ export function QuantityMemoryDocument({
 				{segmentName ? ` · Contratação planejada: ${segmentName}` : ""}
 				{unitName ? ` · ${unitName}` : ""}
 				<br />
-				Vigência prevista da ata: {validityMonths ?? "—"} meses · Situação: {concluded ? "concluído (quantidades congeladas)" : "rascunho"} · Gerado em{" "}
+				Vigência prevista do anexo: {validityMonths ?? "—"} meses · Situação: {concluded ? "concluído (quantidades congeladas)" : "rascunho"} · Gerado em{" "}
 				{new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
 			</p>
 
@@ -67,7 +67,7 @@ export function QuantityMemoryDocument({
 				ocorre; cardápio de apoio, pelas ocorrências mensais × meses. O total no insumo é convertido para a unidade de compra pelo fator do item de compra.
 			</p>
 			<p>
-				A quantidade máxima é a estimada acrescida de {INT.format(maxMarginPercent)}% (ou do acréscimo do item), arredondada para cima (Lei 14.133/2021, art.
+				A quantidade máxima é a estimada acrescida de {INT.format(maxIncreasePercent)}% (ou do acréscimo do item), arredondada para cima (Lei 14.133/2021, art.
 				82, I). A quantidade mínima a ser cotada é {INT.format(minQuotePercent)}% da máxima, arredondada para cima (art. 82, II). A mínima por ordem de
 				fornecimento parte do consumo entre duas entregas (semanal ou mensal).
 			</p>
@@ -83,7 +83,7 @@ export function QuantityMemoryDocument({
 			{rows.map((row, index) => {
 				const parts = row.ingredientId ? (byIngredient.get(row.ingredientId) ?? []) : []
 				const sum = parts.reduce((s, c) => s + c.quantity, 0)
-				const factor = row.targetQuantity > 0 ? row.ingredientQuantity / row.targetQuantity : null
+				const factor = row.estimatedQuantity > 0 ? row.ingredientQuantity / row.estimatedQuantity : null
 				return (
 					<section key={row.key} data-proc="block">
 						<h3>
@@ -141,12 +141,12 @@ export function QuantityMemoryDocument({
 									<td data-num="">{factor != null ? NUM.format(factor) : "—"}</td>
 									<th>Quantidade estimada</th>
 									<td data-num="">
-										{NUM.format(row.targetQuantity)} {row.unit}
+										{NUM.format(row.estimatedQuantity)} {row.unit}
 									</td>
 								</tr>
 								<tr>
 									<th>Acréscimo</th>
-									<td data-num="">{row.marginPercent != null ? `${NUM.format(row.marginPercent)}%` : "—"}</td>
+									<td data-num="">{row.increasePercent != null ? `${NUM.format(row.increasePercent)}%` : "—"}</td>
 									<th>Quantidade máxima</th>
 									<td data-num="">{row.maxQuantity != null ? INT.format(row.maxQuantity) : "—"}</td>
 									<th>Mínima a ser cotada</th>

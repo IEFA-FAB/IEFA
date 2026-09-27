@@ -1,15 +1,15 @@
-import { pgSchema, index, foreignKey, integer, text, boolean, timestamp, unique, bigserial, bigint, check, uuid, numeric, jsonb, uniqueIndex, date, smallint, char, pgPolicy, doublePrecision, json, primaryKey } from "drizzle-orm/pg-core"
+import { pgSchema, index, foreignKey, integer, text, boolean, timestamp, check, uuid, unique, bigserial, bigint, numeric, jsonb, uniqueIndex, smallint, date, char, pgPolicy, doublePrecision, json, primaryKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const accessControl = pgSchema("access_control");
 export const finance = pgSchema("finance");
 export const core = pgSchema("core");
 export const comprasGovIntegration = pgSchema("compras_gov_integration");
+export const procurement = pgSchema("procurement");
 export const kitchen = pgSchema("kitchen");
 export const inventory = pgSchema("inventory");
 export const gs1Integration = pgSchema("gs1_integration");
 export const nutritionReference = pgSchema("nutrition_reference");
-export const procurement = pgSchema("procurement");
 export const siafiIntegration = pgSchema("siafi_integration");
 export const sisub = pgSchema("sisub");
 // Patched (patch-drizzle-pull.ts): cross-schema refs the pull leaves dangling.
@@ -48,6 +48,34 @@ export const comprasServicoClasseInComprasGovIntegration = comprasGovIntegration
 			foreignColumns: [comprasServicoGrupoInComprasGovIntegration.codigoGrupo],
 			name: "compras_servico_classe_codigo_grupo_fkey"
 		}),
+]);
+
+export const quantityEstimateSelectionInProcurement = procurement.table("quantity_estimate_selection", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	quantityEstimateKitchenId: uuid("quantity_estimate_kitchen_id").notNull(),
+	templateId: uuid("template_id").notNull(),
+	repetitions: integer().default(1).notNull(),
+	originTemplateId: uuid("origin_template_id"),
+}, (table) => [
+	index("quantity_estimate_selection_origin_template_id_fk_idx").using("btree", table.originTemplateId.asc().nullsLast()),
+	index("quantity_estimate_selection_quantity_estimate_kitchen_id_fk_idx").using("btree", table.quantityEstimateKitchenId.asc().nullsLast()),
+	index("quantity_estimate_selection_template_id_fk_idx").using("btree", table.templateId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.originTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "quantity_estimate_selection_origin_template_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.quantityEstimateKitchenId],
+			foreignColumns: [quantityEstimateKitchenInProcurement.id],
+			name: "quantity_estimate_selection_quantity_estimate_kitchen_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.templateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "quantity_estimate_selection_template_id_fkey"
+		}),
+	check("quantity_estimate_selection_repetitions_check", sql`repetitions > 0`),
 ]);
 
 export const comprasServicoItemInComprasGovIntegration = comprasGovIntegration.table("compras_servico_item", {
@@ -93,6 +121,27 @@ export const comprasMaterialItemInComprasGovIntegration = comprasGovIntegration.
 }, (table) => [
 	index("idx_compras_material_item_descricao_trgm").using("gin", table.descricaoItem.asc().nullsLast()),
 	index("idx_compras_material_item_pdm").using("btree", table.codigoPdm.asc().nullsLast()),
+]);
+
+export const quantityEstimateSnapshotSelectionInProcurement = procurement.table("quantity_estimate_snapshot_selection", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
+	originTemplateId: uuid("origin_template_id"),
+	templateName: text("template_name"),
+	templateType: text("template_type"),
+	kitchenId: integer("kitchen_id"),
+	kitchenName: text("kitchen_name"),
+	repetitions: integer().default(1).notNull(),
+	snapshotSource: text("snapshot_source").default('native').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_quantity_estimate_snapshot_selection_quantity_estimate_id").using("btree", table.quantityEstimateId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "quantity_estimate_snapshot_selection_quantity_estimate_id_fkey"
+		}).onDelete("cascade"),
+	check("quantity_estimate_snapshot_selection_snapshot_source_check", sql`snapshot_source = ANY (ARRAY['native'::text, 'backfill'::text])`),
 ]);
 
 export const comprasServicoSecaoInComprasGovIntegration = comprasGovIntegration.table("compras_servico_secao", {
@@ -321,6 +370,37 @@ export const foodItemInNutritionReference = nutritionReference.table("food_item"
 	unique("food_item_source_id_external_code_key").on(table.sourceId, table.externalCode),
 ]);
 
+export const quantityEstimateSnapshotComponentInProcurement = procurement.table("quantity_estimate_snapshot_component", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
+	ingredientId: uuid("ingredient_id"),
+	ingredientName: text("ingredient_name").notNull(),
+	folderDescription: text("folder_description"),
+	measureUnit: text("measure_unit"),
+	estimatedQuantity: numeric("estimated_quantity", { mode: "number", precision: 14, scale: 4 }).notNull(),
+	purchaseItemId: uuid("purchase_item_id"),
+	purchaseItemDescription: text("purchase_item_description"),
+	purchaseMeasureUnit: text("purchase_measure_unit"),
+	purchaseQuantity: numeric("purchase_quantity", { mode: "number", precision: 14, scale: 4 }),
+	catmatItemCodigo: integer("catmat_item_codigo"),
+	unitPrice: numeric("unit_price", { mode: "number", precision: 12, scale: 4 }),
+	snapshotSource: text("snapshot_source").default('native').notNull(),
+	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	maxIncreasePercent: smallint("max_increase_percent"),
+	maxQuantity: numeric("max_quantity", { mode: "number", precision: 14, scale: 4 }),
+	deliveryCycle: text("delivery_cycle"),
+	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
+	minQuoteQuantity: numeric("min_quote_quantity", { mode: "number", precision: 14, scale: 4 }),
+}, (table) => [
+	index("idx_quantity_estimate_snapshot_component_quantity_estimate_id").using("btree", table.quantityEstimateId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "quantity_estimate_snapshot_component_quantity_estimate_id_fkey"
+		}).onDelete("cascade"),
+	check("quantity_estimate_snapshot_component_snapshot_source_check", sql`snapshot_source = ANY (ARRAY['native'::text, 'backfill'::text])`),
+]);
+
 export const userDataInCore = core.table("user_data", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -519,58 +599,6 @@ export const supplyOrderItemInProcurement = procurement.table("supply_order_item
 			name: "supply_order_item_supply_order_id_fkey"
 		}).onDelete("cascade"),
 	check("supply_order_item_ordered_qty_check", sql`ordered_qty > (0)::numeric`),
-]);
-
-export const procurementListSnapshotSelectionInProcurement = procurement.table("procurement_list_snapshot_selection", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	listId: uuid("list_id").notNull(),
-	originTemplateId: uuid("origin_template_id"),
-	templateName: text("template_name"),
-	templateType: text("template_type"),
-	kitchenId: integer("kitchen_id"),
-	kitchenName: text("kitchen_name"),
-	repetitions: integer().default(1).notNull(),
-	snapshotSource: text("snapshot_source").default('native').notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("idx_proc_snapshot_selection_list_id").using("btree", table.listId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.listId],
-			foreignColumns: [procurementListInProcurement.id],
-			name: "procurement_list_snapshot_selection_list_id_fkey"
-		}).onDelete("cascade"),
-	check("procurement_list_snapshot_selection_snapshot_source_check", sql`snapshot_source = ANY (ARRAY['native'::text, 'backfill'::text])`),
-]);
-
-export const procurementListSnapshotComponentInProcurement = procurement.table("procurement_list_snapshot_component", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	listId: uuid("list_id").notNull(),
-	ingredientId: uuid("ingredient_id"),
-	ingredientName: text("ingredient_name").notNull(),
-	folderDescription: text("folder_description"),
-	measureUnit: text("measure_unit"),
-	totalQuantity: numeric("total_quantity", { mode: "number", precision: 14, scale: 4 }).notNull(),
-	purchaseItemId: uuid("purchase_item_id"),
-	purchaseItemDescription: text("purchase_item_description"),
-	purchaseMeasureUnit: text("purchase_measure_unit"),
-	purchaseQuantity: numeric("purchase_quantity", { mode: "number", precision: 14, scale: 4 }),
-	catmatItemCodigo: integer("catmat_item_codigo"),
-	unitPrice: numeric("unit_price", { mode: "number", precision: 12, scale: 4 }),
-	snapshotSource: text("snapshot_source").default('native').notNull(),
-	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	maxMarginPercent: smallint("max_margin_percent"),
-	maxQuantity: numeric("max_quantity", { mode: "number", precision: 14, scale: 4 }),
-	deliveryCycle: text("delivery_cycle"),
-	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
-	minQuoteQuantity: numeric("min_quote_quantity", { mode: "number", precision: 14, scale: 4 }),
-}, (table) => [
-	index("idx_proc_snapshot_component_list_id").using("btree", table.listId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.listId],
-			foreignColumns: [procurementListInProcurement.id],
-			name: "procurement_list_snapshot_component_list_id_fkey"
-		}).onDelete("cascade"),
-	check("procurement_list_snapshot_component_snapshot_source_check", sql`snapshot_source = ANY (ARRAY['native'::text, 'backfill'::text])`),
 ]);
 
 export const nfeItemInInventory = inventory.table("nfe_item", {
@@ -1074,55 +1102,6 @@ export const acquisitionInProcurement = procurement.table("acquisition", {
 	check("acquisition_validity_ck", sql`(valid_to IS NULL) OR (valid_from IS NULL) OR (valid_to >= valid_from)`),
 ]);
 
-export const procurementListSelectionInProcurement = procurement.table("procurement_list_selection", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	listKitchenId: uuid("list_kitchen_id").notNull(),
-	templateId: uuid("template_id").notNull(),
-	repetitions: integer().default(1).notNull(),
-	originTemplateId: uuid("origin_template_id"),
-}, (table) => [
-	index("procurement_list_selection_list_kitchen_id_fk_idx").using("btree", table.listKitchenId.asc().nullsLast()),
-	index("procurement_list_selection_origin_template_id_fk_idx").using("btree", table.originTemplateId.asc().nullsLast()),
-	index("procurement_list_selection_template_id_fk_idx").using("btree", table.templateId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.listKitchenId],
-			foreignColumns: [procurementListKitchenInProcurement.id],
-			name: "procurement_list_selection_list_kitchen_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.originTemplateId],
-			foreignColumns: [menuTemplateInKitchen.id],
-			name: "procurement_list_selection_origin_template_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.templateId],
-			foreignColumns: [menuTemplateInKitchen.id],
-			name: "procurement_list_selection_template_id_fkey"
-		}),
-	check("procurement_list_selection_repetitions_check", sql`repetitions > 0`),
-]);
-
-export const procurementListKitchenInProcurement = procurement.table("procurement_list_kitchen", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	listId: uuid("list_id").notNull(),
-	kitchenId: integer("kitchen_id").notNull(),
-	deliveryNotes: text("delivery_notes"),
-}, (table) => [
-	index("idx_procurement_list_kitchen_list_id").using("btree", table.listId.asc().nullsLast()),
-	index("procurement_list_kitchen_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.kitchenId],
-			foreignColumns: [kitchenInKitchen.id],
-			name: "procurement_list_kitchen_kitchen_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.listId],
-			foreignColumns: [procurementListInProcurement.id],
-			name: "procurement_list_kitchen_list_id_fkey"
-		}).onDelete("cascade"),
-	unique("procurement_list_kitchen_list_id_kitchen_id_key").on(table.listId, table.kitchenId),
-]);
-
 export const unitsInCore = core.table("units", {
 	id: bigserial({ mode: "number" }).primaryKey().notNull(),
 	code: text().notNull(),
@@ -1160,43 +1139,6 @@ export const unitsInCore = core.table("units", {
 	unique("units_code_key").on(table.code),
 	check("units_cnpj_format", sql`(cnpj IS NULL) OR (cnpj ~ '^[0-9A-Z]{12}[0-9]{2}$'::text)`),
 	check("units_supporting_not_self", sql`(supporting_unit_id IS NULL) OR (supporting_unit_id <> id)`),
-]);
-
-export const procurementListInProcurement = procurement.table("procurement_list", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	unitId: integer("unit_id").notNull(),
-	title: text().notNull(),
-	notes: text(),
-	status: text().default('draft').notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
-	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
-	wizardStep: smallint("wizard_step"),
-	validityMonths: smallint("validity_months"),
-	maxMarginPercent: smallint("max_margin_percent").default(20).notNull(),
-	marginJustification: text("margin_justification"),
-	segmentId: uuid("segment_id"),
-	isBudgetConfidential: boolean("is_budget_confidential").default(false).notNull(),
-	minQuotePercent: numeric("min_quote_percent", { mode: "number", precision: 5, scale: 2 }).default(100).notNull(),
-}, (table) => [
-	index("idx_procurement_list_unit_status").using("btree", table.unitId.asc().nullsLast(), table.status.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
-	index("procurement_list_segment_idx").using("btree", table.segmentId.asc().nullsLast()).where(sql`(segment_id IS NOT NULL)`),
-	index("procurement_list_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.segmentId],
-			foreignColumns: [procurementSegmentInProcurement.id],
-			name: "procurement_list_segment_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.unitId],
-			foreignColumns: [unitsInCore.id],
-			name: "procurement_list_unit_id_fkey"
-		}),
-	check("procurement_list_max_margin_percent_check", sql`(max_margin_percent >= 0) AND (max_margin_percent <= 100)`),
-	check("procurement_list_min_quote_percent_check", sql`(min_quote_percent > (0)::numeric) AND (min_quote_percent <= (100)::numeric)`),
-	check("procurement_list_status_check", sql`status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text])`),
-	check("procurement_list_validity_months_check", sql`(validity_months IS NULL) OR ((validity_months > 0) AND (validity_months <= 120))`),
-	check("procurement_list_wizard_step_check", sql`(wizard_step >= 1) AND (wizard_step <= 5)`),
 ]);
 
 export const ingredientInKitchen = kitchen.table("ingredient", {
@@ -1262,6 +1204,27 @@ export const directContractLimitInProcurement = procurement.table("direct_contra
 	unique("direct_contract_limit_clause_valid_from_key").on(table.clause, table.validFrom),
 	check("direct_contract_limit_clause_check", sql`clause = ANY (ARRAY['I'::text, 'II'::text])`),
 	check("direct_contract_limit_value_check", sql`value > (0)::numeric`),
+]);
+
+export const quantityEstimateKitchenInProcurement = procurement.table("quantity_estimate_kitchen", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
+	kitchenId: integer("kitchen_id").notNull(),
+	deliveryNotes: text("delivery_notes"),
+}, (table) => [
+	index("idx_quantity_estimate_kitchen_quantity_estimate_id").using("btree", table.quantityEstimateId.asc().nullsLast()),
+	index("quantity_estimate_kitchen_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "quantity_estimate_kitchen_kitchen_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "quantity_estimate_kitchen_quantity_estimate_id_fkey"
+		}).onDelete("cascade"),
+	unique("quantity_estimate_kitchen_quantity_estimate_id_kitchen_id_key").on(table.quantityEstimateId, table.kitchenId),
 ]);
 
 export const preparationGroupInKitchen = kitchen.table("preparation_group", {
@@ -1445,8 +1408,10 @@ export const procurementArpInProcurement = procurement.table("procurement_arp", 
 	acquisitionId: uuid("acquisition_id"),
 	source: text().default('compras_gov').notNull(),
 	procurementListId: uuid("procurement_list_id"),
+	quantityEstimateId: uuid("quantity_estimate_id"),
 }, (table) => [
 	index("idx_procurement_arp_procurement_list").using("btree", table.procurementListId.asc().nullsLast()),
+	index("idx_procurement_arp_quantity_estimate").using("btree", table.quantityEstimateId.asc().nullsLast()),
 	index("idx_procurement_arp_unit").using("btree", table.unitId.asc().nullsLast()),
 	index("procurement_arp_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
 	foreignKey({
@@ -1456,8 +1421,13 @@ export const procurementArpInProcurement = procurement.table("procurement_arp", 
 		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.procurementListId],
-			foreignColumns: [procurementListInProcurement.id],
+			foreignColumns: [quantityEstimateInProcurement.id],
 			name: "procurement_arp_procurement_list_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "procurement_arp_quantity_estimate_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.unitId],
@@ -1634,31 +1604,6 @@ export const productionTaskInKitchen = kitchen.table("production_task", {
 	check("production_task_leftover_quantity_check", sql`leftover_quantity >= (0)::numeric`),
 	check("production_task_produced_quantity_check", sql`produced_quantity >= (0)::numeric`),
 	check("production_task_status_check", sql`status = ANY (ARRAY['PENDING'::text, 'IN_PROGRESS'::text, 'DONE'::text])`),
-]);
-
-export const priceResearchEmissionInProcurement = procurement.table("price_research_emission", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	listId: uuid("list_id").notNull(),
-	sequence: integer().notNull(),
-	emittedBy: uuid("emitted_by"),
-	emittedAt: timestamp("emitted_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	sha256: text().notNull(),
-	items: jsonb().notNull(),
-}, (table) => [
-	index("price_research_emission_emitted_by_fk_idx").using("btree", table.emittedBy.asc().nullsLast()),
-	foreignKey({
-			columns: [table.emittedBy],
-			foreignColumns: [usersInAuth.id],
-			name: "price_research_emission_emitted_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.listId],
-			foreignColumns: [procurementListInProcurement.id],
-			name: "price_research_emission_list_id_fkey"
-		}).onDelete("cascade"),
-	unique("price_research_emission_list_id_sequence_key").on(table.listId, table.sequence),
-	check("price_research_emission_sequence_check", sql`sequence > 0`),
-	check("price_research_emission_sha256_check", sql`sha256 ~ '^[0-9a-f]{64}$'::text`),
 ]);
 
 export const folderInKitchen = kitchen.table("folder", {
@@ -2347,6 +2292,43 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 	check("menu_template_snack_family_check", sql`(snack_family IS NULL) OR (snack_family = ANY (ARRAY['bordo'::text, 'apoio'::text]))`),
 	check("menu_template_snack_variant_check", sql`(snack_variant IS NULL) OR (snack_variant = ANY (ARRAY['lanche'::text, 'refeicao'::text]))`),
 	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text])`),
+]);
+
+export const quantityEstimateInProcurement = procurement.table("quantity_estimate", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	unitId: integer("unit_id").notNull(),
+	title: text().notNull(),
+	notes: text(),
+	status: text().default('draft').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	wizardStep: smallint("wizard_step"),
+	validityMonths: smallint("validity_months"),
+	maxIncreasePercent: smallint("max_increase_percent").default(20).notNull(),
+	maxQuantityJustification: text("max_quantity_justification"),
+	segmentId: uuid("segment_id"),
+	isBudgetConfidential: boolean("is_budget_confidential").default(false).notNull(),
+	minQuotePercent: numeric("min_quote_percent", { mode: "number", precision: 5, scale: 2 }).default(100).notNull(),
+}, (table) => [
+	index("idx_quantity_estimate_unit_status").using("btree", table.unitId.asc().nullsLast(), table.status.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("quantity_estimate_segment_idx").using("btree", table.segmentId.asc().nullsLast()).where(sql`(segment_id IS NOT NULL)`),
+	index("quantity_estimate_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.segmentId],
+			foreignColumns: [procurementSegmentInProcurement.id],
+			name: "quantity_estimate_segment_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.unitId],
+			foreignColumns: [unitsInCore.id],
+			name: "quantity_estimate_unit_id_fkey"
+		}),
+	check("quantity_estimate_max_increase_percent_check", sql`(max_increase_percent >= 0) AND (max_increase_percent <= 100)`),
+	check("quantity_estimate_min_quote_percent_check", sql`(min_quote_percent > (0)::numeric) AND (min_quote_percent <= (100)::numeric)`),
+	check("quantity_estimate_status_check", sql`status = ANY (ARRAY['draft'::text, 'completed'::text, 'published'::text, 'archived'::text])`),
+	check("quantity_estimate_validity_months_check", sql`(validity_months IS NULL) OR ((validity_months > 0) AND (validity_months <= 120))`),
+	check("quantity_estimate_wizard_step_check", sql`(wizard_step >= 1) AND (wizard_step <= 5)`),
 ]);
 
 export const sensitiveOperationLogInAccessControl = accessControl.table("sensitive_operation_log", {
@@ -3236,6 +3218,38 @@ export const goodsReceiptInInventory = inventory.table("goods_receipt", {
 	check("goods_receipt_supplier_document_digits", sql`(supplier_document IS NULL) OR (supplier_document ~ '^([0-9]{11}|[0-9]{14})$'::text)`),
 ]);
 
+export const priceResearchEmissionInProcurement = procurement.table("price_research_emission", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	listId: uuid("list_id").notNull(),
+	sequence: integer().notNull(),
+	emittedBy: uuid("emitted_by"),
+	emittedAt: timestamp("emitted_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	sha256: text().notNull(),
+	items: jsonb().notNull(),
+	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
+}, (table) => [
+	index("price_research_emission_emitted_by_fk_idx").using("btree", table.emittedBy.asc().nullsLast()),
+	foreignKey({
+			columns: [table.emittedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "price_research_emission_emitted_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.listId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "price_research_emission_list_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "price_research_emission_quantity_estimate_id_fkey"
+		}).onDelete("cascade"),
+	unique("price_research_emission_list_id_sequence_key").on(table.listId, table.sequence),
+	unique("price_research_emission_quantity_estimate_id_sequence_key").on(table.sequence, table.quantityEstimateId),
+	check("price_research_emission_sequence_check", sql`sequence > 0`),
+	check("price_research_emission_sha256_check", sql`sha256 ~ '^[0-9a-f]{64}$'::text`),
+]);
+
 export const contractDesignationInProcurement = procurement.table("contract_designation", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -3967,13 +3981,20 @@ export const procurementPesquisaPrecoItemInProcurement = procurement.table("proc
 	justificationOutOfPeriod: text("justification_out_of_period"),
 	manualSelection: boolean("manual_selection").default(false).notNull(),
 	procurementListItemId: uuid("procurement_list_item_id"),
+	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
 }, (table) => [
 	index("idx_pesquisa_preco_item_procurement_list_item").using("btree", table.procurementListItemId.asc().nullsLast()),
+	index("idx_pesquisa_preco_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
 	index("idx_pesquisa_preco_item_research").using("btree", table.researchId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.procurementListItemId],
-			foreignColumns: [procurementListItemInProcurement.id],
+			foreignColumns: [quantityEstimateItemInProcurement.id],
 			name: "procurement_pesquisa_preco_item_procurement_list_item_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.quantityEstimateItemId],
+			foreignColumns: [quantityEstimateItemInProcurement.id],
+			name: "procurement_pesquisa_preco_item_quantity_estimate_item_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.researchId],
@@ -4474,58 +4495,6 @@ export const stockIssueRequestInInventory = inventory.table("stock_issue_request
 	check("stock_issue_request_status_check", sql`status = ANY (ARRAY['open'::text, 'closed'::text, 'closed_unexplained'::text])`),
 ]);
 
-export const procurementListItemInProcurement = procurement.table("procurement_list_item", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	listId: uuid("list_id").notNull(),
-	ingredientId: uuid("ingredient_id"),
-	catmatItemCodigo: integer("catmat_item_codigo"),
-	catmatItemDescricao: text("catmat_item_descricao"),
-	ingredientName: text("ingredient_name").notNull(),
-	folderId: uuid("folder_id"),
-	folderDescription: text("folder_description"),
-	measureUnit: text("measure_unit"),
-	totalQuantity: numeric("total_quantity", { mode: "number", precision: 14, scale: 4 }).notNull(),
-	unitPrice: numeric("unit_price", { mode: "number", precision: 12, scale: 4 }),
-	purchaseItemId: uuid("purchase_item_id"),
-	purchaseItemDescription: text("purchase_item_description"),
-	purchaseMeasureUnit: text("purchase_measure_unit"),
-	purchaseQuantity: numeric("purchase_quantity", { mode: "number", precision: 14, scale: 4 }),
-	conversionFactor: numeric("conversion_factor", { mode: "number", precision: 12, scale: 6 }),
-	itemDescription: text("item_description"),
-	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }),
-	maxMarginPercent: smallint("max_margin_percent"),
-	deliveryCycle: text("delivery_cycle"),
-	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
-}, (table) => [
-	index("idx_procurement_list_item_list_id").using("btree", table.listId.asc().nullsLast()),
-	index("procurement_list_item_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast()).where(sql`(folder_id IS NOT NULL)`),
-	index("procurement_list_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
-	index("procurement_list_item_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast()).where(sql`(purchase_item_id IS NOT NULL)`),
-	foreignKey({
-			columns: [table.folderId],
-			foreignColumns: [folderInKitchen.id],
-			name: "procurement_list_item_folder_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.ingredientId],
-			foreignColumns: [ingredientInKitchen.id],
-			name: "procurement_list_item_ingredient_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.listId],
-			foreignColumns: [procurementListInProcurement.id],
-			name: "procurement_list_item_list_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.purchaseItemId],
-			foreignColumns: [purchaseItemInProcurement.id],
-			name: "procurement_list_item_purchase_item_id_fkey"
-		}),
-	check("procurement_list_item_delivery_cycle_check", sql`(delivery_cycle IS NULL) OR (delivery_cycle = ANY (ARRAY['weekly'::text, 'monthly'::text]))`),
-	check("procurement_list_item_max_margin_percent_check", sql`(max_margin_percent IS NULL) OR ((max_margin_percent >= 0) AND (max_margin_percent <= 100))`),
-	check("procurement_list_item_min_order_quantity_check", sql`(min_order_quantity IS NULL) OR (min_order_quantity > (0)::numeric)`),
-]);
-
 export const trainingResetLogInKitchen = kitchen.table("training_reset_log", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	actorId: uuid("actor_id").notNull(),
@@ -4770,6 +4739,89 @@ export const goodsReceiptItemInInventory = inventory.table("goods_receipt_item",
 	check("goods_receipt_item_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) = 1`),
 ]);
 
+export const procurementArpItemInProcurement = procurement.table("procurement_arp_item", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	arpId: uuid("arp_id").notNull(),
+	numeroItem: integer("numero_item"),
+	catmatItemCodigo: integer("catmat_item_codigo"),
+	descricaoItem: text("descricao_item"),
+	niFornecedor: text("ni_fornecedor"),
+	nomeFornecedor: text("nome_fornecedor"),
+	valorUnitario: numeric("valor_unitario", { mode: "number", precision: 12, scale: 4 }),
+	quantidadeHomologada: numeric("quantidade_homologada", { mode: "number", precision: 14, scale: 4 }),
+	medidaCatmat: text("medida_catmat"),
+	quantidadeEmpenhada: numeric("quantidade_empenhada", { mode: "number", precision: 14, scale: 4 }).default(0),
+	saldoEmpenho: numeric("saldo_empenho", { mode: "number", precision: 14, scale: 4 }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	source: text().default('compras_gov').notNull(),
+	procurementListItemId: uuid("procurement_list_item_id"),
+	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
+}, (table) => [
+	index("idx_arp_item_arp").using("btree", table.arpId.asc().nullsLast()),
+	index("idx_arp_item_catmat").using("btree", table.catmatItemCodigo.asc().nullsLast()),
+	index("idx_arp_item_procurement_list_item").using("btree", table.procurementListItemId.asc().nullsLast()),
+	index("idx_arp_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
+	uniqueIndex("procurement_arp_item_numero_uq").using("btree", table.arpId.asc().nullsLast(), table.numeroItem.asc().nullsLast()).where(sql`(numero_item IS NOT NULL)`),
+	foreignKey({
+			columns: [table.arpId],
+			foreignColumns: [procurementArpInProcurement.id],
+			name: "procurement_arp_item_arp_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.procurementListItemId],
+			foreignColumns: [quantityEstimateItemInProcurement.id],
+			name: "procurement_arp_item_procurement_list_item_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.quantityEstimateItemId],
+			foreignColumns: [quantityEstimateItemInProcurement.id],
+			name: "procurement_arp_item_quantity_estimate_item_id_fkey"
+		}).onDelete("set null"),
+	check("procurement_arp_item_source_check", sql`source = ANY (ARRAY['compras_gov'::text, 'manual'::text])`),
+]);
+
+export const procurementPesquisaPrecoInProcurement = procurement.table("procurement_pesquisa_preco", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	referenceMethod: text("reference_method").default('median').notNull(),
+	periodMonths: smallint("period_months").default(12),
+	similarityThreshold: numeric("similarity_threshold", { mode: "number", precision: 4, scale: 3 }),
+	filterEstado: text("filter_estado"),
+	filterUasgCode: text("filter_uasg_code"),
+	filterMunicipioCode: integer("filter_municipio_code"),
+	totalItems: integer("total_items").default(0).notNull(),
+	itemsWithPrice: integer("items_with_price").default(0).notNull(),
+	itemsWithoutCatmat: integer("items_without_catmat").default(0).notNull(),
+	nonCompliantItems: integer("non_compliant_items").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	idempotencyKey: text("idempotency_key"),
+	createdBy: uuid("created_by"),
+	procurementListId: uuid("procurement_list_id"),
+	quantityEstimateId: uuid("quantity_estimate_id"),
+}, (table) => [
+	index("idx_pesquisa_preco_pending").using("btree", table.quantityEstimateId.asc().nullsLast()).where(sql`(quantity_estimate_id IS NULL)`),
+	index("idx_pesquisa_preco_pending_procurement_list_id").using("btree", table.procurementListId.asc().nullsLast()).where(sql`(procurement_list_id IS NULL)`),
+	index("idx_pesquisa_preco_procurement_list").using("btree", table.procurementListId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("idx_pesquisa_preco_quantity_estimate").using("btree", table.quantityEstimateId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("procurement_pesquisa_preco_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	uniqueIndex("uq_pesquisa_preco_idempotency").using("btree", table.idempotencyKey.asc().nullsLast()).where(sql`(idempotency_key IS NOT NULL)`),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "procurement_pesquisa_preco_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.procurementListId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "procurement_pesquisa_preco_procurement_list_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "procurement_pesquisa_preco_quantity_estimate_id_fkey"
+		}).onDelete("cascade"),
+	check("procurement_pesquisa_preco_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
+]);
+
 export const comprasMaterialClasseInComprasGovIntegration = comprasGovIntegration.table("compras_material_classe", {
 	codigoClasse: integer("codigo_classe").primaryKey().notNull(),
 	codigoGrupo: integer("codigo_grupo").notNull(),
@@ -4844,72 +4896,56 @@ export const comprasMaterialNaturezaDespesaInComprasGovIntegration = comprasGovI
 	unique("compras_material_natureza_des_codigo_pdm_codigo_natureza_de_key").on(table.codigoPdm, table.codigoNaturezaDespesa),
 ]);
 
-export const procurementArpItemInProcurement = procurement.table("procurement_arp_item", {
+export const quantityEstimateItemInProcurement = procurement.table("quantity_estimate_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	arpId: uuid("arp_id").notNull(),
-	numeroItem: integer("numero_item"),
+	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
+	ingredientId: uuid("ingredient_id"),
 	catmatItemCodigo: integer("catmat_item_codigo"),
-	descricaoItem: text("descricao_item"),
-	niFornecedor: text("ni_fornecedor"),
-	nomeFornecedor: text("nome_fornecedor"),
-	valorUnitario: numeric("valor_unitario", { mode: "number", precision: 12, scale: 4 }),
-	quantidadeHomologada: numeric("quantidade_homologada", { mode: "number", precision: 14, scale: 4 }),
-	medidaCatmat: text("medida_catmat"),
-	quantidadeEmpenhada: numeric("quantidade_empenhada", { mode: "number", precision: 14, scale: 4 }).default(0),
-	saldoEmpenho: numeric("saldo_empenho", { mode: "number", precision: 14, scale: 4 }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	source: text().default('compras_gov').notNull(),
-	procurementListItemId: uuid("procurement_list_item_id"),
+	catmatItemDescricao: text("catmat_item_descricao"),
+	ingredientName: text("ingredient_name").notNull(),
+	folderId: uuid("folder_id"),
+	folderDescription: text("folder_description"),
+	measureUnit: text("measure_unit"),
+	estimatedQuantity: numeric("estimated_quantity", { mode: "number", precision: 14, scale: 4 }).notNull(),
+	unitPrice: numeric("unit_price", { mode: "number", precision: 12, scale: 4 }),
+	purchaseItemId: uuid("purchase_item_id"),
+	purchaseItemDescription: text("purchase_item_description"),
+	purchaseMeasureUnit: text("purchase_measure_unit"),
+	purchaseQuantity: numeric("purchase_quantity", { mode: "number", precision: 14, scale: 4 }),
+	conversionFactor: numeric("conversion_factor", { mode: "number", precision: 12, scale: 6 }),
+	itemDescription: text("item_description"),
+	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }),
+	maxIncreasePercent: smallint("max_increase_percent"),
+	deliveryCycle: text("delivery_cycle"),
+	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
 }, (table) => [
-	index("idx_arp_item_arp").using("btree", table.arpId.asc().nullsLast()),
-	index("idx_arp_item_catmat").using("btree", table.catmatItemCodigo.asc().nullsLast()),
-	index("idx_arp_item_procurement_list_item").using("btree", table.procurementListItemId.asc().nullsLast()),
-	uniqueIndex("procurement_arp_item_numero_uq").using("btree", table.arpId.asc().nullsLast(), table.numeroItem.asc().nullsLast()).where(sql`(numero_item IS NOT NULL)`),
+	index("idx_quantity_estimate_item_quantity_estimate_id").using("btree", table.quantityEstimateId.asc().nullsLast()),
+	index("quantity_estimate_item_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast()).where(sql`(folder_id IS NOT NULL)`),
+	index("quantity_estimate_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("quantity_estimate_item_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast()).where(sql`(purchase_item_id IS NOT NULL)`),
 	foreignKey({
-			columns: [table.arpId],
-			foreignColumns: [procurementArpInProcurement.id],
-			name: "procurement_arp_item_arp_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.procurementListItemId],
-			foreignColumns: [procurementListItemInProcurement.id],
-			name: "procurement_arp_item_procurement_list_item_id_fkey"
+			columns: [table.folderId],
+			foreignColumns: [folderInKitchen.id],
+			name: "quantity_estimate_item_folder_id_fkey"
 		}).onDelete("set null"),
-	check("procurement_arp_item_source_check", sql`source = ANY (ARRAY['compras_gov'::text, 'manual'::text])`),
-]);
-
-export const procurementPesquisaPrecoInProcurement = procurement.table("procurement_pesquisa_preco", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	referenceMethod: text("reference_method").default('median').notNull(),
-	periodMonths: smallint("period_months").default(12),
-	similarityThreshold: numeric("similarity_threshold", { mode: "number", precision: 4, scale: 3 }),
-	filterEstado: text("filter_estado"),
-	filterUasgCode: text("filter_uasg_code"),
-	filterMunicipioCode: integer("filter_municipio_code"),
-	totalItems: integer("total_items").default(0).notNull(),
-	itemsWithPrice: integer("items_with_price").default(0).notNull(),
-	itemsWithoutCatmat: integer("items_without_catmat").default(0).notNull(),
-	nonCompliantItems: integer("non_compliant_items").default(0).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	idempotencyKey: text("idempotency_key"),
-	createdBy: uuid("created_by"),
-	procurementListId: uuid("procurement_list_id"),
-}, (table) => [
-	index("idx_pesquisa_preco_pending").using("btree", table.procurementListId.asc().nullsLast()).where(sql`(procurement_list_id IS NULL)`),
-	index("idx_pesquisa_preco_procurement_list").using("btree", table.procurementListId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
-	index("procurement_pesquisa_preco_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
-	uniqueIndex("uq_pesquisa_preco_idempotency").using("btree", table.idempotencyKey.asc().nullsLast()).where(sql`(idempotency_key IS NOT NULL)`),
 	foreignKey({
-			columns: [table.createdBy],
-			foreignColumns: [usersInAuth.id],
-			name: "procurement_pesquisa_preco_created_by_fkey"
+			columns: [table.ingredientId],
+			foreignColumns: [ingredientInKitchen.id],
+			name: "quantity_estimate_item_ingredient_id_fkey"
 		}),
 	foreignKey({
-			columns: [table.procurementListId],
-			foreignColumns: [procurementListInProcurement.id],
-			name: "procurement_pesquisa_preco_procurement_list_id_fkey"
+			columns: [table.purchaseItemId],
+			foreignColumns: [purchaseItemInProcurement.id],
+			name: "quantity_estimate_item_purchase_item_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "quantity_estimate_item_quantity_estimate_id_fkey"
 		}).onDelete("cascade"),
-	check("procurement_pesquisa_preco_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
+	check("quantity_estimate_item_delivery_cycle_check", sql`(delivery_cycle IS NULL) OR (delivery_cycle = ANY (ARRAY['weekly'::text, 'monthly'::text]))`),
+	check("quantity_estimate_item_max_increase_percent_check", sql`(max_increase_percent IS NULL) OR ((max_increase_percent >= 0) AND (max_increase_percent <= 100))`),
+	check("quantity_estimate_item_min_order_quantity_check", sql`(min_order_quantity IS NULL) OR (min_order_quantity > (0)::numeric)`),
 ]);
 
 export const stockCostInInventory = inventory.table("stock_cost", {
@@ -5509,9 +5545,12 @@ export const kitchenDemandForecastImportInProcurement = procurement.table("kitch
 	listId: uuid("list_id").notNull(),
 	importedBy: uuid("imported_by"),
 	importedAt: timestamp("imported_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
 }, (table) => [
 	index("kitchen_demand_forecast_import_imported_by_fk_idx").using("btree", table.importedBy.asc().nullsLast()),
 	index("kitchen_demand_forecast_import_list_idx").using("btree", table.listId.asc().nullsLast()),
+	index("kitchen_demand_forecast_import_quantity_estimate_idx").using("btree", table.quantityEstimateId.asc().nullsLast()),
+	uniqueIndex("kitchen_demand_forecast_import_quantity_estimate_key").using("btree", table.forecastId.asc().nullsLast(), table.quantityEstimateId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.forecastId],
 			foreignColumns: [kitchenDemandForecastInProcurement.id],
@@ -5524,8 +5563,13 @@ export const kitchenDemandForecastImportInProcurement = procurement.table("kitch
 		}),
 	foreignKey({
 			columns: [table.listId],
-			foreignColumns: [procurementListInProcurement.id],
+			foreignColumns: [quantityEstimateInProcurement.id],
 			name: "kitchen_demand_forecast_import_list_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "kitchen_demand_forecast_import_quantity_estimate_id_fkey"
 		}).onDelete("cascade"),
 	primaryKey({ columns: [table.forecastId, table.listId], name: "kitchen_demand_forecast_import_pkey"}),
 ]);
@@ -5619,7 +5663,7 @@ export const vMeasureUnitReviewInCore = core.view("v_measure_unit_review", {	sou
 	sourceId: text("source_id"),
 	sourceDescription: text("source_description"),
 	rawValue: text("raw_value"),
-}).with({"securityInvoker":true}).as(sql`SELECT 'kitchen.ingredient'::text AS source_table, ingredient.id::text AS source_id, COALESCE(ingredient.description, ''::text) AS source_description, ingredient.measure_unit AS raw_value FROM kitchen.ingredient WHERE ingredient.deleted_at IS NULL AND ingredient.measure_unit IS NOT NULL AND NOT (ingredient.measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'kitchen.ingredient_item'::text AS source_table, ingredient_item.id::text AS source_id, COALESCE(ingredient_item.description, ''::text) AS source_description, ingredient_item.purchase_measure_unit AS raw_value FROM kitchen.ingredient_item WHERE ingredient_item.deleted_at IS NULL AND ingredient_item.purchase_measure_unit IS NOT NULL AND NOT (ingredient_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.purchase_item'::text AS source_table, purchase_item.id::text AS source_id, purchase_item.description AS source_description, purchase_item.purchase_measure_unit AS raw_value FROM procurement.purchase_item WHERE purchase_item.deleted_at IS NULL AND purchase_item.purchase_measure_unit IS NOT NULL AND NOT (purchase_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.procurement_list_item'::text AS source_table, procurement_list_item.id::text AS source_id, procurement_list_item.ingredient_name AS source_description, procurement_list_item.measure_unit AS raw_value FROM procurement.procurement_list_item WHERE procurement_list_item.measure_unit IS NOT NULL AND NOT (procurement_list_item.measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.procurement_list_item (compra)'::text AS source_table, procurement_list_item.id::text AS source_id, procurement_list_item.ingredient_name AS source_description, procurement_list_item.purchase_measure_unit AS raw_value FROM procurement.procurement_list_item WHERE procurement_list_item.purchase_measure_unit IS NOT NULL AND NOT (procurement_list_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit))`);
+}).with({"securityInvoker":true}).as(sql`SELECT 'kitchen.ingredient'::text AS source_table, ingredient.id::text AS source_id, COALESCE(ingredient.description, ''::text) AS source_description, ingredient.measure_unit AS raw_value FROM kitchen.ingredient WHERE ingredient.deleted_at IS NULL AND ingredient.measure_unit IS NOT NULL AND NOT (ingredient.measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'kitchen.ingredient_item'::text AS source_table, ingredient_item.id::text AS source_id, COALESCE(ingredient_item.description, ''::text) AS source_description, ingredient_item.purchase_measure_unit AS raw_value FROM kitchen.ingredient_item WHERE ingredient_item.deleted_at IS NULL AND ingredient_item.purchase_measure_unit IS NOT NULL AND NOT (ingredient_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.purchase_item'::text AS source_table, purchase_item.id::text AS source_id, purchase_item.description AS source_description, purchase_item.purchase_measure_unit AS raw_value FROM procurement.purchase_item WHERE purchase_item.deleted_at IS NULL AND purchase_item.purchase_measure_unit IS NOT NULL AND NOT (purchase_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.procurement_list_item'::text AS source_table, quantity_estimate_item.id::text AS source_id, quantity_estimate_item.ingredient_name AS source_description, quantity_estimate_item.measure_unit AS raw_value FROM procurement.quantity_estimate_item WHERE quantity_estimate_item.measure_unit IS NOT NULL AND NOT (quantity_estimate_item.measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.procurement_list_item (compra)'::text AS source_table, quantity_estimate_item.id::text AS source_id, quantity_estimate_item.ingredient_name AS source_description, quantity_estimate_item.purchase_measure_unit AS raw_value FROM procurement.quantity_estimate_item WHERE quantity_estimate_item.purchase_measure_unit IS NOT NULL AND NOT (quantity_estimate_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit))`);
 
 export const personIdentityInCore = core.view("person_identity", {	id: uuid(),
 	displayName: text("display_name"),
@@ -5675,6 +5719,93 @@ export const vStockBalanceInInventory = inventory.view("v_stock_balance", {	// Y
 export const vUserIdentityInCore = core.view("v_user_identity", {	id: uuid(),
 	displayName: text("display_name"),
 }).with({ securityInvoker: true }).as(sql`SELECT ud.id, CASE WHEN NULLIF(TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || COALESCE(umd."nmGuerra", ''::text)), ''::text) IS NOT NULL THEN TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || initcap(COALESCE(umd."nmGuerra", ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.user_military_data umd ON umd."nrOrdem" = ud."nrOrdem"`);
+
+export const procurementListSelectionInProcurement = procurement.view("procurement_list_selection", {	id: uuid().defaultRandom(),
+	listKitchenId: uuid("list_kitchen_id"),
+	templateId: uuid("template_id"),
+	repetitions: integer().default(1),
+	originTemplateId: uuid("origin_template_id"),
+}).with({"securityInvoker":true}).as(sql`SELECT id, quantity_estimate_kitchen_id AS list_kitchen_id, template_id, repetitions, origin_template_id FROM procurement.quantity_estimate_selection`);
+
+export const procurementListKitchenInProcurement = procurement.view("procurement_list_kitchen", {	id: uuid().defaultRandom(),
+	listId: uuid("list_id"),
+	kitchenId: integer("kitchen_id"),
+	deliveryNotes: text("delivery_notes"),
+}).with({"securityInvoker":true}).as(sql`SELECT id, quantity_estimate_id AS list_id, kitchen_id, delivery_notes FROM procurement.quantity_estimate_kitchen`);
+
+export const procurementListSnapshotComponentInProcurement = procurement.view("procurement_list_snapshot_component", {	id: uuid().defaultRandom(),
+	listId: uuid("list_id"),
+	ingredientId: uuid("ingredient_id"),
+	ingredientName: text("ingredient_name"),
+	folderDescription: text("folder_description"),
+	measureUnit: text("measure_unit"),
+	totalQuantity: numeric("total_quantity", { mode: "number", precision: 14, scale: 4 }),
+	purchaseItemId: uuid("purchase_item_id"),
+	purchaseItemDescription: text("purchase_item_description"),
+	purchaseMeasureUnit: text("purchase_measure_unit"),
+	purchaseQuantity: numeric("purchase_quantity", { mode: "number", precision: 14, scale: 4 }),
+	catmatItemCodigo: integer("catmat_item_codigo"),
+	unitPrice: numeric("unit_price", { mode: "number", precision: 12, scale: 4 }),
+	snapshotSource: text("snapshot_source").default('native'),
+	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	maxMarginPercent: smallint("max_margin_percent"),
+	maxQuantity: numeric("max_quantity", { mode: "number", precision: 14, scale: 4 }),
+	deliveryCycle: text("delivery_cycle"),
+	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
+	minQuoteQuantity: numeric("min_quote_quantity", { mode: "number", precision: 14, scale: 4 }),
+}).with({"securityInvoker":true}).as(sql`SELECT id, quantity_estimate_id AS list_id, ingredient_id, ingredient_name, folder_description, measure_unit, estimated_quantity AS total_quantity, purchase_item_id, purchase_item_description, purchase_measure_unit, purchase_quantity, catmat_item_codigo, unit_price, snapshot_source, computed_at, max_increase_percent AS max_margin_percent, max_quantity, delivery_cycle, min_order_quantity, min_quote_quantity FROM procurement.quantity_estimate_snapshot_component`);
+
+export const procurementListSnapshotSelectionInProcurement = procurement.view("procurement_list_snapshot_selection", {	id: uuid().defaultRandom(),
+	listId: uuid("list_id"),
+	originTemplateId: uuid("origin_template_id"),
+	templateName: text("template_name"),
+	templateType: text("template_type"),
+	kitchenId: integer("kitchen_id"),
+	kitchenName: text("kitchen_name"),
+	repetitions: integer().default(1),
+	snapshotSource: text("snapshot_source").default('native'),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}).with({"securityInvoker":true}).as(sql`SELECT id, quantity_estimate_id AS list_id, origin_template_id, template_name, template_type, kitchen_id, kitchen_name, repetitions, snapshot_source, created_at FROM procurement.quantity_estimate_snapshot_selection`);
+
+export const procurementListInProcurement = procurement.view("procurement_list", {	id: uuid().defaultRandom(),
+	unitId: integer("unit_id"),
+	title: text(),
+	notes: text(),
+	status: text().default('draft'),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	wizardStep: smallint("wizard_step"),
+	validityMonths: smallint("validity_months"),
+	maxMarginPercent: smallint("max_margin_percent").default(20),
+	marginJustification: text("margin_justification"),
+	segmentId: uuid("segment_id"),
+	isBudgetConfidential: boolean("is_budget_confidential").default(false),
+	minQuotePercent: numeric("min_quote_percent", { mode: "number", precision: 5, scale: 2 }).default(100),
+}).with({"securityInvoker":true}).as(sql`SELECT id, unit_id, title, notes, status, created_at, updated_at, deleted_at, wizard_step, validity_months, max_increase_percent AS max_margin_percent, max_quantity_justification AS margin_justification, segment_id, is_budget_confidential, min_quote_percent FROM procurement.quantity_estimate`);
+
+export const procurementListItemInProcurement = procurement.view("procurement_list_item", {	id: uuid().defaultRandom(),
+	listId: uuid("list_id"),
+	ingredientId: uuid("ingredient_id"),
+	catmatItemCodigo: integer("catmat_item_codigo"),
+	catmatItemDescricao: text("catmat_item_descricao"),
+	ingredientName: text("ingredient_name"),
+	folderId: uuid("folder_id"),
+	folderDescription: text("folder_description"),
+	measureUnit: text("measure_unit"),
+	totalQuantity: numeric("total_quantity", { mode: "number", precision: 14, scale: 4 }),
+	unitPrice: numeric("unit_price", { mode: "number", precision: 12, scale: 4 }),
+	purchaseItemId: uuid("purchase_item_id"),
+	purchaseItemDescription: text("purchase_item_description"),
+	purchaseMeasureUnit: text("purchase_measure_unit"),
+	purchaseQuantity: numeric("purchase_quantity", { mode: "number", precision: 14, scale: 4 }),
+	conversionFactor: numeric("conversion_factor", { mode: "number", precision: 12, scale: 6 }),
+	itemDescription: text("item_description"),
+	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }),
+	maxMarginPercent: smallint("max_margin_percent"),
+	deliveryCycle: text("delivery_cycle"),
+	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
+}).with({"securityInvoker":true}).as(sql`SELECT id, quantity_estimate_id AS list_id, ingredient_id, catmat_item_codigo, catmat_item_descricao, ingredient_name, folder_id, folder_description, measure_unit, estimated_quantity AS total_quantity, unit_price, purchase_item_id, purchase_item_description, purchase_measure_unit, purchase_quantity, conversion_factor, item_description, computed_at, max_increase_percent AS max_margin_percent, delivery_cycle, min_order_quantity FROM procurement.quantity_estimate_item`);
 
 export const vLotExpiryInInventory = inventory.view("v_lot_expiry", {	lotId: uuid("lot_id"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations

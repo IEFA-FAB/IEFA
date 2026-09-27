@@ -98,7 +98,7 @@ export async function loadConservationClasses(): Promise<Map<string, Conservatio
 	return byIngredient
 }
 
-/** Unidade (OM) dona da cozinha — decide qual ATA é "da casa" na sugestão de custo. */
+/** Unidade (OM) dona da cozinha — decide qual ARP é "da casa" na sugestão de custo. */
 export async function loadKitchenUnitId(kitchenId: number): Promise<number | null> {
 	const { data, error } = await kitchen().from("kitchen").select("unit_id").eq("id", kitchenId).maybeSingle()
 	if (error) throw new Error(`Erro ao carregar a cozinha: ${error.message}`)
@@ -107,7 +107,7 @@ export async function loadKitchenUnitId(kitchenId: number): Promise<number | nul
 
 interface ListItemRow {
 	id: string
-	list_id: string
+	quantity_estimate_id: string
 	ingredient_id: string
 	unit_price: number | string | null
 	conversion_factor: number | string | null
@@ -120,14 +120,14 @@ const toNumber = (value: number | string | null | undefined) => (value == null ?
 /**
  * Sugestão de custo por insumo, em R$ por unidade BASE.
  *
- * Duas fontes, na ordem do spec ("último preço de ATA ou pesquisa de preço"):
+ * Duas fontes, na ordem do spec ("último preço de ARP ou pesquisa de preços"):
  *
  *  • **ARP** — `procurement_arp_item.valor_unitario`, o preço registrado na ata de registro
- *    de preços, ligado ao insumo pelo item da lista (`procurement_list_item_id`). Está na unidade de
- *    fornecimento; divide-se pelo `conversion_factor` do item da lista.
- *  • **Pesquisa de preços** — `procurement_list_item.unit_price`, o preço que a unidade
- *    pesquisou para a ATA em planejamento. Com item de compra vinculado (`purchase_quantity`
- *    preenchido) o preço é da unidade de compra e divide-se pelo fator; sem vínculo, a lista
+ *    de preços, ligado ao insumo pelo item do anexo quantitativo (`quantity_estimate_item_id`). Está na unidade de
+ *    fornecimento; divide-se pelo `conversion_factor` do item do anexo.
+ *  • **Pesquisa de preços** — `quantity_estimate_item.unit_price`, o preço que a unidade
+ *    pesquisou para o anexo quantitativo em planejamento. Com item de compra vinculado (`purchase_quantity`
+ *    preenchido) o preço é da unidade de compra e divide-se pelo fator; sem vínculo, o anexo
  *    trabalha na unidade do insumo (é assim que `AtaItemsTable` soma o total).
  *
  * Sem fator conhecido não há sugestão para aquela fonte: dividir por 1 por omissão é o que
@@ -137,8 +137,8 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 	const proc = procurement()
 	const listItems = await readAllPagesIn<ListItemRow>("os preços dos anexos quantitativos", ingredientIds, (chunk, from, to) =>
 		proc
-			.from("procurement_list_item")
-			.select("id, list_id, ingredient_id, unit_price, conversion_factor, purchase_quantity, computed_at")
+			.from("quantity_estimate_item")
+			.select("id, quantity_estimate_id, ingredient_id, unit_price, conversion_factor, purchase_quantity, computed_at")
 			.in("ingredient_id", chunk)
 			.order("id")
 			.range(from, to)
@@ -147,17 +147,17 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 
 	const lists = await readAllPagesIn<{ id: string; unit_id: number; title: string }>(
 		"os anexos quantitativos",
-		listItems.map((item) => item.list_id),
-		// ATA descartada não sugere preço: o custo de abertura vira custo médio e depois
+		listItems.map((item) => item.quantity_estimate_id),
+		// Anexo descartado não sugere preço: o custo de abertura vira custo médio e depois
 		// valor de balancete, e "aceitar todas" gravaria a fonte como se fosse pesquisa viva.
-		(chunk, from, to) => proc.from("procurement_list").select("id, unit_id, title").in("id", chunk).is("deleted_at", null).order("id").range(from, to)
+		(chunk, from, to) => proc.from("quantity_estimate").select("id, unit_id, title").in("id", chunk).is("deleted_at", null).order("id").range(from, to)
 	)
 	const listById = new Map(lists.map((list) => [list.id, list]))
 
 	const arpItems = await readAllPagesIn<{
 		id: string
 		arp_id: string
-		procurement_list_item_id: string
+		quantity_estimate_item_id: string
 		numero_item: number | null
 		valor_unitario: number | string | null
 	}>(
@@ -166,8 +166,8 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 		(chunk, from, to) =>
 			proc
 				.from("procurement_arp_item")
-				.select("id, arp_id, procurement_list_item_id, numero_item, valor_unitario")
-				.in("procurement_list_item_id", chunk)
+				.select("id, arp_id, quantity_estimate_item_id, numero_item, valor_unitario")
+				.in("quantity_estimate_item_id", chunk)
 				.not("valor_unitario", "is", null)
 				.order("id")
 				.range(from, to)
@@ -189,7 +189,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 	}
 
 	for (const arpItem of arpItems) {
-		const listItem = listItemById.get(arpItem.procurement_list_item_id)
+		const listItem = listItemById.get(arpItem.quantity_estimate_item_id)
 		const arp = arpById.get(arpItem.arp_id)
 		if (!listItem || !arp) continue
 		const unitCost = pricePerBaseUnit(toNumber(arpItem.valor_unitario), toNumber(listItem.conversion_factor))
@@ -197,7 +197,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 		push(listItem.ingredient_id, {
 			source: "ata",
 			unitCost,
-			reference: `ATA ${arp.numero_ata}${arp.ano_ata ? `/${arp.ano_ata}` : ""}${arpItem.numero_item != null ? `, item ${arpItem.numero_item}` : ""}`,
+			reference: `ARP ${arp.numero_ata}${arp.ano_ata ? `/${arp.ano_ata}` : ""}${arpItem.numero_item != null ? `, item ${arpItem.numero_item}` : ""}`,
 			sameUnit: unitId != null && Number(arp.unit_id) === unitId,
 			date: arp.data_vigencia_inicio,
 		})
@@ -207,7 +207,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 		const factor = item.purchase_quantity != null ? toNumber(item.conversion_factor) : 1
 		const unitCost = pricePerBaseUnit(toNumber(item.unit_price), factor)
 		if (unitCost == null) continue
-		const list = listById.get(item.list_id)
+		const list = listById.get(item.quantity_estimate_id)
 		push(item.ingredient_id, {
 			source: "price_research",
 			unitCost,

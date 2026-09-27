@@ -196,12 +196,12 @@ const TABLE_SCHEMA: Record<string, string> = {
 	policy: "access_control",
 	policy_statement: "access_control",
 	user_policy_attachment: "access_control",
-	// procurement. `procurement_list` e a previsão de demanda (`kitchen_demand_forecast`, antes `kitchen_ata_draft`) caíam no default `kitchen`: o probe
-	// do setupIntegration dava 42P01 e as suítes de ATA e de rascunho early-returnavam "passando".
+	// procurement. `quantity_estimate` e a previsão de demanda (`kitchen_demand_forecast`, antes `kitchen_ata_draft`) caíam no default `kitchen`: o probe
+	// do setupIntegration dava 42P01 e as suítes de anexo e de rascunho early-returnavam "passando".
 	purchase_item: "procurement",
 	purchase_item_ingredient: "procurement",
-	procurement_list: "procurement",
-	procurement_list_item: "procurement",
+	quantity_estimate: "procurement",
+	quantity_estimate_item: "procurement",
 	kitchen_demand_forecast: "procurement",
 	kitchen_demand_forecast_selection: "procurement",
 	procurement_segment: "procurement",

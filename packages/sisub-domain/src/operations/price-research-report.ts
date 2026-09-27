@@ -22,9 +22,9 @@ import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
-import { PRICE_RESEARCH_VALIDITY_DAYS, resolveAtaMaxQuantities } from "./ata.ts"
 import { evaluateResearchCompliance, type ResearchFinding, type ResearchJustificationKey, type ResearchJustifications } from "./price-research-compliance.ts"
 import { convertSamplePrice, isSamePrice, PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
+import { PRICE_RESEARCH_VALIDITY_DAYS, resolveQuantityEstimateMaxQuantities } from "./quantity-estimate.ts"
 
 /** Variação acima da qual o relatório pede análise crítica (art. 6º, § 4º). Limiar interno, declarado no documento. */
 export const HIGH_CV_PERCENT = 25
@@ -433,22 +433,22 @@ type Row = Record<string, unknown>
 const num = (v: unknown): number | null => (v == null ? null : Number(v))
 const str = (v: unknown): string | null => (v == null ? null : String(v))
 
-async function authorizeList(db: SisubDb, ctx: UserContext, listId: string, level: 1 | 2) {
+async function authorizeQuantityEstimate(db: SisubDb, ctx: UserContext, quantityEstimateId: string, level: 1 | 2) {
 	const rows = (await runQuery(
 		"FETCH_FAILED",
 		() =>
 			db.execute(sql`
 				select l.id, l.unit_id, l.title, l.status, l.validity_months, l.is_budget_confidential, l.segment_id,
 					s.name as segment_name, u.display_name as unit_name, u.uasg
-				from procurement.procurement_list l
+				from procurement.quantity_estimate l
 				left join procurement.procurement_segment s on s.id = l.segment_id
 				left join core.units u on u.id = l.unit_id
-				where l.id = ${listId} and l.deleted_at is null
+				where l.id = ${quantityEstimateId} and l.deleted_at is null
 			`),
 		{ prefix: "Erro ao ler o anexo" }
 	)) as unknown as Row[]
 	const list = rows[0]
-	if (!list) throw new NotFoundError("anexo quantitativo", listId)
+	if (!list) throw new NotFoundError("anexo quantitativo", quantityEstimateId)
 	requireUnit(ctx, level, Number(list.unit_id))
 	return list
 }
@@ -456,9 +456,9 @@ async function authorizeList(db: SisubDb, ctx: UserContext, listId: string, leve
 /**
  * Itens do anexo na ordem da tabela do TR (pasta, com as sem pasta no fim, depois o insumo), com a
  * quantidade máxima: a congelada no snapshot quando o anexo foi concluído, senão a da regra de
- * agora (`resolveAtaMaxQuantities`, a mesma dos limites do anexo).
+ * agora (`resolveQuantityEstimateMaxQuantities`, a mesma dos limites do anexo).
  */
-async function loadItems(db: SisubDb, listId: string, status: string): Promise<Omit<ReportItem, "research">[]> {
+async function loadItems(db: SisubDb, quantityEstimateId: string, status: string): Promise<Omit<ReportItem, "research">[]> {
 	const rows = (await runQuery(
 		"FETCH_FAILED",
 		() =>
@@ -467,8 +467,8 @@ async function loadItems(db: SisubDb, listId: string, status: string): Promise<O
 					coalesce(i.purchase_item_description, i.catmat_item_descricao, i.ingredient_name) as description,
 					coalesce(case when i.purchase_quantity is not null then i.purchase_measure_unit end, i.measure_unit, 'UN') as unit,
 					i.unit_price
-				from procurement.procurement_list_item i
-				where i.list_id = ${listId}
+				from procurement.quantity_estimate_item i
+				where i.quantity_estimate_id = ${quantityEstimateId}
 				order by i.folder_description asc nulls last, i.ingredient_name, i.id
 			`),
 		{ prefix: "Erro ao ler os itens do anexo" }
@@ -476,10 +476,12 @@ async function loadItems(db: SisubDb, listId: string, status: string): Promise<O
 
 	let maxById: Map<string, number>
 	if (status === "draft") {
-		maxById = await resolveAtaMaxQuantities(db, listId)
+		maxById = await resolveQuantityEstimateMaxQuantities(db, quantityEstimateId)
 	} else {
 		const components = (await runQuery("FETCH_FAILED", () =>
-			db.execute(sql`select ingredient_id, max_quantity from procurement.procurement_list_snapshot_component where list_id = ${listId}`)
+			db.execute(
+				sql`select ingredient_id, max_quantity from procurement.quantity_estimate_snapshot_component where quantity_estimate_id = ${quantityEstimateId}`
+			)
 		)) as unknown as Row[]
 		const byIngredient = new Map(components.filter((c) => c.ingredient_id != null).map((c) => [String(c.ingredient_id), num(c.max_quantity)]))
 		maxById = new Map()
@@ -622,20 +624,20 @@ async function latestResearchByItem(db: SisubDb, listItemIds: readonly string[])
 	if (listItemIds.length === 0) return new Map()
 	const rows = (await runQuery("FETCH_FAILED", () =>
 		db.execute(sql`
-			select distinct on (ri.procurement_list_item_id) ri.procurement_list_item_id, ri.id
+			select distinct on (ri.quantity_estimate_item_id) ri.quantity_estimate_item_id, ri.id
 			from procurement.procurement_pesquisa_preco_item ri
-			join procurement.procurement_list_item i on i.id = ri.procurement_list_item_id
-			where ri.procurement_list_item_id in (${sql.join(
+			join procurement.quantity_estimate_item i on i.id = ri.quantity_estimate_item_id
+			where ri.quantity_estimate_item_id in (${sql.join(
 				listItemIds.map((id) => sql`${id}::uuid`),
 				sql`, `
 			)})
-			order by ri.procurement_list_item_id,
+			order by ri.quantity_estimate_item_id,
 				(i.unit_price is not null and ri.reference_price is not null
 					and abs(ri.reference_price - i.unit_price) <= greatest(${PRICE_MATCH_ABSOLUTE}, abs(i.unit_price) * ${PRICE_MATCH_RELATIVE})) desc,
 				ri.created_at desc
 		`)
 	)) as unknown as Row[]
-	return new Map(rows.map((r) => [String(r.procurement_list_item_id), String(r.id)]))
+	return new Map(rows.map((r) => [String(r.quantity_estimate_item_id), String(r.id)]))
 }
 
 export interface PriceResearchReport {
@@ -668,9 +670,9 @@ export interface PriceResearchReport {
  * Gera uma emissão nova: a pesquisa mais recente de cada item e o preço de agora. Exige `unit:2`
  * na OM do anexo (grava). Devolve o id; o relatório se lê por `fetchPriceResearchReport`.
  */
-export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, input: { ataId: string }): Promise<{ id: string; sequence: number }> {
-	const list = await authorizeList(db, ctx, input.ataId, 2)
-	const items = await loadItems(db, input.ataId, String(list.status))
+export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, input: { quantityEstimateId: string }): Promise<{ id: string; sequence: number }> {
+	const list = await authorizeQuantityEstimate(db, ctx, input.quantityEstimateId, 2)
+	const items = await loadItems(db, input.quantityEstimateId, String(list.status))
 	if (items.length === 0) throw new DomainError("EMPTY_ANNEX", "O anexo não tem itens para o relatório de pesquisa de preços.")
 	const latest = await latestResearchByItem(
 		db,
@@ -691,17 +693,26 @@ export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, inp
 	return runQuery("TRANSACTION_FAILED", () =>
 		db.transaction(async (tx) => {
 			// Trava a linha do anexo: duas emissões simultâneas disputariam o mesmo número.
-			await tx.execute(sql`select id from procurement.procurement_list where id = ${input.ataId} for update`)
+			await tx.execute(sql`select id from procurement.quantity_estimate where id = ${input.quantityEstimateId} for update`)
 			const [last] = await tx
 				.select({ sequence: priceResearchEmissionInProcurement.sequence })
 				.from(priceResearchEmissionInProcurement)
-				.where(eq(priceResearchEmissionInProcurement.listId, input.ataId))
+				.where(eq(priceResearchEmissionInProcurement.quantityEstimateId, input.quantityEstimateId))
 				.orderBy(desc(priceResearchEmissionInProcurement.sequence))
 				.limit(1)
 			const sequence = (last?.sequence ?? 0) + 1
 			const [row] = await tx
 				.insert(priceResearchEmissionInProcurement)
-				.values({ listId: input.ataId, sequence, emittedBy: ctx.userId, emittedAt, sha256, items: frozen })
+				// `listId`: coluna antiga, NOT NULL e espelhada até o contract 20260927050000, que a remove.
+				.values({
+					quantityEstimateId: input.quantityEstimateId,
+					listId: input.quantityEstimateId, // nosemgrep: ubiquitous-language-lot2-identifier
+					sequence,
+					emittedBy: ctx.userId,
+					emittedAt,
+					sha256,
+					items: frozen,
+				})
 				.returning({ id: priceResearchEmissionInProcurement.id })
 			return { id: row.id, sequence }
 		})
@@ -715,9 +726,9 @@ export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, inp
 export async function fetchPriceResearchReport(
 	db: SisubDb,
 	ctx: UserContext,
-	input: { ataId: string; emissionId?: string | null }
+	input: { quantityEstimateId: string; emissionId?: string | null }
 ): Promise<PriceResearchReport | null> {
-	const list = await authorizeList(db, ctx, input.ataId, 1)
+	const list = await authorizeQuantityEstimate(db, ctx, input.quantityEstimateId, 1)
 	const emissions = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
@@ -726,7 +737,7 @@ export async function fetchPriceResearchReport(
 				emittedAt: priceResearchEmissionInProcurement.emittedAt,
 			})
 			.from(priceResearchEmissionInProcurement)
-			.where(eq(priceResearchEmissionInProcurement.listId, input.ataId))
+			.where(eq(priceResearchEmissionInProcurement.quantityEstimateId, input.quantityEstimateId))
 			.orderBy(desc(priceResearchEmissionInProcurement.sequence))
 	)
 	const chosenId = input.emissionId ?? emissions[0]?.id
@@ -739,7 +750,7 @@ export async function fetchPriceResearchReport(
 			left join auth.users au on au.id = e.emitted_by
 			left join core.user_data ud on ud.id = e.emitted_by
 			left join core.user_military_data m on m."nrOrdem" = ud."nrOrdem"
-			where e.id = ${chosenId} and e.list_id = ${input.ataId}
+			where e.id = ${chosenId} and e.quantity_estimate_id = ${input.quantityEstimateId}
 		`)
 	)) as unknown as Row[]
 	if (!emission) throw new NotFoundError("emissão", chosenId)

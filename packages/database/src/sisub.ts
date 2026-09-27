@@ -152,21 +152,21 @@ export type RecipeIngredientAlternative = Tables<"recipe_ingredient_alternatives
 export type RecipeIngredientAlternativeInsert = TablesInsert<"recipe_ingredient_alternatives">
 export type RecipeIngredientAlternativeUpdate = TablesUpdate<"recipe_ingredient_alternatives">
 
-export type ProcurementList = Tables<"procurement_list">
-export type ProcurementListInsert = TablesInsert<"procurement_list">
-export type ProcurementListUpdate = TablesUpdate<"procurement_list">
+export type QuantityEstimate = Tables<"quantity_estimate">
+export type QuantityEstimateInsert = TablesInsert<"quantity_estimate">
+export type QuantityEstimateUpdate = TablesUpdate<"quantity_estimate">
 
-export type ProcurementListKitchen = Tables<"procurement_list_kitchen">
-export type ProcurementListKitchenInsert = TablesInsert<"procurement_list_kitchen">
-export type ProcurementListKitchenUpdate = TablesUpdate<"procurement_list_kitchen">
+export type QuantityEstimateKitchen = Tables<"quantity_estimate_kitchen">
+export type QuantityEstimateKitchenInsert = TablesInsert<"quantity_estimate_kitchen">
+export type QuantityEstimateKitchenUpdate = TablesUpdate<"quantity_estimate_kitchen">
 
-export type ProcurementListSelection = Tables<"procurement_list_selection">
-export type ProcurementListSelectionInsert = TablesInsert<"procurement_list_selection">
-export type ProcurementListSelectionUpdate = TablesUpdate<"procurement_list_selection">
+export type QuantityEstimateSelection = Tables<"quantity_estimate_selection">
+export type QuantityEstimateSelectionInsert = TablesInsert<"quantity_estimate_selection">
+export type QuantityEstimateSelectionUpdate = TablesUpdate<"quantity_estimate_selection">
 
-export type ProcurementListItem = Tables<"procurement_list_item">
-export type ProcurementListItemInsert = TablesInsert<"procurement_list_item">
-export type ProcurementListItemUpdate = TablesUpdate<"procurement_list_item">
+export type QuantityEstimateItem = Tables<"quantity_estimate_item">
+export type QuantityEstimateItemInsert = TablesInsert<"quantity_estimate_item">
+export type QuantityEstimateItemUpdate = TablesUpdate<"quantity_estimate_item">
 
 // Previsão de demanda da cozinha (glossário: `demand_forecast`).
 export type DemandForecast = Tables<"kitchen_demand_forecast">

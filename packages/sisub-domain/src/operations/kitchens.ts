@@ -3,7 +3,7 @@
  *
  * Auth: leituras de referência (`listKitchens`/`listUnitKitchens`) são apenas autenticadas —
  * o catálogo de cozinhas/unidades (id, nome, OM) é visível a qualquer usuário logado (ex.: o
- * admin `global` monta o seletor de escopo de permissões sem ter `kitchen`; o wizard da ATA
+ * admin `global` monta o seletor de escopo de permissões sem ter `kitchen`; o wizard do anexo quantitativo
  * lista as cozinhas da OM). Mesma postura de `listUnits`/`listAllMessHalls`. O ENDEREÇO não é
  * catálogo: `fetchKitchenSettings` exige `kitchen:1` na cozinha ou `unit:1` numa OM dela, e a
  * ESCRITA de settings exige `kitchen:2` na própria cozinha.

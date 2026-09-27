@@ -36,14 +36,14 @@ export function SegmentChoice({
 		<Card>
 			<CardContent className="pt-6">
 				<Field>
-					<FieldLabel htmlFor="ata-segment">Contratação planejada deste anexo</FieldLabel>
+					<FieldLabel htmlFor="quantity-estimate-segment">Contratação planejada deste anexo</FieldLabel>
 					<Select
 						// O id guardado segue como valor mesmo quando a contratação sumiu: assim escolher
 						// "Todos os itens" é uma mudança de verdade e dispara `onValueChange`.
 						value={value ?? ALL_ITEMS}
 						onValueChange={(next) => onChange(next == null || next === ALL_ITEMS ? null : (segments.find((s) => s.id === next) ?? null))}
 					>
-						<SelectTrigger id="ata-segment" className="w-full sm:w-96">
+						<SelectTrigger id="quantity-estimate-segment" className="w-full sm:w-96">
 							<SelectValue>
 								{selected
 									? selected.name

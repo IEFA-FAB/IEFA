@@ -3,9 +3,9 @@
  * schema onde ela realmente mora.
  *
  * O client do chat nasce com `db: { schema: "kitchen" }`. Enquanto `untypedFrom` não recebia
- * schema, `list_atas` pedia `kitchen.procurement_list` — o PostgREST devolvia PGRST205 e a
- * tool respondia "Erro ao executar…". Módulo `unit` inteiro (menos `get_ata_details`) e os
- * quatro tools de `local-analytics` estavam assim, sem nenhum sinal: `untypedFrom` devolve
+ * schema, a listagem dos anexos pedia a tabela deles em `kitchen` — o PostgREST devolvia
+ * PGRST205 e a tool respondia "Erro ao executar…". Módulo `unit` inteiro (menos o detalhe do
+ * anexo) e os quatro tools de `local-analytics` estavam assim, sem nenhum sinal: `untypedFrom` devolve
  * `any`, então typecheck e teste de argumentos passavam verdes.
  *
  * O teste roda os handlers de verdade contra um client falso que grava (schema, tabela) de
@@ -23,10 +23,10 @@ import { unitTools } from "./unit"
 const TABLE_SCHEMA: Record<string, string> = {
 	units: "core",
 	kitchen: "core",
-	procurement_list: "procurement",
-	procurement_list_item: "procurement",
-	procurement_list_kitchen: "procurement",
-	procurement_list_selection: "procurement",
+	quantity_estimate: "procurement",
+	quantity_estimate_item: "procurement",
+	quantity_estimate_kitchen: "procurement",
+	quantity_estimate_selection: "procurement",
 	procurement_arp: "procurement",
 	procurement_arp_item: "procurement",
 	empenho: "finance",
@@ -47,13 +47,13 @@ const ROW = {
 	id: UUID,
 	unit_id: UNIT_ID,
 	kitchen_id: 1,
-	procurement_list_id: UUID,
-	procurement_list_item_id: UUID,
+	quantity_estimate_id: UUID,
+	quantity_estimate_item_id: UUID,
 	arp_id: UUID,
 	ingredient_id: UUID,
 	ingredient_name: "Arroz polido",
-	title: "ATA 2026/1",
-	status: "published",
+	title: "Anexo 2026/1",
+	status: "completed",
 	uasg: "120001",
 	code: "BAAF",
 	display_name: "Cozinha da Guarnição",
@@ -129,10 +129,15 @@ function permission(module: string, level: number): UserPermission {
 
 /** Argumentos mínimos por tool para o handler chegar até as queries. */
 const ARGS: Record<string, Record<string, unknown>> = {
-	get_ata_details: { ataId: UUID },
-	update_ata_status: { ataId: UUID, status: "published" },
-	list_empenhos: { ataId: UUID },
+	list_empenhos: { quantityEstimateId: UUID },
 }
+
+/**
+ * Tools que não montam PostgREST: leem por `@iefa/sisub-domain/agent` e escrevem pela operation
+ * (Drizzle, `ctx.db`), então não há `.from()` para conferir — o nome da tabela é o do schema
+ * Drizzle, checado pelo typecheck. Ficam fora do contrato de schema.
+ */
+const DOMAIN_TOOLS = new Set(["list_quantity_estimates", "get_quantity_estimate", "update_quantity_estimate_status", "get_unit_dashboard"])
 
 async function runTool(def: ModuleToolDefinition, ctx: ToolContext): Promise<void> {
 	// Autorização e validação já têm testes próprios; aqui só interessa aonde a query foi.
@@ -160,6 +165,7 @@ describe("schema de destino das queries do chat", () => {
 		const ctx = ctxFor(calls, permissions as unknown as UserPermission[])
 
 		for (const def of tools) {
+			if (DOMAIN_TOOLS.has(def.name)) continue
 			await runTool(def, ctx)
 		}
 
@@ -179,6 +185,7 @@ describe("schema de destino das queries do chat", () => {
 		["local-analytics", localAnalyticsTools, [permission("local-analytics", 2)]],
 	] as const)("nenhuma tool de %s escapa sem consultar nada", async (_module, tools, permissions) => {
 		for (const def of tools) {
+			if (DOMAIN_TOOLS.has(def.name)) continue
 			const calls: QueryCall[] = []
 			await runTool(def, ctxFor(calls, permissions as unknown as UserPermission[]))
 			// `search_arp` consulta `core.units` antes de sair para a API externa; todas as

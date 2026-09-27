@@ -5,7 +5,7 @@ import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { useDemandForecasts, useSendDemandForecast, useUpdateDemandForecast } from "@/hooks/data/useDemandForecast"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
-import type { TemplateSelection } from "@/types/domain/ata"
+import type { TemplateSelection } from "@/types/domain/quantity-estimate"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/demand-forecasts/$forecastId")({
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),

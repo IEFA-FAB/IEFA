@@ -195,7 +195,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		if (needs.length === 0) return []
 		const ingredientIds = needs.map((n) => n.ingredient_id)
 
-		// (2) FC/IR do ingrediente (herança receita→ingrediente fica na ATA; aqui é reposição)
+		// (2) FC/IR do ingrediente (herança receita→ingrediente fica no anexo quantitativo; aqui é reposição)
 		const { data: ingredients } = await kit.from("ingredient").select("id, correction_factor, rehydration_index").in("id", ingredientIds)
 		const factorsById = new Map((ingredients ?? []).map((i: { id: string }) => [i.id, i]))
 
@@ -297,10 +297,10 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		{
 			const { data: arpItems } = await proc
 				.from("procurement_arp_item")
-				.select("saldo_empenho, ni_fornecedor, ata_item:procurement_list_item_id (ingredient_id), arp:arp_id (data_vigencia_fim)")
-				.not("procurement_list_item_id", "is", null)
+				.select("saldo_empenho, ni_fornecedor, quantity_estimate_item:quantity_estimate_item_id (ingredient_id), arp:arp_id (data_vigencia_fim)")
+				.not("quantity_estimate_item_id", "is", null)
 			for (const item of arpItems ?? []) {
-				const ingredientId = item.ata_item?.ingredient_id
+				const ingredientId = item.quantity_estimate_item?.ingredient_id
 				if (!ingredientId || !ingredientIds.includes(ingredientId)) continue
 				if (item.arp?.data_vigencia_fim != null && item.arp.data_vigencia_fim < today) continue
 				arpBalanceById.set(ingredientId, (arpBalanceById.get(ingredientId) ?? 0) + Number(item.saldo_empenho ?? 0))
@@ -336,7 +336,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		return needs
 			.map((need) => {
 				const factors = factorsById.get(need.ingredient_id) as { correction_factor: number | null; rehydration_index: number | null } | undefined
-				const grossDemand = applyCorrectionFactors(need.total_quantity, {
+				const grossDemand = applyCorrectionFactors(need.estimated_quantity, {
 					correctionFactor: factors?.correction_factor != null ? Number(factors.correction_factor) : null,
 					rehydrationIndex: factors?.rehydration_index != null ? Number(factors.rehydration_index) : null,
 				})
@@ -379,7 +379,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 					netNeed,
 					ownArpBalance: arpBalanceById.get(need.ingredient_id) ?? 0,
 					// carona não é pesquisada automaticamente (custo de API por item);
-					// a busca manual de ARP externa fica na tela de ATAs
+					// a busca manual de ARP externa fica na tela de anexos quantitativos
 					caronaAvailable: null,
 					hasCatmat: catmatByIngredient.get(need.ingredient_id) ?? false,
 					coverageDays,
@@ -401,7 +401,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 					leadTime,
 					channel: decision.channel,
 					reason: decision.reason,
-					calcMemory: `bruta ${need.total_quantity} × FC ${factors?.correction_factor ?? 1} ÷ IR ${factors?.rehydration_index ?? 1} = ${grossDemand}${minStock > 0 ? ` + mínimo ${minStock}` : ""}; − estoque ${stock.available.toFixed(2)} (excl. ${stock.expiring.toFixed(2)} vencendo) − trânsito ${inTransit} = ${netNeed}`,
+					calcMemory: `bruta ${need.estimated_quantity} × FC ${factors?.correction_factor ?? 1} ÷ IR ${factors?.rehydration_index ?? 1} = ${grossDemand}${minStock > 0 ? ` + mínimo ${minStock}` : ""}; − estoque ${stock.available.toFixed(2)} (excl. ${stock.expiring.toFixed(2)} vencendo) − trânsito ${inTransit} = ${netNeed}`,
 				}
 			})
 			.filter((s) => s.netNeed > 0 || s.expiringExcluded > 0)

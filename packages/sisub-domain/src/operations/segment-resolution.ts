@@ -2,7 +2,7 @@
  * Resolução de contratação (segmento) de uma linha do anexo quantitativo.
  *
  * A linha é o ITEM DE COMPRA (ou o insumo, quando ainda não há item de compra): é por ela que o
- * anexo agrega e é ela que entra na ata. Um item de compra pode servir a vários insumos em pastas
+ * anexo agrega e é ela que entra na ata de registro de preços. Um item de compra pode servir a vários insumos em pastas
  * diferentes (`purchase_item_ingredient` é N:N), então a linha chega com a cadeia de pastas de
  * CADA insumo, da folha para a raiz.
  *
@@ -17,7 +17,7 @@
  * 3. Insumos do mesmo item que resolvem para contratações diferentes: conflito. Parte resolve e
  *    parte não: vale a resolvida.
  *
- * Conflito é bloqueante porque o órgão não pode participar de duas atas com o mesmo objeto
+ * Conflito é bloqueante porque o órgão não pode participar de duas atas de registro de preços com o mesmo objeto
  * (Lei 14.133/2021, art. 82, VIII).
  */
 

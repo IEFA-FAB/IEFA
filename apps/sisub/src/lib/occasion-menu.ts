@@ -62,7 +62,7 @@ export const OCCASION_MENU_COPY: Record<OccasionMenuType, OccasionMenuCopy> = {
 	},
 }
 
-/** "" → null; senão inteiro positivo (nulo se inválido). Em branco conta como 1 ocorrência na Ata. */
+/** "" → null; senão inteiro positivo (nulo se inválido). Em branco conta como 1 ocorrência no anexo quantitativo. */
 export function parseMonthlyOccurrences(value: string): number | null {
 	const parsed = Number.parseInt(value, 10)
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : null

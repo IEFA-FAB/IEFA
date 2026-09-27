@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { hasSuspiciousUnitConversion } from "./ata-utils"
+import { hasSuspiciousUnitConversion } from "./quantity-estimate-utils"
 
 describe("hasSuspiciousUnitConversion", () => {
 	test("unidades diferentes com fator 1 é suspeito", () => {

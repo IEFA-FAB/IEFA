@@ -44,7 +44,7 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 
 	// ── Estoque ──
 	// O que é DADO operacional do estoque (ledger, lotes, recebimentos, NF-e, ajustes,
-	// contagens, OF, designações, a ATA da sentinela) está no reset desde 20260921191000:
+	// contagens, OF, designações, o anexo quantitativo da sentinela) está no reset desde 20260921191000:
 	// o Conjunto Treino não concede `storage`, mas instrutor e conta de teste concedem, e uma
 	// única baixa por produção na cozinha de treino fazia o reset falhar no ledger imutável.
 	// Fica aqui só a CONFIGURAÇÃO da cozinha sentinela — sem linha valem os defaults, então
@@ -82,17 +82,9 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// RESET_STEPS.
 	// `procurement.kitchen_demand_forecast` (a antiga `kitchen_ata_draft`, renomeada em
 	// 20260927010000) foi declarada aqui antes do rename e já está em RESET_STEPS.
-	//
-	// Anexo quantitativo — migration 20260927040000 renomeia `procurement.procurement_list*`
-	// para `procurement.quantity_estimate*` (estimativa das quantidades, Lei 14.133, art. 18,
-	// § 1º, IV) e deixa views de compatibilidade com os nomes antigos. As três tabelas com
-	// coluna de escopo são declaradas antes do rename; o PR do rename as promove a RESET_STEPS.
-	"procurement.quantity_estimate":
-		"declarada antes do rename (20260927040000): é a procurement.procurement_list, que o reset já apaga pela view de compatibilidade até o PR do rename trocar o passo",
-	"procurement.quantity_estimate_kitchen":
-		"declarada antes do rename (20260927040000): é a procurement.procurement_list_kitchen, que o reset já apaga pela view de compatibilidade até o PR do rename trocar o passo",
-	"procurement.quantity_estimate_snapshot_selection":
-		"declarada antes do rename (20260927040000): é a procurement.procurement_list_snapshot_selection, que o reset já apaga pela view de compatibilidade até o PR do rename trocar o passo",
+	// `procurement.quantity_estimate`, `quantity_estimate_kitchen` e
+	// `quantity_estimate_snapshot_selection` (a antiga `procurement_list*`, renomeada em
+	// 20260927040000) foram declaradas aqui antes do rename e já estão em RESET_STEPS.
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */

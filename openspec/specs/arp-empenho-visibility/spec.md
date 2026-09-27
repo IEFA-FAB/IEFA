@@ -4,13 +4,13 @@
 TBD - created by archiving change sisub-inventory-cycle. Update Purpose after archive.
 ## Requirements
 ### Requirement: Painel de saldo com duas visões — oficial e local
-O sistema SHALL exibir, na tela da ATA (`/unit/$unitId/procurement/$ataId`), um painel por item de ARP que distinga explicitamente duas grandezas de origens diferentes:
+O sistema SHALL exibir, na tela do anexo quantitativo (`/unit/$unitId/quantity-estimates/$quantityEstimateId`), um painel por item de ARP que distinga explicitamente duas grandezas de origens diferentes:
 - **Saldo oficial** (snapshot da API Compras.gov em `procurement_arp_item.quantidade_empenhada`/`saldo_empenho`, com `synced_at`) — inclui consumo de **outras UASGs** (caronas/adesões) e só muda em sincronização;
 - **Comprometimento local** (soma dos empenhos com status `ativo` em `finance.empenho` da unidade) — calculado em tempo real.
 O painel MUST NOT somar nem confundir as duas grandezas, e SHALL exibir a data do snapshot oficial.
 
 #### Scenario: Visualização das duas visões
-- **WHEN** o gestor abre uma ATA vinculada a uma ARP importada
+- **WHEN** o gestor abre um anexo quantitativo vinculado a uma ARP importada
 - **THEN** o painel lista, por item: quantidade homologada, empenhado oficial e saldo oficial (com `synced_at`), e empenhado local (calculado de `finance.empenho`)
 
 #### Scenario: Item sem empenho local mas com consumo externo
@@ -45,7 +45,7 @@ O painel SHALL, adicionalmente, exibir por empenho os saldos derivados do docume
 - **WHEN** o gestor anula um empenho ativo
 - **THEN** o status muda para `anulado`, um evento de anulação é registrado no histórico do documento, o comprometimento local é recomposto e o saldo oficial permanece o do último snapshot
 
-#### Scenario: Saldos da execução no painel da ATA
+#### Scenario: Saldos da execução no painel do anexo quantitativo
 - **WHEN** um empenho do item tem R$ 15.000 vigentes, R$ 9.000 liquidados e R$ 4.000 pagos
 - **THEN** a linha expandida mostra esses três valores e o saldo a liquidar de R$ 6.000, com link para o documento completo
 

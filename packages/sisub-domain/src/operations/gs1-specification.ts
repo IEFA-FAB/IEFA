@@ -57,7 +57,7 @@ export interface SpecificationComparison {
  * Impressão digital da exigência. Ordena atributos e valores antes de
  * hashear, para que reordenar a mesma exigência não invalide vereditos
  * gravados. Sem isto, mudar a especificação deixaria vereditos velhos com
- * cara de válidos — a mesma classe de erro do snapshot de ATA que não congela
+ * cara de válidos — a mesma classe de erro do snapshot do anexo quantitativo que não congela
  * o que publicou.
  */
 export function specFingerprint(requirements: readonly GpcRequirement[]): string {

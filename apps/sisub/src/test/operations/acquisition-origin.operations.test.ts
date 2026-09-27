@@ -58,7 +58,7 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 
 				// ARP de outra UASG, sem anexo quantitativo, cadastrada à mão.
 				const [arp] = await tx`
-					insert into procurement.procurement_arp (unit_id, procurement_list_id, acquisition_id, numero_ata, uasg_gerenciadora, source)
+					insert into procurement.procurement_arp (unit_id, quantity_estimate_id, acquisition_id, numero_ata, uasg_gerenciadora, source)
 					values (${unit.id}, null, ${acq.id}, '00012/2026', '120001', 'manual') returning id, last_synced_at`
 				expect(arp.last_synced_at).toBeNull()
 				const items = await tx`
@@ -172,9 +172,9 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 		await expect(
 			inRollback(sql, async (tx) => {
 				const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-ANEXO', 'unit teste anexo') returning id`
-				const [list] = await tx`insert into procurement.procurement_list (unit_id, title) values (${unit.id}, 'anexo que vai sumir') returning id`
+				const [list] = await tx`insert into procurement.quantity_estimate (unit_id, title) values (${unit.id}, 'anexo que vai sumir') returning id`
 				const [arp] = await tx`
-					insert into procurement.procurement_arp (unit_id, procurement_list_id, numero_ata, uasg_gerenciadora)
+					insert into procurement.procurement_arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora)
 					values (${unit.id}, ${list.id}, '00001/2026', '160001') returning id`
 				const [arpItem] = await tx`
 					insert into procurement.procurement_arp_item (arp_id, numero_item, valor_unitario, quantidade_homologada) values (${arp.id}, 1, 5, 100) returning id`
@@ -186,9 +186,9 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 					insert into finance.empenho_item (empenho_id, arp_item_id, quantity, unit_price, value)
 					values (${ne.id}, ${arpItem.id}, 100, 5, 500)`
 
-				await tx`delete from procurement.procurement_list where id = ${list.id}`
-				const [arpAfter] = await tx`select procurement_list_id from procurement.procurement_arp where id = ${arp.id}`
-				expect(arpAfter.procurement_list_id).toBeNull()
+				await tx`delete from procurement.quantity_estimate where id = ${list.id}`
+				const [arpAfter] = await tx`select quantity_estimate_id from procurement.procurement_arp where id = ${arp.id}`
+				expect(arpAfter.quantity_estimate_id).toBeNull()
 				const [neAfter] = await tx`select count(*)::int as n from finance.empenho where id = ${ne.id}`
 				expect(neAfter.n).toBe(1)
 

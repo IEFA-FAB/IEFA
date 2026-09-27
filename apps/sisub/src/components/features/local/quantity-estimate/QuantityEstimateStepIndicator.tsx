@@ -1,10 +1,10 @@
 import { Check } from "lucide-react"
 import { cn } from "@/lib/cn"
 
-export type AtaStep = 1 | 2 | 3 | 4 | 5
+export type QuantityEstimateStep = 1 | 2 | 3 | 4 | 5
 
 interface StepDef {
-	number: AtaStep
+	number: QuantityEstimateStep
 	label: string
 }
 
@@ -18,11 +18,11 @@ const STEPS: StepDef[] = [
 	{ number: 5, label: "Itens" },
 ]
 
-interface AtaStepIndicatorProps {
-	currentStep: AtaStep
+interface QuantityEstimateStepIndicatorProps {
+	currentStep: QuantityEstimateStep
 }
 
-export function AtaStepIndicator({ currentStep }: AtaStepIndicatorProps) {
+export function QuantityEstimateStepIndicator({ currentStep }: QuantityEstimateStepIndicatorProps) {
 	return (
 		<nav aria-label="Etapas do anexo quantitativo" className="flex items-center gap-0">
 			{STEPS.map((step, index) => {

@@ -105,7 +105,7 @@ type Fk = {
  * FK que o fecho segue: as que BARRAM o delete do pai (NO ACTION, RESTRICT) e a CASCADE, cujo
  * filho o banco apagaria de qualquer jeito (e que pode ter neto NO ACTION a coletar). SET NULL e
  * SET DEFAULT ficam de fora: o banco só zera a coluna do filho, que é dado real e não pode sumir
- * junto com a fixture (`procurement_list_item.folder_id` de uma pasta `[TEST]`).
+ * junto com a fixture (`quantity_estimate_item.folder_id` de uma pasta `[TEST]`).
  */
 function isFollowedOnDelete(onDelete: string): boolean {
 	return onDelete === "a" || onDelete === "r" || onDelete === "c"

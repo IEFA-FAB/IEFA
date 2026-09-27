@@ -78,7 +78,7 @@ test.describe("Anexo quantitativo — pesquisa de preços", () => {
 		if (draftId) {
 			let lastError: string | null = null
 			for (let attempt = 0; attempt < 5; attempt++) {
-				const lists = await db.schema("procurement").from("procurement_list").delete().eq("id", draftId).eq("unit_id", UNIT_ID)
+				const lists = await db.schema("procurement").from("quantity_estimate").delete().eq("id", draftId).eq("unit_id", UNIT_ID)
 				lastError = lists.error?.message ?? null
 				if (!lastError) break
 				await new Promise((resolve) => setTimeout(resolve, 2_000))
@@ -94,7 +94,7 @@ test.describe("Anexo quantitativo — pesquisa de preços", () => {
 	})
 
 	test("converte as embalagens para a unidade do item e só aplica o preço com memória de cálculo", async ({ authenticatedPage: page }) => {
-		await page.goto(`/unit/${UNIT_ID}/procurement/new`)
+		await page.goto(`/unit/${UNIT_ID}/quantity-estimates/new`)
 		await waitForHydration(page, `[id="template-${templateId}"]`)
 		// O wizard cria o rascunho ao entrar e grava o id na URL.
 		await page.waitForURL(/draft=/)

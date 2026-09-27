@@ -52,7 +52,7 @@ export interface EmpenhoRow extends Partial<EmpenhoSaldo> {
 	rp_tipo: string | null
 }
 
-/** Saldos por empenho (view única — mesma fonte do painel da ATA). */
+/** Saldos por empenho (view única — mesma fonte do painel do anexo quantitativo). */
 async function fetchSaldos(empenhoIds: string[]): Promise<Map<string, EmpenhoSaldo>> {
 	const map = new Map<string, EmpenhoSaldo>()
 	if (empenhoIds.length === 0) return map

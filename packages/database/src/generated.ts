@@ -12430,18 +12430,21 @@ export type Database = {
           imported_at: string
           imported_by: string | null
           list_id: string
+          quantity_estimate_id: string
         }
         Insert: {
           forecast_id: string
           imported_at?: string
           imported_by?: string | null
           list_id: string
+          quantity_estimate_id: string
         }
         Update: {
           forecast_id?: string
           imported_at?: string
           imported_by?: string | null
           list_id?: string
+          quantity_estimate_id?: string
         }
         Relationships: [
           {
@@ -12456,6 +12459,27 @@ export type Database = {
             columns: ["list_id"]
             isOneToOne: false
             referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_demand_forecast_import_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_demand_forecast_import_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_demand_forecast_import_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
             referencedColumns: ["id"]
           },
         ]
@@ -12532,6 +12556,7 @@ export type Database = {
           id: string
           items: Json
           list_id: string
+          quantity_estimate_id: string
           sequence: number
           sha256: string
         }
@@ -12541,6 +12566,7 @@ export type Database = {
           id?: string
           items: Json
           list_id: string
+          quantity_estimate_id: string
           sequence: number
           sha256: string
         }
@@ -12550,6 +12576,7 @@ export type Database = {
           id?: string
           items?: Json
           list_id?: string
+          quantity_estimate_id?: string
           sequence?: number
           sha256?: string
         }
@@ -12559,6 +12586,27 @@ export type Database = {
             columns: ["list_id"]
             isOneToOne: false
             referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_research_emission_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_research_emission_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_research_emission_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
             referencedColumns: ["id"]
           },
         ]
@@ -12576,6 +12624,7 @@ export type Database = {
           numero_ata: string
           objeto: string | null
           procurement_list_id: string | null
+          quantity_estimate_id: string | null
           source: string
           status_ata: string | null
           uasg_gerenciadora: string
@@ -12593,6 +12642,7 @@ export type Database = {
           numero_ata: string
           objeto?: string | null
           procurement_list_id?: string | null
+          quantity_estimate_id?: string | null
           source?: string
           status_ata?: string | null
           uasg_gerenciadora: string
@@ -12610,6 +12660,7 @@ export type Database = {
           numero_ata?: string
           objeto?: string | null
           procurement_list_id?: string | null
+          quantity_estimate_id?: string | null
           source?: string
           status_ata?: string | null
           uasg_gerenciadora?: string
@@ -12630,6 +12681,27 @@ export type Database = {
             referencedRelation: "procurement_list"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "procurement_arp_procurement_list_id_fkey"
+            columns: ["procurement_list_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_arp_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_arp_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
         ]
       }
       procurement_arp_item: {
@@ -12645,6 +12717,7 @@ export type Database = {
           procurement_list_item_id: string | null
           quantidade_empenhada: number | null
           quantidade_homologada: number | null
+          quantity_estimate_item_id: string | null
           saldo_empenho: number | null
           source: string
           synced_at: string
@@ -12662,6 +12735,7 @@ export type Database = {
           procurement_list_item_id?: string | null
           quantidade_empenhada?: number | null
           quantidade_homologada?: number | null
+          quantity_estimate_item_id?: string | null
           saldo_empenho?: number | null
           source?: string
           synced_at?: string
@@ -12679,6 +12753,7 @@ export type Database = {
           procurement_list_item_id?: string | null
           quantidade_empenhada?: number | null
           quantidade_homologada?: number | null
+          quantity_estimate_item_id?: string | null
           saldo_empenho?: number | null
           source?: string
           synced_at?: string
@@ -12699,345 +12774,25 @@ export type Database = {
             referencedRelation: "procurement_list_item"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      procurement_list: {
-        Row: {
-          created_at: string
-          deleted_at: string | null
-          id: string
-          is_budget_confidential: boolean
-          margin_justification: string | null
-          max_margin_percent: number
-          min_quote_percent: number
-          notes: string | null
-          segment_id: string | null
-          status: string
-          title: string
-          unit_id: number
-          updated_at: string | null
-          validity_months: number | null
-          wizard_step: number | null
-        }
-        Insert: {
-          created_at?: string
-          deleted_at?: string | null
-          id?: string
-          is_budget_confidential?: boolean
-          margin_justification?: string | null
-          max_margin_percent?: number
-          min_quote_percent?: number
-          notes?: string | null
-          segment_id?: string | null
-          status?: string
-          title: string
-          unit_id: number
-          updated_at?: string | null
-          validity_months?: number | null
-          wizard_step?: number | null
-        }
-        Update: {
-          created_at?: string
-          deleted_at?: string | null
-          id?: string
-          is_budget_confidential?: boolean
-          margin_justification?: string | null
-          max_margin_percent?: number
-          min_quote_percent?: number
-          notes?: string | null
-          segment_id?: string | null
-          status?: string
-          title?: string
-          unit_id?: number
-          updated_at?: string | null
-          validity_months?: number | null
-          wizard_step?: number | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "procurement_list_segment_id_fkey"
-            columns: ["segment_id"]
+            foreignKeyName: "procurement_arp_item_procurement_list_item_id_fkey"
+            columns: ["procurement_list_item_id"]
             isOneToOne: false
-            referencedRelation: "procurement_segment"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      procurement_list_item: {
-        Row: {
-          catmat_item_codigo: number | null
-          catmat_item_descricao: string | null
-          computed_at: string | null
-          conversion_factor: number | null
-          delivery_cycle: string | null
-          folder_description: string | null
-          folder_id: string | null
-          id: string
-          ingredient_id: string | null
-          ingredient_name: string
-          item_description: string | null
-          list_id: string
-          max_margin_percent: number | null
-          measure_unit: string | null
-          min_order_quantity: number | null
-          purchase_item_description: string | null
-          purchase_item_id: string | null
-          purchase_measure_unit: string | null
-          purchase_quantity: number | null
-          total_quantity: number
-          unit_price: number | null
-        }
-        Insert: {
-          catmat_item_codigo?: number | null
-          catmat_item_descricao?: string | null
-          computed_at?: string | null
-          conversion_factor?: number | null
-          delivery_cycle?: string | null
-          folder_description?: string | null
-          folder_id?: string | null
-          id?: string
-          ingredient_id?: string | null
-          ingredient_name: string
-          item_description?: string | null
-          list_id: string
-          max_margin_percent?: number | null
-          measure_unit?: string | null
-          min_order_quantity?: number | null
-          purchase_item_description?: string | null
-          purchase_item_id?: string | null
-          purchase_measure_unit?: string | null
-          purchase_quantity?: number | null
-          total_quantity: number
-          unit_price?: number | null
-        }
-        Update: {
-          catmat_item_codigo?: number | null
-          catmat_item_descricao?: string | null
-          computed_at?: string | null
-          conversion_factor?: number | null
-          delivery_cycle?: string | null
-          folder_description?: string | null
-          folder_id?: string | null
-          id?: string
-          ingredient_id?: string | null
-          ingredient_name?: string
-          item_description?: string | null
-          list_id?: string
-          max_margin_percent?: number | null
-          measure_unit?: string | null
-          min_order_quantity?: number | null
-          purchase_item_description?: string | null
-          purchase_item_id?: string | null
-          purchase_measure_unit?: string | null
-          purchase_quantity?: number | null
-          total_quantity?: number
-          unit_price?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "procurement_list_item_list_id_fkey"
-            columns: ["list_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_list"
+            referencedRelation: "quantity_estimate_item"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "procurement_list_item_purchase_item_id_fkey"
-            columns: ["purchase_item_id"]
+            foreignKeyName: "procurement_arp_item_quantity_estimate_item_id_fkey"
+            columns: ["quantity_estimate_item_id"]
             isOneToOne: false
-            referencedRelation: "purchase_item"
+            referencedRelation: "procurement_list_item"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "procurement_list_item_purchase_item_id_fkey"
-            columns: ["purchase_item_id"]
+            foreignKeyName: "procurement_arp_item_quantity_estimate_item_id_fkey"
+            columns: ["quantity_estimate_item_id"]
             isOneToOne: false
-            referencedRelation: "v_purchase_item_conditioning_review"
-            referencedColumns: ["purchase_item_id"]
-          },
-        ]
-      }
-      procurement_list_kitchen: {
-        Row: {
-          delivery_notes: string | null
-          id: string
-          kitchen_id: number
-          list_id: string
-        }
-        Insert: {
-          delivery_notes?: string | null
-          id?: string
-          kitchen_id: number
-          list_id: string
-        }
-        Update: {
-          delivery_notes?: string | null
-          id?: string
-          kitchen_id?: number
-          list_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "procurement_list_kitchen_list_id_fkey"
-            columns: ["list_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_list"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      procurement_list_selection: {
-        Row: {
-          id: string
-          list_kitchen_id: string
-          origin_template_id: string | null
-          repetitions: number
-          template_id: string
-        }
-        Insert: {
-          id?: string
-          list_kitchen_id: string
-          origin_template_id?: string | null
-          repetitions?: number
-          template_id: string
-        }
-        Update: {
-          id?: string
-          list_kitchen_id?: string
-          origin_template_id?: string | null
-          repetitions?: number
-          template_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "procurement_list_selection_list_kitchen_id_fkey"
-            columns: ["list_kitchen_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_list_kitchen"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      procurement_list_snapshot_component: {
-        Row: {
-          catmat_item_codigo: number | null
-          computed_at: string
-          delivery_cycle: string | null
-          folder_description: string | null
-          id: string
-          ingredient_id: string | null
-          ingredient_name: string
-          list_id: string
-          max_margin_percent: number | null
-          max_quantity: number | null
-          measure_unit: string | null
-          min_order_quantity: number | null
-          min_quote_quantity: number | null
-          purchase_item_description: string | null
-          purchase_item_id: string | null
-          purchase_measure_unit: string | null
-          purchase_quantity: number | null
-          snapshot_source: string
-          total_quantity: number
-          unit_price: number | null
-        }
-        Insert: {
-          catmat_item_codigo?: number | null
-          computed_at?: string
-          delivery_cycle?: string | null
-          folder_description?: string | null
-          id?: string
-          ingredient_id?: string | null
-          ingredient_name: string
-          list_id: string
-          max_margin_percent?: number | null
-          max_quantity?: number | null
-          measure_unit?: string | null
-          min_order_quantity?: number | null
-          min_quote_quantity?: number | null
-          purchase_item_description?: string | null
-          purchase_item_id?: string | null
-          purchase_measure_unit?: string | null
-          purchase_quantity?: number | null
-          snapshot_source?: string
-          total_quantity: number
-          unit_price?: number | null
-        }
-        Update: {
-          catmat_item_codigo?: number | null
-          computed_at?: string
-          delivery_cycle?: string | null
-          folder_description?: string | null
-          id?: string
-          ingredient_id?: string | null
-          ingredient_name?: string
-          list_id?: string
-          max_margin_percent?: number | null
-          max_quantity?: number | null
-          measure_unit?: string | null
-          min_order_quantity?: number | null
-          min_quote_quantity?: number | null
-          purchase_item_description?: string | null
-          purchase_item_id?: string | null
-          purchase_measure_unit?: string | null
-          purchase_quantity?: number | null
-          snapshot_source?: string
-          total_quantity?: number
-          unit_price?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "procurement_list_snapshot_component_list_id_fkey"
-            columns: ["list_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_list"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      procurement_list_snapshot_selection: {
-        Row: {
-          created_at: string
-          id: string
-          kitchen_id: number | null
-          kitchen_name: string | null
-          list_id: string
-          origin_template_id: string | null
-          repetitions: number
-          snapshot_source: string
-          template_name: string | null
-          template_type: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          kitchen_id?: number | null
-          kitchen_name?: string | null
-          list_id: string
-          origin_template_id?: string | null
-          repetitions?: number
-          snapshot_source?: string
-          template_name?: string | null
-          template_type?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          kitchen_id?: number | null
-          kitchen_name?: string | null
-          list_id?: string
-          origin_template_id?: string | null
-          repetitions?: number
-          snapshot_source?: string
-          template_name?: string | null
-          template_type?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "procurement_list_snapshot_selection_list_id_fkey"
-            columns: ["list_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_list"
+            referencedRelation: "quantity_estimate_item"
             referencedColumns: ["id"]
           },
         ]
@@ -13056,6 +12811,7 @@ export type Database = {
           non_compliant_items: number
           period_months: number | null
           procurement_list_id: string | null
+          quantity_estimate_id: string | null
           reference_method: string
           similarity_threshold: number | null
           total_items: number
@@ -13073,6 +12829,7 @@ export type Database = {
           non_compliant_items?: number
           period_months?: number | null
           procurement_list_id?: string | null
+          quantity_estimate_id?: string | null
           reference_method?: string
           similarity_threshold?: number | null
           total_items?: number
@@ -13090,6 +12847,7 @@ export type Database = {
           non_compliant_items?: number
           period_months?: number | null
           procurement_list_id?: string | null
+          quantity_estimate_id?: string | null
           reference_method?: string
           similarity_threshold?: number | null
           total_items?: number
@@ -13100,6 +12858,27 @@ export type Database = {
             columns: ["procurement_list_id"]
             isOneToOne: false
             referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_pesquisa_preco_procurement_list_id_fkey"
+            columns: ["procurement_list_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_pesquisa_preco_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_pesquisa_preco_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
             referencedColumns: ["id"]
           },
         ]
@@ -13177,6 +12956,7 @@ export type Database = {
           price_min: number | null
           procurement_list_item_id: string | null
           product_name: string
+          quantity_estimate_item_id: string | null
           reference_method: string | null
           reference_price: number | null
           research_id: string
@@ -13208,6 +12988,7 @@ export type Database = {
           price_min?: number | null
           procurement_list_item_id?: string | null
           product_name: string
+          quantity_estimate_item_id?: string | null
           reference_method?: string | null
           reference_price?: number | null
           research_id: string
@@ -13239,6 +13020,7 @@ export type Database = {
           price_min?: number | null
           procurement_list_item_id?: string | null
           product_name?: string
+          quantity_estimate_item_id?: string | null
           reference_method?: string | null
           reference_price?: number | null
           research_id?: string
@@ -13255,6 +13037,27 @@ export type Database = {
             columns: ["procurement_list_item_id"]
             isOneToOne: false
             referencedRelation: "procurement_list_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_pesquisa_preco_item_procurement_list_item_id_fkey"
+            columns: ["procurement_list_item_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_pesquisa_preco_item_quantity_estimate_item_id_fkey"
+            columns: ["quantity_estimate_item_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_pesquisa_preco_item_quantity_estimate_item_id_fkey"
+            columns: ["quantity_estimate_item_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate_item"
             referencedColumns: ["id"]
           },
           {
@@ -13537,6 +13340,382 @@ export type Database = {
           },
         ]
       }
+      quantity_estimate: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_budget_confidential: boolean
+          max_increase_percent: number
+          max_quantity_justification: string | null
+          min_quote_percent: number
+          notes: string | null
+          segment_id: string | null
+          status: string
+          title: string
+          unit_id: number
+          updated_at: string | null
+          validity_months: number | null
+          wizard_step: number | null
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_budget_confidential?: boolean
+          max_increase_percent?: number
+          max_quantity_justification?: string | null
+          min_quote_percent?: number
+          notes?: string | null
+          segment_id?: string | null
+          status?: string
+          title: string
+          unit_id: number
+          updated_at?: string | null
+          validity_months?: number | null
+          wizard_step?: number | null
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_budget_confidential?: boolean
+          max_increase_percent?: number
+          max_quantity_justification?: string | null
+          min_quote_percent?: number
+          notes?: string | null
+          segment_id?: string | null
+          status?: string
+          title?: string
+          unit_id?: number
+          updated_at?: string | null
+          validity_months?: number | null
+          wizard_step?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_segment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quantity_estimate_item: {
+        Row: {
+          catmat_item_codigo: number | null
+          catmat_item_descricao: string | null
+          computed_at: string | null
+          conversion_factor: number | null
+          delivery_cycle: string | null
+          estimated_quantity: number
+          folder_description: string | null
+          folder_id: string | null
+          id: string
+          ingredient_id: string | null
+          ingredient_name: string
+          item_description: string | null
+          max_increase_percent: number | null
+          measure_unit: string | null
+          min_order_quantity: number | null
+          purchase_item_description: string | null
+          purchase_item_id: string | null
+          purchase_measure_unit: string | null
+          purchase_quantity: number | null
+          quantity_estimate_id: string
+          unit_price: number | null
+        }
+        Insert: {
+          catmat_item_codigo?: number | null
+          catmat_item_descricao?: string | null
+          computed_at?: string | null
+          conversion_factor?: number | null
+          delivery_cycle?: string | null
+          estimated_quantity: number
+          folder_description?: string | null
+          folder_id?: string | null
+          id?: string
+          ingredient_id?: string | null
+          ingredient_name: string
+          item_description?: string | null
+          max_increase_percent?: number | null
+          measure_unit?: string | null
+          min_order_quantity?: number | null
+          purchase_item_description?: string | null
+          purchase_item_id?: string | null
+          purchase_measure_unit?: string | null
+          purchase_quantity?: number | null
+          quantity_estimate_id: string
+          unit_price?: number | null
+        }
+        Update: {
+          catmat_item_codigo?: number | null
+          catmat_item_descricao?: string | null
+          computed_at?: string | null
+          conversion_factor?: number | null
+          delivery_cycle?: string | null
+          estimated_quantity?: number
+          folder_description?: string | null
+          folder_id?: string | null
+          id?: string
+          ingredient_id?: string | null
+          ingredient_name?: string
+          item_description?: string | null
+          max_increase_percent?: number | null
+          measure_unit?: string | null
+          min_order_quantity?: number | null
+          purchase_item_description?: string | null
+          purchase_item_id?: string | null
+          purchase_measure_unit?: string | null
+          purchase_quantity?: number | null
+          quantity_estimate_id?: string
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_item_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_item_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_item_conditioning_review"
+            referencedColumns: ["purchase_item_id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_item_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_item_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quantity_estimate_kitchen: {
+        Row: {
+          delivery_notes: string | null
+          id: string
+          kitchen_id: number
+          quantity_estimate_id: string
+        }
+        Insert: {
+          delivery_notes?: string | null
+          id?: string
+          kitchen_id: number
+          quantity_estimate_id: string
+        }
+        Update: {
+          delivery_notes?: string | null
+          id?: string
+          kitchen_id?: number
+          quantity_estimate_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_kitchen_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_kitchen_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quantity_estimate_selection: {
+        Row: {
+          id: string
+          origin_template_id: string | null
+          quantity_estimate_kitchen_id: string
+          repetitions: number
+          template_id: string
+        }
+        Insert: {
+          id?: string
+          origin_template_id?: string | null
+          quantity_estimate_kitchen_id: string
+          repetitions?: number
+          template_id: string
+        }
+        Update: {
+          id?: string
+          origin_template_id?: string | null
+          quantity_estimate_kitchen_id?: string
+          repetitions?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_selection_quantity_estimate_kitchen_id_fkey"
+            columns: ["quantity_estimate_kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list_kitchen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_selection_quantity_estimate_kitchen_id_fkey"
+            columns: ["quantity_estimate_kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate_kitchen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quantity_estimate_snapshot_component: {
+        Row: {
+          catmat_item_codigo: number | null
+          computed_at: string
+          delivery_cycle: string | null
+          estimated_quantity: number
+          folder_description: string | null
+          id: string
+          ingredient_id: string | null
+          ingredient_name: string
+          max_increase_percent: number | null
+          max_quantity: number | null
+          measure_unit: string | null
+          min_order_quantity: number | null
+          min_quote_quantity: number | null
+          purchase_item_description: string | null
+          purchase_item_id: string | null
+          purchase_measure_unit: string | null
+          purchase_quantity: number | null
+          quantity_estimate_id: string
+          snapshot_source: string
+          unit_price: number | null
+        }
+        Insert: {
+          catmat_item_codigo?: number | null
+          computed_at?: string
+          delivery_cycle?: string | null
+          estimated_quantity: number
+          folder_description?: string | null
+          id?: string
+          ingredient_id?: string | null
+          ingredient_name: string
+          max_increase_percent?: number | null
+          max_quantity?: number | null
+          measure_unit?: string | null
+          min_order_quantity?: number | null
+          min_quote_quantity?: number | null
+          purchase_item_description?: string | null
+          purchase_item_id?: string | null
+          purchase_measure_unit?: string | null
+          purchase_quantity?: number | null
+          quantity_estimate_id: string
+          snapshot_source?: string
+          unit_price?: number | null
+        }
+        Update: {
+          catmat_item_codigo?: number | null
+          computed_at?: string
+          delivery_cycle?: string | null
+          estimated_quantity?: number
+          folder_description?: string | null
+          id?: string
+          ingredient_id?: string | null
+          ingredient_name?: string
+          max_increase_percent?: number | null
+          max_quantity?: number | null
+          measure_unit?: string | null
+          min_order_quantity?: number | null
+          min_quote_quantity?: number | null
+          purchase_item_description?: string | null
+          purchase_item_id?: string | null
+          purchase_measure_unit?: string | null
+          purchase_quantity?: number | null
+          quantity_estimate_id?: string
+          snapshot_source?: string
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_snapshot_component_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_snapshot_component_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quantity_estimate_snapshot_selection: {
+        Row: {
+          created_at: string
+          id: string
+          kitchen_id: number | null
+          kitchen_name: string | null
+          origin_template_id: string | null
+          quantity_estimate_id: string
+          repetitions: number
+          snapshot_source: string
+          template_name: string | null
+          template_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kitchen_id?: number | null
+          kitchen_name?: string | null
+          origin_template_id?: string | null
+          quantity_estimate_id: string
+          repetitions?: number
+          snapshot_source?: string
+          template_name?: string | null
+          template_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kitchen_id?: number | null
+          kitchen_name?: string | null
+          origin_template_id?: string | null
+          quantity_estimate_id?: string
+          repetitions?: number
+          snapshot_source?: string
+          template_name?: string | null
+          template_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_snapshot_selection_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_snapshot_selection_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supply_order: {
         Row: {
           created_at: string
@@ -13643,6 +13822,382 @@ export type Database = {
       }
     }
     Views: {
+      procurement_list: {
+        Row: {
+          created_at: string | null
+          deleted_at: string | null
+          id: string | null
+          is_budget_confidential: boolean | null
+          margin_justification: string | null
+          max_margin_percent: number | null
+          min_quote_percent: number | null
+          notes: string | null
+          segment_id: string | null
+          status: string | null
+          title: string | null
+          unit_id: number | null
+          updated_at: string | null
+          validity_months: number | null
+          wizard_step: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          is_budget_confidential?: boolean | null
+          margin_justification?: string | null
+          max_margin_percent?: number | null
+          min_quote_percent?: number | null
+          notes?: string | null
+          segment_id?: string | null
+          status?: string | null
+          title?: string | null
+          unit_id?: number | null
+          updated_at?: string | null
+          validity_months?: number | null
+          wizard_step?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          is_budget_confidential?: boolean | null
+          margin_justification?: string | null
+          max_margin_percent?: number | null
+          min_quote_percent?: number | null
+          notes?: string | null
+          segment_id?: string | null
+          status?: string | null
+          title?: string | null
+          unit_id?: number | null
+          updated_at?: string | null
+          validity_months?: number | null
+          wizard_step?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_segment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_list_item: {
+        Row: {
+          catmat_item_codigo: number | null
+          catmat_item_descricao: string | null
+          computed_at: string | null
+          conversion_factor: number | null
+          delivery_cycle: string | null
+          folder_description: string | null
+          folder_id: string | null
+          id: string | null
+          ingredient_id: string | null
+          ingredient_name: string | null
+          item_description: string | null
+          list_id: string | null
+          max_margin_percent: number | null
+          measure_unit: string | null
+          min_order_quantity: number | null
+          purchase_item_description: string | null
+          purchase_item_id: string | null
+          purchase_measure_unit: string | null
+          purchase_quantity: number | null
+          total_quantity: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          catmat_item_codigo?: number | null
+          catmat_item_descricao?: string | null
+          computed_at?: string | null
+          conversion_factor?: number | null
+          delivery_cycle?: string | null
+          folder_description?: string | null
+          folder_id?: string | null
+          id?: string | null
+          ingredient_id?: string | null
+          ingredient_name?: string | null
+          item_description?: string | null
+          list_id?: string | null
+          max_margin_percent?: number | null
+          measure_unit?: string | null
+          min_order_quantity?: number | null
+          purchase_item_description?: string | null
+          purchase_item_id?: string | null
+          purchase_measure_unit?: string | null
+          purchase_quantity?: number | null
+          total_quantity?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          catmat_item_codigo?: number | null
+          catmat_item_descricao?: string | null
+          computed_at?: string | null
+          conversion_factor?: number | null
+          delivery_cycle?: string | null
+          folder_description?: string | null
+          folder_id?: string | null
+          id?: string | null
+          ingredient_id?: string | null
+          ingredient_name?: string | null
+          item_description?: string | null
+          list_id?: string | null
+          max_margin_percent?: number | null
+          measure_unit?: string | null
+          min_order_quantity?: number | null
+          purchase_item_description?: string | null
+          purchase_item_id?: string | null
+          purchase_measure_unit?: string | null
+          purchase_quantity?: number | null
+          total_quantity?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_item_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_item_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_item_conditioning_review"
+            referencedColumns: ["purchase_item_id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_item_quantity_estimate_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_item_quantity_estimate_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_list_kitchen: {
+        Row: {
+          delivery_notes: string | null
+          id: string | null
+          kitchen_id: number | null
+          list_id: string | null
+        }
+        Insert: {
+          delivery_notes?: string | null
+          id?: string | null
+          kitchen_id?: number | null
+          list_id?: string | null
+        }
+        Update: {
+          delivery_notes?: string | null
+          id?: string | null
+          kitchen_id?: number | null
+          list_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_kitchen_quantity_estimate_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_kitchen_quantity_estimate_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_list_selection: {
+        Row: {
+          id: string | null
+          list_kitchen_id: string | null
+          origin_template_id: string | null
+          repetitions: number | null
+          template_id: string | null
+        }
+        Insert: {
+          id?: string | null
+          list_kitchen_id?: string | null
+          origin_template_id?: string | null
+          repetitions?: number | null
+          template_id?: string | null
+        }
+        Update: {
+          id?: string | null
+          list_kitchen_id?: string | null
+          origin_template_id?: string | null
+          repetitions?: number | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_selection_quantity_estimate_kitchen_id_fkey"
+            columns: ["list_kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list_kitchen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_selection_quantity_estimate_kitchen_id_fkey"
+            columns: ["list_kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate_kitchen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_list_snapshot_component: {
+        Row: {
+          catmat_item_codigo: number | null
+          computed_at: string | null
+          delivery_cycle: string | null
+          folder_description: string | null
+          id: string | null
+          ingredient_id: string | null
+          ingredient_name: string | null
+          list_id: string | null
+          max_margin_percent: number | null
+          max_quantity: number | null
+          measure_unit: string | null
+          min_order_quantity: number | null
+          min_quote_quantity: number | null
+          purchase_item_description: string | null
+          purchase_item_id: string | null
+          purchase_measure_unit: string | null
+          purchase_quantity: number | null
+          snapshot_source: string | null
+          total_quantity: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          catmat_item_codigo?: number | null
+          computed_at?: string | null
+          delivery_cycle?: string | null
+          folder_description?: string | null
+          id?: string | null
+          ingredient_id?: string | null
+          ingredient_name?: string | null
+          list_id?: string | null
+          max_margin_percent?: number | null
+          max_quantity?: number | null
+          measure_unit?: string | null
+          min_order_quantity?: number | null
+          min_quote_quantity?: number | null
+          purchase_item_description?: string | null
+          purchase_item_id?: string | null
+          purchase_measure_unit?: string | null
+          purchase_quantity?: number | null
+          snapshot_source?: string | null
+          total_quantity?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          catmat_item_codigo?: number | null
+          computed_at?: string | null
+          delivery_cycle?: string | null
+          folder_description?: string | null
+          id?: string | null
+          ingredient_id?: string | null
+          ingredient_name?: string | null
+          list_id?: string | null
+          max_margin_percent?: number | null
+          max_quantity?: number | null
+          measure_unit?: string | null
+          min_order_quantity?: number | null
+          min_quote_quantity?: number | null
+          purchase_item_description?: string | null
+          purchase_item_id?: string | null
+          purchase_measure_unit?: string | null
+          purchase_quantity?: number | null
+          snapshot_source?: string | null
+          total_quantity?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_snapshot_component_quantity_estimate_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_snapshot_component_quantity_estimate_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_list_snapshot_selection: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          kitchen_id: number | null
+          kitchen_name: string | null
+          list_id: string | null
+          origin_template_id: string | null
+          repetitions: number | null
+          snapshot_source: string | null
+          template_name: string | null
+          template_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          kitchen_id?: number | null
+          kitchen_name?: string | null
+          list_id?: string | null
+          origin_template_id?: string | null
+          repetitions?: number | null
+          snapshot_source?: string | null
+          template_name?: string | null
+          template_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          kitchen_id?: number | null
+          kitchen_name?: string | null
+          list_id?: string | null
+          origin_template_id?: string | null
+          repetitions?: number | null
+          snapshot_source?: string | null
+          template_name?: string | null
+          template_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quantity_estimate_snapshot_selection_quantity_estimate_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_snapshot_selection_quantity_estimate_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_purchase_item_conditioning_review: {
         Row: {
           catmat_item_codigo: number | null

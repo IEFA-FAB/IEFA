@@ -259,14 +259,14 @@ describe("custo sugerido", () => {
 		expect(pricePerBaseUnit(0, 12)).toBeNull()
 	})
 
-	test("ATA antes de pesquisa; a da própria unidade antes da de outra; depois a mais recente", () => {
+	test("ARP antes de pesquisa; a da própria unidade antes da de outra; depois a mais recente", () => {
 		const research = { source: "price_research" as const, unitCost: 5, reference: "pesquisa", sameUnit: true, date: "2026-09-01" }
-		const ataOther = { source: "ata" as const, unitCost: 6, reference: "ata outra", sameUnit: false, date: "2026-09-10" }
-		const ataOwnOld = { source: "ata" as const, unitCost: 7, reference: "ata antiga", sameUnit: true, date: "2025-01-01" }
-		const ataOwnNew = { source: "ata" as const, unitCost: 8, reference: "ata nova", sameUnit: true, date: "2026-01-01" }
-		expect(pickOpeningCost([research, ataOther])?.reference).toBe("ata outra")
-		expect(pickOpeningCost([research, ataOther, ataOwnOld])?.reference).toBe("ata antiga")
-		expect(pickOpeningCost([ataOwnOld, research, ataOwnNew, ataOther])?.reference).toBe("ata nova")
+		const arpOther = { source: "ata" as const, unitCost: 6, reference: "ARP outra", sameUnit: false, date: "2026-09-10" }
+		const arpOwnOld = { source: "ata" as const, unitCost: 7, reference: "ARP antiga", sameUnit: true, date: "2025-01-01" }
+		const arpOwnNew = { source: "ata" as const, unitCost: 8, reference: "ARP nova", sameUnit: true, date: "2026-01-01" }
+		expect(pickOpeningCost([research, arpOther])?.reference).toBe("ARP outra")
+		expect(pickOpeningCost([research, arpOther, arpOwnOld])?.reference).toBe("ARP antiga")
+		expect(pickOpeningCost([arpOwnOld, research, arpOwnNew, arpOther])?.reference).toBe("ARP nova")
 		expect(pickOpeningCost([research])?.reference).toBe("pesquisa")
 	})
 

@@ -38,7 +38,7 @@ export interface FlowOrigin {
 	label: string
 }
 
-/** "/unit/1/procurement/new?step=2&draft=x" → caminho + busca, para o `Link` do router. */
+/** "/unit/1/quantity-estimates/new?step=2&draft=x" → caminho + busca, para o `Link` do router. */
 function splitHref(href: string): { to: string; search: Record<string, string> | undefined } {
 	const [to, query] = href.split("?")
 	return { to, search: query ? Object.fromEntries(new URLSearchParams(query)) : undefined }

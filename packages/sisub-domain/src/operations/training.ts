@@ -32,9 +32,9 @@ import {
 	menuTemplateMealInKitchen,
 	messHallsInKitchen,
 	otherPresencesInKitchen,
-	procurementListKitchenInProcurement,
-	procurementListSelectionInProcurement,
 	productionTaskInKitchen,
+	quantityEstimateKitchenInProcurement,
+	quantityEstimateSelectionInProcurement,
 	recipeEquipmentRequirementInKitchen,
 	recipeIngredientAlternativesInKitchen,
 	recipeIngredientsInKitchen,
@@ -199,7 +199,7 @@ type ResetIds = {
 	recipeStepIds: string[]
 	recipeIngredientIds: string[]
 	stepTemplateIds: string[]
-	ataDraftIds: string[]
+	demandForecastIds: string[]
 }
 
 /**
@@ -333,19 +333,19 @@ const RESET_STEPS: ResetStep[] = [
 	{
 		table: "procurement.kitchen_demand_forecast_selection",
 		run: (tx, _s, ids) =>
-			deleteByParent(tx, kitchenDemandForecastSelectionInProcurement, kitchenDemandForecastSelectionInProcurement.forecastId, ids.ataDraftIds),
+			deleteByParent(tx, kitchenDemandForecastSelectionInProcurement, kitchenDemandForecastSelectionInProcurement.forecastId, ids.demandForecastIds),
 	},
 	{
 		table: "procurement.kitchen_demand_forecast",
 		run: (tx, scope) => deleteCounting(tx, kitchenDemandForecastInProcurement, eq(kitchenDemandForecastInProcurement.kitchenId, scope.kitchen_id)),
 	},
 	{
-		table: "procurement.procurement_list_selection",
-		run: (tx, _s, ids) => deleteByParent(tx, procurementListSelectionInProcurement, procurementListSelectionInProcurement.templateId, ids.templateIds),
+		table: "procurement.quantity_estimate_selection",
+		run: (tx, _s, ids) => deleteByParent(tx, quantityEstimateSelectionInProcurement, quantityEstimateSelectionInProcurement.templateId, ids.templateIds),
 	},
 	{
-		table: "procurement.procurement_list_kitchen",
-		run: (tx, scope) => deleteCounting(tx, procurementListKitchenInProcurement, eq(procurementListKitchenInProcurement.kitchenId, scope.kitchen_id)),
+		table: "procurement.quantity_estimate_kitchen",
+		run: (tx, scope) => deleteCounting(tx, quantityEstimateKitchenInProcurement, eq(quantityEstimateKitchenInProcurement.kitchenId, scope.kitchen_id)),
 	},
 
 	// ── Templates de cardápio ──
@@ -544,13 +544,13 @@ const RESET_STEPS: ResetStep[] = [
 	// O empenho sai DEPOIS da designação (a FK dela passou a RESTRICT em 20260926215000: a
 	// designação é prova do ato) e do recebimento, e ANTES da ARP, cujo item ele referencia.
 	{ table: "finance.empenho", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.empenho where unit_id = ${scope.unit_id} returning 1`) },
-	// ATA da unidade sentinela (o treinando publica: `unit:2` é o nível da tela de atas).
+	// anexo da unidade sentinela (o treinando conclui: `unit:2` é o nível da tela de anexos).
 	{
-		table: "procurement.procurement_list_snapshot_selection",
+		table: "procurement.quantity_estimate_snapshot_selection",
 		run: (tx, scope) =>
 			deleteRaw(
 				tx,
-				sql`delete from procurement.procurement_list_snapshot_selection where kitchen_id = ${scope.kitchen_id} or list_id in (select id from procurement.procurement_list where unit_id = ${scope.unit_id}) returning 1`
+				sql`delete from procurement.quantity_estimate_snapshot_selection where kitchen_id = ${scope.kitchen_id} or quantity_estimate_id in (select id from procurement.quantity_estimate where unit_id = ${scope.unit_id}) returning 1`
 			),
 	},
 	{
@@ -565,10 +565,10 @@ const RESET_STEPS: ResetStep[] = [
 		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.acquisition where unit_id = ${scope.unit_id} returning 1`),
 	},
 	{
-		table: "procurement.procurement_list",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.procurement_list where unit_id = ${scope.unit_id} returning 1`),
+		table: "procurement.quantity_estimate",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.quantity_estimate where unit_id = ${scope.unit_id} returning 1`),
 	},
-	// Contratações da OM sentinela (segmentação). DEPOIS dos anexos: `procurement_list.segment_id`
+	// Contratações da OM sentinela (segmentação). DEPOIS dos anexos: `quantity_estimate.segment_id`
 	// aponta para cá sem ação de delete. As regras caem por cascade.
 	{
 		table: "procurement.procurement_segment",
@@ -626,7 +626,7 @@ async function seedTrainingBaseline(tx: TrainingTx, scope: TrainingScope): Promi
 
 	if (!template) throw new DomainError("SEED_FAILED", "no row returned seeding the training template")
 
-	// Efetivo base por (dia, refeição) — sem ele a demanda da produção e da ATA fica zerada
+	// Efetivo base por (dia, refeição) — sem ele a demanda da produção e do anexo fica zerada
 	// e o treinando não tem o que exercitar.
 	const meals = [1, 2, 3, 4, 5].flatMap((dayOfWeek) =>
 		globalMealTypes.map((mealType) => ({ menuTemplateId: template.id, dayOfWeek, mealTypeId: mealType.id, baseHeadcount: 100 }))
@@ -739,7 +739,7 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext, assuranc
 
 			// Ids dos pais, coletados antes de apagar: os filhos não carregam kitchen_id e só
 			// são alcançáveis por eles.
-			const [dailyMenus, templates, recipes, stepTemplates, ataDrafts] = await Promise.all([
+			const [dailyMenus, templates, recipes, stepTemplates, demandForecasts] = await Promise.all([
 				tx.select({ id: dailyMenuInKitchen.id }).from(dailyMenuInKitchen).where(eq(dailyMenuInKitchen.kitchenId, scope.kitchen_id)),
 				tx.select({ id: menuTemplateInKitchen.id }).from(menuTemplateInKitchen).where(eq(menuTemplateInKitchen.kitchenId, scope.kitchen_id)),
 				tx.select({ id: recipesInKitchen.id }).from(recipesInKitchen).where(eq(recipesInKitchen.kitchenId, scope.kitchen_id)),
@@ -769,7 +769,7 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext, assuranc
 				recipeStepIds: recipeSteps.map((r) => r.id),
 				recipeIngredientIds: recipeIngredients.map((r) => r.id),
 				stepTemplateIds: stepTemplates.map((r) => r.id),
-				ataDraftIds: ataDrafts.map((r) => r.id),
+				demandForecastIds: demandForecasts.map((r) => r.id),
 			}
 
 			const counts: Record<string, number> = {}

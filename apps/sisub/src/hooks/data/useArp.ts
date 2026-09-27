@@ -7,7 +7,7 @@ import { queryKeys } from "@/lib/query-keys"
 import {
 	anularEmpenhoFn,
 	createEmpenhoFn,
-	fetchArpForAtaFn,
+	fetchArpForQuantityEstimateFn,
 	fetchArpLocalCommitmentsFn,
 	fetchEmpenhosFn,
 	importArpItemsFn,
@@ -16,13 +16,13 @@ import {
 } from "@/server/arp.fn"
 import type { ArpWithItems, ComprasArpPage, CreateEmpenhoPayload } from "@/types/domain/arp"
 
-// ─── Query: ARP vinculada à ATA ───────────────────────────────────────────────
+// ─── Query: ARP vinculada ao anexo quantitativo ──────────────────────────────
 
-export function useArpForAta(ataId: string | null) {
+export function useArpForQuantityEstimate(quantityEstimateId: string | null) {
 	return useQuery({
-		queryKey: queryKeys.ata.arp(ataId),
-		queryFn: () => fetchArpForAtaFn({ data: { ataId: ataId as string } }) as Promise<ArpWithItems | null>,
-		enabled: ataId !== null,
+		queryKey: queryKeys.quantityEstimate.arp(quantityEstimateId),
+		queryFn: () => fetchArpForQuantityEstimateFn({ data: { quantityEstimateId: quantityEstimateId as string } }) as Promise<ArpWithItems | null>,
+		enabled: quantityEstimateId !== null,
 		staleTime: 2 * 60 * 1000, // 2 min — pode mudar após sync
 	})
 }
@@ -31,7 +31,7 @@ export function useArpForAta(ataId: string | null) {
 
 export function useEmpenhos(arpItemId: string | null) {
 	return useQuery({
-		queryKey: queryKeys.ata.empenhos(arpItemId),
+		queryKey: queryKeys.quantityEstimate.empenhos(arpItemId),
 		queryFn: () => fetchEmpenhosFn({ data: { arpItemId: arpItemId as string } }),
 		enabled: arpItemId !== null,
 		staleTime: 1 * 60 * 1000,
@@ -42,7 +42,7 @@ export function useEmpenhos(arpItemId: string | null) {
 
 export function useArpLocalCommitments(arpId: string | null) {
 	return useQuery({
-		queryKey: queryKeys.ata.arpCommitments(arpId),
+		queryKey: queryKeys.quantityEstimate.arpCommitments(arpId),
 		queryFn: () => fetchArpLocalCommitmentsFn({ data: { arpId: arpId as string } }) as Promise<Record<string, LocalCommitment>>,
 		enabled: arpId !== null,
 		staleTime: 1 * 60 * 1000,
@@ -60,12 +60,12 @@ export function useSearchArp() {
 
 // ─── Mutation: Importar ARP (busca itens + persiste) ─────────────────────────
 
-export function useImportArp(ataId: string) {
+export function useImportArp(quantityEstimateId: string) {
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (params: Parameters<typeof importArpItemsFn>[0]["data"]) => importArpItemsFn({ data: params }),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.ata.arp(ataId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arp(quantityEstimateId) })
 			const n = data.items.length
 			// numero_ata já guarda o formato canônico NNNNN/AAAA da API.
 			toast.success(`ARP ${data.numero_ata} importada com ${n} ${n === 1 ? "item" : "itens"}`)
@@ -79,12 +79,12 @@ export function useImportArp(ataId: string) {
 
 // ─── Mutation: Sincronizar saldo de empenhos ──────────────────────────────────
 
-export function useSyncArpBalance(ataId: string) {
+export function useSyncArpBalance(quantityEstimateId: string) {
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (arpId: string) => syncArpBalanceFn({ data: { arpId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.ata.arp(ataId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arp(quantityEstimateId) })
 			toast.success("Saldo de empenhos sincronizado com Compras.gov.br")
 		},
 		onError: (error) => toast.error(`Erro ao sincronizar saldo: ${error.message}`),
@@ -104,8 +104,8 @@ export function useCreateEmpenho(arpItemId: string, arpId?: string) {
 	return useAssuredMutation({
 		mutationFn: (payload: CreateEmpenhoPayload) => createEmpenhoFn({ data: payload }),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.ata.empenhos(arpItemId) })
-			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.ata.arpCommitments(arpId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.empenhos(arpItemId) })
+			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arpCommitments(arpId) })
 			toast.success(
 				`Empenho ${data.numeroEmpenho} registrado${data.relinked > 0 ? ` — ${data.relinked} documento(s) do SIAFI que esperavam por ele foram religados` : ""}`
 			)
@@ -126,8 +126,8 @@ export function useAnularEmpenho(arpItemId: string, arpId?: string) {
 	return useAssuredMutation({
 		mutationFn: (empenhoId: string) => anularEmpenhoFn({ data: { empenhoId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.ata.empenhos(arpItemId) })
-			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.ata.arpCommitments(arpId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.empenhos(arpItemId) })
+			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arpCommitments(arpId) })
 			toast.success("Empenho anulado — comprometimento local recomposto")
 		},
 		onError: (error) => {

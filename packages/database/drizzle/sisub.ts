@@ -16,6 +16,7 @@ import * as schema from "./schema"
 export * from "./relations"
 export * from "./schema"
 
+
 /** Tables + enums + relations — pass to `drizzle(client, { schema: sisubSchema })`. */
 export const sisubSchema = { ...schema, ...relations }
 

@@ -37,11 +37,11 @@ Responda SEMPRE em português do Brasil. Seja direto e objetivo.
 ### production_task
 - id, kitchen_id, production_date, status (PENDING|IN_PROGRESS|DONE), started_at, completed_at
 
-### procurement_list
-- id, unit_id → units.id, title, status (draft|published)
+### quantity_estimate (anexo quantitativo do TR — não é ata; a ata é a ARP)
+- id, unit_id → units.id, title, status (draft|completed|archived; concluído = status in ('completed', 'published'), 'published' é o nome antigo), deleted_at (não nulo = na lixeira)
 
-### procurement_list_item
-- id, list_id → procurement_list.id, ingredient_name, total_quantity, unit_price
+### quantity_estimate_item
+- id, quantity_estimate_id → quantity_estimate.id, ingredient_name, estimated_quantity (quantidade estimada), max_increase_percent (acréscimo da quantidade máxima, %), unit_price
 
 ### procurement_arp_item
 - id, quantidade_homologada, quantidade_empenhada, saldo_empenho, valor_unitario

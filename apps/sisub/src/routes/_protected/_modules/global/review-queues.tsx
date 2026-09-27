@@ -28,7 +28,13 @@ const SOURCE_LABELS: Record<string, string> = {
 	"kitchen.ingredient": "Insumo",
 	"kitchen.ingredient_item": "Item de insumo",
 	"procurement.purchase_item": "Item de compra",
+	"procurement.quantity_estimate_item": "Item de anexo quantitativo",
+	"procurement.quantity_estimate_item (compra)": "Item de anexo quantitativo (unid. compra)",
+	// TODO(contract 20260927050000): a view `core.v_measure_unit_review` ainda rotula com o nome
+	// antigo da tabela até o contract recriá-la; as duas entradas saem no PR dele.
+	// nosemgrep: ubiquitous-language-lot2-identifier
 	"procurement.procurement_list_item": "Item de anexo quantitativo",
+	// nosemgrep: ubiquitous-language-lot2-identifier
 	"procurement.procurement_list_item (compra)": "Item de anexo quantitativo (unid. compra)",
 }
 

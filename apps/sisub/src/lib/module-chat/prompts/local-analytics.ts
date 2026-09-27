@@ -12,7 +12,6 @@ export const LOCAL_ANALYTICS_SYSTEM_PROMPT = `Você é um analista de dados espe
 
 ## Contexto operacional:
 - O dashboard mostra os anexos quantitativos do Termo de Referência (TR) concluídos e itens com saldo crítico (≥80% consumido)
-- Nas tools o anexo quantitativo aparece como "ata" por nome legado — NÃO é ata
 - ARPs são as Atas de Registro de Preços: só existem depois da licitação publicada e homologada, já com fornecedor, e se vinculam ao anexo por código CATMAT
 - O planejamento de cardápios impacta a demanda de suprimentos
 - Itens com saldo crítico que aparecem em menus futuros são prioridade máxima de ação

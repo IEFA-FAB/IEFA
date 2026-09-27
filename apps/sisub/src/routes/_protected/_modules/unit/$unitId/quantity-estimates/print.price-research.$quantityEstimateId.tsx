@@ -12,12 +12,12 @@ import { useEmitPriceResearchReport, usePriceResearchReport } from "@/hooks/data
 
 /**
  * GESTÃO UNIDADE — Relatório de pesquisa de preços do anexo (impressão / PDF)
- * URL: /unit/:unitId/procurement/print/price-research/:ataId
+ * URL: /unit/:unitId/quantity-estimates/print/price-research/:quantityEstimateId
  *
  * Cada relatório é uma emissão registrada. Gerar nova emissão grava as pesquisas e os preços de
  * agora; abrir uma emissão antiga reproduz o documento dela, com a integridade conferida.
  */
-export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/print/price-research/$ataId")({
+export const Route = createFileRoute("/_protected/_modules/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: PriceResearchReportPage,
 	head: () => ({ meta: [{ name: "description", content: "Relatório de pesquisa de preços do anexo quantitativo" }] }),
@@ -37,11 +37,11 @@ function downloadExact(filename: string, text: string) {
 }
 
 function PriceResearchReportPage() {
-	const { unitId, ataId } = useParams({ strict: false }) as { unitId: string; ataId: string }
+	const { unitId, quantityEstimateId } = useParams({ strict: false }) as { unitId: string; quantityEstimateId: string }
 	const { can } = usePBAC()
 	const [emissionId, setEmissionId] = useState<string | null>(null)
-	const { data: report, isLoading, isError } = usePriceResearchReport(ataId, emissionId)
-	const emit = useEmitPriceResearchReport(ataId)
+	const { data: report, isLoading, isError } = usePriceResearchReport(quantityEstimateId, emissionId)
+	const emit = useEmitPriceResearchReport(quantityEstimateId)
 	const canEmit = can("unit", 2, { type: "unit", id: Number(unitId) })
 	useCrumbLabel(report ? `Pesquisa de preços — ${report.list.title}` : "Pesquisa de preços")
 
@@ -70,7 +70,7 @@ function PriceResearchReportPage() {
 
 	return (
 		<PrintSheet
-			back={{ unitId, ataId }}
+			back={{ unitId, quantityEstimateId }}
 			toolbar={
 				<>
 					<Select value={report.emission.id} onValueChange={(next) => next && setEmissionId(next)}>

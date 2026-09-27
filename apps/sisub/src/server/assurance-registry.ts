@@ -190,18 +190,18 @@ export const ASSURANCE_REGISTRY = {
 		authorization: [{ kind: "permission", module: "unit", level: 2, note: ARP_UNIT_SCOPE_NOTE }],
 	},
 
-	// ── ata.fn.ts
-	calculateAtaNeedsFn: { require: "none" },
-	createAtaDraftFn: { require: "none" },
-	updateAtaDraftFn: { require: "none" },
-	saveAtaDraftItemsFn: { require: "none" },
-	finalizeAtaDraftFn: { require: "none" },
-	createAtaFn: { require: "none" },
-	updateAtaStatusFn: { require: "none" },
-	updateAtaItemPricesFn: { require: "none" },
-	updateAtaItemDescriptionFn: { require: "none" },
-	updateAtaQuantityLimitsFn: { require: "none" },
-	deleteAtaFn: { require: "none" },
+	// ── quantity-estimate.fn.ts
+	calculateQuantityEstimateNeedsFn: { require: "none" },
+	createQuantityEstimateDraftFn: { require: "none" },
+	updateQuantityEstimateDraftFn: { require: "none" },
+	saveQuantityEstimateDraftItemsFn: { require: "none" },
+	finalizeQuantityEstimateDraftFn: { require: "none" },
+	createQuantityEstimateFn: { require: "none" },
+	updateQuantityEstimateStatusFn: { require: "none" },
+	updateQuantityEstimateItemPricesFn: { require: "none" },
+	updateQuantityEstimateItemDescriptionFn: { require: "none" },
+	updateQuantityEstimateLimitsFn: { require: "none" },
+	deleteQuantityEstimateFn: { require: "none" },
 
 	// ── budget.fn.ts
 	applyCreditBatchFn: {
@@ -323,7 +323,7 @@ export const ASSURANCE_REGISTRY = {
 
 	// ── procurement-documents.fn.ts (emissão de documento e configuração de saída; sem efeito financeiro)
 	emitPriceResearchReportFn: { require: "none" },
-	updateAtaDocumentSettingsFn: { require: "none" },
+	updateQuantityEstimateDocumentSettingsFn: { require: "none" },
 
 	// ── procurement-segments.fn.ts (cadastro da segmentação; sem efeito financeiro nem de acesso)
 	createProcurementSegmentFn: { require: "none" },

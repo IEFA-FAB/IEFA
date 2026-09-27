@@ -12,7 +12,7 @@ describe("scaleIngredientQuantity", () => {
 		expect(scaleIngredientQuantity(100, 400, 200)).toBe(200)
 	})
 
-	test("repetições multiplicam (horizonte da ATA)", () => {
+	test("repetições multiplicam (horizonte do anexo)", () => {
 		expect(scaleIngredientQuantity(100, 400, 200, 3)).toBe(600)
 	})
 
@@ -21,12 +21,12 @@ describe("scaleIngredientQuantity", () => {
 	})
 
 	test("paridade aquisição (×repetições=N) vs datado (×1)", () => {
-		// Mesma demanda, N ocorrências: projeção da ATA (repetitions=N) == somar N datas (×1).
-		const ata = scaleIngredientQuantity(100, 400, 200, 4)
+		// Mesma demanda, N ocorrências: projeção do anexo (repetitions=N) == somar N datas (×1).
+		const quantityEstimate = scaleIngredientQuantity(100, 400, 200, 4)
 		const daily = Array.from({ length: 4 }, () => scaleIngredientQuantity(100, 400, 200)).reduce((a, b) => a + b, 0)
 		// toBeCloseTo (não toBe): a fórmula é float; a ordem das multiplicações pode divergir
 		// no último bit para entradas fracionárias reais.
-		expect(ata).toBeCloseTo(daily, 10)
+		expect(quantityEstimate).toBeCloseTo(daily, 10)
 	})
 })
 

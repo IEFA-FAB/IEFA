@@ -4,7 +4,7 @@
 TBD - created by archiving change sisub-inventory-cycle. Update Purpose after archive.
 ## Requirements
 ### Requirement: Necessidade líquida
-O sistema SHALL calcular, por cozinha×ingrediente e horizonte de planejamento, a necessidade líquida: demanda bruta dos cardápios planejados (via `scaleIngredientQuantity`) **corrigida por `correction_factor` e `rehydration_index`** (herança: override da receita → valor do ingrediente → 1), menos saldo disponível (excluindo lotes que vencem dentro do horizonte), menos quantidades em trânsito (OFs enviadas e não recebidas). As fórmulas existentes de ATA (`calculateAtaNeeds`) MUST permanecer inalteradas.
+O sistema SHALL calcular, por cozinha×ingrediente e horizonte de planejamento, a necessidade líquida: demanda bruta dos cardápios planejados (via `scaleIngredientQuantity`) **corrigida por `correction_factor` e `rehydration_index`** (herança: override da receita → valor do ingrediente → 1), menos saldo disponível (excluindo lotes que vencem dentro do horizonte), menos quantidades em trânsito (OFs enviadas e não recebidas). As fórmulas existentes do anexo quantitativo (`calculateQuantityEstimateNeeds`) MUST permanecer inalteradas.
 
 #### Scenario: Abatimento de estoque e trânsito
 - **WHEN** a demanda bruta corrigida é 100 KG, há 30 KG em estoque válido e 20 KG em OF enviada
@@ -33,7 +33,7 @@ A estimativa de prazo SHALL usar o lead time observado por fornecedor×item (cap
 - **THEN** a estimativa usa o prazo contratual da ARP e indica a origem do valor
 
 ### Requirement: Roteamento de canal de compra
-Para cada item com necessidade líquida positiva, o sistema SHALL recomendar canal em ordem determinística: (1) ARP própria vigente com saldo suficiente → empenho; (2) ARP de outra UASG localizável via API Compras.gov → carona/adesão; (3) item com CATMAT e cobertura abaixo do limiar de urgência (default: lead time estimado; configurável em `stock_policy`) → Supermercado Virtual; (4) pequeno valor (limites do art. 75 da Lei 14.133) fora de ata → Contrata+Brasil; (5) caso contrário → novo planejamento de licitação (`procurement_list`). Cada sugestão SHALL exibir custo estimado (reuso da `pesquisa_preco`) e prazo estimado. A decisão final MUST ser humana — o sistema não emite empenho/OF automaticamente.
+Para cada item com necessidade líquida positiva, o sistema SHALL recomendar canal em ordem determinística: (1) ARP própria vigente com saldo suficiente → empenho; (2) ARP de outra UASG localizável via API Compras.gov → carona/adesão; (3) item com CATMAT e cobertura abaixo do limiar de urgência (default: lead time estimado; configurável em `stock_policy`) → Supermercado Virtual; (4) pequeno valor (limites do art. 75 da Lei 14.133) fora de ata → Contrata+Brasil; (5) caso contrário → novo planejamento de licitação (anexo quantitativo, `quantity_estimate`). Cada sugestão SHALL exibir custo estimado (reuso da `pesquisa_preco`) e prazo estimado. A decisão final MUST ser humana — o sistema não emite empenho/OF automaticamente.
 
 #### Scenario: Canal 1 — ARP própria
 - **WHEN** a necessidade é 50 KG e a ARP própria vigente tem saldo de 200 KG

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
  * da tela vive dentro do app-shell (`overflow-hidden`), que recorta tudo além da primeira dobra.
  * `window.print()` oferece "Salvar como PDF"; nenhuma dependência de geração de PDF.
  */
-export function PrintSheet({ back, toolbar, children }: { back: { unitId: string; ataId: string }; toolbar?: ReactNode; children: ReactNode }) {
+export function PrintSheet({ back, toolbar, children }: { back: { unitId: string; quantityEstimateId: string }; toolbar?: ReactNode; children: ReactNode }) {
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
 	useEffect(() => setMounted(true), [])
@@ -24,7 +24,7 @@ export function PrintSheet({ back, toolbar, children }: { back: { unitId: string
 					size="sm"
 					nativeButton={false}
 					render={
-						<Link to="/unit/$unitId/procurement/$ataId" params={back}>
+						<Link to="/unit/$unitId/quantity-estimates/$quantityEstimateId" params={back}>
 							<ArrowLeft data-icon="inline-start" aria-hidden="true" />
 							Voltar ao anexo
 						</Link>

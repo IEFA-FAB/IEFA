@@ -1,0 +1,53 @@
+##
+# Linguagem ubíqua do sisub no banco (change `sisub-ubiquitous-language`, D8): migration NOVA não
+# cria, não renomeia para e não comenta objeto com nome descartado pelo glossário
+# (`openspec/changes/sisub-ubiquitous-language/specs/ubiquitous-language/spec.md`).
+#
+# `drop` não é acusado: o contract precisa citar o nome antigo para derrubá-lo. Vale só para as
+# migrations depois de 20260927050000 (contract do lote 2): as anteriores estão aplicadas e são o
+# histórico, e o expand/contract do lote 2 citam os nomes antigos de propósito (views de
+# compatibilidade e colunas espelhadas). A lista de termos cresce por lote, como a de
+# `ubiquitous-language.yaml`.
+#
+# Casos de teste: `__fixtures__/ubiquitous-language-sql.sql` (opengrep test --config
+# .opengrep/rules/ubiquitous-language-sql.yaml .opengrep/rules/__fixtures__/ubiquitous-language-sql.sql).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: ubiquitous-language-migration-lot2
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Nome descartado pelo glossário do sisub numa migration nova. O anexo quantitativo é
+      `procurement.quantity_estimate*` (Lei 14.133, art. 18, § 1º, IV; ata é só a ARP, art. 6º,
+      XLVI), com `quantity_estimate_id` / `quantity_estimate_item_id` /
+      `quantity_estimate_kitchen_id`, não `procurement_list*`, `list_id`, `list_kitchen_id`,
+      `ata_id` ou `ata_item_id`. O acréscimo da quantidade máxima é `max_increase_percent` (margem
+      é a de preferência, art. 26), a justificativa é `max_quantity_justification` e a quantidade
+      estimada é `estimated_quantity`.
+    paths:
+      include:
+        - "packages/database/supabase/migrations/*.sql"
+      exclude:
+        # Tudo até 20260927050000 inclusive (aplicado, ou expand/contract do lote 2).
+        - "packages/database/supabase/migrations/2024*"
+        - "packages/database/supabase/migrations/2025*"
+        - "packages/database/supabase/migrations/20260[1-8]*"
+        - "packages/database/supabase/migrations/202609[0-1]*"
+        - "packages/database/supabase/migrations/2026092[0-6]*"
+        # 2026-09-27 até 04:59:59 (o timestamp é AAAAMMDDhhmmss) e o próprio contract.
+        - "packages/database/supabase/migrations/202609270[0-4]*"
+        - "packages/database/supabase/migrations/20260927050000_*"
+    patterns:
+      - pattern-either:
+          # Do verbo que cria ou nomeia até o `;` que fecha o statement.
+          - pattern-regex: >-
+              (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b[^;]*?\b(?:procurement_list\w*|list_id|list_kitchen_id|ata_id|ata_item_id|max_margin_percent|margin_justification|total_quantity)\b
+          # Corpo entre dollar quotes (função, `do`): o `;` de dentro não fecha o statement, e é
+          # o caso perigoso — plpgsql resolve tabela pelo nome e passaria por uma view de
+          # compatibilidade, que não dispara os triggers da tabela.
+          - pattern-regex: >-
+              (?is)(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:procurement_list\w*|list_id|list_kitchen_id|ata_id|ata_item_id|max_margin_percent|margin_justification|total_quantity)\b(?:(?!\1).)*\1
+      # Linha de comentário conta a história do rename.
+      - pattern-not-regex: (?m)^\s*--.*$

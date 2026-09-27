@@ -5,15 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { KitchenSelectionState, SelectionBucket, TemplateSelection } from "@/types/domain/ata"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
+import type { KitchenSelectionState, SelectionBucket, TemplateSelection } from "@/types/domain/quantity-estimate"
 
 interface KitchenTemplateSectionProps {
 	kitchenState: KitchenSelectionState
 	templates: TemplateWithItemCounts[]
 	isLoadingTemplates?: boolean
 	selectionType: SelectionBucket
-	/** Vigência da ata, em meses — usada para projetar as ocorrências mensais das exceções. */
+	/** Vigência do anexo, em meses — usada para projetar as ocorrências mensais das exceções. */
 	validityMonths?: number
 	onUpdateSelection: (kitchenId: number, selectionType: SelectionBucket, selections: TemplateSelection[]) => void
 }

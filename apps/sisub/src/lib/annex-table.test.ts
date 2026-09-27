@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest"
-import type { AtaAnnexRow } from "@/lib/ata-annex"
+import type { QuantityEstimateAnnexRow } from "@/lib/quantity-estimate-annex"
 import { buildAnnexTable, chunkTable, toHtmlTable, toTsv } from "./annex-table"
 
-const row = (over: Partial<AtaAnnexRow> = {}): AtaAnnexRow => ({
+const row = (over: Partial<QuantityEstimateAnnexRow> = {}): QuantityEstimateAnnexRow => ({
 	key: "k",
-	ataItemId: "a",
+	quantityEstimateItemId: "a",
 	ingredientId: "i",
 	ingredientQuantity: 1234.5,
 	ingredientUnit: "KG",
@@ -14,11 +14,11 @@ const row = (over: Partial<AtaAnnexRow> = {}): AtaAnnexRow => ({
 	description: "Frango",
 	itemDescription: "Peito, congelado",
 	unit: "KG",
-	targetQuantity: 1234.5,
-	marginPercent: 20,
+	estimatedQuantity: 1234.5,
+	increasePercent: 20,
 	maxQuantity: 1482,
 	minQuoteQuantity: 371,
-	effectiveMarginPercent: 20,
+	effectiveIncreasePercent: 20,
 	deliveryCycle: "weekly",
 	deliveryCycleSource: null,
 	ingredientDeliveryCycle: null,

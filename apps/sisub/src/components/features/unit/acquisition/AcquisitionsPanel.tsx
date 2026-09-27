@@ -151,7 +151,7 @@ export function AcquisitionsPanel({ unitId, overview, canEdit }: { unitId: numbe
 										</ItemTitle>
 										<ItemDescription className="text-xs">
 											{arp.itemCount} ite{arp.itemCount === 1 ? "m" : "ns"}
-											{arp.ataId ? " · com anexo quantitativo" : " · sem anexo quantitativo"}
+											{arp.quantityEstimateId ? " · com anexo quantitativo" : " · sem anexo quantitativo"}
 										</ItemDescription>
 									</ItemContent>
 									{canEdit && (

@@ -3,12 +3,14 @@
  * Read-only: no write operations. Scoped to the current unit via ctx.scopeId.
  *
  * Só `daily_menu` mora no schema `kitchen` (o default do client do chat). Unidade e cozinha
- * estão em `core`, ATA e ARP em `procurement` — daí o schema explícito em cada `untypedFrom`.
+ * estão em `core`, anexo e ARP em `procurement` — daí o schema explícito em cada `untypedFrom`.
  */
 
+import { COMPLETED_STATUS_VALUES } from "@iefa/sisub-domain"
 import { clampLimit } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
 import { requireModulePermission, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { listQuantityEstimates } from "./unit"
 
 /** Teto das listagens: o resultado volta inteiro no prompt do turno seguinte. */
 const LIST_DEFAULT = 25
@@ -41,38 +43,10 @@ const getUnitOverview: ModuleToolDefinition = {
 	},
 }
 
-const getAtas: ModuleToolDefinition = {
-	name: "get_atas",
-	description:
-		"Lista os anexos quantitativos do Termo de Referência (TR) da unidade atual com status e data de criação, das mais recentes para as mais antigas. Inclui draft, published e archived.",
-	parameters: {
-		type: "object",
-		properties: {
-			limit: { type: "number", description: `Quantos anexos retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
-		},
-		required: [],
-		additionalProperties: false,
-	},
-	requiredLevel: 1,
-	async handler(args, ctx) {
-		const unitId = requireCurrentUnitId(ctx)
-		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
-
-		const { data, error, count } = await untypedFrom(ctx, "procurement_list", "procurement")
-			.select("id, title, status, created_at, updated_at", { count: "exact" })
-			.eq("unit_id", unitId)
-			.is("deleted_at", null)
-			.order("created_at", { ascending: false })
-			.limit(limit)
-		if (error) return toolErr(sanitizeDbError(error, "get_atas"))
-		return toolOk({ atas: data ?? [], returned: data?.length ?? 0, total: count ?? data?.length ?? 0, limit })
-	},
-}
-
 const getLowBalanceItems: ModuleToolDefinition = {
 	name: "get_low_balance_items",
 	description:
-		"Lista itens de ARP com consumo ≥80% (saldo crítico) para os anexos quantitativos concluídos (status published) da unidade, os mais críticos primeiro. Inclui flag se o item aparece em menus dos próximos 30 dias.",
+		"Lista itens de ARP com consumo ≥80% (saldo crítico) para os anexos quantitativos concluídos (status completed) da unidade, os mais críticos primeiro. Inclui flag se o item aparece em menus dos próximos 30 dias.",
 	parameters: {
 		type: "object",
 		properties: {
@@ -86,34 +60,34 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		const unitId = requireCurrentUnitId(ctx)
 		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		// Published ATAs
-		const { data: allAtas, error: atasError } = await untypedFrom(ctx, "procurement_list", "procurement")
+		// Anexos concluídos (`published` é o nome antigo de `completed` até o contract 20260927050000)
+		const { data: allQuantityEstimates, error: quantityEstimatesError } = await untypedFrom(ctx, "quantity_estimate", "procurement")
 			.select("id, title, status")
 			.eq("unit_id", unitId)
 			.is("deleted_at", null)
-		if (atasError) return toolErr(sanitizeDbError(atasError, "get_low_balance_items:atas"))
+		if (quantityEstimatesError) return toolErr(sanitizeDbError(quantityEstimatesError, "get_low_balance_items:quantity_estimates"))
 
-		const publishedAtas = (allAtas ?? []).filter((a: { status: string }) => a.status === "published")
-		const publishedAtaIds = publishedAtas.map((a: { id: string }) => a.id)
-		if (publishedAtaIds.length === 0) return toolOk({ message: "Nenhum anexo quantitativo concluído encontrado.", items: [] })
+		const completedQuantityEstimates = (allQuantityEstimates ?? []).filter((a: { status: string }) => COMPLETED_STATUS_VALUES.includes(a.status))
+		const completedQuantityEstimateIds = completedQuantityEstimates.map((a: { id: string }) => a.id)
+		if (completedQuantityEstimateIds.length === 0) return toolOk({ message: "Nenhum anexo quantitativo concluído encontrado.", items: [] })
 
-		// ARPs linked to published ATAs
+		// ARPs vinculadas aos anexos concluídos
 		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement")
-			.select("id, procurement_list_id, numero_ata, ano_ata, data_vigencia_fim")
-			.in("procurement_list_id", publishedAtaIds)
+			.select("id, quantity_estimate_id, numero_ata, ano_ata, data_vigencia_fim")
+			.in("quantity_estimate_id", completedQuantityEstimateIds)
 		if (arpsError) return toolErr(sanitizeDbError(arpsError, "get_low_balance_items:arps"))
 
 		const arpsData = arps ?? []
 		if (arpsData.length === 0) return toolOk({ message: "Nenhuma ARP vinculada aos anexos quantitativos concluídos.", items: [] })
 
 		const arpIds = arpsData.map((a: { id: string }) => a.id)
-		const ataIdToTitle = new Map(publishedAtas.map((a: { id: string; title: string }) => [a.id, a.title]))
+		const quantityEstimateIdToTitle = new Map(completedQuantityEstimates.map((a: { id: string; title: string }) => [a.id, a.title]))
 		const arpById = new Map(arpsData.map((a: { id: string }) => [a.id, a]))
 
 		// ARP items
 		const { data: arpItems, error: itemsError } = await untypedFrom(ctx, "procurement_arp_item", "procurement")
 			.select(
-				"id, arp_id, numero_item, catmat_item_codigo, descricao_item, quantidade_homologada, quantidade_empenhada, saldo_empenho, valor_unitario, medida_catmat, procurement_list_item_id"
+				"id, arp_id, numero_item, catmat_item_codigo, descricao_item, quantidade_homologada, quantidade_empenhada, saldo_empenho, valor_unitario, medida_catmat, quantity_estimate_item_id"
 			)
 			.in("arp_id", arpIds)
 		if (itemsError) return toolErr(sanitizeDbError(itemsError, "get_low_balance_items:items"))
@@ -156,15 +130,15 @@ const getLowBalanceItems: ModuleToolDefinition = {
 			}
 		}
 
-		// Get ingredient IDs from ata_items for annotation
-		const ataItemIds = critical.map((i: { procurement_list_item_id: string | null }) => i.procurement_list_item_id).filter(Boolean)
+		// Insumo de cada item do anexo, para a anotação
+		const quantityEstimateItemIds = critical.map((i: { quantity_estimate_item_id: string | null }) => i.quantity_estimate_item_id).filter(Boolean)
 		const ingredientMap = new Map<string, { ingredient_id: string | null; ingredient_name: string | null }>()
-		if (ataItemIds.length > 0) {
-			const { data: ataItems, error: ataItemsError } = await untypedFrom(ctx, "procurement_list_item", "procurement")
+		if (quantityEstimateItemIds.length > 0) {
+			const { data: quantityEstimateItems, error: quantityEstimateItemsError } = await untypedFrom(ctx, "quantity_estimate_item", "procurement")
 				.select("id, ingredient_id, ingredient_name")
-				.in("id", ataItemIds)
-			if (ataItemsError) return toolErr(sanitizeDbError(ataItemsError, "get_low_balance_items:ata_items"))
-			for (const ai of ataItems ?? []) {
+				.in("id", quantityEstimateItemIds)
+			if (quantityEstimateItemsError) return toolErr(sanitizeDbError(quantityEstimateItemsError, "get_low_balance_items:quantity_estimate_items"))
+			for (const ai of quantityEstimateItems ?? []) {
 				ingredientMap.set(ai.id, { ingredient_id: ai.ingredient_id, ingredient_name: ai.ingredient_name })
 			}
 		}
@@ -173,7 +147,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 			(item: {
 				id: string
 				arp_id: string
-				procurement_list_item_id: string | null
+				quantity_estimate_item_id: string | null
 				numero_item: number | null
 				catmat_item_codigo: number | null
 				descricao_item: string | null
@@ -184,16 +158,16 @@ const getLowBalanceItems: ModuleToolDefinition = {
 				medida_catmat: string | null
 			}) => {
 				const arp = arpById.get(item.arp_id) as
-					| { procurement_list_id: string; numero_ata: string; ano_ata: string | null; data_vigencia_fim: string | null }
+					| { quantity_estimate_id: string; numero_ata: string; ano_ata: string | null; data_vigencia_fim: string | null }
 					| undefined
-				const ataItem = item.procurement_list_item_id ? ingredientMap.get(item.procurement_list_item_id) : undefined
+				const quantityEstimateItem = item.quantity_estimate_item_id ? ingredientMap.get(item.quantity_estimate_item_id) : undefined
 				const homologada = Number(item.quantidade_homologada ?? 0)
 				const empenhada = Number(item.quantidade_empenhada ?? 0)
 				const consumptionPct = homologada > 0 ? Math.round((empenhada / homologada) * 100) : 0
-				const ingredientId = ataItem?.ingredient_id ?? null
+				const ingredientId = quantityEstimateItem?.ingredient_id ?? null
 				return {
 					id: item.id,
-					descricao: item.descricao_item ?? ataItem?.ingredient_name ?? "—",
+					descricao: item.descricao_item ?? quantityEstimateItem?.ingredient_name ?? "—",
 					catmat: item.catmat_item_codigo,
 					medida: item.medida_catmat,
 					quantidade_homologada: item.quantidade_homologada,
@@ -204,7 +178,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 					arp_numero: arp?.numero_ata ?? "—",
 					arp_ano: arp?.ano_ata ?? null,
 					arp_vigencia_fim: arp?.data_vigencia_fim ?? null,
-					ata_title: arp ? (ataIdToTitle.get(arp.procurement_list_id) ?? "—") : "—",
+					quantity_estimate_title: arp ? (quantityEstimateIdToTitle.get(arp.quantity_estimate_id) ?? "—") : "—",
 					in_upcoming_menu: ingredientId ? upcomingIngredientIds.has(ingredientId) : false,
 				}
 			}
@@ -274,4 +248,4 @@ const getUpcomingMenus: ModuleToolDefinition = {
 	},
 }
 
-export const localAnalyticsTools: ModuleToolDefinition[] = [getUnitOverview, getAtas, getLowBalanceItems, getUpcomingMenus]
+export const localAnalyticsTools: ModuleToolDefinition[] = [getUnitOverview, listQuantityEstimates, getLowBalanceItems, getUpcomingMenus]

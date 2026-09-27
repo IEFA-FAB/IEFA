@@ -147,10 +147,10 @@ export interface PriceAnalysis {
 	consultedAt: string
 }
 
-// ─── Item de ATA com análise de preço (tudo interno) ─────────────────────────
+// ─── Item do anexo quantitativo com análise de preço (tudo interno) ───────────
 
-export interface AtaItemPriceResult {
-	ataItemId: string
+export interface QuantityEstimateItemPriceResult {
+	quantityEstimateItemId: string
 	ingredientId: string | null
 	ingredientName: string
 	// Identificadores externos do catálogo

@@ -18,20 +18,21 @@
 
 ## 2. Lote 2: anexo quantitativo
 
-- [ ] 2.1 [sisub] Declarar `procurement.quantity_estimate`, `quantity_estimate_kitchen` e `quantity_estimate_snapshot_selection` em `RESET_EXCLUSIONS` (PR próprio, antes do expand)
-- [ ] 2.2 [database] Expand: 6 tabelas `procurement_list*` → `quantity_estimate*` com views de compatibilidade (colunas antigas por alias, grants iguais, inclusive `analytics_reader`); constraints e índices renomeados; conferência de `pg_proc`/`pg_views`/`pg_policies` pelo nome antigo
-- [ ] 2.3 [database] Expand: colunas espelhadas por trigger em `procurement_arp`, `procurement_arp_item`, `procurement_pesquisa_preco(_item)`, `price_research_emission`, `kitchen_demand_forecast_import` (`quantity_estimate_id`, `quantity_estimate_item_id`); `max_margin_percent` → `max_increase_percent`, `margin_justification` → `max_quantity_justification`, `total_quantity` → `estimated_quantity`; CHECK de status aceitando `published` e `completed`
+- [x] 2.1 [sisub] Declarar `procurement.quantity_estimate`, `quantity_estimate_kitchen` e `quantity_estimate_snapshot_selection` em `RESET_EXCLUSIONS` (PR próprio, antes do expand)
+- [x] 2.2 [database] Expand: 6 tabelas `procurement_list*` → `quantity_estimate*` com views de compatibilidade (colunas antigas por alias, grants iguais, inclusive `analytics_reader`); constraints e índices renomeados; conferência de `pg_proc`/`pg_views`/`pg_policies` pelo nome antigo
+- [x] 2.3 [database] Expand: colunas espelhadas por trigger em `procurement_arp`, `procurement_arp_item`, `procurement_pesquisa_preco(_item)`, `price_research_emission`, `kitchen_demand_forecast_import` (`quantity_estimate_id`, `quantity_estimate_item_id`); `max_margin_percent` → `max_increase_percent`, `margin_justification` → `max_quantity_justification`, `total_quantity` → `estimated_quantity`; CHECK de status aceitando `published` e `completed`
 - [ ] 2.4 [database] Aplicar (`db:push --dry-run`, push, espera o mantenedor); `db:types` e `db:drizzle:pull` no mesmo PR
-- [ ] 2.5 [sisub-domain] Operações e schemas: `ata.ts`, `ata-quantity-limits.ts`, `procurement.ts`, tipos → `quantity-estimate*`, lendo `published` e `completed`, gravando só `completed`
-- [ ] 2.6 [sisub] Server fns, hooks e query keys (`ata.fn.ts`, `useAta.ts`, `ata-annex.ts`, `ata-utils.ts`, `types/domain/ata.ts`)
-- [ ] 2.7 [sisub] Componentes (`components/features/local/ata/`, wizard `AtaWizard*`) e rótulos que ainda dizem "margem"
-- [ ] 2.8 [sisub] Rotas `unit/$unitId/procurement/*` → `quantity-estimates/*` com redirect pelo mapa `LEGACY_ROUTE_PREFIXES`; `breadcrumbs.ts` e testes de navegação
-- [ ] 2.9 [sisub] [sisub-domain] Tools do chat: `list_atas`/`get_atas`/`get_ata_details`/`update_ata_status` → `list_quantity_estimates`/`get_quantity_estimate`/`update_quantity_estimate_status`, com a listagem em `@iefa/sisub-domain/agent` (sem `untypedFrom`); prompts e `ToolCallDisplay.tsx`; testes de contrato das tools
-- [ ] 2.10 [sisub] Analytics: prompt e allowlist `analytics-sql.ts` com os nomes novos
-- [ ] 2.11 [api] Rota admin `/quantity-estimates/:quantityEstimateId`; `/ata/:ataId` como alias com cabeçalho `Deprecation`, `Link` e log de uso
-- [ ] 2.12 [sisub] `RESET_STEPS` com os nomes novos (saem de `RESET_EXCLUSIONS`); integração no banco real
-- [ ] 2.13 [root] Termos do lote 2 no gate (opengrep e teste do banco vivo com a allowlist do expand)
+- [x] 2.5 [sisub-domain] Operações e schemas: `ata.ts`, `ata-quantity-limits.ts`, `procurement.ts`, tipos → `quantity-estimate*`, lendo `published` e `completed`, gravando só `completed`
+- [x] 2.6 [sisub] Server fns, hooks e query keys (`ata.fn.ts`, `useAta.ts`, `ata-annex.ts`, `ata-utils.ts`, `types/domain/ata.ts`)
+- [x] 2.7 [sisub] Componentes (`components/features/local/ata/`, wizard `AtaWizard*`) e rótulos que ainda dizem "margem"
+- [x] 2.8 [sisub] Rotas `unit/$unitId/procurement/*` → `quantity-estimates/*` com redirect pelo mapa `LEGACY_ROUTE_PREFIXES`; `breadcrumbs.ts` e testes de navegação
+- [x] 2.9 [sisub] [sisub-domain] Tools do chat: `list_atas`/`get_atas`/`get_ata_details`/`update_ata_status` → `list_quantity_estimates`/`get_quantity_estimate`/`update_quantity_estimate_status`, com a listagem em `@iefa/sisub-domain/agent` (sem `untypedFrom`); prompts e `ToolCallDisplay.tsx`; testes de contrato das tools
+- [x] 2.10 [sisub] Analytics: prompt e allowlist `analytics-sql.ts` com os nomes novos
+- [x] 2.11 [api] Rota admin `/quantity-estimates/:quantityEstimateId`; `/ata/:ataId` como alias com cabeçalho `Deprecation`, `Link` e log de uso
+- [x] 2.12 [sisub] `RESET_STEPS` com os nomes novos (saem de `RESET_EXCLUSIONS`); integração no banco real
+- [x] 2.13 [root] Termos do lote 2 no gate (opengrep e teste do banco vivo com a allowlist do expand)
 - [ ] 2.14 [database] [api] [sisub] Contract depois do deploy (conferido no CI/CD): conferência de divergência, derruba views, triggers e colunas antigas, `published` → `completed`, CHECK só com o valor novo; saem as rotas de redirect e o alias da API (espera o mantenedor)
+- Registrado no PR do lote 2: o status `published` NÃO é normalizado por trigger no expand. O código da `main` lê de volta o que grava (`status === "published"`, a transição `draft → published`, as asserções da suíte), e um valor trocado por baixo a quebraria até o deploy. O CHECK aceita os dois, o código novo lê os dois (`normalizeQuantityEstimateStatus`) e grava só `completed`; o contract converte as linhas e aperta o CHECK. A chave `listItemId` dos itens congelados em `price_research_emission.items` (jsonb) fica: é dado gravado, e o relatório reabre as emissões antigas pelos bytes que elas têm. O rótulo `'procurement.procurement_list_item'` de `core.v_measure_unit_review` troca no contract, com o leitor aceitando os dois até lá. O teste de contrato do banco vivo é `apps/sisub/src/test/operations/ubiquitous-language.contract.test.ts` (allowlist datada do expand); a regra de migration é `.opengrep/rules/ubiquitous-language-sql.yaml`
 
 ## 3. Lote 3: pesquisa de preços e prefixos
 

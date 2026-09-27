@@ -44,9 +44,9 @@ export const SEGMENT_PT: Record<string, string> = {
 	profile: "Perfil",
 	presence: "Presenças",
 	planning: "Agendamento da Produção",
-	procurement: "Anexos Quantitativos",
+	"quantity-estimates": "Anexos Quantitativos",
 	segments: "Segmentação das contratações",
-	quantities: "Memória de cálculo",
+	"calculation-memory": "Memória de cálculo",
 	"price-research": "Pesquisa de preços",
 	flows: "Fluxos",
 	"procurement-planning": "Planejar contratação",
@@ -119,8 +119,8 @@ export const ID_LABEL_BY_PARENT: Record<string, string> = {
 	exceptions: "Cardápio de Apoio",
 	"demand-forecasts": "Previsão",
 	"snack-requests": "Pedido",
-	procurement: "Anexo",
-	quantities: "Anexo",
+	"quantity-estimates": "Anexo",
+	"calculation-memory": "Anexo",
 	"price-research": "Anexo",
 	ingredients: "Insumo",
 	nfe: "NF-e",
@@ -135,7 +135,7 @@ export const NEW_LABEL_BY_PARENT: Record<string, string> = {
 	exceptions: "Novo Cardápio de Apoio",
 	"demand-forecasts": "Nova previsão",
 	"snack-requests": "Novo Pedido",
-	procurement: "Novo Anexo",
+	"quantity-estimates": "Novo Anexo",
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -144,8 +144,8 @@ const NUMERIC_RE = /^\d+$/
 export const isId = (seg: string) => UUID_RE.test(seg) || NUMERIC_RE.test(seg)
 
 /** Segmentos que não nomeiam um recurso — pulados ao procurar o pai de um id */
-// `quantities` e `price-research` só existem como `print/<documento>/$ataId`: não são rota.
-const TRANSPARENT_SEGMENTS = new Set(["print", "quantities", "price-research"])
+// `calculation-memory` e `price-research` só existem como `print/<documento>/$quantityEstimateId`: não são rota.
+const TRANSPARENT_SEGMENTS = new Set(["print", "calculation-memory", "price-research"])
 
 /**
  * Caminho sem o id de escopo: `/unit/3/reconciliation` → `/unit/reconciliation`.

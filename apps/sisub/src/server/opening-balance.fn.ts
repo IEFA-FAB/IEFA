@@ -5,7 +5,7 @@
  * "achado" de inventário nem contaminar o relatório de perdas.
  *
  * Fluxo: planilha (livre ou a folha gerada do catálogo) → rascunho com as linhas válidas e as
- * recusadas com motivo → custo por linha (sugestão de ATA/pesquisa, "aceitar todas" ou digitado)
+ * recusadas com motivo → custo por linha (sugestão de ARP/pesquisa, "aceitar todas" ou digitado)
  * → lançamento por nível 3, que cria os lotes e os `adjustment_in` com motivo `opening_balance`.
  *
  * CLIENT: getServerClient (service role, schema inventory).
@@ -280,7 +280,7 @@ export const importOpeningSheetFn = createServerFn({ method: "POST" })
 
 /**
  * "Aceitar todas as sugestões": aplica a sugestão de custo a toda linha que ainda não tem custo.
- * A sugestão é RECALCULADA aqui, no servidor — se viesse do cliente, a fonte "ATA" gravada no
+ * A sugestão é RECALCULADA aqui, no servidor — se viesse do cliente, a fonte `ata` (ARP) gravada no
  * documento seria só o que o navegador disse que era.
  */
 export const applyOpeningCostSuggestionsFn = createServerFn({ method: "POST" })

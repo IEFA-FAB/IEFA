@@ -61,7 +61,10 @@ export function SegmentationEditor({ unitId, overview, canEdit }: { unitId: numb
 					<AlertTriangle className="size-4" aria-hidden="true" />
 					<AlertTitle>Itens em duas contratações planejadas</AlertTitle>
 					<AlertDescription>
-						<p>O órgão não pode participar de duas atas com o mesmo objeto (Lei 14.133/2021, art. 82, VIII). Ajuste as regras até cada item ter uma só.</p>
+						<p>
+							O órgão não pode participar de duas atas de registro de preços com o mesmo objeto (Lei 14.133/2021, art. 82, VIII). Ajuste as regras até cada item
+							ter uma só.
+						</p>
 						<ul className="mt-2 space-y-1">
 							{conflicts.map((line) => (
 								<li key={line.key}>
@@ -128,7 +131,7 @@ function CreateSegmentDialog({ mutations, onClose }: { mutations: Mutations; onC
 					</Field>
 					<div className="grid grid-cols-2 gap-4">
 						<Field>
-							<FieldLabel htmlFor="segment-validity">Vigência da ata (meses)</FieldLabel>
+							<FieldLabel htmlFor="segment-validity">Vigência da contratação (meses)</FieldLabel>
 							<Input
 								id="segment-validity"
 								type="number"

@@ -1,12 +1,12 @@
 /**
- * Contrato de autorização das operações de ATA.
+ * Contrato de autorização das operações de anexo.
  *
  * Estas operações recebiam `_ctx` e descartavam: o guard vivia só no `requireAuth()` do
  * server fn, então qualquer sessão autenticada — inclusive com `unit:2` de OUTRA OM — publicava,
- * arquivava, repreçava ou apagava a ATA de qualquer unidade. O teste fixa a barreira que faltava.
+ * arquivava, repreçava ou apagava o anexo de qualquer unidade. O teste fixa a barreira que faltava.
  *
- * A ATA é escopada por UNIDADE, e sete das dez recebem só um id: a unidade dona sai da linha
- * persistida (`procurement_list.unit_id`), nunca da requisição — pedir o escopo ao chamador seria
+ * O anexo é escopado por UNIDADE, e sete das dez recebem só um id: a unidade dona sai da linha
+ * persistida (`quantity_estimate.unit_id`), nunca da requisição — pedir o escopo ao chamador seria
  * o mesmo furo com outra roupa.
  */
 
@@ -15,19 +15,19 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import type { UserContext } from "../types/context.ts"
 import { PermissionDeniedError } from "../types/errors.ts"
 import {
-	createAta,
-	createAtaDraft,
-	deleteAta,
-	finalizeAtaDraft,
-	saveAtaDraftItems,
-	updateAtaDraft,
-	updateAtaItemDescription,
-	updateAtaItemPrices,
-	updateAtaQuantityLimits,
-	updateAtaStatus,
-} from "./ata.ts"
+	createQuantityEstimate,
+	createQuantityEstimateDraft,
+	deleteQuantityEstimate,
+	finalizeQuantityEstimateDraft,
+	saveQuantityEstimateDraftItems,
+	updateQuantityEstimateDraft,
+	updateQuantityEstimateItemDescription,
+	updateQuantityEstimateItemPrices,
+	updateQuantityEstimateLimits,
+	updateQuantityEstimateStatus,
+} from "./quantity-estimate.ts"
 
-/** A ATA existente pertence à unidade 5. */
+/** O anexo existente pertence à unidade 5. */
 const OWNER_UNIT = 5
 
 function ctx(unitId: number | null, level = 2): UserContext {
@@ -44,12 +44,12 @@ function ctx(unitId: number | null, level = 2): UserContext {
 /**
  * Stub do handle Drizzle. Os guards só exercitam `db.select(cols).from().where().limit()`, e o
  * `where` não é inspecionável sem montar o dialeto inteiro — o stub decide pelas COLUNAS pedidas
- * (`unitId` = dono da lista, `listId` = ata dona do item). O que está sob teste é a decisão de
+ * (`unitId` = dono do anexo, `quantityEstimateId` = anexo dono do item). O que está sob teste é a decisão de
  * autorização, não a montagem da query.
  */
-function fakeDb(rows: { unitId?: number; listId?: string } = {}): SisubDb {
+function fakeDb(rows: { unitId?: number; quantityEstimateId?: string } = {}): SisubDb {
 	const select = (cols: Record<string, unknown>) => {
-		const row = "listId" in cols ? { listId: "list-1" } : { unitId: rows.unitId ?? OWNER_UNIT }
+		const row = "quantityEstimateId" in cols ? { quantityEstimateId: "list-1" } : { unitId: rows.unitId ?? OWNER_UNIT }
 		// Só o `.limit()` dos guards resolve. Query encadeada mais abaixo na operação recebe o
 		// próprio objeto e falha — de propósito: o teste separa negar de não-implementado.
 		const chain = {
@@ -64,25 +64,28 @@ function fakeDb(rows: { unitId?: number; listId?: string } = {}): SisubDb {
 
 /** Operações que resolvem o dono a partir do id que recebem. */
 const BY_ID: [string, (db: SisubDb, c: UserContext) => Promise<unknown>][] = [
-	["updateAtaDraft", (db, c) => updateAtaDraft(db, c, { draftId: "list-1", name: "x" } as never)],
-	["saveAtaDraftItems", (db, c) => saveAtaDraftItems(db, c, { draftId: "list-1", items: [] } as never)],
-	["finalizeAtaDraft", (db, c) => finalizeAtaDraft(db, c, { draftId: "list-1" } as never)],
-	["updateAtaStatus", (db, c) => updateAtaStatus(db, c, { ataId: "list-1", status: "published" } as never)],
-	["updateAtaItemPrices", (db, c) => updateAtaItemPrices(db, c, { ataId: "list-1", items: [] } as never)],
-	["deleteAta", (db, c) => deleteAta(db, c, { ataId: "list-1" } as never)],
-	["updateAtaItemDescription", (db, c) => updateAtaItemDescription(db, c, { ataItemId: "item-1", description: "x" } as never)],
-	["updateAtaQuantityLimits", (db, c) => updateAtaQuantityLimits(db, c, { ataId: "list-1", maxMarginPercent: 30 } as never)],
+	["updateQuantityEstimateDraft", (db, c) => updateQuantityEstimateDraft(db, c, { draftId: "list-1", name: "x" } as never)],
+	["saveQuantityEstimateDraftItems", (db, c) => saveQuantityEstimateDraftItems(db, c, { draftId: "list-1", items: [] } as never)],
+	["finalizeQuantityEstimateDraft", (db, c) => finalizeQuantityEstimateDraft(db, c, { draftId: "list-1" } as never)],
+	["updateQuantityEstimateStatus", (db, c) => updateQuantityEstimateStatus(db, c, { quantityEstimateId: "list-1", status: "published" } as never)],
+	["updateQuantityEstimateItemPrices", (db, c) => updateQuantityEstimateItemPrices(db, c, { quantityEstimateId: "list-1", items: [] } as never)],
+	["deleteQuantityEstimate", (db, c) => deleteQuantityEstimate(db, c, { quantityEstimateId: "list-1" } as never)],
+	[
+		"updateQuantityEstimateItemDescription",
+		(db, c) => updateQuantityEstimateItemDescription(db, c, { quantityEstimateItemId: "item-1", description: "x" } as never),
+	],
+	["updateQuantityEstimateLimits", (db, c) => updateQuantityEstimateLimits(db, c, { quantityEstimateId: "list-1", maxIncreasePercent: 30 } as never)],
 ]
 
 /** Operações que recebem a unidade de destino no próprio input. */
 const BY_INPUT_UNIT: [string, (db: SisubDb, c: UserContext) => Promise<unknown>][] = [
-	["createAtaDraft", (db, c) => createAtaDraft(db, c, { unitId: OWNER_UNIT } as never)],
-	["createAta", (db, c) => createAta(db, c, { unitId: OWNER_UNIT, name: "x", kitchenSelections: [], items: [] } as never)],
+	["createQuantityEstimateDraft", (db, c) => createQuantityEstimateDraft(db, c, { unitId: OWNER_UNIT } as never)],
+	["createQuantityEstimate", (db, c) => createQuantityEstimate(db, c, { unitId: OWNER_UNIT, name: "x", kitchenSelections: [], items: [] } as never)],
 ]
 
 const ALL = [...BY_ID, ...BY_INPUT_UNIT]
 
-describe("autorização das operações de ATA", () => {
+describe("autorização das operações de anexo", () => {
 	test.each(ALL)("%s nega escrita de quem tem unit:2 em OUTRA unidade", async (_name, run) => {
 		await expect(run(fakeDb(), ctx(OWNER_UNIT + 1))).rejects.toBeInstanceOf(PermissionDeniedError)
 	})

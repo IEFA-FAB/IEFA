@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest"
-import type { AtaSnapshotComponent } from "@/types/domain/ata"
-import { annexMaxValue, buildAnnexCsv, buildSnapshotAnnexRows } from "./ata-annex"
+import type { QuantityEstimateSnapshotComponent } from "@/types/domain/quantity-estimate"
+import { annexMaxValue, buildAnnexCsv, buildSnapshotAnnexRows } from "./quantity-estimate-annex"
 
 /** Componente de snapshot mínimo: só os campos que o anexo lê. */
-function component(overrides: Partial<AtaSnapshotComponent>): AtaSnapshotComponent {
+function component(overrides: Partial<QuantityEstimateSnapshotComponent>): QuantityEstimateSnapshotComponent {
 	return {
 		ingredient_id: "ing-1",
 		ingredient_name: "Arroz",
@@ -13,18 +13,18 @@ function component(overrides: Partial<AtaSnapshotComponent>): AtaSnapshotCompone
 		purchase_quantity: null,
 		purchase_measure_unit: null,
 		measure_unit: "KG",
-		total_quantity: 100,
-		max_margin_percent: 20,
+		estimated_quantity: 100,
+		max_increase_percent: 20,
 		max_quantity: 120,
 		delivery_cycle: "weekly",
 		min_order_quantity: 10,
 		unit_price: 10,
 		...overrides,
-	} as AtaSnapshotComponent
+	} as QuantityEstimateSnapshotComponent
 }
 
 describe("buildSnapshotAnnexRows", () => {
-	test("preço vem do item vivo: pesquisa de preço depois de publicar reflete no anexo", () => {
+	test("preço vem do item vivo: pesquisa de preço depois de concluir reflete no anexo", () => {
 		const rows = buildSnapshotAnnexRows([component({})], [{ ingredient_id: "ing-1", item_description: null, catmat_item_descricao: null, unit_price: 12 }])
 		expect(rows[0]?.unitPrice).toBe(12)
 		// Valor máximo = máxima congelada (120) × preço atual (12).

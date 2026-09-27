@@ -230,7 +230,7 @@ export const deleteIngredientFn = createServerFn({ method: "POST" })
 		return deleteIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-/** Ciclo de entrega padrão do insumo nas ATAs — grava só a coluna, fora do save completo. */
+/** Ciclo de entrega padrão do insumo nos anexos quantitativos — grava só a coluna, fora do save completo. */
 export const updateIngredientDeliveryCycleFn = createServerFn({ method: "POST" })
 	.validator(UpdateIngredientDeliveryCycleSchema)
 	.handler(async ({ data }) => {
