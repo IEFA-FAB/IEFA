@@ -382,9 +382,8 @@ rules:
   #   - `PIRANCHO`, valor de PI do SIAFI em fixture (nome de terceiro, D3).
   # O lote 8b tirou a exclusão do efetivo: o roster é `kitchen.mess_hall_workforce`
   # (`MessHallWorkforce*`, `messHallWorkforceId`, `computeMessHallWorkforceMetrics`,
-  # `createMessHallWorkforce`) e a tela diz "Efetivo dos Refeitórios". A camada de compatibilidade
-  # do expand só é citada pela suíte de integração (`src/test/`, fora do scan) e pelas pontes de
-  # tipo, que não estão nos caminhos.
+  # `createMessHallWorkforce`) e a tela diz "Efetivo dos Refeitórios"; a camada de compatibilidade
+  # do expand saiu com o contract 20260927160000.
   # A API entrou nos caminhos com o lote 7; fica de fora só o alias depreciado do arranchamento
   # (`LEGACY_ARRANCHAMENTO_PATH`), até o mantenedor retirá-lo. Os docs têm regra própria
   # em `ubiquitous-language-docs.yaml`, sem a exclusão de linha de comentário (em Markdown, `*`

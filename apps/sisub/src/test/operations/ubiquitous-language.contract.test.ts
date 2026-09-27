@@ -13,8 +13,8 @@
  * (views de compatibilidade, colunas espelhadas). Eles entram em `EXPAND_ALLOWLIST`, que é
  * DATADA: o PR do contract que os derruba esvazia a lista. O lote 2 (anexo quantitativo) já passou
  * pelo contract 20260927050000, o lote 3 (pesquisa de preços e prefixos) pelo 20260927070000 e o
- * lote 4 (finanças) pelo 20260927090000 e o lote 7 (arranchamento) pelo 20260927140000. O lote 8b
- * (efetivo por refeitório) está em expand (20260927150000) até o contract 20260927160000.
+ * lote 4 (finanças) pelo 20260927090000, o lote 7 (arranchamento) pelo 20260927140000 e o lote 8b
+ * (efetivo por refeitório) pelo 20260927160000.
  *
  * A lista de termos cresce por lote, como a do opengrep.
  *
@@ -61,26 +61,13 @@ const DISCARDED_IDENTIFIER =
 const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M|\mmeal_forecasts?\M|(?<![Ff]iscal de )(?<![Ff]iscais de )\m[Rr][Aa][Nn][Cc][Hh][Oo]\w*`
 
 /**
- * Compatibilidade de um expand em andamento, até o contract dele. Os contracts 20260927050000
- * (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e prefixos),
- * 20260927090000 (lote 4, finanças) e 20260927140000 (lote 7, arranchamento) derrubaram as delas.
- * Chave: `tipo:schema.objeto[.coluna]`.
- *
- * Lote 8b, expand 20260927150000, até o contract 20260927160000 (2026-09-27): a view
- * `kitchen.rancho` (o nome antigo de `kitchen.mess_hall_workforce`), a coluna espelhada
- * `workforce_submission.rancho_id` com a FK e o índice dela, a função de espelho (cita a coluna
- * no corpo) e as views `core.rancho` e `core.workforce_submission` da promoção do núcleo, que o
- * contract derruba. O PR do contract esvazia estas entradas.
+ * Compatibilidade de um expand em andamento, até o contract dele. Vazia: os contracts
+ * 20260927050000 (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e
+ * prefixos), 20260927090000 (lote 4, finanças), 20260927140000 (lote 7, arranchamento) e
+ * 20260927160000 (lote 8b, efetivo por refeitório) derrubaram as delas. Chave:
+ * `tipo:schema.objeto[.coluna]`.
  */
-const EXPAND_ALLOWLIST = new Set<string>([
-	"relation:kitchen.rancho",
-	"relation:core.rancho",
-	"relation:core.workforce_submission",
-	"relation:kitchen.workforce_submission_rancho_idx",
-	"column:kitchen.workforce_submission.rancho_id",
-	"constraint:kitchen.workforce_submission_rancho_id_fkey",
-	"function:kitchen.mirror_workforce_submission_mess_hall_workforce",
-])
+const EXPAND_ALLOWLIST = new Set<string>([])
 
 /** Views de compatibilidade: as colunas delas e a definição saem com elas. */
 const allowedRelation = (schema: string, name: string) => EXPAND_ALLOWLIST.has(`relation:${schema}.${name}`)
