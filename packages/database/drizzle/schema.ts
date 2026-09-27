@@ -1407,10 +1407,8 @@ export const procurementArpInProcurement = procurement.table("procurement_arp", 
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	acquisitionId: uuid("acquisition_id"),
 	source: text().default('compras_gov').notNull(),
-	procurementListId: uuid("procurement_list_id"),
 	quantityEstimateId: uuid("quantity_estimate_id"),
 }, (table) => [
-	index("idx_procurement_arp_procurement_list").using("btree", table.procurementListId.asc().nullsLast()),
 	index("idx_procurement_arp_quantity_estimate").using("btree", table.quantityEstimateId.asc().nullsLast()),
 	index("idx_procurement_arp_unit").using("btree", table.unitId.asc().nullsLast()),
 	index("procurement_arp_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
@@ -1418,11 +1416,6 @@ export const procurementArpInProcurement = procurement.table("procurement_arp", 
 			columns: [table.acquisitionId],
 			foreignColumns: [acquisitionInProcurement.id],
 			name: "procurement_arp_acquisition_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.procurementListId],
-			foreignColumns: [quantityEstimateInProcurement.id],
-			name: "procurement_arp_procurement_list_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.quantityEstimateId],
@@ -2326,7 +2319,7 @@ export const quantityEstimateInProcurement = procurement.table("quantity_estimat
 		}),
 	check("quantity_estimate_max_increase_percent_check", sql`(max_increase_percent >= 0) AND (max_increase_percent <= 100)`),
 	check("quantity_estimate_min_quote_percent_check", sql`(min_quote_percent > (0)::numeric) AND (min_quote_percent <= (100)::numeric)`),
-	check("quantity_estimate_status_check", sql`status = ANY (ARRAY['draft'::text, 'completed'::text, 'published'::text, 'archived'::text])`),
+	check("quantity_estimate_status_check", sql`status = ANY (ARRAY['draft'::text, 'completed'::text, 'archived'::text])`),
 	check("quantity_estimate_validity_months_check", sql`(validity_months IS NULL) OR ((validity_months > 0) AND (validity_months <= 120))`),
 	check("quantity_estimate_wizard_step_check", sql`(wizard_step >= 1) AND (wizard_step <= 5)`),
 ]);
@@ -3220,7 +3213,6 @@ export const goodsReceiptInInventory = inventory.table("goods_receipt", {
 
 export const priceResearchEmissionInProcurement = procurement.table("price_research_emission", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	listId: uuid("list_id").notNull(),
 	sequence: integer().notNull(),
 	emittedBy: uuid("emitted_by"),
 	emittedAt: timestamp("emitted_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -3235,16 +3227,10 @@ export const priceResearchEmissionInProcurement = procurement.table("price_resea
 			name: "price_research_emission_emitted_by_fkey"
 		}),
 	foreignKey({
-			columns: [table.listId],
-			foreignColumns: [quantityEstimateInProcurement.id],
-			name: "price_research_emission_list_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
 			columns: [table.quantityEstimateId],
 			foreignColumns: [quantityEstimateInProcurement.id],
 			name: "price_research_emission_quantity_estimate_id_fkey"
 		}).onDelete("cascade"),
-	unique("price_research_emission_list_id_sequence_key").on(table.listId, table.sequence),
 	unique("price_research_emission_quantity_estimate_id_sequence_key").on(table.sequence, table.quantityEstimateId),
 	check("price_research_emission_sequence_check", sql`sequence > 0`),
 	check("price_research_emission_sha256_check", sql`sha256 ~ '^[0-9a-f]{64}$'::text`),
@@ -3980,17 +3966,10 @@ export const procurementPesquisaPrecoItemInProcurement = procurement.table("proc
 	justificationOutlierCriteria: text("justification_outlier_criteria"),
 	justificationOutOfPeriod: text("justification_out_of_period"),
 	manualSelection: boolean("manual_selection").default(false).notNull(),
-	procurementListItemId: uuid("procurement_list_item_id"),
 	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
 }, (table) => [
-	index("idx_pesquisa_preco_item_procurement_list_item").using("btree", table.procurementListItemId.asc().nullsLast()),
 	index("idx_pesquisa_preco_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
 	index("idx_pesquisa_preco_item_research").using("btree", table.researchId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.procurementListItemId],
-			foreignColumns: [quantityEstimateItemInProcurement.id],
-			name: "procurement_pesquisa_preco_item_procurement_list_item_id_fkey"
-		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.quantityEstimateItemId],
 			foreignColumns: [quantityEstimateItemInProcurement.id],
@@ -4754,12 +4733,10 @@ export const procurementArpItemInProcurement = procurement.table("procurement_ar
 	saldoEmpenho: numeric("saldo_empenho", { mode: "number", precision: 14, scale: 4 }),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	source: text().default('compras_gov').notNull(),
-	procurementListItemId: uuid("procurement_list_item_id"),
 	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
 }, (table) => [
 	index("idx_arp_item_arp").using("btree", table.arpId.asc().nullsLast()),
 	index("idx_arp_item_catmat").using("btree", table.catmatItemCodigo.asc().nullsLast()),
-	index("idx_arp_item_procurement_list_item").using("btree", table.procurementListItemId.asc().nullsLast()),
 	index("idx_arp_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
 	uniqueIndex("procurement_arp_item_numero_uq").using("btree", table.arpId.asc().nullsLast(), table.numeroItem.asc().nullsLast()).where(sql`(numero_item IS NOT NULL)`),
 	foreignKey({
@@ -4767,11 +4744,6 @@ export const procurementArpItemInProcurement = procurement.table("procurement_ar
 			foreignColumns: [procurementArpInProcurement.id],
 			name: "procurement_arp_item_arp_id_fkey"
 		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.procurementListItemId],
-			foreignColumns: [quantityEstimateItemInProcurement.id],
-			name: "procurement_arp_item_procurement_list_item_id_fkey"
-		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.quantityEstimateItemId],
 			foreignColumns: [quantityEstimateItemInProcurement.id],
@@ -4795,12 +4767,9 @@ export const procurementPesquisaPrecoInProcurement = procurement.table("procurem
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	idempotencyKey: text("idempotency_key"),
 	createdBy: uuid("created_by"),
-	procurementListId: uuid("procurement_list_id"),
 	quantityEstimateId: uuid("quantity_estimate_id"),
 }, (table) => [
 	index("idx_pesquisa_preco_pending").using("btree", table.quantityEstimateId.asc().nullsLast()).where(sql`(quantity_estimate_id IS NULL)`),
-	index("idx_pesquisa_preco_pending_procurement_list_id").using("btree", table.procurementListId.asc().nullsLast()).where(sql`(procurement_list_id IS NULL)`),
-	index("idx_pesquisa_preco_procurement_list").using("btree", table.procurementListId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
 	index("idx_pesquisa_preco_quantity_estimate").using("btree", table.quantityEstimateId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
 	index("procurement_pesquisa_preco_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
 	uniqueIndex("uq_pesquisa_preco_idempotency").using("btree", table.idempotencyKey.asc().nullsLast()).where(sql`(idempotency_key IS NOT NULL)`),
@@ -4809,11 +4778,6 @@ export const procurementPesquisaPrecoInProcurement = procurement.table("procurem
 			foreignColumns: [usersInAuth.id],
 			name: "procurement_pesquisa_preco_created_by_fkey"
 		}),
-	foreignKey({
-			columns: [table.procurementListId],
-			foreignColumns: [quantityEstimateInProcurement.id],
-			name: "procurement_pesquisa_preco_procurement_list_id_fkey"
-		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.quantityEstimateId],
 			foreignColumns: [quantityEstimateInProcurement.id],
@@ -5542,15 +5506,12 @@ export const gpcBrickAttributeInGs1Integration = gs1Integration.table("gpc_brick
 
 export const kitchenDemandForecastImportInProcurement = procurement.table("kitchen_demand_forecast_import", {
 	forecastId: uuid("forecast_id").notNull(),
-	listId: uuid("list_id").notNull(),
 	importedBy: uuid("imported_by"),
 	importedAt: timestamp("imported_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
 }, (table) => [
 	index("kitchen_demand_forecast_import_imported_by_fk_idx").using("btree", table.importedBy.asc().nullsLast()),
-	index("kitchen_demand_forecast_import_list_idx").using("btree", table.listId.asc().nullsLast()),
 	index("kitchen_demand_forecast_import_quantity_estimate_idx").using("btree", table.quantityEstimateId.asc().nullsLast()),
-	uniqueIndex("kitchen_demand_forecast_import_quantity_estimate_key").using("btree", table.forecastId.asc().nullsLast(), table.quantityEstimateId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.forecastId],
 			foreignColumns: [kitchenDemandForecastInProcurement.id],
@@ -5562,16 +5523,11 @@ export const kitchenDemandForecastImportInProcurement = procurement.table("kitch
 			name: "kitchen_demand_forecast_import_imported_by_fkey"
 		}),
 	foreignKey({
-			columns: [table.listId],
-			foreignColumns: [quantityEstimateInProcurement.id],
-			name: "kitchen_demand_forecast_import_list_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
 			columns: [table.quantityEstimateId],
 			foreignColumns: [quantityEstimateInProcurement.id],
 			name: "kitchen_demand_forecast_import_quantity_estimate_id_fkey"
 		}).onDelete("cascade"),
-	primaryKey({ columns: [table.forecastId, table.listId], name: "kitchen_demand_forecast_import_pkey"}),
+	primaryKey({ columns: [table.forecastId, table.quantityEstimateId], name: "kitchen_demand_forecast_import_pkey"}),
 ]);
 
 export const gtinGpcAttributeInGs1Integration = gs1Integration.table("gtin_gpc_attribute", {
@@ -5659,12 +5615,6 @@ export const vBarcodeReviewInGs1Integration = gs1Integration.view("v_barcode_rev
 	ingredientId: uuid("ingredient_id"),
 }).with({"securityInvoker":true}).as(sql`SELECT id AS ingredient_item_id, COALESCE(description, ''::text) AS description, barcode AS raw_barcode, ingredient_id FROM kitchen.ingredient_item ii WHERE deleted_at IS NULL AND barcode IS NOT NULL AND gtin IS NULL`);
 
-export const vMeasureUnitReviewInCore = core.view("v_measure_unit_review", {	sourceTable: text("source_table"),
-	sourceId: text("source_id"),
-	sourceDescription: text("source_description"),
-	rawValue: text("raw_value"),
-}).with({"securityInvoker":true}).as(sql`SELECT 'kitchen.ingredient'::text AS source_table, ingredient.id::text AS source_id, COALESCE(ingredient.description, ''::text) AS source_description, ingredient.measure_unit AS raw_value FROM kitchen.ingredient WHERE ingredient.deleted_at IS NULL AND ingredient.measure_unit IS NOT NULL AND NOT (ingredient.measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'kitchen.ingredient_item'::text AS source_table, ingredient_item.id::text AS source_id, COALESCE(ingredient_item.description, ''::text) AS source_description, ingredient_item.purchase_measure_unit AS raw_value FROM kitchen.ingredient_item WHERE ingredient_item.deleted_at IS NULL AND ingredient_item.purchase_measure_unit IS NOT NULL AND NOT (ingredient_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.purchase_item'::text AS source_table, purchase_item.id::text AS source_id, purchase_item.description AS source_description, purchase_item.purchase_measure_unit AS raw_value FROM procurement.purchase_item WHERE purchase_item.deleted_at IS NULL AND purchase_item.purchase_measure_unit IS NOT NULL AND NOT (purchase_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.procurement_list_item'::text AS source_table, quantity_estimate_item.id::text AS source_id, quantity_estimate_item.ingredient_name AS source_description, quantity_estimate_item.measure_unit AS raw_value FROM procurement.quantity_estimate_item WHERE quantity_estimate_item.measure_unit IS NOT NULL AND NOT (quantity_estimate_item.measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.procurement_list_item (compra)'::text AS source_table, quantity_estimate_item.id::text AS source_id, quantity_estimate_item.ingredient_name AS source_description, quantity_estimate_item.purchase_measure_unit AS raw_value FROM procurement.quantity_estimate_item WHERE quantity_estimate_item.purchase_measure_unit IS NOT NULL AND NOT (quantity_estimate_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit))`);
-
 export const personIdentityInCore = core.view("person_identity", {	id: uuid(),
 	displayName: text("display_name"),
 	nrOrdem: text("nr_ordem"),
@@ -5719,93 +5669,6 @@ export const vStockBalanceInInventory = inventory.view("v_stock_balance", {	// Y
 export const vUserIdentityInCore = core.view("v_user_identity", {	id: uuid(),
 	displayName: text("display_name"),
 }).with({ securityInvoker: true }).as(sql`SELECT ud.id, CASE WHEN NULLIF(TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || COALESCE(umd."nmGuerra", ''::text)), ''::text) IS NOT NULL THEN TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || initcap(COALESCE(umd."nmGuerra", ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.user_military_data umd ON umd."nrOrdem" = ud."nrOrdem"`);
-
-export const procurementListSelectionInProcurement = procurement.view("procurement_list_selection", {	id: uuid().defaultRandom(),
-	listKitchenId: uuid("list_kitchen_id"),
-	templateId: uuid("template_id"),
-	repetitions: integer().default(1),
-	originTemplateId: uuid("origin_template_id"),
-}).with({"securityInvoker":true}).as(sql`SELECT id, quantity_estimate_kitchen_id AS list_kitchen_id, template_id, repetitions, origin_template_id FROM procurement.quantity_estimate_selection`);
-
-export const procurementListKitchenInProcurement = procurement.view("procurement_list_kitchen", {	id: uuid().defaultRandom(),
-	listId: uuid("list_id"),
-	kitchenId: integer("kitchen_id"),
-	deliveryNotes: text("delivery_notes"),
-}).with({"securityInvoker":true}).as(sql`SELECT id, quantity_estimate_id AS list_id, kitchen_id, delivery_notes FROM procurement.quantity_estimate_kitchen`);
-
-export const procurementListSnapshotComponentInProcurement = procurement.view("procurement_list_snapshot_component", {	id: uuid().defaultRandom(),
-	listId: uuid("list_id"),
-	ingredientId: uuid("ingredient_id"),
-	ingredientName: text("ingredient_name"),
-	folderDescription: text("folder_description"),
-	measureUnit: text("measure_unit"),
-	totalQuantity: numeric("total_quantity", { mode: "number", precision: 14, scale: 4 }),
-	purchaseItemId: uuid("purchase_item_id"),
-	purchaseItemDescription: text("purchase_item_description"),
-	purchaseMeasureUnit: text("purchase_measure_unit"),
-	purchaseQuantity: numeric("purchase_quantity", { mode: "number", precision: 14, scale: 4 }),
-	catmatItemCodigo: integer("catmat_item_codigo"),
-	unitPrice: numeric("unit_price", { mode: "number", precision: 12, scale: 4 }),
-	snapshotSource: text("snapshot_source").default('native'),
-	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	maxMarginPercent: smallint("max_margin_percent"),
-	maxQuantity: numeric("max_quantity", { mode: "number", precision: 14, scale: 4 }),
-	deliveryCycle: text("delivery_cycle"),
-	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
-	minQuoteQuantity: numeric("min_quote_quantity", { mode: "number", precision: 14, scale: 4 }),
-}).with({"securityInvoker":true}).as(sql`SELECT id, quantity_estimate_id AS list_id, ingredient_id, ingredient_name, folder_description, measure_unit, estimated_quantity AS total_quantity, purchase_item_id, purchase_item_description, purchase_measure_unit, purchase_quantity, catmat_item_codigo, unit_price, snapshot_source, computed_at, max_increase_percent AS max_margin_percent, max_quantity, delivery_cycle, min_order_quantity, min_quote_quantity FROM procurement.quantity_estimate_snapshot_component`);
-
-export const procurementListSnapshotSelectionInProcurement = procurement.view("procurement_list_snapshot_selection", {	id: uuid().defaultRandom(),
-	listId: uuid("list_id"),
-	originTemplateId: uuid("origin_template_id"),
-	templateName: text("template_name"),
-	templateType: text("template_type"),
-	kitchenId: integer("kitchen_id"),
-	kitchenName: text("kitchen_name"),
-	repetitions: integer().default(1),
-	snapshotSource: text("snapshot_source").default('native'),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}).with({"securityInvoker":true}).as(sql`SELECT id, quantity_estimate_id AS list_id, origin_template_id, template_name, template_type, kitchen_id, kitchen_name, repetitions, snapshot_source, created_at FROM procurement.quantity_estimate_snapshot_selection`);
-
-export const procurementListInProcurement = procurement.view("procurement_list", {	id: uuid().defaultRandom(),
-	unitId: integer("unit_id"),
-	title: text(),
-	notes: text(),
-	status: text().default('draft'),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
-	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
-	wizardStep: smallint("wizard_step"),
-	validityMonths: smallint("validity_months"),
-	maxMarginPercent: smallint("max_margin_percent").default(20),
-	marginJustification: text("margin_justification"),
-	segmentId: uuid("segment_id"),
-	isBudgetConfidential: boolean("is_budget_confidential").default(false),
-	minQuotePercent: numeric("min_quote_percent", { mode: "number", precision: 5, scale: 2 }).default(100),
-}).with({"securityInvoker":true}).as(sql`SELECT id, unit_id, title, notes, status, created_at, updated_at, deleted_at, wizard_step, validity_months, max_increase_percent AS max_margin_percent, max_quantity_justification AS margin_justification, segment_id, is_budget_confidential, min_quote_percent FROM procurement.quantity_estimate`);
-
-export const procurementListItemInProcurement = procurement.view("procurement_list_item", {	id: uuid().defaultRandom(),
-	listId: uuid("list_id"),
-	ingredientId: uuid("ingredient_id"),
-	catmatItemCodigo: integer("catmat_item_codigo"),
-	catmatItemDescricao: text("catmat_item_descricao"),
-	ingredientName: text("ingredient_name"),
-	folderId: uuid("folder_id"),
-	folderDescription: text("folder_description"),
-	measureUnit: text("measure_unit"),
-	totalQuantity: numeric("total_quantity", { mode: "number", precision: 14, scale: 4 }),
-	unitPrice: numeric("unit_price", { mode: "number", precision: 12, scale: 4 }),
-	purchaseItemId: uuid("purchase_item_id"),
-	purchaseItemDescription: text("purchase_item_description"),
-	purchaseMeasureUnit: text("purchase_measure_unit"),
-	purchaseQuantity: numeric("purchase_quantity", { mode: "number", precision: 14, scale: 4 }),
-	conversionFactor: numeric("conversion_factor", { mode: "number", precision: 12, scale: 6 }),
-	itemDescription: text("item_description"),
-	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }),
-	maxMarginPercent: smallint("max_margin_percent"),
-	deliveryCycle: text("delivery_cycle"),
-	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
-}).with({"securityInvoker":true}).as(sql`SELECT id, quantity_estimate_id AS list_id, ingredient_id, catmat_item_codigo, catmat_item_descricao, ingredient_name, folder_id, folder_description, measure_unit, estimated_quantity AS total_quantity, unit_price, purchase_item_id, purchase_item_description, purchase_measure_unit, purchase_quantity, conversion_factor, item_description, computed_at, max_increase_percent AS max_margin_percent, delivery_cycle, min_order_quantity FROM procurement.quantity_estimate_item`);
 
 export const vLotExpiryInInventory = inventory.view("v_lot_expiry", {	lotId: uuid("lot_id"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -5889,6 +5752,12 @@ export const vSiafiReconciliationInFinance = finance.view("v_siafi_reconciliatio
 	justificativa: text(),
 	decisaoVigente: boolean("decisao_vigente"),
 }).with({"securityInvoker":true}).as(sql`WITH siafi_rows AS ( SELECT b.unit_id, b.report_type AS documento_tipo, CASE b.report_type WHEN 'ne'::text THEN r.parsed ->> 'numero_ne'::text WHEN 'ns'::text THEN r.parsed ->> 'numero_ns'::text WHEN 'ob'::text THEN r.parsed ->> 'numero_ob'::text ELSE NULL::text END AS numero_documento, (r.parsed ->> 'valor'::text)::numeric AS valor_siafi, b.created_at AS lote_em, b.id AS batch_id, r.parse_status, row_number() OVER (PARTITION BY b.unit_id, b.report_type, ( CASE b.report_type WHEN 'ne'::text THEN r.parsed ->> 'numero_ne'::text WHEN 'ns'::text THEN r.parsed ->> 'numero_ns'::text WHEN 'ob'::text THEN r.parsed ->> 'numero_ob'::text ELSE NULL::text END) ORDER BY b.created_at DESC) AS recencia FROM siafi_integration.import_row r JOIN siafi_integration.import_batch b ON b.id = r.batch_id WHERE (r.parse_status = ANY (ARRAY['parsed'::text, 'waiting_parent'::text])) AND (b.report_type = ANY (ARRAY['ne'::text, 'ns'::text, 'ob'::text])) ), latest_siafi AS ( SELECT siafi_rows.unit_id, siafi_rows.documento_tipo, siafi_rows.numero_documento, siafi_rows.valor_siafi, siafi_rows.lote_em, siafi_rows.batch_id, siafi_rows.parse_status, siafi_rows.recencia FROM siafi_rows WHERE siafi_rows.recencia = 1 AND siafi_rows.numero_documento IS NOT NULL ), sisub_rows AS ( SELECT e.unit_id, 'ne'::text AS documento_tipo, e.numero_empenho AS numero_documento, v.valor_vigente AS valor_sisub FROM finance.empenho e JOIN finance.v_empenho_vigente v ON v.empenho_id = e.id UNION ALL SELECT l.unit_id, 'ns'::text AS text, l.numero_ns, l.valor FROM finance.liquidacao l UNION ALL SELECT p.unit_id, 'ob'::text AS text, p.numero_ob, p.valor FROM finance.pagamento p ) SELECT COALESCE(s.unit_id, f.unit_id) AS unit_id, COALESCE(s.documento_tipo, f.documento_tipo) AS documento_tipo, COALESCE(s.numero_documento, f.numero_documento) AS numero_documento, s.valor_sisub, f.valor_siafi, f.batch_id, f.lote_em, CASE WHEN f.numero_documento IS NULL THEN 'apenas_sisub'::text WHEN s.numero_documento IS NULL AND f.parse_status = 'waiting_parent'::text THEN 'aguardando_documento_pai'::text WHEN s.numero_documento IS NULL THEN 'apenas_siafi'::text WHEN abs(COALESCE(s.valor_sisub, 0::numeric) - COALESCE(f.valor_siafi, 0::numeric)) > 0.009 THEN 'divergente'::text ELSE 'conciliado'::text END AS situacao, COALESCE(f.valor_siafi, 0::numeric) - COALESCE(s.valor_sisub, 0::numeric) AS diferenca, d.decisao, d.justificativa, d.id IS NOT NULL AND NOT d.valor_sisub IS DISTINCT FROM s.valor_sisub AND NOT d.valor_siafi IS DISTINCT FROM f.valor_siafi AS decisao_vigente FROM sisub_rows s FULL JOIN latest_siafi f ON f.unit_id = s.unit_id AND f.documento_tipo = s.documento_tipo AND f.numero_documento = s.numero_documento LEFT JOIN finance.reconciliation_decision d ON d.unit_id = COALESCE(s.unit_id, f.unit_id) AND d.documento_tipo = COALESCE(s.documento_tipo, f.documento_tipo) AND d.numero_documento = COALESCE(s.numero_documento, f.numero_documento)`);
+
+export const vMeasureUnitReviewInCore = core.view("v_measure_unit_review", {	sourceTable: text("source_table"),
+	sourceId: text("source_id"),
+	sourceDescription: text("source_description"),
+	rawValue: text("raw_value"),
+}).with({"securityInvoker":true}).as(sql`SELECT 'kitchen.ingredient'::text AS source_table, ingredient.id::text AS source_id, COALESCE(ingredient.description, ''::text) AS source_description, ingredient.measure_unit AS raw_value FROM kitchen.ingredient WHERE ingredient.deleted_at IS NULL AND ingredient.measure_unit IS NOT NULL AND NOT (ingredient.measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'kitchen.ingredient_item'::text AS source_table, ingredient_item.id::text AS source_id, COALESCE(ingredient_item.description, ''::text) AS source_description, ingredient_item.purchase_measure_unit AS raw_value FROM kitchen.ingredient_item WHERE ingredient_item.deleted_at IS NULL AND ingredient_item.purchase_measure_unit IS NOT NULL AND NOT (ingredient_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.purchase_item'::text AS source_table, purchase_item.id::text AS source_id, purchase_item.description AS source_description, purchase_item.purchase_measure_unit AS raw_value FROM procurement.purchase_item WHERE purchase_item.deleted_at IS NULL AND purchase_item.purchase_measure_unit IS NOT NULL AND NOT (purchase_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.quantity_estimate_item'::text AS source_table, quantity_estimate_item.id::text AS source_id, quantity_estimate_item.ingredient_name AS source_description, quantity_estimate_item.measure_unit AS raw_value FROM procurement.quantity_estimate_item WHERE quantity_estimate_item.measure_unit IS NOT NULL AND NOT (quantity_estimate_item.measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.quantity_estimate_item (compra)'::text AS source_table, quantity_estimate_item.id::text AS source_id, quantity_estimate_item.ingredient_name AS source_description, quantity_estimate_item.purchase_measure_unit AS raw_value FROM procurement.quantity_estimate_item WHERE quantity_estimate_item.purchase_measure_unit IS NOT NULL AND NOT (quantity_estimate_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit))`);
 
 export const ingredientLastReviewInKitchen = kitchen.view("ingredient_last_review", {	ingredientId: uuid("ingredient_id"),
 	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),
