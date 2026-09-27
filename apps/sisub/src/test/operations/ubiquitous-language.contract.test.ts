@@ -12,7 +12,7 @@
  * Um expand deixa, de propósito, os nomes antigos que o código da `main` em produção ainda usa
  * (views de compatibilidade, colunas espelhadas). Eles entram em `EXPAND_ALLOWLIST`, que é
  * DATADA: o PR do contract que os derruba esvazia a lista. O lote 2 (anexo quantitativo) já passou
- * pelo contract 20260927050000; o lote 4 (finanças) está em expand até 20260927090000.
+ * pelo contract 20260927050000, e o lote 4 (finanças) pelo 20260927090000.
  *
  * A lista de termos cresce por lote, como a do opengrep.
  */
@@ -40,19 +40,11 @@ const DISCARDED_IDENTIFIER =
 const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M`
 
 /**
- * Compatibilidade de um expand em andamento, até o contract dele. Chave: `tipo:schema.objeto[.coluna]`.
- * O contract 20260927050000 derrubou a do lote 2 (anexo quantitativo).
- *
- * Lote 4, expand 20260927080000, até o contract 20260927090000 (que esvazia estas entradas): as
- * colunas antigas espelhadas e as funções de espelho, cujo corpo cita as antigas.
+ * Compatibilidade de um expand em andamento, até o contract dele. Vazia: o contract
+ * 20260927050000 derrubou a do lote 2 (anexo quantitativo) e o 20260927090000 a do lote 4
+ * (finanças). Chave: `tipo:schema.objeto[.coluna]`.
  */
-const EXPAND_ALLOWLIST = new Set<string>([
-	"column:finance.budget_credit.dotacao",
-	"column:finance.budget_credit.saldo_siafi",
-	"column:finance.empenho.ug_emitente",
-	"function:finance.mirror_budget_credit_naming",
-	"function:finance.mirror_empenho_issuer_ug",
-])
+const EXPAND_ALLOWLIST = new Set<string>([])
 
 /** Views de compatibilidade: as colunas delas e a definição saem com elas. */
 const allowedRelation = (schema: string, name: string) => EXPAND_ALLOWLIST.has(`relation:${schema}.${name}`)
