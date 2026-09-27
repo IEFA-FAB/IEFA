@@ -1699,8 +1699,6 @@ export const workforceSurveyInKitchen = kitchen.table("workforce_survey", {
 export const workforceSubmissionInKitchen = kitchen.table("workforce_submission", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	surveyId: uuid("survey_id").notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	ranchoId: bigint("rancho_id", { mode: "number" }),
 	declaredTotal: integer("declared_total"),
 	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }),
 	submittedBy: uuid("submitted_by"),
@@ -1711,18 +1709,11 @@ export const workforceSubmissionInKitchen = kitchen.table("workforce_submission"
 }, (table) => [
 	index("workforce_submission_mess_hall_workforce_idx").using("btree", table.messHallWorkforceId.asc().nullsLast()),
 	uniqueIndex("workforce_submission_mess_hall_workforce_uniq").using("btree", table.surveyId.asc().nullsLast(), table.messHallWorkforceId.asc().nullsLast()),
-	index("workforce_submission_rancho_idx").using("btree", table.ranchoId.asc().nullsLast()),
 	index("workforce_submission_submitted_by_fk_idx").using("btree", table.submittedBy.asc().nullsLast()),
-	uniqueIndex("workforce_submission_uniq").using("btree", table.surveyId.asc().nullsLast(), table.ranchoId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.messHallWorkforceId],
 			foreignColumns: [messHallWorkforceInKitchen.id],
 			name: "workforce_submission_mess_hall_workforce_id_fkey"
-		}).onDelete("restrict"),
-	foreignKey({
-			columns: [table.ranchoId],
-			foreignColumns: [messHallWorkforceInKitchen.id],
-			name: "workforce_submission_rancho_id_fkey"
 		}).onDelete("restrict"),
 	foreignKey({
 			columns: [table.submittedBy],
@@ -5679,24 +5670,6 @@ export const vUserIdentityInCore = core.view("v_user_identity", {	id: uuid(),
 	displayName: text("display_name"),
 }).with({ securityInvoker: true }).as(sql`SELECT ud.id, CASE WHEN NULLIF(TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || COALESCE(umd."nmGuerra", ''::text)), ''::text) IS NOT NULL THEN TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || initcap(COALESCE(umd."nmGuerra", ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.user_military_data umd ON umd."nrOrdem" = ud."nrOrdem"`);
 
-export const ranchoInKitchen = kitchen.view("rancho", {	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).default(sql`nextval('kitchen.mess_hall_workforce_id_seq'::regclass)`),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	unitId: bigint("unit_id", { mode: "number" }),
-	eloCode: text("elo_code"),
-	code: text(),
-	displayName: text("display_name"),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	messHallId: bigint("mess_hall_id", { mode: "number" }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }),
-	producesOwnMeals: boolean("produces_own_meals").default(true),
-	active: boolean().default(true),
-	notes: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}).with({"securityInvoker":true}).as(sql`SELECT id, unit_id, elo_code, code, display_name, mess_hall_id, kitchen_id, produces_own_meals, active, notes, created_at, updated_at FROM kitchen.mess_hall_workforce`);
-
 export const vLotExpiryInInventory = inventory.view("v_lot_expiry", {	lotId: uuid("lot_id"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	kitchenId: bigint("kitchen_id", { mode: "number" }),
@@ -5811,17 +5784,6 @@ export const workforceSurveyInCore = core.view("workforce_survey", {	id: uuid(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }),
 }).with({"securityInvoker":true}).as(sql`SELECT id, reference_date, title, status, source, opened_at, closed_at, created_by, created_at FROM kitchen.workforce_survey`);
 
-export const workforceSubmissionInCore = core.view("workforce_submission", {	id: uuid(),
-	surveyId: uuid("survey_id"),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	ranchoId: bigint("rancho_id", { mode: "number" }),
-	declaredTotal: integer("declared_total"),
-	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }),
-	submittedBy: uuid("submitted_by"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
-}).with({"securityInvoker":true}).as(sql`SELECT id, survey_id, rancho_id, declared_total, submitted_at, submitted_by, created_at, updated_at FROM kitchen.workforce_submission`);
-
 export const workforceHeadcountInCore = core.view("workforce_headcount", {	id: uuid(),
 	submissionId: uuid("submission_id"),
 	categoryId: uuid("category_id"),
@@ -5829,24 +5791,6 @@ export const workforceHeadcountInCore = core.view("workforce_headcount", {	id: u
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 }).with({"securityInvoker":true}).as(sql`SELECT id, submission_id, category_id, headcount, created_at, updated_at FROM kitchen.workforce_headcount`);
-
-export const ranchoInCore = core.view("rancho", {	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	unitId: bigint("unit_id", { mode: "number" }),
-	eloCode: text("elo_code"),
-	code: text(),
-	displayName: text("display_name"),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	messHallId: bigint("mess_hall_id", { mode: "number" }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }),
-	producesOwnMeals: boolean("produces_own_meals"),
-	active: boolean(),
-	notes: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
-}).with({"securityInvoker":true}).as(sql`SELECT id, unit_id, elo_code, code, display_name, mess_hall_id, kitchen_id, produces_own_meals, active, notes, created_at, updated_at FROM kitchen.mess_hall_workforce`);
 
 export const opinionsInCore = core.view("opinions", {	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }),

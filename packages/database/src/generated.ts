@@ -3068,73 +3068,6 @@ export type Database = {
         }
         Relationships: []
       }
-      rancho: {
-        Row: {
-          active: boolean | null
-          code: string | null
-          created_at: string | null
-          display_name: string | null
-          elo_code: string | null
-          id: number | null
-          kitchen_id: number | null
-          mess_hall_id: number | null
-          notes: string | null
-          produces_own_meals: boolean | null
-          unit_id: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          active?: boolean | null
-          code?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          elo_code?: string | null
-          id?: number | null
-          kitchen_id?: number | null
-          mess_hall_id?: number | null
-          notes?: string | null
-          produces_own_meals?: boolean | null
-          unit_id?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          active?: boolean | null
-          code?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          elo_code?: string | null
-          id?: number | null
-          kitchen_id?: number | null
-          mess_hall_id?: number | null
-          notes?: string | null
-          produces_own_meals?: boolean | null
-          unit_id?: number | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mess_hall_workforce_kitchen_id_fkey"
-            columns: ["kitchen_id"]
-            isOneToOne: false
-            referencedRelation: "kitchen"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mess_hall_workforce_mess_hall_id_fkey"
-            columns: ["mess_hall_id"]
-            isOneToOne: false
-            referencedRelation: "mess_halls"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mess_hall_workforce_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       super_admin_controller: {
         Row: {
           active: boolean | null
@@ -3277,13 +3210,6 @@ export type Database = {
             referencedRelation: "workforce_category"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "workforce_headcount_submission_id_fkey"
-            columns: ["submission_id"]
-            isOneToOne: false
-            referencedRelation: "workforce_submission"
-            referencedColumns: ["id"]
-          },
         ]
       }
       workforce_note: {
@@ -3311,63 +3237,7 @@ export type Database = {
           quantity?: number | null
           submission_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "workforce_note_submission_id_fkey"
-            columns: ["submission_id"]
-            isOneToOne: false
-            referencedRelation: "workforce_submission"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      workforce_submission: {
-        Row: {
-          created_at: string | null
-          declared_total: number | null
-          id: string | null
-          rancho_id: number | null
-          submitted_at: string | null
-          submitted_by: string | null
-          survey_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          declared_total?: number | null
-          id?: string | null
-          rancho_id?: number | null
-          submitted_at?: string | null
-          submitted_by?: string | null
-          survey_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          declared_total?: number | null
-          id?: string | null
-          rancho_id?: number | null
-          submitted_at?: string | null
-          submitted_by?: string | null
-          survey_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "workforce_submission_rancho_id_fkey"
-            columns: ["rancho_id"]
-            isOneToOne: false
-            referencedRelation: "rancho"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workforce_submission_survey_id_fkey"
-            columns: ["survey_id"]
-            isOneToOne: false
-            referencedRelation: "workforce_survey"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       workforce_survey: {
         Row: {
@@ -11604,7 +11474,6 @@ export type Database = {
           declared_total: number | null
           id: string
           mess_hall_workforce_id: number
-          rancho_id: number | null
           submitted_at: string | null
           submitted_by: string | null
           survey_id: string
@@ -11615,7 +11484,6 @@ export type Database = {
           declared_total?: number | null
           id?: string
           mess_hall_workforce_id: number
-          rancho_id?: number | null
           submitted_at?: string | null
           submitted_by?: string | null
           survey_id: string
@@ -11626,7 +11494,6 @@ export type Database = {
           declared_total?: number | null
           id?: string
           mess_hall_workforce_id?: number
-          rancho_id?: number | null
           submitted_at?: string | null
           submitted_by?: string | null
           survey_id?: string
@@ -11638,27 +11505,6 @@ export type Database = {
             columns: ["mess_hall_workforce_id"]
             isOneToOne: false
             referencedRelation: "mess_hall_workforce"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workforce_submission_mess_hall_workforce_id_fkey"
-            columns: ["mess_hall_workforce_id"]
-            isOneToOne: false
-            referencedRelation: "rancho"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workforce_submission_rancho_id_fkey"
-            columns: ["rancho_id"]
-            isOneToOne: false
-            referencedRelation: "mess_hall_workforce"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workforce_submission_rancho_id_fkey"
-            columns: ["rancho_id"]
-            isOneToOne: false
-            referencedRelation: "rancho"
             referencedColumns: ["id"]
           },
           {
@@ -11738,66 +11584,6 @@ export type Database = {
             columns: ["ingredient_id"]
             isOneToOne: false
             referencedRelation: "ingredient"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      rancho: {
-        Row: {
-          active: boolean | null
-          code: string | null
-          created_at: string | null
-          display_name: string | null
-          elo_code: string | null
-          id: number | null
-          kitchen_id: number | null
-          mess_hall_id: number | null
-          notes: string | null
-          produces_own_meals: boolean | null
-          unit_id: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          active?: boolean | null
-          code?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          elo_code?: string | null
-          id?: number | null
-          kitchen_id?: number | null
-          mess_hall_id?: number | null
-          notes?: string | null
-          produces_own_meals?: boolean | null
-          unit_id?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          active?: boolean | null
-          code?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          elo_code?: string | null
-          id?: number | null
-          kitchen_id?: number | null
-          mess_hall_id?: number | null
-          notes?: string | null
-          produces_own_meals?: boolean | null
-          unit_id?: number | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mess_hall_workforce_kitchen_id_fkey"
-            columns: ["kitchen_id"]
-            isOneToOne: false
-            referencedRelation: "kitchen"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mess_hall_workforce_mess_hall_id_fkey"
-            columns: ["mess_hall_id"]
-            isOneToOne: false
-            referencedRelation: "mess_halls"
             referencedColumns: ["id"]
           },
         ]
