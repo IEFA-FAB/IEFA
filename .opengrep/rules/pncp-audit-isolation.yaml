@@ -17,6 +17,9 @@
 #      `ON CONFLICT ... DO UPDATE` é no-op: a procedência errada ficaria gravada para sempre.
 #
 # A separação virou invariante do change, e invariante sem gate volta na próxima refatoração.
+#
+# Casos de teste: `__fixtures__/pncp-audit-isolation.ts` (opengrep test --config
+# .opengrep/rules/pncp-audit-isolation.yaml .opengrep/rules/__fixtures__/pncp-audit-isolation.ts).
 ##
 rules:
   - id: pncp-must-not-write-price-audit
@@ -44,6 +47,12 @@ rules:
           - pattern: $X.from("price_research_item")
           - pattern: $X.from("price_research_sample")
           - pattern: $X.rpc("upsert_price_samples", ...)
+          # A escrita do domínio é por Drizzle e SQL cru, não pelo client do Supabase.
+          - pattern: $X.insert(priceSampleInProcurement)
+          - pattern: $X.insert(priceResearchInProcurement)
+          - pattern: $X.insert(priceResearchItemInProcurement)
+          - pattern: $X.insert(priceResearchSampleInProcurement)
+          - pattern-regex: (?i)\b(?:insert\s+into|update|delete\s+from)\s+procurement\.(?:price_sample|price_research\w*)\b|\bupsert_price_samples\b
           # Nomes antigos: views e wrapper de compatibilidade do expand 20260927060000, que saem
           # no contract 20260927070000.
           - pattern: $X.from("compras_amostra")

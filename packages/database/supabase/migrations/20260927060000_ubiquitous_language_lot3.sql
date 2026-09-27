@@ -635,6 +635,8 @@ comment on view procurement.procurement_segment_rule is
 
 do $$
 declare
+	-- Um padrão só para funções, policies e jobs do pg_cron.
+	old_names constant text := '\m(procurement_pesquisa_preco\w*|compras_amostra\w*|procurement_arp\w*|procurement_segment\w*|amostra_id)\M';
 	offenders text;
 begin
 	select string_agg(p.oid::regprocedure::text, ', ') into offenders
@@ -646,8 +648,8 @@ begin
 			'sisub.compras_amostra_fingerprint(text, integer, text, numeric, numeric, text, text, numeric, text, text, text, text, text, text, numeric, date)'::regprocedure
 		)
 		and (
-			coalesce(p.prosrc, '') ~ '\m(procurement_pesquisa_preco\w*|compras_amostra\w*|procurement_arp\w*|procurement_segment\w*|amostra_id)\M'
-			or coalesce(pg_get_function_sqlbody(p.oid), '') ~ '\m(procurement_pesquisa_preco\w*|compras_amostra\w*|procurement_arp\w*|procurement_segment\w*|amostra_id)\M'
+			coalesce(p.prosrc, '') ~ old_names
+			or coalesce(pg_get_function_sqlbody(p.oid), '') ~ old_names
 		);
 	if offenders is not null then
 		raise exception 'funções citam nomes antigos do lote 3 e precisam ser recriadas neste expand: %', offenders;
@@ -655,9 +657,17 @@ begin
 
 	select string_agg(schemaname || '.' || tablename || '.' || policyname, ', ') into offenders
 	from pg_policies
-	where coalesce(qual, '') || coalesce(with_check, '') ~ '\m(procurement_pesquisa_preco\w*|compras_amostra\w*|procurement_arp\w*|procurement_segment\w*|amostra_id)\M';
+	where coalesce(qual, '') || ' ' || coalesce(with_check, '') ~ old_names;
 	if offenders is not null then
 		raise exception 'policies citam nomes antigos do lote 3: %', offenders;
+	end if;
+
+	-- Job do pg_cron também resolve tabela pelo nome, e em texto livre.
+	if to_regclass('cron.job') is not null then
+		execute 'select string_agg(jobname, '', '') from cron.job where command ~ $1' into offenders using old_names;
+		if offenders is not null then
+			raise exception 'jobs do pg_cron citam nomes antigos do lote 3: %', offenders;
+		end if;
 	end if;
 
 	-- As funções novas e recriadas fixam `search_path` vazio (o `create or replace` sem a cláusula
