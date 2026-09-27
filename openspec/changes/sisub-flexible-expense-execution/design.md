@@ -236,4 +236,8 @@ pendência de justificativa. Planejamento de datas futuras e modelos continua ex
 2. Migrations aditivas e compatíveis com a `main` (colunas anuláveis, FKs trocadas, tabelas novas,
    triggers substituídos aceitando o comportamento antigo), aplicadas com `db:push --dry-run` antes.
 3. Tipos regerados (`db:types`, `db:drizzle:pull`) no mesmo PR do recurso.
-4. Contract (remover as colunas antigas do empenho) num PR posterior, depois de um ciclo.
+4. Contract (remover as colunas antigas do empenho) num PR posterior, depois de um ciclo: o código
+   passa a ler e gravar só `empenho_item` (PR do cutover), e depois do deploy dele
+   `20260927030000_empenho_header_columns_contract` dropa as colunas e o espelho. O
+   `empenho_ensure_item` fica, só com o valor: o registro rápido e o import do SIAFI ainda gravam a
+   NE só com o cabeçalho.
