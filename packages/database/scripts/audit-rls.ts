@@ -21,6 +21,7 @@
  *   ERRO   client_schema_usage   anon/authenticated com USAGE num schema fora da CLIENT_SCHEMA_ALLOWLIST
  *   ERRO   client_table_grant_latent grant de tabela a cliente num schema que ele não alcança
  *   ERRO   client_table_grant    grant de tabela/view a cliente fora da CLIENT_TABLE_ALLOWLIST (ou além de SELECT)
+ *   ERRO   fk_without_full_index FK sem índice cheio no lado filho (parcial não serve à checagem de FK)
  *   AVISO  view_secdef_no_grant  view sem security_invoker, mas sem GRANT de cliente hoje
  *   AVISO  secdef_execute_latent EXECUTE de cliente numa SECURITY DEFINER de schema sem USAGE
  *   AVISO  rls_no_policy         RLS ligada e nenhuma policy → deny-all (ok se for só service-role)
@@ -336,6 +337,109 @@ async function auditFunctionSearchPath(schemas: string[]): Promise<Finding[]> {
 		object: r.signature,
 		detail:
 			"função sem search_path fixo — nome sem schema resolve pelo caminho de quem chama. `alter function … set search_path = ''` com tudo qualificado (ou o menor conjunto explícito que resolva cada nome ao mesmo objeto)",
+	}))
+}
+
+/**
+ * Schemas fora do lint de FK: os da plataforma (não são nossos), os arquivados (`legacy_*`,
+ * só leitura) e `public` (extensões e tabela legada). Os demais entram todos, expostos ou não:
+ * o custo de FK sem índice não depende do PostgREST.
+ */
+const FK_INDEX_EXCLUDED_SCHEMAS = [
+	"auth",
+	"storage",
+	"realtime",
+	"pgmq",
+	"supabase_migrations",
+	"supabase_functions",
+	"extensions",
+	"graphql",
+	"graphql_public",
+	"vault",
+	"pgsodium",
+	"pgsodium_masks",
+	"cron",
+	"net",
+	"pgbouncer",
+	"information_schema",
+	"legacy_sisubweb",
+	"legacy_access",
+	"public",
+]
+
+/**
+ * FK sem índice CHEIO no lado filho. O `delete`/`update` na tabela referenciada (e a cascata)
+ * procura as filhas com `where <cols> = $1`, sem predicado; índice parcial só serve se a
+ * consulta implica o predicado, e `deleted_at is null`/`used_at is null`/`active` não são
+ * implicados — a checagem varre a tabela. Conta como cobertura o índice válido cujas primeiras
+ * colunas-chave são as da FK (em qualquer ordem) e cujo predicado, se houver, é só
+ * `<col da FK> is not null`. O advisor `unindexed_foreign_keys` conta o parcial como coberto: por
+ * isso o padrão se repetiu em 2026-09-26 (20260926219500 e 20260926234500 deixaram 41 FKs só com
+ * parcial, fechadas por 20260926235000). Não depende de `schemas`: vale para todo schema nosso.
+ */
+async function auditForeignKeyIndexes(): Promise<Finding[]> {
+	const rows = await sql<{ schema: string; table: string; constraint: string; cols: string[]; partial: string[]; suggestion: string }[]>`
+		with fk as (
+			select
+				con.conname, con.conrelid, con.conkey, n.nspname as schema, c.relname as tbl,
+				array(
+					select a.attname::text from unnest(con.conkey) with ordinality k(attnum, ord)
+					join pg_attribute a on a.attrelid = con.conrelid and a.attnum = k.attnum
+					order by k.ord
+				) as cols
+			from pg_constraint con
+			join pg_class c on c.oid = con.conrelid
+			join pg_namespace n on n.oid = c.relnamespace
+			where con.contype = 'f'
+				and n.nspname <> all(${FK_INDEX_EXCLUDED_SCHEMAS})
+				and n.nspname not like 'pg\\_%'
+		), candidate as (
+			-- índices cujas primeiras colunas-chave são exatamente as da FK
+			select fk.conname, fk.conrelid, i.indexrelid, i.indisvalid, pg_get_expr(i.indpred, i.indrelid) as pred
+			from fk
+			join pg_index i on i.indrelid = fk.conrelid
+			where cardinality(fk.conkey) <= i.indnkeyatts
+				and (select array_agg(x order by x) from unnest((i.indkey::int2[])[0:cardinality(fk.conkey) - 1]) x)
+					= (select array_agg(x order by x) from unnest(fk.conkey) x)
+		), named as (
+			select fk.*, left(fk.tbl || '_' || array_to_string(fk.cols, '_'), 56) || '_fk_idx' as idx_name from fk
+		)
+		select
+			fk.schema, fk.tbl as table, fk.conname as constraint, fk.cols,
+			array(
+				select ca.indexrelid::regclass::text || coalesce(' where ' || ca.pred, '')
+				from candidate ca where ca.conname = fk.conname and ca.conrelid = fk.conrelid
+				order by 1
+			) as partial,
+			format(
+				'create index if not exists %I on %I.%I (%s);',
+				case when to_regclass(format('%I.%I', fk.schema, fk.idx_name)) is null then fk.idx_name else left(fk.idx_name, 58) || '_full' end,
+				fk.schema, fk.tbl,
+				(select string_agg(quote_ident(col), ', ') from unnest(fk.cols) col)
+			) as suggestion
+		from named fk
+		where not exists (
+			select 1 from candidate ca
+			where ca.conname = fk.conname and ca.conrelid = fk.conrelid and ca.indisvalid
+				and (ca.pred is null or not exists (
+					-- termo do predicado que não seja "<col da FK> IS NOT NULL" desqualifica o índice
+					select 1 from regexp_split_to_table(ca.pred, ' AND ') term
+					where not (
+						regexp_replace(term, '[()"]', '', 'g') ~ '^\\w+ IS NOT NULL$'
+						and split_part(regexp_replace(term, '[()"]', '', 'g'), ' ', 1) = any(fk.cols)
+					)
+				))
+		)
+		order by 1, 2, 3
+	`
+
+	return rows.map((r) => ({
+		severity: "error" as const,
+		lint: "fk_without_full_index",
+		object: `${r.schema}.${r.table} (${r.cols.join(", ")}) [${r.constraint}]`,
+		detail:
+			(r.partial.length > 0 ? `FK só com índice parcial (${r.partial.join("; ")}), que a checagem de FK não usa` : "FK sem índice no lado filho") +
+			` — apagar/alterar a linha referenciada varre a tabela. Migration: \`${r.suggestion}\``,
 	}))
 }
 
@@ -707,6 +811,7 @@ async function main() {
 			auditDefaultAcl(schemas),
 			auditClientSchemaUsage(schemas),
 			auditClientTableGrants(schemas),
+			auditForeignKeyIndexes(),
 		])
 	).flat()
 
