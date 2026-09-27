@@ -15,10 +15,6 @@ import * as schema from "./schema"
 
 export * from "./relations"
 export * from "./schema"
-// TODO(db:types): tabelas-ponte do rename 20260927150000. Os gerados ainda têm os nomes antigos
-// (`ranchoInKitchen`, `workforceSubmissionInKitchen.ranchoId`); some junto com o arquivo depois do
-// pull. A export explícita vence a do `export *` acima.
-export { messHallWorkforceInKitchen, workforceSubmissionInKitchen } from "./pending-ubiquitous-language-lot8b"
 
 
 /** Tables + enums + relations — pass to `drizzle(client, { schema: sisubSchema })`. */
