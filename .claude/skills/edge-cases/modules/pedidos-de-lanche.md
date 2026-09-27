@@ -24,3 +24,10 @@ agendamento (GC-AGD-*) não mexem nela.
 
 ### PL-PED-05 — "Retirada parcial ou material não devolvido"
 - **Cobertura:** `registerSnackPickup` / `registerSnackMaterialReturn` — verificar teste de devolução parcial.
+
+### PL-PED-06 — "Chegou pedido de lanche e a nutricionista não está: o chão aceita provisório"
+- **Realidade:** o aceite é da Gestão Cozinha; o pedido que chega de madrugada espera o expediente.
+- **Caminho proposto:** aceite provisório pelo turno (`kitchen-production:1`), com a produção entrando
+  no quadro e o aceite pendente de confirmação da nutricionista — o mesmo desenho de PC-TRN-06.
+- **Cobertura:** **LACUNA** (fora do escopo do "execução nunca trava", 2026-09-26; o reagendamento,
+  PL-PED-02, também ficou de fora).

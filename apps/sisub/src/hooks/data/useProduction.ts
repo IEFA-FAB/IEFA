@@ -2,8 +2,10 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
 import {
+	addExecutionMenuItemFn,
 	adjustProductionPortionsFn,
 	ensureProductionTasksFn,
+	fetchExecutionOptionsFn,
 	fetchProductionBoardFn,
 	recordProductionSubstitutionFn,
 	updateProductionTaskRecordFn,
@@ -164,13 +166,68 @@ export function useRecordSubstitution() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({ menuItemId, ingredientId, rationale }: { menuItemId: string; ingredientId: string; rationale: string; kitchenId: number; date: string }) =>
-			recordProductionSubstitutionFn({ data: { menuItemId, ingredientId, rationale } }),
+		mutationFn: ({
+			menuItemId,
+			ingredientId,
+			substituteIngredientId,
+			substituteDescription,
+			rationale,
+		}: {
+			menuItemId: string
+			ingredientId: string
+			substituteIngredientId: string | null
+			substituteDescription: string
+			rationale: string
+			kitchenId: number
+			date: string
+		}) => recordProductionSubstitutionFn({ data: { menuItemId, ingredientId, substituteIngredientId, substituteDescription, rationale } }),
 		onSuccess: (_data, { kitchenId, date }) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.production.board(kitchenId, date) })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
 			toast.success("Substituição registrada")
 		},
-		onError: () => toast.error("Erro ao registrar substituição"),
+		onError: (error) => toast.error(error instanceof Error ? error.message : "Erro ao registrar substituição"),
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Execução do dia — "Incluir preparação" pelo turno
+// ---------------------------------------------------------------------------
+
+/** Refeições e preparações que o turno pode incluir hoje. Só carrega com o diálogo aberto. */
+export function useExecutionOptions(kitchenId: number, enabled: boolean) {
+	return useQuery({
+		queryKey: queryKeys.production.executionOptions(kitchenId),
+		queryFn: () => fetchExecutionOptionsFn({ data: { kitchenId } }),
+		enabled: enabled && kitchenId > 0,
+		staleTime: 5 * 60_000,
+	})
+}
+
+export function useAddExecutionMenuItem() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: (input: {
+			kitchenId: number
+			serviceDate: string
+			mealTypeId: string
+			recipeId?: string
+			provisionalRecipeName?: string
+			plannedPortionQuantity?: number
+			reason: string
+		}) => addExecutionMenuItemFn({ data: input }),
+		onSuccess: (result, { kitchenId, serviceDate }) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.production.board(kitchenId, serviceDate) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.production.executionOptions(kitchenId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.flows.executionReview(kitchenId) })
+			toast.success(
+				result.provisional
+					? "Preparação incluída no dia como provisória. A nutricionista completa a ficha depois."
+					: "Preparação incluída no dia. A nutricionista vê a inclusão para revisar."
+			)
+		},
+		onError: (error) => toast.error(error instanceof Error ? error.message : "Erro ao incluir a preparação"),
 	})
 }

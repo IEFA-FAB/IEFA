@@ -31,7 +31,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { MenuItem } from "@iefa/database/sisub"
 import { and, eq, inArray, isNull, sql } from "drizzle-orm"
-import { requireKitchen } from "../guards/require-permission.ts"
+import { requireAnyPermission, requireKitchen } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type {
 	MenuItemSubstituteOptions,
@@ -373,7 +373,9 @@ export async function fetchMenuItemSubstituteOptions(
 	input: MenuItemSubstituteOptions
 ): Promise<Record<string, SubstituteOption[]>> {
 	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
-	requireKitchen(ctx, 1, kitchenId)
+	// Leitura: quem planeja (`kitchen:1`) e o turno (`kitchen-production:1`), que registra o
+	// substituto na hora em que o insumo falta.
+	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: kitchenId })
 
 	const [item] = await runQuery("FETCH_FAILED", () =>
 		db

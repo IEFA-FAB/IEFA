@@ -1,10 +1,13 @@
-import { ISSUE_VARIANCE_REASON_LABELS, ISSUE_VARIANCE_REASONS, type IssueVarianceReason } from "@iefa/sisub-domain"
+import { brasiliaToday, ISSUE_VARIANCE_REASON_LABELS, ISSUE_VARIANCE_REASONS, type IssueVarianceReason } from "@iefa/sisub-domain"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
-import { CalendarDays, CheckCircle2, PackageMinus, RefreshCw, Undo2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { AlertTriangle, CalendarDays, CheckCircle2, PackageMinus, RefreshCw, Undo2 } from "lucide-react"
+import { useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
+import { IngredientSearchCombobox, type IssuableIngredient } from "@/components/features/storage/issue/IngredientSearchCombobox"
+import { LateIssueCard } from "@/components/features/storage/issue/LateIssueCard"
+import { UnexplainedDayCard } from "@/components/features/storage/issue/UnexplainedDayCard"
 import { ScanInput } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -12,15 +15,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import {
 	closeIssueRequestFn,
+	fetchIssueDayGapsFn,
 	fetchIssueRequestFn,
 	fetchReturnableLotsFn,
 	fetchTodayIssueRequestFn,
 	issueStockFn,
+	listUnexplainedIssueDaysFn,
 	openIssueRequestFn,
 	returnIssueFn,
 	setVarianceReasonFn,
@@ -48,6 +52,12 @@ const searchSchema = z.object({
 	origin: z.enum(["production", "ad_hoc"]).catch("production").optional(),
 	/** Avulsa escolhida — pode haver várias no dia. */
 	requestId: z.uuid().optional().catch(undefined),
+	/** Dia de uma requisição passada (a que fechou sozinha e pede justificativa). Sem ele, hoje. */
+	date: z
+		.string()
+		.regex(/^\d{4}-\d{2}-\d{2}$/)
+		.optional()
+		.catch(undefined),
 })
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/issue")({
@@ -56,11 +66,13 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/is
 	// LEITURA PURA. Com `defaultPreload: "intent"`, passar o mouse no link da
 	// barra lateral chama o loader — e um loader que abre a requisição criava o
 	// documento do dia sem ninguém ter clicado em nada.
-	loaderDeps: ({ search }) => ({ origin: search.origin ?? "production", requestId: search.requestId }),
+	loaderDeps: ({ search }) => ({ origin: search.origin ?? "production", requestId: search.requestId, date: search.date }),
 	loader: async ({ params, deps }) => {
 		const kitchenId = Number(params.kitchenId)
 		const [today, balance, scannerProfile] = await Promise.all([
-			fetchTodayIssueRequestFn({ data: { kitchenId, origin: deps.origin, requestId: deps.origin === "ad_hoc" ? deps.requestId : undefined } }),
+			fetchTodayIssueRequestFn({
+				data: { kitchenId, origin: deps.origin, requestId: deps.origin === "ad_hoc" ? deps.requestId : undefined, issueDate: deps.date },
+			}),
 			fetchStockBalanceFn({ data: { kitchenId, operation: true } }),
 			fetchScannerProfileFn({ data: { kitchenId } }),
 		])
@@ -85,7 +97,8 @@ function DailyIssuePage() {
 	// existe para dar: depois de um 502, a segunda tentativa retirava de novo.
 	const [emissionIds, setEmissionIds] = useState<Record<string, string>>({})
 	// insumo fora da sugestão (cozinha sem planejamento, retirada extra)
-	const [extraIngredientId, setExtraIngredientId] = useState("")
+	const [extraIngredient, setExtraIngredient] = useState<IssuableIngredient | null>(null)
+	const extraIngredientId = extraIngredient?.id ?? ""
 	// linha apontada pela última leitura — some assim que a saída é lançada
 	const [scannedIngredientId, setScannedIngredientId] = useState<string | null>(null)
 	// Lote lido na etiqueta: a saída daquele insumo sai DESSE lote, o que está
@@ -95,6 +108,19 @@ function DailyIssuePage() {
 
 	const open = request?.request.status === "open"
 	const pending = request?.lines.filter((line) => line.requiresReason && !line.hasReason) ?? []
+	const today = brasiliaToday()
+	const issueDate = request?.request.issue_date ?? today
+
+	// Preparações do dia com ficha que não dá sugestão: o aviso que faltava na sugestão vazia.
+	const { data: gaps } = useQuery({
+		queryKey: ["issue-day-gaps", kitchenId, issueDate, request?.request.id ?? null],
+		queryFn: () => fetchIssueDayGapsFn({ data: { kitchenId: Number(kitchenId), issueDate } }),
+		enabled: origin === "production",
+	})
+	const { data: unexplainedDays } = useQuery({
+		queryKey: ["unexplained-issue-days", kitchenId, request?.request.status ?? null],
+		queryFn: () => listUnexplainedIssueDaysFn({ data: { kitchenId: Number(kitchenId) } }),
+	})
 
 	function emissionIdFor(key: string): string {
 		const existing = emissionIds[key]
@@ -122,19 +148,11 @@ function DailyIssuePage() {
 			])
 	)
 
-	// Insumos com saldo, para a saída fora da sugestão. A cozinha abastecida tem
-	// centenas de linhas com saldo: sem busca, escolher aqui é rolagem cega.
-	const extraIngredientOptions = useMemo(
-		() =>
-			balance
-				.filter((item) => item.ingredientId != null && item.balance - item.quarantinedBalance - item.expiredBalance > 0)
-				.map((item) => ({
-					value: item.ingredientId as string,
-					label: item.description,
-					hint: `${NUM.format(item.balance - item.quarantinedBalance - item.expiredBalance)} ${item.measureUnit ?? ""}`.trim(),
-				})),
-		[balance]
-	)
+	// Saída fora da sugestão: qualquer insumo do catálogo, buscado no servidor. A tela aceitava
+	// só saldo > 0, e o banco já aceitava a saída sem lote ("regularizar na contagem"): o saco
+	// na mão do almoxarife não saía porque o sistema estava atrasado.
+	const availableById = new Map([...stockByIngredient.entries()].map(([id, stock]) => [id, stock.available]))
+	const extraWithoutStock = extraIngredientId !== "" && (stockByIngredient.get(extraIngredientId)?.available ?? 0) <= 0
 
 	/**
 	 * Leva a leitura até a linha: resolve o insumo, põe o foco no campo de
@@ -161,12 +179,13 @@ function DailyIssuePage() {
 			setScannedLot(found.matchedBy === "lot" && found.lotId ? { ingredientId, lotId: found.lotId, description: label } : null)
 			const inSuggestion = request?.lines.some((line) => line.ingredientId === ingredientId) ?? false
 			if (!inSuggestion) {
+				setExtraIngredient({ id: ingredientId, description: label, measure_unit: stockByIngredient.get(ingredientId)?.measureUnit ?? null })
 				if (!stockByIngredient.has(ingredientId)) {
-					toast.error(`${label} não tem saldo nesta cozinha`)
-					return
+					// Sem saldo no sistema não é "não sai": entra como falta a regularizar na contagem.
+					toast.warning(`${label} — sem saldo registrado nesta cozinha: a saída entra como falta a regularizar na contagem. Informe a quantidade`)
+				} else {
+					toast.info(`${label} — fora da sugestão do dia. Informe a quantidade`)
 				}
-				setExtraIngredientId(ingredientId)
-				toast.info(`${label} — fora da sugestão do dia. Informe a quantidade`)
 			} else {
 				toast.info(`${label} — informe a quantidade`)
 			}
@@ -294,6 +313,10 @@ function DailyIssuePage() {
 						</div>
 					</CardContent>
 				</Card>
+				<UnexplainedDaysBanner days={unexplainedDays ?? []} origin={origin} />
+				{origin === "production" && (
+					<LateIssueCard kitchenId={Number(kitchenId)} today={today} availableById={availableById} onDone={() => router.invalidate()} />
+				)}
 			</div>
 		)
 	}
@@ -321,6 +344,41 @@ function DailyIssuePage() {
 					<Badge variant="secondary">{request.request.status === "closed" ? "Fechado" : "Fechado sem justificativa"}</Badge>
 				)}
 			</PageHeader>
+
+			{origin === "production" && request.request.status === "closed_unexplained" && (
+				<UnexplainedDayCard
+					requestId={request.request.id}
+					autoClosedAt={(request.request as { auto_closed_at?: string | null }).auto_closed_at ?? null}
+					explainedAt={(request.request as { explained_at?: string | null }).explained_at ?? null}
+					explanation={(request.request as { explanation?: string | null }).explanation ?? null}
+					onDone={() => router.invalidate()}
+				/>
+			)}
+
+			<UnexplainedDaysBanner days={(unexplainedDays ?? []).filter((day) => day.id !== request.request.id)} origin={origin} />
+
+			{origin === "production" && (gaps?.items.length ?? 0) > 0 && (
+				<Card>
+					<CardHeader className="pb-2">
+						<CardTitle>
+							<span className="flex items-center gap-2 text-subheading">
+								<AlertTriangle className="size-4 text-warning" aria-hidden="true" />
+								Ficha incompleta em {gaps?.items.length} preparação(ões) do dia
+							</span>
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-1">
+						{gaps?.items.map((item) => (
+							<p key={item.menuItemId} className="text-body">
+								<strong>{item.recipeName}</strong>: {item.notice.replace(/^Ficha incompleta — /, "")}
+							</p>
+						))}
+						<p className="text-xs text-muted-foreground">
+							A saída não trava: retire pela quantidade real. A nutricionista vê a ficha incompleta como pendência em Gestão Cozinha → Fluxos.
+						</p>
+					</CardContent>
+				</Card>
+			)}
 
 			{origin === "ad_hoc" && (
 				<div className="flex flex-wrap items-center gap-2 text-xs">
@@ -465,16 +523,19 @@ function DailyIssuePage() {
 						<div className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed p-3">
 							<div className="min-w-72 flex-1 space-y-1">
 								<Label htmlFor="extra">Retirar insumo fora da sugestão</Label>
-								<SearchableSelect
+								<IngredientSearchCombobox
 									id="extra"
-									value={extraIngredientId || null}
-									onValueChange={(value) => setExtraIngredientId(value ?? "")}
-									options={extraIngredientOptions}
-									placeholder="Escolha o insumo"
-									searchPlaceholder="Pesquisar insumo com saldo…"
-									emptyLabel="Nenhum insumo com saldo."
-									unavailableLabel="Insumo sem saldo"
+									kitchenId={Number(kitchenId)}
+									value={extraIngredient}
+									onChange={setExtraIngredient}
+									availableById={availableById}
 								/>
+								{extraWithoutStock && (
+									<p className="flex items-center gap-1 text-xs text-warning" role="status">
+										<AlertTriangle className="size-3.5" aria-hidden="true" />
+										Sem saldo registrado — entra como falta a regularizar na contagem.
+									</p>
+								)}
 							</div>
 							<Input
 								className="w-28"
@@ -598,7 +659,48 @@ function DailyIssuePage() {
 					})}
 				</CardContent>
 			</Card>
+
+			{origin === "production" && (
+				<LateIssueCard kitchenId={Number(kitchenId)} today={today} availableById={availableById} onDone={() => router.invalidate()} />
+			)}
 		</div>
+	)
+}
+
+/**
+ * Dias que fecharam sozinhos com desvio sem motivo: a pendência de quem opera o estoque.
+ * Cada um leva à requisição daquele dia, onde se registra a justificativa.
+ */
+function UnexplainedDaysBanner({ days, origin }: { days: Array<{ id: string; issue_date: string; origin: string }>; origin: string }) {
+	const navigate = useNavigate()
+	if (days.length === 0) return null
+	return (
+		<Card>
+			<CardContent className="flex flex-wrap items-center gap-2 pt-4">
+				<AlertTriangle className="size-4 text-warning" aria-hidden="true" />
+				<span className="text-body">
+					{days.length === 1 ? "1 dia fechou sozinho" : `${days.length} dias fecharam sozinhos`} com desvio sem motivo e espera{days.length === 1 ? "" : "m"}{" "}
+					justificativa:
+				</span>
+				{days.slice(0, 10).map((day) => (
+					<Button
+						key={day.id}
+						type="button"
+						size="sm"
+						variant="outline"
+						onClick={() =>
+							navigate({
+								to: ".",
+								search: day.origin === "production" ? { origin: "production", date: day.issue_date } : { origin: "ad_hoc", requestId: day.id },
+							})
+						}
+					>
+						{day.issue_date.split("-").reverse().join("/")}
+						{day.origin === "ad_hoc" || origin === "ad_hoc" ? " (avulsa)" : ""}
+					</Button>
+				))}
+			</CardContent>
+		</Card>
 	)
 }
 

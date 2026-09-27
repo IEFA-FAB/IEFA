@@ -5910,6 +5910,7 @@ export type Database = {
           kitchen_id: number
           notes: string | null
           parent_count_id: string | null
+          pending_production_waiver: string | null
           round: number
           scope: string
           scope_params: Json
@@ -5934,6 +5935,7 @@ export type Database = {
           kitchen_id: number
           notes?: string | null
           parent_count_id?: string | null
+          pending_production_waiver?: string | null
           round?: number
           scope?: string
           scope_params?: Json
@@ -5958,6 +5960,7 @@ export type Database = {
           kitchen_id?: number
           notes?: string | null
           parent_count_id?: string | null
+          pending_production_waiver?: string | null
           round?: number
           scope?: string
           scope_params?: Json
@@ -6853,11 +6856,15 @@ export type Database = {
       stock_issue_request: {
         Row: {
           authorization_reference: string | null
+          auto_closed_at: string | null
           closed_at: string | null
           closed_by: string | null
           created_at: string
           created_by: string | null
           destination: string | null
+          explained_at: string | null
+          explained_by: string | null
+          explanation: string | null
           id: string
           issue_date: string
           kitchen_id: number
@@ -6867,11 +6874,15 @@ export type Database = {
         }
         Insert: {
           authorization_reference?: string | null
+          auto_closed_at?: string | null
           closed_at?: string | null
           closed_by?: string | null
           created_at?: string
           created_by?: string | null
           destination?: string | null
+          explained_at?: string | null
+          explained_by?: string | null
+          explanation?: string | null
           id?: string
           issue_date: string
           kitchen_id: number
@@ -6881,11 +6892,15 @@ export type Database = {
         }
         Update: {
           authorization_reference?: string | null
+          auto_closed_at?: string | null
           closed_at?: string | null
           closed_by?: string | null
           created_at?: string
           created_by?: string | null
           destination?: string | null
+          explained_at?: string | null
+          explained_by?: string | null
+          explanation?: string | null
           id?: string
           issue_date?: string
           kitchen_id?: number
@@ -7050,6 +7065,7 @@ export type Database = {
           id: string
           ingredient_id: string | null
           inventory_count_id: string | null
+          is_late_issue: boolean
           issue_request_id: string | null
           justification: string | null
           kitchen_id: number
@@ -7072,6 +7088,7 @@ export type Database = {
           id?: string
           ingredient_id?: string | null
           inventory_count_id?: string | null
+          is_late_issue?: boolean
           issue_request_id?: string | null
           justification?: string | null
           kitchen_id: number
@@ -7094,6 +7111,7 @@ export type Database = {
           id?: string
           ingredient_id?: string | null
           inventory_count_id?: string | null
+          is_late_issue?: boolean
           issue_request_id?: string | null
           justification?: string | null
           kitchen_id?: number
@@ -7272,6 +7290,19 @@ export type Database = {
           lines: number
         }[]
       }
+      approve_inventory_count_with_waiver: {
+        Args: {
+          p_actor: string
+          p_count_id: string
+          p_exception_reason: string
+          p_pending_production_reason: string
+        }
+        Returns: {
+          adjustment_id: string
+          difference_value: number
+          lines: number
+        }[]
+      }
       balance_at: {
         Args: {
           p_frozen_preparation_id: string
@@ -7312,6 +7343,10 @@ export type Database = {
           closing_id: string
           items: number
         }[]
+      }
+      close_stale_issue_requests: {
+        Args: { p_kitchen_id?: number }
+        Returns: number
       }
       confirm_inventory_count: {
         Args: { p_count_id: string; p_user: string }
@@ -7508,6 +7543,23 @@ export type Database = {
         Args: { p_lines: Json; p_request_id: string }
         Returns: number
       }
+      register_late_issue: {
+        Args: {
+          p_emission_id: string
+          p_ingredient_id: string
+          p_kitchen_id: number
+          p_occurred_on: string
+          p_production_task_id?: string
+          p_quantity: number
+          p_reason: string
+          p_user: string
+        }
+        Returns: {
+          movements: number
+          request_id: string
+          without_lot: number
+        }[]
+      }
       register_leftover: {
         Args: {
           p_discard: boolean
@@ -7521,6 +7573,25 @@ export type Database = {
           p_user: string
         }
         Returns: {
+          lot_id: string
+        }[]
+      }
+      register_leftover_provisional: {
+        Args: {
+          p_description: string
+          p_discard: boolean
+          p_kitchen_id: number
+          p_lot_code: string
+          p_measure_unit: string
+          p_production_date: string
+          p_quantity: number
+          p_reason: string
+          p_shelf_life_days: number
+          p_task_id: string
+          p_user: string
+        }
+        Returns: {
+          frozen_preparation_id: string
           lot_id: string
         }[]
       }
@@ -9093,6 +9164,11 @@ export type Database = {
           legacy_id: number | null
           measure_unit: string | null
           production_recipe_id: string | null
+          provisional_by: string | null
+          provisional_kitchen_id: number | null
+          provisional_reviewed_at: string | null
+          provisional_reviewed_by: string | null
+          provisional_since: string | null
           regeneration_recipe_id: string | null
           shelf_life_days: number | null
           source_ingredient_id: string | null
@@ -9112,6 +9188,11 @@ export type Database = {
           legacy_id?: number | null
           measure_unit?: string | null
           production_recipe_id?: string | null
+          provisional_by?: string | null
+          provisional_kitchen_id?: number | null
+          provisional_reviewed_at?: string | null
+          provisional_reviewed_by?: string | null
+          provisional_since?: string | null
           regeneration_recipe_id?: string | null
           shelf_life_days?: number | null
           source_ingredient_id?: string | null
@@ -9131,6 +9212,11 @@ export type Database = {
           legacy_id?: number | null
           measure_unit?: string | null
           production_recipe_id?: string | null
+          provisional_by?: string | null
+          provisional_kitchen_id?: number | null
+          provisional_reviewed_at?: string | null
+          provisional_reviewed_by?: string | null
+          provisional_since?: string | null
           regeneration_recipe_id?: string | null
           shelf_life_days?: number | null
           source_ingredient_id?: string | null
@@ -9151,6 +9237,13 @@ export type Database = {
             columns: ["production_recipe_id"]
             isOneToOne: false
             referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "frozen_preparation_provisional_kitchen_id_fkey"
+            columns: ["provisional_kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
             referencedColumns: ["id"]
           },
           {
@@ -9819,10 +9912,15 @@ export type Database = {
       }
       menu_items: {
         Row: {
+          added_in_execution_at: string | null
+          added_in_execution_by: string | null
           created_at: string
           daily_menu_id: string | null
           deleted_at: string | null
           excluded_from_procurement: number | null
+          execution_reason: string | null
+          execution_reviewed_at: string | null
+          execution_reviewed_by: string | null
           id: string
           item_group: string | null
           origin_snack_request_id: string | null
@@ -9836,10 +9934,15 @@ export type Database = {
           substitutions: Json | null
         }
         Insert: {
+          added_in_execution_at?: string | null
+          added_in_execution_by?: string | null
           created_at?: string
           daily_menu_id?: string | null
           deleted_at?: string | null
           excluded_from_procurement?: number | null
+          execution_reason?: string | null
+          execution_reviewed_at?: string | null
+          execution_reviewed_by?: string | null
           id?: string
           item_group?: string | null
           origin_snack_request_id?: string | null
@@ -9853,10 +9956,15 @@ export type Database = {
           substitutions?: Json | null
         }
         Update: {
+          added_in_execution_at?: string | null
+          added_in_execution_by?: string | null
           created_at?: string
           daily_menu_id?: string | null
           deleted_at?: string | null
           excluded_from_procurement?: number | null
+          execution_reason?: string | null
+          execution_reviewed_at?: string | null
+          execution_reviewed_by?: string | null
           id?: string
           item_group?: string | null
           origin_snack_request_id?: string | null
@@ -11081,6 +11189,8 @@ export type Database = {
           pre_preparation_time_minutes: number | null
           preparation_method: string | null
           preparation_time_minutes: number | null
+          provisional_by: string | null
+          provisional_since: string | null
           rational_id: string | null
           upstream_version_snapshot: number | null
           version: number
@@ -11103,6 +11213,8 @@ export type Database = {
           pre_preparation_time_minutes?: number | null
           preparation_method?: string | null
           preparation_time_minutes?: number | null
+          provisional_by?: string | null
+          provisional_since?: string | null
           rational_id?: string | null
           upstream_version_snapshot?: number | null
           version: number
@@ -11125,6 +11237,8 @@ export type Database = {
           pre_preparation_time_minutes?: number | null
           preparation_method?: string | null
           preparation_time_minutes?: number | null
+          provisional_by?: string | null
+          provisional_since?: string | null
           rational_id?: string | null
           upstream_version_snapshot?: number | null
           version?: number

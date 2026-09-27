@@ -1,6 +1,7 @@
 import { CalendarX2, Loader2 } from "lucide-react"
 import { useState } from "react"
 import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/production"
+import { AddExecutionItemDialog } from "./AddExecutionItemDialog"
 import { ProductionKanbanColumn } from "./ProductionKanbanColumn"
 import { TaskDetailSheet } from "./TaskDetailSheet"
 
@@ -15,6 +16,8 @@ interface ProductionBoardProps {
 	kitchenId: number
 	date: string
 	isUpdating?: boolean
+	/** A data aberta é hoje: o turno pode incluir preparação direto no quadro. */
+	isToday?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -23,7 +26,7 @@ interface ProductionBoardProps {
 
 const COLUMNS: ProductionTaskStatus[] = ["PENDING", "IN_PROGRESS", "DONE"]
 
-export function ProductionBoard({ items, isLoading, onUpdateStatus, kitchenId, date, isUpdating }: ProductionBoardProps) {
+export function ProductionBoard({ items, isLoading, onUpdateStatus, kitchenId, date, isUpdating, isToday = false }: ProductionBoardProps) {
 	const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 	const [selectedSnapshot, setSelectedSnapshot] = useState<ProductionItem | null>(null)
 
@@ -82,9 +85,18 @@ export function ProductionBoard({ items, isLoading, onUpdateStatus, kitchenId, d
 						<CalendarX2 className="size-8 text-muted-foreground" />
 					</div>
 					<p className="text-subheading text-foreground">Nenhuma preparação planejada</p>
-					<p className="text-xs text-muted-foreground">
-						Não há itens no cardápio para esta data. Agende as refeições em Agendamento da Produção para que apareçam aqui.
-					</p>
+					{isToday ? (
+						<>
+							<p className="text-xs text-muted-foreground">
+								Não há itens no cardápio de hoje. O que for produzido pode entrar agora, pelo turno; a nutricionista revisa depois.
+							</p>
+							<AddExecutionItemDialog kitchenId={kitchenId} date={date} />
+						</>
+					) : (
+						<p className="text-xs text-muted-foreground">
+							Não há itens no cardápio para esta data. Outro dia se planeja no Agendamento da Produção; hoje, o turno inclui direto no quadro.
+						</p>
+					)}
 				</div>
 			</div>
 		)

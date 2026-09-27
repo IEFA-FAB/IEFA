@@ -331,6 +331,26 @@ export { countByCondition, getFleetEquipmentReport, getKitchenEquipmentCondition
 export type { EvalConfig, EvaluationForUser } from "./evaluation.ts"
 export { fetchEvalConfig, fetchEvaluationForUser, submitEvaluation, upsertEvalConfig } from "./evaluation.ts"
 export {
+	type AddExecutionMenuItemResult,
+	addExecutionMenuItem,
+	assertExecutionDate,
+	describeProvisionalTemplateRefusal,
+	type ExecutionAddedItem,
+	type ExecutionOptions,
+	type ExecutionRecipeOption,
+	type ExecutionReviewStatus,
+	ensureIssueDayProductionTasks,
+	fetchExecutionOptions,
+	fetchExecutionReviewStatus,
+	type IncompleteSnapshotItem,
+	isExecutionDate,
+	listPendingProvisionalFrozenPreparations,
+	type ProvisionalFrozenPreparation,
+	type ProvisionalRecipePending,
+	reviewExecutionMenuItem,
+	reviewProvisionalFrozenPreparation,
+} from "./execution.ts"
+export {
 	type AcquisitionForStatus,
 	type AcquisitionsSummary,
 	countReceiptPending,
@@ -476,6 +496,7 @@ export {
 	SUPPLY_ORDER_STATUSES,
 	type SupplyOrderStatus,
 } from "./inventory-vocabulary.ts"
+export { DEFAULT_ISSUE_TOLERANCE, ISSUE_VARIANCE_CONTRACT_CASES, type IssueVarianceContractCase } from "./issue-variance.cases.ts"
 export {
 	type CloseDayCheck,
 	checkDayClosure,
@@ -738,7 +759,7 @@ export {
 	type SegmentationOverview,
 	updateProcurementSegment,
 } from "./procurement-segments.ts"
-export type { BoardSnackRequest } from "./production.ts"
+export type { BoardExecutionInfo, BoardSnackRequest } from "./production.ts"
 export {
 	adjustProductionPortions,
 	ensureProductionTasks,
@@ -749,8 +770,15 @@ export {
 } from "./production.ts"
 export {
 	computeTheoreticalConsumption,
+	describeSnapshotGaps,
+	findSnapshotGaps,
 	leftoverExpiryDate,
+	pendingIssueWindowStart,
 	type RecipeSnapshotForIssue,
+	remainingAfterLateIssues,
+	SNAPSHOT_GAP_LABELS,
+	type SnapshotForGaps,
+	type SnapshotGap,
 	type SnapshotIngredientRow,
 	type TheoreticalConsumption,
 } from "./production-issue.ts"

@@ -61,6 +61,22 @@ export function requireKitchenFloorWrite(ctx: UserContext, kitchenId: number): v
 	throw new PermissionDeniedError("kitchen:2 | kitchen-production:1", 2, scope)
 }
 
+/**
+ * Escrita de EXECUÇÃO do dia numa cozinha: `kitchen-production:1` (o turno) OU `kitchen:2`
+ * (a nutricionista, que também está na cozinha).
+ *
+ * Cobre o que o dia pede sem esperar ninguém: incluir uma preparação no cardápio de HOJE,
+ * registrar o substituto de um insumo que faltou. O que entra por aqui fica registrado (quem,
+ * quando, motivo) e vira pendência de revisão para o planejamento — o planejamento em si
+ * (datas futuras, cardápio-modelo, ficha técnica) segue exigindo `kitchen:2`.
+ */
+export function requireKitchenExecution(ctx: UserContext, kitchenId: number): void {
+	const scope = { type: "kitchen", id: kitchenId } as const
+	if (hasPermission(ctx.permissions, "kitchen-production", 1, scope)) return
+	if (hasPermission(ctx.permissions, "kitchen", 2, scope)) return
+	throw new PermissionDeniedError("kitchen-production:1 | kitchen:2", 1, scope)
+}
+
 /** Gate do módulo kitchen-production (Produção Cozinha), escopado por cozinha. */
 export function requireKitchenProduction(ctx: UserContext, level: 1 | 2, kitchenId: number): void {
 	requirePermission(ctx, "kitchen-production", level, { type: "kitchen", id: kitchenId })

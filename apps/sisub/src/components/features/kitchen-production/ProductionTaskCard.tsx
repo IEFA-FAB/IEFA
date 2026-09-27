@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, PlayCircle, RotateCcw, Timer, Utensils } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Clock, PlayCircle, RotateCcw, Timer, Utensils } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,6 +42,17 @@ export function ProductionTaskCard({ item, onSelect, onUpdateStatus, isUpdating 
 					</Badge>
 				)}
 				{menuItem.snack_request && <SnackRequestTag request={menuItem.snack_request} className="mt-0.5" />}
+				{(menuItem.execution || menuItem.recipe_gaps.length > 0) && (
+					<div className="flex flex-wrap gap-1 mt-0.5">
+						{menuItem.execution && <Badge variant="outline">Incluída no turno</Badge>}
+						{menuItem.recipe_gaps.length > 0 && (
+							<Badge variant="warning">
+								<AlertTriangle aria-hidden="true" />
+								Ficha incompleta
+							</Badge>
+						)}
+					</div>
+				)}
 			</CardHeader>
 
 			<CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-xs text-muted-foreground">

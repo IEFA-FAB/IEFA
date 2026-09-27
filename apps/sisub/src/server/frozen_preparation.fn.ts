@@ -16,6 +16,9 @@ import {
 	fetchFrozenPreparation,
 	ListFrozenPreparationsSchema,
 	listFrozenPreparations,
+	listPendingProvisionalFrozenPreparations,
+	ReviewProvisionalFrozenPreparationSchema,
+	reviewProvisionalFrozenPreparation,
 	UpdateFrozenPreparationSchema,
 	updateFrozenPreparation,
 } from "@iefa/sisub-domain"
@@ -61,4 +64,20 @@ export const deleteFrozenPreparationFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteFrozenPreparation(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+// ─── Congelada provisória (sobra registrada pela cozinha sem cadastro) ────────
+
+/** Congeladas que as cozinhas criaram para registrar sobra, esperando a revisão da SDAB. */
+export const listPendingProvisionalFrozenPreparationsFn = createServerFn({ method: "GET" }).handler(async () => {
+	const ctx = await requireAuth()
+	return listPendingProvisionalFrozenPreparations(getDb(), ctx).catch(handleDomainError)
+})
+
+/** A SDAB aceita a congelada provisória no catálogo global. */
+export const reviewProvisionalFrozenPreparationFn = createServerFn({ method: "POST" })
+	.validator(ReviewProvisionalFrozenPreparationSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return reviewProvisionalFrozenPreparation(getDb(), ctx, data).catch(handleDomainError)
 	})

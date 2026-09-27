@@ -3,9 +3,9 @@
  *
  * Postura de auth: todas as operations exigem o módulo kitchen-production escopado
  * pela cozinha (o gate deixou de viver só na rota). Nível 1 cobre o ciclo do board
- * (ler, criar tasks, check-in de status, registro do real) — é a interação-grão do
- * terminal do chão de fábrica; ações que remodelam o planejamento (porções,
- * substituições) exigem nível 2 em kitchen-production OU kitchen.
+ * (ler, criar tasks, check-in de status, registro do real, substituto de insumo que
+ * faltou) — é a interação-grão do terminal do chão de fábrica; o ajuste de porções
+ * planejadas exige nível 2 em kitchen-production OU kitchen.
  *
  * State machine: PENDING -> IN_PROGRESS (sets started_at) -> DONE (sets
  * completed_at) -> PENDING (clears both timestamps).
@@ -22,7 +22,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, eq, inArray, isNull, sql } from "drizzle-orm"
-import { requireAnyPermission, requireKitchenProduction } from "../guards/require-permission.ts"
+import { requireAnyPermission, requireKitchenExecution, requireKitchenProduction } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type {
 	AdjustProductionPortions,
@@ -35,6 +35,8 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
+import { createMissingProductionTasks } from "./execution.ts"
+import { findSnapshotGaps, type SnapshotForGaps, type SnapshotGap } from "./production-issue.ts"
 
 const RECIPE_RELATIONS: Record<string, string> = { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" }
 
@@ -53,9 +55,18 @@ type BoardItem = {
 		 * qual missão é, para a produção separar os kits por pedido. Nulo = rancho.
 		 */
 		snack_request: BoardSnackRequest | null
+		/**
+		 * O que falta na ficha GRAVADA no dia (a que a baixa e a sugestão de saída usam) — a tela
+		 * mostra "ficha incompleta" em vez de uma sugestão vazia sem explicação.
+		 */
+		recipe_gaps: SnapshotGap[]
+		/** Incluída pelo turno, fora do planejamento: quem, quando e por quê. Nulo = planejada. */
+		execution: BoardExecutionInfo | null
 	}
 	mealType: Record<string, unknown> | null
 }
+
+export type BoardExecutionInfo = { added_at: string; reason: string; reviewed: boolean }
 
 export type BoardSnackRequest = {
 	id: string
@@ -86,7 +97,15 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 				menuItemsInKitchens: {
 					// Filtra soft-deleted no SQL (Drizzle permite where em relation aninhada — PostgREST não).
 					where: isNull(menuItemsInKitchen.deletedAt),
-					columns: { id: true, recipeOriginId: true, plannedPortionQuantity: true, substitutions: true, originTemplateId: true, originSnackRequestId: true },
+					columns: {
+						id: true,
+						recipeOriginId: true,
+						plannedPortionQuantity: true,
+						substitutions: true,
+						originTemplateId: true,
+						originSnackRequestId: true,
+						recipe: true,
+					},
 					with: {
 						productionTaskInKitchens: {
 							columns: {
@@ -153,6 +172,10 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 		db,
 		dailyMenus.flatMap((menu) => menu.menuItemsInKitchens ?? [])
 	)
+	const executionById = await fetchBoardExecutionInfo(
+		db,
+		dailyMenus.flatMap((menu) => (menu.menuItemsInKitchens ?? []).map((item) => item.id))
+	)
 
 	const items: BoardItem[] = []
 	for (const menu of orderedMenus) {
@@ -177,6 +200,8 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 					recipe_origin: recipeOrigin,
 					recipe_with_ingredients: recipeOrigin ? { ...recipeOrigin, ingredients: recipeOrigin.ingredients ?? [] } : null,
 					snack_request: menuItem.originSnackRequestId ? (snackById.get(`${menuItem.originSnackRequestId}:${menuItem.originTemplateId ?? ""}`) ?? null) : null,
+					recipe_gaps: findSnapshotGaps(menuItem.recipe as SnapshotForGaps | null, menuItem.plannedPortionQuantity),
+					execution: executionById.get(menuItem.id) ?? null,
 				},
 				mealType,
 			})
@@ -184,6 +209,34 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 	}
 
 	return items
+}
+
+/**
+ * Inclusão pelo turno de cada item do quadro. SQL cru: as colunas são da migration
+ * 20260926217000 e ainda não estão no schema Drizzle.
+ * TODO: regenerar tipos após aplicar 20260926217000.
+ */
+async function fetchBoardExecutionInfo(db: SisubDb, menuItemIds: string[]): Promise<Map<string, BoardExecutionInfo>> {
+	const out = new Map<string, BoardExecutionInfo>()
+	if (menuItemIds.length === 0) return out
+	const rows = (await runQuery(
+		"FETCH_FAILED",
+		() =>
+			db.execute(sql`
+				select id, added_in_execution_at, execution_reason, execution_reviewed_at
+				from kitchen.menu_items
+				where id in (${sql.join(
+					menuItemIds.map((id) => sql`${id}`),
+					sql`, `
+				)})
+			`),
+		{ prefix: "Erro ao ler as inclusões do turno" }
+	)) as unknown as Array<{ id: string; added_in_execution_at: string | null; execution_reason: string | null; execution_reviewed_at: string | null }>
+	for (const row of rows) {
+		if (row.added_in_execution_at == null) continue
+		out.set(row.id, { added_at: String(row.added_in_execution_at), reason: row.execution_reason ?? "", reviewed: row.execution_reviewed_at != null })
+	}
+	return out
 }
 
 /** Pedido de lanche (e nome do padrão) de cada item do quadro que veio de um aceite. */
@@ -251,34 +304,7 @@ async function fetchBoardSnackRequests(
  */
 export async function ensureProductionTasks(db: SisubDb, ctx: UserContext, input: EnsureProductionTasks): Promise<{ created: number }> {
 	requireKitchenProduction(ctx, 1, input.kitchenId)
-
-	const dailyMenus = await runQuery("FETCH_FAILED", () =>
-		db.query.dailyMenuInKitchen.findMany({
-			columns: { id: true },
-			with: { menuItemsInKitchens: { where: isNull(menuItemsInKitchen.deletedAt), columns: { id: true } } },
-			where: and(eq(dailyMenuInKitchen.kitchenId, input.kitchenId), eq(dailyMenuInKitchen.serviceDate, input.date), isNull(dailyMenuInKitchen.deletedAt)),
-		})
-	)
-
-	const menuItemIds = dailyMenus.flatMap((menu) => (menu.menuItemsInKitchens ?? []).map((item) => item.id))
-	if (menuItemIds.length === 0) return { created: 0 }
-
-	const tasksToInsert = menuItemIds.map((menuItemId) => ({
-		kitchenId: input.kitchenId,
-		menuItemId,
-		productionDate: input.date,
-		status: "PENDING" as const,
-	}))
-
-	const inserted = await runQuery("INSERT_FAILED", () =>
-		db
-			.insert(productionTaskInKitchen)
-			.values(tasksToInsert)
-			.onConflictDoNothing({ target: productionTaskInKitchen.menuItemId })
-			.returning({ id: productionTaskInKitchen.id })
-	)
-
-	return { created: inserted.length }
+	return createMissingProductionTasks(db, input)
 }
 
 /** Transitions a production_task to a new status, managing timestamps. */
@@ -357,14 +383,26 @@ export async function adjustProductionPortions(db: SisubDb, ctx: UserContext, in
 
 /**
  * Registra uma substituição de insumo feita durante o turno. Merge no JSON
- * `substitutions` do menu_item (mesmo contrato do SubstitutionModal do
- * planejamento), com type "production" para distinguir a origem chão de fábrica.
+ * `substitutions` do menu_item, no MESMO formato de `recordMenuSubstitution` (o que faltou é a
+ * chave; o que entrou vai em `substitute_description`/`substitute_ingredient_id`), com type
+ * "production" para distinguir a origem chão de fábrica.
+ *
+ * Execução, não planejamento: o turno (`kitchen-production:1`) registra sozinho. A panela está
+ * no fogo quando o insumo falta; exigir o nível 2 mandava o registro para o caderno.
  */
 export async function recordProductionSubstitution(db: SisubDb, ctx: UserContext, input: RecordProductionSubstitution): Promise<void> {
 	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
-	requireAnyPermission(ctx, ["kitchen-production", "kitchen"], 2, { type: "kitchen", id: kitchenId })
+	requireKitchenExecution(ctx, kitchenId)
 
-	const entry = { [input.ingredientId]: { type: "production", rationale: input.rationale, updated_at: new Date().toISOString() } }
+	const entry = {
+		[input.ingredientId]: {
+			type: "production",
+			rationale: input.rationale,
+			updated_at: new Date().toISOString(),
+			substitute_ingredient_id: input.substituteIngredientId ?? null,
+			substitute_description: input.substituteDescription,
+		},
+	}
 
 	// Merge atômico no SQL (jsonb ||): dois operadores registrando substituições
 	// diferentes ao mesmo tempo não se sobrescrevem — read-merge-write em JS perderia

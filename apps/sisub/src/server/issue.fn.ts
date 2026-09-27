@@ -19,14 +19,20 @@ import {
 	brasiliaToday,
 	checkDayClosure,
 	computeTheoreticalConsumption,
+	describeSnapshotGaps,
+	ensureIssueDayProductionTasks,
+	findSnapshotGaps,
 	ISSUE_VARIANCE_REASONS,
 	type IssueLineForVariance,
 	issueSuggestionFingerprint,
 	type RecipeSnapshotForIssue,
 	roundToIssuePackage,
+	type SnapshotForGaps,
 } from "@iefa/sisub-domain"
+import { containsPattern } from "@iefa/sisub-domain/utils"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { getDb } from "@/lib/db.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -94,6 +100,8 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		)
 		.eq("type", "production_issue")
 		.is("issue_request_id", null)
+		// A saída TARDIA ligada à tarefa é de um insumo, não a baixa da tarefa (20260926217000).
+		.eq("is_late_issue", false)
 	if (issuedError) throw new Error(`Erro ao conferir as baixas por produção do dia: ${issuedError.message}`)
 	const issuedByProduction = new Set((issuedMoves ?? []).map((move: { production_task_id: string | null }) => move.production_task_id))
 	const taskList = allTasks.filter((task) => !issuedByProduction.has(task.id))
@@ -196,7 +204,8 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
+		const ctx = await requireStorageForKitchen(2, data.kitchenId)
+		const { userId } = ctx
 		const inv = inventory()
 		const issueDate = data.issueDate ?? brasiliaToday()
 
@@ -259,6 +268,11 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		if (existing.status !== "open") {
 			return { requestId, reopened: false as const, suggested: 0 }
 		}
+
+		// A sugestão lê `production_task`, que só nascia quando alguém abria o quadro da
+		// produção: a cozinha que abre o estoque antes ficava com a sugestão vazia sem saber
+		// por quê. As tarefas que faltam nascem aqui (idempotente; o índice único do item segura).
+		await ensureIssueDayProductionTasks(getDb(), ctx, { kitchenId: data.kitchenId, date: issueDate })
 
 		// Enquanto aberta, a sugestão acompanha o planejamento: o efetivo muda.
 		// O conflito é por (requisição, ingrediente) e NÃO inclui a refeição: em
@@ -437,7 +451,9 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 		const kit = kitchen()
 		const { data: request, error: requestError } = await inv
 			.from("stock_issue_request")
-			.select("id, kitchen_id, issue_date, origin, status, destination, purpose, closed_at")
+			// `auto_closed_at`/`explained_at`/`explanation`: migration 20260926217000.
+			// TODO: regenerar tipos após aplicar 20260926217000.
+			.select("id, kitchen_id, issue_date, origin, status, destination, purpose, closed_at, auto_closed_at, explained_at, explanation")
 			.eq("id", data.requestId)
 			.maybeSingle()
 		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
@@ -674,4 +690,175 @@ export const fetchReturnableLotsFn = createServerFn({ method: "GET" })
 				}))
 				.sort((a, b) => b.returnable - a.returnable),
 		}
+	})
+
+const ISO_DAY = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+/**
+ * Preparações do dia cuja ficha gravada não dá a sugestão de saída (sem insumos, sem porções,
+ * sem rendimento, provisória). Sem isto a sugestão ficava vazia, ou menor, sem nenhum aviso.
+ */
+export const fetchIssueDayGapsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ kitchenId: z.number().int().positive(), issueDate: ISO_DAY }))
+	.handler(async ({ data }) => {
+		await requireStorageForKitchen(1, data.kitchenId)
+		const kit = kitchen()
+		const { data: menus, error: menuError } = await kit
+			.from("daily_menu")
+			.select("id")
+			.eq("kitchen_id", data.kitchenId)
+			.eq("service_date", data.issueDate)
+			.is("deleted_at", null)
+		if (menuError) throw new Error(`Erro ao carregar os cardápios do dia: ${menuError.message}`)
+		const menuIds = ((menus ?? []) as Array<{ id: string }>).map((menu) => menu.id)
+		const out: Array<{ menuItemId: string; recipeName: string; notice: string }> = []
+		if (menuIds.length === 0) return { items: out }
+		const { data: items, error: itemError } = await kit
+			.from("menu_items")
+			.select("id, recipe, planned_portion_quantity")
+			.in("daily_menu_id", menuIds)
+			.is("deleted_at", null)
+		if (itemError) throw new Error(`Erro ao carregar as preparações do dia: ${itemError.message}`)
+		for (const item of (items ?? []) as Array<{ id: string; recipe: (SnapshotForGaps & { name?: string }) | null; planned_portion_quantity: number | null }>) {
+			const notice = describeSnapshotGaps(findSnapshotGaps(item.recipe, item.planned_portion_quantity))
+			if (notice) out.push({ menuItemId: item.id, recipeName: item.recipe?.name ?? "(sem nome)", notice })
+		}
+		return { items: out }
+	})
+
+/** Resultados por busca: o combobox mostra poucos; a busca é que precisa alcançar o catálogo inteiro. */
+const INGREDIENT_SEARCH_LIMIT = 40
+
+/**
+ * Busca no catálogo inteiro de insumos para a saída fora da sugestão. A tela aceitava só insumo
+ * com saldo > 0, e o banco já aceitava a saída sem lote: o almoxarife com o saco na mão e o
+ * sistema atrasado não conseguia lançar. Sem saldo, a saída entra como falta a regularizar.
+ *
+ * Busca NO SERVIDOR pelo texto digitado, e não a lista inteira: o PostgREST corta em 1000
+ * linhas calado, e o catálogo tem mais de 3000 insumos ativos — o que ficasse depois do corte
+ * alfabético não aparecia nunca.
+ */
+export const searchIssuableIngredientsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ kitchenId: z.number().int().positive(), search: z.string().trim().min(2).max(100) }))
+	.handler(async ({ data }) => {
+		await requireStorageForKitchen(1, data.kitchenId)
+		const { data: rows, error } = await kitchen()
+			.from("ingredient")
+			.select("id, description, measure_unit")
+			.is("deleted_at", null)
+			.ilike("description", containsPattern(data.search))
+			.order("description", { ascending: true })
+			.limit(INGREDIENT_SEARCH_LIMIT)
+		if (error) throw new Error(`Erro ao buscar insumos: ${error.message}`)
+		return (rows ?? []) as Array<{ id: string; description: string; measure_unit: string | null }>
+	})
+
+/** Preparações (tarefas) de um dia, para ligar a saída tardia à preparação. */
+export const listIssueDayTasksFn = createServerFn({ method: "GET" })
+	.validator(z.object({ kitchenId: z.number().int().positive(), issueDate: ISO_DAY }))
+	.handler(async ({ data }) => {
+		await requireStorageForKitchen(1, data.kitchenId)
+		const kit = kitchen()
+		const { data: tasks, error } = await kit
+			.from("production_task")
+			.select("id, menu_item_id")
+			.eq("kitchen_id", data.kitchenId)
+			.or(`issue_date.eq.${data.issueDate},and(issue_date.is.null,production_date.eq.${data.issueDate})`)
+			.order("id", { ascending: true })
+		if (error) throw new Error(`Erro ao carregar as preparações do dia: ${error.message}`)
+		const taskList = (tasks ?? []) as Array<{ id: string; menu_item_id: string }>
+		if (taskList.length === 0) return []
+		const { data: items, error: itemError } = await kit
+			.from("menu_items")
+			.select("id, recipe")
+			.in(
+				"id",
+				taskList.map((task) => task.menu_item_id)
+			)
+			.is("deleted_at", null)
+		if (itemError) throw new Error(`Erro ao carregar as preparações do dia: ${itemError.message}`)
+		const nameById = new Map(
+			((items ?? []) as Array<{ id: string; recipe: { name?: string } | null }>).map((item) => [item.id, item.recipe?.name ?? "(sem nome)"])
+		)
+		return taskList
+			.filter((task) => nameById.has(task.menu_item_id))
+			.map((task) => ({ taskId: task.id, recipeName: nameById.get(task.menu_item_id) as string }))
+	})
+
+/**
+ * Saída lançada depois, com a data em que aconteceu (EST-SAI-01). Limite imprescindível: a
+ * competência não pode estar fechada, e insumo contado depois da data numa contagem aprovada é
+ * recusado (baixaria duas vezes). O motivo é obrigatório e fica no movimento; quem lançou e
+ * quando ficam no próprio movimento (`created_by`, `created_at`).
+ */
+export const registerLateIssueFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			kitchenId: z.number().int().positive(),
+			ingredientId: z.uuid(),
+			quantity: ISSUE_QUANTITY,
+			occurredOn: ISO_DAY,
+			reason: z.string().trim().min(5, "Motivo com ao menos 5 letras").max(300),
+			emissionId: z.string().min(8).max(64),
+			productionTaskId: z.uuid().optional(),
+		})
+	)
+	.handler(async ({ data }) => {
+		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
+		if (data.occurredOn > brasiliaToday()) throw new Error("A data real da saída não pode ser futura")
+		const { data: result, error } = await inventory().rpc("register_late_issue", {
+			p_kitchen_id: data.kitchenId,
+			p_ingredient_id: data.ingredientId,
+			p_quantity: data.quantity,
+			p_occurred_on: data.occurredOn,
+			p_reason: data.reason,
+			p_user: userId,
+			p_emission_id: data.emissionId,
+			p_production_task_id: data.productionTaskId ?? null,
+		})
+		if (error) throw new Error(`Erro ao lançar a saída tardia: ${error.message}`)
+		const row = result?.[0]
+		return { movements: Number(row?.movements ?? 0), withoutLot: Number(row?.without_lot ?? 0), requestId: (row?.request_id as string | null) ?? null }
+	})
+
+/** Dias que fecharam sozinhos com desvio sem motivo e ainda esperam a justificativa. */
+export const listUnexplainedIssueDaysFn = createServerFn({ method: "GET" })
+	.validator(z.object({ kitchenId: z.number().int().positive() }))
+	.handler(async ({ data }) => {
+		await requireStorageForKitchen(1, data.kitchenId)
+		const { data: rows, error } = await inventory()
+			.from("stock_issue_request")
+			.select("id, issue_date, origin")
+			.eq("kitchen_id", data.kitchenId)
+			.eq("status", "closed_unexplained")
+			// TODO: regenerar tipos após aplicar 20260926217000 (`explained_at`).
+			.is("explained_at", null)
+			.order("issue_date", { ascending: false })
+			.limit(60)
+		if (error) throw new Error(`Erro ao carregar os dias sem justificativa: ${error.message}`)
+		return (rows ?? []) as Array<{ id: string; issue_date: string; origin: string }>
+	})
+
+/**
+ * Justificativa do dia que fechou sozinho (`closed_unexplained`). Não reabre o dia nem muda a
+ * variância julgada no fechamento: registra o porquê, com quem e quando, e tira a pendência.
+ */
+export const explainIssueRequestFn = createServerFn({ method: "POST" })
+	.validator(z.object({ requestId: z.uuid(), explanation: z.string().trim().min(5, "Justificativa com ao menos 5 letras").max(500) }))
+	.handler(async ({ data }) => {
+		const inv = inventory()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", data.requestId).maybeSingle()
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
+		if (!request) throw new Error("Requisição não encontrada")
+		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
+		if (request.status !== "closed_unexplained") throw new Error("Só o dia que fechou sozinho sem explicação pede justificativa")
+		const { data: updated, error } = await inv
+			.from("stock_issue_request")
+			.update({ explained_at: new Date().toISOString(), explained_by: userId, explanation: data.explanation })
+			.eq("id", data.requestId)
+			.eq("status", "closed_unexplained")
+			.is("explained_at", null)
+			.select("id")
+		if (error) throw new Error(`Erro ao registrar a justificativa: ${error.message}`)
+		return { explained: (updated ?? []).length > 0 }
 	})

@@ -9,7 +9,7 @@
 
 import { frozenPreparationInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { FrozenPreparation } from "@iefa/database/sisub"
-import { and, asc, eq, ilike, isNull } from "drizzle-orm"
+import { and, asc, eq, ilike, isNull, sql } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateFrozenPreparation,
@@ -27,7 +27,10 @@ type FrozenPreparationInsert = typeof frozenPreparationInKitchen.$inferInsert
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
 export async function listFrozenPreparations(db: SisubDb, _ctx: UserContext, input: ListFrozenPreparations): Promise<FrozenPreparation[]> {
-	const conditions = [isNull(frozenPreparationInKitchen.deletedAt)]
+	// Congelada provisória (sobra que a cozinha registrou sem cadastro) só entra no catálogo
+	// depois da revisão da SDAB; até lá ela é da cozinha que a criou (`listPendingProvisionalFrozenPreparations`).
+	// SQL cru: colunas da migration 20260926217000 (TODO: regenerar tipos após aplicá-la).
+	const conditions = [isNull(frozenPreparationInKitchen.deletedAt), sql`(provisional_since is null or provisional_reviewed_at is not null)`]
 	const search = input.search?.trim()
 	// escapa metacaracteres LIKE (\ % _) p/ busca literal
 	if (search) conditions.push(ilike(frozenPreparationInKitchen.description, `%${search.replace(/[\\%_]/g, "\\$&")}%`))

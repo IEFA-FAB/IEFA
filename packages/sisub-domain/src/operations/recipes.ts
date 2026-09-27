@@ -241,7 +241,7 @@ function buildListRecipesConditions(input: ListRecipes, table: RecipeListColumns
  * linha externa: a mesma tabela aparece de fora como `"recipesInKitchen"` no `findMany`
  * relacional e como `"recipes"` no `select` do resumo.
  */
-function buildLineageWinnerFilter(db: SisubDb, input: ListRecipes): SQL {
+export function buildLineageWinnerFilter(db: SisubDb, input: ListRecipes): SQL {
 	const lineage = alias(recipesInKitchen, "lineage")
 	const root = sql`coalesce(${lineage.baseRecipeId}, ${lineage.id})`
 	const winners = db
