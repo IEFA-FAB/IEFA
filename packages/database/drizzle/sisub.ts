@@ -15,9 +15,6 @@ import * as schema from "./schema"
 
 export * from "./relations"
 export * from "./schema"
-// TODO(db:types): tabela-ponte do rename 20260927130000 (arranchamento). Os gerados ainda têm o
-// nome antigo; some junto com o arquivo depois do pull.
-export { arranchamentoInKitchen } from "./pending-ubiquitous-language-lot7"
 
 
 /** Tables + enums + relations — pass to `drizzle(client, { schema: sisubSchema })`. */
