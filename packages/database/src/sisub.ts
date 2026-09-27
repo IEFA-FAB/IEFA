@@ -1,4 +1,5 @@
-import type { Database } from "./generated.ts"
+// TODO(db:types): volta a `./generated.ts` quando os tipos forem regerados depois de 20260927150000.
+import type { Database } from "./pending-ubiquitous-language-lot8b.ts"
 
 /**
  * O schema `sisub` foi dividido em schemas por domínio (core, access_control,
@@ -71,9 +72,9 @@ export type Unit = Tables<"units">
 export type UnitInsert = TablesInsert<"units">
 export type UnitUpdate = TablesUpdate<"units">
 
-export type Rancho = Tables<"rancho">
-export type RanchoInsert = TablesInsert<"rancho">
-export type RanchoUpdate = TablesUpdate<"rancho">
+export type MessHallWorkforce = Tables<"mess_hall_workforce">
+export type MessHallWorkforceInsert = TablesInsert<"mess_hall_workforce">
+export type MessHallWorkforceUpdate = TablesUpdate<"mess_hall_workforce">
 
 export type WorkforceCategory = Tables<"workforce_category">
 export type WorkforceCategoryInsert = TablesInsert<"workforce_category">

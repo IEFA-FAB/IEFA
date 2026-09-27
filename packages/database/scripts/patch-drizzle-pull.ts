@@ -35,7 +35,7 @@
  *     9. Drop the `AnyPgColumn` import and `(table) =>` params the pull leaves unused.
  *    10. `bigserial({ mode: "bigint" })` → `{ mode: "number" }`. The pull emits JS `bigint` for
  *        serial ids while every `bigint(...)` column already comes as `number`; with the mix,
- *        `eq(rancho.id, ranchoId)` stops type-checking. Ids here fit a double.
+ *        `eq(messHallWorkforce.id, messHallWorkforceId)` stops type-checking. Ids here fit a double.
  *    12. Defaults the pull truncates at a nested parenthesis
  *        (`sql\`((now() AT TIME ZONE 'America/Sao_Paulo'\``) are replaced by the live default
  *        read from `pg_attrdef`, so the file never carries invalid SQL.
