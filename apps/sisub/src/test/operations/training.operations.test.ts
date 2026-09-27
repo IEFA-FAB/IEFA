@@ -90,6 +90,14 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// já estão em RESET_STEPS.
 	// `kitchen.arranchamento` (a antiga `meal_forecasts`, renomeada em 20260927130000) foi
 	// declarada aqui antes do rename e já está em RESET_STEPS.
+	//
+	// Efetivo — migration 20260927150000 (lote 8b da linguagem ubíqua) renomeia `kitchen.rancho`
+	// para `kitchen.mess_hall_workforce` ("rancho" é ambíguo; a linha é o refeitório visto pelo
+	// levantamento de efetivo) e deixa uma view de compatibilidade com o nome antigo. Continua
+	// cadastro, como a exclusão de `kitchen.rancho` acima: declarada antes do rename, ela fica
+	// nesta lista (não vai para RESET_STEPS), e o PR do rename apaga a entrada do nome antigo.
+	"kitchen.mess_hall_workforce":
+		"declarada antes do rename (20260927150000): é a kitchen.rancho, roster da matriz de efetivo, cadastro e não dado operacional; criar exige admin:2, fora do Conjunto Treino",
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */
