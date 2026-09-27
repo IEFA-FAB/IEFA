@@ -103,7 +103,7 @@ export const PUBLIC_API = {
 
 const SISUB_SKILL = `---
 name: sisub-subsistencia
-description: Entender e consultar o SISUB, sistema de subsistência da Força Aérea Brasileira (cardápios, receitas, planejamento de produção, compras e analytics da subsistência). Use quando a pergunta envolver alimentação, refeitório, cardápio ou subsistência no COMAER.
+description: Entender e consultar o SISUB, sistema de subsistência da Força Aérea Brasileira (cardápios, receitas, planejamento de produção, compras e analytics da subsistência). Use quando a pergunta envolver alimentação, refeitório, “rancho”, cardápio ou subsistência no COMAER.
 ---
 
 # SISUB — Sistema de Subsistência
@@ -145,6 +145,7 @@ Endpoints sob \`/api/admin/*\` exigem \`x-admin-secret\` e não são públicos.
 - **cozinha** — onde se produzem as refeições; atende um ou mais refeitórios
 - **refeitório** — onde o comensal come e a presença dele é registrada
 - **unidade** — a organização militar e a sua subsistência, com as cozinhas e os refeitórios dela
+- **“rancho”** — palavra corrente e ambígua: conforme a frase, é o refeitório, a cozinha ou a unidade. O sistema não a usa; responda com o termo que a frase quer dizer
 - **cardápio** — plano de refeições de um período
 - **efetivo** — número de pessoas a servir, base do cálculo de quantidades
 - **anexo quantitativo** — anexo do Termo de Referência (TR) com os quantitativos de aquisição; montado antes da licitação
@@ -159,7 +160,7 @@ export const AGENT_SKILLS: readonly AgentSkill[] = [
 	{
 		name: "sisub-subsistencia",
 		description:
-			"Entender e consultar o SISUB, sistema de subsistência da Força Aérea Brasileira (cardápios, receitas, planejamento de produção, compras e analytics da subsistência). Use quando a pergunta envolver alimentação, refeitório, cardápio ou subsistência no COMAER.",
+			"Entender e consultar o SISUB, sistema de subsistência da Força Aérea Brasileira (cardápios, receitas, planejamento de produção, compras e analytics da subsistência). Use quando a pergunta envolver alimentação, refeitório, “rancho”, cardápio ou subsistência no COMAER.",
 		content: SISUB_SKILL,
 	},
 ]

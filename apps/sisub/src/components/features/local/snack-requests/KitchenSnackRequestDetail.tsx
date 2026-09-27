@@ -218,7 +218,7 @@ function MissionCard({ request }: { request: SnackRequestDetail }) {
 						["Escalas", request.stops],
 						["Duração total", formatDuration(request.total_minutes)],
 						["Maior perna", request.longest_leg_minutes != null ? formatDuration(request.longest_leg_minutes) : null],
-						["Parada sem refeitório", yesNo(request.stops_without_mess)],
+						["Parada sem apoio de refeitório", yesNo(request.stops_without_mess)],
 						...(isAir
 							? ([
 									["Tempo em solo", formatDuration(request.ground_minutes)],

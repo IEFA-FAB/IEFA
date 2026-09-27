@@ -104,7 +104,10 @@ export function SnackRequestDetailView({ request }: { request: SnackRequestDetai
 								/>
 								<Detail label={aerial ? "Decolagem" : "Partida"} value={formatDateTime(request.departure_at)} />
 								<Detail label="Procedência / destino" value={[request.origin, request.destination].filter(Boolean).join(" → ")} />
-								<Detail label="Escalas" value={[request.stops, request.stops_without_mess ? "com escala sem refeitório" : null].filter(Boolean).join(" · ")} />
+								<Detail
+									label="Escalas"
+									value={[request.stops, request.stops_without_mess ? "com escala sem apoio de refeitório" : null].filter(Boolean).join(" · ")}
+								/>
 								<Detail
 									label="Duração"
 									value={[
