@@ -9,14 +9,11 @@
 
 import type { EquipmentModelWire, EquipmentUnitWire } from "@iefa/sisub-domain"
 import { type CsvValue, csvDocument } from "@/lib/csv"
+import { formatIsoDate } from "@/lib/expense-execution"
 import { CONDITION_LABEL, ENERGY_LABEL, UNIT_STATUS_LABEL } from "./equipment-labels"
 
-/** "2026-09-14" → "14/09/2026". Coluna `date`: sem fuso, só reordena. */
-function formatDate(isoDate: string | null | undefined): string {
-	if (!isoDate) return ""
-	const [year, month, day] = isoDate.slice(0, 10).split("-")
-	return day && month && year ? `${day}/${month}/${year}` : ""
-}
+/** Coluna `date` → "14/09/2026"; vazio (e não "—") quando não informada. */
+const formatDate = (isoDate: string | null | undefined): string => (isoDate ? formatIsoDate(isoDate) : "")
 
 /** Resposta tri-state da ficha técnica: vazio é "não informado", não "não". */
 function formatYesNo(value: boolean | null | undefined): string {

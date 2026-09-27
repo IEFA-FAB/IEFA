@@ -34,8 +34,9 @@ import { bulkFindingsNotice, useBulkPriceResearch } from "@/hooks/data/useBulkPr
 import { usePendingDraft, useRecordDraftImport } from "@/hooks/data/useKitchenDraft"
 import { useSegmentationOverview } from "@/hooks/data/useProcurementSegments"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
-import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, downloadCsv } from "@/lib/ata-annex"
+import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows } from "@/lib/ata-annex"
 import { ataItemToNeed } from "@/lib/ata-utils"
+import { downloadCsv } from "@/lib/csv"
 import { fetchUnitKitchensFn } from "@/server/unit-kitchens.fn"
 import type { AtaWizardState, KitchenSelectionState, SelectionBucket, TemplateSelection } from "@/types/domain/ata"
 

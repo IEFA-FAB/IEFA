@@ -33,7 +33,7 @@ import {
 	useKitchenEquipment,
 	useUpdateEquipmentUnit,
 } from "@/hooks/data/useEquipment"
-import { downloadCsv } from "@/lib/csv"
+import { datedCsvFilename, downloadCsv } from "@/lib/csv"
 
 function modelLabel(model: EquipmentModelWire | null | undefined): string {
 	if (!model) return "—"
@@ -77,7 +77,7 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 	const canWrite = can("kitchen", 2, { type: "kitchen", id: kitchenId })
 	const { data: units, isLoading } = useKitchenEquipment(kitchenId, true)
 	const { data: models = [] } = useEquipmentModels(kitchenId)
-	const { data: roles = [] } = useEquipmentRoles()
+	const { data: roles = [], isLoading: rolesLoading, isError: rolesError } = useEquipmentRoles()
 	const createUnit = useCreateEquipmentUnit()
 	const updateUnit = useUpdateEquipmentUnit()
 	const deleteUnit = useDeleteEquipmentUnit()
@@ -153,8 +153,10 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 	const exportCsv = () => {
 		if (!units) return
 		const roleNameById = new Map(roles.map((r) => [r.id, r.name]))
-		downloadCsv(`equipamentos_cozinha_${kitchenId}`, buildKitchenEquipmentCsv(units, roleNameById))
+		downloadCsv(datedCsvFilename(`equipamentos_cozinha_${kitchenId}`), buildKitchenEquipmentCsv(units, roleNameById))
 	}
+	// Sem os tipos carregados, a coluna "Funções" sairia com o id cru de cada papel.
+	const canExport = !rolesLoading && !rolesError
 	const hasUnits = !!units && units.length > 0
 
 	return (
@@ -162,7 +164,7 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 			{canWrite || hasUnits ? (
 				<div className="flex justify-end gap-2">
 					{hasUnits ? (
-						<Button variant="outline" size="sm" onClick={exportCsv}>
+						<Button variant="outline" size="sm" onClick={exportCsv} disabled={!canExport}>
 							<DownloadIcon className="size-4" />
 							Exportar CSV
 						</Button>

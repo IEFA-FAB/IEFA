@@ -235,13 +235,3 @@ export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string 
 		: [headers, ...lines]
 	return all.map((line) => line.map(csvCell).join(",")).join("\n")
 }
-
-export function downloadCsv(filename: string, csv: string): void {
-	// BOM: sem ele o Excel abre o UTF-8 como Latin-1 e estraga todo acento da descrição.
-	const blob = new Blob(["﻿", csv], { type: "text/csv;charset=utf-8;" })
-	const link = document.createElement("a")
-	link.href = URL.createObjectURL(blob)
-	link.download = filename
-	link.click()
-	setTimeout(() => URL.revokeObjectURL(link.href), 0)
-}

@@ -35,7 +35,7 @@ import {
 	useUpdateEquipmentModel,
 } from "@/hooks/data/useEquipment"
 import { useUtensils } from "@/hooks/data/useRecipeFlow"
-import { downloadCsv } from "@/lib/csv"
+import { datedCsvFilename, downloadCsv } from "@/lib/csv"
 
 const CATEGORY_LABEL: Record<string, string> = {
 	coccao: "Cocção",
@@ -241,7 +241,9 @@ export function EquipmentCatalogManager() {
 							<Button
 								variant="outline"
 								size="sm"
-								onClick={() => downloadCsv("modelos_equipamento", buildEquipmentModelsCsv(models, new Map(roles.map((r) => [r.id, r.name]))))}
+								// Sem os tipos, a função cujo vínculo veio sem `role` sairia com o id cru.
+								disabled={rolesLoading}
+								onClick={() => downloadCsv(datedCsvFilename("modelos_equipamento"), buildEquipmentModelsCsv(models, new Map(roles.map((r) => [r.id, r.name]))))}
 							>
 								<DownloadIcon className="size-4" />
 								Exportar CSV

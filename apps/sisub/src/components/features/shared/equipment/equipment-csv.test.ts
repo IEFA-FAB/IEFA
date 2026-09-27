@@ -2,7 +2,7 @@ import type { EquipmentModelWire, EquipmentUnitWire } from "@iefa/sisub-domain"
 import { describe, expect, test } from "vitest"
 import { buildEquipmentModelsCsv, buildKitchenEquipmentCsv, EQUIPMENT_MODELS_CSV_HEADER, KITCHEN_EQUIPMENT_CSV_HEADER } from "./equipment-csv"
 
-const lines = (csv: string) => csv.replace(/^﻿/, "").split("\n")
+const lines = (csv: string) => csv.split("\n")
 const quoted = (header: readonly string[]) => header.map((h) => `"${h}"`).join(",")
 
 const model = (overrides: Partial<EquipmentModelWire> = {}): EquipmentModelWire =>

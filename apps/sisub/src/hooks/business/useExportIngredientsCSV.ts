@@ -1,5 +1,5 @@
 import { toast } from "@/components/ui/toast"
-import { type CsvValue, csvRow } from "@/lib/csv"
+import { type CsvValue, csvRow, datedCsvFilename, downloadCsv } from "@/lib/csv"
 import { useIngredientsTree } from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientItem } from "@/types/domain/ingredients"
 
@@ -173,16 +173,7 @@ export function useExportIngredientsCSV() {
 		const header =
 			"Tipo,Caminho,Insumo,Nome,Unidade Medida,Fator Correção,Fator Densidade,Qtd Conteúdo,Código Barras,CEAFA,Código Legado,Revisado Em,Revisado Por\n"
 
-		// BOM UTF-8 para compatibilidade com Excel
-		const csv = `\uFEFF${header}${rows.join("\n")}`
-
-		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-		const url = URL.createObjectURL(blob)
-		const link = document.createElement("a")
-		link.href = url
-		link.download = `insumos_${new Date().toISOString().split("T")[0]}.csv`
-		link.click()
-		URL.revokeObjectURL(url)
+		downloadCsv(datedCsvFilename("insumos"), `${header}${rows.join("\n")}`)
 
 		toast.success("CSV exportado com sucesso!")
 	}
