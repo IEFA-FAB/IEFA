@@ -12397,7 +12397,7 @@ export type Database = {
         }
         Relationships: []
       }
-      kitchen_ata_draft: {
+      kitchen_demand_forecast: {
         Row: {
           created_at: string
           id: string
@@ -12433,35 +12433,42 @@ export type Database = {
         }
         Relationships: []
       }
-      kitchen_ata_draft_import: {
+      kitchen_demand_forecast_import: {
         Row: {
-          draft_id: string
+          forecast_id: string
           imported_at: string
           imported_by: string | null
           list_id: string
         }
         Insert: {
-          draft_id: string
+          forecast_id: string
           imported_at?: string
           imported_by?: string | null
           list_id: string
         }
         Update: {
-          draft_id?: string
+          forecast_id?: string
           imported_at?: string
           imported_by?: string | null
           list_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "kitchen_ata_draft_import_draft_id_fkey"
-            columns: ["draft_id"]
+            foreignKeyName: "kitchen_demand_forecast_import_forecast_id_fkey"
+            columns: ["forecast_id"]
             isOneToOne: false
             referencedRelation: "kitchen_ata_draft"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "kitchen_ata_draft_import_list_id_fkey"
+            foreignKeyName: "kitchen_demand_forecast_import_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_demand_forecast"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_demand_forecast_import_list_id_fkey"
             columns: ["list_id"]
             isOneToOne: false
             referencedRelation: "procurement_list"
@@ -12469,31 +12476,38 @@ export type Database = {
           },
         ]
       }
-      kitchen_ata_draft_selection: {
+      kitchen_demand_forecast_selection: {
         Row: {
-          draft_id: string
+          forecast_id: string
           id: string
           repetitions: number
           template_id: string
         }
         Insert: {
-          draft_id: string
+          forecast_id: string
           id?: string
           repetitions?: number
           template_id: string
         }
         Update: {
-          draft_id?: string
+          forecast_id?: string
           id?: string
           repetitions?: number
           template_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "kitchen_ata_draft_selection_draft_id_fkey"
-            columns: ["draft_id"]
+            foreignKeyName: "kitchen_demand_forecast_selection_forecast_id_fkey"
+            columns: ["forecast_id"]
             isOneToOne: false
             referencedRelation: "kitchen_ata_draft"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_demand_forecast_selection_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_demand_forecast"
             referencedColumns: ["id"]
           },
         ]
@@ -12585,6 +12599,7 @@ export type Database = {
           nome_uasg_gerenciadora: string | null
           numero_ata: string
           objeto: string | null
+          procurement_list_id: string | null
           source: string
           status_ata: string | null
           uasg_gerenciadora: string
@@ -12602,6 +12617,7 @@ export type Database = {
           nome_uasg_gerenciadora?: string | null
           numero_ata: string
           objeto?: string | null
+          procurement_list_id?: string | null
           source?: string
           status_ata?: string | null
           uasg_gerenciadora: string
@@ -12619,6 +12635,7 @@ export type Database = {
           nome_uasg_gerenciadora?: string | null
           numero_ata?: string
           objeto?: string | null
+          procurement_list_id?: string | null
           source?: string
           status_ata?: string | null
           uasg_gerenciadora?: string
@@ -12639,6 +12656,13 @@ export type Database = {
             referencedRelation: "procurement_list"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "procurement_arp_procurement_list_id_fkey"
+            columns: ["procurement_list_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
         ]
       }
       procurement_arp_item: {
@@ -12652,6 +12676,7 @@ export type Database = {
           ni_fornecedor: string | null
           nome_fornecedor: string | null
           numero_item: number | null
+          procurement_list_item_id: string | null
           quantidade_empenhada: number | null
           quantidade_homologada: number | null
           saldo_empenho: number | null
@@ -12669,6 +12694,7 @@ export type Database = {
           ni_fornecedor?: string | null
           nome_fornecedor?: string | null
           numero_item?: number | null
+          procurement_list_item_id?: string | null
           quantidade_empenhada?: number | null
           quantidade_homologada?: number | null
           saldo_empenho?: number | null
@@ -12686,6 +12712,7 @@ export type Database = {
           ni_fornecedor?: string | null
           nome_fornecedor?: string | null
           numero_item?: number | null
+          procurement_list_item_id?: string | null
           quantidade_empenhada?: number | null
           quantidade_homologada?: number | null
           saldo_empenho?: number | null
@@ -12704,6 +12731,13 @@ export type Database = {
           {
             foreignKeyName: "procurement_arp_item_ata_item_id_fkey"
             columns: ["ata_item_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_arp_item_procurement_list_item_id_fkey"
+            columns: ["procurement_list_item_id"]
             isOneToOne: false
             referencedRelation: "procurement_list_item"
             referencedColumns: ["id"]
@@ -12844,7 +12878,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "procurement_ata_item_ata_id_fkey"
+            foreignKeyName: "procurement_list_item_list_id_fkey"
             columns: ["list_id"]
             isOneToOne: false
             referencedRelation: "procurement_list"
@@ -12887,7 +12921,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "procurement_ata_kitchen_ata_id_fkey"
+            foreignKeyName: "procurement_list_kitchen_list_id_fkey"
             columns: ["list_id"]
             isOneToOne: false
             referencedRelation: "procurement_list"
@@ -12919,7 +12953,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "procurement_ata_selection_ata_kitchen_id_fkey"
+            foreignKeyName: "procurement_list_selection_list_kitchen_id_fkey"
             columns: ["list_kitchen_id"]
             isOneToOne: false
             referencedRelation: "procurement_list_kitchen"
@@ -13065,6 +13099,7 @@ export type Database = {
           items_without_catmat: number
           non_compliant_items: number
           period_months: number | null
+          procurement_list_id: string | null
           reference_method: string
           similarity_threshold: number | null
           total_items: number
@@ -13082,6 +13117,7 @@ export type Database = {
           items_without_catmat?: number
           non_compliant_items?: number
           period_months?: number | null
+          procurement_list_id?: string | null
           reference_method?: string
           similarity_threshold?: number | null
           total_items?: number
@@ -13099,6 +13135,7 @@ export type Database = {
           items_without_catmat?: number
           non_compliant_items?: number
           period_months?: number | null
+          procurement_list_id?: string | null
           reference_method?: string
           similarity_threshold?: number | null
           total_items?: number
@@ -13107,6 +13144,13 @@ export type Database = {
           {
             foreignKeyName: "procurement_pesquisa_preco_ata_id_fkey"
             columns: ["ata_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_pesquisa_preco_procurement_list_id_fkey"
+            columns: ["procurement_list_id"]
             isOneToOne: false
             referencedRelation: "procurement_list"
             referencedColumns: ["id"]
@@ -13185,6 +13229,7 @@ export type Database = {
           price_mean: number | null
           price_median: number | null
           price_min: number | null
+          procurement_list_item_id: string | null
           product_name: string
           reference_method: string | null
           reference_price: number | null
@@ -13216,6 +13261,7 @@ export type Database = {
           price_mean?: number | null
           price_median?: number | null
           price_min?: number | null
+          procurement_list_item_id?: string | null
           product_name: string
           reference_method?: string | null
           reference_price?: number | null
@@ -13247,6 +13293,7 @@ export type Database = {
           price_mean?: number | null
           price_median?: number | null
           price_min?: number | null
+          procurement_list_item_id?: string | null
           product_name?: string
           reference_method?: string | null
           reference_price?: number | null
@@ -13262,6 +13309,13 @@ export type Database = {
           {
             foreignKeyName: "procurement_pesquisa_preco_item_ata_item_id_fkey"
             columns: ["ata_item_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_pesquisa_preco_item_procurement_list_item_id_fkey"
+            columns: ["procurement_list_item_id"]
             isOneToOne: false
             referencedRelation: "procurement_list_item"
             referencedColumns: ["id"]
@@ -13652,6 +13706,121 @@ export type Database = {
       }
     }
     Views: {
+      kitchen_ata_draft: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          kitchen_id: number | null
+          notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          kitchen_id?: number | null
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          kitchen_id?: number | null
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      kitchen_ata_draft_import: {
+        Row: {
+          draft_id: string | null
+          imported_at: string | null
+          imported_by: string | null
+          list_id: string | null
+        }
+        Insert: {
+          draft_id?: string | null
+          imported_at?: string | null
+          imported_by?: string | null
+          list_id?: string | null
+        }
+        Update: {
+          draft_id?: string | null
+          imported_at?: string | null
+          imported_by?: string | null
+          list_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_demand_forecast_import_forecast_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_ata_draft"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_demand_forecast_import_forecast_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_demand_forecast"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_demand_forecast_import_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_list"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kitchen_ata_draft_selection: {
+        Row: {
+          draft_id: string | null
+          id: string | null
+          repetitions: number | null
+          template_id: string | null
+        }
+        Insert: {
+          draft_id?: string | null
+          id?: string | null
+          repetitions?: number | null
+          template_id?: string | null
+        }
+        Update: {
+          draft_id?: string | null
+          id?: string | null
+          repetitions?: number | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_demand_forecast_selection_forecast_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_ata_draft"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_demand_forecast_selection_forecast_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_demand_forecast"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_purchase_item_conditioning_review: {
         Row: {
           catmat_item_codigo: number | null
