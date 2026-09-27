@@ -20,6 +20,22 @@ create index supply_order_ata_id_idx on procurement.supply_order (ata_id);
 // ruleid: ubiquitous-language-migration-lot2
 comment on column procurement.quantity_estimate_item.estimated_quantity is 'antes total_quantity';
 
+// ruleid: ubiquitous-language-migration-lot2
+create function procurement.touch_note() returns void language plpgsql set search_path = '' as $$
+begin
+	perform 1;
+	update procurement.procurement_list set title = title;
+end;
+$$;
+
+// ok: ubiquitous-language-migration-lot2
+create function procurement.touch_estimate() returns void language plpgsql set search_path = '' as $$
+begin
+	perform 1;
+	update procurement.quantity_estimate set title = title;
+end;
+$$;
+
 // ok: ubiquitous-language-migration-lot2
 create table procurement.quantity_estimate_note (id uuid primary key, quantity_estimate_id uuid not null);
 

@@ -113,18 +113,14 @@ function ctxFor(responses: Record<string, QueryResult[]>, queries: RecordedQuery
 const agentMocks = vi.hoisted(() => ({
 	agentListQuantityEstimates: vi.fn(),
 	agentGetQuantityEstimate: vi.fn(),
-	updateQuantityEstimateStatus: vi.fn(),
+	agentUpdateQuantityEstimateStatus: vi.fn(),
 }))
 
 vi.mock("@iefa/sisub-domain/agent", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@iefa/sisub-domain/agent")>()),
 	agentListQuantityEstimates: agentMocks.agentListQuantityEstimates,
 	agentGetQuantityEstimate: agentMocks.agentGetQuantityEstimate,
-}))
-
-vi.mock("@iefa/sisub-domain", async (importOriginal) => ({
-	...(await importOriginal<typeof import("@iefa/sisub-domain")>()),
-	updateQuantityEstimateStatus: agentMocks.updateQuantityEstimateStatus,
+	agentUpdateQuantityEstimateStatus: agentMocks.agentUpdateQuantityEstimateStatus,
 }))
 
 const envelope = (items: unknown[], total = items.length) => ({ items, returned: items.length, total, limit: 30 })
@@ -211,21 +207,21 @@ describe("get_quantity_estimate", () => {
 
 describe("update_quantity_estimate_status", () => {
 	beforeEach(() => {
-		agentMocks.updateQuantityEstimateStatus.mockReset()
+		agentMocks.agentUpdateQuantityEstimateStatus.mockReset()
 	})
 
 	test("conclui pela operation do domínio (transição, justificativa e retrato), não por update cru", async () => {
-		agentMocks.updateQuantityEstimateStatus.mockResolvedValue(undefined)
+		agentMocks.agentUpdateQuantityEstimateStatus.mockResolvedValue(undefined)
 
 		const result = await tool("update_quantity_estimate_status").handler({ quantityEstimateId: UUID, status: "completed" }, ctxFor({}, []))
 
-		expect(agentMocks.updateQuantityEstimateStatus.mock.calls[0]?.[2]).toEqual({ quantityEstimateId: UUID, status: "completed" })
+		expect(agentMocks.agentUpdateQuantityEstimateStatus.mock.calls[0]?.[2]).toEqual({ quantityEstimateId: UUID, status: "completed" })
 		expect(result).toEqual({ success: true, data: { quantityEstimateId: UUID, status: "completed" } })
 	})
 
 	test("`published` (publicar é divulgar no PNCP) não é status do anexo", async () => {
 		await expect(tool("update_quantity_estimate_status").handler({ quantityEstimateId: UUID, status: "published" }, ctxFor({}, []))).rejects.toThrow()
-		expect(agentMocks.updateQuantityEstimateStatus).not.toHaveBeenCalled()
+		expect(agentMocks.agentUpdateQuantityEstimateStatus).not.toHaveBeenCalled()
 	})
 })
 

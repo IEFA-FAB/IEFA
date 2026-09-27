@@ -36,11 +36,18 @@ rules:
         - "packages/database/supabase/migrations/20260[1-8]*"
         - "packages/database/supabase/migrations/202609[0-1]*"
         - "packages/database/supabase/migrations/2026092[0-6]*"
-        - "packages/database/supabase/migrations/20260927[0-4]*"
+        # 2026-09-27 até 04:59:59 (o timestamp é AAAAMMDDhhmmss) e o próprio contract.
+        - "packages/database/supabase/migrations/202609270[0-4]*"
         - "packages/database/supabase/migrations/20260927050000_*"
     patterns:
-      # Do verbo que cria ou nomeia até o `;` que fecha o statement.
-      - pattern-regex: >-
-          (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b[^;]*?\b(?:procurement_list\w*|list_id|list_kitchen_id|ata_id|ata_item_id|max_margin_percent|margin_justification|total_quantity)\b
+      - pattern-either:
+          # Do verbo que cria ou nomeia até o `;` que fecha o statement.
+          - pattern-regex: >-
+              (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b[^;]*?\b(?:procurement_list\w*|list_id|list_kitchen_id|ata_id|ata_item_id|max_margin_percent|margin_justification|total_quantity)\b
+          # Corpo entre dollar quotes (função, `do`): o `;` de dentro não fecha o statement, e é
+          # o caso perigoso — plpgsql resolve tabela pelo nome e passaria por uma view de
+          # compatibilidade, que não dispara os triggers da tabela.
+          - pattern-regex: >-
+              (?is)(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:procurement_list\w*|list_id|list_kitchen_id|ata_id|ata_item_id|max_margin_percent|margin_justification|total_quantity)\b(?:(?!\1).)*\1
       # Linha de comentário conta a história do rename.
       - pattern-not-regex: (?m)^\s*--.*$

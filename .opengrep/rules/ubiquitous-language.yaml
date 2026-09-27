@@ -199,7 +199,7 @@ rules:
         - "packages/sisub-domain/src/operations/quantity-estimate.ts"
         - "packages/sisub-domain/src/operations/quantity-estimate-limits.ts"
     patterns:
-      - pattern-regex: (?i)\bmargem\b|\bpublicad[oa]s?\b|\bpublicar\b|\bpublicação\b|Qtd\.?\s+Alvo|\balvo\s+planejado\b|"published"
+      - pattern-regex: (?i)\bmargem\b|\bpublicad[oa]s?\b|\bpublicar\b|\bpublicação\b|Qtd\.?\s+Alvo|\balvo\s+planejado\b|"published"|\bpublished\s*[:]
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
       # Publicar é, de fato, divulgar no PNCP; margem de preferência é a do art. 26.
       - pattern-not-regex: (?im)^.*(?:PNCP|licitação publicada|edital|preferência).*$

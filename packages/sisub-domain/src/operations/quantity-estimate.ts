@@ -1,6 +1,6 @@
 /**
- * Quantity estimate (anexo quantitativo) lifecycle operations: needs calculation, creation,
- * status transitions, soft-delete. Drizzle query layer (migração PostgREST→Drizzle).
+ * Ciclo de vida do anexo quantitativo: cálculo das necessidades, criação, transições de status e
+ * exclusão lógica. Camada de consulta em Drizzle (migração PostgREST→Drizzle).
  *
  * Auth: LEITURA exige `unit:1` na unidade dona do anexo; ESCRITA, `unit:2`. Sete das dez escritas
  * recebem só um id — a unidade sai da linha persistida, nunca do input (ver `authorizeQuantityEstimate`/
@@ -1190,7 +1190,7 @@ export async function createQuantityEstimate(db: SisubDb, ctx: UserContext, inpu
 
 // ─── Listar anexos da unidade ───────────────────────────────────────────────────
 
-/** Lists all non-deleted quantity estimates for a unit, ordered by creation date descending. */
+/** Anexos quantitativos não excluídos da unidade, dos mais recentes para os mais antigos. */
 export async function fetchQuantityEstimateList(db: SisubDb, ctx: UserContext, input: FetchQuantityEstimateList): Promise<QuantityEstimate[]> {
 	requireUnit(ctx, 1, input.unitId)
 	const lists = await runQuery(
@@ -1209,9 +1209,9 @@ export async function fetchQuantityEstimateList(db: SisubDb, ctx: UserContext, i
 // ─── Buscar anexo com detalhes ──────────────────────────────────────────────────
 
 /**
- * Fetches full quantity estimate details including kitchens, template selections and calculated items. Returns null if the quantity estimate row is not found.
+ * Anexo quantitativo com cozinhas, cardápios considerados e itens calculados. Devolve null se o anexo não existe.
  *
- * Returns null only on missing quantity estimate; kitchen/items failures still throw.
+ * Só o anexo ausente vira null; falha ao ler cozinhas ou itens continua lançando.
  */
 export async function fetchQuantityEstimateDetails(
 	db: SisubDb,
@@ -1960,7 +1960,7 @@ export async function updateQuantityEstimateDocumentSettings(
 
 // ─── Deletar anexo (soft delete) ────────────────────────────────────────────────
 
-/** Soft-deletes a quantity estimate by setting deleted_at — kitchen associations and items remain intact. */
+/** Exclusão lógica do anexo (`deleted_at`); cozinhas e itens ficam intactos. */
 export async function deleteQuantityEstimate(db: SisubDb, ctx: UserContext, input: DeleteQuantityEstimate): Promise<void> {
 	await authorizeQuantityEstimate(db, ctx, input.quantityEstimateId)
 

@@ -30,6 +30,7 @@ import {
 	updateQuantityEstimateLimits,
 	updateQuantityEstimateStatus,
 } from "@iefa/sisub-domain"
+import { agentGetQuantityEstimate, agentListQuantityEstimates, agentUpdateQuantityEstimateStatus } from "@iefa/sisub-domain/agent"
 import { eq } from "drizzle-orm"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -133,6 +134,86 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 		expect(after.map((a) => a.id)).toContain(second.id)
 
 		expect(await fetchQuantityEstimateDetails(db, ctx, { quantityEstimateId: "00000000-0000-4000-8000-000000000000" })).toBeNull()
+	})
+
+	// ─── leituras e escrita do agente (tools do chat) ──────────────────────────
+	test("agentListQuantityEstimates: filtra status no banco, pagina com total e deixa a lixeira de fora", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const make = async (title: string) => {
+			const created = await createQuantityEstimate(db as SisubDb, ctx, { unitId, title: uid(title), kitchenSelections: [], items: [] })
+			seeder?.track("quantity_estimate", created.id)
+			return created.id
+		}
+		const completedId = await make("[TEST] anexo concluído ")
+		await updateQuantityEstimateStatus(db, ctx, { quantityEstimateId: completedId, status: "completed" })
+		const draftId = await make("[TEST] anexo rascunho ")
+		const trashedId = await make("[TEST] anexo na lixeira ")
+		await deleteQuantityEstimate(db, ctx, { quantityEstimateId: trashedId })
+
+		const all = await agentListQuantityEstimates(db, ctx, { unitId, limit: 1 })
+		expect(all).toMatchObject({ returned: 1, total: 2, limit: 1 })
+		expect(all.items[0]?.id).toBe(draftId) // o mais recente primeiro
+
+		const completed = await agentListQuantityEstimates(db, ctx, { unitId, status: "completed" })
+		expect(completed.items.map((i) => [i.id, i.status])).toEqual([[completedId, "completed"]])
+		expect(completed.total).toBe(1)
+
+		// Quem só tem o analytics local da unidade também lê; outra unidade, não.
+		const analytics = { ...ctx, permissions: [{ module: "local-analytics" as const, level: 1, unit_id: unitId, kitchen_id: null, mess_hall_id: null }] }
+		expect((await agentListQuantityEstimates(db, analytics, { unitId })).total).toBe(2)
+		await expect(agentListQuantityEstimates(db, analytics, { unitId: unitId + 1 })).rejects.toThrow()
+	})
+
+	test("agentGetQuantityEstimate projeta os itens, filtra por nome e confere a unidade pela linha", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const quantityEstimate = await createQuantityEstimate(db, ctx, {
+			unitId,
+			title: uid("[TEST] anexo "),
+			kitchenSelections: [],
+			items: [
+				{ ingredient_name: "Arroz polido", measure_unit: "KG", estimated_quantity: 10 },
+				{ ingredient_name: "Feijão preto", measure_unit: "KG", estimated_quantity: 5 },
+				{ ingredient_name: "ARROZ parboilizado", measure_unit: "KG", estimated_quantity: 3 },
+			],
+		})
+		seeder.track("quantity_estimate", quantityEstimate.id)
+
+		const detail = await agentGetQuantityEstimate(db, ctx, { quantityEstimateId: quantityEstimate.id, itemSearch: "arroz", limit: 1 })
+		expect(detail).toMatchObject({ id: quantityEstimate.id, status: "draft", items_returned: 1, items_matched: 2, items_total: 3, items_limit: 1 })
+		expect(Object.keys(detail.items[0] ?? {}).sort()).toEqual(
+			[
+				"catmat_item_codigo",
+				"delivery_cycle",
+				"estimated_quantity",
+				"id",
+				"ingredient_id",
+				"ingredient_name",
+				"max_increase_percent",
+				"measure_unit",
+				"purchase_measure_unit",
+				"purchase_quantity",
+				"unit_price",
+			].sort()
+		)
+
+		const otherUnit = { ...ctx, permissions: [{ module: "unit" as const, level: 3, unit_id: unitId + 1, kitchen_id: null, mess_hall_id: null }] }
+		await expect(agentGetQuantityEstimate(db, otherUnit, { quantityEstimateId: quantityEstimate.id })).rejects.toThrow()
+		await expect(agentGetQuantityEstimate(db, ctx, { quantityEstimateId: "00000000-0000-4000-8000-000000000000" })).rejects.toThrow(/não encontrado/)
+	})
+
+	test("agentUpdateQuantityEstimateStatus não conclui anexo ainda no wizard, mas arquiva", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const { id } = await createQuantityEstimateDraft(db, ctx, { unitId })
+		seeder.track("quantity_estimate", id)
+
+		await expect(agentUpdateQuantityEstimateStatus(db, ctx, { quantityEstimateId: id, status: "completed" })).rejects.toMatchObject({
+			code: "QUANTITY_ESTIMATE_IN_WIZARD",
+		})
+		await agentUpdateQuantityEstimateStatus(db, ctx, { quantityEstimateId: id, status: "archived" })
+		expect((await fetchQuantityEstimateDetails(db, ctx, { quantityEstimateId: id }))?.status).toBe("archived")
 	})
 
 	test("updateQuantityEstimateStatus transiciona e updateQuantityEstimateItemDescription persiste a descrição do item", async () => {

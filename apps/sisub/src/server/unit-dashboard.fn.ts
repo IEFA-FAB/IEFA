@@ -1,6 +1,6 @@
 /**
  * @module unit-dashboard.fn
- * Unit procurement health dashboard: completed quantity estimates + ARP items at ≥80% consumption with upcoming-menu annotation.
+ * Painel de contratação da unidade: anexos quantitativos concluídos e itens de ARP com consumo ≥ 80%, marcando os que entram em cardápio próximo.
  * Thin wrapper delegating to @iefa/sisub-domain operations (operations/procurement).
  * Auth enforced via requireAuth() — endpoint now requires authentication.
  * @domain core

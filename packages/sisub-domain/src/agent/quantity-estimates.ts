@@ -10,16 +10,16 @@
  */
 
 import { quantityEstimateInProcurement, type SisubDb } from "@iefa/database/drizzle/sisub"
-import { and, desc, eq, isNull } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { requireAnyPermission } from "../guards/require-permission.ts"
-import { fetchQuantityEstimateDetails } from "../operations/quantity-estimate.ts"
+import { fetchQuantityEstimateDetails, updateQuantityEstimateStatus } from "../operations/quantity-estimate.ts"
 import { COMPLETED_STATUS_VALUES, normalizeQuantityEstimateStatus } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
 import { clampLimit } from "./budget.ts"
 import type { AgentList } from "./reads.ts"
-import type { AgentGetQuantityEstimate, AgentListQuantityEstimates } from "./schemas.ts"
+import type { AgentGetQuantityEstimate, AgentListQuantityEstimates, AgentUpdateQuantityEstimateStatus } from "./schemas.ts"
 
 /** O anexo na listagem: o que o modelo precisa para escolher qual abrir. */
 export interface AgentQuantityEstimateSummary {
@@ -44,6 +44,8 @@ export async function agentListQuantityEstimates(
 ): Promise<AgentList<AgentQuantityEstimateSummary>> {
 	requireAnyPermission(ctx, ["unit", "local-analytics"], 1, { type: "unit", id: input.unitId })
 	const limit = clampLimit(input.limit)
+	// `completed` casa também o `published` antigo, até o contract 20260927050000.
+	const statuses = input.status == null ? null : input.status === "completed" ? [...COMPLETED_STATUS_VALUES] : [input.status]
 	const rows = await runQuery(
 		"QUERY_FAILED",
 		() =>
@@ -56,26 +58,32 @@ export async function agentListQuantityEstimates(
 					segmentId: quantityEstimateInProcurement.segmentId,
 					createdAt: quantityEstimateInProcurement.createdAt,
 					updatedAt: quantityEstimateInProcurement.updatedAt,
+					// O total do filtro inteiro vem na mesma leitura da página.
+					total: sql<number>`count(*) over ()`.mapWith(Number),
 				})
 				.from(quantityEstimateInProcurement)
 				// Sem `deleted_at is null` o anexo na lixeira aparece vivo e o modelo o oferece para empenhar.
-				.where(and(eq(quantityEstimateInProcurement.unitId, input.unitId), isNull(quantityEstimateInProcurement.deletedAt)))
-				.orderBy(desc(quantityEstimateInProcurement.createdAt)),
+				.where(
+					and(
+						eq(quantityEstimateInProcurement.unitId, input.unitId),
+						isNull(quantityEstimateInProcurement.deletedAt),
+						statuses ? inArray(quantityEstimateInProcurement.status, statuses) : undefined
+					)
+				)
+				.orderBy(desc(quantityEstimateInProcurement.createdAt))
+				.limit(limit),
 		{ prefix: "Erro ao listar os anexos quantitativos" }
 	)
-	const wanted = input.status ?? null
-	const matched = rows
-		.map((r) => ({
-			id: r.id,
-			title: r.title,
-			status: normalizeQuantityEstimateStatus(r.status),
-			wizard_step: r.wizardStep,
-			segment_id: r.segmentId,
-			created_at: r.createdAt,
-			updated_at: r.updatedAt,
-		}))
-		.filter((r) => wanted == null || r.status === wanted || (wanted === "completed" && COMPLETED_STATUS_VALUES.includes(r.status)))
-	return { items: matched.slice(0, limit), returned: Math.min(matched.length, limit), total: matched.length, limit }
+	const items = rows.map((r) => ({
+		id: r.id,
+		title: r.title,
+		status: normalizeQuantityEstimateStatus(r.status),
+		wizard_step: r.wizardStep,
+		segment_id: r.segmentId,
+		created_at: r.createdAt,
+		updated_at: r.updatedAt,
+	}))
+	return { items, returned: items.length, total: rows[0]?.total ?? 0, limit }
 }
 
 /** Item do anexo na resposta da tool: as colunas que a conversa usa, sem o `select *`. */
@@ -137,7 +145,7 @@ export async function agentGetQuantityEstimate(db: SisubDb, ctx: UserContext, in
 		unit_id: detail.unit_id,
 		title: detail.title,
 		notes: detail.notes,
-		status: normalizeQuantityEstimateStatus(detail.status),
+		status: detail.status,
 		validity_months: detail.validity_months,
 		max_increase_percent: detail.max_increase_percent,
 		max_quantity_justification: detail.max_quantity_justification,
@@ -175,4 +183,32 @@ export async function agentGetQuantityEstimate(db: SisubDb, ctx: UserContext, in
 		items_total: detail.items.length,
 		items_limit: limit,
 	}
+}
+
+/**
+ * Status do anexo pelo chat. A operation confere `unit:2` na OM dona, a transição, a segmentação e
+ * a justificativa da quantidade máxima, e congela o retrato na conclusão. O que ela não confere, e a
+ * tela nunca oferece, é concluir um anexo ainda no wizard (`wizard_step` preenchido): o retrato
+ * congelaria um anexo com itens parciais, sem volta. Pelo chat, isso é recusado; arquivar continua.
+ */
+export async function agentUpdateQuantityEstimateStatus(db: SisubDb, ctx: UserContext, input: AgentUpdateQuantityEstimateStatus): Promise<void> {
+	if (input.status === "completed") {
+		const [row] = await runQuery(
+			"QUERY_FAILED",
+			() =>
+				db
+					.select({ wizardStep: quantityEstimateInProcurement.wizardStep })
+					.from(quantityEstimateInProcurement)
+					.where(eq(quantityEstimateInProcurement.id, input.quantityEstimateId))
+					.limit(1),
+			{ prefix: "Erro ao ler o anexo quantitativo" }
+		)
+		if (row?.wizardStep != null) {
+			throw new DomainError(
+				"QUANTITY_ESTIMATE_IN_WIZARD",
+				`O anexo ainda está sendo preenchido (passo ${row.wizardStep} de 5): termine o wizard na tela antes de concluir.`
+			)
+		}
+	}
+	await updateQuantityEstimateStatus(db, ctx, input)
 }

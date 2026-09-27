@@ -103,7 +103,7 @@ export function useUpdateQuantityEstimateStatus() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.all() })
 			const labels: Record<string, string> = {
 				draft: "Rascunho",
-				published: "Concluído",
+				completed: "Concluído",
 				archived: "Arquivado",
 			}
 			toast.success(`Anexo atualizado para "${labels[variables.status]}"`)

@@ -8,13 +8,14 @@
  * "Erro ao executar…" para qualquer pergunta.
  */
 
-import { toJsonSchema, updateQuantityEstimateStatus } from "@iefa/sisub-domain"
+import { toJsonSchema } from "@iefa/sisub-domain"
 import {
 	AgentGetQuantityEstimateSchema,
 	AgentListQuantityEstimatesSchema,
 	AgentUpdateQuantityEstimateStatusSchema,
 	agentGetQuantityEstimate,
 	agentListQuantityEstimates,
+	agentUpdateQuantityEstimateStatus,
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
 import { defaultVigenciaWindow } from "@/lib/arp-compras"
@@ -79,7 +80,8 @@ const updateQuantityEstimateStatusTool: ModuleToolDefinition = {
 		const input = AgentUpdateQuantityEstimateStatusSchema.parse(args)
 		// A operation confere `unit:2` na OM DONA do anexo, a transição, a segmentação e a
 		// justificativa, e congela o snapshot na conclusão — o que o `update` cru desta tool pulava.
-		await updateQuantityEstimateStatus(ctx.db, domainCtx(ctx), input)
+		// Anexo ainda no wizard não conclui pelo chat.
+		await agentUpdateQuantityEstimateStatus(ctx.db, domainCtx(ctx), input)
 		return toolOk({ quantityEstimateId: input.quantityEstimateId, status: input.status })
 	},
 }

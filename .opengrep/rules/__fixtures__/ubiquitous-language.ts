@@ -176,9 +176,13 @@ const marginLabel = <Label>Margem padrão (%)</Label>
 const targetHead = <TableHead>Qtd Alvo</TableHead>
 // ruleid: ubiquitous-language-lot2-label
 updateStatus({ quantityEstimateId, status: "published" })
+// ruleid: ubiquitous-language-lot2-label
+const STATUS_LABELS = { draft: "Rascunho", published: "Concluído", archived: "Arquivado" }
 
 // ok: ubiquitous-language-lot2-label
 const conclude = <Button>Concluir anexo</Button>
+// ok: ubiquitous-language-lot2-label
+const STATUS_LABELS_OK = { draft: "Rascunho", completed: "Concluído", archived: "Arquivado" }
 // ok: ubiquitous-language-lot2-label
 const increaseLabel = <Label>Acréscimo sobre a estimada (%)</Label>
 // ok: ubiquitous-language-lot2-label

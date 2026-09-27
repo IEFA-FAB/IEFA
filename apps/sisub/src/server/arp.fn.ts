@@ -526,7 +526,7 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 // ─── 4. Buscar ARP vinculada a um anexo quantitativo ─────────────────────────
 
 /**
- * Returns the ARP linked to a quantity estimate with all its items ordered by numero_item, or null if none exists.
+ * ARP ligada ao anexo quantitativo, com os itens pela ordem de `numero_item`, ou null se não houver.
  */
 /**
  * Resolve a unidade dona de uma ARP, de um item de ARP ou de um anexo quantitativo.

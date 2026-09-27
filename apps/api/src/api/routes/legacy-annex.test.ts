@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { deprecationHeaders, toLegacyAnnexKeys, toLegacyAnnexResponse } from "./legacy-annex.ts"
+import { deprecationHeaders, toLegacyAnnexKeys, toLegacyAnnexResponse, withLegacyResearchFields } from "./legacy-annex.ts"
 
 // Alias depreciado do caminho antigo do anexo quantitativo (design D7 de
 // `sisub-ubiquitous-language`): some com o contract 20260927050000, junto com este teste.
@@ -33,5 +33,15 @@ describe("alias depreciado do anexo quantitativo", () => {
 		expect(legacy.headers.get("Deprecation")).toBe("true")
 		expect(legacy.headers.get("Link")).toContain("/quantity-estimates/q1")
 		expect(await legacy.json()).toEqual({ error: "Anexo quantitativo não encontrado" })
+	})
+
+	test("a pesquisa devolve o campo antigo ao lado do renomeado, no cabeçalho e nos itens", () => {
+		const research = { id: "r1", quantity_estimate_id: "q1", items: [{ id: "i1", quantity_estimate_item_id: "e1", samples: [] }] }
+		expect(withLegacyResearchFields(research) as unknown).toEqual({
+			id: "r1",
+			quantity_estimate_id: "q1",
+			procurement_list_id: "q1",
+			items: [{ id: "i1", quantity_estimate_item_id: "e1", procurement_list_item_id: "e1", samples: [] }],
+		})
 	})
 })

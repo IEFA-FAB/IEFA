@@ -238,18 +238,18 @@ type DashboardArpItemRow = {
 }
 
 /**
- * Returns completed quantity estimates and low-balance ARP items (≥80% consumed) for a unit,
- * annotated with in_upcoming_menu flag.
+ * Anexos quantitativos concluídos e itens de ARP com saldo baixo (≥ 80% consumido) da unidade,
+ * com a marca `in_upcoming_menu`.
  *
- * 7-step pipeline:
- *   (1) Fetch all non-deleted quantity estimates → filter completed.
- *   (2) Fetch ARPs linked to completed quantity estimates.
- *   (3) Fetch ARP items with ata_item join (for ingredient_id).
- *   (4) Filter: qtdeEmpenhada / qtdeHomologada ≥ 0.8.
- *   (5) Collect ingredient_ids from relevant items.
- *   (6) Check upcoming menus (today + 30 days) across unit kitchens to compute in_upcoming_menu.
- *   (7) Sort: in_upcoming_menu=true first, then consumption_pct descending.
- * Returns early with empty low_balance_items at steps (1), (2) and (4) if no qualifying data found.
+ * Sete passos:
+ *   (1) anexos não excluídos → só os concluídos;
+ *   (2) ARPs ligadas a eles;
+ *   (3) itens das ARPs com o item do anexo (para o `ingredient_id`);
+ *   (4) filtro: qtdeEmpenhada / qtdeHomologada ≥ 0,8;
+ *   (5) `ingredient_id` dos itens que sobraram;
+ *   (6) cardápios dos próximos 30 dias nas cozinhas da unidade, para o `in_upcoming_menu`;
+ *   (7) ordem: `in_upcoming_menu` primeiro, depois `consumption_pct` decrescente.
+ * Sai cedo, com `low_balance_items` vazio, nos passos (1), (2) e (4) quando não há o que mostrar.
  */
 export async function fetchUnitDashboard(
 	db: SisubDb,

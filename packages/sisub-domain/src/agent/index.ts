@@ -35,7 +35,7 @@ export type { AgentDailyMenu, AgentMenuItem, AgentTemplateItem } from "./menus.t
 export { agentFetchDayMenus, agentFetchMenus, agentGetTemplateItems } from "./menus.ts"
 export { dropUnexpectedNulls } from "./model-input.ts"
 export type { AgentQuantityEstimateDetail, AgentQuantityEstimateItem, AgentQuantityEstimateSummary } from "./quantity-estimates.ts"
-export { agentGetQuantityEstimate, agentListQuantityEstimates } from "./quantity-estimates.ts"
+export { agentGetQuantityEstimate, agentListQuantityEstimates, agentUpdateQuantityEstimateStatus } from "./quantity-estimates.ts"
 export type { AgentIngredientSummary, AgentList, AgentRecipeDetail, AgentRecipeIngredient, AgentRecipeSummary } from "./reads.ts"
 export { agentGetRecipe, agentListIngredients, agentListLegacyPreparations, agentListRecipes } from "./reads.ts"
 export type {

@@ -43,13 +43,13 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/quantity
 
 const STATUS_LABELS: Record<string, string> = {
 	draft: "Rascunho",
-	published: "Concluído",
+	completed: "Concluído",
 	archived: "Arquivado",
 }
 
 const STATUS_VARIANTS: Record<string, "secondary" | "default" | "outline"> = {
 	draft: "secondary",
-	published: "default",
+	completed: "default",
 	archived: "outline",
 }
 

@@ -7,7 +7,7 @@ import { secureCompare } from "../../lib/secure-compare.ts"
 import { analisarPrecos, type OpcoesPesquisa } from "../../workers/pesquisa-preco/analyzer.ts"
 import { consultarMaterialPrecos } from "../../workers/pesquisa-preco/client.ts"
 import type { AmostraPreco, PriceAnalysis, QuantityEstimateItemPriceResult } from "../../workers/pesquisa-preco/types.ts"
-import { LEGACY_ANNEX_PREFIX, logDeprecatedAnnexRoute, toLegacyAnnexResponse } from "./legacy-annex.ts"
+import { LEGACY_ANNEX_PREFIX, logDeprecatedAnnexRoute, toLegacyAnnexResponse, withLegacyResearchFields } from "./legacy-annex.ts"
 
 // ─── Validação de entrada ─────────────────────────────────────────────────────
 
@@ -604,5 +604,5 @@ export const priceResearchRoutes = new Hono()
 			samples: (samples ?? []).map(({ amostra, ...sample }) => ({ ...sample, ...(amostra ?? {}) })),
 		}))
 
-		return c.json({ ...research, items: flatItems })
+		return c.json(withLegacyResearchFields({ ...research, items: flatItems }))
 	})

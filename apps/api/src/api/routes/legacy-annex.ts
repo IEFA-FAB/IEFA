@@ -32,3 +32,27 @@ export async function toLegacyAnnexResponse(res: Response, successor: string): P
 export function logDeprecatedAnnexRoute(method: string, path: string, id: string): void {
 	console.warn(`[price-research] rota depreciada ${method} ${path} usada (anexo ${id}); use /quantity-estimates/:quantityEstimateId`)
 }
+
+/**
+ * `GET /research/:researchId` não muda de caminho, mas a resposta trocou `procurement_list_id` e
+ * `procurement_list_item_id` por `quantity_estimate_id` e `quantity_estimate_item_id`. Por um ciclo
+ * a resposta leva os dois nomes, para o chamador externo que só conhece o antigo; sai com o
+ * contract 20260927050000.
+ */
+const LEGACY_RESEARCH_FIELDS: Readonly<Record<string, string>> = {
+	quantity_estimate_id: "procurement_list_id",
+	quantity_estimate_item_id: "procurement_list_item_id",
+}
+
+/** Acrescenta, em profundidade, o campo de nome antigo ao lado de cada campo renomeado. */
+export function withLegacyResearchFields<T>(value: T): T {
+	if (Array.isArray(value)) return value.map(withLegacyResearchFields) as T
+	if (value === null || typeof value !== "object") return value
+	const out: Record<string, unknown> = {}
+	for (const [key, v] of Object.entries(value)) {
+		out[key] = withLegacyResearchFields(v)
+		const legacy = LEGACY_RESEARCH_FIELDS[key]
+		if (legacy && !(legacy in value)) out[legacy] = v
+	}
+	return out as T
+}
