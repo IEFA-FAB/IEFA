@@ -706,7 +706,7 @@ export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, inp
 				// `listId`: coluna antiga, NOT NULL e espelhada até o contract 20260927050000, que a remove.
 				.values({
 					quantityEstimateId: input.quantityEstimateId,
-					listId: input.quantityEstimateId,
+					listId: input.quantityEstimateId, // nosemgrep: ubiquitous-language-lot2-identifier
 					sequence,
 					emittedBy: ctx.userId,
 					emittedAt,

@@ -348,7 +348,7 @@ export async function recordDemandForecastImport(db: SisubDb, ctx: UserContext, 
 				await tx
 					.insert(kitchenDemandForecastImportInProcurement)
 					// `listId`: coluna antiga, NOT NULL e espelhada até o contract 20260927050000, que a remove.
-					.values({ forecastId: input.forecastId, quantityEstimateId: input.quantityEstimateId, listId: input.quantityEstimateId, importedBy: ctx.userId })
+					.values({ forecastId: input.forecastId, quantityEstimateId: input.quantityEstimateId, listId: input.quantityEstimateId, importedBy: ctx.userId }) // nosemgrep: ubiquitous-language-lot2-identifier
 					.onConflictDoNothing({ target: [kitchenDemandForecastImportInProcurement.forecastId, kitchenDemandForecastImportInProcurement.quantityEstimateId] })
 				if (forecast.status === "sent") {
 					const now = new Date().toISOString()
