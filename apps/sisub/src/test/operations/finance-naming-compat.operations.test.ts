@@ -10,12 +10,15 @@
  *     precisar citá-las; nenhuma das duas informada = 0, o default de antes;
  *   * `siafi_integration.apply_document_row` grava `issuer_ug`, e o espelho leva a `ug_emitente`.
  *
- * Sai no contract (20260927090000) junto com a camada que ele testa.
+ * Sai no contract (20260927090000) junto com a camada que ele testa. Entre a aplicação do contract
+ * e o merge do PR dele, o banco já não tem as colunas antigas e a `main` ainda tem este arquivo: os
+ * casos se pulam quando a coluna nova existe e a antiga não, para não avermelhar o gate de todo PR
+ * nessa janela. Antes do expand (a nova ainda não existe), falham.
  *
  * Banco real, `sql.begin` + ROLLBACK final: nada persiste.
  */
 import postgres from "postgres"
-import { afterAll, beforeAll, expect, test } from "vitest"
+import { afterAll, beforeAll, expect, type TestContext, test } from "vitest"
 import { describeSupabaseIntegration, getSisubDatabaseUrl } from "../supabase"
 
 const url = getSisubDatabaseUrl()
@@ -56,16 +59,29 @@ async function seedUnit(tx: postgres.TransactionSql, code: string): Promise<numb
 describeIf("compatibilidade do lote 4 (crédito recebido, crédito disponível, UG emitente) (DB)", () => {
 	let sql: postgres.Sql
 
-	beforeAll(() => {
+	/** Contract já aplicado: a camada que este arquivo testa não existe mais. */
+	let contracted = false
+
+	beforeAll(async () => {
 		if (!url) throw new Error("SISUB_DATABASE_URL ausente")
 		sql = postgres(url, { max: 1, prepare: false })
+		const [state] = await sql<{ legacy: boolean; current: boolean }[]>`
+			select
+				exists (select 1 from information_schema.columns where table_schema = 'finance' and table_name = 'budget_credit' and column_name = 'dotacao') as legacy,
+				exists (select 1 from information_schema.columns where table_schema = 'finance' and table_name = 'budget_credit' and column_name = 'received_credit') as current`
+		contracted = state.current && !state.legacy
 	})
+
+	const skipIfContracted = (ctx: TestContext) => {
+		if (contracted) ctx.skip("contract 20260927090000 aplicado: a camada de compatibilidade já saiu")
+	}
 
 	afterAll(async () => {
 		await sql?.end({ timeout: 5 })
 	})
 
-	test("as colunas antigas ficam anuláveis e sem default; as novas, obrigatórias", async () => {
+	test("as colunas antigas ficam anuláveis e sem default; as novas, obrigatórias", async (ctx) => {
+		skipIfContracted(ctx)
 		const columns = await sql<{ name: string; nullable: string; default: string | null }[]>`
 			select table_name || '.' || column_name as name, is_nullable as nullable, column_default as default
 			from information_schema.columns
@@ -85,7 +101,8 @@ describeIf("compatibilidade do lote 4 (crédito recebido, crédito disponível, 
 		])
 	})
 
-	test("crédito: o código antigo grava e lê dotacao/saldo_siafi, o novo received_credit/available_credit_siafi", async () => {
+	test("crédito: o código antigo grava e lê dotacao/saldo_siafi, o novo received_credit/available_credit_siafi", async (ctx) => {
+		skipIfContracted(ctx)
 		await expect(
 			inRollback(sql, async (tx) => {
 				const unitId = await seedUnit(tx, "ZZTEST-L4-CR")
@@ -154,7 +171,8 @@ describeIf("compatibilidade do lote 4 (crédito recebido, crédito disponível, 
 		).resolves.toBe("rolled-back")
 	}, 60_000)
 
-	test("NE: ug_emitente (main) e issuer_ug (código novo) espelhados, e o import do SIAFI grava issuer_ug", async () => {
+	test("NE: ug_emitente (main) e issuer_ug (código novo) espelhados, e o import do SIAFI grava issuer_ug", async (ctx) => {
+		skipIfContracted(ctx)
 		await expect(
 			inRollback(sql, async (tx) => {
 				const unitId = await seedUnit(tx, "ZZTEST-L4-NE")
