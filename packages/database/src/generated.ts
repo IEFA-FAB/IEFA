@@ -3611,7 +3611,6 @@ export type Database = {
           available_credit_siafi: number
           competencia: string
           created_at: string
-          dotacao: number | null
           empenhado_siafi: number
           fonte: string | null
           id: string
@@ -3620,17 +3619,15 @@ export type Database = {
           pi: string | null
           ptres: string | null
           received_credit: number
-          saldo_siafi: number | null
           snapshot_at: string
           ug: string | null
           ugr: string | null
           unit_id: number
         }
         Insert: {
-          available_credit_siafi: number
+          available_credit_siafi?: number
           competencia: string
           created_at?: string
-          dotacao?: number | null
           empenhado_siafi?: number
           fonte?: string | null
           id?: string
@@ -3638,8 +3635,7 @@ export type Database = {
           nd: string
           pi?: string | null
           ptres?: string | null
-          received_credit: number
-          saldo_siafi?: number | null
+          received_credit?: number
           snapshot_at?: string
           ug?: string | null
           ugr?: string | null
@@ -3649,7 +3645,6 @@ export type Database = {
           available_credit_siafi?: number
           competencia?: string
           created_at?: string
-          dotacao?: number | null
           empenhado_siafi?: number
           fonte?: string | null
           id?: string
@@ -3658,7 +3653,6 @@ export type Database = {
           pi?: string | null
           ptres?: string | null
           received_credit?: number
-          saldo_siafi?: number | null
           snapshot_at?: string
           ug?: string | null
           ugr?: string | null
@@ -3772,7 +3766,6 @@ export type Database = {
           siafi_synced_at: string | null
           status: string
           tipo: string | null
-          ug_emitente: string | null
           unit_id: number
           valor_total: number
         }
@@ -3799,7 +3792,6 @@ export type Database = {
           siafi_synced_at?: string | null
           status?: string
           tipo?: string | null
-          ug_emitente?: string | null
           unit_id: number
           valor_total: number
         }
@@ -3826,7 +3818,6 @@ export type Database = {
           siafi_synced_at?: string | null
           status?: string
           tipo?: string | null
-          ug_emitente?: string | null
           unit_id?: number
           valor_total?: number
         }
