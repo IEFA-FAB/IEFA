@@ -32,7 +32,7 @@ const fromThisOn = readdirSync(MIGRATIONS)
 
 describe("profiles_admin arquivada", () => {
 	test("sai de access_control para legacy_access, com o enum", () => {
-		expect(executable).toContain("alter table if exists access_control.profiles_admin set schema legacy_access")
+		expect(executable).toContain("alter table access_control.profiles_admin set schema legacy_access")
 		expect(executable).toContain('alter type public."userlevels" set schema legacy_access')
 	})
 
@@ -42,6 +42,23 @@ describe("profiles_admin arquivada", () => {
 		// Expor o schema no PostgREST desfaria o arquivamento.
 		expect(executable).not.toMatch(/alter role [^;]*pgrst\.db_schemas/)
 		expect(executable).not.toMatch(/grant [^;]* on [^;]*legacy_access/)
+	})
+
+	test("tabela e enum opcionais do começo ao fim: todo passo sobre eles só age se existirem", () => {
+		const block = executable.slice(executable.indexOf("if to_regclass('access_control.profiles_admin') is not null then"))
+		const end = block.indexOf("end $$")
+		for (const step of [
+			"alter table access_control.profiles_admin set schema legacy_access",
+			'alter type public."userlevels" set schema legacy_access',
+			"revoke all on table legacy_access.profiles_admin",
+			"comment on table legacy_access.profiles_admin",
+			'comment on type legacy_access."userlevels"',
+		]) {
+			const at = block.indexOf(step)
+			expect(at, step).toBeGreaterThan(-1)
+			expect(at, step).toBeLessThan(end)
+		}
+		expect(executable).not.toContain("if exists access_control.profiles_admin")
 	})
 
 	test("o comentário diz desde quando pode ser apagada", () => {
@@ -84,13 +101,17 @@ describe("perfil do journal sob demanda", () => {
 		const view = executable.slice(executable.indexOf("create or replace view journal.editorial_dashboard"))
 		expect(view).toContain("with (security_invoker = on)")
 		expect(view).toContain("left join journal.user_profiles up on up.id = a.submitter_id")
+		// `create or replace view` só acrescenta coluna no fim: as de antes na mesma ordem, e
+		// `title_pt` (que o painel mostra e ordena) por último.
+		expect(view).toMatch(/as pending_reviews,\s*a\.title_pt\s*from journal\.articles a/)
 	})
 })
 
 describe("regras gerais de migration", () => {
 	test("não escreve linha em tabela nenhuma: sem bypass de auditoria", () => {
 		expect(executable).not.toMatch(/\b(insert\s+into|update\s+[a-z_]+\.[a-z_]+\s+set|delete\s+from)\b/)
-		expect(executable).not.toContain("iefa.audit_bypass")
+		// Sem `set_config` nenhum: nem bypass de auditoria nem contexto de operação.
+		expect(executable).not.toContain("set_config(")
 	})
 
 	test("toda função criada fixa search_path vazio", () => {

@@ -176,6 +176,7 @@ create table journal.articles (
 	id uuid primary key default gen_random_uuid(),
 	submitter_id uuid not null references auth.users(id),
 	submission_number text,
+	title_pt text,
 	title_en text,
 	status text not null default 'draft',
 	article_type text,

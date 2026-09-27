@@ -41,7 +41,9 @@
 --
 -- A view fazia INNER JOIN com user_profiles: submissão de quem não tem perfil sumia do painel
 -- editorial. Com o perfil sob demanda isso passa a ser possível; a linha aparece com
--- `submitter_name` nulo. Mesmas colunas, mesmo `security_invoker`.
+-- `submitter_name` nulo. Mesmo `security_invoker`, as colunas de antes na mesma ordem e
+-- `title_pt` acrescentada no fim: o painel mostra e ordena por ela, e a view nunca a teve (o
+-- cast do portal escondia; agora o servidor confere as linhas, `editorial-dashboard.ts`).
 --
 -- Compatível com o código da main: nada lê profiles_admin; o portal já trata perfil
 -- inexistente (maybeSingle + onboarding). Idempotente (reaplicável).
@@ -86,21 +88,28 @@ comment on schema legacy_access is
 	'Arquivo de tabelas de modelos de acesso aposentados. Fora de pgrst.db_schemas, sem USAGE para anon, authenticated ou service_role: só o dono lê. Cada tabela diz no comentário quando pode ser apagada. Ver 20260926218000.';
 revoke all on schema legacy_access from public, anon, authenticated, service_role;
 
-alter table if exists access_control.profiles_admin set schema legacy_access;
-
+-- A tabela nasceu fora do versionamento (em `sisub`, antes das migrations): num banco sem ela, cada
+-- passo abaixo só age se o objeto existir. Reaplicada, a mudança já feita não se repete e o
+-- revoke/comment convergem para o mesmo estado.
 do $$
 begin
+	if to_regclass('access_control.profiles_admin') is not null then
+		alter table access_control.profiles_admin set schema legacy_access;
+	end if;
 	if to_regtype('public."userLevels"') is not null then
 		alter type public."userLevels" set schema legacy_access;
 	end if;
+
+	if to_regclass('legacy_access.profiles_admin') is not null then
+		revoke all on table legacy_access.profiles_admin from public, anon, authenticated, service_role;
+		comment on table legacy_access.profiles_admin is
+			'ARQUIVADA em 2026-09-26 (20260926218000), vinda de access_control. Papéis do modelo anterior ao PBAC (user/admin/superadmin): NÃO concede nada, nenhum app lê. Última escrita em 2026-02-18. DROP (com o enum legacy_access."userLevels") a partir de 2026-12-26.';
+	end if;
+	if to_regtype('legacy_access."userLevels"') is not null then
+		comment on type legacy_access."userLevels" is
+			'Papéis do modelo anterior ao PBAC; usado só por legacy_access.profiles_admin. Sai junto com ela (a partir de 2026-12-26).';
+	end if;
 end $$;
-
-revoke all on table legacy_access.profiles_admin from public, anon, authenticated, service_role;
-
-comment on table legacy_access.profiles_admin is
-	'ARQUIVADA em 2026-09-26 (20260926218000), vinda de access_control. Papéis do modelo anterior ao PBAC (user/admin/superadmin): NÃO concede nada, nenhum app lê. Última escrita em 2026-02-18. DROP (com o enum legacy_access."userLevels") a partir de 2026-12-26.';
-comment on type legacy_access."userLevels" is
-	'Papéis do modelo anterior ao PBAC; usado só por legacy_access.profiles_admin. Sai junto com ela (a partir de 2026-12-26).';
 
 -- ── 2 ───────────────────────────────────────────────────────────────────────
 
@@ -156,11 +165,12 @@ select
 		select count(*)
 		from journal.review_assignments ra
 		where ra.article_id = a.id and ra.status = any (array['invited', 'accepted'])
-	) as pending_reviews
+	) as pending_reviews,
+	a.title_pt
 from journal.articles a
 left join journal.user_profiles up on up.id = a.submitter_id
 where a.status <> 'published' and a.deleted_at is null
 order by a.submitted_at desc;
 
 comment on view journal.editorial_dashboard is
-	'Fila do painel editorial. LEFT JOIN no perfil (20260926218000): submissão de quem ainda não tem perfil aparece com submitter_name nulo.';
+	'Fila do painel editorial. LEFT JOIN no perfil (20260926218000): submissão de quem ainda não tem perfil aparece com submitter_name nulo. title_pt no fim da lista (acrescentada em 20260926218000).';

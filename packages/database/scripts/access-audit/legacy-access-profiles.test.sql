@@ -1,7 +1,13 @@
 -- 20260926218000 (legacy_access_profiles): profiles_admin arquivada fora do alcance de cliente,
 -- cadastro do Auth sem perfil do journal, perfil nascendo no primeiro uso pela função auditada,
 -- painel editorial com submissão de quem não tem perfil. Roda depois de phase2.test.sql: semeia o
--- estado de antes, aplica a migration DUAS vezes (idempotência) e confere o de depois.
+-- estado de antes e aplica a migration DUAS vezes, pelos dois caminhos:
+--
+--   1. como em PRODUÇÃO: um papel `migrator` (o `postgres` do Supabase) dono das tabelas do app
+--      mas NÃO de auth.users, que é de `supabase_auth_admin`. O DROP TRIGGER cai no
+--      `insufficient_privilege`, o NOTICE sai (o run.sh confere no stderr) e o trigger segue
+--      disparando o no-op como o dono do Auth, sem privilégio extra;
+--   2. como dono de tudo (superusuário): o trigger e a função saem. Reaplicar é a idempotência.
 
 \set ON_ERROR_STOP 1
 set client_min_messages = warning;
@@ -31,10 +37,56 @@ do $$ begin
 	-- o trigger antigo criou perfil para os três; a3 submeteu um artigo
 	assert (select count(*) from journal.user_profiles where id in ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000a3')) = 3;
 end $$;
-insert into journal.articles (id, submitter_id, submission_number, title_en, status, submitted_at)
-	values ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a3', 'S-1', 'With profile', 'submitted', now());
+insert into journal.articles (id, submitter_id, submission_number, title_pt, title_en, status, submitted_at)
+	values ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a3', 'S-1', 'Com perfil', 'With profile', 'submitted', now());
 
+-- ── Papéis como no Supabase ─────────────────────────────────────────────────
+create role supabase_auth_admin nologin;
+create role migrator nologin;
+alter schema auth owner to supabase_auth_admin;
+alter table auth.users owner to supabase_auth_admin;
+-- O `postgres` do Supabase: dono do que as migrations criaram, só TRIGGER em auth.users.
+grant create on database access_audit to migrator;
+grant usage on schema auth to migrator;
+grant trigger on auth.users to migrator;
+grant usage, create on schema public, journal, access_control to migrator;
+grant select on journal.articles, journal.review_assignments, journal.user_profiles to migrator;
+alter table access_control.profiles_admin owner to migrator;
+alter type public."userLevels" owner to migrator;
+alter view journal.editorial_dashboard owner to migrator;
+alter function public.handle_new_user() owner to migrator;
+
+-- ── 1. Caminho de produção: sem posse de auth.users ─────────────────────────
+set role migrator;
+set client_min_messages = notice;
 \ir ../../supabase/migrations/20260926218000_legacy_access_profiles.sql
+set client_min_messages = warning;
+reset role;
+
+do $$
+declare fn record;
+begin
+	assert exists (select 1 from pg_trigger where tgrelid = 'auth.users'::regclass and tgname = 'on_auth_user_created'), 'sem posse, o trigger fica';
+	select p.prosrc, p.prosecdef, p.proconfig into fn from pg_proc p where p.oid = 'public.handle_new_user()'::regprocedure;
+	assert fn.prosrc !~* 'insert', 'a função virou no-op';
+	assert not fn.prosecdef, 'no-op é security invoker';
+	assert fn.proconfig = array['search_path=""'], 'search_path vazio';
+	-- o resto da migration valeu mesmo sem a posse
+	assert to_regclass('legacy_access.profiles_admin') is not null;
+	assert (select relowner from pg_class where oid = 'legacy_access.profiles_admin'::regclass) = 'migrator'::regrole;
+end $$;
+
+-- O cadastro, como o GoTrue faz: o dono de auth.users insere, o trigger roda o no-op com o
+-- privilégio dele — que não tem nada em journal nem grant na função.
+set role supabase_auth_admin;
+insert into auth.users (id, email, raw_user_meta_data)
+	values ('00000000-0000-0000-0000-0000000000a5', 'cadastro.gotrue@x', '{"full_name":"Cadastro GoTrue"}');
+reset role;
+do $$ begin
+	assert not exists (select 1 from journal.user_profiles where id = '00000000-0000-0000-0000-0000000000a5'), 'cadastro pelo dono do Auth não cria perfil';
+end $$;
+
+-- ── 2. Como dono de tudo: trigger e função saem; reaplicação idempotente ────
 \ir ../../supabase/migrations/20260926218000_legacy_access_profiles.sql
 
 -- ── profiles_admin arquivada, linhas intactas, sem acesso de cliente ────────
@@ -73,12 +125,19 @@ do $$ begin
 end $$;
 
 -- ── Submissão de quem ainda não tem perfil aparece no painel ────────────────
-insert into journal.articles (id, submitter_id, submission_number, title_en, status, submitted_at)
-	values ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000a4', 'S-2', 'Without profile', 'submitted', now());
+insert into journal.articles (id, submitter_id, submission_number, title_pt, title_en, status, submitted_at)
+	values ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000a4', 'S-2', 'Sem perfil', 'Without profile', 'submitted', now());
 do $$ begin
 	assert (select count(*) from journal.editorial_dashboard where id = '00000000-0000-0000-0000-0000000000b2' and submitter_name is null) = 1, 'LEFT JOIN: sem perfil, com nome nulo';
 	assert (select submitter_name from journal.editorial_dashboard where id = '00000000-0000-0000-0000-0000000000b1') = 'autora', 'com perfil, com nome';
 	assert (select reloptions from pg_class where oid = 'journal.editorial_dashboard'::regclass) = array['security_invoker=on'];
+	assert (select title_pt from journal.editorial_dashboard where id = '00000000-0000-0000-0000-0000000000b1') = 'Com perfil', 'title_pt na view';
+	-- as colunas de antes, na mesma ordem, e title_pt no fim
+	assert (
+		select array_agg(attname::text order by attnum)
+		from pg_attribute
+		where attrelid = 'journal.editorial_dashboard'::regclass and attnum > 0
+	) = array['id', 'submission_number', 'title_en', 'status', 'article_type', 'subject_area', 'submitted_at', 'days_since_submission', 'submitter_name', 'completed_reviews', 'pending_reviews', 'title_pt'];
 end $$;
 
 -- ── Primeiro uso do journal: perfil pela função auditada, papel author ──────

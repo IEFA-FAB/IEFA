@@ -38,6 +38,15 @@ bash "$HERE/concurrency.sh"
 run "$MIGRATIONS/20260921130100_access_change_enforcement.sql"
 run "$MIGRATIONS/20260921130100_access_change_enforcement.sql"
 run "$HERE/phase2.test.sql"
-# 20260926218000: aplicada (duas vezes) de dentro do próprio teste, depois do estado de antes.
-run "$HERE/legacy-access-profiles.test.sql"
+# 20260926218000: aplicada (duas vezes) de dentro do próprio teste, depois do estado de antes. A
+# primeira, sem posse de auth.users como em produção, tem de avisar que o trigger ficou.
+if ! run "$HERE/legacy-access-profiles.test.sql" 2>"$WORK/legacy.stderr"; then
+	cat "$WORK/legacy.stderr" >&2
+	exit 1
+fi
+if ! grep -q "NOTICE:  on_auth_user_created mantido" "$WORK/legacy.stderr"; then
+	echo "legacy_access_profiles: esperava o NOTICE do trigger mantido (caminho de produção)" >&2
+	cat "$WORK/legacy.stderr" >&2
+	exit 1
+fi
 echo "access-audit: tudo verde"
