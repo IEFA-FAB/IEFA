@@ -51,6 +51,7 @@
 -- DEPENDE de 20260926214000_acquisition_origin (outro PR do mesmo change):
 -- aplicar aquela antes desta.
 -- Edge cases: EST-REC-06..12 (estoque.md), GU-DES-01..03 e GU-EXE-04 (gestao-unidade.md).
+-- TODO: regenerar tipos (`db:types`, `db:drizzle:pull`) após aplicar esta migration.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
