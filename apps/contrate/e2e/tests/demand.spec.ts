@@ -50,7 +50,10 @@ async function waitSaved(page: Page) {
 
 async function choose(page: Page, label: string, option: string | RegExp, nth = 0) {
 	await page.getByLabel(label, { exact: true }).nth(nth).click()
-	await page.getByRole("option", { name: option }).first().click()
+	await page.getByRole("option", { name: option }).first().click({ timeout: 15_000 })
+	// O Base UI mantém a lista montada enquanto anima o fechamento: sem esperar, a próxima escolha
+	// acharia as opções desta.
+	await expect(page.getByRole("listbox")).toHaveCount(0)
 }
 
 async function next(page: Page, stepLabel: string) {
@@ -157,6 +160,6 @@ test("do problema às peças, com envio à ACI", async ({ page }) => {
 	// ── Processo com a demanda de origem ─────────────────────────────────────
 	await page.getByRole("link", { name: "abrir o processo" }).first().click()
 	await page.getByRole("button", { name: "Demanda de origem" }).click()
-	await expect(page.getByText(TITLE)).toBeVisible({ timeout: 30_000 })
+	await expect(page.getByText(TITLE, { exact: true })).toBeVisible({ timeout: 30_000 })
 	await expect(page.getByText("Proteger os equipamentos do laboratório").first()).toBeVisible()
 })
