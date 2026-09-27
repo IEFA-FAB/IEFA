@@ -5680,7 +5680,7 @@ export const vUserIdentityInCore = core.view("v_user_identity", {	id: uuid(),
 }).with({ securityInvoker: true }).as(sql`SELECT ud.id, CASE WHEN NULLIF(TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || COALESCE(umd."nmGuerra", ''::text)), ''::text) IS NOT NULL THEN TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || initcap(COALESCE(umd."nmGuerra", ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.user_military_data umd ON umd."nrOrdem" = ud."nrOrdem"`);
 
 export const ranchoInKitchen = kitchen.view("rancho", {	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).default(nextval('kitchen.mess_hall_workforce_id_seq'::regclass)),
+	id: bigint({ mode: "number" }).default(sql`nextval('kitchen.mess_hall_workforce_id_seq'::regclass)`),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	unitId: bigint("unit_id", { mode: "number" }),
 	eloCode: text("elo_code"),
