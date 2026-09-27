@@ -15,6 +15,18 @@ import * as schema from "./schema"
 
 export * from "./relations"
 export * from "./schema"
+// TODO(db:types): tabelas-ponte do rename 20260927060000. Os gerados ainda têm os nomes antigos;
+// some junto com o arquivo depois do pull.
+export {
+	arpInProcurement,
+	arpItemInProcurement,
+	priceResearchInProcurement,
+	priceResearchItemInProcurement,
+	priceResearchSampleInProcurement,
+	priceSampleInProcurement,
+	segmentInProcurement,
+	segmentRuleInProcurement,
+} from "./pending-ubiquitous-language-lot3"
 
 
 /** Tables + enums + relations — pass to `drizzle(client, { schema: sisubSchema })`. */
