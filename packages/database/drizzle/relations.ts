@@ -1307,12 +1307,7 @@ export const messHallWorkforceInKitchenRelations = relations(messHallWorkforceIn
 		fields: [messHallWorkforceInKitchen.unitId],
 		references: [unitsInCore.id]
 	}),
-	workforceSubmissionInKitchens_messHallWorkforceId: many(workforceSubmissionInKitchen, {
-		relationName: "workforceSubmissionInKitchen_messHallWorkforceId_messHallWorkforceInKitchen_id"
-	}),
-	workforceSubmissionInKitchens_ranchoId: many(workforceSubmissionInKitchen, {
-		relationName: "workforceSubmissionInKitchen_ranchoId_messHallWorkforceInKitchen_id"
-	}),
+	workforceSubmissionInKitchens: many(workforceSubmissionInKitchen),
 }));
 
 export const workforceSurveyInKitchenRelations = relations(workforceSurveyInKitchen, ({one, many}) => ({
@@ -1324,15 +1319,9 @@ export const workforceSurveyInKitchenRelations = relations(workforceSurveyInKitc
 }));
 
 export const workforceSubmissionInKitchenRelations = relations(workforceSubmissionInKitchen, ({one, many}) => ({
-	messHallWorkforceInKitchen_messHallWorkforceId: one(messHallWorkforceInKitchen, {
+	messHallWorkforceInKitchen: one(messHallWorkforceInKitchen, {
 		fields: [workforceSubmissionInKitchen.messHallWorkforceId],
-		references: [messHallWorkforceInKitchen.id],
-		relationName: "workforceSubmissionInKitchen_messHallWorkforceId_messHallWorkforceInKitchen_id"
-	}),
-	messHallWorkforceInKitchen_ranchoId: one(messHallWorkforceInKitchen, {
-		fields: [workforceSubmissionInKitchen.ranchoId],
-		references: [messHallWorkforceInKitchen.id],
-		relationName: "workforceSubmissionInKitchen_ranchoId_messHallWorkforceInKitchen_id"
+		references: [messHallWorkforceInKitchen.id]
 	}),
 	usersInAuth: one(usersInAuth, {
 		fields: [workforceSubmissionInKitchen.submittedBy],
