@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { FolderCog } from "lucide-react"
+import { DownloadIcon, FolderCog } from "lucide-react"
 import { useRef } from "react"
 import { z } from "zod"
 import { RecipesManager, type RecipesManagerHandle } from "@/components/features/shared/RecipesManager"
@@ -25,6 +25,11 @@ function RecipesPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Catálogo de Preparações">
+				<Button variant="outline" size="sm" onClick={() => managerRef.current?.exportCsv()}>
+					<DownloadIcon className="size-4" />
+					<span className="hidden sm:inline">Exportar CSV</span>
+					<span className="sm:hidden">CSV</span>
+				</Button>
 				{canManageFolders && (
 					<Button variant="outline" size="sm" onClick={() => managerRef.current?.openFoldersDialog()} className="gap-2">
 						<FolderCog className="size-4" />

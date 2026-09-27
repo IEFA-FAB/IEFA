@@ -30,3 +30,25 @@ export function csvCell(value: CsvValue): string {
 export function csvRow(values: readonly CsvValue[], delimiter = ","): string {
 	return values.map(csvCell).join(delimiter)
 }
+
+/**
+ * Documento CSV inteiro: cabeçalho + linhas, com BOM UTF-8 na frente — sem ele o Excel abre o
+ * arquivo como Latin-1 e "Preparação" vira "PreparaÃ§Ã£o".
+ */
+export function csvDocument(header: readonly string[], rows: readonly (readonly CsvValue[])[], delimiter = ","): string {
+	return `﻿${[header, ...rows].map((row) => csvRow(row, delimiter)).join("\n")}`
+}
+
+/**
+ * Baixa o CSV no navegador como `nome_AAAA-MM-DD.csv`. A data é a LOCAL: `toISOString` daria o
+ * dia seguinte para quem exporta depois das 21h em Brasília.
+ */
+export function downloadCsv(baseName: string, content: string): void {
+	const blob = new Blob([content], { type: "text/csv;charset=utf-8;" })
+	const url = URL.createObjectURL(blob)
+	const link = document.createElement("a")
+	link.href = url
+	link.download = `${baseName}_${new Date().toLocaleDateString("sv-SE")}.csv`
+	link.click()
+	URL.revokeObjectURL(url)
+}

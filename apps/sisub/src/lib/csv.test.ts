@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { csvCell, csvRow } from "./csv"
+import { csvCell, csvDocument, csvRow } from "./csv"
 
 describe("csvCell", () => {
 	test("neutraliza fórmula com apóstrofo", () => {
@@ -31,5 +31,23 @@ describe("csvCell", () => {
 
 	test("csvRow respeita o delimitador", () => {
 		expect(csvRow(["a", 1, "=x"], ";")).toBe(`"a";"1";"'=x"`)
+	})
+})
+
+describe("csvDocument", () => {
+	test("BOM, cabeçalho e linhas escapadas", () => {
+		expect(
+			csvDocument(
+				["Nome", "Qtd"],
+				[
+					["=x", 2],
+					[null, -1],
+				]
+			)
+		).toBe(`﻿"Nome","Qtd"\n"'=x","2"\n"","-1"`)
+	})
+
+	test("sem linhas, só o cabeçalho", () => {
+		expect(csvDocument(["A"], [])).toBe(`﻿"A"`)
 	})
 })

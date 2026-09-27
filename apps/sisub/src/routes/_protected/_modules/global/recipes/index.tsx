@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { Activity, FolderCog, Plus } from "lucide-react"
+import { Activity, DownloadIcon, FolderCog, Plus } from "lucide-react"
 import { useRef, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
@@ -45,6 +45,11 @@ function GlobalRecipesPage() {
 					<Activity className="size-4" />
 					<span className="hidden sm:inline">Métricas de revisão</span>
 					<span className="sm:hidden">Métricas</span>
+				</Button>
+				<Button variant="outline" size="sm" onClick={() => managerRef.current?.exportCsv()}>
+					<DownloadIcon className="size-4" />
+					<span className="hidden sm:inline">Exportar CSV</span>
+					<span className="sm:hidden">CSV</span>
 				</Button>
 				{/* Pastas e criação ficam juntas no header, como em Insumos (Nova Pasta + Novo Insumo). */}
 				<ButtonGroup>

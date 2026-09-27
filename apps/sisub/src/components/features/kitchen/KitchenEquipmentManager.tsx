@@ -9,9 +9,11 @@
  */
 
 import type { EquipmentModelWire, EquipmentUnitWire } from "@iefa/sisub-domain"
-import { Pencil, Plus, Trash2 } from "lucide-react"
+import { DownloadIcon, Pencil, Plus, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { usePBAC } from "@/auth/pbac"
+import { buildKitchenEquipmentCsv } from "@/components/features/shared/equipment/equipment-csv"
+import { UNIT_STATUS_LABEL } from "@/components/features/shared/equipment/equipment-labels"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -31,12 +33,7 @@ import {
 	useKitchenEquipment,
 	useUpdateEquipmentUnit,
 } from "@/hooks/data/useEquipment"
-
-const STATUS_LABEL: Record<string, string> = {
-	active: "Ativo",
-	maintenance: "Em manutenção",
-	decommissioned: "Baixado",
-}
+import { downloadCsv } from "@/lib/csv"
 
 function modelLabel(model: EquipmentModelWire | null | undefined): string {
 	if (!model) return "—"
@@ -152,14 +149,30 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 
 	if (isLoading) return <Skeleton className="h-64 w-full" />
 
+	// Exportar é leitura: vale para quem só consulta o parque (kitchen:1), não só para quem edita.
+	const exportCsv = () => {
+		if (!units) return
+		const roleNameById = new Map(roles.map((r) => [r.id, r.name]))
+		downloadCsv(`equipamentos_cozinha_${kitchenId}`, buildKitchenEquipmentCsv(units, roleNameById))
+	}
+	const hasUnits = !!units && units.length > 0
+
 	return (
 		<div className="space-y-4">
-			{canWrite ? (
-				<div className="flex justify-end">
-					<Button size="sm" onClick={openCreate}>
-						<Plus className="size-4 mr-2" />
-						Adicionar equipamento
-					</Button>
+			{canWrite || hasUnits ? (
+				<div className="flex justify-end gap-2">
+					{hasUnits ? (
+						<Button variant="outline" size="sm" onClick={exportCsv}>
+							<DownloadIcon className="size-4" />
+							Exportar CSV
+						</Button>
+					) : null}
+					{canWrite ? (
+						<Button size="sm" onClick={openCreate}>
+							<Plus className="size-4 mr-2" />
+							Adicionar equipamento
+						</Button>
+					) : null}
 				</div>
 			) : null}
 
@@ -201,7 +214,7 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 								</TableCell>
 								<TableCell>{unit.effective_slots}</TableCell>
 								<TableCell>
-									<Badge variant={unit.status === "active" ? "secondary" : "outline"}>{STATUS_LABEL[unit.status] ?? unit.status}</Badge>
+									<Badge variant={unit.status === "active" ? "secondary" : "outline"}>{UNIT_STATUS_LABEL[unit.status] ?? unit.status}</Badge>
 								</TableCell>
 								<TableCell className="text-right">
 									{canWrite ? (
@@ -281,7 +294,7 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 								<FieldContent>
 									<Select value={form.status} onValueChange={(value) => setForm((f) => ({ ...f, status: value as UnitFormState["status"] }))}>
 										<SelectTrigger id="equipment-status" className="w-full">
-											<SelectValue>{STATUS_LABEL[form.status]}</SelectValue>
+											<SelectValue>{UNIT_STATUS_LABEL[form.status]}</SelectValue>
 										</SelectTrigger>
 										<SelectContent>
 											<SelectItem value="active">Ativo</SelectItem>
