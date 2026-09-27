@@ -11,6 +11,7 @@
  * O que é verificado (mesma família de lints do Splinter/Security Advisor da Supabase):
  *   ERRO   rls_disabled          tabela em schema exposto sem RLS → CRUD anônimo
  *   ERRO   secdef_search_path    função SECURITY DEFINER sem search_path fixo → hijack
+ *   ERRO   function_search_path  qualquer outra função nossa sem search_path fixo (advisor `function_search_path_mutable`)
  *   ERRO   view_security_definer view sem security_invoker E com GRANT para anon/authenticated
  *   ERRO   secdef_client_execute função SECURITY DEFINER executável por anon/authenticated
  *   ERRO   client_write_grant    GRANT de escrita para anon/authenticated sem policy que sustente
@@ -303,6 +304,38 @@ async function auditSecurityDefiner(schemas: string[]): Promise<Finding[]> {
 		lint: "secdef_search_path",
 		object: `${r.schema}.${r.name}()`,
 		detail: "SECURITY DEFINER sem search_path fixo — um schema no caminho de busca do chamador pode sequestrar as referências da função",
+	}))
+}
+
+/**
+ * Função sem SECURITY DEFINER também resolve nome sem schema pelo caminho de quem chama
+ * (`"$user", public` no service_role, o schema do perfil no PostgREST, o do statement que
+ * dispara o trigger). Em 2026-09-26 eram 85, fixadas por `20260926212000`; um
+ * `create or replace` sem `set search_path` regrava `proconfig` e desfaz o fix sem aviso.
+ * A regra `migration-function-without-search-path` do opengrep acusa o mesmo na migration.
+ * Função de extensão (`pg_trgm`/`unaccent` em `public`) fica de fora: não é nossa.
+ */
+async function auditFunctionSearchPath(schemas: string[]): Promise<Finding[]> {
+	const rows = await sql<{ signature: string }[]>`
+		select p.oid::regprocedure::text as signature
+		from pg_proc p
+		join pg_namespace n on n.oid = p.pronamespace
+		where not p.prosecdef
+			and p.prokind in ('f', 'p')
+			and n.nspname = any(${schemas})
+			and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
+			and not exists (
+				select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) cfg where cfg like 'search_path=%'
+			)
+		order by 1
+	`
+
+	return rows.map((r) => ({
+		severity: "error" as const,
+		lint: "function_search_path",
+		object: r.signature,
+		detail:
+			"função sem search_path fixo — nome sem schema resolve pelo caminho de quem chama. `alter function … set search_path = ''` com tudo qualificado (ou o menor conjunto explícito que resolva cada nome ao mesmo objeto)",
 	}))
 }
 
@@ -665,6 +698,7 @@ async function main() {
 			auditTables(schemas),
 			auditAnonPolicies(schemas),
 			auditSecurityDefiner(schemas),
+			auditFunctionSearchPath(schemas),
 			auditViews(schemas),
 			auditDefinerExecuteGrants(schemas),
 			auditClientWriteGrants(schemas),
