@@ -62,7 +62,6 @@ import type {
 	UpdateQuantityEstimateLimits,
 	UpdateQuantityEstimateStatus,
 } from "../schemas/procurement.ts"
-import { normalizeQuantityEstimateStatus } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
@@ -99,14 +98,14 @@ const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
 
 type TxClient = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 
-/** Lê o status atual do anexo (no vocabulário atual) ou lança se inexistente. */
+/** Lê o status atual do anexo ou lança se inexistente. */
 async function getQuantityEstimateStatus(client: SisubDb | TxClient, quantityEstimateId: string): Promise<string> {
 	const rows = await client
 		.select({ status: quantityEstimateInProcurement.status })
 		.from(quantityEstimateInProcurement)
 		.where(eq(quantityEstimateInProcurement.id, quantityEstimateId))
 	if (!rows[0]) throw new DomainError("NOT_FOUND", `anexo quantitativo ${quantityEstimateId} não encontrado`)
-	return normalizeQuantityEstimateStatus(rows[0].status)
+	return rows[0].status
 }
 
 /** Barra mutações de composição/quantitativo quando o anexo já saiu do rascunho. */
@@ -1203,7 +1202,7 @@ export async function fetchQuantityEstimateList(db: SisubDb, ctx: UserContext, i
 				.orderBy(sql`${quantityEstimateInProcurement.createdAt} desc`),
 		{ prefix: "Erro ao buscar listas" }
 	)
-	return lists.map((r) => toWire<QuantityEstimate>({ ...r, status: normalizeQuantityEstimateStatus(r.status) }))
+	return lists.map((r) => toWire<QuantityEstimate>(r))
 }
 
 // ─── Buscar anexo com detalhes ──────────────────────────────────────────────────
@@ -1222,7 +1221,7 @@ export async function fetchQuantityEstimateDetails(
 		"QUERY_FAILED",
 		async () => {
 			const [row] = await db.select().from(quantityEstimateInProcurement).where(eq(quantityEstimateInProcurement.id, input.quantityEstimateId)).limit(1)
-			return row && { ...row, status: normalizeQuantityEstimateStatus(row.status) }
+			return row
 		},
 		{
 			prefix: "Erro ao buscar anexo",

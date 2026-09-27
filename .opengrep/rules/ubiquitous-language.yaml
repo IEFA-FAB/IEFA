@@ -128,9 +128,6 @@ rules:
         - "**/routeTree.gen.ts"
         - "**/generated.ts"
         - "**/drizzle/**"
-        # Alias depreciado de `/ata/:id` (design D7): sai com o contract 20260927050000.
-        - "apps/api/src/api/routes/legacy-annex.ts"
-        - "apps/api/src/api/routes/legacy-annex.test.ts"
         # Lê a migration histórica que criou a coluna com o nome da época.
         - "packages/sisub-domain/src/operations/quantity-estimate-limits.sql-contract.test.ts"
     patterns:
@@ -143,9 +140,6 @@ rules:
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
       # Espelho do Compras.gov.br e do banco da ARP.
       - pattern-not-regex: \b(?:numero|ano|status|descricao|formatNumero|anoFromNumero)Ata\w*|\bnumero_ata\b|\bano_ata\b|\bstatus_ata\b|Atalho
-      # O mapa de caminhos antigos (`lib/legacy-routes.ts`) e quem o testa citam a origem como
-      # `from: "<caminho antigo>"`: é o único lugar em que o nome descartado é o dado.
-      - pattern-not-regex: \bfrom:\s*["'`][^"'`]*["'`]
 
   - id: ubiquitous-language-lot2-route
     languages: [generic]
@@ -155,9 +149,8 @@ rules:
       `unit/$unitId/quantity-estimates` (`/new`, `/$quantityEstimateId`,
       `/print/calculation-memory/$quantityEstimateId`, `/print/price-research/$quantityEstimateId`),
       não em `procurement`; na API admin, `/quantity-estimates/:quantityEstimateId`, não
-      `/ata/:ataId`. O caminho antigo só existe como `from` de `LEGACY_ROUTE_PREFIXES`
-      (`apps/sisub/src/lib/legacy-routes.ts`) e no alias depreciado de
-      `apps/api/src/api/routes/legacy-annex.ts`, por um ciclo de deploy.
+      `/ata/:ataId`. O redirect e o alias depreciados do caminho antigo já cumpriram o ciclo e
+      saíram com o contract 20260927050000.
     paths:
       include:
         - "apps/sisub/src/**/*.ts"
@@ -166,8 +159,6 @@ rules:
         - "apps/api/src/**/*.ts"
       exclude:
         - "**/routeTree.gen.ts"
-        - "apps/api/src/api/routes/legacy-annex.ts"
-        - "apps/api/src/api/routes/legacy-annex.test.ts"
     patterns:
       - pattern-either:
           - pattern-regex: /unit(?:/[^/"'`\s]+)?/procurement(?=[/"'`?#)]|$)
@@ -176,7 +167,6 @@ rules:
           - pattern-regex: /print/quantities(?=[/"'`?#)]|$)
           - pattern-regex: /ata/:\w+|/ata(?=["'`])
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
-      - pattern-not-regex: \bfrom:\s*["'`][^"'`]*["'`]
 
   - id: ubiquitous-language-lot2-label
     languages: [generic]

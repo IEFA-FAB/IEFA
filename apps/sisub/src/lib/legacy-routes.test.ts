@@ -20,11 +20,6 @@ const REDIRECTED: readonly { from: string; to: string }[] = [
 	{ from: "/global/weekly-plans/new", to: "/global/weekly-menus/new" },
 	{ from: `/global/weekly-plans/${UUID}`, to: `/global/weekly-menus/${UUID}` },
 	{ from: `/global/weekly-plans/print/${UUID}`, to: `/global/weekly-menus/print/${UUID}` },
-	{ from: "/unit/12/procurement", to: "/unit/12/quantity-estimates" },
-	{ from: "/unit/12/procurement/new", to: "/unit/12/quantity-estimates/new" },
-	{ from: `/unit/12/procurement/${UUID}`, to: `/unit/12/quantity-estimates/${UUID}` },
-	{ from: `/unit/12/procurement/print/quantities/${UUID}`, to: `/unit/12/quantity-estimates/print/calculation-memory/${UUID}` },
-	{ from: `/unit/12/procurement/print/price-research/${UUID}`, to: `/unit/12/quantity-estimates/print/price-research/${UUID}` },
 ]
 
 const NOT_LEGACY: readonly { from: string }[] = [

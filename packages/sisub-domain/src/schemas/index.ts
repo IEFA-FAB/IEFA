@@ -512,7 +512,6 @@ export type {
 export {
 	AddProcurementSegmentRuleSchema,
 	CalculateQuantityEstimateNeedsSchema,
-	COMPLETED_STATUS_VALUES,
 	CreateDemandForecastSchema,
 	CreateProcurementSegmentSchema,
 	CreatePurchaseItemSchema,
@@ -539,8 +538,6 @@ export {
 	FinalizeQuantityEstimateDraftSchema,
 	IncreasePercentSchema,
 	KitchenSelectionSchema,
-	LEGACY_COMPLETED_STATUS,
-	normalizeQuantityEstimateStatus,
 	PurchaseItemIngredientWriteSchema,
 	PurchaseItemWriteSchema,
 	QUANTITY_ESTIMATE_STATUSES,

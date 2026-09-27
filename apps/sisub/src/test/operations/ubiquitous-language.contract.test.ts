@@ -7,13 +7,12 @@
  * descartou. É ele que pega a migration que alguém aplicou à mão, ou o expand que esqueceu um
  * objeto.
  *
- * ## Lote 2: anexo quantitativo (`procurement.quantity_estimate*`)
+ * ## Compatibilidade de expand
  *
- * O expand 20260927040000 deixa, de propósito, os nomes antigos que o código da `main` em
- * produção ainda usa: as views `procurement_list*`, as colunas espelhadas e as constraints e os
- * índices delas, e o rótulo textual de `core.v_measure_unit_review`. Eles estão em
- * `EXPAND_ALLOWLIST`, que é DATADA: o contract 20260927050000 derruba tudo e o PR dele esvazia a
- * lista. Entrada nova na lista exige o mesmo: um expand em andamento e o contract que a remove.
+ * Um expand deixa, de propósito, os nomes antigos que o código da `main` em produção ainda usa
+ * (views de compatibilidade, colunas espelhadas). Eles entram em `EXPAND_ALLOWLIST`, que é
+ * DATADA: o PR do contract que os derruba esvazia a lista. O lote 2 (anexo quantitativo) já passou
+ * pelo contract 20260927050000.
  *
  * A lista de termos cresce por lote, como a do opengrep.
  */
@@ -39,56 +38,10 @@ const DISCARDED_IDENTIFIER =
 const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M`
 
 /**
- * Compatibilidade do expand 20260927040000 (anexo quantitativo), até o contract 20260927050000.
- * Chave: `tipo:schema.objeto[.coluna]`.
+ * Compatibilidade de um expand em andamento, até o contract dele. Vazia: o contract
+ * 20260927050000 derrubou a do lote 2 (anexo quantitativo). Chave: `tipo:schema.objeto[.coluna]`.
  */
-const EXPAND_ALLOWLIST = new Set<string>([
-	// Views de compatibilidade (e as colunas delas, por alias).
-	...[
-		"procurement_list",
-		"procurement_list_item",
-		"procurement_list_kitchen",
-		"procurement_list_selection",
-		"procurement_list_snapshot_component",
-		"procurement_list_snapshot_selection",
-	].map((v) => `relation:procurement.${v}`),
-	// Colunas espelhadas nas tabelas que ficam com o nome.
-	"column:procurement.procurement_arp.procurement_list_id",
-	"column:procurement.procurement_arp_item.procurement_list_item_id",
-	"column:procurement.procurement_pesquisa_preco.procurement_list_id",
-	"column:procurement.procurement_pesquisa_preco_item.procurement_list_item_id",
-	"column:procurement.price_research_emission.list_id",
-	"column:procurement.kitchen_demand_forecast_import.list_id",
-	// FKs, unique e índices das colunas espelhadas (caem com elas).
-	"constraint:procurement.procurement_arp_procurement_list_id_fkey",
-	"constraint:procurement.procurement_arp_item_procurement_list_item_id_fkey",
-	"constraint:procurement.procurement_pesquisa_preco_procurement_list_id_fkey",
-	"constraint:procurement.procurement_pesquisa_preco_item_procurement_list_item_id_fkey",
-	"constraint:procurement.price_research_emission_list_id_fkey",
-	"constraint:procurement.price_research_emission_list_id_sequence_key",
-	"constraint:procurement.kitchen_demand_forecast_import_list_id_fkey",
-	"relation:procurement.idx_procurement_arp_procurement_list",
-	"relation:procurement.idx_arp_item_procurement_list_item",
-	"relation:procurement.idx_pesquisa_preco_procurement_list",
-	"relation:procurement.idx_pesquisa_preco_pending_procurement_list_id",
-	"relation:procurement.idx_pesquisa_preco_item_procurement_list_item",
-	"relation:procurement.kitchen_demand_forecast_import_list_idx",
-	"relation:procurement.price_research_emission_list_id_sequence_key",
-	// As funções de espelho citam a coluna antiga no corpo.
-	"function:procurement.mirror_quantity_estimate_id",
-	"function:procurement.mirror_quantity_estimate_item_id",
-	"function:procurement.mirror_quantity_estimate_id_from_list_id",
-	// O rótulo `'procurement.procurement_list_item'` da fila de revisão troca no contract, junto com
-	// o leitor (`global/review-queues.tsx`).
-	"view:core.v_measure_unit_review",
-	// Os comentários das colunas espelhadas dizem que elas são obsoletas.
-	"comment:procurement.procurement_arp.procurement_list_id",
-	"comment:procurement.procurement_arp_item.procurement_list_item_id",
-	"comment:procurement.procurement_pesquisa_preco.procurement_list_id",
-	"comment:procurement.procurement_pesquisa_preco_item.procurement_list_item_id",
-	"comment:procurement.price_research_emission.list_id",
-	"comment:procurement.kitchen_demand_forecast_import.list_id",
-])
+const EXPAND_ALLOWLIST = new Set<string>([])
 
 /** Views de compatibilidade: as colunas delas e a definição saem com elas. */
 const allowedRelation = (schema: string, name: string) => EXPAND_ALLOWLIST.has(`relation:${schema}.${name}`)
@@ -160,18 +113,16 @@ describeIf("linguagem ubíqua no banco vivo", () => {
 		const found = [
 			...bodies.map((b) => b.key),
 			...views.filter((v) => !allowedRelation(v.schema, v.name)).map((v) => `view:${v.schema}.${v.name}`),
-			// Comentário da própria view de compatibilidade sai com ela.
-			...comments.map((c) => c.key).filter((k) => !/^comment:procurement\.procurement_list[a-z_]*$/.test(k)),
+			...comments.map((c) => c.key),
 		]
 		expect(offending(found), "texto do banco cita nome descartado pelo glossário").toEqual([])
 	})
 
-	test("o status do anexo só aceita o vocabulário do glossário (e `published` até o contract)", async () => {
+	test("o status do anexo só aceita o vocabulário do glossário", async () => {
 		const [check] = await sql<{ def: string }[]>`
 			select pg_get_constraintdef(oid) as def from pg_constraint where conname = 'quantity_estimate_status_check'`
 		expect(check?.def).toBeDefined()
 		const values = [...(check?.def ?? "").matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1]).sort()
-		// TODO(contract 20260927050000): sem `published`.
-		expect(values).toEqual(["archived", "completed", "draft", "published"])
+		expect(values).toEqual(["archived", "completed", "draft"])
 	})
 })

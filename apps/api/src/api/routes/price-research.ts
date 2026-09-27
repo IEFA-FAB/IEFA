@@ -7,7 +7,6 @@ import { secureCompare } from "../../lib/secure-compare.ts"
 import { analisarPrecos, type OpcoesPesquisa } from "../../workers/pesquisa-preco/analyzer.ts"
 import { consultarMaterialPrecos } from "../../workers/pesquisa-preco/client.ts"
 import type { AmostraPreco, PriceAnalysis, QuantityEstimateItemPriceResult } from "../../workers/pesquisa-preco/types.ts"
-import { LEGACY_ANNEX_PREFIX, logDeprecatedAnnexRoute, toLegacyAnnexResponse, withLegacyResearchFields } from "./legacy-annex.ts"
 
 // ─── Validação de entrada ─────────────────────────────────────────────────────
 
@@ -532,24 +531,6 @@ export const priceResearchRoutes = new Hono()
 
 	.get("/quantity-estimates/:quantityEstimateId/history", (c) => listQuantityEstimateResearches(c, c.req.param("quantityEstimateId")))
 
-	// ─── Alias depreciado do caminho antigo (um ciclo; sai no contract 20260927050000) ──
-	//
-	// Mesmo handler, com as chaves do contrato antigo no corpo, cabeçalho `Deprecation`, `Link`
-	// para o sucessor e log de uso, para achar o chamador externo antes de desligar.
-
-	.post(`${LEGACY_ANNEX_PREFIX}/:id`, async (c) => {
-		const id = c.req.param("id")
-		logDeprecatedAnnexRoute(c.req.method, c.req.path, id)
-		const res = await researchQuantityEstimate(c, id)
-		return toLegacyAnnexResponse(res, `/api/admin/price-research/quantity-estimates/${id}`)
-	})
-	.get(`${LEGACY_ANNEX_PREFIX}/:id/history`, async (c) => {
-		const id = c.req.param("id")
-		logDeprecatedAnnexRoute(c.req.method, c.req.path, id)
-		const res = await listQuantityEstimateResearches(c, id)
-		return toLegacyAnnexResponse(res, `/api/admin/price-research/quantity-estimates/${id}/history`)
-	})
-
 	// ─── GET /research/:researchId ────────────────────────────────────────────────
 	//
 	// Audit trail completo: parâmetros + funil por item + TODAS as amostras
@@ -604,5 +585,5 @@ export const priceResearchRoutes = new Hono()
 			samples: (samples ?? []).map(({ amostra, ...sample }) => ({ ...sample, ...(amostra ?? {}) })),
 		}))
 
-		return c.json(withLegacyResearchFields({ ...research, items: flatItems }))
+		return c.json({ ...research, items: flatItems })
 	})

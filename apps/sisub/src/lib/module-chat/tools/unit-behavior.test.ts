@@ -105,9 +105,8 @@ function ctxFor(responses: Record<string, QueryResult[]>, queries: RecordedQuery
 // `list_quantity_estimates`, `get_quantity_estimate`, `update_quantity_estimate_status` e o
 // resumo do `get_unit_dashboard` não montam PostgREST: leem por `@iefa/sisub-domain/agent` e
 // escrevem pela operation (`.claude/rules/ai-tools.md`). O que o domínio faz — projeção dos
-// itens, filtro por nome, teto, unidade conferida pela LINHA, lixeira fora, recusa do wizard e o
-// `published` antigo lido como `completed` — está nos casos `agent*` de
-// `quantity-estimate.operations.test.ts`, contra o banco. Aqui
+// itens, filtro por nome, teto, unidade conferida pela LINHA, lixeira fora e recusa do wizard —
+// está nos casos `agent*` de `quantity-estimate.operations.test.ts`, contra o banco. Aqui
 // fica o contrato entre a tool e o domínio: entrada validada, escopo da rota, envelope e erro
 // que sobe em vez de virar lista vazia.
 

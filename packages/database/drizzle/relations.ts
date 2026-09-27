@@ -106,12 +106,7 @@ export const quantityEstimateInProcurementRelations = relations(quantityEstimate
 	quantityEstimateSnapshotSelectionInProcurements: many(quantityEstimateSnapshotSelectionInProcurement),
 	quantityEstimateSnapshotComponentInProcurements: many(quantityEstimateSnapshotComponentInProcurement),
 	quantityEstimateKitchenInProcurements: many(quantityEstimateKitchenInProcurement),
-	procurementArpInProcurements_procurementListId: many(procurementArpInProcurement, {
-		relationName: "procurementArpInProcurement_procurementListId_quantityEstimateInProcurement_id"
-	}),
-	procurementArpInProcurements_quantityEstimateId: many(procurementArpInProcurement, {
-		relationName: "procurementArpInProcurement_quantityEstimateId_quantityEstimateInProcurement_id"
-	}),
+	procurementArpInProcurements: many(procurementArpInProcurement),
 	procurementSegmentInProcurement: one(procurementSegmentInProcurement, {
 		fields: [quantityEstimateInProcurement.segmentId],
 		references: [procurementSegmentInProcurement.id]
@@ -120,25 +115,10 @@ export const quantityEstimateInProcurementRelations = relations(quantityEstimate
 		fields: [quantityEstimateInProcurement.unitId],
 		references: [unitsInCore.id]
 	}),
-	priceResearchEmissionInProcurements_listId: many(priceResearchEmissionInProcurement, {
-		relationName: "priceResearchEmissionInProcurement_listId_quantityEstimateInProcurement_id"
-	}),
-	priceResearchEmissionInProcurements_quantityEstimateId: many(priceResearchEmissionInProcurement, {
-		relationName: "priceResearchEmissionInProcurement_quantityEstimateId_quantityEstimateInProcurement_id"
-	}),
-	procurementPesquisaPrecoInProcurements_procurementListId: many(procurementPesquisaPrecoInProcurement, {
-		relationName: "procurementPesquisaPrecoInProcurement_procurementListId_quantityEstimateInProcurement_id"
-	}),
-	procurementPesquisaPrecoInProcurements_quantityEstimateId: many(procurementPesquisaPrecoInProcurement, {
-		relationName: "procurementPesquisaPrecoInProcurement_quantityEstimateId_quantityEstimateInProcurement_id"
-	}),
+	priceResearchEmissionInProcurements: many(priceResearchEmissionInProcurement),
+	procurementPesquisaPrecoInProcurements: many(procurementPesquisaPrecoInProcurement),
 	quantityEstimateItemInProcurements: many(quantityEstimateItemInProcurement),
-	kitchenDemandForecastImportInProcurements_listId: many(kitchenDemandForecastImportInProcurement, {
-		relationName: "kitchenDemandForecastImportInProcurement_listId_quantityEstimateInProcurement_id"
-	}),
-	kitchenDemandForecastImportInProcurements_quantityEstimateId: many(kitchenDemandForecastImportInProcurement, {
-		relationName: "kitchenDemandForecastImportInProcurement_quantityEstimateId_quantityEstimateInProcurement_id"
-	}),
+	kitchenDemandForecastImportInProcurements: many(kitchenDemandForecastImportInProcurement),
 }));
 
 export const comprasServicoSecaoInComprasGovIntegrationRelations = relations(comprasServicoSecaoInComprasGovIntegration, ({many}) => ({
@@ -716,15 +696,9 @@ export const procurementArpItemInProcurementRelations = relations(procurementArp
 		fields: [procurementArpItemInProcurement.arpId],
 		references: [procurementArpInProcurement.id]
 	}),
-	quantityEstimateItemInProcurement_procurementListItemId: one(quantityEstimateItemInProcurement, {
-		fields: [procurementArpItemInProcurement.procurementListItemId],
-		references: [quantityEstimateItemInProcurement.id],
-		relationName: "procurementArpItemInProcurement_procurementListItemId_quantityEstimateItemInProcurement_id"
-	}),
-	quantityEstimateItemInProcurement_quantityEstimateItemId: one(quantityEstimateItemInProcurement, {
+	quantityEstimateItemInProcurement: one(quantityEstimateItemInProcurement, {
 		fields: [procurementArpItemInProcurement.quantityEstimateItemId],
-		references: [quantityEstimateItemInProcurement.id],
-		relationName: "procurementArpItemInProcurement_quantityEstimateItemId_quantityEstimateItemInProcurement_id"
+		references: [quantityEstimateItemInProcurement.id]
 	}),
 }));
 
@@ -811,15 +785,9 @@ export const comprasAmostraInProcurementRelations = relations(comprasAmostraInPr
 
 export const procurementPesquisaPrecoItemInProcurementRelations = relations(procurementPesquisaPrecoItemInProcurement, ({one, many}) => ({
 	procurementPesquisaPrecoAmostraInProcurements: many(procurementPesquisaPrecoAmostraInProcurement),
-	quantityEstimateItemInProcurement_procurementListItemId: one(quantityEstimateItemInProcurement, {
-		fields: [procurementPesquisaPrecoItemInProcurement.procurementListItemId],
-		references: [quantityEstimateItemInProcurement.id],
-		relationName: "procurementPesquisaPrecoItemInProcurement_procurementListItemId_quantityEstimateItemInProcurement_id"
-	}),
-	quantityEstimateItemInProcurement_quantityEstimateItemId: one(quantityEstimateItemInProcurement, {
+	quantityEstimateItemInProcurement: one(quantityEstimateItemInProcurement, {
 		fields: [procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId],
-		references: [quantityEstimateItemInProcurement.id],
-		relationName: "procurementPesquisaPrecoItemInProcurement_quantityEstimateItemId_quantityEstimateItemInProcurement_id"
+		references: [quantityEstimateItemInProcurement.id]
 	}),
 	procurementPesquisaPrecoInProcurement: one(procurementPesquisaPrecoInProcurement, {
 		fields: [procurementPesquisaPrecoItemInProcurement.researchId],
@@ -1202,15 +1170,9 @@ export const procurementArpInProcurementRelations = relations(procurementArpInPr
 		fields: [procurementArpInProcurement.acquisitionId],
 		references: [acquisitionInProcurement.id]
 	}),
-	quantityEstimateInProcurement_procurementListId: one(quantityEstimateInProcurement, {
-		fields: [procurementArpInProcurement.procurementListId],
-		references: [quantityEstimateInProcurement.id],
-		relationName: "procurementArpInProcurement_procurementListId_quantityEstimateInProcurement_id"
-	}),
-	quantityEstimateInProcurement_quantityEstimateId: one(quantityEstimateInProcurement, {
+	quantityEstimateInProcurement: one(quantityEstimateInProcurement, {
 		fields: [procurementArpInProcurement.quantityEstimateId],
-		references: [quantityEstimateInProcurement.id],
-		relationName: "procurementArpInProcurement_quantityEstimateId_quantityEstimateInProcurement_id"
+		references: [quantityEstimateInProcurement.id]
 	}),
 	unitsInCore: one(unitsInCore, {
 		fields: [procurementArpInProcurement.unitId],
@@ -2016,15 +1978,9 @@ export const priceResearchEmissionInProcurementRelations = relations(priceResear
 		fields: [priceResearchEmissionInProcurement.emittedBy],
 		references: [usersInAuth.id]
 	}),
-	quantityEstimateInProcurement_listId: one(quantityEstimateInProcurement, {
-		fields: [priceResearchEmissionInProcurement.listId],
-		references: [quantityEstimateInProcurement.id],
-		relationName: "priceResearchEmissionInProcurement_listId_quantityEstimateInProcurement_id"
-	}),
-	quantityEstimateInProcurement_quantityEstimateId: one(quantityEstimateInProcurement, {
+	quantityEstimateInProcurement: one(quantityEstimateInProcurement, {
 		fields: [priceResearchEmissionInProcurement.quantityEstimateId],
-		references: [quantityEstimateInProcurement.id],
-		relationName: "priceResearchEmissionInProcurement_quantityEstimateId_quantityEstimateInProcurement_id"
+		references: [quantityEstimateInProcurement.id]
 	}),
 }));
 
@@ -2271,18 +2227,8 @@ export const empenhoRpInscriptionInFinanceRelations = relations(empenhoRpInscrip
 }));
 
 export const quantityEstimateItemInProcurementRelations = relations(quantityEstimateItemInProcurement, ({one, many}) => ({
-	procurementPesquisaPrecoItemInProcurements_procurementListItemId: many(procurementPesquisaPrecoItemInProcurement, {
-		relationName: "procurementPesquisaPrecoItemInProcurement_procurementListItemId_quantityEstimateItemInProcurement_id"
-	}),
-	procurementPesquisaPrecoItemInProcurements_quantityEstimateItemId: many(procurementPesquisaPrecoItemInProcurement, {
-		relationName: "procurementPesquisaPrecoItemInProcurement_quantityEstimateItemId_quantityEstimateItemInProcurement_id"
-	}),
-	procurementArpItemInProcurements_procurementListItemId: many(procurementArpItemInProcurement, {
-		relationName: "procurementArpItemInProcurement_procurementListItemId_quantityEstimateItemInProcurement_id"
-	}),
-	procurementArpItemInProcurements_quantityEstimateItemId: many(procurementArpItemInProcurement, {
-		relationName: "procurementArpItemInProcurement_quantityEstimateItemId_quantityEstimateItemInProcurement_id"
-	}),
+	procurementPesquisaPrecoItemInProcurements: many(procurementPesquisaPrecoItemInProcurement),
+	procurementArpItemInProcurements: many(procurementArpItemInProcurement),
 	folderInKitchen: one(folderInKitchen, {
 		fields: [quantityEstimateItemInProcurement.folderId],
 		references: [folderInKitchen.id]
@@ -2307,15 +2253,9 @@ export const procurementPesquisaPrecoInProcurementRelations = relations(procurem
 		fields: [procurementPesquisaPrecoInProcurement.createdBy],
 		references: [usersInAuth.id]
 	}),
-	quantityEstimateInProcurement_procurementListId: one(quantityEstimateInProcurement, {
-		fields: [procurementPesquisaPrecoInProcurement.procurementListId],
-		references: [quantityEstimateInProcurement.id],
-		relationName: "procurementPesquisaPrecoInProcurement_procurementListId_quantityEstimateInProcurement_id"
-	}),
-	quantityEstimateInProcurement_quantityEstimateId: one(quantityEstimateInProcurement, {
+	quantityEstimateInProcurement: one(quantityEstimateInProcurement, {
 		fields: [procurementPesquisaPrecoInProcurement.quantityEstimateId],
-		references: [quantityEstimateInProcurement.id],
-		relationName: "procurementPesquisaPrecoInProcurement_quantityEstimateId_quantityEstimateInProcurement_id"
+		references: [quantityEstimateInProcurement.id]
 	}),
 }));
 
@@ -2667,15 +2607,9 @@ export const kitchenDemandForecastImportInProcurementRelations = relations(kitch
 		fields: [kitchenDemandForecastImportInProcurement.importedBy],
 		references: [usersInAuth.id]
 	}),
-	quantityEstimateInProcurement_listId: one(quantityEstimateInProcurement, {
-		fields: [kitchenDemandForecastImportInProcurement.listId],
-		references: [quantityEstimateInProcurement.id],
-		relationName: "kitchenDemandForecastImportInProcurement_listId_quantityEstimateInProcurement_id"
-	}),
-	quantityEstimateInProcurement_quantityEstimateId: one(quantityEstimateInProcurement, {
+	quantityEstimateInProcurement: one(quantityEstimateInProcurement, {
 		fields: [kitchenDemandForecastImportInProcurement.quantityEstimateId],
-		references: [quantityEstimateInProcurement.id],
-		relationName: "kitchenDemandForecastImportInProcurement_quantityEstimateId_quantityEstimateInProcurement_id"
+		references: [quantityEstimateInProcurement.id]
 	}),
 }));
 

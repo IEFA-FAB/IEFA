@@ -157,7 +157,7 @@ routes.post("/ata/:ataId", handler)
 
 // ok: ubiquitous-language-lot2-route
 const toAnnexOk = { to: "/unit/$unitId/quantity-estimates/$quantityEstimateId" }
-// ok: ubiquitous-language-lot2-route
+// ruleid: ubiquitous-language-lot2-route
 const legacyAnnex = { from: "/unit/:unitId/procurement", to: "/unit/:unitId/quantity-estimates" }
 // ok: ubiquitous-language-lot2-route
 const pca = { url: "/analytics/procurement-plan", flow: `/unit/${unitId}/flows/procurement-planning` }

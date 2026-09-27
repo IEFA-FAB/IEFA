@@ -10,10 +10,9 @@
  */
 
 import { quantityEstimateInProcurement, type SisubDb } from "@iefa/database/drizzle/sisub"
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, isNull, sql } from "drizzle-orm"
 import { requireAnyPermission } from "../guards/require-permission.ts"
 import { fetchQuantityEstimateDetails, updateQuantityEstimateStatus } from "../operations/quantity-estimate.ts"
-import { COMPLETED_STATUS_VALUES, normalizeQuantityEstimateStatus } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
@@ -35,7 +34,6 @@ export interface AgentQuantityEstimateSummary {
 /**
  * Anexos quantitativos da unidade, dos mais recentes. Quem lê a unidade pela Gestão Unidade
  * (`unit:1`) ou pelo analytics local (`local-analytics:1`) — os dois módulos que expõem a tool.
- * O status sai no vocabulário atual (`published` antigo → `completed`).
  */
 export async function agentListQuantityEstimates(
 	db: SisubDb,
@@ -44,8 +42,6 @@ export async function agentListQuantityEstimates(
 ): Promise<AgentList<AgentQuantityEstimateSummary>> {
 	requireAnyPermission(ctx, ["unit", "local-analytics"], 1, { type: "unit", id: input.unitId })
 	const limit = clampLimit(input.limit)
-	// `completed` casa também o `published` antigo, até o contract 20260927050000.
-	const statuses = input.status == null ? null : input.status === "completed" ? [...COMPLETED_STATUS_VALUES] : [input.status]
 	const rows = await runQuery(
 		"QUERY_FAILED",
 		() =>
@@ -67,7 +63,7 @@ export async function agentListQuantityEstimates(
 					and(
 						eq(quantityEstimateInProcurement.unitId, input.unitId),
 						isNull(quantityEstimateInProcurement.deletedAt),
-						statuses ? inArray(quantityEstimateInProcurement.status, statuses) : undefined
+						input.status ? eq(quantityEstimateInProcurement.status, input.status) : undefined
 					)
 				)
 				.orderBy(desc(quantityEstimateInProcurement.createdAt))
@@ -77,7 +73,7 @@ export async function agentListQuantityEstimates(
 	const items = rows.map((r) => ({
 		id: r.id,
 		title: r.title,
-		status: normalizeQuantityEstimateStatus(r.status),
+		status: r.status,
 		wizard_step: r.wizardStep,
 		segment_id: r.segmentId,
 		created_at: r.createdAt,

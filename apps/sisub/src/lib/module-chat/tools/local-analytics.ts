@@ -6,7 +6,6 @@
  * estão em `core`, anexo e ARP em `procurement` — daí o schema explícito em cada `untypedFrom`.
  */
 
-import { COMPLETED_STATUS_VALUES } from "@iefa/sisub-domain"
 import { clampLimit } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
 import { requireModulePermission, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
@@ -60,15 +59,15 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		const unitId = requireCurrentUnitId(ctx)
 		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		// Anexos concluídos (`published` é o nome antigo de `completed` até o contract 20260927050000)
-		const { data: allQuantityEstimates, error: quantityEstimatesError } = await untypedFrom(ctx, "quantity_estimate", "procurement")
-			.select("id, title, status")
+		// Anexos concluídos
+		const { data: completedQuantityEstimates, error: quantityEstimatesError } = await untypedFrom(ctx, "quantity_estimate", "procurement")
+			.select("id, title")
 			.eq("unit_id", unitId)
+			.eq("status", "completed")
 			.is("deleted_at", null)
 		if (quantityEstimatesError) return toolErr(sanitizeDbError(quantityEstimatesError, "get_low_balance_items:quantity_estimates"))
 
-		const completedQuantityEstimates = (allQuantityEstimates ?? []).filter((a: { status: string }) => COMPLETED_STATUS_VALUES.includes(a.status))
-		const completedQuantityEstimateIds = completedQuantityEstimates.map((a: { id: string }) => a.id)
+		const completedQuantityEstimateIds = (completedQuantityEstimates ?? []).map((a: { id: string }) => a.id)
 		if (completedQuantityEstimateIds.length === 0) return toolOk({ message: "Nenhum anexo quantitativo concluído encontrado.", items: [] })
 
 		// ARPs vinculadas aos anexos concluídos
@@ -81,7 +80,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		if (arpsData.length === 0) return toolOk({ message: "Nenhuma ARP vinculada aos anexos quantitativos concluídos.", items: [] })
 
 		const arpIds = arpsData.map((a: { id: string }) => a.id)
-		const quantityEstimateIdToTitle = new Map(completedQuantityEstimates.map((a: { id: string; title: string }) => [a.id, a.title]))
+		const quantityEstimateIdToTitle = new Map((completedQuantityEstimates ?? []).map((a: { id: string; title: string }) => [a.id, a.title]))
 		const arpById = new Map(arpsData.map((a: { id: string }) => [a.id, a]))
 
 		// ARP items

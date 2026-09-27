@@ -14,7 +14,6 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { sql } from "drizzle-orm"
 import { kitchenUnitIds, requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
 import { requireUnit } from "../guards/require-permission.ts"
-import { normalizeQuantityEstimateStatus } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import { runQuery } from "../utils/index.ts"
 import { PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
@@ -127,10 +126,8 @@ async function loadCalendar(db: SisubDb, unitIds: readonly number[], today: stri
 							(coalesce((select min(ss.created_at) from procurement.quantity_estimate_snapshot_selection ss where ss.quantity_estimate_id = l.id), l.updated_at)
 								at time zone 'America/Sao_Paulo'), 'YYYY-MM-DD')), '[]'::json)
 						from procurement.quantity_estimate l
-						where l.segment_id = s.id and l.deleted_at is null and l.status in ('completed', 'published', 'archived')) as concluded_at,
-					la.id as annex_id, la.title as annex_title,
-					-- 'published' é o nome antigo de 'completed' até o contract 20260927050000.
-					case la.status when 'published' then 'completed' else la.status end as annex_status, la.wizard_step as annex_step, la.updated_at as annex_updated_at
+						where l.segment_id = s.id and l.deleted_at is null and l.status in ('completed', 'archived')) as concluded_at,
+					la.id as annex_id, la.title as annex_title, la.status as annex_status, la.wizard_step as annex_step, la.updated_at as annex_updated_at
 				from procurement.procurement_segment s
 				left join lateral (
 					select * from procurement.quantity_estimate l
@@ -211,7 +208,7 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 					from procurement.quantity_estimate l
 					left join procurement.procurement_segment s on s.id = l.segment_id
 					left join procurement.quantity_estimate_item i on i.quantity_estimate_id = l.id
-					where l.unit_id = ${unitId} and l.deleted_at is null and l.status in ('draft', 'completed', 'published') and l.wizard_step is null
+					where l.unit_id = ${unitId} and l.deleted_at is null and l.status in ('draft', 'completed') and l.wizard_step is null
 					group by l.id, l.title, l.status, s.name, l.updated_at
 					order by l.updated_at desc nulls last
 					limit 6
@@ -236,7 +233,7 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 		pricing: pricing.map((r) => ({
 			quantityEstimateId: String(r.id),
 			title: String(r.title),
-			status: normalizeQuantityEstimateStatus(String(r.status)),
+			status: String(r.status),
 			segmentName: str(r.segment_name),
 			items: num(r.items),
 			withoutPrice: num(r.without_price),
