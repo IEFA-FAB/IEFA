@@ -23,17 +23,17 @@ import {
 	MAINTENANCE_KINDS,
 	MAINTENANCE_LOG_KINDS,
 } from "../schemas/equipment.ts"
-import { POLICY_TARGET_VOCABULARY } from "../schemas/policy-rules.ts"
-import { TEMPLATE_TYPE_VOCABULARY } from "../schemas/templates.ts"
+import { POLICY_TARGETS } from "../schemas/policy-rules.ts"
+import { TEMPLATE_TYPES } from "../schemas/templates.ts"
 import { WORKFORCE_NOTE_KINDS, WORKFORCE_SURVEY_STATUSES } from "../schemas/workforce.ts"
 import { CATALOG_SCOPE_VALUES } from "./catalog-scope.ts"
 import { CONSERVATION_CLASSES } from "./conditioning.ts"
-import { DESIGNATION_ROLE_VOCABULARY, DESIGNATION_SOURCES } from "./designations.ts"
+import { DESIGNATION_ROLES, DESIGNATION_SOURCES } from "./designations.ts"
 import {
 	EXPIRY_DEFAULT_ALERT_DAYS,
 	GOODS_RECEIPT_STATUSES,
 	INFLOW_REASONS,
-	INVENTORY_COUNT_TYPE_VOCABULARY,
+	INVENTORY_COUNT_TYPES,
 	LOT_DERIVATIONS,
 	OPENING_BALANCE_SOURCES,
 	OPENING_BALANCE_STATUSES,
@@ -324,8 +324,8 @@ describe("recebimento e designação (20260917200000, 20260926215000)", () => {
 		expect(checkValues("20260917200000_receiving_designation_and_scan.sql", "source", 1)).toEqual([...RECEIPT_SOURCES].sort())
 	})
 
-	test("contract_designation.role (lote 5, expand: os dois vocabulários)", () => {
-		expect(namedCheck("contract_designation_role_check", "role")).toEqual([...DESIGNATION_ROLE_VOCABULARY.inputValues].sort())
+	test("contract_designation.role (lote 5: papéis na língua da norma)", () => {
+		expect(namedCheck("contract_designation_role_check", "role")).toEqual([...DESIGNATION_ROLES].sort())
 	})
 
 	test("contract_designation.source: a NE não designa (sem 'empenho')", () => {
@@ -334,21 +334,21 @@ describe("recebimento e designação (20260917200000, 20260926215000)", () => {
 })
 
 /**
- * Lote 5 da linguagem ubíqua (20260927100000): valor de domínio na língua da norma. Até o contract
- * (20260927110000) o CHECK aceita os dois vocabulários, e o domínio lê os dois; o contract aperta
- * cada um só no do glossário.
+ * Lote 5 da linguagem ubíqua: valor de domínio na língua da norma. O expand (20260927100000) aceitou
+ * os dois vocabulários; o contract (20260927110000) deixou cada CHECK só com o do glossário, que é
+ * o do domínio.
  */
 describe("valores de domínio do lote 5", () => {
 	test("inventory_count.type", () => {
-		expect(namedCheck("inventory_count_type_check", "type")).toEqual([...INVENTORY_COUNT_TYPE_VOCABULARY.inputValues].sort())
+		expect(namedCheck("inventory_count_type_check", "type")).toEqual([...INVENTORY_COUNT_TYPES].sort())
 	})
 
 	test("policy_rule.target", () => {
-		expect(namedCheck("policy_rule_target_check", "target")).toEqual([...POLICY_TARGET_VOCABULARY.inputValues].sort())
+		expect(namedCheck("policy_rule_target_check", "target")).toEqual([...POLICY_TARGETS].sort())
 	})
 
 	test("menu_template.template_type e menu_items.origin_template_type", () => {
-		const expected = [...TEMPLATE_TYPE_VOCABULARY.inputValues].sort()
+		const expected = [...TEMPLATE_TYPES].sort()
 		expect(namedCheck("menu_template_template_type_check", "template_type")).toEqual(expected)
 		expect(namedCheck("menu_items_origin_template_type_check", "origin_template_type")).toEqual(expected)
 	})
@@ -357,6 +357,6 @@ describe("valores de domínio do lote 5", () => {
 		const pattern = /constraint menu_template_snack_complete_check check \(([\s\S]*?)\);/i
 		const { sql } = latestSqlWith(pattern)
 		const body = sql.match(pattern)?.[1] ?? ""
-		expect(valuesIn(body, "template_type")).toEqual(TEMPLATE_TYPE_VOCABULARY.storedValuesOf(["apoio"]).sort())
+		expect(valuesIn(body, "template_type")).toEqual(["apoio"])
 	})
 })

@@ -26,7 +26,6 @@ import {
 	conservationDivergence,
 	DEFINITIVE_RECEIPT_ROLES,
 	designationMissingMessage,
-	designationRoleStoredValues,
 	divergesFromInvoice,
 	isReceiptEditable,
 	isTemperatureOutOfRange,
@@ -537,7 +536,7 @@ async function findDesignation(scope: DesignationScope, userId: string, stage: R
 		p_person: userId,
 		p_unit_id: scope.unitId,
 		p_empenho_id: scope.empenhoId,
-		p_roles: designationRoleStoredValues(stage === "provisional" ? PROVISIONAL_RECEIPT_ROLES : DEFINITIVE_RECEIPT_ROLES),
+		p_roles: stage === "provisional" ? [...PROVISIONAL_RECEIPT_ROLES] : [...DEFINITIVE_RECEIPT_ROLES],
 	})
 	// Falha de leitura não pode virar "sem designação": a recusa mandaria designar quem já está.
 	if (error) throw new Error(`Erro ao conferir a designação: ${error.message}`)

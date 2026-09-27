@@ -81,13 +81,13 @@ test.describe("Agendamento da Produção — imprevistos", () => {
 		if (recipes.length < 4) throw new Error("preparações globais com ficha insuficientes")
 		const [a, b, c, d] = recipes as [Recipe, Recipe, Recipe, Recipe]
 
-		const template = async (name: string, type: "weekly" | "event" | "exception") => {
+		const template = async (name: string, type: "weekly" | "event" | "apoio") => {
 			const { data, error } = await db.from("menu_template").insert({ name, kitchen_id: KITCHEN_ID, template_type: type }).select("id").single()
 			if (error) throw new Error(error.message)
 			return data.id as string
 		}
-		const viagem = await template(`${RUN} Apoio viagem`, "exception")
-		const contingencia = await template(`${RUN} Contingência sem cocção`, "exception")
+		const viagem = await template(`${RUN} Apoio viagem`, "apoio")
+		const contingencia = await template(`${RUN} Contingência sem cocção`, "apoio")
 		const evento = await template(`${RUN} Evento surgido`, "event")
 		const semanal = await template(`${RUN} Semana`, "weekly")
 

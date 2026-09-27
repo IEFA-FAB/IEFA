@@ -2,11 +2,9 @@ import { describe, expect, test } from "bun:test"
 import {
 	canDesignateInUnit,
 	DEFINITIVE_RECEIPT_ROLES,
-	DESIGNATION_ROLE_VOCABULARY,
 	DESIGNATION_SCREEN_LABEL,
 	designationInputProblems,
 	designationMissingMessage,
-	designationRoleStoredValues,
 	isDesignationActive,
 	PROVISIONAL_RECEIPT_ROLES,
 	planEndDesignation,
@@ -38,13 +36,6 @@ describe("papéis", () => {
 		expect(DEFINITIVE_RECEIPT_ROLES).toEqual(["gestor", "membro_comissao"])
 		for (const role of DEFINITIVE_RECEIPT_ROLES) expect(PROVISIONAL_RECEIPT_ROLES).toContain(role)
 		expect(PROVISIONAL_RECEIPT_ROLES).toContain("fiscal_tecnico")
-	})
-
-	test("até o contract do lote 5 a busca casa o papel gravado com o nome antigo", () => {
-		expect(designationRoleStoredValues(DEFINITIVE_RECEIPT_ROLES).sort()).toEqual(["committee_member", "gestor", "manager", "membro_comissao"])
-		expect(DESIGNATION_ROLE_VOCABULARY.normalize("technical_inspector")).toBe("fiscal_tecnico")
-		expect(DESIGNATION_ROLE_VOCABULARY.normalize("fiscal_tecnico")).toBe("fiscal_tecnico")
-		expect(DESIGNATION_ROLE_VOCABULARY.toStored("gestor")).toBe("manager")
 	})
 })
 

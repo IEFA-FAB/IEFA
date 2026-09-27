@@ -131,7 +131,7 @@ const createTemplateTool: ToolDefinition = {
 	schema: {
 		name: "create_template",
 		description:
-			"Cria um novo template de cardápio com metadados e opcionalmente seus itens. Se a inserção dos itens falhar, o template é removido (rollback compensatório). kitchen_id=null cria um template global (SDAB). `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião; o nome antigo `exception` ainda é aceito na entrada). Evento (templateType='event') tem refeições próprias em `eventMeals` (id UUID gerado por você, nome, mealTypeId = horário do calendário, groups = composição como entradas/volantes, baseHeadcount = efetivo da refeição); cada item de evento cita a refeição em `eventMealId`, usa um grupo da composição dela e se dimensiona por `headcountOverride` (pessoas) ou `recommendedProportion` (% do efetivo da refeição).",
+			"Cria um novo template de cardápio com metadados e opcionalmente seus itens. Se a inserção dos itens falhar, o template é removido (rollback compensatório). kitchen_id=null cria um template global (SDAB). `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião). Evento (templateType='event') tem refeições próprias em `eventMeals` (id UUID gerado por você, nome, mealTypeId = horário do calendário, groups = composição como entradas/volantes, baseHeadcount = efetivo da refeição); cada item de evento cita a refeição em `eventMealId`, usa um grupo da composição dela e se dimensiona por `headcountOverride` (pessoas) ou `recommendedProportion` (% do efetivo da refeição).",
 		inputSchema: toJsonSchema(CreateTemplateSchema),
 	},
 	async handler(args, credential) {
@@ -153,7 +153,7 @@ const createBlankTemplateTool: ToolDefinition = {
 	schema: {
 		name: "create_blank_template",
 		description:
-			"Cria um template vazio (sem itens) para uma cozinha. Use update_template para adicionar itens depois. `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião; o nome antigo `exception` ainda é aceito na entrada).",
+			"Cria um template vazio (sem itens) para uma cozinha. Use update_template para adicionar itens depois. `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião).",
 		inputSchema: toJsonSchema(CreateBlankTemplateSchema),
 	},
 	async handler(args, credential) {

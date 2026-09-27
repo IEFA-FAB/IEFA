@@ -21,8 +21,6 @@ export type { BalanceStatus, DeclaredIngredient, FlowGraphStep, FlowValidationRe
 export { collectFinalOutputs, computeMaterialBalance, computeStepLevels, findFlowCycle, validateFlow } from "./recipe-flow-graph.ts"
 export type { LineageRank } from "./recipe-lineage.ts"
 export { isLineageWinner } from "./recipe-lineage.ts"
-export type { RenamedVocabulary } from "./renamed-vocabulary.ts"
-export { renamedVocabulary } from "./renamed-vocabulary.ts"
 export type {
 	KcalRange,
 	MealWindowKey,

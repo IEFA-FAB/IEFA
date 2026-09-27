@@ -1,5 +1,4 @@
 import { z } from "zod"
-import { renamedVocabulary } from "../utils/renamed-vocabulary.ts"
 import { DateSchema, EditScopeSchema, KitchenIdSchema, MenuGroupKeySchema, RecommendedProportionSchema, UuidSchema } from "./common.ts"
 import { MenuGroupSchema } from "./menu-groups.ts"
 
@@ -16,26 +15,14 @@ export type GetTemplate = z.infer<typeof GetTemplateSchema>
 /**
  * Regimes de cardápio (`menu_template.template_type`, `menu_items.origin_template_type`): rotina
  * semanal, evento pontual e cardápio de apoio (refeições previsíveis fora da rotina semanal:
- * lanches de bordo e de apoio, coffee breaks). O cardápio de apoio se chamava `exception`; até o
- * contract do lote 5 o banco ainda grava o nome antigo (`TEMPLATE_TYPE_VOCABULARY`).
+ * lanches de bordo e de apoio, coffee breaks). O cardápio de apoio se chamava `exception`; o nome
+ * saiu com o contract 20260927110000.
  *
  * Homônimo: `snack_family = 'apoio'` é o LANCHE de apoio (família do lanche), outro conceito.
  */
 export const TEMPLATE_TYPES = ["weekly", "event", "apoio"] as const
-export type TemplateType = (typeof TEMPLATE_TYPES)[number]
-
-/** Valor gravado antes do lote 5 → tipo do glossário. Sai com o contract 20260927110000. */
-export const TEMPLATE_TYPE_VOCABULARY = renamedVocabulary(TEMPLATE_TYPES, { exception: "apoio" })
-
-/**
- * Tipo de cardápio na entrada (formulário, tool do chat e do MCP). O nome antigo `exception` é
- * aceito por um ciclo, para cliente que ainda o envia, e sai daqui como `apoio`. O JSON Schema que
- * o modelo lê (`toJsonSchema`) anuncia só o vocabulário do glossário (`meta`).
- */
-export const TemplateTypeSchema = z
-	.enum(TEMPLATE_TYPE_VOCABULARY.inputValues)
-	.meta({ enum: [...TEMPLATE_TYPES] })
-	.transform(TEMPLATE_TYPE_VOCABULARY.parse)
+export const TemplateTypeSchema = z.enum(TEMPLATE_TYPES)
+export type TemplateType = z.infer<typeof TemplateTypeSchema>
 
 /** Ocorrências mensais esperadas — só faz sentido para cardápio de apoio; multiplica o custeio no anexo quantitativo. */
 export const ExpectedMonthlyOccurrencesSchema = z.number().int().positive()

@@ -68,7 +68,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		const ctx = fullAccessCtx(userId)
 		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 1, name: uid("[TEST] Água ") })
 		const mealTypeId = await seeder.seedMealType({ kitchenId })
-		const templateId = await seeder.seedTemplate({ kitchenId, templateType: "exception" })
+		const templateId = await seeder.seedTemplate({ kitchenId, templateType: "apoio" })
 		await seeder.seedTemplateItem({ templateId, mealTypeId, recipeId, dayOfWeek: 1, headcountOverride: 2 })
 		await setSnackClassification(db, ctx, {
 			templateId,
@@ -235,7 +235,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		const { kitchenId, ctx, templateId } = await setup()
 
 		// Padrão sem preparação não pode ser publicado — o aceite materializaria nada.
-		const emptyStandard = await (seeder as Seeder).seedTemplate({ kitchenId, templateType: "exception" })
+		const emptyStandard = await (seeder as Seeder).seedTemplate({ kitchenId, templateType: "apoio" })
 		await expect(
 			setSnackClassification(db, ctx, {
 				templateId: emptyStandard,

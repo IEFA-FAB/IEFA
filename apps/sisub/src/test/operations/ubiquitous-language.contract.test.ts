@@ -21,12 +21,13 @@
  * ## Valores de domínio (lote 5)
  *
  * Valor de CHECK não é nome de objeto: o lote 5 (papéis da designação, tipos de inventário, alvo da
- * regra de política, tipo de cardápio) tem teste próprio abaixo, que no expand (20260927100000)
- * aceita o CHECK com os dois vocabulários e, depois do contract (20260927110000), exige só o do
- * glossário.
+ * regra de política, tipo de cardápio) tem teste próprio abaixo, que depois do contract
+ * (20260927110000) exige cada CHECK só com o vocabulário do glossário. O trigger que traduz na
+ * gravação o valor antigo (`core.translate_legacy_domain_value`, temporário, sai na tarefa 5.5) não
+ * cita valor no corpo; os valores vão como argumento do trigger.
  */
 
-import { DESIGNATION_ROLE_VOCABULARY, INVENTORY_COUNT_TYPE_VOCABULARY, POLICY_TARGET_VOCABULARY, TEMPLATE_TYPE_VOCABULARY } from "@iefa/sisub-domain"
+import { DESIGNATION_ROLES, INVENTORY_COUNT_TYPES, POLICY_TARGETS, TEMPLATE_TYPES } from "@iefa/sisub-domain"
 import postgres from "postgres"
 import { afterAll, beforeAll, describe, expect, test } from "vitest"
 import { describeSupabaseIntegration, getSisubDatabaseUrl } from "../supabase"
@@ -139,21 +140,19 @@ describeIf("linguagem ubíqua no banco vivo", () => {
 		expect(offending(found), "texto do banco cita nome descartado pelo glossário").toEqual([])
 	})
 
-	test("valores de domínio do lote 5: o CHECK aceita o vocabulário do glossário e nada fora dos dois", async () => {
+	test("valores de domínio do lote 5: cada CHECK aceita só o vocabulário do glossário", async () => {
 		const checks = [
-			{ constraint: "contract_designation_role_check", vocabulary: DESIGNATION_ROLE_VOCABULARY },
-			{ constraint: "inventory_count_type_check", vocabulary: INVENTORY_COUNT_TYPE_VOCABULARY },
-			{ constraint: "policy_rule_target_check", vocabulary: POLICY_TARGET_VOCABULARY },
-			{ constraint: "menu_template_template_type_check", vocabulary: TEMPLATE_TYPE_VOCABULARY },
-			{ constraint: "menu_items_origin_template_type_check", vocabulary: TEMPLATE_TYPE_VOCABULARY },
+			{ constraint: "contract_designation_role_check", values: DESIGNATION_ROLES },
+			{ constraint: "inventory_count_type_check", values: INVENTORY_COUNT_TYPES },
+			{ constraint: "policy_rule_target_check", values: POLICY_TARGETS },
+			{ constraint: "menu_template_template_type_check", values: TEMPLATE_TYPES },
+			{ constraint: "menu_items_origin_template_type_check", values: TEMPLATE_TYPES },
 		]
-		for (const { constraint, vocabulary } of checks) {
+		for (const { constraint, values } of checks) {
 			const [check] = await sql<{ def: string }[]>`select pg_get_constraintdef(oid) as def from pg_constraint where conname = ${constraint}`
 			expect(check?.def, constraint).toBeDefined()
-			const values = [...(check?.def ?? "").matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1] as string)
-			// Expand: o glossário inteiro está lá; o que sobra é só o nome antigo (sai no contract).
-			for (const value of vocabulary.values) expect(values, constraint).toContain(value)
-			for (const value of values) expect(vocabulary.inputValues, constraint).toContain(value)
+			const found = [...(check?.def ?? "").matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1] as string).sort()
+			expect(found, constraint).toEqual([...values].sort())
 		}
 	})
 

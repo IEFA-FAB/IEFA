@@ -14,7 +14,6 @@ import {
 	fetchDayDetails,
 	fetchProductionBoard,
 	recordProductionSubstitution,
-	TEMPLATE_TYPE_VOCABULARY,
 	type UserContext,
 	updateProductionTaskRecord,
 } from "@iefa/sisub-domain"
@@ -73,7 +72,7 @@ describeSupabaseIntegration("production flexibility operations (PR #96)", () => 
 	})
 
 	/** Cozinha + refeição + evento com 1 receita (headcount 50). */
-	async function setupEvent(opts?: { templateType?: "event" | "exception" }) {
+	async function setupEvent(opts?: { templateType?: "event" | "apoio" }) {
 		if (!seeder) throw new Error("no seeder")
 		const { id: kitchenId } = await seeder.seedKitchen()
 		seeder.trackFn(() => seeder?.purgeKitchenMenus(kitchenId) ?? Promise.resolve())
@@ -116,15 +115,14 @@ describeSupabaseIntegration("production flexibility operations (PR #96)", () => 
 	test("applyEventTemplate cria o daily_menu quando o dia está vazio", async () => {
 		if (!reachable || !seeder || !db) return
 		const date = "2099-08-02"
-		const { kitchenId, templateId } = await setupEvent({ templateType: "exception" })
+		const { kitchenId, templateId } = await setupEvent({ templateType: "apoio" })
 
 		const result = await applyEventTemplate(db, ctx, { templateId, kitchenId, dates: [date] })
 		expect(result.menusCreated).toBe(1)
 		expect(result.itemsCreated).toBe(1)
 
 		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as DayDetailsRow[]
-		// O item grava o tipo como o banco o aceita (até o contract do lote 5, o nome antigo).
-		expect(TEMPLATE_TYPE_VOCABULARY.normalize(details[0]?.menu_items[0]?.origin_template_type)).toBe("apoio")
+		expect(details[0]?.menu_items[0]?.origin_template_type).toBe("apoio")
 	})
 
 	test("applyEventTemplate é idempotente: reaplicar não duplica itens", async () => {

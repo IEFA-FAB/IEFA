@@ -130,7 +130,7 @@ export interface Seeder {
 	seedMenuItem(opts: { dailyMenuId: string; recipeId: string; plannedPortionQuantity?: number; excludedFromProcurement?: 0 | 1 | null }): Promise<string>
 	seedTemplate(opts?: {
 		kitchenId?: number | null
-		templateType?: "weekly" | "event" | "exception"
+		templateType?: "weekly" | "event" | "apoio"
 		expectedMonthlyOccurrences?: number | null
 		deleted?: boolean
 	}): Promise<string>

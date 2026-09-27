@@ -8,8 +8,6 @@
  * fazer.
  */
 
-import { renamedVocabulary } from "../utils/renamed-vocabulary.ts"
-
 /** `inventory.stock_movement.type` — o sinal do movimento vem daqui, não da quantidade. */
 export const STOCK_MOVEMENT_TYPES = [
 	"receipt",
@@ -73,18 +71,11 @@ export function isReceiptEditable(status: string): boolean {
 
 /**
  * `inventory.inventory_count.type` — tipo de inventário físico, na língua da norma (IN SEDAP
- * 205/1988; item e lista a confirmar, "rotativo" pode vir de outra norma). Até o contract do lote 5
- * o banco ainda grava o valor em inglês (`INVENTORY_COUNT_TYPE_VOCABULARY`).
+ * 205/1988; item e lista a confirmar, "rotativo" pode vir de outra norma). Os nomes em inglês
+ * saíram com o contract 20260927110000.
  */
 export const INVENTORY_COUNT_TYPES = ["anual", "transferencia_responsabilidade", "eventual", "rotativo"] as const
 export type InventoryCountType = (typeof INVENTORY_COUNT_TYPES)[number]
-
-/** Valor gravado antes do lote 5 → tipo do glossário. Sai com o contract 20260927110000. */
-export const INVENTORY_COUNT_TYPE_VOCABULARY = renamedVocabulary(INVENTORY_COUNT_TYPES, {
-	annual: "anual",
-	responsibility_transfer: "transferencia_responsabilidade",
-	rotating: "rotativo",
-})
 
 export const INVENTORY_COUNT_TYPE_LABELS: Record<InventoryCountType, string> = {
 	anual: "Anual",

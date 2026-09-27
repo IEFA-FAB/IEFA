@@ -62,7 +62,6 @@ import type {
 	SnackProductionSummaryInput,
 	SnackRequestId,
 } from "../schemas/snack.ts"
-import { TEMPLATE_TYPE_VOCABULARY } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
@@ -353,7 +352,7 @@ export async function setSnackClassification(db: SisubDb, ctx: UserContext, inpu
 	const template = rows[0]
 	if (!template) throw new NotFoundError("menu_template", input.templateId)
 	if (template.deletedAt !== null) throw new DomainError("TEMPLATE_DELETED", "O padrão foi excluído.")
-	if (!TEMPLATE_TYPE_VOCABULARY.is(template.templateType, "apoio")) {
+	if (template.templateType !== "apoio") {
 		throw new DomainError("SNACK_STANDARD_NOT_SUPPORT_MENU", "Só um cardápio de apoio pode ser padrão de lanche.")
 	}
 
@@ -1256,7 +1255,7 @@ async function addToProduction(tx: Tx, request: LockedRequest, lines: (typeof sn
 				itemGroup: item.itemGroup,
 				sortOrder: sortOrder++,
 				originTemplateId: snapshot.id,
-				originTemplateType: TEMPLATE_TYPE_VOCABULARY.toStored("apoio"),
+				originTemplateType: "apoio",
 				originSnackRequestId: request.id,
 			})
 		}

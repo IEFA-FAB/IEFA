@@ -17,6 +17,8 @@ export const LEGACY_ROUTE_PREFIXES: readonly { from: string; to: string }[] = [
 	{ from: "/unit/:unitId/payments", to: "/unit/:unitId/pagamentos" },
 	{ from: "/global/weekly-plans", to: "/global/weekly-menus" },
 	// Lote 5: o cardápio de apoio (`template_type = 'apoio'`) deixou de se chamar exceção.
+	// TODO(2026-09-27): fica até o mantenedor retirar, como o do lote 7; o contract 20260927110000
+	// só converte os valores no banco.
 	{ from: "/kitchen/:kitchenId/exceptions", to: "/kitchen/:kitchenId/support-menus" },
 	{ from: "/global/exceptions", to: "/global/support-menus" },
 	// Lote 7: arranchamento (o comensal se arrancha; "previsão" é a estimativa agregada).

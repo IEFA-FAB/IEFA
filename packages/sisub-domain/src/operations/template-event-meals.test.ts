@@ -70,7 +70,7 @@ describe("resolveEventContent", () => {
 
 	test("fora de evento não há refeição própria, e o item segue como veio", () => {
 		expect(codeOf(() => resolveEventContent("weekly", [coquetel], []))).toBe("EVENT_MEALS_ONLY_IN_EVENTS")
-		expect(codeOf(() => resolveEventContent("exception", [], [item()]))).toBe("EVENT_MEALS_ONLY_IN_EVENTS")
+		expect(codeOf(() => resolveEventContent("apoio", [], [item()]))).toBe("EVENT_MEALS_ONLY_IN_EVENTS")
 		const routine = item({ eventMealId: undefined, itemGroup: "prato_principal" })
 		expect(resolveEventContent("weekly", [], [routine])).toEqual([routine])
 	})
