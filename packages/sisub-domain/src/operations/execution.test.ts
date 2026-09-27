@@ -192,8 +192,9 @@ describe("tarefas do dia sem o quadro aberto: autoriza por dentro", () => {
 
 describe("falha dentro da transação da inclusão vira erro de domínio", () => {
 	test("erro do driver sai como QueryFailedError com o prefixo de negócio, sem o SQL", async () => {
+		// A conferência da refeição (`select ... from meal_type`) acha a refeição; a transação falha.
 		const db = {
-			execute: () => Promise.resolve([{ id: MEAL }]),
+			select: () => ({ from: () => ({ where: () => Promise.resolve([{ id: MEAL }]) }) }),
 			transaction: () => Promise.reject(new Error('insert into kitchen.menu_items … violates check constraint "menu_items_execution_reason_required"')),
 		} as unknown as SisubDb
 		const today = brasiliaToday()

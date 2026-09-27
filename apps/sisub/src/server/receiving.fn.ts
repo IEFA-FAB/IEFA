@@ -32,6 +32,7 @@ import {
 	matchReceiptLinesToInvoice,
 	matchScanToLine,
 	normalizeSupplierDocument,
+	type PackageType,
 	PROVISIONAL_RECEIPT_ROLES,
 	parseNfeAccessKey,
 	type ReceiptLineForScan,
@@ -41,6 +42,7 @@ import {
 	receiptWithoutInvoiceProblems,
 	requiresDivergenceReason,
 	shelfLifeDivergence,
+	type TransportRequirement,
 	temperatureDivergenceReason,
 	temperatureVerdict,
 	unitCostFromInvoiceLine,
@@ -770,13 +772,29 @@ export const listReceiptsFn = createServerFn({ method: "GET" })
 		return receipts ?? []
 	})
 
+/** Colunas de acondicionamento da especificação de compra que a conferência mostra; o cliente tipado infere a linha delas. */
+const SPEC_COLUMNS =
+	"id, conservation_class, storage_temp_min_c, storage_temp_max_c, package_type, package_net_content, package_net_content_unit, transport_requirement, min_shelf_life_days_on_delivery, delivery_conditioning, deleted_at"
+
+/** Estreita as colunas de CHECK da especificação (o tipo gerado as declara `string`). */
+function narrowSpec<T extends { conservation_class: string | null; package_type: string | null; transport_requirement: string | null }>(spec: T) {
+	return {
+		...spec,
+		conservation_class: spec.conservation_class as ConservationClass | null,
+		package_type: spec.package_type as PackageType | null,
+		transport_requirement: spec.transport_requirement as TransportRequirement | null,
+	}
+}
+
 /** Detalhe do recebimento: itens + lotes + acondicionamento exigido (para conferência e termo). */
 export const fetchReceiptFn = createServerFn({ method: "GET" })
 	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuthWithPermission("storage", 1)
-		const inv = inventory()
-		const kit = getServerClient("kitchen") as unknown as LooseClient
+		// Clientes tipados: a tela lê as colunas de vínculo (origem, NF-e esperada, fornecedor) e as
+		// dos lotes direto destas linhas, e o compilador confere cada uma contra o `generated.ts`.
+		const inv = getServerClient("inventory")
+		const kit = getServerClient("kitchen")
 
 		const { data: receipt, error } = await inv.from("goods_receipt").select("*").eq("id", data.receiptId).single()
 		if (error || !receipt) throw new Error("Recebimento não encontrado")
@@ -786,81 +804,77 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 		const { data: items, error: itemsError } = await inv.from("goods_receipt_item").select("*").eq("receipt_id", data.receiptId)
 		if (itemsError) throw new Error(`Erro ao carregar as linhas do recebimento: ${itemsError.message}`)
 
-		const itemRows = (items ?? []) as Array<Record<string, unknown>>
-		const itemIds = itemRows.map((item) => item.id as string)
-		const { data: lots, error: lotsError } =
-			itemIds.length > 0 ? await inv.from("goods_receipt_item_lot").select("*").in("receipt_item_id", itemIds) : { data: [], error: null }
-		if (lotsError) throw new Error(`Erro ao carregar os lotes do recebimento: ${lotsError.message}`)
-		const lotsByItem = new Map<string, Array<Record<string, unknown>>>()
-		for (const lot of (lots ?? []) as Array<Record<string, unknown>>) {
-			const key = lot.receipt_item_id as string
-			const bucket = lotsByItem.get(key)
-			if (bucket) bucket.push(lot)
-			else lotsByItem.set(key, [lot])
-		}
-
-		const ingredientIds = [...new Set(itemRows.map((item) => item.ingredient_id).filter(Boolean))] as string[]
-		const names = new Map<string, { description: string; measure_unit: string | null }>()
-		if (ingredientIds.length > 0) {
-			const { data: ings, error: ingError } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
-			if (ingError) throw new Error(`Erro ao carregar os insumos: ${ingError.message}`)
-			for (const ing of ings ?? []) names.set(ing.id, ing)
-		}
+		const itemRows = items ?? []
+		const itemIds = itemRows.map((item) => item.id)
+		const ingredientIds = [...new Set(itemRows.map((item) => item.ingredient_id).filter((id) => id != null))]
 		// GTINs vinculados aos itens (para a conferência por scanner)
-		const skuIds = [...new Set(itemRows.map((item) => item.ingredient_item_id).filter(Boolean))] as string[]
-		const gtinByItemId = new Map<string, string | null>()
-		if (skuIds.length > 0) {
-			const { data: skus, error: skuError } = await kit.from("ingredient_item").select("id, gtin").in("id", skuIds)
-			if (skuError) throw new Error(`Erro ao carregar os códigos dos itens: ${skuError.message}`)
-			for (const sku of skus ?? []) gtinByItemId.set(sku.id, sku.gtin)
-		}
+		const skuIds = [...new Set(itemRows.map((item) => item.ingredient_item_id).filter((id) => id != null))]
+		const purchaseItemIds = [...new Set(itemRows.map((item) => item.purchase_item_id).filter((id) => id != null))]
+		const proc = getServerClient("procurement")
 
+		// Lotes, nomes, GTINs e especificações dependem só das linhas: uma ida só ao PostgREST.
+		const [lotsResult, ingredientsResult, skusResult, specsResult] = await Promise.all([
+			itemIds.length > 0 ? inv.from("goods_receipt_item_lot").select("*").in("receipt_item_id", itemIds) : { data: [], error: null },
+			ingredientIds.length > 0 ? kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds) : { data: [], error: null },
+			skuIds.length > 0 ? kit.from("ingredient_item").select("id, gtin").in("id", skuIds) : { data: [], error: null },
+			purchaseItemIds.length > 0 ? proc.from("purchase_item").select(SPEC_COLUMNS).in("id", purchaseItemIds) : { data: [], error: null },
+		])
+		if (lotsResult.error) throw new Error(`Erro ao carregar os lotes do recebimento: ${lotsResult.error.message}`)
+		if (ingredientsResult.error) throw new Error(`Erro ao carregar os insumos: ${ingredientsResult.error.message}`)
+		if (skusResult.error) throw new Error(`Erro ao carregar os códigos dos itens: ${skusResult.error.message}`)
 		// Acondicionamento sugerido, por especificação de compra da linha. Linha sem
 		// purchase_item — ou com ele sem classe — cai na especificação padrão do insumo, desde
 		// que não excluída: a MESMA resolução de `requiredRangeFor` (que grava o lote) e de
 		// `finalize_goods_receipt`. Tela e servidor divergindo, o conferente via uma sugestão
-		// e o recebimento era julgado por outra.
-		const SPEC_COLUMNS =
-			"id, conservation_class, storage_temp_min_c, storage_temp_max_c, package_type, package_net_content, package_net_content_unit, transport_requirement, min_shelf_life_days_on_delivery, delivery_conditioning, deleted_at"
-		const purchaseItemIds = [...new Set(itemRows.map((item) => item.purchase_item_id).filter(Boolean))] as string[]
-		const specById = new Map<string, Record<string, unknown>>()
-		if (purchaseItemIds.length > 0) {
-			const { data: specs } = await procurement().from("purchase_item").select(SPEC_COLUMNS).in("id", purchaseItemIds)
-			for (const spec of (specs ?? []) as Array<Record<string, unknown>>) specById.set(spec.id as string, spec)
+		// e o recebimento era julgado por outra — por isso a leitura que falha lança, em vez de
+		// mostrar a linha sem especificação.
+		if (specsResult.error) throw new Error(`Erro ao carregar as especificações de compra: ${specsResult.error.message}`)
+
+		const narrowedLots = (lotsResult.data ?? []).map((lot) => ({ ...lot, conservation_class: lot.conservation_class as ConservationClass | null }))
+		const lotsByItem = new Map<string, typeof narrowedLots>()
+		for (const lot of narrowedLots) {
+			const bucket = lotsByItem.get(lot.receipt_item_id)
+			if (bucket) bucket.push(lot)
+			else lotsByItem.set(lot.receipt_item_id, [lot])
 		}
-		const needsDefault = (item: Record<string, unknown>) =>
-			!!item.ingredient_id && (!item.purchase_item_id || specById.get(item.purchase_item_id as string)?.conservation_class == null)
+		const names = new Map((ingredientsResult.data ?? []).map((ing) => [ing.id, ing]))
+		const gtinByItemId = new Map((skusResult.data ?? []).map((sku) => [sku.id, sku.gtin]))
+		const specById = new Map((specsResult.data ?? []).map((spec) => [spec.id, narrowSpec(spec)]))
+		const needsDefault = (item: (typeof itemRows)[number]) =>
+			!!item.ingredient_id && (!item.purchase_item_id || specById.get(item.purchase_item_id)?.conservation_class == null)
 		const fallbackIngredientIds = [...new Set(itemRows.filter(needsDefault).map((item) => item.ingredient_id as string))]
-		const defaultSpecByIngredient = new Map<string, Record<string, unknown>>()
-		if (fallbackIngredientIds.length > 0) {
-			const { data: links } = await procurement()
-				.from("purchase_item_ingredient")
-				.select(`ingredient_id, purchase_item:purchase_item_id (${SPEC_COLUMNS})`)
-				.in("ingredient_id", fallbackIngredientIds)
-				.eq("is_default", true)
-			for (const link of (links ?? []) as Array<{ ingredient_id: string; purchase_item?: Record<string, unknown> | null }>) {
-				if (link.purchase_item && link.purchase_item.deleted_at == null) defaultSpecByIngredient.set(link.ingredient_id, link.purchase_item)
-			}
-		}
+		const { data: links, error: linksError } =
+			fallbackIngredientIds.length > 0
+				? await proc
+						.from("purchase_item_ingredient")
+						.select(`ingredient_id, purchase_item:purchase_item_id (${SPEC_COLUMNS})`)
+						.in("ingredient_id", fallbackIngredientIds)
+						.eq("is_default", true)
+				: { data: [], error: null }
+		if (linksError) throw new Error(`Erro ao carregar as especificações padrão dos insumos: ${linksError.message}`)
+		const defaultSpecByIngredient = new Map(
+			(links ?? []).flatMap((link) =>
+				link.purchase_item && link.purchase_item.deleted_at == null ? [[link.ingredient_id, narrowSpec(link.purchase_item)] as const] : []
+			)
+		)
 
 		return {
 			...receipt,
-			items: itemRows.map((item) => ({
-				...item,
-				description: names.get(item.ingredient_id as string)?.description ?? "—",
-				measure_unit: names.get(item.ingredient_id as string)?.measure_unit ?? null,
-				gtin: item.ingredient_item_id ? (gtinByItemId.get(item.ingredient_item_id as string) ?? null) : null,
-				conditioning:
-					(item.purchase_item_id ? specById.get(item.purchase_item_id as string) : undefined) ??
-					defaultSpecByIngredient.get(item.ingredient_id as string) ??
-					null,
-				// A classe que a conferência sugere: a da linha, ou a da padrão quando a da linha é nula.
-				suggested_conservation_class:
-					(item.purchase_item_id ? specById.get(item.purchase_item_id as string)?.conservation_class : null) ??
-					(needsDefault(item) ? defaultSpecByIngredient.get(item.ingredient_id as string)?.conservation_class : null) ??
-					null,
-				lots: lotsByItem.get(item.id as string) ?? [],
-			})),
+			items: itemRows.map((item) => {
+				const lineSpec = item.purchase_item_id ? specById.get(item.purchase_item_id) : undefined
+				const defaultSpec = item.ingredient_id ? defaultSpecByIngredient.get(item.ingredient_id) : undefined
+				const name = item.ingredient_id ? names.get(item.ingredient_id) : undefined
+				return {
+					...item,
+					description: name?.description ?? "—",
+					measure_unit: name?.measure_unit ?? null,
+					gtin: item.ingredient_item_id ? (gtinByItemId.get(item.ingredient_item_id) ?? null) : null,
+					conditioning: lineSpec ?? defaultSpec ?? null,
+					// A classe que a conferência sugere: a da linha, ou a da padrão quando a da linha é nula.
+					suggested_conservation_class: lineSpec?.conservation_class ?? (needsDefault(item) ? defaultSpec?.conservation_class : null) ?? null,
+					lots: lotsByItem.get(item.id) ?? [],
+				}
+			}),
 		}
 	})
 

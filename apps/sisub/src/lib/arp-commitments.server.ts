@@ -16,22 +16,27 @@ import { getFinanceClient } from "@/lib/supabase.server"
 export async function loadLocalCommitments(arpItemIds: readonly string[]): Promise<Map<string, LocalCommitment>> {
 	if (arpItemIds.length === 0) return new Map()
 	const fin = getFinanceClient()
-	const rows = await readAllPagesIn<{ empenho_id: string; arp_item_id: string; quantity: number | null; value: number }>(
-		"itens de empenho",
-		arpItemIds,
-		(chunk, from, to) => fin.from("empenho_item").select("empenho_id, arp_item_id, quantity, value").in("arp_item_id", chunk).order("id").range(from, to)
+	const rows = await readAllPagesIn("itens de empenho", arpItemIds, (chunk, from, to) =>
+		fin.from("empenho_item").select("empenho_id, arp_item_id, quantity, value").in("arp_item_id", chunk).order("id").range(from, to)
 	)
-	const empenhos = await readAllPagesIn<{ id: string; status: string }>("empenhos", [...new Set(rows.map((row) => row.empenho_id))], (chunk, from, to) =>
+	const empenhos = await readAllPagesIn("empenhos", [...new Set(rows.map((row) => row.empenho_id))], (chunk, from, to) =>
 		fin.from("empenho").select("id, status").in("id", chunk).order("id").range(from, to)
 	)
 	const statusById = new Map(empenhos.map((e) => [e.id, e.status]))
 	return aggregateLocalCommitments(
-		rows.map((row) => ({
-			arp_item_id: row.arp_item_id,
-			// Item de NE cujo cabeçalho não voltou não conta: sem status, não é "ativo".
-			status: statusById.get(row.empenho_id) ?? "anulado",
-			quantidade_empenhada: row.quantity,
-			valor_total: row.value,
-		}))
+		// `arp_item_id` nunca vem nulo: a consulta filtra por ele.
+		rows.flatMap(({ arp_item_id, empenho_id, quantity, value }) =>
+			arp_item_id == null
+				? []
+				: [
+						{
+							arp_item_id,
+							// Item de NE cujo cabeçalho não voltou não conta: sem status, não é "ativo".
+							status: statusById.get(empenho_id) ?? "anulado",
+							quantidade_empenhada: quantity,
+							valor_total: value,
+						},
+					]
+		)
 	)
 }

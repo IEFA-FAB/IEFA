@@ -45,18 +45,40 @@ const procurement = () => getServerClient("procurement")
 const finance = () => getServerClient("finance")
 const comprasGov = () => getServerClient("compras_gov_integration")
 
+const ACQUISITION_COLUMNS = [
+	"id",
+	"unit_id",
+	"kind",
+	"srp_role",
+	"instrument",
+	"legal_basis",
+	"direct_contract_clause",
+	"nd",
+	"activity_line",
+	"fiscal_year",
+	"process_nup",
+	"object",
+	"supplier_cnpj",
+	"supplier_name",
+	"valid_from",
+	"valid_to",
+	"estimated_value",
+	"pncp_control_number",
+	"over_limit_justification",
+	"notes",
+	"created_at",
+	"deleted_at",
+] as const
+
 /**
  * Linha de `procurement.acquisition` como `ACQUISITION_COLUMNS` a lê. O tipo gerado tem `kind`,
  * `srp_role` e `instrument` como `string`; os CHECKs do banco restringem aos valores do domínio.
  */
-type AcquisitionRow = Omit<TableRow<"procurement", "acquisition">, "created_by" | "updated_at" | "kind" | "srp_role" | "instrument"> & {
+type AcquisitionRow = Omit<Pick<TableRow<"procurement", "acquisition">, (typeof ACQUISITION_COLUMNS)[number]>, "kind" | "srp_role" | "instrument"> & {
 	kind: AcquisitionKind
 	srp_role: (typeof SRP_ROLES)[number] | null
 	instrument: (typeof ACQUISITION_INSTRUMENTS)[number] | null
 }
-
-const ACQUISITION_COLUMNS =
-	"id, unit_id, kind, srp_role, instrument, legal_basis, direct_contract_clause, nd, activity_line, fiscal_year, process_nup, object, supplier_cnpj, supplier_name, valid_from, valid_to, estimated_value, pncp_control_number, over_limit_justification, notes, created_at, deleted_at"
 
 export interface AcquisitionEmpenhoRef {
 	id: string
@@ -186,7 +208,9 @@ async function loadLimits(): Promise<DirectContractLimitRow[]> {
 function loadExecution(unitId: number, fiscalYear: number) {
 	return loadUnitExecution<AcquisitionRow & { [column: string]: unknown }>(
 		{ procurement: procurement(), finance: finance() },
-		{ unitId, fiscalYear, acquisitionColumns: ACQUISITION_COLUMNS }
+		// A consulta vai pela costura frouxa de `loadUnitExecution`, que não infere a linha do `select`:
+		// quem mantém tipo e colunas juntos é o `Pick` de `AcquisitionRow` sobre a mesma lista.
+		{ unitId, fiscalYear, acquisitionColumns: ACQUISITION_COLUMNS.join(", ") }
 	)
 }
 

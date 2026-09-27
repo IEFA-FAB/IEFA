@@ -16,7 +16,8 @@
 export const PAGE_SIZE = 1000
 export const IN_CHUNK_SIZE = 100
 
-type PageResult = PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>
+/** Uma página da consulta. `T` sai da linha que o cliente tipado infere do `select`. */
+type PageResult<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>
 
 /**
  * Lê todas as páginas de uma consulta; erro em qualquer página lança.
@@ -28,12 +29,12 @@ type PageResult = PromiseLike<{ data: unknown[] | null; error: { message: string
  * helper cortava calado, que é o defeito que ele existe para impedir. Custa uma
  * requisição a mais no fim.
  */
-export async function readAllPages<T>(what: string, page: (from: number, to: number) => PageResult, pageSize = PAGE_SIZE): Promise<T[]> {
+export async function readAllPages<T>(what: string, page: (from: number, to: number) => PageResult<T>, pageSize = PAGE_SIZE): Promise<T[]> {
 	const rows: T[] = []
 	for (let from = 0; ; ) {
 		const { data, error } = await page(from, from + pageSize - 1)
 		if (error) throw new Error(`Erro ao carregar ${what}: ${error.message}`)
-		const batch = (data ?? []) as T[]
+		const batch = data ?? []
 		if (batch.length === 0) return rows
 		rows.push(...batch)
 		from += batch.length
@@ -44,7 +45,7 @@ export async function readAllPages<T>(what: string, page: (from: number, to: num
 export async function readAllPagesIn<T>(
 	what: string,
 	ids: readonly string[],
-	page: (chunk: string[], from: number, to: number) => PageResult,
+	page: (chunk: string[], from: number, to: number) => PageResult<T>,
 	chunkSize = IN_CHUNK_SIZE,
 	pageSize = PAGE_SIZE
 ): Promise<T[]> {

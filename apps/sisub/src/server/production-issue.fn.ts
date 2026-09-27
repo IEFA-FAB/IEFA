@@ -23,28 +23,30 @@ import {
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
+import { getServerClient, toLooseRpcClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
+const inventory = () => getServerClient("inventory")
+const kitchen = () => getServerClient("kitchen")
 
 interface TaskWithSnapshot {
 	id: string
 	production_date: string
 	status: string
-	menu_item: { recipe: RecipeSnapshotForIssue | null; planned_portion_quantity: number | null } | null
+	menu_item: { recipe: RecipeSnapshotForIssue | null; planned_portion_quantity: number | null }
 }
 
 async function fetchTask(taskId: string): Promise<{ task: TaskWithSnapshot; kitchenId: number }> {
 	const kit = kitchen()
 	const { data: task, error } = await kit.from("production_task").select("id, kitchen_id, production_date, status, menu_item_id").eq("id", taskId).single()
 	if (error || !task) throw new Error("Tarefa de produção não encontrada")
-	const { data: menuItem } = await kit.from("menu_items").select("recipe, planned_portion_quantity").eq("id", task.menu_item_id).single()
+	// Leitura que falha não vira "tarefa sem ficha": seguir com `menu_item` nulo baixava a tarefa
+	// com consumo teórico vazio.
+	const { data: menuItem, error: menuError } = await kit.from("menu_items").select("recipe, planned_portion_quantity").eq("id", task.menu_item_id).maybeSingle()
+	if (menuError) throw new Error(`Erro ao carregar a preparação da tarefa: ${menuError.message}`)
+	if (!menuItem) throw new Error("A preparação desta tarefa não está mais no cardápio")
 	return {
-		task: { ...task, menu_item: menuItem ?? null },
+		// `recipe` é o snapshot jsonb gravado no cardápio; o tipo gerado o declara `Json`.
+		task: { ...task, menu_item: { ...menuItem, recipe: menuItem.recipe as RecipeSnapshotForIssue | null } },
 		kitchenId: Number(task.kitchen_id),
 	}
 }
@@ -72,13 +74,7 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 	// Só lote COM saldo. A view traz todo lote que a cozinha já teve, inclusive os
 	// vazios; em alguns meses seriam centenas de ids num `.in(...)` via GET, a URL
 	// estoura, e a leitura — que agora lança erro — derrubaria a tela inteira.
-	const lotIds = [
-		...new Set(
-			(rows ?? [])
-				.filter((row: { lot_id: string | null; balance: number | string }) => row.lot_id != null && Number(row.balance) > 0)
-				.map((row: { lot_id: string }) => row.lot_id)
-		),
-	] as string[]
+	const lotIds = [...new Set((rows ?? []).flatMap((row) => (row.lot_id != null && Number(row.balance) > 0 ? [row.lot_id] : [])))]
 	const lotMeta = new Map<string, { quarantined_at: string | null; received_at: string | null; use_first: boolean | null }>()
 	if (lotIds.length > 0) {
 		const { data: lots, error: lotError } = await inv.from("stock_lot").select("id, quarantined_at, received_at, use_first").in("id", lotIds)
@@ -90,7 +86,8 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 	}
 
 	for (const row of rows ?? []) {
-		if (row.lot_id == null || Number(row.balance) <= 0) continue
+		// `ingredient_id` da view vem declarado anulável, mas a leitura filtra por ele.
+		if (row.lot_id == null || row.ingredient_id == null || Number(row.balance) <= 0) continue
 		const meta = lotMeta.get(row.lot_id)
 		if (meta?.quarantined_at != null) continue
 		const list = byIngredient.get(row.ingredient_id) ?? []
@@ -122,7 +119,7 @@ async function openPeriodStart(kitchenId: number): Promise<string> {
 	if (closingError) throw new Error(`Erro ao ler o fechamento mensal: ${closingError.message}`)
 	if (firstError) throw new Error(`Erro ao ler o início do estoque: ${firstError.message}`)
 	return pendingIssueWindowStart({
-		lastClosedCompetencia: (closing?.competencia as string | undefined) ?? null,
+		lastClosedCompetencia: closing?.competencia ?? null,
 		firstMovementDate: first?.occurred_at ? brasiliaDate(String(first.occurred_at)) : null,
 		today: brasiliaToday(),
 	})
@@ -134,8 +131,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
 		const kit = kitchen()
-		// Tipado: a única leitura do inventory aqui (`is_late_issue`) já está no `generated.ts`.
-		const inv = getServerClient("inventory")
+		const inv = inventory()
 
 		const since = await openPeriodStart(data.kitchenId)
 		const { data: tasks, error } = await kit
@@ -156,7 +152,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 			.eq("type", "production_issue")
 			.in(
 				"production_task_id",
-				taskList.map((t: { id: string }) => t.id)
+				taskList.map((t) => t.id)
 			)
 		if (issuedError) throw new Error(`Erro ao conferir as baixas das tarefas: ${issuedError.message}`)
 		// Baixada é a tarefa com saída que NÃO é tardia. A saída tardia ligada à tarefa é de um
@@ -175,7 +171,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 			byIngredient.set(move.ingredient_id, (byIngredient.get(move.ingredient_id) ?? 0) + Number(move.quantity))
 			lateByTask.set(move.production_task_id, byIngredient)
 		}
-		const pending = taskList.filter((t: { id: string }) => !issuedIds.has(t.id))
+		const pending = taskList.filter((t) => !issuedIds.has(t.id))
 		if (pending.length === 0) return []
 
 		const { data: menuItems } = await kit
@@ -183,9 +179,9 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 			.select("id, recipe, planned_portion_quantity")
 			.in(
 				"id",
-				pending.map((t: { menu_item_id: string }) => t.menu_item_id)
+				pending.map((t) => t.menu_item_id)
 			)
-		const menuById = new Map((menuItems ?? []).map((m: { id: string }) => [m.id, m]))
+		const menuById = new Map((menuItems ?? []).map((m) => [m.id, m]))
 
 		const results = []
 		for (const task of pending) {
@@ -310,7 +306,9 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 
 		if (data.newFrozenPreparation) {
 			// Cria (ou reaproveita pelo nome) e registra numa transação: sem congelada órfã no retry.
-			const { data: result, error } = await inv.rpc("register_leftover_provisional", {
+			// `p_measure_unit`, `p_shelf_life_days` e `p_reason` não têm default no SQL e aceitam nulo:
+			// o tipo gerado os declara não nulos, então esta RPC vai pela porta frouxa.
+			const { data: result, error } = await toLooseRpcClient(inv).rpc("register_leftover_provisional", {
 				p_kitchen_id: kitchenId,
 				p_description: data.newFrozenPreparation.description,
 				p_measure_unit: data.newFrozenPreparation.measureUnit ?? null,
@@ -327,14 +325,18 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 			return { lotId: (result?.[0]?.lot_id as string) ?? null, discarded: data.discard, provisional: true }
 		}
 
-		const { data: prep } = await kit.from("frozen_preparation").select("id, shelf_life_days").eq("id", data.frozenPreparationId).single()
+		// O `refine` do validador garante a congelada quando não há provisória nova.
+		const frozenPreparationId = data.frozenPreparationId
+		if (!frozenPreparationId) throw new Error("Preparação congelada não encontrada")
+		const { data: prep } = await kit.from("frozen_preparation").select("id, shelf_life_days").eq("id", frozenPreparationId).single()
 		if (!prep) throw new Error("Preparação congelada não encontrada")
 
 		// lote + movimentos numa função SQL (review: falha parcial deixava lote
 		// órfão e retry duplicava o retorno)
-		const { data: result, error } = await inv.rpc("register_leftover", {
+		// `p_reason` não tem default no SQL e é nulo sem descarte: ver `toLooseRpcClient`.
+		const { data: result, error } = await toLooseRpcClient(inv).rpc("register_leftover", {
 			p_kitchen_id: kitchenId,
-			p_frozen_preparation_id: data.frozenPreparationId,
+			p_frozen_preparation_id: frozenPreparationId,
 			p_lot_code: `SOBRA-${task.production_date}`,
 			p_expiry_date: leftoverExpiryDate(task.production_date, prep.shelf_life_days),
 			p_quantity: data.quantity,
@@ -355,8 +357,7 @@ export const listFrozenPreparationsLiteFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data: input }) => {
 		await requireStorageForKitchen(1, input.kitchenId)
-		// Tipado: as colunas `provisional_*` já estão no `generated.ts` (o `kitchen()` frouxo é dívida do arquivo).
-		const { data, error } = await getServerClient("kitchen")
+		const { data, error } = await kitchen()
 			.from("frozen_preparation")
 			.select("id, description, shelf_life_days, provisional_since, provisional_reviewed_at")
 			.is("deleted_at", null)
@@ -402,13 +403,13 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 				.select("id, recipe, planned_portion_quantity")
 				.in(
 					"id",
-					taskList.map((t: { menu_item_id: string }) => t.menu_item_id)
+					taskList.map((t) => t.menu_item_id)
 				)
-			const menuById = new Map((menuItems ?? []).map((m: { id: string }) => [m.id, m]))
+			const menuById = new Map((menuItems ?? []).map((m) => [m.id, m]))
 			// por TAREFA, não por menu_item deduplicado — a mesma preparação
 			// produzida N vezes conta N vezes (review: variância superestimada)
-			for (const taskRow of taskList as { menu_item_id: string }[]) {
-				const menuItem = menuById.get(taskRow.menu_item_id) as { recipe: unknown; planned_portion_quantity: number | null } | undefined
+			for (const taskRow of taskList) {
+				const menuItem = menuById.get(taskRow.menu_item_id)
 				if (!menuItem) continue
 				for (const line of computeTheoreticalConsumption(
 					menuItem.recipe as Parameters<typeof computeTheoreticalConsumption>[0],
