@@ -1,0 +1,42 @@
+##
+# Função ou classe exportada de um módulo de server fns (`*.fn.ts`).
+#
+# Nasceu de bug real (2026-09-26): `empenho.fn.ts` passou a exportar
+# `insertEmpenhoEventSerialized` e `cancelEmpenhoSerialized`, funções comuns que usam o Drizzle
+# (`getDb` de `@/lib/db.server`). O compilador de server fns do TanStack Start troca o corpo de
+# cada `createServerFn(...).handler(...)` por uma chamada RPC no bundle do CLIENTE, mas mantém
+# todo o resto do módulo — e as telas importam desse arquivo as server fns. O import de
+# `@/lib/db.server` foi parar no grafo do navegador, o import protection recusou, e o build do
+# sisub quebrou no CI/CD da `main` por três merges seguidos, sem deploy. Os checks de PR não
+# fazem o build de produção, então nada acusou antes do merge.
+#
+# Caminho certo: a lógica de servidor que não é server fn mora num módulo `*.server.ts`
+# (o import protection já o mantém fora do cliente), e o `*.fn.ts` importa de lá:
+#
+#     // src/server/empenho-events.server.ts
+#     export async function insertEmpenhoEventSerialized(...) { ... getDb() ... }
+#
+#     // src/server/empenho.fn.ts
+#     import { insertEmpenhoEventSerialized } from "@/server/empenho-events.server"
+#
+# Constantes, tipos e aliases de server fn (`export const x = outraFn`) continuam permitidos:
+# não carregam import de servidor.
+##
+rules:
+  - id: server-fn-module-exports-server-code
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `*.fn.ts` exporta uma função ou classe que não é server fn. O bundle do cliente mantém todo
+      export que não é `createServerFn`, e com ele os imports de servidor (`*.server`, Drizzle) —
+      o import protection derruba o build. Mova a lógica para um módulo `*.server.ts` e importe-a
+      daqui.
+    paths:
+      include:
+        - "apps/*/src/server/*.fn.ts"
+        - "apps/*/src/server/**/*.fn.ts"
+    pattern-either:
+      - pattern: export function $F(...) { ... }
+      - pattern: export async function $F(...) { ... }
+      - pattern: export class $C { ... }
+      - pattern: export class $C extends $B { ... }

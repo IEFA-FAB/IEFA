@@ -21,7 +21,7 @@ import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import { todayInBrasilia } from "@/lib/expense-execution"
 import { getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
-import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho.fn"
+import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
 import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage } from "@/types/domain/arp"
 
 // TODO: regenerar tipos após aplicar 20260926214000 — `acquisition_id`/`source` da ARP,
