@@ -357,6 +357,9 @@ rules:
     patterns:
       - pattern-regex: \b(?:exceptionSelections|exceptionSels|exceptionIds?|isException(?:Bucket)?|\w*Exceptions?Page|\w*ExceptionEditor\w*|SNACK_STANDARD_NOT_EXCEPTION|OCCASION_MENU_COPY\.exception|exceptions_without_occurrences|exceptionsWithoutOccurrences)\b
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+      # A chave antiga do payload do anexo, lida por um ciclo (`schemas/procurement.ts`), sai com o
+      # contract 20260927110000.
+      - pattern-not-regex: LEGACY_SUPPORT_MENU_SELECTIONS_KEY\s*=\s*"exceptionSelections"
 
   - id: ubiquitous-language-lot5-route
     languages: [generic]

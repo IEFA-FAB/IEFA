@@ -38,8 +38,9 @@
 --
 -- ## O que cita os valores no banco vivo (conferido em 2026-09-27, só SELECT)
 --
--- `pg_proc.prosrc`/`prosqlbody`, `pg_views`, `pg_matviews`, `pg_policies`, `pg_indexes` (predicado)
--- e `cron.job`: nenhum objeto cita os valores antigos como literal. Quem toca as colunas sem citar
+-- `pg_proc.prosrc`/`prosqlbody`, `pg_views`, `pg_matviews`, `pg_policies`, `pg_indexes` (predicado),
+-- `pg_constraint`, `pg_attrdef` (defaults), `pg_trigger` (WHEN) e `cron.job`: nenhum objeto cita os
+-- valores antigos como literal, fora os CHECKs alargados abaixo. Quem toca as colunas sem citar
 -- valor, e por isso não muda:
 --
 --   * `inventory.open_inventory_count(p_type text, …)` grava `p_type` como veio: o CHECK decide.
@@ -68,6 +69,9 @@ begin
 	from pg_proc p
 	join pg_namespace n on n.oid = p.pronamespace
 	where n.nspname not in ('pg_catalog', 'information_schema')
+		-- Função de extensão (graphql, storage, auth...) não é do sisub: um `'product'` dela seria
+		-- falso positivo.
+		and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
 		and (
 			coalesce(p.prosrc, '') ~ old_values
 			or coalesce(pg_get_function_sqlbody(p.oid), '') ~ old_values
@@ -99,6 +103,40 @@ begin
 	where schemaname in ('procurement', 'inventory', 'kitchen') and indexdef ~ old_values;
 	if offenders is not null then
 		raise exception 'índices parciais citam valor antigo do lote 5: %', offenders;
+	end if;
+
+	-- CHECK de outra tabela, default de coluna e cláusula WHEN de trigger também comparam valor. Os
+	-- seis CHECKs redefinidos abaixo ficam de fora: são eles que este expand alarga.
+	select string_agg(c.conrelid::regclass::text || '.' || c.conname, ', ') into offenders
+	from pg_constraint c
+	join pg_namespace n on n.oid = c.connamespace
+	where n.nspname in ('core', 'kitchen', 'procurement', 'finance', 'inventory', 'access_control', 'siafi_integration', 'sisub', 'analytics')
+		and c.contype = 'c'
+		and c.conname not in (
+			'contract_designation_role_check', 'inventory_count_type_check', 'policy_rule_target_check',
+			'menu_template_template_type_check', 'menu_items_origin_template_type_check', 'menu_template_snack_complete_check'
+		)
+		and pg_get_constraintdef(c.oid) ~ old_values;
+	if offenders is not null then
+		raise exception 'CHECKs citam valor antigo do lote 5: %', offenders;
+	end if;
+
+	select string_agg(a.adrelid::regclass::text || '.' || att.attname, ', ') into offenders
+	from pg_attrdef a
+	join pg_attribute att on att.attrelid = a.adrelid and att.attnum = a.adnum
+	join pg_class cl on cl.oid = a.adrelid
+	join pg_namespace n on n.oid = cl.relnamespace
+	where n.nspname in ('core', 'kitchen', 'procurement', 'finance', 'inventory', 'access_control', 'siafi_integration', 'sisub', 'analytics')
+		and pg_get_expr(a.adbin, a.adrelid) ~ old_values;
+	if offenders is not null then
+		raise exception 'defaults de coluna citam valor antigo do lote 5: %', offenders;
+	end if;
+
+	select string_agg(t.tgrelid::regclass::text || '.' || t.tgname, ', ') into offenders
+	from pg_trigger t
+	where not t.tgisinternal and pg_get_triggerdef(t.oid) ~ old_values;
+	if offenders is not null then
+		raise exception 'triggers citam valor antigo do lote 5: %', offenders;
 	end if;
 
 	if to_regclass('cron.job') is not null then

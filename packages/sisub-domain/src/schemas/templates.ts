@@ -29,9 +29,13 @@ export const TEMPLATE_TYPE_VOCABULARY = renamedVocabulary(TEMPLATE_TYPES, { exce
 
 /**
  * Tipo de cardápio na entrada (formulário, tool do chat e do MCP). O nome antigo `exception` é
- * aceito por um ciclo, para cliente que ainda o envia, e sai daqui como `apoio`.
+ * aceito por um ciclo, para cliente que ainda o envia, e sai daqui como `apoio`. O JSON Schema que
+ * o modelo lê (`toJsonSchema`) anuncia só o vocabulário do glossário (`meta`).
  */
-export const TemplateTypeSchema = z.enum(TEMPLATE_TYPE_VOCABULARY.inputValues).transform(TEMPLATE_TYPE_VOCABULARY.parse)
+export const TemplateTypeSchema = z
+	.enum(TEMPLATE_TYPE_VOCABULARY.inputValues)
+	.meta({ enum: [...TEMPLATE_TYPES] })
+	.transform(TEMPLATE_TYPE_VOCABULARY.parse)
 
 /** Ocorrências mensais esperadas — só faz sentido para cardápio de apoio; multiplica o custeio no anexo quantitativo. */
 export const ExpectedMonthlyOccurrencesSchema = z.number().int().positive()

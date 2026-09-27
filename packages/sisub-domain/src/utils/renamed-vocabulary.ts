@@ -26,8 +26,11 @@ export interface RenamedVocabulary<V extends string> {
 	parse(value: string): V
 	/** O valor lido é `expected`, em qualquer um dos dois vocabulários. */
 	is(value: string | null | undefined, expected: V): boolean
-	/** O que se grava no banco para `value`: o antigo até o contract. */
-	toStored(value: V): string
+	/**
+	 * O que se grava no banco para `value`: o antigo até o contract. Valor fora do vocabulário (cópia
+	 * crua de uma linha) segue como está: quem decide é o CHECK.
+	 */
+	toStored(value: V | (string & {})): string
 	/** Os valores gravados que significam algum de `values` (para `= any(...)` e `in (...)`). */
 	storedValuesOf(values: readonly V[]): string[]
 }
@@ -40,7 +43,8 @@ export function renamedVocabulary<const V extends string>(values: readonly [V, .
 	const normalize = (value: string | null | undefined): V | null => {
 		if (value == null) return null
 		if (known.has(value)) return value as V
-		return legacy[value] ?? null
+		// `hasOwn`: chave do protótipo (`constructor`, `toString`) não é valor antigo.
+		return Object.hasOwn(legacy, value) ? (legacy[value] as V) : null
 	}
 
 	return {
@@ -53,7 +57,7 @@ export function renamedVocabulary<const V extends string>(values: readonly [V, .
 			return parsed
 		},
 		is: (value, expected) => normalize(value) === expected,
-		toStored: (value) => legacyOf.get(value) ?? value,
+		toStored: (value) => legacyOf.get(value as V) ?? value,
 		storedValuesOf: (subset) => subset.flatMap((value) => (legacyOf.has(value) ? [value, legacyOf.get(value) as string] : [value])),
 	}
 }

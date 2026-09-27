@@ -24,8 +24,14 @@ export type PolicyTarget = (typeof POLICY_TARGETS)[number]
 /** Valor gravado antes do lote 5 → alvo do glossário. Sai com o contract 20260927110000. */
 export const POLICY_TARGET_VOCABULARY = renamedVocabulary(POLICY_TARGETS, { product: "ingredient" })
 
-/** Aceita o nome antigo por um ciclo (aba aberta antes do deploy) e entrega o do glossário. */
-export const PolicyTargetSchema = z.enum(POLICY_TARGET_VOCABULARY.inputValues).transform(POLICY_TARGET_VOCABULARY.parse)
+/**
+ * Aceita o nome antigo por um ciclo (aba aberta antes do deploy) e entrega o do glossário; o JSON
+ * Schema anuncia só o do glossário.
+ */
+export const PolicyTargetSchema = z
+	.enum(POLICY_TARGET_VOCABULARY.inputValues)
+	.meta({ enum: [...POLICY_TARGETS] })
+	.transform(POLICY_TARGET_VOCABULARY.parse)
 
 export const ListPolicyRulesSchema = z.object({
 	target: PolicyTargetSchema,

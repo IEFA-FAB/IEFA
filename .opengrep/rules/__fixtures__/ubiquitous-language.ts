@@ -324,6 +324,8 @@ const { supportMenuId } = Route.useParams()
 // ok: ubiquitous-language-lot5-identifier
 const approval = { exceptionReason: "Único responsável nível 3" }
 // ok: ubiquitous-language-lot5-identifier
+const LEGACY_SUPPORT_MENU_SELECTIONS_KEY = "exceptionSelections"
+// ok: ubiquitous-language-lot5-identifier
 // o `isException` antigo virou `isSupportMenu`
 
 // ruleid: ubiquitous-language-lot5-route

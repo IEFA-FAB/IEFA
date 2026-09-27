@@ -119,6 +119,15 @@ function latestFunctionBody(name: string): string {
 	return end === -1 ? rest : rest.slice(0, end)
 }
 
+/** Valores do CHECK nomeado na definição VIGENTE (a última migration que o declara). */
+function namedCheck(constraint: string, column: string): string[] {
+	const pattern = new RegExp(`constraint ${constraint} check \\(${column} in \\(([^)]*)\\)`, "i")
+	const { sql } = latestSqlWith(pattern)
+	const match = sql.match(pattern)
+	if (!match) throw new Error(`CHECK nomeado ${constraint} não encontrado`)
+	return [...(match[1] as string).matchAll(/'([^']+)'/g)].map((value) => value[1] as string).sort()
+}
+
 /**
  * Vocabulário VIGENTE de `stock_movement.type` — lido do `add constraint`
  * nomeado, não da posição da lista no arquivo: as migrations de função repetem
@@ -311,15 +320,6 @@ describe("antecedência default do alerta de vencimento", () => {
 })
 
 describe("recebimento e designação (20260917200000, 20260926215000)", () => {
-	/** Valores do CHECK nomeado na definição VIGENTE (a última migration que o declara). */
-	function namedCheck(constraint: string, column: string): string[] {
-		const pattern = new RegExp(`constraint ${constraint} check \\(${column} in \\(([^)]*)\\)`, "i")
-		const { sql } = latestSqlWith(pattern)
-		const match = sql.match(pattern)
-		if (!match) throw new Error(`CHECK nomeado ${constraint} não encontrado`)
-		return [...(match[1] as string).matchAll(/'([^']+)'/g)].map((value) => value[1] as string).sort()
-	}
-
 	test("goods_receipt.source", () => {
 		expect(checkValues("20260917200000_receiving_designation_and_scan.sql", "source", 1)).toEqual([...RECEIPT_SOURCES].sort())
 	})
@@ -339,14 +339,6 @@ describe("recebimento e designação (20260917200000, 20260926215000)", () => {
  * cada um só no do glossário.
  */
 describe("valores de domínio do lote 5", () => {
-	function namedCheck(constraint: string, column: string): string[] {
-		const pattern = new RegExp(`constraint ${constraint} check \\(${column} in \\(([^)]*)\\)`, "i")
-		const { sql } = latestSqlWith(pattern)
-		const match = sql.match(pattern)
-		if (!match) throw new Error(`CHECK nomeado ${constraint} não encontrado`)
-		return [...(match[1] as string).matchAll(/'([^']+)'/g)].map((value) => value[1] as string).sort()
-	}
-
 	test("inventory_count.type", () => {
 		expect(namedCheck("inventory_count_type_check", "type")).toEqual([...INVENTORY_COUNT_TYPE_VOCABULARY.inputValues].sort())
 	})

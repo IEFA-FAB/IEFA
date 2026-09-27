@@ -14,8 +14,11 @@ type TemplateRow = {
 	kitchen_id: number | null
 	name: string | null
 	deleted_at: string | null
-	/** No vocabulário do glossário: até o contract do lote 5 o banco ainda tem `exception`. */
-	template_type: TemplateType | null
+	/**
+	 * No vocabulário do glossário (até o contract do lote 5 o banco ainda tem `exception`). Valor
+	 * fora dos dois segue cru: `null` quer dizer semanal, e um tipo desconhecido não pode virar um.
+	 */
+	template_type: TemplateType | (string & {}) | null
 	snack_family: string | null
 	snack_class: string | null
 	snack_variant: string | null
@@ -60,7 +63,7 @@ export async function validateTemplateAccess(db: SisubDb, templateId: string, ki
 	if (template.kitchen_id !== null && kitchenId !== null && template.kitchen_id !== kitchenId) {
 		throw new DomainError("TEMPLATE_ACCESS_DENIED", `Template ${templateId} does not belong to kitchen ${kitchenId}`)
 	}
-	return { ...template, template_type: TEMPLATE_TYPE_VOCABULARY.normalize(template.template_type) }
+	return { ...template, template_type: TEMPLATE_TYPE_VOCABULARY.normalize(template.template_type) ?? template.template_type }
 }
 
 export async function resolveKitchenFromMenu(db: SisubDb, dailyMenuId: string): Promise<number> {
