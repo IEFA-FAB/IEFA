@@ -140,9 +140,6 @@ rules:
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
       # Espelho do Compras.gov.br e do banco da ARP.
       - pattern-not-regex: \b(?:numero|ano|status|descricao|formatNumero|anoFromNumero)Ata\w*|\bnumero_ata\b|\bano_ata\b|\bstatus_ata\b|Atalho
-      # O mapa de caminhos antigos (`lib/legacy-routes.ts`) e quem o testa citam a origem como
-      # `from: "<caminho antigo>"`: é o único lugar em que o nome descartado é o dado.
-      - pattern-not-regex: \bfrom:\s*["'`][^"'`]*["'`]
 
   - id: ubiquitous-language-lot2-route
     languages: [generic]
@@ -170,7 +167,6 @@ rules:
           - pattern-regex: /print/quantities(?=[/"'`?#)]|$)
           - pattern-regex: /ata/:\w+|/ata(?=["'`])
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
-      - pattern-not-regex: \bfrom:\s*["'`][^"'`]*["'`]
 
   - id: ubiquitous-language-lot2-label
     languages: [generic]

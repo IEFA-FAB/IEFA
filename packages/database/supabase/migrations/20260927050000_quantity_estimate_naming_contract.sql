@@ -22,6 +22,34 @@
 -- E recria `core.v_measure_unit_review` com o rótulo do nome novo da tabela
 -- (`'procurement.quantity_estimate_item'`), que o leitor (`global/review-queues.tsx`) já entende.
 
+-- Nada além do espelho pode citar as colunas que caem: função plpgsql não cria dependência de
+-- coluna, então o `drop column` passaria e ela quebraria só quando rodasse, em produção.
+do $$
+declare
+	offenders text;
+begin
+	select string_agg(p.oid::regprocedure::text, ', ') into offenders
+	from pg_proc p
+	join pg_namespace n on n.oid = p.pronamespace
+	where n.nspname not in ('pg_catalog', 'information_schema')
+		and p.proname not in ('mirror_quantity_estimate_id', 'mirror_quantity_estimate_item_id', 'mirror_quantity_estimate_id_from_list_id')
+		and (
+			coalesce(p.prosrc, '') ~ '\m(procurement_list\w*|list_id|list_kitchen_id|max_margin_percent|margin_justification|total_quantity)\M'
+			or coalesce(pg_get_function_sqlbody(p.oid), '') ~ '\m(procurement_list\w*|list_id)\M'
+		);
+	if offenders is not null then
+		raise exception 'funções citam colunas ou views que este contract derruba: %', offenders;
+	end if;
+
+	select string_agg(schemaname || '.' || tablename || '.' || policyname, ', ') into offenders
+	from pg_policies
+	where coalesce(qual, '') || coalesce(with_check, '') ~ '\m(procurement_list\w*|list_id)\M';
+	if offenders is not null then
+		raise exception 'policies citam colunas ou views que este contract derruba: %', offenders;
+	end if;
+end;
+$$;
+
 -- O espelho garante colunas iguais; se não estiverem, algo escreveu por fora dele e a coluna
 -- antiga tem dado que a nova não tem. Para, em vez de perder o vínculo.
 do $$
@@ -80,11 +108,11 @@ alter table procurement.procurement_pesquisa_preco drop column procurement_list_
 alter table procurement.procurement_pesquisa_preco_item drop column procurement_list_item_id;
 alter table procurement.price_research_emission drop column list_id;
 
--- A PK (forecast_id, list_id) cai com a coluna; o unique do expand vira a PK com o nome dela.
+-- A PK (forecast_id, list_id) cai com a coluna; o índice único do expand vira a PK, com o nome
+-- dela, sem reconstruir o índice.
 alter table procurement.kitchen_demand_forecast_import drop column list_id;
-alter table procurement.kitchen_demand_forecast_import drop constraint kitchen_demand_forecast_import_quantity_estimate_key;
 alter table procurement.kitchen_demand_forecast_import
-	add constraint kitchen_demand_forecast_import_pkey primary key (forecast_id, quantity_estimate_id);
+	add constraint kitchen_demand_forecast_import_pkey primary key using index kitchen_demand_forecast_import_quantity_estimate_key;
 
 -- ─── 3. Status: só o vocabulário do glossário ────────────────────────────────────
 

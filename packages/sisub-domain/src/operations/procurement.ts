@@ -258,16 +258,21 @@ export async function fetchUnitDashboard(
 	// Anexos, saldo de ARP e cardápio planejado da OM: só quem lê a unidade. Antes a fn só
 	// exigia sessão, e o `unitId` do corpo abria o painel de qualquer OM.
 	requireUnit(ctx, 1, input.unitId)
-	// ── 1. Todos os anexos não deletados da unidade ─────────────────────────────
-	const allQuantityEstimates = await runQuery("QUERY_FAILED", () =>
+	// ── 1. Anexos concluídos não excluídos da unidade ───────────────────────────
+	const completedQuantityEstimateRows = await runQuery("QUERY_FAILED", () =>
 		db
 			.select()
 			.from(quantityEstimateInProcurement)
-			.where(and(eq(quantityEstimateInProcurement.unitId, input.unitId), isNull(quantityEstimateInProcurement.deletedAt)))
+			.where(
+				and(
+					eq(quantityEstimateInProcurement.unitId, input.unitId),
+					eq(quantityEstimateInProcurement.status, "completed"),
+					isNull(quantityEstimateInProcurement.deletedAt)
+				)
+			)
 			.orderBy(desc(quantityEstimateInProcurement.createdAt))
 	)
 
-	const completedQuantityEstimateRows = allQuantityEstimates.filter((a) => a.status === "completed")
 	const completedQuantityEstimates = completedQuantityEstimateRows.map((a) => toWire<QuantityEstimate>(a))
 	const completedQuantityEstimateIds = completedQuantityEstimateRows.map((a) => a.id)
 
@@ -298,8 +303,7 @@ export async function fetchUnitDashboard(
 	const arpById = new Map(arpsData.map((a) => [a.id, a]))
 
 	// ── 3. Itens das ARPs com join no item do anexo (para ingredient_id) ──────
-	// Join explícito pela coluna nova: a relação de `relations.ts` ainda sai da FK antiga
-	// (`procurement_list_item_id`), que o contract 20260927050000 derruba.
+	// Join explícito pela coluna do item do anexo (`quantity_estimate_item_id`).
 	const arpItems = await runQuery("QUERY_FAILED", () =>
 		db
 			.select({
