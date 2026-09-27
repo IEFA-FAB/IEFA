@@ -273,6 +273,100 @@ rules:
       - pattern-not-regex: \bparsed\.dotacao\b
 
 
+  # ── Lote 7: arranchamento ──────────────────────────────────────────────────
+  #
+  # O militar se ARRANCHA: declara que vai comer numa data, refeição e refeitório; a presença é o
+  # comparecimento. "Meal forecast" é a estimativa agregada (`daily_menu.forecasted_headcount`,
+  # `forecastedHeadcount`), que fica, e a previsão de demanda da cozinha (`DemandForecast`,
+  # `forecastId`, `pendingForecasts`) é outro conceito: por isso a regra lista os nomes do
+  # arranchamento, não a palavra `forecast`. Ficam de fora a definição do alias depreciado da API
+  # (`LEGACY_ARRANCHAMENTO_PATH`, `apps/api/src/api/arranchamento-path.ts`) e o teste que prova que
+  # o analytics recusa o nome antigo.
+
+  - id: ubiquitous-language-lot7-identifier
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Nome descartado pelo glossário do sisub: o comensal se arrancha. A tabela é
+      `kitchen.arranchamento` (`arranchamentoInKitchen`, tipos `Arranchamento`,
+      `ArranchamentoRecord`, `ArranchamentoHook`, `ArranchamentoMap`), não `meal_forecasts`; as
+      operações são `listArranchamentos`, `upsertArranchamento`, `deleteArranchamento`,
+      `listArranchamentoMap` e `fetchUserArranchamento` (server fns `*ArranchamentoFn`, hook
+      `useArranchamento`, `userArranchamentoQueryOptions`); as contagens dos painéis são
+      `arranchados_count`, `arranchados_users`, `total_arranchados` e `arranchamento_meals`. A API é
+      `/api/arranchamentos`. "Forecast" fica só para a estimativa agregada
+      (`forecasted_headcount`) e para a previsão de demanda.
+    paths:
+      include:
+        - "apps/sisub/src/**/*.ts"
+        - "apps/sisub/src/**/*.tsx"
+        - "apps/sisub/e2e/**/*.ts"
+        - "packages/sisub-domain/src/**/*.ts"
+        - "apps/sisub-mcp/src/**/*.ts"
+        - "apps/api/src/**/*.ts"
+        - "packages/database/src/sisub.ts"
+      exclude:
+        - "**/routeTree.gen.ts"
+        - "**/generated.ts"
+        - "**/drizzle/**"
+    patterns:
+      - pattern-regex: \b(?:\w*[mM]ealForecasts?\w*|meal_forecasts?|MEAL_FORECASTS?|\w*ForecastRecord\w*|\w*[uU]psertForecast\w*|deleteForecastFn|DeleteForecast(?:Schema)?|\w*[lL]istForecastMap\w*|\w*ForecastMap|forecastMap|systemForecast|loadExistingForecasts|fetchForecastsFn|forecast_count|forecast_users|total_forecast|forecast_meals|rancho_previsoes)\b
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+      # A definição do alias depreciado da API: o único lugar em que o caminho antigo é o dado.
+      - pattern-not-regex: \bLEGACY_ARRANCHAMENTO_PATH\s*=\s*"/rancho_previsoes"
+      # O teste do analytics prova que o nome antigo da tabela é recusado.
+      - pattern-not-regex: (?m)^.*\bvalidateSql\(.*$
+      - pattern-not-regex: Tabela não permitida:\s*\w+
+
+  - id: ubiquitous-language-lot7-route
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Rota com segmento descartado pelo glossário do sisub: a tela do comensal é
+      `/diner/arranchamento`, não `/diner/forecast`; na API, `/api/arranchamentos`. O caminho antigo
+      só existe como entrada `from` de `LEGACY_ROUTE_PREFIXES` (`apps/sisub/src/lib/legacy-routes.ts`)
+      e como o alias depreciado da API (`LEGACY_ARRANCHAMENTO_PATH`), até o mantenedor retirá-los.
+    paths:
+      include:
+        - "apps/sisub/src/**/*.ts"
+        - "apps/sisub/src/**/*.tsx"
+        - "apps/sisub/e2e/**/*.ts"
+        - "apps/api/src/**/*.ts"
+      exclude:
+        - "**/routeTree.gen.ts"
+    patterns:
+      - pattern-regex: /diner/forecast(?=[/"'`?#)]|$)
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+      - pattern-not-regex: \bfrom:\s*["'`][^"'`]*["'`]
+
+  - id: ubiquitous-language-lot7-label
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Rótulo descartado do arranchamento. A tela do comensal é "Arranchamento" (quem marca que vai
+      comer está "arranchado"; `will_eat = false` é "desarranchado"), e o painel compara
+      arranchados com presentes. "Previsão" é a estimativa agregada de comensais
+      (`forecasted_headcount`) e a previsão de demanda da cozinha; na busca do menu a palavra
+      pode ficar como palavra-chave.
+    paths:
+      include:
+        - "apps/sisub/src/routes/_protected/_modules/diner/**"
+        - "apps/sisub/src/routes/_protected/_modules/messhall/**"
+        - "apps/sisub/src/routes/_protected/_modules/local-analytics/**"
+        - "apps/sisub/src/routes/_public/tutorial.tsx"
+        - "apps/sisub/src/components/features/diner/**"
+        - "apps/sisub/src/components/features/messhall/**"
+        - "apps/sisub/src/components/features/analytics/**"
+        - "apps/sisub/src/components/features/analytics-chat/**"
+        - "apps/sisub/src/components/features/local/PresenceTable.tsx"
+    patterns:
+      - pattern-regex: (?i)\bprevis(?:ão|ões|to|tos|ta|tas)\b
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*|\{/\*).*$
+      # A estimativa agregada e a previsão de demanda são "previsão" de fato.
+      - pattern-not-regex: (?i)previs(?:ão|ões) de (?:demanda|comensais)|efetivo previst[oa]s?|comensais previstos
+      - pattern-not-regex: \bkeywords:\s*\[[^\]]*\]
+
+
   # ── Lote 8a: "rancho" ──────────────────────────────────────────────────────
   #
   # "Rancho" nomeia três coisas conforme a frase ("rancho dos oficiais" é um refeitório; "rancho
@@ -287,7 +381,8 @@ rules:
   #   - o efetivo (`kitchen.rancho`, `rancho_id` e os identificadores do roster), que é o lote 8b:
   #     os arquivos só dele saem por caminho, e o que vaza para barril, registro e guard sai pela
   #     última exclusão. O lote 8b apaga as duas.
-  # A API (`/api/rancho_previsoes`) fica fora dos caminhos até o lote 7. Os docs têm regra própria
+  # A API entrou nos caminhos com o lote 7; fica de fora só o alias depreciado do arranchamento
+  # (`LEGACY_ARRANCHAMENTO_PATH`), até o mantenedor retirá-lo. Os docs têm regra própria
   # em `ubiquitous-language-docs.yaml`, sem a exclusão de linha de comentário (em Markdown, `*`
   # abre lista e `**`, negrito).
 
@@ -309,6 +404,7 @@ rules:
         - "apps/sisub-mcp/src/**/*.ts"
         - "packages/pbac/src/**/*.ts"
         - "apps/docs/src/**/*.tsx"
+        - "apps/api/src/**/*.ts"
       exclude:
         - "**/routeTree.gen.ts"
         # Efetivo (`kitchen.rancho`): lote 8b.
@@ -326,6 +422,8 @@ rules:
       - pattern-not-regex: “rancho”
       - pattern-not-regex: \bstops:\s*"Recomendações — [^"]*"
       - pattern-not-regex: \bPIRANCHO\b
+      # Alias depreciado da API do arranchamento (lote 7), até o mantenedor retirá-lo.
+      - pattern-not-regex: \bLEGACY_ARRANCHAMENTO_PATH\s*=\s*"/rancho_previsoes"
       # Efetivo, até o lote 8b.
       - pattern-not-regex: \bkitchen\.rancho\b|\brancho_id\b|\b(?:[cC]reate|[uU]pdate)Rancho(?:Fn|Schema)?\b|\bWorkforceRanchoWire\b|\bRanchoWorkforce\w*|\bcomputeRanchoMetrics\b|Efetivo dos Ranchos
 

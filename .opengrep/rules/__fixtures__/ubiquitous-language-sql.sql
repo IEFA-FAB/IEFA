@@ -191,3 +191,33 @@ begin
 	raise exception 'nada';
 end;
 $$;
+
+// ── Lote 7: arranchamento ──────────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-migration-lot7
+create table kitchen.meal_forecasts_note (id uuid primary key, note text);
+
+// ruleid: ubiquitous-language-migration-lot7
+alter table kitchen.arranchamento rename to meal_forecasts;
+
+// ruleid: ubiquitous-language-migration-lot7
+create index meal_forecasts_user_idx on kitchen.arranchamento (user_id);
+
+// ruleid: ubiquitous-language-migration-lot7
+comment on table kitchen.arranchamento is 'antes meal_forecasts';
+
+// ruleid: ubiquitous-language-migration-lot7
+create function kitchen.count_forecasts() returns bigint language sql set search_path = '' as $$
+	select count(*) from kitchen.meal_forecasts;
+$$;
+
+// ok: ubiquitous-language-migration-lot7
+create function kitchen.count_arranchamentos() returns bigint language sql set search_path = '' as $$
+	select count(*) from kitchen.arranchamento where will_eat;
+$$;
+
+// ok: ubiquitous-language-migration-lot7
+alter table kitchen.daily_menu add column forecasted_headcount_note text;
+
+// ok: ubiquitous-language-migration-lot7
+drop view kitchen.meal_forecasts;
