@@ -26,19 +26,54 @@ import {
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
+import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
 const finance = () => getServerClient("finance")
 const siafi = () => getServerClient("siafi_integration")
 
-type BudgetCreditDbRow = Pick<
-	TableRow<"finance", "budget_credit">,
-	"id" | "ug" | "nd" | "ptres" | "fonte" | "pi" | "ugr" | "competencia" | "dotacao" | "empenhado_siafi" | "saldo_siafi" | "snapshot_at"
->
+const BUDGET_CREDIT_COLUMNS = [
+	"id",
+	"ug",
+	"nd",
+	"ptres",
+	"fonte",
+	"pi",
+	"ugr",
+	"competencia",
+	"dotacao",
+	"empenhado_siafi",
+	"saldo_siafi",
+	"snapshot_at",
+] as const
 
-/** Linha de `finance.credit_note`; `kind`, `budget_sphere` e `origin` estreitados aos valores dos CHECKs do banco. */
-export type CreditNoteRow = Omit<TableRow<"finance", "credit_note">, "unit_id" | "created_by" | "import_batch_id" | "kind" | "budget_sphere" | "origin"> & {
+type BudgetCreditDbRow = Pick<TableRow<"finance", "budget_credit">, (typeof BUDGET_CREDIT_COLUMNS)[number]>
+
+const CREDIT_NOTE_COLUMNS = [
+	"id",
+	"number",
+	"issued_on",
+	"kind",
+	"issuer_ug",
+	"beneficiary_ug",
+	"budget_sphere",
+	"ptres",
+	"fonte",
+	"nd",
+	"pi",
+	"ugr",
+	"amount",
+	"notes",
+	"origin",
+	"created_at",
+] as const
+
+/**
+ * Linha de `finance.credit_note` como `CREDIT_NOTE_COLUMNS` a lê; `kind`, `budget_sphere` e `origin`
+ * estreitados aos valores dos CHECKs do banco.
+ */
+export type CreditNoteRow = Omit<Pick<TableRow<"finance", "credit_note">, (typeof CREDIT_NOTE_COLUMNS)[number]>, "kind" | "budget_sphere" | "origin"> & {
 	kind: "descentralizacao" | "anulacao"
 	budget_sphere: "1" | "2" | "3" | null
 	origin: "manual" | "siafi"
@@ -56,8 +91,6 @@ export interface BudgetCreditLine extends BudgetProjection {
 	/** Σ das NC registradas no sisub que alimentam a linha no exercício (conferência, não saldo). */
 	notasCredito: number
 }
-
-const BUDGET_CREDIT_COLUMNS = "id, ug, nd, ptres, fonte, pi, ugr, competencia, dotacao, empenhado_siafi, saldo_siafi, snapshot_at"
 
 function toCreditLineSnapshot(row: BudgetCreditDbRow): CreditLineSnapshot & { id: string; pi: string | null; ugr: string | null } {
 	return {
@@ -94,7 +127,7 @@ async function fetchClassifiedEmpenhos(unitId: number): Promise<ClassifiedEmpenh
 	])
 	if (error) throw new Error(`Erro ao consultar empenhos: ${error.message}`)
 	if (vigenteError) throw new Error(`Erro ao consultar o valor vigente dos empenhos: ${vigenteError.message}`)
-	const vigenteById = new Map<string | null, number>((vigentes ?? []).map((row) => [row.empenho_id, Number(row.valor_vigente)]))
+	const vigenteById = new Map((vigentes ?? []).map((row) => [row.empenho_id, Number(row.valor_vigente)]))
 	return (rows ?? []).map((row) => ({
 		id: row.id,
 		dataEmpenho: row.data_empenho,
@@ -141,7 +174,12 @@ export const fetchBudgetCreditFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<BudgetCreditLine[]> => {
 		await requireUnitScope(1, data.unitId)
 
-		let query = finance().from("budget_credit").select(BUDGET_CREDIT_COLUMNS).eq("unit_id", data.unitId).order("competencia", { ascending: false }).order("nd")
+		let query = finance()
+			.from("budget_credit")
+			.select(selectColumns(BUDGET_CREDIT_COLUMNS))
+			.eq("unit_id", data.unitId)
+			.order("competencia", { ascending: false })
+			.order("nd")
 		if (data.competencia) query = query.eq("competencia", `${data.competencia}-01`)
 
 		const { data: rows, error } = await query
@@ -197,7 +235,7 @@ export const checkBudgetForEmpenhoFn = createServerFn({ method: "GET" })
 
 		const { data: rows, error } = await finance()
 			.from("budget_credit")
-			.select(BUDGET_CREDIT_COLUMNS)
+			.select(selectColumns(BUDGET_CREDIT_COLUMNS))
 			.eq("unit_id", data.unitId)
 			.order("competencia", { ascending: false })
 			.limit(500)
@@ -287,9 +325,6 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 // Notas de Crédito (NC)
 // ============================================================================
 
-const CREDIT_NOTE_COLUMNS =
-	"id, number, issued_on, kind, issuer_ug, beneficiary_ug, budget_sphere, ptres, fonte, nd, pi, ugr, amount, notes, origin, created_at"
-
 /** NC da unidade, mais recentes primeiro. */
 export const listCreditNotesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive(), exercicio: z.number().int().optional() }))
@@ -297,7 +332,7 @@ export const listCreditNotesFn = createServerFn({ method: "GET" })
 		await requireUnitScope(1, data.unitId)
 		let query = finance()
 			.from("credit_note")
-			.select(CREDIT_NOTE_COLUMNS)
+			.select(selectColumns(CREDIT_NOTE_COLUMNS))
 			.eq("unit_id", data.unitId)
 			.order("issued_on", { ascending: false })
 			.order("created_at", { ascending: false })
@@ -305,7 +340,13 @@ export const listCreditNotesFn = createServerFn({ method: "GET" })
 		if (data.exercicio) query = query.gte("issued_on", `${data.exercicio}-01-01`).lte("issued_on", `${data.exercicio}-12-31`)
 		const { data: rows, error } = await query
 		if (error) throw new Error(`Erro ao listar notas de crédito: ${error.message}`)
-		return ((rows ?? []) as CreditNoteRow[]).map((row) => ({ ...row, amount: Number(row.amount) }))
+		return (rows ?? []).map((row) => ({
+			...row,
+			amount: Number(row.amount),
+			kind: row.kind as CreditNoteRow["kind"],
+			budget_sphere: row.budget_sphere as CreditNoteRow["budget_sphere"],
+			origin: row.origin as CreditNoteRow["origin"],
+		}))
 	})
 
 const optionalCode = (pattern: RegExp, message: string) =>

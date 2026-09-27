@@ -19,7 +19,7 @@ import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import { todayInBrasilia } from "@/lib/expense-execution"
-import { getProcurementClient } from "@/lib/supabase.server"
+import { getFinanceClient, getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
 import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage } from "@/types/domain/arp"
@@ -405,7 +405,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		if (staleIds.length > 0) {
 			// Item com empenho fica (o FK é RESTRICT desde 20260926214000): o empenho aponta pelo
 			// cabeçalho antigo OU por um item da NE, e os dois contam.
-			const fin = supabase.schema("finance")
+			const fin = getFinanceClient()
 			const [{ data: headerRefs, error: headerError }, { data: itemRefs, error: itemError }] = await Promise.all([
 				fin.from("empenho").select("arp_item_id").in("arp_item_id", staleIds),
 				fin.from("empenho_item").select("arp_item_id").in("arp_item_id", staleIds),
@@ -630,8 +630,7 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 		if (new Set(numeros).size !== numeros.length) throw new Error("Dois itens com o mesmo número: cada item da ata tem um número")
 
 		const numeroAta = formatNumeroAta(data.numeroAta.split("/")[0] ?? data.numeroAta, data.anoAta)
-		const proc = supabase
-		const { data: arp, error } = await proc
+		const { data: arp, error } = await supabase
 			.from("procurement_arp")
 			.insert({
 				unit_id: data.unitId,
@@ -654,7 +653,7 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 			throw new Error(`Erro ao cadastrar a ARP: ${error.message}`)
 		}
 
-		const { error: itemsError } = await proc.from("procurement_arp_item").insert(
+		const { error: itemsError } = await supabase.from("procurement_arp_item").insert(
 			data.items.map((item) => ({
 				arp_id: arp.id,
 				numero_item: item.numeroItem,
@@ -673,7 +672,7 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 		if (itemsError) {
 			// Sem os itens a ARP não serve para empenhar: desfaz o cabeçalho em vez de deixar uma
 			// ata vazia dizendo "cadastrada".
-			const { error: undoError } = await proc.from("procurement_arp").delete().eq("id", arp.id)
+			const { error: undoError } = await supabase.from("procurement_arp").delete().eq("id", arp.id)
 			if (undoError) throw new Error(`Erro ao cadastrar os itens (${itemsError.message}) e ao desfazer a ARP (${undoError.message})`)
 			throw new Error(`Erro ao cadastrar os itens da ARP: ${itemsError.message}`)
 		}
@@ -787,7 +786,7 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<Array<Empenho & { item_value: number }>> => {
 		await requireAuth()
 		await requireUnitScope(1, await resolveArpItemUnit(getProcurementClient(), data.arpItemId))
-		const fin = getProcurementClient().schema("finance")
+		const fin = getFinanceClient()
 		const { data: items, error: itemsError } = await fin
 			.from("empenho_item")
 			.select("empenho_id, quantity, unit_price, value")
@@ -942,7 +941,7 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 
 		// Pelos itens da NE. A liquidação é da NE inteira; numa NE com vários itens ela se reparte
 		// entre eles na proporção do valor de cada item — é leitura de acompanhamento, não lançamento.
-		const financeClient = supabase.schema("finance")
+		const financeClient = getFinanceClient()
 		const { data: arpNeItems, error: arpNeError } = await financeClient.from("empenho_item").select("empenho_id, arp_item_id, value").in("arp_item_id", itemIds)
 		if (arpNeError) throw new Error(`Erro ao buscar itens de empenho: ${arpNeError.message}`)
 		const empenhoIds = [...new Set((arpNeItems ?? []).map((row) => row.empenho_id))]
@@ -960,8 +959,7 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 		for (const row of allItems ?? []) {
 			totalByEmpenho.set(row.empenho_id, (totalByEmpenho.get(row.empenho_id) ?? 0) + Number(row.value))
 		}
-		const saldoByEmpenho = new Map<string | null, { valor_liquidado: number | null; valor_pago: number | null; saldo_a_liquidar: number | null }>()
-		for (const saldo of saldos ?? []) saldoByEmpenho.set(saldo.empenho_id, saldo)
+		const saldoByEmpenho = new Map((saldos ?? []).map((saldo) => [saldo.empenho_id, saldo]))
 
 		const byItem: Record<string, { liquidado: number; pago: number; aLiquidar: number }> = {}
 		for (const row of arpNeItems ?? []) {
@@ -1000,7 +998,7 @@ export const anularEmpenhoFn = createServerFn({ method: "POST" })
 		// qualquer client de DB); o escopo de unidade só é conhecido depois de ler a
 		// linha, e vem DELA — o payload só traz o id.
 		await requireAuth()
-		const fin = getProcurementClient().schema("finance")
+		const fin = getFinanceClient()
 		// Sem o guard de unidade abaixo, qualquer sessão autenticada anulava qualquer
 		// empenho do sistema.
 		const { data: empenho, error: lookupError } = await fin.from("empenho").select("unit_id, status, numero_empenho").eq("id", data.empenhoId).maybeSingle()

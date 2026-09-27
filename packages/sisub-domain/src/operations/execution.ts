@@ -11,20 +11,26 @@
  * data de serviço de hoje no fuso de Brasília. Outro dia é planejamento, não execução.
  *
  * Leitura e escrita de uma tabela só vão pelo schema Drizzle. Fica em SQL cru o que o query
- * builder não diz melhor: as leituras da revisão (joins com `core.user_data`, o JSON do
- * snapshot, contagens correlacionadas) e a busca da provisória pendente sob o advisory lock.
+ * builder não diz melhor:
+ *  • as leituras da revisão (`fetchExecutionReviewStatus`, `listPendingProvisionalFrozenPreparations`):
+ *    joins com `core.user_data`, o JSON do snapshot e contagens correlacionadas. As duas de tabela
+ *    única dali (dias sem justificativa, congeladas provisórias) seguem no mesmo lote cru, com o
+ *    mesmo formato de linha das vizinhas;
+ *  • o advisory lock e a busca da provisória pendente sob ele (a subconsulta da versão mais nova);
+ *  • o predicado do índice parcial no `on conflict` do cardápio do dia.
  */
 
 import {
 	dailyMenuInKitchen,
 	frozenPreparationInKitchen,
+	mealTypeInKitchen,
 	menuItemsInKitchen,
 	productionTaskInKitchen,
 	recipesInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import { hasPermission } from "@iefa/pbac"
-import { and, eq, isNotNull, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, isNotNull, isNull, max, or, sql } from "drizzle-orm"
 import { requireKitchen, requireKitchenExecution, requirePermission } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type {
@@ -104,15 +110,20 @@ export async function fetchExecutionOptions(db: SisubDb, ctx: UserContext, input
 		runQuery(
 			"FETCH_FAILED",
 			() =>
-				db.execute(sql`
-					select m.id, m.name
-					from kitchen.meal_type m
-					where m.deleted_at is null and m.system_key is null
-						and (m.kitchen_id is null or m.kitchen_id = ${input.kitchenId})
-					order by m.sort_order nulls last, m.name
-				`),
+				db
+					.select({ id: mealTypeInKitchen.id, name: mealTypeInKitchen.name })
+					.from(mealTypeInKitchen)
+					.where(
+						and(
+							isNull(mealTypeInKitchen.deletedAt),
+							isNull(mealTypeInKitchen.systemKey),
+							or(isNull(mealTypeInKitchen.kitchenId), eq(mealTypeInKitchen.kitchenId, input.kitchenId))
+						)
+					)
+					// `asc` já põe o nulo por último no Postgres (o `nulls last` do SQL anterior).
+					.orderBy(asc(mealTypeInKitchen.sortOrder), asc(mealTypeInKitchen.name)),
 			{ prefix: "Erro ao ler as refeições" }
-		) as unknown as Promise<Row[]>,
+		),
 		// Uma por linhagem, escolhida pelo Postgres com a MESMA regra das listagens
 		// (`buildLineageWinnerFilter`, #465): local antes de global, maior versão, `id` no empate.
 		runQuery(
@@ -133,7 +144,7 @@ export async function fetchExecutionOptions(db: SisubDb, ctx: UserContext, input
 
 	return {
 		today: brasiliaToday(),
-		mealTypes: mealRows.map((row) => ({ id: String(row.id), name: String(row.name) })),
+		mealTypes: mealRows.map((row) => ({ id: row.id, name: String(row.name) })),
 		recipes: recipeRows
 			.map((row) => ({
 				id: row.id,
@@ -173,16 +184,22 @@ export async function addExecutionMenuItem(
 	requireKitchenExecution(ctx, input.kitchenId)
 	assertExecutionDate(input.serviceDate, brasiliaToday(now))
 
-	const [mealType] = (await runQuery(
+	const [mealType] = await runQuery(
 		"FETCH_FAILED",
 		() =>
-			db.execute(sql`
-				select m.id from kitchen.meal_type m
-				where m.id = ${input.mealTypeId} and m.deleted_at is null and m.system_key is null
-					and (m.kitchen_id is null or m.kitchen_id = ${input.kitchenId})
-			`),
+			db
+				.select({ id: mealTypeInKitchen.id })
+				.from(mealTypeInKitchen)
+				.where(
+					and(
+						eq(mealTypeInKitchen.id, input.mealTypeId),
+						isNull(mealTypeInKitchen.deletedAt),
+						isNull(mealTypeInKitchen.systemKey),
+						or(isNull(mealTypeInKitchen.kitchenId), eq(mealTypeInKitchen.kitchenId, input.kitchenId))
+					)
+				),
 		{ prefix: "Erro ao conferir a refeição" }
-	)) as unknown as Row[]
+	)
 	if (!mealType) throw new NotFoundError("meal_type", input.mealTypeId)
 
 	// Dentro de `runQuery`: constraint, FK ou deadlock no meio da transação vira
@@ -242,31 +259,45 @@ async function addExecutionMenuItemTx(db: SisubDb, ctx: UserContext, input: AddE
 		}
 
 		// ── o cardápio da refeição de hoje ────────────────────────────────────
-		const [menuRow] = (await tx.execute(sql`
-			insert into kitchen.daily_menu (kitchen_id, service_date, meal_type_id, status)
-			values (${input.kitchenId}, ${input.serviceDate}, ${input.mealTypeId}, 'PLANNED')
-			on conflict (service_date, meal_type_id, kitchen_id) where deleted_at is null do nothing
-			returning id, forecasted_headcount
-		`)) as unknown as Row[]
+		// Insere sem conflito e, se o cardápio já existe (ou outro turno o criou no mesmo instante),
+		// lê o existente: `do nothing` não devolve a linha. O alvo repete o predicado do índice único
+		// PARCIAL (`daily_menu_active_unique ... where deleted_at is null`); sem ele o Postgres não
+		// infere o índice e a inserção falha com 42P10.
+		const menuColumns = { id: dailyMenuInKitchen.id, forecastedHeadcount: dailyMenuInKitchen.forecastedHeadcount }
+		const [menuRow] = await tx
+			.insert(dailyMenuInKitchen)
+			.values({ kitchenId: input.kitchenId, serviceDate: input.serviceDate, mealTypeId: input.mealTypeId, status: "PLANNED" })
+			.onConflictDoNothing({
+				target: [dailyMenuInKitchen.serviceDate, dailyMenuInKitchen.mealTypeId, dailyMenuInKitchen.kitchenId],
+				where: sql`deleted_at is null`,
+			})
+			.returning(menuColumns)
 		const dailyMenu =
 			menuRow ??
 			(
-				(await tx.execute(sql`
-					select id, forecasted_headcount from kitchen.daily_menu
-					where kitchen_id = ${input.kitchenId} and service_date = ${input.serviceDate} and meal_type_id = ${input.mealTypeId} and deleted_at is null
-				`)) as unknown as Row[]
+				await tx
+					.select(menuColumns)
+					.from(dailyMenuInKitchen)
+					.where(
+						and(
+							eq(dailyMenuInKitchen.kitchenId, input.kitchenId),
+							eq(dailyMenuInKitchen.serviceDate, input.serviceDate),
+							eq(dailyMenuInKitchen.mealTypeId, input.mealTypeId),
+							isNull(dailyMenuInKitchen.deletedAt)
+						)
+					)
 			)[0]
 		if (!dailyMenu) throw new DomainError("UPSERT_FAILED", "Não foi possível abrir o cardápio de hoje")
-		const dailyMenuId = String(dailyMenu.id)
+		const dailyMenuId = dailyMenu.id
 
-		const [sortRow] = (await tx.execute(sql`
-			select coalesce(max(sort_order) + 1, 0) as next from kitchen.menu_items
-			where daily_menu_id = ${dailyMenuId} and item_group is null and deleted_at is null
-		`)) as unknown as Row[]
+		const [sortRow] = await tx
+			.select({ last: max(menuItemsInKitchen.sortOrder) })
+			.from(menuItemsInKitchen)
+			.where(and(eq(menuItemsInKitchen.dailyMenuId, dailyMenuId), isNull(menuItemsInKitchen.itemGroup), isNull(menuItemsInKitchen.deletedAt)))
 
 		// Porções: as informadas; senão o efetivo da refeição, quando há. Sem nenhum dos dois o
 		// item entra sem porções — a tarefa mostra "ficha incompleta" em vez de inventar número.
-		const headcount = dailyMenu.forecasted_headcount == null ? null : Number(dailyMenu.forecasted_headcount)
+		const headcount = dailyMenu.forecastedHeadcount
 		const plannedPortions = input.plannedPortionQuantity ?? headcount ?? null
 
 		const [item] = await tx
@@ -277,7 +308,7 @@ async function addExecutionMenuItemTx(db: SisubDb, ctx: UserContext, input: AddE
 				recipe: snapshot,
 				...(plannedPortions != null && { plannedPortionQuantity: plannedPortions }),
 				itemGroup: null,
-				sortOrder: num(sortRow?.next),
+				sortOrder: sortRow?.last == null ? 0 : Number(sortRow.last) + 1,
 				recommendedProportion: null,
 			})
 			.returning({ id: menuItemsInKitchen.id })

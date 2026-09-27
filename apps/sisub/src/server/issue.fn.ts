@@ -36,13 +36,16 @@ import { getDb } from "@/lib/db.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
-// Frouxo pelas RPCs: o tipo gerado declara os parâmetros com default como `?: string`, e aqui eles
-// vão como `null` explícito. Tipar o cliente obrigaria a trocar o payload das chamadas.
-// biome-ignore lint/suspicious/noExplicitAny: parâmetros das RPCs; ver acima
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
+const inventory = () => getServerClient("inventory")
+const kitchen = () => getServerClient("kitchen")
 
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
+// Frouxo SÓ para as RPCs que mandam `null` explícito em parâmetro com default (`issue_stock`,
+// `register_late_issue`): o tipo gerado declara esses parâmetros como `?: string`, sem `| null`.
+// Tipá-las obrigaria a trocar o `null` por chave omitida no payload, que é outra mudança. Todo
+// `.from(...)` e as demais RPCs passam pelo cliente tipado.
+// biome-ignore lint/suspicious/noExplicitAny: retorno das RPCs com `null` explícito; ver acima
+type LooseRpcClient = { rpc: (fn: string, args?: Record<string, unknown>) => any }
+const looseRpc = (client: ReturnType<typeof inventory>) => client as unknown as LooseRpcClient
 
 /** Tolerâncias da cozinha, com os defaults do banco. */
 async function toleranceFor(kitchenId: number) {
@@ -86,7 +89,7 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		.order("production_date", { ascending: true })
 		.order("id", { ascending: true })
 	if (taskError) throw new Error(`Erro ao carregar as tarefas do dia: ${taskError.message}`)
-	const allTasks = (tasks ?? []) as Array<{ id: string; menu_item_id: string }>
+	const allTasks = tasks ?? []
 	if (allTasks.length === 0) return { lines: [], taskIds: [] as string[] }
 
 	// Tarefa que já saiu pela "Baixa por Produção" não entra na sugestão do dia. São dois
@@ -105,7 +108,7 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		// A saída TARDIA ligada à tarefa é de um insumo, não a baixa da tarefa (20260926217000).
 		.eq("is_late_issue", false)
 	if (issuedError) throw new Error(`Erro ao conferir as baixas por produção do dia: ${issuedError.message}`)
-	const issuedByProduction = new Set((issuedMoves ?? []).map((move: { production_task_id: string | null }) => move.production_task_id))
+	const issuedByProduction = new Set((issuedMoves ?? []).map((move) => move.production_task_id))
 	const taskList = allTasks.filter((task) => !issuedByProduction.has(task.id))
 	if (taskList.length === 0) return { lines: [], taskIds: [] as string[] }
 
@@ -126,7 +129,7 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		.is("deleted_at", null)
 	if (menuError) throw new Error(`Erro ao carregar o cardápio do dia: ${menuError.message}`)
 
-	const dailyMenuIds = [...new Set((menuItems ?? []).map((item: { daily_menu_id: string | null }) => item.daily_menu_id).filter(Boolean))] as string[]
+	const dailyMenuIds = [...new Set((menuItems ?? []).map((item) => item.daily_menu_id).filter((id) => id != null))]
 	const mealTypeByMenu = new Map<string, string | null>()
 	if (dailyMenuIds.length > 0) {
 		const { data: dailyMenus, error: menuTypeError } = await kit.from("daily_menu").select("id, meal_type_id").in("id", dailyMenuIds).is("deleted_at", null)
@@ -136,9 +139,7 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 
 	// prato de uma refeição removida sai junto com ela
 	const menuById = new Map(
-		((menuItems ?? []) as Array<{ id: string; daily_menu_id: string | null }>)
-			.filter((item) => item.daily_menu_id == null || mealTypeByMenu.has(item.daily_menu_id))
-			.map((item) => [item.id, item])
+		(menuItems ?? []).filter((item) => item.daily_menu_id == null || mealTypeByMenu.has(item.daily_menu_id)).map((item) => [item.id, item])
 	)
 
 	const totals = new Map<string, { quantity: number; mealTypeId: string | null }>()
@@ -175,8 +176,7 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		.select("id, description, measure_unit, correction_factor, issue_package_quantity")
 		.in("id", [...totals.keys()])
 	if (ingredientError) throw new Error(`Erro ao carregar os dados dos insumos: ${ingredientError.message}`)
-	type IngredientMeta = { id: string; description: string; correction_factor: number | null; issue_package_quantity: number | null }
-	const metaById = new Map(((ingredients ?? []) as IngredientMeta[]).map((row) => [row.id, row]))
+	const metaById = new Map((ingredients ?? []).map((row) => [row.id, row]))
 
 	const lines = [...totals.entries()].map(([ingredientId, total]) => {
 		const meta = metaById.get(ingredientId)
@@ -236,7 +236,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		if (data.origin === "ad_hoc") {
 			const { data: created, error } = await inv.from("stock_issue_request").insert(values).select("id").single()
 			if (error || !created) throw new Error(`Erro ao abrir a saída avulsa: ${error?.message}`)
-			return { requestId: created.id as string, reopened: false as const, suggested: 0 }
+			return { requestId: created.id, reopened: false as const, suggested: 0 }
 		}
 
 		// A da PRODUÇÃO é uma por dia, e abri-la é check-then-act sobre o índice
@@ -255,7 +255,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 				.eq("origin", "production")
 				.maybeSingle()
 			if (error) throw new Error(`Erro ao carregar a requisição do dia: ${error.message}`)
-			return row as { id: string; status: string } | null
+			return row
 		}
 
 		let existing = await readRequest()
@@ -329,7 +329,7 @@ export const fetchTodayIssueRequestFn = createServerFn({ method: "GET" })
 				.eq("origin", "production")
 				.maybeSingle()
 			if (error) throw new Error(`Erro ao carregar a requisição do dia: ${error.message}`)
-			return { requestId: (row?.id as string | undefined) ?? null, adHocToday: [] as AdHocSummary[] }
+			return { requestId: row?.id ?? null, adHocToday: [] as AdHocSummary[] }
 		}
 
 		// Avulsas do dia: podem ser várias. A tela mostra a escolhida, ou a aberta
@@ -343,7 +343,7 @@ export const fetchTodayIssueRequestFn = createServerFn({ method: "GET" })
 			.order("created_at", { ascending: false })
 			.limit(50)
 		if (error) throw new Error(`Erro ao carregar as saídas avulsas do dia: ${error.message}`)
-		const adHocToday = ((rows ?? []) as Array<{ id: string; status: string; purpose: string | null; destination: string | null }>).map((row) => ({
+		const adHocToday = (rows ?? []).map((row) => ({
 			id: row.id,
 			status: row.status,
 			purpose: row.purpose,
@@ -409,7 +409,7 @@ export const issueStockFn = createServerFn({ method: "POST" })
 			}
 		}
 
-		const { data: result, error } = await inv.rpc("issue_stock", {
+		const { data: result, error } = await looseRpc(inv).rpc("issue_stock", {
 			p_request_id: data.requestId,
 			p_ingredient_id: data.ingredientId,
 			p_quantity: data.quantity,
@@ -451,8 +451,7 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const kit = kitchen()
-		// Cliente tipado: estas colunas já estão no `generated.ts` (o `inventory()` frouxo fica para as RPCs).
-		const { data: request, error: requestError } = await getServerClient("inventory")
+		const { data: request, error: requestError } = await inv
 			.from("stock_issue_request")
 			.select("id, kitchen_id, issue_date, origin, status, destination, purpose, closed_at, auto_closed_at, explained_at, explanation")
 			.eq("id", data.requestId)
@@ -478,20 +477,14 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 		const issued = new Map<string, number>()
 		const returned = new Map<string, number>()
 		const costs = new Map<string, number>()
-		for (const move of (movements ?? []) as Array<{ ingredient_id: string | null; type: string; quantity: number; unit_cost: number | null }>) {
+		for (const move of movements ?? []) {
 			if (move.ingredient_id == null) continue
 			const target = move.type === "issue_return" ? returned : issued
 			target.set(move.ingredient_id, (target.get(move.ingredient_id) ?? 0) + Number(move.quantity))
 			if (move.unit_cost != null) costs.set(move.ingredient_id, Number(move.unit_cost))
 		}
 
-		const rows = (items ?? []) as Array<{
-			id: string
-			ingredient_id: string
-			meal_type_id: string | null
-			suggested_qty: number | null
-			variance_reason: string | null
-		}>
+		const rows = items ?? []
 		const ingredientIds = [...new Set([...rows.map((row) => row.ingredient_id), ...issued.keys()])]
 
 		// Custo médio para o item que NÃO teve movimento nesta requisição. Sem
@@ -506,13 +499,13 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 				.in("ingredient_id", ingredientIds)
 			// sem custo, o valor do desvio dá zero e o piso nunca é passado
 			if (averagesError) throw new Error(`Erro ao carregar os custos: ${averagesError.message}`)
-			for (const row of (averages ?? []) as Array<{ ingredient_id: string | null; avg_unit_cost: number | null }>) {
+			for (const row of averages ?? []) {
 				if (row.ingredient_id == null) continue
 				if (!costs.has(row.ingredient_id) && row.avg_unit_cost != null) costs.set(row.ingredient_id, Number(row.avg_unit_cost))
 			}
 		}
 
-		const names = new Map<string, { description: string; measure_unit: string | null }>()
+		const names = new Map<string, { description: string | null; measure_unit: string | null }>()
 		if (ingredientIds.length > 0) {
 			const { data: ingredients } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
 			for (const ingredient of ingredients ?? []) names.set(ingredient.id, ingredient)
@@ -601,7 +594,7 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 			.eq("request_id", data.requestId)
 		if (seenItemsError) throw new Error(`Erro ao conferir a sugestão do dia: ${seenItemsError.message}`)
 		const seenSuggestions = issueSuggestionFingerprint(
-			((seenItems ?? []) as Array<{ ingredient_id: string; suggested_qty: number | string | null }>).map((row) => ({
+			(seenItems ?? []).map((row) => ({
 				ingredientId: row.ingredient_id,
 				suggestedQty: row.suggested_qty,
 			}))
@@ -670,7 +663,7 @@ export const fetchReturnableLotsFn = createServerFn({ method: "GET" })
 		if (error) throw new Error(`Erro ao carregar os lotes emitidos: ${error.message}`)
 
 		const net = new Map<string, number>()
-		for (const move of (moves ?? []) as Array<{ lot_id: string | null; type: string; quantity: number }>) {
+		for (const move of moves ?? []) {
 			// o movimento SEM lote é o saldo que faltou na emissão; não há lote
 			// para devolver, e oferecê-lo criaria estoque do nada
 			if (!move.lot_id) continue
@@ -682,7 +675,7 @@ export const fetchReturnableLotsFn = createServerFn({ method: "GET" })
 		if (lotIds.length === 0) return { lots: [] }
 		const { data: lots } = await inv.from("stock_lot").select("id, short_code, lot_code, expiry_date").in("id", lotIds)
 		return {
-			lots: ((lots ?? []) as Array<{ id: string; short_code: string | null; lot_code: string | null; expiry_date: string | null }>)
+			lots: (lots ?? [])
 				.map((lot) => ({
 					lotId: lot.id,
 					label: lot.short_code ?? lot.lot_code ?? lot.id.slice(0, 8),
@@ -711,7 +704,7 @@ export const fetchIssueDayGapsFn = createServerFn({ method: "GET" })
 			.eq("service_date", data.issueDate)
 			.is("deleted_at", null)
 		if (menuError) throw new Error(`Erro ao carregar os cardápios do dia: ${menuError.message}`)
-		const menuIds = ((menus ?? []) as Array<{ id: string }>).map((menu) => menu.id)
+		const menuIds = (menus ?? []).map((menu) => menu.id)
 		const out: Array<{ menuItemId: string; recipeName: string; notice: string }> = []
 		if (menuIds.length === 0) return { items: out }
 		const { data: items, error: itemError } = await kit
@@ -751,7 +744,7 @@ export const searchIssuableIngredientsFn = createServerFn({ method: "GET" })
 			.order("description", { ascending: true })
 			.limit(INGREDIENT_SEARCH_LIMIT)
 		if (error) throw new Error(`Erro ao buscar insumos: ${error.message}`)
-		return (rows ?? []) as Array<{ id: string; description: string; measure_unit: string | null }>
+		return rows ?? []
 	})
 
 /** Preparações (tarefas) de um dia, para ligar a saída tardia à preparação. */
@@ -767,7 +760,7 @@ export const listIssueDayTasksFn = createServerFn({ method: "GET" })
 			.or(`issue_date.eq.${data.issueDate},and(issue_date.is.null,production_date.eq.${data.issueDate})`)
 			.order("id", { ascending: true })
 		if (error) throw new Error(`Erro ao carregar as preparações do dia: ${error.message}`)
-		const taskList = (tasks ?? []) as Array<{ id: string; menu_item_id: string }>
+		const taskList = tasks ?? []
 		if (taskList.length === 0) return []
 		const { data: items, error: itemError } = await kit
 			.from("menu_items")
@@ -807,7 +800,7 @@ export const registerLateIssueFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
 		if (data.occurredOn > brasiliaToday()) throw new Error("A data real da saída não pode ser futura")
-		const { data: result, error } = await inventory().rpc("register_late_issue", {
+		const { data: result, error } = await looseRpc(inventory()).rpc("register_late_issue", {
 			p_kitchen_id: data.kitchenId,
 			p_ingredient_id: data.ingredientId,
 			p_quantity: data.quantity,
@@ -827,7 +820,7 @@ export const listUnexplainedIssueDaysFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const { data: rows, error } = await getServerClient("inventory")
+		const { data: rows, error } = await inventory()
 			.from("stock_issue_request")
 			.select("id, issue_date, origin")
 			.eq("kitchen_id", data.kitchenId)

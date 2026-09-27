@@ -34,17 +34,21 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { type LiquidationLinkInput, liquidationLinkProblems, type ReceiptForLiquidation } from "@/lib/invoice-gate"
+import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
 const finance = () => getServerClient("finance")
 const inventory = () => getServerClient("inventory")
 
+const DEDUCTION_COLUMNS = ["id", "liquidacao_id", "kind", "amount", "document_kind", "document_number", "revenue_code", "paid_on", "notes"] as const
+
 /**
- * Linha de `finance.liquidacao_deduction`; `kind` e `document_kind` estreitados aos valores dos
- * CHECKs do banco. `paid_on` é a data do recolhimento; `null` = retida, ainda não recolhida.
+ * Linha de `finance.liquidacao_deduction` como `DEDUCTION_COLUMNS` a lê; `kind` e `document_kind`
+ * estreitados aos valores dos CHECKs do banco. `paid_on` é a data do recolhimento; `null` = retida,
+ * ainda não recolhida.
  */
-export type LiquidacaoDeductionRow = Omit<TableRow<"finance", "liquidacao_deduction">, "created_at" | "created_by" | "kind" | "document_kind"> & {
+export type LiquidacaoDeductionRow = Omit<Pick<TableRow<"finance", "liquidacao_deduction">, (typeof DEDUCTION_COLUMNS)[number]>, "kind" | "document_kind"> & {
 	kind: (typeof DEDUCTION_KINDS)[number]
 	document_kind: (typeof DEDUCTION_DOCUMENT_KINDS)[number] | null
 }
@@ -92,11 +96,7 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
 		const ids = liquidacoes.map((l: { id: string }) => l.id)
 		const [{ data: pagamentos }, { data: deductionRows, error: deductionError }] = await Promise.all([
 			fin.from("pagamento").select("liquidacao_id, valor").in("liquidacao_id", ids),
-			fin
-				.from("liquidacao_deduction")
-				.select("id, liquidacao_id, kind, amount, document_kind, document_number, revenue_code, paid_on, notes")
-				.in("liquidacao_id", ids)
-				.order("created_at"),
+			fin.from("liquidacao_deduction").select(selectColumns(DEDUCTION_COLUMNS)).in("liquidacao_id", ids).order("created_at"),
 		])
 		if (deductionError) throw new Error(`Erro ao listar as deduções: ${deductionError.message}`)
 		const pagamentosByLiquidacao = new Map<string, number[]>()
@@ -106,9 +106,14 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
 			pagamentosByLiquidacao.set(pag.liquidacao_id, list)
 		}
 		const deductionsByLiquidacao = new Map<string, LiquidacaoDeductionRow[]>()
-		for (const row of (deductionRows ?? []) as LiquidacaoDeductionRow[]) {
+		for (const row of deductionRows ?? []) {
 			const list = deductionsByLiquidacao.get(row.liquidacao_id) ?? []
-			list.push({ ...row, amount: Number(row.amount) })
+			list.push({
+				...row,
+				amount: Number(row.amount),
+				kind: row.kind as LiquidacaoDeductionRow["kind"],
+				document_kind: row.document_kind as LiquidacaoDeductionRow["document_kind"],
+			})
 			deductionsByLiquidacao.set(row.liquidacao_id, list)
 		}
 

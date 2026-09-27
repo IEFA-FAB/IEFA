@@ -1,4 +1,3 @@
-import type { TableRow } from "@iefa/database"
 import {
 	CONSERVATION_CLASSES,
 	CONSERVATION_LABELS,
@@ -530,10 +529,8 @@ function ReceiptDetailPage() {
 
 	const items: ReceiptItemRow[] = receipt.items
 	const editable = isReceiptEditable(receipt.status)
-	// `fetchReceiptFn` lê pelo cliente frouxo do inventory; as colunas de vínculo saem do tipo gerado.
-	const links: TableRow<"inventory", "goods_receipt"> = receipt
-	const source = links.source
-	const sourceText = `${RECEIPT_SOURCE_LABELS[source as ReceiptSource] ?? source}${links.delivery_note_number ? ` ${links.delivery_note_number}` : ""}${links.supplier_name ? ` · ${links.supplier_name}` : ""}`
+	const source = receipt.source
+	const sourceText = `${RECEIPT_SOURCE_LABELS[source as ReceiptSource] ?? source}${receipt.delivery_note_number ? ` ${receipt.delivery_note_number}` : ""}${receipt.supplier_name ? ` · ${receipt.supplier_name}` : ""}`
 	const kitchenScope = { type: "kitchen" as const, id: Number(kitchenId) }
 	const canLink = can("storage", 2, kitchenScope)
 	const canDecide = can("storage", 3, kitchenScope)
@@ -593,7 +590,7 @@ function ReceiptDetailPage() {
 				<PageHeader
 					title="Conferência de Recebimento"
 					description={`Situação: ${RECEIPT_STATUS_LABEL[receipt.status] ?? receipt.status} · ${sourceText}${
-						links.rejected_at ? ` · Recusado em ${new Date(links.rejected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""
+						receipt.rejected_at ? ` · Recusado em ${new Date(receipt.rejected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""
 					}`}
 				>
 					<Button
@@ -637,7 +634,7 @@ function ReceiptDetailPage() {
 					stage={needsDesignation}
 					unitId={context.unitId}
 					canDesignate={context.canDesignate}
-					empenhoId={links.empenho_id}
+					empenhoId={receipt.empenho_id}
 					onDesignated={() => router.invalidate()}
 				/>
 			)}
@@ -654,22 +651,22 @@ function ReceiptDetailPage() {
 				</Alert>
 			)}
 
-			{receipt.status === "rejected" && links.notes && (
+			{receipt.status === "rejected" && receipt.notes && (
 				<Alert variant="destructive">
 					<Ban aria-hidden="true" />
 					<AlertTitle>
-						Entrega recusada{links.rejected_at ? ` em ${new Date(links.rejected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}
+						Entrega recusada{receipt.rejected_at ? ` em ${new Date(receipt.rejected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}
 					</AlertTitle>
-					<AlertDescription>{links.notes}</AlertDescription>
+					<AlertDescription>{receipt.notes}</AlertDescription>
 				</Alert>
 			)}
 
-			{links.invoice_check_deferred_at && (
+			{receipt.invoice_check_deferred_at && (
 				<Alert className="print:hidden">
 					<TriangleAlert aria-hidden="true" />
 					<AlertTitle>Efetivado com a consulta da NF-e pendente</AlertTitle>
 					<AlertDescription>
-						{`Em ${new Date(links.invoice_check_deferred_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}: ${links.invoice_check_deferred_reason ?? ""}. Registre a consulta na SEFAZ (NF-e) — sem ela, não há liquidação.`}
+						{`Em ${new Date(receipt.invoice_check_deferred_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}: ${receipt.invoice_check_deferred_reason ?? ""}. Registre a consulta na SEFAZ (NF-e) — sem ela, não há liquidação.`}
 					</AlertDescription>
 				</Alert>
 			)}
@@ -679,9 +676,9 @@ function ReceiptDetailPage() {
 					receiptId={receipt.id}
 					kitchenId={Number(kitchenId)}
 					source={context.source}
-					supplier={{ name: links.supplier_name, document: links.supplier_document }}
+					supplier={{ name: receipt.supplier_name, document: receipt.supplier_document }}
 					documents={{ nfe: context.invoice, supplyOrder: context.supplyOrder, empenho: context.empenho, liquidated: context.liquidated }}
-					invoiceExpected={links.invoice_expected}
+					invoiceExpected={receipt.invoice_expected}
 					canLink={canLink}
 					onLinked={() => router.invalidate()}
 				/>
