@@ -127,7 +127,7 @@ Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como ci
 | Termo da norma | Fonte | Identificador | Banco | Rótulo | Substituir |
 |---|---|---|---|---|---|
 | Refeitório: onde o comensal come e a presença é fiscalizada | — | `mess_hall` | `kitchen.mess_halls` | Refeitório | "rancho" nesse sentido: seletor do Comensal ("Rancho padrão", "Selecione um rancho"), filtros e colunas "Rancho" do analytics e da presença, "escala sem apoio de rancho" no lanche, tipo `Mess Hall (Rancho)` |
-| Refeitório no levantamento de efetivo (matriz da SDAB) | `20260827163000_workforce_matrix.sql` | `mess_hall` (fusão, recomendada) ou `mess_hall_workforce` (rename) | `kitchen.rancho` → fundida em `kitchen.mess_halls` ou `kitchen.mess_hall_workforce`; `workforce_submission.rancho_id` → `mess_hall_id` ou `mess_hall_workforce_id` | Efetivo da subsistência (por refeitório) | `kitchen.rancho`, `core.rancho`, `rancho_id`, `ranchoInKitchen`, `ranchoId`, `Rancho*`, `RanchoWorkforce*`, `computeRanchoMetrics`, `createRancho`, `updateRancho`, "Efetivo dos Ranchos" |
+| Refeitório no levantamento de efetivo (matriz da SDAB) | `20260827163000_workforce_matrix.sql` | `mess_hall_workforce` (rename decidido em 2026-09-27; a fusão em `mess_halls` é a change `sisub-workforce-by-mess-hall`) | `kitchen.mess_hall_workforce` (era `kitchen.rancho`); `workforce_submission.mess_hall_workforce_id` (era `rancho_id`) | Efetivo dos Refeitórios; na rede, efetivo da subsistência | `kitchen.rancho`, `core.rancho`, `rancho_id`, `ranchoInKitchen`, `ranchoId`, `Rancho*`, `RanchoWorkforce*`, `computeRanchoMetrics`, `createRancho`, `updateRancho`, "Efetivo dos Ranchos" |
 | Cozinha: onde se produz, com os seus refeitórios | — | `kitchen` | `kitchen.kitchen` | Cozinha | "rancho" nesse sentido: "material de rancho", "item do rancho" (produção regular), "planejamento do rancho", "tipos de refeição do rancho" |
 | Unidade (OM) e a sua subsistência | uso do COMAER | `unit` | `core.units`, `unit_id` | Unidade; Gestão Unidade | "rancho" nesse sentido: "chefe do rancho" (→ quem tem Gestão Unidade), "despesa do rancho", "compra fora do rancho", "rancho militar" |
 | Comensal | uso do COMAER (a confirmar) | `diner` | — (módulo PBAC) | Comensal | — |
@@ -200,6 +200,12 @@ Um termo que a norma define SHALL nomear só o conceito que ela define. Em parti
 - **WHEN** o usuário abre o módulo `messhall`
 - **THEN** o menu e o breadcrumb dizem "Fiscal de rancho"
 - **AND** a tela de designações continua chamando de "fiscal" só o fiscal do contrato
+
+#### Scenario: Matriz de efetivo
+
+- **WHEN** o gestor da unidade abre a matriz de efetivo
+- **THEN** o menu, o breadcrumb e a página dizem "Efetivo dos Refeitórios", e cada linha é um refeitório
+- **AND** o banco guarda a linha em `kitchen.mess_hall_workforce` e a resposta em `workforce_submission.mess_hall_workforce_id`
 
 ### Requirement: Renomear sem quebrar a main
 
