@@ -417,12 +417,12 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 			"QUERY_FAILED",
 			() =>
 				// A regra de `isEmpenhoWithoutOrigin` (empenho-conformity.ts), em SQL: sem contratação
-				// e sem nenhum item com item de ARP (o `arp_item_id` legado espelha o item único).
+				// e sem nenhum item da NE com item de ARP.
 				db.execute(sql`
 					select e.id, e.numero_empenho, e.valor_total, e.favorecido_nome, count(*) over () as total
 					from finance.empenho e
 					where e.unit_id = ${unitId} and e.status <> 'anulado'
-						and e.acquisition_id is null and e.arp_item_id is null
+						and e.acquisition_id is null
 						and not exists (select 1 from finance.empenho_item ei where ei.empenho_id = e.id and ei.arp_item_id is not null)
 					order by e.data_empenho desc, e.numero_empenho
 					limit 20

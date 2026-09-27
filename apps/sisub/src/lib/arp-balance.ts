@@ -4,35 +4,39 @@
  * que NUNCA se somam:
  *   - saldo oficial: snapshot da API Compras.gov (procurement_arp_item),
  *     inclui consumo de outras UASGs (caronas) e só muda em sincronização;
- *   - comprometimento local: soma dos finance.empenho ATIVOS da unidade,
- *     calculado em tempo real.
+ *   - comprometimento local: soma dos itens (finance.empenho_item) das NEs
+ *     ATIVAS da unidade, calculada em tempo real.
  */
 
-export interface EmpenhoLike {
+/** Item de NE com o status da NE a que pertence. */
+export interface EmpenhoItemLike {
+	empenho_id: string
 	arp_item_id: string
+	/** Status da NE (`finance.empenho.status`). */
 	status: string
-	quantidade_empenhada: number | string | null
-	valor_total: number | string | null
+	quantity: number | string | null
+	value: number | string | null
 }
 
 export interface LocalCommitment {
 	quantidade: number
 	valorTotal: number
+	/** Quantas NEs ativas cobrem o item (a NE com dois itens do mesmo item de ARP conta uma vez). */
 	count: number
 }
 
-/** Soma quantidade/valor dos empenhos ATIVOS, agrupados por item de ARP. Anulados ficam de fora. */
-export function aggregateLocalCommitments(empenhos: readonly EmpenhoLike[]): Map<string, LocalCommitment> {
-	const byItem = new Map<string, LocalCommitment>()
-	for (const e of empenhos) {
-		if (e.status !== "ativo") continue
-		const acc = byItem.get(e.arp_item_id) ?? { quantidade: 0, valorTotal: 0, count: 0 }
-		acc.quantidade += Number(e.quantidade_empenhada ?? 0)
-		acc.valorTotal += Number(e.valor_total ?? 0)
-		acc.count += 1
-		byItem.set(e.arp_item_id, acc)
+/** Soma quantidade/valor dos itens das NEs ATIVAS, agrupados por item de ARP. Anuladas ficam de fora. */
+export function aggregateLocalCommitments(items: readonly EmpenhoItemLike[]): Map<string, LocalCommitment> {
+	const byItem = new Map<string, { quantidade: number; valorTotal: number; empenhos: Set<string> }>()
+	for (const item of items) {
+		if (item.status !== "ativo") continue
+		const acc = byItem.get(item.arp_item_id) ?? { quantidade: 0, valorTotal: 0, empenhos: new Set<string>() }
+		acc.quantidade += Number(item.quantity ?? 0)
+		acc.valorTotal += Number(item.value ?? 0)
+		acc.empenhos.add(item.empenho_id)
+		byItem.set(item.arp_item_id, acc)
 	}
-	return byItem
+	return new Map([...byItem].map(([arpItemId, acc]) => [arpItemId, { quantidade: acc.quantidade, valorTotal: acc.valorTotal, count: acc.empenhos.size }]))
 }
 
 export interface ArpItemBalanceLike {

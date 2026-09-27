@@ -131,8 +131,11 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					const [arpItem] =
 						await tx`insert into procurement.procurement_arp_item (arp_id, numero_item, quantidade_homologada, ni_fornecedor) values (${arp.id}, 1, 500, '12345678000199') returning id`
 					const [empenho] = await tx`
-						insert into finance.empenho (unit_id, arp_item_id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, valor_total)
-						values (${unit.id}, ${arpItem.id}, '2026NE00E2E1', '2026-07-20', 100, 25, 2500) returning id`
+						insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total)
+						values (${unit.id}, '2026NE00E2E1', '2026-07-20', 2500) returning id`
+					await tx`
+						insert into finance.empenho_item (empenho_id, arp_item_id, quantity, unit_price, value)
+						values (${empenho.id}, ${arpItem.id}, 100, 25, 2500)`
 					const [supplyOrder] = await tx`
 						insert into procurement.supply_order (empenho_id, kitchen_id, number, sent_at, expected_delivery, status)
 						values (${empenho.id}, ${kitchenA.id}, 'OF-E2E-1', '2026-07-22', '2026-07-28', 'sent') returning id`

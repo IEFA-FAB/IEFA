@@ -77,11 +77,6 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 						(${ne.id}, ${byNumber.get(2) as string}, 2, 50, 8, 400),
 						(${ne.id}, ${byNumber.get(3) as string}, 3, 50, 10, 500)`
 
-				// Com vários itens, nenhum fala pela NE: as colunas antigas ficam nulas.
-				const [header] = await tx`select arp_item_id, quantidade_empenhada, valor_unitario from finance.empenho where id = ${ne.id}`
-				expect(header.arp_item_id).toBeNull()
-				expect(header.quantidade_empenhada).toBeNull()
-
 				// Comprometimento local por item de ARP: cada um soma só o seu.
 				const committed = await tx`
 					select arp_item_id, sum(quantity)::numeric as qty from finance.empenho_item where empenho_id = ${ne.id} group by arp_item_id`
@@ -183,14 +178,13 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 					values (${unit.id}, ${list.id}, '00001/2026', '160001') returning id`
 				const [arpItem] = await tx`
 					insert into procurement.procurement_arp_item (arp_id, numero_item, valor_unitario, quantidade_homologada) values (${arp.id}, 1, 5, 100) returning id`
-				// NE pelo caminho antigo (a `main` grava assim): o item nasce no commit.
+				// A NE aponta para o item da ARP pelo item dela.
 				const [ne] = await tx`
-					insert into finance.empenho (unit_id, arp_item_id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, valor_total)
-					values (${unit.id}, ${arpItem.id}, '2026NE000777', '2026-07-01', 100, 5, 500) returning id`
-				await tx`set constraints finance.empenho_ensure_item immediate`
-				const [item] = await tx`select arp_item_id, quantity, unit_price, value from finance.empenho_item where empenho_id = ${ne.id}`
-				expect(item.arp_item_id).toBe(arpItem.id)
-				expect(Number(item.value)).toBe(500)
+					insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total)
+					values (${unit.id}, '2026NE000777', '2026-07-01', 500) returning id`
+				await tx`
+					insert into finance.empenho_item (empenho_id, arp_item_id, quantity, unit_price, value)
+					values (${ne.id}, ${arpItem.id}, 100, 5, 500)`
 
 				await tx`delete from procurement.procurement_list where id = ${list.id}`
 				const [arpAfter] = await tx`select ata_id from procurement.procurement_arp where id = ${arp.id}`
@@ -206,6 +200,56 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 				await tx`delete from finance.empenho where id = ${ne.id}`
 				const [left] = await tx`select count(*)::int as n from finance.empenho_item where empenho_id = ${ne.id}`
 				expect(left.n).toBe(0)
+			})
+		).resolves.toBe("rolled-back")
+	}, 60_000)
+
+	test("NE só com o cabeçalho (import do SIAFI, registro rápido) ganha no commit o item do valor", async () => {
+		await expect(
+			inRollback(sql, async (tx) => {
+				const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-ENSURE', 'unit teste ensure') returning id`
+
+				// Import do SIAFI: `apply_document_row` grava a NE só com o cabeçalho.
+				const [applied] = await tx`
+					select siafi_integration.apply_document_row(
+						${unit.id}, 'ne', gen_random_uuid(), null,
+						${tx.json({ numero_ne: "2026NE000901", valor: "321.50", data: "2026-09-05", tipo_empenho: "Global" })}, null, null
+					) as outcome`
+				expect(applied.outcome).toBe("created")
+				const [siafiNe] = await tx`select id, origem from finance.empenho where unit_id = ${unit.id} and numero_empenho = '2026NE000901'`
+				expect(siafiNe.origem).toBe("siafi")
+
+				// Registro rápido: um insert só do cabeçalho.
+				const [quick] = await tx`
+					insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total, origem)
+					values (${unit.id}, '2026NE000902', '2026-09-05', 80, 'manual') returning id`
+
+				// NE com itens gravados na mesma transação (o caminho de `insertPreparedEmpenho`).
+				const [withItems] = await tx`
+					insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total)
+					values (${unit.id}, '2026NE000903', '2026-09-05', 70) returning id`
+				await tx`
+					insert into finance.empenho_item (empenho_id, position, quantity, unit, unit_price, value) values
+						(${withItems.id}, 1, 3, 'KG', 10, 30), (${withItems.id}, 2, 4, 'KG', 10, 40)`
+
+				// Antes do commit o trigger adiado ainda não rodou; aqui ele é forçado.
+				const [before] = await tx`select count(*)::int as n from finance.empenho_item where empenho_id in (${siafiNe.id}, ${quick.id})`
+				expect(before.n).toBe(0)
+				await tx`set constraints finance.empenho_ensure_item immediate`
+
+				const items = await tx`
+					select empenho_id, count(*)::int as n, sum(value)::numeric as total,
+						bool_and(arp_item_id is null and quantity is null and unit_price is null) as value_only
+					from finance.empenho_item where empenho_id in (${siafiNe.id}, ${quick.id}, ${withItems.id})
+					group by empenho_id`
+				const byEmpenho = new Map(items.map((row) => [row.empenho_id as string, row]))
+				expect(byEmpenho.get(siafiNe.id)).toMatchObject({ n: 1, value_only: true })
+				expect(Number(byEmpenho.get(siafiNe.id)?.total)).toBe(321.5)
+				expect(byEmpenho.get(quick.id)).toMatchObject({ n: 1, value_only: true })
+				expect(Number(byEmpenho.get(quick.id)?.total)).toBe(80)
+				// Quem já tinha itens não ganha um a mais.
+				expect(byEmpenho.get(withItems.id)).toMatchObject({ n: 2 })
+				expect(Number(byEmpenho.get(withItems.id)?.total)).toBe(70)
 			})
 		).resolves.toBe("rolled-back")
 	}, 60_000)

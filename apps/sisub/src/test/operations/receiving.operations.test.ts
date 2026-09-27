@@ -43,8 +43,11 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 						insert into procurement.procurement_arp_item (arp_id, numero_item, quantidade_homologada)
 						values (${arp.id}, 1, 1000) returning id`
 					const [empenho] = await tx`
-						insert into finance.empenho (unit_id, arp_item_id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, valor_total)
-						values (${unit.id}, ${arpItem.id}, '2026NE000999', '2026-07-01', 100, 5, 500) returning id`
+						insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total)
+						values (${unit.id}, '2026NE000999', '2026-07-01', 500) returning id`
+					await tx`
+						insert into finance.empenho_item (empenho_id, arp_item_id, quantity, unit_price, value)
+						values (${empenho.id}, ${arpItem.id}, 100, 5, 500)`
 
 					// OF dentro do saldo
 					const [of] = await tx`

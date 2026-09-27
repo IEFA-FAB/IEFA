@@ -5,7 +5,7 @@
  * Compras.gov.br (`procurement_arp_item.quantidade_empenhada`), que inclui outros órgãos e caronas
  * e só muda na sincronização — as telas mostram os dois lado a lado, sem somar.
  *
- * Lido pelos itens da NE, não por `empenho.arp_item_id`: NE com vários itens tem o cabeçalho nulo.
+ * Lido pelos itens da NE: a NE com vários itens conta em cada item de ARP que ela cobre.
  * Paginado: um item de ARP popular passa de mil itens de NE num exercício.
  */
 
@@ -30,11 +30,12 @@ export async function loadLocalCommitments(arpItemIds: readonly string[]): Promi
 				? []
 				: [
 						{
+							empenho_id,
 							arp_item_id,
 							// Item de NE cujo cabeçalho não voltou não conta: sem status, não é "ativo".
 							status: statusById.get(empenho_id) ?? "anulado",
-							quantidade_empenhada: quantity,
-							valor_total: value,
+							quantity,
+							value,
 						},
 					]
 		)

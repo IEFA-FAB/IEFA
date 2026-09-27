@@ -9,7 +9,8 @@
  * Toda NE nova chama `siafi_integration.relink_waiting_rows`: a NS importada antes dela vira
  * liquidação sem nova ação.
  *
- * CLIENT: getDb (NE + itens numa transação) e getServerClient (leituras, registro rápido).
+ * CLIENT: getDb via `insertPreparedEmpenho` (NE + itens numa transação) e getServerClient
+ *   (leituras, registro rápido).
  * AUTH: `unit` nível 2 na unidade; o registro rápido aceita também `storage` nível 2 na cozinha
  *   que compra por aquela unidade (o almoxarife que monta a OF).
  * TABLES: finance.empenho, finance.empenho_item, procurement.procurement_arp(_item), procurement.acquisition.
@@ -17,35 +18,29 @@
  * @migration 20260926214000_acquisition_origin
  */
 
-import {
-	type ArpConformityWarning,
-	type ArpItemFacts,
-	checkEmpenhoAgainstArp,
-	EMPENHO_TYPES,
-	empenhoItemProblems,
-	normalizeEmpenhoNumber,
-	resolveItemValue,
-	resolvePurchaseUnitId,
-	sumEmpenhoItems,
-} from "@iefa/sisub-domain"
-import { describeDriverError, unwrapPgError } from "@iefa/sisub-domain/utils"
+import { EMPENHO_TYPES, normalizeEmpenhoNumber, resolvePurchaseUnitId } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { sql } from "drizzle-orm"
 import { z } from "zod"
-import { resolveSaldoOficial } from "@/lib/arp-balance"
-import { loadLocalCommitments } from "@/lib/arp-commitments.server"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
-import { getDb } from "@/lib/db.server"
+import {
+	type CreatedEmpenho,
+	completeEmpenhoRegistration,
+	empenhoAuditTarget,
+	insertPreparedEmpenho,
+	prepareEmpenhoRegistration,
+	relinkWaitingRows,
+} from "@/lib/empenho-registration.server"
 import { normalizeDocument } from "@/lib/expense-execution"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
+export type { CreatedEmpenho } from "@/lib/empenho-registration.server"
+
 const finance = () => getServerClient("finance")
 const procurement = () => getServerClient("procurement")
 const kitchenDb = () => getServerClient("kitchen")
-const siafi = () => getServerClient("siafi_integration")
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -59,39 +54,12 @@ const EmpenhoItemSchema = z.object({
 	value: z.number().nonnegative(),
 })
 
-export interface CreatedEmpenho {
-	empenhoId: string
-	numeroEmpenho: string
-	valorTotal: number
-	/** Avisos da conferência NE × ARP (preço, saldo, vigência): registrados, não recusados. */
-	warnings: ArpConformityWarning[]
-	/** NS/OB estacionadas que a NE nova religou. */
-	relinked: number
-}
-
-/**
- * Religa as NS/OB estacionadas da unidade — a MESMA função que o import de lote chama. Falha
- * aqui não desfaz a NE: a linha continua estacionada e a próxima gravação tenta de novo.
- */
-async function relinkWaitingRows(unitId: number, actorId: string): Promise<number> {
-	try {
-		const { data, error } = await siafi().rpc("relink_waiting_rows", { p_unit_id: unitId, p_actor: actorId })
-		if (error) throw new Error(error.message)
-		const row = Array.isArray(data) ? data[0] : data
-		return Number(row?.relinked ?? 0)
-	} catch (error) {
-		// biome-ignore lint/suspicious/noConsole: server-side — a religação é best-effort e fica no log
-		console.error("[relinkWaitingRows]", error instanceof Error ? error.message : error)
-		return 0
-	}
-}
-
 /**
  * Registra a NE com itens — a partir da contratação (com ou sem ARP) ou da ARP.
  *
- * O valor total é a soma dos itens. Com um item só, as colunas antigas do empenho espelham o item
- * (trigger do banco), e a tela antiga do painel da ARP continua lendo. A conferência NE × ARP
- * devolve avisos: a NE já existe no SIAFI, e o sisub registra o fato.
+ * O valor total é a soma dos itens. O núcleo (`empenho-registration.server`) é o mesmo do painel da
+ * ARP (`createEmpenhoFn`). A conferência NE × ARP devolve avisos: a NE já existe no SIAFI, e o
+ * sisub registra o fato.
  */
 export const createEmpenhoWithItemsFn = createServerFn({ method: "POST" })
 	.validator(
@@ -117,139 +85,15 @@ export const createEmpenhoWithItemsFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }): Promise<CreatedEmpenho> => {
 		const ctx = await requireUnitScope(2, data.unitId)
-		const problems = empenhoItemProblems(data.items)
-		if (problems.length > 0) throw new Error(problems.map((p) => p.message).join("; "))
-
-		const numero = normalizeEmpenhoNumber(data.numeroEmpenho)
-		const proc = procurement()
-
-		// Contratação da mesma unidade — a unidade sai da LINHA, não do corpo.
-		let acquisitionId = data.acquisitionId ?? null
-		let acquisitionSupplier: { cnpj: string | null; name: string | null } | null = null
-		if (acquisitionId) {
-			const { data: acq, error } = await proc
-				.from("acquisition")
-				.select("unit_id, supplier_cnpj, supplier_name, nd")
-				.eq("id", acquisitionId)
-				.is("deleted_at", null)
-				.maybeSingle()
-			if (error) throw new Error(`Erro ao conferir a contratação: ${error.message}`)
-			if (!acq || Number(acq.unit_id) !== data.unitId) throw new Error("A contratação de origem não pertence a esta unidade")
-			acquisitionSupplier = { cnpj: acq.supplier_cnpj, name: acq.supplier_name }
-		}
-
-		// Itens de ARP: todos da unidade; a contratação da ARP vira a da NE quando ela não veio.
-		const arpItemIds = [...new Set(data.items.map((item) => item.arpItemId).filter((id): id is string => Boolean(id)))]
-		const arpItems = new Map<string, ArpItemFacts>()
-		const suppliers = new Set<string>()
-		let supplierName: string | null = null
-		let arpSynced = true
-		if (arpItemIds.length > 0) {
-			const { data: itemRows, error: itemError } = await proc
-				.from("procurement_arp_item")
-				.select(
-					"id, arp_id, numero_item, descricao_item, ni_fornecedor, nome_fornecedor, valor_unitario, quantidade_homologada, quantidade_empenhada, saldo_empenho, medida_catmat"
-				)
-				.in("id", arpItemIds)
-			if (itemError) throw new Error(`Erro ao conferir os itens da ARP: ${itemError.message}`)
-			const rows = itemRows ?? []
-			if (rows.length !== arpItemIds.length) throw new Error("Item da ARP não encontrado")
-			const arpIds = [...new Set(rows.map((row) => row.arp_id))]
-			const { data: arpRows, error: arpError } = await proc
-				.from("procurement_arp")
-				.select("id, unit_id, acquisition_id, data_vigencia_inicio, data_vigencia_fim, last_synced_at, source")
-				.in("id", arpIds)
-			if (arpError) throw new Error(`Erro ao conferir as ARPs: ${arpError.message}`)
-			const arpById = new Map((arpRows ?? []).map((arp) => [arp.id, arp]))
-			// Já empenhado AQUI em NEs ativas: numa ARP cadastrada à mão o saldo oficial é o
-			// homologado cheio até a primeira sincronização, e sem o local duas NEs passariam do total.
-			const committed = await loadLocalCommitments(arpItemIds)
-			for (const row of rows) {
-				const arp = arpById.get(row.arp_id)
-				if (!arp || Number(arp.unit_id) !== data.unitId) throw new Error("O item da ARP informado não pertence a esta unidade")
-				if (arp.last_synced_at == null) arpSynced = false
-				arpItems.set(row.id, {
-					id: row.id,
-					numeroItem: row.numero_item,
-					description: row.descricao_item,
-					unitPrice: row.valor_unitario == null ? null : Number(row.valor_unitario),
-					officialBalance: row.quantidade_homologada == null && row.saldo_empenho == null ? null : resolveSaldoOficial(row),
-					homologatedQuantity: row.quantidade_homologada == null ? null : Number(row.quantidade_homologada),
-					localCommitted: committed.get(row.id)?.quantidade ?? 0,
-					validFrom: arp.data_vigencia_inicio,
-					validTo: arp.data_vigencia_fim,
-				})
-				const cnpj = normalizeDocument(row.ni_fornecedor)
-				if (cnpj) suppliers.add(cnpj)
-				supplierName = supplierName ?? row.nome_fornecedor
-			}
-			const arpAcquisitions = [...new Set([...arpById.values()].map((arp) => arp.acquisition_id).filter(Boolean))]
-			if (!acquisitionId && arpAcquisitions.length === 1) acquisitionId = arpAcquisitions[0] as string
-		}
-
-		const warnings = checkEmpenhoAgainstArp({ empenhoDate: data.dataEmpenho, items: data.items, arpItems, arpSynced })
-
-		// Favorecido: o informado; senão o da contratação; senão o fornecedor único dos itens da ARP.
-		const favorecidoCnpj =
-			normalizeDocument(data.favorecidoCnpj) ?? normalizeDocument(acquisitionSupplier?.cnpj) ?? (suppliers.size === 1 ? ([...suppliers][0] as string) : null)
-		// `empenho.favorecido_cnpj` aceita só CNPJ (14 dígitos): CPF de pessoa física fica no nome.
-		const favorecidoCnpj14 = favorecidoCnpj?.length === 14 ? favorecidoCnpj : null
-		const favorecidoNome = data.favorecidoNome?.trim() || acquisitionSupplier?.name || (suppliers.size <= 1 ? supplierName : null)
-		const valorTotal = sumEmpenhoItems(data.items)
-
-		const result = await withSensitiveAudit(
+		const prepared = await prepareEmpenhoRegistration(data)
+		const empenhoId = await withSensitiveAudit(
 			"createEmpenhoWithItemsFn",
 			ctx,
-			async () => {
-				try {
-					return await getDb().transaction(async (tx) => {
-						const [header] = await tx.execute<{ id: string }>(sql`
-							insert into finance.empenho (
-								unit_id, numero_empenho, data_empenho, valor_total, tipo, acquisition_id,
-								favorecido_cnpj, favorecido_nome, nd, ptres, fonte, ug_emitente, exercicio,
-								nota_lancamento, status, origem, created_by
-							) values (
-								${data.unitId}, ${numero}, ${data.dataEmpenho}::date, ${valorTotal}, ${data.tipo ?? null}, ${acquisitionId}::uuid,
-								${favorecidoCnpj14}, ${favorecidoNome ?? null}, ${data.nd ?? null}, ${data.ptres?.trim() || null}, ${data.fonte?.trim() || null},
-								${data.ugEmitente?.trim() || null}, ${Number(data.dataEmpenho.slice(0, 4))},
-								${data.notaLancamento?.trim() || null}, 'ativo', 'manual', ${ctx.userId}::uuid
-							)
-							returning id
-						`)
-						if (!header) throw new Error("Empenho não retornado após inserção")
-						let position = 1
-						for (const item of data.items) {
-							await tx.execute(sql`
-								insert into finance.empenho_item (empenho_id, arp_item_id, purchase_item_id, position, description, quantity, unit, unit_price, value)
-								values (
-									${header.id}::uuid, ${item.arpItemId ?? null}::uuid, ${item.purchaseItemId ?? null}::uuid, ${position},
-									${item.description?.trim() || null}, ${item.quantity ?? null}, ${item.unit?.trim() || null},
-									${item.unitPrice ?? null}, ${resolveItemValue(item)}
-								)
-							`)
-							position++
-						}
-						return header.id
-					})
-				} catch (error) {
-					throw toEmpenhoWriteError(error, numero)
-				}
-			},
-			(empenhoId) => ({ empenhoId, unitId: data.unitId, numeroEmpenho: numero, valorTotal, itens: data.items.length, acquisitionId })
+			() => insertPreparedEmpenho("createEmpenhoWithItemsFn", ctx, prepared),
+			(id) => empenhoAuditTarget(prepared, id)
 		)
-
-		const relinked = await relinkWaitingRows(data.unitId, ctx.userId)
-		return { empenhoId: result, numeroEmpenho: numero, valorTotal, warnings, relinked }
+		return completeEmpenhoRegistration(ctx, prepared, empenhoId)
 	})
-
-function toEmpenhoWriteError(error: unknown, numero: string): Error {
-	const pg = unwrapPgError(error)
-	if (pg.code === "23505") return new Error(`O empenho ${numero} já está no sistema: abra-o em Empenhos para completar`)
-	if (pg.code === "23514" && pg.message) return new Error(pg.message)
-	// biome-ignore lint/suspicious/noConsole: server-side — o detalhe do driver só vai para o log
-	console.error("[createEmpenhoWithItemsFn]", describeDriverError(error))
-	return new Error("Erro ao registrar a nota de empenho. Tente novamente.")
-}
 
 export interface QuickEmpenhoResult {
 	empenhoId: string

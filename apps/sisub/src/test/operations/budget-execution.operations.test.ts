@@ -53,11 +53,13 @@ describeIf("budget execution chain (DB)", () => {
 					// ── empenho como documento ──────────────────────────────────────
 					const [empenho] = await tx`
 						insert into finance.empenho
-							(unit_id, arp_item_id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, valor_total,
-							 tipo, favorecido_cnpj, nd, ptres, fonte, exercicio, origem)
-						values (${unit.id}, ${arpItem.id}, '2026NE00ORC1', current_date, 100, 100, 10000,
+							(unit_id, numero_empenho, data_empenho, valor_total, tipo, favorecido_cnpj, nd, ptres, fonte, exercicio, origem)
+						values (${unit.id}, '2026NE00ORC1', current_date, 10000,
 							'ordinario', '12345678000199', '33903007', '170963', '1000', extract(year from current_date)::int, 'manual')
 						returning id`
+					await tx`
+						insert into finance.empenho_item (empenho_id, arp_item_id, quantity, unit_price, value)
+						values (${empenho.id}, ${arpItem.id}, 100, 100, 10000)`
 
 					const [vigente0] = await tx`select valor_vigente from finance.v_empenho_saldo where empenho_id = ${empenho.id}`
 					expect(Number(vigente0.valor_vigente)).toBe(10000)
@@ -208,11 +210,13 @@ describeIf("budget execution chain (DB)", () => {
 						values (${arp.id}, 1, 1000, '12345678000199', 'FORNECEDOR CMP') returning id`
 					const [empenho] = await tx`
 						insert into finance.empenho
-							(unit_id, arp_item_id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, valor_total,
-							 tipo, favorecido_cnpj, nd, ptres, fonte, exercicio, origem)
-						values (${unit.id}, ${arpItem.id}, '2026NE00CMP1', current_date, 100, 100, 10000,
+							(unit_id, numero_empenho, data_empenho, valor_total, tipo, favorecido_cnpj, nd, ptres, fonte, exercicio, origem)
+						values (${unit.id}, '2026NE00CMP1', current_date, 10000,
 							'ordinario', '12345678000199', '33903007', '170963', '1000', extract(year from current_date)::int, 'manual')
 						returning id`
+					await tx`
+						insert into finance.empenho_item (empenho_id, arp_item_id, quantity, unit_price, value)
+						values (${empenho.id}, ${arpItem.id}, 100, 100, 10000)`
 
 					// ── (F5) nota de crédito ────────────────────────────────────────
 					await tx`

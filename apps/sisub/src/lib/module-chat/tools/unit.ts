@@ -279,9 +279,9 @@ const listEmpenhos: ModuleToolDefinition = {
 
 		requireUnitPermission(ctx, 1, { type: "unit", id: ata.unit_id })
 
-		// `finance.empenho` não tem `ata_id` — o vínculo é `arp_item_id`. Filtrar por `ata_id`
-		// (o que esta tool fazia) é coluna inexistente: erro, nunca lista. O caminho é
-		// ATA → ARPs → itens de ARP → empenhos desses itens.
+		// `finance.empenho` não tem `ata_id` — o vínculo é o `arp_item_id` dos itens da NE
+		// (`finance.empenho_item`). Filtrar por `ata_id` (o que esta tool fazia) é coluna
+		// inexistente: erro, nunca lista. O caminho é ATA → ARPs → itens de ARP → itens de NE → NEs.
 		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement").select("id").eq("ata_id", ataId)
 		if (arpsError) return toolErr(sanitizeDbError(arpsError, "list_empenhos:arps"))
 
@@ -299,7 +299,7 @@ const listEmpenhos: ModuleToolDefinition = {
 		// Uma ATA grande tem centenas de itens, e `in.(…)` viaja na query string: um `IN` único
 		// com 300 UUIDs estoura o limite de linha de requisição do gateway. Vai em lotes.
 		// O vínculo é pelos ITENS da NE (20260926214000): uma NE com arroz, feijão e óleo cobre
-		// três itens da ata, e o cabeçalho antigo (`empenho.arp_item_id`) fica nulo nela.
+		// três itens da ata.
 		const itemIds = Array.from(itemById.keys())
 		const neItems: Array<{ empenho_id: string; arp_item_id: string; quantity: number | null; value: number }> = []
 		for (let start = 0; start < itemIds.length; start += EMPENHO_ID_BATCH) {
