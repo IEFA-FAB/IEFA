@@ -7,7 +7,7 @@ import { buildProcurementPlanningSteps } from "./procurement-planning"
 const baseUnit: ProcurementPlanningStatus = {
 	unitId: 10,
 	today: "2026-10-15",
-	kitchens: [{ id: 1, name: "Cozinha A", weeklyWithItems: 2, events: 1, exceptions: 1, forecast: null }],
+	kitchens: [{ id: 1, name: "Cozinha A", weeklyWithItems: 2, events: 1, supportMenus: 1, forecast: null }],
 	segmentation: { segmentCount: 0, lineCount: 30, unassignedCount: 30, conflictCount: 0 },
 	calendar: [],
 	drafts: [],
@@ -62,7 +62,7 @@ describe("Planejar contratação", () => {
 					name: "Cozinha B",
 					weeklyWithItems: 1,
 					events: 0,
-					exceptions: 0,
+					supportMenus: 0,
 					forecast: { id: "f", title: "Março", status: "sent", updatedAt: "2026-10-01T12:00:00Z", reviewedAt: null, imports: 0 },
 				},
 			],
@@ -126,8 +126,8 @@ describe("Prever demanda para compra", () => {
 		weeklyWithItems: 1,
 		weeklyEmpty: 0,
 		events: 0,
-		exceptions: 1,
-		exceptionsWithoutOccurrences: 0,
+		supportMenus: 1,
+		supportMenusWithoutOccurrences: 0,
 		ingredientsWithoutPurchaseItem: 0,
 		pendingForecasts: 0,
 		forecast: null,
@@ -164,7 +164,7 @@ describe("Prever demanda para compra", () => {
 	})
 
 	test("apoio sem ocorrências e insumo sem item de compra são avisos", () => {
-		const steps = buildDemandForecastSteps({ ...base, exceptionsWithoutOccurrences: 1, ingredientsWithoutPurchaseItem: 3 })
+		const steps = buildDemandForecastSteps({ ...base, supportMenusWithoutOccurrences: 1, ingredientsWithoutPurchaseItem: 3 })
 		expect(steps.find((s) => s.id === "occasions")?.status).toBe("attention")
 		const catalog = steps.find((s) => s.id === "catalog")
 		expect(catalog?.status).toBe("attention")

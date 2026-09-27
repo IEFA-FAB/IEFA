@@ -2,7 +2,7 @@
  * @module policy.fn
  * Wrappers finos sobre as operations de `@iefa/sisub-domain` (Drizzle) + geração do prompt
  * de revisão por IA. As regras vivem em `procurement.policy_rule` (soft-delete via
- * `deleted_at`; alvos: "product" | "recipe") e são catálogo da SDAB: leitura `global:1`,
+ * `deleted_at`; alvos: "ingredient" | "recipe") e são catálogo da SDAB: leitura `global:1`,
  * escrita `global:2`.
  *
  * O gate de escrita fica DUPLICADO de propósito: `requireAuthWithPermission("global", 2)`
@@ -20,6 +20,7 @@ import {
 	deletePolicyRule,
 	ListPolicyRulesSchema,
 	listPolicyRules,
+	PolicyTargetSchema,
 	UpdatePolicyRuleSchema,
 	updatePolicyRule,
 } from "@iefa/sisub-domain"
@@ -78,11 +79,11 @@ export const deletePolicyRuleFn = createServerFn({ method: "POST" })
  * @remarks
  * O prompt instrui o modelo a buscar os itens ativos pelo MCP do Supabase, avaliar cada um contra
  * todas as regras e reportar PASSA/FALHA por regra, com veredito final APROVADO/REPROVADO.
- * As dicas de tabela dependem do alvo: product → sisub.ingredient; recipe → sisub.recipes + joins.
+ * As dicas de tabela dependem do alvo: ingredient → sisub.ingredient; recipe → sisub.recipes + joins.
  * Sem regra ativa devolve uma mensagem em texto (não lança). A data de geração vai no rodapé.
  */
 export const generateReviewPromptFn = createServerFn({ method: "GET" })
-	.validator(z.object({ target: z.enum(["product", "recipe"]) }))
+	.validator(z.object({ target: PolicyTargetSchema }))
 	.handler(async ({ data }): Promise<string> => {
 		const ctx = await requireAuth()
 		const target: PolicyTarget = data.target
@@ -91,13 +92,13 @@ export const generateReviewPromptFn = createServerFn({ method: "GET" })
 		const rules = await listPolicyRules(getDb(), ctx, { target, activeOnly: true }).catch(handleDomainError)
 
 		if (rules.length === 0) {
-			return `Nenhuma regra de política ativa encontrada para ${target === "product" ? "insumos" : "preparações"}.`
+			return `Nenhuma regra de política ativa encontrada para ${target === "ingredient" ? "insumos" : "preparações"}.`
 		}
 
-		const targetLabel = target === "product" ? "Insumos" : "Preparações"
-		const itemLabel = target === "product" ? "insumo" : "preparação"
+		const targetLabel = target === "ingredient" ? "Insumos" : "Preparações"
+		const itemLabel = target === "ingredient" ? "insumo" : "preparação"
 		const tableHint =
-			target === "product"
+			target === "ingredient"
 				? "tabela `sisub.ingredient` (campos relevantes: id, description, measure_unit, correction_factor, catmat_item_descricao) — filtre por `deleted_at IS NULL`"
 				: "tabela `sisub.recipes` com join em `sisub.recipe_ingredients` → `sisub.ingredient` (campos: id, name, preparation_method, portion_yield, preparation_time_minutes, ingredientes) — filtre por `deleted_at IS NULL` e `kitchen_id IS NULL` (somente globais)"
 

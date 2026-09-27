@@ -3,7 +3,9 @@
  * (`origin_template_id`). É o grão dos imprevistos: adiar ou tirar do dia age sobre tudo o que
  * UM cardápio pôs ali. Produção de pedido de lanche fica de fora — ela segue o pedido.
  */
-export type DayOriginType = "weekly" | "event" | "exception"
+import { TEMPLATE_TYPE_VOCABULARY, type TemplateType } from "@iefa/sisub-domain/schemas"
+
+export type DayOriginType = TemplateType
 
 export type DayOrigin = {
 	templateId: string
@@ -17,11 +19,12 @@ type ItemLike = { origin_template_id?: string | null; origin_template_type?: str
 type MenuLike = { menu_items?: readonly ItemLike[] | null }
 type TemplateLike = { id: string; name: string | null; template_type?: string | null }
 
-const TYPE_LABEL: Record<DayOriginType, string> = { weekly: "Cardápio semanal", event: "Evento", exception: "Cardápio de apoio" }
-const TYPE_ORDER: Record<string, number> = { weekly: 0, event: 1, exception: 2 }
+const TYPE_LABEL: Record<DayOriginType, string> = { weekly: "Cardápio semanal", event: "Evento", apoio: "Cardápio de apoio" }
+const TYPE_ORDER: Record<string, number> = { weekly: 0, event: 1, apoio: 2 }
 
+/** O item gravado antes do contract do lote 5 ainda diz `exception` para o cardápio de apoio. */
 function asType(value: string | null | undefined): DayOriginType | null {
-	return value === "weekly" || value === "event" || value === "exception" ? value : null
+	return TEMPLATE_TYPE_VOCABULARY.normalize(value)
 }
 
 export function dayOriginsOf(menus: readonly MenuLike[], templates: readonly TemplateLike[]): DayOrigin[] {

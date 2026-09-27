@@ -154,18 +154,31 @@ export const DeliveryCycleSchema = z.enum(DELIVERY_CYCLES)
 /**
  * Um bucket por regime de produção (kitchen.menu_template.template_type).
  * `repetitions` tem o mesmo significado nos três: quantas vezes o cardápio é
- * produzido dentro da vigência do anexo. Para exceção o valor é derivado
+ * produzido dentro da vigência do anexo. Para o cardápio de apoio o valor é derivado
  * (ocorrências mensais × validityMonths), não digitado.
  */
-export const KitchenSelectionSchema = z.object({
-	kitchenId: z.number(),
-	kitchenName: z.string(),
-	deliveryNotes: z.string(),
-	templateSelections: z.array(TemplateSelectionSchema),
-	eventSelections: z.array(TemplateSelectionSchema),
-	// Opcional: rascunhos e payloads anteriores ao passo de exceções não trazem o campo.
-	exceptionSelections: z.array(TemplateSelectionSchema).optional().default([]),
-})
+/**
+ * Nome da chave dos cardápios de apoio antes do lote 5 da linguagem ubíqua. Aba do anexo aberta
+ * antes do deploy ainda a envia; sem ler a chave antiga, o zod a descartaria calado e o rascunho
+ * salvo perderia os cardápios de apoio. Sai com o contract 20260927110000.
+ */
+const LEGACY_SUPPORT_MENU_SELECTIONS_KEY = "exceptionSelections"
+
+export const KitchenSelectionSchema = z
+	.object({
+		kitchenId: z.number(),
+		kitchenName: z.string(),
+		deliveryNotes: z.string(),
+		templateSelections: z.array(TemplateSelectionSchema),
+		eventSelections: z.array(TemplateSelectionSchema),
+		// Opcional: payloads anteriores ao passo dos cardápios de apoio não trazem o campo.
+		supportMenuSelections: z.array(TemplateSelectionSchema).optional().default([]),
+		[LEGACY_SUPPORT_MENU_SELECTIONS_KEY]: z.array(TemplateSelectionSchema).optional(),
+	})
+	.transform(({ [LEGACY_SUPPORT_MENU_SELECTIONS_KEY]: legacy, ...selection }) => ({
+		...selection,
+		supportMenuSelections: selection.supportMenuSelections.length > 0 || !legacy ? selection.supportMenuSelections : legacy,
+	}))
 export type KitchenSelectionInput = z.infer<typeof KitchenSelectionSchema>
 
 export const CalculateQuantityEstimateNeedsSchema = z.object({

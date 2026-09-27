@@ -1,4 +1,4 @@
-import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
+import { MAX_RECOMMENDED_PROPORTION, TEMPLATE_TYPE_VOCABULARY } from "@iefa/sisub-domain/schemas"
 import { ArrowLeftRight, Replace, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -101,7 +101,7 @@ export function MenuItemCard({ item, onSubstitute, onReplaceRecipe, onDelete, ou
 							Evento
 						</Badge>
 					)}
-					{item.origin_template_type === "exception" && (
+					{TEMPLATE_TYPE_VOCABULARY.is(item.origin_template_type, "apoio") && (
 						<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
 							Cardápio de Apoio
 						</Badge>

@@ -20,6 +20,11 @@ const REDIRECTED: readonly { from: string; to: string }[] = [
 	{ from: "/global/weekly-plans/new", to: "/global/weekly-menus/new" },
 	{ from: `/global/weekly-plans/${UUID}`, to: `/global/weekly-menus/${UUID}` },
 	{ from: `/global/weekly-plans/print/${UUID}`, to: `/global/weekly-menus/print/${UUID}` },
+	{ from: "/kitchen/7/exceptions", to: "/kitchen/7/support-menus" },
+	{ from: "/kitchen/7/exceptions/new", to: "/kitchen/7/support-menus/new" },
+	{ from: `/kitchen/7/exceptions/${UUID}`, to: `/kitchen/7/support-menus/${UUID}` },
+	{ from: "/global/exceptions", to: "/global/support-menus" },
+	{ from: `/global/exceptions/${UUID}`, to: `/global/support-menus/${UUID}` },
 ]
 
 const NOT_LEGACY: readonly { from: string }[] = [
@@ -28,6 +33,8 @@ const NOT_LEGACY: readonly { from: string }[] = [
 	{ from: "/unit/12/liquidacoes" },
 	{ from: "/unit/12/pagamentos" },
 	{ from: "/global/weekly-menus" },
+	{ from: "/global/support-menus" },
+	{ from: "/kitchen/7/support-menus" },
 	{ from: "/unit/12/quantity-estimates" },
 	{ from: "/unit/12/flows/procurement-planning" },
 	{ from: "/analytics/procurement-plan" },

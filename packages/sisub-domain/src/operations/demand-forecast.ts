@@ -32,6 +32,7 @@ import type {
 	SendDemandForecast,
 	UpdateDemandForecast,
 } from "../schemas/procurement.ts"
+import { TEMPLATE_TYPE_VOCABULARY } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toColumns, toWire } from "../utils/index.ts"
@@ -86,7 +87,8 @@ async function attachSelections(db: SisubDb, forecasts: ForecastRow[], prefix: s
 					{ prefix }
 				)
 			: []
-	const templateById = new Map(templates.map((t) => [t.id, t]))
+	// Tipo no vocabulário do glossário: até o contract do lote 5 o banco ainda tem `exception`.
+	const templateById = new Map(templates.map((t) => [t.id, { ...t, templateType: TEMPLATE_TYPE_VOCABULARY.normalize(t.templateType) ?? t.templateType }]))
 	const imports = await runQuery(
 		"FETCH_FAILED",
 		() =>

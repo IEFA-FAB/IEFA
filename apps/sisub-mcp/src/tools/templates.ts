@@ -40,7 +40,7 @@ const listMenuTemplates: ToolDefinition = {
 	schema: {
 		name: "list_menu_templates",
 		description:
-			'Lista os templates de cardápio semanal ativos disponíveis para uma cozinha. Retorna templates globais (SDAB, kitchen_id null) e templates locais da cozinha informada. Inclui contagem de itens por template. `template_type` distingue: weekly (cardápio semanal), event (evento) e exception — na tela, "Cardápio de apoio" (lanches de bordo/apoio do Módulo 7, coffee break, café de reunião).',
+			"Lista os templates de cardápio semanal ativos disponíveis para uma cozinha. Retorna templates globais (SDAB, kitchen_id null) e templates locais da cozinha informada. Inclui contagem de itens por template. `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião).",
 		inputSchema: toJsonSchema(ListTemplatesSchema),
 	},
 	async handler(args, credential) {
@@ -131,7 +131,7 @@ const createTemplateTool: ToolDefinition = {
 	schema: {
 		name: "create_template",
 		description:
-			"Cria um novo template de cardápio com metadados e opcionalmente seus itens. Se a inserção dos itens falhar, o template é removido (rollback compensatório). kitchen_id=null cria um template global (SDAB). `template_type` distingue: weekly (cardápio semanal), event (evento) e exception — na tela, \"Cardápio de apoio\" (lanches de bordo/apoio do Módulo 7, coffee break, café de reunião). Evento (templateType='event') tem refeições próprias em `eventMeals` (id UUID gerado por você, nome, mealTypeId = horário do calendário, groups = composição como entradas/volantes, baseHeadcount = efetivo da refeição); cada item de evento cita a refeição em `eventMealId`, usa um grupo da composição dela e se dimensiona por `headcountOverride` (pessoas) ou `recommendedProportion` (% do efetivo da refeição).",
+			"Cria um novo template de cardápio com metadados e opcionalmente seus itens. Se a inserção dos itens falhar, o template é removido (rollback compensatório). kitchen_id=null cria um template global (SDAB). `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião; o nome antigo `exception` ainda é aceito na entrada). Evento (templateType='event') tem refeições próprias em `eventMeals` (id UUID gerado por você, nome, mealTypeId = horário do calendário, groups = composição como entradas/volantes, baseHeadcount = efetivo da refeição); cada item de evento cita a refeição em `eventMealId`, usa um grupo da composição dela e se dimensiona por `headcountOverride` (pessoas) ou `recommendedProportion` (% do efetivo da refeição).",
 		inputSchema: toJsonSchema(CreateTemplateSchema),
 	},
 	async handler(args, credential) {
@@ -153,7 +153,7 @@ const createBlankTemplateTool: ToolDefinition = {
 	schema: {
 		name: "create_blank_template",
 		description:
-			'Cria um template vazio (sem itens) para uma cozinha. Use update_template para adicionar itens depois. `template_type` distingue: weekly (cardápio semanal), event (evento) e exception — na tela, "Cardápio de apoio" (lanches de bordo/apoio do Módulo 7, coffee break, café de reunião).',
+			"Cria um template vazio (sem itens) para uma cozinha. Use update_template para adicionar itens depois. `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião; o nome antigo `exception` ainda é aceito na entrada).",
 		inputSchema: toJsonSchema(CreateBlankTemplateSchema),
 	},
 	async handler(args, credential) {
@@ -175,7 +175,7 @@ const forkTemplateTool: ToolDefinition = {
 	schema: {
 		name: "fork_template",
 		description:
-			"Cria uma cópia local de um template existente (global ou de outra cozinha), registrando base_template_id. Os itens são copiados com headcount_override, e a recorrência mensal (apoios, template_type exception) acompanha. Se a inserção dos itens falhar, o template novo é removido (rollback compensatório).",
+			"Cria uma cópia local de um template existente (global ou de outra cozinha), registrando base_template_id. Os itens são copiados com headcount_override, e a recorrência mensal (cardápios de apoio, template_type apoio) acompanha. Se a inserção dos itens falhar, o template novo é removido (rollback compensatório).",
 		inputSchema: toJsonSchema(ForkTemplateSchema),
 	},
 	async handler(args, credential) {

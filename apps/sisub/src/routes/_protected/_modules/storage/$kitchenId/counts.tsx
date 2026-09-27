@@ -1,3 +1,4 @@
+import { INVENTORY_COUNT_TYPE_LABELS, type InventoryCountType } from "@iefa/sisub-domain"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { ClipboardCheck, Eye, EyeOff, Plus, Search } from "lucide-react"
 import { useState } from "react"
@@ -45,12 +46,7 @@ import { fetchScannerProfileFn, resolveScanToIngredientFn } from "@/server/scann
  * esconde: o servidor não manda o número.
  */
 
-const TYPE_LABELS: Record<string, string> = {
-	annual: "Anual",
-	responsibility_transfer: "Transferência de responsabilidade",
-	eventual: "Eventual",
-	rotating: "Rotativa",
-}
+const TYPE_LABELS: Record<string, string> = INVENTORY_COUNT_TYPE_LABELS
 
 const SCOPE_LABELS: Record<string, string> = {
 	full: "Estoque inteiro",
@@ -95,7 +91,7 @@ function CountsPage() {
 	const { list, sheet, scannerProfile, kitchenId } = Route.useLoaderData()
 	const router = useRouter()
 	const [busy, setBusy] = useState(false)
-	const [type, setType] = useState("rotating")
+	const [type, setType] = useState<InventoryCountType>("rotativo")
 	const [scope, setScope] = useState("full")
 	const [scopeValue, setScopeValue] = useState("")
 	const [quantities, setQuantities] = useState<Record<string, string>>({})
@@ -174,7 +170,7 @@ function CountsPage() {
 					<CardContent className="flex flex-wrap items-end gap-2">
 						<div className="space-y-1">
 							<Label htmlFor="count-type">Tipo</Label>
-							<Select value={type} onValueChange={(value) => setType(value ?? "rotating")}>
+							<Select value={type} onValueChange={(value) => setType((value as InventoryCountType | null) ?? "rotativo")}>
 								<SelectTrigger id="count-type" className="w-64">
 									<SelectValue>{TYPE_LABELS[type]}</SelectValue>
 								</SelectTrigger>
@@ -216,10 +212,7 @@ function CountsPage() {
 								if (scope === "menu_cycle") params.days = Number(scopeValue) || 7
 								if (scope === "location") params.location = scopeValue
 								if (scope === "conservation_class") params.conservation_class = scopeValue
-								void run(
-									() => openInventoryCountFn({ data: { kitchenId, type: type as "rotating", scope: scope as "full", scopeParams: params } }),
-									"Inventário aberto"
-								)
+								void run(() => openInventoryCountFn({ data: { kitchenId, type, scope: scope as "full", scopeParams: params } }), "Inventário aberto")
 							}}
 						>
 							Abrir

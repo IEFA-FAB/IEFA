@@ -5,13 +5,13 @@ import { GlobalTemplateCatalog } from "@/components/features/global/GlobalTempla
 
 /**
  * GLOBAL — Cardápios de Apoio Modelo (SDAB)
- * URL: /global/exceptions
+ * URL: /global/support-menus
  * Acesso: módulo "global" nível 1+ (leitura); criar, editar, remover e restaurar exigem nível 2.
- * As cozinhas veem estes modelos em /kitchen/:kitchenId/exceptions e os adaptam como cópia local.
+ * As cozinhas veem estes modelos em /kitchen/:kitchenId/support-menus e os adaptam como cópia local.
  */
-export const Route = createFileRoute("/_protected/_modules/global/exceptions/")({
+export const Route = createFileRoute("/_protected/_modules/global/support-menus/")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
-	component: GlobalExceptionsPage,
+	component: GlobalSupportMenusPage,
 	head: () => ({
 		meta: [
 			{
@@ -22,10 +22,10 @@ export const Route = createFileRoute("/_protected/_modules/global/exceptions/")(
 	}),
 })
 
-function GlobalExceptionsPage() {
+function GlobalSupportMenusPage() {
 	return (
 		<GlobalTemplateCatalog
-			templateType="exception"
+			templateType="apoio"
 			title="Cardápios de Apoio Modelo"
 			description="Refeições previsíveis fora da rotina semanal — lanches de bordo e de apoio, coffee breaks, cafés de reunião — que as cozinhas adaptam para o próprio anexo quantitativo do TR."
 			icon={Sandwich}
@@ -33,8 +33,8 @@ function GlobalExceptionsPage() {
 			newLabel="Novo Cardápio de Apoio"
 			emptyMessage="Nenhum cardápio de apoio modelo cadastrado."
 			emptyHint="Crie um cardápio de apoio para que as cozinhas possam adaptá-lo."
-			newLink={{ to: "/global/exceptions/new" }}
-			editorLink={(exceptionId) => ({ to: "/global/exceptions/$exceptionId", params: { exceptionId } })}
+			newLink={{ to: "/global/support-menus/new" }}
+			editorLink={(supportMenuId) => ({ to: "/global/support-menus/$supportMenuId", params: { supportMenuId } })}
 		/>
 	)
 }

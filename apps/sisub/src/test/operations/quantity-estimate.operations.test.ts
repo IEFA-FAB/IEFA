@@ -100,7 +100,7 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 					deliveryNotes: "entregar cedo",
 					templateSelections: [{ templateId, templateName: "T", repetitions: 2 }],
 					eventSelections: [],
-					exceptionSelections: [],
+					supportMenuSelections: [],
 				},
 			],
 			items: [{ ingredient_id: ingredientId, ingredient_name: "Arroz", folder_description: "Grãos", measure_unit: "KG", estimated_quantity: 12.5 }],
@@ -253,7 +253,7 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 			deliveryNotes: "",
 			templateSelections: [{ templateId, templateName: "T", repetitions }],
 			eventSelections: [],
-			exceptionSelections: [],
+			supportMenuSelections: [],
 		})
 
 		await updateQuantityEstimateDraft(db, ctx, { draftId, kitchenSelections: [mkSel(templateA, 1)] })
@@ -343,7 +343,7 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 					deliveryNotes: "",
 					templateSelections: [{ templateId, templateName: "T", repetitions: 2 }],
 					eventSelections: [],
-					exceptionSelections: [],
+					supportMenuSelections: [],
 				},
 			],
 		})
@@ -669,7 +669,7 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 			deliveryNotes: "",
 			templateSelections: [{ templateId, templateName: "T", repetitions: 1 }],
 			eventSelections: [],
-			exceptionSelections: [],
+			supportMenuSelections: [],
 		})
 		await expect(
 			createQuantityEstimate(db, ctx, { unitId, title: uid("[TEST] anexo "), kitchenSelections: [selection(foreignKitchen, foreignTemplate)], items: [] })

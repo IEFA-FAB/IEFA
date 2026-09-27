@@ -1,5 +1,5 @@
 import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@iefa/database/sisub"
-import type { EditScope, TemplateEventMeal } from "@iefa/sisub-domain"
+import type { EditScope, TemplateEventMeal, TemplateType } from "@iefa/sisub-domain"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
@@ -91,7 +91,7 @@ export function useCreateTemplate() {
 					name: template.name ?? "",
 					description: template.description ?? undefined,
 					kitchenId: template.kitchen_id ?? null,
-					templateType: (template.template_type ?? "weekly") as "weekly" | "event" | "exception",
+					templateType: (template.template_type ?? "weekly") as TemplateType,
 					expectedMonthlyOccurrences: template.expected_monthly_occurrences ?? null,
 					items: items.map((i, index) => ({
 						dayOfWeek: i.day_of_week ?? 1,
@@ -159,7 +159,7 @@ export function useSaveTemplateEdit(options?: {
 					name: updates.name ?? undefined,
 					// Preserva null (limpar) vs undefined (não mexer) — `?? undefined` apagaria o intent de limpar.
 					description: updates.description === undefined ? undefined : updates.description,
-					templateType: updates.template_type as "weekly" | "event" | "exception" | undefined,
+					templateType: updates.template_type as TemplateType | undefined,
 					expectedMonthlyOccurrences: updates.expected_monthly_occurrences === undefined ? undefined : updates.expected_monthly_occurrences,
 					items: items?.map((i, index) => ({
 						dayOfWeek: i.day_of_week ?? 1,

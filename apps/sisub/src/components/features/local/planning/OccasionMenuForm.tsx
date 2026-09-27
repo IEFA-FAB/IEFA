@@ -32,10 +32,10 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 	const navigate = useNavigate()
 	const queryClient = useQueryClient()
 	const copy = OCCASION_MENU_COPY[templateType]
-	const isException = templateType === "exception"
+	const isSupportMenu = templateType === "apoio"
 	const isGlobal = kitchenId === null
 	const isFork = !!forkFrom && !isGlobal
-	const Icon = isException ? Sandwich : CalendarRange
+	const Icon = isSupportMenu ? Sandwich : CalendarRange
 
 	const { data: baseTemplate } = useTemplate(isFork ? (forkFrom ?? null) : null)
 
@@ -52,7 +52,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 		setName((current) => current || (baseTemplate.name ?? ""))
 	}, [isFork, baseTemplate])
 
-	const storageKey = `${templateType === "event" ? "events" : "exceptions"}-new-draft-${kitchenId ?? "global"}`
+	const storageKey = `${templateType === "event" ? "events" : "support-menus"}-new-draft-${kitchenId ?? "global"}`
 	const storageLoadedRef = useRef(false)
 
 	useEffect(() => {
@@ -94,7 +94,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 					description: description.trim() || undefined,
 					kitchenId,
 					templateType,
-					...(isException ? { expectedMonthlyOccurrences: parseMonthlyOccurrences(occurrences) } : {}),
+					...(isSupportMenu ? { expectedMonthlyOccurrences: parseMonthlyOccurrences(occurrences) } : {}),
 				},
 			})
 		},
@@ -146,9 +146,9 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 									Modelo de origem
 								</CardTitle>
 								<CardDescription>
-									A cópia leva as preparações e o efetivo de cada uma{isException ? ", e as ocorrências por mês" : ""}. Alterações futuras no original não
+									A cópia leva as preparações e o efetivo de cada uma{isSupportMenu ? ", e as ocorrências por mês" : ""}. Alterações futuras no original não
 									afetam a versão local.
-									{isException && isSnackStandard(baseTemplate) && (
+									{isSupportMenu && isSnackStandard(baseTemplate) && (
 										<>
 											{" "}
 											É um padrão de lanche ({snackStandardLabel(baseTemplate)}): a cópia leva a classificação, mas nasce fora do pedido e sem data de revisão —
@@ -204,7 +204,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 							/>
 						</div>
 
-						{isException && !isFork && (
+						{isSupportMenu && !isFork && (
 							<div className="space-y-2">
 								<Label htmlFor="occurrences">Ocorrências por mês (opcional)</Label>
 								<Input

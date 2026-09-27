@@ -7,11 +7,12 @@ describe("dayOriginsOf", () => {
 			[
 				{
 					menu_items: [
+						// Até o contract do lote 5 convivem o nome antigo e o do glossário.
 						{ origin_template_id: "apoio", origin_template_type: "exception" },
-						{ origin_template_id: "apoio", origin_template_type: "exception" },
+						{ origin_template_id: "apoio", origin_template_type: "apoio" },
 						{ origin_template_id: "semana", origin_template_type: "weekly" },
 						{ origin_template_id: null },
-						{ origin_template_id: "padrao-lanche", origin_template_type: "exception", origin_snack_request_id: "pedido" },
+						{ origin_template_id: "padrao-lanche", origin_template_type: "apoio", origin_snack_request_id: "pedido" },
 					],
 				},
 				{ menu_items: [{ origin_template_id: "evento", origin_template_type: "event" }] },

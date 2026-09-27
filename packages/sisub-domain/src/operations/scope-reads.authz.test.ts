@@ -209,7 +209,7 @@ function needsInput(templateId: string) {
 				deliveryNotes: "",
 				templateSelections: [{ templateId, templateName: "T", repetitions: 1 }],
 				eventSelections: [],
-				exceptionSelections: [],
+				supportMenuSelections: [],
 			},
 		],
 	}

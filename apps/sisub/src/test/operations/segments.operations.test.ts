@@ -112,7 +112,7 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 					deliveryNotes: "",
 					templateSelections: [{ templateId, templateName: "T", repetitions: 4 }],
 					eventSelections: [],
-					exceptionSelections: [],
+					supportMenuSelections: [],
 				},
 			],
 		})

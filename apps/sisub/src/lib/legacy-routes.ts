@@ -16,6 +16,9 @@ export const LEGACY_ROUTE_PREFIXES: readonly { from: string; to: string }[] = [
 	{ from: "/unit/:unitId/liquidations", to: "/unit/:unitId/liquidacoes" },
 	{ from: "/unit/:unitId/payments", to: "/unit/:unitId/pagamentos" },
 	{ from: "/global/weekly-plans", to: "/global/weekly-menus" },
+	// Lote 5: o cardápio de apoio (`template_type = 'apoio'`) deixou de se chamar exceção.
+	{ from: "/kitchen/:kitchenId/exceptions", to: "/kitchen/:kitchenId/support-menus" },
+	{ from: "/global/exceptions", to: "/global/support-menus" },
 ]
 
 const segmentsOf = (path: string) => path.split("/").filter(Boolean)

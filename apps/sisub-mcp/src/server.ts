@@ -10,7 +10,7 @@
  *   await server.connect(transport)
  */
 
-import { requireKitchen } from "@iefa/sisub-domain"
+import { requireKitchen, TEMPLATE_TYPE_VOCABULARY } from "@iefa/sisub-domain"
 import { dropUnexpectedNulls } from "@iefa/sisub-domain/agent"
 // `Server` (baixo nível) e não `McpServer`: o SDK marca o `Server` como
 // "@deprecated ... only use for advanced use cases", e este é um deles.
@@ -227,6 +227,8 @@ export function createMcpServer(credential: string): Server {
 
 			const templates = (data ?? []).map((t) => ({
 				...t,
+				// Até o contract do lote 5 o banco ainda grava o cardápio de apoio como `exception`.
+				template_type: TEMPLATE_TYPE_VOCABULARY.normalize(t.template_type) ?? t.template_type,
 				item_count: Array.isArray(t.items) ? ((t.items[0] as { count: number } | undefined)?.count ?? 0) : 0,
 			}))
 

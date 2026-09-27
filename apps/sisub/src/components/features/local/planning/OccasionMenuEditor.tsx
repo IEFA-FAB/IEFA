@@ -177,7 +177,7 @@ interface OccasionMenuEditorProps {
 export function OccasionMenuEditor({ templateId, templateType, editContext, listLink, editorLink }: OccasionMenuEditorProps) {
 	const navigate = useNavigate()
 	const copy = OCCASION_MENU_COPY[templateType]
-	const isException = templateType === "exception"
+	const isSupportMenu = templateType === "apoio"
 	const isEvent = templateType === "event"
 	const kitchenId = editContext.scope === "kitchen" ? editContext.kitchenId : null
 
@@ -205,16 +205,19 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 
 	const [editorState, dispatch] = useReducer(occasionEditorReducer, initialOccasionEditorState)
 	const { name, description, occurrences, items, initialized, selectorOpen, selectedMealTypeId, selectedGroup, snack, eventMeals } = editorState
-	const isSnackStandard = isException && snack.enabled
+	const isSnackStandard = isSupportMenu && snack.enabled
 	// Tipo de refeição de sistema dos padrões de lanche — `fetchMealTypes` não o devolve. Buscado
 	// em toda exceção: uma que DEIXOU de ser padrão ainda pode ter itens sob ele.
-	const { data: snackMealType, error: snackMealTypeError } = useSnackMealType(isException)
+	const { data: snackMealType, error: snackMealTypeError } = useSnackMealType(isSupportMenu)
 	// Na cozinha tudo termina local (edição in-place ou cópia); no catálogo global é só molde.
 	const isKitchenTemplate = editContext.scope === "kitchen"
 	// Data civil de Brasília: o mesmo "hoje" que o painel usa para cobrar a revisão trimestral.
 	const snackIssues = useMemo(() => snackDraftIssues(snack, brasiliaCivilDate(new Date().toISOString())), [snack])
 	const hasSnackIssues = Object.keys(snackIssues).length > 0
-	const snackPayload = useMemo(() => (isException ? snackClassificationFromDraft(snack, { isKitchenTemplate }) : null), [isException, snack, isKitchenTemplate])
+	const snackPayload = useMemo(
+		() => (isSupportMenu ? snackClassificationFromDraft(snack, { isKitchenTemplate }) : null),
+		[isSupportMenu, snack, isKitchenTemplate]
+	)
 	const snackSignature = JSON.stringify(snackPayload)
 	// Última classificação gravada — só chama `setSnackClassification` quando ela mudou.
 	const savedSnackSignatureRef = useRef<string | null>(null)
@@ -252,9 +255,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 			name: name.trim(),
 			description: description.trim() || null,
 			// Só a exceção tem recorrência. Mandar `null` num evento limparia a coluna à toa.
-			...(isException ? { expected_monthly_occurrences: parseMonthlyOccurrences(occurrences) } : {}),
+			...(isSupportMenu ? { expected_monthly_occurrences: parseMonthlyOccurrences(occurrences) } : {}),
 		}),
-		[name, description, occurrences, isException]
+		[name, description, occurrences, isSupportMenu]
 	)
 
 	const payloadItems = useMemo(
@@ -324,12 +327,12 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 			const idChanged = saved.id !== templateId
 			if (idChanged) {
 				queryClient.invalidateQueries({ queryKey: queryKeys.snackRequests.standardEnergy(saved.id) })
-				if (isException && saved.snackSignature !== savedSnackSignatureRef.current) {
+				if (isSupportMenu && saved.snackSignature !== savedSnackSignatureRef.current) {
 					toast.info("A cópia da cozinha mantém a própria classificação de padrão de lanche — ajuste-a na cópia, se precisar.")
 				}
 				return
 			}
-			if (!isException || saved.snackSignature === savedSnackSignatureRef.current) {
+			if (!isSupportMenu || saved.snackSignature === savedSnackSignatureRef.current) {
 				queryClient.invalidateQueries({ queryKey: queryKeys.snackRequests.standardEnergy(saved.id) })
 				return
 			}
@@ -347,7 +350,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				}
 			)
 		},
-		[templateId, isException, queryClient, setSnackClassification]
+		[templateId, isSupportMenu, queryClient, setSnackClassification]
 	)
 
 	useEffect(() => {
@@ -710,14 +713,14 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				{/* Metadata */}
 				<Card>
 					<CardContent>
-						<FieldGroup className={isException ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+						<FieldGroup className={isSupportMenu ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
 							<Field>
 								<FieldLabel htmlFor="name">
 									Nome <span className="text-destructive">*</span>
 								</FieldLabel>
 								<Input id="name" value={name} onChange={(e) => dispatch({ type: "SET_NAME", value: e.target.value })} placeholder={namePlaceholder} required />
 							</Field>
-							{isException && (
+							{isSupportMenu && (
 								<Field>
 									<FieldLabel htmlFor="occurrences">{isSnackStandard ? "Kits por mês" : "Ocorrências/mês"}</FieldLabel>
 									<Input
@@ -750,7 +753,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				</Card>
 
 				{/* Sumário */}
-				{isException && (
+				{isSupportMenu && (
 					<SnackStandardPanel
 						draft={snack}
 						onChange={(value) => dispatch({ type: "SET_SNACK", value })}

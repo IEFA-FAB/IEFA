@@ -14,7 +14,7 @@ interface ApplyEventDialogProps {
 	onClose: () => void
 	templateId: string
 	templateName: string
-	templateType: "event" | "exception"
+	templateType: "event" | "apoio"
 	kitchenId: number
 }
 

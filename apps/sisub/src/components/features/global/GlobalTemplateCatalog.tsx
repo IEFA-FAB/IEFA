@@ -49,7 +49,7 @@ export function GlobalTemplateCatalog({
 	newLink,
 	editorLink,
 }: GlobalTemplateCatalogProps) {
-	const isException = templateType === "exception"
+	const isSupportMenu = templateType === "apoio"
 
 	const {
 		data: allTemplates,
@@ -140,7 +140,7 @@ export function GlobalTemplateCatalog({
 								<TableRow>
 									<TableHead>Nome</TableHead>
 									<TableHead>Descrição</TableHead>
-									{isException && <TableHead className="w-32 text-center">Ocorrências/mês</TableHead>}
+									{isSupportMenu && <TableHead className="w-32 text-center">Ocorrências/mês</TableHead>}
 									<TableHead className="w-28 text-center">Preparações</TableHead>
 									{canWrite && <TableHead className="w-32 text-right">Ações</TableHead>}
 								</TableRow>
@@ -150,10 +150,10 @@ export function GlobalTemplateCatalog({
 									<TableRow key={template.id}>
 										<TableCell>
 											<p className="text-subheading">{template.name}</p>
-											{templateType === "exception" && <SnackStandardBadges template={template} />}
+											{templateType === "apoio" && <SnackStandardBadges template={template} />}
 										</TableCell>
 										<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
-										{isException && (
+										{isSupportMenu && (
 											<TableCell className="text-center">
 												<Badge variant="outline" className="font-mono text-xs">
 													{template.expected_monthly_occurrences ?? "—"}

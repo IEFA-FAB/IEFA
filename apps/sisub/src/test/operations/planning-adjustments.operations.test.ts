@@ -84,7 +84,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		const viagem = await createTemplate(d, ctx, {
 			name: uid("[TEST] Apoio viagem "),
 			kitchenId,
-			templateType: "exception",
+			templateType: "apoio",
 			items: [
 				{ dayOfWeek: 1, mealTypeId, recipeId: lanche, headcountOverride: 100, recommendedProportion: null },
 				{ dayOfWeek: 1, mealTypeId, recipeId: suco, headcountOverride: 100, recommendedProportion: null },
@@ -93,7 +93,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		const contingencia = await createTemplate(d, ctx, {
 			name: uid("[TEST] Contingência sem cocção "),
 			kitchenId,
-			templateType: "exception",
+			templateType: "apoio",
 			items: [{ dayOfWeek: 1, mealTypeId, recipeId: fria, headcountOverride: 300, recommendedProportion: null }],
 		})
 		for (const id of [viagem.id, contingencia.id]) {

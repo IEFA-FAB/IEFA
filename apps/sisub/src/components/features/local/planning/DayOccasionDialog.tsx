@@ -40,9 +40,9 @@ export function DayOccasionDialog({
 		if (open) setTemplateId("")
 	}, [open])
 
-	const occasions = (templates ?? []).filter((t) => (t.template_type === "event" || t.template_type === "exception") && t.snack_family == null)
+	const occasions = (templates ?? []).filter((t) => (t.template_type === "event" || t.template_type === "apoio") && t.snack_family == null)
 	const events = occasions.filter((t) => t.template_type === "event")
-	const apoios = occasions.filter((t) => t.template_type === "exception")
+	const apoios = occasions.filter((t) => t.template_type === "apoio")
 	const selected = occasions.find((t) => t.id === templateId)
 	const isReplace = mode === "replace"
 	const isPending = isApplying || isReplacing

@@ -16,8 +16,16 @@
  * lote 4 (finanças) pelo 20260927090000.
  *
  * A lista de termos cresce por lote, como a do opengrep.
+ *
+ * ## Valores de domínio (lote 5)
+ *
+ * Valor de CHECK não é nome de objeto: o lote 5 (papéis da designação, tipos de inventário, alvo da
+ * regra de política, tipo de cardápio) tem teste próprio abaixo, que no expand (20260927100000)
+ * aceita o CHECK com os dois vocabulários e, depois do contract (20260927110000), exige só o do
+ * glossário.
  */
 
+import { DESIGNATION_ROLE_VOCABULARY, INVENTORY_COUNT_TYPE_VOCABULARY, POLICY_TARGET_VOCABULARY, TEMPLATE_TYPE_VOCABULARY } from "@iefa/sisub-domain"
 import postgres from "postgres"
 import { afterAll, beforeAll, describe, expect, test } from "vitest"
 import { describeSupabaseIntegration, getSisubDatabaseUrl } from "../supabase"
@@ -123,6 +131,24 @@ describeIf("linguagem ubíqua no banco vivo", () => {
 			...comments.map((c) => c.key),
 		]
 		expect(offending(found), "texto do banco cita nome descartado pelo glossário").toEqual([])
+	})
+
+	test("valores de domínio do lote 5: o CHECK aceita o vocabulário do glossário e nada fora dos dois", async () => {
+		const checks = [
+			{ constraint: "contract_designation_role_check", vocabulary: DESIGNATION_ROLE_VOCABULARY },
+			{ constraint: "inventory_count_type_check", vocabulary: INVENTORY_COUNT_TYPE_VOCABULARY },
+			{ constraint: "policy_rule_target_check", vocabulary: POLICY_TARGET_VOCABULARY },
+			{ constraint: "menu_template_template_type_check", vocabulary: TEMPLATE_TYPE_VOCABULARY },
+			{ constraint: "menu_items_origin_template_type_check", vocabulary: TEMPLATE_TYPE_VOCABULARY },
+		]
+		for (const { constraint, vocabulary } of checks) {
+			const [check] = await sql<{ def: string }[]>`select pg_get_constraintdef(oid) as def from pg_constraint where conname = ${constraint}`
+			expect(check?.def, constraint).toBeDefined()
+			const values = [...(check?.def ?? "").matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1] as string)
+			// Expand: o glossário inteiro está lá; o que sobra é só o nome antigo (sai no contract).
+			for (const value of vocabulary.values) expect(values, constraint).toContain(value)
+			for (const value of values) expect(vocabulary.inputValues, constraint).toContain(value)
+		}
 	})
 
 	test("o status do anexo só aceita o vocabulário do glossário", async () => {

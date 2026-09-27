@@ -62,6 +62,7 @@ import type {
 	UpdateQuantityEstimateLimits,
 	UpdateQuantityEstimateStatus,
 } from "../schemas/procurement.ts"
+import { TEMPLATE_TYPE_VOCABULARY } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
@@ -220,7 +221,7 @@ async function computeQuantityEstimateNeeds(db: SisubDb, input: CalculateQuantit
 	const allSelections = kitchenSelections.flatMap((ks) => [
 		...ks.templateSelections.map((s) => ({ ...s, kitchenId: ks.kitchenId })),
 		...ks.eventSelections.map((s) => ({ ...s, kitchenId: ks.kitchenId })),
-		...(ks.exceptionSelections ?? []).map((s) => ({ ...s, kitchenId: ks.kitchenId })),
+		...(ks.supportMenuSelections ?? []).map((s) => ({ ...s, kitchenId: ks.kitchenId })),
 	])
 
 	if (allSelections.length === 0) return []
@@ -358,7 +359,7 @@ async function computeQuantityEstimateNeeds(db: SisubDb, input: CalculateQuantit
 					ingredientId: ri.ingredientId,
 					kitchenId: selection.kitchenId,
 					templateId: selection.templateId,
-					templateType: template.templateType ?? null,
+					templateType: TEMPLATE_TYPE_VOCABULARY.normalize(template.templateType),
 					recipeId: item.recipeId as string,
 					headcount,
 					netQuantity: Number(ri.netQuantity ?? 0),
@@ -475,7 +476,7 @@ type SelectionScopeInput = ReadonlyArray<{
 	kitchenId: number
 	templateSelections: ReadonlyArray<{ templateId: string }>
 	eventSelections: ReadonlyArray<{ templateId: string }>
-	exceptionSelections?: ReadonlyArray<{ templateId: string }>
+	supportMenuSelections?: ReadonlyArray<{ templateId: string }>
 }>
 
 /** Só a cozinha COM seleção entra no anexo (as demais são puladas na gravação) — e só ela é conferida. */
@@ -483,7 +484,7 @@ function selectedKitchens(kitchenSelections: SelectionScopeInput) {
 	return kitchenSelections
 		.map((ks) => ({
 			kitchenId: ks.kitchenId,
-			templateIds: [...ks.templateSelections, ...ks.eventSelections, ...(ks.exceptionSelections ?? [])].map((s) => s.templateId),
+			templateIds: [...ks.templateSelections, ...ks.eventSelections, ...(ks.supportMenuSelections ?? [])].map((s) => s.templateId),
 		}))
 		.filter((ks) => ks.templateIds.length > 0)
 }
@@ -700,11 +701,11 @@ export async function explainQuantityEstimateNeeds(db: SisubDb, ctx: UserContext
 			deliveryNotes: "",
 			templateSelections: [],
 			eventSelections: [],
-			exceptionSelections: [],
+			supportMenuSelections: [],
 		}
 		const selection = { templateId: row.templateId, templateName: row.templateName ?? "", repetitions: row.repetitions }
 		if (row.templateType === "event") entry.eventSelections.push(selection)
-		else if (row.templateType === "exception") entry.exceptionSelections.push(selection)
+		else if (TEMPLATE_TYPE_VOCABULARY.is(row.templateType, "apoio")) entry.supportMenuSelections.push(selection)
 		else entry.templateSelections.push(selection)
 		byKitchen.set(row.kitchenId, entry)
 	}
@@ -827,7 +828,7 @@ export async function updateQuantityEstimateDraft(db: SisubDb, ctx: UserContext,
 			await tx.delete(quantityEstimateKitchenInProcurement).where(eq(quantityEstimateKitchenInProcurement.quantityEstimateId, input.draftId))
 
 			for (const ks of input.kitchenSelections) {
-				const allSels = [...ks.templateSelections, ...ks.eventSelections, ...(ks.exceptionSelections ?? [])]
+				const allSels = [...ks.templateSelections, ...ks.eventSelections, ...(ks.supportMenuSelections ?? [])]
 				if (allSels.length === 0) continue
 
 				const quantityEstimateKitchen = await insertOneOrFail(
@@ -1123,7 +1124,7 @@ export async function createQuantityEstimate(db: SisubDb, ctx: UserContext, inpu
 
 		// 2. Para cada cozinha com seleções, criar quantity_estimate_kitchen + selections.
 		for (const ks of kitchenSelections) {
-			const allSels = [...ks.templateSelections, ...ks.eventSelections, ...(ks.exceptionSelections ?? [])]
+			const allSels = [...ks.templateSelections, ...ks.eventSelections, ...(ks.supportMenuSelections ?? [])]
 			if (allSels.length === 0) continue
 
 			const quantityEstimateKitchen = await insertOneOrFail(
@@ -1288,7 +1289,10 @@ export async function fetchQuantityEstimateDetails(
 			: []
 
 	const coreKitchenById = new Map(coreKitchens.map((k) => [k.id, k]))
-	const templateById = new Map(selectionTemplates.map((t) => [t.id, t]))
+	// Tipo no vocabulário do glossário: até o contract do lote 5 o banco ainda tem `exception`.
+	const templateById = new Map(
+		selectionTemplates.map((t) => [t.id, { ...t, templateType: TEMPLATE_TYPE_VOCABULARY.normalize(t.templateType) ?? t.templateType }])
+	)
 	const selectionsByKitchen = new Map<string, Array<(typeof selectionRows)[number] & { menuTemplateInKitchen: (typeof selectionTemplates)[number] | null }>>()
 	for (const sel of selectionRows) {
 		const withTemplate = { ...sel, menuTemplateInKitchen: (sel.templateId ? templateById.get(sel.templateId) : null) ?? null }
@@ -1541,7 +1545,8 @@ async function computeQuantityEstimateMeta(
 			snapshot = {
 				selections: selections.map((s) => ({
 					template_name: s.templateName,
-					template_type: s.templateType,
+					// Retrato congelado; até o contract do lote 5 o tipo pode estar com o nome antigo.
+					template_type: TEMPLATE_TYPE_VOCABULARY.normalize(s.templateType) ?? s.templateType,
 					kitchen_id: s.kitchenId,
 					kitchen_name: s.kitchenName,
 					repetitions: s.repetitions,

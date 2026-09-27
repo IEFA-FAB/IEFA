@@ -82,14 +82,14 @@ import { Route as ProtectedModulesDinerSnackRequestsNewRouteImport } from './rou
 import { Route as ProtectedModulesGlobalEventsIndexRouteImport } from './routes/_protected/_modules/global/events/index'
 import { Route as ProtectedModulesGlobalEventsEventIdRouteImport } from './routes/_protected/_modules/global/events/$eventId'
 import { Route as ProtectedModulesGlobalEventsNewRouteImport } from './routes/_protected/_modules/global/events/new'
-import { Route as ProtectedModulesGlobalExceptionsIndexRouteImport } from './routes/_protected/_modules/global/exceptions/index'
-import { Route as ProtectedModulesGlobalExceptionsExceptionIdRouteImport } from './routes/_protected/_modules/global/exceptions/$exceptionId'
-import { Route as ProtectedModulesGlobalExceptionsNewRouteImport } from './routes/_protected/_modules/global/exceptions/new'
 import { Route as ProtectedModulesGlobalFrozenPreparationsIndexRouteImport } from './routes/_protected/_modules/global/frozen-preparations/index'
 import { Route as ProtectedModulesGlobalIngredientsIndexRouteImport } from './routes/_protected/_modules/global/ingredients/index'
 import { Route as ProtectedModulesGlobalIngredientsIngredientIdRouteImport } from './routes/_protected/_modules/global/ingredients/$ingredientId'
 import { Route as ProtectedModulesGlobalRecipesIndexRouteImport } from './routes/_protected/_modules/global/recipes/index'
 import { Route as ProtectedModulesGlobalRecipesNewRouteImport } from './routes/_protected/_modules/global/recipes/new'
+import { Route as ProtectedModulesGlobalSupportMenusIndexRouteImport } from './routes/_protected/_modules/global/support-menus/index'
+import { Route as ProtectedModulesGlobalSupportMenusSupportMenuIdRouteImport } from './routes/_protected/_modules/global/support-menus/$supportMenuId'
+import { Route as ProtectedModulesGlobalSupportMenusNewRouteImport } from './routes/_protected/_modules/global/support-menus/new'
 import { Route as ProtectedModulesGlobalWeeklyMenusIndexRouteImport } from './routes/_protected/_modules/global/weekly-menus/index'
 import { Route as ProtectedModulesGlobalWeeklyMenusWeeklyMenuIdRouteImport } from './routes/_protected/_modules/global/weekly-menus/$weeklyMenuId'
 import { Route as ProtectedModulesGlobalWeeklyMenusNewRouteImport } from './routes/_protected/_modules/global/weekly-menus/new'
@@ -143,9 +143,6 @@ import { Route as ProtectedModulesKitchenKitchenIdDemandForecastsNewRouteImport 
 import { Route as ProtectedModulesKitchenKitchenIdEventsIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/events/index'
 import { Route as ProtectedModulesKitchenKitchenIdEventsEventIdRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/events/$eventId'
 import { Route as ProtectedModulesKitchenKitchenIdEventsNewRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/events/new'
-import { Route as ProtectedModulesKitchenKitchenIdExceptionsIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/exceptions/index'
-import { Route as ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/exceptions/$exceptionId'
-import { Route as ProtectedModulesKitchenKitchenIdExceptionsNewRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/exceptions/new'
 import { Route as ProtectedModulesKitchenKitchenIdFlowsIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/flows/index'
 import { Route as ProtectedModulesKitchenKitchenIdFlowsDemandForecastRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/flows/demand-forecast'
 import { Route as ProtectedModulesKitchenKitchenIdFlowsExecutionReviewRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/flows/execution-review'
@@ -155,6 +152,9 @@ import { Route as ProtectedModulesKitchenKitchenIdRecipesNewRouteImport } from '
 import { Route as ProtectedModulesKitchenKitchenIdSnackRequestsIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/snack-requests/index'
 import { Route as ProtectedModulesKitchenKitchenIdSnackRequestsRequestIdRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/snack-requests/$requestId'
 import { Route as ProtectedModulesKitchenKitchenIdSnackRequestsProductionRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/snack-requests/production'
+import { Route as ProtectedModulesKitchenKitchenIdSupportMenusIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/support-menus/index'
+import { Route as ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/support-menus/$supportMenuId'
+import { Route as ProtectedModulesKitchenKitchenIdSupportMenusNewRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/support-menus/new'
 import { Route as ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/weekly-menus/index'
 import { Route as ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId'
 import { Route as ProtectedModulesKitchenKitchenIdWeeklyMenusNewRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/weekly-menus/new'
@@ -592,24 +592,6 @@ const ProtectedModulesGlobalEventsNewRoute =
     path: '/global/events/new',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesGlobalExceptionsIndexRoute =
-  ProtectedModulesGlobalExceptionsIndexRouteImport.update({
-    id: '/global/exceptions/',
-    path: '/global/exceptions/',
-    getParentRoute: () => ProtectedModulesRouteRoute,
-  } as any)
-const ProtectedModulesGlobalExceptionsExceptionIdRoute =
-  ProtectedModulesGlobalExceptionsExceptionIdRouteImport.update({
-    id: '/global/exceptions/$exceptionId',
-    path: '/global/exceptions/$exceptionId',
-    getParentRoute: () => ProtectedModulesRouteRoute,
-  } as any)
-const ProtectedModulesGlobalExceptionsNewRoute =
-  ProtectedModulesGlobalExceptionsNewRouteImport.update({
-    id: '/global/exceptions/new',
-    path: '/global/exceptions/new',
-    getParentRoute: () => ProtectedModulesRouteRoute,
-  } as any)
 const ProtectedModulesGlobalFrozenPreparationsIndexRoute =
   ProtectedModulesGlobalFrozenPreparationsIndexRouteImport.update({
     id: '/global/frozen-preparations/',
@@ -638,6 +620,24 @@ const ProtectedModulesGlobalRecipesNewRoute =
   ProtectedModulesGlobalRecipesNewRouteImport.update({
     id: '/global/recipes/new',
     path: '/global/recipes/new',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalSupportMenusIndexRoute =
+  ProtectedModulesGlobalSupportMenusIndexRouteImport.update({
+    id: '/global/support-menus/',
+    path: '/global/support-menus/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalSupportMenusSupportMenuIdRoute =
+  ProtectedModulesGlobalSupportMenusSupportMenuIdRouteImport.update({
+    id: '/global/support-menus/$supportMenuId',
+    path: '/global/support-menus/$supportMenuId',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalSupportMenusNewRoute =
+  ProtectedModulesGlobalSupportMenusNewRouteImport.update({
+    id: '/global/support-menus/new',
+    path: '/global/support-menus/new',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesGlobalWeeklyMenusIndexRoute =
@@ -958,24 +958,6 @@ const ProtectedModulesKitchenKitchenIdEventsNewRoute =
     path: '/events/new',
     getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
   } as any)
-const ProtectedModulesKitchenKitchenIdExceptionsIndexRoute =
-  ProtectedModulesKitchenKitchenIdExceptionsIndexRouteImport.update({
-    id: '/exceptions/',
-    path: '/exceptions/',
-    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
-  } as any)
-const ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRoute =
-  ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRouteImport.update({
-    id: '/exceptions/$exceptionId',
-    path: '/exceptions/$exceptionId',
-    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
-  } as any)
-const ProtectedModulesKitchenKitchenIdExceptionsNewRoute =
-  ProtectedModulesKitchenKitchenIdExceptionsNewRouteImport.update({
-    id: '/exceptions/new',
-    path: '/exceptions/new',
-    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
-  } as any)
 const ProtectedModulesKitchenKitchenIdFlowsIndexRoute =
   ProtectedModulesKitchenKitchenIdFlowsIndexRouteImport.update({
     id: '/flows/',
@@ -1028,6 +1010,24 @@ const ProtectedModulesKitchenKitchenIdSnackRequestsProductionRoute =
   ProtectedModulesKitchenKitchenIdSnackRequestsProductionRouteImport.update({
     id: '/snack-requests/production',
     path: '/snack-requests/production',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdSupportMenusIndexRoute =
+  ProtectedModulesKitchenKitchenIdSupportMenusIndexRouteImport.update({
+    id: '/support-menus/',
+    path: '/support-menus/',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRoute =
+  ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRouteImport.update({
+    id: '/support-menus/$supportMenuId',
+    path: '/support-menus/$supportMenuId',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdSupportMenusNewRoute =
+  ProtectedModulesKitchenKitchenIdSupportMenusNewRouteImport.update({
+    id: '/support-menus/new',
+    path: '/support-menus/new',
     getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
   } as any)
 const ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute =
@@ -1232,10 +1232,10 @@ export interface FileRoutesByFullPath {
   '/diner/snack-requests/new': typeof ProtectedModulesDinerSnackRequestsNewRoute
   '/global/events/$eventId': typeof ProtectedModulesGlobalEventsEventIdRoute
   '/global/events/new': typeof ProtectedModulesGlobalEventsNewRoute
-  '/global/exceptions/$exceptionId': typeof ProtectedModulesGlobalExceptionsExceptionIdRoute
-  '/global/exceptions/new': typeof ProtectedModulesGlobalExceptionsNewRoute
   '/global/ingredients/$ingredientId': typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
+  '/global/support-menus/$supportMenuId': typeof ProtectedModulesGlobalSupportMenusSupportMenuIdRoute
+  '/global/support-menus/new': typeof ProtectedModulesGlobalSupportMenusNewRoute
   '/global/weekly-menus/$weeklyMenuId': typeof ProtectedModulesGlobalWeeklyMenusWeeklyMenuIdRoute
   '/global/weekly-menus/new': typeof ProtectedModulesGlobalWeeklyMenusNewRoute
   '/kitchen-production/$kitchenId/equipment': typeof ProtectedModulesKitchenProductionKitchenIdEquipmentRoute
@@ -1276,10 +1276,10 @@ export interface FileRoutesByFullPath {
   '/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/diner/snack-requests/': typeof ProtectedModulesDinerSnackRequestsIndexRoute
   '/global/events/': typeof ProtectedModulesGlobalEventsIndexRoute
-  '/global/exceptions/': typeof ProtectedModulesGlobalExceptionsIndexRoute
   '/global/frozen-preparations/': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/global/ingredients/': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/global/recipes/': typeof ProtectedModulesGlobalRecipesIndexRoute
+  '/global/support-menus/': typeof ProtectedModulesGlobalSupportMenusIndexRoute
   '/global/weekly-menus/': typeof ProtectedModulesGlobalWeeklyMenusIndexRoute
   '/kitchen-production/$kitchenId/': typeof ProtectedModulesKitchenProductionKitchenIdIndexRoute
   '/kitchen/$kitchenId/': typeof ProtectedModulesKitchenKitchenIdIndexRoute
@@ -1293,13 +1293,13 @@ export interface FileRoutesByFullPath {
   '/kitchen/$kitchenId/demand-forecasts/new': typeof ProtectedModulesKitchenKitchenIdDemandForecastsNewRoute
   '/kitchen/$kitchenId/events/$eventId': typeof ProtectedModulesKitchenKitchenIdEventsEventIdRoute
   '/kitchen/$kitchenId/events/new': typeof ProtectedModulesKitchenKitchenIdEventsNewRoute
-  '/kitchen/$kitchenId/exceptions/$exceptionId': typeof ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRoute
-  '/kitchen/$kitchenId/exceptions/new': typeof ProtectedModulesKitchenKitchenIdExceptionsNewRoute
   '/kitchen/$kitchenId/flows/demand-forecast': typeof ProtectedModulesKitchenKitchenIdFlowsDemandForecastRoute
   '/kitchen/$kitchenId/flows/execution-review': typeof ProtectedModulesKitchenKitchenIdFlowsExecutionReviewRoute
   '/kitchen/$kitchenId/recipes/new': typeof ProtectedModulesKitchenKitchenIdRecipesNewRoute
   '/kitchen/$kitchenId/snack-requests/$requestId': typeof ProtectedModulesKitchenKitchenIdSnackRequestsRequestIdRoute
   '/kitchen/$kitchenId/snack-requests/production': typeof ProtectedModulesKitchenKitchenIdSnackRequestsProductionRoute
+  '/kitchen/$kitchenId/support-menus/$supportMenuId': typeof ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRoute
+  '/kitchen/$kitchenId/support-menus/new': typeof ProtectedModulesKitchenKitchenIdSupportMenusNewRoute
   '/kitchen/$kitchenId/weekly-menus/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute
   '/kitchen/$kitchenId/weekly-menus/new': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
   '/storage/$kitchenId/nfe/$nfeId': typeof ProtectedModulesStorageKitchenIdNfeNfeIdRoute
@@ -1311,10 +1311,10 @@ export interface FileRoutesByFullPath {
   '/global/recipes/$recipeId/': typeof ProtectedModulesGlobalRecipesRecipeIdIndexRoute
   '/kitchen/$kitchenId/demand-forecasts/': typeof ProtectedModulesKitchenKitchenIdDemandForecastsIndexRoute
   '/kitchen/$kitchenId/events/': typeof ProtectedModulesKitchenKitchenIdEventsIndexRoute
-  '/kitchen/$kitchenId/exceptions/': typeof ProtectedModulesKitchenKitchenIdExceptionsIndexRoute
   '/kitchen/$kitchenId/flows/': typeof ProtectedModulesKitchenKitchenIdFlowsIndexRoute
   '/kitchen/$kitchenId/recipes/': typeof ProtectedModulesKitchenKitchenIdRecipesIndexRoute
   '/kitchen/$kitchenId/snack-requests/': typeof ProtectedModulesKitchenKitchenIdSnackRequestsIndexRoute
+  '/kitchen/$kitchenId/support-menus/': typeof ProtectedModulesKitchenKitchenIdSupportMenusIndexRoute
   '/kitchen/$kitchenId/weekly-menus/': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute
   '/storage/$kitchenId/nfe/': typeof ProtectedModulesStorageKitchenIdNfeIndexRoute
   '/storage/$kitchenId/receiving/': typeof ProtectedModulesStorageKitchenIdReceivingIndexRoute
@@ -1391,10 +1391,10 @@ export interface FileRoutesByTo {
   '/diner/snack-requests/new': typeof ProtectedModulesDinerSnackRequestsNewRoute
   '/global/events/$eventId': typeof ProtectedModulesGlobalEventsEventIdRoute
   '/global/events/new': typeof ProtectedModulesGlobalEventsNewRoute
-  '/global/exceptions/$exceptionId': typeof ProtectedModulesGlobalExceptionsExceptionIdRoute
-  '/global/exceptions/new': typeof ProtectedModulesGlobalExceptionsNewRoute
   '/global/ingredients/$ingredientId': typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
+  '/global/support-menus/$supportMenuId': typeof ProtectedModulesGlobalSupportMenusSupportMenuIdRoute
+  '/global/support-menus/new': typeof ProtectedModulesGlobalSupportMenusNewRoute
   '/global/weekly-menus/$weeklyMenuId': typeof ProtectedModulesGlobalWeeklyMenusWeeklyMenuIdRoute
   '/global/weekly-menus/new': typeof ProtectedModulesGlobalWeeklyMenusNewRoute
   '/kitchen-production/$kitchenId/equipment': typeof ProtectedModulesKitchenProductionKitchenIdEquipmentRoute
@@ -1434,10 +1434,10 @@ export interface FileRoutesByTo {
   '/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/diner/snack-requests': typeof ProtectedModulesDinerSnackRequestsIndexRoute
   '/global/events': typeof ProtectedModulesGlobalEventsIndexRoute
-  '/global/exceptions': typeof ProtectedModulesGlobalExceptionsIndexRoute
   '/global/frozen-preparations': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/global/ingredients': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/global/recipes': typeof ProtectedModulesGlobalRecipesIndexRoute
+  '/global/support-menus': typeof ProtectedModulesGlobalSupportMenusIndexRoute
   '/global/weekly-menus': typeof ProtectedModulesGlobalWeeklyMenusIndexRoute
   '/kitchen-production/$kitchenId': typeof ProtectedModulesKitchenProductionKitchenIdIndexRoute
   '/kitchen/$kitchenId': typeof ProtectedModulesKitchenKitchenIdIndexRoute
@@ -1450,13 +1450,13 @@ export interface FileRoutesByTo {
   '/kitchen/$kitchenId/demand-forecasts/new': typeof ProtectedModulesKitchenKitchenIdDemandForecastsNewRoute
   '/kitchen/$kitchenId/events/$eventId': typeof ProtectedModulesKitchenKitchenIdEventsEventIdRoute
   '/kitchen/$kitchenId/events/new': typeof ProtectedModulesKitchenKitchenIdEventsNewRoute
-  '/kitchen/$kitchenId/exceptions/$exceptionId': typeof ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRoute
-  '/kitchen/$kitchenId/exceptions/new': typeof ProtectedModulesKitchenKitchenIdExceptionsNewRoute
   '/kitchen/$kitchenId/flows/demand-forecast': typeof ProtectedModulesKitchenKitchenIdFlowsDemandForecastRoute
   '/kitchen/$kitchenId/flows/execution-review': typeof ProtectedModulesKitchenKitchenIdFlowsExecutionReviewRoute
   '/kitchen/$kitchenId/recipes/new': typeof ProtectedModulesKitchenKitchenIdRecipesNewRoute
   '/kitchen/$kitchenId/snack-requests/$requestId': typeof ProtectedModulesKitchenKitchenIdSnackRequestsRequestIdRoute
   '/kitchen/$kitchenId/snack-requests/production': typeof ProtectedModulesKitchenKitchenIdSnackRequestsProductionRoute
+  '/kitchen/$kitchenId/support-menus/$supportMenuId': typeof ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRoute
+  '/kitchen/$kitchenId/support-menus/new': typeof ProtectedModulesKitchenKitchenIdSupportMenusNewRoute
   '/kitchen/$kitchenId/weekly-menus/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute
   '/kitchen/$kitchenId/weekly-menus/new': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
   '/storage/$kitchenId/nfe/$nfeId': typeof ProtectedModulesStorageKitchenIdNfeNfeIdRoute
@@ -1468,10 +1468,10 @@ export interface FileRoutesByTo {
   '/global/recipes/$recipeId': typeof ProtectedModulesGlobalRecipesRecipeIdIndexRoute
   '/kitchen/$kitchenId/demand-forecasts': typeof ProtectedModulesKitchenKitchenIdDemandForecastsIndexRoute
   '/kitchen/$kitchenId/events': typeof ProtectedModulesKitchenKitchenIdEventsIndexRoute
-  '/kitchen/$kitchenId/exceptions': typeof ProtectedModulesKitchenKitchenIdExceptionsIndexRoute
   '/kitchen/$kitchenId/flows': typeof ProtectedModulesKitchenKitchenIdFlowsIndexRoute
   '/kitchen/$kitchenId/recipes': typeof ProtectedModulesKitchenKitchenIdRecipesIndexRoute
   '/kitchen/$kitchenId/snack-requests': typeof ProtectedModulesKitchenKitchenIdSnackRequestsIndexRoute
+  '/kitchen/$kitchenId/support-menus': typeof ProtectedModulesKitchenKitchenIdSupportMenusIndexRoute
   '/kitchen/$kitchenId/weekly-menus': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute
   '/storage/$kitchenId/nfe': typeof ProtectedModulesStorageKitchenIdNfeIndexRoute
   '/storage/$kitchenId/receiving': typeof ProtectedModulesStorageKitchenIdReceivingIndexRoute
@@ -1558,10 +1558,10 @@ export interface FileRoutesById {
   '/_protected/_modules/diner/snack-requests/new': typeof ProtectedModulesDinerSnackRequestsNewRoute
   '/_protected/_modules/global/events/$eventId': typeof ProtectedModulesGlobalEventsEventIdRoute
   '/_protected/_modules/global/events/new': typeof ProtectedModulesGlobalEventsNewRoute
-  '/_protected/_modules/global/exceptions/$exceptionId': typeof ProtectedModulesGlobalExceptionsExceptionIdRoute
-  '/_protected/_modules/global/exceptions/new': typeof ProtectedModulesGlobalExceptionsNewRoute
   '/_protected/_modules/global/ingredients/$ingredientId': typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   '/_protected/_modules/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
+  '/_protected/_modules/global/support-menus/$supportMenuId': typeof ProtectedModulesGlobalSupportMenusSupportMenuIdRoute
+  '/_protected/_modules/global/support-menus/new': typeof ProtectedModulesGlobalSupportMenusNewRoute
   '/_protected/_modules/global/weekly-menus/$weeklyMenuId': typeof ProtectedModulesGlobalWeeklyMenusWeeklyMenuIdRoute
   '/_protected/_modules/global/weekly-menus/new': typeof ProtectedModulesGlobalWeeklyMenusNewRoute
   '/_protected/_modules/kitchen-production/$kitchenId/equipment': typeof ProtectedModulesKitchenProductionKitchenIdEquipmentRoute
@@ -1602,10 +1602,10 @@ export interface FileRoutesById {
   '/_protected/_modules/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/_protected/_modules/diner/snack-requests/': typeof ProtectedModulesDinerSnackRequestsIndexRoute
   '/_protected/_modules/global/events/': typeof ProtectedModulesGlobalEventsIndexRoute
-  '/_protected/_modules/global/exceptions/': typeof ProtectedModulesGlobalExceptionsIndexRoute
   '/_protected/_modules/global/frozen-preparations/': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/_protected/_modules/global/ingredients/': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/_protected/_modules/global/recipes/': typeof ProtectedModulesGlobalRecipesIndexRoute
+  '/_protected/_modules/global/support-menus/': typeof ProtectedModulesGlobalSupportMenusIndexRoute
   '/_protected/_modules/global/weekly-menus/': typeof ProtectedModulesGlobalWeeklyMenusIndexRoute
   '/_protected/_modules/kitchen-production/$kitchenId/': typeof ProtectedModulesKitchenProductionKitchenIdIndexRoute
   '/_protected/_modules/kitchen/$kitchenId/': typeof ProtectedModulesKitchenKitchenIdIndexRoute
@@ -1619,13 +1619,13 @@ export interface FileRoutesById {
   '/_protected/_modules/kitchen/$kitchenId/demand-forecasts/new': typeof ProtectedModulesKitchenKitchenIdDemandForecastsNewRoute
   '/_protected/_modules/kitchen/$kitchenId/events/$eventId': typeof ProtectedModulesKitchenKitchenIdEventsEventIdRoute
   '/_protected/_modules/kitchen/$kitchenId/events/new': typeof ProtectedModulesKitchenKitchenIdEventsNewRoute
-  '/_protected/_modules/kitchen/$kitchenId/exceptions/$exceptionId': typeof ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRoute
-  '/_protected/_modules/kitchen/$kitchenId/exceptions/new': typeof ProtectedModulesKitchenKitchenIdExceptionsNewRoute
   '/_protected/_modules/kitchen/$kitchenId/flows/demand-forecast': typeof ProtectedModulesKitchenKitchenIdFlowsDemandForecastRoute
   '/_protected/_modules/kitchen/$kitchenId/flows/execution-review': typeof ProtectedModulesKitchenKitchenIdFlowsExecutionReviewRoute
   '/_protected/_modules/kitchen/$kitchenId/recipes/new': typeof ProtectedModulesKitchenKitchenIdRecipesNewRoute
   '/_protected/_modules/kitchen/$kitchenId/snack-requests/$requestId': typeof ProtectedModulesKitchenKitchenIdSnackRequestsRequestIdRoute
   '/_protected/_modules/kitchen/$kitchenId/snack-requests/production': typeof ProtectedModulesKitchenKitchenIdSnackRequestsProductionRoute
+  '/_protected/_modules/kitchen/$kitchenId/support-menus/$supportMenuId': typeof ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRoute
+  '/_protected/_modules/kitchen/$kitchenId/support-menus/new': typeof ProtectedModulesKitchenKitchenIdSupportMenusNewRoute
   '/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute
   '/_protected/_modules/kitchen/$kitchenId/weekly-menus/new': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
   '/_protected/_modules/storage/$kitchenId/nfe/$nfeId': typeof ProtectedModulesStorageKitchenIdNfeNfeIdRoute
@@ -1637,10 +1637,10 @@ export interface FileRoutesById {
   '/_protected/_modules/global/recipes/$recipeId/': typeof ProtectedModulesGlobalRecipesRecipeIdIndexRoute
   '/_protected/_modules/kitchen/$kitchenId/demand-forecasts/': typeof ProtectedModulesKitchenKitchenIdDemandForecastsIndexRoute
   '/_protected/_modules/kitchen/$kitchenId/events/': typeof ProtectedModulesKitchenKitchenIdEventsIndexRoute
-  '/_protected/_modules/kitchen/$kitchenId/exceptions/': typeof ProtectedModulesKitchenKitchenIdExceptionsIndexRoute
   '/_protected/_modules/kitchen/$kitchenId/flows/': typeof ProtectedModulesKitchenKitchenIdFlowsIndexRoute
   '/_protected/_modules/kitchen/$kitchenId/recipes/': typeof ProtectedModulesKitchenKitchenIdRecipesIndexRoute
   '/_protected/_modules/kitchen/$kitchenId/snack-requests/': typeof ProtectedModulesKitchenKitchenIdSnackRequestsIndexRoute
+  '/_protected/_modules/kitchen/$kitchenId/support-menus/': typeof ProtectedModulesKitchenKitchenIdSupportMenusIndexRoute
   '/_protected/_modules/kitchen/$kitchenId/weekly-menus/': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute
   '/_protected/_modules/storage/$kitchenId/nfe/': typeof ProtectedModulesStorageKitchenIdNfeIndexRoute
   '/_protected/_modules/storage/$kitchenId/receiving/': typeof ProtectedModulesStorageKitchenIdReceivingIndexRoute
@@ -1725,10 +1725,10 @@ export interface FileRouteTypes {
     | '/diner/snack-requests/new'
     | '/global/events/$eventId'
     | '/global/events/new'
-    | '/global/exceptions/$exceptionId'
-    | '/global/exceptions/new'
     | '/global/ingredients/$ingredientId'
     | '/global/recipes/new'
+    | '/global/support-menus/$supportMenuId'
+    | '/global/support-menus/new'
     | '/global/weekly-menus/$weeklyMenuId'
     | '/global/weekly-menus/new'
     | '/kitchen-production/$kitchenId/equipment'
@@ -1769,10 +1769,10 @@ export interface FileRouteTypes {
     | '/unit/$unitId/siafi'
     | '/diner/snack-requests/'
     | '/global/events/'
-    | '/global/exceptions/'
     | '/global/frozen-preparations/'
     | '/global/ingredients/'
     | '/global/recipes/'
+    | '/global/support-menus/'
     | '/global/weekly-menus/'
     | '/kitchen-production/$kitchenId/'
     | '/kitchen/$kitchenId/'
@@ -1786,13 +1786,13 @@ export interface FileRouteTypes {
     | '/kitchen/$kitchenId/demand-forecasts/new'
     | '/kitchen/$kitchenId/events/$eventId'
     | '/kitchen/$kitchenId/events/new'
-    | '/kitchen/$kitchenId/exceptions/$exceptionId'
-    | '/kitchen/$kitchenId/exceptions/new'
     | '/kitchen/$kitchenId/flows/demand-forecast'
     | '/kitchen/$kitchenId/flows/execution-review'
     | '/kitchen/$kitchenId/recipes/new'
     | '/kitchen/$kitchenId/snack-requests/$requestId'
     | '/kitchen/$kitchenId/snack-requests/production'
+    | '/kitchen/$kitchenId/support-menus/$supportMenuId'
+    | '/kitchen/$kitchenId/support-menus/new'
     | '/kitchen/$kitchenId/weekly-menus/$weeklyMenuId'
     | '/kitchen/$kitchenId/weekly-menus/new'
     | '/storage/$kitchenId/nfe/$nfeId'
@@ -1804,10 +1804,10 @@ export interface FileRouteTypes {
     | '/global/recipes/$recipeId/'
     | '/kitchen/$kitchenId/demand-forecasts/'
     | '/kitchen/$kitchenId/events/'
-    | '/kitchen/$kitchenId/exceptions/'
     | '/kitchen/$kitchenId/flows/'
     | '/kitchen/$kitchenId/recipes/'
     | '/kitchen/$kitchenId/snack-requests/'
+    | '/kitchen/$kitchenId/support-menus/'
     | '/kitchen/$kitchenId/weekly-menus/'
     | '/storage/$kitchenId/nfe/'
     | '/storage/$kitchenId/receiving/'
@@ -1884,10 +1884,10 @@ export interface FileRouteTypes {
     | '/diner/snack-requests/new'
     | '/global/events/$eventId'
     | '/global/events/new'
-    | '/global/exceptions/$exceptionId'
-    | '/global/exceptions/new'
     | '/global/ingredients/$ingredientId'
     | '/global/recipes/new'
+    | '/global/support-menus/$supportMenuId'
+    | '/global/support-menus/new'
     | '/global/weekly-menus/$weeklyMenuId'
     | '/global/weekly-menus/new'
     | '/kitchen-production/$kitchenId/equipment'
@@ -1927,10 +1927,10 @@ export interface FileRouteTypes {
     | '/unit/$unitId/siafi'
     | '/diner/snack-requests'
     | '/global/events'
-    | '/global/exceptions'
     | '/global/frozen-preparations'
     | '/global/ingredients'
     | '/global/recipes'
+    | '/global/support-menus'
     | '/global/weekly-menus'
     | '/kitchen-production/$kitchenId'
     | '/kitchen/$kitchenId'
@@ -1943,13 +1943,13 @@ export interface FileRouteTypes {
     | '/kitchen/$kitchenId/demand-forecasts/new'
     | '/kitchen/$kitchenId/events/$eventId'
     | '/kitchen/$kitchenId/events/new'
-    | '/kitchen/$kitchenId/exceptions/$exceptionId'
-    | '/kitchen/$kitchenId/exceptions/new'
     | '/kitchen/$kitchenId/flows/demand-forecast'
     | '/kitchen/$kitchenId/flows/execution-review'
     | '/kitchen/$kitchenId/recipes/new'
     | '/kitchen/$kitchenId/snack-requests/$requestId'
     | '/kitchen/$kitchenId/snack-requests/production'
+    | '/kitchen/$kitchenId/support-menus/$supportMenuId'
+    | '/kitchen/$kitchenId/support-menus/new'
     | '/kitchen/$kitchenId/weekly-menus/$weeklyMenuId'
     | '/kitchen/$kitchenId/weekly-menus/new'
     | '/storage/$kitchenId/nfe/$nfeId'
@@ -1961,10 +1961,10 @@ export interface FileRouteTypes {
     | '/global/recipes/$recipeId'
     | '/kitchen/$kitchenId/demand-forecasts'
     | '/kitchen/$kitchenId/events'
-    | '/kitchen/$kitchenId/exceptions'
     | '/kitchen/$kitchenId/flows'
     | '/kitchen/$kitchenId/recipes'
     | '/kitchen/$kitchenId/snack-requests'
+    | '/kitchen/$kitchenId/support-menus'
     | '/kitchen/$kitchenId/weekly-menus'
     | '/storage/$kitchenId/nfe'
     | '/storage/$kitchenId/receiving'
@@ -2050,10 +2050,10 @@ export interface FileRouteTypes {
     | '/_protected/_modules/diner/snack-requests/new'
     | '/_protected/_modules/global/events/$eventId'
     | '/_protected/_modules/global/events/new'
-    | '/_protected/_modules/global/exceptions/$exceptionId'
-    | '/_protected/_modules/global/exceptions/new'
     | '/_protected/_modules/global/ingredients/$ingredientId'
     | '/_protected/_modules/global/recipes/new'
+    | '/_protected/_modules/global/support-menus/$supportMenuId'
+    | '/_protected/_modules/global/support-menus/new'
     | '/_protected/_modules/global/weekly-menus/$weeklyMenuId'
     | '/_protected/_modules/global/weekly-menus/new'
     | '/_protected/_modules/kitchen-production/$kitchenId/equipment'
@@ -2094,10 +2094,10 @@ export interface FileRouteTypes {
     | '/_protected/_modules/unit/$unitId/siafi'
     | '/_protected/_modules/diner/snack-requests/'
     | '/_protected/_modules/global/events/'
-    | '/_protected/_modules/global/exceptions/'
     | '/_protected/_modules/global/frozen-preparations/'
     | '/_protected/_modules/global/ingredients/'
     | '/_protected/_modules/global/recipes/'
+    | '/_protected/_modules/global/support-menus/'
     | '/_protected/_modules/global/weekly-menus/'
     | '/_protected/_modules/kitchen-production/$kitchenId/'
     | '/_protected/_modules/kitchen/$kitchenId/'
@@ -2111,13 +2111,13 @@ export interface FileRouteTypes {
     | '/_protected/_modules/kitchen/$kitchenId/demand-forecasts/new'
     | '/_protected/_modules/kitchen/$kitchenId/events/$eventId'
     | '/_protected/_modules/kitchen/$kitchenId/events/new'
-    | '/_protected/_modules/kitchen/$kitchenId/exceptions/$exceptionId'
-    | '/_protected/_modules/kitchen/$kitchenId/exceptions/new'
     | '/_protected/_modules/kitchen/$kitchenId/flows/demand-forecast'
     | '/_protected/_modules/kitchen/$kitchenId/flows/execution-review'
     | '/_protected/_modules/kitchen/$kitchenId/recipes/new'
     | '/_protected/_modules/kitchen/$kitchenId/snack-requests/$requestId'
     | '/_protected/_modules/kitchen/$kitchenId/snack-requests/production'
+    | '/_protected/_modules/kitchen/$kitchenId/support-menus/$supportMenuId'
+    | '/_protected/_modules/kitchen/$kitchenId/support-menus/new'
     | '/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId'
     | '/_protected/_modules/kitchen/$kitchenId/weekly-menus/new'
     | '/_protected/_modules/storage/$kitchenId/nfe/$nfeId'
@@ -2129,10 +2129,10 @@ export interface FileRouteTypes {
     | '/_protected/_modules/global/recipes/$recipeId/'
     | '/_protected/_modules/kitchen/$kitchenId/demand-forecasts/'
     | '/_protected/_modules/kitchen/$kitchenId/events/'
-    | '/_protected/_modules/kitchen/$kitchenId/exceptions/'
     | '/_protected/_modules/kitchen/$kitchenId/flows/'
     | '/_protected/_modules/kitchen/$kitchenId/recipes/'
     | '/_protected/_modules/kitchen/$kitchenId/snack-requests/'
+    | '/_protected/_modules/kitchen/$kitchenId/support-menus/'
     | '/_protected/_modules/kitchen/$kitchenId/weekly-menus/'
     | '/_protected/_modules/storage/$kitchenId/nfe/'
     | '/_protected/_modules/storage/$kitchenId/receiving/'
@@ -2672,27 +2672,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesGlobalEventsNewRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/global/exceptions/': {
-      id: '/_protected/_modules/global/exceptions/'
-      path: '/global/exceptions'
-      fullPath: '/global/exceptions/'
-      preLoaderRoute: typeof ProtectedModulesGlobalExceptionsIndexRouteImport
-      parentRoute: typeof ProtectedModulesRouteRoute
-    }
-    '/_protected/_modules/global/exceptions/$exceptionId': {
-      id: '/_protected/_modules/global/exceptions/$exceptionId'
-      path: '/global/exceptions/$exceptionId'
-      fullPath: '/global/exceptions/$exceptionId'
-      preLoaderRoute: typeof ProtectedModulesGlobalExceptionsExceptionIdRouteImport
-      parentRoute: typeof ProtectedModulesRouteRoute
-    }
-    '/_protected/_modules/global/exceptions/new': {
-      id: '/_protected/_modules/global/exceptions/new'
-      path: '/global/exceptions/new'
-      fullPath: '/global/exceptions/new'
-      preLoaderRoute: typeof ProtectedModulesGlobalExceptionsNewRouteImport
-      parentRoute: typeof ProtectedModulesRouteRoute
-    }
     '/_protected/_modules/global/frozen-preparations/': {
       id: '/_protected/_modules/global/frozen-preparations/'
       path: '/global/frozen-preparations'
@@ -2726,6 +2705,27 @@ declare module '@tanstack/react-router' {
       path: '/global/recipes/new'
       fullPath: '/global/recipes/new'
       preLoaderRoute: typeof ProtectedModulesGlobalRecipesNewRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/support-menus/': {
+      id: '/_protected/_modules/global/support-menus/'
+      path: '/global/support-menus'
+      fullPath: '/global/support-menus/'
+      preLoaderRoute: typeof ProtectedModulesGlobalSupportMenusIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/support-menus/$supportMenuId': {
+      id: '/_protected/_modules/global/support-menus/$supportMenuId'
+      path: '/global/support-menus/$supportMenuId'
+      fullPath: '/global/support-menus/$supportMenuId'
+      preLoaderRoute: typeof ProtectedModulesGlobalSupportMenusSupportMenuIdRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/support-menus/new': {
+      id: '/_protected/_modules/global/support-menus/new'
+      path: '/global/support-menus/new'
+      fullPath: '/global/support-menus/new'
+      preLoaderRoute: typeof ProtectedModulesGlobalSupportMenusNewRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/global/weekly-menus/': {
@@ -3099,27 +3099,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdEventsNewRouteImport
       parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
     }
-    '/_protected/_modules/kitchen/$kitchenId/exceptions/': {
-      id: '/_protected/_modules/kitchen/$kitchenId/exceptions/'
-      path: '/exceptions'
-      fullPath: '/kitchen/$kitchenId/exceptions/'
-      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdExceptionsIndexRouteImport
-      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
-    }
-    '/_protected/_modules/kitchen/$kitchenId/exceptions/$exceptionId': {
-      id: '/_protected/_modules/kitchen/$kitchenId/exceptions/$exceptionId'
-      path: '/exceptions/$exceptionId'
-      fullPath: '/kitchen/$kitchenId/exceptions/$exceptionId'
-      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRouteImport
-      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
-    }
-    '/_protected/_modules/kitchen/$kitchenId/exceptions/new': {
-      id: '/_protected/_modules/kitchen/$kitchenId/exceptions/new'
-      path: '/exceptions/new'
-      fullPath: '/kitchen/$kitchenId/exceptions/new'
-      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdExceptionsNewRouteImport
-      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
-    }
     '/_protected/_modules/kitchen/$kitchenId/flows/': {
       id: '/_protected/_modules/kitchen/$kitchenId/flows/'
       path: '/flows'
@@ -3181,6 +3160,27 @@ declare module '@tanstack/react-router' {
       path: '/snack-requests/production'
       fullPath: '/kitchen/$kitchenId/snack-requests/production'
       preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdSnackRequestsProductionRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/support-menus/': {
+      id: '/_protected/_modules/kitchen/$kitchenId/support-menus/'
+      path: '/support-menus'
+      fullPath: '/kitchen/$kitchenId/support-menus/'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdSupportMenusIndexRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/support-menus/$supportMenuId': {
+      id: '/_protected/_modules/kitchen/$kitchenId/support-menus/$supportMenuId'
+      path: '/support-menus/$supportMenuId'
+      fullPath: '/kitchen/$kitchenId/support-menus/$supportMenuId'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/support-menus/new': {
+      id: '/_protected/_modules/kitchen/$kitchenId/support-menus/new'
+      path: '/support-menus/new'
+      fullPath: '/kitchen/$kitchenId/support-menus/new'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdSupportMenusNewRouteImport
       parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
     }
     '/_protected/_modules/kitchen/$kitchenId/weekly-menus/': {
@@ -3407,21 +3407,21 @@ interface ProtectedModulesKitchenKitchenIdRouteRouteChildren {
   ProtectedModulesKitchenKitchenIdDemandForecastsNewRoute: typeof ProtectedModulesKitchenKitchenIdDemandForecastsNewRoute
   ProtectedModulesKitchenKitchenIdEventsEventIdRoute: typeof ProtectedModulesKitchenKitchenIdEventsEventIdRoute
   ProtectedModulesKitchenKitchenIdEventsNewRoute: typeof ProtectedModulesKitchenKitchenIdEventsNewRoute
-  ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRoute: typeof ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRoute
-  ProtectedModulesKitchenKitchenIdExceptionsNewRoute: typeof ProtectedModulesKitchenKitchenIdExceptionsNewRoute
   ProtectedModulesKitchenKitchenIdFlowsDemandForecastRoute: typeof ProtectedModulesKitchenKitchenIdFlowsDemandForecastRoute
   ProtectedModulesKitchenKitchenIdFlowsExecutionReviewRoute: typeof ProtectedModulesKitchenKitchenIdFlowsExecutionReviewRoute
   ProtectedModulesKitchenKitchenIdRecipesNewRoute: typeof ProtectedModulesKitchenKitchenIdRecipesNewRoute
   ProtectedModulesKitchenKitchenIdSnackRequestsRequestIdRoute: typeof ProtectedModulesKitchenKitchenIdSnackRequestsRequestIdRoute
   ProtectedModulesKitchenKitchenIdSnackRequestsProductionRoute: typeof ProtectedModulesKitchenKitchenIdSnackRequestsProductionRoute
+  ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRoute: typeof ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRoute
+  ProtectedModulesKitchenKitchenIdSupportMenusNewRoute: typeof ProtectedModulesKitchenKitchenIdSupportMenusNewRoute
   ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute
   ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
   ProtectedModulesKitchenKitchenIdDemandForecastsIndexRoute: typeof ProtectedModulesKitchenKitchenIdDemandForecastsIndexRoute
   ProtectedModulesKitchenKitchenIdEventsIndexRoute: typeof ProtectedModulesKitchenKitchenIdEventsIndexRoute
-  ProtectedModulesKitchenKitchenIdExceptionsIndexRoute: typeof ProtectedModulesKitchenKitchenIdExceptionsIndexRoute
   ProtectedModulesKitchenKitchenIdFlowsIndexRoute: typeof ProtectedModulesKitchenKitchenIdFlowsIndexRoute
   ProtectedModulesKitchenKitchenIdRecipesIndexRoute: typeof ProtectedModulesKitchenKitchenIdRecipesIndexRoute
   ProtectedModulesKitchenKitchenIdSnackRequestsIndexRoute: typeof ProtectedModulesKitchenKitchenIdSnackRequestsIndexRoute
+  ProtectedModulesKitchenKitchenIdSupportMenusIndexRoute: typeof ProtectedModulesKitchenKitchenIdSupportMenusIndexRoute
   ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute
   ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute
 }
@@ -3450,10 +3450,6 @@ const ProtectedModulesKitchenKitchenIdRouteRouteChildren: ProtectedModulesKitche
       ProtectedModulesKitchenKitchenIdEventsEventIdRoute,
     ProtectedModulesKitchenKitchenIdEventsNewRoute:
       ProtectedModulesKitchenKitchenIdEventsNewRoute,
-    ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRoute:
-      ProtectedModulesKitchenKitchenIdExceptionsExceptionIdRoute,
-    ProtectedModulesKitchenKitchenIdExceptionsNewRoute:
-      ProtectedModulesKitchenKitchenIdExceptionsNewRoute,
     ProtectedModulesKitchenKitchenIdFlowsDemandForecastRoute:
       ProtectedModulesKitchenKitchenIdFlowsDemandForecastRoute,
     ProtectedModulesKitchenKitchenIdFlowsExecutionReviewRoute:
@@ -3464,6 +3460,10 @@ const ProtectedModulesKitchenKitchenIdRouteRouteChildren: ProtectedModulesKitche
       ProtectedModulesKitchenKitchenIdSnackRequestsRequestIdRoute,
     ProtectedModulesKitchenKitchenIdSnackRequestsProductionRoute:
       ProtectedModulesKitchenKitchenIdSnackRequestsProductionRoute,
+    ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRoute:
+      ProtectedModulesKitchenKitchenIdSupportMenusSupportMenuIdRoute,
+    ProtectedModulesKitchenKitchenIdSupportMenusNewRoute:
+      ProtectedModulesKitchenKitchenIdSupportMenusNewRoute,
     ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute:
       ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute,
     ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute:
@@ -3472,14 +3472,14 @@ const ProtectedModulesKitchenKitchenIdRouteRouteChildren: ProtectedModulesKitche
       ProtectedModulesKitchenKitchenIdDemandForecastsIndexRoute,
     ProtectedModulesKitchenKitchenIdEventsIndexRoute:
       ProtectedModulesKitchenKitchenIdEventsIndexRoute,
-    ProtectedModulesKitchenKitchenIdExceptionsIndexRoute:
-      ProtectedModulesKitchenKitchenIdExceptionsIndexRoute,
     ProtectedModulesKitchenKitchenIdFlowsIndexRoute:
       ProtectedModulesKitchenKitchenIdFlowsIndexRoute,
     ProtectedModulesKitchenKitchenIdRecipesIndexRoute:
       ProtectedModulesKitchenKitchenIdRecipesIndexRoute,
     ProtectedModulesKitchenKitchenIdSnackRequestsIndexRoute:
       ProtectedModulesKitchenKitchenIdSnackRequestsIndexRoute,
+    ProtectedModulesKitchenKitchenIdSupportMenusIndexRoute:
+      ProtectedModulesKitchenKitchenIdSupportMenusIndexRoute,
     ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute:
       ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute,
     ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute:
@@ -3724,18 +3724,18 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesDinerSnackRequestsNewRoute: typeof ProtectedModulesDinerSnackRequestsNewRoute
   ProtectedModulesGlobalEventsEventIdRoute: typeof ProtectedModulesGlobalEventsEventIdRoute
   ProtectedModulesGlobalEventsNewRoute: typeof ProtectedModulesGlobalEventsNewRoute
-  ProtectedModulesGlobalExceptionsExceptionIdRoute: typeof ProtectedModulesGlobalExceptionsExceptionIdRoute
-  ProtectedModulesGlobalExceptionsNewRoute: typeof ProtectedModulesGlobalExceptionsNewRoute
   ProtectedModulesGlobalIngredientsIngredientIdRoute: typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   ProtectedModulesGlobalRecipesNewRoute: typeof ProtectedModulesGlobalRecipesNewRoute
+  ProtectedModulesGlobalSupportMenusSupportMenuIdRoute: typeof ProtectedModulesGlobalSupportMenusSupportMenuIdRoute
+  ProtectedModulesGlobalSupportMenusNewRoute: typeof ProtectedModulesGlobalSupportMenusNewRoute
   ProtectedModulesGlobalWeeklyMenusWeeklyMenuIdRoute: typeof ProtectedModulesGlobalWeeklyMenusWeeklyMenuIdRoute
   ProtectedModulesGlobalWeeklyMenusNewRoute: typeof ProtectedModulesGlobalWeeklyMenusNewRoute
   ProtectedModulesDinerSnackRequestsIndexRoute: typeof ProtectedModulesDinerSnackRequestsIndexRoute
   ProtectedModulesGlobalEventsIndexRoute: typeof ProtectedModulesGlobalEventsIndexRoute
-  ProtectedModulesGlobalExceptionsIndexRoute: typeof ProtectedModulesGlobalExceptionsIndexRoute
   ProtectedModulesGlobalFrozenPreparationsIndexRoute: typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   ProtectedModulesGlobalIngredientsIndexRoute: typeof ProtectedModulesGlobalIngredientsIndexRoute
   ProtectedModulesGlobalRecipesIndexRoute: typeof ProtectedModulesGlobalRecipesIndexRoute
+  ProtectedModulesGlobalSupportMenusIndexRoute: typeof ProtectedModulesGlobalSupportMenusIndexRoute
   ProtectedModulesGlobalWeeklyMenusIndexRoute: typeof ProtectedModulesGlobalWeeklyMenusIndexRoute
   ProtectedModulesGlobalRecipesRecipeIdPrintRoute: typeof ProtectedModulesGlobalRecipesRecipeIdPrintRoute
   ProtectedModulesGlobalRecipesRecipeIdVersionsRoute: typeof ProtectedModulesGlobalRecipesRecipeIdVersionsRoute
@@ -3806,13 +3806,13 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesGlobalEventsEventIdRoute:
     ProtectedModulesGlobalEventsEventIdRoute,
   ProtectedModulesGlobalEventsNewRoute: ProtectedModulesGlobalEventsNewRoute,
-  ProtectedModulesGlobalExceptionsExceptionIdRoute:
-    ProtectedModulesGlobalExceptionsExceptionIdRoute,
-  ProtectedModulesGlobalExceptionsNewRoute:
-    ProtectedModulesGlobalExceptionsNewRoute,
   ProtectedModulesGlobalIngredientsIngredientIdRoute:
     ProtectedModulesGlobalIngredientsIngredientIdRoute,
   ProtectedModulesGlobalRecipesNewRoute: ProtectedModulesGlobalRecipesNewRoute,
+  ProtectedModulesGlobalSupportMenusSupportMenuIdRoute:
+    ProtectedModulesGlobalSupportMenusSupportMenuIdRoute,
+  ProtectedModulesGlobalSupportMenusNewRoute:
+    ProtectedModulesGlobalSupportMenusNewRoute,
   ProtectedModulesGlobalWeeklyMenusWeeklyMenuIdRoute:
     ProtectedModulesGlobalWeeklyMenusWeeklyMenuIdRoute,
   ProtectedModulesGlobalWeeklyMenusNewRoute:
@@ -3821,14 +3821,14 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesDinerSnackRequestsIndexRoute,
   ProtectedModulesGlobalEventsIndexRoute:
     ProtectedModulesGlobalEventsIndexRoute,
-  ProtectedModulesGlobalExceptionsIndexRoute:
-    ProtectedModulesGlobalExceptionsIndexRoute,
   ProtectedModulesGlobalFrozenPreparationsIndexRoute:
     ProtectedModulesGlobalFrozenPreparationsIndexRoute,
   ProtectedModulesGlobalIngredientsIndexRoute:
     ProtectedModulesGlobalIngredientsIndexRoute,
   ProtectedModulesGlobalRecipesIndexRoute:
     ProtectedModulesGlobalRecipesIndexRoute,
+  ProtectedModulesGlobalSupportMenusIndexRoute:
+    ProtectedModulesGlobalSupportMenusIndexRoute,
   ProtectedModulesGlobalWeeklyMenusIndexRoute:
     ProtectedModulesGlobalWeeklyMenusIndexRoute,
   ProtectedModulesGlobalRecipesRecipeIdPrintRoute:

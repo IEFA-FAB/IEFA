@@ -166,3 +166,28 @@ comment on table kitchen.meal_presences is 'Chame o Fiscal de Rancho';
 
 // ok: ubiquitous-language-migration-lot8a
 comment on table kitchen.meal_presences is 'Registro do refeitório; quem registra é o Fiscal de rancho.';
+
+// ruleid: ubiquitous-language-migration-lot5
+alter table procurement.contract_designation add constraint contract_designation_role_check check (role in ('manager', 'technical_inspector'));
+
+// ruleid: ubiquitous-language-migration-lot5
+update kitchen.menu_template set name = name where template_type = 'exception';
+
+// ruleid: ubiquitous-language-migration-lot5
+update procurement.policy_rule set title = title where target = 'product';
+
+// ruleid: ubiquitous-language-migration-lot5
+alter table inventory.inventory_count alter column type set default 'rotating';
+
+// ok: ubiquitous-language-migration-lot5
+alter table procurement.contract_designation add constraint contract_designation_role_check check (role in ('gestor', 'fiscal_tecnico'));
+
+// ok: ubiquitous-language-migration-lot5
+update kitchen.menu_template set name = name where template_type = 'apoio';
+
+// ok: ubiquitous-language-migration-lot5
+create function kitchen.touch_note() returns void language plpgsql set search_path = '' as $$
+begin
+	raise exception 'nada';
+end;
+$$;

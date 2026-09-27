@@ -53,9 +53,9 @@ function PolicyPage() {
 				description="Gerencie as regras que definem os critérios de qualidade para insumos e preparações do catálogo SDAB."
 			/>
 
-			<Tabs defaultValue="product">
+			<Tabs defaultValue="ingredient">
 				<TabsList className="mb-4">
-					<TabsTrigger value="product" className="gap-2">
+					<TabsTrigger value="ingredient" className="gap-2">
 						<Wheat className="size-4" />
 						Insumos
 					</TabsTrigger>
@@ -65,8 +65,8 @@ function PolicyPage() {
 					</TabsTrigger>
 				</TabsList>
 
-				<TabsContent value="product">
-					<PolicyTab target="product" />
+				<TabsContent value="ingredient">
+					<PolicyTab target="ingredient" />
 				</TabsContent>
 				<TabsContent value="recipe">
 					<PolicyTab target="recipe" />
@@ -94,7 +94,7 @@ function PolicyTab({ target }: PolicyTabProps) {
 
 	const updateMutation = useUpdatePolicyRule()
 
-	const isIngredient = target === "product"
+	const isIngredient = target === "ingredient"
 	const label = isIngredient ? "insumos" : "preparações"
 	const activeRules = rules?.filter((r) => !r.deleted_at) ?? []
 
@@ -463,7 +463,7 @@ interface PromptDialogProps {
 
 function PromptDialog({ open, onOpenChange, target, prompt, isFetching }: PromptDialogProps) {
 	const [copied, setCopied] = useState(false)
-	const label = target === "product" ? "Insumos" : "Preparações"
+	const label = target === "ingredient" ? "Insumos" : "Preparações"
 
 	async function handleCopy() {
 		await navigator.clipboard.writeText(prompt)

@@ -14,6 +14,7 @@ import {
 	fetchDayDetails,
 	fetchProductionBoard,
 	recordProductionSubstitution,
+	TEMPLATE_TYPE_VOCABULARY,
 	type UserContext,
 	updateProductionTaskRecord,
 } from "@iefa/sisub-domain"
@@ -122,7 +123,8 @@ describeSupabaseIntegration("production flexibility operations (PR #96)", () => 
 		expect(result.itemsCreated).toBe(1)
 
 		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as DayDetailsRow[]
-		expect(details[0]?.menu_items[0]?.origin_template_type).toBe("exception")
+		// O item grava o tipo como o banco o aceita (até o contract do lote 5, o nome antigo).
+		expect(TEMPLATE_TYPE_VOCABULARY.normalize(details[0]?.menu_items[0]?.origin_template_type)).toBe("apoio")
 	})
 
 	test("applyEventTemplate é idempotente: reaplicar não duplica itens", async () => {

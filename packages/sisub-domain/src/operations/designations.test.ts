@@ -2,9 +2,11 @@ import { describe, expect, test } from "bun:test"
 import {
 	canDesignateInUnit,
 	DEFINITIVE_RECEIPT_ROLES,
+	DESIGNATION_ROLE_VOCABULARY,
 	DESIGNATION_SCREEN_LABEL,
 	designationInputProblems,
 	designationMissingMessage,
+	designationRoleStoredValues,
 	isDesignationActive,
 	PROVISIONAL_RECEIPT_ROLES,
 	planEndDesignation,
@@ -33,9 +35,16 @@ describe("designationMissingMessage", () => {
 
 describe("papéis", () => {
 	test("o definitivo é só de gestor ou comissão; o provisório aceita também os fiscais", () => {
-		expect(DEFINITIVE_RECEIPT_ROLES).toEqual(["manager", "committee_member"])
+		expect(DEFINITIVE_RECEIPT_ROLES).toEqual(["gestor", "membro_comissao"])
 		for (const role of DEFINITIVE_RECEIPT_ROLES) expect(PROVISIONAL_RECEIPT_ROLES).toContain(role)
-		expect(PROVISIONAL_RECEIPT_ROLES).toContain("technical_inspector")
+		expect(PROVISIONAL_RECEIPT_ROLES).toContain("fiscal_tecnico")
+	})
+
+	test("até o contract do lote 5 a busca casa o papel gravado com o nome antigo", () => {
+		expect(designationRoleStoredValues(DEFINITIVE_RECEIPT_ROLES).sort()).toEqual(["committee_member", "gestor", "manager", "membro_comissao"])
+		expect(DESIGNATION_ROLE_VOCABULARY.normalize("technical_inspector")).toBe("fiscal_tecnico")
+		expect(DESIGNATION_ROLE_VOCABULARY.normalize("fiscal_tecnico")).toBe("fiscal_tecnico")
+		expect(DESIGNATION_ROLE_VOCABULARY.toStored("gestor")).toBe("manager")
 	})
 })
 
@@ -109,14 +118,14 @@ describe("planEndDesignation", () => {
 })
 
 describe("selfDesignationProblem (segregação de funções)", () => {
-	const base = { isSelf: true, role: "manager" as const, designatorCanFinalize: true, otherDesignators: ["CAP SILVA", "TEN SOUZA"] }
+	const base = { isSelf: true, role: "gestor" as const, designatorCanFinalize: true, otherDesignators: ["CAP SILVA", "TEN SOUZA"] }
 
 	test("quem efetiva o definitivo não se designa gestor nem comissão, e lê quem mais pode designar", () => {
 		const problem = selfDesignationProblem(base)
 		expect(problem).toMatch(/feita por outra pessoa/)
 		expect(problem).toMatch(/art\. 7º, § 1º/)
 		expect(problem).toContain("CAP SILVA, TEN SOUZA")
-		expect(selfDesignationProblem({ ...base, role: "committee_member" })).not.toBeNull()
+		expect(selfDesignationProblem({ ...base, role: "membro_comissao" })).not.toBeNull()
 	})
 
 	test("unidade de uma pessoa só: a recusa diz o caminho", () => {
@@ -125,7 +134,7 @@ describe("selfDesignationProblem (segregação de funções)", () => {
 
 	test("designar outra pessoa, designar-se fiscal ou não poder efetivar passa", () => {
 		expect(selfDesignationProblem({ ...base, isSelf: false })).toBeNull()
-		expect(selfDesignationProblem({ ...base, role: "technical_inspector" })).toBeNull()
+		expect(selfDesignationProblem({ ...base, role: "fiscal_tecnico" })).toBeNull()
 		expect(selfDesignationProblem({ ...base, designatorCanFinalize: false })).toBeNull()
 	})
 })
