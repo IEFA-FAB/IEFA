@@ -52,7 +52,7 @@ function QrCodePage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Meu QR Code" description="Apresente este código ao Fiscal de Rancho para registrar sua presença." />
+			<PageHeader title="Meu QR Code" description="Apresente este código ao Fiscal de rancho para registrar sua presença." />
 
 			{/* Card do QR */}
 			<div className="mx-auto max-w-sm rounded-md border bg-card p-6 flex flex-col items-center gap-4">

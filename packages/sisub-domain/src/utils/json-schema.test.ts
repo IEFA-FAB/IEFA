@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { AgentListIngredientsSchema, AgentListPreparationsSchema, AgentListRecipesSchema } from "../agent/index.ts"
+import { AgentListIngredientsSchema, AgentListLegacyPreparationsSchema, AgentListRecipesSchema } from "../agent/index.ts"
 import { ListRecipesSchema } from "../schemas/recipes.ts"
 import { toJsonSchema } from "./json-schema.ts"
 
@@ -15,7 +15,7 @@ describe("toJsonSchema", () => {
 		["ListRecipesSchema", ListRecipesSchema, ["kitchenId", "search", "globalOnly", "includeDeleted"]],
 		["AgentListRecipesSchema", AgentListRecipesSchema, ["kitchenId", "search", "limit"]],
 		["AgentListIngredientsSchema", AgentListIngredientsSchema, ["search", "folderId", "limit"]],
-		["AgentListPreparationsSchema", AgentListPreparationsSchema, ["search", "limit"]],
+		["AgentListLegacyPreparationsSchema", AgentListLegacyPreparationsSchema, ["search", "limit"]],
 	] as const
 
 	for (const [name, schema, expectedProps] of cases) {

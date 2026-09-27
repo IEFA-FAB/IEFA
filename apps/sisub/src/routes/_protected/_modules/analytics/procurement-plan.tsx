@@ -57,7 +57,7 @@ function ProcurementPlanPage() {
 
 			{/* Valor de plano NÃO é preço praticado — o aviso é requisito, não decoração. */}
 			<p className="text-muted-foreground text-sm">
-				Todos os valores são <strong>estimados em plano</strong> para {ano}. Não são preço praticado e não alimentam pesquisa de preço.
+				Todos os valores são <strong>estimados em plano</strong> para {ano}. Não são preço praticado e não alimentam pesquisa de preços.
 				{data?.snapshot.appliedAt ? ` Coletado em ${new Date(data.snapshot.appliedAt).toLocaleString("pt-BR")}.` : ""}
 			</p>
 

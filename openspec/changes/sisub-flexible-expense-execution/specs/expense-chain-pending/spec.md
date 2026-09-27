@@ -47,7 +47,7 @@ O sistema SHALL continuar recusando: pagamento acima do liquidado; liquidação 
 
 - **WHEN** a carne chega e não há fiscal designado para a contratação
 - **THEN** o almoxarife registra a conferência física (itens, lotes, temperatura, validade)
-- **AND** quem tem `unit:2` vê "Designar agora" no próprio recebimento; quem não tem vê "Peça a designação ao chefe do rancho (Gestão Unidade → Designações)"
+- **AND** quem tem `unit:2` vê "Designar agora" no próprio recebimento; quem não tem vê "Peça a designação a quem tem Gestão Unidade (Gestão Unidade → Designações)"
 - **WHEN** a designação é feita
 - **THEN** o fiscal confirma o provisório sobre a conferência já registrada, sem redigitar
 

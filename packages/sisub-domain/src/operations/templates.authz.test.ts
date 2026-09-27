@@ -2,7 +2,7 @@
  * Contrato de autorização da LEITURA de templates.
  *
  * Template global (`kitchen_id` nulo) é o catálogo da SDAB. Quem o administra chega às telas de
- * `/global/weekly-plans` com permissão `global` e, tipicamente, sem cozinha nenhuma. Exigir
+ * `/global/weekly-menus` com permissão `global` e, tipicamente, sem cozinha nenhuma. Exigir
  * `kitchen:1` nessas leituras — como era — trancava esse usuário fora da própria listagem de
  * planos e do editor deles.
  *

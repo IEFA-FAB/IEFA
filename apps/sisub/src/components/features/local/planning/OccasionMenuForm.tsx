@@ -239,7 +239,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 						<p className="text-xs text-muted-foreground">
 							{isFork
 								? `Após criar, você poderá editar ${copy.article} ${copy.noun} livremente.`
-								: `Após criar, você será redirecionado para montar o cardápio d${copy.article} ${copy.noun}.`}
+								: `Após criar, você será redirecionado para montar as preparações d${copy.article} ${copy.noun}.`}
 						</p>
 						<div className="flex gap-2">
 							<Button type="button" variant="outline" onClick={() => navigate(listLink)}>

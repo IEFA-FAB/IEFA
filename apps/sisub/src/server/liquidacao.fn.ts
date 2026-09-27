@@ -1,5 +1,5 @@
 /**
- * @module liquidation.fn
+ * @module liquidacao.fn
  * Liquidação (NS) e pagamento (OB) — 2ª e 3ª fases da despesa (Lei 4.320).
  * A liquidação é o elo entre o recebimento definitivo (físico, MCASP) e o
  * empenho. NUNCA é criada automaticamente: o sistema apenas SUGERE o valor a
@@ -18,22 +18,22 @@ import {
 	DEDUCTION_DOCUMENT_KINDS,
 	DEDUCTION_KINDS,
 	deductionExceedsProblem,
-	deductionPaymentProblem,
-	isLiquidationWithoutReceipt,
-	liquidationExceedsReceiptProblem,
-	liquidationNetBalance,
+	deductionRemittanceProblem,
+	isLiquidacaoWithoutReceipt,
+	liquidacaoExceedsReceiptProblem,
+	liquidacaoNetBalance,
 	normalizeNsNumber,
-	paymentExceedsNetProblem,
-	type ReceiptLiquidationCeiling,
-	receiptLiquidationCeiling,
+	pagamentoExceedsNetProblem,
+	type ReceiptLiquidacaoCeiling,
+	receiptLiquidacaoCeiling,
 	resolvePurchaseUnitId,
 	roundToCents,
-	suggestedLiquidationValue,
+	suggestedLiquidacaoValue,
 } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
-import { type LiquidationLinkInput, liquidationLinkProblems, type ReceiptForLiquidation } from "@/lib/invoice-gate"
+import { type LiquidacaoLinkInput, liquidacaoLinkProblems, type ReceiptForLiquidacao } from "@/lib/invoice-gate"
 import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
@@ -71,7 +71,7 @@ export interface LiquidacaoRow {
 	a_pagar: number
 	/** Retenções ainda não recolhidas (DARF/DAR/GPS). */
 	a_recolher: number
-	/** Pendência "liquidação sem recebimento vinculado" (`isLiquidationWithoutReceipt`). */
+	/** Pendência "liquidação sem recebimento vinculado" (`isLiquidacaoWithoutReceipt`). */
 	sem_recebimento: boolean
 	deductions: LiquidacaoDeductionRow[]
 	dias_em_aberto: number | null
@@ -121,7 +121,7 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
 		return liquidacoes.map((row: { id: string; valor: number; data: string; goods_receipt_id: string | null }) => {
 			const deductions = deductionsByLiquidacao.get(row.id) ?? []
 			// Saldo da NS pelo LÍQUIDO: a OB paga bruto − retenções; sem retenção é o bruto.
-			const balance = liquidationNetBalance({
+			const balance = liquidacaoNetBalance({
 				bruto: Number(row.valor),
 				deducoes: deductions.map((d) => ({ valor: d.amount, recolhidaEm: d.paid_on })),
 				pagamentos: pagamentosByLiquidacao.get(row.id) ?? [],
@@ -134,7 +134,7 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
 				pago: balance.pago,
 				a_pagar: balance.aPagar,
 				a_recolher: balance.aRecolher,
-				sem_recebimento: isLiquidationWithoutReceipt({ goodsReceiptId: row.goods_receipt_id }),
+				sem_recebimento: isLiquidacaoWithoutReceipt({ goodsReceiptId: row.goods_receipt_id }),
 				deductions,
 				dias_em_aberto: balance.aPagar > 0 ? Math.floor((today - Date.parse(`${row.data}T00:00:00Z`)) / 86_400_000) : null,
 			}
@@ -145,7 +145,7 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
  * Valor sugerido para liquidar um recebimento definitivo: Σ (quantidade
  * recebida × custo unitário). Sugestão — o número da NS vem do SIAFI.
  */
-export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
+export const suggestLiquidacaoFromReceiptFn = createServerFn({ method: "GET" })
 	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
@@ -171,10 +171,10 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
 		if (!receipt) throw new Error("Recebimento não encontrado")
 
 		const { data: items } = await inv.from("goods_receipt_item").select("received_qty_base, unit_cost").eq("receipt_id", data.receiptId)
-		// `suggestedLiquidationValue` fecha em centavo sem o viés do arredondamento
+		// `suggestedLiquidacaoValue` fecha em centavo sem o viés do arredondamento
 		// anterior, que descia o meio-centavo sempre — ver `roundToCents` em
-		// liquidation-math.ts.
-		const valor = suggestedLiquidationValue(
+		// liquidacao-math.ts.
+		const valor = suggestedLiquidacaoValue(
 			((items ?? []) as Array<{ received_qty_base: number; unit_cost: number | null }>).map((item) => ({
 				receivedQtyBase: Number(item.received_qty_base),
 				unitCost: item.unit_cost != null ? Number(item.unit_cost) : null,
@@ -183,14 +183,14 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
 
 		// "já liquidado" é derivado do vínculo em finance.liquidacao — um
 		// recebimento aceita mais de uma NS (liquidação parcial).
-		const { ceiling, alreadyLiquidated, liquidationCount } = await readReceiptCeiling(data.receiptId)
+		const { ceiling, alreadyLiquidated, liquidacaoCount } = await readReceiptCeiling(data.receiptId)
 
 		return {
 			unitId,
 			valorSugerido: valor,
 			empenhoId: receipt.empenho_id as string | null,
 			nfeDocumentId: receipt.nfe_document_id as string | null,
-			jaLiquidado: liquidationCount > 0,
+			jaLiquidado: liquidacaoCount > 0,
 			jaLiquidadoValor: alreadyLiquidated,
 			/** Teto da NS por este recebimento (Lei 4.320, art. 63); `null` quando indeterminado. */
 			teto: ceiling.value,
@@ -201,18 +201,18 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
 
 /**
  * Quanto o recebimento sustenta de liquidação, e quanto já foi liquidado por ele.
- * A regra é `receiptLiquidationCeiling` (pura, testada); o trigger
+ * A regra é `receiptLiquidacaoCeiling` (pura, testada); o trigger
  * `finance.check_liquidacao_within_receipt` repete a mesma conta no banco.
  */
 async function readReceiptCeiling(receiptId: string): Promise<ReceiptCeilingRead> {
 	const map = await readReceiptCeilings([receiptId])
-	return map.get(receiptId) ?? { ceiling: receiptLiquidationCeiling([], null), alreadyLiquidated: 0, liquidationCount: 0 }
+	return map.get(receiptId) ?? { ceiling: receiptLiquidacaoCeiling([], null), alreadyLiquidated: 0, liquidacaoCount: 0 }
 }
 
 interface ReceiptCeilingRead {
-	ceiling: ReceiptLiquidationCeiling
+	ceiling: ReceiptLiquidacaoCeiling
 	alreadyLiquidated: number
-	liquidationCount: number
+	liquidacaoCount: number
 }
 
 /**
@@ -261,16 +261,16 @@ async function readReceiptCeilings(receiptIds: readonly string[]): Promise<Map<s
 		const nfeTotal = receipt.nfe_document_id ? (nfeTotalById.get(receipt.nfe_document_id) ?? null) : null
 		const liquidated = liquidatedByReceipt.get(receipt.id) ?? { total: 0, count: 0 }
 		result.set(receipt.id, {
-			ceiling: receiptLiquidationCeiling(itemsByReceipt.get(receipt.id) ?? [], nfeTotal),
+			ceiling: receiptLiquidacaoCeiling(itemsByReceipt.get(receipt.id) ?? [], nfeTotal),
 			alreadyLiquidated: roundToCents(liquidated.total),
-			liquidationCount: liquidated.count,
+			liquidacaoCount: liquidated.count,
 		})
 	}
 	return result
 }
 
 /** Pendência que a liquidação registrada deixa — a lista da execução as recolhe. */
-export type LiquidationPendingKind = "liquidacao_sem_recebimento" | "recebimento_sem_custo"
+export type LiquidacaoPendingKind = "liquidacao_sem_recebimento" | "recebimento_sem_custo"
 
 /**
  * O empenho citado pela liquidação é da unidade que liquida — lido da LINHA, nunca
@@ -300,7 +300,7 @@ async function readLiquidacaoBalance(liquidacaoId: string) {
 	])
 	if (error || dedError || pagError) throw new Error(`Erro ao ler o saldo da liquidação: ${(error ?? dedError ?? pagError)?.message}`)
 	if (!liq) throw new Error("Liquidação não encontrada nesta unidade")
-	return liquidationNetBalance({
+	return liquidacaoNetBalance({
 		bruto: Number(liq.valor),
 		deducoes: ((deductions ?? []) as Array<{ amount: number | string; paid_on: string | null }>).map((d) => ({
 			valor: Number(d.amount),
@@ -325,14 +325,14 @@ async function readLiquidacaoBalance(liquidacaoId: string) {
  * que não é de gênero alimentício. O que não pode é CITAR um recebimento ou uma
  * nota que não sustentam o pagamento.
  */
-async function assertLiquidationLinks(
+async function assertLiquidacaoLinks(
 	unitId: number,
 	empenhoId: string,
 	goodsReceiptId: string | undefined,
 	nfeDocumentId: string | undefined
 ): Promise<string | null> {
 	const inv = inventory()
-	let receipt: ReceiptForLiquidation | null = null
+	let receipt: ReceiptForLiquidacao | null = null
 	let nfeId = nfeDocumentId ?? null
 
 	if (goodsReceiptId) {
@@ -359,7 +359,7 @@ async function assertLiquidationLinks(
 		nfeId = nfeId ?? (row.nfe_document_id as string | null)
 	}
 
-	let invoice: LiquidationLinkInput["invoice"] = null
+	let invoice: LiquidacaoLinkInput["invoice"] = null
 	if (nfeId != null) {
 		const { data: doc, error } = await inv
 			.from("nfe_document")
@@ -377,7 +377,7 @@ async function assertLiquidationLinks(
 	}
 
 	// A regra é pura e testada em `invoice-gate.ts`; aqui só se lê do banco.
-	const problems = liquidationLinkProblems({ unitId, empenhoId, receipt, requestedNfeId: nfeDocumentId ?? null, invoice })
+	const problems = liquidacaoLinkProblems({ unitId, empenhoId, receipt, requestedNfeId: nfeDocumentId ?? null, invoice })
 	if (problems.length > 0) throw new Error(problems.join("; "))
 	return nfeId
 }
@@ -403,15 +403,15 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 		// que o chamador opera `data.unitId`, e o `empenhoId` vinha do corpo sem
 		// vínculo nenhum com ela — a NS consumia o empenho de outra OM.
 		await assertEmpenhoOfUnit(data.unitId, data.empenhoId)
-		const nfeDocumentId = await assertLiquidationLinks(data.unitId, data.empenhoId, data.goodsReceiptId, data.nfeDocumentId)
+		const nfeDocumentId = await assertLiquidacaoLinks(data.unitId, data.empenhoId, data.goodsReceiptId, data.nfeDocumentId)
 
 		// Recebimento vinculado: a NS não passa o que chegou (Lei 4.320, art. 63, § 2º, III).
 		// Sem recebimento a NS é aceita — despesa que não é gênero não passa pelo almoxarifado,
 		// e o recebimento pode ser vinculado depois —, mas fica a pendência.
-		const pendencias: LiquidationPendingKind[] = []
+		const pendencias: LiquidacaoPendingKind[] = []
 		if (data.goodsReceiptId) {
 			const { ceiling, alreadyLiquidated } = await readReceiptCeiling(data.goodsReceiptId)
-			const problem = liquidationExceedsReceiptProblem({ ceiling, alreadyLiquidated, valor: data.valor })
+			const problem = liquidacaoExceedsReceiptProblem({ ceiling, alreadyLiquidated, valor: data.valor })
 			if (problem) throw new Error(problem)
 			if (ceiling.basis === "indeterminado") pendencias.push("recebimento_sem_custo")
 		} else {
@@ -490,7 +490,7 @@ export const createPagamentoFn = createServerFn({ method: "POST" })
 		// Pré-checagem para a mensagem boa: a OB paga o LÍQUIDO (bruto − retenções). A decisão
 		// que vale é a do trigger `check_pagamento_within_liquidacao`, sob lock.
 		const balance = await readLiquidacaoBalance(data.liquidacaoId)
-		const netProblem = paymentExceedsNetProblem(balance, data.valor)
+		const netProblem = pagamentoExceedsNetProblem(balance, data.valor)
 		if (netProblem) throw new Error(netProblem)
 
 		return withSensitiveAudit(
@@ -532,7 +532,7 @@ export const createPagamentoFn = createServerFn({ method: "POST" })
 	})
 
 /** Contas a pagar + prazo médio por fornecedor (liquidação → pagamento). */
-export const fetchPaymentPanelFn = createServerFn({ method: "GET" })
+export const fetchPagamentoPanelFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireUnitScope(1, data.unitId)
@@ -550,15 +550,15 @@ export const fetchPaymentPanelFn = createServerFn({ method: "GET" })
 
 		// prazo médio: liquidação → primeiro pagamento, por fornecedor
 		const { data: pagamentos } = await fin.from("pagamento").select("liquidacao_id, data").eq("unit_id", data.unitId).limit(500)
-		const firstPaymentByLiquidacao = new Map<string, string>()
+		const firstPagamentoByLiquidacao = new Map<string, string>()
 		for (const pag of pagamentos ?? []) {
-			const current = firstPaymentByLiquidacao.get(pag.liquidacao_id)
-			if (!current || pag.data < current) firstPaymentByLiquidacao.set(pag.liquidacao_id, pag.data)
+			const current = firstPagamentoByLiquidacao.get(pag.liquidacao_id)
+			if (!current || pag.data < current) firstPagamentoByLiquidacao.set(pag.liquidacao_id, pag.data)
 		}
 
 		const daysBySupplier = new Map<string, number[]>()
 		for (const liquidacao of liquidacoes) {
-			const paidAt = firstPaymentByLiquidacao.get(liquidacao.id)
+			const paidAt = firstPagamentoByLiquidacao.get(liquidacao.id)
 			if (!paidAt) continue
 			const supplier = supplierByEmpenho.get(liquidacao.empenho_id) ?? "(sem favorecido)"
 			const days = Math.round((Date.parse(`${paidAt}T00:00:00Z`) - Date.parse(`${liquidacao.data}T00:00:00Z`)) / 86_400_000)
@@ -569,7 +569,7 @@ export const fetchPaymentPanelFn = createServerFn({ method: "GET" })
 
 		return {
 			// "a pagar" é ao CREDOR, pelo líquido; a retenção vai em `pendingRemittances`
-			openLiquidations: liquidacoes
+			openLiquidacoes: liquidacoes
 				.filter((l) => l.a_pagar > 0)
 				.map((l) => ({ ...l, fornecedor: supplierByEmpenho.get(l.empenho_id) ?? "(sem favorecido)" }))
 				.sort((a, b) => (b.dias_em_aberto ?? 0) - (a.dias_em_aberto ?? 0)),
@@ -593,14 +593,14 @@ export const fetchPaymentPanelFn = createServerFn({ method: "GET" })
 // Recebimentos que sustentam a NS (tarefa 5.3)
 // ============================================================================
 
-export interface ReceiptForLiquidationOption {
+export interface ReceiptForLiquidacaoOption {
 	id: string
 	kitchenId: number
 	definitiveAt: string | null
 	nfeDocumentId: string | null
 	/** Teto da NS por este recebimento; `null` quando indeterminado (item sem custo e sem NF-e). */
 	teto: number | null
-	tetoBase: ReceiptLiquidationCeiling["basis"]
+	tetoBase: ReceiptLiquidacaoCeiling["basis"]
 	jaLiquidado: number
 	/** O que ainda cabe liquidar por ele (`null` quando o teto é indeterminado). */
 	saldo: number | null
@@ -610,9 +610,9 @@ export interface ReceiptForLiquidationOption {
  * Recebimentos atestados vinculados ao empenho, com o teto de cada um. É a lista do
  * formulário de NS: escolher o recebimento preenche o valor pelo que chegou.
  */
-export const listReceiptsForLiquidationFn = createServerFn({ method: "GET" })
+export const listReceiptsForLiquidacaoFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive(), empenhoId: z.uuid() }))
-	.handler(async ({ data }): Promise<ReceiptForLiquidationOption[]> => {
+	.handler(async ({ data }): Promise<ReceiptForLiquidacaoOption[]> => {
 		await requireUnitScope(1, data.unitId)
 		await assertEmpenhoOfUnit(data.unitId, data.empenhoId)
 
@@ -631,7 +631,7 @@ export const listReceiptsForLiquidationFn = createServerFn({ method: "GET" })
 		const attested = (receipts ?? []) as Array<{ id: string; kitchen_id: number; definitive_at: string | null; nfe_document_id: string | null }>
 		const ceilings = await readReceiptCeilings(attested.map((row) => row.id))
 		return attested.map((row) => {
-			const read = ceilings.get(row.id) ?? { ceiling: receiptLiquidationCeiling([], null), alreadyLiquidated: 0, liquidationCount: 0 }
+			const read = ceilings.get(row.id) ?? { ceiling: receiptLiquidacaoCeiling([], null), alreadyLiquidated: 0, liquidacaoCount: 0 }
 			return {
 				id: row.id,
 				kitchenId: Number(row.kitchen_id),
@@ -730,7 +730,7 @@ async function readDeductionOfUnit(
 }
 
 /** Registra o recolhimento da retenção: o DARF/DAR/GPS e a data em que foi pago. */
-export const registerDeductionPaymentFn = createServerFn({ method: "POST" })
+export const registerDeductionRemittanceFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			unitId: z.number().int().positive(),
@@ -744,11 +744,11 @@ export const registerDeductionPaymentFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireUnitScope(2, data.unitId)
 		const current = await readDeductionOfUnit(data.unitId, data.deductionId)
-		const already = deductionPaymentProblem({ paidOn: current.paid_on, documentNumber: current.document_number })
+		const already = deductionRemittanceProblem({ paidOn: current.paid_on, documentNumber: current.document_number })
 		if (already) throw new Error(already)
 
 		return withSensitiveAudit(
-			"registerDeductionPaymentFn",
+			"registerDeductionRemittanceFn",
 			ctx,
 			async () => {
 				// `paid_on is null` NA escrita: dois operadores registrando o mesmo recolhimento ao
@@ -768,7 +768,7 @@ export const registerDeductionPaymentFn = createServerFn({ method: "POST" })
 				if ((updated ?? []).length === 0) {
 					const { data: now } = await finance().from("liquidacao_deduction").select("paid_on, document_number").eq("id", data.deductionId).maybeSingle()
 					throw new Error(
-						deductionPaymentProblem({ paidOn: now?.paid_on ?? "outra data", documentNumber: now?.document_number ?? null }) ??
+						deductionRemittanceProblem({ paidOn: now?.paid_on ?? "outra data", documentNumber: now?.document_number ?? null }) ??
 							"Esta retenção já foi recolhida; o registro não é sobrescrito."
 					)
 				}

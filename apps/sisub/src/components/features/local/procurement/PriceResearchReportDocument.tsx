@@ -34,7 +34,7 @@ export function PriceResearchReportDocument({ report }: { report: PriceResearchR
 			<h1>Relatório de pesquisa de preços</h1>
 			<p data-proc="meta">
 				Anexo quantitativo do Termo de Referência: <strong>{list.title}</strong>
-				{list.segmentName ? ` · Contratação: ${list.segmentName}` : ""}
+				{list.segmentName ? ` · Contratação planejada: ${list.segmentName}` : ""}
 				<br />
 				{list.unitName ?? ""}
 				{list.uasg ? ` · UASG ${list.uasg}` : ""} · Emissão nº {emission.sequence}, de {fmtDateTime(emission.emittedAt)}

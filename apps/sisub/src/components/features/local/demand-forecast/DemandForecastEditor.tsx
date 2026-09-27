@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import type { TemplateSelection } from "@/types/domain/ata"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
-interface DraftEditorProps {
+interface DemandForecastEditorProps {
 	initialTitle?: string
 	initialNotes?: string
 	initialSelections?: TemplateSelection[]
@@ -24,7 +24,7 @@ interface DraftEditorProps {
 	onSend?: (title: string, notes: string, selections: TemplateSelection[]) => void
 }
 
-export function DraftEditor({
+export function DemandForecastEditor({
 	initialTitle = "",
 	initialNotes = "",
 	initialSelections = [],
@@ -35,7 +35,7 @@ export function DraftEditor({
 	isSending,
 	onSave,
 	onSend,
-}: DraftEditorProps) {
+}: DemandForecastEditorProps) {
 	const [title, setTitle] = useState(initialTitle)
 	const [notes, setNotes] = useState(initialNotes)
 	const [selections, setSelections] = useState<TemplateSelection[]>(initialSelections)
@@ -99,9 +99,9 @@ export function DraftEditor({
 									key={template.id}
 									className={`flex items-center gap-3 rounded-md border p-3 transition-colors ${selected ? "border-primary/50 bg-primary/5" : "border-border"}`}
 								>
-									<Checkbox id={`draft-${template.id}`} checked={selected} onCheckedChange={(checked) => handleToggle(template, checked === true)} />
+									<Checkbox id={`forecast-${template.id}`} checked={selected} onCheckedChange={(checked) => handleToggle(template, checked === true)} />
 									<div className="flex-1 min-w-0">
-										<Label htmlFor={`draft-${template.id}`} className="text-subheading cursor-pointer">
+										<Label htmlFor={`forecast-${template.id}`} className="text-subheading cursor-pointer">
 											{template.name || "Sem nome"}
 										</Label>
 										<div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -173,9 +173,9 @@ export function DraftEditor({
 					<div className="space-y-4">
 						<FieldGroup>
 							<Field>
-								<FieldLabel htmlFor="draft-title">Título da previsão *</FieldLabel>
+								<FieldLabel htmlFor="forecast-title">Título da previsão *</FieldLabel>
 								<Input
-									id="draft-title"
+									id="forecast-title"
 									value={title}
 									onChange={(e) => setTitle(e.target.value)}
 									placeholder="Ex: Sugestão Anexo Quantitativo Março 2026"
@@ -185,9 +185,9 @@ export function DraftEditor({
 						</FieldGroup>
 						<FieldGroup>
 							<Field>
-								<FieldLabel htmlFor="draft-notes">Observações</FieldLabel>
+								<FieldLabel htmlFor="forecast-notes">Observações</FieldLabel>
 								<Textarea
-									id="draft-notes"
+									id="forecast-notes"
 									value={notes}
 									onChange={(e) => setNotes(e.target.value)}
 									placeholder="Informações adicionais para o gestor da unidade..."

@@ -9,7 +9,7 @@ import { requirePermission } from "@/auth/pbac"
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
 import { type AtaItemLimitsPatch, type AtaLimitSettingsPatch, AtaQuantityLimitsSection } from "@/components/features/local/ata/AtaQuantityLimitsSection"
 import { type AtaStep, AtaStepIndicator } from "@/components/features/local/ata/AtaStepIndicator"
-import { DraftImportBadge } from "@/components/features/local/ata/DraftImportBadge"
+import { DemandForecastImportBadge } from "@/components/features/local/ata/DemandForecastImportBadge"
 import { KitchenTemplateSection } from "@/components/features/local/ata/KitchenTemplateSection"
 import { PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
 import { SegmentChoice, SegmentExclusionNotice } from "@/components/features/local/procurement/SegmentChoice"
@@ -31,7 +31,7 @@ import {
 	useUpdateAtaQuantityLimits,
 } from "@/hooks/data/useAta"
 import { bulkFindingsNotice, useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
-import { usePendingDraft, useRecordDraftImport } from "@/hooks/data/useKitchenDraft"
+import { usePendingDemandForecast, useRecordDemandForecastImport } from "@/hooks/data/useDemandForecast"
 import { useSegmentationOverview } from "@/hooks/data/useProcurementSegments"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows } from "@/lib/ata-annex"
@@ -89,8 +89,8 @@ function KitchenStepSection({
 	onUpdateSelection: (kitchenId: number, type: SelectionBucket, selections: TemplateSelection[]) => void
 }) {
 	const { data: templates, isLoading } = useMenuTemplates(kitchenState.kitchenId)
-	const { data: pendingDraft } = usePendingDraft(kitchenState.kitchenId)
-	const { mutate: recordImport } = useRecordDraftImport(kitchenState.kitchenId)
+	const { data: pendingForecast } = usePendingDemandForecast(kitchenState.kitchenId)
+	const { mutate: recordImport } = useRecordDemandForecastImport(kitchenState.kitchenId)
 
 	// Um passo por template_type. Template sem tipo (legado) conta como weekly.
 	const expectedType = TEMPLATE_TYPE_BY_BUCKET[selectionType]
@@ -105,13 +105,13 @@ function KitchenStepSection({
 		onUpdateSelection(kitchenState.kitchenId, "templateSelections", templateSels)
 		onUpdateSelection(kitchenState.kitchenId, "eventSelections", eventSels)
 		onUpdateSelection(kitchenState.kitchenId, "exceptionSelections", exceptionSels)
-		if (pendingDraft && listId) recordImport({ draftId: pendingDraft.id, listId })
+		if (pendingForecast && listId) recordImport({ forecastId: pendingForecast.id, listId })
 	}
 
 	return (
 		<div className="space-y-3">
-			{pendingDraft && selectionType === "templateSelections" && (
-				<DraftImportBadge draft={pendingDraft} kitchenState={kitchenState} listId={listId} onImport={handleImport} />
+			{pendingForecast && selectionType === "templateSelections" && (
+				<DemandForecastImportBadge forecast={pendingForecast} kitchenState={kitchenState} listId={listId} onImport={handleImport} />
 			)}
 			<KitchenTemplateSection
 				kitchenState={kitchenState}
@@ -630,19 +630,19 @@ function NewAtaPage() {
 							Cardápios
 						</Button>
 						<Button onClick={() => goToStep(3, true)} className="gap-2">
-							Próximo: Apoios
+							Próximo: Cardápios de Apoio
 							<ArrowRight className="size-4" aria-hidden="true" />
 						</Button>
 					</div>
 				</div>
 			)}
 
-			{/* ── Step 3: Apoios previsíveis ────────────────────────────────── */}
+			{/* ── Step 3: Cardápios de apoio ────────────────────────────────── */}
 			{currentStep === 3 && (
 				<div className="space-y-4">
 					<p className="text-sm text-muted-foreground">
 						Produções fora da rotina que não são eventos — lanches de bordo e de apoio, coffee breaks, cafés de reunião. A quantidade vem das ocorrências
-						mensais cadastradas no módulo Apoios da cozinha, projetadas pela vigência prevista da ata.
+						mensais cadastradas nos Cardápios de Apoio da cozinha, projetadas pela vigência prevista da ata.
 					</p>
 
 					<Card>
@@ -663,7 +663,7 @@ function NewAtaPage() {
 										className="w-28 tabular-nums"
 									/>
 									<p className="text-xs text-muted-foreground">
-										Multiplica as ocorrências mensais de cada apoio. Alterar aqui reprojeta as seleções já feitas.
+										Multiplica as ocorrências mensais de cada cardápio de apoio. Alterar aqui reprojeta as seleções já feitas.
 									</p>
 								</Field>
 							</FieldGroup>
@@ -764,7 +764,7 @@ function NewAtaPage() {
 					<div className="flex items-center justify-between pt-2">
 						<Button variant="outline" onClick={() => goToStep(3)} className="gap-2">
 							<ArrowLeft className="size-4" aria-hidden="true" />
-							Apoios
+							Cardápios de Apoio
 						</Button>
 						<Button size="lg" onClick={handleCalculate} disabled={!hasAnySelection || isCalculating} className="gap-2">
 							<Calculator className="size-5" aria-hidden="true" />
@@ -800,7 +800,7 @@ function NewAtaPage() {
 							{segmentExclusion && (
 								<SegmentExclusionNotice
 									exclusion={segmentExclusion}
-									segmentName={segments.find((s) => s.id === wizardState.segmentId)?.name ?? "esta contratação"}
+									segmentName={segments.find((s) => s.id === wizardState.segmentId)?.name ?? "esta contratação planejada"}
 									unitId={unitIdStr as string}
 								/>
 							)}

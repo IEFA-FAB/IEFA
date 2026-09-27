@@ -5,11 +5,11 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useDeleteKitchenDraft, useKitchenDrafts, useSendKitchenDraft } from "@/hooks/data/useKitchenDraft"
+import { useDeleteDemandForecast, useDemandForecasts, useSendDemandForecast } from "@/hooks/data/useDemandForecast"
 
-export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/suprimentos/")({
+export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/demand-forecasts/")({
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
-	component: KitchenSuprimentosPage,
+	component: DemandForecastsPage,
 	head: () => ({
 		meta: [{ name: "description", content: "Monte e envie à unidade a previsão de demanda que alimenta o anexo quantitativo do TR" }],
 	}),
@@ -27,23 +27,23 @@ const STATUS_VARIANTS: Record<string, "secondary" | "default" | "outline"> = {
 	reviewed: "outline",
 }
 
-function KitchenSuprimentosPage() {
+function DemandForecastsPage() {
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const kitchenId = Number(kitchenIdStr)
 
-	const { data: drafts, isLoading } = useKitchenDrafts(kitchenId)
-	const { mutate: sendDraft, isPending: isSending } = useSendKitchenDraft()
-	const { mutate: deleteDraft, isPending: isDeleting } = useDeleteKitchenDraft()
+	const { data: forecasts, isLoading } = useDemandForecasts(kitchenId)
+	const { mutate: sendForecast, isPending: isSending } = useSendDemandForecast()
+	const { mutate: deleteForecast, isPending: isDeleting } = useDeleteDemandForecast()
 
-	const handleSend = (draftId: string, title: string) => {
+	const handleSend = (forecastId: string, title: string) => {
 		if (window.confirm(`Enviar a previsão "${title}" à unidade?`)) {
-			sendDraft(draftId)
+			sendForecast(forecastId)
 		}
 	}
 
-	const handleDelete = (draftId: string, title: string) => {
+	const handleDelete = (forecastId: string, title: string) => {
 		if (window.confirm(`Remover a previsão "${title}"?`)) {
-			deleteDraft(draftId)
+			deleteForecast(forecastId)
 		}
 	}
 
@@ -51,13 +51,13 @@ function KitchenSuprimentosPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title="Previsão de demanda"
-				description="Diga à unidade quais cardápios, eventos e apoios a cozinha vai produzir, e quantas vezes: é a base do quantitativo de compra."
+				description="Diga à unidade quais cardápios semanais, eventos e cardápios de apoio a cozinha vai produzir, e quantas vezes: é a base do quantitativo de compra."
 			>
 				<Button
 					size="sm"
 					nativeButton={false}
 					render={
-						<Link to="/kitchen/$kitchenId/suprimentos/new" params={{ kitchenId: kitchenIdStr as string }}>
+						<Link to="/kitchen/$kitchenId/demand-forecasts/new" params={{ kitchenId: kitchenIdStr as string }}>
 							<Plus className="size-4 mr-2" />
 							Nova previsão
 						</Link>
@@ -71,7 +71,7 @@ function KitchenSuprimentosPage() {
 						<div key={i} className="h-24 animate-pulse rounded-md border bg-muted" aria-hidden="true" />
 					))}
 				</div>
-			) : !drafts || drafts.length === 0 ? (
+			) : !forecasts || forecasts.length === 0 ? (
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-14 text-center">
 						<ShoppingCart className="size-12 text-muted-foreground mb-4" aria-hidden="true" />
@@ -85,7 +85,7 @@ function KitchenSuprimentosPage() {
 							className="mt-4"
 							nativeButton={false}
 							render={
-								<Link to="/kitchen/$kitchenId/suprimentos/new" params={{ kitchenId: kitchenIdStr as string }}>
+								<Link to="/kitchen/$kitchenId/demand-forecasts/new" params={{ kitchenId: kitchenIdStr as string }}>
 									<Plus className="size-4 mr-2" />
 									Criar primeira previsão
 								</Link>
@@ -95,54 +95,54 @@ function KitchenSuprimentosPage() {
 				</Card>
 			) : (
 				<div className="space-y-3">
-					{drafts.map((draft) => (
-						<Card key={draft.id}>
+					{forecasts.map((forecast) => (
+						<Card key={forecast.id}>
 							<CardHeader className="pb-2">
 								<div className="flex items-start justify-between gap-2">
 									<div className="flex-1 min-w-0">
 										<CardTitle className="text-base flex items-center gap-2">
 											<FileText className="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
-											{draft.title}
+											{forecast.title}
 										</CardTitle>
-										{draft.notes && <CardDescription className="mt-1 line-clamp-2">{draft.notes}</CardDescription>}
+										{forecast.notes && <CardDescription className="mt-1 line-clamp-2">{forecast.notes}</CardDescription>}
 									</div>
-									<Badge variant={STATUS_VARIANTS[draft.status] || "secondary"}>{STATUS_LABELS[draft.status] || draft.status}</Badge>
+									<Badge variant={STATUS_VARIANTS[forecast.status] || "secondary"}>{STATUS_LABELS[forecast.status] || forecast.status}</Badge>
 								</div>
 							</CardHeader>
 							<CardContent className="pb-3">
-								{draft.status === "reviewed" && (
+								{forecast.status === "reviewed" && (
 									<p className="mb-2 text-xs text-success">
 										Recebida pela unidade
-										{draft.reviewed_at ? ` em ${new Date(draft.reviewed_at).toLocaleDateString("pt-BR")}` : ""}
-										{draft.imports?.length
-											? ` · no${draft.imports.length === 1 ? "" : "s"} anexo${draft.imports.length === 1 ? "" : "s"} ${draft.imports.map((i) => `"${i.title}"`).join(", ")}`
+										{forecast.reviewed_at ? ` em ${new Date(forecast.reviewed_at).toLocaleDateString("pt-BR")}` : ""}
+										{forecast.imports?.length
+											? ` · no${forecast.imports.length === 1 ? "" : "s"} anexo${forecast.imports.length === 1 ? "" : "s"} ${forecast.imports.map((i) => `"${i.title}"`).join(", ")}`
 											: ""}
 									</p>
 								)}
 								<div className="flex items-center justify-between gap-2">
 									<p className="text-xs text-muted-foreground">
-										{draft.selections.length} {draft.selections.length === 1 ? "seleção" : "seleções"}
-										{draft.updated_at
-											? ` · Atualizado ${new Date(draft.updated_at).toLocaleDateString("pt-BR")}`
-											: ` · Criado ${new Date(draft.created_at).toLocaleDateString("pt-BR")}`}
+										{forecast.selections.length} {forecast.selections.length === 1 ? "seleção" : "seleções"}
+										{forecast.updated_at
+											? ` · Atualizado ${new Date(forecast.updated_at).toLocaleDateString("pt-BR")}`
+											: ` · Criado ${new Date(forecast.created_at).toLocaleDateString("pt-BR")}`}
 									</p>
 									<div className="flex items-center gap-2">
-										{draft.status === "pending" && (
+										{forecast.status === "pending" && (
 											<>
 												<Button
 													size="sm"
 													variant="outline"
 													nativeButton={false}
 													render={
-														<Link to="/kitchen/$kitchenId/suprimentos/$draftId" params={{ kitchenId: kitchenIdStr as string, draftId: draft.id }}>
+														<Link to="/kitchen/$kitchenId/demand-forecasts/$forecastId" params={{ kitchenId: kitchenIdStr as string, forecastId: forecast.id }}>
 															Editar
 														</Link>
 													}
 												/>
 												<Button
 													size="sm"
-													onClick={() => handleSend(draft.id, draft.title)}
-													disabled={isSending || draft.selections.length === 0}
+													onClick={() => handleSend(forecast.id, forecast.title)}
+													disabled={isSending || forecast.selections.length === 0}
 													className="gap-1.5"
 												>
 													<Send className="size-3.5" aria-hidden="true" />
@@ -154,7 +154,7 @@ function KitchenSuprimentosPage() {
 											size="sm"
 											variant="ghost"
 											className="text-destructive hover:text-destructive"
-											onClick={() => handleDelete(draft.id, draft.title)}
+											onClick={() => handleDelete(forecast.id, forecast.title)}
 											disabled={isDeleting}
 										>
 											Remover

@@ -15,20 +15,20 @@ const printSearchSchema = z.object({
 })
 
 /**
- * GLOBAL — Impressão / PDF de Plano Semanal Modelo (SDAB)
- * URL: /global/weekly-plans/print/:planId
+ * GLOBAL — Impressão / PDF de Cardápio Semanal Modelo (SDAB)
+ * URL: /global/weekly-menus/print/:weeklyMenuId
  */
-export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/print/$planId")({
+export const Route = createFileRoute("/_protected/_modules/global/weekly-menus/print/$weeklyMenuId")({
 	validateSearch: printSearchSchema,
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
-	component: GlobalPlanPrintPage,
+	component: GlobalWeeklyMenuPrintPage,
 })
 
-function GlobalPlanPrintPage() {
-	const { planId } = Route.useParams()
+function GlobalWeeklyMenuPrintPage() {
+	const { weeklyMenuId } = Route.useParams()
 	const { week } = Route.useSearch()
-	const { data: template } = useTemplate(planId)
+	const { data: template } = useTemplate(weeklyMenuId)
 	useCrumbLabel(template?.name)
 
-	return <WeeklyMenuPrint templateId={planId} scope={{ kind: "global" }} initialWeek={week} />
+	return <WeeklyMenuPrint templateId={weeklyMenuId} scope={{ kind: "global" }} initialWeek={week} />
 }

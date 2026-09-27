@@ -354,7 +354,7 @@ export async function createProcurementSegment(db: SisubDb, ctx: UserContext, in
 					createdBy: ctx.userId,
 				})
 				.returning({ id: procurementSegmentInProcurement.id }),
-		{ prefix: "Erro ao criar contratação" }
+		{ prefix: "Erro ao criar contratação planejada" }
 	)
 }
 
@@ -423,7 +423,7 @@ export async function updateProcurementSegment(db: SisubDb, ctx: UserContext, in
 				})
 				.where(eq(procurementSegmentInProcurement.id, input.segmentId))
 				.returning({ id: procurementSegmentInProcurement.id }),
-		{ prefix: "Erro ao atualizar contratação" }
+		{ prefix: "Erro ao atualizar contratação planejada" }
 	)
 }
 
@@ -439,7 +439,7 @@ export async function deleteProcurementSegment(db: SisubDb, ctx: UserContext, in
 				.set({ deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
 				.where(eq(procurementSegmentInProcurement.id, input.segmentId))
 				.returning({ id: procurementSegmentInProcurement.id }),
-		{ prefix: "Erro ao remover contratação" }
+		{ prefix: "Erro ao remover contratação planejada" }
 	)
 }
 

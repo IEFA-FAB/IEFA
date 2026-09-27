@@ -52,7 +52,8 @@ export type RecordSensitiveOperation = z.infer<typeof RecordSensitiveOperationSc
  *
  * `operation` é igualdade exata com o nome gravado — o filtro da tela oferece a
  * lista de nomes distintos (`listSensitiveOperationNames`), então não há por que
- * aceitar padrão.
+ * aceitar padrão. A única extensão é a operação renomeada: o nome casa também as
+ * grafias antigas dela (`RENAMED_SENSITIVE_OPERATIONS`, abaixo).
  *
  * `limit` tem teto no schema e é reaplicado na operation: o cliente escolhe a
  * página, nunca o tamanho da varredura.
@@ -65,3 +66,29 @@ export const ListSensitiveOperationsSchema = z.object({
 	offset: z.number().int().min(0).optional(),
 })
 export type ListSensitiveOperations = z.infer<typeof ListSensitiveOperationsSchema>
+
+/**
+ * Nome antigo → nome atual das operações renomeadas. O log é apenas-inserção: a linha antiga fica
+ * com o nome com que foi gravada, para sempre. A leitura trata os dois como UMA operação — uma
+ * opção no filtro, o filtro casando as duas grafias e a frase do registro de garantia valendo para
+ * as duas —, senão quem audita os recolhimentos escolheria um dos nomes e veria metade do
+ * histórico sem saber. Nenhum código grava o nome antigo.
+ */
+export const RENAMED_SENSITIVE_OPERATIONS: Readonly<Record<string, string>> = {
+	// O recolhimento da retenção (DARF/DAR/GPS) não é o pagamento da despesa (OB) — lote 1 do glossário.
+	registerDeductionPaymentFn: "registerDeductionRemittanceFn",
+}
+
+/** Nome atual da operação: o próprio nome, ou o novo quando ela foi renomeada. */
+export function canonicalOperationName(operation: string): string {
+	return RENAMED_SENSITIVE_OPERATIONS[operation] ?? operation
+}
+
+/** Todas as grafias gravadas de uma operação: o nome atual primeiro, depois os antigos. */
+export function operationNameVariants(operation: string): string[] {
+	const canonical = canonicalOperationName(operation)
+	const old = Object.entries(RENAMED_SENSITIVE_OPERATIONS)
+		.filter(([, current]) => current === canonical)
+		.map(([previous]) => previous)
+	return [canonical, ...old]
+}

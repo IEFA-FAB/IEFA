@@ -3,7 +3,7 @@ import { requirePermission } from "@/auth/pbac"
 import { OccasionMenuForm } from "@/components/features/local/planning/OccasionMenuForm"
 
 /**
- * GLOBAL — Novo Apoio Modelo
+ * GLOBAL — Novo Cardápio de Apoio Modelo
  * URL: /global/exceptions/new
  * Acesso: módulo "global" nível 2 (escrita)
  */

@@ -1,5 +1,5 @@
 /**
- * Derivações puras da liquidação — extraídas de `liquidation.fn.ts`.
+ * Derivações puras da liquidação — extraídas de `liquidacao.fn.ts`.
  *
  * As três decisões aqui mexem em dinheiro e em autorização: quanto a NS
  * sugere, em que competência ela cai, e contra QUAL unidade o escopo é
@@ -19,7 +19,7 @@ export interface ReceiptValueItem {
  * não foi precificada, e travar aqui impediria liquidar o recebimento inteiro
  * por causa de uma. O valor é sugestão: quem confirma é quem assina a NS.
  */
-export function suggestedLiquidationValue(items: readonly ReceiptValueItem[]): number {
+export function suggestedLiquidacaoValue(items: readonly ReceiptValueItem[]): number {
 	const total = items.reduce((acc, item) => {
 		const qty = Number(item.receivedQtyBase)
 		const cost = Number(item.unitCost ?? 0)
@@ -79,7 +79,7 @@ export function resolvePurchaseUnitId(kitchen: KitchenUnitRef | null | undefined
 // Teto da liquidação pelo recebido (achado F2 / tarefa 5.3)
 // ============================================================================
 
-export type ReceiptLiquidationCeiling =
+export type ReceiptLiquidacaoCeiling =
 	/** Todos os itens têm custo: o teto é Σ quantidade recebida × custo. */
 	| { basis: "itens"; value: number; unpricedItems: 0 }
 	/** Algum item sem custo, mas o recebimento tem NF-e: vale o total da nota. */
@@ -97,15 +97,15 @@ export type ReceiptLiquidationCeiling =
  * pendência de precificar o recebimento. É a mesma regra do trigger
  * `finance.check_liquidacao_within_receipt` (20260926216000).
  */
-export function receiptLiquidationCeiling(items: readonly ReceiptValueItem[], nfeTotalValue: number | null): ReceiptLiquidationCeiling {
+export function receiptLiquidacaoCeiling(items: readonly ReceiptValueItem[], nfeTotalValue: number | null): ReceiptLiquidacaoCeiling {
 	const unpricedItems = items.filter((item) => item.unitCost == null || !Number.isFinite(Number(item.unitCost))).length
-	if (unpricedItems === 0) return { basis: "itens", value: suggestedLiquidationValue(items), unpricedItems: 0 }
+	if (unpricedItems === 0) return { basis: "itens", value: suggestedLiquidacaoValue(items), unpricedItems: 0 }
 	if (nfeTotalValue != null && Number.isFinite(Number(nfeTotalValue))) return { basis: "nfe", value: roundToCents(Number(nfeTotalValue)), unpricedItems }
 	return { basis: "indeterminado", value: null, unpricedItems }
 }
 
 /** Mensagem de recusa quando a NS passaria do recebido; `null` quando cabe (ou o teto é indeterminado). */
-export function liquidationExceedsReceiptProblem(input: { ceiling: ReceiptLiquidationCeiling; alreadyLiquidated: number; valor: number }): string | null {
+export function liquidacaoExceedsReceiptProblem(input: { ceiling: ReceiptLiquidacaoCeiling; alreadyLiquidated: number; valor: number }): string | null {
 	if (input.ceiling.value == null) return null
 	const total = roundToCents(input.alreadyLiquidated + input.valor)
 	if (total <= input.ceiling.value) return null
@@ -120,7 +120,7 @@ export function liquidationExceedsReceiptProblem(input: { ceiling: ReceiptLiquid
  * pelo almoxarifado, e o recebimento pode ser vinculado depois); é o que a lista de
  * pendências da execução mostra.
  */
-export function isLiquidationWithoutReceipt(liquidacao: { goodsReceiptId: string | null | undefined }): boolean {
+export function isLiquidacaoWithoutReceipt(liquidacao: { goodsReceiptId: string | null | undefined }): boolean {
 	return liquidacao.goodsReceiptId == null || liquidacao.goodsReceiptId === ""
 }
 
@@ -156,7 +156,7 @@ export interface DeductionEntry {
 	recolhidaEm: string | null
 }
 
-export interface LiquidationNetBalance {
+export interface LiquidacaoNetBalance {
 	bruto: number
 	deducoes: number
 	/** O que a OB paga ao credor: bruto − deduções. */
@@ -173,7 +173,7 @@ export interface LiquidationNetBalance {
  * Saldo da NS separado entre credor e fisco. O credor recebe o LÍQUIDO; a retenção
  * é paga ao fisco pelo DARF/DAR/GPS. Sem dedução, `liquido = bruto` e nada muda.
  */
-export function liquidationNetBalance(input: { bruto: number; deducoes: readonly DeductionEntry[]; pagamentos: readonly number[] }): LiquidationNetBalance {
+export function liquidacaoNetBalance(input: { bruto: number; deducoes: readonly DeductionEntry[]; pagamentos: readonly number[] }): LiquidacaoNetBalance {
 	const bruto = roundToCents(Number(input.bruto))
 	const deducoes = roundToCents(input.deducoes.reduce((acc, d) => acc + Number(d.valor), 0))
 	const aRecolher = roundToCents(input.deducoes.filter((d) => d.recolhidaEm == null).reduce((acc, d) => acc + Number(d.valor), 0))
@@ -183,7 +183,7 @@ export function liquidationNetBalance(input: { bruto: number; deducoes: readonly
 }
 
 /** Recusa da OB acima do líquido (mesma regra do trigger `check_pagamento_within_liquidacao`). */
-export function paymentExceedsNetProblem(balance: LiquidationNetBalance, valor: number): string | null {
+export function pagamentoExceedsNetProblem(balance: LiquidacaoNetBalance, valor: number): string | null {
 	if (roundToCents(balance.pago + valor) <= balance.liquido) return null
 	if (balance.deducoes === 0) {
 		return `O pagamento passa o valor liquidado (R$ ${balance.bruto.toFixed(2)}; já pago R$ ${balance.pago.toFixed(2)}). Pague no máximo R$ ${Math.max(0, balance.aPagar).toFixed(2)}.`
@@ -196,14 +196,14 @@ export function paymentExceedsNetProblem(balance: LiquidationNetBalance, valor: 
  * sobrescrevê-los apagaria o DARF que de fato pagou o tributo. Correção de recolhimento errado
  * é no SIAFI (retificação/restituição), não por cima da linha.
  */
-export function deductionPaymentProblem(deduction: { paidOn: string | null; documentNumber: string | null }): string | null {
+export function deductionRemittanceProblem(deduction: { paidOn: string | null; documentNumber: string | null }): string | null {
 	if (deduction.paidOn == null) return null
 	const doc = deduction.documentNumber ? ` pelo documento ${deduction.documentNumber}` : ""
 	return `Esta retenção já foi recolhida em ${deduction.paidOn}${doc}. Se o documento está errado, retifique no SIAFI; o registro não é sobrescrito.`
 }
 
 /** Recusa da dedução que, somada ao já pago, passaria o bruto. */
-export function deductionExceedsProblem(balance: LiquidationNetBalance, valor: number): string | null {
+export function deductionExceedsProblem(balance: LiquidacaoNetBalance, valor: number): string | null {
 	if (roundToCents(balance.deducoes + balance.pago + valor) <= balance.bruto) return null
 	return `A dedução passa o que resta da NS: bruto R$ ${balance.bruto.toFixed(2)}, deduções R$ ${balance.deducoes.toFixed(2)}, já pago ao credor R$ ${balance.pago.toFixed(2)}. Registre a retenção antes da OB, ou corrija o valor.`
 }

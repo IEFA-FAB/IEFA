@@ -36,7 +36,7 @@ export function SegmentChoice({
 		<Card>
 			<CardContent className="pt-6">
 				<Field>
-					<FieldLabel htmlFor="ata-segment">Contratação deste anexo</FieldLabel>
+					<FieldLabel htmlFor="ata-segment">Contratação planejada deste anexo</FieldLabel>
 					<Select
 						// O id guardado segue como valor mesmo quando a contratação sumiu: assim escolher
 						// "Todos os itens" é uma mudança de verdade e dispara `onValueChange`.
@@ -45,11 +45,17 @@ export function SegmentChoice({
 					>
 						<SelectTrigger id="ata-segment" className="w-full sm:w-96">
 							<SelectValue>
-								{selected ? selected.name : value && loaded ? "Contratação removida" : value ? "Carregando…" : "Todos os itens (sem contratação)"}
+								{selected
+									? selected.name
+									: value && loaded
+										? "Contratação planejada removida"
+										: value
+											? "Carregando…"
+											: "Todos os itens (sem contratação planejada)"}
 							</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value={ALL_ITEMS}>Todos os itens (sem contratação)</SelectItem>
+							<SelectItem value={ALL_ITEMS}>Todos os itens (sem contratação planejada)</SelectItem>
 							{segments.map((s) => (
 								<SelectItem key={s.id} value={s.id}>
 									{s.name}
@@ -60,12 +66,12 @@ export function SegmentChoice({
 					</Select>
 					<FieldDescription>
 						{removed ? (
-							<span className="text-destructive">A contratação deste anexo foi removida. Escolha outra, ou todos os itens, antes de calcular.</span>
+							<span className="text-destructive">A contratação planejada deste anexo foi removida. Escolha outra, ou todos os itens, antes de calcular.</span>
 						) : selected ? (
 							`O cálculo leva só ${selected.lineCount === 1 ? "o item" : `os ${selected.lineCount} itens`} de ${selected.name}; a vigência vem dela (${selected.validityMonths} meses).`
 						) : (
 							<>
-								Com uma contratação, o anexo leva só os itens dela.{" "}
+								Com uma contratação planejada, o anexo leva só os itens dela.{" "}
 								<Link to="/unit/$unitId/segments" params={{ unitId }} className="underline underline-offset-2">
 									{segments.length === 0 ? "Montar a segmentação" : "Ver a segmentação"}
 								</Link>
@@ -90,9 +96,9 @@ export function SegmentExclusionNotice({ exclusion, segmentName, unitId }: { exc
 			</AlertTitle>
 			<AlertDescription>
 				<ul className="list-inside list-disc">
-					{exclusion.otherSegment > 0 && <li>{exclusion.otherSegment} de outras contratações</li>}
-					{exclusion.unassigned > 0 && <li>{exclusion.unassigned} sem contratação</li>}
-					{exclusion.conflict > 0 && <li>{exclusion.conflict} em conflito entre duas contratações: resolva antes de concluir</li>}
+					{exclusion.otherSegment > 0 && <li>{exclusion.otherSegment} de outras contratações planejadas</li>}
+					{exclusion.unassigned > 0 && <li>{exclusion.unassigned} sem contratação planejada</li>}
+					{exclusion.conflict > 0 && <li>{exclusion.conflict} em conflito entre duas contratações planejadas: resolva antes de concluir</li>}
 				</ul>
 				<Link to="/unit/$unitId/segments" params={{ unitId }} className="underline underline-offset-2">
 					Ajustar a segmentação

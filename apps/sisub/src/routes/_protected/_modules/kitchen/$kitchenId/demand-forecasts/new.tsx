@@ -1,24 +1,24 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
-import { DraftEditor } from "@/components/features/local/kitchen-draft/DraftEditor"
+import { DemandForecastEditor } from "@/components/features/local/demand-forecast/DemandForecastEditor"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { useCreateKitchenDraft, useSendKitchenDraft } from "@/hooks/data/useKitchenDraft"
+import { useCreateDemandForecast, useSendDemandForecast } from "@/hooks/data/useDemandForecast"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import type { TemplateSelection } from "@/types/domain/ata"
 
-export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/suprimentos/new")({
+export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/demand-forecasts/new")({
 	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
-	component: NewDraftPage,
+	component: NewDemandForecastPage,
 })
 
-function NewDraftPage() {
+function NewDemandForecastPage() {
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const kitchenId = Number(kitchenIdStr)
 	const navigate = useNavigate()
 
 	const { data: templates, isLoading: isLoadingTemplates } = useMenuTemplates(kitchenId)
-	const { mutate: createDraft, isPending: isSaving } = useCreateKitchenDraft()
-	const { mutate: sendAfterCreate, isPending: isSending } = useSendKitchenDraft()
+	const { mutate: createForecast, isPending: isSaving } = useCreateDemandForecast()
+	const { mutate: sendAfterCreate, isPending: isSending } = useSendDemandForecast()
 
 	// Separar templates locais por tipo
 	const localTemplates = templates?.filter((t) => t.kitchen_id !== null) || []
@@ -29,18 +29,18 @@ function NewDraftPage() {
 		return type === "event" || type === "exception"
 	})
 
-	// Salvar rascunho continua no editor: a rota "new" não tem id, então o destino é a
-	// própria tela de edição do rascunho recém-criado — não a listagem. Salvar é um marco
+	// Salvar a previsão continua no editor: a rota "new" não tem id, então o destino é a
+	// própria tela de edição da previsão recém-criada — não a listagem. Salvar é um marco
 	// do trabalho em curso; quem termina usa "Enviar", que aí sim encerra o fluxo.
 	const handleSave = (title: string, notes: string, selections: TemplateSelection[]) => {
-		createDraft(
+		createForecast(
 			{ kitchenId, title, notes: notes || undefined, selections },
 			{
-				onSuccess: (draft) => {
-					if (!draft) return
+				onSuccess: (forecast) => {
+					if (!forecast) return
 					navigate({
-						to: "/kitchen/$kitchenId/suprimentos/$draftId",
-						params: { kitchenId: kitchenIdStr as string, draftId: draft.id },
+						to: "/kitchen/$kitchenId/demand-forecasts/$forecastId",
+						params: { kitchenId: kitchenIdStr as string, forecastId: forecast.id },
 						replace: true,
 					})
 				},
@@ -49,14 +49,14 @@ function NewDraftPage() {
 	}
 
 	const handleSend = (title: string, notes: string, selections: TemplateSelection[]) => {
-		createDraft(
+		createForecast(
 			{ kitchenId, title, notes: notes || undefined, selections },
 			{
-				onSuccess: (draft) => {
-					if (draft) {
-						sendAfterCreate(draft.id, {
+				onSuccess: (forecast) => {
+					if (forecast) {
+						sendAfterCreate(forecast.id, {
 							onSuccess: () => {
-								navigate({ to: "/kitchen/$kitchenId/suprimentos", params: { kitchenId: kitchenIdStr as string } })
+								navigate({ to: "/kitchen/$kitchenId/demand-forecasts", params: { kitchenId: kitchenIdStr as string } })
 							},
 						})
 					}
@@ -67,8 +67,11 @@ function NewDraftPage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Nova previsão de demanda" description="Selecione os cardápios, eventos e apoios que a cozinha vai produzir e quantas vezes." />
-			<DraftEditor
+			<PageHeader
+				title="Nova previsão de demanda"
+				description="Selecione os cardápios semanais, eventos e cardápios de apoio que a cozinha vai produzir e quantas vezes."
+			/>
+			<DemandForecastEditor
 				weeklyTemplates={weeklyTemplates}
 				eventTemplates={eventTemplates}
 				isLoadingTemplates={isLoadingTemplates}

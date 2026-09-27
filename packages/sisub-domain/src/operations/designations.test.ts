@@ -19,7 +19,8 @@ describe("designationMissingMessage", () => {
 
 	test("quem não pode designar lê quem designa e onde; a conferência fica", () => {
 		const message = designationMissingMessage("definitive", false)
-		expect(message).toContain("chefe do rancho")
+		expect(message).toContain("quem tem Gestão Unidade")
+		expect(message).not.toMatch(/rancho/i)
 		expect(message).toContain(DESIGNATION_SCREEN_LABEL)
 		expect(message).toMatch(/conferência já registrada fica/)
 	})

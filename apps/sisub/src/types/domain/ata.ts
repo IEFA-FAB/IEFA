@@ -9,9 +9,6 @@ export type ProcurementListItem = Tables<"procurement_list_item">
 /** Item como o detalhe da ATA devolve: com o padrão do insumo e a conservação, que decidem o ciclo não gravado. */
 export type AtaItemWithConservation = ProcurementListItem & { conservation_class?: string | null; ingredient_delivery_cycle?: string | null }
 
-export type KitchenAtaDraft = Tables<"kitchen_demand_forecast">
-export type KitchenAtaDraftSelection = Tables<"kitchen_demand_forecast_selection">
-
 // ─── List com detalhes carregados ─────────────────────────────────────────────
 
 export interface AtaKitchenWithDetails extends ProcurementListKitchen {
@@ -74,20 +71,6 @@ export interface AtaWithDetails extends ProcurementList {
 	kitchens: AtaKitchenWithDetails[]
 	items: AtaItemWithConservation[]
 	meta: AtaMeta
-}
-
-// ─── Rascunho com seleções carregadas ────────────────────────────────────────
-
-export interface DraftWithSelections extends KitchenAtaDraft {
-	selections: (KitchenAtaDraftSelection & {
-		template: {
-			id: string
-			name: string | null
-			template_type: string
-		}
-	})[]
-	/** Anexos quantitativos em que a unidade já importou esta previsão. */
-	imports: { list_id: string; title: string; imported_at: string }[]
 }
 
 // ─── Estado do Wizard (não persiste até salvar) ───────────────────────────────

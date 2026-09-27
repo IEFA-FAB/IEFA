@@ -1,11 +1,11 @@
 /**
- * Kitchen ATA draft operations: pending → sent status lifecycle for
- * kitchen-to-management procurement requests. Drizzle query layer.
+ * Previsão de demanda da cozinha: ciclo pending → sent da previsão que a
+ * cozinha envia à unidade para o anexo quantitativo do TR. Camada de query Drizzle.
  *
- * Auth: LEITURA exige `kitchen:1` na cozinha OU `unit:1` numa OM dela (a gestão lê o rascunho
- * enviado no wizard da ATA) — ver `requireKitchenOrItsUnit`. ESCRITA exige `kitchen:2` na
- * cozinha dona do rascunho, resolvida do banco quando a operação recebe só o id
- * (`authorizeDraft`), e os planos citados precisam ser da própria cozinha ou globais.
+ * Auth: LEITURA exige `kitchen:1` na cozinha OU `unit:1` numa OM dela (a gestão lê a previsão
+ * enviada no wizard do anexo) — ver `requireKitchenOrItsUnit`. ESCRITA exige `kitchen:2` na
+ * cozinha dona da previsão, resolvida do banco quando a operação recebe só o id
+ * (`authorizeForecast`), e os cardápios citados precisam ser da própria cozinha ou globais.
  *
  * Status: "pending" (editable by kitchen) → "sent". Mensagens de erro especiais
  * (`Erro ao ...: message`) preservadas (prefixo + mensagem do driver).
@@ -25,40 +25,40 @@ import { and, desc, eq, inArray } from "drizzle-orm"
 import { kitchenBelongsToUnit, requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
 import { requireKitchen, requireUnit } from "../guards/require-permission.ts"
 import type {
-	CreateKitchenDraft,
-	DeleteKitchenDraft,
-	FetchKitchenDrafts,
-	FetchPendingDraft,
-	SendKitchenDraft,
-	UpdateKitchenDraft,
+	CreateDemandForecast,
+	DeleteDemandForecast,
+	FetchDemandForecasts,
+	FetchPendingDemandForecast,
+	SendDemandForecast,
+	UpdateDemandForecast,
 } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toColumns, toWire } from "../utils/index.ts"
 
-type Draft = Tables<"kitchen_demand_forecast">
-type DraftTemplateRef = { id: string; name: string; template_type: string }
-type DraftSelectionWire = Tables<"kitchen_demand_forecast_selection"> & { template: DraftTemplateRef | null }
+type Forecast = Tables<"kitchen_demand_forecast">
+type ForecastTemplateRef = { id: string; name: string; template_type: string }
+type ForecastSelectionWire = Tables<"kitchen_demand_forecast_selection"> & { template: ForecastTemplateRef | null }
 /** Anexo quantitativo em que a previsão entrou (uma previsão serve a várias contratações). */
-export type DraftImportWire = { list_id: string; title: string; imported_at: string }
-type DraftWithSelections = Draft & { selections: DraftSelectionWire[]; imports: DraftImportWire[] }
+export type DemandForecastImportWire = { list_id: string; title: string; imported_at: string }
+type DemandForecastWithSelections = Forecast & { selections: ForecastSelectionWire[]; imports: DemandForecastImportWire[] }
 
-const DRAFT_RELATIONS: Record<string, string> = { kitchenDemandForecastSelectionInProcurements: "selections", menuTemplateInKitchen: "template" }
+const FORECAST_RELATIONS: Record<string, string> = { kitchenDemandForecastSelectionInProcurements: "selections", menuTemplateInKitchen: "template" }
 
-type DraftRow = typeof kitchenDemandForecastInProcurement.$inferSelect
+type ForecastRow = typeof kitchenDemandForecastInProcurement.$inferSelect
 
 /**
- * Pendura seleções → template nos rascunhos em queries SEPARADAS, juntadas em JS.
+ * Pendura seleções → template nas previsões em queries SEPARADAS, juntadas em JS.
  *
- * A relational query aninhada (rascunho → seleções → template) gerava o alias
+ * A relational query aninhada (previsão → seleções → template) gerava o alias
  * `kitchenAtaDraftInProcurement_kitchenAtaDraftSelectionInProcurements` (69 chars, com os nomes de antes do rename 20260927010000): o Postgres
  * trunca em NAMEDATALEN (63) e o SQL emitido segue citando o nome inteiro → 42703 `column
- * ....template_id does not exist`. Toda leitura de rascunho quebrava — inclusive o aviso de
- * rascunho pendente no wizard da ATA. É o mesmo bug que `fetchAtaDetails` já contornava.
- * Chaves iguais às da relational query, para `DRAFT_RELATIONS` mapear o contrato de wire.
+ * ....template_id does not exist`. Toda leitura de previsão quebrava — inclusive o aviso de
+ * previsão enviada no wizard do anexo. É o mesmo bug que `fetchAtaDetails` já contornava.
+ * Chaves iguais às da relational query, para `FORECAST_RELATIONS` mapear o contrato de wire.
  */
-async function attachSelections(db: SisubDb, drafts: DraftRow[], prefix: string): Promise<DraftWithSelections[]> {
-	if (drafts.length === 0) return []
+async function attachSelections(db: SisubDb, forecasts: ForecastRow[], prefix: string): Promise<DemandForecastWithSelections[]> {
+	if (forecasts.length === 0) return []
 	const selections = await runQuery(
 		"FETCH_FAILED",
 		() =>
@@ -68,7 +68,7 @@ async function attachSelections(db: SisubDb, drafts: DraftRow[], prefix: string)
 				.where(
 					inArray(
 						kitchenDemandForecastSelectionInProcurement.forecastId,
-						drafts.map((d) => d.id)
+						forecasts.map((d) => d.id)
 					)
 				),
 		{ prefix }
@@ -102,31 +102,31 @@ async function attachSelections(db: SisubDb, drafts: DraftRow[], prefix: string)
 				.where(
 					inArray(
 						kitchenDemandForecastImportInProcurement.forecastId,
-						drafts.map((d) => d.id)
+						forecasts.map((d) => d.id)
 					)
 				)
 				.orderBy(desc(kitchenDemandForecastImportInProcurement.importedAt)),
 		{ prefix }
 	)
-	return drafts.map((d) => ({
-		...toWire<Omit<DraftWithSelections, "imports">>(
+	return forecasts.map((d) => ({
+		...toWire<Omit<DemandForecastWithSelections, "imports">>(
 			{
 				...d,
 				kitchenDemandForecastSelectionInProcurements: selections
 					.filter((s) => s.forecastId === d.id)
 					.map((s) => ({ ...s, menuTemplateInKitchen: templateById.get(s.templateId) ?? null })),
 			},
-			DRAFT_RELATIONS
+			FORECAST_RELATIONS
 		),
 		imports: imports.filter((i) => i.forecastId === d.id).map((i) => ({ list_id: i.listId, title: i.title, imported_at: i.importedAt })),
 	}))
 }
 
-/** Lists all drafts for a kitchen with their template selections, ordered by creation date descending. */
-export async function fetchKitchenDrafts(db: SisubDb, ctx: UserContext, input: FetchKitchenDrafts) {
+/** Previsões de demanda da cozinha, com os cardápios escolhidos, da mais recente para a mais antiga. */
+export async function fetchDemandForecasts(db: SisubDb, ctx: UserContext, input: FetchDemandForecasts) {
 	await requireKitchenOrItsUnit(db, ctx, 1, input.kitchenId)
-	const prefix = "Erro ao buscar rascunhos"
-	const drafts = await runQuery(
+	const prefix = "Erro ao buscar previsões de demanda"
+	const forecasts = await runQuery(
 		"FETCH_FAILED",
 		() =>
 			db
@@ -136,7 +136,7 @@ export async function fetchKitchenDrafts(db: SisubDb, ctx: UserContext, input: F
 				.orderBy(desc(kitchenDemandForecastInProcurement.createdAt)),
 		{ prefix }
 	)
-	return attachSelections(db, drafts, prefix)
+	return attachSelections(db, forecasts, prefix)
 }
 
 /**
@@ -144,12 +144,12 @@ export async function fetchKitchenDrafts(db: SisubDb, ctx: UserContext, input: F
  * num anexo, ela continua disponível para os anexos das outras contratações (cada importação
  * fica em `imports`).
  */
-export async function fetchPendingDraft(db: SisubDb, ctx: UserContext, input: FetchPendingDraft) {
-	// O wizard da ATA chama isto para CADA cozinha da OM: quem compõe a ata é a gestão da
+export async function fetchPendingDemandForecast(db: SisubDb, ctx: UserContext, input: FetchPendingDemandForecast) {
+	// O wizard do anexo chama isto para CADA cozinha da OM: quem compõe o anexo é a gestão da
 	// unidade, que não precisa ter a cozinha.
 	await requireKitchenOrItsUnit(db, ctx, 1, input.kitchenId)
-	const prefix = "Erro ao buscar rascunho pendente"
-	const drafts = await runQuery(
+	const prefix = "Erro ao buscar a previsão de demanda enviada"
+	const forecasts = await runQuery(
 		"FETCH_FAILED",
 		() =>
 			db
@@ -160,34 +160,33 @@ export async function fetchPendingDraft(db: SisubDb, ctx: UserContext, input: Fe
 				.limit(1),
 		{ prefix }
 	)
-	const [draft] = await attachSelections(db, drafts, prefix)
-	return draft ?? null
+	const [forecast] = await attachSelections(db, forecasts, prefix)
+	return forecast ?? null
 }
 
-/** Creates a draft with status "pending" and inserts its template selections (atômico). */
 /**
- * Autoriza pela cozinha DONA do rascunho, lida da linha.
+ * Autoriza pela cozinha DONA da previsão, lida da linha.
  *
- * A entrada dessas operações traz só o `draftId` — sem resolver o dono, qualquer detentor de
- * `kitchen:2` em uma cozinha editava, enviava ou apagava o rascunho de ATA de outra.
+ * A entrada dessas operações traz só o `forecastId` — sem resolver o dono, qualquer detentor de
+ * `kitchen:2` em uma cozinha editava, enviava ou apagava a previsão de demanda de outra.
  */
-async function authorizeDraft(db: SisubDb, ctx: UserContext, draftId: string): Promise<number> {
+async function authorizeForecast(db: SisubDb, ctx: UserContext, forecastId: string): Promise<number> {
 	const [row] = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({ kitchenId: kitchenDemandForecastInProcurement.kitchenId })
 			.from(kitchenDemandForecastInProcurement)
-			.where(eq(kitchenDemandForecastInProcurement.id, draftId))
+			.where(eq(kitchenDemandForecastInProcurement.id, forecastId))
 			.limit(1)
 	)
-	if (!row?.kitchenId) throw new NotFoundError("previsão de demanda", draftId)
+	if (!row?.kitchenId) throw new NotFoundError("previsão de demanda", forecastId)
 	requireKitchen(ctx, 2, row.kitchenId)
 	return row.kitchenId
 }
 
 /**
- * Os planos citados no rascunho são da própria cozinha ou globais. O guard da cozinha prova
- * só a cozinha; o `templateId` vinha do corpo, e um rascunho enviado à OM levava o plano
- * LOCAL de outra cozinha — que o wizard da ATA depois abria e calculava.
+ * Os cardápios citados na previsão são da própria cozinha ou globais. O guard da cozinha prova
+ * só a cozinha; o `templateId` vinha do corpo, e uma previsão enviada à OM levava o cardápio
+ * LOCAL de outra cozinha — que o wizard do anexo depois abria e calculava.
  */
 async function assertTemplatesOfKitchen(db: SisubDb, kitchenId: number, templateIds: readonly string[]): Promise<void> {
 	const ids = [...new Set(templateIds)]
@@ -205,7 +204,8 @@ async function assertTemplatesOfKitchen(db: SisubDb, kitchenId: number, template
 	}
 }
 
-export async function createKitchenDraft(db: SisubDb, ctx: UserContext, input: CreateKitchenDraft) {
+/** Cria a previsão de demanda em "pending" com os cardápios escolhidos, numa transação só. */
+export async function createDemandForecast(db: SisubDb, ctx: UserContext, input: CreateDemandForecast) {
 	requireKitchen(ctx, 2, input.kitchenId)
 	await assertTemplatesOfKitchen(
 		db,
@@ -213,10 +213,10 @@ export async function createKitchenDraft(db: SisubDb, ctx: UserContext, input: C
 		input.selections.map((s) => s.templateId)
 	)
 
-	const draft = await db.transaction(async (tx) => {
+	const forecast = await db.transaction(async (tx) => {
 		const inserted = await insertOneOrFail(
 			"INSERT_FAILED",
-			"Erro ao criar rascunho: no row returned",
+			"Erro ao criar previsão de demanda: no row returned",
 			() =>
 				tx
 					.insert(kitchenDemandForecastInProcurement)
@@ -233,15 +233,16 @@ export async function createKitchenDraft(db: SisubDb, ctx: UserContext, input: C
 		}
 		return inserted
 	})
-	return toWire<Draft>(draft)
+	return toWire<Forecast>(forecast)
 }
 
 /**
- * Updates draft metadata and optionally replaces all selections (delete-all + re-insert, atômico).
- * selections=undefined → metadata-only update, existing selections untouched.
+ * Atualiza título e observações da previsão e, se vierem, troca todos os cardápios escolhidos
+ * (apaga e insere de novo, numa transação só). `selections` ausente = só os metadados; os
+ * cardápios já escolhidos ficam.
  */
-export async function updateKitchenDraft(db: SisubDb, ctx: UserContext, input: UpdateKitchenDraft) {
-	const kitchenId = await authorizeDraft(db, ctx, input.draftId)
+export async function updateDemandForecast(db: SisubDb, ctx: UserContext, input: UpdateDemandForecast) {
+	const kitchenId = await authorizeForecast(db, ctx, input.forecastId)
 	if (input.selections !== undefined) {
 		await assertTemplatesOfKitchen(
 			db,
@@ -250,55 +251,55 @@ export async function updateKitchenDraft(db: SisubDb, ctx: UserContext, input: U
 		)
 	}
 
-	const draft = await db.transaction(async (tx) => {
+	const forecast = await db.transaction(async (tx) => {
 		const set = { ...toColumns(input.updates), updatedAt: new Date().toISOString() } as Partial<typeof kitchenDemandForecastInProcurement.$inferInsert>
 		const updated = await insertOneOrFail(
 			"UPDATE_FAILED",
-			`Erro ao atualizar rascunho: rascunho ${input.draftId} não encontrado`,
-			() => tx.update(kitchenDemandForecastInProcurement).set(set).where(eq(kitchenDemandForecastInProcurement.id, input.draftId)).returning(),
+			`Erro ao atualizar previsão de demanda: ${input.forecastId} não encontrada`,
+			() => tx.update(kitchenDemandForecastInProcurement).set(set).where(eq(kitchenDemandForecastInProcurement.id, input.forecastId)).returning(),
 			{ prefix: "Erro ao atualizar previsão de demanda" }
 		)
 
 		if (input.selections !== undefined) {
-			await tx.delete(kitchenDemandForecastSelectionInProcurement).where(eq(kitchenDemandForecastSelectionInProcurement.forecastId, input.draftId))
+			await tx.delete(kitchenDemandForecastSelectionInProcurement).where(eq(kitchenDemandForecastSelectionInProcurement.forecastId, input.forecastId))
 			if (input.selections.length > 0) {
-				const rows = input.selections.map((s) => ({ forecastId: input.draftId, templateId: s.templateId, repetitions: s.repetitions }))
+				const rows = input.selections.map((s) => ({ forecastId: input.forecastId, templateId: s.templateId, repetitions: s.repetitions }))
 				await runQuery("UPDATE_FAILED", () => tx.insert(kitchenDemandForecastSelectionInProcurement).values(rows), { prefix: "Erro ao atualizar seleções" })
 			}
 		}
 		return updated
 	})
-	return toWire<Draft>(draft)
+	return toWire<Forecast>(forecast)
 }
 
-/** Transitions a draft from "pending" to "sent", making it visible to management. */
-export async function sendKitchenDraft(db: SisubDb, ctx: UserContext, input: SendKitchenDraft) {
-	await authorizeDraft(db, ctx, input.draftId)
+/** Passa a previsão de "pending" para "sent": a partir daí a unidade a vê no wizard do anexo. */
+export async function sendDemandForecast(db: SisubDb, ctx: UserContext, input: SendDemandForecast) {
+	await authorizeForecast(db, ctx, input.forecastId)
 
 	await mutateOrFail(
 		"UPDATE_FAILED",
-		`Erro ao enviar rascunho: rascunho ${input.draftId} não encontrado`,
+		`Erro ao enviar previsão de demanda: ${input.forecastId} não encontrada`,
 		() =>
 			db
 				.update(kitchenDemandForecastInProcurement)
 				.set({ status: "sent", updatedAt: new Date().toISOString() })
-				.where(eq(kitchenDemandForecastInProcurement.id, input.draftId))
+				.where(eq(kitchenDemandForecastInProcurement.id, input.forecastId))
 				.returning({ id: kitchenDemandForecastInProcurement.id }),
 		{ prefix: "Erro ao enviar previsão de demanda" }
 	)
 }
 
-/** Hard-deletes a draft and its selections (cascade via FK). Only pending drafts should be deleted. */
-export async function deleteKitchenDraft(db: SisubDb, ctx: UserContext, input: DeleteKitchenDraft) {
-	await authorizeDraft(db, ctx, input.draftId)
+/** Apaga a previsão e os cardápios escolhidos (cascata pela FK). Só a previsão em "pending" deve ser apagada. */
+export async function deleteDemandForecast(db: SisubDb, ctx: UserContext, input: DeleteDemandForecast) {
+	await authorizeForecast(db, ctx, input.forecastId)
 
 	await mutateOrFail(
 		"DELETE_FAILED",
-		`Erro ao deletar rascunho: rascunho ${input.draftId} não encontrado`,
+		`Erro ao remover previsão de demanda: ${input.forecastId} não encontrada`,
 		() =>
 			db
 				.delete(kitchenDemandForecastInProcurement)
-				.where(eq(kitchenDemandForecastInProcurement.id, input.draftId))
+				.where(eq(kitchenDemandForecastInProcurement.id, input.forecastId))
 				.returning({ id: kitchenDemandForecastInProcurement.id }),
 		{ prefix: "Erro ao remover previsão de demanda" }
 	)
@@ -309,7 +310,7 @@ export async function deleteKitchenDraft(db: SisubDb, ctx: UserContext, input: D
  * marca a previsão como recebida (`reviewed`) com data e autor — é o retorno que a nutricionista
  * vê. Exige `unit:2` na OM dona do anexo, e a cozinha da previsão precisa ser dessa OM.
  */
-export async function recordKitchenDraftImport(db: SisubDb, ctx: UserContext, input: { draftId: string; listId: string }): Promise<void> {
+export async function recordDemandForecastImport(db: SisubDb, ctx: UserContext, input: { forecastId: string; listId: string }): Promise<void> {
 	const [list] = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({ unitId: procurementListInProcurement.unitId })
@@ -320,7 +321,7 @@ export async function recordKitchenDraftImport(db: SisubDb, ctx: UserContext, in
 	if (!list) throw new NotFoundError("anexo quantitativo", input.listId)
 	requireUnit(ctx, 2, list.unitId)
 
-	const [draft] = await runQuery("FETCH_FAILED", () =>
+	const [forecast] = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
 				status: kitchenDemandForecastInProcurement.status,
@@ -329,14 +330,14 @@ export async function recordKitchenDraftImport(db: SisubDb, ctx: UserContext, in
 			})
 			.from(kitchenDemandForecastInProcurement)
 			.innerJoin(kitchenInKitchen, eq(kitchenInKitchen.id, kitchenDemandForecastInProcurement.kitchenId))
-			.where(eq(kitchenDemandForecastInProcurement.id, input.draftId))
+			.where(eq(kitchenDemandForecastInProcurement.id, input.forecastId))
 			.limit(1)
 	)
-	if (!draft) throw new NotFoundError("previsão de demanda", input.draftId)
-	if (!kitchenBelongsToUnit({ id: 0, unitId: draft.unitId, purchaseUnitId: draft.purchaseUnitId }, list.unitId)) {
+	if (!forecast) throw new NotFoundError("previsão de demanda", input.forecastId)
+	if (!kitchenBelongsToUnit({ id: 0, unitId: forecast.unitId, purchaseUnitId: forecast.purchaseUnitId }, list.unitId)) {
 		throw new DomainError("KITCHEN_NOT_IN_UNIT", "A previsão é de uma cozinha de outra OM.")
 	}
-	if (draft.status === "pending") throw new DomainError("DRAFT_NOT_SENT", "A cozinha ainda não enviou esta previsão.")
+	if (forecast.status === "pending") throw new DomainError("FORECAST_NOT_SENT", "A cozinha ainda não enviou esta previsão.")
 
 	await runQuery(
 		"TRANSACTION_FAILED",
@@ -344,16 +345,16 @@ export async function recordKitchenDraftImport(db: SisubDb, ctx: UserContext, in
 			db.transaction(async (tx) => {
 				await tx
 					.insert(kitchenDemandForecastImportInProcurement)
-					.values({ forecastId: input.draftId, listId: input.listId, importedBy: ctx.userId })
+					.values({ forecastId: input.forecastId, listId: input.listId, importedBy: ctx.userId })
 					.onConflictDoNothing({ target: [kitchenDemandForecastImportInProcurement.forecastId, kitchenDemandForecastImportInProcurement.listId] })
-				if (draft.status === "sent") {
+				if (forecast.status === "sent") {
 					const now = new Date().toISOString()
 					await tx
 						.update(kitchenDemandForecastInProcurement)
 						// Sem tocar updated_at: ele é a data da cozinha (edição, envio). Carimbar aqui
 						// reordenava as previsões e fazia uma antiga parecer "atualizada".
 						.set({ status: "reviewed", reviewedAt: now, reviewedBy: ctx.userId })
-						.where(and(eq(kitchenDemandForecastInProcurement.id, input.draftId), eq(kitchenDemandForecastInProcurement.status, "sent")))
+						.where(and(eq(kitchenDemandForecastInProcurement.id, input.forecastId), eq(kitchenDemandForecastInProcurement.status, "sent")))
 				}
 			}),
 		{ prefix: "Erro ao registrar a importação da previsão" }

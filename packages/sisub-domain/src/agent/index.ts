@@ -35,14 +35,14 @@ export type { AgentDailyMenu, AgentMenuItem, AgentTemplateItem } from "./menus.t
 export { agentFetchDayMenus, agentFetchMenus, agentGetTemplateItems } from "./menus.ts"
 export { dropUnexpectedNulls } from "./model-input.ts"
 export type { AgentIngredientSummary, AgentList, AgentRecipeDetail, AgentRecipeIngredient, AgentRecipeSummary } from "./reads.ts"
-export { agentGetRecipe, agentListIngredients, agentListPreparations, agentListRecipes } from "./reads.ts"
+export { agentGetRecipe, agentListIngredients, agentListLegacyPreparations, agentListRecipes } from "./reads.ts"
 export type {
 	AgentCheckMenuEquipment,
 	AgentCheckRecipeEquipment,
 	AgentListEquipmentCatalog,
 	AgentListIngredients,
 	AgentListKitchenEquipment,
-	AgentListPreparations,
+	AgentListLegacyPreparations,
 	AgentListRecipes,
 	AgentRecipeEquipment,
 } from "./schemas.ts"
@@ -52,7 +52,7 @@ export {
 	AgentListEquipmentCatalogSchema,
 	AgentListIngredientsSchema,
 	AgentListKitchenEquipmentSchema,
-	AgentListPreparationsSchema,
+	AgentListLegacyPreparationsSchema,
 	AgentListRecipesSchema,
 	AgentRecipeEquipmentSchema,
 } from "./schemas.ts"

@@ -111,7 +111,7 @@ test.describe("Anexo quantitativo — pesquisa de preços", () => {
 		await page.locator(`label[for="template-${templateId}"]`).click()
 		await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(1)
 		await page.getByRole("button", { name: /Próximo: Eventos/ }).click()
-		await page.getByRole("button", { name: /Próximo: Apoios/ }).click()
+		await page.getByRole("button", { name: /Próximo: Cardápios de Apoio/ }).click()
 		await page.getByRole("button", { name: /Próximo: Resumo/ }).click()
 		await page.getByRole("button", { name: /Calcular Lista/ }).click()
 
@@ -125,7 +125,7 @@ test.describe("Anexo quantitativo — pesquisa de preços", () => {
 		await page.getByRole("menuitem", { name: "Pesquisar preço" }).click()
 
 		const dialog = page.getByRole("dialog")
-		await expect(dialog.getByText(/Pesquisa de Preço — CATMAT/)).toBeVisible()
+		await expect(dialog.getByText(/Pesquisa de Preços — CATMAT/)).toBeVisible()
 		// A coluna convertida existe e a análise declara a unidade em que compara os preços.
 		await expect(dialog.getByRole("button", { name: /^Preço \/ KG/ })).toBeVisible({ timeout: 90_000 })
 		await expect(dialog.getByText(/preços por/)).toBeVisible()

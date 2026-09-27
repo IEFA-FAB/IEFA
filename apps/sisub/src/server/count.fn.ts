@@ -152,7 +152,7 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 			.eq("id", data.countId)
 			.maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
-		if (!count) throw new Error("Contagem não encontrada")
+		if (!count) throw new Error("Inventário não encontrado")
 		const kitchenId = Number(count.kitchen_id)
 		const ctx = await requireStorageForKitchen(2, kitchenId)
 
@@ -337,10 +337,10 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 			.eq("id", data.countId)
 			.maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
-		if (!count) throw new Error("Contagem não encontrada")
+		if (!count) throw new Error("Inventário não encontrado")
 		const { userId } = await requireStorageForKitchen(2, Number(count.kitchen_id))
 		if (!["draft", "counting"].includes(String(count.status))) {
-			throw new Error(`Contagem em "${count.status}" não aceita lançamento`)
+			throw new Error(`Inventário em "${count.status}" não aceita lançamento`)
 		}
 
 		for (const entry of data.entries) {
@@ -412,7 +412,7 @@ export const addFoundItemFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
-		if (!count) throw new Error("Contagem não encontrada")
+		if (!count) throw new Error("Inventário não encontrado")
 		await requireStorageForKitchen(2, Number(count.kitchen_id))
 
 		const { data: added, error } = await inv.rpc("add_found_item", {
@@ -438,7 +438,7 @@ export const acceptNotCountedFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
-		if (!count) throw new Error("Contagem não encontrada")
+		if (!count) throw new Error("Inventário não encontrado")
 		await requireStorageForKitchen(3, Number(count.kitchen_id))
 
 		// pela função do banco: ela trava a CONTAGEM antes da linha do escopo, a
@@ -461,7 +461,7 @@ export const reviewInventoryCountFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
-		if (!count) throw new Error("Contagem não encontrada")
+		if (!count) throw new Error("Inventário não encontrado")
 		await requireStorageForKitchen(3, Number(count.kitchen_id))
 
 		// condicional ao status E conferida: sem o `select`, mudar nada contava
@@ -496,7 +496,7 @@ export const openRecountFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id, round").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
-		if (!count) throw new Error("Contagem não encontrada")
+		if (!count) throw new Error("Inventário não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
 
 		const { data: created, error } = await inv.rpc("open_recount", {
@@ -529,7 +529,7 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
-		if (!count) throw new Error("Contagem não encontrada")
+		if (!count) throw new Error("Inventário não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
 
 		// `approve_inventory_count_with_waiver`: migration 20260926217000.
@@ -567,7 +567,7 @@ export const rejectInventoryCountFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
-		if (!count) throw new Error("Contagem não encontrada")
+		if (!count) throw new Error("Inventário não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
 
 		const { error } = await inv.rpc("reject_inventory_count", { p_count_id: data.countId, p_actor: userId, p_reason: data.reason.trim() })

@@ -38,7 +38,7 @@ const SCREENS: { path: string; heading: RegExp }[] = [
 	{ path: `/storage/${KITCHEN_SEGMENT}/supply-orders`, heading: /Ordens de Fornecimento/i },
 	{ path: `/storage/${KITCHEN_SEGMENT}/receiving`, heading: /Recebimentos/i },
 	{ path: `/storage/${KITCHEN_SEGMENT}/production-issue`, heading: /Baixa por Produção/i },
-	{ path: `/storage/${KITCHEN_SEGMENT}/counts`, heading: /Contagem Física/i },
+	{ path: `/storage/${KITCHEN_SEGMENT}/counts`, heading: /Inventário Físico/i },
 	{ path: `/storage/${KITCHEN_SEGMENT}/reports`, heading: /Relatórios MCASP/i },
 	{ path: `/storage/${KITCHEN_SEGMENT}/replenishment`, heading: /Sugestões de Reposição/i },
 ]

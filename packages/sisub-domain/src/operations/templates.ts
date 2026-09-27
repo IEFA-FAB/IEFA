@@ -1298,7 +1298,7 @@ export async function applyEventTemplate(
 	if (template.snack_family != null) {
 		throw new DomainError(
 			"SNACK_STANDARD_APPLY_BY_REQUEST",
-			"Padrão de lanche entra na produção pelo aceite do pedido, não pelo calendário. Para produzir sem pedido, crie um apoio comum."
+			"Padrão de lanche entra na produção pelo aceite do pedido, não pelo calendário. Para produzir sem pedido, crie um cardápio de apoio comum."
 		)
 	}
 

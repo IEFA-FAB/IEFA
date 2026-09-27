@@ -29,8 +29,8 @@ export function buildDemandForecastSteps(status: DemandForecastStatus): FlowStep
 	if (status.exceptionsWithoutOccurrences > 0) {
 		occasionIssues.push({
 			severity: "warning",
-			message: `${pluralize(status.exceptionsWithoutOccurrences, "apoio sem ocorrências mensais", "apoios sem ocorrências mensais")}: a unidade multiplica o apoio pelas ocorrências, e zero não compra nada.`,
-			action: { label: "Apoios", href: `${kitchen}/exceptions` },
+			message: `${pluralize(status.exceptionsWithoutOccurrences, "cardápio de apoio sem ocorrências mensais", "cardápios de apoio sem ocorrências mensais")}: a unidade multiplica o cardápio de apoio pelas ocorrências, e zero não compra nada.`,
+			action: { label: "Cardápios de Apoio", href: `${kitchen}/exceptions` },
 		})
 	}
 
@@ -49,7 +49,7 @@ export function buildDemandForecastSteps(status: DemandForecastStatus): FlowStep
 		sendIssues.push({
 			severity: "warning",
 			message: `${pluralize(status.pendingForecasts, "previsão em elaboração ainda não enviada", "previsões em elaboração ainda não enviadas")}.`,
-			action: { label: "Revisar e enviar", href: `${kitchen}/suprimentos` },
+			action: { label: "Revisar e enviar", href: `${kitchen}/demand-forecasts` },
 		})
 	}
 	// Contratação da OM na janela do calendário: a previsão precisa chegar antes.
@@ -85,10 +85,10 @@ export function buildDemandForecastSteps(status: DemandForecastStatus): FlowStep
 		},
 		{
 			id: "occasions",
-			title: "Eventos e apoios previstos",
-			objective: "O que acontece fora da rotina: eventos (quantas vezes na vigência) e apoios (quantas vezes por mês).",
+			title: "Eventos e cardápios de apoio previstos",
+			objective: "O que acontece fora da rotina: eventos (quantas vezes na vigência) e cardápios de apoio (quantas vezes por mês).",
 			status: deriveStatusFromIssues(occasionIssues),
-			summary: `${pluralize(status.events, "evento", "eventos")} · ${pluralize(status.exceptions, "apoio", "apoios")}`,
+			summary: `${pluralize(status.events, "evento", "eventos")} · ${pluralize(status.exceptions, "cardápio de apoio", "cardápios de apoio")}`,
 			issues: occasionIssues,
 			action: { label: "Eventos", href: `${kitchen}/events` },
 		},
@@ -106,7 +106,9 @@ export function buildDemandForecastSteps(status: DemandForecastStatus): FlowStep
 			status: forecast ? deriveStatusFromIssues(sendIssues) : deriveStatusFromIssues(sendIssues, "todo"),
 			summary: sendSummary,
 			issues: sendIssues,
-			action: forecast ? { label: "Previsões enviadas", href: `${kitchen}/suprimentos` } : { label: "Nova previsão", href: `${kitchen}/suprimentos/new` },
+			action: forecast
+				? { label: "Previsões enviadas", href: `${kitchen}/demand-forecasts` }
+				: { label: "Nova previsão", href: `${kitchen}/demand-forecasts/new` },
 		},
 	]
 }

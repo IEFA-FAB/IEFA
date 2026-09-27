@@ -53,7 +53,7 @@ export function QuantityMemoryDocument({
 			<h1>Memória de cálculo das quantidades</h1>
 			<p data-proc="meta">
 				Anexo quantitativo do Termo de Referência: <strong>{title}</strong>
-				{segmentName ? ` · Contratação: ${segmentName}` : ""}
+				{segmentName ? ` · Contratação planejada: ${segmentName}` : ""}
 				{unitName ? ` · ${unitName}` : ""}
 				<br />
 				Vigência prevista da ata: {validityMonths ?? "—"} meses · Situação: {concluded ? "concluído (quantidades congeladas)" : "rascunho"} · Gerado em{" "}
@@ -64,7 +64,7 @@ export function QuantityMemoryDocument({
 			<p>
 				A quantidade de cada insumo é a soma das parcelas dos cardápios das cozinhas: para cada preparação servida, comensais × quantidade líquida do insumo na
 				ficha técnica ÷ rendimento da ficha (porções) × repetições na vigência. Cardápio semanal repete pelas semanas da vigência; evento, pelas vezes que
-				ocorre; apoio, pelas ocorrências mensais × meses. O total no insumo é convertido para a unidade de compra pelo fator do item de compra.
+				ocorre; cardápio de apoio, pelas ocorrências mensais × meses. O total no insumo é convertido para a unidade de compra pelo fator do item de compra.
 			</p>
 			<p>
 				A quantidade máxima é a estimada acrescida de {INT.format(maxMarginPercent)}% (ou do acréscimo do item), arredondada para cima (Lei 14.133/2021, art.

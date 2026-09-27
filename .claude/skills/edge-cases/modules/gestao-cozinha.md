@@ -1,6 +1,6 @@
 # Gestão Cozinha — Planejamento da Produção
 
-Menu: **Planejamento da Produção** → Cardápios Semanais, Eventos, Apoios, **Agendamento da Produção**.
+Menu: **Planejamento da Produção** → Cardápios Semanais, Eventos, Cardápios de Apoio, **Agendamento da Produção**.
 O agendamento é onde o planejado (semanal, evento, apoio) vira o que se produz em cada dia — e é
 onde a realidade chega primeiro. Tudo o que um cardápio pôs num dia é identificado pela origem do
 item (`menu_items.origin_template_id`); os imprevistos agem sobre essa origem.
@@ -10,7 +10,7 @@ Arquivos de teste citados:
 - `E2E` = `apps/sisub/e2e/tests/production-scheduling.spec.ts`
 - `TPL` = `apps/sisub/src/test/operations/templates.operations.test.ts`
 
-## Apoios e viagens
+## Cardápios de apoio e viagens
 
 ### GC-AGD-01 — "A viagem surgiu hoje: 100 kits de apoio"
 - **Realidade:** missão marcada no próprio dia; a cozinha já tem a rotina planejada.

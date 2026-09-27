@@ -2,7 +2,7 @@
 # Arredondamento de dinheiro.
 #
 # Como as outras regras deste diretório, esta nasceu de um bug que já aconteceu:
-# `liquidation.fn.ts` fechava o valor sugerido da NS com `Number(total.toFixed(2))`.
+# `liquidation.fn.ts` (hoje `liquidacao.fn.ts`) fechava o valor sugerido da NS com `Number(total.toFixed(2))`.
 # `(10.005).toFixed(2)` devolve "10.00" — 10,005 em binário é 10,00499…, então o
 # meio-centavo cai SEMPRE para baixo. Num item é um centavo; numa NS que soma
 # dezenas de linhas é um centavo por linha, sempre no mesmo sentido, e a diferença
@@ -26,11 +26,11 @@ rules:
       arredondar. Para EXIBIR texto, formate com Intl.NumberFormat em vez de toFixed.
     paths:
       include:
-        - "apps/sisub/src/server/liquidation.fn.ts"
+        - "apps/sisub/src/server/liquidacao.fn.ts"
         - "apps/sisub/src/server/reconciliation.fn.ts"
         - "apps/sisub/src/server/budget.fn.ts"
         - "packages/sisub-domain/src/operations/budget-math.ts"
-        - "packages/sisub-domain/src/operations/liquidation-math.ts"
+        - "packages/sisub-domain/src/operations/liquidacao-math.ts"
       exclude:
         - "**/*.test.ts"
     # `Number($X.toFixed(2))` é arredondamento de VALOR — o defeito. `${x.toFixed(2)}`

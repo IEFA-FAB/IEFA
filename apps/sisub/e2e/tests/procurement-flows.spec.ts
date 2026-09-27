@@ -7,7 +7,7 @@ import { createE2EServiceClient } from "../helpers/service"
  *
  * 1. a nutricionista abre "Prever demanda para compra", segue o atalho, monta e envia a previsão
  *    e volta ao fluxo pelo "Voltar ao fluxo";
- * 2. o chefe do rancho vê a previsão no fluxo "Planejar contratação", segue para o anexo e a
+ * 2. quem tem Gestão Unidade vê a previsão no fluxo "Planejar contratação", segue para o anexo e a
  *    importa;
  * 3. o fluxo da cozinha passa a mostrar a previsão como recebida pela unidade.
  *
@@ -54,12 +54,12 @@ test.describe("Fluxos guiados — cozinha e unidade", () => {
 		await sendStep.getByRole("button", { name: /Nova previsão|Previsões enviadas/ }).click()
 		await expect(page.getByRole("button", { name: /Voltar ao fluxo: Prever demanda para compra/ })).toBeVisible()
 
-		if (!/\/suprimentos\/new/.test(page.url())) await page.goto(`/kitchen/${KITCHEN_ID}/suprimentos/new`)
+		if (!/\/demand-forecasts\/new/.test(page.url())) await page.goto(`/kitchen/${KITCHEN_ID}/demand-forecasts/new`)
 		await page.waitForLoadState("networkidle")
-		await page.locator("#draft-title").fill(FORECAST)
-		await page.locator(`label[for="draft-${templateId}"]`).click()
+		await page.locator("#forecast-title").fill(FORECAST)
+		await page.locator(`label[for="forecast-${templateId}"]`).click()
 		await page.getByRole("button", { name: "Salvar previsão" }).click()
-		await page.waitForURL(/\/suprimentos\/[0-9a-f-]{36}/)
+		await page.waitForURL(/\/demand-forecasts\/[0-9a-f-]{36}/)
 		await page.waitForLoadState("networkidle")
 		// O toast de "criada" fica sobre os botões do rodapé; espera ele sair.
 		await expect(page.getByText(`Previsão "${FORECAST}" criada!`)).toBeHidden({ timeout: 20_000 })
@@ -68,14 +68,14 @@ test.describe("Fluxos guiados — cozinha e unidade", () => {
 		await expect(send).toBeEnabled()
 		await send.click()
 		await expect(page.getByText("Previsão enviada à unidade!")).toBeVisible()
-		await page.waitForURL(new RegExp(`/kitchen/${KITCHEN_ID}/suprimentos/?$`))
+		await page.waitForURL(new RegExp(`/kitchen/${KITCHEN_ID}/demand-forecasts/?$`))
 
 		// O atalho sobreviveu às navegações da etapa e leva de volta ao fluxo.
 		await page.getByRole("button", { name: /Voltar ao fluxo: Prever demanda para compra/ }).click()
 		await expect(page.getByText(new RegExp(`"${FORECAST}" enviada`))).toBeVisible()
 	})
 
-	test("o chefe do rancho vê a previsão no fluxo e a importa no anexo", async ({ authenticatedPage: page }) => {
+	test("quem tem Gestão Unidade vê a previsão no fluxo e a importa no anexo", async ({ authenticatedPage: page }) => {
 		await page.goto(`/unit/${UNIT_ID}/flows/procurement-planning`)
 		await dismissLegalNotice(page)
 		const forecasts = page.getByRole("listitem").filter({ hasText: "Previsão de demanda das cozinhas" })

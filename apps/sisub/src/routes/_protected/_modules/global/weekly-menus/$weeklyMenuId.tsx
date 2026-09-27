@@ -43,13 +43,13 @@ const WEEKDAYS = [
 ]
 
 /**
- * GLOBAL-03 — Editor de Plano Semanal Modelo (SDAB)
- * URL: /global/weekly-plans/:planId
+ * GLOBAL-03 — Editor de Cardápio Semanal Modelo (SDAB)
+ * URL: /global/weekly-menus/:weeklyMenuId
  * Acesso: módulo "global" nível 2 (escrita)
  */
-export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/$planId")({
+export const Route = createFileRoute("/_protected/_modules/global/weekly-menus/$weeklyMenuId")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
-	component: GlobalPlanEditorPage,
+	component: GlobalWeeklyMenuEditorPage,
 })
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -139,11 +139,11 @@ function DayOverviewCard({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-function GlobalPlanEditorPage() {
-	const { planId } = Route.useParams()
+function GlobalWeeklyMenuEditorPage() {
+	const { weeklyMenuId } = Route.useParams()
 	const navigate = useNavigate()
 
-	const { data: template, isLoading: templateLoading } = useTemplate(planId)
+	const { data: template, isLoading: templateLoading } = useTemplate(weeklyMenuId)
 	useCrumbLabel(template?.name)
 
 	// Meal types genéricos (kitchen_id = null)
@@ -350,7 +350,7 @@ function GlobalPlanEditorPage() {
 		const signatureAtSave = contentSignature
 		saveTemplate(
 			{
-				id: planId,
+				id: weeklyMenuId,
 				context: { scope: "global" },
 				updates: {
 					name: name.trim(),
@@ -388,8 +388,8 @@ function GlobalPlanEditorPage() {
 	if (!template) {
 		return (
 			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				<p className="text-subheading">Plano semanal não encontrado.</p>
-				<Link to="/global/weekly-plans" className="cursor-pointer text-sm text-primary mt-2 flex items-center justify-center hover:underline">
+				<p className="text-subheading">Cardápio semanal não encontrado.</p>
+				<Link to="/global/weekly-menus" className="cursor-pointer text-sm text-primary mt-2 flex items-center justify-center hover:underline">
 					← Voltar para listagem
 				</Link>
 			</div>
@@ -398,7 +398,7 @@ function GlobalPlanEditorPage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Editar Plano Semanal Modelo" onBack={() => navigate({ to: "/global/weekly-plans" })}>
+			<PageHeader title="Editar Cardápio Semanal Modelo" onBack={() => navigate({ to: "/global/weekly-menus" })}>
 				<div className="flex items-center gap-2">
 					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
 					<Tooltip>
@@ -410,7 +410,7 @@ function GlobalPlanEditorPage() {
 									variant="outline"
 									size="sm"
 									render={
-										<Link to="/global/weekly-plans/print/$planId" params={{ planId }}>
+										<Link to="/global/weekly-menus/print/$weeklyMenuId" params={{ weeklyMenuId }}>
 											<Printer className="size-4 sm:mr-2" />
 											<span className="hidden sm:inline">Imprimir</span>
 										</Link>
@@ -418,9 +418,9 @@ function GlobalPlanEditorPage() {
 								/>
 							}
 						></TooltipTrigger>
-						<TooltipContent>Imprimir / baixar PDF do plano</TooltipContent>
+						<TooltipContent>Imprimir / baixar PDF do cardápio</TooltipContent>
 					</Tooltip>
-					<Button nativeButton={false} type="button" variant="outline" size="sm" render={<Link to="/global/weekly-plans">Cancelar</Link>} />
+					<Button nativeButton={false} type="button" variant="outline" size="sm" render={<Link to="/global/weekly-menus">Cancelar</Link>} />
 					<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
 						{isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
 						Salvar
@@ -434,7 +434,7 @@ function GlobalPlanEditorPage() {
 					<AlertTitle>Grupos do cardápio não carregaram</AlertTitle>
 					<AlertDescription>
 						As colunas abaixo são as do conjunto padrão, não as de cada refeição: no café e na ceia elas estão erradas, e a preparação que você adicionar entra
-						no grupo errado. Recarregue a página antes de mexer no plano.
+						no grupo errado. Recarregue a página antes de mexer no cardápio.
 					</AlertDescription>
 				</Alert>
 			)}
@@ -452,7 +452,7 @@ function GlobalPlanEditorPage() {
 							</Field>
 							<Field>
 								<FieldLabel htmlFor="description">Descrição (opcional)</FieldLabel>
-								<Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição do plano" />
+								<Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição do cardápio" />
 							</Field>
 						</FieldGroup>
 						<div className="mt-4 flex items-center gap-2">
@@ -524,7 +524,7 @@ function GlobalPlanEditorPage() {
 					<TabsContent value="overview" className="mt-4 space-y-4 h-full">
 						<div className="flex items-center gap-4 text-sm text-muted-foreground px-1">
 							<span>
-								<strong className="text-foreground tabular-nums">{totalRecipes}</strong> {totalRecipes === 1 ? "preparação" : "preparações"} no plano
+								<strong className="text-foreground tabular-nums">{totalRecipes}</strong> {totalRecipes === 1 ? "preparação" : "preparações"} no cardápio
 							</span>
 							<span className="text-muted-foreground/40">·</span>
 							<span>
@@ -547,7 +547,7 @@ function GlobalPlanEditorPage() {
 
 						{totalRecipes === 0 && (
 							<div className="rounded-md border border-dashed p-10 text-center">
-								<p className="text-sm text-muted-foreground mb-1">Plano vazio — nenhuma preparação atribuída ainda.</p>
+								<p className="text-sm text-muted-foreground mb-1">Cardápio vazio — nenhuma preparação atribuída ainda.</p>
 								<p className="text-xs text-muted-foreground/60">Clique em um dia acima ou use as abas para começar.</p>
 							</div>
 						)}

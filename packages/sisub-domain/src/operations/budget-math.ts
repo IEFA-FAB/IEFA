@@ -8,7 +8,7 @@
  */
 
 import { empenhoEventSign } from "./empenho-events.ts"
-import { roundToCents } from "./liquidation-math.ts"
+import { roundToCents } from "./liquidacao-math.ts"
 
 export interface BudgetCreditSnapshot {
 	dotacao: number

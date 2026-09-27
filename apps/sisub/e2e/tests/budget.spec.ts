@@ -27,8 +27,8 @@ const UNIT_SEGMENT = UNIT_ID ?? "<E2E_BUDGET_UNIT_ID>"
 const SCREENS: { path: string; heading: RegExp }[] = [
 	{ path: `/unit/${UNIT_SEGMENT}/credit`, heading: /Crédito Disponível/i },
 	{ path: `/unit/${UNIT_SEGMENT}/empenhos`, heading: /Empenhos/i },
-	{ path: `/unit/${UNIT_SEGMENT}/liquidations`, heading: /Liquidações/i },
-	{ path: `/unit/${UNIT_SEGMENT}/payments`, heading: /Pagamentos/i },
+	{ path: `/unit/${UNIT_SEGMENT}/liquidacoes`, heading: /Liquidações/i },
+	{ path: `/unit/${UNIT_SEGMENT}/pagamentos`, heading: /Pagamentos/i },
 	{ path: `/unit/${UNIT_SEGMENT}/siafi`, heading: /SIAFI/i },
 	{ path: `/unit/${UNIT_SEGMENT}/reconciliation`, heading: /Conciliação/i },
 ]

@@ -89,7 +89,7 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   Gestão Unidade.
 - **UX:** no recebimento, o aviso "Sem fiscal designado para esta entrega": quem tem `unit:2`
   vê "Designar agora" (o ato, o número do boletim, a vigência) e confirma em seguida; quem não
-  tem lê "Peça a designação ao chefe do rancho (Gestão Unidade → Designações)".
+  tem lê "Peça a designação a quem tem Gestão Unidade (Gestão Unidade → Designações)".
 - **Cobertura:** `receiving-links.operations.test.ts › designar agora…`; `designations.test.ts`
   (mensagem). **LACUNA:** e2e do "Designar agora".
 

@@ -122,10 +122,10 @@ const toNumber = (value: number | string | null | undefined) => (value == null ?
  *
  * Duas fontes, na ordem do spec ("último preço de ATA ou pesquisa de preço"):
  *
- *  • **ATA** — `procurement_arp_item.valor_unitario`, o preço homologado da ata de registro
+ *  • **ARP** — `procurement_arp_item.valor_unitario`, o preço registrado na ata de registro
  *    de preços, ligado ao insumo pelo item da lista (`procurement_list_item_id`). Está na unidade de
  *    fornecimento; divide-se pelo `conversion_factor` do item da lista.
- *  • **Pesquisa de preço** — `procurement_list_item.unit_price`, o preço que a unidade
+ *  • **Pesquisa de preços** — `procurement_list_item.unit_price`, o preço que a unidade
  *    pesquisou para a ATA em planejamento. Com item de compra vinculado (`purchase_quantity`
  *    preenchido) o preço é da unidade de compra e divide-se pelo fator; sem vínculo, a lista
  *    trabalha na unidade do insumo (é assim que `AtaItemsTable` soma o total).
@@ -211,7 +211,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 		push(item.ingredient_id, {
 			source: "price_research",
 			unitCost,
-			reference: `Pesquisa de preço — ${list?.title ?? "anexo quantitativo"}`,
+			reference: `Pesquisa de preços — ${list?.title ?? "anexo quantitativo"}`,
 			sameUnit: unitId != null && list != null && Number(list.unit_id) === unitId,
 			date: item.computed_at ? item.computed_at.slice(0, 10) : null,
 		})

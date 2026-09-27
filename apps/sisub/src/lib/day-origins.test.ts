@@ -24,7 +24,7 @@ describe("dayOriginsOf", () => {
 		expect(origins.map((o) => [o.typeLabel, o.name, o.itemCount])).toEqual([
 			["Cardápio semanal", "Semana A", 1],
 			["Evento", "Cardápio removido", 1],
-			["Apoio", "Apoio viagem", 2],
+			["Cardápio de apoio", "Apoio viagem", 2],
 		])
 	})
 })

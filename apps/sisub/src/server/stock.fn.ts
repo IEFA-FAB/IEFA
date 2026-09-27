@@ -269,7 +269,7 @@ export const createTransferFn = createServerFn({ method: "POST" })
 		return { transferPairId: result?.[0]?.transfer_pair_id ?? null }
 	})
 
-// ─── Contagem física ─────────────────────────────────────────────────────────
+// ─── Inventário físico ────────────────────────────────────────────────────────
 
 // ── A contagem física mudou de casa ────────────────────────────────────────
 // `createInventoryCountFn`, `upsertCountItemFn`, `confirmInventoryCountFn` e

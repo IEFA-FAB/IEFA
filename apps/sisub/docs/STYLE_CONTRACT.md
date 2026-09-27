@@ -192,7 +192,7 @@ Ao executar manutenções automáticas, refatorações contextuais ou aditamento
 
 ## 10. Referências de implementação
 - **Wrappers semânticos de referência:** `AppShell.tsx` e `PageHeader.tsx` (em `src/components/layout/`) — alta coesão, baixo acoplamento. Usar como modelo ao extrair novos wrappers.
-- **Formulário de referência:** `AddUserDialog.tsx` — uso correto de `FieldGroup`, `Field`, `FieldLabel`, `FieldError` com TanStack Form + Zod. Para hints de campo, ver `ProductItemForm.tsx` — uso correto de `FieldDescription`.
+- **Formulário de referência:** `AddUserDialog.tsx` — uso correto de `FieldGroup`, `Field`, `FieldLabel`, `FieldError` com TanStack Form + Zod. Para hints de campo, ver `IngredientItemEditor.tsx` — uso correto de `FieldDescription`.
 - **Lista de entidades de referência:** `TrashDrawer.tsx` — uso correto de `ItemGroup`, `Item variant="muted"`, `ItemHeader`, `ItemContent`, `ItemTitle`, `ItemDescription`, `ItemFooter` em drawer. `PresenceTable.tsx` — uso correto de `Item variant="outline"` com `ItemMedia` + `ItemContent` para cards de pessoa com cor dinâmica via `className`. `ApplyTemplateDialog.tsx` — uso correto de `Item size="xs" variant="default"` para linhas de preview dentro de container scrollável.
 - **Tooltip de referência:** `weekly-menus/$weeklyMenuId.tsx` — uso correto de `<Tooltip>/<TooltipTrigger asChild>/<TooltipContent>` em botões de ação.
 - **Card clicável com overlay de referência:** `hub.tsx` — uso correto de overlay `<Link>` absoluto sobre `<Card>` com `rounded-xl` correspondente ao primitive, `focus-visible:ring-[3px]`, `overflow-visible`, e `hover:ring-2` com token semântico de cor via `CARD_HOVER_CLASSES`.

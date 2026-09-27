@@ -26,7 +26,7 @@ function KitchenFlowsPage() {
 			<PageHeader title="Fluxos" description="Escolha o que você quer fazer; o fluxo mostra o que falta e leva a cada tela na ordem certa." />
 			<FlowHubCard
 				title="Prever demanda para compra"
-				description="Cardápios, eventos e apoios em ordem para a unidade calcular o que comprar, e o envio da previsão."
+				description="Cardápios semanais, eventos e cardápios de apoio em ordem para a unidade calcular o que comprar, e o envio da previsão."
 				href={`/kitchen/${kitchenId}/flows/demand-forecast`}
 				steps={data ? buildDemandForecastSteps(data) : null}
 			/>

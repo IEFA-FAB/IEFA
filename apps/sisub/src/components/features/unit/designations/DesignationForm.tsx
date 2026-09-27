@@ -23,7 +23,7 @@ type ScopeKind = "unit" | "acquisition" | "arp" | "empenho"
 
 const SCOPE_LABELS: Record<ScopeKind, string> = {
 	unit: "Toda a OM",
-	acquisition: "Uma contratação",
+	acquisition: "Uma contratação de origem",
 	arp: "Uma ARP",
 	empenho: "Um empenho",
 }

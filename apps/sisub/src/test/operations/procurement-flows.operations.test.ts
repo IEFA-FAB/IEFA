@@ -8,13 +8,13 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	brasiliaToday,
 	createAtaDraft,
-	createKitchenDraft,
+	createDemandForecast,
 	createProcurementSegment,
 	fetchDemandForecastStatus,
-	fetchPendingDraft,
+	fetchPendingDemandForecast,
 	fetchProcurementPlanningStatus,
-	recordKitchenDraftImport,
-	sendKitchenDraft,
+	recordDemandForecastImport,
+	sendDemandForecast,
 	updateAtaDraft,
 	updateAtaStatus,
 } from "@iefa/sisub-domain"
@@ -65,13 +65,13 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 		await seeder.seedTemplateItem({ templateId, mealTypeId, recipeId, dayOfWeek: 1, headcountOverride: 50 })
 
 		// Cozinha: previsão enviada.
-		const draft = (await createKitchenDraft(db, ctx, {
+		const draft = (await createDemandForecast(db, ctx, {
 			kitchenId,
 			title: uid("[TEST] Previsão "),
 			selections: [{ templateId, templateName: "T", repetitions: 4 }],
 		})) as { id: string }
 		seeder.track("kitchen_demand_forecast", draft.id)
-		await sendKitchenDraft(db, ctx, { draftId: draft.id })
+		await sendDemandForecast(db, ctx, { forecastId: draft.id })
 
 		let kitchenStatus = await fetchDemandForecastStatus(db, ctx, { kitchenId })
 		expect(kitchenStatus.weeklyWithItems).toBe(1)
@@ -92,14 +92,14 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 		const { id: listId } = await createAtaDraft(db, ctx, { unitId })
 		seeder.track("procurement_list", listId)
 		await updateAtaDraft(db, ctx, { draftId: listId, title: "Carnes 2027", segmentId: segment.id })
-		await recordKitchenDraftImport(db, ctx, { draftId: draft.id, listId })
-		await recordKitchenDraftImport(db, ctx, { draftId: draft.id, listId }) // idempotente
+		await recordDemandForecastImport(db, ctx, { forecastId: draft.id, listId })
+		await recordDemandForecastImport(db, ctx, { forecastId: draft.id, listId }) // idempotente
 
 		kitchenStatus = await fetchDemandForecastStatus(db, ctx, { kitchenId })
 		expect(kitchenStatus.forecast?.status).toBe("reviewed")
 		expect(kitchenStatus.forecast?.reviewedAt).not.toBeNull()
 		expect(kitchenStatus.forecast?.imports.map((i) => i.title)).toEqual(["Carnes 2027"])
-		const pending = await fetchPendingDraft(db, ctx, { kitchenId })
+		const pending = await fetchPendingDemandForecast(db, ctx, { kitchenId })
 		expect(pending?.id).toBe(draft.id)
 		expect((pending as { imports: unknown[] }).imports).toHaveLength(1)
 
@@ -116,15 +116,15 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 		const unitId = await seeder.seedUnit()
 		const { id: foreignKitchen } = await seeder.seedKitchen()
 		const templateId = await seeder.seedTemplate({ kitchenId: foreignKitchen, templateType: "weekly" })
-		const draft = (await createKitchenDraft(db, ctx, {
+		const draft = (await createDemandForecast(db, ctx, {
 			kitchenId: foreignKitchen,
 			title: uid("[TEST] Previsão "),
 			selections: [{ templateId, templateName: "T", repetitions: 1 }],
 		})) as { id: string }
 		seeder.track("kitchen_demand_forecast", draft.id)
-		await sendKitchenDraft(db, ctx, { draftId: draft.id })
+		await sendDemandForecast(db, ctx, { forecastId: draft.id })
 		const { id: listId } = await createAtaDraft(db, ctx, { unitId })
 		seeder.track("procurement_list", listId)
-		await expect(recordKitchenDraftImport(db, ctx, { draftId: draft.id, listId })).rejects.toMatchObject({ code: "KITCHEN_NOT_IN_UNIT" })
+		await expect(recordDemandForecastImport(db, ctx, { forecastId: draft.id, listId })).rejects.toMatchObject({ code: "KITCHEN_NOT_IN_UNIT" })
 	}, 60_000)
 })

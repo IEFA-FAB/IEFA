@@ -170,7 +170,7 @@ Um lote só começa o expand de uma tabela depois do contract do lote anterior n
 
 ### D6. Rotas
 
-- Rota renomeada mantém o arquivo antigo por um ciclo de deploy, só com `beforeLoad: () => { throw redirect({ to: <nova>, params }) }`, e sai no PR do contract (ou no PR seguinte, para lote sem banco). `routeTree.gen.ts` se regera pelo dev server.
+- Rota renomeada não deixa arquivo na árvore: o caminho antigo entra como prefixo em `LEGACY_ROUTE_PREFIXES` (`apps/sisub/src/lib/legacy-routes.ts`), e o `beforeLoad` da raiz redireciona antes de procurar a rota, preservando parâmetros, cauda e query. A entrada fica um ciclo de deploy e sai no PR do contract (ou no PR seguinte, para lote sem banco). Decidido na revisão do lote 1 (#493), no lugar de um arquivo de redirect por rota.
 - Novas: `unit/$unitId/quantity-estimates/$quantityEstimateId` (+ `print/calculation-memory/…`, `print/price-research/…`), `kitchen/$kitchenId/demand-forecasts/$forecastId`, `unit/$unitId/liquidacoes`, `unit/$unitId/pagamentos`, `global/weekly-menus`, `diner/arranchamento`, `global/support-menus` e `kitchen/$kitchenId/support-menus` (no lugar de `*/exceptions`).
 - `breadcrumbs.ts`, `nav-paths.test.ts` e `command-palette.nav.test.ts` mudam no mesmo PR.
 

@@ -12,14 +12,14 @@ import {
 import {
 	AgentListEquipmentCatalogSchema,
 	AgentListIngredientsSchema,
-	AgentListPreparationsSchema,
+	AgentListLegacyPreparationsSchema,
 	AgentListRecipesSchema,
 	AgentRecipeEquipmentSchema,
 	agentGetRecipe,
 	agentGetRecipeEquipment,
 	agentListEquipmentCatalog,
 	agentListIngredients,
-	agentListPreparations,
+	agentListLegacyPreparations,
 	agentListRecipes,
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
@@ -84,7 +84,7 @@ const getRecipe: ModuleToolDefinition = {
 const listIngredients: ModuleToolDefinition = {
 	name: "list_ingredients",
 	description:
-		"Lista insumos do catálogo global. Suporta busca por descrição. Não inclui as preparações herdadas do SISUBWEB — para essas, use list_preparations.",
+		"Lista insumos do catálogo global. Suporta busca por descrição. Não inclui as preparações herdadas do SISUBWEB — para essas, use list_legacy_preparations.",
 	parameters: toJsonSchema(AgentListIngredientsSchema),
 	requiredLevel: 1,
 	async handler(args, ctx) {
@@ -95,16 +95,16 @@ const listIngredients: ModuleToolDefinition = {
 	},
 }
 
-const listPreparations: ModuleToolDefinition = {
-	name: "list_preparations",
+const listLegacyPreparations: ModuleToolDefinition = {
+	name: "list_legacy_preparations",
 	description: "Lista as preparações herdadas do SISUBWEB. Elas moram na mesma tabela dos insumos mas não são insumos — os nomes colidem com os das receitas.",
-	parameters: toJsonSchema(AgentListPreparationsSchema),
+	parameters: toJsonSchema(AgentListLegacyPreparationsSchema),
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
-		const input = AgentListPreparationsSchema.parse(args)
-		const { items, ...counts } = await agentListPreparations(ctx.db, domainCtx(ctx), input)
-		return toolOk({ preparations: items, ...counts })
+		const input = AgentListLegacyPreparationsSchema.parse(args)
+		const { items, ...counts } = await agentListLegacyPreparations(ctx.db, domainCtx(ctx), input)
+		return toolOk({ legacy_preparations: items, ...counts })
 	},
 }
 
@@ -135,7 +135,7 @@ const getIngredient: ModuleToolDefinition = {
 const listMenuTemplates: ModuleToolDefinition = {
 	name: "list_menu_templates",
 	description:
-		"Lista os modelos globais (SDAB) com contagem de itens: planos semanais, eventos e apoios — `template_type` distingue (weekly, event, exception; apoio é o `exception`).",
+		"Lista os modelos globais (SDAB) com contagem de itens: cardápios semanais, eventos e cardápios de apoio — `template_type` distingue (weekly, event, exception; cardápio de apoio é o `exception`).",
 	parameters: {
 		type: "object",
 		properties: {
@@ -276,7 +276,7 @@ export const globalTools: ModuleToolDefinition[] = [
 	listRecipes,
 	getRecipe,
 	listIngredients,
-	listPreparations,
+	listLegacyPreparations,
 	getIngredient,
 	listMenuTemplates,
 	createRecipe,

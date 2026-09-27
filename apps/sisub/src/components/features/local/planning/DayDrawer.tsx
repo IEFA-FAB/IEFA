@@ -247,7 +247,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 						)}
 						<Button type="button" size="sm" variant="outline" onClick={() => setOccasionMode("add")}>
 							<CalendarPlus />
-							Aplicar evento ou apoio
+							Aplicar evento ou cardápio de apoio
 						</Button>
 						{plannedMeals.length > 0 && (
 							<Button type="button" size="sm" variant="outline" onClick={() => setOccasionMode("replace")}>

@@ -50,15 +50,15 @@ export const OCCASION_MENU_COPY: Record<OccasionMenuType, OccasionMenuCopy> = {
 			"Eventos são cardápios de refeições especiais — datas comemorativas, formaturas, exercícios de campo, visitas. Não têm estrutura de semana: as preparações se agrupam por refeição, cada uma com o próprio efetivo.",
 	},
 	exception: {
-		singular: "Apoio",
-		plural: "Apoios",
-		noun: "apoio",
+		singular: "Cardápio de Apoio",
+		plural: "Cardápios de Apoio",
+		noun: "cardápio de apoio",
 		article: "o",
-		newLabel: "Novo Apoio",
+		newLabel: "Novo Cardápio de Apoio",
 		namePlaceholder: "Ex.: Lanche de Bordo, Lanche de Apoio, Coffee Break",
 		sectionTitle: "Cardápios de Apoio",
 		explainer:
-			"Apoios são refeições previsíveis e recorrentes fora da rotina semanal — lanches de bordo e de apoio (Módulo 7), coffee breaks, cafés de reunião. Crie um molde por tipo e informe quantas vezes por mês ele ocorre; o custeio do anexo quantitativo multiplica automaticamente.",
+			"Cardápios de apoio são refeições previsíveis e recorrentes fora da rotina semanal — lanches de bordo e de apoio (Módulo 7), coffee breaks, cafés de reunião. Crie um molde por tipo e informe quantas vezes por mês ele ocorre; o custeio do anexo quantitativo multiplica automaticamente.",
 	},
 }
 

@@ -3,7 +3,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Banknote } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
-import { DeductionPaymentForm } from "@/components/features/finance/DeductionsPanel"
+import { DeductionRemittanceForm } from "@/components/features/finance/DeductionsPanel"
 import { RestosAPagarCard } from "@/components/features/finance/RestosAPagarCard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -15,12 +15,12 @@ import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
-import { createPagamentoFn, fetchPaymentPanelFn, type LiquidacaoRow } from "@/server/liquidation.fn"
+import { createPagamentoFn, fetchPagamentoPanelFn, type LiquidacaoRow } from "@/server/liquidacao.fn"
 
-export const Route = createFileRoute("/_protected/_modules/unit/$unitId/payments")({
+export const Route = createFileRoute("/_protected/_modules/unit/$unitId/pagamentos")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
-	loader: ({ params }) => fetchPaymentPanelFn({ data: { unitId: Number(params.unitId) } }),
-	component: PaymentsPage,
+	loader: ({ params }) => fetchPagamentoPanelFn({ data: { unitId: Number(params.unitId) } }),
+	component: PagamentosPage,
 })
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
@@ -99,12 +99,12 @@ function PayRow({ row, unitId, onPaid }: { row: LiquidacaoRow & { fornecedor: st
 	)
 }
 
-function PaymentsPage() {
-	const { openLiquidations, pendingRemittances, averageDays } = Route.useLoaderData()
+function PagamentosPage() {
+	const { openLiquidacoes, pendingRemittances, averageDays } = Route.useLoaderData()
 	const { unitId } = Route.useParams()
 	const router = useRouter()
 	const [payingId, setPayingId] = useState<string | null>(null)
-	const total = openLiquidations.reduce((acc, row) => acc + row.a_pagar, 0)
+	const total = openLiquidacoes.reduce((acc, row) => acc + row.a_pagar, 0)
 	const totalARecolher = pendingRemittances.reduce((acc, row) => acc + row.amount, 0)
 
 	return (
@@ -130,7 +130,7 @@ function PaymentsPage() {
 				<Card>
 					<CardContent className="pt-4">
 						<p className="text-label text-muted-foreground">Liquidações em aberto</p>
-						<p className="text-heading tabular-nums">{openLiquidations.length}</p>
+						<p className="text-heading tabular-nums">{openLiquidacoes.length}</p>
 					</CardContent>
 				</Card>
 			</div>
@@ -140,7 +140,7 @@ function PaymentsPage() {
 					<CardTitle className="text-subheading">Contas a pagar</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
-					{openLiquidations.length === 0 ? (
+					{openLiquidacoes.length === 0 ? (
 						<div className="text-center py-10 text-muted-foreground">
 							<Banknote className="size-8 mx-auto mb-2 opacity-50" />
 							<p className="text-sm">Nenhuma liquidação em aberto.</p>
@@ -159,7 +159,7 @@ function PaymentsPage() {
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-border/60">
-								{openLiquidations.map((row) => (
+								{openLiquidacoes.map((row) => (
 									<PayRow key={row.id} row={row} unitId={unitId} onPaid={() => router.invalidate()} />
 								))}
 							</tbody>
@@ -193,7 +193,7 @@ function PaymentsPage() {
 									</ItemActions>
 									{payingId === deduction.id && (
 										<div className="basis-full pt-2">
-											<DeductionPaymentForm
+											<DeductionRemittanceForm
 												unitId={Number(unitId)}
 												deduction={deduction}
 												onDone={() => {

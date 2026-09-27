@@ -1,18 +1,19 @@
 import { Download, Send } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import type { DraftWithSelections, KitchenSelectionState, TemplateSelection } from "@/types/domain/ata"
+import type { KitchenSelectionState, TemplateSelection } from "@/types/domain/ata"
+import type { DemandForecastWithSelections } from "@/types/domain/demand-forecast"
 
-interface DraftImportBadgeProps {
-	draft: DraftWithSelections
+interface DemandForecastImportBadgeProps {
+	forecast: DemandForecastWithSelections
 	kitchenState: KitchenSelectionState
 	/** Rascunho do anexo aberto: diz se a previsão já entrou nele. */
 	listId: string | null
 	onImport: (kitchenId: number, templateSelections: TemplateSelection[], eventSelections: TemplateSelection[], exceptionSelections: TemplateSelection[]) => void
 }
 
-export function DraftImportBadge({ draft, kitchenState, listId, onImport }: DraftImportBadgeProps) {
-	const imports = draft.imports ?? []
+export function DemandForecastImportBadge({ forecast, kitchenState, listId, onImport }: DemandForecastImportBadgeProps) {
+	const imports = forecast.imports ?? []
 	const inThisAnnex = listId != null && imports.some((i) => i.list_id === listId)
 	const elsewhere = imports.filter((i) => i.list_id !== listId)
 	const handleImport = () => {
@@ -20,7 +21,7 @@ export function DraftImportBadge({ draft, kitchenState, listId, onImport }: Draf
 		const eventSelections: TemplateSelection[] = []
 		const exceptionSelections: TemplateSelection[] = []
 
-		for (const sel of draft.selections) {
+		for (const sel of forecast.selections) {
 			const item: TemplateSelection = {
 				templateId: sel.template.id,
 				templateName: sel.template.name || "",
@@ -45,8 +46,8 @@ export function DraftImportBadge({ draft, kitchenState, listId, onImport }: Draf
 			<AlertTitle className="text-info text-subheading">Previsão de demanda enviada pela cozinha</AlertTitle>
 			<AlertDescription className="flex items-center justify-between gap-2 mt-1">
 				<span className="text-sm text-info">
-					<strong>{kitchenState.kitchenName}</strong> enviou a previsão <strong>"{draft.title}"</strong> com {draft.selections.length}{" "}
-					{draft.selections.length === 1 ? "seleção" : "seleções"}.{inThisAnnex && " Já importada neste anexo."}
+					<strong>{kitchenState.kitchenName}</strong> enviou a previsão <strong>"{forecast.title}"</strong> com {forecast.selections.length}{" "}
+					{forecast.selections.length === 1 ? "seleção" : "seleções"}.{inThisAnnex && " Já importada neste anexo."}
 					{elsewhere.length > 0 && ` Já entrou em: ${elsewhere.map((i) => i.title).join(", ")}.`}
 				</span>
 				<Button size="sm" variant="outline" onClick={handleImport} className="shrink-0 border-info/30 text-info hover:bg-info/10">

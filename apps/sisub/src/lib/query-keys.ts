@@ -179,11 +179,11 @@ export const queryKeys = {
 		snackMealType: () => ["snack_request", "meal-type"] as const,
 	},
 
-	kitchenDraft: {
-		all: () => ["kitchen_ata_draft"] as const,
-		listAll: () => ["kitchen_ata_draft", "list"] as const,
-		list: (kitchenId: number | null) => ["kitchen_ata_draft", "list", kitchenId] as const,
-		pending: (kitchenId: number | null) => ["kitchen_ata_draft", "pending", kitchenId] as const,
+	demandForecast: {
+		all: () => ["demand_forecast"] as const,
+		listAll: () => ["demand_forecast", "list"] as const,
+		list: (kitchenId: number | null) => ["demand_forecast", "list", kitchenId] as const,
+		pending: (kitchenId: number | null) => ["demand_forecast", "pending", kitchenId] as const,
 	},
 
 	procurementDocuments: {

@@ -164,7 +164,7 @@ describe("assurance registry contract", () => {
 			"updateProductionTaskStatusFn",
 			"upsertDailyMenuFn",
 			"createAdjustmentFn",
-			"createKitchenDraftFn",
+			"createDemandForecastFn",
 		]
 
 		for (const operation of routine) {

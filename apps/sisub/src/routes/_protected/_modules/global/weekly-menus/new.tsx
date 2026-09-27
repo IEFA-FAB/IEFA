@@ -10,16 +10,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { useCreateTemplate } from "@/hooks/data/useTemplates"
 
 /**
- * GLOBAL-03 — Criar Plano Semanal Modelo
- * URL: /global/weekly-plans/new
+ * GLOBAL-03 — Criar Cardápio Semanal Modelo
+ * URL: /global/weekly-menus/new
  * Acesso: módulo "global" nível 2 (escrita)
  */
-export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/new")({
+export const Route = createFileRoute("/_protected/_modules/global/weekly-menus/new")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
-	component: NewWeeklyPlanPage,
+	component: NewGlobalWeeklyMenuPage,
 })
 
-function NewWeeklyPlanPage() {
+function NewGlobalWeeklyMenuPage() {
 	const navigate = useNavigate()
 	const [name, setName] = useState("")
 	const [description, setDescription] = useState("")
@@ -43,7 +43,7 @@ function NewWeeklyPlanPage() {
 			{
 				onSuccess: (data) => {
 					if (data?.id) {
-						navigate({ to: "/global/weekly-plans/$planId", params: { planId: data.id } })
+						navigate({ to: "/global/weekly-menus/$weeklyMenuId", params: { weeklyMenuId: data.id } })
 					}
 				},
 			}
@@ -52,14 +52,14 @@ function NewWeeklyPlanPage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Novo Plano Semanal Modelo" onBack={() => navigate({ to: "/global/weekly-plans" })} />
+			<PageHeader title="Novo Cardápio Semanal Modelo" onBack={() => navigate({ to: "/global/weekly-menus" })} />
 
 			<div className="mx-auto w-full max-w-2xl">
 				<form onSubmit={handleSubmit} className="rounded-lg border bg-card p-6 space-y-5">
 					<FieldGroup className="space-y-4">
 						<Field>
 							<FieldLabel htmlFor="plan-name">
-								Nome do Plano <span className="text-destructive">*</span>
+								Nome do Cardápio <span className="text-destructive">*</span>
 							</FieldLabel>
 							<Input
 								id="plan-name"
@@ -77,7 +77,7 @@ function NewWeeklyPlanPage() {
 								id="plan-description"
 								value={description}
 								onChange={(e) => setDescription(e.target.value)}
-								placeholder="Breve descrição do plano semanal modelo"
+								placeholder="Breve descrição do cardápio semanal modelo"
 								rows={2}
 							/>
 						</Field>
@@ -86,12 +86,12 @@ function NewWeeklyPlanPage() {
 					<p className="text-xs text-muted-foreground">Após criar, você será redirecionado para montar a grade semanal (7 dias × refeições).</p>
 
 					<div className="flex justify-end gap-2 pt-1">
-						<Button type="button" variant="outline" onClick={() => navigate({ to: "/global/weekly-plans" })}>
+						<Button type="button" variant="outline" onClick={() => navigate({ to: "/global/weekly-menus" })}>
 							Cancelar
 						</Button>
 						<Button type="submit" disabled={isPending || !name.trim()}>
 							{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Plus className="size-4 mr-2" />}
-							Criar Plano
+							Criar Cardápio
 						</Button>
 					</div>
 				</form>

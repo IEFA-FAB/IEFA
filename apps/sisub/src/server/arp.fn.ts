@@ -968,7 +968,7 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
  * Com liquidação, a NE não se anula inteira (o que foi liquidado não se desfaz por anulação): a
  * recusa diz para anular só o saldo a liquidar.
  *
- * @throws {Error} on lookup failure, with liquidation, or when the floor refuses.
+ * @throws {Error} on lookup failure, with liquidacao, or when the floor refuses.
  */
 export const anularEmpenhoFn = createServerFn({ method: "POST" })
 	.validator(z.object({ empenhoId: z.uuid(), justificativa: z.string().trim().min(5).max(1000).optional() }))

@@ -17,16 +17,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { listEmpenhosFn } from "@/server/empenho.fn"
-import { createLiquidacaoFn, listLiquidacoesFn, listReceiptsForLiquidationFn, type ReceiptForLiquidationOption } from "@/server/liquidation.fn"
+import { createLiquidacaoFn, listLiquidacoesFn, listReceiptsForLiquidacaoFn, type ReceiptForLiquidacaoOption } from "@/server/liquidacao.fn"
 
-export const Route = createFileRoute("/_protected/_modules/unit/$unitId/liquidations")({
+export const Route = createFileRoute("/_protected/_modules/unit/$unitId/liquidacoes")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	loader: async ({ params }) => {
 		const unitId = Number(params.unitId)
 		const [liquidacoes, empenhos] = await Promise.all([listLiquidacoesFn({ data: { unitId } }), listEmpenhosFn({ data: { unitId, status: "ativo" } })])
 		return { liquidacoes, empenhos }
 	},
-	component: LiquidationsPage,
+	component: LiquidacoesPage,
 })
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
@@ -34,13 +34,13 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 /** Sem recebimento: a NS é aceita e fica a pendência (não é gênero, ou o recebimento se vincula depois). */
 const NO_RECEIPT = "__sem_recebimento__"
 
-function receiptLabel(receipt: ReceiptForLiquidationOption): string {
+function receiptLabel(receipt: ReceiptForLiquidacaoOption): string {
 	const when = receipt.definitiveAt ? new Date(receipt.definitiveAt).toLocaleDateString("pt-BR") : "sem data"
 	const saldo = receipt.saldo == null ? "teto não conferido (item sem custo)" : `cabe ${BRL.format(receipt.saldo)}`
 	return `Recebido em ${when} · ${saldo}`
 }
 
-function LiquidationsPage() {
+function LiquidacoesPage() {
 	const { liquidacoes, empenhos } = Route.useLoaderData()
 	const { unitId } = Route.useParams()
 	const router = useRouter()
@@ -57,8 +57,8 @@ function LiquidationsPage() {
 
 	const selected = empenhos.find((e) => e.id === empenhoId)
 	const receiptsQuery = useQuery({
-		queryKey: ["sisub", "liquidation-receipts", Number(unitId), empenhoId],
-		queryFn: () => listReceiptsForLiquidationFn({ data: { unitId: Number(unitId), empenhoId } }),
+		queryKey: ["sisub", "liquidacao-receipts", Number(unitId), empenhoId],
+		queryFn: () => listReceiptsForLiquidacaoFn({ data: { unitId: Number(unitId), empenhoId } }),
 		enabled: empenhoId !== "",
 	})
 	const receipts = receiptsQuery.data ?? []
@@ -104,7 +104,7 @@ function LiquidationsPage() {
 			setValor("")
 			setReceiptId(NO_RECEIPT)
 			// o saldo "cabe R$ X" de cada recebimento mudou: a lista é do react-query, não do loader
-			await queryClient.invalidateQueries({ queryKey: ["sisub", "liquidation-receipts"] })
+			await queryClient.invalidateQueries({ queryKey: ["sisub", "liquidacao-receipts"] })
 			router.invalidate()
 		} catch (err) {
 			// Desistir da confirmação de identidade não é falha: o formulário continua preenchido.

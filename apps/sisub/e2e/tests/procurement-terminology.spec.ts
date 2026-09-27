@@ -13,7 +13,10 @@ const KITCHEN_ID = process.env.E2E_KITCHEN_ID ?? process.env.E2E_STORAGE_KITCHEN
 test.describe("Terminologia do planejamento da contratação", () => {
 	test("a cozinha envia a previsão de demanda, não 'suprimentos'", async ({ authenticatedPage: page }) => {
 		test.skip(!KITCHEN_ID, "E2E_KITCHEN_ID ausente")
-		await page.goto(`/kitchen/${KITCHEN_ID}/suprimentos`)
+		// URL antiga: o mapa de caminhos antigos (`lib/legacy-routes.ts`) leva à rota do glossário.
+		const legacy = { from: `/kitchen/${KITCHEN_ID}/suprimentos` }
+		await page.goto(legacy.from)
+		await page.waitForURL(new RegExp(`/kitchen/${KITCHEN_ID}/demand-forecasts/?$`))
 		await expect(page.getByRole("heading", { name: "Previsão de demanda" })).toBeVisible({ timeout: 20_000 })
 		await expect(page.getByRole("link", { name: "Previsão de demanda" }).first()).toBeVisible()
 		await expect(page.getByText("Suprimentos", { exact: true })).toHaveCount(0)
