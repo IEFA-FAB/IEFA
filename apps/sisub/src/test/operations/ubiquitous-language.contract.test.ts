@@ -12,8 +12,8 @@
  * Um expand deixa, de propósito, os nomes antigos que o código da `main` em produção ainda usa
  * (views de compatibilidade, colunas espelhadas). Eles entram em `EXPAND_ALLOWLIST`, que é
  * DATADA: o PR do contract que os derruba esvazia a lista. O lote 2 (anexo quantitativo) já passou
- * pelo contract 20260927050000, e o lote 4 (finanças) pelo 20260927090000; o lote 3 (pesquisa de
- * preços e prefixos) está em expand (20260927060000) até o contract 20260927070000.
+ * pelo contract 20260927050000, o lote 3 (pesquisa de preços e prefixos) pelo 20260927070000 e o
+ * lote 4 (finanças) pelo 20260927090000.
  *
  * A lista de termos cresce por lote, como a do opengrep.
  */
@@ -43,26 +43,12 @@ const DISCARDED_IDENTIFIER =
 const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M`
 
 /**
- * Compatibilidade de um expand em andamento, até o contract dele. Chave:
- * `tipo:schema.objeto[.coluna]`. Os contracts 20260927050000 (lote 2) e 20260927090000 (lote 4)
- * esvaziaram as deles.
- *
- * Lote 3 — expand 20260927060000, até o contract 20260927070000 (que esvazia esta lista): as oito
- * views com os nomes antigos das tabelas (as colunas e a definição delas saem com elas) e os dois
- * wrappers das funções renomeadas.
+ * Compatibilidade de um expand em andamento, até o contract dele. Vazia: os contracts
+ * 20260927050000 (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e
+ * prefixos) e 20260927090000 (lote 4, finanças) derrubaram as delas. Chave:
+ * `tipo:schema.objeto[.coluna]`.
  */
-const EXPAND_ALLOWLIST = new Set<string>([
-	"relation:procurement.procurement_pesquisa_preco",
-	"relation:procurement.procurement_pesquisa_preco_item",
-	"relation:procurement.procurement_pesquisa_preco_amostra",
-	"relation:procurement.compras_amostra",
-	"relation:procurement.procurement_arp",
-	"relation:procurement.procurement_arp_item",
-	"relation:procurement.procurement_segment",
-	"relation:procurement.procurement_segment_rule",
-	"function:procurement.upsert_compras_amostras",
-	"function:sisub.compras_amostra_fingerprint",
-])
+const EXPAND_ALLOWLIST = new Set<string>([])
 
 /** Views de compatibilidade: as colunas delas e a definição saem com elas. */
 const allowedRelation = (schema: string, name: string) => EXPAND_ALLOWLIST.has(`relation:${schema}.${name}`)
