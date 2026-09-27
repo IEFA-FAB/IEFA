@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto"
 import { createClient } from "@supabase/supabase-js"
-import { Hono } from "hono"
+import { type Context, Hono } from "hono"
 import { z } from "zod"
 import { env } from "../../env.ts"
 import { secureCompare } from "../../lib/secure-compare.ts"
 import { analisarPrecos, type OpcoesPesquisa } from "../../workers/pesquisa-preco/analyzer.ts"
 import { consultarMaterialPrecos } from "../../workers/pesquisa-preco/client.ts"
-import type { AmostraPreco, AtaItemPriceResult, PriceAnalysis } from "../../workers/pesquisa-preco/types.ts"
+import type { AmostraPreco, PriceAnalysis, QuantityEstimateItemPriceResult } from "../../workers/pesquisa-preco/types.ts"
+import { LEGACY_ANNEX_PREFIX, logDeprecatedAnnexRoute, toLegacyAnnexResponse } from "./legacy-annex.ts"
 
 // ─── Validação de entrada ─────────────────────────────────────────────────────
 
@@ -33,11 +34,11 @@ const materialQuerySchema = z.object({
 })
 
 /**
- * Body do POST /ata/:ataId (todos opcionais).
+ * Body do POST /quantity-estimates/:quantityEstimateId (todos opcionais).
  * Contrato anterior preservado: months 12 (clamp 1–24), threshold 0.4 (clamp
  * 0–1) — aqui 0 explícito NÃO cai no default (era `?? 12` / `?? 0.4`).
  */
-const ataBodySchema = z.object({
+const quantityEstimateBodySchema = z.object({
 	months: z
 		.number()
 		.default(12)
@@ -57,7 +58,7 @@ function formatZodError(error: z.ZodError): string {
 }
 
 /** Monta OpcoesPesquisa a partir de input validado — mesma semântica dos spreads condicionais anteriores (vazio/0 ⇒ filtro omitido). */
-function buildOptions(input: z.output<typeof materialQuerySchema> | z.output<typeof ataBodySchema>): OpcoesPesquisa {
+function buildOptions(input: z.output<typeof materialQuerySchema> | z.output<typeof quantityEstimateBodySchema>): OpcoesPesquisa {
 	return {
 		months: input.months,
 		similarityThreshold: input.similarityThreshold,
@@ -96,9 +97,9 @@ async function buscarDescricaoCatmat(supabase: Supabase, catmatCode: number): Pr
 // ─── Persistência da memória de cálculo ──────────────────────────────────────
 
 interface PersistInput {
-	ataId: string
+	quantityEstimateId: string
 	options: OpcoesPesquisa
-	items: AtaItemPriceResult[]
+	items: QuantityEstimateItemPriceResult[]
 	summary: {
 		total: number
 		withPrice: number
@@ -118,10 +119,10 @@ interface PersistInput {
  */
 async function persistResearch(supabase: Supabase, input: PersistInput): Promise<string | null> {
 	try {
-		const { ataId, options, items, summary } = input
+		const { quantityEstimateId, options, items, summary } = input
 
 		// ── 0. Chave de idempotência ──────────────────────────────────────────
-		// Mesma ATA + mesmos parâmetros + mesmo dia ⇒ não duplica a memória de
+		// Mesmo anexo + mesmos parâmetros + mesmo dia ⇒ não duplica a memória de
 		// cálculo. Dia incluído ⇒ re-pesquisa periódica cria histórico próprio.
 		const paramsHash = createHash("sha256")
 			.update(
@@ -138,14 +139,14 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 		// Dia no fuso de Brasília (não UTC) — senão re-execuções entre 21h–24h BRT
 		// cairiam em dias UTC distintos e gerariam registros duplicados.
 		const day = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
-		const idempotencyKey = `ata:v1:${ataId}:${paramsHash}:${day}`
+		const idempotencyKey = `quantity-estimate:v1:${quantityEstimateId}:${paramsHash}:${day}`
 
 		// ── 1. Cabeçalho da pesquisa (ON CONFLICT DO NOTHING) ─────────────────
 		const { data: inserted, error: errResearch } = await supabase
 			.from("procurement_pesquisa_preco")
 			.upsert(
 				{
-					procurement_list_id: ataId,
+					quantity_estimate_id: quantityEstimateId,
 					reference_method: "median",
 					period_months: options.months ?? 12,
 					similarity_threshold: options.similarityThreshold ?? 0.4,
@@ -185,7 +186,7 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 				.from("procurement_pesquisa_preco_item")
 				.insert({
 					research_id: researchId,
-					procurement_list_item_id: item.ataItemId,
+					quantity_estimate_item_id: item.quantityEstimateItemId,
 					// Identificadores externos (catmat_* → nomes do catálogo)
 					catmat_codigo: item.catmatCodigo ?? null,
 					catmat_descricao: item.catmatDescricao ?? null,
@@ -218,7 +219,7 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 				.single()
 
 			if (errItem || !researchItem) {
-				console.error(`[price-research] Falha ao persistir item ${item.ataItemId}:`, errItem?.message)
+				console.error(`[price-research] Falha ao persistir item ${item.quantityEstimateItemId}:`, errItem?.message)
 				continue
 			}
 
@@ -299,12 +300,12 @@ function factPayload(a: AmostraPreco) {
 // ─── Colunas de GET /research/:researchId ─────────────────────────────────────
 // Colunas explícitas, não `*` (aqui e no select dos itens, na rota): a resposta é contrato da
 // API e não pode mudar de forma só porque o banco ganhou ou perdeu coluna. No rename
-// 20260927010000 o `*` devolveria `ata_id` e `procurement_list_id` juntos até o contract, e
-// depois só o segundo. Desde esse rename o campo é `procurement_list_id` (e, nos itens,
-// `procurement_list_item_id`).
+// 20260927010000 e no 20260927040000 o `*` devolveria a coluna antiga e a nova juntas até o
+// contract, e depois só a nova. Desde o 20260927040000 o campo é `quantity_estimate_id` (e, nos
+// itens, `quantity_estimate_item_id`).
 
 const RESEARCH_COLUMNS =
-	"id, procurement_list_id, reference_method, period_months, similarity_threshold, filter_estado, filter_uasg_code, filter_municipio_code, total_items, items_with_price, items_without_catmat, non_compliant_items, created_at, idempotency_key, created_by"
+	"id, quantity_estimate_id, reference_method, period_months, similarity_threshold, filter_estado, filter_uasg_code, filter_municipio_code, total_items, items_with_price, items_without_catmat, non_compliant_items, created_at, idempotency_key, created_by"
 
 // ─── Tipos do select aninhado de GET /research/:researchId ───────────────────
 // O client Supabase não é tipado (schemas custom) — estes shapes descrevem só a
@@ -322,6 +323,152 @@ interface ResearchItemRow {
 	samples?: ResearchSampleRow[] | null
 }
 
+/**
+ * Executa a pesquisa de preços de todos os itens de um anexo quantitativo e PERSISTE a memória
+ * de cálculo para fins de auditoria (Lei 14.133/2021, art. 23; IN SEGES/ME 65/2021).
+ */
+async function researchQuantityEstimate(c: Context, quantityEstimateId: string) {
+	if (!quantityEstimateId) return c.json({ error: "quantityEstimateId inválido" }, 400)
+
+	// Body é opcional — ausência/JSON inválido caem nos defaults (contrato anterior)
+	const rawBody = await c.req.json().catch(() => ({}))
+	const parsedBody = quantityEstimateBodySchema.safeParse(rawBody ?? {})
+	if (!parsedBody.success) {
+		return c.json({ error: `Body inválido: ${formatZodError(parsedBody.error)}` }, 400)
+	}
+	const options = buildOptions(parsedBody.data)
+
+	const supabase = getSupabase()
+
+	const { data: quantityEstimate, error: quantityEstimateError } = await supabase
+		.from("quantity_estimate")
+		.select("id")
+		.eq("id", quantityEstimateId)
+		.is("deleted_at", null)
+		.single()
+
+	if (quantityEstimateError || !quantityEstimate) return c.json({ error: "Anexo quantitativo não encontrado" }, 404)
+
+	const { data: quantityEstimateItems, error: itemsError } = await supabase
+		.from("quantity_estimate_item")
+		.select("id, ingredient_id, ingredient_name, catmat_item_codigo, catmat_item_descricao")
+		.eq("quantity_estimate_id", quantityEstimateId)
+
+	if (itemsError || !quantityEstimateItems) return c.json({ error: "Erro ao buscar itens do anexo quantitativo" }, 500)
+
+	// Deduplicar códigos CATMAT
+	const catmatMap = new Map<number, string | null>()
+	for (const item of quantityEstimateItems) {
+		if (item.catmat_item_codigo != null && !catmatMap.has(item.catmat_item_codigo)) {
+			catmatMap.set(item.catmat_item_codigo, item.catmat_item_descricao ?? null)
+		}
+	}
+
+	// Pesquisar em paralelo (concorrência 3)
+	const analysisMap = new Map<number, PriceAnalysis>()
+	const errorMap = new Map<number, string>()
+	const entries = [...catmatMap.entries()]
+	const CONCURRENCY = 3
+
+	for (let i = 0; i < entries.length; i += CONCURRENCY) {
+		const batch = entries.slice(i, i + CONCURRENCY)
+		await Promise.all(
+			batch.map(async ([catmatCode, itemDescription]) => {
+				try {
+					const catmatDescricao = (await buscarDescricaoCatmat(supabase, catmatCode)) ?? itemDescription
+					const rawItems = await consultarMaterialPrecos(catmatCode, {
+						estado: options.estado,
+						codigoUasg: options.codigoUasg,
+						codigoMunicipio: options.codigoMunicipio,
+					})
+					analysisMap.set(catmatCode, analisarPrecos(catmatCode, catmatDescricao, rawItems, options))
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err)
+					console.error(`[price-research] anexo ${quantityEstimateId} CATMAT ${catmatCode}: ${msg}`)
+					errorMap.set(catmatCode, msg)
+				}
+			})
+		)
+		if (i + CONCURRENCY < entries.length) await new Promise((r) => setTimeout(r, 500))
+	}
+
+	// Mapear resultados para os itens do anexo
+	const items: QuantityEstimateItemPriceResult[] = quantityEstimateItems.map((item) => {
+		const catmat = item.catmat_item_codigo
+		if (catmat == null) {
+			return {
+				quantityEstimateItemId: item.id,
+				ingredientId: item.ingredient_id ?? null,
+				ingredientName: item.ingredient_name,
+				catmatCodigo: null,
+				catmatDescricao: null,
+				analysis: null,
+				error: "Item sem código CATMAT vinculado — vincule o ingrediente a um item do catálogo CATMAT",
+			}
+		}
+		return {
+			quantityEstimateItemId: item.id,
+			ingredientId: item.ingredient_id ?? null,
+			ingredientName: item.ingredient_name,
+			catmatCodigo: catmat,
+			catmatDescricao: item.catmat_item_descricao ?? null,
+			analysis: analysisMap.get(catmat) ?? null,
+			error: errorMap.get(catmat) ?? null,
+		}
+	})
+
+	const summary = {
+		total: items.length,
+		withPrice: items.filter((i) => i.analysis?.statistics != null).length,
+		withoutCatmat: items.filter((i) => i.catmatCodigo == null).length,
+		withoutData: items.filter((i) => i.catmatCodigo != null && i.analysis != null && i.analysis.statistics == null && i.error == null).length,
+		withError: items.filter((i) => i.error != null && i.catmatCodigo != null).length,
+		nonCompliant: items.filter((i) => i.analysis != null && !i.analysis.compliance.compliant).length,
+	}
+
+	// Persistir memória de cálculo (falha silenciosa)
+	const researchId = await persistResearch(supabase, {
+		quantityEstimateId,
+		options,
+		items,
+		summary,
+	})
+
+	if (!researchId) {
+		console.error(`[price-research] Memória de cálculo NÃO persistida para o anexo ${quantityEstimateId}`)
+	}
+
+	return c.json({ researchId, quantityEstimateId, consultedAt: new Date().toISOString(), items, summary })
+}
+
+/** Pesquisas já feitas para um anexo quantitativo (resumo, sem amostras). */
+async function listQuantityEstimateResearches(c: Context, quantityEstimateId: string) {
+	const supabase = getSupabase()
+
+	const { data, error } = await supabase
+		.from("procurement_pesquisa_preco")
+		.select(`
+      id,
+      reference_method,
+      period_months,
+      similarity_threshold,
+      filter_estado,
+      filter_uasg_code,
+      filter_municipio_code,
+      total_items,
+      items_with_price,
+      items_without_catmat,
+      non_compliant_items,
+      created_at
+    `)
+		.eq("quantity_estimate_id", quantityEstimateId)
+		.order("created_at", { ascending: false })
+
+	if (error) return c.json({ error: "Erro ao buscar histórico de pesquisas" }, 500)
+
+	return c.json({ quantityEstimateId, researches: data ?? [] })
+}
+
 export const priceResearchRoutes = new Hono()
 	// Middleware: mesma proteção das rotas admin
 	.use("*", async (c, next) => {
@@ -335,7 +482,7 @@ export const priceResearchRoutes = new Hono()
 	// ─── GET /material/:catmatCode ────────────────────────────────────────────────
 	//
 	// Consulta exploratória de preços para um único item CATMAT.
-	// Não persiste — use o endpoint da ATA para gerar audit trail.
+	// Não persiste — use o endpoint do anexo quantitativo para gerar audit trail.
 	//
 	// Query params: months (default 12) | estado | codigoUasg | codigoMunicipio | similarityThreshold
 
@@ -368,155 +515,39 @@ export const priceResearchRoutes = new Hono()
 		}
 	})
 
-	// ─── POST /ata/:ataId ─────────────────────────────────────────────────────────
+	// ─── POST /quantity-estimates/:quantityEstimateId ─────────────────────────────
 	//
-	// Executa pesquisa de preços para todos os itens de uma ATA e PERSISTE
+	// Executa a pesquisa de preços para todos os itens de um anexo quantitativo e PERSISTE
 	// automaticamente a memória de cálculo para fins de auditoria.
 	//
 	// Body JSON (todos opcionais):
 	//   { months?, estado?, codigoUasg?, codigoMunicipio?, similarityThreshold? }
 
-	.post("/ata/:ataId", async (c) => {
-		const ataId = c.req.param("ataId")
-		if (!ataId) return c.json({ error: "ataId inválido" }, 400)
+	.post("/quantity-estimates/:quantityEstimateId", (c) => researchQuantityEstimate(c, c.req.param("quantityEstimateId")))
 
-		// Body é opcional — ausência/JSON inválido caem nos defaults (contrato anterior)
-		const rawBody = await c.req.json().catch(() => ({}))
-		const parsedBody = ataBodySchema.safeParse(rawBody ?? {})
-		if (!parsedBody.success) {
-			return c.json({ error: `Body inválido: ${formatZodError(parsedBody.error)}` }, 400)
-		}
-		const options = buildOptions(parsedBody.data)
-
-		const supabase = getSupabase()
-
-		const { data: ata, error: ataError } = await supabase.from("procurement_list").select("id").eq("id", ataId).is("deleted_at", null).single()
-
-		if (ataError || !ata) return c.json({ error: "ATA não encontrada" }, 404)
-
-		const { data: ataItems, error: itemsError } = await supabase
-			.from("procurement_list_item")
-			.select("id, ingredient_id, ingredient_name, catmat_item_codigo, catmat_item_descricao")
-			.eq("list_id", ataId)
-
-		if (itemsError || !ataItems) return c.json({ error: "Erro ao buscar itens da ATA" }, 500)
-
-		// Deduplicar códigos CATMAT
-		const catmatMap = new Map<number, string | null>()
-		for (const item of ataItems) {
-			if (item.catmat_item_codigo != null && !catmatMap.has(item.catmat_item_codigo)) {
-				catmatMap.set(item.catmat_item_codigo, item.catmat_item_descricao ?? null)
-			}
-		}
-
-		// Pesquisar em paralelo (concorrência 3)
-		const analysisMap = new Map<number, PriceAnalysis>()
-		const errorMap = new Map<number, string>()
-		const entries = [...catmatMap.entries()]
-		const CONCURRENCY = 3
-
-		for (let i = 0; i < entries.length; i += CONCURRENCY) {
-			const batch = entries.slice(i, i + CONCURRENCY)
-			await Promise.all(
-				batch.map(async ([catmatCode, descricaoAta]) => {
-					try {
-						const catmatDescricao = (await buscarDescricaoCatmat(supabase, catmatCode)) ?? descricaoAta
-						const rawItems = await consultarMaterialPrecos(catmatCode, {
-							estado: options.estado,
-							codigoUasg: options.codigoUasg,
-							codigoMunicipio: options.codigoMunicipio,
-						})
-						analysisMap.set(catmatCode, analisarPrecos(catmatCode, catmatDescricao, rawItems, options))
-					} catch (err) {
-						const msg = err instanceof Error ? err.message : String(err)
-						console.error(`[price-research] ATA ${ataId} CATMAT ${catmatCode}: ${msg}`)
-						errorMap.set(catmatCode, msg)
-					}
-				})
-			)
-			if (i + CONCURRENCY < entries.length) await new Promise((r) => setTimeout(r, 500))
-		}
-
-		// Mapear resultados para os itens da ATA
-		const items: AtaItemPriceResult[] = ataItems.map((item) => {
-			const catmat = item.catmat_item_codigo
-			if (catmat == null) {
-				return {
-					ataItemId: item.id,
-					ingredientId: item.ingredient_id ?? null,
-					ingredientName: item.ingredient_name,
-					catmatCodigo: null,
-					catmatDescricao: null,
-					analysis: null,
-					error: "Item sem código CATMAT vinculado — vincule o ingrediente a um item do catálogo CATMAT",
-				}
-			}
-			return {
-				ataItemId: item.id,
-				ingredientId: item.ingredient_id ?? null,
-				ingredientName: item.ingredient_name,
-				catmatCodigo: catmat,
-				catmatDescricao: item.catmat_item_descricao ?? null,
-				analysis: analysisMap.get(catmat) ?? null,
-				error: errorMap.get(catmat) ?? null,
-			}
-		})
-
-		const summary = {
-			total: items.length,
-			withPrice: items.filter((i) => i.analysis?.statistics != null).length,
-			withoutCatmat: items.filter((i) => i.catmatCodigo == null).length,
-			withoutData: items.filter((i) => i.catmatCodigo != null && i.analysis != null && i.analysis.statistics == null && i.error == null).length,
-			withError: items.filter((i) => i.error != null && i.catmatCodigo != null).length,
-			nonCompliant: items.filter((i) => i.analysis != null && !i.analysis.compliance.compliant).length,
-		}
-
-		// Persistir memória de cálculo (falha silenciosa)
-		const researchId = await persistResearch(supabase, {
-			ataId,
-			options,
-			items,
-			summary,
-		})
-
-		if (!researchId) {
-			console.error(`[price-research] Memória de cálculo NÃO persistida para ATA ${ataId}`)
-		}
-
-		return c.json({ researchId, ataId, consultedAt: new Date().toISOString(), items, summary })
-	})
-
-	// ─── GET /ata/:ataId/history ──────────────────────────────────────────────────
+	// ─── GET /quantity-estimates/:quantityEstimateId/history ──────────────────────
 	//
-	// Lista todas as pesquisas realizadas para uma ATA (resumo, sem amostras).
+	// Lista todas as pesquisas realizadas para um anexo quantitativo (resumo, sem amostras).
 	// Use GET /research/:researchId para o audit trail completo.
 
-	.get("/ata/:ataId/history", async (c) => {
-		const ataId = c.req.param("ataId")
-		const supabase = getSupabase()
+	.get("/quantity-estimates/:quantityEstimateId/history", (c) => listQuantityEstimateResearches(c, c.req.param("quantityEstimateId")))
 
-		const { data, error } = await supabase
-			.from("procurement_pesquisa_preco")
-			.select(`
-      id,
-      reference_method,
-      period_months,
-      similarity_threshold,
-      filter_estado,
-      filter_uasg_code,
-      filter_municipio_code,
-      total_items,
-      items_with_price,
-      items_without_catmat,
-      non_compliant_items,
-      created_at
-    `)
-			.eq("procurement_list_id", ataId)
-			.order("created_at", { ascending: false })
+	// ─── Alias depreciado do caminho antigo (um ciclo; sai no contract 20260927050000) ──
+	//
+	// Mesmo handler, com as chaves do contrato antigo no corpo, cabeçalho `Deprecation`, `Link`
+	// para o sucessor e log de uso, para achar o chamador externo antes de desligar.
 
-		if (error) return c.json({ error: "Erro ao buscar histórico de pesquisas" }, 500)
-
-		return c.json({ ataId, researches: data ?? [] })
+	.post(`${LEGACY_ANNEX_PREFIX}/:id`, async (c) => {
+		const id = c.req.param("id")
+		logDeprecatedAnnexRoute(c.req.method, c.req.path, id)
+		const res = await researchQuantityEstimate(c, id)
+		return toLegacyAnnexResponse(res, `/api/admin/price-research/quantity-estimates/${id}`)
+	})
+	.get(`${LEGACY_ANNEX_PREFIX}/:id/history`, async (c) => {
+		const id = c.req.param("id")
+		logDeprecatedAnnexRoute(c.req.method, c.req.path, id)
+		const res = await listQuantityEstimateResearches(c, id)
+		return toLegacyAnnexResponse(res, `/api/admin/price-research/quantity-estimates/${id}/history`)
 	})
 
 	// ─── GET /research/:researchId ────────────────────────────────────────────────
@@ -536,7 +567,7 @@ export const priceResearchRoutes = new Hono()
 		const { data: items, error: errItems } = await supabase
 			.from("procurement_pesquisa_preco_item")
 			.select(`
-      id, research_id, procurement_list_item_id, catmat_codigo, catmat_descricao, product_name, total_raw, total_after_date_filter, total_after_pollution_filter, total_after_outlier, price_min, price_max, price_mean, price_median, std_dev, cv_pct, unique_sources, reference_price, reference_method, measure_unit, is_compliant, non_compliance_reasons, error, created_at, justification_low_sample, justification_method, justification_outlier_criteria, justification_out_of_period, manual_selection,
+      id, research_id, quantity_estimate_item_id, catmat_codigo, catmat_descricao, product_name, total_raw, total_after_date_filter, total_after_pollution_filter, total_after_outlier, price_min, price_max, price_mean, price_median, std_dev, cv_pct, unique_sources, reference_price, reference_method, measure_unit, is_compliant, non_compliance_reasons, error, created_at, justification_low_sample, justification_method, justification_outlier_criteria, justification_out_of_period, manual_selection,
       samples:procurement_pesquisa_preco_amostra (
         id,
         sample_type,
