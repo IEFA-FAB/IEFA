@@ -67,7 +67,7 @@
 
 ## 7. Lote 7: arranchamento (código depois do lote 8a)
 
-- [ ] 7.1 [sisub] Declarar `kitchen.arranchamento` em `RESET_EXCLUSIONS` (tem `mess_hall_id`)
+- [x] 7.1 [sisub] Declarar `kitchen.arranchamento` em `RESET_EXCLUSIONS` (tem `mess_hall_id`)
 - [ ] 7.2 [database] Expand: `kitchen.meal_forecasts` → `kitchen.arranchamento` com view de compatibilidade (grant de `analytics_reader`), índices e constraints renomeados; aplicar e regerar tipos (espera o mantenedor)
 - [ ] 7.3 [sisub-domain] `operations/forecast.ts` → `arranchamento.ts` e schemas de `meal-ops.ts` (D11)
 - [ ] 7.4 [sisub] `forecast.fn.ts`, `useMealForecast.ts`, `lib/forecast.ts`, painéis (`forecast_count`...), rota `diner/forecast` → `diner/arranchamento` com redirect pelo mapa `LEGACY_ROUTE_PREFIXES`, rótulo "Arranchamento"; analytics (prompt e allowlist)
