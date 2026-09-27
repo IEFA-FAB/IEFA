@@ -3745,7 +3745,6 @@ export type Database = {
       empenho: {
         Row: {
           acquisition_id: string | null
-          arp_item_id: string | null
           created_at: string
           created_by: string | null
           data_empenho: string
@@ -3760,7 +3759,6 @@ export type Database = {
           numero_empenho: string
           origem: string
           ptres: string | null
-          quantidade_empenhada: number | null
           rp_exercicio: number | null
           rp_inscrito: boolean
           rp_tipo: string | null
@@ -3770,11 +3768,9 @@ export type Database = {
           ug_emitente: string | null
           unit_id: number
           valor_total: number
-          valor_unitario: number | null
         }
         Insert: {
           acquisition_id?: string | null
-          arp_item_id?: string | null
           created_at?: string
           created_by?: string | null
           data_empenho: string
@@ -3789,7 +3785,6 @@ export type Database = {
           numero_empenho: string
           origem?: string
           ptres?: string | null
-          quantidade_empenhada?: number | null
           rp_exercicio?: number | null
           rp_inscrito?: boolean
           rp_tipo?: string | null
@@ -3799,11 +3794,9 @@ export type Database = {
           ug_emitente?: string | null
           unit_id: number
           valor_total: number
-          valor_unitario?: number | null
         }
         Update: {
           acquisition_id?: string | null
-          arp_item_id?: string | null
           created_at?: string
           created_by?: string | null
           data_empenho?: string
@@ -3818,7 +3811,6 @@ export type Database = {
           numero_empenho?: string
           origem?: string
           ptres?: string | null
-          quantidade_empenhada?: number | null
           rp_exercicio?: number | null
           rp_inscrito?: boolean
           rp_tipo?: string | null
@@ -3828,7 +3820,6 @@ export type Database = {
           ug_emitente?: string | null
           unit_id?: number
           valor_total?: number
-          valor_unitario?: number | null
         }
         Relationships: [
           {

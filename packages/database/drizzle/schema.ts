@@ -2464,42 +2464,6 @@ export const ingredientSubstitutionInKitchen = kitchen.table("ingredient_substit
 	check("ingredient_substitution_not_self", sql`ingredient_id <> substitute_ingredient_id`),
 ]);
 
-export const empenhoItemInFinance = finance.table("empenho_item", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	empenhoId: uuid("empenho_id").notNull(),
-	arpItemId: uuid("arp_item_id"),
-	purchaseItemId: uuid("purchase_item_id"),
-	position: smallint().default(1).notNull(),
-	description: text(),
-	quantity: numeric({ mode: "number", precision: 14, scale: 4 }),
-	unit: text(),
-	unitPrice: numeric("unit_price", { mode: "number", precision: 14, scale: 4 }),
-	value: numeric({ mode: "number", precision: 14, scale: 2 }).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("empenho_item_arp_item_idx").using("btree", table.arpItemId.asc().nullsLast()).where(sql`(arp_item_id IS NOT NULL)`),
-	index("empenho_item_empenho_idx").using("btree", table.empenhoId.asc().nullsLast()),
-	index("empenho_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.arpItemId],
-			foreignColumns: [procurementArpItemInProcurement.id],
-			name: "empenho_item_arp_item_id_fkey"
-		}).onDelete("restrict"),
-	foreignKey({
-			columns: [table.empenhoId],
-			foreignColumns: [empenhoInFinance.id],
-			name: "empenho_item_empenho_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.purchaseItemId],
-			foreignColumns: [purchaseItemInProcurement.id],
-			name: "empenho_item_purchase_item_id_fkey"
-		}).onDelete("set null"),
-	check("empenho_item_quantity_check", sql`quantity > (0)::numeric`),
-	check("empenho_item_unit_price_check", sql`unit_price >= (0)::numeric`),
-	check("empenho_item_value_check", sql`value >= (0)::numeric`),
-]);
-
 export const recipeStepInputInKitchen = kitchen.table("recipe_step_input", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	recipeStepId: uuid("recipe_step_id").notNull(),
@@ -3370,6 +3334,103 @@ export const expiryAlertPolicyInInventory = inventory.table("expiry_alert_policy
 	check("expiry_alert_policy_target", sql`((ingredient_id IS NOT NULL) AND (conservation_class IS NULL)) OR ((ingredient_id IS NULL) AND (conservation_class IS NOT NULL))`),
 ]);
 
+export const empenhoInFinance = finance.table("empenho", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	unitId: integer("unit_id").notNull(),
+	numeroEmpenho: text("numero_empenho").notNull(),
+	dataEmpenho: date("data_empenho").notNull(),
+	valorTotal: numeric("valor_total", { mode: "number", precision: 14, scale: 4 }).notNull(),
+	notaLancamento: text("nota_lancamento"),
+	status: text().default('ativo').notNull(),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	tipo: text(),
+	favorecidoCnpj: text("favorecido_cnpj"),
+	favorecidoNome: text("favorecido_nome"),
+	nd: text(),
+	ptres: text(),
+	fonte: text(),
+	ugEmitente: text("ug_emitente"),
+	exercicio: integer(),
+	origem: text().default('manual').notNull(),
+	siafiSyncedAt: timestamp("siafi_synced_at", { withTimezone: true, mode: 'string' }),
+	importBatchId: uuid("import_batch_id"),
+	rpInscrito: boolean("rp_inscrito").default(false).notNull(),
+	rpTipo: text("rp_tipo"),
+	rpExercicio: integer("rp_exercicio"),
+	acquisitionId: uuid("acquisition_id"),
+}, (table) => [
+	index("empenho_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
+	index("empenho_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("empenho_exercicio_idx").using("btree", table.unitId.asc().nullsLast(), table.exercicio.asc().nullsLast()),
+	index("empenho_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast()),
+	index("empenho_nd_idx").using("btree", table.unitId.asc().nullsLast(), table.nd.asc().nullsLast()).where(sql`(nd IS NOT NULL)`),
+	index("idx_empenho_status").using("btree", table.status.asc().nullsLast()),
+	index("idx_empenho_unit").using("btree", table.unitId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.acquisitionId],
+			foreignColumns: [acquisitionInProcurement.id],
+			name: "empenho_acquisition_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "empenho_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.importBatchId],
+			foreignColumns: [importBatchInSiafiIntegration.id],
+			name: "empenho_import_batch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.unitId],
+			foreignColumns: [unitsInCore.id],
+			name: "empenho_unit_id_fkey"
+		}),
+	unique("empenho_unit_id_numero_empenho_key").on(table.unitId, table.numeroEmpenho),
+	check("empenho_favorecido_cnpj_check", sql`(favorecido_cnpj IS NULL) OR (favorecido_cnpj ~ '^[0-9]{14}$'::text)`),
+	check("empenho_origem_check", sql`origem = ANY (ARRAY['manual'::text, 'siafi'::text])`),
+	check("empenho_rp_tipo_check", sql`(rp_tipo IS NULL) OR (rp_tipo = ANY (ARRAY['processado'::text, 'nao_processado'::text]))`),
+	check("empenho_status_check", sql`status = ANY (ARRAY['ativo'::text, 'anulado'::text])`),
+	check("empenho_tipo_check", sql`tipo = ANY (ARRAY['ordinario'::text, 'estimativo'::text, 'global'::text])`),
+]);
+
+export const empenhoItemInFinance = finance.table("empenho_item", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	empenhoId: uuid("empenho_id").notNull(),
+	arpItemId: uuid("arp_item_id"),
+	purchaseItemId: uuid("purchase_item_id"),
+	position: smallint().default(1).notNull(),
+	description: text(),
+	quantity: numeric({ mode: "number", precision: 14, scale: 4 }),
+	unit: text(),
+	unitPrice: numeric("unit_price", { mode: "number", precision: 14, scale: 4 }),
+	value: numeric({ mode: "number", precision: 14, scale: 2 }).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("empenho_item_arp_item_idx").using("btree", table.arpItemId.asc().nullsLast()).where(sql`(arp_item_id IS NOT NULL)`),
+	index("empenho_item_empenho_idx").using("btree", table.empenhoId.asc().nullsLast()),
+	index("empenho_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.arpItemId],
+			foreignColumns: [procurementArpItemInProcurement.id],
+			name: "empenho_item_arp_item_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.empenhoId],
+			foreignColumns: [empenhoInFinance.id],
+			name: "empenho_item_empenho_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.purchaseItemId],
+			foreignColumns: [purchaseItemInProcurement.id],
+			name: "empenho_item_purchase_item_id_fkey"
+		}).onDelete("set null"),
+	check("empenho_item_quantity_check", sql`quantity > (0)::numeric`),
+	check("empenho_item_unit_price_check", sql`unit_price >= (0)::numeric`),
+	check("empenho_item_value_check", sql`value >= (0)::numeric`),
+]);
+
 export const recipeFolderInKitchen = kitchen.table("recipe_folder", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: text().notNull(),
@@ -3980,77 +4041,6 @@ export const importRowInSiafiIntegration = siafiIntegration.table("import_row", 
 		}).onDelete("cascade"),
 	unique("import_row_batch_number_key").on(table.batchId, table.rowNumber),
 	check("import_row_parse_status_check", sql`parse_status = ANY (ARRAY['pending'::text, 'parsed'::text, 'unrecognized'::text, 'invalid'::text, 'waiting_parent'::text])`),
-]);
-
-export const empenhoInFinance = finance.table("empenho", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	unitId: integer("unit_id").notNull(),
-	arpItemId: uuid("arp_item_id"),
-	numeroEmpenho: text("numero_empenho").notNull(),
-	dataEmpenho: date("data_empenho").notNull(),
-	quantidadeEmpenhada: numeric("quantidade_empenhada", { mode: "number", precision: 14, scale: 4 }),
-	valorUnitario: numeric("valor_unitario", { mode: "number", precision: 12, scale: 4 }),
-	valorTotal: numeric("valor_total", { mode: "number", precision: 14, scale: 4 }).notNull(),
-	notaLancamento: text("nota_lancamento"),
-	status: text().default('ativo').notNull(),
-	createdBy: uuid("created_by"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	tipo: text(),
-	favorecidoCnpj: text("favorecido_cnpj"),
-	favorecidoNome: text("favorecido_nome"),
-	nd: text(),
-	ptres: text(),
-	fonte: text(),
-	ugEmitente: text("ug_emitente"),
-	exercicio: integer(),
-	origem: text().default('manual').notNull(),
-	siafiSyncedAt: timestamp("siafi_synced_at", { withTimezone: true, mode: 'string' }),
-	importBatchId: uuid("import_batch_id"),
-	rpInscrito: boolean("rp_inscrito").default(false).notNull(),
-	rpTipo: text("rp_tipo"),
-	rpExercicio: integer("rp_exercicio"),
-	acquisitionId: uuid("acquisition_id"),
-}, (table) => [
-	index("empenho_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
-	index("empenho_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
-	index("empenho_exercicio_idx").using("btree", table.unitId.asc().nullsLast(), table.exercicio.asc().nullsLast()),
-	index("empenho_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast()),
-	index("empenho_nd_idx").using("btree", table.unitId.asc().nullsLast(), table.nd.asc().nullsLast()).where(sql`(nd IS NOT NULL)`),
-	index("idx_empenho_arp_item").using("btree", table.arpItemId.asc().nullsLast()),
-	index("idx_empenho_status").using("btree", table.status.asc().nullsLast()),
-	index("idx_empenho_unit").using("btree", table.unitId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.acquisitionId],
-			foreignColumns: [acquisitionInProcurement.id],
-			name: "empenho_acquisition_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.arpItemId],
-			foreignColumns: [procurementArpItemInProcurement.id],
-			name: "empenho_arp_item_id_fkey"
-		}).onDelete("restrict"),
-	foreignKey({
-			columns: [table.createdBy],
-			foreignColumns: [usersInAuth.id],
-			name: "empenho_created_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.importBatchId],
-			foreignColumns: [importBatchInSiafiIntegration.id],
-			name: "empenho_import_batch_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.unitId],
-			foreignColumns: [unitsInCore.id],
-			name: "empenho_unit_id_fkey"
-		}),
-	unique("empenho_unit_id_numero_empenho_key").on(table.unitId, table.numeroEmpenho),
-	check("empenho_favorecido_cnpj_check", sql`(favorecido_cnpj IS NULL) OR (favorecido_cnpj ~ '^[0-9]{14}$'::text)`),
-	check("empenho_origem_check", sql`origem = ANY (ARRAY['manual'::text, 'siafi'::text])`),
-	check("empenho_quantidade_empenhada_check", sql`quantidade_empenhada > (0)::numeric`),
-	check("empenho_rp_tipo_check", sql`(rp_tipo IS NULL) OR (rp_tipo = ANY (ARRAY['processado'::text, 'nao_processado'::text]))`),
-	check("empenho_status_check", sql`status = ANY (ARRAY['ativo'::text, 'anulado'::text])`),
-	check("empenho_tipo_check", sql`tipo = ANY (ARRAY['ordinario'::text, 'estimativo'::text, 'global'::text])`),
 ]);
 
 export const comprasMaterialUnidadeFornecimentoInComprasGovIntegration = comprasGovIntegration.table("compras_material_unidade_fornecimento", {
