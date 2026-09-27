@@ -1,6 +1,8 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
+import type { Context } from "hono"
 import { env } from "../env.ts"
 import { secureCompare } from "../lib/secure-compare.ts"
+import { ARRANCHAMENTO_PATH, arranchamentoDeprecationHeaders, LEGACY_ARRANCHAMENTO_PATH, logDeprecatedArranchamentoPath } from "./arranchamento-path.ts"
 import { createApiHandler } from "./factory.js"
 
 /**
@@ -12,8 +14,11 @@ import { createApiHandler } from "./factory.js"
  * pessoa — tudo num GET, sem sessão, com `Cache-Control: public` e anunciado no llms.txt.
  *
  * `/units` e `/mess-halls` seguem públicas: são estrutura organizacional, não pessoa.
+ *
+ * O alias depreciado do arranchamento continua aqui: alias fora da lista seria rota anônima
+ * para o rastro de quem come onde (D7 de `sisub-ubiquitous-language`).
  */
-export const RESTRICTED_PATHS = ["/opinion", "/rancho_previsoes", "/wherewhowhen", "/user-military-data", "/user-data"] as const
+export const RESTRICTED_PATHS = ["/opinion", ARRANCHAMENTO_PATH, LEGACY_ARRANCHAMENTO_PATH, "/wherewhowhen", "/user-military-data", "/user-data"] as const
 
 // Schemas de resposta base
 const ErrorSchema = z.object({
@@ -31,7 +36,7 @@ const OpinionSchema = z.object({
 	userId: z.uuid(),
 })
 
-const MealForecastSchema = z.object({
+const ArranchamentoSchema = z.object({
 	user_id: z.uuid(),
 	date: z.iso.date(),
 	meal: z.enum(["cafe", "almoco", "janta", "ceia"]),
@@ -90,6 +95,8 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 	description: string
 	parameters?: any[]
 	responseSchema: TSchema
+	/** Caminho mantido só por compatibilidade: o OpenAPI o marca `deprecated`. */
+	deprecated?: boolean
 }) {
 	// Protegida ou não é decidido pela lista, não por um flag repetido em cada rota: com duas
 	// fontes, a rota nova entra com `security` no OpenAPI e sem guard nenhum no roteador.
@@ -100,6 +107,7 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 		tags: config.tags,
 		summary: config.summary,
 		description: config.description,
+		...(config.deprecated ? { deprecated: true } : {}),
 		...(restricted ? { security: [{ AdminSecret: [] }] } : {}),
 		parameters: [
 			...(config.parameters ?? []),
@@ -204,9 +212,9 @@ const opinionRoute = defineDocRoute({
 	responseSchema: OpinionSchema,
 })
 
-// /api/rancho_previsoes -> meal_forecasts
-const [, forecastHandler] = createApiHandler({
-	table: "meal_forecasts",
+// /api/arranchamentos -> kitchen.arranchamento
+const [, arranchamentoHandler] = createApiHandler({
+	table: "arranchamento",
 	schema: "kitchen",
 	select: "user_id, date, meal, will_eat, mess_hall_id, created_at, updated_at",
 	dateColumn: "date",
@@ -224,42 +232,66 @@ const [, forecastHandler] = createApiHandler({
 	},
 	cacheControl: "no-store",
 })
-const forecastRoute = defineDocRoute({
-	path: "/rancho_previsoes",
-	tags: ["Previsões de Refeições"],
-	summary: "Lista previsões de refeições",
-	description: "Retorna previsões de quem vai comer em cada refeitório",
-	parameters: [
-		{
-			name: "user_id",
-			in: "query",
-			schema: MultiValueParamSchema,
-			description: "Filtrar por ID(s) do usuário",
+
+const ARRANCHAMENTO_PARAMETERS = [
+	{
+		name: "user_id",
+		in: "query",
+		schema: MultiValueParamSchema,
+		description: "Filtrar por ID(s) do usuário",
+	},
+	{
+		name: "meal",
+		in: "query",
+		schema: {
+			type: "string",
+			enum: ["cafe", "almoco", "janta", "ceia"],
 		},
-		{
-			name: "meal",
-			in: "query",
-			schema: {
-				type: "string",
-				enum: ["cafe", "almoco", "janta", "ceia"],
-			},
-			description: "Filtrar por tipo de refeição",
-		},
-		{
-			name: "mess_hall_id",
-			in: "query",
-			schema: MultiValueParamSchema,
-			description: "Filtrar por ID(s) do refeitório",
-		},
-		{
-			name: "will_eat",
-			in: "query",
-			schema: { type: "boolean" },
-			description: "Filtrar por quem vai comer (true/false)",
-		},
-	],
-	responseSchema: MealForecastSchema,
+		description: "Filtrar por tipo de refeição",
+	},
+	{
+		name: "mess_hall_id",
+		in: "query",
+		schema: MultiValueParamSchema,
+		description: "Filtrar por ID(s) do refeitório",
+	},
+	{
+		name: "will_eat",
+		in: "query",
+		schema: { type: "boolean" },
+		description: "Filtrar por quem vai comer (true/false)",
+	},
+]
+
+const arranchamentoRoute = defineDocRoute({
+	path: ARRANCHAMENTO_PATH,
+	tags: ["Arranchamento"],
+	summary: "Lista os arranchamentos",
+	description: "Retorna quem está arranchado (vai comer) em cada data, refeição e refeitório; will_eat = false é desarranchado",
+	parameters: ARRANCHAMENTO_PARAMETERS,
+	responseSchema: ArranchamentoSchema,
 })
+
+// Alias depreciado: mesmo handler, com `Deprecation`, `Link` para o sucessor e log de uso, para
+// achar o chamador externo antes de desligar.
+const legacyArranchamentoRoute = defineDocRoute({
+	path: LEGACY_ARRANCHAMENTO_PATH,
+	tags: ["Arranchamento"],
+	summary: "Lista os arranchamentos (caminho antigo, depreciado)",
+	description: `Caminho antigo de ${ARRANCHAMENTO_PATH}, mantido por compatibilidade. Use ${ARRANCHAMENTO_PATH}.`,
+	parameters: ARRANCHAMENTO_PARAMETERS,
+	responseSchema: ArranchamentoSchema,
+	deprecated: true,
+})
+
+async function legacyArranchamentoHandler(c: Context): Promise<Response> {
+	logDeprecatedArranchamentoPath(c.req.method)
+	const res = await arranchamentoHandler(c)
+	const successor = `/api${ARRANCHAMENTO_PATH}${new URL(c.req.url).search}`
+	const headers = new Headers(res.headers)
+	for (const [name, value] of Object.entries(arranchamentoDeprecationHeaders(successor))) headers.set(name, value)
+	return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
+}
 
 // /api/wherewhowhen -> meal_presences
 const [, presenceHandler] = createApiHandler({
@@ -588,7 +620,8 @@ for (const path of RESTRICTED_PATHS) {
 // A cadeia continua sendo o valor exportado: é dela que sai o tipo consumido pelos clients RPC.
 export const api = apiBase
 	.openapi(opinionRoute, opinionHandler as any)
-	.openapi(forecastRoute, forecastHandler as any)
+	.openapi(arranchamentoRoute, arranchamentoHandler as any)
+	.openapi(legacyArranchamentoRoute, legacyArranchamentoHandler as any)
 	.openapi(presenceRoute, presenceHandler as any)
 	.openapi(militaryDataRoute, militaryDataHandler as any)
 	.openapi(userDataRoute, userDataHandler as any)
