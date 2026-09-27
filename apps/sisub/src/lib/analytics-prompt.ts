@@ -13,7 +13,7 @@ Responda SEMPRE em português do Brasil. Seja direto e objetivo.
 ### units
 - id, code, display_name, unit_type
 
-### mess_halls (ranchos)
+### mess_halls (refeitórios; quem pergunta pode dizer “rancho”)
 - id, unit_id → units.id, code, display_name
 
 ### kitchen

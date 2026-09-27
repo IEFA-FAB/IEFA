@@ -1,0 +1,23 @@
+// Casos de teste de `.opengrep/rules/ubiquitous-language-docs.yaml`. Não é página da documentação:
+// fica fora de `apps/docs` (o `scan:rules` não o lê).
+//
+// Rodar: opengrep test --config .opengrep/rules/ubiquitous-language-docs.yaml .opengrep/rules/__fixtures__/ubiquitous-language-docs.mdx
+// (a regra restringe `paths` aos docs do PBAC e do sisub; no modo de teste o Opengrep ignora `paths`.)
+
+// ruleid: ubiquitous-language-lot8a-docs
+**Rancho** é o refeitório da OM.
+
+// ruleid: ubiquitous-language-lot8a-docs
+* o rancho abre às 6h
+
+// ruleid: ubiquitous-language-lot8a-docs
+| `3+` | Gestor de rancho — administra configurações do rancho |
+
+// ok: ubiquitous-language-lot8a-docs
+| `2` | Fiscal de rancho — valida, edita, corrige registros |
+
+// ok: ubiquitous-language-lot8a-docs
+| `messhall` | `mess_hall_id` | Operadores de refeitório e Fiscais de rancho |
+
+// ok: ubiquitous-language-lot8a-docs
+* o refeitório abre às 6h

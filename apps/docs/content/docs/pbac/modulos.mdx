@@ -12,7 +12,7 @@ O PBAC define 11 módulos. Cada um mapeia uma área funcional da plataforma. As 
 **Escopo:** Nenhum (global implícito)
 
 ### O que é
-O nível mais básico de existência no sistema. Representa qualquer pessoa que se alimenta no rancho.
+O nível mais básico de existência no sistema. Representa qualquer pessoa que se alimenta num refeitório.
 
 ### Responsabilidade
 Identifica usuários que têm acesso às funcionalidades voltadas ao comensal — visualizar cardápios, consultar informações de refeição, etc.
@@ -25,26 +25,26 @@ Todos os usuários autenticados da plataforma — militares, servidores civis, a
 
 ---
 
-## `messhall` — Rancho
+## `messhall` — Fiscal de rancho
 
 **Escopo:** `mess_hall_id`
 
 ### O que é
-Acesso às operações do rancho (local físico onde as refeições são servidas e fiscalizadas).
+Acesso às operações do refeitório (local físico onde as refeições são servidas e a presença é registrada). O módulo leva o nome da função da escala de serviço, **Fiscal de rancho**, que não se confunde com o fiscal do contrato (Lei 14.133/2021, art. 117).
 
 ### Responsabilidade
-Controla quem pode registrar refeições servidas, fiscalizar o rancho, validar comensais e operar o ponto de distribuição.
+Controla quem pode registrar refeições servidas, fiscalizar o refeitório, validar comensais e operar o ponto de distribuição.
 
 ### Por que funciona assim
-Um rancho é uma unidade operacional distinta. Um fiscal ou operador tem autoridade apenas sobre o rancho onde trabalha — daí o escopo por `mess_hall_id`. A mesma pessoa pode ser operadora em um rancho e não ter acesso a outro.
+Um refeitório é um ponto operacional distinto. Um fiscal ou operador tem autoridade apenas sobre o refeitório onde trabalha — daí o escopo por `mess_hall_id`. A mesma pessoa pode ser operadora em um refeitório e não ter acesso a outro.
 
 ### Quem acessa
 
 | Nível | Perfil |
 |-------|--------|
-| `1` | Operador de rancho — registra e consulta |
+| `1` | Operador de refeitório — registra e consulta |
 | `2` | Fiscal de rancho — valida, edita, corrige registros |
-| `3+` | Gestor de rancho — administra configurações do rancho |
+| `3+` | Gestor de refeitório — administra configurações do refeitório |
 
 ---
 
@@ -53,13 +53,13 @@ Um rancho é uma unidade operacional distinta. Um fiscal ou operador tem autorid
 **Escopo:** `unit_id`
 
 ### O que é
-Acesso à administração da unidade militar como um todo — incluindo seus ranchos, cozinhas e usuários.
+Acesso à administração da unidade militar como um todo — incluindo suas cozinhas, refeitórios e usuários.
 
 ### Responsabilidade
 Permite configurar a unidade, gerenciar os usuários subordinados e ter visibilidade sobre todas as operações dentro daquela organização militar.
 
 ### Por que funciona assim
-Uma unidade pode ter múltiplos ranchos e cozinhas. O módulo `unit` existe para dar visão consolidada e controle administrativo sem precisar de permissão global. O escopo por `unit_id` garante que o gestor de uma OM não acessa dados de outra.
+Uma unidade pode ter múltiplas cozinhas e refeitórios. O módulo `unit` existe para dar visão consolidada e controle administrativo sem precisar de permissão global. O escopo por `unit_id` garante que o gestor de uma OM não acessa dados de outra.
 
 ### Quem acessa
 
@@ -121,7 +121,7 @@ Produção é operação — não gestão. Um cozinheiro precisa registrar o que
 **Escopo:** Nenhum
 
 ### O que é
-Acesso irrestrito à plataforma — gerenciamento de todas as unidades, ranchos, cozinhas, usuários e configurações sistêmicas.
+Acesso irrestrito à plataforma — gerenciamento de todas as unidades, cozinhas, refeitórios, usuários e configurações sistêmicas.
 
 ### Responsabilidade
 Administrar a plataforma IEFA como um todo. Criar organizações militares, gerenciar integrações, configurar parâmetros globais e resolver problemas que ultrapassam o escopo de uma unidade.
@@ -248,7 +248,7 @@ grants do próprio módulo.
 
 ### Por que funciona assim
 A SUCONT-4 é uma subdivisão única dentro da SEFA — não se replica por unidade nem por
-rancho, então um escopo geográfico não teria o que recortar. A separação que importa aqui é
+refeitório, então um escopo geográfico não teria o que recortar. A separação que importa aqui é
 de nível, não de lugar: quem consulta o acompanhamento não é quem o edita.
 
 ### Quem acessa
@@ -266,7 +266,7 @@ de nível, não de lugar: quem consulta o acompanhamento não é quem o edita.
 | Módulo | Escopo | Quem acessa |
 |--------|--------|-------------|
 | `diner` | — | Todos os usuários (injetado automaticamente) |
-| `messhall` | `mess_hall_id` | Operadores e fiscais do rancho |
+| `messhall` | `mess_hall_id` | Operadores de refeitório e Fiscais de rancho |
 | `unit` | `unit_id` | Gestores da unidade militar |
 | `kitchen` | `kitchen_id` | Chefes de cozinha e gestores de alimentação |
 | `kitchen-production` | `kitchen_id` | Cozinheiros e auxiliares de produção |

@@ -136,3 +136,33 @@ alter table finance.empenho add column issuer_ug text;
 
 // ok: ubiquitous-language-migration-lot4
 alter table finance.budget_credit drop column saldo_siafi;
+
+// ruleid: ubiquitous-language-migration-lot8a
+comment on table kitchen.snack_request_material is 'Material de rancho cautelado com o lanche; volta ao rancho.';
+
+// ruleid: ubiquitous-language-migration-lot8a
+create table kitchen.rancho_schedule (id bigint primary key);
+
+// ruleid: ubiquitous-language-migration-lot8a
+alter table kitchen.mess_halls add column rancho_code text;
+
+// ok: ubiquitous-language-migration-lot8a
+comment on table kitchen.snack_request_material is 'Material da cozinha cautelado com o lanche.';
+
+// ok: ubiquitous-language-migration-lot8a
+comment on column kitchen.meal_presences.mess_hall_id is 'Refeitório em que o Fiscal de rancho registrou a presença.';
+
+// ok: ubiquitous-language-migration-lot8a
+update procurement.policy_rule set title = 'Sem itens impróprios para a alimentação coletiva militar' where title = 'Sem itens impróprios para rancho militar FAB';
+
+// ok: ubiquitous-language-migration-lot8a
+create index workforce_submission_competence_idx on kitchen.workforce_submission (competence, rancho_id);
+
+// ruleid: ubiquitous-language-migration-lot8a
+comment on table kitchen.snack_request_material is 'Material da cozinha; volta ao rancho.';
+
+// ruleid: ubiquitous-language-migration-lot8a
+comment on table kitchen.meal_presences is 'Chame o Fiscal de Rancho';
+
+// ok: ubiquitous-language-migration-lot8a
+comment on table kitchen.meal_presences is 'Registro do refeitório; quem registra é o Fiscal de rancho.';

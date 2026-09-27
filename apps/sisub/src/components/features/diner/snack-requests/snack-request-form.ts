@@ -36,7 +36,7 @@ export type SnackRequestFormState = {
 	totalHours: string
 	totalMins: string
 	stopsWithoutMess: boolean
-	/** Há escala COM apoio de rancho: aí a maior perna decide a classe. */
+	/** Há escala COM apoio de refeitório: aí a maior perna decide a classe. */
 	hasMessStop: boolean
 	legHours: string
 	legMins: string
@@ -292,7 +292,7 @@ export function validateForm(state: SnackRequestFormState, context: FormContext)
 	}
 	if (!state.stopsWithoutMess && state.hasMessStop) {
 		const leg = toMinutes(state.legHours, state.legMins)
-		if (leg <= 0) errors.legDuration = "Informe a maior perna até a escala com rancho."
+		if (leg <= 0) errors.legDuration = "Informe a maior perna até a escala com apoio de refeitório."
 		else if (leg > total) errors.legDuration = "A maior perna não pode ser maior que o deslocamento total."
 	}
 	if (aerial && !state.missionOrderNumber.trim()) errors.missionOrderNumber = "Missão aérea exige o número da ordem de missão."

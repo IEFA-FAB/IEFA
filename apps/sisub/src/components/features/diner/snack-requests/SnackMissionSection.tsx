@@ -193,16 +193,16 @@ export function SnackMissionSection({ state, update, errors, kitchens, refeicaoO
 
 					<SwitchField
 						id="snack-stops-without-mess"
-						label="Há escala sem apoio de rancho"
-						description="Pouso ou parada numa localidade sem rancho: o lanche passa a cobrir o tempo total do deslocamento."
+						label="Há escala sem apoio de refeitório"
+						description="Pouso ou parada numa localidade sem apoio de refeitório: o lanche passa a cobrir o tempo total do deslocamento."
 						checked={state.stopsWithoutMess}
 						onChange={(stopsWithoutMess) => update({ stopsWithoutMess, ...(stopsWithoutMess ? { hasMessStop: false } : {}) })}
 					/>
 					{!state.stopsWithoutMess && (
 						<SwitchField
 							id="snack-mess-stop"
-							label="Há escala com apoio de rancho"
-							description="Com rancho na escala, a classe é decidida pela maior perna, e não pelo tempo total."
+							label="Há escala com apoio de refeitório"
+							description="Com apoio de refeitório na escala, a classe é decidida pela maior perna, e não pelo tempo total."
 							checked={state.hasMessStop}
 							onChange={(hasMessStop) => update({ hasMessStop })}
 						/>
@@ -210,7 +210,7 @@ export function SnackMissionSection({ state, update, errors, kitchens, refeicaoO
 					{!state.stopsWithoutMess && state.hasMessStop && (
 						<DurationField
 							id="snack-leg"
-							label="Maior perna até uma escala com rancho"
+							label="Maior perna até uma escala com apoio de refeitório"
 							hours={state.legHours}
 							minutes={state.legMins}
 							onChange={(legHours, legMins) => update({ legHours, legMins })}
@@ -388,9 +388,7 @@ export function SnackMissionSection({ state, update, errors, kitchens, refeicaoO
 								aria-invalid={!!errors.pickupLocal}
 							/>
 							<FieldDescription>
-								{state.pickupLocal
-									? "Horário de Brasília. A retirada é no rancho da cozinha apoiadora."
-									: "Sugerida 1 h antes da partida. Horário de Brasília."}
+								{state.pickupLocal ? "Horário de Brasília. A retirada é na cozinha apoiadora." : "Sugerida 1 h antes da partida. Horário de Brasília."}
 							</FieldDescription>
 							<FieldError>{errors.pickupLocal}</FieldError>
 						</Field>

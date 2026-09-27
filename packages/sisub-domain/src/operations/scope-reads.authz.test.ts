@@ -165,7 +165,7 @@ describe("fetchProcurementNeeds — escopado pelo recorte pedido", () => {
 })
 
 describe("resolveDisplayName", () => {
-	test("o próprio nome é livre; o de terceiro exige messhall:1 no rancho", async () => {
+	test("o próprio nome é livre; o de terceiro exige messhall:1 no refeitório", async () => {
 		const db = {} as SisubDb
 		expect(await denied(resolveDisplayName(db, ctx(), { userId: "user-1", messHallId: 1 }))).toBe(false)
 		expect(await denied(resolveDisplayName(db, ctx(), { userId: "user-2", messHallId: 1 }))).toBe(true)

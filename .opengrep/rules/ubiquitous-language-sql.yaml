@@ -132,3 +132,31 @@ rules:
           # exclusão de comentário).
           - pattern-regex: >-
               (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:dotacao|saldo_siafi|ug_emitente)\b(?:(?!\1).)*\1
+
+  # Lote 8a: "rancho" é ambíguo (refeitório, cozinha ou a unidade, D10) e não nomeia objeto novo
+  # nem entra em comentário do banco. Ficam de fora o nome da função "Fiscal de rancho" e, até o
+  # lote 8b, o próprio efetivo (`kitchen.rancho`, `core.rancho`, `rancho_id`): o 8b renomeia ou
+  # funde a tabela e apaga essa exclusão. `update` de dado não é acusado (o lote 8a casa o texto
+  # antigo no `where`), nem corpo de função, que cita tabela e não escreve texto de tela.
+  - id: ubiquitous-language-migration-lot8a
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      "Rancho" numa migration nova. O termo é ambíguo: use cozinha (`kitchen`), refeitório
+      (`mess_hall`) ou unidade (`unit`) no nome do objeto e no comentário. A única exceção é o nome
+      da função "Fiscal de rancho".
+    paths:
+      include:
+        - "packages/database/supabase/migrations/*.sql"
+      exclude:
+        # Tudo antes de 2026-09-27 10:00 (aplicado ou de outro lote).
+        - "packages/database/supabase/migrations/2024*"
+        - "packages/database/supabase/migrations/2025*"
+        - "packages/database/supabase/migrations/20260[1-8]*"
+        - "packages/database/supabase/migrations/202609[0-1]*"
+        - "packages/database/supabase/migrations/2026092[0-6]*"
+        - "packages/database/supabase/migrations/202609270*"
+    patterns:
+      - pattern-regex: >-
+          (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b(?:[^;']|'(?:[^']|'')*')*?(?:'(?:[^']|'')*?)?(?:(?<!kitchen\.)(?<!core\.)(?-i:(?<!Fiscal de )(?<!Fiscais de ))rancho(?!_id\b)|(?-i:(?<=Fiscal de )R)ancho|(?-i:(?<=Fiscais de )R)ancho|(?<=kitchen\.)rancho\w|(?<=core\.)rancho\w)
+      - pattern-not-regex: (?m)^\s*--.*$

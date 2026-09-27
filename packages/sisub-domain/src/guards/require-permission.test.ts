@@ -89,7 +89,7 @@ describe("scope helpers", () => {
 		expect(() => requireUnit(user, 1, 4)).toThrow(PermissionDeniedError)
 	})
 
-	test("requireMessHall valida permissão de rancho escopada", () => {
+	test("requireMessHall valida permissão de refeitório escopada", () => {
 		const user = ctx([permission({ module: "messhall", level: 2, mess_hall_id: 9 })])
 
 		expect(() => requireMessHall(user, 2, 9)).not.toThrow()

@@ -50,7 +50,7 @@ import { applyEventTemplate } from "./templates.ts"
 type PlanningTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 type PlanningDb = SisubDb | PlanningTx
 
-/** Cardápio de tipo de refeição de SISTEMA (produção dos pedidos de lanche): fora dos ajustes do rancho. */
+/** Cardápio de tipo de refeição de SISTEMA (produção dos pedidos de lanche): fora dos ajustes do planejamento da cozinha. */
 const notSystemMealTypeMenu = sql`not exists (select 1 from kitchen.meal_type mt where mt.id = ${dailyMenuInKitchen.mealTypeId} and mt.system_key is not null)`
 
 /** Itens ativos de um dia (todas as refeições), opcionalmente só de uma origem. */

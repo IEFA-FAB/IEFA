@@ -85,8 +85,8 @@ export async function listForecastMap(db: SisubDb, input: ListForecastMap): Prom
 }
 
 export async function insertPresence(db: SisubDb, ctx: UserContext, input: InsertPresence) {
-	// Dois chamadores legítimos: o fiscal registrando terceiros no rancho, e o comensal
-	// marcando a si mesmo no self check-in. Só o primeiro precisa de permissão de rancho —
+	// Dois chamadores legítimos: o Fiscal de rancho registrando terceiros no refeitório, e o comensal
+	// marcando a si mesmo no self check-in. Só o primeiro precisa de permissão no refeitório —
 	// exigir `messhall:2` de todo mundo quebraria o check-in do próprio comensal.
 	if (input.user_id !== ctx.userId) requireMessHall(ctx, 2, input.messHallId)
 
@@ -102,7 +102,7 @@ export async function insertPresence(db: SisubDb, ctx: UserContext, input: Inser
 
 export async function deletePresence(db: SisubDb, ctx: UserContext, input: { id: string }) {
 	// A entrada traz só o id, então o refeitório dono vem da LINHA — sem isso qualquer
-	// autenticado apagava a presença de qualquer pessoa em qualquer rancho.
+	// autenticado apagava a presença de qualquer pessoa em qualquer refeitório.
 	const [row] = await runQuery("FETCH_FAILED", () =>
 		db.select({ messHallId: mealPresencesInKitchen.messHallId }).from(mealPresencesInKitchen).where(eq(mealPresencesInKitchen.id, input.id)).limit(1)
 	)

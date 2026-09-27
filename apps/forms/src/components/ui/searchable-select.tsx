@@ -66,7 +66,7 @@ export function SearchableSelect({
 	const selected = value != null && value !== NONE_VALUE ? (options.find((option) => option.value === value) ?? null) : null
 	const triggerLabel = selected?.label ?? (value != null && value !== NONE_VALUE ? (unavailableLabel ?? value) : (clearLabel ?? placeholder))
 	// Cinza de placeholder é só para "nada escolhido". Com `clearLabel`, o rótulo
-	// no gatilho é uma escolha legítima ("Todos os Ranchos", "Utensílio de mão")
+	// no gatilho é uma escolha legítima ("Todos os Refeitórios", "Utensílio de mão")
 	// — e em `EquipmentCatalogManager` é um `role_id = null` gravado. Pintá-lo de
 	// cinza faria filtro ativo e valor salvo lerem como campo em branco.
 	const isPlaceholder = selected == null && !clearLabel

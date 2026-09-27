@@ -31,7 +31,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 		showValidation = false,
 		showLabel = true,
 		size = "md",
-		placeholder = "Selecione um rancho...",
+		placeholder = "Selecione um refeitório...",
 	}) => {
 		const { messHalls } = useMessHalls()
 
@@ -76,7 +76,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 			[disabled, value, onChange]
 		)
 
-		// Opções do combobox — são ~70 ranchos, longe do que se percorre com os olhos.
+		// Opções do combobox — são ~70 refeitórios, longe do que se percorre com os olhos.
 		const messHallOptions = useMemo(
 			() => (messHalls ?? []).map((mh) => ({ value: mh.code, label: mh.display_name ?? mh.code, keywords: mh.code })),
 			[messHalls]
@@ -114,7 +114,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 					<Label className={classes.label}>
 						<div className="flex items-center space-x-1">
 							<MapPin className="size-4" />
-							<span>Rancho:</span>
+							<span>Refeitório:</span>
 						</div>
 
 						<div className="flex items-center space-x-2">
@@ -130,18 +130,18 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 					options={messHallOptions}
 					disabled={disabled}
 					placeholder={placeholder}
-					searchPlaceholder="Pesquisar rancho…"
-					emptyLabel="Nenhum rancho encontrado."
+					searchPlaceholder="Pesquisar refeitório…"
+					emptyLabel="Nenhum refeitório encontrado."
 					className={classes.trigger}
 					aria-invalid={isInvalid}
-					aria-label="Rancho responsável"
+					aria-label="Refeitório responsável"
 				/>
 
-				{/* Informação adicional para rancho padrão */}
+				{/* Informação adicional para refeitório padrão */}
 				{showLabel && hasDefault && (
 					<div className="text-xs text-muted-foreground flex items-center space-x-1">
 						<AlertCircle className="size-3" />
-						<span>Este é o rancho padrão configurado</span>
+						<span>Este é o refeitório padrão configurado</span>
 					</div>
 				)}
 
@@ -149,7 +149,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 				{showLabel && showValidation && !isValidSelection && value && (
 					<div className="text-xs text-destructive flex items-center space-x-1">
 						<AlertCircle className="size-3" />
-						<span>Rancho não encontrado: "{value}"</span>
+						<span>Refeitório não encontrado: "{value}"</span>
 					</div>
 				)}
 			</div>

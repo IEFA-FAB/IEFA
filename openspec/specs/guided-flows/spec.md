@@ -23,7 +23,7 @@ Cada etapa de um fluxo SHALL ter título, objetivo em uma frase, status (`done`,
 - **WHEN** a cozinha da OM ainda não tem cardápio semanal
 - **THEN** a etapa "Cardápios das cozinhas" do fluxo da unidade fica `blocked` com a pendência "Cozinha X sem cardápio semanal"
 - **WHEN** a nutricionista cadastra um cardápio semanal com itens
-- **THEN** na próxima leitura a etapa deixa de estar bloqueada, sem ação do chefe do rancho
+- **THEN** na próxima leitura a etapa deixa de estar bloqueada, sem ação de quem tem Gestão Unidade
 
 #### Scenario: Voltar ao fluxo
 

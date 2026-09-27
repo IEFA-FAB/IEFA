@@ -3,7 +3,7 @@
 ## 1. Modelo Mental (3 frases)
 
 > **"Onde fica este componente?"** — Responda três perguntas:
-> 1. Ele sabe sobre `refeições`, `cozinhas`, `soldados`, `rancho`? → `features/<domínio>/`
+> 1. Ele sabe sobre `refeições`, `cozinhas`, `soldados`, `refeitórios`? → `features/<domínio>/`
 > 2. Ele é parte do chrome do app (header, sidebar, erros, nav)? → `layout/`
 > 3. É um primitivo visual sem domínio e sem lógica? → `ui/`
 

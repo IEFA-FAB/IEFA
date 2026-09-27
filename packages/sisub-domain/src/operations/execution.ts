@@ -1,7 +1,7 @@
 /**
  * Execução do dia: o que o turno faz sem esperar o planejamento, e a pendência que isso deixa.
  *
- * "O rancho é rápido e dinâmico": o planejamento (cardápio de datas futuras, cardápio-modelo,
+ * "A subsistência é rápida e dinâmica": o planejamento (cardápio de datas futuras, cardápio-modelo,
  * ficha técnica, anexo) segue exclusivo de `kitchen:2`. No DIA, o turno joga uma preparação no
  * cardápio de hoje — até uma que não existe no catálogo — e isso não trava nada: fica
  * registrado quem incluiu, quando e por quê, e aparece para a nutricionista revisar no fluxo

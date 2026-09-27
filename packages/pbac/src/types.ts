@@ -5,7 +5,7 @@
  * `access_control.user_permissions` e filtra a própria visão pelos seus módulos.
  *
  * - diner:               Comensal (acesso implícito para todos os usuários válidos) — sisub
- * - messhall:            Rancho (fiscal, operador) — sisub, scoped by mess_hall_id
+ * - messhall:            Fiscal de rancho (presença no refeitório) — sisub, scoped by mess_hall_id
  * - unit:                Gestão Unidade — sisub, scoped by unit_id
  * - kitchen:             Gestão Cozinha — sisub, scoped by kitchen_id
  * - kitchen-production:  Produção Cozinha — sisub, scoped by kitchen_id

@@ -44,7 +44,7 @@ export const OCCASION_MENU_COPY: Record<OccasionMenuType, OccasionMenuCopy> = {
 		noun: "evento",
 		article: "o",
 		newLabel: "Novo Evento",
-		namePlaceholder: "Ex.: Almoço de Formatura, Rancho de Manobra, Jantar Comemorativo",
+		namePlaceholder: "Ex.: Almoço de Formatura, Refeição de Campanha, Jantar Comemorativo",
 		sectionTitle: "Cardápios de Eventos",
 		explainer:
 			"Eventos são cardápios de refeições especiais — datas comemorativas, formaturas, exercícios de campo, visitas. Não têm estrutura de semana: as preparações se agrupam por refeição, cada uma com o próprio efetivo.",

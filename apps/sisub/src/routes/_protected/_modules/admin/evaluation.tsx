@@ -111,7 +111,7 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 								<FieldLabel htmlFor={field.name}>Texto</FieldLabel>
 								<Textarea
 									id={field.name}
-									placeholder="Ex.: Como você avalia sua experiência no Rancho?"
+									placeholder="Ex.: Como você avalia sua experiência no refeitório?"
 									value={field.state.value}
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}

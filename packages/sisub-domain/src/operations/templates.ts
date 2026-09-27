@@ -1205,7 +1205,7 @@ export async function applyTemplate(
 	// dos novos. Qualquer falha desfaz tudo (bug fix vs sisub: rollback completo).
 	// No skip não há delete algum: só inserimos em células vazias.
 	// O cardápio do tipo de refeição de SISTEMA (pedidos de lanche aceitos) não é planejamento
-	// do rancho: "Substituir" o dia não pode apagá-lo, ou a produção de um pedido aceito some
+	// da cozinha: "Substituir" o dia não pode apagá-lo, ou a produção de um pedido aceito some
 	// do quadro sem que o pedido saiba.
 	const notSystemMealTypeMenu = sql`not exists (select 1 from kitchen.meal_type mt where mt.id = ${dailyMenuInKitchen.mealTypeId} and mt.system_key is not null)`
 	await db.transaction(async (tx) => {

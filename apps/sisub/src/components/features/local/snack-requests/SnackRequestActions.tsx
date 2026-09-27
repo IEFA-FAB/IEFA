@@ -659,7 +659,7 @@ function CancelForm({ request, onDone }: FormProps) {
 					<AlertTriangle aria-hidden="true" />
 					<AlertTitle>A comida produzida não é reaproveitada</AlertTitle>
 					<AlertDescription>
-						Lanche perecível que volta de missão cancelada é descartado. O material de apoio que saiu do rancho tem que voltar — o pedido fica com devolução
+						Lanche perecível que volta de missão cancelada é descartado. O material de apoio que saiu da cozinha tem que voltar — o pedido fica com devolução
 						pendente.
 					</AlertDescription>
 				</Alert>

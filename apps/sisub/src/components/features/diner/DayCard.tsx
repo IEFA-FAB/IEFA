@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { MEAL_TYPES } from "@/constants/rancho"
+import { MEAL_TYPES } from "@/constants/meal"
 import type { DishDetails } from "@/hooks/data/useDailyMenuContent"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { cn } from "@/lib/cn"
@@ -92,7 +92,7 @@ function DayCard({
 	dishes,
 }: DayCardProps) {
 	const { messHalls } = useMessHalls()
-	// ~70 ranchos: a lista só é percorrível com busca.
+	// ~70 refeitórios: a lista só é percorrível com busca.
 	const messHallOptions = useMemo(() => (messHalls ?? []).map((mh) => ({ value: mh.code, label: mh.display_name ?? mh.code, keywords: mh.code })), [messHalls])
 	const hasPendingChanges = pendingChanges.some((change) => change.date === date)
 	const selectedCount = selectedMealsCount ?? countSelectedMeals(daySelections)
@@ -168,11 +168,11 @@ function DayCard({
 						}}
 						options={messHallOptions}
 						disabled={isDisabled}
-						placeholder="Selecione um rancho..."
-						searchPlaceholder="Pesquisar rancho…"
-						emptyLabel="Nenhum rancho encontrado."
+						placeholder="Selecione um refeitório..."
+						searchPlaceholder="Pesquisar refeitório…"
+						emptyLabel="Nenhum refeitório encontrado."
 						className="flex-1"
-						aria-label="Rancho do dia"
+						aria-label="Refeitório do dia"
 					/>
 					<Tooltip>
 						<TooltipTrigger

@@ -10,7 +10,7 @@ export function PresenceTableSkeleton() {
 					<Users className="size-5" aria-hidden="true" />
 					Análise de Presenças
 				</CardTitle>
-				<CardDescription>Comparação entre previsões e presenças por dia, refeição e rancho</CardDescription>
+				<CardDescription>Comparação entre previsões e presenças por dia, refeição e refeitório</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="overflow-x-auto">
@@ -19,7 +19,7 @@ export function PresenceTableSkeleton() {
 							<TableRow>
 								<TableHead className="w-10" />
 								<TableHead>Data</TableHead>
-								<TableHead>Rancho</TableHead>
+								<TableHead>Refeitório</TableHead>
 								<TableHead>Refeição</TableHead>
 								<TableHead className="text-center">Previsto</TableHead>
 								<TableHead className="text-center">Presença</TableHead>

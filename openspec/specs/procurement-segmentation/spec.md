@@ -10,7 +10,7 @@ O sistema SHALL permitir que quem tem `unit:2` na OM cadastre contratações (se
 
 #### Scenario: Montar "Carnes" por pastas
 
-- **WHEN** o chefe do rancho cria "Carnes" incluindo as pastas Proteínas e Frios/Embutidos
+- **WHEN** quem tem Gestão Unidade cria "Carnes" incluindo as pastas Proteínas e Frios/Embutidos
 - **THEN** todo insumo em qualquer subpasta dessas duas resolve para "Carnes"
 
 #### Scenario: Exceção mais específica vence

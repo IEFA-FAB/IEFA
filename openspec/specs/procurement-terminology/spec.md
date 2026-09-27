@@ -15,7 +15,7 @@ Os textos de interface e de exportação do planejamento da contratação SHALL 
 
 #### Scenario: Concluir o anexo
 
-- **WHEN** o chefe do rancho finaliza o anexo quantitativo
+- **WHEN** quem tem Gestão Unidade finaliza o anexo quantitativo
 - **THEN** o botão e o status dizem "Concluir" e "Concluído", nunca "Publicar"
 
 #### Scenario: Acréscimo de quantidade
@@ -34,5 +34,5 @@ A aba "Suprimentos" SHALL se chamar "Previsão de demanda". O envio da nutricion
 
 #### Scenario: A mesma previsão em duas contratações
 
-- **WHEN** a previsão já entrou no anexo "Carnes 2027" e o chefe do rancho abre o wizard do anexo "Estocáveis 2027"
+- **WHEN** a previsão já entrou no anexo "Carnes 2027" e quem tem Gestão Unidade abre o wizard do anexo "Estocáveis 2027"
 - **THEN** o wizard oferece a mesma previsão para importar e informa que ela já entrou em "Carnes 2027"

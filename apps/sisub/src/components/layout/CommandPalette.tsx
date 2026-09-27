@@ -50,7 +50,7 @@ export function useCommandPaletteShortcut(): string {
  * `localStorage`: sobrevive à navegação do SPA e morre no F5. Chave de armazenamento nova
  * exigiria versão nova da Política de Cookies (e ciência de novo de todo usuário) por uma
  * conveniência — mesma escolha do #298. Por usuário porque num terminal compartilhado
- * (rancho, almoxarifado) o escopo de quem saiu não pode virar o destino de quem entrou.
+ * (refeitório, almoxarifado) o escopo de quem saiu não pode virar o destino de quem entrou.
  */
 const recentScopesByUser = new Map<string, RecentScopes>()
 

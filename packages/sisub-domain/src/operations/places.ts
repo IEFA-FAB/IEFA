@@ -265,7 +265,7 @@ export async function fetchOtherPresencesCount(db: SisubDb, _ctx: UserContext, i
 }
 
 export async function addOtherPresence(db: SisubDb, ctx: UserContext, input: AddOtherPresence) {
-	// Presença de não-cadastrado lançada pelo fiscal do rancho.
+	// Presença de não-cadastrado lançada pelo Fiscal de rancho.
 	requireMessHall(ctx, 2, input.messHallId)
 
 	await runQuery("INSERT_FAILED", () =>
@@ -276,11 +276,11 @@ export async function addOtherPresence(db: SisubDb, ctx: UserContext, input: Add
 /**
  * Nome de exibição de uma pessoa, para o fiscal conferir quem ele acabou de ler no QR.
  *
- * O próprio nome é livre; o de TERCEIRO exige `messhall:1` no rancho informado — o guard
+ * O próprio nome é livre; o de TERCEIRO exige `messhall:1` no refeitório informado — o guard
  * vivia só na server fn, e esta operação descartava o contexto. A pessoa NÃO precisa ser da
- * OM do rancho, e isso é deliberado: o comensal de outra OM é atendido em qualquer rancho, e
+ * OM do refeitório, e isso é deliberado: o comensal de outra OM é atendido em qualquer refeitório, e
  * restringir ao efetivo da unidade deixaria o fiscal sem saber quem entrou. O que se entrega
- * é o nome de exibição e só — e só a quem opera a fiscalização de um rancho.
+ * é o nome de exibição e só — e só a quem opera a fiscalização de um refeitório.
  */
 export async function resolveDisplayName(db: SisubDb, ctx: UserContext, input: ResolveDisplayName): Promise<string | null> {
 	if (input.userId !== ctx.userId) requireMessHall(ctx, 1, input.messHallId)

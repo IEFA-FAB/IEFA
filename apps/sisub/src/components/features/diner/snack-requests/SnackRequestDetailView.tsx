@@ -81,7 +81,7 @@ export function SnackRequestDetailView({ request }: { request: SnackRequestDetai
 			{request.material_return_pending && (
 				<Alert>
 					<AlertTitle>Material a devolver</AlertTitle>
-					<AlertDescription>Há material de rancho cautelado neste pedido que ainda não voltou à cozinha.</AlertDescription>
+					<AlertDescription>Há material da cozinha cautelado neste pedido que ainda não voltou a ela.</AlertDescription>
 				</Alert>
 			)}
 
@@ -104,7 +104,10 @@ export function SnackRequestDetailView({ request }: { request: SnackRequestDetai
 								/>
 								<Detail label={aerial ? "Decolagem" : "Partida"} value={formatDateTime(request.departure_at)} />
 								<Detail label="Procedência / destino" value={[request.origin, request.destination].filter(Boolean).join(" → ")} />
-								<Detail label="Escalas" value={[request.stops, request.stops_without_mess ? "com escala sem rancho" : null].filter(Boolean).join(" · ")} />
+								<Detail
+									label="Escalas"
+									value={[request.stops, request.stops_without_mess ? "com escala sem apoio de refeitório" : null].filter(Boolean).join(" · ")}
+								/>
 								<Detail
 									label="Duração"
 									value={[
@@ -291,7 +294,7 @@ export function SnackRequestDetailView({ request }: { request: SnackRequestDetai
 						<Card>
 							<CardHeader>
 								<CardTitle>Material cautelado</CardTitle>
-								<CardDescription>Material de rancho entregue com os kits; devolva à cozinha depois da missão.</CardDescription>
+								<CardDescription>Material da cozinha entregue com os kits; devolva-o depois da missão.</CardDescription>
 							</CardHeader>
 							<CardContent>
 								<ItemGroup className="gap-2">

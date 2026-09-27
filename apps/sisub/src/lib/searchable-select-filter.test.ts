@@ -38,7 +38,7 @@ describe("buildHits", () => {
 	const options = [opt("a", "Arroz"), opt("b", "Feijão"), opt("c", "Café")]
 
 	test("a opção de limpar encabeça a lista e também é filtrável", () => {
-		const clear = opt("", "Todos os ranchos")
+		const clear = opt("", "Todos os refeitórios")
 		expect(buildHits({ options, query: "", clearOption: clear, selected: null })[0]).toBe(clear)
 		expect(buildHits({ options, query: "todos", clearOption: clear, selected: null })).toEqual([clear])
 	})

@@ -79,7 +79,7 @@ import type { TemplateItemDraft } from "@/types/domain/planning"
  * cardápio semanal (`resolveItemDemand`).
  *
  * O EVENTO tem refeições próprias (zero ou mais): nome, horário no calendário e composição
- * (entradas, volantes…) definidos nele, sem relação com os tipos de refeição do rancho —
+ * (entradas, volantes…) definidos nele, sem relação com os tipos de refeição da cozinha —
  * regras em `@/lib/event-meals`. A EXCEÇÃO segue agrupada pelos tipos de refeição da cozinha
  * e acrescenta as ocorrências mensais, que multiplicam o custeio no anexo quantitativo.
  *

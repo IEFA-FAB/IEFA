@@ -56,7 +56,7 @@ export const MAX_EVENT_MEAL_HEADCOUNT = 100_000
 /**
  * Refeição PRÓPRIA de um evento (coquetel, jantar de gala…). O evento tem zero ou mais, e cada
  * uma tem nome, horário no calendário e composição próprios — nada disso é compartilhado com
- * os tipos de refeição do rancho nem com os conjuntos de grupos deles.
+ * os tipos de refeição da cozinha nem com os conjuntos de grupos deles.
  */
 export const TemplateEventMealSchema = z.object({
 	/**

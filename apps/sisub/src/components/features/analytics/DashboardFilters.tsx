@@ -15,9 +15,9 @@ interface DashboardFiltersProps {
 	onMessHallChange: (id: string) => void
 }
 
-const MESS_HALL_ALL_LABEL = "Todos os Ranchos"
+const MESS_HALL_ALL_LABEL = "Todos os Refeitórios"
 
-/** Valor com que o painel pede "sem filtro de rancho". */
+/** Valor com que o painel pede "sem filtro de refeitório". */
 const ALL_MESS_HALLS = "all"
 
 export default function DashboardFilters({ dateRange, onDateRangeChange, messHalls, selectedMessHall, onMessHallChange }: DashboardFiltersProps) {
@@ -77,16 +77,16 @@ export default function DashboardFilters({ dateRange, onDateRangeChange, messHal
 
 					{/* Mess Hall Selector */}
 					<Field>
-						<FieldLabel htmlFor="mess-hall-select">Rancho</FieldLabel>
+						<FieldLabel htmlFor="mess-hall-select">Refeitório</FieldLabel>
 						<SearchableSelect
 							id="mess-hall-select"
 							value={selectedMessHall === ALL_MESS_HALLS ? null : selectedMessHall}
 							onValueChange={(val) => onMessHallChange(val ?? ALL_MESS_HALLS)}
 							options={messHallOptions}
 							clearLabel={MESS_HALL_ALL_LABEL}
-							searchPlaceholder="Pesquisar rancho…"
-							emptyLabel="Nenhum rancho encontrado."
-							unavailableLabel="Rancho indisponível"
+							searchPlaceholder="Pesquisar refeitório…"
+							emptyLabel="Nenhum refeitório encontrado."
+							unavailableLabel="Refeitório indisponível"
 						/>
 					</Field>
 

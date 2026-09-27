@@ -93,8 +93,8 @@ export default function DashboardCard({ unitId }: { unitId: number }) {
 								</TabsTrigger>
 								<TabsTrigger value="mess-halls" className="gap-2">
 									<Building2 className="size-4" aria-hidden="true" />
-									<span className="hidden sm:inline">Por Rancho</span>
-									<span className="sm:hidden">Ranchos</span>
+									<span className="hidden sm:inline">Por Refeitório</span>
+									<span className="sm:hidden">Refeitórios</span>
 								</TabsTrigger>
 								<TabsTrigger value="presence" className="gap-2">
 									<Users className="size-4" aria-hidden="true" />

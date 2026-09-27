@@ -10,7 +10,7 @@ import { useTemplate } from "@/hooks/data/useTemplates"
  * KITCHEN — Editor de Evento
  * URL: /kitchen/:kitchenId/events/:eventId
  *
- * Eventos são cardápios de ocasião única (jantar de formatura, rancho de manobra…). Um evento
+ * Eventos são cardápios de ocasião única (jantar de formatura, refeição de campanha…). Um evento
  * modelo do catálogo global aberto aqui vira cópia local desta cozinha ao salvar.
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/events/$eventId")({

@@ -11,7 +11,7 @@ export type { DayMeals }
 // ============================================================================
 
 /**
- * Mess Hall (Rancho) - tabela mess_halls
+ * Mess Hall (Refeitório) - tabela mess_halls
  */
 /**
  * Unidade (OM) - tabela units

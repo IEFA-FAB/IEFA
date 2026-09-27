@@ -70,9 +70,9 @@ const source = { ata: "ATA (preço homologado)" }
 const research = "Pesquisa de preço"
 // ruleid: ubiquitous-language-lot1-label
 const module = { name: "Fiscal", hubUrl: "/messhall" }
-// ruleid: ubiquitous-language-lot1-label
+// ruleid: ubiquitous-language-lot1-label, ubiquitous-language-lot8a-rancho
 const qr = "Apresente este código ao Fiscal de Rancho"
-// ruleid: ubiquitous-language-lot1-label
+// ruleid: ubiquitous-language-lot1-label, ubiquitous-language-lot8a-rancho
 const ask = "Peça a designação ao chefe do rancho"
 
 // ok: ubiquitous-language-lot1-label
@@ -263,3 +263,43 @@ const fromReport = { received_credit: Number(parsed.dotacao ?? 0) }
 const tooltip = "Numa UG executora não há dotação: há crédito descentralizado por nota de crédito."
 // ok: ubiquitous-language-lot4-identifier
 // A coluna antiga era dotacao; o espelho a mantém até o contract.
+
+// ── Lote 8a: "rancho" ──────────────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-lot8a-rancho
+const allMessHalls = "Todos os ranchos"
+// ruleid: ubiquitous-language-lot8a-rancho
+export function listRanchos() {}
+// ruleid: ubiquitous-language-lot8a-rancho
+const selector = <SearchableSelect placeholder="Selecione um rancho..." />
+// ruleid: ubiquitous-language-lot8a-rancho
+const snackKit = { description: "Material de rancho entregue com os kits" }
+// ruleid: ubiquitous-language-lot8a-rancho
+const kitchenPrompt = `Use linguagem técnica militar quando apropriado (rancho, comensal, efetivo)`
+// ruleid: ubiquitous-language-lot8a-rancho
+const regularGroup = { key: "rancho", snackRequest: null }
+// ruleid: ubiquitous-language-lot8a-rancho
+const unitHint = "Pode ser compra fora do rancho; se não for, inclua a pasta."
+
+// ok: ubiquitous-language-lot8a-rancho
+const qrOk2 = "Apresente este código ao Fiscal de rancho para registrar sua presença."
+// ok: ubiquitous-language-lot8a-rancho
+const docsRow = "| `messhall` | `mess_hall_id` | Operadores de refeitório e Fiscais de rancho |"
+// ok: ubiquitous-language-lot8a-rancho
+const navItem = { title: "Locais", keywords: ["rancho", "refeitório", "cozinha", "om"] }
+// ok: ubiquitous-language-lot8a-rancho
+const allMessHallsOk = "Todos os refeitórios"
+// ok: ubiquitous-language-lot8a-rancho
+const analyticsSchema = `### mess_halls (refeitórios; quem pergunta pode dizer “rancho”)`
+// ok: ubiquitous-language-lot8a-rancho
+const NORM_REFS = { stops: "Recomendações — deslocamento com parada sem apoio de rancho" }
+// ruleid: ubiquitous-language-lot8a-rancho
+const stopNote = { text: "Há escala sem apoio de rancho: o lanche cobre o tempo total do deslocamento." }
+// ok: ubiquitous-language-lot8a-rancho
+const pi = "'339030', 'PIRANCHO', '120001'"
+// ok: ubiquitous-language-lot8a-rancho
+const roster = sql`delete from kitchen.workforce_submission where rancho_id in (select id from kitchen.rancho)`
+// ok: ubiquitous-language-lot8a-rancho
+export { createRancho, updateRancho, computeRanchoMetrics } from "./workforce.ts"
+// ok: ubiquitous-language-lot8a-rancho
+// o "rancho" da matriz de efetivo sai no lote 8b

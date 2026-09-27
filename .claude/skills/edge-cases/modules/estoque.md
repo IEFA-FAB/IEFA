@@ -15,7 +15,7 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 
 ### EST-REC-04 — "O freezer quebrou: compramos carne resfriada a vácuo em vez de congelada"
 - **Realidade:** a especificação de compra sugere a carne congelada. Com o freezer em
-  manutenção e a geladeira funcionando, o rancho compra (ou aceita do fornecedor) a mesma
+  manutenção e a geladeira funcionando, a unidade compra (ou aceita do fornecedor) a mesma
   carne resfriada a vácuo, para consumir em poucos dias. Vale para qualquer classe:
   congelado que chega resfriado, resfriado que chega seco (UHT no lugar do fresco) e o
   contrário.

@@ -14,7 +14,7 @@ export type ProductionTask = Omit<DBProductionTask, "status"> & {
 	status: ProductionTaskStatus
 }
 
-/** Pedido de lanche de onde veio o item do quadro (`fetchProductionBoard`). Nulo = item do rancho. */
+/** Pedido de lanche de onde veio o item do quadro (`fetchProductionBoard`). Nulo = item do cardápio. */
 export type ProductionSnackRequest = BoardSnackRequest
 
 /**
@@ -27,7 +27,7 @@ export interface ProductionItem {
 		recipe_origin: Recipe | null
 		/** Ingredients completos para o sheet de detalhe */
 		recipe_with_ingredients: RecipeWithIngredients | null
-		/** Item de pedido de lanche: o quadro separa os kits por missão. Nulo = rancho. */
+		/** Item de pedido de lanche: o quadro separa os kits por missão. Nulo = item do cardápio. */
 		snack_request: ProductionSnackRequest | null
 		/** Lacunas da ficha GRAVADA no dia (a da baixa e da sugestão de saída). Vazio = completa. */
 		recipe_gaps: SnapshotGap[]

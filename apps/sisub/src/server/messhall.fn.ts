@@ -40,7 +40,7 @@ export const fetchMessHallIdByCodeFn = createServerFn({ method: "GET" })
 	})
 
 // Dois chamadores legítimos, como em `insertPresence`: o comensal no self check-in (manda o
-// PRÓPRIO id) e o fiscal do rancho (manda o id de terceiro). Só o segundo precisa de
+// PRÓPRIO id) e o Fiscal de rancho (manda o id de terceiro). Só o segundo precisa de
 // `messhall`. Sem essa ramificação bastava estar autenticado para ler a previsão de qualquer
 // pessoa — `fetchUserMealForecast` descarta o `_ctx` e filtra apenas por `input.userId`.
 export const fetchUserMealForecastFn = createServerFn({ method: "GET" })
@@ -52,7 +52,7 @@ export const fetchUserMealForecastFn = createServerFn({ method: "GET" })
 	})
 
 // Terceira leitura da tela de fiscalização, e a única que havia ficado com só `requireAuth()`:
-// devolve a contagem de não-cadastrados de qualquer rancho, data e refeição. Mesmo guard das
+// devolve a contagem de não-cadastrados de qualquer refeitório, data e refeição. Mesmo guard das
 // outras duas — o payload traz `messHallId`, então o escopo é exigível.
 export const fetchOtherPresencesCountFn = createServerFn({ method: "GET" })
 	.validator(FetchOtherPresencesCountSchema)
@@ -62,7 +62,7 @@ export const fetchOtherPresencesCountFn = createServerFn({ method: "GET" })
 		return fetchOtherPresencesCount(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-// `addOtherPresence` já exige `messhall:2` no rancho, então quem PODE lançar está resolvido.
+// `addOtherPresence` já exige `messhall:2` no refeitório, então quem PODE lançar está resolvido.
 // O que vinha do cliente era a AUTORIA: `adminId` é gravado em `other_presences.admin_id` e é
 // o rastro de quem lançou. Com ele no payload, um fiscal legítimo atribuía o lançamento a
 // outra pessoa — permissão correta, autoria falsificada. Agora vem da sessão.
@@ -74,10 +74,10 @@ export const addOtherPresenceFn = createServerFn({ method: "POST" })
 		return addOtherPresence(getDb(), ctx, withSessionIdentity(data, session, ["adminId"])).catch(handleDomainError)
 	})
 
-// Resolver o nome de terceiro exige `messhall:1` no rancho informado; o próprio nome, não.
+// Resolver o nome de terceiro exige `messhall:1` no refeitório informado; o próprio nome, não.
 // O escopo é o mesmo que a rota `/messhall/$messHallId` exige — e é por isso que o schema
 // pede `messHallId` mesmo sem usá-lo na consulta: guard sem escopo aceitaria nível 1 em
-// QUALQUER rancho para resolver o nome de qualquer pessoa da base.
+// QUALQUER refeitório para resolver o nome de qualquer pessoa da base.
 export const resolveDisplayNameFn = createServerFn({ method: "GET" })
 	.validator(ResolveDisplayNameSchema)
 	.handler(async ({ data }): Promise<string | null> => {

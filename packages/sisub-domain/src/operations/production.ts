@@ -52,7 +52,7 @@ type BoardItem = {
 		recipe_with_ingredients: Record<string, unknown> | null
 		/**
 		 * Item vindo de pedido de lanche (aceite em `snack-requests.ts`): o quadro mostra de
-		 * qual missão é, para a produção separar os kits por pedido. Nulo = rancho.
+		 * qual missão é, para a produção separar os kits por pedido. Nulo = item do cardápio.
 		 */
 		snack_request: BoardSnackRequest | null
 		/**

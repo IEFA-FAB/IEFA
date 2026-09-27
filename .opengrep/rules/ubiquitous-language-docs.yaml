@@ -1,0 +1,25 @@
+##
+# Linguagem ubíqua do sisub na documentação (change `sisub-ubiquitous-language`, D8). Separada de
+# `ubiquitous-language.yaml` porque lá a linha que começa com `*` é comentário de código e não é
+# acusada; em Markdown, `*` abre lista e `**`, negrito.
+#
+# Casos de teste: `__fixtures__/ubiquitous-language-docs.mdx` (opengrep test --config
+# .opengrep/rules/ubiquitous-language-docs.yaml .opengrep/rules/__fixtures__/ubiquitous-language-docs.mdx).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: ubiquitous-language-lot8a-docs
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      "Rancho" é ambíguo e não é termo do sisub: na documentação, use cozinha, refeitório ou
+      unidade, conforme o que a frase quer dizer. A única exceção é o nome da função "Fiscal de
+      rancho" (módulo `messhall`).
+    paths:
+      include:
+        - "apps/docs/content/docs/pbac/**"
+        - "apps/docs/content/docs/sisub/**"
+    patterns:
+      - pattern-regex: (?i)\w*rancho\w*
+      - pattern-not-regex: \bFisca(?:l|is) de rancho\b

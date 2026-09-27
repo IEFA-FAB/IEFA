@@ -112,7 +112,7 @@ export type MoveOriginToDate = z.infer<typeof MoveOriginToDateSchema>
  * Troca o cardápio INTEIRO de um dia por outro (evento ou apoio): falta de luz, falta de água,
  * pane de equipamento. O que estava planejado vai para a lixeira (restaurável) e o cardápio de
  * contingência entra no lugar, numa transação só. Produção de pedido de lanche aceito fica: ela
- * é compromisso com a missão, não planejamento do rancho.
+ * é compromisso com a missão, não planejamento da cozinha.
  */
 export const ReplaceDayWithTemplateSchema = z.object({
 	kitchenId: KitchenIdSchema,
