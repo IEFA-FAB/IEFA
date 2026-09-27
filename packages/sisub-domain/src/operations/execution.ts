@@ -144,7 +144,8 @@ export async function fetchExecutionOptions(db: SisubDb, ctx: UserContext, input
 
 	return {
 		today: brasiliaToday(),
-		mealTypes: mealRows.map((row) => ({ id: row.id, name: String(row.name) })),
+		// `meal_type.name` é anulável: sem nome, a tela mostra o marcador, nunca a string "null".
+		mealTypes: mealRows.map((row) => ({ id: row.id, name: row.name ?? "(sem nome)" })),
 		recipes: recipeRows
 			.map((row) => ({
 				id: row.id,

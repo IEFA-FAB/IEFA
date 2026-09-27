@@ -38,7 +38,6 @@ import { loadUnitExecution } from "@/lib/acquisition-execution"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { currentFiscalYear } from "@/lib/expense-execution"
-import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -209,7 +208,9 @@ async function loadLimits(): Promise<DirectContractLimitRow[]> {
 function loadExecution(unitId: number, fiscalYear: number) {
 	return loadUnitExecution<AcquisitionRow & { [column: string]: unknown }>(
 		{ procurement: procurement(), finance: finance() },
-		{ unitId, fiscalYear, acquisitionColumns: selectColumns(ACQUISITION_COLUMNS) }
+		// A consulta vai pela costura frouxa de `loadUnitExecution`, que não infere a linha do `select`:
+		// quem mantém tipo e colunas juntos é o `Pick` de `AcquisitionRow` sobre a mesma lista.
+		{ unitId, fiscalYear, acquisitionColumns: ACQUISITION_COLUMNS.join(", ") }
 	)
 }
 

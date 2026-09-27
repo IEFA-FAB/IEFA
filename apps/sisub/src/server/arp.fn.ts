@@ -405,7 +405,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		if (staleIds.length > 0) {
 			// Item com empenho fica (o FK é RESTRICT desde 20260926214000): o empenho aponta pelo
 			// cabeçalho antigo OU por um item da NE, e os dois contam.
-			const fin = getFinanceClient()
+			const fin = supabase.schema("finance")
 			const [{ data: headerRefs, error: headerError }, { data: itemRefs, error: itemError }] = await Promise.all([
 				fin.from("empenho").select("arp_item_id").in("arp_item_id", staleIds),
 				fin.from("empenho_item").select("arp_item_id").in("arp_item_id", staleIds),
@@ -941,7 +941,7 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 
 		// Pelos itens da NE. A liquidação é da NE inteira; numa NE com vários itens ela se reparte
 		// entre eles na proporção do valor de cada item — é leitura de acompanhamento, não lançamento.
-		const financeClient = getFinanceClient()
+		const financeClient = supabase.schema("finance")
 		const { data: arpNeItems, error: arpNeError } = await financeClient.from("empenho_item").select("empenho_id, arp_item_id, value").in("arp_item_id", itemIds)
 		if (arpNeError) throw new Error(`Erro ao buscar itens de empenho: ${arpNeError.message}`)
 		const empenhoIds = [...new Set((arpNeItems ?? []).map((row) => row.empenho_id))]

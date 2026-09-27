@@ -23,34 +23,30 @@ import {
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
+import { getServerClient, toLooseRpcClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
-
-// Frouxo SÓ para as RPCs de sobra (`register_leftover`, `register_leftover_provisional`): elas
-// mandam `null` explícito em parâmetro que aceita nulo no banco (motivo sem descarte, unidade e
-// validade da provisória), e o tipo gerado declara esses parâmetros como não nulos. Tipá-las
-// obrigaria a trocar o payload. Todo `.from(...)` e as demais RPCs passam pelo cliente tipado.
-// biome-ignore lint/suspicious/noExplicitAny: retorno das RPCs com `null` explícito; ver acima
-type LooseRpcClient = { rpc: (fn: string, args?: Record<string, unknown>) => any }
-const looseRpc = (client: ReturnType<typeof inventory>) => client as unknown as LooseRpcClient
 
 interface TaskWithSnapshot {
 	id: string
 	production_date: string
 	status: string
-	menu_item: { recipe: RecipeSnapshotForIssue | null; planned_portion_quantity: number | null } | null
+	menu_item: { recipe: RecipeSnapshotForIssue | null; planned_portion_quantity: number | null }
 }
 
 async function fetchTask(taskId: string): Promise<{ task: TaskWithSnapshot; kitchenId: number }> {
 	const kit = kitchen()
 	const { data: task, error } = await kit.from("production_task").select("id, kitchen_id, production_date, status, menu_item_id").eq("id", taskId).single()
 	if (error || !task) throw new Error("Tarefa de produção não encontrada")
-	const { data: menuItem } = await kit.from("menu_items").select("recipe, planned_portion_quantity").eq("id", task.menu_item_id).single()
+	// Leitura que falha não vira "tarefa sem ficha": seguir com `menu_item` nulo baixava a tarefa
+	// com consumo teórico vazio.
+	const { data: menuItem, error: menuError } = await kit.from("menu_items").select("recipe, planned_portion_quantity").eq("id", task.menu_item_id).maybeSingle()
+	if (menuError) throw new Error(`Erro ao carregar a preparação da tarefa: ${menuError.message}`)
+	if (!menuItem) throw new Error("A preparação desta tarefa não está mais no cardápio")
 	return {
 		// `recipe` é o snapshot jsonb gravado no cardápio; o tipo gerado o declara `Json`.
-		task: { ...task, menu_item: menuItem ? { ...menuItem, recipe: menuItem.recipe as RecipeSnapshotForIssue | null } : null },
+		task: { ...task, menu_item: { ...menuItem, recipe: menuItem.recipe as RecipeSnapshotForIssue | null } },
 		kitchenId: Number(task.kitchen_id),
 	}
 }
@@ -310,7 +306,9 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 
 		if (data.newFrozenPreparation) {
 			// Cria (ou reaproveita pelo nome) e registra numa transação: sem congelada órfã no retry.
-			const { data: result, error } = await looseRpc(inv).rpc("register_leftover_provisional", {
+			// `p_measure_unit`, `p_shelf_life_days` e `p_reason` não têm default no SQL e aceitam nulo:
+			// o tipo gerado os declara não nulos, então esta RPC vai pela porta frouxa.
+			const { data: result, error } = await toLooseRpcClient(inv).rpc("register_leftover_provisional", {
 				p_kitchen_id: kitchenId,
 				p_description: data.newFrozenPreparation.description,
 				p_measure_unit: data.newFrozenPreparation.measureUnit ?? null,
@@ -335,7 +333,8 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 
 		// lote + movimentos numa função SQL (review: falha parcial deixava lote
 		// órfão e retry duplicava o retorno)
-		const { data: result, error } = await looseRpc(inv).rpc("register_leftover", {
+		// `p_reason` não tem default no SQL e é nulo sem descarte: ver `toLooseRpcClient`.
+		const { data: result, error } = await toLooseRpcClient(inv).rpc("register_leftover", {
 			p_kitchen_id: kitchenId,
 			p_frozen_preparation_id: frozenPreparationId,
 			p_lot_code: `SOBRA-${task.production_date}`,
@@ -410,7 +409,7 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 			// por TAREFA, não por menu_item deduplicado — a mesma preparação
 			// produzida N vezes conta N vezes (review: variância superestimada)
 			for (const taskRow of taskList) {
-				const menuItem = menuById.get(taskRow.menu_item_id) as { recipe: unknown; planned_portion_quantity: number | null } | undefined
+				const menuItem = menuById.get(taskRow.menu_item_id)
 				if (!menuItem) continue
 				for (const line of computeTheoreticalConsumption(
 					menuItem.recipe as Parameters<typeof computeTheoreticalConsumption>[0],

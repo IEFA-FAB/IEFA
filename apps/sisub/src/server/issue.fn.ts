@@ -39,14 +39,6 @@ import { getServerClient } from "@/lib/supabase.server"
 const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
 
-// Frouxo SÓ para as RPCs que mandam `null` explícito em parâmetro com default (`issue_stock`,
-// `register_late_issue`): o tipo gerado declara esses parâmetros como `?: string`, sem `| null`.
-// Tipá-las obrigaria a trocar o `null` por chave omitida no payload, que é outra mudança. Todo
-// `.from(...)` e as demais RPCs passam pelo cliente tipado.
-// biome-ignore lint/suspicious/noExplicitAny: retorno das RPCs com `null` explícito; ver acima
-type LooseRpcClient = { rpc: (fn: string, args?: Record<string, unknown>) => any }
-const looseRpc = (client: ReturnType<typeof inventory>) => client as unknown as LooseRpcClient
-
 /** Tolerâncias da cozinha, com os defaults do banco. */
 async function toleranceFor(kitchenId: number) {
 	const { data: row, error } = await inventory()
@@ -409,15 +401,16 @@ export const issueStockFn = createServerFn({ method: "POST" })
 			}
 		}
 
-		const { data: result, error } = await looseRpc(inv).rpc("issue_stock", {
+		const { data: result, error } = await inv.rpc("issue_stock", {
 			p_request_id: data.requestId,
 			p_ingredient_id: data.ingredientId,
 			p_quantity: data.quantity,
 			p_user: userId,
 			p_emission_id: data.emissionId,
-			p_override_lot_id: data.overrideLotId ?? null,
-			p_justification: data.justification?.trim() || null,
-			p_production_task_id: data.productionTaskId ?? null,
+			// Opcionais têm `DEFAULT NULL` na função: chave omitida vale o mesmo `null`.
+			p_override_lot_id: data.overrideLotId,
+			p_justification: data.justification?.trim() || undefined,
+			p_production_task_id: data.productionTaskId,
 		})
 		if (error) throw new Error(`Erro ao emitir a saída: ${error.message}`)
 		const row = result?.[0]
@@ -800,7 +793,7 @@ export const registerLateIssueFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
 		if (data.occurredOn > brasiliaToday()) throw new Error("A data real da saída não pode ser futura")
-		const { data: result, error } = await looseRpc(inventory()).rpc("register_late_issue", {
+		const { data: result, error } = await inventory().rpc("register_late_issue", {
 			p_kitchen_id: data.kitchenId,
 			p_ingredient_id: data.ingredientId,
 			p_quantity: data.quantity,
@@ -808,11 +801,12 @@ export const registerLateIssueFn = createServerFn({ method: "POST" })
 			p_reason: data.reason,
 			p_user: userId,
 			p_emission_id: data.emissionId,
-			p_production_task_id: data.productionTaskId ?? null,
+			// `DEFAULT NULL` na função: sem tarefa, a chave é omitida.
+			p_production_task_id: data.productionTaskId,
 		})
 		if (error) throw new Error(`Erro ao lançar a saída tardia: ${error.message}`)
 		const row = result?.[0]
-		return { movements: Number(row?.movements ?? 0), withoutLot: Number(row?.without_lot ?? 0), requestId: (row?.request_id as string | null) ?? null }
+		return { movements: Number(row?.movements ?? 0), withoutLot: Number(row?.without_lot ?? 0), requestId: row?.request_id ?? null }
 	})
 
 /** Dias que fecharam sozinhos com desvio sem motivo e ainda esperam a justificativa. */

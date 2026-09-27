@@ -31,6 +31,19 @@ export function getServerClient<S extends DbSchema>(schema: S) {
 	})
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: retorno das RPCs chamadas pela porta frouxa; ver `toLooseRpcClient`
+type LooseRpcClient = { rpc: (fn: string, args?: Record<string, unknown>) => any }
+
+/**
+ * Porta frouxa para RPC que precisa de `null` explícito em parâmetro SEM default no SQL: o tipo
+ * gerado declara todo parâmetro sem default como não nulo, e a função aceita nulo ali de propósito
+ * (ex.: `inventory.register_leftover(p_reason)` sem descarte). Parâmetro com `DEFAULT NULL` não
+ * precisa disto: omita a chave (`?? undefined`) e chame pelo cliente tipado.
+ */
+export function toLooseRpcClient(client: ReturnType<typeof getServerClient>): LooseRpcClient {
+	return client as unknown as LooseRpcClient
+}
+
 /** Helpers por domínio. */
 export const getCoreClient = () => getServerClient("core")
 export const getAccessControlClient = () => getServerClient("access_control")

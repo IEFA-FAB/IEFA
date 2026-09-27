@@ -806,53 +806,52 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 
 		const itemRows = items ?? []
 		const itemIds = itemRows.map((item) => item.id)
-		const { data: lots, error: lotsError } =
-			itemIds.length > 0 ? await inv.from("goods_receipt_item_lot").select("*").in("receipt_item_id", itemIds) : { data: [], error: null }
-		if (lotsError) throw new Error(`Erro ao carregar os lotes do recebimento: ${lotsError.message}`)
-		const narrowedLots = (lots ?? []).map((lot) => ({ ...lot, conservation_class: lot.conservation_class as ConservationClass | null }))
+		const ingredientIds = [...new Set(itemRows.map((item) => item.ingredient_id).filter((id) => id != null))]
+		// GTINs vinculados aos itens (para a conferência por scanner)
+		const skuIds = [...new Set(itemRows.map((item) => item.ingredient_item_id).filter((id) => id != null))]
+		const purchaseItemIds = [...new Set(itemRows.map((item) => item.purchase_item_id).filter((id) => id != null))]
+		const proc = getServerClient("procurement")
+
+		// Lotes, nomes, GTINs e especificações dependem só das linhas: uma ida só ao PostgREST.
+		const [lotsResult, ingredientsResult, skusResult, specsResult] = await Promise.all([
+			itemIds.length > 0 ? inv.from("goods_receipt_item_lot").select("*").in("receipt_item_id", itemIds) : { data: [], error: null },
+			ingredientIds.length > 0 ? kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds) : { data: [], error: null },
+			skuIds.length > 0 ? kit.from("ingredient_item").select("id, gtin").in("id", skuIds) : { data: [], error: null },
+			purchaseItemIds.length > 0 ? proc.from("purchase_item").select(SPEC_COLUMNS).in("id", purchaseItemIds) : { data: [], error: null },
+		])
+		if (lotsResult.error) throw new Error(`Erro ao carregar os lotes do recebimento: ${lotsResult.error.message}`)
+		if (ingredientsResult.error) throw new Error(`Erro ao carregar os insumos: ${ingredientsResult.error.message}`)
+		if (skusResult.error) throw new Error(`Erro ao carregar os códigos dos itens: ${skusResult.error.message}`)
+		// Acondicionamento sugerido, por especificação de compra da linha. Linha sem
+		// purchase_item — ou com ele sem classe — cai na especificação padrão do insumo, desde
+		// que não excluída: a MESMA resolução de `requiredRangeFor` (que grava o lote) e de
+		// `finalize_goods_receipt`. Tela e servidor divergindo, o conferente via uma sugestão
+		// e o recebimento era julgado por outra — por isso a leitura que falha lança, em vez de
+		// mostrar a linha sem especificação.
+		if (specsResult.error) throw new Error(`Erro ao carregar as especificações de compra: ${specsResult.error.message}`)
+
+		const narrowedLots = (lotsResult.data ?? []).map((lot) => ({ ...lot, conservation_class: lot.conservation_class as ConservationClass | null }))
 		const lotsByItem = new Map<string, typeof narrowedLots>()
 		for (const lot of narrowedLots) {
 			const bucket = lotsByItem.get(lot.receipt_item_id)
 			if (bucket) bucket.push(lot)
 			else lotsByItem.set(lot.receipt_item_id, [lot])
 		}
-
-		const ingredientIds = [...new Set(itemRows.map((item) => item.ingredient_id).filter((id) => id != null))]
-		const names = new Map<string, { description: string | null; measure_unit: string | null }>()
-		if (ingredientIds.length > 0) {
-			const { data: ings, error: ingError } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
-			if (ingError) throw new Error(`Erro ao carregar os insumos: ${ingError.message}`)
-			for (const ing of ings ?? []) names.set(ing.id, ing)
-		}
-		// GTINs vinculados aos itens (para a conferência por scanner)
-		const skuIds = [...new Set(itemRows.map((item) => item.ingredient_item_id).filter((id) => id != null))]
-		const gtinByItemId = new Map<string, string | null>()
-		if (skuIds.length > 0) {
-			const { data: skus, error: skuError } = await kit.from("ingredient_item").select("id, gtin").in("id", skuIds)
-			if (skuError) throw new Error(`Erro ao carregar os códigos dos itens: ${skuError.message}`)
-			for (const sku of skus ?? []) gtinByItemId.set(sku.id, sku.gtin)
-		}
-
-		// Acondicionamento sugerido, por especificação de compra da linha. Linha sem
-		// purchase_item — ou com ele sem classe — cai na especificação padrão do insumo, desde
-		// que não excluída: a MESMA resolução de `requiredRangeFor` (que grava o lote) e de
-		// `finalize_goods_receipt`. Tela e servidor divergindo, o conferente via uma sugestão
-		// e o recebimento era julgado por outra.
-		const proc = getServerClient("procurement")
-		const purchaseItemIds = [...new Set(itemRows.map((item) => item.purchase_item_id).filter((id) => id != null))]
-		const { data: specs } = purchaseItemIds.length > 0 ? await proc.from("purchase_item").select(SPEC_COLUMNS).in("id", purchaseItemIds) : { data: [] }
-		const specById = new Map((specs ?? []).map((spec) => [spec.id, narrowSpec(spec)]))
+		const names = new Map((ingredientsResult.data ?? []).map((ing) => [ing.id, ing]))
+		const gtinByItemId = new Map((skusResult.data ?? []).map((sku) => [sku.id, sku.gtin]))
+		const specById = new Map((specsResult.data ?? []).map((spec) => [spec.id, narrowSpec(spec)]))
 		const needsDefault = (item: (typeof itemRows)[number]) =>
 			!!item.ingredient_id && (!item.purchase_item_id || specById.get(item.purchase_item_id)?.conservation_class == null)
 		const fallbackIngredientIds = [...new Set(itemRows.filter(needsDefault).map((item) => item.ingredient_id as string))]
-		const { data: links } =
+		const { data: links, error: linksError } =
 			fallbackIngredientIds.length > 0
 				? await proc
 						.from("purchase_item_ingredient")
 						.select(`ingredient_id, purchase_item:purchase_item_id (${SPEC_COLUMNS})`)
 						.in("ingredient_id", fallbackIngredientIds)
 						.eq("is_default", true)
-				: { data: [] }
+				: { data: [], error: null }
+		if (linksError) throw new Error(`Erro ao carregar as especificações padrão dos insumos: ${linksError.message}`)
 		const defaultSpecByIngredient = new Map(
 			(links ?? []).flatMap((link) =>
 				link.purchase_item && link.purchase_item.deleted_at == null ? [[link.ingredient_id, narrowSpec(link.purchase_item)] as const] : []
