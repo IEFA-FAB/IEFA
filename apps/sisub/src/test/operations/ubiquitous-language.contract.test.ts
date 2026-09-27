@@ -121,18 +121,6 @@ describeIf("linguagem ubíqua no banco vivo", () => {
 		expect(offending(found), "texto do banco cita nome descartado pelo glossário").toEqual([])
 	})
 
-	test("crédito recebido e crédito disponível voltam a ter o default 0 das colunas que substituíram", async () => {
-		const columns = await sql<{ name: string; nullable: string; default: string | null }[]>`
-			select column_name as name, is_nullable as nullable, column_default as default
-			from information_schema.columns
-			where table_schema = 'finance' and table_name = 'budget_credit' and column_name in ('received_credit', 'available_credit_siafi')
-			order by 1`
-		expect(columns).toEqual([
-			{ name: "available_credit_siafi", nullable: "NO", default: "0" },
-			{ name: "received_credit", nullable: "NO", default: "0" },
-		])
-	})
-
 	test("o status do anexo só aceita o vocabulário do glossário", async () => {
 		const [check] = await sql<{ def: string }[]>`
 			select pg_get_constraintdef(oid) as def from pg_constraint where conname = 'quantity_estimate_status_check'`

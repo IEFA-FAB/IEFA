@@ -25,7 +25,7 @@ begin
 	from pg_proc p
 	join pg_namespace n on n.oid = p.pronamespace
 	where n.nspname not in ('pg_catalog', 'information_schema')
-		and not (n.nspname = 'finance' and p.proname in ('mirror_budget_credit_naming', 'mirror_empenho_issuer_ug'))
+		and p.oid not in ('finance.mirror_budget_credit_naming()'::regprocedure, 'finance.mirror_empenho_issuer_ug()'::regprocedure)
 		and (
 			coalesce(p.prosrc, '') ~ '\m(dotacao|saldo_siafi|ug_emitente)\M'
 			or coalesce(pg_get_function_sqlbody(p.oid), '') ~ '\m(dotacao|saldo_siafi|ug_emitente)\M'
@@ -43,6 +43,26 @@ begin
 	where definition ~ '\m(dotacao|saldo_siafi|ug_emitente)\M';
 	if offenders is not null then
 		raise exception 'views citam colunas que este contract derruba: %', offenders;
+	end if;
+
+	-- Índice e constraint de uma coluna só caem com ela sem `cascade` e sem aviso: um criado entre o
+	-- expand e o contract sumiria sem passar para a coluna nova.
+	select string_agg(x, ', ') into offenders
+	from (
+		select i.indexrelid::regclass::text as x
+		from pg_index i
+		join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any (i.indkey)
+		where i.indrelid in ('finance.budget_credit'::regclass, 'finance.empenho'::regclass)
+			and a.attname in ('dotacao', 'saldo_siafi', 'ug_emitente')
+		union all
+		select c.conname
+		from pg_constraint c
+		join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+		where c.conrelid in ('finance.budget_credit'::regclass, 'finance.empenho'::regclass)
+			and a.attname in ('dotacao', 'saldo_siafi', 'ug_emitente')
+	) d;
+	if offenders is not null then
+		raise exception 'índices ou constraints usam colunas que este contract derruba: %', offenders;
 	end if;
 
 	select string_agg(schemaname || '.' || tablename || '.' || policyname, ', ') into offenders
