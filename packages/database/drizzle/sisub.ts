@@ -16,6 +16,23 @@ import * as schema from "./schema"
 export * from "./relations"
 export * from "./schema"
 
+// TODO(db:types): tabelas-ponte do rename 20260927040000. O export explícito vence o `export *`
+// de `./schema` (os gerados ainda têm os nomes antigos); some junto com o arquivo depois do pull.
+export {
+	kitchenDemandForecastImportInProcurement,
+	priceResearchEmissionInProcurement,
+	procurementArpInProcurement,
+	procurementArpItemInProcurement,
+	procurementPesquisaPrecoInProcurement,
+	procurementPesquisaPrecoItemInProcurement,
+	quantityEstimateInProcurement,
+	quantityEstimateItemInProcurement,
+	quantityEstimateKitchenInProcurement,
+	quantityEstimateSelectionInProcurement,
+	quantityEstimateSnapshotComponentInProcurement,
+	quantityEstimateSnapshotSelectionInProcurement,
+} from "./pending-quantity-estimate-naming"
+
 /** Tables + enums + relations — pass to `drizzle(client, { schema: sisubSchema })`. */
 export const sisubSchema = { ...schema, ...relations }
 
