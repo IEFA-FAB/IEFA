@@ -27,7 +27,7 @@ import type { FiscalPresenceRecord, ForecastMap } from "@/types/domain/presence"
 // que `$messHallId/route.tsx` já exige no `beforeLoad`. O guard da rota não dispensa este: ele
 // governa a navegação, e `/_serverFn/...` é chamável direto, sem passar por rota nenhuma.
 // Antes exigiam apenas sessão (e, antes disso, nada), então qualquer autenticado enumerava
-// presença de comensal de qualquer rancho. As operations não têm ctx, então o guard é aqui.
+// presença de comensal de qualquer refeitório. As operations não têm ctx, então o guard é aqui.
 export const fetchPresencesFn = createServerFn({ method: "GET" })
 	.validator(ListPresencesSchema)
 	.handler(async ({ data }) => {

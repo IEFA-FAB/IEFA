@@ -1,5 +1,3 @@
-// components/rancho/SimplifiedMilitaryStats.tsx
-
 import { CalendarX2, CheckCircle2, MinusCircle } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { DayMeals } from "@/lib/meal"

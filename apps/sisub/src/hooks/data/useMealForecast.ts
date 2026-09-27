@@ -145,7 +145,7 @@ export const useMealForecast = (): MealForecastHook => {
 		setSuccessState("")
 	}, [])
 
-	// Query 1: carrega forecasts + code do rancho (join)
+	// Query 1: carrega forecasts + code do refeitório (join)
 	type ForecastRow = {
 		date: string
 		meal: keyof DayMeals
@@ -247,7 +247,7 @@ export const useMealForecast = (): MealForecastHook => {
 
 		const idNum = Number(defaultMessHallId)
 		if (!Number.isFinite(idNum) || idNum <= 0) {
-			setErrorWithClear("Rancho padrão inválido. Selecione um rancho válido.")
+			setErrorWithClear("Refeitório padrão inválido. Selecione um refeitório válido.")
 			return
 		}
 
@@ -260,7 +260,7 @@ export const useMealForecast = (): MealForecastHook => {
 		} catch {
 			// Reverter estado local para manter coerência com DB (fonte da verdade)
 			if (prev != null) setDefaultMessHallIdState(String(prev))
-			setErrorWithClear("Não foi possível salvar o rancho padrão.")
+			setErrorWithClear("Não foi possível salvar o refeitório padrão.")
 			return
 		}
 

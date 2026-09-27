@@ -1,5 +1,3 @@
-// apps/sisub/app/routes/rancho.tsx
-
 import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react"
 import { lazy, memo, Suspense, useCallback, useMemo, useRef, useState } from "react"
@@ -11,7 +9,7 @@ import SimplifiedMilitaryStats from "@/components/features/diner/SimplifiedMilit
 import { UnifiedStatusToasts } from "@/components/features/diner/UnifiedStatusToasts"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
-import { NEAR_DATE_THRESHOLD } from "@/constants/rancho"
+import { NEAR_DATE_THRESHOLD } from "@/constants/meal"
 import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
 import { useMealForecast } from "@/hooks/data/useMealForecast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
@@ -135,7 +133,7 @@ function Forecast() {
 
 	// useMemo manual: "use no memo" desliga o compiler neste arquivo.
 	const computedData = useMemo(() => {
-		// "Cards sem rancho" = datas sem um messHallCode definido (falsy)
+		// "Cards sem refeitório" = datas sem um messHallCode definido (falsy)
 		const cardsWithoutMessHall = dates.filter((date: string) => {
 			const code = dayMessHalls[date]
 			return !code
@@ -200,7 +198,7 @@ function Forecast() {
 		// Resolve ID correto para o dia (a partir do CODE em UI)
 		const messHallId = resolveMessHallIdForDate(date)
 		if (!messHallId) {
-			setError("Defina seu rancho padrão antes de marcar refeições.")
+			setError("Defina seu refeitório padrão antes de marcar refeições.")
 			return
 		}
 
@@ -294,12 +292,12 @@ function Forecast() {
 		const messHallIdForDefault = defaultMessHallId || getMessHallIdByCode(defaultMessHallCode) || ""
 
 		if (!messHallIdForDefault) {
-			setError("Defina e salve um rancho padrão antes de aplicar aos cards.")
+			setError("Defina e salve um refeitório padrão antes de aplicar aos cards.")
 			return
 		}
 
 		try {
-			// UI: grava CODE nos dias sem rancho
+			// UI: grava CODE nos dias sem refeitório
 			const updatedMessHalls: MessHallByDate = { ...dayMessHalls }
 			cardsWithoutMessHall.forEach((date: string) => {
 				updatedMessHalls[date] = defaultMessHallCode
@@ -330,10 +328,10 @@ function Forecast() {
 				})
 			}
 
-			setSuccess(`Rancho padrão "${defaultMessHallCode}" aplicado a ${cardsWithoutMessHall.length} ${labelCard(cardsWithoutMessHall.length)}!`)
+			setSuccess(`Refeitório padrão "${defaultMessHallCode}" aplicado a ${cardsWithoutMessHall.length} ${labelCard(cardsWithoutMessHall.length)}!`)
 			setIsApplyingDefaultMessHall(false)
 		} catch (_err) {
-			setError("Erro ao aplicar rancho padrão. Tente novamente.")
+			setError("Erro ao aplicar refeitório padrão. Tente novamente.")
 			setIsApplyingDefaultMessHall(false)
 		}
 	}
@@ -446,9 +444,9 @@ function Forecast() {
 				title="Previsão"
 				// Description removed to reduce redundancy with breadcrumbs/context
 			>
-				<Button variant="outline" size="sm" onClick={handleToggleMessHallSelector} aria-label="Definir rancho padrão">
+				<Button variant="outline" size="sm" onClick={handleToggleMessHallSelector} aria-label="Definir refeitório padrão">
 					<Settings className="size-4 mr-2" />
-					Rancho Padrão
+					Refeitório Padrão
 				</Button>
 
 				<Button

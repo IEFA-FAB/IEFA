@@ -29,7 +29,7 @@ import { withSessionIdentity } from "@/lib/session-identity"
 // valor é substituído pelo da sessão — `withSessionIdentity` deixa isso no código, e não num
 // comentário como antes (a garantia dependia da ordem do spread em `{ ...data, userId }`).
 // Antes de haver guard aqui, os reads eram anônimos e o chamador escolhia de quem era a
-// previsão/rancho padrão que queria ler.
+// previsão/refeitório padrão que queria ler.
 export const fetchMealForecastsFn = createServerFn({ method: "GET" })
 	.validator(ListMealForecastsSchema)
 	.handler(async ({ data }) => {

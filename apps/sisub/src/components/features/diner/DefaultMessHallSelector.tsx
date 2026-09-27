@@ -25,7 +25,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 	const selected = messHalls.find((mh) => mh.code === defaultMessHallCode)
 	const selectedMessHallLabel = selected?.display_name || defaultMessHallCode
 	const hasMessHalls = (messHalls?.length ?? 0) > 0
-	// ~70 ranchos: a lista só é percorrível com busca.
+	// ~70 refeitórios: a lista só é percorrível com busca.
 	const messHallOptions = useMemo(() => (messHalls ?? []).map((mh) => ({ value: mh.code, label: mh.display_name ?? mh.code, keywords: mh.code })), [messHalls])
 
 	const handleMessHallChange = (value: string | null) => {
@@ -39,7 +39,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 
 		if (!defaultMessHallCode) {
 			toast.error("Seleção inválida", {
-				description: "Escolha um rancho para continuar.",
+				description: "Escolha um refeitório para continuar.",
 			})
 			return
 		}
@@ -48,7 +48,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 		try {
 			await onApply() // pai faz: persistDefault + applyToCards + refetch
 			toast.success("Preferência salva", {
-				description: "Rancho padrão atualizado com sucesso.",
+				description: "Refeitório padrão atualizado com sucesso.",
 			})
 		} catch (_err) {
 			toast.error("Erro", {
@@ -73,7 +73,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 							<span className="inline-flex items-center justify-center size-8 rounded-lg bg-background text-foreground ring-1 ring-border">
 								<Settings className="size-4.5" />
 							</span>
-							<span className="text-subheading">Configurar Rancho Padrão</span>
+							<span className="text-subheading">Configurar Refeitório Padrão</span>
 						</span>
 					</CardTitle>
 				</div>
@@ -82,8 +82,8 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 					<div className="flex gap-2 rounded-md border p-2.5 bg-accent/10 text-accent-foreground border-accent/30">
 						<AlertTriangle className="size-4 mt-0.5 shrink-0" />
 						<span className="text-sm">
-							Defina um rancho padrão para os cards que ainda não possuem rancho definido no banco de dados. Esta ação afetará apenas os cards sem rancho
-							configurado.
+							Defina um refeitório padrão para os cards que ainda não possuem refeitório definido no banco de dados. Esta ação afetará apenas os cards sem
+							refeitório configurado.
 						</span>
 					</div>
 				</CardDescription>
@@ -91,25 +91,25 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 
 			<CardContent className="space-y-6">
 				<div className="space-y-3">
-					<Label className="text-subheading">Selecione o rancho padrão:</Label>
+					<Label className="text-subheading">Selecione o refeitório padrão:</Label>
 
 					<SearchableSelect
 						value={defaultMessHallCode || null}
 						onValueChange={handleMessHallChange}
 						options={messHallOptions}
 						disabled={isApplying || saving || !hasMessHalls}
-						placeholder={hasMessHalls ? "Selecione um rancho..." : "Sem ranchos disponíveis"}
-						searchPlaceholder="Pesquisar rancho…"
-						emptyLabel="Nenhum rancho encontrado."
+						placeholder={hasMessHalls ? "Selecione um refeitório..." : "Sem refeitórios disponíveis"}
+						searchPlaceholder="Pesquisar refeitório…"
+						emptyLabel="Nenhum refeitório encontrado."
 						className="bg-background hover:border-accent"
-						aria-label="Rancho padrão"
+						aria-label="Refeitório padrão"
 					/>
 
 					{defaultMessHallCode && (
 						<div className="flex items-center gap-2 text-xs rounded-md border p-2 bg-muted text-muted-foreground border-border">
 							<CheckCircle className="size-3.5" />
 							<span>
-								Rancho selecionado: <strong className="text-foreground">{selectedMessHallLabel}</strong>
+								Refeitório selecionado: <strong className="text-foreground">{selectedMessHallLabel}</strong>
 							</span>
 						</div>
 					)}

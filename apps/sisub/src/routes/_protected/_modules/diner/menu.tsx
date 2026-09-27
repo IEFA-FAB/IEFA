@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/menu")({
 	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: MenuPage,
 	head: () => ({
-		meta: [{ name: "description", content: "Visualize o cardápio do rancho" }],
+		meta: [{ name: "description", content: "Visualize o cardápio do refeitório" }],
 	}),
 })
 
@@ -129,7 +129,7 @@ function MenuPage() {
 				<div className="rounded-md border border-dashed p-6 text-center space-y-2">
 					<UtensilsCrossed className="size-8 mx-auto text-muted-foreground" />
 					<p className="text-sm text-muted-foreground">
-						Defina seu rancho padrão em <strong>Previsão</strong> para ver o cardápio.
+						Defina seu refeitório padrão em <strong>Previsão</strong> para ver o cardápio.
 					</p>
 				</div>
 			) : isLoading ? (

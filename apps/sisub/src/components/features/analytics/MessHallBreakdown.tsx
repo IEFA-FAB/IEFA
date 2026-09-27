@@ -42,7 +42,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Building2 className="size-5" aria-hidden="true" />
-						Detalhamento por Rancho
+						Detalhamento por Refeitório
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
@@ -71,7 +71,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 					<div>
 						<CardTitle className="flex items-center gap-2">
 							<Building2 className="size-5" aria-hidden="true" />
-							Detalhamento por Rancho
+							Detalhamento por Refeitório
 						</CardTitle>
 						<CardDescription>Previsão e presença por refeitório</CardDescription>
 					</div>

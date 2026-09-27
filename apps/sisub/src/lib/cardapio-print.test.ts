@@ -139,7 +139,7 @@ describe("buildPreparationEntries", () => {
 describe("isCommandTableItem", () => {
 	const on = { hideCommandTable: true, commandTableMaxProportion: 5 }
 
-	test("porcentagem até o teto é mesa de comando; acima dele, prato do rancho", () => {
+	test("porcentagem até o teto é mesa de comando; acima dele, prato do refeitório", () => {
 		expect(isCommandTableItem({ recommended_proportion: 2 }, on)).toBe(true)
 		expect(isCommandTableItem({ recommended_proportion: 5 }, on)).toBe(true)
 		expect(isCommandTableItem({ recommended_proportion: 5.5 }, on)).toBe(false)

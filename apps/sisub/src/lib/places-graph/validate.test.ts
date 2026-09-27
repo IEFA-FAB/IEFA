@@ -28,7 +28,7 @@ describe("isValidPlacesConnection", () => {
 		expect(isValidPlacesConnection(conn("k1", "k2"), nodes)).toBe(true)
 	})
 
-	test("rancho → cozinha é válido (operada por)", () => {
+	test("refeitório → cozinha é válido (operada por)", () => {
 		expect(isValidPlacesConnection(conn("m1", "k1"), nodes)).toBe(true)
 	})
 
@@ -74,7 +74,7 @@ describe("inferRelationType", () => {
 		expect(inferRelationType(unit, kitchen)).toBeNull()
 	})
 
-	test("rancho → cozinha resolve para mess_halls.kitchen_id", () => {
+	test("refeitório → cozinha resolve para mess_halls.kitchen_id", () => {
 		expect(inferRelationType(messHall, kitchen)).toBe("mess_halls.kitchen_id")
 	})
 })

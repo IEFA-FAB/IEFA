@@ -52,7 +52,7 @@ describeSupabaseIntegration("places operations (regressão)", () => {
 		await closeDb?.()
 	})
 
-	test("listAllMessHalls inclui o rancho semeado com o shape esperado", async () => {
+	test("listAllMessHalls inclui o refeitório semeado com o shape esperado", async () => {
 		if (!reachable || !seeder || !db) return
 		const { id, unitId, code } = await seeder.seedMessHall()
 
@@ -93,7 +93,7 @@ describeSupabaseIntegration("places operations (regressão)", () => {
 	test("updatePlacesEntity (mess_hall) renomeia e persiste", async () => {
 		if (!reachable || !seeder || !db) return
 		const { id, code } = await seeder.seedMessHall()
-		const newName = uid("[TEST] Rancho Renomeado ")
+		const newName = uid("[TEST] Refeitório Renomeado ")
 
 		const res = await updatePlacesEntity(db, ctx, { entityType: "mess_hall", id, display_name: newName, code })
 		expect(res).toEqual({ ok: true })

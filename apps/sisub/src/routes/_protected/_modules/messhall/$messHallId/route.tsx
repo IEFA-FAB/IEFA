@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId"
 		const messHallId = Number(params.messHallId)
 		requirePermission({ context, preload }, "messhall", 1, { type: "mess_hall", id: messHallId })
 
-		// Busca os ranchos (cache de 10 min via React Query no servidor)
+		// Busca os refeitórios (cache de 10 min via React Query no servidor)
 		const messHalls = expectArray<MessHall>(
 			await context.queryClient.query({
 				queryKey: ["sisub", "mess_halls"],

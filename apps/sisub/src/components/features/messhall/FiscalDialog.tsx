@@ -91,7 +91,7 @@ export default function FiscalDialog({ setDialog, dialog, confirmDialog, selecte
 							</div>
 						</div>
 
-						{selectedUnit && <div className="text-xs text-muted-foreground">Rancho selecionado: {selectedUnit}</div>}
+						{selectedUnit && <div className="text-xs text-muted-foreground">Refeitório selecionado: {selectedUnit}</div>}
 					</div>
 
 					<AlertDialogFooter>

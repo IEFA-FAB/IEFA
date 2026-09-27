@@ -72,8 +72,8 @@ export type AddOtherPresence = z.infer<typeof AddOtherPresenceSchema>
 
 /**
  * `messHallId` não é usado pela consulta: existe para a fn poder exigir `messhall:1` NO
- * RANCHO em que o fiscal está. Sem ele o guard só podia ser o módulo sem escopo, e nível 1
- * em um rancho resolvia o nome de qualquer pessoa da base — mais fraco que a rota que a fn
+ * REFEITÓRIO em que o Fiscal de rancho está. Sem ele o guard só podia ser o módulo sem escopo, e nível 1
+ * em um refeitório resolvia o nome de qualquer pessoa da base — mais fraco que a rota que a fn
  * serve.
  */
 export const ResolveDisplayNameSchema = z.object({ userId: z.string(), messHallId: z.number() })

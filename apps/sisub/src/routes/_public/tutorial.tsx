@@ -56,7 +56,7 @@ const comensalSteps: StepItem[] = [
 	{
 		icon: Lock,
 		title: "Dias Bloqueados",
-		description: "Hoje, amanhã e depois de amanhã não podem ser editados. O rancho precisa de antecedência para planejar a produção.",
+		description: "Hoje, amanhã e depois de amanhã não podem ser editados. A cozinha precisa de antecedência para planejar a produção.",
 	},
 	{
 		icon: Save,
@@ -154,7 +154,7 @@ const unitSteps: StepItem[] = [
 
 const faqItems: QAItem[] = [
 	{
-		question: "Onde encontro meu QR para o rancho?",
+		question: "Onde encontro meu QR para o refeitório?",
 		answer: "Na página de Previsão (aba Comensal), clique no ícone de QR no cabeçalho. Um diálogo exibirá seu código e seu ID.",
 	},
 	{

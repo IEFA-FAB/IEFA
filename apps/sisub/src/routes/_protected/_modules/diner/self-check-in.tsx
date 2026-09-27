@@ -1,7 +1,7 @@
 // routes/_protected/_modules/diner/self-check-in.tsx
-// Handler do QR Code de self check-in do rancho.
+// Handler do QR Code de self check-in do refeitório.
 // Fluxo: QR → confirmedCode preenchido → fase "confirm"
-//        Acesso direto → fase "select" → usuário escolhe rancho → fase "confirm"
+//        Acesso direto → fase "select" → usuário escolhe refeitório → fase "confirm"
 
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
@@ -120,7 +120,7 @@ function SelfCheckin() {
 	const date = todayISO()
 	const meal = inferDefaultMeal()
 
-	// Código do rancho: vem do QR (URL) ou da seleção manual
+	// Código do refeitório: vem do QR (URL) ou da seleção manual
 	const qrCode = search.unit ?? search.u ?? null
 	const [checkinState, dispatch] = useReducer(selfCheckinReducer, {
 		selectorCode: "",
@@ -162,7 +162,7 @@ function SelfCheckin() {
 	// Se QR inválido → volta pra seleção manual com toast
 	useEffect(() => {
 		if (!messHallNotFound) return
-		toast.error("QR inválido", { description: "Rancho não encontrado. Selecione manualmente." })
+		toast.error("QR inválido", { description: "Refeitório não encontrado. Selecione manualmente." })
 		dispatch({ type: "SET_CONFIRMED_CODE", value: null })
 	}, [messHallNotFound])
 
@@ -234,12 +234,12 @@ function SelfCheckin() {
 				title="Check-in de Refeição"
 				description={
 					isSelectPhase
-						? "Selecione o rancho ou escaneie o QR Code"
+						? "Selecione o refeitório ou escaneie o QR Code"
 						: messHallLoading
 							? "Carregando..."
 							: messHall
 								? `${messHall.display_name} • ${MEAL_LABEL[meal]} • ${todayDisplay()}`
-								: "Rancho não encontrado"
+								: "Refeitório não encontrado"
 				}
 				suppressDescriptionHydrationWarning
 			/>
@@ -247,7 +247,7 @@ function SelfCheckin() {
 			{/* ── Fase 1: Seleção manual ── */}
 			{isSelectPhase && (
 				<div className="space-y-6">
-					<p className="text-sm text-muted-foreground">O QR Code do rancho preenche automaticamente. Se não tiver o QR, selecione abaixo:</p>
+					<p className="text-sm text-muted-foreground">O QR Code do refeitório preenche automaticamente. Se não tiver o QR, selecione abaixo:</p>
 
 					<MessHallSelector value={selectorCode} onChange={(v) => dispatch({ type: "SET_SELECTOR_CODE", value: v })} showLabel showValidation />
 

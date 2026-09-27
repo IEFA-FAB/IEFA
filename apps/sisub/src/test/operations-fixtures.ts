@@ -409,7 +409,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 			const id = (await insertReturningId("mess_halls", {
 				unit_id: unitId,
 				code,
-				display_name: uid("[TEST] Rancho "),
+				display_name: uid("[TEST] Refeitório "),
 				kitchen_id: opts?.kitchenId ?? null,
 			})) as number
 			return { id, unitId, code }

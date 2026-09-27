@@ -193,7 +193,7 @@ function AuthPage() {
 
 				<h1 className="text-4xl xl:text-5xl font-bold tracking-tight leading-[0.95] text-foreground mb-6">
 					Gerencie
-					<br />o <span className="text-primary">rancho</span>
+					<br />a <span className="text-primary">subsistência</span>
 					<br />
 					da sua OM.
 				</h1>

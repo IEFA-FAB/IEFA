@@ -44,7 +44,7 @@ const isValidFilters = (filters: FiscalFilters): boolean => {
 // ============================================================================
 const handleConfirmPresenceError = (error: unknown): void => {
 	if (error instanceof UnitRequiredError) {
-		toast.error("Rancho não identificado", {
+		toast.error("Refeitório não identificado", {
 			description: "O refeitório não foi encontrado.",
 		})
 		return

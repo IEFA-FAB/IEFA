@@ -36,7 +36,7 @@ export const INGREDIENTS_MODE_LABELS: Record<IngredientsMode, string> = {
 
 /**
  * Teto padrão, em % do efetivo da refeição, do que conta como preparação da mesa de comando.
- * Porcentagem pequena num plano semanal não é opção do rancho: é o prato servido a poucos
+ * Porcentagem pequena num plano semanal não é opção do refeitório: é o prato servido a poucos
  * (mesa de comando), que a cozinha produz mas o comensal não escolhe.
  */
 export const DEFAULT_COMMAND_TABLE_MAX_PROPORTION = 5

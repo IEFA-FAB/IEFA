@@ -221,7 +221,7 @@ describe("server function auth contract", () => {
 	 */
 	const CROSS_USER_SERVER_FNS: Record<string, string> = {
 		fetchUserMealForecastFn: "messhall.fn — o fiscal lê a previsão do comensal que apresentou o QR; o self check-in manda o próprio id",
-		resolveDisplayNameFn: "messhall.fn — o fiscal converte o UUID do QR em nome para conferir a pessoa na fila; exige messhall:1 no rancho informado",
+		resolveDisplayNameFn: "messhall.fn — o fiscal converte o UUID do QR em nome para conferir a pessoa na fila; exige messhall:1 no refeitório informado",
 		insertPresenceFn: "presence.fn — o fiscal registra a presença de terceiro; `insertPresence` exige messhall:2 quando o alvo não é o chamador",
 		fetchForecastsFn: "presence.fn — mapa de previsão dos comensais já presentes no refeitório, tela do fiscal",
 		searchUsersByEmailFn: "permissions.fn — o administrador procura a quem conceder permissão; a operation exige admin:2",
