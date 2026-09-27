@@ -1,4 +1,4 @@
-// hooks/useMealForecast.ts
+// hooks/useArranchamento.ts
 // Uses centralized types from @/types/domain as per design system guidelines.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -6,8 +6,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/hooks/auth/useAuth"
 import type { DayMeals } from "@/lib/meal"
 import { queryKeys } from "@/lib/query-keys"
-import { deleteForecastFn, fetchMealForecastsFn, fetchUserDefaultMessHallFn, persistDefaultMessHallFn, upsertForecastFn } from "@/server/forecast.fn"
-import type { MealForecastHook, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/meal"
+import {
+	deleteArranchamentoFn,
+	fetchArranchamentosFn,
+	fetchUserDefaultMessHallFn,
+	persistDefaultMessHallFn,
+	upsertArranchamentoFn,
+} from "@/server/arranchamento.fn"
+import type { ArranchamentoHook, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/meal"
 
 // Business timings
 const DAYS_TO_SHOW = 30
@@ -65,11 +71,11 @@ const labelFalhou = (n: number) => pluralize(n, "falhou", "falharam")
 const labelOperacao = (n: number) => pluralize(n, "operação", "operações")
 
 /**
- * Custom hook for managing meal forecasts with optimistic updates and auto-save.
+ * Custom hook for managing the diner's arranchamentos with optimistic updates and auto-save.
  *
  * @remarks
- * This hook manages the complete lifecycle of meal forecasts including:
- * - Loading existing forecasts from the database
+ * This hook manages the complete lifecycle of the arranchamentos including:
+ * - Loading existing arranchamentos from the database
  * - Local state management with optimistic updates
  * - Automatic batching and saving of changes
  * - Mess hall selection and persistence
@@ -77,7 +83,7 @@ const labelOperacao = (n: number) => pluralize(n, "operação", "operações")
  * Data is automatically saved after a 1.5s delay when changes are made.
  * Success messages auto-clear after 3 seconds.
  *
- * @returns MealForecastHook object with state and control methods
+ * @returns ArranchamentoHook object with state and control methods
  *
  * @example
  * ```tsx
@@ -89,7 +95,7 @@ const labelOperacao = (n: number) => pluralize(n, "operação", "operações")
  *   pendingChanges,
  *   setSelections,
  *   savePendingChanges,
- * } = useMealForecast();
+ * } = useArranchamento();
  *
  * // Toggle a meal selection
  * const handleToggle = (date: string, meal: keyof DayMeals) => {
@@ -100,7 +106,7 @@ const labelOperacao = (n: number) => pluralize(n, "operação", "operações")
  * };
  * ```
  */
-export const useMealForecast = (): MealForecastHook => {
+export const useArranchamento = (): ArranchamentoHook => {
 	const { user } = useAuth()
 	const queryClient = useQueryClient()
 
@@ -109,7 +115,7 @@ export const useMealForecast = (): MealForecastHook => {
 	const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 	const successTimerRef = useRef<NodeJS.Timeout | null>(null)
 	const saveOperationRef = useRef<Promise<void> | null>(null)
-	const hydratedOnceRef = useRef(false) // controla hidratação de forecasts/dayMessHalls
+	const hydratedOnceRef = useRef(false) // controla hidratação de arranchamentos/dayMessHalls
 
 	const [success, setSuccessState] = useState<string>("")
 	const [error, setError] = useState<string>("")
@@ -122,8 +128,8 @@ export const useMealForecast = (): MealForecastHook => {
 	// Datas/keys estáveis
 	const dates = useMemo(() => generateDates(DAYS_TO_SHOW), [])
 	const todayString = useMemo(() => toYYYYMMDD(new Date()), [])
-	const forecastsQueryKey = useMemo(() => queryKeys.mealForecasts.list(user?.id, dates[0], dates[dates.length - 1]), [user?.id, dates])
-	const userDataQueryKey = useMemo(() => queryKeys.mealForecasts.userData(user?.id), [user?.id])
+	const arranchamentosQueryKey = useMemo(() => queryKeys.arranchamentos.list(user?.id, dates[0], dates[dates.length - 1]), [user?.id, dates])
+	const userDataQueryKey = useMemo(() => queryKeys.arranchamentos.userData(user?.id), [user?.id])
 
 	// Mensagens
 	const clearMessages = useCallback(() => {
@@ -145,8 +151,8 @@ export const useMealForecast = (): MealForecastHook => {
 		setSuccessState("")
 	}, [])
 
-	// Query 1: carrega forecasts + code do refeitório (join)
-	type ForecastRow = {
+	// Query 1: carrega os arranchamentos + code do refeitório (join)
+	type ArranchamentoRow = {
 		date: string
 		meal: keyof DayMeals
 		will_eat: boolean | null
@@ -154,22 +160,22 @@ export const useMealForecast = (): MealForecastHook => {
 	}
 
 	const {
-		data: forecasts,
+		data: arranchamentos,
 		isPending, // initial load
 		isFetching, // any refetch
-		refetch: refetchForecasts,
+		refetch: refetchArranchamentos,
 	} = useQuery({
-		queryKey: forecastsQueryKey,
+		queryKey: arranchamentosQueryKey,
 		enabled: isClient && !!user?.id,
 		staleTime: 60_000,
 		gcTime: 5 * 60_000,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: true,
 		queryFn: async () => {
-			const result = await fetchMealForecastsFn({
+			const result = await fetchArranchamentosFn({
 				data: { userId: user?.id ?? "", startDate: dates[0], endDate: dates[dates.length - 1] },
 			})
-			return (result ?? []) as ForecastRow[]
+			return (result ?? []) as ArranchamentoRow[]
 		},
 	})
 
@@ -208,7 +214,7 @@ export const useMealForecast = (): MealForecastHook => {
 	// Hidrata selections e dayMessHalls com os dados do período
 	useEffect(() => {
 		if (!user?.id) return
-		if (!forecasts) return
+		if (!arranchamentos) return
 
 		const canOverwrite = pendingChanges.length === 0 && !isSavingBatch
 		if (!hydratedOnceRef.current || canOverwrite) {
@@ -221,7 +227,7 @@ export const useMealForecast = (): MealForecastHook => {
 				initialMessHalls[date] = ""
 			})
 
-			forecasts.forEach((p) => {
+			arranchamentos.forEach((p) => {
 				const { date, meal, will_eat, mess_halls } = p
 				if (initialSelections[date] && meal in initialSelections[date]) {
 					initialSelections[date][meal] = !!will_eat
@@ -234,7 +240,7 @@ export const useMealForecast = (): MealForecastHook => {
 			setDayMessHalls(initialMessHalls)
 			hydratedOnceRef.current = true
 		}
-	}, [user?.id, forecasts, dates, pendingChanges.length, isSavingBatch])
+	}, [user?.id, arranchamentos, dates, pendingChanges.length, isSavingBatch])
 
 	// Setter local do default (sem persistir)
 	const setDefaultMessHallIdLocal = useCallback((id: string) => {
@@ -301,7 +307,7 @@ export const useMealForecast = (): MealForecastHook => {
 								if (!Number.isFinite(messHallIdNum) || messHallIdNum <= 0) {
 									throw new Error(`messHallId inválido: "${change.messHallId}" para ${change.date}-${change.meal}`)
 								}
-								await upsertForecastFn({
+								await upsertArranchamentoFn({
 									data: {
 										date: change.date,
 										meal: change.meal,
@@ -310,7 +316,7 @@ export const useMealForecast = (): MealForecastHook => {
 									},
 								})
 							} else {
-								await deleteForecastFn({
+								await deleteArranchamentoFn({
 									data: { date: change.date, meal: change.meal },
 								})
 							}
@@ -363,7 +369,7 @@ export const useMealForecast = (): MealForecastHook => {
 				}
 
 				// refresh em background
-				queryClient.invalidateQueries({ queryKey: forecastsQueryKey })
+				queryClient.invalidateQueries({ queryKey: arranchamentosQueryKey })
 			} catch (err) {
 				setErrorWithClear(err instanceof Error ? `Erro ao salvar ${labelAlteracao(1)}: ${err.message}` : "Erro ao salvar alterações. Tente novamente.")
 			} finally {
@@ -374,7 +380,7 @@ export const useMealForecast = (): MealForecastHook => {
 
 		saveOperationRef.current = saveOperation()
 		return saveOperationRef.current
-	}, [user?.id, pendingChanges, queryClient, forecastsQueryKey, setErrorWithClear, setSuccess])
+	}, [user?.id, pendingChanges, queryClient, arranchamentosQueryKey, setErrorWithClear, setSuccess])
 
 	// Auto-save
 	useEffect(() => {
@@ -399,9 +405,9 @@ export const useMealForecast = (): MealForecastHook => {
 		}
 	}, [])
 
-	const loadExistingForecasts = useCallback(async (): Promise<void> => {
-		await Promise.all([refetchForecasts(), refetchUserData()])
-	}, [refetchForecasts, refetchUserData])
+	const loadExistingArranchamentos = useCallback(async (): Promise<void> => {
+		await Promise.all([refetchArranchamentos(), refetchUserData()])
+	}, [refetchArranchamentos, refetchUserData])
 
 	return {
 		success,
@@ -426,7 +432,7 @@ export const useMealForecast = (): MealForecastHook => {
 		setDefaultMessHallId: setDefaultMessHallIdLocal,
 		persistDefaultMessHallId,
 
-		loadExistingForecasts,
+		loadExistingArranchamentos,
 		savePendingChanges,
 		clearMessages,
 	}

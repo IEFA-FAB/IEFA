@@ -5,7 +5,7 @@ import { type UseMutationResult, useMutation, useQuery, useQueryClient } from "@
 import { useCallback } from "react"
 import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
-import { deletePresenceFn, fetchForecastsFn, fetchPresencesFn, insertPresenceFn } from "@/server/presence.fn"
+import { deletePresenceFn, fetchArranchamentoMapFn, fetchPresencesFn, insertPresenceFn } from "@/server/presence.fn"
 import type {
 	ConfirmPresenceParams,
 	ConfirmPresenceResult,
@@ -69,7 +69,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 	const isValid = isValidFilters(filters)
 
 	// ============================================================================
-	// QUERY: Fetch Presences & Forecasts
+	// QUERY: Fetch Presences & Arranchamentos
 	// ============================================================================
 	const {
 		data: presencesData,
@@ -83,7 +83,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 			})
 
 			const userIds = Array.from(new Set(presences.map((p) => p.user_id)))
-			const forecastMap = await fetchForecastsFn({
+			const arranchamentoMap = await fetchArranchamentoMapFn({
 				data: {
 					date: filters.date,
 					meal: filters.meal,
@@ -92,7 +92,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 				},
 			})
 
-			return { presences, forecastMap }
+			return { presences, arranchamentoMap }
 		},
 		enabled: isValid,
 		refetchOnWindowFocus: false,
@@ -100,7 +100,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 		retry: 1,
 		staleTime: 2 * 60 * 1000,
 		gcTime: 5 * 60 * 1000,
-		placeholderData: { presences: [], forecastMap: {} },
+		placeholderData: { presences: [], arranchamentoMap: {} },
 	})
 
 	// ============================================================================
@@ -180,7 +180,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 
 	return {
 		presences: presencesData?.presences ?? [],
-		forecastMap: presencesData?.forecastMap ?? {},
+		arranchamentoMap: presencesData?.arranchamentoMap ?? {},
 		isLoading: presencesLoading || presencesFetching,
 		isConfirming: confirmPresenceMutation.isPending,
 		isRemoving: removePresenceMutation.isPending,

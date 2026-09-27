@@ -57,7 +57,7 @@ export const Route = createFileRoute("/_protected")({
 		// Bootstrap do perfil (upsert/reclaim de user_data). Roda em PARALELO com as
 		// permissões — não em série, então não soma latência ao primeiro byte — mas é
 		// AWAITED para que o registro esteja reconciliado antes de qualquer rota filha
-		// ler/escrever user_data (ex.: persistDefaultMessHall no forecast não é
+		// ler/escrever user_data (ex.: persistDefaultMessHall no arranchamento não é
 		// reclaim-aware e bateria 23505 se a linha órfã ainda existisse). O guard garante
 		// que isso aconteça no máximo uma vez por sessão — as navegações seguintes pulam
 		// o WRITE e pagam só as permissões, removendo-o do caminho crítico repetido.

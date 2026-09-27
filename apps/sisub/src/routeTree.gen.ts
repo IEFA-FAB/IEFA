@@ -45,7 +45,7 @@ import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_p
 import { Route as ProtectedModulesAnalyticsProcurementPlanRouteImport } from './routes/_protected/_modules/analytics/procurement-plan'
 import { Route as ProtectedModulesAnalyticsWorkforceRouteImport } from './routes/_protected/_modules/analytics/workforce'
 import { Route as ProtectedModulesDinerIndexRouteImport } from './routes/_protected/_modules/diner/index'
-import { Route as ProtectedModulesDinerForecastRouteImport } from './routes/_protected/_modules/diner/forecast'
+import { Route as ProtectedModulesDinerArranchamentoRouteImport } from './routes/_protected/_modules/diner/arranchamento'
 import { Route as ProtectedModulesDinerMcpKeysRouteImport } from './routes/_protected/_modules/diner/mcp-keys'
 import { Route as ProtectedModulesDinerMenuRouteImport } from './routes/_protected/_modules/diner/menu'
 import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_protected/_modules/diner/profile'
@@ -370,10 +370,10 @@ const ProtectedModulesDinerIndexRoute =
     path: '/diner/',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesDinerForecastRoute =
-  ProtectedModulesDinerForecastRouteImport.update({
-    id: '/diner/forecast',
-    path: '/diner/forecast',
+const ProtectedModulesDinerArranchamentoRoute =
+  ProtectedModulesDinerArranchamentoRouteImport.update({
+    id: '/diner/arranchamento',
+    path: '/diner/arranchamento',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesDinerMcpKeysRoute =
@@ -1201,7 +1201,7 @@ export interface FileRoutesByFullPath {
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/analytics/procurement-plan': typeof ProtectedModulesAnalyticsProcurementPlanRoute
   '/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
-  '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/diner/arranchamento': typeof ProtectedModulesDinerArranchamentoRoute
   '/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
@@ -1360,7 +1360,7 @@ export interface FileRoutesByTo {
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/analytics/procurement-plan': typeof ProtectedModulesAnalyticsProcurementPlanRoute
   '/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
-  '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/diner/arranchamento': typeof ProtectedModulesDinerArranchamentoRoute
   '/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
@@ -1527,7 +1527,7 @@ export interface FileRoutesById {
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/_protected/_modules/analytics/procurement-plan': typeof ProtectedModulesAnalyticsProcurementPlanRoute
   '/_protected/_modules/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
-  '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/_protected/_modules/diner/arranchamento': typeof ProtectedModulesDinerArranchamentoRoute
   '/_protected/_modules/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/_protected/_modules/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/_protected/_modules/diner/profile': typeof ProtectedModulesDinerProfileRoute
@@ -1694,7 +1694,7 @@ export interface FileRouteTypes {
     | '/analytics/global'
     | '/analytics/procurement-plan'
     | '/analytics/workforce'
-    | '/diner/forecast'
+    | '/diner/arranchamento'
     | '/diner/mcp-keys'
     | '/diner/menu'
     | '/diner/profile'
@@ -1853,7 +1853,7 @@ export interface FileRouteTypes {
     | '/analytics/global'
     | '/analytics/procurement-plan'
     | '/analytics/workforce'
-    | '/diner/forecast'
+    | '/diner/arranchamento'
     | '/diner/mcp-keys'
     | '/diner/menu'
     | '/diner/profile'
@@ -2019,7 +2019,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/analytics/global'
     | '/_protected/_modules/analytics/procurement-plan'
     | '/_protected/_modules/analytics/workforce'
-    | '/_protected/_modules/diner/forecast'
+    | '/_protected/_modules/diner/arranchamento'
     | '/_protected/_modules/diner/mcp-keys'
     | '/_protected/_modules/diner/menu'
     | '/_protected/_modules/diner/profile'
@@ -2413,11 +2413,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesDinerIndexRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/diner/forecast': {
-      id: '/_protected/_modules/diner/forecast'
-      path: '/diner/forecast'
-      fullPath: '/diner/forecast'
-      preLoaderRoute: typeof ProtectedModulesDinerForecastRouteImport
+    '/_protected/_modules/diner/arranchamento': {
+      id: '/_protected/_modules/diner/arranchamento'
+      path: '/diner/arranchamento'
+      fullPath: '/diner/arranchamento'
+      preLoaderRoute: typeof ProtectedModulesDinerArranchamentoRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/diner/mcp-keys': {
@@ -3694,7 +3694,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesAdminPermissionsRoute: typeof ProtectedModulesAdminPermissionsRoute
   ProtectedModulesAdminSyncRoutinesRoute: typeof ProtectedModulesAdminSyncRoutinesRoute
   ProtectedModulesAdminTrainingRoute: typeof ProtectedModulesAdminTrainingRoute
-  ProtectedModulesDinerForecastRoute: typeof ProtectedModulesDinerForecastRoute
+  ProtectedModulesDinerArranchamentoRoute: typeof ProtectedModulesDinerArranchamentoRoute
   ProtectedModulesDinerMcpKeysRoute: typeof ProtectedModulesDinerMcpKeysRoute
   ProtectedModulesDinerMenuRoute: typeof ProtectedModulesDinerMenuRoute
   ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
@@ -3765,7 +3765,8 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesAdminSyncRoutinesRoute:
     ProtectedModulesAdminSyncRoutinesRoute,
   ProtectedModulesAdminTrainingRoute: ProtectedModulesAdminTrainingRoute,
-  ProtectedModulesDinerForecastRoute: ProtectedModulesDinerForecastRoute,
+  ProtectedModulesDinerArranchamentoRoute:
+    ProtectedModulesDinerArranchamentoRoute,
   ProtectedModulesDinerMcpKeysRoute: ProtectedModulesDinerMcpKeysRoute,
   ProtectedModulesDinerMenuRoute: ProtectedModulesDinerMenuRoute,
   ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,

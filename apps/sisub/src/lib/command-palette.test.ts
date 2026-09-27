@@ -4,7 +4,7 @@ import { type CanOpen, indexEntries, type PaletteEntry, resolveEntryTarget, sear
 const storage = { moduleId: "storage", moduleName: "Estoque", hubUrl: "/storage", scopeType: "kitchen" } as const
 
 const ENTRIES: PaletteEntry[] = [
-	{ id: "/diner/forecast", label: "Previsão", moduleId: "diner", moduleName: "Comensal", url: "/diner/forecast" },
+	{ id: "/diner/arranchamento", label: "Arranchamento", moduleId: "diner", moduleName: "Comensal", url: "/diner/arranchamento" },
 	{ ...storage, id: "/storage/receiving", label: "Recebimentos", group: "Entrada", url: "/storage/receiving" },
 	{ ...storage, id: "/storage/counts", label: "Inventário Físico", group: "Controle", keywords: ["inventário"], url: "/storage/counts", minLevel: 3 },
 	{ ...storage, id: "/storage/nfe", label: "Notas Fiscais (NF-e)", group: "Entrada", url: "/storage/nfe" },
@@ -30,7 +30,7 @@ describe("searchEntries", () => {
 	})
 
 	it("casa sem acento", () => {
-		expect(labels(searchEntries(INDEX, "previsao"))).toEqual(["Previsão"])
+		expect(labels(searchEntries(INDEX, "fisico"))).toEqual(["Inventário Físico"])
 	})
 
 	it("acha pela palavra-chave", () => {
@@ -55,7 +55,7 @@ describe("resolveEntryTarget", () => {
 	const receiving = byLabel("Recebimentos")
 
 	it("módulo sem escopo abre direto", () => {
-		expect(resolveEntryTarget(byLabel("Previsão"), null, {}, openAll)).toEqual({ kind: "page", to: "/diner/forecast" })
+		expect(resolveEntryTarget(byLabel("Arranchamento"), null, {}, openAll)).toEqual({ kind: "page", to: "/diner/arranchamento" })
 	})
 
 	it("usa o escopo aberto quando é do mesmo tipo", () => {

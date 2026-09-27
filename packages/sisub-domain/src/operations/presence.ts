@@ -1,7 +1,7 @@
 /**
- * Fiscal presence operations: read presences + forecasts, insert/delete presence. Drizzle query layer.
+ * Fiscal presence operations: read presences + arranchamentos, insert/delete presence. Drizzle query layer.
  *
- * Auth: as leituras (listPresences, listForecastMap) seguem sem guard, como antes. Nas escritas,
+ * Auth: as leituras (listPresences, listArranchamentoMap) seguem sem guard, como antes. Nas escritas,
  * marcar a PRÓPRIA presença basta estar autenticado; mexer na de outro exige `messhall:2` no
  * refeitório — em `deletePresence` o refeitório vem da linha, que é o único dado confiável.
  *
@@ -10,10 +10,10 @@
  * propagate the raw error instead of mapping it through handleDomainError.
  */
 
-import { mealForecastsInKitchen, mealPresencesInKitchen, type SisubDb, vMealPresencesWithUserInKitchen } from "@iefa/database/drizzle/sisub"
+import { arranchamentoInKitchen, mealPresencesInKitchen, type SisubDb, vMealPresencesWithUserInKitchen } from "@iefa/database/drizzle/sisub"
 import { and, desc, eq, inArray } from "drizzle-orm"
 import { requireMessHall } from "../guards/require-permission.ts"
-import type { InsertPresence, ListForecastMap, ListPresences } from "../schemas/meal-ops.ts"
+import type { InsertPresence, ListArranchamentoMap, ListPresences } from "../schemas/meal-ops.ts"
 import type { UserContext } from "../types/context.ts"
 import { NotFoundError } from "../types/errors.ts"
 import { runQuery, unwrapPgError } from "../utils/index.ts"
@@ -56,24 +56,24 @@ export async function listPresences(db: SisubDb, input: ListPresences) {
 	}))
 }
 
-export async function listForecastMap(db: SisubDb, input: ListForecastMap): Promise<Record<string, boolean>> {
+export async function listArranchamentoMap(db: SisubDb, input: ListArranchamentoMap): Promise<Record<string, boolean>> {
 	if (input.userIds.length === 0) return {}
 
 	let rows: Array<{ user_id: string; will_eat: boolean | null }>
 	try {
 		rows = await db
-			.select({ user_id: mealForecastsInKitchen.userId, will_eat: mealForecastsInKitchen.willEat })
-			.from(mealForecastsInKitchen)
+			.select({ user_id: arranchamentoInKitchen.userId, will_eat: arranchamentoInKitchen.willEat })
+			.from(arranchamentoInKitchen)
 			.where(
 				and(
-					eq(mealForecastsInKitchen.date, input.date),
-					eq(mealForecastsInKitchen.meal, input.meal),
-					eq(mealForecastsInKitchen.messHallId, input.messHallId),
-					inArray(mealForecastsInKitchen.userId, input.userIds)
+					eq(arranchamentoInKitchen.date, input.date),
+					eq(arranchamentoInKitchen.meal, input.meal),
+					eq(arranchamentoInKitchen.messHallId, input.messHallId),
+					inArray(arranchamentoInKitchen.userId, input.userIds)
 				)
 			)
 	} catch {
-		// Non-throwing by design: caller treats a missing forecast as unknown.
+		// Non-throwing by design: caller treats a missing arranchamento as unknown.
 		return {}
 	}
 

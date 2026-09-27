@@ -264,6 +264,76 @@ const tooltip = "Numa UG executora não há dotação: há crédito descentraliz
 // ok: ubiquitous-language-lot4-identifier
 // A coluna antiga era dotacao; o espelho a mantém até o contract.
 
+// ── Lote 7: arranchamento ──────────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-lot7-identifier
+import { mealForecastsInKitchen } from "@iefa/database/drizzle/sisub"
+// ruleid: ubiquitous-language-lot7-identifier
+const rows = await supabase.schema("kitchen").from("meal_forecasts").select("user_id")
+// ruleid: ubiquitous-language-lot7-identifier
+import { useMealForecast } from "@/hooks/data/useMealForecast"
+// ruleid: ubiquitous-language-lot7-identifier
+export const upsertForecastFn = createServerFn({ method: "POST" })
+// ruleid: ubiquitous-language-lot7-identifier
+export type Metrics = { total_forecast: number; by_meal: ForecastRecord[] }
+// ruleid: ubiquitous-language-lot7-identifier
+const map = await listForecastMap(db, { date, meal, messHallId, userIds })
+// ruleid: ubiquitous-language-lot7-identifier
+const dialog = { open: true, systemForecast: null }
+// ruleid: ubiquitous-language-lot7-identifier, ubiquitous-language-lot8a-rancho
+export const RESTRICTED_PATHS = ["/opinion", "/rancho_previsoes"] as const
+
+// ok: ubiquitous-language-lot7-identifier
+import { arranchamentoInKitchen } from "@iefa/database/drizzle/sisub"
+// ok: ubiquitous-language-lot7-identifier
+export const upsertArranchamentoFn = createServerFn({ method: "POST" })
+// ok: ubiquitous-language-lot7-identifier
+export type MetricsOk = { total_arranchamentos: number; by_meal: ArranchamentoRecord[] }
+// ok: ubiquitous-language-lot7-identifier
+type DemandNames = DemandForecastRecord | DemandForecastMap | typeof upsertForecastSelection
+// ok: ubiquitous-language-lot7-identifier
+const menu = { forecastedHeadcount: 300, forecasted_headcount: 300 }
+// ok: ubiquitous-language-lot7-identifier
+const demand = { forecastId, pendingForecasts: 1, forecast: null }
+// ok: ubiquitous-language-lot7-identifier
+const { mutate: deleteForecast } = useDeleteDemandForecast()
+// ok: ubiquitous-language-lot7-identifier
+export const LEGACY_ARRANCHAMENTO_PATH = "/rancho_previsoes"
+// ok: ubiquitous-language-lot7-identifier
+expect(validateSql("SELECT * FROM meal_forecasts LIMIT 10")).toEqual({ valid: false, error: "Tabela não permitida: meal_forecasts" })
+// ok: ubiquitous-language-lot7-identifier
+// a antiga `kitchen.meal_forecasts`, renomeada em 20260927130000
+
+// ruleid: ubiquitous-language-lot7-route
+const toArranchamentoOld = { title: "Arranchamento", url: "/diner/forecast" }
+// ruleid: ubiquitous-language-lot7-route
+navigate({ to: "/diner/forecast" })
+
+// ok: ubiquitous-language-lot7-route
+const toArranchamento = { to: "/diner/arranchamento" }
+// ok: ubiquitous-language-lot7-route
+const legacyDiner = { from: "/diner/forecast", to: "/diner/arranchamento" }
+// ok: ubiquitous-language-lot7-route
+const demandRoute = { to: "/kitchen/$kitchenId/demand-forecasts/$forecastId" }
+
+// ruleid: ubiquitous-language-lot7-label
+const pageTitle = <PageHeader title="Previsão" />
+// ruleid: ubiquitous-language-lot7-label
+const totalLabel = <p className="text-caption">Total Previsto</p>
+// ruleid: ubiquitous-language-lot7-label
+const fiscalLine = "Previsão do sistema: Não previsto"
+
+// ok: ubiquitous-language-lot7-label
+const pageTitleOk = <PageHeader title="Arranchamento" />
+// ok: ubiquitous-language-lot7-label
+const totalLabelOk = <p className="text-caption">Total de arranchamentos</p>
+// ok: ubiquitous-language-lot7-label
+const navEntry = { title: "Arranchamento", keywords: ["previsão", "marcar refeição"] }
+// ok: ubiquitous-language-lot7-label
+const headcount = "Sem número, vale o efetivo previsto da refeição."
+// ok: ubiquitous-language-lot7-label
+const demandLabel = "Previsão de demanda das cozinhas"
+
 // ── Lote 8a: "rancho" ──────────────────────────────────────────────────────
 
 // ruleid: ubiquitous-language-lot8a-rancho
@@ -297,6 +367,10 @@ const NORM_REFS = { stops: "Recomendações — deslocamento com parada sem apoi
 const stopNote = { text: "Há escala sem apoio de rancho: o lanche cobre o tempo total do deslocamento." }
 // ok: ubiquitous-language-lot8a-rancho
 const pi = "'339030', 'PIRANCHO', '120001'"
+// ok: ubiquitous-language-lot8a-rancho
+export const LEGACY_ARRANCHAMENTO_PATH = "/rancho_previsoes"
+// ok: ubiquitous-language-lot8a-rancho
+const tag = { tags: ["Arranchamento"], description: "Retorna quem está arranchado; will_eat = false é desarranchado" }
 // ok: ubiquitous-language-lot8a-rancho
 const roster = sql`delete from kitchen.workforce_submission where rancho_id in (select id from kitchen.rancho)`
 // ok: ubiquitous-language-lot8a-rancho

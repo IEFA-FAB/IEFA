@@ -10,16 +10,16 @@ import { UnifiedStatusToasts } from "@/components/features/diner/UnifiedStatusTo
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { NEAR_DATE_THRESHOLD } from "@/constants/meal"
+import { useArranchamento } from "@/hooks/data/useArranchamento"
 import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
-import { useMealForecast } from "@/hooks/data/useMealForecast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
+import { getDayCardData, isWeekday, labelAlteracao, labelCard, labelDiaUtil } from "@/lib/arranchamento"
 import { cn } from "@/lib/cn"
-import { getDayCardData, isWeekday, labelAlteracao, labelCard, labelDiaUtil } from "@/lib/forecast"
 import { createEmptyDayMeals, isDateNear } from "@/lib/meal"
 import type { DayMeals, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/meal"
 import type { CardData } from "@/types/ui"
 
-// memo: com "use no memo" no Forecast, o compiler não estabiliza os elementos — sem isto,
+// memo: com "use no memo" na página, o compiler não estabiliza os elementos — sem isto,
 // qualquer estado não-relacionado (toast, modal, isRefetching) re-renderiza os ~30 cards.
 const DayCard = memo(lazy(() => import("@/components/features/diner/DayCard")))
 
@@ -27,18 +27,18 @@ const DayCard = memo(lazy(() => import("@/components/features/diner/DayCard")))
 // render quebraria o memo dos cards vazios).
 const EMPTY_DAY_MEALS = createEmptyDayMeals()
 
-export const Route = createFileRoute("/_protected/_modules/diner/forecast")({
+export const Route = createFileRoute("/_protected/_modules/diner/arranchamento")({
 	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
-	component: Forecast,
+	component: ArranchamentoPage,
 	head: () => ({
-		meta: [{ name: "description", content: "Faça sua previsão" }],
+		meta: [{ name: "description", content: "Faça seu arranchamento" }],
 	}),
 })
 /* ============================
    Componente principal
    ============================ */
 
-function Forecast() {
+function ArranchamentoPage() {
 	"use no memo"
 	const {
 		success,
@@ -56,13 +56,13 @@ function Forecast() {
 		setPendingChanges,
 		setSelections,
 		setDayMessHalls,
-		loadExistingForecasts,
+		loadExistingArranchamentos,
 		clearMessages,
 
 		defaultMessHallId, // ID (string)
 		setDefaultMessHallId, // setter local (string)
 		persistDefaultMessHallId, // persiste no user_data
-	} = useMealForecast()
+	} = useArranchamento()
 
 	// Mapeia ID <-> CODE para falar com os Selectors (que operam por "code")
 	const { messHalls } = useMessHalls()
@@ -272,7 +272,7 @@ function Forecast() {
 	const stableMessHallChange = useCallback((date: string, code: string) => messHallChangeRef.current(date, code), [])
 
 	const handleRefresh = (): void => {
-		loadExistingForecasts()
+		loadExistingArranchamentos()
 	}
 
 	const handleToggleMessHallSelector = (): void => {
@@ -426,8 +426,8 @@ function Forecast() {
 			// Persiste o default no user_data e aplica aos cards em paralelo
 			await Promise.all([persistDefaultMessHallId(), applyDefaultMessHallToAll()])
 
-			// Refaz fetch (default + forecasts) para refletir tudo da fonte de verdade
-			await loadExistingForecasts()
+			// Refaz fetch (default + arranchamentos) para refletir tudo da fonte de verdade
+			await loadExistingArranchamentos()
 			setIsApplyingDefaultMessHall(false)
 		} catch {
 			setIsApplyingDefaultMessHall(false)
@@ -441,7 +441,7 @@ function Forecast() {
 	return (
 		<div className="space-y-6">
 			<PageHeader
-				title="Previsão"
+				title="Arranchamento"
 				// Description removed to reduce redundancy with breadcrumbs/context
 			>
 				<Button variant="outline" size="sm" onClick={handleToggleMessHallSelector} aria-label="Definir refeitório padrão">
@@ -460,7 +460,7 @@ function Forecast() {
 					Refeições em Massa
 				</Button>
 
-				<Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading || isRefetching} aria-label="Recarregar previsões">
+				<Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading || isRefetching} aria-label="Recarregar arranchamentos">
 					<RefreshCw className={cn("size-4", isRefetching && "animate-spin")} />
 				</Button>
 			</PageHeader>
@@ -507,7 +507,7 @@ function Forecast() {
 			{/* Cards */}
 			<section aria-labelledby="cards-title">
 				<h2 id="cards-title" className="sr-only">
-					Previsão por dia
+					Arranchamento por dia
 				</h2>
 
 				<div className="flex flex-row flex-wrap justify-center items-center w-full gap-8">

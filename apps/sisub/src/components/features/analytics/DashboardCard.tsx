@@ -35,7 +35,7 @@ export default function DashboardCard({ unitId }: { unitId: number }) {
 
 	const messHallIdParam = selectedMessHall === "all" ? undefined : Number(selectedMessHall)
 
-	// Previsão, presença, refeitórios e diretório vêm juntos, do servidor, já recortados pela
+	// Arranchamento, presença, refeitórios e diretório vêm juntos, do servidor, já recortados pela
 	// unidade da rota — `unitId` deixou de ser ignorado, e com ele some o painel que somava
 	// todos os refeitórios da FAB para quem só tinha acesso a um.
 	const { data, isLoading, error } = useQuery(
@@ -50,11 +50,11 @@ export default function DashboardCard({ unitId }: { unitId: number }) {
 	// A lista do filtro é a da unidade inteira, e não segue o refeitório selecionado — senão
 	// escolher um refeitório apagaria as demais opções do seletor.
 	const filteredMessHalls = data?.messHalls ?? []
-	const forecastsData = data?.forecasts ?? []
+	const arranchamentosData = data?.arranchamentos ?? []
 	const presencesData = data?.presences ?? []
 
 	// Aggregate metrics (only when data is available)
-	const metrics = aggregateDashboardMetrics(forecastsData, presencesData, filteredMessHalls, dateRange)
+	const metrics = aggregateDashboardMetrics(arranchamentosData, presencesData, filteredMessHalls, dateRange)
 
 	return (
 		<Card>
@@ -114,7 +114,7 @@ export default function DashboardCard({ unitId }: { unitId: number }) {
 
 							<TabsContent value="presence" className="mt-6">
 								<PresenceTable
-									forecasts={forecastsData}
+									arranchamentos={arranchamentosData}
 									presences={presencesData}
 									users={data?.users ?? []}
 									militaries={data?.militaries ?? []}

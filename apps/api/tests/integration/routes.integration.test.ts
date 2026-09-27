@@ -98,21 +98,21 @@ describe.skipIf(!RUN_INTEGRATION)("Integration: GET /opinion", () => {
 	})
 })
 
-describe.skipIf(!RUN_INTEGRATION)("Integration: GET /rancho_previsoes", () => {
+describe.skipIf(!RUN_INTEGRATION)("Integration: GET /arranchamentos", () => {
 	test("returns 200 with array", async () => {
-		const { res, body } = await get("/rancho_previsoes?limit=10")
+		const { res, body } = await get("/arranchamentos?limit=10")
 		expect(res.status).toBe(200)
 		expect(Array.isArray(body)).toBe(true)
 	})
 
 	test("limit is respected", async () => {
-		const { res, body } = await get("/rancho_previsoes?limit=3")
+		const { res, body } = await get("/arranchamentos?limit=3")
 		expect(res.status).toBe(200)
 		expect(body.length).toBeLessThanOrEqual(3)
 	})
 
 	test("items have expected shape", async () => {
-		const { body } = await get("/rancho_previsoes?limit=1")
+		const { body } = await get("/arranchamentos?limit=1")
 		if (body.length === 0) return
 		const item = body[0] as Record<string, unknown>
 		expect(item).toHaveProperty("user_id")
@@ -125,7 +125,7 @@ describe.skipIf(!RUN_INTEGRATION)("Integration: GET /rancho_previsoes", () => {
 	test("filter by meal returns only that meal type", async () => {
 		const meals = ["cafe", "almoco", "janta", "ceia"] as const
 		for (const meal of meals) {
-			const { res, body } = await get(`/rancho_previsoes?meal=${meal}&limit=10`)
+			const { res, body } = await get(`/arranchamentos?meal=${meal}&limit=10`)
 			expect(res.status).toBe(200)
 			if (body.length > 0) {
 				expect((body as Record<string, unknown>[]).every((item) => item.meal === meal)).toBe(true)
@@ -134,12 +134,24 @@ describe.skipIf(!RUN_INTEGRATION)("Integration: GET /rancho_previsoes", () => {
 	})
 
 	test("filter by date returns only that date", async () => {
-		const { body: all } = await get("/rancho_previsoes?limit=1")
+		const { body: all } = await get("/arranchamentos?limit=1")
 		if (all.length === 0) return
 		const date = (all[0] as Record<string, unknown>).date as string
-		const { res, body } = await get(`/rancho_previsoes?date=${date}&limit=100`)
+		const { res, body } = await get(`/arranchamentos?date=${date}&limit=100`)
 		expect(res.status).toBe(200)
 		expect((body as Record<string, unknown>[]).every((item) => item.date === date)).toBe(true)
+	})
+})
+
+// Alias depreciado do lote 7 (`apps/api/src/api/arranchamento-path.ts`): mesmo dado, com o aviso.
+describe.skipIf(!RUN_INTEGRATION)("Integration: GET /rancho_previsoes (alias depreciado de /arranchamentos)", () => {
+	test("responde o mesmo que o caminho novo, com Deprecation e Link", async () => {
+		const { res, body } = await get("/rancho_previsoes?limit=3")
+		const { body: current } = await get("/arranchamentos?limit=3")
+		expect(res.status).toBe(200)
+		expect(res.headers.get("Deprecation")).toMatch(/^@\d+$/)
+		expect(res.headers.get("Link")).toBe('</api/arranchamentos?limit=3>; rel="successor-version"')
+		expect(body.length).toBe(current.length)
 	})
 })
 

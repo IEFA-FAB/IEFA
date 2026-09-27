@@ -3,8 +3,9 @@
  *
  * Cinco delas devolvem dado pessoal e nasceram anônimas: `/user-military-data` servia o
  * efetivo nominal (nome, nome de guerra, posto, OM), `/user-data` os e-mails institucionais
- * com número de ordem, e `/rancho_previsoes` + `/wherewhowhen` o rastro de presença por
- * pessoa. Este teste é o que impede que voltem a ser públicas.
+ * com número de ordem, e `/arranchamentos` (então só no caminho antigo, hoje alias depreciado)
+ * + `/wherewhowhen` o rastro de presença por pessoa. Este teste é o que impede que voltem a ser
+ * públicas.
  *
  * É teste de UNIDADE e é HERMÉTICO: o PostgREST fica num dublê em loopback, SEMPRE — nunca
  * em ambiente real, nem quando a máquina (ou o CI) tem credencial de produção exportada.
@@ -45,6 +46,7 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET
 // Import DINÂMICO: `import` estático é içado acima das atribuições acima, e `env.ts` valida
 // na carga do módulo — com o estático o teste morria em ZodError antes de rodar.
 const { api, RESTRICTED_PATHS } = await import("./routes.ts")
+const { ARRANCHAMENTO_PATH, LEGACY_ARRANCHAMENTO_DEPRECATED_AT, LEGACY_ARRANCHAMENTO_PATH } = await import("./arranchamento-path.ts")
 
 /** Rotas com dado pessoal — a lista vem do roteador, não de uma cópia local que diverge. */
 const RESTRICTED = [...RESTRICTED_PATHS]
@@ -157,6 +159,50 @@ describe("rotas com dado pessoal exigem x-admin-secret", () => {
 	test("resposta autorizada não vai para cache compartilhado", async () => {
 		const res = await api.request("/user-data", { headers: { "x-admin-secret": ADMIN_SECRET } })
 		expect(res.headers.get("Cache-Control")).toBe("no-store")
+	})
+})
+
+/**
+ * Lote 7 da linguagem ubíqua: `/arranchamentos` é o caminho do glossário e o antigo fica um tempo
+ * como alias. Os dois servem o mesmo rastro de quem come onde, então os dois são protegidos; o
+ * alias que caísse fora de `RESTRICTED_PATHS` viraria rota anônima sem ninguém notar.
+ */
+describe("arranchamento: caminho novo e alias depreciado", () => {
+	test("os dois caminhos estão em RESTRICTED_PATHS", () => {
+		expect(RESTRICTED).toContain(ARRANCHAMENTO_PATH)
+		expect(RESTRICTED).toContain(LEGACY_ARRANCHAMENTO_PATH)
+	})
+
+	test.each([ARRANCHAMENTO_PATH, LEGACY_ARRANCHAMENTO_PATH])("%s sem credencial devolve 401 e não chega ao handler", async (path) => {
+		const before = upstreamHits
+		const res = await api.request(path)
+		expect(res.status).toBe(401)
+		expect(upstreamHits).toBe(before)
+	})
+
+	test("o alias responde como o caminho novo, com Deprecation, Link para o sucessor e sem cache", async () => {
+		const res = await api.request(`${LEGACY_ARRANCHAMENTO_PATH}?meal=almoco&limit=5`, { headers: { "x-admin-secret": ADMIN_SECRET } })
+		expect(res.status).toBe(200)
+		expect(await res.json()).toEqual([])
+		expect(res.headers.get("Deprecation")).toBe(`@${LEGACY_ARRANCHAMENTO_DEPRECATED_AT}`)
+		expect(res.headers.get("Link")).toBe(`</api${ARRANCHAMENTO_PATH}?meal=almoco&limit=5>; rel="successor-version"`)
+		expect(res.headers.get("Cache-Control")).toBe("no-store")
+	})
+
+	test("o caminho novo não se anuncia depreciado", async () => {
+		const res = await api.request(ARRANCHAMENTO_PATH, { headers: { "x-admin-secret": ADMIN_SECRET } })
+		expect(res.status).toBe(200)
+		expect(res.headers.get("Deprecation")).toBeNull()
+	})
+
+	test("o OpenAPI marca só o alias como depreciado, com a mesma projeção", () => {
+		const doc = api.getOpenAPIDocument({ openapi: "3.0.0", info: { title: "arranchamento-probe", version: "0" } })
+		const paths = doc.paths as Record<string, { get?: { deprecated?: boolean; tags?: string[] } }>
+		expect(paths[ARRANCHAMENTO_PATH]?.get?.deprecated).toBeUndefined()
+		expect(paths[LEGACY_ARRANCHAMENTO_PATH]?.get?.deprecated).toBe(true)
+		expect(paths[ARRANCHAMENTO_PATH]?.get?.tags).toEqual(["Arranchamento"])
+		const fields = readResponseFields()
+		expect(fields.get(LEGACY_ARRANCHAMENTO_PATH)).toEqual(fields.get(ARRANCHAMENTO_PATH))
 	})
 })
 

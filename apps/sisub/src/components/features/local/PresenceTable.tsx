@@ -1,7 +1,7 @@
 import type {
 	AggregatedPresenceRecord,
+	ArranchamentoRecord,
 	DashboardPresenceRecord,
-	ForecastRecord,
 	MessHallAPI,
 	PersonDetail,
 	UserDataAPI,
@@ -19,7 +19,7 @@ import { cn } from "@/lib/cn"
 import { aggregatePresenceData, parseLocalDate } from "@/lib/dashboard"
 
 interface PresenceTableProps {
-	forecasts: ForecastRecord[]
+	arranchamentos: ArranchamentoRecord[]
 	presences: DashboardPresenceRecord[]
 	/** Diretório das pessoas que aparecem nas linhas acima — vem junto na leitura do painel. */
 	users: UserDataAPI[]
@@ -94,14 +94,14 @@ function PersonCard({ person, variant }: { person: PersonDetail; variant: "missi
 	)
 }
 
-export default function PresenceTable({ forecasts, presences, users, militaries, messHalls }: PresenceTableProps) {
+export default function PresenceTable({ arranchamentos, presences, users, militaries, messHalls }: PresenceTableProps) {
 	const [openIds, setOpenIds] = useState<Set<string>>(new Set())
 
 	// Sem query própria: as três leituras que ficavam aqui (user-data, user-military-data e
 	// mess-halls) eram chamadas do navegador contra rotas anônimas da API pública, e a de
 	// user-data aceitava uma lista de ids arbitrária — enumerava qualquer pessoa do sistema.
 	// O painel agora traz tudo numa leitura de servidor, e o skeleton é do componente pai.
-	const aggregatedData = aggregatePresenceData(forecasts, presences, users, militaries, messHalls)
+	const aggregatedData = aggregatePresenceData(arranchamentos, presences, users, militaries, messHalls)
 
 	const toggleOpen = (id: string) => {
 		setOpenIds((prev) => {
@@ -155,7 +155,7 @@ export default function PresenceTable({ forecasts, presences, users, militaries,
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="flex items-center justify-center h-32 text-muted-foreground">Sem previsões para o período selecionado</div>
+					<div className="flex items-center justify-center h-32 text-muted-foreground">Sem arranchamentos no período selecionado</div>
 				</CardContent>
 			</Card>
 		)
@@ -168,7 +168,7 @@ export default function PresenceTable({ forecasts, presences, users, militaries,
 					<Users className="size-5" aria-hidden="true" />
 					Análise de Presenças
 				</CardTitle>
-				<CardDescription>Comparação entre previsões e presenças por dia, refeição e refeitório</CardDescription>
+				<CardDescription>Comparação entre arranchados e presentes por dia, refeição e refeitório</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="overflow-x-auto">
@@ -179,7 +179,7 @@ export default function PresenceTable({ forecasts, presences, users, militaries,
 								<TableHead>Data</TableHead>
 								<TableHead>Refeitório</TableHead>
 								<TableHead>Refeição</TableHead>
-								<TableHead className="text-center">Previsto</TableHead>
+								<TableHead className="text-center">Arranchados</TableHead>
 								<TableHead className="text-center">Presença</TableHead>
 								<TableHead className="text-center">Diferença</TableHead>
 								<TableHead className="text-center">Taxa</TableHead>
@@ -225,7 +225,7 @@ export default function PresenceTable({ forecasts, presences, users, militaries,
 													{MEAL_LABELS[record.meal]}
 												</span>
 											</TableCell>
-											<TableCell className="text-center text-subheading">{record.forecast_count}</TableCell>
+											<TableCell className="text-center text-subheading">{record.arranchados_count}</TableCell>
 											<TableCell className="text-center text-subheading">{record.presence_count}</TableCell>
 											<TableCell
 												className={cn(
@@ -255,7 +255,7 @@ export default function PresenceTable({ forecasts, presences, users, militaries,
 															<h3 className="text-heading flex items-center gap-2">
 																Detalhamento
 																<span className="text-sm font-normal text-muted-foreground">
-																	({record.forecast_count + record.extras.length} pessoas total)
+																	({record.arranchados_count + record.extras.length} pessoas total)
 																</span>
 															</h3>
 															<Button variant="outline" size="sm" onClick={() => handleCopyCsv(record)} className="gap-2">

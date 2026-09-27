@@ -49,6 +49,14 @@ describe("validateSql", () => {
 		})
 	})
 
+	test("o arranchamento é lido pelo nome do glossário, não pelo nome antigo da tabela", () => {
+		expect(validateSql("SELECT meal, count(*) FROM arranchamento WHERE will_eat GROUP BY meal")).toEqual({ valid: true })
+		expect(validateSql("SELECT * FROM meal_forecasts LIMIT 10")).toEqual({
+			valid: false,
+			error: "Tabela não permitida: meal_forecasts",
+		})
+	})
+
 	test("rejeita JOIN em tabela fora da whitelist", () => {
 		expect(validateSql("SELECT r.id FROM recipes r JOIN secrets s ON s.recipe_id = r.id LIMIT 10")).toEqual({
 			valid: false,

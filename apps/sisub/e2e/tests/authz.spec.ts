@@ -18,7 +18,7 @@ import { expect, request, test } from "@playwright/test"
  */
 
 /** Rotas autenticadas que, juntas, exercitam um bom número de server fns. */
-const ROUTES_TO_HARVEST = ["/hub", "/diner/profile", "/diner/forecast"]
+const ROUTES_TO_HARVEST = ["/hub", "/diner/profile", "/diner/arranchamento"]
 
 /** Endpoints públicos por contrato — ver PUBLIC_SERVER_FNS em server-fn-auth.contract.test.ts. */
 const EXPECTED_PUBLIC_RESPONSES = new Set([200, 204])

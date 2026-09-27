@@ -195,7 +195,7 @@ describe("server function auth contract", () => {
 	// Ter guard responde "há sessão?", não "essa sessão pode agir sobre ESSE usuário?".
 	// Os testes abaixo respondem a segunda pergunta para toda fn cujo payload nomeia um
 	// usuário. A versão anterior deste bloco varria uma lista de arquivos digitada à mão —
-	// com `user.fn.ts` dentro, e só ele. `forecast.fn.ts` ficou de fora, e a garantia
+	// com `user.fn.ts` dentro, e só ele. `forecast.fn.ts` (hoje `arranchamento.fn.ts`) ficou de fora, e a garantia
 	// self-only das suas 5 fns vivia num comentário: trocar `requireUserId()` por
 	// `data.userId` passava verde. A lista de arquivos era o bug, então aqui não há lista de
 	// arquivos: a detecção vem do SCHEMA de cada fn, e uma fn nova entra sozinha.
@@ -220,10 +220,10 @@ describe("server function auth contract", () => {
 	 * Estar nesta lista não dispensa o guard; declara que o guard não é o `userId` da sessão.
 	 */
 	const CROSS_USER_SERVER_FNS: Record<string, string> = {
-		fetchUserMealForecastFn: "messhall.fn — o fiscal lê a previsão do comensal que apresentou o QR; o self check-in manda o próprio id",
+		fetchUserArranchamentoFn: "messhall.fn — o fiscal lê o arranchamento do comensal que apresentou o QR; o self check-in manda o próprio id",
 		resolveDisplayNameFn: "messhall.fn — o fiscal converte o UUID do QR em nome para conferir a pessoa na fila; exige messhall:1 no refeitório informado",
 		insertPresenceFn: "presence.fn — o fiscal registra a presença de terceiro; `insertPresence` exige messhall:2 quando o alvo não é o chamador",
-		fetchForecastsFn: "presence.fn — mapa de previsão dos comensais já presentes no refeitório, tela do fiscal",
+		fetchArranchamentoMapFn: "presence.fn — mapa de arranchamento dos comensais já presentes no refeitório, tela do fiscal",
 		searchUsersByEmailFn: "permissions.fn — o administrador procura a quem conceder permissão; a operation exige admin:2",
 		fetchUserPermissionsAdminFn: "permissions.fn — console de permissões: administrador lê as permissões de terceiro",
 		createUserPermissionFn: "permissions.fn — console de permissões: administrador concede permissão a terceiro",
@@ -366,7 +366,7 @@ describe("server function auth contract", () => {
 		expect(domainOps.size).toBeGreaterThan(100)
 		// Âncoras: as fns que motivaram o contrato precisam estar no conjunto detectado.
 		const detected = new Set(fnsWithIdentityPayload.map((e) => e.fn.name))
-		for (const anchor of ["fetchMealForecastsFn", "fetchUserDefaultMessHallFn", "persistDefaultMessHallFn", "fetchUserDataFn", "insertPresenceFn"]) {
+		for (const anchor of ["fetchArranchamentosFn", "fetchUserDefaultMessHallFn", "persistDefaultMessHallFn", "fetchUserDataFn", "insertPresenceFn"]) {
 			expect(detected, `${anchor} deveria ser detectado como fn com identidade no payload`).toContain(anchor)
 		}
 	})

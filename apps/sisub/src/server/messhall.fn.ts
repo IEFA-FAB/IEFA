@@ -1,6 +1,6 @@
 /**
  * @module messhall.fn
- * Mess hall lookup, diner forecast queries and extra-presence tracking.
+ * Mess hall lookup, diner arranchamento queries and extra-presence tracking.
  * Thin wrappers over @iefa/sisub-domain (operations/places).
  * @domain core
  * @migration done
@@ -11,11 +11,11 @@ import {
 	addOtherPresence,
 	FetchMessHallByCodeSchema,
 	FetchOtherPresencesCountSchema,
-	FetchUserMealForecastSchema,
+	FetchUserArranchamentoSchema,
 	fetchMessHallByCode,
 	fetchMessHallIdByCode,
 	fetchOtherPresencesCount,
-	fetchUserMealForecast,
+	fetchUserArranchamento,
 	ResolveDisplayNameSchema,
 	resolveDisplayName,
 } from "@iefa/sisub-domain"
@@ -42,13 +42,13 @@ export const fetchMessHallIdByCodeFn = createServerFn({ method: "GET" })
 // Dois chamadores legítimos, como em `insertPresence`: o comensal no self check-in (manda o
 // PRÓPRIO id) e o Fiscal de rancho (manda o id de terceiro). Só o segundo precisa de
 // `messhall`. Sem essa ramificação bastava estar autenticado para ler a previsão de qualquer
-// pessoa — `fetchUserMealForecast` descarta o `_ctx` e filtra apenas por `input.userId`.
-export const fetchUserMealForecastFn = createServerFn({ method: "GET" })
-	.validator(FetchUserMealForecastSchema)
+// pessoa — `fetchUserArranchamento` descarta o `_ctx` e filtra apenas por `input.userId`.
+export const fetchUserArranchamentoFn = createServerFn({ method: "GET" })
+	.validator(FetchUserArranchamentoSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		if (data.userId !== ctx.userId) await requireAuthWithPermission("messhall", 1, { type: "mess_hall", id: data.messHallId })
-		return fetchUserMealForecast(getDb(), ctx, data).catch(handleDomainError)
+		return fetchUserArranchamento(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 // Terceira leitura da tela de fiscalização, e a única que havia ficado com só `requireAuth()`:

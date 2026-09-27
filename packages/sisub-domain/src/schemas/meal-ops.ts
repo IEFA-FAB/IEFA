@@ -1,13 +1,13 @@
 import { z } from "zod"
 
-// ─── Forecast (diner will_eat intent) ───────────────────────────────────────
+// ─── Arranchamento (o comensal declara que vai comer) ──────────────────────
 
-export const ListMealForecastsSchema = z.object({
+export const ListArranchamentosSchema = z.object({
 	userId: z.string(),
 	startDate: z.string(),
 	endDate: z.string(),
 })
-export type ListMealForecasts = z.infer<typeof ListMealForecastsSchema>
+export type ListArranchamentos = z.infer<typeof ListArranchamentosSchema>
 
 export const GetUserDefaultMessHallSchema = z.object({ userId: z.string() })
 export type GetUserDefaultMessHall = z.infer<typeof GetUserDefaultMessHallSchema>
@@ -18,16 +18,16 @@ export const PersistDefaultMessHallSchema = z.object({
 })
 export type PersistDefaultMessHall = z.infer<typeof PersistDefaultMessHallSchema>
 
-export const UpsertForecastSchema = z.object({
+export const UpsertArranchamentoSchema = z.object({
 	date: z.string(),
 	meal: z.string(),
 	willEat: z.boolean(),
 	messHallId: z.number(),
 })
-export type UpsertForecast = z.infer<typeof UpsertForecastSchema>
+export type UpsertArranchamento = z.infer<typeof UpsertArranchamentoSchema>
 
-export const DeleteForecastSchema = z.object({ date: z.string(), meal: z.string() })
-export type DeleteForecast = z.infer<typeof DeleteForecastSchema>
+export const DeleteArranchamentoSchema = z.object({ date: z.string(), meal: z.string() })
+export type DeleteArranchamento = z.infer<typeof DeleteArranchamentoSchema>
 
 // ─── Presence (fiscal) ──────────────────────────────────────────────────────
 
@@ -38,13 +38,13 @@ export const ListPresencesSchema = z.object({
 })
 export type ListPresences = z.infer<typeof ListPresencesSchema>
 
-export const ListForecastMapSchema = z.object({
+export const ListArranchamentoMapSchema = z.object({
 	date: z.string(),
 	meal: z.string(),
 	messHallId: z.number(),
 	userIds: z.array(z.string()),
 })
-export type ListForecastMap = z.infer<typeof ListForecastMapSchema>
+export type ListArranchamentoMap = z.infer<typeof ListArranchamentoMapSchema>
 
 export const InsertPresenceSchema = z.object({
 	user_id: z.string(),

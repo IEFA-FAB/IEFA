@@ -9,7 +9,8 @@
 # compatibilidade e colunas espelhadas). A lista de termos cresce por lote, como a de
 # `ubiquitous-language.yaml`; cada lote tem a sua regra, com a exclusão até o próprio contract (a
 # do lote 3, pesquisa de preços e prefixos, vai até 20260927070000; a do lote 4, finanças, até
-# 20260927090000; a do lote 5, valores de domínio, até 20260927110000).
+# 20260927090000; a do lote 5, valores de domínio, até 20260927110000; a do lote 7, arranchamento,
+# exclui só o expand e o contract dele).
 #
 # Casos de teste: `__fixtures__/ubiquitous-language-sql.sql` (opengrep test --config
 # .opengrep/rules/ubiquitous-language-sql.yaml .opengrep/rules/__fixtures__/ubiquitous-language-sql.sql).
@@ -132,6 +133,44 @@ rules:
           # exclusão de comentário).
           - pattern-regex: >-
               (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:dotacao|saldo_siafi|ug_emitente)\b(?:(?!\1).)*\1
+
+  - id: ubiquitous-language-migration-lot7
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Nome descartado pelo glossário do sisub numa migration nova. O comensal se arrancha: a tabela
+      é `kitchen.arranchamento` (índices e constraints `arranchamento_*`), não `meal_forecasts`.
+      "Forecast" fica para a estimativa agregada (`daily_menu.forecasted_headcount`).
+    paths:
+      include:
+        - "packages/database/supabase/migrations/*.sql"
+      exclude:
+        # Tudo antes do expand do lote 7 (aplicado ou de outro lote) e os dois arquivos do lote 7,
+        # que citam o nome antigo de propósito (view de compatibilidade e as conferências). Migration
+        # nova entre os dois, ou depois, é acusada.
+        - "packages/database/supabase/migrations/2024*"
+        - "packages/database/supabase/migrations/2025*"
+        - "packages/database/supabase/migrations/20260[1-8]*"
+        - "packages/database/supabase/migrations/202609[0-1]*"
+        - "packages/database/supabase/migrations/2026092[0-6]*"
+        - "packages/database/supabase/migrations/202609270*"
+        - "packages/database/supabase/migrations/2026092710*"
+        - "packages/database/supabase/migrations/2026092711*"
+        - "packages/database/supabase/migrations/2026092712*"
+        - "packages/database/supabase/migrations/20260927130000_ubiquitous_language_lot7.sql"
+        - "packages/database/supabase/migrations/20260927140000_ubiquitous_language_lot7_contract.sql"
+    patterns:
+      - pattern-either:
+          - patterns:
+              # Do verbo que cria ou nomeia até o `;` que fecha o statement. Linha de comentário conta a
+              # história do rename e não é acusada.
+              - pattern-regex: >-
+                  (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b[^;]*?\b\w*meal_forecasts?\w*\b
+              - pattern-not-regex: (?m)^\s*--.*$
+          # Corpo entre dollar quotes: ver a regra do lote 2 (abertura depois de `as`/`do`, sem a
+          # exclusão de comentário).
+          - pattern-regex: >-
+              (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b\w*meal_forecasts?\w*\b(?:(?!\1).)*\1
 
   # Lote 8a: "rancho" é ambíguo (refeitório, cozinha ou a unidade, D10) e não nomeia objeto novo
   # nem entra em comentário do banco. Ficam de fora o nome da função "Fiscal de rancho" e, até o

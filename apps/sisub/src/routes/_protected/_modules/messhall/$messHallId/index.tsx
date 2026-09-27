@@ -149,7 +149,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 	const [dialog, setDialog] = useState<DialogState>({
 		open: false,
 		uuid: null,
-		systemForecast: null,
+		willEat: null,
 		willEnter: "sim",
 	})
 
@@ -192,10 +192,10 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 		;(async () => {
 			"use no memo"
 			try {
-				const { systemForecast } = await processScanRef.current(uuid, filtersRef.current)
+				const { willEat } = await processScanRef.current(uuid, filtersRef.current)
 				if (!isMountedRef.current) return
 				setLastScanResult(uuid)
-				setDialog({ open: true, uuid, systemForecast, willEnter: "sim" })
+				setDialog({ open: true, uuid, willEat, willEnter: "sim" })
 				markScannedRef.current(uuid)
 				if (isMountedRef.current) setIsProcessing(false)
 			} catch (_err) {
@@ -392,7 +392,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
    Tab: Lista de Presenças em Tempo Real (MESSHALL-03)
    ===================================================================== */
 function AttendanceTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFiltersChange: (f: FiscalFilters) => void }) {
-	const { presences, forecastMap, removePresence } = usePresenceManagement(filters)
+	const { presences, arranchamentoMap, removePresence } = usePresenceManagement(filters)
 
 	return (
 		<div className="space-y-4">
@@ -404,7 +404,13 @@ function AttendanceTab({ filters, onFiltersChange }: { filters: FiscalFilters; o
 				dates={generateRestrictedDates()}
 			/>
 
-			<PresenceTable selectedDate={filters.date} selectedMeal={filters.meal} presences={presences} forecastMap={forecastMap} actions={{ removePresence }} />
+			<PresenceTable
+				selectedDate={filters.date}
+				selectedMeal={filters.meal}
+				presences={presences}
+				arranchamentoMap={arranchamentoMap}
+				actions={{ removePresence }}
+			/>
 		</div>
 	)
 }

@@ -12,7 +12,7 @@ const SUGGESTED_PROMPTS: {
 		Icon: Users,
 	},
 	{
-		text: "Comparativo previsão vs. presença por refeição",
+		text: "Comparativo arranchamento vs. presença por refeição",
 		description: "Identifique gaps no planejamento de refeições",
 		Icon: TrendingUp,
 	},

@@ -1,6 +1,6 @@
 import type { MealKey } from "./meal.ts"
 
-export interface ForecastRecord {
+export interface ArranchamentoRecord {
 	user_id: string
 	date: string
 	meal: MealKey
@@ -50,7 +50,8 @@ export interface UserMilitaryDataAPI {
 
 export interface MealTypeStat {
 	meal: MealKey
-	forecast: number
+	/** Arranchamentos da refeição no período (pessoa × dia), não pessoas distintas. */
+	arranchamentos: number
 	presence: number
 	percentage: number
 }
@@ -66,13 +67,13 @@ export interface DailyMealStat {
 export interface MessHallStats {
 	mess_hall_id: number
 	mess_hall_name: string
-	total_forecast: number
+	total_arranchamentos: number
 	total_presence: number
 	by_meal: MealTypeStat[]
 }
 
 export interface DashboardMetrics {
-	total_forecast: number
+	total_arranchamentos: number
 	total_presence: number
 	by_meal_type: MealTypeStat[]
 	daily_distribution: DailyMealStat[]
@@ -93,9 +94,10 @@ export interface UserMealDetail {
 	name: string | null
 	posto: string | null
 	org: string | null
-	forecast_meals: Array<{ date: string; meal: MealKey }>
+	arranchamento_meals: Array<{ date: string; meal: MealKey }>
 	presence_meals: Array<{ date: string; meal: MealKey }>
-	forecast_count: number
+	/** Refeições em que a pessoa se arranchou no período. */
+	arranchamento_count: number
 	presence_count: number
 }
 
@@ -111,7 +113,7 @@ export interface AggregatedPresenceRecord {
 	mess_hall_id: number
 	mess_hall_name: string
 	meal: MealKey
-	forecast_count: number
+	arranchados_count: number
 	presence_count: number
 	difference: number
 	attendance_rate: number

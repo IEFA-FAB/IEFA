@@ -143,7 +143,7 @@ const MODULES: CrumbModule[] = [
 	{ id: "local-analytics", name: "Análises da Unidade", hubUrl: "/local-analytics", items: [{ title: "Painel", url: "/local-analytics/dashboard" }] },
 	{ id: "kitchen-production", name: "Produção Cozinha", hubUrl: "/kitchen-production", items: [{ title: "Painel", url: "/kitchen-production/" }] },
 	{ id: "unit", name: "Gestão Unidade", hubUrl: "/unit", items: [{ title: "Painel", url: "/unit/dashboard" }] },
-	{ id: "diner", name: "Comensal", items: [{ title: "Previsão", url: "/diner/forecast" }] },
+	{ id: "diner", name: "Comensal", items: [{ title: "Arranchamento", url: "/diner/arranchamento" }] },
 	{ id: "analytics", name: "Análises Globais", items: [{ title: "Visão Global", url: "/analytics/global" }] },
 ]
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { isWeekday, labelAlteracao, labelCard, labelDiaUtil, pluralize } from "./forecast"
+import { isWeekday, labelAlteracao, labelCard, labelDiaUtil, pluralize } from "./arranchamento"
 
 describe("pluralize", () => {
 	test("usa singular apenas quando a contagem é exatamente 1", () => {

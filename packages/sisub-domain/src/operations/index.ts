@@ -44,6 +44,7 @@ export {
 	isAllergen,
 	normalizeAllergens,
 } from "./allergens.ts"
+export { deleteArranchamento, getUserDefaultMessHall, listArranchamentos, persistDefaultMessHall, upsertArranchamento } from "./arranchamento.ts"
 export {
 	type AuditTargetValue,
 	listSensitiveOperationNames,
@@ -336,7 +337,6 @@ export {
 	summarizeAcquisitions,
 } from "./expense-execution.ts"
 export { type FolderLastReview, type FolderReviewRow, listFolderLastReviews, recordFolderReview } from "./folder-reviews.ts"
-export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
 	createFrozenPreparation,
 	deleteFrozenPreparation,
@@ -567,7 +567,7 @@ export {
 	fetchMessHallIdByCode,
 	fetchOtherPresencesCount,
 	fetchPlacesGraph,
-	fetchUserMealForecast,
+	fetchUserArranchamento,
 	listAllMessHalls,
 	listUnits,
 	resolveDisplayName,
@@ -625,7 +625,7 @@ export {
 	ingredientOutsidePreparations,
 	ingredientPreparationFilter,
 } from "./preparation-scope.ts"
-export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
+export { deletePresence, insertPresence, listArranchamentoMap, listPresences } from "./presence.ts"
 export {
 	complianceFactsOf,
 	deriveManualSelection,

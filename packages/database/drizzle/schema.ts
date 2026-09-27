@@ -2110,33 +2110,6 @@ export const moduleChatMessageInKitchen = kitchen.table("module_chat_message", {
 	check("module_chat_message_role_check", sql`role = ANY (ARRAY['user'::text, 'assistant'::text, 'tool'::text])`),
 ]);
 
-export const mealForecastsInKitchen = kitchen.table("meal_forecasts", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	date: date().notNull(),
-	userId: uuid("user_id").notNull(),
-	meal: text().notNull(),
-	willEat: boolean("will_eat").notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	messHallId: bigint("mess_hall_id", { mode: "number" }).notNull(),
-}, (table) => [
-	index("meal_forecasts_date_idx").using("btree", table.date.asc().nullsLast()),
-	index("meal_forecasts_mess_hall_id_idx").using("btree", table.messHallId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.messHallId],
-			foreignColumns: [messHallsInKitchen.id],
-			name: "meal_forecasts_mess_hall_id_fkey"
-		}).onDelete("restrict"),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [usersInAuth.id],
-			name: "meal_forecasts_user_id_fkey"
-		}),
-	unique("meal_forecasts_user_id_date_meal_key").on(table.date, table.userId, table.meal),
-	check("meal_forecasts_meal_check", sql`meal = ANY (ARRAY['cafe'::text, 'almoco'::text, 'janta'::text, 'ceia'::text])`),
-]);
-
 export const messHallsInKitchen = kitchen.table("mess_halls", {
 	id: bigserial({ mode: "number" }).primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -4401,6 +4374,33 @@ export const recipesInKitchen = kitchen.table("recipes", {
 	check("recipes_provisional_is_local", sql`(provisional_since IS NULL) OR (kitchen_id IS NOT NULL)`),
 ]);
 
+export const arranchamentoInKitchen = kitchen.table("arranchamento", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	date: date().notNull(),
+	userId: uuid("user_id").notNull(),
+	meal: text().notNull(),
+	willEat: boolean("will_eat").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	messHallId: bigint("mess_hall_id", { mode: "number" }).notNull(),
+}, (table) => [
+	index("arranchamento_date_idx").using("btree", table.date.asc().nullsLast()),
+	index("arranchamento_mess_hall_id_idx").using("btree", table.messHallId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.messHallId],
+			foreignColumns: [messHallsInKitchen.id],
+			name: "arranchamento_mess_hall_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [usersInAuth.id],
+			name: "arranchamento_user_id_fkey"
+		}),
+	unique("arranchamento_user_id_date_meal_key").on(table.date, table.userId, table.meal),
+	check("arranchamento_meal_check", sql`meal = ANY (ARRAY['cafe'::text, 'almoco'::text, 'janta'::text, 'ceia'::text])`),
+]);
+
 export const stockMovementInInventory = inventory.table("stock_movement", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -5752,6 +5752,17 @@ export const vSiafiReconciliationInFinance = finance.view("v_siafi_reconciliatio
 	justificativa: text(),
 	decisaoVigente: boolean("decisao_vigente"),
 }).with({"securityInvoker":true}).as(sql`WITH siafi_rows AS ( SELECT b.unit_id, b.report_type AS documento_tipo, CASE b.report_type WHEN 'ne'::text THEN r.parsed ->> 'numero_ne'::text WHEN 'ns'::text THEN r.parsed ->> 'numero_ns'::text WHEN 'ob'::text THEN r.parsed ->> 'numero_ob'::text ELSE NULL::text END AS numero_documento, (r.parsed ->> 'valor'::text)::numeric AS valor_siafi, b.created_at AS lote_em, b.id AS batch_id, r.parse_status, row_number() OVER (PARTITION BY b.unit_id, b.report_type, ( CASE b.report_type WHEN 'ne'::text THEN r.parsed ->> 'numero_ne'::text WHEN 'ns'::text THEN r.parsed ->> 'numero_ns'::text WHEN 'ob'::text THEN r.parsed ->> 'numero_ob'::text ELSE NULL::text END) ORDER BY b.created_at DESC) AS recencia FROM siafi_integration.import_row r JOIN siafi_integration.import_batch b ON b.id = r.batch_id WHERE (r.parse_status = ANY (ARRAY['parsed'::text, 'waiting_parent'::text])) AND (b.report_type = ANY (ARRAY['ne'::text, 'ns'::text, 'ob'::text])) ), latest_siafi AS ( SELECT siafi_rows.unit_id, siafi_rows.documento_tipo, siafi_rows.numero_documento, siafi_rows.valor_siafi, siafi_rows.lote_em, siafi_rows.batch_id, siafi_rows.parse_status, siafi_rows.recencia FROM siafi_rows WHERE siafi_rows.recencia = 1 AND siafi_rows.numero_documento IS NOT NULL ), sisub_rows AS ( SELECT e.unit_id, 'ne'::text AS documento_tipo, e.numero_empenho AS numero_documento, v.valor_vigente AS valor_sisub FROM finance.empenho e JOIN finance.v_empenho_vigente v ON v.empenho_id = e.id UNION ALL SELECT l.unit_id, 'ns'::text AS text, l.numero_ns, l.valor FROM finance.liquidacao l UNION ALL SELECT p.unit_id, 'ob'::text AS text, p.numero_ob, p.valor FROM finance.pagamento p ) SELECT COALESCE(s.unit_id, f.unit_id) AS unit_id, COALESCE(s.documento_tipo, f.documento_tipo) AS documento_tipo, COALESCE(s.numero_documento, f.numero_documento) AS numero_documento, s.valor_sisub, f.valor_siafi, f.batch_id, f.lote_em, CASE WHEN f.numero_documento IS NULL THEN 'apenas_sisub'::text WHEN s.numero_documento IS NULL AND f.parse_status = 'waiting_parent'::text THEN 'aguardando_documento_pai'::text WHEN s.numero_documento IS NULL THEN 'apenas_siafi'::text WHEN abs(COALESCE(s.valor_sisub, 0::numeric) - COALESCE(f.valor_siafi, 0::numeric)) > 0.009 THEN 'divergente'::text ELSE 'conciliado'::text END AS situacao, COALESCE(f.valor_siafi, 0::numeric) - COALESCE(s.valor_sisub, 0::numeric) AS diferenca, d.decisao, d.justificativa, d.id IS NOT NULL AND NOT d.valor_sisub IS DISTINCT FROM s.valor_sisub AND NOT d.valor_siafi IS DISTINCT FROM f.valor_siafi AS decisao_vigente FROM sisub_rows s FULL JOIN latest_siafi f ON f.unit_id = s.unit_id AND f.documento_tipo = s.documento_tipo AND f.numero_documento = s.numero_documento LEFT JOIN finance.reconciliation_decision d ON d.unit_id = COALESCE(s.unit_id, f.unit_id) AND d.documento_tipo = COALESCE(s.documento_tipo, f.documento_tipo) AND d.numero_documento = COALESCE(s.numero_documento, f.numero_documento)`);
+
+export const mealForecastsInKitchen = kitchen.view("meal_forecasts", {	id: uuid().defaultRandom(),
+	date: date(),
+	userId: uuid("user_id"),
+	meal: text(),
+	willEat: boolean("will_eat"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	messHallId: bigint("mess_hall_id", { mode: "number" }),
+}).with({"securityInvoker":true}).as(sql`SELECT id, date, user_id, meal, will_eat, created_at, updated_at, mess_hall_id FROM kitchen.arranchamento`);
 
 export const vMeasureUnitReviewInCore = core.view("v_measure_unit_review", {	sourceTable: text("source_table"),
 	sourceId: text("source_id"),

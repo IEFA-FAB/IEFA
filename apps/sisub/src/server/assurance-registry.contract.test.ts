@@ -68,7 +68,7 @@ describe("assurance registry contract", () => {
 		// assim que a suíte de integração do split de schema rodou vazia e ninguém percebeu.
 		expect(mutationFns.length).toBeGreaterThan(150)
 		const names = new Set(mutationFns.map((fn) => fn.name))
-		for (const anchor of ["createUserPermissionFn", "createMcpKeyFn", "createLiquidacaoFn", "upsertForecastFn"]) {
+		for (const anchor of ["createUserPermissionFn", "createMcpKeyFn", "createLiquidacaoFn", "upsertArranchamentoFn"]) {
 			expect(names, `${anchor} deveria ser detectada como fn de mutação`).toContain(anchor)
 		}
 	})
@@ -157,8 +157,8 @@ describe("assurance registry contract", () => {
 		// Previsão, presença, produção, cardápio e estoque são o trabalho diário de centenas
 		// de pessoas. Qualquer piso aqui é atrito multiplicado por volume.
 		const routine = [
-			"upsertForecastFn",
-			"deleteForecastFn",
+			"upsertArranchamentoFn",
+			"deleteArranchamentoFn",
 			"insertPresenceFn",
 			"submitEvaluationFn",
 			"updateProductionTaskStatusFn",
@@ -294,7 +294,7 @@ describe("piso efetivo — nada exigido hoje, e a chave é granular", () => {
 	test("operação de rotina e nome desconhecido também devolvem `none`", () => {
 		// Nome fora do registro não pode LANÇAR: este caminho roda dentro da requisição do
 		// usuário. Quem reprova nome não classificado é o contrato acima, na suíte.
-		expect(enforcedAssuranceFor("upsertForecastFn").require).toBe("none")
+		expect(enforcedAssuranceFor("upsertArranchamentoFn").require).toBe("none")
 		expect(enforcedAssuranceFor("fnQueNaoExiste").require).toBe("none")
 	})
 

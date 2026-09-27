@@ -4,7 +4,7 @@
  * decidir de quem é o dado — e nenhuma das fns que a usam tem como perceber.
  *
  * O caso da ordem do spread tem teste próprio de propósito: era exatamente essa a garantia
- * frágil em `forecast.fn.ts` (`{ ...data, userId }` — inverter a ordem entregava o alvo ao
+ * frágil em `arranchamento.fn.ts` (então `forecast.fn.ts`) (`{ ...data, userId }` — inverter a ordem entregava o alvo ao
  * cliente sem quebrar nada).
  */
 

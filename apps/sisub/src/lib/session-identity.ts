@@ -4,7 +4,7 @@
  * valores da sessão.
  *
  * Existe para que a garantia self-only apareça no CÓDIGO e não num comentário. Até aqui
- * `forecast.fn.ts` prometia numa linha de comentário que "o `userId` do payload é IGNORADO",
+ * `arranchamento.fn.ts` (então `forecast.fn.ts`) prometia numa linha de comentário que "o `userId` do payload é IGNORADO",
  * e a promessa se sustentava só na ordem do spread (`{ ...data, userId }`): trocar por
  * `data.userId` — ou inverter o spread — passava verde na suíte inteira.
  *

@@ -16,13 +16,13 @@
  */
 
 import {
+	arranchamentoInKitchen,
 	dailyMenuInKitchen,
 	equipmentModelInKitchen,
 	equipmentUnitInKitchen,
 	kitchenDemandForecastInProcurement,
 	kitchenDemandForecastSelectionInProcurement,
 	kitchenInKitchen,
-	mealForecastsInKitchen,
 	mealPresencesInKitchen,
 	mealTypeInKitchen,
 	menuGroupSetInKitchen,
@@ -365,8 +365,8 @@ const RESET_STEPS: ResetStep[] = [
 		run: (tx, scope) => deleteCounting(tx, productionTaskInKitchen, eq(productionTaskInKitchen.kitchenId, scope.kitchen_id)),
 	},
 	{
-		table: "kitchen.meal_forecasts",
-		run: (tx, scope) => deleteCounting(tx, mealForecastsInKitchen, eq(mealForecastsInKitchen.messHallId, scope.mess_hall_id)),
+		table: "kitchen.arranchamento",
+		run: (tx, scope) => deleteCounting(tx, arranchamentoInKitchen, eq(arranchamentoInKitchen.messHallId, scope.mess_hall_id)),
 	},
 	{
 		table: "kitchen.meal_presences",

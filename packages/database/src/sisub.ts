@@ -47,9 +47,9 @@ export type UserMilitaryData = Tables<"user_military_data">
 export type UserMilitaryDataInsert = TablesInsert<"user_military_data">
 export type UserMilitaryDataUpdate = TablesUpdate<"user_military_data">
 
-export type MealForecast = Tables<"meal_forecasts">
-export type MealForecastInsert = TablesInsert<"meal_forecasts">
-export type MealForecastUpdate = TablesUpdate<"meal_forecasts">
+export type Arranchamento = Tables<"arranchamento">
+export type ArranchamentoInsert = TablesInsert<"arranchamento">
+export type ArranchamentoUpdate = TablesUpdate<"arranchamento">
 
 export type MealPresence = Tables<"meal_presences">
 export type MealPresenceInsert = TablesInsert<"meal_presences">

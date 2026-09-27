@@ -44,20 +44,20 @@ export interface FiscalFilters {
 }
 
 /**
- * Forecast row data as returned from the database.
- * Subset de MealForecast focado em user_id e will_eat
+ * Arranchamento row data as returned from the database.
+ * Subset de Arranchamento focado em user_id e will_eat
  */
-export interface ForecastRow {
+export interface ArranchamentoRow {
 	user_id: string
 	will_eat: boolean | null
 }
 
 /**
- * Combined query result containing presences and forecast data.
+ * Combined query result containing presences and arranchamento data.
  */
 export interface QueryResult {
 	presences: FiscalPresenceRecord[]
-	forecastMap: Record<string, boolean>
+	arranchamentoMap: Record<string, boolean>
 }
 
 /**
@@ -77,11 +77,11 @@ export interface ConfirmPresenceResult {
 }
 
 /**
- * Map of user IDs to forecast status.
+ * Map of user IDs to arranchamento status.
  * Key: user_id (UUID)
- * Value: boolean indicating if user forecasted they will eat
+ * Value: boolean indicating if the user is arranchado (will eat)
  */
-export type ForecastMap = Record<string, boolean>
+export type ArranchamentoMap = Record<string, boolean>
 
 /**
  * Return type for the usePresenceManagement hook.
@@ -89,7 +89,7 @@ export type ForecastMap = Record<string, boolean>
  */
 export interface UsePresenceManagementReturn {
 	presences: FiscalPresenceRecord[]
-	forecastMap: ForecastMap
+	arranchamentoMap: ArranchamentoMap
 	isLoading: boolean
 	isConfirming: boolean
 	isRemoving: boolean
@@ -108,6 +108,6 @@ export type WillEnter = "sim" | "nao"
 export type DialogState = {
 	open: boolean
 	uuid: string | null
-	systemForecast: boolean | null
+	willEat: boolean | null
 	willEnter: "sim" | "nao"
 }
