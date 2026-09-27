@@ -31,9 +31,11 @@ interface ProfileFormProps {
 	userId: string
 	profile: UserProfile | null | undefined
 	userEmail?: string | null
+	/** Depois de salvar (a rota usa para voltar à submissão). */
+	onSaved?: () => void
 }
 
-export function ProfileForm({ profile, userEmail }: ProfileFormProps) {
+export function ProfileForm({ profile, userEmail, onSaved }: ProfileFormProps) {
 	const [isSaving, setIsSaving] = useState(false)
 	const [message, setMessage] = useState<{
 		type: "success" | "error"
@@ -92,6 +94,7 @@ export function ProfileForm({ profile, userEmail }: ProfileFormProps) {
 					type: "success",
 					text: "Perfil atualizado com sucesso!",
 				})
+				onSaved?.()
 			} catch (error) {
 				setMessage({
 					type: "error",

@@ -180,7 +180,7 @@ export async function getPublishedArticle(articleId: string): Promise<PublishedA
 // ─── Editorial Dashboard ──────────────────────────────────────────────────────
 
 export async function getEditorialDashboard(filters?: { status?: string; limit?: number }): Promise<EditorialDashboardArticle[]> {
-	return (await getEditorialDashboardFn({ data: filters ?? {} })) as EditorialDashboardArticle[]
+	return getEditorialDashboardFn({ data: filters ?? {} })
 }
 
 // ─── Review Assignments ───────────────────────────────────────────────────────

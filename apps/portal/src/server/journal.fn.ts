@@ -9,7 +9,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { forbidden, requireSelf, requireSubmitterArticle } from "@/lib/auth.server"
+import { forbidden, requireJournalProfile, requireSelf, requireSubmitterArticle } from "@/lib/auth.server"
 import { assertStoredFilesMatchExtension } from "@/lib/journal/file-signature.server"
 import { areVersionPathsOfArticle } from "@/lib/journal/storage-paths"
 import { getJournalServerClient } from "@/lib/supabase.server"
@@ -226,6 +226,9 @@ export const submitArticleFn = createServerFn({ method: "POST" })
 		// "submetia" qualquer artigo (inclusive um publicado, que voltava para a fila). A
 		// re-submissão de revisão tem fluxo próprio (`resubmitRevisionFn`).
 		await requireSubmitterArticle(articleId, ["draft"])
+		// Sem perfil no journal não há submissão: o painel editorial e os e-mails nomeiam o autor
+		// por ele, e desde 20260926218000 o cadastro do Auth não o cria mais.
+		await requireJournalProfile(userId)
 
 		// Os arquivos da v1 são conferidos de novo AQUI: enquanto era rascunho o autor podia
 		// regravar o mesmo caminho (upsert) depois do `saveVersionDraftFn`. Depois desta

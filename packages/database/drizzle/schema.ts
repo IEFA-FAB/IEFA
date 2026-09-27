@@ -1,4 +1,4 @@
-import { pgEnum, pgSchema, index, foreignKey, unique, uuid, varchar, text, timestamp, integer, boolean, bigserial, bigint, check, numeric, jsonb, uniqueIndex, date, smallint, char, pgPolicy, doublePrecision, json, primaryKey } from "drizzle-orm/pg-core"
+import { pgSchema, foreignKey, integer, text, boolean, timestamp, index, unique, bigserial, bigint, check, uuid, numeric, jsonb, uniqueIndex, date, smallint, char, pgPolicy, doublePrecision, json, primaryKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const accessControl = pgSchema("access_control");
@@ -12,33 +12,11 @@ export const nutritionReference = pgSchema("nutrition_reference");
 export const procurement = pgSchema("procurement");
 export const siafiIntegration = pgSchema("siafi_integration");
 export const sisub = pgSchema("sisub");
-// Patched (patch-drizzle-pull.ts): cross-schema/custom-type refs the pull leaves dangling.
+// Patched (patch-drizzle-pull.ts): cross-schema refs the pull leaves dangling.
 export const usersInAuth = pgSchema("auth").table("users", { id: uuid().primaryKey().notNull() });
-export const userLevels = pgEnum("userLevels", ['user', 'admin', 'superadmin']);
 export const kitchenTypeInSisub = sisub.enum("kitchen_type", ['consumption', 'production'])
 export const unitTypeInSisub = sisub.enum("unit_type", ['consumption', 'purchase'])
 
-
-export const profilesAdminInAccessControl = accessControl.table("profiles_admin", {
-	id: uuid().notNull(),
-	saram: varchar({ length: 7 }).notNull(),
-	name: text(),
-	email: text().primaryKey().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	role: userLevels("role"),
-	om: text(),
-}, (table) => [
-	index("idx_profiles_saram").using("btree", table.saram.asc().nullsLast().op("text_ops")),
-	foreignKey({
-			columns: [table.id],
-			foreignColumns: [usersInAuth.id],
-			name: "profiles_id_fkey"
-		}).onDelete("cascade"),
-	unique("profiles_admin_id_key").on(table.id),
-	unique("profiles_saram_key").on(table.saram),
-	unique("profiles_admin_email_key").on(table.email),
-]);
 
 export const comprasServicoGrupoInComprasGovIntegration = comprasGovIntegration.table("compras_servico_grupo", {
 	codigoGrupo: integer("codigo_grupo").primaryKey().notNull(),

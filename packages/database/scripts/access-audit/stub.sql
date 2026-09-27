@@ -1,5 +1,5 @@
 -- Esqueleto mínimo do banco de produção para validar as migrations de auditoria de acesso
--- (20260921130000 + 20260921130100) num Postgres DESCARTÁVEL. Espelha as colunas, FKs
+-- (20260921130000 + 20260921130100, e 20260926218000) num Postgres DESCARTÁVEL. Espelha as colunas, FKs
 -- (inclusive as ações ON DELETE), índices únicos e CHECKs das tabelas de acesso como estão
 -- em produção (conferido por leitura do catálogo em 2026-09-19). NÃO é migration: só roda
 -- em cluster local, por `run.sh`.
@@ -154,6 +154,68 @@ begin
 end;
 $$;
 create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
+
+-- ── 20260926218000 (legacy_access_profiles) ─────────────────────────────────
+-- O modelo de papéis anterior ao PBAC, como está em produção (catálogo lido em 2026-09-26).
+create type public."userLevels" as enum ('user', 'admin', 'superadmin');
+create table access_control.profiles_admin (
+	id uuid not null constraint profiles_id_fkey references auth.users(id) on delete cascade,
+	saram varchar(7) not null constraint profiles_saram_key unique,
+	name text,
+	email text primary key,
+	created_at timestamptz default now(),
+	updated_at timestamptz default now(),
+	role public."userLevels",
+	om text,
+	constraint profiles_admin_id_key unique (id)
+);
+alter table access_control.profiles_admin enable row level security;
+
+-- O que o painel editorial e a proposta de exclusão dos perfis ociosos leem (só as colunas usadas).
+create table journal.articles (
+	id uuid primary key default gen_random_uuid(),
+	submitter_id uuid not null references auth.users(id),
+	submission_number text,
+	title_pt text,
+	title_en text,
+	status text not null default 'draft',
+	article_type text,
+	subject_area text,
+	submitted_at timestamptz,
+	deleted_at timestamptz
+);
+create table journal.article_versions (
+	id uuid primary key default gen_random_uuid(),
+	article_id uuid not null references journal.articles(id) on delete cascade,
+	uploaded_by uuid references auth.users(id)
+);
+create table journal.review_assignments (
+	id uuid primary key default gen_random_uuid(),
+	article_id uuid not null references journal.articles(id) on delete cascade,
+	reviewer_id uuid not null references auth.users(id),
+	invited_by uuid references auth.users(id),
+	status text not null default 'invited'
+);
+create table journal.article_events (
+	id uuid primary key default gen_random_uuid(),
+	article_id uuid not null references journal.articles(id) on delete cascade,
+	user_id uuid references auth.users(id)
+);
+create table journal.notifications (
+	id uuid primary key default gen_random_uuid(),
+	user_id uuid not null references auth.users(id) on delete cascade
+);
+-- A view como está em produção antes de 20260926218000 (INNER JOIN no perfil).
+create view journal.editorial_dashboard with (security_invoker = on) as
+select a.id, a.submission_number, a.title_en, a.status, a.article_type, a.subject_area, a.submitted_at,
+	extract(day from (now() - a.submitted_at)) as days_since_submission,
+	up.full_name as submitter_name,
+	(select count(*) from journal.review_assignments ra where ra.article_id = a.id and ra.status = 'completed') as completed_reviews,
+	(select count(*) from journal.review_assignments ra where ra.article_id = a.id and ra.status = any (array['invited', 'accepted'])) as pending_reviews
+from journal.articles a
+join journal.user_profiles up on up.id = a.submitter_id
+where a.status <> 'published' and a.deleted_at is null
+order by a.submitted_at desc;
 
 -- Privilégios de tabela da service role, como no Supabase.
 grant select, insert, update, delete on all tables in schema access_control, forms, journal to service_role;

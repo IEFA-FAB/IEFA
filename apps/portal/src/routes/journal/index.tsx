@@ -23,7 +23,8 @@ export const Route = createFileRoute("/journal/")({
 			try {
 				await context.queryClient.query({ ...userProfileQueryOptions(auth.user.id), staleTime: "static" })
 			} catch {
-				// Profile doesn't exist yet, will be auto-created by trigger
+				// Sem perfil o componente mostra o onboarding: o perfil nasce no primeiro uso do
+				// journal (formulário de perfil → journal.save_user_profile), não no cadastro.
 			}
 		}
 	},

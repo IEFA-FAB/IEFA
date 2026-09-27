@@ -7,6 +7,7 @@ import { authQueryOptions } from "@/auth/service"
 import type { SubmissionFormData } from "@/components/journal/SubmissionForm/SubmissionForm"
 import { SubmissionForm } from "@/components/journal/SubmissionForm/SubmissionForm"
 import { userActiveDraftQueryOptions, userProfileQueryOptions } from "@/lib/journal/hooks"
+import { loadSubmitPrerequisites } from "@/lib/journal/profile"
 import { submitArticleFn } from "@/server/journal.fn"
 
 const searchSchema = z.object({
@@ -33,14 +34,19 @@ export const Route = createFileRoute("/journal/submit")({
 		// Type assertion: after the guard, we know user is non-null
 		return { auth: auth as typeof auth & { user: NonNullable<typeof auth.user> } }
 	},
-	loader: async ({ context }) => {
+	loader: async ({ context, location }) => {
 		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (auth.user) {
-			// Pre-load user profile and active draft in parallel
-			await Promise.all([
-				context.queryClient.query({ ...userProfileQueryOptions(auth.user.id), staleTime: "static" }),
-				context.queryClient.query({ ...userActiveDraftQueryOptions(auth.user.id), staleTime: "static" }),
-			])
+			const userId = auth.user.id
+			// O perfil nasce no primeiro uso do journal, não no cadastro: sem ele, o formulário de
+			// perfil primeiro, com a volta para cá marcada. O servidor recusa a submissão do mesmo
+			// jeito (`requireJournalProfile`).
+			const loaded = await loadSubmitPrerequisites({
+				readProfile: () => context.queryClient.query({ ...userProfileQueryOptions(userId), staleTime: "static" }),
+				readDraft: () => context.queryClient.query({ ...userActiveDraftQueryOptions(userId), staleTime: "static" }),
+				next: location.href,
+			})
+			if (loaded.status === "needs-profile") throw redirect(loaded.redirect)
 		}
 	},
 	component: RouteComponent,

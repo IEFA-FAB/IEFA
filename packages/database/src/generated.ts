@@ -172,39 +172,6 @@ export type Database = {
           },
         ]
       }
-      profiles_admin: {
-        Row: {
-          created_at: string | null
-          email: string
-          id: string
-          name: string | null
-          om: string | null
-          role: "user" | "admin" | "superadmin" | null
-          saram: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email: string
-          id: string
-          name?: string | null
-          om?: string | null
-          role?: "user" | "admin" | "superadmin" | null
-          saram: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string
-          id?: string
-          name?: string | null
-          om?: string | null
-          role?: "user" | "admin" | "superadmin" | null
-          saram?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       sensitive_operation_log: {
         Row: {
           actor_id: string
@@ -8310,6 +8277,7 @@ export type Database = {
           submitted_at: string | null
           submitter_name: string | null
           title_en: string | null
+          title_pt: string | null
         }
         Relationships: []
       }
