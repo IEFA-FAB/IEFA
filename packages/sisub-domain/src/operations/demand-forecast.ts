@@ -347,7 +347,8 @@ export async function recordDemandForecastImport(db: SisubDb, ctx: UserContext, 
 			db.transaction(async (tx) => {
 				await tx
 					.insert(kitchenDemandForecastImportInProcurement)
-					.values({ forecastId: input.forecastId, quantityEstimateId: input.quantityEstimateId, importedBy: ctx.userId })
+					// `listId`: coluna antiga, NOT NULL e espelhada até o contract 20260927050000, que a remove.
+					.values({ forecastId: input.forecastId, quantityEstimateId: input.quantityEstimateId, listId: input.quantityEstimateId, importedBy: ctx.userId })
 					.onConflictDoNothing({ target: [kitchenDemandForecastImportInProcurement.forecastId, kitchenDemandForecastImportInProcurement.quantityEstimateId] })
 				if (forecast.status === "sent") {
 					const now = new Date().toISOString()
