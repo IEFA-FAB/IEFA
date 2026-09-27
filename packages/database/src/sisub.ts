@@ -1,4 +1,5 @@
-import type { Database } from "./generated.ts"
+// TODO(db:types): volta a `./generated.ts` quando os tipos forem regerados depois de 20260927080000.
+import type { Database } from "./pending-finance-naming.ts"
 
 /**
  * O schema `sisub` foi dividido em schemas por domínio (core, access_control,

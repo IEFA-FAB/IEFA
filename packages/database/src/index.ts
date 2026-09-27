@@ -1,6 +1,8 @@
-import type { Database as GeneratedDatabase } from "./generated.ts"
+// TODO(db:types): volta a `./generated.ts` quando os tipos forem regerados depois de 20260927080000.
+import type { Database as GeneratedDatabase } from "./pending-finance-naming.ts"
 
-export type { Database, Json } from "./generated.ts"
+export type { Json } from "./generated.ts"
+export type { Database } from "./pending-finance-naming.ts"
 
 type Schemas = Omit<GeneratedDatabase, "__InternalSupabase">
 
