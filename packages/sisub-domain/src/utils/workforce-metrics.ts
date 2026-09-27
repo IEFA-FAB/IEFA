@@ -6,14 +6,14 @@
  *
  * Três regras que o cálculo respeita, e que a planilha original não conseguia:
  *
- *  1. AUSÊNCIA ≠ ZERO. Rancho sem resposta tem `total: null`, não 0 — somar branco como
- *     zero faria a média nacional despencar a cada rancho que não respondeu, e 38 dos 66
+ *  1. AUSÊNCIA ≠ ZERO. Refeitório sem resposta tem `total: null`, não 0 — somar branco como
+ *     zero faria a média nacional despencar a cada refeitório que não respondeu, e 38 dos 66
  *     não responderam na coleta de agosto/2026.
  *  2. TOTAL DECLARADO NÃO MANDA. A soma das parcelas é a fonte; o total do gestor entra
  *     como conferência (`declaredTotalDiverges`). O HFAG declara 20 e soma 22.
  *  3. NOMINAL ≠ DISPONÍVEL. Afastado e desviado de função continuam contados no nominal
  *     (é assim que a matriz pede), mas saem do disponível — que é o número que responde
- *     "quantos militares guarnecem este rancho hoje".
+ *     "quantos militares guarnecem este refeitório hoje".
  */
 
 export type WorkforceCategoryRef = {
@@ -29,8 +29,8 @@ export type WorkforceNoteRef = {
 	quantity: number | null
 }
 
-export type RanchoWorkforceInput = {
-	ranchoId: number
+export type MessHallWorkforceInput = {
+	messHallWorkforceId: number
 	code: string
 	displayName: string
 	eloCode: string
@@ -43,8 +43,8 @@ export type RanchoWorkforceInput = {
 	answered: boolean
 }
 
-export type RanchoWorkforceMetrics = {
-	ranchoId: number
+export type MessHallWorkforceMetrics = {
+	messHallWorkforceId: number
 	code: string
 	displayName: string
 	eloCode: string
@@ -57,7 +57,7 @@ export type RanchoWorkforceMetrics = {
 	 * "0" no segundo, e a matriz pede explicitamente que o gestor escreva o zero.
 	 */
 	filledCategories: string[]
-	/** Soma das parcelas preenchidas. null quando o rancho não respondeu. */
+	/** Soma das parcelas preenchidas. null quando o refeitório não respondeu. */
 	total: number | null
 	declaredTotal: number | null
 	declaredTotalDiverges: boolean
@@ -83,7 +83,7 @@ function sumNotes(notes: WorkforceNoteRef[], kinds: (kind: string) => boolean): 
 	return notes.reduce((acc, n) => (kinds(n.kind) ? acc + (n.quantity ?? 0) : acc), 0)
 }
 
-export function computeRanchoMetrics(input: RanchoWorkforceInput, categories: WorkforceCategoryRef[]): RanchoWorkforceMetrics {
+export function computeMessHallWorkforceMetrics(input: MessHallWorkforceInput, categories: WorkforceCategoryRef[]): MessHallWorkforceMetrics {
 	const byCode = new Map(categories.map((c) => [c.code, c]))
 	const filled = Object.entries(input.headcounts).filter(([code]) => byCode.has(code))
 
@@ -96,7 +96,7 @@ export function computeRanchoMetrics(input: RanchoWorkforceInput, categories: Wo
 	const outsourced = sumNotes(input.notes, (k) => k === "outsourced")
 
 	return {
-		ranchoId: input.ranchoId,
+		messHallWorkforceId: input.messHallWorkforceId,
 		code: input.code,
 		displayName: input.displayName,
 		eloCode: input.eloCode,
@@ -123,9 +123,9 @@ export function computeRanchoMetrics(input: RanchoWorkforceInput, categories: Wo
 
 export type WorkforceGroupSummary = {
 	key: string
-	ranchos: number
-	answeredRanchos: number
-	/** Fração de ranchos que responderam. 0 quando o grupo está vazio. */
+	messHalls: number
+	answeredMessHalls: number
+	/** Fração de refeitórios que responderam. 0 quando o grupo está vazio. */
 	responseRate: number
 	total: number
 	availableTotal: number
@@ -133,19 +133,19 @@ export type WorkforceGroupSummary = {
 	technicalStaff: number
 	outsourced: number
 	unavailable: number
-	/** Ranchos que responderam e declararam nenhum nutricionista. */
-	ranchosWithoutNutritionist: number
-	/** Ranchos que responderam e não têm nutricionista nem TND. */
-	ranchosWithoutTechnicalStaff: number
+	/** Refeitórios que responderam e declararam nenhum nutricionista. */
+	messHallsWithoutNutritionist: number
+	/** Refeitórios que responderam e não têm nutricionista nem TND. */
+	messHallsWithoutTechnicalStaff: number
 }
 
 /** Agrega por uma chave qualquer (ELO, unidade, rede inteira). */
-export function summarizeWorkforce(metrics: RanchoWorkforceMetrics[], key: string): WorkforceGroupSummary {
+export function summarizeWorkforce(metrics: MessHallWorkforceMetrics[], key: string): WorkforceGroupSummary {
 	const answered = metrics.filter((m) => m.answered)
 	return {
 		key,
-		ranchos: metrics.length,
-		answeredRanchos: answered.length,
+		messHalls: metrics.length,
+		answeredMessHalls: answered.length,
 		responseRate: metrics.length === 0 ? 0 : answered.length / metrics.length,
 		total: answered.reduce((a, m) => a + (m.total ?? 0), 0),
 		availableTotal: answered.reduce((a, m) => a + (m.availableTotal ?? 0), 0),
@@ -153,13 +153,13 @@ export function summarizeWorkforce(metrics: RanchoWorkforceMetrics[], key: strin
 		technicalStaff: answered.reduce((a, m) => a + m.technicalStaff, 0),
 		outsourced: answered.reduce((a, m) => a + m.outsourced, 0),
 		unavailable: answered.reduce((a, m) => a + m.unavailable, 0),
-		ranchosWithoutNutritionist: answered.filter((m) => !m.hasNutritionist).length,
-		ranchosWithoutTechnicalStaff: answered.filter((m) => !m.hasTechnicalStaff).length,
+		messHallsWithoutNutritionist: answered.filter((m) => !m.hasNutritionist).length,
+		messHallsWithoutTechnicalStaff: answered.filter((m) => !m.hasTechnicalStaff).length,
 	}
 }
 
-export function groupWorkforceBy(metrics: RanchoWorkforceMetrics[], pick: (m: RanchoWorkforceMetrics) => string): WorkforceGroupSummary[] {
-	const buckets = new Map<string, RanchoWorkforceMetrics[]>()
+export function groupWorkforceBy(metrics: MessHallWorkforceMetrics[], pick: (m: MessHallWorkforceMetrics) => string): WorkforceGroupSummary[] {
+	const buckets = new Map<string, MessHallWorkforceMetrics[]>()
 	for (const m of metrics) {
 		const key = pick(m)
 		const bucket = buckets.get(key)
@@ -170,21 +170,21 @@ export function groupWorkforceBy(metrics: RanchoWorkforceMetrics[], pick: (m: Ra
 }
 
 /**
- * Ranchos sem cobertura técnica, do maior efetivo para o menor — a fila de prioridade
+ * Refeitórios sem cobertura técnica, do maior efetivo para o menor — a fila de prioridade
  * para pedido de vaga. Só considera quem respondeu: silêncio não é ausência de nutricionista.
  */
-export function coverageGaps(metrics: RanchoWorkforceMetrics[]): RanchoWorkforceMetrics[] {
+export function coverageGaps(metrics: MessHallWorkforceMetrics[]): MessHallWorkforceMetrics[] {
 	return metrics.filter((m) => m.answered && !m.hasTechnicalStaff).sort((a, b) => (b.total ?? 0) - (a.total ?? 0))
 }
 
 export type MealLoadInput = {
 	/**
-	 * REFEIÇÕES registradas no período, por refeitório servido pelo rancho. Uma linha de
+	 * REFEIÇÕES registradas no período no refeitório cadastrado (`mess_hall_id`). Uma linha de
 	 * `meal_presences` é (usuário, dia, refeição): quem almoça e janta conta duas vezes.
 	 * É o numerador certo para carga de trabalho — a guarnição produz refeições, não pessoas.
 	 */
 	presences: number
-	/** Dias distintos com registro. Zero = o rancho não usa o registro de presença. */
+	/** Dias distintos com registro. Zero = o refeitório não usa o registro de presença. */
 	activeDays: number
 }
 
@@ -193,10 +193,10 @@ export type MealLoadInput = {
  *
  * REFEIÇÕES, não comensais distintos: o denominador de pessoas seria menor e o número
  * pareceria mais brando do que a carga real. Devolve null — e não zero — quando falta
- * qualquer insumo: rancho sem refeitório vinculado, sem registro de presença ou sem
+ * qualquer insumo: refeitório do levantamento sem vínculo com o cadastro, sem registro de presença ou sem
  * efetivo declarado. Zero leria como "produtividade nula", que é o oposto de "não sei".
  */
-export function mealsPerWorker(metrics: RanchoWorkforceMetrics, load: MealLoadInput | null): number | null {
+export function mealsPerWorker(metrics: MessHallWorkforceMetrics, load: MealLoadInput | null): number | null {
 	if (!load || load.activeDays <= 0) return null
 	const staff = metrics.availableTotal
 	if (staff === null || staff <= 0) return null

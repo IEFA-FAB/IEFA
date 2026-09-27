@@ -71,7 +71,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	tutorial: "Tutorial",
 	dashboard: "Painel",
 	indicators: "Indicadores",
-	workforce: "Efetivo dos Ranchos",
+	workforce: "Efetivo dos Refeitórios",
 	events: "Eventos",
 	"support-menus": "Cardápios de Apoio",
 	"snack-requests": "Pedidos de Lanche",

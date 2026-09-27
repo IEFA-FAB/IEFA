@@ -1,9 +1,11 @@
 /**
- * Schemas da matriz de efetivo dos ranchos.
+ * Schemas da matriz de efetivo por refeitório.
  *
- * O grão é o RANCHO (`core.rancho`), não a cozinha nem o refeitório: a matriz de gestores
- * lista 66 ranchos onde o SISUB tem 30 cozinhas e 68 refeitórios, e os três não coincidem
- * (a EEAR declara três ranchos servidos pela mesma cozinha; o GAP-CO declara dois).
+ * O grão é o REFEITÓRIO do levantamento (`kitchen.mess_hall_workforce`), não a cozinha: a matriz
+ * de gestores lista 66 pontos, dos quais 62 são um refeitório cadastrado distinto (a EEAR declara
+ * três servidos pela mesma cozinha; o GAP-CO declara dois). Os 4 restantes estão na matriz mas não
+ * no cadastro de refeitórios; a fusão com `kitchen.mess_halls` é a change
+ * `sisub-workforce-by-mess-hall`.
  *
  * Uma competência é uma linha nova de `workforce_survey`. Preencher a competência corrente
  * é `saveWorkforceSubmission`; a anterior nunca é tocada.
@@ -23,7 +25,7 @@ export const WORKFORCE_SURVEY_STATUSES = ["draft", "open", "closed"] as const
 export const WorkforceSurveyStatusSchema = z.enum(WORKFORCE_SURVEY_STATUSES)
 export type WorkforceSurveyStatus = z.infer<typeof WorkforceSurveyStatusSchema>
 
-const RanchoIdSchema = z.number().int().positive()
+const MessHallWorkforceIdSchema = z.number().int().positive()
 const UnitIdSchema = z.number().int().positive()
 
 // ── Leitura ───────────────────────────────────────────────────────────────
@@ -35,7 +37,7 @@ export type ListWorkforceSurveys = z.infer<typeof ListWorkforceSurveysSchema>
 
 /**
  * Matriz de uma unidade numa competência. `surveyId` nulo = competência mais recente.
- * Devolve TODOS os ranchos da unidade, inclusive os que não responderam — a lacuna é
+ * Devolve TODOS os refeitórios da unidade no levantamento, inclusive os que não responderam — a lacuna é
  * metade da informação que o gestor precisa ver.
  */
 export const FetchWorkforceMatrixSchema = z.object({
@@ -44,7 +46,7 @@ export const FetchWorkforceMatrixSchema = z.object({
 })
 export type FetchWorkforceMatrix = z.infer<typeof FetchWorkforceMatrixSchema>
 
-/** Visão de rede (SDAB): todos os ranchos de todos os ELOs numa competência. */
+/** Visão de rede (SDAB): todos os refeitórios de todos os ELOs numa competência. */
 export const FetchWorkforceNetworkSchema = z.object({
 	surveyId: UuidSchema.nullish(),
 })
@@ -61,7 +63,7 @@ export type WorkforceEntry = z.infer<typeof WorkforceEntrySchema>
 
 export const SaveWorkforceSubmissionSchema = z.object({
 	surveyId: UuidSchema,
-	ranchoId: RanchoIdSchema,
+	messHallWorkforceId: MessHallWorkforceIdSchema,
 	entries: z.array(WorkforceEntrySchema).max(50),
 	/** Total escrito pelo gestor. Preservado ainda que divirja da soma — a tela aponta a divergência. */
 	declaredTotal: z.number().int().min(0).max(100_000).nullish(),
@@ -70,7 +72,7 @@ export type SaveWorkforceSubmission = z.infer<typeof SaveWorkforceSubmissionSche
 
 export const AddWorkforceNoteSchema = z.object({
 	surveyId: UuidSchema,
-	ranchoId: RanchoIdSchema,
+	messHallWorkforceId: MessHallWorkforceIdSchema,
 	kind: WorkforceNoteKindSchema,
 	quantity: z.number().int().min(0).max(10_000).nullish(),
 	detail: z.string().min(1).max(2000),
@@ -96,7 +98,7 @@ export type CloseWorkforceSurvey = z.infer<typeof CloseWorkforceSurveySchema>
 
 // ── Roster ────────────────────────────────────────────────────────────────
 
-export const CreateRanchoSchema = z.object({
+export const CreateMessHallWorkforceSchema = z.object({
 	unitId: UnitIdSchema,
 	eloCode: z.string().min(1).max(60),
 	code: z
@@ -110,10 +112,10 @@ export const CreateRanchoSchema = z.object({
 	producesOwnMeals: z.boolean().default(true),
 	notes: z.string().max(2000).nullish(),
 })
-export type CreateRancho = z.infer<typeof CreateRanchoSchema>
+export type CreateMessHallWorkforce = z.infer<typeof CreateMessHallWorkforceSchema>
 
-export const UpdateRanchoSchema = z.object({
-	ranchoId: RanchoIdSchema,
+export const UpdateMessHallWorkforceSchema = z.object({
+	messHallWorkforceId: MessHallWorkforceIdSchema,
 	displayName: z.string().min(1).max(200).nullish(),
 	messHallId: z.number().int().positive().nullish(),
 	kitchenId: z.number().int().positive().nullish(),
@@ -121,4 +123,4 @@ export const UpdateRanchoSchema = z.object({
 	active: z.boolean().nullish(),
 	notes: z.string().max(2000).nullish(),
 })
-export type UpdateRancho = z.infer<typeof UpdateRanchoSchema>
+export type UpdateMessHallWorkforce = z.infer<typeof UpdateMessHallWorkforceSchema>

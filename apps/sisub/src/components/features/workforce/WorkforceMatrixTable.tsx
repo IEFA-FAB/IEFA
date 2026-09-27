@@ -1,6 +1,6 @@
 "use no memo"
 
-import type { WorkforceMatrixWire, WorkforceNoteKind, WorkforceRanchoWire } from "@iefa/sisub-domain"
+import type { MessHallWorkforceWire, WorkforceMatrixWire, WorkforceNoteKind } from "@iefa/sisub-domain"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { AlertTriangle, Check, Pencil, Trash2, X } from "lucide-react"
 import * as React from "react"
@@ -26,8 +26,8 @@ interface WorkforceMatrixTableProps {
 type Draft = Record<string, string>
 
 /** "" = campo em branco (apaga a linha); "0" = zero declarado. Os dois são estados válidos. */
-function toDraft(rancho: WorkforceRanchoWire, codes: string[]): Draft {
-	return Object.fromEntries(codes.map((code) => [code, rancho.headcounts[code] === undefined ? "" : String(rancho.headcounts[code])]))
+function toDraft(row: MessHallWorkforceWire, codes: string[]): Draft {
+	return Object.fromEntries(codes.map((code) => [code, row.headcounts[code] === undefined ? "" : String(row.headcounts[code])]))
 }
 
 export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMatrixTableProps) {
@@ -59,13 +59,13 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 		onError: (e: Error) => toast.error("Erro ao remover", { description: e.message }),
 	})
 
-	function startEdit(rancho: WorkforceRanchoWire) {
-		setEditingId(rancho.ranchoId)
-		setDraft(toDraft(rancho, codes))
-		setDeclaredTotal(rancho.declaredTotal === null ? "" : String(rancho.declaredTotal))
+	function startEdit(row: MessHallWorkforceWire) {
+		setEditingId(row.messHallWorkforceId)
+		setDraft(toDraft(row, codes))
+		setDeclaredTotal(row.declaredTotal === null ? "" : String(row.declaredTotal))
 	}
 
-	function commit(rancho: WorkforceRanchoWire) {
+	function commit(row: MessHallWorkforceWire) {
 		if (!surveyId) return
 		const entries = codes.map((code) => {
 			const raw = draft[code]?.trim() ?? ""
@@ -85,15 +85,15 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 			toast.error("Total declarado inválido", { description: "Use um número inteiro não negativo, ou deixe em branco." })
 			return
 		}
-		save.mutate({ surveyId, ranchoId: rancho.ranchoId, entries, declaredTotal: parsedTotal })
+		save.mutate({ surveyId, messHallWorkforceId: row.messHallWorkforceId, entries, declaredTotal: parsedTotal })
 	}
 
-	if (matrix.ranchos.length === 0) {
+	if (matrix.mess_halls.length === 0) {
 		return (
 			<Empty>
 				<EmptyHeader>
-					<EmptyTitle>Nenhum rancho cadastrado</EmptyTitle>
-					<EmptyDescription>Esta unidade ainda não tem ranchos no roster da matriz de efetivo.</EmptyDescription>
+					<EmptyTitle>Nenhum refeitório no levantamento</EmptyTitle>
+					<EmptyDescription>Esta unidade ainda não tem refeitórios no roster da matriz de efetivo.</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
 		)
@@ -104,7 +104,7 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 			<Table>
 				<TableHeader>
 					<TableRow>
-						<TableHead>Rancho</TableHead>
+						<TableHead>Refeitório</TableHead>
 						{matrix.categories.map((c) => (
 							<TableHead key={c.code} className="text-right">
 								<Tooltip>
@@ -126,17 +126,17 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 					</TableRow>
 				</TableHeader>
 				<TableBody>
-					{matrix.ranchos.map((rancho) => {
-						const isEditing = editingId === rancho.ranchoId
+					{matrix.mess_halls.map((row) => {
+						const isEditing = editingId === row.messHallWorkforceId
 						return (
-							<React.Fragment key={rancho.ranchoId}>
-								<TableRow className={cn(!rancho.answered && "bg-muted/40")}>
+							<React.Fragment key={row.messHallWorkforceId}>
+								<TableRow className={cn(!row.answered && "bg-muted/40")}>
 									<TableCell>
 										<div className="flex flex-col gap-0.5">
-											<span className="text-subheading">{rancho.displayName}</span>
+											<span className="text-subheading">{row.displayName}</span>
 											<span className="text-hint text-muted-foreground">
-												{rancho.eloCode}
-												{rancho.mess_hall_name ? ` · serve ${rancho.mess_hall_name}` : " · sem refeitório vinculado"}
+												{row.eloCode}
+												{row.mess_hall_name ? ` · cadastro: ${row.mess_hall_name}` : " · sem vínculo no cadastro de refeitórios"}
 											</span>
 										</div>
 									</TableCell>
@@ -147,29 +147,27 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 												<Input
 													className="h-8 w-16 text-right"
 													inputMode="numeric"
-													aria-label={`${c.name} em ${rancho.displayName}`}
+													aria-label={`${c.name} em ${row.displayName}`}
 													value={draft[c.code] ?? ""}
 													onChange={(e) => setDraft((prev) => ({ ...prev, [c.code]: e.target.value }))}
 												/>
 											) : (
-												<span className={cn(rancho.headcounts[c.code] === undefined && "text-muted-foreground")}>
-													{formatHeadcount(rancho.headcounts[c.code])}
-												</span>
+												<span className={cn(row.headcounts[c.code] === undefined && "text-muted-foreground")}>{formatHeadcount(row.headcounts[c.code])}</span>
 											)}
 										</TableCell>
 									))}
 
 									<TableCell className="text-right tabular-nums">
-										{rancho.answered ? (
+										{row.answered ? (
 											<span className="flex items-center justify-end gap-1.5">
-												<span className="text-subheading">{rancho.total}</span>
-												{rancho.declaredTotalDiverges && (
+												<span className="text-subheading">{row.total}</span>
+												{row.declaredTotalDiverges && (
 													<Tooltip>
 														<TooltipTrigger aria-label="Total declarado diverge da soma" className="inline-flex cursor-default">
 															<AlertTriangle className="size-3.5 text-warning" aria-hidden="true" />
 														</TooltipTrigger>
 														<TooltipContent>
-															O gestor declarou {rancho.declaredTotal}; as parcelas somam {rancho.total}.
+															O gestor declarou {row.declaredTotal}; as parcelas somam {row.total}.
 														</TooltipContent>
 													</Tooltip>
 												)}
@@ -179,20 +177,20 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 										)}
 									</TableCell>
 									<TableCell className="text-right tabular-nums">
-										{rancho.availableTotal === null ? (
+										{row.availableTotal === null ? (
 											<span className="text-muted-foreground">—</span>
 										) : (
-											<span className={cn(rancho.unavailable > 0 && "text-warning")}>{rancho.availableTotal}</span>
+											<span className={cn(row.unavailable > 0 && "text-warning")}>{row.availableTotal}</span>
 										)}
 									</TableCell>
-									<TableCell className="text-right tabular-nums">{formatRatio(rancho.careerRatio)}</TableCell>
-									<TableCell className="text-right tabular-nums">{formatMealLoad(rancho.meals_per_worker)}</TableCell>
+									<TableCell className="text-right tabular-nums">{formatRatio(row.careerRatio)}</TableCell>
+									<TableCell className="text-right tabular-nums">{formatMealLoad(row.meals_per_worker)}</TableCell>
 
 									{editable && (
 										<TableCell className="text-right">
 											{isEditing ? (
 												<div className="flex justify-end gap-1">
-													<Button size="icon" variant="ghost" aria-label="Salvar" disabled={save.isPending} onClick={() => commit(rancho)}>
+													<Button size="icon" variant="ghost" aria-label="Salvar" disabled={save.isPending} onClick={() => commit(row)}>
 														<Check className="size-4" aria-hidden="true" />
 													</Button>
 													<Button size="icon" variant="ghost" aria-label="Cancelar" onClick={() => setEditingId(null)}>
@@ -200,7 +198,7 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 													</Button>
 												</div>
 											) : (
-												<Button size="icon" variant="ghost" aria-label={`Editar ${rancho.displayName}`} onClick={() => startEdit(rancho)}>
+												<Button size="icon" variant="ghost" aria-label={`Editar ${row.displayName}`} onClick={() => startEdit(row)}>
 													<Pencil className="size-4" aria-hidden="true" />
 												</Button>
 											)}
@@ -228,14 +226,19 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 									</TableRow>
 								)}
 
-								{(rancho.notes.length > 0 || (editable && rancho.answered)) && (
+								{(row.notes.length > 0 || (editable && row.answered)) && (
 									<TableRow>
 										<TableCell colSpan={matrix.categories.length + (editable ? 6 : 5)} className="pt-0">
 											<div className="flex flex-wrap items-center gap-2">
-												{editable && rancho.answered && surveyId && (
-													<AddWorkforceNoteDialog surveyId={surveyId} ranchoId={rancho.ranchoId} ranchoName={rancho.displayName} queryKey={queryKey} />
+												{editable && row.answered && surveyId && (
+													<AddWorkforceNoteDialog
+														surveyId={surveyId}
+														messHallWorkforceId={row.messHallWorkforceId}
+														messHallName={row.displayName}
+														queryKey={queryKey}
+													/>
 												)}
-												{rancho.notes.map((note) => (
+												{row.notes.map((note) => (
 													<span key={note.id} className="inline-flex items-center gap-1.5">
 														<Badge variant={NOTE_KIND_VARIANT[note.kind as WorkforceNoteKind] ?? "outline"}>
 															{NOTE_KIND_LABELS[note.kind as WorkforceNoteKind] ?? note.kind}

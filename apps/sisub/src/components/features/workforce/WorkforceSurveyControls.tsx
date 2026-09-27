@@ -52,7 +52,7 @@ export function WorkforceSurveyControls({ current, onSelect, canManage, invalida
 			setOpen(false)
 			setReferenceMonth("")
 			setTitle("")
-			toast.success("Competência aberta", { description: "Os gestores já podem preencher o efetivo dos seus ranchos." })
+			toast.success("Competência aberta", { description: "Os gestores já podem preencher o efetivo dos seus refeitórios." })
 		},
 		onError: (e: Error) => toast.error("Erro ao abrir competência", { description: e.message }),
 	})
@@ -119,7 +119,7 @@ export function WorkforceSurveyControls({ current, onSelect, canManage, invalida
 						<DialogTitle>Nova competência</DialogTitle>
 						<DialogDescription>
 							Abre uma coleta nova sem tocar nas anteriores — é o que preserva a comparação entre meses. Os gestores passam a preencher o efetivo dos seus
-							ranchos.
+							refeitórios.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -135,7 +135,7 @@ export function WorkforceSurveyControls({ current, onSelect, canManage, invalida
 								id="survey-title"
 								value={title}
 								onChange={(e) => setTitle(e.target.value)}
-								placeholder="Ex.: Matriz de efetivo dos ranchos — setembro/2026"
+								placeholder="Ex.: Matriz de efetivo da subsistência — setembro/2026"
 							/>
 						</Field>
 					</FieldGroup>

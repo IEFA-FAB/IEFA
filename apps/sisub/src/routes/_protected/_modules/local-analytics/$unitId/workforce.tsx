@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_protected/_modules/local-analytics/$unit
 	beforeLoad: (opts) => requirePermission(opts, "local-analytics", 1),
 	component: WorkforcePage,
 	head: () => ({
-		meta: [{ name: "description", content: "Matriz de efetivo por quadro e especialidade dos ranchos da unidade" }],
+		meta: [{ name: "description", content: "Matriz de efetivo por quadro e especialidade dos refeitórios da unidade" }],
 	}),
 })
 
@@ -35,7 +35,7 @@ function WorkforcePage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Efetivo dos Ranchos" description="Quantitativo de militares por quadro e especialidade, por rancho">
+			<PageHeader title="Efetivo dos Refeitórios" description="Quantitativo de militares por quadro e especialidade, por refeitório">
 				<WorkforceSurveyControls current={matrix?.survey ?? null} onSelect={setSurveyId} canManage={false} invalidate={[queryKey]} />
 			</PageHeader>
 

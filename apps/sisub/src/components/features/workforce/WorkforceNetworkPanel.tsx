@@ -11,10 +11,10 @@ interface WorkforceNetworkPanelProps {
 }
 
 /**
- * Visão de rede da SDAB: consolidado por ELO e a fila de ranchos sem cobertura técnica.
+ * Visão de rede da SDAB: consolidado por ELO e a fila de refeitórios sem cobertura técnica.
  *
  * A fila de lacunas é ordenada pelo efetivo servido, não alfabeticamente — é ela que
- * fundamenta pedido de vaga, e o rancho de 55 militares sem nutricionista pesa mais do
+ * fundamenta pedido de vaga, e o refeitório de 55 militares sem nutricionista pesa mais do
  * que o de 3.
  */
 export function WorkforceNetworkPanel({ network }: WorkforceNetworkPanelProps) {
@@ -31,7 +31,7 @@ export function WorkforceNetworkPanel({ network }: WorkforceNetworkPanelProps) {
 							<TableHeader>
 								<TableRow>
 									<TableHead>ELO</TableHead>
-									<TableHead className="text-right">Ranchos</TableHead>
+									<TableHead className="text-right">Refeitórios</TableHead>
 									<TableHead className="text-right">Efetivo</TableHead>
 									<TableHead className="text-right">Disponível</TableHead>
 									<TableHead className="text-right">Carreira</TableHead>
@@ -43,16 +43,16 @@ export function WorkforceNetworkPanel({ network }: WorkforceNetworkPanelProps) {
 									<TableRow key={group.key}>
 										<TableCell className="text-subheading">{group.key}</TableCell>
 										<TableCell className="text-right tabular-nums">
-											<span className={cn(group.answeredRanchos < group.ranchos && "text-muted-foreground")}>
-												{group.answeredRanchos}/{group.ranchos}
+											<span className={cn(group.answeredMessHalls < group.messHalls && "text-muted-foreground")}>
+												{group.answeredMessHalls}/{group.messHalls}
 											</span>
 										</TableCell>
 										<TableCell className="text-right tabular-nums">{group.total}</TableCell>
 										<TableCell className="text-right tabular-nums">{group.availableTotal}</TableCell>
 										<TableCell className="text-right tabular-nums">{formatRatio(group.total > 0 ? group.careerStaff / group.total : null)}</TableCell>
 										<TableCell className="text-right tabular-nums">
-											{group.ranchosWithoutTechnicalStaff > 0 ? (
-												<Badge variant="warning">{group.ranchosWithoutTechnicalStaff}</Badge>
+											{group.messHallsWithoutTechnicalStaff > 0 ? (
+												<Badge variant="warning">{group.messHallsWithoutTechnicalStaff}</Badge>
 											) : (
 												<span className="text-muted-foreground">—</span>
 											)}
@@ -67,7 +67,7 @@ export function WorkforceNetworkPanel({ network }: WorkforceNetworkPanelProps) {
 
 			<Card>
 				<CardHeader>
-					<CardTitle>Ranchos sem cobertura técnica</CardTitle>
+					<CardTitle>Refeitórios sem cobertura técnica</CardTitle>
 					<CardDescription>Responderam a competência e não declararam nutricionista nem técnico em nutrição, do maior efetivo ao menor</CardDescription>
 				</CardHeader>
 				<CardContent>
@@ -75,7 +75,7 @@ export function WorkforceNetworkPanel({ network }: WorkforceNetworkPanelProps) {
 						<Empty>
 							<EmptyHeader>
 								<EmptyTitle>Nenhuma lacuna</EmptyTitle>
-								<EmptyDescription>Todos os ranchos que responderam declararam ao menos um nutricionista ou técnico.</EmptyDescription>
+								<EmptyDescription>Todos os refeitórios que responderam declararam ao menos um nutricionista ou técnico.</EmptyDescription>
 							</EmptyHeader>
 						</Empty>
 					) : (
@@ -83,19 +83,19 @@ export function WorkforceNetworkPanel({ network }: WorkforceNetworkPanelProps) {
 							<Table>
 								<TableHeader>
 									<TableRow>
-										<TableHead>Rancho</TableHead>
+										<TableHead>Refeitório</TableHead>
 										<TableHead>ELO</TableHead>
 										<TableHead className="text-right">Efetivo</TableHead>
 										<TableHead className="text-right">Disponível</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
-									{network.coverage_gaps.map((rancho) => (
-										<TableRow key={rancho.ranchoId}>
-											<TableCell className="text-subheading">{rancho.displayName}</TableCell>
-											<TableCell className="text-muted-foreground">{rancho.eloCode}</TableCell>
-											<TableCell className="text-right tabular-nums">{rancho.total}</TableCell>
-											<TableCell className="text-right tabular-nums">{rancho.availableTotal}</TableCell>
+									{network.coverage_gaps.map((row) => (
+										<TableRow key={row.messHallWorkforceId}>
+											<TableCell className="text-subheading">{row.displayName}</TableCell>
+											<TableCell className="text-muted-foreground">{row.eloCode}</TableCell>
+											<TableCell className="text-right tabular-nums">{row.total}</TableCell>
+											<TableCell className="text-right tabular-nums">{row.availableTotal}</TableCell>
 										</TableRow>
 									))}
 								</TableBody>

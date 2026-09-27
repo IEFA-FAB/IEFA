@@ -3,16 +3,16 @@
  *
  * Os casos aqui são os que a planilha errava ou não conseguia expressar: branco somado como
  * zero, total declarado divergindo das parcelas, afastado contado como disponível, e divisão
- * por rancho que não registra presença.
+ * por refeitório que não registra presença.
  */
 
 import { describe, expect, test } from "bun:test"
 import {
-	computeRanchoMetrics,
+	computeMessHallWorkforceMetrics,
 	coverageGaps,
 	groupWorkforceBy,
+	type MessHallWorkforceInput,
 	mealsPerWorker,
-	type RanchoWorkforceInput,
 	summarizeWorkforce,
 	type WorkforceCategoryRef,
 } from "./workforce-metrics.ts"
@@ -26,9 +26,9 @@ const CATEGORIES: WorkforceCategoryRef[] = [
 	{ code: "qsd", name: "QSD", sort_order: 60, is_career: false, is_technical: false },
 ]
 
-function rancho(over: Partial<RanchoWorkforceInput> = {}): RanchoWorkforceInput {
+function messHall(over: Partial<MessHallWorkforceInput> = {}): MessHallWorkforceInput {
 	return {
-		ranchoId: 1,
+		messHallWorkforceId: 1,
 		code: "basc",
 		displayName: "BASC",
 		eloCode: "BASC",
@@ -42,9 +42,12 @@ function rancho(over: Partial<RanchoWorkforceInput> = {}): RanchoWorkforceInput 
 	}
 }
 
-describe("computeRanchoMetrics", () => {
+describe("computeMessHallWorkforceMetrics", () => {
 	test("soma as parcelas preenchidas — caso BASC da coleta de agosto/2026", () => {
-		const m = computeRanchoMetrics(rancho({ headcounts: { nut_qocon: 1, tnd_qscon: 1, qta: 30, qscon: 0, qcbcon: 0, qsd: 24 }, declaredTotal: 56 }), CATEGORIES)
+		const m = computeMessHallWorkforceMetrics(
+			messHall({ headcounts: { nut_qocon: 1, tnd_qscon: 1, qta: 30, qscon: 0, qcbcon: 0, qsd: 24 }, declaredTotal: 56 }),
+			CATEGORIES
+		)
 		expect(m.total).toBe(56)
 		expect(m.declaredTotalDiverges).toBe(false)
 		expect(m.careerStaff).toBe(30)
@@ -54,8 +57,8 @@ describe("computeRanchoMetrics", () => {
 	})
 
 	test("total declarado que diverge da soma é sinalizado, e a soma prevalece — caso HFAG", () => {
-		const m = computeRanchoMetrics(
-			rancho({ code: "hfag", headcounts: { nut_qocon: 1, tnd_qscon: 0, qta: 14, qscon: 0, qcbcon: 1, qsd: 6 }, declaredTotal: 20 }),
+		const m = computeMessHallWorkforceMetrics(
+			messHall({ code: "hfag", headcounts: { nut_qocon: 1, tnd_qscon: 0, qta: 14, qscon: 0, qcbcon: 1, qsd: 6 }, declaredTotal: 20 }),
 			CATEGORIES
 		)
 		expect(m.total).toBe(22)
@@ -63,16 +66,16 @@ describe("computeRanchoMetrics", () => {
 		expect(m.declaredTotalDiverges).toBe(true)
 	})
 
-	test("rancho que não respondeu tem total null, nunca zero", () => {
-		const m = computeRanchoMetrics(rancho({ answered: false }), CATEGORIES)
+	test("refeitório que não respondeu tem total null, nunca zero", () => {
+		const m = computeMessHallWorkforceMetrics(messHall({ answered: false }), CATEGORIES)
 		expect(m.total).toBeNull()
 		expect(m.availableTotal).toBeNull()
 		expect(m.careerRatio).toBeNull()
 	})
 
 	test("zero declarado é diferente de campo em branco", () => {
-		const blank = computeRanchoMetrics(rancho({ headcounts: { qta: 5 } }), CATEGORIES)
-		const zeroed = computeRanchoMetrics(rancho({ headcounts: { qta: 5, nut_qocon: 0 } }), CATEGORIES)
+		const blank = computeMessHallWorkforceMetrics(messHall({ headcounts: { qta: 5 } }), CATEGORIES)
+		const zeroed = computeMessHallWorkforceMetrics(messHall({ headcounts: { qta: 5, nut_qocon: 0 } }), CATEGORIES)
 		expect(blank.total).toBe(5)
 		expect(zeroed.total).toBe(5)
 		expect(blank.hasNutritionist).toBe(false)
@@ -84,8 +87,8 @@ describe("computeRanchoMetrics", () => {
 	})
 
 	test("afastado e desviado saem do disponível, mas continuam no nominal — caso GAP-CO Leste", () => {
-		const m = computeRanchoMetrics(
-			rancho({
+		const m = computeMessHallWorkforceMetrics(
+			messHall({
 				code: "gap-co-leste",
 				headcounts: { nut_qocon: 0, tnd_qscon: 1, qta: 24, qscon: 1, qcbcon: 6, qsd: 23 },
 				declaredTotal: 55,
@@ -106,42 +109,45 @@ describe("computeRanchoMetrics", () => {
 	})
 
 	test("terceirizado é contado à parte, nunca somado ao efetivo militar — caso HFAG", () => {
-		const m = computeRanchoMetrics(rancho({ code: "hfag", headcounts: { qta: 14, qsd: 6 }, notes: [{ kind: "outsourced", quantity: 9 }] }), CATEGORIES)
+		const m = computeMessHallWorkforceMetrics(
+			messHall({ code: "hfag", headcounts: { qta: 14, qsd: 6 }, notes: [{ kind: "outsourced", quantity: 9 }] }),
+			CATEGORIES
+		)
 		expect(m.total).toBe(20)
 		expect(m.outsourced).toBe(9)
 		expect(m.availableTotal).toBe(20)
 	})
 
 	test("mais afastados do que o nominal não produz disponível negativo", () => {
-		const m = computeRanchoMetrics(rancho({ headcounts: { qta: 2 }, notes: [{ kind: "leave", quantity: 5 }] }), CATEGORIES)
+		const m = computeMessHallWorkforceMetrics(messHall({ headcounts: { qta: 2 }, notes: [{ kind: "leave", quantity: 5 }] }), CATEGORIES)
 		expect(m.availableTotal).toBe(0)
 	})
 
 	test("categoria desconhecida é ignorada em vez de contaminar o total", () => {
-		const m = computeRanchoMetrics(rancho({ headcounts: { qta: 10, quadro_inventado: 99 } }), CATEGORIES)
+		const m = computeMessHallWorkforceMetrics(messHall({ headcounts: { qta: 10, quadro_inventado: 99 } }), CATEGORIES)
 		expect(m.total).toBe(10)
 	})
 })
 
 describe("summarizeWorkforce", () => {
 	const metrics = [
-		computeRanchoMetrics(rancho({ ranchoId: 1, code: "a", headcounts: { nut_qocon: 1, qta: 10 } }), CATEGORIES),
-		computeRanchoMetrics(rancho({ ranchoId: 2, code: "b", headcounts: { qta: 20, qsd: 5 } }), CATEGORIES),
-		computeRanchoMetrics(rancho({ ranchoId: 3, code: "c", answered: false }), CATEGORIES),
+		computeMessHallWorkforceMetrics(messHall({ messHallWorkforceId: 1, code: "a", headcounts: { nut_qocon: 1, qta: 10 } }), CATEGORIES),
+		computeMessHallWorkforceMetrics(messHall({ messHallWorkforceId: 2, code: "b", headcounts: { qta: 20, qsd: 5 } }), CATEGORIES),
+		computeMessHallWorkforceMetrics(messHall({ messHallWorkforceId: 3, code: "c", answered: false }), CATEGORIES),
 	]
 
 	test("agrega só quem respondeu e expõe a taxa de resposta", () => {
 		const s = summarizeWorkforce(metrics, "rede")
-		expect(s.ranchos).toBe(3)
-		expect(s.answeredRanchos).toBe(2)
+		expect(s.messHalls).toBe(3)
+		expect(s.answeredMessHalls).toBe(2)
 		expect(s.responseRate).toBeCloseTo(2 / 3)
 		expect(s.total).toBe(36)
 	})
 
-	test("rancho sem resposta não conta como rancho sem nutricionista", () => {
+	test("refeitório sem resposta não conta como refeitório sem nutricionista", () => {
 		const s = summarizeWorkforce(metrics, "rede")
-		// Só o rancho "b" respondeu e não declarou nutricionista; o "c" ficou em silêncio.
-		expect(s.ranchosWithoutNutritionist).toBe(1)
+		// Só o refeitório "b" respondeu e não declarou nutricionista; o "c" ficou em silêncio.
+		expect(s.messHallsWithoutNutritionist).toBe(1)
 	})
 
 	test("grupo vazio não divide por zero", () => {
@@ -153,37 +159,37 @@ describe("groupWorkforceBy", () => {
 	test("agrupa por ELO e ordena pelo maior efetivo", () => {
 		const groups = groupWorkforceBy(
 			[
-				computeRanchoMetrics(rancho({ ranchoId: 1, eloCode: "EEAR", headcounts: { qta: 44 } }), CATEGORIES),
-				computeRanchoMetrics(rancho({ ranchoId: 2, eloCode: "EEAR", headcounts: { qta: 7 } }), CATEGORIES),
-				computeRanchoMetrics(rancho({ ranchoId: 3, eloCode: "BASC", headcounts: { qta: 30 } }), CATEGORIES),
+				computeMessHallWorkforceMetrics(messHall({ messHallWorkforceId: 1, eloCode: "EEAR", headcounts: { qta: 44 } }), CATEGORIES),
+				computeMessHallWorkforceMetrics(messHall({ messHallWorkforceId: 2, eloCode: "EEAR", headcounts: { qta: 7 } }), CATEGORIES),
+				computeMessHallWorkforceMetrics(messHall({ messHallWorkforceId: 3, eloCode: "BASC", headcounts: { qta: 30 } }), CATEGORIES),
 			],
 			(m) => m.eloCode
 		)
 		expect(groups.map((g) => g.key)).toEqual(["EEAR", "BASC"])
 		expect(groups[0]?.total).toBe(51)
-		expect(groups[0]?.ranchos).toBe(2)
+		expect(groups[0]?.messHalls).toBe(2)
 	})
 })
 
 describe("coverageGaps", () => {
 	test("lista quem respondeu sem cobertura técnica, do maior efetivo ao menor", () => {
 		const gaps = coverageGaps([
-			computeRanchoMetrics(rancho({ ranchoId: 1, code: "pequeno", headcounts: { qta: 9 } }), CATEGORIES),
-			computeRanchoMetrics(rancho({ ranchoId: 2, code: "grande", headcounts: { qta: 55 } }), CATEGORIES),
-			computeRanchoMetrics(rancho({ ranchoId: 3, code: "coberto", headcounts: { nut_qocon: 1, qta: 80 } }), CATEGORIES),
-			computeRanchoMetrics(rancho({ ranchoId: 4, code: "mudo", answered: false }), CATEGORIES),
+			computeMessHallWorkforceMetrics(messHall({ messHallWorkforceId: 1, code: "pequeno", headcounts: { qta: 9 } }), CATEGORIES),
+			computeMessHallWorkforceMetrics(messHall({ messHallWorkforceId: 2, code: "grande", headcounts: { qta: 55 } }), CATEGORIES),
+			computeMessHallWorkforceMetrics(messHall({ messHallWorkforceId: 3, code: "coberto", headcounts: { nut_qocon: 1, qta: 80 } }), CATEGORIES),
+			computeMessHallWorkforceMetrics(messHall({ messHallWorkforceId: 4, code: "mudo", answered: false }), CATEGORIES),
 		])
 		expect(gaps.map((g) => g.code)).toEqual(["grande", "pequeno"])
 	})
 
 	test("só TND, sem nutricionista, já conta como coberto tecnicamente", () => {
-		const gaps = coverageGaps([computeRanchoMetrics(rancho({ headcounts: { tnd_qscon: 1, qta: 20 } }), CATEGORIES)])
+		const gaps = coverageGaps([computeMessHallWorkforceMetrics(messHall({ headcounts: { tnd_qscon: 1, qta: 20 } }), CATEGORIES)])
 		expect(gaps).toEqual([])
 	})
 })
 
 describe("mealsPerWorker", () => {
-	const m = computeRanchoMetrics(rancho({ headcounts: { qta: 10 } }), CATEGORIES)
+	const m = computeMessHallWorkforceMetrics(messHall({ headcounts: { qta: 10 } }), CATEGORIES)
 
 	test("refeições por dia divididas pelo efetivo disponível", () => {
 		expect(mealsPerWorker(m, { presences: 6000, activeDays: 20 })).toBe(30)
@@ -193,17 +199,17 @@ describe("mealsPerWorker", () => {
 		expect(mealsPerWorker(m, null)).toBeNull()
 	})
 
-	test("rancho que não registra presença devolve null, não zero", () => {
+	test("refeitório que não registra presença devolve null, não zero", () => {
 		expect(mealsPerWorker(m, { presences: 0, activeDays: 0 })).toBeNull()
 	})
 
 	test("efetivo não declarado devolve null", () => {
-		const mudo = computeRanchoMetrics(rancho({ answered: false }), CATEGORIES)
+		const mudo = computeMessHallWorkforceMetrics(messHall({ answered: false }), CATEGORIES)
 		expect(mealsPerWorker(mudo, { presences: 100, activeDays: 10 })).toBeNull()
 	})
 
 	test("efetivo inteiramente indisponível devolve null em vez de dividir por zero", () => {
-		const zerado = computeRanchoMetrics(rancho({ headcounts: { qta: 2 }, notes: [{ kind: "leave", quantity: 2 }] }), CATEGORIES)
+		const zerado = computeMessHallWorkforceMetrics(messHall({ headcounts: { qta: 2 }, notes: [{ kind: "leave", quantity: 2 }] }), CATEGORIES)
 		expect(mealsPerWorker(zerado, { presences: 100, activeDays: 10 })).toBeNull()
 	})
 })

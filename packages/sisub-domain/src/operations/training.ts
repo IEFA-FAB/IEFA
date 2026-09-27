@@ -576,18 +576,18 @@ const RESET_STEPS: ResetStep[] = [
 	},
 
 	// ── Matriz de efetivo ──
-	// O roster (`kitchen.rancho`) é cadastro e fica de fora, como as sentinelas. Já o que o
-	// treinando PREENCHE é dado operacional e sai: o Conjunto Treino concede `unit` nível 2
-	// na unidade sentinela, que é o nível exigido por `saveWorkforceSubmission`. Hoje a
-	// unidade de treino não tem rancho e este passo apaga zero linha — ele existe para o dia
-	// em que tiver, porque `workforce_submission` não carrega coluna de escopo e o teste de
+	// O roster (`kitchen.mess_hall_workforce`) é cadastro e fica de fora, como as sentinelas. Já o
+	// que o treinando PREENCHE é dado operacional e sai: o Conjunto Treino concede `unit` nível 2
+	// na unidade sentinela, que é o nível exigido por `saveWorkforceSubmission`. Hoje a unidade
+	// de treino não tem refeitório no levantamento e este passo apaga zero linha — ele existe
+	// para o dia em que tiver, porque `workforce_submission` não carrega coluna de escopo e o teste de
 	// completude não teria como cobrar. Quantitativos e observações vão por CASCADE.
 	{
 		table: "kitchen.workforce_submission",
 		run: (tx, scope) =>
 			deleteRaw(
 				tx,
-				sql`delete from kitchen.workforce_submission where rancho_id in (select id from kitchen.rancho where unit_id = ${scope.unit_id}) returning 1`
+				sql`delete from kitchen.workforce_submission where mess_hall_workforce_id in (select id from kitchen.mess_hall_workforce where unit_id = ${scope.unit_id}) returning 1`
 			),
 	},
 ]

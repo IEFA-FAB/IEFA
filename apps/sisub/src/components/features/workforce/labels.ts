@@ -14,7 +14,7 @@ export const NOTE_KIND_LABELS: Record<WorkforceNoteKind, string> = {
 /**
  * Observação que REDUZ o efetivo disponível recebe destaque de atenção; as demais são
  * contexto. A distinção é semântica, não decorativa: é o que o gestor precisa ver primeiro
- * quando olha por que o rancho está com menos gente do que declara.
+ * quando olha por que o refeitório está com menos gente do que declara.
  */
 export const NOTE_KIND_VARIANT: Record<WorkforceNoteKind, "warning" | "secondary" | "outline"> = {
 	outsourced: "warning",

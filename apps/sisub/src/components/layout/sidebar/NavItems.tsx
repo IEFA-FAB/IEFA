@@ -437,7 +437,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Painel", url: "/local-analytics/dashboard", icon: LayoutDashboard, keywords: ["arranchamentos", "previsões", "presença em tempo real"] },
 			{ title: "Indicadores", url: "/local-analytics/indicators", icon: BarChart3, keywords: ["power bi", "relatório"] },
-			{ title: "Efetivo dos Ranchos", url: "/local-analytics/workforce", icon: Users, keywords: ["efetivo"] },
+			{ title: "Efetivo dos Refeitórios", url: "/local-analytics/workforce", icon: Users, keywords: ["efetivo", "militares", "rancho"] },
 			{ title: "Assistente IA", url: "/local-analytics/chat", icon: MessageSquare, keywords: CHAT_KEYWORDS },
 		],
 	},
