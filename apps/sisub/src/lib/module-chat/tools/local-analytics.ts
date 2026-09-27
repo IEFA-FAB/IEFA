@@ -99,8 +99,8 @@ const getLowBalanceItems: ModuleToolDefinition = {
 
 		// ARPs linked to published ATAs
 		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement")
-			.select("id, ata_id, numero_ata, ano_ata, data_vigencia_fim")
-			.in("ata_id", publishedAtaIds)
+			.select("id, procurement_list_id, numero_ata, ano_ata, data_vigencia_fim")
+			.in("procurement_list_id", publishedAtaIds)
 		if (arpsError) return toolErr(sanitizeDbError(arpsError, "get_low_balance_items:arps"))
 
 		const arpsData = arps ?? []
@@ -113,7 +113,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		// ARP items
 		const { data: arpItems, error: itemsError } = await untypedFrom(ctx, "procurement_arp_item", "procurement")
 			.select(
-				"id, arp_id, numero_item, catmat_item_codigo, descricao_item, quantidade_homologada, quantidade_empenhada, saldo_empenho, valor_unitario, medida_catmat, ata_item_id"
+				"id, arp_id, numero_item, catmat_item_codigo, descricao_item, quantidade_homologada, quantidade_empenhada, saldo_empenho, valor_unitario, medida_catmat, procurement_list_item_id"
 			)
 			.in("arp_id", arpIds)
 		if (itemsError) return toolErr(sanitizeDbError(itemsError, "get_low_balance_items:items"))
@@ -157,7 +157,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		}
 
 		// Get ingredient IDs from ata_items for annotation
-		const ataItemIds = critical.map((i: { ata_item_id: string | null }) => i.ata_item_id).filter(Boolean)
+		const ataItemIds = critical.map((i: { procurement_list_item_id: string | null }) => i.procurement_list_item_id).filter(Boolean)
 		const ingredientMap = new Map<string, { ingredient_id: string | null; ingredient_name: string | null }>()
 		if (ataItemIds.length > 0) {
 			const { data: ataItems, error: ataItemsError } = await untypedFrom(ctx, "procurement_list_item", "procurement")
@@ -173,7 +173,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 			(item: {
 				id: string
 				arp_id: string
-				ata_item_id: string | null
+				procurement_list_item_id: string | null
 				numero_item: number | null
 				catmat_item_codigo: number | null
 				descricao_item: string | null
@@ -183,8 +183,10 @@ const getLowBalanceItems: ModuleToolDefinition = {
 				valor_unitario: number | null
 				medida_catmat: string | null
 			}) => {
-				const arp = arpById.get(item.arp_id) as { ata_id: string; numero_ata: string; ano_ata: string | null; data_vigencia_fim: string | null } | undefined
-				const ataItem = item.ata_item_id ? ingredientMap.get(item.ata_item_id) : undefined
+				const arp = arpById.get(item.arp_id) as
+					| { procurement_list_id: string; numero_ata: string; ano_ata: string | null; data_vigencia_fim: string | null }
+					| undefined
+				const ataItem = item.procurement_list_item_id ? ingredientMap.get(item.procurement_list_item_id) : undefined
 				const homologada = Number(item.quantidade_homologada ?? 0)
 				const empenhada = Number(item.quantidade_empenhada ?? 0)
 				const consumptionPct = homologada > 0 ? Math.round((empenhada / homologada) * 100) : 0
@@ -202,7 +204,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 					arp_numero: arp?.numero_ata ?? "—",
 					arp_ano: arp?.ano_ata ?? null,
 					arp_vigencia_fim: arp?.data_vigencia_fim ?? null,
-					ata_title: arp ? (ataIdToTitle.get(arp.ata_id) ?? "—") : "—",
+					ata_title: arp ? (ataIdToTitle.get(arp.procurement_list_id) ?? "—") : "—",
 					in_upcoming_menu: ingredientId ? upcomingIngredientIds.has(ingredientId) : false,
 				}
 			}

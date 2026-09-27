@@ -145,7 +145,7 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 			.from("procurement_pesquisa_preco")
 			.upsert(
 				{
-					ata_id: ataId,
+					procurement_list_id: ataId,
 					reference_method: "median",
 					period_months: options.months ?? 12,
 					similarity_threshold: options.similarityThreshold ?? 0.4,
@@ -185,7 +185,7 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 				.from("procurement_pesquisa_preco_item")
 				.insert({
 					research_id: researchId,
-					ata_item_id: item.ataItemId,
+					procurement_list_item_id: item.ataItemId,
 					// Identificadores externos (catmat_* → nomes do catálogo)
 					catmat_codigo: item.catmatCodigo ?? null,
 					catmat_descricao: item.catmatDescricao ?? null,
@@ -387,7 +387,7 @@ export const priceResearchRoutes = new Hono()
 		const { data: ataItems, error: itemsError } = await supabase
 			.from("procurement_list_item")
 			.select("id, ingredient_id, ingredient_name, catmat_item_codigo, catmat_item_descricao")
-			.eq("ata_id", ataId)
+			.eq("list_id", ataId)
 
 		if (itemsError || !ataItems) return c.json({ error: "Erro ao buscar itens da ATA" }, 500)
 
@@ -501,7 +501,7 @@ export const priceResearchRoutes = new Hono()
       non_compliant_items,
       created_at
     `)
-			.eq("ata_id", ataId)
+			.eq("procurement_list_id", ataId)
 			.order("created_at", { ascending: false })
 
 		if (error) return c.json({ error: "Erro ao buscar histórico de pesquisas" }, 500)

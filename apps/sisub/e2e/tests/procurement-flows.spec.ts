@@ -37,7 +37,7 @@ test.describe("Fluxos guiados — cozinha e unidade", () => {
 	test.afterAll(async () => {
 		if (annexId) await deleteProcurementRows("procurement_list", [annexId])
 		const db = createE2EServiceClient()
-		const drafts = await db.schema("procurement").from("kitchen_ata_draft").delete().eq("kitchen_id", KITCHEN_ID).like("title", `${RUN}%`)
+		const drafts = await db.schema("procurement").from("kitchen_demand_forecast").delete().eq("kitchen_id", KITCHEN_ID).like("title", `${RUN}%`)
 		if (drafts.error) throw new Error(`limpeza das previsões: ${drafts.error.message}`)
 		await deleteTemplate(templateId)
 	})

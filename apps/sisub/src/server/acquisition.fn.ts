@@ -222,7 +222,7 @@ function arpRefOf(
 		nome_uasg_gerenciadora: string | null
 		source: "compras_gov" | "manual"
 		last_synced_at: string | null
-		ata_id: string | null
+		procurement_list_id: string | null
 		data_vigencia_fim: string | null
 	},
 	itemCount: number
@@ -234,7 +234,7 @@ function arpRefOf(
 		nomeUasgGerenciadora: arp.nome_uasg_gerenciadora,
 		source: arp.source,
 		lastSyncedAt: arp.last_synced_at,
-		ataId: arp.ata_id,
+		ataId: arp.procurement_list_id,
 		vigenciaFim: arp.data_vigencia_fim,
 		itemCount,
 	}

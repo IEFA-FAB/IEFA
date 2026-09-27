@@ -19,7 +19,7 @@ describeSupabaseIntegration("kitchen-draft operations (regressão)", () => {
 	let closeDb: (() => Promise<void>) | null = null
 
 	beforeAll(async () => {
-		const s = await setupIntegration("kitchen_ata_draft")
+		const s = await setupIntegration("kitchen_demand_forecast")
 		reachable = s.reachable
 		if (s.client) client = s.client
 		const url = getSisubDatabaseUrl()
@@ -59,8 +59,8 @@ describeSupabaseIntegration("kitchen-draft operations (regressão)", () => {
 			notes: "obs",
 			selections: [{ templateId, templateName: "T", repetitions: 2 }],
 		})
-		seeder.trackWhere("kitchen_ata_draft_selection", "draft_id", draft.id)
-		seeder.track("kitchen_ata_draft", draft.id)
+		seeder.trackWhere("kitchen_demand_forecast_selection", "forecast_id", draft.id)
+		seeder.track("kitchen_demand_forecast", draft.id)
 
 		expect(draft.status).toBe("pending")
 
@@ -77,15 +77,15 @@ describeSupabaseIntegration("kitchen-draft operations (regressão)", () => {
 		const { kitchenId, templateId } = await setupDraftDeps()
 
 		const first = await createKitchenDraft(db, ctx, { kitchenId, title: uid("[TEST] D1 "), notes: undefined, selections: [] })
-		seeder.track("kitchen_ata_draft", first.id)
+		seeder.track("kitchen_demand_forecast", first.id)
 		const second = await createKitchenDraft(db, ctx, {
 			kitchenId,
 			title: uid("[TEST] D2 "),
 			notes: undefined,
 			selections: [{ templateId, templateName: "T", repetitions: 1 }],
 		})
-		seeder.trackWhere("kitchen_ata_draft_selection", "draft_id", second.id)
-		seeder.track("kitchen_ata_draft", second.id)
+		seeder.trackWhere("kitchen_demand_forecast_selection", "forecast_id", second.id)
+		seeder.track("kitchen_demand_forecast", second.id)
 
 		// nenhum 'sent' ainda
 		expect(await fetchPendingDraft(db, ctx, { kitchenId })).toBeNull()
@@ -111,8 +111,8 @@ describeSupabaseIntegration("kitchen-draft operations (regressão)", () => {
 			notes: undefined,
 			selections: [{ templateId, templateName: "T", repetitions: 1 }],
 		})
-		seeder.trackWhere("kitchen_ata_draft_selection", "draft_id", draft.id)
-		seeder.track("kitchen_ata_draft", draft.id)
+		seeder.trackWhere("kitchen_demand_forecast_selection", "forecast_id", draft.id)
+		seeder.track("kitchen_demand_forecast", draft.id)
 
 		await updateKitchenDraft(db, ctx, {
 			draftId: draft.id,
@@ -131,7 +131,7 @@ describeSupabaseIntegration("kitchen-draft operations (regressão)", () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId } = await setupDraftDeps()
 		const draft = await createKitchenDraft(db, ctx, { kitchenId, title: uid("[TEST] D "), notes: undefined, selections: [] })
-		seeder.track("kitchen_ata_draft", draft.id) // cleanup-safe se deleteKitchenDraft falhar (delete de row já removida é no-op)
+		seeder.track("kitchen_demand_forecast", draft.id) // cleanup-safe se deleteKitchenDraft falhar (delete de row já removida é no-op)
 
 		await deleteKitchenDraft(db, ctx, { draftId: draft.id })
 		const drafts = await fetchKitchenDrafts(db, ctx, { kitchenId })

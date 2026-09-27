@@ -9,8 +9,8 @@ export type ProcurementListItem = Tables<"procurement_list_item">
 /** Item como o detalhe da ATA devolve: com o padrão do insumo e a conservação, que decidem o ciclo não gravado. */
 export type AtaItemWithConservation = ProcurementListItem & { conservation_class?: string | null; ingredient_delivery_cycle?: string | null }
 
-export type KitchenAtaDraft = Tables<"kitchen_ata_draft">
-export type KitchenAtaDraftSelection = Tables<"kitchen_ata_draft_selection">
+export type KitchenAtaDraft = Tables<"kitchen_demand_forecast">
+export type KitchenAtaDraftSelection = Tables<"kitchen_demand_forecast_selection">
 
 // ─── List com detalhes carregados ─────────────────────────────────────────────
 

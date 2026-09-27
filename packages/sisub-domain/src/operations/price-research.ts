@@ -430,7 +430,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 					tx
 						.insert(procurementPesquisaPrecoInProcurement)
 						.values({
-							ataId: input.ataId ?? null,
+							procurementListId: input.ataId ?? null,
 							referenceMethod: input.method,
 							periodMonths: input.periodMonths ?? null,
 							totalItems: 1,
@@ -465,7 +465,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 						.insert(procurementPesquisaPrecoItemInProcurement)
 						.values({
 							researchId: research.id,
-							ataItemId: input.ataItemId ?? null,
+							procurementListItemId: input.ataItemId ?? null,
 							catmatCodigo: input.catmatCodigo,
 							catmatDescricao: input.catmatDescricao ?? null,
 							productName: input.catmatDescricao ?? String(input.catmatCodigo),

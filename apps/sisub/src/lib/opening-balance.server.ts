@@ -123,7 +123,7 @@ const toNumber = (value: number | string | null | undefined) => (value == null ?
  * Duas fontes, na ordem do spec ("último preço de ATA ou pesquisa de preço"):
  *
  *  • **ATA** — `procurement_arp_item.valor_unitario`, o preço homologado da ata de registro
- *    de preços, ligado ao insumo pelo item da lista (`ata_item_id`). Está na unidade de
+ *    de preços, ligado ao insumo pelo item da lista (`procurement_list_item_id`). Está na unidade de
  *    fornecimento; divide-se pelo `conversion_factor` do item da lista.
  *  • **Pesquisa de preço** — `procurement_list_item.unit_price`, o preço que a unidade
  *    pesquisou para a ATA em planejamento. Com item de compra vinculado (`purchase_quantity`
@@ -157,7 +157,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 	const arpItems = await readAllPagesIn<{
 		id: string
 		arp_id: string
-		ata_item_id: string
+		procurement_list_item_id: string
 		numero_item: number | null
 		valor_unitario: number | string | null
 	}>(
@@ -166,8 +166,8 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 		(chunk, from, to) =>
 			proc
 				.from("procurement_arp_item")
-				.select("id, arp_id, ata_item_id, numero_item, valor_unitario")
-				.in("ata_item_id", chunk)
+				.select("id, arp_id, procurement_list_item_id, numero_item, valor_unitario")
+				.in("procurement_list_item_id", chunk)
 				.not("valor_unitario", "is", null)
 				.order("id")
 				.range(from, to)
@@ -189,7 +189,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 	}
 
 	for (const arpItem of arpItems) {
-		const listItem = listItemById.get(arpItem.ata_item_id)
+		const listItem = listItemById.get(arpItem.procurement_list_item_id)
 		const arp = arpById.get(arpItem.arp_id)
 		if (!listItem || !arp) continue
 		const unitCost = pricePerBaseUnit(toNumber(arpItem.valor_unitario), toNumber(listItem.conversion_factor))

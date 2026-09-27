@@ -209,7 +209,7 @@ async function fetchArpSaldos(params: { numeroAtaRegistroPreco: string; codigoUn
  *   blind delete+reinsert would fail on (or, before 20260926214000, wipe) local empenhos).
  * `numero_ata` guarda o número CANÔNICO da API ("00002/2025"), que é o formato que
  *   `4_consultarEmpenhosSaldoItem` exige de volta na sincronização de saldo.
- * BR date strings ("DD/MM/YYYY") are normalised to ISO 8601. Unmatched catmat codes get ata_item_id = null.
+ * BR date strings ("DD/MM/YYYY") are normalised to ISO 8601. Unmatched catmat codes get procurement_list_item_id = null.
  *
  * @throws {Error} on HTTP failure (after 3 retries), when the ata has no items, or any Supabase write error.
  */
@@ -261,15 +261,15 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		// era reimportada de outro anexo. Agora o vínculo existente é mantido e a tela avisa.
 		const { data: existingArp, error: existingError } = await supabase
 			.from("procurement_arp")
-			.select("id, ata_id, acquisition_id")
+			.select("id, procurement_list_id, acquisition_id")
 			.eq("unit_id", unitId)
 			.eq("numero_ata", arpData.numeroAtaRegistroPreco)
 			.eq("uasg_gerenciadora", arpData.codigoUnidadeGerenciadora)
 			.maybeSingle()
 		if (existingError) throw new Error(`Erro ao procurar a ARP: ${existingError.message}`)
-		let ataId: string | null = data.ataId ?? existingArp?.ata_id ?? null
-		if (existingArp?.ata_id && data.ataId && existingArp.ata_id !== data.ataId) {
-			ataId = existingArp.ata_id
+		let ataId: string | null = data.ataId ?? existingArp?.procurement_list_id ?? null
+		if (existingArp?.procurement_list_id && data.ataId && existingArp.procurement_list_id !== data.ataId) {
+			ataId = existingArp.procurement_list_id
 			warnings.push(`A ARP ${arpData.numeroAtaRegistroPreco} já está vinculada a outro anexo quantitativo; o vínculo existente foi mantido`)
 		}
 		let acquisitionId: string | null = data.acquisitionId ?? existingArp?.acquisition_id ?? null
@@ -326,7 +326,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			.upsert(
 				{
 					unit_id: unitId,
-					ata_id: ataId,
+					procurement_list_id: ataId,
 					acquisition_id: acquisitionId,
 					// Cadastrada à mão antes (API fora do ar): a primeira importação bem-sucedida a
 					// torna sincronizada, e os itens são atualizados pelo número, sem duplicar.
@@ -366,7 +366,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			const saldo = numero != null ? saldos.get(numero) : undefined
 			return {
 				arp_id: arp.id,
-				ata_item_id: item.codigoItem != null ? (catmatToAtaItemId.get(item.codigoItem) ?? null) : null,
+				procurement_list_item_id: item.codigoItem != null ? (catmatToAtaItemId.get(item.codigoItem) ?? null) : null,
 				numero_item: numero,
 				catmat_item_codigo: item.codigoItem ?? null,
 				descricao_item: item.descricaoItem ?? null,
@@ -575,7 +575,7 @@ export const fetchArpForAtaFn = createServerFn({ method: "GET" })
 		// leitura exige nível 1 NA unidade dona da ata.
 		await requireUnitScope(1, await resolveAtaUnit(supabase, data.ataId))
 
-		const { data: arp } = await supabase.from("procurement_arp").select("*").eq("ata_id", data.ataId).maybeSingle()
+		const { data: arp } = await supabase.from("procurement_arp").select("*").eq("procurement_list_id", data.ataId).maybeSingle()
 
 		if (!arp) return null
 
@@ -638,7 +638,7 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 			.from("procurement_arp")
 			.insert({
 				unit_id: data.unitId,
-				ata_id: data.ataId ?? null,
+				procurement_list_id: data.ataId ?? null,
 				acquisition_id: data.acquisitionId ?? null,
 				numero_ata: numeroAta,
 				ano_ata: data.anoAta,
@@ -723,7 +723,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 		let query = proc
 			.from("procurement_arp")
 			.select(
-				"id, numero_ata, uasg_gerenciadora, nome_uasg_gerenciadora, objeto, data_vigencia_inicio, data_vigencia_fim, source, last_synced_at, ata_id, acquisition_id"
+				"id, numero_ata, uasg_gerenciadora, nome_uasg_gerenciadora, objeto, data_vigencia_inicio, data_vigencia_fim, source, last_synced_at, procurement_list_id, acquisition_id"
 			)
 			.eq("unit_id", data.unitId)
 			.order("created_at", { ascending: false })
@@ -757,7 +757,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 			vigenciaFim: arp.data_vigencia_fim,
 			source: arp.source === "manual" ? "manual" : "compras_gov",
 			lastSyncedAt: arp.last_synced_at,
-			ataId: arp.ata_id,
+			ataId: arp.procurement_list_id,
 			acquisitionId: arp.acquisition_id,
 			items: itemRows
 				.filter((item) => item.arp_id === arp.id)
