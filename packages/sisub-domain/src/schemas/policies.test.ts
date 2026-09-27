@@ -45,7 +45,7 @@ describe("PolicyStatementInputSchema", () => {
 
 describe("CreatePolicySchema", () => {
 	test("aceita nome e descrição", () => {
-		expect(CreatePolicySchema.safeParse({ name: "Operador de Rancho", description: "Acesso do fiscal" }).success).toBe(true)
+		expect(CreatePolicySchema.safeParse({ name: "Operador de refeitório", description: "Acesso do fiscal" }).success).toBe(true)
 	})
 
 	test("aceita sem descrição", () => {
