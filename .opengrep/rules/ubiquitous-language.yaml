@@ -37,9 +37,6 @@ rules:
         - "**/routeTree.gen.ts"
         - "**/generated.ts"
         - "**/drizzle/**"
-        # As rotas de redirect do lote 1 (saem no PR seguinte, D6).
-        - "apps/sisub/src/routes/_protected/_modules/unit/$unitId/liquidations.tsx"
-        - "apps/sisub/src/routes/_protected/_modules/unit/$unitId/payments.tsx"
     patterns:
       - pattern-regex: \b(?:\w*KitchenAtaDraft\w*|\w*[kK]itchenDrafts?\w*|kitchen-draft|kitchen_ata_draft|\w*[lL]iquidations?\w*|\w*[pP]ayments?\w*|list_preparations|\w*[aA]gentListPreparations\w*)
       # Linha de comentário conta a história do rename.
@@ -47,6 +44,9 @@ rules:
       # O registro de auditoria guarda o nome com que a linha foi gravada: o alias de leitura
       # (`RENAMED_OPERATIONS` em `assurance-registry.ts`) precisa citar o nome antigo.
       - pattern-not-regex: registerDeductionPaymentFn:\s*"registerDeductionRemittanceFn"
+      # O mapa de caminhos antigos (`lib/legacy-routes.ts`) e quem o testa citam a origem como
+      # `from: "<caminho antigo>"`: é o único lugar em que o nome descartado é o dado.
+      - pattern-not-regex: \bfrom:\s*["'`][^"'`]*["'`]
 
   - id: ubiquitous-language-lot1-route
     languages: [generic]
@@ -54,7 +54,8 @@ rules:
     message: >-
       Rota com segmento descartado pelo glossário do sisub: `suprimentos` é `demand-forecasts`,
       `weekly-plans` é `weekly-menus`, `liquidations` é `liquidacoes`, `payments` é `pagamentos`.
-      O caminho antigo só existe como redirect por um ciclo de deploy; link, navegação e rota nova
+      O caminho antigo só existe como entrada `from` de `LEGACY_ROUTE_PREFIXES`
+      (`apps/sisub/src/lib/legacy-routes.ts`), por um ciclo de deploy; link, navegação e rota nova
       usam o nome do glossário.
     paths:
       include:
@@ -63,16 +64,12 @@ rules:
         - "apps/sisub/e2e/**/*.ts"
       exclude:
         - "**/routeTree.gen.ts"
-        # As rotas de redirect do lote 1 (saem no PR seguinte, D6).
-        - "apps/sisub/src/routes/_protected/_modules/kitchen/$kitchenId/suprimentos/*.tsx"
-        - "apps/sisub/src/routes/_protected/_modules/global/weekly-plans/*.tsx"
-        - "apps/sisub/src/routes/_protected/_modules/unit/$unitId/liquidations.tsx"
-        - "apps/sisub/src/routes/_protected/_modules/unit/$unitId/payments.tsx"
-        # O teste do redirect abre a URL antiga de propósito.
-        - "apps/sisub/e2e/tests/procurement-terminology.spec.ts"
     patterns:
       - pattern-regex: /(?:suprimentos|weekly-plans|liquidations|payments)(?=[/"'`?#)]|$)
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+      # Origem do mapa de caminhos antigos (`lib/legacy-routes.ts`) e de quem o testa: a única
+      # exceção, e por conteúdo, não por caminho de arquivo.
+      - pattern-not-regex: \bfrom:\s*["'`][^"'`]*["'`]
 
   - id: ubiquitous-language-lot1-label
     languages: [generic]
@@ -94,5 +91,5 @@ rules:
       exclude:
         - "**/routeTree.gen.ts"
     patterns:
-      - pattern-regex: (?:Planos? Semana(?:l|is)|["'>`]\s*Apoios\s*["'<`]|Contagem Física|ATA \(preço homologado\)|Pesquisa de [Pp]reço\b(?!s)|Fiscal de Rancho|chefe do rancho|(?:messhall|name):\s*"Fiscal")
+      - pattern-regex: (?:Planos? Semana(?:l|is)|["'>`]\s*Apoios\s*["'<`]|na tela, \\?"Apoio\\?"|Contagem Física|ATA \(preço homologado\)|Pesquisa de [Pp]reço\b(?!s)|Fiscal de Rancho|chefe do rancho|(?:messhall|name):\s*"Fiscal")
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$

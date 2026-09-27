@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs"
+import { readdirSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
@@ -36,9 +36,6 @@ function collectRoutePaths(dir: string, prefix = ""): string[] {
 			continue
 		}
 		if (!entry.name.endsWith(".tsx")) continue
-		// Rota só de redirect (caminho antigo mantido por um ciclo) não renderiza trilha.
-		const source = readFileSync(join(dir, entry.name), "utf8")
-		if (source.includes("throw redirect(") && !source.includes("component:")) continue
 		const base = entry.name.replace(/\.tsx$/, "")
 		// "route" e "index" não acrescentam segmento; "print.$planId" vira "print/$planId"
 		if (base === "route" || base === "index") {

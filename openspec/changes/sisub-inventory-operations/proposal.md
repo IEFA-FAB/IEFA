@@ -37,7 +37,7 @@ que a fundação existe, mas as **operações do dia a dia de um rancho** não f
 
 ## What Changes
 
-Afeta **sisub** (rotas `/storage/$kitchenId/*`, `/unit/$unitId/liquidations`, planejamento, server fns),
+Afeta **sisub** (rotas `/storage/$kitchenId/*`, `/unit/$unitId/liquidacoes`, planejamento, server fns),
 **packages/sisub-domain**, **packages/database** (`inventory`, `core`, `finance`, `procurement`,
 `gs1_integration`), **api** (parser de NF-e; coletor DF-e condicionado) e **legal-kit** (inventário de
 armazenamento local e de dado pessoal em evidências).

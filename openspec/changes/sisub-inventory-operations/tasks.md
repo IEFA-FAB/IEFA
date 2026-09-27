@@ -130,7 +130,7 @@ integração do sisub antes do PR.
 - [ ] 0.10 [sisub] `createReceiptFromNfeFn`: linha sem `ingredient_id` vira "não casada" (não `skipped`); efetivação bloqueia com linha não casada não recusada
 - [ ] 0.11 [sisub] `supply-orders.tsx` grava `purchaseItemId`; teste do trânsito do MRP
 - [ ] 0.12 [sisub] `listNfeDocumentsFn` sem `kitchen_id is null`; `createReceiptFromNfeFn` recusa nota sem cozinha
-- [ ] 0.13 [sisub] `liquidation.fn.ts`: remover o `update goods_receipt set liquidacao_id` cego; mover a leitura do recebimento de `suggestLiquidationFromReceiptFn` para depois do guard
+- [ ] 0.13 [sisub] `liquidacao.fn.ts` (antes `liquidation.fn.ts`): remover o `update goods_receipt set liquidacao_id` cego; mover a leitura do recebimento de `suggestLiquidacaoFromReceiptFn` para depois do guard
 - [ ] 0.14 [root] Regra `.opengrep` para escrita em `inventory.*` fora das RPCs; PR da Fase 0
 
 ## 1. Leitor de código de barras

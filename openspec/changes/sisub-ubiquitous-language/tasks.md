@@ -9,10 +9,10 @@
 ## 1. Lote 1: só TypeScript e tela (sem banco)
 
 - [x] 1.1 [sisub] [sisub-domain] Previsão de demanda: `KitchenAtaDraft`/`kitchenDraft*`/`draftId` → `DemandForecast`/`demandForecast*`/`forecastId`; arquivos `kitchen-draft*` → `demand-forecast*`; query keys
-- [x] 1.2 [sisub] Rota `kitchen/$kitchenId/suprimentos/$draftId` → `demand-forecasts/$forecastId`, com o arquivo antigo só com redirect; `breadcrumbs.ts`, `NavItems.tsx`, testes de navegação
-- [x] 1.3 [sisub] [sisub-domain] `liquidation*` → `liquidacao*`, `payment*` → `pagamento*` (arquivos, tipos, hooks); rotas `liquidations` → `liquidacoes` e `payments` → `pagamentos` com redirect
+- [x] 1.2 [sisub] Rota `kitchen/$kitchenId/suprimentos/$draftId` → `demand-forecasts/$forecastId`, com o caminho antigo no mapa `LEGACY_ROUTE_PREFIXES` (D6); `breadcrumbs.ts`, `NavItems.tsx`, testes de navegação
+- [x] 1.3 [sisub] [sisub-domain] `liquidation*` → `liquidacao*`, `payment*` → `pagamento*` (arquivos, tipos, hooks); rotas `liquidations` → `liquidacoes` e `payments` → `pagamentos` com redirect pelo mapa `LEGACY_ROUTE_PREFIXES`
 - [x] 1.4 [sisub] [sisub-domain] `product` → `ingredient` no TS (menos o valor de `policy_rule.target`, que é do lote 5); `list_preparations` → `list_legacy_preparations` com os testes de contrato das tools
-- [x] 1.5 [sisub] Rótulos: "Cardápio semanal" (rota `global/weekly-plans` → `global/weekly-menus` com redirect), "Cardápio de apoio", "Inventário físico", "Pesquisa de preços", "ARP (preço registrado)", "Contratação planejada" × "Contratação de origem"
+- [x] 1.5 [sisub] Rótulos: "Cardápio semanal" (rota `global/weekly-plans` → `global/weekly-menus` com redirect pelo mapa `LEGACY_ROUTE_PREFIXES`), "Cardápio de apoio", "Inventário físico", "Pesquisa de preços", "ARP (preço registrado)", "Contratação planejada" × "Contratação de origem"
 - [x] 1.6 [root] Criar `.opengrep/rules/ubiquitous-language.yaml` com os termos do lote 1 e casos de teste da regra (espera o mantenedor)
 - Adiantado do lote 8a no PR do lote 1, a pedido: o nome do módulo `messhall` na tela ("Fiscal de rancho", parte de 8.4; os níveis 1 e 3 ficam para 8.4) e a mensagem de designação que faltava ("quem tem Gestão Unidade" no lugar de "chefe do rancho", parte de 8.3 em `designations.ts` e `receiving-pending.ts`). `product_items`/`productItems` ficam: são os itens de produto (SKU) do insumo, gravados no retrato da versão (`ingredient_version`), não o nome antigo de insumo. O recolhimento da retenção saiu de `payment` para `remittance` (`registerDeductionRemittanceFn`), não para `pagamento`: DARF/DAR/GPS não é a fase de pagamento (OB) da despesa
 
@@ -25,7 +25,7 @@
 - [ ] 2.5 [sisub-domain] Operações e schemas: `ata.ts`, `ata-quantity-limits.ts`, `procurement.ts`, tipos → `quantity-estimate*`, lendo `published` e `completed`, gravando só `completed`
 - [ ] 2.6 [sisub] Server fns, hooks e query keys (`ata.fn.ts`, `useAta.ts`, `ata-annex.ts`, `ata-utils.ts`, `types/domain/ata.ts`)
 - [ ] 2.7 [sisub] Componentes (`components/features/local/ata/`, wizard `AtaWizard*`) e rótulos que ainda dizem "margem"
-- [ ] 2.8 [sisub] Rotas `unit/$unitId/procurement/*` → `quantity-estimates/*` com redirect; `breadcrumbs.ts` e testes de navegação
+- [ ] 2.8 [sisub] Rotas `unit/$unitId/procurement/*` → `quantity-estimates/*` com redirect pelo mapa `LEGACY_ROUTE_PREFIXES`; `breadcrumbs.ts` e testes de navegação
 - [ ] 2.9 [sisub] [sisub-domain] Tools do chat: `list_atas`/`get_atas`/`get_ata_details`/`update_ata_status` → `list_quantity_estimates`/`get_quantity_estimate`/`update_quantity_estimate_status`, com a listagem em `@iefa/sisub-domain/agent` (sem `untypedFrom`); prompts e `ToolCallDisplay.tsx`; testes de contrato das tools
 - [ ] 2.10 [sisub] Analytics: prompt e allowlist `analytics-sql.ts` com os nomes novos
 - [ ] 2.11 [api] Rota admin `/quantity-estimates/:quantityEstimateId`; `/ata/:ataId` como alias com cabeçalho `Deprecation`, `Link` e log de uso
@@ -53,7 +53,7 @@
 
 - [ ] 5.1 [database] Expand: CHECKs de `contract_designation.role`, `inventory_count.type`, `policy_rule.target`, `menu_template.template_type` e `menu_items.origin_template_type` aceitando os dois vocabulários
 - [ ] 5.2 [sisub-domain] [sisub] Constantes (`DESIGNATION_ROLES`, tipos de inventário, `PolicyTarget`, tipos de cardápio) com leitura dos dois; `sql-vocabulary.contract.test.ts` atualizado
-- [ ] 5.3 [sisub] Rotas `global/exceptions` e `kitchen/$kitchenId/exceptions` → `*/support-menus` com redirect; componentes `Exception*`
+- [ ] 5.3 [sisub] Rotas `global/exceptions` e `kitchen/$kitchenId/exceptions` → `*/support-menus` com redirect pelo mapa `LEGACY_ROUTE_PREFIXES`; componentes `Exception*`
 - [ ] 5.4 [database] Contract: `update` para os valores novos e CHECK apertado (espera o mantenedor)
 
 ## 6. Lote 6: SARAM (depois de `lgpd-military-roster-key`)
@@ -67,7 +67,7 @@
 - [ ] 7.1 [sisub] Declarar `kitchen.arranchamento` em `RESET_EXCLUSIONS` (tem `mess_hall_id`)
 - [ ] 7.2 [database] Expand: `kitchen.meal_forecasts` → `kitchen.arranchamento` com view de compatibilidade (grant de `analytics_reader`), índices e constraints renomeados; aplicar e regerar tipos (espera o mantenedor)
 - [ ] 7.3 [sisub-domain] `operations/forecast.ts` → `arranchamento.ts` e schemas de `meal-ops.ts` (D11)
-- [ ] 7.4 [sisub] `forecast.fn.ts`, `useMealForecast.ts`, `lib/forecast.ts`, painéis (`forecast_count`...), rota `diner/forecast` → `diner/arranchamento` com redirect, rótulo "Arranchamento"; analytics (prompt e allowlist)
+- [ ] 7.4 [sisub] `forecast.fn.ts`, `useMealForecast.ts`, `lib/forecast.ts`, painéis (`forecast_count`...), rota `diner/forecast` → `diner/arranchamento` com redirect pelo mapa `LEGACY_ROUTE_PREFIXES`, rótulo "Arranchamento"; analytics (prompt e allowlist)
 - [ ] 7.5 [api] `/api/arranchamentos` com `/api/rancho_previsoes` como alias depreciado, os dois em `RESTRICTED_PATHS`, com teste em `routes.auth.test.ts`
 - [ ] 7.6 [database] [api] [sisub] Contract depois do deploy; saem o alias e o redirect (espera o mantenedor)
 

@@ -39,7 +39,7 @@ export function SegmentationEditor({ unitId, overview, canEdit }: { unitId: numb
 		<div className="space-y-6">
 			<div className="flex flex-wrap items-center gap-2">
 				<Badge variant="outline">
-					{overview.segments.length} contrataç{overview.segments.length === 1 ? "ão" : "ões"}
+					{overview.segments.length} {overview.segments.length === 1 ? "contratação planejada" : "contratações planejadas"}
 				</Badge>
 				<Badge variant="secondary">
 					{assignedCount} ite{assignedCount === 1 ? "m" : "ns"} com contratação planejada

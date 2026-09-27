@@ -1,7 +1,10 @@
 export type { AssuranceLevel, ListSensitiveOperations, RecordSensitiveOperation } from "./audit.ts"
 export {
 	AssuranceLevelSchema,
+	canonicalOperationName,
 	ListSensitiveOperationsSchema,
+	operationNameVariants,
+	RENAMED_SENSITIVE_OPERATIONS,
 	RecordSensitiveOperationSchema,
 	SENSITIVE_OPERATION_LIST_DEFAULT,
 	SENSITIVE_OPERATION_LIST_MAX,

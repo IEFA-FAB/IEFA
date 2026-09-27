@@ -405,7 +405,7 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **UX:** badge "pendente: sem recebimento" na lista de liquidações.
 - **Cobertura:** `finance-compliance-math.test.ts › liquidação sem recebimento é pendência`.
   **LACUNA:** a pendência ainda não entra no fluxo "Executar despesa" (tarefa 4.1, que deve usar
-  `isLiquidationWithoutReceipt`), e não há ação de vincular o recebimento depois da NS.
+  `isLiquidacaoWithoutReceipt`), e não há ação de vincular o recebimento depois da NS.
 
 ### GU-FIN-07 — "Anularam a NE inteira"
 - **O sistema precisa:** anulação total é `anulacao_total`; "cancelamento" é termo de RP. O banco

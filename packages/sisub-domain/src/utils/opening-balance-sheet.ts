@@ -624,7 +624,7 @@ export function pricePerBaseUnit(unitPrice: number | null, conversionFactor: num
 }
 
 /**
- * Escolhe a sugestão de custo de um insumo: preço homologado de ATA antes de pesquisa de preço;
+ * Escolhe a sugestão de custo de um insumo: preço registrado em ARP antes de pesquisa de preços;
  * dentro de cada fonte, a da própria unidade antes da de outra; depois a mais recente.
  */
 export function pickOpeningCost(candidates: readonly OpeningCostCandidate[]): OpeningCostCandidate | null {

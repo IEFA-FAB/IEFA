@@ -289,7 +289,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	if (!template) {
 		return (
 			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				<p className="text-subheading">{scope.kind === "kitchen" ? "Cardápio semanal não encontrado." : "Cardápio semanal não encontrado."}</p>
+				<p className="text-subheading">Cardápio semanal não encontrado.</p>
 				{scope.kind === "kitchen" ? (
 					<Link
 						to="/kitchen/$kitchenId/weekly-menus"

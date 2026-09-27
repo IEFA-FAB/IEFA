@@ -122,7 +122,7 @@ async function attachSelections(db: SisubDb, forecasts: ForecastRow[], prefix: s
 	}))
 }
 
-/** Lists all forecasts for a kitchen with their template selections, ordered by creation date descending. */
+/** Previsões de demanda da cozinha, com os cardápios escolhidos, da mais recente para a mais antiga. */
 export async function fetchDemandForecasts(db: SisubDb, ctx: UserContext, input: FetchDemandForecasts) {
 	await requireKitchenOrItsUnit(db, ctx, 1, input.kitchenId)
 	const prefix = "Erro ao buscar previsões de demanda"
@@ -164,7 +164,6 @@ export async function fetchPendingDemandForecast(db: SisubDb, ctx: UserContext, 
 	return forecast ?? null
 }
 
-/** Creates a demand forecast with status "pending" and inserts its template selections (atômico). */
 /**
  * Autoriza pela cozinha DONA da previsão, lida da linha.
  *
@@ -205,6 +204,7 @@ async function assertTemplatesOfKitchen(db: SisubDb, kitchenId: number, template
 	}
 }
 
+/** Cria a previsão de demanda em "pending" com os cardápios escolhidos, numa transação só. */
 export async function createDemandForecast(db: SisubDb, ctx: UserContext, input: CreateDemandForecast) {
 	requireKitchen(ctx, 2, input.kitchenId)
 	await assertTemplatesOfKitchen(
@@ -237,8 +237,9 @@ export async function createDemandForecast(db: SisubDb, ctx: UserContext, input:
 }
 
 /**
- * Updates demand forecast metadata and optionally replaces all selections (delete-all + re-insert, atômico).
- * selections=undefined → metadata-only update, existing selections untouched.
+ * Atualiza título e observações da previsão e, se vierem, troca todos os cardápios escolhidos
+ * (apaga e insere de novo, numa transação só). `selections` ausente = só os metadados; os
+ * cardápios já escolhidos ficam.
  */
 export async function updateDemandForecast(db: SisubDb, ctx: UserContext, input: UpdateDemandForecast) {
 	const kitchenId = await authorizeForecast(db, ctx, input.forecastId)
@@ -271,7 +272,7 @@ export async function updateDemandForecast(db: SisubDb, ctx: UserContext, input:
 	return toWire<Forecast>(forecast)
 }
 
-/** Transitions a demand forecast from "pending" to "sent", making it visible to management. */
+/** Passa a previsão de "pending" para "sent": a partir daí a unidade a vê no wizard do anexo. */
 export async function sendDemandForecast(db: SisubDb, ctx: UserContext, input: SendDemandForecast) {
 	await authorizeForecast(db, ctx, input.forecastId)
 
@@ -288,7 +289,7 @@ export async function sendDemandForecast(db: SisubDb, ctx: UserContext, input: S
 	)
 }
 
-/** Hard-deletes a demand forecast and its selections (cascade via FK). Only pending forecasts should be deleted. */
+/** Apaga a previsão e os cardápios escolhidos (cascata pela FK). Só a previsão em "pending" deve ser apagada. */
 export async function deleteDemandForecast(db: SisubDb, ctx: UserContext, input: DeleteDemandForecast) {
 	await authorizeForecast(db, ctx, input.forecastId)
 

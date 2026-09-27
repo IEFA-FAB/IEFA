@@ -2,7 +2,7 @@
 
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
-import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter, useRouterState } from "@tanstack/react-router"
+import { createRootRouteWithContext, HeadContent, Outlet, redirect, Scripts, useRouter, useRouterState } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { useEffect } from "react"
 import { type AuthState, authQueryOptions } from "@/auth/service"
@@ -14,6 +14,7 @@ import { Toaster } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { cn } from "@/lib/cn"
+import { resolveLegacyPath } from "@/lib/legacy-routes"
 import supabase from "@/lib/supabase"
 import { readThemePreference, ThemeProvider } from "@/services/themeService"
 import AppStyles from "@/styles.css?url"
@@ -27,7 +28,12 @@ export interface MyRouterContext {
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	// Pre-load auth state for all routes
-	beforeLoad: async ({ context }) => {
+	beforeLoad: async ({ context, location }) => {
+		// Caminho renomeado pelo glossário: redireciona antes de procurar a rota, com a query.
+		const legacyTarget = resolveLegacyPath(location.pathname)
+		if (legacyTarget) {
+			throw redirect({ href: `${legacyTarget}${location.searchStr}${location.hash ? `#${location.hash}` : ""}`, replace: true })
+		}
 		try {
 			const authState = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 			return { auth: authState }

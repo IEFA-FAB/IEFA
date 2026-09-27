@@ -9,7 +9,7 @@ produção sem nenhum teste falhar antes**, em ordem de dano.
 | Camada | Medida | Situação |
 |---|---|---|
 | Lógica pura do domínio | 45 módulos em `packages/sisub-domain/src/operations`, 9 com teste | Melhor coberto do repo, mas concentrado em authz e matemática |
-| Server functions (sisub) | 60 arquivos `*.fn.ts`; as decisões de `receiving` e `liquidation` já saíram para o domínio e têm teste | **Ainda o maior buraco.** É onde moram autorização, ordem de escrita e tradução de erro |
+| Server functions (sisub) | 60 arquivos `*.fn.ts`; as decisões de `receiving` e `liquidacao` já saíram para o domínio e têm teste | **Ainda o maior buraco.** É onde moram autorização, ordem de escrita e tradução de erro |
 | Funções SQL | 26 migrations declaram função ou trigger | Só a suíte de integração as executa — e ela roda em skip por padrão |
 | UI | 340 componentes/rotas `.tsx`, 0 testes de componente | Nenhuma cobertura. Regressão visual e de estado só aparece em uso |
 | Contratos de IA (chat + MCP) | Testes de contrato nos dois lados | Bem servido: `model-args`, `inputSchema` × `toJsonSchema` |
@@ -34,7 +34,7 @@ O gate do CI cobre biome, typecheck, opengrep, codeql, trivy, zizmor, gitleaks,
 | Arquivo | O que trava |
 |---|---|
 | `operations/receiving-math.ts` + teste | Custo unitário na unidade base (a nota preça a embalagem, o ledger valora o gênero) e a regra de divergência sem motivo |
-| `operations/liquidation-math.ts` + teste | Valor sugerido da NS, competência, número de NS e — a mais importante — contra qual unidade o escopo é verificado |
+| `operations/liquidacao-math.ts` + teste | Valor sugerido da NS, competência, número de NS e — a mais importante — contra qual unidade o escopo é verificado |
 | `operations/inventory-vocabulary.ts` | Tipos de movimento e situações de recebimento como constante, não string solta em quinze arquivos |
 | `operations/sql-vocabulary.contract.test.ts` | 11 pares SQL × TypeScript lidos das migrations reais, mais a **partição entrada/saída** dos tipos de movimento |
 | `.opengrep/rules/money-rounding.yaml` | `toFixed(2)` em valor monetário |
@@ -59,7 +59,7 @@ na carga do módulo — e ela empurra a solução certa:
 - **Extrair a decisão para `src/lib/` ou para uma operation do domínio**, deixando no
   `.handler()` só auth + I/O. É o que já foi feito em `stock-math`, `demand-math` e
   `production-issue`, e é por isso que esses três têm teste.
-- **Prioridade** pelo dano: `receiving.fn` (movimenta ledger), `liquidation.fn` e
+- **Prioridade** pelo dano: `receiving.fn` (movimenta ledger), `liquidacao.fn` e
   `reconciliation.fn` (dinheiro), `permissions.fn` (IDOR já corrigido uma vez ali),
   `purchase_item.fn` (catálogo global).
 

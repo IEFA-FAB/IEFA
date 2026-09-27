@@ -20,7 +20,7 @@ function EditDemandForecastPage() {
 	const { data: forecasts, isLoading: isLoadingForecasts, isFetching: isFetchingForecasts } = useDemandForecasts(kitchenId)
 	const forecast = forecasts?.find((d) => d.id === forecastId)
 	useCrumbLabel(forecast?.title)
-	// Chegar aqui vindo de /suprimentos/new significa cair sobre a listagem em cache, que
+	// Chegar aqui vindo de /demand-forecasts/new significa cair sobre a listagem em cache, que
 	// ainda é a de antes da criação: a previsão existe, mas não está nela. Sem esperar o
 	// refetch, a tela diria "não encontrado" no instante seguinte ao toast que confirmou a
 	// criação. "Não encontrado" só é verdade com a busca parada.

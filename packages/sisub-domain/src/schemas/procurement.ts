@@ -96,7 +96,7 @@ export type DeletePurchaseItemIngredient = z.infer<typeof DeletePurchaseItemIngr
 export const SetDefaultPurchaseItemIngredientSchema = z.object({ id: UuidSchema, purchaseItemId: UuidSchema })
 export type SetDefaultPurchaseItemIngredient = z.infer<typeof SetDefaultPurchaseItemIngredientSchema>
 
-// ─── Kitchen ATA draft (pending → sent lifecycle) ────────────────────────────
+// ─── Previsão de demanda da cozinha (pending → sent) ─────────────────────────
 
 export const TemplateSelectionSchema = z.object({
 	templateId: z.string(),

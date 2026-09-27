@@ -70,9 +70,10 @@ estoura a RAM das máquinas de desenvolvimento.
   predicado por `is`/`has`, constante em `SCREAMING_SNAKE`. Fica em português só termo sem
   equivalente inglês fiel ou nome de integração externa (`nup`, `om`, `ementa`, `epigrafe`,
   `preambulo`, `fecho`, `vocativo`, `alinea`, `subalinea`, `posto`, `quadro`, `despacho`, `noImp`,
-  `sigadaer`, `comaer`). Teste: um leitor da NSCA reconheceria o termo inglês como a mesma coisa?
-  Valor de domínio não se traduz (`kind: "oficio-externo"`). Comentário e mensagem ao usuário em
-  português; commit em inglês.
+  `sigadaer`, `comaer`, `empenho`, `liquidacao`, `pagamento`: fases da despesa da Lei 4.320, e
+  `pagamento` por coerência com as outras duas). Teste: um leitor da NSCA reconheceria o termo
+  inglês como a mesma coisa? Valor de domínio não se traduz (`kind: "oficio-externo"`).
+  Comentário e mensagem ao usuário em português; commit em inglês.
 
 ## Regras que cruzam o repo
 

@@ -27,11 +27,13 @@
  */
 
 import { type SisubDb, sensitiveOperationLogInAccessControl, userDataInCore } from "@iefa/database/drizzle/sisub"
-import { and, asc, count, desc, eq, type SQL, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, inArray, type SQL, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { requirePermission } from "../guards/index.ts"
 import {
+	canonicalOperationName,
 	type ListSensitiveOperations,
+	operationNameVariants,
 	type RecordSensitiveOperation,
 	SENSITIVE_OPERATION_LIST_DEFAULT,
 	SENSITIVE_OPERATION_LIST_MAX,
@@ -151,6 +153,15 @@ function targetUserPredicate(userId: string): SQL {
 }
 
 /**
+ * Filtro "Operação": igualdade com o nome gravado, estendida às grafias antigas da mesma
+ * operação (`RENAMED_SENSITIVE_OPERATIONS`). Operação nunca renomeada continua em `=`.
+ */
+function operationPredicate(operation: string): SQL | undefined {
+	const variants = operationNameVariants(operation)
+	return variants.length === 1 ? eq(log.operation, operation) : inArray(log.operation, variants)
+}
+
+/**
  * Consulta do registro, mais recentes primeiro, com o total da consulta.
  *
  * `admin` nível 3 porque a leitura é a consulta mais sensível do sistema: ela
@@ -177,7 +188,7 @@ export async function listSensitiveOperations(
 	const where = and(
 		input.actorId ? eq(log.actorId, input.actorId) : undefined,
 		input.targetUserId ? targetUserPredicate(input.targetUserId) : undefined,
-		input.operation ? eq(log.operation, input.operation) : undefined
+		input.operation ? operationPredicate(input.operation) : undefined
 	)
 
 	const [rows, totals] = await Promise.all([
@@ -220,5 +231,6 @@ export async function listSensitiveOperationNames(db: SisubDb, ctx: UserContext)
 	requirePermission(ctx, "admin", 3)
 
 	const rows = await runQuery("FETCH_FAILED", () => db.selectDistinct({ operation: log.operation }).from(log).orderBy(asc(log.operation)))
-	return rows.map((row) => row.operation)
+	// Operação renomeada vira uma opção só, com o nome atual; o filtro casa as duas grafias.
+	return [...new Set(rows.map((row) => canonicalOperationName(row.operation)))]
 }

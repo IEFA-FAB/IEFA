@@ -18,9 +18,13 @@
 import { describe, expect, test } from "bun:test"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { drizzle } from "drizzle-orm/postgres-js"
+import { RENAMED_SENSITIVE_OPERATIONS } from "../schemas/audit.ts"
 import type { UserContext } from "../types/context.ts"
 import { PermissionDeniedError } from "../types/errors.ts"
 import { listSensitiveOperationNames, listSensitiveOperations } from "./audit.ts"
+
+// O par da primeira renomeação, lido do mapa: o nome antigo não aparece escrito fora dele.
+const [RENAMED_OLD, RENAMED_NEW] = Object.entries(RENAMED_SENSITIVE_OPERATIONS)[0] as [string, string]
 
 const ADMIN: UserContext = {
 	userId: "11111111-1111-1111-1111-111111111111",
@@ -120,6 +124,17 @@ describe("listSensitiveOperations — filtro por operação", () => {
 		expect(page.params).toContain("contrate.permission.grant")
 	})
 
+	test("operação renomeada casa o nome atual E o antigo — o histórico não se parte em dois", async () => {
+		expect(RENAMED_OLD).toBeDefined()
+		for (const operation of [RENAMED_NEW, RENAMED_OLD]) {
+			const { page, total } = await runList({ operation })
+			expect(page.sql).toMatch(/"operation" in \(\$\d+, \$\d+\)/)
+			expect(page.params).toContain(RENAMED_NEW)
+			expect(page.params).toContain(RENAMED_OLD)
+			expect(total.sql).toMatch(/"operation" in \(\$\d+, \$\d+\)/)
+		}
+	})
+
 	test("sem filtro nenhum, não há `where`", async () => {
 		const { page, total } = await runList({})
 		expect(page.sql).not.toContain(" where ")
@@ -161,6 +176,11 @@ describe("listSensitiveOperationNames", () => {
 		expect(captured[0]?.sql).toMatch(
 			/^select distinct "operation" from "access_control"\."sensitive_operation_log" order by "access_control"\."sensitive_operation_log"\."operation" asc/
 		)
+	})
+
+	test("operação renomeada vira uma opção só, com o nome atual", async () => {
+		const { db } = recordingDb(() => [{ operation: "attachPolicyFn" }, { operation: RENAMED_OLD }, { operation: RENAMED_NEW }])
+		expect(await listSensitiveOperationNames(db, ADMIN)).toEqual(["attachPolicyFn", RENAMED_NEW])
 	})
 
 	test("exige `admin` nível 3, como a leitura do registro", async () => {

@@ -38,6 +38,7 @@
  */
 
 import { type AssuranceReachability, type AssuranceRequirement, NO_ASSURANCE } from "@iefa/pbac"
+import { canonicalOperationName } from "@iefa/sisub-domain/schemas"
 import type { AppModule } from "@iefa/sisub-domain/types"
 import { MFA_ENFORCEMENT_ALLOWED } from "@/lib/assurance/mfa-availability"
 
@@ -755,19 +756,12 @@ export const ASSURANCE_REGISTRY = {
 export type AssuranceOperationName = keyof typeof ASSURANCE_REGISTRY
 
 /**
- * Nome antigo → nome atual das operações renomeadas. O registro de auditoria guarda o nome com
- * que a linha foi gravada; sem isto, as linhas antigas perderiam a frase do registro na tela.
- * Só leitura: nenhum código grava com o nome antigo.
+ * Entrada do registro, ou `undefined` se a operação não estiver classificada. O nome antigo de
+ * uma operação renomeada (`RENAMED_SENSITIVE_OPERATIONS`) resolve para a entrada do nome atual: o
+ * registro de auditoria guarda o nome com que a linha foi gravada.
  */
-const RENAMED_OPERATIONS: Readonly<Record<string, AssuranceOperationName>> = {
-	// O recolhimento da retenção (DARF/DAR/GPS) não é o pagamento da despesa (OB).
-	registerDeductionPaymentFn: "registerDeductionRemittanceFn",
-}
-
-/** Entrada do registro, ou `undefined` se a operação não estiver classificada. */
 export function assuranceFor(operation: string): AssuranceEntry | undefined {
-	const registry = ASSURANCE_REGISTRY as Record<string, AssuranceEntry>
-	return registry[operation] ?? registry[RENAMED_OPERATIONS[operation] ?? ""]
+	return (ASSURANCE_REGISTRY as Record<string, AssuranceEntry>)[canonicalOperationName(operation)]
 }
 
 /** Operações com exigência de garantia (`session` ou `fresh`), com o nome de cada uma. */

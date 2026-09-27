@@ -1,9 +1,9 @@
 /**
  * @module demand-forecast.fn
- * Kitchen ATA forecast workflow — pending → sent status lifecycle for kitchen-to-management procurement requests.
- * Thin wrappers delegating to @iefa/sisub-domain operations (operations/demand-forecast).
- * Auth enforced via requireAuth() — all endpoints now require authentication.
- * Status: "pending" (editable by kitchen) → "sent" (submitted, awaiting management action).
+ * Previsão de demanda da cozinha: ciclo pending → sent da previsão que a cozinha envia à unidade
+ * para o anexo quantitativo do TR. Casca fina sobre as operations de `@iefa/sisub-domain`
+ * (`operations/demand-forecast`). Autenticação por `requireAuth()` em todo endpoint.
+ * Status: "pending" (a cozinha edita) → "sent" (enviada, aguarda a unidade) → "reviewed".
  * @domain core
  * @migration done
  */

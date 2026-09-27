@@ -45,8 +45,12 @@ const hrefLiq = `${unit}/liquidations`
 // ruleid: ubiquitous-language-lot1-identifier, ubiquitous-language-lot1-route
 const hrefPay = "/unit/payments"
 
+// ok: ubiquitous-language-lot1-identifier, ubiquitous-language-lot1-route
+const legacyPrefix = { from: "/unit/:unitId/liquidations", to: "/unit/:unitId/liquidacoes" }
 // ok: ubiquitous-language-lot1-route
-const toForecastNew = { to: "/kitchen/$kitchenId/demand-forecasts/$forecastId" }
+const legacyE2e = { from: `/kitchen/${kitchenId}/suprimentos` }
+// ok: ubiquitous-language-lot1-route
+const toForecastNew ={ to: "/kitchen/$kitchenId/demand-forecasts/$forecastId" }
 // ok: ubiquitous-language-lot1-route
 const toMenus = { to: "/global/weekly-menus" }
 // ok: ubiquitous-language-lot1-route
@@ -87,3 +91,7 @@ const researchOk = "Pesquisa de preços"
 const moduleOk = { name: "Fiscal de rancho", hubUrl: "/messhall" }
 // ok: ubiquitous-language-lot1-label
 const askOk = "Peça a designação a quem tem Gestão Unidade"
+// ruleid: ubiquitous-language-lot1-label
+const toolDescription = "exception — na tela, \"Apoio\" (lanches de bordo)"
+// ok: ubiquitous-language-lot1-label
+const toolDescriptionOk = "exception — na tela, \"Cardápio de apoio\" (lanches de bordo)"
