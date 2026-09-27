@@ -200,18 +200,21 @@ async function fetchArpSaldos(params: { numeroAtaRegistroPreco: string; codigoUn
 }
 
 /**
- * Imports an ARP and all its items from Compras.gov.br, persisting them locally and linking to internal ATA items by catmat code.
+ * Importa uma ARP e todos os itens dela do Compras.gov.br, grava localmente e liga cada item
+ * ao item do anexo quantitativo pelo código CATMAT.
  *
  * @remarks
- * SIDE EFFECTS: upserts procurement_arp (conflict: unit_id + numero_ata + uasg_gerenciadora),
- *   reconciles procurement_arp_item by numero_item (update matched, insert new, delete stale
- *   ONLY when no finance.empenho_item references them — the FK is ON DELETE RESTRICT, and a
- *   blind delete+reinsert would fail on (or, before 20260926214000, wipe) local empenhos).
+ * EFEITOS: upsert em procurement_arp (conflito: unit_id + numero_ata + uasg_gerenciadora) e
+ *   reconciliação de procurement_arp_item por numero_item (atualiza o que casa, insere o novo e
+ *   só apaga o que saiu da API quando nenhum finance.empenho_item aponta para ele — a FK é ON
+ *   DELETE RESTRICT, e apagar e reinserir às cegas falharia nos empenhos locais).
  * `numero_ata` guarda o número CANÔNICO da API ("00002/2025"), que é o formato que
  *   `4_consultarEmpenhosSaldoItem` exige de volta na sincronização de saldo.
- * BR date strings ("DD/MM/YYYY") are normalised to ISO 8601. Unmatched catmat codes get procurement_list_item_id = null.
+ * Datas no formato BR ("DD/MM/YYYY") viram ISO 8601. Item cujo CATMAT não casa com o anexo fica
+ * com procurement_list_item_id nulo.
  *
- * @throws {Error} on HTTP failure (after 3 retries), when the ata has no items, or any Supabase write error.
+ * @throws {Error} em falha HTTP (depois de 3 tentativas), quando a ata não tem itens ou em qualquer
+ *   erro de escrita no Supabase.
  */
 
 const ArpDataSchema = z.object({

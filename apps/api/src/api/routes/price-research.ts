@@ -296,6 +296,16 @@ function factPayload(a: AmostraPreco) {
 	}
 }
 
+// ─── Colunas de GET /research/:researchId ─────────────────────────────────────
+// Colunas explícitas, não `*` (aqui e no select dos itens, na rota): a resposta é contrato da
+// API e não pode mudar de forma só porque o banco ganhou ou perdeu coluna. No rename
+// 20260927010000 o `*` devolveria `ata_id` e `procurement_list_id` juntos até o contract, e
+// depois só o segundo. Desde esse rename o campo é `procurement_list_id` (e, nos itens,
+// `procurement_list_item_id`).
+
+const RESEARCH_COLUMNS =
+	"id, procurement_list_id, reference_method, period_months, similarity_threshold, filter_estado, filter_uasg_code, filter_municipio_code, total_items, items_with_price, items_without_catmat, non_compliant_items, created_at, idempotency_key, created_by"
+
 // ─── Tipos do select aninhado de GET /research/:researchId ───────────────────
 // O client Supabase não é tipado (schemas custom) — estes shapes descrevem só a
 // estrutura que o achatamento manipula; o resto dos campos passa intacto.
@@ -518,7 +528,7 @@ export const priceResearchRoutes = new Hono()
 		const researchId = c.req.param("researchId")
 		const supabase = getSupabase()
 
-		const { data: research, error: errResearch } = await supabase.from("procurement_pesquisa_preco").select("*").eq("id", researchId).single()
+		const { data: research, error: errResearch } = await supabase.from("procurement_pesquisa_preco").select(RESEARCH_COLUMNS).eq("id", researchId).single()
 
 		if (errResearch || !research) return c.json({ error: "Pesquisa não encontrada" }, 404)
 
@@ -526,7 +536,7 @@ export const priceResearchRoutes = new Hono()
 		const { data: items, error: errItems } = await supabase
 			.from("procurement_pesquisa_preco_item")
 			.select(`
-      *,
+      id, research_id, procurement_list_item_id, catmat_codigo, catmat_descricao, product_name, total_raw, total_after_date_filter, total_after_pollution_filter, total_after_outlier, price_min, price_max, price_mean, price_median, std_dev, cv_pct, unique_sources, reference_price, reference_method, measure_unit, is_compliant, non_compliance_reasons, error, created_at, justification_low_sample, justification_method, justification_outlier_criteria, justification_out_of_period, manual_selection,
       samples:procurement_pesquisa_preco_amostra (
         id,
         sample_type,
@@ -558,7 +568,7 @@ export const priceResearchRoutes = new Hono()
 
 		// Achata a observação de compra de volta na amostra → preserva o contrato
 		// JSON plano (id, sample_type, similarity + campos de fato).
-		const flatItems = ((items ?? []) as ResearchItemRow[]).map(({ samples, ...rest }) => ({
+		const flatItems = ((items ?? []) as unknown as ResearchItemRow[]).map(({ samples, ...rest }) => ({
 			...rest,
 			samples: (samples ?? []).map(({ amostra, ...sample }) => ({ ...sample, ...(amostra ?? {}) })),
 		}))

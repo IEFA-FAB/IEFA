@@ -300,7 +300,7 @@ export async function fetchUnitDashboard(
 	// ── 3. Itens das ARPs com join no item do anexo (para ingredient_id) ──────
 	// Join explícito pela coluna nova: a relação de `relations.ts` ainda sai da FK antiga
 	// (`ata_item_id`), que o contract 20260927020000 derruba.
-	const arpItemRows = await runQuery("QUERY_FAILED", () =>
+	const arpItems = await runQuery("QUERY_FAILED", () =>
 		db
 			.select({
 				id: procurementArpItemInProcurement.id,
@@ -314,7 +314,6 @@ export async function fetchUnitDashboard(
 				quantidadeEmpenhada: procurementArpItemInProcurement.quantidadeEmpenhada,
 				saldoEmpenho: procurementArpItemInProcurement.saldoEmpenho,
 				medidaCatmat: procurementArpItemInProcurement.medidaCatmat,
-				listItemId: procurementListItemInProcurement.id,
 				listItemIngredientId: procurementListItemInProcurement.ingredientId,
 				listItemIngredientName: procurementListItemInProcurement.ingredientName,
 			})
@@ -322,11 +321,6 @@ export async function fetchUnitDashboard(
 			.leftJoin(procurementListItemInProcurement, eq(procurementListItemInProcurement.id, procurementArpItemInProcurement.procurementListItemId))
 			.where(inArray(procurementArpItemInProcurement.arpId, arpIds))
 	)
-	const arpItems = arpItemRows.map(({ listItemId, listItemIngredientId, listItemIngredientName, ...item }) => ({
-		...item,
-		procurementListItemInProcurement:
-			listItemId == null ? null : { id: listItemId, ingredientId: listItemIngredientId, ingredientName: listItemIngredientName },
-	}))
 
 	// ── 4. Filtrar itens com consumo ≥ 80% ───────────────────────────────────
 	const relevantItems = arpItems.filter((item) => {
@@ -341,7 +335,7 @@ export async function fetchUnitDashboard(
 	}
 
 	// ── 5. Coletar ingredient_ids dos itens relevantes ───────────────────────
-	const ingredientIds = relevantItems.map((item) => item.procurementListItemInProcurement?.ingredientId ?? null).filter((id): id is string => Boolean(id))
+	const ingredientIds = relevantItems.map((item) => item.listItemIngredientId).filter((id): id is string => Boolean(id))
 
 	// ── 6. Verificar quais ingredientes aparecem em menus dos próximos 30 dias ─
 	const upcomingIngredientIds = new Set<string>()
@@ -411,8 +405,7 @@ export async function fetchUnitDashboard(
 		const arp = arpById.get(item.arpId)
 		if (!arp) continue
 
-		const ataItem = item.procurementListItemInProcurement
-		const ingredientId = ataItem?.ingredientId ?? null
+		const ingredientId = item.listItemIngredientId ?? null
 
 		const qtdHom = Number(item.quantidadeHomologada ?? 0)
 		const qtdEmp = Number(item.quantidadeEmpenhada ?? 0)
@@ -437,7 +430,7 @@ export async function fetchUnitDashboard(
 			ata_id: arp.ataId,
 			ata_title: arp.ataId ? (ataIdToTitle.get(arp.ataId) ?? "—") : "Sem anexo quantitativo",
 			ingredient_id: ingredientId,
-			ingredient_name: ataItem?.ingredientName ?? item.descricaoItem,
+			ingredient_name: item.listItemIngredientName ?? item.descricaoItem,
 			in_upcoming_menu: ingredientId ? upcomingIngredientIds.has(ingredientId) : false,
 		})
 	}
