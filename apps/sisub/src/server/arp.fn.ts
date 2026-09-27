@@ -1039,7 +1039,7 @@ export const anularEmpenhoFn = createServerFn({ method: "POST" })
 						userId: ctx.userId,
 					})
 				} catch (error) {
-					throw toEmpenhoEventError(error)
+					throw toEmpenhoEventError(error, "anularEmpenhoFn")
 				}
 			},
 			(result) => ({ empenhoId: data.empenhoId, unitId: Number(empenho.unit_id), numeroEmpenho: empenho.numero_empenho, valorAnulado: result.valor })

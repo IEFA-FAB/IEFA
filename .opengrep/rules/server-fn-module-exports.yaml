@@ -33,10 +33,11 @@ rules:
       daqui.
     paths:
       include:
-        - "apps/*/src/server/*.fn.ts"
         - "apps/*/src/server/**/*.fn.ts"
+    # Regex, e não `pattern: export function $F(...)`: o padrão estrutural do opengrep para TS
+    # casa a declaração da função com ou sem `export`, e acusava helper local do módulo.
     pattern-either:
-      - pattern: export function $F(...) { ... }
-      - pattern: export async function $F(...) { ... }
-      - pattern: export class $C { ... }
-      - pattern: export class $C extends $B { ... }
+      - pattern-regex: (?m)^export\s+(default\s+)?(async\s+)?function\b
+      - pattern-regex: (?m)^export\s+(default\s+)?(abstract\s+)?class\b
+      # Reexportar um módulo `.server` traz o mesmo import para o grafo do cliente.
+      - pattern-regex: (?m)^export\s+(\*|\{[^}]*\})\s+from\s+["'][^"']*\.server["']

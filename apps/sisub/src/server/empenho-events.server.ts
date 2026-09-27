@@ -22,6 +22,20 @@ export function floorMessage(vigenteApos: number, liquidado: number): string {
 
 export class EmpenhoFloorError extends Error {}
 
+type EventTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0]
+
+/**
+ * Serializa o lançamento no empenho. As chaves são as MESMAS dos triggers do banco
+ * (`finance.check_empenho_event_floor` e `finance.check_liquidacao_within_empenho`), e a ordem é
+ * sempre evento → liquidação — o trigger de liquidação só toma a segunda, então não há ciclo.
+ * `set_config(..., true)`: local à transação, volta ao padrão no commit (ver training.ts).
+ */
+async function lockEmpenhoForEvent(tx: EventTx, empenhoId: string): Promise<void> {
+	await tx.execute(sql`select set_config('lock_timeout', ${EVENT_LOCK_TIMEOUT}, true)`)
+	await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`empenho_event:${empenhoId}`}::text, 42))`)
+	await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`liq_empenho:${empenhoId}`}::text, 42))`)
+}
+
 /**
  * Checa o piso e grava o evento NUMA transação, serializada pelo empenho.
  *
@@ -44,19 +58,25 @@ export async function insertEmpenhoEventSerialized(input: {
 	userId: string
 }): Promise<void> {
 	await getDb().transaction(async (tx) => {
-		// `set_config(..., true)`: local à transação, volta ao padrão no commit (ver training.ts).
-		await tx.execute(sql`select set_config('lock_timeout', ${EVENT_LOCK_TIMEOUT}, true)`)
-		await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`empenho_event:${input.empenhoId}`}::text, 42))`)
-		await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`liq_empenho:${input.empenhoId}`}::text, 42))`)
+		await lockEmpenhoForEvent(tx, input.empenhoId)
 
 		if (input.tipo !== "reforco") {
-			const [row] = await tx.execute<{ vigente: string | null; liquidado: string | null }>(sql`
+			const [row] = await tx.execute<{ status: string | null; vigente: string | null; liquidado: string | null }>(sql`
 				select
+					(select status from finance.empenho where id = ${input.empenhoId}::uuid) as status,
 					(select valor_vigente from finance.v_empenho_vigente where empenho_id = ${input.empenhoId}::uuid)::text as vigente,
 					(select coalesce(sum(valor), 0) from finance.liquidacao where empenho_id = ${input.empenhoId}::uuid)::text as liquidado
 			`)
+			if (row?.status === "anulado") throw new EmpenhoFloorError("Empenho já anulado — não aceita nova anulação")
 			const vigente = Number(row?.vigente ?? 0)
 			const liquidado = Number(row?.liquidado ?? 0)
+			// Anulação total é do saldo VIGENTE lido aqui, sob o lock — não do valor que a tela viu
+			// antes: um reforço concorrente deixaria a NE "anulada" com saldo sobrando.
+			if (input.tipo === EMPENHO_TOTAL_ANNULMENT_EVENT && Math.abs(input.valor - vigente) > 0.009) {
+				throw new EmpenhoFloorError(
+					`Anulação total é do saldo vigente (R$ ${vigente.toFixed(2)}); o valor mudou desde que a tela foi aberta — confira e tente de novo`
+				)
+			}
 			if (vigente - input.valor < liquidado) throw new EmpenhoFloorError(floorMessage(vigente - input.valor, liquidado))
 		}
 
@@ -86,9 +106,7 @@ export async function insertEmpenhoEventSerialized(input: {
  */
 export async function cancelEmpenhoSerialized(input: { empenhoId: string; data: string; justificativa: string; userId: string }): Promise<{ valor: number }> {
 	return getDb().transaction(async (tx) => {
-		await tx.execute(sql`select set_config('lock_timeout', ${EVENT_LOCK_TIMEOUT}, true)`)
-		await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`empenho_event:${input.empenhoId}`}::text, 42))`)
-		await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`liq_empenho:${input.empenhoId}`}::text, 42))`)
+		await lockEmpenhoForEvent(tx, input.empenhoId)
 
 		const [row] = await tx.execute<{ numero: string; status: string; vigente: string | null; liquidado: string | null }>(sql`
 			select
@@ -108,7 +126,7 @@ export async function cancelEmpenhoSerialized(input: { empenhoId: string; data: 
 
 		await tx.execute(sql`
 			insert into finance.empenho_event (empenho_id, tipo, valor, data, justificativa, created_by)
-			values (${input.empenhoId}::uuid, 'cancelamento', ${plan.valor}, ${input.data}::date, ${input.justificativa.trim()}, ${input.userId}::uuid)
+			values (${input.empenhoId}::uuid, ${EMPENHO_TOTAL_ANNULMENT_EVENT}, ${plan.valor}, ${input.data}::date, ${input.justificativa.trim()}, ${input.userId}::uuid)
 		`)
 		await tx.execute(sql`update finance.empenho set status = 'anulado' where id = ${input.empenhoId}::uuid`)
 		return { valor: plan.valor }
@@ -119,13 +137,13 @@ export async function cancelEmpenhoSerialized(input: { empenhoId: string; data: 
  * O erro que chega ao cliente. O do driver traz o SQL e os parâmetros na mensagem — isso fica
  * no log; o cliente lê o motivo de negócio (piso, espera esgotada) ou uma mensagem genérica.
  */
-export function toEmpenhoEventError(error: unknown): Error {
+export function toEmpenhoEventError(error: unknown, source = "registerEmpenhoEventFn"): Error {
 	if (error instanceof EmpenhoFloorError) return error
 	const pg = unwrapPgError(error)
 	// O trigger do banco tem a mesma regra e a mesma frase — repassa a dele.
 	if (pg.message?.startsWith("Anulação deixaria")) return new Error(pg.message)
 	if (pg.code === "55P03") return new Error("Outro lançamento neste empenho está em andamento. Tente de novo em instantes.")
 	// biome-ignore lint/suspicious/noConsole: server-side — o detalhe do driver só vai para o log
-	console.error("[registerEmpenhoEventFn]", describeDriverError(error))
+	console.error(`[${source}]`, describeDriverError(error))
 	return new Error("Erro ao registrar evento do empenho. Tente novamente.")
 }
