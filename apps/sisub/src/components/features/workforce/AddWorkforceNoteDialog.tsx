@@ -15,7 +15,7 @@ import { addWorkforceNoteFn } from "@/server/workforce.fn"
 interface AddWorkforceNoteDialogProps {
 	surveyId: string
 	messHallWorkforceId: number
-	messHallName: string
+	displayName: string
 	queryKey: readonly unknown[]
 }
 
@@ -27,7 +27,7 @@ interface AddWorkforceNoteDialogProps {
  * importação despersonalizou o histórico; o formulário existe para não reintroduzir
  * o problema pela porta da frente.
  */
-export function AddWorkforceNoteDialog({ surveyId, messHallWorkforceId, messHallName, queryKey }: AddWorkforceNoteDialogProps) {
+export function AddWorkforceNoteDialog({ surveyId, messHallWorkforceId, displayName, queryKey }: AddWorkforceNoteDialogProps) {
 	const queryClient = useQueryClient()
 	const [open, setOpen] = React.useState(false)
 	const [kind, setKind] = React.useState<WorkforceNoteKind>("leave")
@@ -72,7 +72,7 @@ export function AddWorkforceNoteDialog({ surveyId, messHallWorkforceId, messHall
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Observação — {messHallName}</DialogTitle>
+						<DialogTitle>Observação — {displayName}</DialogTitle>
 						<DialogDescription>Afastamento, desvio de função, terceirizado e critério de contagem entram aqui e afetam o efetivo disponível.</DialogDescription>
 					</DialogHeader>
 

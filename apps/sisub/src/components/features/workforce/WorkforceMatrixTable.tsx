@@ -88,7 +88,7 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 		save.mutate({ surveyId, messHallWorkforceId: row.messHallWorkforceId, entries, declaredTotal: parsedTotal })
 	}
 
-	if (matrix.mess_halls.length === 0) {
+	if (matrix.mess_hall_workforce.length === 0) {
 		return (
 			<Empty>
 				<EmptyHeader>
@@ -126,7 +126,7 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 					</TableRow>
 				</TableHeader>
 				<TableBody>
-					{matrix.mess_halls.map((row) => {
+					{matrix.mess_hall_workforce.map((row) => {
 						const isEditing = editingId === row.messHallWorkforceId
 						return (
 							<React.Fragment key={row.messHallWorkforceId}>
@@ -234,7 +234,7 @@ export function WorkforceMatrixTable({ matrix, canEdit, queryKey }: WorkforceMat
 													<AddWorkforceNoteDialog
 														surveyId={surveyId}
 														messHallWorkforceId={row.messHallWorkforceId}
-														messHallName={row.displayName}
+														displayName={row.displayName}
 														queryKey={queryKey}
 													/>
 												)}

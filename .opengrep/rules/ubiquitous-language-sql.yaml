@@ -173,9 +173,11 @@ rules:
               (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b\w*meal_forecasts?\w*\b(?:(?!\1).)*\1
 
   # Lote 8a: "rancho" é ambíguo (refeitório, cozinha ou a unidade, D10) e não nomeia objeto novo
-  # nem entra em comentário do banco. Ficam de fora o nome da função "Fiscal de rancho" e, até o
-  # lote 8b, o próprio efetivo (`kitchen.rancho`, `core.rancho`, `rancho_id`): o 8b renomeia ou
-  # funde a tabela e apaga essa exclusão. `update` de dado não é acusado (o lote 8a casa o texto
+  # nem entra em comentário do banco. Ficam de fora o nome da função "Fiscal de rancho" e o próprio
+  # efetivo (`kitchen.rancho`, `core.rancho`, `rancho_id`): as migrations de 2026-09-27 entre 10:00
+  # e o contract do 8b (lotes 5 e 7 e o expand/contract do 8b, que citam os nomes antigos de
+  # propósito) ficam só com esta regra. Depois do contract 20260927160000 vale a regra do lote 8b,
+  # abaixo, sem a exclusão do efetivo. `update` de dado não é acusado (o lote 8a casa o texto
   # antigo no `where`), nem corpo de função, que cita tabela e não escreve texto de tela.
   - id: ubiquitous-language-migration-lot8a
     languages: [generic]

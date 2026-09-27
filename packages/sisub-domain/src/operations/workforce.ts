@@ -74,7 +74,8 @@ export type MessHallWorkforceWire = MessHallWorkforceMetrics & {
 export type WorkforceMatrixWire = {
 	survey: WorkforceSurvey | null
 	categories: WorkforceCategory[]
-	mess_halls: MessHallWorkforceWire[]
+	/** Uma linha por refeitório do levantamento (`kitchen.mess_hall_workforce`), não por refeitório cadastrado. */
+	mess_hall_workforce: MessHallWorkforceWire[]
 	summary: WorkforceGroupSummary
 }
 
@@ -219,7 +220,7 @@ async function fetchMealLoad(db: SisubDb, messHallIds: number[], referenceDate: 
 }
 
 /** Monta a matriz a partir de um conjunto de refeitórios do levantamento já filtrado e autorizado. */
-async function buildMatrix(db: SisubDb, messHalls: MessHallWorkforce[], survey: WorkforceSurvey | null, summaryKey: string): Promise<WorkforceMatrixWire> {
+async function buildMatrix(db: SisubDb, roster: MessHallWorkforce[], survey: WorkforceSurvey | null, summaryKey: string): Promise<WorkforceMatrixWire> {
 	const categories = toWire<WorkforceCategory[]>(
 		await runQuery("FETCH_FAILED", () =>
 			db
@@ -230,8 +231,8 @@ async function buildMatrix(db: SisubDb, messHalls: MessHallWorkforce[], survey: 
 		)
 	)
 
-	const messHallWorkforceIds = messHalls.map((r) => Number(r.id))
-	const messHallIds = [...new Set(messHalls.map((r) => r.mess_hall_id).filter((id): id is number => id != null))]
+	const messHallWorkforceIds = roster.map((r) => Number(r.id))
+	const messHallIds = [...new Set(roster.map((r) => r.mess_hall_id).filter((id): id is number => id != null))]
 
 	const submissions =
 		survey && messHallWorkforceIds.length > 0
@@ -303,7 +304,7 @@ async function buildMatrix(db: SisubDb, messHalls: MessHallWorkforce[], survey: 
 				)
 			: new Map<number, string>()
 
-	const rows: MessHallWorkforceWire[] = messHalls.map((r) => {
+	const rows: MessHallWorkforceWire[] = roster.map((r) => {
 		const messHallWorkforceId = Number(r.id)
 		const submission = submissionByMessHallWorkforce.get(messHallWorkforceId)
 		const headcountMap = submission ? (headcountsBySubmission.get(submission.id) ?? {}) : {}
@@ -332,14 +333,14 @@ async function buildMatrix(db: SisubDb, messHalls: MessHallWorkforce[], survey: 
 		}
 	})
 
-	return { survey, categories, mess_halls: rows, summary: summarizeWorkforce(rows, summaryKey) }
+	return { survey, categories, mess_hall_workforce: rows, summary: summarizeWorkforce(rows, summaryKey) }
 }
 
 export async function fetchWorkforceMatrix(db: SisubDb, ctx: UserContext, input: FetchWorkforceMatrix): Promise<WorkforceMatrixWire> {
 	requireAnyPermission(ctx, ["local-analytics", "unit"], 1, { type: "unit", id: input.unitId })
 
 	const survey = await resolveSurvey(db, input.surveyId)
-	const messHalls = toWire<MessHallWorkforce[]>(
+	const roster = toWire<MessHallWorkforce[]>(
 		await runQuery("FETCH_FAILED", () =>
 			db
 				.select(MESS_HALL_WORKFORCE_COLS)
@@ -348,14 +349,14 @@ export async function fetchWorkforceMatrix(db: SisubDb, ctx: UserContext, input:
 				.orderBy(asc(messHallWorkforceInKitchen.displayName))
 		)
 	)
-	return buildMatrix(db, messHalls, survey, `unit:${input.unitId}`)
+	return buildMatrix(db, roster, survey, `unit:${input.unitId}`)
 }
 
 export async function fetchWorkforceNetwork(db: SisubDb, ctx: UserContext, input: FetchWorkforceNetwork): Promise<WorkforceNetworkWire> {
 	requirePermission(ctx, "analytics", 2)
 
 	const survey = await resolveSurvey(db, input.surveyId)
-	const messHalls = toWire<MessHallWorkforce[]>(
+	const roster = toWire<MessHallWorkforce[]>(
 		await runQuery("FETCH_FAILED", () =>
 			db
 				.select(MESS_HALL_WORKFORCE_COLS)
@@ -364,12 +365,12 @@ export async function fetchWorkforceNetwork(db: SisubDb, ctx: UserContext, input
 				.orderBy(asc(messHallWorkforceInKitchen.eloCode), asc(messHallWorkforceInKitchen.displayName))
 		)
 	)
-	const matrix = await buildMatrix(db, messHalls, survey, "rede")
-	const byId = new Map(matrix.mess_halls.map((r) => [r.messHallWorkforceId, r]))
+	const matrix = await buildMatrix(db, roster, survey, "rede")
+	const byId = new Map(matrix.mess_hall_workforce.map((r) => [r.messHallWorkforceId, r]))
 	return {
 		...matrix,
-		by_elo: groupWorkforceBy(matrix.mess_halls, (m) => m.eloCode),
-		coverage_gaps: coverageGaps(matrix.mess_halls).map((m) => byId.get(m.messHallWorkforceId) as MessHallWorkforceWire),
+		by_elo: groupWorkforceBy(matrix.mess_hall_workforce, (m) => m.eloCode),
+		coverage_gaps: coverageGaps(matrix.mess_hall_workforce).map((m) => byId.get(m.messHallWorkforceId) as MessHallWorkforceWire),
 	}
 }
 
@@ -424,13 +425,13 @@ async function clearWorkforceSubmission(db: SisubDb, input: SaveWorkforceSubmiss
 /** Recarrega um único refeitório do levantamento já com as métricas — retorno comum das escritas. */
 async function describeMessHallWorkforce(db: SisubDb, surveyId: string, messHallWorkforceId: number): Promise<MessHallWorkforceWire> {
 	const survey = await resolveSurvey(db, surveyId)
-	const messHalls = toWire<MessHallWorkforce[]>(
+	const roster = toWire<MessHallWorkforce[]>(
 		await runQuery("FETCH_FAILED", () =>
 			db.select(MESS_HALL_WORKFORCE_COLS).from(messHallWorkforceInKitchen).where(eq(messHallWorkforceInKitchen.id, messHallWorkforceId)).limit(1)
 		)
 	)
-	const matrix = await buildMatrix(db, messHalls, survey, `mess_hall_workforce:${messHallWorkforceId}`)
-	const row = matrix.mess_halls[0]
+	const matrix = await buildMatrix(db, roster, survey, `mess_hall_workforce:${messHallWorkforceId}`)
+	const row = matrix.mess_hall_workforce[0]
 	if (!row) throw new NotFoundError("mess_hall_workforce", messHallWorkforceId)
 	return row
 }

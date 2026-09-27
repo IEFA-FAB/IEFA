@@ -35,6 +35,10 @@
 --     citá-la, e mantém a FK, o índice e o unique `(survey_id, rancho_id)` até o contract: o
 --     `on conflict (survey_id, rancho_id)` da `main` precisa desse unique como árbitro. A NOVA
 --     nasce NOT NULL, conferido depois do trigger.
+--     Custo aceito: com dois uniques equivalentes, cada `on conflict` só tem um como árbitro, e
+--     dois saves SIMULTÂNEOS da mesma resposta (mesma competência e refeitório) podem terminar em
+--     `duplicate key` no outro em vez de `do update`. A tela mostra "Falha ao registrar a resposta"
+--     e salvar de novo resolve; a janela dura até o contract.
 --   * Nenhuma função, policy, publicação ou job do pg_cron cita os nomes antigos (conferido em
 --     `pg_proc`, `pg_policies`, `pg_publication_tables` e `cron.job` em 2026-09-27); os únicos
 --     objetos que leem a tabela e a coluna são as duas views do núcleo, que seguem pelo OID. O bloco
@@ -59,7 +63,9 @@
 
 do $$
 declare
-	old_names constant text := '\m(rancho\w*)\M';
+	-- Qualquer "rancho" (caixa ignorada pelo `~*`), menos o nome da função "Fiscal de rancho": ele
+	-- pode estar em texto de mensagem e não resolve tabela nenhuma.
+	old_names constant text := '(?<![Ff]iscal de )(?<![Ff]iscais de )\m(rancho\w*)\M';
 	offenders text;
 begin
 	select string_agg(p.oid::regprocedure::text, ', ') into offenders

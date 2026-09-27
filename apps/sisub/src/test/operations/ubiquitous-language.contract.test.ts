@@ -54,10 +54,11 @@ const DISCARDED_IDENTIFIER =
 
 /**
  * Nome descartado citado em texto (corpo de função, definição de view, comentário), em regex do
- * Postgres. "Rancho" vale em qualquer caixa, menos no nome da função "Fiscal de rancho" (a única
- * exceção do glossário); `PIRANCHO` e `arranchamento` não casam (`\m` pede início de palavra).
+ * Postgres. "Rancho" vale em qualquer caixa (o `~` diferencia caixa, daí a classe por letra), menos
+ * no nome da função "Fiscal de rancho", a única exceção do glossário; `PIRANCHO` e `arranchamento`
+ * não casam (`\m` pede início de palavra).
  */
-const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M|\mmeal_forecasts?\M|(?<![Ff]iscal de )(?<![Ff]iscais de )\m([Rr]ancho|RANCHO)\w*`
+const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M|\mmeal_forecasts?\M|(?<![Ff]iscal de )(?<![Ff]iscais de )\m[Rr][Aa][Nn][Cc][Hh][Oo]\w*`
 
 /**
  * Compatibilidade de um expand em andamento, até o contract dele. Os contracts 20260927050000

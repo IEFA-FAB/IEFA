@@ -35,7 +35,7 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// criar exige `admin:2`, que o Conjunto Treino não concede, então o treinando não gera linha
 	// aqui. O que ele preenche (kitchen.workforce_submission e, por cascade, quantitativos e
 	// observações) está no reset. A tabela era `kitchen.rancho` até o rename 20260927150000 (lote
-	// 8b da linguagem ubíqua), declarada aqui antes dele; o nome antigo virou view de
+	// 8b da linguagem ubíqua), declarada aqui antes dele (#506); o nome antigo virou view de
 	// compatibilidade e saiu da lista de tabelas vivas.
 	"kitchen.mess_hall_workforce": "roster da matriz de efetivo é cadastro, não dado operacional; criar exige admin:2, fora do Conjunto Treino",
 	// NOTA: as tabelas de execução orçamentária (crédito, empenho, liquidação,
