@@ -612,15 +612,9 @@ export const procurementArpItemInProcurementRelations = relations(procurementArp
 		fields: [procurementArpItemInProcurement.arpId],
 		references: [procurementArpInProcurement.id]
 	}),
-	procurementListItemInProcurement_ataItemId: one(procurementListItemInProcurement, {
-		fields: [procurementArpItemInProcurement.ataItemId],
-		references: [procurementListItemInProcurement.id],
-		relationName: "procurementArpItemInProcurement_ataItemId_procurementListItemInProcurement_id"
-	}),
-	procurementListItemInProcurement_procurementListItemId: one(procurementListItemInProcurement, {
+	procurementListItemInProcurement: one(procurementListItemInProcurement, {
 		fields: [procurementArpItemInProcurement.procurementListItemId],
-		references: [procurementListItemInProcurement.id],
-		relationName: "procurementArpItemInProcurement_procurementListItemId_procurementListItemInProcurement_id"
+		references: [procurementListItemInProcurement.id]
 	}),
 }));
 
@@ -643,20 +637,10 @@ export const procurementListInProcurementRelations = relations(procurementListIn
 		fields: [procurementListInProcurement.unitId],
 		references: [unitsInCore.id]
 	}),
-	procurementArpInProcurements_ataId: many(procurementArpInProcurement, {
-		relationName: "procurementArpInProcurement_ataId_procurementListInProcurement_id"
-	}),
-	procurementArpInProcurements_procurementListId: many(procurementArpInProcurement, {
-		relationName: "procurementArpInProcurement_procurementListId_procurementListInProcurement_id"
-	}),
+	procurementArpInProcurements: many(procurementArpInProcurement),
 	priceResearchEmissionInProcurements: many(priceResearchEmissionInProcurement),
 	procurementListItemInProcurements: many(procurementListItemInProcurement),
-	procurementPesquisaPrecoInProcurements_ataId: many(procurementPesquisaPrecoInProcurement, {
-		relationName: "procurementPesquisaPrecoInProcurement_ataId_procurementListInProcurement_id"
-	}),
-	procurementPesquisaPrecoInProcurements_procurementListId: many(procurementPesquisaPrecoInProcurement, {
-		relationName: "procurementPesquisaPrecoInProcurement_procurementListId_procurementListInProcurement_id"
-	}),
+	procurementPesquisaPrecoInProcurements: many(procurementPesquisaPrecoInProcurement),
 	kitchenDemandForecastImportInProcurements: many(kitchenDemandForecastImportInProcurement),
 }));
 
@@ -750,15 +734,9 @@ export const comprasAmostraInProcurementRelations = relations(comprasAmostraInPr
 
 export const procurementPesquisaPrecoItemInProcurementRelations = relations(procurementPesquisaPrecoItemInProcurement, ({one, many}) => ({
 	procurementPesquisaPrecoAmostraInProcurements: many(procurementPesquisaPrecoAmostraInProcurement),
-	procurementListItemInProcurement_ataItemId: one(procurementListItemInProcurement, {
-		fields: [procurementPesquisaPrecoItemInProcurement.ataItemId],
-		references: [procurementListItemInProcurement.id],
-		relationName: "procurementPesquisaPrecoItemInProcurement_ataItemId_procurementListItemInProcurement_id"
-	}),
-	procurementListItemInProcurement_procurementListItemId: one(procurementListItemInProcurement, {
+	procurementListItemInProcurement: one(procurementListItemInProcurement, {
 		fields: [procurementPesquisaPrecoItemInProcurement.procurementListItemId],
-		references: [procurementListItemInProcurement.id],
-		relationName: "procurementPesquisaPrecoItemInProcurement_procurementListItemId_procurementListItemInProcurement_id"
+		references: [procurementListItemInProcurement.id]
 	}),
 	procurementPesquisaPrecoInProcurement: one(procurementPesquisaPrecoInProcurement, {
 		fields: [procurementPesquisaPrecoItemInProcurement.researchId],
@@ -1197,15 +1175,9 @@ export const procurementArpInProcurementRelations = relations(procurementArpInPr
 		fields: [procurementArpInProcurement.acquisitionId],
 		references: [acquisitionInProcurement.id]
 	}),
-	procurementListInProcurement_ataId: one(procurementListInProcurement, {
-		fields: [procurementArpInProcurement.ataId],
-		references: [procurementListInProcurement.id],
-		relationName: "procurementArpInProcurement_ataId_procurementListInProcurement_id"
-	}),
-	procurementListInProcurement_procurementListId: one(procurementListInProcurement, {
+	procurementListInProcurement: one(procurementListInProcurement, {
 		fields: [procurementArpInProcurement.procurementListId],
-		references: [procurementListInProcurement.id],
-		relationName: "procurementArpInProcurement_procurementListId_procurementListInProcurement_id"
+		references: [procurementListInProcurement.id]
 	}),
 	unitsInCore: one(unitsInCore, {
 		fields: [procurementArpInProcurement.unitId],
@@ -2260,12 +2232,7 @@ export const empenhoRpInscriptionInFinanceRelations = relations(empenhoRpInscrip
 }));
 
 export const procurementListItemInProcurementRelations = relations(procurementListItemInProcurement, ({one, many}) => ({
-	procurementPesquisaPrecoItemInProcurements_ataItemId: many(procurementPesquisaPrecoItemInProcurement, {
-		relationName: "procurementPesquisaPrecoItemInProcurement_ataItemId_procurementListItemInProcurement_id"
-	}),
-	procurementPesquisaPrecoItemInProcurements_procurementListItemId: many(procurementPesquisaPrecoItemInProcurement, {
-		relationName: "procurementPesquisaPrecoItemInProcurement_procurementListItemId_procurementListItemInProcurement_id"
-	}),
+	procurementPesquisaPrecoItemInProcurements: many(procurementPesquisaPrecoItemInProcurement),
 	folderInKitchen: one(folderInKitchen, {
 		fields: [procurementListItemInProcurement.folderId],
 		references: [folderInKitchen.id]
@@ -2282,29 +2249,18 @@ export const procurementListItemInProcurementRelations = relations(procurementLi
 		fields: [procurementListItemInProcurement.purchaseItemId],
 		references: [purchaseItemInProcurement.id]
 	}),
-	procurementArpItemInProcurements_ataItemId: many(procurementArpItemInProcurement, {
-		relationName: "procurementArpItemInProcurement_ataItemId_procurementListItemInProcurement_id"
-	}),
-	procurementArpItemInProcurements_procurementListItemId: many(procurementArpItemInProcurement, {
-		relationName: "procurementArpItemInProcurement_procurementListItemId_procurementListItemInProcurement_id"
-	}),
+	procurementArpItemInProcurements: many(procurementArpItemInProcurement),
 }));
 
 export const procurementPesquisaPrecoInProcurementRelations = relations(procurementPesquisaPrecoInProcurement, ({one, many}) => ({
 	procurementPesquisaPrecoItemInProcurements: many(procurementPesquisaPrecoItemInProcurement),
-	procurementListInProcurement_ataId: one(procurementListInProcurement, {
-		fields: [procurementPesquisaPrecoInProcurement.ataId],
-		references: [procurementListInProcurement.id],
-		relationName: "procurementPesquisaPrecoInProcurement_ataId_procurementListInProcurement_id"
-	}),
 	usersInAuth: one(usersInAuth, {
 		fields: [procurementPesquisaPrecoInProcurement.createdBy],
 		references: [usersInAuth.id]
 	}),
-	procurementListInProcurement_procurementListId: one(procurementListInProcurement, {
+	procurementListInProcurement: one(procurementListInProcurement, {
 		fields: [procurementPesquisaPrecoInProcurement.procurementListId],
-		references: [procurementListInProcurement.id],
-		relationName: "procurementPesquisaPrecoInProcurement_procurementListId_procurementListInProcurement_id"
+		references: [procurementListInProcurement.id]
 	}),
 }));
 

@@ -12457,13 +12457,6 @@ export type Database = {
             foreignKeyName: "kitchen_demand_forecast_import_forecast_id_fkey"
             columns: ["forecast_id"]
             isOneToOne: false
-            referencedRelation: "kitchen_ata_draft"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kitchen_demand_forecast_import_forecast_id_fkey"
-            columns: ["forecast_id"]
-            isOneToOne: false
             referencedRelation: "kitchen_demand_forecast"
             referencedColumns: ["id"]
           },
@@ -12496,13 +12489,6 @@ export type Database = {
           template_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "kitchen_demand_forecast_selection_forecast_id_fkey"
-            columns: ["forecast_id"]
-            isOneToOne: false
-            referencedRelation: "kitchen_ata_draft"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "kitchen_demand_forecast_selection_forecast_id_fkey"
             columns: ["forecast_id"]
@@ -12590,7 +12576,6 @@ export type Database = {
         Row: {
           acquisition_id: string | null
           ano_ata: string | null
-          ata_id: string | null
           created_at: string
           data_vigencia_fim: string | null
           data_vigencia_inicio: string | null
@@ -12608,7 +12593,6 @@ export type Database = {
         Insert: {
           acquisition_id?: string | null
           ano_ata?: string | null
-          ata_id?: string | null
           created_at?: string
           data_vigencia_fim?: string | null
           data_vigencia_inicio?: string | null
@@ -12626,7 +12610,6 @@ export type Database = {
         Update: {
           acquisition_id?: string | null
           ano_ata?: string | null
-          ata_id?: string | null
           created_at?: string
           data_vigencia_fim?: string | null
           data_vigencia_inicio?: string | null
@@ -12650,13 +12633,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "procurement_arp_ata_id_fkey"
-            columns: ["ata_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_list"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "procurement_arp_procurement_list_id_fkey"
             columns: ["procurement_list_id"]
             isOneToOne: false
@@ -12668,7 +12644,6 @@ export type Database = {
       procurement_arp_item: {
         Row: {
           arp_id: string
-          ata_item_id: string | null
           catmat_item_codigo: number | null
           descricao_item: string | null
           id: string
@@ -12686,7 +12661,6 @@ export type Database = {
         }
         Insert: {
           arp_id: string
-          ata_item_id?: string | null
           catmat_item_codigo?: number | null
           descricao_item?: string | null
           id?: string
@@ -12704,7 +12678,6 @@ export type Database = {
         }
         Update: {
           arp_id?: string
-          ata_item_id?: string | null
           catmat_item_codigo?: number | null
           descricao_item?: string | null
           id?: string
@@ -12726,13 +12699,6 @@ export type Database = {
             columns: ["arp_id"]
             isOneToOne: false
             referencedRelation: "procurement_arp"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "procurement_arp_item_ata_item_id_fkey"
-            columns: ["ata_item_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_list_item"
             referencedColumns: ["id"]
           },
           {
@@ -13087,7 +13053,6 @@ export type Database = {
       }
       procurement_pesquisa_preco: {
         Row: {
-          ata_id: string | null
           created_at: string
           created_by: string | null
           filter_estado: string | null
@@ -13105,7 +13070,6 @@ export type Database = {
           total_items: number
         }
         Insert: {
-          ata_id?: string | null
           created_at?: string
           created_by?: string | null
           filter_estado?: string | null
@@ -13123,7 +13087,6 @@ export type Database = {
           total_items?: number
         }
         Update: {
-          ata_id?: string | null
           created_at?: string
           created_by?: string | null
           filter_estado?: string | null
@@ -13141,13 +13104,6 @@ export type Database = {
           total_items?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "procurement_pesquisa_preco_ata_id_fkey"
-            columns: ["ata_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_list"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "procurement_pesquisa_preco_procurement_list_id_fkey"
             columns: ["procurement_list_id"]
@@ -13210,7 +13166,6 @@ export type Database = {
       }
       procurement_pesquisa_preco_item: {
         Row: {
-          ata_item_id: string | null
           catmat_codigo: number | null
           catmat_descricao: string | null
           created_at: string
@@ -13242,7 +13197,6 @@ export type Database = {
           unique_sources: number | null
         }
         Insert: {
-          ata_item_id?: string | null
           catmat_codigo?: number | null
           catmat_descricao?: string | null
           created_at?: string
@@ -13274,7 +13228,6 @@ export type Database = {
           unique_sources?: number | null
         }
         Update: {
-          ata_item_id?: string | null
           catmat_codigo?: number | null
           catmat_descricao?: string | null
           created_at?: string
@@ -13306,13 +13259,6 @@ export type Database = {
           unique_sources?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "procurement_pesquisa_preco_item_ata_item_id_fkey"
-            columns: ["ata_item_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_list_item"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "procurement_pesquisa_preco_item_procurement_list_item_id_fkey"
             columns: ["procurement_list_item_id"]
@@ -13706,121 +13652,6 @@ export type Database = {
       }
     }
     Views: {
-      kitchen_ata_draft: {
-        Row: {
-          created_at: string | null
-          id: string | null
-          kitchen_id: number | null
-          notes: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string | null
-          title: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string | null
-          kitchen_id?: number | null
-          notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string | null
-          kitchen_id?: number | null
-          notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      kitchen_ata_draft_import: {
-        Row: {
-          draft_id: string | null
-          imported_at: string | null
-          imported_by: string | null
-          list_id: string | null
-        }
-        Insert: {
-          draft_id?: string | null
-          imported_at?: string | null
-          imported_by?: string | null
-          list_id?: string | null
-        }
-        Update: {
-          draft_id?: string | null
-          imported_at?: string | null
-          imported_by?: string | null
-          list_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "kitchen_demand_forecast_import_forecast_id_fkey"
-            columns: ["draft_id"]
-            isOneToOne: false
-            referencedRelation: "kitchen_ata_draft"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kitchen_demand_forecast_import_forecast_id_fkey"
-            columns: ["draft_id"]
-            isOneToOne: false
-            referencedRelation: "kitchen_demand_forecast"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kitchen_demand_forecast_import_list_id_fkey"
-            columns: ["list_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_list"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      kitchen_ata_draft_selection: {
-        Row: {
-          draft_id: string | null
-          id: string | null
-          repetitions: number | null
-          template_id: string | null
-        }
-        Insert: {
-          draft_id?: string | null
-          id?: string | null
-          repetitions?: number | null
-          template_id?: string | null
-        }
-        Update: {
-          draft_id?: string | null
-          id?: string | null
-          repetitions?: number | null
-          template_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "kitchen_demand_forecast_selection_forecast_id_fkey"
-            columns: ["draft_id"]
-            isOneToOne: false
-            referencedRelation: "kitchen_ata_draft"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kitchen_demand_forecast_selection_forecast_id_fkey"
-            columns: ["draft_id"]
-            isOneToOne: false
-            referencedRelation: "kitchen_demand_forecast"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       v_purchase_item_conditioning_review: {
         Row: {
           catmat_item_codigo: number | null
