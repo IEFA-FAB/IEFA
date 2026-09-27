@@ -11718,47 +11718,6 @@ export type Database = {
           },
         ]
       }
-      meal_forecasts: {
-        Row: {
-          created_at: string | null
-          date: string | null
-          id: string | null
-          meal: string | null
-          mess_hall_id: number | null
-          updated_at: string | null
-          user_id: string | null
-          will_eat: boolean | null
-        }
-        Insert: {
-          created_at?: string | null
-          date?: string | null
-          id?: string | null
-          meal?: string | null
-          mess_hall_id?: number | null
-          updated_at?: string | null
-          user_id?: string | null
-          will_eat?: boolean | null
-        }
-        Update: {
-          created_at?: string | null
-          date?: string | null
-          id?: string | null
-          meal?: string | null
-          mess_hall_id?: number | null
-          updated_at?: string | null
-          user_id?: string | null
-          will_eat?: boolean | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "arranchamento_mess_hall_id_fkey"
-            columns: ["mess_hall_id"]
-            isOneToOne: false
-            referencedRelation: "mess_halls"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       recipe_last_review: {
         Row: {
           recipe_id: string | null
