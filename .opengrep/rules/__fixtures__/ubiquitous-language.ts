@@ -128,7 +128,7 @@ const detail = await fetchQuantityEstimateDetails(db, ctx, { quantityEstimateId 
 // ok: ubiquitous-language-lot2-identifier
 const numero = arp.numeroAtaRegistroPreco ?? formatNumeroAta(arp.numeroAta, arp.anoAta)
 // ok: ubiquitous-language-lot2-identifier
-const arpRow = await supabase.from("procurement_arp").select("numero_ata, ano_ata, status_ata")
+const arpRow = await supabase.from("arp").select("numero_ata, ano_ata, status_ata")
 // ok: ubiquitous-language-lot2-identifier
 export const ACQUISITION_INSTRUMENTS = ["ata", "contrato", "nota_empenho", "outro"] as const
 // ok: ubiquitous-language-lot2-identifier
@@ -189,6 +189,54 @@ const increaseLabel = <Label>Acréscimo sobre a estimada (%)</Label>
 const note = "Publicar é divulgar no PNCP (Lei 14.133, art. 54)."
 // ok: ubiquitous-language-lot2-label
 const preference = "margem de preferência (art. 26)"
+
+// ══ Lote 3: pesquisa de preços e prefixos redundantes ══════════════════════
+
+// ruleid: ubiquitous-language-lot3-identifier
+const research = await supabase.from("procurement_pesquisa_preco").select("id")
+// ruleid: ubiquitous-language-lot3-identifier
+await tx.insert(procurementPesquisaPrecoItemInProcurement).values(rows)
+// ruleid: ubiquitous-language-lot3-identifier
+const ids = await supabase.rpc("upsert_compras_amostras", { p_samples: facts })
+// ruleid: ubiquitous-language-lot3-identifier
+const bridge = { research_item_id: itemId, amostra_id: sampleId }
+// ruleid: ubiquitous-language-lot3-identifier
+import type { AmostraPreco } from "../../workers/pesquisa-preco/types.ts"
+// ruleid: ubiquitous-language-lot3-identifier
+const analysis = analisarPrecos(catmat, descricao, raw, options)
+// ruleid: ubiquitous-language-lot3-identifier
+import { savePrecoAuditFn } from "@/server/price-research.fn"
+// ruleid: ubiquitous-language-lot3-identifier
+const arps = await supabase.from("procurement_arp_item").select("id").eq("arp_id", arpId)
+// ruleid: ubiquitous-language-lot3-identifier
+export type ProcurementArpItem = Tables<"arp_item">
+// ruleid: ubiquitous-language-lot3-identifier
+await db.delete(procurementSegmentRuleInProcurement).where(eq(procurementSegmentRuleInProcurement.id, ruleId))
+// ruleid: ubiquitous-language-lot3-identifier
+export const createProcurementSegmentFn = () => null
+// ruleid: ubiquitous-language-lot3-identifier
+import { useSegmentationOverview } from "@/hooks/data/useProcurementSegments"
+
+// ok: ubiquitous-language-lot3-identifier
+const researchOk = await supabase.from("price_research").select("id")
+// ok: ubiquitous-language-lot3-identifier
+const idsOk = await supabase.rpc("upsert_price_samples", { p_samples: facts })
+// ok: ubiquitous-language-lot3-identifier
+const bridgeOk = { research_item_id: itemId, price_sample_id: sampleId }
+// ok: ubiquitous-language-lot3-identifier
+import type { PriceSample } from "../../workers/price-research/types.ts"
+// ok: ubiquitous-language-lot3-identifier
+const ENDPOINT = "/modulo-pesquisa-preco/1_consultarMaterial" as const
+// ok: ubiquitous-language-lot3-identifier
+export type ArpItem = Tables<"arp_item">
+// ok: ubiquitous-language-lot3-identifier
+export const createSegmentFn = () => null
+// ok: ubiquitous-language-lot3-identifier
+const label = "Pesquisa de preços: amostras válidas, outliers e poluição"
+// ok: ubiquitous-language-lot3-identifier
+const flow = { to: "/unit/$unitId/flows/procurement-planning", spec: "procurement-segmentation.spec.ts" }
+// ok: ubiquitous-language-lot3-identifier
+// a antiga `procurement_pesquisa_preco`, renomeada em 20260927060000
 
 // ── Lote 4: finanças ───────────────────────────────────────────────────────
 

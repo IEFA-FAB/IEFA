@@ -18,7 +18,7 @@ rules:
       `untypedFrom` sem schema explícito para uma tabela que não mora em `kitchen`. O client do
       chat tem `kitchen` como default, então a query vai para `kitchen.<tabela>` e o PostgREST
       responde PGRST205 (a tool vira "Erro ao executar…"). Passe o schema: `core` para
-      units/kitchen, `procurement` para quantity_estimate*/procurement_*, `finance` para empenho.
+      units/kitchen, `procurement` para quantity_estimate*/arp*, `finance` para empenho.
     paths:
       include:
         - "apps/sisub/src/lib/module-chat/tools/*.ts"
@@ -33,8 +33,8 @@ rules:
           - pattern: untypedFrom($CTX, "quantity_estimate_item")
           - pattern: untypedFrom($CTX, "quantity_estimate_kitchen")
           - pattern: untypedFrom($CTX, "quantity_estimate_selection")
-          - pattern: untypedFrom($CTX, "procurement_arp")
-          - pattern: untypedFrom($CTX, "procurement_arp_item")
+          - pattern: untypedFrom($CTX, "arp")
+          - pattern: untypedFrom($CTX, "arp_item")
 
   - id: module-chat-discarded-query-error
     languages: [typescript]
