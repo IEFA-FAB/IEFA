@@ -70,7 +70,7 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 			title: uid("[TEST] Previsão "),
 			selections: [{ templateId, templateName: "T", repetitions: 4 }],
 		})) as { id: string }
-		seeder.track("kitchen_ata_draft", draft.id)
+		seeder.track("kitchen_demand_forecast", draft.id)
 		await sendKitchenDraft(db, ctx, { draftId: draft.id })
 
 		let kitchenStatus = await fetchDemandForecastStatus(db, ctx, { kitchenId })
@@ -121,7 +121,7 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 			title: uid("[TEST] Previsão "),
 			selections: [{ templateId, templateName: "T", repetitions: 1 }],
 		})) as { id: string }
-		seeder.track("kitchen_ata_draft", draft.id)
+		seeder.track("kitchen_demand_forecast", draft.id)
 		await sendKitchenDraft(db, ctx, { draftId: draft.id })
 		const { id: listId } = await createAtaDraft(db, ctx, { unitId })
 		seeder.track("procurement_list", listId)

@@ -79,10 +79,10 @@ async function loadKitchenStates(db: SisubDb, where: ReturnType<typeof sql>): Pr
 					(select count(*) from kitchen.menu_template t where t.kitchen_id = k.id and t.deleted_at is null and t.template_type = 'exception') as exceptions,
 					d.id as forecast_id, d.title as forecast_title, d.status as forecast_status,
 					d.updated_at as forecast_updated_at, d.reviewed_at as forecast_reviewed_at,
-					(select count(*) from procurement.kitchen_ata_draft_import i where i.draft_id = d.id) as forecast_imports
+					(select count(*) from procurement.kitchen_demand_forecast_import i where i.forecast_id = d.id) as forecast_imports
 				from kitchen.kitchen k
 				left join lateral (
-					select * from procurement.kitchen_ata_draft d
+					select * from procurement.kitchen_demand_forecast d
 					where d.kitchen_id = k.id and d.status in ('sent', 'reviewed')
 					order by d.created_at desc
 					limit 1
@@ -196,13 +196,13 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 						count(i.id) filter (
 							where i.unit_price is not null and not exists (
 								select 1 from procurement.procurement_pesquisa_preco_item r
-								where r.ata_item_id = i.id and r.reference_price is not null
+								where r.procurement_list_item_id = i.id and r.reference_price is not null
 									-- Mesma tolerância de isSamePrice (price-units.ts).
 									and abs(r.reference_price - i.unit_price) <= greatest(${PRICE_MATCH_ABSOLUTE}, abs(i.unit_price) * ${PRICE_MATCH_RELATIVE})
 							)
 						) as without_research,
 						count(i.id) filter (
-							where (select max(r.created_at) from procurement.procurement_pesquisa_preco_item r where r.ata_item_id = i.id)
+							where (select max(r.created_at) from procurement.procurement_pesquisa_preco_item r where r.procurement_list_item_id = i.id)
 								< now() - make_interval(days => ${PRICE_RESEARCH_VALIDITY_DAYS})
 						) as old_research
 					from procurement.procurement_list l
@@ -300,7 +300,7 @@ export async function fetchDemandForecastStatus(db: SisubDb, ctx: UserContext, i
 									join procurement.purchase_item pi on pi.id = pii.purchase_item_id and pi.deleted_at is null
 									where pii.ingredient_id = ri.ingredient_id and pii.is_default
 								)) as ingredients_without_purchase_item,
-						(select count(*) from procurement.kitchen_ata_draft d where d.kitchen_id = k.id and d.status = 'pending') as pending_forecasts
+						(select count(*) from procurement.kitchen_demand_forecast d where d.kitchen_id = k.id and d.status = 'pending') as pending_forecasts
 					from kitchen.kitchen k
 					where k.id = ${kitchenId}
 				`),
@@ -312,10 +312,10 @@ export async function fetchDemandForecastStatus(db: SisubDb, ctx: UserContext, i
 				db.execute(sql`
 					select d.id, d.title, d.status, d.updated_at, d.reviewed_at,
 						(select coalesce(json_agg(json_build_object('title', l.title, 'importedAt', i.imported_at) order by i.imported_at), '[]'::json)
-							from procurement.kitchen_ata_draft_import i
+							from procurement.kitchen_demand_forecast_import i
 							join procurement.procurement_list l on l.id = i.list_id
-							where i.draft_id = d.id) as imports
-					from procurement.kitchen_ata_draft d
+							where i.forecast_id = d.id) as imports
+					from procurement.kitchen_demand_forecast d
 					where d.kitchen_id = ${kitchenId} and d.status in ('sent', 'reviewed')
 					order by d.created_at desc
 					limit 1

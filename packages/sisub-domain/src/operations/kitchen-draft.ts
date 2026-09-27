@@ -12,9 +12,9 @@
  */
 
 import {
-	kitchenAtaDraftImportInProcurement,
-	kitchenAtaDraftInProcurement,
-	kitchenAtaDraftSelectionInProcurement,
+	kitchenDemandForecastImportInProcurement,
+	kitchenDemandForecastInProcurement,
+	kitchenDemandForecastSelectionInProcurement,
 	kitchenInKitchen,
 	menuTemplateInKitchen,
 	procurementListInProcurement,
@@ -36,22 +36,22 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toColumns, toWire } from "../utils/index.ts"
 
-type Draft = Tables<"kitchen_ata_draft">
+type Draft = Tables<"kitchen_demand_forecast">
 type DraftTemplateRef = { id: string; name: string; template_type: string }
-type DraftSelectionWire = Tables<"kitchen_ata_draft_selection"> & { template: DraftTemplateRef | null }
+type DraftSelectionWire = Tables<"kitchen_demand_forecast_selection"> & { template: DraftTemplateRef | null }
 /** Anexo quantitativo em que a previsão entrou (uma previsão serve a várias contratações). */
 export type DraftImportWire = { list_id: string; title: string; imported_at: string }
 type DraftWithSelections = Draft & { selections: DraftSelectionWire[]; imports: DraftImportWire[] }
 
-const DRAFT_RELATIONS: Record<string, string> = { kitchenAtaDraftSelectionInProcurements: "selections", menuTemplateInKitchen: "template" }
+const DRAFT_RELATIONS: Record<string, string> = { kitchenDemandForecastSelectionInProcurements: "selections", menuTemplateInKitchen: "template" }
 
-type DraftRow = typeof kitchenAtaDraftInProcurement.$inferSelect
+type DraftRow = typeof kitchenDemandForecastInProcurement.$inferSelect
 
 /**
  * Pendura seleções → template nos rascunhos em queries SEPARADAS, juntadas em JS.
  *
  * A relational query aninhada (rascunho → seleções → template) gerava o alias
- * `kitchenAtaDraftInProcurement_kitchenAtaDraftSelectionInProcurements` (69 chars): o Postgres
+ * `kitchenAtaDraftInProcurement_kitchenAtaDraftSelectionInProcurements` (69 chars, com os nomes de antes do rename 20260927010000): o Postgres
  * trunca em NAMEDATALEN (63) e o SQL emitido segue citando o nome inteiro → 42703 `column
  * ....template_id does not exist`. Toda leitura de rascunho quebrava — inclusive o aviso de
  * rascunho pendente no wizard da ATA. É o mesmo bug que `fetchAtaDetails` já contornava.
@@ -64,10 +64,10 @@ async function attachSelections(db: SisubDb, drafts: DraftRow[], prefix: string)
 		() =>
 			db
 				.select()
-				.from(kitchenAtaDraftSelectionInProcurement)
+				.from(kitchenDemandForecastSelectionInProcurement)
 				.where(
 					inArray(
-						kitchenAtaDraftSelectionInProcurement.draftId,
+						kitchenDemandForecastSelectionInProcurement.forecastId,
 						drafts.map((d) => d.id)
 					)
 				),
@@ -92,33 +92,33 @@ async function attachSelections(db: SisubDb, drafts: DraftRow[], prefix: string)
 		() =>
 			db
 				.select({
-					draftId: kitchenAtaDraftImportInProcurement.draftId,
-					listId: kitchenAtaDraftImportInProcurement.listId,
+					forecastId: kitchenDemandForecastImportInProcurement.forecastId,
+					listId: kitchenDemandForecastImportInProcurement.listId,
 					title: procurementListInProcurement.title,
-					importedAt: kitchenAtaDraftImportInProcurement.importedAt,
+					importedAt: kitchenDemandForecastImportInProcurement.importedAt,
 				})
-				.from(kitchenAtaDraftImportInProcurement)
-				.innerJoin(procurementListInProcurement, eq(procurementListInProcurement.id, kitchenAtaDraftImportInProcurement.listId))
+				.from(kitchenDemandForecastImportInProcurement)
+				.innerJoin(procurementListInProcurement, eq(procurementListInProcurement.id, kitchenDemandForecastImportInProcurement.listId))
 				.where(
 					inArray(
-						kitchenAtaDraftImportInProcurement.draftId,
+						kitchenDemandForecastImportInProcurement.forecastId,
 						drafts.map((d) => d.id)
 					)
 				)
-				.orderBy(desc(kitchenAtaDraftImportInProcurement.importedAt)),
+				.orderBy(desc(kitchenDemandForecastImportInProcurement.importedAt)),
 		{ prefix }
 	)
 	return drafts.map((d) => ({
 		...toWire<Omit<DraftWithSelections, "imports">>(
 			{
 				...d,
-				kitchenAtaDraftSelectionInProcurements: selections
-					.filter((s) => s.draftId === d.id)
+				kitchenDemandForecastSelectionInProcurements: selections
+					.filter((s) => s.forecastId === d.id)
 					.map((s) => ({ ...s, menuTemplateInKitchen: templateById.get(s.templateId) ?? null })),
 			},
 			DRAFT_RELATIONS
 		),
-		imports: imports.filter((i) => i.draftId === d.id).map((i) => ({ list_id: i.listId, title: i.title, imported_at: i.importedAt })),
+		imports: imports.filter((i) => i.forecastId === d.id).map((i) => ({ list_id: i.listId, title: i.title, imported_at: i.importedAt })),
 	}))
 }
 
@@ -131,9 +131,9 @@ export async function fetchKitchenDrafts(db: SisubDb, ctx: UserContext, input: F
 		() =>
 			db
 				.select()
-				.from(kitchenAtaDraftInProcurement)
-				.where(eq(kitchenAtaDraftInProcurement.kitchenId, input.kitchenId))
-				.orderBy(desc(kitchenAtaDraftInProcurement.createdAt)),
+				.from(kitchenDemandForecastInProcurement)
+				.where(eq(kitchenDemandForecastInProcurement.kitchenId, input.kitchenId))
+				.orderBy(desc(kitchenDemandForecastInProcurement.createdAt)),
 		{ prefix }
 	)
 	return attachSelections(db, drafts, prefix)
@@ -154,9 +154,9 @@ export async function fetchPendingDraft(db: SisubDb, ctx: UserContext, input: Fe
 		() =>
 			db
 				.select()
-				.from(kitchenAtaDraftInProcurement)
-				.where(and(eq(kitchenAtaDraftInProcurement.kitchenId, input.kitchenId), inArray(kitchenAtaDraftInProcurement.status, ["sent", "reviewed"])))
-				.orderBy(desc(kitchenAtaDraftInProcurement.createdAt))
+				.from(kitchenDemandForecastInProcurement)
+				.where(and(eq(kitchenDemandForecastInProcurement.kitchenId, input.kitchenId), inArray(kitchenDemandForecastInProcurement.status, ["sent", "reviewed"])))
+				.orderBy(desc(kitchenDemandForecastInProcurement.createdAt))
 				.limit(1),
 		{ prefix }
 	)
@@ -174,12 +174,12 @@ export async function fetchPendingDraft(db: SisubDb, ctx: UserContext, input: Fe
 async function authorizeDraft(db: SisubDb, ctx: UserContext, draftId: string): Promise<number> {
 	const [row] = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ kitchenId: kitchenAtaDraftInProcurement.kitchenId })
-			.from(kitchenAtaDraftInProcurement)
-			.where(eq(kitchenAtaDraftInProcurement.id, draftId))
+			.select({ kitchenId: kitchenDemandForecastInProcurement.kitchenId })
+			.from(kitchenDemandForecastInProcurement)
+			.where(eq(kitchenDemandForecastInProcurement.id, draftId))
 			.limit(1)
 	)
-	if (!row?.kitchenId) throw new NotFoundError("kitchen_ata_draft", draftId)
+	if (!row?.kitchenId) throw new NotFoundError("previsão de demanda", draftId)
 	requireKitchen(ctx, 2, row.kitchenId)
 	return row.kitchenId
 }
@@ -219,15 +219,15 @@ export async function createKitchenDraft(db: SisubDb, ctx: UserContext, input: C
 			"Erro ao criar rascunho: no row returned",
 			() =>
 				tx
-					.insert(kitchenAtaDraftInProcurement)
+					.insert(kitchenDemandForecastInProcurement)
 					.values({ kitchenId: input.kitchenId, title: input.title, notes: input.notes || null, status: "pending" })
 					.returning(),
 			{ prefix: "Erro ao criar previsão de demanda" }
 		)
 
 		if (input.selections.length > 0) {
-			const rows = input.selections.map((s) => ({ draftId: inserted.id, templateId: s.templateId, repetitions: s.repetitions }))
-			await runQuery("INSERT_FAILED", () => tx.insert(kitchenAtaDraftSelectionInProcurement).values(rows), {
+			const rows = input.selections.map((s) => ({ forecastId: inserted.id, templateId: s.templateId, repetitions: s.repetitions }))
+			await runQuery("INSERT_FAILED", () => tx.insert(kitchenDemandForecastSelectionInProcurement).values(rows), {
 				prefix: "Erro ao salvar seleções da previsão de demanda",
 			})
 		}
@@ -251,19 +251,19 @@ export async function updateKitchenDraft(db: SisubDb, ctx: UserContext, input: U
 	}
 
 	const draft = await db.transaction(async (tx) => {
-		const set = { ...toColumns(input.updates), updatedAt: new Date().toISOString() } as Partial<typeof kitchenAtaDraftInProcurement.$inferInsert>
+		const set = { ...toColumns(input.updates), updatedAt: new Date().toISOString() } as Partial<typeof kitchenDemandForecastInProcurement.$inferInsert>
 		const updated = await insertOneOrFail(
 			"UPDATE_FAILED",
 			`Erro ao atualizar rascunho: rascunho ${input.draftId} não encontrado`,
-			() => tx.update(kitchenAtaDraftInProcurement).set(set).where(eq(kitchenAtaDraftInProcurement.id, input.draftId)).returning(),
+			() => tx.update(kitchenDemandForecastInProcurement).set(set).where(eq(kitchenDemandForecastInProcurement.id, input.draftId)).returning(),
 			{ prefix: "Erro ao atualizar previsão de demanda" }
 		)
 
 		if (input.selections !== undefined) {
-			await tx.delete(kitchenAtaDraftSelectionInProcurement).where(eq(kitchenAtaDraftSelectionInProcurement.draftId, input.draftId))
+			await tx.delete(kitchenDemandForecastSelectionInProcurement).where(eq(kitchenDemandForecastSelectionInProcurement.forecastId, input.draftId))
 			if (input.selections.length > 0) {
-				const rows = input.selections.map((s) => ({ draftId: input.draftId, templateId: s.templateId, repetitions: s.repetitions }))
-				await runQuery("UPDATE_FAILED", () => tx.insert(kitchenAtaDraftSelectionInProcurement).values(rows), { prefix: "Erro ao atualizar seleções" })
+				const rows = input.selections.map((s) => ({ forecastId: input.draftId, templateId: s.templateId, repetitions: s.repetitions }))
+				await runQuery("UPDATE_FAILED", () => tx.insert(kitchenDemandForecastSelectionInProcurement).values(rows), { prefix: "Erro ao atualizar seleções" })
 			}
 		}
 		return updated
@@ -280,10 +280,10 @@ export async function sendKitchenDraft(db: SisubDb, ctx: UserContext, input: Sen
 		`Erro ao enviar rascunho: rascunho ${input.draftId} não encontrado`,
 		() =>
 			db
-				.update(kitchenAtaDraftInProcurement)
+				.update(kitchenDemandForecastInProcurement)
 				.set({ status: "sent", updatedAt: new Date().toISOString() })
-				.where(eq(kitchenAtaDraftInProcurement.id, input.draftId))
-				.returning({ id: kitchenAtaDraftInProcurement.id }),
+				.where(eq(kitchenDemandForecastInProcurement.id, input.draftId))
+				.returning({ id: kitchenDemandForecastInProcurement.id }),
 		{ prefix: "Erro ao enviar previsão de demanda" }
 	)
 }
@@ -295,7 +295,11 @@ export async function deleteKitchenDraft(db: SisubDb, ctx: UserContext, input: D
 	await mutateOrFail(
 		"DELETE_FAILED",
 		`Erro ao deletar rascunho: rascunho ${input.draftId} não encontrado`,
-		() => db.delete(kitchenAtaDraftInProcurement).where(eq(kitchenAtaDraftInProcurement.id, input.draftId)).returning({ id: kitchenAtaDraftInProcurement.id }),
+		() =>
+			db
+				.delete(kitchenDemandForecastInProcurement)
+				.where(eq(kitchenDemandForecastInProcurement.id, input.draftId))
+				.returning({ id: kitchenDemandForecastInProcurement.id }),
 		{ prefix: "Erro ao remover previsão de demanda" }
 	)
 }
@@ -319,13 +323,13 @@ export async function recordKitchenDraftImport(db: SisubDb, ctx: UserContext, in
 	const [draft] = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
-				status: kitchenAtaDraftInProcurement.status,
+				status: kitchenDemandForecastInProcurement.status,
 				unitId: kitchenInKitchen.unitId,
 				purchaseUnitId: kitchenInKitchen.purchaseUnitId,
 			})
-			.from(kitchenAtaDraftInProcurement)
-			.innerJoin(kitchenInKitchen, eq(kitchenInKitchen.id, kitchenAtaDraftInProcurement.kitchenId))
-			.where(eq(kitchenAtaDraftInProcurement.id, input.draftId))
+			.from(kitchenDemandForecastInProcurement)
+			.innerJoin(kitchenInKitchen, eq(kitchenInKitchen.id, kitchenDemandForecastInProcurement.kitchenId))
+			.where(eq(kitchenDemandForecastInProcurement.id, input.draftId))
 			.limit(1)
 	)
 	if (!draft) throw new NotFoundError("previsão de demanda", input.draftId)
@@ -339,17 +343,17 @@ export async function recordKitchenDraftImport(db: SisubDb, ctx: UserContext, in
 		() =>
 			db.transaction(async (tx) => {
 				await tx
-					.insert(kitchenAtaDraftImportInProcurement)
-					.values({ draftId: input.draftId, listId: input.listId, importedBy: ctx.userId })
-					.onConflictDoNothing({ target: [kitchenAtaDraftImportInProcurement.draftId, kitchenAtaDraftImportInProcurement.listId] })
+					.insert(kitchenDemandForecastImportInProcurement)
+					.values({ forecastId: input.draftId, listId: input.listId, importedBy: ctx.userId })
+					.onConflictDoNothing({ target: [kitchenDemandForecastImportInProcurement.forecastId, kitchenDemandForecastImportInProcurement.listId] })
 				if (draft.status === "sent") {
 					const now = new Date().toISOString()
 					await tx
-						.update(kitchenAtaDraftInProcurement)
+						.update(kitchenDemandForecastInProcurement)
 						// Sem tocar updated_at: ele é a data da cozinha (edição, envio). Carimbar aqui
 						// reordenava as previsões e fazia uma antiga parecer "atualizada".
 						.set({ status: "reviewed", reviewedAt: now, reviewedBy: ctx.userId })
-						.where(and(eq(kitchenAtaDraftInProcurement.id, input.draftId), eq(kitchenAtaDraftInProcurement.status, "sent")))
+						.where(and(eq(kitchenDemandForecastInProcurement.id, input.draftId), eq(kitchenDemandForecastInProcurement.status, "sent")))
 				}
 			}),
 		{ prefix: "Erro ao registrar a importação da previsão" }

@@ -80,12 +80,8 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// `procurement.acquisition` (20260926214000) e `finance.credit_note` (20260926216000), da
 	// execução flexível da despesa, foram declaradas aqui antes das migrations e já estão em
 	// RESET_STEPS.
-	// `procurement.kitchen_demand_forecast` — migration 20260927010000 renomeia
-	// `procurement.kitchen_ata_draft` (a previsão de demanda da cozinha não é ata: só a ARP é,
-	// Lei 14.133, art. 6º, XLVI) e deixa uma view de compatibilidade com o nome antigo. A
-	// tabela nova-nome é declarada antes do rename; o PR do rename a promove a RESET_STEPS.
-	"procurement.kitchen_demand_forecast":
-		"declarada antes do rename (20260927010000): é a procurement.kitchen_ata_draft, que o reset já apaga pela view de compatibilidade até o PR do rename trocar o passo",
+	// `procurement.kitchen_demand_forecast` (a antiga `kitchen_ata_draft`, renomeada em
+	// 20260927010000) foi declarada aqui antes do rename e já está em RESET_STEPS.
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */

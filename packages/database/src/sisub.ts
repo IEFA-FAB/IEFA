@@ -168,13 +168,14 @@ export type ProcurementListItem = Tables<"procurement_list_item">
 export type ProcurementListItemInsert = TablesInsert<"procurement_list_item">
 export type ProcurementListItemUpdate = TablesUpdate<"procurement_list_item">
 
-export type KitchenAtaDraft = Tables<"kitchen_ata_draft">
-export type KitchenAtaDraftInsert = TablesInsert<"kitchen_ata_draft">
-export type KitchenAtaDraftUpdate = TablesUpdate<"kitchen_ata_draft">
+// Aliases com o nome antigo em TS (a renomear num follow-up); a tabela já é a previsão de demanda.
+export type KitchenAtaDraft = Tables<"kitchen_demand_forecast">
+export type KitchenAtaDraftInsert = TablesInsert<"kitchen_demand_forecast">
+export type KitchenAtaDraftUpdate = TablesUpdate<"kitchen_demand_forecast">
 
-export type KitchenAtaDraftSelection = Tables<"kitchen_ata_draft_selection">
-export type KitchenAtaDraftSelectionInsert = TablesInsert<"kitchen_ata_draft_selection">
-export type KitchenAtaDraftSelectionUpdate = TablesUpdate<"kitchen_ata_draft_selection">
+export type KitchenAtaDraftSelection = Tables<"kitchen_demand_forecast_selection">
+export type KitchenAtaDraftSelectionInsert = TablesInsert<"kitchen_demand_forecast_selection">
+export type KitchenAtaDraftSelectionUpdate = TablesUpdate<"kitchen_demand_forecast_selection">
 
 export type Changelog = Tables<"changelog">
 export type ChangelogInsert = TablesInsert<"changelog">

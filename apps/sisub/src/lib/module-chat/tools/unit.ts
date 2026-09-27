@@ -279,10 +279,10 @@ const listEmpenhos: ModuleToolDefinition = {
 
 		requireUnitPermission(ctx, 1, { type: "unit", id: ata.unit_id })
 
-		// `finance.empenho` não tem `ata_id` — o vínculo é o `arp_item_id` dos itens da NE
-		// (`finance.empenho_item`). Filtrar por `ata_id` (o que esta tool fazia) é coluna
-		// inexistente: erro, nunca lista. O caminho é ATA → ARPs → itens de ARP → itens de NE → NEs.
-		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement").select("id").eq("ata_id", ataId)
+		// `finance.empenho` não aponta para o anexo — o vínculo é o `arp_item_id` dos itens da NE
+		// (`finance.empenho_item`). Filtrar pelo anexo (o que esta tool fazia) é coluna inexistente:
+		// erro, nunca lista. O caminho é anexo → ARPs → itens de ARP → itens de NE → NEs.
+		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement").select("id").eq("procurement_list_id", ataId)
 		if (arpsError) return toolErr(sanitizeDbError(arpsError, "list_empenhos:arps"))
 
 		const arpIds = (arps ?? []).map((a: { id: string }) => a.id)

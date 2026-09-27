@@ -19,8 +19,8 @@ import {
 	dailyMenuInKitchen,
 	equipmentModelInKitchen,
 	equipmentUnitInKitchen,
-	kitchenAtaDraftInProcurement,
-	kitchenAtaDraftSelectionInProcurement,
+	kitchenDemandForecastInProcurement,
+	kitchenDemandForecastSelectionInProcurement,
 	kitchenInKitchen,
 	mealForecastsInKitchen,
 	mealPresencesInKitchen,
@@ -329,14 +329,15 @@ const RESET_STEPS: ResetStep[] = [
 	},
 
 	// ── Compras ──
-	// As seleções apontam para o rascunho E para o template; ambas precisam sair antes.
+	// As seleções apontam para a previsão de demanda E para o template; ambas precisam sair antes.
 	{
-		table: "procurement.kitchen_ata_draft_selection",
-		run: (tx, _s, ids) => deleteByParent(tx, kitchenAtaDraftSelectionInProcurement, kitchenAtaDraftSelectionInProcurement.draftId, ids.ataDraftIds),
+		table: "procurement.kitchen_demand_forecast_selection",
+		run: (tx, _s, ids) =>
+			deleteByParent(tx, kitchenDemandForecastSelectionInProcurement, kitchenDemandForecastSelectionInProcurement.forecastId, ids.ataDraftIds),
 	},
 	{
-		table: "procurement.kitchen_ata_draft",
-		run: (tx, scope) => deleteCounting(tx, kitchenAtaDraftInProcurement, eq(kitchenAtaDraftInProcurement.kitchenId, scope.kitchen_id)),
+		table: "procurement.kitchen_demand_forecast",
+		run: (tx, scope) => deleteCounting(tx, kitchenDemandForecastInProcurement, eq(kitchenDemandForecastInProcurement.kitchenId, scope.kitchen_id)),
 	},
 	{
 		table: "procurement.procurement_list_selection",
@@ -744,9 +745,9 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext, assuranc
 				tx.select({ id: recipesInKitchen.id }).from(recipesInKitchen).where(eq(recipesInKitchen.kitchenId, scope.kitchen_id)),
 				tx.select({ id: stepTemplateInKitchen.id }).from(stepTemplateInKitchen).where(eq(stepTemplateInKitchen.kitchenId, scope.kitchen_id)),
 				tx
-					.select({ id: kitchenAtaDraftInProcurement.id })
-					.from(kitchenAtaDraftInProcurement)
-					.where(eq(kitchenAtaDraftInProcurement.kitchenId, scope.kitchen_id)),
+					.select({ id: kitchenDemandForecastInProcurement.id })
+					.from(kitchenDemandForecastInProcurement)
+					.where(eq(kitchenDemandForecastInProcurement.kitchenId, scope.kitchen_id)),
 			])
 			const recipeIds = recipes.map((r) => r.id)
 

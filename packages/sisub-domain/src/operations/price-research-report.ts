@@ -622,20 +622,20 @@ async function latestResearchByItem(db: SisubDb, listItemIds: readonly string[])
 	if (listItemIds.length === 0) return new Map()
 	const rows = (await runQuery("FETCH_FAILED", () =>
 		db.execute(sql`
-			select distinct on (ri.ata_item_id) ri.ata_item_id, ri.id
+			select distinct on (ri.procurement_list_item_id) ri.procurement_list_item_id, ri.id
 			from procurement.procurement_pesquisa_preco_item ri
-			join procurement.procurement_list_item i on i.id = ri.ata_item_id
-			where ri.ata_item_id in (${sql.join(
+			join procurement.procurement_list_item i on i.id = ri.procurement_list_item_id
+			where ri.procurement_list_item_id in (${sql.join(
 				listItemIds.map((id) => sql`${id}::uuid`),
 				sql`, `
 			)})
-			order by ri.ata_item_id,
+			order by ri.procurement_list_item_id,
 				(i.unit_price is not null and ri.reference_price is not null
 					and abs(ri.reference_price - i.unit_price) <= greatest(${PRICE_MATCH_ABSOLUTE}, abs(i.unit_price) * ${PRICE_MATCH_RELATIVE})) desc,
 				ri.created_at desc
 		`)
 	)) as unknown as Row[]
-	return new Map(rows.map((r) => [String(r.ata_item_id), String(r.id)]))
+	return new Map(rows.map((r) => [String(r.procurement_list_item_id), String(r.id)]))
 }
 
 export interface PriceResearchReport {

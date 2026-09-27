@@ -346,7 +346,7 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 				</td>
 				<td className="py-2.5 px-2 text-xs text-right tabular-nums">{item.valor_unitario != null ? BRL.format(item.valor_unitario) : "—"}</td>
 				<td className="py-2.5 px-2 text-xs">
-					{item.ata_item_id ? (
+					{item.procurement_list_item_id ? (
 						<Badge variant="secondary" className="text-[10px] h-4">
 							Vinculado
 						</Badge>

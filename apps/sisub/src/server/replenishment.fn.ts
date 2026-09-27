@@ -291,14 +291,14 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			transitById.set(ingredientId, Math.max(0, (transitById.get(ingredientId) ?? 0) - received))
 		}
 
-		// (5) saldo oficial de ARP própria vigente (via ata_item → ingrediente)
+		// (5) saldo oficial de ARP própria vigente (via item do anexo → ingrediente)
 		const arpBalanceById = new Map<string, number>()
 		const expectedSupplierByIngredient = new Map<string, string>()
 		{
 			const { data: arpItems } = await proc
 				.from("procurement_arp_item")
-				.select("saldo_empenho, ni_fornecedor, ata_item:ata_item_id (ingredient_id), arp:arp_id (data_vigencia_fim)")
-				.not("ata_item_id", "is", null)
+				.select("saldo_empenho, ni_fornecedor, ata_item:procurement_list_item_id (ingredient_id), arp:arp_id (data_vigencia_fim)")
+				.not("procurement_list_item_id", "is", null)
 			for (const item of arpItems ?? []) {
 				const ingredientId = item.ata_item?.ingredient_id
 				if (!ingredientId || !ingredientIds.includes(ingredientId)) continue

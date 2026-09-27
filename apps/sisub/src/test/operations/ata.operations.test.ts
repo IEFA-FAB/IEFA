@@ -473,13 +473,13 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 		// Memória de cálculo mínima, ligada à ata (ON DELETE CASCADE limpa junto com a lista).
 		const [research] = await db
 			.insert(procurementPesquisaPrecoInProcurement)
-			.values({ ataId: ata.id, referenceMethod: "median", totalItems: 1, itemsWithPrice: 1, itemsWithoutCatmat: 0, nonCompliantItems: 0 })
+			.values({ procurementListId: ata.id, referenceMethod: "median", totalItems: 1, itemsWithPrice: 1, itemsWithoutCatmat: 0, nonCompliantItems: 0 })
 			.returning({ id: procurementPesquisaPrecoInProcurement.id })
 		const [researchItem] = await db
 			.insert(procurementPesquisaPrecoItemInProcurement)
 			.values({
 				researchId: research.id,
-				ataItemId: item.id,
+				procurementListItemId: item.id,
 				catmatCodigo: catmat,
 				productName: "Frango",
 				totalRaw: 3,

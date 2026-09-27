@@ -574,11 +574,11 @@ async function filterOwnResearchLinks<T extends { researchId: string; researchIt
 			client
 				.select({
 					id: procurementPesquisaPrecoInProcurement.id,
-					ataId: procurementPesquisaPrecoInProcurement.ataId,
+					ataId: procurementPesquisaPrecoInProcurement.procurementListId,
 					unitId: procurementListInProcurement.unitId,
 				})
 				.from(procurementPesquisaPrecoInProcurement)
-				.leftJoin(procurementListInProcurement, eq(procurementListInProcurement.id, procurementPesquisaPrecoInProcurement.ataId))
+				.leftJoin(procurementListInProcurement, eq(procurementListInProcurement.id, procurementPesquisaPrecoInProcurement.procurementListId))
 				.where(inArray(procurementPesquisaPrecoInProcurement.id, headerIds))
 		),
 		runQuery("FETCH_FAILED", () =>
@@ -586,11 +586,11 @@ async function filterOwnResearchLinks<T extends { researchId: string; researchIt
 				.select({
 					id: procurementPesquisaPrecoItemInProcurement.id,
 					researchId: procurementPesquisaPrecoItemInProcurement.researchId,
-					ataItemId: procurementPesquisaPrecoItemInProcurement.ataItemId,
+					ataItemId: procurementPesquisaPrecoItemInProcurement.procurementListItemId,
 					unitId: procurementListInProcurement.unitId,
 				})
 				.from(procurementPesquisaPrecoItemInProcurement)
-				.leftJoin(procurementListItemInProcurement, eq(procurementListItemInProcurement.id, procurementPesquisaPrecoItemInProcurement.ataItemId))
+				.leftJoin(procurementListItemInProcurement, eq(procurementListItemInProcurement.id, procurementPesquisaPrecoItemInProcurement.procurementListItemId))
 				.leftJoin(procurementListInProcurement, eq(procurementListInProcurement.id, procurementListItemInProcurement.listId))
 				.where(inArray(procurementPesquisaPrecoItemInProcurement.id, itemIds))
 		),
@@ -918,7 +918,7 @@ function itemBusinessKey(catmat: number | null | undefined, ingredientId: string
  *
  * Reconciliação por chave de negócio (CATMAT→ingrediente): itens existentes preservam o id (e o link);
  * quando um item some mas outro de mesma chave sobrevive/entra, a pesquisa é remapeada em vez de orfanada.
- * Pesquisas realmente órfãs (`ata_item_id` nulo) desta ATA são removidas. Retorna a contagem desvinculada.
+ * Pesquisas realmente órfãs (`procurement_list_item_id` nulo) desta ATA são removidas. Retorna a contagem desvinculada.
  */
 async function persistDraftItems(
 	tx: TxClient,
@@ -951,7 +951,7 @@ async function persistDraftItems(
 		if (key) survivorByKey.set(key, item.ata_item_id as string)
 	}
 
-	// Atualizar existentes (preserva IDs, logo preserva pesquisa_preco_item.ata_item_id).
+	// Atualizar existentes (preserva IDs, logo preserva pesquisa_preco_item.procurement_list_item_id).
 	// O predicado amarra a ata (`list_id`): o `ata_item_id` vem do corpo, e um `where id = ?`
 	// cru reescrevia — e, pelo `listId` do payload, SEQUESTRAVA — o item de outra ata. Item que
 	// não é desta ata derruba a transação inteira em vez de sumir calado.
@@ -999,19 +999,22 @@ async function persistDraftItems(
 	if (toDelete.length > 0) {
 		const deleteSet = new Set(toDelete)
 		const research = await tx
-			.select({ id: procurementPesquisaPrecoItemInProcurement.id, ataItemId: procurementPesquisaPrecoItemInProcurement.ataItemId })
+			.select({ id: procurementPesquisaPrecoItemInProcurement.id, ataItemId: procurementPesquisaPrecoItemInProcurement.procurementListItemId })
 			.from(procurementPesquisaPrecoItemInProcurement)
-			.where(inArray(procurementPesquisaPrecoItemInProcurement.ataItemId, toDelete))
+			.where(inArray(procurementPesquisaPrecoItemInProcurement.procurementListItemId, toDelete))
 		for (const r of research) {
 			const key = r.ataItemId ? keyByCurrentId.get(r.ataItemId) : null
 			const target = key ? survivorByKey.get(key) : undefined
 			if (target && !deleteSet.has(target)) {
-				await tx.update(procurementPesquisaPrecoItemInProcurement).set({ ataItemId: target }).where(eq(procurementPesquisaPrecoItemInProcurement.id, r.id))
+				await tx
+					.update(procurementPesquisaPrecoItemInProcurement)
+					.set({ procurementListItemId: target })
+					.where(eq(procurementPesquisaPrecoItemInProcurement.id, r.id))
 			} else {
 				unlinkedResearch.add(r.id)
 			}
 		}
-		// Deletar itens removidos (o que não foi remapeado vira ata_item_id NULL via ON DELETE SET NULL).
+		// Deletar itens removidos (o que não foi remapeado vira procurement_list_item_id NULL via ON DELETE SET NULL).
 		await tx.delete(procurementListItemInProcurement).where(inArray(procurementListItemInProcurement.id, toDelete))
 	}
 
@@ -1029,9 +1032,12 @@ async function persistDraftItems(
 			if (!newItemId) continue
 			await tx
 				.update(procurementPesquisaPrecoItemInProcurement)
-				.set({ ataItemId: newItemId })
+				.set({ procurementListItemId: newItemId })
 				.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
-			await tx.update(procurementPesquisaPrecoInProcurement).set({ ataId: draftId }).where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
+			await tx
+				.update(procurementPesquisaPrecoInProcurement)
+				.set({ procurementListId: draftId })
+				.where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
 			// Religada ao item reinserido no mesmo salvamento: não ficou desvinculada.
 			unlinkedResearch.delete(link.researchItemId)
 		}
@@ -1140,9 +1146,12 @@ export async function createAta(db: SisubDb, ctx: UserContext, input: CreateAta)
 					if (!ataItem) continue
 					await tx
 						.update(procurementPesquisaPrecoItemInProcurement)
-						.set({ ataItemId: ataItem.id })
+						.set({ procurementListItemId: ataItem.id })
 						.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
-					await tx.update(procurementPesquisaPrecoInProcurement).set({ ataId: created.id }).where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
+					await tx
+						.update(procurementPesquisaPrecoInProcurement)
+						.set({ procurementListId: created.id })
+						.where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
 				}
 			}
 		}
@@ -1466,7 +1475,7 @@ async function computeAtaMeta(
 			db
 				.select({ createdAt: procurementPesquisaPrecoInProcurement.createdAt })
 				.from(procurementPesquisaPrecoInProcurement)
-				.where(eq(procurementPesquisaPrecoInProcurement.ataId, listId)),
+				.where(eq(procurementPesquisaPrecoInProcurement.procurementListId, listId)),
 		{ prefix: "Erro ao buscar pesquisas" }
 	)
 	const oldestResearchAt = research.length ? research.map((r) => r.createdAt).reduce((a, b) => (a < b ? a : b)) : null
@@ -1711,7 +1720,7 @@ async function assertPricesBackedByResearch(tx: TxClient, unitId: number, input:
 					tx
 						.select({
 							id: procurementPesquisaPrecoItemInProcurement.id,
-							ataItemId: procurementPesquisaPrecoItemInProcurement.ataItemId,
+							ataItemId: procurementPesquisaPrecoItemInProcurement.procurementListItemId,
 							catmat: procurementPesquisaPrecoItemInProcurement.catmatCodigo,
 							referencePrice: procurementPesquisaPrecoItemInProcurement.referencePrice,
 						})
@@ -1786,9 +1795,12 @@ export async function updateAtaItemPrices(db: SisubDb, ctx: UserContext, input: 
 			for (const link of await filterOwnResearchLinks(tx, unitId, input.researchLinks)) {
 				await tx
 					.update(procurementPesquisaPrecoItemInProcurement)
-					.set({ ataItemId: link.ataItemId })
+					.set({ procurementListItemId: link.ataItemId })
 					.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
-				await tx.update(procurementPesquisaPrecoInProcurement).set({ ataId: input.ataId }).where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
+				await tx
+					.update(procurementPesquisaPrecoInProcurement)
+					.set({ procurementListId: input.ataId })
+					.where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
 			}
 		}
 	})

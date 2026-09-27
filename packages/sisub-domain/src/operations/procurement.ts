@@ -17,6 +17,7 @@ import {
 	procurementArpInProcurement,
 	procurementArpItemInProcurement,
 	procurementListInProcurement,
+	procurementListItemInProcurement,
 	recipesInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
@@ -279,13 +280,13 @@ export async function fetchUnitDashboard(
 		db
 			.select({
 				id: procurementArpInProcurement.id,
-				ataId: procurementArpInProcurement.ataId,
+				ataId: procurementArpInProcurement.procurementListId,
 				numeroAta: procurementArpInProcurement.numeroAta,
 				anoAta: procurementArpInProcurement.anoAta,
 				dataVigenciaFim: procurementArpInProcurement.dataVigenciaFim,
 			})
 			.from(procurementArpInProcurement)
-			.where(inArray(procurementArpInProcurement.ataId, publishedAtaIds))
+			.where(inArray(procurementArpInProcurement.procurementListId, publishedAtaIds))
 	)
 
 	if (arpsData.length === 0) {
@@ -296,25 +297,29 @@ export async function fetchUnitDashboard(
 	const ataIdToTitle = new Map(publishedAtasRows.map((a) => [a.id, a.title]))
 	const arpById = new Map(arpsData.map((a) => [a.id, a]))
 
-	// ── 3. Itens das ARPs com join no item da ATA (para ingredient_id) ────────
+	// ── 3. Itens das ARPs com join no item do anexo (para ingredient_id) ──────
+	// Join explícito pela coluna nova: a relação de `relations.ts` ainda sai da FK antiga
+	// (`ata_item_id`), que o contract 20260927020000 derruba.
 	const arpItems = await runQuery("QUERY_FAILED", () =>
-		db.query.procurementArpItemInProcurement.findMany({
-			columns: {
-				id: true,
-				arpId: true,
-				numeroItem: true,
-				catmatItemCodigo: true,
-				descricaoItem: true,
-				nomeFornecedor: true,
-				valorUnitario: true,
-				quantidadeHomologada: true,
-				quantidadeEmpenhada: true,
-				saldoEmpenho: true,
-				medidaCatmat: true,
-			},
-			with: { procurementListItemInProcurement: { columns: { id: true, ingredientId: true, ingredientName: true } } },
-			where: inArray(procurementArpItemInProcurement.arpId, arpIds),
-		})
+		db
+			.select({
+				id: procurementArpItemInProcurement.id,
+				arpId: procurementArpItemInProcurement.arpId,
+				numeroItem: procurementArpItemInProcurement.numeroItem,
+				catmatItemCodigo: procurementArpItemInProcurement.catmatItemCodigo,
+				descricaoItem: procurementArpItemInProcurement.descricaoItem,
+				nomeFornecedor: procurementArpItemInProcurement.nomeFornecedor,
+				valorUnitario: procurementArpItemInProcurement.valorUnitario,
+				quantidadeHomologada: procurementArpItemInProcurement.quantidadeHomologada,
+				quantidadeEmpenhada: procurementArpItemInProcurement.quantidadeEmpenhada,
+				saldoEmpenho: procurementArpItemInProcurement.saldoEmpenho,
+				medidaCatmat: procurementArpItemInProcurement.medidaCatmat,
+				listItemIngredientId: procurementListItemInProcurement.ingredientId,
+				listItemIngredientName: procurementListItemInProcurement.ingredientName,
+			})
+			.from(procurementArpItemInProcurement)
+			.leftJoin(procurementListItemInProcurement, eq(procurementListItemInProcurement.id, procurementArpItemInProcurement.procurementListItemId))
+			.where(inArray(procurementArpItemInProcurement.arpId, arpIds))
 	)
 
 	// ── 4. Filtrar itens com consumo ≥ 80% ───────────────────────────────────
@@ -330,7 +335,7 @@ export async function fetchUnitDashboard(
 	}
 
 	// ── 5. Coletar ingredient_ids dos itens relevantes ───────────────────────
-	const ingredientIds = relevantItems.map((item) => item.procurementListItemInProcurement?.ingredientId ?? null).filter((id): id is string => Boolean(id))
+	const ingredientIds = relevantItems.map((item) => item.listItemIngredientId).filter((id): id is string => Boolean(id))
 
 	// ── 6. Verificar quais ingredientes aparecem em menus dos próximos 30 dias ─
 	const upcomingIngredientIds = new Set<string>()
@@ -400,8 +405,7 @@ export async function fetchUnitDashboard(
 		const arp = arpById.get(item.arpId)
 		if (!arp) continue
 
-		const ataItem = item.procurementListItemInProcurement
-		const ingredientId = ataItem?.ingredientId ?? null
+		const ingredientId = item.listItemIngredientId ?? null
 
 		const qtdHom = Number(item.quantidadeHomologada ?? 0)
 		const qtdEmp = Number(item.quantidadeEmpenhada ?? 0)
@@ -426,7 +430,7 @@ export async function fetchUnitDashboard(
 			ata_id: arp.ataId,
 			ata_title: arp.ataId ? (ataIdToTitle.get(arp.ataId) ?? "—") : "Sem anexo quantitativo",
 			ingredient_id: ingredientId,
-			ingredient_name: ataItem?.ingredientName ?? item.descricaoItem,
+			ingredient_name: item.listItemIngredientName ?? item.descricaoItem,
 			in_upcoming_menu: ingredientId ? upcomingIngredientIds.has(ingredientId) : false,
 		})
 	}
