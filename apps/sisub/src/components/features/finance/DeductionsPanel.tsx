@@ -11,7 +11,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
-import { addLiquidacaoDeductionFn, deleteLiquidacaoDeductionFn, type LiquidacaoDeductionRow, registerDeductionPaymentFn } from "@/server/liquidation.fn"
+import { addLiquidacaoDeductionFn, deleteLiquidacaoDeductionFn, type LiquidacaoDeductionRow, registerDeductionRemittanceFn } from "@/server/liquidacao.fn"
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
@@ -22,7 +22,7 @@ function today(): string {
 }
 
 /** Registrar o recolhimento de uma retenção: o documento e a data em que foi pago. */
-export function DeductionPaymentForm({ unitId, deduction, onDone }: { unitId: number; deduction: LiquidacaoDeductionRow; onDone: () => void }) {
+export function DeductionRemittanceForm({ unitId, deduction, onDone }: { unitId: number; deduction: LiquidacaoDeductionRow; onDone: () => void }) {
 	const [documentKind, setDocumentKind] = useState<DeductionDocumentKind>(
 		deduction.document_kind ?? (deduction.kind === "inss" ? "gps" : deduction.kind === "iss" ? "dar" : "darf")
 	)
@@ -36,7 +36,7 @@ export function DeductionPaymentForm({ unitId, deduction, onDone }: { unitId: nu
 		if (!documentNumber.trim()) return
 		setBusy(true)
 		try {
-			await runAssured(() => registerDeductionPaymentFn({ data: { unitId, deductionId: deduction.id, documentKind, documentNumber, paidOn } }))
+			await runAssured(() => registerDeductionRemittanceFn({ data: { unitId, deductionId: deduction.id, documentKind, documentNumber, paidOn } }))
 			toast.success(`Recolhimento de ${DEDUCTION_LABELS[deduction.kind]} registrado`)
 			onDone()
 		} catch (err) {
@@ -178,7 +178,7 @@ export function DeductionsPanel({
 							)}
 							{payingId === deduction.id && (
 								<div className="basis-full pt-2">
-									<DeductionPaymentForm
+									<DeductionRemittanceForm
 										unitId={unitId}
 										deduction={deduction}
 										onDone={() => {

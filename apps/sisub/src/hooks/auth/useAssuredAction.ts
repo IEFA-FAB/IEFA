@@ -6,7 +6,7 @@ import { runWithElevation } from "@/lib/assurance/assurance-error"
  * dentro de um `try/catch` com estado local de "ocupado", sem passar por `useMutation`.
  *
  * Existe porque metade das operações classificadas mora nesse formato: as telas de execução
- * orçamentária (`empenhos`, `liquidations`, `payments`, `reconciliation`, `siafi`) foram
+ * orçamentária (`empenhos`, `liquidacoes`, `pagamentos`, `reconciliation`, `siafi`) foram
  * escritas com `setBusy(true)` + `await fn(...)` + `router.invalidate()`. Convertê-las a
  * react-query só para ganhar o wrapper seria um refactor com risco próprio, ortogonal a esta
  * mudança — e o núcleo da elevação (`runWithElevation`) não depende de react-query nenhum.

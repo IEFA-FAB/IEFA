@@ -52,7 +52,7 @@ describe("Executar despesa", () => {
 			dispensaLimitMissing: true,
 		})
 		const issues = step(steps, "origin")?.issues ?? []
-		expect(issues[0].message).toBe("Dispensa sem fundamento legal, sem fornecedor e sem vigência: complete a contratação.")
+		expect(issues[0].message).toBe("Dispensa sem fundamento legal, sem fornecedor e sem vigência: complete a contratação de origem.")
 		expect(issues[0].action?.href).toBe("/unit/10/acquisitions")
 		expect(issues[1].message).toMatch(/art\. 75, § 1º.*piso/)
 		expect(issues[2].message).toMatch(/limite de dispensa cadastrado para 2026/)
@@ -96,12 +96,12 @@ describe("Executar despesa", () => {
 
 	test("recebimento atestado sem liquidação e SEFAZ pendente", () => {
 		const counts = { ...emptyReceiptPendingCounts(), invoice_check_pending: 1 }
-		const liquidation = step(
+		const liquidacao = step(
 			buildExpenseExecutionSteps({ ...base, kitchens: [{ id: 1, name: "Rancho A", counts }], unliquidated: { count: 3, oldestDays: 12, divergent: 0 } }),
-			"liquidation"
+			"liquidacao"
 		)
-		expect(liquidation?.issues[0].message).toBe("3 recebimentos atestados sem liquidação (o mais antigo há 12 dias).")
-		expect(liquidation?.issues[1].severity).toBe("info")
+		expect(liquidacao?.issues[0].message).toBe("3 recebimentos atestados sem liquidação (o mais antigo há 12 dias).")
+		expect(liquidacao?.issues[1].severity).toBe("info")
 	})
 })
 

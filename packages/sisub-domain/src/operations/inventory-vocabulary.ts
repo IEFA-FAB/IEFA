@@ -150,8 +150,8 @@ export const OPENING_COST_SOURCES = ["ata", "price_research", "manual"] as const
 export type OpeningCostSource = (typeof OPENING_COST_SOURCES)[number]
 
 export const OPENING_COST_SOURCE_LABELS: Record<OpeningCostSource, string> = {
-	ata: "ATA (preço homologado)",
-	price_research: "Pesquisa de preço",
+	ata: "ARP (preço registrado)",
+	price_research: "Pesquisa de preços",
 	manual: "Informado",
 }
 

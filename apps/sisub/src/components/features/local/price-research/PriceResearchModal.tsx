@@ -730,7 +730,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<TrendingUp className="size-4 text-primary" aria-hidden="true" />
-						Pesquisa de Preço — CATMAT {catmatCode}
+						Pesquisa de Preços — CATMAT {catmatCode}
 					</DialogTitle>
 					{catmatDescription && <DialogDescription className="truncate">{catmatDescription}</DialogDescription>}
 				</DialogHeader>

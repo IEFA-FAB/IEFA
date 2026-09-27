@@ -43,7 +43,7 @@ const FAKE_RESULTS: Record<string, unknown> = {
 		limit: 30,
 	},
 	list_ingredients: { ingredients: [{ id: "33333333-3333-4333-8333-333333333333", description: "ARROZ TIPO 1" }], returned: 1, total: 1204, limit: 30 },
-	list_preparations: { preparations: [], returned: 0, total: 0, limit: 30 },
+	list_legacy_preparations: { legacy_preparations: [], returned: 0, total: 0, limit: 30 },
 	list_menu_templates: { templates: [], returned: 0, total: 0, limit: 30 },
 }
 

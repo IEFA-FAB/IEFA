@@ -23,7 +23,7 @@ import { FolderCombobox } from "./FolderCombobox"
  * gênero de alimentação, ou seja, salvar sem escolher faria o item nascer na aba oposta
  * à que o usuário está olhando, sem erro nenhum.
  */
-function buildProductSchema(catalog: "exclude" | "only") {
+function buildIngredientSchema(catalog: "exclude" | "only") {
 	return z
 		.object({
 			description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
@@ -61,7 +61,7 @@ export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolde
 	const { folders } = useFolders(catalog)
 	const { createIngredient, isCreating } = useCreateIngredient()
 	const { updateIngredient, isUpdating } = useUpdateIngredient()
-	const productSchema = useMemo(() => buildProductSchema(catalog), [catalog])
+	const ingredientSchema = useMemo(() => buildIngredientSchema(catalog), [catalog])
 
 	// Caminho hierárquico de cada pasta (ex.: "Hortifruti / Frutas / Cítricas") — exibe a
 	// estrutura e permite busca por qualquer parte do caminho no combobox.
@@ -90,7 +90,7 @@ export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolde
 			correction_factor: ingredient?.correction_factor ? Number(ingredient.correction_factor) : 1.0,
 		},
 		validators: {
-			onChange: productSchema,
+			onChange: ingredientSchema,
 		},
 		onSubmit: async ({ value }) => {
 			try {

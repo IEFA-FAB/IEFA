@@ -1,6 +1,6 @@
 # Catálogo Global — modelos da SDAB
 
-Menu: **Catálogo Global → Modelos de cardápio** (Eventos Modelo, Apoios Modelo, Planos Semanais).
+Menu: **Catálogo Global → Modelos de cardápio** (Eventos Modelo, Cardápios de Apoio Modelo, Cardápios Semanais).
 Ler exige `global:1`; editar exige `global:2`. Na cozinha, o modelo se ADAPTA (cópia local).
 
 ### CG-EVT-01 — "A cozinha adapta um evento modelo"

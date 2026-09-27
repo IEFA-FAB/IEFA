@@ -211,7 +211,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 		push(item.ingredient_id, {
 			source: "price_research",
 			unitCost,
-			reference: `Pesquisa de preço — ${list?.title ?? "anexo quantitativo"}`,
+			reference: `Pesquisa de preços — ${list?.title ?? "anexo quantitativo"}`,
 			sameUnit: unitId != null && list != null && Number(list.unit_id) === unitId,
 			date: item.computed_at ? item.computed_at.slice(0, 10) : null,
 		})

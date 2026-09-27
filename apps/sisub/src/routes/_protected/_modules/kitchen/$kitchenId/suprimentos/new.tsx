@@ -1,82 +1,9 @@
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
-import { requirePermission } from "@/auth/pbac"
-import { DraftEditor } from "@/components/features/local/kitchen-draft/DraftEditor"
-import { PageHeader } from "@/components/layout/PageHeader"
-import { useCreateKitchenDraft, useSendKitchenDraft } from "@/hooks/data/useKitchenDraft"
-import { useMenuTemplates } from "@/hooks/data/useTemplates"
-import type { TemplateSelection } from "@/types/domain/ata"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
+// Rota antiga da previsão de demanda (glossário: `demand-forecasts`). Fica um ciclo de deploy
+// só com o redirect, para não quebrar favorito nem link salvo; sai no PR seguinte.
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/suprimentos/new")({
-	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
-	component: NewDraftPage,
+	beforeLoad: ({ params }) => {
+		throw redirect({ to: "/kitchen/$kitchenId/demand-forecasts/new", params: { kitchenId: params.kitchenId }, replace: true })
+	},
 })
-
-function NewDraftPage() {
-	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
-	const kitchenId = Number(kitchenIdStr)
-	const navigate = useNavigate()
-
-	const { data: templates, isLoading: isLoadingTemplates } = useMenuTemplates(kitchenId)
-	const { mutate: createDraft, isPending: isSaving } = useCreateKitchenDraft()
-	const { mutate: sendAfterCreate, isPending: isSending } = useSendKitchenDraft()
-
-	// Separar templates locais por tipo
-	const localTemplates = templates?.filter((t) => t.kitchen_id !== null) || []
-	const weeklyTemplates = localTemplates.filter((t) => (t as typeof t & { template_type?: string }).template_type === "weekly")
-	// "Eventos / Refeições Especiais" agrupa eventos + exceções previsíveis.
-	const eventTemplates = localTemplates.filter((t) => {
-		const type = (t as typeof t & { template_type?: string }).template_type
-		return type === "event" || type === "exception"
-	})
-
-	// Salvar rascunho continua no editor: a rota "new" não tem id, então o destino é a
-	// própria tela de edição do rascunho recém-criado — não a listagem. Salvar é um marco
-	// do trabalho em curso; quem termina usa "Enviar", que aí sim encerra o fluxo.
-	const handleSave = (title: string, notes: string, selections: TemplateSelection[]) => {
-		createDraft(
-			{ kitchenId, title, notes: notes || undefined, selections },
-			{
-				onSuccess: (draft) => {
-					if (!draft) return
-					navigate({
-						to: "/kitchen/$kitchenId/suprimentos/$draftId",
-						params: { kitchenId: kitchenIdStr as string, draftId: draft.id },
-						replace: true,
-					})
-				},
-			}
-		)
-	}
-
-	const handleSend = (title: string, notes: string, selections: TemplateSelection[]) => {
-		createDraft(
-			{ kitchenId, title, notes: notes || undefined, selections },
-			{
-				onSuccess: (draft) => {
-					if (draft) {
-						sendAfterCreate(draft.id, {
-							onSuccess: () => {
-								navigate({ to: "/kitchen/$kitchenId/suprimentos", params: { kitchenId: kitchenIdStr as string } })
-							},
-						})
-					}
-				},
-			}
-		)
-	}
-
-	return (
-		<div className="space-y-6">
-			<PageHeader title="Nova previsão de demanda" description="Selecione os cardápios, eventos e apoios que a cozinha vai produzir e quantas vezes." />
-			<DraftEditor
-				weeklyTemplates={weeklyTemplates}
-				eventTemplates={eventTemplates}
-				isLoadingTemplates={isLoadingTemplates}
-				isSaving={isSaving}
-				isSending={isSending}
-				onSave={handleSave}
-				onSend={handleSend}
-			/>
-		</div>
-	)
-}

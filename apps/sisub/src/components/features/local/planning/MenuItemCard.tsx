@@ -103,7 +103,7 @@ export function MenuItemCard({ item, onSubstitute, onReplaceRecipe, onDelete, ou
 					)}
 					{item.origin_template_type === "exception" && (
 						<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-							Apoio
+							Cardápio de Apoio
 						</Badge>
 					)}
 					{substitutionCount(item.substitutions) > 0 && (

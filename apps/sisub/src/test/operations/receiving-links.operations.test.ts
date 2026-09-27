@@ -23,7 +23,7 @@ import {
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 import { afterAll, beforeAll, expect, test } from "vitest"
-import { liquidationLinkProblems } from "@/lib/invoice-gate"
+import { liquidacaoLinkProblems } from "@/lib/invoice-gate"
 import { decideReceiptInvoice } from "@/lib/receipt-invoice-gate"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -295,7 +295,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 			// a liquidação continua recusando sem a consulta recente
 			const [row] = await tx`select definitive_at from inventory.goods_receipt where id = ${receipt.id}`
-			const problems = liquidationLinkProblems({
+			const problems = liquidacaoLinkProblems({
 				unitId,
 				empenhoId: "sem-empenho",
 				receipt: {

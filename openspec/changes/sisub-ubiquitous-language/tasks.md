@@ -8,12 +8,13 @@
 
 ## 1. Lote 1: só TypeScript e tela (sem banco)
 
-- [ ] 1.1 [sisub] [sisub-domain] Previsão de demanda: `KitchenAtaDraft`/`kitchenDraft*`/`draftId` → `DemandForecast`/`demandForecast*`/`forecastId`; arquivos `kitchen-draft*` → `demand-forecast*`; query keys
-- [ ] 1.2 [sisub] Rota `kitchen/$kitchenId/suprimentos/$draftId` → `demand-forecasts/$forecastId`, com o arquivo antigo só com redirect; `breadcrumbs.ts`, `NavItems.tsx`, testes de navegação
-- [ ] 1.3 [sisub] [sisub-domain] `liquidation*` → `liquidacao*`, `payment*` → `pagamento*` (arquivos, tipos, hooks); rotas `liquidations` → `liquidacoes` e `payments` → `pagamentos` com redirect
-- [ ] 1.4 [sisub] [sisub-domain] `product` → `ingredient` no TS (menos o valor de `policy_rule.target`, que é do lote 5); `list_preparations` → `list_legacy_preparations` com os testes de contrato das tools
-- [ ] 1.5 [sisub] Rótulos: "Cardápio semanal" (rota `global/weekly-plans` → `global/weekly-menus` com redirect), "Cardápio de apoio", "Inventário físico", "Pesquisa de preços", "ARP (preço registrado)", "Contratação planejada" × "Contratação de origem"
-- [ ] 1.6 [root] Criar `.opengrep/rules/ubiquitous-language.yaml` com os termos do lote 1 e casos de teste da regra (espera o mantenedor)
+- [x] 1.1 [sisub] [sisub-domain] Previsão de demanda: `KitchenAtaDraft`/`kitchenDraft*`/`draftId` → `DemandForecast`/`demandForecast*`/`forecastId`; arquivos `kitchen-draft*` → `demand-forecast*`; query keys
+- [x] 1.2 [sisub] Rota `kitchen/$kitchenId/suprimentos/$draftId` → `demand-forecasts/$forecastId`, com o arquivo antigo só com redirect; `breadcrumbs.ts`, `NavItems.tsx`, testes de navegação
+- [x] 1.3 [sisub] [sisub-domain] `liquidation*` → `liquidacao*`, `payment*` → `pagamento*` (arquivos, tipos, hooks); rotas `liquidations` → `liquidacoes` e `payments` → `pagamentos` com redirect
+- [x] 1.4 [sisub] [sisub-domain] `product` → `ingredient` no TS (menos o valor de `policy_rule.target`, que é do lote 5); `list_preparations` → `list_legacy_preparations` com os testes de contrato das tools
+- [x] 1.5 [sisub] Rótulos: "Cardápio semanal" (rota `global/weekly-plans` → `global/weekly-menus` com redirect), "Cardápio de apoio", "Inventário físico", "Pesquisa de preços", "ARP (preço registrado)", "Contratação planejada" × "Contratação de origem"
+- [x] 1.6 [root] Criar `.opengrep/rules/ubiquitous-language.yaml` com os termos do lote 1 e casos de teste da regra (espera o mantenedor)
+- Adiantado do lote 8a no PR do lote 1, a pedido: o nome do módulo `messhall` na tela ("Fiscal de rancho", parte de 8.4; os níveis 1 e 3 ficam para 8.4) e a mensagem de designação que faltava ("quem tem Gestão Unidade" no lugar de "chefe do rancho", parte de 8.3 em `designations.ts` e `receiving-pending.ts`). `product_items`/`productItems` ficam: são os itens de produto (SKU) do insumo, gravados no retrato da versão (`ingredient_version`), não o nome antigo de insumo. O recolhimento da retenção saiu de `payment` para `remittance` (`registerDeductionRemittanceFn`), não para `pagamento`: DARF/DAR/GPS não é a fase de pagamento (OB) da despesa
 
 ## 2. Lote 2: anexo quantitativo
 

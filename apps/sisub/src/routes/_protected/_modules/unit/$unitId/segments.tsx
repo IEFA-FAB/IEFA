@@ -15,7 +15,7 @@ import { useSegmentationOverview } from "@/hooks/data/useProcurementSegments"
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/segments")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: SegmentsPage,
-	head: () => ({ meta: [{ name: "description", content: "Contratações da unidade: o que entra em cada processo de compra e quando" }] }),
+	head: () => ({ meta: [{ name: "description", content: "Contratações planejadas da unidade: o que entra em cada processo de compra e quando" }] }),
 })
 
 function SegmentsPage() {
@@ -28,7 +28,7 @@ function SegmentsPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title="Segmentação das contratações"
-				description="Cada contratação é um processo de compra separado, no calendário de contratação da OM. Diga quais pastas do catálogo entram em cada uma; o anexo quantitativo de uma contratação leva só os itens dela."
+				description="Cada contratação planejada é um processo de compra separado, no calendário de contratação da OM. Diga quais pastas do catálogo entram em cada uma; o anexo quantitativo de uma contratação planejada leva só os itens dela."
 			/>
 			{isLoading ? (
 				<div className="h-48 animate-pulse rounded-md border bg-muted" aria-hidden="true" />

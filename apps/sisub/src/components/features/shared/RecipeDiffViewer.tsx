@@ -14,7 +14,7 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 	// Helper to find ingredient in a list
 	const findIngredient = (list: typeof oldVersion.ingredients, ingredientId: string) => list.find((i) => i.ingredient_id === ingredientId)
 
-	// Collect all unique product IDs
+	// Collect all unique ingredient IDs
 	const allIngredientIds = Array.from(new Set([...oldVersion.ingredients.map((i) => i.ingredient_id), ...newVersion.ingredients.map((i) => i.ingredient_id)]))
 
 	return (

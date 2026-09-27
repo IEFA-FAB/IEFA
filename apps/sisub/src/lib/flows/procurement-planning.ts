@@ -47,22 +47,22 @@ export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus)
 	if (seg.conflictCount > 0) {
 		segIssues.push({
 			severity: "blocking",
-			message: `${pluralize(seg.conflictCount, "item está", "itens estão")} em duas contratações. A lei veda duas atas com o mesmo objeto (Lei 14.133/2021, art. 82, VIII).`,
+			message: `${pluralize(seg.conflictCount, "item está", "itens estão")} em duas contratações planejadas. A lei veda duas atas com o mesmo objeto (Lei 14.133/2021, art. 82, VIII).`,
 			action: { label: "Resolver conflitos", href: `${unit}/segments` },
 		})
 	}
 	if (seg.segmentCount > 0 && seg.unassignedCount > 0) {
 		segIssues.push({
 			severity: "warning",
-			message: `${pluralize(seg.unassignedCount, "item dos cardápios não entra", "itens dos cardápios não entram")} em nenhuma contratação. Pode ser compra fora do rancho; se não for, inclua a pasta.`,
-			action: { label: "Ver itens sem contratação", href: `${unit}/segments` },
+			message: `${pluralize(seg.unassignedCount, "item dos cardápios não entra", "itens dos cardápios não entram")} em nenhuma contratação planejada. Pode ser compra fora do rancho; se não for, inclua a pasta.`,
+			action: { label: "Ver itens sem contratação planejada", href: `${unit}/segments` },
 		})
 	}
 	if (seg.segmentCount === 0) {
 		segIssues.push({
 			severity: "info",
 			message:
-				"Sem contratações: o anexo leva todos os itens num processo só. Se a OM compra em processos separados (carnes, estocáveis, bebidas), monte a segmentação.",
+				"Sem contratações planejadas: o anexo leva todos os itens num processo só. Se a OM compra em processos separados (carnes, estocáveis, bebidas), monte a segmentação.",
 		})
 	}
 
@@ -146,7 +146,7 @@ export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus)
 		{
 			id: "forecasts",
 			title: "Previsão de demanda das cozinhas",
-			objective: "Cada nutricionista diz quais cardápios, eventos e apoios vai produzir e quantas vezes.",
+			objective: "Cada nutricionista diz quais cardápios semanais, eventos e cardápios de apoio vai produzir e quantas vezes.",
 			status: status.kitchens.length === 0 ? "todo" : deriveStatusFromIssues(forecastIssues),
 			summary: `${received} de ${status.kitchens.length} enviada${received === 1 ? "" : "s"}`,
 			issues: forecastIssues,
@@ -158,17 +158,20 @@ export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus)
 			status: deriveStatusFromIssues(segIssues, seg.segmentCount === 0 ? "todo" : "done"),
 			summary:
 				seg.segmentCount === 0
-					? "Nenhuma contratação"
-					: `${pluralize(seg.segmentCount, "contratação", "contratações")} · ${seg.lineCount - seg.unassignedCount - seg.conflictCount} de ${seg.lineCount} itens com contratação`,
+					? "Nenhuma contratação planejada"
+					: `${pluralize(seg.segmentCount, "contratação planejada", "contratações planejadas")} · ${seg.lineCount - seg.unassignedCount - seg.conflictCount} de ${seg.lineCount} itens com contratação planejada`,
 			issues: segIssues,
 			action: { label: "Abrir segmentação", href: `${unit}/segments` },
 		},
 		{
 			id: "calendar",
 			title: "Calendário de contratação",
-			objective: "Comece cada contratação com antecedência, para a ata não vencer sem substituta.",
+			objective: "Comece cada contratação planejada com antecedência, para a ata não vencer sem substituta.",
 			status: status.calendar.length === 0 ? "todo" : deriveStatusFromIssues(calendarIssues),
-			summary: status.calendar.length === 0 ? "Sem contratações no calendário" : `${pluralize(openCycles, "contratação na janela", "contratações na janela")}`,
+			summary:
+				status.calendar.length === 0
+					? "Sem contratações planejadas no calendário"
+					: `${pluralize(openCycles, "contratação planejada na janela", "contratações planejadas na janela")}`,
 			issues: calendarIssues,
 		},
 		{

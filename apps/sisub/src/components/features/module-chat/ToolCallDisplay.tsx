@@ -20,6 +20,7 @@ const TOOL_LABELS: Record<string, string> = {
 	get_template_items: "Consultando template",
 	apply_template: "Aplicando template",
 	list_ingredients: "Listando insumos",
+	list_legacy_preparations: "Listando preparações legadas (SISUBWEB)",
 	get_ingredient: "Consultando insumo",
 	create_recipe: "Criando receita",
 	update_recipe: "Atualizando receita",

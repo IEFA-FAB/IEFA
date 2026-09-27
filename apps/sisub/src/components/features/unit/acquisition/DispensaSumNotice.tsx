@@ -26,7 +26,7 @@ export function DispensaSumNotice({ sum, activityLineLabel }: { sum: DispensaSum
 					Não há limite cadastrado para {sum.fiscalYear}: o cálculo usa o último conhecido ({sum.limitSource}). Cadastre o limite vigente.
 				</p>
 			)}
-			{sum.exceeded && <p className="mt-1">Passou do limite (art. 75, § 1º). A contratação só fica completa com a justificativa registrada.</p>}
+			{sum.exceeded && <p className="mt-1">Passou do limite (art. 75, § 1º). A contratação de origem só fica completa com a justificativa registrada.</p>}
 			{sum.composition.length > 1 && (
 				<ItemGroup className="mt-3">
 					{sum.composition.map((part) => (

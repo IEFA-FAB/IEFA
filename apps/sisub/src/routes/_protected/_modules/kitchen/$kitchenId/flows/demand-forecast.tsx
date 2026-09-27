@@ -25,7 +25,7 @@ function DemandForecastFlowPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title="Prever demanda para compra"
-				description="Deixe a unidade em condição de calcular o que comprar: cardápios completos, eventos e apoios previstos, e a previsão enviada."
+				description="Deixe a unidade em condição de calcular o que comprar: cardápios completos, eventos e cardápios de apoio previstos, e a previsão enviada."
 			/>
 			{isLoading ? (
 				<div className="h-64 animate-pulse rounded-xl border bg-muted" aria-hidden="true" />

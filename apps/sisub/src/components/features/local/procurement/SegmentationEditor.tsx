@@ -42,16 +42,16 @@ export function SegmentationEditor({ unitId, overview, canEdit }: { unitId: numb
 					{overview.segments.length} contrataç{overview.segments.length === 1 ? "ão" : "ões"}
 				</Badge>
 				<Badge variant="secondary">
-					{assignedCount} ite{assignedCount === 1 ? "m" : "ns"} com contratação
+					{assignedCount} ite{assignedCount === 1 ? "m" : "ns"} com contratação planejada
 				</Badge>
-				<Badge variant={unassigned.length > 0 ? "warning" : "success"}>{unassigned.length} sem contratação</Badge>
+				<Badge variant={unassigned.length > 0 ? "warning" : "success"}>{unassigned.length} sem contratação planejada</Badge>
 				<Badge variant={conflicts.length > 0 ? "destructive" : "success"}>
 					{conflicts.length} conflito{conflicts.length === 1 ? "" : "s"}
 				</Badge>
 				{canEdit && (
 					<Button size="sm" className="ml-auto" onClick={() => setCreating(true)}>
 						<Plus className="size-4" aria-hidden="true" />
-						Nova contratação
+						Nova contratação planejada
 					</Button>
 				)}
 			</div>
@@ -59,7 +59,7 @@ export function SegmentationEditor({ unitId, overview, canEdit }: { unitId: numb
 			{conflicts.length > 0 && (
 				<Alert variant="destructive">
 					<AlertTriangle className="size-4" aria-hidden="true" />
-					<AlertTitle>Itens em duas contratações</AlertTitle>
+					<AlertTitle>Itens em duas contratações planejadas</AlertTitle>
 					<AlertDescription>
 						<p>O órgão não pode participar de duas atas com o mesmo objeto (Lei 14.133/2021, art. 82, VIII). Ajuste as regras até cada item ter uma só.</p>
 						<ul className="mt-2 space-y-1">
@@ -78,8 +78,8 @@ export function SegmentationEditor({ unitId, overview, canEdit }: { unitId: numb
 				<Card>
 					<CardContent className="py-10">
 						<p className="text-center text-sm text-muted-foreground">
-							Nenhuma contratação ainda. Crie uma para cada processo que a OM conduz separado (ex.: Carnes em março, Estocáveis em junho) e diga quais pastas do
-							catálogo entram em cada uma.
+							Nenhuma contratação planejada ainda. Crie uma para cada processo que a OM conduz separado (ex.: Carnes em março, Estocáveis em junho) e diga quais
+							pastas do catálogo entram em cada uma.
 						</p>
 					</CardContent>
 				</Card>
@@ -113,7 +113,7 @@ function CreateSegmentDialog({ mutations, onClose }: { mutations: Mutations; onC
 		<Dialog open onOpenChange={(open) => !open && onClose()}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Nova contratação</DialogTitle>
+					<DialogTitle>Nova contratação planejada</DialogTitle>
 					<DialogDescription>Um processo de compra que a OM conduz separado dos outros. As pastas que entram nela se escolhem em seguida.</DialogDescription>
 				</DialogHeader>
 				<FieldGroup>
@@ -156,7 +156,7 @@ function CreateSegmentDialog({ mutations, onClose }: { mutations: Mutations; onC
 						Cancelar
 					</Button>
 					<Button onClick={submit} disabled={!name.trim() || mutations.create.isPending}>
-						{mutations.create.isPending ? "Criando…" : "Criar contratação"}
+						{mutations.create.isPending ? "Criando…" : "Criar contratação planejada"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -228,7 +228,7 @@ function SegmentCard({
 								variant="ghost"
 								size="sm"
 								onClick={() => {
-									if (window.confirm(`Remover a contratação "${segment.name}"? Os anexos já feitos com ela continuam como estão.`))
+									if (window.confirm(`Remover a contratação planejada "${segment.name}"? Os anexos já feitos com ela continuam como estão.`))
 										mutations.remove.mutate(segment.id)
 								}}
 							>
@@ -311,9 +311,9 @@ function SegmentRules({
 
 	return (
 		<div className="space-y-3">
-			<p className="text-subheading">O que entra nesta contratação</p>
+			<p className="text-subheading">O que entra nesta contratação planejada</p>
 			{segment.rules.length === 0 ? (
-				<p className="text-sm text-muted-foreground">Nenhuma regra: inclua as pastas do catálogo que esta contratação compra.</p>
+				<p className="text-sm text-muted-foreground">Nenhuma regra: inclua as pastas do catálogo que esta contratação planejada compra.</p>
 			) : (
 				<ItemGroup>
 					{segment.rules.map((rule) => (
@@ -398,9 +398,9 @@ function UnassignedList({ lines }: { lines: SegmentationLine[] }) {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Itens sem contratação</CardTitle>
+				<CardTitle>Itens sem contratação planejada</CardTitle>
 				<CardDescription>
-					Itens dos cardápios da OM que nenhuma contratação inclui. Podem ser compra fora do rancho; se não forem, inclua a pasta deles.
+					Itens dos cardápios da OM que nenhuma contratação planejada inclui. Podem ser compra fora do rancho; se não forem, inclua a pasta deles.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-3">

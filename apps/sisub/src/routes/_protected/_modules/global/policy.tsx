@@ -94,8 +94,8 @@ function PolicyTab({ target }: PolicyTabProps) {
 
 	const updateMutation = useUpdatePolicyRule()
 
-	const isProduct = target === "product"
-	const label = isProduct ? "insumos" : "preparações"
+	const isIngredient = target === "product"
+	const label = isIngredient ? "insumos" : "preparações"
 	const activeRules = rules?.filter((r) => !r.deleted_at) ?? []
 
 	function handleAddRule() {

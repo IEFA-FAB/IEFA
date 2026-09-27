@@ -158,8 +158,8 @@ function CountsPage() {
 	return (
 		<div className="space-y-4">
 			<PageHeader
-				title="Contagem Física"
-				description="Contagem com escopo, folha cega e aprovação por quem não contou. A cozinha continua trabalhando enquanto se conta."
+				title="Inventário Físico"
+				description="Inventário com escopo, folha cega e aprovação por quem não contou. A cozinha continua trabalhando enquanto se conta."
 			/>
 
 			{!sheet && (
@@ -167,9 +167,9 @@ function CountsPage() {
 					<CardHeader className="pb-2">
 						<CardTitle className="flex items-center gap-2 text-subheading">
 							<Plus className="size-4" />
-							Abrir contagem
+							Abrir inventário
 						</CardTitle>
-						<p className="text-xs text-muted-foreground">Duas contagens abertas não podem disputar o mesmo item: o banco recusa e diz qual delas conflita.</p>
+						<p className="text-xs text-muted-foreground">Dois inventários abertos não podem disputar o mesmo item: o banco recusa e diz qual deles conflita.</p>
 					</CardHeader>
 					<CardContent className="flex flex-wrap items-end gap-2">
 						<div className="space-y-1">
@@ -218,7 +218,7 @@ function CountsPage() {
 								if (scope === "conservation_class") params.conservation_class = scopeValue
 								void run(
 									() => openInventoryCountFn({ data: { kitchenId, type: type as "rotating", scope: scope as "full", scopeParams: params } }),
-									"Contagem aberta"
+									"Inventário aberto"
 								)
 							}}
 						>
@@ -321,14 +321,14 @@ function CountsPage() {
 									</>
 								) : (
 									<>
-										<span className="text-muted-foreground">fora do escopo desta contagem.</span>
+										<span className="text-muted-foreground">fora do escopo deste inventário.</span>
 										<Button
 											type="button"
 											size="sm"
 											variant="outline"
 											disabled={busy}
 											onClick={() =>
-												run(() => addFoundItemFn({ data: { countId: sheet.count.id, ingredientId: scanned.ingredientId } }), "Achado incluído na contagem")
+												run(() => addFoundItemFn({ data: { countId: sheet.count.id, ingredientId: scanned.ingredientId } }), "Achado incluído no inventário")
 											}
 										>
 											Incluir como achado
@@ -465,7 +465,7 @@ function CountsPage() {
 										const exceptionReason =
 											sheet.count.created_by == null
 												? undefined
-												: (window.prompt("Se você abriu esta contagem, registre a exceção (deixe vazio para tentar sem):") ?? undefined)
+												: (window.prompt("Se você abriu este inventário, registre a exceção (deixe vazio para tentar sem):") ?? undefined)
 										void run(async () => {
 											const countId = sheet.count.id
 											const reason = exceptionReason?.trim() || undefined
@@ -496,7 +496,7 @@ function CountsPage() {
 											toast.error("Rejeitar exige motivo")
 											return
 										}
-										void run(() => rejectInventoryCountFn({ data: { countId: sheet.count.id, reason } }), "Contagem rejeitada")
+										void run(() => rejectInventoryCountFn({ data: { countId: sheet.count.id, reason } }), "Inventário rejeitado")
 									}}
 								>
 									Rejeitar
@@ -547,7 +547,7 @@ function CountsPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Contagens da cozinha</CardTitle>
+					<CardTitle className="text-subheading">Inventários da cozinha</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<Table>

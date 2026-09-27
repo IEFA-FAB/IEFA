@@ -88,7 +88,7 @@ export function useRecipeMenuUsage() {
 }
 
 /**
- * Fetch a single recipe with all ingredients and product details.
+ * Fetch a single recipe with all ingredient details.
  * Used when creating menu_items to generate the recipe snapshot.
  */
 export async function fetchRecipeWithIngredients(recipeId: string): Promise<RecipeWithIngredients> {

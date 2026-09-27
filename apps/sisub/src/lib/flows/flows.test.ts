@@ -136,7 +136,7 @@ describe("Prever demanda para compra", () => {
 	test("sem previsão enviada, a última etapa é 'a fazer' com o atalho para criar", () => {
 		const send = buildDemandForecastSteps(base).find((s) => s.id === "send")
 		expect(send?.status).toBe("todo")
-		expect(send?.action?.href).toBe("/kitchen/5/suprimentos/new")
+		expect(send?.action?.href).toBe("/kitchen/5/demand-forecasts/new")
 	})
 
 	test("contratação da OM na janela pede a previsão; previsão atualizada na janela a cobre", () => {

@@ -15,7 +15,7 @@ export type SisubModule = Exclude<AppModule, "rumaer" | `sucont-${string}` | `al
 
 export const MODULE_LABELS: Record<SisubModule, string> = {
 	diner: "Comensal",
-	messhall: "Fiscal de Rancho",
+	messhall: "Fiscal de rancho",
 	unit: "Gestão Unidade",
 	kitchen: "Gestão Cozinha",
 	"kitchen-production": "Produção Cozinha",

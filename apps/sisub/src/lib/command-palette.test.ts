@@ -6,10 +6,18 @@ const storage = { moduleId: "storage", moduleName: "Estoque", hubUrl: "/storage"
 const ENTRIES: PaletteEntry[] = [
 	{ id: "/diner/forecast", label: "Previsão", moduleId: "diner", moduleName: "Comensal", url: "/diner/forecast" },
 	{ ...storage, id: "/storage/receiving", label: "Recebimentos", group: "Entrada", url: "/storage/receiving" },
-	{ ...storage, id: "/storage/counts", label: "Contagem Física", group: "Controle", keywords: ["inventário"], url: "/storage/counts", minLevel: 3 },
+	{ ...storage, id: "/storage/counts", label: "Inventário Físico", group: "Controle", keywords: ["inventário"], url: "/storage/counts", minLevel: 3 },
 	{ ...storage, id: "/storage/nfe", label: "Notas Fiscais (NF-e)", group: "Entrada", url: "/storage/nfe" },
 	{ id: "/unit/empenhos", label: "Empenhos", moduleId: "unit", moduleName: "Gestão Unidade", url: "/unit/empenhos", hubUrl: "/unit", scopeType: "unit" },
-	{ id: "/messhall/", label: "Presenças", moduleId: "messhall", moduleName: "Fiscal", url: "/messhall/", hubUrl: "/messhall", scopeType: "mess_hall" },
+	{
+		id: "/messhall/",
+		label: "Presenças",
+		moduleId: "messhall",
+		moduleName: "Fiscal de rancho",
+		url: "/messhall/",
+		hubUrl: "/messhall",
+		scopeType: "mess_hall",
+	},
 ]
 const INDEX = indexEntries(ENTRIES)
 const byLabel = (label: string) => ENTRIES.find((e) => e.label === label) as PaletteEntry
@@ -26,7 +34,7 @@ describe("searchEntries", () => {
 	})
 
 	it("acha pela palavra-chave", () => {
-		expect(labels(searchEntries(INDEX, "inventario"))).toEqual(["Contagem Física"])
+		expect(labels(searchEntries(INDEX, "inventario"))).toEqual(["Inventário Físico"])
 	})
 
 	it("exige todos os termos, em qualquer campo", () => {
@@ -35,7 +43,7 @@ describe("searchEntries", () => {
 
 	it("rótulo pesa mais que módulo", () => {
 		expect(searchEntries(INDEX, "emp")[0]?.label).toBe("Empenhos")
-		expect(labels(searchEntries(INDEX, "estoque"))).toEqual(["Recebimentos", "Contagem Física", "Notas Fiscais (NF-e)"])
+		expect(labels(searchEntries(INDEX, "estoque"))).toEqual(["Recebimentos", "Inventário Físico", "Notas Fiscais (NF-e)"])
 	})
 
 	it("não quebra com caractere de regex", () => {
@@ -78,7 +86,7 @@ describe("resolveEntryTarget", () => {
 
 	it("confere o nível da página no escopo", () => {
 		const levels: number[] = []
-		resolveEntryTarget(byLabel("Contagem Física"), { scopeType: "kitchen", id: 7, name: "GAP-AF" }, {}, (_m, level) => {
+		resolveEntryTarget(byLabel("Inventário Físico"), { scopeType: "kitchen", id: 7, name: "GAP-AF" }, {}, (_m, level) => {
 			levels.push(level)
 			return false
 		})

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { competenciaFromDate, normalizeNsNumber, resolvePurchaseUnitId, suggestedLiquidationValue } from "./liquidation-math.ts"
+import { competenciaFromDate, normalizeNsNumber, resolvePurchaseUnitId, suggestedLiquidacaoValue } from "./liquidacao-math.ts"
 
-describe("suggestedLiquidationValue", () => {
+describe("suggestedLiquidacaoValue", () => {
 	test("soma quantidade × custo, fechado em centavos", () => {
 		expect(
-			suggestedLiquidationValue([
+			suggestedLiquidacaoValue([
 				{ receivedQtyBase: 48, unitCost: 2.5 },
 				{ receivedQtyBase: 10, unitCost: 1.99 },
 			])
@@ -15,7 +15,7 @@ describe("suggestedLiquidationValue", () => {
 		// É a linha ainda não precificada. Travar aqui impediria liquidar o
 		// recebimento inteiro por causa de uma.
 		expect(
-			suggestedLiquidationValue([
+			suggestedLiquidacaoValue([
 				{ receivedQtyBase: 48, unitCost: 2.5 },
 				{ receivedQtyBase: 10, unitCost: null },
 			])
@@ -23,12 +23,12 @@ describe("suggestedLiquidationValue", () => {
 	})
 
 	test("recebimento vazio vale zero", () => {
-		expect(suggestedLiquidationValue([])).toBe(0)
+		expect(suggestedLiquidacaoValue([])).toBe(0)
 	})
 
 	test("valor não finito é ignorado em vez de virar NaN na NS", () => {
 		expect(
-			suggestedLiquidationValue([
+			suggestedLiquidacaoValue([
 				{ receivedQtyBase: Number.NaN, unitCost: 2.5 },
 				{ receivedQtyBase: 4, unitCost: 2 },
 			])
@@ -36,7 +36,7 @@ describe("suggestedLiquidationValue", () => {
 	})
 
 	test("arredonda para 2 casas, não trunca", () => {
-		expect(suggestedLiquidationValue([{ receivedQtyBase: 3, unitCost: 3.335 }])).toBe(10.01)
+		expect(suggestedLiquidacaoValue([{ receivedQtyBase: 3, unitCost: 3.335 }])).toBe(10.01)
 	})
 })
 

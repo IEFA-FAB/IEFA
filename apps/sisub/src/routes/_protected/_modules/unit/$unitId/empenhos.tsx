@@ -232,7 +232,7 @@ function EmpenhosPage() {
 				description="Documento orçamentário completo: classificação, favorecido e execução (liquidado, pago, a liquidar). Reforço e anulação entram como eventos — o valor original nunca é editado."
 			>
 				{/* A inscrição em RP é em duas parcelas por empenho e mora em Pagamentos (`inscribeRpParcelsFn`). */}
-				<Button variant="outline" size="sm" nativeButton={false} render={<Link to="/unit/$unitId/payments" params={{ unitId }} />}>
+				<Button variant="outline" size="sm" nativeButton={false} render={<Link to="/unit/$unitId/pagamentos" params={{ unitId }} />}>
 					Restos a pagar
 				</Button>
 			</PageHeader>

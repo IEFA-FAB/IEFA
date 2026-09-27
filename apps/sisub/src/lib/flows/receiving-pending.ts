@@ -26,7 +26,7 @@ export function describeReceiptPending(
 		case "conference_without_inspector":
 			return canDesignate
 				? "conferência registrada e ninguém é fiscal designado para confirmar o provisório: designe no recebimento"
-				: `conferência registrada e ninguém é fiscal designado para confirmar o provisório: peça a designação ao chefe do rancho (${DESIGNATION_SCREEN_LABEL})`
+				: `conferência registrada e ninguém é fiscal designado para confirmar o provisório: peça a designação a quem tem Gestão Unidade (${DESIGNATION_SCREEN_LABEL})`
 		case "provisional_without_manager":
 			return "provisório feito, sem gestor nem comissão designada para o definitivo (Lei 14.133/2021, art. 140, II, b)"
 		case "without_invoice":

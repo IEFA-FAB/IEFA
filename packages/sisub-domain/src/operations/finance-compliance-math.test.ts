@@ -2,13 +2,13 @@ import { describe, expect, test } from "bun:test"
 import { empenhoEventSign, isAnnulmentEvent, isTotalAnnulmentEvent } from "./empenho-events.ts"
 import {
 	deductionExceedsProblem,
-	deductionPaymentProblem,
-	isLiquidationWithoutReceipt,
-	liquidationExceedsReceiptProblem,
-	liquidationNetBalance,
-	paymentExceedsNetProblem,
-	receiptLiquidationCeiling,
-} from "./liquidation-math.ts"
+	deductionRemittanceProblem,
+	isLiquidacaoWithoutReceipt,
+	liquidacaoExceedsReceiptProblem,
+	liquidacaoNetBalance,
+	pagamentoExceedsNetProblem,
+	receiptLiquidacaoCeiling,
+} from "./liquidacao-math.ts"
 import { empenhoBalanceAtYearEnd, legacyRestosAPagarKind, reconcileRestosAPagar, splitRestosAPagar } from "./restos-a-pagar-math.ts"
 
 describe("restos a pagar em duas parcelas", () => {
@@ -123,14 +123,14 @@ describe("OB pelo líquido", () => {
 	const bruto = 10_000
 
 	test("sem dedução, o líquido é o bruto (comportamento anterior)", () => {
-		const balance = liquidationNetBalance({ bruto, deducoes: [], pagamentos: [4_000] })
+		const balance = liquidacaoNetBalance({ bruto, deducoes: [], pagamentos: [4_000] })
 		expect(balance).toEqual({ bruto, deducoes: 0, liquido: 10_000, pago: 4_000, aPagar: 6_000, aRecolher: 0 })
-		expect(paymentExceedsNetProblem(balance, 6_000)).toBeNull()
-		expect(paymentExceedsNetProblem(balance, 6_000.01)).toContain("valor liquidado")
+		expect(pagamentoExceedsNetProblem(balance, 6_000)).toBeNull()
+		expect(pagamentoExceedsNetProblem(balance, 6_000.01)).toContain("valor liquidado")
 	})
 
 	test("com DARF, a OB paga o líquido e o teto é o líquido", () => {
-		const balance = liquidationNetBalance({
+		const balance = liquidacaoNetBalance({
 			bruto,
 			deducoes: [
 				{ valor: 480, recolhidaEm: "2026-09-20" }, // IR, já recolhido por DARF
@@ -140,14 +140,14 @@ describe("OB pelo líquido", () => {
 		})
 		expect(balance.liquido).toBe(9_415)
 		expect(balance.aRecolher).toBe(105)
-		expect(paymentExceedsNetProblem(balance, 9_415)).toBeNull()
-		const problem = paymentExceedsNetProblem(balance, 10_000)
+		expect(pagamentoExceedsNetProblem(balance, 9_415)).toBeNull()
+		const problem = pagamentoExceedsNetProblem(balance, 10_000)
 		expect(problem).toContain("líquido")
 		expect(problem).toContain("9415.00")
 	})
 
 	test("dedução que passaria o que resta da NS é recusada", () => {
-		const balance = liquidationNetBalance({ bruto, deducoes: [{ valor: 500, recolhidaEm: null }], pagamentos: [9_000] })
+		const balance = liquidacaoNetBalance({ bruto, deducoes: [{ valor: 500, recolhidaEm: null }], pagamentos: [9_000] })
 		expect(deductionExceedsProblem(balance, 500)).toBeNull()
 		expect(deductionExceedsProblem(balance, 500.01)).toContain("Registre a retenção antes da OB")
 	})
@@ -155,11 +155,11 @@ describe("OB pelo líquido", () => {
 
 describe("recolhimento da retenção", () => {
 	test("retenção ainda não recolhida aceita o registro do DARF", () => {
-		expect(deductionPaymentProblem({ paidOn: null, documentNumber: null })).toBeNull()
+		expect(deductionRemittanceProblem({ paidOn: null, documentNumber: null })).toBeNull()
 	})
 
 	test("retenção já recolhida não é sobrescrita", () => {
-		const problem = deductionPaymentProblem({ paidOn: "2026-09-20", documentNumber: "0000000000000001" })
+		const problem = deductionRemittanceProblem({ paidOn: "2026-09-20", documentNumber: "0000000000000001" })
 		expect(problem).toContain("já foi recolhida em 2026-09-20")
 		expect(problem).toContain("0000000000000001")
 	})
@@ -167,7 +167,7 @@ describe("recolhimento da retenção", () => {
 
 describe("teto da liquidação pelo recebido", () => {
 	test("com todos os itens precificados, vale Σ quantidade × custo", () => {
-		const ceiling = receiptLiquidationCeiling(
+		const ceiling = receiptLiquidacaoCeiling(
 			[
 				{ receivedQtyBase: 96, unitCost: 100 },
 				{ receivedQtyBase: 10, unitCost: 2.5 },
@@ -175,8 +175,8 @@ describe("teto da liquidação pelo recebido", () => {
 			99_999
 		)
 		expect(ceiling).toEqual({ basis: "itens", value: 9_625, unpricedItems: 0 })
-		expect(liquidationExceedsReceiptProblem({ ceiling, alreadyLiquidated: 9_000, valor: 625 })).toBeNull()
-		expect(liquidationExceedsReceiptProblem({ ceiling, alreadyLiquidated: 9_000, valor: 626 })).toContain("no máximo R$ 625.00")
+		expect(liquidacaoExceedsReceiptProblem({ ceiling, alreadyLiquidated: 9_000, valor: 625 })).toBeNull()
+		expect(liquidacaoExceedsReceiptProblem({ ceiling, alreadyLiquidated: 9_000, valor: 626 })).toContain("no máximo R$ 625.00")
 	})
 
 	test("item sem custo: vale o total da NF-e; sem NF-e, teto indeterminado (não recusa)", () => {
@@ -184,18 +184,18 @@ describe("teto da liquidação pelo recebido", () => {
 			{ receivedQtyBase: 96, unitCost: 100 },
 			{ receivedQtyBase: 10, unitCost: null },
 		]
-		const withNfe = receiptLiquidationCeiling(items, 9_700)
+		const withNfe = receiptLiquidacaoCeiling(items, 9_700)
 		expect(withNfe).toEqual({ basis: "nfe", value: 9_700, unpricedItems: 1 })
-		expect(liquidationExceedsReceiptProblem({ ceiling: withNfe, alreadyLiquidated: 0, valor: 9_800 })).toContain("total da NF-e")
+		expect(liquidacaoExceedsReceiptProblem({ ceiling: withNfe, alreadyLiquidated: 0, valor: 9_800 })).toContain("total da NF-e")
 
-		const without = receiptLiquidationCeiling(items, null)
+		const without = receiptLiquidacaoCeiling(items, null)
 		expect(without.basis).toBe("indeterminado")
-		expect(liquidationExceedsReceiptProblem({ ceiling: without, alreadyLiquidated: 0, valor: 1_000_000 })).toBeNull()
+		expect(liquidacaoExceedsReceiptProblem({ ceiling: without, alreadyLiquidated: 0, valor: 1_000_000 })).toBeNull()
 	})
 
 	test("liquidação sem recebimento é pendência, não recusa", () => {
-		expect(isLiquidationWithoutReceipt({ goodsReceiptId: null })).toBe(true)
-		expect(isLiquidationWithoutReceipt({ goodsReceiptId: "r1" })).toBe(false)
+		expect(isLiquidacaoWithoutReceipt({ goodsReceiptId: null })).toBe(true)
+		expect(isLiquidacaoWithoutReceipt({ goodsReceiptId: "r1" })).toBe(false)
 	})
 })
 

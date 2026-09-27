@@ -74,7 +74,7 @@ type IngredientFormTab = (typeof INGREDIENT_FORM_TABS)[number]
 // espaço das abas cheias (ex.: nutrição), sem "encolher" o layout ao alternar.
 const READING_PANEL = "pt-4 max-w-5xl mx-auto w-full min-h-[32rem]"
 
-const productSchema = z.object({
+const ingredientSchema = z.object({
 	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
 	folder_id: z.uuid().nullable(),
 	measure_unit: z.string().nullable(),
@@ -190,7 +190,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const form = useForm({
 		defaultValues: ingredientFormValues(ingredient),
 		onSubmit: async ({ value }) => {
-			const validation = productSchema.safeParse(value)
+			const validation = ingredientSchema.safeParse(value)
 			if (!validation.success) {
 				const first = validation.error.issues[0]
 				toast.error(first?.message ?? "Preencha os campos obrigatórios corretamente")

@@ -427,7 +427,7 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 					order by e.data_empenho desc, e.numero_empenho
 					limit 20
 				`),
-			{ prefix: "Erro ao ler os empenhos sem contratação" }
+			{ prefix: "Erro ao ler os empenhos sem contratação de origem" }
 		) as unknown as Promise<Row[]>,
 		runQuery(
 			"QUERY_FAILED",

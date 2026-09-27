@@ -4,7 +4,7 @@ import { requirePermission } from "@/auth/pbac"
 import { OccasionMenuForm } from "@/components/features/local/planning/OccasionMenuForm"
 
 /**
- * KITCHEN — Novo Apoio
+ * KITCHEN — Novo Cardápio de Apoio
  * Cria um cardápio de apoio previsível (template_type = 'exception') vinculado à cozinha, do
  * zero ou adaptando um apoio modelo do catálogo global.
  * - Search param `forkFrom`: ID do apoio global a ser adaptado

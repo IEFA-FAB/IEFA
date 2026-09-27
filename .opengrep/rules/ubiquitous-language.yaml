@@ -1,0 +1,98 @@
+##
+# Linguagem ubíqua do sisub (change `sisub-ubiquitous-language`, D8): o nome descartado de um lote
+# concluído não volta. Cada regra aponta o nome do glossário
+# (`openspec/changes/sisub-ubiquitous-language/specs/ubiquitous-language/spec.md`).
+#
+# A lista cresce por lote. Termo ainda em uso não entra, senão o gate nasce vermelho: o anexo
+# quantitativo (`ata*`, `procurement_list*`, `draftId` do anexo) entra no lote 2, a pesquisa de preços
+# e os prefixos no lote 3, `product` (valor de `policy_rule.target`) no lote 5, "rancho" no lote 8.
+#
+# Linha de comentário não é acusada (`pattern-not-regex` da linha inteira): comentário cita o nome
+# antigo para contar a história do rename. Os casos de teste de cada regra estão em
+# `__fixtures__/ubiquitous-language.ts` (`opengrep test`, comando no cabeçalho de lá).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: ubiquitous-language-lot1-identifier
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Nome descartado pelo glossário do sisub. Previsão de demanda é `demand_forecast`
+      (`DemandForecast`, `demandForecast*`, `forecastId`, arquivos `demand-forecast*`), não
+      `KitchenAtaDraft`/`kitchenDraft`/`kitchen-draft`. Liquidação e pagamento são `liquidacao` e
+      `pagamento` (Lei 4.320, arts. 62-65; `liquidation` é falso cognato e `pagamento` fica com
+      `empenho` e `liquidacao`); o recolhimento da retenção é `remittance`. A preparação herdada do
+      SISUBWEB é `legacy_preparation` (tool `list_legacy_preparations`).
+    paths:
+      include:
+        - "apps/sisub/src/**/*.ts"
+        - "apps/sisub/src/**/*.tsx"
+        - "apps/sisub/e2e/**/*.ts"
+        - "packages/sisub-domain/src/**/*.ts"
+        - "apps/sisub-mcp/src/**/*.ts"
+        - "apps/api/src/**/*.ts"
+        - "packages/database/src/sisub.ts"
+      exclude:
+        - "**/routeTree.gen.ts"
+        - "**/generated.ts"
+        - "**/drizzle/**"
+        # As rotas de redirect do lote 1 (saem no PR seguinte, D6).
+        - "apps/sisub/src/routes/_protected/_modules/unit/$unitId/liquidations.tsx"
+        - "apps/sisub/src/routes/_protected/_modules/unit/$unitId/payments.tsx"
+    patterns:
+      - pattern-regex: \b(?:\w*KitchenAtaDraft\w*|\w*[kK]itchenDrafts?\w*|kitchen-draft|kitchen_ata_draft|\w*[lL]iquidations?\w*|\w*[pP]ayments?\w*|list_preparations|\w*[aA]gentListPreparations\w*)
+      # Linha de comentário conta a história do rename.
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+      # O registro de auditoria guarda o nome com que a linha foi gravada: o alias de leitura
+      # (`RENAMED_OPERATIONS` em `assurance-registry.ts`) precisa citar o nome antigo.
+      - pattern-not-regex: registerDeductionPaymentFn:\s*"registerDeductionRemittanceFn"
+
+  - id: ubiquitous-language-lot1-route
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Rota com segmento descartado pelo glossário do sisub: `suprimentos` é `demand-forecasts`,
+      `weekly-plans` é `weekly-menus`, `liquidations` é `liquidacoes`, `payments` é `pagamentos`.
+      O caminho antigo só existe como redirect por um ciclo de deploy; link, navegação e rota nova
+      usam o nome do glossário.
+    paths:
+      include:
+        - "apps/sisub/src/**/*.ts"
+        - "apps/sisub/src/**/*.tsx"
+        - "apps/sisub/e2e/**/*.ts"
+      exclude:
+        - "**/routeTree.gen.ts"
+        # As rotas de redirect do lote 1 (saem no PR seguinte, D6).
+        - "apps/sisub/src/routes/_protected/_modules/kitchen/$kitchenId/suprimentos/*.tsx"
+        - "apps/sisub/src/routes/_protected/_modules/global/weekly-plans/*.tsx"
+        - "apps/sisub/src/routes/_protected/_modules/unit/$unitId/liquidations.tsx"
+        - "apps/sisub/src/routes/_protected/_modules/unit/$unitId/payments.tsx"
+        # O teste do redirect abre a URL antiga de propósito.
+        - "apps/sisub/e2e/tests/procurement-terminology.spec.ts"
+    patterns:
+      - pattern-regex: /(?:suprimentos|weekly-plans|liquidations|payments)(?=[/"'`?#)]|$)
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+
+  - id: ubiquitous-language-lot1-label
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Rótulo descartado pelo glossário do sisub. Use "Cardápio(s) Semanal(is)" (não "Plano(s)
+      Semanal(is)"), "Cardápios de Apoio" (não "Apoios"), "Inventário Físico" (não "Contagem
+      Física"), "Pesquisa de preços" (no plural, IN SEGES/ME 65/2021), "ARP (preço registrado)" (não
+      "ATA (preço homologado)": só a ARP é ata, Lei 14.133, art. 6º, XLVI), "Fiscal de rancho" para
+      o módulo de presença (nunca "Fiscal" sozinho: fiscal é o do contrato, art. 117) e "quem tem
+      Gestão Unidade" no lugar de "chefe do rancho".
+    paths:
+      include:
+        - "apps/sisub/src/**/*.ts"
+        - "apps/sisub/src/**/*.tsx"
+        - "apps/sisub/e2e/**/*.ts"
+        - "packages/sisub-domain/src/**/*.ts"
+        - "apps/sisub-mcp/src/**/*.ts"
+      exclude:
+        - "**/routeTree.gen.ts"
+    patterns:
+      - pattern-regex: (?:Planos? Semana(?:l|is)|["'>`]\s*Apoios\s*["'<`]|Contagem Física|ATA \(preço homologado\)|Pesquisa de [Pp]reço\b(?!s)|Fiscal de Rancho|chefe do rancho|(?:messhall|name):\s*"Fiscal")
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$

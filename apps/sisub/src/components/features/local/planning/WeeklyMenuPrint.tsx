@@ -97,7 +97,7 @@ type PrintHeader = {
 
 /**
  * Nome da OM/organização impresso no topo. Antes era hardcoded como EEAR; hoje
- * vem dinâmico do escopo (unidade da cozinha, ou SDAB no plano modelo global).
+ * vem dinâmico do escopo (unidade da cozinha, ou SDAB no cardápio semanal modelo global).
  */
 const GLOBAL_ORGANIZATION = "SUBDIRETORIA DE ADMINISTRAÇÃO DA AERONÁUTICA"
 /** Valor hardcoded legado; migrado p/ o nome dinâmico quando reencontrado no localStorage. */
@@ -154,7 +154,7 @@ function itemRecipeName(item: MenuTemplateWithItems["items"][number]): string {
 /**
  * Escopo de origem do modelo — define de onde vêm os meal types, a chave de
  * persistência do cabeçalho e os destinos de navegação (voltar + ?week=).
- * `kitchen` = cozinha local; `global` = plano modelo da SDAB (kitchen_id null).
+ * `kitchen` = cozinha local; `global` = cardápio semanal modelo da SDAB (kitchen_id null).
  */
 export type PrintScope = { kind: "kitchen"; kitchenId: number; kitchenIdStr: string } | { kind: "global" }
 
@@ -260,7 +260,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 				replace: true,
 			})
 		} else {
-			void navigate({ to: "/global/weekly-plans/print/$planId", params: { planId: templateId }, search, replace: true })
+			void navigate({ to: "/global/weekly-menus/print/$weeklyMenuId", params: { weeklyMenuId: templateId }, search, replace: true })
 		}
 	}
 
@@ -289,7 +289,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	if (!template) {
 		return (
 			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				<p className="text-subheading">{scope.kind === "kitchen" ? "Cardápio semanal não encontrado." : "Plano semanal não encontrado."}</p>
+				<p className="text-subheading">{scope.kind === "kitchen" ? "Cardápio semanal não encontrado." : "Cardápio semanal não encontrado."}</p>
 				{scope.kind === "kitchen" ? (
 					<Link
 						to="/kitchen/$kitchenId/weekly-menus"
@@ -299,7 +299,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 						← Voltar para listagem
 					</Link>
 				) : (
-					<Link to="/global/weekly-plans" className="text-sm text-primary mt-2 flex items-center justify-center hover:underline">
+					<Link to="/global/weekly-menus" className="text-sm text-primary mt-2 flex items-center justify-center hover:underline">
 						← Voltar para listagem
 					</Link>
 				)}
@@ -481,7 +481,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 								Voltar ao editor
 							</Link>
 						) : (
-							<Link to="/global/weekly-plans/$planId" params={{ planId: templateId }}>
+							<Link to="/global/weekly-menus/$weeklyMenuId" params={{ weeklyMenuId: templateId }}>
 								<ArrowLeft className="size-4 mr-2" />
 								Voltar ao editor
 							</Link>

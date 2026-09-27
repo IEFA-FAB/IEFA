@@ -56,7 +56,7 @@ function AcquisitionsPage() {
 			{isLoading ? (
 				<div className="h-48 animate-pulse rounded-md border bg-muted" aria-hidden="true" />
 			) : isError || !overview ? (
-				<p className="text-body text-destructive">Não foi possível carregar as contratações{error instanceof Error ? `: ${error.message}` : "."}</p>
+				<p className="text-body text-destructive">Não foi possível carregar as contratações de origem{error instanceof Error ? `: ${error.message}` : "."}</p>
 			) : (
 				<AcquisitionsPanel unitId={unitId} overview={overview} canEdit={can("unit", 2, { type: "unit", id: unitId })} />
 			)}

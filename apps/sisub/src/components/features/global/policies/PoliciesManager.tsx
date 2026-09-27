@@ -499,7 +499,7 @@ export function PoliciesManager({ maps, scopes }: { maps: ScopeMaps; scopes: Rea
 							<Label htmlFor="new-policy-name" className="text-sm">
 								Nome
 							</Label>
-							<Input id="new-policy-name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ex.: Fiscal de Rancho" />
+							<Input id="new-policy-name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ex.: Fiscal de rancho" />
 						</div>
 						<div className="space-y-1.5">
 							<Label htmlFor="new-policy-description" className="text-sm">

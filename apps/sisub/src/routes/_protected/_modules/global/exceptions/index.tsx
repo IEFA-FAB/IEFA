@@ -4,7 +4,7 @@ import { requirePermission } from "@/auth/pbac"
 import { GlobalTemplateCatalog } from "@/components/features/global/GlobalTemplateCatalog"
 
 /**
- * GLOBAL — Apoios Modelo (SDAB)
+ * GLOBAL — Cardápios de Apoio Modelo (SDAB)
  * URL: /global/exceptions
  * Acesso: módulo "global" nível 1+ (leitura); criar, editar, remover e restaurar exigem nível 2.
  * As cozinhas veem estes modelos em /kitchen/:kitchenId/exceptions e os adaptam como cópia local.
@@ -26,13 +26,13 @@ function GlobalExceptionsPage() {
 	return (
 		<GlobalTemplateCatalog
 			templateType="exception"
-			title="Apoios Modelo"
+			title="Cardápios de Apoio Modelo"
 			description="Refeições previsíveis fora da rotina semanal — lanches de bordo e de apoio, coffee breaks, cafés de reunião — que as cozinhas adaptam para o próprio anexo quantitativo do TR."
 			icon={Sandwich}
-			nounWithArticle="o apoio"
-			newLabel="Novo Apoio"
-			emptyMessage="Nenhum apoio modelo cadastrado."
-			emptyHint="Crie um apoio para que as cozinhas possam adaptá-lo."
+			nounWithArticle="o cardápio de apoio"
+			newLabel="Novo Cardápio de Apoio"
+			emptyMessage="Nenhum cardápio de apoio modelo cadastrado."
+			emptyHint="Crie um cardápio de apoio para que as cozinhas possam adaptá-lo."
 			newLink={{ to: "/global/exceptions/new" }}
 			editorLink={(exceptionId) => ({ to: "/global/exceptions/$exceptionId", params: { exceptionId } })}
 		/>

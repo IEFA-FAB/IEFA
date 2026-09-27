@@ -98,7 +98,7 @@ export function designationMissingMessage(stage: ReceiptStage, canDesignate: boo
 	const kept = "A conferência já registrada fica como está."
 	return canDesignate
 		? `${act} Designe agora, aqui mesmo, e confirme. ${kept}`
-		: `${act} Peça a designação ao chefe do rancho (${DESIGNATION_SCREEN_LABEL}). ${kept}`
+		: `${act} Peça a designação a quem tem Gestão Unidade (${DESIGNATION_SCREEN_LABEL}). ${kept}`
 }
 
 export interface DesignationInput {

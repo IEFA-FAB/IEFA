@@ -14,7 +14,7 @@ import { fetchRecipe, listRecipeSummaries, type RecipeSummary } from "../operati
 import type { UserContext } from "../types/context.ts"
 import { runQuery } from "../utils/index.ts"
 import { clampLimit } from "./budget.ts"
-import type { AgentListIngredients, AgentListPreparations, AgentListRecipes } from "./schemas.ts"
+import type { AgentListIngredients, AgentListLegacyPreparations, AgentListRecipes } from "./schemas.ts"
 
 /**
  * A página sai por `slice` em JS, e não por `LIMIT` no SQL, de propósito: o `total` do
@@ -198,7 +198,11 @@ export async function agentGetRecipe(db: SisubDb, ctx: UserContext, input: { rec
  * As preparações herdadas do SISUBWEB moram na tabela de insumos mas não são insumos —
  * `preparations: "only"` é o escopo que o catálogo já usa para separá-las.
  */
-export async function agentListPreparations(db: SisubDb, ctx: UserContext, input: AgentListPreparations): Promise<AgentList<AgentIngredientSummary>> {
+export async function agentListLegacyPreparations(
+	db: SisubDb,
+	ctx: UserContext,
+	input: AgentListLegacyPreparations
+): Promise<AgentList<AgentIngredientSummary>> {
 	const limit = clampLimit(input.limit)
 	const rows = await listIngredients(db, ctx, { search: input.search ?? undefined, preparations: "only" })
 	return withFolderNames(db, paginate(rows.map(slimIngredient), limit))

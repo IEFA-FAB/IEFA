@@ -18,7 +18,7 @@ import { requireUnscopedPermission } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import { calculateAtaNeeds, fetchAtaDetails, fetchAtaList } from "./ata.ts"
-import { fetchKitchenDrafts, fetchPendingDraft } from "./kitchen-draft.ts"
+import { fetchDemandForecasts, fetchPendingDemandForecast } from "./demand-forecast.ts"
 import { fetchKitchenSettings } from "./kitchens.ts"
 import { resolveDisplayName } from "./places.ts"
 import { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
@@ -86,8 +86,8 @@ describe("requireUnscopedPermission — o grant de UMA cozinha não abre a FAB",
 
 describe("rascunho de ATA da cozinha", () => {
 	const READS: [string, (db: SisubDb, c: UserContext) => Promise<unknown>][] = [
-		["fetchKitchenDrafts", (db, c) => fetchKitchenDrafts(db, c, { kitchenId: KITCHEN })],
-		["fetchPendingDraft", (db, c) => fetchPendingDraft(db, c, { kitchenId: KITCHEN })],
+		["fetchDemandForecasts", (db, c) => fetchDemandForecasts(db, c, { kitchenId: KITCHEN })],
+		["fetchPendingDemandForecast", (db, c) => fetchPendingDemandForecast(db, c, { kitchenId: KITCHEN })],
 	]
 	for (const [name, run] of READS) {
 		test(`${name}: nega sessão sem a cozinha nem a OM dela`, async () => {

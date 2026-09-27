@@ -35,7 +35,7 @@ export function buildExpenseExecutionSteps(status: ExpenseExecutionStatus): Flow
 
 	// 1. Contratação de origem ─────────────────────────────────────────────────
 	const originIssues: FlowIssue[] = []
-	const acquisitionsAction = { label: "Abrir contratações", href: `${unit}/acquisitions` }
+	const acquisitionsAction = { label: "Abrir contratações de origem", href: `${unit}/acquisitions` }
 	const orphan = status.empenhosWithoutOrigin
 	if (orphan.count > 0) {
 		const sample = orphan.sample
@@ -45,15 +45,18 @@ export function buildExpenseExecutionSteps(status: ExpenseExecutionStatus): Flow
 		originIssues.push({
 			severity: "warning",
 			message: `${pluralize(orphan.count, "NE sem contratação de origem", "NEs sem contratação de origem")} (${sample}${orphan.count > 3 ? "…" : ""}): vincule a dispensa, a ARP ou o contrato que a sustenta.`,
-			action: { label: "Vincular contratação", href: `${unit}/acquisitions` },
+			action: { label: "Vincular contratação de origem", href: `${unit}/acquisitions` },
 		})
 	}
 	for (const acquisition of status.incomplete.sample.slice(0, 5)) {
-		originIssues.push({ severity: "warning", message: `${acquisition.summary}: complete a contratação.`, action: acquisitionsAction })
+		originIssues.push({ severity: "warning", message: `${acquisition.summary}: complete a contratação de origem.`, action: acquisitionsAction })
 	}
 	const moreIncomplete = status.incomplete.count - Math.min(5, status.incomplete.sample.length)
 	if (moreIncomplete > 0)
-		originIssues.push({ severity: "warning", message: `E mais ${pluralize(moreIncomplete, "contratação incompleta", "contratações incompletas")}.` })
+		originIssues.push({
+			severity: "warning",
+			message: `E mais ${pluralize(moreIncomplete, "contratação de origem incompleta", "contratações de origem incompletas")}.`,
+		})
 	if (status.dispensasWithoutValue) {
 		originIssues.push({
 			severity: "warning",
@@ -114,16 +117,16 @@ export function buildExpenseExecutionSteps(status: ExpenseExecutionStatus): Flow
 	const receivingTotal = status.kitchens.reduce((sum, kitchen) => sum + RECEIVING_PHRASES.reduce((inner, phrase) => inner + kitchen.counts[phrase.kind], 0), 0)
 
 	// 5. Liquidação ────────────────────────────────────────────────────────────
-	const liquidationIssues: FlowIssue[] = []
+	const liquidacaoIssues: FlowIssue[] = []
 	if (status.unliquidated.count > 0) {
-		liquidationIssues.push({
+		liquidacaoIssues.push({
 			severity: "warning",
 			message: `${pluralize(status.unliquidated.count, "recebimento atestado sem liquidação", "recebimentos atestados sem liquidação")}${status.unliquidated.oldestDays != null ? ` (o mais antigo há ${pluralize(status.unliquidated.oldestDays, "dia", "dias")})` : ""}.`,
-			action: { label: "Liquidar", href: `${unit}/liquidations` },
+			action: { label: "Liquidar", href: `${unit}/liquidacoes` },
 		})
 	}
 	if (status.unliquidated.divergent > 0) {
-		liquidationIssues.push({
+		liquidacaoIssues.push({
 			severity: "warning",
 			message: `${pluralize(status.unliquidated.divergent, "recebimento com valor liquidado diferente do recebido", "recebimentos com valor liquidado diferente do recebido")}.`,
 			action: { label: "Conciliar", href: `${unit}/reconciliation` },
@@ -131,7 +134,7 @@ export function buildExpenseExecutionSteps(status: ExpenseExecutionStatus): Flow
 	}
 	const deferred = status.kitchens.reduce((sum, kitchen) => sum + kitchen.counts.invoice_check_pending, 0)
 	if (deferred > 0) {
-		liquidationIssues.push({
+		liquidacaoIssues.push({
 			severity: "info",
 			message: `${pluralize(deferred, "recebimento efetivado", "recebimentos efetivados")} com a SEFAZ fora do ar: a liquidação exige a consulta recente da NF-e, que o almoxarifado registra.`,
 		})
@@ -152,7 +155,7 @@ export function buildExpenseExecutionSteps(status: ExpenseExecutionStatus): Flow
 		{
 			id: "origin",
 			title: "Contratação de origem",
-			objective: "Cada NE aponta a contratação que a sustenta — ARP, contrato, dispensa, inexigibilidade.",
+			objective: "Cada NE aponta a contratação de origem que a sustenta — ARP, contrato, dispensa, inexigibilidade.",
 			status: deriveStatusFromIssues(originIssues),
 			summary: orphan.count === 0 ? "Todas as NEs com contratação de origem" : undefined,
 			issues: originIssues,
@@ -184,13 +187,13 @@ export function buildExpenseExecutionSteps(status: ExpenseExecutionStatus): Flow
 			issues: receivingIssues,
 		},
 		{
-			id: "liquidation",
+			id: "liquidacao",
 			title: "Liquidação",
 			objective: "Toda entrega atestada vira NS, pelo valor recebido e com a NF-e consultada.",
-			status: deriveStatusFromIssues(liquidationIssues),
+			status: deriveStatusFromIssues(liquidacaoIssues),
 			summary: status.unliquidated.count === 0 ? "Nenhum recebimento atestado sem liquidação" : undefined,
-			issues: liquidationIssues,
-			action: { label: "Liquidações", href: `${unit}/liquidations` },
+			issues: liquidacaoIssues,
+			action: { label: "Liquidações", href: `${unit}/liquidacoes` },
 		},
 		{
 			id: "siafi",

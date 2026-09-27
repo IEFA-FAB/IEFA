@@ -105,35 +105,35 @@ export const TemplateSelectionSchema = z.object({
 })
 export type TemplateSelectionInput = z.infer<typeof TemplateSelectionSchema>
 
-export const FetchKitchenDraftsSchema = z.object({ kitchenId: z.number() })
-export type FetchKitchenDrafts = z.infer<typeof FetchKitchenDraftsSchema>
+export const FetchDemandForecastsSchema = z.object({ kitchenId: z.number() })
+export type FetchDemandForecasts = z.infer<typeof FetchDemandForecastsSchema>
 
-export const FetchPendingDraftSchema = z.object({ kitchenId: z.number() })
-export type FetchPendingDraft = z.infer<typeof FetchPendingDraftSchema>
+export const FetchPendingDemandForecastSchema = z.object({ kitchenId: z.number() })
+export type FetchPendingDemandForecast = z.infer<typeof FetchPendingDemandForecastSchema>
 
-export const CreateKitchenDraftSchema = z.object({
+export const CreateDemandForecastSchema = z.object({
 	kitchenId: z.number(),
 	title: z.string().min(1),
 	notes: z.string().optional(),
 	selections: z.array(TemplateSelectionSchema),
 })
-export type CreateKitchenDraft = z.infer<typeof CreateKitchenDraftSchema>
+export type CreateDemandForecast = z.infer<typeof CreateDemandForecastSchema>
 
-export const UpdateKitchenDraftSchema = z.object({
-	draftId: z.string(),
+export const UpdateDemandForecastSchema = z.object({
+	forecastId: z.string(),
 	updates: z.object({
 		title: z.string().min(1).optional(),
 		notes: z.string().optional().nullable(),
 	}),
 	selections: z.array(TemplateSelectionSchema).optional(),
 })
-export type UpdateKitchenDraft = z.infer<typeof UpdateKitchenDraftSchema>
+export type UpdateDemandForecast = z.infer<typeof UpdateDemandForecastSchema>
 
-export const SendKitchenDraftSchema = z.object({ draftId: z.string() })
-export type SendKitchenDraft = z.infer<typeof SendKitchenDraftSchema>
+export const SendDemandForecastSchema = z.object({ forecastId: z.string() })
+export type SendDemandForecast = z.infer<typeof SendDemandForecastSchema>
 
-export const DeleteKitchenDraftSchema = z.object({ draftId: z.string() })
-export type DeleteKitchenDraft = z.infer<typeof DeleteKitchenDraftSchema>
+export const DeleteDemandForecastSchema = z.object({ forecastId: z.string() })
+export type DeleteDemandForecast = z.infer<typeof DeleteDemandForecastSchema>
 
 // ─── Unit procurement dashboard ──────────────────────────────────────────────
 
@@ -337,7 +337,7 @@ export type DeleteAta = z.infer<typeof DeleteAtaSchema>
 // ─── Segmentação das contratações ──────────────────────────────────────────────
 
 const SegmentFieldsSchema = z.object({
-	name: z.string().trim().min(1, "Informe o nome da contratação").max(120),
+	name: z.string().trim().min(1, "Informe o nome da contratação planejada").max(120),
 	description: z.string().max(2000).nullable().optional(),
 	plannedMonth: z.number().int().min(1).max(12).nullable().optional(),
 	leadTimeMonths: z.number().int().min(0).max(12).optional(),

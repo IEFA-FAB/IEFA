@@ -185,7 +185,7 @@ export function CreateAcquisitionDialog({ unitId, onClose, onCreated }: { unitId
 						<Field>
 							<FieldLabel htmlFor="acq-justification">Justificativa do somatório acima do limite</FieldLabel>
 							<Textarea id="acq-justification" rows={2} value={justification} onChange={(e) => setJustification(e.target.value)} />
-							<FieldDescription>Pode ficar para depois: a contratação é registrada e fica com a pendência.</FieldDescription>
+							<FieldDescription>Pode ficar para depois: a contratação de origem é registrada e fica com a pendência.</FieldDescription>
 						</Field>
 					)}
 
@@ -230,7 +230,7 @@ export function CreateAcquisitionDialog({ unitId, onClose, onCreated }: { unitId
 						Cancelar
 					</Button>
 					<Button onClick={submit} disabled={create.isPending || cnpjInvalid || validityInvalid}>
-						{create.isPending ? "Registrando…" : "Registrar contratação"}
+						{create.isPending ? "Registrando…" : "Registrar contratação de origem"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

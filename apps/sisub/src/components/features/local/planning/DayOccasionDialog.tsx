@@ -58,7 +58,7 @@ export function DayOccasionDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>{isReplace ? "Trocar o cardápio do dia" : "Aplicar evento ou apoio"}</DialogTitle>
+					<DialogTitle>{isReplace ? "Trocar o cardápio do dia" : "Aplicar evento ou cardápio de apoio"}</DialogTitle>
 					<DialogDescription className="capitalize">{dateLabel}</DialogDescription>
 				</DialogHeader>
 
@@ -74,7 +74,7 @@ export function DayOccasionDialog({
 				) : null}
 
 				<Field>
-					<FieldLabel htmlFor="day-occasion">{isReplace ? "Cardápio de contingência" : "Evento ou apoio"}</FieldLabel>
+					<FieldLabel htmlFor="day-occasion">{isReplace ? "Cardápio de contingência" : "Evento ou cardápio de apoio"}</FieldLabel>
 					<Select value={templateId} onValueChange={(value) => setTemplateId(value ?? "")}>
 						<SelectTrigger id="day-occasion">
 							<SelectValue>{selected?.name ?? "Escolha…"}</SelectValue>
@@ -93,7 +93,7 @@ export function DayOccasionDialog({
 							)}
 							{apoios.length > 0 && (
 								<SelectGroup>
-									<SelectLabel>Apoios</SelectLabel>
+									<SelectLabel>Cardápios de Apoio</SelectLabel>
 									{apoios.map((t) => (
 										<SelectItem key={t.id} value={t.id}>
 											{t.name}
@@ -106,10 +106,10 @@ export function DayOccasionDialog({
 					</Select>
 					<FieldDescription>
 						{isReplace
-							? "Tenha um apoio de contingência pronto (refeição fria, sem cocção) para escolher aqui na hora."
+							? "Tenha um cardápio de apoio de contingência pronto (refeição fria, sem cocção) para escolher aqui na hora."
 							: "Soma ao que o dia já tem, sem apagar a rotina. Aplicar de novo o mesmo cardápio não duplica."}
 					</FieldDescription>
-					{occasions.length === 0 && <p className="text-sm text-muted-foreground">Nenhum evento ou apoio cadastrado para esta cozinha.</p>}
+					{occasions.length === 0 && <p className="text-sm text-muted-foreground">Nenhum evento ou cardápio de apoio cadastrado para esta cozinha.</p>}
 				</Field>
 
 				<DialogFooter>

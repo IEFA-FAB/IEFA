@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
@@ -21,7 +21,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
 	{ to: "/messhall/", label: "Presenças" },
 	{ to: "/kitchen/recipes", label: "Preparações" },
 	{ to: "/storage/dashboard", label: "Painel" },
-	{ to: "/global/weekly-plans", label: "Planos Semanais" },
+	{ to: "/global/weekly-menus", label: "Cardápios Semanais" },
 ]
 
 /**
@@ -36,6 +36,9 @@ function collectRoutePaths(dir: string, prefix = ""): string[] {
 			continue
 		}
 		if (!entry.name.endsWith(".tsx")) continue
+		// Rota só de redirect (caminho antigo mantido por um ciclo) não renderiza trilha.
+		const source = readFileSync(join(dir, entry.name), "utf8")
+		if (source.includes("throw redirect(") && !source.includes("component:")) continue
 		const base = entry.name.replace(/\.tsx$/, "")
 		// "route" e "index" não acrescentam segmento; "print.$planId" vira "print/$planId"
 		if (base === "route" || base === "index") {
@@ -98,7 +101,7 @@ describe("buildCrumbs", () => {
 	it("mantém o nome do módulo quando a sidebar aponta para a rota index", () => {
 		// "/messhall/" é a URL do item "Presenças"; não pode virar o rótulo do módulo
 		const crumbs = buildCrumbs("/messhall/7", ALL_NAV_ITEMS, SCOPE)
-		expect(crumbs.map((c) => c.label)).toEqual(["Fiscal", "GAP-AF"])
+		expect(crumbs.map((c) => c.label)).toEqual(["Fiscal de rancho", "GAP-AF"])
 	})
 
 	it("usa o nome do escopo no id do módulo e o recurso pai nos demais ids", () => {
@@ -107,12 +110,12 @@ describe("buildCrumbs", () => {
 	})
 
 	it("atravessa segmentos sem recurso próprio ao rotular um id", () => {
-		const crumbs = buildCrumbs(`/global/weekly-plans/print/${FAKE_UUID}`, ALL_NAV_ITEMS, SCOPE)
-		expect(crumbs.map((c) => c.label)).toEqual(["Catálogo Global", "Planos Semanais", "Imprimir", "Plano Semanal"])
+		const crumbs = buildCrumbs(`/global/weekly-menus/print/${FAKE_UUID}`, ALL_NAV_ITEMS, SCOPE)
+		expect(crumbs.map((c) => c.label)).toEqual(["Catálogo Global", "Cardápios Semanais", "Imprimir", "Cardápio Semanal"])
 	})
 
 	it("rotula 'new' pelo recurso pai", () => {
-		expect(buildCrumbs("/kitchen/7/exceptions/new", ALL_NAV_ITEMS, SCOPE).at(-1)?.label).toBe("Novo Apoio")
+		expect(buildCrumbs("/kitchen/7/exceptions/new", ALL_NAV_ITEMS, SCOPE).at(-1)?.label).toBe("Novo Cardápio de Apoio")
 	})
 
 	it("resolve o escopo do estoque pelo nome da cozinha", () => {
@@ -138,7 +141,7 @@ const MODULES: CrumbModule[] = [
 		],
 	},
 	{ id: "kitchen", name: "Gestão Cozinha", hubUrl: "/kitchen", items: [{ title: "Cardápios Semanais", url: "/kitchen/weekly-menus" }] },
-	{ id: "messhall", name: "Fiscal", hubUrl: "/messhall", items: [{ title: "Presenças", url: "/messhall/" }] },
+	{ id: "messhall", name: "Fiscal de rancho", hubUrl: "/messhall", items: [{ title: "Presenças", url: "/messhall/" }] },
 	{ id: "global", name: "Catálogo Global", items: [{ title: "Insumos", url: "/global/ingredients" }] },
 	{ id: "local-analytics", name: "Análises da Unidade", hubUrl: "/local-analytics", items: [{ title: "Painel", url: "/local-analytics/dashboard" }] },
 	{ id: "kitchen-production", name: "Produção Cozinha", hubUrl: "/kitchen-production", items: [{ title: "Painel", url: "/kitchen-production/" }] },
@@ -173,18 +176,18 @@ describe("linkCrumbs", () => {
 	})
 
 	it("não linka segmento que não é rota (`print` antes do id)", () => {
-		const crumbs = trail(`/global/weekly-plans/print/${FAKE_UUID}`)
+		const crumbs = trail(`/global/weekly-menus/print/${FAKE_UUID}`)
 		expect(crumbs.map((c) => [c.label, c.to])).toEqual([
 			["Catálogo Global", "/global/ingredients"],
-			["Planos Semanais", "/global/weekly-plans"],
+			["Cardápios Semanais", "/global/weekly-menus"],
 			["Imprimir", null],
-			["Plano Semanal", null],
+			["Cardápio Semanal", null],
 		])
 	})
 
 	it("acrescenta o item index na rota index do escopo", () => {
 		expect(trail("/messhall/7").map((c) => [c.label, c.to])).toEqual([
-			["Fiscal", "/messhall"],
+			["Fiscal de rancho", "/messhall"],
 			["GAP-AF", null],
 			["Presenças", null],
 		])

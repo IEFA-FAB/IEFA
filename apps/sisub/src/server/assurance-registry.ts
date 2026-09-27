@@ -331,12 +331,12 @@ export const ASSURANCE_REGISTRY = {
 	addProcurementSegmentRuleFn: { require: "none" },
 	removeProcurementSegmentRuleFn: { require: "none" },
 
-	// ── kitchen-draft.fn.ts
-	recordKitchenDraftImportFn: { require: "none" },
-	createKitchenDraftFn: { require: "none" },
-	updateKitchenDraftFn: { require: "none" },
-	sendKitchenDraftFn: { require: "none" },
-	deleteKitchenDraftFn: { require: "none" },
+	// ── demand-forecast.fn.ts
+	recordDemandForecastImportFn: { require: "none" },
+	createDemandForecastFn: { require: "none" },
+	updateDemandForecastFn: { require: "none" },
+	sendDemandForecastFn: { require: "none" },
+	deleteDemandForecastFn: { require: "none" },
 
 	// ── kitchen-settings.fn.ts
 	updateKitchenSettingsFn: { require: "none" },
@@ -344,7 +344,7 @@ export const ASSURANCE_REGISTRY = {
 	// ── legal.fn.ts
 	acknowledgeLegalDocumentsFn: { require: "none" },
 
-	// ── liquidation.fn.ts
+	// ── liquidacao.fn.ts
 	createLiquidacaoFn: {
 		require: "session",
 		reason: "Esta operação registra uma liquidação.",
@@ -356,7 +356,7 @@ export const ASSURANCE_REGISTRY = {
 		reason: "Esta operação registra uma retenção na liquidação, e o pagamento passa a ser pelo líquido.",
 		authorization: [{ kind: "permission", module: "unit", level: 2 }],
 	},
-	registerDeductionPaymentFn: {
+	registerDeductionRemittanceFn: {
 		require: "session",
 		reason: "Esta operação registra o recolhimento de uma retenção (DARF, DAR ou GPS).",
 		authorization: [{ kind: "permission", module: "unit", level: 2 }],
@@ -754,9 +754,20 @@ export const ASSURANCE_REGISTRY = {
 /** Nome de toda server function de mutação classificada. */
 export type AssuranceOperationName = keyof typeof ASSURANCE_REGISTRY
 
+/**
+ * Nome antigo → nome atual das operações renomeadas. O registro de auditoria guarda o nome com
+ * que a linha foi gravada; sem isto, as linhas antigas perderiam a frase do registro na tela.
+ * Só leitura: nenhum código grava com o nome antigo.
+ */
+const RENAMED_OPERATIONS: Readonly<Record<string, AssuranceOperationName>> = {
+	// O recolhimento da retenção (DARF/DAR/GPS) não é o pagamento da despesa (OB).
+	registerDeductionPaymentFn: "registerDeductionRemittanceFn",
+}
+
 /** Entrada do registro, ou `undefined` se a operação não estiver classificada. */
 export function assuranceFor(operation: string): AssuranceEntry | undefined {
-	return (ASSURANCE_REGISTRY as Record<string, AssuranceEntry>)[operation]
+	const registry = ASSURANCE_REGISTRY as Record<string, AssuranceEntry>
+	return registry[operation] ?? registry[RENAMED_OPERATIONS[operation] ?? ""]
 }
 
 /** Operações com exigência de garantia (`session` ou `fresh`), com o nome de cada uma. */

@@ -13,7 +13,7 @@ function PlanningPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title="Agendamento da Produção"
-				description="O que a cozinha produz em cada dia: cardápios semanais, eventos e apoios aplicados ao calendário — e os ajustes do dia a dia."
+				description="O que a cozinha produz em cada dia: cardápios semanais, eventos e cardápios de apoio aplicados ao calendário — e os ajustes do dia a dia."
 			/>
 
 			<PlanningBoard />

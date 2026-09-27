@@ -116,7 +116,7 @@ export function AcquisitionCard({ unitId, acquisition, canEdit }: { unitId: numb
 								variant="ghost"
 								size="sm"
 								onClick={() => {
-									if (window.confirm(`Remover a contratação "${a.kindLabel}${a.object ? ` — ${a.object}` : ""}"?`)) remove.mutate(a.id)
+									if (window.confirm(`Remover a contratação de origem "${a.kindLabel}${a.object ? ` — ${a.object}` : ""}"?`)) remove.mutate(a.id)
 								}}
 							>
 								<Trash2 className="size-4" aria-hidden="true" />
@@ -307,7 +307,7 @@ export function AcquisitionCard({ unitId, acquisition, canEdit }: { unitId: numb
 						)}
 					</div>
 					{a.empenhos.length === 0 ? (
-						<p className="text-caption text-muted-foreground">Nenhuma NE nesta contratação.</p>
+						<p className="text-caption text-muted-foreground">Nenhuma NE nesta contratação de origem.</p>
 					) : (
 						<ItemGroup>
 							{a.empenhos.map((empenho) => (

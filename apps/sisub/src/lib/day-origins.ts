@@ -17,7 +17,7 @@ type ItemLike = { origin_template_id?: string | null; origin_template_type?: str
 type MenuLike = { menu_items?: readonly ItemLike[] | null }
 type TemplateLike = { id: string; name: string | null; template_type?: string | null }
 
-const TYPE_LABEL: Record<DayOriginType, string> = { weekly: "Cardápio semanal", event: "Evento", exception: "Apoio" }
+const TYPE_LABEL: Record<DayOriginType, string> = { weekly: "Cardápio semanal", event: "Evento", exception: "Cardápio de apoio" }
 const TYPE_ORDER: Record<string, number> = { weekly: 0, event: 1, exception: 2 }
 
 function asType(value: string | null | undefined): DayOriginType | null {

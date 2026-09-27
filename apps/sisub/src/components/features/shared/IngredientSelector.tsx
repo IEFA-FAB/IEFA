@@ -167,7 +167,7 @@ export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumo
 
 									// useIngredientsHierarchy nunca insere ingredient_item na árvore visível
 									// (itens de compra vivem em /global/ingredients/$ingredientId)
-									const isProduct = node.type === "ingredient"
+									const isIngredient = node.type === "ingredient"
 									const iconBg = node.type === "folder" ? "bg-warning/10 dark:bg-warning/20" : "bg-primary/10 dark:bg-primary/20"
 									const iconColor = node.type === "folder" ? "text-warning" : "text-primary"
 
@@ -176,14 +176,14 @@ export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumo
 											className={cn(
 												"flex items-center justify-center size-7 rounded-md mr-3 border border-border/30 transition-transform",
 												iconBg,
-												isProduct && "group-hover:scale-110"
+												isIngredient && "group-hover:scale-110"
 											)}
 										>
 											<span className={cn("text-base", iconColor)}>{node.type === "folder" ? "📁" : "📦"}</span>
 										</div>
 									)
 
-									const ingredient = isProduct ? (node.data as Ingredient | undefined) : undefined
+									const ingredient = isIngredient ? (node.data as Ingredient | undefined) : undefined
 									const exclusion = ingredient ? excluded?.get(ingredient.id) : undefined
 
 									return (

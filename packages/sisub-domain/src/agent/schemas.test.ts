@@ -10,12 +10,12 @@
 import { describe, expect, test } from "bun:test"
 import { toJsonSchema } from "../utils/json-schema.ts"
 import { AGENT_LIST_MAX } from "./budget.ts"
-import { AgentListIngredientsSchema, AgentListPreparationsSchema, AgentListRecipesSchema } from "./schemas.ts"
+import { AgentListIngredientsSchema, AgentListLegacyPreparationsSchema, AgentListRecipesSchema } from "./schemas.ts"
 
 const SCHEMAS = [
 	["AgentListRecipesSchema", AgentListRecipesSchema],
 	["AgentListIngredientsSchema", AgentListIngredientsSchema],
-	["AgentListPreparationsSchema", AgentListPreparationsSchema],
+	["AgentListLegacyPreparationsSchema", AgentListLegacyPreparationsSchema],
 ] as const
 
 describe("schemas de agente — o que o modelo realmente manda", () => {

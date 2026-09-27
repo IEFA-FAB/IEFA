@@ -3,7 +3,7 @@ import { deleteProcurementRows, deleteTemplate, dismissLegalNotice, seedWeeklyTe
 
 /**
  * Documentos do anexo quantitativo, pela tela (change `sisub-procurement-planning-flows`, D6/D7):
- * o chefe do rancho monta o anexo com um preço pesquisado, copia a tabela para o TR (com e sem
+ * quem tem Gestão Unidade monta o anexo com um preço pesquisado, copia a tabela para o TR (com e sem
  * orçamento sigiloso), abre a memória de cálculo e gera o relatório de pesquisa de preços como
  * emissão registrada, com a integridade conferida e a série em CSV.
  *
@@ -42,7 +42,7 @@ test.describe("Anexo quantitativo — documentos do processo", () => {
 
 		await page.locator(`label[for="template-${templateId}"]`).click()
 		await page.getByRole("button", { name: /Próximo: Eventos/ }).click()
-		await page.getByRole("button", { name: /Próximo: Apoios/ }).click()
+		await page.getByRole("button", { name: /Próximo: Cardápios de Apoio/ }).click()
 		await page.getByRole("button", { name: /Próximo: Resumo/ }).click()
 		await page.locator("#ata-title").fill(`${RUN} Anexo`)
 		await page.getByRole("button", { name: /Calcular Lista/ }).click()

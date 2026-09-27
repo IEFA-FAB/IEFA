@@ -1,34 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { z } from "zod"
-import { requirePermission } from "@/auth/pbac"
-import { WeeklyMenuPrint } from "@/components/features/local/planning/WeeklyMenuPrint"
-import { useCrumbLabel } from "@/components/layout/crumb-label"
-import { useTemplate } from "@/hooks/data/useTemplates"
 
-const printSearchSchema = z.object({
-	// Data-início (YYYY-MM-DD) para datar as colunas da semana. Opcional.
-	// Restrito ao formato ISO de data para evitar Invalid Date em parseISO.
-	week: z
-		.string()
-		.regex(/^\d{4}-\d{2}-\d{2}$/)
-		.optional(),
-})
-
-/**
- * GLOBAL — Impressão / PDF de Plano Semanal Modelo (SDAB)
- * URL: /global/weekly-plans/print/:planId
- */
+// Rota antiga da impressão do cardápio semanal modelo (glossário: `weekly-menus`). Fica um ciclo de
+// deploy só com o redirect, com a semana (`week`) encaminhada; sai no PR seguinte.
 export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/print/$planId")({
-	validateSearch: printSearchSchema,
-	beforeLoad: (opts) => requirePermission(opts, "global", 1),
-	component: GlobalPlanPrintPage,
+	validateSearch: z.object({
+		week: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/)
+			.optional(),
+	}),
+	beforeLoad: ({ params, search }) => {
+		throw redirect({ to: "/global/weekly-menus/print/$weeklyMenuId", params: { weeklyMenuId: params.planId }, search, replace: true })
+	},
 })
-
-function GlobalPlanPrintPage() {
-	const { planId } = Route.useParams()
-	const { week } = Route.useSearch()
-	const { data: template } = useTemplate(planId)
-	useCrumbLabel(template?.name)
-
-	return <WeeklyMenuPrint templateId={planId} scope={{ kind: "global" }} initialWeek={week} />
-}

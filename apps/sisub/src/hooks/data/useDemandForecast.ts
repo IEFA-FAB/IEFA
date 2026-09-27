@@ -2,22 +2,23 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
 import {
-	createKitchenDraftFn,
-	deleteKitchenDraftFn,
-	fetchKitchenDraftsFn,
-	fetchPendingDraftFn,
-	recordKitchenDraftImportFn,
-	sendKitchenDraftFn,
-	updateKitchenDraftFn,
-} from "@/server/kitchen-draft.fn"
-import type { DraftWithSelections, TemplateSelection } from "@/types/domain/ata"
+	createDemandForecastFn,
+	deleteDemandForecastFn,
+	fetchDemandForecastsFn,
+	fetchPendingDemandForecastFn,
+	recordDemandForecastImportFn,
+	sendDemandForecastFn,
+	updateDemandForecastFn,
+} from "@/server/demand-forecast.fn"
+import type { TemplateSelection } from "@/types/domain/ata"
+import type { DemandForecastWithSelections } from "@/types/domain/demand-forecast"
 
 // ─── Query Hooks ──────────────────────────────────────────────────────────────
 
-export function useKitchenDrafts(kitchenId: number | null) {
+export function useDemandForecasts(kitchenId: number | null) {
 	return useQuery({
-		queryKey: queryKeys.kitchenDraft.list(kitchenId),
-		queryFn: () => fetchKitchenDraftsFn({ data: { kitchenId: kitchenId as number } }) as Promise<DraftWithSelections[]>,
+		queryKey: queryKeys.demandForecast.list(kitchenId),
+		queryFn: () => fetchDemandForecastsFn({ data: { kitchenId: kitchenId as number } }) as Promise<DemandForecastWithSelections[]>,
 		enabled: kitchenId !== null,
 		staleTime: 5 * 60 * 1000,
 	})
@@ -27,10 +28,10 @@ export function useKitchenDrafts(kitchenId: number | null) {
  * A previsão de demanda mais recente enviada pela cozinha (enviada ou já recebida), com os
  * anexos em que a unidade já a importou. Usada no wizard do anexo.
  */
-export function usePendingDraft(kitchenId: number | null) {
+export function usePendingDemandForecast(kitchenId: number | null) {
 	return useQuery({
-		queryKey: queryKeys.kitchenDraft.pending(kitchenId),
-		queryFn: () => fetchPendingDraftFn({ data: { kitchenId: kitchenId as number } }) as Promise<DraftWithSelections | null>,
+		queryKey: queryKeys.demandForecast.pending(kitchenId),
+		queryFn: () => fetchPendingDemandForecastFn({ data: { kitchenId: kitchenId as number } }) as Promise<DemandForecastWithSelections | null>,
 		enabled: kitchenId !== null,
 		staleTime: 2 * 60 * 1000,
 	})
@@ -38,54 +39,62 @@ export function usePendingDraft(kitchenId: number | null) {
 
 // ─── Mutation Hooks ───────────────────────────────────────────────────────────
 
-export function useCreateKitchenDraft() {
+export function useCreateDemandForecast() {
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: ({ kitchenId, title, notes, selections }: { kitchenId: number; title: string; notes?: string; selections: TemplateSelection[] }) =>
-			createKitchenDraftFn({
+			createDemandForecastFn({
 				data: { kitchenId, title, notes, selections },
 			}),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.listAll() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.demandForecast.listAll() })
 			toast.success(`Previsão "${data?.title}" criada!`)
 		},
 		onError: (error) => toast.error(error.message),
 	})
 }
 
-export function useUpdateKitchenDraft() {
+export function useUpdateDemandForecast() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({ draftId, updates, selections }: { draftId: string; updates: { title?: string; notes?: string | null }; selections?: TemplateSelection[] }) =>
-			updateKitchenDraftFn({
-				data: { draftId, updates, selections },
+		mutationFn: ({
+			forecastId,
+			updates,
+			selections,
+		}: {
+			forecastId: string
+			updates: { title?: string; notes?: string | null }
+			selections?: TemplateSelection[]
+		}) =>
+			updateDemandForecastFn({
+				data: { forecastId, updates, selections },
 			}),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.all() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.demandForecast.all() })
 			toast.success(`Previsão "${data?.title}" atualizada!`)
 		},
 		onError: (error) => toast.error(error.message),
 	})
 }
 
-export function useSendKitchenDraft() {
+export function useSendDemandForecast() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (draftId: string) => sendKitchenDraftFn({ data: { draftId } }),
+		mutationFn: (forecastId: string) => sendDemandForecastFn({ data: { forecastId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.all() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.demandForecast.all() })
 			toast.success("Previsão enviada à unidade!")
 		},
 		onError: (error) => toast.error(error.message),
 	})
 }
 
-export function useDeleteKitchenDraft() {
+export function useDeleteDemandForecast() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (draftId: string) => deleteKitchenDraftFn({ data: { draftId } }),
+		mutationFn: (forecastId: string) => deleteDemandForecastFn({ data: { forecastId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.listAll() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.demandForecast.listAll() })
 			toast.success("Previsão removida.")
 		},
 		onError: (error) => toast.error(error.message),
@@ -96,13 +105,13 @@ export function useDeleteKitchenDraft() {
  * A unidade importou a previsão num anexo: registra a importação e, na primeira, a previsão passa
  * a "Recebida pela unidade" do lado da cozinha.
  */
-export function useRecordDraftImport(kitchenId: number) {
+export function useRecordDemandForecastImport(kitchenId: number) {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (data: { draftId: string; listId: string }) => recordKitchenDraftImportFn({ data }),
+		mutationFn: (data: { forecastId: string; listId: string }) => recordDemandForecastImportFn({ data }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.pending(kitchenId) })
-			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.list(kitchenId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.demandForecast.pending(kitchenId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.demandForecast.list(kitchenId) })
 		},
 		onError: (error) => toast.error(`A previsão foi importada, mas o retorno à cozinha não foi registrado: ${error.message}`),
 	})

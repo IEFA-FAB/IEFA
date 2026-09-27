@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { liquidationLinkProblems } from "./invoice-gate"
+import { liquidacaoLinkProblems } from "./invoice-gate"
 import { DEFERRAL_REASON_MIN_LENGTH, decideReceiptInvoice } from "./receipt-invoice-gate"
 
 const NOW = Date.parse("2026-09-26T15:00:00Z")
@@ -37,7 +37,7 @@ describe("decideReceiptInvoice", () => {
 
 	test("a liquidação do recebimento efetivado com a consulta pendente continua recusada", () => {
 		// O adiamento é da efetivação. A regra da liquidação não muda: sem consulta recente, não paga.
-		const problems = liquidationLinkProblems(
+		const problems = liquidacaoLinkProblems(
 			{
 				unitId: 1,
 				empenhoId: "ne",

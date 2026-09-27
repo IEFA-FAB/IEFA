@@ -4,7 +4,7 @@ import { createE2EServiceClient } from "../helpers/service"
 
 /**
  * Segmentação das contratações, pela tela (change `sisub-procurement-planning-flows`):
- * o chefe do rancho cria a contratação "Carnes", inclui a pasta Proteinas, e o anexo dessa
+ * quem tem Gestão Unidade cria a contratação planejada "Carnes", inclui a pasta Proteinas, e o anexo dessa
  * contratação leva só os itens dela — os outros aparecem como "ficaram fora".
  *
  * ESCREVE na OM e na cozinha sentinelas do treino. O cardápio de teste é montado com a chave de
@@ -46,10 +46,10 @@ test.describe("Segmentação das contratações", () => {
 		await expect(page.getByRole("heading", { name: "Segmentação das contratações" })).toBeVisible()
 		await dismissLegalNotice(page)
 
-		await page.getByRole("button", { name: "Nova contratação" }).click()
+		await page.getByRole("button", { name: "Nova contratação planejada" }).click()
 		const dialog = page.getByRole("dialog")
 		await dialog.getByLabel("Nome").fill(SEGMENT)
-		await dialog.getByRole("button", { name: "Criar contratação" }).click()
+		await dialog.getByRole("button", { name: "Criar contratação planejada" }).click()
 		await expect(dialog).toBeHidden()
 
 		const card = page.locator("[data-slot=card]", { has: page.getByText(SEGMENT, { exact: true }) })
@@ -89,7 +89,7 @@ test.describe("Segmentação das contratações", () => {
 
 		await page.locator(`label[for="template-${templateId}"]`).click()
 		await page.getByRole("button", { name: /Próximo: Eventos/ }).click()
-		await page.getByRole("button", { name: /Próximo: Apoios/ }).click()
+		await page.getByRole("button", { name: /Próximo: Cardápios de Apoio/ }).click()
 		await page.getByRole("button", { name: /Próximo: Resumo/ }).click()
 		await page.getByRole("button", { name: /Calcular Lista/ }).click()
 

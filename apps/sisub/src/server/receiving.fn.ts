@@ -1785,7 +1785,7 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 			empenhoId: (receipt.empenho_id as string | null) ?? null,
 		}
 
-		const [provisional, definitive, note, order, empenho, liquidations] = await Promise.all([
+		const [provisional, definitive, note, order, empenho, liquidacoes] = await Promise.all([
 			findDesignation(scope, ctx.userId, "provisional"),
 			findDesignation(scope, ctx.userId, "definitive"),
 			receipt.nfe_document_id
@@ -1803,7 +1803,7 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 				: Promise.resolve({ data: null, error: null }),
 			finance().from("liquidacao").select("id", { count: "exact", head: true }).eq("goods_receipt_id", data.receiptId),
 		])
-		for (const result of [note, order, empenho, liquidations]) {
+		for (const result of [note, order, empenho, liquidacoes]) {
 			if (result.error) throw new Error(`Erro ao carregar os documentos do recebimento: ${result.error.message}`)
 		}
 		if (receipt.nfe_document_id && !note.data) throw new Error("A NF-e deste recebimento não foi encontrada")
@@ -1833,6 +1833,6 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 					}
 				: null,
 			empenho: empenho.data ? { label: `${empenho.data.numero_empenho}${empenho.data.favorecido_nome ? ` · ${empenho.data.favorecido_nome}` : ""}` } : null,
-			liquidated: (liquidations.count ?? 0) > 0,
+			liquidated: (liquidacoes.count ?? 0) > 0,
 		}
 	})

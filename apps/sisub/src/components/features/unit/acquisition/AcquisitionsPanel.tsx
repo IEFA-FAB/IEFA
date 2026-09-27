@@ -56,7 +56,7 @@ export function AcquisitionsPanel({ unitId, overview, canEdit }: { unitId: numbe
 						</Button>
 						<Button size="sm" onClick={() => setCreating(true)}>
 							<Plus className="size-4" aria-hidden="true" />
-							Nova contratação
+							Nova contratação de origem
 						</Button>
 					</div>
 				)}
@@ -83,7 +83,7 @@ export function AcquisitionsPanel({ unitId, overview, canEdit }: { unitId: numbe
 					<CardHeader>
 						<CardTitle>NE sem contratação de origem</CardTitle>
 						<CardDescription>
-							Importadas do SIAFI ou registradas às pressas. Continuam valendo na OF e na liquidação; vincule cada uma à contratação que a sustenta.
+							Importadas do SIAFI ou registradas às pressas. Continuam valendo na OF e na liquidação; vincule cada uma à contratação de origem que a sustenta.
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
@@ -106,10 +106,10 @@ export function AcquisitionsPanel({ unitId, overview, canEdit }: { unitId: numbe
 												value={null}
 												onValueChange={(acquisitionId) => acquisitionId && linkEmpenho.mutate({ empenhoId: empenho.id, acquisitionId })}
 												options={acquisitionOptions}
-												placeholder="Vincular à contratação…"
-												searchPlaceholder="Buscar contratação"
-												emptyLabel="Nenhuma contratação: registre uma acima"
-												aria-label={`Vincular ${empenho.numeroEmpenho} à contratação`}
+												placeholder="Vincular à contratação de origem…"
+												searchPlaceholder="Buscar contratação de origem"
+												emptyLabel="Nenhuma contratação de origem: registre uma acima"
+												aria-label={`Vincular ${empenho.numeroEmpenho} à contratação de origem`}
 											/>
 										</ItemActions>
 									)}
@@ -126,7 +126,7 @@ export function AcquisitionsPanel({ unitId, overview, canEdit }: { unitId: numbe
 						<div>
 							<CardTitle>ARPs sem contratação de origem</CardTitle>
 							<CardDescription>
-								Atas importadas pelo anexo quantitativo ou antes desta tela. Ligue cada uma à contratação de registro de preços que ela formaliza.
+								Atas importadas pelo anexo quantitativo ou antes desta tela. Ligue cada uma à contratação de origem (registro de preços) que ela formaliza.
 							</CardDescription>
 						</div>
 						{canEdit && (
@@ -161,7 +161,7 @@ export function AcquisitionsPanel({ unitId, overview, canEdit }: { unitId: numbe
 												onValueChange={(acquisitionId) => acquisitionId && linkArp.mutate({ arpId: arp.id, acquisitionId })}
 												options={srpOptions}
 												placeholder="Vincular ao registro de preços…"
-												searchPlaceholder="Buscar contratação"
+												searchPlaceholder="Buscar contratação de origem"
 												emptyLabel="Nenhum registro de preços: registre um acima"
 												aria-label={`Vincular a ARP ${arp.numeroAta}`}
 											/>

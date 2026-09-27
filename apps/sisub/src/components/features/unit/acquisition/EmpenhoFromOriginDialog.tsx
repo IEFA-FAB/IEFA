@@ -165,7 +165,7 @@ export function EmpenhoFromOriginDialog({ unitId, origin, onClose }: { unitId: n
 						<Field data-invalid={cnpjInvalid || undefined}>
 							<FieldLabel htmlFor="ne-cnpj">CNPJ do favorecido</FieldLabel>
 							<Input id="ne-cnpj" inputMode="numeric" value={cnpj} onChange={(e) => setCnpj(e.target.value)} aria-invalid={cnpjInvalid || undefined} />
-							<FieldDescription>Vazio: usa o fornecedor da contratação ou dos itens da ata.</FieldDescription>
+							<FieldDescription>Vazio: usa o fornecedor da contratação de origem ou dos itens da ata.</FieldDescription>
 						</Field>
 						<Field>
 							<FieldLabel htmlFor="ne-favorecido">Favorecido</FieldLabel>
@@ -201,7 +201,7 @@ export function EmpenhoFromOriginDialog({ unitId, origin, onClose }: { unitId: n
 							</ToggleGroupItem>
 						</ToggleGroup>
 						{!hasArps && !arpsQuery.isLoading && (
-							<FieldDescription>Sem ARP nesta contratação: importe ou cadastre a ARP para empenhar pelos itens da ata.</FieldDescription>
+							<FieldDescription>Sem ARP nesta contratação de origem: importe ou cadastre a ARP para empenhar pelos itens da ata.</FieldDescription>
 						)}
 						{arpsQuery.isError && <FieldDescription>Não foi possível ler as ARPs.</FieldDescription>}
 					</Field>

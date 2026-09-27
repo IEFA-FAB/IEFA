@@ -34,7 +34,7 @@ export function invoiceSituationProblem(invoice: InvoiceSituation, now: number =
 	return null
 }
 
-export interface ReceiptForLiquidation {
+export interface ReceiptForLiquidacao {
 	/** Unidade COMPRADORA da cozinha do recebimento. */
 	unitId: number | null
 	/**
@@ -49,10 +49,10 @@ export interface ReceiptForLiquidation {
 	fiscalPending: boolean
 }
 
-export interface LiquidationLinkInput {
+export interface LiquidacaoLinkInput {
 	unitId: number
 	empenhoId: string
-	receipt: ReceiptForLiquidation | null
+	receipt: ReceiptForLiquidacao | null
 	/** NF-e informada na requisição, além da do recebimento. */
 	requestedNfeId: string | null
 	invoice: (InvoiceSituation & { unitId: number | null }) | null
@@ -66,7 +66,7 @@ export interface LiquidationLinkInput {
  * vez do instante da efetivação; e a mesma entrega liquidada duas vezes por
  * empenhos diferentes.
  */
-export function liquidationLinkProblems(input: LiquidationLinkInput, now: number = Date.now()): string[] {
+export function liquidacaoLinkProblems(input: LiquidacaoLinkInput, now: number = Date.now()): string[] {
 	const problems: string[] = []
 	const { receipt, invoice } = input
 

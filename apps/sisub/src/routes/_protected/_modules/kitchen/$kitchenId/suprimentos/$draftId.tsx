@@ -1,103 +1,13 @@
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
-import { requirePermission } from "@/auth/pbac"
-import { DraftEditor } from "@/components/features/local/kitchen-draft/DraftEditor"
-import { useCrumbLabel } from "@/components/layout/crumb-label"
-import { PageHeader } from "@/components/layout/PageHeader"
-import { useKitchenDrafts, useSendKitchenDraft, useUpdateKitchenDraft } from "@/hooks/data/useKitchenDraft"
-import { useMenuTemplates } from "@/hooks/data/useTemplates"
-import type { TemplateSelection } from "@/types/domain/ata"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
+// Rota antiga da previsão de demanda (glossário: `demand-forecasts/$forecastId`). Fica um ciclo
+// de deploy só com o redirect, para não quebrar favorito nem link salvo; sai no PR seguinte.
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/suprimentos/$draftId")({
-	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
-	component: EditDraftPage,
+	beforeLoad: ({ params }) => {
+		throw redirect({
+			to: "/kitchen/$kitchenId/demand-forecasts/$forecastId",
+			params: { kitchenId: params.kitchenId, forecastId: params.draftId },
+			replace: true,
+		})
+	},
 })
-
-function EditDraftPage() {
-	const { kitchenId: kitchenIdStr, draftId } = useParams({ strict: false })
-	const kitchenId = Number(kitchenIdStr)
-	const navigate = useNavigate()
-
-	const { data: drafts, isLoading: isLoadingDraft, isFetching: isFetchingDrafts } = useKitchenDrafts(kitchenId)
-	const draft = drafts?.find((d) => d.id === draftId)
-	useCrumbLabel(draft?.title)
-	// Chegar aqui vindo de /suprimentos/new significa cair sobre a listagem em cache, que
-	// ainda é a de antes da criação: o rascunho existe, mas não está nela. Sem esperar o
-	// refetch, a tela diria "não encontrado" no instante seguinte ao toast que confirmou a
-	// criação. "Não encontrado" só é verdade com a busca parada.
-	const draftPending = isLoadingDraft || (!draft && isFetchingDrafts)
-
-	const { data: templates, isLoading: isLoadingTemplates } = useMenuTemplates(kitchenId)
-	const { mutate: updateDraft, isPending: isSaving } = useUpdateKitchenDraft()
-	const { mutate: sendDraft, isPending: isSending } = useSendKitchenDraft()
-
-	const localTemplates = templates?.filter((t) => t.kitchen_id !== null) || []
-	const weeklyTemplates = localTemplates.filter((t) => (t as typeof t & { template_type?: string }).template_type === "weekly")
-	// "Eventos / Refeições Especiais" agrupa eventos + exceções previsíveis.
-	const eventTemplates = localTemplates.filter((t) => {
-		const type = (t as typeof t & { template_type?: string }).template_type
-		return type === "event" || type === "exception"
-	})
-
-	if (draftPending) {
-		return (
-			<div className="space-y-6">
-				<div className="h-16 animate-pulse rounded bg-muted" aria-hidden="true" />
-				<div className="h-48 animate-pulse rounded bg-muted" aria-hidden="true" />
-			</div>
-		)
-	}
-
-	if (!draft) {
-		return (
-			<div className="py-12 text-center">
-				<p className="text-muted-foreground">Previsão não encontrada.</p>
-			</div>
-		)
-	}
-
-	const initialSelections: TemplateSelection[] = draft.selections.map((s) => ({
-		templateId: s.template.id,
-		templateName: s.template.name || "",
-		repetitions: s.repetitions,
-	}))
-
-	// Salvar mantém o rascunho aberto — ele segue rascunho depois do save, então tirar o
-	// usuário da tela obrigava a reabrir para o ajuste seguinte. Quem encerra o fluxo é
-	// "Enviar" (abaixo), que aí sim volta para a listagem.
-	const handleSave = (title: string, notes: string, selections: TemplateSelection[]) => {
-		updateDraft({ draftId: draft.id, updates: { title, notes: notes || null }, selections })
-	}
-
-	const handleSend = (title: string, notes: string, selections: TemplateSelection[]) => {
-		updateDraft(
-			{ draftId: draft.id, updates: { title, notes: notes || null }, selections },
-			{
-				onSuccess: () => {
-					sendDraft(draft.id, {
-						onSuccess: () => {
-							navigate({ to: "/kitchen/$kitchenId/suprimentos", params: { kitchenId: kitchenIdStr as string } })
-						},
-					})
-				},
-			}
-		)
-	}
-
-	return (
-		<div className="space-y-6">
-			<PageHeader title="Editar previsão" description={`Editando: ${draft.title}`} />
-			<DraftEditor
-				initialTitle={draft.title}
-				initialNotes={draft.notes || ""}
-				initialSelections={initialSelections}
-				weeklyTemplates={weeklyTemplates}
-				eventTemplates={eventTemplates}
-				isLoadingTemplates={isLoadingTemplates}
-				isSaving={isSaving}
-				isSending={isSending}
-				onSave={handleSave}
-				onSend={draft.status === "pending" ? handleSend : undefined}
-			/>
-		</div>
-	)
-}

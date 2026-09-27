@@ -36,11 +36,11 @@ export const AgentListIngredientsSchema = z.object({
 })
 export type AgentListIngredients = z.infer<typeof AgentListIngredientsSchema>
 
-export const AgentListPreparationsSchema = z.object({
+export const AgentListLegacyPreparationsSchema = z.object({
 	search: z.string().max(200).nullish().describe("Busca parcial na descrição, sem distinguir caixa"),
 	limit: LimitSchema,
 })
-export type AgentListPreparations = z.infer<typeof AgentListPreparationsSchema>
+export type AgentListLegacyPreparations = z.infer<typeof AgentListLegacyPreparationsSchema>
 
 // ── Equipamento ───────────────────────────────────────────────────────────
 
