@@ -46,8 +46,8 @@ Responda SEMPRE em português do Brasil. Seja direto e objetivo.
 ### procurement_arp_item
 - id, quantidade_homologada, quantidade_empenhada, saldo_empenho, valor_unitario
 
-### empenho (nota de empenho: o documento; os itens não estão liberados aqui)
-- id, unit_id → units.id, numero_empenho, data_empenho, valor_total, status (ativo|anulado), tipo (ordinario|estimativo|global)
+### empenho
+- id, arp_item_id, data_empenho, quantidade_empenhada, valor_unitario
 
 ### ingredient
 - id, description, measure_unit

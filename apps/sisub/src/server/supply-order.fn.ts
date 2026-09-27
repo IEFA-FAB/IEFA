@@ -123,7 +123,8 @@ function supplierCnpjFromRows(favorecidoCnpj: string | null, arpSupplierCnpjs: R
 
 /** CNPJ do fornecedor para o SICAF: o favorecido da NE; sem ele, o fornecedor único dos itens de ARP. */
 async function supplierCnpjFor(favorecidoCnpj: string | null, arpItemIds: readonly string[]): Promise<string | null> {
-	if (favorecidoCnpj?.replace(/\D/g, "").length === 14 || arpItemIds.length === 0) return supplierCnpjFromRows(favorecidoCnpj, [])
+	// A regra de quem vence (favorecido × fornecedor da ARP) fica só em `supplierCnpjFromRows`.
+	if (arpItemIds.length === 0) return supplierCnpjFromRows(favorecidoCnpj, [])
 	const { data, error } = await procurement()
 		.from("procurement_arp_item")
 		.select("ni_fornecedor")

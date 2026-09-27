@@ -78,4 +78,7 @@ export interface CreateEmpenhoPayload {
 	quantity: number
 	unitPrice: number
 	notaLancamento?: string
+	nd?: string | null
+	ptres?: string | null
+	fonte?: string | null
 }

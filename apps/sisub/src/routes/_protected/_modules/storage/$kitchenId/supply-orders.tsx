@@ -38,10 +38,10 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 /** O que a NE empenhou, pelos itens: a quantidade do item único, ou o número de itens e o valor. */
-function describeEmpenhado(items: readonly EmpenhoItemOption[], valorTotal: number): string {
+function describeCommitted(items: readonly EmpenhoItemOption[], totalValue: number): string {
 	const [only] = items
 	if (items.length === 1 && only?.quantity != null) return `${NUM.format(only.quantity)} ${only.unit ?? ""} empenhado`.replace(/\s+/g, " ")
-	return `${items.length === 1 ? "1 item" : `${items.length} itens`} · ${BRL.format(valorTotal)}`
+	return `${items.length === 1 ? "1 item" : `${items.length} itens`} · ${BRL.format(totalValue)}`
 }
 
 /** Item da NE como `listEmpenhosForKitchenFn` devolve: a OF se monta a partir dele. */
@@ -199,7 +199,7 @@ function SupplyOrdersPage() {
 										className={`w-full text-left text-xs px-2 py-1 rounded ${empenhoId === emp.id ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
 									>
 										<span className="font-mono">{emp.numero_empenho}</span>
-										<span className="text-muted-foreground ml-2">{describeEmpenhado(emp.items, Number(emp.valor_total))}</span>
+										<span className="text-muted-foreground ml-2">{describeCommitted(emp.items, Number(emp.valor_total))}</span>
 									</button>
 								))}
 							</div>

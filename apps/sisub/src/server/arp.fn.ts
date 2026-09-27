@@ -9,11 +9,9 @@
  * @migration 20260926214000_acquisition_origin
  */
 
-import type { Empenho, ProcurementArpItem } from "@iefa/database/sisub"
+import type { ProcurementArpItem } from "@iefa/database/sisub"
 import { resolveItemValue } from "@iefa/sisub-domain"
-import { describeDriverError, unwrapPgError } from "@iefa/sisub-domain/utils"
 import { createServerFn } from "@tanstack/react-start"
-import { sql } from "drizzle-orm"
 import { z } from "zod"
 import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 import { loadLocalCommitments } from "@/lib/arp-commitments.server"
@@ -21,7 +19,14 @@ import { type ArpSaldo, anoFromNumeroAta, assertVigenciaWindow, formatNumeroAta,
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
-import { getDb } from "@/lib/db.server"
+import { type EmpenhoItemAmounts, summarizeArpItemShare } from "@/lib/empenho-items"
+import {
+	type CreatedEmpenho,
+	completeEmpenhoRegistration,
+	empenhoAuditTarget,
+	insertPreparedEmpenho,
+	prepareEmpenhoRegistration,
+} from "@/lib/empenho-registration.server"
 import { todayInBrasilia } from "@/lib/expense-execution"
 import { getFinanceClient, getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
@@ -791,14 +796,8 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 			.select("empenho_id, quantity, unit_price, value")
 			.eq("arp_item_id", data.arpItemId)
 		if (itemsError) throw new Error(`Erro ao buscar itens de empenho: ${itemsError.message}`)
-		const byEmpenho = new Map<string, { quantity: number; unitPrice: number | null; value: number }>()
-		for (const item of items ?? []) {
-			const acc = byEmpenho.get(item.empenho_id) ?? { quantity: 0, unitPrice: null, value: 0 }
-			acc.quantity += Number(item.quantity ?? 0)
-			acc.unitPrice = acc.unitPrice ?? (item.unit_price == null ? null : Number(item.unit_price))
-			acc.value += Number(item.value)
-			byEmpenho.set(item.empenho_id, acc)
-		}
+		const byEmpenho = new Map<string, EmpenhoItemAmounts[]>()
+		for (const item of items ?? []) byEmpenho.set(item.empenho_id, [...(byEmpenho.get(item.empenho_id) ?? []), item])
 		if (byEmpenho.size === 0) return []
 
 		const { data: empenhos, error } = await fin
@@ -808,108 +807,70 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 			.order("data_empenho", { ascending: false })
 
 		if (error) throw new Error(`Erro ao buscar empenhos: ${error.message}`)
-		return (empenhos ?? []).map((empenho) => {
-			const item = byEmpenho.get(empenho.id)
-			return {
-				...empenho,
-				valor_total: Number(empenho.valor_total),
-				item_quantity: item && item.quantity > 0 ? item.quantity : null,
-				item_unit_price: item?.unitPrice ?? null,
-				item_value: item?.value ?? Number(empenho.valor_total),
-			}
-		})
+		return (empenhos ?? []).map((empenho) => ({
+			...empenho,
+			valor_total: Number(empenho.valor_total),
+			...summarizeArpItemShare(byEmpenho.get(empenho.id) ?? [], Number(empenho.valor_total)),
+		}))
 	})
 
 // ─── 6. Registrar empenho ─────────────────────────────────────────────────────
 
 /**
- * Registra a NE de UM item da ARP (o formulário do painel da ARP): o cabeçalho e o item da NE
- * numa transação, com valor_total = quantidade × preço, arredondado ao centavo.
+ * Registra a NE de UM item da ARP (o formulário do painel da ARP), pelo mesmo núcleo de
+ * `createEmpenhoWithItemsFn` (`empenho-registration.server`): cabeçalho e item numa transação,
+ * valor = quantidade × preço ao centavo, contratação e favorecido herdados da ARP, conferência
+ * NE × ARP (avisos) e religação das NS/OB estacionadas.
  *
- * @remarks
- * SIDE EFFECTS: inserts finance.empenho (status "ativo", numero_empenho trim + toUpperCase) and its
- *   single finance.empenho_item (arp_item_id, quantity, unit_price, value; unit and description
- *   from the ARP item).
- *
- * @throws {Error} "já cadastrado" on unique violation (PG code 23505); the trigger message on 23514.
+ * @throws {Error} "já está no sistema" on unique violation (PG code 23505); the trigger message on 23514.
  */
 export const createEmpenhoFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			unitId: z.number().int().positive(),
 			arpItemId: z.uuid(),
-			numeroEmpenho: z.string().min(1, "Número do empenho obrigatório"),
+			numeroEmpenho: z.string().trim().min(1, "Número do empenho obrigatório").max(30),
 			dataEmpenho: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida (YYYY-MM-DD)"),
 			quantity: z.number().positive("Quantidade deve ser positiva"),
 			unitPrice: z.number().positive("Valor deve ser positivo"),
 			notaLancamento: z.string().optional(),
+			// Classificação gravada NA MESMA transação: antes ia por um segundo POST depois do
+			// registro, que podia falhar com a NE já gravada (e zerava o favorecido herdado).
+			nd: z.string().trim().max(20).nullable().optional(),
+			ptres: z.string().trim().max(20).nullable().optional(),
+			fonte: z.string().trim().max(20).nullable().optional(),
 		})
 	)
-	.handler(async ({ data }): Promise<Empenho> => {
+	.handler(async ({ data }): Promise<CreatedEmpenho> => {
 		// Empenho é dinheiro público: exige nível 2 NA unidade empenhada. Antes daqui
 		// bastava estar autenticado — qualquer comensal podia registrar empenho em
-		// qualquer unidade, com `unitId` vindo do próprio payload.
+		// qualquer unidade, com `unitId` vindo do próprio payload. A unidade do item da ARP
+		// é conferida pelo núcleo, na mesma leitura que traz preço, descrição e unidade.
 		const ctx = await requireUnitScope(2, data.unitId)
-		const { userId } = ctx
-		const supabase = getProcurementClient()
-		// Mesmo motivo do import: o item de ARP tem que ser da unidade empenhada. Sem isto,
-		// a unidade A empenha contra o saldo da unidade B — e B não consegue anular, porque
-		// a anulação resolve a unidade pela linha do empenho, que diria "A".
-		if ((await resolveArpItemUnit(supabase, data.arpItemId)) !== data.unitId) throw new Error("O item da ARP informado não pertence a esta unidade")
-		const { data: arpItem, error: arpItemError } = await supabase
-			.from("procurement_arp_item")
-			.select("descricao_item, medida_catmat")
-			.eq("id", data.arpItemId)
-			.maybeSingle()
-		if (arpItemError) throw new Error(`Erro ao buscar item da ARP: ${arpItemError.message}`)
-		const numero = data.numeroEmpenho.trim().toUpperCase()
-		const valorTotal = resolveItemValue({ quantity: data.quantity, unitPrice: data.unitPrice, value: 0 })
-
+		const prepared = await prepareEmpenhoRegistration({
+			unitId: data.unitId,
+			numeroEmpenho: data.numeroEmpenho,
+			dataEmpenho: data.dataEmpenho,
+			notaLancamento: data.notaLancamento ?? null,
+			nd: data.nd || null,
+			ptres: data.ptres || null,
+			fonte: data.fonte || null,
+			items: [
+				{
+					arpItemId: data.arpItemId,
+					quantity: data.quantity,
+					unitPrice: data.unitPrice,
+					value: resolveItemValue({ quantity: data.quantity, unitPrice: data.unitPrice, value: 0 }),
+				},
+			],
+		})
 		const empenhoId = await withSensitiveAudit(
 			"createEmpenhoFn",
 			ctx,
-			async (): Promise<string> => {
-				try {
-					return await getDb().transaction(async (tx) => {
-						const [header] = await tx.execute<{ id: string }>(sql`
-							insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total, exercicio, nota_lancamento, status, created_by)
-							values (
-								${data.unitId}, ${numero}, ${data.dataEmpenho}::date, ${valorTotal}, ${Number(data.dataEmpenho.slice(0, 4))},
-								${data.notaLancamento?.trim() || null}, 'ativo', ${userId}::uuid
-							)
-							returning id
-						`)
-						if (!header) throw new Error("Empenho não retornado após inserção")
-						await tx.execute(sql`
-							insert into finance.empenho_item (empenho_id, arp_item_id, position, description, quantity, unit, unit_price, value)
-							values (
-								${header.id}::uuid, ${data.arpItemId}::uuid, 1, ${arpItem?.descricao_item ?? null}, ${data.quantity},
-								${arpItem?.medida_catmat ?? null}, ${data.unitPrice}, ${valorTotal}
-							)
-						`)
-						return header.id
-					})
-				} catch (error) {
-					const pg = unwrapPgError(error)
-					if (pg.code === "23505") throw new Error(`Empenho "${data.numeroEmpenho}" já cadastrado para esta unidade`)
-					if (pg.code === "23514" && pg.message) throw new Error(pg.message)
-					// biome-ignore lint/suspicious/noConsole: server-side — o detalhe do driver só vai para o log
-					console.error("[createEmpenhoFn]", describeDriverError(error))
-					throw new Error("Erro ao registrar empenho. Tente novamente.")
-				}
-			},
-			(id) => ({
-				empenhoId: id,
-				unitId: data.unitId,
-				arpItemId: data.arpItemId,
-				numeroEmpenho: numero,
-				valorTotal,
-			})
+			() => insertPreparedEmpenho("createEmpenhoFn", ctx, prepared),
+			(id) => empenhoAuditTarget(prepared, id)
 		)
-
-		const { data: empenho, error } = await supabase.schema("finance").from("empenho").select("*").eq("id", empenhoId).single()
-		if (error || !empenho) throw new Error(`Empenho registrado, mas não foi possível relê-lo: ${error?.message ?? "sem linha"}`)
-		return empenho
+		return completeEmpenhoRegistration(ctx, prepared, empenhoId)
 	})
 
 // ─── 6b. Comprometimento local por item da ARP ───────────────────────────────

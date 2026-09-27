@@ -106,7 +106,11 @@ export function useCreateEmpenho(arpItemId: string, arpId?: string) {
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.empenhos(arpItemId) })
 			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.ata.arpCommitments(arpId) })
-			toast.success(`Empenho ${data.numero_empenho} registrado com sucesso`)
+			toast.success(
+				`Empenho ${data.numeroEmpenho} registrado${data.relinked > 0 ? ` — ${data.relinked} documento(s) do SIAFI que esperavam por ele foram religados` : ""}`
+			)
+			// Conferência NE × ARP: aviso, nunca recusa (a NE já foi emitida no SIAFI).
+			for (const warning of data.warnings) toast.warning(warning.message)
 		},
 		onError: (error) => {
 			if (isElevationCancelled(error)) return

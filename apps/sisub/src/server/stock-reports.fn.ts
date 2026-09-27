@@ -14,6 +14,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { assertNoBlindCountHides, hiddenByBlindCount } from "@/lib/blind-count.server"
 import { csvRow } from "@/lib/csv"
+import { committedQuantity } from "@/lib/empenho-items"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -262,24 +263,20 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 		const list = empenhos ?? []
 		if (list.length === 0) return []
 
-		// Quantidade empenhada pelos ITENS da NE (`finance.empenho_item`). NE só por valor
-		// (estimativa/global) não tem quantidade: sai nula, e a tela mostra "—".
+		// Quantidade empenhada pelos ITENS da NE (`finance.empenho_item`), só quando eles falam da
+		// mesma coisa: itens em unidades diferentes (quilo com litro) ou só por valor (estimativa/
+		// global) não somam, e a tela mostra "—" em vez de um "a receber" sem sentido.
 		const { data: neItems, error: neItemsError } = await finance
 			.from("empenho_item")
-			.select("empenho_id, quantity")
+			.select("empenho_id, quantity, unit")
 			.in(
 				"empenho_id",
 				list.map((e: { id: string }) => e.id)
 			)
 		if (neItemsError) throw new Error(`Erro ao ler os itens dos empenhos: ${neItemsError.message}`)
-		const quantityByEmpenho = new Map<string, number | null>()
-		for (const item of (neItems ?? []) as Array<{ empenho_id: string; quantity: number | string | null }>) {
-			const current = quantityByEmpenho.get(item.empenho_id)
-			if (item.quantity == null) {
-				if (!quantityByEmpenho.has(item.empenho_id)) quantityByEmpenho.set(item.empenho_id, null)
-				continue
-			}
-			quantityByEmpenho.set(item.empenho_id, (current ?? 0) + Number(item.quantity))
+		const itemsByEmpenho = new Map<string, Array<{ quantity: number | string | null; unit: string | null }>>()
+		for (const item of (neItems ?? []) as Array<{ empenho_id: string; quantity: number | string | null; unit: string | null }>) {
+			itemsByEmpenho.set(item.empenho_id, [...(itemsByEmpenho.get(item.empenho_id) ?? []), item])
 		}
 
 		const { data: receipts } = await inv
@@ -304,7 +301,7 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 
 		return list.map((empenho: { id: string; numero_empenho: string; valor_total: number }) => {
 			const received = Number((receivedByEmpenho.get(empenho.id) ?? 0).toFixed(4))
-			const empenhada = quantityByEmpenho.get(empenho.id) ?? null
+			const empenhada = committedQuantity(itemsByEmpenho.get(empenho.id) ?? [])
 			return {
 				empenhoId: empenho.id,
 				numeroEmpenho: empenho.numero_empenho,

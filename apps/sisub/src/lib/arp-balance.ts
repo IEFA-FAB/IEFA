@@ -27,20 +27,16 @@ export interface LocalCommitment {
 
 /** Soma quantidade/valor dos itens das NEs ATIVAS, agrupados por item de ARP. Anuladas ficam de fora. */
 export function aggregateLocalCommitments(items: readonly EmpenhoItemLike[]): Map<string, LocalCommitment> {
-	const byItem = new Map<string, LocalCommitment>()
-	const empenhosByItem = new Map<string, Set<string>>()
+	const byItem = new Map<string, { quantidade: number; valorTotal: number; empenhos: Set<string> }>()
 	for (const item of items) {
 		if (item.status !== "ativo") continue
-		const acc = byItem.get(item.arp_item_id) ?? { quantidade: 0, valorTotal: 0, count: 0 }
-		const empenhos = empenhosByItem.get(item.arp_item_id) ?? new Set<string>()
-		empenhos.add(item.empenho_id)
+		const acc = byItem.get(item.arp_item_id) ?? { quantidade: 0, valorTotal: 0, empenhos: new Set<string>() }
 		acc.quantidade += Number(item.quantity ?? 0)
 		acc.valorTotal += Number(item.value ?? 0)
-		acc.count = empenhos.size
+		acc.empenhos.add(item.empenho_id)
 		byItem.set(item.arp_item_id, acc)
-		empenhosByItem.set(item.arp_item_id, empenhos)
 	}
-	return byItem
+	return new Map([...byItem].map(([arpItemId, acc]) => [arpItemId, { quantidade: acc.quantidade, valorTotal: acc.valorTotal, count: acc.empenhos.size }]))
 }
 
 export interface ArpItemBalanceLike {

@@ -11,14 +11,10 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
 import { useAnularEmpenho, useArpLocalCommitments, useCreateEmpenho, useEmpenhos, useSyncArpBalance } from "@/hooks/data/useArp"
 import { useBudgetCheckForEmpenho } from "@/hooks/data/useBudgetCheck"
 import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
-import { isElevationCancelled } from "@/lib/assurance/assurance-error"
-import { updateEmpenhoClassificationFn } from "@/server/empenho.fn"
 import type { EmpenhoOfArpItem } from "@/types/domain/arp"
 
 // ─── Formatadores ─────────────────────────────────────────────────────────────
@@ -26,9 +22,14 @@ import type { EmpenhoOfArpItem } from "@/types/domain/arp"
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
 
-/** Quantidade × preço dos itens da NE neste item da ARP; NE estimativa ou global tem só o valor. */
-function formatQuantityTimesPrice(quantity: number | null, unitPrice: number | null): string {
-	if (quantity == null || unitPrice == null) return "valor global"
+/**
+ * Quantidade × preço dos itens da NE neste item da ARP. Itens com preços diferentes mostram o
+ * preço MÉDIO, dito como médio; item só por valor (estimativa/global) mostra "valor global".
+ */
+function formatQuantityTimesPrice(empenho: EmpenhoOfArpItem): string {
+	const { item_quantity: quantity, item_unit_price: unitPrice, item_value: value } = empenho
+	if (quantity == null || quantity <= 0) return "valor global"
+	if (unitPrice == null) return `${NUM.format(quantity)} × ${BRL.format(value / quantity)} (preço médio)`
 	return `${NUM.format(quantity)} × ${BRL.format(unitPrice)}`
 }
 
@@ -75,7 +76,7 @@ function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: EmpenhoO
 				<XCircle className="size-3.5 shrink-0 text-destructive" />
 				<span className="font-mono">{empenho.numero_empenho}</span>
 				<span>{fmtDate(empenho.data_empenho)}</span>
-				<span>{formatQuantityTimesPrice(empenho.item_quantity, empenho.item_unit_price)}</span>
+				<span>{formatQuantityTimesPrice(empenho)}</span>
 				<EmpenhoValue empenho={empenho} />
 				<Badge variant="outline" className="ml-auto text-xs">
 					Anulado
@@ -89,7 +90,7 @@ function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: EmpenhoO
 			<CheckCircle2 className="size-3.5 shrink-0 text-success" />
 			<span className="font-mono text-caption text-foreground">{empenho.numero_empenho}</span>
 			<span className="text-muted-foreground">{fmtDate(empenho.data_empenho)}</span>
-			<span>{formatQuantityTimesPrice(empenho.item_quantity, empenho.item_unit_price)}</span>
+			<span>{formatQuantityTimesPrice(empenho)}</span>
 			<EmpenhoValue empenho={empenho} />
 			{empenho.nota_lancamento && (
 				<Tooltip>
@@ -143,14 +144,12 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 	const [qtd, setQtd] = useState("")
 	const [valor, setValor] = useState("")
 	const [nota, setNota] = useState("")
-	// classificação: alimenta a conferência de crédito e é gravada no empenho depois do registro
+	// classificação: alimenta a conferência de crédito e é gravada junto com a NE (mesma transação)
 	const [nd, setNd] = useState("")
 	const [ptres, setPtres] = useState("")
 	const [fonte, setFonte] = useState("")
 
 	const { mutate: create, isPending } = useCreateEmpenho(arpItemId, arpId)
-	// `updateEmpenhoClassificationFn` é `"session"` no registro de garantia (`unit` nível 2).
-	const runAssured = useAssuredAction()
 
 	const valorTotal = Number(qtd) > 0 && Number(valor) > 0 ? Number(qtd) * Number(valor) : null
 	// Conferência de crédito pela classificação da NE (F4): AVISO, nunca bloqueio — a NE já foi
@@ -169,19 +168,12 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 				quantity: Number(qtd),
 				unitPrice: Number(valor),
 				notaLancamento: nota || undefined,
+				nd: nd || null,
+				ptres: ptres || null,
+				fonte: fonte || null,
 			},
 			{
-				onSuccess: async (empenho) => {
-					if (nd || ptres || fonte) {
-						try {
-							await runAssured(() =>
-								updateEmpenhoClassificationFn({ data: { empenhoId: empenho.id, nd: nd || null, ptres: ptres || null, fonte: fonte || null } })
-							)
-						} catch (err) {
-							if (!isElevationCancelled(err))
-								toast.error(`Empenho registrado, mas a classificação não foi gravada: ${err instanceof Error ? err.message : "erro"}`)
-						}
-					}
+				onSuccess: () => {
 					onSuccess()
 					setNumero("")
 					setQtd("")
