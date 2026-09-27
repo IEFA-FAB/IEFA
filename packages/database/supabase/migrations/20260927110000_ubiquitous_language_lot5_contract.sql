@@ -129,25 +129,16 @@ begin
 end;
 $$;
 
--- ─── 1. Trava: nenhuma gravação entre a conversão e o CHECK apertado ────────────
---
--- Sem a trava, uma linha com valor antigo gravada pela `main` entre o `update` e o `add constraint`
--- faria o contract falhar na validação do CHECK. `share row exclusive` deixa ler e segura a escrita
--- só pelo tempo da migration (tabelas pequenas).
-
-lock table
-	procurement.contract_designation,
-	inventory.inventory_count,
-	procurement.policy_rule,
-	kitchen.menu_template,
-	kitchen.menu_items,
-	procurement.quantity_estimate_snapshot_selection
-in share row exclusive mode;
-
--- ─── 2. Tradução do valor antigo na gravação (sai na tarefa 5.5) ────────────────
+-- ─── 1. Tradução do valor antigo na gravação (sai na tarefa 5.5) ────────────────
 --
 -- Genérica: `tg_argv[0]` é a coluna, e os pares seguintes são antigo → novo. O `when` de cada
--- trigger já filtra o valor antigo, então no caminho comum a função nem é chamada.
+-- trigger já filtra o valor antigo, então no caminho comum a função nem é chamada. Cada tradução
+-- deixa um `raise log` (tabela, coluna, valor): é por ele que a 5.5 confere, nos logs do Postgres,
+-- que ninguém mais grava o nome antigo antes de derrubar os triggers.
+--
+-- Os triggers nascem ANTES da conversão das linhas: gravação concorrente com valor antigo que
+-- chegar depois deles já entra traduzida, então nada escapa entre o `update` e o CHECK apertado
+-- (e o `create trigger` segura a escrita na tabela até o fim da transação).
 
 create function core.translate_legacy_domain_value()
 returns trigger
@@ -160,6 +151,8 @@ declare
 begin
 	while i < tg_nargs loop
 		if current_value = tg_argv[i] then
+			raise log 'lote 5 da linguagem ubíqua: %.% gravado com o valor antigo %, traduzido para %',
+				tg_table_schema || '.' || tg_table_name, tg_argv[0], tg_argv[i], tg_argv[i + 1];
 			return jsonb_populate_record(new, jsonb_build_object(tg_argv[0], tg_argv[i + 1]));
 		end if;
 		i := i + 2;
@@ -169,7 +162,7 @@ end;
 $$;
 
 comment on function core.translate_legacy_domain_value() is
-	'Lote 5 da linguagem ubíqua (20260927110000): traduz na gravação o valor de domínio antigo que ainda chegar do código anterior ao deploy. Temporária: sai um ciclo depois do deploy do contract (tarefa 5.5).';
+	'Lote 5 da linguagem ubíqua (20260927110000): traduz na gravação o valor de domínio antigo que ainda chegar do código anterior ao deploy, com raise log de cada tradução. Temporária: sai um ciclo depois do deploy do contract (tarefa 5.5).';
 
 create trigger contract_designation_translate_legacy_role
 	before insert or update of role on procurement.contract_designation
@@ -213,7 +206,7 @@ create trigger menu_items_translate_legacy_origin_type
 	when (new.origin_template_type = 'exception')
 	execute function core.translate_legacy_domain_value('origin_template_type', 'exception', 'apoio');
 
--- ─── 3. Conversão das linhas ─────────────────────────────────────────────────────
+-- ─── 2. Conversão das linhas ─────────────────────────────────────────────────────
 --
 -- `update … set col = col` com o valor antigo dispara o trigger acima, que converte: a mesma regra
 -- da gravação, num lugar só. O retrato do anexo não tem CHECK nem trigger e vai por `case`.
@@ -262,7 +255,7 @@ begin
 end;
 $$;
 
--- ─── 4. CHECKs só com o vocabulário do glossário ─────────────────────────────────
+-- ─── 3. CHECKs só com o vocabulário do glossário ─────────────────────────────────
 
 alter table procurement.contract_designation drop constraint contract_designation_role_check;
 alter table procurement.contract_designation

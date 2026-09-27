@@ -498,6 +498,8 @@ rules:
         - "**/routeTree.gen.ts"
         - "**/generated.ts"
         - "**/drizzle/**"
+        # Grava o valor antigo de propósito, para provar a tradução do contract; sai na tarefa 5.5.
+        - "apps/sisub/src/test/operations/domain-values.operations.test.ts"
     patterns:
       - pattern-either:
           # Os papéis e o tipo de inventário antigos são inconfundíveis: qualquer literal casa.

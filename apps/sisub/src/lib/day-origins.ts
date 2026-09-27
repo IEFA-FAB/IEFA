@@ -3,7 +3,7 @@
  * (`origin_template_id`). É o grão dos imprevistos: adiar ou tirar do dia age sobre tudo o que
  * UM cardápio pôs ali. Produção de pedido de lanche fica de fora — ela segue o pedido.
  */
-import type { TemplateType } from "@iefa/sisub-domain/schemas"
+import { TEMPLATE_TYPES, type TemplateType } from "@iefa/sisub-domain/schemas"
 
 export type DayOriginType = TemplateType
 
@@ -23,7 +23,7 @@ const TYPE_LABEL: Record<DayOriginType, string> = { weekly: "Cardápio semanal",
 const TYPE_ORDER: Record<string, number> = { weekly: 0, event: 1, apoio: 2 }
 
 function asType(value: string | null | undefined): DayOriginType | null {
-	return value === "weekly" || value === "event" || value === "apoio" ? value : null
+	return value != null && (TEMPLATE_TYPES as readonly string[]).includes(value) ? (value as DayOriginType) : null
 }
 
 export function dayOriginsOf(menus: readonly MenuLike[], templates: readonly TemplateLike[]): DayOrigin[] {
