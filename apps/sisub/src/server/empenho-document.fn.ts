@@ -78,7 +78,7 @@ export const createEmpenhoWithItemsFn = createServerFn({ method: "POST" })
 				.optional(),
 			ptres: z.string().max(20).nullable().optional(),
 			fonte: z.string().max(20).nullable().optional(),
-			ugEmitente: z.string().max(20).nullable().optional(),
+			issuerUg: z.string().max(20).nullable().optional(),
 			notaLancamento: z.string().max(1000).nullable().optional(),
 			items: z.array(EmpenhoItemSchema).min(1, "Informe ao menos um item (ou só o valor)").max(200),
 		})

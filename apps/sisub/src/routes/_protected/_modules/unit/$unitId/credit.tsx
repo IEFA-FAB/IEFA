@@ -29,7 +29,7 @@ function fmtCompetencia(iso: string): string {
 function BudgetRow({ line }: { line: BudgetCreditLine }) {
 	const negative = line.saldoProjetado < 0
 	// NC registradas que não fecham com o crédito recebido do SIAFI: falta NC (ou sobra)
-	const ncDiverge = line.notasCredito !== 0 && Math.abs(line.notasCredito - line.dotacao) > 0.009
+	const ncDiverge = line.notasCredito !== 0 && Math.abs(line.notasCredito - line.receivedCredit) > 0.009
 
 	return (
 		<tr className="hover:bg-muted/40">
@@ -37,7 +37,7 @@ function BudgetRow({ line }: { line: BudgetCreditLine }) {
 			<td className="py-2.5 px-2 text-xs font-mono text-muted-foreground">{line.ptres ?? "—"}</td>
 			<td className="py-2.5 px-2 text-xs font-mono text-muted-foreground">{line.fonte ?? "—"}</td>
 			<td className="py-2.5 px-2 text-xs font-mono text-muted-foreground">{[line.pi, line.ugr].map((v) => v ?? "—").join(" · ")}</td>
-			<td className="py-2.5 px-2 text-xs text-right tabular-nums">{BRL.format(line.dotacao)}</td>
+			<td className="py-2.5 px-2 text-xs text-right tabular-nums">{BRL.format(line.receivedCredit)}</td>
 			<td className="py-2.5 px-2 text-xs text-right tabular-nums">
 				{line.notasCredito === 0 ? (
 					<span className="text-muted-foreground">—</span>
@@ -58,7 +58,7 @@ function BudgetRow({ line }: { line: BudgetCreditLine }) {
 			<td className="py-2.5 px-2 text-xs text-right tabular-nums text-muted-foreground">{BRL.format(line.empenhadoSiafi)}</td>
 			<td className="py-2.5 px-2 text-xs text-right tabular-nums">
 				<Tooltip>
-					<TooltipTrigger className="cursor-help underline decoration-dotted">{BRL.format(line.saldoSiafi)}</TooltipTrigger>
+					<TooltipTrigger className="cursor-help underline decoration-dotted">{BRL.format(line.availableCreditSiafi)}</TooltipTrigger>
 					<TooltipContent>
 						Crédito disponível no SIAFI em {new Date(line.snapshotAt).toLocaleString("pt-BR")}. Não inclui empenhos lançados depois no sisub.
 					</TooltipContent>

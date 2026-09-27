@@ -21,9 +21,9 @@ const generos: CreditLineSnapshot = {
 	ptres: "170963",
 	fonte: "1000",
 	competencia: "2026-07-01",
-	dotacao: 100_000,
+	receivedCredit: 100_000,
 	empenhadoSiafi: 60_000,
-	saldoSiafi: 40_000,
+	availableCreditSiafi: 40_000,
 	snapshotAt: SNAPSHOT,
 }
 

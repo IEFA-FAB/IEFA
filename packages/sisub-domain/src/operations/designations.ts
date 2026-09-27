@@ -7,7 +7,7 @@
  * designação é da autoridade (arts. 7º e 117); o sisub registra o ato — número do boletim ou
  * da portaria — e confere a vigência no recebimento (`inventory.find_designation`).
  *
- * A nota de empenho não designa ninguém: ela reserva a dotação (Lei 4.320/1964, art. 58).
+ * A nota de empenho não designa ninguém: ela reserva o crédito (Lei 4.320/1964, art. 58).
  * Designação VINCULADA a uma contratação, ARP ou empenho é escopo, não fonte.
  *
  * Quem cadastra é a Gestão Unidade (`unit:2`), a mesma que o recebimento manda procurar quando
