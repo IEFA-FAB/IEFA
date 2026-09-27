@@ -17,6 +17,9 @@ import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } f
 const ctx = fullAccessCtx()
 const ACTOR_ID = "00000000-0000-4000-8000-000000000001"
 
+/** Motivo da exclusão do roster da matriz de efetivo, um só enquanto ele tiver dois nomes (lote 8b). */
+const WORKFORCE_ROSTER_REASON = "roster da matriz de efetivo é cadastro, não dado operacional; criar exige admin:2, fora do Conjunto Treino"
+
 /**
  * Tabelas escopadas que o reset NÃO deve tocar, com o motivo. Toda exclusão precisa estar
  * aqui — o teste de completude falha em qualquer tabela escopada fora desta lista e fora do
@@ -35,7 +38,7 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// que o Conjunto Treino não concede, então o treinando não gera linha aqui. O que ele
 	// preenche (kitchen.workforce_submission e, por cascade, quantitativos e observações) está
 	// no reset.
-	"kitchen.rancho": "roster da matriz de efetivo é cadastro, não dado operacional; criar exige admin:2, fora do Conjunto Treino",
+	"kitchen.rancho": WORKFORCE_ROSTER_REASON,
 	// NOTA: as tabelas de execução orçamentária (crédito, empenho, liquidação,
 	// pagamento, conciliação, lote SIAFI) já foram excluídas aqui sob a premissa
 	// de que "o treino não concede módulo financeiro". A premissa era falsa — o
@@ -90,6 +93,15 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// já estão em RESET_STEPS.
 	// `kitchen.arranchamento` (a antiga `meal_forecasts`, renomeada em 20260927130000) foi
 	// declarada aqui antes do rename e já está em RESET_STEPS.
+	//
+	// Efetivo — migration 20260927150000 (lote 8b da linguagem ubíqua) renomeia `kitchen.rancho`
+	// para `kitchen.mess_hall_workforce` ("rancho" é ambíguo; a linha é o refeitório visto pelo
+	// levantamento de efetivo) e deixa uma view de compatibilidade com o nome antigo. Continua
+	// cadastro, como a exclusão de `kitchen.rancho` acima: declarada antes do rename, ela fica
+	// nesta lista (não vai para RESET_STEPS), e o PR do rename apaga a entrada do nome antigo.
+	// O passo de `kitchen.workforce_submission` segue valendo nos dois estados: o expand mantém
+	// `rancho_id` espelhada em `mess_hall_workforce_id` e a view `kitchen.rancho` até o contract.
+	"kitchen.mess_hall_workforce": WORKFORCE_ROSTER_REASON,
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */
