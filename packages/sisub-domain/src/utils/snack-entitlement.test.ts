@@ -174,14 +174,14 @@ describe("Lanche de Apoio", () => {
 })
 
 describe("escalas (R-P)", () => {
-	test("escala sem rancho usa o deslocamento total", () => {
+	test("escala sem refeitório usa o deslocamento total", () => {
 		const input = mission({ totalMinutes: 300, longestLegMinutes: 120, stopsWithoutMess: true })
 		expect(effectiveMissionMinutes(input)).toBe(300)
 		expect(classes(input)).toEqual(["bordo:A", "bordo:B"])
 		expect(calculateSnackEntitlement(input).notes.map((n) => n.ruleId)).toContain("R-P")
 	})
 
-	test("escala com rancho usa a maior perna", () => {
+	test("escala com refeitório usa a maior perna", () => {
 		const input = mission({ totalMinutes: 300, longestLegMinutes: 120, stopsWithoutMess: false })
 		expect(effectiveMissionMinutes(input)).toBe(120)
 		expect(classes(input)).toEqual(["bordo:A"])

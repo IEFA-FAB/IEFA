@@ -6,7 +6,7 @@ import type { ProductionItem, ProductionSnackRequest } from "@/types/domain/prod
 /**
  * Discriminação do item de pedido de lanche no quadro de produção: a cozinha precisa saber de
  * qual missão é cada kit — dois pedidos do mesmo padrão no mesmo dia não se misturam na
- * montagem nem na etiqueta. Item do rancho (`snack_request` nulo) não recebe nada.
+ * montagem nem na etiqueta. Item do cardápio (`snack_request` nulo) não recebe nada.
  */
 
 const PICKUP_TIME = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })
@@ -40,7 +40,7 @@ export function SnackRequestTag({ request, withStandard = true, className }: { r
 export type ProductionItemGroup = { key: string; snackRequest: ProductionSnackRequest | null; items: ProductionItem[] }
 
 /**
- * Rancho primeiro, na ordem em que veio; depois um grupo por pedido de lanche, pela hora de
+ * Itens do cardápio primeiro, na ordem em que vieram; depois um grupo por pedido de lanche, pela hora de
  * retirada — é a ordem em que a produção precisa entregar.
  */
 export function groupBySnackRequest(items: ProductionItem[]): ProductionItemGroup[] {
@@ -57,5 +57,5 @@ export function groupBySnackRequest(items: ProductionItem[]): ProductionItemGrou
 		bySnack.set(request.id, group)
 	}
 	const snackGroups = [...bySnack.values()].sort((a, b) => Date.parse(a.snackRequest?.pickup_at ?? "") - Date.parse(b.snackRequest?.pickup_at ?? ""))
-	return [...(regular.length > 0 ? [{ key: "rancho", snackRequest: null, items: regular }] : []), ...snackGroups]
+	return [...(regular.length > 0 ? [{ key: "daily_menu", snackRequest: null, items: regular }] : []), ...snackGroups]
 }

@@ -1052,7 +1052,7 @@ export async function cancelKitchenSnackRequest(db: SisubDb, ctx: UserContext, i
 			patch: () => ({
 				cancelledBy: ctx.userId,
 				cancelReason: input.reason,
-				// Cancelada depois da produção: o que saiu do rancho volta (7.4.11) — a comida
+				// Cancelada depois da produção: o que saiu da cozinha volta (7.4.11) — a comida
 				// perecível NÃO é reaproveitada (7.4.4), o material da cautela sim.
 				// Pendência é de MATERIAL cautelado: sem cautela não há o que devolver, e marcar
 				// a flag a deixaria impossível de limpar.

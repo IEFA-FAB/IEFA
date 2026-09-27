@@ -2,7 +2,7 @@
  * Bloco somente-leitura dos lanches do dia no painel de planejamento.
  *
  * A produção de lanche do dia existe no calendário (o contador do mês a conta), mas ela NÃO é
- * planejamento do rancho: nasce do aceite de um pedido e some quando o pedido é cancelado.
+ * planejamento da cozinha: nasce do aceite de um pedido e some quando o pedido é cancelado.
  * Sem este bloco o painel do dia calava sobre ela — o mês dizia "Lan 2" e o dia não mostrava
  * nada, que é a tela que mente descrita no CLAUDE.md.
  */

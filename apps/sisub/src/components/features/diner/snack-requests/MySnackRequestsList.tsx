@@ -28,8 +28,8 @@ export function MySnackRequestsEmpty() {
 						<EmptyTitle>Nenhum pedido de lanche ainda</EmptyTitle>
 						<EmptyDescription>
 							O <strong>Lanche de Bordo</strong> acompanha missões aéreas; o <strong>Lanche de Apoio</strong>, deslocamentos terrestres em que a tropa não
-							consegue fazer a refeição no rancho. Você descreve a missão, o sistema calcula a classe devida pela norma e a cozinha apoiadora prepara os kits
-							para retirada.
+							consegue fazer a refeição no refeitório. Você descreve a missão, o sistema calcula a classe devida pela norma e a cozinha apoiadora prepara os
+							kits para retirada.
 						</EmptyDescription>
 						<EmptyDescription>
 							Peça com pelo menos {MIN_LEAD_TIME_HOURS} h de antecedência da retirada — pedido em cima da hora exige justificativa.

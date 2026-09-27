@@ -272,7 +272,7 @@ export function parsePcaCsv(content: string): ParsePcaCsvResult {
 }
 
 /**
- * Classes CATMAT de gênero alimentício e de apoio direto ao rancho, medidas no PCA da FAB.
+ * Classes CATMAT de gênero alimentício e de apoio direto à cozinha, medidas no PCA da FAB.
  * É filtro de leitura, não de ingestão: o acervo guarda o plano inteiro.
  */
 export const PCA_FOOD_CLASS_CODES = [

@@ -1,7 +1,7 @@
 /**
  * Rótulos e formatação do pedido de lanche no módulo Comensal.
  *
- * Toda data/hora exibida é de Brasília: a retirada é no rancho, e quem pede num fuso
+ * Toda data/hora exibida é de Brasília: a retirada é na cozinha apoiadora, e quem pede num fuso
  * diferente (missão fora da sede) tem que ver o horário que a cozinha vai ver.
  */
 

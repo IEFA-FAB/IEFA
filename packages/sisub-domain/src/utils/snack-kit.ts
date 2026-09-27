@@ -99,7 +99,7 @@ const TRANSITIONS: Record<SnackRequestStatus, readonly SnackRequestStatus[]> = {
 	accepted: ["in_production", "cancelled"],
 	in_production: ["ready", "cancelled"],
 	ready: ["delivered", "cancelled"],
-	// Missão cancelada depois da retirada: o material volta ao rancho (7.4.11).
+	// Missão cancelada depois da retirada: o material volta à cozinha (7.4.11).
 	delivered: ["closed", "cancelled"],
 	rejected: [],
 	closed: [],

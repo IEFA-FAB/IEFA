@@ -218,7 +218,7 @@ function MissionCard({ request }: { request: SnackRequestDetail }) {
 						["Escalas", request.stops],
 						["Duração total", formatDuration(request.total_minutes)],
 						["Maior perna", request.longest_leg_minutes != null ? formatDuration(request.longest_leg_minutes) : null],
-						["Parada sem rancho", yesNo(request.stops_without_mess)],
+						["Parada sem refeitório", yesNo(request.stops_without_mess)],
 						...(isAir
 							? ([
 									["Tempo em solo", formatDuration(request.ground_minutes)],
@@ -495,13 +495,13 @@ function MaterialsCard({ request }: { request: SnackRequestDetail }) {
 		<Card>
 			<CardHeader>
 				<CardTitle>Material cautelado</CardTitle>
-				<CardDescription>Material de apoio que saiu com o lanche e tem que voltar ao rancho.</CardDescription>
+				<CardDescription>Material de apoio que saiu com o lanche e tem que voltar à cozinha.</CardDescription>
 			</CardHeader>
 			<CardContent>
 				{request.materials.length === 0 ? (
 					<p className="text-caption text-muted-foreground">
 						{request.material_return_pending
-							? "Devolução pendente sem cautela registrada: confira com o rancho o que saiu com o lanche."
+							? "Devolução pendente sem cautela registrada: confira na cozinha o que saiu com o lanche."
 							: "Nenhum material cautelado."}
 					</p>
 				) : (

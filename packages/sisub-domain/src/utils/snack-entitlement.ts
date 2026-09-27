@@ -33,11 +33,11 @@ export type SnackMissionInput = {
 	/** Duração total do voo/deslocamento, da partida ao destino final, em minutos. */
 	totalMinutes: number
 	/**
-	 * Maior perna até uma escala COM apoio de rancho, em minutos. Nulo = voo direto ou
-	 * nenhuma escala com rancho. Só vale quando `stopsWithoutMess` é falso.
+	 * Maior perna até uma escala COM refeitório, em minutos. Nulo = voo direto ou
+	 * nenhuma escala com refeitório. Só vale quando `stopsWithoutMess` é falso.
 	 */
 	longestLegMinutes: number | null
-	/** Há pouso intermediário em localidade sem apoio de rancho (7.4.13). */
+	/** Há pouso intermediário em localidade sem refeitório (7.4.13). */
 	stopsWithoutMess: boolean
 	/** Tempo em solo da tripulação somado ao envolvimento: pré-voo, briefing, debriefing (7.2.1.2.2). */
 	groundMinutes: number
@@ -80,7 +80,7 @@ export type SnackEntitlement = {
 }
 
 /**
- * Janelas de refeição do rancho, hora de Brasília. O sisub não tem horário de refeição por
+ * Janelas de refeição do refeitório, hora de Brasília. O sisub não tem horário de refeição por
  * cozinha (decisão N6): estas janelas decidem a regra R-B2 e a exigência de forno (R-V2).
  */
 export const MEAL_WINDOWS: Record<MealWindowKey, { label: string; start: number; end: number }> = {
@@ -102,7 +102,7 @@ export const NORM_REFS = {
 	bordoC: "Lanche de Bordo “Classe C”",
 	apoioA: "Lanche de Apoio “Classe A”",
 	apoioB: "Lanche de Apoio “Classe B”",
-	stops: "Recomendações — deslocamento com parada sem apoio de rancho",
+	stops: "Recomendações — deslocamento com parada sem refeitório",
 } as const
 
 /** Faixa de valor calórico total de cada classe. A Classe C depende da duração (N2). */
@@ -136,7 +136,7 @@ export function mealWindowsCovered(departureAt: string, durationMinutes: number)
 	return (Object.keys(MEAL_WINDOWS) as MealWindowKey[]).filter((key) => covered.has(key))
 }
 
-/** Duração que decide a classe: o deslocamento total, salvo escala com rancho (7.4.13, R-P). */
+/** Duração que decide a classe: o deslocamento total, salvo escala com refeitório (7.4.13, R-P). */
 export function effectiveMissionMinutes(input: Pick<SnackMissionInput, "totalMinutes" | "longestLegMinutes" | "stopsWithoutMess">): number {
 	const total = Math.max(0, input.totalMinutes)
 	if (input.stopsWithoutMess || input.longestLegMinutes == null) return total
@@ -157,7 +157,7 @@ function calculateBoarding(input: SnackMissionInput): SnackEntitlement {
 	const notes: SnackRuleNote[] = []
 
 	if (input.stopsWithoutMess) {
-		notes.push({ ruleId: "R-P", text: "Há escala sem apoio de rancho: o lanche cobre o tempo total do deslocamento.", normRef: NORM_REFS.stops })
+		notes.push({ ruleId: "R-P", text: "Há escala sem refeitório: o lanche cobre o tempo total do deslocamento.", normRef: NORM_REFS.stops })
 	}
 
 	// R-A — toda missão aérea, tripulação e passageiros.
@@ -226,7 +226,7 @@ function calculateBoarding(input: SnackMissionInput): SnackEntitlement {
 				: { id: "R-B1", reason: `Envolvimento da tripulação de ${formatDuration(involvement)} (mais de 3 h e menos de 6 h).` }
 	} else if (effective >= 60 && effective <= 3 * 60 && windows.length > 0) {
 		const labels = windows.map((key) => MEAL_WINDOWS[key].label).join(", ")
-		ruleB = { id: "R-B2", reason: `Voo de ${formatDuration(effective)} no horário de ${labels}: a refeição no rancho fica inviável.` }
+		ruleB = { id: "R-B2", reason: `Voo de ${formatDuration(effective)} no horário de ${labels}: a refeição no refeitório fica inviável.` }
 	}
 
 	if (ruleB) {
@@ -261,7 +261,7 @@ function calculateSupport(input: SnackMissionInput): SnackEntitlement {
 	]
 
 	if (input.stopsWithoutMess) {
-		notes.push({ ruleId: "R-P", text: "Há parada sem apoio de rancho: o lanche cobre o tempo total do deslocamento.", normRef: NORM_REFS.stops })
+		notes.push({ ruleId: "R-P", text: "Há parada sem refeitório: o lanche cobre o tempo total do deslocamento.", normRef: NORM_REFS.stops })
 	}
 
 	if (effective <= 2 * 60) {

@@ -85,7 +85,7 @@ function AnexoEDocument({ request }: { request: SnackRequestDetail }) {
 					</Row>
 					<Row n={4} label="Procedência / destino / escalas">
 						{[request.origin, request.destination, request.stops].map((v) => v || "—").join(" / ")}
-						{request.stops_without_mess ? " (escala sem apoio de rancho)" : ""}
+						{request.stops_without_mess ? " (escala sem refeitório)" : ""}
 					</Row>
 					<Row n={5} label={aerial ? "Tempo de voo" : "Duração do deslocamento"}>
 						{formatDuration(request.total_minutes)}
