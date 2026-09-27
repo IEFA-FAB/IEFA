@@ -26,7 +26,7 @@ export const comprasServicoGrupoInComprasGovIntegration = comprasGovIntegration.
 	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("compras_servico_grupo_codigo_divisao_fk_idx").using("btree", table.codigoDivisao.asc().nullsLast().op("int4_ops")),
+	index("compras_servico_grupo_codigo_divisao_fk_idx").using("btree", table.codigoDivisao.asc().nullsLast()),
 	foreignKey({
 			columns: [table.codigoDivisao],
 			foreignColumns: [comprasServicoDivisaoInComprasGovIntegration.codigoDivisao],
@@ -42,7 +42,7 @@ export const comprasServicoClasseInComprasGovIntegration = comprasGovIntegration
 	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("compras_servico_classe_codigo_grupo_fk_idx").using("btree", table.codigoGrupo.asc().nullsLast().op("int4_ops")),
+	index("compras_servico_classe_codigo_grupo_fk_idx").using("btree", table.codigoGrupo.asc().nullsLast()),
 	foreignKey({
 			columns: [table.codigoGrupo],
 			foreignColumns: [comprasServicoGrupoInComprasGovIntegration.codigoGrupo],
@@ -70,7 +70,7 @@ export const comprasMaterialPdmInComprasGovIntegration = comprasGovIntegration.t
 	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("compras_material_pdm_codigo_classe_fk_idx").using("btree", table.codigoClasse.asc().nullsLast().op("int4_ops")),
+	index("compras_material_pdm_codigo_classe_fk_idx").using("btree", table.codigoClasse.asc().nullsLast()),
 	foreignKey({
 			columns: [table.codigoClasse],
 			foreignColumns: [comprasMaterialClasseInComprasGovIntegration.codigoClasse],
@@ -91,8 +91,8 @@ export const comprasMaterialItemInComprasGovIntegration = comprasGovIntegration.
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	firstDeactivationDetectedAt: timestamp("first_deactivation_detected_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("idx_compras_material_item_descricao_trgm").using("gin", table.descricaoItem.asc().nullsLast().op("gin_trgm_ops")),
-	index("idx_compras_material_item_pdm").using("btree", table.codigoPdm.asc().nullsLast().op("int4_ops")),
+	index("idx_compras_material_item_descricao_trgm").using("gin", table.descricaoItem.asc().nullsLast()),
+	index("idx_compras_material_item_pdm").using("btree", table.codigoPdm.asc().nullsLast()),
 ]);
 
 export const comprasServicoSecaoInComprasGovIntegration = comprasGovIntegration.table("compras_servico_secao", {
@@ -111,7 +111,7 @@ export const comprasServicoDivisaoInComprasGovIntegration = comprasGovIntegratio
 	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("compras_servico_divisao_codigo_secao_fk_idx").using("btree", table.codigoSecao.asc().nullsLast().op("int4_ops")),
+	index("compras_servico_divisao_codigo_secao_fk_idx").using("btree", table.codigoSecao.asc().nullsLast()),
 	foreignKey({
 			columns: [table.codigoSecao],
 			foreignColumns: [comprasServicoSecaoInComprasGovIntegration.codigoSecao],
@@ -181,11 +181,11 @@ export const nfeDocumentInInventory = inventory.table("nfe_document", {
 	situationResult: text("situation_result"),
 	cancelledReason: text("cancelled_reason"),
 }, (table) => [
-	index("nfe_document_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("nfe_document_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.createdAt.desc().nullsFirst().op("int8_ops")),
-	index("nfe_document_situation_checked_by_fk_idx").using("btree", table.situationCheckedBy.asc().nullsLast().op("uuid_ops")),
-	index("nfe_document_supplier_idx").using("btree", table.supplierCnpj.asc().nullsLast().op("text_ops")),
-	index("nfe_document_unit_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops"), table.createdAt.desc().nullsFirst().op("int8_ops")),
+	index("nfe_document_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("nfe_document_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("nfe_document_situation_checked_by_fk_idx").using("btree", table.situationCheckedBy.asc().nullsLast()),
+	index("nfe_document_supplier_idx").using("btree", table.supplierCnpj.asc().nullsLast()),
+	index("nfe_document_unit_idx").using("btree", table.unitId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -229,10 +229,10 @@ export const gtinInGs1Integration = gs1Integration.table("gtin", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("gtin_gpc_brick_idx").using("btree", table.gpcBrickCode.asc().nullsLast().op("text_ops")).where(sql`(gpc_brick_code IS NOT NULL)`),
-	index("gtin_ncm_idx").using("btree", table.ncm.asc().nullsLast().op("text_ops")).where(sql`(ncm IS NOT NULL)`),
-	index("gtin_net_content_unit_fk_idx").using("btree", table.netContentUnit.asc().nullsLast().op("text_ops")),
-	index("gtin_parent_idx").using("btree", table.parentGtin.asc().nullsLast().op("text_ops")).where(sql`(parent_gtin IS NOT NULL)`),
+	index("gtin_gpc_brick_idx").using("btree", table.gpcBrickCode.asc().nullsLast()).where(sql`(gpc_brick_code IS NOT NULL)`),
+	index("gtin_ncm_idx").using("btree", table.ncm.asc().nullsLast()).where(sql`(ncm IS NOT NULL)`),
+	index("gtin_net_content_unit_fk_idx").using("btree", table.netContentUnit.asc().nullsLast()),
+	index("gtin_parent_idx").using("btree", table.parentGtin.asc().nullsLast()).where(sql`(parent_gtin IS NOT NULL)`),
 	foreignKey({
 			columns: [table.netContentUnit],
 			foreignColumns: [measureUnitInCore.code],
@@ -260,8 +260,8 @@ export const supplierProductMapInGs1Integration = gs1Integration.table("supplier
 	confidence: text().default('manual').notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("supplier_product_map_ingredient_item_idx").using("btree", table.ingredientItemId.asc().nullsLast().op("uuid_ops")),
-	index("supplier_product_map_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")),
+	index("supplier_product_map_ingredient_item_idx").using("btree", table.ingredientItemId.asc().nullsLast()),
+	index("supplier_product_map_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.ingredientItemId],
 			foreignColumns: [ingredientItemInKitchen.id],
@@ -295,7 +295,7 @@ export const sourceReleaseInNutritionReference = nutritionReference.table("sourc
 	metadata: jsonb().default({}).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	uniqueIndex("nutrition_source_release_source_version_key").using("btree", table.sourceId.asc().nullsLast().op("text_ops"), table.versionLabel.asc().nullsLast().op("text_ops")),
+	uniqueIndex("nutrition_source_release_source_version_key").using("btree", table.sourceId.asc().nullsLast(), table.versionLabel.asc().nullsLast()),
 	foreignKey({
 			columns: [table.sourceId],
 			foreignColumns: [sourceInNutritionReference.id],
@@ -311,7 +311,7 @@ export const foodItemInNutritionReference = nutritionReference.table("food_item"
 	currentRevisionId: uuid("current_revision_id"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("food_item_current_revision_id_fk_idx").using("btree", table.currentRevisionId.asc().nullsLast().op("uuid_ops")),
+	index("food_item_current_revision_id_fk_idx").using("btree", table.currentRevisionId.asc().nullsLast()),
 	// FK "food_item_current_revision_id_fkey" omitida (patch-drizzle-pull.ts): ciclo com foodItemRevisionInNutritionReference faria o TS inferir any. Existe no banco; a relação segue em relations.ts.
 	foreignKey({
 			columns: [table.sourceId],
@@ -329,8 +329,8 @@ export const userDataInCore = core.table("user_data", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	defaultMessHallId: bigint("default_mess_hall_id", { mode: "number" }),
 }, (table) => [
-	index("user_data_default_mess_hall_id_fk_idx").using("btree", table.defaultMessHallId.asc().nullsLast().op("int8_ops")),
-	index("user_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast().op("text_ops")),
+	index("user_data_default_mess_hall_id_fk_idx").using("btree", table.defaultMessHallId.asc().nullsLast()),
+	index("user_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast()),
 	foreignKey({
 			columns: [table.defaultMessHallId],
 			foreignColumns: [messHallsInKitchen.id],
@@ -365,8 +365,8 @@ export const foodItemRevisionInNutritionReference = nutritionReference.table("fo
 	isCurrent: boolean("is_current").default(false).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("food_item_revision_source_release_id_fk_idx").using("btree", table.sourceReleaseId.asc().nullsLast().op("uuid_ops")),
-	index("nutrition_food_revision_current_idx").using("btree", table.foodItemId.asc().nullsLast().op("uuid_ops")).where(sql`is_current`),
+	index("food_item_revision_source_release_id_fk_idx").using("btree", table.sourceReleaseId.asc().nullsLast()),
+	index("nutrition_food_revision_current_idx").using("btree", table.foodItemId.asc().nullsLast()).where(sql`is_current`),
 	index("nutrition_food_revision_search_idx").using("gin", sql`to_tsvector('portuguese'::regconfig, ((((COALESCE(normalized_na`),
 	foreignKey({
 			columns: [table.foodItemId],
@@ -409,7 +409,7 @@ export const nutrientComponentMappingInNutritionReference = nutritionReference.t
 	confidence: text().default('seeded').notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("nutrient_component_mapping_nutrient_id_fk_idx").using("btree", table.nutrientId.asc().nullsLast().op("uuid_ops")),
+	index("nutrient_component_mapping_nutrient_id_fk_idx").using("btree", table.nutrientId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.componentId],
 			foreignColumns: [nutrientComponentInNutritionReference.id],
@@ -434,7 +434,7 @@ export const foodNutrientValueInNutritionReference = nutritionReference.table("f
 	raw: jsonb().default({}).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("food_nutrient_value_component_id_fk_idx").using("btree", table.componentId.asc().nullsLast().op("uuid_ops")),
+	index("food_nutrient_value_component_id_fk_idx").using("btree", table.componentId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.componentId],
 			foreignColumns: [nutrientComponentInNutritionReference.id],
@@ -465,10 +465,10 @@ export const supplyOrderInProcurement = procurement.table("supply_order", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("supply_order_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("supply_order_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("uuid_ops")),
-	index("supply_order_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.status.asc().nullsLast().op("int8_ops")),
-	index("supply_order_sicaf_ack_by_fk_idx").using("btree", table.sicafAckBy.asc().nullsLast().op("uuid_ops")),
+	index("supply_order_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("supply_order_empenho_idx").using("btree", table.empenhoId.asc().nullsLast()),
+	index("supply_order_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast(), table.status.asc().nullsLast()),
+	index("supply_order_sicaf_ack_by_fk_idx").using("btree", table.sicafAckBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -500,9 +500,9 @@ export const supplyOrderItemInProcurement = procurement.table("supply_order_item
 	orderedQty: numeric("ordered_qty", { mode: "number", precision: 14, scale: 4 }).notNull(),
 	unitPrice: numeric("unit_price", { mode: "number", precision: 12, scale: 4 }),
 }, (table) => [
-	index("supply_order_item_arp_item_id_fk_idx").using("btree", table.arpItemId.asc().nullsLast().op("uuid_ops")),
-	index("supply_order_item_order_idx").using("btree", table.supplyOrderId.asc().nullsLast().op("uuid_ops")),
-	index("supply_order_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")),
+	index("supply_order_item_arp_item_id_fk_idx").using("btree", table.arpItemId.asc().nullsLast()),
+	index("supply_order_item_order_idx").using("btree", table.supplyOrderId.asc().nullsLast()),
+	index("supply_order_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.arpItemId],
 			foreignColumns: [procurementArpItemInProcurement.id],
@@ -533,7 +533,7 @@ export const procurementListSnapshotSelectionInProcurement = procurement.table("
 	snapshotSource: text("snapshot_source").default('native').notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("idx_proc_snapshot_selection_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
+	index("idx_proc_snapshot_selection_list_id").using("btree", table.listId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.listId],
 			foreignColumns: [procurementListInProcurement.id],
@@ -559,10 +559,10 @@ export const procurementArpItemInProcurement = procurement.table("procurement_ar
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	source: text().default('compras_gov').notNull(),
 }, (table) => [
-	index("idx_arp_item_arp").using("btree", table.arpId.asc().nullsLast().op("uuid_ops")),
-	index("idx_arp_item_ata_item").using("btree", table.ataItemId.asc().nullsLast().op("uuid_ops")),
-	index("idx_arp_item_catmat").using("btree", table.catmatItemCodigo.asc().nullsLast().op("int4_ops")),
-	uniqueIndex("procurement_arp_item_numero_uq").using("btree", table.arpId.asc().nullsLast().op("uuid_ops"), table.numeroItem.asc().nullsLast().op("uuid_ops")).where(sql`(numero_item IS NOT NULL)`),
+	index("idx_arp_item_arp").using("btree", table.arpId.asc().nullsLast()),
+	index("idx_arp_item_ata_item").using("btree", table.ataItemId.asc().nullsLast()),
+	index("idx_arp_item_catmat").using("btree", table.catmatItemCodigo.asc().nullsLast()),
+	uniqueIndex("procurement_arp_item_numero_uq").using("btree", table.arpId.asc().nullsLast(), table.numeroItem.asc().nullsLast()).where(sql`(numero_item IS NOT NULL)`),
 	foreignKey({
 			columns: [table.arpId],
 			foreignColumns: [procurementArpInProcurement.id],
@@ -598,7 +598,7 @@ export const procurementListSnapshotComponentInProcurement = procurement.table("
 	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
 	minQuoteQuantity: numeric("min_quote_quantity", { mode: "number", precision: 14, scale: 4 }),
 }, (table) => [
-	index("idx_proc_snapshot_component_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
+	index("idx_proc_snapshot_component_list_id").using("btree", table.listId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.listId],
 			foreignColumns: [procurementListInProcurement.id],
@@ -624,10 +624,10 @@ export const procurementPesquisaPrecoInProcurement = procurement.table("procurem
 	idempotencyKey: text("idempotency_key"),
 	createdBy: uuid("created_by"),
 }, (table) => [
-	index("idx_pesquisa_preco_ata").using("btree", table.ataId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
-	index("idx_pesquisa_preco_pending").using("btree", table.ataId.asc().nullsLast().op("uuid_ops")).where(sql`(ata_id IS NULL)`),
-	index("procurement_pesquisa_preco_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("uq_pesquisa_preco_idempotency").using("btree", table.idempotencyKey.asc().nullsLast().op("text_ops")).where(sql`(idempotency_key IS NOT NULL)`),
+	index("idx_pesquisa_preco_ata").using("btree", table.ataId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("idx_pesquisa_preco_pending").using("btree", table.ataId.asc().nullsLast()).where(sql`(ata_id IS NULL)`),
+	index("procurement_pesquisa_preco_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	uniqueIndex("uq_pesquisa_preco_idempotency").using("btree", table.idempotencyKey.asc().nullsLast()).where(sql`(idempotency_key IS NOT NULL)`),
 	foreignKey({
 			columns: [table.ataId],
 			foreignColumns: [procurementListInProcurement.id],
@@ -678,11 +678,11 @@ export const nfeItemInInventory = inventory.table("nfe_item", {
 	fcpStValue: numeric("fcp_st_value", { mode: "number", precision: 14, scale: 2 }),
 	acquisitionCost: numeric("acquisition_cost", { mode: "number", precision: 14, scale: 2 }),
 }, (table) => [
-	index("nfe_item_gtin_idx").using("btree", table.gtin.asc().nullsLast().op("text_ops")).where(sql`(gtin IS NOT NULL)`),
-	index("nfe_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("nfe_item_ingredient_item_id_fk_idx").using("btree", table.ingredientItemId.asc().nullsLast().op("uuid_ops")),
-	index("nfe_item_match_status_idx").using("btree", table.matchStatus.asc().nullsLast().op("text_ops")),
-	index("nfe_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")),
+	index("nfe_item_gtin_idx").using("btree", table.gtin.asc().nullsLast()).where(sql`(gtin IS NOT NULL)`),
+	index("nfe_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("nfe_item_ingredient_item_id_fk_idx").using("btree", table.ingredientItemId.asc().nullsLast()),
+	index("nfe_item_match_status_idx").using("btree", table.matchStatus.asc().nullsLast()),
+	index("nfe_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.ingredientId],
 			foreignColumns: [ingredientInKitchen.id],
@@ -715,8 +715,8 @@ export const kitchenAtaDraftSelectionInProcurement = procurement.table("kitchen_
 	templateId: uuid("template_id").notNull(),
 	repetitions: integer().default(1).notNull(),
 }, (table) => [
-	index("kitchen_ata_draft_selection_draft_id_fk_idx").using("btree", table.draftId.asc().nullsLast().op("uuid_ops")),
-	index("kitchen_ata_draft_selection_template_id_fk_idx").using("btree", table.templateId.asc().nullsLast().op("uuid_ops")),
+	index("kitchen_ata_draft_selection_draft_id_fk_idx").using("btree", table.draftId.asc().nullsLast()),
+	index("kitchen_ata_draft_selection_template_id_fk_idx").using("btree", table.templateId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.draftId],
 			foreignColumns: [kitchenAtaDraftInProcurement.id],
@@ -741,7 +741,7 @@ export const policyRuleInProcurement = procurement.table("policy_rule", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("policy_rule_target_display_order_idx").using("btree", table.target.asc().nullsLast().op("int4_ops"), table.displayOrder.asc().nullsLast().op("int4_ops")).where(sql`(deleted_at IS NULL)`),
+	index("policy_rule_target_display_order_idx").using("btree", table.target.asc().nullsLast(), table.displayOrder.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	check("policy_rule_target_check", sql`target = ANY (ARRAY['product'::text, 'recipe'::text])`),
 ]);
 
@@ -756,8 +756,8 @@ export const kitchenAtaDraftInProcurement = procurement.table("kitchen_ata_draft
 	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),
 	reviewedBy: uuid("reviewed_by"),
 }, (table) => [
-	index("kitchen_ata_draft_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int4_ops")),
-	index("kitchen_ata_draft_reviewed_by_fk_idx").using("btree", table.reviewedBy.asc().nullsLast().op("uuid_ops")),
+	index("kitchen_ata_draft_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("kitchen_ata_draft_reviewed_by_fk_idx").using("btree", table.reviewedBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -782,9 +782,9 @@ export const procurementPesquisaPrecoAmostraInProcurement = procurement.table("p
 	conversion: text(),
 	art5Parameter: text("art5_parameter").default('I').notNull(),
 }, (table) => [
-	index("idx_pesquisa_preco_amostra_item_type").using("btree", table.researchItemId.asc().nullsLast().op("text_ops"), table.sampleType.asc().nullsLast().op("uuid_ops")),
-	index("procurement_pesquisa_preco_amostra_amostra_id_fk_idx").using("btree", table.amostraId.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("uq_amostra_research_item_amostra").using("btree", table.researchItemId.asc().nullsLast().op("uuid_ops"), table.amostraId.asc().nullsLast().op("uuid_ops")),
+	index("idx_pesquisa_preco_amostra_item_type").using("btree", table.researchItemId.asc().nullsLast(), table.sampleType.asc().nullsLast()),
+	index("procurement_pesquisa_preco_amostra_amostra_id_fk_idx").using("btree", table.amostraId.asc().nullsLast()),
+	uniqueIndex("uq_amostra_research_item_amostra").using("btree", table.researchItemId.asc().nullsLast(), table.amostraId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.amostraId],
 			foreignColumns: [comprasAmostraInProcurement.id],
@@ -810,8 +810,8 @@ export const mcpApiKeysInAccessControl = accessControl.table("mcp_api_keys", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }).default(sql`(now() + '90 days'::interval)`).notNull(),
 }, (table) => [
-	index("mcp_api_keys_hash_active_idx").using("btree", table.keyHash.asc().nullsLast().op("text_ops")).where(sql`(is_active = true)`),
-	index("mcp_api_keys_user_id_fk_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
+	index("mcp_api_keys_hash_active_idx").using("btree", table.keyHash.asc().nullsLast()).where(sql`(is_active = true)`),
+	index("mcp_api_keys_user_id_fk_idx").using("btree", table.userId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [usersInAuth.id],
@@ -830,8 +830,8 @@ export const menuTemplateEventMealInKitchen = kitchen.table("menu_template_event
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	baseHeadcount: integer("base_headcount"),
 }, (table) => [
-	index("menu_template_event_meal_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast().op("uuid_ops")),
-	index("menu_template_event_meal_template_idx").using("btree", table.menuTemplateId.asc().nullsLast().op("int2_ops"), table.sortOrder.asc().nullsLast().op("int2_ops")),
+	index("menu_template_event_meal_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast()),
+	index("menu_template_event_meal_template_idx").using("btree", table.menuTemplateId.asc().nullsLast(), table.sortOrder.asc().nullsLast()),
 	foreignKey({
 			columns: [table.mealTypeId],
 			foreignColumns: [mealTypeInKitchen.id],
@@ -858,8 +858,8 @@ export const gpcBrickInGs1Integration = gs1Integration.table("gpc_brick", {
 	segmentTitle: text("segment_title").notNull(),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("gpc_brick_class_idx").using("btree", table.classCode.asc().nullsLast().op("text_ops")),
-	index("gpc_brick_segment_idx").using("btree", table.segmentCode.asc().nullsLast().op("text_ops")),
+	index("gpc_brick_class_idx").using("btree", table.classCode.asc().nullsLast()),
+	index("gpc_brick_segment_idx").using("btree", table.segmentCode.asc().nullsLast()),
 ]);
 
 export const changelogInKitchen = kitchen.table("changelog", {
@@ -899,7 +899,7 @@ export const personInCore = core.table("person", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	nameKey: text("name_key").generatedAlwaysAs(sql`core.person_name_key(display_name)`),
 }, (table) => [
-	uniqueIndex("person_name_key_idx").using("btree", table.nameKey.asc().nullsLast().op("text_ops")).where(sql`active`),
+	uniqueIndex("person_name_key_idx").using("btree", table.nameKey.asc().nullsLast()).where(sql`active`),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [usersInAuth.id],
@@ -931,10 +931,10 @@ export const kitchenInKitchen = kitchen.table("kitchen", {
 	addressCep: text("address_cep"),
 	isTraining: boolean("is_training").default(false).notNull(),
 }, (table) => [
-	index("kitchen_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
-	index("kitchen_purchase_unit_id_fk_idx").using("btree", table.purchaseUnitId.asc().nullsLast().op("int8_ops")),
-	uniqueIndex("kitchen_single_training_idx").using("btree", table.isTraining.asc().nullsLast().op("bool_ops")).where(sql`is_training`),
-	index("kitchen_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops")),
+	index("kitchen_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("kitchen_purchase_unit_id_fk_idx").using("btree", table.purchaseUnitId.asc().nullsLast()),
+	uniqueIndex("kitchen_single_training_idx").using("btree", table.isTraining.asc().nullsLast()).where(sql`is_training`),
+	index("kitchen_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [table.id],
@@ -960,7 +960,7 @@ export const recipeReviewInKitchen = kitchen.table("recipe_review", {
 	note: text(),
 	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("recipe_review_recipe_idx").using("btree", table.recipeId.asc().nullsLast().op("timestamptz_ops"), table.reviewedAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("recipe_review_recipe_idx").using("btree", table.recipeId.asc().nullsLast(), table.reviewedAt.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.recipeId],
 			foreignColumns: [recipesInKitchen.id],
@@ -982,7 +982,8 @@ export const procurementSegmentInProcurement = procurement.table("procurement_se
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("procurement_segment_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
+	index("procurement_segment_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("procurement_segment_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
 	uniqueIndex("procurement_segment_unit_name_uq").using("btree", sql`unit_id`, sql`lower(btrim(name))`).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.createdBy],
@@ -1028,9 +1029,9 @@ export const integrationSyncLogInComprasGovIntegration = comprasGovIntegration.t
 	stopRequested: boolean("stop_requested").default(false).notNull(),
 	source: text().default('compras_gov').notNull(),
 }, (table) => [
-	index("idx_compras_sync_log_started_at").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
-	index("idx_integration_sync_log_source_started").using("btree", table.source.asc().nullsLast().op("text_ops"), table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
-	uniqueIndex("uq_integration_sync_log_one_running_per_source").using("btree", table.source.asc().nullsLast().op("text_ops")).where(sql`(status = 'running'::text)`),
+	index("idx_compras_sync_log_started_at").using("btree", table.startedAt.desc().nullsFirst()),
+	index("idx_integration_sync_log_source_started").using("btree", table.source.asc().nullsLast(), table.startedAt.desc().nullsFirst()),
+	uniqueIndex("uq_integration_sync_log_one_running_per_source").using("btree", table.source.asc().nullsLast()).where(sql`(status = 'running'::text)`),
 ]);
 
 export const purchaseItemIngredientInProcurement = procurement.table("purchase_item_ingredient", {
@@ -1042,8 +1043,8 @@ export const purchaseItemIngredientInProcurement = procurement.table("purchase_i
 	isDefault: boolean("is_default").default(false).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	uniqueIndex("purchase_item_ingredient_default_uniq").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")).where(sql`is_default`),
-	index("purchase_item_ingredient_ingredient_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("purchase_item_ingredient_default_uniq").using("btree", table.ingredientId.asc().nullsLast()).where(sql`is_default`),
+	index("purchase_item_ingredient_ingredient_idx").using("btree", table.ingredientId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.ingredientId],
 			foreignColumns: [itemInCore.id],
@@ -1065,10 +1066,11 @@ export const procurementSegmentRuleInProcurement = procurement.table("procuremen
 	purchaseItemId: uuid("purchase_item_id"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("procurement_segment_rule_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("procurement_segment_rule_folder_uq").using("btree", table.segmentId.asc().nullsLast().op("uuid_ops"), table.folderId.asc().nullsLast().op("uuid_ops")).where(sql`(folder_id IS NOT NULL)`),
-	uniqueIndex("procurement_segment_rule_item_uq").using("btree", table.segmentId.asc().nullsLast().op("uuid_ops"), table.purchaseItemId.asc().nullsLast().op("uuid_ops")).where(sql`(purchase_item_id IS NOT NULL)`),
-	index("procurement_segment_rule_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")),
+	index("procurement_segment_rule_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast()),
+	uniqueIndex("procurement_segment_rule_folder_uq").using("btree", table.segmentId.asc().nullsLast(), table.folderId.asc().nullsLast()).where(sql`(folder_id IS NOT NULL)`),
+	uniqueIndex("procurement_segment_rule_item_uq").using("btree", table.segmentId.asc().nullsLast(), table.purchaseItemId.asc().nullsLast()).where(sql`(purchase_item_id IS NOT NULL)`),
+	index("procurement_segment_rule_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
+	index("procurement_segment_rule_segment_id_fk_idx").using("btree", table.segmentId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.folderId],
 			foreignColumns: [folderInKitchen.id],
@@ -1105,10 +1107,10 @@ export const receiptScanEventInInventory = inventory.table("receipt_scan_event",
 	createdBy: uuid("created_by"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("receipt_scan_event_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("receipt_scan_event_item_idx").using("btree", table.receiptItemId.asc().nullsLast().op("uuid_ops"), table.seq.asc().nullsLast().op("uuid_ops")),
-	index("receipt_scan_event_receipt_idx").using("btree", table.receiptId.asc().nullsLast().op("uuid_ops"), table.seq.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("receipt_scan_event_reversal_key").using("btree", table.reversedEventId.asc().nullsLast().op("uuid_ops")).where(sql`(reversed_event_id IS NOT NULL)`),
+	index("receipt_scan_event_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("receipt_scan_event_item_idx").using("btree", table.receiptItemId.asc().nullsLast(), table.seq.asc().nullsLast()),
+	index("receipt_scan_event_receipt_idx").using("btree", table.receiptId.asc().nullsLast(), table.seq.asc().nullsLast()),
+	uniqueIndex("receipt_scan_event_reversal_key").using("btree", table.reversedEventId.asc().nullsLast()).where(sql`(reversed_event_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -1160,8 +1162,10 @@ export const acquisitionInProcurement = procurement.table("acquisition", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("acquisition_dispensa_sum_idx").using("btree", table.unitId.asc().nullsLast().op("int4_ops"), table.fiscalYear.asc().nullsLast().op("int4_ops"), table.directContractClause.asc().nullsLast().op("text_ops")).where(sql`((kind = 'dispensa'::text) AND (deleted_at IS NULL))`),
-	index("acquisition_unit_idx").using("btree", table.unitId.asc().nullsLast().op("int4_ops")).where(sql`(deleted_at IS NULL)`),
+	index("acquisition_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("acquisition_dispensa_sum_idx").using("btree", table.unitId.asc().nullsLast(), table.fiscalYear.asc().nullsLast(), table.directContractClause.asc().nullsLast()).where(sql`((kind = 'dispensa'::text) AND (deleted_at IS NULL))`),
+	index("acquisition_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
+	index("acquisition_unit_idx").using("btree", table.unitId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -1192,9 +1196,9 @@ export const procurementListSelectionInProcurement = procurement.table("procurem
 	repetitions: integer().default(1).notNull(),
 	originTemplateId: uuid("origin_template_id"),
 }, (table) => [
-	index("procurement_list_selection_list_kitchen_id_fk_idx").using("btree", table.listKitchenId.asc().nullsLast().op("uuid_ops")),
-	index("procurement_list_selection_origin_template_id_fk_idx").using("btree", table.originTemplateId.asc().nullsLast().op("uuid_ops")),
-	index("procurement_list_selection_template_id_fk_idx").using("btree", table.templateId.asc().nullsLast().op("uuid_ops")),
+	index("procurement_list_selection_list_kitchen_id_fk_idx").using("btree", table.listKitchenId.asc().nullsLast()),
+	index("procurement_list_selection_origin_template_id_fk_idx").using("btree", table.originTemplateId.asc().nullsLast()),
+	index("procurement_list_selection_template_id_fk_idx").using("btree", table.templateId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.listKitchenId],
 			foreignColumns: [procurementListKitchenInProcurement.id],
@@ -1219,8 +1223,8 @@ export const procurementListKitchenInProcurement = procurement.table("procuremen
 	kitchenId: integer("kitchen_id").notNull(),
 	deliveryNotes: text("delivery_notes"),
 }, (table) => [
-	index("idx_procurement_list_kitchen_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
-	index("procurement_list_kitchen_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int4_ops")),
+	index("idx_procurement_list_kitchen_list_id").using("btree", table.listId.asc().nullsLast()),
+	index("procurement_list_kitchen_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.listId],
 			foreignColumns: [procurementListInProcurement.id],
@@ -1254,10 +1258,10 @@ export const unitsInCore = core.table("units", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	supportingUnitId: bigint("supporting_unit_id", { mode: "number" }),
 }, (table) => [
-	uniqueIndex("units_cnpj_key").using("btree", table.cnpj.asc().nullsLast().op("bpchar_ops")).where(sql`(cnpj IS NOT NULL)`),
-	index("units_parent_unit_idx").using("btree", table.parentUnitId.asc().nullsLast().op("int8_ops")).where(sql`(parent_unit_id IS NOT NULL)`),
-	uniqueIndex("units_single_training_idx").using("btree", table.isTraining.asc().nullsLast().op("bool_ops")).where(sql`is_training`),
-	index("units_supporting_unit_idx").using("btree", table.supportingUnitId.asc().nullsLast().op("int8_ops")).where(sql`(supporting_unit_id IS NOT NULL)`),
+	uniqueIndex("units_cnpj_key").using("btree", table.cnpj.asc().nullsLast()).where(sql`(cnpj IS NOT NULL)`),
+	index("units_parent_unit_idx").using("btree", table.parentUnitId.asc().nullsLast()).where(sql`(parent_unit_id IS NOT NULL)`),
+	uniqueIndex("units_single_training_idx").using("btree", table.isTraining.asc().nullsLast()).where(sql`is_training`),
+	index("units_supporting_unit_idx").using("btree", table.supportingUnitId.asc().nullsLast()).where(sql`(supporting_unit_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.parentUnitId],
 			foreignColumns: [table.id],
@@ -1290,8 +1294,9 @@ export const procurementListInProcurement = procurement.table("procurement_list"
 	isBudgetConfidential: boolean("is_budget_confidential").default(false).notNull(),
 	minQuotePercent: numeric("min_quote_percent", { mode: "number", precision: 5, scale: 2 }).default(100).notNull(),
 }, (table) => [
-	index("idx_procurement_list_unit_status").using("btree", table.unitId.asc().nullsLast().op("int4_ops"), table.status.asc().nullsLast().op("int4_ops")).where(sql`(deleted_at IS NULL)`),
-	index("procurement_list_segment_idx").using("btree", table.segmentId.asc().nullsLast().op("uuid_ops")).where(sql`(segment_id IS NOT NULL)`),
+	index("idx_procurement_list_unit_status").using("btree", table.unitId.asc().nullsLast(), table.status.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("procurement_list_segment_idx").using("btree", table.segmentId.asc().nullsLast()).where(sql`(segment_id IS NOT NULL)`),
+	index("procurement_list_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.unitId],
 			foreignColumns: [unitsInCore.id],
@@ -1330,9 +1335,9 @@ export const ingredientInKitchen = kitchen.table("ingredient", {
 	issuePackageQuantity: numeric("issue_package_quantity", { mode: "number", precision: 14, scale: 4 }),
 	allergens: text().array().default([""]).notNull(),
 }, (table) => [
-	index("ingredient_ceafa_id_fk_idx").using("btree", table.ceafaId.asc().nullsLast().op("uuid_ops")),
-	index("ingredient_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast().op("uuid_ops")),
-	index("ingredient_preparation_group_id_idx").using("btree", table.preparationGroupId.asc().nullsLast().op("uuid_ops")).where(sql`(preparation_group_id IS NOT NULL)`),
+	index("ingredient_ceafa_id_fk_idx").using("btree", table.ceafaId.asc().nullsLast()),
+	index("ingredient_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast()),
+	index("ingredient_preparation_group_id_idx").using("btree", table.preparationGroupId.asc().nullsLast()).where(sql`(preparation_group_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.id],
 			foreignColumns: [itemInCore.id],
@@ -1382,8 +1387,8 @@ export const preparationGroupInKitchen = kitchen.table("preparation_group", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("preparation_group_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast().op("timestamptz_ops")),
-	index("preparation_group_parent_id_idx").using("btree", table.parentId.asc().nullsLast().op("uuid_ops")),
+	index("preparation_group_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast()),
+	index("preparation_group_parent_id_idx").using("btree", table.parentId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.parentId],
 			foreignColumns: [table.id],
@@ -1421,10 +1426,11 @@ export const purchaseItemInProcurement = procurement.table("purchase_item", {
 	transportRequirement: text("transport_requirement"),
 	quantityTolerancePct: numeric("quantity_tolerance_pct", { mode: "number", precision: 5, scale: 2 }).default(2).notNull(),
 }, (table) => [
-	index("purchase_item_catmat_idx").using("btree", table.catmatItemCodigo.asc().nullsLast().op("int4_ops")).where(sql`(deleted_at IS NULL)`),
-	index("purchase_item_conservation_idx").using("btree", table.conservationClass.asc().nullsLast().op("text_ops")).where(sql`((conservation_class IS NOT NULL) AND (deleted_at IS NULL))`),
-	index("purchase_item_description_trgm_idx").using("gin", table.description.asc().nullsLast().op("gin_trgm_ops")).where(sql`(deleted_at IS NULL)`),
-	index("purchase_item_package_net_content_unit_fk_idx").using("btree", table.packageNetContentUnit.asc().nullsLast().op("text_ops")),
+	index("purchase_item_catmat_idx").using("btree", table.catmatItemCodigo.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("purchase_item_catmat_item_codigo_fk_idx").using("btree", table.catmatItemCodigo.asc().nullsLast()),
+	index("purchase_item_conservation_idx").using("btree", table.conservationClass.asc().nullsLast()).where(sql`((conservation_class IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("purchase_item_description_trgm_idx").using("gin", table.description.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("purchase_item_package_net_content_unit_fk_idx").using("btree", table.packageNetContentUnit.asc().nullsLast()),
 	foreignKey({
 			columns: [table.catmatItemCodigo],
 			foreignColumns: [comprasMaterialItemInComprasGovIntegration.codigoItem],
@@ -1469,8 +1475,8 @@ export const comprasAmostraInProcurement = procurement.table("compras_amostra", 
 	niFornecedor: text("ni_fornecedor"),
 	nomeFornecedor: text("nome_fornecedor"),
 }, (table) => [
-	index("idx_compras_amostra_compra").using("btree", table.idCompra.asc().nullsLast().op("int4_ops"), table.idItemCompra.asc().nullsLast().op("int4_ops")),
-	uniqueIndex("uq_compras_amostra_fingerprint").using("btree", table.fingerprint.asc().nullsLast().op("text_ops")),
+	index("idx_compras_amostra_compra").using("btree", table.idCompra.asc().nullsLast(), table.idItemCompra.asc().nullsLast()),
+	uniqueIndex("uq_compras_amostra_fingerprint").using("btree", table.fingerprint.asc().nullsLast()),
 ]);
 
 export const equipmentRoleInKitchen = kitchen.table("equipment_role", {
@@ -1483,8 +1489,8 @@ export const equipmentRoleInKitchen = kitchen.table("equipment_role", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("equipment_role_category_idx").using("btree", table.category.asc().nullsLast().op("int4_ops"), table.sortOrder.asc().nullsLast().op("int4_ops")).where(sql`(deleted_at IS NULL)`),
-	uniqueIndex("equipment_role_code_uniq").using("btree", table.code.asc().nullsLast().op("text_ops")),
+	index("equipment_role_category_idx").using("btree", table.category.asc().nullsLast(), table.sortOrder.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	uniqueIndex("equipment_role_code_uniq").using("btree", table.code.asc().nullsLast()),
 	check("equipment_role_category_check", sql`category = ANY (ARRAY['coccao'::text, 'preparo'::text, 'conservacao'::text, 'apoio'::text])`),
 ]);
 
@@ -1497,9 +1503,11 @@ export const equipmentModelRoleInKitchen = kitchen.table("equipment_model_role",
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	uniqueIndex("equipment_model_role_primary_uniq").using("btree", table.modelId.asc().nullsLast().op("uuid_ops")).where(sql`(is_primary AND (deleted_at IS NULL))`),
-	index("equipment_model_role_role_idx").using("btree", table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
-	uniqueIndex("equipment_model_role_uniq").using("btree", table.modelId.asc().nullsLast().op("uuid_ops"), table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	index("equipment_model_role_model_id_fk_idx").using("btree", table.modelId.asc().nullsLast()),
+	uniqueIndex("equipment_model_role_primary_uniq").using("btree", table.modelId.asc().nullsLast()).where(sql`(is_primary AND (deleted_at IS NULL))`),
+	index("equipment_model_role_role_id_fk_idx").using("btree", table.roleId.asc().nullsLast()),
+	index("equipment_model_role_role_idx").using("btree", table.roleId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	uniqueIndex("equipment_model_role_uniq").using("btree", table.modelId.asc().nullsLast(), table.roleId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.modelId],
 			foreignColumns: [equipmentModelInKitchen.id],
@@ -1521,8 +1529,9 @@ export const equipmentUnitRoleInKitchen = kitchen.table("equipment_unit_role", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("equipment_unit_role_role_id_fk_idx").using("btree", table.roleId.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("equipment_unit_role_uniq").using("btree", table.unitId.asc().nullsLast().op("uuid_ops"), table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	index("equipment_unit_role_role_id_fk_idx").using("btree", table.roleId.asc().nullsLast()),
+	uniqueIndex("equipment_unit_role_uniq").using("btree", table.unitId.asc().nullsLast(), table.roleId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("equipment_unit_role_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.roleId],
 			foreignColumns: [equipmentRoleInKitchen.id],
@@ -1552,9 +1561,9 @@ export const procurementArpInProcurement = procurement.table("procurement_arp", 
 	acquisitionId: uuid("acquisition_id"),
 	source: text().default('compras_gov').notNull(),
 }, (table) => [
-	index("idx_procurement_arp_ata").using("btree", table.ataId.asc().nullsLast().op("uuid_ops")),
-	index("idx_procurement_arp_unit").using("btree", table.unitId.asc().nullsLast().op("int4_ops")),
-	index("procurement_arp_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast().op("uuid_ops")).where(sql`(acquisition_id IS NOT NULL)`),
+	index("idx_procurement_arp_ata").using("btree", table.ataId.asc().nullsLast()),
+	index("idx_procurement_arp_unit").using("btree", table.unitId.asc().nullsLast()),
+	index("procurement_arp_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.acquisitionId],
 			foreignColumns: [acquisitionInProcurement.id],
@@ -1588,12 +1597,12 @@ export const gtinAliasInGs1Integration = gs1Integration.table("gtin_alias", {
 	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),
 	reviewNote: text("review_note"),
 }, (table) => [
-	index("gtin_alias_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("gtin_alias_gtin_idx").using("btree", table.gtin.asc().nullsLast().op("text_ops")).where(sql`(status <> 'rejected'::text)`),
-	index("gtin_alias_ingredient_item_id_fk_idx").using("btree", table.ingredientItemId.asc().nullsLast().op("uuid_ops")),
-	index("gtin_alias_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
-	index("gtin_alias_pending_idx").using("btree", table.status.asc().nullsLast().op("text_ops")).where(sql`(status = 'pending'::text)`),
-	index("gtin_alias_reviewed_by_fk_idx").using("btree", table.reviewedBy.asc().nullsLast().op("uuid_ops")),
+	index("gtin_alias_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("gtin_alias_gtin_idx").using("btree", table.gtin.asc().nullsLast()).where(sql`(status <> 'rejected'::text)`),
+	index("gtin_alias_ingredient_item_id_fk_idx").using("btree", table.ingredientItemId.asc().nullsLast()),
+	index("gtin_alias_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("gtin_alias_pending_idx").using("btree", table.status.asc().nullsLast()).where(sql`(status = 'pending'::text)`),
+	index("gtin_alias_reviewed_by_fk_idx").using("btree", table.reviewedBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -1634,10 +1643,12 @@ export const recipeEquipmentRequirementInKitchen = kitchen.table("recipe_equipme
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("recipe_equipment_requirement_model_id_fk_idx").using("btree", table.modelId.asc().nullsLast().op("uuid_ops")),
-	index("recipe_equipment_requirement_recipe_idx").using("btree", table.recipeId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
-	index("recipe_equipment_requirement_role_id_fk_idx").using("btree", table.roleId.asc().nullsLast().op("uuid_ops")),
-	index("recipe_equipment_requirement_step_idx").using("btree", table.recipeStepId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	index("recipe_equipment_requirement_model_id_fk_idx").using("btree", table.modelId.asc().nullsLast()),
+	index("recipe_equipment_requirement_recipe_id_fk_idx").using("btree", table.recipeId.asc().nullsLast()),
+	index("recipe_equipment_requirement_recipe_idx").using("btree", table.recipeId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("recipe_equipment_requirement_recipe_step_id_fk_idx").using("btree", table.recipeStepId.asc().nullsLast()),
+	index("recipe_equipment_requirement_role_id_fk_idx").using("btree", table.roleId.asc().nullsLast()),
+	index("recipe_equipment_requirement_step_idx").using("btree", table.recipeStepId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	uniqueIndex("recipe_equipment_requirement_target_uniq").using("btree", sql`recipe_id`, sql`COALESCE(recipe_step_id, '00000000-0000-0000-0000-000000000000'`, sql`COALESCE(role_id, model_id)`).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.modelId],
@@ -1674,7 +1685,7 @@ export const analyticsChatSessionInKitchen = kitchen.table("analytics_chat_sessi
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("idx_analytics_chat_session_user").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.updatedAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("idx_analytics_chat_session_user").using("btree", table.userId.asc().nullsLast(), table.updatedAt.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [usersInAuth.id],
@@ -1697,7 +1708,7 @@ export const analyticsChatMessageInKitchen = kitchen.table("analytics_chat_messa
 	inputTokens: integer("input_tokens"),
 	outputTokens: integer("output_tokens"),
 }, (table) => [
-	index("idx_analytics_chat_message_session").using("btree", table.sessionId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("idx_analytics_chat_message_session").using("btree", table.sessionId.asc().nullsLast(), table.createdAt.asc().nullsLast()),
 	foreignKey({
 			columns: [table.sessionId],
 			foreignColumns: [analyticsChatSessionInKitchen.id],
@@ -1723,7 +1734,7 @@ export const productionTaskInKitchen = kitchen.table("production_task", {
 	leftoverQuantity: numeric("leftover_quantity", { mode: "number" }),
 	issueDate: date("issue_date"),
 }, (table) => [
-	index("production_task_kitchen_id_production_date_idx").using("btree", table.kitchenId.asc().nullsLast().op("int4_ops"), table.productionDate.asc().nullsLast().op("int4_ops")),
+	index("production_task_kitchen_id_production_date_idx").using("btree", table.kitchenId.asc().nullsLast(), table.productionDate.asc().nullsLast()),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -1749,7 +1760,7 @@ export const priceResearchEmissionInProcurement = procurement.table("price_resea
 	sha256: text().notNull(),
 	items: jsonb().notNull(),
 }, (table) => [
-	index("price_research_emission_emitted_by_fk_idx").using("btree", table.emittedBy.asc().nullsLast().op("uuid_ops")),
+	index("price_research_emission_emitted_by_fk_idx").using("btree", table.emittedBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.emittedBy],
 			foreignColumns: [usersInAuth.id],
@@ -1774,11 +1785,11 @@ export const folderInKitchen = kitchen.table("folder", {
 	legacyId: integer("legacy_id"),
 	catalogScope: text("catalog_scope").default('alimentacao').notNull(),
 }, (table) => [
-	index("folder_catalog_scope_idx").using("btree", table.catalogScope.asc().nullsLast().op("text_ops")).where(sql`(catalog_scope <> 'alimentacao'::text)`),
-	index("folder_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
-	index("folder_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast().op("timestamptz_ops")),
-	index("folder_description_idx").using("btree", table.description.asc().nullsLast().op("text_ops")),
-	index("folder_parent_id_idx").using("btree", table.parentId.asc().nullsLast().op("uuid_ops")),
+	index("folder_catalog_scope_idx").using("btree", table.catalogScope.asc().nullsLast()).where(sql`(catalog_scope <> 'alimentacao'::text)`),
+	index("folder_created_at_idx").using("btree", table.createdAt.asc().nullsLast()),
+	index("folder_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast()),
+	index("folder_description_idx").using("btree", table.description.asc().nullsLast()),
+	index("folder_parent_id_idx").using("btree", table.parentId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.parentId],
 			foreignColumns: [table.id],
@@ -1804,11 +1815,12 @@ export const ranchoInKitchen = kitchen.table("rancho", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	uniqueIndex("rancho_code_uniq").using("btree", table.code.asc().nullsLast().op("text_ops")),
-	index("rancho_elo_idx").using("btree", table.eloCode.asc().nullsLast().op("text_ops")).where(sql`active`),
-	index("rancho_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
-	index("rancho_mess_hall_idx").using("btree", table.messHallId.asc().nullsLast().op("int8_ops")).where(sql`(mess_hall_id IS NOT NULL)`),
-	index("rancho_unit_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops")).where(sql`active`),
+	uniqueIndex("rancho_code_uniq").using("btree", table.code.asc().nullsLast()),
+	index("rancho_elo_idx").using("btree", table.eloCode.asc().nullsLast()).where(sql`active`),
+	index("rancho_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("rancho_mess_hall_idx").using("btree", table.messHallId.asc().nullsLast()).where(sql`(mess_hall_id IS NOT NULL)`),
+	index("rancho_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
+	index("rancho_unit_idx").using("btree", table.unitId.asc().nullsLast()).where(sql`active`),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -1837,7 +1849,7 @@ export const workforceCategoryInKitchen = kitchen.table("workforce_category", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	uniqueIndex("workforce_category_code_uniq").using("btree", table.code.asc().nullsLast().op("text_ops")),
+	uniqueIndex("workforce_category_code_uniq").using("btree", table.code.asc().nullsLast()),
 ]);
 
 export const workforceSurveyInKitchen = kitchen.table("workforce_survey", {
@@ -1851,8 +1863,8 @@ export const workforceSurveyInKitchen = kitchen.table("workforce_survey", {
 	createdBy: uuid("created_by"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("workforce_survey_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("workforce_survey_reference_date_uniq").using("btree", table.referenceDate.asc().nullsLast().op("date_ops")),
+	index("workforce_survey_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	uniqueIndex("workforce_survey_reference_date_uniq").using("btree", table.referenceDate.asc().nullsLast()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -1872,9 +1884,9 @@ export const workforceSubmissionInKitchen = kitchen.table("workforce_submission"
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("workforce_submission_rancho_idx").using("btree", table.ranchoId.asc().nullsLast().op("int8_ops")),
-	index("workforce_submission_submitted_by_fk_idx").using("btree", table.submittedBy.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("workforce_submission_uniq").using("btree", table.surveyId.asc().nullsLast().op("uuid_ops"), table.ranchoId.asc().nullsLast().op("int8_ops")),
+	index("workforce_submission_rancho_idx").using("btree", table.ranchoId.asc().nullsLast()),
+	index("workforce_submission_submitted_by_fk_idx").using("btree", table.submittedBy.asc().nullsLast()),
+	uniqueIndex("workforce_submission_uniq").using("btree", table.surveyId.asc().nullsLast(), table.ranchoId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.ranchoId],
 			foreignColumns: [ranchoInKitchen.id],
@@ -1904,9 +1916,9 @@ export const stockIssueRequestItemInInventory = inventory.table("stock_issue_req
 	varianceNote: text("variance_note"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("stock_issue_request_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("stock_issue_request_item_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast().op("uuid_ops")),
-	index("stock_issue_request_item_request_idx").using("btree", table.requestId.asc().nullsLast().op("uuid_ops")),
+	index("stock_issue_request_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("stock_issue_request_item_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast()),
+	index("stock_issue_request_item_request_idx").using("btree", table.requestId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.ingredientId],
 			foreignColumns: [ingredientInKitchen.id],
@@ -1934,8 +1946,8 @@ export const workforceHeadcountInKitchen = kitchen.table("workforce_headcount", 
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("workforce_headcount_category_id_fk_idx").using("btree", table.categoryId.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("workforce_headcount_uniq").using("btree", table.submissionId.asc().nullsLast().op("uuid_ops"), table.categoryId.asc().nullsLast().op("uuid_ops")),
+	index("workforce_headcount_category_id_fk_idx").using("btree", table.categoryId.asc().nullsLast()),
+	uniqueIndex("workforce_headcount_uniq").using("btree", table.submissionId.asc().nullsLast(), table.categoryId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.categoryId],
 			foreignColumns: [workforceCategoryInKitchen.id],
@@ -1959,9 +1971,9 @@ export const mealPresencesInKitchen = kitchen.table("meal_presences", {
 	messHallId: bigint("mess_hall_id", { mode: "number" }).notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("meal_presences_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
-	index("meal_presences_date_meal_idx").using("btree", table.date.asc().nullsLast().op("date_ops"), table.meal.asc().nullsLast().op("text_ops")),
-	index("meal_presences_mess_hall_id_idx").using("btree", table.messHallId.asc().nullsLast().op("int8_ops")),
+	index("meal_presences_created_at_idx").using("btree", table.createdAt.asc().nullsLast()),
+	index("meal_presences_date_meal_idx").using("btree", table.date.asc().nullsLast(), table.meal.asc().nullsLast()),
+	index("meal_presences_mess_hall_id_idx").using("btree", table.messHallId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.messHallId],
 			foreignColumns: [messHallsInKitchen.id],
@@ -1984,7 +1996,7 @@ export const workforceNoteInKitchen = kitchen.table("workforce_note", {
 	detail: text().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("workforce_note_submission_idx").using("btree", table.submissionId.asc().nullsLast().op("uuid_ops")),
+	index("workforce_note_submission_idx").using("btree", table.submissionId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.submissionId],
 			foreignColumns: [workforceSubmissionInKitchen.id],
@@ -2020,7 +2032,7 @@ export const ingredientNutritionReferenceInKitchen = kitchen.table("ingredient_n
 	linkedBy: uuid("linked_by"),
 	notes: text(),
 }, (table) => [
-	index("ingredient_nutrition_reference_food_idx").using("btree", table.foodRevisionId.asc().nullsLast().op("uuid_ops")),
+	index("ingredient_nutrition_reference_food_idx").using("btree", table.foodRevisionId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.foodRevisionId],
 			foreignColumns: [foodItemRevisionInNutritionReference.id],
@@ -2042,8 +2054,8 @@ export const menuTemplateMealInKitchen = kitchen.table("menu_template_meal", {
 	baseHeadcount: integer("base_headcount"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("menu_template_meal_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast().op("uuid_ops")),
-	index("menu_template_meal_template_idx").using("btree", table.menuTemplateId.asc().nullsLast().op("uuid_ops")),
+	index("menu_template_meal_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast()),
+	index("menu_template_meal_template_idx").using("btree", table.menuTemplateId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.mealTypeId],
 			foreignColumns: [mealTypeInKitchen.id],
@@ -2070,9 +2082,9 @@ export const otherPresencesInKitchen = kitchen.table("other_presences", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	messHallId: bigint("mess_hall_id", { mode: "number" }).notNull(),
 }, (table) => [
-	index("other_presences_admin_id_idx").using("btree", table.adminId.asc().nullsLast().op("uuid_ops")),
-	index("other_presences_date_meal_idx").using("btree", table.date.asc().nullsLast().op("date_ops"), table.meal.asc().nullsLast().op("date_ops")),
-	index("other_presences_mess_hall_id_idx").using("btree", table.messHallId.asc().nullsLast().op("int8_ops")),
+	index("other_presences_admin_id_idx").using("btree", table.adminId.asc().nullsLast()),
+	index("other_presences_date_meal_idx").using("btree", table.date.asc().nullsLast(), table.meal.asc().nullsLast()),
+	index("other_presences_mess_hall_id_idx").using("btree", table.messHallId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.adminId],
 			foreignColumns: [usersInAuth.id],
@@ -2093,8 +2105,9 @@ export const stepTemplateUtensilInKitchen = kitchen.table("step_template_utensil
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	uniqueIndex("step_template_utensil_uniq").using("btree", table.stepTemplateId.asc().nullsLast().op("uuid_ops"), table.utensilId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
-	index("step_template_utensil_utensil_id_fk_idx").using("btree", table.utensilId.asc().nullsLast().op("uuid_ops")),
+	index("step_template_utensil_step_template_id_fk_idx").using("btree", table.stepTemplateId.asc().nullsLast()),
+	uniqueIndex("step_template_utensil_uniq").using("btree", table.stepTemplateId.asc().nullsLast(), table.utensilId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("step_template_utensil_utensil_id_fk_idx").using("btree", table.utensilId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.stepTemplateId],
 			foreignColumns: [stepTemplateInKitchen.id],
@@ -2116,11 +2129,11 @@ export const recipeIngredientAlternativesInKitchen = kitchen.table("recipe_ingre
 	priorityOrder: smallint("priority_order"),
 	frozenPreparationId: uuid("frozen_preparation_id"),
 }, (table) => [
-	index("recipe_ingredient_alt_frozen_prep_idx").using("btree", table.frozenPreparationId.asc().nullsLast().op("uuid_ops")).where(sql`(frozen_preparation_id IS NOT NULL)`),
-	uniqueIndex("recipe_ingredient_alt_frozen_unique").using("btree", table.recipeIngredientId.asc().nullsLast().op("uuid_ops"), table.frozenPreparationId.asc().nullsLast().op("uuid_ops")).where(sql`(frozen_preparation_id IS NOT NULL)`),
-	uniqueIndex("recipe_ingredient_alt_ingredient_unique").using("btree", table.recipeIngredientId.asc().nullsLast().op("uuid_ops"), table.ingredientId.asc().nullsLast().op("uuid_ops")).where(sql`(ingredient_id IS NOT NULL)`),
-	index("recipe_ingredient_alt_recipe_ingredient_idx").using("btree", table.recipeIngredientId.asc().nullsLast().op("uuid_ops")),
-	index("recipe_ingredient_alternatives_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
+	index("recipe_ingredient_alt_frozen_prep_idx").using("btree", table.frozenPreparationId.asc().nullsLast()).where(sql`(frozen_preparation_id IS NOT NULL)`),
+	uniqueIndex("recipe_ingredient_alt_frozen_unique").using("btree", table.recipeIngredientId.asc().nullsLast(), table.frozenPreparationId.asc().nullsLast()).where(sql`(frozen_preparation_id IS NOT NULL)`),
+	uniqueIndex("recipe_ingredient_alt_ingredient_unique").using("btree", table.recipeIngredientId.asc().nullsLast(), table.ingredientId.asc().nullsLast()).where(sql`(ingredient_id IS NOT NULL)`),
+	index("recipe_ingredient_alt_recipe_ingredient_idx").using("btree", table.recipeIngredientId.asc().nullsLast()),
+	index("recipe_ingredient_alternatives_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.frozenPreparationId],
 			foreignColumns: [frozenPreparationInKitchen.id],
@@ -2147,7 +2160,7 @@ export const ingredientNutrientInKitchen = kitchen.table("ingredient_nutrient", 
 	nutrientValue: numeric("nutrient_value", { mode: "number" }),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("ingredient_nutrient_nutrient_id_fk_idx").using("btree", table.nutrientId.asc().nullsLast().op("uuid_ops")),
+	index("ingredient_nutrient_nutrient_id_fk_idx").using("btree", table.nutrientId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.nutrientId],
 			foreignColumns: [nutrientInKitchen.id],
@@ -2213,9 +2226,10 @@ export const utensilInKitchen = kitchen.table("utensil", {
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 	roleId: uuid("role_id"),
 }, (table) => [
-	index("utensil_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
+	index("utensil_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
 	uniqueIndex("utensil_name_active_uniq").using("btree", sql`lower(name)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
-	index("utensil_role_idx").using("btree", table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`((role_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("utensil_role_id_fk_idx").using("btree", table.roleId.asc().nullsLast()),
+	index("utensil_role_idx").using("btree", table.roleId.asc().nullsLast()).where(sql`((role_id IS NOT NULL) AND (deleted_at IS NULL))`),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -2237,7 +2251,7 @@ export const moduleChatSessionInKitchen = kitchen.table("module_chat_session", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("idx_mcs_user").using("btree", table.userId.asc().nullsLast().op("text_ops"), table.module.asc().nullsLast().op("uuid_ops"), table.updatedAt.desc().nullsFirst().op("uuid_ops")),
+	index("idx_mcs_user").using("btree", table.userId.asc().nullsLast(), table.module.asc().nullsLast(), table.updatedAt.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [usersInAuth.id],
@@ -2263,7 +2277,7 @@ export const moduleChatMessageInKitchen = kitchen.table("module_chat_message", {
 	inputTokens: integer("input_tokens"),
 	outputTokens: integer("output_tokens"),
 }, (table) => [
-	index("idx_mcm_session").using("btree", table.sessionId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("idx_mcm_session").using("btree", table.sessionId.asc().nullsLast(), table.createdAt.asc().nullsLast()),
 	foreignKey({
 			columns: [table.sessionId],
 			foreignColumns: [moduleChatSessionInKitchen.id],
@@ -2284,8 +2298,8 @@ export const mealForecastsInKitchen = kitchen.table("meal_forecasts", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	messHallId: bigint("mess_hall_id", { mode: "number" }).notNull(),
 }, (table) => [
-	index("meal_forecasts_date_idx").using("btree", table.date.asc().nullsLast().op("date_ops")),
-	index("meal_forecasts_mess_hall_id_idx").using("btree", table.messHallId.asc().nullsLast().op("int8_ops")),
+	index("meal_forecasts_date_idx").using("btree", table.date.asc().nullsLast()),
+	index("meal_forecasts_mess_hall_id_idx").using("btree", table.messHallId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.messHallId],
 			foreignColumns: [messHallsInKitchen.id],
@@ -2310,9 +2324,9 @@ export const messHallsInKitchen = kitchen.table("mess_halls", {
 	kitchenId: bigint("kitchen_id", { mode: "number" }),
 	isTraining: boolean("is_training").default(false).notNull(),
 }, (table) => [
-	index("mess_halls_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
-	uniqueIndex("mess_halls_single_training_idx").using("btree", table.isTraining.asc().nullsLast().op("bool_ops")).where(sql`is_training`),
-	index("mess_halls_unit_id_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops")),
+	index("mess_halls_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	uniqueIndex("mess_halls_single_training_idx").using("btree", table.isTraining.asc().nullsLast()).where(sql`is_training`),
+	index("mess_halls_unit_id_idx").using("btree", table.unitId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -2342,9 +2356,9 @@ export const dailyMenuInKitchen = kitchen.table("daily_menu", {
 	status: text(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	uniqueIndex("daily_menu_active_unique").using("btree", table.serviceDate.asc().nullsLast().op("date_ops"), table.mealTypeId.asc().nullsLast().op("uuid_ops"), table.kitchenId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
-	index("daily_menu_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
-	index("daily_menu_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("daily_menu_active_unique").using("btree", table.serviceDate.asc().nullsLast(), table.mealTypeId.asc().nullsLast(), table.kitchenId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("daily_menu_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("daily_menu_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -2365,7 +2379,7 @@ export const inventoryCountItemInInventory = inventory.table("inventory_count_it
 	countedQty: numeric("counted_qty", { mode: "number", precision: 14, scale: 4 }).notNull(),
 	ledgerQty: numeric("ledger_qty", { mode: "number", precision: 14, scale: 4 }),
 }, (table) => [
-	index("inventory_count_item_lot_id_fk_idx").using("btree", table.lotId.asc().nullsLast().op("uuid_ops")),
+	index("inventory_count_item_lot_id_fk_idx").using("btree", table.lotId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.countId],
 			foreignColumns: [inventoryCountInInventory.id],
@@ -2391,9 +2405,9 @@ export const mealTypeInKitchen = kitchen.table("meal_type", {
 	systemKey: text("system_key"),
 	groupSetId: uuid("group_set_id"),
 }, (table) => [
-	index("meal_type_group_set_idx").using("btree", table.groupSetId.asc().nullsLast().op("uuid_ops")).where(sql`(group_set_id IS NOT NULL)`),
-	index("meal_type_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
-	uniqueIndex("meal_type_system_key_unique").using("btree", table.systemKey.asc().nullsLast().op("text_ops")).where(sql`(system_key IS NOT NULL)`),
+	index("meal_type_group_set_idx").using("btree", table.groupSetId.asc().nullsLast()).where(sql`(group_set_id IS NOT NULL)`),
+	index("meal_type_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	uniqueIndex("meal_type_system_key_unique").using("btree", table.systemKey.asc().nullsLast()).where(sql`(system_key IS NOT NULL)`),
 	foreignKey({
 			columns: [table.groupSetId],
 			foreignColumns: [menuGroupSetInKitchen.id],
@@ -2427,8 +2441,9 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 	shelfLifeHours: smallint("shelf_life_hours"),
 	orderable: boolean().default(false).notNull(),
 }, (table) => [
-	index("menu_template_base_template_id_fk_idx").using("btree", table.baseTemplateId.asc().nullsLast().op("uuid_ops")),
-	index("menu_template_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.baseTemplateId.asc().nullsLast().op("int8_ops")).where(sql`((base_template_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("menu_template_base_template_id_fk_idx").using("btree", table.baseTemplateId.asc().nullsLast()),
+	index("menu_template_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("menu_template_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast(), table.baseTemplateId.asc().nullsLast()).where(sql`((base_template_id IS NOT NULL) AND (deleted_at IS NULL))`),
 	foreignKey({
 			columns: [table.baseTemplateId],
 			foreignColumns: [table.id],
@@ -2457,8 +2472,8 @@ export const sensitiveOperationLogInAccessControl = accessControl.table("sensiti
 	target: jsonb(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("sensitive_operation_log_actor_created_idx").using("btree", table.actorId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
-	index("sensitive_operation_log_created_idx").using("btree", table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("sensitive_operation_log_actor_created_idx").using("btree", table.actorId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("sensitive_operation_log_created_idx").using("btree", table.createdAt.desc().nullsFirst()),
 	index("sensitive_operation_log_target_user_idx").using("btree", sql`((target ->> 'target_user_id'::text))`, sql`created_at`),
 	foreignKey({
 			columns: [table.actorId],
@@ -2480,8 +2495,9 @@ export const recipeStepInKitchen = kitchen.table("recipe_step", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("recipe_step_recipe_idx").using("btree", table.recipeId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
-	index("recipe_step_step_template_id_fk_idx").using("btree", table.stepTemplateId.asc().nullsLast().op("uuid_ops")),
+	index("recipe_step_recipe_id_fk_idx").using("btree", table.recipeId.asc().nullsLast()),
+	index("recipe_step_recipe_idx").using("btree", table.recipeId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("recipe_step_step_template_id_fk_idx").using("btree", table.stepTemplateId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.recipeId],
 			foreignColumns: [recipesInKitchen.id],
@@ -2505,8 +2521,10 @@ export const recipeStepOutputInKitchen = kitchen.table("recipe_step_output", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	uniqueIndex("recipe_step_output_final_uniq").using("btree", table.recipeId.asc().nullsLast().op("uuid_ops")).where(sql`(is_final AND (deleted_at IS NULL))`),
-	index("recipe_step_output_step_idx").using("btree", table.recipeStepId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	uniqueIndex("recipe_step_output_final_uniq").using("btree", table.recipeId.asc().nullsLast()).where(sql`(is_final AND (deleted_at IS NULL))`),
+	index("recipe_step_output_recipe_id_fk_idx").using("btree", table.recipeId.asc().nullsLast()),
+	index("recipe_step_output_recipe_step_id_fk_idx").using("btree", table.recipeStepId.asc().nullsLast()),
+	index("recipe_step_output_step_idx").using("btree", table.recipeStepId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.recipeId],
 			foreignColumns: [recipesInKitchen.id],
@@ -2529,7 +2547,7 @@ export const stepTemplateInKitchen = kitchen.table("step_template", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("step_template_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
+	index("step_template_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
 	uniqueIndex("step_template_name_active_uniq").using("btree", sql`lower(name)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.kitchenId],
@@ -2545,8 +2563,8 @@ export const ingredientSubstitutionInKitchen = kitchen.table("ingredient_substit
 	substituteIngredientId: uuid("substitute_ingredient_id").notNull(),
 	factor: numeric({ mode: "number" }).default(1).notNull(),
 }, (table) => [
-	index("ingredient_substitution_ingredient_id_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("ingredient_substitution_substitute_ingredient_id_fk_idx").using("btree", table.substituteIngredientId.asc().nullsLast().op("uuid_ops")),
+	index("ingredient_substitution_ingredient_id_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("ingredient_substitution_substitute_ingredient_id_fk_idx").using("btree", table.substituteIngredientId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.ingredientId],
 			foreignColumns: [ingredientInKitchen.id],
@@ -2574,8 +2592,9 @@ export const empenhoItemInFinance = finance.table("empenho_item", {
 	value: numeric({ mode: "number", precision: 14, scale: 2 }).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("empenho_item_arp_item_idx").using("btree", table.arpItemId.asc().nullsLast().op("uuid_ops")).where(sql`(arp_item_id IS NOT NULL)`),
-	index("empenho_item_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("uuid_ops")),
+	index("empenho_item_arp_item_idx").using("btree", table.arpItemId.asc().nullsLast()).where(sql`(arp_item_id IS NOT NULL)`),
+	index("empenho_item_empenho_idx").using("btree", table.empenhoId.asc().nullsLast()),
+	index("empenho_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.arpItemId],
 			foreignColumns: [procurementArpItemInProcurement.id],
@@ -2606,9 +2625,12 @@ export const recipeStepInputInKitchen = kitchen.table("recipe_step_input", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("recipe_step_input_ri_idx").using("btree", table.recipeIngredientId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
-	index("recipe_step_input_source_idx").using("btree", table.sourceOutputId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
-	index("recipe_step_input_step_idx").using("btree", table.recipeStepId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	index("recipe_step_input_recipe_ingredient_id_fk_idx").using("btree", table.recipeIngredientId.asc().nullsLast()),
+	index("recipe_step_input_recipe_step_id_fk_idx").using("btree", table.recipeStepId.asc().nullsLast()),
+	index("recipe_step_input_ri_idx").using("btree", table.recipeIngredientId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("recipe_step_input_source_idx").using("btree", table.sourceOutputId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("recipe_step_input_source_output_id_fk_idx").using("btree", table.sourceOutputId.asc().nullsLast()),
+	index("recipe_step_input_step_idx").using("btree", table.recipeStepId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.recipeIngredientId],
 			foreignColumns: [recipeIngredientsInKitchen.id],
@@ -2634,8 +2656,9 @@ export const recipeStepUtensilInKitchen = kitchen.table("recipe_step_utensil", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	uniqueIndex("recipe_step_utensil_uniq").using("btree", table.recipeStepId.asc().nullsLast().op("uuid_ops"), table.utensilId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
-	index("recipe_step_utensil_utensil_id_fk_idx").using("btree", table.utensilId.asc().nullsLast().op("uuid_ops")),
+	index("recipe_step_utensil_recipe_step_id_fk_idx").using("btree", table.recipeStepId.asc().nullsLast()),
+	uniqueIndex("recipe_step_utensil_uniq").using("btree", table.recipeStepId.asc().nullsLast(), table.utensilId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("recipe_step_utensil_utensil_id_fk_idx").using("btree", table.utensilId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.recipeStepId],
 			foreignColumns: [recipeStepInKitchen.id],
@@ -2655,7 +2678,8 @@ export const mfaRecoveryCodeInAccessControl = accessControl.table("mfa_recovery_
 	usedAt: timestamp("used_at", { withTimezone: true, mode: 'string' }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("mfa_recovery_code_user_unused_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")).where(sql`(used_at IS NULL)`),
+	index("mfa_recovery_code_user_id_fk_idx").using("btree", table.userId.asc().nullsLast()),
+	index("mfa_recovery_code_user_unused_idx").using("btree", table.userId.asc().nullsLast()).where(sql`(used_at IS NULL)`),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [usersInAuth.id],
@@ -2673,7 +2697,7 @@ export const opinionsInKitchen = kitchen.table("opinions", {
 	question: text(),
 	userId: uuid().defaultRandom(),
 }, (table) => [
-	index("opinions_userId_fk_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
+	index("opinions_userId_fk_idx").using("btree", table.userId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [usersInAuth.id],
@@ -2694,9 +2718,9 @@ export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {
 	rehydrationIndex: numeric("rehydration_index", { mode: "number" }),
 	frozenPreparationId: uuid("frozen_preparation_id"),
 }, (table) => [
-	index("recipe_ingredients_frozen_prep_idx").using("btree", table.frozenPreparationId.asc().nullsLast().op("uuid_ops")).where(sql`(frozen_preparation_id IS NOT NULL)`),
-	index("recipe_ingredients_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("recipe_ingredients_recipe_id_idx").using("btree", table.recipeId.asc().nullsLast().op("uuid_ops")),
+	index("recipe_ingredients_frozen_prep_idx").using("btree", table.frozenPreparationId.asc().nullsLast()).where(sql`(frozen_preparation_id IS NOT NULL)`),
+	index("recipe_ingredients_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("recipe_ingredients_recipe_id_idx").using("btree", table.recipeId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.frozenPreparationId],
 			foreignColumns: [frozenPreparationInKitchen.id],
@@ -2723,8 +2747,8 @@ export const mfaResetLogInAccessControl = accessControl.table("mfa_reset_log", {
 	reason: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("mfa_reset_log_performed_by_created_idx").using("btree", table.performedBy.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
-	index("mfa_reset_log_target_created_idx").using("btree", table.targetUserId.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
+	index("mfa_reset_log_performed_by_created_idx").using("btree", table.performedBy.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("mfa_reset_log_target_created_idx").using("btree", table.targetUserId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.performedBy],
 			foreignColumns: [usersInAuth.id],
@@ -2751,9 +2775,10 @@ export const ingredientItemInKitchen = kitchen.table("ingredient_item", {
 	purchaseItemId: uuid("purchase_item_id"),
 	gtin: text(),
 }, (table) => [
-	uniqueIndex("ingredient_item_gtin_unique").using("btree", table.gtin.asc().nullsLast().op("text_ops")).where(sql`((gtin IS NOT NULL) AND (deleted_at IS NULL))`),
-	index("ingredient_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("ingredient_item_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")).where(sql`(purchase_item_id IS NOT NULL)`),
+	index("ingredient_item_gtin_fk_idx").using("btree", table.gtin.asc().nullsLast()),
+	uniqueIndex("ingredient_item_gtin_unique").using("btree", table.gtin.asc().nullsLast()).where(sql`((gtin IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("ingredient_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("ingredient_item_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast()).where(sql`(purchase_item_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.gtin],
 			foreignColumns: [gtinInGs1Integration.gtin],
@@ -2784,10 +2809,10 @@ export const menuTemplateItemsInKitchen = kitchen.table("menu_template_items", {
 	recommendedProportion: numeric("recommended_proportion", { mode: "number" }),
 	eventMealId: uuid("event_meal_id"),
 }, (table) => [
-	index("menu_template_items_event_meal_idx").using("btree", table.eventMealId.asc().nullsLast().op("uuid_ops")).where(sql`(event_meal_id IS NOT NULL)`),
-	index("menu_template_items_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast().op("uuid_ops")),
-	index("menu_template_items_menu_template_id_fk_idx").using("btree", table.menuTemplateId.asc().nullsLast().op("uuid_ops")),
-	index("menu_template_items_recipe_id_fk_idx").using("btree", table.recipeId.asc().nullsLast().op("uuid_ops")),
+	index("menu_template_items_event_meal_idx").using("btree", table.eventMealId.asc().nullsLast()).where(sql`(event_meal_id IS NOT NULL)`),
+	index("menu_template_items_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast()),
+	index("menu_template_items_menu_template_id_fk_idx").using("btree", table.menuTemplateId.asc().nullsLast()),
+	index("menu_template_items_recipe_id_fk_idx").using("btree", table.recipeId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.eventMealId],
 			foreignColumns: [menuTemplateEventMealInKitchen.id],
@@ -2819,7 +2844,7 @@ export const ingredientReviewInKitchen = kitchen.table("ingredient_review", {
 	note: text(),
 	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("ingredient_review_ingredient_idx").using("btree", table.ingredientId.asc().nullsLast().op("timestamptz_ops"), table.reviewedAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("ingredient_review_ingredient_idx").using("btree", table.ingredientId.asc().nullsLast(), table.reviewedAt.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.ingredientId],
 			foreignColumns: [ingredientInKitchen.id],
@@ -2853,13 +2878,18 @@ export const frozenPreparationInKitchen = kitchen.table("frozen_preparation", {
 	provisionalReviewedAt: timestamp("provisional_reviewed_at", { withTimezone: true, mode: 'string' }),
 	provisionalReviewedBy: uuid("provisional_reviewed_by"),
 }, (table) => [
-	index("frozen_preparation_category_idx").using("btree", table.category.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
-	index("frozen_preparation_ceafa_id_fk_idx").using("btree", table.ceafaId.asc().nullsLast().op("uuid_ops")),
-	index("frozen_preparation_legacy_id_idx").using("btree", table.legacyId.asc().nullsLast().op("int8_ops")).where(sql`(deleted_at IS NULL)`),
-	index("frozen_preparation_production_recipe_idx").using("btree", table.productionRecipeId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
-	index("frozen_preparation_provisional_pending_idx").using("btree", table.provisionalKitchenId.asc().nullsLast().op("int8_ops")).where(sql`((provisional_since IS NOT NULL) AND (provisional_reviewed_at IS NULL) AND (deleted_at IS NULL))`),
-	index("frozen_preparation_regeneration_recipe_id_fk_idx").using("btree", table.regenerationRecipeId.asc().nullsLast().op("uuid_ops")),
-	index("frozen_preparation_source_ingredient_idx").using("btree", table.sourceIngredientId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	index("frozen_preparation_category_idx").using("btree", table.category.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("frozen_preparation_ceafa_id_fk_idx").using("btree", table.ceafaId.asc().nullsLast()),
+	index("frozen_preparation_legacy_id_idx").using("btree", table.legacyId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("frozen_preparation_production_recipe_id_fk_idx").using("btree", table.productionRecipeId.asc().nullsLast()),
+	index("frozen_preparation_production_recipe_idx").using("btree", table.productionRecipeId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("frozen_preparation_provisional_by_fk_idx").using("btree", table.provisionalBy.asc().nullsLast()),
+	index("frozen_preparation_provisional_kitchen_id_fk_idx").using("btree", table.provisionalKitchenId.asc().nullsLast()),
+	index("frozen_preparation_provisional_pending_idx").using("btree", table.provisionalKitchenId.asc().nullsLast()).where(sql`((provisional_since IS NOT NULL) AND (provisional_reviewed_at IS NULL) AND (deleted_at IS NULL))`),
+	index("frozen_preparation_provisional_reviewed_by_fk_idx").using("btree", table.provisionalReviewedBy.asc().nullsLast()),
+	index("frozen_preparation_regeneration_recipe_id_fk_idx").using("btree", table.regenerationRecipeId.asc().nullsLast()),
+	index("frozen_preparation_source_ingredient_id_fk_idx").using("btree", table.sourceIngredientId.asc().nullsLast()),
+	index("frozen_preparation_source_ingredient_idx").using("btree", table.sourceIngredientId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.ceafaId],
 			foreignColumns: [ceafaInKitchen.id],
@@ -2955,12 +2985,12 @@ export const snackRequestInKitchen = kitchen.table("snack_request", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("snack_request_cancelled_by_fk_idx").using("btree", table.cancelledBy.asc().nullsLast().op("uuid_ops")),
-	index("snack_request_decided_by_fk_idx").using("btree", table.decidedBy.asc().nullsLast().op("uuid_ops")),
-	index("snack_request_delivered_by_fk_idx").using("btree", table.deliveredBy.asc().nullsLast().op("uuid_ops")),
-	index("snack_request_kitchen_pickup_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.pickupAt.asc().nullsLast().op("int8_ops")),
-	index("snack_request_requester_idx").using("btree", table.requestedBy.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
-	index("snack_request_sample_collected_by_fk_idx").using("btree", table.sampleCollectedBy.asc().nullsLast().op("uuid_ops")),
+	index("snack_request_cancelled_by_fk_idx").using("btree", table.cancelledBy.asc().nullsLast()),
+	index("snack_request_decided_by_fk_idx").using("btree", table.decidedBy.asc().nullsLast()),
+	index("snack_request_delivered_by_fk_idx").using("btree", table.deliveredBy.asc().nullsLast()),
+	index("snack_request_kitchen_pickup_idx").using("btree", table.kitchenId.asc().nullsLast(), table.pickupAt.asc().nullsLast()),
+	index("snack_request_requester_idx").using("btree", table.requestedBy.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("snack_request_sample_collected_by_fk_idx").using("btree", table.sampleCollectedBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.cancelledBy],
 			foreignColumns: [usersInAuth.id],
@@ -3025,8 +3055,8 @@ export const snackRequestLineInKitchen = kitchen.table("snack_request_line", {
 	standardSnapshot: jsonb("standard_snapshot").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("snack_request_line_request_idx").using("btree", table.requestId.asc().nullsLast().op("uuid_ops")),
-	index("snack_request_line_standard_idx").using("btree", table.standardId.asc().nullsLast().op("uuid_ops")),
+	index("snack_request_line_request_idx").using("btree", table.requestId.asc().nullsLast()),
+	index("snack_request_line_standard_idx").using("btree", table.standardId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.requestId],
 			foreignColumns: [snackRequestInKitchen.id],
@@ -3052,8 +3082,8 @@ export const snackRequestEventInKitchen = kitchen.table("snack_request_event", {
 	details: jsonb(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("snack_request_event_actor_id_fk_idx").using("btree", table.actorId.asc().nullsLast().op("uuid_ops")),
-	index("snack_request_event_request_idx").using("btree", table.requestId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("snack_request_event_actor_id_fk_idx").using("btree", table.actorId.asc().nullsLast()),
+	index("snack_request_event_request_idx").using("btree", table.requestId.asc().nullsLast(), table.createdAt.asc().nullsLast()),
 	foreignKey({
 			columns: [table.actorId],
 			foreignColumns: [usersInAuth.id],
@@ -3081,7 +3111,7 @@ export const monthlyClosingInInventory = inventory.table("monthly_closing", {
 	closedBy: uuid("closed_by"),
 	closedAt: timestamp("closed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("monthly_closing_closed_by_fk_idx").using("btree", table.closedBy.asc().nullsLast().op("uuid_ops")),
+	index("monthly_closing_closed_by_fk_idx").using("btree", table.closedBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.closedBy],
 			foreignColumns: [usersInAuth.id],
@@ -3106,7 +3136,7 @@ export const snackRequestMaterialInKitchen = kitchen.table("snack_request_materi
 	issuedAt: timestamp("issued_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	returnedAt: timestamp("returned_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("snack_request_material_request_idx").using("btree", table.requestId.asc().nullsLast().op("uuid_ops")),
+	index("snack_request_material_request_idx").using("btree", table.requestId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.requestId],
 			foreignColumns: [snackRequestInKitchen.id],
@@ -3130,7 +3160,7 @@ export const stockPolicyInInventory = inventory.table("stock_policy", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("stock_policy_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
+	index("stock_policy_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.ingredientId],
 			foreignColumns: [ingredientInKitchen.id],
@@ -3175,9 +3205,10 @@ export const equipmentModelInKitchen = kitchen.table("equipment_model", {
 	manualUrl: text("manual_url"),
 	expectedLifespanYears: smallint("expected_lifespan_years"),
 }, (table) => [
-	index("equipment_model_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(deleted_at IS NULL)`),
+	index("equipment_model_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("equipment_model_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	uniqueIndex("equipment_model_name_active_uniq").using("btree", sql`lower(COALESCE(manufacturer, ''::text))`, sql`lower(name)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
-	uniqueIndex("equipment_model_slug_uniq").using("btree", table.slug.asc().nullsLast().op("text_ops")).where(sql`(slug IS NOT NULL)`),
+	uniqueIndex("equipment_model_slug_uniq").using("btree", table.slug.asc().nullsLast()).where(sql`(slug IS NOT NULL)`),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -3210,9 +3241,11 @@ export const equipmentUnitInKitchen = kitchen.table("equipment_unit", {
 	supplier: text(),
 }, (table) => [
 	uniqueIndex("equipment_unit_asset_tag_active_uniq").using("btree", sql`kitchen_id`, sql`lower(asset_tag)`).where(sql`((asset_tag IS NOT NULL) AND (deleted_at IS NULL))`),
-	index("equipment_unit_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(deleted_at IS NULL)`),
+	index("equipment_unit_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("equipment_unit_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	uniqueIndex("equipment_unit_label_active_uniq").using("btree", sql`kitchen_id`, sql`lower(label)`).where(sql`(deleted_at IS NULL)`),
-	index("equipment_unit_model_idx").using("btree", table.modelId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	index("equipment_unit_model_id_fk_idx").using("btree", table.modelId.asc().nullsLast()),
+	index("equipment_unit_model_idx").using("btree", table.modelId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -3264,21 +3297,21 @@ export const goodsReceiptInInventory = inventory.table("goods_receipt", {
 	documentsLinkedAt: timestamp("documents_linked_at", { withTimezone: true, mode: 'string' }),
 	documentsLinkedBy: uuid("documents_linked_by"),
 }, (table) => [
-	index("goods_receipt_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_definitive_by_fk_idx").using("btree", table.definitiveBy.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_definitive_designation_id_fk_idx").using("btree", table.definitiveDesignationId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_documents_linked_by_fk_idx").using("btree", table.documentsLinkedBy.asc().nullsLast().op("uuid_ops")).where(sql`(documents_linked_by IS NOT NULL)`),
-	index("goods_receipt_empenho_id_fk_idx").using("btree", table.empenhoId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_fiscal_resolved_by_fk_idx").using("btree", table.fiscalResolvedBy.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_invoice_check_deferred_by_fk_idx").using("btree", table.invoiceCheckDeferredBy.asc().nullsLast().op("uuid_ops")).where(sql`(invoice_check_deferred_by IS NOT NULL)`),
-	index("goods_receipt_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.status.asc().nullsLast().op("text_ops")),
-	index("goods_receipt_liquidacao_id_fk_idx").using("btree", table.liquidacaoId.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("goods_receipt_nfe_document_unique").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")).where(sql`((nfe_document_id IS NOT NULL) AND (status <> 'rejected'::text) AND (source = 'nfe'::text))`),
-	index("goods_receipt_nfe_idx").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_provisional_by_fk_idx").using("btree", table.provisionalBy.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_provisional_designation_id_fk_idx").using("btree", table.provisionalDesignationId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_rejected_by_fk_idx").using("btree", table.rejectedBy.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_supply_order_id_fk_idx").using("btree", table.supplyOrderId.asc().nullsLast().op("uuid_ops")),
+	index("goods_receipt_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("goods_receipt_definitive_by_fk_idx").using("btree", table.definitiveBy.asc().nullsLast()),
+	index("goods_receipt_definitive_designation_id_fk_idx").using("btree", table.definitiveDesignationId.asc().nullsLast()),
+	index("goods_receipt_documents_linked_by_fk_idx").using("btree", table.documentsLinkedBy.asc().nullsLast()).where(sql`(documents_linked_by IS NOT NULL)`),
+	index("goods_receipt_empenho_id_fk_idx").using("btree", table.empenhoId.asc().nullsLast()),
+	index("goods_receipt_fiscal_resolved_by_fk_idx").using("btree", table.fiscalResolvedBy.asc().nullsLast()),
+	index("goods_receipt_invoice_check_deferred_by_fk_idx").using("btree", table.invoiceCheckDeferredBy.asc().nullsLast()).where(sql`(invoice_check_deferred_by IS NOT NULL)`),
+	index("goods_receipt_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast(), table.status.asc().nullsLast()),
+	index("goods_receipt_liquidacao_id_fk_idx").using("btree", table.liquidacaoId.asc().nullsLast()),
+	uniqueIndex("goods_receipt_nfe_document_unique").using("btree", table.nfeDocumentId.asc().nullsLast()).where(sql`((nfe_document_id IS NOT NULL) AND (status <> 'rejected'::text) AND (source = 'nfe'::text))`),
+	index("goods_receipt_nfe_idx").using("btree", table.nfeDocumentId.asc().nullsLast()),
+	index("goods_receipt_provisional_by_fk_idx").using("btree", table.provisionalBy.asc().nullsLast()),
+	index("goods_receipt_provisional_designation_id_fk_idx").using("btree", table.provisionalDesignationId.asc().nullsLast()),
+	index("goods_receipt_rejected_by_fk_idx").using("btree", table.rejectedBy.asc().nullsLast()),
+	index("goods_receipt_supply_order_id_fk_idx").using("btree", table.supplyOrderId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -3371,13 +3404,13 @@ export const contractDesignationInProcurement = procurement.table("contract_desi
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	acquisitionId: uuid("acquisition_id"),
 }, (table) => [
-	index("contract_designation_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast().op("uuid_ops")).where(sql`(acquisition_id IS NOT NULL)`),
-	index("contract_designation_arp_id_fk_idx").using("btree", table.arpId.asc().nullsLast().op("uuid_ops")),
-	index("contract_designation_arp_idx").using("btree", table.arpId.asc().nullsLast().op("uuid_ops")).where(sql`(arp_id IS NOT NULL)`),
-	index("contract_designation_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("contract_designation_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("uuid_ops")).where(sql`(empenho_id IS NOT NULL)`),
-	index("contract_designation_person_idx").using("btree", table.personId.asc().nullsLast().op("uuid_ops")),
-	index("contract_designation_unit_idx").using("btree", table.unitId.asc().nullsLast().op("text_ops"), table.role.asc().nullsLast().op("text_ops")),
+	index("contract_designation_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
+	index("contract_designation_arp_id_fk_idx").using("btree", table.arpId.asc().nullsLast()),
+	index("contract_designation_arp_idx").using("btree", table.arpId.asc().nullsLast()).where(sql`(arp_id IS NOT NULL)`),
+	index("contract_designation_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("contract_designation_empenho_idx").using("btree", table.empenhoId.asc().nullsLast()).where(sql`(empenho_id IS NOT NULL)`),
+	index("contract_designation_person_idx").using("btree", table.personId.asc().nullsLast()),
+	index("contract_designation_unit_idx").using("btree", table.unitId.asc().nullsLast(), table.role.asc().nullsLast()),
 	foreignKey({
 			columns: [table.acquisitionId],
 			foreignColumns: [acquisitionInProcurement.id],
@@ -3428,10 +3461,10 @@ export const expiryAlertPolicyInInventory = inventory.table("expiry_alert_policy
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	uniqueIndex("expiry_alert_policy_class_key").using("btree", sql`COALESCE(kitchen_id, (0)::bigint)`, sql`conservation_class`).where(sql`(conservation_class IS NOT NULL)`),
-	index("expiry_alert_policy_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("expiry_alert_policy_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
+	index("expiry_alert_policy_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("expiry_alert_policy_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
 	uniqueIndex("expiry_alert_policy_ingredient_key").using("btree", sql`COALESCE(kitchen_id, (0)::bigint)`, sql`ingredient_id`).where(sql`(ingredient_id IS NOT NULL)`),
-	index("expiry_alert_policy_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
+	index("expiry_alert_policy_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -3458,7 +3491,7 @@ export const recipeFolderInKitchen = kitchen.table("recipe_folder", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("recipe_folder_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast().op("timestamptz_ops")),
+	index("recipe_folder_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast()),
 	uniqueIndex("recipe_folder_name_active_unique").using("btree", sql`lower(btrim(name))`).where(sql`(deleted_at IS NULL)`),
 	check("recipe_folder_name_not_blank", sql`btrim(name) <> ''::text`),
 ]);
@@ -3489,12 +3522,12 @@ export const inventoryCountInInventory = inventory.table("inventory_count", {
 	approvedByOwnEntry: boolean("approved_by_own_entry").default(false).notNull(),
 	pendingProductionWaiver: text("pending_production_waiver"),
 }, (table) => [
-	index("inventory_count_adjustment_id_fk_idx").using("btree", table.adjustmentId.asc().nullsLast().op("uuid_ops")),
-	index("inventory_count_approved_by_fk_idx").using("btree", table.approvedBy.asc().nullsLast().op("uuid_ops")),
-	index("inventory_count_confirmed_by_fk_idx").using("btree", table.confirmedBy.asc().nullsLast().op("uuid_ops")),
-	index("inventory_count_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("inventory_count_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
-	index("inventory_count_parent_count_id_fk_idx").using("btree", table.parentCountId.asc().nullsLast().op("uuid_ops")),
+	index("inventory_count_adjustment_id_fk_idx").using("btree", table.adjustmentId.asc().nullsLast()),
+	index("inventory_count_approved_by_fk_idx").using("btree", table.approvedBy.asc().nullsLast()),
+	index("inventory_count_confirmed_by_fk_idx").using("btree", table.confirmedBy.asc().nullsLast()),
+	index("inventory_count_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("inventory_count_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("inventory_count_parent_count_id_fk_idx").using("btree", table.parentCountId.asc().nullsLast()),
 	// FK "inventory_count_adjustment_fkey" omitida (patch-drizzle-pull.ts): ciclo com stockAdjustmentInInventory faria o TS inferir any. Existe no banco; a relação segue em relations.ts.
 	foreignKey({
 			columns: [table.approvedBy],
@@ -3545,9 +3578,9 @@ export const budgetCreditInFinance = finance.table("budget_credit", {
 	pi: text(),
 	ugr: text(),
 }, (table) => [
-	index("budget_credit_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast().op("uuid_ops")),
-	index("budget_credit_nd_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops"), table.nd.asc().nullsLast().op("int8_ops")),
-	index("budget_credit_unit_competencia_idx").using("btree", table.unitId.asc().nullsLast().op("date_ops"), table.competencia.desc().nullsFirst().op("date_ops")),
+	index("budget_credit_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast()),
+	index("budget_credit_nd_idx").using("btree", table.unitId.asc().nullsLast(), table.nd.asc().nullsLast()),
+	index("budget_credit_unit_competencia_idx").using("btree", table.unitId.asc().nullsLast(), table.competencia.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.importBatchId],
 			foreignColumns: [importBatchInSiafiIntegration.id],
@@ -3573,7 +3606,7 @@ export const gpcAttributeValueInGs1Integration = gs1Integration.table("gpc_attri
 	attributeCode: text("attribute_code").notNull(),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("gpc_attribute_value_attribute_idx").using("btree", table.attributeCode.asc().nullsLast().op("text_ops")),
+	index("gpc_attribute_value_attribute_idx").using("btree", table.attributeCode.asc().nullsLast()),
 	foreignKey({
 			columns: [table.attributeCode],
 			foreignColumns: [gpcAttributeInGs1Integration.attributeCode],
@@ -3593,9 +3626,9 @@ export const gtinSpecificationCheckInGs1Integration = gs1Integration.table("gtin
 	checkedAt: timestamp("checked_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	checkedBy: uuid("checked_by"),
 }, (table) => [
-	index("gtin_specification_check_checked_by_fk_idx").using("btree", table.checkedBy.asc().nullsLast().op("uuid_ops")),
-	index("gtin_specification_check_gtin_idx").using("btree", table.gtin.asc().nullsLast().op("text_ops"), table.purchaseItemId.asc().nullsLast().op("text_ops"), table.checkedAt.desc().nullsFirst().op("text_ops")),
-	index("gtin_specification_check_item_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("text_ops"), table.verdict.asc().nullsLast().op("text_ops")),
+	index("gtin_specification_check_checked_by_fk_idx").using("btree", table.checkedBy.asc().nullsLast()),
+	index("gtin_specification_check_gtin_idx").using("btree", table.gtin.asc().nullsLast(), table.purchaseItemId.asc().nullsLast(), table.checkedAt.desc().nullsFirst()),
+	index("gtin_specification_check_item_idx").using("btree", table.purchaseItemId.asc().nullsLast(), table.verdict.asc().nullsLast()),
 	foreignKey({
 			columns: [table.checkedBy],
 			foreignColumns: [usersInAuth.id],
@@ -3620,8 +3653,8 @@ export const purchaseItemGpcRequirementInProcurement = procurement.table("purcha
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("purchase_item_gpc_requirement_attribute_code_fk_idx").using("btree", table.attributeCode.asc().nullsLast().op("text_ops")),
-	index("purchase_item_gpc_requirement_item_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")),
+	index("purchase_item_gpc_requirement_attribute_code_fk_idx").using("btree", table.attributeCode.asc().nullsLast()),
+	index("purchase_item_gpc_requirement_item_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.attributeCode],
 			foreignColumns: [gpcAttributeInGs1Integration.attributeCode],
@@ -3655,10 +3688,13 @@ export const equipmentMaintenancePlanInKitchen = kitchen.table("equipment_mainte
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	uniqueIndex("equipment_maintenance_plan_code_uniq").using("btree", table.code.asc().nullsLast().op("text_ops")).where(sql`(code IS NOT NULL)`),
-	index("equipment_maintenance_plan_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(deleted_at IS NULL)`),
-	index("equipment_maintenance_plan_model_idx").using("btree", table.modelId.asc().nullsLast().op("uuid_ops")).where(sql`((model_id IS NOT NULL) AND (deleted_at IS NULL))`),
-	index("equipment_maintenance_plan_role_idx").using("btree", table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`((role_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	uniqueIndex("equipment_maintenance_plan_code_uniq").using("btree", table.code.asc().nullsLast()).where(sql`(code IS NOT NULL)`),
+	index("equipment_maintenance_plan_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("equipment_maintenance_plan_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("equipment_maintenance_plan_model_id_fk_idx").using("btree", table.modelId.asc().nullsLast()),
+	index("equipment_maintenance_plan_model_idx").using("btree", table.modelId.asc().nullsLast()).where(sql`((model_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("equipment_maintenance_plan_role_id_fk_idx").using("btree", table.roleId.asc().nullsLast()),
+	index("equipment_maintenance_plan_role_idx").using("btree", table.roleId.asc().nullsLast()).where(sql`((role_id IS NOT NULL) AND (deleted_at IS NULL))`),
 	uniqueIndex("equipment_maintenance_plan_title_uniq").using("btree", sql`COALESCE(role_id, model_id)`, sql`lower(title)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.kitchenId],
@@ -3697,10 +3733,13 @@ export const equipmentMaintenanceLogInKitchen = kitchen.table("equipment_mainten
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("equipment_maintenance_log_issue_idx").using("btree", table.issueId.asc().nullsLast().op("uuid_ops")).where(sql`((issue_id IS NOT NULL) AND (deleted_at IS NULL))`),
-	index("equipment_maintenance_log_performed_by_fk_idx").using("btree", table.performedBy.asc().nullsLast().op("uuid_ops")),
-	index("equipment_maintenance_log_plan_idx").using("btree", table.planId.asc().nullsLast().op("date_ops"), table.unitId.asc().nullsLast().op("date_ops"), table.performedOn.desc().nullsFirst().op("date_ops")).where(sql`((plan_id IS NOT NULL) AND (deleted_at IS NULL))`),
-	index("equipment_maintenance_log_unit_idx").using("btree", table.unitId.asc().nullsLast().op("date_ops"), table.performedOn.desc().nullsFirst().op("date_ops")).where(sql`(deleted_at IS NULL)`),
+	index("equipment_maintenance_log_issue_id_fk_idx").using("btree", table.issueId.asc().nullsLast()),
+	index("equipment_maintenance_log_issue_idx").using("btree", table.issueId.asc().nullsLast()).where(sql`((issue_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("equipment_maintenance_log_performed_by_fk_idx").using("btree", table.performedBy.asc().nullsLast()),
+	index("equipment_maintenance_log_plan_id_fk_idx").using("btree", table.planId.asc().nullsLast()),
+	index("equipment_maintenance_log_plan_idx").using("btree", table.planId.asc().nullsLast(), table.unitId.asc().nullsLast(), table.performedOn.desc().nullsFirst()).where(sql`((plan_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("equipment_maintenance_log_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
+	index("equipment_maintenance_log_unit_idx").using("btree", table.unitId.asc().nullsLast(), table.performedOn.desc().nullsFirst()).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.issueId],
 			foreignColumns: [equipmentIssueInKitchen.id],
@@ -3742,11 +3781,12 @@ export const equipmentIssueInKitchen = kitchen.table("equipment_issue", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("equipment_issue_reported_by_fk_idx").using("btree", table.reportedBy.asc().nullsLast().op("uuid_ops")),
-	index("equipment_issue_resolved_by_fk_idx").using("btree", table.resolvedBy.asc().nullsLast().op("uuid_ops")),
-	index("equipment_issue_status_idx").using("btree", table.status.asc().nullsLast().op("timestamptz_ops"), table.reportedAt.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
-	index("equipment_issue_unit_idx").using("btree", table.unitId.asc().nullsLast().op("uuid_ops"), table.reportedAt.desc().nullsFirst().op("timestamptz_ops")).where(sql`(deleted_at IS NULL)`),
-	index("equipment_issue_unit_open_idx").using("btree", table.unitId.asc().nullsLast().op("text_ops"), table.severity.asc().nullsLast().op("text_ops")).where(sql`((status = ANY (ARRAY['open'::text, 'in_repair'::text])) AND (deleted_at IS NULL))`),
+	index("equipment_issue_reported_by_fk_idx").using("btree", table.reportedBy.asc().nullsLast()),
+	index("equipment_issue_resolved_by_fk_idx").using("btree", table.resolvedBy.asc().nullsLast()),
+	index("equipment_issue_status_idx").using("btree", table.status.asc().nullsLast(), table.reportedAt.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("equipment_issue_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
+	index("equipment_issue_unit_idx").using("btree", table.unitId.asc().nullsLast(), table.reportedAt.desc().nullsFirst()).where(sql`(deleted_at IS NULL)`),
+	index("equipment_issue_unit_open_idx").using("btree", table.unitId.asc().nullsLast(), table.severity.asc().nullsLast()).where(sql`((status = ANY (ARRAY['open'::text, 'in_repair'::text])) AND (deleted_at IS NULL))`),
 	foreignKey({
 			columns: [table.reportedBy],
 			foreignColumns: [usersInAuth.id],
@@ -3791,7 +3831,9 @@ export const creditNoteInFinance = finance.table("credit_note", {
 	createdBy: uuid("created_by"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("credit_note_unit_issued_idx").using("btree", table.unitId.asc().nullsLast().op("date_ops"), table.issuedOn.desc().nullsFirst().op("date_ops")),
+	index("credit_note_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("credit_note_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast()),
+	index("credit_note_unit_issued_idx").using("btree", table.unitId.asc().nullsLast(), table.issuedOn.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -3831,10 +3873,10 @@ export const policyStatementInAccessControl = accessControl.table("policy_statem
 	messHallId: bigint("mess_hall_id", { mode: "number" }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("policy_statement_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
-	index("policy_statement_mess_hall_id_fk_idx").using("btree", table.messHallId.asc().nullsLast().op("int8_ops")),
-	index("policy_statement_policy_idx").using("btree", table.policyId.asc().nullsLast().op("uuid_ops")),
-	index("policy_statement_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops")),
+	index("policy_statement_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("policy_statement_mess_hall_id_fk_idx").using("btree", table.messHallId.asc().nullsLast()),
+	index("policy_statement_policy_idx").using("btree", table.policyId.asc().nullsLast()),
+	index("policy_statement_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -3880,9 +3922,9 @@ export const userPolicyAttachmentInAccessControl = accessControl.table("user_pol
 	createdBy: uuid("created_by"),
 	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("user_policy_attachment_expires_at_idx").using("btree", table.expiresAt.asc().nullsLast().op("timestamptz_ops")).where(sql`(expires_at IS NOT NULL)`),
-	index("user_policy_attachment_policy_idx").using("btree", table.policyId.asc().nullsLast().op("uuid_ops")),
-	index("user_policy_attachment_user_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
+	index("user_policy_attachment_expires_at_idx").using("btree", table.expiresAt.asc().nullsLast()).where(sql`(expires_at IS NOT NULL)`),
+	index("user_policy_attachment_policy_idx").using("btree", table.policyId.asc().nullsLast()),
+	index("user_policy_attachment_user_idx").using("btree", table.userId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.policyId],
 			foreignColumns: [policyInAccessControl.id],
@@ -3905,7 +3947,7 @@ export const policyInAccessControl = accessControl.table("policy", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	uniqueIndex("policy_name_unique_alive_idx").using("btree", table.name.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
+	uniqueIndex("policy_name_unique_alive_idx").using("btree", table.name.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 ]);
 
 export const empenhoRpInscriptionInFinance = finance.table("empenho_rp_inscription", {
@@ -3923,8 +3965,10 @@ export const empenhoRpInscriptionInFinance = finance.table("empenho_rp_inscripti
 	supersededBy: uuid("superseded_by"),
 	supersedeReason: text("supersede_reason"),
 }, (table) => [
-	uniqueIndex("empenho_rp_inscription_active_parcel_key").using("btree", table.empenhoId.asc().nullsLast().op("int4_ops"), table.fiscalYear.asc().nullsLast().op("uuid_ops"), table.kind.asc().nullsLast().op("text_ops")).where(sql`(superseded_at IS NULL)`),
-	index("empenho_rp_inscription_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("empenho_rp_inscription_active_parcel_key").using("btree", table.empenhoId.asc().nullsLast(), table.fiscalYear.asc().nullsLast(), table.kind.asc().nullsLast()).where(sql`(superseded_at IS NULL)`),
+	index("empenho_rp_inscription_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("empenho_rp_inscription_empenho_idx").using("btree", table.empenhoId.asc().nullsLast()),
+	index("empenho_rp_inscription_superseded_by_fk_idx").using("btree", table.supersededBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -3978,8 +4022,8 @@ export const procurementPesquisaPrecoItemInProcurement = procurement.table("proc
 	justificationOutOfPeriod: text("justification_out_of_period"),
 	manualSelection: boolean("manual_selection").default(false).notNull(),
 }, (table) => [
-	index("idx_pesquisa_preco_item_ata_item").using("btree", table.ataItemId.asc().nullsLast().op("uuid_ops")),
-	index("idx_pesquisa_preco_item_research").using("btree", table.researchId.asc().nullsLast().op("uuid_ops")),
+	index("idx_pesquisa_preco_item_ata_item").using("btree", table.ataItemId.asc().nullsLast()),
+	index("idx_pesquisa_preco_item_research").using("btree", table.researchId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.ataItemId],
 			foreignColumns: [procurementListItemInProcurement.id],
@@ -4014,8 +4058,8 @@ export const importBatchInSiafiIntegration = siafiIntegration.table("import_batc
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	appliedAt: timestamp("applied_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("import_batch_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("import_batch_unit_idx").using("btree", table.unitId.asc().nullsLast().op("text_ops"), table.reportType.asc().nullsLast().op("text_ops"), table.createdAt.desc().nullsFirst().op("int8_ops")),
+	index("import_batch_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("import_batch_unit_idx").using("btree", table.unitId.asc().nullsLast(), table.reportType.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -4042,8 +4086,8 @@ export const importRowInSiafiIntegration = siafiIntegration.table("import_row", 
 	appliedTable: text("applied_table"),
 	appliedId: uuid("applied_id"),
 }, (table) => [
-	index("import_row_batch_status_idx").using("btree", table.batchId.asc().nullsLast().op("uuid_ops"), table.parseStatus.asc().nullsLast().op("text_ops")),
-	index("import_row_waiting_parent_idx").using("btree", table.batchId.asc().nullsLast().op("uuid_ops")).where(sql`(parse_status = 'waiting_parent'::text)`),
+	index("import_row_batch_status_idx").using("btree", table.batchId.asc().nullsLast(), table.parseStatus.asc().nullsLast()),
+	index("import_row_waiting_parent_idx").using("btree", table.batchId.asc().nullsLast()).where(sql`(parse_status = 'waiting_parent'::text)`),
 	foreignKey({
 			columns: [table.batchId],
 			foreignColumns: [importBatchInSiafiIntegration.id],
@@ -4082,14 +4126,14 @@ export const empenhoInFinance = finance.table("empenho", {
 	rpExercicio: integer("rp_exercicio"),
 	acquisitionId: uuid("acquisition_id"),
 }, (table) => [
-	index("empenho_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast().op("uuid_ops")).where(sql`(acquisition_id IS NOT NULL)`),
-	index("empenho_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("empenho_exercicio_idx").using("btree", table.unitId.asc().nullsLast().op("int4_ops"), table.exercicio.asc().nullsLast().op("int4_ops")),
-	index("empenho_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast().op("uuid_ops")),
-	index("empenho_nd_idx").using("btree", table.unitId.asc().nullsLast().op("text_ops"), table.nd.asc().nullsLast().op("int4_ops")).where(sql`(nd IS NOT NULL)`),
-	index("idx_empenho_arp_item").using("btree", table.arpItemId.asc().nullsLast().op("uuid_ops")),
-	index("idx_empenho_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
-	index("idx_empenho_unit").using("btree", table.unitId.asc().nullsLast().op("int4_ops")),
+	index("empenho_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
+	index("empenho_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("empenho_exercicio_idx").using("btree", table.unitId.asc().nullsLast(), table.exercicio.asc().nullsLast()),
+	index("empenho_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast()),
+	index("empenho_nd_idx").using("btree", table.unitId.asc().nullsLast(), table.nd.asc().nullsLast()).where(sql`(nd IS NOT NULL)`),
+	index("idx_empenho_arp_item").using("btree", table.arpItemId.asc().nullsLast()),
+	index("idx_empenho_status").using("btree", table.status.asc().nullsLast()),
+	index("idx_empenho_unit").using("btree", table.unitId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.acquisitionId],
 			foreignColumns: [acquisitionInProcurement.id],
@@ -4162,7 +4206,8 @@ export const liquidacaoDeductionInFinance = finance.table("liquidacao_deduction"
 	createdBy: uuid("created_by"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("liquidacao_deduction_liquidacao_idx").using("btree", table.liquidacaoId.asc().nullsLast().op("uuid_ops")),
+	index("liquidacao_deduction_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("liquidacao_deduction_liquidacao_idx").using("btree", table.liquidacaoId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -4190,8 +4235,8 @@ export const empenhoEventInFinance = finance.table("empenho_event", {
 	createdBy: uuid("created_by"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("empenho_event_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("empenho_event_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("date_ops"), table.data.asc().nullsLast().op("date_ops")),
+	index("empenho_event_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("empenho_event_empenho_idx").using("btree", table.empenhoId.asc().nullsLast(), table.data.asc().nullsLast()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -4225,11 +4270,11 @@ export const liquidacaoInFinance = finance.table("liquidacao", {
 	createdBy: uuid("created_by"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("liquidacao_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("liquidacao_empenho_idx").using("btree", table.empenhoId.asc().nullsLast().op("uuid_ops")),
-	index("liquidacao_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast().op("uuid_ops")),
-	index("liquidacao_nfe_document_id_fk_idx").using("btree", table.nfeDocumentId.asc().nullsLast().op("uuid_ops")),
-	index("liquidacao_receipt_idx").using("btree", table.goodsReceiptId.asc().nullsLast().op("uuid_ops")).where(sql`(goods_receipt_id IS NOT NULL)`),
+	index("liquidacao_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("liquidacao_empenho_idx").using("btree", table.empenhoId.asc().nullsLast()),
+	index("liquidacao_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast()),
+	index("liquidacao_nfe_document_id_fk_idx").using("btree", table.nfeDocumentId.asc().nullsLast()),
+	index("liquidacao_receipt_idx").using("btree", table.goodsReceiptId.asc().nullsLast()).where(sql`(goods_receipt_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -4281,9 +4326,9 @@ export const pagamentoInFinance = finance.table("pagamento", {
 	createdBy: uuid("created_by"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("pagamento_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("pagamento_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast().op("uuid_ops")),
-	index("pagamento_liquidacao_idx").using("btree", table.liquidacaoId.asc().nullsLast().op("uuid_ops")),
+	index("pagamento_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("pagamento_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast()),
+	index("pagamento_liquidacao_idx").using("btree", table.liquidacaoId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -4317,7 +4362,7 @@ export const folderReviewInKitchen = kitchen.table("folder_review", {
 	note: text(),
 	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("folder_review_folder_idx").using("btree", table.folderId.asc().nullsLast().op("timestamptz_ops"), table.reviewedAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("folder_review_folder_idx").using("btree", table.folderId.asc().nullsLast(), table.reviewedAt.desc().nullsFirst()),
 	foreignKey({
 			columns: [table.folderId],
 			foreignColumns: [folderInKitchen.id],
@@ -4338,7 +4383,7 @@ export const reconciliationDecisionInFinance = finance.table("reconciliation_dec
 	decidedBy: uuid("decided_by"),
 	decidedAt: timestamp("decided_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("reconciliation_decision_decided_by_fk_idx").using("btree", table.decidedBy.asc().nullsLast().op("uuid_ops")),
+	index("reconciliation_decision_decided_by_fk_idx").using("btree", table.decidedBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.decidedBy],
 			foreignColumns: [usersInAuth.id],
@@ -4380,12 +4425,14 @@ export const recipesInKitchen = kitchen.table("recipes", {
 	provisionalSince: timestamp("provisional_since", { withTimezone: true, mode: 'string' }),
 	provisionalBy: uuid("provisional_by"),
 }, (table) => [
-	index("recipes_base_recipe_idx").using("btree", table.baseRecipeId.asc().nullsLast().op("uuid_ops")).where(sql`(base_recipe_id IS NOT NULL)`),
-	index("recipes_folder_id_idx").using("btree", table.folderId.asc().nullsLast().op("uuid_ops")),
-	index("recipes_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.baseRecipeId.asc().nullsLast().op("int8_ops")).where(sql`(base_recipe_id IS NOT NULL)`),
+	index("recipes_base_recipe_idx").using("btree", table.baseRecipeId.asc().nullsLast()).where(sql`(base_recipe_id IS NOT NULL)`),
+	index("recipes_folder_id_idx").using("btree", table.folderId.asc().nullsLast()),
+	index("recipes_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("recipes_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast(), table.baseRecipeId.asc().nullsLast()).where(sql`(base_recipe_id IS NOT NULL)`),
 	uniqueIndex("recipes_lineage_version_unique_idx").using("btree", sql`base_recipe_id`, sql`COALESCE(kitchen_id, ('-1'::integer)::bigint)`, sql`version`).where(sql`(base_recipe_id IS NOT NULL)`),
-	index("recipes_name_idx").using("btree", table.name.asc().nullsLast().op("text_ops")),
-	index("recipes_provisional_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`((provisional_since IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("recipes_name_idx").using("btree", table.name.asc().nullsLast()),
+	index("recipes_provisional_by_fk_idx").using("btree", table.provisionalBy.asc().nullsLast()),
+	index("recipes_provisional_idx").using("btree", table.kitchenId.asc().nullsLast()).where(sql`((provisional_since IS NOT NULL) AND (deleted_at IS NULL))`),
 	foreignKey({
 			columns: [table.baseRecipeId],
 			foreignColumns: [table.id],
@@ -4437,18 +4484,18 @@ export const stockMovementInInventory = inventory.table("stock_movement", {
 	emissionId: text("emission_id"),
 	isLateIssue: boolean("is_late_issue").default(false).notNull(),
 }, (table) => [
-	index("stock_movement_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("stock_movement_created_idx").using("btree", table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("stock_movement_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("stock_movement_created_idx").using("btree", table.createdAt.desc().nullsFirst()),
 	uniqueIndex("stock_movement_emission_key").using("btree", sql`emission_id`, sql`COALESCE(lot_id, '00000000-0000-0000-0000-000000000000'::uuid)`).where(sql`(emission_id IS NOT NULL)`),
-	index("stock_movement_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast().op("uuid_ops")),
-	index("stock_movement_goods_receipt_item_id_fk_idx").using("btree", table.goodsReceiptItemId.asc().nullsLast().op("uuid_ops")),
-	index("stock_movement_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("stock_movement_inventory_count_id_fk_idx").using("btree", table.inventoryCountId.asc().nullsLast().op("uuid_ops")),
-	index("stock_movement_issue_request_idx").using("btree", table.issueRequestId.asc().nullsLast().op("uuid_ops")).where(sql`(issue_request_id IS NOT NULL)`),
-	index("stock_movement_kitchen_item_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.ingredientId.asc().nullsLast().op("int8_ops"), table.frozenPreparationId.asc().nullsLast().op("uuid_ops")),
-	index("stock_movement_lot_idx").using("btree", table.lotId.asc().nullsLast().op("uuid_ops")),
-	index("stock_movement_occurred_idx").using("btree", table.kitchenId.asc().nullsLast().op("timestamptz_ops"), table.occurredAt.desc().nullsFirst().op("int8_ops")),
-	index("stock_movement_task_idx").using("btree", table.productionTaskId.asc().nullsLast().op("uuid_ops")).where(sql`(production_task_id IS NOT NULL)`),
+	index("stock_movement_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast()),
+	index("stock_movement_goods_receipt_item_id_fk_idx").using("btree", table.goodsReceiptItemId.asc().nullsLast()),
+	index("stock_movement_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("stock_movement_inventory_count_id_fk_idx").using("btree", table.inventoryCountId.asc().nullsLast()),
+	index("stock_movement_issue_request_idx").using("btree", table.issueRequestId.asc().nullsLast()).where(sql`(issue_request_id IS NOT NULL)`),
+	index("stock_movement_kitchen_item_idx").using("btree", table.kitchenId.asc().nullsLast(), table.ingredientId.asc().nullsLast(), table.frozenPreparationId.asc().nullsLast()),
+	index("stock_movement_lot_idx").using("btree", table.lotId.asc().nullsLast()),
+	index("stock_movement_occurred_idx").using("btree", table.kitchenId.asc().nullsLast(), table.occurredAt.desc().nullsFirst()),
+	index("stock_movement_task_idx").using("btree", table.productionTaskId.asc().nullsLast()).where(sql`(production_task_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.inventoryCountId],
 			foreignColumns: [inventoryCountInInventory.id],
@@ -4522,10 +4569,11 @@ export const stockIssueRequestInInventory = inventory.table("stock_issue_request
 	explainedBy: uuid("explained_by"),
 	explanation: text(),
 }, (table) => [
-	index("stock_issue_request_closed_by_fk_idx").using("btree", table.closedBy.asc().nullsLast().op("uuid_ops")),
-	index("stock_issue_request_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("stock_issue_request_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("date_ops"), table.issueDate.desc().nullsFirst().op("date_ops")),
-	uniqueIndex("stock_issue_request_production_day_key").using("btree", table.kitchenId.asc().nullsLast().op("date_ops"), table.issueDate.asc().nullsLast().op("date_ops")).where(sql`(origin = 'production'::text)`),
+	index("stock_issue_request_closed_by_fk_idx").using("btree", table.closedBy.asc().nullsLast()),
+	index("stock_issue_request_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("stock_issue_request_explained_by_fk_idx").using("btree", table.explainedBy.asc().nullsLast()),
+	index("stock_issue_request_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast(), table.issueDate.desc().nullsFirst()),
+	uniqueIndex("stock_issue_request_production_day_key").using("btree", table.kitchenId.asc().nullsLast(), table.issueDate.asc().nullsLast()).where(sql`(origin = 'production'::text)`),
 	foreignKey({
 			columns: [table.closedBy],
 			foreignColumns: [usersInAuth.id],
@@ -4574,10 +4622,10 @@ export const procurementListItemInProcurement = procurement.table("procurement_l
 	deliveryCycle: text("delivery_cycle"),
 	minOrderQuantity: numeric("min_order_quantity", { mode: "number", precision: 14, scale: 4 }),
 }, (table) => [
-	index("idx_procurement_list_item_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
-	index("procurement_list_item_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast().op("uuid_ops")).where(sql`(folder_id IS NOT NULL)`),
-	index("procurement_list_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("procurement_list_item_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")).where(sql`(purchase_item_id IS NOT NULL)`),
+	index("idx_procurement_list_item_list_id").using("btree", table.listId.asc().nullsLast()),
+	index("procurement_list_item_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast()).where(sql`(folder_id IS NOT NULL)`),
+	index("procurement_list_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("procurement_list_item_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast()).where(sql`(purchase_item_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.listId],
 			foreignColumns: [procurementListInProcurement.id],
@@ -4614,7 +4662,7 @@ export const trainingResetLogInKitchen = kitchen.table("training_reset_log", {
 	errorMessage: text("error_message"),
 	queuedMs: integer("queued_ms"),
 }, (table) => [
-	index("training_reset_log_started_idx").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("training_reset_log_started_idx").using("btree", table.startedAt.desc().nullsFirst()),
 	check("training_reset_log_status_check", sql`status = ANY (ARRAY['running'::text, 'succeeded'::text, 'failed'::text, 'abandoned'::text])`),
 ]);
 
@@ -4639,13 +4687,13 @@ export const userPermissionsInAccessControl = accessControl.table("user_permissi
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("idx_user_permissions_user_id").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("user_permissions_allow_uniq").using("btree", table.userId.asc().nullsLast().op("int8_ops"), table.module.asc().nullsLast().op("int8_ops"), table.messHallId.asc().nullsLast().op("text_ops"), table.kitchenId.asc().nullsLast().op("int8_ops"), table.unitId.asc().nullsLast().op("text_ops")).where(sql`(level > 0)`),
-	uniqueIndex("user_permissions_deny_uniq").using("btree", table.userId.asc().nullsLast().op("int8_ops"), table.module.asc().nullsLast().op("text_ops"), table.messHallId.asc().nullsLast().op("int8_ops"), table.kitchenId.asc().nullsLast().op("text_ops"), table.unitId.asc().nullsLast().op("uuid_ops")).where(sql`(level <= 0)`),
-	index("user_permissions_expires_at_idx").using("btree", table.expiresAt.asc().nullsLast().op("timestamptz_ops")).where(sql`(expires_at IS NOT NULL)`),
-	index("user_permissions_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
-	index("user_permissions_mess_hall_id_fk_idx").using("btree", table.messHallId.asc().nullsLast().op("int8_ops")),
-	index("user_permissions_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops")),
+	index("idx_user_permissions_user_id").using("btree", table.userId.asc().nullsLast()),
+	uniqueIndex("user_permissions_allow_uniq").using("btree", table.userId.asc().nullsLast(), table.module.asc().nullsLast(), table.messHallId.asc().nullsLast(), table.kitchenId.asc().nullsLast(), table.unitId.asc().nullsLast()).where(sql`(level > 0)`),
+	uniqueIndex("user_permissions_deny_uniq").using("btree", table.userId.asc().nullsLast(), table.module.asc().nullsLast(), table.messHallId.asc().nullsLast(), table.kitchenId.asc().nullsLast(), table.unitId.asc().nullsLast()).where(sql`(level <= 0)`),
+	index("user_permissions_expires_at_idx").using("btree", table.expiresAt.asc().nullsLast()).where(sql`(expires_at IS NOT NULL)`),
+	index("user_permissions_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("user_permissions_mess_hall_id_fk_idx").using("btree", table.messHallId.asc().nullsLast()),
+	index("user_permissions_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -4679,8 +4727,8 @@ export const userMilitaryDataInCore = core.table("user_military_data", {
 	sgOrg: text(),
 	dataAtualizacao: timestamp({ withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("user_military_data_dataAtualizacao_idx").using("btree", table.dataAtualizacao.asc().nullsLast().op("timestamptz_ops")),
-	index("user_military_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast().op("text_ops")),
+	index("user_military_data_dataAtualizacao_idx").using("btree", table.dataAtualizacao.asc().nullsLast()),
+	index("user_military_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast()),
 ]);
 
 export const openingBalanceInInventory = inventory.table("opening_balance", {
@@ -4701,11 +4749,11 @@ export const openingBalanceInInventory = inventory.table("opening_balance", {
 	cancelledBy: uuid("cancelled_by"),
 	cancelledAt: timestamp("cancelled_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("opening_balance_cancelled_by_fk_idx").using("btree", table.cancelledBy.asc().nullsLast().op("uuid_ops")),
-	index("opening_balance_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("opening_balance_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
-	uniqueIndex("opening_balance_one_draft_per_kitchen").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(status = 'draft'::text)`),
-	index("opening_balance_posted_by_fk_idx").using("btree", table.postedBy.asc().nullsLast().op("uuid_ops")),
+	index("opening_balance_cancelled_by_fk_idx").using("btree", table.cancelledBy.asc().nullsLast()),
+	index("opening_balance_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("opening_balance_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	uniqueIndex("opening_balance_one_draft_per_kitchen").using("btree", table.kitchenId.asc().nullsLast()).where(sql`(status = 'draft'::text)`),
+	index("opening_balance_posted_by_fk_idx").using("btree", table.postedBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.cancelledBy],
 			foreignColumns: [usersInAuth.id],
@@ -4749,10 +4797,10 @@ export const openingBalanceItemInInventory = inventory.table("opening_balance_it
 	lotId: uuid("lot_id"),
 	movementId: uuid("movement_id"),
 }, (table) => [
-	index("opening_balance_item_doc_idx").using("btree", table.openingBalanceId.asc().nullsLast().op("int4_ops"), table.lineNumber.asc().nullsLast().op("uuid_ops")),
-	index("opening_balance_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("opening_balance_item_lot_id_fk_idx").using("btree", table.lotId.asc().nullsLast().op("uuid_ops")),
-	index("opening_balance_item_movement_id_fk_idx").using("btree", table.movementId.asc().nullsLast().op("uuid_ops")),
+	index("opening_balance_item_doc_idx").using("btree", table.openingBalanceId.asc().nullsLast(), table.lineNumber.asc().nullsLast()),
+	index("opening_balance_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("opening_balance_item_lot_id_fk_idx").using("btree", table.lotId.asc().nullsLast()),
+	index("opening_balance_item_movement_id_fk_idx").using("btree", table.movementId.asc().nullsLast()),
 	uniqueIndex("opening_balance_item_unique_lot").using("btree", sql`opening_balance_id`, sql`ingredient_id`, sql`COALESCE(lot_code, ''::text)`, sql`COALESCE(expiry_date, 'infinity'::date)`),
 	foreignKey({
 			columns: [table.ingredientId],
@@ -4806,12 +4854,12 @@ export const goodsReceiptItemInInventory = inventory.table("goods_receipt_item",
 	divergenceReason: text("divergence_reason"),
 	unitCostSource: text("unit_cost_source"),
 }, (table) => [
-	index("goods_receipt_item_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_item_ingredient_item_id_fk_idx").using("btree", table.ingredientItemId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_item_nfe_item_id_fk_idx").using("btree", table.nfeItemId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_item_receipt_idx").using("btree", table.receiptId.asc().nullsLast().op("uuid_ops")),
+	index("goods_receipt_item_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast()),
+	index("goods_receipt_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("goods_receipt_item_ingredient_item_id_fk_idx").using("btree", table.ingredientItemId.asc().nullsLast()),
+	index("goods_receipt_item_nfe_item_id_fk_idx").using("btree", table.nfeItemId.asc().nullsLast()),
+	index("goods_receipt_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
+	index("goods_receipt_item_receipt_idx").using("btree", table.receiptId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.frozenPreparationId],
 			foreignColumns: [frozenPreparationInKitchen.id],
@@ -4855,7 +4903,7 @@ export const comprasMaterialClasseInComprasGovIntegration = comprasGovIntegratio
 	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("compras_material_classe_codigo_grupo_fk_idx").using("btree", table.codigoGrupo.asc().nullsLast().op("int4_ops")),
+	index("compras_material_classe_codigo_grupo_fk_idx").using("btree", table.codigoGrupo.asc().nullsLast()),
 	foreignKey({
 			columns: [table.codigoGrupo],
 			foreignColumns: [comprasMaterialGrupoInComprasGovIntegration.codigoGrupo],
@@ -4884,10 +4932,11 @@ export const stockCostInInventory = inventory.table("stock_cost", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	id: uuid().defaultRandom().primaryKey().notNull(),
 }, (table) => [
-	uniqueIndex("stock_cost_frozen_key").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.frozenPreparationId.asc().nullsLast().op("uuid_ops")).where(sql`(frozen_preparation_id IS NOT NULL)`),
-	index("stock_cost_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast().op("uuid_ops")),
-	index("stock_cost_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("stock_cost_ingredient_key").using("btree", table.kitchenId.asc().nullsLast().op("uuid_ops"), table.ingredientId.asc().nullsLast().op("uuid_ops")).where(sql`(ingredient_id IS NOT NULL)`),
+	uniqueIndex("stock_cost_frozen_key").using("btree", table.kitchenId.asc().nullsLast(), table.frozenPreparationId.asc().nullsLast()).where(sql`(frozen_preparation_id IS NOT NULL)`),
+	index("stock_cost_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast()),
+	index("stock_cost_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	uniqueIndex("stock_cost_ingredient_key").using("btree", table.kitchenId.asc().nullsLast(), table.ingredientId.asc().nullsLast()).where(sql`(ingredient_id IS NOT NULL)`),
+	index("stock_cost_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.frozenPreparationId],
 			foreignColumns: [frozenPreparationInKitchen.id],
@@ -4918,7 +4967,7 @@ export const kitchenStockSettingsInInventory = inventory.table("kitchen_stock_se
 	updatedBy: uuid("updated_by"),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("kitchen_stock_settings_updated_by_fk_idx").using("btree", table.updatedBy.asc().nullsLast().op("uuid_ops")),
+	index("kitchen_stock_settings_updated_by_fk_idx").using("btree", table.updatedBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -4948,8 +4997,9 @@ export const menuGroupSetInKitchen = kitchen.table("menu_group_set", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("menu_group_set_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(deleted_at IS NULL)`),
-	uniqueIndex("menu_group_set_slug_key").using("btree", table.slug.asc().nullsLast().op("text_ops")).where(sql`((slug IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("menu_group_set_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("menu_group_set_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	uniqueIndex("menu_group_set_slug_key").using("btree", table.slug.asc().nullsLast()).where(sql`((slug IS NOT NULL) AND (deleted_at IS NULL))`),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
@@ -4968,7 +5018,7 @@ export const menuGroupInKitchen = kitchen.table("menu_group", {
 	sortOrder: smallint("sort_order").default(0).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("menu_group_set_idx").using("btree", table.groupSetId.asc().nullsLast().op("int2_ops"), table.sortOrder.asc().nullsLast().op("int2_ops")),
+	index("menu_group_set_idx").using("btree", table.groupSetId.asc().nullsLast(), table.sortOrder.asc().nullsLast()),
 	foreignKey({
 			columns: [table.groupSetId],
 			foreignColumns: [menuGroupSetInKitchen.id],
@@ -5002,10 +5052,11 @@ export const countScopeItemInInventory = inventory.table("count_scope_item", {
 	open: boolean().default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("count_scope_item_count_idx").using("btree", table.countId.asc().nullsLast().op("uuid_ops")),
-	index("count_scope_item_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast().op("uuid_ops")),
-	index("count_scope_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
+	index("count_scope_item_count_idx").using("btree", table.countId.asc().nullsLast()),
+	index("count_scope_item_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast()),
+	index("count_scope_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
 	uniqueIndex("count_scope_item_key").using("btree", sql`count_id`, sql`COALESCE(ingredient_id, frozen_preparation_id)`),
+	index("count_scope_item_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
 	uniqueIndex("count_scope_item_open_key").using("btree", sql`kitchen_id`, sql`COALESCE(ingredient_id, frozen_preparation_id)`).where(sql`open`),
 	foreignKey({
 			columns: [table.countId],
@@ -5040,9 +5091,9 @@ export const itemInCore = core.table("item", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("item_kind_idx").using("btree", table.kind.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
-	index("item_measure_unit_fk_idx").using("btree", table.measureUnit.asc().nullsLast().op("text_ops")),
-	index("item_scope_idx").using("btree", table.catalogScope.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
+	index("item_kind_idx").using("btree", table.kind.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
+	index("item_measure_unit_fk_idx").using("btree", table.measureUnit.asc().nullsLast()),
+	index("item_scope_idx").using("btree", table.catalogScope.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.measureUnit],
 			foreignColumns: [measureUnitInCore.code],
@@ -5075,11 +5126,13 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 	executionReviewedAt: timestamp("execution_reviewed_at", { withTimezone: true, mode: 'string' }),
 	executionReviewedBy: uuid("execution_reviewed_by"),
 }, (table) => [
-	index("menu_items_daily_menu_id_fk_idx").using("btree", table.dailyMenuId.asc().nullsLast().op("uuid_ops")),
-	index("menu_items_execution_pending_idx").using("btree", table.addedInExecutionAt.asc().nullsLast().op("timestamptz_ops")).where(sql`((added_in_execution_at IS NOT NULL) AND (execution_reviewed_at IS NULL) AND (deleted_at IS NULL))`),
-	index("menu_items_origin_snack_request_idx").using("btree", table.originSnackRequestId.asc().nullsLast().op("uuid_ops")).where(sql`(origin_snack_request_id IS NOT NULL)`),
-	index("menu_items_origin_template_id_idx").using("btree", table.originTemplateId.asc().nullsLast().op("uuid_ops")).where(sql`(origin_template_id IS NOT NULL)`),
-	index("menu_items_recipe_origin_id_fk_idx").using("btree", table.recipeOriginId.asc().nullsLast().op("uuid_ops")),
+	index("menu_items_added_in_execution_by_fk_idx").using("btree", table.addedInExecutionBy.asc().nullsLast()),
+	index("menu_items_daily_menu_id_fk_idx").using("btree", table.dailyMenuId.asc().nullsLast()),
+	index("menu_items_execution_pending_idx").using("btree", table.addedInExecutionAt.asc().nullsLast()).where(sql`((added_in_execution_at IS NOT NULL) AND (execution_reviewed_at IS NULL) AND (deleted_at IS NULL))`),
+	index("menu_items_execution_reviewed_by_fk_idx").using("btree", table.executionReviewedBy.asc().nullsLast()),
+	index("menu_items_origin_snack_request_idx").using("btree", table.originSnackRequestId.asc().nullsLast()).where(sql`(origin_snack_request_id IS NOT NULL)`),
+	index("menu_items_origin_template_id_idx").using("btree", table.originTemplateId.asc().nullsLast()).where(sql`(origin_template_id IS NOT NULL)`),
+	index("menu_items_recipe_origin_id_fk_idx").using("btree", table.recipeOriginId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.addedInExecutionBy],
 			foreignColumns: [usersInAuth.id],
@@ -5141,17 +5194,17 @@ export const stockLotInInventory = inventory.table("stock_lot", {
 	derivation: text(),
 	openedAt: timestamp("opened_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("stock_lot_conservation_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), table.conservationClass.asc().nullsLast().op("text_ops")).where(sql`(conservation_class IS NOT NULL)`),
-	index("stock_lot_expiry_idx").using("btree", table.expiryDate.asc().nullsLast().op("date_ops")).where(sql`(expiry_date IS NOT NULL)`),
-	index("stock_lot_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast().op("uuid_ops")),
-	index("stock_lot_goods_receipt_item_id_fk_idx").using("btree", table.goodsReceiptItemId.asc().nullsLast().op("uuid_ops")),
-	index("stock_lot_goods_receipt_item_lot_id_fk_idx").using("btree", table.goodsReceiptItemLotId.asc().nullsLast().op("uuid_ops")),
-	index("stock_lot_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("stock_lot_kitchen_item_idx").using("btree", table.kitchenId.asc().nullsLast().op("uuid_ops"), table.ingredientId.asc().nullsLast().op("uuid_ops"), table.frozenPreparationId.asc().nullsLast().op("uuid_ops")),
-	index("stock_lot_parent_idx").using("btree", table.parentLotId.asc().nullsLast().op("uuid_ops")).where(sql`(parent_lot_id IS NOT NULL)`),
-	index("stock_lot_quarantine_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(quarantined_at IS NOT NULL)`),
-	index("stock_lot_quarantined_by_fk_idx").using("btree", table.quarantinedBy.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("stock_lot_short_code_key").using("btree", table.shortCode.asc().nullsLast().op("text_ops")),
+	index("stock_lot_conservation_idx").using("btree", table.kitchenId.asc().nullsLast(), table.conservationClass.asc().nullsLast()).where(sql`(conservation_class IS NOT NULL)`),
+	index("stock_lot_expiry_idx").using("btree", table.expiryDate.asc().nullsLast()).where(sql`(expiry_date IS NOT NULL)`),
+	index("stock_lot_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast()),
+	index("stock_lot_goods_receipt_item_id_fk_idx").using("btree", table.goodsReceiptItemId.asc().nullsLast()),
+	index("stock_lot_goods_receipt_item_lot_id_fk_idx").using("btree", table.goodsReceiptItemLotId.asc().nullsLast()),
+	index("stock_lot_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("stock_lot_kitchen_item_idx").using("btree", table.kitchenId.asc().nullsLast(), table.ingredientId.asc().nullsLast(), table.frozenPreparationId.asc().nullsLast()),
+	index("stock_lot_parent_idx").using("btree", table.parentLotId.asc().nullsLast()).where(sql`(parent_lot_id IS NOT NULL)`),
+	index("stock_lot_quarantine_idx").using("btree", table.kitchenId.asc().nullsLast()).where(sql`(quarantined_at IS NOT NULL)`),
+	index("stock_lot_quarantined_by_fk_idx").using("btree", table.quarantinedBy.asc().nullsLast()),
+	uniqueIndex("stock_lot_short_code_key").using("btree", table.shortCode.asc().nullsLast()),
 	foreignKey({
 			columns: [table.frozenPreparationId],
 			foreignColumns: [frozenPreparationInKitchen.id],
@@ -5209,12 +5262,12 @@ export const inventoryCountEntryInInventory = inventory.table("inventory_count_e
 	note: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	uniqueIndex("count_entry_client_key").using("btree", table.countId.asc().nullsLast().op("text_ops"), table.clientEventId.asc().nullsLast().op("uuid_ops")),
-	index("count_entry_count_idx").using("btree", table.countId.asc().nullsLast().op("uuid_ops")),
-	index("inventory_count_entry_counted_by_fk_idx").using("btree", table.countedBy.asc().nullsLast().op("uuid_ops")),
-	index("inventory_count_entry_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast().op("uuid_ops")),
-	index("inventory_count_entry_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("inventory_count_entry_lot_id_fk_idx").using("btree", table.lotId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("count_entry_client_key").using("btree", table.countId.asc().nullsLast(), table.clientEventId.asc().nullsLast()),
+	index("count_entry_count_idx").using("btree", table.countId.asc().nullsLast()),
+	index("inventory_count_entry_counted_by_fk_idx").using("btree", table.countedBy.asc().nullsLast()),
+	index("inventory_count_entry_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast()),
+	index("inventory_count_entry_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("inventory_count_entry_lot_id_fk_idx").using("btree", table.lotId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.countId],
 			foreignColumns: [inventoryCountInInventory.id],
@@ -5262,11 +5315,11 @@ export const stockAdjustmentInInventory = inventory.table("stock_adjustment", {
 	postedValue: numeric("posted_value", { mode: "number", precision: 14, scale: 4 }),
 	approvalRequired: boolean("approval_required"),
 }, (table) => [
-	index("stock_adjustment_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast().op("uuid_ops")),
-	index("stock_adjustment_decided_by_fk_idx").using("btree", table.decidedBy.asc().nullsLast().op("uuid_ops")),
-	index("stock_adjustment_inventory_count_id_fk_idx").using("btree", table.inventoryCountId.asc().nullsLast().op("uuid_ops")),
-	index("stock_adjustment_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
-	index("stock_adjustment_pending_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(status = 'pending_approval'::text)`),
+	index("stock_adjustment_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("stock_adjustment_decided_by_fk_idx").using("btree", table.decidedBy.asc().nullsLast()),
+	index("stock_adjustment_inventory_count_id_fk_idx").using("btree", table.inventoryCountId.asc().nullsLast()),
+	index("stock_adjustment_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("stock_adjustment_pending_idx").using("btree", table.kitchenId.asc().nullsLast()).where(sql`(status = 'pending_approval'::text)`),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -5309,12 +5362,12 @@ export const stockAdjustmentItemInInventory = inventory.table("stock_adjustment_
 	investigationReference: text("investigation_reference"),
 	movementId: uuid("movement_id"),
 }, (table) => [
-	index("stock_adjustment_item_corrected_movement_id_fk_idx").using("btree", table.correctedMovementId.asc().nullsLast().op("uuid_ops")),
-	index("stock_adjustment_item_doc_idx").using("btree", table.adjustmentId.asc().nullsLast().op("uuid_ops")),
-	index("stock_adjustment_item_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast().op("uuid_ops")),
-	index("stock_adjustment_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
-	index("stock_adjustment_item_lot_id_fk_idx").using("btree", table.lotId.asc().nullsLast().op("uuid_ops")),
-	index("stock_adjustment_item_movement_id_fk_idx").using("btree", table.movementId.asc().nullsLast().op("uuid_ops")),
+	index("stock_adjustment_item_corrected_movement_id_fk_idx").using("btree", table.correctedMovementId.asc().nullsLast()),
+	index("stock_adjustment_item_doc_idx").using("btree", table.adjustmentId.asc().nullsLast()),
+	index("stock_adjustment_item_frozen_preparation_id_fk_idx").using("btree", table.frozenPreparationId.asc().nullsLast()),
+	index("stock_adjustment_item_ingredient_id_fk_idx").using("btree", table.ingredientId.asc().nullsLast()),
+	index("stock_adjustment_item_lot_id_fk_idx").using("btree", table.lotId.asc().nullsLast()),
+	index("stock_adjustment_item_movement_id_fk_idx").using("btree", table.movementId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.adjustmentId],
 			foreignColumns: [stockAdjustmentInInventory.id],
@@ -5380,10 +5433,10 @@ export const pncpPcaItemInComprasGovIntegration = comprasGovIntegration.table("p
 	collectedAt: timestamp("collected_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	removedAt: timestamp("removed_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("idx_pncp_pca_item_classe").using("btree", table.codigoClasse.asc().nullsLast().op("text_ops")).where(sql`(removed_at IS NULL)`),
-	index("idx_pncp_pca_item_codigo_item").using("btree", table.codigoItem.asc().nullsLast().op("text_ops")).where(sql`((codigo_item IS NOT NULL) AND (removed_at IS NULL))`),
-	index("idx_pncp_pca_item_orgao_ano").using("btree", table.cnpjOrgao.asc().nullsLast().op("int4_ops"), table.anoPca.asc().nullsLast().op("int4_ops")),
-	index("idx_pncp_pca_item_uasg").using("btree", table.uasg.asc().nullsLast().op("text_ops")).where(sql`(removed_at IS NULL)`),
+	index("idx_pncp_pca_item_classe").using("btree", table.codigoClasse.asc().nullsLast()).where(sql`(removed_at IS NULL)`),
+	index("idx_pncp_pca_item_codigo_item").using("btree", table.codigoItem.asc().nullsLast()).where(sql`((codigo_item IS NOT NULL) AND (removed_at IS NULL))`),
+	index("idx_pncp_pca_item_orgao_ano").using("btree", table.cnpjOrgao.asc().nullsLast(), table.anoPca.asc().nullsLast()),
+	index("idx_pncp_pca_item_uasg").using("btree", table.uasg.asc().nullsLast()).where(sql`(removed_at IS NULL)`),
 	unique("pncp_pca_item_cnpj_orgao_ano_pca_id_item_pca_key").on(table.cnpjOrgao, table.anoPca, table.idItemPca),
 ]);
 
@@ -5397,8 +5450,8 @@ export const stockAdjustmentAttachmentInInventory = inventory.table("stock_adjus
 	uploadedBy: uuid("uploaded_by"),
 	uploadedAt: timestamp("uploaded_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("stock_adjustment_attachment_adjustment_id_fk_idx").using("btree", table.adjustmentId.asc().nullsLast().op("uuid_ops")),
-	index("stock_adjustment_attachment_uploaded_by_fk_idx").using("btree", table.uploadedBy.asc().nullsLast().op("uuid_ops")),
+	index("stock_adjustment_attachment_adjustment_id_fk_idx").using("btree", table.adjustmentId.asc().nullsLast()),
+	index("stock_adjustment_attachment_uploaded_by_fk_idx").using("btree", table.uploadedBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.adjustmentId],
 			foreignColumns: [stockAdjustmentInInventory.id],
@@ -5426,9 +5479,9 @@ export const goodsReceiptItemLotInInventory = inventory.table("goods_receipt_ite
 	conservationClass: text("conservation_class"),
 	divergenceNote: text("divergence_note"),
 }, (table) => [
-	index("goods_receipt_item_lot_expiry_idx").using("btree", table.expiryDate.asc().nullsLast().op("date_ops")).where(sql`(expiry_date IS NOT NULL)`),
-	index("goods_receipt_item_lot_item_idx").using("btree", table.receiptItemId.asc().nullsLast().op("uuid_ops")),
-	index("goods_receipt_item_lot_temperature_ack_by_fk_idx").using("btree", table.temperatureAckBy.asc().nullsLast().op("uuid_ops")),
+	index("goods_receipt_item_lot_expiry_idx").using("btree", table.expiryDate.asc().nullsLast()).where(sql`(expiry_date IS NOT NULL)`),
+	index("goods_receipt_item_lot_item_idx").using("btree", table.receiptItemId.asc().nullsLast()),
+	index("goods_receipt_item_lot_temperature_ack_by_fk_idx").using("btree", table.temperatureAckBy.asc().nullsLast()),
 	foreignKey({
 			columns: [table.receiptItemId],
 			foreignColumns: [goodsReceiptItemInInventory.id],
@@ -5452,7 +5505,7 @@ export const gpcBrickAttributeInGs1Integration = gs1Integration.table("gpc_brick
 	attributeCode: text("attribute_code").notNull(),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("gpc_brick_attribute_attribute_idx").using("btree", table.attributeCode.asc().nullsLast().op("text_ops")),
+	index("gpc_brick_attribute_attribute_idx").using("btree", table.attributeCode.asc().nullsLast()),
 	foreignKey({
 			columns: [table.attributeCode],
 			foreignColumns: [gpcAttributeInGs1Integration.attributeCode],
@@ -5467,8 +5520,8 @@ export const kitchenAtaDraftImportInProcurement = procurement.table("kitchen_ata
 	importedBy: uuid("imported_by"),
 	importedAt: timestamp("imported_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("kitchen_ata_draft_import_imported_by_fk_idx").using("btree", table.importedBy.asc().nullsLast().op("uuid_ops")),
-	index("kitchen_ata_draft_import_list_idx").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
+	index("kitchen_ata_draft_import_imported_by_fk_idx").using("btree", table.importedBy.asc().nullsLast()),
+	index("kitchen_ata_draft_import_list_idx").using("btree", table.listId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.draftId],
 			foreignColumns: [kitchenAtaDraftInProcurement.id],
@@ -5495,9 +5548,9 @@ export const gtinGpcAttributeInGs1Integration = gs1Integration.table("gtin_gpc_a
 	declaredAt: timestamp("declared_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	declaredBy: uuid("declared_by"),
 }, (table) => [
-	index("gtin_gpc_attribute_declared_by_fk_idx").using("btree", table.declaredBy.asc().nullsLast().op("uuid_ops")),
-	index("gtin_gpc_attribute_value_code_fk_idx").using("btree", table.valueCode.asc().nullsLast().op("text_ops")),
-	index("gtin_gpc_attribute_value_idx").using("btree", table.attributeCode.asc().nullsLast().op("text_ops"), table.valueCode.asc().nullsLast().op("text_ops")),
+	index("gtin_gpc_attribute_declared_by_fk_idx").using("btree", table.declaredBy.asc().nullsLast()),
+	index("gtin_gpc_attribute_value_code_fk_idx").using("btree", table.valueCode.asc().nullsLast()),
+	index("gtin_gpc_attribute_value_idx").using("btree", table.attributeCode.asc().nullsLast(), table.valueCode.asc().nullsLast()),
 	foreignKey({
 			columns: [table.attributeCode],
 			foreignColumns: [gpcAttributeInGs1Integration.attributeCode],
@@ -5546,7 +5599,7 @@ export const scannerProfileInInventory = inventory.table("scanner_profile", {
 	gsSubstitute: text("gs_substitute"),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("scanner_profile_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")),
+	index("scanner_profile_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],

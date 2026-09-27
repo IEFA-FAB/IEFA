@@ -41,6 +41,13 @@
  *        read from `pg_attrdef`, so the file never carries invalid SQL.
  *    11. Default that calls a DB function (`.default(inventory.lot_short_code())`) is emitted
  *        as a TS call on the schema object → becomes `sql\`inventory.lot_short_code()\``.
+ *    13. Every `.op("…")` (index operator class) is removed. The pull pairs opclasses with index
+ *        columns non-deterministically (`acquisition_dispensa_sum_idx` came with `text_ops` on the
+ *        integer `unit_id`), so each pull rewrote indexes nobody touched and the value on file was
+ *        not trustworthy anyway. The opclass only matters to `drizzle-kit generate`/`push`, which
+ *        this schema never feeds (introspection only, see drizzle.config.ts); queries and types
+ *        ignore it. Dropping all of them (the non-default `gin_trgm_ops` included) is simpler than
+ *        re-reading `pg_opclass` to fix each one, and it is stable: the DB keeps the real opclass.
  *   relations.ts
  *     7. Drop duplicate relation properties (redundant duplicate FK constraints in
  *        the DB emit identical relation keys → TS1117 "duplicate property").
@@ -128,6 +135,9 @@ async function patchSchema(src: string): Promise<string> {
 
 	// 12. truncated defaults
 	out = await restoreTruncatedDefaults(out)
+
+	// 13. index opclasses (non-deterministic in the pull; irrelevant to an introspection-only schema)
+	out = out.replace(/\.op\("[^"]*"\)/g, "")
 
 	return out
 }
