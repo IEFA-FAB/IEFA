@@ -10,8 +10,10 @@
  */
 
 import type { EquipmentModelWire } from "@iefa/sisub-domain"
-import { Pencil, Plus, Trash2 } from "lucide-react"
+import { DownloadIcon, Pencil, Plus, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
+import { buildEquipmentModelsCsv } from "@/components/features/shared/equipment/equipment-csv"
+import { ENERGY_LABEL } from "@/components/features/shared/equipment/equipment-labels"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -33,6 +35,7 @@ import {
 	useUpdateEquipmentModel,
 } from "@/hooks/data/useEquipment"
 import { useUtensils } from "@/hooks/data/useRecipeFlow"
+import { datedCsvFilename, downloadCsv } from "@/lib/csv"
 
 const CATEGORY_LABEL: Record<string, string> = {
 	coccao: "Cocção",
@@ -98,14 +101,6 @@ const TRI_LABEL: Record<string, string> = { [TRI_UNKNOWN]: "Não informado", tru
 
 /** Sentinela do "não informado" — o Select não representa `null` como valor de item. */
 const NO_ENERGY = "__none__"
-
-const ENERGY_LABEL: Record<string, string> = {
-	electric: "Elétrica",
-	gas: "Gás",
-	steam: "Vapor",
-	mixed: "Mista",
-	manual: "Manual",
-}
 
 export function EquipmentCatalogManager() {
 	const { data: roles = [], isLoading: rolesLoading } = useEquipmentRoles()
@@ -241,7 +236,19 @@ export function EquipmentCatalogManager() {
 					<CardDescription>Modelos comerciais e genéricos que as cozinhas usam ao cadastrar o parque.</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					<div className="flex justify-end">
+					<div className="flex justify-end gap-2">
+						{models.length > 0 ? (
+							<Button
+								variant="outline"
+								size="sm"
+								// Sem os tipos, a função cujo vínculo veio sem `role` sairia com o id cru.
+								disabled={rolesLoading}
+								onClick={() => downloadCsv(datedCsvFilename("modelos_equipamento"), buildEquipmentModelsCsv(models, new Map(roles.map((r) => [r.id, r.name]))))}
+							>
+								<DownloadIcon className="size-4" />
+								Exportar CSV
+							</Button>
+						) : null}
 						<Button size="sm" onClick={openCreate}>
 							<Plus className="size-4 mr-2" />
 							Novo modelo

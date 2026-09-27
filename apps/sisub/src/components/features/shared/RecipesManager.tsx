@@ -25,6 +25,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
+import { toast } from "@/components/ui/toast"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { TREE_LEAF_TONE, TREE_MUTED_TONE, TreeRow, treeFolderTone } from "@/components/ui/tree-row"
@@ -35,7 +36,10 @@ import { useRecipeLastReviews, useRecipeMenuUsage, useRecipes } from "@/hooks/da
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { getStoredScrollOffset, usePersistScrollOffset } from "@/hooks/ui/useScrollRestoration"
 import { cn } from "@/lib/cn"
+import { datedCsvFilename, downloadCsv } from "@/lib/csv"
+import { pluralize } from "@/lib/flows/model"
 import { allRecipeFolderIds, buildRecipeTree } from "@/lib/recipe-tree"
+import { buildRecipesCsv } from "@/lib/recipes-csv"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 import { RecipeFoldersDialog } from "./RecipeFoldersDialog"
 import { RecipesBulkActionsBar } from "./RecipesBulkActionsBar"
@@ -43,8 +47,8 @@ import { RecipesFindReplaceDialog } from "./RecipesFindReplaceDialog"
 
 const ROW_HEIGHT = 48
 
-/** Ações do catálogo de pastas ficam no PageHeader da rota, como em `IngredientsTreeManager`. */
-export type RecipesManagerHandle = { openFoldersDialog: () => void }
+/** Ações do catálogo de pastas e a exportação ficam no PageHeader da rota, como em Insumos. */
+export type RecipesManagerHandle = { openFoldersDialog: () => void; exportCsv: () => void }
 
 function formatQty(n: number): string {
 	return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
@@ -184,22 +188,24 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 
 	// A busca textual NÃO vai aqui: ela também casa nome de pasta, e isso é decidido na
 	// montagem da árvore (ver `buildRecipeTree`). O resto do recorte continua no hook.
-	const { data: allRecipes = [], isLoading } = useRecipes({
+	const recipesQuery = useRecipes({
 		origin: type,
 		includeDeleted: showDeleted,
 		caseSensitive: searchCaseSensitive,
 		accentSensitive: searchAccentSensitive,
 		sortDirection,
 	})
+	const { data: allRecipes = [], isLoading } = recipesQuery
 
 	// Preparações usadas em planos semanais → revisão prioritária pelas nutricionistas.
-	const { usedIds: menuUsageIds } = useRecipeMenuUsage()
+	const menuUsageQuery = useRecipeMenuUsage()
+	const { usedIds: menuUsageIds } = menuUsageQuery
 	// Status de revisão (conferência) por preparação — para o badge por linha e o filtro de pendentes.
-	const { reviewedAtById, isLoading: reviewsLoading } = useRecipeLastReviews()
+	const reviewsQuery = useRecipeLastReviews()
+	const { reviewedAtById, isLoading: reviewsLoading } = reviewsQuery
 	// Pastas — o agrupamento que estrutura a listagem.
-	const { folders } = useRecipeFolders()
-
-	useImperativeHandle(ref, () => ({ openFoldersDialog: () => setFoldersDialogOpen(true) }), [])
+	const foldersQuery = useRecipeFolders()
+	const { folders } = foldersQuery
 
 	const filteredRecipes = useMemo(() => {
 		let list = allRecipes
@@ -316,6 +322,45 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 		const global = tree.matched.filter((r) => !r.kitchen_id).length
 		return { total, global, local: total - global }
 	}, [tree])
+
+	// Exporta o mesmo recorte que a contagem acima: todos os filtros aplicados, pastas
+	// recolhidas incluídas — o CSV não depende de quais pastas estão abertas na tela. A árvore
+	// é remontada toda aberta só no clique, com a mesma ordem e agrupamento da listagem.
+	const exportCsv = () => {
+		// Plano semanal, revisão e pastas viram colunas: exportar antes de chegarem (ou com erro)
+		// sairia com "Não", data vazia e tudo em "Sem pasta" sem aviso nenhum.
+		const sources = [recipesQuery, menuUsageQuery, reviewsQuery, foldersQuery]
+		if (sources.some((q) => q.isLoading)) {
+			toast.error("Aguarde o carregamento das preparações")
+			return
+		}
+		if (sources.some((q) => q.isError)) {
+			toast.error("Não foi possível carregar todos os dados da listagem. Recarregue a página e tente de novo.")
+			return
+		}
+		if (tree.matched.length === 0) {
+			toast.error("Nenhuma preparação para exportar com os filtros atuais")
+			return
+		}
+		const { nodes } = buildRecipeTree({
+			folders,
+			recipes: filteredRecipes,
+			filterText: urlSearch,
+			sensitivity: { caseSensitive: searchCaseSensitive, accentSensitive: searchAccentSensitive },
+			sortDirection,
+			autoExpand: true,
+			hideEmptyFolders: true,
+		})
+		downloadCsv(
+			datedCsvFilename(kitchenId ? `preparacoes_cozinha_${kitchenId}` : "preparacoes_globais"),
+			buildRecipesCsv({ nodes, menuUsageIds, reviewedAtById })
+		)
+		toast.success(pluralize(tree.matched.length, "preparação exportada", "preparações exportadas"))
+	}
+	// O handle é estável; o clique lê o `exportCsv` do render mais recente.
+	const exportCsvRef = useRef(exportCsv)
+	exportCsvRef.current = exportCsv
+	useImperativeHandle(ref, () => ({ openFoldersDialog: () => setFoldersDialogOpen(true), exportCsv: () => exportCsvRef.current() }), [])
 
 	function setOrigin(value: "all" | "global" | "local") {
 		// biome-ignore lint/suspicious/noExplicitAny: shared component, navigate has no from context

@@ -54,6 +54,21 @@ export const MAINTENANCE_PROVIDER_LABEL: Record<string, string> = {
 	other: "Outro",
 }
 
+/** Situação administrativa da unidade (`equipment_unit.status`), que só a Gestão Cozinha altera. */
+export const UNIT_STATUS_LABEL: Record<string, string> = {
+	active: "Ativo",
+	maintenance: "Em manutenção",
+	decommissioned: "Baixado",
+}
+
+export const ENERGY_LABEL: Record<string, string> = {
+	electric: "Elétrica",
+	gas: "Gás",
+	steam: "Vapor",
+	mixed: "Mista",
+	manual: "Manual",
+}
+
 export const CONDITION_LABEL: Record<EquipmentCondition, string> = {
 	operational: "Operacional",
 	degraded: "Com limitação",
