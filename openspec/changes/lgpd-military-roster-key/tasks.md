@@ -6,7 +6,7 @@
 ## 2. Migration (espera o mantenedor)
 
 - [ ] 2.1 [database] PK física `id` identity; `UNIQUE` no CPF; views dependentes recriadas
-- [ ] 2.2 [database] View `core.military_identity` (`nr_ordem`, `posto`, `nome_guerra`, `sg_org`, `data_atualizacao`), só servidor
+- [ ] 2.2 [database] View `core.military_identity` (`saram`, `posto`, `nome_guerra`, `sg_org`, `data_atualizacao`), só servidor
 - [ ] 2.3 [database] No mesmo PR, depois de aplicar: `db:types` e `db:drizzle:pull` (o pull deixa de declarar `nrCpf` como PK)
 
 ## 3. Apps e gate

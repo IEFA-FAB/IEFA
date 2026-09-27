@@ -13,7 +13,7 @@ O que já está certo e não muda:
 
 - **CPF deixa de ser a chave.** O espelho ganha uma PK física (`id` identity, gerada no INSERT, sem mudar a carga), e o CPF vira coluna comum, com `UNIQUE` para preservar a garantia que a PK dava à carga. O `nrOrdem` continua com o índice que já tem; não ganha `UNIQUE` enquanto não se souber como a carga se comporta (tarefa 1.1).
 - **CPF fora das leituras dos apps, garantido por regra estática.** Todos os apps leem o banco como `service_role` (ou pelo Drizzle com o role do projeto), então isolamento por grant não separa app de carga. A garantia possível nesta arquitetura:
-  - uma view `core.military_identity` com o mínimo que os apps usam: `nr_ordem`, `posto`, `nome_guerra`, `sg_org`, `data_atualizacao`. Sem nome completo (`nmPessoa`), que sucont e rumaer já deixam de fora de propósito, e sem CPF;
+  - uma view `core.military_identity` com o mínimo que os apps usam: `saram` (o `"nrOrdem"` do espelho; nome do glossário `sisub-ubiquitous-language`), `posto`, `nome_guerra`, `sg_org`, `data_atualizacao`. Sem nome completo (`nmPessoa`), que sucont e rumaer já deixam de fora de propósito, e sem CPF;
   - uma regra de `.opengrep/rules/` que reprova leitura de `nrCpf`/`nmPessoa` fora de uma allowlist com motivo (o perfil do próprio titular, mascarado; a rota restrita da API, que projeta `nmPessoa`);
   - os leitores passam para a view: `core.person_identity`, `core.v_user_identity`, `analytics.v_user_identity`, `sisub-domain` (`user.ts`, `dashboard.ts`, `snack-requests.ts`, `price-research-report.ts`), sucont (`military.server.ts`, `people.fn.ts`), rumaer (`military.fn.ts`) e a fixture de teste.
 - **Identificadores em snake_case** na view; a tabela crua mantém os nomes do sistema de origem para a carga não mudar.

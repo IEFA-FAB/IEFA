@@ -13,7 +13,7 @@ Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como ci
 | Plano de contratações anual (PCA) | Lei 14.133, art. 12, VII; Decreto 10.947/2022 | `pca` | `compras_gov_integration.pncp_pca_*` (espelho), `procurement.segment.pca_identifier` | Plano de Contratações | — |
 | Documento de formalização da demanda (DFD) | Lei 14.133, art. 12, VII; Decreto 10.947/2022 (dispositivo a confirmar) | `dfd` | — | DFD | — |
 | Previsão de demanda (da cozinha, insumo do DFD) | Decreto 10.947/2022 (a confirmar) | `demand_forecast` / `DemandForecast` | `procurement.kitchen_demand_forecast{,_selection,_import}`, `forecast_id` | Previsão de demanda | `KitchenAtaDraft`, `kitchenDraft*`, `kitchen-draft.ts`, `kitchen-draft.fn.ts`, `useKitchenDraft`, `components/features/local/kitchen-draft/`, `draftId`, `draft_id`, `ata_draft`, rota `kitchen/$kitchenId/suprimentos/$draftId`, "Suprimentos" |
-| Contratação planejada (segmento) | spec `procurement-terminology` ("grupo" e "lote" reservados à lei) | `segment` | `procurement.segment`, `procurement.segment_rule` | Contratação planejada; Segmentação das contratações | `procurement_segment`, `procurement_segment_rule`, `ProcurementSegment*`, `procurementSegment*` |
+| Contratação planejada (segmento do PCA): o recorte do que a OM compra num mesmo processo, no calendário do PCA, antes da seleção do fornecedor | Decreto 10.947/2022; spec `procurement-terminology` ("grupo" e "lote" reservados à lei) | `segment` | `procurement.segment`, `procurement.segment_rule` | Contratação planejada; Segmentação das contratações | `procurement_segment`, `procurement_segment_rule`, `ProcurementSegment*`, `procurementSegment*`; "contratação" sozinho |
 | Estudo técnico preliminar (ETP) | Lei 14.133, art. 6º, XX (a confirmar inciso), art. 18, § 1º; IN SEGES/ME 58/2022 | `etp` | — | ETP | — |
 | Termo de referência (TR) | Lei 14.133, art. 6º, XXIII; IN SEGES/ME 81/2022 | `tr` | — | TR | — |
 | Estimativa das quantidades (anexo quantitativo do TR) | Lei 14.133, art. 18, § 1º, IV; art. 6º, XXIII | `quantity_estimate` / `QuantityEstimate` | `procurement.quantity_estimate` | Anexo quantitativo | `procurement.procurement_list`, `ProcurementList*`, `ata`, `ataId`, `Ata*` (`AtaWithDetails`, `AtaWizardState`, `AtaMeta`, `AtaStep`...), `createAta`, `fetchAtaDetails`, `fetchAtaList`, `updateAtaStatus`, `deleteAta`, `calculateAtaNeeds`, `ata.ts`, `ata.fn.ts`, `useAta.ts`, `ata-annex.ts`, `ata-utils.ts`, `types/domain/ata.ts`, `components/features/local/ata/`, rota `unit/$unitId/procurement/$ataId`, tools `list_atas`, `get_atas`, `get_ata_details`, `update_ata_status`, API `/api/admin/price-research/ata/:ataId` |
@@ -46,7 +46,7 @@ Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como ci
 
 | Termo da norma | Fonte | Identificador | Banco | Rótulo | Substituir |
 |---|---|---|---|---|---|
-| Contratação de origem | change `sisub-flexible-expense-execution` | `acquisition` | `procurement.acquisition` | Contratação de origem | — |
+| Contratação de origem: a contratação já feita (licitação, SRP, dispensa, inexigibilidade...) que sustenta o empenho | change `sisub-flexible-expense-execution`; Lei 14.133, art. 72 (contratação direta) | `acquisition` | `procurement.acquisition` | Contratação de origem | "contratação" sozinho |
 | Tipo: registro de preços, licitação, dispensa, inexigibilidade, Contrata+Brasil, suprimento de fundos | Lei 14.133, arts. 74, 75, 82; Lei 4.320, art. 68 (suprimento); Contrata+Brasil: ato a confirmar | valores `registro_precos` · `licitacao` · `dispensa` · `inexigibilidade` · `contrata_mais_brasil` · `suprimento_fundos` · `outra` | `acquisition.kind` | — | — |
 | Contratação direta | Lei 14.133, art. 72 | (`kind` `dispensa`/`inexigibilidade`) | — | Contratação direta | — |
 | Limite e somatório da dispensa por valor | Lei 14.133, art. 75, I, II e § 1º; IN SEGES/ME 67/2021, art. 4º | `direct_contract_limit`, `clause`, `activity_line` | fica | Limite de dispensa; Ramo de atividade | — |
@@ -76,16 +76,16 @@ Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como ci
 | Crédito recebido (descentralizado) | MCASP (a confirmar) | `received_credit` | `finance.budget_credit.received_credit` | Crédito recebido | `dotacao` |
 | Crédito disponível | MCASP (a confirmar) | `available_credit_siafi` | `finance.budget_credit.available_credit_siafi` | Disponível (SIAFI) | `saldo_siafi` |
 | Crédito por classificação | — | `budget_credit` | fica | Crédito disponível | — |
-| Nota de crédito (NC) | Manual SIAFI (a confirmar) | `credit_note` (a confirmar × `nc`) | `finance.credit_note`, `kind` ∈ `descentralizacao` · `anulacao` | NC | — |
+| Nota de crédito (NC) | Manual SIAFI (a confirmar) | `credit_note` (inglês fiel) | `finance.credit_note`, `kind` ∈ `descentralizacao` · `anulacao` | NC | — |
 | UG, UG emitente, UGR | Manual SIAFI (a confirmar) | `ug`, `issuer_ug`, `ugr` | `finance.empenho.issuer_ug` | UG emitente | `ug_emitente`, `ugEmitente` |
 | Natureza de despesa (ND) | Portaria Interministerial STN/SOF 163/2001 | `nd` | fica | ND | — |
 | PTRES, PI, fonte | Manual Técnico de Orçamento (a confirmar) | `ptres`, `pi`, `fonte` | ficam | PTRES, PI, Fonte | — |
-| Empenho / nota de empenho (NE) | Lei 4.320, arts. 58, 60 e 61 | `empenho` (pt: sem equivalente fiel) | `finance.empenho`, `finance.empenho_item` | Empenho; NE | — |
+| Empenho / nota de empenho (NE) | Lei 4.320, arts. 58 a 61 | `empenho` (pt: sem equivalente fiel) | `finance.empenho`, `finance.empenho_item` | Empenho; NE | — |
 | Empenho ordinário, estimativo, global | Decreto 93.872/1986 (a confirmar artigo) | `tipo` ∈ `ordinario` · `estimativo` · `global` | fica | — | — |
 | Reforço, anulação, anulação total | Decreto 93.872/1986 (a confirmar) | `empenho_event.tipo` | fica | — | `cancelamento` (contract previsto em D11 de `sisub-flexible-expense-execution`) |
 | Liquidação (NS) | Lei 4.320, art. 63 | `liquidacao` (pt: `liquidation` é falso cognato) | `finance.liquidacao`, `numero_ns` | Liquidação; NS | `liquidation`, `Liquidation*`, `liquidation.fn.ts`, `liquidation-math.ts`, rota `unit/$unitId/liquidations` |
 | Retenção (dedução na NS) | IN RFB 1.234/2012 (IR, CSLL, COFINS, PIS); INSS e ISS: norma a confirmar | `liquidacao_deduction`, `kind` ∈ `ir` · `csll` · `cofins` · `pis` · `inss` · `iss` · `outra` | fica | Retenções | — |
-| Pagamento (OB) | Lei 4.320, arts. 62 e 64 | `pagamento` (a confirmar: exceção à regra do inglês pela tríade da despesa) | `finance.pagamento`, `numero_ob` | Pagamento; OB | `payment`, `Payment*`, rota `unit/$unitId/payments` |
+| Pagamento (OB) | Lei 4.320, arts. 62 a 65 | `pagamento` (**exceção registrada** à regra do inglês: fica com `empenho` e `liquidacao`, as fases da despesa, arts. 58-65) | `finance.pagamento`, `numero_ob` | Pagamento; OB | `payment`, `Payment*`, rota `unit/$unitId/payments` |
 | Restos a pagar (RP) processados e não processados | Lei 4.320, art. 36; Decreto 93.872/1986 (a confirmar artigos) | `rp`, `kind` ∈ `processado` · `nao_processado` | `finance.empenho_rp_inscription` | Restos a pagar | colunas-espelho `empenho.rp_*` (contract previsto) |
 | Conciliação com o SIAFI | — | `reconciliation` | fica | Conciliação | — |
 
@@ -126,21 +126,23 @@ Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como ci
 
 | Termo da norma | Fonte | Identificador | Banco | Rótulo | Substituir |
 |---|---|---|---|---|---|
-| Rancho (onde o comensal come) | uso do COMAER (norma a confirmar) | `mess_hall` | `kitchen.mess_halls` | Rancho (a confirmar × "Refeitório") | — |
-| Roster de ranchos do efetivo | modelo interno | a confirmar (mesmo conceito que `mess_hall`?) | `kitchen.rancho` | Efetivo dos ranchos | a decidir |
-| Cozinha | — | `kitchen` | `kitchen.kitchen` | Cozinha | — |
+| Refeitório: onde o comensal come e a presença é fiscalizada | — | `mess_hall` | `kitchen.mess_halls` | Refeitório | "rancho" nesse sentido: seletor do Comensal ("Rancho padrão", "Selecione um rancho"), filtros e colunas "Rancho" do analytics e da presença, "escala sem apoio de rancho" no lanche, tipo `Mess Hall (Rancho)` |
+| Refeitório no levantamento de efetivo (matriz da SDAB) | `20260827163000_workforce_matrix.sql` | `mess_hall` (fusão, recomendada) ou `mess_hall_workforce` (rename) | `kitchen.rancho` → fundida em `kitchen.mess_halls` ou `kitchen.mess_hall_workforce`; `workforce_submission.rancho_id` → `mess_hall_id` ou `mess_hall_workforce_id` | Efetivo da subsistência (por refeitório) | `kitchen.rancho`, `core.rancho`, `rancho_id`, `ranchoInKitchen`, `ranchoId`, `Rancho*`, `RanchoWorkforce*`, `computeRanchoMetrics`, `createRancho`, `updateRancho`, "Efetivo dos Ranchos" |
+| Cozinha: onde se produz, com os seus refeitórios | — | `kitchen` | `kitchen.kitchen` | Cozinha | "rancho" nesse sentido: "material de rancho", "item do rancho" (produção regular), "planejamento do rancho", "tipos de refeição do rancho" |
+| Unidade (OM) e a sua subsistência | uso do COMAER | `unit` | `core.units`, `unit_id` | Unidade; Gestão Unidade | "rancho" nesse sentido: "chefe do rancho" (→ quem tem Gestão Unidade), "despesa do rancho", "compra fora do rancho", "rancho militar" |
 | Comensal | uso do COMAER (a confirmar) | `diner` | — (módulo PBAC) | Comensal | — |
-| Arranchamento (declaração do comensal para a refeição) | norma de subsistência do COMAER (a confirmar) | `arranchamento` (pt: "meal forecast" é a estimativa agregada) | `kitchen.arranchamento` (a confirmar) | Arranchamento | `kitchen.meal_forecasts`, `mealForecast*`, `useMealForecast`, `forecast.ts`, `forecast.fn.ts`, rota `diner/forecast`, rótulo "Previsão" |
+| Arranchamento: o militar se arrancha (declara que vai comer em data, refeição e refeitório); presença é o comparecimento | norma de subsistência do COMAER (a confirmar) | `arranchamento` (pt: "meal forecast" é a estimativa agregada) | `kitchen.arranchamento` | Arranchamento | `kitchen.meal_forecasts`, `mealForecastsInKitchen`, `mealForecast*`, `useMealForecast`, `upsertForecast`, `ForecastRecord`, `operations/forecast.ts`, `forecast.fn.ts`, `lib/forecast.ts`, rota `diner/forecast`, API `/api/rancho_previsoes`, rótulo "Previsão" |
 | Previsão de comensais | — | `forecasted_headcount` | `kitchen.daily_menu` | Previsão | — |
 | Presença | — | `meal_presence`, `other_presence` | `kitchen.meal_presences`, `kitchen.other_presences` | Presenças | — |
-| Quem registra a presença | termo a confirmar | módulo `messhall` (ID fica) | — | Fiscal do rancho (a confirmar) | rótulo "Fiscal" |
+| Fiscal de rancho: função da escala de serviço que registra e confere a presença. **Única ocorrência permitida de "rancho"**, como nome próprio; não é o fiscal do contrato (Lei 14.133, art. 117) | escala de serviço da OM (norma a confirmar) | módulo `messhall` (ID fica) | — | Fiscal de rancho | rótulos "Fiscal" (módulo, breadcrumb) e "Fiscal de Rancho" (grafia) |
 | Cardápio do dia | — | `daily_menu`, `menu_item` | `kitchen.daily_menu`, `kitchen.menu_items` | Cardápio | — |
-| Cardápio semanal (modelo) | — | `menu_template` (`template_type = 'weekly'`) | fica | Cardápio semanal (a confirmar) | rótulos "Planos Semanais", "Planos Semanais Modelo"; rota `global/weekly-plans` |
-| Apoio (cardápio de exceção) | a confirmar | `template_type = 'exception'` | fica | Apoios | a decidir |
+| Cardápio semanal (modelo) | termo da nutrição | `menu_template` (`template_type = 'weekly'`) | fica | Cardápio semanal; Cardápio semanal modelo (global) | rótulos "Planos Semanais", "Planos Semanais Modelo"; rota `global/weekly-plans` |
+| Cardápio de apoio: refeições previsíveis fora da rotina semanal (lanches de bordo e de apoio, coffee breaks) | — | `template_type = 'apoio'` | `kitchen.menu_template.template_type`, `kitchen.menu_items.origin_template_type` | Cardápio de apoio | `'exception'`; rotas `global/exceptions` e `kitchen/$kitchenId/exceptions` → `*/support-menus`; componentes `Exception*` |
+| Lanche de apoio (homônimo: família do lanche, não tipo de cardápio) | norma do lanche (itens 7.4.x citados no código; ato a confirmar) | `snack_family = 'apoio'` | fica | Lanche de apoio | — |
 | Tipo de refeição | — | `meal_type`; `meal` ∈ `cafe` · `almoco` · `janta` · `ceia` | fica | Refeição | — |
 | Preparação (ficha técnica de preparação) | manual de subsistência (a confirmar) | `recipe` | `kitchen.recipes` | Preparação; Ficha técnica (impressão) | — |
 | Preparação congelada | — | `frozen_preparation` | fica | Preparação congelada | — |
-| Preparação legada do SISUBWEB | migração do SISUBWEB | `legacy_preparation` | (linhas de `kitchen.ingredient` com `preparation_group_id`) | Preparação legada | tool `list_preparations`, `AgentListPreparations*`; `preparation_group` a confirmar |
+| Preparação legada do SISUBWEB | migração do SISUBWEB | `legacy_preparation` | (linhas de `kitchen.ingredient` com `preparation_group_id`); `kitchen.preparation_group` fica | Preparação legada | tool `list_preparations`, `AgentListPreparations*` |
 | Insumo (gênero) | uso do COMAER | `ingredient`; `core.item.kind = 'insumo'` | `kitchen.ingredient` | Insumo | `product`, `Product*`, `policy_rule.target = 'product'` |
 | CEAFA | norma do COMAER (expansão da sigla a confirmar) | `ceafa` | `kitchen.ceafa` | CEAFA | — |
 
@@ -166,7 +168,7 @@ Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como ci
 
 ### Requirement: Termo da norma só para o conceito da norma
 
-Um termo que a norma define SHALL nomear só o conceito que ela define. Em particular: "ata"/`ata` só para a Ata de Registro de Preços (Lei 14.133, art. 6º, XLVI); "publicar" só para a divulgação no PNCP; "margem" só para a margem de preferência; "dotação" nunca para o crédito recebido pela UG; "fiscal" sozinho nunca para quem registra presença no rancho; `liquidation` nunca como identificador da liquidação da despesa.
+Um termo que a norma define SHALL nomear só o conceito que ela define. Em particular: "ata"/`ata` só para a Ata de Registro de Preços (Lei 14.133, art. 6º, XLVI); "publicar" só para a divulgação no PNCP; "margem" só para a margem de preferência; "dotação" nunca para o crédito recebido pela UG; "fiscal" sozinho nunca para quem registra presença no refeitório (esse é o "Fiscal de rancho"); `liquidation` nunca como identificador da liquidação da despesa.
 
 #### Scenario: Valor de domínio que é ARP
 
@@ -176,8 +178,28 @@ Um termo que a norma define SHALL nomear só o conceito que ela define. Em parti
 
 #### Scenario: Anexo concluído
 
-- **WHEN** o chefe do rancho conclui o anexo quantitativo
+- **WHEN** quem tem Gestão Unidade conclui o anexo quantitativo
 - **THEN** o banco grava `status = 'completed'`, e nenhum código novo escreve `published`
+
+### Requirement: "Rancho" não é termo do sistema
+
+"Rancho" SHALL NOT ser usado em identificador, rótulo, mensagem, prompt de IA ou comentário novo, porque nomeia conceitos diferentes conforme a frase. O texto SHALL dizer **cozinha** (`kitchen`), **refeitório** (`mess_hall`) ou **unidade** (`unit`), conforme o que a frase quer dizer. A única exceção é o nome próprio da função **Fiscal de rancho**, rótulo do módulo de presença (`messhall`), que MUST ser distinguido do fiscal do contrato (Lei 14.133, art. 117). Nome de terceiro (UG no SIAFI, PI) e texto livre de usuário MAY conter a palavra. O gate cobre identificador, rótulo, mensagem e prompt; comentário fica com a revisão.
+
+#### Scenario: Seletor do Comensal
+
+- **WHEN** o comensal escolhe onde vai comer
+- **THEN** a tela diz "Refeitório padrão" e "Selecione um refeitório"
+
+#### Scenario: Designação que falta no recebimento
+
+- **WHEN** a conferência física não tem fiscal designado
+- **THEN** a mensagem manda pedir a designação à Gestão Unidade (Designações), não "ao chefe do rancho"
+
+#### Scenario: Módulo de presença
+
+- **WHEN** o usuário abre o módulo `messhall`
+- **THEN** o menu e o breadcrumb dizem "Fiscal de rancho"
+- **AND** a tela de designações continua chamando de "fiscal" só o fiscal do contrato
 
 ### Requirement: Renomear sem quebrar a main
 
@@ -220,6 +242,13 @@ O repositório SHALL reprovar, em cada camada, o nome descartado de um lote já 
 #### Scenario: Espelho do Compras.gov.br
 
 - **WHEN** o código lê `numeroAtaRegistroPreco` da resposta da API ou a coluna `procurement.arp.numero_ata`
+- **THEN** o gate não reprova
+
+#### Scenario: "Rancho" em texto novo
+
+- **WHEN** um PR acrescenta o rótulo "Todos os ranchos" ou a função `listRanchos`
+- **THEN** o opengrep reprova e pede cozinha, refeitório ou unidade
+- **WHEN** o texto é "Apresente este código ao Fiscal de rancho"
 - **THEN** o gate não reprova
 
 #### Scenario: Nome descartado no banco vivo
