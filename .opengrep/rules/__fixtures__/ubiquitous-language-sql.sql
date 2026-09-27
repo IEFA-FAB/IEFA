@@ -157,3 +157,12 @@ update procurement.policy_rule set title = 'Sem itens impróprios para a aliment
 
 // ok: ubiquitous-language-migration-lot8a
 create index workforce_submission_competence_idx on kitchen.workforce_submission (competence, rancho_id);
+
+// ruleid: ubiquitous-language-migration-lot8a
+comment on table kitchen.snack_request_material is 'Material da cozinha; volta ao rancho.';
+
+// ruleid: ubiquitous-language-migration-lot8a
+comment on table kitchen.meal_presences is 'Chame o Fiscal de Rancho';
+
+// ok: ubiquitous-language-migration-lot8a
+comment on table kitchen.meal_presences is 'Registro do refeitório; quem registra é o Fiscal de rancho.';

@@ -271,6 +271,7 @@ rules:
       # Chave da linha parseada do relatório do Tesouro Gerencial (ver o cabeçalho do lote).
       - pattern-not-regex: \bparsed\.dotacao\b
 
+
   # ── Lote 8a: "rancho" ──────────────────────────────────────────────────────
   #
   # "Rancho" nomeia três coisas conforme a frase ("rancho dos oficiais" é um refeitório; "rancho
@@ -278,11 +279,16 @@ rules:
   # critério 6; D10). Ficam de fora:
   #   - o nome próprio da função, "Fiscal de rancho" (rótulo do módulo `messhall`);
   #   - as palavras-chave de busca (`keywords: [...]`), para quem procura pelo termo antigo;
+  #   - a MENÇÃO à palavra entre aspas tipográficas (“rancho”): o prompt e o glossário dos agentes
+  #     explicam o termo que o usuário digita, sem usá-lo;
+  #   - a citação do título da norma do lanche (`stops: "Recomendações — …"` em `NORM_REFS`);
   #   - `PIRANCHO`, valor de PI do SIAFI em fixture (nome de terceiro, D3);
   #   - o efetivo (`kitchen.rancho`, `rancho_id` e os identificadores do roster), que é o lote 8b:
   #     os arquivos só dele saem por caminho, e o que vaza para barril, registro e guard sai pela
   #     última exclusão. O lote 8b apaga as duas.
-  # A API (`/api/rancho_previsoes`) fica fora dos caminhos até o lote 7.
+  # A API (`/api/rancho_previsoes`) fica fora dos caminhos até o lote 7. Os docs têm regra própria
+  # em `ubiquitous-language-docs.yaml`, sem a exclusão de linha de comentário (em Markdown, `*`
+  # abre lista e `**`, negrito).
 
   - id: ubiquitous-language-lot8a-rancho
     languages: [generic]
@@ -301,8 +307,6 @@ rules:
         - "packages/sisub-domain/src/**/*.ts"
         - "apps/sisub-mcp/src/**/*.ts"
         - "packages/pbac/src/**/*.ts"
-        - "apps/docs/content/docs/pbac/**"
-        - "apps/docs/content/docs/sisub/**"
         - "apps/docs/src/**/*.tsx"
       exclude:
         - "**/routeTree.gen.ts"
@@ -318,6 +322,8 @@ rules:
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
       - pattern-not-regex: \bFisca(?:l|is) de rancho\b
       - pattern-not-regex: \bkeywords:\s*\[[^\]]*\]
+      - pattern-not-regex: “rancho”
+      - pattern-not-regex: \bstops:\s*"Recomendações — [^"]*"
       - pattern-not-regex: \bPIRANCHO\b
       # Efetivo, até o lote 8b.
       - pattern-not-regex: \bkitchen\.rancho\b|\brancho_id\b|\b(?:[cC]reate|[uU]pdate)Rancho(?:Fn|Schema)?\b|\bWorkforceRanchoWire\b|\bRanchoWorkforce\w*|\bcomputeRanchoMetrics\b|Efetivo dos Ranchos

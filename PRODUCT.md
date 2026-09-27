@@ -23,7 +23,7 @@ Três perfis se repetem em quase todos os apps:
 
 | App | Tarefa primária | Sucesso é |
 |-----|-----------------|-----------|
-| **sisub** | Planejar e executar a subsistência — cardápio, receita, produção, estoque, orçamento | A cozinha fecha o cardápio da semana sem planilha paralela, e o número que ele vê bate com o do SIAFI |
+| **sisub** | Planejar e executar a subsistência — cardápio, receita, produção, estoque, orçamento | A unidade fecha o cardápio da semana sem planilha paralela, e o número que ela vê bate com o do SIAFI |
 | **portal** | Publicar e organizar conteúdo institucional; porta de entrada da suíte | O gestor publica sem fricção e o editor revisa sem ambiguidade visual |
 | **sucont** | Acompanhamento contábil da SUCONT-4 | O analista encontra a inconsistência antes do fechamento, não depois |
 | **rumaer** | Consultar a regulamentação de uniformes da FAB | A pergunta em linguagem natural devolve a prescrição certa, mesmo escrita errado |

@@ -290,6 +290,12 @@ const navItem = { title: "Locais", keywords: ["rancho", "refeitório", "cozinha"
 // ok: ubiquitous-language-lot8a-rancho
 const allMessHallsOk = "Todos os refeitórios"
 // ok: ubiquitous-language-lot8a-rancho
+const analyticsSchema = `### mess_halls (refeitórios; quem pergunta pode dizer “rancho”)`
+// ok: ubiquitous-language-lot8a-rancho
+const NORM_REFS = { stops: "Recomendações — deslocamento com parada sem apoio de rancho" }
+// ruleid: ubiquitous-language-lot8a-rancho
+const stopNote = { text: "Há escala sem apoio de rancho: o lanche cobre o tempo total do deslocamento." }
+// ok: ubiquitous-language-lot8a-rancho
 const pi = "'339030', 'PIRANCHO', '120001'"
 // ok: ubiquitous-language-lot8a-rancho
 const roster = sql`delete from kitchen.workforce_submission where rancho_id in (select id from kitchen.rancho)`

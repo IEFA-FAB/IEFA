@@ -158,5 +158,5 @@ rules:
         - "packages/database/supabase/migrations/202609270*"
     patterns:
       - pattern-regex: >-
-          (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b[^;]*?(?:(?<!kitchen\.)(?<!core\.)(?<!fiscal de )(?<!fiscais de )rancho(?!_id\b)|(?<=kitchen\.)rancho\w|(?<=core\.)rancho\w)
+          (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b(?:[^;']|'(?:[^']|'')*')*?(?:'(?:[^']|'')*?)?(?:(?<!kitchen\.)(?<!core\.)(?-i:(?<!Fiscal de )(?<!Fiscais de ))rancho(?!_id\b)|(?-i:(?<=Fiscal de )R)ancho|(?-i:(?<=Fiscais de )R)ancho|(?<=kitchen\.)rancho\w|(?<=core\.)rancho\w)
       - pattern-not-regex: (?m)^\s*--.*$
