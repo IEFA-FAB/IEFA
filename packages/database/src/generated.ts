@@ -12223,77 +12223,150 @@ export type Database = {
         }
         Relationships: []
       }
-      compras_amostra: {
+      arp: {
         Row: {
-          capacidade_unidade_fornecimento: number | null
-          codigo_uasg: string | null
+          acquisition_id: string | null
+          ano_ata: string | null
           created_at: string
-          descricao_item: string | null
-          esfera: string | null
-          estado: string | null
-          fingerprint: string | null
+          data_vigencia_fim: string | null
+          data_vigencia_inicio: string | null
           id: string
-          id_compra: string
-          id_item_compra: number | null
-          marca: string | null
-          municipio: string | null
-          ni_fornecedor: string | null
-          nome_fornecedor: string | null
-          nome_uasg: string | null
-          normalized_price: number | null
-          preco_unitario: number | null
-          quantidade: number | null
-          reference_date: string | null
-          sigla_unidade_fornecimento: string | null
-          sigla_unidade_medida: string | null
+          last_synced_at: string | null
+          nome_uasg_gerenciadora: string | null
+          numero_ata: string
+          objeto: string | null
+          quantity_estimate_id: string | null
+          source: string
+          status_ata: string | null
+          uasg_gerenciadora: string
+          unit_id: number
         }
         Insert: {
-          capacidade_unidade_fornecimento?: number | null
-          codigo_uasg?: string | null
+          acquisition_id?: string | null
+          ano_ata?: string | null
           created_at?: string
-          descricao_item?: string | null
-          esfera?: string | null
-          estado?: string | null
-          fingerprint?: string | null
+          data_vigencia_fim?: string | null
+          data_vigencia_inicio?: string | null
           id?: string
-          id_compra: string
-          id_item_compra?: number | null
-          marca?: string | null
-          municipio?: string | null
-          ni_fornecedor?: string | null
-          nome_fornecedor?: string | null
-          nome_uasg?: string | null
-          normalized_price?: number | null
-          preco_unitario?: number | null
-          quantidade?: number | null
-          reference_date?: string | null
-          sigla_unidade_fornecimento?: string | null
-          sigla_unidade_medida?: string | null
+          last_synced_at?: string | null
+          nome_uasg_gerenciadora?: string | null
+          numero_ata: string
+          objeto?: string | null
+          quantity_estimate_id?: string | null
+          source?: string
+          status_ata?: string | null
+          uasg_gerenciadora: string
+          unit_id: number
         }
         Update: {
-          capacidade_unidade_fornecimento?: number | null
-          codigo_uasg?: string | null
+          acquisition_id?: string | null
+          ano_ata?: string | null
           created_at?: string
-          descricao_item?: string | null
-          esfera?: string | null
-          estado?: string | null
-          fingerprint?: string | null
+          data_vigencia_fim?: string | null
+          data_vigencia_inicio?: string | null
           id?: string
-          id_compra?: string
-          id_item_compra?: number | null
-          marca?: string | null
-          municipio?: string | null
+          last_synced_at?: string | null
+          nome_uasg_gerenciadora?: string | null
+          numero_ata?: string
+          objeto?: string | null
+          quantity_estimate_id?: string | null
+          source?: string
+          status_ata?: string | null
+          uasg_gerenciadora?: string
+          unit_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arp_acquisition_id_fkey"
+            columns: ["acquisition_id"]
+            isOneToOne: false
+            referencedRelation: "acquisition"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arp_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arp_item: {
+        Row: {
+          arp_id: string
+          catmat_item_codigo: number | null
+          descricao_item: string | null
+          id: string
+          medida_catmat: string | null
+          ni_fornecedor: string | null
+          nome_fornecedor: string | null
+          numero_item: number | null
+          quantidade_empenhada: number | null
+          quantidade_homologada: number | null
+          quantity_estimate_item_id: string | null
+          saldo_empenho: number | null
+          source: string
+          synced_at: string
+          valor_unitario: number | null
+        }
+        Insert: {
+          arp_id: string
+          catmat_item_codigo?: number | null
+          descricao_item?: string | null
+          id?: string
+          medida_catmat?: string | null
           ni_fornecedor?: string | null
           nome_fornecedor?: string | null
-          nome_uasg?: string | null
-          normalized_price?: number | null
-          preco_unitario?: number | null
-          quantidade?: number | null
-          reference_date?: string | null
-          sigla_unidade_fornecimento?: string | null
-          sigla_unidade_medida?: string | null
+          numero_item?: number | null
+          quantidade_empenhada?: number | null
+          quantidade_homologada?: number | null
+          quantity_estimate_item_id?: string | null
+          saldo_empenho?: number | null
+          source?: string
+          synced_at?: string
+          valor_unitario?: number | null
         }
-        Relationships: []
+        Update: {
+          arp_id?: string
+          catmat_item_codigo?: number | null
+          descricao_item?: string | null
+          id?: string
+          medida_catmat?: string | null
+          ni_fornecedor?: string | null
+          nome_fornecedor?: string | null
+          numero_item?: number | null
+          quantidade_empenhada?: number | null
+          quantidade_homologada?: number | null
+          quantity_estimate_item_id?: string | null
+          saldo_empenho?: number | null
+          source?: string
+          synced_at?: string
+          valor_unitario?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arp_item_arp_id_fkey"
+            columns: ["arp_id"]
+            isOneToOne: false
+            referencedRelation: "arp"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arp_item_arp_id_fkey"
+            columns: ["arp_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_arp"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arp_item_quantity_estimate_item_id_fkey"
+            columns: ["quantity_estimate_item_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate_item"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contract_designation: {
         Row: {
@@ -12350,6 +12423,13 @@ export type Database = {
             columns: ["acquisition_id"]
             isOneToOne: false
             referencedRelation: "acquisition"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_designation_arp_id_fkey"
+            columns: ["arp_id"]
+            isOneToOne: false
+            referencedRelation: "arp"
             referencedColumns: ["id"]
           },
           {
@@ -12525,183 +12605,7 @@ export type Database = {
         }
         Relationships: []
       }
-      price_research_emission: {
-        Row: {
-          emitted_at: string
-          emitted_by: string | null
-          id: string
-          items: Json
-          quantity_estimate_id: string
-          sequence: number
-          sha256: string
-        }
-        Insert: {
-          emitted_at?: string
-          emitted_by?: string | null
-          id?: string
-          items: Json
-          quantity_estimate_id: string
-          sequence: number
-          sha256: string
-        }
-        Update: {
-          emitted_at?: string
-          emitted_by?: string | null
-          id?: string
-          items?: Json
-          quantity_estimate_id?: string
-          sequence?: number
-          sha256?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "price_research_emission_quantity_estimate_id_fkey"
-            columns: ["quantity_estimate_id"]
-            isOneToOne: false
-            referencedRelation: "quantity_estimate"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      procurement_arp: {
-        Row: {
-          acquisition_id: string | null
-          ano_ata: string | null
-          created_at: string
-          data_vigencia_fim: string | null
-          data_vigencia_inicio: string | null
-          id: string
-          last_synced_at: string | null
-          nome_uasg_gerenciadora: string | null
-          numero_ata: string
-          objeto: string | null
-          quantity_estimate_id: string | null
-          source: string
-          status_ata: string | null
-          uasg_gerenciadora: string
-          unit_id: number
-        }
-        Insert: {
-          acquisition_id?: string | null
-          ano_ata?: string | null
-          created_at?: string
-          data_vigencia_fim?: string | null
-          data_vigencia_inicio?: string | null
-          id?: string
-          last_synced_at?: string | null
-          nome_uasg_gerenciadora?: string | null
-          numero_ata: string
-          objeto?: string | null
-          quantity_estimate_id?: string | null
-          source?: string
-          status_ata?: string | null
-          uasg_gerenciadora: string
-          unit_id: number
-        }
-        Update: {
-          acquisition_id?: string | null
-          ano_ata?: string | null
-          created_at?: string
-          data_vigencia_fim?: string | null
-          data_vigencia_inicio?: string | null
-          id?: string
-          last_synced_at?: string | null
-          nome_uasg_gerenciadora?: string | null
-          numero_ata?: string
-          objeto?: string | null
-          quantity_estimate_id?: string | null
-          source?: string
-          status_ata?: string | null
-          uasg_gerenciadora?: string
-          unit_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "procurement_arp_acquisition_id_fkey"
-            columns: ["acquisition_id"]
-            isOneToOne: false
-            referencedRelation: "acquisition"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "procurement_arp_quantity_estimate_id_fkey"
-            columns: ["quantity_estimate_id"]
-            isOneToOne: false
-            referencedRelation: "quantity_estimate"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      procurement_arp_item: {
-        Row: {
-          arp_id: string
-          catmat_item_codigo: number | null
-          descricao_item: string | null
-          id: string
-          medida_catmat: string | null
-          ni_fornecedor: string | null
-          nome_fornecedor: string | null
-          numero_item: number | null
-          quantidade_empenhada: number | null
-          quantidade_homologada: number | null
-          quantity_estimate_item_id: string | null
-          saldo_empenho: number | null
-          source: string
-          synced_at: string
-          valor_unitario: number | null
-        }
-        Insert: {
-          arp_id: string
-          catmat_item_codigo?: number | null
-          descricao_item?: string | null
-          id?: string
-          medida_catmat?: string | null
-          ni_fornecedor?: string | null
-          nome_fornecedor?: string | null
-          numero_item?: number | null
-          quantidade_empenhada?: number | null
-          quantidade_homologada?: number | null
-          quantity_estimate_item_id?: string | null
-          saldo_empenho?: number | null
-          source?: string
-          synced_at?: string
-          valor_unitario?: number | null
-        }
-        Update: {
-          arp_id?: string
-          catmat_item_codigo?: number | null
-          descricao_item?: string | null
-          id?: string
-          medida_catmat?: string | null
-          ni_fornecedor?: string | null
-          nome_fornecedor?: string | null
-          numero_item?: number | null
-          quantidade_empenhada?: number | null
-          quantidade_homologada?: number | null
-          quantity_estimate_item_id?: string | null
-          saldo_empenho?: number | null
-          source?: string
-          synced_at?: string
-          valor_unitario?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "procurement_arp_item_arp_id_fkey"
-            columns: ["arp_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_arp"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "procurement_arp_item_quantity_estimate_item_id_fkey"
-            columns: ["quantity_estimate_item_id"]
-            isOneToOne: false
-            referencedRelation: "quantity_estimate_item"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      procurement_pesquisa_preco: {
+      price_research: {
         Row: {
           created_at: string
           created_by: string | null
@@ -12755,7 +12659,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "procurement_pesquisa_preco_quantity_estimate_id_fkey"
+            foreignKeyName: "price_research_quantity_estimate_id_fkey"
             columns: ["quantity_estimate_id"]
             isOneToOne: false
             referencedRelation: "quantity_estimate"
@@ -12763,58 +12667,45 @@ export type Database = {
           },
         ]
       }
-      procurement_pesquisa_preco_amostra: {
+      price_research_emission: {
         Row: {
-          amostra_id: string
-          art5_parameter: string
-          content_in_unit: number | null
-          conversion: string | null
-          converted_price: number | null
+          emitted_at: string
+          emitted_by: string | null
           id: string
-          research_item_id: string
-          sample_type: string
-          similarity: number | null
+          items: Json
+          quantity_estimate_id: string
+          sequence: number
+          sha256: string
         }
         Insert: {
-          amostra_id: string
-          art5_parameter?: string
-          content_in_unit?: number | null
-          conversion?: string | null
-          converted_price?: number | null
+          emitted_at?: string
+          emitted_by?: string | null
           id?: string
-          research_item_id: string
-          sample_type: string
-          similarity?: number | null
+          items: Json
+          quantity_estimate_id: string
+          sequence: number
+          sha256: string
         }
         Update: {
-          amostra_id?: string
-          art5_parameter?: string
-          content_in_unit?: number | null
-          conversion?: string | null
-          converted_price?: number | null
+          emitted_at?: string
+          emitted_by?: string | null
           id?: string
-          research_item_id?: string
-          sample_type?: string
-          similarity?: number | null
+          items?: Json
+          quantity_estimate_id?: string
+          sequence?: number
+          sha256?: string
         }
         Relationships: [
           {
-            foreignKeyName: "procurement_pesquisa_preco_amostra_amostra_id_fkey"
-            columns: ["amostra_id"]
+            foreignKeyName: "price_research_emission_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
             isOneToOne: false
-            referencedRelation: "compras_amostra"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "procurement_pesquisa_preco_amostra_research_item_id_fkey"
-            columns: ["research_item_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_pesquisa_preco_item"
+            referencedRelation: "quantity_estimate"
             referencedColumns: ["id"]
           },
         ]
       }
-      procurement_pesquisa_preco_item: {
+      price_research_item: {
         Row: {
           catmat_codigo: number | null
           catmat_descricao: string | null
@@ -12910,14 +12801,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "procurement_pesquisa_preco_item_quantity_estimate_item_id_fkey"
+            foreignKeyName: "price_research_item_quantity_estimate_item_id_fkey"
             columns: ["quantity_estimate_item_id"]
             isOneToOne: false
             referencedRelation: "quantity_estimate_item"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "procurement_pesquisa_preco_item_research_id_fkey"
+            foreignKeyName: "price_research_item_research_id_fkey"
+            columns: ["research_id"]
+            isOneToOne: false
+            referencedRelation: "price_research"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_research_item_research_id_fkey"
             columns: ["research_id"]
             isOneToOne: false
             referencedRelation: "procurement_pesquisa_preco"
@@ -12925,99 +12823,142 @@ export type Database = {
           },
         ]
       }
-      procurement_segment: {
+      price_research_sample: {
         Row: {
-          created_at: string
-          created_by: string | null
-          deleted_at: string | null
-          description: string | null
+          art5_parameter: string
+          content_in_unit: number | null
+          conversion: string | null
+          converted_price: number | null
           id: string
-          lead_time_months: number
-          name: string
-          pca_identifier: string | null
-          planned_month: number | null
-          unit_id: number
-          updated_at: string
-          validity_months: number
+          price_sample_id: string
+          research_item_id: string
+          sample_type: string
+          similarity: number | null
         }
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          deleted_at?: string | null
-          description?: string | null
+          art5_parameter?: string
+          content_in_unit?: number | null
+          conversion?: string | null
+          converted_price?: number | null
           id?: string
-          lead_time_months?: number
-          name: string
-          pca_identifier?: string | null
-          planned_month?: number | null
-          unit_id: number
-          updated_at?: string
-          validity_months?: number
+          price_sample_id: string
+          research_item_id: string
+          sample_type: string
+          similarity?: number | null
         }
         Update: {
-          created_at?: string
-          created_by?: string | null
-          deleted_at?: string | null
-          description?: string | null
+          art5_parameter?: string
+          content_in_unit?: number | null
+          conversion?: string | null
+          converted_price?: number | null
           id?: string
-          lead_time_months?: number
-          name?: string
-          pca_identifier?: string | null
-          planned_month?: number | null
-          unit_id?: number
-          updated_at?: string
-          validity_months?: number
-        }
-        Relationships: []
-      }
-      procurement_segment_rule: {
-        Row: {
-          created_at: string
-          folder_id: string | null
-          id: string
-          mode: string
-          purchase_item_id: string | null
-          segment_id: string
-        }
-        Insert: {
-          created_at?: string
-          folder_id?: string | null
-          id?: string
-          mode: string
-          purchase_item_id?: string | null
-          segment_id: string
-        }
-        Update: {
-          created_at?: string
-          folder_id?: string | null
-          id?: string
-          mode?: string
-          purchase_item_id?: string | null
-          segment_id?: string
+          price_sample_id?: string
+          research_item_id?: string
+          sample_type?: string
+          similarity?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "procurement_segment_rule_purchase_item_id_fkey"
-            columns: ["purchase_item_id"]
+            foreignKeyName: "price_research_sample_price_sample_id_fkey"
+            columns: ["price_sample_id"]
             isOneToOne: false
-            referencedRelation: "purchase_item"
+            referencedRelation: "compras_amostra"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "procurement_segment_rule_purchase_item_id_fkey"
-            columns: ["purchase_item_id"]
+            foreignKeyName: "price_research_sample_price_sample_id_fkey"
+            columns: ["price_sample_id"]
             isOneToOne: false
-            referencedRelation: "v_purchase_item_conditioning_review"
-            referencedColumns: ["purchase_item_id"]
+            referencedRelation: "price_sample"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "procurement_segment_rule_segment_id_fkey"
-            columns: ["segment_id"]
+            foreignKeyName: "price_research_sample_research_item_id_fkey"
+            columns: ["research_item_id"]
             isOneToOne: false
-            referencedRelation: "procurement_segment"
+            referencedRelation: "price_research_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_research_sample_research_item_id_fkey"
+            columns: ["research_item_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_pesquisa_preco_item"
             referencedColumns: ["id"]
           },
         ]
+      }
+      price_sample: {
+        Row: {
+          capacidade_unidade_fornecimento: number | null
+          codigo_uasg: string | null
+          created_at: string
+          descricao_item: string | null
+          esfera: string | null
+          estado: string | null
+          fingerprint: string | null
+          id: string
+          id_compra: string
+          id_item_compra: number | null
+          marca: string | null
+          municipio: string | null
+          ni_fornecedor: string | null
+          nome_fornecedor: string | null
+          nome_uasg: string | null
+          normalized_price: number | null
+          preco_unitario: number | null
+          quantidade: number | null
+          reference_date: string | null
+          sigla_unidade_fornecimento: string | null
+          sigla_unidade_medida: string | null
+        }
+        Insert: {
+          capacidade_unidade_fornecimento?: number | null
+          codigo_uasg?: string | null
+          created_at?: string
+          descricao_item?: string | null
+          esfera?: string | null
+          estado?: string | null
+          fingerprint?: string | null
+          id?: string
+          id_compra: string
+          id_item_compra?: number | null
+          marca?: string | null
+          municipio?: string | null
+          ni_fornecedor?: string | null
+          nome_fornecedor?: string | null
+          nome_uasg?: string | null
+          normalized_price?: number | null
+          preco_unitario?: number | null
+          quantidade?: number | null
+          reference_date?: string | null
+          sigla_unidade_fornecimento?: string | null
+          sigla_unidade_medida?: string | null
+        }
+        Update: {
+          capacidade_unidade_fornecimento?: number | null
+          codigo_uasg?: string | null
+          created_at?: string
+          descricao_item?: string | null
+          esfera?: string | null
+          estado?: string | null
+          fingerprint?: string | null
+          id?: string
+          id_compra?: string
+          id_item_compra?: number | null
+          marca?: string | null
+          municipio?: string | null
+          ni_fornecedor?: string | null
+          nome_fornecedor?: string | null
+          nome_uasg?: string | null
+          normalized_price?: number | null
+          preco_unitario?: number | null
+          quantidade?: number | null
+          reference_date?: string | null
+          sigla_unidade_fornecimento?: string | null
+          sigla_unidade_medida?: string | null
+        }
+        Relationships: []
       }
       purchase_item: {
         Row: {
@@ -13254,6 +13195,13 @@ export type Database = {
             columns: ["segment_id"]
             isOneToOne: false
             referencedRelation: "procurement_segment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quantity_estimate_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "segment"
             referencedColumns: ["id"]
           },
         ]
@@ -13537,6 +13485,107 @@ export type Database = {
           },
         ]
       }
+      segment: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string
+          lead_time_months: number
+          name: string
+          pca_identifier: string | null
+          planned_month: number | null
+          unit_id: number
+          updated_at: string
+          validity_months: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          lead_time_months?: number
+          name: string
+          pca_identifier?: string | null
+          planned_month?: number | null
+          unit_id: number
+          updated_at?: string
+          validity_months?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          lead_time_months?: number
+          name?: string
+          pca_identifier?: string | null
+          planned_month?: number | null
+          unit_id?: number
+          updated_at?: string
+          validity_months?: number
+        }
+        Relationships: []
+      }
+      segment_rule: {
+        Row: {
+          created_at: string
+          folder_id: string | null
+          id: string
+          mode: string
+          purchase_item_id: string | null
+          segment_id: string
+        }
+        Insert: {
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          mode: string
+          purchase_item_id?: string | null
+          segment_id: string
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          mode?: string
+          purchase_item_id?: string | null
+          segment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "segment_rule_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "segment_rule_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_item_conditioning_review"
+            referencedColumns: ["purchase_item_id"]
+          },
+          {
+            foreignKeyName: "segment_rule_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_segment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "segment_rule_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "segment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supply_order: {
         Row: {
           created_at: string
@@ -13615,6 +13664,13 @@ export type Database = {
             foreignKeyName: "supply_order_item_arp_item_id_fkey"
             columns: ["arp_item_id"]
             isOneToOne: false
+            referencedRelation: "arp_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_order_item_arp_item_id_fkey"
+            columns: ["arp_item_id"]
+            isOneToOne: false
             referencedRelation: "procurement_arp_item"
             referencedColumns: ["id"]
           },
@@ -13643,6 +13699,569 @@ export type Database = {
       }
     }
     Views: {
+      compras_amostra: {
+        Row: {
+          capacidade_unidade_fornecimento: number | null
+          codigo_uasg: string | null
+          created_at: string | null
+          descricao_item: string | null
+          esfera: string | null
+          estado: string | null
+          fingerprint: string | null
+          id: string | null
+          id_compra: string | null
+          id_item_compra: number | null
+          marca: string | null
+          municipio: string | null
+          ni_fornecedor: string | null
+          nome_fornecedor: string | null
+          nome_uasg: string | null
+          normalized_price: number | null
+          preco_unitario: number | null
+          quantidade: number | null
+          reference_date: string | null
+          sigla_unidade_fornecimento: string | null
+          sigla_unidade_medida: string | null
+        }
+        Insert: {
+          capacidade_unidade_fornecimento?: number | null
+          codigo_uasg?: string | null
+          created_at?: string | null
+          descricao_item?: string | null
+          esfera?: string | null
+          estado?: string | null
+          fingerprint?: string | null
+          id?: string | null
+          id_compra?: string | null
+          id_item_compra?: number | null
+          marca?: string | null
+          municipio?: string | null
+          ni_fornecedor?: string | null
+          nome_fornecedor?: string | null
+          nome_uasg?: string | null
+          normalized_price?: number | null
+          preco_unitario?: number | null
+          quantidade?: number | null
+          reference_date?: string | null
+          sigla_unidade_fornecimento?: string | null
+          sigla_unidade_medida?: string | null
+        }
+        Update: {
+          capacidade_unidade_fornecimento?: number | null
+          codigo_uasg?: string | null
+          created_at?: string | null
+          descricao_item?: string | null
+          esfera?: string | null
+          estado?: string | null
+          fingerprint?: string | null
+          id?: string | null
+          id_compra?: string | null
+          id_item_compra?: number | null
+          marca?: string | null
+          municipio?: string | null
+          ni_fornecedor?: string | null
+          nome_fornecedor?: string | null
+          nome_uasg?: string | null
+          normalized_price?: number | null
+          preco_unitario?: number | null
+          quantidade?: number | null
+          reference_date?: string | null
+          sigla_unidade_fornecimento?: string | null
+          sigla_unidade_medida?: string | null
+        }
+        Relationships: []
+      }
+      procurement_arp: {
+        Row: {
+          acquisition_id: string | null
+          ano_ata: string | null
+          created_at: string | null
+          data_vigencia_fim: string | null
+          data_vigencia_inicio: string | null
+          id: string | null
+          last_synced_at: string | null
+          nome_uasg_gerenciadora: string | null
+          numero_ata: string | null
+          objeto: string | null
+          quantity_estimate_id: string | null
+          source: string | null
+          status_ata: string | null
+          uasg_gerenciadora: string | null
+          unit_id: number | null
+        }
+        Insert: {
+          acquisition_id?: string | null
+          ano_ata?: string | null
+          created_at?: string | null
+          data_vigencia_fim?: string | null
+          data_vigencia_inicio?: string | null
+          id?: string | null
+          last_synced_at?: string | null
+          nome_uasg_gerenciadora?: string | null
+          numero_ata?: string | null
+          objeto?: string | null
+          quantity_estimate_id?: string | null
+          source?: string | null
+          status_ata?: string | null
+          uasg_gerenciadora?: string | null
+          unit_id?: number | null
+        }
+        Update: {
+          acquisition_id?: string | null
+          ano_ata?: string | null
+          created_at?: string | null
+          data_vigencia_fim?: string | null
+          data_vigencia_inicio?: string | null
+          id?: string | null
+          last_synced_at?: string | null
+          nome_uasg_gerenciadora?: string | null
+          numero_ata?: string | null
+          objeto?: string | null
+          quantity_estimate_id?: string | null
+          source?: string | null
+          status_ata?: string | null
+          uasg_gerenciadora?: string | null
+          unit_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arp_acquisition_id_fkey"
+            columns: ["acquisition_id"]
+            isOneToOne: false
+            referencedRelation: "acquisition"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arp_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_arp_item: {
+        Row: {
+          arp_id: string | null
+          catmat_item_codigo: number | null
+          descricao_item: string | null
+          id: string | null
+          medida_catmat: string | null
+          ni_fornecedor: string | null
+          nome_fornecedor: string | null
+          numero_item: number | null
+          quantidade_empenhada: number | null
+          quantidade_homologada: number | null
+          quantity_estimate_item_id: string | null
+          saldo_empenho: number | null
+          source: string | null
+          synced_at: string | null
+          valor_unitario: number | null
+        }
+        Insert: {
+          arp_id?: string | null
+          catmat_item_codigo?: number | null
+          descricao_item?: string | null
+          id?: string | null
+          medida_catmat?: string | null
+          ni_fornecedor?: string | null
+          nome_fornecedor?: string | null
+          numero_item?: number | null
+          quantidade_empenhada?: number | null
+          quantidade_homologada?: number | null
+          quantity_estimate_item_id?: string | null
+          saldo_empenho?: number | null
+          source?: string | null
+          synced_at?: string | null
+          valor_unitario?: number | null
+        }
+        Update: {
+          arp_id?: string | null
+          catmat_item_codigo?: number | null
+          descricao_item?: string | null
+          id?: string | null
+          medida_catmat?: string | null
+          ni_fornecedor?: string | null
+          nome_fornecedor?: string | null
+          numero_item?: number | null
+          quantidade_empenhada?: number | null
+          quantidade_homologada?: number | null
+          quantity_estimate_item_id?: string | null
+          saldo_empenho?: number | null
+          source?: string | null
+          synced_at?: string | null
+          valor_unitario?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arp_item_arp_id_fkey"
+            columns: ["arp_id"]
+            isOneToOne: false
+            referencedRelation: "arp"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arp_item_arp_id_fkey"
+            columns: ["arp_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_arp"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arp_item_quantity_estimate_item_id_fkey"
+            columns: ["quantity_estimate_item_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate_item"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_pesquisa_preco: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          filter_estado: string | null
+          filter_municipio_code: number | null
+          filter_uasg_code: string | null
+          id: string | null
+          idempotency_key: string | null
+          items_with_price: number | null
+          items_without_catmat: number | null
+          non_compliant_items: number | null
+          period_months: number | null
+          quantity_estimate_id: string | null
+          reference_method: string | null
+          similarity_threshold: number | null
+          total_items: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          filter_estado?: string | null
+          filter_municipio_code?: number | null
+          filter_uasg_code?: string | null
+          id?: string | null
+          idempotency_key?: string | null
+          items_with_price?: number | null
+          items_without_catmat?: number | null
+          non_compliant_items?: number | null
+          period_months?: number | null
+          quantity_estimate_id?: string | null
+          reference_method?: string | null
+          similarity_threshold?: number | null
+          total_items?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          filter_estado?: string | null
+          filter_municipio_code?: number | null
+          filter_uasg_code?: string | null
+          id?: string | null
+          idempotency_key?: string | null
+          items_with_price?: number | null
+          items_without_catmat?: number | null
+          non_compliant_items?: number | null
+          period_months?: number | null
+          quantity_estimate_id?: string | null
+          reference_method?: string | null
+          similarity_threshold?: number | null
+          total_items?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_research_quantity_estimate_id_fkey"
+            columns: ["quantity_estimate_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_pesquisa_preco_amostra: {
+        Row: {
+          amostra_id: string | null
+          art5_parameter: string | null
+          content_in_unit: number | null
+          conversion: string | null
+          converted_price: number | null
+          id: string | null
+          research_item_id: string | null
+          sample_type: string | null
+          similarity: number | null
+        }
+        Insert: {
+          amostra_id?: string | null
+          art5_parameter?: string | null
+          content_in_unit?: number | null
+          conversion?: string | null
+          converted_price?: number | null
+          id?: string | null
+          research_item_id?: string | null
+          sample_type?: string | null
+          similarity?: number | null
+        }
+        Update: {
+          amostra_id?: string | null
+          art5_parameter?: string | null
+          content_in_unit?: number | null
+          conversion?: string | null
+          converted_price?: number | null
+          id?: string | null
+          research_item_id?: string | null
+          sample_type?: string | null
+          similarity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_research_sample_price_sample_id_fkey"
+            columns: ["amostra_id"]
+            isOneToOne: false
+            referencedRelation: "compras_amostra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_research_sample_price_sample_id_fkey"
+            columns: ["amostra_id"]
+            isOneToOne: false
+            referencedRelation: "price_sample"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_research_sample_research_item_id_fkey"
+            columns: ["research_item_id"]
+            isOneToOne: false
+            referencedRelation: "price_research_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_research_sample_research_item_id_fkey"
+            columns: ["research_item_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_pesquisa_preco_item"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_pesquisa_preco_item: {
+        Row: {
+          catmat_codigo: number | null
+          catmat_descricao: string | null
+          created_at: string | null
+          cv_pct: number | null
+          error: string | null
+          id: string | null
+          is_compliant: boolean | null
+          justification_low_sample: string | null
+          justification_method: string | null
+          justification_out_of_period: string | null
+          justification_outlier_criteria: string | null
+          manual_selection: boolean | null
+          measure_unit: string | null
+          non_compliance_reasons: string[] | null
+          price_max: number | null
+          price_mean: number | null
+          price_median: number | null
+          price_min: number | null
+          product_name: string | null
+          quantity_estimate_item_id: string | null
+          reference_method: string | null
+          reference_price: number | null
+          research_id: string | null
+          std_dev: number | null
+          total_after_date_filter: number | null
+          total_after_outlier: number | null
+          total_after_pollution_filter: number | null
+          total_raw: number | null
+          unique_sources: number | null
+        }
+        Insert: {
+          catmat_codigo?: number | null
+          catmat_descricao?: string | null
+          created_at?: string | null
+          cv_pct?: number | null
+          error?: string | null
+          id?: string | null
+          is_compliant?: boolean | null
+          justification_low_sample?: string | null
+          justification_method?: string | null
+          justification_out_of_period?: string | null
+          justification_outlier_criteria?: string | null
+          manual_selection?: boolean | null
+          measure_unit?: string | null
+          non_compliance_reasons?: string[] | null
+          price_max?: number | null
+          price_mean?: number | null
+          price_median?: number | null
+          price_min?: number | null
+          product_name?: string | null
+          quantity_estimate_item_id?: string | null
+          reference_method?: string | null
+          reference_price?: number | null
+          research_id?: string | null
+          std_dev?: number | null
+          total_after_date_filter?: number | null
+          total_after_outlier?: number | null
+          total_after_pollution_filter?: number | null
+          total_raw?: number | null
+          unique_sources?: number | null
+        }
+        Update: {
+          catmat_codigo?: number | null
+          catmat_descricao?: string | null
+          created_at?: string | null
+          cv_pct?: number | null
+          error?: string | null
+          id?: string | null
+          is_compliant?: boolean | null
+          justification_low_sample?: string | null
+          justification_method?: string | null
+          justification_out_of_period?: string | null
+          justification_outlier_criteria?: string | null
+          manual_selection?: boolean | null
+          measure_unit?: string | null
+          non_compliance_reasons?: string[] | null
+          price_max?: number | null
+          price_mean?: number | null
+          price_median?: number | null
+          price_min?: number | null
+          product_name?: string | null
+          quantity_estimate_item_id?: string | null
+          reference_method?: string | null
+          reference_price?: number | null
+          research_id?: string | null
+          std_dev?: number | null
+          total_after_date_filter?: number | null
+          total_after_outlier?: number | null
+          total_after_pollution_filter?: number | null
+          total_raw?: number | null
+          unique_sources?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_research_item_quantity_estimate_item_id_fkey"
+            columns: ["quantity_estimate_item_id"]
+            isOneToOne: false
+            referencedRelation: "quantity_estimate_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_research_item_research_id_fkey"
+            columns: ["research_id"]
+            isOneToOne: false
+            referencedRelation: "price_research"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_research_item_research_id_fkey"
+            columns: ["research_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_pesquisa_preco"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_segment: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string | null
+          lead_time_months: number | null
+          name: string | null
+          pca_identifier: string | null
+          planned_month: number | null
+          unit_id: number | null
+          updated_at: string | null
+          validity_months: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string | null
+          lead_time_months?: number | null
+          name?: string | null
+          pca_identifier?: string | null
+          planned_month?: number | null
+          unit_id?: number | null
+          updated_at?: string | null
+          validity_months?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string | null
+          lead_time_months?: number | null
+          name?: string | null
+          pca_identifier?: string | null
+          planned_month?: number | null
+          unit_id?: number | null
+          updated_at?: string | null
+          validity_months?: number | null
+        }
+        Relationships: []
+      }
+      procurement_segment_rule: {
+        Row: {
+          created_at: string | null
+          folder_id: string | null
+          id: string | null
+          mode: string | null
+          purchase_item_id: string | null
+          segment_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          folder_id?: string | null
+          id?: string | null
+          mode?: string | null
+          purchase_item_id?: string | null
+          segment_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          folder_id?: string | null
+          id?: string | null
+          mode?: string | null
+          purchase_item_id?: string | null
+          segment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "segment_rule_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "segment_rule_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_item_conditioning_review"
+            referencedColumns: ["purchase_item_id"]
+          },
+          {
+            foreignKeyName: "segment_rule_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_segment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "segment_rule_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "segment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_purchase_item_conditioning_review: {
         Row: {
           catmat_item_codigo: number | null
@@ -13688,6 +14307,7 @@ export type Database = {
         }[]
       }
       upsert_compras_amostras: { Args: { p_samples: Json }; Returns: string[] }
+      upsert_price_samples: { Args: { p_samples: Json }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never
@@ -14249,6 +14869,27 @@ export type Database = {
         Returns: string
       }
       execute_analytics_query: { Args: { query: string }; Returns: Json }
+      price_sample_fingerprint: {
+        Args: {
+          p_capacidade_unidade_fornecimento: number
+          p_codigo_uasg: string
+          p_descricao_item: string
+          p_esfera: string
+          p_estado: string
+          p_id_compra: string
+          p_id_item_compra: number
+          p_marca: string
+          p_municipio: string
+          p_nome_uasg: string
+          p_normalized_price: number
+          p_preco_unitario: number
+          p_quantidade: number
+          p_reference_date: string
+          p_sigla_unidade_fornecimento: string
+          p_sigla_unidade_medida: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       kitchen_type: "consumption" | "production"

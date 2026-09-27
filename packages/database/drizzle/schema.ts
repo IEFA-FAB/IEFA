@@ -585,7 +585,7 @@ export const supplyOrderItemInProcurement = procurement.table("supply_order_item
 	index("supply_order_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.arpItemId],
-			foreignColumns: [procurementArpItemInProcurement.id],
+			foreignColumns: [arpItemInProcurement.id],
 			name: "supply_order_item_arp_item_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
@@ -684,32 +684,32 @@ export const policyRuleInProcurement = procurement.table("policy_rule", {
 	check("policy_rule_target_check", sql`target = ANY (ARRAY['product'::text, 'recipe'::text])`),
 ]);
 
-export const procurementPesquisaPrecoAmostraInProcurement = procurement.table("procurement_pesquisa_preco_amostra", {
+export const priceResearchSampleInProcurement = procurement.table("price_research_sample", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	researchItemId: uuid("research_item_id").notNull(),
 	sampleType: text("sample_type").notNull(),
 	similarity: numeric({ mode: "number", precision: 4, scale: 3 }),
-	amostraId: uuid("amostra_id").notNull(),
+	priceSampleId: uuid("price_sample_id").notNull(),
 	convertedPrice: numeric("converted_price", { mode: "number", precision: 14, scale: 6 }),
 	contentInUnit: numeric("content_in_unit", { mode: "number", precision: 14, scale: 6 }),
 	conversion: text(),
 	art5Parameter: text("art5_parameter").default('I').notNull(),
 }, (table) => [
-	index("idx_pesquisa_preco_amostra_item_type").using("btree", table.researchItemId.asc().nullsLast(), table.sampleType.asc().nullsLast()),
-	index("procurement_pesquisa_preco_amostra_amostra_id_fk_idx").using("btree", table.amostraId.asc().nullsLast()),
-	uniqueIndex("uq_amostra_research_item_amostra").using("btree", table.researchItemId.asc().nullsLast(), table.amostraId.asc().nullsLast()),
+	index("idx_price_research_sample_item_type").using("btree", table.researchItemId.asc().nullsLast(), table.sampleType.asc().nullsLast()),
+	index("price_research_sample_price_sample_id_fk_idx").using("btree", table.priceSampleId.asc().nullsLast()),
+	uniqueIndex("uq_price_research_sample_item_sample").using("btree", table.researchItemId.asc().nullsLast(), table.priceSampleId.asc().nullsLast()),
 	foreignKey({
-			columns: [table.amostraId],
-			foreignColumns: [comprasAmostraInProcurement.id],
-			name: "procurement_pesquisa_preco_amostra_amostra_id_fkey"
+			columns: [table.priceSampleId],
+			foreignColumns: [priceSampleInProcurement.id],
+			name: "price_research_sample_price_sample_id_fkey"
 		}).onDelete("restrict"),
 	foreignKey({
 			columns: [table.researchItemId],
-			foreignColumns: [procurementPesquisaPrecoItemInProcurement.id],
-			name: "procurement_pesquisa_preco_amostra_research_item_id_fkey"
+			foreignColumns: [priceResearchItemInProcurement.id],
+			name: "price_research_sample_research_item_id_fkey"
 		}).onDelete("cascade"),
-	check("procurement_pesquisa_preco_amostra_art5_parameter_check", sql`art5_parameter = ANY (ARRAY['I'::text, 'II'::text, 'III'::text, 'IV'::text, 'V'::text])`),
-	check("procurement_pesquisa_preco_amostra_sample_type_check", sql`sample_type = ANY (ARRAY['valid'::text, 'outlier'::text, 'pollution'::text])`),
+	check("price_research_sample_art5_parameter_check", sql`art5_parameter = ANY (ARRAY['I'::text, 'II'::text, 'III'::text, 'IV'::text, 'V'::text])`),
+	check("price_research_sample_sample_type_check", sql`sample_type = ANY (ARRAY['valid'::text, 'outlier'::text, 'pollution'::text])`),
 ]);
 
 export const mcpApiKeysInAccessControl = accessControl.table("mcp_api_keys", {
@@ -881,7 +881,7 @@ export const recipeReviewInKitchen = kitchen.table("recipe_review", {
 		}).onDelete("cascade"),
 ]);
 
-export const procurementSegmentInProcurement = procurement.table("procurement_segment", {
+export const segmentInProcurement = procurement.table("segment", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	unitId: integer("unit_id").notNull(),
 	name: text().notNull(),
@@ -895,23 +895,23 @@ export const procurementSegmentInProcurement = procurement.table("procurement_se
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
-	index("procurement_segment_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
-	index("procurement_segment_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
-	uniqueIndex("procurement_segment_unit_name_uq").using("btree", sql`unit_id`, sql`lower(btrim(name))`).where(sql`(deleted_at IS NULL)`),
+	index("segment_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	index("segment_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
+	uniqueIndex("segment_unit_name_uq").using("btree", sql`unit_id`, sql`lower(btrim(name))`).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
-			name: "procurement_segment_created_by_fkey"
+			name: "segment_created_by_fkey"
 		}),
 	foreignKey({
 			columns: [table.unitId],
 			foreignColumns: [unitsInCore.id],
-			name: "procurement_segment_unit_id_fkey"
+			name: "segment_unit_id_fkey"
 		}),
-	check("procurement_segment_lead_time_months_check", sql`(lead_time_months >= 0) AND (lead_time_months <= 12)`),
-	check("procurement_segment_name_check", sql`(length(btrim(name)) >= 1) AND (length(btrim(name)) <= 120)`),
-	check("procurement_segment_planned_month_check", sql`(planned_month >= 1) AND (planned_month <= 12)`),
-	check("procurement_segment_validity_months_check", sql`(validity_months >= 1) AND (validity_months <= 120)`),
+	check("segment_lead_time_months_check", sql`(lead_time_months >= 0) AND (lead_time_months <= 12)`),
+	check("segment_name_check", sql`(length(btrim(name)) >= 1) AND (length(btrim(name)) <= 120)`),
+	check("segment_planned_month_check", sql`(planned_month >= 1) AND (planned_month <= 12)`),
+	check("segment_validity_months_check", sql`(validity_months >= 1) AND (validity_months <= 120)`),
 ]);
 
 export const comprasServicoNaturezaDespesaInComprasGovIntegration = comprasGovIntegration.table("compras_servico_natureza_despesa", {
@@ -969,38 +969,6 @@ export const purchaseItemIngredientInProcurement = procurement.table("purchase_i
 			name: "purchase_item_ingredient_purchase_item_id_fkey"
 		}).onDelete("cascade"),
 	unique("purchase_item_ingredient_purchase_item_id_ingredient_id_key").on(table.purchaseItemId, table.ingredientId),
-]);
-
-export const procurementSegmentRuleInProcurement = procurement.table("procurement_segment_rule", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	segmentId: uuid("segment_id").notNull(),
-	mode: text().notNull(),
-	folderId: uuid("folder_id"),
-	purchaseItemId: uuid("purchase_item_id"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("procurement_segment_rule_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast()),
-	uniqueIndex("procurement_segment_rule_folder_uq").using("btree", table.segmentId.asc().nullsLast(), table.folderId.asc().nullsLast()).where(sql`(folder_id IS NOT NULL)`),
-	uniqueIndex("procurement_segment_rule_item_uq").using("btree", table.segmentId.asc().nullsLast(), table.purchaseItemId.asc().nullsLast()).where(sql`(purchase_item_id IS NOT NULL)`),
-	index("procurement_segment_rule_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
-	index("procurement_segment_rule_segment_id_fk_idx").using("btree", table.segmentId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.folderId],
-			foreignColumns: [folderInKitchen.id],
-			name: "procurement_segment_rule_folder_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.purchaseItemId],
-			foreignColumns: [purchaseItemInProcurement.id],
-			name: "procurement_segment_rule_purchase_item_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.segmentId],
-			foreignColumns: [procurementSegmentInProcurement.id],
-			name: "procurement_segment_rule_segment_id_fkey"
-		}).onDelete("cascade"),
-	check("procurement_segment_rule_mode_check", sql`mode = ANY (ARRAY['include'::text, 'exclude'::text])`),
-	check("procurement_segment_rule_target_ck", sql`num_nonnulls(folder_id, purchase_item_id) = 1`),
 ]);
 
 export const receiptScanEventInInventory = inventory.table("receipt_scan_event", {
@@ -1100,6 +1068,38 @@ export const acquisitionInProcurement = procurement.table("acquisition", {
 	check("acquisition_srp_role_ck", sql`(srp_role IS NULL) OR (kind = 'registro_precos'::text)`),
 	check("acquisition_supplier_cnpj_check", sql`supplier_cnpj ~ '^([0-9]{11}|[0-9]{14})$'::text`),
 	check("acquisition_validity_ck", sql`(valid_to IS NULL) OR (valid_from IS NULL) OR (valid_to >= valid_from)`),
+]);
+
+export const segmentRuleInProcurement = procurement.table("segment_rule", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	segmentId: uuid("segment_id").notNull(),
+	mode: text().notNull(),
+	folderId: uuid("folder_id"),
+	purchaseItemId: uuid("purchase_item_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("segment_rule_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast()),
+	uniqueIndex("segment_rule_folder_uq").using("btree", table.segmentId.asc().nullsLast(), table.folderId.asc().nullsLast()).where(sql`(folder_id IS NOT NULL)`),
+	uniqueIndex("segment_rule_item_uq").using("btree", table.segmentId.asc().nullsLast(), table.purchaseItemId.asc().nullsLast()).where(sql`(purchase_item_id IS NOT NULL)`),
+	index("segment_rule_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
+	index("segment_rule_segment_id_fk_idx").using("btree", table.segmentId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.folderId],
+			foreignColumns: [folderInKitchen.id],
+			name: "segment_rule_folder_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.purchaseItemId],
+			foreignColumns: [purchaseItemInProcurement.id],
+			name: "segment_rule_purchase_item_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.segmentId],
+			foreignColumns: [segmentInProcurement.id],
+			name: "segment_rule_segment_id_fkey"
+		}).onDelete("cascade"),
+	check("segment_rule_mode_check", sql`mode = ANY (ARRAY['include'::text, 'exclude'::text])`),
+	check("segment_rule_target_ck", sql`num_nonnulls(folder_id, purchase_item_id) = 1`),
 ]);
 
 export const unitsInCore = core.table("units", {
@@ -1300,33 +1300,6 @@ export const purchaseItemInProcurement = procurement.table("purchase_item", {
 	check("purchase_item_transport_requirement_check", sql`transport_requirement = ANY (ARRAY['ambiente'::text, 'refrigerado'::text, 'congelado'::text])`),
 ]);
 
-export const comprasAmostraInProcurement = procurement.table("compras_amostra", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	idCompra: text("id_compra").notNull(),
-	idItemCompra: integer("id_item_compra"),
-	descricaoItem: text("descricao_item"),
-	precoUnitario: numeric("preco_unitario", { mode: "number", precision: 12, scale: 4 }),
-	capacidadeUnidadeFornecimento: numeric("capacidade_unidade_fornecimento", { mode: "number", precision: 12, scale: 4 }),
-	siglaUnidadeFornecimento: text("sigla_unidade_fornecimento"),
-	siglaUnidadeMedida: text("sigla_unidade_medida"),
-	quantidade: numeric({ mode: "number", precision: 14, scale: 4 }),
-	codigoUasg: text("codigo_uasg"),
-	nomeUasg: text("nome_uasg"),
-	municipio: text(),
-	estado: text(),
-	esfera: text(),
-	marca: text(),
-	normalizedPrice: numeric("normalized_price", { mode: "number", precision: 12, scale: 4 }),
-	referenceDate: date("reference_date"),
-	fingerprint: text().generatedAlwaysAs(sql`sisub.compras_amostra_fingerprint(id_compra, id_item_compra, descricao_item, preco_unitario, capacidade_unidade_fornecimento, sigla_unidade_fornecimento, sigla_unidade_medida, quantidade, codigo_uasg, nome_uasg, municipio, estado, esfera, marca, normalized_price, reference_date)`),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	niFornecedor: text("ni_fornecedor"),
-	nomeFornecedor: text("nome_fornecedor"),
-}, (table) => [
-	index("idx_compras_amostra_compra").using("btree", table.idCompra.asc().nullsLast(), table.idItemCompra.asc().nullsLast()),
-	uniqueIndex("uq_compras_amostra_fingerprint").using("btree", table.fingerprint.asc().nullsLast()),
-]);
-
 export const equipmentRoleInKitchen = kitchen.table("equipment_role", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	code: text().notNull(),
@@ -1392,7 +1365,34 @@ export const equipmentUnitRoleInKitchen = kitchen.table("equipment_unit_role", {
 		}),
 ]);
 
-export const procurementArpInProcurement = procurement.table("procurement_arp", {
+export const priceSampleInProcurement = procurement.table("price_sample", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	idCompra: text("id_compra").notNull(),
+	idItemCompra: integer("id_item_compra"),
+	descricaoItem: text("descricao_item"),
+	precoUnitario: numeric("preco_unitario", { mode: "number", precision: 12, scale: 4 }),
+	capacidadeUnidadeFornecimento: numeric("capacidade_unidade_fornecimento", { mode: "number", precision: 12, scale: 4 }),
+	siglaUnidadeFornecimento: text("sigla_unidade_fornecimento"),
+	siglaUnidadeMedida: text("sigla_unidade_medida"),
+	quantidade: numeric({ mode: "number", precision: 14, scale: 4 }),
+	codigoUasg: text("codigo_uasg"),
+	nomeUasg: text("nome_uasg"),
+	municipio: text(),
+	estado: text(),
+	esfera: text(),
+	marca: text(),
+	normalizedPrice: numeric("normalized_price", { mode: "number", precision: 12, scale: 4 }),
+	referenceDate: date("reference_date"),
+	fingerprint: text().generatedAlwaysAs(sql`sisub.price_sample_fingerprint(id_compra, id_item_compra, descricao_item, preco_unitario, capacidade_unidade_fornecimento, sigla_unidade_fornecimento, sigla_unidade_medida, quantidade, codigo_uasg, nome_uasg, municipio, estado, esfera, marca, normalized_price, reference_date)`),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	niFornecedor: text("ni_fornecedor"),
+	nomeFornecedor: text("nome_fornecedor"),
+}, (table) => [
+	index("idx_price_sample_compra").using("btree", table.idCompra.asc().nullsLast(), table.idItemCompra.asc().nullsLast()),
+	uniqueIndex("uq_price_sample_fingerprint").using("btree", table.fingerprint.asc().nullsLast()),
+]);
+
+export const arpInProcurement = procurement.table("arp", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	unitId: integer("unit_id").notNull(),
 	numeroAta: text("numero_ata").notNull(),
@@ -1409,26 +1409,26 @@ export const procurementArpInProcurement = procurement.table("procurement_arp", 
 	source: text().default('compras_gov').notNull(),
 	quantityEstimateId: uuid("quantity_estimate_id"),
 }, (table) => [
-	index("idx_procurement_arp_quantity_estimate").using("btree", table.quantityEstimateId.asc().nullsLast()),
-	index("idx_procurement_arp_unit").using("btree", table.unitId.asc().nullsLast()),
-	index("procurement_arp_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
+	index("arp_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
+	index("idx_arp_quantity_estimate").using("btree", table.quantityEstimateId.asc().nullsLast()),
+	index("idx_arp_unit").using("btree", table.unitId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.acquisitionId],
 			foreignColumns: [acquisitionInProcurement.id],
-			name: "procurement_arp_acquisition_id_fkey"
+			name: "arp_acquisition_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.quantityEstimateId],
 			foreignColumns: [quantityEstimateInProcurement.id],
-			name: "procurement_arp_quantity_estimate_id_fkey"
+			name: "arp_quantity_estimate_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.unitId],
 			foreignColumns: [unitsInCore.id],
-			name: "procurement_arp_unit_id_fkey"
+			name: "arp_unit_id_fkey"
 		}),
-	unique("procurement_arp_unit_id_numero_ata_uasg_gerenciadora_key").on(table.unitId, table.numeroAta, table.uasgGerenciadora),
-	check("procurement_arp_source_check", sql`source = ANY (ARRAY['compras_gov'::text, 'manual'::text])`),
+	unique("arp_unit_id_numero_ata_uasg_gerenciadora_key").on(table.unitId, table.numeroAta, table.uasgGerenciadora),
+	check("arp_source_check", sql`source = ANY (ARRAY['compras_gov'::text, 'manual'::text])`),
 ]);
 
 export const gtinAliasInGs1Integration = gs1Integration.table("gtin_alias", {
@@ -2309,7 +2309,7 @@ export const quantityEstimateInProcurement = procurement.table("quantity_estimat
 	index("quantity_estimate_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.segmentId],
-			foreignColumns: [procurementSegmentInProcurement.id],
+			foreignColumns: [segmentInProcurement.id],
 			name: "quantity_estimate_segment_id_fkey"
 		}),
 	foreignKey({
@@ -3267,7 +3267,7 @@ export const contractDesignationInProcurement = procurement.table("contract_desi
 		}).onDelete("restrict"),
 	foreignKey({
 			columns: [table.arpId],
-			foreignColumns: [procurementArpInProcurement.id],
+			foreignColumns: [arpInProcurement.id],
 			name: "contract_designation_arp_id_fkey"
 		}).onDelete("restrict"),
 	foreignKey({
@@ -3413,7 +3413,7 @@ export const empenhoItemInFinance = finance.table("empenho_item", {
 	index("empenho_item_purchase_item_id_fk_idx").using("btree", table.purchaseItemId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.arpItemId],
-			foreignColumns: [procurementArpItemInProcurement.id],
+			foreignColumns: [arpItemInProcurement.id],
 			name: "empenho_item_arp_item_id_fkey"
 		}).onDelete("restrict"),
 	foreignKey({
@@ -3937,7 +3937,7 @@ export const empenhoRpInscriptionInFinance = finance.table("empenho_rp_inscripti
 	check("empenho_rp_inscription_superseded_check", sql`(superseded_at IS NULL) = (supersede_reason IS NULL)`),
 ]);
 
-export const procurementPesquisaPrecoItemInProcurement = procurement.table("procurement_pesquisa_preco_item", {
+export const priceResearchItemInProcurement = procurement.table("price_research_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	researchId: uuid("research_id").notNull(),
 	catmatCodigo: integer("catmat_codigo"),
@@ -3968,23 +3968,23 @@ export const procurementPesquisaPrecoItemInProcurement = procurement.table("proc
 	manualSelection: boolean("manual_selection").default(false).notNull(),
 	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
 }, (table) => [
-	index("idx_pesquisa_preco_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
-	index("idx_pesquisa_preco_item_research").using("btree", table.researchId.asc().nullsLast()),
+	index("idx_price_research_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
+	index("idx_price_research_item_research").using("btree", table.researchId.asc().nullsLast()),
 	foreignKey({
 			columns: [table.quantityEstimateItemId],
 			foreignColumns: [quantityEstimateItemInProcurement.id],
-			name: "procurement_pesquisa_preco_item_quantity_estimate_item_id_fkey"
+			name: "price_research_item_quantity_estimate_item_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.researchId],
-			foreignColumns: [procurementPesquisaPrecoInProcurement.id],
-			name: "procurement_pesquisa_preco_item_research_id_fkey"
+			foreignColumns: [priceResearchInProcurement.id],
+			name: "price_research_item_research_id_fkey"
 		}).onDelete("cascade"),
-	check("procurement_pesquisa_preco_i_justification_outlier_criter_check", sql`char_length(justification_outlier_criteria) <= 4000`),
-	check("procurement_pesquisa_preco_it_justification_out_of_period_check", sql`char_length(justification_out_of_period) <= 4000`),
-	check("procurement_pesquisa_preco_item_justification_low_sample_check", sql`char_length(justification_low_sample) <= 4000`),
-	check("procurement_pesquisa_preco_item_justification_method_check", sql`char_length(justification_method) <= 4000`),
-	check("procurement_pesquisa_preco_item_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
+	check("price_research_item_justification_low_sample_check", sql`char_length(justification_low_sample) <= 4000`),
+	check("price_research_item_justification_method_check", sql`char_length(justification_method) <= 4000`),
+	check("price_research_item_justification_out_of_period_check", sql`char_length(justification_out_of_period) <= 4000`),
+	check("price_research_item_justification_outlier_criteria_check", sql`char_length(justification_outlier_criteria) <= 4000`),
+	check("price_research_item_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
 ]);
 
 export const importBatchInSiafiIntegration = siafiIntegration.table("import_batch", {
@@ -4718,74 +4718,6 @@ export const goodsReceiptItemInInventory = inventory.table("goods_receipt_item",
 	check("goods_receipt_item_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) = 1`),
 ]);
 
-export const procurementArpItemInProcurement = procurement.table("procurement_arp_item", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	arpId: uuid("arp_id").notNull(),
-	numeroItem: integer("numero_item"),
-	catmatItemCodigo: integer("catmat_item_codigo"),
-	descricaoItem: text("descricao_item"),
-	niFornecedor: text("ni_fornecedor"),
-	nomeFornecedor: text("nome_fornecedor"),
-	valorUnitario: numeric("valor_unitario", { mode: "number", precision: 12, scale: 4 }),
-	quantidadeHomologada: numeric("quantidade_homologada", { mode: "number", precision: 14, scale: 4 }),
-	medidaCatmat: text("medida_catmat"),
-	quantidadeEmpenhada: numeric("quantidade_empenhada", { mode: "number", precision: 14, scale: 4 }).default(0),
-	saldoEmpenho: numeric("saldo_empenho", { mode: "number", precision: 14, scale: 4 }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	source: text().default('compras_gov').notNull(),
-	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
-}, (table) => [
-	index("idx_arp_item_arp").using("btree", table.arpId.asc().nullsLast()),
-	index("idx_arp_item_catmat").using("btree", table.catmatItemCodigo.asc().nullsLast()),
-	index("idx_arp_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
-	uniqueIndex("procurement_arp_item_numero_uq").using("btree", table.arpId.asc().nullsLast(), table.numeroItem.asc().nullsLast()).where(sql`(numero_item IS NOT NULL)`),
-	foreignKey({
-			columns: [table.arpId],
-			foreignColumns: [procurementArpInProcurement.id],
-			name: "procurement_arp_item_arp_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.quantityEstimateItemId],
-			foreignColumns: [quantityEstimateItemInProcurement.id],
-			name: "procurement_arp_item_quantity_estimate_item_id_fkey"
-		}).onDelete("set null"),
-	check("procurement_arp_item_source_check", sql`source = ANY (ARRAY['compras_gov'::text, 'manual'::text])`),
-]);
-
-export const procurementPesquisaPrecoInProcurement = procurement.table("procurement_pesquisa_preco", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	referenceMethod: text("reference_method").default('median').notNull(),
-	periodMonths: smallint("period_months").default(12),
-	similarityThreshold: numeric("similarity_threshold", { mode: "number", precision: 4, scale: 3 }),
-	filterEstado: text("filter_estado"),
-	filterUasgCode: text("filter_uasg_code"),
-	filterMunicipioCode: integer("filter_municipio_code"),
-	totalItems: integer("total_items").default(0).notNull(),
-	itemsWithPrice: integer("items_with_price").default(0).notNull(),
-	itemsWithoutCatmat: integer("items_without_catmat").default(0).notNull(),
-	nonCompliantItems: integer("non_compliant_items").default(0).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	idempotencyKey: text("idempotency_key"),
-	createdBy: uuid("created_by"),
-	quantityEstimateId: uuid("quantity_estimate_id"),
-}, (table) => [
-	index("idx_pesquisa_preco_pending").using("btree", table.quantityEstimateId.asc().nullsLast()).where(sql`(quantity_estimate_id IS NULL)`),
-	index("idx_pesquisa_preco_quantity_estimate").using("btree", table.quantityEstimateId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
-	index("procurement_pesquisa_preco_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
-	uniqueIndex("uq_pesquisa_preco_idempotency").using("btree", table.idempotencyKey.asc().nullsLast()).where(sql`(idempotency_key IS NOT NULL)`),
-	foreignKey({
-			columns: [table.createdBy],
-			foreignColumns: [usersInAuth.id],
-			name: "procurement_pesquisa_preco_created_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.quantityEstimateId],
-			foreignColumns: [quantityEstimateInProcurement.id],
-			name: "procurement_pesquisa_preco_quantity_estimate_id_fkey"
-		}).onDelete("cascade"),
-	check("procurement_pesquisa_preco_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
-]);
-
 export const comprasMaterialClasseInComprasGovIntegration = comprasGovIntegration.table("compras_material_classe", {
 	codigoClasse: integer("codigo_classe").primaryKey().notNull(),
 	codigoGrupo: integer("codigo_grupo").notNull(),
@@ -4858,6 +4790,74 @@ export const comprasMaterialNaturezaDespesaInComprasGovIntegration = comprasGovI
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	unique("compras_material_natureza_des_codigo_pdm_codigo_natureza_de_key").on(table.codigoPdm, table.codigoNaturezaDespesa),
+]);
+
+export const priceResearchInProcurement = procurement.table("price_research", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	referenceMethod: text("reference_method").default('median').notNull(),
+	periodMonths: smallint("period_months").default(12),
+	similarityThreshold: numeric("similarity_threshold", { mode: "number", precision: 4, scale: 3 }),
+	filterEstado: text("filter_estado"),
+	filterUasgCode: text("filter_uasg_code"),
+	filterMunicipioCode: integer("filter_municipio_code"),
+	totalItems: integer("total_items").default(0).notNull(),
+	itemsWithPrice: integer("items_with_price").default(0).notNull(),
+	itemsWithoutCatmat: integer("items_without_catmat").default(0).notNull(),
+	nonCompliantItems: integer("non_compliant_items").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	idempotencyKey: text("idempotency_key"),
+	createdBy: uuid("created_by"),
+	quantityEstimateId: uuid("quantity_estimate_id"),
+}, (table) => [
+	index("idx_price_research_pending").using("btree", table.quantityEstimateId.asc().nullsLast()).where(sql`(quantity_estimate_id IS NULL)`),
+	index("idx_price_research_quantity_estimate").using("btree", table.quantityEstimateId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("price_research_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
+	uniqueIndex("uq_price_research_idempotency").using("btree", table.idempotencyKey.asc().nullsLast()).where(sql`(idempotency_key IS NOT NULL)`),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "price_research_created_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "price_research_quantity_estimate_id_fkey"
+		}).onDelete("cascade"),
+	check("price_research_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
+]);
+
+export const arpItemInProcurement = procurement.table("arp_item", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	arpId: uuid("arp_id").notNull(),
+	numeroItem: integer("numero_item"),
+	catmatItemCodigo: integer("catmat_item_codigo"),
+	descricaoItem: text("descricao_item"),
+	niFornecedor: text("ni_fornecedor"),
+	nomeFornecedor: text("nome_fornecedor"),
+	valorUnitario: numeric("valor_unitario", { mode: "number", precision: 12, scale: 4 }),
+	quantidadeHomologada: numeric("quantidade_homologada", { mode: "number", precision: 14, scale: 4 }),
+	medidaCatmat: text("medida_catmat"),
+	quantidadeEmpenhada: numeric("quantidade_empenhada", { mode: "number", precision: 14, scale: 4 }).default(0),
+	saldoEmpenho: numeric("saldo_empenho", { mode: "number", precision: 14, scale: 4 }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	source: text().default('compras_gov').notNull(),
+	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
+}, (table) => [
+	uniqueIndex("arp_item_numero_uq").using("btree", table.arpId.asc().nullsLast(), table.numeroItem.asc().nullsLast()).where(sql`(numero_item IS NOT NULL)`),
+	index("idx_arp_item_arp").using("btree", table.arpId.asc().nullsLast()),
+	index("idx_arp_item_catmat").using("btree", table.catmatItemCodigo.asc().nullsLast()),
+	index("idx_arp_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.arpId],
+			foreignColumns: [arpInProcurement.id],
+			name: "arp_item_arp_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.quantityEstimateItemId],
+			foreignColumns: [quantityEstimateItemInProcurement.id],
+			name: "arp_item_quantity_estimate_item_id_fkey"
+		}).onDelete("set null"),
+	check("arp_item_source_check", sql`source = ANY (ARRAY['compras_gov'::text, 'manual'::text])`),
 ]);
 
 export const quantityEstimateItemInProcurement = procurement.table("quantity_estimate_item", {
@@ -5759,6 +5759,119 @@ export const vMeasureUnitReviewInCore = core.view("v_measure_unit_review", {	sou
 	rawValue: text("raw_value"),
 }).with({"securityInvoker":true}).as(sql`SELECT 'kitchen.ingredient'::text AS source_table, ingredient.id::text AS source_id, COALESCE(ingredient.description, ''::text) AS source_description, ingredient.measure_unit AS raw_value FROM kitchen.ingredient WHERE ingredient.deleted_at IS NULL AND ingredient.measure_unit IS NOT NULL AND NOT (ingredient.measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'kitchen.ingredient_item'::text AS source_table, ingredient_item.id::text AS source_id, COALESCE(ingredient_item.description, ''::text) AS source_description, ingredient_item.purchase_measure_unit AS raw_value FROM kitchen.ingredient_item WHERE ingredient_item.deleted_at IS NULL AND ingredient_item.purchase_measure_unit IS NOT NULL AND NOT (ingredient_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.purchase_item'::text AS source_table, purchase_item.id::text AS source_id, purchase_item.description AS source_description, purchase_item.purchase_measure_unit AS raw_value FROM procurement.purchase_item WHERE purchase_item.deleted_at IS NULL AND purchase_item.purchase_measure_unit IS NOT NULL AND NOT (purchase_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.quantity_estimate_item'::text AS source_table, quantity_estimate_item.id::text AS source_id, quantity_estimate_item.ingredient_name AS source_description, quantity_estimate_item.measure_unit AS raw_value FROM procurement.quantity_estimate_item WHERE quantity_estimate_item.measure_unit IS NOT NULL AND NOT (quantity_estimate_item.measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit)) UNION ALL SELECT 'procurement.quantity_estimate_item (compra)'::text AS source_table, quantity_estimate_item.id::text AS source_id, quantity_estimate_item.ingredient_name AS source_description, quantity_estimate_item.purchase_measure_unit AS raw_value FROM procurement.quantity_estimate_item WHERE quantity_estimate_item.purchase_measure_unit IS NOT NULL AND NOT (quantity_estimate_item.purchase_measure_unit IN ( SELECT measure_unit.code FROM core.measure_unit))`);
 
+export const procurementPesquisaPrecoAmostraInProcurement = procurement.view("procurement_pesquisa_preco_amostra", {	id: uuid().defaultRandom(),
+	researchItemId: uuid("research_item_id"),
+	sampleType: text("sample_type"),
+	similarity: numeric({ mode: "number", precision: 4, scale: 3 }),
+	amostraId: uuid("amostra_id"),
+	convertedPrice: numeric("converted_price", { mode: "number", precision: 14, scale: 6 }),
+	contentInUnit: numeric("content_in_unit", { mode: "number", precision: 14, scale: 6 }),
+	conversion: text(),
+	art5Parameter: text("art5_parameter").default('I'),
+}).with({"securityInvoker":true}).as(sql`SELECT id, research_item_id, sample_type, similarity, price_sample_id AS amostra_id, converted_price, content_in_unit, conversion, art5_parameter FROM procurement.price_research_sample`);
+
+export const procurementPesquisaPrecoInProcurement = procurement.view("procurement_pesquisa_preco", {	id: uuid().defaultRandom(),
+	referenceMethod: text("reference_method").default('median'),
+	periodMonths: smallint("period_months").default(12),
+	similarityThreshold: numeric("similarity_threshold", { mode: "number", precision: 4, scale: 3 }),
+	filterEstado: text("filter_estado"),
+	filterUasgCode: text("filter_uasg_code"),
+	filterMunicipioCode: integer("filter_municipio_code"),
+	totalItems: integer("total_items").default(0),
+	itemsWithPrice: integer("items_with_price").default(0),
+	itemsWithoutCatmat: integer("items_without_catmat").default(0),
+	nonCompliantItems: integer("non_compliant_items").default(0),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	idempotencyKey: text("idempotency_key"),
+	createdBy: uuid("created_by"),
+	quantityEstimateId: uuid("quantity_estimate_id"),
+}).with({"securityInvoker":true}).as(sql`SELECT id, reference_method, period_months, similarity_threshold, filter_estado, filter_uasg_code, filter_municipio_code, total_items, items_with_price, items_without_catmat, non_compliant_items, created_at, idempotency_key, created_by, quantity_estimate_id FROM procurement.price_research`);
+
+export const procurementPesquisaPrecoItemInProcurement = procurement.view("procurement_pesquisa_preco_item", {	id: uuid().defaultRandom(),
+	researchId: uuid("research_id"),
+	catmatCodigo: integer("catmat_codigo"),
+	catmatDescricao: text("catmat_descricao"),
+	productName: text("product_name"),
+	totalRaw: integer("total_raw").default(0),
+	totalAfterDateFilter: integer("total_after_date_filter").default(0),
+	totalAfterPollutionFilter: integer("total_after_pollution_filter").default(0),
+	totalAfterOutlier: integer("total_after_outlier").default(0),
+	priceMin: numeric("price_min", { mode: "number", precision: 12, scale: 4 }),
+	priceMax: numeric("price_max", { mode: "number", precision: 12, scale: 4 }),
+	priceMean: numeric("price_mean", { mode: "number", precision: 12, scale: 4 }),
+	priceMedian: numeric("price_median", { mode: "number", precision: 12, scale: 4 }),
+	stdDev: numeric("std_dev", { mode: "number", precision: 12, scale: 4 }),
+	cvPct: numeric("cv_pct", { mode: "number", precision: 8, scale: 2 }),
+	uniqueSources: integer("unique_sources"),
+	referencePrice: numeric("reference_price", { mode: "number", precision: 12, scale: 4 }),
+	referenceMethod: text("reference_method"),
+	measureUnit: text("measure_unit"),
+	isCompliant: boolean("is_compliant").default(false),
+	nonComplianceReasons: text("non_compliance_reasons").default('{""}'),
+	error: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	justificationLowSample: text("justification_low_sample"),
+	justificationMethod: text("justification_method"),
+	justificationOutlierCriteria: text("justification_outlier_criteria"),
+	justificationOutOfPeriod: text("justification_out_of_period"),
+	manualSelection: boolean("manual_selection").default(false),
+	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
+}).with({"securityInvoker":true}).as(sql`SELECT id, research_id, catmat_codigo, catmat_descricao, product_name, total_raw, total_after_date_filter, total_after_pollution_filter, total_after_outlier, price_min, price_max, price_mean, price_median, std_dev, cv_pct, unique_sources, reference_price, reference_method, measure_unit, is_compliant, non_compliance_reasons, error, created_at, justification_low_sample, justification_method, justification_outlier_criteria, justification_out_of_period, manual_selection, quantity_estimate_item_id FROM procurement.price_research_item`);
+
+export const comprasAmostraInProcurement = procurement.view("compras_amostra", {	id: uuid().defaultRandom(),
+	idCompra: text("id_compra"),
+	idItemCompra: integer("id_item_compra"),
+	descricaoItem: text("descricao_item"),
+	precoUnitario: numeric("preco_unitario", { mode: "number", precision: 12, scale: 4 }),
+	capacidadeUnidadeFornecimento: numeric("capacidade_unidade_fornecimento", { mode: "number", precision: 12, scale: 4 }),
+	siglaUnidadeFornecimento: text("sigla_unidade_fornecimento"),
+	siglaUnidadeMedida: text("sigla_unidade_medida"),
+	quantidade: numeric({ mode: "number", precision: 14, scale: 4 }),
+	codigoUasg: text("codigo_uasg"),
+	nomeUasg: text("nome_uasg"),
+	municipio: text(),
+	estado: text(),
+	esfera: text(),
+	marca: text(),
+	normalizedPrice: numeric("normalized_price", { mode: "number", precision: 12, scale: 4 }),
+	referenceDate: date("reference_date"),
+	fingerprint: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	niFornecedor: text("ni_fornecedor"),
+	nomeFornecedor: text("nome_fornecedor"),
+}).with({"securityInvoker":true}).as(sql`SELECT id, id_compra, id_item_compra, descricao_item, preco_unitario, capacidade_unidade_fornecimento, sigla_unidade_fornecimento, sigla_unidade_medida, quantidade, codigo_uasg, nome_uasg, municipio, estado, esfera, marca, normalized_price, reference_date, fingerprint, created_at, ni_fornecedor, nome_fornecedor FROM procurement.price_sample`);
+
+export const procurementArpInProcurement = procurement.view("procurement_arp", {	id: uuid().defaultRandom(),
+	unitId: integer("unit_id"),
+	numeroAta: text("numero_ata"),
+	anoAta: text("ano_ata"),
+	uasgGerenciadora: text("uasg_gerenciadora"),
+	nomeUasgGerenciadora: text("nome_uasg_gerenciadora"),
+	objeto: text(),
+	dataVigenciaInicio: date("data_vigencia_inicio"),
+	dataVigenciaFim: date("data_vigencia_fim"),
+	statusAta: text("status_ata"),
+	lastSyncedAt: timestamp("last_synced_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	acquisitionId: uuid("acquisition_id"),
+	source: text().default('compras_gov'),
+	quantityEstimateId: uuid("quantity_estimate_id"),
+}).with({"securityInvoker":true}).as(sql`SELECT id, unit_id, numero_ata, ano_ata, uasg_gerenciadora, nome_uasg_gerenciadora, objeto, data_vigencia_inicio, data_vigencia_fim, status_ata, last_synced_at, created_at, acquisition_id, source, quantity_estimate_id FROM procurement.arp`);
+
+export const procurementSegmentInProcurement = procurement.view("procurement_segment", {	id: uuid().defaultRandom(),
+	unitId: integer("unit_id"),
+	name: text(),
+	description: text(),
+	plannedMonth: smallint("planned_month"),
+	leadTimeMonths: smallint("lead_time_months").default(5),
+	validityMonths: smallint("validity_months").default(12),
+	pcaIdentifier: text("pca_identifier"),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}).with({"securityInvoker":true}).as(sql`SELECT id, unit_id, name, description, planned_month, lead_time_months, validity_months, pca_identifier, created_by, created_at, updated_at, deleted_at FROM procurement.segment`);
+
 export const ingredientLastReviewInKitchen = kitchen.view("ingredient_last_review", {	ingredientId: uuid("ingredient_id"),
 	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),
 	reviewedBy: uuid("reviewed_by"),
@@ -5802,6 +5915,31 @@ export const workforceHeadcountInCore = core.view("workforce_headcount", {	id: u
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 }).with({"securityInvoker":true}).as(sql`SELECT id, submission_id, category_id, headcount, created_at, updated_at FROM kitchen.workforce_headcount`);
+
+export const procurementSegmentRuleInProcurement = procurement.view("procurement_segment_rule", {	id: uuid().defaultRandom(),
+	segmentId: uuid("segment_id"),
+	mode: text(),
+	folderId: uuid("folder_id"),
+	purchaseItemId: uuid("purchase_item_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}).with({"securityInvoker":true}).as(sql`SELECT id, segment_id, mode, folder_id, purchase_item_id, created_at FROM procurement.segment_rule`);
+
+export const procurementArpItemInProcurement = procurement.view("procurement_arp_item", {	id: uuid().defaultRandom(),
+	arpId: uuid("arp_id"),
+	numeroItem: integer("numero_item"),
+	catmatItemCodigo: integer("catmat_item_codigo"),
+	descricaoItem: text("descricao_item"),
+	niFornecedor: text("ni_fornecedor"),
+	nomeFornecedor: text("nome_fornecedor"),
+	valorUnitario: numeric("valor_unitario", { mode: "number", precision: 12, scale: 4 }),
+	quantidadeHomologada: numeric("quantidade_homologada", { mode: "number", precision: 14, scale: 4 }),
+	medidaCatmat: text("medida_catmat"),
+	quantidadeEmpenhada: numeric("quantidade_empenhada", { mode: "number", precision: 14, scale: 4 }).default(0),
+	saldoEmpenho: numeric("saldo_empenho", { mode: "number", precision: 14, scale: 4 }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	source: text().default('compras_gov'),
+	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
+}).with({"securityInvoker":true}).as(sql`SELECT id, arp_id, numero_item, catmat_item_codigo, descricao_item, ni_fornecedor, nome_fornecedor, valor_unitario, quantidade_homologada, medida_catmat, quantidade_empenhada, saldo_empenho, synced_at, source, quantity_estimate_item_id FROM procurement.arp_item`);
 
 export const ranchoInCore = core.view("rancho", {	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }),
@@ -5954,4 +6092,4 @@ export const vSupplierLeadTimeInInventory = inventory.view("v_supplier_lead_time
 	receivedAt: date("received_at"),
 	leadTimeDays: integer("lead_time_days"),
 	deviationDays: integer("deviation_days"),
-}).with({"securityInvoker":true}).as(sql`SELECT arpitem.ni_fornecedor, soi.purchase_item_id, so.id AS supply_order_id, so.sent_at, so.expected_delivery, gr.definitive_at::date AS received_at, gr.definitive_at::date - so.sent_at AS lead_time_days, gr.definitive_at::date - so.expected_delivery AS deviation_days FROM procurement.supply_order so JOIN inventory.goods_receipt gr ON gr.supply_order_id = so.id AND gr.definitive_at IS NOT NULL JOIN procurement.supply_order_item soi ON soi.supply_order_id = so.id LEFT JOIN procurement.procurement_arp_item arpitem ON arpitem.id = soi.arp_item_id WHERE so.sent_at IS NOT NULL`);
+}).with({"securityInvoker":true}).as(sql`SELECT arpitem.ni_fornecedor, soi.purchase_item_id, so.id AS supply_order_id, so.sent_at, so.expected_delivery, gr.definitive_at::date AS received_at, gr.definitive_at::date - so.sent_at AS lead_time_days, gr.definitive_at::date - so.expected_delivery AS deviation_days FROM procurement.supply_order so JOIN inventory.goods_receipt gr ON gr.supply_order_id = so.id AND gr.definitive_at IS NOT NULL JOIN procurement.supply_order_item soi ON soi.supply_order_id = so.id LEFT JOIN procurement.arp_item arpitem ON arpitem.id = soi.arp_item_id WHERE so.sent_at IS NOT NULL`);
