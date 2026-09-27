@@ -33,9 +33,9 @@ Os tipos de refeição custom de uma cozinha SHALL estar disponíveis para sele�
 - **WHEN** a cozinha tem o tipo custom "Colação" e o usuário monta um cardápio de exceção
 - **THEN** "Colação" aparece como opção de tipo de refeição do item
 
-### Requirement: Isolamento do módulo diner/rancho
+### Requirement: Isolamento do comensal e da presença
 
-Os tipos de refeição custom SHALL permanecer restritos ao lado produção. O sistema MUST NOT expor tipos custom nas telas de previsão/presença do militar (diner/rancho), e a mudança MUST NOT alterar os CHECK constraints de `meal_forecasts`, `meal_presences` e `other_presences`, nem os tipos `MealKey`/`DayMeals`/`MEAL_TYPES`.
+Os tipos de refeição custom SHALL permanecer restritos ao lado produção. O sistema MUST NOT expor tipos custom nas telas de previsão/presença do militar (`diner`/`messhall`), e a mudança MUST NOT alterar os CHECK constraints de `meal_forecasts`, `meal_presences` e `other_presences`, nem os tipos `MealKey`/`DayMeals`/`MEAL_TYPES`.
 
 #### Scenario: Diner não enxerga tipos custom
 
@@ -43,7 +43,7 @@ Os tipos de refeição custom SHALL permanecer restritos ao lado produção. O s
 - **THEN** a tela de previsão/presença do militar continua oferecendo apenas café, almoço, janta e ceia
 - **AND** nenhum registro de `meal_forecasts`/`meal_presences` com `meal = 'colacao'` pode ser criado (CHECK inalterado)
 
-#### Scenario: Constraints do rancho preservadas
+#### Scenario: Constraints do comensal preservadas
 
 - **WHEN** a migration desta mudança é aplicada
 - **THEN** os CHECK constraints de `meal_forecasts`, `meal_presences` e `other_presences` permanecem restritos a `{'cafe','almoco','janta','ceia'}`

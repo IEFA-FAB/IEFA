@@ -59,7 +59,7 @@ Hipóteses a verificar.
 
 ### GU-FLX-01 — "A cozinha não mandou a previsão"
 - **O sistema precisa:** o fluxo da unidade mostra a pendência dizendo quem resolve, sem link
-  para a Gestão Cozinha (o chefe do rancho em geral não tem esse módulo).
+  para a Gestão Cozinha (quem tem Gestão Unidade em geral não tem esse módulo).
 - **Cobertura:** `lib/flows/flows.test.ts`; e2e `procurement-flows.spec.ts`.
 
 ### GU-FLX-02 — "A mesma previsão serve a duas contratações"
@@ -281,7 +281,7 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
   recusada). **LACUNA:** `createDesignation` pelo domínio no banco real (a pessoa precisa de
   permissão na OM, e o seed de permissão passa pela função auditada).
 
-### GU-DES-04 — "O chefe do rancho quer se designar gestor e efetivar ele mesmo"
+### GU-DES-04 — "Quem tem Gestão Unidade quer se designar gestor e efetivar ele mesmo"
 - **O sistema precisa:** quem pode efetivar o definitivo não se designa gestor nem comissão do
   definitivo (segregação de funções, Lei 14.133/2021, art. 7º, § 1º; art. 140, II, b). A recusa
   lista quem mais tem Gestão Unidade nível 2 na OM; sem ninguém, diz para pedir a concessão.

@@ -14,6 +14,6 @@ Hipóteses a verificar.
 - **O sistema precisa:** registrar "outras presenças" no dia sem cadastro individual.
 - **Cobertura:** `other_presences` — verificar teste.
 
-### FIS-PRS-02 — "O rancho fechou (falta de água)"
+### FIS-PRS-02 — "O refeitório fechou (falta de água)"
 - **Relacionado:** GC-AGD-07; o comensal precisa saber que não haverá refeição quente.
 - **Cobertura:** hipótese.

@@ -62,7 +62,7 @@ const APPS = [
 		slug: "sisub",
 		title: "Sisub",
 		label: "Subsistência",
-		description: "Sistema de Subsistência — cardápios, receitas, planejamento e analytics de rancho.",
+		description: "Sistema de Subsistência — cardápios, receitas, planejamento e analytics da subsistência.",
 		color: "text-orange-500",
 		bg: "bg-orange-500/10",
 		icon: (
