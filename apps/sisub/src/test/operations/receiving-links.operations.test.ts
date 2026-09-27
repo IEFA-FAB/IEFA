@@ -69,8 +69,12 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 		).resolves.toBe("rolled-back")
 	}
 
-	/** O Drizzle das operações de domínio, na mesma transação. */
-	const dbOf = (tx: Tx) => drizzle(tx as unknown as postgres.Sql, { schema: sisubSchema })
+	/**
+	 * O Drizzle das operações de domínio, na mesma transação. O `TransactionSql` do postgres.js
+	 * não carrega o `options` do cliente, que o driver do Drizzle lê (`options.parsers`) ao montar
+	 * a sessão — sem ele, todo caso quebrava na montagem, antes de chegar ao código testado.
+	 */
+	const dbOf = (tx: Tx) => drizzle(Object.assign(tx, { options: (sql as postgres.Sql).options }) as unknown as postgres.Sql, { schema: sisubSchema })
 
 	async function seedKitchen(tx: Tx, tag: string) {
 		const [unit] = await tx`insert into core.units (code, display_name) values (${uid(`ZZ-${tag}-`)}, ${`unit ${tag}`}) returning id`
@@ -149,7 +153,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 				expect(match.costs[0]?.unitCost).toBe(14)
 				const links = match.links.map((l) => ({ receipt_item_id: l.receiptItemId, nfe_item_id: l.nfeItemId }))
 				const [linked] = await tx`
-					select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, ${note.id}, null, null, ${tx.json(links)}, ${tx.json([])})`
+					select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, ${note.id}, null, null, ${JSON.stringify(links)}::jsonb, ${JSON.stringify([])}::jsonb)`
 				expect(linked.linked_items).toBe(1)
 			}
 
@@ -413,8 +417,8 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 				values (${noteA.id}, 1, 'PAO', ${ingredientId}, 7, 14, 7, 'matched') returning id`
 			await tx`
 				select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, ${noteA.id}, null, null,
-					${tx.json([{ receipt_item_id: delivery.itemId, nfe_item_id: String(itemA.id) }])},
-					${tx.json([{ receipt_item_id: delivery.itemId, unit_cost: 14 }])})`
+					${JSON.stringify([{ receipt_item_id: delivery.itemId, nfe_item_id: String(itemA.id) }])}::jsonb,
+					${JSON.stringify([{ receipt_item_id: delivery.itemId, unit_cost: 14 }])}::jsonb)`
 			const [withA] = await tx`select nfe_item_id, unit_cost, unit_cost_source from inventory.goods_receipt_item where id = ${delivery.itemId}`
 			expect(withA).toMatchObject({ nfe_item_id: itemA.id, unit_cost_source: "invoice_link" })
 			expect(Number(withA.unit_cost)).toBe(14)
@@ -422,7 +426,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			// a nota B não tem o pão: a linha fica sem item e sem o custo de A
 			const [noteB] =
 				await tx`insert into inventory.nfe_document (access_key, kitchen_id, unit_id, status) values (${key("6")}, ${kitchenId}, ${unitId}, 'imported') returning id`
-			await tx`select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, ${noteB.id}, null, null, ${tx.json([])}, ${tx.json([])})`
+			await tx`select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, ${noteB.id}, null, null, ${JSON.stringify([])}::jsonb, ${JSON.stringify([])}::jsonb)`
 			const [withB] = await tx`select nfe_item_id, unit_cost, unit_cost_source from inventory.goods_receipt_item where id = ${delivery.itemId}`
 			expect(withB).toEqual({ nfe_item_id: null, unit_cost: null, unit_cost_source: null })
 			const [lot] = await tx`select unit_cost from inventory.goods_receipt_item_lot where receipt_item_id = ${delivery.itemId}`
