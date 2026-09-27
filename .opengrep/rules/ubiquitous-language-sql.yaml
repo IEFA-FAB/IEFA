@@ -10,7 +10,7 @@
 # `ubiquitous-language.yaml`; cada lote tem a sua regra, com a exclusão até o próprio contract (a
 # do lote 3, pesquisa de preços e prefixos, vai até 20260927070000; a do lote 4, finanças, até
 # 20260927090000; a do lote 5, valores de domínio, até 20260927110000; a do lote 7, arranchamento,
-# exclui só o expand e o contract dele).
+# exclui só o expand e o contract dele; a do lote 8b, o efetivo por refeitório, até 20260927160000).
 #
 # Casos de teste: `__fixtures__/ubiquitous-language-sql.sql` (opengrep test --config
 # .opengrep/rules/ubiquitous-language-sql.yaml .opengrep/rules/__fixtures__/ubiquitous-language-sql.sql).
@@ -231,3 +231,49 @@ rules:
           # Os genéricos só ao lado da coluna deles (comparação, lista, default ou atribuição).
           - pattern-regex: (?is)\b(?:role|type|target|template_type|origin_template_type)\b\s*(?:=|<>|!=|\bin\s*\(|=\s*any\s*\(\s*array\s*\[|(?:\bset\s+)?\bdefault\b)[^;]*?'(?:manager|annual|rotating|product|exception)'
       - pattern-not-regex: (?m)^\s*--.*$
+
+  # Lote 8b: o efetivo por refeitório (`kitchen.rancho` → `kitchen.mess_hall_workforce`,
+  # `workforce_submission.rancho_id` → `mess_hall_workforce_id`). Depois do contract não sobra
+  # exceção de efetivo: nenhum objeto novo, comentário ou corpo de função cita "rancho", salvo o nome
+  # da função "Fiscal de rancho" em texto. O corpo entre dollar quotes é acusado pelo NOME antigo
+  # (`kitchen.rancho`, `core.rancho`, `rancho_id`): plpgsql resolve tabela pelo nome e a view de
+  # compatibilidade já terá caído.
+  - id: ubiquitous-language-migration-lot8b
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      "Rancho" numa migration nova. O refeitório no levantamento de efetivo é
+      `kitchen.mess_hall_workforce`, e a resposta aponta para ele por
+      `workforce_submission.mess_hall_workforce_id`, não `kitchen.rancho`/`core.rancho`/`rancho_id`.
+      Fora do efetivo, use cozinha (`kitchen`), refeitório (`mess_hall`) ou unidade (`unit`) no nome
+      do objeto e no comentário. A única exceção é o nome da função "Fiscal de rancho".
+    paths:
+      include:
+        - "packages/database/supabase/migrations/*.sql"
+      exclude:
+        # Tudo até o contract do lote 8b (20260927160000) inclusive: aplicado, de outro lote, ou o
+        # expand/contract do 8b, que citam os nomes antigos de propósito (view de compatibilidade,
+        # espelho e conferência de divergência).
+        - "packages/database/supabase/migrations/2024*"
+        - "packages/database/supabase/migrations/2025*"
+        - "packages/database/supabase/migrations/20260[1-8]*"
+        - "packages/database/supabase/migrations/202609[0-1]*"
+        - "packages/database/supabase/migrations/2026092[0-6]*"
+        - "packages/database/supabase/migrations/202609270*"
+        - "packages/database/supabase/migrations/2026092710*"
+        - "packages/database/supabase/migrations/2026092711*"
+        - "packages/database/supabase/migrations/2026092712*"
+        - "packages/database/supabase/migrations/2026092713*"
+        - "packages/database/supabase/migrations/2026092714*"
+        - "packages/database/supabase/migrations/2026092715*"
+        - "packages/database/supabase/migrations/20260927160000_*"
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-regex: >-
+                  (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b(?:[^;']|'(?:[^']|'')*')*?(?:'(?:[^']|'')*?)?(?:(?-i:(?<!Fiscal de )(?<!Fiscais de ))rancho|(?-i:(?<=Fiscal de )R)ancho|(?-i:(?<=Fiscais de )R)ancho)
+              - pattern-not-regex: (?m)^\s*--.*$
+          # Corpo entre dollar quotes: ver a regra do lote 2 (abertura depois de `as`/`do`, sem a
+          # exclusão de comentário).
+          - pattern-regex: >-
+              (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:kitchen\.rancho|core\.rancho|rancho_id)\b(?:(?!\1).)*\1

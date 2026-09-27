@@ -137,13 +137,13 @@ alter table finance.empenho add column issuer_ug text;
 // ok: ubiquitous-language-migration-lot4
 alter table finance.budget_credit drop column saldo_siafi;
 
-// ruleid: ubiquitous-language-migration-lot8a
+// ruleid: ubiquitous-language-migration-lot8a, ubiquitous-language-migration-lot8b
 comment on table kitchen.snack_request_material is 'Material de rancho cautelado com o lanche; volta ao rancho.';
 
-// ruleid: ubiquitous-language-migration-lot8a
+// ruleid: ubiquitous-language-migration-lot8a, ubiquitous-language-migration-lot8b
 create table kitchen.rancho_schedule (id bigint primary key);
 
-// ruleid: ubiquitous-language-migration-lot8a
+// ruleid: ubiquitous-language-migration-lot8a, ubiquitous-language-migration-lot8b
 alter table kitchen.mess_halls add column rancho_code text;
 
 // ok: ubiquitous-language-migration-lot8a
@@ -156,12 +156,13 @@ comment on column kitchen.meal_presences.mess_hall_id is 'Refeitório em que o F
 update procurement.policy_rule set title = 'Sem itens impróprios para a alimentação coletiva militar' where title = 'Sem itens impróprios para rancho militar FAB';
 
 // ok: ubiquitous-language-migration-lot8a
+// ruleid: ubiquitous-language-migration-lot8b
 create index workforce_submission_competence_idx on kitchen.workforce_submission (competence, rancho_id);
 
-// ruleid: ubiquitous-language-migration-lot8a
+// ruleid: ubiquitous-language-migration-lot8a, ubiquitous-language-migration-lot8b
 comment on table kitchen.snack_request_material is 'Material da cozinha; volta ao rancho.';
 
-// ruleid: ubiquitous-language-migration-lot8a
+// ruleid: ubiquitous-language-migration-lot8a, ubiquitous-language-migration-lot8b
 comment on table kitchen.meal_presences is 'Chame o Fiscal de Rancho';
 
 // ok: ubiquitous-language-migration-lot8a
@@ -221,3 +222,41 @@ alter table kitchen.daily_menu add column forecasted_headcount_note text;
 
 // ok: ubiquitous-language-migration-lot7
 drop view kitchen.meal_forecasts;
+
+// ── Lote 8b: o efetivo por refeitório ─────────────────────────────────────
+
+// ok: ubiquitous-language-migration-lot8a
+// ruleid: ubiquitous-language-migration-lot8b
+comment on view kitchen.rancho is 'Compatibilidade do rename.';
+
+// ok: ubiquitous-language-migration-lot8a
+// ruleid: ubiquitous-language-migration-lot8b
+alter table kitchen.workforce_submission add column rancho_id bigint;
+
+// ok: ubiquitous-language-migration-lot8a
+// ruleid: ubiquitous-language-migration-lot8b
+create function kitchen.count_roster() returns bigint language sql set search_path = '' as $$
+	select count(*) from kitchen.rancho
+$$;
+
+// ok: ubiquitous-language-migration-lot8a
+// ruleid: ubiquitous-language-migration-lot8b
+create function kitchen.touch_submission() returns trigger language plpgsql set search_path = '' as $$
+begin
+	-- um comentário no corpo não esconde a função
+	new.rancho_id := new.mess_hall_workforce_id;
+	return new;
+end;
+$$;
+
+// ok: ubiquitous-language-migration-lot8b
+create index workforce_submission_survey_idx on kitchen.workforce_submission (survey_id, mess_hall_workforce_id);
+
+// ok: ubiquitous-language-migration-lot8b
+comment on table kitchen.mess_hall_workforce is 'Refeitório no levantamento de efetivo; quem confere a presença é o Fiscal de rancho.';
+
+// ok: ubiquitous-language-migration-lot8b
+drop view kitchen.rancho;
+
+// ok: ubiquitous-language-migration-lot8b
+alter table kitchen.workforce_submission drop column rancho_id;
