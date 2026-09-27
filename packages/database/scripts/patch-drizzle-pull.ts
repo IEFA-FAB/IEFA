@@ -35,7 +35,7 @@
  *     9. Drop the `AnyPgColumn` import and `(table) =>` params the pull leaves unused.
  *    10. `bigserial({ mode: "bigint" })` → `{ mode: "number" }`. The pull emits JS `bigint` for
  *        serial ids while every `bigint(...)` column already comes as `number`; with the mix,
- *        `eq(rancho.id, ranchoId)` stops type-checking. Ids here fit a double.
+ *        `eq(messHallWorkforce.id, messHallWorkforceId)` stops type-checking. Ids here fit a double.
  *    12. Defaults the pull truncates at a nested parenthesis
  *        (`sql\`((now() AT TIME ZONE 'America/Sao_Paulo'\``) are replaced by the live default
  *        read from `pg_attrdef`, so the file never carries invalid SQL.
@@ -48,6 +48,8 @@
  *        this schema never feeds (introspection only, see drizzle.config.ts); queries and types
  *        ignore it. Dropping all of them (the non-default `gin_trgm_ops` included) is simpler than
  *        re-reading `pg_opclass` to fix each one, and it is stable: the DB keeps the real opclass.
+ *    14. `nextval(...)` default emitted as raw TS (`.default(nextval('seq'::regclass))`, seen on the
+ *        auto-updatable compatibility views of a rename expand) → `sql\`nextval(…)\``.
  *   relations.ts
  *     7. Drop duplicate relation properties (redundant duplicate FK constraints in
  *        the DB emit identical relation keys → TS1117 "duplicate property").
@@ -117,6 +119,10 @@ async function patchSchema(src: string): Promise<string> {
 		const dbSchema = schemaNames.get(schemaVar)
 		return dbSchema ? `.default(sql\`${dbSchema}.${fn}()\`)` : whole
 	})
+
+	// 14. `nextval` defaults emitted raw (a compatibility view with the table's defaults, as the
+	//     rename expands leave: `.default(nextval('kitchen.x_id_seq'::regclass))`)
+	out = out.replace(/\.default\((nextval\('[\w.]+'::regclass\))\)/g, (_m, call: string) => `.default(sql\`${call}\`)`)
 
 	// 9. unused leftovers of the pull
 	if (!/\(\): AnyPgColumn|: AnyPgColumn\b/.test(out.replace(/import \{[^}]*\} from "drizzle-orm\/pg-core"/, ""))) {

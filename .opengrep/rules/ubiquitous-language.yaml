@@ -5,8 +5,9 @@
 #
 # A lista cresce por lote. Termo ainda em uso não entra, senão o gate nasce vermelho: os valores de
 # domínio do lote 5 (`product`, `exception`, os papéis e os tipos de inventário em inglês) entram
-# com o contract dele, e "rancho" no lote 8a (fora do efetivo) e no 8b (o efetivo). As migrations
-# novas têm regra própria em `ubiquitous-language-sql.yaml`.
+# com o contract dele, e "rancho" no lote 8a (fora do efetivo) e no 8b (o efetivo,
+# `kitchen.mess_hall_workforce`). As migrations novas têm regra própria em
+# `ubiquitous-language-sql.yaml`.
 #
 # Linha de comentário não é acusada (`pattern-not-regex` da linha inteira): comentário cita o nome
 # antigo para contar a história do rename. Os casos de teste de cada regra estão em
@@ -368,7 +369,7 @@ rules:
       - pattern-not-regex: \bkeywords:\s*\[[^\]]*\]
 
 
-  # ── Lote 8a: "rancho" ──────────────────────────────────────────────────────
+  # ── Lotes 8a e 8b: "rancho" ────────────────────────────────────────────────
   #
   # "Rancho" nomeia três coisas conforme a frase ("rancho dos oficiais" é um refeitório; "rancho
   # da DIRAD" é a unidade com as suas cozinhas e refeitórios), então não é linguagem ubíqua (D1,
@@ -378,10 +379,12 @@ rules:
   #   - a MENÇÃO à palavra entre aspas tipográficas (“rancho”): o prompt e o glossário dos agentes
   #     explicam o termo que o usuário digita, sem usá-lo;
   #   - a citação do título da norma do lanche (`stops: "Recomendações — …"` em `NORM_REFS`);
-  #   - `PIRANCHO`, valor de PI do SIAFI em fixture (nome de terceiro, D3);
-  #   - o efetivo (`kitchen.rancho`, `rancho_id` e os identificadores do roster), que é o lote 8b:
-  #     os arquivos só dele saem por caminho, e o que vaza para barril, registro e guard sai pela
-  #     última exclusão. O lote 8b apaga as duas.
+  #   - `PIRANCHO`, valor de PI do SIAFI em fixture (nome de terceiro, D3).
+  # O lote 8b tirou a exclusão do efetivo: o roster é `kitchen.mess_hall_workforce`
+  # (`MessHallWorkforce*`, `messHallWorkforceId`, `computeMessHallWorkforceMetrics`,
+  # `createMessHallWorkforce`) e a tela diz "Efetivo dos Refeitórios". A camada de compatibilidade
+  # do expand só é citada pela suíte de integração (`src/test/`, fora do scan) e pelas pontes de
+  # tipo, que não estão nos caminhos.
   # A API entrou nos caminhos com o lote 7; fica de fora só o alias depreciado do arranchamento
   # (`LEGACY_ARRANCHAMENTO_PATH`), até o mantenedor retirá-lo. Os docs têm regra própria
   # em `ubiquitous-language-docs.yaml`, sem a exclusão de linha de comentário (em Markdown, `*`
@@ -394,8 +397,10 @@ rules:
       "Rancho" é ambíguo e não é termo do sisub: use cozinha (`kitchen`, onde se produz),
       refeitório (`mess_hall`, onde o comensal come e a presença é registrada) ou unidade (`unit`,
       a OM e a sua subsistência), conforme o que a frase quer dizer; "chefe do rancho" é quem tem
-      Gestão Unidade. A única exceção é o nome da função "Fiscal de rancho", rótulo do módulo de
-      presença; nas palavras-chave de busca a palavra pode ficar.
+      Gestão Unidade. O refeitório no levantamento de efetivo é `kitchen.mess_hall_workforce`
+      (`MessHallWorkforce*`, `messHallWorkforceId`, `mess_hall_workforce_id`), não `kitchen.rancho`/
+      `rancho_id`/`Rancho*`. A única exceção é o nome da função "Fiscal de rancho", rótulo do
+      módulo de presença; nas palavras-chave de busca a palavra pode ficar.
     paths:
       include:
         - "apps/sisub/src/**/*.ts"
@@ -406,15 +411,9 @@ rules:
         - "packages/pbac/src/**/*.ts"
         - "apps/docs/src/**/*.tsx"
         - "apps/api/src/**/*.ts"
+        - "packages/database/src/sisub.ts"
       exclude:
         - "**/routeTree.gen.ts"
-        # Efetivo (`kitchen.rancho`): lote 8b.
-        - "apps/sisub/src/components/features/workforce/**"
-        - "apps/sisub/src/routes/**/workforce.tsx"
-        - "apps/sisub/src/server/workforce.fn.ts"
-        - "packages/sisub-domain/src/operations/workforce*.ts"
-        - "packages/sisub-domain/src/utils/workforce-metrics*.ts"
-        - "packages/sisub-domain/src/schemas/workforce.ts"
     patterns:
       - pattern-regex: (?i)\w*rancho\w*
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
@@ -425,8 +424,6 @@ rules:
       - pattern-not-regex: \bPIRANCHO\b
       # Alias depreciado da API do arranchamento (lote 7), até o mantenedor retirá-lo.
       - pattern-not-regex: \bLEGACY_ARRANCHAMENTO_PATH\s*=\s*"/rancho_previsoes"
-      # Efetivo, até o lote 8b.
-      - pattern-not-regex: \bkitchen\.rancho\b|\brancho_id\b|\b(?:[cC]reate|[uU]pdate)Rancho(?:Fn|Schema)?\b|\bWorkforceRanchoWire\b|\bRanchoWorkforce\w*|\bcomputeRanchoMetrics\b|Efetivo dos Ranchos
 
   # ── Lote 5: valores de domínio ─────────────────────────────────────────────
   #

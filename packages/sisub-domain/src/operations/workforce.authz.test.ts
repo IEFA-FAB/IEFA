@@ -3,8 +3,8 @@
  *
  * O erro fácil aqui é o mesmo que deixou `kitchen:2` mutar ativo global: autorizar pelo
  * escopo que veio no INPUT em vez do escopo da LINHA. Como `saveWorkforceSubmission` recebe
- * um `ranchoId` e nenhum `unitId`, a tentação é confiar no que o cliente mandar; este teste
- * prova que a unidade dona sai do banco e que a recusa acontece ANTES de qualquer escrita.
+ * um `messHallWorkforceId` e nenhum `unitId`, a tentação é confiar no que o cliente mandar; este
+ * teste prova que a unidade dona sai do banco e que a recusa acontece ANTES de qualquer escrita.
  *
  * Também trava a separação de papéis: o gestor do ELO preenche (nível 2 na própria unidade),
  * mas abrir competência e mexer no roster é `admin:2` — governança de plataforma.
@@ -17,18 +17,18 @@ import { PermissionDeniedError } from "../types/errors.ts"
 import {
 	addWorkforceNote,
 	closeWorkforceSurvey,
-	createRancho,
+	createMessHallWorkforce,
 	createWorkforceSurvey,
 	deleteWorkforceNote,
 	fetchWorkforceMatrix,
 	fetchWorkforceNetwork,
 	saveWorkforceSubmission,
-	updateRancho,
+	updateMessHallWorkforce,
 } from "./workforce.ts"
 
 const OWNER_UNIT = 8
 const OTHER_UNIT = 13
-const RANCHO_ID = 42
+const MESS_HALL_WORKFORCE_ID = 42
 const SURVEY_ID = "11111111-1111-4111-8111-111111111111"
 const NOTE_ID = "22222222-2222-4222-8222-222222222222"
 
@@ -77,8 +77,8 @@ function fakeDb(rows: unknown[] = []) {
 	return { db: db as unknown as SisubDb, writes }
 }
 
-/** Linha do rancho como o guard a lê: dona é OWNER_UNIT, ativa. */
-const ownedRancho = [{ unitId: OWNER_UNIT, active: true }]
+/** Linha do refeitório do levantamento como o guard a lê: dona é OWNER_UNIT, ativa. */
+const ownedMessHall = [{ unitId: OWNER_UNIT, active: true }]
 
 describe("leitura da matriz de uma unidade", () => {
 	test("sem permissão na unidade é recusado", async () => {
@@ -105,39 +105,45 @@ describe("visão de rede", () => {
 })
 
 describe("preenchimento do efetivo", () => {
-	const input = { surveyId: SURVEY_ID, ranchoId: RANCHO_ID, entries: [{ categoryCode: "qta", headcount: 10 }], declaredTotal: 10 }
+	const input = { surveyId: SURVEY_ID, messHallWorkforceId: MESS_HALL_WORKFORCE_ID, entries: [{ categoryCode: "qta", headcount: 10 }], declaredTotal: 10 }
 
 	test("gestor de OUTRO ELO é recusado — a unidade dona vem da linha, não do input", async () => {
-		const { db, writes } = fakeDb(ownedRancho)
+		const { db, writes } = fakeDb(ownedMessHall)
 		await expect(saveWorkforceSubmission(db, localCtx(OTHER_UNIT, 2), input)).rejects.toBeInstanceOf(PermissionDeniedError)
 		expect(writes).toEqual([])
 	})
 
 	test("nível 1 na própria unidade lê, mas não escreve", async () => {
-		const { db, writes } = fakeDb(ownedRancho)
+		const { db, writes } = fakeDb(ownedMessHall)
 		await expect(saveWorkforceSubmission(db, localCtx(OWNER_UNIT, 1), input)).rejects.toBeInstanceOf(PermissionDeniedError)
 		expect(writes).toEqual([])
 	})
 
 	test("módulo unit nível 2 na própria unidade também autoriza", async () => {
-		const { db } = fakeDb(ownedRancho)
+		const { db } = fakeDb(ownedMessHall)
 		// Passa do guard de permissão; falha adiante por falta de fixture — o que importa
 		// aqui é que o erro NÃO é de permissão.
 		await expect(saveWorkforceSubmission(db, unitCtx(OWNER_UNIT, 2), input)).rejects.not.toBeInstanceOf(PermissionDeniedError)
 	})
 
-	test("observação segue a mesma dona do rancho", async () => {
-		const { db, writes } = fakeDb(ownedRancho)
+	test("observação segue a mesma dona do refeitório", async () => {
+		const { db, writes } = fakeDb(ownedMessHall)
 		await expect(
-			addWorkforceNote(db, localCtx(OTHER_UNIT, 2), { surveyId: SURVEY_ID, ranchoId: RANCHO_ID, kind: "leave", quantity: 1, detail: "x" })
+			addWorkforceNote(db, localCtx(OTHER_UNIT, 2), {
+				surveyId: SURVEY_ID,
+				messHallWorkforceId: MESS_HALL_WORKFORCE_ID,
+				kind: "leave",
+				quantity: 1,
+				detail: "x",
+			})
 		).rejects.toBeInstanceOf(PermissionDeniedError)
 		expect(writes).toEqual([])
 	})
 
-	test("apagar observação resolve a dona pelo JOIN até o rancho", async () => {
-		// O select devolve tanto a linha do JOIN (ranchoId) quanto a do rancho (unitId):
+	test("apagar observação resolve a dona pelo JOIN até o refeitório", async () => {
+		// O select devolve tanto a linha do JOIN (messHallWorkforceId) quanto a do refeitório (unitId):
 		// o stub serve as duas consultas, e o guard tem de recusar na segunda.
-		const { db, writes } = fakeDb([{ ranchoId: RANCHO_ID, unitId: OWNER_UNIT, active: true }])
+		const { db, writes } = fakeDb([{ messHallWorkforceId: MESS_HALL_WORKFORCE_ID, unitId: OWNER_UNIT, active: true }])
 		await expect(deleteWorkforceNote(db, localCtx(OTHER_UNIT, 2), { noteId: NOTE_ID })).rejects.toBeInstanceOf(PermissionDeniedError)
 		expect(writes).toEqual([])
 	})
@@ -145,7 +151,7 @@ describe("preenchimento do efetivo", () => {
 	test("apagar observação de competência ENCERRADA é recusado", async () => {
 		// Sem este guard, mexer numa coleta antiga mudaria para sempre o efetivo disponível
 		// daquele mês — e `addWorkforceNote` recusaria recriar a observação apagada.
-		const { db, writes } = fakeDb([{ ranchoId: RANCHO_ID, surveyId: SURVEY_ID, unitId: OWNER_UNIT, active: true, status: "closed" }])
+		const { db, writes } = fakeDb([{ messHallWorkforceId: MESS_HALL_WORKFORCE_ID, surveyId: SURVEY_ID, unitId: OWNER_UNIT, active: true, status: "closed" }])
 		await expect(deleteWorkforceNote(db, localCtx(OWNER_UNIT, 2), { noteId: NOTE_ID })).rejects.toThrow(/encerrada/i)
 		expect(writes).toEqual([])
 	})
@@ -156,20 +162,20 @@ describe("preenchimento do efetivo", () => {
 		expect(writes).toEqual([])
 	})
 
-	test("rancho INATIVO não aceita preenchimento, mesmo com permissão", async () => {
+	test("refeitório INATIVO no levantamento não aceita preenchimento, mesmo com permissão", async () => {
 		const { db, writes } = fakeDb([{ unitId: OWNER_UNIT, active: false }])
 		await expect(saveWorkforceSubmission(db, localCtx(OWNER_UNIT, 2), input)).rejects.toThrow(/inativo/i)
 		expect(writes).toEqual([])
 	})
 
 	test("salvar TUDO em branco apaga a resposta em vez de criar uma resposta zerada", async () => {
-		// Se a submission fosse criada assim, o rancho contaria como respondido com total 0:
+		// Se a submission fosse criada assim, o refeitório contaria como respondido com total 0:
 		// entraria na taxa de resposta, puxaria o total da rede para baixo e apareceria na
 		// fila de lacunas de cobertura — sem nenhum caminho de volta.
 		const { db, writes } = fakeDb([{ unitId: OWNER_UNIT, active: true, status: "open" }])
 		await saveWorkforceSubmission(db, localCtx(OWNER_UNIT, 2), {
 			surveyId: SURVEY_ID,
-			ranchoId: RANCHO_ID,
+			messHallWorkforceId: MESS_HALL_WORKFORCE_ID,
 			entries: [{ categoryCode: "qta", headcount: null }],
 			declaredTotal: null,
 		}).catch(() => undefined)
@@ -199,13 +205,13 @@ describe("governança da competência e do roster", () => {
 		expect(writes).toEqual([])
 	})
 
-	test("criar rancho no próprio ELO ainda exige admin:2 — roster é cadastro, não preenchimento", async () => {
+	test("criar refeitório no levantamento do próprio ELO ainda exige admin:2 — roster é cadastro, não preenchimento", async () => {
 		const { db, writes } = fakeDb()
 		await expect(
-			createRancho(db, localCtx(OWNER_UNIT, 2), {
+			createMessHallWorkforce(db, localCtx(OWNER_UNIT, 2), {
 				unitId: OWNER_UNIT,
 				eloCode: "BASC",
-				code: "novo-rancho",
+				code: "novo-refeitorio",
 				displayName: "Novo",
 				producesOwnMeals: true,
 			})
@@ -213,9 +219,11 @@ describe("governança da competência e do roster", () => {
 		expect(writes).toEqual([])
 	})
 
-	test("editar rancho exige admin:2", async () => {
+	test("editar refeitório do levantamento exige admin:2", async () => {
 		const { db, writes } = fakeDb()
-		await expect(updateRancho(db, unitCtx(OWNER_UNIT, 2), { ranchoId: RANCHO_ID, displayName: "x" })).rejects.toBeInstanceOf(PermissionDeniedError)
+		await expect(updateMessHallWorkforce(db, unitCtx(OWNER_UNIT, 2), { messHallWorkforceId: MESS_HALL_WORKFORCE_ID, displayName: "x" })).rejects.toBeInstanceOf(
+			PermissionDeniedError
+		)
 		expect(writes).toEqual([])
 	})
 

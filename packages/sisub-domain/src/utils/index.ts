@@ -80,10 +80,10 @@ export {
 } from "./snack-kit.ts"
 export type {
 	MealLoadInput,
-	RanchoWorkforceInput,
-	RanchoWorkforceMetrics,
+	MessHallWorkforceInput,
+	MessHallWorkforceMetrics,
 	WorkforceCategoryRef,
 	WorkforceGroupSummary,
 	WorkforceNoteRef,
 } from "./workforce-metrics.ts"
-export { computeRanchoMetrics, coverageGaps, groupWorkforceBy, mealsPerWorker, summarizeWorkforce } from "./workforce-metrics.ts"
+export { computeMessHallWorkforceMetrics, coverageGaps, groupWorkforceBy, mealsPerWorker, summarizeWorkforce } from "./workforce-metrics.ts"

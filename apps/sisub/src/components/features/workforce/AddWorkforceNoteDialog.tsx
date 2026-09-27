@@ -14,20 +14,20 @@ import { addWorkforceNoteFn } from "@/server/workforce.fn"
 
 interface AddWorkforceNoteDialogProps {
 	surveyId: string
-	ranchoId: number
-	ranchoName: string
+	messHallWorkforceId: number
+	displayName: string
 	queryKey: readonly unknown[]
 }
 
 /**
- * Registro de observação do rancho.
+ * Registro de observação do refeitório no levantamento de efetivo.
  *
  * O aviso sobre identificação nominal não é decorativo: a matriz de origem nomeava
  * militares e citava condição de saúde, dado pessoal sensível (LGPD art. 5º II). A
  * importação despersonalizou o histórico; o formulário existe para não reintroduzir
  * o problema pela porta da frente.
  */
-export function AddWorkforceNoteDialog({ surveyId, ranchoId, ranchoName, queryKey }: AddWorkforceNoteDialogProps) {
+export function AddWorkforceNoteDialog({ surveyId, messHallWorkforceId, displayName, queryKey }: AddWorkforceNoteDialogProps) {
 	const queryClient = useQueryClient()
 	const [open, setOpen] = React.useState(false)
 	const [kind, setKind] = React.useState<WorkforceNoteKind>("leave")
@@ -37,7 +37,7 @@ export function AddWorkforceNoteDialog({ surveyId, ranchoId, ranchoName, queryKe
 	const add = useMutation({
 		mutationFn: () =>
 			addWorkforceNoteFn({
-				data: { surveyId, ranchoId, kind, quantity: quantity.trim() === "" ? null : Number(quantity), detail: detail.trim() },
+				data: { surveyId, messHallWorkforceId, kind, quantity: quantity.trim() === "" ? null : Number(quantity), detail: detail.trim() },
 			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey })
@@ -72,7 +72,7 @@ export function AddWorkforceNoteDialog({ surveyId, ranchoId, ranchoName, queryKe
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Observação — {ranchoName}</DialogTitle>
+						<DialogTitle>Observação — {displayName}</DialogTitle>
 						<DialogDescription>Afastamento, desvio de função, terceirizado e critério de contagem entram aqui e afetam o efetivo disponível.</DialogDescription>
 					</DialogHeader>
 

@@ -748,8 +748,8 @@ export const ASSURANCE_REGISTRY = {
 	deleteWorkforceNoteFn: { require: "none" },
 	createWorkforceSurveyFn: { require: "none" },
 	closeWorkforceSurveyFn: { require: "none" },
-	createRanchoFn: { require: "none" },
-	updateRanchoFn: { require: "none" },
+	createMessHallWorkforceFn: { require: "none" },
+	updateMessHallWorkforceFn: { require: "none" },
 } as const satisfies Record<string, AssuranceEntry>
 
 /** Nome de toda server function de mutação classificada. */

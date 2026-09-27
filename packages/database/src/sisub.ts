@@ -71,9 +71,9 @@ export type Unit = Tables<"units">
 export type UnitInsert = TablesInsert<"units">
 export type UnitUpdate = TablesUpdate<"units">
 
-export type Rancho = Tables<"rancho">
-export type RanchoInsert = TablesInsert<"rancho">
-export type RanchoUpdate = TablesUpdate<"rancho">
+export type MessHallWorkforce = Tables<"mess_hall_workforce">
+export type MessHallWorkforceInsert = TablesInsert<"mess_hall_workforce">
+export type MessHallWorkforceUpdate = TablesUpdate<"mess_hall_workforce">
 
 export type WorkforceCategory = Tables<"workforce_category">
 export type WorkforceCategoryInsert = TablesInsert<"workforce_category">

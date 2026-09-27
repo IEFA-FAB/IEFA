@@ -372,11 +372,35 @@ export const LEGACY_ARRANCHAMENTO_PATH = "/rancho_previsoes"
 // ok: ubiquitous-language-lot8a-rancho
 const tag = { tags: ["Arranchamento"], description: "Retorna quem está arranchado; will_eat = false é desarranchado" }
 // ok: ubiquitous-language-lot8a-rancho
+// a tabela era `kitchen.rancho` até o rename 20260927150000 (lote 8b)
+
+// ── Lote 8b: "rancho" no efetivo (a exclusão do 8a saiu) ───────────────────
+
+// ruleid: ubiquitous-language-lot8a-rancho
 const roster = sql`delete from kitchen.workforce_submission where rancho_id in (select id from kitchen.rancho)`
-// ok: ubiquitous-language-lot8a-rancho
+// ruleid: ubiquitous-language-lot8a-rancho
 export { createRancho, updateRancho, computeRanchoMetrics } from "./workforce.ts"
+// ruleid: ubiquitous-language-lot8a-rancho
+import { ranchoInKitchen } from "@iefa/database/drizzle/sisub"
+// ruleid: ubiquitous-language-lot8a-rancho
+export type Rancho = Tables<"rancho">
+// ruleid: ubiquitous-language-lot8a-rancho
+export type WorkforceRanchoWire = RanchoWorkforceMetrics & { mess_hall_name: string | null }
+// ruleid: ubiquitous-language-lot8a-rancho
+const save = { surveyId, ranchoId: row.ranchoId, entries }
+// ruleid: ubiquitous-language-lot8a-rancho
+const navWorkforce = { title: "Efetivo dos Ranchos", url: "/local-analytics/workforce" }
+// ruleid: ubiquitous-language-lot8a-rancho
+const tile = { label: "Ranchos sem resposta", hint: `Todos os ${summary.ranchos} ranchos responderam` }
+// ruleid: ubiquitous-language-lot8a-rancho
+throw new DomainError("RANCHO_INACTIVE", "Rancho inativo não aceita preenchimento de efetivo")
+
 // ok: ubiquitous-language-lot8a-rancho
-// o "rancho" da matriz de efetivo sai no lote 8b
+const rosterOk = sql`delete from kitchen.workforce_submission where mess_hall_workforce_id in (select id from kitchen.mess_hall_workforce)`
+// ok: ubiquitous-language-lot8a-rancho
+export { createMessHallWorkforce, updateMessHallWorkforce, computeMessHallWorkforceMetrics } from "./workforce.ts"
+// ok: ubiquitous-language-lot8a-rancho
+const navWorkforceOk = { title: "Efetivo dos Refeitórios", url: "/local-analytics/workforce", keywords: ["efetivo", "militares", "rancho"] }
 
 // ── Lote 5: cardápio de apoio ──────────────────────────────────────────────
 

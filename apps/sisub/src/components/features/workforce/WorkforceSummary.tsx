@@ -11,11 +11,11 @@ interface WorkforceSummaryProps {
 /**
  * Cabeçalho de números da matriz.
  *
- * A taxa de resposta vem junto do efetivo de propósito: "998 militares" sem "27 de 65 ranchos
+ * A taxa de resposta vem junto do efetivo de propósito: "998 militares" sem "27 de 65 refeitórios
  * responderam" é um número que convida à leitura errada, e foi assim que a planilha circulou.
  */
 export function WorkforceSummary({ summary, scopeLabel }: WorkforceSummaryProps) {
-	const pending = summary.ranchos - summary.answeredRanchos
+	const pending = summary.messHalls - summary.answeredMessHalls
 	const responseRate = Math.round(summary.responseRate * 100)
 
 	const tiles = [
@@ -27,15 +27,18 @@ export function WorkforceSummary({ summary, scopeLabel }: WorkforceSummaryProps)
 		},
 		{
 			icon: AlertTriangle,
-			label: "Ranchos sem resposta",
+			label: "Refeitórios sem resposta",
 			value: String(pending),
-			hint: pending === 0 ? `Todos os ${summary.ranchos} ranchos responderam` : `${responseRate}% dos ${summary.ranchos} ranchos ${scopeLabel} responderam`,
+			hint:
+				pending === 0
+					? `Todos os ${summary.messHalls} refeitórios responderam`
+					: `${responseRate}% dos ${summary.messHalls} refeitórios ${scopeLabel} responderam`,
 		},
 		{
 			icon: UserX,
 			label: "Sem cobertura técnica",
-			value: String(summary.ranchosWithoutTechnicalStaff),
-			hint: `${summary.ranchosWithoutNutritionist} sem nutricionista; ${summary.technicalStaff} técnicos no total`,
+			value: String(summary.messHallsWithoutTechnicalStaff),
+			hint: `${summary.messHallsWithoutNutritionist} sem nutricionista; ${summary.technicalStaff} técnicos no total`,
 		},
 		{
 			icon: HandHelping,

@@ -1,6 +1,6 @@
 /**
  * @module workforce.fn
- * Server fns da matriz de efetivo dos ranchos (roster, competência, quantitativos, observações).
+ * Server fns da matriz de efetivo por refeitório (roster, competência, quantitativos, observações).
  * Wrappers finos sobre as operations de @iefa/sisub-domain, com auth via requireAuth().
  * @domain core
  */
@@ -9,10 +9,10 @@ import {
 	AddWorkforceNoteSchema,
 	addWorkforceNote,
 	CloseWorkforceSurveySchema,
-	CreateRanchoSchema,
+	CreateMessHallWorkforceSchema,
 	CreateWorkforceSurveySchema,
 	closeWorkforceSurvey,
-	createRancho,
+	createMessHallWorkforce,
 	createWorkforceSurvey,
 	DeleteWorkforceNoteSchema,
 	deleteWorkforceNote,
@@ -24,8 +24,8 @@ import {
 	listWorkforceSurveys,
 	SaveWorkforceSubmissionSchema,
 	saveWorkforceSubmission,
-	UpdateRanchoSchema,
-	updateRancho,
+	UpdateMessHallWorkforceSchema,
+	updateMessHallWorkforce,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
@@ -94,16 +94,16 @@ export const closeWorkforceSurveyFn = createServerFn({ method: "POST" })
 		return closeWorkforceSurvey(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-export const createRanchoFn = createServerFn({ method: "POST" })
-	.validator(CreateRanchoSchema)
+export const createMessHallWorkforceFn = createServerFn({ method: "POST" })
+	.validator(CreateMessHallWorkforceSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createRancho(getDb(), ctx, data).catch(handleDomainError)
+		return createMessHallWorkforce(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-export const updateRanchoFn = createServerFn({ method: "POST" })
-	.validator(UpdateRanchoSchema)
+export const updateMessHallWorkforceFn = createServerFn({ method: "POST" })
+	.validator(UpdateMessHallWorkforceSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateRancho(getDb(), ctx, data).catch(handleDomainError)
+		return updateMessHallWorkforce(getDb(), ctx, data).catch(handleDomainError)
 	})
