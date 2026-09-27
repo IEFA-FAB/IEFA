@@ -77,8 +77,8 @@ describe("loadUnitExecution — somatório sem corte de 1000 linhas e por exerc�
 		empenho: empenhos,
 		v_empenho_vigente: empenhos.map((e) => ({ empenho_id: e.id, valor_vigente: 10 })),
 		empenho_item: empenhos.map((e) => ({ id: `i-${e.id}`, empenho_id: e.id, arp_item_id: null })),
-		procurement_arp: [],
-		procurement_arp_item: [],
+		arp: [],
+		arp_item: [],
 	}
 
 	test("lê todas as NEs do exercício (mais de mil) e as da contratação do exercício com data em outro ano", async () => {

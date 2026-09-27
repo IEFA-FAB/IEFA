@@ -441,7 +441,7 @@ async function authorizeQuantityEstimate(db: SisubDb, ctx: UserContext, quantity
 				select l.id, l.unit_id, l.title, l.status, l.validity_months, l.is_budget_confidential, l.segment_id,
 					s.name as segment_name, u.display_name as unit_name, u.uasg
 				from procurement.quantity_estimate l
-				left join procurement.procurement_segment s on s.id = l.segment_id
+				left join procurement.segment s on s.id = l.segment_id
 				left join core.units u on u.id = l.unit_id
 				where l.id = ${quantityEstimateId} and l.deleted_at is null
 			`),
@@ -517,8 +517,8 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 					select ri.*, rh.created_by, rh.period_months, rh.reference_method as header_method,
 						nullif(btrim(coalesce(m."sgPosto", '') || ' ' || coalesce(m."nmGuerra", '')), '') as military_name,
 						coalesce(ud.email, au.email) as email
-					from procurement.procurement_pesquisa_preco_item ri
-					join procurement.procurement_pesquisa_preco rh on rh.id = ri.research_id
+					from procurement.price_research_item ri
+					join procurement.price_research rh on rh.id = ri.research_id
 					left join auth.users au on au.id = rh.created_by
 					left join core.user_data ud on ud.id = rh.created_by
 					left join core.user_military_data m on m."nrOrdem" = ud."nrOrdem"
@@ -531,8 +531,8 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 			() =>
 				db.execute(sql`
 					select b.research_item_id, b.sample_type, b.converted_price, b.content_in_unit, b.conversion, a.*
-					from procurement.procurement_pesquisa_preco_amostra b
-					join procurement.compras_amostra a on a.id = b.amostra_id
+					from procurement.price_research_sample b
+					join procurement.price_sample a on a.id = b.price_sample_id
 					where b.research_item_id in (${ids})
 				`),
 			{ prefix: "Erro ao ler as amostras" }
@@ -625,7 +625,7 @@ async function latestResearchByItem(db: SisubDb, listItemIds: readonly string[])
 	const rows = (await runQuery("FETCH_FAILED", () =>
 		db.execute(sql`
 			select distinct on (ri.quantity_estimate_item_id) ri.quantity_estimate_item_id, ri.id
-			from procurement.procurement_pesquisa_preco_item ri
+			from procurement.price_research_item ri
 			join procurement.quantity_estimate_item i on i.id = ri.quantity_estimate_item_id
 			where ri.quantity_estimate_item_id in (${sql.join(
 				listItemIds.map((id) => sql`${id}::uuid`),

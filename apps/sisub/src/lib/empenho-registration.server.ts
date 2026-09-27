@@ -23,7 +23,7 @@
  * - toda NE nova religa as NS/OB estacionadas da unidade (`relink_waiting_rows`).
  *
  * CLIENT: getDb (transação) e getServerClient (leituras, religação).
- * TABLES: finance.empenho, finance.empenho_item, procurement.procurement_arp(_item), procurement.acquisition.
+ * TABLES: finance.empenho, finance.empenho_item, procurement.arp(_item), procurement.acquisition.
  * @domain core
  */
 
@@ -168,7 +168,7 @@ export async function prepareEmpenhoRegistration(data: EmpenhoRegistration): Pro
 	let arpSynced = true
 	if (arpItemIds.length > 0) {
 		const { data: itemRows, error: itemError } = await proc
-			.from("procurement_arp_item")
+			.from("arp_item")
 			.select(
 				"id, arp_id, numero_item, descricao_item, ni_fornecedor, nome_fornecedor, valor_unitario, quantidade_homologada, quantidade_empenhada, saldo_empenho, medida_catmat"
 			)
@@ -178,7 +178,7 @@ export async function prepareEmpenhoRegistration(data: EmpenhoRegistration): Pro
 		if (rows.length !== arpItemIds.length) throw new Error("Item da ARP não encontrado")
 		const arpIds = [...new Set(rows.map((row) => row.arp_id))]
 		const { data: arpRows, error: arpError } = await proc
-			.from("procurement_arp")
+			.from("arp")
 			.select("id, unit_id, acquisition_id, data_vigencia_inicio, data_vigencia_fim, last_synced_at, source")
 			.in("id", arpIds)
 		if (arpError) throw new Error(`Erro ao conferir as ARPs: ${arpError.message}`)

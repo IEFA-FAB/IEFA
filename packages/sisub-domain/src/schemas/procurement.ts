@@ -353,15 +353,15 @@ const SegmentFieldsSchema = z.object({
 })
 
 export const FetchSegmentationSchema = z.object({ unitId: z.number().int().positive() })
-export const CreateProcurementSegmentSchema = SegmentFieldsSchema.extend({ unitId: z.number().int().positive() })
-export const UpdateProcurementSegmentSchema = SegmentFieldsSchema.partial().extend({ segmentId: UuidSchema })
-export const DeleteProcurementSegmentSchema = z.object({ segmentId: UuidSchema })
-export const AddProcurementSegmentRuleSchema = z.object({
+export const CreateSegmentSchema = SegmentFieldsSchema.extend({ unitId: z.number().int().positive() })
+export const UpdateSegmentSchema = SegmentFieldsSchema.partial().extend({ segmentId: UuidSchema })
+export const DeleteSegmentSchema = z.object({ segmentId: UuidSchema })
+export const AddSegmentRuleSchema = z.object({
 	segmentId: UuidSchema,
 	mode: z.enum(["include", "exclude"]),
 	folderId: UuidSchema.nullable().optional(),
 	purchaseItemId: UuidSchema.nullable().optional(),
 })
-export const RemoveProcurementSegmentRuleSchema = z.object({ ruleId: UuidSchema })
+export const RemoveSegmentRuleSchema = z.object({ ruleId: UuidSchema })
 
 export const UpdateQuantityEstimateDocumentSettingsSchema = z.object({ quantityEstimateId: UuidSchema, isBudgetConfidential: z.boolean() })

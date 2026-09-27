@@ -8,8 +8,8 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	brasiliaToday,
 	createDemandForecast,
-	createProcurementSegment,
 	createQuantityEstimateDraft,
+	createSegment,
 	fetchDemandForecastStatus,
 	fetchPendingDemandForecast,
 	fetchProcurementPlanningStatus,
@@ -30,7 +30,7 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 	let closeDb: (() => Promise<void>) | null = null
 
 	beforeAll(async () => {
-		const s = await setupIntegration("procurement_segment")
+		const s = await setupIntegration("segment")
 		reachable = s.reachable
 		if (s.client) client = s.client
 		const url = getSisubDatabaseUrl()
@@ -79,8 +79,8 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 
 		// Unidade: contratação no mês corrente, com a janela aberta.
 		const month = Number(brasiliaToday().slice(5, 7))
-		const segment = await createProcurementSegment(db, ctx, { unitId, name: uid("Carnes "), plannedMonth: month, leadTimeMonths: 1 })
-		seeder.track("procurement_segment", segment.id)
+		const segment = await createSegment(db, ctx, { unitId, name: uid("Carnes "), plannedMonth: month, leadTimeMonths: 1 })
+		seeder.track("segment", segment.id)
 
 		let unitStatus = await fetchProcurementPlanningStatus(db, ctx, { unitId })
 		expect(unitStatus.kitchens).toHaveLength(1)

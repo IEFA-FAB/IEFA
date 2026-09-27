@@ -89,7 +89,7 @@ export async function loadUnitExecution<A extends ExecutionAcquisitionRow>(
 		),
 		readAllPages<ExecutionArpRow>("ARPs", (from, to) =>
 			procurement
-				.from("procurement_arp")
+				.from("arp")
 				.select("id, numero_ata, uasg_gerenciadora, nome_uasg_gerenciadora, source, last_synced_at, quantity_estimate_id, acquisition_id, data_vigencia_fim")
 				.eq("unit_id", unitId)
 				.order("created_at", { ascending: false })
@@ -121,7 +121,7 @@ export async function loadUnitExecution<A extends ExecutionAcquisitionRow>(
 		readAllPagesIn<{ arp_id: string }>(
 			"itens das ARPs",
 			arps.map((a) => a.id),
-			(chunk, from, to) => procurement.from("procurement_arp_item").select("id, arp_id").in("arp_id", chunk).order("id").range(from, to)
+			(chunk, from, to) => procurement.from("arp_item").select("id, arp_id").in("arp_id", chunk).order("id").range(from, to)
 		),
 	])
 

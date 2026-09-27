@@ -10,8 +10,8 @@
 
 import { randomUUID } from "node:crypto"
 import {
-	procurementPesquisaPrecoInProcurement,
-	procurementPesquisaPrecoItemInProcurement,
+	priceResearchInProcurement,
+	priceResearchItemInProcurement,
 	quantityEstimateInProcurement,
 	quantityEstimateItemInProcurement,
 	type SisubDb,
@@ -595,7 +595,7 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 
 		// Memória de cálculo mínima, ligada ao anexo (ON DELETE CASCADE limpa junto com o anexo).
 		const [research] = await db
-			.insert(procurementPesquisaPrecoInProcurement)
+			.insert(priceResearchInProcurement)
 			.values({
 				quantityEstimateId: quantityEstimate.id,
 				referenceMethod: "median",
@@ -604,9 +604,9 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 				itemsWithoutCatmat: 0,
 				nonCompliantItems: 0,
 			})
-			.returning({ id: procurementPesquisaPrecoInProcurement.id })
+			.returning({ id: priceResearchInProcurement.id })
 		const [researchItem] = await db
-			.insert(procurementPesquisaPrecoItemInProcurement)
+			.insert(priceResearchItemInProcurement)
 			.values({
 				researchId: research.id,
 				quantityEstimateItemId: item.id,
@@ -619,7 +619,7 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 				referencePrice: 12.34,
 				referenceMethod: "median",
 			})
-			.returning({ id: procurementPesquisaPrecoItemInProcurement.id })
+			.returning({ id: priceResearchItemInProcurement.id })
 		const link = { quantityEstimateItemId: item.id, researchId: research.id, researchItemId: researchItem.id }
 
 		await expect(

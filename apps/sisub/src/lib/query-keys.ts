@@ -206,8 +206,8 @@ export const queryKeys = {
 		scopes: (unitId: number | null) => ["designations", "scopes", unitId] as const,
 	},
 
-	procurementSegments: {
-		overview: (unitId: number | null) => ["procurement_segments", "overview", unitId] as const,
+	segments: {
+		overview: (unitId: number | null) => ["segments", "overview", unitId] as const,
 	},
 
 	/** Contratação de origem, ARP sem anexo e NE com itens (execução flexível da despesa). */
@@ -226,8 +226,8 @@ export const queryKeys = {
 		details: (quantityEstimateId: string | null) => ["quantity_estimate", "details", quantityEstimateId] as const,
 		draft: (draftId: string | null) => ["quantity_estimate_draft", draftId] as const,
 		needs: (params: { startDate: string; endDate: string; kitchenId?: number; unitId?: number }) => ["procurement", "needs", params] as const,
-		arp: (quantityEstimateId: string | null) => ["procurement_arp", "quantity_estimate", quantityEstimateId] as const,
-		arpCommitments: (arpId: string | null) => ["procurement_arp", "local-commitments", arpId] as const,
+		arp: (quantityEstimateId: string | null) => ["arp", "quantity_estimate", quantityEstimateId] as const,
+		arpCommitments: (arpId: string | null) => ["arp", "local-commitments", arpId] as const,
 		empenhos: (arpItemId: string | null) => ["empenho", "item", arpItemId] as const,
 	},
 

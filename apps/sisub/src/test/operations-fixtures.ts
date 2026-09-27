@@ -204,7 +204,7 @@ const TABLE_SCHEMA: Record<string, string> = {
 	quantity_estimate_item: "procurement",
 	kitchen_demand_forecast: "procurement",
 	kitchen_demand_forecast_selection: "procurement",
-	procurement_segment: "procurement",
+	segment: "procurement",
 	// kitchen (default p/ o resto)
 }
 const schemaFor = (table: string): string => TABLE_SCHEMA[table] ?? "kitchen"

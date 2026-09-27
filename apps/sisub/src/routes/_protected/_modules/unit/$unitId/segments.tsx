@@ -2,7 +2,7 @@ import { createFileRoute, useParams } from "@tanstack/react-router"
 import { requirePermission, usePBAC } from "@/auth/pbac"
 import { SegmentationEditor } from "@/components/features/local/procurement/SegmentationEditor"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { useSegmentationOverview } from "@/hooks/data/useProcurementSegments"
+import { useSegmentationOverview } from "@/hooks/data/useSegments"
 
 /**
  * GESTÃO UNIDADE — Segmentação das contratações

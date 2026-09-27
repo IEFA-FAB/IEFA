@@ -80,7 +80,7 @@ const JustificationSchema = z.string().max(4000).nullable().optional()
 
 // ─── Salvar memória de cálculo para auditoria (Lei 14.133/2021) ───────────────
 
-export const savePrecoAuditFn = createServerFn({ method: "POST" })
+export const savePriceResearchFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			catmatCodigo: z.number().int().positive(),

@@ -325,12 +325,12 @@ export const ASSURANCE_REGISTRY = {
 	emitPriceResearchReportFn: { require: "none" },
 	updateQuantityEstimateDocumentSettingsFn: { require: "none" },
 
-	// ── procurement-segments.fn.ts (cadastro da segmentação; sem efeito financeiro nem de acesso)
-	createProcurementSegmentFn: { require: "none" },
-	updateProcurementSegmentFn: { require: "none" },
-	deleteProcurementSegmentFn: { require: "none" },
-	addProcurementSegmentRuleFn: { require: "none" },
-	removeProcurementSegmentRuleFn: { require: "none" },
+	// ── segments.fn.ts (cadastro da segmentação; sem efeito financeiro nem de acesso)
+	createSegmentFn: { require: "none" },
+	updateSegmentFn: { require: "none" },
+	deleteSegmentFn: { require: "none" },
+	addSegmentRuleFn: { require: "none" },
+	removeSegmentRuleFn: { require: "none" },
 
 	// ── demand-forecast.fn.ts
 	recordDemandForecastImportFn: { require: "none" },
@@ -538,7 +538,7 @@ export const ASSURANCE_REGISTRY = {
 	deletePresenceFn: { require: "none" },
 
 	// ── price-research.fn.ts
-	savePrecoAuditFn: { require: "none" },
+	savePriceResearchFn: { require: "none" },
 
 	// ── production-issue.fn.ts
 	confirmIssueFn: { require: "none" },

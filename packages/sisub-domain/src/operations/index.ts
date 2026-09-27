@@ -699,18 +699,6 @@ export {
 	type ProcurementPlanningStatus,
 	type SegmentCalendarEntry,
 } from "./procurement-flows.ts"
-export {
-	addProcurementSegmentRule,
-	createProcurementSegment,
-	deleteProcurementSegment,
-	fetchSegmentationOverview,
-	type ProcurementSegment,
-	type ProcurementSegmentRule,
-	removeProcurementSegmentRule,
-	type SegmentationLine,
-	type SegmentationOverview,
-	updateProcurementSegment,
-} from "./procurement-segments.ts"
 export type { BoardExecutionInfo, BoardSnackRequest } from "./production.ts"
 export {
 	adjustProductionPortions,
@@ -921,6 +909,18 @@ export {
 	type SegmentRuleInput,
 	type SegmentRuleMode,
 } from "./segment-resolution.ts"
+export {
+	addSegmentRule,
+	createSegment,
+	deleteSegment,
+	fetchSegmentationOverview,
+	removeSegmentRule,
+	type Segment,
+	type SegmentationLine,
+	type SegmentationOverview,
+	type SegmentRule,
+	updateSegment,
+} from "./segments.ts"
 export type {
 	SnackLabelData,
 	SnackOrderingContext,

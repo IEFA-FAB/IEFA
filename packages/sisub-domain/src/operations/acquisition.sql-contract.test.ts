@@ -34,7 +34,7 @@ describe("vocabulário da contratação de origem", () => {
 	test("direct_contract_limit.clause", () => {
 		expect(checkValues(ORIGIN, "clause")).toEqual([...DIRECT_CONTRACT_VALUE_CLAUSES].sort())
 	})
-	test("procurement_arp.source e procurement_arp_item.source", () => {
+	test("arp.source e arp_item.source", () => {
 		expect(checkValues(ORIGIN, "source", 0)).toEqual([...ARP_SOURCES].sort())
 		expect(checkValues(ORIGIN, "source", 1)).toEqual([...ARP_SOURCES].sort())
 	})

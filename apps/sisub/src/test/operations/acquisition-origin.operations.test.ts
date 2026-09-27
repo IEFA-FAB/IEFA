@@ -58,11 +58,11 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 
 				// ARP de outra UASG, sem anexo quantitativo, cadastrada à mão.
 				const [arp] = await tx`
-					insert into procurement.procurement_arp (unit_id, quantity_estimate_id, acquisition_id, numero_ata, uasg_gerenciadora, source)
+					insert into procurement.arp (unit_id, quantity_estimate_id, acquisition_id, numero_ata, uasg_gerenciadora, source)
 					values (${unit.id}, null, ${acq.id}, '00012/2026', '120001', 'manual') returning id, last_synced_at`
 				expect(arp.last_synced_at).toBeNull()
 				const items = await tx`
-					insert into procurement.procurement_arp_item (arp_id, numero_item, descricao_item, valor_unitario, quantidade_homologada, source)
+					insert into procurement.arp_item (arp_id, numero_item, descricao_item, valor_unitario, quantidade_homologada, source)
 					values (${arp.id}, 1, 'ARROZ', 5, 1000, 'manual'), (${arp.id}, 2, 'FEIJAO', 8, 1000, 'manual'), (${arp.id}, 3, 'OLEO', 10, 1000, 'manual')
 					returning id, numero_item`
 				const byNumber = new Map(items.map((row) => [Number(row.numero_item), row.id as string]))
@@ -83,7 +83,7 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 				expect(committed.map((row) => Number(row.qty))).toEqual([50, 50, 50])
 
 				// O retrato oficial da ARP não é tocado pelo empenho local.
-				const [official] = await tx`select quantidade_empenhada from procurement.procurement_arp_item where id = ${byNumber.get(1) as string}`
+				const [official] = await tx`select quantidade_empenhada from procurement.arp_item where id = ${byNumber.get(1) as string}`
 				expect(Number(official.quantidade_empenhada)).toBe(0)
 
 				// OF pelo valor: 500 + 400 = 900 de 1.150.
@@ -174,10 +174,10 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 				const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-ANEXO', 'unit teste anexo') returning id`
 				const [list] = await tx`insert into procurement.quantity_estimate (unit_id, title) values (${unit.id}, 'anexo que vai sumir') returning id`
 				const [arp] = await tx`
-					insert into procurement.procurement_arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora)
+					insert into procurement.arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora)
 					values (${unit.id}, ${list.id}, '00001/2026', '160001') returning id`
 				const [arpItem] = await tx`
-					insert into procurement.procurement_arp_item (arp_id, numero_item, valor_unitario, quantidade_homologada) values (${arp.id}, 1, 5, 100) returning id`
+					insert into procurement.arp_item (arp_id, numero_item, valor_unitario, quantidade_homologada) values (${arp.id}, 1, 5, 100) returning id`
 				// A NE aponta para o item da ARP pelo item dela.
 				const [ne] = await tx`
 					insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total)
@@ -187,14 +187,14 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 					values (${ne.id}, ${arpItem.id}, 100, 5, 500)`
 
 				await tx`delete from procurement.quantity_estimate where id = ${list.id}`
-				const [arpAfter] = await tx`select quantity_estimate_id from procurement.procurement_arp where id = ${arp.id}`
+				const [arpAfter] = await tx`select quantity_estimate_id from procurement.arp where id = ${arp.id}`
 				expect(arpAfter.quantity_estimate_id).toBeNull()
 				const [neAfter] = await tx`select count(*)::int as n from finance.empenho where id = ${ne.id}`
 				expect(neAfter.n).toBe(1)
 
 				// Apagar o item de ARP (ou a ARP) com empenho é recusado: RESTRICT, não CASCADE.
-				await expect(tx.savepoint((sp) => sp`delete from procurement.procurement_arp_item where id = ${arpItem.id}`)).rejects.toThrow(/foreign key/)
-				await expect(tx.savepoint((sp) => sp`delete from procurement.procurement_arp where id = ${arp.id}`)).rejects.toThrow(/foreign key/)
+				await expect(tx.savepoint((sp) => sp`delete from procurement.arp_item where id = ${arpItem.id}`)).rejects.toThrow(/foreign key/)
+				await expect(tx.savepoint((sp) => sp`delete from procurement.arp where id = ${arp.id}`)).rejects.toThrow(/foreign key/)
 
 				// Apagar a NE leva os itens (CASCADE) — é o caminho do reset de treino.
 				await tx`delete from finance.empenho where id = ${ne.id}`

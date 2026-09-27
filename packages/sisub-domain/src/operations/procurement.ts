@@ -10,12 +10,12 @@
  */
 
 import {
+	arpInProcurement,
+	arpItemInProcurement,
 	dailyMenuInKitchen,
 	folderInKitchen,
 	kitchenInKitchen,
 	menuItemsInKitchen,
-	procurementArpInProcurement,
-	procurementArpItemInProcurement,
 	quantityEstimateInProcurement,
 	quantityEstimateItemInProcurement,
 	recipesInKitchen,
@@ -284,14 +284,14 @@ export async function fetchUnitDashboard(
 	const arpsData = await runQuery("QUERY_FAILED", () =>
 		db
 			.select({
-				id: procurementArpInProcurement.id,
-				quantityEstimateId: procurementArpInProcurement.quantityEstimateId,
-				numeroAta: procurementArpInProcurement.numeroAta,
-				anoAta: procurementArpInProcurement.anoAta,
-				dataVigenciaFim: procurementArpInProcurement.dataVigenciaFim,
+				id: arpInProcurement.id,
+				quantityEstimateId: arpInProcurement.quantityEstimateId,
+				numeroAta: arpInProcurement.numeroAta,
+				anoAta: arpInProcurement.anoAta,
+				dataVigenciaFim: arpInProcurement.dataVigenciaFim,
 			})
-			.from(procurementArpInProcurement)
-			.where(inArray(procurementArpInProcurement.quantityEstimateId, completedQuantityEstimateIds))
+			.from(arpInProcurement)
+			.where(inArray(arpInProcurement.quantityEstimateId, completedQuantityEstimateIds))
 	)
 
 	if (arpsData.length === 0) {
@@ -307,23 +307,23 @@ export async function fetchUnitDashboard(
 	const arpItems = await runQuery("QUERY_FAILED", () =>
 		db
 			.select({
-				id: procurementArpItemInProcurement.id,
-				arpId: procurementArpItemInProcurement.arpId,
-				numeroItem: procurementArpItemInProcurement.numeroItem,
-				catmatItemCodigo: procurementArpItemInProcurement.catmatItemCodigo,
-				descricaoItem: procurementArpItemInProcurement.descricaoItem,
-				nomeFornecedor: procurementArpItemInProcurement.nomeFornecedor,
-				valorUnitario: procurementArpItemInProcurement.valorUnitario,
-				quantidadeHomologada: procurementArpItemInProcurement.quantidadeHomologada,
-				quantidadeEmpenhada: procurementArpItemInProcurement.quantidadeEmpenhada,
-				saldoEmpenho: procurementArpItemInProcurement.saldoEmpenho,
-				medidaCatmat: procurementArpItemInProcurement.medidaCatmat,
+				id: arpItemInProcurement.id,
+				arpId: arpItemInProcurement.arpId,
+				numeroItem: arpItemInProcurement.numeroItem,
+				catmatItemCodigo: arpItemInProcurement.catmatItemCodigo,
+				descricaoItem: arpItemInProcurement.descricaoItem,
+				nomeFornecedor: arpItemInProcurement.nomeFornecedor,
+				valorUnitario: arpItemInProcurement.valorUnitario,
+				quantidadeHomologada: arpItemInProcurement.quantidadeHomologada,
+				quantidadeEmpenhada: arpItemInProcurement.quantidadeEmpenhada,
+				saldoEmpenho: arpItemInProcurement.saldoEmpenho,
+				medidaCatmat: arpItemInProcurement.medidaCatmat,
 				listItemIngredientId: quantityEstimateItemInProcurement.ingredientId,
 				listItemIngredientName: quantityEstimateItemInProcurement.ingredientName,
 			})
-			.from(procurementArpItemInProcurement)
-			.leftJoin(quantityEstimateItemInProcurement, eq(quantityEstimateItemInProcurement.id, procurementArpItemInProcurement.quantityEstimateItemId))
-			.where(inArray(procurementArpItemInProcurement.arpId, arpIds))
+			.from(arpItemInProcurement)
+			.leftJoin(quantityEstimateItemInProcurement, eq(quantityEstimateItemInProcurement.id, arpItemInProcurement.quantityEstimateItemId))
+			.where(inArray(arpItemInProcurement.arpId, arpIds))
 	)
 
 	// ── 4. Filtrar itens com consumo ≥ 80% ───────────────────────────────────

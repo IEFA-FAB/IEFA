@@ -2,19 +2,12 @@ import type { SegmentRuleMode } from "@iefa/sisub-domain"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
-import {
-	addProcurementSegmentRuleFn,
-	createProcurementSegmentFn,
-	deleteProcurementSegmentFn,
-	fetchSegmentationOverviewFn,
-	removeProcurementSegmentRuleFn,
-	updateProcurementSegmentFn,
-} from "@/server/procurement-segments.fn"
+import { addSegmentRuleFn, createSegmentFn, deleteSegmentFn, fetchSegmentationOverviewFn, removeSegmentRuleFn, updateSegmentFn } from "@/server/segments.fn"
 
 /** Contratações da OM e a resolução de cada item dos cardápios dela. */
 export function useSegmentationOverview(unitId: number | null) {
 	return useQuery({
-		queryKey: queryKeys.procurementSegments.overview(unitId),
+		queryKey: queryKeys.segments.overview(unitId),
 		queryFn: () => fetchSegmentationOverviewFn({ data: { unitId: unitId as number } }),
 		enabled: unitId != null,
 		staleTime: 30 * 1000,
@@ -28,31 +21,30 @@ export function useSegmentationOverview(unitId: number | null) {
  */
 export function useSegmentMutations(unitId: number) {
 	const queryClient = useQueryClient()
-	const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.procurementSegments.overview(unitId) })
-	const scope = { id: `procurement-segments-${unitId}` }
+	const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.segments.overview(unitId) })
+	const scope = { id: `segments-${unitId}` }
 
 	const create = useMutation({
 		mutationFn: (data: { name: string; plannedMonth: number | null; validityMonths: number; leadTimeMonths: number }) =>
-			createProcurementSegmentFn({ data: { unitId, ...data } }),
+			createSegmentFn({ data: { unitId, ...data } }),
 		onSuccess: invalidate,
 		onError: (error) => toast.error(`Não criou a contratação: ${error.message}`),
 		scope,
 	})
 	const remove = useMutation({
-		mutationFn: (segmentId: string) => deleteProcurementSegmentFn({ data: { segmentId } }),
+		mutationFn: (segmentId: string) => deleteSegmentFn({ data: { segmentId } }),
 		onSuccess: invalidate,
 		onError: (error) => toast.error(`Não removeu a contratação: ${error.message}`),
 		scope,
 	})
 	const addRule = useMutation({
-		mutationFn: (data: { segmentId: string; mode: SegmentRuleMode; folderId?: string | null; purchaseItemId?: string | null }) =>
-			addProcurementSegmentRuleFn({ data }),
+		mutationFn: (data: { segmentId: string; mode: SegmentRuleMode; folderId?: string | null; purchaseItemId?: string | null }) => addSegmentRuleFn({ data }),
 		onSuccess: invalidate,
 		onError: (error) => toast.error(`Não incluiu a regra: ${error.message}`),
 		scope,
 	})
 	const removeRule = useMutation({
-		mutationFn: (ruleId: string) => removeProcurementSegmentRuleFn({ data: { ruleId } }),
+		mutationFn: (ruleId: string) => removeSegmentRuleFn({ data: { ruleId } }),
 		onSuccess: invalidate,
 		onError: (error) => toast.error(`Não removeu a regra: ${error.message}`),
 		scope,
@@ -76,9 +68,9 @@ export type SegmentPatch = {
 export function useUpdateSegment(unitId: number, segmentId: string) {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (patch: SegmentPatch) => updateProcurementSegmentFn({ data: { segmentId, ...patch } }),
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.procurementSegments.overview(unitId) }),
+		mutationFn: (patch: SegmentPatch) => updateSegmentFn({ data: { segmentId, ...patch } }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.segments.overview(unitId) }),
 		onError: (error) => toast.error(`Não salvou a contratação: ${error.message}`),
-		scope: { id: `procurement-segments-${unitId}` },
+		scope: { id: `segments-${unitId}` },
 	})
 }

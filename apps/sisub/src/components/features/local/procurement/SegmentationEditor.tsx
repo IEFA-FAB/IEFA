@@ -1,4 +1,4 @@
-import type { ProcurementSegment, SegmentationLine, SegmentationOverview, SegmentRuleMode } from "@iefa/sisub-domain"
+import type { Segment, SegmentationLine, SegmentationOverview, SegmentRuleMode } from "@iefa/sisub-domain"
 import { AlertTriangle, Minus, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { AutoSaveStatus, autoSaveStateOf } from "@/components/features/shared/AutoSaveStatus"
@@ -13,13 +13,13 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle }
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { type SegmentPatch, useSegmentMutations, useUpdateSegment } from "@/hooks/data/useProcurementSegments"
+import { type SegmentPatch, useSegmentMutations, useUpdateSegment } from "@/hooks/data/useSegments"
 
 export const MONTH_LABELS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
 const NO_MONTH = "none"
 
 type Mutations = ReturnType<typeof useSegmentMutations>
-type Segment = SegmentationOverview["segments"][number]
+type OverviewSegment = SegmentationOverview["segments"][number]
 
 /**
  * Segmentação das contratações da OM: cada contratação (Carnes, Estocáveis…) é um recorte do que
@@ -201,7 +201,7 @@ function SegmentCard({
 	canEdit,
 }: {
 	unitId: number
-	segment: Segment
+	segment: OverviewSegment
 	overview: SegmentationOverview
 	mutations: Mutations
 	canEdit: boolean
@@ -298,17 +298,7 @@ function SegmentCard({
 	)
 }
 
-function SegmentRules({
-	segment,
-	overview,
-	mutations,
-	canEdit,
-}: {
-	segment: ProcurementSegment
-	overview: SegmentationOverview
-	mutations: Mutations
-	canEdit: boolean
-}) {
+function SegmentRules({ segment, overview, mutations, canEdit }: { segment: Segment; overview: SegmentationOverview; mutations: Mutations; canEdit: boolean }) {
 	const [mode, setMode] = useState<SegmentRuleMode>("include")
 	const purchaseItems = overview.lines.filter((l): l is SegmentationLine & { purchaseItemId: string } => l.purchaseItemId != null)
 

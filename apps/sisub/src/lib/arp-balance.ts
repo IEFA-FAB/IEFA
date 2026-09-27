@@ -2,7 +2,7 @@
  * @module arp-balance
  * Cálculos puros do painel ARP × empenho — duas grandezas de origens distintas
  * que NUNCA se somam:
- *   - saldo oficial: snapshot da API Compras.gov (procurement_arp_item),
+ *   - saldo oficial: snapshot da API Compras.gov (arp_item),
  *     inclui consumo de outras UASGs (caronas) e só muda em sincronização;
  *   - comprometimento local: soma dos itens (finance.empenho_item) das NEs
  *     ATIVAS da unidade, calculada em tempo real.

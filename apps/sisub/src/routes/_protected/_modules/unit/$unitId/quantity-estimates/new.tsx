@@ -27,7 +27,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { bulkFindingsNotice, useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { usePendingDemandForecast, useRecordDemandForecastImport } from "@/hooks/data/useDemandForecast"
-import { useSegmentationOverview } from "@/hooks/data/useProcurementSegments"
 import {
 	useCalculateQuantityEstimateNeeds,
 	useCreateQuantityEstimateDraft,
@@ -37,6 +36,7 @@ import {
 	useUpdateQuantityEstimateDraft,
 	useUpdateQuantityEstimateLimits,
 } from "@/hooks/data/useQuantityEstimate"
+import { useSegmentationOverview } from "@/hooks/data/useSegments"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { downloadCsv } from "@/lib/csv"
 import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows } from "@/lib/quantity-estimate-annex"

@@ -127,9 +127,9 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					// ════ Fase 1/4 — empenho → OF ════════════════════════════════════
 					const [list] = await tx`insert into procurement.quantity_estimate (unit_id, title) values (${unit.id}, 'lista e2e') returning id`
 					const [arp] =
-						await tx`insert into procurement.procurement_arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora) values (${unit.id}, ${list.id}, 'ATA-E2E', '160099') returning id`
+						await tx`insert into procurement.arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora) values (${unit.id}, ${list.id}, 'ATA-E2E', '160099') returning id`
 					const [arpItem] =
-						await tx`insert into procurement.procurement_arp_item (arp_id, numero_item, quantidade_homologada, ni_fornecedor) values (${arp.id}, 1, 500, '12345678000199') returning id`
+						await tx`insert into procurement.arp_item (arp_id, numero_item, quantidade_homologada, ni_fornecedor) values (${arp.id}, 1, 500, '12345678000199') returning id`
 					const [empenho] = await tx`
 						insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total)
 						values (${unit.id}, '2026NE00E2E1', '2026-07-20', 2500) returning id`

@@ -7,7 +7,7 @@
  * contra o limite vigente da tabela, e passar do limite pede justificativa, nunca recusa.
  * CLIENT: getServerClient (service role, schemas procurement/finance/compras_gov_integration).
  * AUTH: `unit` escopado — 1 leitura, 2 escrita; a unidade de uma linha sai da linha.
- * TABLES: procurement.acquisition, procurement.direct_contract_limit, procurement.procurement_arp,
+ * TABLES: procurement.acquisition, procurement.direct_contract_limit, procurement.arp,
  *   finance.empenho, finance.empenho_item, finance.v_empenho_vigente.
  * @domain core
  * @migration 20260926214000_acquisition_origin
@@ -534,7 +534,7 @@ export const deleteAcquisitionFn = createServerFn({ method: "POST" })
 		await requireUnitScope(2, await resolveAcquisitionUnit(data.acquisitionId))
 		const [{ count: empenhoCount, error: empError }, { count: arpCount, error: arpError }] = await Promise.all([
 			finance().from("empenho").select("id", { count: "exact", head: true }).eq("acquisition_id", data.acquisitionId),
-			procurement().from("procurement_arp").select("id", { count: "exact", head: true }).eq("acquisition_id", data.acquisitionId),
+			procurement().from("arp").select("id", { count: "exact", head: true }).eq("acquisition_id", data.acquisitionId),
 		])
 		if (empError || arpError) throw new Error(`Erro ao conferir os vínculos da contratação: ${(empError ?? arpError)?.message}`)
 		if ((empenhoCount ?? 0) > 0 || (arpCount ?? 0) > 0) {
@@ -550,14 +550,14 @@ export const linkArpAcquisitionFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<void> => {
 		// Sessão antes de ler a linha; o escopo de unidade sai da linha, nunca do corpo.
 		await requireAuth()
-		const { data: arp, error: arpError } = await procurement().from("procurement_arp").select("unit_id").eq("id", data.arpId).maybeSingle()
+		const { data: arp, error: arpError } = await procurement().from("arp").select("unit_id").eq("id", data.arpId).maybeSingle()
 		if (arpError) throw new Error(`Erro ao buscar a ARP: ${arpError.message}`)
 		if (!arp) throw new Error("ARP não encontrada")
 		await requireUnitScope(2, Number(arp.unit_id))
 		if (data.acquisitionId && (await resolveAcquisitionUnit(data.acquisitionId)) !== Number(arp.unit_id)) {
 			throw new Error("A contratação é de outra unidade")
 		}
-		const { error } = await procurement().from("procurement_arp").update({ acquisition_id: data.acquisitionId }).eq("id", data.arpId)
+		const { error } = await procurement().from("arp").update({ acquisition_id: data.acquisitionId }).eq("id", data.arpId)
 		if (error) throw new Error(`Erro ao vincular a ARP: ${error.message}`)
 	})
 
