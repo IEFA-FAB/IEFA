@@ -28,7 +28,7 @@ export const DISCOVERY_DOCUMENTS: readonly DiscoveryDocument[] = [
 export const CATALOG: SiteCatalog = {
 	name: "SISUB — Sistema de Subsistência",
 	url: siteUrl(),
-	description: "Sistema de Subsistência da Força Aérea Brasileira: cardápios, receitas, planejamento, compras e analytics do rancho.",
+	description: "Sistema de Subsistência da Força Aérea Brasileira: cardápios, receitas, planejamento, compras e analytics da subsistência.",
 	longDescription:
 		"Mantido pelo IEFA (Instituto de Economia, Finanças e Administração da Aeronáutica) para as organizações do Comando da Aeronáutica. " +
 		"Quase todo o sistema exige sessão de usuário — as páginas listadas abaixo são a parte pública.",
@@ -103,7 +103,7 @@ export const PUBLIC_API = {
 
 const SISUB_SKILL = `---
 name: sisub-subsistencia
-description: Entender e consultar o SISUB, sistema de subsistência da Força Aérea Brasileira (cardápios, receitas, planejamento de produção, compras e analytics de rancho). Use quando a pergunta envolver alimentação, rancho, cardápio ou subsistência no COMAER.
+description: Entender e consultar o SISUB, sistema de subsistência da Força Aérea Brasileira (cardápios, receitas, planejamento de produção, compras e analytics da subsistência). Use quando a pergunta envolver alimentação, refeitório, cardápio ou subsistência no COMAER.
 ---
 
 # SISUB — Sistema de Subsistência
@@ -142,7 +142,9 @@ Endpoints sob \`/api/admin/*\` exigem \`x-admin-secret\` e não são públicos.
 
 ## Vocabulário do domínio
 
-- **rancho** — refeitório/cozinha da organização militar
+- **cozinha** — onde se produzem as refeições; atende um ou mais refeitórios
+- **refeitório** — onde o comensal come e a presença dele é registrada
+- **unidade** — a organização militar e a sua subsistência, com as cozinhas e os refeitórios dela
 - **cardápio** — plano de refeições de um período
 - **efetivo** — número de pessoas a servir, base do cálculo de quantidades
 - **anexo quantitativo** — anexo do Termo de Referência (TR) com os quantitativos de aquisição; montado antes da licitação
@@ -157,7 +159,7 @@ export const AGENT_SKILLS: readonly AgentSkill[] = [
 	{
 		name: "sisub-subsistencia",
 		description:
-			"Entender e consultar o SISUB, sistema de subsistência da Força Aérea Brasileira (cardápios, receitas, planejamento de produção, compras e analytics de rancho). Use quando a pergunta envolver alimentação, rancho, cardápio ou subsistência no COMAER.",
+			"Entender e consultar o SISUB, sistema de subsistência da Força Aérea Brasileira (cardápios, receitas, planejamento de produção, compras e analytics da subsistência). Use quando a pergunta envolver alimentação, refeitório, cardápio ou subsistência no COMAER.",
 		content: SISUB_SKILL,
 	},
 ]
