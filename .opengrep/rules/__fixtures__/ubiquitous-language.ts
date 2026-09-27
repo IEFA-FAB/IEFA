@@ -398,8 +398,6 @@ const { supportMenuId } = Route.useParams()
 // ok: ubiquitous-language-lot5-identifier
 const approval = { exceptionReason: "Único responsável nível 3" }
 // ok: ubiquitous-language-lot5-identifier
-const LEGACY_SUPPORT_MENU_SELECTIONS_KEY = "exceptionSelections"
-// ok: ubiquitous-language-lot5-identifier
 // o `isException` antigo virou `isSupportMenu`
 
 // ruleid: ubiquitous-language-lot5-route
@@ -411,3 +409,29 @@ const hrefSupport = `${kitchen}/exceptions`
 const toSupportOk = { to: "/kitchen/$kitchenId/support-menus/$supportMenuId" }
 // ok: ubiquitous-language-lot5-route
 const legacySupport = { from: "/global/exceptions", to: "/global/support-menus" }
+
+// ruleid: ubiquitous-language-lot5-value
+const receiptRoles = ["manager", "committee_member"]
+// ruleid: ubiquitous-language-lot5-value
+const designation = { role: "manager", source: "ato" }
+// ruleid: ubiquitous-language-lot5-value
+if (template.template_type === "exception") applySupportMenu()
+// ruleid: ubiquitous-language-lot5-value
+const menuItem = { originTemplateType: "exception" }
+// ruleid: ubiquitous-language-lot5-value
+const rules = await listPolicyRules(db, ctx, { target: "product" })
+// ruleid: ubiquitous-language-lot5-value
+const count = { kitchenId, type: "rotating", scope: "full" }
+// ruleid: ubiquitous-language-lot5-value
+const rows = await tx`select 1 from kitchen.menu_template where template_type = 'exception'`
+
+// ok: ubiquitous-language-lot5-value
+const receiptRolesOk = ["gestor", "membro_comissao"]
+// ok: ubiquitous-language-lot5-value
+if (template.template_type === "apoio") applySupportMenu()
+// ok: ubiquitous-language-lot5-value
+const countOk = { kitchenId, type: "rotativo", scope: "full" }
+// ok: ubiquitous-language-lot5-value
+span.recordException(new Error("exception"))
+// ok: ubiquitous-language-lot5-value
+const snack = { snack_family: "apoio" }

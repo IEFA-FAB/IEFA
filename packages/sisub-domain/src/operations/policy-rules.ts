@@ -14,16 +14,9 @@
 
 import { policyRuleInProcurement, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
-import { and, asc, eq, inArray, isNull, type SQL } from "drizzle-orm"
+import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
-import {
-	type CreatePolicyRule,
-	type DeletePolicyRule,
-	type ListPolicyRules,
-	POLICY_TARGET_VOCABULARY,
-	type PolicyTarget,
-	type UpdatePolicyRule,
-} from "../schemas/policy-rules.ts"
+import type { CreatePolicyRule, DeletePolicyRule, ListPolicyRules, PolicyTarget, UpdatePolicyRule } from "../schemas/policy-rules.ts"
 import type { UserContext } from "../types/context.ts"
 import { insertOneOrFail, mutateOrFail, runQuery } from "../utils/index.ts"
 
@@ -38,7 +31,8 @@ export type PolicyRuleRow = Omit<Tables<"policy_rule">, "target"> & { target: Po
 
 const POLICY_RULE_COLS = {
 	id: policyRuleInProcurement.id,
-	target: policyRuleInProcurement.target,
+	// Passthrough tipado: a coluna é `text`, o CHECK do banco garante o par de valores.
+	target: sql<PolicyTarget>`${policyRuleInProcurement.target}`,
 	title: policyRuleInProcurement.title,
 	description: policyRuleInProcurement.description,
 	display_order: policyRuleInProcurement.displayOrder,
@@ -48,48 +42,35 @@ const POLICY_RULE_COLS = {
 	deleted_at: policyRuleInProcurement.deletedAt,
 } as const
 
-/**
- * A coluna é `text` com CHECK. Até o contract do lote 5 o banco ainda tem `product` (nome antigo
- * do insumo): a linha sai daqui com o alvo do glossário.
- */
-function toPolicyRuleRow<T extends { target: string }>(row: T): Omit<T, "target"> & { target: PolicyTarget } {
-	return { ...row, target: POLICY_TARGET_VOCABULARY.normalize(row.target) ?? (row.target as PolicyTarget) }
-}
-
 export async function listPolicyRules(db: SisubDb, ctx: UserContext, input: ListPolicyRules): Promise<PolicyRuleRow[]> {
 	requirePermission(ctx, "global", 1)
 
-	const conditions: SQL[] = [
-		inArray(policyRuleInProcurement.target, POLICY_TARGET_VOCABULARY.storedValuesOf([input.target])),
-		isNull(policyRuleInProcurement.deletedAt),
-	]
+	const conditions: SQL[] = [eq(policyRuleInProcurement.target, input.target), isNull(policyRuleInProcurement.deletedAt)]
 	if (input.activeOnly) conditions.push(eq(policyRuleInProcurement.active, true))
 
-	const rows = await runQuery("FETCH_FAILED", () =>
+	return runQuery("FETCH_FAILED", () =>
 		db
 			.select(POLICY_RULE_COLS)
 			.from(policyRuleInProcurement)
 			.where(and(...conditions))
 			.orderBy(asc(policyRuleInProcurement.displayOrder), asc(policyRuleInProcurement.createdAt))
 	)
-	return rows.map(toPolicyRuleRow)
 }
 
 export async function createPolicyRule(db: SisubDb, ctx: UserContext, input: CreatePolicyRule): Promise<PolicyRuleRow> {
 	requirePermission(ctx, "global", 2)
 
-	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
+	return insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(policyRuleInProcurement)
 			.values({
-				target: POLICY_TARGET_VOCABULARY.toStored(input.target),
+				target: input.target,
 				title: input.title,
 				description: input.description,
 				displayOrder: input.display_order ?? 0,
 			})
 			.returning(POLICY_RULE_COLS)
 	)
-	return toPolicyRuleRow(row)
 }
 
 export async function updatePolicyRule(db: SisubDb, ctx: UserContext, input: UpdatePolicyRule): Promise<PolicyRuleRow> {
@@ -105,14 +86,13 @@ export async function updatePolicyRule(db: SisubDb, ctx: UserContext, input: Upd
 
 	// `deleted_at IS NULL` no predicado: editar regra já excluída não casa nada e falha como
 	// "não encontrada", em vez de ressuscitar conteúdo pelo caminho da edição.
-	const row = await insertOneOrFail("UPDATE_FAILED", `policy_rule ${input.id} not found`, () =>
+	return insertOneOrFail("UPDATE_FAILED", `policy_rule ${input.id} not found`, () =>
 		db
 			.update(policyRuleInProcurement)
 			.set(updates)
 			.where(and(eq(policyRuleInProcurement.id, input.id), isNull(policyRuleInProcurement.deletedAt)))
 			.returning(POLICY_RULE_COLS)
 	)
-	return toPolicyRuleRow(row)
 }
 
 export async function deletePolicyRule(db: SisubDb, ctx: UserContext, input: DeletePolicyRule): Promise<void> {

@@ -431,10 +431,10 @@ rules:
   # ── Lote 5: valores de domínio ─────────────────────────────────────────────
   #
   # O cardápio de apoio (`template_type = 'apoio'`) nunca foi exceção: são refeições previsíveis
-  # fora da rotina semanal. Rota e identificador saíram no expand (20260927100000). O VALOR antigo
-  # (`'exception'`, os papéis em inglês da designação, os tipos de inventário e `product`) ainda é
-  # gravado até o contract 20260927110000 e entra no gate com ele. `exceptionReason` (motivo da
-  # exceção na aprovação do inventário) é outro conceito e não casa.
+  # fora da rotina semanal. Rota e identificador saíram no expand (20260927100000); o VALOR antigo
+  # (`'exception'`, os papéis em inglês da designação, os tipos de inventário e `product`) saiu com
+  # o contract 20260927110000. `exceptionReason` (motivo da exceção na aprovação do inventário) é
+  # outro conceito e não casa.
 
   - id: ubiquitous-language-lot5-identifier
     languages: [generic]
@@ -456,9 +456,6 @@ rules:
     patterns:
       - pattern-regex: \b(?:exceptionSelections|exceptionSels|exceptionIds?|isException(?:Bucket)?|\w*Exceptions?Page|\w*ExceptionEditor\w*|SNACK_STANDARD_NOT_EXCEPTION|OCCASION_MENU_COPY\.exception|exceptions_without_occurrences|exceptionsWithoutOccurrences)\b
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
-      # A chave antiga do payload do anexo, lida por um ciclo (`schemas/procurement.ts`), sai com o
-      # contract 20260927110000.
-      - pattern-not-regex: LEGACY_SUPPORT_MENU_SELECTIONS_KEY\s*=\s*"exceptionSelections"
 
   - id: ubiquitous-language-lot5-route
     languages: [generic]
@@ -479,3 +476,38 @@ rules:
       - pattern-regex: /exceptions(?=[/"'`?#)]|$)
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
       - pattern-not-regex: \bfrom:\s*["'`][^"'`]*["'`]
+
+  - id: ubiquitous-language-lot5-value
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Valor de domínio descartado pelo glossário do sisub (contract 20260927110000). Papel na
+      designação: `gestor`, `fiscal_tecnico`, `fiscal_administrativo`, `fiscal_setorial`,
+      `membro_comissao` (Lei 14.133/2021, arts. 7º, 117 e 140, II, b). Tipo de inventário:
+      `anual`, `transferencia_responsabilidade`, `eventual`, `rotativo`. Alvo da regra de política:
+      `ingredient` (não `product`). Cardápio de apoio: `apoio` (não `exception`).
+    paths:
+      include:
+        - "apps/sisub/src/**/*.ts"
+        - "apps/sisub/src/**/*.tsx"
+        - "apps/sisub/e2e/**/*.ts"
+        - "packages/sisub-domain/src/**/*.ts"
+        - "apps/sisub-mcp/src/**/*.ts"
+        - "apps/api/src/**/*.ts"
+      exclude:
+        - "**/routeTree.gen.ts"
+        - "**/generated.ts"
+        - "**/drizzle/**"
+        # Grava o valor antigo de propósito, para provar a tradução do contract; sai na tarefa 5.5.
+        - "apps/sisub/src/test/operations/domain-values.operations.test.ts"
+    patterns:
+      - pattern-either:
+          # Os papéis e o tipo de inventário antigos são inconfundíveis: qualquer literal casa.
+          - pattern-regex: |-
+              ["'`](?:technical_inspector|administrative_inspector|sectoral_inspector|committee_member|responsibility_transfer)["'`]
+          # Os genéricos só na mesma linha da coluna, do campo ou do tipo deles.
+          - pattern-regex: (?i)\b(?:template_?type|origin_?template_?type|TemplateType)\b[^\n]*["'`]exception["'`]
+          - pattern-regex: \btarget\b[^\n]*["'`]product["'`]|["'`]product["'`][^\n]*\bPolicyTarget\b
+          - pattern-regex: \brole\b[^\n]*["'`]manager["'`]|["'`]manager["'`][^\n]*\bDesignationRole\b
+          - pattern-regex: \b(?:type|InventoryCountType)\b[^\n]*["'`](?:annual|rotating)["'`]
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$

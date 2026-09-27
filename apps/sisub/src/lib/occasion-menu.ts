@@ -4,9 +4,8 @@
  * catálogo global montam as mesmas telas a partir destes rótulos.
  *
  * O cardápio de apoio é `template_type = 'apoio'` (rotas `/support-menus`); nasceu como
- * "Exceção" (`exception`), nome que o banco ainda grava até o contract do lote 5 da linguagem
- * ubíqua. Engloba os lanches de bordo e de apoio do Módulo 7 e os demais apoios previsíveis
- * (coffee break, café de reunião).
+ * "Exceção", nome que saiu com o lote 5 da linguagem ubíqua. Engloba os lanches de bordo e de
+ * apoio do Módulo 7 e os demais apoios previsíveis (coffee break, café de reunião).
  */
 
 import type { SnackClass, SnackFamily, SnackVariant } from "@iefa/sisub-domain/utils"

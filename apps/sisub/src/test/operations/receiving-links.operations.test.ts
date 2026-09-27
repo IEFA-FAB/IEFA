@@ -14,7 +14,6 @@ import { sisubSchema } from "@iefa/database/drizzle/sisub"
 import {
 	DEFINITIVE_RECEIPT_ROLES,
 	designationMissingMessage,
-	designationRoleStoredValues,
 	endDesignation,
 	fetchReceivingPendingStatus,
 	matchReceiptLinesToInvoice,
@@ -210,29 +209,26 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 			let pending = await pendingOf(tx, kitchenId)
 			expect(pending.get(draft.receiptId)).toContain("conference_without_inspector")
-			const [before] =
-				await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array(designationRoleStoredValues(PROVISIONAL_RECEIPT_ROLES))}) as id`
+			const [before] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...PROVISIONAL_RECEIPT_ROLES])}) as id`
 			expect(before.id).toBeNull()
 
 			// ato sem o número do boletim não passa; a NE não designa
 			await expect(
 				tx.savepoint(
-					(sp) =>
-						sp`insert into procurement.contract_designation (unit_id, person_id, role, source) values (${unitId}, ${personId}, 'technical_inspector', 'ato')`
+					(sp) => sp`insert into procurement.contract_designation (unit_id, person_id, role, source) values (${unitId}, ${personId}, 'fiscal_tecnico', 'ato')`
 				)
 			).rejects.toThrow(/contract_designation_ato_reference/)
 			await expect(
 				tx.savepoint(
 					(sp) =>
-						sp`insert into procurement.contract_designation (unit_id, person_id, role, source, source_reference) values (${unitId}, ${personId}, 'manager', 'empenho', '2026NE1')`
+						sp`insert into procurement.contract_designation (unit_id, person_id, role, source, source_reference) values (${unitId}, ${personId}, 'gestor', 'empenho', '2026NE1')`
 				)
 			).rejects.toThrow(/contract_designation_source_check/)
 
 			const [designation] = await tx`
 				insert into procurement.contract_designation (unit_id, person_id, role, source, source_reference)
-				values (${unitId}, ${personId}, 'technical_inspector', 'ato', 'BI nº 180/2026') returning id`
-			const [after] =
-				await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array(designationRoleStoredValues(PROVISIONAL_RECEIPT_ROLES))}) as id`
+				values (${unitId}, ${personId}, 'fiscal_tecnico', 'ato', 'BI nº 180/2026') returning id`
+			const [after] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...PROVISIONAL_RECEIPT_ROLES])}) as id`
 			expect(after.id).toBe(designation.id)
 
 			pending = await pendingOf(tx, kitchenId)
@@ -251,9 +247,8 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			// só fiscal: provisório sim, definitivo não (Lei 14.133/2021, art. 140, II, b)
 			await tx`
 				insert into procurement.contract_designation (unit_id, person_id, role, source, source_reference)
-				values (${unitId}, ${personId}, 'technical_inspector', 'permanente', 'Portaria 12/2026')`
-			const [definitive] =
-				await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array(designationRoleStoredValues(DEFINITIVE_RECEIPT_ROLES))}) as id`
+				values (${unitId}, ${personId}, 'fiscal_tecnico', 'permanente', 'Portaria 12/2026')`
+			const [definitive] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...DEFINITIVE_RECEIPT_ROLES])}) as id`
 			expect(definitive.id).toBeNull()
 			expect(designationMissingMessage("definitive", false)).toMatch(/Gestão Unidade → Designações/)
 
@@ -447,15 +442,13 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			const { unitId } = await seedKitchen(tx, "ENCER")
 			const [designation] = await tx`
 				insert into procurement.contract_designation (unit_id, person_id, role, source, source_reference, valid_from)
-				values (${unitId}, ${personId}, 'manager', 'ato', 'BI nº 10/2026', current_date - 30) returning id`
-			const [before] =
-				await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array(designationRoleStoredValues(DEFINITIVE_RECEIPT_ROLES))}) as id`
+				values (${unitId}, ${personId}, 'gestor', 'ato', 'BI nº 10/2026', current_date - 30) returning id`
+			const [before] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...DEFINITIVE_RECEIPT_ROLES])}) as id`
 			expect(before.id).toBe(designation.id)
 
 			const result = await endDesignation(dbOf(tx), fullAccessCtx(), { designationId: String(designation.id) })
 			expect(result.ended).toBe("ended")
-			const [after] =
-				await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array(designationRoleStoredValues(DEFINITIVE_RECEIPT_ROLES))}) as id`
+			const [after] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...DEFINITIVE_RECEIPT_ROLES])}) as id`
 			expect(after.id).toBeNull()
 		})
 	}, 60_000)

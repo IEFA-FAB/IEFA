@@ -77,7 +77,7 @@ describeIf("inventory count (DB)", () => {
 
 					// ── abertura materializa o escopo ────────────────────────────────
 					const [aberta] = await tx`
-						select * from inventory.open_inventory_count(${kitchenRow.id}, 'rotating', 'full', '{}'::jsonb, true, null, ${autor.id})`
+						select * from inventory.open_inventory_count(${kitchenRow.id}, 'rotativo', 'full', '{}'::jsonb, true, null, ${autor.id})`
 					expect(Number(aberta.scope_items)).toBe(2)
 					// a contagem "abriu" há 4 h: o lançamento não pode ser anterior à abertura
 					await tx`update inventory.inventory_count set created_at = ${ago(4)} where id = ${aberta.count_id}`

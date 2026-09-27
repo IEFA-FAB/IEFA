@@ -62,7 +62,6 @@ import type {
 	UpdateQuantityEstimateLimits,
 	UpdateQuantityEstimateStatus,
 } from "../schemas/procurement.ts"
-import { TEMPLATE_TYPE_VOCABULARY } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
@@ -359,7 +358,7 @@ async function computeQuantityEstimateNeeds(db: SisubDb, input: CalculateQuantit
 					ingredientId: ri.ingredientId,
 					kitchenId: selection.kitchenId,
 					templateId: selection.templateId,
-					templateType: TEMPLATE_TYPE_VOCABULARY.normalize(template.templateType),
+					templateType: template.templateType ?? null,
 					recipeId: item.recipeId as string,
 					headcount,
 					netQuantity: Number(ri.netQuantity ?? 0),
@@ -705,7 +704,7 @@ export async function explainQuantityEstimateNeeds(db: SisubDb, ctx: UserContext
 		}
 		const selection = { templateId: row.templateId, templateName: row.templateName ?? "", repetitions: row.repetitions }
 		if (row.templateType === "event") entry.eventSelections.push(selection)
-		else if (TEMPLATE_TYPE_VOCABULARY.is(row.templateType, "apoio")) entry.supportMenuSelections.push(selection)
+		else if (row.templateType === "apoio") entry.supportMenuSelections.push(selection)
 		else entry.templateSelections.push(selection)
 		byKitchen.set(row.kitchenId, entry)
 	}
@@ -1289,10 +1288,7 @@ export async function fetchQuantityEstimateDetails(
 			: []
 
 	const coreKitchenById = new Map(coreKitchens.map((k) => [k.id, k]))
-	// Tipo no vocabulário do glossário: até o contract do lote 5 o banco ainda tem `exception`.
-	const templateById = new Map(
-		selectionTemplates.map((t) => [t.id, { ...t, templateType: TEMPLATE_TYPE_VOCABULARY.normalize(t.templateType) ?? t.templateType }])
-	)
+	const templateById = new Map(selectionTemplates.map((t) => [t.id, t]))
 	const selectionsByKitchen = new Map<string, Array<(typeof selectionRows)[number] & { menuTemplateInKitchen: (typeof selectionTemplates)[number] | null }>>()
 	for (const sel of selectionRows) {
 		const withTemplate = { ...sel, menuTemplateInKitchen: (sel.templateId ? templateById.get(sel.templateId) : null) ?? null }
@@ -1545,8 +1541,7 @@ async function computeQuantityEstimateMeta(
 			snapshot = {
 				selections: selections.map((s) => ({
 					template_name: s.templateName,
-					// Retrato congelado; até o contract do lote 5 o tipo pode estar com o nome antigo.
-					template_type: TEMPLATE_TYPE_VOCABULARY.normalize(s.templateType) ?? s.templateType,
+					template_type: s.templateType,
 					kitchen_id: s.kitchenId,
 					kitchen_name: s.kitchenName,
 					repetitions: s.repetitions,

@@ -22,7 +22,7 @@
  */
 
 import { hasPermission } from "@iefa/pbac"
-import { evaluateCountLine, INVENTORY_COUNT_TYPE_VOCABULARY } from "@iefa/sisub-domain"
+import { evaluateCountLine, INVENTORY_COUNT_TYPES } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { PENDING_PRODUCTION_SQLSTATE, parsePendingProductionDays } from "@/lib/count-waiver"
@@ -56,17 +56,14 @@ export const listInventoryCountsFn = createServerFn({ method: "GET" })
 			.order("created_at", { ascending: false })
 			.limit(data.limit)
 		if (error) throw new Error(`Erro ao listar as contagens: ${error.message}`)
-		// Tipo no vocabulário do glossário: até o contract do lote 5 o banco ainda tem o nome antigo.
-		const counts = (rows ?? []).map((row: { type: string }) => ({ ...row, type: INVENTORY_COUNT_TYPE_VOCABULARY.normalize(row.type) ?? row.type }))
-		return { counts, total: count ?? counts.length }
+		return { counts: rows ?? [], total: count ?? (rows ?? []).length }
 	})
 
 export const openInventoryCountFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			kitchenId: z.number().int().positive(),
-			// Aceita o nome antigo por um ciclo (aba aberta antes do deploy); grava pelo vocabulário.
-			type: z.enum(INVENTORY_COUNT_TYPE_VOCABULARY.inputValues).transform(INVENTORY_COUNT_TYPE_VOCABULARY.parse),
+			type: z.enum(INVENTORY_COUNT_TYPES),
 			scope: z.enum(COUNT_SCOPES),
 			scopeParams: z.record(z.string(), z.unknown()).default({}),
 			blind: z.boolean().default(true),
@@ -79,7 +76,7 @@ export const openInventoryCountFn = createServerFn({ method: "POST" })
 		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
 		const { data: result, error } = await inventory().rpc("open_inventory_count", {
 			p_kitchen_id: data.kitchenId,
-			p_type: INVENTORY_COUNT_TYPE_VOCABULARY.toStored(data.type),
+			p_type: data.type,
 			p_scope: data.scope,
 			p_scope_params: data.scopeParams,
 			p_blind: data.blind,
@@ -277,7 +274,7 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 
 		lines.sort((a, b) => a.description.localeCompare(b.description, "pt-BR") || (a.lotLabel ?? "").localeCompare(b.lotLabel ?? ""))
 		return {
-			count: { ...count, type: INVENTORY_COUNT_TYPE_VOCABULARY.normalize(String(count.type)) ?? String(count.type) },
+			count,
 			reveal,
 			lines,
 			scopeItems: scope.length,

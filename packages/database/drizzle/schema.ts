@@ -709,7 +709,7 @@ export const policyRuleInProcurement = procurement.table("policy_rule", {
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	index("policy_rule_target_display_order_idx").using("btree", table.target.asc().nullsLast(), table.displayOrder.asc().nullsLast()).where(sql`(deleted_at IS NULL)`),
-	check("policy_rule_target_check", sql`target = ANY (ARRAY['product'::text, 'recipe'::text, 'ingredient'::text])`),
+	check("policy_rule_target_check", sql`target = ANY (ARRAY['ingredient'::text, 'recipe'::text])`),
 ]);
 
 export const mcpApiKeysInAccessControl = accessControl.table("mcp_api_keys", {
@@ -2590,6 +2590,22 @@ export const menuTemplateItemsInKitchen = kitchen.table("menu_template_items", {
 	check("menu_template_items_recommended_proportion_range", sql`(recommended_proportion IS NULL) OR ((recommended_proportion >= (0)::numeric) AND (recommended_proportion <= (300)::numeric))`),
 ]);
 
+export const ingredientReviewInKitchen = kitchen.table("ingredient_review", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	ingredientId: uuid("ingredient_id").notNull(),
+	reviewedBy: uuid("reviewed_by"),
+	reviewedByName: text("reviewed_by_name"),
+	note: text(),
+	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("ingredient_review_ingredient_idx").using("btree", table.ingredientId.asc().nullsLast(), table.reviewedAt.desc().nullsFirst()),
+	foreignKey({
+			columns: [table.ingredientId],
+			foreignColumns: [ingredientInKitchen.id],
+			name: "ingredient_review_ingredient_id_fkey"
+		}).onDelete("cascade"),
+]);
+
 export const menuItemsInKitchen = kitchen.table("menu_items", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -2652,7 +2668,7 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
 	check("menu_items_execution_reason_required", sql`(added_in_execution_at IS NULL) OR (NULLIF(btrim(execution_reason), ''::text) IS NOT NULL)`),
 	check("menu_items_execution_review_needs_add", sql`(execution_reviewed_at IS NULL) OR (added_in_execution_at IS NOT NULL)`),
-	check("menu_items_origin_template_type_check", sql`origin_template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text, 'apoio'::text])`),
+	check("menu_items_origin_template_type_check", sql`origin_template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'apoio'::text])`),
 	check("menu_items_recommended_proportion_range", sql`(recommended_proportion IS NULL) OR ((recommended_proportion >= (0)::numeric) AND (recommended_proportion <= (300)::numeric))`),
 ]);
 
@@ -2693,26 +2709,10 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 	check("menu_template_shelf_life_hours_check", sql`(shelf_life_hours IS NULL) OR ((shelf_life_hours >= 1) AND (shelf_life_hours <= 720))`),
 	check("menu_template_snack_apoio_class_check", sql`(snack_family IS DISTINCT FROM 'apoio'::text) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text]))`),
 	check("menu_template_snack_class_check", sql`(snack_class IS NULL) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text, 'C'::text]))`),
-	check("menu_template_snack_complete_check", sql`((snack_family IS NULL) AND (snack_class IS NULL) AND (snack_variant IS NULL) AND (orderable = false)) OR ((snack_family IS NOT NULL) AND (snack_class IS NOT NULL) AND (snack_variant IS NOT NULL) AND (template_type = ANY (ARRAY['exception'::text, 'apoio'::text])))`),
+	check("menu_template_snack_complete_check", sql`((snack_family IS NULL) AND (snack_class IS NULL) AND (snack_variant IS NULL) AND (orderable = false)) OR ((snack_family IS NOT NULL) AND (snack_class IS NOT NULL) AND (snack_variant IS NOT NULL) AND (template_type = 'apoio'::text))`),
 	check("menu_template_snack_family_check", sql`(snack_family IS NULL) OR (snack_family = ANY (ARRAY['bordo'::text, 'apoio'::text]))`),
 	check("menu_template_snack_variant_check", sql`(snack_variant IS NULL) OR (snack_variant = ANY (ARRAY['lanche'::text, 'refeicao'::text]))`),
-	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text, 'apoio'::text])`),
-]);
-
-export const ingredientReviewInKitchen = kitchen.table("ingredient_review", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	ingredientId: uuid("ingredient_id").notNull(),
-	reviewedBy: uuid("reviewed_by"),
-	reviewedByName: text("reviewed_by_name"),
-	note: text(),
-	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("ingredient_review_ingredient_idx").using("btree", table.ingredientId.asc().nullsLast(), table.reviewedAt.desc().nullsFirst()),
-	foreignKey({
-			columns: [table.ingredientId],
-			foreignColumns: [ingredientInKitchen.id],
-			name: "ingredient_review_ingredient_id_fkey"
-		}).onDelete("cascade"),
+	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'apoio'::text])`),
 ]);
 
 export const frozenPreparationInKitchen = kitchen.table("frozen_preparation", {
@@ -3250,6 +3250,31 @@ export const goodsReceiptInInventory = inventory.table("goods_receipt", {
 	check("goods_receipt_supplier_document_digits", sql`(supplier_document IS NULL) OR (supplier_document ~ '^([0-9]{11}|[0-9]{14})$'::text)`),
 ]);
 
+export const priceResearchEmissionInProcurement = procurement.table("price_research_emission", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	sequence: integer().notNull(),
+	emittedBy: uuid("emitted_by"),
+	emittedAt: timestamp("emitted_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	sha256: text().notNull(),
+	items: jsonb().notNull(),
+	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
+}, (table) => [
+	index("price_research_emission_emitted_by_fk_idx").using("btree", table.emittedBy.asc().nullsLast()),
+	foreignKey({
+			columns: [table.emittedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "price_research_emission_emitted_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "price_research_emission_quantity_estimate_id_fkey"
+		}).onDelete("cascade"),
+	unique("price_research_emission_quantity_estimate_id_sequence_key").on(table.sequence, table.quantityEstimateId),
+	check("price_research_emission_sequence_check", sql`sequence > 0`),
+	check("price_research_emission_sha256_check", sql`sha256 ~ '^[0-9a-f]{64}$'::text`),
+]);
+
 export const contractDesignationInProcurement = procurement.table("contract_designation", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -3306,34 +3331,9 @@ export const contractDesignationInProcurement = procurement.table("contract_desi
 		}),
 	check("contract_designation_ato_reference", sql`(source <> 'ato'::text) OR (NULLIF(btrim(source_reference), ''::text) IS NOT NULL)`),
 	check("contract_designation_period", sql`(valid_to IS NULL) OR (valid_to >= valid_from)`),
-	check("contract_designation_role_check", sql`role = ANY (ARRAY['manager'::text, 'technical_inspector'::text, 'administrative_inspector'::text, 'sectoral_inspector'::text, 'committee_member'::text, 'gestor'::text, 'fiscal_tecnico'::text, 'fiscal_administrativo'::text, 'fiscal_setorial'::text, 'membro_comissao'::text])`),
+	check("contract_designation_role_check", sql`role = ANY (ARRAY['gestor'::text, 'fiscal_tecnico'::text, 'fiscal_administrativo'::text, 'fiscal_setorial'::text, 'membro_comissao'::text])`),
 	check("contract_designation_single_scope", sql`num_nonnulls(empenho_id, arp_id, acquisition_id) <= 1`),
 	check("contract_designation_source_check", sql`source = ANY (ARRAY['ato'::text, 'permanente'::text])`),
-]);
-
-export const priceResearchEmissionInProcurement = procurement.table("price_research_emission", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	sequence: integer().notNull(),
-	emittedBy: uuid("emitted_by"),
-	emittedAt: timestamp("emitted_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	sha256: text().notNull(),
-	items: jsonb().notNull(),
-	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
-}, (table) => [
-	index("price_research_emission_emitted_by_fk_idx").using("btree", table.emittedBy.asc().nullsLast()),
-	foreignKey({
-			columns: [table.emittedBy],
-			foreignColumns: [usersInAuth.id],
-			name: "price_research_emission_emitted_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.quantityEstimateId],
-			foreignColumns: [quantityEstimateInProcurement.id],
-			name: "price_research_emission_quantity_estimate_id_fkey"
-		}).onDelete("cascade"),
-	unique("price_research_emission_quantity_estimate_id_sequence_key").on(table.sequence, table.quantityEstimateId),
-	check("price_research_emission_sequence_check", sql`sequence > 0`),
-	check("price_research_emission_sha256_check", sql`sha256 ~ '^[0-9a-f]{64}$'::text`),
 ]);
 
 export const expiryAlertPolicyInInventory = inventory.table("expiry_alert_policy", {
@@ -3542,7 +3542,7 @@ export const inventoryCountInInventory = inventory.table("inventory_count", {
 	check("inventory_count_round_check", sql`round >= 1`),
 	check("inventory_count_scope_check", sql`scope = ANY (ARRAY['full'::text, 'conservation_class'::text, 'location'::text, 'item_list'::text, 'menu_cycle'::text])`),
 	check("inventory_count_status_check", sql`status = ANY (ARRAY['draft'::text, 'counting'::text, 'review'::text, 'recount'::text, 'approved'::text, 'rejected'::text, 'expired'::text, 'confirmed'::text])`),
-	check("inventory_count_type_check", sql`type = ANY (ARRAY['annual'::text, 'responsibility_transfer'::text, 'eventual'::text, 'rotating'::text, 'anual'::text, 'transferencia_responsabilidade'::text, 'rotativo'::text])`),
+	check("inventory_count_type_check", sql`type = ANY (ARRAY['anual'::text, 'transferencia_responsabilidade'::text, 'eventual'::text, 'rotativo'::text])`),
 ]);
 
 export const gpcAttributeInGs1Integration = gs1Integration.table("gpc_attribute", {

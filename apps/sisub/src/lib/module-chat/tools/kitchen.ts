@@ -3,7 +3,7 @@
  * Uses OpenAI function-calling format instead of MCP SDK format.
  */
 
-import { listAccessibleKitchens, TEMPLATE_TYPE_VOCABULARY, toJsonSchema } from "@iefa/sisub-domain"
+import { listAccessibleKitchens, toJsonSchema } from "@iefa/sisub-domain"
 import {
 	AGENT_APPLY_TEMPLATE_MAX_DATES,
 	AgentApplyTemplateSchema,
@@ -351,8 +351,6 @@ const listMenuTemplates: ModuleToolDefinition = {
 
 		const templates = (data ?? []).map(({ items, ...t }) => ({
 			...t,
-			// Até o contract do lote 5 o banco ainda grava o cardápio de apoio como `exception`.
-			template_type: TEMPLATE_TYPE_VOCABULARY.normalize(t.template_type) ?? t.template_type,
 			item_count: Array.isArray(items) ? ((items[0] as { count: number } | undefined)?.count ?? 0) : 0,
 		}))
 

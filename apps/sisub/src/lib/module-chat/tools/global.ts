@@ -7,7 +7,6 @@ import {
 	fetchIngredient as fetchIngredientOp,
 	listIngredientItems as listIngredientItemsOp,
 	listIngredientNutrients as listIngredientNutrientsOp,
-	TEMPLATE_TYPE_VOCABULARY,
 	toJsonSchema,
 } from "@iefa/sisub-domain"
 import {
@@ -161,8 +160,6 @@ const listMenuTemplates: ModuleToolDefinition = {
 
 		const templates = (data ?? []).map(({ items, ...t }) => ({
 			...t,
-			// Até o contract do lote 5 o banco ainda grava o cardápio de apoio como `exception`.
-			template_type: TEMPLATE_TYPE_VOCABULARY.normalize(t.template_type) ?? t.template_type,
 			item_count: Array.isArray(items) ? ((items[0] as { count: number } | undefined)?.count ?? 0) : 0,
 		}))
 

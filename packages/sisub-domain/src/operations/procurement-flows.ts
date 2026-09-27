@@ -14,7 +14,6 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { sql } from "drizzle-orm"
 import { kitchenUnitIds, requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
 import { requireUnit } from "../guards/require-permission.ts"
-import { TEMPLATE_TYPE_VOCABULARY } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { runQuery } from "../utils/index.ts"
 import { PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
@@ -62,14 +61,6 @@ export interface ProcurementPlanningStatus {
 }
 
 type Row = Record<string, unknown>
-/**
- * Cardápio de apoio como o banco o grava: até o contract do lote 5, `apoio` e o nome antigo
- * `exception` (`TEMPLATE_TYPE_VOCABULARY`).
- */
-const SUPPORT_MENU_STORED_TYPES = sql`array[${sql.join(
-	TEMPLATE_TYPE_VOCABULARY.storedValuesOf(["apoio"]).map((value) => sql`${value}`),
-	sql`, `
-)}]::text[]`
 const num = (value: unknown): number => (value == null ? 0 : Number(value))
 const str = (value: unknown): string | null => (value == null ? null : String(value))
 
@@ -85,7 +76,7 @@ async function loadKitchenStates(db: SisubDb, where: ReturnType<typeof sql>): Pr
 						where t.kitchen_id = k.id and t.deleted_at is null and coalesce(t.template_type, 'weekly') = 'weekly'
 							and exists (select 1 from kitchen.menu_template_items ti where ti.menu_template_id = t.id)) as weekly_with_items,
 					(select count(*) from kitchen.menu_template t where t.kitchen_id = k.id and t.deleted_at is null and t.template_type = 'event') as events,
-					(select count(*) from kitchen.menu_template t where t.kitchen_id = k.id and t.deleted_at is null and t.template_type = any(${SUPPORT_MENU_STORED_TYPES})) as support_menus,
+					(select count(*) from kitchen.menu_template t where t.kitchen_id = k.id and t.deleted_at is null and t.template_type = 'apoio') as support_menus,
 					d.id as forecast_id, d.title as forecast_title, d.status as forecast_status,
 					d.updated_at as forecast_updated_at, d.reviewed_at as forecast_reviewed_at,
 					(select count(*) from procurement.kitchen_demand_forecast_import i where i.forecast_id = d.id) as forecast_imports
@@ -295,9 +286,9 @@ export async function fetchDemandForecastStatus(db: SisubDb, ctx: UserContext, i
 							where t.kitchen_id = k.id and t.deleted_at is null and coalesce(t.template_type, 'weekly') = 'weekly'
 								and not exists (select 1 from kitchen.menu_template_items ti where ti.menu_template_id = t.id)) as weekly_empty,
 						(select count(*) from kitchen.menu_template t where t.kitchen_id = k.id and t.deleted_at is null and t.template_type = 'event') as events,
-						(select count(*) from kitchen.menu_template t where t.kitchen_id = k.id and t.deleted_at is null and t.template_type = any(${SUPPORT_MENU_STORED_TYPES})) as support_menus,
+						(select count(*) from kitchen.menu_template t where t.kitchen_id = k.id and t.deleted_at is null and t.template_type = 'apoio') as support_menus,
 						(select count(*) from kitchen.menu_template t
-							where t.kitchen_id = k.id and t.deleted_at is null and t.template_type = any(${SUPPORT_MENU_STORED_TYPES})
+							where t.kitchen_id = k.id and t.deleted_at is null and t.template_type = 'apoio'
 								and coalesce(t.expected_monthly_occurrences, 0) = 0) as support_menus_without_occurrences,
 						(select count(distinct ri.ingredient_id)
 							from kitchen.menu_template t
