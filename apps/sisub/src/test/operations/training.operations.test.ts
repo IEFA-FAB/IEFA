@@ -88,6 +88,14 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// `procurement.arp` e `procurement.segment` (as antigas `procurement_arp` e
 	// `procurement_segment`, renomeadas em 20260927060000) foram declaradas aqui antes do rename e
 	// já estão em RESET_STEPS.
+	//
+	// Arranchamento — migration 20260927130000 (lote 7 da linguagem ubíqua) renomeia
+	// `kitchen.meal_forecasts` para `kitchen.arranchamento` (o militar se arrancha; "meal forecast" é
+	// a estimativa agregada, `daily_menu.forecasted_headcount`) e deixa a view de compatibilidade
+	// com o nome antigo. A tabela tem `mess_hall_id` e é declarada antes do rename; o PR do rename a
+	// promove a RESET_STEPS.
+	"kitchen.arranchamento":
+		"declarada antes do rename (20260927130000): é a kitchen.meal_forecasts, que o reset já apaga pela view de compatibilidade até o PR do rename trocar o passo",
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */
