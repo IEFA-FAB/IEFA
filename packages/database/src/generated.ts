@@ -8368,6 +8368,47 @@ export type Database = {
         }
         Relationships: []
       }
+      arranchamento: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          meal: string
+          mess_hall_id: number
+          updated_at: string | null
+          user_id: string
+          will_eat: boolean
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          meal: string
+          mess_hall_id: number
+          updated_at?: string | null
+          user_id: string
+          will_eat: boolean
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          meal?: string
+          mess_hall_id?: number
+          updated_at?: string | null
+          user_id?: string
+          will_eat?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arranchamento_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ceafa: {
         Row: {
           created_at: string
@@ -9531,47 +9572,6 @@ export type Database = {
             columns: ["kitchen_id"]
             isOneToOne: false
             referencedRelation: "kitchen"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      meal_forecasts: {
-        Row: {
-          created_at: string | null
-          date: string
-          id: string
-          meal: string
-          mess_hall_id: number
-          updated_at: string | null
-          user_id: string
-          will_eat: boolean
-        }
-        Insert: {
-          created_at?: string | null
-          date: string
-          id?: string
-          meal: string
-          mess_hall_id: number
-          updated_at?: string | null
-          user_id: string
-          will_eat: boolean
-        }
-        Update: {
-          created_at?: string | null
-          date?: string
-          id?: string
-          meal?: string
-          mess_hall_id?: number
-          updated_at?: string | null
-          user_id?: string
-          will_eat?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meal_forecasts_mess_hall_id_fkey"
-            columns: ["mess_hall_id"]
-            isOneToOne: false
-            referencedRelation: "mess_halls"
             referencedColumns: ["id"]
           },
         ]
@@ -11714,6 +11714,47 @@ export type Database = {
             columns: ["ingredient_id"]
             isOneToOne: false
             referencedRelation: "ingredient"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_forecasts: {
+        Row: {
+          created_at: string | null
+          date: string | null
+          id: string | null
+          meal: string | null
+          mess_hall_id: number | null
+          updated_at: string | null
+          user_id: string | null
+          will_eat: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string | null
+          id?: string | null
+          meal?: string | null
+          mess_hall_id?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          will_eat?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string | null
+          id?: string | null
+          meal?: string | null
+          mess_hall_id?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          will_eat?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arranchamento_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
             referencedColumns: ["id"]
           },
         ]
