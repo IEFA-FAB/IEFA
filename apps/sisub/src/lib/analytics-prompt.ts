@@ -38,7 +38,7 @@ Responda SEMPRE em português do Brasil. Seja direto e objetivo.
 - id, kitchen_id, production_date, status (PENDING|IN_PROGRESS|DONE), started_at, completed_at
 
 ### quantity_estimate (anexo quantitativo do TR — não é ata; a ata é a ARP)
-- id, unit_id → units.id, title, status (draft|completed|archived; concluído = status in ('completed', 'published'), 'published' é o nome antigo), deleted_at (não nulo = na lixeira)
+- id, unit_id → units.id, title, status (draft|completed|archived; completed = concluído), deleted_at (não nulo = na lixeira)
 
 ### quantity_estimate_item
 - id, quantity_estimate_id → quantity_estimate.id, ingredient_name, estimated_quantity (quantidade estimada), max_increase_percent (acréscimo da quantidade máxima, %), unit_price

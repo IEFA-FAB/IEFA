@@ -25,7 +25,6 @@ import type { Tables } from "@iefa/database/sisub"
 import { and, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm"
 import { requireAnyPermission, requireUnit, requireUnscopedPermission } from "../guards/require-permission.ts"
 import type { FetchProcurementNeeds, FetchUnitDashboard } from "../schemas/procurement.ts"
-import { normalizeQuantityEstimateStatus } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { runQuery, toWire } from "../utils/index.ts"
@@ -268,8 +267,8 @@ export async function fetchUnitDashboard(
 			.orderBy(desc(quantityEstimateInProcurement.createdAt))
 	)
 
-	const completedQuantityEstimateRows = allQuantityEstimates.filter((a) => normalizeQuantityEstimateStatus(a.status) === "completed")
-	const completedQuantityEstimates = completedQuantityEstimateRows.map((a) => toWire<QuantityEstimate>({ ...a, status: "completed" }))
+	const completedQuantityEstimateRows = allQuantityEstimates.filter((a) => a.status === "completed")
+	const completedQuantityEstimates = completedQuantityEstimateRows.map((a) => toWire<QuantityEstimate>(a))
 	const completedQuantityEstimateIds = completedQuantityEstimateRows.map((a) => a.id)
 
 	if (completedQuantityEstimateIds.length === 0) {

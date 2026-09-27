@@ -128,9 +128,6 @@ rules:
         - "**/routeTree.gen.ts"
         - "**/generated.ts"
         - "**/drizzle/**"
-        # Alias depreciado de `/ata/:id` (design D7): sai com o contract 20260927050000.
-        - "apps/api/src/api/routes/legacy-annex.ts"
-        - "apps/api/src/api/routes/legacy-annex.test.ts"
         # Lê a migration histórica que criou a coluna com o nome da época.
         - "packages/sisub-domain/src/operations/quantity-estimate-limits.sql-contract.test.ts"
     patterns:
@@ -155,9 +152,8 @@ rules:
       `unit/$unitId/quantity-estimates` (`/new`, `/$quantityEstimateId`,
       `/print/calculation-memory/$quantityEstimateId`, `/print/price-research/$quantityEstimateId`),
       não em `procurement`; na API admin, `/quantity-estimates/:quantityEstimateId`, não
-      `/ata/:ataId`. O caminho antigo só existe como `from` de `LEGACY_ROUTE_PREFIXES`
-      (`apps/sisub/src/lib/legacy-routes.ts`) e no alias depreciado de
-      `apps/api/src/api/routes/legacy-annex.ts`, por um ciclo de deploy.
+      `/ata/:ataId`. O redirect e o alias depreciados do caminho antigo já cumpriram o ciclo e
+      saíram com o contract 20260927050000.
     paths:
       include:
         - "apps/sisub/src/**/*.ts"
@@ -166,8 +162,6 @@ rules:
         - "apps/api/src/**/*.ts"
       exclude:
         - "**/routeTree.gen.ts"
-        - "apps/api/src/api/routes/legacy-annex.ts"
-        - "apps/api/src/api/routes/legacy-annex.test.ts"
     patterns:
       - pattern-either:
           - pattern-regex: /unit(?:/[^/"'`\s]+)?/procurement(?=[/"'`?#)]|$)

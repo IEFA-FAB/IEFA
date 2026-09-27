@@ -6,7 +6,6 @@
  * estão em `core`, anexo e ARP em `procurement` — daí o schema explícito em cada `untypedFrom`.
  */
 
-import { COMPLETED_STATUS_VALUES } from "@iefa/sisub-domain"
 import { clampLimit } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
 import { requireModulePermission, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
@@ -60,14 +59,14 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		const unitId = requireCurrentUnitId(ctx)
 		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		// Anexos concluídos (`published` é o nome antigo de `completed` até o contract 20260927050000)
+		// Anexos concluídos
 		const { data: allQuantityEstimates, error: quantityEstimatesError } = await untypedFrom(ctx, "quantity_estimate", "procurement")
 			.select("id, title, status")
 			.eq("unit_id", unitId)
 			.is("deleted_at", null)
 		if (quantityEstimatesError) return toolErr(sanitizeDbError(quantityEstimatesError, "get_low_balance_items:quantity_estimates"))
 
-		const completedQuantityEstimates = (allQuantityEstimates ?? []).filter((a: { status: string }) => COMPLETED_STATUS_VALUES.includes(a.status))
+		const completedQuantityEstimates = (allQuantityEstimates ?? []).filter((a: { status: string }) => a.status === "completed")
 		const completedQuantityEstimateIds = completedQuantityEstimates.map((a: { id: string }) => a.id)
 		if (completedQuantityEstimateIds.length === 0) return toolOk({ message: "Nenhum anexo quantitativo concluído encontrado.", items: [] })
 

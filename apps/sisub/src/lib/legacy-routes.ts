@@ -16,11 +16,6 @@ export const LEGACY_ROUTE_PREFIXES: readonly { from: string; to: string }[] = [
 	{ from: "/unit/:unitId/liquidations", to: "/unit/:unitId/liquidacoes" },
 	{ from: "/unit/:unitId/payments", to: "/unit/:unitId/pagamentos" },
 	{ from: "/global/weekly-plans", to: "/global/weekly-menus" },
-	// Lote 2: anexo quantitativo (Lei 14.133, art. 18, § 1º, IV; só a ARP é ata). O documento de
-	// quantitativos virou "memória de cálculo"; a entrada dele vem antes do prefixo geral, que
-	// casaria primeiro e levaria a um caminho sem rota.
-	{ from: "/unit/:unitId/procurement/print/quantities", to: "/unit/:unitId/quantity-estimates/print/calculation-memory" },
-	{ from: "/unit/:unitId/procurement", to: "/unit/:unitId/quantity-estimates" },
 ]
 
 const segmentsOf = (path: string) => path.split("/").filter(Boolean)

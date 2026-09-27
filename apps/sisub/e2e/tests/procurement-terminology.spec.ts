@@ -22,15 +22,6 @@ test.describe("Terminologia do planejamento da contratação", () => {
 		await expect(page.getByText("Suprimentos", { exact: true })).toHaveCount(0)
 	})
 
-	test("o favorito antigo do anexo quantitativo leva à rota do glossário", async ({ authenticatedPage: page }) => {
-		test.skip(!UNIT_ID, "E2E_BUDGET_UNIT_ID ausente")
-		// Lote 2 do glossário: o anexo quantitativo mora em `quantity-estimates` (só a ARP é ata).
-		const legacy = { from: `/unit/${UNIT_ID}/procurement` }
-		await page.goto(legacy.from)
-		await page.waitForURL(new RegExp(`/unit/${UNIT_ID}/quantity-estimates/?$`))
-		await expect(page.getByRole("heading", { name: "Anexos Quantitativos do TR" })).toBeVisible({ timeout: 20_000 })
-	})
-
 	test("o anexo quantitativo não fala em publicar", async ({ authenticatedPage: page }) => {
 		test.skip(!UNIT_ID, "E2E_BUDGET_UNIT_ID ausente")
 		await page.goto(`/unit/${UNIT_ID}/dashboard`)

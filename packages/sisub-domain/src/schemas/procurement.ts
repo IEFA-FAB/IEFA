@@ -279,21 +279,6 @@ export type FetchQuantityEstimateDetails = z.infer<typeof FetchQuantityEstimateD
 export const QUANTITY_ESTIMATE_STATUSES = ["draft", "completed", "archived"] as const
 export type QuantityEstimateStatus = (typeof QUANTITY_ESTIMATE_STATUSES)[number]
 
-/**
- * TODO(contract 20260927050000): nome antigo de `completed`. As linhas concluídas antes de
- * 20260927040000 ainda o têm até o contract convertê-las; o código lê os dois e grava só
- * `completed`. Sai com o contract.
- */
-export const LEGACY_COMPLETED_STATUS = "published"
-
-/** Valores gravados que significam "concluído" enquanto o contract 20260927050000 não roda. */
-export const COMPLETED_STATUS_VALUES: readonly string[] = ["completed", LEGACY_COMPLETED_STATUS]
-
-/** Status lido do banco no vocabulário atual (`published` → `completed`). */
-export function normalizeQuantityEstimateStatus(status: string): string {
-	return status === LEGACY_COMPLETED_STATUS ? "completed" : status
-}
-
 export const UpdateQuantityEstimateStatusSchema = z.object({
 	quantityEstimateId: z.string(),
 	status: z.enum(QUANTITY_ESTIMATE_STATUSES),
