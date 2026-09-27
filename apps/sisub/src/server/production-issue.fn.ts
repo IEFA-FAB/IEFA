@@ -134,7 +134,8 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
 		const kit = kitchen()
-		const inv = inventory()
+		// Tipado: a única leitura do inventory aqui (`is_late_issue`) já está no `generated.ts`.
+		const inv = getServerClient("inventory")
 
 		const since = await openPeriodStart(data.kitchenId)
 		const { data: tasks, error } = await kit
@@ -149,7 +150,6 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		const taskList = tasks ?? []
 		if (taskList.length === 0) return []
 
-		// `is_late_issue`: migration 20260926217000 (TODO: regenerar tipos após aplicá-la).
 		const { data: issued, error: issuedError } = await inv
 			.from("stock_movement")
 			.select("production_task_id, ingredient_id, quantity, is_late_issue")
@@ -163,7 +163,9 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		// insumo: a baixa segue pendente, com o que já saiu tarde descontado por insumo.
 		const issuedIds = new Set<string>()
 		const lateByTask = new Map<string, Map<string, number>>()
-		for (const move of (issued ?? []) as Array<{ production_task_id: string; ingredient_id: string | null; quantity: number; is_late_issue: boolean }>) {
+		for (const move of issued ?? []) {
+			// `production_task_id` nunca vem nulo: a consulta filtra por ele.
+			if (move.production_task_id == null) continue
 			if (!move.is_late_issue) {
 				issuedIds.add(move.production_task_id)
 				continue
@@ -348,13 +350,13 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 /**
  * Preparações congeladas disponíveis para destino de sobra: o catálogo e as provisórias DESTA
  * cozinha ainda não revisadas (as de outra cozinha só entram depois da SDAB).
- * TODO: regenerar tipos após aplicar 20260926217000 (colunas `provisional_*`).
  */
 export const listFrozenPreparationsLiteFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data: input }) => {
 		await requireStorageForKitchen(1, input.kitchenId)
-		const { data, error } = await kitchen()
+		// Tipado: as colunas `provisional_*` já estão no `generated.ts` (o `kitchen()` frouxo é dívida do arquivo).
+		const { data, error } = await getServerClient("kitchen")
 			.from("frozen_preparation")
 			.select("id, description, shelf_life_days, provisional_since, provisional_reviewed_at")
 			.is("deleted_at", null)
@@ -362,15 +364,7 @@ export const listFrozenPreparationsLiteFn = createServerFn({ method: "GET" })
 			.order("description")
 			.limit(500)
 		if (error) throw new Error(`Erro ao listar preparações: ${error.message}`)
-		return (
-			(data ?? []) as Array<{
-				id: string
-				description: string
-				shelf_life_days: number | null
-				provisional_since: string | null
-				provisional_reviewed_at: string | null
-			}>
-		).map((row) => ({
+		return (data ?? []).map((row) => ({
 			id: row.id,
 			description: row.description,
 			shelf_life_days: row.shelf_life_days,

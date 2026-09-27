@@ -10,16 +10,21 @@
  * Permissão: `requireKitchenExecution` (`kitchen-production:1` OU `kitchen:2`), e SÓ para a
  * data de serviço de hoje no fuso de Brasília. Outro dia é planejamento, não execução.
  *
- * As colunas novas (`menu_items.added_in_execution_*`, `recipes.provisional_*`,
- * `frozen_preparation.provisional_*`, `stock_issue_request.explained_*`) são lidas e gravadas
- * por SQL cru com tipos locais estreitos.
- * TODO: regenerar tipos após aplicar 20260926217000 (db:types + db:drizzle:pull) e trocar o
- * SQL cru pelas colunas do schema Drizzle.
+ * Leitura e escrita de uma tabela só vão pelo schema Drizzle. Fica em SQL cru o que o query
+ * builder não diz melhor: as leituras da revisão (joins com `core.user_data`, o JSON do
+ * snapshot, contagens correlacionadas) e a busca da provisória pendente sob o advisory lock.
  */
 
-import { dailyMenuInKitchen, menuItemsInKitchen, productionTaskInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import {
+	dailyMenuInKitchen,
+	frozenPreparationInKitchen,
+	menuItemsInKitchen,
+	productionTaskInKitchen,
+	recipesInKitchen,
+	type SisubDb,
+} from "@iefa/database/drizzle/sisub"
 import { hasPermission } from "@iefa/pbac"
-import { and, eq, isNull, sql } from "drizzle-orm"
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm"
 import { requireKitchen, requireKitchenExecution, requirePermission } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type {
@@ -118,8 +123,7 @@ export async function fetchExecutionOptions(db: SisubDb, ctx: UserContext, input
 						id: recipesInKitchen.id,
 						name: recipesInKitchen.name,
 						portionYield: recipesInKitchen.portionYield,
-						// Coluna da migration 20260926217000 (TODO: regenerar tipos após aplicá-la).
-						provisional: sql<boolean>`("recipes"."provisional_since" is not null)`,
+						provisional: sql<boolean>`(${recipesInKitchen.provisionalSince} is not null)`,
 					})
 					.from(recipesInKitchen)
 					.where(buildLineageWinnerFilter(db, { kitchenId: input.kitchenId })),
@@ -208,13 +212,12 @@ async function addExecutionMenuItemTx(db: SisubDb, ctx: UserContext, input: AddE
 			if (existing) {
 				recipeId = String(existing.id)
 			} else {
-				const [created] = (await tx.execute(sql`
-					-- Sem rendimento: rendimento é da ficha. As porções do dia vão no ITEM; gravadas
-					-- aqui, dividiriam a quantidade quando a ficha fosse completada por receita.
-					insert into kitchen.recipes (name, kitchen_id, version, portion_yield, provisional_since, provisional_by)
-					values (${name}, ${input.kitchenId}, 1, null, now(), ${ctx.userId})
-					returning id
-				`)) as unknown as Row[]
+				// Sem rendimento: rendimento é da ficha. As porções do dia vão no ITEM; gravadas
+				// aqui, dividiriam a quantidade quando a ficha fosse completada por receita.
+				const [created] = await tx
+					.insert(recipesInKitchen)
+					.values({ name, kitchenId: input.kitchenId, version: 1, portionYield: null, provisionalSince: sql`now()`, provisionalBy: ctx.userId })
+					.returning({ id: recipesInKitchen.id })
 				if (!created) throw new DomainError("INSERT_FAILED", "Não foi possível criar a preparação provisória")
 				recipeId = String(created.id)
 			}
@@ -230,8 +233,7 @@ async function addExecutionMenuItemTx(db: SisubDb, ctx: UserContext, input: AddE
 		// Mesmo erro para "não existe" e "é de outra cozinha": sondar id não distingue os dois.
 		if (!recipe || (recipe.kitchenId !== null && recipe.kitchenId !== input.kitchenId)) throw new NotFoundError("recipe", recipeId)
 
-		const [provisionalRow] = (await tx.execute(sql`select provisional_since from kitchen.recipes where id = ${recipeId}`)) as unknown as Row[]
-		const provisionalSince = str(provisionalRow?.provisional_since)
+		const provisionalSince = recipe.provisionalSince
 		if (provisionalSince) provisional = true
 		const snapshot = {
 			...toWire<Record<string, unknown>>(recipe, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" }),
@@ -281,11 +283,10 @@ async function addExecutionMenuItemTx(db: SisubDb, ctx: UserContext, input: AddE
 			.returning({ id: menuItemsInKitchen.id })
 		if (!item) throw new DomainError("INSERT_FAILED", "Não foi possível incluir a preparação")
 
-		await tx.execute(sql`
-			update kitchen.menu_items
-			set added_in_execution_at = now(), added_in_execution_by = ${ctx.userId}, execution_reason = ${input.reason.trim()}
-			where id = ${item.id}
-		`)
+		await tx
+			.update(menuItemsInKitchen)
+			.set({ addedInExecutionAt: sql`now()`, addedInExecutionBy: ctx.userId, executionReason: input.reason.trim() })
+			.where(eq(menuItemsInKitchen.id, item.id))
 
 		// ── a tarefa do quadro ────────────────────────────────────────────────
 		const [task] = await tx
@@ -306,27 +307,27 @@ export async function reviewExecutionMenuItem(db: SisubDb, ctx: UserContext, inp
 	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	const [row] = (await runQuery(
+	const [row] = await runQuery(
 		"UPDATE_FAILED",
 		() =>
-			db.execute(sql`
-				select added_in_execution_at, execution_reviewed_at from kitchen.menu_items where id = ${input.menuItemId}
-			`),
+			db
+				.select({ addedInExecutionAt: menuItemsInKitchen.addedInExecutionAt, executionReviewedAt: menuItemsInKitchen.executionReviewedAt })
+				.from(menuItemsInKitchen)
+				.where(eq(menuItemsInKitchen.id, input.menuItemId)),
 		{ prefix: "Erro ao ler a inclusão" }
-	)) as unknown as Row[]
+	)
 	if (!row) throw new NotFoundError("menu_item", input.menuItemId)
-	if (row.added_in_execution_at == null)
+	if (row.addedInExecutionAt == null)
 		throw new DomainError("NOT_EXECUTION_ITEM", "Esta preparação veio do planejamento, não do turno: não há inclusão a revisar.")
-	if (row.execution_reviewed_at != null) return { reviewed: true }
+	if (row.executionReviewedAt != null) return { reviewed: true }
 
 	await runQuery(
 		"UPDATE_FAILED",
 		() =>
-			db.execute(sql`
-				update kitchen.menu_items
-				set execution_reviewed_at = now(), execution_reviewed_by = ${ctx.userId}
-				where id = ${input.menuItemId} and execution_reviewed_at is null
-			`),
+			db
+				.update(menuItemsInKitchen)
+				.set({ executionReviewedAt: sql`now()`, executionReviewedBy: ctx.userId })
+				.where(and(eq(menuItemsInKitchen.id, input.menuItemId), isNull(menuItemsInKitchen.executionReviewedAt))),
 		{ prefix: "Erro ao registrar a revisão" }
 	)
 	return { reviewed: true }
@@ -546,18 +547,21 @@ export async function reviewProvisionalFrozenPreparation(
 	input: ReviewProvisionalFrozenPreparation
 ): Promise<{ reviewed: boolean }> {
 	requirePermission(ctx, "global", 2)
-	const rows = (await runQuery(
+	const rows = await runQuery(
 		"UPDATE_FAILED",
 		() =>
-			db.execute(sql`
-				update kitchen.frozen_preparation
-				set provisional_reviewed_at = coalesce(provisional_reviewed_at, now()),
-					provisional_reviewed_by = coalesce(provisional_reviewed_by, ${ctx.userId})
-				where id = ${input.id} and provisional_since is not null and deleted_at is null
-				returning id
-			`),
+			db
+				.update(frozenPreparationInKitchen)
+				.set({
+					provisionalReviewedAt: sql`coalesce(${frozenPreparationInKitchen.provisionalReviewedAt}, now())`,
+					provisionalReviewedBy: sql`coalesce(${frozenPreparationInKitchen.provisionalReviewedBy}, ${ctx.userId})`,
+				})
+				.where(
+					and(eq(frozenPreparationInKitchen.id, input.id), isNotNull(frozenPreparationInKitchen.provisionalSince), isNull(frozenPreparationInKitchen.deletedAt))
+				)
+				.returning({ id: frozenPreparationInKitchen.id }),
 		{ prefix: "Erro ao registrar a revisão" }
-	)) as unknown as Row[]
+	)
 	if (rows.length === 0) throw new NotFoundError("frozen_preparation", input.id)
 	return { reviewed: true }
 }

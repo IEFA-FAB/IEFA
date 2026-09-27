@@ -31,19 +31,6 @@ const STATUS_LABEL: Record<string, { label: string; variant: "secondary" | "outl
 	rejected: { label: "Rejeitado", variant: "destructive" },
 }
 
-// TODO(db:types): regenerar os tipos após aplicar 20260926215000 e tirar este tipo local
-type ReceiptListRow = {
-	id: string
-	status: string
-	created_at: string
-	definitive_at: string | null
-	nfe_document_id: string | null
-	source?: string | null
-	delivery_note_number?: string | null
-	supplier_name?: string | null
-	rejected_at?: string | null
-}
-
 function ReceivingListPage() {
 	const { receipts, nfeDocs } = Route.useLoaderData()
 	const { kitchenId } = Route.useParams()
@@ -53,7 +40,7 @@ function ReceivingListPage() {
 	const [withoutInvoice, setWithoutInvoice] = useState(false)
 	const canReceive = can("storage", 2, { type: "kitchen", id: Number(kitchenId) })
 
-	const receivedNfeIds = new Set(receipts.map((r: { nfe_document_id: string | null }) => r.nfe_document_id).filter(Boolean))
+	const receivedNfeIds = new Set(receipts.map((r) => r.nfe_document_id).filter(Boolean))
 	const receivableNotes = nfeDocs.filter((doc) => !receivedNfeIds.has(doc.id))
 
 	async function createFromNfe(nfeDocumentId: string) {
@@ -122,13 +109,13 @@ function ReceivingListPage() {
 						<p className="text-sm text-muted-foreground py-4 text-center">Nenhum recebimento registrado.</p>
 					) : (
 						<div className="divide-y divide-border/50">
-							{(receipts as ReceiptListRow[]).map((receipt) => {
+							{receipts.map((receipt) => {
 								const meta = STATUS_LABEL[receipt.status] ?? STATUS_LABEL.draft
 								const origin = [
-									RECEIPT_SOURCE_LABELS[(receipt.source ?? "nfe") as ReceiptSource] ?? receipt.source,
+									RECEIPT_SOURCE_LABELS[receipt.source as ReceiptSource] ?? receipt.source,
 									receipt.delivery_note_number,
 									receipt.supplier_name,
-									receipt.source !== "nfe" && receipt.source != null && !receipt.nfe_document_id ? "sem NF-e vinculada" : null,
+									receipt.source !== "nfe" && !receipt.nfe_document_id ? "sem NF-e vinculada" : null,
 								]
 									.filter(Boolean)
 									.join(" · ")

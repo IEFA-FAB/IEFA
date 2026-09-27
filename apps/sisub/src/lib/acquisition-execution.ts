@@ -13,7 +13,9 @@
 
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen (20260926214000)
+// Frouxo de propósito: é a costura de teste (o teste passa um cliente falso) e a consulta de
+// contratações tem as colunas por parâmetro, que o parser de tipos do PostgREST não resolve.
+// biome-ignore lint/suspicious/noExplicitAny: costura de teste; ver acima
 export type ExecutionClient = { from: (table: string) => any }
 
 export interface ExecutionAcquisitionRow {

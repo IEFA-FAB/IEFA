@@ -211,30 +211,27 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 	return items
 }
 
-/**
- * Inclusão pelo turno de cada item do quadro. SQL cru: as colunas são da migration
- * 20260926217000 e ainda não estão no schema Drizzle.
- * TODO: regenerar tipos após aplicar 20260926217000.
- */
+/** Inclusão pelo turno de cada item do quadro. */
 async function fetchBoardExecutionInfo(db: SisubDb, menuItemIds: string[]): Promise<Map<string, BoardExecutionInfo>> {
 	const out = new Map<string, BoardExecutionInfo>()
 	if (menuItemIds.length === 0) return out
-	const rows = (await runQuery(
+	const rows = await runQuery(
 		"FETCH_FAILED",
 		() =>
-			db.execute(sql`
-				select id, added_in_execution_at, execution_reason, execution_reviewed_at
-				from kitchen.menu_items
-				where id in (${sql.join(
-					menuItemIds.map((id) => sql`${id}`),
-					sql`, `
-				)})
-			`),
+			db
+				.select({
+					id: menuItemsInKitchen.id,
+					addedInExecutionAt: menuItemsInKitchen.addedInExecutionAt,
+					executionReason: menuItemsInKitchen.executionReason,
+					executionReviewedAt: menuItemsInKitchen.executionReviewedAt,
+				})
+				.from(menuItemsInKitchen)
+				.where(inArray(menuItemsInKitchen.id, menuItemIds)),
 		{ prefix: "Erro ao ler as inclusões do turno" }
-	)) as unknown as Array<{ id: string; added_in_execution_at: string | null; execution_reason: string | null; execution_reviewed_at: string | null }>
+	)
 	for (const row of rows) {
-		if (row.added_in_execution_at == null) continue
-		out.set(row.id, { added_at: String(row.added_in_execution_at), reason: row.execution_reason ?? "", reviewed: row.execution_reviewed_at != null })
+		if (row.addedInExecutionAt == null) continue
+		out.set(row.id, { added_at: row.addedInExecutionAt, reason: row.executionReason ?? "", reviewed: row.executionReviewedAt != null })
 	}
 	return out
 }

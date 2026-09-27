@@ -36,7 +36,9 @@ import { getDb } from "@/lib/db.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados
+// Frouxo pelas RPCs: o tipo gerado declara os parâmetros com default como `?: string`, e aqui eles
+// vão como `null` explícito. Tipar o cliente obrigaria a trocar o payload das chamadas.
+// biome-ignore lint/suspicious/noExplicitAny: parâmetros das RPCs; ver acima
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
 
 const inventory = () => getServerClient("inventory") as unknown as LooseClient
@@ -449,10 +451,9 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const kit = kitchen()
-		const { data: request, error: requestError } = await inv
+		// Cliente tipado: estas colunas já estão no `generated.ts` (o `inventory()` frouxo fica para as RPCs).
+		const { data: request, error: requestError } = await getServerClient("inventory")
 			.from("stock_issue_request")
-			// `auto_closed_at`/`explained_at`/`explanation`: migration 20260926217000.
-			// TODO: regenerar tipos após aplicar 20260926217000.
 			.select("id, kitchen_id, issue_date, origin, status, destination, purpose, closed_at, auto_closed_at, explained_at, explanation")
 			.eq("id", data.requestId)
 			.maybeSingle()
@@ -826,17 +827,16 @@ export const listUnexplainedIssueDaysFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const { data: rows, error } = await inventory()
+		const { data: rows, error } = await getServerClient("inventory")
 			.from("stock_issue_request")
 			.select("id, issue_date, origin")
 			.eq("kitchen_id", data.kitchenId)
 			.eq("status", "closed_unexplained")
-			// TODO: regenerar tipos após aplicar 20260926217000 (`explained_at`).
 			.is("explained_at", null)
 			.order("issue_date", { ascending: false })
 			.limit(60)
 		if (error) throw new Error(`Erro ao carregar os dias sem justificativa: ${error.message}`)
-		return (rows ?? []) as Array<{ id: string; issue_date: string; origin: string }>
+		return rows ?? []
 	})
 
 /**

@@ -1,3 +1,4 @@
+import type { TableRow } from "@iefa/database"
 import {
 	CONSERVATION_CLASSES,
 	CONSERVATION_LABELS,
@@ -516,20 +517,6 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 	)
 }
 
-// TODO(db:types): regenerar os tipos após aplicar 20260926215000 e tirar este tipo local
-type ReceiptLinkColumns = {
-	source?: string | null
-	delivery_note_number?: string | null
-	supplier_name?: string | null
-	supplier_document?: string | null
-	invoice_expected?: boolean | null
-	invoice_check_deferred_at?: string | null
-	invoice_check_deferred_reason?: string | null
-	rejected_at?: string | null
-	notes?: string | null
-	empenho_id?: string | null
-}
-
 function ReceiptDetailPage() {
 	const { receipt, scannerProfile, scanEvents, context } = Route.useLoaderData()
 	// A tela não tem número próprio; a listagem identifica o recebimento pela data de abertura
@@ -543,8 +530,9 @@ function ReceiptDetailPage() {
 
 	const items: ReceiptItemRow[] = receipt.items
 	const editable = isReceiptEditable(receipt.status)
-	const links = receipt as typeof receipt & ReceiptLinkColumns
-	const source = links.source ?? "nfe"
+	// `fetchReceiptFn` lê pelo cliente frouxo do inventory; as colunas de vínculo saem do tipo gerado.
+	const links: TableRow<"inventory", "goods_receipt"> = receipt
+	const source = links.source
 	const sourceText = `${RECEIPT_SOURCE_LABELS[source as ReceiptSource] ?? source}${links.delivery_note_number ? ` ${links.delivery_note_number}` : ""}${links.supplier_name ? ` · ${links.supplier_name}` : ""}`
 	const kitchenScope = { type: "kitchen" as const, id: Number(kitchenId) }
 	const canLink = can("storage", 2, kitchenScope)
@@ -649,7 +637,7 @@ function ReceiptDetailPage() {
 					stage={needsDesignation}
 					unitId={context.unitId}
 					canDesignate={context.canDesignate}
-					empenhoId={links.empenho_id ?? null}
+					empenhoId={links.empenho_id}
 					onDesignated={() => router.invalidate()}
 				/>
 			)}
@@ -691,9 +679,9 @@ function ReceiptDetailPage() {
 					receiptId={receipt.id}
 					kitchenId={Number(kitchenId)}
 					source={context.source}
-					supplier={{ name: links.supplier_name ?? null, document: links.supplier_document ?? null }}
+					supplier={{ name: links.supplier_name, document: links.supplier_document }}
 					documents={{ nfe: context.invoice, supplyOrder: context.supplyOrder, empenho: context.empenho, liquidated: context.liquidated }}
-					invoiceExpected={links.invoice_expected ?? true}
+					invoiceExpected={links.invoice_expected}
 					canLink={canLink}
 					onLinked={() => router.invalidate()}
 				/>
