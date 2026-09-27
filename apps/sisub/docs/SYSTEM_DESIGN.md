@@ -152,7 +152,7 @@ function NomePagina() {
 hooks/
 ├── auth/       # useAuth, useProfile — dados da sessão autenticada
 ├── business/   # useFiscalOps, useExportCSV — lógica de negócio
-├── data/       # useRecipes, useMealForecast, usePlanning, ... — React Query
+├── data/       # useRecipes, useArranchamento, usePlanning, ... — React Query
 └── ui/         # useTheme, useUserSync — estado de interface
 ```
 
@@ -179,12 +179,12 @@ Manter imports diretos por path completo (`@/components/features/diner/DayCard`)
 |---|---|---|
 | Componente React | PascalCase | `DayCard.tsx`, `PageHeader.tsx` |
 | Componente ui/ (shadcn) | kebab-case (exceção) | `button.tsx`, `card.tsx` |
-| Hook | camelCase com `use` | `useMealForecast.ts` |
-| Server function | camelCase com `Fn` | `fetchForecastFn`, `upsertMenuFn` |
+| Hook | camelCase com `use` | `useArranchamento.ts` |
+| Server function | camelCase com `Fn` | `fetchArranchamentosFn`, `upsertMenuFn` |
 | Skeleton | Sufixo `Skeleton` | `DayCardSkeleton.tsx` |
 | Subfolder de partes internas | Prefixo `_parts/` | `_parts/DayCardHeader.tsx` |
 | Route layout | `route.tsx` | `_modules/route.tsx` |
-| Route page | `index.tsx` ou `nome.tsx` | `forecast.tsx`, `index.tsx` |
+| Route page | `index.tsx` ou `nome.tsx` | `arranchamento.tsx`, `index.tsx` |
 
 ---
 
