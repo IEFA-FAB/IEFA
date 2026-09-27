@@ -42,7 +42,7 @@ Todas escopadas por cozinha em `/storage/$kitchenId/…`: `dashboard` (saldo por
 
 ## Saldos que nunca se somam
 
-O painel ARP distingue **saldo oficial** (snapshot Compras.gov — inclui caronas de outras UASGs, muda só ao sincronizar) de **comprometimento local** (soma dos `finance.empenho` ativos, tempo real). O MRP aplica FC/IR; a ATA publicada não — divergência intencional, com memória de cálculo exposta na UI.
+O painel ARP distingue **saldo oficial** (snapshot Compras.gov — inclui caronas de outras UASGs, muda só ao sincronizar) de **comprometimento local** (soma dos itens `finance.empenho_item` das NEs ativas, tempo real). O MRP aplica FC/IR; a ATA publicada não — divergência intencional, com memória de cálculo exposta na UI.
 
 ## Operação pós-deploy
 

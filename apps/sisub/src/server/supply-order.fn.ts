@@ -59,7 +59,7 @@ export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 		if (empenhoIds.length > 0) {
 			const { data: empenhos, error: empenhoError } = await (getServerClient("finance") as unknown as LooseClient)
 				.from("empenho")
-				.select("id, numero_empenho, quantidade_empenhada, valor_total, status")
+				.select("id, numero_empenho, valor_total, status")
 				.in("id", empenhoIds)
 			if (empenhoError) throw new Error(`Erro ao ler os empenhos das OFs: ${empenhoError.message}`)
 			for (const e of empenhos ?? []) empenhoById.set(e.id, e)
@@ -105,29 +105,34 @@ async function resolvePurchaseItemsByArpItem(arpItemIds: readonly string[]): Pro
 	return resolved
 }
 
-/** Itens de ARP cobertos pela NE — pelos itens dela; o cabeçalho antigo conta enquanto o item não existe. */
-async function coveredArpItemIds(empenhoId: string, headerArpItemId: string | null): Promise<string[]> {
+/** Itens de ARP cobertos pela NE — pelos itens dela (`finance.empenho_item`). */
+async function coveredArpItemIds(empenhoId: string): Promise<string[]> {
 	const { data, error } = await (getServerClient("finance") as unknown as LooseClient).from("empenho_item").select("arp_item_id").eq("empenho_id", empenhoId)
 	if (error) throw new Error(`Erro ao ler os itens do empenho: ${error.message}`)
-	const ids = (data ?? []).map((row: { arp_item_id: string | null }) => row.arp_item_id).filter((id: string | null): id is string => id != null)
-	if (headerArpItemId && !ids.includes(headerArpItemId)) ids.push(headerArpItemId)
-	return ids
+	const ids: string[] = (data ?? []).map((row: { arp_item_id: string | null }) => row.arp_item_id).filter((id: string | null): id is string => id != null)
+	return [...new Set(ids)]
+}
+
+/** O favorecido da NE (14 dígitos); sem ele, o CNPJ único entre os fornecedores dos itens de ARP. */
+function supplierCnpjFromRows(favorecidoCnpj: string | null, arpSupplierCnpjs: ReadonlyArray<string | null>): string | null {
+	const direct = favorecidoCnpj?.replace(/\D/g, "") ?? ""
+	if (direct.length === 14) return direct
+	const cnpjs = new Set(arpSupplierCnpjs.map((cnpj) => cnpj?.replace(/\D/g, "") ?? "").filter((cnpj) => cnpj.length === 14))
+	return cnpjs.size === 1 ? ([...cnpjs][0] as string) : null
 }
 
 /** CNPJ do fornecedor para o SICAF: o favorecido da NE; sem ele, o fornecedor único dos itens de ARP. */
 async function supplierCnpjFor(favorecidoCnpj: string | null, arpItemIds: readonly string[]): Promise<string | null> {
-	const direct = favorecidoCnpj?.replace(/\D/g, "") ?? ""
-	if (direct.length === 14) return direct
-	if (arpItemIds.length === 0) return null
+	if (favorecidoCnpj?.replace(/\D/g, "").length === 14 || arpItemIds.length === 0) return supplierCnpjFromRows(favorecidoCnpj, [])
 	const { data, error } = await procurement()
 		.from("procurement_arp_item")
 		.select("ni_fornecedor")
 		.in("id", [...arpItemIds])
 	if (error) throw new Error(`Erro ao ler o fornecedor da ARP: ${error.message}`)
-	const cnpjs = new Set(
-		(data ?? []).map((row: { ni_fornecedor: string | null }) => row.ni_fornecedor?.replace(/\D/g, "") ?? "").filter((c: string) => c.length === 14)
+	return supplierCnpjFromRows(
+		favorecidoCnpj,
+		(data ?? []).map((row: { ni_fornecedor: string | null }) => row.ni_fornecedor)
 	)
-	return cnpjs.size === 1 ? ([...cnpjs][0] as string) : null
 }
 
 /**
@@ -166,18 +171,14 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		// aqui, na emissão. OF aguardando empenho não tem fornecedor conhecido ainda.
 		let sicafStatus: string | null = null
 		const finance = getServerClient("finance") as unknown as LooseClient
-		let empenhoRow: { arp_item_id: string | null; unit_id: number | null; status: string; favorecido_cnpj: string | null } | null = null
+		let empenhoRow: { unit_id: number | null; status: string; favorecido_cnpj: string | null } | null = null
 		if (data.empenhoId) {
-			const { data: row, error: empenhoError } = await finance
-				.from("empenho")
-				.select("arp_item_id, unit_id, status, favorecido_cnpj")
-				.eq("id", data.empenhoId)
-				.maybeSingle()
+			const { data: row, error: empenhoError } = await finance.from("empenho").select("unit_id, status, favorecido_cnpj").eq("id", data.empenhoId).maybeSingle()
 			if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${empenhoError.message}`)
 			if (!row) throw new Error("Empenho não encontrado")
 			empenhoRow = row
 		}
-		const covered = empenhoRow && data.empenhoId ? await coveredArpItemIds(data.empenhoId, empenhoRow.arp_item_id) : []
+		const covered = empenhoRow && data.empenhoId ? await coveredArpItemIds(data.empenhoId) : []
 
 		// O guard acima prova só a cozinha. O empenho vinha do corpo e o `unit_id`
 		// dele era lido sem comparação: a OF consumia o saldo de outra OM. A unidade
@@ -269,7 +270,7 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 		const finance = getServerClient("finance") as unknown as LooseClient
 		const { data: empenhoRow, error: empenhoError } = await finance
 			.from("empenho")
-			.select("arp_item_id, unit_id, status, favorecido_cnpj")
+			.select("unit_id, status, favorecido_cnpj")
 			.eq("id", data.empenhoId)
 			.maybeSingle()
 		if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${empenhoError.message}`)
@@ -282,7 +283,7 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${kitchenError.message}`)
 		const { data: items, error: itemsError } = await procurement().from("supply_order_item").select("arp_item_id").eq("supply_order_id", data.supplyOrderId)
 		if (itemsError) throw new Error(`Erro ao ler os itens da OF: ${itemsError.message}`)
-		const covered = await coveredArpItemIds(data.empenhoId, empenhoRow.arp_item_id)
+		const covered = await coveredArpItemIds(data.empenhoId)
 
 		const problems = supplyOrderLinkProblems({
 			kitchenPurchaseUnitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
@@ -349,7 +350,7 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 
 		const { data: empenhos, error } = await finance
 			.from("empenho")
-			.select("id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, valor_total, arp_item_id, favorecido_nome")
+			.select("id, numero_empenho, data_empenho, valor_total, favorecido_nome, favorecido_cnpj")
 			.eq("unit_id", unitId)
 			.eq("status", "ativo")
 			.order("data_empenho", { ascending: false })
@@ -357,8 +358,8 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 		if (error) throw new Error(`Erro ao listar empenhos: ${error.message}`)
 		const list = empenhos ?? []
 
-		// Itens da NE: a OF se monta a partir deles (NE com vários itens tem o cabeçalho nulo, e
-		// somar a quantidade de itens diferentes no teto misturaria quilo com litro).
+		// Itens da NE: a OF se monta a partir deles (somar a quantidade de itens diferentes no teto
+		// misturaria quilo com litro).
 		const empenhoIds = list.map((e: { id: string }) => e.id)
 		const neItems =
 			empenhoIds.length === 0
@@ -375,13 +376,7 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 
 		// fornecedor e descrição vêm da ARP (ou do favorecido, na NE sem ata) — query separada: embed
 		// cross-schema (finance → procurement) não resolve no PostgREST (pego pelo E2E)
-		const arpItemIds = [
-			...new Set(
-				[...list.map((e: { arp_item_id: string | null }) => e.arp_item_id), ...neItems.map((item) => item.arp_item_id)].filter((id): id is string =>
-					Boolean(id)
-				)
-			),
-		]
+		const arpItemIds = [...new Set(neItems.map((item) => item.arp_item_id).filter((id): id is string => Boolean(id)))]
 		const arpItemById = new Map<
 			string,
 			{ ni_fornecedor: string | null; nome_fornecedor: string | null; descricao_item: string | null; numero_item: number | null; valor_unitario: number | null }
@@ -394,12 +389,17 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 			if (arpError) throw new Error(`Erro ao ler os itens da ARP: ${arpError.message}`)
 			for (const item of arpItems ?? []) arpItemById.set(item.id, item)
 		}
-		return list.map((e: { id: string; arp_item_id: string | null }) => ({
-			...e,
-			arp_item: e.arp_item_id ? (arpItemById.get(e.arp_item_id) ?? null) : null,
-			items: neItems
-				.filter((item) => item.empenho_id === e.id)
-				.map((item) => {
+		return list.map((e: { id: string; favorecido_cnpj: string | null }) => {
+			const items = neItems.filter((item) => item.empenho_id === e.id)
+			return {
+				...e,
+				// CNPJ para a consulta SICAF: o favorecido da NE; sem ele, o fornecedor único dos itens de ARP
+				// (a mesma regra de `supplierCnpjFor`, que a emissão aplica no servidor).
+				supplier_cnpj: supplierCnpjFromRows(
+					e.favorecido_cnpj,
+					items.map((item) => (item.arp_item_id ? (arpItemById.get(item.arp_item_id)?.ni_fornecedor ?? null) : null))
+				),
+				items: items.map((item) => {
 					const arp = item.arp_item_id ? arpItemById.get(item.arp_item_id) : undefined
 					return {
 						id: item.id,
@@ -415,7 +415,8 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 						arp_numero_item: arp?.numero_item ?? null,
 					}
 				}),
-		}))
+			}
+		})
 	})
 
 export const cancelSupplyOrderFn = createServerFn({ method: "POST" })

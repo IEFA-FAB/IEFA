@@ -1,4 +1,3 @@
-import type { Empenho } from "@iefa/database/sisub"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import { useAssuredMutation } from "@/hooks/auth/useAssuredMutation"
@@ -33,7 +32,7 @@ export function useArpForAta(ataId: string | null) {
 export function useEmpenhos(arpItemId: string | null) {
 	return useQuery({
 		queryKey: queryKeys.ata.empenhos(arpItemId),
-		queryFn: () => fetchEmpenhosFn({ data: { arpItemId: arpItemId as string } }) as Promise<Empenho[]>,
+		queryFn: () => fetchEmpenhosFn({ data: { arpItemId: arpItemId as string } }),
 		enabled: arpItemId !== null,
 		staleTime: 1 * 60 * 1000,
 	})

@@ -25,8 +25,20 @@ export interface ArpWithItems extends ProcurementArp {
 	items: ProcurementArpItem[]
 }
 
+/**
+ * Empenho visto a partir de um item da ARP (`fetchEmpenhosFn`): o cabeçalho da NE e a soma dos
+ * itens dela (`finance.empenho_item`) que apontam para ESTE item. A NE com vários itens aparece em
+ * cada item da ARP com a parte dele; `item_quantity` nulo = NE só por valor.
+ */
+export interface EmpenhoOfArpItem
+	extends Pick<Empenho, "id" | "unit_id" | "numero_empenho" | "data_empenho" | "valor_total" | "status" | "nd" | "nota_lancamento"> {
+	item_quantity: number | null
+	item_unit_price: number | null
+	item_value: number
+}
+
 export interface ArpItemWithEmpenhos extends ProcurementArpItem {
-	empenhos: Empenho[]
+	empenhos: EmpenhoOfArpItem[]
 }
 
 // ─── DTOs da API Compras.gov.br ───────────────────────────────────────────────
@@ -63,7 +75,7 @@ export interface CreateEmpenhoPayload {
 	arpItemId: string
 	numeroEmpenho: string
 	dataEmpenho: string
-	quantidadeEmpenhada: number
-	valorUnitario: number
+	quantity: number
+	unitPrice: number
 	notaLancamento?: string
 }

@@ -77,11 +77,6 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 						(${ne.id}, ${byNumber.get(2) as string}, 2, 50, 8, 400),
 						(${ne.id}, ${byNumber.get(3) as string}, 3, 50, 10, 500)`
 
-				// Com vários itens, nenhum fala pela NE: as colunas antigas ficam nulas.
-				const [header] = await tx`select arp_item_id, quantidade_empenhada, valor_unitario from finance.empenho where id = ${ne.id}`
-				expect(header.arp_item_id).toBeNull()
-				expect(header.quantidade_empenhada).toBeNull()
-
 				// Comprometimento local por item de ARP: cada um soma só o seu.
 				const committed = await tx`
 					select arp_item_id, sum(quantity)::numeric as qty from finance.empenho_item where empenho_id = ${ne.id} group by arp_item_id`
@@ -183,14 +178,13 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 					values (${unit.id}, ${list.id}, '00001/2026', '160001') returning id`
 				const [arpItem] = await tx`
 					insert into procurement.procurement_arp_item (arp_id, numero_item, valor_unitario, quantidade_homologada) values (${arp.id}, 1, 5, 100) returning id`
-				// NE pelo caminho antigo (a `main` grava assim): o item nasce no commit.
+				// A NE aponta para o item da ARP pelo item dela.
 				const [ne] = await tx`
-					insert into finance.empenho (unit_id, arp_item_id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, valor_total)
-					values (${unit.id}, ${arpItem.id}, '2026NE000777', '2026-07-01', 100, 5, 500) returning id`
-				await tx`set constraints finance.empenho_ensure_item immediate`
-				const [item] = await tx`select arp_item_id, quantity, unit_price, value from finance.empenho_item where empenho_id = ${ne.id}`
-				expect(item.arp_item_id).toBe(arpItem.id)
-				expect(Number(item.value)).toBe(500)
+					insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total)
+					values (${unit.id}, '2026NE000777', '2026-07-01', 500) returning id`
+				await tx`
+					insert into finance.empenho_item (empenho_id, arp_item_id, quantity, unit_price, value)
+					values (${ne.id}, ${arpItem.id}, 100, 5, 500)`
 
 				await tx`delete from procurement.procurement_list where id = ${list.id}`
 				const [arpAfter] = await tx`select ata_id from procurement.procurement_arp where id = ${arp.id}`

@@ -26,6 +26,7 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/su
 })
 
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 4 })
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
 const STATUS_LABEL: Record<string, string> = {
 	draft: "Rascunho",
@@ -34,6 +35,13 @@ const STATUS_LABEL: Record<string, string> = {
 	received: "Recebida",
 	cancelled: "Cancelada",
 	expired: "Expirada",
+}
+
+/** O que a NE empenhou, pelos itens: a quantidade do item único, ou o número de itens e o valor. */
+function describeEmpenhado(items: readonly EmpenhoItemOption[], valorTotal: number): string {
+	const [only] = items
+	if (items.length === 1 && only?.quantity != null) return `${NUM.format(only.quantity)} ${only.unit ?? ""} empenhado`.replace(/\s+/g, " ")
+	return `${items.length === 1 ? "1 item" : `${items.length} itens`} · ${BRL.format(valorTotal)}`
 }
 
 /** Item da NE como `listEmpenhosForKitchenFn` devolve: a OF se monta a partir dele. */
@@ -176,24 +184,22 @@ function SupplyOrdersPage() {
 							{/* select nativo proibido? Base UI Select exige plumbing; lista curta → radios simples */}
 							<div className="max-h-32 overflow-y-auto rounded-md border p-1 space-y-0.5">
 								{empenhos.length === 0 && <p className="text-xs text-muted-foreground p-2">Nenhum empenho ativo na unidade.</p>}
-								{empenhos.map((emp: { id: string; numero_empenho: string; quantidade_empenhada: number }) => (
+								{empenhos.map((emp: { id: string; numero_empenho: string; valor_total: number; supplier_cnpj: string | null; items: EmpenhoItemOption[] }) => (
 									<button
 										key={emp.id}
 										type="button"
 										onClick={() => {
 											setEmpenhoId(emp.id)
-											const items = (emp as { items?: EmpenhoItemOption[] }).items ?? []
-											setNeItemId(items.length === 1 ? (items[0]?.id ?? "") : "")
+											setNeItemId(emp.items.length === 1 ? (emp.items[0]?.id ?? "") : "")
 											setPriceInput("")
-											const cnpj = (emp as { arp_item?: { ni_fornecedor?: string | null } | null }).arp_item?.ni_fornecedor?.replace(/\D/g, "") ?? ""
-											setSicafCnpj(cnpj)
+											setSicafCnpj(emp.supplier_cnpj ?? "")
 											setSicaf(null)
 											setSicafAck(false)
 										}}
 										className={`w-full text-left text-xs px-2 py-1 rounded ${empenhoId === emp.id ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
 									>
 										<span className="font-mono">{emp.numero_empenho}</span>
-										<span className="text-muted-foreground ml-2">{NUM.format(Number(emp.quantidade_empenhada))} empenhado</span>
+										<span className="text-muted-foreground ml-2">{describeEmpenhado(emp.items, Number(emp.valor_total))}</span>
 									</button>
 								))}
 							</div>

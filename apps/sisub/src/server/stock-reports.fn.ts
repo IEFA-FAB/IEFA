@@ -254,7 +254,7 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 
 		const { data: empenhos } = await finance
 			.from("empenho")
-			.select("id, numero_empenho, quantidade_empenhada, valor_total, status")
+			.select("id, numero_empenho, valor_total, status")
 			.eq("unit_id", unitId)
 			.eq("status", "ativo")
 			.order("data_empenho", { ascending: false })
@@ -262,9 +262,8 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 		const list = empenhos ?? []
 		if (list.length === 0) return []
 
-		// Quantidade empenhada pelos ITENS da NE (20260926214000): numa NE com vários itens o
-		// cabeçalho antigo é nulo, e ler dele dava "empenhada 0" e "a receber" negativo. NE só por
-		// valor (estimativa/global) não tem quantidade: sai nula, e a tela mostra "—".
+		// Quantidade empenhada pelos ITENS da NE (`finance.empenho_item`). NE só por valor
+		// (estimativa/global) não tem quantidade: sai nula, e a tela mostra "—".
 		const { data: neItems, error: neItemsError } = await finance
 			.from("empenho_item")
 			.select("empenho_id, quantity")
@@ -303,14 +302,9 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 			}
 		}
 
-		return list.map((empenho: { id: string; numero_empenho: string; quantidade_empenhada: number | null; valor_total: number }) => {
+		return list.map((empenho: { id: string; numero_empenho: string; valor_total: number }) => {
 			const received = Number((receivedByEmpenho.get(empenho.id) ?? 0).toFixed(4))
-			// Item ainda não criado (NE do caminho antigo, antes do commit): o cabeçalho fala por ele.
-			const empenhada = quantityByEmpenho.has(empenho.id)
-				? (quantityByEmpenho.get(empenho.id) ?? null)
-				: empenho.quantidade_empenhada == null
-					? null
-					: Number(empenho.quantidade_empenhada)
+			const empenhada = quantityByEmpenho.get(empenho.id) ?? null
 			return {
 				empenhoId: empenho.id,
 				numeroEmpenho: empenho.numero_empenho,

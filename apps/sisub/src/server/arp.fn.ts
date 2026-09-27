@@ -10,7 +10,10 @@
  */
 
 import type { Empenho, ProcurementArpItem } from "@iefa/database/sisub"
+import { resolveItemValue } from "@iefa/sisub-domain"
+import { describeDriverError, unwrapPgError } from "@iefa/sisub-domain/utils"
 import { createServerFn } from "@tanstack/react-start"
+import { sql } from "drizzle-orm"
 import { z } from "zod"
 import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 import { loadLocalCommitments } from "@/lib/arp-commitments.server"
@@ -18,11 +21,12 @@ import { type ArpSaldo, anoFromNumeroAta, assertVigenciaWindow, formatNumeroAta,
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
+import { getDb } from "@/lib/db.server"
 import { todayInBrasilia } from "@/lib/expense-execution"
 import { getFinanceClient, getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
-import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage } from "@/types/domain/arp"
+import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage, EmpenhoOfArpItem } from "@/types/domain/arp"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -196,8 +200,8 @@ async function fetchArpSaldos(params: { numeroAtaRegistroPreco: string; codigoUn
  * @remarks
  * SIDE EFFECTS: upserts procurement_arp (conflict: unit_id + numero_ata + uasg_gerenciadora),
  *   reconciles procurement_arp_item by numero_item (update matched, insert new, delete stale
- *   ONLY when no finance.empenho references them — empenho.arp_item_id is ON DELETE CASCADE,
- *   so a blind delete+reinsert would silently wipe local empenhos).
+ *   ONLY when no finance.empenho_item references them — the FK is ON DELETE RESTRICT, and a
+ *   blind delete+reinsert would fail on (or, before 20260926214000, wipe) local empenhos).
  * `numero_ata` guarda o número CANÔNICO da API ("00002/2025"), que é o formato que
  *   `4_consultarEmpenhosSaldoItem` exige de volta na sincronização de saldo.
  * BR date strings ("DD/MM/YYYY") are normalised to ISO 8601. Unmatched catmat codes get ata_item_id = null.
@@ -340,10 +344,9 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		if (arpError || !arp) throw new Error(`Erro ao salvar ARP: ${arpError?.message}`)
 
 		// ── 4. Reconciliar itens SEM apagar empenhos locais ──────────────────────
-		// Antes: delete + reinsert. Como finance.empenho referencia arp_item_id
-		// com ON DELETE CASCADE, reimportar a ARP apagava silenciosamente todos
-		// os empenhos registrados. Agora: match por numero_item → update;
-		// novos → insert; ausentes na API → delete só se não tiverem empenho.
+		// Antes: delete + reinsert, e o CASCADE de então apagava os empenhos
+		// registrados. Agora: match por numero_item → update; novos → insert;
+		// ausentes na API → delete só se nenhum item de NE apontar para eles.
 
 		const now = new Date().toISOString()
 		const { data: existingItems } = await supabase.from("procurement_arp_item").select("id, numero_item").eq("arp_id", arp.id)
@@ -403,15 +406,11 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		// Itens locais que a API não retornou: remover apenas os sem empenho local.
 		const staleIds = (existingItems ?? []).map((item) => item.id).filter((id) => !matchedIds.has(id))
 		if (staleIds.length > 0) {
-			// Item com empenho fica (o FK é RESTRICT desde 20260926214000): o empenho aponta pelo
-			// cabeçalho antigo OU por um item da NE, e os dois contam.
-			const fin = supabase.schema("finance")
-			const [{ data: headerRefs, error: headerError }, { data: itemRefs, error: itemError }] = await Promise.all([
-				fin.from("empenho").select("arp_item_id").in("arp_item_id", staleIds),
-				fin.from("empenho_item").select("arp_item_id").in("arp_item_id", staleIds),
-			])
-			if (headerError || itemError) throw new Error(`Erro ao conferir empenhos dos itens retirados: ${(headerError ?? itemError)?.message}`)
-			const referenced = new Set([...(headerRefs ?? []), ...(itemRefs ?? [])].map((row) => row.arp_item_id))
+			// Item com empenho fica (o FK é RESTRICT desde 20260926214000): a NE aponta para o item
+			// da ARP pelos itens dela (`finance.empenho_item`).
+			const { data: itemRefs, error: itemError } = await supabase.schema("finance").from("empenho_item").select("arp_item_id").in("arp_item_id", staleIds)
+			if (itemError) throw new Error(`Erro ao conferir empenhos dos itens retirados: ${itemError.message}`)
+			const referenced = new Set((itemRefs ?? []).map((row) => row.arp_item_id))
 			const deletableIds = staleIds.filter((id) => !referenced.has(id))
 			if (deletableIds.length > 0) {
 				const { error } = await supabase.from("procurement_arp_item").delete().in("id", deletableIds)
@@ -777,13 +776,13 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 
 /**
  * Empenhos que cobrem um item da ARP — pelo item da NE (NE com vários itens aparece em cada um),
- * com a quantidade e o preço DESTE item no lugar das colunas antigas do cabeçalho.
+ * com a quantidade, o preço e o valor dos itens da NE que apontam para ESTE item da ARP.
  *
  * @throws {Error} on Supabase query failure.
  */
 export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 	.validator(z.object({ arpItemId: z.uuid() }))
-	.handler(async ({ data }): Promise<Array<Empenho & { item_value: number }>> => {
+	.handler(async ({ data }): Promise<EmpenhoOfArpItem[]> => {
 		await requireAuth()
 		await requireUnitScope(1, await resolveArpItemUnit(getProcurementClient(), data.arpItemId))
 		const fin = getFinanceClient()
@@ -804,17 +803,18 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 
 		const { data: empenhos, error } = await fin
 			.from("empenho")
-			.select("*")
+			.select("id, unit_id, numero_empenho, data_empenho, valor_total, status, nd, nota_lancamento")
 			.in("id", [...byEmpenho.keys()])
 			.order("data_empenho", { ascending: false })
 
 		if (error) throw new Error(`Erro ao buscar empenhos: ${error.message}`)
-		return ((empenhos ?? []) as Empenho[]).map((empenho) => {
+		return (empenhos ?? []).map((empenho) => {
 			const item = byEmpenho.get(empenho.id)
 			return {
 				...empenho,
-				quantidade_empenhada: item?.quantity ?? empenho.quantidade_empenhada,
-				valor_unitario: item?.unitPrice ?? empenho.valor_unitario,
+				valor_total: Number(empenho.valor_total),
+				item_quantity: item && item.quantity > 0 ? item.quantity : null,
+				item_unit_price: item?.unitPrice ?? null,
 				item_value: item?.value ?? Number(empenho.valor_total),
 			}
 		})
@@ -823,12 +823,15 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 // ─── 6. Registrar empenho ─────────────────────────────────────────────────────
 
 /**
- * Records a new empenho, computing valor_total = quantidadeEmpenhada × valorUnitario.
+ * Registra a NE de UM item da ARP (o formulário do painel da ARP): o cabeçalho e o item da NE
+ * numa transação, com valor_total = quantidade × preço, arredondado ao centavo.
  *
  * @remarks
- * SIDE EFFECTS: inserts empenho with status "ativo". Normalises numero_empenho (trim + toUpperCase before insert).
+ * SIDE EFFECTS: inserts finance.empenho (status "ativo", numero_empenho trim + toUpperCase) and its
+ *   single finance.empenho_item (arp_item_id, quantity, unit_price, value; unit and description
+ *   from the ARP item).
  *
- * @throws {Error} "já cadastrado" on unique violation (PG code 23505); generic Supabase message otherwise.
+ * @throws {Error} "já cadastrado" on unique violation (PG code 23505); the trigger message on 23514.
  */
 export const createEmpenhoFn = createServerFn({ method: "POST" })
 	.validator(
@@ -837,8 +840,8 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 			arpItemId: z.uuid(),
 			numeroEmpenho: z.string().min(1, "Número do empenho obrigatório"),
 			dataEmpenho: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida (YYYY-MM-DD)"),
-			quantidadeEmpenhada: z.number().positive("Quantidade deve ser positiva"),
-			valorUnitario: z.number().positive("Valor deve ser positivo"),
+			quantity: z.number().positive("Quantidade deve ser positiva"),
+			unitPrice: z.number().positive("Valor deve ser positivo"),
 			notaLancamento: z.string().optional(),
 		})
 	)
@@ -853,48 +856,60 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 		// a unidade A empenha contra o saldo da unidade B — e B não consegue anular, porque
 		// a anulação resolve a unidade pela linha do empenho, que diria "A".
 		if ((await resolveArpItemUnit(supabase, data.arpItemId)) !== data.unitId) throw new Error("O item da ARP informado não pertence a esta unidade")
-		const valorTotal = Number((data.quantidadeEmpenhada * data.valorUnitario).toFixed(4))
+		const { data: arpItem, error: arpItemError } = await supabase
+			.from("procurement_arp_item")
+			.select("descricao_item, medida_catmat")
+			.eq("id", data.arpItemId)
+			.maybeSingle()
+		if (arpItemError) throw new Error(`Erro ao buscar item da ARP: ${arpItemError.message}`)
+		const numero = data.numeroEmpenho.trim().toUpperCase()
+		const valorTotal = resolveItemValue({ quantity: data.quantity, unitPrice: data.unitPrice, value: 0 })
 
-		return withSensitiveAudit(
+		const empenhoId = await withSensitiveAudit(
 			"createEmpenhoFn",
 			ctx,
-			async (): Promise<Empenho> => {
-				const { data: empenho, error } = await supabase
-					.schema("finance")
-					.from("empenho")
-					.insert({
-						unit_id: data.unitId,
-						arp_item_id: data.arpItemId,
-						numero_empenho: data.numeroEmpenho.trim().toUpperCase(),
-						data_empenho: data.dataEmpenho,
-						quantidade_empenhada: data.quantidadeEmpenhada,
-						valor_unitario: data.valorUnitario,
-						valor_total: valorTotal,
-						nota_lancamento: data.notaLancamento?.trim() || null,
-						status: "ativo",
-						created_by: userId,
+			async (): Promise<string> => {
+				try {
+					return await getDb().transaction(async (tx) => {
+						const [header] = await tx.execute<{ id: string }>(sql`
+							insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total, exercicio, nota_lancamento, status, created_by)
+							values (
+								${data.unitId}, ${numero}, ${data.dataEmpenho}::date, ${valorTotal}, ${Number(data.dataEmpenho.slice(0, 4))},
+								${data.notaLancamento?.trim() || null}, 'ativo', ${userId}::uuid
+							)
+							returning id
+						`)
+						if (!header) throw new Error("Empenho não retornado após inserção")
+						await tx.execute(sql`
+							insert into finance.empenho_item (empenho_id, arp_item_id, position, description, quantity, unit, unit_price, value)
+							values (
+								${header.id}::uuid, ${data.arpItemId}::uuid, 1, ${arpItem?.descricao_item ?? null}, ${data.quantity},
+								${arpItem?.medida_catmat ?? null}, ${data.unitPrice}, ${valorTotal}
+							)
+						`)
+						return header.id
 					})
-					.select()
-					.single()
-
-				if (error) {
-					if (error.code === "23505") {
-						throw new Error(`Empenho "${data.numeroEmpenho}" já cadastrado para esta unidade`)
-					}
-					throw new Error(`Erro ao registrar empenho: ${error.message}`)
+				} catch (error) {
+					const pg = unwrapPgError(error)
+					if (pg.code === "23505") throw new Error(`Empenho "${data.numeroEmpenho}" já cadastrado para esta unidade`)
+					if (pg.code === "23514" && pg.message) throw new Error(pg.message)
+					// biome-ignore lint/suspicious/noConsole: server-side — o detalhe do driver só vai para o log
+					console.error("[createEmpenhoFn]", describeDriverError(error))
+					throw new Error("Erro ao registrar empenho. Tente novamente.")
 				}
-				if (!empenho) throw new Error("Empenho não retornado após inserção")
-
-				return empenho
 			},
-			(empenho) => ({
-				empenhoId: empenho.id,
+			(id) => ({
+				empenhoId: id,
 				unitId: data.unitId,
 				arpItemId: data.arpItemId,
-				numeroEmpenho: data.numeroEmpenho.trim().toUpperCase(),
+				numeroEmpenho: numero,
 				valorTotal,
 			})
 		)
+
+		const { data: empenho, error } = await supabase.schema("finance").from("empenho").select("*").eq("id", empenhoId).single()
+		if (error || !empenho) throw new Error(`Empenho registrado, mas não foi possível relê-lo: ${error?.message ?? "sem linha"}`)
+		return empenho
 	})
 
 // ─── 6b. Comprometimento local por item da ARP ───────────────────────────────
@@ -918,7 +933,7 @@ export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
 		const itemIds = (items ?? []).map((item) => item.id)
 		if (itemIds.length === 0) return {}
 
-		// Pelos itens da NE: agrupar por `empenho.arp_item_id` deixava de fora a NE com vários itens.
+		// Pelos itens da NE (`finance.empenho_item`): a NE com vários itens conta em cada item da ARP.
 		return Object.fromEntries(await loadLocalCommitments(itemIds))
 	})
 

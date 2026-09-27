@@ -2,31 +2,44 @@ import { describe, expect, it } from "vitest"
 import { aggregateLocalCommitments, resolveSaldoOficial } from "@/lib/arp-balance"
 
 describe("aggregateLocalCommitments", () => {
-	it("soma quantidade e valor apenas dos empenhos ativos", () => {
+	it("soma quantidade e valor apenas dos itens de NEs ativas", () => {
 		const result = aggregateLocalCommitments([
-			{ arp_item_id: "a", status: "ativo", quantidade_empenhada: 10, valor_total: 100 },
-			{ arp_item_id: "a", status: "ativo", quantidade_empenhada: 5, valor_total: 50 },
-			{ arp_item_id: "a", status: "anulado", quantidade_empenhada: 999, valor_total: 9999 },
+			{ empenho_id: "ne1", arp_item_id: "a", status: "ativo", quantity: 10, value: 100 },
+			{ empenho_id: "ne2", arp_item_id: "a", status: "ativo", quantity: 5, value: 50 },
+			{ empenho_id: "ne3", arp_item_id: "a", status: "anulado", quantity: 999, value: 9999 },
 		])
 		expect(result.get("a")).toEqual({ quantidade: 15, valorTotal: 150, count: 2 })
 	})
 
-	it("agrupa por item da ARP", () => {
+	it("agrupa por item da ARP: a NE com vários itens conta em cada um", () => {
 		const result = aggregateLocalCommitments([
-			{ arp_item_id: "a", status: "ativo", quantidade_empenhada: 1, valor_total: 10 },
-			{ arp_item_id: "b", status: "ativo", quantidade_empenhada: 2, valor_total: 20 },
+			{ empenho_id: "ne1", arp_item_id: "a", status: "ativo", quantity: 1, value: 10 },
+			{ empenho_id: "ne1", arp_item_id: "b", status: "ativo", quantity: 2, value: 20 },
 		])
-		expect(result.get("a")?.quantidade).toBe(1)
-		expect(result.get("b")?.quantidade).toBe(2)
+		expect(result.get("a")).toEqual({ quantidade: 1, valorTotal: 10, count: 1 })
+		expect(result.get("b")).toEqual({ quantidade: 2, valorTotal: 20, count: 1 })
+	})
+
+	it("dois itens da mesma NE no mesmo item de ARP somam, e a NE conta uma vez", () => {
+		const result = aggregateLocalCommitments([
+			{ empenho_id: "ne1", arp_item_id: "a", status: "ativo", quantity: 3, value: 30 },
+			{ empenho_id: "ne1", arp_item_id: "a", status: "ativo", quantity: 4, value: 40 },
+		])
+		expect(result.get("a")).toEqual({ quantidade: 7, valorTotal: 70, count: 1 })
+	})
+
+	it("item só por valor (NE global) soma o valor e não a quantidade", () => {
+		const result = aggregateLocalCommitments([{ empenho_id: "ne1", arp_item_id: "a", status: "ativo", quantity: null, value: 500 }])
+		expect(result.get("a")).toEqual({ quantidade: 0, valorTotal: 500, count: 1 })
 	})
 
 	it("anulação recompõe o comprometimento local: item só com anulados fica de fora", () => {
-		const result = aggregateLocalCommitments([{ arp_item_id: "a", status: "anulado", quantidade_empenhada: 10, valor_total: 100 }])
+		const result = aggregateLocalCommitments([{ empenho_id: "ne1", arp_item_id: "a", status: "anulado", quantity: 10, value: 100 }])
 		expect(result.has("a")).toBe(false)
 	})
 
 	it("tolera numéricos vindos como string (PostgREST numeric)", () => {
-		const result = aggregateLocalCommitments([{ arp_item_id: "a", status: "ativo", quantidade_empenhada: "12.5", valor_total: "125.75" }])
+		const result = aggregateLocalCommitments([{ empenho_id: "ne1", arp_item_id: "a", status: "ativo", quantity: "12.5", value: "125.75" }])
 		expect(result.get("a")).toEqual({ quantidade: 12.5, valorTotal: 125.75, count: 1 })
 	})
 

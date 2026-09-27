@@ -1,4 +1,4 @@
-import type { Empenho, ProcurementArp, ProcurementArpItem } from "@iefa/database/sisub"
+import type { ProcurementArp, ProcurementArpItem } from "@iefa/database/sisub"
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, PlusCircle, RefreshCw, XCircle } from "lucide-react"
 import { useState } from "react"
 import { usePBAC } from "@/auth/pbac"
@@ -19,16 +19,28 @@ import { useBudgetCheckForEmpenho } from "@/hooks/data/useBudgetCheck"
 import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { updateEmpenhoClassificationFn } from "@/server/empenho.fn"
+import type { EmpenhoOfArpItem } from "@/types/domain/arp"
 
 // ─── Formatadores ─────────────────────────────────────────────────────────────
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
 
-/** NE com vários itens, estimativa ou global não tem quantidade × preço no cabeçalho. */
+/** Quantidade × preço dos itens da NE neste item da ARP; NE estimativa ou global tem só o valor. */
 function formatQuantityTimesPrice(quantity: number | null, unitPrice: number | null): string {
 	if (quantity == null || unitPrice == null) return "valor global"
 	return `${NUM.format(quantity)} × ${BRL.format(unitPrice)}`
+}
+
+/** O valor deste item da ARP na NE; quando a NE tem outros itens, o total dela vem junto. */
+function EmpenhoValue({ empenho }: { empenho: EmpenhoOfArpItem }) {
+	const hasOtherItems = Math.abs(empenho.item_value - empenho.valor_total) > 0.009
+	return (
+		<span className="text-caption text-foreground">
+			{BRL.format(empenho.item_value)}
+			{hasOtherItems && <span className="ml-1 text-muted-foreground">de {BRL.format(empenho.valor_total)} da NE</span>}
+		</span>
+	)
 }
 
 function fmtDate(iso: string | null | undefined): string {
@@ -53,7 +65,7 @@ function saldoPct(item: ProcurementArpItem): number | null {
 
 // ─── Linha de empenho ─────────────────────────────────────────────────────────
 
-function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: Empenho; arpItemId: string; arpId: string; canWrite: boolean }) {
+function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: EmpenhoOfArpItem; arpItemId: string; arpId: string; canWrite: boolean }) {
 	const { mutate: anular, isPending } = useAnularEmpenho(arpItemId, arpId)
 	const [confirming, setConfirming] = useState(false)
 
@@ -63,8 +75,8 @@ function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: Empenho;
 				<XCircle className="size-3.5 shrink-0 text-destructive" />
 				<span className="font-mono">{empenho.numero_empenho}</span>
 				<span>{fmtDate(empenho.data_empenho)}</span>
-				<span>{formatQuantityTimesPrice(empenho.quantidade_empenhada, empenho.valor_unitario)}</span>
-				<span className="text-caption text-foreground">{BRL.format(empenho.valor_total)}</span>
+				<span>{formatQuantityTimesPrice(empenho.item_quantity, empenho.item_unit_price)}</span>
+				<EmpenhoValue empenho={empenho} />
 				<Badge variant="outline" className="ml-auto text-xs">
 					Anulado
 				</Badge>
@@ -77,8 +89,8 @@ function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: Empenho;
 			<CheckCircle2 className="size-3.5 shrink-0 text-success" />
 			<span className="font-mono text-caption text-foreground">{empenho.numero_empenho}</span>
 			<span className="text-muted-foreground">{fmtDate(empenho.data_empenho)}</span>
-			<span>{formatQuantityTimesPrice(empenho.quantidade_empenhada, empenho.valor_unitario)}</span>
-			<span className="text-caption text-foreground">{BRL.format(empenho.valor_total)}</span>
+			<span>{formatQuantityTimesPrice(empenho.item_quantity, empenho.item_unit_price)}</span>
+			<EmpenhoValue empenho={empenho} />
 			{empenho.nota_lancamento && (
 				<Tooltip>
 					<TooltipTrigger className="text-muted-foreground underline decoration-dotted cursor-help truncate max-w-[140px] text-xs text-left">
@@ -154,8 +166,8 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 				arpItemId,
 				numeroEmpenho: numero,
 				dataEmpenho: data,
-				quantidadeEmpenhada: Number(qtd),
-				valorUnitario: Number(valor),
+				quantity: Number(qtd),
+				unitPrice: Number(valor),
 				notaLancamento: nota || undefined,
 			},
 			{

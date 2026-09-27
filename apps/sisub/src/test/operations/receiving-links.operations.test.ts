@@ -323,8 +323,11 @@ describeSupabaseIntegration("recebimento sem NF-e, v√≠nculo posterior e designa√
 			const [arpItem] =
 				await tx`insert into procurement.procurement_arp_item (arp_id, numero_item, quantidade_homologada) values (${arp.id}, 1, 1000) returning id`
 			const [empenho] = await tx`
-				insert into finance.empenho (unit_id, arp_item_id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, valor_total)
-				values (${unitId}, ${arpItem.id}, ${uid("2026NE")}, current_date, 100, 10, 1000) returning id`
+				insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total)
+				values (${unitId}, ${uid("2026NE")}, current_date, 1000) returning id`
+			await tx`
+				insert into finance.empenho_item (empenho_id, arp_item_id, quantity, unit_price, value)
+				values (${empenho.id}, ${arpItem.id}, 100, 10, 1000)`
 			const [receipt] =
 				await tx`insert into inventory.goods_receipt (kitchen_id, empenho_id, status) values (${kitchenId}, ${empenho.id}, 'provisional') returning id`
 			await tx`
