@@ -6,7 +6,7 @@ de 2026-09-26 na descrição do PR). Os pontos que decidem este desenho:
 - `finance.empenho` é **por item de ARP**: `arp_item_id NOT NULL` com `ON DELETE CASCADE`,
   `quantidade_empenhada NOT NULL`, `valor_unitario NOT NULL` e `UNIQUE (unit_id, numero_empenho)`
   (`20260412_arp_empenho.sql:55-65`). Uma NE com três itens da ata não cabe.
-- `procurement_arp.ata_id NOT NULL` (anexo quantitativo) com `CASCADE`; a ARP só nasce de
+- `arp.ata_id NOT NULL` (anexo quantitativo) com `CASCADE`; a ARP só nasce de
   `importArpItemsFn` (`arp.fn.ts:216`) e só com a API do Compras.gov.br respondendo.
 - `applyDocumentBatchFn` (`reconciliation.fn.ts:142-166`) insere a NE sem `arp_item_id`, ignora o
   erro e marca o lote `applied`; o lote não se reaplica (hash e `claim_import_batch`).
@@ -53,7 +53,7 @@ documento de despesa:
 - Valores de domínio em português, como a norma; identificadores em inglês (AGENTS.md).
 - **Nasce incompleta.** Só `unit_id` e `kind` são obrigatórios. O que falta vira pendência
   ("contratação sem fundamento legal", "sem vigência"), nunca recusa.
-- `procurement_arp.acquisition_id` liga a ARP à sua contratação (`kind = registro_precos`); a ARP
+- `arp.acquisition_id` liga a ARP à sua contratação (`kind = registro_precos`); a ARP
   continua sendo o espelho da ata do Compras.gov.br. O papel da unidade na ata é o `srp_role` da
   contratação, não uma coluna da ARP.
 - Alternativa descartada: um `kind` no próprio empenho. O mesmo contrato ou dispensa sustenta vários
@@ -61,7 +61,7 @@ documento de despesa:
 
 ### D2. ARP sem anexo quantitativo
 
-- `procurement_arp.ata_id` anulável, `ON DELETE SET NULL`; `acquisition_id` (`ON DELETE SET NULL`);
+- `arp.ata_id` anulável, `ON DELETE SET NULL`; `acquisition_id` (`ON DELETE SET NULL`);
   `source` (`compras_gov` · `manual`).
 - Cadastro manual da ARP e dos itens (número, UASG gerenciadora, vigência, item, fornecedor, valor,
   quantidade), marcado "não sincronizado" até a primeira sincronização bem-sucedida.

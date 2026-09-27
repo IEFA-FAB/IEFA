@@ -36,13 +36,14 @@
 
 ## 3. Lote 3: pesquisa de preços e prefixos
 
-- [ ] 3.1 [sisub] Declarar `procurement.arp` e `procurement.segment` em `RESET_EXCLUSIONS`
-- [ ] 3.2 [database] Expand: `procurement_pesquisa_preco*` → `price_research*`, `compras_amostra` → `price_sample`, `procurement_arp*` → `arp*`, `procurement_segment*` → `segment*`, com views; `upsert_compras_amostras` e `compras_amostra_fingerprint` → nomes novos com wrapper; recriar `empenho_item_check_unit`, `designations_covering`, `supply_order_empenho_usage`, `procurement_arp_check_acquisition`
+- [x] 3.1 [sisub] Declarar `procurement.arp` e `procurement.segment` em `RESET_EXCLUSIONS`
+- [x] 3.2 [database] Expand: `procurement_pesquisa_preco*` → `price_research*`, `compras_amostra` → `price_sample`, `procurement_arp*` → `arp*`, `procurement_segment*` → `segment*`, com views; `upsert_compras_amostras` e `compras_amostra_fingerprint` → nomes novos com wrapper; recriar `empenho_item_check_unit`, `designations_covering`, `supply_order_empenho_usage`, `procurement_arp_check_acquisition`
 - [ ] 3.3 [database] Aplicar e regerar tipos (espera o mantenedor)
-- [ ] 3.4 [sisub] [sisub-domain] Código: pesquisa de preços (`price-research*`, `savePrecoAuditFn`), ARP (`arp.fn.ts`, `useArp.ts`), segmentos
-- [ ] 3.5 [api] Worker `pesquisa-preco` → `price-research`; `analisarPrecos` → `analyzePrices`; `AmostraPreco` → `PriceSample`
-- [ ] 3.6 [root] `pncp-audit-isolation.yaml` com os nomes novos; termos do lote 3 no gate (espera o mantenedor)
+- [x] 3.4 [sisub] [sisub-domain] Código: pesquisa de preços (`price-research*`, `savePrecoAuditFn`), ARP (`arp.fn.ts`, `useArp.ts`), segmentos
+- [x] 3.5 [api] Worker `pesquisa-preco` → `price-research`; `analisarPrecos` → `analyzePrices`; `AmostraPreco` → `PriceSample`
+- [x] 3.6 [root] `pncp-audit-isolation.yaml` com os nomes novos; termos do lote 3 no gate (espera o mantenedor)
 - [ ] 3.7 [database] Contract depois do deploy (espera o mantenedor)
+- Registrado no PR do lote 3: nenhuma coluna espelhada por trigger. A única coluna renomeada (`amostra_id` → `price_sample_id`) está numa tabela renomeada e a view faz o alias, e as FKs de fora que apontam para as tabelas do lote (`arp_item_id`, `arp_id`, `segment_id`) já têm o nome do glossário; por isso o código novo não cita coluna antiga nenhuma. `procurement_arp_check_acquisition` foi só renomeada (`arp_check_acquisition`, com o trigger): o corpo não cita tabela do lote e já tinha `search_path = ''`. `sisub.compras_amostra_fingerprint` também foi renomeada, e não recriada, para a coluna gerada `price_sample.fingerprint` seguir pelo OID sem reescrever as 122 mil linhas; o nome antigo e `upsert_compras_amostras` ficam como wrapper até o contract. O novo `upsert_price_samples` deixa de ser SECURITY DEFINER (só o `service_role` executa, e ele já tem os grants e ignora RLS). Nenhuma rota do sisub nem da API muda de caminho no lote (a segmentação já era `unit/$unitId/segments` e a API já era `/api/admin/price-research`), então `LEGACY_ROUTE_PREFIXES` não ganha entrada. Nomes internos em português do worker que não nomeiam conceito do glossário (`calcularMediana`, `detectarOutliers`, `consultarMaterialPrecos`, que cita o endpoint `consultarMaterial` do Compras.gov.br) ficam para o lote das colunas legadas (D1, critério 7, P4). O teste de contrato do banco vivo ganhou os termos do lote, com a allowlist datada do expand (as oito views e os dois wrappers); a regra de migration é `ubiquitous-language-migration-lot3`, que vale depois do contract `20260927070000_ubiquitous_language_lot3_contract.sql`
 
 ## 4. Lote 4: finanças no banco
 

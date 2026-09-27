@@ -40,7 +40,7 @@ Hipóteses a verificar.
   quantos ficaram de fora e por quê.
 - **UX:** a contratação se escolhe no passo 1 do wizard; o aviso "N itens ficaram fora de Carnes"
   aparece no passo 5, com link para a segmentação.
-- **Cobertura:** `procurement-segments.operations.test.ts › regra mais específica vence…`;
+- **Cobertura:** `segments.operations.test.ts › regra mais específica vence…`;
   e2e `procurement-segmentation.spec.ts`.
 
 ### GU-SEG-02 — "O mesmo item caiu em duas contratações"
@@ -49,13 +49,13 @@ Hipóteses a verificar.
 - **O sistema precisa:** conflito visível na hora, e conclusão do anexo recusada enquanto ele
   existir: o órgão não pode participar de duas atas com o mesmo objeto (Lei 14.133/2021,
   art. 82, VIII).
-- **Cobertura:** `procurement-segments.operations.test.ts › mesma pasta em duas contratações…`
+- **Cobertura:** `segments.operations.test.ts › mesma pasta em duas contratações…`
   (inclui `SEGMENT_CONFLICT` na conclusão); `segment-resolution.test.ts`.
 
 ### GU-SEG-03 — "Apagaram a contratação com anexo em andamento"
 - **O sistema precisa:** o anexo antigo guarda a referência; o rascunho pede outra contratação
   (ou todos os itens) antes de calcular.
-- **Cobertura:** `procurement-segments.operations.test.ts` (`SEGMENT_NOT_FOUND` no rascunho).
+- **Cobertura:** `segments.operations.test.ts` (`SEGMENT_NOT_FOUND` no rascunho).
 
 ### GU-FLX-01 — "A cozinha não mandou a previsão"
 - **O sistema precisa:** o fluxo da unidade mostra a pendência dizendo quem resolve, sem link
@@ -121,7 +121,7 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
 - **Decisão:** a janela conta da data da pesquisa, não do edital: é o marco do art. 5º, II (e a
   fonte daqui é o inciso I, Painel de Preços). A divulgação do edital só é marco dos incisos III,
   IV e V. **LACUNA:** quando o sistema tiver essas fontes, a janela delas precisa da data prevista
-  de divulgação, que não existe com confiança (`procurement_segment.planned_month` é o mês de
+  de divulgação, que não existe com confiança (`segment.planned_month` é o mês de
   início do processo, não do edital).
 
 ### GU-PRC-05 — "Tirei amostras à mão"
@@ -154,7 +154,7 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
   outra memória de cálculo (chave de idempotência v3 inclui janela, seleção e justificativas).
 - **Cobertura:** **LACUNA:** o toast não tem teste, e a tabela do anexo não marca quais itens
   estão não conformes (o usuário só descobre reabrindo a pesquisa de cada um). Menor caminho:
-  selo "não conforme" por item na `AtaItemsTable`, lido do último `procurement_pesquisa_preco_item`.
+  selo "não conforme" por item na `AtaItemsTable`, lido do último `price_research_item`.
 
 
 ## Execução da despesa (contratação de origem, NE, SIAFI)
