@@ -1,6 +1,6 @@
-// Meal and Forecast Domain Types
+// Meal and Arranchamento Domain Types
 
-import type { MealForecast, MealForecastInsert, MealForecastUpdate, MessHall, Unit } from "@iefa/database/sisub"
+import type { Arranchamento, ArranchamentoInsert, ArranchamentoUpdate, MessHall, Unit } from "@iefa/database/sisub"
 import type { LucideIcon } from "lucide-react"
 import type { DayMeals } from "@/lib/meal"
 
@@ -17,9 +17,9 @@ export type { DayMeals }
  * Unidade (OM) - tabela units
  */
 /**
- * Forecast de refeição - tabela meal_forecasts
+ * Arranchamento do comensal - tabela kitchen.arranchamento
  */
-export type { MealForecast, MealForecastInsert, MealForecastUpdate, MessHall, Unit }
+export type { Arranchamento, ArranchamentoInsert, ArranchamentoUpdate, MessHall, Unit }
 
 // ============================================================================
 // DOMAIN TYPES (Tipos de Negócio)
@@ -51,7 +51,7 @@ export interface MessHallByDate {
 /**
  * Represents a pending change to be synchronized with the server.
  * Used for optimistic updates and batch saving.
- * Baseado em MealForecastInsert mas com campos específicos para o domínio
+ * Baseado em ArranchamentoInsert mas com campos específicos para o domínio
  */
 export interface PendingChange {
 	date: string
@@ -61,10 +61,10 @@ export interface PendingChange {
 }
 
 /**
- * Return type for the useMealForecast hook.
- * Provides state and methods for managing meal forecasts.
+ * Return type for the useArranchamento hook.
+ * Provides state and methods for managing the diner's arranchamentos.
  */
-export interface MealForecastHook {
+export interface ArranchamentoHook {
 	success: string
 	error: string
 	isLoading: boolean // initial load
@@ -83,7 +83,7 @@ export interface MealForecastHook {
 	setDayMessHalls: React.Dispatch<React.SetStateAction<MessHallByDate>>
 	setDefaultMessHallId: (id: string) => void // setter local
 	persistDefaultMessHallId: () => Promise<void> // persiste no banco
-	loadExistingForecasts: () => Promise<void>
+	loadExistingArranchamentos: () => Promise<void>
 	savePendingChanges: () => Promise<void>
 	clearMessages: () => void
 }

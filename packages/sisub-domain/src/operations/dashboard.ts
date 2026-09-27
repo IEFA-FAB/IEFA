@@ -1,9 +1,9 @@
 /**
- * Painel de subsistência de uma unidade: previsão, presença e o diretório das pessoas que
+ * Painel de subsistência de uma unidade: arranchamento, presença e o diretório das pessoas que
  * aparecem nelas. Camada Drizzle.
  *
  * ANTES isto era um cliente HTTP contra `api.iefa.com.br`, chamado do NAVEGADOR: as rotas
- * `/api/rancho_previsoes`, `/api/wherewhowhen`, `/api/user-data` e `/api/user-military-data`
+ * `/api/rancho_previsoes` (hoje `/api/arranchamentos`), `/api/wherewhowhen`, `/api/user-data` e `/api/user-military-data`
  * eram anônimas, então o painel funcionava sem sessão — e qualquer um na internet baixava o
  * mesmo dado com um GET. Ler do banco pelo servidor, atrás de um guard de PBAC, é o que
  * permite fechar aquelas rotas.
@@ -16,7 +16,7 @@
  */
 
 import {
-	mealForecastsInKitchen,
+	arranchamentoInKitchen,
 	mealPresencesInKitchen,
 	messHallsInKitchen,
 	type SisubDb,
@@ -25,7 +25,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import { and, asc, between, eq, inArray } from "drizzle-orm"
 import type { UnitDashboard } from "../schemas/dashboard.ts"
-import type { DashboardPresenceRecord, ForecastRecord, MessHallAPI, UserDataAPI, UserMilitaryDataAPI } from "../types/dashboard.ts"
+import type { ArranchamentoRecord, DashboardPresenceRecord, MessHallAPI, UserDataAPI, UserMilitaryDataAPI } from "../types/dashboard.ts"
 import { NotFoundError } from "../types/errors.ts"
 import type { MealKey } from "../types/meal.ts"
 import { runQuery } from "../utils/index.ts"
@@ -33,7 +33,7 @@ import { runQuery } from "../utils/index.ts"
 export interface UnitDashboardData {
 	/** Todos os refeitórios da unidade — a lista alimenta o filtro, então não segue `messHallId`. */
 	messHalls: MessHallAPI[]
-	forecasts: ForecastRecord[]
+	arranchamentos: ArranchamentoRecord[]
 	presences: DashboardPresenceRecord[]
 	users: UserDataAPI[]
 	militaries: UserMilitaryDataAPI[]
@@ -69,22 +69,22 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 	}
 
 	const scopedIds = input.messHallId !== undefined ? [input.messHallId] : messHalls.map((m) => m.id)
-	if (scopedIds.length === 0) return { messHalls: [], forecasts: [], presences: [], users: [], militaries: [] }
+	if (scopedIds.length === 0) return { messHalls: [], arranchamentos: [], presences: [], users: [], militaries: [] }
 
-	const [forecastRows, presenceRows] = await Promise.all([
+	const [arranchamentoRows, presenceRows] = await Promise.all([
 		runQuery("FETCH_FAILED", () =>
 			db
 				.select({
-					user_id: mealForecastsInKitchen.userId,
-					date: mealForecastsInKitchen.date,
-					meal: mealForecastsInKitchen.meal,
-					will_eat: mealForecastsInKitchen.willEat,
-					mess_hall_id: mealForecastsInKitchen.messHallId,
-					created_at: mealForecastsInKitchen.createdAt,
-					updated_at: mealForecastsInKitchen.updatedAt,
+					user_id: arranchamentoInKitchen.userId,
+					date: arranchamentoInKitchen.date,
+					meal: arranchamentoInKitchen.meal,
+					will_eat: arranchamentoInKitchen.willEat,
+					mess_hall_id: arranchamentoInKitchen.messHallId,
+					created_at: arranchamentoInKitchen.createdAt,
+					updated_at: arranchamentoInKitchen.updatedAt,
 				})
-				.from(mealForecastsInKitchen)
-				.where(and(inArray(mealForecastsInKitchen.messHallId, scopedIds), between(mealForecastsInKitchen.date, input.startDate, input.endDate)))
+				.from(arranchamentoInKitchen)
+				.where(and(inArray(arranchamentoInKitchen.messHallId, scopedIds), between(arranchamentoInKitchen.date, input.startDate, input.endDate)))
 		),
 		runQuery("FETCH_FAILED", () =>
 			db
@@ -101,7 +101,7 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 		),
 	])
 
-	const forecasts: ForecastRecord[] = forecastRows.map((r) => ({
+	const arranchamentos: ArranchamentoRecord[] = arranchamentoRows.map((r) => ({
 		user_id: r.user_id,
 		date: r.date,
 		meal: r.meal as MealKey,
@@ -120,10 +120,10 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 		updated_at: r.updated_at ?? "",
 	}))
 
-	// O diretório é derivado das linhas: só entra quem aparece na previsão ou na presença da
+	// O diretório é derivado das linhas: só entra quem aparece no arranchamento ou na presença da
 	// unidade, no intervalo pedido.
-	const userIds = [...new Set([...forecasts.map((f) => f.user_id), ...presences.map((p) => p.user_id)])]
-	if (userIds.length === 0) return { messHalls, forecasts, presences, users: [], militaries: [] }
+	const userIds = [...new Set([...arranchamentos.map((a) => a.user_id), ...presences.map((p) => p.user_id)])]
+	if (userIds.length === 0) return { messHalls, arranchamentos, presences, users: [], militaries: [] }
 
 	const userRows = await runQuery("FETCH_FAILED", () =>
 		db
@@ -156,7 +156,7 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 
 	return {
 		messHalls,
-		forecasts,
+		arranchamentos,
 		presences,
 		users: userRows,
 		militaries: militaryRows

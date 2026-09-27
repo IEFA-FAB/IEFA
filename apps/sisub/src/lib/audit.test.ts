@@ -30,7 +30,7 @@ function spyRecorder() {
 /** Uma operação de cada grau, lida do registro — nunca digitada aqui. */
 const FRESH_OPERATION: AssuranceOperationName = "createUserPermissionFn"
 const SESSION_OPERATION: AssuranceOperationName = "createLiquidacaoFn"
-const ROUTINE_OPERATION: AssuranceOperationName = "upsertForecastFn"
+const ROUTINE_OPERATION: AssuranceOperationName = "upsertArranchamentoFn"
 
 describe("withAudit", () => {
 	test("as operações de referência têm no registro o grau que estes testes assumem", () => {

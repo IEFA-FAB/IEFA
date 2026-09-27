@@ -19,6 +19,10 @@ export const LEGACY_ROUTE_PREFIXES: readonly { from: string; to: string }[] = [
 	// Lote 5: o cardápio de apoio (`template_type = 'apoio'`) deixou de se chamar exceção.
 	{ from: "/kitchen/:kitchenId/exceptions", to: "/kitchen/:kitchenId/support-menus" },
 	{ from: "/global/exceptions", to: "/global/support-menus" },
+	// Lote 7: arranchamento (o comensal se arrancha; "previsão" é a estimativa agregada).
+	// TODO(2026-09-27): fica até o mantenedor retirar, depois de conferir que ninguém mais chega
+	// pelo caminho antigo; o contract 20260927140000 só derruba a camada do banco.
+	{ from: "/diner/forecast", to: "/diner/arranchamento" },
 ]
 
 const segmentsOf = (path: string) => path.split("/").filter(Boolean)

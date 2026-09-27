@@ -42,7 +42,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 					<BarChart3 className="size-5" aria-hidden="true" />
 					Refeições por Período do Dia
 				</CardTitle>
-				<CardDescription>Distribuição temporal de previsões por tipo de refeição</CardDescription>
+				<CardDescription>Distribuição temporal dos arranchamentos por tipo de refeição</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="flex gap-2 overflow-x-auto pb-4">

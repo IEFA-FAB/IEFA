@@ -1177,7 +1177,7 @@ export async function applyTemplate(
 				.map((i) => i.headcountOverride)
 				.filter((h): h is number => h != null)
 			const overrideAvg = overrides.length > 0 ? Math.round(overrides.reduce((sum, h) => sum + h, 0) / overrides.length) : null
-			const mealForecast = base ?? overrideAvg
+			const mealHeadcount = base ?? overrideAvg
 
 			const menuId = crypto.randomUUID()
 			const menuItemRows: (typeof menuItemsInKitchen.$inferInsert)[] = []
@@ -1194,7 +1194,7 @@ export async function applyTemplate(
 				// da refeição, senão o efetivo cheio.
 				const plannedPortion = resolveItemDemand({
 					headcountOverride: item.headcountOverride,
-					baseHeadcount: mealForecast,
+					baseHeadcount: mealHeadcount,
 					recommendedProportion: item.recommendedProportion != null ? Number(item.recommendedProportion) : null,
 				})
 				menuItemRows.push({
@@ -1213,7 +1213,7 @@ export async function applyTemplate(
 			}
 			// Não cria refeição vazia se todos os itens foram descartados.
 			if (menuItemRows.length === 0) continue
-			newMenus.push({ id: menuId, serviceDate: dateStr, mealTypeId, kitchenId: input.kitchenId, status: "PLANNED", forecastedHeadcount: mealForecast })
+			newMenus.push({ id: menuId, serviceDate: dateStr, mealTypeId, kitchenId: input.kitchenId, status: "PLANNED", forecastedHeadcount: mealHeadcount })
 			newMenuItems.push(...menuItemRows)
 		}
 	}

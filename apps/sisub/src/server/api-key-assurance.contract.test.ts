@@ -71,6 +71,6 @@ describe("chave de API contra o registro de classificação", () => {
 		// O piso fecha a operação sensível, não a integração inteira — é o segundo cenário do
 		// requisito, e sem ele o contrato acima poderia ser satisfeito barrando tudo.
 		expect(satisfiesAssurance(apiKeyContext(), { require: "none" }, { now: NOW })).toBe(true)
-		expect(assuranceFor("upsertForecastFn")?.require).toBe("none")
+		expect(assuranceFor("upsertArranchamentoFn")?.require).toBe("none")
 	})
 })

@@ -284,10 +284,10 @@ export const ASSURANCE_REGISTRY = {
 	upsertEvalConfigFn: { require: "none" },
 	submitEvaluationFn: { require: "none" },
 
-	// ── forecast.fn.ts
+	// ── arranchamento.fn.ts
 	persistDefaultMessHallFn: { require: "none" },
-	upsertForecastFn: { require: "none" },
-	deleteForecastFn: { require: "none" },
+	upsertArranchamentoFn: { require: "none" },
+	deleteArranchamentoFn: { require: "none" },
 
 	// ── frozen_preparation.fn.ts
 	createFrozenPreparationFn: { require: "none" },

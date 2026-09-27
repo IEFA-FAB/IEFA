@@ -1,11 +1,11 @@
 /**
  * Regressão happy-path — operations de FISCAL PRESENCE (@iefa/sisub-domain).
- * Congela: leitura via view v_meal_presences_with_user (shape mapeado), listForecastMap,
+ * Congela: leitura via view v_meal_presences_with_user (shape mapeado), listArranchamentoMap,
  * insertPresence (preserva código PG 23505) e deletePresence ANTES da migração Drizzle.
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { deletePresence, insertPresence, listForecastMap, listPresences } from "@iefa/sisub-domain"
+import { deletePresence, insertPresence, listArranchamentoMap, listPresences } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -61,19 +61,19 @@ describeSupabaseIntegration("presence operations (regressão)", () => {
 		expect(found?.display_name).toBe(email) // v_user_identity → email (sem dado militar)
 	})
 
-	test("listForecastMap mapeia user_id → will_eat; [] → {}", async () => {
+	test("listArranchamentoMap mapeia user_id → will_eat; [] → {}", async () => {
 		if (!reachable || !seeder || !db) return
 		const userId = await seeder.seedAuthUser()
 		const { id: messHallId } = await seeder.seedMessHall()
 		const date = "2099-10-02"
 		const meal = "janta"
-		seeder.trackWhere("meal_forecasts", "user_id", userId)
-		await seeder.seedMealForecast({ userId, messHallId, date, meal, willEat: true })
+		seeder.trackWhere("arranchamento", "user_id", userId)
+		await seeder.seedArranchamento({ userId, messHallId, date, meal, willEat: true })
 
-		const map = await listForecastMap(db, { date, meal, messHallId, userIds: [userId] })
+		const map = await listArranchamentoMap(db, { date, meal, messHallId, userIds: [userId] })
 		expect(map[userId]).toBe(true)
 
-		expect(await listForecastMap(db, { date, meal, messHallId, userIds: [] })).toEqual({})
+		expect(await listArranchamentoMap(db, { date, meal, messHallId, userIds: [] })).toEqual({})
 	})
 
 	test("insertPresence grava e preserva código 23505 em duplicata; deletePresence remove", async () => {

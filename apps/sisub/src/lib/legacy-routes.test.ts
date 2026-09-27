@@ -25,6 +25,8 @@ const REDIRECTED: readonly { from: string; to: string }[] = [
 	{ from: `/kitchen/7/exceptions/${UUID}`, to: `/kitchen/7/support-menus/${UUID}` },
 	{ from: "/global/exceptions", to: "/global/support-menus" },
 	{ from: `/global/exceptions/${UUID}`, to: `/global/support-menus/${UUID}` },
+	{ from: "/diner/forecast", to: "/diner/arranchamento" },
+	{ from: "/diner/forecast/", to: "/diner/arranchamento" },
 ]
 
 const NOT_LEGACY: readonly { from: string }[] = [
@@ -35,6 +37,8 @@ const NOT_LEGACY: readonly { from: string }[] = [
 	{ from: "/global/weekly-menus" },
 	{ from: "/global/support-menus" },
 	{ from: "/kitchen/7/support-menus" },
+	{ from: "/diner/arranchamento" },
+	{ from: "/diner/forecasts" },
 	{ from: "/unit/12/quantity-estimates" },
 	{ from: "/unit/12/flows/procurement-planning" },
 	{ from: "/analytics/procurement-plan" },
@@ -54,8 +58,8 @@ describe("resolveLegacyPath", () => {
 	})
 
 	it("aceita um mapa próprio (o dos próximos lotes)", () => {
-		const prefixes = [{ from: "/diner/forecast", to: "/diner/arranchamento" }]
-		expect(resolveLegacyPath("/diner/forecast", prefixes)).toBe("/diner/arranchamento")
+		const prefixes = [{ from: "/old/:id/page", to: "/new/:id/page" }]
+		expect(resolveLegacyPath("/old/7/page/tail", prefixes)).toBe("/new/7/page/tail")
 	})
 
 	it("todo destino é uma rota que existe e nenhuma origem é rota viva", () => {

@@ -56,7 +56,7 @@ export const MealButton = memo<MealButtonProps>(({ meal, isSelected, onToggle, d
 		"text-muted-foreground group-hover:text-foreground": !isSelected && !disabled,
 	})
 
-	// Compact mode structure (Forecast)
+	// Compact mode structure (Arranchamento)
 	if (compact) {
 		return (
 			<div className="flex flex-col gap-1 w-full">

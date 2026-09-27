@@ -7,12 +7,12 @@
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "@iefa/sisub-domain"
+import { deleteArranchamento, getUserDefaultMessHall, listArranchamentos, persistDefaultMessHall, upsertArranchamento } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
 
-describeSupabaseIntegration("forecast operations (regressão)", () => {
+describeSupabaseIntegration("arranchamento operations (regressão)", () => {
 	let reachable = false
 	let client: AnyClient
 	let seeder: Seeder | null = null
@@ -20,7 +20,7 @@ describeSupabaseIntegration("forecast operations (regressão)", () => {
 	let closeDb: (() => Promise<void>) | null = null
 
 	beforeAll(async () => {
-		const s = await setupIntegration("meal_forecasts")
+		const s = await setupIntegration("arranchamento")
 		reachable = s.reachable
 		if (s.client) client = s.client
 		const url = getSisubDatabaseUrl()
@@ -43,19 +43,19 @@ describeSupabaseIntegration("forecast operations (regressão)", () => {
 		await closeDb?.()
 	})
 
-	test("upsertForecast cria e atualiza (mesma chave user/date/meal) e listMealForecasts ordena por data", async () => {
+	test("upsertArranchamento cria e atualiza (mesma chave user/date/meal) e listArranchamentos ordena por data", async () => {
 		if (!reachable || !seeder || !db) return
 		const userId = await seeder.seedAuthUser()
 		const ctx = fullAccessCtx(userId)
 		const { id: messHallId } = await seeder.seedMessHall()
-		seeder.trackWhere("meal_forecasts", "user_id", userId)
+		seeder.trackWhere("arranchamento", "user_id", userId)
 
-		await upsertForecast(db, ctx, { date: "2099-09-02", meal: "almoco", willEat: true, messHallId })
-		await upsertForecast(db, ctx, { date: "2099-09-01", meal: "almoco", willEat: false, messHallId })
+		await upsertArranchamento(db, ctx, { date: "2099-09-02", meal: "almoco", willEat: true, messHallId })
+		await upsertArranchamento(db, ctx, { date: "2099-09-01", meal: "almoco", willEat: false, messHallId })
 		// re-upsert mesma chave: atualiza willEat (não duplica)
-		await upsertForecast(db, ctx, { date: "2099-09-02", meal: "almoco", willEat: false, messHallId })
+		await upsertArranchamento(db, ctx, { date: "2099-09-02", meal: "almoco", willEat: false, messHallId })
 
-		const list = await listMealForecasts(db, { userId, startDate: "2099-09-01", endDate: "2099-09-30" })
+		const list = await listArranchamentos(db, { userId, startDate: "2099-09-01", endDate: "2099-09-30" })
 		expect(list).toHaveLength(2)
 		expect(list.map((r) => r.date)).toEqual(["2099-09-01", "2099-09-02"]) // asc
 		const sep2 = list.find((r) => r.date === "2099-09-02")
@@ -75,17 +75,17 @@ describeSupabaseIntegration("forecast operations (regressão)", () => {
 		expect(def?.default_mess_hall_id).toBe(messHallId)
 	})
 
-	test("deleteForecast remove a previsão da chave", async () => {
+	test("deleteArranchamento remove a previsão da chave", async () => {
 		if (!reachable || !seeder || !db) return
 		const userId = await seeder.seedAuthUser()
 		const ctx = fullAccessCtx(userId)
 		const { id: messHallId } = await seeder.seedMessHall()
-		seeder.trackWhere("meal_forecasts", "user_id", userId)
+		seeder.trackWhere("arranchamento", "user_id", userId)
 
-		await upsertForecast(db, ctx, { date: "2099-09-10", meal: "janta", willEat: true, messHallId })
-		await deleteForecast(db, ctx, { date: "2099-09-10", meal: "janta" })
+		await upsertArranchamento(db, ctx, { date: "2099-09-10", meal: "janta", willEat: true, messHallId })
+		await deleteArranchamento(db, ctx, { date: "2099-09-10", meal: "janta" })
 
-		const list = await listMealForecasts(db, { userId, startDate: "2099-09-10", endDate: "2099-09-10" })
+		const list = await listArranchamentos(db, { userId, startDate: "2099-09-10", endDate: "2099-09-10" })
 		expect(list).toHaveLength(0)
 	})
 })

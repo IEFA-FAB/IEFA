@@ -1,22 +1,22 @@
 /**
- * @module forecast.fn
- * Meal forecast management for individual diners (will_eat intent per date+meal).
- * Thin wrappers over @iefa/sisub-domain (operations/forecast).
+ * @module arranchamento.fn
+ * Arranchamento do comensal (will_eat por data + refeição + refeitório).
+ * Thin wrappers over @iefa/sisub-domain (operations/arranchamento).
  * @domain core
  * @migration done
  */
 
 import {
-	DeleteForecastSchema,
-	deleteForecast,
+	DeleteArranchamentoSchema,
+	deleteArranchamento,
 	GetUserDefaultMessHallSchema,
 	getUserDefaultMessHall,
-	ListMealForecastsSchema,
-	listMealForecasts,
+	ListArranchamentosSchema,
+	listArranchamentos,
 	PersistDefaultMessHallSchema,
 	persistDefaultMessHall,
-	UpsertForecastSchema,
-	upsertForecast,
+	UpsertArranchamentoSchema,
+	upsertArranchamento,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth, requireSessionIdentity } from "@/lib/auth.server"
@@ -24,17 +24,17 @@ import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 import { withSessionIdentity } from "@/lib/session-identity"
 
-// Toda fn deste módulo é self-only: age sobre a previsão de refeição de QUEM CHAMA. Os reads
+// Toda fn deste módulo é self-only: age sobre o arranchamento de QUEM CHAMA. Os reads
 // continuam aceitando `userId` no payload para não quebrar o formato dos chamadores, mas o
 // valor é substituído pelo da sessão — `withSessionIdentity` deixa isso no código, e não num
 // comentário como antes (a garantia dependia da ordem do spread em `{ ...data, userId }`).
-// Antes de haver guard aqui, os reads eram anônimos e o chamador escolhia de quem era a
-// previsão/refeitório padrão que queria ler.
-export const fetchMealForecastsFn = createServerFn({ method: "GET" })
-	.validator(ListMealForecastsSchema)
+// Antes de haver guard aqui, os reads eram anônimos e o chamador escolhia de quem era o
+// arranchamento/refeitório padrão que queria ler.
+export const fetchArranchamentosFn = createServerFn({ method: "GET" })
+	.validator(ListArranchamentosSchema)
 	.handler(async ({ data }) => {
 		const session = await requireSessionIdentity()
-		return listMealForecasts(getDb(), withSessionIdentity(data, session, ["userId"])).catch(handleDomainError)
+		return listArranchamentos(getDb(), withSessionIdentity(data, session, ["userId"])).catch(handleDomainError)
 	})
 
 export const fetchUserDefaultMessHallFn = createServerFn({ method: "GET" })
@@ -57,16 +57,16 @@ export const persistDefaultMessHallFn = createServerFn({ method: "POST" })
 		return persistDefaultMessHall(getDb(), ctx, withSessionIdentity(data, session, ["email"])).catch(handleDomainError)
 	})
 
-export const upsertForecastFn = createServerFn({ method: "POST" })
-	.validator(UpsertForecastSchema)
+export const upsertArranchamentoFn = createServerFn({ method: "POST" })
+	.validator(UpsertArranchamentoSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return upsertForecast(getDb(), ctx, data).catch(handleDomainError)
+		return upsertArranchamento(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-export const deleteForecastFn = createServerFn({ method: "POST" })
-	.validator(DeleteForecastSchema)
+export const deleteArranchamentoFn = createServerFn({ method: "POST" })
+	.validator(DeleteArranchamentoSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deleteForecast(getDb(), ctx, data).catch(handleDomainError)
+		return deleteArranchamento(getDb(), ctx, data).catch(handleDomainError)
 	})

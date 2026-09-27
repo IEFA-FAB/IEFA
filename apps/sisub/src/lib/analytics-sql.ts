@@ -18,7 +18,7 @@ const MAX_QUERY_LENGTH = 4000
 const MAX_LIMIT = 500
 
 const ALLOWED_TABLES = new Set([
-	"meal_forecasts",
+	"arranchamento",
 	"meal_presences",
 	"units",
 	"mess_halls",

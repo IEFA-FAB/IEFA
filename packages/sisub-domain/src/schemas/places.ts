@@ -47,13 +47,13 @@ export type ApplyPlacesDiff = z.infer<typeof ApplyPlacesDiffSchema>
 export const FetchMessHallByCodeSchema = z.object({ code: z.string() })
 export type FetchMessHallByCode = z.infer<typeof FetchMessHallByCodeSchema>
 
-export const FetchUserMealForecastSchema = z.object({
+export const FetchUserArranchamentoSchema = z.object({
 	userId: z.string(),
 	date: z.string(),
 	meal: z.string(),
 	messHallId: z.number(),
 })
-export type FetchUserMealForecast = z.infer<typeof FetchUserMealForecastSchema>
+export type FetchUserArranchamento = z.infer<typeof FetchUserArranchamentoSchema>
 
 export const FetchOtherPresencesCountSchema = z.object({
 	date: z.string(),

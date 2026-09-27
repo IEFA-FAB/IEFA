@@ -1,6 +1,6 @@
 /**
  * @module presence.fn
- * Fiscal presence tracking: read presences + forecasts, insert/delete presence records.
+ * Fiscal presence tracking: read presences + arranchamentos, insert/delete presence records.
  * Thin wrappers over @iefa/sisub-domain (operations/presence).
  * @domain core
  * @migration done
@@ -11,16 +11,16 @@ import {
 	deletePresence,
 	InsertPresenceSchema,
 	insertPresence,
-	ListForecastMapSchema,
+	ListArranchamentoMapSchema,
 	ListPresencesSchema,
-	listForecastMap,
+	listArranchamentoMap,
 	listPresences,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import type { FiscalPresenceRecord, ForecastMap } from "@/types/domain/presence"
+import type { ArranchamentoMap, FiscalPresenceRecord } from "@/types/domain/presence"
 
 // Os reads são do FISCAL: devolvem quem comeu onde e quando, e o mapa de previsão de uma lista
 // de comensais escolhida pelo chamador. Exigem `messhall:1` no refeitório consultado — o mesmo
@@ -35,11 +35,11 @@ export const fetchPresencesFn = createServerFn({ method: "GET" })
 		return (await listPresences(getDb(), data).catch(handleDomainError)) as unknown as FiscalPresenceRecord[]
 	})
 
-export const fetchForecastsFn = createServerFn({ method: "GET" })
-	.validator(ListForecastMapSchema)
+export const fetchArranchamentoMapFn = createServerFn({ method: "GET" })
+	.validator(ListArranchamentoMapSchema)
 	.handler(async ({ data }) => {
 		await requireAuthWithPermission("messhall", 1, { type: "mess_hall", id: data.messHallId })
-		return (await listForecastMap(getDb(), data)) as ForecastMap
+		return (await listArranchamentoMap(getDb(), data)) as ArranchamentoMap
 	})
 
 export const insertPresenceFn = createServerFn({ method: "POST" })

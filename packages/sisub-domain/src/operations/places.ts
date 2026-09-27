@@ -9,8 +9,8 @@
  */
 
 import {
+	arranchamentoInKitchen,
 	kitchenInKitchen,
-	mealForecastsInKitchen,
 	messHallsInKitchen,
 	otherPresencesInKitchen,
 	type SisubDb,
@@ -26,7 +26,7 @@ import type {
 	ApplyPlacesDiff,
 	FetchMessHallByCode,
 	FetchOtherPresencesCount,
-	FetchUserMealForecast,
+	FetchUserArranchamento,
 	ListPlaces,
 	ResolveDisplayName,
 	UpdateEntityInput,
@@ -230,17 +230,17 @@ export async function fetchMessHallIdByCode(db: SisubDb, _ctx: UserContext, inpu
 	return row ? Number(row.id) : null
 }
 
-export async function fetchUserMealForecast(db: SisubDb, _ctx: UserContext, input: FetchUserMealForecast): Promise<{ will_eat: boolean | null } | null> {
+export async function fetchUserArranchamento(db: SisubDb, _ctx: UserContext, input: FetchUserArranchamento): Promise<{ will_eat: boolean | null } | null> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ will_eat: mealForecastsInKitchen.willEat })
-			.from(mealForecastsInKitchen)
+			.select({ will_eat: arranchamentoInKitchen.willEat })
+			.from(arranchamentoInKitchen)
 			.where(
 				and(
-					eq(mealForecastsInKitchen.userId, input.userId),
-					eq(mealForecastsInKitchen.date, input.date),
-					eq(mealForecastsInKitchen.meal, input.meal),
-					eq(mealForecastsInKitchen.messHallId, input.messHallId)
+					eq(arranchamentoInKitchen.userId, input.userId),
+					eq(arranchamentoInKitchen.date, input.date),
+					eq(arranchamentoInKitchen.meal, input.meal),
+					eq(arranchamentoInKitchen.messHallId, input.messHallId)
 				)
 			)
 			.limit(1)

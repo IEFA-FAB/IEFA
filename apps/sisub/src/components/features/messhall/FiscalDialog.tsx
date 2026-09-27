@@ -22,8 +22,7 @@ interface FiscalDialogProps {
 }
 
 export default function FiscalDialog({ setDialog, dialog, confirmDialog, selectedUnit, resolveDisplayName }: FiscalDialogProps) {
-	const forecastIsYes = !!dialog.systemForecast
-	const forecastIsNo = !dialog.systemForecast
+	const isArranchado = !!dialog.isArranchado
 
 	const id = dialog.uuid?.trim() || null
 	// staleTime Infinity: nome não muda durante a sessão do fiscal — substitui o Map manual.
@@ -50,19 +49,19 @@ export default function FiscalDialog({ setDialog, dialog, confirmDialog, selecte
 						<AlertDialogDescription>
 							Pessoa: {personLine}
 							<br />
-							Previsão do sistema: {dialog.systemForecast === null ? "Não encontrado" : dialog.systemForecast ? "Previsto" : "Não previsto"}
+							Arranchamento: {dialog.isArranchado === null ? "não encontrado" : dialog.isArranchado ? "arranchado" : "não arranchado"}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 
 					<div className="space-y-4">
-						{/* Está na previsão? (somente leitura) */}
+						{/* Está arranchado? (somente leitura) */}
 						<div className="space-y-2">
-							<div className="text-subheading">Está na previsão?</div>
+							<div className="text-subheading">Está arranchado?</div>
 							<div className="flex gap-2">
-								<Button disabled variant={forecastIsYes ? "default" : "outline"} size="sm" aria-pressed={forecastIsYes}>
+								<Button disabled variant={isArranchado ? "default" : "outline"} size="sm" aria-pressed={isArranchado}>
 									Sim
 								</Button>
-								<Button disabled variant={forecastIsNo ? "default" : "outline"} size="sm" aria-pressed={forecastIsNo}>
+								<Button disabled variant={!isArranchado ? "default" : "outline"} size="sm" aria-pressed={!isArranchado}>
 									Não
 								</Button>
 							</div>

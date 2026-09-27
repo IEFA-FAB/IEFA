@@ -127,7 +127,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		icon: UtensilsCrossed,
 		color: "success",
 		items: [
-			{ title: "Previsão", url: "/diner/forecast", icon: Calendar, keywords: ["arranchamento", "marcar refeição", "rancho"] },
+			{ title: "Arranchamento", url: "/diner/arranchamento", icon: Calendar, keywords: ["previsão", "marcar refeição", "rancho"] },
 			{ title: "Cardápio", url: "/diner/menu", icon: BookOpen, keywords: ["menu", "refeição do dia"] },
 			{ title: "Pedidos de Lanche", url: "/diner/snack-requests", icon: PlaneTakeoff, keywords: ["lanche de bordo", "lanche de apoio", "missão"] },
 			{ title: "Meu QR Code", url: "/diner/qr-code", icon: QrCode, keywords: ["qr", "identificação"] },
@@ -435,7 +435,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		scopeNoun: "unidade",
 		scopeType: "unit",
 		items: [
-			{ title: "Painel", url: "/local-analytics/dashboard", icon: LayoutDashboard, keywords: ["previsões", "presença em tempo real"] },
+			{ title: "Painel", url: "/local-analytics/dashboard", icon: LayoutDashboard, keywords: ["arranchamentos", "previsões", "presença em tempo real"] },
 			{ title: "Indicadores", url: "/local-analytics/indicators", icon: BarChart3, keywords: ["power bi", "relatório"] },
 			{ title: "Efetivo dos Ranchos", url: "/local-analytics/workforce", icon: Users, keywords: ["efetivo"] },
 			{ title: "Assistente IA", url: "/local-analytics/chat", icon: MessageSquare, keywords: CHAT_KEYWORDS },

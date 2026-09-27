@@ -5,8 +5,8 @@ import { requirePermission } from "@/auth/pbac"
 import { MealSection } from "@/components/features/diner/MealSection"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
+import { useArranchamento } from "@/hooks/data/useArranchamento"
 import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
-import { useMealForecast } from "@/hooks/data/useMealForecast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { cn } from "@/lib/cn"
 
@@ -68,7 +68,7 @@ function MenuPage() {
 	const canGoNext = selectedIndex < dates.length - 1
 
 	const { messHalls } = useMessHalls()
-	const { defaultMessHallId } = useMealForecast()
+	const { defaultMessHallId } = useArranchamento()
 
 	const defaultMessHall = messHalls.find((m) => String(m.id) === String(defaultMessHallId))
 	const kitchenIds = defaultMessHall?.kitchen_id ? [defaultMessHall.kitchen_id] : []
@@ -129,7 +129,7 @@ function MenuPage() {
 				<div className="rounded-md border border-dashed p-6 text-center space-y-2">
 					<UtensilsCrossed className="size-8 mx-auto text-muted-foreground" />
 					<p className="text-sm text-muted-foreground">
-						Defina seu refeitório padrão em <strong>Previsão</strong> para ver o cardápio.
+						Defina seu refeitório padrão em <strong>Arranchamento</strong> para ver o cardápio.
 					</p>
 				</div>
 			) : isLoading ? (

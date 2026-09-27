@@ -238,14 +238,14 @@ export const queryKeys = {
 
 	unitDashboard: (unitId: number | null) => ["unit_dashboard", unitId] as const,
 
-	mealForecasts: {
-		list: (userId: string | undefined, startDate: string, endDate: string) => ["mealForecasts", userId, startDate, endDate] as const,
+	arranchamentos: {
+		list: (userId: string | undefined, startDate: string, endDate: string) => ["arranchamentos", userId, startDate, endDate] as const,
 		userData: (userId: string | undefined) => ["userData", userId] as const,
 	},
 
 	dashboard: {
 		// Uma chave só: o painel virou UMA leitura de servidor. As chaves antigas espelhavam as
-		// rotas anônimas da API pública (forecasts, presences, user-data, user-military-data),
+		// rotas anônimas da API pública (arranchamentos, presences, user-data, user-military-data),
 		// que deixaram de ser chamadas do navegador.
 		unit: (params: { unitId: number; messHallId?: number; startDate: string; endDate: string }) => ["dashboard", "unit", params] as const,
 	},

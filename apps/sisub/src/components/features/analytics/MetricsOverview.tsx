@@ -46,8 +46,8 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 							<Users className="size-6 text-primary" aria-hidden="true" />
 						</div>
 						<div className="flex-1">
-							<p className="text-caption">Total Previsto</p>
-							<p className="text-display text-primary">{metrics.total_forecast}</p>
+							<p className="text-caption">Total de arranchados</p>
+							<p className="text-display text-primary">{metrics.total_arranchados}</p>
 							<p className="text-xs text-muted-foreground mt-1">Presença: {metrics.total_presence}</p>
 						</div>
 					</div>
@@ -70,7 +70,7 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 								<div className="flex-1 min-w-0">
 									<p className="text-subheading text-muted-foreground truncate">{MEAL_LABELS[stat.meal]}</p>
 									<div className="flex items-baseline gap-1 md:gap-2">
-										<p className="text-body">{stat.forecast}</p>
+										<p className="text-body">{stat.arranchados}</p>
 										<span className="text-label text-muted-foreground">{stat.percentage.toFixed(1)}%</span>
 									</div>
 									<p className="text-xs text-muted-foreground mt-1">Presença: {stat.presence}</p>

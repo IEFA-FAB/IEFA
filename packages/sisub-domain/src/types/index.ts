@@ -1,11 +1,11 @@
 export type { AppModule, PermissionScope, UserContext, UserPermission } from "./context.ts"
 export type {
 	AggregatedPresenceRecord,
+	ArranchamentoRecord,
 	DailyMealStat,
 	DashboardFilters,
 	DashboardMetrics,
 	DashboardPresenceRecord,
-	ForecastRecord,
 	MealTypeStat,
 	MessHallAPI,
 	MessHallStats,

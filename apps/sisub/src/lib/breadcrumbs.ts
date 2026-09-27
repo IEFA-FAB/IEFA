@@ -35,7 +35,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	// Páginas
 	hub: "Hub",
 	menu: "Cardápio",
-	forecast: "Previsão",
+	arranchamento: "Arranchamento",
 	"qr-code": "QR Code",
 	"self-check-in": "Auto Check-in",
 	"mcp-keys": "Chaves MCP",

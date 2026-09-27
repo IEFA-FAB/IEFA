@@ -11,7 +11,7 @@ interface PresenceTableProps {
 	selectedDate: string
 	selectedMeal: MealKey
 	presences: FiscalPresenceRecord[]
-	forecastMap: Record<string, boolean>
+	arranchamentoMap: Record<string, boolean>
 	actions: {
 		removePresence: (record: FiscalPresenceRecord) => void
 	}
@@ -20,7 +20,7 @@ interface PresenceTableProps {
 // Tipo auxiliar apenas para leitura do campo extra
 type PresenceRowUI = FiscalPresenceRecord & { display_name?: string | null }
 
-export default function PresenceTable({ selectedDate, selectedMeal, presences, forecastMap, actions }: PresenceTableProps) {
+export default function PresenceTable({ selectedDate, selectedMeal, presences, arranchamentoMap, actions }: PresenceTableProps) {
 	return (
 		<>
 			{/* Lista de presenças */}
@@ -42,7 +42,7 @@ export default function PresenceTable({ selectedDate, selectedMeal, presences, f
 								<TableHead className="text-muted-foreground">Pessoa</TableHead>
 								<TableHead className="text-muted-foreground">Data</TableHead>
 								<TableHead className="text-muted-foreground">Refeição</TableHead>
-								<TableHead className="text-muted-foreground">Previsão</TableHead>
+								<TableHead className="text-muted-foreground">Arranchado</TableHead>
 								<TableHead className="text-muted-foreground">Registrado em</TableHead>
 								<TableHead className="text-right text-muted-foreground">Ações</TableHead>
 							</TableRow>
@@ -58,7 +58,7 @@ export default function PresenceTable({ selectedDate, selectedMeal, presences, f
 							) : (
 								presences.map((row) => {
 									const uiRow = row as PresenceRowUI
-									const saidWouldAttend = forecastMap[row.user_id] ?? false
+									const saidWouldAttend = arranchamentoMap[row.user_id] ?? false
 									const name = uiRow.display_name?.trim() || row.user_id
 
 									return (

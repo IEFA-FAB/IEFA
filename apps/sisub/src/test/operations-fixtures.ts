@@ -142,7 +142,7 @@ export interface Seeder {
 	seedMessHall(opts?: { unitId?: number; kitchenId?: number | null; code?: string }): Promise<{ id: number; unitId: number; code: string }>
 	seedUserData(opts: { id: string; email?: string; nrOrdem?: string; defaultMessHallId?: number | null }): Promise<string>
 	seedUserMilitaryData(opts?: { nrOrdem?: string; nrCpf?: string; nmGuerra?: string; sgPosto?: string }): Promise<string>
-	seedMealForecast(opts: { userId: string; messHallId: number; date?: string; meal?: string; willEat?: boolean }): Promise<void>
+	seedArranchamento(opts: { userId: string; messHallId: number; date?: string; meal?: string; willEat?: boolean }): Promise<void>
 	seedMealPresence(opts: { userId: string; messHallId: number; date?: string; meal?: string }): Promise<string>
 	seedOtherPresence(opts: { adminId: string; messHallId: number; date?: string; meal?: string }): Promise<void>
 	seedUserPermission(opts: {
@@ -440,16 +440,16 @@ export function makeSeeder(client: AnyClient): Seeder {
 			return nrOrdem
 		},
 
-		async seedMealForecast(opts) {
-			const { error } = await tbl("meal_forecasts").insert({
+		async seedArranchamento(opts) {
+			const { error } = await tbl("arranchamento").insert({
 				user_id: opts.userId,
 				mess_hall_id: opts.messHallId,
 				date: opts.date ?? futureDate(seq),
 				meal: opts.meal ?? "almoco",
 				will_eat: opts.willEat ?? true,
 			})
-			if (error) throw new Error(`seed meal_forecasts failed: ${error.message}`)
-			trackWhere("meal_forecasts", "user_id", opts.userId)
+			if (error) throw new Error(`seed arranchamento failed: ${error.message}`)
+			trackWhere("arranchamento", "user_id", opts.userId)
 		},
 
 		async seedMealPresence(opts) {

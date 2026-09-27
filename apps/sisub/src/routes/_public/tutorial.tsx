@@ -41,7 +41,7 @@ const comensalSteps: StepItem[] = [
 	{
 		icon: QrCode,
 		title: "Seu QR de Acesso",
-		description: "Na página de Previsão, clique no ícone de QR no cabeçalho. É este código que o fiscal lê na entrada do refeitório.",
+		description: "Na página de Arranchamento, clique no ícone de QR no cabeçalho. É este código que o fiscal lê na entrada do refeitório.",
 	},
 	{
 		icon: BookOpen,
@@ -74,12 +74,12 @@ const fiscalSteps: StepItem[] = [
 	{
 		icon: QrCode,
 		title: "Leia o QR do Comensal",
-		description: "Aponte a câmera para o QR exibido pelo militar. O sistema valida a previsão para a refeição e unidade atuais.",
+		description: "Aponte a câmera para o QR exibido pelo militar. O sistema confere o arranchamento para a refeição e unidade atuais.",
 	},
 	{
 		icon: Info,
-		title: "Confira a Previsão",
-		description: "Verifique se o comensal tem previsão registrada para a refeição corrente. Ajuste os dados se necessário.",
+		title: "Confira o Arranchamento",
+		description: "Verifique se o comensal está arranchado para a refeição corrente. Ajuste os dados se necessário.",
 	},
 	{
 		icon: Save,
@@ -155,7 +155,7 @@ const unitSteps: StepItem[] = [
 const faqItems: QAItem[] = [
 	{
 		question: "Onde encontro meu QR para o refeitório?",
-		answer: "Na página de Previsão (aba Comensal), clique no ícone de QR no cabeçalho. Um diálogo exibirá seu código e seu ID.",
+		answer: "Na página de Arranchamento (aba Comensal), clique no ícone de QR no cabeçalho. Um diálogo exibirá seu código e seu ID.",
 	},
 	{
 		question: "Por que não consigo editar dias próximos?",

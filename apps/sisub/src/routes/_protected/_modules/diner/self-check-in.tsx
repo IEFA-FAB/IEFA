@@ -16,7 +16,7 @@ import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { inferDefaultMeal, MEAL_LABEL } from "@/lib/fiscal"
 import { insertPresenceFn } from "@/server/presence.fn"
-import { messHallByCodeQueryOptions, userMealForecastQueryOptions } from "@/services/SelfCheckInService"
+import { messHallByCodeQueryOptions, userArranchamentoQueryOptions } from "@/services/SelfCheckInService"
 import type { WillEnter } from "@/types/domain/presence"
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ function selfCheckinReducer(state: SelfCheckinState, action: SelfCheckinAction):
 
 export const Route = createFileRoute("/_protected/_modules/diner/self-check-in")({
 	// Dia e refeição saem do relógio LOCAL (`todayISO`, `inferDefaultMeal`). No servidor (UTC) o
-	// prefetch buscava a previsão de outra refeição e o HTML divergia do cliente na hidratação.
+	// prefetch buscava o arranchamento de outra refeição e o HTML divergia do cliente na hidratação.
 	ssr: false,
 	validateSearch: selfCheckinSearchSchema,
 	beforeLoad: async ({ context, search, location }) => {
@@ -99,7 +99,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/self-check-in")
 		const messHall = await context.queryClient.query({ ...messHallByCodeQueryOptions(unitParam), staleTime: "static" })
 
 		if (messHall) {
-			await context.queryClient.query({ ...userMealForecastQueryOptions(user.id, todayISO(), inferDefaultMeal(), messHall.id), staleTime: "static" })
+			await context.queryClient.query({ ...userArranchamentoQueryOptions(user.id, todayISO(), inferDefaultMeal(), messHall.id), staleTime: "static" })
 		}
 	},
 	component: SelfCheckin,
@@ -138,14 +138,14 @@ function SelfCheckin() {
 		enabled: !!confirmedCode,
 	})
 
-	const { data: forecast } = useQuery({
-		...userMealForecastQueryOptions(userId, date, meal, messHall?.id ?? null),
+	const { data: arranchamento } = useQuery({
+		...userArranchamentoQueryOptions(userId, date, meal, messHall?.id ?? null),
 		enabled: !!messHall?.id,
 	})
 
 	// ── Derived state ─────────────────────────────────────────────────────────
 
-	const systemForecast = !!forecast?.will_eat
+	const isArranchado = !!arranchamento?.will_eat
 	// messHall=null (não undefined) significa que a query resolveu e não encontrou
 	const messHallNotFound = !!confirmedCode && !messHallLoading && messHall === null
 
@@ -260,10 +260,10 @@ function SelfCheckin() {
 			{/* ── Fase 2: Confirmação de entrada ── */}
 			{isConfirmPhase && (
 				<div className="space-y-6">
-					{/* Previsão (read-only, informativo) */}
+					{/* Arranchamento (read-only, informativo) */}
 					<div className="flex items-center justify-between py-3 border-b border-border/60">
-						<span className="text-sm text-muted-foreground">Previsão do sistema</span>
-						<Badge variant={systemForecast ? "default" : "secondary"}>{systemForecast ? "Sim" : "Não"}</Badge>
+						<span className="text-sm text-muted-foreground">Arranchado</span>
+						<Badge variant={isArranchado ? "default" : "secondary"}>{isArranchado ? "Sim" : "Não"}</Badge>
 					</div>
 
 					{/* Vai entrar? (interativo) */}
@@ -294,7 +294,7 @@ function SelfCheckin() {
 						<Button className="flex-1" onClick={handleSubmit} disabled={!messHall || blocked}>
 							{submitting ? "Enviando..." : "Confirmar presença"}
 						</Button>
-						<Button variant="outline" onClick={() => navigate({ to: "/diner/forecast" })} disabled={blocked}>
+						<Button variant="outline" onClick={() => navigate({ to: "/diner/arranchamento" })} disabled={blocked}>
 							Voltar
 						</Button>
 					</div>
