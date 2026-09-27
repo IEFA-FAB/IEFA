@@ -52,7 +52,7 @@ begin
 		select schemaname, matviewname, definition from pg_matviews
 	) v
 	where definition ~* old_names
-		and (schemaname, viewname) not in (('core', 'workforce_submission'));
+		and (schemaname, viewname) not in (('kitchen', 'rancho'), ('core', 'rancho'), ('core', 'workforce_submission'));
 	if offenders is not null then
 		raise exception 'views citam os nomes que este contract derruba: %', offenders;
 	end if;
@@ -73,14 +73,22 @@ begin
 
 	-- Índice e constraint da coluna antiga caem com ela sem `cascade` e sem aviso: um criado entre o
 	-- expand e o contract sumiria sem passar para a coluna nova. Só os três que o expand conhecia.
+	-- O índice de expressão ou parcial cita a coluna em `indexprs`/`indpred` (o `indkey` guarda 0),
+	-- e a comparação é por OID, que não depende do `search_path` da sessão.
 	select string_agg(x, ', ') into offenders
 	from (
 		select i.indexrelid::regclass::text as x
 		from pg_index i
-		join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any (i.indkey)
 		where i.indrelid = 'kitchen.workforce_submission'::regclass
-			and a.attname = 'rancho_id'
-			and i.indexrelid::regclass::text not in ('kitchen.workforce_submission_rancho_idx', 'kitchen.workforce_submission_uniq')
+			and i.indexrelid not in ('kitchen.workforce_submission_rancho_idx'::regclass, 'kitchen.workforce_submission_uniq'::regclass)
+			and (
+				exists (
+					select 1 from pg_attribute a
+					where a.attrelid = i.indrelid and a.attnum = any (i.indkey) and a.attname = 'rancho_id'
+				)
+				or coalesce(pg_get_expr(i.indexprs, i.indrelid), '') ~ '\mrancho_id\M'
+				or coalesce(pg_get_expr(i.indpred, i.indrelid), '') ~ '\mrancho_id\M'
+			)
 		union all
 		select c.conname
 		from pg_constraint c
@@ -94,8 +102,9 @@ begin
 	end if;
 
 	-- O espelho garante colunas iguais; se não estiverem, algo escreveu por fora dele (com o trigger
-	-- desligado) e a coluna antiga tem dado que a nova não tem. Para, em vez de perder o valor.
-	if exists (select 1 from kitchen.workforce_submission where rancho_id is distinct from mess_hall_workforce_id) then
+	-- desligado) e a coluna antiga tem dado que a nova não tem. Para, em vez de perder o valor. A
+	-- antiga NULL não perde nada (a nova é NOT NULL): só valor diferente conta.
+	if exists (select 1 from kitchen.workforce_submission where rancho_id is not null and rancho_id <> mess_hall_workforce_id) then
 		raise exception 'kitchen.workforce_submission: rancho_id e mess_hall_workforce_id divergem';
 	end if;
 end;
@@ -131,6 +140,8 @@ begin
 		raise exception 'relações com "rancho" no nome sobraram depois do contract: %', offenders;
 	end if;
 
+	-- A coluna nova é agora a única integridade da resposta: NOT NULL, FK para o roster, índice da FK
+	-- e o unique que o upsert usa como árbitro.
 	if not exists (
 		select 1 from pg_index i
 		where i.indrelid = 'kitchen.workforce_submission'::regclass
@@ -138,6 +149,24 @@ begin
 			and i.indisunique
 	) then
 		raise exception 'kitchen.workforce_submission perdeu o unique (survey_id, mess_hall_workforce_id)';
+	end if;
+	if not exists (
+		select 1 from pg_attribute
+		where attrelid = 'kitchen.workforce_submission'::regclass and attname = 'mess_hall_workforce_id' and attnotnull
+	) then
+		raise exception 'kitchen.workforce_submission.mess_hall_workforce_id deixou de ser NOT NULL';
+	end if;
+	if not exists (
+		select 1 from pg_constraint
+		where conrelid = 'kitchen.workforce_submission'::regclass
+			and conname = 'workforce_submission_mess_hall_workforce_id_fkey'
+			and contype = 'f'
+			and confrelid = 'kitchen.mess_hall_workforce'::regclass
+	) then
+		raise exception 'kitchen.workforce_submission perdeu a FK de mess_hall_workforce_id';
+	end if;
+	if to_regclass('kitchen.workforce_submission_mess_hall_workforce_idx') is null then
+		raise exception 'kitchen.workforce_submission perdeu o índice da FK de mess_hall_workforce_id';
 	end if;
 end;
 $$;
