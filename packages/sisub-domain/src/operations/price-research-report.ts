@@ -703,10 +703,8 @@ export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, inp
 			const sequence = (last?.sequence ?? 0) + 1
 			const [row] = await tx
 				.insert(priceResearchEmissionInProcurement)
-				// `listId`: coluna antiga, NOT NULL e espelhada até o contract 20260927050000, que a remove.
 				.values({
 					quantityEstimateId: input.quantityEstimateId,
-					listId: input.quantityEstimateId, // nosemgrep: ubiquitous-language-lot2-identifier
 					sequence,
 					emittedBy: ctx.userId,
 					emittedAt,
