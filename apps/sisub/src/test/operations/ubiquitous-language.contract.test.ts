@@ -13,7 +13,8 @@
  * (views de compatibilidade, colunas espelhadas). Eles entram em `EXPAND_ALLOWLIST`, que é
  * DATADA: o PR do contract que os derruba esvazia a lista. O lote 2 (anexo quantitativo) já passou
  * pelo contract 20260927050000, o lote 3 (pesquisa de preços e prefixos) pelo 20260927070000 e o
- * lote 4 (finanças) pelo 20260927090000 e o lote 7 (arranchamento) pelo 20260927140000.
+ * lote 4 (finanças) pelo 20260927090000 e o lote 7 (arranchamento) pelo 20260927140000. O lote 8b
+ * (efetivo por refeitório) está em expand (20260927150000) até o contract 20260927160000.
  *
  * A lista de termos cresce por lote, como a do opengrep.
  *
@@ -45,21 +46,40 @@ const SCHEMAS = ["core", "kitchen", "procurement", "finance", "inventory", "acce
  * não tem dotação (`received_credit`), o saldo do SIAFI é o crédito disponível
  * (`available_credit_siafi`) e a UG emitente é `issuer_ug`. Lote 7: o comensal se arrancha
  * (`kitchen.arranchamento`), não `meal_forecasts`; `forecasted_headcount` (a estimativa agregada)
- * não casa.
+ * não casa. Lote 8b: "rancho" é ambíguo (refeitório, cozinha ou unidade); o roster do efetivo é
+ * `kitchen.mess_hall_workforce` e a resposta aponta para ele por `mess_hall_workforce_id`.
  */
 const DISCARDED_IDENTIFIER =
-	/procurement_list|kitchen_ata_draft|(^|_)list_id($|_)|list_kitchen_id|max_margin|margin_justification|(^|_)total_quantity($|_)|(^|_)ata_(id|item_id|draft)($|_)|pesquisa_preco|compras_amostra|(^|_)amostra(_id)?($|_)|procurement_arp|procurement_segment|(^|_)dotacao($|_)|saldo_siafi|ug_emitente|meal_forecasts?/
-
-/** Nome descartado citado em texto (corpo de função, definição de view, comentário), em regex do Postgres. */
-const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M|\mmeal_forecasts?\M`
+	/procurement_list|kitchen_ata_draft|(^|_)list_id($|_)|list_kitchen_id|max_margin|margin_justification|(^|_)total_quantity($|_)|(^|_)ata_(id|item_id|draft)($|_)|pesquisa_preco|compras_amostra|(^|_)amostra(_id)?($|_)|procurement_arp|procurement_segment|(^|_)dotacao($|_)|saldo_siafi|ug_emitente|meal_forecasts?|rancho/
 
 /**
- * Compatibilidade de um expand em andamento, até o contract dele. Vazia: os contracts
- * 20260927050000 (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e
- * prefixos), 20260927090000 (lote 4, finanças) e 20260927140000 (lote 7, arranchamento)
- * derrubaram as delas. Chave: `tipo:schema.objeto[.coluna]`.
+ * Nome descartado citado em texto (corpo de função, definição de view, comentário), em regex do
+ * Postgres. "Rancho" vale em qualquer caixa, menos no nome da função "Fiscal de rancho" (a única
+ * exceção do glossário); `PIRANCHO` e `arranchamento` não casam (`\m` pede início de palavra).
  */
-const EXPAND_ALLOWLIST = new Set<string>([])
+const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M|\mmeal_forecasts?\M|(?<![Ff]iscal de )(?<![Ff]iscais de )\m([Rr]ancho|RANCHO)\w*`
+
+/**
+ * Compatibilidade de um expand em andamento, até o contract dele. Os contracts 20260927050000
+ * (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e prefixos),
+ * 20260927090000 (lote 4, finanças) e 20260927140000 (lote 7, arranchamento) derrubaram as delas.
+ * Chave: `tipo:schema.objeto[.coluna]`.
+ *
+ * Lote 8b, expand 20260927150000, até o contract 20260927160000 (2026-09-27): a view
+ * `kitchen.rancho` (o nome antigo de `kitchen.mess_hall_workforce`), a coluna espelhada
+ * `workforce_submission.rancho_id` com a FK e o índice dela, a função de espelho (cita a coluna
+ * no corpo) e as views `core.rancho` e `core.workforce_submission` da promoção do núcleo, que o
+ * contract derruba. O PR do contract esvazia estas entradas.
+ */
+const EXPAND_ALLOWLIST = new Set<string>([
+	"relation:kitchen.rancho",
+	"relation:core.rancho",
+	"relation:core.workforce_submission",
+	"relation:kitchen.workforce_submission_rancho_idx",
+	"column:kitchen.workforce_submission.rancho_id",
+	"constraint:kitchen.workforce_submission_rancho_id_fkey",
+	"function:kitchen.mirror_workforce_submission_mess_hall_workforce",
+])
 
 /** Views de compatibilidade: as colunas delas e a definição saem com elas. */
 const allowedRelation = (schema: string, name: string) => EXPAND_ALLOWLIST.has(`relation:${schema}.${name}`)
