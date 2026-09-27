@@ -226,7 +226,8 @@ rules:
         - "**/drizzle/**"
         - "apps/api/src/workers/siafi/**"
     patterns:
-      - pattern-regex: \b(?:\w*[dD]otacao\w*|\w*[sS]aldo_?[sS]iafi\w*|\w*[uU]g_?[eE]mitente\w*)\b
+      # Sem caixa: vale para `dotacao`, `saldoSiafi` e para constante em SCREAMING_SNAKE (`UG_EMITENTE`).
+      - pattern-regex: (?i)\b\w*(?:dotacao|saldo_?siafi|ug_?emitente)\w*\b
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
       # Chave da linha parseada do relatório do Tesouro Gerencial (ver o cabeçalho do lote).
       - pattern-not-regex: \bparsed\.dotacao\b

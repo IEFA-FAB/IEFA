@@ -101,6 +101,10 @@ alter table finance.budget_credit alter column saldo_siafi drop not null;
 -- INSERT: aceita qualquer uma das duas de cada par e recusa as duas divergentes; nenhuma das duas
 -- = 0 (o default de antes). UPDATE: vale a que mudou; as duas mudadas para valores diferentes são
 -- recusadas. No fim a antiga sempre copia a nova.
+--
+-- Custo aceito: sem default, "não informado" e NULL explícito são o mesmo NULL no trigger, então o
+-- INSERT com `dotacao = null` grava 0 onde antes o NOT NULL o recusava. Nenhum caminho grava NULL
+-- (o upsert do lote de crédito usa `Number(... ?? 0)`), e a janela dura até o contract.
 create function finance.mirror_budget_credit_naming()
 returns trigger
 language plpgsql
@@ -146,8 +150,10 @@ begin
 end;
 $$;
 
+-- `update of` as quatro: UPDATE que não cita nenhuma delas (status do lote, `empenhado_siafi`)
+-- não tem o que espelhar; o `on conflict … do update set dotacao = …` cita, e dispara.
 create trigger budget_credit_mirror_naming
-before insert or update on finance.budget_credit
+before insert or update of dotacao, saldo_siafi, received_credit, available_credit_siafi on finance.budget_credit
 for each row execute function finance.mirror_budget_credit_naming();
 
 comment on function finance.mirror_budget_credit_naming() is
@@ -193,7 +199,7 @@ end;
 $$;
 
 create trigger empenho_mirror_issuer_ug
-before insert or update on finance.empenho
+before insert or update of ug_emitente, issuer_ug on finance.empenho
 for each row execute function finance.mirror_empenho_issuer_ug();
 
 comment on function finance.mirror_empenho_issuer_ug() is

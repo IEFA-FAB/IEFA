@@ -70,6 +70,22 @@ begin
 end;
 $$;
 
+// ruleid: ubiquitous-language-migration-lot4
+create function finance.touch_issuer() returns void language plpgsql set search_path = '' as $$
+begin
+	-- um comentário no corpo não esconde a função
+	update finance.empenho set ug_emitente = null;
+end;
+$$;
+
+// ruleid: ubiquitous-language-migration-lot2
+create function procurement.touch_list() returns void language plpgsql set search_path = '' as $$
+begin
+	-- idem para o lote 2
+	update procurement.quantity_estimate_item set total_quantity = 0;
+end;
+$$;
+
 // ok: ubiquitous-language-migration-lot4
 create function finance.touch_credit_ok() returns void language plpgsql set search_path = '' as $$
 begin

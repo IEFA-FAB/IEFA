@@ -202,6 +202,8 @@ const line = { saldoSiafi: 0 }
 const neSelect = fin.from("empenho").select("id, nd, ug_emitente")
 // ruleid: ubiquitous-language-lot4-identifier
 const neInput = z.object({ ugEmitente: z.string().nullable() })
+// ruleid: ubiquitous-language-lot4-identifier
+const SALDO_SIAFI_KEY = "available"
 
 // ok: ubiquitous-language-lot4-identifier
 const creditOk = { receivedCredit: Number(row.received_credit), availableCreditSiafi: Number(row.available_credit_siafi) }
