@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs"
+import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
@@ -20,6 +20,11 @@ const REDIRECTED: readonly { from: string; to: string }[] = [
 	{ from: "/global/weekly-plans/new", to: "/global/weekly-menus/new" },
 	{ from: `/global/weekly-plans/${UUID}`, to: `/global/weekly-menus/${UUID}` },
 	{ from: `/global/weekly-plans/print/${UUID}`, to: `/global/weekly-menus/print/${UUID}` },
+	{ from: "/unit/12/procurement", to: "/unit/12/quantity-estimates" },
+	{ from: "/unit/12/procurement/new", to: "/unit/12/quantity-estimates/new" },
+	{ from: `/unit/12/procurement/${UUID}`, to: `/unit/12/quantity-estimates/${UUID}` },
+	{ from: `/unit/12/procurement/print/quantities/${UUID}`, to: `/unit/12/quantity-estimates/print/calculation-memory/${UUID}` },
+	{ from: `/unit/12/procurement/print/price-research/${UUID}`, to: `/unit/12/quantity-estimates/print/price-research/${UUID}` },
 ]
 
 const NOT_LEGACY: readonly { from: string }[] = [
@@ -28,6 +33,9 @@ const NOT_LEGACY: readonly { from: string }[] = [
 	{ from: "/unit/12/liquidacoes" },
 	{ from: "/unit/12/pagamentos" },
 	{ from: "/global/weekly-menus" },
+	{ from: "/unit/12/quantity-estimates" },
+	{ from: "/unit/12/flows/procurement-planning" },
+	{ from: "/analytics/procurement-plan" },
 	// Só o prefixo exato: segmento parecido ou sem o escopo não é caminho antigo.
 	{ from: "/unit/12/payments-report" },
 	{ from: "/kitchen/suprimentos" },
@@ -44,25 +52,31 @@ describe("resolveLegacyPath", () => {
 	})
 
 	it("aceita um mapa próprio (o dos próximos lotes)", () => {
-		const prefixes = [{ from: "/unit/:unitId/procurement", to: "/unit/:unitId/quantity-estimates" }]
-		expect(resolveLegacyPath(`/unit/3/procurement/${UUID}`, prefixes)).toBe(`/unit/3/quantity-estimates/${UUID}`)
+		const prefixes = [{ from: "/diner/forecast", to: "/diner/arranchamento" }]
+		expect(resolveLegacyPath("/diner/forecast", prefixes)).toBe("/diner/arranchamento")
 	})
 
 	it("todo destino é uma rota que existe e nenhuma origem é rota viva", () => {
-		const routePath = (path: string) =>
-			join(
-				MODULES_DIR,
-				...path
-					.split("/")
-					.filter(Boolean)
-					.map((s) => (s.startsWith(":") ? `$${s.slice(1)}` : s))
-			)
+		// Diretório, arquivo `<segmento>.tsx` ou rota plana do TanStack (`print.calculation-memory.$id.tsx`
+		// dentro do diretório pai): as três formas geram o mesmo caminho.
+		const routeExists = (path: string) => {
+			const segments = path
+				.split("/")
+				.filter(Boolean)
+				.map((s) => (s.startsWith(":") ? `$${s.slice(1)}` : s))
+			for (let split = segments.length; split >= 1; split--) {
+				const dir = join(MODULES_DIR, ...segments.slice(0, split))
+				const rest = segments.slice(split).join(".")
+				if (rest === "" && (existsSync(dir) || existsSync(`${dir}.tsx`))) return true
+				const parent = join(MODULES_DIR, ...segments.slice(0, split))
+				if (rest !== "" && existsSync(parent) && readdirSync(parent).some((f) => f === `${rest}.tsx` || f.startsWith(`${rest}.`))) return true
+			}
+			return false
+		}
 		for (const { from, to } of LEGACY_ROUTE_PREFIXES) {
-			const target = routePath(to)
-			expect(existsSync(target) || existsSync(`${target}.tsx`), `destino ${to} sem rota`).toBe(true)
-			const source = routePath(from)
+			expect(routeExists(to), `destino ${to} sem rota`).toBe(true)
 			// Rota viva no caminho antigo casaria antes do redirect, que nunca rodaria.
-			expect(existsSync(source) || existsSync(`${source}.tsx`), `origem ${from} ainda tem rota`).toBe(false)
+			expect(routeExists(from), `origem ${from} ainda tem rota`).toBe(false)
 		}
 	})
 })

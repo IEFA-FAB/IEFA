@@ -211,7 +211,7 @@ async function fetchArpSaldos(params: { numeroAtaRegistroPreco: string; codigoUn
  * `numero_ata` guarda o número CANÔNICO da API ("00002/2025"), que é o formato que
  *   `4_consultarEmpenhosSaldoItem` exige de volta na sincronização de saldo.
  * Datas no formato BR ("DD/MM/YYYY") viram ISO 8601. Item cujo CATMAT não casa com o anexo fica
- * com procurement_list_item_id nulo.
+ * com quantity_estimate_item_id nulo.
  *
  * @throws {Error} em falha HTTP (depois de 3 tentativas), quando a ata não tem itens ou em qualquer
  *   erro de escrita no Supabase.
@@ -236,7 +236,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			 * Anexo quantitativo, quando há. ARP de outro órgão (carona) ou anterior ao sistema entra
 			 * sem anexo; o casamento com o anexo pelo CATMAT acontece quando houver um.
 			 */
-			ataId: z.uuid().nullable().optional(),
+			quantityEstimateId: z.uuid().nullable().optional(),
 			/** Contratação de origem (registro de preços) que a ARP sustenta. */
 			acquisitionId: z.uuid().nullable().optional(),
 			unitId: z.number().int().positive(),
@@ -250,9 +250,9 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		// para segurar isso.
 		await requireUnitScope(2, data.unitId)
 		const supabase = getProcurementClient()
-		// A ATA apontada TEM que ser da unidade alegada: sem isto, quem tem nível 2 na
-		// unidade A importa ARP para dentro da ata da unidade B.
-		if (data.ataId && (await resolveAtaUnit(supabase, data.ataId)) !== data.unitId)
+		// O anexo apontado TEM que ser da unidade alegada: sem isto, quem tem nível 2 na
+		// unidade A importa ARP para dentro do anexo da unidade B.
+		if (data.quantityEstimateId && (await resolveQuantityEstimateUnit(supabase, data.quantityEstimateId)) !== data.unitId)
 			throw new Error("O anexo quantitativo informado não pertence a esta unidade")
 		if (data.acquisitionId && (await resolveAcquisitionUnit(data.acquisitionId)) !== data.unitId) {
 			throw new Error("A contratação de origem informada não pertence a esta unidade")
@@ -264,15 +264,15 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		// era reimportada de outro anexo. Agora o vínculo existente é mantido e a tela avisa.
 		const { data: existingArp, error: existingError } = await supabase
 			.from("procurement_arp")
-			.select("id, procurement_list_id, acquisition_id")
+			.select("id, quantity_estimate_id, acquisition_id")
 			.eq("unit_id", unitId)
 			.eq("numero_ata", arpData.numeroAtaRegistroPreco)
 			.eq("uasg_gerenciadora", arpData.codigoUnidadeGerenciadora)
 			.maybeSingle()
 		if (existingError) throw new Error(`Erro ao procurar a ARP: ${existingError.message}`)
-		let ataId: string | null = data.ataId ?? existingArp?.procurement_list_id ?? null
-		if (existingArp?.procurement_list_id && data.ataId && existingArp.procurement_list_id !== data.ataId) {
-			ataId = existingArp.procurement_list_id
+		let quantityEstimateId: string | null = data.quantityEstimateId ?? existingArp?.quantity_estimate_id ?? null
+		if (existingArp?.quantity_estimate_id && data.quantityEstimateId && existingArp.quantity_estimate_id !== data.quantityEstimateId) {
+			quantityEstimateId = existingArp.quantity_estimate_id
 			warnings.push(`A ARP ${arpData.numeroAtaRegistroPreco} já está vinculada a outro anexo quantitativo; o vínculo existente foi mantido`)
 		}
 		let acquisitionId: string | null = data.acquisitionId ?? existingArp?.acquisition_id ?? null
@@ -305,19 +305,19 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			throw new Error(`O Compras.gov.br não retornou itens para a ARP ${arpData.numeroAtaRegistroPreco}`)
 		}
 
-		// ── 2. Buscar os itens da ATA interna para fazer o match por catmat ──────
+		// ── 2. Buscar os itens do anexo quantitativo para fazer o match por catmat ──
 
-		const { data: ataItems } = ataId
-			? await supabase.from("procurement_list_item").select("id, catmat_item_codigo, measure_unit").eq("list_id", ataId)
+		const { data: quantityEstimateItems } = quantityEstimateId
+			? await supabase.from("quantity_estimate_item").select("id, catmat_item_codigo, measure_unit").eq("quantity_estimate_id", quantityEstimateId)
 			: { data: [] as Array<{ id: string; catmat_item_codigo: number | null; measure_unit: string | null }> }
 
-		const catmatToAtaItemId = new Map<number, string>()
+		const catmatToQuantityEstimateItemId = new Map<number, string>()
 		// `2_consultarARPItem` não traz unidade de fornecimento; a medida vem do
-		// item da ATA interna, casado pelo mesmo catmat.
+		// item do anexo quantitativo, casado pelo mesmo catmat.
 		const catmatToMeasureUnit = new Map<number, string>()
-		for (const item of ataItems ?? []) {
+		for (const item of quantityEstimateItems ?? []) {
 			if (item.catmat_item_codigo != null) {
-				catmatToAtaItemId.set(item.catmat_item_codigo, item.id)
+				catmatToQuantityEstimateItemId.set(item.catmat_item_codigo, item.id)
 				if (item.measure_unit) catmatToMeasureUnit.set(item.catmat_item_codigo, item.measure_unit)
 			}
 		}
@@ -329,7 +329,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			.upsert(
 				{
 					unit_id: unitId,
-					procurement_list_id: ataId,
+					quantity_estimate_id: quantityEstimateId,
 					acquisition_id: acquisitionId,
 					// Cadastrada à mão antes (API fora do ar): a primeira importação bem-sucedida a
 					// torna sincronizada, e os itens são atualizados pelo número, sem duplicar.
@@ -369,7 +369,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			const saldo = numero != null ? saldos.get(numero) : undefined
 			return {
 				arp_id: arp.id,
-				procurement_list_item_id: item.codigoItem != null ? (catmatToAtaItemId.get(item.codigoItem) ?? null) : null,
+				quantity_estimate_item_id: item.codigoItem != null ? (catmatToQuantityEstimateItemId.get(item.codigoItem) ?? null) : null,
 				numero_item: numero,
 				catmat_item_codigo: item.codigoItem ?? null,
 				descricao_item: item.descricaoItem ?? null,
@@ -523,26 +523,24 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 		if (tsError) throw new Error(`Erro ao registrar data de sincronização: ${tsError.message}`)
 	})
 
-// ─── 4. Buscar ARP vinculada a uma ATA ───────────────────────────────────────
+// ─── 4. Buscar ARP vinculada a um anexo quantitativo ─────────────────────────
 
 /**
- * Returns the ARP linked to an ATA with all its items ordered by numero_item, or null if none exists.
+ * Returns the ARP linked to a quantity estimate with all its items ordered by numero_item, or null if none exists.
  */
 /**
- * Resolve a unidade dona de uma ARP, de um item de ARP ou de uma ATA.
+ * Resolve a unidade dona de uma ARP, de um item de ARP ou de um anexo quantitativo.
  *
  * Existe porque escopar pelo `unitId` do payload fecha só metade do buraco: o cliente
  * continua escolhendo a CHAVE ESTRANGEIRA. Quem tem `unit` 2 na unidade A poderia
- * apontar para a ATA ou para o item de ARP da unidade B e, com o guard satisfeito pela
+ * apontar para o anexo ou para o item de ARP da unidade B e, com o guard satisfeito pela
  * própria unidade, escrever no acervo da outra — e a unidade B nem conseguiria desfazer,
  * porque o guard de anulação resolve a unidade pela linha, que diria "A".
  *
  * A unidade sai SEMPRE da linha apontada, nunca do que o cliente alegou.
  */
-async function resolveAtaUnit(supabase: ReturnType<typeof getProcurementClient>, ataId: string): Promise<number> {
-	// A tabela chama-se `procurement_list` no schema `procurement`; o nome `ata` sobreviveu
-	// nos identificadores da API e nas constraints, não na tabela.
-	const { data, error } = await supabase.from("procurement_list").select("unit_id").eq("id", ataId).maybeSingle()
+async function resolveQuantityEstimateUnit(supabase: ReturnType<typeof getProcurementClient>, quantityEstimateId: string): Promise<number> {
+	const { data, error } = await supabase.from("quantity_estimate").select("unit_id").eq("id", quantityEstimateId).maybeSingle()
 	if (error) throw new Error(`Erro ao resolver a unidade do anexo quantitativo: ${error.message}`)
 	if (!data) throw new Error("Anexo quantitativo não encontrado")
 	return Number(data.unit_id)
@@ -569,16 +567,16 @@ async function resolveArpItemUnit(supabase: ReturnType<typeof getProcurementClie
 	return resolveArpUnit(supabase, String(data.arp_id))
 }
 
-export const fetchArpForAtaFn = createServerFn({ method: "GET" })
-	.validator(z.object({ ataId: z.uuid() }))
+export const fetchArpForQuantityEstimateFn = createServerFn({ method: "GET" })
+	.validator(z.object({ quantityEstimateId: z.uuid() }))
 	.handler(async ({ data }): Promise<ArpWithItems | null> => {
 		await requireAuth()
 		const supabase = getProcurementClient()
 		// Execução orçamentária e dado de fornecedor não são públicos entre unidades:
-		// leitura exige nível 1 NA unidade dona da ata.
-		await requireUnitScope(1, await resolveAtaUnit(supabase, data.ataId))
+		// leitura exige nível 1 NA unidade dona do anexo.
+		await requireUnitScope(1, await resolveQuantityEstimateUnit(supabase, data.quantityEstimateId))
 
-		const { data: arp } = await supabase.from("procurement_arp").select("*").eq("procurement_list_id", data.ataId).maybeSingle()
+		const { data: arp } = await supabase.from("procurement_arp").select("*").eq("quantity_estimate_id", data.quantityEstimateId).maybeSingle()
 
 		if (!arp) return null
 
@@ -614,7 +612,7 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 		z.object({
 			unitId: z.number().int().positive(),
 			acquisitionId: z.uuid().nullable().optional(),
-			ataId: z.uuid().nullable().optional(),
+			quantityEstimateId: z.uuid().nullable().optional(),
 			numeroAta: z.string().trim().min(1, "Número da ata obrigatório").max(20),
 			anoAta: z.string().regex(/^\d{4}$/, "Ano com 4 dígitos"),
 			uasgGerenciadora: z.string().regex(/^\d{6}$/, "UASG com 6 dígitos"),
@@ -628,7 +626,7 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<{ arpId: string; numeroAta: string }> => {
 		await requireUnitScope(2, data.unitId)
 		const supabase = getProcurementClient()
-		if (data.ataId && (await resolveAtaUnit(supabase, data.ataId)) !== data.unitId)
+		if (data.quantityEstimateId && (await resolveQuantityEstimateUnit(supabase, data.quantityEstimateId)) !== data.unitId)
 			throw new Error("O anexo quantitativo informado não pertence a esta unidade")
 		if (data.acquisitionId && (await resolveAcquisitionUnit(data.acquisitionId)) !== data.unitId) {
 			throw new Error("A contratação de origem informada não pertence a esta unidade")
@@ -641,7 +639,7 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 			.from("procurement_arp")
 			.insert({
 				unit_id: data.unitId,
-				procurement_list_id: data.ataId ?? null,
+				quantity_estimate_id: data.quantityEstimateId ?? null,
 				acquisition_id: data.acquisitionId ?? null,
 				numero_ata: numeroAta,
 				ano_ata: data.anoAta,
@@ -712,7 +710,7 @@ export interface UnitArp {
 	vigenciaFim: string | null
 	source: "compras_gov" | "manual"
 	lastSyncedAt: string | null
-	ataId: string | null
+	quantityEstimateId: string | null
 	acquisitionId: string | null
 	items: UnitArpItem[]
 }
@@ -726,7 +724,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 		let query = proc
 			.from("procurement_arp")
 			.select(
-				"id, numero_ata, uasg_gerenciadora, nome_uasg_gerenciadora, objeto, data_vigencia_inicio, data_vigencia_fim, source, last_synced_at, procurement_list_id, acquisition_id"
+				"id, numero_ata, uasg_gerenciadora, nome_uasg_gerenciadora, objeto, data_vigencia_inicio, data_vigencia_fim, source, last_synced_at, quantity_estimate_id, acquisition_id"
 			)
 			.eq("unit_id", data.unitId)
 			.order("created_at", { ascending: false })
@@ -760,7 +758,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 			vigenciaFim: arp.data_vigencia_fim,
 			source: arp.source === "manual" ? "manual" : "compras_gov",
 			lastSyncedAt: arp.last_synced_at,
-			ataId: arp.procurement_list_id,
+			quantityEstimateId: arp.quantity_estimate_id,
 			acquisitionId: arp.acquisition_id,
 			items: itemRows
 				.filter((item) => item.arp_id === arp.id)

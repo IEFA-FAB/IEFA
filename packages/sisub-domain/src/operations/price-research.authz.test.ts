@@ -6,9 +6,9 @@
  * precisa manter sozinha, já que a conexão Drizzle usa o role do projeto e RLS não se aplica:
  *
  *   1. pesquisa avulsa exige `unit:1` — sessão autenticada sem o módulo não grava;
- *   2. ligar a pesquisa a uma ATA exige `unit:2` NA UNIDADE DONA, e a unidade sai da linha
- *      persistida (`procurement_list.unit_id`) — nunca do payload. Quando só o `ataItemId`
- *      chega, a ata efetiva também vem do banco.
+ *   2. ligar a pesquisa a um anexo exige `unit:2` NA UNIDADE DONA, e a unidade sai da linha
+ *      persistida (`quantity_estimate.unit_id`) — nunca do payload. Quando só o `quantityEstimateItemId`
+ *      chega, o anexo efetivo também vem do banco.
  */
 
 import { describe, expect, test } from "bun:test"
@@ -17,7 +17,7 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError, PermissionDeniedError } from "../types/errors.ts"
 import { type SavePriceResearchAudit, savePriceResearchAudit } from "./price-research.ts"
 
-/** A ATA existente pertence à unidade 5. */
+/** O anexo existente pertence à unidade 5. */
 const OWNER_UNIT = 5
 const OWNER_LIST = "list-1"
 /** Marca que o guard liberou e a operação chegou na escrita — o stub não implementa transação. */
@@ -37,16 +37,16 @@ function ctx(unitId: number | null, level = 2): UserContext {
 /**
  * Stub do handle Drizzle. O guard só exercita `db.select(cols).from().where().limit()`, e o
  * `where` não é inspecionável sem montar o dialeto inteiro — o stub decide pelas COLUNAS
- * pedidas (`listId` = ata dona do item, `unitId` = unidade dona da ata). Sob teste está a
+ * pedidas (`quantityEstimateId` = anexo dono do item, `unitId` = unidade dona do anexo). Sob teste está a
  * decisão de autorização, não a montagem da query.
  */
-function fakeDb(opts: { unitId?: number; listId?: string; missingItem?: boolean; missingList?: boolean } = {}): SisubDb {
+function fakeDb(opts: { unitId?: number; quantityEstimateId?: string; missingItem?: boolean; missingList?: boolean } = {}): SisubDb {
 	const select = (cols: Record<string, unknown>) => {
 		const rows =
-			"listId" in cols
+			"quantityEstimateId" in cols
 				? opts.missingItem
 					? []
-					: [{ id: "item-1", listId: opts.listId ?? OWNER_LIST }]
+					: [{ id: "item-1", quantityEstimateId: opts.quantityEstimateId ?? OWNER_LIST }]
 				: opts.missingList
 					? []
 					: [{ unitId: opts.unitId ?? OWNER_UNIT }]
@@ -100,49 +100,51 @@ describe("autorização da memória de cálculo de pesquisa de preço", () => {
 		expect((error as Error).message).toBe(WRITE_REACHED)
 	})
 
-	test("nega ligar à ATA quem tem unit:2 em OUTRA unidade", async () => {
-		await expect(savePriceResearchAudit(fakeDb(), ctx(OWNER_UNIT + 1), input({ ataId: OWNER_LIST }))).rejects.toBeInstanceOf(PermissionDeniedError)
+	test("nega ligar ao anexo quem tem unit:2 em OUTRA unidade", async () => {
+		await expect(savePriceResearchAudit(fakeDb(), ctx(OWNER_UNIT + 1), input({ quantityEstimateId: OWNER_LIST }))).rejects.toBeInstanceOf(PermissionDeniedError)
 	})
 
-	test("nega ligar à ATA quem só lê a própria unidade", async () => {
-		await expect(savePriceResearchAudit(fakeDb(), ctx(OWNER_UNIT, 1), input({ ataId: OWNER_LIST }))).rejects.toBeInstanceOf(PermissionDeniedError)
+	test("nega ligar ao anexo quem só lê a própria unidade", async () => {
+		await expect(savePriceResearchAudit(fakeDb(), ctx(OWNER_UNIT, 1), input({ quantityEstimateId: OWNER_LIST }))).rejects.toBeInstanceOf(PermissionDeniedError)
 	})
 
-	test("resolve o dono pelo ITEM quando só o ataItemId chega", async () => {
-		// O payload não diz de quem é a ata: a unidade vem de procurement_list.unit_id.
-		await expect(savePriceResearchAudit(fakeDb(), ctx(OWNER_UNIT + 1), input({ ataItemId: "item-1" }))).rejects.toBeInstanceOf(PermissionDeniedError)
+	test("resolve o dono pelo ITEM quando só o quantityEstimateItemId chega", async () => {
+		// O payload não diz de quem é o anexo: a unidade vem de quantity_estimate.unit_id.
+		await expect(savePriceResearchAudit(fakeDb(), ctx(OWNER_UNIT + 1), input({ quantityEstimateItemId: "item-1" }))).rejects.toBeInstanceOf(
+			PermissionDeniedError
+		)
 	})
 
-	test("recusa item que não pertence à ATA informada, antes de qualquer permissão", async () => {
-		// O item aponta para OWNER_LIST; o payload afirma outra ata. Passar por aqui deixaria o
+	test("recusa item que não pertence ao anexo informado, antes de qualquer permissão", async () => {
+		// O item aponta para OWNER_LIST; o payload afirma outro anexo. Passar por aqui deixaria o
 		// payload escolher contra qual unidade a permissão é checada.
-		const error = await failure(savePriceResearchAudit(fakeDb(), ctx(null), input({ ataId: "list-2", ataItemId: "item-1" })))
+		const error = await failure(savePriceResearchAudit(fakeDb(), ctx(null), input({ quantityEstimateId: "list-2", quantityEstimateItemId: "item-1" })))
 		expect(error).toBeInstanceOf(DomainError)
 		expect(error).not.toBeInstanceOf(PermissionDeniedError)
 		expect((error as DomainError).code).toBe("VALIDATION_FAILED")
 	})
 
 	test("item inexistente é recusado, não tratado como pesquisa avulsa", async () => {
-		// Sem isso, um ataItemId inventado cairia no caminho sem ATA e gravaria com unit:1.
-		const error = await failure(savePriceResearchAudit(fakeDb({ missingItem: true }), ctx(null), input({ ataItemId: "item-404" })))
+		// Sem isso, um quantityEstimateItemId inventado cairia no caminho sem anexo e gravaria com unit:1.
+		const error = await failure(savePriceResearchAudit(fakeDb({ missingItem: true }), ctx(null), input({ quantityEstimateItemId: "item-404" })))
 		expect(error).toBeInstanceOf(DomainError)
 		expect(error).not.toBeInstanceOf(PermissionDeniedError)
 		expect((error as DomainError).code).toBe("VALIDATION_FAILED")
 	})
 
-	test("ATA inexistente não vira permissão concedida", async () => {
-		const error = await failure(savePriceResearchAudit(fakeDb({ missingList: true }), ctx(null), input({ ataId: OWNER_LIST })))
+	test("anexo inexistente não vira permissão concedida", async () => {
+		const error = await failure(savePriceResearchAudit(fakeDb({ missingList: true }), ctx(null), input({ quantityEstimateId: OWNER_LIST })))
 		expect(error).toBeInstanceOf(NotFoundError)
 	})
 
 	test("deixa passar quem tem unit:2 na unidade dona", async () => {
-		const error = await failure(savePriceResearchAudit(fakeDb(), ctx(OWNER_UNIT), input({ ataId: OWNER_LIST })))
+		const error = await failure(savePriceResearchAudit(fakeDb(), ctx(OWNER_UNIT), input({ quantityEstimateId: OWNER_LIST })))
 		expect(error).not.toBeInstanceOf(PermissionDeniedError)
 		expect((error as Error).message).toBe(WRITE_REACHED)
 	})
 
 	test("deixa passar unit:2 sem escopo (abrange toda unidade)", async () => {
-		const error = await failure(savePriceResearchAudit(fakeDb(), ctx(null), input({ ataItemId: "item-1" })))
+		const error = await failure(savePriceResearchAudit(fakeDb(), ctx(null), input({ quantityEstimateItemId: "item-1" })))
 		expect(error).not.toBeInstanceOf(PermissionDeniedError)
 		expect((error as Error).message).toBe(WRITE_REACHED)
 	})

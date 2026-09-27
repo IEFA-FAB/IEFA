@@ -2,10 +2,13 @@ import { NotFoundError, QueryFailedError, toJsonSchema } from "@iefa/sisub-domai
 import {
 	AgentCheckMenuEquipmentSchema,
 	AgentCheckRecipeEquipmentSchema,
+	AgentGetQuantityEstimateSchema,
 	AgentListEquipmentCatalogSchema,
 	AgentListKitchenEquipmentSchema,
+	AgentListQuantityEstimatesSchema,
 	AgentListRecipesSchema,
 	AgentRecipeEquipmentSchema,
+	AgentUpdateQuantityEstimateStatusSchema,
 	clampLimit,
 	MAX_TOOL_RESULT_CHARS,
 	PayloadTooLargeError,
@@ -212,6 +215,19 @@ describe("teto de payload das tools", () => {
 		expect(globalTools.find((t) => t.name === "get_recipe_equipment")?.parameters).toEqual(toJsonSchema(AgentRecipeEquipmentSchema))
 	})
 
+	test("as tools do anexo quantitativo usam o contrato de `@iefa/sisub-domain/agent`", () => {
+		// Lote 2 do glossário: `list_atas`/`get_atas`/`get_ata_details`/`update_ata_status` montavam
+		// o JSON Schema e o PostgREST à mão. A listagem é a MESMA nos dois módulos que a expõem.
+		for (const tools of [unitTools, localAnalyticsTools]) {
+			expect(tools.find((t) => t.name === "list_quantity_estimates")?.parameters).toEqual(toJsonSchema(AgentListQuantityEstimatesSchema))
+		}
+		expect(unitTools.find((t) => t.name === "get_quantity_estimate")?.parameters).toEqual(toJsonSchema(AgentGetQuantityEstimateSchema))
+		expect(unitTools.find((t) => t.name === "update_quantity_estimate_status")?.parameters).toEqual(toJsonSchema(AgentUpdateQuantityEstimateStatusSchema))
+		const names = [...unitTools, ...localAnalyticsTools].map((t) => t.name)
+		// nosemgrep: ubiquitous-language-lot2-identifier — os nomes antigos são o dado deste caso.
+		for (const legacy of ["list_atas", "get_atas", "get_ata_details", "update_ata_status"]) expect(names).not.toContain(legacy)
+	})
+
 	test("o parque instalado NÃO é exposto no módulo global", () => {
 		// O catálogo é da SDAB; o parque é de cada cozinha. Uma tool de inventário no módulo
 		// global entregaria o equipamento da FAB inteira a quem cura o catálogo.
@@ -229,7 +245,7 @@ describe("teto de payload das tools", () => {
 
 	test("toda listagem expõe limit — sem teto o payload cresce com o catálogo", () => {
 		const listTools = [...globalTools, ...kitchenTools, ...unitTools, ...localAnalyticsTools].filter(
-			(t) => t.name.startsWith("list_") || t.name === "get_atas" || t.name === "get_low_balance_items"
+			(t) => t.name.startsWith("list_") || t.name === "get_low_balance_items"
 		)
 		expect(listTools.length).toBeGreaterThan(0)
 

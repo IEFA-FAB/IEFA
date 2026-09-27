@@ -2,10 +2,10 @@
  * Cozinha ↔ unidade: quem alcança uma cozinha pelo lado da OM, e se uma cozinha (ou um plano
  * de cardápio) pertence a uma OM.
  *
- * A ATA é da UNIDADE e o rascunho de ATA é da COZINHA; os dois se encontram no wizard, onde a
- * gestão da OM lê o rascunho que a cozinha enviou e compõe a ata com os planos das cozinhas.
+ * O anexo é da UNIDADE e a previsão de demanda é da COZINHA; os dois se encontram no wizard, onde a
+ * gestão da OM lê a previsão que a cozinha enviou e compõe o anexo com os planos das cozinhas.
  * Sem esta ponte as operações ou ficavam abertas (qualquer sessão lia o rascunho e os planos de
- * qualquer cozinha, e compunha ata de uma OM com cozinha e plano de outra) ou exigiriam
+ * qualquer cozinha, e compunha anexo de uma OM com cozinha e plano de outra) ou exigiriam
  * `kitchen:1` de quem gere a OM — trancando a gestão fora das próprias cozinhas.
  *
  * Unidade da cozinha = `unit_id` (a OM onde ela está) OU `purchase_unit_id` (a OM que compra por
@@ -49,7 +49,7 @@ export async function loadKitchenUnitRef(db: SisubDb, kitchenId: number): Promis
 }
 
 /**
- * Leitura de dado de uma cozinha que a gestão da OM também precisa ver (rascunho de ATA
+ * Leitura de dado de uma cozinha que a gestão da OM também precisa ver (previsão de demanda
  * enviado pela cozinha). A OM sai da LINHA da cozinha, nunca da requisição.
  */
 export async function requireKitchenOrItsUnit(db: SisubDb, ctx: UserContext, level: 1 | 2, kitchenId: number): Promise<void> {

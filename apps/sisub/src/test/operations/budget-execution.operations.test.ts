@@ -35,9 +35,9 @@ describeIf("budget execution chain (DB)", () => {
 					// ── fixtures ────────────────────────────────────────────────────
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-BUDGET', 'unit teste orçamento') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha orçamento') returning id`
-					const [list] = await tx`insert into procurement.procurement_list (unit_id, title) values (${unit.id}, 'lista orçamento') returning id`
+					const [list] = await tx`insert into procurement.quantity_estimate (unit_id, title) values (${unit.id}, 'lista orçamento') returning id`
 					const [arp] = await tx`
-						insert into procurement.procurement_arp (unit_id, procurement_list_id, numero_ata, uasg_gerenciadora)
+						insert into procurement.procurement_arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora)
 						values (${unit.id}, ${list.id}, 'ATA-ORC', '160077') returning id`
 					const [arpItem] = await tx`
 						insert into procurement.procurement_arp_item (arp_id, numero_item, quantidade_homologada, ni_fornecedor, nome_fornecedor)
@@ -201,9 +201,9 @@ describeIf("budget execution chain (DB)", () => {
 					// ── fixtures ────────────────────────────────────────────────────
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-COMPLY', 'unit teste conformidade') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha conformidade') returning id`
-					const [list] = await tx`insert into procurement.procurement_list (unit_id, title) values (${unit.id}, 'lista conformidade') returning id`
+					const [list] = await tx`insert into procurement.quantity_estimate (unit_id, title) values (${unit.id}, 'lista conformidade') returning id`
 					const [arp] = await tx`
-						insert into procurement.procurement_arp (unit_id, procurement_list_id, numero_ata, uasg_gerenciadora)
+						insert into procurement.procurement_arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora)
 						values (${unit.id}, ${list.id}, 'ATA-CMP', '160077') returning id`
 					const [arpItem] = await tx`
 						insert into procurement.procurement_arp_item (arp_id, numero_item, quantidade_homologada, ni_fornecedor, nome_fornecedor)

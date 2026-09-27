@@ -4,13 +4,13 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { hasSuspiciousUnitConversion } from "@/lib/ata-utils"
+import { hasSuspiciousUnitConversion } from "@/lib/quantity-estimate-utils"
 
-interface AtaItemsTableProps {
+interface QuantityEstimateItemsTableProps {
 	data: ProcurementNeed[]
 	isLoading?: boolean
 	onPesquisarPreco?: (item: ProcurementNeed) => void
-	onUpdateDescription?: (ingredientId: string, ataItemId: string | null | undefined, description: string) => void
+	onUpdateDescription?: (ingredientId: string, quantityEstimateItemId: string | null | undefined, description: string) => void
 }
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
@@ -21,7 +21,7 @@ function formatCatmat(code: number | null): string {
 	return String(code)
 }
 
-export function AtaItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescription }: AtaItemsTableProps) {
+export function QuantityEstimateItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescription }: QuantityEstimateItemsTableProps) {
 	const [editingId, setEditingId] = useState<string | null>(null)
 	const [editingValue, setEditingValue] = useState("")
 
@@ -31,7 +31,7 @@ export function AtaItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescr
 	}
 
 	const commitEditing = (item: ProcurementNeed) => {
-		onUpdateDescription?.(item.ingredient_id, item.ata_item_id, editingValue)
+		onUpdateDescription?.(item.ingredient_id, item.quantity_estimate_item_id, editingValue)
 		setEditingId(null)
 	}
 
@@ -87,7 +87,7 @@ export function AtaItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescr
 	const hasPrices = data.some((item) => item.unit_price !== null)
 	const grandTotal = data.reduce((sum, item) => {
 		if (item.unit_price === null) return sum
-		const qty = item.purchase_quantity ?? item.total_quantity
+		const qty = item.purchase_quantity ?? item.estimated_quantity
 		return sum + qty * item.unit_price
 	}, 0)
 
@@ -121,7 +121,7 @@ export function AtaItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescr
 								</TableHeader>
 								<TableBody>
 									{items.map((item) => {
-										const qty = item.purchase_quantity ?? item.total_quantity
+										const qty = item.purchase_quantity ?? item.estimated_quantity
 										const unit = item.purchase_measure_unit ?? item.measure_unit ?? "UN"
 										const isEditing = onUpdateDescription && editingId === item.ingredient_id
 										return (
@@ -172,7 +172,7 @@ export function AtaItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescr
 												</TableCell>
 												<TableCell className="text-subheading">{item.ingredient_name}</TableCell>
 												<TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-													{NUM.format(item.total_quantity)} {item.measure_unit ?? ""}
+													{NUM.format(item.estimated_quantity)} {item.measure_unit ?? ""}
 												</TableCell>
 												<TableCell className="text-right tabular-nums">
 													{item.purchase_quantity !== null ? (

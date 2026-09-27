@@ -47,7 +47,7 @@ export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus)
 	if (seg.conflictCount > 0) {
 		segIssues.push({
 			severity: "blocking",
-			message: `${pluralize(seg.conflictCount, "item está", "itens estão")} em duas contratações planejadas. A lei veda duas atas com o mesmo objeto (Lei 14.133/2021, art. 82, VIII).`,
+			message: `${pluralize(seg.conflictCount, "item está", "itens estão")} em duas contratações planejadas. A lei veda duas atas de registro de preços com o mesmo objeto (Lei 14.133/2021, art. 82, VIII).`,
 			action: { label: "Resolver conflitos", href: `${unit}/segments` },
 		})
 	}
@@ -87,10 +87,10 @@ export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus)
 								label: `Continuar "${entry.lastAnnex.title}"`,
 								href:
 									entry.lastAnnex.wizardStep != null
-										? `${unit}/procurement/new?step=${entry.lastAnnex.wizardStep}&draft=${entry.lastAnnex.id}`
-										: `${unit}/procurement/${entry.lastAnnex.id}`,
+										? `${unit}/quantity-estimates/new?step=${entry.lastAnnex.wizardStep}&draft=${entry.lastAnnex.id}`
+										: `${unit}/quantity-estimates/${entry.lastAnnex.id}`,
 							}
-						: { label: "Novo anexo", href: `${unit}/procurement/new` },
+						: { label: "Novo anexo", href: `${unit}/quantity-estimates/new` },
 			})
 		}
 	}
@@ -102,15 +102,15 @@ export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus)
 		message: `"${d.title}"${d.segmentName ? ` (${d.segmentName})` : ""} em andamento${d.wizardStep ? `, passo ${d.wizardStep} de 5` : ""}.`,
 		action: {
 			label: "Continuar",
-			href: d.wizardStep != null ? `${unit}/procurement/new?step=${d.wizardStep}&draft=${d.id}` : `${unit}/procurement/${d.id}`,
+			href: d.wizardStep != null ? `${unit}/quantity-estimates/new?step=${d.wizardStep}&draft=${d.id}` : `${unit}/quantity-estimates/${d.id}`,
 		},
 	}))
-	const concluded = status.pricing.filter((p) => p.status === "published")
+	const concluded = status.pricing.filter((p) => p.status === "completed")
 
 	// 6. Pesquisa de preços ──────────────────────────────────────────────────────
 	const priceIssues: FlowIssue[] = []
 	for (const p of status.pricing) {
-		const href = `${unit}/procurement/${p.listId}`
+		const href = `${unit}/quantity-estimates/${p.quantityEstimateId}`
 		if (p.withoutResearch > 0) {
 			priceIssues.push({
 				severity: "blocking",
@@ -166,7 +166,7 @@ export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus)
 		{
 			id: "calendar",
 			title: "Calendário de contratação",
-			objective: "Comece cada contratação planejada com antecedência, para a ata não vencer sem substituta.",
+			objective: "Comece cada contratação planejada com antecedência, para a ata de registro de preços não vencer sem substituta.",
 			status: status.calendar.length === 0 ? "todo" : deriveStatusFromIssues(calendarIssues),
 			summary:
 				status.calendar.length === 0
@@ -181,7 +181,7 @@ export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus)
 			status: status.drafts.length > 0 ? "attention" : concluded.length > 0 ? "done" : "todo",
 			summary: `${pluralize(status.drafts.length, "em andamento", "em andamento")} · ${pluralize(concluded.length, "concluído", "concluídos")} recente${concluded.length === 1 ? "" : "s"}`,
 			issues: annexIssues,
-			action: { label: "Novo anexo", href: `${unit}/procurement/new` },
+			action: { label: "Novo anexo", href: `${unit}/quantity-estimates/new` },
 		},
 		{
 			id: "prices",
@@ -198,9 +198,9 @@ export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus)
 			issues: concluded.map((p) => ({
 				severity: "info" as const,
 				message: `"${p.title}" concluído: gere os documentos no anexo.`,
-				action: { label: "Abrir anexo", href: `${unit}/procurement/${p.listId}` },
+				action: { label: "Abrir anexo", href: `${unit}/quantity-estimates/${p.quantityEstimateId}` },
 			})),
-			action: { label: "Anexos quantitativos", href: `${unit}/procurement` },
+			action: { label: "Anexos quantitativos", href: `${unit}/quantity-estimates` },
 		},
 	]
 }

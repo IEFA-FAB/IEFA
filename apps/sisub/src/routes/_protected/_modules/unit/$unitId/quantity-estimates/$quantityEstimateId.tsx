@@ -6,10 +6,13 @@ import { useMemo, useState } from "react"
 import { requirePermission, usePBAC } from "@/auth/pbac"
 import { ArpSearchModal } from "@/components/features/local/arp/ArpSearchModal"
 import { EmpenhoBalancePanel } from "@/components/features/local/arp/EmpenhoBalancePanel"
-import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
-import { type AtaItemLimitsPatch, AtaQuantityLimitsSection } from "@/components/features/local/ata/AtaQuantityLimitsSection"
 import { type PriceResearchAuditIds, PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
 import { AnnexDocumentsCard } from "@/components/features/local/procurement/AnnexDocumentsCard"
+import { QuantityEstimateItemsTable } from "@/components/features/local/quantity-estimate/QuantityEstimateItemsTable"
+import {
+	type QuantityEstimateItemLimitsPatch,
+	QuantityEstimateLimitsSection,
+} from "@/components/features/local/quantity-estimate/QuantityEstimateLimitsSection"
 import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -18,19 +21,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
-import { useArpForAta } from "@/hooks/data/useArp"
-import { useAtaDetails, useUpdateAtaItemDescription, useUpdateAtaQuantityLimits, useUpdateAtaStatus } from "@/hooks/data/useAta"
+import { useArpForQuantityEstimate } from "@/hooks/data/useArp"
 import { bulkFindingsNotice, useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
+import {
+	useQuantityEstimateDetails,
+	useUpdateQuantityEstimateItemDescription,
+	useUpdateQuantityEstimateLimits,
+	useUpdateQuantityEstimateStatus,
+} from "@/hooks/data/useQuantityEstimate"
 import { useUnitSettings } from "@/hooks/data/useUnitSettings"
-import { type AtaAnnexSettings, annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, buildSnapshotAnnexRows } from "@/lib/ata-annex"
-import { ataItemToNeed } from "@/lib/ata-utils"
 import { downloadCsv } from "@/lib/csv"
+import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, buildSnapshotAnnexRows, type QuantityEstimateAnnexSettings } from "@/lib/quantity-estimate-annex"
+import { quantityEstimateItemToNeed } from "@/lib/quantity-estimate-utils"
 import { queryKeys } from "@/lib/query-keys"
-import { updateAtaItemPricesFn } from "@/server/ata.fn"
+import { updateQuantityEstimateItemPricesFn } from "@/server/quantity-estimate.fn"
 
-export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/$ataId")({
+export const Route = createFileRoute("/_protected/_modules/unit/$unitId/quantity-estimates/$quantityEstimateId")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
-	component: AtaDetailPage,
+	component: QuantityEstimateDetailPage,
 })
 
 const STATUS_LABELS: Record<string, string> = {
@@ -47,97 +55,105 @@ const STATUS_VARIANTS: Record<string, "secondary" | "default" | "outline"> = {
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
-function AtaDetailPage() {
-	const { unitId: unitIdStr, ataId } = useParams({ strict: false })
+function QuantityEstimateDetailPage() {
+	const { unitId: unitIdStr, quantityEstimateId } = useParams({ strict: false })
 	const unitId = Number(unitIdStr)
 	const { can } = usePBAC()
 	const [arpModalOpen, setArpModalOpen] = useState(false)
 	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
 
 	const queryClient = useQueryClient()
-	const { data: ata, isLoading } = useAtaDetails(ataId || null)
-	useCrumbLabel(ata?.title)
-	const { mutate: updateStatus, isPending: isUpdating } = useUpdateAtaStatus()
-	const { mutate: updateItemDescription } = useUpdateAtaItemDescription()
-	const { mutate: updateQuantityLimits } = useUpdateAtaQuantityLimits()
-	const { data: arp, isLoading: isArpLoading } = useArpForAta(ataId || null)
+	const { data: quantityEstimate, isLoading } = useQuantityEstimateDetails(quantityEstimateId || null)
+	useCrumbLabel(quantityEstimate?.title)
+	const { mutate: updateStatus, isPending: isUpdating } = useUpdateQuantityEstimateStatus()
+	const { mutate: updateItemDescription } = useUpdateQuantityEstimateItemDescription()
+	const { mutate: updateQuantityLimits } = useUpdateQuantityEstimateLimits()
+	const { data: arp, isLoading: isArpLoading } = useArpForQuantityEstimate(quantityEstimateId || null)
 
 	// UASG da unidade para pré-preencher o modal de busca
 	const { data: unitSettings } = useUnitSettings(unitId)
 
-	const handleDescriptionChange = (_ingredientId: string, ataItemId: string | null | undefined, description: string) => {
-		if (!ataItemId || !ataId) return
-		updateItemDescription({ ataId, ataItemId, description })
+	const handleDescriptionChange = (_ingredientId: string, quantityEstimateItemId: string | null | undefined, description: string) => {
+		if (!quantityEstimateItemId || !quantityEstimateId) return
+		updateItemDescription({ quantityEstimateId, quantityEstimateItemId, description })
 	}
 
-	const needs = useMemo(() => ata?.items.map(ataItemToNeed) ?? [], [ata?.items])
+	const needs = useMemo(() => quantityEstimate?.items.map(quantityEstimateItemToNeed) ?? [], [quantityEstimate?.items])
 
-	const annexSettings = useMemo<AtaAnnexSettings | null>(
+	const annexSettings = useMemo<QuantityEstimateAnnexSettings | null>(
 		() =>
-			ata
+			quantityEstimate
 				? {
-						validityMonths: ata.validity_months,
-						maxMarginPercent: ata.max_margin_percent,
-						marginJustification: ata.margin_justification,
-						minQuotePercent: Number(ata.min_quote_percent ?? 100),
+						validityMonths: quantityEstimate.validity_months,
+						maxIncreasePercent: quantityEstimate.max_increase_percent,
+						maxQuantityJustification: quantityEstimate.max_quantity_justification,
+						minQuotePercent: Number(quantityEstimate.min_quote_percent ?? 100),
 					}
 				: null,
-		[ata]
+		[quantityEstimate]
 	)
-	// Rascunho calcula na hora; publicado mostra o que o snapshot congelou — nunca recalcula
-	// um documento publicado com a regra ou a conservação de hoje.
+	// Rascunho calcula na hora; concluído mostra o que o snapshot congelou — nunca recalcula
+	// um documento concluído com a regra ou a conservação de hoje.
 	const annexRows = useMemo(() => {
-		if (!ata || !annexSettings) return []
-		if (ata.status === "draft") return buildDraftAnnexRows(needs, annexSettings)
-		return ata.meta.snapshot ? buildSnapshotAnnexRows(ata.meta.snapshot.components, ata.items) : []
-	}, [ata, needs, annexSettings])
+		if (!quantityEstimate || !annexSettings) return []
+		if (quantityEstimate.status === "draft") return buildDraftAnnexRows(needs, annexSettings)
+		return quantityEstimate.meta.snapshot ? buildSnapshotAnnexRows(quantityEstimate.meta.snapshot.components, quantityEstimate.items) : []
+	}, [quantityEstimate, needs, annexSettings])
 
 	const handleExportCSV = () => {
-		if (!ata) return
+		if (!quantityEstimate) return
 		downloadCsv(
-			`anexo-quantitativos-${ata.title}-${ata.created_at.split("T")[0]}.csv`,
-			buildAnnexCsv(annexRows, ata.margin_justification, { confidential: Boolean(ata.is_budget_confidential) })
+			`anexo-quantitativos-${quantityEstimate.title}-${quantityEstimate.created_at.split("T")[0]}.csv`,
+			buildAnnexCsv(annexRows, quantityEstimate.max_quantity_justification, { confidential: Boolean(quantityEstimate.is_budget_confidential) })
 		)
 	}
 
-	// A trava real é do servidor na publicação; aqui só evita o clique que já sabemos que falha.
+	// A trava real é do servidor na conclusão; aqui só evita o clique que já sabemos que falha.
 	const justificationMissing =
-		ata?.status === "draft" && annexRows.some((r) => r.warnings.includes("margin_requires_justification")) && !ata.margin_justification?.trim()
+		quantityEstimate?.status === "draft" &&
+		annexRows.some((r) => r.warnings.includes("increase_requires_justification")) &&
+		!quantityEstimate.max_quantity_justification?.trim()
 
-	const handleItemLimitsChange = (ataItemId: string, patch: AtaItemLimitsPatch) => {
-		if (!ataId) return
-		updateQuantityLimits({ ataId, items: [{ ataItemId, ...patch }] })
+	const handleItemLimitsChange = (quantityEstimateItemId: string, patch: QuantityEstimateItemLimitsPatch) => {
+		if (!quantityEstimateId) return
+		updateQuantityLimits({ quantityEstimateId, items: [{ quantityEstimateItemId, ...patch }] })
 	}
 	const {
 		start: runBulkResearch,
 		progress: bulkProgress,
 		eligibleCount: bulkEligibleCount,
-	} = useBulkPriceResearch(needs, ataId, async (result) => {
-		if (!result.ataItemId || !ataId) return
-		await updateAtaItemPricesFn({
+	} = useBulkPriceResearch(needs, quantityEstimateId, async (result) => {
+		if (!result.quantityEstimateItemId || !quantityEstimateId) return
+		await updateQuantityEstimateItemPricesFn({
 			data: {
-				ataId,
-				updates: [{ ataItemId: result.ataItemId as string, price: result.price }],
-				researchLinks: [{ ataItemId: result.ataItemId as string, researchId: result.auditIds.researchId, researchItemId: result.auditIds.researchItemId }],
+				quantityEstimateId,
+				updates: [{ quantityEstimateItemId: result.quantityEstimateItemId as string, price: result.price }],
+				researchLinks: [
+					{
+						quantityEstimateItemId: result.quantityEstimateItemId as string,
+						researchId: result.auditIds.researchId,
+						researchItemId: result.auditIds.researchItemId,
+					},
+				],
 			},
 		})
 	})
 
 	// Aplicação manual de um preço vindo do modal (item único). O vínculo da memória
-	// de cálculo já foi gravado pelo próprio modal via ataId/ataItemId; researchLinks
+	// de cálculo já foi gravado pelo próprio modal via quantityEstimateId/quantityEstimateItemId; researchLinks
 	// aqui é reforço para o caso de o item ter sido relinkado no meio do caminho.
 	const handleApplyPrice = async (item: ProcurementNeed, price: number, auditIds: PriceResearchAuditIds) => {
-		const ataItemId = item.ata_item_id
-		if (!ataId || !ataItemId) return
+		const quantityEstimateItemId = item.quantity_estimate_item_id
+		if (!quantityEstimateId || !quantityEstimateItemId) return
 		try {
-			await updateAtaItemPricesFn({
+			await updateQuantityEstimateItemPricesFn({
 				data: {
-					ataId,
-					updates: [{ ataItemId, price }],
-					researchLinks: [{ ataItemId, researchId: auditIds.researchId, researchItemId: auditIds.researchItemId }],
+					quantityEstimateId,
+					updates: [{ quantityEstimateItemId, price }],
+					researchLinks: [{ quantityEstimateItemId, researchId: auditIds.researchId, researchItemId: auditIds.researchItemId }],
 				},
 			})
-			queryClient.invalidateQueries({ queryKey: queryKeys.ata.details(ataId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.details(quantityEstimateId) })
 			toast.success("Preço aplicado ao item.")
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Não foi possível aplicar o preço.")
@@ -145,10 +161,10 @@ function AtaDetailPage() {
 	}
 
 	const handleBulkResearch = async () => {
-		if (!ataId) return
+		if (!quantityEstimateId) return
 		const results = await runBulkResearch()
 		if (results.length === 0) return
-		queryClient.invalidateQueries({ queryKey: queryKeys.ata.details(ataId) })
+		queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.details(quantityEstimateId) })
 		toast.success(
 			`${results.length} preço${results.length !== 1 ? "s" : ""} pesquisado${results.length !== 1 ? "s" : ""} e aplicado${results.length !== 1 ? "s" : ""}.`
 		)
@@ -165,7 +181,7 @@ function AtaDetailPage() {
 		)
 	}
 
-	if (!ata) {
+	if (!quantityEstimate) {
 		return (
 			<div className="py-12 text-center">
 				<p className="text-muted-foreground">Anexo quantitativo não encontrado.</p>
@@ -175,7 +191,7 @@ function AtaDetailPage() {
 					className="mt-4"
 					nativeButton={false}
 					render={
-						<Link to="/unit/$unitId/procurement" params={{ unitId: unitIdStr as string }}>
+						<Link to="/unit/$unitId/quantity-estimates" params={{ unitId: unitIdStr as string }}>
 							Voltar
 						</Link>
 					}
@@ -184,14 +200,17 @@ function AtaDetailPage() {
 		)
 	}
 
-	const hasPrices = ata.items.some((item) => item.unit_price !== null)
-	const grandTotal = ata.items.reduce((sum, item) => sum + (item.unit_price !== null ? Number(item.total_quantity) * Number(item.unit_price) : 0), 0)
+	const hasPrices = quantityEstimate.items.some((item) => item.unit_price !== null)
+	const grandTotal = quantityEstimate.items.reduce(
+		(sum, item) => sum + (item.unit_price !== null ? Number(item.estimated_quantity) * Number(item.unit_price) : 0),
+		0
+	)
 
 	return (
 		<div className="space-y-6">
 			<PageHeader
-				title={ata.title}
-				description={`Criado em ${new Date(ata.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`}
+				title={quantityEstimate.title}
+				description={`Criado em ${new Date(quantityEstimate.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`}
 			>
 				<div className="flex items-center gap-2">
 					<Button
@@ -199,7 +218,7 @@ function AtaDetailPage() {
 						variant="outline"
 						nativeButton={false}
 						render={
-							<Link to="/unit/$unitId/procurement" params={{ unitId: unitIdStr as string }}>
+							<Link to="/unit/$unitId/quantity-estimates" params={{ unitId: unitIdStr as string }}>
 								<ArrowLeft className="size-4 mr-1.5" aria-hidden="true" />
 								Anexos
 							</Link>
@@ -209,10 +228,10 @@ function AtaDetailPage() {
 						<Download className="size-4" aria-hidden="true" />
 						Exportar CSV
 					</Button>
-					{ata.status === "draft" && (
+					{quantityEstimate.status === "draft" && (
 						<Button
 							size="sm"
-							onClick={() => updateStatus({ ataId: ata.id, status: "published" })}
+							onClick={() => updateStatus({ quantityEstimateId: quantityEstimate.id, status: "completed" })}
 							disabled={isUpdating || justificationMissing}
 							title={justificationMissing ? "Preencha a justificativa da quantidade máxima nos limites de quantidade" : undefined}
 							className="gap-2"
@@ -221,11 +240,11 @@ function AtaDetailPage() {
 							Concluir anexo
 						</Button>
 					)}
-					{ata.status === "published" && (
+					{quantityEstimate.status === "completed" && (
 						<Button
 							size="sm"
 							variant="outline"
-							onClick={() => updateStatus({ ataId: ata.id, status: "archived" })}
+							onClick={() => updateStatus({ quantityEstimateId: quantityEstimate.id, status: "archived" })}
 							disabled={isUpdating}
 							className="gap-2 text-muted-foreground"
 						>
@@ -238,21 +257,21 @@ function AtaDetailPage() {
 
 			{/* Status + resumo */}
 			<div className="flex items-center gap-3 flex-wrap">
-				<Badge variant={STATUS_VARIANTS[ata.status] || "secondary"}>{STATUS_LABELS[ata.status] || ata.status}</Badge>
-				{ata.status !== "draft" && ata.meta.snapshot && (
+				<Badge variant={STATUS_VARIANTS[quantityEstimate.status] || "secondary"}>{STATUS_LABELS[quantityEstimate.status] || quantityEstimate.status}</Badge>
+				{quantityEstimate.status !== "draft" && quantityEstimate.meta.snapshot && (
 					<Badge variant="outline" className="gap-1.5">
 						<Lock className="size-3" aria-hidden="true" />
 						Composição congelada
 					</Badge>
 				)}
-				{ata.meta.price_research.is_expired && (
+				{quantityEstimate.meta.price_research.is_expired && (
 					<Badge
 						variant="outline"
 						className="gap-1.5 border-warning/50 text-warning"
-						title={`Política interna: pesquisa com mais de ${ata.meta.price_research.validity_days} dias deve ser refeita antes de divulgar o edital. Os preços do sistema oficial são de contratações de até 1 ano antes da pesquisa.`}
+						title={`Política interna: pesquisa com mais de ${quantityEstimate.meta.price_research.validity_days} dias deve ser refeita antes de divulgar o edital. Os preços do sistema oficial são de contratações de até 1 ano antes da pesquisa.`}
 					>
 						<AlertTriangle className="size-3" aria-hidden="true" />
-						Pesquisa feita há mais de {ata.meta.price_research.validity_days} dias
+						Pesquisa feita há mais de {quantityEstimate.meta.price_research.validity_days} dias
 					</Badge>
 				)}
 				{hasPrices && (
@@ -261,11 +280,11 @@ function AtaDetailPage() {
 					</span>
 				)}
 				<span className="text-sm text-muted-foreground">
-					{ata.items.length} {ata.items.length === 1 ? "item" : "itens"}
+					{quantityEstimate.items.length} {quantityEstimate.items.length === 1 ? "item" : "itens"}
 				</span>
 			</div>
 
-			{ata.status === "draft" && ata.meta.is_stale && (
+			{quantityEstimate.status === "draft" && quantityEstimate.meta.is_stale && (
 				<Card className="border-warning/30 bg-warning/10">
 					<CardContent className="flex items-start gap-3 py-4">
 						<AlertTriangle className="size-5 shrink-0 text-warning" aria-hidden="true" />
@@ -280,23 +299,23 @@ function AtaDetailPage() {
 				</Card>
 			)}
 
-			{ata.notes && (
+			{quantityEstimate.notes && (
 				<Card>
 					<CardContent className="pt-4 pb-4">
-						<p className="text-sm text-muted-foreground whitespace-pre-wrap">{ata.notes}</p>
+						<p className="text-sm text-muted-foreground whitespace-pre-wrap">{quantityEstimate.notes}</p>
 					</CardContent>
 				</Card>
 			)}
 
 			{/* Cozinhas participantes */}
-			{ata.kitchens.length > 0 && (
+			{quantityEstimate.kitchens.length > 0 && (
 				<Card>
 					<CardHeader className="pb-3">
 						<CardTitle className="text-subheading">Cozinhas Participantes</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<div className="space-y-4">
-							{ata.kitchens.map((kitchenEntry) => (
+							{quantityEstimate.kitchens.map((kitchenEntry) => (
 								<div key={kitchenEntry.id}>
 									<p className="text-subheading">{kitchenEntry.kitchen.display_name || `Cozinha ${kitchenEntry.kitchen_id}`}</p>
 									{kitchenEntry.delivery_notes && <p className="text-xs text-muted-foreground mt-0.5">{kitchenEntry.delivery_notes}</p>}
@@ -341,25 +360,25 @@ function AtaDetailPage() {
 			)}
 
 			{/* Itens do anexo */}
-			<AtaItemsTable data={needs} onPesquisarPreco={(item) => setPriceResearchItem(item)} onUpdateDescription={handleDescriptionChange} />
+			<QuantityEstimateItemsTable data={needs} onPesquisarPreco={(item) => setPriceResearchItem(item)} onUpdateDescription={handleDescriptionChange} />
 
 			{annexRows.length > 0 && (
 				<AnnexDocumentsCard
 					unitId={unitIdStr as string}
-					ataId={ata.id}
+					quantityEstimateId={quantityEstimate.id}
 					rows={annexRows}
-					isBudgetConfidential={Boolean(ata.is_budget_confidential)}
+					isBudgetConfidential={Boolean(quantityEstimate.is_budget_confidential)}
 					canEdit={can("unit", 2, { type: "unit", id: unitId })}
 					onDownloadCsv={handleExportCSV}
 				/>
 			)}
 
 			{annexSettings && annexRows.length > 0 && (
-				<AtaQuantityLimitsSection
+				<QuantityEstimateLimitsSection
 					rows={annexRows}
 					settings={annexSettings}
-					editable={ata.status === "draft"}
-					onSettingsChange={(patch) => ataId && updateQuantityLimits({ ataId, ...patch })}
+					editable={quantityEstimate.status === "draft"}
+					onSettingsChange={(patch) => quantityEstimateId && updateQuantityLimits({ quantityEstimateId, ...patch })}
 					onItemChange={handleItemLimitsChange}
 				/>
 			)}
@@ -386,7 +405,7 @@ function AtaDetailPage() {
 						<Spinner className="size-4" />
 						Verificando ARP vinculada...
 					</div>
-				) : arp && ataId ? (
+				) : arp && quantityEstimateId ? (
 					<>
 						<div className="flex justify-end">
 							<Button size="sm" variant="ghost" className="gap-2 text-xs" onClick={() => setArpModalOpen(true)}>
@@ -394,7 +413,7 @@ function AtaDetailPage() {
 								Substituir ARP
 							</Button>
 						</div>
-						<EmpenhoBalancePanel arp={arp} unitId={unitId} ataId={ataId} />
+						<EmpenhoBalancePanel arp={arp} unitId={unitId} quantityEstimateId={quantityEstimateId} />
 					</>
 				) : (
 					<Card>
@@ -409,7 +428,15 @@ function AtaDetailPage() {
 			</div>
 
 			{/* Modal de busca de ARP */}
-			{ataId && <ArpSearchModal open={arpModalOpen} onOpenChange={setArpModalOpen} ataId={ataId} unitId={unitId} defaultUasg={unitSettings?.uasg} />}
+			{quantityEstimateId && (
+				<ArpSearchModal
+					open={arpModalOpen}
+					onOpenChange={setArpModalOpen}
+					quantityEstimateId={quantityEstimateId}
+					unitId={unitId}
+					defaultUasg={unitSettings?.uasg}
+				/>
+			)}
 
 			{priceResearchItem?.catmat_item_codigo && (
 				<PriceResearchModal
@@ -419,8 +446,8 @@ function AtaDetailPage() {
 					}}
 					catmatCode={priceResearchItem.catmat_item_codigo}
 					catmatDescription={priceResearchItem.catmat_item_descricao}
-					ataId={ataId}
-					ataItemId={priceResearchItem.ata_item_id ?? undefined}
+					quantityEstimateId={quantityEstimateId}
+					quantityEstimateItemId={priceResearchItem.quantity_estimate_item_id ?? undefined}
 					targetUnit={annexItemUnit(priceResearchItem)}
 					onApplyPrice={(price, auditIds) => handleApplyPrice(priceResearchItem, price, auditIds)}
 				/>

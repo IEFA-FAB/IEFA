@@ -1,4 +1,4 @@
-import type { AtaAnnexRow } from "@/lib/ata-annex"
+import type { QuantityEstimateAnnexRow } from "@/lib/quantity-estimate-annex"
 
 /**
  * Tabela do anexo quantitativo para colar no editor do Termo de Referência (Compras.gov.br).
@@ -25,7 +25,7 @@ export interface AnnexTable {
 	body: string[][]
 }
 
-export function buildAnnexTable(rows: readonly AtaAnnexRow[], options: { confidential: boolean }): AnnexTable {
+export function buildAnnexTable(rows: readonly QuantityEstimateAnnexRow[], options: { confidential: boolean }): AnnexTable {
 	const headers = [
 		"Item",
 		"CATMAT",
@@ -46,7 +46,7 @@ export function buildAnnexTable(rows: readonly AtaAnnexRow[], options: { confide
 			r.catmat == null ? "" : String(r.catmat),
 			description,
 			r.unit,
-			QTY.format(r.targetQuantity),
+			QTY.format(r.estimatedQuantity),
 			r.maxQuantity == null ? "" : INT.format(r.maxQuantity),
 			r.minQuoteQuantity == null ? "" : INT.format(r.minQuoteQuantity),
 			r.minOrderQuantity == null ? "" : QTY.format(r.minOrderQuantity),

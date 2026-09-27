@@ -9,13 +9,13 @@
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	addProcurementSegmentRule,
-	calculateAtaNeedsForSegment,
-	createAtaDraft,
+	calculateQuantityEstimateNeedsForSegment,
 	createProcurementSegment,
+	createQuantityEstimateDraft,
 	deleteProcurementSegment,
 	fetchSegmentationOverview,
-	updateAtaDraft,
-	updateAtaStatus,
+	updateQuantityEstimateDraft,
+	updateQuantityEstimateStatus,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -103,7 +103,7 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 		expect(overview.unassignedCount).toBe(1)
 		expect(overview.conflictCount).toBe(0)
 
-		const result = await calculateAtaNeedsForSegment(db, ctx, {
+		const result = await calculateQuantityEstimateNeedsForSegment(db, ctx, {
 			segmentId: carnes.id,
 			kitchenSelections: [
 				{
@@ -120,7 +120,7 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 		expect(result.excluded).toEqual({ otherSegment: 1, unassigned: 1, conflict: 0 })
 	}, 60_000)
 
-	test("mesma pasta em duas contratações é conflito; contratação removida sai da resolução e não serve a anexo novo", async () => {
+	test("mesma pasta em duas contratações é conflito; contratação removida sai da resolução e não serve o anexo novo", async () => {
 		if (!reachable || !seeder || !db) return
 		const ctx = await actor(seeder)
 		const { unitId, folders, ingredients } = await scenario(seeder)
@@ -137,20 +137,22 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 		expect(peixe?.resolution).toEqual({ kind: "conflict", segmentIds: [a.id, b.id].toSorted() })
 
 		// Anexo da contratação A não conclui enquanto o peixe está em A e em B.
-		const { id: conflictDraft } = await createAtaDraft(db, ctx, { unitId })
-		seeder.track("procurement_list", conflictDraft)
-		await updateAtaDraft(db, ctx, { draftId: conflictDraft, segmentId: a.id })
-		await expect(updateAtaStatus(db, ctx, { ataId: conflictDraft, status: "published" })).rejects.toMatchObject({ code: "SEGMENT_CONFLICT" })
+		const { id: conflictDraft } = await createQuantityEstimateDraft(db, ctx, { unitId })
+		seeder.track("quantity_estimate", conflictDraft)
+		await updateQuantityEstimateDraft(db, ctx, { draftId: conflictDraft, segmentId: a.id })
+		await expect(updateQuantityEstimateStatus(db, ctx, { quantityEstimateId: conflictDraft, status: "completed" })).rejects.toMatchObject({
+			code: "SEGMENT_CONFLICT",
+		})
 
 		await deleteProcurementSegment(db, ctx, { segmentId: b.id })
 		overview = await fetchSegmentationOverview(db, ctx, { unitId })
 		expect(overview.segments.map((s) => s.id)).toEqual([a.id])
 		expect(overview.lines.find((l) => l.key === `ing:${ingredients.peixe}`)?.resolution).toEqual({ kind: "assigned", segmentId: a.id })
 
-		const { id: draftId } = await createAtaDraft(db, ctx, { unitId })
-		seeder.track("procurement_list", draftId)
-		await expect(updateAtaDraft(db, ctx, { draftId, segmentId: b.id })).rejects.toMatchObject({ code: "SEGMENT_NOT_FOUND" })
-		await updateAtaDraft(db, ctx, { draftId, segmentId: a.id })
+		const { id: draftId } = await createQuantityEstimateDraft(db, ctx, { unitId })
+		seeder.track("quantity_estimate", draftId)
+		await expect(updateQuantityEstimateDraft(db, ctx, { draftId, segmentId: b.id })).rejects.toMatchObject({ code: "SEGMENT_NOT_FOUND" })
+		await updateQuantityEstimateDraft(db, ctx, { draftId, segmentId: a.id })
 	}, 60_000)
 
 	test("nome repetido na mesma OM é recusado", async () => {

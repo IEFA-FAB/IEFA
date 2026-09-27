@@ -2,11 +2,11 @@ import {
 	DELIVERY_CYCLE_LABELS,
 	type DeliveryCycle,
 	isDeliveryCycle,
-	JUSTIFICATION_MARGIN_PERCENT,
+	JUSTIFICATION_INCREASE_PERCENT,
 	MIN_ORDER_SHARE_PERCENT,
 	QUANTITY_LIMIT_WARNING_LABELS,
 	type QuantityLimitWarning,
-	TIGHT_MARGIN_PERCENT,
+	TIGHT_INCREASE_PERCENT,
 } from "@iefa/sisub-domain"
 import { AlertTriangle, Lock, Scale, ShieldAlert } from "lucide-react"
 import { Fragment, useEffect, useState } from "react"
@@ -17,36 +17,36 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { type AtaAnnexRow, type AtaAnnexSettings, annexMaxValue } from "@/lib/ata-annex"
+import { annexMaxValue, type QuantityEstimateAnnexRow, type QuantityEstimateAnnexSettings } from "@/lib/quantity-estimate-annex"
 
-export interface AtaItemLimitsPatch {
-	maxMarginPercent?: number | null
+export interface QuantityEstimateItemLimitsPatch {
+	maxIncreasePercent?: number | null
 	deliveryCycle?: DeliveryCycle
 	minOrderQuantity?: number | null
 }
 
-export interface AtaLimitSettingsPatch {
-	maxMarginPercent?: number
-	marginJustification?: string | null
+export interface QuantityEstimateLimitSettingsPatch {
+	maxIncreasePercent?: number
+	maxQuantityJustification?: string | null
 	minQuotePercent?: number
 }
 
-interface AtaQuantityLimitsSectionProps {
-	rows: AtaAnnexRow[]
-	settings: AtaAnnexSettings
-	/** Rascunho: margem, justificativa e escolhas por item editáveis. Publicada: números congelados. */
+interface QuantityEstimateLimitsSectionProps {
+	rows: QuantityEstimateAnnexRow[]
+	settings: QuantityEstimateAnnexSettings
+	/** Rascunho: acréscimo, justificativa e escolhas por item editáveis. Concluído: números congelados. */
 	editable: boolean
-	onSettingsChange?: (patch: AtaLimitSettingsPatch) => void
-	onItemChange?: (ataItemId: string, patch: AtaItemLimitsPatch) => void
+	onSettingsChange?: (patch: QuantityEstimateLimitSettingsPatch) => void
+	onItemChange?: (quantityEstimateItemId: string, patch: QuantityEstimateItemLimitsPatch) => void
 }
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const QTY = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 })
 const INT = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 })
 
-/** A folga colada ganha marcador próprio junto da máxima; os avisos de mínimo e de margem alta ficam na coluna de avisos. */
+/** A folga colada ganha marcador próprio junto da máxima; os avisos de mínimo e de acréscimo alto ficam na coluna de avisos. */
 const ROW_WARNINGS: readonly QuantityLimitWarning[] = [
-	"margin_requires_justification",
+	"increase_requires_justification",
 	"min_exceeds_max",
 	"min_exceeds_cycle_consumption",
 	"min_exhausts_before_validity",
@@ -121,7 +121,7 @@ function CommitNumberInput({
 	)
 }
 
-/** Justificativa única da ata: grava ao sair do campo. */
+/** Justificativa única do anexo: grava ao sair do campo. */
 function JustificationField({ value, required, onCommit }: { value: string | null; required: boolean; onCommit: (value: string | null) => void }) {
 	const [draft, setDraft] = useState(value ?? "")
 	useEffect(() => setDraft(value ?? ""), [value])
@@ -129,9 +129,9 @@ function JustificationField({ value, required, onCommit }: { value: string | nul
 
 	return (
 		<Field>
-			<FieldLabel htmlFor="ata-margin-justification">Justificativa da quantidade máxima{required ? " *" : ""}</FieldLabel>
+			<FieldLabel htmlFor="quantity-estimate-max-quantity-justification">Justificativa da quantidade máxima{required ? " *" : ""}</FieldLabel>
 			<Textarea
-				id="ata-margin-justification"
+				id="quantity-estimate-max-quantity-justification"
 				value={draft}
 				rows={3}
 				aria-invalid={missing || undefined}
@@ -143,7 +143,7 @@ function JustificationField({ value, required, onCommit }: { value: string | nul
 				}}
 			/>
 			<FieldDescription>
-				Uma justificativa para o anexo inteiro, cobrindo todos os itens com acréscimo acima de {JUSTIFICATION_MARGIN_PERCENT}%. Exigida para concluir.
+				Uma justificativa para o anexo inteiro, cobrindo todos os itens com acréscimo acima de {JUSTIFICATION_INCREASE_PERCENT}%. Exigida para concluir.
 			</FieldDescription>
 		</Field>
 	)
@@ -168,32 +168,32 @@ function WarningMarker({ warnings }: { warnings: QuantityLimitWarning[] }) {
 }
 
 /** Flag discreta de folga colada, ao lado da máxima: risco só em anormalidade, não erro. */
-function TightMarginFlag({ effectiveMarginPercent }: { effectiveMarginPercent: number | null }) {
+function TightIncreaseFlag({ effectiveIncreasePercent }: { effectiveIncreasePercent: number | null }) {
 	return (
 		<Tooltip>
 			<TooltipTrigger
 				className="inline-flex items-center gap-0.5 text-xs text-warning"
-				aria-label={`Folga de ${effectiveMarginPercent != null ? QTY.format(effectiveMarginPercent) : 0}% sobre o previsto`}
+				aria-label={`Folga de ${effectiveIncreasePercent != null ? QTY.format(effectiveIncreasePercent) : 0}% sobre o previsto`}
 			>
 				<ShieldAlert className="size-3.5" aria-hidden="true" />
-				{effectiveMarginPercent != null ? `${INT.format(effectiveMarginPercent)}%` : ""}
+				{effectiveIncreasePercent != null ? `${INT.format(effectiveIncreasePercent)}%` : ""}
 			</TooltipTrigger>
-			<TooltipContent>{QUANTITY_LIMIT_WARNING_LABELS.margin_tight}</TooltipContent>
+			<TooltipContent>{QUANTITY_LIMIT_WARNING_LABELS.increase_tight}</TooltipContent>
 		</Tooltip>
 	)
 }
 
-export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsChange, onItemChange }: AtaQuantityLimitsSectionProps) {
-	const grouped = new Map<string, AtaAnnexRow[]>()
+export function QuantityEstimateLimitsSection({ rows, settings, editable, onSettingsChange, onItemChange }: QuantityEstimateLimitsSectionProps) {
+	const grouped = new Map<string, QuantityEstimateAnnexRow[]>()
 	for (const row of rows) {
 		const bucket = grouped.get(row.folder)
 		if (bucket) bucket.push(row)
 		else grouped.set(row.folder, [row])
 	}
-	const tightCount = rows.filter((r) => r.warnings.includes("margin_tight")).length
-	const reviewCount = rows.filter((r) => r.warnings.some((w) => w !== "margin_tight" && w !== "margin_requires_justification")).length
-	const justificationRequired = rows.some((r) => r.warnings.includes("margin_requires_justification"))
-	const justificationMissing = justificationRequired && !settings.marginJustification?.trim()
+	const tightCount = rows.filter((r) => r.warnings.includes("increase_tight")).length
+	const reviewCount = rows.filter((r) => r.warnings.some((w) => w !== "increase_tight" && w !== "increase_requires_justification")).length
+	const justificationRequired = rows.some((r) => r.warnings.includes("increase_requires_justification"))
+	const justificationMissing = justificationRequired && !settings.maxQuantityJustification?.trim()
 	const hasFrozenLimits = rows.some((r) => r.maxQuantity != null)
 	const maxValue = annexMaxValue(rows)
 	const canEditItem = editable && onItemChange != null
@@ -215,15 +215,15 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 				{editable ? (
 					<FieldGroup className="grid gap-4 lg:grid-cols-[16rem_16rem_1fr]">
 						<Field>
-							<FieldLabel htmlFor="ata-max-margin">Acréscimo sobre a estimada (%)</FieldLabel>
+							<FieldLabel htmlFor="quantity-estimate-max-increase">Acréscimo sobre a estimada (%)</FieldLabel>
 							<CommitNumberInput
-								id="ata-max-margin"
+								id="quantity-estimate-max-increase"
 								label="Acréscimo sobre a estimada (%)"
-								value={settings.maxMarginPercent}
+								value={settings.maxIncreasePercent}
 								min={0}
 								max={100}
 								allowEmpty={false}
-								onCommit={(v) => v != null && onSettingsChange?.({ maxMarginPercent: v })}
+								onCommit={(v) => v != null && onSettingsChange?.({ maxIncreasePercent: v })}
 								className="w-28 tabular-nums"
 							/>
 							<FieldDescription>
@@ -231,9 +231,9 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 							</FieldDescription>
 						</Field>
 						<Field>
-							<FieldLabel htmlFor="ata-min-quote">Mínima a ser cotada (% da máxima)</FieldLabel>
+							<FieldLabel htmlFor="quantity-estimate-min-quote">Mínima a ser cotada (% da máxima)</FieldLabel>
 							<CommitNumberInput
-								id="ata-min-quote"
+								id="quantity-estimate-min-quote"
 								label="Quantidade mínima a ser cotada (% da máxima)"
 								value={settings.minQuotePercent}
 								min={1}
@@ -246,11 +246,11 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 								Quanto o licitante precisa cotar, no mínimo (Lei 14.133/2021, art. 82, II). 100% = a máxima inteira; menos admite proposta parcial.
 							</FieldDescription>
 						</Field>
-						{(justificationRequired || settings.marginJustification) && (
+						{(justificationRequired || settings.maxQuantityJustification) && (
 							<JustificationField
-								value={settings.marginJustification}
+								value={settings.maxQuantityJustification}
 								required={justificationRequired}
-								onCommit={(v) => onSettingsChange?.({ marginJustification: v })}
+								onCommit={(v) => onSettingsChange?.({ maxQuantityJustification: v })}
 							/>
 						)}
 					</FieldGroup>
@@ -262,10 +262,10 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 								? "Números congelados na conclusão."
 								: "Este anexo foi concluído antes dos limites de quantidade existirem: não há máxima nem mínima registradas."}
 						</p>
-						{settings.marginJustification && (
+						{settings.maxQuantityJustification && (
 							<div className="rounded-md border bg-muted/40 px-4 py-3 text-sm">
 								<p className="text-subheading">Justificativa da quantidade máxima</p>
-								<p className="whitespace-pre-wrap text-muted-foreground">{settings.marginJustification}</p>
+								<p className="whitespace-pre-wrap text-muted-foreground">{settings.maxQuantityJustification}</p>
 							</div>
 						)}
 					</div>
@@ -277,7 +277,7 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 							<li className="flex items-start gap-2 text-warning">
 								<ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
 								<span>
-									{tightCount} {tightCount === 1 ? "item com folga" : "itens com folga"} abaixo de {TIGHT_MARGIN_PERCENT}% sobre o previsto: pode faltar numa
+									{tightCount} {tightCount === 1 ? "item com folga" : "itens com folga"} abaixo de {TIGHT_INCREASE_PERCENT}% sobre o previsto: pode faltar numa
 									situação anormal (perda de estoque, fornecedor de outro item que para de entregar).
 								</span>
 							</li>
@@ -285,7 +285,7 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 						{justificationMissing && editable && (
 							<li className="flex items-start gap-2 text-warning">
 								<AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-								<span>Há itens com acréscimo acima de {JUSTIFICATION_MARGIN_PERCENT}%: preencha a justificativa da quantidade máxima para concluir.</span>
+								<span>Há itens com acréscimo acima de {JUSTIFICATION_INCREASE_PERCENT}%: preencha a justificativa da quantidade máxima para concluir.</span>
 							</li>
 						)}
 						{reviewCount > 0 && (
@@ -324,8 +324,8 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 										</TableCell>
 									</TableRow>
 									{folderRows.map((row) => {
-										const itemEditable = canEditItem && row.ataItemId != null && row.choices != null
-										const isTight = row.warnings.includes("margin_tight")
+										const itemEditable = canEditItem && row.quantityEstimateItemId != null && row.choices != null
+										const isTight = row.warnings.includes("increase_tight")
 										const cycleDiffersFromIngredient =
 											row.ingredientDeliveryCycle != null && row.deliveryCycle != null && row.deliveryCycle !== row.ingredientDeliveryCycle
 										return (
@@ -339,25 +339,25 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 														{row.unit}
 													</p>
 												</TableCell>
-												<TableCell className="text-right tabular-nums text-muted-foreground">{QTY.format(row.targetQuantity)}</TableCell>
+												<TableCell className="text-right tabular-nums text-muted-foreground">{QTY.format(row.estimatedQuantity)}</TableCell>
 												<TableCell className="text-right">
 													{itemEditable ? (
 														<CommitNumberInput
 															label={`Acréscimo de ${row.description}`}
-															value={row.choices?.maxMarginPercent ?? null}
-															placeholder={String(settings.maxMarginPercent)}
+															value={row.choices?.maxIncreasePercent ?? null}
+															placeholder={String(settings.maxIncreasePercent)}
 															min={0}
 															max={100}
-															onCommit={(v) => onItemChange?.(row.ataItemId as string, { maxMarginPercent: v })}
+															onCommit={(v) => onItemChange?.(row.quantityEstimateItemId as string, { maxIncreasePercent: v })}
 														/>
 													) : (
-														<span className="tabular-nums">{row.marginPercent ?? "—"}</span>
+														<span className="tabular-nums">{row.increasePercent ?? "—"}</span>
 													)}
 												</TableCell>
 												<TableCell className="text-right">
 													<div className="flex flex-col items-end gap-0.5">
 														<span className="font-medium tabular-nums">{row.maxQuantity != null ? INT.format(row.maxQuantity) : "—"}</span>
-														{isTight && <TightMarginFlag effectiveMarginPercent={row.effectiveMarginPercent} />}
+														{isTight && <TightIncreaseFlag effectiveIncreasePercent={row.effectiveIncreasePercent} />}
 													</div>
 												</TableCell>
 												<TableCell className="text-right tabular-nums">{row.minQuoteQuantity != null ? INT.format(row.minQuoteQuantity) : "—"}</TableCell>
@@ -366,10 +366,11 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 														<div className="flex flex-col gap-0.5">
 															<ToggleGroup
 																value={[row.deliveryCycle]}
-																// Base UI devolve array mesmo em seleção única; desmarcar mantém o ciclo — item de ata sempre tem um.
+																// Base UI devolve array mesmo em seleção única; desmarcar mantém o ciclo — item de anexo sempre tem um.
 																onValueChange={(value) => {
 																	const next = value[0]
-																	if (isDeliveryCycle(next) && next !== row.deliveryCycle) onItemChange?.(row.ataItemId as string, { deliveryCycle: next })
+																	if (isDeliveryCycle(next) && next !== row.deliveryCycle)
+																		onItemChange?.(row.quantityEstimateItemId as string, { deliveryCycle: next })
 																}}
 																variant="outline"
 																size="sm"
@@ -398,7 +399,7 @@ export function AtaQuantityLimitsSection({ rows, settings, editable, onSettingsC
 																min={0.0001}
 																step={1}
 																integer={false}
-																onCommit={(v) => onItemChange?.(row.ataItemId as string, { minOrderQuantity: v })}
+																onCommit={(v) => onItemChange?.(row.quantityEstimateItemId as string, { minOrderQuantity: v })}
 																className="h-7 w-24 text-right tabular-nums"
 															/>
 															{row.cycleConsumption != null && row.deliveriesInValidity != null && (

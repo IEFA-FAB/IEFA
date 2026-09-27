@@ -53,7 +53,7 @@ const EXEMPT: Record<string, string> = {
 	deleteIngredientFn: "ciclo de vida, não conteúdo: o snapshot não guarda deleted_at, e restaurar devolve o insumo idêntico ao histórico",
 	restoreIngredientFn: "idem deleteIngredientFn",
 	updateIngredientDeliveryCycleFn:
-		"sugestão de compra fora do snapshot: cada item de ATA grava o próprio ciclo, que é o que vale na compra (docs/SAVE_BEHAVIOR.md)",
+		"sugestão de compra fora do snapshot: cada item do anexo quantitativo grava o próprio ciclo, que é o que vale na compra (docs/SAVE_BEHAVIOR.md)",
 	updateIngredientAllergensFn: "fora do snapshot; grava sozinho na tela, com AutoSaveStatus (docs/SAVE_BEHAVIOR.md)",
 	restoreIngredientVersionFn: "a própria restauração grava a versão, na mesma transação (restoreIngredientVersion)",
 	recordIngredientReviewFn: "conferência pelos nutricionistas é evento de revisão, não alteração",

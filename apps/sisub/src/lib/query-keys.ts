@@ -187,8 +187,9 @@ export const queryKeys = {
 	},
 
 	procurementDocuments: {
-		quantityMemory: (ataId: string | null) => ["procurement_documents", "quantity_memory", ataId] as const,
-		priceResearchReport: (ataId: string | null, emissionId: string | null) => ["procurement_documents", "price_research", ataId, emissionId] as const,
+		quantityMemory: (quantityEstimateId: string | null) => ["procurement_documents", "quantity_memory", quantityEstimateId] as const,
+		priceResearchReport: (quantityEstimateId: string | null, emissionId: string | null) =>
+			["procurement_documents", "price_research", quantityEstimateId, emissionId] as const,
 	},
 
 	flows: {
@@ -218,14 +219,14 @@ export const queryKeys = {
 		unitArps: (unitId: number | null, acquisitionId: string | null) => ["acquisitions", unitId, "arps", acquisitionId] as const,
 	},
 
-	ata: {
-		all: () => ["procurement_list"] as const,
-		listAll: () => ["procurement_list", "list"] as const,
-		list: (unitId: number | null) => ["procurement_list", "list", unitId] as const,
-		details: (ataId: string | null) => ["procurement_list", "details", ataId] as const,
-		draft: (draftId: string | null) => ["ata_draft", draftId] as const,
+	quantityEstimate: {
+		all: () => ["quantity_estimate"] as const,
+		listAll: () => ["quantity_estimate", "list"] as const,
+		list: (unitId: number | null) => ["quantity_estimate", "list", unitId] as const,
+		details: (quantityEstimateId: string | null) => ["quantity_estimate", "details", quantityEstimateId] as const,
+		draft: (draftId: string | null) => ["quantity_estimate_draft", draftId] as const,
 		needs: (params: { startDate: string; endDate: string; kitchenId?: number; unitId?: number }) => ["procurement", "needs", params] as const,
-		arp: (ataId: string | null) => ["procurement_arp", "ata", ataId] as const,
+		arp: (quantityEstimateId: string | null) => ["procurement_arp", "quantity_estimate", quantityEstimateId] as const,
 		arpCommitments: (arpId: string | null) => ["procurement_arp", "local-commitments", arpId] as const,
 		empenhos: (arpItemId: string | null) => ["empenho", "item", arpItemId] as const,
 	},

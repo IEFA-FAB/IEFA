@@ -137,7 +137,7 @@ function scrubDeletedFrozenPreparations(row: { recipeIngredientsInKitchens?: unk
  * Query SEPARADA de propósito. Pelo `with` relacional isto seria o nível 3
  * (recipe → recipe_ingredients → alternatives → ingredient) e o alias gerado pelo Drizzle
  * passa dos 63 caracteres do NAMEDATALEN do Postgres — o mesmo teto que já obrigou a
- * quebrar as consultas de produção/ata/procurement. O erro que ele produz fala de coluna
+ * quebrar as consultas de produção/anexo quantitativo/procurement. O erro que ele produz fala de coluna
  * inexistente, não de tamanho de alias, então vale a query a mais.
  *
  * Só `fetchRecipe` chama: `listRecipes` devolve o catálogo inteiro (~1.650 fichas em

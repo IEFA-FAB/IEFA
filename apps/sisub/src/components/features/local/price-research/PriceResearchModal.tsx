@@ -348,10 +348,10 @@ interface PriceResearchModalProps {
 	onOpenChange: (open: boolean) => void
 	catmatCode: number
 	catmatDescription?: string | null
-	/** UUID da ATA já existente (opcional — permite link imediato do audit record) */
-	ataId?: string
-	/** UUID do item da ATA já existente (opcional — permite link imediato) */
-	ataItemId?: string
+	/** UUID do anexo já existente (opcional — permite link imediato do audit record) */
+	quantityEstimateId?: string
+	/** UUID do item do anexo já existente (opcional — permite link imediato) */
+	quantityEstimateItemId?: string
 	/** Unidade de compra do item: todo preço é convertido para ela antes da estatística. */
 	targetUnit?: string | null
 	/** Só chamado com a memória de cálculo gravada: preço sem registro não entra no anexo. */
@@ -363,7 +363,16 @@ interface PriceResearchModalProps {
 /** Referência estável para o estado vazio — evita recriar o array a cada render. */
 const EMPTY_RESULTS: ComprasMaterialPriceResult[] = []
 
-export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescription, ataId, ataItemId, targetUnit, onApplyPrice }: PriceResearchModalProps) {
+export function PriceResearchModal({
+	open,
+	onOpenChange,
+	catmatCode,
+	catmatDescription,
+	quantityEstimateId,
+	quantityEstimateItemId,
+	targetUnit,
+	onApplyPrice,
+}: PriceResearchModalProps) {
 	const [sorting, setSorting] = useState<SortingState>([])
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
@@ -701,8 +710,8 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 					unitInferred: researchUnit.inferred,
 					manualSelection,
 					justifications,
-					ataId: ataId ?? undefined,
-					ataItemId: ataItemId ?? undefined,
+					quantityEstimateId: quantityEstimateId ?? undefined,
+					quantityEstimateItemId: quantityEstimateItemId ?? undefined,
 				},
 			})
 			onApplyPrice(price, auditIds)

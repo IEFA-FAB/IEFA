@@ -163,7 +163,7 @@ export function segmentRuleInputs(segments: readonly ProcurementSegment[]): Segm
 
 /**
  * Resolve linhas agregando, por item de compra, as pastas de todos os insumos que o usam. É por
- * item que o anexo entra na ata: dois insumos do mesmo item vão juntos, ou são conflito.
+ * item que o insumo entra no anexo: dois insumos do mesmo item vão juntos, ou são conflito.
  */
 export function resolveLines<T extends { ingredientId: string; folderId: string | null; purchaseItemId: string | null }>(
 	rows: readonly T[],
@@ -220,9 +220,9 @@ async function loadUnitUniverse(client: Client, unitId: number) {
 						-- planos globais que algum anexo da OM já usou
 						or t.id in (
 							select s.template_id
-							from procurement.procurement_list_selection s
-							join procurement.procurement_list_kitchen lk on lk.id = s.list_kitchen_id
-							join procurement.procurement_list l on l.id = lk.list_id
+							from procurement.quantity_estimate_selection s
+							join procurement.quantity_estimate_kitchen lk on lk.id = s.quantity_estimate_kitchen_id
+							join procurement.quantity_estimate l on l.id = lk.quantity_estimate_id
 							where l.unit_id = ${unitId} and l.deleted_at is null
 						)
 					)
@@ -521,7 +521,7 @@ export async function removeProcurementSegmentRule(db: SisubDb, ctx: UserContext
 
 /**
  * Filtro do cálculo do anexo por contratação: recebe as linhas do cálculo (insumo → item de
- * compra) e devolve a resolução de cada uma. Usado por `calculateAtaNeeds` quando o anexo é de
+ * compra) e devolve a resolução de cada uma. Usado por `calculateQuantityEstimateNeeds` quando o anexo é de
  * uma contratação.
  */
 export async function resolveNeedsForSegment(

@@ -321,9 +321,9 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 	test("físico × contábil liga pela liquidação que aponta o recebimento, somando as parcelas", async () => {
 		await inRollback(async (tx) => {
 			const { unitId, kitchenId, ingredientId } = await seedKitchen(tx, "CONC")
-			const [list] = await tx`insert into procurement.procurement_list (unit_id, title) values (${unitId}, 'lista conc') returning id`
+			const [list] = await tx`insert into procurement.quantity_estimate (unit_id, title) values (${unitId}, 'lista conc') returning id`
 			const [arp] = await tx`
-				insert into procurement.procurement_arp (unit_id, procurement_list_id, numero_ata, uasg_gerenciadora) values (${unitId}, ${list.id}, ${uid("ATA-")}, '160001') returning id`
+				insert into procurement.procurement_arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora) values (${unitId}, ${list.id}, ${uid("ATA-")}, '160001') returning id`
 			const [arpItem] =
 				await tx`insert into procurement.procurement_arp_item (arp_id, numero_item, quantidade_homologada) values (${arp.id}, 1, 1000) returning id`
 			const [empenho] = await tx`

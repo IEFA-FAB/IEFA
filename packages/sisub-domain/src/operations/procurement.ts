@@ -2,7 +2,7 @@
  * Procurement operations — Drizzle query layer.
  *
  * fetchProcurementNeeds: agrega quantidades de insumo a partir de daily_menu num intervalo
- * (read-only; sem persistência). fetchUnitDashboard: ATAs publicadas + itens de ARP com
+ * (read-only; sem persistência). fetchUnitDashboard: anexos concluídos + itens de ARP com
  * consumo ≥ 80%, anotados com `in_upcoming_menu`.
  *
  * Contrato de retorno PRESERVADO (snake_case). Colunas `numeric` voltam como string no
@@ -16,8 +16,8 @@ import {
 	menuItemsInKitchen,
 	procurementArpInProcurement,
 	procurementArpItemInProcurement,
-	procurementListInProcurement,
-	procurementListItemInProcurement,
+	quantityEstimateInProcurement,
+	quantityEstimateItemInProcurement,
 	recipesInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
@@ -25,12 +25,13 @@ import type { Tables } from "@iefa/database/sisub"
 import { and, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm"
 import { requireAnyPermission, requireUnit, requireUnscopedPermission } from "../guards/require-permission.ts"
 import type { FetchProcurementNeeds, FetchUnitDashboard } from "../schemas/procurement.ts"
+import { normalizeQuantityEstimateStatus } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { runQuery, toWire } from "../utils/index.ts"
 import { scaleIngredientQuantity } from "./demand-math.ts"
 
-type ProcurementList = Tables<"procurement_list">
+type QuantityEstimate = Tables<"quantity_estimate">
 
 /** Coage `numeric` (string no Drizzle) → number, preservando null. */
 function num(v: string | number | null | undefined): number | null {
@@ -142,7 +143,7 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 				folder_id: string | null
 				folder?: { id: string; description: string | null } | null
 			}
-			total_quantity: number
+			estimated_quantity: number
 		}
 	>()
 
@@ -167,7 +168,7 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 
 			const existing = needsMap.get(ingredientId)
 			if (existing) {
-				existing.total_quantity += quantityNeeded
+				existing.estimated_quantity += quantityNeeded
 			} else {
 				const folder = ingredientRaw.folderId != null ? (folderById.get(ingredientRaw.folderId) ?? null) : null
 				needsMap.set(ingredientId, {
@@ -178,7 +179,7 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 						folder_id: ingredientRaw.folderId,
 						folder: folder ? { id: folder.id, description: folder.description } : null,
 					},
-					total_quantity: quantityNeeded,
+					estimated_quantity: quantityNeeded,
 				})
 			}
 		}
@@ -190,7 +191,7 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 		ingredient_id: ingredientId,
 		ingredient_name: d.ingredient.description ?? "",
 		measure_unit: d.ingredient.measure_unit,
-		total_quantity: Number(d.total_quantity.toFixed(4)),
+		estimated_quantity: Number(d.estimated_quantity.toFixed(4)),
 		purchase_item_id: null,
 		purchase_item_description: null,
 		purchase_measure_unit: null,
@@ -229,20 +230,20 @@ type DashboardArpItemRow = {
 	arp_ano_ata: string | null
 	arp_vigencia_fim: string | null
 	/** Nulo quando a ARP não teve anexo quantitativo feito no sistema (ata de outro órgão, carona). */
-	ata_id: string | null
-	ata_title: string
+	quantity_estimate_id: string | null
+	quantity_estimate_title: string
 	ingredient_id: string | null
 	ingredient_name: string | null
 	in_upcoming_menu: boolean
 }
 
 /**
- * Returns published ATAs and low-balance ARP items (≥80% consumed) for a unit,
+ * Returns completed quantity estimates and low-balance ARP items (≥80% consumed) for a unit,
  * annotated with in_upcoming_menu flag.
  *
  * 7-step pipeline:
- *   (1) Fetch all non-deleted ATAs → filter published.
- *   (2) Fetch ARPs linked to published ATAs.
+ *   (1) Fetch all non-deleted quantity estimates → filter completed.
+ *   (2) Fetch ARPs linked to completed quantity estimates.
  *   (3) Fetch ARP items with ata_item join (for ingredient_id).
  *   (4) Filter: qtdeEmpenhada / qtdeHomologada ≥ 0.8.
  *   (5) Collect ingredient_ids from relevant items.
@@ -254,52 +255,52 @@ export async function fetchUnitDashboard(
 	db: SisubDb,
 	ctx: UserContext,
 	input: FetchUnitDashboard
-): Promise<{ published_atas: ProcurementList[]; low_balance_items: DashboardArpItemRow[] }> {
-	// ATAs, saldo de ARP e cardápio planejado da OM: só quem lê a unidade. Antes a fn só
+): Promise<{ completed_quantity_estimates: QuantityEstimate[]; low_balance_items: DashboardArpItemRow[] }> {
+	// Anexos, saldo de ARP e cardápio planejado da OM: só quem lê a unidade. Antes a fn só
 	// exigia sessão, e o `unitId` do corpo abria o painel de qualquer OM.
 	requireUnit(ctx, 1, input.unitId)
-	// ── 1. Todas as ATAs não deletadas da unidade ─────────────────────────────
-	const allAtas = await runQuery("QUERY_FAILED", () =>
+	// ── 1. Todos os anexos não deletados da unidade ─────────────────────────────
+	const allQuantityEstimates = await runQuery("QUERY_FAILED", () =>
 		db
 			.select()
-			.from(procurementListInProcurement)
-			.where(and(eq(procurementListInProcurement.unitId, input.unitId), isNull(procurementListInProcurement.deletedAt)))
-			.orderBy(desc(procurementListInProcurement.createdAt))
+			.from(quantityEstimateInProcurement)
+			.where(and(eq(quantityEstimateInProcurement.unitId, input.unitId), isNull(quantityEstimateInProcurement.deletedAt)))
+			.orderBy(desc(quantityEstimateInProcurement.createdAt))
 	)
 
-	const publishedAtasRows = allAtas.filter((a) => a.status === "published")
-	const publishedAtas = publishedAtasRows.map((a) => toWire<ProcurementList>(a))
-	const publishedAtaIds = publishedAtasRows.map((a) => a.id)
+	const completedQuantityEstimateRows = allQuantityEstimates.filter((a) => normalizeQuantityEstimateStatus(a.status) === "completed")
+	const completedQuantityEstimates = completedQuantityEstimateRows.map((a) => toWire<QuantityEstimate>({ ...a, status: "completed" }))
+	const completedQuantityEstimateIds = completedQuantityEstimateRows.map((a) => a.id)
 
-	if (publishedAtaIds.length === 0) {
-		return { published_atas: publishedAtas, low_balance_items: [] }
+	if (completedQuantityEstimateIds.length === 0) {
+		return { completed_quantity_estimates: completedQuantityEstimates, low_balance_items: [] }
 	}
 
-	// ── 2. ARPs vinculadas às ATAs publicadas ─────────────────────────────────
+	// ── 2. ARPs vinculadas aos anexos concluídos ──────────────────────────────
 	const arpsData = await runQuery("QUERY_FAILED", () =>
 		db
 			.select({
 				id: procurementArpInProcurement.id,
-				ataId: procurementArpInProcurement.procurementListId,
+				quantityEstimateId: procurementArpInProcurement.quantityEstimateId,
 				numeroAta: procurementArpInProcurement.numeroAta,
 				anoAta: procurementArpInProcurement.anoAta,
 				dataVigenciaFim: procurementArpInProcurement.dataVigenciaFim,
 			})
 			.from(procurementArpInProcurement)
-			.where(inArray(procurementArpInProcurement.procurementListId, publishedAtaIds))
+			.where(inArray(procurementArpInProcurement.quantityEstimateId, completedQuantityEstimateIds))
 	)
 
 	if (arpsData.length === 0) {
-		return { published_atas: publishedAtas, low_balance_items: [] }
+		return { completed_quantity_estimates: completedQuantityEstimates, low_balance_items: [] }
 	}
 
 	const arpIds = arpsData.map((a) => a.id)
-	const ataIdToTitle = new Map(publishedAtasRows.map((a) => [a.id, a.title]))
+	const quantityEstimateIdToTitle = new Map(completedQuantityEstimateRows.map((a) => [a.id, a.title]))
 	const arpById = new Map(arpsData.map((a) => [a.id, a]))
 
 	// ── 3. Itens das ARPs com join no item do anexo (para ingredient_id) ──────
 	// Join explícito pela coluna nova: a relação de `relations.ts` ainda sai da FK antiga
-	// (`ata_item_id`), que o contract 20260927020000 derruba.
+	// (`procurement_list_item_id`), que o contract 20260927050000 derruba.
 	const arpItems = await runQuery("QUERY_FAILED", () =>
 		db
 			.select({
@@ -314,11 +315,11 @@ export async function fetchUnitDashboard(
 				quantidadeEmpenhada: procurementArpItemInProcurement.quantidadeEmpenhada,
 				saldoEmpenho: procurementArpItemInProcurement.saldoEmpenho,
 				medidaCatmat: procurementArpItemInProcurement.medidaCatmat,
-				listItemIngredientId: procurementListItemInProcurement.ingredientId,
-				listItemIngredientName: procurementListItemInProcurement.ingredientName,
+				listItemIngredientId: quantityEstimateItemInProcurement.ingredientId,
+				listItemIngredientName: quantityEstimateItemInProcurement.ingredientName,
 			})
 			.from(procurementArpItemInProcurement)
-			.leftJoin(procurementListItemInProcurement, eq(procurementListItemInProcurement.id, procurementArpItemInProcurement.procurementListItemId))
+			.leftJoin(quantityEstimateItemInProcurement, eq(quantityEstimateItemInProcurement.id, procurementArpItemInProcurement.quantityEstimateItemId))
 			.where(inArray(procurementArpItemInProcurement.arpId, arpIds))
 	)
 
@@ -331,7 +332,7 @@ export async function fetchUnitDashboard(
 	})
 
 	if (relevantItems.length === 0) {
-		return { published_atas: publishedAtas, low_balance_items: [] }
+		return { completed_quantity_estimates: completedQuantityEstimates, low_balance_items: [] }
 	}
 
 	// ── 5. Coletar ingredient_ids dos itens relevantes ───────────────────────
@@ -427,8 +428,8 @@ export async function fetchUnitDashboard(
 			arp_numero_ata: arp.numeroAta,
 			arp_ano_ata: arp.anoAta,
 			arp_vigencia_fim: arp.dataVigenciaFim,
-			ata_id: arp.ataId,
-			ata_title: arp.ataId ? (ataIdToTitle.get(arp.ataId) ?? "—") : "Sem anexo quantitativo",
+			quantity_estimate_id: arp.quantityEstimateId,
+			quantity_estimate_title: arp.quantityEstimateId ? (quantityEstimateIdToTitle.get(arp.quantityEstimateId) ?? "—") : "Sem anexo quantitativo",
 			ingredient_id: ingredientId,
 			ingredient_name: item.listItemIngredientName ?? item.descricaoItem,
 			in_upcoming_menu: ingredientId ? upcomingIngredientIds.has(ingredientId) : false,
@@ -441,5 +442,5 @@ export async function fetchUnitDashboard(
 		return b.consumption_pct - a.consumption_pct
 	})
 
-	return { published_atas: publishedAtas, low_balance_items: lowBalanceItems }
+	return { completed_quantity_estimates: completedQuantityEstimates, low_balance_items: lowBalanceItems }
 }

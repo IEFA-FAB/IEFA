@@ -4,7 +4,7 @@
  *
  * A migração 20260707120000 pode ainda não ter rodado quando o código sobe — padrão
  * conhecido deste repo ("deploy quebra prod até migrar"). Sem esta tolerância, a query
- * relacional derrubaria a leitura do template INTEIRO (getTemplate/applyTemplate/ATA),
+ * relacional derrubaria a leitura do template INTEIRO (getTemplate/applyTemplate/anexo quantitativo),
  * fazendo os templates PARECEREM deletados. Aqui degradamos para vazio: o efetivo cai no
  * fallback legado (média dos headcount_override) e o template continua carregando normal.
  */

@@ -8,8 +8,8 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import type { TemplateSelection } from "@/types/domain/ata"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
+import type { TemplateSelection } from "@/types/domain/quantity-estimate"
 
 interface DemandForecastEditorProps {
 	initialTitle?: string

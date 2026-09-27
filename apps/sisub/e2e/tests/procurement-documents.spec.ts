@@ -29,12 +29,12 @@ test.describe("Anexo quantitativo — documentos do processo", () => {
 	})
 
 	test.afterAll(async () => {
-		if (annexId) await deleteProcurementRows("procurement_list", [annexId])
+		if (annexId) await deleteProcurementRows("quantity_estimate", [annexId])
 		await deleteTemplate(templateId)
 	})
 
 	test("monta o anexo com um preço pesquisado", async ({ authenticatedPage: page }) => {
-		await page.goto(`/unit/${UNIT_ID}/procurement/new`)
+		await page.goto(`/unit/${UNIT_ID}/quantity-estimates/new`)
 		await page.waitForURL(/draft=/)
 		annexId = new URL(page.url()).searchParams.get("draft")
 		await page.waitForLoadState("networkidle")
@@ -44,7 +44,7 @@ test.describe("Anexo quantitativo — documentos do processo", () => {
 		await page.getByRole("button", { name: /Próximo: Eventos/ }).click()
 		await page.getByRole("button", { name: /Próximo: Cardápios de Apoio/ }).click()
 		await page.getByRole("button", { name: /Próximo: Resumo/ }).click()
-		await page.locator("#ata-title").fill(`${RUN} Anexo`)
+		await page.locator("#quantity-estimate-title").fill(`${RUN} Anexo`)
 		await page.getByRole("button", { name: /Calcular Lista/ }).click()
 
 		await page
@@ -63,12 +63,12 @@ test.describe("Anexo quantitativo — documentos do processo", () => {
 		await page.waitForLoadState("networkidle")
 
 		await page.getByRole("button", { name: "Salvar anexo" }).click()
-		await page.waitForURL(new RegExp(`/procurement/${annexId}$`))
+		await page.waitForURL(new RegExp(`/quantity-estimates/${annexId}$`))
 		await expect(page.getByText("Documentos do processo")).toBeVisible()
 	})
 
 	test("copia a tabela para o TR, com e sem orçamento sigiloso", async ({ authenticatedPage: page }) => {
-		await page.goto(`/unit/${UNIT_ID}/procurement/${annexId}`)
+		await page.goto(`/unit/${UNIT_ID}/quantity-estimates/${annexId}`)
 		await dismissLegalNotice(page)
 		await page.getByRole("button", { name: "Copiar tabela para o TR" }).click()
 		await expect(page.getByText(/Tabela copiada: cole no Anexo do TR/)).toBeVisible()
@@ -88,7 +88,7 @@ test.describe("Anexo quantitativo — documentos do processo", () => {
 	})
 
 	test("abre a memória de cálculo das quantidades", async ({ authenticatedPage: page }) => {
-		await page.goto(`/unit/${UNIT_ID}/procurement/${annexId}`)
+		await page.goto(`/unit/${UNIT_ID}/quantity-estimates/${annexId}`)
 		await dismissLegalNotice(page)
 		await page.getByRole("button", { name: "Memória de cálculo das quantidades" }).click()
 		await expect(page.getByRole("heading", { name: "Memória de cálculo das quantidades" }).first()).toBeVisible()
@@ -98,7 +98,7 @@ test.describe("Anexo quantitativo — documentos do processo", () => {
 	})
 
 	test("gera o relatório de pesquisa de preços como emissão conferível", async ({ authenticatedPage: page }) => {
-		await page.goto(`/unit/${UNIT_ID}/procurement/${annexId}`)
+		await page.goto(`/unit/${UNIT_ID}/quantity-estimates/${annexId}`)
 		await dismissLegalNotice(page)
 		await page.getByRole("button", { name: "Relatório de pesquisa de preços" }).click()
 		await page.getByRole("button", { name: /Gerar nova emissão/ }).click()

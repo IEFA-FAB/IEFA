@@ -35,9 +35,9 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-RECV', 'unit teste recv') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha recv') returning id`
 					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('FEIJAO TESTE RECV', 'KG') returning id`
-					const [list] = await tx`insert into procurement.procurement_list (unit_id, title) values (${unit.id}, 'lista recv') returning id`
+					const [list] = await tx`insert into procurement.quantity_estimate (unit_id, title) values (${unit.id}, 'lista recv') returning id`
 					const [arp] = await tx`
-						insert into procurement.procurement_arp (unit_id, procurement_list_id, numero_ata, uasg_gerenciadora)
+						insert into procurement.procurement_arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora)
 						values (${unit.id}, ${list.id}, 'ATA-1', '160001') returning id`
 					const [arpItem] = await tx`
 						insert into procurement.procurement_arp_item (arp_id, numero_item, quantidade_homologada)

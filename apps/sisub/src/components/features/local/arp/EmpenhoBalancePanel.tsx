@@ -346,7 +346,7 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 				</td>
 				<td className="py-2.5 px-2 text-xs text-right tabular-nums">{item.valor_unitario != null ? BRL.format(item.valor_unitario) : "—"}</td>
 				<td className="py-2.5 px-2 text-xs">
-					{item.procurement_list_item_id ? (
+					{item.quantity_estimate_item_id ? (
 						<Badge variant="secondary" className="text-[10px] h-4">
 							Vinculado
 						</Badge>
@@ -414,16 +414,16 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 interface EmpenhoBalancePanelProps {
 	arp: ProcurementArp & { items: ProcurementArpItem[] }
 	unitId: number
-	ataId: string
+	quantityEstimateId: string
 }
 
-export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelProps) {
+export function EmpenhoBalancePanel({ arp, unitId, quantityEstimateId }: EmpenhoBalancePanelProps) {
 	// A rota exige `unit` nível 1 (leitura), mas importar, sincronizar, empenhar e anular
 	// exigem nível 2 NA unidade. Sem esta checagem os botões aparecem para quem só lê e
 	// falham no servidor — o usuário descobre que não pode depois de tentar.
 	const { can } = usePBAC()
 	const canWrite = can("unit", 2, { type: "unit", id: unitId })
-	const { mutate: syncBalance, isPending: isSyncing } = useSyncArpBalance(ataId)
+	const { mutate: syncBalance, isPending: isSyncing } = useSyncArpBalance(quantityEstimateId)
 	const { data: localCommitments = {} } = useArpLocalCommitments(arp.id)
 
 	const vigenciaFim = arp.data_vigencia_fim

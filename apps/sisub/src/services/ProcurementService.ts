@@ -5,7 +5,7 @@ import { fetchProcurementNeedsFn } from "@/server/procurement.fn"
 
 export const procurementNeedsQueryOptions = (params: ProcurementParams) =>
 	queryOptions({
-		queryKey: queryKeys.ata.needs(params),
+		queryKey: queryKeys.quantityEstimate.needs(params),
 		queryFn: () =>
 			fetchProcurementNeedsFn({
 				data: {

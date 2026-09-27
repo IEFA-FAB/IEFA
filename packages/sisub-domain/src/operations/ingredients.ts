@@ -357,12 +357,12 @@ export async function restoreIngredient(db: SisubDb, ctx: UserContext, input: Re
 }
 
 /**
- * Ciclo de entrega padrão do insumo nas ATAs (semanal = perecível, mensal = não perecível).
+ * Ciclo de entrega padrão do insumo nos anexos quantitativos (semanal = perecível, mensal = não perecível).
  *
  * Operação própria, fora do `updateIngredient`: aquela reescreve a linha inteira a partir do
  * payload do formulário e das ações em lote, e um campo que elas não conhecem seria zerado
- * no primeiro save. Aqui só a coluna muda. O ciclo EFETIVO de cada ata fica gravado no item
- * da ata; mudar o insumo vale para as próximas contas.
+ * no primeiro save. Aqui só a coluna muda. O ciclo EFETIVO de cada anexo fica gravado no item
+ * do anexo; mudar o insumo vale para as próximas contas.
  */
 export async function updateIngredientDeliveryCycle(db: SisubDb, ctx: UserContext, input: UpdateIngredientDeliveryCycle): Promise<void> {
 	requirePermission(ctx, "global", 2)

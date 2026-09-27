@@ -99,7 +99,7 @@ export type DeleteIngredient = z.infer<typeof DeleteIngredientSchema>
 export const RestoreIngredientSchema = z.object({ id: UuidSchema })
 export type RestoreIngredient = z.infer<typeof RestoreIngredientSchema>
 
-/** Ciclo de entrega padrão do insumo nas ATAs. `null` = não classificado. */
+/** Ciclo de entrega padrão do insumo nos anexos quantitativos. `null` = não classificado. */
 export const UpdateIngredientDeliveryCycleSchema = z.object({ id: UuidSchema, deliveryCycle: DeliveryCycleSchema.nullable() })
 export type UpdateIngredientDeliveryCycle = z.infer<typeof UpdateIngredientDeliveryCycleSchema>
 

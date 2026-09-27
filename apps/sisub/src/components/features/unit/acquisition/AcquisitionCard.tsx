@@ -270,7 +270,7 @@ export function AcquisitionCard({ unitId, acquisition, canEdit }: { unitId: numb
 											<ItemDescription className="text-xs">
 												{arp.nomeUasgGerenciadora ?? "Órgão gerenciador não informado"} · {arp.itemCount} ite{arp.itemCount === 1 ? "m" : "ns"}
 												{arp.vigenciaFim ? ` · vigência até ${formatIsoDate(arp.vigenciaFim)}` : ""}
-												{arp.ataId ? "" : " · sem anexo quantitativo"}
+												{arp.quantityEstimateId ? "" : " · sem anexo quantitativo"}
 											</ItemDescription>
 										</ItemContent>
 										{canEdit && (

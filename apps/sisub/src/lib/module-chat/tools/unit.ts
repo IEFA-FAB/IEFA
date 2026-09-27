@@ -1,29 +1,34 @@
 /**
- * Unit module tools — anexos quantitativos do TR (`ata` no código, nome legado), ARP,
- * empenhos, dashboard, settings.
- * Ported from server functions: ata.fn.ts, arp.fn.ts, unit-dashboard.fn.ts, unit-settings.fn.ts
+ * Unit module tools — anexos quantitativos do TR, ARP, empenhos, dashboard, settings.
+ * Ported from server functions: quantity-estimate.fn.ts, arp.fn.ts, unit-dashboard.fn.ts, unit-settings.fn.ts
  *
  * As tabelas deste módulo NÃO moram no schema `kitchen`, que é o default do client do chat:
- * ATA e ARP em `procurement`, unidade em `core`, empenho em `finance`. Todo `untypedFrom`
+ * anexo e ARP em `procurement`, unidade em `core`, empenho em `finance`. Todo `untypedFrom`
  * daqui passa o schema — sem ele o PostgREST responde PGRST205 e a tool devolve
  * "Erro ao executar…" para qualquer pergunta.
  */
 
-import { clampLimit } from "@iefa/sisub-domain/agent"
+import { toJsonSchema, updateQuantityEstimateStatus } from "@iefa/sisub-domain"
+import {
+	AgentGetQuantityEstimateSchema,
+	AgentListQuantityEstimatesSchema,
+	AgentUpdateQuantityEstimateStatusSchema,
+	agentGetQuantityEstimate,
+	agentListQuantityEstimates,
+	clampLimit,
+} from "@iefa/sisub-domain/agent"
 import { defaultVigenciaWindow } from "@/lib/arp-compras"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import type { ModuleToolDefinition } from "./shared"
-import { requireUnitPermission, requireUuid, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { domainCtx, requireUnitPermission, requireUuid, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
 /**
  * Tetos das listagens do chat. O resultado da tool volta inteiro no prompt do
- * turno seguinte: uma ATA com 72 itens já passa de 50 KB em `select("*")`, o
+ * turno seguinte: um anexo com 72 itens já passa de 50 KB em `select("*")`, o
  * suficiente para o provider recusar a run.
  */
 const LIST_DEFAULT = 25
 const LIST_MAX = 100
-const ATA_ITEMS_DEFAULT = 30
-const ATA_ITEMS_MAX = 100
 /** Quantos IDs cabem num `in.(…)` sem estourar a linha de requisição do gateway. */
 const EMPENHO_ID_BATCH = 100
 
@@ -33,127 +38,49 @@ function requireCurrentUnitId(ctx: Parameters<ModuleToolDefinition["handler"]>[1
 	return unitId
 }
 
-const listAtas: ModuleToolDefinition = {
-	name: "list_atas",
+/**
+ * `list_quantity_estimates` — mesma definição no chat da Gestão Unidade e no do analytics local
+ * (substitui `list_atas` e `get_atas`, que nunca foram chamadas: renomeadas sem alias). A leitura
+ * mora em `@iefa/sisub-domain/agent` (schema, teto e `total`).
+ */
+export const listQuantityEstimates: ModuleToolDefinition = {
+	name: "list_quantity_estimates",
 	description:
-		"Lista os anexos quantitativos do Termo de Referência (TR) da unidade atual da rota — não são atas; a ARP só existe após a homologação e é vinculada ao anexo. Não recebe ID de unidade; o escopo vem do contexto autenticado.",
-	parameters: {
-		type: "object",
-		properties: {
-			limit: { type: "number", description: `Quantos anexos retornar, dos mais recentes (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
-		},
-		required: [],
-		additionalProperties: false,
-	},
+		"Lista os anexos quantitativos do Termo de Referência (TR) da unidade atual da rota, dos mais recentes, com status (draft, completed, archived). O anexo quantitativo não é a Ata de Registro de Preços (ARP), que só existe após a homologação e é vinculada ao anexo. Não recebe ID de unidade; o escopo vem do contexto autenticado.",
+	parameters: toJsonSchema(AgentListQuantityEstimatesSchema),
 	requiredLevel: 1,
 	async handler(args, ctx) {
-		const unitId = requireCurrentUnitId(ctx)
-		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
-
-		// `deleted_at IS NULL` como em `get_atas` do local-analytics: sem ele a ATA na lixeira
-		// aparece como viva e o modelo a oferece para empenhar.
-		const { data, error, count } = await untypedFrom(ctx, "procurement_list", "procurement")
-			.select("id, title, status, unit_id, created_at, updated_at", { count: "exact" })
-			.eq("unit_id", unitId)
-			.is("deleted_at", null)
-			.order("created_at", { ascending: false })
-			.limit(limit)
-
-		if (error) return toolErr(sanitizeDbError(error, "list_atas"))
-		return toolOk({ atas: data ?? [], returned: data?.length ?? 0, total: count ?? data?.length ?? 0, limit })
+		const unitId = safeInt(ctx.scopeId, "scopeId")
+		const input = AgentListQuantityEstimatesSchema.parse(args)
+		const { items, ...counts } = await agentListQuantityEstimates(ctx.db, domainCtx(ctx), { ...input, unitId })
+		return toolOk({ quantityEstimates: items, ...counts })
 	},
 }
 
-const getAtaDetails: ModuleToolDefinition = {
-	name: "get_ata_details",
+const getQuantityEstimate: ModuleToolDefinition = {
+	name: "get_quantity_estimate",
 	description:
-		"Retorna detalhes de um anexo quantitativo do TR: cabeçalho, cozinhas com seleções e uma página de itens. Use itemSearch/limit para chegar num item específico sem trazer a lista inteira.",
-	parameters: {
-		type: "object",
-		properties: {
-			ataId: { type: "string", description: "ID (UUID) do anexo quantitativo" },
-			itemSearch: { type: "string", description: "Filtra os itens pelo nome do insumo (parcial, sem distinguir caixa)" },
-			limit: { type: "number", description: `Quantos itens retornar (padrão ${ATA_ITEMS_DEFAULT}, máximo ${ATA_ITEMS_MAX})` },
-		},
-		required: ["ataId"],
-	},
+		"Retorna um anexo quantitativo do TR: cabeçalho, cozinhas com os cardápios considerados e uma página de itens (quantidade estimada, preço, CATMAT). Use itemSearch/limit para chegar num item específico sem trazer a lista inteira.",
+	parameters: toJsonSchema(AgentGetQuantityEstimateSchema),
 	requiredLevel: 1,
 	async handler(args, ctx) {
-		const ataId = requireUuid(args.ataId, "ataId")
-		const limit = clampLimit(args.limit, ATA_ITEMS_DEFAULT, ATA_ITEMS_MAX)
-		const itemSearch = args.itemSearch != null ? String(args.itemSearch).slice(0, 200).toLowerCase() : undefined
-
-		const { data: ata, error } = await ctx.supabase
-			.schema("procurement")
-			.from("procurement_list")
-			.select(`*, kitchens:procurement_list_kitchen(*, selections:procurement_list_selection(*)), items:procurement_list_item(*)`)
-			.eq("id", ataId)
-			.single()
-
-		if (error || !ata) return toolErr("Anexo quantitativo não encontrado")
-
-		requireUnitPermission(ctx, 1, { type: "unit", id: ata.unit_id })
-
-		// A ATA inteira em `select("*")` passa de 50 KB com ~70 itens — mais do que
-		// cabe num turno. O cabeçalho e as cozinhas vão inteiros; os itens vão
-		// filtrados, paginados e só com as colunas que a conversa usa.
-		const { items, ...header } = ata as typeof ata & { items?: Array<Record<string, unknown>> }
-		const allItems = items ?? []
-		const matched = itemSearch
-			? allItems.filter((i) =>
-					String(i.ingredient_name ?? "")
-						.toLowerCase()
-						.includes(itemSearch)
-				)
-			: allItems
-
-		return toolOk({
-			...header,
-			items: matched.slice(0, limit).map((i) => ({
-				id: i.id,
-				ingredient_id: i.ingredient_id,
-				ingredient_name: i.ingredient_name,
-				measure_unit: i.measure_unit,
-				total_quantity: i.total_quantity,
-				unit_price: i.unit_price,
-				catmat_item_codigo: i.catmat_item_codigo,
-			})),
-			items_returned: Math.min(matched.length, limit),
-			items_matched: matched.length,
-			items_total: allItems.length,
-			items_limit: limit,
-		})
+		const input = AgentGetQuantityEstimateSchema.parse(args)
+		return toolOk(await agentGetQuantityEstimate(ctx.db, domainCtx(ctx), input))
 	},
 }
 
-const updateAtaStatus: ModuleToolDefinition = {
-	name: "update_ata_status",
-	description: "Atualiza o status de um anexo quantitativo do TR (draft → published → archived).",
-	parameters: {
-		type: "object",
-		properties: {
-			ataId: { type: "string", description: "ID (UUID) do anexo quantitativo" },
-			status: { type: "string", description: "Novo status: draft, published, ou archived" },
-		},
-		required: ["ataId", "status"],
-	},
+const updateQuantityEstimateStatusTool: ModuleToolDefinition = {
+	name: "update_quantity_estimate_status",
+	description:
+		"Atualiza o status de um anexo quantitativo do TR: draft → completed (concluir) → archived. Concluir exige a justificativa da quantidade máxima quando algum item passa do acréscimo de referência, e congela a memória de cálculo.",
+	parameters: toJsonSchema(AgentUpdateQuantityEstimateStatusSchema),
 	requiredLevel: 2,
 	async handler(args, ctx) {
-		const ataId = requireUuid(args.ataId, "ataId")
-		const status = String(args.status).trim()
-
-		if (!["draft", "published", "archived"].includes(status)) {
-			return toolErr("Status deve ser: draft, published ou archived")
-		}
-
-		const { data: ata, error: fetchError } = await untypedFrom(ctx, "procurement_list", "procurement").select("unit_id").eq("id", ataId).single()
-		if (fetchError || !ata) return toolErr("Anexo quantitativo não encontrado")
-
-		requireUnitPermission(ctx, 2, { type: "unit", id: ata.unit_id })
-
-		const { data, error } = await untypedFrom(ctx, "procurement_list", "procurement").update({ status }).eq("id", ataId).select().single()
-		if (error) return toolErr(sanitizeDbError(error, "update_ata_status"))
-		return toolOk(data)
+		const input = AgentUpdateQuantityEstimateStatusSchema.parse(args)
+		// A operation confere `unit:2` na OM DONA do anexo, a transição, a segmentação e a
+		// justificativa, e congela o snapshot na conclusão — o que o `update` cru desta tool pulava.
+		await updateQuantityEstimateStatus(ctx.db, domainCtx(ctx), input)
+		return toolOk({ quantityEstimateId: input.quantityEstimateId, status: input.status })
 	},
 }
 
@@ -162,39 +89,20 @@ const getUnitDashboard: ModuleToolDefinition = {
 	// A descrição anterior prometia "itens com saldo baixo, status ARP", que esta tool nunca
 	// devolveu — o modelo chamava por isso e depois inventava o que não veio.
 	description:
-		"Retorna o resumo da unidade atual da rota: quantos anexos quantitativos concluídos (status published) existem e os 10 mais recentes (título, status, data).",
+		"Retorna o resumo da unidade atual da rota: quantos anexos quantitativos concluídos (status completed) existem e os 10 mais recentes (título, status, data).",
 	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
 	requiredLevel: 1,
 	async handler(_args, ctx) {
 		const unitId = requireCurrentUnitId(ctx)
-
-		// Published ATAs count
-		const { count: ataCount, error: countError } = await untypedFrom(ctx, "procurement_list", "procurement")
-			.select("id", { count: "exact", head: true })
-			.eq("unit_id", unitId)
-			.eq("status", "published")
-			.is("deleted_at", null)
-
-		if (countError) return toolErr(sanitizeDbError(countError, "get_unit_dashboard:count"))
-
-		// All ATAs for listing. A coluna é `title` — `name` não existe em
-		// `procurement.procurement_list`, e o erro dela era descartado junto com o `data`:
-		// a tool respondia `recentAtas: []` com cara de sucesso e o modelo afirmava que a
-		// unidade não tinha ATA nenhuma. Falha silenciosa mente pior do que falha barulhenta.
-		const { data: atas, error: listError } = await ctx.supabase
-			.schema("procurement")
-			.from("procurement_list")
-			.select("id, title, status, created_at")
-			.eq("unit_id", unitId)
-			.is("deleted_at", null)
-			.order("created_at", { ascending: false })
-			.limit(10)
-
-		if (listError) return toolErr(sanitizeDbError(listError, "get_unit_dashboard:list"))
-
+		// Erro de leitura sobe como erro da tool, nunca como lista vazia: `recentQuantityEstimates: []`
+		// com cara de sucesso fazia o modelo afirmar que a unidade não tinha anexo nenhum.
+		const [completed, recent] = await Promise.all([
+			agentListQuantityEstimates(ctx.db, domainCtx(ctx), { unitId, status: "completed", limit: 1 }),
+			agentListQuantityEstimates(ctx.db, domainCtx(ctx), { unitId, limit: 10 }),
+		])
 		return toolOk({
-			publishedAtaCount: ataCount ?? 0,
-			recentAtas: atas ?? [],
+			completedQuantityEstimateCount: completed.total,
+			recentQuantityEstimates: recent.items.map(({ id, title, status, created_at }) => ({ id, title, status, created_at })),
 		})
 	},
 }
@@ -264,25 +172,30 @@ const listEmpenhos: ModuleToolDefinition = {
 	parameters: {
 		type: "object",
 		properties: {
-			ataId: { type: "string", description: "ID (UUID) do anexo quantitativo" },
+			quantityEstimateId: { type: "string", description: "ID (UUID) do anexo quantitativo" },
 			limit: { type: "number", description: `Quantos empenhos retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
 		},
-		required: ["ataId"],
+		required: ["quantityEstimateId"],
 	},
 	requiredLevel: 1,
 	async handler(args, ctx) {
-		const ataId = requireUuid(args.ataId, "ataId")
+		const quantityEstimateId = requireUuid(args.quantityEstimateId, "quantityEstimateId")
 		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		const { data: ata, error: ataError } = await untypedFrom(ctx, "procurement_list", "procurement").select("unit_id").eq("id", ataId).single()
-		if (ataError || !ata) return toolErr("Anexo quantitativo não encontrado")
+		const { data: quantityEstimate, error: quantityEstimateError } = await untypedFrom(ctx, "quantity_estimate", "procurement")
+			.select("unit_id")
+			.eq("id", quantityEstimateId)
+			.single()
+		if (quantityEstimateError || !quantityEstimate) return toolErr("Anexo quantitativo não encontrado")
 
-		requireUnitPermission(ctx, 1, { type: "unit", id: ata.unit_id })
+		requireUnitPermission(ctx, 1, { type: "unit", id: quantityEstimate.unit_id })
 
 		// `finance.empenho` não aponta para o anexo — o vínculo é o `arp_item_id` dos itens da NE
 		// (`finance.empenho_item`). Filtrar pelo anexo (o que esta tool fazia) é coluna inexistente:
 		// erro, nunca lista. O caminho é anexo → ARPs → itens de ARP → itens de NE → NEs.
-		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement").select("id").eq("procurement_list_id", ataId)
+		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement")
+			.select("id")
+			.eq("quantity_estimate_id", quantityEstimateId)
 		if (arpsError) return toolErr(sanitizeDbError(arpsError, "list_empenhos:arps"))
 
 		const arpIds = (arps ?? []).map((a: { id: string }) => a.id)
@@ -296,10 +209,10 @@ const listEmpenhos: ModuleToolDefinition = {
 		const itemById = new Map((arpItems ?? []).map((i: { id: string }) => [i.id, i]))
 		if (itemById.size === 0) return toolOk({ empenhos: [], returned: 0, total: 0, limit })
 
-		// Uma ATA grande tem centenas de itens, e `in.(…)` viaja na query string: um `IN` único
+		// Um anexo grande tem centenas de itens, e `in.(…)` viaja na query string: um `IN` único
 		// com 300 UUIDs estoura o limite de linha de requisição do gateway. Vai em lotes.
 		// O vínculo é pelos ITENS da NE (20260926214000): uma NE com arroz, feijão e óleo cobre
-		// três itens da ata.
+		// três itens do anexo.
 		const itemIds = Array.from(itemById.keys())
 		const neItems: Array<{ empenho_id: string; arp_item_id: string; quantity: number | null; value: number }> = []
 		for (let start = 0; start < itemIds.length; start += EMPENHO_ID_BATCH) {
@@ -346,4 +259,12 @@ const listEmpenhos: ModuleToolDefinition = {
 	},
 }
 
-export const unitTools: ModuleToolDefinition[] = [listAtas, getAtaDetails, updateAtaStatus, getUnitDashboard, getUnitSettings, searchArp, listEmpenhos]
+export const unitTools: ModuleToolDefinition[] = [
+	listQuantityEstimates,
+	getQuantityEstimate,
+	updateQuantityEstimateStatusTool,
+	getUnitDashboard,
+	getUnitSettings,
+	searchArp,
+	listEmpenhos,
+]

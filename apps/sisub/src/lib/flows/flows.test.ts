@@ -102,13 +102,15 @@ describe("Planejar contratação", () => {
 		const calendar = step(steps, "calendar")
 		expect(calendar?.status).toBe("attention")
 		expect(calendar?.issues[0].message).toContain("março/2027")
-		expect(calendar?.issues[0].action?.href).toBe("/unit/10/procurement/new?step=2&draft=l1")
+		expect(calendar?.issues[0].action?.href).toBe("/unit/10/quantity-estimates/new?step=2&draft=l1")
 	})
 
 	test("preço sem pesquisa bloqueia a etapa de preços", () => {
 		const steps = buildProcurementPlanningSteps({
 			...baseUnit,
-			pricing: [{ listId: "l1", title: "Carnes", status: "draft", segmentName: "Carnes", items: 10, withoutPrice: 2, withoutResearch: 3, oldResearch: 0 }],
+			pricing: [
+				{ quantityEstimateId: "l1", title: "Carnes", status: "draft", segmentName: "Carnes", items: 10, withoutPrice: 2, withoutResearch: 3, oldResearch: 0 },
+			],
 		})
 		const prices = step(steps, "prices")
 		expect(prices?.status).toBe("blocked")

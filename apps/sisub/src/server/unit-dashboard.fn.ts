@@ -1,6 +1,6 @@
 /**
  * @module unit-dashboard.fn
- * Unit procurement health dashboard: published ATAs + ARP items at ≥80% consumption with upcoming-menu annotation.
+ * Unit procurement health dashboard: completed quantity estimates + ARP items at ≥80% consumption with upcoming-menu annotation.
  * Thin wrapper delegating to @iefa/sisub-domain operations (operations/procurement).
  * Auth enforced via requireAuth() — endpoint now requires authentication.
  * @domain core
@@ -12,7 +12,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import type { ProcurementList } from "@/types/domain/ata"
+import type { QuantityEstimate } from "@/types/domain/quantity-estimate"
 
 // ─── Tipos de saída ───────────────────────────────────────────────────────────
 
@@ -36,10 +36,10 @@ export interface DashboardArpItem {
 	arp_numero_ata: string
 	arp_ano_ata: string | null
 	arp_vigencia_fim: string | null
-	// ATA interna vinculada
-	ata_id: string
-	ata_title: string
-	// Ingrediente interno (via ata_item)
+	// anexo quantitativo vinculado
+	quantity_estimate_id: string
+	quantity_estimate_title: string
+	// Ingrediente interno (via quantity_estimate_item)
 	ingredient_id: string | null
 	ingredient_name: string | null
 	// Indica se o produto aparece em algum menu planejado nos próximos 30 dias
@@ -47,9 +47,9 @@ export interface DashboardArpItem {
 }
 
 export interface UnitDashboardData {
-	/** ATAs com status "published" da unidade */
-	published_atas: ProcurementList[]
-	/** Itens de ARP com consumo ≥ 80% ou saldo zerado, de ATAs publicadas */
+	/** Anexos quantitativos concluídos da unidade */
+	completed_quantity_estimates: QuantityEstimate[]
+	/** Itens de ARP com consumo ≥ 80% ou saldo zerado, de anexos quantitativos concluídos */
 	low_balance_items: DashboardArpItem[]
 }
 

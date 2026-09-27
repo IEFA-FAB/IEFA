@@ -634,7 +634,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 					kitchenId: targetKitchenId,
 					baseTemplateId: input.sourceTemplateId,
 					templateType: source.templateType ?? "weekly",
-					// Exceção sem a recorrência vira 1 ocorrência no custeio da Ata.
+					// Exceção sem a recorrência vira 1 ocorrência no custeio do anexo quantitativo.
 					expectedMonthlyOccurrences: source.expectedMonthlyOccurrences,
 					// Padrão de lanche: a cópia herda a classificação, mas nasce NÃO pedível e sem
 					// revisão — publicar para o comensal e atestar a revisão trimestral são atos da

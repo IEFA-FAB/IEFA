@@ -18,6 +18,7 @@
 
 import { z } from "zod"
 import { KitchenIdSchema } from "../schemas/common.ts"
+import { QUANTITY_ESTIMATE_STATUSES } from "../schemas/procurement.ts"
 import { AGENT_LIST_MAX } from "./budget.ts"
 
 const LimitSchema = z.number().int().positive().max(AGENT_LIST_MAX).nullish().describe(`Quantos itens retornar (máximo ${AGENT_LIST_MAX})`)
@@ -41,6 +42,32 @@ export const AgentListLegacyPreparationsSchema = z.object({
 	limit: LimitSchema,
 })
 export type AgentListLegacyPreparations = z.infer<typeof AgentListLegacyPreparationsSchema>
+
+// ── Anexo quantitativo do TR ──────────────────────────────────────────────
+
+export const AgentListQuantityEstimatesSchema = z.object({
+	status: z
+		.enum(QUANTITY_ESTIMATE_STATUSES)
+		.nullish()
+		.describe("Filtra pelo status: draft (rascunho), completed (concluído) ou archived (arquivado). Sem filtro, todos"),
+	limit: LimitSchema,
+})
+export type AgentListQuantityEstimates = z.infer<typeof AgentListQuantityEstimatesSchema>
+
+export const AgentGetQuantityEstimateSchema = z.object({
+	quantityEstimateId: z.uuid().describe("ID do anexo quantitativo"),
+	itemSearch: z.string().max(200).nullish().describe("Filtra os itens pelo nome do insumo (parcial, sem distinguir caixa)"),
+	limit: LimitSchema,
+})
+export type AgentGetQuantityEstimate = z.infer<typeof AgentGetQuantityEstimateSchema>
+
+export const AgentUpdateQuantityEstimateStatusSchema = z.object({
+	quantityEstimateId: z.uuid().describe("ID do anexo quantitativo"),
+	status: z
+		.enum(QUANTITY_ESTIMATE_STATUSES)
+		.describe("Novo status: draft (rascunho), completed (concluir: congela a memória de cálculo) ou archived (arquivar). Não volta de concluído para rascunho"),
+})
+export type AgentUpdateQuantityEstimateStatus = z.infer<typeof AgentUpdateQuantityEstimateStatusSchema>
 
 // ── Equipamento ───────────────────────────────────────────────────────────
 

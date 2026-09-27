@@ -602,18 +602,18 @@ export interface OpeningCostCandidate {
 	source: "ata" | "price_research"
 	/** R$ por unidade base do insumo. */
 	unitCost: number
-	/** Texto para quem audita: "ATA 12/2026 item 5", "Pesquisa da ATA …". */
+	/** Texto para quem audita: "ARP 12/2026 item 5", "Pesquisa do anexo …". */
 	reference: string
-	/** A ATA/lista é da unidade dona da cozinha? */
+	/** A ARP ou o anexo é da unidade dona da cozinha? */
 	sameUnit: boolean
-	/** Data de referência (`aaaa-mm-dd`) — vigência da ATA ou cálculo da lista. */
+	/** Data de referência (`aaaa-mm-dd`) — vigência da ARP ou cálculo do anexo. */
 	date: string | null
 }
 
 /**
  * Preço de compra → preço por unidade base.
  *
- * `conversion_factor` é "unidades base por unidade de compra" (é assim que `ata.ts` calcula
+ * `conversion_factor` é "unidades base por unidade de compra" (é assim que `quantity-estimate.ts` calcula
  * `purchase_quantity = total_quantity / conversion_factor`). Sem fator conhecido NÃO há
  * sugestão: dividir por 1 por omissão transformaria o preço da caixa em preço do quilo.
  */

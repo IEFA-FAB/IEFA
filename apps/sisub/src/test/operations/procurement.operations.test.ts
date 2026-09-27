@@ -60,7 +60,7 @@ describeSupabaseIntegration("procurement operations (regressão)", () => {
 		const need = needs.find((n) => n.ingredient_id === ingredientId)
 
 		expect(need).toBeDefined()
-		expect(need?.total_quantity).toBe(300) // 150 × (200/100)
+		expect(need?.estimated_quantity).toBe(300) // 150 × (200/100)
 		expect(need?.measure_unit).toBe("KG")
 		expect(need?.folder_id).toBe(folderId)
 	})
@@ -80,7 +80,7 @@ describeSupabaseIntegration("procurement operations (regressão)", () => {
 		await seeder.seedMenuItem({ dailyMenuId, recipeId, plannedPortionQuantity: 100, excludedFromProcurement: 1 })
 
 		const needs = await fetchProcurementNeeds(db, ctx, { startDate: date, endDate: date, kitchenId })
-		expect(needs.find((n) => n.ingredient_id === ingredientId)?.total_quantity).toBe(150) // só o NULL
+		expect(needs.find((n) => n.ingredient_id === ingredientId)?.estimated_quantity).toBe(150) // só o NULL
 	})
 
 	test("fetchProcurementNeeds retorna [] quando não há cardápio no intervalo", async () => {

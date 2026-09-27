@@ -16,7 +16,7 @@ export type GetTemplate = z.infer<typeof GetTemplateSchema>
 export const TemplateTypeSchema = z.enum(["weekly", "event", "exception"])
 export type TemplateType = z.infer<typeof TemplateTypeSchema>
 
-/** Ocorrências mensais esperadas — só faz sentido para exceção; multiplica o custeio na Ata. */
+/** Ocorrências mensais esperadas — só faz sentido para exceção; multiplica o custeio no anexo quantitativo. */
 export const ExpectedMonthlyOccurrencesSchema = z.number().int().positive()
 
 export const TemplateItemSchema = z.object({

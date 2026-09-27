@@ -128,7 +128,7 @@ import { Route as ProtectedModulesUnitUnitIdDesignationsRouteImport } from './ro
 import { Route as ProtectedModulesUnitUnitIdEmpenhosRouteImport } from './routes/_protected/_modules/unit/$unitId/empenhos'
 import { Route as ProtectedModulesUnitUnitIdLiquidacoesRouteImport } from './routes/_protected/_modules/unit/$unitId/liquidacoes'
 import { Route as ProtectedModulesUnitUnitIdPagamentosRouteImport } from './routes/_protected/_modules/unit/$unitId/pagamentos'
-import { Route as ProtectedModulesUnitUnitIdProcurementRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement'
+import { Route as ProtectedModulesUnitUnitIdQuantityEstimatesRouteImport } from './routes/_protected/_modules/unit/$unitId/quantity-estimates'
 import { Route as ProtectedModulesUnitUnitIdReconciliationRouteImport } from './routes/_protected/_modules/unit/$unitId/reconciliation'
 import { Route as ProtectedModulesUnitUnitIdSegmentsRouteImport } from './routes/_protected/_modules/unit/$unitId/segments'
 import { Route as ProtectedModulesUnitUnitIdSettingsRouteImport } from './routes/_protected/_modules/unit/$unitId/settings'
@@ -165,16 +165,16 @@ import { Route as ProtectedModulesStorageKitchenIdReceivingReceiptIdRouteImport 
 import { Route as ProtectedModulesUnitUnitIdFlowsIndexRouteImport } from './routes/_protected/_modules/unit/$unitId/flows/index'
 import { Route as ProtectedModulesUnitUnitIdFlowsExpenseExecutionRouteImport } from './routes/_protected/_modules/unit/$unitId/flows/expense-execution'
 import { Route as ProtectedModulesUnitUnitIdFlowsProcurementPlanningRouteImport } from './routes/_protected/_modules/unit/$unitId/flows/procurement-planning'
-import { Route as ProtectedModulesUnitUnitIdProcurementIndexRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement/index'
-import { Route as ProtectedModulesUnitUnitIdProcurementAtaIdRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement/$ataId'
-import { Route as ProtectedModulesUnitUnitIdProcurementNewRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement/new'
+import { Route as ProtectedModulesUnitUnitIdQuantityEstimatesIndexRouteImport } from './routes/_protected/_modules/unit/$unitId/quantity-estimates/index'
+import { Route as ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRouteImport } from './routes/_protected/_modules/unit/$unitId/quantity-estimates/$quantityEstimateId'
+import { Route as ProtectedModulesUnitUnitIdQuantityEstimatesNewRouteImport } from './routes/_protected/_modules/unit/$unitId/quantity-estimates/new'
 import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/index'
 import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork'
 import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdPrintRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/print'
 import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions'
 import { Route as ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/weekly-menus/print.$weeklyMenuId'
-import { Route as ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement/print.price-research.$ataId'
-import { Route as ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement/print.quantities.$ataId'
+import { Route as ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRouteImport } from './routes/_protected/_modules/unit/$unitId/quantity-estimates/print.calculation-memory.$quantityEstimateId'
+import { Route as ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRouteImport } from './routes/_protected/_modules/unit/$unitId/quantity-estimates/print.price-research.$quantityEstimateId'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
@@ -868,10 +868,10 @@ const ProtectedModulesUnitUnitIdPagamentosRoute =
     path: '/pagamentos',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
-const ProtectedModulesUnitUnitIdProcurementRoute =
-  ProtectedModulesUnitUnitIdProcurementRouteImport.update({
-    id: '/procurement',
-    path: '/procurement',
+const ProtectedModulesUnitUnitIdQuantityEstimatesRoute =
+  ProtectedModulesUnitUnitIdQuantityEstimatesRouteImport.update({
+    id: '/quantity-estimates',
+    path: '/quantity-estimates',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
 const ProtectedModulesUnitUnitIdReconciliationRoute =
@@ -1090,23 +1090,25 @@ const ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute =
     path: '/flows/procurement-planning',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
-const ProtectedModulesUnitUnitIdProcurementIndexRoute =
-  ProtectedModulesUnitUnitIdProcurementIndexRouteImport.update({
+const ProtectedModulesUnitUnitIdQuantityEstimatesIndexRoute =
+  ProtectedModulesUnitUnitIdQuantityEstimatesIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => ProtectedModulesUnitUnitIdProcurementRoute,
+    getParentRoute: () => ProtectedModulesUnitUnitIdQuantityEstimatesRoute,
   } as any)
-const ProtectedModulesUnitUnitIdProcurementAtaIdRoute =
-  ProtectedModulesUnitUnitIdProcurementAtaIdRouteImport.update({
-    id: '/$ataId',
-    path: '/$ataId',
-    getParentRoute: () => ProtectedModulesUnitUnitIdProcurementRoute,
-  } as any)
-const ProtectedModulesUnitUnitIdProcurementNewRoute =
-  ProtectedModulesUnitUnitIdProcurementNewRouteImport.update({
+const ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRoute =
+  ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRouteImport.update(
+    {
+      id: '/$quantityEstimateId',
+      path: '/$quantityEstimateId',
+      getParentRoute: () => ProtectedModulesUnitUnitIdQuantityEstimatesRoute,
+    } as any,
+  )
+const ProtectedModulesUnitUnitIdQuantityEstimatesNewRoute =
+  ProtectedModulesUnitUnitIdQuantityEstimatesNewRouteImport.update({
     id: '/new',
     path: '/new',
-    getParentRoute: () => ProtectedModulesUnitUnitIdProcurementRoute,
+    getParentRoute: () => ProtectedModulesUnitUnitIdQuantityEstimatesRoute,
   } as any)
 const ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute =
   ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRouteImport.update({
@@ -1144,20 +1146,22 @@ const ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute =
       getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
     } as any,
   )
-const ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute =
-  ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRouteImport.update(
+const ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRoute =
+  ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRouteImport.update(
     {
-      id: '/print/price-research/$ataId',
-      path: '/print/price-research/$ataId',
-      getParentRoute: () => ProtectedModulesUnitUnitIdProcurementRoute,
+      id: '/print/calculation-memory/$quantityEstimateId',
+      path: '/print/calculation-memory/$quantityEstimateId',
+      getParentRoute: () => ProtectedModulesUnitUnitIdQuantityEstimatesRoute,
     } as any,
   )
-const ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute =
-  ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRouteImport.update({
-    id: '/print/quantities/$ataId',
-    path: '/print/quantities/$ataId',
-    getParentRoute: () => ProtectedModulesUnitUnitIdProcurementRoute,
-  } as any)
+const ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRoute =
+  ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRouteImport.update(
+    {
+      id: '/print/price-research/$quantityEstimateId',
+      path: '/print/price-research/$quantityEstimateId',
+      getParentRoute: () => ProtectedModulesUnitUnitIdQuantityEstimatesRoute,
+    } as any,
+  )
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
@@ -1265,7 +1269,7 @@ export interface FileRoutesByFullPath {
   '/unit/$unitId/empenhos': typeof ProtectedModulesUnitUnitIdEmpenhosRoute
   '/unit/$unitId/liquidacoes': typeof ProtectedModulesUnitUnitIdLiquidacoesRoute
   '/unit/$unitId/pagamentos': typeof ProtectedModulesUnitUnitIdPagamentosRoute
-  '/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
+  '/unit/$unitId/quantity-estimates': typeof ProtectedModulesUnitUnitIdQuantityEstimatesRouteWithChildren
   '/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
   '/unit/$unitId/segments': typeof ProtectedModulesUnitUnitIdSegmentsRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -1302,8 +1306,8 @@ export interface FileRoutesByFullPath {
   '/storage/$kitchenId/receiving/$receiptId': typeof ProtectedModulesStorageKitchenIdReceivingReceiptIdRoute
   '/unit/$unitId/flows/expense-execution': typeof ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute
   '/unit/$unitId/flows/procurement-planning': typeof ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute
-  '/unit/$unitId/procurement/$ataId': typeof ProtectedModulesUnitUnitIdProcurementAtaIdRoute
-  '/unit/$unitId/procurement/new': typeof ProtectedModulesUnitUnitIdProcurementNewRoute
+  '/unit/$unitId/quantity-estimates/$quantityEstimateId': typeof ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRoute
+  '/unit/$unitId/quantity-estimates/new': typeof ProtectedModulesUnitUnitIdQuantityEstimatesNewRoute
   '/global/recipes/$recipeId/': typeof ProtectedModulesGlobalRecipesRecipeIdIndexRoute
   '/kitchen/$kitchenId/demand-forecasts/': typeof ProtectedModulesKitchenKitchenIdDemandForecastsIndexRoute
   '/kitchen/$kitchenId/events/': typeof ProtectedModulesKitchenKitchenIdEventsIndexRoute
@@ -1315,14 +1319,14 @@ export interface FileRoutesByFullPath {
   '/storage/$kitchenId/nfe/': typeof ProtectedModulesStorageKitchenIdNfeIndexRoute
   '/storage/$kitchenId/receiving/': typeof ProtectedModulesStorageKitchenIdReceivingIndexRoute
   '/unit/$unitId/flows/': typeof ProtectedModulesUnitUnitIdFlowsIndexRoute
-  '/unit/$unitId/procurement/': typeof ProtectedModulesUnitUnitIdProcurementIndexRoute
+  '/unit/$unitId/quantity-estimates/': typeof ProtectedModulesUnitUnitIdQuantityEstimatesIndexRoute
   '/kitchen/$kitchenId/recipes/$recipeId/fork': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute
   '/kitchen/$kitchenId/recipes/$recipeId/print': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdPrintRoute
   '/kitchen/$kitchenId/recipes/$recipeId/versions': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute
   '/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute
   '/kitchen/$kitchenId/recipes/$recipeId/': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute
-  '/unit/$unitId/procurement/print/price-research/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute
-  '/unit/$unitId/procurement/print/quantities/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute
+  '/unit/$unitId/quantity-estimates/print/calculation-memory/$quantityEstimateId': typeof ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRoute
+  '/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId': typeof ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -1459,8 +1463,8 @@ export interface FileRoutesByTo {
   '/storage/$kitchenId/receiving/$receiptId': typeof ProtectedModulesStorageKitchenIdReceivingReceiptIdRoute
   '/unit/$unitId/flows/expense-execution': typeof ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute
   '/unit/$unitId/flows/procurement-planning': typeof ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute
-  '/unit/$unitId/procurement/$ataId': typeof ProtectedModulesUnitUnitIdProcurementAtaIdRoute
-  '/unit/$unitId/procurement/new': typeof ProtectedModulesUnitUnitIdProcurementNewRoute
+  '/unit/$unitId/quantity-estimates/$quantityEstimateId': typeof ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRoute
+  '/unit/$unitId/quantity-estimates/new': typeof ProtectedModulesUnitUnitIdQuantityEstimatesNewRoute
   '/global/recipes/$recipeId': typeof ProtectedModulesGlobalRecipesRecipeIdIndexRoute
   '/kitchen/$kitchenId/demand-forecasts': typeof ProtectedModulesKitchenKitchenIdDemandForecastsIndexRoute
   '/kitchen/$kitchenId/events': typeof ProtectedModulesKitchenKitchenIdEventsIndexRoute
@@ -1472,14 +1476,14 @@ export interface FileRoutesByTo {
   '/storage/$kitchenId/nfe': typeof ProtectedModulesStorageKitchenIdNfeIndexRoute
   '/storage/$kitchenId/receiving': typeof ProtectedModulesStorageKitchenIdReceivingIndexRoute
   '/unit/$unitId/flows': typeof ProtectedModulesUnitUnitIdFlowsIndexRoute
-  '/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementIndexRoute
+  '/unit/$unitId/quantity-estimates': typeof ProtectedModulesUnitUnitIdQuantityEstimatesIndexRoute
   '/kitchen/$kitchenId/recipes/$recipeId/fork': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute
   '/kitchen/$kitchenId/recipes/$recipeId/print': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdPrintRoute
   '/kitchen/$kitchenId/recipes/$recipeId/versions': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute
   '/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute
   '/kitchen/$kitchenId/recipes/$recipeId': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute
-  '/unit/$unitId/procurement/print/price-research/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute
-  '/unit/$unitId/procurement/print/quantities/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute
+  '/unit/$unitId/quantity-estimates/print/calculation-memory/$quantityEstimateId': typeof ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRoute
+  '/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId': typeof ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1591,7 +1595,7 @@ export interface FileRoutesById {
   '/_protected/_modules/unit/$unitId/empenhos': typeof ProtectedModulesUnitUnitIdEmpenhosRoute
   '/_protected/_modules/unit/$unitId/liquidacoes': typeof ProtectedModulesUnitUnitIdLiquidacoesRoute
   '/_protected/_modules/unit/$unitId/pagamentos': typeof ProtectedModulesUnitUnitIdPagamentosRoute
-  '/_protected/_modules/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
+  '/_protected/_modules/unit/$unitId/quantity-estimates': typeof ProtectedModulesUnitUnitIdQuantityEstimatesRouteWithChildren
   '/_protected/_modules/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
   '/_protected/_modules/unit/$unitId/segments': typeof ProtectedModulesUnitUnitIdSegmentsRoute
   '/_protected/_modules/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -1628,8 +1632,8 @@ export interface FileRoutesById {
   '/_protected/_modules/storage/$kitchenId/receiving/$receiptId': typeof ProtectedModulesStorageKitchenIdReceivingReceiptIdRoute
   '/_protected/_modules/unit/$unitId/flows/expense-execution': typeof ProtectedModulesUnitUnitIdFlowsExpenseExecutionRoute
   '/_protected/_modules/unit/$unitId/flows/procurement-planning': typeof ProtectedModulesUnitUnitIdFlowsProcurementPlanningRoute
-  '/_protected/_modules/unit/$unitId/procurement/$ataId': typeof ProtectedModulesUnitUnitIdProcurementAtaIdRoute
-  '/_protected/_modules/unit/$unitId/procurement/new': typeof ProtectedModulesUnitUnitIdProcurementNewRoute
+  '/_protected/_modules/unit/$unitId/quantity-estimates/$quantityEstimateId': typeof ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRoute
+  '/_protected/_modules/unit/$unitId/quantity-estimates/new': typeof ProtectedModulesUnitUnitIdQuantityEstimatesNewRoute
   '/_protected/_modules/global/recipes/$recipeId/': typeof ProtectedModulesGlobalRecipesRecipeIdIndexRoute
   '/_protected/_modules/kitchen/$kitchenId/demand-forecasts/': typeof ProtectedModulesKitchenKitchenIdDemandForecastsIndexRoute
   '/_protected/_modules/kitchen/$kitchenId/events/': typeof ProtectedModulesKitchenKitchenIdEventsIndexRoute
@@ -1641,14 +1645,14 @@ export interface FileRoutesById {
   '/_protected/_modules/storage/$kitchenId/nfe/': typeof ProtectedModulesStorageKitchenIdNfeIndexRoute
   '/_protected/_modules/storage/$kitchenId/receiving/': typeof ProtectedModulesStorageKitchenIdReceivingIndexRoute
   '/_protected/_modules/unit/$unitId/flows/': typeof ProtectedModulesUnitUnitIdFlowsIndexRoute
-  '/_protected/_modules/unit/$unitId/procurement/': typeof ProtectedModulesUnitUnitIdProcurementIndexRoute
+  '/_protected/_modules/unit/$unitId/quantity-estimates/': typeof ProtectedModulesUnitUnitIdQuantityEstimatesIndexRoute
   '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute
   '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/print': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdPrintRoute
   '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute
   '/_protected/_modules/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRoute
   '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute
-  '/_protected/_modules/unit/$unitId/procurement/print/price-research/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute
-  '/_protected/_modules/unit/$unitId/procurement/print/quantities/$ataId': typeof ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute
+  '/_protected/_modules/unit/$unitId/quantity-estimates/print/calculation-memory/$quantityEstimateId': typeof ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRoute
+  '/_protected/_modules/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId': typeof ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1758,7 +1762,7 @@ export interface FileRouteTypes {
     | '/unit/$unitId/empenhos'
     | '/unit/$unitId/liquidacoes'
     | '/unit/$unitId/pagamentos'
-    | '/unit/$unitId/procurement'
+    | '/unit/$unitId/quantity-estimates'
     | '/unit/$unitId/reconciliation'
     | '/unit/$unitId/segments'
     | '/unit/$unitId/settings'
@@ -1795,8 +1799,8 @@ export interface FileRouteTypes {
     | '/storage/$kitchenId/receiving/$receiptId'
     | '/unit/$unitId/flows/expense-execution'
     | '/unit/$unitId/flows/procurement-planning'
-    | '/unit/$unitId/procurement/$ataId'
-    | '/unit/$unitId/procurement/new'
+    | '/unit/$unitId/quantity-estimates/$quantityEstimateId'
+    | '/unit/$unitId/quantity-estimates/new'
     | '/global/recipes/$recipeId/'
     | '/kitchen/$kitchenId/demand-forecasts/'
     | '/kitchen/$kitchenId/events/'
@@ -1808,14 +1812,14 @@ export interface FileRouteTypes {
     | '/storage/$kitchenId/nfe/'
     | '/storage/$kitchenId/receiving/'
     | '/unit/$unitId/flows/'
-    | '/unit/$unitId/procurement/'
+    | '/unit/$unitId/quantity-estimates/'
     | '/kitchen/$kitchenId/recipes/$recipeId/fork'
     | '/kitchen/$kitchenId/recipes/$recipeId/print'
     | '/kitchen/$kitchenId/recipes/$recipeId/versions'
     | '/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId'
     | '/kitchen/$kitchenId/recipes/$recipeId/'
-    | '/unit/$unitId/procurement/print/price-research/$ataId'
-    | '/unit/$unitId/procurement/print/quantities/$ataId'
+    | '/unit/$unitId/quantity-estimates/print/calculation-memory/$quantityEstimateId'
+    | '/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1952,8 +1956,8 @@ export interface FileRouteTypes {
     | '/storage/$kitchenId/receiving/$receiptId'
     | '/unit/$unitId/flows/expense-execution'
     | '/unit/$unitId/flows/procurement-planning'
-    | '/unit/$unitId/procurement/$ataId'
-    | '/unit/$unitId/procurement/new'
+    | '/unit/$unitId/quantity-estimates/$quantityEstimateId'
+    | '/unit/$unitId/quantity-estimates/new'
     | '/global/recipes/$recipeId'
     | '/kitchen/$kitchenId/demand-forecasts'
     | '/kitchen/$kitchenId/events'
@@ -1965,14 +1969,14 @@ export interface FileRouteTypes {
     | '/storage/$kitchenId/nfe'
     | '/storage/$kitchenId/receiving'
     | '/unit/$unitId/flows'
-    | '/unit/$unitId/procurement'
+    | '/unit/$unitId/quantity-estimates'
     | '/kitchen/$kitchenId/recipes/$recipeId/fork'
     | '/kitchen/$kitchenId/recipes/$recipeId/print'
     | '/kitchen/$kitchenId/recipes/$recipeId/versions'
     | '/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId'
     | '/kitchen/$kitchenId/recipes/$recipeId'
-    | '/unit/$unitId/procurement/print/price-research/$ataId'
-    | '/unit/$unitId/procurement/print/quantities/$ataId'
+    | '/unit/$unitId/quantity-estimates/print/calculation-memory/$quantityEstimateId'
+    | '/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId'
   id:
     | '__root__'
     | '/_protected'
@@ -2083,7 +2087,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/unit/$unitId/empenhos'
     | '/_protected/_modules/unit/$unitId/liquidacoes'
     | '/_protected/_modules/unit/$unitId/pagamentos'
-    | '/_protected/_modules/unit/$unitId/procurement'
+    | '/_protected/_modules/unit/$unitId/quantity-estimates'
     | '/_protected/_modules/unit/$unitId/reconciliation'
     | '/_protected/_modules/unit/$unitId/segments'
     | '/_protected/_modules/unit/$unitId/settings'
@@ -2120,8 +2124,8 @@ export interface FileRouteTypes {
     | '/_protected/_modules/storage/$kitchenId/receiving/$receiptId'
     | '/_protected/_modules/unit/$unitId/flows/expense-execution'
     | '/_protected/_modules/unit/$unitId/flows/procurement-planning'
-    | '/_protected/_modules/unit/$unitId/procurement/$ataId'
-    | '/_protected/_modules/unit/$unitId/procurement/new'
+    | '/_protected/_modules/unit/$unitId/quantity-estimates/$quantityEstimateId'
+    | '/_protected/_modules/unit/$unitId/quantity-estimates/new'
     | '/_protected/_modules/global/recipes/$recipeId/'
     | '/_protected/_modules/kitchen/$kitchenId/demand-forecasts/'
     | '/_protected/_modules/kitchen/$kitchenId/events/'
@@ -2133,14 +2137,14 @@ export interface FileRouteTypes {
     | '/_protected/_modules/storage/$kitchenId/nfe/'
     | '/_protected/_modules/storage/$kitchenId/receiving/'
     | '/_protected/_modules/unit/$unitId/flows/'
-    | '/_protected/_modules/unit/$unitId/procurement/'
+    | '/_protected/_modules/unit/$unitId/quantity-estimates/'
     | '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork'
     | '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/print'
     | '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions'
     | '/_protected/_modules/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId'
     | '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/'
-    | '/_protected/_modules/unit/$unitId/procurement/print/price-research/$ataId'
-    | '/_protected/_modules/unit/$unitId/procurement/print/quantities/$ataId'
+    | '/_protected/_modules/unit/$unitId/quantity-estimates/print/calculation-memory/$quantityEstimateId'
+    | '/_protected/_modules/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -2990,11 +2994,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdPagamentosRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
-    '/_protected/_modules/unit/$unitId/procurement': {
-      id: '/_protected/_modules/unit/$unitId/procurement'
-      path: '/procurement'
-      fullPath: '/unit/$unitId/procurement'
-      preLoaderRoute: typeof ProtectedModulesUnitUnitIdProcurementRouteImport
+    '/_protected/_modules/unit/$unitId/quantity-estimates': {
+      id: '/_protected/_modules/unit/$unitId/quantity-estimates'
+      path: '/quantity-estimates'
+      fullPath: '/unit/$unitId/quantity-estimates'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
     '/_protected/_modules/unit/$unitId/reconciliation': {
@@ -3249,26 +3253,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdFlowsProcurementPlanningRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
-    '/_protected/_modules/unit/$unitId/procurement/': {
-      id: '/_protected/_modules/unit/$unitId/procurement/'
+    '/_protected/_modules/unit/$unitId/quantity-estimates/': {
+      id: '/_protected/_modules/unit/$unitId/quantity-estimates/'
       path: '/'
-      fullPath: '/unit/$unitId/procurement/'
-      preLoaderRoute: typeof ProtectedModulesUnitUnitIdProcurementIndexRouteImport
-      parentRoute: typeof ProtectedModulesUnitUnitIdProcurementRoute
+      fullPath: '/unit/$unitId/quantity-estimates/'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesIndexRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesRoute
     }
-    '/_protected/_modules/unit/$unitId/procurement/$ataId': {
-      id: '/_protected/_modules/unit/$unitId/procurement/$ataId'
-      path: '/$ataId'
-      fullPath: '/unit/$unitId/procurement/$ataId'
-      preLoaderRoute: typeof ProtectedModulesUnitUnitIdProcurementAtaIdRouteImport
-      parentRoute: typeof ProtectedModulesUnitUnitIdProcurementRoute
+    '/_protected/_modules/unit/$unitId/quantity-estimates/$quantityEstimateId': {
+      id: '/_protected/_modules/unit/$unitId/quantity-estimates/$quantityEstimateId'
+      path: '/$quantityEstimateId'
+      fullPath: '/unit/$unitId/quantity-estimates/$quantityEstimateId'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesRoute
     }
-    '/_protected/_modules/unit/$unitId/procurement/new': {
-      id: '/_protected/_modules/unit/$unitId/procurement/new'
+    '/_protected/_modules/unit/$unitId/quantity-estimates/new': {
+      id: '/_protected/_modules/unit/$unitId/quantity-estimates/new'
       path: '/new'
-      fullPath: '/unit/$unitId/procurement/new'
-      preLoaderRoute: typeof ProtectedModulesUnitUnitIdProcurementNewRouteImport
-      parentRoute: typeof ProtectedModulesUnitUnitIdProcurementRoute
+      fullPath: '/unit/$unitId/quantity-estimates/new'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesNewRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesRoute
     }
     '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/': {
       id: '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/'
@@ -3305,19 +3309,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusPrintWeeklyMenuIdRouteImport
       parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
     }
-    '/_protected/_modules/unit/$unitId/procurement/print/price-research/$ataId': {
-      id: '/_protected/_modules/unit/$unitId/procurement/print/price-research/$ataId'
-      path: '/print/price-research/$ataId'
-      fullPath: '/unit/$unitId/procurement/print/price-research/$ataId'
-      preLoaderRoute: typeof ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRouteImport
-      parentRoute: typeof ProtectedModulesUnitUnitIdProcurementRoute
+    '/_protected/_modules/unit/$unitId/quantity-estimates/print/calculation-memory/$quantityEstimateId': {
+      id: '/_protected/_modules/unit/$unitId/quantity-estimates/print/calculation-memory/$quantityEstimateId'
+      path: '/print/calculation-memory/$quantityEstimateId'
+      fullPath: '/unit/$unitId/quantity-estimates/print/calculation-memory/$quantityEstimateId'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesRoute
     }
-    '/_protected/_modules/unit/$unitId/procurement/print/quantities/$ataId': {
-      id: '/_protected/_modules/unit/$unitId/procurement/print/quantities/$ataId'
-      path: '/print/quantities/$ataId'
-      fullPath: '/unit/$unitId/procurement/print/quantities/$ataId'
-      preLoaderRoute: typeof ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRouteImport
-      parentRoute: typeof ProtectedModulesUnitUnitIdProcurementRoute
+    '/_protected/_modules/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId': {
+      id: '/_protected/_modules/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId'
+      path: '/print/price-research/$quantityEstimateId'
+      fullPath: '/unit/$unitId/quantity-estimates/print/price-research/$quantityEstimateId'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesRoute
     }
   }
 }
@@ -3589,31 +3593,31 @@ const ProtectedModulesStorageKitchenIdRouteRouteWithChildren =
     ProtectedModulesStorageKitchenIdRouteRouteChildren,
   )
 
-interface ProtectedModulesUnitUnitIdProcurementRouteChildren {
-  ProtectedModulesUnitUnitIdProcurementAtaIdRoute: typeof ProtectedModulesUnitUnitIdProcurementAtaIdRoute
-  ProtectedModulesUnitUnitIdProcurementNewRoute: typeof ProtectedModulesUnitUnitIdProcurementNewRoute
-  ProtectedModulesUnitUnitIdProcurementIndexRoute: typeof ProtectedModulesUnitUnitIdProcurementIndexRoute
-  ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute: typeof ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute
-  ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute: typeof ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute
+interface ProtectedModulesUnitUnitIdQuantityEstimatesRouteChildren {
+  ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRoute
+  ProtectedModulesUnitUnitIdQuantityEstimatesNewRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesNewRoute
+  ProtectedModulesUnitUnitIdQuantityEstimatesIndexRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesIndexRoute
+  ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRoute
+  ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRoute
 }
 
-const ProtectedModulesUnitUnitIdProcurementRouteChildren: ProtectedModulesUnitUnitIdProcurementRouteChildren =
+const ProtectedModulesUnitUnitIdQuantityEstimatesRouteChildren: ProtectedModulesUnitUnitIdQuantityEstimatesRouteChildren =
   {
-    ProtectedModulesUnitUnitIdProcurementAtaIdRoute:
-      ProtectedModulesUnitUnitIdProcurementAtaIdRoute,
-    ProtectedModulesUnitUnitIdProcurementNewRoute:
-      ProtectedModulesUnitUnitIdProcurementNewRoute,
-    ProtectedModulesUnitUnitIdProcurementIndexRoute:
-      ProtectedModulesUnitUnitIdProcurementIndexRoute,
-    ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute:
-      ProtectedModulesUnitUnitIdProcurementPrintPriceResearchAtaIdRoute,
-    ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute:
-      ProtectedModulesUnitUnitIdProcurementPrintQuantitiesAtaIdRoute,
+    ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRoute:
+      ProtectedModulesUnitUnitIdQuantityEstimatesQuantityEstimateIdRoute,
+    ProtectedModulesUnitUnitIdQuantityEstimatesNewRoute:
+      ProtectedModulesUnitUnitIdQuantityEstimatesNewRoute,
+    ProtectedModulesUnitUnitIdQuantityEstimatesIndexRoute:
+      ProtectedModulesUnitUnitIdQuantityEstimatesIndexRoute,
+    ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRoute:
+      ProtectedModulesUnitUnitIdQuantityEstimatesPrintCalculationMemoryQuantityEstimateIdRoute,
+    ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRoute:
+      ProtectedModulesUnitUnitIdQuantityEstimatesPrintPriceResearchQuantityEstimateIdRoute,
   }
 
-const ProtectedModulesUnitUnitIdProcurementRouteWithChildren =
-  ProtectedModulesUnitUnitIdProcurementRoute._addFileChildren(
-    ProtectedModulesUnitUnitIdProcurementRouteChildren,
+const ProtectedModulesUnitUnitIdQuantityEstimatesRouteWithChildren =
+  ProtectedModulesUnitUnitIdQuantityEstimatesRoute._addFileChildren(
+    ProtectedModulesUnitUnitIdQuantityEstimatesRouteChildren,
   )
 
 interface ProtectedModulesUnitUnitIdRouteRouteChildren {
@@ -3625,7 +3629,7 @@ interface ProtectedModulesUnitUnitIdRouteRouteChildren {
   ProtectedModulesUnitUnitIdEmpenhosRoute: typeof ProtectedModulesUnitUnitIdEmpenhosRoute
   ProtectedModulesUnitUnitIdLiquidacoesRoute: typeof ProtectedModulesUnitUnitIdLiquidacoesRoute
   ProtectedModulesUnitUnitIdPagamentosRoute: typeof ProtectedModulesUnitUnitIdPagamentosRoute
-  ProtectedModulesUnitUnitIdProcurementRoute: typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
+  ProtectedModulesUnitUnitIdQuantityEstimatesRoute: typeof ProtectedModulesUnitUnitIdQuantityEstimatesRouteWithChildren
   ProtectedModulesUnitUnitIdReconciliationRoute: typeof ProtectedModulesUnitUnitIdReconciliationRoute
   ProtectedModulesUnitUnitIdSegmentsRoute: typeof ProtectedModulesUnitUnitIdSegmentsRoute
   ProtectedModulesUnitUnitIdSettingsRoute: typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -3653,8 +3657,8 @@ const ProtectedModulesUnitUnitIdRouteRouteChildren: ProtectedModulesUnitUnitIdRo
       ProtectedModulesUnitUnitIdLiquidacoesRoute,
     ProtectedModulesUnitUnitIdPagamentosRoute:
       ProtectedModulesUnitUnitIdPagamentosRoute,
-    ProtectedModulesUnitUnitIdProcurementRoute:
-      ProtectedModulesUnitUnitIdProcurementRouteWithChildren,
+    ProtectedModulesUnitUnitIdQuantityEstimatesRoute:
+      ProtectedModulesUnitUnitIdQuantityEstimatesRouteWithChildren,
     ProtectedModulesUnitUnitIdReconciliationRoute:
       ProtectedModulesUnitUnitIdReconciliationRoute,
     ProtectedModulesUnitUnitIdSegmentsRoute:

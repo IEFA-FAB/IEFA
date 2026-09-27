@@ -17,7 +17,7 @@ import {
 	kitchenDemandForecastSelectionInProcurement,
 	kitchenInKitchen,
 	menuTemplateInKitchen,
-	procurementListInProcurement,
+	quantityEstimateInProcurement,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
@@ -40,7 +40,7 @@ type Forecast = Tables<"kitchen_demand_forecast">
 type ForecastTemplateRef = { id: string; name: string; template_type: string }
 type ForecastSelectionWire = Tables<"kitchen_demand_forecast_selection"> & { template: ForecastTemplateRef | null }
 /** Anexo quantitativo em que a previsão entrou (uma previsão serve a várias contratações). */
-export type DemandForecastImportWire = { list_id: string; title: string; imported_at: string }
+export type DemandForecastImportWire = { quantity_estimate_id: string; title: string; imported_at: string }
 type DemandForecastWithSelections = Forecast & { selections: ForecastSelectionWire[]; imports: DemandForecastImportWire[] }
 
 const FORECAST_RELATIONS: Record<string, string> = { kitchenDemandForecastSelectionInProcurements: "selections", menuTemplateInKitchen: "template" }
@@ -54,7 +54,7 @@ type ForecastRow = typeof kitchenDemandForecastInProcurement.$inferSelect
  * `kitchenAtaDraftInProcurement_kitchenAtaDraftSelectionInProcurements` (69 chars, com os nomes de antes do rename 20260927010000): o Postgres
  * trunca em NAMEDATALEN (63) e o SQL emitido segue citando o nome inteiro → 42703 `column
  * ....template_id does not exist`. Toda leitura de previsão quebrava — inclusive o aviso de
- * previsão enviada no wizard do anexo. É o mesmo bug que `fetchAtaDetails` já contornava.
+ * previsão enviada no wizard do anexo. É o mesmo bug que `fetchQuantityEstimateDetails` já contornava.
  * Chaves iguais às da relational query, para `FORECAST_RELATIONS` mapear o contrato de wire.
  */
 async function attachSelections(db: SisubDb, forecasts: ForecastRow[], prefix: string): Promise<DemandForecastWithSelections[]> {
@@ -93,12 +93,12 @@ async function attachSelections(db: SisubDb, forecasts: ForecastRow[], prefix: s
 			db
 				.select({
 					forecastId: kitchenDemandForecastImportInProcurement.forecastId,
-					listId: kitchenDemandForecastImportInProcurement.listId,
-					title: procurementListInProcurement.title,
+					quantityEstimateId: kitchenDemandForecastImportInProcurement.quantityEstimateId,
+					title: quantityEstimateInProcurement.title,
 					importedAt: kitchenDemandForecastImportInProcurement.importedAt,
 				})
 				.from(kitchenDemandForecastImportInProcurement)
-				.innerJoin(procurementListInProcurement, eq(procurementListInProcurement.id, kitchenDemandForecastImportInProcurement.listId))
+				.innerJoin(quantityEstimateInProcurement, eq(quantityEstimateInProcurement.id, kitchenDemandForecastImportInProcurement.quantityEstimateId))
 				.where(
 					inArray(
 						kitchenDemandForecastImportInProcurement.forecastId,
@@ -118,7 +118,9 @@ async function attachSelections(db: SisubDb, forecasts: ForecastRow[], prefix: s
 			},
 			FORECAST_RELATIONS
 		),
-		imports: imports.filter((i) => i.forecastId === d.id).map((i) => ({ list_id: i.listId, title: i.title, imported_at: i.importedAt })),
+		imports: imports
+			.filter((i) => i.forecastId === d.id)
+			.map((i) => ({ quantity_estimate_id: i.quantityEstimateId, title: i.title, imported_at: i.importedAt })),
 	}))
 }
 
@@ -310,15 +312,15 @@ export async function deleteDemandForecast(db: SisubDb, ctx: UserContext, input:
  * marca a previsão como recebida (`reviewed`) com data e autor — é o retorno que a nutricionista
  * vê. Exige `unit:2` na OM dona do anexo, e a cozinha da previsão precisa ser dessa OM.
  */
-export async function recordDemandForecastImport(db: SisubDb, ctx: UserContext, input: { forecastId: string; listId: string }): Promise<void> {
+export async function recordDemandForecastImport(db: SisubDb, ctx: UserContext, input: { forecastId: string; quantityEstimateId: string }): Promise<void> {
 	const [list] = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ unitId: procurementListInProcurement.unitId })
-			.from(procurementListInProcurement)
-			.where(eq(procurementListInProcurement.id, input.listId))
+			.select({ unitId: quantityEstimateInProcurement.unitId })
+			.from(quantityEstimateInProcurement)
+			.where(eq(quantityEstimateInProcurement.id, input.quantityEstimateId))
 			.limit(1)
 	)
-	if (!list) throw new NotFoundError("anexo quantitativo", input.listId)
+	if (!list) throw new NotFoundError("anexo quantitativo", input.quantityEstimateId)
 	requireUnit(ctx, 2, list.unitId)
 
 	const [forecast] = await runQuery("FETCH_FAILED", () =>
@@ -345,8 +347,8 @@ export async function recordDemandForecastImport(db: SisubDb, ctx: UserContext, 
 			db.transaction(async (tx) => {
 				await tx
 					.insert(kitchenDemandForecastImportInProcurement)
-					.values({ forecastId: input.forecastId, listId: input.listId, importedBy: ctx.userId })
-					.onConflictDoNothing({ target: [kitchenDemandForecastImportInProcurement.forecastId, kitchenDemandForecastImportInProcurement.listId] })
+					.values({ forecastId: input.forecastId, quantityEstimateId: input.quantityEstimateId, importedBy: ctx.userId })
+					.onConflictDoNothing({ target: [kitchenDemandForecastImportInProcurement.forecastId, kitchenDemandForecastImportInProcurement.quantityEstimateId] })
 				if (forecast.status === "sent") {
 					const now = new Date().toISOString()
 					await tx

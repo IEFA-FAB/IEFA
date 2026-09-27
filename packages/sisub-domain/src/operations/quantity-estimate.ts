@@ -1,12 +1,12 @@
 /**
- * Procurement list (ATA) lifecycle operations: needs calculation, creation,
+ * Quantity estimate (anexo quantitativo) lifecycle operations: needs calculation, creation,
  * status transitions, soft-delete. Drizzle query layer (migração PostgREST→Drizzle).
  *
- * Auth: LEITURA exige `unit:1` na unidade dona da ata; ESCRITA, `unit:2`. Sete das dez escritas
- * recebem só um id — a unidade sai da linha persistida, nunca do input (ver `authorizeAtaList`/
- * `authorizeAtaItem` e `ata.authz.test.ts`). O que a ata CITA também é conferido contra ela:
+ * Auth: LEITURA exige `unit:1` na unidade dona do anexo; ESCRITA, `unit:2`. Sete das dez escritas
+ * recebem só um id — a unidade sai da linha persistida, nunca do input (ver `authorizeQuantityEstimate`/
+ * `authorizeQuantityEstimateItem` e `quantity-estimate.authz.test.ts`). O que o anexo CITA também é conferido contra ele:
  * cozinhas e planos de cardápio são da OM (`assertSelectionsBelongToUnit`), itens atualizados
- * por id são da própria ata (predicado com `list_id`), e pesquisa de preço só é religada quando
+ * por id são do próprio anexo (predicado com `quantity_estimate_id`), e pesquisa de preço só é religada quando
  * está solta ou já é da mesma OM (`filterOwnResearchLinks`). O cálculo de necessidades, que não
  * grava nada, exige alcançar cada cozinha selecionada (`authorizeNeedsSelections`).
  *
@@ -28,16 +28,16 @@ import {
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
 	menuTemplateMealInKitchen,
-	procurementListInProcurement,
-	procurementListItemInProcurement,
-	procurementListKitchenInProcurement,
-	procurementListSelectionInProcurement,
-	procurementListSnapshotComponentInProcurement,
-	procurementListSnapshotSelectionInProcurement,
 	procurementPesquisaPrecoInProcurement,
 	procurementPesquisaPrecoItemInProcurement,
 	purchaseItemIngredientInProcurement,
 	purchaseItemInProcurement,
+	quantityEstimateInProcurement,
+	quantityEstimateItemInProcurement,
+	quantityEstimateKitchenInProcurement,
+	quantityEstimateSelectionInProcurement,
+	quantityEstimateSnapshotComponentInProcurement,
+	quantityEstimateSnapshotSelectionInProcurement,
 	recipeIngredientsInKitchen,
 	recipesInKitchen,
 	type SisubDb,
@@ -47,29 +47,36 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { canReachKitchen, type KitchenUnitRef, kitchenBelongsToUnit } from "../guards/kitchen-unit.ts"
 import { requireUnit } from "../guards/require-permission.ts"
 import type {
-	CalculateAtaNeeds,
-	CreateAta,
-	CreateAtaDraft,
-	DeleteAta,
+	CalculateQuantityEstimateNeeds,
+	CreateQuantityEstimate,
+	CreateQuantityEstimateDraft,
+	DeleteQuantityEstimate,
 	DraftItem,
-	FetchAtaDetails,
-	FetchAtaList,
-	FinalizeAtaDraft,
-	SaveAtaDraftItems,
-	UpdateAtaDraft,
-	UpdateAtaItemDescription,
-	UpdateAtaItemPrices,
-	UpdateAtaQuantityLimits,
-	UpdateAtaStatus,
+	FetchQuantityEstimateDetails,
+	FetchQuantityEstimateList,
+	FinalizeQuantityEstimateDraft,
+	SaveQuantityEstimateDraftItems,
+	UpdateQuantityEstimateDraft,
+	UpdateQuantityEstimateItemDescription,
+	UpdateQuantityEstimateItemPrices,
+	UpdateQuantityEstimateLimits,
+	UpdateQuantityEstimateStatus,
 } from "../schemas/procurement.ts"
+import { normalizeQuantityEstimateStatus } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
-import { computeAtaItemLimits, computeMinQuoteQuantity, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
 import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { isSamePrice, toMeasureUnitCode } from "./price-units.ts"
 import { findSegmentConflicts, lineKey, loadLiveSegment, resolveNeedsForSegment } from "./procurement-segments.ts"
+import {
+	computeMinQuoteQuantity,
+	computeQuantityEstimateItemLimits,
+	type QuantityLimits,
+	requiresMaxQuantityJustification,
+	resolveDeliveryCycle,
+} from "./quantity-estimate-limits.ts"
 import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
@@ -80,50 +87,53 @@ import { fetchTemplateMealsSafe } from "./template-meals.ts"
  */
 export const PRICE_RESEARCH_VALIDITY_DAYS = 180
 
-/** Status do anexo como a tela os chama (o enum `published` é "concluído": publicar é divulgar no PNCP). */
-const LIST_STATUS_LABELS: Record<string, string> = { draft: "em rascunho", published: "concluído", archived: "arquivado" }
+/** Status do anexo como a tela os chama (publicar é divulgar no PNCP; o anexo é concluído). */
+const STATUS_LABELS: Record<string, string> = { draft: "em rascunho", completed: "concluído", archived: "arquivado" }
 
-/** Transições de status permitidas da ATA. Publicada e arquivada são terminais quanto a downgrade. */
+/** Transições de status permitidas do anexo. Concluído e arquivado são terminais quanto a downgrade. */
 const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
-	draft: ["published", "archived"],
-	published: ["archived"],
+	draft: ["completed", "archived"],
+	completed: ["archived"],
 	archived: [],
 }
 
 type TxClient = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 
-/** Lê o status atual da lista ou lança se inexistente. */
-async function getListStatus(client: SisubDb | TxClient, listId: string): Promise<string> {
+/** Lê o status atual do anexo (no vocabulário atual) ou lança se inexistente. */
+async function getQuantityEstimateStatus(client: SisubDb | TxClient, quantityEstimateId: string): Promise<string> {
 	const rows = await client
-		.select({ status: procurementListInProcurement.status })
-		.from(procurementListInProcurement)
-		.where(eq(procurementListInProcurement.id, listId))
-	if (!rows[0]) throw new DomainError("NOT_FOUND", `anexo quantitativo ${listId} não encontrado`)
-	return rows[0].status
+		.select({ status: quantityEstimateInProcurement.status })
+		.from(quantityEstimateInProcurement)
+		.where(eq(quantityEstimateInProcurement.id, quantityEstimateId))
+	if (!rows[0]) throw new DomainError("NOT_FOUND", `anexo quantitativo ${quantityEstimateId} não encontrado`)
+	return normalizeQuantityEstimateStatus(rows[0].status)
 }
 
-/** Barra mutações de composição/quantitativo quando a ATA já saiu do rascunho. */
-async function assertDraftEditable(client: SisubDb | TxClient, listId: string): Promise<void> {
-	const status = await getListStatus(client, listId)
+/** Barra mutações de composição/quantitativo quando o anexo já saiu do rascunho. */
+async function assertDraftEditable(client: SisubDb | TxClient, quantityEstimateId: string): Promise<void> {
+	const status = await getQuantityEstimateStatus(client, quantityEstimateId)
 	if (status !== "draft") {
 		throw new DomainError(
-			"ATA_NOT_DRAFT",
-			`O anexo quantitativo está ${LIST_STATUS_LABELS[status] ?? status}: composição e quantitativos são imutáveis depois de concluído`
+			"QUANTITY_ESTIMATE_NOT_DRAFT",
+			`O anexo quantitativo está ${STATUS_LABELS[status] ?? status}: composição e quantitativos são imutáveis depois de concluído`
 		)
 	}
 }
 
-type ProcurementList = Tables<"procurement_list">
-type ProcurementListItem = Tables<"procurement_list_item">
-type ProcurementListKitchen = Tables<"procurement_list_kitchen">
-type ProcurementListSelection = Tables<"procurement_list_selection">
+type QuantityEstimate = Tables<"quantity_estimate">
+type QuantityEstimateItem = Tables<"quantity_estimate_item">
+type QuantityEstimateKitchen = Tables<"quantity_estimate_kitchen">
+type QuantityEstimateSelection = Tables<"quantity_estimate_selection">
 
-type AtaSelectionWire = ProcurementListSelection & {
+type QuantityEstimateSelectionWire = QuantityEstimateSelection & {
 	template: { name: string | null; template_type: string; expected_monthly_occurrences: number | null } | null
 }
-type AtaKitchenWire = ProcurementListKitchen & { kitchen: { id: number; display_name: string | null } | null; selections: AtaSelectionWire[] }
+type QuantityEstimateKitchenWire = QuantityEstimateKitchen & {
+	kitchen: { id: number; display_name: string | null } | null
+	selections: QuantityEstimateSelectionWire[]
+}
 
-type AtaSnapshotSelection = {
+type QuantityEstimateSnapshotSelection = {
 	template_name: string | null
 	template_type: string | null
 	kitchen_id: number | null
@@ -131,38 +141,38 @@ type AtaSnapshotSelection = {
 	repetitions: number
 	snapshot_source: string
 }
-type AtaSnapshotComponent = {
+type QuantityEstimateSnapshotComponent = {
 	ingredient_id: string | null
 	ingredient_name: string
 	folder_description: string | null
 	measure_unit: string | null
-	total_quantity: number
+	estimated_quantity: number
 	purchase_item_description: string | null
 	purchase_measure_unit: string | null
 	purchase_quantity: number | null
 	catmat_item_codigo: number | null
 	unit_price: number | null
 	snapshot_source: string
-	max_margin_percent: number | null
+	max_increase_percent: number | null
 	max_quantity: number | null
 	delivery_cycle: string | null
 	min_order_quantity: number | null
 	min_quote_quantity: number | null
 }
 /** Metadados de integridade computados por request (não persistidos). */
-type AtaMeta = {
+type QuantityEstimateMeta = {
 	is_stale: boolean
 	price_research: { oldest_research_at: string | null; validity_days: number; is_expired: boolean }
-	snapshot: { selections: AtaSnapshotSelection[]; components: AtaSnapshotComponent[] } | null
+	snapshot: { selections: QuantityEstimateSnapshotSelection[]; components: QuantityEstimateSnapshotComponent[] } | null
 }
-/** Item com o que decide o ciclo quando a ata ainda não gravou o seu: padrão do insumo e conservação. */
-type AtaItemWire = ProcurementListItem & { conservation_class: string | null; ingredient_delivery_cycle: string | null }
-type AtaWithDetails = ProcurementList & { kitchens: AtaKitchenWire[]; items: AtaItemWire[]; meta: AtaMeta }
+/** Item com o que decide o ciclo quando o anexo ainda não gravou o seu: padrão do insumo e conservação. */
+type QuantityEstimateItemWire = QuantityEstimateItem & { conservation_class: string | null; ingredient_delivery_cycle: string | null }
+type QuantityEstimateWithDetails = QuantityEstimate & { kitchens: QuantityEstimateKitchenWire[]; items: QuantityEstimateItemWire[]; meta: QuantityEstimateMeta }
 
-type ItemInsert = typeof procurementListItemInProcurement.$inferInsert
+type ItemInsert = typeof quantityEstimateItemInProcurement.$inferInsert
 
 const DETAILS_RELATIONS: Record<string, string> = {
-	procurementListSelectionInProcurements: "selections",
+	quantityEstimateSelectionInProcurements: "selections",
 	kitchenInKitchen: "kitchen",
 	menuTemplateInKitchen: "template",
 }
@@ -176,11 +186,11 @@ const DETAILS_RELATIONS: Record<string, string> = {
  * Aggregates identical ingredient_ids across all kitchenSelections (weekly + events + exceptions combined).
  * Translates ingredient → purchase_item via is_default link, then sorts by folder_description → ingredient_name (pt-BR).
  */
-export async function calculateAtaNeeds(db: SisubDb, ctx: UserContext, input: CalculateAtaNeeds): Promise<ProcurementNeed[]> {
+export async function calculateQuantityEstimateNeeds(db: SisubDb, ctx: UserContext, input: CalculateQuantityEstimateNeeds): Promise<ProcurementNeed[]> {
 	// Não grava nada, mas LÊ planos, receitas e insumos das cozinhas citadas — que vinham do
 	// corpo. Sem isto, qualquer sessão abria o plano local de qualquer cozinha pelo cálculo.
 	await authorizeNeedsSelections(db, ctx, input.kitchenSelections)
-	return computeAtaNeeds(db, input)
+	return computeQuantityEstimateNeeds(db, input)
 }
 
 /** Uma parcela da quantidade de um insumo: um item de cardápio × as repetições da seleção. */
@@ -202,11 +212,11 @@ export interface NeedContribution {
  * parcela: é a memória de cálculo das quantidades (Lei 14.133/2021, art. 18, § 1º, IV), e sai da
  * MESMA travessia que produz o número — não de uma reconstrução à parte que pudesse divergir.
  */
-async function computeAtaNeeds(db: SisubDb, input: CalculateAtaNeeds, collect?: NeedContribution[]): Promise<ProcurementNeed[]> {
+async function computeQuantityEstimateNeeds(db: SisubDb, input: CalculateQuantityEstimateNeeds, collect?: NeedContribution[]): Promise<ProcurementNeed[]> {
 	const { kitchenSelections } = input
 
 	// Coletar as seleções dos três regimes (weekly, event, exception). `repetitions`
-	// já chega normalizado como "vezes dentro da vigência da ata" — a projeção
+	// já chega normalizado como "vezes dentro da vigência do anexo" — a projeção
 	// mensal da exceção é resolvida antes, no wizard.
 	const allSelections = kitchenSelections.flatMap((ks) => [
 		...ks.templateSelections.map((s) => ({ ...s, kitchenId: ks.kitchenId })),
@@ -282,7 +292,7 @@ async function computeAtaNeeds(db: SisubDb, input: CalculateAtaNeeds, collect?: 
 
 	// Efetivo base por (template → dia:refeição). O headcount_override do item é exceção;
 	// a base cobre os itens sem override (que antes eram pulados e não entravam na compra).
-	// Lido à parte, tolerante à tabela ausente (migração pendente → base vazia, sem quebrar a ATA).
+	// Lido à parte, tolerante à tabela ausente (migração pendente → base vazia, sem quebrar o anexo).
 	// Evento mede pela própria refeição: o efetivo dela é a base da porcentagem dos itens.
 	const eventTemplateIds = templates.filter((t) => t.templateType === "event").map((t) => t.id)
 	const [mealsByTemplate, eventMealBases] = await Promise.all([fetchTemplateMealsSafe(db, uniqueTemplateIds), fetchEventMealBases(db, eventTemplateIds)])
@@ -304,7 +314,7 @@ async function computeAtaNeeds(db: SisubDb, input: CalculateAtaNeeds, collect?: 
 			folder_id: string | null
 			folder?: { id: string; description: string | null } | null
 		}
-		total_quantity: number
+		estimated_quantity: number
 	}
 	const needsMap = new Map<string, NeedAccumulator>()
 
@@ -343,7 +353,7 @@ async function computeAtaNeeds(db: SisubDb, input: CalculateAtaNeeds, collect?: 
 					folder: folder ? { id: folder.id, description: folder.description } : null,
 				}
 
-				// Aquisição: projeta o cardápio × repetições da seleção da ATA.
+				// Aquisição: projeta o cardápio × repetições da seleção do anexo.
 				const quantityNeeded = scaleIngredientQuantity(Number(ri.netQuantity ?? 0), headcount, portionYield, selection.repetitions)
 				collect?.push({
 					ingredientId: ri.ingredientId,
@@ -360,9 +370,9 @@ async function computeAtaNeeds(db: SisubDb, input: CalculateAtaNeeds, collect?: 
 
 				const existing = needsMap.get(ri.ingredientId)
 				if (existing) {
-					existing.total_quantity += quantityNeeded
+					existing.estimated_quantity += quantityNeeded
 				} else {
-					needsMap.set(ri.ingredientId, { ingredient, total_quantity: quantityNeeded })
+					needsMap.set(ri.ingredientId, { ingredient, estimated_quantity: quantityNeeded })
 				}
 			}
 		}
@@ -425,14 +435,14 @@ async function computeAtaNeeds(db: SisubDb, input: CalculateAtaNeeds, collect?: 
 
 	const needs: ProcurementNeed[] = Array.from(needsMap.entries()).map(([ingredientId, d]) => {
 		const pi = ingredientToPurchaseItem.get(ingredientId)
-		const purchaseQuantity = pi ? Number((d.total_quantity / pi.conversion_factor).toFixed(4)) : null
+		const purchaseQuantity = pi ? Number((d.estimated_quantity / pi.conversion_factor).toFixed(4)) : null
 		return {
 			folder_id: d.ingredient.folder_id,
 			folder_description: d.ingredient.folder?.description || null,
 			ingredient_id: ingredientId,
 			ingredient_name: d.ingredient.description || "",
 			measure_unit: d.ingredient.measure_unit,
-			total_quantity: Number(d.total_quantity.toFixed(4)),
+			estimated_quantity: Number(d.estimated_quantity.toFixed(4)),
 			purchase_item_id: pi?.purchase_item_id ?? null,
 			purchase_item_description: pi?.purchase_item_description ?? null,
 			purchase_measure_unit: pi?.purchase_measure_unit ?? null,
@@ -444,8 +454,8 @@ async function computeAtaNeeds(db: SisubDb, input: CalculateAtaNeeds, collect?: 
 			item_description: null,
 			conservation_class: pi?.conservation_class ?? null,
 			ingredient_delivery_cycle: d.ingredient.default_delivery_cycle,
-			// O cálculo já decide o ciclo desta ata a partir do insumo; daqui em diante ele é
-			// escolha GRAVADA no item, e mudar o insumo não mexe na ata montada.
+			// O cálculo já decide o ciclo deste anexo a partir do insumo; daqui em diante ele é
+			// escolha GRAVADA no item, e mudar o insumo não mexe no anexo montado.
 			delivery_cycle: resolveDeliveryCycle({ ingredientCycle: d.ingredient.default_delivery_cycle, conservationClass: pi?.conservation_class }).cycle,
 		}
 	})
@@ -469,7 +479,7 @@ type SelectionScopeInput = ReadonlyArray<{
 	exceptionSelections?: ReadonlyArray<{ templateId: string }>
 }>
 
-/** Só a cozinha COM seleção entra na ata (as demais são puladas na gravação) — e só ela é conferida. */
+/** Só a cozinha COM seleção entra no anexo (as demais são puladas na gravação) — e só ela é conferida. */
 function selectedKitchens(kitchenSelections: SelectionScopeInput) {
 	return kitchenSelections
 		.map((ks) => ({
@@ -482,7 +492,7 @@ function selectedKitchens(kitchenSelections: SelectionScopeInput) {
 /**
  * Lê do banco a OM de cada cozinha e a cozinha dona de cada plano citado, e confere que todo
  * plano é da própria cozinha ou global. Devolve as cozinhas para o chamador decidir o resto
- * (pertencer à OM da ata, ou ser alcançável por quem calcula).
+ * (pertencer à OM do anexo, ou ser alcançável por quem calcula).
  */
 async function loadSelectionScope(client: SisubDb | TxClient, kitchenSelections: SelectionScopeInput): Promise<Map<number, KitchenUnitRef>> {
 	const selected = selectedKitchens(kitchenSelections)
@@ -526,8 +536,8 @@ async function loadSelectionScope(client: SisubDb | TxClient, kitchenSelections:
 }
 
 /**
- * A ata só compõe cozinhas da PRÓPRIA OM (lotação ou compra) com planos delas. O guard da
- * escrita prova só a unidade da ata; as cozinhas e os planos vinham do corpo, e a ata de uma
+ * O anexo só compõe cozinhas da PRÓPRIA OM (lotação ou compra) com planos delas. O guard da
+ * escrita prova só a unidade do anexo; as cozinhas e os planos vinham do corpo, e o anexo de uma
  * OM gravava — e depois publicava no snapshot — o cardápio de cozinha de outra.
  */
 async function assertSelectionsBelongToUnit(client: SisubDb | TxClient, unitId: number, kitchenSelections: SelectionScopeInput): Promise<void> {
@@ -539,7 +549,7 @@ async function assertSelectionsBelongToUnit(client: SisubDb | TxClient, unitId: 
 	}
 }
 
-/** Cálculo sem ata: quem calcula precisa alcançar cada cozinha (`kitchen:1` nela ou `unit:1` numa OM dela). */
+/** Cálculo sem anexo: quem calcula precisa alcançar cada cozinha (`kitchen:1` nela ou `unit:1` numa OM dela). */
 async function authorizeNeedsSelections(db: SisubDb, ctx: UserContext, kitchenSelections: SelectionScopeInput): Promise<void> {
 	const kitchens = await loadSelectionScope(db, kitchenSelections)
 	for (const kitchen of kitchens.values()) {
@@ -547,17 +557,17 @@ async function authorizeNeedsSelections(db: SisubDb, ctx: UserContext, kitchenSe
 	}
 }
 
-// ─── Pesquisa de preço citada pela ata ────────────────────────────────────────
+// ─── Pesquisa de preço citada pelo anexo ────────────────────────────────────────
 
 /**
- * Filtra os vínculos de pesquisa de preço que a ata pode reivindicar: cabeçalho e item SOLTOS
- * (recém-pesquisados no wizard) ou já ligados a uma ata da MESMA OM, e o item tem de ser do
+ * Filtra os vínculos de pesquisa de preço que o anexo pode reivindicar: cabeçalho e item SOLTOS
+ * (recém-pesquisados no wizard) ou já ligados a um anexo da MESMA OM, e o item tem de ser do
  * cabeçalho citado.
  *
- * Os ids vinham do corpo e eram religados sem conferência: a ata de uma OM "roubava" a memória
+ * Os ids vinham do corpo e eram religados sem conferência: o anexo de uma OM "roubava" a memória
  * de cálculo de outra — e a limpeza de órfãs em `persistDraftItems` depois a APAGAVA. O vínculo
  * alheio é DESCARTADO em vez de recusar a gravação: a chave de idempotência da pesquisa avulsa
- * (sem ata) é por CATMAT/dia/amostras, e duas OMs pesquisando o mesmo item no mesmo dia recebem
+ * (sem anexo) é por CATMAT/dia/amostras, e duas OMs pesquisando o mesmo item no mesmo dia recebem
  * o mesmo id — recusar travaria o salvamento da segunda por uma colisão que ela não causou.
  */
 async function filterOwnResearchLinks<T extends { researchId: string; researchItemId: string }>(
@@ -574,11 +584,11 @@ async function filterOwnResearchLinks<T extends { researchId: string; researchIt
 			client
 				.select({
 					id: procurementPesquisaPrecoInProcurement.id,
-					ataId: procurementPesquisaPrecoInProcurement.procurementListId,
-					unitId: procurementListInProcurement.unitId,
+					quantityEstimateId: procurementPesquisaPrecoInProcurement.quantityEstimateId,
+					unitId: quantityEstimateInProcurement.unitId,
 				})
 				.from(procurementPesquisaPrecoInProcurement)
-				.leftJoin(procurementListInProcurement, eq(procurementListInProcurement.id, procurementPesquisaPrecoInProcurement.procurementListId))
+				.leftJoin(quantityEstimateInProcurement, eq(quantityEstimateInProcurement.id, procurementPesquisaPrecoInProcurement.quantityEstimateId))
 				.where(inArray(procurementPesquisaPrecoInProcurement.id, headerIds))
 		),
 		runQuery("FETCH_FAILED", () =>
@@ -586,18 +596,18 @@ async function filterOwnResearchLinks<T extends { researchId: string; researchIt
 				.select({
 					id: procurementPesquisaPrecoItemInProcurement.id,
 					researchId: procurementPesquisaPrecoItemInProcurement.researchId,
-					ataItemId: procurementPesquisaPrecoItemInProcurement.procurementListItemId,
-					unitId: procurementListInProcurement.unitId,
+					quantityEstimateItemId: procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId,
+					unitId: quantityEstimateInProcurement.unitId,
 				})
 				.from(procurementPesquisaPrecoItemInProcurement)
-				.leftJoin(procurementListItemInProcurement, eq(procurementListItemInProcurement.id, procurementPesquisaPrecoItemInProcurement.procurementListItemId))
-				.leftJoin(procurementListInProcurement, eq(procurementListInProcurement.id, procurementListItemInProcurement.listId))
+				.leftJoin(quantityEstimateItemInProcurement, eq(quantityEstimateItemInProcurement.id, procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId))
+				.leftJoin(quantityEstimateInProcurement, eq(quantityEstimateInProcurement.id, quantityEstimateItemInProcurement.quantityEstimateId))
 				.where(inArray(procurementPesquisaPrecoItemInProcurement.id, itemIds))
 		),
 	])
 
-	const ownHeaders = new Set(headers.filter((h) => h.ataId == null || h.unitId === unitId).map((h) => h.id))
-	const researchOfOwnItem = new Map(items.filter((i) => i.ataItemId == null || i.unitId === unitId).map((i) => [i.id, i.researchId]))
+	const ownHeaders = new Set(headers.filter((h) => h.quantityEstimateId == null || h.unitId === unitId).map((h) => h.id))
+	const researchOfOwnItem = new Map(items.filter((i) => i.quantityEstimateItemId == null || i.unitId === unitId).map((i) => [i.id, i.researchId]))
 	return links.filter((l) => ownHeaders.has(l.researchId) && researchOfOwnItem.get(l.researchItemId) === l.researchId)
 }
 
@@ -621,16 +631,16 @@ export interface SegmentExclusion {
  * linha (item de compra) — planejar X produções e comprar só o segmento Y. Devolve também
  * quantos itens ficaram de fora, para o wizard dizer onde estão.
  */
-export async function calculateAtaNeedsForSegment(
+export async function calculateQuantityEstimateNeedsForSegment(
 	db: SisubDb,
 	ctx: UserContext,
-	input: CalculateAtaNeeds & { segmentId: string }
+	input: CalculateQuantityEstimateNeeds & { segmentId: string }
 ): Promise<{ items: ProcurementNeed[]; excluded: SegmentExclusion }> {
 	const segment = await loadLiveSegment(db, input.segmentId)
 	requireUnit(ctx, 1, segment.unitId)
 	await assertSelectionsBelongToUnit(db, segment.unitId, input.kitchenSelections)
 
-	const needs = await calculateAtaNeeds(db, ctx, input)
+	const needs = await calculateQuantityEstimateNeeds(db, ctx, input)
 	const resolutions = await resolveNeedsForSegment(db, segment.unitId, needs)
 	const excluded: SegmentExclusion = { otherSegment: 0, unassigned: 0, conflict: 0 }
 	const items: ProcurementNeed[] = []
@@ -658,29 +668,32 @@ export interface QuantityMemory {
  * (cozinhas, cardápios, repetições) e devolve cada parcela. Em anexo concluído, os números
  * congelados continuam sendo os do snapshot; quem imprime compara e declara a divergência.
  */
-export async function explainAtaNeeds(db: SisubDb, ctx: UserContext, input: { ataId: string }): Promise<QuantityMemory> {
-	await authorizeAtaList(db, ctx, input.ataId, 1)
+export async function explainQuantityEstimateNeeds(db: SisubDb, ctx: UserContext, input: { quantityEstimateId: string }): Promise<QuantityMemory> {
+	await authorizeQuantityEstimate(db, ctx, input.quantityEstimateId, 1)
 	const rows = await runQuery(
 		"FETCH_FAILED",
 		() =>
 			db
 				.select({
-					kitchenId: procurementListKitchenInProcurement.kitchenId,
+					kitchenId: quantityEstimateKitchenInProcurement.kitchenId,
 					kitchenName: kitchenInKitchen.displayName,
-					templateId: procurementListSelectionInProcurement.templateId,
+					templateId: quantityEstimateSelectionInProcurement.templateId,
 					templateName: menuTemplateInKitchen.name,
 					templateType: menuTemplateInKitchen.templateType,
-					repetitions: procurementListSelectionInProcurement.repetitions,
+					repetitions: quantityEstimateSelectionInProcurement.repetitions,
 				})
-				.from(procurementListSelectionInProcurement)
-				.innerJoin(procurementListKitchenInProcurement, eq(procurementListKitchenInProcurement.id, procurementListSelectionInProcurement.listKitchenId))
-				.leftJoin(kitchenInKitchen, eq(kitchenInKitchen.id, procurementListKitchenInProcurement.kitchenId))
-				.leftJoin(menuTemplateInKitchen, eq(menuTemplateInKitchen.id, procurementListSelectionInProcurement.templateId))
-				.where(eq(procurementListKitchenInProcurement.listId, input.ataId)),
+				.from(quantityEstimateSelectionInProcurement)
+				.innerJoin(
+					quantityEstimateKitchenInProcurement,
+					eq(quantityEstimateKitchenInProcurement.id, quantityEstimateSelectionInProcurement.quantityEstimateKitchenId)
+				)
+				.leftJoin(kitchenInKitchen, eq(kitchenInKitchen.id, quantityEstimateKitchenInProcurement.kitchenId))
+				.leftJoin(menuTemplateInKitchen, eq(menuTemplateInKitchen.id, quantityEstimateSelectionInProcurement.templateId))
+				.where(eq(quantityEstimateKitchenInProcurement.quantityEstimateId, input.quantityEstimateId)),
 		{ prefix: "Erro ao ler as seleções do anexo" }
 	)
 
-	const byKitchen = new Map<number, CalculateAtaNeeds["kitchenSelections"][number]>()
+	const byKitchen = new Map<number, CalculateQuantityEstimateNeeds["kitchenSelections"][number]>()
 	for (const row of rows) {
 		const entry = byKitchen.get(row.kitchenId) ?? {
 			kitchenId: row.kitchenId,
@@ -698,7 +711,7 @@ export async function explainAtaNeeds(db: SisubDb, ctx: UserContext, input: { at
 	}
 
 	const collected: NeedContribution[] = []
-	const needs = await computeAtaNeeds(db, { kitchenSelections: [...byKitchen.values()] }, collected)
+	const needs = await computeQuantityEstimateNeeds(db, { kitchenSelections: [...byKitchen.values()] }, collected)
 
 	const recipeIds = [...new Set(collected.map((c) => c.recipeId))]
 	const recipes =
@@ -725,65 +738,69 @@ export async function explainAtaNeeds(db: SisubDb, ctx: UserContext, input: { at
 // ─── Criar rascunho vazio (wizard step 1) ────────────────────────────────────
 
 /**
- * Autoriza pela UNIDADE dona da ATA — ou do rascunho: são a mesma linha de `procurement_list`,
+ * Autoriza pela UNIDADE dona do anexo — ou do rascunho: são a mesma linha de `quantity_estimate`,
  * distinguidas por status —, lida do banco e nunca da requisição.
  *
  * Estas operações recebem só o id. Sem resolver o dono, qualquer detentor de `unit:2` numa OM
- * editava preço, descrição e status — ou apagava — a ATA de outra.
+ * editava preço, descrição e status — ou apagava — o anexo de outra.
  */
-async function authorizeAtaList(db: SisubDb, ctx: UserContext, listId: string, level: 1 | 2 = 2): Promise<number> {
+async function authorizeQuantityEstimate(db: SisubDb, ctx: UserContext, quantityEstimateId: string, level: 1 | 2 = 2): Promise<number> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.select({ unitId: procurementListInProcurement.unitId }).from(procurementListInProcurement).where(eq(procurementListInProcurement.id, listId)).limit(1)
+		db
+			.select({ unitId: quantityEstimateInProcurement.unitId })
+			.from(quantityEstimateInProcurement)
+			.where(eq(quantityEstimateInProcurement.id, quantityEstimateId))
+			.limit(1)
 	)
 	const unitId = rows[0]?.unitId
-	if (unitId == null) throw new DomainError("NOT_FOUND", `anexo quantitativo ${listId} não encontrado`)
+	if (unitId == null) throw new DomainError("NOT_FOUND", `anexo quantitativo ${quantityEstimateId} não encontrado`)
 	requireUnit(ctx, level, unitId)
 	return unitId
 }
 
 /**
- * Idem, quando só o id do ITEM chega. Devolve a ATA dona para amarrar o predicado da mutação:
+ * Idem, quando só o id do ITEM chega. Devolve o anexo dono para amarrar o predicado da mutação:
  * entre a checagem e a escrita o item pode ser reparentado, e um `where id = ?` cru aplicaria a
- * escrita a um item que já pertence a outra ATA.
+ * escrita a um item que já pertence a outro anexo.
  */
-async function authorizeAtaItem(db: SisubDb, ctx: UserContext, ataItemId: string): Promise<string> {
+async function authorizeQuantityEstimateItem(db: SisubDb, ctx: UserContext, quantityEstimateItemId: string): Promise<string> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ listId: procurementListItemInProcurement.listId })
-			.from(procurementListItemInProcurement)
-			.where(eq(procurementListItemInProcurement.id, ataItemId))
+			.select({ quantityEstimateId: quantityEstimateItemInProcurement.quantityEstimateId })
+			.from(quantityEstimateItemInProcurement)
+			.where(eq(quantityEstimateItemInProcurement.id, quantityEstimateItemId))
 			.limit(1)
 	)
-	const listId = rows[0]?.listId
-	if (listId == null) throw new DomainError("NOT_FOUND", `item do anexo quantitativo ${ataItemId} não encontrado`)
-	await authorizeAtaList(db, ctx, listId)
-	return listId
+	const quantityEstimateId = rows[0]?.quantityEstimateId
+	if (quantityEstimateId == null) throw new DomainError("NOT_FOUND", `item do anexo quantitativo ${quantityEstimateItemId} não encontrado`)
+	await authorizeQuantityEstimate(db, ctx, quantityEstimateId)
+	return quantityEstimateId
 }
 
-export async function createAtaDraft(db: SisubDb, ctx: UserContext, input: CreateAtaDraft): Promise<{ id: string }> {
+export async function createQuantityEstimateDraft(db: SisubDb, ctx: UserContext, input: CreateQuantityEstimateDraft): Promise<{ id: string }> {
 	requireUnit(ctx, 2, input.unitId)
 
-	const ata = await insertOneOrFail(
+	const quantityEstimate = await insertOneOrFail(
 		"INSERT_FAILED",
 		"Erro ao criar rascunho: no row returned",
 		() =>
 			db
-				.insert(procurementListInProcurement)
+				.insert(quantityEstimateInProcurement)
 				.values({ unitId: input.unitId, title: "Sem nome", status: "draft", wizardStep: 1 })
-				.returning({ id: procurementListInProcurement.id }),
+				.returning({ id: quantityEstimateInProcurement.id }),
 		{ prefix: "Erro ao criar rascunho" }
 	)
-	return { id: ata.id }
+	return { id: quantityEstimate.id }
 }
 
 // ─── Atualizar metadados e seleções do rascunho ───────────────────────────────
 
-export async function updateAtaDraft(db: SisubDb, ctx: UserContext, input: UpdateAtaDraft): Promise<void> {
-	const unitId = await authorizeAtaList(db, ctx, input.draftId)
+export async function updateQuantityEstimateDraft(db: SisubDb, ctx: UserContext, input: UpdateQuantityEstimateDraft): Promise<void> {
+	const unitId = await authorizeQuantityEstimate(db, ctx, input.draftId)
 	if (input.kitchenSelections !== undefined) await assertSelectionsBelongToUnit(db, unitId, input.kitchenSelections)
 
 	await db.transaction(async (tx) => {
-		const updateData: Partial<typeof procurementListInProcurement.$inferInsert> = { updatedAt: new Date().toISOString() }
+		const updateData: Partial<typeof quantityEstimateInProcurement.$inferInsert> = { updatedAt: new Date().toISOString() }
 		if (input.title !== undefined) updateData.title = input.title
 		if (input.notes !== undefined) updateData.notes = input.notes || null
 		if (input.wizardStep !== undefined) updateData.wizardStep = input.wizardStep
@@ -793,40 +810,40 @@ export async function updateAtaDraft(db: SisubDb, ctx: UserContext, input: Updat
 			updateData.segmentId = input.segmentId
 		}
 
-		// Detecta draft inexistente (deletado mid-session) em vez de no-op silencioso — paridade com updateAtaStatus/deleteAta.
+		// Detecta draft inexistente (deletado mid-session) em vez de no-op silencioso — paridade com updateQuantityEstimateStatus/deleteQuantityEstimate.
 		await mutateOrFail(
 			"UPDATE_FAILED",
 			`Erro ao atualizar rascunho: rascunho ${input.draftId} não encontrado`,
 			() =>
 				tx
-					.update(procurementListInProcurement)
+					.update(quantityEstimateInProcurement)
 					.set(updateData)
-					.where(eq(procurementListInProcurement.id, input.draftId))
-					.returning({ id: procurementListInProcurement.id }),
+					.where(eq(quantityEstimateInProcurement.id, input.draftId))
+					.returning({ id: quantityEstimateInProcurement.id }),
 			{ prefix: "Erro ao atualizar rascunho" }
 		)
 
 		if (input.kitchenSelections !== undefined) {
 			// Substituição destrutiva (delete-all + re-insert) das cozinhas → seleções cascateiam via FK.
-			await tx.delete(procurementListKitchenInProcurement).where(eq(procurementListKitchenInProcurement.listId, input.draftId))
+			await tx.delete(quantityEstimateKitchenInProcurement).where(eq(quantityEstimateKitchenInProcurement.quantityEstimateId, input.draftId))
 
 			for (const ks of input.kitchenSelections) {
 				const allSels = [...ks.templateSelections, ...ks.eventSelections, ...(ks.exceptionSelections ?? [])]
 				if (allSels.length === 0) continue
 
-				const ataKitchen = await insertOneOrFail(
+				const quantityEstimateKitchen = await insertOneOrFail(
 					"INSERT_FAILED",
 					"Erro ao salvar cozinha: no row returned",
 					() =>
 						tx
-							.insert(procurementListKitchenInProcurement)
-							.values({ listId: input.draftId, kitchenId: ks.kitchenId, deliveryNotes: ks.deliveryNotes || null })
-							.returning({ id: procurementListKitchenInProcurement.id }),
+							.insert(quantityEstimateKitchenInProcurement)
+							.values({ quantityEstimateId: input.draftId, kitchenId: ks.kitchenId, deliveryNotes: ks.deliveryNotes || null })
+							.returning({ id: quantityEstimateKitchenInProcurement.id }),
 					{ prefix: "Erro ao salvar cozinha" }
 				)
 
-				const selRows = allSels.map((s) => ({ listKitchenId: ataKitchen.id, templateId: s.templateId, repetitions: s.repetitions }))
-				await runQuery("INSERT_FAILED", () => tx.insert(procurementListSelectionInProcurement).values(selRows), { prefix: "Erro ao salvar seleções" })
+				const selRows = allSels.map((s) => ({ quantityEstimateKitchenId: quantityEstimateKitchen.id, templateId: s.templateId, repetitions: s.repetitions }))
+				await runQuery("INSERT_FAILED", () => tx.insert(quantityEstimateSelectionInProcurement).values(selRows), { prefix: "Erro ao salvar seleções" })
 			}
 		}
 	})
@@ -836,7 +853,7 @@ export async function updateAtaDraft(db: SisubDb, ctx: UserContext, input: Updat
 
 function buildItemPayload(item: DraftItem, draftId: string, computedAt: string): ItemInsert {
 	return {
-		listId: draftId,
+		quantityEstimateId: draftId,
 		ingredientId: item.ingredient_id || null,
 		ingredientName: item.ingredient_name,
 		folderId: item.folder_id || null,
@@ -844,7 +861,7 @@ function buildItemPayload(item: DraftItem, draftId: string, computedAt: string):
 		// Mesma forma do código do catálogo que o insumo grava: rascunho antigo no cliente ("kg") não
 		// vira linha fora do catálogo no anexo.
 		measureUnit: toMeasureUnitCode(item.measure_unit),
-		totalQuantity: item.total_quantity,
+		estimatedQuantity: item.estimated_quantity,
 		purchaseItemId: item.purchase_item_id || null,
 		purchaseItemDescription: item.purchase_item_description || null,
 		purchaseMeasureUnit: item.purchase_measure_unit || null,
@@ -855,9 +872,9 @@ function buildItemPayload(item: DraftItem, draftId: string, computedAt: string):
 		unitPrice: item.unit_price ?? null,
 		itemDescription: item.item_description || null,
 		computedAt,
-		// Ausente não entra no payload: o update preserva a escolha gravada. Recalcular o alvo
-		// não pode apagar a margem ou o mínimo que alguém ajustou no item.
-		...(item.max_margin_percent !== undefined && { maxMarginPercent: item.max_margin_percent }),
+		// Ausente não entra no payload: o update preserva a escolha gravada. Recalcular a estimada
+		// não pode apagar o acréscimo ou o mínimo que alguém ajustou no item.
+		...(item.max_increase_percent !== undefined && { maxIncreasePercent: item.max_increase_percent }),
 		...(item.delivery_cycle !== undefined && { deliveryCycle: item.delivery_cycle }),
 		...(item.min_order_quantity !== undefined && { minOrderQuantity: item.min_order_quantity ?? null }),
 	}
@@ -866,17 +883,17 @@ function buildItemPayload(item: DraftItem, draftId: string, computedAt: string):
 /**
  * Replace-all dos itens (update existentes por id, insere novos, deleta removidos), tudo numa
  * transação; opcionalmente relinka pesquisas de preço dos itens novos; seta wizard_step 4.
- * Retorna o mapeamento ingredient_id → ata_item_id para o cliente atualizar o estado local.
+ * Retorna o mapeamento ingredient_id → quantity_estimate_item_id para o cliente atualizar o estado local.
  */
-export async function saveAtaDraftItems(
+export async function saveQuantityEstimateDraftItems(
 	db: SisubDb,
 	ctx: UserContext,
-	input: SaveAtaDraftItems
-): Promise<{ savedIds: Array<{ ingredientId: string; ataItemId: string }>; unlinkedResearchCount: number }> {
-	const unitId = await authorizeAtaList(db, ctx, input.draftId)
+	input: SaveQuantityEstimateDraftItems
+): Promise<{ savedIds: Array<{ ingredientId: string; quantityEstimateItemId: string }>; unlinkedResearchCount: number }> {
+	const unitId = await authorizeQuantityEstimate(db, ctx, input.draftId)
 
-	const existing = input.items.filter((i) => i.ata_item_id)
-	const toInsert = input.items.filter((i) => !i.ata_item_id)
+	const existing = input.items.filter((i) => i.quantity_estimate_item_id)
+	const toInsert = input.items.filter((i) => !i.quantity_estimate_item_id)
 	const insertedItemsById = new Map<string, string>() // ingredient_id → new item id
 	// Um único carimbo para computed_at e updated_at: evita que o próprio save marque o rascunho como defasado.
 	const stamp = new Date().toISOString()
@@ -887,15 +904,15 @@ export async function saveAtaDraftItems(
 		await runQuery(
 			"UPDATE_FAILED",
 			// Passo 5 = "Itens": salvar os quantitativos leva o rascunho para a revisão de itens.
-			() => tx.update(procurementListInProcurement).set({ wizardStep: 5, updatedAt: stamp }).where(eq(procurementListInProcurement.id, input.draftId)),
+			() => tx.update(quantityEstimateInProcurement).set({ wizardStep: 5, updatedAt: stamp }).where(eq(quantityEstimateInProcurement.id, input.draftId)),
 			{ prefix: "Erro ao atualizar rascunho" }
 		)
 		return result
 	})
 
-	const savedIds: Array<{ ingredientId: string; ataItemId: string }> = [
-		...existing.map((item) => ({ ingredientId: item.ingredient_id ?? "", ataItemId: item.ata_item_id as string })),
-		...Array.from(insertedItemsById.entries()).map(([ingredientId, ataItemId]) => ({ ingredientId, ataItemId })),
+	const savedIds: Array<{ ingredientId: string; quantityEstimateItemId: string }> = [
+		...existing.map((item) => ({ ingredientId: item.ingredient_id ?? "", quantityEstimateItemId: item.quantity_estimate_item_id as string })),
+		...Array.from(insertedItemsById.entries()).map(([ingredientId, quantityEstimateItemId]) => ({ ingredientId, quantityEstimateItemId })),
 	]
 	return { savedIds, unlinkedResearchCount }
 }
@@ -904,7 +921,7 @@ type ResearchLink = { ingredientId: string; researchId: string; researchItemId: 
 
 /**
  * Chave de negócio de um item para reconciliar pesquisa de preço.
- * Ingrediente tem prioridade (identidade real do item, única por ATA); CATMAT é só fallback
+ * Ingrediente tem prioridade (identidade real do item, única por anexo); CATMAT é só fallback
  * para itens sem ingrediente — evita remapear pesquisa entre ingredientes que compartilham CATMAT.
  */
 function itemBusinessKey(catmat: number | null | undefined, ingredientId: string | null | undefined): string | null {
@@ -914,11 +931,11 @@ function itemBusinessKey(catmat: number | null | undefined, ingredientId: string
 }
 
 /**
- * Núcleo compartilhado por saveAtaDraftItems/finalizeAtaDraft: replace-all dos itens + reconciliação de pesquisas.
+ * Núcleo compartilhado por saveQuantityEstimateDraftItems/finalizeQuantityEstimateDraft: replace-all dos itens + reconciliação de pesquisas.
  *
  * Reconciliação por chave de negócio (CATMAT→ingrediente): itens existentes preservam o id (e o link);
  * quando um item some mas outro de mesma chave sobrevive/entra, a pesquisa é remapeada em vez de orfanada.
- * Pesquisas realmente órfãs (`procurement_list_item_id` nulo) desta ATA são removidas. Retorna a contagem desvinculada.
+ * Pesquisas realmente órfãs (`quantity_estimate_item_id` nulo) deste anexo são removidas. Retorna a contagem desvinculada.
  */
 async function persistDraftItems(
 	tx: TxClient,
@@ -930,17 +947,17 @@ async function persistDraftItems(
 	researchLinks: ResearchLink[] | undefined,
 	stamp: string
 ): Promise<{ unlinkedResearchCount: number }> {
-	const keepIds = new Set(existing.map((i) => i.ata_item_id as string))
+	const keepIds = new Set(existing.map((i) => i.quantity_estimate_item_id as string))
 
 	// Itens atuais com chave de negócio (para reconciliar pesquisas antes de deletar).
 	const currentItems = await tx
 		.select({
-			id: procurementListItemInProcurement.id,
-			ingredientId: procurementListItemInProcurement.ingredientId,
-			catmat: procurementListItemInProcurement.catmatItemCodigo,
+			id: quantityEstimateItemInProcurement.id,
+			ingredientId: quantityEstimateItemInProcurement.ingredientId,
+			catmat: quantityEstimateItemInProcurement.catmatItemCodigo,
 		})
-		.from(procurementListItemInProcurement)
-		.where(eq(procurementListItemInProcurement.listId, draftId))
+		.from(quantityEstimateItemInProcurement)
+		.where(eq(quantityEstimateItemInProcurement.quantityEstimateId, draftId))
 	const keyByCurrentId = new Map(currentItems.map((r) => [r.id, itemBusinessKey(r.catmat, r.ingredientId)]))
 	const toDelete = currentItems.filter((row) => !keepIds.has(row.id)).map((row) => row.id)
 
@@ -948,23 +965,28 @@ async function persistDraftItems(
 	const survivorByKey = new Map<string, string>()
 	for (const item of existing) {
 		const key = itemBusinessKey(item.catmat_item_codigo, item.ingredient_id)
-		if (key) survivorByKey.set(key, item.ata_item_id as string)
+		if (key) survivorByKey.set(key, item.quantity_estimate_item_id as string)
 	}
 
-	// Atualizar existentes (preserva IDs, logo preserva pesquisa_preco_item.procurement_list_item_id).
-	// O predicado amarra a ata (`list_id`): o `ata_item_id` vem do corpo, e um `where id = ?`
-	// cru reescrevia — e, pelo `listId` do payload, SEQUESTRAVA — o item de outra ata. Item que
-	// não é desta ata derruba a transação inteira em vez de sumir calado.
+	// Atualizar existentes (preserva IDs, logo preserva pesquisa_preco_item.quantity_estimate_item_id).
+	// O predicado amarra o anexo (`quantity_estimate_id`): o `quantity_estimate_item_id` vem do corpo, e um `where id = ?`
+	// cru reescrevia — e, pelo `quantityEstimateId` do payload, SEQUESTRAVA — o item de outro anexo. Item que
+	// não é deste anexo derruba a transação inteira em vez de sumir calado.
 	for (const item of existing) {
 		await mutateOrFail(
 			"UPDATE_FAILED",
-			`Erro ao salvar itens: item ${item.ata_item_id} não pertence à ata ${draftId}`,
+			`Erro ao salvar itens: item ${item.quantity_estimate_item_id} não pertence ao anexo ${draftId}`,
 			() =>
 				tx
-					.update(procurementListItemInProcurement)
+					.update(quantityEstimateItemInProcurement)
 					.set(buildItemPayload(item, draftId, stamp))
-					.where(and(eq(procurementListItemInProcurement.id, item.ata_item_id as string), eq(procurementListItemInProcurement.listId, draftId)))
-					.returning({ id: procurementListItemInProcurement.id }),
+					.where(
+						and(
+							eq(quantityEstimateItemInProcurement.id, item.quantity_estimate_item_id as string),
+							eq(quantityEstimateItemInProcurement.quantityEstimateId, draftId)
+						)
+					)
+					.returning({ id: quantityEstimateItemInProcurement.id }),
 			{ prefix: "Erro ao salvar itens" }
 		)
 	}
@@ -975,12 +997,12 @@ async function persistDraftItems(
 			"INSERT_FAILED",
 			() =>
 				tx
-					.insert(procurementListItemInProcurement)
+					.insert(quantityEstimateItemInProcurement)
 					.values(toInsert.map((item) => buildItemPayload(item, draftId, stamp)))
 					.returning({
-						id: procurementListItemInProcurement.id,
-						ingredientId: procurementListItemInProcurement.ingredientId,
-						catmat: procurementListItemInProcurement.catmatItemCodigo,
+						id: quantityEstimateItemInProcurement.id,
+						ingredientId: quantityEstimateItemInProcurement.ingredientId,
+						catmat: quantityEstimateItemInProcurement.catmatItemCodigo,
 					}),
 			{ prefix: "Erro ao salvar itens" }
 		)
@@ -993,50 +1015,50 @@ async function persistDraftItems(
 
 	// Reconciliar pesquisas dos itens que vão sumir: mover o vínculo para um sobrevivente de mesma chave.
 	// A que não tem sobrevivente fica sem item (ON DELETE SET NULL) e CONTINUA gravada: é trilha
-	// de auditoria, e o cabeçalho segue ligado à ata. Apagá-la sumia com a memória de cálculo de
+	// de auditoria, e o cabeçalho segue ligado ao anexo. Apagá-la sumia com a memória de cálculo de
 	// uma pesquisa que de fato aconteceu. A contagem avisa só as desvinculadas NESTE salvamento.
 	const unlinkedResearch = new Set<string>()
 	if (toDelete.length > 0) {
 		const deleteSet = new Set(toDelete)
 		const research = await tx
-			.select({ id: procurementPesquisaPrecoItemInProcurement.id, ataItemId: procurementPesquisaPrecoItemInProcurement.procurementListItemId })
+			.select({ id: procurementPesquisaPrecoItemInProcurement.id, quantityEstimateItemId: procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId })
 			.from(procurementPesquisaPrecoItemInProcurement)
-			.where(inArray(procurementPesquisaPrecoItemInProcurement.procurementListItemId, toDelete))
+			.where(inArray(procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId, toDelete))
 		for (const r of research) {
-			const key = r.ataItemId ? keyByCurrentId.get(r.ataItemId) : null
+			const key = r.quantityEstimateItemId ? keyByCurrentId.get(r.quantityEstimateItemId) : null
 			const target = key ? survivorByKey.get(key) : undefined
 			if (target && !deleteSet.has(target)) {
 				await tx
 					.update(procurementPesquisaPrecoItemInProcurement)
-					.set({ procurementListItemId: target })
+					.set({ quantityEstimateItemId: target })
 					.where(eq(procurementPesquisaPrecoItemInProcurement.id, r.id))
 			} else {
 				unlinkedResearch.add(r.id)
 			}
 		}
-		// Deletar itens removidos (o que não foi remapeado vira procurement_list_item_id NULL via ON DELETE SET NULL).
-		await tx.delete(procurementListItemInProcurement).where(inArray(procurementListItemInProcurement.id, toDelete))
+		// Deletar itens removidos (o que não foi remapeado vira quantity_estimate_item_id NULL via ON DELETE SET NULL).
+		await tx.delete(quantityEstimateItemInProcurement).where(inArray(quantityEstimateItemInProcurement.id, toDelete))
 	}
 
-	// Linkar pesquisas de preço aos itens da ATA (cliente reconcilia estado local).
+	// Linkar pesquisas de preço aos itens do anexo (cliente reconcilia estado local).
 	// Cobre item NOVO e item JÁ EXISTENTE: no wizard, a pesquisa acontece no step 4,
 	// quando todos os itens já foram inseridos pelo cálculo — restringir a inseridos
 	// deixaria a memória de cálculo órfã justamente no fluxo principal.
 	if (researchLinks?.length) {
 		const itemIdByIngredient = new Map(insertedItemsById)
 		for (const item of existing) {
-			if (item.ingredient_id) itemIdByIngredient.set(item.ingredient_id, item.ata_item_id as string)
+			if (item.ingredient_id) itemIdByIngredient.set(item.ingredient_id, item.quantity_estimate_item_id as string)
 		}
 		for (const link of await filterOwnResearchLinks(tx, unitId, researchLinks)) {
 			const newItemId = itemIdByIngredient.get(link.ingredientId)
 			if (!newItemId) continue
 			await tx
 				.update(procurementPesquisaPrecoItemInProcurement)
-				.set({ procurementListItemId: newItemId })
+				.set({ quantityEstimateItemId: newItemId })
 				.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
 			await tx
 				.update(procurementPesquisaPrecoInProcurement)
-				.set({ procurementListId: draftId })
+				.set({ quantityEstimateId: draftId })
 				.where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
 			// Religada ao item reinserido no mesmo salvamento: não ficou desvinculada.
 			unlinkedResearch.delete(link.researchItemId)
@@ -1046,18 +1068,18 @@ async function persistDraftItems(
 	return { unlinkedResearchCount: unlinkedResearch.size }
 }
 
-// ─── Finalizar rascunho (wizard_step → null, ata pronta para publicação) ──────
+// ─── Finalizar rascunho (wizard_step → null, anexo pronto para conclusão) ──────
 
-export async function finalizeAtaDraft(db: SisubDb, ctx: UserContext, input: FinalizeAtaDraft): Promise<ProcurementList> {
-	const unitId = await authorizeAtaList(db, ctx, input.draftId)
+export async function finalizeQuantityEstimateDraft(db: SisubDb, ctx: UserContext, input: FinalizeQuantityEstimateDraft): Promise<QuantityEstimate> {
+	const unitId = await authorizeQuantityEstimate(db, ctx, input.draftId)
 
-	const existing = input.items.filter((i) => i.ata_item_id)
-	const toInsert = input.items.filter((i) => !i.ata_item_id)
+	const existing = input.items.filter((i) => i.quantity_estimate_item_id)
+	const toInsert = input.items.filter((i) => !i.quantity_estimate_item_id)
 	const insertedItemsById = new Map<string, string>()
-	// Um único carimbo para computed_at e updated_at (ver saveAtaDraftItems).
+	// Um único carimbo para computed_at e updated_at (ver saveQuantityEstimateDraftItems).
 	const stamp = new Date().toISOString()
 
-	const ata = await db.transaction(async (tx) => {
+	const quantityEstimate = await db.transaction(async (tx) => {
 		await assertDraftEditable(tx, input.draftId)
 		await persistDraftItems(tx, input.draftId, unitId, existing, toInsert, insertedItemsById, input.researchLinks, stamp)
 
@@ -1066,64 +1088,68 @@ export async function finalizeAtaDraft(db: SisubDb, ctx: UserContext, input: Fin
 			`Erro ao finalizar anexo quantitativo: ${input.draftId} não encontrado`,
 			() =>
 				tx
-					.update(procurementListInProcurement)
+					.update(quantityEstimateInProcurement)
 					.set({ title: input.title, notes: input.notes || null, wizardStep: null, updatedAt: stamp })
-					.where(eq(procurementListInProcurement.id, input.draftId))
+					.where(eq(quantityEstimateInProcurement.id, input.draftId))
 					.returning(),
 			{ prefix: "Erro ao finalizar anexo quantitativo" }
 		)
 		return updated
 	})
 
-	return toWire<ProcurementList>(ata)
+	return toWire<QuantityEstimate>(quantityEstimate)
 }
 
-// ─── Criar ATA (persiste tudo) ────────────────────────────────────────────────
+// ─── Criar anexo (persiste tudo) ────────────────────────────────────────────────
 
 /**
  * Persists a complete procurement list with its kitchen assignments, template selections and pre-calculated items across 4 tables.
  *
- * SIDE EFFECTS: inserts procurement_list (1), procurement_list_kitchen (n), procurement_list_selection (m), procurement_list_item (p).
+ * SIDE EFFECTS: inserts quantity_estimate (1), quantity_estimate_kitchen (n), quantity_estimate_selection (m), quantity_estimate_item (p).
  * Tudo numa transação Drizzle: falha parcial desfaz tudo (bug fix vs original sem transação). Status default "draft".
  */
-export async function createAta(db: SisubDb, ctx: UserContext, input: CreateAta): Promise<ProcurementList> {
+export async function createQuantityEstimate(db: SisubDb, ctx: UserContext, input: CreateQuantityEstimate): Promise<QuantityEstimate> {
 	requireUnit(ctx, 2, input.unitId)
 
 	const { unitId, title, notes, kitchenSelections, items } = input
 	const stamp = new Date().toISOString()
 	await assertSelectionsBelongToUnit(db, unitId, kitchenSelections)
 
-	const ata = await db.transaction(async (tx) => {
+	const quantityEstimate = await db.transaction(async (tx) => {
 		// 1. Criar lista de compras.
 		const created = await insertOneOrFail(
 			"INSERT_FAILED",
 			"Erro ao criar lista: no row returned",
 			() =>
 				tx
-					.insert(procurementListInProcurement)
+					.insert(quantityEstimateInProcurement)
 					.values({ unitId, title, notes: notes || null, status: "draft" })
 					.returning(),
 			{ prefix: "Erro ao criar lista" }
 		)
 
-		// 2. Para cada cozinha com seleções, criar procurement_list_kitchen + selections.
+		// 2. Para cada cozinha com seleções, criar quantity_estimate_kitchen + selections.
 		for (const ks of kitchenSelections) {
 			const allSels = [...ks.templateSelections, ...ks.eventSelections, ...(ks.exceptionSelections ?? [])]
 			if (allSels.length === 0) continue
 
-			const ataKitchen = await insertOneOrFail(
+			const quantityEstimateKitchen = await insertOneOrFail(
 				"INSERT_FAILED",
 				"Erro ao associar cozinha: no row returned",
 				() =>
 					tx
-						.insert(procurementListKitchenInProcurement)
-						.values({ listId: created.id, kitchenId: ks.kitchenId, deliveryNotes: ks.deliveryNotes || null })
-						.returning({ id: procurementListKitchenInProcurement.id }),
+						.insert(quantityEstimateKitchenInProcurement)
+						.values({ quantityEstimateId: created.id, kitchenId: ks.kitchenId, deliveryNotes: ks.deliveryNotes || null })
+						.returning({ id: quantityEstimateKitchenInProcurement.id }),
 				{ prefix: "Erro ao associar cozinha" }
 			)
 
-			const selectionRows = allSels.map((s) => ({ listKitchenId: ataKitchen.id, templateId: s.templateId, repetitions: s.repetitions }))
-			await runQuery("INSERT_FAILED", () => tx.insert(procurementListSelectionInProcurement).values(selectionRows), { prefix: "Erro ao salvar seleções" })
+			const selectionRows = allSels.map((s) => ({
+				quantityEstimateKitchenId: quantityEstimateKitchen.id,
+				templateId: s.templateId,
+				repetitions: s.repetitions,
+			}))
+			await runQuery("INSERT_FAILED", () => tx.insert(quantityEstimateSelectionInProcurement).values(selectionRows), { prefix: "Erro ao salvar seleções" })
 		}
 
 		// 3. Inserir itens calculados.
@@ -1133,24 +1159,24 @@ export async function createAta(db: SisubDb, ctx: UserContext, input: CreateAta)
 				"INSERT_FAILED",
 				() =>
 					tx
-						.insert(procurementListItemInProcurement)
+						.insert(quantityEstimateItemInProcurement)
 						.values(itemRows)
-						.returning({ id: procurementListItemInProcurement.id, ingredientId: procurementListItemInProcurement.ingredientId }),
+						.returning({ id: quantityEstimateItemInProcurement.id, ingredientId: quantityEstimateItemInProcurement.ingredientId }),
 				{ prefix: "Erro ao salvar itens" }
 			)
 
 			// 4. Linkar registros de auditoria de pesquisa de preços (se houver).
 			if (input.researchLinks?.length && insertedItems.length) {
 				for (const link of await filterOwnResearchLinks(tx, unitId, input.researchLinks)) {
-					const ataItem = insertedItems.find((i) => i.ingredientId === link.ingredientId)
-					if (!ataItem) continue
+					const quantityEstimateItem = insertedItems.find((i) => i.ingredientId === link.ingredientId)
+					if (!quantityEstimateItem) continue
 					await tx
 						.update(procurementPesquisaPrecoItemInProcurement)
-						.set({ procurementListItemId: ataItem.id })
+						.set({ quantityEstimateItemId: quantityEstimateItem.id })
 						.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
 					await tx
 						.update(procurementPesquisaPrecoInProcurement)
-						.set({ procurementListId: created.id })
+						.set({ quantityEstimateId: created.id })
 						.where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
 				}
 			}
@@ -1159,56 +1185,63 @@ export async function createAta(db: SisubDb, ctx: UserContext, input: CreateAta)
 		return created
 	})
 
-	return toWire<ProcurementList>(ata)
+	return toWire<QuantityEstimate>(quantityEstimate)
 }
 
-// ─── Listar ATAs da unidade ───────────────────────────────────────────────────
+// ─── Listar anexos da unidade ───────────────────────────────────────────────────
 
-/** Lists all non-deleted ATAs for a unit, ordered by creation date descending. */
-export async function fetchAtaList(db: SisubDb, ctx: UserContext, input: FetchAtaList): Promise<ProcurementList[]> {
+/** Lists all non-deleted quantity estimates for a unit, ordered by creation date descending. */
+export async function fetchQuantityEstimateList(db: SisubDb, ctx: UserContext, input: FetchQuantityEstimateList): Promise<QuantityEstimate[]> {
 	requireUnit(ctx, 1, input.unitId)
 	const lists = await runQuery(
 		"QUERY_FAILED",
 		() =>
 			db
 				.select()
-				.from(procurementListInProcurement)
-				.where(and(eq(procurementListInProcurement.unitId, input.unitId), isNull(procurementListInProcurement.deletedAt)))
-				.orderBy(sql`${procurementListInProcurement.createdAt} desc`),
+				.from(quantityEstimateInProcurement)
+				.where(and(eq(quantityEstimateInProcurement.unitId, input.unitId), isNull(quantityEstimateInProcurement.deletedAt)))
+				.orderBy(sql`${quantityEstimateInProcurement.createdAt} desc`),
 		{ prefix: "Erro ao buscar listas" }
 	)
-	return lists.map((r) => toWire<ProcurementList>(r))
+	return lists.map((r) => toWire<QuantityEstimate>({ ...r, status: normalizeQuantityEstimateStatus(r.status) }))
 }
 
-// ─── Buscar ATA com detalhes ──────────────────────────────────────────────────
+// ─── Buscar anexo com detalhes ──────────────────────────────────────────────────
 
 /**
- * Fetches full ATA details including kitchens, template selections and calculated items. Returns null if ATA row not found.
+ * Fetches full quantity estimate details including kitchens, template selections and calculated items. Returns null if the quantity estimate row is not found.
  *
- * Returns null only on missing ATA; kitchen/items failures still throw.
+ * Returns null only on missing quantity estimate; kitchen/items failures still throw.
  */
-export async function fetchAtaDetails(db: SisubDb, ctx: UserContext, input: FetchAtaDetails): Promise<AtaWithDetails | null> {
-	const ata = await runQuery(
+export async function fetchQuantityEstimateDetails(
+	db: SisubDb,
+	ctx: UserContext,
+	input: FetchQuantityEstimateDetails
+): Promise<QuantityEstimateWithDetails | null> {
+	const quantityEstimate = await runQuery(
 		"QUERY_FAILED",
-		() => db.query.procurementListInProcurement.findFirst({ where: eq(procurementListInProcurement.id, input.ataId) }),
+		async () => {
+			const [row] = await db.select().from(quantityEstimateInProcurement).where(eq(quantityEstimateInProcurement.id, input.quantityEstimateId)).limit(1)
+			return row && { ...row, status: normalizeQuantityEstimateStatus(row.status) }
+		},
 		{
-			prefix: "Erro ao buscar ata",
+			prefix: "Erro ao buscar anexo",
 		}
 	)
-	if (!ata) return null
-	// A unidade sai da LINHA: qualquer sessão lia a ata — preços, pesquisa, cozinhas — de
+	if (!quantityEstimate) return null
+	// A unidade sai da LINHA: qualquer sessão lia o anexo — preços, pesquisa, cozinhas — de
 	// qualquer OM sabendo o id.
-	requireUnit(ctx, 1, ata.unitId)
+	requireUnit(ctx, 1, quantityEstimate.unitId)
 
 	// Cozinha → seleções → template em queries SEPARADAS, juntadas em JS.
 	// A relational query aninhada gerava o alias
 	// `procurementListKitchenInProcurement_procurementListSelectionInProcurements`
 	// (73 chars): o Postgres trunca em NAMEDATALEN (63) e o SQL emitido continua
 	// referenciando o nome inteiro → 42703 `column ... .template_id does not exist`.
-	// Na prática, toda ATA com pelo menos uma cozinha respondia 400.
+	// Na prática, todo anexo com pelo menos uma cozinha respondia 400.
 	const kitchenRows = await runQuery(
 		"QUERY_FAILED",
-		() => db.select().from(procurementListKitchenInProcurement).where(eq(procurementListKitchenInProcurement.listId, input.ataId)),
+		() => db.select().from(quantityEstimateKitchenInProcurement).where(eq(quantityEstimateKitchenInProcurement.quantityEstimateId, input.quantityEstimateId)),
 		{ prefix: "Erro ao buscar cozinhas" }
 	)
 
@@ -1231,10 +1264,10 @@ export async function fetchAtaDetails(db: SisubDb, ctx: UserContext, input: Fetc
 					() =>
 						db
 							.select()
-							.from(procurementListSelectionInProcurement)
+							.from(quantityEstimateSelectionInProcurement)
 							.where(
 								inArray(
-									procurementListSelectionInProcurement.listKitchenId,
+									quantityEstimateSelectionInProcurement.quantityEstimateKitchenId,
 									kitchenRows.map((k) => k.id)
 								)
 							),
@@ -1244,7 +1277,7 @@ export async function fetchAtaDetails(db: SisubDb, ctx: UserContext, input: Fetc
 	])
 
 	// expectedMonthlyOccurrences vem junto para o wizard reprojetar as seleções de
-	// exceção quando a vigência da ata muda, sem uma segunda consulta.
+	// exceção quando a vigência do anexo muda, sem uma segunda consulta.
 	const selectionTemplateIds = [...new Set(selectionRows.map((s) => s.templateId).filter((id): id is string => id != null))]
 	const selectionTemplates =
 		selectionTemplateIds.length > 0
@@ -1269,16 +1302,16 @@ export async function fetchAtaDetails(db: SisubDb, ctx: UserContext, input: Fetc
 	const selectionsByKitchen = new Map<string, Array<(typeof selectionRows)[number] & { menuTemplateInKitchen: (typeof selectionTemplates)[number] | null }>>()
 	for (const sel of selectionRows) {
 		const withTemplate = { ...sel, menuTemplateInKitchen: (sel.templateId ? templateById.get(sel.templateId) : null) ?? null }
-		const bucket = selectionsByKitchen.get(sel.listKitchenId)
+		const bucket = selectionsByKitchen.get(sel.quantityEstimateKitchenId)
 		if (bucket) bucket.push(withTemplate)
-		else selectionsByKitchen.set(sel.listKitchenId, [withTemplate])
+		else selectionsByKitchen.set(sel.quantityEstimateKitchenId, [withTemplate])
 	}
 
 	// Chaves iguais às da relational query — DETAILS_RELATIONS mapeia para o contrato de wire.
 	const kitchens = kitchenRows.map((k) => ({
 		...k,
 		kitchenInKitchen: (k.kitchenId != null ? coreKitchenById.get(k.kitchenId) : null) ?? null,
-		procurementListSelectionInProcurements: selectionsByKitchen.get(k.id) ?? [],
+		quantityEstimateSelectionInProcurements: selectionsByKitchen.get(k.id) ?? [],
 	}))
 
 	const items = await runQuery(
@@ -1286,20 +1319,20 @@ export async function fetchAtaDetails(db: SisubDb, ctx: UserContext, input: Fetc
 		() =>
 			db
 				.select()
-				.from(procurementListItemInProcurement)
-				.where(eq(procurementListItemInProcurement.listId, input.ataId))
-				.orderBy(sql`${procurementListItemInProcurement.folderDescription} asc nulls last`, asc(procurementListItemInProcurement.ingredientName)),
+				.from(quantityEstimateItemInProcurement)
+				.where(eq(quantityEstimateItemInProcurement.quantityEstimateId, input.quantityEstimateId))
+				.orderBy(sql`${quantityEstimateItemInProcurement.folderDescription} asc nulls last`, asc(quantityEstimateItemInProcurement.ingredientName)),
 		{ prefix: "Erro ao buscar itens" }
 	)
 
 	const cycleContext = await fetchCycleContext(db, items)
-	const meta = await computeAtaMeta(db, ata.status, input.ataId, kitchens, items, ata.updatedAt ?? null)
+	const meta = await computeQuantityEstimateMeta(db, quantityEstimate.status, input.quantityEstimateId, kitchens, items, quantityEstimate.updatedAt ?? null)
 
 	return {
-		...toWire<ProcurementList>(ata),
-		kitchens: kitchens.map((k) => toWire<AtaKitchenWire>(k, DETAILS_RELATIONS)),
+		...toWire<QuantityEstimate>(quantityEstimate),
+		kitchens: kitchens.map((k) => toWire<QuantityEstimateKitchenWire>(k, DETAILS_RELATIONS)),
 		items: items.map((i) => ({
-			...toWire<ProcurementListItem>(i),
+			...toWire<QuantityEstimateItem>(i),
 			conservation_class: (i.purchaseItemId ? cycleContext.conservationByPurchaseItem.get(i.purchaseItemId) : null) ?? null,
 			ingredient_delivery_cycle: (i.ingredientId ? cycleContext.cycleByIngredient.get(i.ingredientId) : null) ?? null,
 		})),
@@ -1346,48 +1379,48 @@ async function fetchCycleContext(
 	}
 }
 
-type ListLimitsRow = { validityMonths: number | null; maxMarginPercent: number; marginJustification: string | null; minQuotePercent: number }
-type ItemRowFull = typeof procurementListItemInProcurement.$inferSelect
+type QuantityEstimateLimitsRow = { validityMonths: number | null; maxIncreasePercent: number; maxQuantityJustification: string | null; minQuotePercent: number }
+type ItemRowFull = typeof quantityEstimateItemInProcurement.$inferSelect
 
 /**
- * Quantidade máxima de cada item do anexo pela regra de agora (a mesma de `loadAtaLimits`), por id
+ * Quantidade máxima de cada item do anexo pela regra de agora (a mesma de `loadQuantityEstimateLimits`), por id
  * do item. Para quem precisa do número sem reimplementar a regra (o relatório de pesquisa de preços).
  */
-export async function resolveAtaMaxQuantities(db: SisubDb, listId: string): Promise<Map<string, number>> {
+export async function resolveQuantityEstimateMaxQuantities(db: SisubDb, quantityEstimateId: string): Promise<Map<string, number>> {
 	return db.transaction(async (tx) => {
-		const { items } = await loadAtaLimits(tx, listId)
+		const { items } = await loadQuantityEstimateLimits(tx, quantityEstimateId)
 		return new Map(items.map(({ item, limits }) => [item.id, limits.maxQuantity]))
 	})
 }
 
-/** Limites resolvidos de todos os itens de uma ata — mesma entrada para a trava de publicação e o snapshot. */
-async function loadAtaLimits(
+/** Limites resolvidos de todos os itens de um anexo — mesma entrada para a trava de conclusão e o snapshot. */
+async function loadQuantityEstimateLimits(
 	tx: TxClient,
-	listId: string
-): Promise<{ list: ListLimitsRow | undefined; items: Array<{ item: ItemRowFull; limits: QuantityLimits }> }> {
+	quantityEstimateId: string
+): Promise<{ list: QuantityEstimateLimitsRow | undefined; items: Array<{ item: ItemRowFull; limits: QuantityLimits }> }> {
 	const [list] = await tx
 		.select({
-			validityMonths: procurementListInProcurement.validityMonths,
-			maxMarginPercent: procurementListInProcurement.maxMarginPercent,
-			marginJustification: procurementListInProcurement.marginJustification,
-			minQuotePercent: procurementListInProcurement.minQuotePercent,
+			validityMonths: quantityEstimateInProcurement.validityMonths,
+			maxIncreasePercent: quantityEstimateInProcurement.maxIncreasePercent,
+			maxQuantityJustification: quantityEstimateInProcurement.maxQuantityJustification,
+			minQuotePercent: quantityEstimateInProcurement.minQuotePercent,
 		})
-		.from(procurementListInProcurement)
-		.where(eq(procurementListInProcurement.id, listId))
-	const rows = await tx.select().from(procurementListItemInProcurement).where(eq(procurementListItemInProcurement.listId, listId))
+		.from(quantityEstimateInProcurement)
+		.where(eq(quantityEstimateInProcurement.id, quantityEstimateId))
+	const rows = await tx.select().from(quantityEstimateItemInProcurement).where(eq(quantityEstimateItemInProcurement.quantityEstimateId, quantityEstimateId))
 	const context = await fetchCycleContext(tx, rows)
 	return {
 		list,
 		items: rows.map((item) => ({
 			item,
-			limits: computeAtaItemLimits(
+			limits: computeQuantityEstimateItemLimits(
 				{
 					purchaseQuantity: item.purchaseQuantity == null ? null : Number(item.purchaseQuantity),
-					totalQuantity: Number(item.totalQuantity),
+					estimatedQuantity: Number(item.estimatedQuantity),
 					deliveryCycle: item.deliveryCycle,
 					ingredientDeliveryCycle: item.ingredientId ? context.cycleByIngredient.get(item.ingredientId) : null,
 					conservationClass: item.purchaseItemId ? context.conservationByPurchaseItem.get(item.purchaseItemId) : null,
-					maxMarginPercent: item.maxMarginPercent,
+					maxIncreasePercent: item.maxIncreasePercent,
 					minOrderQuantity: item.minOrderQuantity == null ? null : Number(item.minOrderQuantity),
 				},
 				list ?? {}
@@ -1396,18 +1429,18 @@ async function loadAtaLimits(
 	}
 }
 
-type KitchenRow = { procurementListSelectionInProcurements: Array<{ templateId: string }> }
+type KitchenRow = { quantityEstimateSelectionInProcurements: Array<{ templateId: string }> }
 type ItemRow = { computedAt: string | null }
 
-/** Calcula defasagem (stale) do rascunho, validade da pesquisa e snapshot congelado (ATA publicada). */
-async function computeAtaMeta(
+/** Calcula defasagem (stale) do rascunho, validade da pesquisa e snapshot congelado (anexo concluído). */
+async function computeQuantityEstimateMeta(
 	db: SisubDb,
 	status: string,
-	listId: string,
+	quantityEstimateId: string,
 	kitchens: KitchenRow[],
 	items: ItemRow[],
-	listUpdatedAt: string | null
-): Promise<AtaMeta> {
+	quantityEstimateUpdatedAt: string | null
+): Promise<QuantityEstimateMeta> {
 	const maxDate = (values: Array<string | null | undefined>): string | null => {
 		const valid = values.filter((v): v is string => !!v)
 		return valid.length ? valid.reduce((a, b) => (a > b ? a : b)) : null
@@ -1417,7 +1450,7 @@ async function computeAtaMeta(
 	let isStale = false
 	const lastComputedAt = maxDate(items.map((i) => i.computedAt))
 	if (status === "draft" && lastComputedAt) {
-		const templateIds = [...new Set(kitchens.flatMap((k) => k.procurementListSelectionInProcurements.map((s) => s.templateId)))]
+		const templateIds = [...new Set(kitchens.flatMap((k) => k.quantityEstimateSelectionInProcurements.map((s) => s.templateId)))]
 		if (templateIds.length > 0) {
 			// Sinal 1: edição da composição do cardápio/evento (updateTemplate faz delete-all + reinsert dos itens,
 			// então created_at reflete headcount_override, receita escolhida, grupo etc.).
@@ -1459,10 +1492,10 @@ async function computeAtaMeta(
 			)
 			lastEdit = maxDate([lastEdit, ...mealEdits.map((e) => e.createdAt)])
 
-			// Sinal 4: alteração das próprias seleções da ATA (repetições/cozinhas). procurement_list_selection não
-			// tem timestamp, mas updateAtaDraft carimba procurement_list.updated_at — conservador de propósito:
-			// melhor um falso "desatualizado" do que publicar quantitativo calculado com repetições antigas.
-			lastEdit = maxDate([lastEdit, listUpdatedAt])
+			// Sinal 4: alteração das próprias seleções do anexo (repetições/cozinhas). quantity_estimate_selection não
+			// tem timestamp, mas updateQuantityEstimateDraft carimba quantity_estimate.updated_at — conservador de propósito:
+			// melhor um falso "desatualizado" do que concluir quantitativo calculado com repetições antigas.
+			lastEdit = maxDate([lastEdit, quantityEstimateUpdatedAt])
 
 			isStale = !!lastEdit && lastEdit > lastComputedAt
 		}
@@ -1475,7 +1508,7 @@ async function computeAtaMeta(
 			db
 				.select({ createdAt: procurementPesquisaPrecoInProcurement.createdAt })
 				.from(procurementPesquisaPrecoInProcurement)
-				.where(eq(procurementPesquisaPrecoInProcurement.procurementListId, listId)),
+				.where(eq(procurementPesquisaPrecoInProcurement.quantityEstimateId, quantityEstimateId)),
 		{ prefix: "Erro ao buscar pesquisas" }
 	)
 	const oldestResearchAt = research.length ? research.map((r) => r.createdAt).reduce((a, b) => (a < b ? a : b)) : null
@@ -1485,13 +1518,17 @@ async function computeAtaMeta(
 		isExpired = ageDays >= PRICE_RESEARCH_VALIDITY_DAYS
 	}
 
-	// Snapshot congelado (só existe após publicação).
-	let snapshot: AtaMeta["snapshot"] = null
+	// Snapshot congelado (só existe após conclusão).
+	let snapshot: QuantityEstimateMeta["snapshot"] = null
 	if (status !== "draft") {
 		const [selections, components] = await Promise.all([
 			runQuery(
 				"QUERY_FAILED",
-				() => db.select().from(procurementListSnapshotSelectionInProcurement).where(eq(procurementListSnapshotSelectionInProcurement.listId, listId)),
+				() =>
+					db
+						.select()
+						.from(quantityEstimateSnapshotSelectionInProcurement)
+						.where(eq(quantityEstimateSnapshotSelectionInProcurement.quantityEstimateId, quantityEstimateId)),
 				{ prefix: "Erro ao buscar snapshot" }
 			),
 			runQuery(
@@ -1499,13 +1536,13 @@ async function computeAtaMeta(
 				() =>
 					db
 						.select()
-						.from(procurementListSnapshotComponentInProcurement)
-						.where(eq(procurementListSnapshotComponentInProcurement.listId, listId))
-						// Mesma ordem dos itens do rascunho (fetchAtaDetails): a numeração da tabela do TR e a do
+						.from(quantityEstimateSnapshotComponentInProcurement)
+						.where(eq(quantityEstimateSnapshotComponentInProcurement.quantityEstimateId, quantityEstimateId))
+						// Mesma ordem dos itens do rascunho (fetchQuantityEstimateDetails): a numeração da tabela do TR e a do
 						// relatório de pesquisa de preços têm de apontar o mesmo item.
 						.orderBy(
-							sql`${procurementListSnapshotComponentInProcurement.folderDescription} asc nulls last`,
-							asc(procurementListSnapshotComponentInProcurement.ingredientName)
+							sql`${quantityEstimateSnapshotComponentInProcurement.folderDescription} asc nulls last`,
+							asc(quantityEstimateSnapshotComponentInProcurement.ingredientName)
 						),
 				{ prefix: "Erro ao buscar snapshot" }
 			),
@@ -1525,14 +1562,14 @@ async function computeAtaMeta(
 					ingredient_name: c.ingredientName,
 					folder_description: c.folderDescription,
 					measure_unit: c.measureUnit,
-					total_quantity: c.totalQuantity,
+					estimated_quantity: c.estimatedQuantity,
 					purchase_item_description: c.purchaseItemDescription,
 					purchase_measure_unit: c.purchaseMeasureUnit,
 					purchase_quantity: c.purchaseQuantity,
 					catmat_item_codigo: c.catmatItemCodigo,
 					unit_price: c.unitPrice,
 					snapshot_source: c.snapshotSource,
-					max_margin_percent: c.maxMarginPercent,
+					max_increase_percent: c.maxIncreasePercent,
 					max_quantity: c.maxQuantity,
 					delivery_cycle: c.deliveryCycle,
 					min_order_quantity: c.minOrderQuantity,
@@ -1549,38 +1586,45 @@ async function computeAtaMeta(
 	}
 }
 
-// ─── Snapshot da composição (congela ao publicar) ─────────────────────────────
+// ─── Snapshot da composição (congela ao concluir) ─────────────────────────────
 
 /**
- * Materializa a composição resolvida da ATA em tabelas de snapshot próprias, tornando-a
+ * Materializa a composição resolvida do anexo em tabelas de snapshot próprias, tornando-a
  * autocontida e imune a edições/soft-delete posteriores de menu_template/receita/item.
- * Idempotente: substitui qualquer snapshot nativo anterior daquela ATA.
+ * Idempotente: substitui qualquer snapshot nativo anterior daquele anexo.
  */
-async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
+async function buildQuantityEstimateSnapshot(tx: TxClient, quantityEstimateId: string): Promise<void> {
 	// Recomeça do zero para permitir republicação sem duplicar.
-	await tx.delete(procurementListSnapshotSelectionInProcurement).where(eq(procurementListSnapshotSelectionInProcurement.listId, listId))
-	await tx.delete(procurementListSnapshotComponentInProcurement).where(eq(procurementListSnapshotComponentInProcurement.listId, listId))
+	await tx
+		.delete(quantityEstimateSnapshotSelectionInProcurement)
+		.where(eq(quantityEstimateSnapshotSelectionInProcurement.quantityEstimateId, quantityEstimateId))
+	await tx
+		.delete(quantityEstimateSnapshotComponentInProcurement)
+		.where(eq(quantityEstimateSnapshotComponentInProcurement.quantityEstimateId, quantityEstimateId))
 
 	// Seleções resolvidas (nome/tipo do cardápio + nome da cozinha congelados).
 	const selections = await tx
 		.select({
-			originTemplateId: procurementListSelectionInProcurement.templateId,
+			originTemplateId: quantityEstimateSelectionInProcurement.templateId,
 			templateName: menuTemplateInKitchen.name,
 			templateType: menuTemplateInKitchen.templateType,
-			kitchenId: procurementListKitchenInProcurement.kitchenId,
+			kitchenId: quantityEstimateKitchenInProcurement.kitchenId,
 			kitchenName: kitchenInKitchen.displayName,
-			repetitions: procurementListSelectionInProcurement.repetitions,
+			repetitions: quantityEstimateSelectionInProcurement.repetitions,
 		})
-		.from(procurementListSelectionInProcurement)
-		.innerJoin(procurementListKitchenInProcurement, eq(procurementListSelectionInProcurement.listKitchenId, procurementListKitchenInProcurement.id))
-		.leftJoin(menuTemplateInKitchen, eq(procurementListSelectionInProcurement.templateId, menuTemplateInKitchen.id))
-		.leftJoin(kitchenInKitchen, eq(procurementListKitchenInProcurement.kitchenId, kitchenInKitchen.id))
-		.where(eq(procurementListKitchenInProcurement.listId, listId))
+		.from(quantityEstimateSelectionInProcurement)
+		.innerJoin(
+			quantityEstimateKitchenInProcurement,
+			eq(quantityEstimateSelectionInProcurement.quantityEstimateKitchenId, quantityEstimateKitchenInProcurement.id)
+		)
+		.leftJoin(menuTemplateInKitchen, eq(quantityEstimateSelectionInProcurement.templateId, menuTemplateInKitchen.id))
+		.leftJoin(kitchenInKitchen, eq(quantityEstimateKitchenInProcurement.kitchenId, kitchenInKitchen.id))
+		.where(eq(quantityEstimateKitchenInProcurement.quantityEstimateId, quantityEstimateId))
 
 	if (selections.length > 0) {
-		await tx.insert(procurementListSnapshotSelectionInProcurement).values(
+		await tx.insert(quantityEstimateSnapshotSelectionInProcurement).values(
 			selections.map((s) => ({
-				listId,
+				quantityEstimateId,
 				originTemplateId: s.originTemplateId,
 				templateName: s.templateName,
 				templateType: s.templateType,
@@ -1593,17 +1637,17 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 	}
 
 	// Componentes (cópia imutável dos itens agregados), com os limites do anexo RESOLVIDOS:
-	// a ata publicada guarda o número que foi publicado, não a regra que o produziu.
-	const { list, items } = await loadAtaLimits(tx, listId)
+	// o anexo concluído guarda o número com que foi concluído, não a regra que o produziu.
+	const { list, items } = await loadQuantityEstimateLimits(tx, quantityEstimateId)
 	if (items.length > 0) {
-		await tx.insert(procurementListSnapshotComponentInProcurement).values(
+		await tx.insert(quantityEstimateSnapshotComponentInProcurement).values(
 			items.map(({ item: i, limits }) => ({
-				listId,
+				quantityEstimateId,
 				ingredientId: i.ingredientId,
 				ingredientName: i.ingredientName,
 				folderDescription: i.folderDescription,
 				measureUnit: i.measureUnit,
-				totalQuantity: i.totalQuantity,
+				estimatedQuantity: i.estimatedQuantity,
 				purchaseItemId: i.purchaseItemId,
 				purchaseItemDescription: i.purchaseItemDescription,
 				purchaseMeasureUnit: i.purchaseMeasureUnit,
@@ -1612,7 +1656,7 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 				unitPrice: i.unitPrice,
 				snapshotSource: "native",
 				computedAt: i.computedAt ?? new Date().toISOString(),
-				maxMarginPercent: limits.marginPercent,
+				maxIncreasePercent: limits.increasePercent,
 				maxQuantity: limits.maxQuantity,
 				deliveryCycle: limits.deliveryCycle,
 				minOrderQuantity: limits.minOrderQuantity,
@@ -1623,17 +1667,17 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 	}
 }
 
-// ─── Atualizar status da ATA ──────────────────────────────────────────────────
+// ─── Atualizar status do anexo ──────────────────────────────────────────────────
 
 /**
- * Transiciona o status da ATA validando o ciclo de vida (draft → published → archived; sem downgrade).
- * Ao publicar, congela a composição num snapshot próprio (memória de cálculo imutável).
+ * Transiciona o status do anexo validando o ciclo de vida (draft → completed → archived; sem downgrade).
+ * Ao concluir, congela a composição num snapshot próprio (memória de cálculo imutável).
  */
-export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: UpdateAtaStatus): Promise<void> {
-	await authorizeAtaList(db, ctx, input.ataId)
+export async function updateQuantityEstimateStatus(db: SisubDb, ctx: UserContext, input: UpdateQuantityEstimateStatus): Promise<void> {
+	await authorizeQuantityEstimate(db, ctx, input.quantityEstimateId)
 
 	await db.transaction(async (tx) => {
-		const current = await getListStatus(tx, input.ataId)
+		const current = await getQuantityEstimateStatus(tx, input.quantityEstimateId)
 		if (current === input.status) return // no-op idempotente
 
 		const allowed = ALLOWED_STATUS_TRANSITIONS[current] ?? []
@@ -1643,24 +1687,24 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 
 		await mutateOrFail(
 			"UPDATE_FAILED",
-			`Erro ao atualizar status: anexo quantitativo ${input.ataId} não encontrado`,
+			`Erro ao atualizar status: anexo quantitativo ${input.quantityEstimateId} não encontrado`,
 			() =>
 				tx
-					.update(procurementListInProcurement)
+					.update(quantityEstimateInProcurement)
 					.set({ status: input.status, updatedAt: new Date().toISOString() })
-					.where(eq(procurementListInProcurement.id, input.ataId))
-					.returning({ id: procurementListInProcurement.id }),
+					.where(eq(quantityEstimateInProcurement.id, input.quantityEstimateId))
+					.returning({ id: quantityEstimateInProcurement.id }),
 			{ prefix: "Erro ao atualizar status" }
 		)
 
 		// Anexo de uma contratação não conclui com item em conflito entre ela e outra: o item
 		// ficaria fora de qualquer anexo, ou em dois (Lei 14.133/2021, art. 82, VIII).
-		if (current === "draft" && input.status === "published") {
+		if (current === "draft" && input.status === "completed") {
 			const lists = await runQuery("FETCH_FAILED", () =>
 				tx
-					.select({ unitId: procurementListInProcurement.unitId, segmentId: procurementListInProcurement.segmentId })
-					.from(procurementListInProcurement)
-					.where(eq(procurementListInProcurement.id, input.ataId))
+					.select({ unitId: quantityEstimateInProcurement.unitId, segmentId: quantityEstimateInProcurement.segmentId })
+					.from(quantityEstimateInProcurement)
+					.where(eq(quantityEstimateInProcurement.id, input.quantityEstimateId))
 					.limit(1)
 			)
 			const list = lists[0]
@@ -1675,28 +1719,28 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 			}
 		}
 
-		// A justificativa da margem é exigida na PUBLICAÇÃO, uma vez por ata. Arquivar direto
-		// um rascunho não publica nada, então não cobra.
-		if (current === "draft" && input.status === "published") {
-			const { list, items } = await loadAtaLimits(tx, input.ataId)
-			if (requiresMarginJustification(items.map((i) => i.limits)) && !list?.marginJustification?.trim()) {
+		// A justificativa da quantidade máxima é exigida na CONCLUSÃO, uma vez por anexo. Arquivar
+		// direto um rascunho não conclui nada, então não cobra.
+		if (current === "draft" && input.status === "completed") {
+			const { list, items } = await loadQuantityEstimateLimits(tx, input.quantityEstimateId)
+			if (requiresMaxQuantityJustification(items.map((i) => i.limits)) && !list?.maxQuantityJustification?.trim()) {
 				throw new DomainError(
-					"MARGIN_JUSTIFICATION_REQUIRED",
+					"MAX_QUANTITY_JUSTIFICATION_REQUIRED",
 					"Há itens com acréscimo acima da referência: preencha a justificativa da quantidade máxima no anexo quantitativo antes de concluir."
 				)
 			}
 		}
 
-		// Congela o snapshot SÓ na saída do rascunho (publicar OU arquivar direto). Arquivar uma ata
-		// publicada não pode recongelar: recalcularia máxima, ciclo e mínimo com a regra e o insumo de
-		// hoje — e daria limites a atas publicadas antes do anexo existir.
+		// Congela o snapshot SÓ na saída do rascunho (concluir OU arquivar direto). Arquivar um anexo
+		// concluído não pode recongelar: recalcularia máxima, ciclo e mínimo com a regra e o insumo de
+		// hoje — e daria limites a anexos concluídos antes de os limites existirem.
 		if (current === "draft") {
-			await buildAtaSnapshot(tx, input.ataId)
+			await buildQuantityEstimateSnapshot(tx, input.quantityEstimateId)
 		}
 	})
 }
 
-// ─── Atualizar preços de itens de uma ATA já salva ───────────────────────────
+// ─── Atualizar preços de itens de um anexo já salvo ───────────────────────────
 
 /**
  * Todo preço gravado depois do rascunho tem de vir de uma pesquisa registrada DESTA unidade,
@@ -1708,10 +1752,10 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
  * O item e o CATMAT são conferidos na linha GRAVADA da pesquisa, não no vínculo do corpo: senão a
  * pesquisa do item A (mesmo valor) lastreava o preço do item B e era religada a ele.
  */
-async function assertPricesBackedByResearch(tx: TxClient, unitId: number, input: UpdateAtaItemPrices): Promise<void> {
+async function assertPricesBackedByResearch(tx: TxClient, unitId: number, input: UpdateQuantityEstimateItemPrices): Promise<void> {
 	const ownLinks = await filterOwnResearchLinks(tx, unitId, input.researchLinks ?? [])
 	const researchItemIds = [...new Set(ownLinks.map((l) => l.researchItemId))]
-	const itemIds = [...new Set(input.updates.map((u) => u.ataItemId))]
+	const itemIds = [...new Set(input.updates.map((u) => u.quantityEstimateItemId))]
 
 	const [research, items] = await Promise.all([
 		researchItemIds.length === 0
@@ -1720,7 +1764,7 @@ async function assertPricesBackedByResearch(tx: TxClient, unitId: number, input:
 					tx
 						.select({
 							id: procurementPesquisaPrecoItemInProcurement.id,
-							ataItemId: procurementPesquisaPrecoItemInProcurement.procurementListItemId,
+							quantityEstimateItemId: procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId,
 							catmat: procurementPesquisaPrecoItemInProcurement.catmatCodigo,
 							referencePrice: procurementPesquisaPrecoItemInProcurement.referencePrice,
 						})
@@ -1729,9 +1773,9 @@ async function assertPricesBackedByResearch(tx: TxClient, unitId: number, input:
 				),
 		runQuery("FETCH_FAILED", () =>
 			tx
-				.select({ id: procurementListItemInProcurement.id, catmat: procurementListItemInProcurement.catmatItemCodigo })
-				.from(procurementListItemInProcurement)
-				.where(and(inArray(procurementListItemInProcurement.id, itemIds), eq(procurementListItemInProcurement.listId, input.ataId)))
+				.select({ id: quantityEstimateItemInProcurement.id, catmat: quantityEstimateItemInProcurement.catmatItemCodigo })
+				.from(quantityEstimateItemInProcurement)
+				.where(and(inArray(quantityEstimateItemInProcurement.id, itemIds), eq(quantityEstimateItemInProcurement.quantityEstimateId, input.quantityEstimateId)))
 		),
 	])
 	const researchById = new Map(research.map((r) => [r.id, r]))
@@ -1739,88 +1783,100 @@ async function assertPricesBackedByResearch(tx: TxClient, unitId: number, input:
 
 	for (const update of input.updates) {
 		const backed = ownLinks.some((link) => {
-			if (link.ataItemId !== update.ataItemId) return false
+			if (link.quantityEstimateItemId !== update.quantityEstimateItemId) return false
 			const row = researchById.get(link.researchItemId)
 			if (!row || row.referencePrice == null) return false
 			// Pesquisa ainda solta (recém-feita) ou já deste item; nunca a de outro item.
-			if (row.ataItemId != null && row.ataItemId !== update.ataItemId) return false
-			if (row.catmat == null || row.catmat !== catmatByItem.get(update.ataItemId)) return false
+			if (row.quantityEstimateItemId != null && row.quantityEstimateItemId !== update.quantityEstimateItemId) return false
+			if (row.catmat == null || row.catmat !== catmatByItem.get(update.quantityEstimateItemId)) return false
 			return isSamePrice(Number(row.referencePrice), update.price)
 		})
 		if (!backed) {
 			throw new DomainError(
 				"PRICE_WITHOUT_RESEARCH",
-				`Preço do item ${update.ataItemId} sem pesquisa de preços registrada para o mesmo item, CATMAT e valor: refaça a pesquisa do item.`
+				`Preço do item ${update.quantityEstimateItemId} sem pesquisa de preços registrada para o mesmo item, CATMAT e valor: refaça a pesquisa do item.`
 			)
 		}
 	}
 }
 
-export async function updateAtaItemPrices(db: SisubDb, ctx: UserContext, input: UpdateAtaItemPrices): Promise<void> {
-	const unitId = await authorizeAtaList(db, ctx, input.ataId)
+export async function updateQuantityEstimateItemPrices(db: SisubDb, ctx: UserContext, input: UpdateQuantityEstimateItemPrices): Promise<void> {
+	const unitId = await authorizeQuantityEstimate(db, ctx, input.quantityEstimateId)
 
 	await db.transaction(async (tx) => {
 		await assertPricesBackedByResearch(tx, unitId, input)
 
-		// Preço só em item DESTA ata: o `ataItemId` vem do corpo, e o update por id cru repreçava
-		// o item de qualquer ata — o guard acima prova só a ata informada.
+		// Preço só em item DESTE anexo: o `quantityEstimateItemId` vem do corpo, e o update por id cru repreçava
+		// o item de qualquer anexo — o guard acima prova só o anexo informado.
 		for (const u of input.updates) {
 			await mutateOrFail(
 				"UPDATE_FAILED",
-				`Erro ao atualizar preço: item ${u.ataItemId} não pertence ao anexo quantitativo ${input.ataId}`,
+				`Erro ao atualizar preço: item ${u.quantityEstimateItemId} não pertence ao anexo quantitativo ${input.quantityEstimateId}`,
 				() =>
 					tx
-						.update(procurementListItemInProcurement)
+						.update(quantityEstimateItemInProcurement)
 						.set({ unitPrice: u.price })
-						.where(and(eq(procurementListItemInProcurement.id, u.ataItemId), eq(procurementListItemInProcurement.listId, input.ataId)))
-						.returning({ id: procurementListItemInProcurement.id }),
+						.where(
+							and(
+								eq(quantityEstimateItemInProcurement.id, u.quantityEstimateItemId),
+								eq(quantityEstimateItemInProcurement.quantityEstimateId, input.quantityEstimateId)
+							)
+						)
+						.returning({ id: quantityEstimateItemInProcurement.id }),
 				{ prefix: "Erro ao atualizar preço" }
 			)
 		}
 
 		if (input.researchLinks?.length) {
-			// O item de destino do vínculo também tem de ser desta ata.
-			const linkItemIds = [...new Set(input.researchLinks.map((l) => l.ataItemId))]
+			// O item de destino do vínculo também tem de ser deste anexo.
+			const linkItemIds = [...new Set(input.researchLinks.map((l) => l.quantityEstimateItemId))]
 			const ownItems = await runQuery("FETCH_FAILED", () =>
 				tx
-					.select({ id: procurementListItemInProcurement.id })
-					.from(procurementListItemInProcurement)
-					.where(and(inArray(procurementListItemInProcurement.id, linkItemIds), eq(procurementListItemInProcurement.listId, input.ataId)))
+					.select({ id: quantityEstimateItemInProcurement.id })
+					.from(quantityEstimateItemInProcurement)
+					.where(
+						and(inArray(quantityEstimateItemInProcurement.id, linkItemIds), eq(quantityEstimateItemInProcurement.quantityEstimateId, input.quantityEstimateId))
+					)
 			)
 			const ownItemIds = new Set(ownItems.map((i) => i.id))
 			const foreignItem = linkItemIds.find((id) => !ownItemIds.has(id))
 			if (foreignItem)
-				throw new DomainError("UPDATE_FAILED", `Erro ao vincular pesquisa: item ${foreignItem} não pertence ao anexo quantitativo ${input.ataId}`)
+				throw new DomainError("UPDATE_FAILED", `Erro ao vincular pesquisa: item ${foreignItem} não pertence ao anexo quantitativo ${input.quantityEstimateId}`)
 
 			for (const link of await filterOwnResearchLinks(tx, unitId, input.researchLinks)) {
 				await tx
 					.update(procurementPesquisaPrecoItemInProcurement)
-					.set({ procurementListItemId: link.ataItemId })
+					.set({ quantityEstimateItemId: link.quantityEstimateItemId })
 					.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
 				await tx
 					.update(procurementPesquisaPrecoInProcurement)
-					.set({ procurementListId: input.ataId })
+					.set({ quantityEstimateId: input.quantityEstimateId })
 					.where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
 			}
 		}
 	})
 }
 
-// ─── Atualizar descrição de um item de ATA ───────────────────────────────────
+// ─── Atualizar descrição de um item de anexo ───────────────────────────────────
 
-export async function updateAtaItemDescription(db: SisubDb, ctx: UserContext, input: UpdateAtaItemDescription): Promise<void> {
-	// Só o id do ITEM chega — a ATA dona sai do próprio item.
-	const listId = await authorizeAtaItem(db, ctx, input.ataItemId)
+export async function updateQuantityEstimateItemDescription(db: SisubDb, ctx: UserContext, input: UpdateQuantityEstimateItemDescription): Promise<void> {
+	// Só o id do ITEM chega — o anexo dono sai do próprio item.
+	const quantityEstimateId = await authorizeQuantityEstimateItem(db, ctx, input.quantityEstimateItemId)
 
 	await mutateOrFail(
 		"UPDATE_FAILED",
-		`Erro ao atualizar descrição: item ${input.ataItemId} não encontrado`,
+		`Erro ao atualizar descrição: item ${input.quantityEstimateItemId} não encontrado`,
 		() =>
 			db
-				.update(procurementListItemInProcurement)
+				.update(quantityEstimateItemInProcurement)
 				.set({ itemDescription: input.description || null })
-				.where(and(eq(procurementListItemInProcurement.id, input.ataItemId), eq(procurementListItemInProcurement.listId, listId)))
-				.returning({ id: procurementListItemInProcurement.id }),
+				.where(
+					and(
+						eq(quantityEstimateItemInProcurement.id, input.quantityEstimateItemId),
+						eq(quantityEstimateItemInProcurement.quantityEstimateId, quantityEstimateId)
+					)
+				)
+				.returning({ id: quantityEstimateItemInProcurement.id }),
 		{ prefix: "Erro ao atualizar descrição" }
 	)
 }
@@ -1828,43 +1884,48 @@ export async function updateAtaItemDescription(db: SisubDb, ctx: UserContext, in
 // ─── Ajustar limites do anexo de quantitativos ───────────────────────────────
 
 /**
- * Grava a margem padrão e a justificativa da ata e as escolhas por item (margem, ciclo,
- * mínimo por pedido). Só em rascunho: publicar congela máxima e mínima no snapshot, e mexer
- * depois divergiria o documento publicado do que o sistema mostra.
+ * Grava o acréscimo padrão e a justificativa do anexo e as escolhas por item (acréscimo, ciclo,
+ * mínimo por pedido). Só em rascunho: concluir congela máxima e mínima no snapshot, e mexer
+ * depois divergiria o documento do anexo concluído do que o sistema mostra.
  *
- * O predicado de cada item amarra a ATA dona (`list_id`): um id de item de outra ata não
+ * O predicado de cada item amarra o anexo dono (`quantity_estimate_id`): um id de item de outro anexo não
  * é atualizado, e a contagem denuncia a divergência em vez de engolir.
  */
-export async function updateAtaQuantityLimits(db: SisubDb, ctx: UserContext, input: UpdateAtaQuantityLimits): Promise<void> {
-	await authorizeAtaList(db, ctx, input.ataId)
+export async function updateQuantityEstimateLimits(db: SisubDb, ctx: UserContext, input: UpdateQuantityEstimateLimits): Promise<void> {
+	await authorizeQuantityEstimate(db, ctx, input.quantityEstimateId)
 
 	await db.transaction(async (tx) => {
-		await assertDraftEditable(tx, input.ataId)
+		await assertDraftEditable(tx, input.quantityEstimateId)
 
-		const listPatch: Partial<typeof procurementListInProcurement.$inferInsert> = {}
-		if (input.maxMarginPercent !== undefined) listPatch.maxMarginPercent = input.maxMarginPercent
-		if (input.marginJustification !== undefined) listPatch.marginJustification = input.marginJustification?.trim() || null
-		if (input.minQuotePercent !== undefined) listPatch.minQuotePercent = input.minQuotePercent
-		if (Object.keys(listPatch).length > 0) {
-			// Sem `updated_at`: limite não muda o alvo, então não pode marcar o cálculo como defasado.
-			await tx.update(procurementListInProcurement).set(listPatch).where(eq(procurementListInProcurement.id, input.ataId))
+		const quantityEstimatePatch: Partial<typeof quantityEstimateInProcurement.$inferInsert> = {}
+		if (input.maxIncreasePercent !== undefined) quantityEstimatePatch.maxIncreasePercent = input.maxIncreasePercent
+		if (input.maxQuantityJustification !== undefined) quantityEstimatePatch.maxQuantityJustification = input.maxQuantityJustification?.trim() || null
+		if (input.minQuotePercent !== undefined) quantityEstimatePatch.minQuotePercent = input.minQuotePercent
+		if (Object.keys(quantityEstimatePatch).length > 0) {
+			// Sem `updated_at`: limite não muda a estimada, então não pode marcar o cálculo como defasado.
+			await tx.update(quantityEstimateInProcurement).set(quantityEstimatePatch).where(eq(quantityEstimateInProcurement.id, input.quantityEstimateId))
 		}
 
 		for (const item of input.items ?? []) {
 			const patch: Partial<ItemInsert> = {}
-			if (item.maxMarginPercent !== undefined) patch.maxMarginPercent = item.maxMarginPercent
+			if (item.maxIncreasePercent !== undefined) patch.maxIncreasePercent = item.maxIncreasePercent
 			if (item.deliveryCycle !== undefined) patch.deliveryCycle = item.deliveryCycle
 			if (item.minOrderQuantity !== undefined) patch.minOrderQuantity = item.minOrderQuantity ?? null
 			if (Object.keys(patch).length === 0) continue
 			await mutateOrFail(
 				"UPDATE_FAILED",
-				`Erro ao ajustar limites: item ${item.ataItemId} não pertence ao anexo quantitativo ${input.ataId}`,
+				`Erro ao ajustar limites: item ${item.quantityEstimateItemId} não pertence ao anexo quantitativo ${input.quantityEstimateId}`,
 				() =>
 					tx
-						.update(procurementListItemInProcurement)
+						.update(quantityEstimateItemInProcurement)
 						.set(patch)
-						.where(and(eq(procurementListItemInProcurement.id, item.ataItemId), eq(procurementListItemInProcurement.listId, input.ataId)))
-						.returning({ id: procurementListItemInProcurement.id }),
+						.where(
+							and(
+								eq(quantityEstimateItemInProcurement.id, item.quantityEstimateItemId),
+								eq(quantityEstimateItemInProcurement.quantityEstimateId, input.quantityEstimateId)
+							)
+						)
+						.returning({ id: quantityEstimateItemInProcurement.id }),
 				{ prefix: "Erro ao ajustar limites" }
 			)
 		}
@@ -1878,36 +1939,40 @@ export async function updateAtaQuantityLimits(db: SisubDb, ctx: UserContext, inp
  * copiada para o TR sai sem preço e valor. Muda só a saída dos documentos, não os números
  * congelados, então vale em qualquer status.
  */
-export async function updateAtaDocumentSettings(db: SisubDb, ctx: UserContext, input: { ataId: string; isBudgetConfidential: boolean }): Promise<void> {
-	await authorizeAtaList(db, ctx, input.ataId)
+export async function updateQuantityEstimateDocumentSettings(
+	db: SisubDb,
+	ctx: UserContext,
+	input: { quantityEstimateId: string; isBudgetConfidential: boolean }
+): Promise<void> {
+	await authorizeQuantityEstimate(db, ctx, input.quantityEstimateId)
 	await mutateOrFail(
 		"UPDATE_FAILED",
-		`Erro ao ajustar o anexo: ${input.ataId} não encontrado`,
+		`Erro ao ajustar o anexo: ${input.quantityEstimateId} não encontrado`,
 		() =>
 			db
-				.update(procurementListInProcurement)
+				.update(quantityEstimateInProcurement)
 				.set({ isBudgetConfidential: input.isBudgetConfidential })
-				.where(eq(procurementListInProcurement.id, input.ataId))
-				.returning({ id: procurementListInProcurement.id }),
+				.where(eq(quantityEstimateInProcurement.id, input.quantityEstimateId))
+				.returning({ id: quantityEstimateInProcurement.id }),
 		{ prefix: "Erro ao ajustar o anexo" }
 	)
 }
 
-// ─── Deletar ATA (soft delete) ────────────────────────────────────────────────
+// ─── Deletar anexo (soft delete) ────────────────────────────────────────────────
 
-/** Soft-deletes an ATA by setting deleted_at — kitchen associations and items remain intact. */
-export async function deleteAta(db: SisubDb, ctx: UserContext, input: DeleteAta): Promise<void> {
-	await authorizeAtaList(db, ctx, input.ataId)
+/** Soft-deletes a quantity estimate by setting deleted_at — kitchen associations and items remain intact. */
+export async function deleteQuantityEstimate(db: SisubDb, ctx: UserContext, input: DeleteQuantityEstimate): Promise<void> {
+	await authorizeQuantityEstimate(db, ctx, input.quantityEstimateId)
 
 	await mutateOrFail(
 		"DELETE_FAILED",
-		`Erro ao deletar anexo quantitativo: ${input.ataId} não encontrado`,
+		`Erro ao deletar anexo quantitativo: ${input.quantityEstimateId} não encontrado`,
 		() =>
 			db
-				.update(procurementListInProcurement)
+				.update(quantityEstimateInProcurement)
 				.set({ deletedAt: new Date().toISOString() })
-				.where(eq(procurementListInProcurement.id, input.ataId))
-				.returning({ id: procurementListInProcurement.id }),
+				.where(eq(quantityEstimateInProcurement.id, input.quantityEstimateId))
+				.returning({ id: quantityEstimateInProcurement.id }),
 		{ prefix: "Erro ao deletar anexo quantitativo" }
 	)
 }

@@ -8,10 +8,10 @@
  *
  * ## Autorização
  *
- * Pesquisa avulsa exige `unit:1` (membro do módulo). Quando o registro é LIGADO a uma ATA
- * (`ataId`/`ataItemId`), exige `unit:2` na unidade DONA da ata — e a unidade sai da linha
- * persistida (`procurement_list.unit_id`), nunca do payload: aceitar o escopo do chamador
- * deixaria membro de qualquer unidade carimbar memória de cálculo em ATA alheia.
+ * Pesquisa avulsa exige `unit:1` (membro do módulo). Quando o registro é LIGADO a um anexo
+ * (`quantityEstimateId`/`quantityEstimateItemId`), exige `unit:2` na unidade DONA do anexo — e a unidade sai da linha
+ * persistida (`quantity_estimate.unit_id`), nunca do payload: aceitar o escopo do chamador
+ * deixaria membro de qualquer unidade carimbar memória de cálculo em anexo alheio.
  *
  * ## Conflitos e numeric
  *
@@ -28,11 +28,11 @@
 // acesso só acontece dentro da função, que só roda no servidor.
 import * as nodeCrypto from "node:crypto"
 import {
-	procurementListInProcurement,
-	procurementListItemInProcurement,
 	procurementPesquisaPrecoAmostraInProcurement,
 	procurementPesquisaPrecoInProcurement,
 	procurementPesquisaPrecoItemInProcurement,
+	quantityEstimateInProcurement,
+	quantityEstimateItemInProcurement,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import { asc, eq, isNotNull, sql } from "drizzle-orm"
@@ -126,9 +126,9 @@ export type SavePriceResearchAudit = {
 	manualSelection?: boolean
 	/** Justificativas da pesquisa; só as que respondem a uma não conformidade dela são gravadas. */
 	justifications?: ResearchJustifications
-	/** Se fornecidos, linka imediatamente (caso ATA já existente). */
-	ataId?: string
-	ataItemId?: string
+	/** Se fornecidos, linka imediatamente (caso anexo já existente). */
+	quantityEstimateId?: string
+	quantityEstimateItemId?: string
 }
 
 export type PriceResearchAuditIds = { researchId: string; researchItemId: string }
@@ -178,50 +178,55 @@ export function complianceFactsOf(input: SavePriceResearchAudit): ResearchCompli
 }
 
 /**
- * Resolve a ATA alvo e exige `unit:2` na unidade DONA dela.
+ * Resolve o anexo alvo e exige `unit:2` na unidade DONA dele.
  *
- * Quando `ataItemId` vem junto de `ataId`, o item precisa pertencer à ata informada — e a ata
+ * Quando `quantityEstimateItemId` vem junto de `quantityEstimateId`, o item precisa pertencer ao anexo informado — e o anexo
  * efetiva passa a ser a do ITEM, lida do banco. Sem isso, o payload escolheria sozinho a
  * unidade contra a qual a permissão é checada.
  */
-async function authorizeAtaTarget(db: SisubDb, ctx: UserContext, ataId?: string, ataItemId?: string): Promise<void> {
-	let listId = ataId ?? null
+async function authorizeQuantityEstimateTarget(
+	db: SisubDb,
+	ctx: UserContext,
+	requestedQuantityEstimateId?: string,
+	quantityEstimateItemId?: string
+): Promise<void> {
+	let quantityEstimateId = requestedQuantityEstimateId ?? null
 
-	if (ataItemId) {
+	if (quantityEstimateItemId) {
 		const rows = await runQuery(
 			"FETCH_FAILED",
 			() =>
 				db
-					.select({ id: procurementListItemInProcurement.id, listId: procurementListItemInProcurement.listId })
-					.from(procurementListItemInProcurement)
-					.where(eq(procurementListItemInProcurement.id, ataItemId))
+					.select({ id: quantityEstimateItemInProcurement.id, quantityEstimateId: quantityEstimateItemInProcurement.quantityEstimateId })
+					.from(quantityEstimateItemInProcurement)
+					.where(eq(quantityEstimateItemInProcurement.id, quantityEstimateItemId))
 					.limit(1),
 			{ prefix: "Erro ao validar item do anexo quantitativo" }
 		)
 		const item = rows[0]
-		if (!item || (listId != null && item.listId !== listId)) {
-			throw new DomainError("VALIDATION_FAILED", "ataItemId não pertence ao anexo quantitativo informado")
+		if (!item || (quantityEstimateId != null && item.quantityEstimateId !== quantityEstimateId)) {
+			throw new DomainError("VALIDATION_FAILED", "quantityEstimateItemId não pertence ao anexo quantitativo informado")
 		}
-		listId = item.listId
+		quantityEstimateId = item.quantityEstimateId
 	}
 
-	if (listId == null) throw new DomainError("VALIDATION_FAILED", "ataItemId não pertence ao anexo quantitativo informado")
+	if (quantityEstimateId == null) throw new DomainError("VALIDATION_FAILED", "quantityEstimateItemId não pertence ao anexo quantitativo informado")
 
 	// `const` antes da query: o narrowing de um `let` não sobrevive à captura pelo callback.
-	const targetListId = listId
+	const targetQuantityEstimateId = quantityEstimateId
 
 	const lists = await runQuery(
 		"FETCH_FAILED",
 		() =>
 			db
-				.select({ unitId: procurementListInProcurement.unitId })
-				.from(procurementListInProcurement)
-				.where(eq(procurementListInProcurement.id, targetListId))
+				.select({ unitId: quantityEstimateInProcurement.unitId })
+				.from(quantityEstimateInProcurement)
+				.where(eq(quantityEstimateInProcurement.id, targetQuantityEstimateId))
 				.limit(1),
 		{ prefix: "Erro ao validar anexo quantitativo" }
 	)
 	const list = lists[0]
-	if (!list) throw new NotFoundError("ata", targetListId)
+	if (!list) throw new NotFoundError("quantity_estimate", targetQuantityEstimateId)
 
 	requireUnit(ctx, 2, list.unitId)
 }
@@ -247,10 +252,12 @@ function idempotencyKeyFor(input: SavePriceResearchAudit, facts: ResearchComplia
 		.digest("hex")
 		.slice(0, 16)
 
-	// A ATA participa do escopo mesmo sem ataItemId: sem isso, duas ATAs distintas com o mesmo
+	// O anexo participa do escopo mesmo sem quantityEstimateItemId: sem isso, dois anexos distintos com o mesmo
 	// CATMAT/método/dia/amostras colidiriam na chave e a segunda receberia os IDs de auditoria
 	// da primeira — vazando o vínculo entre unidades.
-	const scope = input.ataItemId ?? (input.ataId ? `ata-${input.ataId}:catmat-${input.catmatCodigo}` : `catmat-${input.catmatCodigo}`)
+	const scope =
+		input.quantityEstimateItemId ??
+		(input.quantityEstimateId ? `quantity-estimate-${input.quantityEstimateId}:catmat-${input.catmatCodigo}` : `catmat-${input.catmatCodigo}`)
 	// Dia no fuso de Brasília (não UTC) — senão re-execuções entre 21h–24h BRT cairiam em dias
 	// UTC distintos e gerariam registros duplicados.
 	const day = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
@@ -405,10 +412,10 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, input: SavePriceResearchAudit): Promise<PriceResearchAuditResult> {
 	// WRITE numa trilha de auditoria de preço. Sessão sozinha deixava qualquer autenticado
 	// forjar memória de cálculo; guard sem escopo ainda deixava membro de qualquer unidade
-	// gravar/ligar auditoria em ATA alheia.
+	// gravar/ligar auditoria em anexo alheio.
 	requirePermission(ctx, "unit", 1)
-	if (input.ataId || input.ataItemId) {
-		await authorizeAtaTarget(db, ctx, input.ataId, input.ataItemId)
+	if (input.quantityEstimateId || input.quantityEstimateItemId) {
+		await authorizeQuantityEstimateTarget(db, ctx, input.quantityEstimateId, input.quantityEstimateItemId)
 	}
 
 	const facts = complianceFactsOf(input)
@@ -430,7 +437,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 					tx
 						.insert(procurementPesquisaPrecoInProcurement)
 						.values({
-							procurementListId: input.ataId ?? null,
+							quantityEstimateId: input.quantityEstimateId ?? null,
 							referenceMethod: input.method,
 							periodMonths: input.periodMonths ?? null,
 							totalItems: 1,
@@ -465,7 +472,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 						.insert(procurementPesquisaPrecoItemInProcurement)
 						.values({
 							researchId: research.id,
-							procurementListItemId: input.ataItemId ?? null,
+							quantityEstimateItemId: input.quantityEstimateItemId ?? null,
 							catmatCodigo: input.catmatCodigo,
 							catmatDescricao: input.catmatDescricao ?? null,
 							productName: input.catmatDescricao ?? String(input.catmatCodigo),

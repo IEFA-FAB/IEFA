@@ -123,16 +123,16 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 					outOfPeriod: JustificationSchema,
 				})
 				.optional(),
-			// Se fornecidos, linka imediatamente (caso ATA já existente)
-			ataId: z.uuid().optional(),
-			ataItemId: z.uuid().optional(),
+			// Se fornecidos, linka imediatamente (caso anexo já existente)
+			quantityEstimateId: z.uuid().optional(),
+			quantityEstimateItemId: z.uuid().optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<PriceResearchAuditResult> => {
 		// WRITE numa trilha de auditoria de preço (Lei 14.133/2021). Sessão sozinha deixava
 		// qualquer autenticado forjar memória de cálculo. Postura: membro do módulo `unit` (L1)
-		// para pesquisa avulsa; quando o registro é ligado a ataId/ataItemId, a operação de
-		// domínio escala para `unit` L2 na unidade DONA da ATA — alvo resolvido no banco, nunca
+		// para pesquisa avulsa; quando o registro é ligado a quantityEstimateId/quantityEstimateItemId, a operação de
+		// domínio escala para `unit` L2 na unidade DONA do anexo — alvo resolvido no banco, nunca
 		// confiado do payload (ver price-research.authz.test.ts).
 		const ctx = await requireAuthWithPermission("unit", 1)
 		return savePriceResearchAudit(getDb(), ctx, data).catch(handleDomainError)

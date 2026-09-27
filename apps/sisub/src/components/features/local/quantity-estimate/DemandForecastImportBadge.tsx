@@ -1,21 +1,21 @@
 import { Download, Send } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import type { KitchenSelectionState, TemplateSelection } from "@/types/domain/ata"
 import type { DemandForecastWithSelections } from "@/types/domain/demand-forecast"
+import type { KitchenSelectionState, TemplateSelection } from "@/types/domain/quantity-estimate"
 
 interface DemandForecastImportBadgeProps {
 	forecast: DemandForecastWithSelections
 	kitchenState: KitchenSelectionState
 	/** Rascunho do anexo aberto: diz se a previsão já entrou nele. */
-	listId: string | null
+	quantityEstimateId: string | null
 	onImport: (kitchenId: number, templateSelections: TemplateSelection[], eventSelections: TemplateSelection[], exceptionSelections: TemplateSelection[]) => void
 }
 
-export function DemandForecastImportBadge({ forecast, kitchenState, listId, onImport }: DemandForecastImportBadgeProps) {
+export function DemandForecastImportBadge({ forecast, kitchenState, quantityEstimateId, onImport }: DemandForecastImportBadgeProps) {
 	const imports = forecast.imports ?? []
-	const inThisAnnex = listId != null && imports.some((i) => i.list_id === listId)
-	const elsewhere = imports.filter((i) => i.list_id !== listId)
+	const inThisAnnex = quantityEstimateId != null && imports.some((i) => i.quantity_estimate_id === quantityEstimateId)
+	const elsewhere = imports.filter((i) => i.quantity_estimate_id !== quantityEstimateId)
 	const handleImport = () => {
 		const templateSelections: TemplateSelection[] = []
 		const eventSelections: TemplateSelection[] = []

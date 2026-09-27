@@ -41,7 +41,7 @@ export interface ExecutionArpRow {
 	nome_uasg_gerenciadora: string | null
 	source: "compras_gov" | "manual"
 	last_synced_at: string | null
-	procurement_list_id: string | null
+	quantity_estimate_id: string | null
 	acquisition_id: string | null
 	data_vigencia_fim: string | null
 }
@@ -90,7 +90,7 @@ export async function loadUnitExecution<A extends ExecutionAcquisitionRow>(
 		readAllPages<ExecutionArpRow>("ARPs", (from, to) =>
 			procurement
 				.from("procurement_arp")
-				.select("id, numero_ata, uasg_gerenciadora, nome_uasg_gerenciadora, source, last_synced_at, procurement_list_id, acquisition_id, data_vigencia_fim")
+				.select("id, numero_ata, uasg_gerenciadora, nome_uasg_gerenciadora, source, last_synced_at, quantity_estimate_id, acquisition_id, data_vigencia_fim")
 				.eq("unit_id", unitId)
 				.order("created_at", { ascending: false })
 				.order("id")

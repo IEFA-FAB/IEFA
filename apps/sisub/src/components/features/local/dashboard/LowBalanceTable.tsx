@@ -47,11 +47,11 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 								<td className="py-2.5 px-3 hidden md:table-cell">
 									<p className="text-xs font-mono text-foreground">{item.arp_numero_ata}</p>
 									<Link
-										to="/unit/$unitId/procurement/$ataId"
-										params={{ unitId: unitIdStr, ataId: item.ata_id }}
+										to="/unit/$unitId/quantity-estimates/$quantityEstimateId"
+										params={{ unitId: unitIdStr, quantityEstimateId: item.quantity_estimate_id }}
 										className="text-xs text-muted-foreground hover:text-primary transition-colors line-clamp-1"
 									>
-										{item.ata_title}
+										{item.quantity_estimate_title}
 									</Link>
 								</td>
 								<td className="py-2.5 px-3 text-right text-xs tabular-nums hidden sm:table-cell">

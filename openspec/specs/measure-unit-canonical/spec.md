@@ -15,7 +15,7 @@ O sistema SHALL manter a tabela `core.measure_unit` com códigos canônicos em m
 - **THEN** o sistema rejeita a escrita com erro de validação
 
 ### Requirement: Normalização dos dados existentes
-O backfill SHALL normalizar os valores existentes de `measure_unit` (em `ingredient`, `ingredient_item`, `purchase_item`, `procurement_list_item` e correlatas) via `upper(trim())` + mapa de sinônimos, sem alterar valores não-mapeáveis, que MUST ser listados em fila de revisão.
+O backfill SHALL normalizar os valores existentes de `measure_unit` (em `ingredient`, `ingredient_item`, `purchase_item`, `quantity_estimate_item` (antes `procurement_list_item`) e correlatas) via `upper(trim())` + mapa de sinônimos, sem alterar valores não-mapeáveis, que MUST ser listados em fila de revisão.
 
 #### Scenario: Normalização de caixa inconsistente
 - **WHEN** o backfill encontra `kg` e `KG` no mesmo domínio

@@ -1,8 +1,8 @@
 import type { OpenResearchFinding } from "@iefa/sisub-domain"
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { PriceResearchAuditIds } from "@/components/features/local/price-research/PriceResearchModal"
-import { annexItemUnit } from "@/lib/ata-annex"
 import { autoSelectPrice, fetchAllPagesForCatmat } from "@/lib/price-research-utils"
+import { annexItemUnit } from "@/lib/quantity-estimate-annex"
 import { savePrecoAuditFn } from "@/server/price-research.fn"
 
 export interface BulkResearchItem {
@@ -10,7 +10,7 @@ export interface BulkResearchItem {
 	catmat_item_descricao?: string | null
 	ingredient_id: string
 	ingredient_name: string
-	ata_item_id?: string | null
+	quantity_estimate_item_id?: string | null
 	/** Unidade de compra do item: os preços das amostras são convertidos para ela. */
 	purchase_measure_unit?: string | null
 	/** Unidade do insumo: é a do anexo quando o item de compra não declara a própria. */
@@ -20,7 +20,7 @@ export interface BulkResearchItem {
 
 export interface BulkResearchResult {
 	ingredientId: string
-	ataItemId?: string | null
+	quantityEstimateItemId?: string | null
 	price: number
 	/** Memória de cálculo gravada. Sem ela o preço não é aplicado: preço sem pesquisa não se audita. */
 	auditIds: PriceResearchAuditIds
@@ -60,7 +60,11 @@ export function bulkFindingsNotice(results: BulkResearchResult[]): string | null
 	return `O preço foi aplicado. ${parts.join(" ")}`
 }
 
-export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, onItemResult?: (result: BulkResearchResult) => Promise<void> | void) {
+export function useBulkPriceResearch(
+	items: BulkResearchItem[],
+	quantityEstimateId?: string,
+	onItemResult?: (result: BulkResearchResult) => Promise<void> | void
+) {
 	const [progress, setProgress] = useState<BulkPriceProgress>({ done: 0, total: 0, errors: 0, isRunning: false })
 
 	// Ref keeps the callback current without forcing start() to rebuild on every render
@@ -107,8 +111,8 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 						unitInferred: selected.unitInferred,
 						// O lote não escolhe amostra à mão; o servidor confere pela classificação recebida.
 						manualSelection: false,
-						ataId,
-						ataItemId: item.ata_item_id ?? undefined,
+						quantityEstimateId,
+						quantityEstimateItemId: item.quantity_estimate_item_id ?? undefined,
 					},
 				})
 
@@ -116,7 +120,7 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 				const auditIds: PriceResearchAuditIds = { researchId: saved.researchId, researchItemId: saved.researchItemId }
 				const result: BulkResearchResult = {
 					ingredientId: item.ingredient_id,
-					ataItemId: item.ata_item_id,
+					quantityEstimateItemId: item.quantity_estimate_item_id,
 					price: selected.price,
 					auditIds,
 					openFindings: saved.openFindings,
@@ -147,7 +151,7 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 
 		setProgress((prev) => ({ ...prev, isRunning: false }))
 		return results
-	}, [eligibleItems, ataId])
+	}, [eligibleItems, quantityEstimateId])
 
 	return { start, progress, eligibleCount: eligibleItems.length }
 }

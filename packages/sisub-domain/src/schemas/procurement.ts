@@ -1,6 +1,6 @@
 import { z } from "zod"
-import { DELIVERY_CYCLES } from "../operations/ata-quantity-limits.ts"
 import { CONSERVATION_CLASSES, PACKAGE_TYPES, TRANSPORT_REQUIREMENTS } from "../operations/conditioning.ts"
+import { DELIVERY_CYCLES } from "../operations/quantity-estimate-limits.ts"
 import { KitchenIdSchema, UuidSchema } from "./common.ts"
 
 export const FetchProcurementNeedsSchema = z.object({
@@ -140,13 +140,13 @@ export type DeleteDemandForecast = z.infer<typeof DeleteDemandForecastSchema>
 export const FetchUnitDashboardSchema = z.object({ unitId: z.number() })
 export type FetchUnitDashboard = z.infer<typeof FetchUnitDashboardSchema>
 
-// ─── ATA lifecycle (procurement_list) ────────────────────────────────────────
+// ─── anexo lifecycle (quantity_estimate) ────────────────────────────────────────
 
-/** Vigência da ata em meses — espelha o CHECK de procurement_list.validity_months. */
+/** Vigência do anexo em meses — espelha o CHECK de quantity_estimate.validity_months. */
 export const ValidityMonthsSchema = z.number().int().min(1).max(120)
 
-/** Margem da quantidade máxima sobre o alvo, em %. Mesmo intervalo do CHECK de 20260916134659. */
-export const MarginPercentSchema = z.number().int().min(0).max(100)
+/** Acréscimo da quantidade máxima sobre a estimada, em %. Mesmo intervalo do CHECK de 20260916134659. */
+export const IncreasePercentSchema = z.number().int().min(0).max(100)
 
 /** Ciclo de entrega (semanal = perecível, mensal = não perecível). Mesmo vocabulário do CHECK de 20260916134659. */
 export const DeliveryCycleSchema = z.enum(DELIVERY_CYCLES)
@@ -154,7 +154,7 @@ export const DeliveryCycleSchema = z.enum(DELIVERY_CYCLES)
 /**
  * Um bucket por regime de produção (kitchen.menu_template.template_type).
  * `repetitions` tem o mesmo significado nos três: quantas vezes o cardápio é
- * produzido dentro da vigência da ata. Para exceção o valor é derivado
+ * produzido dentro da vigência do anexo. Para exceção o valor é derivado
  * (ocorrências mensais × validityMonths), não digitado.
  */
 export const KitchenSelectionSchema = z.object({
@@ -168,17 +168,17 @@ export const KitchenSelectionSchema = z.object({
 })
 export type KitchenSelectionInput = z.infer<typeof KitchenSelectionSchema>
 
-export const CalculateAtaNeedsSchema = z.object({
+export const CalculateQuantityEstimateNeedsSchema = z.object({
 	kitchenSelections: z.array(KitchenSelectionSchema),
 	/** Anexo de uma contratação: o cálculo devolve só os itens que resolvem para ela. */
 	segmentId: UuidSchema.nullable().optional(),
 })
-export type CalculateAtaNeeds = z.infer<typeof CalculateAtaNeedsSchema>
+export type CalculateQuantityEstimateNeeds = z.infer<typeof CalculateQuantityEstimateNeedsSchema>
 
-export const CreateAtaDraftSchema = z.object({ unitId: z.number() })
-export type CreateAtaDraft = z.infer<typeof CreateAtaDraftSchema>
+export const CreateQuantityEstimateDraftSchema = z.object({ unitId: z.number() })
+export type CreateQuantityEstimateDraft = z.infer<typeof CreateQuantityEstimateDraftSchema>
 
-export const UpdateAtaDraftSchema = z.object({
+export const UpdateQuantityEstimateDraftSchema = z.object({
 	draftId: UuidSchema,
 	title: z.string().optional(),
 	notes: z.string().optional(),
@@ -188,16 +188,16 @@ export const UpdateAtaDraftSchema = z.object({
 	/** Contratação do anexo; null = anexo de todos os itens (comportamento anterior). */
 	segmentId: UuidSchema.nullable().optional(),
 })
-export type UpdateAtaDraft = z.infer<typeof UpdateAtaDraftSchema>
+export type UpdateQuantityEstimateDraft = z.infer<typeof UpdateQuantityEstimateDraftSchema>
 
 export const DraftItemSchema = z.object({
-	ata_item_id: UuidSchema.optional().nullable(), // presente em itens já persistidos
+	quantity_estimate_item_id: UuidSchema.optional().nullable(), // presente em itens já persistidos
 	ingredient_id: z.string().optional().nullable(),
 	ingredient_name: z.string(),
 	folder_id: z.string().optional().nullable(),
 	folder_description: z.string().optional().nullable(),
 	measure_unit: z.string().optional().nullable(),
-	total_quantity: z.number(),
+	estimated_quantity: z.number(),
 	purchase_item_id: z.string().optional().nullable(),
 	purchase_item_description: z.string().optional().nullable(),
 	purchase_measure_unit: z.string().optional().nullable(),
@@ -208,8 +208,8 @@ export const DraftItemSchema = z.object({
 	unit_price: z.number().optional().nullable(),
 	item_description: z.string().optional().nullable(),
 	// Escolhas do anexo de quantitativos. Ausente = preserva o que está gravado (o save de
-	// itens reescreve a linha inteira); null = volta a herdar (margem da ata, mínimo sugerido).
-	max_margin_percent: MarginPercentSchema.optional().nullable(),
+	// itens reescreve a linha inteira); null = volta a herdar (acréscimo do anexo, mínimo sugerido).
+	max_increase_percent: IncreasePercentSchema.optional().nullable(),
 	delivery_cycle: DeliveryCycleSchema.optional().nullable(),
 	min_order_quantity: z.number().positive().optional().nullable(),
 })
@@ -221,23 +221,23 @@ const ResearchLinkSchema = z.object({
 	researchItemId: UuidSchema,
 })
 
-export const SaveAtaDraftItemsSchema = z.object({
+export const SaveQuantityEstimateDraftItemsSchema = z.object({
 	draftId: UuidSchema,
 	items: z.array(DraftItemSchema),
 	researchLinks: z.array(ResearchLinkSchema).optional(),
 })
-export type SaveAtaDraftItems = z.infer<typeof SaveAtaDraftItemsSchema>
+export type SaveQuantityEstimateDraftItems = z.infer<typeof SaveQuantityEstimateDraftItemsSchema>
 
-export const FinalizeAtaDraftSchema = z.object({
+export const FinalizeQuantityEstimateDraftSchema = z.object({
 	draftId: UuidSchema,
 	title: z.string().min(1),
 	notes: z.string().optional(),
 	items: z.array(DraftItemSchema),
 	researchLinks: z.array(ResearchLinkSchema).optional(),
 })
-export type FinalizeAtaDraft = z.infer<typeof FinalizeAtaDraftSchema>
+export type FinalizeQuantityEstimateDraft = z.infer<typeof FinalizeQuantityEstimateDraftSchema>
 
-export const CreateAtaSchema = z.object({
+export const CreateQuantityEstimateSchema = z.object({
 	unitId: z.number(),
 	title: z.string().min(1),
 	notes: z.string().optional(),
@@ -249,7 +249,7 @@ export const CreateAtaSchema = z.object({
 			folder_id: z.string().optional().nullable(),
 			folder_description: z.string().optional().nullable(),
 			measure_unit: z.string().optional().nullable(),
-			total_quantity: z.number(),
+			estimated_quantity: z.number(),
 			// Purchase domain
 			purchase_item_id: z.string().optional().nullable(),
 			purchase_item_description: z.string().optional().nullable(),
@@ -264,64 +264,86 @@ export const CreateAtaSchema = z.object({
 	),
 	researchLinks: z.array(ResearchLinkSchema).optional(),
 })
-export type CreateAta = z.infer<typeof CreateAtaSchema>
+export type CreateQuantityEstimate = z.infer<typeof CreateQuantityEstimateSchema>
 
-export const FetchAtaListSchema = z.object({ unitId: z.number() })
-export type FetchAtaList = z.infer<typeof FetchAtaListSchema>
+export const FetchQuantityEstimateListSchema = z.object({ unitId: z.number() })
+export type FetchQuantityEstimateList = z.infer<typeof FetchQuantityEstimateListSchema>
 
-export const FetchAtaDetailsSchema = z.object({ ataId: z.string() })
-export type FetchAtaDetails = z.infer<typeof FetchAtaDetailsSchema>
+export const FetchQuantityEstimateDetailsSchema = z.object({ quantityEstimateId: z.string() })
+export type FetchQuantityEstimateDetails = z.infer<typeof FetchQuantityEstimateDetailsSchema>
 
-export const UpdateAtaStatusSchema = z.object({
-	ataId: z.string(),
-	status: z.enum(["draft", "published", "archived"]),
+/**
+ * Status do anexo quantitativo: rascunho, concluído e arquivado. "Concluído" é `completed`, nunca
+ * "publicado": publicar é divulgar no PNCP (Lei 14.133/2021, art. 54).
+ */
+export const QUANTITY_ESTIMATE_STATUSES = ["draft", "completed", "archived"] as const
+export type QuantityEstimateStatus = (typeof QUANTITY_ESTIMATE_STATUSES)[number]
+
+/**
+ * TODO(contract 20260927050000): nome antigo de `completed`. As linhas concluídas antes de
+ * 20260927040000 ainda o têm até o contract convertê-las; o código lê os dois e grava só
+ * `completed`. Sai com o contract.
+ */
+export const LEGACY_COMPLETED_STATUS = "published"
+
+/** Valores gravados que significam "concluído" enquanto o contract 20260927050000 não roda. */
+export const COMPLETED_STATUS_VALUES: readonly string[] = ["completed", LEGACY_COMPLETED_STATUS]
+
+/** Status lido do banco no vocabulário atual (`published` → `completed`). */
+export function normalizeQuantityEstimateStatus(status: string): string {
+	return status === LEGACY_COMPLETED_STATUS ? "completed" : status
+}
+
+export const UpdateQuantityEstimateStatusSchema = z.object({
+	quantityEstimateId: z.string(),
+	status: z.enum(QUANTITY_ESTIMATE_STATUSES),
 })
-export type UpdateAtaStatus = z.infer<typeof UpdateAtaStatusSchema>
+export type UpdateQuantityEstimateStatus = z.infer<typeof UpdateQuantityEstimateStatusSchema>
 
-export const UpdateAtaItemPricesSchema = z.object({
-	ataId: UuidSchema,
+export const UpdateQuantityEstimateItemPricesSchema = z.object({
+	quantityEstimateId: UuidSchema,
 	updates: z.array(
 		z.object({
-			ataItemId: UuidSchema,
+			quantityEstimateItemId: UuidSchema,
 			price: z.number().positive(),
 		})
 	),
 	researchLinks: z
 		.array(
 			z.object({
-				ataItemId: UuidSchema,
+				quantityEstimateItemId: UuidSchema,
 				researchId: UuidSchema,
 				researchItemId: UuidSchema,
 			})
 		)
 		.optional(),
 })
-export type UpdateAtaItemPrices = z.infer<typeof UpdateAtaItemPricesSchema>
+export type UpdateQuantityEstimateItemPrices = z.infer<typeof UpdateQuantityEstimateItemPricesSchema>
 
-export const UpdateAtaItemDescriptionSchema = z.object({
-	ataItemId: UuidSchema,
+export const UpdateQuantityEstimateItemDescriptionSchema = z.object({
+	quantityEstimateItemId: UuidSchema,
 	description: z.string().nullable(),
 })
-export type UpdateAtaItemDescription = z.infer<typeof UpdateAtaItemDescriptionSchema>
+export type UpdateQuantityEstimateItemDescription = z.infer<typeof UpdateQuantityEstimateItemDescriptionSchema>
 
 /**
- * Ajuste do anexo de quantitativos: margem padrão e justificativa da ata, escolhas por item.
- * Só em rascunho — máxima e mínima entram no documento publicado e no snapshot congelado.
+ * Ajuste do anexo de quantitativos: acréscimo padrão e justificativa do anexo, escolhas por item.
+ * Só em rascunho — máxima e mínima entram no documento concluído e no snapshot congelado.
  *
- * Por item, `null` limpa a escolha (margem volta a herdar, mínimo volta ao sugerido) e
- * ausente não mexe. O ciclo não aceita `null`: o que vale na ata é sempre gravado.
+ * Por item, `null` limpa a escolha (acréscimo volta a herdar, mínimo volta ao sugerido) e
+ * ausente não mexe. O ciclo não aceita `null`: o que vale no anexo é sempre gravado.
  */
-export const UpdateAtaQuantityLimitsSchema = z.object({
-	ataId: UuidSchema,
-	maxMarginPercent: MarginPercentSchema.optional(),
-	marginJustification: z.string().max(4000).nullable().optional(),
+export const UpdateQuantityEstimateLimitsSchema = z.object({
+	quantityEstimateId: UuidSchema,
+	maxIncreasePercent: IncreasePercentSchema.optional(),
+	maxQuantityJustification: z.string().max(4000).nullable().optional(),
 	/** Quantidade mínima a ser cotada, em % da máxima (Lei 14.133/2021, art. 82, II). */
 	minQuotePercent: z.number().gt(0).max(100).optional(),
 	items: z
 		.array(
 			z.object({
-				ataItemId: UuidSchema,
-				maxMarginPercent: MarginPercentSchema.nullable().optional(),
+				quantityEstimateItemId: UuidSchema,
+				maxIncreasePercent: IncreasePercentSchema.nullable().optional(),
 				deliveryCycle: DeliveryCycleSchema.optional(),
 				minOrderQuantity: z.number().positive().nullable().optional(),
 			})
@@ -329,10 +351,10 @@ export const UpdateAtaQuantityLimitsSchema = z.object({
 		.max(2000)
 		.optional(),
 })
-export type UpdateAtaQuantityLimits = z.infer<typeof UpdateAtaQuantityLimitsSchema>
+export type UpdateQuantityEstimateLimits = z.infer<typeof UpdateQuantityEstimateLimitsSchema>
 
-export const DeleteAtaSchema = z.object({ ataId: z.string() })
-export type DeleteAta = z.infer<typeof DeleteAtaSchema>
+export const DeleteQuantityEstimateSchema = z.object({ quantityEstimateId: z.string() })
+export type DeleteQuantityEstimate = z.infer<typeof DeleteQuantityEstimateSchema>
 
 // ─── Segmentação das contratações ──────────────────────────────────────────────
 
@@ -357,4 +379,4 @@ export const AddProcurementSegmentRuleSchema = z.object({
 })
 export const RemoveProcurementSegmentRuleSchema = z.object({ ruleId: UuidSchema })
 
-export const UpdateAtaDocumentSettingsSchema = z.object({ ataId: UuidSchema, isBudgetConfidential: z.boolean() })
+export const UpdateQuantityEstimateDocumentSettingsSchema = z.object({ quantityEstimateId: UuidSchema, isBudgetConfidential: z.boolean() })

@@ -38,7 +38,7 @@ function UnitDashboardPage() {
 
 	const { data, isLoading, error } = useUnitDashboard(unitId)
 
-	const publishedAtas = data?.published_atas ?? []
+	const completedQuantityEstimates = data?.completed_quantity_estimates ?? []
 	const lowBalanceItems = data?.low_balance_items ?? []
 	const criticalMenuItems = lowBalanceItems.filter((i) => i.in_upcoming_menu)
 
@@ -75,9 +75,9 @@ function UnitDashboardPage() {
 				<StatCard
 					icon={FileText}
 					label="Anexos concluídos"
-					value={publishedAtas.length}
-					sub={publishedAtas.length === 1 ? "anexo quantitativo" : "anexos quantitativos"}
-					variant={publishedAtas.length === 0 ? "default" : "success"}
+					value={completedQuantityEstimates.length}
+					sub={completedQuantityEstimates.length === 1 ? "anexo quantitativo" : "anexos quantitativos"}
+					variant={completedQuantityEstimates.length === 0 ? "default" : "success"}
 				/>
 				<StatCard
 					icon={AlertTriangle}
@@ -95,7 +95,7 @@ function UnitDashboardPage() {
 				/>
 			</div>
 
-			{/* ── Seção 1: Anexos publicados ────────────────────────────────────────── */}
+			{/* ── Seção 1: Anexos concluídos ────────────────────────────────────────── */}
 			<div className="space-y-3">
 				<div className="flex items-center justify-between">
 					<SectionTitle>Anexos concluídos</SectionTitle>
@@ -105,14 +105,14 @@ function UnitDashboardPage() {
 						className="text-xs"
 						nativeButton={false}
 						render={
-							<Link to="/unit/$unitId/procurement" params={{ unitId: unitIdStr as string }}>
+							<Link to="/unit/$unitId/quantity-estimates" params={{ unitId: unitIdStr as string }}>
 								Ver todas
 							</Link>
 						}
 					/>
 				</div>
 
-				{publishedAtas.length === 0 ? (
+				{completedQuantityEstimates.length === 0 ? (
 					<Card>
 						<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 							<PackageSearch className="size-9 text-muted-foreground" />
@@ -123,7 +123,7 @@ function UnitDashboardPage() {
 								variant="outline"
 								nativeButton={false}
 								render={
-									<Link to="/unit/$unitId/procurement" params={{ unitId: unitIdStr as string }}>
+									<Link to="/unit/$unitId/quantity-estimates" params={{ unitId: unitIdStr as string }}>
 										Ir para Anexos
 									</Link>
 								}
@@ -132,24 +132,27 @@ function UnitDashboardPage() {
 					</Card>
 				) : (
 					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-						{publishedAtas.map((ata) => (
-							<Card key={ata.id} className="hover:border-primary/30 transition-colors">
+						{completedQuantityEstimates.map((quantityEstimate) => (
+							<Card key={quantityEstimate.id} className="hover:border-primary/30 transition-colors">
 								<CardHeader className="pb-2 pt-4">
 									<CardTitle className="text-sm flex items-start gap-2">
 										<FileText className="size-4 text-muted-foreground shrink-0 mt-0.5" />
-										<span className="line-clamp-2 leading-snug">{ata.title}</span>
+										<span className="line-clamp-2 leading-snug">{quantityEstimate.title}</span>
 									</CardTitle>
 								</CardHeader>
 								<Separator />
 								<CardContent className="pt-3 pb-3 flex items-center justify-between gap-2">
-									<p className="text-xs text-muted-foreground">Concluído em {fmtDate(ata.updated_at ?? ata.created_at)}</p>
+									<p className="text-xs text-muted-foreground">Concluído em {fmtDate(quantityEstimate.updated_at ?? quantityEstimate.created_at)}</p>
 									<Button
 										size="sm"
 										variant="outline"
 										className="h-7 text-xs shrink-0"
 										nativeButton={false}
 										render={
-											<Link to="/unit/$unitId/procurement/$ataId" params={{ unitId: unitIdStr as string, ataId: ata.id }}>
+											<Link
+												to="/unit/$unitId/quantity-estimates/$quantityEstimateId"
+												params={{ unitId: unitIdStr as string, quantityEstimateId: quantityEstimate.id }}
+											>
 												Abrir
 											</Link>
 										}

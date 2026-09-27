@@ -10,8 +10,8 @@ import {
 	sendDemandForecastFn,
 	updateDemandForecastFn,
 } from "@/server/demand-forecast.fn"
-import type { TemplateSelection } from "@/types/domain/ata"
 import type { DemandForecastWithSelections } from "@/types/domain/demand-forecast"
+import type { TemplateSelection } from "@/types/domain/quantity-estimate"
 
 // ─── Query Hooks ──────────────────────────────────────────────────────────────
 
@@ -108,7 +108,7 @@ export function useDeleteDemandForecast() {
 export function useRecordDemandForecastImport(kitchenId: number) {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (data: { forecastId: string; listId: string }) => recordDemandForecastImportFn({ data }),
+		mutationFn: (data: { forecastId: string; quantityEstimateId: string }) => recordDemandForecastImportFn({ data }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.demandForecast.pending(kitchenId) })
 			queryClient.invalidateQueries({ queryKey: queryKeys.demandForecast.list(kitchenId) })

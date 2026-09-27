@@ -14,12 +14,13 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { sql } from "drizzle-orm"
 import { kitchenUnitIds, requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
 import { requireUnit } from "../guards/require-permission.ts"
+import { normalizeQuantityEstimateStatus } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import { runQuery } from "../utils/index.ts"
-import { PRICE_RESEARCH_VALIDITY_DAYS } from "./ata.ts"
 import { PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
 import { type CalendarCycle, computeContractingCycle } from "./procurement-calendar.ts"
 import { summarizeSegmentation } from "./procurement-segments.ts"
+import { PRICE_RESEARCH_VALIDITY_DAYS } from "./quantity-estimate.ts"
 import { brasiliaToday } from "./stock-math.ts"
 
 export interface KitchenPlanningState {
@@ -40,7 +41,7 @@ export interface SegmentCalendarEntry {
 }
 
 export interface AnnexPricingState {
-	listId: string
+	quantityEstimateId: string
 	title: string
 	status: string
 	segmentName: string | null
@@ -123,14 +124,16 @@ async function loadCalendar(db: SisubDb, unitIds: readonly number[], today: stri
 					-- Brasília. updated_at não serve: arquivar um anexo antigo o carimbaria de novo e
 					-- encerraria o ciclo corrente sem anexo novo.
 					(select coalesce(json_agg(to_char(
-							(coalesce((select min(ss.created_at) from procurement.procurement_list_snapshot_selection ss where ss.list_id = l.id), l.updated_at)
+							(coalesce((select min(ss.created_at) from procurement.quantity_estimate_snapshot_selection ss where ss.quantity_estimate_id = l.id), l.updated_at)
 								at time zone 'America/Sao_Paulo'), 'YYYY-MM-DD')), '[]'::json)
-						from procurement.procurement_list l
-						where l.segment_id = s.id and l.deleted_at is null and l.status in ('published', 'archived')) as concluded_at,
-					la.id as annex_id, la.title as annex_title, la.status as annex_status, la.wizard_step as annex_step, la.updated_at as annex_updated_at
+						from procurement.quantity_estimate l
+						where l.segment_id = s.id and l.deleted_at is null and l.status in ('completed', 'published', 'archived')) as concluded_at,
+					la.id as annex_id, la.title as annex_title,
+					-- 'published' é o nome antigo de 'completed' até o contract 20260927050000.
+					case la.status when 'published' then 'completed' else la.status end as annex_status, la.wizard_step as annex_step, la.updated_at as annex_updated_at
 				from procurement.procurement_segment s
 				left join lateral (
-					select * from procurement.procurement_list l
+					select * from procurement.quantity_estimate l
 					where l.segment_id = s.id and l.deleted_at is null
 					order by l.updated_at desc nulls last, l.created_at desc
 					limit 1
@@ -177,7 +180,7 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 			() =>
 				db.execute(sql`
 					select l.id, l.title, l.wizard_step, l.updated_at, s.name as segment_name
-					from procurement.procurement_list l
+					from procurement.quantity_estimate l
 					left join procurement.procurement_segment s on s.id = l.segment_id
 					where l.unit_id = ${unitId} and l.deleted_at is null and l.status = 'draft'
 					order by l.updated_at desc nulls last
@@ -196,19 +199,19 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 						count(i.id) filter (
 							where i.unit_price is not null and not exists (
 								select 1 from procurement.procurement_pesquisa_preco_item r
-								where r.procurement_list_item_id = i.id and r.reference_price is not null
+								where r.quantity_estimate_item_id = i.id and r.reference_price is not null
 									-- Mesma tolerância de isSamePrice (price-units.ts).
 									and abs(r.reference_price - i.unit_price) <= greatest(${PRICE_MATCH_ABSOLUTE}, abs(i.unit_price) * ${PRICE_MATCH_RELATIVE})
 							)
 						) as without_research,
 						count(i.id) filter (
-							where (select max(r.created_at) from procurement.procurement_pesquisa_preco_item r where r.procurement_list_item_id = i.id)
+							where (select max(r.created_at) from procurement.procurement_pesquisa_preco_item r where r.quantity_estimate_item_id = i.id)
 								< now() - make_interval(days => ${PRICE_RESEARCH_VALIDITY_DAYS})
 						) as old_research
-					from procurement.procurement_list l
+					from procurement.quantity_estimate l
 					left join procurement.procurement_segment s on s.id = l.segment_id
-					left join procurement.procurement_list_item i on i.list_id = l.id
-					where l.unit_id = ${unitId} and l.deleted_at is null and l.status in ('draft', 'published') and l.wizard_step is null
+					left join procurement.quantity_estimate_item i on i.quantity_estimate_id = l.id
+					where l.unit_id = ${unitId} and l.deleted_at is null and l.status in ('draft', 'completed', 'published') and l.wizard_step is null
 					group by l.id, l.title, l.status, s.name, l.updated_at
 					order by l.updated_at desc nulls last
 					limit 6
@@ -231,9 +234,9 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 			updatedAt: str(r.updated_at),
 		})),
 		pricing: pricing.map((r) => ({
-			listId: String(r.id),
+			quantityEstimateId: String(r.id),
 			title: String(r.title),
-			status: String(r.status),
+			status: normalizeQuantityEstimateStatus(String(r.status)),
 			segmentName: str(r.segment_name),
 			items: num(r.items),
 			withoutPrice: num(r.without_price),
@@ -313,7 +316,7 @@ export async function fetchDemandForecastStatus(db: SisubDb, ctx: UserContext, i
 					select d.id, d.title, d.status, d.updated_at, d.reviewed_at,
 						(select coalesce(json_agg(json_build_object('title', l.title, 'importedAt', i.imported_at) order by i.imported_at), '[]'::json)
 							from procurement.kitchen_demand_forecast_import i
-							join procurement.procurement_list l on l.id = i.list_id
+							join procurement.quantity_estimate l on l.id = i.quantity_estimate_id
 							where i.forecast_id = d.id) as imports
 					from procurement.kitchen_demand_forecast d
 					where d.kitchen_id = ${kitchenId} and d.status in ('sent', 'reviewed')

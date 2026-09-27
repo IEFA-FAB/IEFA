@@ -179,7 +179,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			},
 			{
 				title: "Anexos Quantitativos",
-				url: "/unit/procurement",
+				url: "/unit/quantity-estimates",
 				icon: FileText,
 				group: "Contratação",
 				keywords: ["anexo", "quantitativo", "tr", "termo de referência", "licitação", "arp", "registro de preços", "pesquisa de preços"],

@@ -7,7 +7,7 @@
  *
  * FC (correction_factor = bruto/líquido) multiplica: compra-se peso BRUTO.
  * IR (rehydration_index) divide quando aplicável: necessidade hidratada → seco.
- * As fórmulas de ATA (`calculateAtaNeeds`) NÃO mudam — divergência intencional
+ * As fórmulas do anexo quantitativo (`calculateQuantityEstimateNeeds`) NÃO mudam — divergência intencional
  * documentada em design.md (ATAs publicadas ficam congeladas).
  *
  * Canal: tabela de decisão determinística e auditável — o sistema RECOMENDA,
@@ -122,7 +122,7 @@ export function decideChannel(input: ChannelDecisionInput): ChannelDecision {
 			reason: `Cobertura (${input.coverageDays}d) abaixo do limiar, mas o valor não cabe no somatório da dispensa${room} — urgência sozinha não autoriza dispensa (a de emergência, art. 75, VIII, exige processo próprio); abrir planejamento de licitação`,
 		}
 	}
-	return { channel: "licitacao", reason: "Nenhum canal direto se aplica — abrir novo planejamento de licitação (procurement_list)" }
+	return { channel: "licitacao", reason: "Nenhum canal direto se aplica — abrir novo planejamento de licitação (quantity_estimate)" }
 }
 
 /** O valor estimado cabe no que resta do limite? Sem limite conhecido, não cabe (não se presume). */

@@ -3,8 +3,8 @@
  *
  * Achados da auditoria de 2026-09-19 (rodada 2): estas operações recebiam `_ctx` e
  * descartavam — a server fn só exigia sessão —, ou checavam um escopo que não era o do dado.
- * Com o `unitId`/`kitchenId`/`ataId` vindo do corpo, qualquer sessão lia o rascunho de ATA, a
- * ATA, o painel e o cardápio planejado de qualquer OM, e o fork de template levava a ficha local
+ * Com o `unitId`/`kitchenId`/`quantityEstimateId` vindo do corpo, qualquer sessão lia a previsão de demanda, o
+ * anexo, o painel e o cardápio planejado de qualquer OM, e o fork de template levava a ficha local
  * de uma cozinha para outra.
  *
  * Os stubs só implementam o que o GUARD usa; depois dele a operação cai numa falha de stub —
@@ -17,11 +17,11 @@ import { canReachKitchen, kitchenBelongsToUnit, requireKitchenOrItsUnit } from "
 import { requireUnscopedPermission } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
-import { calculateAtaNeeds, fetchAtaDetails, fetchAtaList } from "./ata.ts"
 import { fetchDemandForecasts, fetchPendingDemandForecast } from "./demand-forecast.ts"
 import { fetchKitchenSettings } from "./kitchens.ts"
 import { resolveDisplayName } from "./places.ts"
 import { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
+import { calculateQuantityEstimateNeeds, fetchQuantityEstimateDetails, fetchQuantityEstimateList } from "./quantity-estimate.ts"
 import { forkTemplate } from "./templates.ts"
 import { fetchUnitSettings } from "./units.ts"
 
@@ -84,7 +84,7 @@ describe("requireUnscopedPermission — o grant de UMA cozinha não abre a FAB",
 	})
 })
 
-describe("rascunho de ATA da cozinha", () => {
+describe("previsão de demanda da cozinha", () => {
 	const READS: [string, (db: SisubDb, c: UserContext) => Promise<unknown>][] = [
 		["fetchDemandForecasts", (db, c) => fetchDemandForecasts(db, c, { kitchenId: KITCHEN })],
 		["fetchPendingDemandForecast", (db, c) => fetchPendingDemandForecast(db, c, { kitchenId: KITCHEN })],
@@ -95,27 +95,34 @@ describe("rascunho de ATA da cozinha", () => {
 			expect(await denied(run(kitchenDb(), ctx(perm("kitchen", 1, { kitchen_id: OTHER_KITCHEN }))))).toBe(true)
 			expect(await denied(run(kitchenDb(), ctx(perm("unit", 1, { unit_id: OTHER_UNIT }))))).toBe(true)
 		})
-		test(`${name}: passa a própria cozinha e a gestão da OM (o wizard da ATA)`, async () => {
+		test(`${name}: passa a própria cozinha e a gestão da OM (o wizard do anexo)`, async () => {
 			expect(await denied(run(kitchenDb(), ctx(perm("kitchen", 1, { kitchen_id: KITCHEN }))))).toBe(false)
 			expect(await denied(run(kitchenDb(), ctx(perm("unit", 1, { unit_id: UNIT }))))).toBe(false)
 		})
 	}
 })
 
-describe("ATA e painel da unidade", () => {
-	const ataDb = {
-		query: { procurementListInProcurement: { findFirst: () => Promise.resolve({ id: "ata-1", unitId: UNIT, status: "draft" }) } },
+describe("anexo e painel da unidade", () => {
+	// `db.select().from().where().limit()` devolvendo a linha do anexo; o resto da leitura nem
+	// importa — o guard decide antes, pela unidade DA LINHA.
+	const row = { id: "estimate-1", unitId: UNIT, status: "draft" }
+	const quantityEstimateDb = {
+		select: () => ({ from: () => ({ where: () => ({ limit: () => Promise.resolve([row]) }) }) }),
 	} as unknown as SisubDb
 
-	test("fetchAtaList exige unit:1 na unidade pedida", async () => {
-		expect(await denied(fetchAtaList({} as SisubDb, ctx(perm("unit", 1, { unit_id: OTHER_UNIT })), { unitId: UNIT }))).toBe(true)
-		expect(await denied(fetchAtaList({} as SisubDb, ctx(perm("unit", 1, { unit_id: UNIT })), { unitId: UNIT }))).toBe(false)
+	test("fetchQuantityEstimateList exige unit:1 na unidade pedida", async () => {
+		expect(await denied(fetchQuantityEstimateList({} as SisubDb, ctx(perm("unit", 1, { unit_id: OTHER_UNIT })), { unitId: UNIT }))).toBe(true)
+		expect(await denied(fetchQuantityEstimateList({} as SisubDb, ctx(perm("unit", 1, { unit_id: UNIT })), { unitId: UNIT }))).toBe(false)
 	})
 
-	test("fetchAtaDetails exige unit:1 na unidade DONA, lida da linha", async () => {
-		expect(await denied(fetchAtaDetails(ataDb, ctx(perm("unit", 1, { unit_id: OTHER_UNIT })), { ataId: "ata-1" }))).toBe(true)
-		expect(await denied(fetchAtaDetails(ataDb, ctx(), { ataId: "ata-1" }))).toBe(true)
-		expect(await denied(fetchAtaDetails(ataDb, ctx(perm("unit", 1, { unit_id: UNIT })), { ataId: "ata-1" }))).toBe(false)
+	test("fetchQuantityEstimateDetails exige unit:1 na unidade DONA, lida da linha", async () => {
+		expect(
+			await denied(fetchQuantityEstimateDetails(quantityEstimateDb, ctx(perm("unit", 1, { unit_id: OTHER_UNIT })), { quantityEstimateId: "estimate-1" }))
+		).toBe(true)
+		expect(await denied(fetchQuantityEstimateDetails(quantityEstimateDb, ctx(), { quantityEstimateId: "estimate-1" }))).toBe(true)
+		expect(await denied(fetchQuantityEstimateDetails(quantityEstimateDb, ctx(perm("unit", 1, { unit_id: UNIT })), { quantityEstimateId: "estimate-1" }))).toBe(
+			false
+		)
 	})
 
 	test("fetchUnitDashboard exige unit:1 na unidade pedida", async () => {
@@ -167,7 +174,7 @@ describe("resolveDisplayName", () => {
 	})
 })
 
-// ─── Seleções (cozinha + plano) citadas pelo cálculo da ATA ────────────────────
+// ─── Seleções (cozinha + plano) citadas pelo cálculo do anexo ────────────────────
 
 const LOCAL_TEMPLATE = "local-template"
 const FOREIGN_TEMPLATE = "foreign-template"
@@ -208,19 +215,21 @@ function needsInput(templateId: string) {
 	}
 }
 
-describe("calculateAtaNeeds — lê planos, então exige alcançar a cozinha", () => {
+describe("calculateQuantityEstimateNeeds — lê planos, então exige alcançar a cozinha", () => {
 	test("nega quem não alcança a cozinha selecionada", async () => {
-		expect(await denied(calculateAtaNeeds(selectionDb(), ctx(), needsInput(LOCAL_TEMPLATE)))).toBe(true)
-		expect(await denied(calculateAtaNeeds(selectionDb(), ctx(perm("unit", 1, { unit_id: OTHER_UNIT })), needsInput(LOCAL_TEMPLATE)))).toBe(true)
+		expect(await denied(calculateQuantityEstimateNeeds(selectionDb(), ctx(), needsInput(LOCAL_TEMPLATE)))).toBe(true)
+		expect(await denied(calculateQuantityEstimateNeeds(selectionDb(), ctx(perm("unit", 1, { unit_id: OTHER_UNIT })), needsInput(LOCAL_TEMPLATE)))).toBe(true)
 	})
 
 	test("passa a cozinha ou a OM dela", async () => {
-		expect(await denied(calculateAtaNeeds(selectionDb(), ctx(perm("unit", 1, { unit_id: UNIT })), needsInput(LOCAL_TEMPLATE)))).toBe(false)
-		expect(await denied(calculateAtaNeeds(selectionDb(), ctx(perm("kitchen", 1, { kitchen_id: KITCHEN })), needsInput(LOCAL_TEMPLATE)))).toBe(false)
+		expect(await denied(calculateQuantityEstimateNeeds(selectionDb(), ctx(perm("unit", 1, { unit_id: UNIT })), needsInput(LOCAL_TEMPLATE)))).toBe(false)
+		expect(await denied(calculateQuantityEstimateNeeds(selectionDb(), ctx(perm("kitchen", 1, { kitchen_id: KITCHEN })), needsInput(LOCAL_TEMPLATE)))).toBe(
+			false
+		)
 	})
 
 	test("plano local de OUTRA cozinha é recusado mesmo para quem alcança a selecionada", async () => {
-		const error = await calculateAtaNeeds(selectionDb(), ctx(perm("unit", 1, { unit_id: UNIT })), needsInput(FOREIGN_TEMPLATE)).then(
+		const error = await calculateQuantityEstimateNeeds(selectionDb(), ctx(perm("unit", 1, { unit_id: UNIT })), needsInput(FOREIGN_TEMPLATE)).then(
 			() => null,
 			(e: unknown) => e
 		)
