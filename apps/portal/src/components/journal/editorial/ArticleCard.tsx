@@ -74,10 +74,10 @@ export function ArticleCard({ article, isDragging = false }: ArticleCardProps) {
 								</div>
 							)}
 
-							{article.review_count !== undefined && article.review_count > 0 && (
+							{article.completed_reviews > 0 && (
 								<div className="flex items-center gap-1.5">
 									<WarningCircle className="size-3" aria-hidden="true" />
-									<span>{article.review_count} revisões</span>
+									<span>{article.completed_reviews} revisões concluídas</span>
 								</div>
 							)}
 						</div>

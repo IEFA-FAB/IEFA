@@ -16,7 +16,7 @@
  */
 
 import { createRequestAuth, forbidden as denyWithStatus, unauthorized as unauthenticatedWithStatus } from "@iefa/pbac/start"
-import { JOURNAL_PROFILE_REQUIRED_MESSAGE } from "./journal/profile"
+import { fetchJournalProfile, JOURNAL_PROFILE_REQUIRED_MESSAGE, type JournalProfileAccess } from "./journal/profile"
 import { AUTHOR_EDITABLE_STATUSES } from "./journal/write-schemas"
 import { getIefaAuthClient, getJournalServerClient } from "./supabase.server"
 
@@ -59,9 +59,16 @@ export async function requireSelf(claimedUserId: string): Promise<string> {
 	return userId
 }
 
+/**
+ * Perfil do journal (id + papel), ou `null` se a pessoa ainda não tem. A leitura única dos guards
+ * e do papel atual; erro de banco lança (ver `fetchJournalProfile`).
+ */
+export function readJournalProfile(userId: string): Promise<JournalProfileAccess | null> {
+	return fetchJournalProfile(getJournalServerClient(), userId)
+}
+
 export async function isEditor(userId: string): Promise<boolean> {
-	const { data } = await getJournalServerClient().from("user_profiles").select("role").eq("id", userId).maybeSingle()
-	return data?.role === "editor"
+	return (await readJournalProfile(userId))?.role === "editor"
 }
 
 /**
@@ -70,9 +77,7 @@ export async function isEditor(userId: string): Promise<boolean> {
  * submissão sem ele completa o perfil antes. @throws 403 sem perfil
  */
 export async function requireJournalProfile(userId: string): Promise<void> {
-	const { data, error } = await getJournalServerClient().from("user_profiles").select("id").eq("id", userId).maybeSingle()
-	if (error) throw new Error(error.message)
-	if (!data) forbidden(JOURNAL_PROFILE_REQUIRED_MESSAGE)
+	if (!(await readJournalProfile(userId))) forbidden(JOURNAL_PROFILE_REQUIRED_MESSAGE)
 }
 
 /** Exige papel `editor` no journal. @throws 401 sem sessão, 403 sem o papel */

@@ -226,23 +226,8 @@ export interface PublishedArticle {
 	latest_pdf: string | null
 }
 
-// Editorial dashboard view type
-export interface EditorialDashboardArticle {
-	id: string
-	submission_number: string
-	title_pt: string
-	title_en: string
-	status: ArticleStatus
-	article_type: ArticleType
-	subject_area: string
-	submitted_at: string | null
-	days_since_submission: number
-	/** `null` quando o submissor ainda não tem perfil no journal (LEFT JOIN desde 20260926218000). */
-	submitter_name: string | null
-	review_count?: number
-	completed_reviews: number
-	pending_reviews: number
-}
+// Editorial dashboard view type: o schema que o servidor confere (`editorial-dashboard.ts`).
+export type { EditorialDashboardArticle } from "./editorial-dashboard"
 
 // Input types for mutations
 export interface CreateSubmissionInput {

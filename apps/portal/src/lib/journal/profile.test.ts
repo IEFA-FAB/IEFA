@@ -1,13 +1,95 @@
 import { describe, expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
-import { displaySubmitterName, MISSING_SUBMITTER_NAME } from "./profile"
+import type { SupabaseClient } from "@supabase/supabase-js"
+import { displaySubmitterName, fetchJournalProfile, loadSubmitPrerequisites, MISSING_SUBMITTER_NAME, resolveProfileNext } from "./profile"
 
-const SRC = join(import.meta.dir, "..", "..")
+/** Cliente falso: registra a consulta e devolve o resultado dado ao `maybeSingle()`. */
+function fakeClient(result: { data: unknown; error: { message: string } | null }) {
+	const calls: { table?: string; columns?: string; filter?: [string, unknown] } = {}
+	const db = {
+		from(table: string) {
+			calls.table = table
+			return {
+				select(columns: string) {
+					calls.columns = columns
+					return {
+						eq(column: string, value: unknown) {
+							calls.filter = [column, value]
+							return { maybeSingle: async () => result }
+						},
+					}
+				},
+			}
+		},
+	} as unknown as Pick<SupabaseClient, "from">
+	return { db, calls }
+}
+
+describe("fetchJournalProfile — a leitura única do perfil", () => {
+	test("perfil existente: id e papel, lidos pelo id", async () => {
+		const { db, calls } = fakeClient({ data: { id: "u1", role: "editor" }, error: null })
+		expect(await fetchJournalProfile(db, "u1")).toEqual({ id: "u1", role: "editor" })
+		expect(calls).toEqual({ table: "user_profiles", columns: "id, role", filter: ["id", "u1"] })
+	})
+
+	test("sem perfil (o cadastro não cria mais): null", async () => {
+		const { db } = fakeClient({ data: null, error: null })
+		expect(await fetchJournalProfile(db, "u2")).toBeNull()
+	})
+
+	test("erro do banco lança, em vez de virar 'sem perfil'", async () => {
+		const { db } = fakeClient({ data: null, error: { message: "timeout" } })
+		await expect(fetchJournalProfile(db, "u3")).rejects.toThrow("Falha ao ler o perfil do journal: timeout")
+	})
+})
+
+describe("loadSubmitPrerequisites — a rota de submissão sem perfil", () => {
+	test("sem perfil: manda ao formulário com a volta marcada e não busca o rascunho", async () => {
+		let draftReads = 0
+		const loaded = await loadSubmitPrerequisites({
+			readProfile: async () => null,
+			readDraft: async () => {
+				draftReads++
+				return { id: "d1" }
+			},
+			next: "/journal/submit?step=1",
+		})
+		expect(loaded).toEqual({ status: "needs-profile", redirect: { to: "/journal/profile", search: { next: "/journal/submit?step=1" } } })
+		expect(draftReads).toBe(0)
+	})
+
+	test("com perfil: carrega o rascunho depois do perfil", async () => {
+		const order: string[] = []
+		const loaded = await loadSubmitPrerequisites({
+			readProfile: async () => {
+				order.push("profile")
+				return { id: "u1" }
+			},
+			readDraft: async () => {
+				order.push("draft")
+				return null
+			},
+			next: "/journal/submit",
+		})
+		expect(loaded).toEqual({ status: "ready", profile: { id: "u1" }, draft: null })
+		expect(order).toEqual(["profile", "draft"])
+	})
+})
+
+describe("resolveProfileNext — a volta depois de salvar o perfil", () => {
+	test("caminho do journal passa", () => {
+		expect(resolveProfileNext("/journal/submit?step=1")).toBe("/journal/submit?step=1")
+	})
+
+	test.each([undefined, 3, "https://evil.example/journal/submit", "//evil.example/journal", "/auth", "/journalx", "journal/submit"])(
+		"%p é ignorado",
+		(value) => {
+			expect(resolveProfileNext(value)).toBeUndefined()
+		}
+	)
+})
 
 describe("displaySubmitterName", () => {
 	test("com perfil, o nome", () => {
-		expect(displaySubmitterName("Maria Souza")).toBe("Maria Souza")
 		expect(displaySubmitterName("  Maria Souza ")).toBe("Maria Souza")
 	})
 
@@ -15,40 +97,5 @@ describe("displaySubmitterName", () => {
 		expect(displaySubmitterName(null)).toBe(MISSING_SUBMITTER_NAME)
 		expect(displaySubmitterName(undefined)).toBe(MISSING_SUBMITTER_NAME)
 		expect(displaySubmitterName("   ")).toBe(MISSING_SUBMITTER_NAME)
-	})
-})
-
-/**
- * Desde 20260926218000 o cadastro do Auth não cria perfil do journal: ele nasce no primeiro uso.
- * A submissão é o único fluxo que precisa dele (nome do autor no painel e nos e-mails).
- */
-describe("perfil sob demanda — contratos do servidor e da rota", () => {
-	test("submitArticleFn exige o perfil antes de promover o rascunho", () => {
-		const source = readFileSync(join(SRC, "server", "journal.fn.ts"), "utf8")
-		const start = source.indexOf("export const submitArticleFn =")
-		const body = source.slice(start, source.indexOf("\n\t})\n", start))
-		const guard = body.indexOf("await requireJournalProfile(userId)")
-		const write = body.indexOf('.from("articles")')
-		expect(guard).toBeGreaterThan(-1)
-		expect(write).toBeGreaterThan(guard)
-	})
-
-	test("requireJournalProfile lê o perfil sem assumir que ele existe", () => {
-		const source = readFileSync(join(SRC, "lib", "auth.server.ts"), "utf8")
-		const start = source.indexOf("export async function requireJournalProfile(")
-		const body = source.slice(start, source.indexOf("\n}\n", start))
-		expect(body).toContain(".maybeSingle()")
-		expect(body).toContain("forbidden(JOURNAL_PROFILE_REQUIRED_MESSAGE)")
-	})
-
-	test("a rota de submissão manda para o onboarding quem ainda não tem perfil", () => {
-		const source = readFileSync(join(SRC, "routes", "journal", "submit.tsx"), "utf8")
-		expect(source).toMatch(/if \(!profile\) throw redirect\(\{ to: "\/journal" \}\)/)
-	})
-
-	test("a entrada do journal mostra o onboarding sem perfil", () => {
-		const source = readFileSync(join(SRC, "routes", "journal", "index.tsx"), "utf8")
-		expect(source).toContain("if (auth.isAuthenticated && !profile) {")
-		expect(source).toContain("<ProfileOnboarding />")
 	})
 })

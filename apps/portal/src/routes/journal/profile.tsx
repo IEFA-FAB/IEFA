@@ -1,10 +1,15 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
+import { z } from "zod"
 import { authQueryOptions } from "@/auth/service"
 import { ProfileForm } from "@/components/journal/ProfileForm"
 import { userProfileQueryOptions } from "@/lib/journal/hooks"
+import { resolveProfileNext } from "@/lib/journal/profile"
 
 export const Route = createFileRoute("/journal/profile")({
+	// `next`: para onde voltar depois de salvar (a submissão manda quem ainda não tem perfil para
+	// cá). Só caminho do journal; o resto é ignorado em `resolveProfileNext`.
+	validateSearch: z.object({ next: z.string().optional().catch(undefined) }),
 	staticData: {
 		nav: {
 			title: "Meu perfil",
@@ -40,6 +45,8 @@ export const Route = createFileRoute("/journal/profile")({
 function ProfilePage() {
 	const { auth } = Route.useRouteContext()
 	const { user } = auth
+	const next = resolveProfileNext(Route.useSearch().next)
+	const navigate = useNavigate()
 
 	// Always call hooks at the top level
 	const { data: profile } = useSuspenseQuery(userProfileQueryOptions(user?.id || ""))
@@ -56,7 +63,7 @@ function ProfilePage() {
 			</div>
 
 			<div className="rounded-lg border bg-card p-6">
-				<ProfileForm userId={user.id} profile={profile} userEmail={user.email} />
+				<ProfileForm userId={user.id} profile={profile} userEmail={user.email} onSaved={next ? () => navigate({ href: next }) : undefined} />
 			</div>
 
 			<div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">

@@ -14,12 +14,14 @@ import {
 	forbidden,
 	getRequestUserId,
 	isEditor,
+	readJournalProfile,
 	requireArticleAccess,
 	requireArticleWriteAccess,
 	requireEditor,
 	requireSelf,
 	requireUserId,
 } from "@/lib/auth.server"
+import { parseEditorialDashboardRows } from "@/lib/journal/editorial-dashboard"
 import { PORTAL_URL, sendJournalEmail, type TemplateName } from "@/lib/journal/email.server"
 import { assertStoredFilesMatchExtension } from "@/lib/journal/file-signature.server"
 import { assertJournalRoleChangeAllowed, planProfileSave, toJournalRoleError } from "@/lib/journal/role-change"
@@ -107,9 +109,7 @@ export const getUserProfileFn = createServerFn({ method: "GET" })
 
 /** Papel atual do perfil — `null` quando o perfil ainda não existe. */
 async function readCurrentRole(userId: string): Promise<UserRole | null> {
-	const { data, error } = await getJournalServerClient().from("user_profiles").select("role").eq("id", userId).maybeSingle()
-	if (error) throw new Error(error.message)
-	return (data?.role as UserRole | undefined) ?? null
+	return (await readJournalProfile(userId))?.role ?? null
 }
 
 /**
@@ -498,7 +498,7 @@ export const getEditorialDashboardFn = createServerFn({ method: "GET" })
 		if (data.limit) query = query.limit(data.limit)
 		const { data: result, error } = await query
 		if (error) throw new Error(error.message)
-		return result
+		return parseEditorialDashboardRows(result)
 	})
 
 // ─── Review Assignments ───────────────────────────────────────────────────────
