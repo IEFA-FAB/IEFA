@@ -12,6 +12,7 @@
  * @migration 20260731150000_finance_liquidacao_pagamento, 20260926216000_finance_compliance
  */
 
+import type { TableRow } from "@iefa/database"
 import {
 	competenciaFromDate,
 	DEDUCTION_DOCUMENT_KINDS,
@@ -36,24 +37,16 @@ import { type LiquidationLinkInput, liquidationLinkProblems, type ReceiptForLiqu
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
+const finance = () => getServerClient("finance")
+const inventory = () => getServerClient("inventory")
 
-const finance = () => getServerClient("finance") as unknown as LooseClient
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-
-// TODO: regenerar tipos após aplicar 20260926216000 e trocar este tipo local pelo gerado.
-export interface LiquidacaoDeductionRow {
-	id: string
-	liquidacao_id: string
+/**
+ * Linha de `finance.liquidacao_deduction`; `kind` e `document_kind` estreitados aos valores dos
+ * CHECKs do banco. `paid_on` é a data do recolhimento; `null` = retida, ainda não recolhida.
+ */
+export type LiquidacaoDeductionRow = Omit<TableRow<"finance", "liquidacao_deduction">, "created_at" | "created_by" | "kind" | "document_kind"> & {
 	kind: (typeof DEDUCTION_KINDS)[number]
-	amount: number
 	document_kind: (typeof DEDUCTION_DOCUMENT_KINDS)[number] | null
-	document_number: string | null
-	revenue_code: string | null
-	/** Data do recolhimento; `null` = retida, ainda não recolhida. */
-	paid_on: string | null
-	notes: string | null
 }
 
 export interface LiquidacaoRow {
@@ -157,7 +150,7 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
 		const { data: receiptScope } = await inv.from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
 		if (!receiptScope) throw new Error("Recebimento não encontrado")
 
-		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
+		const kitchenDb = getServerClient("kitchen")
 		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", receiptScope.kitchen_id).single()
 		// Quem empenha e liquida é a unidade COMPRADORA: inverter a precedência
 		// autorizaria contra a unidade errada. Ver `resolvePurchaseUnitId`.
@@ -346,7 +339,7 @@ async function assertLiquidationLinks(
 		if (error) throw new Error(`Erro ao conferir o recebimento: ${error.message}`)
 		if (!row) throw new Error("Recebimento não encontrado")
 
-		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
+		const kitchenDb = getServerClient("kitchen")
 		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", row.kitchen_id).maybeSingle()
 		if (kitchenError) throw new Error(`Erro ao conferir a cozinha do recebimento: ${kitchenError.message}`)
 

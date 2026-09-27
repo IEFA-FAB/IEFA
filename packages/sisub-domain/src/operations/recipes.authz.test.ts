@@ -44,7 +44,8 @@ const MEAL_TYPES = [
 
 /**
  * Stub do Drizzle. `findFirst` ignora o `where` e devolve a linha do id pedido (capturado pelo
- * teste); `findMany` devolve a linhagem inteira; `select().from(t).where()` devolve a tabela.
+ * teste); `findMany` devolve a linhagem inteira; `select().from(t).where()` devolve a tabela, e
+ * `.orderBy()` depois dele é a leitura das preparações provisórias entre as receitas do template.
  */
 function fakeDb(requestedId: string, provisionalNames: string[] = []): SisubDb {
 	const recipeRow = (r: Row) => ({ ...r, name: "Arroz", deletedAt: null, recipeIngredientsInKitchens: [] })
@@ -57,11 +58,12 @@ function fakeDb(requestedId: string, provisionalNames: string[] = []): SisubDb {
 		},
 		select: () => ({
 			from: (table: unknown) => ({
-				where: () => Promise.resolve(table === recipesInKitchen ? LINEAGE : table === mealTypeInKitchen ? MEAL_TYPES : []),
+				where: () =>
+					Object.assign(Promise.resolve(table === recipesInKitchen ? LINEAGE : table === mealTypeInKitchen ? MEAL_TYPES : []), {
+						orderBy: () => Promise.resolve(provisionalNames.map((name) => ({ name }))),
+					}),
 			}),
 		}),
-		// Única leitura crua da validação: as preparações provisórias entre as receitas do template.
-		execute: () => Promise.resolve(provisionalNames.map((name) => ({ name }))),
 		transaction: () => Promise.reject(new Error("não deveria chegar à escrita")),
 	} as unknown as SisubDb
 }

@@ -339,21 +339,17 @@ async function assertTemplateContentInScope(
  * Preparação provisória (criada no turno só com o nome) não entra em cardápio-modelo: o anexo
  * quantitativo e a compra saem do modelo, e sem ficha eles não compram nada — em silêncio. O
  * gatilho `menu_template_items_no_provisional_recipe` é a trava; esta é a recusa com instrução.
- * SQL cru: a coluna é da migration 20260926217000 (TODO: regenerar tipos após aplicá-la).
  */
 async function assertNoProvisionalRecipes(db: SisubDb, rawRecipeIds: ReadonlyArray<string | null>): Promise<void> {
 	const recipeIds = [...new Set(rawRecipeIds.filter((id): id is string => id != null))]
 	if (recipeIds.length === 0) return
-	const rows = (await runQuery("FETCH_FAILED", () =>
-		db.execute(sql`
-			select name from kitchen.recipes
-			where provisional_since is not null and id in (${sql.join(
-				recipeIds.map((id) => sql`${id}`),
-				sql`, `
-			)})
-			order by name
-		`)
-	)) as unknown as Array<{ name: string }>
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ name: recipesInKitchen.name })
+			.from(recipesInKitchen)
+			.where(and(isNotNull(recipesInKitchen.provisionalSince), inArray(recipesInKitchen.id, recipeIds)))
+			.orderBy(asc(recipesInKitchen.name))
+	)
 	const refusal = describeProvisionalTemplateRefusal(rows.map((row) => row.name))
 	if (refusal) throw new DomainError("PROVISIONAL_RECIPE_IN_TEMPLATE", refusal)
 }

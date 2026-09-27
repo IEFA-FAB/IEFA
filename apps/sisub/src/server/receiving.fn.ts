@@ -757,7 +757,8 @@ export const listReceiptsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const { data: receipts, error } = await inventory()
+		// Cliente tipado: as colunas da listagem já estão no `generated.ts` (o `inventory()` frouxo fica para o resto).
+		const { data: receipts, error } = await getServerClient("inventory")
 			.from("goods_receipt")
 			.select(
 				"id, nfe_document_id, supply_order_id, empenho_id, status, source, delivery_note_number, supplier_name, provisional_at, definitive_at, rejected_at, created_at"

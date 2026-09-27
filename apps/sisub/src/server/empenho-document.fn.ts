@@ -42,15 +42,10 @@ import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
-// TODO: regenerar tipos após aplicar 20260926214000 — `empenho_item` e as colunas novas ainda
-// não estão em `generated.ts`.
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const finance = () => getServerClient("finance") as unknown as LooseClient
-const procurement = () => getServerClient("procurement") as unknown as LooseClient
-const kitchenDb = () => getServerClient("kitchen") as unknown as LooseClient
-const siafi = () => getServerClient("siafi_integration") as unknown as LooseClient
+const finance = () => getServerClient("finance")
+const procurement = () => getServerClient("procurement")
+const kitchenDb = () => getServerClient("kitchen")
+const siafi = () => getServerClient("siafi_integration")
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -89,30 +84,6 @@ async function relinkWaitingRows(unitId: number, actorId: string): Promise<numbe
 		console.error("[relinkWaitingRows]", error instanceof Error ? error.message : error)
 		return 0
 	}
-}
-
-interface ArpItemRow {
-	id: string
-	arp_id: string
-	numero_item: number | null
-	descricao_item: string | null
-	ni_fornecedor: string | null
-	nome_fornecedor: string | null
-	valor_unitario: number | string | null
-	quantidade_homologada: number | string | null
-	quantidade_empenhada: number | string | null
-	saldo_empenho: number | string | null
-	medida_catmat: string | null
-}
-
-interface ArpRow {
-	id: string
-	unit_id: number
-	acquisition_id: string | null
-	data_vigencia_inicio: string | null
-	data_vigencia_fim: string | null
-	last_synced_at: string | null
-	source: string
 }
 
 /**
@@ -181,7 +152,7 @@ export const createEmpenhoWithItemsFn = createServerFn({ method: "POST" })
 				)
 				.in("id", arpItemIds)
 			if (itemError) throw new Error(`Erro ao conferir os itens da ARP: ${itemError.message}`)
-			const rows = (itemRows ?? []) as ArpItemRow[]
+			const rows = itemRows ?? []
 			if (rows.length !== arpItemIds.length) throw new Error("Item da ARP não encontrado")
 			const arpIds = [...new Set(rows.map((row) => row.arp_id))]
 			const { data: arpRows, error: arpError } = await proc
@@ -189,7 +160,7 @@ export const createEmpenhoWithItemsFn = createServerFn({ method: "POST" })
 				.select("id, unit_id, acquisition_id, data_vigencia_inicio, data_vigencia_fim, last_synced_at, source")
 				.in("id", arpIds)
 			if (arpError) throw new Error(`Erro ao conferir as ARPs: ${arpError.message}`)
-			const arpById = new Map(((arpRows ?? []) as ArpRow[]).map((arp) => [arp.id, arp]))
+			const arpById = new Map((arpRows ?? []).map((arp) => [arp.id, arp]))
 			// Já empenhado AQUI em NEs ativas: numa ARP cadastrada à mão o saldo oficial é o
 			// homologado cheio até a primeira sincronização, e sem o local duas NEs passariam do total.
 			const committed = await loadLocalCommitments(arpItemIds)
@@ -426,17 +397,7 @@ export const fetchEmpenhoItemsFn = createServerFn({ method: "GET" })
 			.eq("empenho_id", data.empenhoId)
 			.order("position")
 		if (error) throw new Error(`Erro ao ler os itens do empenho: ${error.message}`)
-		const items = (rows ?? []) as Array<{
-			id: string
-			position: number
-			arp_item_id: string | null
-			purchase_item_id: string | null
-			description: string | null
-			quantity: number | string | null
-			unit: string | null
-			unit_price: number | string | null
-			value: number | string
-		}>
+		const items = rows ?? []
 		const arpIds = [...new Set(items.map((item) => item.arp_item_id).filter((id): id is string => Boolean(id)))]
 		const numberByArpItem = new Map<string, number | null>()
 		if (arpIds.length > 0) {

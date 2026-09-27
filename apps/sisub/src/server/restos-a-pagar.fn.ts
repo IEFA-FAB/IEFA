@@ -21,6 +21,7 @@
  * @migration 20260926216000_finance_compliance
  */
 
+import type { TableRow } from "@iefa/database"
 import {
 	type ActiveRpParcel,
 	type EmpenhoLedger,
@@ -39,12 +40,11 @@ import { withSensitiveAudit } from "@/lib/audit.server"
 import { getDb } from "@/lib/db.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
-// TODO: regenerar tipos após aplicar 20260926216000 e trocar este tipo local pelo gerado.
-export interface RpInscriptionRow {
-	kind: RestosAPagarKind
-	amount: number
-	inscribed_on: string
-}
+/**
+ * Parcela vigente de `finance.empenho_rp_inscription`, com `kind` estreitado ao CHECK do banco. A
+ * leitura é SQL cru (`loadRpInputs`): a inscrição roda na mesma transação, sob lock.
+ */
+export type RpInscriptionRow = Pick<TableRow<"finance", "empenho_rp_inscription">, "amount" | "inscribed_on"> & { kind: RestosAPagarKind }
 
 export interface RestosAPagarPreviewRow {
 	empenhoId: string

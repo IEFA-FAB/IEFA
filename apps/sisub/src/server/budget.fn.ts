@@ -12,6 +12,7 @@
  * @migration 20260731130000_finance_budget_credit, 20260926216000_finance_compliance
  */
 
+import type { TableRow } from "@iefa/database"
 import {
 	type BudgetProjection,
 	type ClassifiedCreditCheck,
@@ -28,46 +29,19 @@ import { withSensitiveAudit } from "@/lib/audit.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
+const finance = () => getServerClient("finance")
+const siafi = () => getServerClient("siafi_integration")
 
-const finance = () => getServerClient("finance") as unknown as LooseClient
-const siafi = () => getServerClient("siafi_integration") as unknown as LooseClient
+type BudgetCreditDbRow = Pick<
+	TableRow<"finance", "budget_credit">,
+	"id" | "ug" | "nd" | "ptres" | "fonte" | "pi" | "ugr" | "competencia" | "dotacao" | "empenhado_siafi" | "saldo_siafi" | "snapshot_at"
+>
 
-// TODO: regenerar tipos após aplicar 20260926216000 e trocar estes tipos locais estreitos pelos gerados.
-interface BudgetCreditDbRow {
-	id: string
-	ug: string | null
-	nd: string
-	ptres: string | null
-	fonte: string | null
-	pi: string | null
-	ugr: string | null
-	competencia: string
-	dotacao: number | string
-	empenhado_siafi: number | string
-	saldo_siafi: number | string
-	snapshot_at: string
-}
-
-// TODO: regenerar tipos após aplicar 20260926216000.
-export interface CreditNoteRow {
-	id: string
-	number: string
-	issued_on: string
+/** Linha de `finance.credit_note`; `kind`, `budget_sphere` e `origin` estreitados aos valores dos CHECKs do banco. */
+export type CreditNoteRow = Omit<TableRow<"finance", "credit_note">, "unit_id" | "created_by" | "import_batch_id" | "kind" | "budget_sphere" | "origin"> & {
 	kind: "descentralizacao" | "anulacao"
-	issuer_ug: string | null
-	beneficiary_ug: string | null
 	budget_sphere: "1" | "2" | "3" | null
-	ptres: string | null
-	fonte: string | null
-	nd: string | null
-	pi: string | null
-	ugr: string | null
-	amount: number
-	notes: string | null
 	origin: "manual" | "siafi"
-	created_at: string
 }
 
 export interface BudgetCreditLine extends BudgetProjection {
@@ -120,33 +94,19 @@ async function fetchClassifiedEmpenhos(unitId: number): Promise<ClassifiedEmpenh
 	])
 	if (error) throw new Error(`Erro ao consultar empenhos: ${error.message}`)
 	if (vigenteError) throw new Error(`Erro ao consultar o valor vigente dos empenhos: ${vigenteError.message}`)
-	const vigenteById = new Map<string, number>(
-		(vigentes ?? []).map((row: { empenho_id: string; valor_vigente: number | string }) => [row.empenho_id, Number(row.valor_vigente)])
-	)
-	return (rows ?? []).map(
-		(row: {
-			id: string
-			data_empenho: string
-			status: string
-			nd: string | null
-			ptres: string | null
-			fonte: string | null
-			ug_emitente: string | null
-			exercicio: number | null
-			empenho_event: { tipo: string; valor: number | string; data: string }[] | null
-		}) => ({
-			id: row.id,
-			dataEmpenho: row.data_empenho,
-			status: row.status,
-			nd: row.nd,
-			ptres: row.ptres,
-			fonte: row.fonte,
-			ug: row.ug_emitente,
-			exercicio: row.exercicio,
-			valorVigente: vigenteById.get(row.id) ?? 0,
-			events: (row.empenho_event ?? []).map((event) => ({ tipo: event.tipo, valor: Number(event.valor), data: event.data })),
-		})
-	)
+	const vigenteById = new Map<string | null, number>((vigentes ?? []).map((row) => [row.empenho_id, Number(row.valor_vigente)]))
+	return (rows ?? []).map((row) => ({
+		id: row.id,
+		dataEmpenho: row.data_empenho,
+		status: row.status,
+		nd: row.nd,
+		ptres: row.ptres,
+		fonte: row.fonte,
+		ug: row.ug_emitente,
+		exercicio: row.exercicio,
+		valorVigente: vigenteById.get(row.id) ?? 0,
+		events: (row.empenho_event ?? []).map((event) => ({ tipo: event.tipo, valor: Number(event.valor), data: event.data })),
+	}))
 }
 
 async function fetchCreditNoteEntries(unitId: number): Promise<CreditNoteEntry[]> {
@@ -156,25 +116,15 @@ async function fetchCreditNoteEntries(unitId: number): Promise<CreditNoteEntry[]
 		.eq("unit_id", unitId)
 		.limit(2000)
 	if (error) throw new Error(`Erro ao consultar notas de crédito: ${error.message}`)
-	return (data ?? []).map(
-		(row: {
-			kind: string
-			amount: number | string
-			issued_on: string
-			beneficiary_ug: string | null
-			nd: string | null
-			ptres: string | null
-			fonte: string | null
-		}) => ({
-			tipo: row.kind,
-			valor: Number(row.amount),
-			dataEmissao: row.issued_on,
-			ugFavorecida: row.beneficiary_ug,
-			nd: row.nd,
-			ptres: row.ptres,
-			fonte: row.fonte,
-		})
-	)
+	return (data ?? []).map((row) => ({
+		tipo: row.kind,
+		valor: Number(row.amount),
+		dataEmissao: row.issued_on,
+		ugFavorecida: row.beneficiary_ug,
+		nd: row.nd,
+		ptres: row.ptres,
+		fonte: row.fonte,
+	}))
 }
 
 /** Linhas de crédito da unidade com as três grandezas já projetadas, por classificação. */
@@ -200,7 +150,7 @@ export const fetchBudgetCreditFn = createServerFn({ method: "GET" })
 
 		const [empenhos, notes] = await Promise.all([fetchClassifiedEmpenhos(data.unitId), fetchCreditNoteEntries(data.unitId)])
 		const now = Date.now()
-		return ((rows ?? []) as BudgetCreditDbRow[]).map((row) => {
+		return (rows ?? []).map((row) => {
 			const line = toCreditLineSnapshot(row)
 			return {
 				...line,
@@ -252,7 +202,7 @@ export const checkBudgetForEmpenhoFn = createServerFn({ method: "GET" })
 			.order("competencia", { ascending: false })
 			.limit(500)
 		if (error) throw new Error(`Erro ao consultar crédito: ${error.message}`)
-		const lines = ((rows ?? []) as BudgetCreditDbRow[]).map(toCreditLineSnapshot)
+		const lines = (rows ?? []).map(toCreditLineSnapshot)
 
 		const dataEmpenho = data.dataEmpenho ?? new Date().toISOString().substring(0, 10)
 		const empenhos = lines.length > 0 ? await fetchClassifiedEmpenhos(data.unitId) : []

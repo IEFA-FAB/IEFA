@@ -393,32 +393,6 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 }
 
 /**
- * Grava a seleção manual (derivada no servidor) e as justificativas do item pesquisado. Só roda
- * quando há o que gravar: a pesquisa automática sem justificativa não toca as colunas novas, que
- * ficam no default.
- * TODO(db:types): regenerar os tipos após aplicar 20260926211000 e mover estas colunas para o
- * `values` do insert do item; até lá elas não existem no schema Drizzle e vão por SQL.
- */
-async function persistResearchDecisions(tx: PriceResearchTx, researchItemId: string, facts: ResearchComplianceFacts): Promise<void> {
-	const j = justificationsToPersist(facts)
-	if (!facts.manualSelection && !j.lowSample && !j.method && !j.outlierCriteria && !j.outOfPeriod) return
-	await runQuery(
-		"INSERT_FAILED",
-		() =>
-			tx.execute(sql`
-				update procurement.procurement_pesquisa_preco_item set
-					manual_selection = ${facts.manualSelection === true},
-					justification_low_sample = ${j.lowSample},
-					justification_method = ${j.method},
-					justification_outlier_criteria = ${j.outlierCriteria},
-					justification_out_of_period = ${j.outOfPeriod}
-				where id = ${researchItemId}
-			`),
-		{ prefix: "Erro ao salvar as justificativas da pesquisa" }
-	)
-}
-
-/**
  * Persiste a memória de cálculo de UM item pesquisado e devolve os ids (cabeçalho + item).
  *
  * Idempotente por dia/CATMAT/método/conjunto de amostras: uma segunda chamada idêntica
@@ -482,6 +456,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 			if (!research) return { ...(await loadIdempotentResearch(tx, idempotencyKey)), openFindings }
 
 			const dateFiltered = input.dateFilteredCount ?? input.rawCount
+			const justifications = justificationsToPersist(facts)
 			const researchItem = await insertOneOrFail(
 				"INSERT_FAILED",
 				"Erro ao salvar item da pesquisa: no row returned",
@@ -511,12 +486,18 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 							measureUnit: input.measureUnit ?? null,
 							isCompliant: nonComplianceReasons.length === 0,
 							nonComplianceReasons,
+							// Seleção manual (derivada no servidor) e as justificativas do item. Sem
+							// justificativa, os valores são os defaults das colunas.
+							manualSelection: facts.manualSelection === true,
+							justificationLowSample: justifications.lowSample,
+							justificationMethod: justifications.method,
+							justificationOutlierCriteria: justifications.outlierCriteria,
+							justificationOutOfPeriod: justifications.outOfPeriod,
 						})
 						.returning({ id: procurementPesquisaPrecoItemInProcurement.id }),
 				{ prefix: "Erro ao salvar item da pesquisa" }
 			)
 
-			await persistResearchDecisions(tx, researchItem.id, facts)
 			await persistSamples(tx, researchItem.id, input)
 
 			return { researchId: research.id, researchItemId: researchItem.id, openFindings }

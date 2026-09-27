@@ -13,6 +13,7 @@
  * @migration 20260926214000_acquisition_origin
  */
 
+import type { TableRow } from "@iefa/database"
 import {
 	ACQUISITION_INSTRUMENTS,
 	ACQUISITION_KIND_LABEL,
@@ -40,39 +41,18 @@ import { currentFiscalYear } from "@/lib/expense-execution"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
-// TODO: regenerar tipos após aplicar 20260926214000 — as tabelas novas ainda não estão em
-// `generated.ts`; até lá, cliente frouxo e tipos locais estreitos abaixo.
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
+const procurement = () => getServerClient("procurement")
+const finance = () => getServerClient("finance")
+const comprasGov = () => getServerClient("compras_gov_integration")
 
-const procurement = () => getServerClient("procurement") as unknown as LooseClient
-const finance = () => getServerClient("finance") as unknown as LooseClient
-const comprasGov = () => getServerClient("compras_gov_integration") as unknown as LooseClient
-
-/** Linha de `procurement.acquisition` (tipo local até o regen). */
-interface AcquisitionRow {
-	id: string
-	unit_id: number
+/**
+ * Linha de `procurement.acquisition` como `ACQUISITION_COLUMNS` a lê. O tipo gerado tem `kind`,
+ * `srp_role` e `instrument` como `string`; os CHECKs do banco restringem aos valores do domínio.
+ */
+type AcquisitionRow = Omit<TableRow<"procurement", "acquisition">, "created_by" | "updated_at" | "kind" | "srp_role" | "instrument"> & {
 	kind: AcquisitionKind
 	srp_role: (typeof SRP_ROLES)[number] | null
 	instrument: (typeof ACQUISITION_INSTRUMENTS)[number] | null
-	legal_basis: string | null
-	direct_contract_clause: string | null
-	nd: string | null
-	activity_line: string | null
-	fiscal_year: number
-	process_nup: string | null
-	object: string | null
-	supplier_cnpj: string | null
-	supplier_name: string | null
-	valid_from: string | null
-	valid_to: string | null
-	estimated_value: number | string | null
-	pncp_control_number: string | null
-	over_limit_justification: string | null
-	notes: string | null
-	created_at: string
-	deleted_at: string | null
 }
 
 const ACQUISITION_COLUMNS =
@@ -532,7 +512,7 @@ export const deleteAcquisitionFn = createServerFn({ method: "POST" })
 			finance().from("empenho").select("id", { count: "exact", head: true }).eq("acquisition_id", data.acquisitionId),
 			procurement().from("procurement_arp").select("id", { count: "exact", head: true }).eq("acquisition_id", data.acquisitionId),
 		])
-		if (empError || arpError) throw new Error(`Erro ao conferir os vínculos da contratação: ${(empError ?? arpError).message}`)
+		if (empError || arpError) throw new Error(`Erro ao conferir os vínculos da contratação: ${(empError ?? arpError)?.message}`)
 		if ((empenhoCount ?? 0) > 0 || (arpCount ?? 0) > 0) {
 			throw new Error(`A contratação sustenta ${empenhoCount ?? 0} empenho(s) e ${arpCount ?? 0} ARP(s). Vincule-os a outra contratação antes de remover esta.`)
 		}

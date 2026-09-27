@@ -24,11 +24,6 @@ import { requireUnitScope } from "@/lib/unit-auth.server"
 import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
 import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage } from "@/types/domain/arp"
 
-// TODO: regenerar tipos após aplicar 20260926214000 — `acquisition_id`/`source` da ARP,
-// `finance.empenho_item` e `procurement.acquisition` ainda não estão em `generated.ts`.
-// biome-ignore lint/suspicious/noExplicitAny: tabelas e colunas novas fora dos tipos gerados até o regen
-type LooseProcurement = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 /** Teto por página do módulo ARP; abaixo de 10 a API devolve 400. */
@@ -255,7 +250,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		// O upsert pela chave (unidade, número, UASG) trocava o anexo da ARP em silêncio quando ela
 		// era reimportada de outro anexo. Agora o vínculo existente é mantido e a tela avisa.
-		const { data: existingArp, error: existingError } = await (supabase as unknown as LooseProcurement)
+		const { data: existingArp, error: existingError } = await supabase
 			.from("procurement_arp")
 			.select("id, ata_id, acquisition_id")
 			.eq("unit_id", unitId)
@@ -317,7 +312,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		// ── 3. Upsert procurement_arp ─────────────────────────────────────────────
 
-		const { data: arp, error: arpError } = await (supabase as unknown as LooseProcurement)
+		const { data: arp, error: arpError } = await supabase
 			.from("procurement_arp")
 			.upsert(
 				{
@@ -389,7 +384,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			const existingId = numero != null ? byNumeroItem.get(numero) : undefined
 			if (existingId) {
 				matchedIds.add(existingId)
-				const { error } = await (supabase as unknown as LooseProcurement).from("procurement_arp_item").update(toRow(item)).eq("id", existingId)
+				const { error } = await supabase.from("procurement_arp_item").update(toRow(item)).eq("id", existingId)
 				if (error) throw new Error(`Erro ao atualizar item ${item.numeroItem} da ARP: ${error.message}`)
 			}
 		}
@@ -401,7 +396,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			})
 			.map(toRow)
 		if (newRows.length > 0) {
-			const { error } = await (supabase as unknown as LooseProcurement).from("procurement_arp_item").insert(newRows)
+			const { error } = await supabase.from("procurement_arp_item").insert(newRows)
 			if (error) throw new Error(`Erro ao salvar itens da ARP: ${error.message}`)
 		}
 
@@ -410,13 +405,13 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		if (staleIds.length > 0) {
 			// Item com empenho fica (o FK é RESTRICT desde 20260926214000): o empenho aponta pelo
 			// cabeçalho antigo OU por um item da NE, e os dois contam.
-			const fin = supabase.schema("finance") as unknown as LooseProcurement
+			const fin = supabase.schema("finance")
 			const [{ data: headerRefs, error: headerError }, { data: itemRefs, error: itemError }] = await Promise.all([
 				fin.from("empenho").select("arp_item_id").in("arp_item_id", staleIds),
 				fin.from("empenho_item").select("arp_item_id").in("arp_item_id", staleIds),
 			])
-			if (headerError || itemError) throw new Error(`Erro ao conferir empenhos dos itens retirados: ${(headerError ?? itemError).message}`)
-			const referenced = new Set([...(headerRefs ?? []), ...(itemRefs ?? [])].map((row: { arp_item_id: string }) => row.arp_item_id))
+			if (headerError || itemError) throw new Error(`Erro ao conferir empenhos dos itens retirados: ${(headerError ?? itemError)?.message}`)
+			const referenced = new Set([...(headerRefs ?? []), ...(itemRefs ?? [])].map((row) => row.arp_item_id))
 			const deletableIds = staleIds.filter((id) => !referenced.has(id))
 			if (deletableIds.length > 0) {
 				const { error } = await supabase.from("procurement_arp_item").delete().in("id", deletableIds)
@@ -547,12 +542,7 @@ async function resolveAtaUnit(supabase: ReturnType<typeof getProcurementClient>,
 }
 
 async function resolveAcquisitionUnit(acquisitionId: string): Promise<number> {
-	const { data, error } = await (getProcurementClient() as unknown as LooseProcurement)
-		.from("acquisition")
-		.select("unit_id")
-		.eq("id", acquisitionId)
-		.is("deleted_at", null)
-		.maybeSingle()
+	const { data, error } = await getProcurementClient().from("acquisition").select("unit_id").eq("id", acquisitionId).is("deleted_at", null).maybeSingle()
 	if (error) throw new Error(`Erro ao resolver a unidade da contratação: ${error.message}`)
 	if (!data) throw new Error("Contratação de origem não encontrada")
 	return Number(data.unit_id)
@@ -640,7 +630,7 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 		if (new Set(numeros).size !== numeros.length) throw new Error("Dois itens com o mesmo número: cada item da ata tem um número")
 
 		const numeroAta = formatNumeroAta(data.numeroAta.split("/")[0] ?? data.numeroAta, data.anoAta)
-		const proc = supabase as unknown as LooseProcurement
+		const proc = supabase
 		const { data: arp, error } = await proc
 			.from("procurement_arp")
 			.insert({
@@ -726,7 +716,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive(), acquisitionId: z.uuid().optional() }))
 	.handler(async ({ data }): Promise<UnitArp[]> => {
 		await requireUnitScope(1, data.unitId)
-		const proc = getProcurementClient() as unknown as LooseProcurement
+		const proc = getProcurementClient()
 		let query = proc
 			.from("procurement_arp")
 			.select(
@@ -737,7 +727,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 		if (data.acquisitionId) query = query.eq("acquisition_id", data.acquisitionId)
 		const { data: arps, error } = await query
 		if (error) throw new Error(`Erro ao listar ARPs: ${error.message}`)
-		const list = (arps ?? []) as Array<Record<string, unknown> & { id: string }>
+		const list = arps ?? []
 		if (list.length === 0) return []
 
 		const { data: items, error: itemsError } = await proc
@@ -758,14 +748,14 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 			id: arp.id,
 			numeroAta: String(arp.numero_ata),
 			uasgGerenciadora: String(arp.uasg_gerenciadora),
-			nomeUasgGerenciadora: (arp.nome_uasg_gerenciadora as string | null) ?? null,
-			objeto: (arp.objeto as string | null) ?? null,
-			vigenciaInicio: (arp.data_vigencia_inicio as string | null) ?? null,
-			vigenciaFim: (arp.data_vigencia_fim as string | null) ?? null,
+			nomeUasgGerenciadora: arp.nome_uasg_gerenciadora,
+			objeto: arp.objeto,
+			vigenciaInicio: arp.data_vigencia_inicio,
+			vigenciaFim: arp.data_vigencia_fim,
 			source: arp.source === "manual" ? "manual" : "compras_gov",
-			lastSyncedAt: (arp.last_synced_at as string | null) ?? null,
-			ataId: (arp.ata_id as string | null) ?? null,
-			acquisitionId: (arp.acquisition_id as string | null) ?? null,
+			lastSyncedAt: arp.last_synced_at,
+			ataId: arp.ata_id,
+			acquisitionId: arp.acquisition_id,
 			items: itemRows
 				.filter((item) => item.arp_id === arp.id)
 				.map((item) => ({
@@ -797,19 +787,14 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<Array<Empenho & { item_value: number }>> => {
 		await requireAuth()
 		await requireUnitScope(1, await resolveArpItemUnit(getProcurementClient(), data.arpItemId))
-		const fin = getProcurementClient().schema("finance") as unknown as LooseProcurement
+		const fin = getProcurementClient().schema("finance")
 		const { data: items, error: itemsError } = await fin
 			.from("empenho_item")
 			.select("empenho_id, quantity, unit_price, value")
 			.eq("arp_item_id", data.arpItemId)
 		if (itemsError) throw new Error(`Erro ao buscar itens de empenho: ${itemsError.message}`)
 		const byEmpenho = new Map<string, { quantity: number; unitPrice: number | null; value: number }>()
-		for (const item of (items ?? []) as Array<{
-			empenho_id: string
-			quantity: number | string | null
-			unit_price: number | string | null
-			value: number | string
-		}>) {
+		for (const item of items ?? []) {
 			const acc = byEmpenho.get(item.empenho_id) ?? { quantity: 0, unitPrice: null, value: 0 }
 			acc.quantity += Number(item.quantity ?? 0)
 			acc.unitPrice = acc.unitPrice ?? (item.unit_price == null ? null : Number(item.unit_price))
@@ -957,10 +942,10 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 
 		// Pelos itens da NE. A liquidação é da NE inteira; numa NE com vários itens ela se reparte
 		// entre eles na proporção do valor de cada item — é leitura de acompanhamento, não lançamento.
-		const financeClient = supabase.schema("finance") as unknown as LooseProcurement
+		const financeClient = supabase.schema("finance")
 		const { data: arpNeItems, error: arpNeError } = await financeClient.from("empenho_item").select("empenho_id, arp_item_id, value").in("arp_item_id", itemIds)
 		if (arpNeError) throw new Error(`Erro ao buscar itens de empenho: ${arpNeError.message}`)
-		const empenhoIds = [...new Set(((arpNeItems ?? []) as Array<{ empenho_id: string }>).map((row) => row.empenho_id))]
+		const empenhoIds = [...new Set((arpNeItems ?? []).map((row) => row.empenho_id))]
 		if (empenhoIds.length === 0) return {}
 
 		const [{ data: active, error: activeError }, { data: allItems, error: allItemsError }, { data: saldos, error: saldoError }] = await Promise.all([
@@ -969,18 +954,19 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 			financeClient.from("v_empenho_saldo").select("empenho_id, valor_liquidado, valor_pago, saldo_a_liquidar").in("empenho_id", empenhoIds),
 		])
 		if (activeError || allItemsError || saldoError)
-			throw new Error(`Erro ao ler a execução dos empenhos: ${(activeError ?? allItemsError ?? saldoError).message}`)
-		const activeIds = new Set(((active ?? []) as Array<{ id: string }>).map((row) => row.id))
+			throw new Error(`Erro ao ler a execução dos empenhos: ${(activeError ?? allItemsError ?? saldoError)?.message}`)
+		const activeIds = new Set((active ?? []).map((row) => row.id))
 		const totalByEmpenho = new Map<string, number>()
-		for (const row of (allItems ?? []) as Array<{ empenho_id: string; value: number | string }>) {
+		for (const row of allItems ?? []) {
 			totalByEmpenho.set(row.empenho_id, (totalByEmpenho.get(row.empenho_id) ?? 0) + Number(row.value))
 		}
-		const saldoByEmpenho = new Map<string, { valor_liquidado: number; valor_pago: number; saldo_a_liquidar: number }>()
+		const saldoByEmpenho = new Map<string | null, { valor_liquidado: number | null; valor_pago: number | null; saldo_a_liquidar: number | null }>()
 		for (const saldo of saldos ?? []) saldoByEmpenho.set(saldo.empenho_id, saldo)
 
 		const byItem: Record<string, { liquidado: number; pago: number; aLiquidar: number }> = {}
-		for (const row of (arpNeItems ?? []) as Array<{ empenho_id: string; arp_item_id: string; value: number | string }>) {
-			if (!activeIds.has(row.empenho_id)) continue
+		for (const row of arpNeItems ?? []) {
+			// `arp_item_id` nunca vem nulo: a consulta filtra por ele.
+			if (row.arp_item_id == null || !activeIds.has(row.empenho_id)) continue
 			const saldo = saldoByEmpenho.get(row.empenho_id)
 			if (!saldo) continue
 			const total = totalByEmpenho.get(row.empenho_id) ?? 0
