@@ -50,7 +50,7 @@ export interface ComprasMaterialPrecoPage {
 
 // ─── Amostra de preço normalizada ────────────────────────────────────────────
 
-export interface AmostraPreco {
+export interface PriceSample {
 	// Campos externos (nomes do Compras.gov.br)
 	idCompra: string
 	idItemCompra: number
@@ -140,9 +140,9 @@ export interface PriceAnalysis {
 	referencePrice: number | null
 	primaryMeasureUnit: string | null
 
-	samples: AmostraPreco[]
-	outliers: AmostraPreco[]
-	pollutionDiscards: AmostraPreco[]
+	samples: PriceSample[]
+	outliers: PriceSample[]
+	pollutionDiscards: PriceSample[]
 
 	consultedAt: string
 }

@@ -2,7 +2,7 @@
  * fetch com retry para downloads de fontes públicas (backoff exponencial + jitter).
  *
  * Mesma família dos retries de `workers/compras-sync/client.ts` e
- * `workers/pesquisa-preco/client.ts`, mas genérico: retenta em erro de rede e
+ * `workers/price-research/client.ts`, mas genérico: retenta em erro de rede e
  * em respostas transitórias (408/429/5xx).
  *
  * Contrato com o caller:

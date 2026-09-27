@@ -4,9 +4,9 @@ import { type Context, Hono } from "hono"
 import { z } from "zod"
 import { env } from "../../env.ts"
 import { secureCompare } from "../../lib/secure-compare.ts"
-import { analisarPrecos, type OpcoesPesquisa } from "../../workers/pesquisa-preco/analyzer.ts"
-import { consultarMaterialPrecos } from "../../workers/pesquisa-preco/client.ts"
-import type { AmostraPreco, PriceAnalysis, QuantityEstimateItemPriceResult } from "../../workers/pesquisa-preco/types.ts"
+import { analyzePrices, type PriceResearchOptions } from "../../workers/price-research/analyzer.ts"
+import { consultarMaterialPrecos } from "../../workers/price-research/client.ts"
+import type { PriceAnalysis, PriceSample, QuantityEstimateItemPriceResult } from "../../workers/price-research/types.ts"
 
 // ─── Validação de entrada ─────────────────────────────────────────────────────
 
@@ -56,8 +56,8 @@ function formatZodError(error: z.ZodError): string {
 	return error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)).join("; ")
 }
 
-/** Monta OpcoesPesquisa a partir de input validado — mesma semântica dos spreads condicionais anteriores (vazio/0 ⇒ filtro omitido). */
-function buildOptions(input: z.output<typeof materialQuerySchema> | z.output<typeof quantityEstimateBodySchema>): OpcoesPesquisa {
+/** Monta PriceResearchOptions a partir de input validado — mesma semântica dos spreads condicionais anteriores (vazio/0 ⇒ filtro omitido). */
+function buildOptions(input: z.output<typeof materialQuerySchema> | z.output<typeof quantityEstimateBodySchema>): PriceResearchOptions {
 	return {
 		months: input.months,
 		similarityThreshold: input.similarityThreshold,
@@ -83,7 +83,7 @@ type Supabase = ReturnType<typeof getSupabase>
  */
 async function buscarDescricaoCatmat(supabase: Supabase, catmatCode: number): Promise<string | null> {
 	// compras_material_item foi movida para compras_gov_integration (split de schemas);
-	// o client default segue em sisub (compras_amostra + RPC upsert_compras_amostras ficam lá).
+	// o client default segue em sisub (price_sample + RPC upsert_price_samples ficam lá).
 	const { data } = await supabase
 		.schema("compras_gov_integration")
 		.from("compras_material_item")
@@ -97,7 +97,7 @@ async function buscarDescricaoCatmat(supabase: Supabase, catmatCode: number): Pr
 
 interface PersistInput {
 	quantityEstimateId: string
-	options: OpcoesPesquisa
+	options: PriceResearchOptions
 	items: QuantityEstimateItemPriceResult[]
 	summary: {
 		total: number
@@ -142,7 +142,7 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 
 		// ── 1. Cabeçalho da pesquisa (ON CONFLICT DO NOTHING) ─────────────────
 		const { data: inserted, error: errResearch } = await supabase
-			.from("procurement_pesquisa_preco")
+			.from("price_research")
 			.upsert(
 				{
 					quantity_estimate_id: quantityEstimateId,
@@ -171,7 +171,7 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 
 		// Conflito: pesquisa idêntica já foi persistida hoje — devolve a existente.
 		if (!inserted || inserted.length === 0) {
-			const { data: existing } = await supabase.from("procurement_pesquisa_preco").select("id").eq("idempotency_key", idempotencyKey).single()
+			const { data: existing } = await supabase.from("price_research").select("id").eq("idempotency_key", idempotencyKey).single()
 			return existing?.id ?? null
 		}
 
@@ -182,7 +182,7 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 			const analysis = item.analysis
 
 			const { data: researchItem, error: errItem } = await supabase
-				.from("procurement_pesquisa_preco_item")
+				.from("price_research_item")
 				.insert({
 					research_id: researchId,
 					quantity_estimate_item_id: item.quantityEstimateItemId,
@@ -235,9 +235,9 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 
 			// Upsert dos FATOS no catálogo deduplicado → ids alinhados à entrada.
 			const factRows = classified.map(({ a }) => factPayload(a))
-			const { data: amostraIds, error: errRpc } = await supabase.rpc("upsert_compras_amostras", { p_samples: factRows })
+			const { data: priceSampleIds, error: errRpc } = await supabase.rpc("upsert_price_samples", { p_samples: factRows })
 
-			if (errRpc || !amostraIds || amostraIds.length !== classified.length) {
+			if (errRpc || !priceSampleIds || priceSampleIds.length !== classified.length) {
 				console.error(`[price-research] Falha no catálogo de amostras do item ${researchItem.id}:`, errRpc?.message ?? "contagem inesperada")
 				continue
 			}
@@ -245,19 +245,19 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 			// Ponte por-pesquisa (em lotes; ON CONFLICT DO NOTHING).
 			const bridge = classified.map(({ type, a }, i) => ({
 				research_item_id: researchItem.id,
-				amostra_id: amostraIds[i] as string,
+				price_sample_id: priceSampleIds[i] as string,
 				sample_type: type,
 				similarity: a.similarity,
 			}))
 
 			const BATCH = 500
 			for (let i = 0; i < bridge.length; i += BATCH) {
-				const { error: errAmostras } = await supabase
-					.from("procurement_pesquisa_preco_amostra")
-					.upsert(bridge.slice(i, i + BATCH), { onConflict: "research_item_id,amostra_id", ignoreDuplicates: true })
+				const { error: errSamples } = await supabase
+					.from("price_research_sample")
+					.upsert(bridge.slice(i, i + BATCH), { onConflict: "research_item_id,price_sample_id", ignoreDuplicates: true })
 
-				if (errAmostras) {
-					console.error(`[price-research] Falha nas amostras do item ${researchItem.id} (lote ${i}):`, errAmostras.message)
+				if (errSamples) {
+					console.error(`[price-research] Falha nas amostras do item ${researchItem.id} (lote ${i}):`, errSamples.message)
 				}
 			}
 		}
@@ -270,10 +270,10 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 }
 
 /**
- * Extrai os campos de FATO de uma AmostraPreco para o catálogo sisub.compras_amostra.
+ * Extrai os campos de FATO de uma PriceSample para o catálogo procurement.price_sample.
  * Os atributos por-pesquisa (sample_type, similarity) ficam de fora — vão na ponte.
  */
-function factPayload(a: AmostraPreco) {
+function factPayload(a: PriceSample) {
 	return {
 		// Campos externos (nomes originais do Compras.gov.br)
 		id_compra: a.idCompra,
@@ -310,13 +310,13 @@ const RESEARCH_COLUMNS =
 // O client Supabase não é tipado (schemas custom) — estes shapes descrevem só a
 // estrutura que o achatamento manipula; o resto dos campos passa intacto.
 
-/** Linha da ponte pesquisa↔amostra com o fato `amostra` aninhado. */
+/** Linha da ponte pesquisa↔amostra com o fato `sample` (a amostra do catálogo) aninhado. */
 interface ResearchSampleRow {
 	[key: string]: unknown
-	amostra?: Record<string, unknown> | null
+	sample?: Record<string, unknown> | null
 }
 
-/** Linha de procurement_pesquisa_preco_item com as amostras aninhadas. */
+/** Linha de price_research_item com as amostras aninhadas. */
 interface ResearchItemRow {
 	[key: string]: unknown
 	samples?: ResearchSampleRow[] | null
@@ -380,7 +380,7 @@ async function researchQuantityEstimate(c: Context, quantityEstimateId: string) 
 						codigoUasg: options.codigoUasg,
 						codigoMunicipio: options.codigoMunicipio,
 					})
-					analysisMap.set(catmatCode, analisarPrecos(catmatCode, catmatDescricao, rawItems, options))
+					analysisMap.set(catmatCode, analyzePrices(catmatCode, catmatDescricao, rawItems, options))
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : String(err)
 					console.error(`[price-research] anexo ${quantityEstimateId} CATMAT ${catmatCode}: ${msg}`)
@@ -445,7 +445,7 @@ async function listQuantityEstimateResearches(c: Context, quantityEstimateId: st
 	const supabase = getSupabase()
 
 	const { data, error } = await supabase
-		.from("procurement_pesquisa_preco")
+		.from("price_research")
 		.select(`
       id,
       reference_method,
@@ -506,7 +506,7 @@ export const priceResearchRoutes = new Hono()
 				codigoUasg: options.codigoUasg,
 				codigoMunicipio: options.codigoMunicipio,
 			})
-			return c.json(analisarPrecos(catmatCode, catmatDescricao, rawItems, options))
+			return c.json(analyzePrices(catmatCode, catmatDescricao, rawItems, options))
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err)
 			console.error(`[price-research] CATMAT ${catmatCode}: ${message}`)
@@ -540,20 +540,20 @@ export const priceResearchRoutes = new Hono()
 		const researchId = c.req.param("researchId")
 		const supabase = getSupabase()
 
-		const { data: research, error: errResearch } = await supabase.from("procurement_pesquisa_preco").select(RESEARCH_COLUMNS).eq("id", researchId).single()
+		const { data: research, error: errResearch } = await supabase.from("price_research").select(RESEARCH_COLUMNS).eq("id", researchId).single()
 
 		if (errResearch || !research) return c.json({ error: "Pesquisa não encontrada" }, 404)
 
-		// Os fatos da amostra vivem em compras_amostra; a ponte traz a classificação.
+		// Os fatos da amostra vivem em price_sample; a ponte traz a classificação.
 		const { data: items, error: errItems } = await supabase
-			.from("procurement_pesquisa_preco_item")
+			.from("price_research_item")
 			.select(`
       id, research_id, quantity_estimate_item_id, catmat_codigo, catmat_descricao, product_name, total_raw, total_after_date_filter, total_after_pollution_filter, total_after_outlier, price_min, price_max, price_mean, price_median, std_dev, cv_pct, unique_sources, reference_price, reference_method, measure_unit, is_compliant, non_compliance_reasons, error, created_at, justification_low_sample, justification_method, justification_outlier_criteria, justification_out_of_period, manual_selection,
-      samples:procurement_pesquisa_preco_amostra (
+      samples:price_research_sample (
         id,
         sample_type,
         similarity,
-        amostra:compras_amostra (
+        sample:price_sample (
           id_compra,
           id_item_compra,
           descricao_item,
@@ -582,7 +582,7 @@ export const priceResearchRoutes = new Hono()
 		// JSON plano (id, sample_type, similarity + campos de fato).
 		const flatItems = ((items ?? []) as unknown as ResearchItemRow[]).map(({ samples, ...rest }) => ({
 			...rest,
-			samples: (samples ?? []).map(({ amostra, ...sample }) => ({ ...sample, ...(amostra ?? {}) })),
+			samples: (samples ?? []).map(({ sample, ...classification }) => ({ ...classification, ...(sample ?? {}) })),
 		}))
 
 		return c.json({ ...research, items: flatItems })

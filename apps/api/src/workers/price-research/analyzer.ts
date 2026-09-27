@@ -1,5 +1,5 @@
 import { researchNonComplianceReasons } from "@iefa/sisub-domain"
-import type { AmostraPreco, ComprasMaterialPrecoItem, LegalCompliance, PriceAnalysis, PriceStatistics } from "./types.ts"
+import type { ComprasMaterialPrecoItem, LegalCompliance, PriceAnalysis, PriceSample, PriceStatistics } from "./types.ts"
 
 // ─── Normalização de texto para comparação ───────────────────────────────────
 
@@ -131,26 +131,26 @@ function extrairReferenceDate(item: ComprasMaterialPrecoItem): Date | null {
  * Robusto para distribuições assimétricas típicas de licitação.
  * Com menos de 4 amostras não há quartis confiáveis — nada é removido.
  */
-function detectarOutliers(amostras: AmostraPreco[]): {
-	valid: AmostraPreco[]
-	outliers: AmostraPreco[]
+function detectarOutliers(samples: PriceSample[]): {
+	valid: PriceSample[]
+	outliers: PriceSample[]
 } {
-	if (amostras.length < 4) return { valid: amostras, outliers: [] }
+	if (samples.length < 4) return { valid: samples, outliers: [] }
 
-	const prices = amostras.map((a) => a.normalizedPrice).sort((a, b) => a - b)
+	const prices = samples.map((a) => a.normalizedPrice).sort((a, b) => a - b)
 	const n = prices.length
 	const q1 = prices[Math.floor(n * 0.25)]
 	const q3 = prices[Math.floor(n * 0.75)]
 	const iqr = q3 - q1
 
-	if (iqr === 0) return { valid: amostras, outliers: [] }
+	if (iqr === 0) return { valid: samples, outliers: [] }
 
 	const lower = q1 - 1.5 * iqr
 	const upper = q3 + 1.5 * iqr
 
-	const valid: AmostraPreco[] = []
-	const outliers: AmostraPreco[] = []
-	for (const a of amostras) {
+	const valid: PriceSample[] = []
+	const outliers: PriceSample[] = []
+	for (const a of samples) {
 		if (a.normalizedPrice >= lower && a.normalizedPrice <= upper) valid.push(a)
 		else outliers.push(a)
 	}
@@ -165,7 +165,7 @@ function calcularMediana(values: number[]): number {
 	return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
-function calcularStatistics(samples: AmostraPreco[]): PriceStatistics | null {
+function calcularStatistics(samples: PriceSample[]): PriceStatistics | null {
 	if (samples.length === 0) return null
 
 	const prices = samples.map((a) => a.normalizedPrice)
@@ -196,7 +196,7 @@ function calcularStatistics(samples: AmostraPreco[]): PriceStatistics | null {
  * justificativa. O preço de referência daqui é a mediana, então o teto do art. 6º, § 6º, não
  * dispara; sem data, a amostra já ficou fora no passo 1.
  */
-function avaliarCompliance(samples: AmostraPreco[], months: number, median: number): LegalCompliance {
+function avaliarCompliance(samples: PriceSample[], months: number, median: number): LegalCompliance {
 	const uniqueSources = new Set(samples.map((a) => a.codigoUasg)).size
 	const reasons = researchNonComplianceReasons({
 		validCount: samples.length,
@@ -216,7 +216,7 @@ function avaliarCompliance(samples: AmostraPreco[], months: number, median: numb
 
 // ─── Parâmetros de pesquisa (internos) ───────────────────────────────────────
 
-export interface OpcoesPesquisa {
+export interface PriceResearchOptions {
 	/** Período de análise em meses. Default: 12 (recomendado pela IN 65/2021) */
 	months?: number
 	/**
@@ -242,11 +242,11 @@ export interface OpcoesPesquisa {
  * 4. Remoção de outliers (IQR)
  * 5. Estatísticas + conformidade Lei 14.133 / IN 65/2021
  */
-export function analisarPrecos(
+export function analyzePrices(
 	catmatCodigo: number,
 	catmatDescricao: string | null,
 	rawItems: ComprasMaterialPrecoItem[],
-	opcoes: OpcoesPesquisa = {}
+	opcoes: PriceResearchOptions = {}
 ): PriceAnalysis {
 	const months = opcoes.months ?? 12
 	const threshold = opcoes.similarityThreshold ?? 0.4
@@ -265,13 +265,13 @@ export function analisarPrecos(
 	})
 
 	// ── Passo 2: Filtrar poluição e construir amostras ────────────────────────
-	const pollutionDiscards: AmostraPreco[] = []
-	const candidates: AmostraPreco[] = []
+	const pollutionDiscards: PriceSample[] = []
+	const candidates: PriceSample[] = []
 
 	for (const item of afterDateFilter) {
 		const similarity = catmatDescricao ? calcularSimilaridade(catmatDescricao, item.descricaoItem) : 1
 
-		const amostra: AmostraPreco = {
+		const sample: PriceSample = {
 			// Campos externos (nomes do Compras.gov.br)
 			idCompra: item.idCompra,
 			idItemCompra: item.idItemCompra,
@@ -293,8 +293,8 @@ export function analisarPrecos(
 			similarity: +similarity.toFixed(3),
 		}
 
-		if (similarity >= threshold) candidates.push(amostra)
-		else pollutionDiscards.push(amostra)
+		if (similarity >= threshold) candidates.push(sample)
+		else pollutionDiscards.push(sample)
 	}
 
 	// ── Passo 3: Remover outliers ─────────────────────────────────────────────
