@@ -30,6 +30,7 @@ const ALLOWED_TABLES = new Set([
 	"procurement_list_item",
 	"procurement_arp_item",
 	"empenho",
+	"empenho_item",
 	"ingredient",
 	"production_task",
 	"meal_type",
