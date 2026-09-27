@@ -26,11 +26,11 @@ export function buildDemandForecastSteps(status: DemandForecastStatus): FlowStep
 	}
 
 	const occasionIssues: FlowIssue[] = []
-	if (status.exceptionsWithoutOccurrences > 0) {
+	if (status.supportMenusWithoutOccurrences > 0) {
 		occasionIssues.push({
 			severity: "warning",
-			message: `${pluralize(status.exceptionsWithoutOccurrences, "cardápio de apoio sem ocorrências mensais", "cardápios de apoio sem ocorrências mensais")}: a unidade multiplica o cardápio de apoio pelas ocorrências, e zero não compra nada.`,
-			action: { label: "Cardápios de Apoio", href: `${kitchen}/exceptions` },
+			message: `${pluralize(status.supportMenusWithoutOccurrences, "cardápio de apoio sem ocorrências mensais", "cardápios de apoio sem ocorrências mensais")}: a unidade multiplica o cardápio de apoio pelas ocorrências, e zero não compra nada.`,
+			action: { label: "Cardápios de Apoio", href: `${kitchen}/support-menus` },
 		})
 	}
 
@@ -88,7 +88,7 @@ export function buildDemandForecastSteps(status: DemandForecastStatus): FlowStep
 			title: "Eventos e cardápios de apoio previstos",
 			objective: "O que acontece fora da rotina: eventos (quantas vezes na vigência) e cardápios de apoio (quantas vezes por mês).",
 			status: deriveStatusFromIssues(occasionIssues),
-			summary: `${pluralize(status.events, "evento", "eventos")} · ${pluralize(status.exceptions, "cardápio de apoio", "cardápios de apoio")}`,
+			summary: `${pluralize(status.events, "evento", "eventos")} · ${pluralize(status.supportMenus, "cardápio de apoio", "cardápios de apoio")}`,
 			issues: occasionIssues,
 			action: { label: "Eventos", href: `${kitchen}/events` },
 		},

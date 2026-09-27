@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { renamedVocabulary } from "../utils/renamed-vocabulary.ts"
 import { UuidSchema } from "./common.ts"
 
 /**
@@ -12,10 +13,19 @@ import { UuidSchema } from "./common.ts"
  * já gravado e consumido pelo app — o mesmo motivo de `PurchaseItemWriteSchema`.
  */
 
-/** Alvo da regra: catálogo de insumos ou de preparações. Valor de domínio — não traduzir. */
-export const POLICY_TARGETS = ["product", "recipe"] as const
-export const PolicyTargetSchema = z.enum(POLICY_TARGETS)
-export type PolicyTarget = z.infer<typeof PolicyTargetSchema>
+/**
+ * Alvo da regra: catálogo de insumos (`ingredient`) ou de preparações (`recipe`). `product` era o
+ * nome antigo do insumo (glossário, D2): até o contract do lote 5 o banco ainda o grava
+ * (`POLICY_TARGET_VOCABULARY`).
+ */
+export const POLICY_TARGETS = ["ingredient", "recipe"] as const
+export type PolicyTarget = (typeof POLICY_TARGETS)[number]
+
+/** Valor gravado antes do lote 5 → alvo do glossário. Sai com o contract 20260927110000. */
+export const POLICY_TARGET_VOCABULARY = renamedVocabulary(POLICY_TARGETS, { product: "ingredient" })
+
+/** Aceita o nome antigo por um ciclo (aba aberta antes do deploy) e entrega o do glossário. */
+export const PolicyTargetSchema = z.enum(POLICY_TARGET_VOCABULARY.inputValues).transform(POLICY_TARGET_VOCABULARY.parse)
 
 export const ListPolicyRulesSchema = z.object({
 	target: PolicyTargetSchema,

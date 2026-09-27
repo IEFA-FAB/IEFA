@@ -75,7 +75,7 @@ function useUnitKitchens(unitId: number | null) {
 const TEMPLATE_TYPE_BY_BUCKET: Record<SelectionBucket, string> = {
 	templateSelections: "weekly",
 	eventSelections: "event",
-	exceptionSelections: "exception",
+	supportMenuSelections: "apoio",
 }
 
 function KitchenStepSection({
@@ -105,10 +105,10 @@ function KitchenStepSection({
 			return type === expectedType || (expectedType === "weekly" && !type)
 		}) || []
 
-	const handleImport = (_kitchenId: number, templateSels: TemplateSelection[], eventSels: TemplateSelection[], exceptionSels: TemplateSelection[]) => {
+	const handleImport = (_kitchenId: number, templateSels: TemplateSelection[], eventSels: TemplateSelection[], supportMenuSels: TemplateSelection[]) => {
 		onUpdateSelection(kitchenState.kitchenId, "templateSelections", templateSels)
 		onUpdateSelection(kitchenState.kitchenId, "eventSelections", eventSels)
-		onUpdateSelection(kitchenState.kitchenId, "exceptionSelections", exceptionSels)
+		onUpdateSelection(kitchenState.kitchenId, "supportMenuSelections", supportMenuSels)
 		if (pendingForecast && quantityEstimateId) recordImport({ forecastId: pendingForecast.id, quantityEstimateId })
 	}
 
@@ -223,12 +223,12 @@ function NewQuantityEstimatePage() {
 			const bucketOf = (s: unknown): SelectionBucket => {
 				const type = (s as { template?: { template_type?: string } }).template?.template_type
 				if (type === "event") return "eventSelections"
-				if (type === "exception") return "exceptionSelections"
+				if (type === "apoio") return "supportMenuSelections"
 				return "templateSelections"
 			}
 			const restored: KitchenSelectionState[] = existingDraft.kitchens.map((k) => {
 				const kWithDetails = k as typeof k & { kitchen?: { display_name?: string | null } }
-				const buckets: Record<SelectionBucket, TemplateSelection[]> = { templateSelections: [], eventSelections: [], exceptionSelections: [] }
+				const buckets: Record<SelectionBucket, TemplateSelection[]> = { templateSelections: [], eventSelections: [], supportMenuSelections: [] }
 				for (const s of k.selections) {
 					const sw = s as typeof s & { template?: { name?: string | null; expected_monthly_occurrences?: number | null } }
 					const bucket = bucketOf(s)
@@ -238,7 +238,7 @@ function NewQuantityEstimatePage() {
 						repetitions: s.repetitions,
 						// Preserva a base mensal da exceção para reprojetar quando a vigência mudar.
 						// Sem o dado no payload, deriva da própria persistência (reps / meses).
-						...(bucket === "exceptionSelections" && {
+						...(bucket === "supportMenuSelections" && {
 							monthlyOccurrences: sw.template?.expected_monthly_occurrences ?? Math.max(1, Math.round(s.repetitions / Math.max(1, restoredValidity))),
 						}),
 					})
@@ -294,7 +294,7 @@ function NewQuantityEstimatePage() {
 					deliveryNotes: "",
 					templateSelections: [],
 					eventSelections: [],
-					exceptionSelections: [],
+					supportMenuSelections: [],
 				}
 			)
 		}) || []
@@ -319,7 +319,7 @@ function NewQuantityEstimatePage() {
 						deliveryNotes: "",
 						templateSelections: type === "templateSelections" ? selections : [],
 						eventSelections: type === "eventSelections" ? selections : [],
-						exceptionSelections: type === "exceptionSelections" ? selections : [],
+						supportMenuSelections: type === "supportMenuSelections" ? selections : [],
 					},
 				],
 			}
@@ -336,7 +336,7 @@ function NewQuantityEstimatePage() {
 			validityMonths: months,
 			kitchenSelections: prev.kitchenSelections.map((ks) => ({
 				...ks,
-				exceptionSelections: ks.exceptionSelections.map((s) => ({ ...s, repetitions: (s.monthlyOccurrences ?? 1) * months })),
+				supportMenuSelections: ks.supportMenuSelections.map((s) => ({ ...s, repetitions: (s.monthlyOccurrences ?? 1) * months })),
 			})),
 		}))
 	}
@@ -546,7 +546,9 @@ function NewQuantityEstimatePage() {
 		updateQuantityLimits({ quantityEstimateId: draftId, items: [{ quantityEstimateItemId, ...patch }] })
 	}
 
-	const hasAnySelection = kitchenSelections.some((ks) => ks.templateSelections.length > 0 || ks.eventSelections.length > 0 || ks.exceptionSelections.length > 0)
+	const hasAnySelection = kitchenSelections.some(
+		(ks) => ks.templateSelections.length > 0 || ks.eventSelections.length > 0 || ks.supportMenuSelections.length > 0
+	)
 
 	if (isLoadingKitchens || (draftId && isLoadingDraft) || isCreatingDraft) {
 		return (
@@ -688,7 +690,7 @@ function NewQuantityEstimatePage() {
 								<KitchenStepSection
 									key={ks.kitchenId}
 									kitchenState={ks}
-									selectionType="exceptionSelections"
+									selectionType="supportMenuSelections"
 									validityMonths={wizardState.validityMonths}
 									quantityEstimateId={draftId ?? null}
 									onUpdateSelection={handleUpdateSelection}
@@ -751,7 +753,7 @@ function NewQuantityEstimatePage() {
 								<p className="text-subheading mb-3">Seleções por cozinha:</p>
 								<div className="space-y-3">
 									{kitchenSelections.map((ks) => {
-										const total = [...ks.templateSelections, ...ks.eventSelections, ...ks.exceptionSelections]
+										const total = [...ks.templateSelections, ...ks.eventSelections, ...ks.supportMenuSelections]
 										return (
 											<div key={ks.kitchenId}>
 												<p className="text-subheading">{ks.kitchenName}</p>

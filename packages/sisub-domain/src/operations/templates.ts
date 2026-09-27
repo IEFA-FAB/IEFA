@@ -42,6 +42,7 @@ import type {
 	TemplateMeal,
 	UpdateTemplate,
 } from "../schemas/templates.ts"
+import { TEMPLATE_TYPE_VOCABULARY } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
@@ -62,6 +63,15 @@ import {
 	writeEventMeals,
 } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe, type TemplateMealRow } from "./template-meals.ts"
+
+/**
+ * `template_type` no vocabulário do glossário. Até o contract do lote 5 o banco ainda grava o
+ * cardápio de apoio como `exception`; quem lê o template daqui já recebe `apoio`.
+ */
+function withGlossaryTemplateType<T extends { template_type?: string | null }>(wire: T): T {
+	if (wire.template_type == null) return wire
+	return { ...wire, template_type: TEMPLATE_TYPE_VOCABULARY.normalize(wire.template_type) ?? wire.template_type }
+}
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
@@ -157,11 +167,18 @@ function mapTemplateWithCounts(t: CountRow, meals: TemplateMealRow[], eventMealB
 	const items = t.menuTemplateItemsInKitchens ?? []
 	const item_count = items.length
 	const { headcount_filled, avg_headcount_weekday, total } = summarizeTemplateDemand(items, meals, eventMealBases)
-	// Custeio de exceção: sem semana. Soma os comensais de todos os itens e multiplica
-	// pelas ocorrências mensais (nulo = 1). Nulo para cardápios não-exceção.
-	const monthly_headcount_total = t.templateType === "exception" ? total * (t.expectedMonthlyOccurrences ?? 1) : null
+	// Custeio do cardápio de apoio: sem semana. Soma os comensais de todos os itens e multiplica
+	// pelas ocorrências mensais (nulo = 1). Nulo para os demais cardápios.
+	const monthly_headcount_total = TEMPLATE_TYPE_VOCABULARY.is(t.templateType, "apoio") ? total * (t.expectedMonthlyOccurrences ?? 1) : null
 	const { menuTemplateItemsInKitchens: _items, ...meta } = t
-	return { ...toWire<MenuTemplate>(meta), item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday, monthly_headcount_total }
+	return {
+		...withGlossaryTemplateType(toWire<MenuTemplate>(meta)),
+		item_count,
+		recipe_count: item_count,
+		headcount_filled,
+		avg_headcount_weekday,
+		monthly_headcount_total,
+	}
 }
 
 type SnackClassificationSource = {
@@ -256,7 +273,7 @@ export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTempl
 		requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	}
 
-	const wire = toWire<TemplateWithItemsFull>(row, TEMPLATE_RELATIONS)
+	const wire = withGlossaryTemplateType(toWire<TemplateWithItemsFull>(row, TEMPLATE_RELATIONS))
 	const items = [...wire.items].sort(compareTemplateItems)
 	// Efetivo base lido à parte, tolerante à tabela ausente (migração pendente → meals vazio).
 	// Refeições próprias só existem em evento: nos demais tipos a consulta nunca traria nada.
@@ -480,7 +497,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 					name: input.name,
 					description: input.description ?? null,
 					kitchenId: input.kitchenId ?? null,
-					templateType: input.templateType,
+					templateType: TEMPLATE_TYPE_VOCABULARY.toStored(input.templateType),
 					expectedMonthlyOccurrences: input.expectedMonthlyOccurrences ?? null,
 				})
 				.returning()
@@ -513,7 +530,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 		return newTemplate
 	})
 
-	return toWire<MenuTemplate>(created)
+	return withGlossaryTemplateType(toWire<MenuTemplate>(created))
 }
 
 export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: CreateBlankTemplate): Promise<MenuTemplate> {
@@ -526,13 +543,13 @@ export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: 
 				name: input.name,
 				description: input.description ?? null,
 				kitchenId: input.kitchenId ?? null,
-				templateType: input.templateType,
+				templateType: TEMPLATE_TYPE_VOCABULARY.toStored(input.templateType),
 				expectedMonthlyOccurrences: input.expectedMonthlyOccurrences ?? null,
 			})
 			.returning()
 	)
 	if (!created) throw new DomainError("INSERT_FAILED", "no row returned")
-	return toWire<MenuTemplate>(created)
+	return withGlossaryTemplateType(toWire<MenuTemplate>(created))
 }
 
 export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTemplate): Promise<MenuTemplate> {
@@ -634,7 +651,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 					kitchenId: targetKitchenId,
 					baseTemplateId: input.sourceTemplateId,
 					templateType: source.templateType ?? "weekly",
-					// Exceção sem a recorrência vira 1 ocorrência no custeio do anexo quantitativo.
+					// Cardápio de apoio sem a recorrência vira 1 ocorrência no custeio do anexo quantitativo.
 					expectedMonthlyOccurrences: source.expectedMonthlyOccurrences,
 					// Padrão de lanche: a cópia herda a classificação, mas nasce NÃO pedível e sem
 					// revisão — publicar para o comensal e atestar a revisão trimestral são atos da
@@ -686,7 +703,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 		return newTemplate
 	})
 
-	return toWire<MenuTemplate>(created)
+	return withGlossaryTemplateType(toWire<MenuTemplate>(created))
 }
 
 type TemplateTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
@@ -706,7 +723,7 @@ async function applyTemplateContent(tx: TemplateTx, templateId: string, input: U
 	if (input.name != null) updates.name = input.name
 	// nullable: undefined = não mexe; null = limpa a descrição.
 	if (input.description !== undefined) updates.description = input.description
-	if (input.templateType != null) updates.templateType = input.templateType
+	if (input.templateType != null) updates.templateType = TEMPLATE_TYPE_VOCABULARY.toStored(input.templateType)
 	// nullable: undefined = não mexe; null = limpa a recorrência.
 	if (input.expectedMonthlyOccurrences !== undefined) updates.expectedMonthlyOccurrences = input.expectedMonthlyOccurrences
 
@@ -822,7 +839,7 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 	// Template local, ou template global editado pela própria SDAB: edição in-place.
 	if (source.kitchen_id !== null || targetKitchenId === null) {
 		const result = await db.transaction((tx) => applyTemplateContent(tx, input.templateId, input))
-		return { template: toWire<MenuTemplate>(result), forked: false }
+		return { template: withGlossaryTemplateType(toWire<MenuTemplate>(result)), forked: false }
 	}
 
 	// Global + contexto de cozinha → fork.
@@ -889,7 +906,7 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 				name: source.name ?? "",
 				kitchenId: targetKitchenId,
 				baseTemplateId: rootId,
-				templateType: source.template_type ?? "weekly",
+				templateType: TEMPLATE_TYPE_VOCABULARY.toStored(source.template_type ?? "weekly"),
 				...snackClassificationForCopy({
 					snackFamily: source.snack_family,
 					snackClass: source.snack_class,
@@ -906,7 +923,7 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 		return applyTemplateContent(tx, newTemplate.id, { ...input, templateId: newTemplate.id, ...forkContent, meals: sourceMeals })
 	})
 
-	return { template: toWire<MenuTemplate>(result), forked: true }
+	return { template: withGlossaryTemplateType(toWire<MenuTemplate>(result)), forked: true }
 }
 
 /**
@@ -1289,8 +1306,9 @@ export async function applyEventTemplate(
 	requireKitchen(ctx, 2, input.kitchenId)
 
 	const template = await validateTemplateAccess(db, input.templateId, input.kitchenId)
-	if (template.template_type !== "event" && template.template_type !== "exception") {
-		throw new DomainError("NOT_EVENT_TEMPLATE", `Template ${input.templateId} is ${template.template_type ?? "weekly"}; use applyTemplate`)
+	const templateType = template.template_type
+	if (templateType !== "event" && templateType !== "apoio") {
+		throw new DomainError("NOT_EVENT_TEMPLATE", `Template ${input.templateId} is ${templateType ?? "weekly"}; use applyTemplate`)
 	}
 	// Padrão de lanche não se aplica ao calendário: nele `headcount_override` é PORÇÕES POR KIT,
 	// então aplicar produziria 1 porção por preparação, e o item nasceria sem pedido de origem —
@@ -1431,7 +1449,7 @@ export async function applyEventTemplate(
 						sortOrder: baseSort + index,
 						recommendedProportion: item.recommendedProportion,
 						originTemplateId: input.templateId,
-						originTemplateType: template.template_type,
+						originTemplateType: TEMPLATE_TYPE_VOCABULARY.toStored(templateType),
 					}
 				})
 				if (rows.length > 0) {

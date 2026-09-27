@@ -81,7 +81,7 @@ describeSupabaseIntegration("documentos do anexo quantitativo", () => {
 				deliveryNotes: "",
 				templateSelections: [{ templateId, templateName: "T", repetitions: 4 }],
 				eventSelections: [],
-				exceptionSelections: [],
+				supportMenuSelections: [],
 			},
 		]
 

@@ -39,13 +39,13 @@ function fakeDb(): SisubDb {
 }
 
 const WRITES: [string, (db: SisubDb, c: UserContext) => Promise<unknown>][] = [
-	["createPolicyRule", (db, c) => createPolicyRule(db, c, { target: "product", title: "abc", description: "0123456789" })],
+	["createPolicyRule", (db, c) => createPolicyRule(db, c, { target: "ingredient", title: "abc", description: "0123456789" })],
 	["updatePolicyRule", (db, c) => updatePolicyRule(db, c, { id: "rule-1", title: "abc" })],
 	["deletePolicyRule", (db, c) => deletePolicyRule(db, c, { id: "rule-1" })],
 ]
 
 const READS: [string, (db: SisubDb, c: UserContext) => Promise<unknown>][] = [
-	["listPolicyRules", (db, c) => listPolicyRules(db, c, { target: "product" })],
+	["listPolicyRules", (db, c) => listPolicyRules(db, c, { target: "ingredient" })],
 	["listPolicyRules (activeOnly)", (db, c) => listPolicyRules(db, c, { target: "recipe", activeOnly: true })],
 ]
 

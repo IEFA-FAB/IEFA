@@ -62,6 +62,7 @@ import type {
 	SnackProductionSummaryInput,
 	SnackRequestId,
 } from "../schemas/snack.ts"
+import { TEMPLATE_TYPE_VOCABULARY } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
@@ -334,8 +335,8 @@ async function buildStandardSnapshots(
 // ── Padrão de lanche ──────────────────────────────────────────────────────
 
 /**
- * Classifica (ou desclassifica, com `null`) uma exceção como padrão de lanche. Autoriza pelo
- * dono da linha: exceção da cozinha exige `kitchen:2` nela; do catálogo global, `global:2`.
+ * Classifica (ou desclassifica, com `null`) um cardápio de apoio como padrão de lanche. Autoriza
+ * pelo dono da linha: o da cozinha exige `kitchen:2` nela; o do catálogo global, `global:2`.
  * Padrão global nunca é pedível — é molde para cópia.
  */
 export async function setSnackClassification(db: SisubDb, ctx: UserContext, input: SetSnackClassification): Promise<{ id: string }> {
@@ -352,7 +353,9 @@ export async function setSnackClassification(db: SisubDb, ctx: UserContext, inpu
 	const template = rows[0]
 	if (!template) throw new NotFoundError("menu_template", input.templateId)
 	if (template.deletedAt !== null) throw new DomainError("TEMPLATE_DELETED", "O padrão foi excluído.")
-	if (template.templateType !== "exception") throw new DomainError("SNACK_STANDARD_NOT_EXCEPTION", "Só um cardápio de apoio pode ser padrão de lanche.")
+	if (!TEMPLATE_TYPE_VOCABULARY.is(template.templateType, "apoio")) {
+		throw new DomainError("SNACK_STANDARD_NOT_SUPPORT_MENU", "Só um cardápio de apoio pode ser padrão de lanche.")
+	}
 
 	const c = input.classification
 	if (c?.orderable) {
@@ -1253,7 +1256,7 @@ async function addToProduction(tx: Tx, request: LockedRequest, lines: (typeof sn
 				itemGroup: item.itemGroup,
 				sortOrder: sortOrder++,
 				originTemplateId: snapshot.id,
-				originTemplateType: "exception",
+				originTemplateType: TEMPLATE_TYPE_VOCABULARY.toStored("apoio"),
 				originSnackRequestId: request.id,
 			})
 		}

@@ -11,7 +11,7 @@
 
 import {
 	createDesignation,
-	DESIGNATION_ROLES,
+	DESIGNATION_ROLE_VOCABULARY,
 	DESIGNATION_SOURCES,
 	type DesignationCandidate,
 	type DesignationRow,
@@ -56,7 +56,8 @@ export const createDesignationFn = createServerFn({ method: "POST" })
 		z.object({
 			unitId: z.number().int().positive(),
 			personId: z.uuid(),
-			role: z.enum(DESIGNATION_ROLES),
+			// Aceita o nome antigo por um ciclo (aba aberta antes do deploy) e entrega o do glossário.
+			role: z.enum(DESIGNATION_ROLE_VOCABULARY.inputValues).transform(DESIGNATION_ROLE_VOCABULARY.parse),
 			source: z.enum(DESIGNATION_SOURCES),
 			sourceReference: z.string().trim().max(200).nullable(),
 			validFrom: IsoDate,

@@ -51,7 +51,7 @@ export function ReceiptDesignationNotice({
 						unitId={unitId}
 						preset={{
 							roles: stage === "provisional" ? PROVISIONAL_RECEIPT_ROLES : DEFINITIVE_RECEIPT_ROLES,
-							role: stage === "provisional" ? "technical_inspector" : "manager",
+							role: stage === "provisional" ? "fiscal_tecnico" : "gestor",
 							empenhoId,
 						}}
 						onSaved={() => {

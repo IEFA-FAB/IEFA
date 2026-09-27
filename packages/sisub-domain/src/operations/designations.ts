@@ -22,24 +22,49 @@ import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
+import { renamedVocabulary } from "../utils/renamed-vocabulary.ts"
 import { ACQUISITION_KIND_LABEL, type AcquisitionKind } from "./acquisition.ts"
 import { brasiliaToday } from "./stock-math.ts"
 
-export const DESIGNATION_ROLES = ["manager", "technical_inspector", "administrative_inspector", "sectoral_inspector", "committee_member"] as const
+/**
+ * Papel na designação, na língua da norma (Lei 14.133/2021, arts. 7º, 117 e 140, II, b; Decreto
+ * 11.246/2022): gestor, fiscal técnico, administrativo e setorial, e membro da comissão de
+ * recebimento. Até o contract do lote 5 o banco ainda grava o valor em inglês
+ * (`DESIGNATION_ROLE_VOCABULARY`).
+ */
+export const DESIGNATION_ROLES = ["gestor", "fiscal_tecnico", "fiscal_administrativo", "fiscal_setorial", "membro_comissao"] as const
 export type DesignationRole = (typeof DESIGNATION_ROLES)[number]
 
+/** Valor gravado antes do lote 5 → papel do glossário. Sai com o contract 20260927110000. */
+export const DESIGNATION_ROLE_VOCABULARY = renamedVocabulary(DESIGNATION_ROLES, {
+	manager: "gestor",
+	technical_inspector: "fiscal_tecnico",
+	administrative_inspector: "fiscal_administrativo",
+	sectoral_inspector: "fiscal_setorial",
+	committee_member: "membro_comissao",
+})
+
 export const DESIGNATION_ROLE_LABELS: Record<DesignationRole, string> = {
-	manager: "Gestor do contrato",
-	technical_inspector: "Fiscal técnico",
-	administrative_inspector: "Fiscal administrativo",
-	sectoral_inspector: "Fiscal setorial",
-	committee_member: "Membro de comissão de recebimento",
+	gestor: "Gestor do contrato",
+	fiscal_tecnico: "Fiscal técnico",
+	fiscal_administrativo: "Fiscal administrativo",
+	fiscal_setorial: "Fiscal setorial",
+	membro_comissao: "Membro de comissão de recebimento",
 }
 
 /** Quem recebe provisoriamente: quem acompanha e fiscaliza (art. 140, II, a). */
 export const PROVISIONAL_RECEIPT_ROLES: readonly DesignationRole[] = DESIGNATION_ROLES
 /** Quem recebe definitivamente: servidor ou comissão designada (art. 140, II, b). */
-export const DEFINITIVE_RECEIPT_ROLES: readonly DesignationRole[] = ["manager", "committee_member"]
+export const DEFINITIVE_RECEIPT_ROLES: readonly DesignationRole[] = ["gestor", "membro_comissao"]
+
+/**
+ * Os valores GRAVADOS que valem por `roles`, para a busca no banco
+ * (`inventory.find_designation`, `inventory.designations_covering`, `d.role = any(...)`): até o
+ * contract, o papel do glossário e o nome antigo.
+ */
+export function designationRoleStoredValues(roles: readonly DesignationRole[]): string[] {
+	return DESIGNATION_ROLE_VOCABULARY.storedValuesOf(roles)
+}
 
 export const DESIGNATION_SOURCES = ["ato", "permanente"] as const
 export type DesignationSource = (typeof DESIGNATION_SOURCES)[number]
@@ -194,7 +219,8 @@ export async function listDesignations(db: SisubDb, ctx: UserContext, input: { u
 			unitId: Number(r.unit_id),
 			personId: String(r.person_id),
 			personLabel: String(r.person_label),
-			role: String(r.role) as DesignationRole,
+			// O CHECK garante um dos dois vocabulários; o antigo vira o do glossário.
+			role: DESIGNATION_ROLE_VOCABULARY.normalize(String(r.role)) ?? (String(r.role) as DesignationRole),
 			isSubstitute: Boolean(r.is_substitute),
 			source: String(r.source),
 			sourceReference: str(r.source_reference),
@@ -301,7 +327,7 @@ export async function createDesignation(db: SisubDb, ctx: UserContext, input: De
 			db.execute(sql`
 				insert into procurement.contract_designation
 					(unit_id, empenho_id, arp_id, acquisition_id, person_id, role, is_substitute, source, source_reference, valid_from, valid_to, created_by)
-				values (${input.unitId}, ${input.empenhoId}, ${input.arpId}, ${input.acquisitionId}, ${input.personId}, ${input.role}, ${input.isSubstitute},
+				values (${input.unitId}, ${input.empenhoId}, ${input.arpId}, ${input.acquisitionId}, ${input.personId}, ${DESIGNATION_ROLE_VOCABULARY.toStored(input.role)}, ${input.isSubstitute},
 					${input.source}, ${input.sourceReference?.trim() ?? null}, ${input.validFrom}::date, ${input.validTo}::date, ${ctx.userId})
 				returning id
 			`),

@@ -27,7 +27,7 @@ export function KitchenTemplateSection({
 	onUpdateSelection,
 }: KitchenTemplateSectionProps) {
 	const currentSelections = kitchenState[selectionType]
-	const isExceptionBucket = selectionType === "exceptionSelections"
+	const isSupportMenuBucket = selectionType === "supportMenuSelections"
 
 	const isSelected = (templateId: string) => currentSelections.some((s) => s.templateId === templateId)
 	const getRepetitions = (templateId: string) => currentSelections.find((s) => s.templateId === templateId)?.repetitions ?? 1
@@ -43,8 +43,8 @@ export function KitchenTemplateSection({
 				{
 					templateId: template.id,
 					templateName: template.name || "",
-					repetitions: isExceptionBucket ? monthly * validityMonths : 1,
-					...(isExceptionBucket && { monthlyOccurrences: monthly }),
+					repetitions: isSupportMenuBucket ? monthly * validityMonths : 1,
+					...(isSupportMenuBucket && { monthlyOccurrences: monthly }),
 				},
 			])
 		} else {
@@ -136,7 +136,7 @@ export function KitchenTemplateSection({
 											)}
 
 											{/* Exceção: total mensal (comensais × ocorrências) em vez da média semanal */}
-											{template.template_type === "exception" && template.monthly_headcount_total !== null && (
+											{template.template_type === "apoio" && template.monthly_headcount_total !== null && (
 												<>
 													<span className="text-xs text-muted-foreground/40">·</span>
 													<span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -147,7 +147,7 @@ export function KitchenTemplateSection({
 											)}
 
 											{/* Semanal: média quando tudo preenchido */}
-											{template.template_type !== "exception" && allFilled && template.avg_headcount_weekday !== null && (
+											{template.template_type !== "apoio" && allFilled && template.avg_headcount_weekday !== null && (
 												<>
 													<span className="text-xs text-muted-foreground/40">·</span>
 													<span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -157,7 +157,7 @@ export function KitchenTemplateSection({
 											)}
 										</div>
 									</div>
-									{selected && isExceptionBucket && (
+									{selected && isSupportMenuBucket && (
 										// Somente leitura: a conta vem das ocorrências mensais do próprio
 										// cardápio de exceção (editáveis no módulo Exceções da cozinha).
 										<div className="flex items-center gap-1.5 shrink-0 text-xs tabular-nums text-muted-foreground">
@@ -167,7 +167,7 @@ export function KitchenTemplateSection({
 											<span className="text-subheading text-foreground">{reps}×</span>
 										</div>
 									)}
-									{selected && !isExceptionBucket && (
+									{selected && !isSupportMenuBucket && (
 										<div className="flex items-center gap-1.5 shrink-0">
 											<Button
 												size="icon"

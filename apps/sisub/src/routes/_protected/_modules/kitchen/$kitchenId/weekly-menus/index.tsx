@@ -36,7 +36,7 @@ function WeeklyMenusPage() {
 	// "planos", e adaptar um deles criava um cardápio que sumia desta lista e que o
 	// aplicador recusa.
 	const globalTemplates = templates?.filter((t) => t.kitchen_id === null && t.template_type === "weekly") || []
-	// Allowlist explícita: só cardápios semanais. Eventos vivem em /events, exceções em /exceptions.
+	// Allowlist explícita: só cardápios semanais. Eventos vivem em /events, cardápios de apoio em /support-menus.
 	const localTemplates = templates?.filter((t) => t.kitchen_id !== null && t.template_type === "weekly") || []
 
 	const handleDelete = (id: string, name: string) => {

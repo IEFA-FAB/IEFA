@@ -101,11 +101,11 @@ export interface KitchenSelectionState {
 	deliveryNotes: string
 	templateSelections: TemplateSelection[] // template_type = 'weekly'
 	eventSelections: TemplateSelection[] // template_type = 'event'
-	exceptionSelections: TemplateSelection[] // template_type = 'exception'
+	supportMenuSelections: TemplateSelection[] // template_type = 'apoio'
 }
 
 /** Chaves dos buckets de seleção — uma por regime de produção. */
-export type SelectionBucket = "templateSelections" | "eventSelections" | "exceptionSelections"
+export type SelectionBucket = "templateSelections" | "eventSelections" | "supportMenuSelections"
 
 /**
  * Estado completo do wizard do anexo

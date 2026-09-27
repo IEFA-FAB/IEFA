@@ -3,19 +3,19 @@
  * pax por preparação — e diferem só no texto e na recorrência mensal do apoio. Cozinha e
  * catálogo global montam as mesmas telas a partir destes rótulos.
  *
- * "Apoio" é o nome na tela do que o código e o banco chamam de `exception` (`template_type`,
- * rotas `/exceptions`): o artefato nasceu como "Exceção" e foi renomeado só no texto, porque
- * o valor é dado gravado e a rota é link salvo. Engloba os lanches de bordo e de apoio do
- * Módulo 7 e os demais apoios previsíveis (coffee break, café de reunião).
+ * O cardápio de apoio é `template_type = 'apoio'` (rotas `/support-menus`); nasceu como
+ * "Exceção" (`exception`), nome que o banco ainda grava até o contract do lote 5 da linguagem
+ * ubíqua. Engloba os lanches de bordo e de apoio do Módulo 7 e os demais apoios previsíveis
+ * (coffee break, café de reunião).
  */
 
 import type { SnackClass, SnackFamily, SnackVariant } from "@iefa/sisub-domain/utils"
 
-export type OccasionMenuType = "event" | "exception"
+export type OccasionMenuType = "event" | "apoio"
 
 /**
  * `day_of_week` é obrigatório no schema mas não tem significado aqui: todo item de evento ou
- * exceção grava 1.
+ * de cardápio de apoio grava 1.
  */
 export const OCCASION_DAY = 1
 
@@ -49,7 +49,7 @@ export const OCCASION_MENU_COPY: Record<OccasionMenuType, OccasionMenuCopy> = {
 		explainer:
 			"Eventos são cardápios de refeições especiais — datas comemorativas, formaturas, exercícios de campo, visitas. Não têm estrutura de semana: as preparações se agrupam por refeição, cada uma com o próprio efetivo.",
 	},
-	exception: {
+	apoio: {
 		singular: "Cardápio de Apoio",
 		plural: "Cardápios de Apoio",
 		noun: "cardápio de apoio",
@@ -76,7 +76,7 @@ type SnackVariantValue = SnackVariant
 
 /**
  * Nome completo da norma, nunca "Bordo"/"Apoio" solto: o artefato inteiro já se chama "Apoio" na tela
- * (`OCCASION_MENU_COPY.exception`), e "Apoio B" dentro de um Apoio não diz qual dos dois é.
+ * (`OCCASION_MENU_COPY.apoio`), e "Apoio B" dentro de um Apoio não diz qual dos dois é.
  */
 export const SNACK_FAMILY_LABELS: Record<SnackFamilyValue, string> = { bordo: "Lanche de Bordo", apoio: "Lanche de Apoio" }
 export const SNACK_VARIANT_LABELS: Record<SnackVariantValue, string> = { lanche: "Lanche", refeicao: "Refeição" }

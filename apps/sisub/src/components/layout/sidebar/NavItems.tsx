@@ -256,7 +256,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			},
 			{
 				title: "Cardápios de Apoio",
-				url: "/kitchen/exceptions",
+				url: "/kitchen/support-menus",
 				icon: Sandwich,
 				group: "Planejamento da Produção",
 				keywords: ["apoio", "coffee break", "café de reunião", "exceção"],
@@ -380,7 +380,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Eventos", url: "/global/events", icon: CalendarRange, group: "Modelos de cardápio", keywords: ["evento modelo"] },
 			{
 				title: "Cardápios de Apoio",
-				url: "/global/exceptions",
+				url: "/global/support-menus",
 				icon: Sandwich,
 				group: "Modelos de cardápio",
 				keywords: ["apoio modelo", "coffee break", "café de reunião", "exceção modelo"],

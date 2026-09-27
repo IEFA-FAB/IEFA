@@ -3,7 +3,7 @@ import type { QuantityEstimateAnnexRow } from "@/lib/quantity-estimate-annex"
 
 const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 })
 const INT = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 })
-const TYPE_LABEL: Record<string, string> = { weekly: "semanal", event: "evento", exception: "apoio" }
+const TYPE_LABEL: Record<string, string> = { weekly: "semanal", event: "evento", apoio: "apoio" }
 const CYCLE: Record<string, string> = { weekly: "semanal", monthly: "mensal" }
 
 /** Tolerância para comparar a soma das parcelas com a quantidade congelada (arredondamento de 4 casas). */

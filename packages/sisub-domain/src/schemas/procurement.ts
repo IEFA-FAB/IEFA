@@ -154,7 +154,7 @@ export const DeliveryCycleSchema = z.enum(DELIVERY_CYCLES)
 /**
  * Um bucket por regime de produção (kitchen.menu_template.template_type).
  * `repetitions` tem o mesmo significado nos três: quantas vezes o cardápio é
- * produzido dentro da vigência do anexo. Para exceção o valor é derivado
+ * produzido dentro da vigência do anexo. Para o cardápio de apoio o valor é derivado
  * (ocorrências mensais × validityMonths), não digitado.
  */
 export const KitchenSelectionSchema = z.object({
@@ -163,8 +163,8 @@ export const KitchenSelectionSchema = z.object({
 	deliveryNotes: z.string(),
 	templateSelections: z.array(TemplateSelectionSchema),
 	eventSelections: z.array(TemplateSelectionSchema),
-	// Opcional: rascunhos e payloads anteriores ao passo de exceções não trazem o campo.
-	exceptionSelections: z.array(TemplateSelectionSchema).optional().default([]),
+	// Opcional: payloads anteriores ao passo dos cardápios de apoio não trazem o campo.
+	supportMenuSelections: z.array(TemplateSelectionSchema).optional().default([]),
 })
 export type KitchenSelectionInput = z.infer<typeof KitchenSelectionSchema>
 

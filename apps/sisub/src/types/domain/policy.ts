@@ -1,6 +1,8 @@
 // Policy Rules Domain Types
 
-export type PolicyTarget = "product" | "recipe"
+import type { PolicyTarget } from "@iefa/sisub-domain/schemas"
+
+export type { PolicyTarget }
 
 export interface PolicyRule {
 	id: string

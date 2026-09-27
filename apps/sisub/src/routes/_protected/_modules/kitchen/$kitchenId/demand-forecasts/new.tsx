@@ -26,7 +26,7 @@ function NewDemandForecastPage() {
 	// "Eventos / Refeições Especiais" agrupa eventos + exceções previsíveis.
 	const eventTemplates = localTemplates.filter((t) => {
 		const type = (t as typeof t & { template_type?: string }).template_type
-		return type === "event" || type === "exception"
+		return type === "event" || type === "apoio"
 	})
 
 	// Salvar a previsão continua no editor: a rota "new" não tem id, então o destino é a

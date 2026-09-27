@@ -466,6 +466,7 @@ export {
 	CreatePolicyRuleSchema,
 	DeletePolicyRuleSchema,
 	ListPolicyRulesSchema,
+	POLICY_TARGET_VOCABULARY,
 	POLICY_TARGETS,
 	PolicyTargetSchema,
 	UpdatePolicyRuleSchema,
@@ -676,6 +677,7 @@ export type {
 	SaveTemplateEdit,
 	TemplateEventMeal,
 	TemplateItem,
+	TemplateType,
 	UpdateTemplate,
 } from "./templates.ts"
 export {
@@ -692,8 +694,11 @@ export {
 	MAX_EVENT_MEALS,
 	RestoreTemplateSchema,
 	SaveTemplateEditSchema,
+	TEMPLATE_TYPE_VOCABULARY,
+	TEMPLATE_TYPES,
 	TemplateEventMealSchema,
 	TemplateItemSchema,
+	TemplateTypeSchema,
 	UpdateTemplateSchema,
 } from "./templates.ts"
 export type { ListTrainingResets } from "./training.ts"

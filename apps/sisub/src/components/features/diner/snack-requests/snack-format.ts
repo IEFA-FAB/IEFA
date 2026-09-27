@@ -89,7 +89,7 @@ export function audienceLabel(audience: SnackAudience | string, missionKind: str
 /**
  * "Lanche de Bordo “Classe C”" — o mesmo rótulo no Comensal e na Gestão Cozinha (que o reexporta
  * em `local/snack-requests/format.ts`). Nome completo, nunca "Bordo"/"Apoio" solto: "Apoio" também
- * é o nome do cardápio de apoio (`/exceptions`).
+ * é o nome do cardápio de apoio (`/support-menus`).
  */
 export function classLabel(family: SnackFamily | string, snackClass: SnackClass | string): string {
 	return `${(FAMILY_LABELS as Record<string, string>)[family] ?? family} “Classe ${snackClass}”`

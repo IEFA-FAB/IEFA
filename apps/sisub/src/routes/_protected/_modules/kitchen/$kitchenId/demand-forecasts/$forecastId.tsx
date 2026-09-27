@@ -35,7 +35,7 @@ function EditDemandForecastPage() {
 	// "Eventos / Refeições Especiais" agrupa eventos + exceções previsíveis.
 	const eventTemplates = localTemplates.filter((t) => {
 		const type = (t as typeof t & { template_type?: string }).template_type
-		return type === "event" || type === "exception"
+		return type === "event" || type === "apoio"
 	})
 
 	if (forecastPending) {

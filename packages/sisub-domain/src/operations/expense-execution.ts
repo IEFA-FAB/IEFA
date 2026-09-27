@@ -39,7 +39,7 @@ import {
 	isValueDispensa,
 	resolveDirectContractLimit,
 } from "./acquisition.ts"
-import { canDesignateInUnit, DEFINITIVE_RECEIPT_ROLES, PROVISIONAL_RECEIPT_ROLES } from "./designations.ts"
+import { canDesignateInUnit, DEFINITIVE_RECEIPT_ROLES, type DesignationRole, designationRoleStoredValues, PROVISIONAL_RECEIPT_ROLES } from "./designations.ts"
 import type { ReceiptSource } from "./receiving-links.ts"
 import { brasiliaToday } from "./stock-math.ts"
 
@@ -162,9 +162,10 @@ type Row = Record<string, unknown>
 const num = (value: unknown): number => (value == null ? 0 : Number(value))
 const str = (value: unknown): string | null => (value == null ? null : String(value))
 const iso = (value: unknown): string | null => (value == null ? null : value instanceof Date ? value.toISOString() : String(value))
-const textArray = (roles: readonly string[]) =>
+/** Papéis como o banco os grava (até o contract do lote 5, o do glossário e o nome antigo). */
+const textArray = (roles: readonly DesignationRole[]) =>
 	sql`array[${sql.join(
-		roles.map((role) => sql`${role}`),
+		designationRoleStoredValues(roles).map((role) => sql`${role}`),
 		sql`, `
 	)}]::text[]`
 

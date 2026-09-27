@@ -27,8 +27,8 @@ interface KitchenOccasionMenuListProps {
  */
 export function KitchenOccasionMenuList({ templateType, kitchenId, description, newLink, forkLink, editorLink }: KitchenOccasionMenuListProps) {
 	const copy = OCCASION_MENU_COPY[templateType]
-	const isException = templateType === "exception"
-	const Icon = isException ? Sandwich : CalendarRange
+	const isSupportMenu = templateType === "apoio"
+	const Icon = isSupportMenu ? Sandwich : CalendarRange
 	const noun = copy.noun
 
 	const { data: templates, isLoading, isError, refetch, isRefetching } = useMenuTemplates(kitchenId)
@@ -104,7 +104,7 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 										<TableRow>
 											<TableHead>Nome</TableHead>
 											<TableHead>Descrição</TableHead>
-											{isException && <TableHead className="w-32 text-center">Ocorrências/mês</TableHead>}
+											{isSupportMenu && <TableHead className="w-32 text-center">Ocorrências/mês</TableHead>}
 											<TableHead className="w-28 text-center">Preparações</TableHead>
 											{canWrite && <TableHead className="w-32 text-right">Ação</TableHead>}
 										</TableRow>
@@ -114,10 +114,10 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 											<TableRow key={template.id}>
 												<TableCell>
 													<p className="text-subheading">{template.name}</p>
-													{isException && <SnackStandardBadges template={template} />}
+													{isSupportMenu && <SnackStandardBadges template={template} />}
 												</TableCell>
 												<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
-												{isException && occurrencesCell(template.expected_monthly_occurrences)}
+												{isSupportMenu && occurrencesCell(template.expected_monthly_occurrences)}
 												<TableCell className="text-center">
 													<Badge variant="secondary" className="font-mono text-xs">
 														{template.recipe_count || 0}
@@ -196,7 +196,7 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 										<TableRow>
 											<TableHead>Nome</TableHead>
 											<TableHead>Origem</TableHead>
-											{isException && <TableHead className="w-32 text-center">Ocorrências/mês</TableHead>}
+											{isSupportMenu && <TableHead className="w-32 text-center">Ocorrências/mês</TableHead>}
 											<TableHead className="w-28 text-center">Preparações</TableHead>
 											{canWrite && <TableHead className="w-32 text-right">Ações</TableHead>}
 										</TableRow>
@@ -207,7 +207,7 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 												<TableCell>
 													<p className="text-subheading">{template.name}</p>
 													{template.description && <p className="text-xs text-muted-foreground mt-0.5">{template.description}</p>}
-													{isException && <SnackStandardBadges template={template} />}
+													{isSupportMenu && <SnackStandardBadges template={template} />}
 												</TableCell>
 												<TableCell>
 													{template.base_template_id ? (
@@ -219,7 +219,7 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 														<span className="text-xs text-muted-foreground">Local</span>
 													)}
 												</TableCell>
-												{isException && occurrencesCell(template.expected_monthly_occurrences)}
+												{isSupportMenu && occurrencesCell(template.expected_monthly_occurrences)}
 												<TableCell className="text-center">
 													<Badge variant="secondary" className="font-mono text-xs">
 														{template.recipe_count || 0}

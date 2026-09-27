@@ -303,3 +303,35 @@ const roster = sql`delete from kitchen.workforce_submission where rancho_id in (
 export { createRancho, updateRancho, computeRanchoMetrics } from "./workforce.ts"
 // ok: ubiquitous-language-lot8a-rancho
 // o "rancho" da matriz de efetivo sai no lote 8b
+
+// ── Lote 5: cardápio de apoio ──────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-lot5-identifier
+const buckets = { exceptionSelections: [] }
+// ruleid: ubiquitous-language-lot5-identifier
+const { exceptionId } = Route.useParams()
+// ruleid: ubiquitous-language-lot5-identifier
+const isException = templateType === "apoio"
+// ruleid: ubiquitous-language-lot5-identifier
+function GlobalExceptionEditorPage() {}
+// ruleid: ubiquitous-language-lot5-identifier
+throw new DomainError("SNACK_STANDARD_NOT_EXCEPTION", "Só um cardápio de apoio pode ser padrão de lanche.")
+
+// ok: ubiquitous-language-lot5-identifier
+const bucketsOk = { supportMenuSelections: [] }
+// ok: ubiquitous-language-lot5-identifier
+const { supportMenuId } = Route.useParams()
+// ok: ubiquitous-language-lot5-identifier
+const approval = { exceptionReason: "Único responsável nível 3" }
+// ok: ubiquitous-language-lot5-identifier
+// o `isException` antigo virou `isSupportMenu`
+
+// ruleid: ubiquitous-language-lot5-route
+const toSupport = { to: "/kitchen/$kitchenId/exceptions/$supportMenuId" }
+// ruleid: ubiquitous-language-lot5-route
+const hrefSupport = `${kitchen}/exceptions`
+
+// ok: ubiquitous-language-lot5-route
+const toSupportOk = { to: "/kitchen/$kitchenId/support-menus/$supportMenuId" }
+// ok: ubiquitous-language-lot5-route
+const legacySupport = { from: "/global/exceptions", to: "/global/support-menus" }

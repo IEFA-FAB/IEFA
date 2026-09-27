@@ -9,7 +9,12 @@ interface DemandForecastImportBadgeProps {
 	kitchenState: KitchenSelectionState
 	/** Rascunho do anexo aberto: diz se a previsão já entrou nele. */
 	quantityEstimateId: string | null
-	onImport: (kitchenId: number, templateSelections: TemplateSelection[], eventSelections: TemplateSelection[], exceptionSelections: TemplateSelection[]) => void
+	onImport: (
+		kitchenId: number,
+		templateSelections: TemplateSelection[],
+		eventSelections: TemplateSelection[],
+		supportMenuSelections: TemplateSelection[]
+	) => void
 }
 
 export function DemandForecastImportBadge({ forecast, kitchenState, quantityEstimateId, onImport }: DemandForecastImportBadgeProps) {
@@ -19,7 +24,7 @@ export function DemandForecastImportBadge({ forecast, kitchenState, quantityEsti
 	const handleImport = () => {
 		const templateSelections: TemplateSelection[] = []
 		const eventSelections: TemplateSelection[] = []
-		const exceptionSelections: TemplateSelection[] = []
+		const supportMenuSelections: TemplateSelection[] = []
 
 		for (const sel of forecast.selections) {
 			const item: TemplateSelection = {
@@ -30,14 +35,14 @@ export function DemandForecastImportBadge({ forecast, kitchenState, quantityEsti
 			// Um balde por regime de produção — o passo do wizard espelha o tipo do template.
 			if (sel.template.template_type === "event") {
 				eventSelections.push(item)
-			} else if (sel.template.template_type === "exception") {
-				exceptionSelections.push(item)
+			} else if (sel.template.template_type === "apoio") {
+				supportMenuSelections.push(item)
 			} else {
 				templateSelections.push(item)
 			}
 		}
 
-		onImport(kitchenState.kitchenId, templateSelections, eventSelections, exceptionSelections)
+		onImport(kitchenState.kitchenId, templateSelections, eventSelections, supportMenuSelections)
 	}
 
 	return (

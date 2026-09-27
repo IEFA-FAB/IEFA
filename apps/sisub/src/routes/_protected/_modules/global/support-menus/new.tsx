@@ -4,21 +4,21 @@ import { OccasionMenuForm } from "@/components/features/local/planning/OccasionM
 
 /**
  * GLOBAL — Novo Cardápio de Apoio Modelo
- * URL: /global/exceptions/new
+ * URL: /global/support-menus/new
  * Acesso: módulo "global" nível 2 (escrita)
  */
-export const Route = createFileRoute("/_protected/_modules/global/exceptions/new")({
+export const Route = createFileRoute("/_protected/_modules/global/support-menus/new")({
 	beforeLoad: (opts) => requirePermission(opts, "global", 2),
-	component: NewGlobalExceptionPage,
+	component: NewGlobalSupportMenuPage,
 })
 
-function NewGlobalExceptionPage() {
+function NewGlobalSupportMenuPage() {
 	return (
 		<OccasionMenuForm
-			templateType="exception"
+			templateType="apoio"
 			kitchenId={null}
-			listLink={{ to: "/global/exceptions" }}
-			editorLink={(exceptionId) => ({ to: "/global/exceptions/$exceptionId", params: { exceptionId } })}
+			listLink={{ to: "/global/support-menus" }}
+			editorLink={(supportMenuId) => ({ to: "/global/support-menus/$supportMenuId", params: { supportMenuId } })}
 		/>
 	)
 }
