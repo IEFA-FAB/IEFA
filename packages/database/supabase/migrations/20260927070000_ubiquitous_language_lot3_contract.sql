@@ -16,10 +16,15 @@
 -- Não há coluna espelhada para conferir divergência: a única coluna renomeada (`amostra_id` →
 -- `price_sample_id`) estava numa tabela renomeada, e a view fazia o alias.
 
--- Nada além dos wrappers pode citar as views que caem: função plpgsql/SQL não cria dependência
--- de view, então o `drop view` passaria e ela quebraria só quando rodasse, em produção.
+-- Nada além dos wrappers pode citar as views que caem: função plpgsql/SQL e job do pg_cron não
+-- criam dependência de view, então o `drop view` passaria e eles quebrariam só quando rodassem,
+-- em produção. O código da API e do sisub não aparece no catálogo: a garantia dele é o deploy do
+-- expand conferido no CI/CD antes de aplicar.
 do $$
 declare
+	-- Um padrão só para funções, policies e jobs do pg_cron. `upsert_compras_amostras` vai à parte:
+	-- `\m` exige início de palavra, e o `_` antes de `compras` é caractere de palavra.
+	old_names constant text := '\m(procurement_pesquisa_preco\w*|compras_amostra\w*|upsert_compras_amostras|procurement_arp\w*|procurement_segment\w*|amostra_id)\M';
 	offenders text;
 begin
 	select string_agg(p.oid::regprocedure::text, ', ') into offenders
@@ -31,8 +36,8 @@ begin
 			'sisub.compras_amostra_fingerprint(text, integer, text, numeric, numeric, text, text, numeric, text, text, text, text, text, text, numeric, date)'::regprocedure
 		)
 		and (
-			coalesce(p.prosrc, '') ~ '\m(procurement_pesquisa_preco\w*|compras_amostra\w*|upsert_compras_amostras|procurement_arp\w*|procurement_segment\w*|amostra_id)\M'
-			or coalesce(pg_get_function_sqlbody(p.oid), '') ~ '\m(procurement_pesquisa_preco\w*|compras_amostra\w*|upsert_compras_amostras|procurement_arp\w*|procurement_segment\w*|amostra_id)\M'
+			coalesce(p.prosrc, '') ~ old_names
+			or coalesce(pg_get_function_sqlbody(p.oid), '') ~ old_names
 		);
 	if offenders is not null then
 		raise exception 'funções citam views ou wrappers que este contract derruba: %', offenders;
@@ -40,9 +45,17 @@ begin
 
 	select string_agg(schemaname || '.' || tablename || '.' || policyname, ', ') into offenders
 	from pg_policies
-	where coalesce(qual, '') || coalesce(with_check, '') ~ '\m(procurement_pesquisa_preco\w*|compras_amostra\w*|procurement_arp\w*|procurement_segment\w*|amostra_id)\M';
+	where coalesce(qual, '') || ' ' || coalesce(with_check, '') ~ old_names;
 	if offenders is not null then
 		raise exception 'policies citam views que este contract derruba: %', offenders;
+	end if;
+
+	-- Job do pg_cron resolve tabela pelo nome, em texto livre, e não aparece em `pg_depend`.
+	if to_regclass('cron.job') is not null then
+		execute 'select string_agg(jobname, '', '') from cron.job where command ~ $1' into offenders using old_names;
+		if offenders is not null then
+			raise exception 'jobs do pg_cron citam views ou wrappers que este contract derruba: %', offenders;
+		end if;
 	end if;
 end;
 $$;
