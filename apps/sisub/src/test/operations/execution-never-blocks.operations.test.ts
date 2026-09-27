@@ -1,7 +1,7 @@
 /**
  * Integração — a execução nunca trava (migration 20260926217000_execution_never_blocks).
  *
- * "O rancho é rápido e dinâmico": o que falta na execução vira pendência registrada, e o
+ * "A subsistência é rápida e dinâmica": o que falta na execução vira pendência registrada, e o
  * bloqueio fica só onde é imprescindível. Contra o banco real, o que só ele prova:
  *
  * Domínio (seeder + limpeza):

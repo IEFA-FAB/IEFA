@@ -1,7 +1,7 @@
 /**
  * Pendências da execução da despesa (change `sisub-flexible-expense-execution`, D9).
  *
- * O rancho registra o fato — a carne que chegou sem nota, a NE que ninguém importou — e o
+ * A unidade registra o fato — a carne que chegou sem nota, a NE que ninguém importou — e o
  * sistema aponta o que falta para quem corrige depois. Nada aqui é marcado à mão: cada
  * pendência sai dos dados a cada leitura e some quando o dado aparece. O app transforma o
  * status em etapas e pendências com ação (`src/lib/flows/expense-execution.ts` e

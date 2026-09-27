@@ -9,13 +9,13 @@ import { buildExpenseExecutionSteps } from "@/lib/flows/expense-execution"
  * GESTÃO UNIDADE — Fluxo "Executar despesa"
  * URL: /unit/:unitId/flows/expense-execution
  *
- * Da contratação de origem ao SIAFI. O rancho registra o fato quando ele acontece (a entrega sem
+ * Da contratação de origem ao SIAFI. A unidade registra o fato quando ele acontece (a entrega sem
  * nota, a OF de emergência); aqui aparece o que ficou para trás, com a tela que resolve.
  */
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/flows/expense-execution")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: ExpenseExecutionFlowPage,
-	head: () => ({ meta: [{ name: "description", content: "Fluxo guiado da execução da despesa do rancho" }] }),
+	head: () => ({ meta: [{ name: "description", content: "Fluxo guiado da execução da despesa da unidade" }] }),
 })
 
 function ExpenseExecutionFlowPage() {

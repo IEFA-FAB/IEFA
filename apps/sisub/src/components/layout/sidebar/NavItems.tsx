@@ -132,7 +132,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Pedidos de Lanche", url: "/diner/snack-requests", icon: PlaneTakeoff, keywords: ["lanche de bordo", "lanche de apoio", "missão"] },
 			{ title: "Meu QR Code", url: "/diner/qr-code", icon: QrCode, keywords: ["qr", "identificação"] },
 			{ title: "Auto Check-in", url: "/diner/self-check-in", icon: ScanQrCode, keywords: ["check-in", "ler qr"] },
-			// Conta do usuário — separada do uso diário do rancho
+			// Conta do usuário — separada do uso diário do refeitório
 			{ title: "Perfil", url: "/diner/profile", icon: User, group: "Minha conta", keywords: ["dados militares", "conta"] },
 			// Some junto com a verificação em duas etapas (`MFA_AVAILABLE`).
 			...(MFA_AVAILABLE

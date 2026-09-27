@@ -35,7 +35,7 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// que o Conjunto Treino não concede, então o treinando não gera linha aqui. O que ele
 	// preenche (kitchen.workforce_submission e, por cascade, quantitativos e observações) está
 	// no reset.
-	"kitchen.rancho": "roster de ranchos é cadastro, não dado operacional; criar exige admin:2, fora do Conjunto Treino",
+	"kitchen.rancho": "roster da matriz de efetivo é cadastro, não dado operacional; criar exige admin:2, fora do Conjunto Treino",
 	// NOTA: as tabelas de execução orçamentária (crédito, empenho, liquidação,
 	// pagamento, conciliação, lote SIAFI) já foram excluídas aqui sob a premissa
 	// de que "o treino não concede módulo financeiro". A premissa era falsa — o

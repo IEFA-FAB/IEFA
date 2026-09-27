@@ -3,7 +3,7 @@ import { deriveStatusFromIssues, type FlowIssue, type FlowStep, pluralize } from
 
 /**
  * Fluxo "Executar despesa" da Gestão Unidade (change `sisub-flexible-expense-execution`, D9):
- * da contratação de origem ao SIAFI. Nada trava o rancho por falta de documento de outro
+ * da contratação de origem ao SIAFI. Nada trava a unidade por falta de documento de outro
  * papel; cada etapa mostra o que ficou para trás e leva à tela que resolve. O recebimento é
  * do Estoque: a pendência diz quem resolve e não tem link (quem abre a Gestão Unidade em geral
  * não abre o Estoque).

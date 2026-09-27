@@ -15,7 +15,7 @@ import { AcquisitionCard } from "./AcquisitionCard"
 import { CreateAcquisitionDialog } from "./CreateAcquisitionDialog"
 
 /**
- * Contratações de origem da unidade: todo caminho real de aquisição do rancho — ata própria,
+ * Contratações de origem da unidade: todo caminho real de aquisição da subsistência — ata própria,
  * adesão (carona), dispensa, inexigibilidade, contrato, Contrata+Brasil, suprimento de fundos —,
  * com o que falta em cada uma, o somatório da dispensa e as NEs que ela sustenta. Embaixo, o que
  * ainda não tem origem: NE importada ou registrada às pressas, e ARP antiga sem contratação.

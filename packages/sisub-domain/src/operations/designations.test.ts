@@ -20,7 +20,7 @@ describe("designationMissingMessage", () => {
 	test("quem não pode designar lê quem designa e onde; a conferência fica", () => {
 		const message = designationMissingMessage("definitive", false)
 		expect(message).toContain("quem tem Gestão Unidade")
-		expect(message).not.toMatch(/rancho/i)
+		expect(message).not.toMatch(/chefe/i)
 		expect(message).toContain(DESIGNATION_SCREEN_LABEL)
 		expect(message).toMatch(/conferência já registrada fica/)
 	})
@@ -119,7 +119,7 @@ describe("selfDesignationProblem (segregação de funções)", () => {
 		expect(selfDesignationProblem({ ...base, role: "committee_member" })).not.toBeNull()
 	})
 
-	test("rancho de uma pessoa só: a recusa diz o caminho", () => {
+	test("unidade de uma pessoa só: a recusa diz o caminho", () => {
 		expect(selfDesignationProblem({ ...base, otherDesignators: [] })).toMatch(/Ninguém mais tem Gestão Unidade nível 2/)
 	})
 

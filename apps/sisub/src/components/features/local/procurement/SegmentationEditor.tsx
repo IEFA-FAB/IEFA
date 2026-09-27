@@ -393,7 +393,7 @@ function UnassignedList({ lines }: { lines: SegmentationLine[] }) {
 			<CardHeader>
 				<CardTitle>Itens sem contratação planejada</CardTitle>
 				<CardDescription>
-					Itens dos cardápios da OM que nenhuma contratação planejada inclui. Podem ser compra fora do rancho; se não forem, inclua a pasta deles.
+					Itens dos cardápios da OM que nenhuma contratação planejada inclui. Podem ser compra fora da subsistência; se não forem, inclua a pasta deles.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-3">

@@ -54,7 +54,7 @@ export function buildProcurementPlanningSteps(status: ProcurementPlanningStatus)
 	if (seg.segmentCount > 0 && seg.unassignedCount > 0) {
 		segIssues.push({
 			severity: "warning",
-			message: `${pluralize(seg.unassignedCount, "item dos cardápios não entra", "itens dos cardápios não entram")} em nenhuma contratação planejada. Pode ser compra fora do rancho; se não for, inclua a pasta.`,
+			message: `${pluralize(seg.unassignedCount, "item dos cardápios não entra", "itens dos cardápios não entram")} em nenhuma contratação planejada. Pode ser compra fora da subsistência; se não for, inclua a pasta.`,
 			action: { label: "Ver itens sem contratação planejada", href: `${unit}/segments` },
 		})
 	}

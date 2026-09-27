@@ -6,7 +6,7 @@ import { buildReceivingPendingIssues, describeReceiptPending, worstSeverity } fr
 const base: ExpenseExecutionStatus = {
 	unitId: 10,
 	today: "2026-09-26",
-	kitchens: [{ id: 1, name: "Rancho A", counts: emptyReceiptPendingCounts() }],
+	kitchens: [{ id: 1, name: "Cozinha A", counts: emptyReceiptPendingCounts() }],
 	empenhosWithoutOrigin: { count: 0, sample: [] },
 	incomplete: { count: 0, sample: [] },
 	dispensasWithoutValue: 0,
@@ -73,18 +73,18 @@ describe("Executar despesa", () => {
 
 	test("OF enviada sem empenho bloqueia a etapa (não a OF)", () => {
 		const orders = step(
-			buildExpenseExecutionSteps({ ...base, supplyOrdersWithoutEmpenho: [{ id: "o", number: "12", kitchenName: "Rancho A", sentAt: "2026-09-20" }] }),
+			buildExpenseExecutionSteps({ ...base, supplyOrdersWithoutEmpenho: [{ id: "o", number: "12", kitchenName: "Cozinha A", sentAt: "2026-09-20" }] }),
 			"supply-orders"
 		)
 		expect(orders?.status).toBe("blocked")
-		expect(orders?.issues[0].message).toMatch(/OF 12 \(Rancho A\).*Lei 4.320\/1964, art. 60/)
+		expect(orders?.issues[0].message).toMatch(/OF 12 \(Cozinha A\).*Lei 4.320\/1964, art. 60/)
 	})
 
 	test("recebimento é do Estoque: diz quem resolve e não tem link", () => {
 		const counts = { ...emptyReceiptPendingCounts(), without_invoice: 5, without_empenho: 1 }
-		const receiving = step(buildExpenseExecutionSteps({ ...base, kitchens: [{ id: 1, name: "Rancho A", counts }] }), "receiving")
+		const receiving = step(buildExpenseExecutionSteps({ ...base, kitchens: [{ id: 1, name: "Cozinha A", counts }] }), "receiving")
 		expect(receiving?.issues[0].message).toBe(
-			"Rancho A: 5 entregas sem NF-e, 1 entrega sem empenho. Quem vincula é o almoxarifado, no recebimento (Estoque → A caminho)."
+			"Cozinha A: 5 entregas sem NF-e, 1 entrega sem empenho. Quem vincula é o almoxarifado, no recebimento (Estoque → A caminho)."
 		)
 		expect(receiving?.issues[0].action).toBeUndefined()
 	})
@@ -97,7 +97,7 @@ describe("Executar despesa", () => {
 	test("recebimento atestado sem liquidação e SEFAZ pendente", () => {
 		const counts = { ...emptyReceiptPendingCounts(), invoice_check_pending: 1 }
 		const liquidacao = step(
-			buildExpenseExecutionSteps({ ...base, kitchens: [{ id: 1, name: "Rancho A", counts }], unliquidated: { count: 3, oldestDays: 12, divergent: 0 } }),
+			buildExpenseExecutionSteps({ ...base, kitchens: [{ id: 1, name: "Cozinha A", counts }], unliquidated: { count: 3, oldestDays: 12, divergent: 0 } }),
 			"liquidacao"
 		)
 		expect(liquidacao?.issues[0].message).toBe("3 recebimentos atestados sem liquidação (o mais antigo há 12 dias).")
