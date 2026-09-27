@@ -1432,7 +1432,6 @@ export const equipmentUnitRoleInKitchen = kitchen.table("equipment_unit_role", {
 export const procurementArpInProcurement = procurement.table("procurement_arp", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	unitId: integer("unit_id").notNull(),
-	ataId: uuid("ata_id"),
 	numeroAta: text("numero_ata").notNull(),
 	anoAta: text("ano_ata"),
 	uasgGerenciadora: text("uasg_gerenciadora").notNull(),
@@ -1447,7 +1446,6 @@ export const procurementArpInProcurement = procurement.table("procurement_arp", 
 	source: text().default('compras_gov').notNull(),
 	procurementListId: uuid("procurement_list_id"),
 }, (table) => [
-	index("idx_procurement_arp_ata").using("btree", table.ataId.asc().nullsLast()),
 	index("idx_procurement_arp_procurement_list").using("btree", table.procurementListId.asc().nullsLast()),
 	index("idx_procurement_arp_unit").using("btree", table.unitId.asc().nullsLast()),
 	index("procurement_arp_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
@@ -1455,11 +1453,6 @@ export const procurementArpInProcurement = procurement.table("procurement_arp", 
 			columns: [table.acquisitionId],
 			foreignColumns: [acquisitionInProcurement.id],
 			name: "procurement_arp_acquisition_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.ataId],
-			foreignColumns: [procurementListInProcurement.id],
-			name: "procurement_arp_ata_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.procurementListId],
@@ -3886,7 +3879,6 @@ export const empenhoRpInscriptionInFinance = finance.table("empenho_rp_inscripti
 export const procurementPesquisaPrecoItemInProcurement = procurement.table("procurement_pesquisa_preco_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	researchId: uuid("research_id").notNull(),
-	ataItemId: uuid("ata_item_id"),
 	catmatCodigo: integer("catmat_codigo"),
 	catmatDescricao: text("catmat_descricao"),
 	productName: text("product_name").notNull(),
@@ -3915,14 +3907,8 @@ export const procurementPesquisaPrecoItemInProcurement = procurement.table("proc
 	manualSelection: boolean("manual_selection").default(false).notNull(),
 	procurementListItemId: uuid("procurement_list_item_id"),
 }, (table) => [
-	index("idx_pesquisa_preco_item_ata_item").using("btree", table.ataItemId.asc().nullsLast()),
 	index("idx_pesquisa_preco_item_procurement_list_item").using("btree", table.procurementListItemId.asc().nullsLast()),
 	index("idx_pesquisa_preco_item_research").using("btree", table.researchId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.ataItemId],
-			foreignColumns: [procurementListItemInProcurement.id],
-			name: "procurement_pesquisa_preco_item_ata_item_id_fkey"
-		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.procurementListItemId],
 			foreignColumns: [procurementListItemInProcurement.id],
@@ -4871,7 +4857,6 @@ export const comprasMaterialNaturezaDespesaInComprasGovIntegration = comprasGovI
 export const procurementArpItemInProcurement = procurement.table("procurement_arp_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	arpId: uuid("arp_id").notNull(),
-	ataItemId: uuid("ata_item_id"),
 	numeroItem: integer("numero_item"),
 	catmatItemCodigo: integer("catmat_item_codigo"),
 	descricaoItem: text("descricao_item"),
@@ -4887,7 +4872,6 @@ export const procurementArpItemInProcurement = procurement.table("procurement_ar
 	procurementListItemId: uuid("procurement_list_item_id"),
 }, (table) => [
 	index("idx_arp_item_arp").using("btree", table.arpId.asc().nullsLast()),
-	index("idx_arp_item_ata_item").using("btree", table.ataItemId.asc().nullsLast()),
 	index("idx_arp_item_catmat").using("btree", table.catmatItemCodigo.asc().nullsLast()),
 	index("idx_arp_item_procurement_list_item").using("btree", table.procurementListItemId.asc().nullsLast()),
 	uniqueIndex("procurement_arp_item_numero_uq").using("btree", table.arpId.asc().nullsLast(), table.numeroItem.asc().nullsLast()).where(sql`(numero_item IS NOT NULL)`),
@@ -4896,11 +4880,6 @@ export const procurementArpItemInProcurement = procurement.table("procurement_ar
 			foreignColumns: [procurementArpInProcurement.id],
 			name: "procurement_arp_item_arp_id_fkey"
 		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.ataItemId],
-			foreignColumns: [procurementListItemInProcurement.id],
-			name: "procurement_arp_item_ata_item_id_fkey"
-		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.procurementListItemId],
 			foreignColumns: [procurementListItemInProcurement.id],
@@ -4911,7 +4890,6 @@ export const procurementArpItemInProcurement = procurement.table("procurement_ar
 
 export const procurementPesquisaPrecoInProcurement = procurement.table("procurement_pesquisa_preco", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	ataId: uuid("ata_id"),
 	referenceMethod: text("reference_method").default('median').notNull(),
 	periodMonths: smallint("period_months").default(12),
 	similarityThreshold: numeric("similarity_threshold", { mode: "number", precision: 4, scale: 3 }),
@@ -4927,17 +4905,10 @@ export const procurementPesquisaPrecoInProcurement = procurement.table("procurem
 	createdBy: uuid("created_by"),
 	procurementListId: uuid("procurement_list_id"),
 }, (table) => [
-	index("idx_pesquisa_preco_ata").using("btree", table.ataId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
 	index("idx_pesquisa_preco_pending").using("btree", table.procurementListId.asc().nullsLast()).where(sql`(procurement_list_id IS NULL)`),
-	index("idx_pesquisa_preco_pending_ata_id").using("btree", table.ataId.asc().nullsLast()).where(sql`(ata_id IS NULL)`),
 	index("idx_pesquisa_preco_procurement_list").using("btree", table.procurementListId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
 	index("procurement_pesquisa_preco_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
 	uniqueIndex("uq_pesquisa_preco_idempotency").using("btree", table.idempotencyKey.asc().nullsLast()).where(sql`(idempotency_key IS NOT NULL)`),
-	foreignKey({
-			columns: [table.ataId],
-			foreignColumns: [procurementListInProcurement.id],
-			name: "procurement_pesquisa_preco_ata_id_fkey"
-		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.createdBy],
 			foreignColumns: [usersInAuth.id],
@@ -5994,26 +5965,3 @@ export const vSupplierLeadTimeInInventory = inventory.view("v_supplier_lead_time
 	leadTimeDays: integer("lead_time_days"),
 	deviationDays: integer("deviation_days"),
 }).with({"securityInvoker":true}).as(sql`SELECT arpitem.ni_fornecedor, soi.purchase_item_id, so.id AS supply_order_id, so.sent_at, so.expected_delivery, gr.definitive_at::date AS received_at, gr.definitive_at::date - so.sent_at AS lead_time_days, gr.definitive_at::date - so.expected_delivery AS deviation_days FROM procurement.supply_order so JOIN inventory.goods_receipt gr ON gr.supply_order_id = so.id AND gr.definitive_at IS NOT NULL JOIN procurement.supply_order_item soi ON soi.supply_order_id = so.id LEFT JOIN procurement.procurement_arp_item arpitem ON arpitem.id = soi.arp_item_id WHERE so.sent_at IS NOT NULL`);
-
-export const kitchenAtaDraftInProcurement = procurement.view("kitchen_ata_draft", {	id: uuid(),
-	kitchenId: integer("kitchen_id"),
-	title: text(),
-	notes: text(),
-	status: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
-	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),
-	reviewedBy: uuid("reviewed_by"),
-}).with({"securityInvoker":true}).as(sql`SELECT id, kitchen_id, title, notes, status, created_at, updated_at, reviewed_at, reviewed_by FROM procurement.kitchen_demand_forecast`);
-
-export const kitchenAtaDraftSelectionInProcurement = procurement.view("kitchen_ata_draft_selection", {	id: uuid(),
-	draftId: uuid("draft_id"),
-	templateId: uuid("template_id"),
-	repetitions: integer(),
-}).with({"securityInvoker":true}).as(sql`SELECT id, forecast_id AS draft_id, template_id, repetitions FROM procurement.kitchen_demand_forecast_selection`);
-
-export const kitchenAtaDraftImportInProcurement = procurement.view("kitchen_ata_draft_import", {	draftId: uuid("draft_id"),
-	listId: uuid("list_id"),
-	importedBy: uuid("imported_by"),
-	importedAt: timestamp("imported_at", { withTimezone: true, mode: 'string' }),
-}).with({"securityInvoker":true}).as(sql`SELECT forecast_id AS draft_id, list_id, imported_by, imported_at FROM procurement.kitchen_demand_forecast_import`);
