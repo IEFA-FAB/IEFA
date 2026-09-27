@@ -56,16 +56,26 @@ async function seed(tx: postgres.TransactionSql) {
 describeIf("compatibilidade do rename do lote 7: arranchamento (DB)", () => {
 	let sql: postgres.Sql
 
-	beforeAll(() => {
+	/**
+	 * A camada existe só entre o expand e o contract. Depois de aplicado o contract (e até este
+	 * arquivo sair da `main` com o PR dele), a suíte se pula sozinha em vez de derrubar o `gate` de
+	 * todo PR aberto.
+	 */
+	let compatLayerPresent = false
+
+	beforeAll(async () => {
 		if (!url) throw new Error("SISUB_DATABASE_URL ausente")
 		sql = postgres(url, { max: 1, prepare: false })
+		const [row] = await sql`select to_regclass('kitchen.meal_forecasts') is not null and to_regclass('kitchen.arranchamento') is not null as present`
+		compatLayerPresent = row?.present === true
 	})
 
 	afterAll(async () => {
 		await sql?.end({ timeout: 5 })
 	})
 
-	test("o upsert, o update e o delete da `main` pela view antiga caem na tabela, com defaults e trigger", async () => {
+	test("o upsert, o update e o delete da `main` pela view antiga caem na tabela, com defaults e trigger", async (ctx) => {
+		if (!compatLayerPresent) ctx.skip()
 		await expect(
 			inRollback(sql, async (tx) => {
 				const s = await seed(tx)
@@ -108,7 +118,8 @@ describeIf("compatibilidade do rename do lote 7: arranchamento (DB)", () => {
 		).resolves.toBe("rolled-back")
 	}, 60_000)
 
-	test("CHECK, unique e FKs da tabela valem para o que a `main` grava pela view", async () => {
+	test("CHECK, unique e FKs da tabela valem para o que a `main` grava pela view", async (ctx) => {
+		if (!compatLayerPresent) ctx.skip()
 		await expect(
 			inRollback(sql, async (tx) => {
 				const s = await seed(tx)
@@ -139,7 +150,8 @@ describeIf("compatibilidade do rename do lote 7: arranchamento (DB)", () => {
 		).resolves.toBe("rolled-back")
 	}, 60_000)
 
-	test("o analytics lê pelo nome antigo (SQL já gerado) e pelo novo, como `analytics_reader`", async () => {
+	test("o analytics lê pelo nome antigo (SQL já gerado) e pelo novo, como `analytics_reader`", async (ctx) => {
+		if (!compatLayerPresent) ctx.skip()
 		await expect(
 			inRollback(sql, async (tx) => {
 				await tx`set local role service_role`
@@ -151,7 +163,8 @@ describeIf("compatibilidade do rename do lote 7: arranchamento (DB)", () => {
 		).resolves.toBe("rolled-back")
 	}, 60_000)
 
-	test("a view tem os grants da tabela: servidor escreve, analytics lê, cliente não alcança", async () => {
+	test("a view tem os grants da tabela: servidor escreve, analytics lê, cliente não alcança", async (ctx) => {
+		if (!compatLayerPresent) ctx.skip()
 		const [grants] = await sql`
 			select
 				has_table_privilege('service_role', 'kitchen.meal_forecasts', 'select') as service_view,
@@ -183,7 +196,8 @@ describeIf("compatibilidade do rename do lote 7: arranchamento (DB)", () => {
 		expect(view).toEqual({ kind: "v", invoker: true })
 	})
 
-	test("constraints e índices levam o nome novo; a tabela tem comentário", async () => {
+	test("constraints e índices levam o nome novo; a tabela tem comentário", async (ctx) => {
+		if (!compatLayerPresent) ctx.skip()
 		const names = await sql<{ name: string }[]>`
 			select conname as name from pg_constraint where conrelid = 'kitchen.arranchamento'::regclass
 			union
