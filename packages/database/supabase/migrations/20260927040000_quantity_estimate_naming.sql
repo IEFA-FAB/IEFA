@@ -538,15 +538,18 @@ before insert or update on procurement.price_research_emission
 for each row execute function procurement.mirror_quantity_estimate_id_from_list_id();
 
 -- kitchen_demand_forecast_import.list_id → quantity_estimate_id
--- A PK (forecast_id, list_id) fica até o contract, que promove o unique novo a PK.
+-- A PK (forecast_id, list_id) fica até o contract, que promove o índice único novo a PK
+-- (`primary key using index`, sem reconstruir o índice). É índice, não constraint, porque só
+-- índice solto pode virar PK assim; o `on conflict (forecast_id, quantity_estimate_id)` do
+-- código novo casa com ele do mesmo jeito.
 alter table procurement.kitchen_demand_forecast_import add column quantity_estimate_id uuid;
 update procurement.kitchen_demand_forecast_import set quantity_estimate_id = list_id;
 alter table procurement.kitchen_demand_forecast_import alter column quantity_estimate_id set not null;
 alter table procurement.kitchen_demand_forecast_import
 	add constraint kitchen_demand_forecast_import_quantity_estimate_id_fkey
 	foreign key (quantity_estimate_id) references procurement.quantity_estimate (id) on delete cascade;
-alter table procurement.kitchen_demand_forecast_import
-	add constraint kitchen_demand_forecast_import_quantity_estimate_key unique (forecast_id, quantity_estimate_id);
+create unique index kitchen_demand_forecast_import_quantity_estimate_key
+on procurement.kitchen_demand_forecast_import (forecast_id, quantity_estimate_id);
 create index kitchen_demand_forecast_import_quantity_estimate_idx on procurement.kitchen_demand_forecast_import (quantity_estimate_id);
 create trigger kitchen_demand_forecast_import_mirror_quantity_estimate_id
 before insert or update on procurement.kitchen_demand_forecast_import

@@ -31,7 +31,7 @@ import {
 	updateQuantityEstimateStatus,
 } from "@iefa/sisub-domain"
 import { agentGetQuantityEstimate, agentListQuantityEstimates, agentUpdateQuantityEstimateStatus } from "@iefa/sisub-domain/agent"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -201,6 +201,23 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 		const otherUnit = { ...ctx, permissions: [{ module: "unit" as const, level: 3, unit_id: unitId + 1, kitchen_id: null, mess_hall_id: null }] }
 		await expect(agentGetQuantityEstimate(db, otherUnit, { quantityEstimateId: quantityEstimate.id })).rejects.toThrow()
 		await expect(agentGetQuantityEstimate(db, ctx, { quantityEstimateId: "00000000-0000-4000-8000-000000000000" })).rejects.toThrow(/não encontrado/)
+	})
+
+	// TODO(contract 20260927050000): sai com o valor antigo.
+	test("anexo concluído pelo código antigo (`published`) é lido como `completed` na tela, no chat e no filtro", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const quantityEstimate = await createQuantityEstimate(db, ctx, { unitId, title: uid("[TEST] anexo antigo "), kitchenSelections: [], items: [] })
+		seeder.track("quantity_estimate", quantityEstimate.id)
+		// O que a `main` grava entre o expand e o deploy.
+		await db.execute(sql`update procurement.quantity_estimate set status = 'published' where id = ${quantityEstimate.id}`)
+
+		expect((await fetchQuantityEstimateDetails(db, ctx, { quantityEstimateId: quantityEstimate.id }))?.status).toBe("completed")
+		expect((await fetchQuantityEstimateList(db, ctx, { unitId })).find((a) => a.id === quantityEstimate.id)?.status).toBe("completed")
+		const completed = await agentListQuantityEstimates(db, ctx, { unitId, status: "completed" })
+		expect(completed.items.map((i) => [i.id, i.status])).toEqual([[quantityEstimate.id, "completed"]])
+		// Concluído (pelo nome antigo) não volta a rascunho.
+		await expect(updateQuantityEstimateStatus(db, ctx, { quantityEstimateId: quantityEstimate.id, status: "draft" })).rejects.toThrow()
 	})
 
 	test("agentUpdateQuantityEstimateStatus não conclui anexo ainda no wizard, mas arquiva", async () => {
