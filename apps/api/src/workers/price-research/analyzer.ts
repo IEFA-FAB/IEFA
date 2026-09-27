@@ -246,10 +246,10 @@ export function analyzePrices(
 	catmatCodigo: number,
 	catmatDescricao: string | null,
 	rawItems: ComprasMaterialPrecoItem[],
-	opcoes: PriceResearchOptions = {}
+	options: PriceResearchOptions = {}
 ): PriceAnalysis {
-	const months = opcoes.months ?? 12
-	const threshold = opcoes.similarityThreshold ?? 0.4
+	const months = options.months ?? 12
+	const threshold = options.similarityThreshold ?? 0.4
 	const cutoffDate = new Date()
 	cutoffDate.setMonth(cutoffDate.getMonth() - months)
 	const consultedAt = new Date().toISOString()
@@ -318,9 +318,9 @@ export function analyzePrices(
 		params: {
 			months,
 			similarityThreshold: threshold,
-			...(opcoes.estado ? { estado: opcoes.estado } : {}),
-			...(opcoes.codigoUasg ? { codigoUasg: opcoes.codigoUasg } : {}),
-			...(opcoes.codigoMunicipio ? { codigoMunicipio: opcoes.codigoMunicipio } : {}),
+			...(options.estado ? { estado: options.estado } : {}),
+			...(options.codigoUasg ? { codigoUasg: options.codigoUasg } : {}),
+			...(options.codigoMunicipio ? { codigoMunicipio: options.codigoMunicipio } : {}),
 		},
 		counts: {
 			raw: rawItems.length,

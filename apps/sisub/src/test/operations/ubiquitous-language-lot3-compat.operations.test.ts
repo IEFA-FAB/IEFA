@@ -262,6 +262,20 @@ describeIf("compatibilidade do rename do lote 3: pesquisa de preços, ARP e cont
 		).resolves.toBe("rolled-back")
 	}, 60_000)
 
+	test("a RPC nova e o wrapper antigo gravam como `service_role`, o papel com que o worker da API chama", async () => {
+		await expect(
+			inRollback(sql, async (tx) => {
+				await tx`set local role service_role`
+				const [viaNew] = await tx`select * from procurement.upsert_price_samples(${tx.json([fact("L3-ROLE")])}::jsonb) as t(id)`
+				const [viaOld] =
+					await tx`select * from procurement.upsert_compras_amostras(${tx.json([fact("L3-ROLE", { nome_fornecedor: "FORNECEDOR" })])}::jsonb) as t(id)`
+				expect(viaOld.id).toBe(viaNew.id)
+				const [sample] = await tx`select nome_fornecedor from procurement.price_sample where id = ${viaNew.id}`
+				expect(sample.nome_fornecedor).toBe("FORNECEDOR")
+			})
+		).resolves.toBe("rolled-back")
+	}, 60_000)
+
 	test("as views têm os grants das tabelas: servidor escreve, leitor do analytics lê o item da ARP, cliente não alcança", async () => {
 		const [grants] = await sql`
 			select
@@ -274,7 +288,10 @@ describeIf("compatibilidade do rename do lote 3: pesquisa de preços, ARP e cont
 				has_table_privilege('authenticated', 'procurement.compras_amostra', 'select') as authenticated_sample,
 				has_function_privilege('service_role', 'procurement.upsert_compras_amostras(jsonb)', 'execute') as service_rpc_old,
 				has_function_privilege('service_role', 'procurement.upsert_price_samples(jsonb)', 'execute') as service_rpc_new,
-				has_function_privilege('authenticated', 'procurement.upsert_price_samples(jsonb)', 'execute') as authenticated_rpc_new`
+				has_function_privilege('authenticated', 'procurement.upsert_price_samples(jsonb)', 'execute') as authenticated_rpc_new,
+				has_table_privilege('service_role', 'procurement.price_sample', 'insert') as service_sample_insert,
+				has_column_privilege('service_role', 'procurement.price_sample', 'ni_fornecedor', 'update') as service_sample_update,
+				has_function_privilege('service_role', 'sisub.price_sample_fingerprint(text, integer, text, numeric, numeric, text, text, numeric, text, text, text, text, text, text, numeric, date)', 'execute') as service_fingerprint`
 		expect(grants).toEqual({
 			service_research: true,
 			service_sample: true,
@@ -286,6 +303,11 @@ describeIf("compatibilidade do rename do lote 3: pesquisa de preços, ARP e cont
 			service_rpc_old: true,
 			service_rpc_new: true,
 			authenticated_rpc_new: false,
+			// `upsert_price_samples` roda como quem chama (deixou de ser DEFINER): o `service_role`
+			// precisa gravar a amostra, completar o fornecedor e calcular a coluna gerada.
+			service_sample_insert: true,
+			service_sample_update: true,
+			service_fingerprint: true,
 		})
 	})
 })

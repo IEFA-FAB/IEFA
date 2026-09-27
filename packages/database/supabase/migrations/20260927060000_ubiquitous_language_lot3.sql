@@ -655,7 +655,7 @@ begin
 
 	select string_agg(schemaname || '.' || tablename || '.' || policyname, ', ') into offenders
 	from pg_policies
-	where coalesce(qual, '') || coalesce(with_check, '') ~ '\m(procurement_pesquisa_preco\w*|compras_amostra|procurement_arp\w*|procurement_segment\w*)\M';
+	where coalesce(qual, '') || coalesce(with_check, '') ~ '\m(procurement_pesquisa_preco\w*|compras_amostra\w*|procurement_arp\w*|procurement_segment\w*|amostra_id)\M';
 	if offenders is not null then
 		raise exception 'policies citam nomes antigos do lote 3: %', offenders;
 	end if;

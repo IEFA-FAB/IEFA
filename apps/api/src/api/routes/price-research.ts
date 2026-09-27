@@ -83,7 +83,7 @@ type Supabase = ReturnType<typeof getSupabase>
  */
 async function buscarDescricaoCatmat(supabase: Supabase, catmatCode: number): Promise<string | null> {
 	// compras_material_item foi movida para compras_gov_integration (split de schemas);
-	// o client default segue em sisub (price_sample + RPC upsert_price_samples ficam lá).
+	// o client da rota segue em procurement (price_sample + RPC upsert_price_samples ficam lá).
 	const { data } = await supabase
 		.schema("compras_gov_integration")
 		.from("compras_material_item")
