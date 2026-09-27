@@ -3113,21 +3113,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "rancho_kitchen_id_fkey"
+            foreignKeyName: "mess_hall_workforce_kitchen_id_fkey"
             columns: ["kitchen_id"]
             isOneToOne: false
             referencedRelation: "kitchen"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "rancho_mess_hall_id_fkey"
+            foreignKeyName: "mess_hall_workforce_mess_hall_id_fkey"
             columns: ["mess_hall_id"]
             isOneToOne: false
             referencedRelation: "mess_halls"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "rancho_unit_id_fkey"
+            foreignKeyName: "mess_hall_workforce_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
@@ -10072,6 +10072,66 @@ export type Database = {
           },
         ]
       }
+      mess_hall_workforce: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          display_name: string
+          elo_code: string
+          id: number
+          kitchen_id: number | null
+          mess_hall_id: number | null
+          notes: string | null
+          produces_own_meals: boolean
+          unit_id: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          display_name: string
+          elo_code: string
+          id?: number
+          kitchen_id?: number | null
+          mess_hall_id?: number | null
+          notes?: string | null
+          produces_own_meals?: boolean
+          unit_id: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          display_name?: string
+          elo_code?: string
+          id?: number
+          kitchen_id?: number | null
+          mess_hall_id?: number | null
+          notes?: string | null
+          produces_own_meals?: boolean
+          unit_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mess_hall_workforce_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mess_hall_workforce_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mess_halls: {
         Row: {
           code: string
@@ -10394,66 +10454,6 @@ export type Database = {
             columns: ["menu_item_id"]
             isOneToOne: true
             referencedRelation: "menu_items"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      rancho: {
-        Row: {
-          active: boolean
-          code: string
-          created_at: string
-          display_name: string
-          elo_code: string
-          id: number
-          kitchen_id: number | null
-          mess_hall_id: number | null
-          notes: string | null
-          produces_own_meals: boolean
-          unit_id: number
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          code: string
-          created_at?: string
-          display_name: string
-          elo_code: string
-          id?: number
-          kitchen_id?: number | null
-          mess_hall_id?: number | null
-          notes?: string | null
-          produces_own_meals?: boolean
-          unit_id: number
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          code?: string
-          created_at?: string
-          display_name?: string
-          elo_code?: string
-          id?: number
-          kitchen_id?: number | null
-          mess_hall_id?: number | null
-          notes?: string | null
-          produces_own_meals?: boolean
-          unit_id?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rancho_kitchen_id_fkey"
-            columns: ["kitchen_id"]
-            isOneToOne: false
-            referencedRelation: "kitchen"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rancho_mess_hall_id_fkey"
-            columns: ["mess_hall_id"]
-            isOneToOne: false
-            referencedRelation: "mess_halls"
             referencedColumns: ["id"]
           },
         ]
@@ -11603,7 +11603,8 @@ export type Database = {
           created_at: string
           declared_total: number | null
           id: string
-          rancho_id: number
+          mess_hall_workforce_id: number
+          rancho_id: number | null
           submitted_at: string | null
           submitted_by: string | null
           survey_id: string
@@ -11613,7 +11614,8 @@ export type Database = {
           created_at?: string
           declared_total?: number | null
           id?: string
-          rancho_id: number
+          mess_hall_workforce_id: number
+          rancho_id?: number | null
           submitted_at?: string | null
           submitted_by?: string | null
           survey_id: string
@@ -11623,13 +11625,35 @@ export type Database = {
           created_at?: string
           declared_total?: number | null
           id?: string
-          rancho_id?: number
+          mess_hall_workforce_id?: number
+          rancho_id?: number | null
           submitted_at?: string | null
           submitted_by?: string | null
           survey_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workforce_submission_mess_hall_workforce_id_fkey"
+            columns: ["mess_hall_workforce_id"]
+            isOneToOne: false
+            referencedRelation: "mess_hall_workforce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_submission_mess_hall_workforce_id_fkey"
+            columns: ["mess_hall_workforce_id"]
+            isOneToOne: false
+            referencedRelation: "rancho"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_submission_rancho_id_fkey"
+            columns: ["rancho_id"]
+            isOneToOne: false
+            referencedRelation: "mess_hall_workforce"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workforce_submission_rancho_id_fkey"
             columns: ["rancho_id"]
@@ -11714,6 +11738,66 @@ export type Database = {
             columns: ["ingredient_id"]
             isOneToOne: false
             referencedRelation: "ingredient"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rancho: {
+        Row: {
+          active: boolean | null
+          code: string | null
+          created_at: string | null
+          display_name: string | null
+          elo_code: string | null
+          id: number | null
+          kitchen_id: number | null
+          mess_hall_id: number | null
+          notes: string | null
+          produces_own_meals: boolean | null
+          unit_id: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          elo_code?: string | null
+          id?: number | null
+          kitchen_id?: number | null
+          mess_hall_id?: number | null
+          notes?: string | null
+          produces_own_meals?: boolean | null
+          unit_id?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          elo_code?: string | null
+          id?: number | null
+          kitchen_id?: number | null
+          mess_hall_id?: number | null
+          notes?: string | null
+          produces_own_meals?: boolean | null
+          unit_id?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mess_hall_workforce_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mess_hall_workforce_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
             referencedColumns: ["id"]
           },
         ]

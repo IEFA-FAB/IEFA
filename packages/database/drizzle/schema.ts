@@ -1621,7 +1621,21 @@ export const folderInKitchen = kitchen.table("folder", {
 	check("folder_catalog_scope_check", sql`catalog_scope = ANY (ARRAY['alimentacao'::text, 'auxiliar'::text])`),
 ]);
 
-export const ranchoInKitchen = kitchen.table("rancho", {
+export const workforceCategoryInKitchen = kitchen.table("workforce_category", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	code: text().notNull(),
+	name: text().notNull(),
+	description: text(),
+	sortOrder: integer("sort_order").default(100).notNull(),
+	isCareer: boolean("is_career").default(false).notNull(),
+	isTechnical: boolean("is_technical").default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("workforce_category_code_uniq").using("btree", table.code.asc().nullsLast()),
+]);
+
+export const messHallWorkforceInKitchen = kitchen.table("mess_hall_workforce", {
 	id: bigserial({ mode: "number" }).primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	unitId: bigint("unit_id", { mode: "number" }).notNull(),
@@ -1638,41 +1652,27 @@ export const ranchoInKitchen = kitchen.table("rancho", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	uniqueIndex("rancho_code_uniq").using("btree", table.code.asc().nullsLast()),
-	index("rancho_elo_idx").using("btree", table.eloCode.asc().nullsLast()).where(sql`active`),
-	index("rancho_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
-	index("rancho_mess_hall_idx").using("btree", table.messHallId.asc().nullsLast()).where(sql`(mess_hall_id IS NOT NULL)`),
-	index("rancho_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
-	index("rancho_unit_idx").using("btree", table.unitId.asc().nullsLast()).where(sql`active`),
+	uniqueIndex("mess_hall_workforce_code_uniq").using("btree", table.code.asc().nullsLast()),
+	index("mess_hall_workforce_elo_idx").using("btree", table.eloCode.asc().nullsLast()).where(sql`active`),
+	index("mess_hall_workforce_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("mess_hall_workforce_mess_hall_idx").using("btree", table.messHallId.asc().nullsLast()).where(sql`(mess_hall_id IS NOT NULL)`),
+	index("mess_hall_workforce_unit_id_fk_idx").using("btree", table.unitId.asc().nullsLast()),
+	index("mess_hall_workforce_unit_idx").using("btree", table.unitId.asc().nullsLast()).where(sql`active`),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInKitchen.id],
-			name: "rancho_kitchen_id_fkey"
+			name: "mess_hall_workforce_kitchen_id_fkey"
 		}),
 	foreignKey({
 			columns: [table.messHallId],
 			foreignColumns: [messHallsInKitchen.id],
-			name: "rancho_mess_hall_id_fkey"
+			name: "mess_hall_workforce_mess_hall_id_fkey"
 		}),
 	foreignKey({
 			columns: [table.unitId],
 			foreignColumns: [unitsInCore.id],
-			name: "rancho_unit_id_fkey"
+			name: "mess_hall_workforce_unit_id_fkey"
 		}),
-]);
-
-export const workforceCategoryInKitchen = kitchen.table("workforce_category", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	code: text().notNull(),
-	name: text().notNull(),
-	description: text(),
-	sortOrder: integer("sort_order").default(100).notNull(),
-	isCareer: boolean("is_career").default(false).notNull(),
-	isTechnical: boolean("is_technical").default(false).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
-}, (table) => [
-	uniqueIndex("workforce_category_code_uniq").using("btree", table.code.asc().nullsLast()),
 ]);
 
 export const workforceSurveyInKitchen = kitchen.table("workforce_survey", {
@@ -1700,19 +1700,28 @@ export const workforceSubmissionInKitchen = kitchen.table("workforce_submission"
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	surveyId: uuid("survey_id").notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	ranchoId: bigint("rancho_id", { mode: "number" }).notNull(),
+	ranchoId: bigint("rancho_id", { mode: "number" }),
 	declaredTotal: integer("declared_total"),
 	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }),
 	submittedBy: uuid("submitted_by"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	messHallWorkforceId: bigint("mess_hall_workforce_id", { mode: "number" }).notNull(),
 }, (table) => [
+	index("workforce_submission_mess_hall_workforce_idx").using("btree", table.messHallWorkforceId.asc().nullsLast()),
+	uniqueIndex("workforce_submission_mess_hall_workforce_uniq").using("btree", table.surveyId.asc().nullsLast(), table.messHallWorkforceId.asc().nullsLast()),
 	index("workforce_submission_rancho_idx").using("btree", table.ranchoId.asc().nullsLast()),
 	index("workforce_submission_submitted_by_fk_idx").using("btree", table.submittedBy.asc().nullsLast()),
 	uniqueIndex("workforce_submission_uniq").using("btree", table.surveyId.asc().nullsLast(), table.ranchoId.asc().nullsLast()),
 	foreignKey({
+			columns: [table.messHallWorkforceId],
+			foreignColumns: [messHallWorkforceInKitchen.id],
+			name: "workforce_submission_mess_hall_workforce_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
 			columns: [table.ranchoId],
-			foreignColumns: [ranchoInKitchen.id],
+			foreignColumns: [messHallWorkforceInKitchen.id],
 			name: "workforce_submission_rancho_id_fkey"
 		}).onDelete("restrict"),
 	foreignKey({
@@ -5670,6 +5679,24 @@ export const vUserIdentityInCore = core.view("v_user_identity", {	id: uuid(),
 	displayName: text("display_name"),
 }).with({ securityInvoker: true }).as(sql`SELECT ud.id, CASE WHEN NULLIF(TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || COALESCE(umd."nmGuerra", ''::text)), ''::text) IS NOT NULL THEN TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || initcap(COALESCE(umd."nmGuerra", ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.user_military_data umd ON umd."nrOrdem" = ud."nrOrdem"`);
 
+export const ranchoInKitchen = kitchen.view("rancho", {	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).default(nextval('kitchen.mess_hall_workforce_id_seq'::regclass)),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	unitId: bigint("unit_id", { mode: "number" }),
+	eloCode: text("elo_code"),
+	code: text(),
+	displayName: text("display_name"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	messHallId: bigint("mess_hall_id", { mode: "number" }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	producesOwnMeals: boolean("produces_own_meals").default(true),
+	active: boolean().default(true),
+	notes: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}).with({"securityInvoker":true}).as(sql`SELECT id, unit_id, elo_code, code, display_name, mess_hall_id, kitchen_id, produces_own_meals, active, notes, created_at, updated_at FROM kitchen.mess_hall_workforce`);
+
 export const vLotExpiryInInventory = inventory.view("v_lot_expiry", {	lotId: uuid("lot_id"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	kitchenId: bigint("kitchen_id", { mode: "number" }),
@@ -5819,7 +5846,7 @@ export const ranchoInCore = core.view("rancho", {	// You can use { mode: "bigint
 	notes: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
-}).with({"securityInvoker":true}).as(sql`SELECT id, unit_id, elo_code, code, display_name, mess_hall_id, kitchen_id, produces_own_meals, active, notes, created_at, updated_at FROM kitchen.rancho`);
+}).with({"securityInvoker":true}).as(sql`SELECT id, unit_id, elo_code, code, display_name, mess_hall_id, kitchen_id, produces_own_meals, active, notes, created_at, updated_at FROM kitchen.mess_hall_workforce`);
 
 export const opinionsInCore = core.view("opinions", {	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }),
