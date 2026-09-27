@@ -22,7 +22,8 @@ interface FiscalDialogProps {
 }
 
 export default function FiscalDialog({ setDialog, dialog, confirmDialog, selectedUnit, resolveDisplayName }: FiscalDialogProps) {
-	const isArranchado = !!dialog.isArranchado
+	// `willEat` null = sem arranchamento para a refeição: não arranchado.
+	const isArranchado = dialog.willEat === true
 
 	const id = dialog.uuid?.trim() || null
 	// staleTime Infinity: nome não muda durante a sessão do fiscal — substitui o Map manual.
@@ -49,7 +50,7 @@ export default function FiscalDialog({ setDialog, dialog, confirmDialog, selecte
 						<AlertDialogDescription>
 							Pessoa: {personLine}
 							<br />
-							Arranchamento: {dialog.isArranchado === null ? "não encontrado" : dialog.isArranchado ? "arranchado" : "não arranchado"}
+							Arranchamento: {dialog.willEat === null ? "não encontrado" : dialog.willEat ? "arranchado" : "desarranchado"}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 

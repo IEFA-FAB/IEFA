@@ -50,7 +50,8 @@ export interface UserMilitaryDataAPI {
 
 export interface MealTypeStat {
 	meal: MealKey
-	arranchados: number
+	/** Arranchamentos da refeição no período (pessoa × dia), não pessoas distintas. */
+	arranchamentos: number
 	presence: number
 	percentage: number
 }
@@ -66,13 +67,13 @@ export interface DailyMealStat {
 export interface MessHallStats {
 	mess_hall_id: number
 	mess_hall_name: string
-	total_arranchados: number
+	total_arranchamentos: number
 	total_presence: number
 	by_meal: MealTypeStat[]
 }
 
 export interface DashboardMetrics {
-	total_arranchados: number
+	total_arranchamentos: number
 	total_presence: number
 	by_meal_type: MealTypeStat[]
 	daily_distribution: DailyMealStat[]
@@ -95,7 +96,8 @@ export interface UserMealDetail {
 	org: string | null
 	arranchamento_meals: Array<{ date: string; meal: MealKey }>
 	presence_meals: Array<{ date: string; meal: MealKey }>
-	arranchados_count: number
+	/** Refeições em que a pessoa se arranchou no período. */
+	arranchamento_count: number
 	presence_count: number
 }
 

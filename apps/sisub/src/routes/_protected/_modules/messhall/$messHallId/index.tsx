@@ -149,7 +149,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 	const [dialog, setDialog] = useState<DialogState>({
 		open: false,
 		uuid: null,
-		isArranchado: null,
+		willEat: null,
 		willEnter: "sim",
 	})
 
@@ -192,10 +192,10 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 		;(async () => {
 			"use no memo"
 			try {
-				const { isArranchado } = await processScanRef.current(uuid, filtersRef.current)
+				const { willEat } = await processScanRef.current(uuid, filtersRef.current)
 				if (!isMountedRef.current) return
 				setLastScanResult(uuid)
-				setDialog({ open: true, uuid, isArranchado, willEnter: "sim" })
+				setDialog({ open: true, uuid, willEat, willEnter: "sim" })
 				markScannedRef.current(uuid)
 				if (isMountedRef.current) setIsProcessing(false)
 			} catch (_err) {

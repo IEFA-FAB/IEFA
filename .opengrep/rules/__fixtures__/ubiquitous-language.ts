@@ -288,7 +288,9 @@ import { arranchamentoInKitchen } from "@iefa/database/drizzle/sisub"
 // ok: ubiquitous-language-lot7-identifier
 export const upsertArranchamentoFn = createServerFn({ method: "POST" })
 // ok: ubiquitous-language-lot7-identifier
-export type MetricsOk = { total_arranchados: number; by_meal: ArranchamentoRecord[] }
+export type MetricsOk = { total_arranchamentos: number; by_meal: ArranchamentoRecord[] }
+// ok: ubiquitous-language-lot7-identifier
+type DemandNames = DemandForecastRecord | DemandForecastMap | typeof upsertForecastSelection
 // ok: ubiquitous-language-lot7-identifier
 const menu = { forecastedHeadcount: 300, forecasted_headcount: 300 }
 // ok: ubiquitous-language-lot7-identifier
@@ -324,7 +326,7 @@ const fiscalLine = "Previsão do sistema: Não previsto"
 // ok: ubiquitous-language-lot7-label
 const pageTitleOk = <PageHeader title="Arranchamento" />
 // ok: ubiquitous-language-lot7-label
-const totalLabelOk = <p className="text-caption">Total de arranchados</p>
+const totalLabelOk = <p className="text-caption">Total de arranchamentos</p>
 // ok: ubiquitous-language-lot7-label
 const navEntry = { title: "Arranchamento", keywords: ["previsão", "marcar refeição"] }
 // ok: ubiquitous-language-lot7-label

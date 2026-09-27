@@ -293,7 +293,8 @@ rules:
       operações são `listArranchamentos`, `upsertArranchamento`, `deleteArranchamento`,
       `listArranchamentoMap` e `fetchUserArranchamento` (server fns `*ArranchamentoFn`, hook
       `useArranchamento`, `userArranchamentoQueryOptions`); as contagens dos painéis são
-      `arranchados_count`, `arranchados_users`, `total_arranchados` e `arranchamento_meals`. A API é
+      `arranchados_count`/`arranchados_users` (pessoas), `total_arranchamentos`, `arranchamentos`,
+      `arranchamento_count` e `arranchamento_meals` (refeições marcadas). A API é
       `/api/arranchamentos`. "Forecast" fica só para a estimativa agregada
       (`forecasted_headcount`) e para a previsão de demanda.
     paths:
@@ -310,7 +311,7 @@ rules:
         - "**/generated.ts"
         - "**/drizzle/**"
     patterns:
-      - pattern-regex: \b(?:\w*[mM]ealForecasts?\w*|meal_forecasts?|MEAL_FORECASTS?|\w*ForecastRecord\w*|\w*[uU]psertForecast\w*|deleteForecastFn|DeleteForecast(?:Schema)?|\w*[lL]istForecastMap\w*|\w*ForecastMap|forecastMap|systemForecast|loadExistingForecasts|fetchForecastsFn|forecast_count|forecast_users|total_forecast|forecast_meals|rancho_previsoes)\b
+      - pattern-regex: \b(?:\w*[mM]ealForecasts?\w*|meal_forecasts?|MEAL_FORECASTS?|ForecastRecords?|[uU]psertForecast(?:Fn|Schema)?|deleteForecastFn|DeleteForecast(?:Schema)?|[lL]istForecastMap(?:Schema)?|ForecastMap|forecastMap|systemForecast|loadExistingForecasts|fetchForecastsFn|forecast_count|forecast_users|total_forecast|forecast_meals|rancho_previsoes)\b
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
       # A definição do alias depreciado da API: o único lugar em que o caminho antigo é o dado.
       - pattern-not-regex: \bLEGACY_ARRANCHAMENTO_PATH\s*=\s*"/rancho_previsoes"

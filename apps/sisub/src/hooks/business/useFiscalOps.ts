@@ -50,7 +50,7 @@ export function useAddOtherPresence() {
 // ============================================================================
 
 export function useScanProcessor() {
-	const processScan = async (uuid: string, filters: FiscalFilters): Promise<{ isArranchado: boolean | null }> => {
+	const processScan = async (uuid: string, filters: FiscalFilters): Promise<{ willEat: boolean | null }> => {
 		const result = await fetchUserArranchamentoFn({
 			data: {
 				userId: uuid,
@@ -59,7 +59,7 @@ export function useScanProcessor() {
 				messHallId: filters.messHallId,
 			},
 		})
-		return { isArranchado: result?.will_eat ?? null }
+		return { willEat: result?.will_eat ?? null }
 	}
 
 	return { processScan }

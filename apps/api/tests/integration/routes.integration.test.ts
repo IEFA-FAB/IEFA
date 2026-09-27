@@ -149,7 +149,7 @@ describe.skipIf(!RUN_INTEGRATION)("Integration: GET /rancho_previsoes (alias dep
 		const { res, body } = await get("/rancho_previsoes?limit=3")
 		const { body: current } = await get("/arranchamentos?limit=3")
 		expect(res.status).toBe(200)
-		expect(res.headers.get("Deprecation")).toBe("true")
+		expect(res.headers.get("Deprecation")).toMatch(/^@\d+$/)
 		expect(res.headers.get("Link")).toBe('</api/arranchamentos?limit=3>; rel="successor-version"')
 		expect(body.length).toBe(current.length)
 	})

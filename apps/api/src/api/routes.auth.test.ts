@@ -46,7 +46,7 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET
 // Import DINÂMICO: `import` estático é içado acima das atribuições acima, e `env.ts` valida
 // na carga do módulo — com o estático o teste morria em ZodError antes de rodar.
 const { api, RESTRICTED_PATHS } = await import("./routes.ts")
-const { ARRANCHAMENTO_PATH, LEGACY_ARRANCHAMENTO_PATH } = await import("./arranchamento-path.ts")
+const { ARRANCHAMENTO_PATH, LEGACY_ARRANCHAMENTO_DEPRECATED_AT, LEGACY_ARRANCHAMENTO_PATH } = await import("./arranchamento-path.ts")
 
 /** Rotas com dado pessoal — a lista vem do roteador, não de uma cópia local que diverge. */
 const RESTRICTED = [...RESTRICTED_PATHS]
@@ -184,7 +184,7 @@ describe("arranchamento: caminho novo e alias depreciado", () => {
 		const res = await api.request(`${LEGACY_ARRANCHAMENTO_PATH}?meal=almoco&limit=5`, { headers: { "x-admin-secret": ADMIN_SECRET } })
 		expect(res.status).toBe(200)
 		expect(await res.json()).toEqual([])
-		expect(res.headers.get("Deprecation")).toBe("true")
+		expect(res.headers.get("Deprecation")).toBe(`@${LEGACY_ARRANCHAMENTO_DEPRECATED_AT}`)
 		expect(res.headers.get("Link")).toBe(`</api${ARRANCHAMENTO_PATH}?meal=almoco&limit=5>; rel="successor-version"`)
 		expect(res.headers.get("Cache-Control")).toBe("no-store")
 	})

@@ -12,11 +12,23 @@
 export const ARRANCHAMENTO_PATH = "/arranchamentos"
 export const LEGACY_ARRANCHAMENTO_PATH = "/rancho_previsoes"
 
-/** Cabeçalhos de depreciação: `Deprecation` (RFC 9745) e `Link` para o sucessor (RFC 8288). */
+/** Quando o caminho antigo foi depreciado (o expand do lote 7): 2026-09-27T00:00:00Z. */
+export const LEGACY_ARRANCHAMENTO_DEPRECATED_AT = Date.UTC(2026, 8, 27) / 1000
+
+/**
+ * Cabeçalhos de depreciação: `Deprecation` como data de Structured Field (`@<epoch>`, RFC 9745) e
+ * `Link` para o sucessor (RFC 8288).
+ */
 export function arranchamentoDeprecationHeaders(successor: string): Record<string, string> {
-	return { Deprecation: "true", Link: `<${successor}>; rel="successor-version"` }
+	return { Deprecation: `@${LEGACY_ARRANCHAMENTO_DEPRECATED_AT}`, Link: `<${successor}>; rel="successor-version"` }
 }
 
-export function logDeprecatedArranchamentoPath(method: string): void {
-	console.warn(`[api] rota depreciada ${method} /api${LEGACY_ARRANCHAMENTO_PATH} usada; use /api${ARRANCHAMENTO_PATH}`)
+/**
+ * Log de uso do alias, para achar o chamador antes de desligar. Leva o `user-agent` (que costuma
+ * nomear o integrador), não o IP: a rota é autenticada por segredo compartilhado, e o IP é dado
+ * pessoal sem ganho para achar quem chama.
+ */
+export function logDeprecatedArranchamentoPath(method: string, userAgent: string | undefined): void {
+	const agent = (userAgent ?? "sem user-agent").slice(0, 200)
+	console.warn(`[api] rota depreciada ${method} /api${LEGACY_ARRANCHAMENTO_PATH} usada (${agent}); use /api${ARRANCHAMENTO_PATH}`)
 }

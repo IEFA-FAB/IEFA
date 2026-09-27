@@ -108,6 +108,6 @@ export type WillEnter = "sim" | "nao"
 export type DialogState = {
 	open: boolean
 	uuid: string | null
-	isArranchado: boolean | null
+	willEat: boolean | null
 	willEnter: "sim" | "nao"
 }

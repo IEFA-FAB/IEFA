@@ -285,7 +285,7 @@ const legacyArranchamentoRoute = defineDocRoute({
 })
 
 async function legacyArranchamentoHandler(c: Context): Promise<Response> {
-	logDeprecatedArranchamentoPath(c.req.method)
+	logDeprecatedArranchamentoPath(c.req.method, c.req.header("user-agent"))
 	const res = await arranchamentoHandler(c)
 	const successor = `/api${ARRANCHAMENTO_PATH}${new URL(c.req.url).search}`
 	const headers = new Headers(res.headers)

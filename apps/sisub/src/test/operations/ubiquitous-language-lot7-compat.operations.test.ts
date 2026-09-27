@@ -90,9 +90,9 @@ describeIf("compatibilidade do rename do lote 7: arranchamento (DB)", () => {
 				expect(rows[0]).toMatchObject({ id: created.id, will_eat: false })
 				expect(Number(rows[0]?.mess_hall_id)).toBe(s.otherMessHallId)
 
-				// UPDATE pela view dispara o `set_updated_at` da tabela.
-				await tx`update kitchen.arranchamento set updated_at = '2000-01-01' where id = ${created.id}`
-				await tx`update kitchen.meal_forecasts set will_eat = true where id = ${created.id}`
+				// UPDATE pela view dispara o `set_updated_at` da tabela: o trigger troca o valor que o
+				// UPDATE tenta gravar por now(). Sem o trigger, ficaria 2000-01-01.
+				await tx`update kitchen.meal_forecasts set will_eat = true, updated_at = '2000-01-01' where id = ${created.id}`
 				const [touched] = await tx`select updated_at > '2000-01-02'::timestamptz as refreshed from kitchen.arranchamento where id = ${created.id}`
 				expect(touched.refreshed).toBe(true)
 

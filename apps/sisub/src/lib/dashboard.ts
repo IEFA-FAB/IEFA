@@ -33,11 +33,11 @@ export function aggregateDashboardMetrics(
 
 	// Calculate by meal type
 	const by_meal_type: MealTypeStat[] = MEAL_KEYS.map((meal) => {
-		const arranchados = filteredArranchamentos.filter((f) => f.meal === meal).length
+		const count = filteredArranchamentos.filter((f) => f.meal === meal).length
 		const presence = filteredPresences.filter((p) => p.meal === meal).length
-		const percentage = filteredArranchamentos.length > 0 ? (arranchados / filteredArranchamentos.length) * 100 : 0
+		const percentage = filteredArranchamentos.length > 0 ? (count / filteredArranchamentos.length) * 100 : 0
 
-		return { meal, arranchados, presence, percentage }
+		return { meal, arranchamentos: count, presence, percentage }
 	})
 
 	// Calculate daily distribution
@@ -63,24 +63,24 @@ export function aggregateDashboardMetrics(
 		const mhPresences = filteredPresences.filter((p) => p.mess_hall_id === mh.id)
 
 		const by_meal: MealTypeStat[] = MEAL_KEYS.map((meal) => {
-			const arranchados = mhArranchamentos.filter((f) => f.meal === meal).length
+			const count = mhArranchamentos.filter((f) => f.meal === meal).length
 			const presence = mhPresences.filter((p) => p.meal === meal).length
-			const percentage = mhArranchamentos.length > 0 ? (arranchados / mhArranchamentos.length) * 100 : 0
+			const percentage = mhArranchamentos.length > 0 ? (count / mhArranchamentos.length) * 100 : 0
 
-			return { meal, arranchados, presence, percentage }
+			return { meal, arranchamentos: count, presence, percentage }
 		})
 
 		return {
 			mess_hall_id: mh.id,
 			mess_hall_name: mh.display_name,
-			total_arranchados: mhArranchamentos.length,
+			total_arranchamentos: mhArranchamentos.length,
 			total_presence: mhPresences.length,
 			by_meal,
 		}
 	})
 
 	return {
-		total_arranchados: filteredArranchamentos.length,
+		total_arranchamentos: filteredArranchamentos.length,
 		total_presence: filteredPresences.length,
 		by_meal_type,
 		daily_distribution,
@@ -116,7 +116,7 @@ export function buildUserMealDetails(
 				date: p.date,
 				meal: p.meal,
 			})),
-			arranchados_count: userArranchamentos.length,
+			arranchamento_count: userArranchamentos.length,
 			presence_count: userPresences.length,
 		}
 	})

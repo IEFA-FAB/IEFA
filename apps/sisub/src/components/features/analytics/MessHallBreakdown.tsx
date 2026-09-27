@@ -104,7 +104,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 			<CardContent className="space-y-3">
 				{data.map((mh) => {
 					const isOpen = openIds.has(mh.mess_hall_id)
-					const attendanceRate = calculatePercentage(mh.total_presence, mh.total_arranchados)
+					const attendanceRate = calculatePercentage(mh.total_presence, mh.total_arranchamentos)
 					const trendColor = getTrendColor(attendanceRate)
 
 					return (
@@ -132,8 +132,8 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 									{/* Grid com métricas */}
 									<div className="grid grid-cols-2 md:grid-cols-3 gap-4">
 										<div>
-											<p className="text-caption text-muted-foreground">Total de arranchados</p>
-											<p className="text-display">{mh.total_arranchados}</p>
+											<p className="text-caption text-muted-foreground">Total de arranchamentos</p>
+											<p className="text-display">{mh.total_arranchamentos}</p>
 										</div>
 										<div>
 											<p className="text-caption text-muted-foreground">Total Presença</p>
@@ -151,7 +151,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 											<div key={meal.meal} className="p-2 bg-muted/50 rounded text-caption">
 												<span className="text-caption capitalize block mb-1">{meal.meal}</span>
 												<div className="flex items-baseline gap-1">
-													<span className="text-body">{meal.arranchados}</span>
+													<span className="text-body">{meal.arranchamentos}</span>
 													<span className="text-muted-foreground">/</span>
 													<span className="text-sm text-muted-foreground">{meal.presence}</span>
 												</div>

@@ -51,8 +51,8 @@
 -- ─── 0. Conferência: nada no banco cita a tabela pelo nome ─────────────────────────
 --
 -- plpgsql e SQL resolvem tabela pelo nome, não pelo OID: uma função que citasse `meal_forecasts`
--- passaria pela view de compatibilidade (que não dispara os triggers da tabela como o código
--- espera) e quebraria no contract. Se aparecer alguma, ela tem de ser recriada neste expand.
+-- passaria a ler e gravar pela view de compatibilidade sem ninguém notar, e quebraria quando o
+-- contract a derrubasse. Se aparecer alguma, ela tem de ser recriada neste expand.
 
 do $$
 declare
@@ -120,8 +120,9 @@ comment on table kitchen.arranchamento is
 
 -- ─── 4. View de compatibilidade com o nome antigo ──────────────────────────────────
 --
--- Mesma ordem de colunas da tabela. Os defaults são repetidos na view para quem insere sem a
--- coluna (o INSERT pela view não herda o default da tabela).
+-- Mesma ordem de colunas da tabela. Os defaults são repetidos na view, como nos lotes anteriores:
+-- o Postgres já aplicaria o da tabela no INSERT sem a coluna, mas quem lê o default pela relação
+-- (o PostgREST, no cache de schema) enxerga o da view.
 
 create view kitchen.meal_forecasts
 with (security_invoker = true) as
