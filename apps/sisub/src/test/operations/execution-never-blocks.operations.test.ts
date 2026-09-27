@@ -19,7 +19,7 @@
  *  - a contagem não trava pela tarefa já baixada e aceita ressalva registrada (EST-CNT-02);
  *  - a sobra entra numa congelada provisória da cozinha, reaproveitada pelo nome (PC-TRN-08).
  *
- * NÃO rodado no PR que o introduziu: a migration ainda não estava aplicada no banco compartilhado.
+ * Quem grava autoria (turno, nutricionista) é usuário real, semeado uma vez no `beforeAll`.
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
@@ -42,11 +42,18 @@ import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
 
-const nutritionist = fullAccessCtx()
+/**
+ * Quem inclui, cria a provisória e revisa fica gravado em colunas com FK para `auth.users`
+ * (`added_in_execution_by`, `provisional_by`, `execution_reviewed_by`): o ator precisa
+ * existir. Os dois são semeados uma vez por arquivo, no `beforeAll`. Os contextos que só são
+ * recusados ou não gravam autoria seguem com id fictício.
+ */
+let shiftUserId = ""
+let nutritionist: UserContext = fullAccessCtx()
 
 function shiftCtx(kitchenId: number, level = 1): UserContext {
 	return {
-		userId: "00000000-0000-4000-8000-000000000003",
+		userId: shiftUserId,
 		permissions: [{ module: "kitchen-production", level, kitchen_id: kitchenId, unit_id: null, mess_hall_id: null }],
 		aal: 1,
 		lastFactorAt: null,
@@ -77,6 +84,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 	let seeder: Seeder | null = null
 	let db: SisubDb | null = null
 	let closeDb: (() => Promise<void>) | null = null
+	let actors: Seeder | null = null
 
 	beforeAll(async () => {
 		const s = await setupIntegration("production_task")
@@ -87,6 +95,10 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 			const t = createSisubTestDb(url)
 			db = t.db
 			closeDb = t.close
+			actors = makeSeeder(client)
+			const [shift, nutri] = await Promise.all([actors.seedAuthUser(), actors.seedAuthUser()])
+			shiftUserId = shift
+			nutritionist = fullAccessCtx(nutri)
 		}
 	}, 30_000)
 
@@ -100,7 +112,9 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 
 	afterAll(async () => {
 		await closeDb?.()
-	})
+		// depois das linhas de cada teste (`afterEach`): elas referenciam estes usuários
+		await actors?.cleanup()
+	}, 60_000)
 
 	/** Cozinha + refeição. A limpeza das receitas da cozinha roda DEPOIS da dos cardápios (LIFO). */
 	async function setupKitchen() {
@@ -439,13 +453,19 @@ describeIf("execução do dia no estoque (DB)", () => {
 
 					// Dupla baixa pelo DIA civil. Contagem aprovada às 08h do dia 5 (antes do meio-dia
 					// que a saída tardia usa como posição): no mesmo dia, sem saber a ordem, recusa.
-					const [countRow] = await tx`
-							insert into inventory.inventory_count (kitchen_id, status, created_by) values (${kitchenId}, 'counting', ${userId}) returning id`
+					// A contagem abre pelo caminho real: `open_inventory_count` materializa o escopo (lançamento
+					// fora dele é recusado), e a abertura recua para as 07h do dia 5 (o lançamento não pode ser
+					// anterior à abertura).
+					const [opened] = await tx`
+							select * from inventory.open_inventory_count(${kitchenId}, 'eventual', 'full', '{}'::jsonb, true, null, ${userId})`
+					await tx`
+							update inventory.inventory_count set created_at = (${brDay(tx, 5)} + time '07:00') at time zone 'America/Sao_Paulo'
+							where id = ${opened.count_id}`
 					await tx`
 							insert into inventory.inventory_count_entry (count_id, lot_id, quantity, client_event_id, counted_by, counted_at)
-							values (${countRow.id}, ${lotId}, 95, 'enb-count-1', ${userId},
+							values (${opened.count_id}, ${lotId}, 95, 'enb-count-1', ${userId},
 								(${brDay(tx, 5)} + time '08:00') at time zone 'America/Sao_Paulo')`
-					await tx`update inventory.inventory_count set status = 'approved', approved_at = now() where id = ${countRow.id}`
+					await tx`update inventory.inventory_count set status = 'approved', approved_at = now() where id = ${opened.count_id}`
 					await expect(
 						tx.savepoint(
 							(sp) =>
