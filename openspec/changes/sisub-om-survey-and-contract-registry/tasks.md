@@ -93,8 +93,8 @@ A revisão de 2026-09-08 pedia reescrever antes de implementar. Feito em `propos
 
 ## 3. Ingestão das fontes existentes
 
-- [ ] 3.1 [sisub-domain] Projeção idempotente de `procurement.procurement_arp` → `kitchen.subsistence_contract` (`external_source='procurement_arp'`, tópico `generos_alimenticios`), sem linha por empenho
-  - **Medir antes de dimensionar:** `archive/2026-09-08-sisub-pncp-integration/review.md` §7 registra `procurement.procurement_arp` com **0 linhas** em produção. A projeção continua sendo o desenho certo, mas hoje nasce vazia — ela não é fonte de valor realizado para o DIVISA, é andaime para quando houver ATA cadastrada
+- [ ] 3.1 [sisub-domain] Projeção idempotente de `procurement.arp` → `kitchen.subsistence_contract` (`external_source='arp'`, tópico `generos_alimenticios`), sem linha por empenho
+  - **Medir antes de dimensionar:** `archive/2026-09-08-sisub-pncp-integration/review.md` §7 registra `procurement.arp` com **0 linhas** em produção. A projeção continua sendo o desenho certo, mas hoje nasce vazia — ela não é fonte de valor realizado para o DIVISA, é andaime para quando houver ATA cadastrada
 - [ ] 3.2 [sisub-domain] Derivação dos valores empenhado/liquidado/pago pela cadeia `finance.empenho → liquidacao → pagamento` para as contratações projetadas, recalculável a cada execução
 - [ ] 3.3 [sisub] Server fn de disparo da projeção com `admin` nível 2 e relatório do que foi criado/atualizado
 - [ ] 3.4 **[PARCIAL]** [api] Cliente do Compras.gov para contratações por UASG: resolver na tarefa qual módulo cobre contrato com valor executado (contratos, atas ou OCDS), com paginação e timeout

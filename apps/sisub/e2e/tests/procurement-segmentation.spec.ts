@@ -33,9 +33,9 @@ test.describe("Segmentação das contratações", () => {
 	test.afterAll(async () => {
 		if (draftId) await deleteProcurementRows("quantity_estimate", [draftId])
 		const db = createE2EServiceClient()
-		const { data } = await db.schema("procurement").from("procurement_segment").select("id").eq("unit_id", UNIT_ID).like("name", `${RUN}%`)
+		const { data } = await db.schema("procurement").from("segment").select("id").eq("unit_id", UNIT_ID).like("name", `${RUN}%`)
 		await deleteProcurementRows(
-			"procurement_segment",
+			"segment",
 			(data ?? []).map((row) => row.id as string)
 		)
 		await deleteTemplate(templateId)

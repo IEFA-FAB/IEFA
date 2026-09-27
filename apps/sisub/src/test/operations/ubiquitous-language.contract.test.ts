@@ -12,7 +12,8 @@
  * Um expand deixa, de propósito, os nomes antigos que o código da `main` em produção ainda usa
  * (views de compatibilidade, colunas espelhadas). Eles entram em `EXPAND_ALLOWLIST`, que é
  * DATADA: o PR do contract que os derruba esvazia a lista. O lote 2 (anexo quantitativo) já passou
- * pelo contract 20260927050000, e o lote 4 (finanças) pelo 20260927090000.
+ * pelo contract 20260927050000, e o lote 4 (finanças) pelo 20260927090000; o lote 3 (pesquisa de
+ * preços e prefixos) está em expand (20260927060000) até o contract 20260927070000.
  *
  * A lista de termos cresce por lote, como a do opengrep.
  */
@@ -30,21 +31,38 @@ const SCHEMAS = ["core", "kitchen", "procurement", "finance", "inventory", "acce
 /**
  * Nome descartado num identificador do banco. `numero_ata`, `ano_ata` e `status_ata` são a ARP de
  * fato (espelho do Compras.gov.br) e não casam: só `ata_id`, `ata_item_id` e `ata_draft` saem.
- * Lote 4: a UG executora não tem dotação (`received_credit`), o saldo do SIAFI é o crédito
- * disponível (`available_credit_siafi`) e a UG emitente é `issuer_ug`.
+ * Lote 3: `pesquisa_preco` (→ `price_research`), `compras_amostra` e `amostra` (→ `price_sample`),
+ * e os prefixos `procurement_arp`/`procurement_segment` (→ `arp`/`segment`). Lote 4: a UG executora
+ * não tem dotação (`received_credit`), o saldo do SIAFI é o crédito disponível
+ * (`available_credit_siafi`) e a UG emitente é `issuer_ug`.
  */
 const DISCARDED_IDENTIFIER =
-	/procurement_list|kitchen_ata_draft|(^|_)list_id($|_)|list_kitchen_id|max_margin|margin_justification|(^|_)total_quantity($|_)|(^|_)ata_(id|item_id|draft)($|_)|(^|_)dotacao($|_)|saldo_siafi|ug_emitente/
+	/procurement_list|kitchen_ata_draft|(^|_)list_id($|_)|list_kitchen_id|max_margin|margin_justification|(^|_)total_quantity($|_)|(^|_)ata_(id|item_id|draft)($|_)|pesquisa_preco|compras_amostra|(^|_)amostra(_id)?($|_)|procurement_arp|procurement_segment|(^|_)dotacao($|_)|saldo_siafi|ug_emitente/
 
 /** Nome descartado citado em texto (corpo de função, definição de view, comentário), em regex do Postgres. */
-const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M`
+const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M`
 
 /**
- * Compatibilidade de um expand em andamento, até o contract dele. Vazia: o contract
- * 20260927050000 derrubou a do lote 2 (anexo quantitativo) e o 20260927090000 a do lote 4
- * (finanças). Chave: `tipo:schema.objeto[.coluna]`.
+ * Compatibilidade de um expand em andamento, até o contract dele. Chave:
+ * `tipo:schema.objeto[.coluna]`. Os contracts 20260927050000 (lote 2) e 20260927090000 (lote 4)
+ * esvaziaram as deles.
+ *
+ * Lote 3 — expand 20260927060000, até o contract 20260927070000 (que esvazia esta lista): as oito
+ * views com os nomes antigos das tabelas (as colunas e a definição delas saem com elas) e os dois
+ * wrappers das funções renomeadas.
  */
-const EXPAND_ALLOWLIST = new Set<string>([])
+const EXPAND_ALLOWLIST = new Set<string>([
+	"relation:procurement.procurement_pesquisa_preco",
+	"relation:procurement.procurement_pesquisa_preco_item",
+	"relation:procurement.procurement_pesquisa_preco_amostra",
+	"relation:procurement.compras_amostra",
+	"relation:procurement.procurement_arp",
+	"relation:procurement.procurement_arp_item",
+	"relation:procurement.procurement_segment",
+	"relation:procurement.procurement_segment_rule",
+	"function:procurement.upsert_compras_amostras",
+	"function:sisub.compras_amostra_fingerprint",
+])
 
 /** Views de compatibilidade: as colunas delas e a definição saem com elas. */
 const allowedRelation = (schema: string, name: string) => EXPAND_ALLOWLIST.has(`relation:${schema}.${name}`)

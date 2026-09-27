@@ -212,13 +212,13 @@ export type PolicyRule = Tables<"policy_rule">
 export type PolicyRuleInsert = TablesInsert<"policy_rule">
 export type PolicyRuleUpdate = TablesUpdate<"policy_rule">
 
-export type ProcurementArp = Tables<"procurement_arp">
-export type ProcurementArpInsert = TablesInsert<"procurement_arp">
-export type ProcurementArpUpdate = TablesUpdate<"procurement_arp">
+export type Arp = Tables<"arp">
+export type ArpInsert = TablesInsert<"arp">
+export type ArpUpdate = TablesUpdate<"arp">
 
-export type ProcurementArpItem = Tables<"procurement_arp_item">
-export type ProcurementArpItemInsert = TablesInsert<"procurement_arp_item">
-export type ProcurementArpItemUpdate = TablesUpdate<"procurement_arp_item">
+export type ArpItem = Tables<"arp_item">
+export type ArpItemInsert = TablesInsert<"arp_item">
+export type ArpItemUpdate = TablesUpdate<"arp_item">
 
 export type Empenho = Tables<"empenho">
 export type EmpenhoInsert = TablesInsert<"empenho">

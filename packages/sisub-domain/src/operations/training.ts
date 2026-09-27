@@ -554,8 +554,8 @@ const RESET_STEPS: ResetStep[] = [
 			),
 	},
 	{
-		table: "procurement.procurement_arp",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.procurement_arp where unit_id = ${scope.unit_id} returning 1`),
+		table: "procurement.arp",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.arp where unit_id = ${scope.unit_id} returning 1`),
 	},
 	// Contratação de origem (20260926214000). DEPOIS de empenho, designação e ARP, que apontam
 	// para ela (ON DELETE SET NULL): apagada antes, o SET NULL só faria trabalho à toa. Os itens
@@ -571,8 +571,8 @@ const RESET_STEPS: ResetStep[] = [
 	// Contratações da OM sentinela (segmentação). DEPOIS dos anexos: `quantity_estimate.segment_id`
 	// aponta para cá sem ação de delete. As regras caem por cascade.
 	{
-		table: "procurement.procurement_segment",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.procurement_segment where unit_id = ${scope.unit_id} returning 1`),
+		table: "procurement.segment",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.segment where unit_id = ${scope.unit_id} returning 1`),
 	},
 
 	// ── Matriz de efetivo ──

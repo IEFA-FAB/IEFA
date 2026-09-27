@@ -8,11 +8,11 @@
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
-	addProcurementSegmentRule,
+	addSegmentRule,
 	calculateQuantityEstimateNeedsForSegment,
-	createProcurementSegment,
 	createQuantityEstimateDraft,
-	deleteProcurementSegment,
+	createSegment,
+	deleteSegment,
 	fetchSegmentationOverview,
 	updateQuantityEstimateDraft,
 	updateQuantityEstimateStatus,
@@ -34,7 +34,7 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 	let closeDb: (() => Promise<void>) | null = null
 
 	beforeAll(async () => {
-		const s = await setupIntegration("procurement_segment")
+		const s = await setupIntegration("segment")
 		reachable = s.reachable
 		if (s.client) client = s.client
 		const url = getSisubDatabaseUrl()
@@ -87,13 +87,13 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 		const ctx = await actor(seeder)
 		const { unitId, kitchenId, templateId, folders, ingredients } = await scenario(seeder)
 
-		const carnes = await createProcurementSegment(db, ctx, { unitId, name: uid("Carnes "), plannedMonth: 3, validityMonths: 12 })
-		seeder.track("procurement_segment", carnes.id)
-		const congelados = await createProcurementSegment(db, ctx, { unitId, name: uid("Congelados ") })
-		seeder.track("procurement_segment", congelados.id)
-		await addProcurementSegmentRule(db, ctx, { segmentId: carnes.id, mode: "include", folderId: folders.proteinas })
-		await addProcurementSegmentRule(db, ctx, { segmentId: carnes.id, mode: "exclude", folderId: folders.pescados })
-		await addProcurementSegmentRule(db, ctx, { segmentId: congelados.id, mode: "include", folderId: folders.pescados })
+		const carnes = await createSegment(db, ctx, { unitId, name: uid("Carnes "), plannedMonth: 3, validityMonths: 12 })
+		seeder.track("segment", carnes.id)
+		const congelados = await createSegment(db, ctx, { unitId, name: uid("Congelados ") })
+		seeder.track("segment", congelados.id)
+		await addSegmentRule(db, ctx, { segmentId: carnes.id, mode: "include", folderId: folders.proteinas })
+		await addSegmentRule(db, ctx, { segmentId: carnes.id, mode: "exclude", folderId: folders.pescados })
+		await addSegmentRule(db, ctx, { segmentId: congelados.id, mode: "include", folderId: folders.pescados })
 
 		const overview = await fetchSegmentationOverview(db, ctx, { unitId })
 		const byIngredient = new Map(overview.lines.map((l) => [l.key, l.resolution]))
@@ -125,12 +125,12 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 		const ctx = await actor(seeder)
 		const { unitId, folders, ingredients } = await scenario(seeder)
 
-		const a = await createProcurementSegment(db, ctx, { unitId, name: uid("A ") })
-		seeder.track("procurement_segment", a.id)
-		const b = await createProcurementSegment(db, ctx, { unitId, name: uid("B ") })
-		seeder.track("procurement_segment", b.id)
-		await addProcurementSegmentRule(db, ctx, { segmentId: a.id, mode: "include", folderId: folders.pescados })
-		await addProcurementSegmentRule(db, ctx, { segmentId: b.id, mode: "include", folderId: folders.pescados })
+		const a = await createSegment(db, ctx, { unitId, name: uid("A ") })
+		seeder.track("segment", a.id)
+		const b = await createSegment(db, ctx, { unitId, name: uid("B ") })
+		seeder.track("segment", b.id)
+		await addSegmentRule(db, ctx, { segmentId: a.id, mode: "include", folderId: folders.pescados })
+		await addSegmentRule(db, ctx, { segmentId: b.id, mode: "include", folderId: folders.pescados })
 
 		let overview = await fetchSegmentationOverview(db, ctx, { unitId })
 		const peixe = overview.lines.find((l) => l.key === `ing:${ingredients.peixe}`)
@@ -144,7 +144,7 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 			code: "SEGMENT_CONFLICT",
 		})
 
-		await deleteProcurementSegment(db, ctx, { segmentId: b.id })
+		await deleteSegment(db, ctx, { segmentId: b.id })
 		overview = await fetchSegmentationOverview(db, ctx, { unitId })
 		expect(overview.segments.map((s) => s.id)).toEqual([a.id])
 		expect(overview.lines.find((l) => l.key === `ing:${ingredients.peixe}`)?.resolution).toEqual({ kind: "assigned", segmentId: a.id })
@@ -160,8 +160,8 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 		const ctx = await actor(seeder)
 		const unitId = await seeder.seedUnit()
 		const name = uid("Estocáveis ")
-		const first = await createProcurementSegment(db, ctx, { unitId, name })
-		seeder.track("procurement_segment", first.id)
-		await expect(createProcurementSegment(db, ctx, { unitId, name: ` ${name.toUpperCase()} ` })).rejects.toMatchObject({ code: "SEGMENT_NAME_TAKEN" })
+		const first = await createSegment(db, ctx, { unitId, name })
+		seeder.track("segment", first.id)
+		await expect(createSegment(db, ctx, { unitId, name: ` ${name.toUpperCase()} ` })).rejects.toMatchObject({ code: "SEGMENT_NAME_TAKEN" })
 	}, 30_000)
 })

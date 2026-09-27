@@ -5,7 +5,7 @@ TBD - created by archiving change sisub-inventory-cycle. Update Purpose after ar
 ## Requirements
 ### Requirement: Painel de saldo com duas visões — oficial e local
 O sistema SHALL exibir, na tela do anexo quantitativo (`/unit/$unitId/quantity-estimates/$quantityEstimateId`), um painel por item de ARP que distinga explicitamente duas grandezas de origens diferentes:
-- **Saldo oficial** (snapshot da API Compras.gov em `procurement_arp_item.quantidade_empenhada`/`saldo_empenho`, com `synced_at`) — inclui consumo de **outras UASGs** (caronas/adesões) e só muda em sincronização;
+- **Saldo oficial** (snapshot da API Compras.gov em `arp_item.quantidade_empenhada`/`saldo_empenho`, com `synced_at`) — inclui consumo de **outras UASGs** (caronas/adesões) e só muda em sincronização;
 - **Comprometimento local** (soma dos empenhos com status `ativo` em `finance.empenho` da unidade) — calculado em tempo real.
 O painel MUST NOT somar nem confundir as duas grandezas, e SHALL exibir a data do snapshot oficial.
 

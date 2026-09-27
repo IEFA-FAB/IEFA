@@ -49,7 +49,44 @@ drop view procurement.procurement_list;
 alter table procurement.procurement_arp drop column procurement_list_id;
 
 // ok: ubiquitous-language-migration-lot2
-select numero_ata, ano_ata, status_ata from procurement.procurement_arp;
+select numero_ata, ano_ata, status_ata from procurement.arp;
+
+// ── Lote 3: pesquisa de preços e prefixos redundantes ──
+
+// ruleid: ubiquitous-language-migration-lot3
+create table procurement.procurement_pesquisa_preco_note (id uuid primary key, note text);
+
+// ruleid: ubiquitous-language-migration-lot3
+alter table procurement.price_research_sample add column amostra_id uuid;
+
+// ruleid: ubiquitous-language-migration-lot3
+alter table procurement.arp rename to procurement_arp;
+
+// ruleid: ubiquitous-language-migration-lot3
+create index idx_pesquisa_preco_created on procurement.price_research (created_at);
+
+// ruleid: ubiquitous-language-migration-lot3
+comment on table procurement.segment is 'antes procurement_segment';
+
+// ruleid: ubiquitous-language-migration-lot3
+create function procurement.count_samples() returns bigint language sql set search_path = '' as $$
+	select count(*) from procurement.compras_amostra;
+$$;
+
+// ok: ubiquitous-language-migration-lot3
+create function procurement.count_price_samples() returns bigint language sql set search_path = '' as $$
+	select count(*) from procurement.price_sample;
+$$;
+
+// ok: ubiquitous-language-migration-lot3
+create table procurement.segment_note (id uuid primary key, segment_id uuid not null);
+
+// ok: ubiquitous-language-migration-lot3
+drop view procurement.procurement_arp_item;
+
+// ok: ubiquitous-language-migration-lot3
+drop function procurement.upsert_compras_amostras(jsonb);
+
 
 // ── Lote 4: finanças ───────────────────────────────────────────────────────
 

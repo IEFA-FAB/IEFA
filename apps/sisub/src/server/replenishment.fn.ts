@@ -296,7 +296,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		const expectedSupplierByIngredient = new Map<string, string>()
 		{
 			const { data: arpItems } = await proc
-				.from("procurement_arp_item")
+				.from("arp_item")
 				.select("saldo_empenho, ni_fornecedor, quantity_estimate_item:quantity_estimate_item_id (ingredient_id), arp:arp_id (data_vigencia_fim)")
 				.not("quantity_estimate_item_id", "is", null)
 			for (const item of arpItems ?? []) {

@@ -64,7 +64,7 @@ describeSupabaseIntegration("documentos do anexo quantitativo", () => {
 		const tag = uid("TESTDOC-")
 		// Amostras de teste no catálogo compartilhado: identificadas pelo prefixo e apagadas no fim.
 		seeder.trackFn(async () => {
-			await testDb.execute(sql`delete from procurement.compras_amostra where id_compra like ${`${tag}%`}`)
+			await testDb.execute(sql`delete from procurement.price_sample where id_compra like ${`${tag}%`}`)
 		}, "amostras de teste")
 
 		const unitId = await seeder.seedUnit()

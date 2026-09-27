@@ -43,7 +43,7 @@ O rancho é rápido: a falta de um trabalho deve impedir o mínimo do outro. Que
 **Banco:**
 - tabelas novas: `procurement.acquisition` (com `unit_id`, declarada antes no guard de reset), `finance.empenho_item`, `procurement.direct_contract_limit`, `finance.credit_note` (com `unit_id`, declarada antes), `finance.empenho_rp_inscription` e `finance.liquidacao_deduction` (sem `unit_id`, filhas com `ON DELETE CASCADE`);
 - `finance.empenho`: `arp_item_id`, `quantidade_empenhada` e `valor_unitario` anuláveis; `acquisition_id`;
-- `procurement.procurement_arp`: `ata_id` anulável com `ON DELETE SET NULL`, `acquisition_id`, `source`;
+- `procurement.arp`: `ata_id` anulável com `ON DELETE SET NULL`, `acquisition_id`, `source`;
 - `finance.empenho.arp_item_id`: `ON DELETE RESTRICT` no lugar de `CASCADE`;
 - `procurement.supply_order.empenho_id` anulável (OF aguardando empenho); limite da OF pelo **valor vigente** do empenho;
 - `finance.liquidacao.empenho_id` e `finance.pagamento.liquidacao_id` continuam obrigatórios; a NS/OB sem pai fica em `siafi_integration.import_row` estacionada.

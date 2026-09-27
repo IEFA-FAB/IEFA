@@ -37,10 +37,10 @@ describeIf("budget execution chain (DB)", () => {
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha orçamento') returning id`
 					const [list] = await tx`insert into procurement.quantity_estimate (unit_id, title) values (${unit.id}, 'lista orçamento') returning id`
 					const [arp] = await tx`
-						insert into procurement.procurement_arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora)
+						insert into procurement.arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora)
 						values (${unit.id}, ${list.id}, 'ATA-ORC', '160077') returning id`
 					const [arpItem] = await tx`
-						insert into procurement.procurement_arp_item (arp_id, numero_item, quantidade_homologada, ni_fornecedor, nome_fornecedor)
+						insert into procurement.arp_item (arp_id, numero_item, quantidade_homologada, ni_fornecedor, nome_fornecedor)
 						values (${arp.id}, 1, 1000, '12345678000199', 'FORNECEDOR ORC') returning id`
 
 					// ── crédito: snapshot do SIAFI ──────────────────────────────────
@@ -203,10 +203,10 @@ describeIf("budget execution chain (DB)", () => {
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha conformidade') returning id`
 					const [list] = await tx`insert into procurement.quantity_estimate (unit_id, title) values (${unit.id}, 'lista conformidade') returning id`
 					const [arp] = await tx`
-						insert into procurement.procurement_arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora)
+						insert into procurement.arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora)
 						values (${unit.id}, ${list.id}, 'ATA-CMP', '160077') returning id`
 					const [arpItem] = await tx`
-						insert into procurement.procurement_arp_item (arp_id, numero_item, quantidade_homologada, ni_fornecedor, nome_fornecedor)
+						insert into procurement.arp_item (arp_id, numero_item, quantidade_homologada, ni_fornecedor, nome_fornecedor)
 						values (${arp.id}, 1, 1000, '12345678000199', 'FORNECEDOR CMP') returning id`
 					const [empenho] = await tx`
 						insert into finance.empenho

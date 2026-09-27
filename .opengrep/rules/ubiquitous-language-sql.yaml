@@ -8,7 +8,8 @@
 # histórico, e o expand/contract do lote 2 citam os nomes antigos de propósito (views de
 # compatibilidade e colunas espelhadas). A lista de termos cresce por lote, como a de
 # `ubiquitous-language.yaml`; cada lote tem a sua regra, com a exclusão até o próprio contract (a
-# do lote 4, finanças, vai até 20260927090000).
+# do lote 3, pesquisa de preços e prefixos, vai até 20260927070000; a do lote 4, finanças, até
+# 20260927090000).
 #
 # Casos de teste: `__fixtures__/ubiquitous-language-sql.sql` (opengrep test --config
 # .opengrep/rules/ubiquitous-language-sql.yaml .opengrep/rules/__fixtures__/ubiquitous-language-sql.sql).
@@ -57,6 +58,43 @@ rules:
           # toca, e um `-- comentário` qualquer no corpo esconderia a função.
           - pattern-regex: >-
               (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:procurement_list\w*|list_id|list_kitchen_id|ata_id|ata_item_id|max_margin_percent|margin_justification|total_quantity)\b(?:(?!\1).)*\1
+
+  - id: ubiquitous-language-migration-lot3
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Nome descartado pelo glossário do sisub numa migration nova. A pesquisa de preços é
+      `procurement.price_research*` (Lei 14.133, art. 23; IN SEGES/ME 65/2021), não
+      `procurement_pesquisa_preco*`/`pesquisa_preco`; a amostra coletada é `procurement.price_sample`
+      (coluna `price_sample_id`, RPC `upsert_price_samples`, `sisub.price_sample_fingerprint`), não
+      `compras_amostra`/`amostra_id`. Sem prefixo redundante: `procurement.arp*` e
+      `procurement.segment*`, não `procurement_arp*`/`procurement_segment*`.
+    paths:
+      include:
+        - "packages/database/supabase/migrations/*.sql"
+      exclude:
+        # Tudo até 20260927070000 inclusive (aplicado, ou expand/contract do lote 3, que citam os
+        # nomes antigos de propósito: views e wrappers de compatibilidade).
+        - "packages/database/supabase/migrations/2024*"
+        - "packages/database/supabase/migrations/2025*"
+        - "packages/database/supabase/migrations/20260[1-8]*"
+        - "packages/database/supabase/migrations/202609[0-1]*"
+        - "packages/database/supabase/migrations/2026092[0-6]*"
+        # 2026-09-27 até 06:59:59 e o próprio contract.
+        - "packages/database/supabase/migrations/202609270[0-6]*"
+        - "packages/database/supabase/migrations/20260927070000_*"
+    patterns:
+      - pattern-either:
+          - patterns:
+              # Do verbo que cria ou nomeia até o `;` que fecha o statement. Linha de comentário conta a
+              # história do rename e não é acusada.
+              - pattern-regex: >-
+                  (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b[^;]*?\b(?:\w*pesquisa_preco\w*|\w*compras_amostras?\w*|amostra_id|\w*procurement_arp\w*|\w*procurement_segment\w*)\b
+              - pattern-not-regex: (?m)^\s*--.*$
+          # Corpo entre dollar quotes: ver a regra do lote 2 (abertura depois de `as`/`do`, sem a
+          # exclusão de comentário).
+          - pattern-regex: >-
+              (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:\w*pesquisa_preco\w*|\w*compras_amostras?\w*|amostra_id|\w*procurement_arp\w*|\w*procurement_segment\w*)\b(?:(?!\1).)*\1
 
   - id: ubiquitous-language-migration-lot4
     languages: [generic]

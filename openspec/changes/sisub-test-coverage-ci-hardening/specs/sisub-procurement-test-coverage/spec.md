@@ -39,7 +39,7 @@ Importação/sync de ARP e registro/anulação de empenhos MUST ter testes com H
 
 #### Scenario: Importar ARP vincula item por CATMAT
 - **WHEN** item externo tem `codigoMaterial` igual a item interno da ATA
-- **THEN** `procurement_arp_item.ata_item_id` MUST apontar para o item interno correto
+- **THEN** `arp_item.ata_item_id` MUST apontar para o item interno correto
 
 #### Scenario: Empenho calcula valor total
 - **WHEN** `createEmpenhoFn()` recebe quantidade e valor unitário

@@ -13,7 +13,7 @@
  *   (leituras, registro rápido).
  * AUTH: `unit` nível 2 na unidade; o registro rápido aceita também `storage` nível 2 na cozinha
  *   que compra por aquela unidade (o almoxarife que monta a OF).
- * TABLES: finance.empenho, finance.empenho_item, procurement.procurement_arp(_item), procurement.acquisition.
+ * TABLES: finance.empenho, finance.empenho_item, procurement.arp(_item), procurement.acquisition.
  * @domain core
  * @migration 20260926214000_acquisition_origin
  */
@@ -245,7 +245,7 @@ export const fetchEmpenhoItemsFn = createServerFn({ method: "GET" })
 		const arpIds = [...new Set(items.map((item) => item.arp_item_id).filter((id): id is string => Boolean(id)))]
 		const numberByArpItem = new Map<string, number | null>()
 		if (arpIds.length > 0) {
-			const { data: arpRows, error: arpError } = await procurement().from("procurement_arp_item").select("id, numero_item").in("id", arpIds)
+			const { data: arpRows, error: arpError } = await procurement().from("arp_item").select("id, numero_item").in("id", arpIds)
 			if (arpError) throw new Error(`Erro ao ler os itens da ARP: ${arpError.message}`)
 			for (const row of arpRows ?? []) numberByArpItem.set(row.id, row.numero_item)
 		}

@@ -28,7 +28,7 @@ const ALLOWED_TABLES = new Set([
 	"recipes",
 	"quantity_estimate",
 	"quantity_estimate_item",
-	"procurement_arp_item",
+	"arp_item",
 	"empenho",
 	"empenho_item",
 	"ingredient",

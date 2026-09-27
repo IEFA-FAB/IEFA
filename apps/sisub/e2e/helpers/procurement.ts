@@ -58,7 +58,7 @@ export async function deleteTemplate(templateId: string | null): Promise<void> {
  * Apaga linhas de `procurement` da sentinela. O salvamento que a tela disparou pode ainda estar em
  * voo: deadlock aqui é concorrência com ele, não erro da limpeza, então tenta de novo.
  */
-export async function deleteProcurementRows(table: "quantity_estimate" | "procurement_segment", ids: readonly string[]): Promise<void> {
+export async function deleteProcurementRows(table: "quantity_estimate" | "segment", ids: readonly string[]): Promise<void> {
 	if (ids.length === 0) return
 	const db = createE2EServiceClient()
 	let lastError: string | null = null

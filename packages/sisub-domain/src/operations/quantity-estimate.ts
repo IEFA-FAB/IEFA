@@ -28,8 +28,8 @@ import {
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
 	menuTemplateMealInKitchen,
-	procurementPesquisaPrecoInProcurement,
-	procurementPesquisaPrecoItemInProcurement,
+	priceResearchInProcurement,
+	priceResearchItemInProcurement,
 	purchaseItemIngredientInProcurement,
 	purchaseItemInProcurement,
 	quantityEstimateInProcurement,
@@ -68,7 +68,6 @@ import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { isSamePrice, toMeasureUnitCode } from "./price-units.ts"
-import { findSegmentConflicts, lineKey, loadLiveSegment, resolveNeedsForSegment } from "./procurement-segments.ts"
 import {
 	computeMinQuoteQuantity,
 	computeQuantityEstimateItemLimits,
@@ -76,6 +75,7 @@ import {
 	requiresMaxQuantityJustification,
 	resolveDeliveryCycle,
 } from "./quantity-estimate-limits.ts"
+import { findSegmentConflicts, lineKey, loadLiveSegment, resolveNeedsForSegment } from "./segments.ts"
 import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
@@ -582,26 +582,26 @@ async function filterOwnResearchLinks<T extends { researchId: string; researchIt
 		runQuery("FETCH_FAILED", () =>
 			client
 				.select({
-					id: procurementPesquisaPrecoInProcurement.id,
-					quantityEstimateId: procurementPesquisaPrecoInProcurement.quantityEstimateId,
+					id: priceResearchInProcurement.id,
+					quantityEstimateId: priceResearchInProcurement.quantityEstimateId,
 					unitId: quantityEstimateInProcurement.unitId,
 				})
-				.from(procurementPesquisaPrecoInProcurement)
-				.leftJoin(quantityEstimateInProcurement, eq(quantityEstimateInProcurement.id, procurementPesquisaPrecoInProcurement.quantityEstimateId))
-				.where(inArray(procurementPesquisaPrecoInProcurement.id, headerIds))
+				.from(priceResearchInProcurement)
+				.leftJoin(quantityEstimateInProcurement, eq(quantityEstimateInProcurement.id, priceResearchInProcurement.quantityEstimateId))
+				.where(inArray(priceResearchInProcurement.id, headerIds))
 		),
 		runQuery("FETCH_FAILED", () =>
 			client
 				.select({
-					id: procurementPesquisaPrecoItemInProcurement.id,
-					researchId: procurementPesquisaPrecoItemInProcurement.researchId,
-					quantityEstimateItemId: procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId,
+					id: priceResearchItemInProcurement.id,
+					researchId: priceResearchItemInProcurement.researchId,
+					quantityEstimateItemId: priceResearchItemInProcurement.quantityEstimateItemId,
 					unitId: quantityEstimateInProcurement.unitId,
 				})
-				.from(procurementPesquisaPrecoItemInProcurement)
-				.leftJoin(quantityEstimateItemInProcurement, eq(quantityEstimateItemInProcurement.id, procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId))
+				.from(priceResearchItemInProcurement)
+				.leftJoin(quantityEstimateItemInProcurement, eq(quantityEstimateItemInProcurement.id, priceResearchItemInProcurement.quantityEstimateItemId))
 				.leftJoin(quantityEstimateInProcurement, eq(quantityEstimateInProcurement.id, quantityEstimateItemInProcurement.quantityEstimateId))
-				.where(inArray(procurementPesquisaPrecoItemInProcurement.id, itemIds))
+				.where(inArray(priceResearchItemInProcurement.id, itemIds))
 		),
 	])
 
@@ -967,7 +967,7 @@ async function persistDraftItems(
 		if (key) survivorByKey.set(key, item.quantity_estimate_item_id as string)
 	}
 
-	// Atualizar existentes (preserva IDs, logo preserva pesquisa_preco_item.quantity_estimate_item_id).
+	// Atualizar existentes (preserva IDs, logo preserva price_research_item.quantity_estimate_item_id).
 	// O predicado amarra o anexo (`quantity_estimate_id`): o `quantity_estimate_item_id` vem do corpo, e um `where id = ?`
 	// cru reescrevia — e, pelo `quantityEstimateId` do payload, SEQUESTRAVA — o item de outro anexo. Item que
 	// não é deste anexo derruba a transação inteira em vez de sumir calado.
@@ -1020,17 +1020,14 @@ async function persistDraftItems(
 	if (toDelete.length > 0) {
 		const deleteSet = new Set(toDelete)
 		const research = await tx
-			.select({ id: procurementPesquisaPrecoItemInProcurement.id, quantityEstimateItemId: procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId })
-			.from(procurementPesquisaPrecoItemInProcurement)
-			.where(inArray(procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId, toDelete))
+			.select({ id: priceResearchItemInProcurement.id, quantityEstimateItemId: priceResearchItemInProcurement.quantityEstimateItemId })
+			.from(priceResearchItemInProcurement)
+			.where(inArray(priceResearchItemInProcurement.quantityEstimateItemId, toDelete))
 		for (const r of research) {
 			const key = r.quantityEstimateItemId ? keyByCurrentId.get(r.quantityEstimateItemId) : null
 			const target = key ? survivorByKey.get(key) : undefined
 			if (target && !deleteSet.has(target)) {
-				await tx
-					.update(procurementPesquisaPrecoItemInProcurement)
-					.set({ quantityEstimateItemId: target })
-					.where(eq(procurementPesquisaPrecoItemInProcurement.id, r.id))
+				await tx.update(priceResearchItemInProcurement).set({ quantityEstimateItemId: target }).where(eq(priceResearchItemInProcurement.id, r.id))
 			} else {
 				unlinkedResearch.add(r.id)
 			}
@@ -1052,13 +1049,10 @@ async function persistDraftItems(
 			const newItemId = itemIdByIngredient.get(link.ingredientId)
 			if (!newItemId) continue
 			await tx
-				.update(procurementPesquisaPrecoItemInProcurement)
+				.update(priceResearchItemInProcurement)
 				.set({ quantityEstimateItemId: newItemId })
-				.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
-			await tx
-				.update(procurementPesquisaPrecoInProcurement)
-				.set({ quantityEstimateId: draftId })
-				.where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
+				.where(eq(priceResearchItemInProcurement.id, link.researchItemId))
+			await tx.update(priceResearchInProcurement).set({ quantityEstimateId: draftId }).where(eq(priceResearchInProcurement.id, link.researchId))
 			// Religada ao item reinserido no mesmo salvamento: não ficou desvinculada.
 			unlinkedResearch.delete(link.researchItemId)
 		}
@@ -1170,13 +1164,10 @@ export async function createQuantityEstimate(db: SisubDb, ctx: UserContext, inpu
 					const quantityEstimateItem = insertedItems.find((i) => i.ingredientId === link.ingredientId)
 					if (!quantityEstimateItem) continue
 					await tx
-						.update(procurementPesquisaPrecoItemInProcurement)
+						.update(priceResearchItemInProcurement)
 						.set({ quantityEstimateItemId: quantityEstimateItem.id })
-						.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
-					await tx
-						.update(procurementPesquisaPrecoInProcurement)
-						.set({ quantityEstimateId: created.id })
-						.where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
+						.where(eq(priceResearchItemInProcurement.id, link.researchItemId))
+					await tx.update(priceResearchInProcurement).set({ quantityEstimateId: created.id }).where(eq(priceResearchInProcurement.id, link.researchId))
 				}
 			}
 		}
@@ -1505,9 +1496,9 @@ async function computeQuantityEstimateMeta(
 		"QUERY_FAILED",
 		() =>
 			db
-				.select({ createdAt: procurementPesquisaPrecoInProcurement.createdAt })
-				.from(procurementPesquisaPrecoInProcurement)
-				.where(eq(procurementPesquisaPrecoInProcurement.quantityEstimateId, quantityEstimateId)),
+				.select({ createdAt: priceResearchInProcurement.createdAt })
+				.from(priceResearchInProcurement)
+				.where(eq(priceResearchInProcurement.quantityEstimateId, quantityEstimateId)),
 		{ prefix: "Erro ao buscar pesquisas" }
 	)
 	const oldestResearchAt = research.length ? research.map((r) => r.createdAt).reduce((a, b) => (a < b ? a : b)) : null
@@ -1762,13 +1753,13 @@ async function assertPricesBackedByResearch(tx: TxClient, unitId: number, input:
 			: runQuery("FETCH_FAILED", () =>
 					tx
 						.select({
-							id: procurementPesquisaPrecoItemInProcurement.id,
-							quantityEstimateItemId: procurementPesquisaPrecoItemInProcurement.quantityEstimateItemId,
-							catmat: procurementPesquisaPrecoItemInProcurement.catmatCodigo,
-							referencePrice: procurementPesquisaPrecoItemInProcurement.referencePrice,
+							id: priceResearchItemInProcurement.id,
+							quantityEstimateItemId: priceResearchItemInProcurement.quantityEstimateItemId,
+							catmat: priceResearchItemInProcurement.catmatCodigo,
+							referencePrice: priceResearchItemInProcurement.referencePrice,
 						})
-						.from(procurementPesquisaPrecoItemInProcurement)
-						.where(inArray(procurementPesquisaPrecoItemInProcurement.id, researchItemIds))
+						.from(priceResearchItemInProcurement)
+						.where(inArray(priceResearchItemInProcurement.id, researchItemIds))
 				),
 		runQuery("FETCH_FAILED", () =>
 			tx
@@ -1844,13 +1835,13 @@ export async function updateQuantityEstimateItemPrices(db: SisubDb, ctx: UserCon
 
 			for (const link of await filterOwnResearchLinks(tx, unitId, input.researchLinks)) {
 				await tx
-					.update(procurementPesquisaPrecoItemInProcurement)
+					.update(priceResearchItemInProcurement)
 					.set({ quantityEstimateItemId: link.quantityEstimateItemId })
-					.where(eq(procurementPesquisaPrecoItemInProcurement.id, link.researchItemId))
+					.where(eq(priceResearchItemInProcurement.id, link.researchItemId))
 				await tx
-					.update(procurementPesquisaPrecoInProcurement)
+					.update(priceResearchInProcurement)
 					.set({ quantityEstimateId: input.quantityEstimateId })
-					.where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
+					.where(eq(priceResearchInProcurement.id, link.researchId))
 			}
 		}
 	})

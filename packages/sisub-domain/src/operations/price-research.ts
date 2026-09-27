@@ -4,7 +4,7 @@
  *
  * A consulta ao Compras.gov.br continua no app (`price-research.fn.ts`): é HTTP externo, não
  * banco. Aqui mora só a persistência — cabeçalho da pesquisa, item consultado, e a
- * classificação das amostras (válida/outlier) contra o catálogo deduplicado `compras_amostra`.
+ * classificação das amostras (válida/outlier) contra o catálogo deduplicado `price_sample`.
  *
  * ## Autorização
  *
@@ -28,9 +28,9 @@
 // acesso só acontece dentro da função, que só roda no servidor.
 import * as nodeCrypto from "node:crypto"
 import {
-	procurementPesquisaPrecoAmostraInProcurement,
-	procurementPesquisaPrecoInProcurement,
-	procurementPesquisaPrecoItemInProcurement,
+	priceResearchInProcurement,
+	priceResearchItemInProcurement,
+	priceResearchSampleInProcurement,
 	quantityEstimateInProcurement,
 	quantityEstimateItemInProcurement,
 	type SisubDb,
@@ -286,9 +286,9 @@ async function loadIdempotentResearch(tx: PriceResearchTx, idempotencyKey: strin
 		"FETCH_FAILED",
 		() =>
 			tx
-				.select({ id: procurementPesquisaPrecoInProcurement.id })
-				.from(procurementPesquisaPrecoInProcurement)
-				.where(eq(procurementPesquisaPrecoInProcurement.idempotencyKey, idempotencyKey))
+				.select({ id: priceResearchInProcurement.id })
+				.from(priceResearchInProcurement)
+				.where(eq(priceResearchInProcurement.idempotencyKey, idempotencyKey))
 				.limit(1),
 		{ prefix: "Erro ao recuperar pesquisa idempotente" }
 	)
@@ -301,10 +301,10 @@ async function loadIdempotentResearch(tx: PriceResearchTx, idempotencyKey: strin
 		"FETCH_FAILED",
 		() =>
 			tx
-				.select({ id: procurementPesquisaPrecoItemInProcurement.id })
-				.from(procurementPesquisaPrecoItemInProcurement)
-				.where(eq(procurementPesquisaPrecoItemInProcurement.researchId, researchId))
-				.orderBy(asc(procurementPesquisaPrecoItemInProcurement.createdAt))
+				.select({ id: priceResearchItemInProcurement.id })
+				.from(priceResearchItemInProcurement)
+				.where(eq(priceResearchItemInProcurement.researchId, researchId))
+				.orderBy(asc(priceResearchItemInProcurement.createdAt))
 				.limit(1),
 		{ prefix: "Erro ao recuperar pesquisa idempotente" }
 	)
@@ -315,11 +315,11 @@ async function loadIdempotentResearch(tx: PriceResearchTx, idempotencyKey: strin
 }
 
 /**
- * Grava as amostras classificadas do item: FATO (catálogo deduplicado `compras_amostra`,
+ * Grava as amostras classificadas do item: FATO (catálogo deduplicado `price_sample`,
  * via RPC idempotente por fingerprint de conteúdo) e PARTICIPAÇÃO (ponte por-pesquisa, que
  * guarda só a classificação).
  *
- * O upsert do catálogo continua na função `procurement.upsert_compras_amostras`: ela insere
+ * O upsert do catálogo continua na função `procurement.upsert_price_samples`: ela insere
  * linha a linha para conseguir `RETURNING` também na pré-existente, e um `insert ... on
  * conflict` em lote não daria conta (duplicata DENTRO do mesmo lote aborta o comando).
  */
@@ -360,7 +360,7 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 	// que é o que alinha cada id à classificação correspondente.
 	const returned = (await runQuery(
 		"INSERT_FAILED",
-		() => tx.execute(sql`select t.id from procurement.upsert_compras_amostras(${JSON.stringify(factRows)}::jsonb) as t(id)`),
+		() => tx.execute(sql`select t.id from procurement.upsert_price_samples(${JSON.stringify(factRows)}::jsonb) as t(id)`),
 		{ prefix: "Erro ao salvar observações de compra" }
 	)) as unknown as { id: string }[]
 
@@ -374,7 +374,7 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 		const conversion = input.measureUnit ? convertSamplePrice(sample, input.measureUnit) : null
 		return {
 			researchItemId,
-			amostraId: returned[i].id,
+			priceSampleId: returned[i].id,
 			sampleType: type,
 			similarity: null,
 			convertedPrice: conversion?.ok ? conversion.price : null,
@@ -387,10 +387,10 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 		"INSERT_FAILED",
 		() =>
 			tx
-				.insert(procurementPesquisaPrecoAmostraInProcurement)
+				.insert(priceResearchSampleInProcurement)
 				.values(bridge)
 				.onConflictDoNothing({
-					target: [procurementPesquisaPrecoAmostraInProcurement.researchItemId, procurementPesquisaPrecoAmostraInProcurement.amostraId],
+					target: [priceResearchSampleInProcurement.researchItemId, priceResearchSampleInProcurement.priceSampleId],
 				}),
 		{ prefix: "Erro ao salvar amostras" }
 	)
@@ -435,7 +435,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 				"INSERT_FAILED",
 				() =>
 					tx
-						.insert(procurementPesquisaPrecoInProcurement)
+						.insert(priceResearchInProcurement)
 						.values({
 							quantityEstimateId: input.quantityEstimateId ?? null,
 							referenceMethod: input.method,
@@ -451,10 +451,10 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 						// O `where` repete o predicado do índice parcial — sem ele o Postgres não
 						// infere o árbitro e recusa o comando inteiro (42P10).
 						.onConflictDoNothing({
-							target: procurementPesquisaPrecoInProcurement.idempotencyKey,
-							where: isNotNull(procurementPesquisaPrecoInProcurement.idempotencyKey),
+							target: priceResearchInProcurement.idempotencyKey,
+							where: isNotNull(priceResearchInProcurement.idempotencyKey),
 						})
-						.returning({ id: procurementPesquisaPrecoInProcurement.id }),
+						.returning({ id: priceResearchInProcurement.id }),
 				{ prefix: "Erro ao salvar pesquisa" }
 			)
 
@@ -469,7 +469,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 				"Erro ao salvar item da pesquisa: no row returned",
 				() =>
 					tx
-						.insert(procurementPesquisaPrecoItemInProcurement)
+						.insert(priceResearchItemInProcurement)
 						.values({
 							researchId: research.id,
 							quantityEstimateItemId: input.quantityEstimateItemId ?? null,
@@ -501,7 +501,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 							justificationOutlierCriteria: justifications.outlierCriteria,
 							justificationOutOfPeriod: justifications.outOfPeriod,
 						})
-						.returning({ id: procurementPesquisaPrecoItemInProcurement.id }),
+						.returning({ id: priceResearchItemInProcurement.id }),
 				{ prefix: "Erro ao salvar item da pesquisa" }
 			)
 

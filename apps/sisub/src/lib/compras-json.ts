@@ -4,7 +4,7 @@
  * últimos dígitos: 98776905900162026 vira 98776905900162030.
  *
  * Esse id é a chave da trilha de auditoria da pesquisa de preços (Lei 14.133/2021)
- * e do dedup de `sisub.compras_amostra`, então o literal numérico é promovido a
+ * e do dedup de `procurement.price_sample`, então o literal numérico é promovido a
  * string ANTES do parse. Idempotente: quando a API devolve o campo entre aspas
  * (contrato antigo), a regex não casa e o valor passa intacto.
  */

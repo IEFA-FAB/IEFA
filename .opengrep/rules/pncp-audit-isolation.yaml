@@ -3,26 +3,31 @@
 #
 # Como as outras regras deste diretório, esta nasceu de um erro real de projeto — só que pego
 # antes do merge. A primeira versão do change `sisub-pncp-integration` propunha levar amostras
-# do PNCP para dentro de `procurement.compras_amostra`, marcadas por uma coluna `origem`. Duas
+# do PNCP para dentro de `procurement.compras_amostra` (hoje `procurement.price_sample`, lote 3 da
+# linguagem ubíqua), marcadas por uma coluna `origem`. Duas
 # medições derrubaram a ideia:
 #
 #   1. A `descricao` do item no PNCP é o nome da CLASSE CATMAT, não o produto. Numa compra real
 #      da FAB, 10 itens têm 3 descrições, com "Carne de ave in natura" repetida sete vezes a
 #      quatro preços — frango inteiro, coxa, peito e filé, sem nenhum campo que os distinga.
 #      Casar com o catálogo por texto não é caro: é indecidível.
-#   2. `savePrecoAuditFn` não escreve na tabela — chama a RPC `upsert_compras_amostras`, de lista
+#   2. `savePrecoAuditFn` (hoje `savePriceResearchFn`) não escreve na tabela — chama a RPC
+#      `upsert_compras_amostras` (hoje `upsert_price_samples`), de lista
 #      fixa com 16 colunas. A amostra do PNCP entraria com o `default 'siasg'`, sem erro, e o
 #      `ON CONFLICT ... DO UPDATE` é no-op: a procedência errada ficaria gravada para sempre.
 #
 # A separação virou invariante do change, e invariante sem gate volta na próxima refatoração.
+#
+# Casos de teste: `__fixtures__/pncp-audit-isolation.ts` (opengrep test --config
+# .opengrep/rules/pncp-audit-isolation.yaml .opengrep/rules/__fixtures__/pncp-audit-isolation.ts).
 ##
 rules:
   - id: pncp-must-not-write-price-audit
     languages: [typescript]
     severity: ERROR
     message: >-
-      Código do PNCP escrevendo na prova de auditoria de preço. `procurement.compras_amostra`,
-      `procurement_pesquisa_preco*` e a RPC `upsert_compras_amostras` sustentam a memória de
+      Código do PNCP escrevendo na prova de auditoria de preço. `procurement.price_sample`,
+      `procurement.price_research*` e a RPC `upsert_price_samples` sustentam a memória de
       cálculo exigida pela Lei 14.133/2021, e o acervo do PNCP não pode alimentá-los: a fonte não
       carrega o produto (a descrição é o nome da classe CATMAT), então qualquer vínculo seria
       casamento textual gravado como fato. O PNCP é tela de referência, não evidência — ver
@@ -37,6 +42,19 @@ rules:
         - "**/*.test.ts"
     patterns:
       - pattern-either:
+          - pattern: $X.from("price_sample")
+          - pattern: $X.from("price_research")
+          - pattern: $X.from("price_research_item")
+          - pattern: $X.from("price_research_sample")
+          - pattern: $X.rpc("upsert_price_samples", ...)
+          # A escrita do domínio é por Drizzle e SQL cru, não pelo client do Supabase.
+          - pattern: $X.insert(priceSampleInProcurement)
+          - pattern: $X.insert(priceResearchInProcurement)
+          - pattern: $X.insert(priceResearchItemInProcurement)
+          - pattern: $X.insert(priceResearchSampleInProcurement)
+          - pattern-regex: (?i)\b(?:insert\s+into|update|delete\s+from)\s+procurement\.(?:price_sample|price_research\w*)\b|\bupsert_price_samples\b
+          # Nomes antigos: views e wrapper de compatibilidade do expand 20260927060000, que saem
+          # no contract 20260927070000.
           - pattern: $X.from("compras_amostra")
           - pattern: $X.from("procurement_pesquisa_preco")
           - pattern: $X.from("procurement_pesquisa_preco_item")

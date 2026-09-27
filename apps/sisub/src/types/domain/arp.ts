@@ -4,25 +4,25 @@
 // Tipos de DTO da API Compras.gov.br e composições permanecem aqui.
 
 export type {
+	Arp,
+	ArpInsert,
+	ArpItem,
+	ArpItemInsert,
+	ArpUpdate,
 	Empenho,
 	EmpenhoInsert,
 	EmpenhoUpdate,
-	ProcurementArp,
-	ProcurementArpInsert,
-	ProcurementArpItem,
-	ProcurementArpItemInsert,
-	ProcurementArpUpdate,
 } from "@iefa/database/sisub"
 
 import type { components } from "@iefa/compras-api"
-import type { Empenho, ProcurementArp, ProcurementArpItem } from "@iefa/database/sisub"
+import type { Arp, ArpItem, Empenho } from "@iefa/database/sisub"
 
 type ComprasSchemas = components["schemas"]
 
 // ─── Composições ─────────────────────────────────────────────────────────────
 
-export interface ArpWithItems extends ProcurementArp {
-	items: ProcurementArpItem[]
+export interface ArpWithItems extends Arp {
+	items: ArpItem[]
 }
 
 /**
@@ -37,7 +37,7 @@ export interface EmpenhoOfArpItem
 	item_value: number
 }
 
-export interface ArpItemWithEmpenhos extends ProcurementArpItem {
+export interface ArpItemWithEmpenhos extends ArpItem {
 	empenhos: EmpenhoOfArpItem[]
 }
 

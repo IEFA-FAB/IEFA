@@ -60,7 +60,7 @@ import {
 	partitionByPeriod,
 	priceForMethod,
 } from "@/lib/price-research-utils"
-import { savePrecoAuditFn } from "@/server/price-research.fn"
+import { savePriceResearchFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -680,7 +680,7 @@ export function PriceResearchModal({
 	const [isSavingMethod, setIsSavingMethod] = useState<PriceResearchMethod | null>(null)
 
 	const { mutateAsync: saveAudit } = useMutation({
-		mutationFn: savePrecoAuditFn,
+		mutationFn: savePriceResearchFn,
 	})
 
 	async function handleUsePrice(method: PriceResearchMethod) {

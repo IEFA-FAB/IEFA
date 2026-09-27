@@ -18,8 +18,8 @@ import type { UserContext } from "../types/context.ts"
 import { runQuery } from "../utils/index.ts"
 import { PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
 import { type CalendarCycle, computeContractingCycle } from "./procurement-calendar.ts"
-import { summarizeSegmentation } from "./procurement-segments.ts"
 import { PRICE_RESEARCH_VALIDITY_DAYS } from "./quantity-estimate.ts"
+import { summarizeSegmentation } from "./segments.ts"
 import { brasiliaToday } from "./stock-math.ts"
 
 export interface KitchenPlanningState {
@@ -128,7 +128,7 @@ async function loadCalendar(db: SisubDb, unitIds: readonly number[], today: stri
 						from procurement.quantity_estimate l
 						where l.segment_id = s.id and l.deleted_at is null and l.status in ('completed', 'archived')) as concluded_at,
 					la.id as annex_id, la.title as annex_title, la.status as annex_status, la.wizard_step as annex_step, la.updated_at as annex_updated_at
-				from procurement.procurement_segment s
+				from procurement.segment s
 				left join lateral (
 					select * from procurement.quantity_estimate l
 					where l.segment_id = s.id and l.deleted_at is null
@@ -178,7 +178,7 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 				db.execute(sql`
 					select l.id, l.title, l.wizard_step, l.updated_at, s.name as segment_name
 					from procurement.quantity_estimate l
-					left join procurement.procurement_segment s on s.id = l.segment_id
+					left join procurement.segment s on s.id = l.segment_id
 					where l.unit_id = ${unitId} and l.deleted_at is null and l.status = 'draft'
 					order by l.updated_at desc nulls last
 					limit 10
@@ -195,18 +195,18 @@ export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserConte
 						count(i.id) filter (where i.unit_price is null) as without_price,
 						count(i.id) filter (
 							where i.unit_price is not null and not exists (
-								select 1 from procurement.procurement_pesquisa_preco_item r
+								select 1 from procurement.price_research_item r
 								where r.quantity_estimate_item_id = i.id and r.reference_price is not null
 									-- Mesma tolerância de isSamePrice (price-units.ts).
 									and abs(r.reference_price - i.unit_price) <= greatest(${PRICE_MATCH_ABSOLUTE}, abs(i.unit_price) * ${PRICE_MATCH_RELATIVE})
 							)
 						) as without_research,
 						count(i.id) filter (
-							where (select max(r.created_at) from procurement.procurement_pesquisa_preco_item r where r.quantity_estimate_item_id = i.id)
+							where (select max(r.created_at) from procurement.price_research_item r where r.quantity_estimate_item_id = i.id)
 								< now() - make_interval(days => ${PRICE_RESEARCH_VALIDITY_DAYS})
 						) as old_research
 					from procurement.quantity_estimate l
-					left join procurement.procurement_segment s on s.id = l.segment_id
+					left join procurement.segment s on s.id = l.segment_id
 					left join procurement.quantity_estimate_item i on i.quantity_estimate_id = l.id
 					where l.unit_id = ${unitId} and l.deleted_at is null and l.status in ('draft', 'completed') and l.wizard_step is null
 					group by l.id, l.title, l.status, s.name, l.updated_at

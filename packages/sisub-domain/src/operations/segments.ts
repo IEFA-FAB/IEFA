@@ -11,13 +11,7 @@
  * gravada, nunca do corpo.
  */
 
-import {
-	folderInKitchen,
-	procurementSegmentInProcurement,
-	procurementSegmentRuleInProcurement,
-	purchaseItemInProcurement,
-	type SisubDb,
-} from "@iefa/database/drizzle/sisub"
+import { folderInKitchen, purchaseItemInProcurement, type SisubDb, segmentInProcurement, segmentRuleInProcurement } from "@iefa/database/drizzle/sisub"
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
@@ -28,7 +22,7 @@ import { folderChain, indexSegmentRules, resolveSegment, type SegmentResolution,
 type TxClient = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 type Client = SisubDb | TxClient
 
-export interface ProcurementSegmentRule {
+export interface SegmentRule {
 	id: string
 	mode: SegmentRuleMode
 	folderId: string | null
@@ -38,7 +32,7 @@ export interface ProcurementSegmentRule {
 	purchaseItemDescription: string | null
 }
 
-export interface ProcurementSegment {
+export interface Segment {
 	id: string
 	unitId: number
 	name: string
@@ -47,7 +41,7 @@ export interface ProcurementSegment {
 	leadTimeMonths: number
 	validityMonths: number
 	pcaIdentifier: string | null
-	rules: ProcurementSegmentRule[]
+	rules: SegmentRule[]
 }
 
 export interface SegmentationLine {
@@ -63,7 +57,7 @@ export interface SegmentationLine {
 }
 
 export interface SegmentationOverview {
-	segments: Array<ProcurementSegment & { lineCount: number }>
+	segments: Array<Segment & { lineCount: number }>
 	/** Pastas vivas do catálogo, com o caminho legível, para o editor de regras. */
 	folders: Array<{ id: string; path: string }>
 	lines: SegmentationLine[]
@@ -98,15 +92,15 @@ export async function loadFolderTree(
 }
 
 /** Contratações não apagadas da OM, com as regras. */
-export async function loadUnitSegments(client: Client, unitId: number, pathOf: (id: string | null) => string | null): Promise<ProcurementSegment[]> {
+export async function loadUnitSegments(client: Client, unitId: number, pathOf: (id: string | null) => string | null): Promise<Segment[]> {
 	const segments = await runQuery(
 		"QUERY_FAILED",
 		() =>
 			client
 				.select()
-				.from(procurementSegmentInProcurement)
-				.where(and(eq(procurementSegmentInProcurement.unitId, unitId), isNull(procurementSegmentInProcurement.deletedAt)))
-				.orderBy(asc(procurementSegmentInProcurement.plannedMonth), asc(procurementSegmentInProcurement.name)),
+				.from(segmentInProcurement)
+				.where(and(eq(segmentInProcurement.unitId, unitId), isNull(segmentInProcurement.deletedAt)))
+				.orderBy(asc(segmentInProcurement.plannedMonth), asc(segmentInProcurement.name)),
 		{ prefix: "Erro ao buscar contratações" }
 	)
 	if (segments.length === 0) return []
@@ -116,22 +110,22 @@ export async function loadUnitSegments(client: Client, unitId: number, pathOf: (
 		() =>
 			client
 				.select({
-					id: procurementSegmentRuleInProcurement.id,
-					segmentId: procurementSegmentRuleInProcurement.segmentId,
-					mode: procurementSegmentRuleInProcurement.mode,
-					folderId: procurementSegmentRuleInProcurement.folderId,
-					purchaseItemId: procurementSegmentRuleInProcurement.purchaseItemId,
+					id: segmentRuleInProcurement.id,
+					segmentId: segmentRuleInProcurement.segmentId,
+					mode: segmentRuleInProcurement.mode,
+					folderId: segmentRuleInProcurement.folderId,
+					purchaseItemId: segmentRuleInProcurement.purchaseItemId,
 					purchaseItemDescription: purchaseItemInProcurement.description,
 				})
-				.from(procurementSegmentRuleInProcurement)
-				.leftJoin(purchaseItemInProcurement, eq(purchaseItemInProcurement.id, procurementSegmentRuleInProcurement.purchaseItemId))
+				.from(segmentRuleInProcurement)
+				.leftJoin(purchaseItemInProcurement, eq(purchaseItemInProcurement.id, segmentRuleInProcurement.purchaseItemId))
 				.where(
 					inArray(
-						procurementSegmentRuleInProcurement.segmentId,
+						segmentRuleInProcurement.segmentId,
 						segments.map((s) => s.id)
 					)
 				)
-				.orderBy(asc(procurementSegmentRuleInProcurement.createdAt)),
+				.orderBy(asc(segmentRuleInProcurement.createdAt)),
 		{ prefix: "Erro ao buscar regras das contratações" }
 	)
 
@@ -157,7 +151,7 @@ export async function loadUnitSegments(client: Client, unitId: number, pathOf: (
 	}))
 }
 
-export function segmentRuleInputs(segments: readonly ProcurementSegment[]): SegmentRuleInput[] {
+export function segmentRuleInputs(segments: readonly Segment[]): SegmentRuleInput[] {
 	return segments.flatMap((s) => s.rules.map((r) => ({ segmentId: s.id, mode: r.mode, folderId: r.folderId, purchaseItemId: r.purchaseItemId })))
 }
 
@@ -321,20 +315,20 @@ export interface SegmentFields {
 async function assertNameAvailable(client: Client, unitId: number, name: string, exceptId?: string): Promise<void> {
 	const rows = await runQuery("QUERY_FAILED", () =>
 		client
-			.select({ id: procurementSegmentInProcurement.id })
-			.from(procurementSegmentInProcurement)
+			.select({ id: segmentInProcurement.id })
+			.from(segmentInProcurement)
 			.where(
 				and(
-					eq(procurementSegmentInProcurement.unitId, unitId),
-					isNull(procurementSegmentInProcurement.deletedAt),
-					sql`lower(btrim(${procurementSegmentInProcurement.name})) = lower(btrim(${name}))`
+					eq(segmentInProcurement.unitId, unitId),
+					isNull(segmentInProcurement.deletedAt),
+					sql`lower(btrim(${segmentInProcurement.name})) = lower(btrim(${name}))`
 				)
 			)
 	)
 	if (rows.some((r) => r.id !== exceptId)) throw new DomainError("SEGMENT_NAME_TAKEN", `Já existe uma contratação "${name.trim()}" nesta OM.`)
 }
 
-export async function createProcurementSegment(db: SisubDb, ctx: UserContext, input: { unitId: number } & SegmentFields): Promise<{ id: string }> {
+export async function createSegment(db: SisubDb, ctx: UserContext, input: { unitId: number } & SegmentFields): Promise<{ id: string }> {
 	requireUnit(ctx, 2, input.unitId)
 	await assertNameAvailable(db, input.unitId, input.name)
 	return insertOneOrFail(
@@ -342,7 +336,7 @@ export async function createProcurementSegment(db: SisubDb, ctx: UserContext, in
 		"Erro ao criar contratação: nenhuma linha retornada",
 		() =>
 			db
-				.insert(procurementSegmentInProcurement)
+				.insert(segmentInProcurement)
 				.values({
 					unitId: input.unitId,
 					name: input.name.trim(),
@@ -353,7 +347,7 @@ export async function createProcurementSegment(db: SisubDb, ctx: UserContext, in
 					pcaIdentifier: input.pcaIdentifier?.trim() || null,
 					createdBy: ctx.userId,
 				})
-				.returning({ id: procurementSegmentInProcurement.id }),
+				.returning({ id: segmentInProcurement.id }),
 		{ prefix: "Erro ao criar contratação planejada" }
 	)
 }
@@ -366,13 +360,13 @@ export async function loadLiveSegment(client: Client, segmentId: string): Promis
 	const rows = await runQuery("QUERY_FAILED", () =>
 		client
 			.select({
-				id: procurementSegmentInProcurement.id,
-				unitId: procurementSegmentInProcurement.unitId,
-				name: procurementSegmentInProcurement.name,
-				deletedAt: procurementSegmentInProcurement.deletedAt,
+				id: segmentInProcurement.id,
+				unitId: segmentInProcurement.unitId,
+				name: segmentInProcurement.name,
+				deletedAt: segmentInProcurement.deletedAt,
 			})
-			.from(procurementSegmentInProcurement)
-			.where(eq(procurementSegmentInProcurement.id, segmentId))
+			.from(segmentInProcurement)
+			.where(eq(segmentInProcurement.id, segmentId))
 			.limit(1)
 	)
 	const row = rows[0]
@@ -403,7 +397,7 @@ export async function findSegmentConflicts(client: Client, unitId: number, segme
 	return conflicts.sort((a, b) => a.localeCompare(b, "pt-BR"))
 }
 
-export async function updateProcurementSegment(db: SisubDb, ctx: UserContext, input: { segmentId: string } & Partial<SegmentFields>): Promise<void> {
+export async function updateSegment(db: SisubDb, ctx: UserContext, input: { segmentId: string } & Partial<SegmentFields>): Promise<void> {
 	const unitId = await authorizeSegment(db, ctx, input.segmentId, 2)
 	if (input.name !== undefined) await assertNameAvailable(db, unitId, input.name, input.segmentId)
 	await mutateOrFail(
@@ -411,7 +405,7 @@ export async function updateProcurementSegment(db: SisubDb, ctx: UserContext, in
 		`Erro ao atualizar contratação: ${input.segmentId} não encontrada`,
 		() =>
 			db
-				.update(procurementSegmentInProcurement)
+				.update(segmentInProcurement)
 				.set({
 					...(input.name !== undefined ? { name: input.name.trim() } : {}),
 					...(input.description !== undefined ? { description: input.description?.trim() || null } : {}),
@@ -421,29 +415,29 @@ export async function updateProcurementSegment(db: SisubDb, ctx: UserContext, in
 					...(input.pcaIdentifier !== undefined ? { pcaIdentifier: input.pcaIdentifier?.trim() || null } : {}),
 					updatedAt: new Date().toISOString(),
 				})
-				.where(eq(procurementSegmentInProcurement.id, input.segmentId))
-				.returning({ id: procurementSegmentInProcurement.id }),
+				.where(eq(segmentInProcurement.id, input.segmentId))
+				.returning({ id: segmentInProcurement.id }),
 		{ prefix: "Erro ao atualizar contratação planejada" }
 	)
 }
 
 /** Soft delete: anexos antigos guardam a referência histórica. */
-export async function deleteProcurementSegment(db: SisubDb, ctx: UserContext, input: { segmentId: string }): Promise<void> {
+export async function deleteSegment(db: SisubDb, ctx: UserContext, input: { segmentId: string }): Promise<void> {
 	await authorizeSegment(db, ctx, input.segmentId, 2)
 	await mutateOrFail(
 		"DELETE_FAILED",
 		`Erro ao remover contratação: ${input.segmentId} não encontrada`,
 		() =>
 			db
-				.update(procurementSegmentInProcurement)
+				.update(segmentInProcurement)
 				.set({ deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
-				.where(eq(procurementSegmentInProcurement.id, input.segmentId))
-				.returning({ id: procurementSegmentInProcurement.id }),
+				.where(eq(segmentInProcurement.id, input.segmentId))
+				.returning({ id: segmentInProcurement.id }),
 		{ prefix: "Erro ao remover contratação planejada" }
 	)
 }
 
-export async function addProcurementSegmentRule(
+export async function addSegmentRule(
 	db: SisubDb,
 	ctx: UserContext,
 	input: { segmentId: string; mode: SegmentRuleMode; folderId?: string | null; purchaseItemId?: string | null }
@@ -457,14 +451,12 @@ export async function addProcurementSegmentRule(
 	// Mesma pasta/item já na contratação: troca o modo em vez de duplicar (o índice único recusaria).
 	const existing = await runQuery("QUERY_FAILED", () =>
 		db
-			.select({ id: procurementSegmentRuleInProcurement.id })
-			.from(procurementSegmentRuleInProcurement)
+			.select({ id: segmentRuleInProcurement.id })
+			.from(segmentRuleInProcurement)
 			.where(
 				and(
-					eq(procurementSegmentRuleInProcurement.segmentId, input.segmentId),
-					folderId
-						? eq(procurementSegmentRuleInProcurement.folderId, folderId)
-						: eq(procurementSegmentRuleInProcurement.purchaseItemId, purchaseItemId as string)
+					eq(segmentRuleInProcurement.segmentId, input.segmentId),
+					folderId ? eq(segmentRuleInProcurement.folderId, folderId) : eq(segmentRuleInProcurement.purchaseItemId, purchaseItemId as string)
 				)
 			)
 			.limit(1)
@@ -476,10 +468,10 @@ export async function addProcurementSegmentRule(
 			`Erro ao trocar o modo da regra: ${ruleId} não encontrada`,
 			() =>
 				db
-					.update(procurementSegmentRuleInProcurement)
+					.update(segmentRuleInProcurement)
 					.set({ mode: input.mode })
-					.where(eq(procurementSegmentRuleInProcurement.id, ruleId))
-					.returning({ id: procurementSegmentRuleInProcurement.id }),
+					.where(eq(segmentRuleInProcurement.id, ruleId))
+					.returning({ id: segmentRuleInProcurement.id }),
 			{ prefix: "Erro ao trocar o modo da regra" }
 		)
 		return { id: ruleId }
@@ -489,20 +481,16 @@ export async function addProcurementSegmentRule(
 		"Erro ao incluir regra: nenhuma linha retornada",
 		() =>
 			db
-				.insert(procurementSegmentRuleInProcurement)
+				.insert(segmentRuleInProcurement)
 				.values({ segmentId: input.segmentId, mode: input.mode, folderId, purchaseItemId })
-				.returning({ id: procurementSegmentRuleInProcurement.id }),
+				.returning({ id: segmentRuleInProcurement.id }),
 		{ prefix: "Erro ao incluir regra" }
 	)
 }
 
-export async function removeProcurementSegmentRule(db: SisubDb, ctx: UserContext, input: { ruleId: string }): Promise<void> {
+export async function removeSegmentRule(db: SisubDb, ctx: UserContext, input: { ruleId: string }): Promise<void> {
 	const rows = await runQuery("QUERY_FAILED", () =>
-		db
-			.select({ segmentId: procurementSegmentRuleInProcurement.segmentId })
-			.from(procurementSegmentRuleInProcurement)
-			.where(eq(procurementSegmentRuleInProcurement.id, input.ruleId))
-			.limit(1)
+		db.select({ segmentId: segmentRuleInProcurement.segmentId }).from(segmentRuleInProcurement).where(eq(segmentRuleInProcurement.id, input.ruleId)).limit(1)
 	)
 	if (!rows[0]) throw new NotFoundError("regra", input.ruleId)
 	await authorizeSegment(db, ctx, rows[0].segmentId, 2)
@@ -510,11 +498,7 @@ export async function removeProcurementSegmentRule(db: SisubDb, ctx: UserContext
 	await mutateOrFail(
 		"DELETE_FAILED",
 		"A regra já não existe: recarregue a segmentação.",
-		() =>
-			db
-				.delete(procurementSegmentRuleInProcurement)
-				.where(eq(procurementSegmentRuleInProcurement.id, input.ruleId))
-				.returning({ id: procurementSegmentRuleInProcurement.id }),
+		() => db.delete(segmentRuleInProcurement).where(eq(segmentRuleInProcurement.id, input.ruleId)).returning({ id: segmentRuleInProcurement.id }),
 		{ prefix: "Erro ao remover regra" }
 	)
 }

@@ -30,7 +30,7 @@ export type PriceResearchMethod = (typeof PRICE_RESEARCH_METHODS)[number]
 
 /**
  * Justificativas que resolvem não conformidade, uma por fundamento. Colunas `justification_*`
- * de `procurement.procurement_pesquisa_preco_item` (migration 20260926211000).
+ * de `procurement.price_research_item` (migration 20260926211000).
  */
 export const RESEARCH_JUSTIFICATION_KEYS = ["lowSample", "method", "outlierCriteria", "outOfPeriod"] as const
 export type ResearchJustificationKey = (typeof RESEARCH_JUSTIFICATION_KEYS)[number]

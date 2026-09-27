@@ -84,7 +84,7 @@ async function resolvePurchaseItemsByArpItem(arpItemIds: readonly string[]): Pro
 	if (ids.length === 0) return resolved
 	const proc = procurement()
 
-	const { data: arpItems } = await proc.from("procurement_arp_item").select("id, catmat_item_codigo").in("id", ids)
+	const { data: arpItems } = await proc.from("arp_item").select("id, catmat_item_codigo").in("id", ids)
 	const catmatByArpItem = new Map<string, string>()
 	for (const row of arpItems ?? []) {
 		if (row.catmat_item_codigo) catmatByArpItem.set(row.id as string, String(row.catmat_item_codigo))
@@ -126,7 +126,7 @@ async function supplierCnpjFor(favorecidoCnpj: string | null, arpItemIds: readon
 	// A regra de quem vence (favorecido × fornecedor da ARP) fica só em `supplierCnpjFromRows`.
 	if (arpItemIds.length === 0) return supplierCnpjFromRows(favorecidoCnpj, [])
 	const { data, error } = await procurement()
-		.from("procurement_arp_item")
+		.from("arp_item")
 		.select("ni_fornecedor")
 		.in("id", [...arpItemIds])
 	if (error) throw new Error(`Erro ao ler o fornecedor da ARP: ${error.message}`)
@@ -384,7 +384,7 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 		>()
 		if (arpItemIds.length > 0) {
 			const { data: arpItems, error: arpError } = await procurement()
-				.from("procurement_arp_item")
+				.from("arp_item")
 				.select("id, ni_fornecedor, nome_fornecedor, descricao_item, numero_item, valor_unitario")
 				.in("id", arpItemIds)
 			if (arpError) throw new Error(`Erro ao ler os itens da ARP: ${arpError.message}`)

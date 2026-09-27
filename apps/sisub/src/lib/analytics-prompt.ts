@@ -43,14 +43,14 @@ Responda SEMPRE em português do Brasil. Seja direto e objetivo.
 ### quantity_estimate_item
 - id, quantity_estimate_id → quantity_estimate.id, ingredient_name, estimated_quantity (quantidade estimada), max_increase_percent (acréscimo da quantidade máxima, %), unit_price
 
-### procurement_arp_item
+### arp_item
 - id, quantidade_homologada, quantidade_empenhada, saldo_empenho, valor_unitario
 
 ### empenho (nota de empenho: o documento)
 - id, unit_id → units.id, numero_empenho, data_empenho, valor_total, status (ativo|anulado), tipo (ordinario|estimativo|global)
 
 ### empenho_item (itens da NE; o que a NE empenhou de cada item da ARP)
-- id, empenho_id → empenho.id, arp_item_id → procurement_arp_item.id (nulo = item sem ARP), quantity (nula = só valor), unit, unit_price, value
+- id, empenho_id → empenho.id, arp_item_id → arp_item.id (nulo = item sem ARP), quantity (nula = só valor), unit, unit_price, value
 
 ### ingredient
 - id, description, measure_unit

@@ -10,7 +10,7 @@ Estado atual do sistema, verificado em produção:
 |---|---|---|
 | OM | `core.units` (31 linhas, 30 com `type`) | Sim — é a chave das abas |
 | UASG da OM | `core.units.uasg` | **Não** — preenchida em 3 de 31 linhas |
-| ATA de gênero | `procurement.procurement_arp` (+ `procurement_arp_item`) | Parcial — só alimento |
+| ATA de gênero | `procurement.arp` (+ `arp_item`) | Parcial — só alimento |
 | Execução orçamentária | `finance.budget_credit`, `empenho`, `liquidacao`, `pagamento`, `reconciliation_decision` | Parcial — `empenho.arp_item_id` é FK **NOT NULL** para item de ATA de gênero |
 | Contratação não-alimentar | — | **Não existe** |
 | Catálogo Compras.gov | `compras_gov_integration.*` (material, serviço, sync log) | Só catálogo; nenhuma contratação |
@@ -118,9 +118,9 @@ unique (external_source, external_id) where external_id is not null
 unique (unit_id, kind, numero, uasg, ano) where external_id is null
 ```
 
-Linha vinda de `procurement_arp` grava `external_source='procurement_arp'` + `external_id=<uuid da ARP>`; do Compras.gov, `external_source='compras_gov'` + id da API; cadastrada à mão, `external_source='manual'` e chave natural. Reimportar não duplica, e o operador continua podendo cadastrar contratação que nenhuma fonte conhece — que é o caso de quase tudo no DIVISA hoje.
+Linha vinda de `arp` grava `external_source='arp'` + `external_id=<uuid da ARP>`; do Compras.gov, `external_source='compras_gov'` + id da API; cadastrada à mão, `external_source='manual'` e chave natural. Reimportar não duplica, e o operador continua podendo cadastrar contratação que nenhuma fonte conhece — que é o caso de quase tudo no DIVISA hoje.
 
-Projeção do `finance`: não cria linha nova por empenho. A cadeia `empenho → liquidacao → pagamento` **soma** para o contrato de origem `procurement_arp` correspondente, mantendo `valor_empenhado/liquidado/pago` como espelho recalculável, nunca como digitação.
+Projeção do `finance`: não cria linha nova por empenho. A cadeia `empenho → liquidacao → pagamento` **soma** para o contrato de origem `arp` correspondente, mantendo `valor_empenhado/liquidado/pago` como espelho recalculável, nunca como digitação.
 
 ### 7. Compras.gov por UASG: worker no `apps/api`, reusando o log de sync
 

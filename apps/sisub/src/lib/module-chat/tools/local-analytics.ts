@@ -71,7 +71,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		if (completedQuantityEstimateIds.length === 0) return toolOk({ message: "Nenhum anexo quantitativo concluído encontrado.", items: [] })
 
 		// ARPs vinculadas aos anexos concluídos
-		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement")
+		const { data: arps, error: arpsError } = await untypedFrom(ctx, "arp", "procurement")
 			.select("id, quantity_estimate_id, numero_ata, ano_ata, data_vigencia_fim")
 			.in("quantity_estimate_id", completedQuantityEstimateIds)
 		if (arpsError) return toolErr(sanitizeDbError(arpsError, "get_low_balance_items:arps"))
@@ -84,7 +84,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		const arpById = new Map(arpsData.map((a: { id: string }) => [a.id, a]))
 
 		// ARP items
-		const { data: arpItems, error: itemsError } = await untypedFrom(ctx, "procurement_arp_item", "procurement")
+		const { data: arpItems, error: itemsError } = await untypedFrom(ctx, "arp_item", "procurement")
 			.select(
 				"id, arp_id, numero_item, catmat_item_codigo, descricao_item, quantidade_homologada, quantidade_empenhada, saldo_empenho, valor_unitario, medida_catmat, quantity_estimate_item_id"
 			)

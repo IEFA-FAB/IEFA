@@ -3,7 +3,7 @@ import { useCallback, useMemo, useRef, useState } from "react"
 import type { PriceResearchAuditIds } from "@/components/features/local/price-research/PriceResearchModal"
 import { autoSelectPrice, fetchAllPagesForCatmat } from "@/lib/price-research-utils"
 import { annexItemUnit } from "@/lib/quantity-estimate-annex"
-import { savePrecoAuditFn } from "@/server/price-research.fn"
+import { savePriceResearchFn } from "@/server/price-research.fn"
 
 export interface BulkResearchItem {
 	catmat_item_codigo: number | null | undefined
@@ -92,7 +92,7 @@ export function useBulkPriceResearch(
 
 				// Sem memória de cálculo gravada o preço não entra no anexo: a falha conta como erro
 				// do item, e a pesquisa pode ser refeita. Aplicar mesmo assim deixava preço sem suporte.
-				const saved = await savePrecoAuditFn({
+				const saved = await savePriceResearchFn({
 					data: {
 						catmatCodigo: item.catmat_item_codigo as number,
 						catmatDescricao: item.catmat_item_descricao ?? null,

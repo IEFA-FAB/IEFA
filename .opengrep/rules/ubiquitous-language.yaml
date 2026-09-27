@@ -3,9 +3,8 @@
 # concluído não volta. Cada regra aponta o nome do glossário
 # (`openspec/changes/sisub-ubiquitous-language/specs/ubiquitous-language/spec.md`).
 #
-# A lista cresce por lote. Termo ainda em uso não entra, senão o gate nasce vermelho: a pesquisa de
-# preços e os prefixos entram no lote 3, `product` (valor de `policy_rule.target`) no lote 5,
-# "rancho" no lote 8. As migrations novas têm regra própria em `ubiquitous-language-sql.yaml`.
+# A lista cresce por lote. Termo ainda em uso não entra, senão o gate nasce vermelho: as finanças no
+# banco entram no lote 4, `product` (valor de `policy_rule.target`) no lote 5, "rancho" no lote 8. As migrations novas têm regra própria em `ubiquitous-language-sql.yaml`.
 #
 # Linha de comentário não é acusada (`pattern-not-regex` da linha inteira): comentário cita o nome
 # antigo para contar a história do rename. Os casos de teste de cada regra estão em
@@ -193,6 +192,45 @@ rules:
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
       # Publicar é, de fato, divulgar no PNCP; margem de preferência é a do art. 26.
       - pattern-not-regex: (?im)^.*(?:PNCP|licitação publicada|edital|preferência).*$
+
+  # ── Lote 3: pesquisa de preços e prefixos redundantes ─────────────────────
+  #
+  # A pesquisa de preços (Lei 14.133, art. 23; IN SEGES/ME 65/2021) tinha um nome em cada língua, e
+  # a amostra coletada chamava-se pela API de origem. O schema já diz o domínio: `procurement.arp`,
+  # não `procurement.procurement_arp`. Fica de fora o caminho do endpoint do Compras.gov.br
+  # (`/modulo-pesquisa-preco/1_consultarMaterial`): é o nome do terceiro.
+
+  - id: ubiquitous-language-lot3-identifier
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Nome descartado pelo glossário do sisub. A pesquisa de preços é `price_research`
+      (`PriceResearch*`, `priceResearch*`, tabelas `procurement.price_research`,
+      `price_research_item`, `price_research_sample`, worker `workers/price-research`,
+      `analyzePrices`, `savePriceResearchFn`), não `pesquisa_preco`/`PesquisaPreco`; a amostra
+      coletada é `price_sample` (`PriceSample`, `priceSampleId`, `price_sample_id`, RPC
+      `upsert_price_samples`), não `compras_amostra`/`AmostraPreco`/`amostra_id`. Sem prefixo
+      redundante: a ARP é `procurement.arp`/`arp_item` (`Arp`, `ArpItem`, `arpInProcurement`) e a
+      contratação planejada é `procurement.segment`/`segment_rule` (`Segment`, `createSegment`,
+      `useSegments`), não `procurement_arp*`/`procurement_segment*`.
+    paths:
+      include:
+        - "apps/sisub/src/**/*.ts"
+        - "apps/sisub/src/**/*.tsx"
+        - "apps/sisub/e2e/**/*.ts"
+        - "packages/sisub-domain/src/**/*.ts"
+        - "apps/sisub-mcp/src/**/*.ts"
+        - "apps/api/src/**/*.ts"
+        - "packages/database/src/sisub.ts"
+      exclude:
+        - "**/routeTree.gen.ts"
+        - "**/generated.ts"
+        - "**/drizzle/**"
+    patterns:
+      - pattern-regex: \b(?:\w*[pP]esquisa_?[pP]recos?\w*|pesquisa-preco|\w*[cC]ompras_?[aA]mostras?\w*|\w*[aA]mostra_?[iI]ds?\b|\w*AmostraPreco\w*|analisarPrecos|savePrecoAuditFn|OpcoesPesquisa|\w*[pP]rocurement_?[aA]rp(?![a-z])\w*|\w*[pP]rocurement_?[sS]egment\w*|procurement-segments)
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+      # Endpoint do Compras.gov.br: o caminho é do terceiro.
+      - pattern-not-regex: /modulo-pesquisa-preco/\w+
 
   # ── Lote 4: finanças ───────────────────────────────────────────────────────
   #

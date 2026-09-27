@@ -195,15 +195,13 @@ const listEmpenhos: ModuleToolDefinition = {
 		// `finance.empenho` não aponta para o anexo — o vínculo é o `arp_item_id` dos itens da NE
 		// (`finance.empenho_item`). Filtrar pelo anexo (o que esta tool fazia) é coluna inexistente:
 		// erro, nunca lista. O caminho é anexo → ARPs → itens de ARP → itens de NE → NEs.
-		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement")
-			.select("id")
-			.eq("quantity_estimate_id", quantityEstimateId)
+		const { data: arps, error: arpsError } = await untypedFrom(ctx, "arp", "procurement").select("id").eq("quantity_estimate_id", quantityEstimateId)
 		if (arpsError) return toolErr(sanitizeDbError(arpsError, "list_empenhos:arps"))
 
 		const arpIds = (arps ?? []).map((a: { id: string }) => a.id)
 		if (arpIds.length === 0) return toolOk({ empenhos: [], returned: 0, total: 0, limit })
 
-		const { data: arpItems, error: itemsError } = await untypedFrom(ctx, "procurement_arp_item", "procurement")
+		const { data: arpItems, error: itemsError } = await untypedFrom(ctx, "arp_item", "procurement")
 			.select("id, numero_item, descricao_item, medida_catmat")
 			.in("arp_id", arpIds)
 		if (itemsError) return toolErr(sanitizeDbError(itemsError, "list_empenhos:arp_items"))

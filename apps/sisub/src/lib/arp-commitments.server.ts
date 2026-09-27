@@ -2,7 +2,7 @@
  * @module arp-commitments.server
  * Comprometimento LOCAL por item de ARP: a soma dos itens de NE ativos da unidade
  * (`finance.empenho_item`), calculada na leitura. É grandeza diferente do retrato oficial do
- * Compras.gov.br (`procurement_arp_item.quantidade_empenhada`), que inclui outros órgãos e caronas
+ * Compras.gov.br (`arp_item.quantidade_empenhada`), que inclui outros órgãos e caronas
  * e só muda na sincronização — as telas mostram os dois lado a lado, sem somar.
  *
  * Lido pelos itens da NE: a NE com vários itens conta em cada item de ARP que ela cobre.

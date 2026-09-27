@@ -179,7 +179,7 @@ export async function listDesignations(db: SisubDb, ctx: UserContext, input: { u
 				left join core.user_data u on u.id = d.person_id
 				left join core.user_military_data m on m."nrOrdem" = u."nrOrdem"
 				left join finance.empenho e on e.id = d.empenho_id
-				left join procurement.procurement_arp a on a.id = d.arp_id
+				left join procurement.arp a on a.id = d.arp_id
 				where d.unit_id = ${input.unitId}
 				order by (d.valid_to is null or d.valid_to >= ${today}::date) desc, d.valid_from desc, d.created_at desc
 				limit 500
@@ -284,9 +284,7 @@ export async function createDesignation(db: SisubDb, ctx: UserContext, input: De
 		if (!row || Number(row.unit_id) !== input.unitId) throw new DomainError("DESIGNATION_SCOPE_OUT_OF_UNIT", "O empenho não é desta OM")
 	}
 	if (input.arpId) {
-		const [row] = (await runQuery("QUERY_FAILED", () =>
-			db.execute(sql`select unit_id from procurement.procurement_arp where id = ${input.arpId}`)
-		)) as unknown as Row[]
+		const [row] = (await runQuery("QUERY_FAILED", () => db.execute(sql`select unit_id from procurement.arp where id = ${input.arpId}`))) as unknown as Row[]
 		if (!row || Number(row.unit_id) !== input.unitId) throw new DomainError("DESIGNATION_SCOPE_OUT_OF_UNIT", "A ARP não é desta OM")
 	}
 
@@ -340,7 +338,7 @@ export async function listDesignationScopes(db: SisubDb, ctx: UserContext, input
 			() =>
 				db.execute(sql`
 					select a.id, a.numero_ata, a.ano_ata, a.nome_uasg_gerenciadora
-					from procurement.procurement_arp a
+					from procurement.arp a
 					where a.unit_id = ${input.unitId}
 					order by a.data_vigencia_fim desc nulls last
 					limit 200

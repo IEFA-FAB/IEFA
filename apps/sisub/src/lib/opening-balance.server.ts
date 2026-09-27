@@ -122,7 +122,7 @@ const toNumber = (value: number | string | null | undefined) => (value == null ?
  *
  * Duas fontes, na ordem do spec ("último preço de ARP ou pesquisa de preços"):
  *
- *  • **ARP** — `procurement_arp_item.valor_unitario`, o preço registrado na ata de registro
+ *  • **ARP** — `arp_item.valor_unitario`, o preço registrado na ata de registro
  *    de preços, ligado ao insumo pelo item do anexo quantitativo (`quantity_estimate_item_id`). Está na unidade de
  *    fornecimento; divide-se pelo `conversion_factor` do item do anexo.
  *  • **Pesquisa de preços** — `quantity_estimate_item.unit_price`, o preço que a unidade
@@ -165,7 +165,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 		listItems.map((item) => item.id),
 		(chunk, from, to) =>
 			proc
-				.from("procurement_arp_item")
+				.from("arp_item")
 				.select("id, arp_id, quantity_estimate_item_id, numero_item, valor_unitario")
 				.in("quantity_estimate_item_id", chunk)
 				.not("valor_unitario", "is", null)
@@ -175,8 +175,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 	const arps = await readAllPagesIn<{ id: string; unit_id: number; numero_ata: string; ano_ata: string | null; data_vigencia_inicio: string | null }>(
 		"as atas de registro de preços",
 		arpItems.map((item) => item.arp_id),
-		(chunk, from, to) =>
-			proc.from("procurement_arp").select("id, unit_id, numero_ata, ano_ata, data_vigencia_inicio").in("id", chunk).order("id").range(from, to)
+		(chunk, from, to) => proc.from("arp").select("id, unit_id, numero_ata, ano_ata, data_vigencia_inicio").in("id", chunk).order("id").range(from, to)
 	)
 	const arpById = new Map(arps.map((arp) => [arp.id, arp]))
 	const listItemById = new Map(listItems.map((item) => [item.id, item]))

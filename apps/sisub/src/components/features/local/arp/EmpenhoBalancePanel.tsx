@@ -1,4 +1,4 @@
-import type { ProcurementArp, ProcurementArpItem } from "@iefa/database/sisub"
+import type { Arp, ArpItem } from "@iefa/database/sisub"
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, PlusCircle, RefreshCw, XCircle } from "lucide-react"
 import { useState } from "react"
 import { usePBAC } from "@/auth/pbac"
@@ -58,7 +58,7 @@ function fmtDateTime(iso: string | null | undefined): string {
 	return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(dt)
 }
 
-function saldoPct(item: ProcurementArpItem): number | null {
+function saldoPct(item: ArpItem): number | null {
 	if (!item.quantidade_homologada || !item.quantidade_empenhada) return null
 	const pct = (Number(item.quantidade_empenhada) / Number(item.quantidade_homologada)) * 100
 	return Math.min(pct, 100)
@@ -280,7 +280,7 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 // ─── Linha expandível de item da ARP ─────────────────────────────────────────
 
 interface ArpItemRowProps {
-	item: ProcurementArpItem
+	item: ArpItem
 	unitId: number
 	canWrite: boolean
 	arpId: string
@@ -412,7 +412,7 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 interface EmpenhoBalancePanelProps {
-	arp: ProcurementArp & { items: ProcurementArpItem[] }
+	arp: Arp & { items: ArpItem[] }
 	unitId: number
 	quantityEstimateId: string
 }

@@ -3,10 +3,10 @@
 ## ADDED Requirements
 
 ### Requirement: Projeção das ATAs e da execução já existentes
-O sistema SHALL projetar para o registro de contratações as ATAs de `procurement.procurement_arp` da OM, com origem `procurement_arp` e tópico `generos_alimenticios`, e SHALL derivar seus valores empenhado, liquidado e pago da cadeia `finance.empenho → liquidacao → pagamento`. A projeção MUST ser idempotente e MUST NOT criar linha por empenho.
+O sistema SHALL projetar para o registro de contratações as ATAs de `procurement.arp` da OM, com origem `arp` e tópico `generos_alimenticios`, e SHALL derivar seus valores empenhado, liquidado e pago da cadeia `finance.empenho → liquidacao → pagamento`. A projeção MUST ser idempotente e MUST NOT criar linha por empenho.
 
 #### Scenario: ATA de gênero aparece no registro
-- **WHEN** a OM tem ATA vigente em `procurement_arp` com empenhos liquidados e pagos
+- **WHEN** a OM tem ATA vigente em `arp` com empenhos liquidados e pagos
 - **THEN** o registro mostra uma contratação com origem no próprio sistema e os valores de execução somados da cadeia do `finance`
 
 #### Scenario: Reprojeção após novo pagamento
