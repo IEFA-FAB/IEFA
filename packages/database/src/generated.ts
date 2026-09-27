@@ -2938,84 +2938,6 @@ export type Database = {
           },
         ]
       }
-      migration_folder_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_id_grupo_produto: number | null
-          new_folder_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_id_grupo_produto?: number | null
-          new_folder_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          legacy_id_grupo_produto?: number | null
-          new_folder_id?: string | null
-        }
-        Relationships: []
-      }
-      migration_nutrient_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_id_nutriente: number | null
-          new_nutrient_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_id_nutriente?: number | null
-          new_nutrient_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          legacy_id_nutriente?: number | null
-          new_nutrient_id?: string | null
-        }
-        Relationships: []
-      }
-      migration_product_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_descricao: string | null
-          legacy_id_insumo: number | null
-          new_product_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_descricao?: string | null
-          legacy_id_insumo?: number | null
-          new_product_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          legacy_descricao?: string | null
-          legacy_id_insumo?: number | null
-          new_product_id?: string | null
-        }
-        Relationships: []
-      }
-      migration_recipe_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_id_preparacao: number | null
-          legacy_rendimento: number | null
-          new_recipe_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_id_preparacao?: number | null
-          legacy_rendimento?: number | null
-          new_recipe_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          legacy_id_preparacao?: number | null
-          legacy_rendimento?: number | null
-          new_recipe_id?: string | null
-        }
-        Relationships: []
-      }
       module_chat_message: {
         Row: {
           content: string | null
@@ -6797,6 +6719,7 @@ export type Database = {
         Row: {
           avg_unit_cost: number
           frozen_preparation_id: string | null
+          id: string
           ingredient_id: string | null
           kitchen_id: number
           quantity: number
@@ -6805,6 +6728,7 @@ export type Database = {
         Insert: {
           avg_unit_cost?: number
           frozen_preparation_id?: string | null
+          id?: string
           ingredient_id?: string | null
           kitchen_id: number
           quantity?: number
@@ -6813,6 +6737,7 @@ export type Database = {
         Update: {
           avg_unit_cost?: number
           frozen_preparation_id?: string | null
+          id?: string
           ingredient_id?: string | null
           kitchen_id?: number
           quantity?: number
@@ -9228,13 +9153,6 @@ export type Database = {
             referencedRelation: "ingredient"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "frozen_preparation_source_ingredient_id_fkey"
-            columns: ["source_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
-          },
         ]
       }
       ingredient: {
@@ -9370,13 +9288,6 @@ export type Database = {
             referencedRelation: "ingredient"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "product_item_product_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
-          },
         ]
       }
       ingredient_nutrient: {
@@ -9419,13 +9330,6 @@ export type Database = {
             referencedRelation: "ingredient"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "product_nutrient_product_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
-          },
         ]
       }
       ingredient_nutrition_reference: {
@@ -9460,13 +9364,6 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "ingredient"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ingredient_nutrition_reference_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: true
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
           },
         ]
       }
@@ -9503,13 +9400,6 @@ export type Database = {
             referencedRelation: "ingredient"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "ingredient_review_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
-          },
         ]
       }
       ingredient_substitution: {
@@ -9543,25 +9433,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ingredient_substitution_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
-          },
-          {
             foreignKeyName: "ingredient_substitution_substitute_ingredient_id_fkey"
             columns: ["substitute_ingredient_id"]
             isOneToOne: false
             referencedRelation: "ingredient"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ingredient_substitution_substitute_ingredient_id_fkey"
-            columns: ["substitute_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
           },
         ]
       }
@@ -9603,13 +9479,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ingredient"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ingredient_version_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
           },
         ]
       }
@@ -10247,84 +10116,6 @@ export type Database = {
           },
         ]
       }
-      migration_folder_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_id_grupo_produto: number
-          new_folder_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_id_grupo_produto: number
-          new_folder_id: string
-        }
-        Update: {
-          created_at?: string | null
-          legacy_id_grupo_produto?: number
-          new_folder_id?: string
-        }
-        Relationships: []
-      }
-      migration_nutrient_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_id_nutriente: number
-          new_nutrient_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_id_nutriente: number
-          new_nutrient_id: string
-        }
-        Update: {
-          created_at?: string | null
-          legacy_id_nutriente?: number
-          new_nutrient_id?: string
-        }
-        Relationships: []
-      }
-      migration_product_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_descricao: string | null
-          legacy_id_insumo: number
-          new_product_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_descricao?: string | null
-          legacy_id_insumo: number
-          new_product_id: string
-        }
-        Update: {
-          created_at?: string | null
-          legacy_descricao?: string | null
-          legacy_id_insumo?: number
-          new_product_id?: string
-        }
-        Relationships: []
-      }
-      migration_recipe_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_id_preparacao: number
-          legacy_rendimento: number | null
-          new_recipe_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_id_preparacao: number
-          legacy_rendimento?: number | null
-          new_recipe_id: string
-        }
-        Update: {
-          created_at?: string | null
-          legacy_id_preparacao?: number
-          legacy_rendimento?: number | null
-          new_recipe_id?: string
-        }
-        Relationships: []
-      }
       module_chat_message: {
         Row: {
           content: string
@@ -10818,13 +10609,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "recipe_ingredient_alternatives_product_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
-          },
-          {
             foreignKeyName: "recipe_ingredient_alternatives_recipe_ingredient_id_fkey"
             columns: ["recipe_ingredient_id"]
             isOneToOne: false
@@ -10887,13 +10671,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ingredient"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recipe_ingredients_product_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
           },
           {
             foreignKeyName: "recipe_ingredients_recipe_id_fkey"
@@ -11948,13 +11725,6 @@ export type Database = {
             referencedRelation: "ingredient"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "ingredient_review_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "v_ingredient_kg_lt_items"
-            referencedColumns: ["product_id"]
-          },
         ]
       }
       recipe_last_review: {
@@ -11973,20 +11743,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      v_ingredient_kg_lt_items: {
-        Row: {
-          base_unit: string | null
-          density_factor: number | null
-          description: string | null
-          item_created_at: string | null
-          item_description: string | null
-          kg_to_base_factor: number | null
-          product_id: string | null
-          product_item_id: string | null
-          purchase_measure_unit: string | null
-        }
-        Relationships: []
       }
       v_meal_presences_with_user: {
         Row: {
@@ -14476,26 +14232,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      catmat_match_candidates: {
-        Args: { p_limit?: number; p_product_description: string }
-        Returns: {
-          codigo_classe: number
-          codigo_item: number
-          codigo_pdm: number
-          descricao_item: string
-          nome_classe: string
-          nome_pdm: string
-          pdm_score: number
-          score: number
-          unidades: string[]
-        }[]
-      }
       catmat_similarity: {
         Args: { p_left: string; p_right: string }
-        Returns: number
-      }
-      catmat_word_similarity: {
-        Args: { p_query: string; p_text: string }
         Returns: number
       }
       compras_amostra_fingerprint: {
@@ -14520,9 +14258,6 @@ export type Database = {
         Returns: string
       }
       execute_analytics_query: { Args: { query: string }; Returns: Json }
-      normalize_catmat_match_text: { Args: { p_text: string }; Returns: string }
-      normalize_label_text: { Args: { p_text: string }; Returns: string }
-      normalize_recipe_name: { Args: { p_name: string }; Returns: string }
     }
     Enums: {
       kitchen_type: "consumption" | "production"
