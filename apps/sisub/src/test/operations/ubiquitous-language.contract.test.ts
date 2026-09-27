@@ -13,8 +13,7 @@
  * (views de compatibilidade, colunas espelhadas). Eles entram em `EXPAND_ALLOWLIST`, que é
  * DATADA: o PR do contract que os derruba esvazia a lista. O lote 2 (anexo quantitativo) já passou
  * pelo contract 20260927050000, o lote 3 (pesquisa de preços e prefixos) pelo 20260927070000 e o
- * lote 4 (finanças) pelo 20260927090000. O lote 7 (arranchamento) está em expand (20260927130000):
- * a view `kitchen.meal_forecasts` fica na allowlist até o contract 20260927140000.
+ * lote 4 (finanças) pelo 20260927090000 e o lote 7 (arranchamento) pelo 20260927140000.
  *
  * A lista de termos cresce por lote, como a do opengrep.
  *
@@ -55,15 +54,12 @@ const DISCARDED_IDENTIFIER =
 const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M|\mmeal_forecasts?\M`
 
 /**
- * Compatibilidade de um expand em andamento, até o contract dele. Os contracts 20260927050000
- * (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e prefixos) e
- * 20260927090000 (lote 4, finanças) derrubaram as delas. Chave: `tipo:schema.objeto[.coluna]`.
+ * Compatibilidade de um expand em andamento, até o contract dele. Vazia: os contracts
+ * 20260927050000 (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e
+ * prefixos), 20260927090000 (lote 4, finanças) e 20260927140000 (lote 7, arranchamento)
+ * derrubaram as delas. Chave: `tipo:schema.objeto[.coluna]`.
  */
-const EXPAND_ALLOWLIST = new Set<string>([
-	// Lote 7 (arranchamento), expand 20260927130000: a view de compatibilidade do nome antigo, para o
-	// código da `main` em produção. Sai com o contract 20260927140000 (2026-09-27).
-	"relation:kitchen.meal_forecasts",
-])
+const EXPAND_ALLOWLIST = new Set<string>([])
 
 /** Views de compatibilidade: as colunas delas e a definição saem com elas. */
 const allowedRelation = (schema: string, name: string) => EXPAND_ALLOWLIST.has(`relation:${schema}.${name}`)
