@@ -13,7 +13,8 @@
  * (views de compatibilidade, colunas espelhadas). Eles entram em `EXPAND_ALLOWLIST`, que é
  * DATADA: o PR do contract que os derruba esvazia a lista. O lote 2 (anexo quantitativo) já passou
  * pelo contract 20260927050000, o lote 3 (pesquisa de preços e prefixos) pelo 20260927070000 e o
- * lote 4 (finanças) pelo 20260927090000.
+ * lote 4 (finanças) pelo 20260927090000. O lote 7 (arranchamento) está em expand (20260927130000):
+ * a view `kitchen.meal_forecasts` fica na allowlist até o contract 20260927140000.
  *
  * A lista de termos cresce por lote, como a do opengrep.
  *
@@ -42,21 +43,26 @@ const SCHEMAS = ["core", "kitchen", "procurement", "finance", "inventory", "acce
  * Lote 3: `pesquisa_preco` (→ `price_research`), `compras_amostra` e `amostra` (→ `price_sample`),
  * e os prefixos `procurement_arp`/`procurement_segment` (→ `arp`/`segment`). Lote 4: a UG executora
  * não tem dotação (`received_credit`), o saldo do SIAFI é o crédito disponível
- * (`available_credit_siafi`) e a UG emitente é `issuer_ug`.
+ * (`available_credit_siafi`) e a UG emitente é `issuer_ug`. Lote 7: o comensal se arrancha
+ * (`kitchen.arranchamento`), não `meal_forecasts`; `forecasted_headcount` (a estimativa agregada)
+ * não casa.
  */
 const DISCARDED_IDENTIFIER =
-	/procurement_list|kitchen_ata_draft|(^|_)list_id($|_)|list_kitchen_id|max_margin|margin_justification|(^|_)total_quantity($|_)|(^|_)ata_(id|item_id|draft)($|_)|pesquisa_preco|compras_amostra|(^|_)amostra(_id)?($|_)|procurement_arp|procurement_segment|(^|_)dotacao($|_)|saldo_siafi|ug_emitente/
+	/procurement_list|kitchen_ata_draft|(^|_)list_id($|_)|list_kitchen_id|max_margin|margin_justification|(^|_)total_quantity($|_)|(^|_)ata_(id|item_id|draft)($|_)|pesquisa_preco|compras_amostra|(^|_)amostra(_id)?($|_)|procurement_arp|procurement_segment|(^|_)dotacao($|_)|saldo_siafi|ug_emitente|meal_forecasts?/
 
 /** Nome descartado citado em texto (corpo de função, definição de view, comentário), em regex do Postgres. */
-const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M`
+const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M|\mmeal_forecasts?\M`
 
 /**
- * Compatibilidade de um expand em andamento, até o contract dele. Vazia: os contracts
- * 20260927050000 (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e
- * prefixos) e 20260927090000 (lote 4, finanças) derrubaram as delas. Chave:
- * `tipo:schema.objeto[.coluna]`.
+ * Compatibilidade de um expand em andamento, até o contract dele. Os contracts 20260927050000
+ * (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e prefixos) e
+ * 20260927090000 (lote 4, finanças) derrubaram as delas. Chave: `tipo:schema.objeto[.coluna]`.
  */
-const EXPAND_ALLOWLIST = new Set<string>([])
+const EXPAND_ALLOWLIST = new Set<string>([
+	// Lote 7 (arranchamento), expand 20260927130000: a view de compatibilidade do nome antigo, para o
+	// código da `main` em produção. Sai com o contract 20260927140000 (2026-09-27).
+	"relation:kitchen.meal_forecasts",
+])
 
 /** Views de compatibilidade: as colunas delas e a definição saem com elas. */
 const allowedRelation = (schema: string, name: string) => EXPAND_ALLOWLIST.has(`relation:${schema}.${name}`)
