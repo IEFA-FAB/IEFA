@@ -7,7 +7,8 @@
 # migrations depois de 20260927050000 (contract do lote 2): as anteriores estão aplicadas e são o
 # histórico, e o expand/contract do lote 2 citam os nomes antigos de propósito (views de
 # compatibilidade e colunas espelhadas). A lista de termos cresce por lote, como a de
-# `ubiquitous-language.yaml`.
+# `ubiquitous-language.yaml`; cada lote tem a sua regra, com a exclusão até o próprio contract (a
+# do lote 4, finanças, vai até 20260927090000).
 #
 # Casos de teste: `__fixtures__/ubiquitous-language-sql.sql` (opengrep test --config
 # .opengrep/rules/ubiquitous-language-sql.yaml .opengrep/rules/__fixtures__/ubiquitous-language-sql.sql).
@@ -46,8 +47,42 @@ rules:
               (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b[^;]*?\b(?:procurement_list\w*|list_id|list_kitchen_id|ata_id|ata_item_id|max_margin_percent|margin_justification|total_quantity)\b
           # Corpo entre dollar quotes (função, `do`): o `;` de dentro não fecha o statement, e é
           # o caso perigoso — plpgsql resolve tabela pelo nome e passaria por uma view de
-          # compatibilidade, que não dispara os triggers da tabela.
+          # compatibilidade, que não dispara os triggers da tabela. A abertura é a que vem depois
+          # de `as`/`do`: sem isso o casamento começaria no `$$` que FECHA uma função e iria até o
+          # que abre a seguinte, acusando o texto entre as duas (um `drop column`, por exemplo).
           - pattern-regex: >-
-              (?is)(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:procurement_list\w*|list_id|list_kitchen_id|ata_id|ata_item_id|max_margin_percent|margin_justification|total_quantity)\b(?:(?!\1).)*\1
+              (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:procurement_list\w*|list_id|list_kitchen_id|ata_id|ata_item_id|max_margin_percent|margin_justification|total_quantity)\b(?:(?!\1).)*\1
       # Linha de comentário conta a história do rename.
+      - pattern-not-regex: (?m)^\s*--.*$
+
+  - id: ubiquitous-language-migration-lot4
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Nome descartado pelo glossário do sisub numa migration nova. Numa UG executora não há
+      dotação (ela é da LOA, no órgão): o crédito que chega por NC é
+      `finance.budget_credit.received_credit`, e o saldo do SIAFI é o crédito disponível,
+      `available_credit_siafi`, não `dotacao`/`saldo_siafi`. A UG emitente da NE é
+      `finance.empenho.issuer_ug`, como em `finance.credit_note`, não `ug_emitente`.
+    paths:
+      include:
+        - "packages/database/supabase/migrations/*.sql"
+      exclude:
+        # Tudo até 20260927090000 inclusive (aplicado, ou expand/contract do lote 4, que citam os
+        # nomes antigos de propósito: espelho e conferência de divergência).
+        - "packages/database/supabase/migrations/2024*"
+        - "packages/database/supabase/migrations/2025*"
+        - "packages/database/supabase/migrations/20260[1-8]*"
+        - "packages/database/supabase/migrations/202609[0-1]*"
+        - "packages/database/supabase/migrations/2026092[0-6]*"
+        - "packages/database/supabase/migrations/202609270[0-8]*"
+        - "packages/database/supabase/migrations/20260927090000_*"
+    patterns:
+      - pattern-either:
+          - pattern-regex: >-
+              (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b[^;]*?\b(?:dotacao|saldo_siafi|ug_emitente)\b
+          # Corpo entre dollar quotes (função, `do`): plpgsql não cria dependência de coluna, e a
+          # função que gravasse a coluna antiga quebraria só depois do contract, em produção.
+          - pattern-regex: >-
+              (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:dotacao|saldo_siafi|ug_emitente)\b(?:(?!\1).)*\1
       - pattern-not-regex: (?m)^\s*--.*$

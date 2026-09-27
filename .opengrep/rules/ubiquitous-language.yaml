@@ -193,3 +193,40 @@ rules:
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
       # Publicar é, de fato, divulgar no PNCP; margem de preferência é a do art. 26.
       - pattern-not-regex: (?im)^.*(?:PNCP|licitação publicada|edital|preferência).*$
+
+  # ── Lote 4: finanças ───────────────────────────────────────────────────────
+  #
+  # Numa UG executora não há dotação (ela é da LOA, no órgão): o que chega por NC é crédito
+  # recebido, e o saldo que o SIAFI informa é o crédito disponível. A UG emitente da NE tem o nome
+  # da NC (`credit_note.issuer_ug`). Fica de fora o parser do relatório do Tesouro Gerencial
+  # (`apps/api/src/workers/siafi/`) e a leitura da linha parseada (`parsed.dotacao`): são as
+  # colunas do relatório ("DOTAÇÃO ATUALIZADA"), layout de terceiro, e a chave fica gravada em
+  # `siafi_integration.import_row.parsed` dos lotes ainda não aplicados.
+
+  - id: ubiquitous-language-lot4-identifier
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Nome descartado pelo glossário do sisub: o crédito que chega à UG executora por NC é
+      `received_credit` (`receivedCredit`), não `dotacao` (a dotação é da LOA, no órgão); o saldo
+      do SIAFI é o crédito disponível, `available_credit_siafi` (`availableCreditSiafi`), não
+      `saldo_siafi`; a UG emitente da NE é `issuer_ug` (`issuerUg`), como na NC, não `ug_emitente`.
+    paths:
+      include:
+        - "apps/sisub/src/**/*.ts"
+        - "apps/sisub/src/**/*.tsx"
+        - "apps/sisub/e2e/**/*.ts"
+        - "packages/sisub-domain/src/**/*.ts"
+        - "apps/sisub-mcp/src/**/*.ts"
+        - "apps/api/src/**/*.ts"
+        - "packages/database/src/sisub.ts"
+      exclude:
+        - "**/routeTree.gen.ts"
+        - "**/generated.ts"
+        - "**/drizzle/**"
+        - "apps/api/src/workers/siafi/**"
+    patterns:
+      - pattern-regex: \b(?:\w*[dD]otacao\w*|\w*[sS]aldo_?[sS]iafi\w*|\w*[uU]g_?[eE]mitente\w*)\b
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+      # Chave da linha parseada do relatório do Tesouro Gerencial (ver o cabeçalho do lote).
+      - pattern-not-regex: \bparsed\.dotacao\b

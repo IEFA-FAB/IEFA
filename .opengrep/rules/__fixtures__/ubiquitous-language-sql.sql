@@ -50,3 +50,36 @@ alter table procurement.procurement_arp drop column procurement_list_id;
 
 // ok: ubiquitous-language-migration-lot2
 select numero_ata, ano_ata, status_ata from procurement.procurement_arp;
+
+// ── Lote 4: finanças ───────────────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-migration-lot4
+alter table finance.budget_credit add column dotacao numeric(14, 2);
+
+// ruleid: ubiquitous-language-migration-lot4
+alter table finance.empenho rename column issuer_ug to ug_emitente;
+
+// ruleid: ubiquitous-language-migration-lot4
+comment on column finance.budget_credit.available_credit_siafi is 'antes saldo_siafi';
+
+// ruleid: ubiquitous-language-migration-lot4
+create function finance.touch_credit() returns void language plpgsql set search_path = '' as $$
+begin
+	perform 1;
+	update finance.budget_credit set dotacao = dotacao;
+end;
+$$;
+
+// ok: ubiquitous-language-migration-lot4
+create function finance.touch_credit_ok() returns void language plpgsql set search_path = '' as $$
+begin
+	perform 1;
+	update finance.budget_credit set received_credit = received_credit;
+end;
+$$;
+
+// ok: ubiquitous-language-migration-lot4
+alter table finance.empenho add column issuer_ug text;
+
+// ok: ubiquitous-language-migration-lot4
+alter table finance.budget_credit drop column saldo_siafi;
