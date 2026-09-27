@@ -3608,9 +3608,10 @@ export type Database = {
     Tables: {
       budget_credit: {
         Row: {
+          available_credit_siafi: number
           competencia: string
           created_at: string
-          dotacao: number
+          dotacao: number | null
           empenhado_siafi: number
           fonte: string | null
           id: string
@@ -3618,16 +3619,18 @@ export type Database = {
           nd: string
           pi: string | null
           ptres: string | null
-          saldo_siafi: number
+          received_credit: number
+          saldo_siafi: number | null
           snapshot_at: string
           ug: string | null
           ugr: string | null
           unit_id: number
         }
         Insert: {
+          available_credit_siafi: number
           competencia: string
           created_at?: string
-          dotacao?: number
+          dotacao?: number | null
           empenhado_siafi?: number
           fonte?: string | null
           id?: string
@@ -3635,16 +3638,18 @@ export type Database = {
           nd: string
           pi?: string | null
           ptres?: string | null
-          saldo_siafi?: number
+          received_credit: number
+          saldo_siafi?: number | null
           snapshot_at?: string
           ug?: string | null
           ugr?: string | null
           unit_id: number
         }
         Update: {
+          available_credit_siafi?: number
           competencia?: string
           created_at?: string
-          dotacao?: number
+          dotacao?: number | null
           empenhado_siafi?: number
           fonte?: string | null
           id?: string
@@ -3652,7 +3657,8 @@ export type Database = {
           nd?: string
           pi?: string | null
           ptres?: string | null
-          saldo_siafi?: number
+          received_credit?: number
+          saldo_siafi?: number | null
           snapshot_at?: string
           ug?: string | null
           ugr?: string | null
@@ -3754,6 +3760,7 @@ export type Database = {
           fonte: string | null
           id: string
           import_batch_id: string | null
+          issuer_ug: string | null
           nd: string | null
           nota_lancamento: string | null
           numero_empenho: string
@@ -3780,6 +3787,7 @@ export type Database = {
           fonte?: string | null
           id?: string
           import_batch_id?: string | null
+          issuer_ug?: string | null
           nd?: string | null
           nota_lancamento?: string | null
           numero_empenho: string
@@ -3806,6 +3814,7 @@ export type Database = {
           fonte?: string | null
           id?: string
           import_batch_id?: string | null
+          issuer_ug?: string | null
           nd?: string | null
           nota_lancamento?: string | null
           numero_empenho?: string

@@ -42,9 +42,9 @@ const BUDGET_CREDIT_COLUMNS = [
 	"pi",
 	"ugr",
 	"competencia",
-	"dotacao",
+	"received_credit",
 	"empenhado_siafi",
-	"saldo_siafi",
+	"available_credit_siafi",
 	"snapshot_at",
 ] as const
 
@@ -102,9 +102,9 @@ function toCreditLineSnapshot(row: BudgetCreditDbRow): CreditLineSnapshot & { id
 		pi: row.pi ?? null,
 		ugr: row.ugr ?? null,
 		competencia: row.competencia,
-		dotacao: Number(row.dotacao),
+		receivedCredit: Number(row.received_credit),
 		empenhadoSiafi: Number(row.empenhado_siafi),
-		saldoSiafi: Number(row.saldo_siafi),
+		availableCreditSiafi: Number(row.available_credit_siafi),
 		snapshotAt: row.snapshot_at,
 	}
 }
@@ -119,7 +119,7 @@ async function fetchClassifiedEmpenhos(unitId: number): Promise<ClassifiedEmpenh
 	const [{ data: rows, error }, { data: vigentes, error: vigenteError }] = await Promise.all([
 		fin
 			.from("empenho")
-			.select("id, data_empenho, status, nd, ptres, fonte, ug_emitente, exercicio, empenho_event(tipo, valor, data)")
+			.select("id, data_empenho, status, nd, ptres, fonte, issuer_ug, exercicio, empenho_event(tipo, valor, data)")
 			.eq("unit_id", unitId)
 			.order("data_empenho", { ascending: false })
 			.limit(2000),
@@ -135,7 +135,7 @@ async function fetchClassifiedEmpenhos(unitId: number): Promise<ClassifiedEmpenh
 		nd: row.nd,
 		ptres: row.ptres,
 		fonte: row.fonte,
-		ug: row.ug_emitente,
+		ug: row.issuer_ug,
 		exercicio: row.exercicio,
 		valorVigente: vigenteById.get(row.id) ?? 0,
 		events: (row.empenho_event ?? []).map((event) => ({ tipo: event.tipo, valor: Number(event.valor), data: event.data })),
@@ -298,9 +298,12 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 					pi: (parsed.pi as string) ?? null,
 					ugr: (parsed.ugr as string) ?? null,
 					competencia,
-					dotacao: Number(parsed.dotacao ?? 0),
+					// `parsed.dotacao`/`parsed.saldo` são as colunas do relatório do Tesouro Gerencial
+					// ("DOTAÇÃO ATUALIZADA", "SALDO"), como o parser as nomeia; no banco, crédito
+					// recebido e crédito disponível.
+					received_credit: Number(parsed.dotacao ?? 0),
 					empenhado_siafi: Number(parsed.empenhado ?? 0),
-					saldo_siafi: Number(parsed.saldo ?? Number(parsed.dotacao ?? 0) - Number(parsed.empenhado ?? 0)),
+					available_credit_siafi: Number(parsed.saldo ?? Number(parsed.dotacao ?? 0) - Number(parsed.empenhado ?? 0)),
 					snapshot_at: snapshotAt,
 					import_batch_id: data.batchId,
 				}))

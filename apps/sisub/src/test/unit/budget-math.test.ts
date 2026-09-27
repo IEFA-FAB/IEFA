@@ -11,7 +11,7 @@ import { describe, expect, test } from "vitest"
 const SNAPSHOT = "2026-07-20T12:00:00.000Z"
 const NOW = Date.parse("2026-07-25T12:00:00.000Z")
 
-const snapshot = { dotacao: 500_000, empenhadoSiafi: 120_000, saldoSiafi: 380_000, snapshotAt: SNAPSHOT }
+const snapshot = { receivedCredit: 500_000, empenhadoSiafi: 120_000, availableCreditSiafi: 380_000, snapshotAt: SNAPSHOT }
 
 describe("localCommitmentAfterSnapshot", () => {
 	test("soma apenas empenhos ativos posteriores ao snapshot", () => {
@@ -44,7 +44,7 @@ describe("localCommitmentAfterSnapshot", () => {
 describe("projectBudget", () => {
 	test("cenário do spec: oficial 380k, local 30k, projetado 350k — três grandezas distintas", () => {
 		const projection = projectBudget(snapshot, [{ dataEmpenho: "2026-07-22T10:00:00.000Z", valor: 30_000, status: "ativo" }], NOW)
-		expect(projection.saldoSiafi).toBe(380_000)
+		expect(projection.availableCreditSiafi).toBe(380_000)
 		expect(projection.comprometimentoLocal).toBe(30_000)
 		expect(projection.saldoProjetado).toBe(350_000)
 	})

@@ -71,7 +71,7 @@ export interface EmpenhoRegistration {
 	nd?: string | null
 	ptres?: string | null
 	fonte?: string | null
-	ugEmitente?: string | null
+	issuerUg?: string | null
 	notaLancamento?: string | null
 	items: readonly EmpenhoItemDraft[]
 }
@@ -234,12 +234,12 @@ export async function insertPreparedEmpenho(operation: EmpenhoRegistrationOperat
 			const [header] = await tx.execute<{ id: string }>(sql`
 				insert into finance.empenho (
 					unit_id, numero_empenho, data_empenho, valor_total, tipo, acquisition_id,
-					favorecido_cnpj, favorecido_nome, nd, ptres, fonte, ug_emitente, exercicio,
+					favorecido_cnpj, favorecido_nome, nd, ptres, fonte, issuer_ug, exercicio,
 					nota_lancamento, status, origem, created_by
 				) values (
 					${data.unitId}, ${numero}, ${data.dataEmpenho}::date, ${valorTotal}, ${data.tipo ?? null}, ${acquisitionId}::uuid,
 					${favorecidoCnpj14}, ${favorecidoNome}, ${data.nd ?? null}, ${data.ptres?.trim() || null}, ${data.fonte?.trim() || null},
-					${data.ugEmitente?.trim() || null}, ${Number(data.dataEmpenho.slice(0, 4))},
+					${data.issuerUg?.trim() || null}, ${Number(data.dataEmpenho.slice(0, 4))},
 					${data.notaLancamento?.trim() || null}, 'ativo', 'manual', ${ctx.userId}::uuid
 				)
 				returning id

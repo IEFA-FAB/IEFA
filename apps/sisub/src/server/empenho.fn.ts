@@ -131,7 +131,7 @@ export const updateEmpenhoClassificationFn = createServerFn({ method: "POST" })
 			nd: z.string().nullable().optional(),
 			ptres: z.string().nullable().optional(),
 			fonte: z.string().nullable().optional(),
-			ugEmitente: z.string().nullable().optional(),
+			issuerUg: z.string().nullable().optional(),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -153,7 +153,7 @@ export const updateEmpenhoClassificationFn = createServerFn({ method: "POST" })
 						nd: data.nd ?? null,
 						ptres: data.ptres ?? null,
 						fonte: data.fonte ?? null,
-						ug_emitente: data.ugEmitente ?? null,
+						issuer_ug: data.issuerUg ?? null,
 					})
 					.eq("id", data.empenhoId)
 				if (error) throw new Error(`Erro ao atualizar empenho: ${error.message}`)

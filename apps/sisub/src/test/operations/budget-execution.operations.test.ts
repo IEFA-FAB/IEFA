@@ -45,10 +45,10 @@ describeIf("budget execution chain (DB)", () => {
 
 					// ── crédito: snapshot do SIAFI ──────────────────────────────────
 					await tx`
-						insert into finance.budget_credit (unit_id, ug, nd, ptres, fonte, competencia, dotacao, empenhado_siafi, saldo_siafi)
+						insert into finance.budget_credit (unit_id, ug, nd, ptres, fonte, competencia, received_credit, empenhado_siafi, available_credit_siafi)
 						values (${unit.id}, '120070', '33903007', '170963', '1000', date_trunc('month', current_date)::date, 500000, 120000, 380000)`
-					const [credito] = await tx`select dotacao, saldo_siafi from finance.budget_credit where unit_id = ${unit.id}`
-					expect(Number(credito.saldo_siafi)).toBe(380000)
+					const [credito] = await tx`select received_credit, available_credit_siafi from finance.budget_credit where unit_id = ${unit.id}`
+					expect(Number(credito.available_credit_siafi)).toBe(380000)
 
 					// ── empenho como documento ──────────────────────────────────────
 					const [empenho] = await tx`
@@ -157,16 +157,16 @@ describeIf("budget execution chain (DB)", () => {
 					// ── hardening (review): crédito com ug/ptres/fonte NULOS ainda
 					//    dedupe (UNIQUE NULLS NOT DISTINCT) — antes duplicava ─────────
 					await tx`
-						insert into finance.budget_credit (unit_id, nd, competencia, dotacao, empenhado_siafi, saldo_siafi)
+						insert into finance.budget_credit (unit_id, nd, competencia, received_credit, empenhado_siafi, available_credit_siafi)
 						values (${unit.id}, '33903099', date_trunc('month', current_date)::date, 1000, 0, 1000)`
 					await tx`
-						insert into finance.budget_credit (unit_id, nd, competencia, dotacao, empenhado_siafi, saldo_siafi)
+						insert into finance.budget_credit (unit_id, nd, competencia, received_credit, empenhado_siafi, available_credit_siafi)
 						values (${unit.id}, '33903099', date_trunc('month', current_date)::date, 2000, 0, 2000)
 						on conflict (unit_id, ug, nd, ptres, fonte, competencia)
-						do update set dotacao = excluded.dotacao, saldo_siafi = excluded.saldo_siafi`
-					const nulos = await tx`select dotacao from finance.budget_credit where unit_id = ${unit.id} and nd = '33903099'`
+						do update set received_credit = excluded.received_credit, available_credit_siafi = excluded.available_credit_siafi`
+					const nulos = await tx`select received_credit from finance.budget_credit where unit_id = ${unit.id} and nd = '33903099'`
 					expect(nulos).toHaveLength(1)
-					expect(Number(nulos[0]?.dotacao)).toBe(2000)
+					expect(Number(nulos[0]?.received_credit)).toBe(2000)
 
 					// ── hardening (review): lote aplicado não aplica de novo ─────────
 					const [batch] = await tx`
@@ -229,7 +229,7 @@ describeIf("budget execution chain (DB)", () => {
 						)
 					).rejects.toThrow(/credit_note_number_key/)
 					await tx`
-						insert into finance.budget_credit (unit_id, ug, nd, ptres, fonte, pi, ugr, competencia, dotacao, empenhado_siafi, saldo_siafi)
+						insert into finance.budget_credit (unit_id, ug, nd, ptres, fonte, pi, ugr, competencia, received_credit, empenhado_siafi, available_credit_siafi)
 						values (${unit.id}, '120070', '339030', '170963', '1000', 'PIRANCHO', '120001', date_trunc('month', current_date)::date, 50000, 0, 50000)`
 
 					// ── (F2) recebimento: 96 × R$ 100 = R$ 9.600 ────────────────────

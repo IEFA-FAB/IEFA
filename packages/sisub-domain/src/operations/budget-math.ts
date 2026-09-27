@@ -11,9 +11,11 @@ import { empenhoEventSign } from "./empenho-events.ts"
 import { roundToCents } from "./liquidacao-math.ts"
 
 export interface BudgetCreditSnapshot {
-	dotacao: number
+	/** Crédito recebido pela UG na classificação (NC de provisão/destaque); a UG executora não tem dotação. */
+	receivedCredit: number
 	empenhadoSiafi: number
-	saldoSiafi: number
+	/** Crédito disponível no SIAFI na data do snapshot. */
+	availableCreditSiafi: number
 	/** ISO timestamp do momento do dado no SIAFI. */
 	snapshotAt: string
 }
@@ -26,12 +28,12 @@ export interface LocalEmpenhoEntry {
 }
 
 export interface BudgetProjection {
-	dotacao: number
+	receivedCredit: number
 	empenhadoSiafi: number
-	saldoSiafi: number
+	availableCreditSiafi: number
 	/** Σ empenhos ATIVOS lançados no sisub após o snapshot. */
 	comprometimentoLocal: number
-	/** saldoSiafi − comprometimentoLocal (nunca abaixo de zero na exibição). */
+	/** availableCreditSiafi − comprometimentoLocal (nunca abaixo de zero na exibição). */
 	saldoProjetado: number
 	snapshotAt: string
 	snapshotAgeDays: number
@@ -62,11 +64,11 @@ export function projectBudget(snapshot: BudgetCreditSnapshot, entries: readonly 
 	const parsed = Date.parse(snapshot.snapshotAt)
 	const ageDays = Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : Math.floor((now - parsed) / 86_400_000)
 	return {
-		dotacao: snapshot.dotacao,
+		receivedCredit: snapshot.receivedCredit,
 		empenhadoSiafi: snapshot.empenhadoSiafi,
-		saldoSiafi: snapshot.saldoSiafi,
+		availableCreditSiafi: snapshot.availableCreditSiafi,
 		comprometimentoLocal,
-		saldoProjetado: roundToCents(snapshot.saldoSiafi - comprometimentoLocal),
+		saldoProjetado: roundToCents(snapshot.availableCreditSiafi - comprometimentoLocal),
 		snapshotAt: snapshot.snapshotAt,
 		snapshotAgeDays: ageDays,
 		snapshotStale: ageDays > STALE_AFTER_DAYS,
@@ -269,11 +271,11 @@ export function projectCreditLine(
 	const parsed = Date.parse(line.snapshotAt)
 	const ageDays = Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : Math.floor((now - parsed) / 86_400_000)
 	return {
-		dotacao: line.dotacao,
+		receivedCredit: line.receivedCredit,
 		empenhadoSiafi: line.empenhadoSiafi,
-		saldoSiafi: line.saldoSiafi,
+		availableCreditSiafi: line.availableCreditSiafi,
 		comprometimentoLocal: comprometimento,
-		saldoProjetado: roundToCents(line.saldoSiafi - comprometimento),
+		saldoProjetado: roundToCents(line.availableCreditSiafi - comprometimento),
 		snapshotAt: line.snapshotAt,
 		snapshotAgeDays: ageDays,
 		snapshotStale: ageDays > STALE_AFTER_DAYS,

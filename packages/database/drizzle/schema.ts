@@ -3359,6 +3359,7 @@ export const empenhoInFinance = finance.table("empenho", {
 	rpTipo: text("rp_tipo"),
 	rpExercicio: integer("rp_exercicio"),
 	acquisitionId: uuid("acquisition_id"),
+	issuerUg: text("issuer_ug"),
 }, (table) => [
 	index("empenho_acquisition_idx").using("btree", table.acquisitionId.asc().nullsLast()).where(sql`(acquisition_id IS NOT NULL)`),
 	index("empenho_created_by_fk_idx").using("btree", table.createdBy.asc().nullsLast()),
@@ -3504,40 +3505,6 @@ export const inventoryCountInInventory = inventory.table("inventory_count", {
 	check("inventory_count_scope_check", sql`scope = ANY (ARRAY['full'::text, 'conservation_class'::text, 'location'::text, 'item_list'::text, 'menu_cycle'::text])`),
 	check("inventory_count_status_check", sql`status = ANY (ARRAY['draft'::text, 'counting'::text, 'review'::text, 'recount'::text, 'approved'::text, 'rejected'::text, 'expired'::text, 'confirmed'::text])`),
 	check("inventory_count_type_check", sql`type = ANY (ARRAY['annual'::text, 'responsibility_transfer'::text, 'eventual'::text, 'rotating'::text])`),
-]);
-
-export const budgetCreditInFinance = finance.table("budget_credit", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	unitId: bigint("unit_id", { mode: "number" }).notNull(),
-	ug: text(),
-	nd: text().notNull(),
-	ptres: text(),
-	fonte: text(),
-	competencia: date().notNull(),
-	dotacao: numeric({ mode: "number", precision: 14, scale: 2 }).default(0).notNull(),
-	empenhadoSiafi: numeric("empenhado_siafi", { mode: "number", precision: 14, scale: 2 }).default(0).notNull(),
-	saldoSiafi: numeric("saldo_siafi", { mode: "number", precision: 14, scale: 2 }).default(0).notNull(),
-	snapshotAt: timestamp("snapshot_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	importBatchId: uuid("import_batch_id"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	pi: text(),
-	ugr: text(),
-}, (table) => [
-	index("budget_credit_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast()),
-	index("budget_credit_nd_idx").using("btree", table.unitId.asc().nullsLast(), table.nd.asc().nullsLast()),
-	index("budget_credit_unit_competencia_idx").using("btree", table.unitId.asc().nullsLast(), table.competencia.desc().nullsFirst()),
-	foreignKey({
-			columns: [table.importBatchId],
-			foreignColumns: [importBatchInSiafiIntegration.id],
-			name: "budget_credit_import_batch_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.unitId],
-			foreignColumns: [unitsInCore.id],
-			name: "budget_credit_unit_id_fkey"
-		}),
-	unique("budget_credit_classification_key").on(table.unitId, table.ug, table.nd, table.ptres, table.fonte, table.competencia),
 ]);
 
 export const gpcAttributeInGs1Integration = gs1Integration.table("gpc_attribute", {
@@ -3804,6 +3771,42 @@ export const creditNoteInFinance = finance.table("credit_note", {
 	check("credit_note_nd_check", sql`(nd IS NULL) OR (nd ~ '^[0-9]{6}([0-9]{2})?$'::text)`),
 	check("credit_note_number_check", sql`btrim(number) <> ''::text`),
 	check("credit_note_origin_check", sql`origin = ANY (ARRAY['manual'::text, 'siafi'::text])`),
+]);
+
+export const budgetCreditInFinance = finance.table("budget_credit", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	unitId: bigint("unit_id", { mode: "number" }).notNull(),
+	ug: text(),
+	nd: text().notNull(),
+	ptres: text(),
+	fonte: text(),
+	competencia: date().notNull(),
+	dotacao: numeric({ mode: "number", precision: 14, scale: 2 }),
+	empenhadoSiafi: numeric("empenhado_siafi", { mode: "number", precision: 14, scale: 2 }).default(0).notNull(),
+	saldoSiafi: numeric("saldo_siafi", { mode: "number", precision: 14, scale: 2 }),
+	snapshotAt: timestamp("snapshot_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	importBatchId: uuid("import_batch_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	pi: text(),
+	ugr: text(),
+	receivedCredit: numeric("received_credit", { mode: "number", precision: 14, scale: 2 }).notNull(),
+	availableCreditSiafi: numeric("available_credit_siafi", { mode: "number", precision: 14, scale: 2 }).notNull(),
+}, (table) => [
+	index("budget_credit_import_batch_id_fk_idx").using("btree", table.importBatchId.asc().nullsLast()),
+	index("budget_credit_nd_idx").using("btree", table.unitId.asc().nullsLast(), table.nd.asc().nullsLast()),
+	index("budget_credit_unit_competencia_idx").using("btree", table.unitId.asc().nullsLast(), table.competencia.desc().nullsFirst()),
+	foreignKey({
+			columns: [table.importBatchId],
+			foreignColumns: [importBatchInSiafiIntegration.id],
+			name: "budget_credit_import_batch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.unitId],
+			foreignColumns: [unitsInCore.id],
+			name: "budget_credit_unit_id_fkey"
+		}),
+	unique("budget_credit_classification_key").on(table.unitId, table.ug, table.nd, table.ptres, table.fonte, table.competencia),
 ]);
 
 export const policyStatementInAccessControl = accessControl.table("policy_statement", {

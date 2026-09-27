@@ -189,3 +189,29 @@ const increaseLabel = <Label>Acréscimo sobre a estimada (%)</Label>
 const note = "Publicar é divulgar no PNCP (Lei 14.133, art. 54)."
 // ok: ubiquitous-language-lot2-label
 const preference = "margem de preferência (art. 26)"
+
+// ── Lote 4: finanças ───────────────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-lot4-identifier
+const credit = { dotacao: Number(row.dotacao) }
+// ruleid: ubiquitous-language-lot4-identifier
+const columns = ["id", "saldo_siafi", "empenhado_siafi"]
+// ruleid: ubiquitous-language-lot4-identifier
+const line = { saldoSiafi: 0 }
+// ruleid: ubiquitous-language-lot4-identifier
+const neSelect = fin.from("empenho").select("id, nd, ug_emitente")
+// ruleid: ubiquitous-language-lot4-identifier
+const neInput = z.object({ ugEmitente: z.string().nullable() })
+// ruleid: ubiquitous-language-lot4-identifier
+const SALDO_SIAFI_KEY = "available"
+
+// ok: ubiquitous-language-lot4-identifier
+const creditOk = { receivedCredit: Number(row.received_credit), availableCreditSiafi: Number(row.available_credit_siafi) }
+// ok: ubiquitous-language-lot4-identifier
+const neInputOk = z.object({ issuerUg: z.string().nullable() })
+// ok: ubiquitous-language-lot4-identifier
+const fromReport = { received_credit: Number(parsed.dotacao ?? 0) }
+// ok: ubiquitous-language-lot4-identifier
+const tooltip = "Numa UG executora não há dotação: há crédito descentralizado por nota de crédito."
+// ok: ubiquitous-language-lot4-identifier
+// A coluna antiga era dotacao; o espelho a mantém até o contract.
