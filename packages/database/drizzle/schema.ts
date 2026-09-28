@@ -582,13 +582,11 @@ export const userDataInCore = core.table("user_data", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	email: text().notNull(),
-	nrOrdem: text(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	defaultMessHallId: bigint("default_mess_hall_id", { mode: "number" }),
 	saram: text(),
 }, (table) => [
 	index("user_data_default_mess_hall_id_fk_idx").using("btree", table.defaultMessHallId.asc().nullsLast()),
-	index("user_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast()),
 	index("user_data_saram_idx").using("btree", table.saram.asc().nullsLast()),
 	foreignKey({
 			columns: [table.defaultMessHallId],
@@ -807,7 +805,6 @@ export const comprasMaterialCaracteristicaInComprasGovIntegration = comprasGovIn
 export const personInCore = core.table("person", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	displayName: text("display_name").notNull(),
-	nrOrdem: text("nr_ordem"),
 	userId: uuid("user_id"),
 	active: boolean().default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -821,7 +818,6 @@ export const personInCore = core.table("person", {
 			foreignColumns: [usersInAuth.id],
 			name: "person_user_id_fkey"
 		}).onDelete("set null"),
-	unique("person_nr_ordem_key").on(table.nrOrdem),
 	unique("person_user_id_key").on(table.userId),
 	unique("person_saram_key").on(table.saram),
 	check("person_display_name_check", sql`btrim(display_name) <> ''::text`),
@@ -5624,15 +5620,14 @@ export const vBarcodeReviewInGs1Integration = gs1Integration.view("v_barcode_rev
 
 export const personIdentityInCore = core.view("person_identity", {	id: uuid(),
 	displayName: text("display_name"),
-	nrOrdem: text("nr_ordem"),
+	saram: text(),
 	userId: uuid("user_id"),
 	active: boolean(),
 	email: text(),
 	posto: text(),
 	nomeGuerra: text("nome_guerra"),
 	label: text(),
-	saram: text(),
-}).with({"securityInvoker":true}).as(sql`SELECT p.id, p.display_name, p.nr_ordem, p.user_id, p.active, ud.email, mi.posto, mi.nome_guerra, COALESCE(NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text), ud.email, p.display_name) AS label, p.saram FROM core.person p LEFT JOIN core.user_data ud ON ud.id = p.user_id LEFT JOIN core.military_identity mi ON mi.saram = p.saram`);
+}).with({"securityInvoker":true}).as(sql`SELECT p.id, p.display_name, p.saram, p.user_id, p.active, ud.email, mi.posto, mi.nome_guerra, COALESCE(NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text), ud.email, p.display_name) AS label FROM core.person p LEFT JOIN core.user_data ud ON ud.id = p.user_id LEFT JOIN core.military_identity mi ON mi.saram = p.saram`);
 
 export const vPurchaseItemConditioningReviewInProcurement = procurement.view("v_purchase_item_conditioning_review", {	purchaseItemId: uuid("purchase_item_id"),
 	description: text(),

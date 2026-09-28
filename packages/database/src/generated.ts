@@ -2541,7 +2541,6 @@ export type Database = {
           display_name: string
           id: string
           name_key: string | null
-          nr_ordem: string | null
           saram: string | null
           updated_at: string
           user_id: string | null
@@ -2552,7 +2551,6 @@ export type Database = {
           display_name: string
           id?: string
           name_key?: string | null
-          nr_ordem?: string | null
           saram?: string | null
           updated_at?: string
           user_id?: string | null
@@ -2563,7 +2561,6 @@ export type Database = {
           display_name?: string
           id?: string
           name_key?: string | null
-          nr_ordem?: string | null
           saram?: string | null
           updated_at?: string
           user_id?: string | null
@@ -2648,7 +2645,6 @@ export type Database = {
           default_mess_hall_id: number | null
           email: string
           id: string
-          nrOrdem: string | null
           saram: string | null
         }
         Insert: {
@@ -2656,7 +2652,6 @@ export type Database = {
           default_mess_hall_id?: number | null
           email: string
           id?: string
-          nrOrdem?: string | null
           saram?: string | null
         }
         Update: {
@@ -2664,7 +2659,6 @@ export type Database = {
           default_mess_hall_id?: number | null
           email?: string
           id?: string
-          nrOrdem?: string | null
           saram?: string | null
         }
         Relationships: [
@@ -3095,7 +3089,6 @@ export type Database = {
           id: string | null
           label: string | null
           nome_guerra: string | null
-          nr_ordem: string | null
           posto: string | null
           saram: string | null
           user_id: string | null
