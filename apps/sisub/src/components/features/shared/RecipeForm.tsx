@@ -13,6 +13,16 @@ import { RecipeFlowEditor } from "@/components/features/shared/recipe-flow/Recip
 import { UnsavedChangesGuard } from "@/components/features/shared/UnsavedChangesGuard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -501,8 +511,9 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	// Fluxo e Equipamentos salvam por conta própria e não têm rascunho: enquanto houver
 	// alteração deles, sair da aba ou da tela pede confirmação (`UnsavedChangesGuard`).
 	const sideEditorsDirty = useRef({ flow: false, equipment: false })
-	/** Navegação que a própria tela dispara e que não perde nada (levar o rascunho à vigente). */
+	/** Navegação já confirmada pelo usuário (levar o rascunho à vigente descartando o fluxo). */
 	const allowNavigation = useRef(false)
+	const [confirmCarryOpen, setConfirmCarryOpen] = useState(false)
 	const setFlowDirty = useCallback((dirty: boolean) => {
 		sideEditorsDirty.current.flow = dirty
 	}, [])
@@ -596,6 +607,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			// salva mais: grave ou descarte antes.
 			if (sideEditorsDirty.current.flow || sideEditorsDirty.current.equipment) {
 				toast.error("Salve ou descarte antes as alterações do fluxo de produção ou dos equipamentos", {
+					// Os dois editores têm "Descartar alterações" ao lado do próprio Salvar.
 					id: "recipe-form-side-editors",
 					description: "Salvar a preparação cria uma versão nova com o fluxo e os equipamentos já salvos; o que não foi salvo ficaria para trás.",
 				})
@@ -683,7 +695,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			const headMode = mode === "fork" && head.kitchen_id == null ? "fork" : "edit"
 			const headBaseline = recipeFormValues(head)
 			const { values, carried, overlapping } = rebaseDraftValues(recipeFormValues(initialData), form.state.values, headBaseline, {
-				ingredients: (row: RecipeIngredientRow) => row.ingredient_id ?? "",
+				ingredients: (row: RecipeIngredientRow) => row.ingredient_id,
 			})
 			const headHref = kitchenId ? `/kitchen/${kitchenId}/recipes/${head.id}${headMode === "fork" ? "/fork" : ""}` : `/global/recipes/${head.id}`
 			if (carried.length > 0) {
@@ -698,8 +710,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				})
 			}
 			discardDraft(draftKey)
-			// Fluxo e equipamentos desta versão já não se salvam (ela foi superada): a guarda de
-			// saída só atrapalharia aqui.
+			// Se havia fluxo ou equipamentos pendentes, o usuário já confirmou descartá-los
+			// (`confirmCarryOpen`): a guarda de saída não pergunta de novo.
 			allowNavigation.current = true
 			navigate({ href: `${headHref}${activeTab !== "detalhes" ? `?tab=${activeTab}` : ""}`, replace: true })
 			if (carried.length === 0) toast.info(`Aberta a versão vigente (v${head.version}).`)
@@ -828,7 +840,17 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 								Salvar daqui gravaria por cima do que mudou, por isso fica bloqueado. Abra a versão vigente: o que você alterou aqui vai junto, e a lista de
 								alterações mostra o que o Salvar muda.
 							</p>
-							<Button type="button" size="sm" onClick={carryDraftToHead} disabled={isCarryingDraft}>
+							<Button
+								type="button"
+								size="sm"
+								onClick={() => {
+									// Fluxo e equipamentos de versão superada não se salvam mais, e não vão junto
+									// para a vigente: com alteração deles pendente, confirma antes de descartar.
+									if (sideEditorsDirty.current.flow || sideEditorsDirty.current.equipment) setConfirmCarryOpen(true)
+									else carryDraftToHead()
+								}}
+								disabled={isCarryingDraft}
+							>
 								{isCarryingDraft ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
 								Abrir a versão vigente (v{supersededBy.version})
 							</Button>
@@ -1297,6 +1319,30 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					/>
 				)}
 			</form.Subscribe>
+
+			<AlertDialog open={confirmCarryOpen} onOpenChange={setConfirmCarryOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Descartar as alterações do fluxo e dos equipamentos?</AlertDialogTitle>
+						<AlertDialogDescription>
+							Esta versão foi superada, e o fluxo de produção e os equipamentos dela não podem mais ser salvos. As alterações da preparação vão para a versão
+							vigente; as do fluxo e dos equipamentos, não — refaça-as lá.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Continuar aqui</AlertDialogCancel>
+						<AlertDialogAction
+							variant="destructive"
+							onClick={() => {
+								setConfirmCarryOpen(false)
+								carryDraftToHead()
+							}}
+						>
+							Descartar e abrir a vigente
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<UnsavedChangesGuard
 				isDirty={() => !allowNavigation.current && (sideEditorsDirty.current.flow || sideEditorsDirty.current.equipment)}

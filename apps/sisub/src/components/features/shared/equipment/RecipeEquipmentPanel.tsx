@@ -207,6 +207,20 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId, onDirtyChange, saveB
 						<Plus className="size-4 mr-2" />
 						Adicionar
 					</Button>
+					{dirty ? (
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onClick={() => {
+								setRows((requirements ?? []).map(toRow))
+								setDirty(false)
+							}}
+							disabled={save.isPending}
+						>
+							Descartar alterações
+						</Button>
+					) : null}
 					<Button type="button" size="sm" onClick={handleSave} disabled={save.isPending || incomplete || !dirty || saveBlocked}>
 						{save.isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
 						Salvar equipamentos

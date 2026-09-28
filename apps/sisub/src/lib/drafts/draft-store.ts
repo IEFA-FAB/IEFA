@@ -58,12 +58,6 @@ let snapshot: DraftEntry[] = []
 let keySnapshot = ""
 /** Assinatura da conta amarrada. Sem ela, o store fica só em memória (nada lido nem gravado). */
 let owner: string | null = null
-/**
- * Conta que entrou em OUTRA aba enquanto esta seguia amarrada à anterior. Até o cabeçalho
- * desta aba se amarrar a ela, esta aba não mostra nem grava rascunho de ninguém — senão quem
- * entrou veria (e salvaria em nome próprio) o rascunho de quem saiu.
- */
-let foreignOwner: string | null = null
 let hydrated = false
 let writable = true
 
@@ -195,17 +189,18 @@ function hydrate() {
 				if (match[1] === owner && !entries.has(entry.key)) entries.set(entry.key, entry)
 				continue
 			}
-			// Formato antigo: sem conta na chave. Vai para a chave da conta dona; sem dona
-			// conhecida, não há de quem seja, e sai.
-			store.removeItem(name)
+			// Formato antigo: sem conta na chave. Vai para a chave da conta dona (sem passar por
+			// cima de rascunho mais novo dela); sem dona conhecida, não há de quem seja, e sai.
 			if (legacyOwner === owner) {
 				if (!entries.has(entry.key)) {
 					entries.set(entry.key, entry)
 					pendingWrites.add(entry.key)
 				}
 			} else if (legacyOwner && /^[0-9a-f]{8}$/.test(legacyOwner)) {
-				store.setItem(draftStorageKey(legacyOwner, entry.key), JSON.stringify(entry))
+				const target = draftStorageKey(legacyOwner, entry.key)
+				if (store.getItem(target) == null) store.setItem(target, JSON.stringify(entry))
 			}
+			store.removeItem(name)
 		} catch {
 			store.removeItem(name)
 		}
@@ -248,11 +243,6 @@ export const draftStore = {
 	bindOwner(userId: string | null) {
 		if (!userId) return
 		const signature = ownerSignature(userId)
-		if (foreignOwner) {
-			// A sessão desta aba ainda é a antiga (auth em cache): espera alcançar a conta nova.
-			if (signature !== foreignOwner) return
-			foreignOwner = null
-		}
 		if (owner === signature) {
 			hydrate()
 			return
@@ -316,7 +306,6 @@ export const draftStore = {
 		}
 		forgetMemory()
 		owner = null
-		foreignOwner = null
 		hydrated = false
 		writable = true
 		emit()
@@ -335,15 +324,13 @@ if (typeof window !== "undefined") {
 	// aqui (e o cabeçalho desta aba re-amarra quando a sessão daqui alcançar a conta nova).
 	window.addEventListener("storage", (event) => {
 		if (event.key === SESSION_OWNER_KEY) {
-			// Outra conta entrou em outra aba: o que esta aba mostra é da conta anterior. Grava o
-			// que ela digitou na chave dela e esvazia a tela até o cabeçalho alcançar a conta nova.
+			// Outra conta entrou em outra aba. A sessão do navegador é dela agora, e esta aba tem
+			// na tela (formulários montados, rascunhos) o que a conta anterior digitou. Grava isso
+			// na chave da conta anterior e recarrega: a aba volta já com a conta nova, sem mostrar
+			// nem deixar salvar em nome dela o trabalho de quem saiu.
 			if (event.newValue && owner !== null && event.newValue !== owner) {
 				flush()
-				forgetMemory()
-				owner = null
-				hydrated = false
-				foreignOwner = event.newValue
-				emit()
+				window.location.reload()
 			}
 			return
 		}

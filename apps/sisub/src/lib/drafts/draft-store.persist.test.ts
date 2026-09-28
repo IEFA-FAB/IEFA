@@ -181,8 +181,14 @@ describe("draftStore — persistência local", () => {
 		expect(storage.data.get("sisub:draft:owner")).toBe(ownerSignature("user-2"))
 	})
 
-	it("outra conta entrando em OUTRA aba esvazia esta até a sessão dela alcançar a conta nova", async () => {
+	it("outra conta entrando em OUTRA aba: esta grava o que a anterior digitou na chave dela e recarrega", async () => {
 		const { ownerSignature } = await import("./draft-store")
+		const reload = vi.fn()
+		vi.stubGlobal("window", {
+			localStorage: storage,
+			location: { reload },
+			addEventListener: (type: string, fn: Listener) => listeners.set(type, [...(listeners.get(type) ?? []), fn]),
+		})
 		const store = await loadStore()
 		store.bindOwner("user-1")
 		store.set(entry("k"))
@@ -191,24 +197,33 @@ describe("draftStore — persistência local", () => {
 		storage.setItem("sisub:draft:owner", ownerSignature("user-2"))
 		otherTabWrote("sisub:draft:owner", ownerSignature("user-2"))
 
-		// o que user-1 digitou foi para a chave dele, e esta aba não mostra mais nada
 		expect(storage.data.has(await storageKey("user-1", "k"))).toBe(true)
-		expect(store.get("k")).toBeUndefined()
-		expect(store.list()).toEqual([])
-		expect(store.isPersistent()).toBe(false)
+		expect(reload).toHaveBeenCalledTimes(1)
+	})
 
-		// o cabeçalho re-renderiza com a sessão antiga em cache: não re-amarra a user-1
+	it("a mesma conta entrando em outra aba não recarrega esta", async () => {
+		const { ownerSignature } = await import("./draft-store")
+		const reload = vi.fn()
+		vi.stubGlobal("window", {
+			localStorage: storage,
+			location: { reload },
+			addEventListener: (type: string, fn: Listener) => listeners.set(type, [...(listeners.get(type) ?? []), fn]),
+		})
+		const store = await loadStore()
 		store.bindOwner("user-1")
-		expect(store.get("k")).toBeUndefined()
-		store.set(entry("k2"))
-		store.flush()
-		expect(storage.data.has(await storageKey("user-1", "k2"))).toBe(false)
+		otherTabWrote("sisub:draft:owner", ownerSignature("user-1"))
+		expect(reload).not.toHaveBeenCalled()
+	})
 
-		// a sessão alcança user-2: esta aba passa a mostrar os rascunhos dela
-		storage.setItem(await storageKey("user-2", "dela"), JSON.stringify(entry("dela")))
+	it("rascunho do formato antigo não passa por cima de rascunho mais novo da conta dona", async () => {
+		const { ownerSignature } = await import("./draft-store")
+		storage.setItem("sisub:draft:owner", ownerSignature("user-1"))
+		storage.setItem("sisub:draft:k", JSON.stringify({ ...entry("k"), values: { price: 1 } }))
+		storage.setItem(await storageKey("user-1", "k"), JSON.stringify({ ...entry("k"), values: { price: 2 } }))
+		const store = await loadStore()
 		store.bindOwner("user-2")
-		expect(store.get("dela")).toBeDefined()
-		expect(store.get("k")).toBeUndefined()
+		expect(JSON.parse(storage.data.get(await storageKey("user-1", "k")) as string).values).toEqual({ price: 2 })
+		expect(storage.data.has("sisub:draft:k")).toBe(false)
 	})
 
 	it("no primeiro bind só grava o que nasceu antes dele, não regrava os que vieram do armazenamento", async () => {

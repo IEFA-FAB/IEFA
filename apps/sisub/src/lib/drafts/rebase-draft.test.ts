@@ -133,4 +133,32 @@ describe("rebaseDraftValues", () => {
 		])
 		expect(result.carried).toEqual(["rows"])
 	})
+
+	it("lista: linhas sem chave (insumo ainda não escolhido) continuam distintas", () => {
+		const blankA = { id: "", qty: 1 }
+		const blankB = { id: "", qty: 2 }
+		const edited = { ...opened, rows: [...opened.rows, blankA, blankB] }
+		const result = rebaseDraftValues(opened, edited, { ...opened }, lists)
+		expect(result.values.rows).toEqual([...opened.rows, blankA, blankB])
+	})
+
+	it("lista: os dois lados reordenaram — vale a ordem do usuário, sinalizada", () => {
+		const edited = {
+			...opened,
+			rows: [
+				{ id: "b", qty: 2 },
+				{ id: "a", qty: 1 },
+			],
+		}
+		const head = {
+			...opened,
+			rows: [
+				{ id: "b", qty: 2 },
+				{ id: "d", qty: 4 },
+				{ id: "a", qty: 1 },
+			],
+		}
+		const result = rebaseDraftValues(opened, edited, head, lists)
+		expect(result.overlapping).toEqual(["rows:ordem"])
+	})
 })

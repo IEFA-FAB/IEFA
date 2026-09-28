@@ -53,9 +53,10 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients, onDirtyChange
 	/** O grafo persistido, no formato que o Salvar grava — a referência do "não salvo". */
 	const [savedSignature, setSavedSignature] = useState<string | null>(null)
 
-	// Reseta o grafo a partir do estado persistido sempre que o fetch muda (carga inicial + pós-save).
+	// Reseta o grafo a partir do estado persistido sempre que o fetch muda (carga inicial + pós-save)
+	// e quando o usuário descarta as alterações.
 	const flowData = flowQuery.data
-	useEffect(() => {
+	const resetFromSaved = useCallback(() => {
 		if (!flowData) return
 		const { nodes: n, edges: e } = flowToGraph(flowData.steps as unknown as FetchedStep[], ingredients)
 		setNodes(n)
@@ -63,6 +64,9 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients, onDirtyChange
 		setSelectedStepId(null)
 		setSavedSignature(JSON.stringify(graphToSave(recipeId, n, e)))
 	}, [flowData, ingredients, recipeId, setNodes, setEdges])
+	useEffect(() => {
+		resetFromSaved()
+	}, [resetFromSaved])
 
 	// Alteração não salva = o que o Salvar gravaria difere do persistido. Compara pelo payload,
 	// não pelos nós: selecionar ou medir um nó (estado do canvas) não é alteração do fluxo.
@@ -274,7 +278,14 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients, onDirtyChange
 					<Plus className="size-4 mr-2" /> Adicionar etapa
 				</Button>
 				<div className="flex items-center gap-2">
-					{isDirty ? <span className="text-caption text-muted-foreground">Alterações não salvas</span> : null}
+					{isDirty ? (
+						<>
+							<span className="text-caption text-muted-foreground">Alterações não salvas</span>
+							<Button type="button" variant="ghost" size="sm" onClick={resetFromSaved} disabled={saveMutation.isPending}>
+								Descartar alterações
+							</Button>
+						</>
+					) : null}
 					<Button type="button" size="sm" onClick={handleSave} disabled={saveMutation.isPending || saveBlocked || !isDirty}>
 						{saveMutation.isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
 						Salvar fluxo

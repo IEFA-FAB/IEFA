@@ -22,7 +22,8 @@ export interface RebaseResult<T> {
 	overlapping: string[]
 }
 
-type KeyOf<Row> = (row: Row) => string
+/** Chave do item na lista. Sem chave (linha ainda sem insumo escolhido) conta como item novo do usuário. */
+type KeyOf<Row> = (row: Row) => string | null | undefined
 
 export function rebaseDraftValues<T extends Record<string, unknown>>(
 	opened: T,
@@ -54,7 +55,23 @@ export function rebaseDraftValues<T extends Record<string, unknown>>(
 	return { values: values as T, carried, overlapping }
 }
 
-function rebaseList(opened: unknown[], edited: unknown[], head: unknown[], keyOf: KeyOf<unknown>) {
+function rebaseList(opened: unknown[], edited: unknown[], head: unknown[], rawKeyOf: KeyOf<unknown>) {
+	// Linha sem chave recebe uma só dela (pela identidade do objeto): duas linhas em branco não
+	// podem virar a mesma.
+	const blankKeys = new WeakMap<object, string>()
+	let blankCount = 0
+	const keyOf = (row: unknown): string => {
+		const key = rawKeyOf(row)
+		if (key != null && key !== "") return key
+		if (row && typeof row === "object") {
+			const known = blankKeys.get(row)
+			if (known) return known
+			const created = `sem-chave-${blankCount++}`
+			blankKeys.set(row, created)
+			return created
+		}
+		return `sem-chave-${blankCount++}`
+	}
 	const openedByKey = new Map(opened.map((row) => [keyOf(row), row]))
 	const editedByKey = new Map(edited.map((row) => [keyOf(row), row]))
 	const headKeys = new Set(head.map(keyOf))
@@ -120,6 +137,10 @@ function rebaseList(opened: unknown[], edited: unknown[], head: unknown[], keyOf
 	let finalOrder = order
 	if (reordered) {
 		changed = true
+		// A outra pessoa também reordenou: vale a ordem do usuário, e isso fica sinalizado.
+		const openedOrder = opened.map(keyOf).filter((key) => headKeys.has(key))
+		const headOrder = head.map(keyOf).filter((key) => openedByKey.has(key))
+		if (openedOrder.some((key, index) => key !== headOrder[index])) overlapping.push("ordem")
 		const fromEdited = edited.map(keyOf).filter((key) => merged.has(key))
 		finalOrder = [...fromEdited, ...order.filter((key) => !editedByKey.has(key))]
 	}

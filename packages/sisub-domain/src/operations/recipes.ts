@@ -957,7 +957,7 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 		if (head && head.id !== base.id) {
 			throw new DomainError(
 				"RECIPE_VERSION_CONFLICT",
-				`Esta preparação mudou depois que a versão usada como base foi aberta: a versão vigente agora é a v${head.version}. Nada foi gravado. Releia a versão vigente e aplique a alteração sobre ela.`,
+				`Esta preparação mudou depois que a versão usada como base foi aberta: a versão vigente agora é a v${head.version}. Nada foi gravado: abra a versão vigente e salve sobre ela (na tela da preparação, "Abrir a versão vigente" leva as alterações do rascunho).`,
 				{ headId: head.id, headVersion: head.version }
 			)
 		}
