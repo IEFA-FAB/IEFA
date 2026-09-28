@@ -316,8 +316,8 @@ function SearchField({ value, onChange }: { value: string; onChange: (value: str
 				onKeyDown={(event) => {
 					if (event.key === "Enter") onChange(draft.trim())
 				}}
-				placeholder="Buscar por nome, e-mail ou Nr. de ordem"
-				aria-label="Buscar pessoa por nome, e-mail ou Nr. de ordem"
+				placeholder="Buscar por nome, e-mail ou SARAM"
+				aria-label="Buscar pessoa por nome, e-mail ou SARAM"
 				className="h-9 pl-8"
 			/>
 		</div>

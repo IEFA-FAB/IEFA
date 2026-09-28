@@ -56,7 +56,7 @@ function synthesize(peopleCount: number) {
 		identities.set(userId, {
 			email: `pessoa${i}@fab.mil.br`,
 			name: `${pick(["1T", "2T", "Cap", "Maj", "SO", "1S"])} Pessoa ${i}`,
-			nrOrdem: String(1_000_000 + i),
+			saram: String(1_000_000 + i),
 		})
 		if (random() < 0.8) lastChanges.set(userId, new Date(NOW - Math.floor(random() * 200) * DAY).toISOString())
 

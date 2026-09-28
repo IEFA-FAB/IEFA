@@ -293,7 +293,7 @@ export function identityName(displayName: string | null | undefined, email: stri
 }
 
 /**
- * Quem é cada pessoa: e-mail e Nr. de ordem (`core.user_data`), e posto + nome de guerra
+ * Quem é cada pessoa: e-mail e SARAM (`core.user_data`), e posto + nome de guerra
  * (`core.v_user_identity`, a mesma identificação do sisub). Em lotes de {@link ID_CHUNK}.
  *
  * `resolveMissingEmails: false` deixa sem e-mail quem não tem linha em `core.user_data`, em
@@ -307,15 +307,15 @@ export async function fetchIdentities(
 	const ids = [...new Set(userIds)]
 	const chunks = chunk(ids)
 	const [users, names] = await Promise.all([
-		Promise.all(chunks.map((part) => core.from("user_data").select("id, email, nrOrdem").in("id", part))),
+		Promise.all(chunks.map((part) => core.from("user_data").select("id, email, saram").in("id", part))),
 		Promise.all(chunks.map((part) => core.from("v_user_identity").select("id, display_name").in("id", part))),
 	])
 
 	const identities = new Map<string, PersonIdentity>()
 	for (const result of users) {
 		if (result.error) throw new ReadError(result.error.message, result.error.code)
-		for (const row of (result.data ?? []) as Array<{ id: string; email: string | null; nrOrdem: string | null }>) {
-			identities.set(row.id, { email: row.email ?? "", name: null, nrOrdem: row.nrOrdem ?? null })
+		for (const row of (result.data ?? []) as Array<{ id: string; email: string | null; saram: string | null }>) {
+			identities.set(row.id, { email: row.email ?? "", name: null, saram: row.saram ?? null })
 		}
 	}
 	for (const result of names) {
@@ -327,14 +327,14 @@ export async function fetchIdentities(
 	}
 
 	const missing = ids.filter((id) => !identities.get(id)?.email)
-	for (const id of missing) if (!identities.has(id)) identities.set(id, { email: "", name: null, nrOrdem: null })
+	for (const id of missing) if (!identities.has(id)) identities.set(id, { email: "", name: null, saram: null })
 	if (resolveMissingEmails && missing.length > 0) {
 		const fallback = await fetchEmailsFromAuth(core, missing)
 		for (const id of missing) {
 			const email = fallback.get(id) ?? ""
 			const identity = identities.get(id)
 			if (identity) identity.email = email
-			else identities.set(id, { email, name: null, nrOrdem: null })
+			else identities.set(id, { email, name: null, saram: null })
 		}
 	}
 	return identities
@@ -350,7 +350,7 @@ function escapeLike(term: string): string {
 
 /**
  * Candidatos a receber papel: quem casa o termo no e-mail, no nome (posto + nome de guerra,
- * `core.v_user_identity`) ou no começo do Nr. de ordem. Três leituras pequenas, com teto cada,
+ * `core.v_user_identity`) ou no começo do SARAM. Três leituras pequenas, com teto cada,
  * em vez de um `or` montado com o texto do usuário. Quem casa pelo nome vem primeiro — é como
  * o administrador conhece a pessoa.
  *
@@ -363,9 +363,7 @@ export async function searchPeopleCandidates(core: AnySupabaseClient, q: string)
 	const [byName, byEmail, byOrder] = await Promise.all([
 		core.from("v_user_identity").select("id").ilike("display_name", `%${term}%`).order("display_name").limit(CANDIDATE_LIMIT),
 		core.from("user_data").select("id").ilike("email", `%${term}%`).order("email").limit(CANDIDATE_LIMIT),
-		digits
-			? core.from("user_data").select("id").ilike("nrOrdem", `${term}%`).order("nrOrdem").limit(CANDIDATE_LIMIT)
-			: Promise.resolve({ data: [], error: null }),
+		digits ? core.from("user_data").select("id").ilike("saram", `${term}%`).order("saram").limit(CANDIDATE_LIMIT) : Promise.resolve({ data: [], error: null }),
 	])
 	for (const result of [byName, byEmail, byOrder]) if (result.error) throw new ReadError(result.error.message, result.error.code)
 
@@ -375,7 +373,7 @@ export async function searchPeopleCandidates(core: AnySupabaseClient, q: string)
 	)
 	if (ids.length === 0) return []
 	const identities = await fetchIdentities(core, ids)
-	return ids.map((id) => ({ id, ...(identities.get(id) ?? { email: "", name: null, nrOrdem: null }) }))
+	return ids.map((id) => ({ id, ...(identities.get(id) ?? { email: "", name: null, saram: null }) }))
 }
 
 /** A sigla de cada OM citada. */
