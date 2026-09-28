@@ -23,7 +23,9 @@ updates:
     # Atualização de SEGURANÇA ignora o cooldown e vem na hora, que é o certo.
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    # Um PR por grupo e por semana no máximo; com dez grupos, o limite de 5 deixava família
+    # sem PR na semana em que as outras também tinham versão nova.
+    open-pull-requests-limit: 10
     commit-message:
       prefix: "chore(deps)"
     # Sem `ignore` hoje: os três pins que existiam aqui (`vite` >=8.2, `@types/node`
@@ -42,16 +44,83 @@ updates:
     # fica gravada no bun.lock (Bun 1.4), então a troca não passa despercebida.
     groups:
       # Um PR por família: subir React/TanStack/etc. peça por peça só cria conflito de peer.
+      #
+      # Cada dependência tem de casar com UM grupo só, por isso o `exclude-patterns` abaixo.
+      # O Dependabot não resolve a sobreposição pela ordem: ele escolhe o grupo "mais
+      # específico", e um grupo só de `update-types` ganha de um padrão com `*`. O log do
+      # job de 2026-09-28 (run 36402570446) mostra `Skipping @tanstack/ai for group
+      # 'tanstack' - belongs to more specific group 'minor-and-patch'`, e o mesmo com
+      # `@supabase/*`, `@biomejs/*` e `@commitlint/*`: nenhum grupo com `@escopo/*` jamais
+      # abriu PR. Foi assim que o #415 e o #522 subiram `@tanstack/ai` misturado com o resto
+      # e quebraram as faixas de peer. Nome exato (`react`, `turbo`) casa normalmente.
+      #
+      # Família nova: grupo aqui em cima E os mesmos padrões no `exclude-patterns` do
+      # `minor-and-patch`, senão ela volta a cair lá.
       react:
         patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      # Core e adapters andam juntos: cada adapter declara peer `@tanstack/ai ^<minor>`.
+      tanstack-ai:
+        patterns: ["@tanstack/ai", "@tanstack/ai-*"]
+      tanstack-router:
+        patterns:
+          - "@tanstack/react-router"
+          - "@tanstack/react-router-*"
+          - "@tanstack/react-start"
+          - "@tanstack/react-start-*"
+          - "@tanstack/router-*"
+          - "@tanstack/start-*"
       tanstack:
         patterns: ["@tanstack/*"]
+        exclude-patterns:
+          - "@tanstack/ai"
+          - "@tanstack/ai-*"
+          - "@tanstack/react-router"
+          - "@tanstack/react-router-*"
+          - "@tanstack/react-start"
+          - "@tanstack/react-start-*"
+          - "@tanstack/router-*"
+          - "@tanstack/start-*"
+      aws-sdk:
+        patterns: ["@aws-sdk/*", "@smithy/*"]
+      langchain:
+        patterns: ["@langchain/*", "langsmith"]
+      # `nitro` fixa a faixa de `h3`; subir um sem o outro deixa duas cópias na árvore.
+      nitro:
+        patterns: ["nitro", "h3"]
       supabase:
         patterns: ["@supabase/*", "supabase", "drizzle-orm", "drizzle-kit", "postgres"]
       tooling:
         patterns: ["@biomejs/*", "turbo", "typescript", "vite", "vitest", "@vitejs/*", "knip", "husky", "commitizen", "cz-git", "@commitlint/*"]
       minor-and-patch:
         update-types: ["minor", "patch"]
+        exclude-patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+          - "@tanstack/*"
+          - "@aws-sdk/*"
+          - "@smithy/*"
+          - "@langchain/*"
+          - "langsmith"
+          - "nitro"
+          - "h3"
+          - "@supabase/*"
+          - "supabase"
+          - "drizzle-orm"
+          - "drizzle-kit"
+          - "postgres"
+          - "@biomejs/*"
+          - "turbo"
+          - "typescript"
+          - "vite"
+          - "vitest"
+          - "@vitejs/*"
+          - "knip"
+          - "husky"
+          - "commitizen"
+          - "cz-git"
+          - "@commitlint/*"
 
   # ── GitHub Actions ─────────────────────────────────────────────────────────
   # Action comprometida = execução arbitrária num runner que assume role AWS via OIDC.
