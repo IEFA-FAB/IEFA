@@ -1,22 +1,25 @@
 /**
  * Rascunhos de edição, guardados no armazenamento LOCAL do navegador (família
- * `sisub:draft:*`, declarada na Política de Cookies 1.5.0). Sobrevivem à navegação, ao F5,
- * à recarga automática depois de uma publicação e a fechar o navegador.
+ * `sisub:draft:*`, declarada na Política de Cookies). Sobrevivem à navegação, ao F5, à
+ * recarga automática depois de uma publicação e a fechar o navegador.
  *
  * O que o rascunho guarda é dado de catálogo que o usuário já pode ver (insumo, nutrientes,
  * especificação de compra, ficha técnica) — não é dado pessoal nem classificado. Mesmo
  * assim, três travas para o computador compartilhado:
- *   - **dono**: outra conta entrando no navegador — nesta aba ou em outra — descarta tudo.
- *     Guarda só uma assinatura curta da conta (`ownerSignature`), nunca o identificador.
- *     Sair da conta NÃO descarta: quem volta encontra o que deixou;
- *   - **validade**: rascunho sem uso há mais de 7 dias é descartado ao carregar;
+ *   - **por conta**: a chave de cada rascunho leva uma assinatura curta da conta
+ *     (`sisub:draft:<assinatura>:<chave>`), e cada conta só lê os próprios. Outra conta
+ *     entrar no mesmo navegador NÃO apaga nada: quem volta encontra o que deixou, e quem
+ *     entrou não vê nem salva em nome próprio o rascunho de outra pessoa. A assinatura
+ *     (`ownerSignature`) não volta ao identificador da conta;
+ *   - **validade**: rascunho sem uso há mais de 7 dias é descartado ao carregar, de
+ *     qualquer conta;
  *   - **só no dispositivo**: nada daqui vai ao servidor antes de o usuário salvar.
  *
- * O mapa em memória é a fonte que as telas leem; o armazenamento é espelho, gravado com
- * atraso curto (a cada tecla seria `JSON.stringify` + escrita síncrona no thread principal)
- * e descarregado ao esconder a página. Sem armazenamento utilizável (SSR, bloqueado, cota
- * cheia) o store segue em memória e `isPersistent()` diz isso — `useDraft` volta a avisar
- * antes de sair.
+ * O mapa em memória é a fonte que as telas leem e só contém os rascunhos da conta amarrada
+ * (`bindOwner`); o armazenamento é espelho, gravado com atraso curto (a cada tecla seria
+ * `JSON.stringify` + escrita síncrona no thread principal) e descarregado ao esconder a
+ * página. Sem armazenamento utilizável (SSR, bloqueado, cota cheia) o store segue em memória
+ * e `isPersistent()` diz isso — `useDraft` volta a avisar antes de sair.
  */
 
 export interface DraftEntry<T = unknown> {
@@ -36,9 +39,14 @@ export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000
 /** Atraso da gravação no armazenamento depois da última mudança. */
 const PERSIST_DELAY_MS = 400
 
-const DRAFT_OWNER_KEY = "sisub:draft:owner"
-const draftStorageKey = (key: string) => `sisub:draft:${key}`
-const STORAGE_PREFIX = draftStorageKey("")
+const STORAGE_PREFIX = "sisub:draft:"
+/**
+ * Formato de antes dos rascunhos por conta: `sisub:draft:<chave>`, com a conta dona numa
+ * chave à parte. Lido uma vez para adotar o que era da mesma conta; depois some.
+ */
+const LEGACY_OWNER_KEY = `${STORAGE_PREFIX}owner`
+const ACCOUNT_KEY = /^([0-9a-f]{8}):(.+)$/
+const draftStorageKey = (signature: string, key: string) => `${STORAGE_PREFIX}${signature}:${key}`
 
 const entries = new Map<string, DraftEntry>()
 const listeners = new Set<() => void>()
@@ -46,27 +54,14 @@ const pendingWrites = new Set<string>()
 let persistTimer: ReturnType<typeof setTimeout> | null = null
 let snapshot: DraftEntry[] = []
 let keySnapshot = ""
+/** Assinatura da conta amarrada. Sem ela, o store fica só em memória (nada lido nem gravado). */
 let owner: string | null = null
-/**
- * Assinatura da conta que entrou em OUTRA aba. Enquanto definida, esta aba está com a
- * sessão antiga em cache e não pode se re-amarrar à conta anterior — se pudesse, as duas
- * abas reescreveriam o dono uma da outra e esta gravaria as edições da conta que saiu.
- */
-let foreignOwner: string | null = null
 let hydrated = false
 let writable = true
 
 function storage(): Storage | null {
 	try {
 		return typeof window === "undefined" ? null : window.localStorage
-	} catch {
-		return null
-	}
-}
-
-function readOwner(): string | null {
-	try {
-		return storage()?.getItem(DRAFT_OWNER_KEY) ?? null
 	} catch {
 		return null
 	}
@@ -116,7 +111,7 @@ function summaryOf(entry: DraftEntry | undefined): string {
 	return entry ? `${entry.key}|${entry.title}|${entry.href}|${entry.changeCount}` : ""
 }
 
-/** Grava no armazenamento o que mudou desde a última descarga. */
+/** Grava no armazenamento o que mudou desde a última descarga, sob a chave da conta amarrada. */
 function flush() {
 	if (persistTimer) clearTimeout(persistTimer)
 	persistTimer = null
@@ -126,17 +121,13 @@ function flush() {
 		pendingWrites.clear()
 		return
 	}
-	// Outra aba entrou com outra conta: o que está em memória aqui é da conta anterior e
-	// não pode ser gravado sob a assinatura da nova.
-	if (readOwner() !== owner) {
-		pendingWrites.clear()
-		return
-	}
+	// Sem conta amarrada, não há sob que chave gravar: espera o `bindOwner`.
+	if (owner === null) return
 	for (const key of pendingWrites) {
 		const entry = entries.get(key)
 		try {
-			if (entry) store.setItem(draftStorageKey(key), JSON.stringify(entry))
-			else store.removeItem(draftStorageKey(key))
+			if (entry) store.setItem(draftStorageKey(owner, key), JSON.stringify(entry))
+			else store.removeItem(draftStorageKey(owner, key))
 			writable = true
 		} catch {
 			// Cota cheia ou armazenamento bloqueado: segue em memória, e `isPersistent()` avisa.
@@ -152,24 +143,20 @@ function schedule(key: string) {
 	persistTimer = setTimeout(flush, PERSIST_DELAY_MS)
 }
 
-/** Descarta tudo: memória, gravações pendentes e armazenamento. */
-function discardAll() {
-	const store = storage()
-	for (const key of entries.keys()) {
-		try {
-			store?.removeItem(draftStorageKey(key))
-		} catch {
-			// idem flush
-		}
-	}
+/** Esquece a memória (não o armazenamento): troca de conta ou teste. */
+function forgetMemory() {
 	entries.clear()
 	pendingWrites.clear()
 	rebuildSnapshots()
 }
 
-/** Lê o armazenamento uma vez, descartando o que venceu ou não é rascunho válido. */
+/**
+ * Lê o armazenamento uma vez por conta: carrega os rascunhos dela e apaga, de qualquer conta,
+ * o que venceu ou não é rascunho válido. Rascunho do formato antigo (sem conta na chave) é
+ * adotado se a conta antiga dona era esta, e apagado se não era.
+ */
 function hydrate() {
-	if (hydrated) return
+	if (hydrated || owner === null) return
 	hydrated = true
 	const store = storage()
 	if (!store) return
@@ -177,17 +164,42 @@ function hydrate() {
 	const names: string[] = []
 	for (let i = 0; i < store.length; i++) {
 		const name = store.key(i)
-		if (name?.startsWith(STORAGE_PREFIX) && name !== DRAFT_OWNER_KEY) names.push(name)
+		if (name?.startsWith(STORAGE_PREFIX) && name !== LEGACY_OWNER_KEY) names.push(name)
+	}
+	let legacyOwner: string | null = null
+	try {
+		legacyOwner = store.getItem(LEGACY_OWNER_KEY)
+	} catch {
+		legacyOwner = null
 	}
 	for (const name of names) {
 		try {
 			const entry: unknown = JSON.parse(store.getItem(name) ?? "null")
-			if (isLiveEntry(entry, now)) entries.set(entry.key, entry)
-			else store.removeItem(name)
+			if (!isLiveEntry(entry, now)) {
+				store.removeItem(name)
+				continue
+			}
+			const match = ACCOUNT_KEY.exec(name.slice(STORAGE_PREFIX.length))
+			if (match) {
+				if (match[1] === owner && !entries.has(entry.key)) entries.set(entry.key, entry)
+				continue
+			}
+			// Formato antigo: sem conta na chave.
+			store.removeItem(name)
+			if (legacyOwner === owner && !entries.has(entry.key)) {
+				entries.set(entry.key, entry)
+				pendingWrites.add(entry.key)
+			}
 		} catch {
 			store.removeItem(name)
 		}
 	}
+	try {
+		store.removeItem(LEGACY_OWNER_KEY)
+	} catch {
+		// idem flush
+	}
+	if (pendingWrites.size > 0) flush()
 	rebuildSnapshots()
 }
 
@@ -214,9 +226,10 @@ export const draftStore = {
 		if (existed) emit()
 	},
 	/**
-	 * Amarra os rascunhos à conta da sessão; OUTRA conta descarta todos. Sessão sem usuário
-	 * (logout, expiração) não descarta nada: a política promete o rascunho até outra conta
-	 * entrar, e quem volta encontra o que deixou.
+	 * Amarra o store à conta da sessão: a memória passa a mostrar só os rascunhos dela. Trocar
+	 * de conta NÃO apaga os da anterior — eles ficam no armazenamento, sob a assinatura dela,
+	 * até ela voltar (ou vencerem os 7 dias). Sessão sem usuário (logout, expiração) mantém a
+	 * conta amarrada: quem volta encontra o que deixou.
 	 *
 	 * Chamar no render do cabeçalho, ANTES de ler a lista: o cabeçalho renderiza antes da
 	 * tela, e os efeitos da tela (que restauram o rascunho) rodam depois do render dele.
@@ -224,33 +237,26 @@ export const draftStore = {
 	bindOwner(userId: string | null) {
 		if (!userId) return
 		const signature = ownerSignature(userId)
-		if (foreignOwner) {
-			// Sessão desta aba ainda é a antiga: espera o auth dela alcançar a conta nova.
-			if (signature !== foreignOwner) return
-			// Alcançou: amarra à conta nova e carrega os rascunhos dela.
-			foreignOwner = null
-			owner = signature
-			entries.clear()
-			hydrated = false
+		if (owner === signature) {
 			hydrate()
-			queueMicrotask(emit)
 			return
 		}
-		hydrate()
-		if (owner === signature) return
-		const known = owner ?? readOwner()
+		const previous = owner
+		if (previous !== null) {
+			// O que a conta anterior digitou até agora vai para a chave DELA antes da troca.
+			flush()
+			forgetMemory()
+		}
 		owner = signature
-		if (known !== signature && entries.size > 0) {
-			// Snapshot já refeito aqui (quem lê logo depois não vê os títulos da conta
-			// anterior); a notificação vai fora do render em curso.
-			discardAll()
-			queueMicrotask(emit)
+		hydrated = false
+		hydrate()
+		// Rascunho criado antes de haver conta (primeiro render) é desta sessão: grava sob ela.
+		if (previous === null && entries.size > 0) {
+			for (const key of entries.keys()) pendingWrites.add(key)
+			flush()
 		}
-		try {
-			storage()?.setItem(DRAFT_OWNER_KEY, signature)
-		} catch {
-			writable = false
-		}
+		// A notificação vai fora do render em curso (o cabeçalho chama isto no render).
+		queueMicrotask(emit)
 	},
 	/** O rascunho sobrevive a recarregar? `false` sem armazenamento ou depois de uma gravação que falhou. */
 	isPersistent(): boolean {
@@ -276,14 +282,19 @@ export const draftStore = {
 	flush,
 	/** Só para testes: esquece tudo, inclusive o que está no armazenamento. */
 	clear() {
-		discardAll()
+		const store = storage()
 		try {
-			storage()?.removeItem(DRAFT_OWNER_KEY)
+			const names: string[] = []
+			for (let i = 0; i < (store?.length ?? 0); i++) {
+				const name = store?.key(i)
+				if (name?.startsWith(STORAGE_PREFIX)) names.push(name)
+			}
+			for (const name of names) store?.removeItem(name)
 		} catch {
 			// idem flush
 		}
+		forgetMemory()
 		owner = null
-		foreignOwner = null
 		hydrated = false
 		writable = true
 		emit()
@@ -297,26 +308,14 @@ if (typeof window !== "undefined") {
 		if (typeof document !== "undefined" && document.visibilityState === "hidden") flush()
 	})
 
-	// Outra aba mudou o armazenamento.
+	// Outra aba mudou o armazenamento. Só interessa rascunho da conta amarrada nesta aba: se
+	// outra conta entrou na outra aba, as gravações dela vão para a chave dela e não aparecem
+	// aqui (e o cabeçalho desta aba re-amarra quando a sessão daqui alcançar a conta nova).
 	window.addEventListener("storage", (event) => {
-		if (event.key === DRAFT_OWNER_KEY) {
-			// Outra conta entrou em outra aba: a sessão do navegador é dela agora, e o que
-			// esta aba tem em memória é da conta anterior.
-			if (event.newValue && event.newValue !== owner) {
-				// Sem dono até o cabeçalho desta aba se amarrar à conta NOVA (`bindOwner`): até
-				// lá nada desta aba vai para o armazenamento, e ela não aceita re-amarrar à antiga.
-				owner = null
-				foreignOwner = event.newValue
-				entries.clear()
-				pendingWrites.clear()
-				emit()
-			}
-			return
-		}
-		if (!event.key?.startsWith(STORAGE_PREFIX)) return
-		// Aba sem dono (outra conta entrou em outra aba): não adota rascunho de ninguém.
-		if (owner === null) return
-		const key = event.key.slice(STORAGE_PREFIX.length)
+		if (owner === null || !event.key?.startsWith(STORAGE_PREFIX)) return
+		const match = ACCOUNT_KEY.exec(event.key.slice(STORAGE_PREFIX.length))
+		if (!match || match[1] !== owner) return
+		const key = match[2] as string
 		const before = summaryOf(entries.get(key))
 		if (event.newValue == null) entries.delete(key)
 		else {

@@ -49,6 +49,10 @@ porque o rascunho das edições do SISUB (`sisub:draft:*`) passou a ficar no
 armazenamento local, para sobreviver ao F5. A mesma migration faz a view
 `legal_documents_current` desempatar versões de mesma vigência pela publicação mais
 recente — antes, duas versões no mesmo dia deixavam a escolha ao acaso.
+Em revisão: os **Cookies 1.6.0** (`20260928120000_legal_documents_cookies_v1_6.sql`,
+**ainda não aplicada**), porque o rascunho `sisub:draft:*` passa a ser guardado por conta
+e deixa de ser descartado quando outra conta entra no mesmo navegador. Até ser aplicada, a
+vigente em produção continua sendo a 1.5.0.
 
 A migration vigente tem que conter o conjunto COMPLETO dos três documentos: os
 guards leem só o arquivo de maior timestamp. Documento que não muda é reinserido
