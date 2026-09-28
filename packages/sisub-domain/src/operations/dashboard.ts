@@ -19,9 +19,9 @@ import {
 	arranchamentoInKitchen,
 	mealPresencesInKitchen,
 	messHallsInKitchen,
+	militaryIdentityInCore,
 	type SisubDb,
 	userDataInCore,
-	userMilitaryDataInCore,
 } from "@iefa/database/drizzle/sisub"
 import { and, asc, between, eq, inArray } from "drizzle-orm"
 import type { UnitDashboard } from "../schemas/dashboard.ts"
@@ -142,15 +142,14 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 		? await runQuery("FETCH_FAILED", () =>
 				db
 					.select({
-						nrOrdem: userMilitaryDataInCore.nrOrdem,
-						nmGuerra: userMilitaryDataInCore.nmGuerra,
-						nmPessoa: userMilitaryDataInCore.nmPessoa,
-						sgPosto: userMilitaryDataInCore.sgPosto,
-						sgOrg: userMilitaryDataInCore.sgOrg,
-						dataAtualizacao: userMilitaryDataInCore.dataAtualizacao,
+						nrOrdem: militaryIdentityInCore.saram,
+						nmGuerra: militaryIdentityInCore.nomeGuerra,
+						sgPosto: militaryIdentityInCore.posto,
+						sgOrg: militaryIdentityInCore.sgOrg,
+						dataAtualizacao: militaryIdentityInCore.dataAtualizacao,
 					})
-					.from(userMilitaryDataInCore)
-					.where(inArray(userMilitaryDataInCore.nrOrdem, nrOrdens))
+					.from(militaryIdentityInCore)
+					.where(inArray(militaryIdentityInCore.saram, nrOrdens))
 			)
 		: []
 
@@ -164,7 +163,6 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 			.map((m) => ({
 				nrOrdem: m.nrOrdem,
 				nmGuerra: m.nmGuerra,
-				nmPessoa: m.nmPessoa,
 				sgPosto: m.sgPosto,
 				sgOrg: m.sgOrg,
 				dataAtualizacao: m.dataAtualizacao ?? "",

@@ -105,7 +105,7 @@ export function buildUserMealDetails(
 		return {
 			id: user.id,
 			email: user.email,
-			name: military?.nmGuerra || military?.nmPessoa || null,
+			name: military?.nmGuerra || null,
 			posto: military?.sgPosto || null,
 			org: military?.sgOrg || null,
 			arranchamento_meals: userArranchamentos.map((f) => ({
@@ -235,7 +235,7 @@ export function aggregatePresenceData(
 			return {
 				id: userId,
 				email: user?.email || "Desconhecido",
-				name: military?.nmGuerra || military?.nmPessoa || null,
+				name: military?.nmGuerra || null,
 				posto: military?.sgPosto || null,
 				org: military?.sgOrg || null,
 			}

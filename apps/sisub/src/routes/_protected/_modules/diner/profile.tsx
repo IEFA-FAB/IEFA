@@ -43,8 +43,8 @@ function DataField({ label, value, mono = false }: { label: string; value: strin
 }
 
 /**
- * O CPF chega MASCARADO do servidor (`***.456.789-**`) — o documento inteiro não sai de lá
- * (`fetchMilitaryDataFn`). Não há o que revelar aqui, então não há botão de revelar.
+ * O CPF chega MASCARADO (`***.456.789-**`), montado no banco (`core.military_masked_cpf`): o
+ * documento inteiro não sai de lá. Não há o que revelar aqui, então não há botão de revelar.
  */
 function CpfField({ value }: { value: string | null | undefined }) {
 	return <DataField label="CPF" value={value} mono />
@@ -54,12 +54,9 @@ function MilitaryPanel({ military, effectiveNrOrdem }: { military: MilitaryDataR
 	return (
 		<dl className="space-y-4">
 			<div className="grid grid-cols-2 gap-x-6 gap-y-4">
-				<div className="col-span-2">
-					<DataField label="Nome" value={military.nmPessoa ? toNameCase(military.nmPessoa) : military.nmPessoa} />
-				</div>
 				<DataField label="Nome de Guerra" value={military.nmGuerra ? toNameCase(military.nmGuerra) : military.nmGuerra} />
 				<DataField label="Nr. de Ordem" value={military.nrOrdem ?? effectiveNrOrdem} mono />
-				<CpfField value={military.nrCpfMasked} />
+				<CpfField value={military.maskedCpf} />
 				<div className="grid grid-cols-2 gap-x-6 col-span-2">
 					<DataField label="Posto" value={military.sgPosto} />
 					<DataField label="OM" value={military.sgOrg} />

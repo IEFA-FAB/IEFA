@@ -20,14 +20,14 @@ type State = {
 }
 
 /**
- * Stub decidido pelas COLUNAS pedidas: `{ nrOrdem }` = vínculo atual; `{ nrCpf, ... }` = cadastro
- * militar; `{ id }` = outra conta com o mesmo nrOrdem. O upsert registra o payload gravado.
+ * Stub decidido pelas COLUNAS pedidas: `{ nrOrdem }` = vínculo atual; `{ sgPosto, ... }` =
+ * identificação militar (`core.military_identity`); `{ id }` = outra conta com o mesmo nrOrdem. O upsert registra o payload gravado.
  */
 function fakeDb(state: State) {
 	const written: Array<Record<string, unknown>> = []
 	const select = (cols: Record<string, unknown>) => {
 		const rows = () => {
-			if ("nrCpf" in cols) return state.currentHasMilitary ? [{ nrOrdem: state.current, nrCpf: "12345678901" }] : []
+			if ("sgPosto" in cols) return state.currentHasMilitary ? [{ nrOrdem: state.current, sgPosto: "SO" }] : []
 			if ("nrOrdem" in cols) return [{ nrOrdem: state.current }]
 			return state.takenByOther ? [{ id: "other-user" }] : []
 		}
