@@ -63,25 +63,25 @@ export function myModulePermissionsQueryConfig(module: AppModule | readonly AppM
 	}
 }
 
-export type UserEmailSearchRow = { id: string; email: string; nrOrdem: string | null }
+export type UserEmailSearchRow = { id: string; email: string; saram: string | null }
 
 /**
  * Busca usuários por e-mail em `core.user_data` (para conceder acesso).
  * Escapa metacaracteres do LIKE (\ % _) p/ tratar o termo como literal.
- * Apps que não usam `nrOrdem` podem simplesmente descartar o campo no wrapper.
+ * Apps que não usam `saram` podem simplesmente descartar o campo no wrapper.
  */
 export async function searchUsersByEmail(coreReadClient: AnySupabaseClient, email: string): Promise<UserEmailSearchRow[]> {
 	const term = email.replace(/[\\%_]/g, "\\$&")
 	const { data: rows, error } = await coreReadClient
 		.from("user_data")
-		.select("id, email, nrOrdem")
+		.select("id, email, saram")
 		.ilike("email", `%${term}%`)
 		.order("email", { ascending: true })
 		.limit(10)
 	if (error) throw new Error(error.message)
-	return ((rows ?? []) as Array<{ id: string; email: string | null; nrOrdem: string | null }>).map((r) => ({
+	return ((rows ?? []) as Array<{ id: string; email: string | null; saram: string | null }>).map((r) => ({
 		id: r.id,
 		email: r.email ?? "",
-		nrOrdem: r.nrOrdem ?? null,
+		saram: r.saram ?? null,
 	}))
 }

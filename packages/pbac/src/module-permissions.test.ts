@@ -66,7 +66,7 @@ describe("resolveModulePermissions", () => {
 // searchUsersByEmail
 // ---------------------------------------------------------------------------
 
-type SearchRow = { id: string; email: string | null; nrOrdem: string | null }
+type SearchRow = { id: string; email: string | null; saram: string | null }
 
 function createSearchStub(rows: SearchRow[], captured: { pattern?: string } = {}) {
 	return {
@@ -74,7 +74,7 @@ function createSearchStub(rows: SearchRow[], captured: { pattern?: string } = {}
 			expect(table).toBe("user_data")
 			return {
 				select(columns: string) {
-					expect(columns).toBe("id, email, nrOrdem")
+					expect(columns).toBe("id, email, saram")
 					return {
 						ilike(_column: string, pattern: string) {
 							captured.pattern = pattern
@@ -96,17 +96,17 @@ function createSearchStub(rows: SearchRow[], captured: { pattern?: string } = {}
 }
 
 describe("searchUsersByEmail", () => {
-	test("normaliza email/nrOrdem nulos e devolve as linhas", async () => {
+	test("normaliza email/saram nulos e devolve as linhas", async () => {
 		const rows: SearchRow[] = [
-			{ id: "u1", email: null, nrOrdem: null },
-			{ id: "u2", email: "a@fab.mil.br", nrOrdem: "123" },
+			{ id: "u1", email: null, saram: null },
+			{ id: "u2", email: "a@fab.mil.br", saram: "123" },
 		]
 
 		const result = await searchUsersByEmail(createSearchStub(rows) as never, "a@fab")
 
 		expect(result).toEqual([
-			{ id: "u1", email: "", nrOrdem: null },
-			{ id: "u2", email: "a@fab.mil.br", nrOrdem: "123" },
+			{ id: "u1", email: "", saram: null },
+			{ id: "u2", email: "a@fab.mil.br", saram: "123" },
 		])
 	})
 
