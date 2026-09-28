@@ -28,9 +28,8 @@
 -- Efeito esperado: a Política de Cookies é linha nova, então o aviso de ciência reaparece para
 -- todo usuário de todo app com sessão (sem bloquear a navegação — ver LGPD.md).
 --
--- NÃO APLICADA. Aplicar só com pedido explícito do mantenedor, antes do merge, em transação
--- única com o `INSERT INTO supabase_migrations.schema_migrations (version, name, statements)`
--- no timestamp exato deste arquivo.
+-- APLICADA em 2026-09-28, antes do merge, por pedido do mantenedor (`db:push`, que grava a
+-- linha de `supabase_migrations.schema_migrations` no timestamp exato deste arquivo).
 
 INSERT INTO iefa.legal_documents (doc_type, version, locale, content_md, effective_date, published_at)
 VALUES
