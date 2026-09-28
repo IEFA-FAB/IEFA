@@ -89,6 +89,24 @@ describeSupabaseIntegration("planning operations (regressão)", () => {
 		expect(again[0].id).toBe(created[0].id)
 	})
 
+	// As duas passam pelo select sem achar nada; a que perde o insert não pode estourar 23505
+	// (o `on conflict` repete o predicado do índice parcial) e tem de devolver o menu da outra.
+	test("upsertDailyMenu concorrente no mesmo trio devolve o mesmo cardápio às duas chamadas", async () => {
+		if (!reachable || !seeder || !db) return
+		const { id: kitchenId } = await seeder.seedKitchen()
+		seeder.trackFn(() => seeder?.purgeKitchenMenus(kitchenId) ?? Promise.resolve())
+		const mealTypeId = await seeder.seedMealType({ kitchenId })
+		const input = { kitchenId, serviceDate: "2099-03-02", mealTypeId }
+
+		const [a, b] = await Promise.all([upsertDailyMenu(db, ctx, input), upsertDailyMenu(db, ctx, input)])
+
+		expect(a).toHaveLength(1)
+		expect(b).toHaveLength(1)
+		expect(a[0].id).toBe(b[0].id)
+		const menus = await fetchDailyMenus(db, ctx, { kitchenId, startDate: "2099-03-02", endDate: "2099-03-02" })
+		expect(menus.filter((m) => m.meal_type_id === mealTypeId)).toHaveLength(1)
+	})
+
 	test("addMenuItem grava snapshot da receita e fetchDailyMenus retorna itens ativos", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, recipeId, dailyMenuId, serviceDate } = await scenario()

@@ -3,7 +3,7 @@
  * Uses OpenAI function-calling format instead of MCP SDK format.
  */
 
-import { listAccessibleKitchens, toJsonSchema } from "@iefa/sisub-domain"
+import { listAccessibleKitchens, toJsonSchema, UpsertDailyMenuSchema, upsertDailyMenu } from "@iefa/sisub-domain"
 import {
 	AGENT_APPLY_TEMPLATE_MAX_DATES,
 	AgentApplyTemplateSchema,
@@ -25,7 +25,7 @@ import {
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
-import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, ToolValidationError, toolErr, toolOk } from "./shared"
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -171,43 +171,43 @@ const getRecipe: ModuleToolDefinition = {
 
 const createDailyMenu: ModuleToolDefinition = {
 	name: "create_daily_menu",
-	description: "Cria menu diário para cozinha em data e refeição. Usa upsert — ignora se já existir.",
+	description:
+		"Cria menu diário para cozinha em data e refeição. Idempotente: se já existir um menu ativo para (data, refeição, cozinha), devolve o existente sem mudar a previsão de comensais dele (para isso, use update_menu_headcount).",
 	parameters: {
 		type: "object",
 		properties: {
 			kitchenId: { type: "number", description: "ID da cozinha" },
 			date: { type: "string", description: "Data YYYY-MM-DD" },
 			mealTypeId: { type: "string", description: "ID do tipo de refeição (via get_meal_types)" },
-			forecastedHeadcount: { type: "number", description: "Comensais previstos (opcional)" },
+			forecastedHeadcount: { type: "number", description: "Comensais previstos, inteiro positivo (opcional)" },
 		},
 		required: ["kitchenId", "date", "mealTypeId"],
 	},
 	requiredLevel: 2,
+	// Mesma operation do `create_daily_menu` do MCP. A versão anterior fazia
+	// `upsert(onConflict: "service_date,meal_type_id,kitchen_id")` pelo PostgREST, mas a
+	// unicidade do trio é um índice PARCIAL (`daily_menu_active_unique ... where deleted_at is
+	// null`): sem o predicado o Postgres não acha árbitro e responde 42P10 em toda chamada.
 	async handler(args, ctx) {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id })
 		requireValidDates(args.date)
+		const mealTypeId = requireUuid(typeof args.mealTypeId === "string" ? args.mealTypeId.trim() : args.mealTypeId, "mealTypeId")
 
-		if (typeof args.mealTypeId !== "string" || !String(args.mealTypeId).trim()) {
-			return toolErr("mealTypeId é obrigatório")
-		}
-
-		const insert: Record<string, unknown> = {
-			kitchen_id: id,
-			service_date: args.date,
-			meal_type_id: String(args.mealTypeId).trim(),
-			status: "PLANNED",
-		}
+		let forecastedHeadcount: number | undefined
 		if (args.forecastedHeadcount != null) {
-			insert.forecasted_headcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
+			forecastedHeadcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
+			// O schema do domínio exige positivo; aqui a recusa sai em português para o modelo corrigir.
+			if (forecastedHeadcount < 1) throw new ToolValidationError("forecastedHeadcount deve ser inteiro positivo; omita o campo se não houver previsão")
 		}
 
-		const { data, error } = await untypedFrom(ctx, "daily_menu")
-			.upsert(insert, { onConflict: "service_date,meal_type_id,kitchen_id", ignoreDuplicates: true })
-			.select("id, service_date, meal_type_id, forecasted_headcount, status")
-
-		if (error) return toolErr(sanitizeDbError(error, "create_daily_menu"))
-		return toolOk(data)
+		const input = UpsertDailyMenuSchema.parse({
+			kitchenId: id,
+			serviceDate: args.date,
+			mealTypeId,
+			...(forecastedHeadcount != null && { forecastedHeadcount }),
+		})
+		return toolOk(await upsertDailyMenu(ctx.db, domainCtx(ctx), input))
 	},
 }
 

@@ -1,0 +1,445 @@
+##
+# `upsert(..., { onConflict })` do PostgREST contra índice único PARCIAL.
+#
+# Nasceu de bug real (registrado no PR #500): a rota admin da pesquisa de preços do `api`
+# gravava o cabeçalho com `upsert(..., { onConflict: "idempotency_key", ignoreDuplicates: true })`,
+# mas o índice da chave é parcial (`uq_price_research_idempotency ... where idempotency_key is
+# not null`). O PostgREST gera `ON CONFLICT (idempotency_key)` SEM o predicado, e o Postgres só
+# aceita índice parcial como árbitro quando o `on conflict` repete o `where`: sem ele responde
+# 42P10 ("there is no unique or exclusion constraint matching the ON CONFLICT specification").
+# Não é falha do reenvio, é de TODA gravação — a memória de cálculo nunca foi gravada por ali.
+# O mesmo defeito estava no `create_daily_menu` do chat do sisub (`daily_menu_active_unique`,
+# `where deleted_at is null`). Reproduz sem escrever nada: `explain insert ... on conflict (...)
+# do nothing` já dá 42P10.
+#
+# O PostgREST não tem como mandar o predicado. Caminhos certos:
+#   - `insert` simples e, em 23505, reler a linha pela chave (`apps/api/src/workers/price-research/persist.ts`);
+#   - a operation do domínio, que usa Drizzle com `where`/`targetWhere` no `onConflictDo*`
+#     (`savePriceResearchAudit`, `upsertDailyMenu`);
+#   - se a unicidade não precisa ser parcial, um índice TOTAL (migration).
+#
+# A lista abaixo é a dos índices únicos parciais sem expressão, sem índice total nas mesmas
+# colunas, no banco compartilhado em 2026-09-27. Índice parcial novo entra aqui, e quem cobra é
+# `apps/sisub/src/test/operations/partial-index-upsert-rule.contract.test.ts` (gate de
+# integração): ele lê `pg_index` do banco vivo e reprova índice parcial sem bloco nesta regra.
+# A consulta dele é a mesma que gerou a lista.
+#
+# A ordem das colunas no `onConflict` não importa para o Postgres, e o regex também não a exige.
+# O que a regra NÃO vê: `onConflict` vindo de variável (`CARACTERISTICA_KEY.join(",")`) e
+# `onConflictDo*` do Drizzle sem `where` (este tem tipo, não string, e o domínio já repete o
+# predicado nos índices parciais que usa).
+#
+# Casos de teste: `__fixtures__/postgrest-partial-index-upsert.ts` (opengrep test --config
+# .opengrep/rules/postgrest-partial-index-upsert.yaml .opengrep/rules/__fixtures__/postgrest-partial-index-upsert.ts).
+##
+rules:
+  - id: postgrest-upsert-on-partial-unique-index
+    languages: [typescript]
+    # ERROR: a regra não acha nada no repo depois da correção, e o que ela acha falha 100% das
+    # vezes em produção — não há caso legítimo a triar.
+    severity: ERROR
+    message: >-
+      `upsert` com `onConflict` nas colunas de um índice único PARCIAL. O PostgREST gera
+      `ON CONFLICT (cols)` sem o `where` do índice, e o Postgres responde 42P10 em toda gravação
+      (não só no conflito). Use `insert` e trate o 23505 relendo a linha pela chave, ou a
+      operation do domínio (Drizzle com `where` no `onConflictDo*`).
+    # Todo o código dos alvos do scan, não só `src/`: script de seed e componente `.tsx` também
+    # chamam o PostgREST.
+    paths:
+      include:
+        - "apps/**/*.ts"
+        - "apps/**/*.tsx"
+        - "packages/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+    # Um bloco por tabela: o par (tabela, colunas) tem de casar junto — tabela de um índice com
+    # colunas de outro não é o defeito. A forma da chamada se repete em cada bloco porque
+    # `metavariable-regex` só vale num `patterns` com termo positivo (e o Opengrep não resolve
+    # âncora YAML).
+    pattern-either:
+      # access_control.policy
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]policy["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:name)\s*["'`]$
+      # access_control.user_permissions
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]user_permissions["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:kitchen_id|mess_hall_id|module|unit_id|user_id)\s*,\s*){4}(?:kitchen_id|mess_hall_id|module|unit_id|user_id))\s*["'`]$
+      # alpha.chat_message
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]chat_message["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:reply_to)\s*["'`]$
+      # alpha.document
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]document["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:external_id|source_id)\s*,\s*){1}(?:external_id|source_id)|(?:(?:content_hash|external_id|source_id)\s*,\s*){2}(?:content_hash|external_id|source_id))\s*["'`]$
+      # compras_gov_integration.integration_sync_log
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]integration_sync_log["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:source)\s*["'`]$
+      # core.person
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]person["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:name_key)\s*["'`]$
+      # core.units
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]units["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:is_training|cnpj)\s*["'`]$
+      # finance.empenho_rp_inscription
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]empenho_rp_inscription["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:empenho_id|fiscal_year|kind)\s*,\s*){2}(?:empenho_id|fiscal_year|kind))\s*["'`]$
+      # forms.questionnaire_response
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]questionnaire_response["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:questionnaire_id|respondent_id)\s*,\s*){1}(?:questionnaire_id|respondent_id))\s*["'`]$
+      # inventory.goods_receipt
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]goods_receipt["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:nfe_document_id)\s*["'`]$
+      # inventory.opening_balance
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]opening_balance["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:kitchen_id)\s*["'`]$
+      # inventory.receipt_scan_event
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]receipt_scan_event["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:reversed_event_id)\s*["'`]$
+      # inventory.stock_cost
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]stock_cost["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:ingredient_id|kitchen_id)\s*,\s*){1}(?:ingredient_id|kitchen_id)|(?:(?:frozen_preparation_id|kitchen_id)\s*,\s*){1}(?:frozen_preparation_id|kitchen_id))\s*["'`]$
+      # inventory.stock_issue_request
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]stock_issue_request["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:issue_date|kitchen_id)\s*,\s*){1}(?:issue_date|kitchen_id))\s*["'`]$
+      # journal.review_assignments
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]review_assignments["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:article_id|reviewer_id)\s*,\s*){1}(?:article_id|reviewer_id))\s*["'`]$
+      # kitchen.daily_menu
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]daily_menu["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:kitchen_id|meal_type_id|service_date)\s*,\s*){2}(?:kitchen_id|meal_type_id|service_date))\s*["'`]$
+      # kitchen.equipment_maintenance_plan
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]equipment_maintenance_plan["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:code)\s*["'`]$
+      # kitchen.equipment_model
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]equipment_model["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:slug)\s*["'`]$
+      # kitchen.equipment_model_role
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]equipment_model_role["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:model_id|(?:(?:model_id|role_id)\s*,\s*){1}(?:model_id|role_id))\s*["'`]$
+      # kitchen.equipment_unit_role
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]equipment_unit_role["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:role_id|unit_id)\s*,\s*){1}(?:role_id|unit_id))\s*["'`]$
+      # kitchen.ingredient_item
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]ingredient_item["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:gtin)\s*["'`]$
+      # kitchen.kitchen
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]kitchen["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:is_training)\s*["'`]$
+      # kitchen.meal_type
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]meal_type["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:system_key)\s*["'`]$
+      # kitchen.menu_group_set
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]menu_group_set["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:slug)\s*["'`]$
+      # kitchen.mess_halls
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]mess_halls["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:is_training)\s*["'`]$
+      # kitchen.recipe_ingredient_alternatives
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]recipe_ingredient_alternatives["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:ingredient_id|recipe_ingredient_id)\s*,\s*){1}(?:ingredient_id|recipe_ingredient_id)|(?:(?:frozen_preparation_id|recipe_ingredient_id)\s*,\s*){1}(?:frozen_preparation_id|recipe_ingredient_id))\s*["'`]$
+      # kitchen.recipe_step_output
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]recipe_step_output["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:recipe_id)\s*["'`]$
+      # kitchen.recipe_step_utensil
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]recipe_step_utensil["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:recipe_step_id|utensil_id)\s*,\s*){1}(?:recipe_step_id|utensil_id))\s*["'`]$
+      # kitchen.step_template_utensil
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]step_template_utensil["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:step_template_id|utensil_id)\s*,\s*){1}(?:step_template_id|utensil_id))\s*["'`]$
+      # procurement.arp_item
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]arp_item["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:arp_id|numero_item)\s*,\s*){1}(?:arp_id|numero_item))\s*["'`]$
+      # procurement.price_research
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]price_research["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:idempotency_key)\s*["'`]$
+      # procurement.purchase_item_ingredient
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]purchase_item_ingredient["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:ingredient_id)\s*["'`]$
+      # procurement.segment_rule
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]segment_rule["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:purchase_item_id|segment_id)\s*,\s*){1}(?:purchase_item_id|segment_id)|(?:(?:folder_id|segment_id)\s*,\s*){1}(?:folder_id|segment_id))\s*["'`]$
+      # rumaer.piece_item
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]piece_item["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:nome|piece_id)\s*,\s*){1}(?:nome|piece_id))\s*["'`]$
+      # sucont.notification
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]notification["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:(?:(?:kind|occurrence_on|subject_id|user_id)\s*,\s*){3}(?:kind|occurrence_on|subject_id|user_id))\s*["'`]$
