@@ -2674,6 +2674,7 @@ export type Database = {
       user_military_data: {
         Row: {
           dataAtualizacao: string | null
+          id: number
           nmGuerra: string | null
           nmPessoa: string | null
           nrCpf: string
@@ -2683,6 +2684,7 @@ export type Database = {
         }
         Insert: {
           dataAtualizacao?: string | null
+          id?: number
           nmGuerra?: string | null
           nmPessoa?: string | null
           nrCpf: string
@@ -2692,6 +2694,7 @@ export type Database = {
         }
         Update: {
           dataAtualizacao?: string | null
+          id?: number
           nmGuerra?: string | null
           nmPessoa?: string | null
           nrCpf?: string
@@ -2937,6 +2940,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      military_identity: {
+        Row: {
+          data_atualizacao: string | null
+          nome_guerra: string | null
+          posto: string | null
+          saram: string | null
+          sg_org: string | null
+        }
+        Insert: {
+          data_atualizacao?: string | null
+          nome_guerra?: string | null
+          posto?: string | null
+          saram?: string | null
+          sg_org?: string | null
+        }
+        Update: {
+          data_atualizacao?: string | null
+          nome_guerra?: string | null
+          posto?: string | null
+          saram?: string | null
+          sg_org?: string | null
+        }
+        Relationships: []
       }
       module_chat_message: {
         Row: {
@@ -3277,6 +3304,7 @@ export type Database = {
       }
     }
     Functions: {
+      military_masked_cpf: { Args: { p_saram: string }; Returns: string }
       person_name_key: { Args: { p_name: string }; Returns: string }
     }
     Enums: {
