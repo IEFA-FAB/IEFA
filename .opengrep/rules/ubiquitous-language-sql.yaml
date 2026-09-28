@@ -279,3 +279,54 @@ rules:
           # exclusão de comentário).
           - pattern-regex: >-
               (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\b(?:kitchen\.rancho|core\.rancho|rancho_id)\b(?:(?!\1).)*\1
+
+  # Lote 6: SARAM (`core.user_data."nrOrdem"`, `core.person.nr_ordem` → `saram`). O espelho do
+  # cadastro de pessoal (`core.user_military_data`) guarda o nome do sistema de origem (`"nrOrdem"`,
+  # D2 e D3): statement que cita o espelho não é acusado pelo `"nrOrdem"` (a view
+  # `core.military_identity` o expõe como `saram`, e `core.military_masked_cpf` busca por ele). O
+  # corpo entre dollar quotes é acusado só por `nr_ordem`: o `"nrOrdem"` legítimo do espelho aparece
+  # nele, e o de `core.user_data` não existe mais depois do contract (a função quebraria ao rodar, e
+  # o teste do banco vivo acusa coluna nova com o nome antigo).
+  - id: ubiquitous-language-migration-lot6
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Nome descartado pelo glossário do sisub numa migration nova. O número do militar é o SARAM:
+      `core.user_data.saram`, `core.person.saram`, `core.person_identity.saram`,
+      `core.military_identity.saram`, não `nr_ordem`/`"nrOrdem"`. Só o espelho do cadastro de
+      pessoal (`core.user_military_data."nrOrdem"`) guarda o nome do sistema de origem.
+    paths:
+      include:
+        - "packages/database/supabase/migrations/*.sql"
+      exclude:
+        # Tudo até o contract do lote 6 (20260927190000) inclusive: aplicado, de outro lote, ou o
+        # expand/contract do 6, que citam os nomes antigos de propósito (espelho, view e conferência
+        # de divergência).
+        - "packages/database/supabase/migrations/2024*"
+        - "packages/database/supabase/migrations/2025*"
+        - "packages/database/supabase/migrations/20260[1-8]*"
+        - "packages/database/supabase/migrations/202609[0-1]*"
+        - "packages/database/supabase/migrations/2026092[0-6]*"
+        - "packages/database/supabase/migrations/202609270*"
+        - "packages/database/supabase/migrations/2026092710*"
+        - "packages/database/supabase/migrations/2026092711*"
+        - "packages/database/supabase/migrations/2026092712*"
+        - "packages/database/supabase/migrations/2026092713*"
+        - "packages/database/supabase/migrations/2026092714*"
+        - "packages/database/supabase/migrations/2026092715*"
+        - "packages/database/supabase/migrations/2026092716*"
+        - "packages/database/supabase/migrations/2026092717*"
+        - "packages/database/supabase/migrations/2026092718*"
+        - "packages/database/supabase/migrations/20260927190000_*"
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-regex: >-
+                  (?is)\b(?:create\s+(?:or\s+replace\s+)?(?:table|view|materialized\s+view|(?:unique\s+)?index|function|trigger)|add\s+column|add\s+constraint|rename\s+(?:column\s+\w+\s+)?to|comment\s+on)\b[^;]*?(?:\w*nr_ordem\w*|"nrOrdem")
+              - pattern-not-regex: (?m)^\s*--.*$
+              # Statement sobre o espelho do cadastro de pessoal: `"nrOrdem"` é o nome da origem.
+              - pattern-not-regex: (?is)\b(?:create|alter|comment)\b[^;]*\buser_military_data\b[^;]*
+          # Corpo entre dollar quotes: ver a regra do lote 2 (abertura depois de `as`/`do`, sem a
+          # exclusão de comentário).
+          - pattern-regex: >-
+              (?is)\b(?:as|do)\s+(\$[a-z_0-9]*\$)(?:(?!\1).)*?\w*nr_ordem\w*(?:(?!\1).)*\1

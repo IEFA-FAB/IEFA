@@ -260,3 +260,37 @@ drop view kitchen.rancho;
 
 // ok: ubiquitous-language-migration-lot8b
 alter table kitchen.workforce_submission drop column rancho_id;
+
+// ── Lote 6: SARAM ───────────────────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-migration-lot6
+alter table core.user_data add column "nrOrdem" text;
+
+// ruleid: ubiquitous-language-migration-lot6
+create index person_nr_ordem_idx on core.person (saram);
+
+// ruleid: ubiquitous-language-migration-lot6
+alter table core.person rename column saram to nr_ordem;
+
+// ruleid: ubiquitous-language-migration-lot6
+create function core.person_by_number(p text) returns uuid language sql set search_path = '' as $$
+	select id from core.person where nr_ordem = p
+$$;
+
+// ok: ubiquitous-language-migration-lot6
+create or replace view core.military_identity with (security_invoker = true) as
+select m."nrOrdem" as saram, m."sgPosto" as posto from core.user_military_data m;
+
+// ok: ubiquitous-language-migration-lot6
+comment on column core.user_military_data."nrOrdem" is 'SARAM, com o nome do sistema de origem.';
+
+// ok: ubiquitous-language-migration-lot6
+create function core.masked(p_saram text) returns text language sql set search_path = '' as $$
+	select m."nrCpf" from core.user_military_data m where m."nrOrdem" = p_saram
+$$;
+
+// ok: ubiquitous-language-migration-lot6
+create index user_data_saram_idx on core.user_data (saram);
+
+// ok: ubiquitous-language-migration-lot6
+alter table core.person drop column nr_ordem;
