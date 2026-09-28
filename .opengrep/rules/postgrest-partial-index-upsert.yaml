@@ -19,20 +19,15 @@
 #   - se a unicidade não precisa ser parcial, um índice TOTAL (migration).
 #
 # A lista abaixo é a dos índices únicos parciais sem expressão, sem índice total nas mesmas
-# colunas, no banco compartilhado em 2026-09-27. Índice parcial novo entra aqui. A lista sai de:
+# colunas, no banco compartilhado em 2026-09-27. Índice parcial novo entra aqui, e quem cobra é
+# `apps/sisub/src/test/operations/partial-index-upsert-rule.contract.test.ts` (gate de
+# integração): ele lê `pg_index` do banco vivo e reprova índice parcial sem bloco nesta regra.
+# A consulta dele é a mesma que gerou a lista.
 #
-#     with idx as (
-#       select n.nspname sch, c.relname tbl, i.indpred is not null partial, i.indexprs is not null expr,
-#              (select string_agg(a.attname, ',' order by a.attname) from unnest(i.indkey) k
-#                 join pg_attribute a on a.attrelid = i.indrelid and a.attnum = k) cols
-#       from pg_index i join pg_class c on c.oid = i.indrelid join pg_namespace n on n.oid = c.relnamespace
-#       where i.indisunique)
-#     select sch, tbl, cols from idx p where partial and not expr
-#       and not exists (select 1 from idx t where (t.sch, t.tbl, t.cols) = (p.sch, p.tbl, p.cols) and not t.partial);
-#
-# A ordem das colunas no `onConflict` não importa para o Postgres, e o regex também não a exige. O que a regra NÃO vê: `onConflict` vindo de variável (`CARACTERISTICA_KEY.join(",")`)
-# e `onConflictDo*` do Drizzle sem `where` (este tem tipo, não string, e o domínio já repete o
-# predicado nos dois índices parciais que usa).
+# A ordem das colunas no `onConflict` não importa para o Postgres, e o regex também não a exige.
+# O que a regra NÃO vê: `onConflict` vindo de variável (`CARACTERISTICA_KEY.join(",")`) e
+# `onConflictDo*` do Drizzle sem `where` (este tem tipo, não string, e o domínio já repete o
+# predicado nos índices parciais que usa).
 #
 # Casos de teste: `__fixtures__/postgrest-partial-index-upsert.ts` (opengrep test --config
 # .opengrep/rules/postgrest-partial-index-upsert.yaml .opengrep/rules/__fixtures__/postgrest-partial-index-upsert.ts).
@@ -48,12 +43,16 @@ rules:
       `ON CONFLICT (cols)` sem o `where` do índice, e o Postgres responde 42P10 em toda gravação
       (não só no conflito). Use `insert` e trate o 23505 relendo a linha pela chave, ou a
       operation do domínio (Drizzle com `where` no `onConflictDo*`).
+    # Todo o código dos alvos do scan, não só `src/`: script de seed e componente `.tsx` também
+    # chamam o PostgREST.
     paths:
       include:
-        - "apps/*/src/**/*.ts"
-        - "packages/*/src/**/*.ts"
+        - "apps/**/*.ts"
+        - "apps/**/*.tsx"
+        - "packages/**/*.ts"
       exclude:
         - "**/*.test.ts"
+        - "**/*.test.tsx"
     # Um bloco por tabela: o par (tabela, colunas) tem de casar junto — tabela de um índice com
     # colunas de outro não é o defeito. A forma da chamada se repete em cada bloco porque
     # `metavariable-regex` só vale num `patterns` com termo positivo (e o Opengrep não resolve
