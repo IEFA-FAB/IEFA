@@ -103,7 +103,7 @@ describeIf("regra postgrest-upsert-on-partial-unique-index × pg_index", () => {
 				from pg_index i
 				join pg_class c on c.oid = i.indrelid
 				join pg_namespace n on n.oid = c.relnamespace
-				where i.indisunique and n.nspname::text <> all(${sql.array(PLATFORM_SCHEMAS)})
+				where i.indisunique and n.nspname::text <> all(${PLATFORM_SCHEMAS}::text[])
 			)
 			select sch, tbl, cols, iname from idx p
 			where partial and not expr
