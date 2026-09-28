@@ -173,6 +173,13 @@ export {
 } from "./demand-forecast.ts"
 export { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 export {
+	CONTRATOS_GOV_BR_FUNCTIONS,
+	CONTRATOS_GOV_BR_UNMAPPED_FUNCTIONS,
+	type ContratosGovBrFunctionPair,
+	fromContratosGovBrFunction,
+	toContratosGovBrFunction,
+} from "./designation-contratos-gov-br.ts"
+export {
 	canDesignateInUnit,
 	createDesignation,
 	DEFINITIVE_RECEIPT_ROLES,

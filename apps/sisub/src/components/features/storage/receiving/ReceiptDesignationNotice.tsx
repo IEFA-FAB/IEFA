@@ -43,8 +43,8 @@ export function ReceiptDesignationNotice({
 					<DialogHeader>
 						<DialogTitle>Designar agora</DialogTitle>
 						<DialogDescription>
-							Registre o ato que designou {stage === "provisional" ? "o fiscal" : "o gestor ou a comissão"}. Depois de gravar, confirme o recebimento — a
-							conferência não é refeita.
+							Registre o ato que designou {stage === "provisional" ? "o fiscal" : "o gestor (do contrato ou setorial) ou a comissão"}. Depois de gravar,
+							confirme o recebimento — a conferência não é refeita.
 						</DialogDescription>
 					</DialogHeader>
 					<DesignationForm

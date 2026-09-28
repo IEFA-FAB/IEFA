@@ -32,10 +32,12 @@ describe("designationMissingMessage", () => {
 })
 
 describe("papéis", () => {
-	test("o definitivo é só de gestor ou comissão; o provisório aceita também os fiscais", () => {
-		expect(DEFINITIVE_RECEIPT_ROLES).toEqual(["gestor", "membro_comissao"])
+	test("o definitivo é de gestor do contrato, gestor setorial ou comissão; o provisório aceita também os fiscais", () => {
+		// Decreto 11.246/2022, art. 25, na redação do Decreto 13.031/2026.
+		expect(DEFINITIVE_RECEIPT_ROLES).toEqual(["gestor", "gestor_setorial", "membro_comissao"])
 		for (const role of DEFINITIVE_RECEIPT_ROLES) expect(PROVISIONAL_RECEIPT_ROLES).toContain(role)
 		expect(PROVISIONAL_RECEIPT_ROLES).toContain("fiscal_tecnico")
+		expect(PROVISIONAL_RECEIPT_ROLES).toContain("fiscal_setorial")
 	})
 })
 
@@ -117,6 +119,7 @@ describe("selfDesignationProblem (segregação de funções)", () => {
 		expect(problem).toMatch(/art\. 7º, § 1º/)
 		expect(problem).toContain("CAP SILVA, TEN SOUZA")
 		expect(selfDesignationProblem({ ...base, role: "membro_comissao" })).not.toBeNull()
+		expect(selfDesignationProblem({ ...base, role: "gestor_setorial" })).not.toBeNull()
 	})
 
 	test("unidade de uma pessoa só: a recusa diz o caminho", () => {

@@ -105,7 +105,9 @@ Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como ci
 | Guia de remessa | — | `source = 'delivery_note'` | fica | Guia de remessa | — |
 | NF-e | Ajuste SINIEF 07/2005 | `nfe_*` | fica | NF-e | — |
 | Glosa | — | `fiscal_resolution = 'glosa'` | fica | Glosa | — |
-| Designação de gestor, fiscais e comissão | Lei 14.133, arts. 7º, 117 e 140, II, b; Decreto 11.246/2022, arts. 8º, 19 e 21 a 25 (o Decreto 13.031/2026 incluiu o gestor setorial, arts. 19, V, e 21-A, que ainda não tem `role`) | `contract_designation`, `role` ∈ `gestor` · `fiscal_tecnico` · `fiscal_administrativo` · `fiscal_setorial` · `membro_comissao` | fica; valores trocam | Designações | `manager`, `technical_inspector`, `administrative_inspector`, `sectoral_inspector`, `committee_member` |
+| Designação de gestor, fiscais e comissão | Lei 14.133, arts. 7º, 117 e 140, II, b; Decreto 11.246/2022, arts. 8º, 19 e 21 a 25, na redação do Decreto 13.031/2026 | `contract_designation`, `role` ∈ `gestor` · `gestor_setorial` · `fiscal_tecnico` · `fiscal_administrativo` · `fiscal_setorial` · `membro_comissao`; substituto é `is_substitute` | fica; valores trocam | Designações | `manager`, `technical_inspector`, `administrative_inspector`, `sectoral_inspector`, `committee_member` |
+| Gestor setorial | Decreto 11.246/2022, art. 19, V (gestão setorial: coordenação da gestão quando o objeto é prestado em setores distintos, unidades desconcentradas ou órgãos diferentes), art. 21-A (atribuições do gestor, art. 21, no âmbito do próprio órgão) e art. 25 (recebe o definitivo), incluídos pelo Decreto 13.031/2026, art. 15 | `role = 'gestor_setorial'` | novo (`20260928010000`) | Gestor setorial | — |
+| Função do responsável no Contratos.gov.br | Decreto 13.031/2026, art. 3º; API `GET /api/contrato/{id}/responsaveis` (`funcao_id`) | `CONTRATOS_GOV_BR_FUNCTIONS` (mapa, não coluna): "Gestor", "Gestor Setorial", "Fiscal Técnico", "Fiscal Administrativo", "Fiscal Setorial" e as "… Substituto"; a comissão não tem função lá | — | No Contratos.gov.br: … | — |
 | Ato de designação | Lei 14.133, art. 117 | `source = 'ato'` | fica | Ato | — |
 
 #### 8. Almoxarifado e estoque

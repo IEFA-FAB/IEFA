@@ -207,8 +207,8 @@ rules:
     severity: ERROR
     message: >-
       Valor de domínio descartado pelo glossário do sisub numa migration nova. Papel na designação:
-      `gestor`, `fiscal_tecnico`, `fiscal_administrativo`, `fiscal_setorial`, `membro_comissao`
-      (não `manager`, `technical_inspector`...). Tipo de inventário: `anual`,
+      `gestor`, `gestor_setorial`, `fiscal_tecnico`, `fiscal_administrativo`, `fiscal_setorial`,
+      `membro_comissao` (não `manager`, `technical_inspector`...). Tipo de inventário: `anual`,
       `transferencia_responsabilidade`, `eventual`, `rotativo`. Alvo da regra de política:
       `ingredient` (não `product`). Cardápio de apoio: `template_type = 'apoio'` (não `exception`).
     paths:

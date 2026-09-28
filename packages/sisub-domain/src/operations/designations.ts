@@ -27,25 +27,38 @@ import { brasiliaToday } from "./stock-math.ts"
 
 /**
  * Papel na designação, na língua da norma (Lei 14.133/2021, arts. 7º, 117 e 140, II, b; Decreto
- * 11.246/2022, arts. 8º, 19 e 21 a 25): gestor, fiscal técnico, administrativo e setorial, e
- * membro da comissão de recebimento. O gestor setorial que o Decreto 13.031/2026 incluiu (arts.
- * 19, V, e 21-A) ainda não tem papel aqui. Os nomes em inglês saíram com o contract 20260927110000.
+ * 11.246/2022, arts. 8º, 19 e 21 a 25): gestor do contrato, gestor setorial, fiscal técnico,
+ * administrativo e setorial, e membro da comissão de recebimento. O gestor setorial veio do
+ * Decreto 13.031/2026, que alterou o 11.246/2022: art. 19, V (coordena a gestão quando o objeto é
+ * prestado em setores distintos, unidades desconcentradas ou órgãos diferentes) e art. 21-A
+ * (exerce as atribuições do gestor, art. 21, no âmbito do próprio órgão). Substituto é marca
+ * (`isSubstitute`), não papel. A função correspondente no Contratos.gov.br está em
+ * `designation-contratos-gov-br.ts`.
  */
-export const DESIGNATION_ROLES = ["gestor", "fiscal_tecnico", "fiscal_administrativo", "fiscal_setorial", "membro_comissao"] as const
+export const DESIGNATION_ROLES = ["gestor", "gestor_setorial", "fiscal_tecnico", "fiscal_administrativo", "fiscal_setorial", "membro_comissao"] as const
 export type DesignationRole = (typeof DESIGNATION_ROLES)[number]
 
 export const DESIGNATION_ROLE_LABELS: Record<DesignationRole, string> = {
 	gestor: "Gestor do contrato",
+	gestor_setorial: "Gestor setorial",
 	fiscal_tecnico: "Fiscal técnico",
 	fiscal_administrativo: "Fiscal administrativo",
 	fiscal_setorial: "Fiscal setorial",
 	membro_comissao: "Membro de comissão de recebimento",
 }
 
-/** Quem recebe provisoriamente: quem acompanha e fiscaliza (art. 140, II, a). */
+/**
+ * Quem recebe provisoriamente: quem acompanha e fiscaliza (art. 140, II, a). Todos os papéis: o
+ * Decreto 11.246/2022, art. 25, põe o provisório nos fiscais, mas aqui quem pode o definitivo
+ * também confirma o provisório (decisão anterior ao gestor setorial, que a segue).
+ */
 export const PROVISIONAL_RECEIPT_ROLES: readonly DesignationRole[] = DESIGNATION_ROLES
-/** Quem recebe definitivamente: servidor ou comissão designada (art. 140, II, b). */
-export const DEFINITIVE_RECEIPT_ROLES: readonly DesignationRole[] = ["gestor", "membro_comissao"]
+/**
+ * Quem recebe definitivamente: servidor ou comissão designada (art. 140, II, b): o gestor do
+ * contrato, o gestor setorial ou a comissão (Decreto 11.246/2022, art. 25, na redação do Decreto
+ * 13.031/2026, que repete a regra no art. 10).
+ */
+export const DEFINITIVE_RECEIPT_ROLES: readonly DesignationRole[] = ["gestor", "gestor_setorial", "membro_comissao"]
 
 export const DESIGNATION_SOURCES = ["ato", "permanente"] as const
 export type DesignationSource = (typeof DESIGNATION_SOURCES)[number]
@@ -68,7 +81,7 @@ export function canDesignateInUnit(permissions: UserContext["permissions"], purc
 
 /**
  * Segregação de funções (Lei 14.133/2021, art. 7º, § 1º): quem pode efetivar o definitivo não
- * se designa gestor ou comissão do definitivo — o ato é "de servidor ou comissão designada
+ * se designa gestor (do contrato ou setorial) ou comissão do definitivo — o ato é "de servidor ou comissão designada
  * pela autoridade competente" (art. 140, II, b), e a designação é o controle de outro papel.
  * Designar-se fiscal (o provisório) não entra na trava: o definitivo continua sendo de outra
  * pessoa. Quando ninguém mais na OM pode designar, a mensagem diz isso e o caminho.
@@ -84,7 +97,7 @@ export function selfDesignationProblem(input: {
 		input.otherDesignators.length > 0
 			? `Quem pode designar nesta OM: ${input.otherDesignators.slice(0, 5).join(", ")}${input.otherDesignators.length > 5 ? "…" : ""}.`
 			: "Ninguém mais tem Gestão Unidade nível 2 nesta OM: peça a concessão ao administrador do sisub, ou que o comandante designe outro servidor."
-	return `A designação de gestor ou de comissão para o recebimento definitivo é feita por outra pessoa: você também efetiva o definitivo nesta OM (segregação de funções, Lei 14.133/2021, art. 7º, § 1º). ${who}`
+	return `A designação de gestor (do contrato ou setorial) ou de comissão para o recebimento definitivo é feita por outra pessoa: você também efetiva o definitivo nesta OM (segregação de funções, Lei 14.133/2021, art. 7º, § 1º). ${who}`
 }
 
 /** Onde se designa: é o que toda recusa por falta de designação diz. */
@@ -100,7 +113,7 @@ export function designationMissingMessage(stage: ReceiptStage, canDesignate: boo
 	const act =
 		stage === "provisional"
 			? "O recebimento provisório é do fiscal designado (Lei 14.133/2021, art. 140, II, a), e você não tem designação vigente de fiscal para esta entrega."
-			: "O recebimento definitivo é de servidor ou comissão designada (Lei 14.133/2021, art. 140, II, b), e você não tem designação vigente de gestor ou de comissão para esta entrega."
+			: "O recebimento definitivo é de servidor ou comissão designada (Lei 14.133/2021, art. 140, II, b), e você não tem designação vigente de gestor (do contrato ou setorial) ou de comissão para esta entrega."
 	const kept = "A conferência já registrada fica como está."
 	return canDesignate
 		? `${act} Designe agora, aqui mesmo, e confirme. ${kept}`
