@@ -156,7 +156,9 @@ jobs:
           set -e
           # Trim to keep the PR comment within GitHub's 65k-char limit.
           head -c 60000 plan.txt > plan.trimmed.txt
-          [ "$(wc -c < plan.txt)" -gt 60000 ] && echo -e "\n… (truncated)" >> plan.trimmed.txt || true
+          if [ "$(wc -c < plan.txt)" -gt 60000 ]; then
+            printf '\n… (truncated)\n' >> plan.trimmed.txt
+          fi
 
       - name: Comment plan on PR
         if: steps.tfvars.outputs.has_tfvars == 'true'

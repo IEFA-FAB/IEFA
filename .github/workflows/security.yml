@@ -41,6 +41,11 @@ env:
   ACTIONLINT_VERSION: "1.7.12"
   # sha256 do asset actionlint_<versão>_linux_amd64.tar.gz da release (campo `digest`).
   ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+  # shellcheck fixado em vez do da imagem: a versão da ubuntu-latest acusa SC2015 que a 0.11
+  # não acusa, e o resultado local tem de ser o mesmo do CI.
+  SHELLCHECK_VERSION: "0.11.0"
+  # sha256 do asset shellcheck-v<versão>.linux.x86_64.tar.xz da release (campo `digest`).
+  SHELLCHECK_SHA256: "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
 
 jobs:
   # ============================================
@@ -286,9 +291,15 @@ jobs:
         with:
           persist-credentials: false
 
-      # O shellcheck já vem na imagem ubuntu-latest; o actionlint o encontra no PATH.
-      - name: Install actionlint
+      - name: Install actionlint and shellcheck
         run: |
+          curl -fsSL -o shellcheck.tar.xz \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          echo "${SHELLCHECK_SHA256}  shellcheck.tar.xz" | sha256sum -c -
+          tar -xJf shellcheck.tar.xz "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          sudo mv "shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/
+          rm -r shellcheck.tar.xz "shellcheck-v${SHELLCHECK_VERSION}"
+          shellcheck --version
           curl -fsSL -o actionlint.tar.gz \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
@@ -298,7 +309,7 @@ jobs:
           actionlint -version
 
       - name: Lint workflows
-        run: actionlint
+        run: actionlint -shellcheck /usr/local/bin/shellcheck
 
   # ============================================
   # BANCO — RLS dos schemas expostos no PostgREST

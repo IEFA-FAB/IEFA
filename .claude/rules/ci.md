@@ -62,7 +62,8 @@ paths:
   Dependabot atualiza). Só `actions/*` e `github/*` podem usar tag (`.github/zizmor.yml`).
 - Reusable recebe segredo nomeado, nunca `secrets: inherit`.
 - `actionlint` (job do `security.yml`, config em `.github/actionlint.yaml`) roda o shellcheck em
-  cada `run:`; rode local antes do push (`actionlint`, com `shellcheck` no PATH).
+  cada `run:`, com o shellcheck 0.11 fixado no job (o da imagem acusa outra coisa). Rode local
+  antes do push: `actionlint -shellcheck <caminho do shellcheck 0.11>`.
 - `checkout` com `persist-credentials: false` em job que não faz push.
 - `id-token: write` só no job que assume role AWS, nunca no topo do workflow.
 - Binário baixado por `curl` (opengrep, gitleaks) confere sha256 fixado no workflow.
