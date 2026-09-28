@@ -3,7 +3,7 @@
  *
  * Cinco delas devolvem dado pessoal e nasceram anônimas: `/user-military-data` servia o
  * efetivo nominal (nome, nome de guerra, posto, OM), `/user-data` os e-mails institucionais
- * com número de ordem, e `/arranchamentos` (então só no caminho antigo, hoje alias depreciado)
+ * com o SARAM, e `/arranchamentos` (então só no caminho antigo, hoje alias depreciado)
  * + `/wherewhowhen` o rastro de presença por pessoa. Este teste é o que impede que voltem a ser
  * públicas.
  *
@@ -65,9 +65,10 @@ const PUBLIC = ["/units", "/mess-halls"]
  * pessoal, e a rota tem que estar em `RESTRICTED_PATHS`.
  *
  * `id` de propósito fora da lista: `/units` também tem `id`, e `id` sozinho não diz de quem.
- * `/user-data` é pego por `email` e `nrOrdem`, que dizem.
+ * `/user-data` é pego por `email` e `saram`, que dizem. O nome antigo do SARAM segue na lista: é o
+ * campo do espelho em `/user-military-data` e o obsoleto de `/user-data` (`saram-field.ts`).
  */
-const PERSONAL_DATA_FIELDS = ["userId", "user_id", "nrOrdem", "nrCpf", "cpf", "email", "nmGuerra", "nmPessoa", "sgPosto"]
+const PERSONAL_DATA_FIELDS = ["userId", "user_id", "saram", "nrOrdem", "nrCpf", "cpf", "email", "nmGuerra", "nmPessoa", "sgPosto"]
 
 type ResponseSchema = { items?: { properties?: Record<string, unknown> } }
 type PathItem = { get?: { responses?: Record<string, { content?: Record<string, { schema?: ResponseSchema }> }> } }

@@ -205,6 +205,7 @@ describe.skipIf(!RUN_INTEGRATION)("Integration: GET /user-military-data", () => 
 		const { body } = await get("/user-military-data?limit=1")
 		if (body.length === 0) return
 		const item = body[0] as Record<string, unknown>
+		// O espelho guarda o nome do sistema de origem para o SARAM (`saram-field.ts`).
 		expect(item).toHaveProperty("nrOrdem")
 		expect(item).not.toHaveProperty("nrCpf")
 		expect(item).toHaveProperty("nmGuerra")
@@ -253,7 +254,9 @@ describe.skipIf(!RUN_INTEGRATION)("Integration: GET /user-data", () => {
 		expect(item).toHaveProperty("id")
 		expect(item).toHaveProperty("created_at")
 		expect(item).toHaveProperty("email")
-		expect(item).toHaveProperty("nrOrdem")
+		expect(item).toHaveProperty("saram")
+		// Campo obsoleto, com o mesmo valor (`saram-field.ts`), até o mantenedor retirá-lo.
+		expect(item.nrOrdem).toBe(item.saram)
 	})
 
 	test("filter by email_ilike returns only matching records", async () => {

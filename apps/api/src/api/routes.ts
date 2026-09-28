@@ -4,13 +4,14 @@ import { env } from "../env.ts"
 import { secureCompare } from "../lib/secure-compare.ts"
 import { ARRANCHAMENTO_PATH, arranchamentoDeprecationHeaders, LEGACY_ARRANCHAMENTO_PATH, logDeprecatedArranchamentoPath } from "./arranchamento-path.ts"
 import { createApiHandler } from "./factory.js"
+import { LEGACY_SARAM_FIELD, MIRROR_SARAM_COLUMN } from "./saram-field.ts"
 
 /**
  * Rotas que devolvem DADO PESSOAL e por isso deixaram de ser anônimas.
  *
  * Elas nasceram públicas e assim ficaram: `/user-military-data` servia 68 mil registros
  * nominais de militares (nome, nome de guerra, posto, OM), `/user-data` os e-mails
- * institucionais com o número de ordem, e as duas de refeição o rastro de presença por
+ * institucionais com o SARAM, e as duas de refeição o rastro de presença por
  * pessoa — tudo num GET, sem sessão, com `Cache-Control: public` e anunciado no llms.txt.
  *
  * `/units` e `/mess-halls` seguem públicas: são estrutura organizacional, não pessoa.
@@ -56,7 +57,7 @@ const MealPresenceSchema = z.object({
 })
 
 const UserMilitaryDataSchema = z.object({
-	nrOrdem: z.string(),
+	[MIRROR_SARAM_COLUMN]: z.string().describe("SARAM, com o nome do sistema de origem do espelho"),
 	nmGuerra: z.string(),
 	nmPessoa: z.string(),
 	sgPosto: z.string(),
@@ -68,7 +69,8 @@ const UserDataSchema = z.object({
 	id: z.uuid(),
 	created_at: z.iso.datetime(),
 	email: z.email(),
-	nrOrdem: z.string(),
+	saram: z.string(),
+	[LEGACY_SARAM_FIELD]: z.string().describe("Obsoleto: o mesmo valor de `saram`, que o substitui"),
 })
 
 const UnitSchema = z.object({
@@ -347,7 +349,7 @@ const presenceRoute = defineDocRoute({
 const [, militaryDataHandler] = createApiHandler({
 	table: "user_military_data",
 	schema: "core",
-	select: '"nrOrdem", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"',
+	select: `"${MIRROR_SARAM_COLUMN}", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"`,
 	dateColumn: "dataAtualizacao",
 	dateColumnType: "timestamp",
 	defaultOrder: [
@@ -357,7 +359,7 @@ const [, militaryDataHandler] = createApiHandler({
 		{ column: "nmGuerra", ascending: true },
 	],
 	mapParams: {
-		nrOrdem: "nrOrdem",
+		[MIRROR_SARAM_COLUMN]: MIRROR_SARAM_COLUMN,
 		nmGuerra: "nmGuerra",
 		nmPessoa: "nmPessoa",
 		sgPosto: "sgPosto",
@@ -372,10 +374,10 @@ const militaryDataRoute = defineDocRoute({
 	description: "Retorna dados cadastrais militares com informações de posto, organização, etc",
 	parameters: [
 		{
-			name: "nrOrdem",
+			name: MIRROR_SARAM_COLUMN,
 			in: "query",
 			schema: MultiValueParamSchema,
-			description: "Filtrar por número de ordem",
+			description: "Filtrar por SARAM",
 		},
 		{
 			name: "nmGuerra",
@@ -427,7 +429,8 @@ const militaryDataRoute = defineDocRoute({
 const [, userDataHandler] = createApiHandler({
 	table: "user_data",
 	schema: "core",
-	select: 'id, created_at, email, "nrOrdem"',
+	// O campo obsoleto sai com o mesmo valor, lido da coluna nova (ver `saram-field.ts`).
+	select: `id, created_at, email, saram, ${LEGACY_SARAM_FIELD}:saram`,
 	dateColumn: "created_at",
 	dateColumnType: "timestamp",
 	defaultOrder: [
@@ -437,7 +440,8 @@ const [, userDataHandler] = createApiHandler({
 	mapParams: {
 		id: "id",
 		email: "email",
-		nrOrdem: "nrOrdem",
+		saram: "saram",
+		[LEGACY_SARAM_FIELD]: "saram",
 	},
 	cacheControl: "no-store",
 })
@@ -466,16 +470,30 @@ const userDataRoute = defineDocRoute({
 			description: "Filtrar por email (contém, case-insensitive)",
 		},
 		{
-			name: "nrOrdem",
+			name: "saram",
 			in: "query",
 			schema: MultiValueParamSchema,
-			description: "Filtrar por número de ordem (exato)",
+			description: "Filtrar por SARAM (exato)",
 		},
 		{
-			name: "nrOrdem_ilike",
+			name: "saram_ilike",
 			in: "query",
 			schema: { type: "string" },
-			description: "Filtrar por número de ordem (contém)",
+			description: "Filtrar por SARAM (contém)",
+		},
+		{
+			name: LEGACY_SARAM_FIELD,
+			in: "query",
+			schema: MultiValueParamSchema,
+			deprecated: true,
+			description: "Obsoleto: use `saram`",
+		},
+		{
+			name: `${LEGACY_SARAM_FIELD}_ilike`,
+			in: "query",
+			schema: { type: "string" },
+			deprecated: true,
+			description: "Obsoleto: use `saram_ilike`",
 		},
 	],
 	responseSchema: UserDataSchema,
