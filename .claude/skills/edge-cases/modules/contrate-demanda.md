@@ -50,3 +50,17 @@ cobertura de domínio está em `packages/alpha-client/src/demand/demand.test.ts`
 ### CT-DEM-09 — "A soma do exercício passa do limite da dispensa"
 - **O sistema precisa:** o enquadramento considera o já gasto com a mesma natureza (art. 75, § 1º).
 - **Cobertura:** `demand.test.ts › o já gasto no exercício soma no limite (art. 75, § 1º)`.
+
+### CT-DEM-EDT-01 — "Outra pessoa gravou a demanda enquanto eu digitava"
+- **Realidade:** o 409 do `expected_updated_at` funciona, mas a tela continua editável e não
+  grava mais nada; o aviso é um rótulo pequeno e o `beforeunload` não arma no conflito. Quem
+  digita 30 min depois disso perde tudo ao recarregar.
+- **O sistema precisa:** congelar os campos no conflito, guardar a edição local e oferecer
+  levá-la para a versão atual (merge por passo), como a preparação do SISUB.
+- **Cobertura:** **LACUNA** (auditoria de 2026-09-28).
+
+### CT-DEM-EDT-02 — "Saí da demanda logo depois de digitar"
+- **Realidade:** sem `useBlocker`; o autosave de 1,2 s é descartado ao desmontar e o SIGNED_OUT
+  limpa o cache e redireciona, levando o que não foi gravado. Rascunho ilegível abre editável e
+  nada do que se digita é gravado.
+- **Cobertura:** **LACUNA** (auditoria de 2026-09-28).

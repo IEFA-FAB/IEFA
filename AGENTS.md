@@ -91,6 +91,10 @@ estoura a RAM das máquinas de desenvolvimento.
   `LGPD.md`.
 - **MFA:** remover o MFA de alguém é sempre ato registrado; pelo dashboard do Supabase o `insert` em
   `access_control.mfa_reset_log` é manual. Ver `MFA-RECOVERY.md`.
+- **Edição sem perda:** editor não perde o que foi digitado (autosave que descarrega ao sair,
+  ou rascunho local por conta) e escrita de registro compartilhado confere a versão que a tela
+  viu, no servidor, na mesma transação. Nada de trocar conjunto inteiro a partir do estado do
+  cliente. Ver `EDIT-SAFETY.md`.
 - **UI:** `sisub` e `portal` têm design systems incompatíveis; leia o `STYLE_CONTRACT.md` do app.
   Base UI, nunca Radix. Faixa de acento lateral colorida é proibida em todos os apps. O lint de
   Tailwind (`bun run lint:tailwind`) conta aviso como dívida num baseline que só desce.

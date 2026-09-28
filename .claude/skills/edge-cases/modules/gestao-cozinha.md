@@ -146,3 +146,19 @@ nutricionista em Fluxos → "Revisar a execução", com quem, quando e por quê.
 - **O sistema precisa:** recusar com a instrução ("complete a ficha"): o anexo quantitativo e a
   compra saem do modelo, e sem ficha eles não compram nada. É o bloqueio imprescindível da execução.
 - **Cobertura:** `recipes.authz.test.ts › preparação provisória…` · `ENB`.
+
+## Edição simultânea
+
+### GC-CAR-01 — "Duas nutricionistas no mesmo cardápio semanal"
+- **Realidade:** B inclui 5 preparações; A digita uma letra no nome e, 1,5 s depois, o autosave
+  de A regrava o conjunto inteiro de itens (delete-all + reinsert em `applyTemplateContent`) e
+  apaga o que B fez. Vale para duas abas da mesma pessoa, para eventos e apoios
+  (`writeEventMeals`) e para o plano semanal global da SDAB (Salvar explícito, mesma troca).
+- **O sistema precisa:** o autosave levar a versão que a tela viu e o servidor recusar se ela
+  mudou; a tela recarregar o que mudou e reaplicar a edição local, sem apagar a do colega.
+- **Cobertura:** **LACUNA** (auditoria de 2026-09-28).
+
+### GC-PRV-04 — "Dois ajustes na mesma previsão de demanda"
+- **Realidade:** `updateDemandForecast` troca as seleções inteiras (delete + insert) e a tela não
+  tem aviso de saída.
+- **Cobertura:** **LACUNA** (auditoria de 2026-09-28).

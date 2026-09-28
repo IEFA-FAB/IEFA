@@ -24,3 +24,28 @@ Ler exige `global:1`; editar exige `global:2`. Na cozinha, o modelo se ADAPTA (c
 - **Realidade:** fixture `[TEST] Refeição …` vazada de suíte de integração aparece nos seletores de horário.
 - **O sistema precisa:** o faxineiro (`apps/sisub/scripts/purge-test-fixtures.ts`) recolher; suíte não pode vazar.
 - **Cobertura:** o faxineiro roda antes/depois da suíte completa no CI; vazamento visto em 2026-09-26.
+
+## Preparações — edição simultânea e edição esquecida
+
+### CG-PRE-01 — "Duas nutricionistas editam a mesma preparação"
+- **Realidade:** uma abre a v5 e demora; a outra grava a v6. A primeira salva por cima da v5 e
+  a mudança da v6 some da preparação vigente (fica só no histórico, sem ninguém perceber).
+- **O sistema precisa:** recusar gravar sobre versão superada (servidor, sob o lock da
+  linhagem) e, na tela, avisar antes do Salvar e levar o rascunho para a vigente sem desfazer
+  o que a outra gravou (merge de três vias; campo mudado pelos dois lados fica sinalizado).
+- **Cobertura:** `recipes.operations.test.ts › saveRecipeEdit recusa gravar a partir de uma
+  versão já superada` · `rebase-draft.test.ts` · `recipe-lineage.test.ts › pickLineageHead`.
+
+### CG-PRE-02 — "A cozinha reabre o global que ela já adaptou"
+- **Realidade:** link antigo ou rascunho aponta para a versão global; salvar forkaria de novo
+  por cima da adaptação da cozinha.
+- **O sistema precisa:** tratar o fork da cozinha como a versão vigente dela e recusar.
+- **Cobertura:** `recipes.operations.test.ts › fork: recusa partir de um global superado…`.
+
+### CG-PRE-03 — "Editei, conferi e fui embora sem salvar"
+- **Realidade:** até 2026-09-26 a ficha não tinha rascunho nem aviso: a edição sumia (caso do
+  Arroz Integral, conferido em 24/09 sem versão nova). Terminal do rancho é compartilhado.
+- **O sistema precisa:** rascunho local por conta (sobrevive a F5, fechar o navegador e trocar
+  de conta, por 7 dias); Fluxo e Equipamentos, que não têm rascunho, pedem confirmação ao sair.
+- **Cobertura:** `draft-store.persist.test.ts` (por conta, formato antigo, validade). Guarda
+  de saída do Fluxo/Equipamentos: **LACUNA** de teste (só verificação manual).
