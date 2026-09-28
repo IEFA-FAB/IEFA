@@ -32,6 +32,7 @@ import type {
 	DeleteRecipe,
 	DeleteRecipeFolder,
 	FetchRecipe,
+	FetchRecipeLineageHead,
 	ListRecipeFolders,
 	ListRecipeIngredientDigests,
 	ListRecipes,
@@ -45,6 +46,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { containsPattern, insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire, unwrapPgError } from "../utils/index.ts"
+import { pickLineageHead } from "../utils/recipe-lineage.ts"
 import { type Allergen, normalizeAllergens } from "./allergens.ts"
 import { copyRecipeEquipmentRequirements } from "./equipment.ts"
 import { copyRecipeFlow } from "./recipe-flow.ts"
@@ -208,6 +210,47 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 	const recipe = toRecipeWire<RecipeWithIngredients>(row)
 	await attachAlternatives(db, recipe.ingredients)
 	return recipe
+}
+
+/** Versão vigente de uma linhagem no contexto de quem grava. */
+export interface RecipeLineageHead {
+	id: string
+	version: number
+	kitchen_id: number | null
+	created_at: string
+}
+
+/**
+ * Versão vigente da linhagem da preparação `recipeId` no contexto informado — a que a
+ * listagem mostra e a única sobre a qual `saveRecipeEdit` aceita gravar. `null` quando todas
+ * as versões que contam no contexto estão excluídas.
+ *
+ * Mesma autorização da leitura da ficha: ler a preparação aberta e, no contexto de uma
+ * cozinha, ler aquela cozinha (é o fork dela que pode ser a vigente).
+ */
+export async function fetchRecipeLineageHead(db: SisubDb, ctx: UserContext, input: FetchRecipeLineageHead): Promise<RecipeLineageHead | null> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	const targetKitchenId = input.context.scope === "kitchen" ? input.context.kitchenId : null
+
+	const base = await runQuery("FETCH_FAILED", () =>
+		db.query.recipesInKitchen.findFirst({
+			columns: { id: true, kitchenId: true, baseRecipeId: true },
+			where: eq(recipesInKitchen.id, input.recipeId),
+		})
+	)
+	if (!base) throw new NotFoundError("recipe", input.recipeId)
+	requireAssetRead(ctx, base.kitchenId)
+	if (targetKitchenId != null) requireAssetRead(ctx, targetKitchenId)
+
+	const rootId = base.baseRecipeId ?? base.id
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: recipesInKitchen.id, version: recipesInKitchen.version, kitchenId: recipesInKitchen.kitchenId, createdAt: recipesInKitchen.createdAt })
+			.from(recipesInKitchen)
+			.where(and(or(eq(recipesInKitchen.id, rootId), eq(recipesInKitchen.baseRecipeId, rootId)), isNull(recipesInKitchen.deletedAt)))
+	)
+	const head = pickLineageHead(rows, targetKitchenId)
+	return head ? { id: head.id, version: head.version, kitchen_id: head.kitchenId, created_at: head.createdAt } : null
 }
 
 /** Colunas que o recorte da listagem lê — da tabela ou de um alias dela. */
@@ -898,9 +941,26 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 		// escopo de destino. Um fork já existente desta cozinha aparece aqui, então a edição
 		// seguinte versiona esse fork em vez de bifurcar de novo.
 		const lineage = await tx
-			.select({ kitchenId: recipesInKitchen.kitchenId, version: recipesInKitchen.version })
+			.select({ id: recipesInKitchen.id, kitchenId: recipesInKitchen.kitchenId, version: recipesInKitchen.version, deletedAt: recipesInKitchen.deletedAt })
 			.from(recipesInKitchen)
 			.where(or(eq(recipesInKitchen.id, rootId), eq(recipesInKitchen.baseRecipeId, rootId)))
+
+		// Só se grava sobre a versão VIGENTE no contexto. Aberta uma versão que outra pessoa já
+		// superou (aba antiga, rascunho de dias atrás, link do histórico), salvar gravaria a
+		// ficha dela por cima da vigente e o que mudou nesse meio-tempo sumiria da preparação —
+		// ficaria só no histórico, sem ninguém perceber. Conferido sob o lock da linhagem, então
+		// dois saves simultâneos da mesma versão não passam os dois.
+		const head = pickLineageHead(
+			lineage.filter((row) => row.deletedAt == null),
+			targetKitchenId
+		)
+		if (head && head.id !== base.id) {
+			throw new DomainError(
+				"RECIPE_VERSION_CONFLICT",
+				`Esta preparação mudou depois que você a abriu: a versão vigente agora é a v${head.version}. Abra a versão vigente para salvar — suas alterações continuam no rascunho.`,
+				{ headId: head.id, headVersion: head.version }
+			)
+		}
 
 		const nextVersion = lineage.filter((r) => r.kitchenId === targetKitchenId).reduce((max, r) => Math.max(max, r.version), 0) + 1
 

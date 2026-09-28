@@ -17,8 +17,10 @@ import {
 	DeleteRecipeSchema,
 	deleteRecipe,
 	deleteRecipeFolder,
+	FetchRecipeLineageHeadSchema,
 	FetchRecipeSchema,
 	fetchRecipe,
+	fetchRecipeLineageHead,
 	ListRecipeFoldersSchema,
 	ListRecipeIngredientDigestsSchema,
 	ListRecipeLastReviewsSchema,
@@ -80,6 +82,14 @@ export const fetchRecipeFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchRecipe(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+/** Versão vigente da linhagem no contexto da tela — o editor avisa quando a aberta foi superada. */
+export const fetchRecipeLineageHeadFn = createServerFn({ method: "GET" })
+	.validator(FetchRecipeLineageHeadSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return fetchRecipeLineageHead(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 /** Ingredientes (nome + alergênicos, sem quantidade) das fichas de um cardápio — impressão. */

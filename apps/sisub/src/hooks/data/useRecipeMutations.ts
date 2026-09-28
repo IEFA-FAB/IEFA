@@ -80,6 +80,8 @@ export function useSaveRecipeEdit() {
 			toast.success(result.forked ? "Cópia local criada — a preparação global segue intacta" : "Nova versão criada com sucesso")
 		},
 		onError: (error) => {
+			// Recusa por versão superada: relê a vigente para a tela mostrar o aviso e o caminho.
+			queryClient.invalidateQueries({ queryKey: [...queryKeys.recipes.all(), "lineage-head"] })
 			toast.error(`Erro ao atualizar Preparação: ${error.message}`)
 		},
 	})

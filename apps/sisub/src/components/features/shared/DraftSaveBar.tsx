@@ -23,6 +23,8 @@ interface DraftSaveBarProps<T extends Record<string, unknown>> extends Omit<UseD
 	isPending: boolean
 	/** Salvar sem alteração ainda grava (criar, personalizar). Padrão: desabilita. */
 	allowCleanSave?: boolean
+	/** Salvar recusado de antemão (ex.: versão aberta já superada); a `caption` diz por quê. */
+	saveBlocked?: boolean
 	contentClassName?: string
 }
 
@@ -44,6 +46,7 @@ export function DraftSaveBar<T extends Record<string, unknown>>({
 	onBack,
 	isPending,
 	allowCleanSave = false,
+	saveBlocked = false,
 	contentClassName,
 	...draftOptions
 }: DraftSaveBarProps<T>) {
@@ -59,7 +62,7 @@ export function DraftSaveBar<T extends Record<string, unknown>>({
 					<Button type="button" variant="outline" onClick={onBack}>
 						Voltar
 					</Button>
-					<Button type="submit" form={formId} disabled={isPending || (!allowCleanSave && !draft.isDirty)}>
+					<Button type="submit" form={formId} disabled={isPending || saveBlocked || (!allowCleanSave && !draft.isDirty)}>
 						{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
 						{saveLabel}
 					</Button>

@@ -34,3 +34,21 @@ export function isLineageWinner(candidate: LineageRank, incumbent: LineageRank):
 	if (candidateIsLocal !== (incumbent.kitchenId != null)) return candidateIsLocal
 	return candidate.version > incumbent.version
 }
+
+/**
+ * Versão VIGENTE da linhagem para quem grava no escopo `targetKitchenId` (`null` = global):
+ * a vencedora entre as linhas globais e as da própria cozinha, pela mesma regra da listagem.
+ * Linhas de outras cozinhas não contam — o fork de uma cozinha não é a versão vigente de
+ * ninguém mais. Quem chama já filtrou as excluídas, como a listagem faz.
+ *
+ * É contra ela que `saveRecipeEdit` confere a versão aberta: salvar a partir de outra
+ * versão gravaria por cima do que mudou desde então.
+ */
+export function pickLineageHead<T extends LineageRank>(rows: readonly T[], targetKitchenId: number | null): T | null {
+	let head: T | null = null
+	for (const row of rows) {
+		if (row.kitchenId != null && row.kitchenId !== targetKitchenId) continue
+		if (!head || isLineageWinner(row, head)) head = row
+	}
+	return head
+}

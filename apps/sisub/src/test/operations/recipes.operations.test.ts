@@ -12,6 +12,7 @@ import {
 	deleteRecipe,
 	deleteRecipeFolder,
 	fetchRecipe,
+	fetchRecipeLineageHead,
 	listRecipeFolders,
 	listRecipeMenuUsage,
 	listRecipes,
@@ -393,6 +394,61 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 		expect(ids).not.toContain(v2.id)
 		expect(ids).not.toContain(v1)
 	}, 90_000)
+
+	test("saveRecipeEdit recusa gravar a partir de uma versão já superada", async () => {
+		if (!reachable || !seeder || !db) return
+		const v1 = await seeder.seedRecipe({ name: uid("[TEST] Superada ") })
+		const { recipe: v2 } = await saveRecipeEdit(db, ctx, {
+			name: uid("[TEST] Superada v2 "),
+			portionYield: 110,
+			baseRecipeId: v1,
+			context: { scope: "global" },
+		})
+		seeder.track("recipes", v2.id)
+
+		// Quem ainda está com a v1 aberta (aba antiga, rascunho de outro dia) não grava por
+		// cima da v2: a edição dela sumiria da versão vigente sem ninguém perceber.
+		await expect(
+			saveRecipeEdit(db, ctx, { name: uid("[TEST] Superada v3 "), portionYield: 90, baseRecipeId: v1, context: { scope: "global" } })
+		).rejects.toMatchObject({ code: "RECIPE_VERSION_CONFLICT", details: { headId: v2.id, headVersion: 2 } })
+
+		const head = await fetchRecipeLineageHead(db, ctx, { recipeId: v1, context: { scope: "global" } })
+		expect(head).toMatchObject({ id: v2.id, version: 2, kitchen_id: null })
+	}, 90_000)
+
+	test("fork: recusa partir de um global superado ou de um global que a cozinha já adaptou", async () => {
+		if (!reachable || !seeder || !db) return
+		const { id: kitchenId } = await seeder.seedKitchen()
+		const g1 = await seeder.seedRecipe({ name: uid("[TEST] Fork base ") })
+		const { recipe: g2 } = await saveRecipeEdit(db, ctx, {
+			name: uid("[TEST] Fork base v2 "),
+			portionYield: 110,
+			baseRecipeId: g1,
+			context: { scope: "global" },
+		})
+		seeder.track("recipes", g2.id)
+
+		const kitchenCtx = { scope: "kitchen" as const, kitchenId }
+		await expect(saveRecipeEdit(db, ctx, { name: uid("[TEST] Fork antigo "), portionYield: 100, baseRecipeId: g1, context: kitchenCtx })).rejects.toMatchObject(
+			{
+				code: "RECIPE_VERSION_CONFLICT",
+			}
+		)
+
+		const { recipe: fork, forked } = await saveRecipeEdit(db, ctx, { name: uid("[TEST] Fork "), portionYield: 100, baseRecipeId: g2.id, context: kitchenCtx })
+		seeder.track("recipes", fork.id)
+		expect(forked).toBe(true)
+
+		// Na cozinha, a vigente passa a ser o fork dela; no global, segue a v2.
+		expect(await fetchRecipeLineageHead(db, ctx, { recipeId: g1, context: kitchenCtx })).toMatchObject({ id: fork.id, kitchen_id: kitchenId })
+		expect(await fetchRecipeLineageHead(db, ctx, { recipeId: fork.id, context: { scope: "global" } })).toMatchObject({ id: g2.id })
+
+		// Reabrir o global na cozinha e salvar forkaria de novo por cima da adaptação dela.
+		await expect(saveRecipeEdit(db, ctx, { name: uid("[TEST] Refork "), portionYield: 100, baseRecipeId: g2.id, context: kitchenCtx })).rejects.toMatchObject({
+			code: "RECIPE_VERSION_CONFLICT",
+			details: { headId: fork.id },
+		})
+	}, 120_000)
 
 	test("listRecipeVersions retorna a família ordenada por version asc", async () => {
 		if (!reachable || !seeder || !db) return

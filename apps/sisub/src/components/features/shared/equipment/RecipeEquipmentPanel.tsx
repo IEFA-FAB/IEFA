@@ -73,7 +73,16 @@ function modelLabel(model: EquipmentModelWire): string {
 	return model.capacity_label ? `${base} · ${model.capacity_label}` : base
 }
 
-export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string; kitchenId: number | null }) {
+interface RecipeEquipmentPanelProps {
+	recipeId: string
+	kitchenId: number | null
+	/** Avisa quem monta o painel se há alteração ainda não salva (guarda de saída). */
+	onDirtyChange?: (dirty: boolean) => void
+	/** Versão aberta já superada: salvar gravaria a lista numa versão que ninguém mais usa. */
+	saveBlocked?: boolean
+}
+
+export function RecipeEquipmentPanel({ recipeId, kitchenId, onDirtyChange, saveBlocked = false }: RecipeEquipmentPanelProps) {
 	const rowIdPrefix = useId()
 	const rowCounter = useRef(0)
 	const { data: requirements, isLoading } = useRecipeEquipment(recipeId)
@@ -88,6 +97,11 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 	const [portionsInput, setPortionsInput] = useState("")
 	const portions = portionsInput.trim() === "" ? null : Math.max(1, Number(portionsInput))
 	const fitness = useRecipeEquipmentFitness(recipeId, kitchenId, portions)
+
+	useEffect(() => {
+		onDirtyChange?.(dirty)
+	}, [dirty, onDirtyChange])
+	useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
 
 	// Só sincroniza do servidor enquanto o usuário não mexeu — recarregar por cima de edição
 	// aberta apagaria o trabalho dele sem aviso.
@@ -193,7 +207,7 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 						<Plus className="size-4 mr-2" />
 						Adicionar
 					</Button>
-					<Button type="button" size="sm" onClick={handleSave} disabled={save.isPending || incomplete || !dirty}>
+					<Button type="button" size="sm" onClick={handleSave} disabled={save.isPending || incomplete || !dirty || saveBlocked}>
 						{save.isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
 						Salvar equipamentos
 					</Button>

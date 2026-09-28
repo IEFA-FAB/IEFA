@@ -181,6 +181,15 @@ describe("server function security contracts", () => {
 		// base_recipe_id aponta para a RAIZ da linhagem, e a versão é calculada no servidor.
 		expect(opSource).toContain("baseRecipeId: rootId")
 		expect(opSource).toContain("version: nextVersion")
+
+		// Só grava sobre a versão VIGENTE no contexto, conferida sob o lock da linhagem: salvar
+		// a partir de versão superada apagava da preparação a mudança de outra pessoa.
+		const lock = opSource.indexOf("pg_advisory_xact_lock")
+		const check = opSource.indexOf("RECIPE_VERSION_CONFLICT")
+		expect(opSource).toContain("pickLineageHead(")
+		expect(lock).toBeGreaterThan(-1)
+		expect(check).toBeGreaterThan(lock)
+		expect(check).toBeLessThan(opSource.indexOf(".insert(recipesInKitchen)"))
 	})
 
 	test("saveTemplateEdit forks a global template edited from a kitchen instead of mutating it", () => {

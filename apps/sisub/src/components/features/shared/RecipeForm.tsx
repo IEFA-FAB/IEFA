@@ -1,15 +1,16 @@
 import type { EditScope } from "@iefa/sisub-domain"
 import { useForm } from "@tanstack/react-form"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { CalendarCheck, CircleCheck, GitFork, Loader2, Pencil, Printer, TriangleAlert } from "lucide-react"
-import { useMemo, useState } from "react"
+import { CalendarCheck, CircleCheck, GitFork, History, Loader2, Pencil, Printer, TriangleAlert } from "lucide-react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { z } from "zod"
 import { DraftSaveBar } from "@/components/features/shared/DraftSaveBar"
 import { RecipeEquipmentPanel } from "@/components/features/shared/equipment/RecipeEquipmentPanel"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
 import { RecipeIngredientsTable } from "@/components/features/shared/RecipeIngredientsTable"
 import { RecipeFlowEditor } from "@/components/features/shared/recipe-flow/RecipeFlowEditor"
+import { UnsavedChangesGuard } from "@/components/features/shared/UnsavedChangesGuard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useRecipeLineageHead } from "@/hooks/data/useRecipe"
 import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { useCreateRecipe, useSaveRecipeEdit } from "@/hooks/data/useRecipeMutations"
 import { type RecipeNutritionInputIngredient, useRecipeNutrition } from "@/hooks/data/useRecipeNutrition"
@@ -31,7 +33,11 @@ import { discardDraft } from "@/hooks/forms/useDraft"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { cn } from "@/lib/cn"
 import { type DraftChange, type DraftFields, formatDraftValue } from "@/lib/drafts/draft-diff"
+import { draftStore } from "@/lib/drafts/draft-store"
+import { rebaseDraftValues } from "@/lib/drafts/rebase-draft"
+import { queryKeys } from "@/lib/query-keys"
 import type { QuantityBasis } from "@/lib/technical-sheet"
+import { fetchRecipeFn } from "@/server/recipes.fn"
 import type { RecipeIngredientSource } from "@/types/domain/recipe-flow"
 import type { RecipeAlternativeFormRow, RecipeWithIngredients } from "@/types/domain/recipes"
 
@@ -311,6 +317,11 @@ function toFieldErrors(errors: readonly unknown[]): Array<{ message?: string }> 
 	return errors.map((error) => ({ message: typeof error === "string" ? error : (error as { message?: string } | undefined)?.message }))
 }
 
+/** Data e hora curtas da gravação de uma versão ("28/09, 14:29"). */
+function formatDateTime(iso: string) {
+	return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+}
+
 /** Campos do form a partir da versão carregada — é também o baseline do rascunho. */
 function recipeFormValues(initialData: RecipeWithIngredients | null | undefined) {
 	return {
@@ -465,6 +476,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 
 	const createMutation = useCreateRecipe()
 	const saveEditMutation = useSaveRecipeEdit()
+	const queryClient = useQueryClient()
 
 	// Pastas: agrupamento simples da listagem (não hierárquico, sem efeito na ficha técnica).
 	const { folders: recipeFolders, nameById: folderNameById } = useRecipeFolders()
@@ -477,6 +489,24 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 
 	// Preparação global aberta no contexto de uma cozinha: salvar vai criar cópia local.
 	const willFork = mode !== "create" && !!initialData && initialData.kitchen_id == null && editContext.scope === "kitchen"
+
+	// Versão vigente da linhagem neste contexto. Aberta uma versão que outra pessoa já superou
+	// (aba esquecida, rascunho de outro dia, link do histórico), o servidor recusa o Salvar —
+	// gravaria por cima do que mudou. A tela avisa antes e oferece levar o rascunho para a
+	// vigente (`carryDraftToHead`).
+	const lineageHead = useRecipeLineageHead(mode === "create" ? undefined : initialData?.id, editContext)
+	const supersededBy = mode !== "create" && initialData && lineageHead.data && lineageHead.data.id !== initialData.id ? lineageHead.data : null
+	const [isCarryingDraft, setIsCarryingDraft] = useState(false)
+
+	// Fluxo e Equipamentos salvam por conta própria e não têm rascunho: enquanto houver
+	// alteração deles, sair da aba ou da tela pede confirmação (`UnsavedChangesGuard`).
+	const sideEditorsDirty = useRef({ flow: false, equipment: false })
+	const setFlowDirty = useCallback((dirty: boolean) => {
+		sideEditorsDirty.current.flow = dirty
+	}, [])
+	const setEquipmentDirty = useCallback((dirty: boolean) => {
+		sideEditorsDirty.current.equipment = dirty
+	}, [])
 
 	// Revisão (conferência pelos nutricionistas) — só para preparações persistidas em edição.
 	// A UI (e os hooks de revisão) vive em <RecipeReviewActions>, montado só quando há id.
@@ -608,10 +638,11 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	// ── Rascunho local + alterações pendentes (salvamento explícito: cada Salvar é uma versão) ──
 	// A chave é a VERSÃO aberta (e o contexto): versões são imutáveis, então um rascunho da v3
 	// nunca é aplicado sobre a v4 de outra pessoa. Salvar troca o id e começa limpo.
-	const draftKey =
-		mode === "create"
-			? `sisub:recipe:new:${kitchenId ?? "global"}`
-			: `sisub:recipe:${mode}:${editContext.scope === "kitchen" ? editContext.kitchenId : "global"}:${initialData?.id}`
+	// Identificador do rascunho de uma versão; o armazenamento o grava dentro da família
+	// `sisub:draft:*` (ver `draft-store.ts`), então não é chave própria do inventário de cookies.
+	const draftIdFor = (recipeId: string | undefined, draftMode: "edit" | "fork" = mode === "fork" ? "fork" : "edit") =>
+		`sisub:recipe:${draftMode}:${editContext.scope === "kitchen" ? editContext.kitchenId : "global"}:${recipeId}`
+	const draftKey = mode === "create" ? `sisub:recipe:new:${kitchenId ?? "global"}` : draftIdFor(initialData?.id)
 	const draftFields: DraftFields<RecipeFormValues> = {
 		...Object.fromEntries(Object.entries(RECIPE_DRAFT_LABELS).map(([key, label]) => [key, { label }])),
 		folder_id: { label: "Pasta", format: (id) => (id ? (folderNameById.get(id) ?? "Pasta") : "Sem pasta") },
@@ -620,6 +651,53 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	const discardRecipeDraft = () => {
 		form.reset(recipeFormValues(initialData))
 		discardDraft(draftKey)
+	}
+
+	/**
+	 * Abre a versão vigente levando o que o usuário mudou nesta. Merge de três vias
+	 * (`rebaseDraftValues`): só os campos que ELE alterou saem do rascunho; o resto vem da
+	 * vigente, então o que a outra pessoa gravou continua lá. O resultado vira o rascunho da
+	 * vigente, que a tela restaura ao abrir, e a lista de pendências mostra o que o Salvar muda.
+	 */
+	const carryDraftToHead = async () => {
+		if (!supersededBy || !initialData) return
+		setIsCarryingDraft(true)
+		try {
+			const head = await queryClient.fetchQuery({
+				queryKey: queryKeys.recipes.detail(supersededBy.id),
+				queryFn: () => fetchRecipeFn({ data: { recipeId: supersededBy.id } }),
+			})
+			// Fork que a cozinha já tem abre como edição dela; global mais novo, no mesmo modo.
+			const headMode = mode === "fork" && head.kitchen_id == null ? "fork" : "edit"
+			const headBaseline = recipeFormValues(head)
+			const { values, carried, overlapping } = rebaseDraftValues(recipeFormValues(initialData), form.state.values, headBaseline, {
+				ingredients: (row: RecipeIngredientRow) => row.ingredient_id ?? "",
+			})
+			const headHref = kitchenId ? `/kitchen/${kitchenId}/recipes/${head.id}${headMode === "fork" ? "/fork" : ""}` : `/global/recipes/${head.id}`
+			if (carried.length > 0) {
+				draftStore.set({
+					key: draftIdFor(head.id, headMode),
+					values,
+					baseStamp: JSON.stringify(headBaseline),
+					title: `Preparação: ${head.name}`,
+					href: headHref,
+					changeCount: carried.length,
+					savedAt: Date.now(),
+				})
+			}
+			discardDraft(draftKey)
+			navigate({ href: `${headHref}${activeTab !== "detalhes" ? `?tab=${activeTab}` : ""}`, replace: true })
+			if (carried.length === 0) toast.info(`Aberta a versão vigente (v${head.version}).`)
+			else if (overlapping.length > 0)
+				toast.warning(`Suas alterações foram levadas para a v${head.version}`, {
+					description: "Alguns campos também tinham sido alterados na versão vigente e ficaram com o seu valor. Confira a lista de alterações antes de salvar.",
+				})
+			else toast.success(`Suas alterações foram levadas para a v${head.version}. Confira e salve.`)
+		} catch {
+			toast.error("Não foi possível abrir a versão vigente. Tente de novo.")
+		} finally {
+			setIsCarryingDraft(false)
+		}
 	}
 
 	// Fluxo e Equipamentos salvam por conta própria: a barra da preparação só aparece nelas se
@@ -718,6 +796,28 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					<AlertDescription>
 						Esta preparação é do catálogo global da SDAB. Ao salvar, uma cópia local desta cozinha é criada com as suas alterações — a preparação global
 						permanece intacta e as demais unidades continuam vendo a versão original.
+					</AlertDescription>
+				</Alert>
+			)}
+
+			{supersededBy && (
+				<Alert>
+					<History className="size-4" />
+					<AlertTitle>Esta não é a versão vigente</AlertTitle>
+					<AlertDescription>
+						<div className="space-y-3">
+							<p>
+								{supersededBy.kitchen_id != null && initialData?.kitchen_id == null
+									? `Esta cozinha já tem a própria versão desta preparação (v${supersededBy.version}, de ${formatDateTime(supersededBy.created_at)}).`
+									: `A v${supersededBy.version} foi gravada em ${formatDateTime(supersededBy.created_at)}, depois da versão que você abriu (v${initialData?.version}).`}{" "}
+								Salvar daqui gravaria por cima do que mudou, por isso fica bloqueado. Abra a versão vigente: o que você alterou aqui vai junto, e a lista de
+								alterações mostra o que o Salvar muda.
+							</p>
+							<Button type="button" size="sm" onClick={carryDraftToHead} disabled={isCarryingDraft}>
+								{isCarryingDraft ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+								Abrir a versão vigente (v{supersededBy.version})
+							</Button>
+						</div>
 					</AlertDescription>
 				</Alert>
 			)}
@@ -1105,7 +1205,13 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 										<p className="text-caption text-muted-foreground pb-3">
 											O fluxo é salvo separadamente (botão "Salvar fluxo") na versão atual. Ao salvar a preparação, ele é copiado para a nova versão.
 										</p>
-										<RecipeFlowEditor recipeId={initialData.id} kitchenId={initialData.kitchen_id ?? null} ingredients={flowIngredients} />
+										<RecipeFlowEditor
+											recipeId={initialData.id}
+											kitchenId={initialData.kitchen_id ?? null}
+											ingredients={flowIngredients}
+											onDirtyChange={setFlowDirty}
+											saveBlocked={!!supersededBy}
+										/>
 									</>
 								) : (
 									<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border py-10 text-center text-muted-foreground">
@@ -1125,7 +1231,12 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							</CardHeader>
 							<CardContent>
 								{flowEnabled && initialData ? (
-									<RecipeEquipmentPanel recipeId={initialData.id} kitchenId={initialData.kitchen_id ?? null} />
+									<RecipeEquipmentPanel
+										recipeId={initialData.id}
+										kitchenId={initialData.kitchen_id ?? null}
+										onDirtyChange={setEquipmentDirty}
+										saveBlocked={!!supersededBy}
+									/>
 								) : (
 									<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border py-10 text-center text-muted-foreground">
 										<p className="text-body">A lista de equipamentos fica disponível após salvar a preparação.</p>
@@ -1147,7 +1258,14 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					<DraftSaveBar<RecipeFormValues>
 						draftKey={draftKey}
 						primary={isRecipeTab}
-						caption={isRecipeTab ? saveCaption : "Há alterações na preparação ainda não salvas."}
+						caption={
+							supersededBy
+								? `Salvar está bloqueado: abra a versão vigente (v${supersededBy.version}) para levar suas alterações.`
+								: isRecipeTab
+									? saveCaption
+									: "Há alterações na preparação ainda não salvas."
+						}
+						saveBlocked={!!supersededBy}
 						formId="recipe-form"
 						saveLabel="Salvar Preparação"
 						onBack={handleBack}
@@ -1164,6 +1282,11 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					/>
 				)}
 			</form.Subscribe>
+
+			<UnsavedChangesGuard
+				isDirty={() => sideEditorsDirty.current.flow || sideEditorsDirty.current.equipment}
+				message="O fluxo de produção ou a lista de equipamentos tem alterações que ainda não foram salvas. Se sair agora, elas serão perdidas."
+			/>
 
 			{/* Ingredient Selector Modal — adiciona ingrediente principal à preparação */}
 			{selectorOpen && (

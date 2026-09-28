@@ -33,9 +33,13 @@ interface RecipeFlowEditorProps {
 	recipeId: string
 	kitchenId: number | null
 	ingredients: RecipeIngredientSource[]
+	/** Avisa quem monta o editor se há alteração do fluxo ainda não salva (guarda de saída). */
+	onDirtyChange?: (dirty: boolean) => void
+	/** Versão aberta já superada: salvar gravaria o fluxo numa versão que ninguém mais usa. */
+	saveBlocked?: boolean
 }
 
-function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients }: RecipeFlowEditorProps) {
+function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients, onDirtyChange, saveBlocked = false }: RecipeFlowEditorProps) {
 	const flowQuery = useRecipeFlow(recipeId)
 	const saveMutation = useSaveRecipeFlow(recipeId)
 	const templatesQuery = useStepTemplates(kitchenId)
@@ -46,6 +50,8 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients }: RecipeFlowE
 	const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([])
 	const [edges, setEdges, onEdgesChange] = useEdgesState<MaterialEdge>([])
 	const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
+	/** O grafo persistido, no formato que o Salvar grava — a referência do "não salvo". */
+	const [savedSignature, setSavedSignature] = useState<string | null>(null)
 
 	// Reseta o grafo a partir do estado persistido sempre que o fetch muda (carga inicial + pós-save).
 	const flowData = flowQuery.data
@@ -55,7 +61,17 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients }: RecipeFlowE
 		setNodes(n)
 		setEdges(e)
 		setSelectedStepId(null)
-	}, [flowData, ingredients, setNodes, setEdges])
+		setSavedSignature(JSON.stringify(graphToSave(recipeId, n, e)))
+	}, [flowData, ingredients, recipeId, setNodes, setEdges])
+
+	// Alteração não salva = o que o Salvar gravaria difere do persistido. Compara pelo payload,
+	// não pelos nós: selecionar ou medir um nó (estado do canvas) não é alteração do fluxo.
+	const currentSignature = useMemo(() => JSON.stringify(graphToSave(recipeId, nodes, edges)), [recipeId, nodes, edges])
+	const isDirty = savedSignature != null && currentSignature !== savedSignature
+	useEffect(() => {
+		onDirtyChange?.(isDirty)
+	}, [isDirty, onDirtyChange])
+	useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
 
 	const ingredientById = useMemo(() => new Map(ingredients.map((i) => [i.recipeIngredientId, i])), [ingredients])
 	const presentIngredientIds = useMemo(() => {
@@ -257,10 +273,13 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients }: RecipeFlowE
 				<Button type="button" variant="outline" size="sm" onClick={handleAddStep}>
 					<Plus className="size-4 mr-2" /> Adicionar etapa
 				</Button>
-				<Button type="button" size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
-					{saveMutation.isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
-					Salvar fluxo
-				</Button>
+				<div className="flex items-center gap-2">
+					{isDirty ? <span className="text-caption text-muted-foreground">Alterações não salvas</span> : null}
+					<Button type="button" size="sm" onClick={handleSave} disabled={saveMutation.isPending || saveBlocked || !isDirty}>
+						{saveMutation.isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
+						Salvar fluxo
+					</Button>
+				</div>
 			</div>
 
 			{/* Insumos + balanço recolhidos por padrão — liberam toda a largura ao DAG.
