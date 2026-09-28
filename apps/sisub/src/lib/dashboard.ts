@@ -98,7 +98,7 @@ export function buildUserMealDetails(
 	militaryData: UserMilitaryDataAPI[]
 ): UserMealDetail[] {
 	return userData.map((user) => {
-		const military = militaryData.find((m) => m.nrOrdem === user.nrOrdem)
+		const military = militaryData.find((m) => m.saram === user.saram)
 		const userArranchamentos = arranchamentos.filter((f) => f.user_id === user.id && f.will_eat)
 		const userPresences = presences.filter((p) => p.user_id === user.id)
 
@@ -169,7 +169,7 @@ export function aggregatePresenceData(
 ): AggregatedPresenceRecord[] {
 	// Create a map for quick lookups
 	const userMap = new Map(userData.map((u) => [u.id, u]))
-	const militaryMap = new Map(militaryData.map((m) => [m.nrOrdem, m]))
+	const militaryMap = new Map(militaryData.map((m) => [m.saram, m]))
 	const messHallMap = new Map(messHalls.map((mh) => [mh.id, mh]))
 
 	// Group by date + meal + mess_hall
@@ -231,7 +231,7 @@ export function aggregatePresenceData(
 		// Build drill-down lists
 		const getPersonDetail = (userId: string): PersonDetail => {
 			const user = userMap.get(userId)
-			const military = user?.nrOrdem ? militaryMap.get(user.nrOrdem) : undefined
+			const military = user?.saram ? militaryMap.get(user.saram) : undefined
 			return {
 				id: userId,
 				email: user?.email || "Desconhecido",

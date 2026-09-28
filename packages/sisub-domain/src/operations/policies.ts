@@ -200,7 +200,7 @@ export async function listUserPolicies(db: SisubDb, ctx: UserContext, input: Lis
 export type PolicyMember = {
 	user_id: string
 	email: string | null
-	nrOrdem: string | null
+	saram: string | null
 	attached_at: string
 	/** Prazo do anexo. `null` = permanente. */
 	expires_at: string | null
@@ -232,7 +232,7 @@ export async function listPolicyMembers(db: SisubDb, ctx: UserContext, input: Li
 			.select({
 				user_id: userPolicyAttachmentInAccessControl.userId,
 				email: userDataInCore.email,
-				nrOrdem: userDataInCore.nrOrdem,
+				saram: userDataInCore.saram,
 				attached_at: userPolicyAttachmentInAccessControl.createdAt,
 				expires_at: userPolicyAttachmentInAccessControl.expiresAt,
 				expired: isExpired(userPolicyAttachmentInAccessControl.expiresAt),

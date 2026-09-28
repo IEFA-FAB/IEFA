@@ -9,8 +9,8 @@ export const queryKeys = {
 
 	user: {
 		data: (userId: string | null | undefined) => ["user_data", userId] as const,
-		military: (nrOrdem: string | null | undefined) => ["military", nrOrdem] as const,
-		nrOrdem: (userId: string | null | undefined) => ["user", userId, "nrOrdem"] as const,
+		military: (saram: string | null | undefined) => ["military", saram] as const,
+		saram: (userId: string | null | undefined) => ["user", userId, "saram"] as const,
 		kitchens: () => ["user", "kitchens"] as const,
 	},
 

@@ -18,7 +18,7 @@ export type UserDataRow = UserData
  * change `lgpd-military-roster-key`).
  */
 export type MilitaryDataRow = {
-	nrOrdem: string | null
+	saram: string | null
 	nmGuerra: string | null
 	sgPosto: string | null
 	sgOrg: string | null

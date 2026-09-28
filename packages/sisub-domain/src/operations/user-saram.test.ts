@@ -1,34 +1,34 @@
 /**
- * Vínculo do Nr. de Ordem: write-once e exclusivo (achado LGPD da auditoria de 2026-09-19).
+ * Vínculo do SARAM: write-once e exclusivo (achado LGPD da auditoria de 2026-09-19).
  *
- * Livre para regravar, o nrOrdem da própria conta virava consulta de CPF por número de ordem:
+ * Livre para regravar, o saram da própria conta virava consulta de CPF por SARAM:
  * grava o de outra pessoa, lê os dados militares dela, troca de novo.
  */
 
 import { describe, expect, test } from "bun:test"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { DomainError } from "../types/errors.ts"
-import { syncUserNrOrdem } from "./user.ts"
+import { syncUserSaram } from "./user.ts"
 
 type State = {
-	/** nrOrdem atual da conta (null = sem vínculo). */
+	/** saram atual da conta (null = sem vínculo). */
 	current: string | null
-	/** O nrOrdem atual localiza cadastro militar? */
+	/** O saram atual localiza cadastro militar? */
 	currentHasMilitary: boolean
-	/** Outra conta já tem o nrOrdem pedido? */
+	/** Outra conta já tem o saram pedido? */
 	takenByOther: boolean
 }
 
 /**
- * Stub decidido pelas COLUNAS pedidas: `{ nrOrdem }` = vínculo atual; `{ sgPosto, ... }` =
- * identificação militar (`core.military_identity`); `{ id }` = outra conta com o mesmo nrOrdem. O upsert registra o payload gravado.
+ * Stub decidido pelas COLUNAS pedidas: `{ saram }` = vínculo atual; `{ sgPosto, ... }` =
+ * identificação militar (`core.military_identity`); `{ id }` = outra conta com o mesmo saram. O upsert registra o payload gravado.
  */
 function fakeDb(state: State) {
 	const written: Array<Record<string, unknown>> = []
 	const select = (cols: Record<string, unknown>) => {
 		const rows = () => {
-			if ("sgPosto" in cols) return state.currentHasMilitary ? [{ nrOrdem: state.current, sgPosto: "SO" }] : []
-			if ("nrOrdem" in cols) return [{ nrOrdem: state.current }]
+			if ("sgPosto" in cols) return state.currentHasMilitary ? [{ saram: state.current, sgPosto: "SO" }] : []
+			if ("saram" in cols) return [{ saram: state.current }]
 			return state.takenByOther ? [{ id: "other-user" }] : []
 		}
 		const chain = {
@@ -47,7 +47,7 @@ function fakeDb(state: State) {
 			},
 		}),
 	})
-	// A operação roda numa transação com lock por nrOrdem; o fake executa o corpo no próprio
+	// A operação roda numa transação com lock por saram; o fake executa o corpo no próprio
 	// objeto e conta os locks tomados.
 	let locks = 0
 	const db: Record<string, unknown> = { select, insert }
@@ -69,39 +69,39 @@ async function codeOf(run: Promise<unknown>): Promise<string | null> {
 	return error instanceof DomainError ? error.code : null
 }
 
-describe("syncUserNrOrdem", () => {
-	test("primeiro vínculo grava o nrOrdem (aparado)", async () => {
+describe("syncUserSaram", () => {
+	test("primeiro vínculo grava o saram (aparado)", async () => {
 		const { db, written, locks } = fakeDb({ current: null, currentHasMilitary: false, takenByOther: false })
-		await syncUserNrOrdem(db, { ...base, nrOrdem: " 1234567 " })
-		expect(written[0]?.nrOrdem).toBe("1234567")
-		// checagem e gravação serializadas por nrOrdem (duas contas ao mesmo tempo)
+		await syncUserSaram(db, { ...base, saram: " 1234567 " })
+		expect(written[0]?.saram).toBe("1234567")
+		// checagem e gravação serializadas por saram (duas contas ao mesmo tempo)
 		expect(locks()).toBe(1)
 	})
 
-	test("nrOrdem de OUTRA conta é recusado", async () => {
+	test("saram de OUTRA conta é recusado", async () => {
 		const { db, written } = fakeDb({ current: null, currentHasMilitary: false, takenByOther: true })
-		expect(await codeOf(syncUserNrOrdem(db, { ...base, nrOrdem: "1234567" }))).toBe("NR_ORDEM_TAKEN")
+		expect(await codeOf(syncUserSaram(db, { ...base, saram: "1234567" }))).toBe("SARAM_TAKEN")
 		expect(written).toHaveLength(0)
 	})
 
 	test("vínculo que localiza cadastro militar não troca nem some", async () => {
 		const { db, written } = fakeDb({ current: "1234567", currentHasMilitary: true, takenByOther: false })
-		expect(await codeOf(syncUserNrOrdem(db, { ...base, nrOrdem: "7654321" }))).toBe("NR_ORDEM_LOCKED")
+		expect(await codeOf(syncUserSaram(db, { ...base, saram: "7654321" }))).toBe("SARAM_LOCKED")
 		// limpar e regravar seria a mesma troca em dois passos
-		expect(await codeOf(syncUserNrOrdem(db, { ...base, nrOrdem: "" }))).toBe("NR_ORDEM_LOCKED")
+		expect(await codeOf(syncUserSaram(db, { ...base, saram: "" }))).toBe("SARAM_LOCKED")
 		expect(written).toHaveLength(0)
 	})
 
 	test("reenviar o MESMO valor é idempotente e só sincroniza o email", async () => {
 		const { db, written } = fakeDb({ current: "1234567", currentHasMilitary: true, takenByOther: false })
-		await syncUserNrOrdem(db, { ...base, nrOrdem: "1234567" })
+		await syncUserSaram(db, { ...base, saram: "1234567" })
 		expect(written).toHaveLength(1)
-		expect(written[0]).not.toHaveProperty("nrOrdem")
+		expect(written[0]).not.toHaveProperty("saram")
 	})
 
-	test("nrOrdem que não localiza cadastro (erro de digitação) segue corrigível", async () => {
+	test("saram que não localiza cadastro (erro de digitação) segue corrigível", async () => {
 		const { db, written } = fakeDb({ current: "123456", currentHasMilitary: false, takenByOther: false })
-		await syncUserNrOrdem(db, { ...base, nrOrdem: "1234567" })
-		expect(written[0]?.nrOrdem).toBe("1234567")
+		await syncUserSaram(db, { ...base, saram: "1234567" })
+		expect(written[0]?.saram).toBe("1234567")
 	})
 })

@@ -18,13 +18,13 @@ export function useUserData(userId: string | undefined) {
 	})
 }
 
-export function useMilitaryData(nrOrdem: string | null | undefined) {
+export function useMilitaryData(saram: string | null | undefined) {
 	return useQuery({
-		queryKey: queryKeys.user.military(nrOrdem),
-		enabled: !!nrOrdem && nrOrdem.trim().length > 0,
+		queryKey: queryKeys.user.military(saram),
+		enabled: !!saram && saram.trim().length > 0,
 		queryFn: (): Promise<MilitaryDataRow | null> =>
 			fetchMilitaryDataFn({
-				data: { nrOrdem: nrOrdem as string },
+				data: { saram: saram as string },
 			}) as Promise<MilitaryDataRow | null>,
 		staleTime: 2 * 60_000,
 	})

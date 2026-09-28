@@ -22,7 +22,7 @@ export function UserProfileRow() {
 	const navigate = useNavigate()
 
 	const { data: userData } = useUserData(user?.id)
-	const { data: military } = useMilitaryData(userData?.nrOrdem ?? null)
+	const { data: military } = useMilitaryData(userData?.saram ?? null)
 
 	const meta = (user?.user_metadata ?? {}) as UserMeta
 	const displayName = toNameCase(military?.nmGuerra ?? meta.full_name ?? meta.name ?? user?.email?.split("@")[0] ?? "Usuário")

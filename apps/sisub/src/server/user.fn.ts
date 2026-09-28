@@ -7,13 +7,13 @@
  * `userId`/`email` do payload. Antes eram anônimas ("by design", para o bootstrap de
  * login), o que abria três buracos no endpoint `/_serverFn/...`, chamável direto:
  *   - `fetchMilitaryDataFn` devolvia CPF + nome completo + posto para qualquer
- *     `nrOrdem` — enumeração de dados pessoais sem autenticação (LGPD);
- *   - `fetchUserDataFn`/`fetchUserNrOrdemFn` liam o perfil de qualquer `userId` (IDOR);
+ *     `saram` — enumeração de dados pessoais sem autenticação (LGPD);
+ *   - `fetchUserDataFn`/`fetchUserSaramFn` liam o perfil de qualquer `userId` (IDOR);
  *   - `syncUserEmailFn` escrevia email arbitrário e, na colisão, APAGA a linha que
  *     detém aquele email (`upsertUserDataReclaimingEmail`) — sequestro de identidade.
  *
  * O bootstrap continua funcionando: todos os chamadores rodam depois do login
- * (`useProfile`, `useUserNrOrdem`, `_protected/route.tsx`), com sessão válida.
+ * (`useProfile`, `useUserSaram`, `_protected/route.tsx`), com sessão válida.
  *
  * @domain core
  * @migration done
@@ -22,14 +22,14 @@
 import {
 	FetchMilitaryDataSchema,
 	FetchUserDataSchema,
-	FetchUserNrOrdemSchema,
+	FetchUserSaramSchema,
 	fetchMaskedCpf,
 	fetchMilitaryData,
 	fetchSisubUserData,
-	fetchUserNrOrdem,
-	SyncUserNrOrdemSchema,
+	fetchUserSaram,
+	SyncUserSaramSchema,
 	syncUserEmail,
-	syncUserNrOrdem,
+	syncUserSaram,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireUser, requireUserId } from "@/lib/auth.server"
@@ -49,14 +49,14 @@ export const fetchUserDataFn = createServerFn({ method: "GET" })
 	})
 
 /**
- * O `nrOrdem` é resolvido a partir da sessão, não do payload — comparar a string do
+ * O `saram` é resolvido a partir da sessão, não do payload — comparar a string do
  * cliente convidaria divergência de formato (zero à esquerda, número vs string) e um
- * 403 falso na tela de perfil. Sem nrOrdem vinculado à conta: `null`.
+ * 403 falso na tela de perfil. Sem saram vinculado à conta: `null`.
  *
  * O CPF sai MASCARADO, e a máscara é montada no banco (`core.military_masked_cpf`): o documento
- * inteiro não chega nem a este servidor. Enquanto o nrOrdem era regravável à vontade, esta fn era
- * uma consulta de CPF por número de ordem; o vínculo agora é write-once e exclusivo
- * (`syncUserNrOrdem`). O nome completo não sai: a identificação é posto e nome de guerra
+ * inteiro não chega nem a este servidor. Enquanto o saram era regravável à vontade, esta fn era
+ * uma consulta de CPF por SARAM; o vínculo agora é write-once e exclusivo
+ * (`syncUserSaram`). O nome completo não sai: a identificação é posto e nome de guerra
  * (`core.military_identity`, change `lgpd-military-roster-key`).
  */
 export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
@@ -64,29 +64,29 @@ export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
 	.handler(async (): Promise<MilitaryDataRow | null> => {
 		const userId = await requireUserId()
 		const db = getDb()
-		const nrOrdem = await fetchUserNrOrdem(db, { userId }).catch(handleDomainError)
-		if (!nrOrdem) return null
-		const [row, maskedCpf] = await Promise.all([fetchMilitaryData(db, { nrOrdem }), fetchMaskedCpf(db, { nrOrdem })]).catch(handleDomainError)
+		const saram = await fetchUserSaram(db, { userId }).catch(handleDomainError)
+		if (!saram) return null
+		const [row, maskedCpf] = await Promise.all([fetchMilitaryData(db, { saram }), fetchMaskedCpf(db, { saram })]).catch(handleDomainError)
 		if (!row) return null
 		return { ...row, maskedCpf }
 	})
 
-export const fetchUserNrOrdemFn = createServerFn({ method: "GET" })
-	.validator(FetchUserNrOrdemSchema)
+export const fetchUserSaramFn = createServerFn({ method: "GET" })
+	.validator(FetchUserSaramSchema)
 	.handler(async () => {
 		const userId = await requireUserId()
-		return fetchUserNrOrdem(getDb(), { userId }).catch(handleDomainError)
+		return fetchUserSaram(getDb(), { userId }).catch(handleDomainError)
 	})
 
 /**
- * `nrOrdem` vem do formulário (input legítimo do usuário); `userId`/`email`, da sessão.
- * O vínculo é write-once e exclusivo — a regra mora em `syncUserNrOrdem`.
+ * `saram` vem do formulário (input legítimo do usuário); `userId`/`email`, da sessão.
+ * O vínculo é write-once e exclusivo — a regra mora em `syncUserSaram`.
  */
-export const syncUserNrOrdemFn = createServerFn({ method: "POST" })
-	.validator(SyncUserNrOrdemSchema)
+export const syncUserSaramFn = createServerFn({ method: "POST" })
+	.validator(SyncUserSaramSchema)
 	.handler(async ({ data }) => {
 		const user = await requireUser()
-		return syncUserNrOrdem(getDb(), { userId: user.id, email: user.email ?? "", nrOrdem: data.nrOrdem }).catch(handleDomainError)
+		return syncUserSaram(getDb(), { userId: user.id, email: user.email ?? "", saram: data.saram }).catch(handleDomainError)
 	})
 
 /** Sem validator: ambos os campos vêm do JWT — o corpo enviado pelo cliente é irrelevante. */

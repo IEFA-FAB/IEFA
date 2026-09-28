@@ -1,11 +1,11 @@
 /**
  * Regressão happy-path — operations de USER DATA / sync (@iefa/sisub-domain).
- * Congela: fetch de user_data + military, nrOrdem (null em vazio), e o upsert
+ * Congela: fetch de user_data + military, saram (null em vazio), e o upsert
  * resiliente à colisão de email (delete da órfã + retry) ANTES da migração Drizzle.
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { fetchMaskedCpf, fetchMilitaryData, fetchSisubUserData, fetchUserNrOrdem, syncUserEmail, syncUserNrOrdem } from "@iefa/sisub-domain"
+import { fetchMaskedCpf, fetchMilitaryData, fetchSisubUserData, fetchUserSaram, syncUserEmail, syncUserSaram } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -45,37 +45,37 @@ describeSupabaseIntegration("user operations (regressão)", () => {
 		if (!reachable || !seeder || !db) return
 		const userId = await seeder.seedAuthUser()
 		const email = `${uid("u-")}@example.invalid`.toLowerCase()
-		await seeder.seedUserData({ id: userId, email, nrOrdem: uid("NO") })
+		await seeder.seedUserData({ id: userId, email, saram: uid("NO") })
 
 		const data = await fetchSisubUserData(db, { userId })
 		expect(data).toMatchObject({ id: userId, email })
-		for (const key of ["id", "email", "nrOrdem", "created_at", "default_mess_hall_id"]) {
+		for (const key of ["id", "email", "saram", "created_at", "default_mess_hall_id"]) {
 			expect(data).toHaveProperty(key)
 		}
 	})
 
-	test("fetchUserNrOrdem retorna string ou null (vazio → null)", async () => {
+	test("fetchUserSaram retorna string ou null (vazio → null)", async () => {
 		if (!reachable || !seeder || !db) return
 		const withNr = await seeder.seedAuthUser()
-		const nrOrdem = uid("NO")
-		await seeder.seedUserData({ id: withNr, email: `${uid("u-")}@example.invalid`.toLowerCase(), nrOrdem })
-		expect(await fetchUserNrOrdem(db, { userId: withNr })).toBe(nrOrdem)
+		const saram = uid("NO")
+		await seeder.seedUserData({ id: withNr, email: `${uid("u-")}@example.invalid`.toLowerCase(), saram })
+		expect(await fetchUserSaram(db, { userId: withNr })).toBe(saram)
 
 		const without = await seeder.seedAuthUser()
 		await seeder.seedUserData({ id: without, email: `${uid("u-")}@example.invalid`.toLowerCase() })
-		expect(await fetchUserNrOrdem(db, { userId: without })).toBeNull()
+		expect(await fetchUserSaram(db, { userId: without })).toBeNull()
 	})
 
-	test("fetchMilitaryData busca por nrOrdem", async () => {
+	test("fetchMilitaryData busca por saram", async () => {
 		if (!reachable || !seeder || !db) return
-		const nrOrdem = await seeder.seedUserMilitaryData({ sgPosto: "SO", nmGuerra: uid("Guerra") })
+		const saram = await seeder.seedUserMilitaryData({ sgPosto: "SO", nmGuerra: uid("Guerra") })
 
-		const mil = await fetchMilitaryData(db, { nrOrdem })
+		const mil = await fetchMilitaryData(db, { saram })
 		expect(mil).not.toBeNull()
-		expect(mil?.nrOrdem).toBe(nrOrdem)
+		expect(mil?.saram).toBe(saram)
 		expect(mil?.sgPosto).toBe("SO")
 		// A identificação vem de `core.military_identity`: nem CPF nem nome completo.
-		expect(Object.keys(mil ?? {}).sort()).toEqual(["dataAtualizacao", "nmGuerra", "nrOrdem", "sgOrg", "sgPosto"])
+		expect(Object.keys(mil ?? {}).sort()).toEqual(["dataAtualizacao", "nmGuerra", "saram", "sgOrg", "sgPosto"])
 	})
 
 	test("fetchMaskedCpf devolve só a máscara do gov.br, montada no banco", async () => {
@@ -83,18 +83,18 @@ describeSupabaseIntegration("user operations (regressão)", () => {
 		// 11 dígitos únicos e que não são CPF válido (dígitos verificadores ignorados): a semeadura
 		// não pode colidir com a carga real, que tem o CPF como UNIQUE.
 		const digits = `9${String(Date.now()).slice(-7)}${String(Math.floor(Math.random() * 1000)).padStart(3, "0")}`
-		const nrOrdem = await seeder.seedUserMilitaryData({ cpf: `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}` })
-		expect(await fetchMaskedCpf(db, { nrOrdem })).toBe(`***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`)
+		const saram = await seeder.seedUserMilitaryData({ cpf: `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}` })
+		expect(await fetchMaskedCpf(db, { saram })).toBe(`***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`)
 
 		// CPF fora do formato (12 e 10 dígitos) e SARAM ausente: nada a mostrar.
 		const longer = await seeder.seedUserMilitaryData({ cpf: `${digits}0` })
-		expect(await fetchMaskedCpf(db, { nrOrdem: longer })).toBeNull()
+		expect(await fetchMaskedCpf(db, { saram: longer })).toBeNull()
 		const shorter = await seeder.seedUserMilitaryData({ cpf: digits.slice(1) })
-		expect(await fetchMaskedCpf(db, { nrOrdem: shorter })).toBeNull()
-		expect(await fetchMaskedCpf(db, { nrOrdem: uid("NO") })).toBeNull()
+		expect(await fetchMaskedCpf(db, { saram: shorter })).toBeNull()
+		expect(await fetchMaskedCpf(db, { saram: uid("NO") })).toBeNull()
 	})
 
-	test("syncUserNrOrdem faz upsert idempotente e corrige nrOrdem que não localiza cadastro", async () => {
+	test("syncUserSaram faz upsert idempotente e corrige saram que não localiza cadastro", async () => {
 		if (!reachable || !seeder || !db) return
 		const userId = await seeder.seedAuthUser()
 		seeder.track("user_data", userId)
@@ -103,42 +103,42 @@ describeSupabaseIntegration("user operations (regressão)", () => {
 		const first = uid("NO")
 		const second = uid("NO")
 
-		await syncUserNrOrdem(db, { userId, email, nrOrdem: first })
-		expect((await fetchSisubUserData(db, { userId }))?.nrOrdem).toBe(first)
+		await syncUserSaram(db, { userId, email, saram: first })
+		expect((await fetchSisubUserData(db, { userId }))?.saram).toBe(first)
 
 		// reenvio do mesmo valor é idempotente
-		await syncUserNrOrdem(db, { userId, email, nrOrdem: first })
-		expect((await fetchSisubUserData(db, { userId }))?.nrOrdem).toBe(first)
+		await syncUserSaram(db, { userId, email, saram: first })
+		expect((await fetchSisubUserData(db, { userId }))?.saram).toBe(first)
 
 		// `first` não localiza cadastro militar (erro de digitação) → segue corrigível
-		await syncUserNrOrdem(db, { userId, email, nrOrdem: second })
-		expect((await fetchSisubUserData(db, { userId }))?.nrOrdem).toBe(second)
+		await syncUserSaram(db, { userId, email, saram: second })
+		expect((await fetchSisubUserData(db, { userId }))?.saram).toBe(second)
 	})
 
-	test("syncUserNrOrdem trava o nrOrdem que já localiza cadastro militar (LGPD)", async () => {
+	test("syncUserSaram trava o saram que já localiza cadastro militar (LGPD)", async () => {
 		if (!reachable || !seeder || !db) return
-		const nrOrdem = await seeder.seedUserMilitaryData({ sgPosto: "SO" })
+		const saram = await seeder.seedUserMilitaryData({ sgPosto: "SO" })
 		const userId = await seeder.seedAuthUser()
 		seeder.track("user_data", userId)
 		const email = `${uid("lock-")}@example.invalid`.toLowerCase()
 
-		await syncUserNrOrdem(db, { userId, email, nrOrdem })
+		await syncUserSaram(db, { userId, email, saram })
 		// trocar por outro — ou limpar — é leitura de dado de terceiro em dois passos
-		await expect(syncUserNrOrdem(db, { userId, email, nrOrdem: uid("NO") })).rejects.toMatchObject({ code: "NR_ORDEM_LOCKED" })
-		await expect(syncUserNrOrdem(db, { userId, email, nrOrdem: "" })).rejects.toMatchObject({ code: "NR_ORDEM_LOCKED" })
-		expect((await fetchSisubUserData(db, { userId }))?.nrOrdem).toBe(nrOrdem)
+		await expect(syncUserSaram(db, { userId, email, saram: uid("NO") })).rejects.toMatchObject({ code: "SARAM_LOCKED" })
+		await expect(syncUserSaram(db, { userId, email, saram: "" })).rejects.toMatchObject({ code: "SARAM_LOCKED" })
+		expect((await fetchSisubUserData(db, { userId }))?.saram).toBe(saram)
 	})
 
-	test("syncUserNrOrdem recusa nrOrdem já vinculado a outra conta", async () => {
+	test("syncUserSaram recusa saram já vinculado a outra conta", async () => {
 		if (!reachable || !seeder || !db) return
-		const nrOrdem = uid("NO")
+		const saram = uid("NO")
 		const owner = await seeder.seedAuthUser()
-		await seeder.seedUserData({ id: owner, nrOrdem })
+		await seeder.seedUserData({ id: owner, saram })
 
 		const intruder = await seeder.seedAuthUser()
 		seeder.track("user_data", intruder)
 		const email = `${uid("taken-")}@example.invalid`.toLowerCase()
-		await expect(syncUserNrOrdem(db, { userId: intruder, email, nrOrdem })).rejects.toMatchObject({ code: "NR_ORDEM_TAKEN" })
+		await expect(syncUserSaram(db, { userId: intruder, email, saram })).rejects.toMatchObject({ code: "SARAM_TAKEN" })
 	})
 
 	test("syncUserEmail reivindica o email de uma linha órfã (delete + retry)", async () => {

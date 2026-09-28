@@ -15,7 +15,7 @@ import { Separator } from "@/components/ui/separator"
 import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
-import { useUpdateNrOrdem } from "@/hooks/business/useUserNrOrdem"
+import { useUpdateSaram } from "@/hooks/business/useUserSaram"
 import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
 import { queryKeys } from "@/lib/query-keys"
 import { toNameCase } from "@/lib/utils"
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/profile")({
 })
 
 const profileSchema = z.object({
-	nrOrdem: z.string().regex(/^\d*$/, "Apenas números são permitidos").max(20, "Máximo de 20 caracteres"),
+	saram: z.string().regex(/^\d*$/, "Apenas números são permitidos").max(20, "Máximo de 20 caracteres"),
 })
 
 function DataField({ label, value, mono = false }: { label: string; value: string | null | undefined; mono?: boolean }) {
@@ -50,12 +50,12 @@ function CpfField({ value }: { value: string | null | undefined }) {
 	return <DataField label="CPF" value={value} mono />
 }
 
-function MilitaryPanel({ military, effectiveNrOrdem }: { military: MilitaryDataRow; effectiveNrOrdem: string }) {
+function MilitaryPanel({ military, effectiveSaram }: { military: MilitaryDataRow; effectiveSaram: string }) {
 	return (
 		<dl className="space-y-4">
 			<div className="grid grid-cols-2 gap-x-6 gap-y-4">
 				<DataField label="Nome de Guerra" value={military.nmGuerra ? toNameCase(military.nmGuerra) : military.nmGuerra} />
-				<DataField label="Nr. de Ordem" value={military.nrOrdem ?? effectiveNrOrdem} mono />
+				<DataField label="SARAM" value={military.saram ?? effectiveSaram} mono />
 				<CpfField value={military.maskedCpf} />
 				<div className="grid grid-cols-2 gap-x-6 col-span-2">
 					<DataField label="Posto" value={military.sgPosto} />
@@ -74,16 +74,16 @@ function ProfilePage() {
 	const queryClient = useQueryClient()
 
 	const { data: userData, isLoading: isLoadingUserData } = useUserData(user?.id)
-	const effectiveNrOrdem = userData?.nrOrdem ?? ""
-	const { data: military, isLoading: isLoadingMilitary } = useMilitaryData(effectiveNrOrdem)
-	const updateNrOrdem = useUpdateNrOrdem()
-	// Nr. de Ordem que já localiza um cadastro militar é write-once (`syncUserNrOrdem`): o
+	const effectiveSaram = userData?.saram ?? ""
+	const { data: military, isLoading: isLoadingMilitary } = useMilitaryData(effectiveSaram)
+	const updateSaram = useUpdateSaram()
+	// SARAM que já localiza um cadastro militar é write-once (`syncUserSaram`): o
 	// servidor recusa a troca, então a tela nem a oferece. O que não localiza nada (erro de
 	// digitação) segue editável.
-	const isNrOrdemLocked = !!effectiveNrOrdem && !!military
+	const isSaramLocked = !!effectiveSaram && !!military
 
 	const form = useForm({
-		defaultValues: { nrOrdem: "" },
+		defaultValues: { saram: "" },
 		validators: {
 			onChange: ({ value }) => {
 				const result = profileSchema.safeParse(value)
@@ -96,12 +96,12 @@ function ProfilePage() {
 			},
 		},
 		onSubmit: async ({ value }) => {
-			if (!user || isNrOrdemLocked) return
+			if (!user || isSaramLocked) return
 			try {
-				await updateNrOrdem.mutateAsync({ user, nrOrdem: value.nrOrdem ?? "" })
+				await updateSaram.mutateAsync({ user, saram: value.saram ?? "" })
 			} catch (error) {
 				// Nr. já vinculado a outra conta, ou já travado nesta: a mensagem do servidor diz o que fazer.
-				toast.error(error instanceof Error ? error.message : "Não foi possível salvar o Nr. de Ordem")
+				toast.error(error instanceof Error ? error.message : "Não foi possível salvar o SARAM")
 				return
 			}
 			await queryClient.invalidateQueries({ queryKey: queryKeys.user.data(user.id) })
@@ -109,10 +109,10 @@ function ProfilePage() {
 	})
 
 	useEffect(() => {
-		if (userData?.nrOrdem) {
-			form.setFieldValue("nrOrdem", userData.nrOrdem)
+		if (userData?.saram) {
+			form.setFieldValue("saram", userData.saram)
 		}
-	}, [userData?.nrOrdem, form])
+	}, [userData?.saram, form])
 
 	return (
 		<div className="space-y-6">
@@ -142,10 +142,10 @@ function ProfilePage() {
 							className="space-y-4"
 						>
 							<FieldGroup>
-								<form.Field name="nrOrdem">
+								<form.Field name="saram">
 									{(field) => (
 										<Field>
-											<FieldLabel htmlFor={field.name}>Nr. de Ordem</FieldLabel>
+											<FieldLabel htmlFor={field.name}>SARAM</FieldLabel>
 											<Input
 												id={field.name}
 												name={field.name}
@@ -155,12 +155,12 @@ function ProfilePage() {
 												placeholder="Ex.: 1234567"
 												inputMode="numeric"
 												pattern="[0-9]*"
-												readOnly={isNrOrdemLocked}
-												aria-readonly={isNrOrdemLocked}
+												readOnly={isSaramLocked}
+												aria-readonly={isSaramLocked}
 											/>
 											<FieldError errors={field.state.meta.errors?.map((e) => ({ message: String(e) }))} />
 											<FieldDescription>
-												{isNrOrdemLocked
+												{isSaramLocked
 													? "Vinculado ao seu cadastro militar. Para corrigi-lo, procure o administrador do sistema."
 													: "Vincula sua conta ao cadastro militar automaticamente. Depois de localizado, o vínculo não pode ser alterado por aqui."}
 											</FieldDescription>
@@ -170,8 +170,8 @@ function ProfilePage() {
 							</FieldGroup>
 
 							<div className="flex items-center gap-3">
-								<Button type="submit" disabled={isNrOrdemLocked || updateNrOrdem.isPending || !!form.state.isSubmitting}>
-									{updateNrOrdem.isPending ? (
+								<Button type="submit" disabled={isSaramLocked || updateSaram.isPending || !!form.state.isSubmitting}>
+									{updateSaram.isPending ? (
 										<>
 											<Loader2 className="mr-2 size-4 animate-spin" />
 											Salvando...
@@ -195,14 +195,12 @@ function ProfilePage() {
 				<Card>
 					<CardHeader>
 						<CardTitle>Dados militares</CardTitle>
-						<CardDescription>
-							{effectiveNrOrdem ? "Encontrados a partir do Nr. de Ordem." : "Informe seu Nr. de Ordem para localizar seus dados."}
-						</CardDescription>
+						<CardDescription>{effectiveSaram ? "Encontrados a partir do SARAM." : "Informe seu SARAM para localizar seus dados."}</CardDescription>
 					</CardHeader>
 					<CardContent>
-						{!effectiveNrOrdem ? (
+						{!effectiveSaram ? (
 							<div className="py-10 text-center">
-								<p className="text-sm text-muted-foreground">Nenhum Nr. de Ordem informado.</p>
+								<p className="text-sm text-muted-foreground">Nenhum SARAM informado.</p>
 							</div>
 						) : isLoadingMilitary ? (
 							<div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
@@ -210,11 +208,11 @@ function ProfilePage() {
 								<span className="text-sm">Buscando dados...</span>
 							</div>
 						) : military ? (
-							<MilitaryPanel military={military} effectiveNrOrdem={effectiveNrOrdem} />
+							<MilitaryPanel military={military} effectiveSaram={effectiveSaram} />
 						) : (
 							<div className="py-10 text-center space-y-1">
 								<p className="text-sm text-muted-foreground">
-									Nenhum registro encontrado para <span className="font-mono text-foreground">{effectiveNrOrdem}</span>.
+									Nenhum registro encontrado para <span className="font-mono text-foreground">{effectiveSaram}</span>.
 								</p>
 								<p className="text-xs text-muted-foreground">Verifique se o número está correto.</p>
 							</div>

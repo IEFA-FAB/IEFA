@@ -504,7 +504,7 @@ function UserSearchPanel({ onSelect }: { onSelect: (user: UserSearchResult) => v
 							>
 								<div>
 									<p className="text-subheading">{user.email}</p>
-									{user.nrOrdem && <p className="text-xs text-muted-foreground mt-0.5">Nr. Ordem: {user.nrOrdem}</p>}
+									{user.saram && <p className="text-xs text-muted-foreground mt-0.5">SARAM: {user.saram}</p>}
 								</div>
 								<span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Selecionar →</span>
 							</button>
@@ -558,7 +558,7 @@ function UserPermissionsPanel({
 					<div className="h-5 w-px bg-border" />
 					<div>
 						<p className="text-subheading">{user.email}</p>
-						{user.nrOrdem && <p className="text-xs text-muted-foreground">Nr. Ordem: {user.nrOrdem}</p>}
+						{user.saram && <p className="text-xs text-muted-foreground">SARAM: {user.saram}</p>}
 					</div>
 				</div>
 				<Button size="sm" onClick={onAdd} className="gap-1.5 shrink-0">

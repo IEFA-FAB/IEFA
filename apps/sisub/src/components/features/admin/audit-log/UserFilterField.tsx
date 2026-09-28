@@ -105,7 +105,7 @@ export function UserFilterField({ id, label, activePrefix, value, onChange }: Us
 								<Item key={user.id} variant="outline" size="sm">
 									<ItemContent>
 										<ItemTitle>{user.email}</ItemTitle>
-										{user.nrOrdem && <ItemDescription>Nº de ordem {user.nrOrdem}</ItemDescription>}
+										{user.saram && <ItemDescription>SARAM {user.saram}</ItemDescription>}
 									</ItemContent>
 									<Button variant="outline" size="sm" onClick={() => select({ id: user.id, label: user.email })}>
 										Filtrar

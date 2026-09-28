@@ -21,8 +21,8 @@ function QrCodePage() {
 	const userId = user?.id ?? null
 
 	const { data: userData } = useUserData(userId ?? undefined)
-	const nrOrdem = userData?.nrOrdem ?? ""
-	const { data: military } = useMilitaryData(nrOrdem)
+	const saram = userData?.saram ?? ""
+	const { data: military } = useMilitaryData(saram)
 
 	const [hasCopied, setHasCopied] = useState(false)
 	const qrCanvasRef = useRef<HTMLCanvasElement | null>(null)

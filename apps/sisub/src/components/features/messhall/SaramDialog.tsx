@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 
-type NrOrdemDialogProps = {
+type SaramDialogProps = {
 	open: boolean
-	nrOrdem: string
+	saram: string
 	error: string | null
 	isSaving: boolean
 	onOpenChange: (open: boolean) => void
@@ -14,17 +14,17 @@ type NrOrdemDialogProps = {
 	onSubmit: () => void
 }
 
-const NR_ORDEM_MAXLEN = 7 // ajuste conforme sua regra
+const SARAM_MAXLEN = 7 // ajuste conforme sua regra
 
-export function SaramDialog({ open, nrOrdem, error, isSaving, onOpenChange, onChange, onSubmit }: NrOrdemDialogProps) {
+export function SaramDialog({ open, saram, error, isSaving, onOpenChange, onChange, onSubmit }: SaramDialogProps) {
 	const helpId = useId()
 	const errorId = useId()
 
-	const canSubmit = nrOrdem.trim().length > 0 && !isSaving
+	const canSubmit = saram.trim().length > 0 && !isSaving
 
 	const normalizeDigits = (value: string) => {
 		const digits = value.replace(/\D/g, "")
-		return digits.slice(0, NR_ORDEM_MAXLEN)
+		return digits.slice(0, SARAM_MAXLEN)
 	}
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,24 +47,24 @@ export function SaramDialog({ open, nrOrdem, error, isSaving, onOpenChange, onCh
 			<DialogContent className="sm:max-w-md" showCloseButton={false} aria-busy={isSaving}>
 				<DialogHeader>
 					<DialogTitle>Informe seu SARAM</DialogTitle>
-					<DialogDescription id={helpId}>Para continuar, precisamos do seu número de registro SARAM (nrOrdem).</DialogDescription>
+					<DialogDescription id={helpId}>Para continuar, precisamos do seu SARAM.</DialogDescription>
 				</DialogHeader>
 
 				<form onSubmit={handleSubmit} className="space-y-3">
 					<div className="space-y-2">
-						<label htmlFor="nrOrdemInput">
-							<span className="text-subheading">nrOrdem</span>
+						<label htmlFor="saramInput">
+							<span className="text-subheading">SARAM</span>
 						</label>
 						<Input
-							id="nrOrdemInput"
-							name="nrOrdem"
-							value={nrOrdem}
+							id="saramInput"
+							name="saram"
+							value={saram}
 							inputMode="numeric"
 							pattern="\d*"
 							enterKeyHint="done"
 							autoComplete="one-time-code"
 							placeholder="Ex.: 1234567"
-							maxLength={NR_ORDEM_MAXLEN}
+							maxLength={SARAM_MAXLEN}
 							onChange={handleChange}
 							onPaste={handlePaste}
 							required

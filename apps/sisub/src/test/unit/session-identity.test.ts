@@ -31,12 +31,12 @@ describe("withSessionIdentity", () => {
 	})
 
 	test("sobrescreve os dois campos quando ambos são nomeados", () => {
-		const payload = { userId: "victim-user", email: "victim@fab.mil.br", nrOrdem: "1234567" }
+		const payload = { userId: "victim-user", email: "victim@fab.mil.br", saram: "1234567" }
 
 		expect(withSessionIdentity(payload, session, ["userId", "email"])).toEqual({
 			userId: "session-user",
 			email: "session@fab.mil.br",
-			nrOrdem: "1234567",
+			saram: "1234567",
 		})
 	})
 

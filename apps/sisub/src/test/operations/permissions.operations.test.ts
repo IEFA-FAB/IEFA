@@ -189,7 +189,7 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 		})
 	})
 
-	test("searchUsersByEmail encontra por ilike e devolve { id, email, nrOrdem }", async () => {
+	test("searchUsersByEmail encontra por ilike e devolve { id, email, saram }", async () => {
 		if (!reachable || !seeder || !db) return
 		const userId = await seeder.seedAuthUser()
 		const tag = uid("search")
@@ -200,7 +200,7 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 		const found = results.find((r) => r.id === userId)
 		expect(found).toBeDefined()
 		expect(found?.email).toBe(email)
-		expect(found).toHaveProperty("nrOrdem")
+		expect(found).toHaveProperty("saram")
 	})
 
 	// ── Prazo de validade (expires_at) ────────────────────────────────────────
