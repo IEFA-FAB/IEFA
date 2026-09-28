@@ -5,7 +5,8 @@
  *   * `core.user_data.saram` e `core.person.saram` são as únicas colunas do SARAM nos objetos
  *     nossos: anuláveis (o SARAM é opcional na conta e na pessoa), sem FK para o espelho (quem
  *     chegou depois da última carga continua cadastrável), `saram` UNIQUE na pessoa;
- *   * `core.person_identity` expõe `saram`, e as views de identidade juntam por ele;
+ *   * `core.person_identity` expõe `saram`, e as views de identidade juntam por ele; o cronograma do
+ *     sucont (`sucont.checklist_current`), que o contract recriou junto, segue legível pelo servidor;
  *   * o espelho do cadastro de pessoal (`core.user_military_data`) continua no formato do patch do
  *     mantenedor (`LGPD.md`): as sete colunas do sistema de origem, na ordem, e `id` por último;
  *   * nenhum cliente alcança as tabelas nem as views.
@@ -72,13 +73,15 @@ describeIf("SARAM depois do contract do lote 6 (DB)", () => {
 			{ name: "person_identity.saram", nullable: "YES" },
 			{ name: "user_data.saram", nullable: "YES" },
 		])
-		const [state] = await sql<{ person_unique: boolean; user_data_index: boolean; mirror_fk: number; mirror_triggers: number }[]>`
+		const [state] = await sql<{ person_unique: boolean; user_data_index: boolean; mirror_fk: number; mirror_triggers: number; mirror_functions: number }[]>`
 			select
 				exists (select 1 from pg_constraint where conname = 'person_saram_key' and conrelid = 'core.person'::regclass and contype = 'u') as person_unique,
 				to_regclass('core.user_data_saram_idx') is not null as user_data_index,
 				(select count(*)::int from pg_constraint where confrelid = 'core.user_military_data'::regclass) as mirror_fk,
-				(select count(*)::int from pg_trigger where tgrelid in ('core.person'::regclass, 'core.user_data'::regclass) and tgname like '%mirror_saram%') as mirror_triggers`
-		expect(state).toEqual({ person_unique: true, user_data_index: true, mirror_fk: 0, mirror_triggers: 0 })
+				(select count(*)::int from pg_trigger where tgrelid in ('core.person'::regclass, 'core.user_data'::regclass) and tgname like '%mirror_saram%') as mirror_triggers,
+				(select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+					where n.nspname = 'core' and p.proname in ('mirror_person_saram', 'mirror_user_data_saram')) as mirror_functions`
+		expect(state).toEqual({ person_unique: true, user_data_index: true, mirror_fk: 0, mirror_triggers: 0, mirror_functions: 0 })
 	})
 
 	test("o espelho do cadastro de pessoal segue no formato do patch", async () => {
@@ -105,6 +108,18 @@ describeIf("SARAM depois do contract do lote 6 (DB)", () => {
 		expect(state.v_user).toMatch(/mi\.saram = ud\.saram/)
 		expect(state.analytics).toMatch(/umd\."nrOrdem" = ud\.saram/)
 		expect(state.client).toBe(false)
+	})
+
+	test("o cronograma do sucont, recriado junto com core.person_identity, segue legível pelo servidor", async () => {
+		const [checklist] = await sql<{ invoker: boolean; server: boolean; client: boolean; reads_identity: boolean }[]>`
+			select
+				(select coalesce(reloptions, '{}') @> array['security_invoker=true'] from pg_class where oid = 'sucont.checklist_current'::regclass) as invoker,
+				has_table_privilege('service_role', 'sucont.checklist_current', 'select') as server,
+				has_table_privilege('anon', 'sucont.checklist_current', 'select') or has_table_privilege('authenticated', 'sucont.checklist_current', 'select') as client,
+				pg_get_viewdef('sucont.checklist_current'::regclass) ~ 'core\.person_identity' as reads_identity`
+		expect(checklist).toEqual({ invoker: true, server: true, client: false, reads_identity: true })
+		const rows = await sql`select assignees from sucont.checklist_current limit 1`
+		expect(Array.isArray(rows)).toBe(true)
 	})
 
 	test("pessoa: SARAM repetido recusado, SARAM ausente do espelho aceito e sem posto", async () => {
