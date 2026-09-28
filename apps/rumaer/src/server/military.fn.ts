@@ -4,12 +4,15 @@
  *
  * Mapeamento auth -> dados militares:
  *   auth.users.id  ==  sisub.user_data.id  ->  user_data.nrOrdem
- *   user_data.nrOrdem  ==  sisub.user_military_data.nrOrdem  ->  sgPosto / nmPessoa / nmGuerra
+ *   user_data.nrOrdem  ==  core.military_identity.saram  ->  posto / nome_guerra
  *
- * quadro / especialidade: não há fonte. Nenhuma tabela mapeia nrOrdem -> quadro/especialidade
- * (sisub.user_military_data não tem essas colunas; rumaer.piece_item as usa só como atributo de
- * catálogo de uniformes, sem vínculo com o militar). Permanecem null até existir essa origem
- * (ex.: nova coluna em user_military_data ou tabela de perfil militar).
+ * A view `core.military_identity` não tem CPF nem nome completo (change
+ * `lgpd-military-roster-key`); o cabeçalho só usa posto e nome de guerra.
+ *
+ * quadro / especialidade: não há fonte. Nenhuma tabela mapeia o SARAM -> quadro/especialidade
+ * (o espelho `core.user_military_data` não tem essas colunas; rumaer.piece_item as usa só como
+ * atributo de catálogo de uniformes, sem vínculo com o militar). Permanecem null até existir essa
+ * origem (ex.: nova coluna no espelho ou tabela de perfil militar).
  */
 
 import { createServerFn } from "@tanstack/react-start"
@@ -18,7 +21,6 @@ import { getCoreReadClient } from "@/lib/supabase.server"
 
 export type MilitaryProfile = {
 	sgPosto: string | null
-	nmPessoa: string | null
 	nmGuerra: string | null
 	quadro: string | null
 	especialidade: string | null
@@ -39,14 +41,19 @@ export const getMyMilitaryProfileFn = createServerFn({ method: "GET" }).handler(
 	const nrOrdem = userData?.nrOrdem
 	if (!nrOrdem) return null
 
-	// nrOrdem -> user_military_data
-	const { data: mil } = await core.from("user_military_data").select("sgPosto, nmPessoa, nmGuerra").eq("nrOrdem", nrOrdem).maybeSingle()
+	// SARAM -> core.military_identity (o cadastro mais recente, como no sisub)
+	const { data: mil } = await core
+		.from("military_identity")
+		.select("posto, nome_guerra")
+		.eq("saram", nrOrdem)
+		.order("data_atualizacao", { ascending: false, nullsFirst: false })
+		.limit(1)
+		.maybeSingle()
 	if (!mil) return null
 
 	return {
-		sgPosto: mil.sgPosto ?? null,
-		nmPessoa: mil.nmPessoa ?? null,
-		nmGuerra: mil.nmGuerra ?? null,
+		sgPosto: mil.posto ?? null,
+		nmGuerra: mil.nome_guerra ?? null,
 		quadro: null, // sem origem no banco (ver doc do módulo)
 		especialidade: null, // sem origem no banco (ver doc do módulo)
 	}

@@ -218,7 +218,7 @@ export type SucontGrant = {
  * Duas emendas, nesta ordem:
  *   - falta de linha em `core.user_data` cai no GoTrue (`auth.admin.getUserById`),
  *     que é onde a conta existe desde o convite;
- *   - havendo SARAM vinculado, `core.user_military_data` responde posto e nome de
+ *   - havendo SARAM vinculado, `core.military_identity` responde posto e nome de
  *     guerra, que é como a pessoa é conhecida na OM.
  */
 export const listSucontGrantsFn = createServerFn({ method: "GET" }).handler(async (): Promise<SucontGrant[]> => {

@@ -141,7 +141,11 @@ export interface Seeder {
 	seedAuthUser(opts?: { email?: string }): Promise<string>
 	seedMessHall(opts?: { unitId?: number; kitchenId?: number | null; code?: string }): Promise<{ id: number; unitId: number; code: string }>
 	seedUserData(opts: { id: string; email?: string; nrOrdem?: string; defaultMessHallId?: number | null }): Promise<string>
-	seedUserMilitaryData(opts?: { nrOrdem?: string; nrCpf?: string; nmGuerra?: string; sgPosto?: string }): Promise<string>
+	/**
+	 * Linha do espelho `core.user_military_data` (carga externa). Só a semeadura escreve o CPF:
+	 * a coluna é NOT NULL e UNIQUE; os apps não a leem (`core.military_identity`).
+	 */
+	seedUserMilitaryData(opts?: { nrOrdem?: string; cpf?: string; nmGuerra?: string; sgPosto?: string }): Promise<string>
 	seedArranchamento(opts: { userId: string; messHallId: number; date?: string; meal?: string; willEat?: boolean }): Promise<void>
 	seedMealPresence(opts: { userId: string; messHallId: number; date?: string; meal?: string }): Promise<string>
 	seedOtherPresence(opts: { adminId: string; messHallId: number; date?: string; meal?: string }): Promise<void>
@@ -431,7 +435,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 			const nrOrdem = opts?.nrOrdem ?? uid("NO")
 			const { error } = await tbl("user_military_data").insert({
 				nrOrdem,
-				nrCpf: opts?.nrCpf ?? uid("CPF"),
+				nrCpf: opts?.cpf ?? uid("CPF"),
 				nmGuerra: opts?.nmGuerra ?? uid("[TEST] Guerra "),
 				sgPosto: opts?.sgPosto ?? "SO",
 			})

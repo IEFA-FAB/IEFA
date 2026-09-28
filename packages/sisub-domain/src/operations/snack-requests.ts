@@ -31,6 +31,7 @@ import {
 	menuItemsInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
+	militaryIdentityInCore,
 	nutrientComponentMappingInNutritionReference,
 	nutrientInKitchen,
 	productionTaskInKitchen,
@@ -41,7 +42,6 @@ import {
 	snackRequestMaterialInKitchen,
 	unitsInCore,
 	userDataInCore,
-	userMilitaryDataInCore,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm"
@@ -513,13 +513,15 @@ async function fetchMilitary(db: Pick<SisubDb, "select">, nrOrdens: string[]) {
 		? await runQuery("FETCH_FAILED", () =>
 				db
 					.select({
-						nrOrdem: userMilitaryDataInCore.nrOrdem,
-						nmGuerra: userMilitaryDataInCore.nmGuerra,
-						sgPosto: userMilitaryDataInCore.sgPosto,
-						sgOrg: userMilitaryDataInCore.sgOrg,
+						nrOrdem: militaryIdentityInCore.saram,
+						nmGuerra: militaryIdentityInCore.nomeGuerra,
+						sgPosto: militaryIdentityInCore.posto,
+						sgOrg: militaryIdentityInCore.sgOrg,
 					})
-					.from(userMilitaryDataInCore)
-					.where(inArray(userMilitaryDataInCore.nrOrdem, nrOrdens))
+					.from(militaryIdentityInCore)
+					.where(inArray(militaryIdentityInCore.saram, nrOrdens))
+					// No `Map`, a última linha do SARAM vence: a carga mais recente.
+					.orderBy(sql`${militaryIdentityInCore.dataAtualizacao} asc nulls first`)
 			)
 		: []
 	return new Map(rows.filter((r) => r.nrOrdem != null).map((r) => [r.nrOrdem as string, r]))

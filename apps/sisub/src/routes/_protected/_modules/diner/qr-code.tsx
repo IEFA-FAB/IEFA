@@ -27,7 +27,7 @@ function QrCodePage() {
 	const [hasCopied, setHasCopied] = useState(false)
 	const qrCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
-	const displayName = military?.nmGuerra ?? military?.nmPessoa ?? user?.email?.split("@")[0] ?? "—"
+	const displayName = military?.nmGuerra ?? user?.email?.split("@")[0] ?? "—"
 	const rankAndUnit = [military?.sgPosto, military?.sgOrg].filter(Boolean).join(" / ")
 
 	const handleCopy = async () => {

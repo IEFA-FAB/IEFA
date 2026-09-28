@@ -1,0 +1,104 @@
+##
+# Espelho do cadastro de pessoal da FAB (`core.user_military_data`): os apps leem a identificação
+# militar pela view `core.military_identity` (SARAM, posto, nome de guerra, OM, data da carga), sem
+# CPF e sem nome completo. Change `openspec/changes/lgpd-military-roster-key`; LGPD, art. 6º, I e
+# III (finalidade e necessidade).
+#
+# Todos os apps leem o banco como `service_role` (ou pelo Drizzle com o role do projeto): grant não
+# separa app de carga, então a garantia é esta regra. O CPF não serve a nenhum uso dos apps; o
+# perfil do próprio titular recebe só a máscara, montada no banco (`core.military_masked_cpf`).
+#
+# Allowlist (por arquivo, com o motivo de cada entrada):
+#   - `apps/api/src/api/routes.ts`: a rota restrita `/api/user-military-data` (`RESTRICTED_PATHS`,
+#     exige a chave da API) projeta `nmPessoa` e lê a tabela crua; o CPF ela não projeta, e
+#     `routes.integration.test.ts` prova isso;
+#   - `apps/api/src/api/routes.auth.test.ts` e `apps/api/tests/integration/routes.integration.test.ts`:
+#     citam os campos para provar que a rota anônima não os devolve e que a restrita não devolve o CPF;
+#   - `apps/sisub/src/test/operations-fixtures.ts`: semeia o espelho nos testes de integração; o CPF é
+#     NOT NULL e UNIQUE na tabela, e o valor é sintético;
+#   - `packages/database/src/{core,sisub}.ts`: exportam o tipo da linha crua (`UserMilitaryData`) ao
+#     lado do da view.
+#
+# Linha de comentário não é acusada: comentário explica por que o campo NÃO é lido. Tipos gerados
+# (`generated.ts`, `drizzle/`) e os tipos-ponte até o `db:types` (`packages/database/src/pending-*`)
+# descrevem o banco e ficam de fora.
+#
+# Casos de teste: `__fixtures__/military-roster.ts` (opengrep test --config
+# .opengrep/rules/military-roster.yaml .opengrep/rules/__fixtures__/military-roster.ts).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: military-roster-personal-data
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      CPF ou nome completo do espelho do cadastro de pessoal lido por app. Leia
+      `core.military_identity` (`saram`, `posto`, `nome_guerra`, `sg_org`, `data_atualizacao`;
+      Drizzle `militaryIdentityInCore`): o CPF não serve a nenhum uso dos apps e o nome completo
+      só à rota restrita da API (LGPD, art. 6º, I e III). O perfil do próprio titular mostra o CPF
+      mascarado por `core.military_masked_cpf` (`fetchMaskedCpf`). Leitura nova só entra na
+      allowlist de `.opengrep/rules/military-roster.yaml`, com o motivo.
+    paths:
+      include:
+        - "apps/*/src/**/*.ts"
+        - "apps/*/src/**/*.tsx"
+        - "apps/*/tests/**/*.ts"
+        - "apps/*/harness/**/*.ts"
+        - "apps/*/harness/**/*.tsx"
+        - "apps/*/e2e/**/*.ts"
+        - "packages/*/src/**/*.ts"
+        - "packages/*/scripts/**/*.ts"
+      exclude:
+        - "**/generated.ts"
+        - "**/drizzle/**"
+        - "**/routeTree.gen.ts"
+        # Tipos-ponte até o `db:types` (descrevem o banco, como `generated.ts`).
+        - "packages/database/src/pending-*.ts"
+        # Allowlist: motivo de cada entrada no cabeçalho.
+        - "apps/api/src/api/routes.ts"
+        - "apps/api/src/api/routes.auth.test.ts"
+        - "apps/api/tests/integration/routes.integration.test.ts"
+        - "apps/sisub/src/test/operations-fixtures.ts"
+    patterns:
+      - pattern-regex: \b(?:nrCpf|nmPessoa|nr_cpf|nm_pessoa)\b
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+
+  - id: military-roster-raw-table
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Leitura da tabela crua do espelho do cadastro de pessoal (`core.user_military_data`) por app.
+      Leia `core.military_identity` (supabase-js `.from("military_identity")`, Drizzle
+      `militaryIdentityInCore`, SQL `core.military_identity`): ela tem o que os apps usam e deixa
+      de fora o CPF e o nome completo. A tabela crua é da carga (patch do mantenedor, ver
+      `LGPD.md`); leitura nova só entra na allowlist de `.opengrep/rules/military-roster.yaml`,
+      com o motivo.
+    paths:
+      include:
+        - "apps/*/src/**/*.ts"
+        - "apps/*/src/**/*.tsx"
+        - "apps/*/tests/**/*.ts"
+        - "apps/*/harness/**/*.ts"
+        - "apps/*/harness/**/*.tsx"
+        - "apps/*/e2e/**/*.ts"
+        - "packages/*/src/**/*.ts"
+        - "packages/*/scripts/**/*.ts"
+      exclude:
+        - "**/generated.ts"
+        - "**/drizzle/**"
+        - "**/routeTree.gen.ts"
+        # Tipos-ponte até o `db:types` (descrevem o banco, como `generated.ts`).
+        - "packages/database/src/pending-*.ts"
+        # Allowlist: motivo de cada entrada no cabeçalho.
+        - "apps/api/src/api/routes.ts"
+        - "apps/sisub/src/test/operations-fixtures.ts"
+        - "packages/database/src/core.ts"
+        - "packages/database/src/sisub.ts"
+    patterns:
+      - pattern-either:
+          - pattern-regex: \buser_military_data\b
+          - pattern-regex: \b[uU]serMilitaryDataInCore\b
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+      # Asserção de que um texto NÃO lê o espelho (contrato de migration, por exemplo).
+      - pattern-not-regex: \.not\.toContain\(\s*["']user_military_data["']\s*\)

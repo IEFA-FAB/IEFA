@@ -3,7 +3,7 @@
  * Como uma pessoa é NOMEADA nas telas do sucont.
  *
  * O app conhece três nomes para a mesma pessoa, em ordem de utilidade decrescente:
- * a identificação militar (`posto` + `nomeGuerra`, vinda de `core.user_military_data`
+ * a identificação militar (`posto` + `nomeGuerra`, vinda de `core.military_identity`
  * pelo SARAM), o e-mail institucional e, no fim, o `userId` do Supabase. A tela de
  * acessos mostrava só o último quando os dois primeiros faltavam — quatro linhas,
  * três delas um UUID, e nenhuma forma de saber de quem era o acesso.

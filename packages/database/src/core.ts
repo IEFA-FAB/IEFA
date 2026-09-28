@@ -25,5 +25,11 @@ export type PersonIdentity = Views<"person_identity">
 
 // ---- Cadastros compartilhados ----
 export type UserData = Tables<"user_data">
+/**
+ * Linha crua do espelho do cadastro de pessoal (carga externa, nomes do sistema de origem). Os apps
+ * não a leem: use `MilitaryIdentity` (sem CPF e sem nome completo).
+ */
 export type UserMilitaryData = Tables<"user_military_data">
+/** Identificação militar pelo SARAM (`core.military_identity`): o que os apps leem do espelho. */
+export type MilitaryIdentity = Views<"military_identity">
 export type Unit = Tables<"units">

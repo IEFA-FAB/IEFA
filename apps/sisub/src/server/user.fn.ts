@@ -6,7 +6,7 @@
  * AUTH — self-only. Todas exigem sessão e derivam a identidade do JWT, IGNORANDO o
  * `userId`/`email` do payload. Antes eram anônimas ("by design", para o bootstrap de
  * login), o que abria três buracos no endpoint `/_serverFn/...`, chamável direto:
- *   - `fetchMilitaryDataFn` devolvia nrCpf + nome completo + posto para qualquer
+ *   - `fetchMilitaryDataFn` devolvia CPF + nome completo + posto para qualquer
  *     `nrOrdem` — enumeração de dados pessoais sem autenticação (LGPD);
  *   - `fetchUserDataFn`/`fetchUserNrOrdemFn` liam o perfil de qualquer `userId` (IDOR);
  *   - `syncUserEmailFn` escrevia email arbitrário e, na colisão, APAGA a linha que
@@ -23,6 +23,7 @@ import {
 	FetchMilitaryDataSchema,
 	FetchUserDataSchema,
 	FetchUserNrOrdemSchema,
+	fetchMaskedCpf,
 	fetchMilitaryData,
 	fetchSisubUserData,
 	fetchUserNrOrdem,
@@ -32,7 +33,6 @@ import {
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireUser, requireUserId } from "@/lib/auth.server"
-import { maskCpf } from "@/lib/cpf-mask"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 import type { MilitaryDataRow } from "@/types/domain/admin"
@@ -53,9 +53,11 @@ export const fetchUserDataFn = createServerFn({ method: "GET" })
  * cliente convidaria divergência de formato (zero à esquerda, número vs string) e um
  * 403 falso na tela de perfil. Sem nrOrdem vinculado à conta: `null`.
  *
- * O CPF sai MASCARADO. Enquanto o nrOrdem era regravável à vontade, esta fn era uma
- * consulta de CPF por número de ordem; o vínculo agora é write-once e exclusivo
- * (`syncUserNrOrdem`), e o documento inteiro deixa de viajar de qualquer forma.
+ * O CPF sai MASCARADO, e a máscara é montada no banco (`core.military_masked_cpf`): o documento
+ * inteiro não chega nem a este servidor. Enquanto o nrOrdem era regravável à vontade, esta fn era
+ * uma consulta de CPF por número de ordem; o vínculo agora é write-once e exclusivo
+ * (`syncUserNrOrdem`). O nome completo não sai: a identificação é posto e nome de guerra
+ * (`core.military_identity`, change `lgpd-military-roster-key`).
  */
 export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
 	.validator(FetchMilitaryDataSchema)
@@ -64,10 +66,9 @@ export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
 		const db = getDb()
 		const nrOrdem = await fetchUserNrOrdem(db, { userId }).catch(handleDomainError)
 		if (!nrOrdem) return null
-		const row = await fetchMilitaryData(db, { nrOrdem }).catch(handleDomainError)
+		const [row, maskedCpf] = await Promise.all([fetchMilitaryData(db, { nrOrdem }), fetchMaskedCpf(db, { nrOrdem })]).catch(handleDomainError)
 		if (!row) return null
-		const { nrCpf, ...rest } = row
-		return { ...rest, nrCpfMasked: maskCpf(nrCpf) }
+		return { ...row, maskedCpf }
 	})
 
 export const fetchUserNrOrdemFn = createServerFn({ method: "GET" })

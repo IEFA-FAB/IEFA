@@ -6,12 +6,17 @@
  * (self-only). `syncUserNrOrdem` carries its own invariant (write-once + exclusive):
  * the caller is always the account owner, but what it may write is decided here.
  *
- * NOTA: `user_data`/`user_military_data` têm colunas camelCase no DB (`nrOrdem`,
- * `nrCpf`, `dataAtualizacao`, …). O contrato é camelCase, então usamos `db.select`
- * com aliases explícitos — o mapper `toWire` (camel→snake) corromperia essas chaves.
+ * NOTA: `user_data` tem colunas camelCase no DB (`nrOrdem`). O contrato é camelCase, então
+ * usamos `db.select` com aliases explícitos — o mapper `toWire` (camel→snake) corromperia essas
+ * chaves.
+ *
+ * O cadastro militar é lido por `core.military_identity` (SARAM, posto, nome de guerra, OM e data
+ * da carga), nunca pelo espelho cru: o CPF e o nome completo não saem do banco para os apps
+ * (change `lgpd-military-roster-key`). O perfil do titular recebe só o CPF mascarado, montado no
+ * banco (`core.military_masked_cpf`).
  */
 
-import { type SisubDb, userDataInCore, userMilitaryDataInCore } from "@iefa/database/drizzle/sisub"
+import { militaryIdentityInCore, type SisubDb, userDataInCore } from "@iefa/database/drizzle/sisub"
 import { and, eq, ne, sql } from "drizzle-orm"
 import type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "../schemas/user.ts"
 import { DomainError } from "../types/errors.ts"
@@ -93,24 +98,36 @@ export async function fetchSisubUserData(db: SisubDb, input: FetchUserData) {
 	return rows[0] ?? null
 }
 
+/** Identificação militar do SARAM; o cadastro mais recente vence. Sem CPF e sem nome completo. */
 export async function fetchMilitaryData(db: SisubDb, input: FetchMilitaryData) {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
-				nrOrdem: userMilitaryDataInCore.nrOrdem,
-				nrCpf: userMilitaryDataInCore.nrCpf,
-				nmGuerra: userMilitaryDataInCore.nmGuerra,
-				nmPessoa: userMilitaryDataInCore.nmPessoa,
-				sgPosto: userMilitaryDataInCore.sgPosto,
-				sgOrg: userMilitaryDataInCore.sgOrg,
-				dataAtualizacao: userMilitaryDataInCore.dataAtualizacao,
+				nrOrdem: militaryIdentityInCore.saram,
+				nmGuerra: militaryIdentityInCore.nomeGuerra,
+				sgPosto: militaryIdentityInCore.posto,
+				sgOrg: militaryIdentityInCore.sgOrg,
+				dataAtualizacao: militaryIdentityInCore.dataAtualizacao,
 			})
-			.from(userMilitaryDataInCore)
-			.where(eq(userMilitaryDataInCore.nrOrdem, input.nrOrdem))
-			.orderBy(sql`${userMilitaryDataInCore.dataAtualizacao} desc nulls last`)
+			.from(militaryIdentityInCore)
+			.where(eq(militaryIdentityInCore.saram, input.nrOrdem))
+			.orderBy(sql`${militaryIdentityInCore.dataAtualizacao} desc nulls last`)
 			.limit(1)
 	)
 	return rows[0] ?? null
+}
+
+/**
+ * CPF do SARAM mascarado no padrão gov.br (`***.456.789-**`), para o perfil do PRÓPRIO titular:
+ * quem chama passa o SARAM da sessão, nunca o do payload. A máscara é montada no banco
+ * (`core.military_masked_cpf`), e o documento inteiro não chega ao servidor de app. `null` quando o
+ * SARAM não está no espelho ou o CPF não tem 11 dígitos.
+ */
+export async function fetchMaskedCpf(db: SisubDb, input: FetchMilitaryData): Promise<string | null> {
+	const rows = (await runQuery("FETCH_FAILED", () => db.execute(sql`select core.military_masked_cpf(${input.nrOrdem}) as masked_cpf`))) as unknown as Array<{
+		masked_cpf: string | null
+	}>
+	return rows[0]?.masked_cpf ?? null
 }
 
 export async function fetchUserNrOrdem(db: SisubDb, input: FetchUserNrOrdem): Promise<string | null> {

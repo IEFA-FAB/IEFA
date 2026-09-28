@@ -26,8 +26,7 @@ export function getAccessControlClient() {
 
 /**
  * Cliente service role apontando para o schema `core` — usado apenas para LER
- * o perfil militar do usuário (user_data / user_military_data, movidos de sisub
- * para core no split de schemas por domínio). Read-only.
+ * o perfil militar do usuário (`user_data` e a view `military_identity`). Read-only.
  */
 export function getCoreReadClient() {
 	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "core" })

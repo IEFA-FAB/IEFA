@@ -46,6 +46,8 @@ export type UserDataUpdate = TablesUpdate<"user_data">
 export type UserMilitaryData = Tables<"user_military_data">
 export type UserMilitaryDataInsert = TablesInsert<"user_military_data">
 export type UserMilitaryDataUpdate = TablesUpdate<"user_military_data">
+/** Identificação militar pelo SARAM, sem CPF e sem nome completo: o que os apps leem do espelho. */
+export type MilitaryIdentity = Views<"military_identity">
 
 export type Arranchamento = Tables<"arranchamento">
 export type ArranchamentoInsert = TablesInsert<"arranchamento">

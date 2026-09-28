@@ -1,6 +1,6 @@
 // Admin and Super Admin Domain Types
 
-import type { UserData, UserMilitaryData } from "@iefa/database/sisub"
+import type { UserData } from "@iefa/database/sisub"
 
 // ============================================================================
 // BASE TYPES (Re-export com aliases para compatibilidade)
@@ -12,11 +12,19 @@ import type { UserData, UserMilitaryData } from "@iefa/database/sisub"
 export type UserDataRow = UserData
 
 /**
- * Dados militares da própria conta, como chegam ao navegador (`fetchMilitaryDataFn`):
- * a linha de `user_military_data` SEM o CPF inteiro — só a versão mascarada. O documento
- * completo não sai do servidor (LGPD; ver `maskCpf`).
+ * Dados militares da própria conta, como chegam ao navegador (`fetchMilitaryDataFn`): a
+ * identificação de `core.military_identity` e o CPF MASCARADO (`***.456.789-**`), montado no banco
+ * (`core.military_masked_cpf`). O documento inteiro e o nome completo não saem do banco (LGPD,
+ * change `lgpd-military-roster-key`).
  */
-export type MilitaryDataRow = Omit<UserMilitaryData, "nrCpf"> & { nrCpfMasked: string | null }
+export type MilitaryDataRow = {
+	nrOrdem: string | null
+	nmGuerra: string | null
+	sgPosto: string | null
+	sgOrg: string | null
+	dataAtualizacao: string | null
+	maskedCpf: string | null
+}
 
 // ============================================================================
 // DOMAIN TYPES (Tipos de Negócio)

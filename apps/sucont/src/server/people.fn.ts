@@ -55,8 +55,8 @@ export type SectionPerson = {
 /**
  * Militar do efetivo, para o vínculo de SARAM.
  *
- * Só quatro campos saem, e nenhum deles é `nrCpf` ou `nmPessoa`: o admin precisa
- * RECONHECER a pessoa, não ter a ficha dela. `sgOrg` entra porque sem a
+ * Só quatro campos saem, lidos de `core.military_identity` (sem CPF e sem nome
+ * completo): o admin precisa RECONHECER a pessoa, não ter a ficha dela. `sgOrg` entra porque sem a
  * organização não há como escolher entre as quatorze VANESSAs — é ele que faz a
  * lista ser decidível em vez de um sorteio.
  */
@@ -210,15 +210,15 @@ export const searchRosterFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<RosterMatch[]> => {
 		await requireSucontAdmin()
 		const { data: rows, error } = await getCoreClient()
-			.from("user_military_data")
-			.select("nrOrdem, sgPosto, nmGuerra, sgOrg")
-			.ilike("nmGuerra", `%${escapeLikePattern(data.nomeGuerra)}%`)
-			.not("nrOrdem", "is", null)
-			.order("nmGuerra", { ascending: true })
+			.from("military_identity")
+			.select("saram, posto, nome_guerra, sg_org")
+			.ilike("nome_guerra", `%${escapeLikePattern(data.nomeGuerra)}%`)
+			.not("saram", "is", null)
+			.order("nome_guerra", { ascending: true })
 			.limit(ROSTER_SEARCH_LIMIT)
 		if (error) throw new Error(error.message)
 
-		return (rows ?? []).flatMap((row) => (row.nrOrdem ? [{ nrOrdem: row.nrOrdem, posto: row.sgPosto, nomeGuerra: row.nmGuerra, organizacao: row.sgOrg }] : []))
+		return (rows ?? []).flatMap((row) => (row.saram ? [{ nrOrdem: row.saram, posto: row.posto, nomeGuerra: row.nome_guerra, organizacao: row.sg_org }] : []))
 	})
 
 /**

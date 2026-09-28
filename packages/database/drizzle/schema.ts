@@ -4609,15 +4609,18 @@ export const userPermissionsInAccessControl = accessControl.table("user_permissi
 
 export const userMilitaryDataInCore = core.table("user_military_data", {
 	nrOrdem: text(),
-	nrCpf: text().primaryKey().notNull(),
+	nrCpf: text().notNull(),
 	nmGuerra: text(),
 	nmPessoa: text(),
 	sgPosto: text(),
 	sgOrg: text(),
 	dataAtualizacao: timestamp({ withTimezone: true, mode: 'string' }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "core.user_military_data_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
 }, (table) => [
 	index("user_military_data_dataAtualizacao_idx").using("btree", table.dataAtualizacao.asc().nullsLast()),
 	index("user_military_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast()),
+	unique("user_military_data_nrCpf_key").on(table.nrCpf),
 ]);
 
 export const openingBalanceInInventory = inventory.table("opening_balance", {
@@ -5624,7 +5627,7 @@ export const personIdentityInCore = core.view("person_identity", {	id: uuid(),
 	posto: text(),
 	nomeGuerra: text("nome_guerra"),
 	label: text(),
-}).with({"securityInvoker":true}).as(sql`SELECT p.id, p.display_name, p.nr_ordem, p.user_id, p.active, ud.email, umd."sgPosto" AS posto, umd."nmGuerra" AS nome_guerra, COALESCE(NULLIF(btrim((COALESCE(umd."sgPosto", ''::text) || ' '::text) || COALESCE(umd."nmGuerra", ''::text)), ''::text), ud.email, p.display_name) AS label FROM core.person p LEFT JOIN core.user_data ud ON ud.id = p.user_id LEFT JOIN core.user_military_data umd ON umd."nrOrdem" = p.nr_ordem`);
+}).with({"securityInvoker":true}).as(sql`SELECT p.id, p.display_name, p.nr_ordem, p.user_id, p.active, ud.email, mi.posto, mi.nome_guerra, COALESCE(NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text), ud.email, p.display_name) AS label FROM core.person p LEFT JOIN core.user_data ud ON ud.id = p.user_id LEFT JOIN core.military_identity mi ON mi.saram = p.nr_ordem`);
 
 export const vPurchaseItemConditioningReviewInProcurement = procurement.view("v_purchase_item_conditioning_review", {	purchaseItemId: uuid("purchase_item_id"),
 	description: text(),
@@ -5668,7 +5671,7 @@ export const vStockBalanceInInventory = inventory.view("v_stock_balance", {	// Y
 
 export const vUserIdentityInCore = core.view("v_user_identity", {	id: uuid(),
 	displayName: text("display_name"),
-}).with({ securityInvoker: true }).as(sql`SELECT ud.id, CASE WHEN NULLIF(TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || COALESCE(umd."nmGuerra", ''::text)), ''::text) IS NOT NULL THEN TRIM(BOTH FROM (COALESCE(umd."sgPosto", ''::text) || ' '::text) || initcap(COALESCE(umd."nmGuerra", ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.user_military_data umd ON umd."nrOrdem" = ud."nrOrdem"`);
+}).with({"securityInvoker":true}).as(sql`SELECT ud.id, CASE WHEN NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text) IS NOT NULL THEN btrim((COALESCE(mi.posto, ''::text) || ' '::text) || initcap(COALESCE(mi.nome_guerra, ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.military_identity mi ON mi.saram = ud."nrOrdem"`);
 
 export const vLotExpiryInInventory = inventory.view("v_lot_expiry", {	lotId: uuid("lot_id"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -5916,6 +5919,13 @@ export const workforceCategoryInCore = core.view("workforce_category", {	id: uui
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }).with({"securityInvoker":true}).as(sql`SELECT id, code, name, description, sort_order, is_career, is_technical, created_at, deleted_at FROM kitchen.workforce_category`);
+
+export const militaryIdentityInCore = core.view("military_identity", {	saram: text(),
+	posto: text(),
+	nomeGuerra: text("nome_guerra"),
+	sgOrg: text("sg_org"),
+	dataAtualizacao: timestamp("data_atualizacao", { withTimezone: true, mode: 'string' }),
+}).with({"securityInvoker":true}).as(sql`SELECT "nrOrdem" AS saram, "sgPosto" AS posto, "nmGuerra" AS nome_guerra, "sgOrg" AS sg_org, "dataAtualizacao" AS data_atualizacao FROM core.user_military_data m`);
 
 export const vSupplierLeadTimeInInventory = inventory.view("v_supplier_lead_time", {	niFornecedor: text("ni_fornecedor"),
 	purchaseItemId: uuid("purchase_item_id"),

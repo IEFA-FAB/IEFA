@@ -121,6 +121,29 @@ consulta por agente em vez de ler a página.
   23 da LGPD, com a ressalva de que eliminação não alcança boletim nem DOU.
   Fechar a rota não protegeria nada e quebraria a projeção da sessão.
 
+## Espelho do cadastro de pessoal (`core.user_military_data`)
+
+O efetivo inteiro da FAB (~68 mil linhas) chega de outro sistema por um **patch
+manual do mantenedor**, de tempos em tempos; a carga não está no repo. Os apps
+só precisam achar pelo SARAM quem tem conta e mostrar posto e nome de guerra,
+então leem a view `core.military_identity` (`saram`, `posto`, `nome_guerra`,
+`sg_org`, `data_atualizacao`), sem CPF e sem nome completo; o perfil do titular
+recebe o CPF já mascarado pelo banco (`core.military_masked_cpf`). A regra
+`.opengrep/rules/military-roster.yaml` reprova leitura de `nrCpf`/`nmPessoa` ou
+da tabela crua fora da allowlist, com o motivo de cada entrada. Desde
+`20260927170000` o CPF não é mais a chave (PK física `id`, identity), mas
+**o patch sobe no mesmo formato**: as sete colunas do sistema de origem, com os
+mesmos nomes e na mesma ordem (`"nrOrdem"`, `"nrCpf"`, `"nmGuerra"`,
+`"nmPessoa"`, `"sgPosto"`, `"sgOrg"`, `"dataAtualizacao"`), sem citar `id`,
+que é a última coluna e se preenche sozinha (INSERT posicional com sete valores
+também serve; `COPY` precisa da lista das sete, porque sem lista ele passa a
+esperar o `id`); o upsert é pelo CPF, que segue `UNIQUE`
+(`on conflict ("nrCpf") do update set …` ou `do nothing`). A view se atualiza
+com a tabela; nada a recriar depois do patch. `"nrOrdem"` é o nome da origem e
+fica no espelho mesmo depois de o glossário chamar o SARAM de `saram` nos
+objetos nossos. SARAM ausente do espelho continua gravável na conta (sem FK
+para o espelho, de propósito): aparece sem posto até o patch seguinte.
+
 ## Ao mexer
 
 - **Novo app com dado pessoal**: `@iefa/legal-kit` na dependência, `legal.fn.ts`

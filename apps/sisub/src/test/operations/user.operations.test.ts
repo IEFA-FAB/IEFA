@@ -5,7 +5,7 @@
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { fetchMilitaryData, fetchSisubUserData, fetchUserNrOrdem, syncUserEmail, syncUserNrOrdem } from "@iefa/sisub-domain"
+import { fetchMaskedCpf, fetchMilitaryData, fetchSisubUserData, fetchUserNrOrdem, syncUserEmail, syncUserNrOrdem } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -74,6 +74,24 @@ describeSupabaseIntegration("user operations (regressão)", () => {
 		expect(mil).not.toBeNull()
 		expect(mil?.nrOrdem).toBe(nrOrdem)
 		expect(mil?.sgPosto).toBe("SO")
+		// A identificação vem de `core.military_identity`: nem CPF nem nome completo.
+		expect(Object.keys(mil ?? {}).sort()).toEqual(["dataAtualizacao", "nmGuerra", "nrOrdem", "sgOrg", "sgPosto"])
+	})
+
+	test("fetchMaskedCpf devolve só a máscara do gov.br, montada no banco", async () => {
+		if (!reachable || !seeder || !db) return
+		// 11 dígitos únicos e que não são CPF válido (dígitos verificadores ignorados): a semeadura
+		// não pode colidir com a carga real, que tem o CPF como UNIQUE.
+		const digits = `9${String(Date.now()).slice(-7)}${String(Math.floor(Math.random() * 1000)).padStart(3, "0")}`
+		const nrOrdem = await seeder.seedUserMilitaryData({ cpf: `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}` })
+		expect(await fetchMaskedCpf(db, { nrOrdem })).toBe(`***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`)
+
+		// CPF fora do formato (12 e 10 dígitos) e SARAM ausente: nada a mostrar.
+		const longer = await seeder.seedUserMilitaryData({ cpf: `${digits}0` })
+		expect(await fetchMaskedCpf(db, { nrOrdem: longer })).toBeNull()
+		const shorter = await seeder.seedUserMilitaryData({ cpf: digits.slice(1) })
+		expect(await fetchMaskedCpf(db, { nrOrdem: shorter })).toBeNull()
+		expect(await fetchMaskedCpf(db, { nrOrdem: uid("NO") })).toBeNull()
 	})
 
 	test("syncUserNrOrdem faz upsert idempotente e corrige nrOrdem que não localiza cadastro", async () => {

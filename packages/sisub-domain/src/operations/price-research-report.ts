@@ -515,13 +515,13 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 			() =>
 				db.execute(sql`
 					select ri.*, rh.created_by, rh.period_months, rh.reference_method as header_method,
-						nullif(btrim(coalesce(m."sgPosto", '') || ' ' || coalesce(m."nmGuerra", '')), '') as military_name,
+						nullif(btrim(coalesce(m.posto, '') || ' ' || coalesce(m.nome_guerra, '')), '') as military_name,
 						coalesce(ud.email, au.email) as email
 					from procurement.price_research_item ri
 					join procurement.price_research rh on rh.id = ri.research_id
 					left join auth.users au on au.id = rh.created_by
 					left join core.user_data ud on ud.id = rh.created_by
-					left join core.user_military_data m on m."nrOrdem" = ud."nrOrdem"
+					left join core.military_identity m on m.saram = ud."nrOrdem"
 					where ri.id in (${ids})
 				`),
 			{ prefix: "Erro ao ler as pesquisas" }
@@ -742,12 +742,12 @@ export async function fetchPriceResearchReport(
 	if (!chosenId) return null
 	const [emission] = (await runQuery("FETCH_FAILED", () =>
 		db.execute(sql`
-			select e.*, nullif(btrim(coalesce(m."sgPosto", '') || ' ' || coalesce(m."nmGuerra", '')), '') as military_name,
+			select e.*, nullif(btrim(coalesce(m.posto, '') || ' ' || coalesce(m.nome_guerra, '')), '') as military_name,
 				coalesce(ud.email, au.email) as email
 			from procurement.price_research_emission e
 			left join auth.users au on au.id = e.emitted_by
 			left join core.user_data ud on ud.id = e.emitted_by
-			left join core.user_military_data m on m."nrOrdem" = ud."nrOrdem"
+			left join core.military_identity m on m.saram = ud."nrOrdem"
 			where e.id = ${chosenId} and e.quantity_estimate_id = ${input.quantityEstimateId}
 		`)
 	)) as unknown as Row[]
