@@ -24,8 +24,10 @@ on:
 permissions:
   contents: read
 
+# O evento entra no grupo para o agendamento semanal (o único que varre o histórico inteiro
+# com o gitleaks) não ser cancelado por um push na `main` que chegue no meio dele.
 concurrency:
-  group: security-${{ github.ref }}
+  group: security-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:

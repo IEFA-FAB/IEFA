@@ -36,6 +36,7 @@ concurrency:
 jobs:
   detect:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       stacks: ${{ steps.detect.outputs.stacks }}
     steps:
@@ -82,6 +83,7 @@ jobs:
     needs: detect
     if: needs.detect.outputs.stacks != '[]' && vars.AWS_TF_PLAN_ROLE_ARN != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       id-token: write
       contents: read

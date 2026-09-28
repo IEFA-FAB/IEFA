@@ -35,9 +35,15 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    # Um deploy por serviço de cada vez, sem cancelar o que está rodando. Com
+    # `cancel-in-progress: true` o run seguinte matava este no meio da espera pelo rollout:
+    # o ECS seguia, mas o rollout e o smoke test deste run ficavam sem verificação (os 21 runs
+    # `cancelled` do CI/CD entre 2026-08-18 e 2026-09-28 pararam todos aqui). Serializado, cada
+    # deploy termina verificado; o pendente é substituído pelo do run seguinte, e `:latest` já
+    # é a imagem do commit mais novo (build serializado no _app-build.yml).
     concurrency:
-      group: ecs-deploy-${{ inputs.concurrency_suffix }}-${{ github.ref_name }}
-      cancel-in-progress: true
+      group: ecs-deploy-${{ inputs.concurrency_suffix }}
+      cancel-in-progress: false
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0

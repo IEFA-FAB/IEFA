@@ -47,8 +47,15 @@ on:
 permissions:
   contents: read
 
+# Fila por PR só no PR. Fora dele o grupo é o próprio run (não serializa nada): quem precisa
+# de fila é só o `full`, e ele tem a trava própria. Com o grupo por `github.ref` na `main`, o
+# run inteiro esperava o `full` do anterior (~30-45 min) antes de começar o `gate`, e o GitHub
+# guarda UM pendente por grupo: commit que chegava no meio tinha o run cancelado sem nenhum
+# job, e o `gate` dele (a única integração dos PRs do Dependabot) nunca rodava. Medido em
+# 2026-09-28: `changes` do run 36367814519 começou 23 min depois do push, no segundo em que o
+# `full` do run anterior terminou; 36370669819 e 36371252831 foram cancelados com zero jobs.
 concurrency:
-  group: sisub-integration-${{ github.event.pull_request.number || github.ref }}
+  group: sisub-integration-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -140,9 +147,11 @@ jobs:
     needs: gate
     if: github.event_name != 'pull_request'
     continue-on-error: true
-    # A suíte sequencial (--no-file-parallelism) leva ~26 min: com 25 o timeout a matava depois
-    # de tudo verde (run 36249089235: 1613 testes passando, job `cancelled`).
-    timeout-minutes: 45
+    # A suíte sequencial (--no-file-parallelism) levava ~26 min: com 25 o timeout a matava depois
+    # de tudo verde (run 36249089235: 1613 testes passando, job `cancelled`). Em 2026-09-27/28 ela
+    # já leva 30-42 min, e os runs 36340523422 e 36372272726 bateram nos 45 (`cancelled` aos
+    # 45,6 min). 60 dá folga sem deixar um vitest travado segurar a trava por horas.
+    timeout-minutes: 60
     concurrency:
       group: sisub-integration-real-db
       cancel-in-progress: false
