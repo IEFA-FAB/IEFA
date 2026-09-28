@@ -25,7 +25,7 @@ import {
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
-import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, toolErr, toolOk } from "./shared"
+import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, ToolValidationError, toolErr, toolOk } from "./shared"
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -172,14 +172,14 @@ const getRecipe: ModuleToolDefinition = {
 const createDailyMenu: ModuleToolDefinition = {
 	name: "create_daily_menu",
 	description:
-		"Cria menu diário para cozinha em data e refeição. Idempotente: se já existir um menu ativo para (data, refeição, cozinha), devolve o existente.",
+		"Cria menu diário para cozinha em data e refeição. Idempotente: se já existir um menu ativo para (data, refeição, cozinha), devolve o existente sem mudar a previsão de comensais dele (para isso, use update_menu_headcount).",
 	parameters: {
 		type: "object",
 		properties: {
 			kitchenId: { type: "number", description: "ID da cozinha" },
 			date: { type: "string", description: "Data YYYY-MM-DD" },
 			mealTypeId: { type: "string", description: "ID do tipo de refeição (via get_meal_types)" },
-			forecastedHeadcount: { type: "number", description: "Comensais previstos (opcional)" },
+			forecastedHeadcount: { type: "number", description: "Comensais previstos, inteiro positivo (opcional)" },
 		},
 		required: ["kitchenId", "date", "mealTypeId"],
 	},
@@ -192,16 +192,20 @@ const createDailyMenu: ModuleToolDefinition = {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id })
 		requireValidDates(args.date)
+		const mealTypeId = requireUuid(typeof args.mealTypeId === "string" ? args.mealTypeId.trim() : args.mealTypeId, "mealTypeId")
 
-		if (typeof args.mealTypeId !== "string" || !String(args.mealTypeId).trim()) {
-			return toolErr("mealTypeId é obrigatório")
+		let forecastedHeadcount: number | undefined
+		if (args.forecastedHeadcount != null) {
+			forecastedHeadcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
+			// O schema do domínio exige positivo; aqui a recusa sai em português para o modelo corrigir.
+			if (forecastedHeadcount < 1) throw new ToolValidationError("forecastedHeadcount deve ser inteiro positivo; omita o campo se não houver previsão")
 		}
 
 		const input = UpsertDailyMenuSchema.parse({
 			kitchenId: id,
 			serviceDate: args.date,
-			mealTypeId: String(args.mealTypeId).trim(),
-			...(args.forecastedHeadcount != null && { forecastedHeadcount: safeInt(args.forecastedHeadcount, "forecastedHeadcount") }),
+			mealTypeId,
+			...(forecastedHeadcount != null && { forecastedHeadcount }),
 		})
 		return toolOk(await upsertDailyMenu(ctx.db, domainCtx(ctx), input))
 	},

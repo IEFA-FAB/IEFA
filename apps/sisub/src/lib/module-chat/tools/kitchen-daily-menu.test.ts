@@ -71,8 +71,17 @@ describe("create_daily_menu", () => {
 		expect(upsertDailyMenu.mock.calls[0][2]).toEqual({ kitchenId: KITCHEN_ID, serviceDate: "2099-03-01", mealTypeId: MEAL_TYPE_ID })
 	})
 
-	test("mealTypeId que não é UUID é recusado antes de chegar ao banco", async () => {
-		await expect(tool("create_daily_menu").handler({ kitchenId: KITCHEN_ID, date: "2099-03-01", mealTypeId: "almoco" }, ctx())).rejects.toThrow()
+	test("mealTypeId que não é UUID é recusado em português antes de chegar ao banco", async () => {
+		await expect(tool("create_daily_menu").handler({ kitchenId: KITCHEN_ID, date: "2099-03-01", mealTypeId: "almoco" }, ctx())).rejects.toThrow(
+			"mealTypeId deve ser um UUID válido"
+		)
+		expect(upsertDailyMenu).not.toHaveBeenCalled()
+	})
+
+	test("previsão de comensais 0 é recusada com o caminho (omitir o campo)", async () => {
+		await expect(
+			tool("create_daily_menu").handler({ kitchenId: KITCHEN_ID, date: "2099-03-01", mealTypeId: MEAL_TYPE_ID, forecastedHeadcount: 0 }, ctx())
+		).rejects.toThrow("omita o campo")
 		expect(upsertDailyMenu).not.toHaveBeenCalled()
 	})
 })
