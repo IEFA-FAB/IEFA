@@ -501,6 +501,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	// Fluxo e Equipamentos salvam por conta própria e não têm rascunho: enquanto houver
 	// alteração deles, sair da aba ou da tela pede confirmação (`UnsavedChangesGuard`).
 	const sideEditorsDirty = useRef({ flow: false, equipment: false })
+	/** Navegação que a própria tela dispara e que não perde nada (levar o rascunho à vigente). */
+	const allowNavigation = useRef(false)
 	const setFlowDirty = useCallback((dirty: boolean) => {
 		sideEditorsDirty.current.flow = dirty
 	}, [])
@@ -589,6 +591,16 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 		},
 		onSubmit: async ({ value }) => {
 			"use no memo"
+			// Salvar a preparação cria a versão nova copiando o fluxo e os equipamentos PERSISTIDOS.
+			// Com alteração deles pendente, ela ficaria para trás na versão superada, onde não se
+			// salva mais: grave ou descarte antes.
+			if (sideEditorsDirty.current.flow || sideEditorsDirty.current.equipment) {
+				toast.error("Salve ou descarte antes as alterações do fluxo de produção ou dos equipamentos", {
+					id: "recipe-form-side-editors",
+					description: "Salvar a preparação cria uma versão nova com o fluxo e os equipamentos já salvos; o que não foi salvo ficaria para trás.",
+				})
+				return
+			}
 			const mappedIngredients = value.ingredients
 				.filter((i): i is typeof i & { ingredient_id: string; net_quantity: number } => i.ingredient_id !== null && i.net_quantity !== null)
 				.map((i) => ({
@@ -686,6 +698,9 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				})
 			}
 			discardDraft(draftKey)
+			// Fluxo e equipamentos desta versão já não se salvam (ela foi superada): a guarda de
+			// saída só atrapalharia aqui.
+			allowNavigation.current = true
 			navigate({ href: `${headHref}${activeTab !== "detalhes" ? `?tab=${activeTab}` : ""}`, replace: true })
 			if (carried.length === 0) toast.info(`Aberta a versão vigente (v${head.version}).`)
 			else if (overlapping.length > 0)
@@ -1284,7 +1299,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			</form.Subscribe>
 
 			<UnsavedChangesGuard
-				isDirty={() => sideEditorsDirty.current.flow || sideEditorsDirty.current.equipment}
+				isDirty={() => !allowNavigation.current && (sideEditorsDirty.current.flow || sideEditorsDirty.current.equipment)}
 				message="O fluxo de produção ou a lista de equipamentos tem alterações que ainda não foram salvas. Se sair agora, elas serão perdidas."
 			/>
 

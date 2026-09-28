@@ -41,10 +41,12 @@ const PERSIST_DELAY_MS = 400
 
 const STORAGE_PREFIX = "sisub:draft:"
 /**
- * Formato de antes dos rascunhos por conta: `sisub:draft:<chave>`, com a conta dona numa
- * chave à parte. Lido uma vez para adotar o que era da mesma conta; depois some.
+ * Assinatura da conta que entrou por último neste navegador. É o sinal entre abas: quando
+ * outra conta entra numa aba, as demais param de mostrar (e de gravar) os rascunhos da conta
+ * anterior até a sessão delas alcançar a nova. No formato antigo (rascunho sem conta na
+ * chave) era a dona de todos, e é por ela que esses rascunhos migram para a chave da conta.
  */
-const LEGACY_OWNER_KEY = `${STORAGE_PREFIX}owner`
+const SESSION_OWNER_KEY = `${STORAGE_PREFIX}owner`
 const ACCOUNT_KEY = /^([0-9a-f]{8}):(.+)$/
 const draftStorageKey = (signature: string, key: string) => `${STORAGE_PREFIX}${signature}:${key}`
 
@@ -56,12 +58,26 @@ let snapshot: DraftEntry[] = []
 let keySnapshot = ""
 /** Assinatura da conta amarrada. Sem ela, o store fica só em memória (nada lido nem gravado). */
 let owner: string | null = null
+/**
+ * Conta que entrou em OUTRA aba enquanto esta seguia amarrada à anterior. Até o cabeçalho
+ * desta aba se amarrar a ela, esta aba não mostra nem grava rascunho de ninguém — senão quem
+ * entrou veria (e salvaria em nome próprio) o rascunho de quem saiu.
+ */
+let foreignOwner: string | null = null
 let hydrated = false
 let writable = true
 
 function storage(): Storage | null {
 	try {
 		return typeof window === "undefined" ? null : window.localStorage
+	} catch {
+		return null
+	}
+}
+
+function readSessionOwner(): string | null {
+	try {
+		return storage()?.getItem(SESSION_OWNER_KEY) ?? null
 	} catch {
 		return null
 	}
@@ -152,8 +168,8 @@ function forgetMemory() {
 
 /**
  * Lê o armazenamento uma vez por conta: carrega os rascunhos dela e apaga, de qualquer conta,
- * o que venceu ou não é rascunho válido. Rascunho do formato antigo (sem conta na chave) é
- * adotado se a conta antiga dona era esta, e apagado se não era.
+ * o que venceu ou não é rascunho válido. Rascunho do formato antigo (sem conta na chave) vai
+ * para a chave da conta que era dona dele — a desta sessão ou outra, que o reencontra ao voltar.
  */
 function hydrate() {
 	if (hydrated || owner === null) return
@@ -164,14 +180,9 @@ function hydrate() {
 	const names: string[] = []
 	for (let i = 0; i < store.length; i++) {
 		const name = store.key(i)
-		if (name?.startsWith(STORAGE_PREFIX) && name !== LEGACY_OWNER_KEY) names.push(name)
+		if (name?.startsWith(STORAGE_PREFIX) && name !== SESSION_OWNER_KEY) names.push(name)
 	}
-	let legacyOwner: string | null = null
-	try {
-		legacyOwner = store.getItem(LEGACY_OWNER_KEY)
-	} catch {
-		legacyOwner = null
-	}
+	const legacyOwner = readSessionOwner()
 	for (const name of names) {
 		try {
 			const entry: unknown = JSON.parse(store.getItem(name) ?? "null")
@@ -184,20 +195,20 @@ function hydrate() {
 				if (match[1] === owner && !entries.has(entry.key)) entries.set(entry.key, entry)
 				continue
 			}
-			// Formato antigo: sem conta na chave.
+			// Formato antigo: sem conta na chave. Vai para a chave da conta dona; sem dona
+			// conhecida, não há de quem seja, e sai.
 			store.removeItem(name)
-			if (legacyOwner === owner && !entries.has(entry.key)) {
-				entries.set(entry.key, entry)
-				pendingWrites.add(entry.key)
+			if (legacyOwner === owner) {
+				if (!entries.has(entry.key)) {
+					entries.set(entry.key, entry)
+					pendingWrites.add(entry.key)
+				}
+			} else if (legacyOwner && /^[0-9a-f]{8}$/.test(legacyOwner)) {
+				store.setItem(draftStorageKey(legacyOwner, entry.key), JSON.stringify(entry))
 			}
 		} catch {
 			store.removeItem(name)
 		}
-	}
-	try {
-		store.removeItem(LEGACY_OWNER_KEY)
-	} catch {
-		// idem flush
 	}
 	if (pendingWrites.size > 0) flush()
 	rebuildSnapshots()
@@ -237,6 +248,11 @@ export const draftStore = {
 	bindOwner(userId: string | null) {
 		if (!userId) return
 		const signature = ownerSignature(userId)
+		if (foreignOwner) {
+			// A sessão desta aba ainda é a antiga (auth em cache): espera alcançar a conta nova.
+			if (signature !== foreignOwner) return
+			foreignOwner = null
+		}
 		if (owner === signature) {
 			hydrate()
 			return
@@ -249,18 +265,23 @@ export const draftStore = {
 		}
 		owner = signature
 		hydrated = false
+		// Rascunho criado antes de haver conta (primeiro render) ficou pendente, porque não havia
+		// sob que chave gravar: é desta sessão, e o `hydrate` o descarrega sob ela — só ele, sem
+		// regravar o que veio do armazenamento.
 		hydrate()
-		// Rascunho criado antes de haver conta (primeiro render) é desta sessão: grava sob ela.
-		if (previous === null && entries.size > 0) {
-			for (const key of entries.keys()) pendingWrites.add(key)
-			flush()
+		// Avisa as outras abas de que esta conta entrou (evento `storage`).
+		try {
+			if (readSessionOwner() !== signature) storage()?.setItem(SESSION_OWNER_KEY, signature)
+		} catch {
+			writable = false
 		}
 		// A notificação vai fora do render em curso (o cabeçalho chama isto no render).
 		queueMicrotask(emit)
 	},
 	/** O rascunho sobrevive a recarregar? `false` sem armazenamento ou depois de uma gravação que falhou. */
 	isPersistent(): boolean {
-		return storage() != null && writable
+		// Sem conta amarrada nada vai ao armazenamento: o rascunho é só de memória.
+		return storage() != null && writable && owner !== null
 	},
 	/** Snapshot estável para `useSyncExternalStore` (mesma referência até a próxima mudança). */
 	list(): DraftEntry[] {
@@ -295,6 +316,7 @@ export const draftStore = {
 		}
 		forgetMemory()
 		owner = null
+		foreignOwner = null
 		hydrated = false
 		writable = true
 		emit()
@@ -312,6 +334,19 @@ if (typeof window !== "undefined") {
 	// outra conta entrou na outra aba, as gravações dela vão para a chave dela e não aparecem
 	// aqui (e o cabeçalho desta aba re-amarra quando a sessão daqui alcançar a conta nova).
 	window.addEventListener("storage", (event) => {
+		if (event.key === SESSION_OWNER_KEY) {
+			// Outra conta entrou em outra aba: o que esta aba mostra é da conta anterior. Grava o
+			// que ela digitou na chave dela e esvazia a tela até o cabeçalho alcançar a conta nova.
+			if (event.newValue && owner !== null && event.newValue !== owner) {
+				flush()
+				forgetMemory()
+				owner = null
+				hydrated = false
+				foreignOwner = event.newValue
+				emit()
+			}
+			return
+		}
 		if (owner === null || !event.key?.startsWith(STORAGE_PREFIX)) return
 		const match = ACCOUNT_KEY.exec(event.key.slice(STORAGE_PREFIX.length))
 		if (!match || match[1] !== owner) return

@@ -61,40 +61,68 @@ function rebaseList(opened: unknown[], edited: unknown[], head: unknown[], keyOf
 	const overlapping: string[] = []
 	let changed = false
 
-	const rows: unknown[] = []
+	// Itens da vigente, com o que o usuário tirou ou alterou aplicado por cima.
+	const merged = new Map<string, unknown>()
 	for (const row of head) {
 		const key = keyOf(row)
 		const before = openedByKey.get(key)
 		const mine = editedByKey.get(key)
-		if (before !== undefined && mine === undefined) {
+		if (mine === undefined) {
+			if (before === undefined) {
+				merged.set(key, row) // incluído pela outra pessoa
+				continue
+			}
 			// O usuário tirou o item.
 			changed = true
 			if (!isDraftValueEqual(row, before)) overlapping.push(key)
 			continue
 		}
-		if (before !== undefined && mine !== undefined && !isDraftValueEqual(mine, before)) {
-			// O usuário alterou o item: vale o dele.
-			changed = true
-			if (!isDraftValueEqual(row, before) && !isDraftValueEqual(row, mine)) overlapping.push(key)
-			rows.push(mine)
+		const userChanged = before === undefined || !isDraftValueEqual(mine, before)
+		if (!userChanged || isDraftValueEqual(mine, row)) {
+			merged.set(key, row)
 			continue
 		}
-		rows.push(row)
+		// O usuário alterou (ou incluiu) o item: vale o dele. Se a outra pessoa também mexeu
+		// nele — ou incluiu o mesmo item com outro valor —, fica sinalizado.
+		changed = true
+		if (before === undefined || !isDraftValueEqual(row, before)) overlapping.push(key)
+		merged.set(key, mine)
 	}
-	for (const row of edited) {
+
+	// Itens do usuário que a vigente não tem: os que ele incluiu, e os que ele alterou e a outra
+	// pessoa tirou (voltam, sinalizados). Entram logo depois do item que os precede na lista
+	// dele — promover um substituto troca o insumo da linha, e ele tem de ficar na mesma posição.
+	const order = head.map(keyOf).filter((key) => merged.has(key))
+	edited.forEach((row, index) => {
 		const key = keyOf(row)
-		if (headKeys.has(key)) continue
+		if (headKeys.has(key)) return
 		const before = openedByKey.get(key)
-		if (before === undefined) {
-			// O usuário incluiu o item.
-			changed = true
-			rows.push(row)
-		} else if (!isDraftValueEqual(row, before)) {
-			// O usuário alterou um item que a vigente tirou: volta, e a tela avisa.
-			changed = true
-			overlapping.push(key)
-			rows.push(row)
+		if (before !== undefined && isDraftValueEqual(row, before)) return // a outra pessoa tirou; ele não mexeu
+		changed = true
+		if (before !== undefined) overlapping.push(key)
+		merged.set(key, row)
+		let anchor = -1
+		for (let i = index - 1; i >= 0; i--) {
+			const previous = order.indexOf(keyOf(edited[i]))
+			if (previous !== -1) {
+				anchor = previous
+				break
+			}
 		}
+		order.splice(anchor + 1, 0, key)
+	})
+
+	// Reordenação: se o usuário mudou a ordem relativa dos itens que já existiam, vale a ordem
+	// dele; o que só a vigente tem vai para o fim.
+	const commonInOpened = opened.map(keyOf).filter((key) => editedByKey.has(key))
+	const commonInEdited = edited.map(keyOf).filter((key) => openedByKey.has(key))
+	const reordered = commonInOpened.some((key, index) => key !== commonInEdited[index])
+	let finalOrder = order
+	if (reordered) {
+		changed = true
+		const fromEdited = edited.map(keyOf).filter((key) => merged.has(key))
+		finalOrder = [...fromEdited, ...order.filter((key) => !editedByKey.has(key))]
 	}
-	return { rows, changed, overlapping }
+
+	return { rows: finalOrder.map((key) => merged.get(key)), changed, overlapping }
 }

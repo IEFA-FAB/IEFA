@@ -56,10 +56,11 @@ describe("rebaseDraftValues", () => {
 			],
 		} // outra pessoa incluiu d
 		const result = rebaseDraftValues(opened, edited, head, lists)
+		// c entra onde o usuário o pôs (depois de a); d, da outra pessoa, segue a vigente
 		expect(result.values.rows).toEqual([
 			{ id: "a", qty: 5 },
-			{ id: "d", qty: 4 },
 			{ id: "c", qty: 3 },
+			{ id: "d", qty: 4 },
 		])
 		expect(result.carried).toEqual(["rows"])
 		expect(result.overlapping).toEqual([])
@@ -87,5 +88,49 @@ describe("rebaseDraftValues", () => {
 		const result = rebaseDraftValues(opened, { ...opened }, head, lists)
 		expect(result.values).toEqual(head)
 		expect(result.carried).toEqual([])
+	})
+
+	it("lista: o mesmo item incluído pelos dois lados com valores diferentes vale o do usuário e é sinalizado", () => {
+		const edited = { ...opened, rows: [...opened.rows, { id: "sal", qty: 5 }] }
+		const head = { ...opened, rows: [...opened.rows, { id: "sal", qty: 2 }] }
+		const result = rebaseDraftValues(opened, edited, head, lists)
+		expect(result.values.rows).toEqual([...opened.rows, { id: "sal", qty: 5 }])
+		expect(result.carried).toEqual(["rows"])
+		expect(result.overlapping).toEqual(["rows:sal"])
+	})
+
+	it("lista: trocar o item de uma linha (promover substituto) mantém a posição", () => {
+		const edited = {
+			...opened,
+			rows: [
+				{ id: "y", qty: 1 },
+				{ id: "b", qty: 2 },
+			],
+		} // a virou y
+		const head = { ...opened, rows: [...opened.rows, { id: "d", qty: 4 }] }
+		const result = rebaseDraftValues(opened, edited, head, lists)
+		expect(result.values.rows).toEqual([
+			{ id: "y", qty: 1 },
+			{ id: "b", qty: 2 },
+			{ id: "d", qty: 4 },
+		])
+	})
+
+	it("lista: reordenar sem mudar valores é alteração e vale a ordem do usuário", () => {
+		const edited = {
+			...opened,
+			rows: [
+				{ id: "b", qty: 2 },
+				{ id: "a", qty: 1 },
+			],
+		}
+		const head = { ...opened, rows: [...opened.rows, { id: "d", qty: 4 }] }
+		const result = rebaseDraftValues(opened, edited, head, lists)
+		expect(result.values.rows).toEqual([
+			{ id: "b", qty: 2 },
+			{ id: "a", qty: 1 },
+			{ id: "d", qty: 4 },
+		])
+		expect(result.carried).toEqual(["rows"])
 	})
 })

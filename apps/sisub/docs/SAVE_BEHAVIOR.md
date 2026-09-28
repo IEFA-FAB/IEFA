@@ -58,7 +58,9 @@ edição é um **rascunho local**.
   merge de três vias (`rebaseDraftValues`): só o que o usuário mudou sai do rascunho, o resto
   vem da vigente, e campo mudado pelos dois lados fica com o valor do usuário e é sinalizado.
   O servidor recusa do mesmo jeito (`RECIPE_VERSION_CONFLICT`, sob o lock da linhagem), então
-  o MCP e uma tela antiga também não gravam por cima.
+  o MCP e uma tela antiga também não gravam por cima. Salvar a preparação com alteração
+  pendente no Fluxo ou em Equipamentos é recusado na tela: a versão nova copia só o que já
+  foi salvo deles.
 - **Um rascunho por registro**: a tela que usa `useDraft` remonta ao trocar de registro
   (`key` na rota). Reaproveitado pelo router, o form levava os valores editados de um
   insumo para o próximo. Na preparação, a chave é a **versão** aberta: um rascunho da v3
@@ -124,8 +126,10 @@ computador compartilhado:
   apaga os rascunhos da anterior; sair da conta também não apaga. A assinatura é curta
   (FNV-1a de 32 bits), sem volta ao identificador. A amarração acontece no render do
   cabeçalho, antes de qualquer tela restaurar rascunho. Rascunho do formato anterior (sem
-  conta na chave) é adotado pela conta que era dona e apagado para as demais. Política de
-  Cookies 1.6.0.
+  conta na chave) vai para a chave da conta que era dona. `sisub:draft:owner` guarda a conta
+  que entrou por último: quando outra conta entra numa aba, as demais abas gravam o que a
+  anterior digitou na chave dela e esvaziam a tela até a sessão delas alcançar a nova — quem
+  entrou não vê nem salva o rascunho de quem saiu. Política de Cookies 1.6.0.
 - **Validade:** rascunho parado há mais de 7 dias é descartado ao carregar, de qualquer conta.
 - **Só no dispositivo:** nada vai ao servidor antes do Salvar.
 - **Forma do formulário:** rascunho de antes de uma publicação que mudou o formulário (campo
