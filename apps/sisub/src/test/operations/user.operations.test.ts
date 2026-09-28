@@ -86,9 +86,11 @@ describeSupabaseIntegration("user operations (regressão)", () => {
 		const nrOrdem = await seeder.seedUserMilitaryData({ cpf: `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}` })
 		expect(await fetchMaskedCpf(db, { nrOrdem })).toBe(`***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`)
 
-		// CPF fora do formato (12 dígitos) e SARAM ausente: nada a mostrar.
-		const odd = await seeder.seedUserMilitaryData({ cpf: `${digits}0` })
-		expect(await fetchMaskedCpf(db, { nrOrdem: odd })).toBeNull()
+		// CPF fora do formato (12 e 10 dígitos) e SARAM ausente: nada a mostrar.
+		const longer = await seeder.seedUserMilitaryData({ cpf: `${digits}0` })
+		expect(await fetchMaskedCpf(db, { nrOrdem: longer })).toBeNull()
+		const shorter = await seeder.seedUserMilitaryData({ cpf: digits.slice(1) })
+		expect(await fetchMaskedCpf(db, { nrOrdem: shorter })).toBeNull()
 		expect(await fetchMaskedCpf(db, { nrOrdem: uid("NO") })).toBeNull()
 	})
 

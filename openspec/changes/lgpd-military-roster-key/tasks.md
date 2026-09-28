@@ -8,7 +8,7 @@
 
 ## 2. Migration (espera o mantenedor)
 
-- [x] 2.1 [database] PK física `id` identity; `UNIQUE` no CPF; views dependentes recriadas (`20260927170000_military_roster_key.sql`; as três passam a ler `core.military_identity`, com as mesmas colunas de saída)
+- [x] 2.1 [database] PK física `id` identity; `UNIQUE` no CPF; views dependentes recriadas (`20260927170000_military_roster_key.sql`). `core.person_identity` e `core.v_user_identity` passam a ler `core.military_identity`, com as mesmas colunas de saída; `analytics.v_user_identity` fica sobre a tabela, de propósito: ela não é `security_invoker` (o `analytics_reader` a lê sem grant em `core`), e a view invoker aninhada checaria o privilégio do `analytics_reader` (permission denied, aviso de 20260921160000). Ela lê só SARAM, posto e nome de guerra e publica `id` + `display_name`; a migration confere que ela não passou para a view
 - [x] 2.2 [database] View `core.military_identity` (`saram`, `posto`, `nome_guerra`, `sg_org`, `data_atualizacao`), só servidor (`security_invoker`, SELECT só do `service_role`); `core.military_masked_cpf(p_saram)` para o perfil do titular (executável só pelo `service_role`)
 - [ ] 2.3 [database] No mesmo PR, depois de aplicar: `db:types` e `db:drizzle:pull` (o pull deixa de declarar `nrCpf` como PK); apagar as pontes `src/pending-military-roster-key.ts` e `drizzle/pending-military-roster-key.ts` (o tripwire delas quebra o typecheck depois do pull) e voltar `index.ts`/`core.ts`/`sisub.ts`/`drizzle/sisub.ts` a `generated.ts`
 

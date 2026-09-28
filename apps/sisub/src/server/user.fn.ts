@@ -66,9 +66,8 @@ export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
 		const db = getDb()
 		const nrOrdem = await fetchUserNrOrdem(db, { userId }).catch(handleDomainError)
 		if (!nrOrdem) return null
-		const row = await fetchMilitaryData(db, { nrOrdem }).catch(handleDomainError)
+		const [row, maskedCpf] = await Promise.all([fetchMilitaryData(db, { nrOrdem }), fetchMaskedCpf(db, { nrOrdem })]).catch(handleDomainError)
 		if (!row) return null
-		const maskedCpf = await fetchMaskedCpf(db, { nrOrdem }).catch(handleDomainError)
 		return { ...row, maskedCpf }
 	})
 

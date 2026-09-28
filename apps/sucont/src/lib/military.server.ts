@@ -30,7 +30,13 @@ export async function fetchMilitaryIdentities(nrOrdens: readonly string[]): Prom
 	const wanted = [...new Set(nrOrdens.filter((n) => n.trim().length > 0))]
 	if (wanted.length === 0) return new Map()
 
-	const { data, error } = await getCoreClient().from("military_identity").select("saram, posto, nome_guerra").in("saram", wanted)
+	// Da carga mais antiga para a mais recente: no `Map`, a última linha do SARAM vence, como no
+	// sisub e no rumaer (o espelho não tem o SARAM como UNIQUE).
+	const { data, error } = await getCoreClient()
+		.from("military_identity")
+		.select("saram, posto, nome_guerra")
+		.in("saram", wanted)
+		.order("data_atualizacao", { ascending: true, nullsFirst: true })
 	if (error) throw new Error(error.message)
 
 	return new Map((data ?? []).flatMap((row) => (row.saram ? [[row.saram, { posto: row.posto, nomeGuerra: row.nome_guerra }] as const] : [])))

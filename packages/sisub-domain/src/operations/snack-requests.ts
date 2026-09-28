@@ -520,6 +520,8 @@ async function fetchMilitary(db: Pick<SisubDb, "select">, nrOrdens: string[]) {
 					})
 					.from(militaryIdentityInCore)
 					.where(inArray(militaryIdentityInCore.saram, nrOrdens))
+					// No `Map`, a última linha do SARAM vence: a carga mais recente.
+					.orderBy(sql`${militaryIdentityInCore.dataAtualizacao} asc nulls first`)
 			)
 		: []
 	return new Map(rows.filter((r) => r.nrOrdem != null).map((r) => [r.nrOrdem as string, r]))

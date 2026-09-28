@@ -15,8 +15,11 @@
 --     (`"nrOrdem"`, `"nrCpf"`, `"nmGuerra"`, `"nmPessoa"`, `"sgPosto"`, `"sgOrg"`,
 --     `"dataAtualizacao"`), inclusive `"nrOrdem"`, que o glossário chama de SARAM só nos objetos
 --     nossos (`sisub-ubiquitous-language`, D2 e D3: o espelho guarda o nome do sistema de origem);
---   * a coluna nova, `id`, é a ÚLTIMA e tem default (identity): INSERT com lista de colunas,
---     INSERT posicional com as sete, `COPY` e importação de CSV continuam valendo sem citá-la;
+--   * a coluna nova, `id`, é a ÚLTIMA e tem default (identity): INSERT com a lista das sete
+--     colunas, INSERT posicional com sete valores e `COPY … ("nrOrdem", …) from …` com a lista das
+--     sete continuam valendo sem citá-la. `COPY` SEM lista de colunas passa a exigir o `id` (a
+--     identity entra na lista padrão do COPY): o patch cita as sete colunas, como já cita no
+--     upsert;
 --   * a unicidade do CPF é a mesma que a PK impunha, agora por `UNIQUE`: o upsert do patch
 --     (`on conflict ("nrCpf") do update …` ou `do nothing`) tem o mesmo árbitro.
 --
@@ -28,8 +31,12 @@
 --     aponta para o espelho, e continua assim (decisão de `20260910225309_core_person_registry.sql`).
 --   * `core.military_identity`: `saram`, `posto`, `nome_guerra`, `sg_org`, `data_atualizacao`, sem
 --     CPF e sem nome completo; `security_invoker`, só o servidor (`service_role`) lê.
---   * As três views que liam o espelho passam a ler `core.military_identity`, com as mesmas colunas
---     de saída: `core.person_identity`, `core.v_user_identity` e `analytics.v_user_identity`.
+--   * `core.person_identity` e `core.v_user_identity` passam a ler `core.military_identity`, com as
+--     mesmas colunas de saída. `analytics.v_user_identity` continua sobre a tabela, de propósito: ela
+--     não é `security_invoker` (o `analytics_reader` a lê sem grant em `core`), e uma view invoker
+--     aninhada checa o privilégio de QUEM CONSULTA mesmo dentro da view do dono (aviso de
+--     20260921160000). Ela lê só `"nrOrdem"`, `"sgPosto"` e `"nmGuerra"` e publica `id` +
+--     `display_name`.
 --   * `core.military_masked_cpf(p_saram)`: o CPF do cadastro mais recente do SARAM, mascarado no
 --     padrão gov.br (`***.456.789-**`), para o perfil do próprio titular. O documento inteiro não
 --     sai do banco; executável só pelo `service_role` (default das funções novas, 20260920210000).
@@ -124,19 +131,21 @@ select
 	m."dataAtualizacao" as data_atualizacao
 from core.user_military_data m;
 
--- Só o servidor. `security_invoker`: quem lê precisa do SELECT na tabela, que só o `service_role`
--- (e o dono) têm. Lida por dentro de `analytics.v_user_identity` (sem `security_invoker`), a
--- checagem é a do dono daquela view, e o `analytics_reader` continua sem acesso direto.
-revoke all on core.military_identity from public, anon, authenticated;
+-- Só o servidor, e só leitura. `security_invoker`: quem lê precisa do SELECT na tabela, que só o
+-- `service_role` (e o dono) têm. O default privilege de `core` dá ALL ao `service_role` em relação
+-- nova, e a view é auto-updatable (uma tabela só): sem revogar, UPDATE e DELETE por ela chegariam
+-- ao espelho, que é da carga.
+revoke all on core.military_identity from public, anon, authenticated, service_role;
 grant select on core.military_identity to service_role;
 
 comment on view core.military_identity is
 	'Identificação militar pelo SARAM, com o mínimo que os apps usam: posto, nome de guerra, OM e data da carga. Sem CPF e sem nome completo (LGPD, art. 6º, III). Um SARAM ainda ausente do espelho continua gravável na conta; ele aparece aqui na próxima carga.';
 comment on column core.military_identity.saram is 'SARAM ("nrOrdem" do espelho).';
 
--- ─── 3. As views dependentes passam a ler core.military_identity ───────────────────
+-- ─── 3. As views do servidor passam a ler core.military_identity ───────────────────
 --
 -- Mesmas colunas de saída, na mesma ordem (`create or replace` preserva os grants e as opções).
+-- `analytics.v_user_identity` fica como está (ver o cabeçalho).
 
 create or replace view core.person_identity
 with (security_invoker = true) as
@@ -166,18 +175,6 @@ select
 from core.user_data ud
 left join core.military_identity mi on mi.saram = ud."nrOrdem";
 
--- Sem `security_invoker`, como era: o `analytics_reader` lê esta view e não tem grant em `core`.
-create or replace view analytics.v_user_identity as
-select
-	ud.id,
-	case
-		when nullif(btrim(coalesce(mi.posto, '') || ' ' || coalesce(mi.nome_guerra, '')), '') is not null
-			then btrim(coalesce(mi.posto, '') || ' ' || initcap(coalesce(mi.nome_guerra, '')))
-		else ud.email
-	end as display_name
-from core.user_data ud
-left join core.military_identity mi on mi.saram = ud."nrOrdem";
-
 -- ─── 4. CPF mascarado para o perfil do titular ───────────────────────────────────
 
 -- Máscara do gov.br: os seis dígitos do meio bastam para a pessoa reconhecer o próprio documento
@@ -196,7 +193,7 @@ as $$
 		select regexp_replace(m."nrCpf", '\D', '', 'g') as digits
 		from core.user_military_data m
 		where m."nrOrdem" = p_saram
-		order by m."dataAtualizacao" desc nulls last
+		order by m."dataAtualizacao" desc nulls last, m.id desc
 		limit 1
 	) d;
 $$;
@@ -232,14 +229,27 @@ begin
 
 	select string_agg(schemaname || '.' || viewname, ', ') into offenders
 	from pg_views
-	where definition ~* '\muser_military_data\M' and (schemaname, viewname) <> ('core', 'military_identity');
+	where definition ~* '\muser_military_data\M'
+		and (schemaname, viewname) not in (('core', 'military_identity'), ('analytics', 'v_user_identity'));
 	if offenders is not null then
-		raise exception 'views ainda leem core.user_military_data direto: %', offenders;
+		raise exception 'views do servidor ainda leem core.user_military_data direto: %', offenders;
+	end if;
+
+	-- A view do analytics lê a tabela, e não a view invoker: por esta, o `analytics_reader` levaria
+	-- permission denied.
+	if (select pg_get_viewdef('analytics.v_user_identity'::regclass)) ~* '\mmilitary_identity\M' then
+		raise exception 'analytics.v_user_identity não pode ler core.military_identity (security_invoker aninhada)';
 	end if;
 
 	if has_table_privilege('anon', 'core.military_identity', 'select')
 		or has_table_privilege('authenticated', 'core.military_identity', 'select') then
 		raise exception 'core.military_identity ficou legível por anon/authenticated';
+	end if;
+	if not has_table_privilege('service_role', 'core.military_identity', 'select')
+		or has_table_privilege('service_role', 'core.military_identity', 'insert')
+		or has_table_privilege('service_role', 'core.military_identity', 'update')
+		or has_table_privilege('service_role', 'core.military_identity', 'delete') then
+		raise exception 'core.military_identity tem de ser só SELECT para o service_role';
 	end if;
 
 	if not coalesce((select proconfig from pg_proc where oid = 'core.military_masked_cpf(text)'::regprocedure), '{}') @> array['search_path=""'] then

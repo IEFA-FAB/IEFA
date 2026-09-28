@@ -23,7 +23,7 @@ import {
 	type SisubDb,
 	userDataInCore,
 } from "@iefa/database/drizzle/sisub"
-import { and, asc, between, eq, inArray } from "drizzle-orm"
+import { and, asc, between, eq, inArray, sql } from "drizzle-orm"
 import type { UnitDashboard } from "../schemas/dashboard.ts"
 import type { ArranchamentoRecord, DashboardPresenceRecord, MessHallAPI, UserDataAPI, UserMilitaryDataAPI } from "../types/dashboard.ts"
 import { NotFoundError } from "../types/errors.ts"
@@ -150,6 +150,8 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 					})
 					.from(militaryIdentityInCore)
 					.where(inArray(militaryIdentityInCore.saram, nrOrdens))
+					// Quem consome procura com `find`: a primeira linha do SARAM vence, a carga mais recente.
+					.orderBy(sql`${militaryIdentityInCore.dataAtualizacao} desc nulls last`)
 			)
 		: []
 

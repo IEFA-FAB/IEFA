@@ -134,9 +134,10 @@ da tabela crua fora da allowlist, com o motivo de cada entrada. Desde
 `20260927170000` o CPF não é mais a chave (PK física `id`, identity), mas
 **o patch sobe no mesmo formato**: as sete colunas do sistema de origem, com os
 mesmos nomes e na mesma ordem (`"nrOrdem"`, `"nrCpf"`, `"nmGuerra"`,
-`"nmPessoa"`, `"sgPosto"`, `"sgOrg"`, `"dataAtualizacao"`), sem citar `id`
-(é a última coluna e se preenche sozinha, então `COPY`, CSV e INSERT posicional
-com sete valores também servem); o upsert é pelo CPF, que segue `UNIQUE`
+`"nmPessoa"`, `"sgPosto"`, `"sgOrg"`, `"dataAtualizacao"`), sem citar `id`,
+que é a última coluna e se preenche sozinha (INSERT posicional com sete valores
+também serve; `COPY` precisa da lista das sete, porque sem lista ele passa a
+esperar o `id`); o upsert é pelo CPF, que segue `UNIQUE`
 (`on conflict ("nrCpf") do update set …` ou `do nothing`). A view se atualiza
 com a tabela; nada a recriar depois do patch. `"nrOrdem"` é o nome da origem e
 fica no espelho mesmo depois de o glossário chamar o SARAM de `saram` nos
