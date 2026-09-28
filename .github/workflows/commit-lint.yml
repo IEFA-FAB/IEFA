@@ -49,7 +49,11 @@ jobs:
         with:
           bun-version: "1.4.0"
 
-      - uses: actions/cache@v6
+      # Só restaura. Este job roda só em PR, e cada PR que salvava o próprio cache do bun
+      # (~450 MB) disputava os 10 GB do repo com o cache de camadas do buildx da `main`: em
+      # 2026-09-28 eram 10,5 GB em uso, 2,7 GB deles em caches do bun de PR. Quem salva é o
+      # `full` do integration.yml, que roda na `main`.
+      - uses: actions/cache/restore@v6
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}

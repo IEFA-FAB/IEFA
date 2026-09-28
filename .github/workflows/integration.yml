@@ -115,7 +115,10 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.0"
-      - uses: actions/cache@v6
+      # Só restaura: no PR, salvar criava um cache do bun (~450 MB) por PR, disputando os 10 GB
+      # do repo com o cache de camadas do buildx (10,5 GB em uso em 2026-09-28, 2,7 GB em caches
+      # de PR). Na `main`, quem salva é o `full`, que roda logo depois deste job.
+      - uses: actions/cache/restore@v6
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
