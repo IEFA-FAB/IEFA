@@ -45,7 +45,7 @@ function recordingAdapter(model: string, seen: Chunk[]): AnyTextAdapter {
 
 async function collect(adapter: AnyTextAdapter): Promise<Chunk[]> {
 	const out: Chunk[] = []
-	for await (const chunk of adapter.chatStream({} as never)) out.push(chunk as Chunk)
+	for await (const chunk of adapter.chatStream({} as never)) out.push(chunk as unknown as Chunk)
 	return out
 }
 
