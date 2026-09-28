@@ -40,6 +40,8 @@ paths:
   `CI/CD` pelo SHA (`git merge-base --is-ancestor <seu_sha> <sha_do_run>`). Build e deploy correm
   um por serviço de cada vez, sem cancelar o que já roda (`:latest` é um só); com três merges em
   sequência, o do meio fica pendente e é substituído pelo seguinte, e o run dele sai `cancelled`.
+  `:latest` só avança: no push, o build confere a label `org.opencontainers.image.revision` da
+  `:latest` atual e, se ela já tem commit mais novo, publica só a tag de SHA (aviso no log).
 - **Build de imagem tenta duas vezes.** Falha do buildkit num passo trivial
   (`exit code: 4294967295`) passa na segunda; erro de verdade falha nas duas, e o log útil é o
   da primeira (`Build and push`), não o do `(retry)`.

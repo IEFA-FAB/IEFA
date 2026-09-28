@@ -24,6 +24,11 @@ on:
         required: false
         type: number
         default: 15
+      bake_attempt_timeout_minutes:
+        description: "Timeout de CADA tentativa do bake. Menor que o do job, para um travamento do buildkit virar falha e sobrar tempo para a segunda tentativa"
+        required: false
+        type: number
+        default: 8
     outputs:
       tag:
         description: "Tag unica gerada para a imagem"
@@ -45,10 +50,11 @@ jobs:
       id-token: write
       contents: read
     # Um build por serviço de cada vez, sem cancelar. Todo build publica `:latest`, que é o
-    # que o ECS roda: com dois runs da `main` em paralelo, o build do commit mais velho podia
-    # terminar depois do mais novo e deixar `:latest` apontando para a imagem velha, que o
-    # deploy seguinte publicaria calado. Serializado, o último push é sempre o do commit mais
-    # novo; um build pendente é substituído pelo do run seguinte, que contém o mesmo código.
+    # que o ECS roda, e com dois runs da `main` em paralelo o build do commit mais velho podia
+    # terminar depois do mais novo e deixar `:latest` na imagem velha. A fila sozinha não
+    # ordena por commit (o build do mais novo pode pegar o grupo primeiro), por isso o passo
+    # "Decide whether to move :latest" confere a revisão antes de mover a tag. Um build
+    # pendente é substituído pelo do run seguinte, que contém o mesmo código.
     # Sem `github.ref` no grupo porque `:latest` é um só, venha de onde vier o run.
     concurrency:
       group: ecr-build-${{ inputs.service }}
@@ -77,15 +83,54 @@ jobs:
         id: meta
         run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
 
+      # Só move `:latest` se este commit descende do que `:latest` já tem (label
+      # `org.opencontainers.image.revision`, gravada abaixo). Sem isso, merges A e B em
+      # sequência com o build de B pegando a fila primeiro deixariam o de A reapontar
+      # `:latest` para o código velho, e o deploy de A o publicaria com tudo verde.
+      # A imagem com tag de SHA é publicada sempre. Falha aberto (move, como antes) quando
+      # não dá para ler a revisão: imagem anterior a esta label, ou erro de rede/API.
+      # `workflow_dispatch` move sempre: é ato explícito de alguém (o `force_<app>`).
+      - name: Decide whether to move :latest
+        id: latest
+        env:
+          IMAGE_REPO: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "move=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          current="$(docker buildx imagetools inspect "$IMAGE_REPO:latest" --format '{{json .Image}}' 2>/dev/null \
+            | jq -r '[.. | objects | .Labels? // empty | .["org.opencontainers.image.revision"]? // empty] | first // empty' 2>/dev/null)"
+          if [ -z "$current" ]; then
+            echo "::notice:::latest sem revisão legível; movendo :latest como antes."
+            echo "move=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${current}...${GITHUB_SHA}" --jq .status 2>/dev/null)"
+          echo ":latest está em ${current}; este build é ${GITHUB_SHA} (compare: ${status:-erro})"
+          case "$status" in
+            ahead|identical) echo "move=true" >> "$GITHUB_OUTPUT" ;;
+            behind|diverged)
+              echo "::warning:::latest já tem um commit mais novo (${current}); publicando só a tag de SHA."
+              echo "move=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *) echo "move=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       # Primeira tentativa com `continue-on-error`, e uma segunda só se ela falhar. O buildkit
       # às vezes perde o processo do passo no meio: `test -f` de um arquivo que existe travou
       # ~3 min e saiu com `exit code: 4294967295` (run 36355268327, build-mcp), verde no rerun.
       # O builder guarda em cache local tudo o que já passou, então a segunda tentativa refaz
       # só o passo que caiu: para erro de verdade o custo é repetir esse passo (~20 s no
-      # `vite build` do sisub), e o job fica vermelho do mesmo jeito.
+      # `vite build` do sisub), e o job fica vermelho do mesmo jeito. O timeout por tentativa
+      # faz um travamento virar falha (e disparar a segunda) em vez de esgotar o job inteiro.
       - name: Build and push
         id: bake
         continue-on-error: true
+        timeout-minutes: ${{ inputs.bake_attempt_timeout_minutes }}
         uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
         env: &bake-env
           IMAGE_REPO: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}
@@ -98,12 +143,14 @@ jobs:
           # sha-tagged image is also pushed for traceability/rollback.
           set: |
             ${{ inputs.service }}.tags=${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.tag }}
-            ${{ inputs.service }}.tags=${{ env.IMAGE_REPO }}:latest
+            ${{ steps.latest.outputs.move != 'false' && format('{0}.tags={1}:latest', inputs.service, env.IMAGE_REPO) || '' }}
+            ${{ inputs.service }}.labels.org.opencontainers.image.revision=${{ github.sha }}
             ${{ inputs.bake_set }}
             ${{ secrets.FARO_SOURCEMAP_API_KEY && format('{0}.args.FARO_SOURCEMAP_API_KEY={1}', inputs.service, secrets.FARO_SOURCEMAP_API_KEY) || '' }}
 
       - name: Build and push (retry)
         if: steps.bake.outcome == 'failure'
+        timeout-minutes: ${{ inputs.bake_attempt_timeout_minutes }}
         uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
         env: *bake-env
         with: *bake-with

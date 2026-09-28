@@ -194,6 +194,7 @@ jobs:
       - name: Warm deps cache
         id: bake
         continue-on-error: true
+        timeout-minutes: 8
         uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
         with: &warm-deps-with
           files: ./docker-bake.hcl
@@ -201,6 +202,7 @@ jobs:
           push: false
       - name: Warm deps cache (retry)
         if: steps.bake.outcome == 'failure'
+        timeout-minutes: 6
         uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
         with: *warm-deps-with
 
@@ -764,9 +766,11 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    # Sem cancelar, como os deploys do ECS: cancelar entre os dois `s3 sync --delete` deixa o
+    # HTML novo apontando para assets que ainda não subiram, sem invalidação nem smoke test.
     concurrency:
-      group: static-deploy-docs-${{ github.ref_name }}
-      cancel-in-progress: true
+      group: static-deploy-docs
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
         with:
@@ -1053,6 +1057,7 @@ jobs:
     with:
       service: pdf
       timeout_minutes: 40
+      bake_attempt_timeout_minutes: 25
 
   deploy-pdf:
     permissions:

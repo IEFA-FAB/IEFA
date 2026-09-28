@@ -23,9 +23,10 @@ updates:
     # Atualização de SEGURANÇA ignora o cooldown e vem na hora, que é o certo.
     cooldown:
       default-days: 7
-    # Um PR por grupo e por semana no máximo; com dez grupos, o limite de 5 deixava família
-    # sem PR na semana em que as outras também tinham versão nova.
-    open-pull-requests-limit: 10
+    # O limite conta os PRs de grupo E os de major fora de grupo (o `minor-and-patch` só pega
+    # minor/patch). Com dez grupos, o 5 de antes deixava família sem PR na semana em que as
+    # outras também tinham versão nova.
+    open-pull-requests-limit: 15
     commit-message:
       prefix: "chore(deps)"
     # Sem `ignore` hoje: os três pins que existiam aqui (`vite` >=8.2, `@types/node`
@@ -55,7 +56,8 @@ updates:
       # e quebraram as faixas de peer. Nome exato (`react`, `turbo`) casa normalmente.
       #
       # Família nova: grupo aqui em cima E os mesmos padrões no `exclude-patterns` do
-      # `minor-and-patch`, senão ela volta a cair lá.
+      # `minor-and-patch`, senão ela volta a cair lá. `scripts/dependabot-groups.test.ts`
+      # (job `bun audit` do security.yml) falha se as duas listas divergirem.
       react:
         patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
       # Core e adapters andam juntos: cada adapter declara peer `@tanstack/ai ^<minor>`.

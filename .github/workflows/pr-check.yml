@@ -75,7 +75,7 @@ jobs:
 
       - name: Lint · typecheck · test
         run: bunx turbo run lint typecheck test ${SCOPE_ARGS:+"$SCOPE_ARGS"} --concurrency=4 --continue
-        env:
+        env: &turbo-env
           SCOPE_ARGS: ${{ steps.scope.outputs.args }}
           TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
@@ -97,6 +97,6 @@ jobs:
       - name: Build
         if: ${{ !cancelled() && steps.scope.outcome == 'success' }}
         run: bunx turbo run build ${SCOPE_ARGS:+"$SCOPE_ARGS"} --concurrency=2 --continue
-        env:
-          SCOPE_ARGS: ${{ steps.scope.outputs.args }}
-          TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        # As mesmas `VITE_*` do passo acima (e que o bake de produção passa como build arg):
+        # sem elas o build do PR seria outro artefato, com outro grafo depois do tree-shaking.
+        env: *turbo-env
