@@ -3,7 +3,7 @@
  * Uses OpenAI function-calling format instead of MCP SDK format.
  */
 
-import { listAccessibleKitchens, toJsonSchema } from "@iefa/sisub-domain"
+import { listAccessibleKitchens, toJsonSchema, UpsertDailyMenuSchema, upsertDailyMenu } from "@iefa/sisub-domain"
 import {
 	AGENT_APPLY_TEMPLATE_MAX_DATES,
 	AgentApplyTemplateSchema,
@@ -25,7 +25,7 @@ import {
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
-import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, toolErr, toolOk } from "./shared"
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -171,7 +171,8 @@ const getRecipe: ModuleToolDefinition = {
 
 const createDailyMenu: ModuleToolDefinition = {
 	name: "create_daily_menu",
-	description: "Cria menu diário para cozinha em data e refeição. Usa upsert — ignora se já existir.",
+	description:
+		"Cria menu diário para cozinha em data e refeição. Idempotente: se já existir um menu ativo para (data, refeição, cozinha), devolve o existente.",
 	parameters: {
 		type: "object",
 		properties: {
@@ -183,6 +184,10 @@ const createDailyMenu: ModuleToolDefinition = {
 		required: ["kitchenId", "date", "mealTypeId"],
 	},
 	requiredLevel: 2,
+	// Mesma operation do `create_daily_menu` do MCP. A versão anterior fazia
+	// `upsert(onConflict: "service_date,meal_type_id,kitchen_id")` pelo PostgREST, mas a
+	// unicidade do trio é um índice PARCIAL (`daily_menu_active_unique ... where deleted_at is
+	// null`): sem o predicado o Postgres não acha árbitro e responde 42P10 em toda chamada.
 	async handler(args, ctx) {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id })
@@ -192,22 +197,13 @@ const createDailyMenu: ModuleToolDefinition = {
 			return toolErr("mealTypeId é obrigatório")
 		}
 
-		const insert: Record<string, unknown> = {
-			kitchen_id: id,
-			service_date: args.date,
-			meal_type_id: String(args.mealTypeId).trim(),
-			status: "PLANNED",
-		}
-		if (args.forecastedHeadcount != null) {
-			insert.forecasted_headcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
-		}
-
-		const { data, error } = await untypedFrom(ctx, "daily_menu")
-			.upsert(insert, { onConflict: "service_date,meal_type_id,kitchen_id", ignoreDuplicates: true })
-			.select("id, service_date, meal_type_id, forecasted_headcount, status")
-
-		if (error) return toolErr(sanitizeDbError(error, "create_daily_menu"))
-		return toolOk(data)
+		const input = UpsertDailyMenuSchema.parse({
+			kitchenId: id,
+			serviceDate: args.date,
+			mealTypeId: String(args.mealTypeId).trim(),
+			...(args.forecastedHeadcount != null && { forecastedHeadcount: safeInt(args.forecastedHeadcount, "forecastedHeadcount") }),
+		})
+		return toolOk(await upsertDailyMenu(ctx.db, domainCtx(ctx), input))
 	},
 }
 
