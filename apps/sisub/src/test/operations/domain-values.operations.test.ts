@@ -107,12 +107,13 @@ describeSupabaseIntegration("valores de domínio do lote 5 (DB)", () => {
 	test("cardápio de apoio: `apoio` no modelo e no item do dia", async () => {
 		await inRollback(async (tx) => {
 			const { kitchenId } = await seedKitchen(tx, "L5APO")
+			// Recusado pelo CHECK do tipo ou pelo do padrão de lanche (que só aceita cardápio de apoio).
 			await expect(
 				tx.savepoint(
 					(sp) =>
 						sp`insert into kitchen.menu_template (name, kitchen_id, template_type, snack_family, snack_class, snack_variant) values ('[TEST] antigo', ${kitchenId}, 'exception', 'bordo', 'B', 'lanche')`
 				)
-			).rejects.toThrow(/menu_template_template_type_check/)
+			).rejects.toThrow(/menu_template_(template_type|snack_complete)_check/)
 			await tx`
 				insert into kitchen.menu_template (name, kitchen_id, template_type, snack_family, snack_class, snack_variant)
 				values ('[TEST] apoio', ${kitchenId}, 'apoio', 'bordo', 'B', 'lanche')`
