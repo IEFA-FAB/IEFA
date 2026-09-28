@@ -694,15 +694,19 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			// Fork que a cozinha já tem abre como edição dela; global mais novo, no mesmo modo.
 			const headMode = mode === "fork" && head.kitchen_id == null ? "fork" : "edit"
 			const headBaseline = recipeFormValues(head)
-			const { values, carried, overlapping } = rebaseDraftValues(recipeFormValues(initialData), form.state.values, headBaseline, {
+			// A mesma conta já pode ter rascunho na vigente (outra aba, outro dia): as alterações
+			// vão por cima DELE, não do salvo — senão o rascunho de lá seria apagado.
+			const headDraftKey = draftIdFor(head.id, headMode)
+			const existing = draftStore.get<RecipeFormValues>(headDraftKey)
+			const { values, carried, overlapping } = rebaseDraftValues(recipeFormValues(initialData), form.state.values, existing?.values ?? headBaseline, {
 				ingredients: (row: RecipeIngredientRow) => row.ingredient_id,
 			})
 			const headHref = kitchenId ? `/kitchen/${kitchenId}/recipes/${head.id}${headMode === "fork" ? "/fork" : ""}` : `/global/recipes/${head.id}`
 			if (carried.length > 0) {
 				draftStore.set({
-					key: draftIdFor(head.id, headMode),
+					key: headDraftKey,
 					values,
-					baseStamp: JSON.stringify(headBaseline),
+					baseStamp: existing?.baseStamp ?? JSON.stringify(headBaseline),
 					title: `Preparação: ${head.name}`,
 					href: headHref,
 					changeCount: carried.length,

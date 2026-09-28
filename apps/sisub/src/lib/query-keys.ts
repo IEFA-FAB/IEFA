@@ -102,6 +102,8 @@ export const queryKeys = {
 		versions: (recipeId: string | undefined) => ["recipe_versions", recipeId] as const,
 		/** Versão vigente da linhagem no contexto (global ou cozinha). Sob `recipes`: todo save a invalida. */
 		lineageHead: (recipeId: string | undefined, kitchenId: number | null) => ["recipes", "lineage-head", recipeId, kitchenId ?? "global"] as const,
+		/** Prefixo de todas as versões vigentes — para reler depois de um Salvar recusado. */
+		lineageHeads: () => ["recipes", "lineage-head"] as const,
 		menuUsage: () => ["recipes", "menu-usage"] as const,
 		lastReview: (recipeId: string | undefined) => ["recipes", "last-review", recipeId] as const,
 		/** Prefixo de todas as últimas revisões — usado pelo bulk da listagem e para invalidar em lote. */

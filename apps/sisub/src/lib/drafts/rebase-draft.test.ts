@@ -161,4 +161,26 @@ describe("rebaseDraftValues", () => {
 		const result = rebaseDraftValues(opened, edited, head, lists)
 		expect(result.overlapping).toEqual(["rows:ordem"])
 	})
+
+	it("lista: o mesmo item duas vezes (pré-preparo e preparo) não vira um só", () => {
+		const twice = {
+			...opened,
+			rows: [
+				{ id: "sal", qty: 5 },
+				{ id: "a", qty: 1 },
+				{ id: "sal", qty: 10 },
+			],
+		}
+		const edited = {
+			...twice,
+			rows: [
+				{ id: "sal", qty: 5 },
+				{ id: "a", qty: 3 },
+				{ id: "sal", qty: 10 },
+			],
+		}
+		const result = rebaseDraftValues(twice, edited, { ...twice, factor: 2.7 }, lists)
+		expect(result.values.rows).toEqual(edited.rows)
+		expect(result.values.factor).toBe(2.7)
+	})
 })

@@ -46,7 +46,7 @@ A referência implementada é a preparação do SISUB (`apps/sisub/src/component
 
 | App / tela | Perda local | Gravação por cima | Estado |
 |---|---|---|---|
-| SISUB — preparação | rascunho por conta; guarda no Fluxo/Equipamentos | versão vigente conferida sob lock + merge | **feito** |
+| SISUB — preparação | rascunho por conta; guarda e descarte no Fluxo/Equipamentos | versão vigente conferida sob o lock da linhagem na ficha, no fluxo e nos equipamentos; merge de três vias | **feito** |
 | SISUB — cardápio semanal da cozinha, eventos, apoios | guarda de saída | autosave troca o conjunto inteiro, sem versão | **alto** |
 | SISUB — plano semanal global | guarda de saída; F5 perde | Salvar troca o conjunto inteiro | **alto** |
 | SISUB — assistente do anexo quantitativo | nenhuma; autosave cancelado ao sair | envio regrava a lista inteira com preço velho | **alto** |

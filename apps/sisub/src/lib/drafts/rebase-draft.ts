@@ -56,62 +56,63 @@ export function rebaseDraftValues<T extends Record<string, unknown>>(
 }
 
 function rebaseList(opened: unknown[], edited: unknown[], head: unknown[], rawKeyOf: KeyOf<unknown>) {
-	// Linha sem chave recebe uma só dela (pela identidade do objeto): duas linhas em branco não
-	// podem virar a mesma.
-	const blankKeys = new WeakMap<object, string>()
+	// Chave de cada linha, por lista. O mesmo insumo pode entrar duas vezes na ficha (pré-preparo
+	// e preparo): a 2ª ocorrência vira `chave#2`, na ordem da lista. Linha sem chave (insumo ainda
+	// não escolhido) ganha uma só dela: duas linhas em branco não podem virar a mesma.
 	let blankCount = 0
-	const keyOf = (row: unknown): string => {
-		const key = rawKeyOf(row)
-		if (key != null && key !== "") return key
-		if (row && typeof row === "object") {
-			const known = blankKeys.get(row)
-			if (known) return known
-			const created = `sem-chave-${blankCount++}`
-			blankKeys.set(row, created)
-			return created
-		}
-		return `sem-chave-${blankCount++}`
+	const keysOf = (list: unknown[]): string[] => {
+		const seen = new Map<string, number>()
+		return list.map((row) => {
+			const raw = rawKeyOf(row)
+			if (raw == null || raw === "") return `sem-chave-${blankCount++}`
+			const occurrence = (seen.get(raw) ?? 0) + 1
+			seen.set(raw, occurrence)
+			return occurrence === 1 ? raw : `${raw}#${occurrence}`
+		})
 	}
-	const openedByKey = new Map(opened.map((row) => [keyOf(row), row]))
-	const editedByKey = new Map(edited.map((row) => [keyOf(row), row]))
-	const headKeys = new Set(head.map(keyOf))
+	const openedKeys = keysOf(opened)
+	const editedKeys = keysOf(edited)
+	const headKeyList = keysOf(head)
+	const openedByKey = new Map(opened.map((row, index) => [openedKeys[index] as string, row]))
+	const editedByKey = new Map(edited.map((row, index) => [editedKeys[index] as string, row]))
+	const headKeys = new Set(headKeyList)
 	const overlapping: string[] = []
 	let changed = false
 
 	// Itens da vigente, com o que o usuário tirou ou alterou aplicado por cima.
 	const merged = new Map<string, unknown>()
-	for (const row of head) {
-		const key = keyOf(row)
+	head.forEach((row, index) => {
+		const key = headKeyList[index] as string
 		const before = openedByKey.get(key)
 		const mine = editedByKey.get(key)
 		if (mine === undefined) {
 			if (before === undefined) {
 				merged.set(key, row) // incluído pela outra pessoa
-				continue
+				return
 			}
 			// O usuário tirou o item.
 			changed = true
 			if (!isDraftValueEqual(row, before)) overlapping.push(key)
-			continue
+			return
 		}
 		const userChanged = before === undefined || !isDraftValueEqual(mine, before)
 		if (!userChanged || isDraftValueEqual(mine, row)) {
 			merged.set(key, row)
-			continue
+			return
 		}
 		// O usuário alterou (ou incluiu) o item: vale o dele. Se a outra pessoa também mexeu
 		// nele — ou incluiu o mesmo item com outro valor —, fica sinalizado.
 		changed = true
 		if (before === undefined || !isDraftValueEqual(row, before)) overlapping.push(key)
 		merged.set(key, mine)
-	}
+	})
 
 	// Itens do usuário que a vigente não tem: os que ele incluiu, e os que ele alterou e a outra
 	// pessoa tirou (voltam, sinalizados). Entram logo depois do item que os precede na lista
 	// dele — promover um substituto troca o insumo da linha, e ele tem de ficar na mesma posição.
-	const order = head.map(keyOf).filter((key) => merged.has(key))
+	const order = headKeyList.filter((key) => merged.has(key))
 	edited.forEach((row, index) => {
-		const key = keyOf(row)
+		const key = editedKeys[index] as string
 		if (headKeys.has(key)) return
 		const before = openedByKey.get(key)
 		if (before !== undefined && isDraftValueEqual(row, before)) return // a outra pessoa tirou; ele não mexeu
@@ -120,7 +121,7 @@ function rebaseList(opened: unknown[], edited: unknown[], head: unknown[], rawKe
 		merged.set(key, row)
 		let anchor = -1
 		for (let i = index - 1; i >= 0; i--) {
-			const previous = order.indexOf(keyOf(edited[i]))
+			const previous = order.indexOf(editedKeys[i] as string)
 			if (previous !== -1) {
 				anchor = previous
 				break
@@ -131,17 +132,17 @@ function rebaseList(opened: unknown[], edited: unknown[], head: unknown[], rawKe
 
 	// Reordenação: se o usuário mudou a ordem relativa dos itens que já existiam, vale a ordem
 	// dele; o que só a vigente tem vai para o fim.
-	const commonInOpened = opened.map(keyOf).filter((key) => editedByKey.has(key))
-	const commonInEdited = edited.map(keyOf).filter((key) => openedByKey.has(key))
+	const commonInOpened = openedKeys.filter((key) => editedByKey.has(key))
+	const commonInEdited = editedKeys.filter((key) => openedByKey.has(key))
 	const reordered = commonInOpened.some((key, index) => key !== commonInEdited[index])
 	let finalOrder = order
 	if (reordered) {
 		changed = true
 		// A outra pessoa também reordenou: vale a ordem do usuário, e isso fica sinalizado.
-		const openedOrder = opened.map(keyOf).filter((key) => headKeys.has(key))
-		const headOrder = head.map(keyOf).filter((key) => openedByKey.has(key))
+		const openedOrder = openedKeys.filter((key) => headKeys.has(key))
+		const headOrder = headKeyList.filter((key) => openedByKey.has(key))
 		if (openedOrder.some((key, index) => key !== headOrder[index])) overlapping.push("ordem")
-		const fromEdited = edited.map(keyOf).filter((key) => merged.has(key))
+		const fromEdited = editedKeys.filter((key) => merged.has(key))
 		finalOrder = [...fromEdited, ...order.filter((key) => !editedByKey.has(key))]
 	}
 

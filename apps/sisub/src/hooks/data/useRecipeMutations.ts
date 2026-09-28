@@ -81,7 +81,7 @@ export function useSaveRecipeEdit() {
 		},
 		onError: (error) => {
 			// Recusa por versão superada: relê a vigente para a tela mostrar o aviso e o caminho.
-			queryClient.invalidateQueries({ queryKey: [...queryKeys.recipes.all(), "lineage-head"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.lineageHeads() })
 			toast.error(`Erro ao atualizar Preparação: ${error.message}`)
 		},
 	})

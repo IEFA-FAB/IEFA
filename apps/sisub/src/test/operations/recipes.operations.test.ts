@@ -20,6 +20,7 @@ import {
 	renameRecipe,
 	restoreRecipe,
 	saveRecipeEdit,
+	saveRecipeFlow,
 	setRecipeFolder,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
@@ -414,6 +415,21 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 
 		const head = await fetchRecipeLineageHead(db, ctx, { recipeId: v1, context: { scope: "global" } })
 		expect(head).toMatchObject({ id: v2.id, version: 2, kitchen_id: null })
+	}, 90_000)
+
+	test("saveRecipeFlow recusa gravar o fluxo numa versão já superada", async () => {
+		if (!reachable || !seeder || !db) return
+		const v1 = await seeder.seedRecipe({ name: uid("[TEST] Fluxo superado ") })
+		const { recipe: v2 } = await saveRecipeEdit(db, ctx, {
+			name: uid("[TEST] Fluxo superado v2 "),
+			portionYield: 110,
+			baseRecipeId: v1,
+			context: { scope: "global" },
+		})
+		seeder.track("recipes", v2.id)
+
+		await expect(saveRecipeFlow(db, ctx, { recipeId: v1, steps: [] })).rejects.toMatchObject({ code: "RECIPE_VERSION_CONFLICT", details: { headId: v2.id } })
+		await expect(saveRecipeFlow(db, ctx, { recipeId: v2.id, steps: [] })).resolves.toBeDefined()
 	}, 90_000)
 
 	test("fork: recusa partir de um global superado ou de um global que a cozinha já adaptou", async () => {

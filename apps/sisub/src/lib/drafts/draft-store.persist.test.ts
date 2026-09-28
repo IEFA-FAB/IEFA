@@ -199,6 +199,29 @@ describe("draftStore — persistência local", () => {
 
 		expect(storage.data.has(await storageKey("user-1", "k"))).toBe(true)
 		expect(reload).toHaveBeenCalledTimes(1)
+
+		// recarregamento cancelado (aviso de alteração não salva): a aba não mostra, não aceita
+		// nem grava nada até a sessão dela alcançar user-2
+		expect(store.get("k")).toBeUndefined()
+		store.set(entry("digitado-depois"))
+		store.bindOwner("user-1")
+		expect(store.list()).toEqual([])
+		store.bindOwner("user-2")
+		expect(store.get("digitado-depois")).toBeUndefined()
+		expect(storage.data.has(await storageKey("user-2", "digitado-depois"))).toBe(false)
+	})
+
+	it("descartar antes do bind não ressuscita o rascunho guardado", async () => {
+		const first = await loadStore()
+		first.bindOwner("user-1")
+		first.set(entry("k"))
+		first.flush()
+
+		const store = await loadStore()
+		store.delete("k")
+		store.bindOwner("user-1")
+		expect(store.get("k")).toBeUndefined()
+		expect(storage.data.has(await storageKey("user-1", "k"))).toBe(false)
 	})
 
 	it("a mesma conta entrando em outra aba não recarrega esta", async () => {

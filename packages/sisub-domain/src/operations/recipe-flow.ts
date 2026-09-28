@@ -31,6 +31,7 @@ import { DomainError, NotFoundError } from "../types/errors.ts"
 import { containsPattern, insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
 import { type DeclaredIngredient, type IngredientBalance, validateFlow } from "../utils/recipe-flow-graph.ts"
 import { remapRequirementStepBindings } from "./equipment.ts"
+import { assertRecipeVersionIsHead } from "./recipe-head.ts"
 
 // Renomeia as relations "feias" do pull para as chaves do contrato.
 const FLOW_RELATIONS: Record<string, string> = {
@@ -211,6 +212,9 @@ export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveR
 	}
 
 	await db.transaction(async (tx) => {
+		// Versão superada não recebe fluxo: ele ficaria numa versão que ninguém usa, e a vigente
+		// (copiada antes) seguiria sem ele. Sob o lock da linhagem, o mesmo de `saveRecipeEdit`.
+		await assertRecipeVersionIsHead(tx as unknown as SisubDb, input.recipeId)
 		await softDeleteFlow(tx as unknown as SisubDb, input.recipeId, now)
 
 		if (input.steps.length === 0) return

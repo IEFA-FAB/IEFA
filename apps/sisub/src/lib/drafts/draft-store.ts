@@ -58,6 +58,13 @@ let snapshot: DraftEntry[] = []
 let keySnapshot = ""
 /** Assinatura da conta amarrada. Sem ela, o store fica só em memória (nada lido nem gravado). */
 let owner: string | null = null
+/**
+ * Conta que entrou em OUTRA aba. A aba recarrega para assumi-la; se o recarregamento for
+ * cancelado (aviso de alteração não salva), ela fica sem conta até a sessão dela alcançar
+ * esta: não mostra, não aceita nem grava rascunho — senão quem entrou salvaria em nome
+ * próprio o que a conta anterior digitou.
+ */
+let foreignOwner: string | null = null
 let hydrated = false
 let writable = true
 
@@ -186,7 +193,9 @@ function hydrate() {
 			}
 			const match = ACCOUNT_KEY.exec(name.slice(STORAGE_PREFIX.length))
 			if (match) {
-				if (match[1] === owner && !entries.has(entry.key)) entries.set(entry.key, entry)
+				// Descartado antes do bind (pendente de apagar): não volta do armazenamento.
+				const discardedBeforeBind = pendingWrites.has(entry.key) && !entries.has(entry.key)
+				if (match[1] === owner && !entries.has(entry.key) && !discardedBeforeBind) entries.set(entry.key, entry)
 				continue
 			}
 			// Formato antigo: sem conta na chave. Vai para a chave da conta dona (sem passar por
@@ -198,7 +207,12 @@ function hydrate() {
 				}
 			} else if (legacyOwner && /^[0-9a-f]{8}$/.test(legacyOwner)) {
 				const target = draftStorageKey(legacyOwner, entry.key)
-				if (store.getItem(target) == null) store.setItem(target, JSON.stringify(entry))
+				try {
+					if (store.getItem(target) == null) store.setItem(target, JSON.stringify(entry))
+				} catch {
+					// Sem espaço para copiar: o original fica, e a próxima carga tenta de novo.
+					continue
+				}
 			}
 			store.removeItem(name)
 		} catch {
@@ -219,6 +233,7 @@ export const draftStore = {
 	 * re-renderizava o indicador global e as listas inteiras (com o editor aberto dentro).
 	 */
 	set<T>(entry: DraftEntry<T>) {
+		if (foreignOwner) return
 		hydrate()
 		const changed = summaryOf(entries.get(entry.key)) !== summaryOf(entry as DraftEntry)
 		entries.set(entry.key, entry as DraftEntry)
@@ -226,6 +241,7 @@ export const draftStore = {
 		if (changed) emit()
 	},
 	delete(key: string) {
+		if (foreignOwner) return
 		hydrate()
 		const existed = entries.delete(key)
 		schedule(key)
@@ -243,6 +259,11 @@ export const draftStore = {
 	bindOwner(userId: string | null) {
 		if (!userId) return
 		const signature = ownerSignature(userId)
+		if (foreignOwner) {
+			// A sessão desta aba ainda é a antiga (auth em cache): espera alcançar a conta nova.
+			if (signature !== foreignOwner) return
+			foreignOwner = null
+		}
 		if (owner === signature) {
 			hydrate()
 			return
@@ -306,6 +327,7 @@ export const draftStore = {
 		}
 		forgetMemory()
 		owner = null
+		foreignOwner = null
 		hydrated = false
 		writable = true
 		emit()
@@ -328,8 +350,19 @@ if (typeof window !== "undefined") {
 			// na tela (formulários montados, rascunhos) o que a conta anterior digitou. Grava isso
 			// na chave da conta anterior e recarrega: a aba volta já com a conta nova, sem mostrar
 			// nem deixar salvar em nome dela o trabalho de quem saiu.
-			if (event.newValue && owner !== null && event.newValue !== owner) {
+			if (!event.newValue) return
+			if (owner === null && foreignOwner !== null) {
+				// Já esperando uma conta nova, e outra entrou: espera esta.
+				foreignOwner = event.newValue
+				return
+			}
+			if (owner !== null && event.newValue !== owner) {
 				flush()
+				forgetMemory()
+				owner = null
+				hydrated = false
+				foreignOwner = event.newValue
+				emit()
 				window.location.reload()
 			}
 			return

@@ -46,10 +46,10 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { containsPattern, insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire, unwrapPgError } from "../utils/index.ts"
-import { pickLineageHead } from "../utils/recipe-lineage.ts"
 import { type Allergen, normalizeAllergens } from "./allergens.ts"
 import { copyRecipeEquipmentRequirements } from "./equipment.ts"
 import { copyRecipeFlow } from "./recipe-flow.ts"
+import { loadLineageRows, loadRecipeLineageRoot, lockRecipeLineage, pickLiveLineageHead, versionConflictError } from "./recipe-head.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
@@ -232,24 +232,11 @@ export async function fetchRecipeLineageHead(db: SisubDb, ctx: UserContext, inpu
 	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const targetKitchenId = input.context.scope === "kitchen" ? input.context.kitchenId : null
 
-	const base = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInKitchen.findFirst({
-			columns: { id: true, kitchenId: true, baseRecipeId: true },
-			where: eq(recipesInKitchen.id, input.recipeId),
-		})
-	)
-	if (!base) throw new NotFoundError("recipe", input.recipeId)
-	requireAssetRead(ctx, base.kitchenId)
+	const { rootId, kitchenId } = await loadRecipeLineageRoot(db, input.recipeId)
+	requireAssetRead(ctx, kitchenId)
 	if (targetKitchenId != null) requireAssetRead(ctx, targetKitchenId)
 
-	const rootId = base.baseRecipeId ?? base.id
-	const rows = await runQuery("FETCH_FAILED", () =>
-		db
-			.select({ id: recipesInKitchen.id, version: recipesInKitchen.version, kitchenId: recipesInKitchen.kitchenId, createdAt: recipesInKitchen.createdAt })
-			.from(recipesInKitchen)
-			.where(and(or(eq(recipesInKitchen.id, rootId), eq(recipesInKitchen.baseRecipeId, rootId)), isNull(recipesInKitchen.deletedAt)))
-	)
-	const head = pickLineageHead(rows, targetKitchenId)
+	const head = pickLiveLineageHead(await loadLineageRows(db, rootId), targetKitchenId)
 	return head ? { id: head.id, version: head.version, kitchen_id: head.kitchenId, created_at: head.createdAt } : null
 }
 
@@ -935,32 +922,20 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 	// versão: a listagem passaria a escolher uma das duas arbitrariamente e o histórico
 	// mostraria números repetidos. O lock é liberado no commit/rollback.
 	const recipe = await db.transaction(async (tx) => {
-		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`recipe-lineage:${rootId}`}))`)
+		await lockRecipeLineage(tx as unknown as SisubDb, rootId)
 
 		// Linhagem completa (raiz + descendentes) para achar o próximo número de versão no
 		// escopo de destino. Um fork já existente desta cozinha aparece aqui, então a edição
 		// seguinte versiona esse fork em vez de bifurcar de novo.
-		const lineage = await tx
-			.select({ id: recipesInKitchen.id, kitchenId: recipesInKitchen.kitchenId, version: recipesInKitchen.version, deletedAt: recipesInKitchen.deletedAt })
-			.from(recipesInKitchen)
-			.where(or(eq(recipesInKitchen.id, rootId), eq(recipesInKitchen.baseRecipeId, rootId)))
+		const lineage = await loadLineageRows(tx as unknown as SisubDb, rootId)
 
 		// Só se grava sobre a versão VIGENTE no contexto. Aberta uma versão que outra pessoa já
 		// superou (aba antiga, rascunho de dias atrás, link do histórico), salvar gravaria a
 		// ficha dela por cima da vigente e o que mudou nesse meio-tempo sumiria da preparação —
 		// ficaria só no histórico, sem ninguém perceber. Conferido sob o lock da linhagem, então
 		// dois saves simultâneos da mesma versão não passam os dois.
-		const head = pickLineageHead(
-			lineage.filter((row) => row.deletedAt == null),
-			targetKitchenId
-		)
-		if (head && head.id !== base.id) {
-			throw new DomainError(
-				"RECIPE_VERSION_CONFLICT",
-				`Esta preparação mudou depois que a versão usada como base foi aberta: a versão vigente agora é a v${head.version}. Nada foi gravado: abra a versão vigente e salve sobre ela (na tela da preparação, "Abrir a versão vigente" leva as alterações do rascunho).`,
-				{ headId: head.id, headVersion: head.version }
-			)
-		}
+		const head = pickLiveLineageHead(lineage, targetKitchenId)
+		if (head && head.id !== base.id) throw versionConflictError(head)
 
 		const nextVersion = lineage.filter((r) => r.kitchenId === targetKitchenId).reduce((max, r) => Math.max(max, r.version), 0) + 1
 

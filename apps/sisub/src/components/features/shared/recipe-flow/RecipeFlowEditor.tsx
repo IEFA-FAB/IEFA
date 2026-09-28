@@ -9,7 +9,7 @@
 import { type DeclaredIngredient, validateFlow } from "@iefa/sisub-domain"
 import { type Connection, type EdgeChange, type Node, type NodeChange, ReactFlowProvider, useEdgesState, useNodesState } from "@xyflow/react"
 import { AlertTriangle, CheckCircle2, ChevronDown, CircleAlert, Loader2, Plus, Save } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Spinner } from "@/components/ui/spinner"
@@ -70,7 +70,11 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients, onDirtyChange
 
 	// Alteração não salva = o que o Salvar gravaria difere do persistido. Compara pelo payload,
 	// não pelos nós: selecionar ou medir um nó (estado do canvas) não é alteração do fluxo.
-	const currentSignature = useMemo(() => JSON.stringify(graphToSave(recipeId, nodes, edges)), [recipeId, nodes, edges])
+	// Adiado: arrastar um nó muda `nodes` a cada quadro, e serializar o grafo em cada um pesaria
+	// no arraste. O rótulo "não salvo" pode chegar um quadro depois.
+	const deferredNodes = useDeferredValue(nodes)
+	const deferredEdges = useDeferredValue(edges)
+	const currentSignature = useMemo(() => JSON.stringify(graphToSave(recipeId, deferredNodes, deferredEdges)), [recipeId, deferredNodes, deferredEdges])
 	const isDirty = savedSignature != null && currentSignature !== savedSignature
 	useEffect(() => {
 		onDirtyChange?.(isDirty)
