@@ -83,42 +83,19 @@ jobs:
         id: meta
         run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
 
-      # Só move `:latest` se este commit descende do que `:latest` já tem (label
+      # Só move `:latest` se ele ainda não tem um commit mais novo que este (label
       # `org.opencontainers.image.revision`, gravada abaixo). Sem isso, merges A e B em
       # sequência com o build de B pegando a fila primeiro deixariam o de A reapontar
       # `:latest` para o código velho, e o deploy de A o publicaria com tudo verde.
-      # A imagem com tag de SHA é publicada sempre. Falha aberto (move, como antes) quando
-      # não dá para ler a revisão: imagem anterior a esta label, ou erro de rede/API.
-      # `workflow_dispatch` move sempre: é ato explícito de alguém (o `force_<app>`).
+      # A imagem com tag de SHA é publicada sempre. A regra (e o que acontece quando a
+      # leitura falha) está em `scripts/decide-latest-tag.sh`, testado sob `bash -e`.
       - name: Decide whether to move :latest
         id: latest
         env:
           IMAGE_REPO: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}
           EVENT_NAME: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -uo pipefail
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "move=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          current="$(docker buildx imagetools inspect "$IMAGE_REPO:latest" --format '{{json .Image}}' 2>/dev/null \
-            | jq -r '[.. | objects | .Labels? // empty | .["org.opencontainers.image.revision"]? // empty] | first // empty' 2>/dev/null)"
-          if [ -z "$current" ]; then
-            echo "::notice:::latest sem revisão legível; movendo :latest como antes."
-            echo "move=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${current}...${GITHUB_SHA}" --jq .status 2>/dev/null)"
-          echo ":latest está em ${current}; este build é ${GITHUB_SHA} (compare: ${status:-erro})"
-          case "$status" in
-            ahead|identical) echo "move=true" >> "$GITHUB_OUTPUT" ;;
-            behind|diverged)
-              echo "::warning:::latest já tem um commit mais novo (${current}); publicando só a tag de SHA."
-              echo "move=false" >> "$GITHUB_OUTPUT"
-              ;;
-            *) echo "move=true" >> "$GITHUB_OUTPUT" ;;
-          esac
+        run: scripts/decide-latest-tag.sh
 
       # Primeira tentativa com `continue-on-error`, e uma segunda só se ela falhar. O buildkit
       # às vezes perde o processo do passo no meio: `test -f` de um arquivo que existe travou
