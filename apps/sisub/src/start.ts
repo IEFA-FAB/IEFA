@@ -1,6 +1,8 @@
 import { isRequestOrigin } from "@iefa/auth-kit"
 import { createCsrfMiddleware, createStart } from "@tanstack/react-start"
 
+import { serverFnFetch } from "@/lib/server-fn-fetch"
+
 /**
  * CSRF das server functions.
  *
@@ -22,4 +24,7 @@ const csrfMiddleware = createCsrfMiddleware({
 
 export const startInstance = createStart(() => ({
 	requestMiddleware: [csrfMiddleware],
+	// Resposta de erro que o TanStack tomaria por sucesso vira erro, e aba de build velho
+	// descobre que há versão nova (ver `server-fn-fetch.ts`).
+	serverFns: { fetch: serverFnFetch },
 }))

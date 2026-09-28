@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { computeDraftChanges, type DraftChange, type DraftFields, hasSameShape, isDraftValueEqual } from "@/lib/drafts/draft-diff"
+import { computeDraftChanges, type DraftChange, type DraftFields, fitDraftToShape, isDraftValueEqual } from "@/lib/drafts/draft-diff"
 import { type DraftEntry, draftStore } from "@/lib/drafts/draft-store"
 
 /**
@@ -86,15 +86,16 @@ export function useDraft<T extends Record<string, unknown>>({
 		if (key == null) return
 		const saved = draftStore.get<T>(key)
 		if (!saved) return
-		// Rascunho de antes de uma publicação que mudou o formulário: descarta em vez de
-		// restaurar um objeto de outra forma.
-		if (!hasSameShape(saved.values, baseline)) {
+		// Rascunho de antes de uma publicação que mudou o formulário: aproveita os campos que
+		// continuam existindo (`fitDraftToShape`). Só o que não é objeto de campos sai.
+		const values = fitDraftToShape(saved.values, baseline)
+		if (!values) {
 			draftStore.delete(key)
 			return
 		}
-		if (isDraftValueEqual(saved.values, baseline)) return
+		if (isDraftValueEqual(values, baseline)) return
 		skipPersist.current = true
-		onRestore(saved.values)
+		onRestore(values)
 		setRestoredAt(saved.savedAt)
 	}, [key])
 

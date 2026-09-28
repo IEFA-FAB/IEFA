@@ -49,3 +49,20 @@ Ler exige `global:1`; editar exige `global:2`. Na cozinha, o modelo se ADAPTA (c
   de conta, por 7 dias); Fluxo e Equipamentos, que não têm rascunho, pedem confirmação ao sair.
 - **Cobertura:** `draft-store.persist.test.ts` (por conta, formato antigo, validade). Guarda
   de saída do Fluxo/Equipamentos: **LACUNA** de teste (só verificação manual).
+
+### CG-PRE-04 — "Salvei durante a publicação de uma versão nova do SISUB"
+- **Realidade:** em 2026-09-28 as nutricionistas revisavam o catálogo enquanto o sisub ia ao
+  ar 7 vezes em 3 horas. No deploy rolante as tasks velhas e novas atendem juntas; uma
+  server function que a task não conhece devolve `500` em JSON que o cliente do TanStack
+  tomava por sucesso: "Nova versão criada", rascunho apagado, nada gravado. A consulta da
+  versão vigente, nova naquele deploy, voltava o mesmo erro como dado e bloqueava o Salvar com
+  "versão vundefined". O 502 do ALB aparecia como HTML cru no toast.
+- **O sistema precisa:** tratar como erro legível toda resposta que o servidor não confirmou
+  (e dizer que o SISUB está sendo atualizado quando veio de outro build), só apagar o
+  rascunho com a linha gravada na mão, avisar a aba desatualizada que há versão nova e
+  deixar a task em saída terminar o que começou (drain de 70 s, 60 s de SIGTERM).
+- **Cobertura:** `server-fn-response.test.ts` (500 do h3, 502 do ALB, notFound, build
+  diferente) · `draft-diff.test.ts › fitDraftToShape` (rascunho atravessa publicação que mudou o
+  formulário). Aba desatualizada e guarda do `id` na preparação: **LACUNA** de teste (sem
+  teste de componente no sisub; conferido no build local). Mistura de versões no ALB
+  (stickiness): **LACUNA**, depende de o cookie `AWSALB` entrar na Política de Cookies.
