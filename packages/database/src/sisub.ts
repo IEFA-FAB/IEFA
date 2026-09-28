@@ -1,5 +1,4 @@
-// TODO(db:types): volta a `./generated.ts` quando os tipos forem regerados depois de 20260927170000.
-import type { Database } from "./pending-military-roster-key.ts"
+import type { Database } from "./generated.ts"
 
 /**
  * O schema `sisub` foi dividido em schemas por domínio (core, access_control,

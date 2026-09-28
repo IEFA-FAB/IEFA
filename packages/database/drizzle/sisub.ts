@@ -15,9 +15,6 @@ import * as schema from "./schema"
 
 export * from "./relations"
 export * from "./schema"
-// TODO(db:types): view-ponte de 20260927170000 (`core.military_identity`); some junto com o arquivo
-// depois do pull.
-export { militaryIdentityInCore } from "./pending-military-roster-key"
 
 
 /** Tables + enums + relations — pass to `drizzle(client, { schema: sisubSchema })`. */
