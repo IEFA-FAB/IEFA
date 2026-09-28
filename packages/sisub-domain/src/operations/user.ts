@@ -22,6 +22,15 @@ import { DomainError } from "../types/errors.ts"
 import { driverFailure, runQuery, unwrapPgError } from "../utils/index.ts"
 
 /**
+ * Prefixo do lock consultivo do vínculo do SARAM na versão anterior ao lote 6 da linguagem ubíqua.
+ * Uma instância dessa versão pode estar no ar durante o deploy e travaria só esta chave; o código
+ * novo trava as duas, então as duas versões se serializam.
+ *
+ * TODO(2026-09-27): sai no PR do contract do lote 6 (20260927190000), quando só o código novo roda.
+ */
+const LEGACY_SARAM_LOCK_PREFIX = "nr-ordem:"
+
+/**
  * `sisub.user_data` tem UNIQUE(email) (constraint `user_data_email_key`) além da
  * PK em `id` (FK → auth.users). Um upsert por `id` só reconcilia a PK; se o email
  * já pertence a OUTRA linha (id diferente), estoura 23505 no email — origem do
@@ -155,7 +164,8 @@ export async function fetchUserSaram(db: SisubDb, input: FetchUserSaram): Promis
  *
  * As duas checagens são leitura-antes-da-escrita; duas contas disputando o mesmo saram no
  * mesmo instante escapariam da segunda — o índice único parcial da migration
- * `20260921160410` fecha essa corrida no banco.
+ * `20260921160410` (`user_data_saram_uniq` desde o lote 6, onde existe) fecha essa corrida no
+ * banco.
  */
 export async function syncUserSaram(db: SisubDb, input: SyncUserSaram) {
 	const requested = input.saram.trim()
@@ -167,6 +177,9 @@ export async function syncUserSaram(db: SisubDb, input: SyncUserSaram) {
 	// serialização fica aqui — e vale com ou sem o índice.
 	await db.transaction(async (tx) => {
 		if (requested.length > 0) {
+			// A chave antiga primeiro, sempre nesta ordem: serializa com a versão anterior ao lote 6
+			// enquanto ela puder estar no ar (deploy), sem ciclo de espera.
+			await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${LEGACY_SARAM_LOCK_PREFIX}${requested}`}))`)
 			await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`saram:${requested}`}))`)
 		}
 

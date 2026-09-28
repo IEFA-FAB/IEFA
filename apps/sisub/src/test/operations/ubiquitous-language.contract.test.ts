@@ -83,6 +83,8 @@ const EXPAND_ALLOWLIST = new Set<string>([
 	"constraint:core.person_nr_ordem_key",
 	"relation:core.person_nr_ordem_key",
 	"relation:core.user_data_nrOrdem_idx",
+	// Único condicional de 20260921160410: só existe em banco sem SARAM repetido (não no compartilhado).
+	"relation:core.user_data_nr_ordem_uniq",
 	"function:core.mirror_person_saram",
 	"view:core.person_identity",
 ])

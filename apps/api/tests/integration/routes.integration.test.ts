@@ -259,6 +259,17 @@ describe.skipIf(!RUN_INTEGRATION)("Integration: GET /user-data", () => {
 		expect(item.nrOrdem).toBe(item.saram)
 	})
 
+	test("o campo obsoleto do SARAM continua filtrável e ordenável", async () => {
+		const ordered = await get("/user-data?order=nrOrdem.asc&limit=1")
+		expect(ordered.res.status).toBe(200)
+		const { body: all } = await get("/user-data?saram_ilike=1&limit=1")
+		const saram = (all[0] as Record<string, unknown> | undefined)?.saram as string | undefined
+		if (!saram) return
+		const { res, body } = await get(`/user-data?nrOrdem=${encodeURIComponent(saram)}&limit=5`)
+		expect(res.status).toBe(200)
+		expect((body as Record<string, unknown>[]).every((item) => item.saram === saram)).toBe(true)
+	})
+
 	test("filter by email_ilike returns only matching records", async () => {
 		const { body: all } = await get("/user-data?limit=1")
 		if (all.length === 0) return

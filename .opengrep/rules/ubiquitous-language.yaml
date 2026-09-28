@@ -446,38 +446,33 @@ rules:
       `nrOrdem`/`nr_ordem`/"Nr. de Ordem". O espelho do cadastro de pessoal guarda o nome do sistema
       de origem, e só as constantes `MIRROR_SARAM_COLUMN`/`LEGACY_SARAM_FIELD` o citam.
     paths:
+      # O SARAM mora em `core`, compartilhado por todos os apps: a regra vale para todos.
       include:
-        - "apps/sisub/src/**/*.ts"
-        - "apps/sisub/src/**/*.tsx"
-        - "apps/sisub/e2e/**/*.ts"
-        - "packages/sisub-domain/src/**/*.ts"
-        - "apps/sisub-mcp/src/**/*.ts"
-        - "apps/api/src/**/*.ts"
-        - "apps/sucont/src/**/*.ts"
-        - "apps/sucont/src/**/*.tsx"
-        - "apps/sucont/harness/**/*.ts"
-        - "apps/sucont/harness/**/*.tsx"
-        - "apps/rumaer/src/**/*.ts"
-        - "apps/rumaer/src/**/*.tsx"
-        - "apps/contrate/src/**/*.ts"
-        - "apps/contrate/src/**/*.tsx"
-        - "packages/pbac/src/**/*.ts"
-        - "packages/database/src/sisub.ts"
-        - "packages/database/src/core.ts"
+        - "apps/*/src/**/*.ts"
+        - "apps/*/src/**/*.tsx"
+        - "apps/*/e2e/**/*.ts"
+        - "apps/*/harness/**/*.ts"
+        - "apps/*/harness/**/*.tsx"
+        - "packages/*/src/**/*.ts"
       exclude:
         - "**/routeTree.gen.ts"
         - "**/generated.ts"
         - "**/drizzle/**"
         # Lê a migration histórica que criou `core.person` com o nome da época (20260910225309).
         - "apps/sucont/src/test/notifications.contract.test.ts"
+        # Tipos-ponte até o `db:types`: descrevem o banco, com as colunas antigas que eles escondem.
+        - "packages/database/src/pending-*.ts"
     patterns:
       - pattern-either:
           - pattern-regex: \b\w*(?:[nN]r_?[oO]rdem|NR_?ORDEM)\w*\b|\bnr-ordem\b
           # Rótulo: "Nr. de Ordem", "Nr. Ordem", "Nº de ordem", "número de ordem".
-          - pattern-regex: (?i)\bn(?:r\.?|º)\s*(?:de\s+)?ordem\b|\bn[uú]mero\s+de\s+ordem\b
+          # "Ordem de fornecimento/serviço/compra/produção" é outro conceito e não casa.
+          - pattern-regex: (?i)(?:\bn(?:r\.?|º)\s*(?:de\s+)?|\bn[uú]mero\s+de\s+)ordem\b(?!\s+d[aeo]s?\s+(?:fornecimento|servi[cç]o|compra|produ[cç][aã]o|pagamento|empenho))
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
-      # O nome do sistema de origem no espelho e o campo obsoleto de `/api/user-data`.
+      # O nome do sistema de origem no espelho, o campo obsoleto de `/api/user-data` e o prefixo do
+      # lock consultivo da versão anterior (sai no contract do lote 6).
       - pattern-not-regex: \b(?:MIRROR_SARAM_COLUMN|LEGACY_SARAM_FIELD)\s*=\s*"nrOrdem"
+      - pattern-not-regex: \bLEGACY_SARAM_LOCK_PREFIX\s*=\s*"nr-ordem:"
       # Campos que identificam pessoa no teste de autorização da API: as rotas ainda servem os dois.
       - pattern-not-regex: \bPERSONAL_DATA_FIELDS\s*=\s*\[[^\]]*\]
 

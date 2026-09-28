@@ -443,6 +443,7 @@ const [, userDataHandler] = createApiHandler({
 		saram: "saram",
 		[LEGACY_SARAM_FIELD]: "saram",
 	},
+	orderAliases: { [LEGACY_SARAM_FIELD]: "saram" },
 	cacheControl: "no-store",
 })
 const userDataRoute = defineDocRoute({

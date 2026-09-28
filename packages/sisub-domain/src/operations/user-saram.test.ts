@@ -74,8 +74,9 @@ describe("syncUserSaram", () => {
 		const { db, written, locks } = fakeDb({ current: null, currentHasMilitary: false, takenByOther: false })
 		await syncUserSaram(db, { ...base, saram: " 1234567 " })
 		expect(written[0]?.saram).toBe("1234567")
-		// checagem e gravação serializadas por saram (duas contas ao mesmo tempo)
-		expect(locks()).toBe(1)
+		// checagem e gravação serializadas por SARAM (duas contas ao mesmo tempo), pela chave nova e
+		// pela da versão anterior ao lote 6, que pode estar no ar durante o deploy
+		expect(locks()).toBe(2)
 	})
 
 	test("saram de OUTRA conta é recusado", async () => {

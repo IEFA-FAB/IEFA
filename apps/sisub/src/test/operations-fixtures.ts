@@ -82,7 +82,6 @@ let seq = 0
 // só Date.now() colidiria (mesmo RUN + seq) e violaria UNIQUEs (ex.: units.code).
 const RUN = `${Date.now().toString(36)}${crypto.randomUUID().slice(0, 8)}`
 
-/** String única e estável por execução, com prefixo opcional. */
 /**
  * O SARAM no espelho do cadastro de pessoal (`core.user_military_data`) guarda o nome do sistema de
  * origem, que a carga do mantenedor traz; nos objetos nossos ele é `saram` (lote 6 da linguagem
@@ -90,6 +89,7 @@ const RUN = `${Date.now().toString(36)}${crypto.randomUUID().slice(0, 8)}`
  */
 const MIRROR_SARAM_COLUMN = "nrOrdem"
 
+/** String única e estável por execução, com prefixo opcional. */
 export function uid(prefix = ""): string {
 	seq += 1
 	return `${prefix}${RUN}-${seq}`

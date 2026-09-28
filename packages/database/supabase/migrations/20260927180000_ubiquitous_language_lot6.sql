@@ -20,7 +20,8 @@
 -- verde enquanto o código novo não sobe. Esta migration só ACRESCENTA caminhos (técnica de
 -- 20260927080000 e 20260927150000):
 --
---   * Coluna renomeada em tabela que fica: coluna nova ao lado, backfill, UNIQUE/índice próprios e
+--   * Coluna renomeada em tabela que fica: coluna nova ao lado, backfill, UNIQUE/índices próprios
+--     (inclusive o único condicional `user_data_nr_ordem_uniq` de 20260921160410, onde ele existe) e
 --     um trigger BEFORE INSERT OR UPDATE que espelha os dois sentidos e recusa valores divergentes.
 --     As duas já eram anuláveis (o SARAM é opcional na conta e na pessoa) e continuam. A antiga
 --     mantém o UNIQUE (`person_nr_ordem_key`) e o índice (`user_data_nrOrdem_idx`) até o contract:
@@ -146,6 +147,19 @@ alter table core.user_data add column saram text;
 update core.user_data set saram = "nrOrdem" where "nrOrdem" is not null;
 create index user_data_saram_idx on core.user_data using btree (saram);
 
+-- O SARAM exclusivo por conta (20260921160410) é um índice único CONDICIONAL: a migration só o cria
+-- onde não há SARAM repetido entre contas. No banco compartilhado ele não existe (3 repetidos em
+-- 2026-09-27); onde existe (banco recriado do zero), a coluna nova ganha o equivalente, senão o
+-- contract o derrubaria com a antiga e a corrida que ele fecha voltaria.
+do $$
+begin
+	if to_regclass('core.user_data_nr_ordem_uniq') is not null then
+		create unique index user_data_saram_uniq on core.user_data (btrim(saram))
+			where saram is not null and btrim(saram) <> '';
+	end if;
+end;
+$$;
+
 create function core.mirror_user_data_saram()
 returns trigger
 language plpgsql
@@ -257,6 +271,10 @@ begin
 	end if;
 	if exists (select 1 from core.user_data where saram is distinct from "nrOrdem") then
 		raise exception 'core.user_data: "nrOrdem" e saram divergem depois do backfill';
+	end if;
+
+	if to_regclass('core.user_data_nr_ordem_uniq') is not null and to_regclass('core.user_data_saram_uniq') is null then
+		raise exception 'core.user_data: o SARAM exclusivo por conta (user_data_nr_ordem_uniq) não passou para a coluna nova';
 	end if;
 
 	-- As views do servidor já juntam pela coluna nova (o contract derruba a antiga sem cascade).

@@ -497,3 +497,9 @@ const PERSONAL_DATA_FIELDS = ["userId", "saram", "nrOrdem", "email"]
 // O espelho guarda `"nrOrdem"`, o nome do sistema de origem.
 // ok: ubiquitous-language-lot6-identifier
 const ordered = items.sort((a, b) => a.ordem - b.ordem)
+// ok: ubiquitous-language-lot6-identifier
+const LEGACY_SARAM_LOCK_PREFIX = "nr-ordem:"
+// ok: ubiquitous-language-lot6-identifier
+const supplyOrderLabel = "Nº de ordem de fornecimento"
+// ok: ubiquitous-language-lot6-identifier
+const serviceOrder = <span>número da ordem de serviço</span>
