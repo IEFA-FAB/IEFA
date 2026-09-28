@@ -22,9 +22,8 @@
  *
  * Valor de CHECK não é nome de objeto: o lote 5 (papéis da designação, tipos de inventário, alvo da
  * regra de política, tipo de cardápio) tem teste próprio abaixo, que depois do contract
- * (20260927110000) exige cada CHECK só com o vocabulário do glossário. O trigger que traduz na
- * gravação o valor antigo (`core.translate_legacy_domain_value`, temporário, sai na tarefa 5.5) não
- * cita valor no corpo; os valores vão como argumento do trigger.
+ * (20260927110000) exige cada CHECK só com o vocabulário do glossário. O trigger que traduzia na
+ * gravação o valor antigo saiu em 20260927165000 (tarefa 5.5).
  */
 
 import { DESIGNATION_ROLES, INVENTORY_COUNT_TYPES, POLICY_TARGETS, TEMPLATE_TYPES } from "@iefa/sisub-domain"
