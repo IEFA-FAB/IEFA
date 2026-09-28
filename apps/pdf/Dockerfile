@@ -19,7 +19,10 @@
 # =============================================================================
 
 ARG NODE_IMAGE=public.ecr.aws/docker/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
-ARG NGINX_IMAGE=quay.io/nginx/nginx-unprivileged:alpine-slim@sha256:c81a27f28bc2d9c2da8998444e653c7b85b9bbbaa92e44ef18d8920784e06507
+# As duas imagens vêm do ECR Public, que continua servindo um digest depois que a tag anda.
+# O quay.io responde 404 para manifesto sem tag, e a `alpine-slim` é reconstruída a cada
+# poucos dias: o pin antigo (quay.io, 123fb728…) sumiu em 2026-09-28 e derrubou o build.
+ARG NGINX_IMAGE=public.ecr.aws/nginx/nginx-unprivileged:alpine-slim@sha256:c81a27f28bc2d9c2da8998444e653c7b85b9bbbaa92e44ef18d8920784e06507
 
 # ---- Código-fonte do upstream, na versão fixada ------------------------------
 FROM ${NODE_IMAGE} AS source

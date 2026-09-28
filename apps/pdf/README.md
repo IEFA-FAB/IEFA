@@ -24,7 +24,7 @@ IndexedDB, service worker com os módulos WASM) é preferência técnica local.
 | | Upstream | Aqui |
 |---|---|---|
 | Versão | `:latest` | tag **e** commit fixados; o build falha se a tag for movida |
-| Imagens base | tag mutável | digest |
+| Imagens base | tag mutável | digest, no ECR Public (o quay.io apaga o manifesto quando a tag anda) |
 | WASM (PyMuPDF, Ghostscript, CoherentPDF) | baixado do jsDelivr em tempo de execução | servido do próprio domínio em `/wasm/` |
 | OCR (Tesseract, dados de idioma, fonte) | CDN | local, `por` + `eng` |
 | Idioma padrão | inglês | português |
