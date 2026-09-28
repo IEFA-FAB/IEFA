@@ -1,12 +1,13 @@
 /**
  * @module military.server
- * Leitura do cadastro de pessoal da FAB (`core.user_military_data`) pelo SARAM.
+ * Leitura do cadastro de pessoal da FAB pelo SARAM, pela view `core.military_identity`.
  *
- * A tabela é o espelho nominal de ~68 mil militares, compartilhado por todo o ERP.
- * Aqui ela é lida SÓ por `nrOrdem` conhecido — nunca varrida — e só duas colunas
- * saem: `sgPosto` e `nmGuerra`. `nrCpf` e `nmPessoa` ficam onde estão; o que a tela
- * de acessos precisa é reconhecer a pessoa, não ter a ficha dela (LGPD, minimização
- * — a mesma lição de `apps/api` servir dado nominal sem autenticação).
+ * O espelho (`core.user_military_data`) é o cadastro nominal de ~68 mil militares,
+ * compartilhado por todo o ERP. A view dá só o que os apps usam, sem CPF e sem nome
+ * completo (change `lgpd-military-roster-key`). Aqui ela é lida SÓ por SARAM conhecido
+ * — nunca varrida — e só duas colunas saem: posto e nome de guerra; o que a tela de
+ * acessos precisa é reconhecer a pessoa, não ter a ficha dela (LGPD, minimização — a
+ * mesma lição de `apps/api` servir dado nominal sem autenticação).
  *
  * Nunca importe no cliente: usa o client service-role.
  */
@@ -14,9 +15,9 @@
 import { getCoreClient } from "#/lib/supabase.server"
 
 export type MilitaryIdentity = {
-	/** Sigla do posto/graduação (`sgPosto`). */
+	/** Sigla do posto/graduação (`posto`). */
 	posto: string | null
-	/** Nome de guerra (`nmGuerra`). */
+	/** Nome de guerra (`nome_guerra`). */
 	nomeGuerra: string | null
 }
 
@@ -29,15 +30,10 @@ export async function fetchMilitaryIdentities(nrOrdens: readonly string[]): Prom
 	const wanted = [...new Set(nrOrdens.filter((n) => n.trim().length > 0))]
 	if (wanted.length === 0) return new Map()
 
-	const { data, error } = await getCoreClient().from("user_military_data").select("nrOrdem, sgPosto, nmGuerra").in("nrOrdem", wanted)
+	const { data, error } = await getCoreClient().from("military_identity").select("saram, posto, nome_guerra").in("saram", wanted)
 	if (error) throw new Error(error.message)
 
-	return new Map(
-		((data ?? []) as Array<{ nrOrdem: string; sgPosto: string | null; nmGuerra: string | null }>).map((row) => [
-			row.nrOrdem,
-			{ posto: row.sgPosto, nomeGuerra: row.nmGuerra },
-		])
-	)
+	return new Map((data ?? []).flatMap((row) => (row.saram ? [[row.saram, { posto: row.posto, nomeGuerra: row.nome_guerra }] as const] : [])))
 }
 
 /** Atalho de um SARAM só — a confirmação do diálogo de primeiro acesso. */
