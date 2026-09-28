@@ -10,7 +10,7 @@
 
 import { dailyMenuInKitchen, menuGroupInKitchen, menuGroupSetInKitchen, menuItemsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm"
 import { requireKitchen } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenu, resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type { FetchDailyMenuContent } from "../schemas/meal-ops.ts"
@@ -103,21 +103,26 @@ export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: Upse
 	requireKitchen(ctx, 2, input.kitchenId)
 
 	// "Cria se não existir, senão mantém" (idempotente). A unicidade do trio (data, refeição,
-	// cozinha) é garantida por um índice PARCIAL (where deleted_at is null). Fazemos
-	// select-then-insert ciente de soft-delete; o índice é a trava contra corrida.
-	const existing = await runQuery("UPSERT_FAILED", () =>
-		db.query.dailyMenuInKitchen.findFirst({
-			where: and(
-				eq(dailyMenuInKitchen.kitchenId, input.kitchenId),
-				eq(dailyMenuInKitchen.serviceDate, input.serviceDate),
-				eq(dailyMenuInKitchen.mealTypeId, input.mealTypeId),
-				isNull(dailyMenuInKitchen.deletedAt)
-			),
-		})
-	)
+	// cozinha) é garantida por um índice PARCIAL (where deleted_at is null). O select poupa o
+	// insert no caso comum; o insert repete o predicado do índice no `on conflict` (sem ele o
+	// Postgres não infere o índice e responde 42P10) e, se outra chamada criou o mesmo menu entre
+	// o select e o insert, o `do nothing` volta vazio e a releitura devolve o dela.
+	const findActive = () =>
+		runQuery("UPSERT_FAILED", () =>
+			db.query.dailyMenuInKitchen.findFirst({
+				where: and(
+					eq(dailyMenuInKitchen.kitchenId, input.kitchenId),
+					eq(dailyMenuInKitchen.serviceDate, input.serviceDate),
+					eq(dailyMenuInKitchen.mealTypeId, input.mealTypeId),
+					isNull(dailyMenuInKitchen.deletedAt)
+				),
+			})
+		)
+
+	const existing = await findActive()
 	if (existing) return [toWire<DailyMenu>(existing)]
 
-	const inserted = await mutateOrFail("UPSERT_FAILED", "no row returned", () =>
+	const inserted = await runQuery("UPSERT_FAILED", () =>
 		db
 			.insert(dailyMenuInKitchen)
 			.values({
@@ -127,9 +132,17 @@ export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: Upse
 				status: "PLANNED",
 				...(input.forecastedHeadcount != null && { forecastedHeadcount: input.forecastedHeadcount }),
 			})
+			.onConflictDoNothing({
+				target: [dailyMenuInKitchen.serviceDate, dailyMenuInKitchen.mealTypeId, dailyMenuInKitchen.kitchenId],
+				where: sql`deleted_at is null`,
+			})
 			.returning()
 	)
-	return inserted.map((row) => toWire<DailyMenu>(row))
+	if (inserted.length > 0) return inserted.map((row) => toWire<DailyMenu>(row))
+
+	const raced = await findActive()
+	if (!raced) throw new DomainError("UPSERT_FAILED", "no row returned")
+	return [toWire<DailyMenu>(raced)]
 }
 
 /** Próxima posição livre no fim de um grupo dentro do cardápio do dia (itens ativos). */
