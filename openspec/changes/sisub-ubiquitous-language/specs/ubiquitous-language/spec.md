@@ -4,17 +4,17 @@
 
 Cada conceito do glossário abaixo SHALL ter um único identificador, usado igual em tabela, coluna, view, função SQL, tipo, função, arquivo, query key, rota, nome e parâmetro de tool de IA/MCP, e um único rótulo de tela. Identificador novo MUST seguir o glossário. Identificador em inglês, salvo quando o termo da norma não tem equivalente fiel pelo teste da NSCA (AGENTS.md); sigla legal consagrada pode ser identificador. Valor de domínio que é categoria da norma MUST estar na língua da norma; estado de fluxo do sistema fica em inglês.
 
-Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como citação até o lote que o usa conferir. **Substituir** lista os nomes atuais que saem; "—" = nada a trocar.
+Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como citação até o lote que o usa conferir. As fontes públicas foram conferidas no texto oficial em 2026-09-27; o que ainda diz "a confirmar" é norma interna não pública ou sigla sem fonte pública acessível, e fica com o mantenedor. **Substituir** lista os nomes atuais que saem; "—" = nada a trocar.
 
 #### 1. Planejamento da contratação
 
 | Termo da norma | Fonte | Identificador | Banco | Rótulo | Substituir |
 |---|---|---|---|---|---|
 | Plano de contratações anual (PCA) | Lei 14.133, art. 12, VII; Decreto 10.947/2022 | `pca` | `compras_gov_integration.pncp_pca_*` (espelho), `procurement.segment.pca_identifier` | Plano de Contratações | — |
-| Documento de formalização da demanda (DFD) | Lei 14.133, art. 12, VII; Decreto 10.947/2022 (dispositivo a confirmar) | `dfd` | — | DFD | — |
-| Previsão de demanda (da cozinha, insumo do DFD) | Decreto 10.947/2022 (a confirmar) | `demand_forecast` / `DemandForecast` | `procurement.kitchen_demand_forecast{,_selection,_import}`, `forecast_id` | Previsão de demanda | `KitchenAtaDraft`, `kitchenDraft*`, `kitchen-draft.ts`, `kitchen-draft.fn.ts`, `useKitchenDraft`, `components/features/local/kitchen-draft/`, `draftId`, `draft_id`, `ata_draft`, rota `kitchen/$kitchenId/suprimentos/$draftId`, "Suprimentos" |
+| Documento de formalização da demanda (DFD) | Lei 14.133, art. 12, VII; Decreto 10.947/2022, art. 2º, IV, e art. 8º | `dfd` | — | DFD | — |
+| Previsão de demanda (da cozinha, insumo do DFD) | Decreto 10.947/2022, art. 8º, III (quantidade do DFD pela expectativa de consumo anual); "previsão de demanda" é nome do sistema | `demand_forecast` / `DemandForecast` | `procurement.kitchen_demand_forecast{,_selection,_import}`, `forecast_id` | Previsão de demanda | `KitchenAtaDraft`, `kitchenDraft*`, `kitchen-draft.ts`, `kitchen-draft.fn.ts`, `useKitchenDraft`, `components/features/local/kitchen-draft/`, `draftId`, `draft_id`, `ata_draft`, rota `kitchen/$kitchenId/suprimentos/$draftId`, "Suprimentos" |
 | Contratação planejada (segmento do PCA): o recorte do que a OM compra num mesmo processo, no calendário do PCA, antes da seleção do fornecedor | Decreto 10.947/2022; spec `procurement-terminology` ("grupo" e "lote" reservados à lei) | `segment` | `procurement.segment`, `procurement.segment_rule` | Contratação planejada; Segmentação das contratações | `procurement_segment`, `procurement_segment_rule`, `ProcurementSegment*`, `procurementSegment*`; "contratação" sozinho |
-| Estudo técnico preliminar (ETP) | Lei 14.133, art. 6º, XX (a confirmar inciso), art. 18, § 1º; IN SEGES/ME 58/2022 | `etp` | — | ETP | — |
+| Estudo técnico preliminar (ETP) | Lei 14.133, art. 6º, XX, e art. 18, § 1º; IN SEGES/ME 58/2022 | `etp` | — | ETP | — |
 | Termo de referência (TR) | Lei 14.133, art. 6º, XXIII; IN SEGES/ME 81/2022 | `tr` | — | TR | — |
 | Estimativa das quantidades (anexo quantitativo do TR) | Lei 14.133, art. 18, § 1º, IV; art. 6º, XXIII | `quantity_estimate` / `QuantityEstimate` | `procurement.quantity_estimate` | Anexo quantitativo | `procurement.procurement_list`, `ProcurementList*`, `ata`, `ataId`, `Ata*` (`AtaWithDetails`, `AtaWizardState`, `AtaMeta`, `AtaStep`...), `createAta`, `fetchAtaDetails`, `fetchAtaList`, `updateAtaStatus`, `deleteAta`, `calculateAtaNeeds`, `ata.ts`, `ata.fn.ts`, `useAta.ts`, `ata-annex.ts`, `ata-utils.ts`, `types/domain/ata.ts`, `components/features/local/ata/`, rota `unit/$unitId/procurement/$ataId`, tools `list_atas`, `get_atas`, `get_ata_details`, `update_ata_status`, API `/api/admin/price-research/ata/:ataId` |
 | Item do anexo | idem | `quantity_estimate_item` | `procurement.quantity_estimate_item`, `quantity_estimate_id` | Item do anexo | `procurement_list_item`, `list_id`, `ataItem*`, `ataItemId`, `ata_item_id`, `procurement_list_item_id` |
@@ -47,55 +47,55 @@ Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como ci
 | Termo da norma | Fonte | Identificador | Banco | Rótulo | Substituir |
 |---|---|---|---|---|---|
 | Contratação de origem: a contratação já feita (licitação, SRP, dispensa, inexigibilidade...) que sustenta o empenho | change `sisub-flexible-expense-execution`; Lei 14.133, art. 72 (contratação direta) | `acquisition` | `procurement.acquisition` | Contratação de origem | "contratação" sozinho |
-| Tipo: registro de preços, licitação, dispensa, inexigibilidade, Contrata+Brasil, suprimento de fundos | Lei 14.133, arts. 74, 75, 82; Lei 4.320, art. 68 (suprimento); Contrata+Brasil: ato a confirmar | valores `registro_precos` · `licitacao` · `dispensa` · `inexigibilidade` · `contrata_mais_brasil` · `suprimento_fundos` · `outra` | `acquisition.kind` | — | — |
+| Tipo: registro de preços, licitação, dispensa, inexigibilidade, Contrata+Brasil, suprimento de fundos | Lei 14.133, arts. 74, 75, 82; Lei 4.320, art. 68 (suprimento); Contrata+Brasil: IN SEGES/MGI 52/2025, art. 1º | valores `registro_precos` · `licitacao` · `dispensa` · `inexigibilidade` · `contrata_mais_brasil` · `suprimento_fundos` · `outra` | `acquisition.kind` | — | — |
 | Contratação direta | Lei 14.133, art. 72 | (`kind` `dispensa`/`inexigibilidade`) | — | Contratação direta | — |
 | Limite e somatório da dispensa por valor | Lei 14.133, art. 75, I, II e § 1º; IN SEGES/ME 67/2021, art. 4º | `direct_contract_limit`, `clause`, `activity_line` | fica | Limite de dispensa; Ramo de atividade | — |
 | Instrumento (contrato ou substitutivo) | Lei 14.133, art. 95 | `instrument` ∈ `ata` · `contrato` · `nota_empenho` · `outro` | fica | Instrumento | — |
-| Processo (NUP) | norma do NUP a confirmar | `process_nup` | fica | NUP | — |
+| Processo (NUP) | Portaria Interministerial MJSP/ME 11/2019, art. 2º, II | `process_nup` | fica | NUP | — |
 | Catálogo (CATMAT, CATSER, PDM) | Lei 14.133, art. 19, II; Compras.gov.br | `catmat_*`, `pdm` | `compras_gov_integration.compras_material_*` (espelho) | CATMAT | — |
-| Especificação do produto (item de compra) | Lei 14.133, art. 40, § 1º, I (a confirmar inciso) | `purchase_item` | fica | Item de compra | — |
+| Especificação do produto (item de compra) | Lei 14.133, art. 40, § 1º, I | `purchase_item` | fica | Item de compra | — |
 | UASG | Compras.gov.br (SIASG) | `uasg` | `core.units.uasg` | UASG | — |
-| Favorecido (credor da NE) | Manual SIAFI (a confirmar) | `favorecido_*` em `finance`; `supplier_*` no resto | fica | Favorecido / Fornecedor | — |
+| Favorecido (credor da NE) | Lei 4.320, art. 61 ("nome do credor" na NE); Manual SIAFI, 020305, 3.3.6.1, a (favorecido da OB: CPF, CNPJ ou UG) | `favorecido_*` em `finance`; `supplier_*` no resto | fica | Favorecido / Fornecedor | — |
 
 #### 4. Ata de registro de preços
 
 | Termo da norma | Fonte | Identificador | Banco | Rótulo | Substituir |
 |---|---|---|---|---|---|
-| Sistema de registro de preços (SRP) | Lei 14.133, art. 6º, XLV (a confirmar inciso); Decreto 11.462/2023 | `srp` | `acquisition.srp_role` | SRP | — |
+| Sistema de registro de preços (SRP) | Lei 14.133, art. 6º, XLV; Decreto 11.462/2023, art. 2º, I | `srp` | `acquisition.srp_role` | SRP | — |
 | Ata de registro de preços (ARP) | Lei 14.133, art. 6º, XLVI | `arp` | `procurement.arp` | ARP | `procurement_arp`, `ProcurementArp*`, `procurementArp*` |
 | Item da ARP | idem | `arp_item` | `procurement.arp_item`, `quantity_estimate_item_id` | Item da ata | `procurement_arp_item`, `procurement_list_item_id` |
 | Número, ano e situação da ata | espelho do Compras.gov.br | `numero_ata`, `ano_ata`, `status_ata`, `numeroAtaRegistroPreco` | ficam | Nº da ata | — |
-| Gerenciador, participante, não participante (adesão) | Decreto 11.462/2023 (a confirmar artigo); Lei 14.133, art. 86, § 2º (a confirmar) | `srp_role` ∈ `gerenciador` · `participante` · `nao_participante` | fica | Papel da unidade na ata | — |
+| Gerenciador, participante, não participante (adesão) | Lei 14.133, art. 6º, XLVII a XLIX, e art. 86, § 2º (adesão do não participante); Decreto 11.462/2023, art. 2º, III a V | `srp_role` ∈ `gerenciador` · `participante` · `nao_participante` | fica | Papel da unidade na ata | — |
 | Quantidade homologada, empenhada, saldo (retrato do Compras) | espelho | `quantidade_homologada`, `quantidade_empenhada`, `saldo_empenho` | ficam | — | — |
 
 #### 5. Execução orçamentária
 
 | Termo da norma | Fonte | Identificador | Banco | Rótulo | Substituir |
 |---|---|---|---|---|---|
-| Dotação | MCASP (a confirmar capítulo) | não usar na UG executora | — | — | `budget_credit.dotacao` |
-| Crédito recebido (descentralizado) | MCASP (a confirmar) | `received_credit` | `finance.budget_credit.received_credit` | Crédito recebido | `dotacao` |
-| Crédito disponível | MCASP (a confirmar) | `available_credit_siafi` | `finance.budget_credit.available_credit_siafi` | Disponível (SIAFI) | `saldo_siafi` |
+| Dotação | Manual SIAFI, 010400 (glossário: "dotação orçamentária", "dotação inicial"); MCASP 11ª ed., Parte I, 4.4.1.2 (a descentralização não altera a dotação nem a unidade orçamentária) | não usar na UG executora | — | — | `budget_credit.dotacao` |
+| Crédito recebido (descentralizado) | MCASP 11ª ed., Parte I, 4.4.1.2 (descentralização: provisão ou destaque); Manual SIAFI, 010400 (glossário: "descentralização interna/externa de créditos") | `received_credit` | `finance.budget_credit.received_credit` | Crédito recebido | `dotacao` |
+| Crédito disponível | MCASP 11ª ed., Parte I, 4.5 (conta 6.2.2.1.1 "Crédito Disponível", debitada no empenho) | `available_credit_siafi` | `finance.budget_credit.available_credit_siafi` | Disponível (SIAFI) | `saldo_siafi` |
 | Crédito por classificação | — | `budget_credit` | fica | Crédito disponível | — |
-| Nota de crédito (NC) | Manual SIAFI (a confirmar) | `credit_note` (inglês fiel) | `finance.credit_note`, `kind` ∈ `descentralizacao` · `anulacao` | NC | — |
-| UG, UG emitente, UGR | Manual SIAFI (a confirmar) | `ug`, `issuer_ug`, `ugr` | `finance.empenho.issuer_ug` | UG emitente | `ug_emitente`, `ugEmitente` |
+| Nota de movimentação de crédito (NC) | Manual SIAFI, 010400 (glossário: "Nota de Movimentação de Crédito (NC)") | `credit_note` (fica; o SIAFI chama o documento de "nota de movimentação de crédito", e a sigla é a mesma) | `finance.credit_note`, `kind` ∈ `descentralizacao` · `anulacao` | NC | — |
+| UG, UG emitente, UGR | Manual SIAFI, 010400 (glossário: UGE, UGR) e 020301, 4.8.1.7 ("UG emitente") | `ug`, `issuer_ug`, `ugr` | `finance.empenho.issuer_ug` | UG emitente | `ug_emitente`, `ugEmitente` |
 | Natureza de despesa (ND) | Portaria Interministerial STN/SOF 163/2001 | `nd` | fica | ND | — |
-| PTRES, PI, fonte | Manual Técnico de Orçamento (a confirmar) | `ptres`, `pi`, `fonte` | ficam | PTRES, PI, Fonte | — |
+| PTRES, PI, fonte | Manual SIAFI, 010400 (glossário: "Programa de Trabalho Resumido (PTRES)", "Plano Interno", "Fonte de recurso") | `ptres`, `pi`, `fonte` | ficam | PTRES, PI, Fonte | — |
 | Empenho / nota de empenho (NE) | Lei 4.320, arts. 58 a 61 | `empenho` (pt: sem equivalente fiel) | `finance.empenho`, `finance.empenho_item` | Empenho; NE | — |
-| Empenho ordinário, estimativo, global | Decreto 93.872/1986 (a confirmar artigo) | `tipo` ∈ `ordinario` · `estimativo` · `global` | fica | — | — |
-| Reforço, anulação, anulação total | Decreto 93.872/1986 (a confirmar) | `empenho_event.tipo` | fica | — | `cancelamento` (contract previsto em D11 de `sisub-flexible-expense-execution`) |
+| Empenho ordinário, estimativo, global | Lei 4.320, art. 60, §§ 2º (estimativa) e 3º (global); MCASP 11ª ed., Parte I, 4.4.2.1 (ordinário, estimativo, global) | `tipo` ∈ `ordinario` · `estimativo` · `global` | fica | — | — |
+| Reforço, anulação, anulação total | MCASP 11ª ed., Parte I, 4.4.2.1; Decreto 93.872/1986, art. 28 (anulação parcial ou total); Manual SIAFI, 020301, 4.8.1.7 (reforço) | `empenho_event.tipo` | fica | — | `cancelamento` (contract previsto em D11 de `sisub-flexible-expense-execution`) |
 | Liquidação (NS) | Lei 4.320, art. 63 | `liquidacao` (pt: `liquidation` é falso cognato) | `finance.liquidacao`, `numero_ns` | Liquidação; NS | `liquidation`, `Liquidation*`, `liquidation.fn.ts`, `liquidation-math.ts`, rota `unit/$unitId/liquidations` |
-| Retenção (dedução na NS) | IN RFB 1.234/2012 (IR, CSLL, COFINS, PIS); INSS e ISS: norma a confirmar | `liquidacao_deduction`, `kind` ∈ `ir` · `csll` · `cofins` · `pis` · `inss` · `iss` · `outra` | fica | Retenções | — |
+| Retenção (dedução na NS) | IN RFB 1.234/2012 (IR, CSLL, COFINS, PIS); INSS: Lei 8.212/1991, art. 31; ISS: LC 116/2003, art. 6º | `liquidacao_deduction`, `kind` ∈ `ir` · `csll` · `cofins` · `pis` · `inss` · `iss` · `outra` | fica | Retenções | — |
 | Pagamento (OB) | Lei 4.320, arts. 62 a 65 | `pagamento` (**exceção registrada** à regra do inglês: fica com `empenho` e `liquidacao`, as fases da despesa, arts. 58-65) | `finance.pagamento`, `numero_ob` | Pagamento; OB | `payment`, `Payment*`, rota `unit/$unitId/payments` |
-| Restos a pagar (RP) processados e não processados | Lei 4.320, art. 36; Decreto 93.872/1986 (a confirmar artigos) | `rp`, `kind` ∈ `processado` · `nao_processado` | `finance.empenho_rp_inscription` | Restos a pagar | colunas-espelho `empenho.rp_*` (contract previsto) |
+| Restos a pagar (RP) processados e não processados | Lei 4.320, art. 36; Decreto 93.872/1986, arts. 67 e 68 | `rp`, `kind` ∈ `processado` · `nao_processado` | `finance.empenho_rp_inscription` | Restos a pagar | colunas-espelho `empenho.rp_*` (contract previsto) |
 | Conciliação com o SIAFI | — | `reconciliation` | fica | Conciliação | — |
 
 #### 6. Ordem de fornecimento
 
 | Termo da norma | Fonte | Identificador | Banco | Rótulo | Substituir |
 |---|---|---|---|---|---|
-| Ordem de fornecimento (OF) | prática; Lei 14.133, art. 95 ("autorização de compra"); art. 6º, X citado no planejamento (a confirmar) | `supply_order` | fica | Ordem de fornecimento | — |
+| Ordem de fornecimento (OF) | Lei 14.133, art. 6º, X ("prazo de entrega de até 30 (trinta) dias da ordem de fornecimento"); art. 95 (substitutivos do contrato, entre eles a "autorização de compra") | `supply_order` | fica | Ordem de fornecimento | — |
 | Quantidade mínima por ordem de fornecimento | D9 de `sisub-procurement-planning-flows` | `min_order_quantity` | fica | Quantidade mínima por ordem de fornecimento | — |
-| Regularidade no SICAF | norma a confirmar | `sicaf_status` | fica | SICAF | — |
+| Regularidade no SICAF | Decreto 11.462/2023, art. 2º, VIII; Decreto 3.722/2001, art. 1º | `sicaf_status` | fica | SICAF | — |
 
 #### 7. Recebimento e fiscalização
 
@@ -105,19 +105,19 @@ Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como ci
 | Guia de remessa | — | `source = 'delivery_note'` | fica | Guia de remessa | — |
 | NF-e | Ajuste SINIEF 07/2005 | `nfe_*` | fica | NF-e | — |
 | Glosa | — | `fiscal_resolution = 'glosa'` | fica | Glosa | — |
-| Designação de gestor, fiscais e comissão | Lei 14.133, arts. 7º, 117 e 140, II, b; Decreto 11.246/2022 (dispositivos a confirmar) | `contract_designation`, `role` ∈ `gestor` · `fiscal_tecnico` · `fiscal_administrativo` · `fiscal_setorial` · `membro_comissao` | fica; valores trocam | Designações | `manager`, `technical_inspector`, `administrative_inspector`, `sectoral_inspector`, `committee_member` |
+| Designação de gestor, fiscais e comissão | Lei 14.133, arts. 7º, 117 e 140, II, b; Decreto 11.246/2022, arts. 8º, 19 e 21 a 25 (o Decreto 13.031/2026 incluiu o gestor setorial, arts. 19, V, e 21-A, que ainda não tem `role`) | `contract_designation`, `role` ∈ `gestor` · `fiscal_tecnico` · `fiscal_administrativo` · `fiscal_setorial` · `membro_comissao` | fica; valores trocam | Designações | `manager`, `technical_inspector`, `administrative_inspector`, `sectoral_inspector`, `committee_member` |
 | Ato de designação | Lei 14.133, art. 117 | `source = 'ato'` | fica | Ato | — |
 
 #### 8. Almoxarifado e estoque
 
 | Termo da norma | Fonte | Identificador | Banco | Rótulo | Substituir |
 |---|---|---|---|---|---|
-| Lote (de fabricação) | RDC ANVISA 727/2022 (a confirmar); homônimo do lote da Lei 14.133 | `stock_lot` (nunca `lot` sozinho fora do estoque) | fica | Lote | — |
-| Movimentação (entrada, saída por produção, devolução, perda, transferência, ajuste) | IN SEDAP 205/1988 (item a confirmar) | `stock_movement.type` | fica | — | — |
-| Requisição de material | IN SEDAP 205/1988 (item a confirmar) | `stock_issue_request` | fica | Requisição (tela "Saída do dia") | — |
-| Ajuste | IN SEDAP 205/1988 (a confirmar); MCASP | `stock_adjustment` | fica | Ajustes | — |
-| Inventário físico | IN SEDAP 205/1988 (item e tipos a confirmar) | `inventory_count`, `type` ∈ `anual` · `transferencia_responsabilidade` · `eventual` · `rotativo` | fica; valores trocam | Inventário físico | `annual`, `responsibility_transfer`, `rotating`; rótulo "Contagem Física" |
-| Fechamento mensal (RMA) | MCASP (a confirmar) | `monthly_closing` | fica | Fechamento mensal | — |
+| Lote (de fabricação) | RDC ANVISA 727/2022, art. 3º, XIV, e art. 30; homônimo do lote da Lei 14.133 | `stock_lot` (nunca `lot` sozinho fora do estoque) | fica | Lote | — |
+| Movimentação (entrada, saída por produção, devolução, perda, transferência, ajuste) | IN SEDAP 205/1988, itens 3.1 (origens da entrada), 6.1 e 7.9 | `stock_movement.type` | fica | — | — |
+| Requisição de material | IN SEDAP 205/1988, item 5.1.3 | `stock_issue_request` | fica | Requisição (tela "Saída do dia") | — |
+| Ajuste | IN SEDAP 205/1988, item 8, a; MCASP 11ª ed., Parte II, 5.2.3 (ajuste de perdas de estoques) | `stock_adjustment` | fica | Ajustes | — |
+| Inventário físico | IN SEDAP 205/1988, item 8.1, a, c e e (anual, de transferência de responsabilidade, eventual), e item 8.3 (rotativo); o inicial e o de extinção (8.1, b e d) não estão no sisub | `inventory_count`, `type` ∈ `anual` · `transferencia_responsabilidade` · `eventual` · `rotativo` | fica; valores trocam | Inventário físico | `annual`, `responsibility_transfer`, `rotating`; rótulo "Contagem Física" |
+| Fechamento mensal (RMA) | Manual SIAFI, 021101, item 2.2 (RMA mensal, até o 5º dia útil do mês seguinte); MCASP 11ª ed., Parte II, 5.2.2 (custo médio ponderado) | `monthly_closing` | fica | Fechamento mensal | — |
 | Competência | MCASP | `competencia` | fica | Competência | — |
 | Carga inicial (saldo de abertura) | — | `opening_balance`, `cost_source` ∈ `ata` · `price_research` · `manual` | fica | Carga inicial; "ARP (preço registrado)" | rótulo "ATA (preço homologado)" |
 | Reposição | — | `replenishment` | fica | Sugestões de reposição | — |
@@ -130,29 +130,29 @@ Legenda: **fonte** "a confirmar" = dispositivo não conferido, não usar como ci
 | Refeitório no levantamento de efetivo (matriz da SDAB) | `20260827163000_workforce_matrix.sql` | `mess_hall_workforce` (rename decidido em 2026-09-27; a fusão em `mess_halls` é a change `sisub-workforce-by-mess-hall`) | `kitchen.mess_hall_workforce` (era `kitchen.rancho`); `workforce_submission.mess_hall_workforce_id` (era `rancho_id`) | Efetivo dos Refeitórios; na rede, efetivo da subsistência | `kitchen.rancho`, `core.rancho`, `rancho_id`, `ranchoInKitchen`, `ranchoId`, `Rancho*`, `RanchoWorkforce*`, `computeRanchoMetrics`, `createRancho`, `updateRancho`, "Efetivo dos Ranchos" |
 | Cozinha: onde se produz, com os seus refeitórios | — | `kitchen` | `kitchen.kitchen` | Cozinha | "rancho" nesse sentido: "material de rancho", "item do rancho" (produção regular), "planejamento do rancho", "tipos de refeição do rancho" |
 | Unidade (OM) e a sua subsistência | uso do COMAER | `unit` | `core.units`, `unit_id` | Unidade; Gestão Unidade | "rancho" nesse sentido: "chefe do rancho" (→ quem tem Gestão Unidade), "despesa do rancho", "compra fora do rancho", "rancho militar" |
-| Comensal | uso do COMAER (a confirmar) | `diner` | — (módulo PBAC) | Comensal | — |
-| Arranchamento: o militar se arrancha (declara que vai comer em data, refeição e refeitório); presença é o comparecimento | norma de subsistência do COMAER (a confirmar) | `arranchamento` (pt: "meal forecast" é a estimativa agregada) | `kitchen.arranchamento` | Arranchamento | `kitchen.meal_forecasts`, `mealForecastsInKitchen`, `mealForecast*`, `useMealForecast`, `upsertForecast`, `ForecastRecord`, `operations/forecast.ts`, `forecast.fn.ts`, `lib/forecast.ts`, rota `diner/forecast`, API `/api/rancho_previsoes`, rótulo "Previsão" |
+| Comensal | uso do COMAER (a confirmar: norma interna não pública) | `diner` | — (módulo PBAC) | Comensal | — |
+| Arranchamento: o militar se arrancha (declara que vai comer em data, refeição e refeitório); presença é o comparecimento | Decreto 4.307/2002, arts. 68 e 71, § 2º ("arranchado"); o procedimento é da norma de subsistência do COMAER (a confirmar: não pública) | `arranchamento` (pt: "meal forecast" é a estimativa agregada) | `kitchen.arranchamento` | Arranchamento | `kitchen.meal_forecasts`, `mealForecastsInKitchen`, `mealForecast*`, `useMealForecast`, `upsertForecast`, `ForecastRecord`, `operations/forecast.ts`, `forecast.fn.ts`, `lib/forecast.ts`, rota `diner/forecast`, API `/api/rancho_previsoes`, rótulo "Previsão" |
 | Previsão de comensais | — | `forecasted_headcount` | `kitchen.daily_menu` | Previsão | — |
 | Presença | — | `meal_presence`, `other_presence` | `kitchen.meal_presences`, `kitchen.other_presences` | Presenças | — |
-| Fiscal de rancho: função da escala de serviço que registra e confere a presença. **Única ocorrência permitida de "rancho"**, como nome próprio; não é o fiscal do contrato (Lei 14.133, art. 117) | escala de serviço da OM (norma a confirmar) | módulo `messhall` (ID fica) | — | Fiscal de rancho | rótulos "Fiscal" (módulo, breadcrumb) e "Fiscal de Rancho" (grafia) |
+| Fiscal de rancho: função da escala de serviço que registra e confere a presença. **Única ocorrência permitida de "rancho"**, como nome próprio; não é o fiscal do contrato (Lei 14.133, art. 117) | escala de serviço da OM (a confirmar: norma interna não pública) | módulo `messhall` (ID fica) | — | Fiscal de rancho | rótulos "Fiscal" (módulo, breadcrumb) e "Fiscal de Rancho" (grafia) |
 | Cardápio do dia | — | `daily_menu`, `menu_item` | `kitchen.daily_menu`, `kitchen.menu_items` | Cardápio | — |
 | Cardápio semanal (modelo) | termo da nutrição | `menu_template` (`template_type = 'weekly'`) | fica | Cardápio semanal; Cardápio semanal modelo (global) | rótulos "Planos Semanais", "Planos Semanais Modelo"; rota `global/weekly-plans` |
 | Cardápio de apoio: refeições previsíveis fora da rotina semanal (lanches de bordo e de apoio, coffee breaks) | — | `template_type = 'apoio'` | `kitchen.menu_template.template_type`, `kitchen.menu_items.origin_template_type` | Cardápio de apoio | `'exception'`; rotas `global/exceptions` e `kitchen/$kitchenId/exceptions` → `*/support-menus`; componentes `Exception*` |
-| Lanche de apoio (homônimo: família do lanche, não tipo de cardápio) | norma do lanche (itens 7.4.x citados no código; ato a confirmar) | `snack_family = 'apoio'` | fica | Lanche de apoio | — |
+| Lanche de apoio (homônimo: família do lanche, não tipo de cardápio) | norma do lanche (itens 7.4.x citados no código; ato a confirmar: norma interna não pública) | `snack_family = 'apoio'` | fica | Lanche de apoio | — |
 | Tipo de refeição | — | `meal_type`; `meal` ∈ `cafe` · `almoco` · `janta` · `ceia` | fica | Refeição | — |
-| Preparação (ficha técnica de preparação) | manual de subsistência (a confirmar) | `recipe` | `kitchen.recipes` | Preparação; Ficha técnica (impressão) | — |
+| Preparação (ficha técnica de preparação) | manual de subsistência (a confirmar: norma interna não pública) | `recipe` | `kitchen.recipes` | Preparação; Ficha técnica (impressão) | — |
 | Preparação congelada | — | `frozen_preparation` | fica | Preparação congelada | — |
 | Preparação legada do SISUBWEB | migração do SISUBWEB | `legacy_preparation` | (linhas de `kitchen.ingredient` com `preparation_group_id`); `kitchen.preparation_group` fica | Preparação legada | tool `list_preparations`, `AgentListPreparations*` |
 | Insumo (gênero) | uso do COMAER | `ingredient`; `core.item.kind = 'insumo'` | `kitchen.ingredient` | Insumo | `product`, `Product*`, `policy_rule.target = 'product'` |
-| CEAFA | norma do COMAER (expansão da sigla a confirmar) | `ceafa` | `kitchen.ceafa` | CEAFA | — |
+| CEAFA | Comissão de Estudos de Alimentação das Forças Armadas, do Ministério da Defesa (Revista da ESG, v. 34, n. 71, 2019); ato de criação e origem da relação em `kitchen.ceafa` a confirmar (não públicos) | `ceafa` | `kitchen.ceafa` | CEAFA | — |
 
 #### 10. Pessoal e organização
 
 | Termo da norma | Fonte | Identificador | Banco | Rótulo | Substituir |
 |---|---|---|---|---|---|
-| SARAM (número do militar) | sistema de pessoal do COMAER (a confirmar) | `saram` | `core.person.saram`, `core.user_data.saram`, `core.military_identity.saram`; `core.user_military_data."nrOrdem"` fica (carga externa) | SARAM | `nr_ordem`, `nrOrdem` fora do espelho |
+| SARAM (número do militar) | sistema de pessoal do COMAER (a confirmar: expansão e norma sem fonte pública acessível) | `saram` | `core.person.saram`, `core.user_data.saram`, `core.military_identity.saram`; `core.user_military_data."nrOrdem"` fica (carga externa) | SARAM | `nr_ordem`, `nrOrdem` fora do espelho |
 | Organização militar (OM) | uso do COMAER | `unit` | `core.units`, `unit_id` | Unidade; OM | — |
-| OM apoiadora | — | `supporting_unit_id` | fica | OM apoiadora | — |
+| OM apoiadora | Decreto 4.307/2002, art. 72, parágrafo único | `supporting_unit_id` | fica | OM apoiadora | — |
 | Posto / graduação | uso do COMAER | `posto` | espelho `sgPosto` | Posto | — |
 
 #### Scenario: Tabela nova do anexo

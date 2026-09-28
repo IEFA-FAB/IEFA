@@ -2,8 +2,9 @@
  * Vocabulário dos eventos de `finance.empenho_event` (achado F8 da auditoria de 2026-09-26).
  *
  * "Cancelamento" é termo de restos a pagar: é o que se faz com o RP não pago que prescreve ou
- * deixa de ser devido (Decreto 93.872/1986, arts. 68-70). A anulação total da NE no próprio
- * exercício é ANULAÇÃO (Lei 4.320, art. 38; a NE de anulação no SIAFI). O banco gravava
+ * deixa de ser devido (Decreto 93.872/1986, arts. 68 e 69; o art. 70 foi revogado pelo Decreto
+ * 9.428/2018). A anulação total da NE no próprio exercício é ANULAÇÃO (Lei 4.320, art. 38;
+ * Decreto 93.872/1986, art. 28; a NE de anulação no SIAFI). O banco gravava
  * `cancelamento` para as duas coisas.
  *
  * Expand/contract (migration 20260926216000):

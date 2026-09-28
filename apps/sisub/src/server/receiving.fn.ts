@@ -544,7 +544,7 @@ async function findDesignation(scope: DesignationScope, userId: string, stage: R
 }
 
 /**
- * Competência para receber (Lei 14.133/2021, art. 140, II; Decreto 11.246/2022).
+ * Competência para receber (Lei 14.133/2021, art. 140, II; Decreto 11.246/2022, art. 25).
  *
  * Nível de PBAC é pré-condição, não competência: o provisório é do fiscal designado (alínea
  * a), o definitivo é de servidor ou comissão designada — gestor do contrato ou membro de
