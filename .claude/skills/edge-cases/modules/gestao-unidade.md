@@ -299,6 +299,26 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
   mais específica (empenho, ARP, contratação, OM).
 - **Cobertura:** hipótese (a ordem está em `inventory.find_designation`; sem teste).
 
+### GU-DES-06 — "O contrato é de outra OM; aqui só chega a entrega"
+- **Realidade:** o contrato é gerido por outra unidade (centralizado, ou com entrega em várias
+  OMs), e o gestor dele não está aqui para efetivar o definitivo da carne que chegou nesta OM.
+- **O sistema precisa:** designar gestor setorial quem opera o recebimento na OM da entrega
+  (Decreto 11.246/2022, art. 19, V, e art. 21-A, na redação do Decreto 13.031/2026); ele efetiva
+  o definitivo como o gestor do contrato (art. 25) e entra na trava de segregação de funções como
+  ele. A designação mora na unidade COMPRADORA da cozinha (`purchase_unit_id`), onde
+  `inventory.designations_covering` procura: quem designa é a Gestão Unidade da compradora, e a
+  lista de candidatos dela já traz quem opera o estoque das cozinhas que ela abastece.
+- **UX:** Gestão Unidade (da compradora) → Designações → "Nova designação" → papel "Gestor
+  setorial", escopo no contrato; o formulário e a lista dizem a função correspondente no
+  Contratos.gov.br ("Gestor Setorial").
+- **Cobertura:** `receiving-links.operations.test.ts › gestor setorial designado efetiva o
+  definitivo…` (uma unidade só); `designations.test.ts › papéis` e `› selfDesignationProblem`;
+  `designation-contratos-gov-br.test.ts`. **LACUNA:** caso no banco real com cozinha de
+  `purchase_unit_id` diferente de `unit_id`; e a OM da entrega não designa o próprio gestor
+  setorial (depende da compradora), o que o art. 21-A ("no âmbito dos respectivos órgãos") pode
+  pedir: decisão do mantenedor. O substituto do gestor setorial não tem função conhecida no
+  Contratos.gov.br (tarefa 5.9 de `sisub-ubiquitous-language`).
+
 ### GU-DES-03 — "Apagaram a ARP (ou o empenho) de uma designação"
 - **O sistema precisa:** a designação é a prova do ato que sustenta o termo: empenho, ARP e
   contratação passam a `ON DELETE RESTRICT`; o reset de treino apaga a designação antes do

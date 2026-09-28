@@ -3250,31 +3250,6 @@ export const goodsReceiptInInventory = inventory.table("goods_receipt", {
 	check("goods_receipt_supplier_document_digits", sql`(supplier_document IS NULL) OR (supplier_document ~ '^([0-9]{11}|[0-9]{14})$'::text)`),
 ]);
 
-export const priceResearchEmissionInProcurement = procurement.table("price_research_emission", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	sequence: integer().notNull(),
-	emittedBy: uuid("emitted_by"),
-	emittedAt: timestamp("emitted_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	sha256: text().notNull(),
-	items: jsonb().notNull(),
-	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
-}, (table) => [
-	index("price_research_emission_emitted_by_fk_idx").using("btree", table.emittedBy.asc().nullsLast()),
-	foreignKey({
-			columns: [table.emittedBy],
-			foreignColumns: [usersInAuth.id],
-			name: "price_research_emission_emitted_by_fkey"
-		}),
-	foreignKey({
-			columns: [table.quantityEstimateId],
-			foreignColumns: [quantityEstimateInProcurement.id],
-			name: "price_research_emission_quantity_estimate_id_fkey"
-		}).onDelete("cascade"),
-	unique("price_research_emission_quantity_estimate_id_sequence_key").on(table.sequence, table.quantityEstimateId),
-	check("price_research_emission_sequence_check", sql`sequence > 0`),
-	check("price_research_emission_sha256_check", sql`sha256 ~ '^[0-9a-f]{64}$'::text`),
-]);
-
 export const contractDesignationInProcurement = procurement.table("contract_designation", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -3331,9 +3306,34 @@ export const contractDesignationInProcurement = procurement.table("contract_desi
 		}),
 	check("contract_designation_ato_reference", sql`(source <> 'ato'::text) OR (NULLIF(btrim(source_reference), ''::text) IS NOT NULL)`),
 	check("contract_designation_period", sql`(valid_to IS NULL) OR (valid_to >= valid_from)`),
-	check("contract_designation_role_check", sql`role = ANY (ARRAY['gestor'::text, 'fiscal_tecnico'::text, 'fiscal_administrativo'::text, 'fiscal_setorial'::text, 'membro_comissao'::text])`),
+	check("contract_designation_role_check", sql`role = ANY (ARRAY['gestor'::text, 'gestor_setorial'::text, 'fiscal_tecnico'::text, 'fiscal_administrativo'::text, 'fiscal_setorial'::text, 'membro_comissao'::text])`),
 	check("contract_designation_single_scope", sql`num_nonnulls(empenho_id, arp_id, acquisition_id) <= 1`),
 	check("contract_designation_source_check", sql`source = ANY (ARRAY['ato'::text, 'permanente'::text])`),
+]);
+
+export const priceResearchEmissionInProcurement = procurement.table("price_research_emission", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	sequence: integer().notNull(),
+	emittedBy: uuid("emitted_by"),
+	emittedAt: timestamp("emitted_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	sha256: text().notNull(),
+	items: jsonb().notNull(),
+	quantityEstimateId: uuid("quantity_estimate_id").notNull(),
+}, (table) => [
+	index("price_research_emission_emitted_by_fk_idx").using("btree", table.emittedBy.asc().nullsLast()),
+	foreignKey({
+			columns: [table.emittedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "price_research_emission_emitted_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.quantityEstimateId],
+			foreignColumns: [quantityEstimateInProcurement.id],
+			name: "price_research_emission_quantity_estimate_id_fkey"
+		}).onDelete("cascade"),
+	unique("price_research_emission_quantity_estimate_id_sequence_key").on(table.sequence, table.quantityEstimateId),
+	check("price_research_emission_sequence_check", sql`sequence > 0`),
+	check("price_research_emission_sha256_check", sql`sha256 ~ '^[0-9a-f]{64}$'::text`),
 ]);
 
 export const expiryAlertPolicyInInventory = inventory.table("expiry_alert_policy", {

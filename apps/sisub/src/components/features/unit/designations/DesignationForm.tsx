@@ -7,6 +7,7 @@ import {
 	type DesignationRole,
 	type DesignationSource,
 	designationInputProblems,
+	toContratosGovBrFunction,
 } from "@iefa/sisub-domain"
 import { useId, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -28,9 +29,18 @@ const SCOPE_LABELS: Record<ScopeKind, string> = {
 	empenho: "Um empenho",
 }
 
+/** O nome do papel no Contratos.gov.br, para quem registra a mesma designação lá. */
+function contratosGovBrHint(role: DesignationRole, isSubstitute: boolean): string {
+	const label = toContratosGovBrFunction(role, isSubstitute)
+	if (label) return `No Contratos.gov.br: ${label}.`
+	return role === "membro_comissao"
+		? "No Contratos.gov.br a comissão de recebimento não é responsável do contrato."
+		: "Sem função correspondente conhecida no Contratos.gov.br."
+}
+
 export interface DesignationPreset {
 	role?: DesignationRole
-	/** Papéis oferecidos (ex.: só gestor e comissão para o definitivo). */
+	/** Papéis oferecidos (ex.: só gestor do contrato, gestor setorial e comissão para o definitivo). */
 	roles?: readonly DesignationRole[]
 	empenhoId?: string | null
 }
@@ -140,6 +150,7 @@ export function DesignationForm({ unitId, preset, onSaved }: { unitId: number; p
 								))}
 							</SelectContent>
 						</Select>
+						<FieldDescription>{contratosGovBrHint(role, isSubstitute)}</FieldDescription>
 					</Field>
 					<Field orientation="horizontal">
 						<Switch id={ids.substitute} checked={isSubstitute} onCheckedChange={setIsSubstitute} />

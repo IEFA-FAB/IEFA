@@ -257,6 +257,17 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 		})
 	}, 60_000)
 
+	test("gestor setorial designado efetiva o definitivo na unidade dele (Decreto 11.246/2022, art. 25)", async () => {
+		await inRollback(async (tx) => {
+			const { unitId } = await seedKitchen(tx, "GSET")
+			const [designation] = await tx`
+				insert into procurement.contract_designation (unit_id, person_id, role, source, source_reference)
+				values (${unitId}, ${personId}, 'gestor_setorial', 'ato', 'Portaria 7/2026') returning id`
+			const [definitive] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...DEFINITIVE_RECEIPT_ROLES])}) as id`
+			expect(definitive.id).toBe(designation.id)
+		})
+	}, 60_000)
+
 	test("SEFAZ fora do ar: o estoque entra com a consulta pendente; a liquidação continua exigindo", async () => {
 		await inRollback(async (tx) => {
 			const { unitId, kitchenId, ingredientId } = await seedKitchen(tx, "SEFAZ")

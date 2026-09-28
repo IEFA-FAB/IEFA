@@ -250,13 +250,13 @@ export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	goodsReceiptInInventories_rejectedBy: many(goodsReceiptInInventory, {
 		relationName: "goodsReceiptInInventory_rejectedBy_usersInAuth_id"
 	}),
-	priceResearchEmissionInProcurements: many(priceResearchEmissionInProcurement),
 	contractDesignationInProcurements_createdBy: many(contractDesignationInProcurement, {
 		relationName: "contractDesignationInProcurement_createdBy_usersInAuth_id"
 	}),
 	contractDesignationInProcurements_personId: many(contractDesignationInProcurement, {
 		relationName: "contractDesignationInProcurement_personId_usersInAuth_id"
 	}),
+	priceResearchEmissionInProcurements: many(priceResearchEmissionInProcurement),
 	expiryAlertPolicyInInventories: many(expiryAlertPolicyInInventory),
 	empenhoInFinances: many(empenhoInFinance),
 	inventoryCountInInventories_approvedBy: many(inventoryCountInInventory, {

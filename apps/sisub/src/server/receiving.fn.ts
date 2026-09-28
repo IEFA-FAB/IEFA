@@ -547,8 +547,8 @@ async function findDesignation(scope: DesignationScope, userId: string, stage: R
  * Competência para receber (Lei 14.133/2021, art. 140, II; Decreto 11.246/2022, art. 25).
  *
  * Nível de PBAC é pré-condição, não competência: o provisório é do fiscal designado (alínea
- * a), o definitivo é de servidor ou comissão designada — gestor do contrato ou membro de
- * comissão (alínea b). Termo assinado por quem não tem competência vicia a liquidação apoiada
+ * a), o definitivo é de servidor ou comissão designada — gestor do contrato, gestor setorial
+ * ou membro de comissão (alínea b; Decreto 11.246/2022, art. 25). Termo assinado por quem não tem competência vicia a liquidação apoiada
  * nele. O que NÃO depende de designação é a conferência física (itens, lotes, temperatura,
  * validade): ela fica registrada e o fiscal a confirma depois, sem redigitar.
  *

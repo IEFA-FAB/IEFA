@@ -1,4 +1,4 @@
-import { DESIGNATION_ROLE_LABELS, type DesignationRow } from "@iefa/sisub-domain"
+import { DESIGNATION_ROLE_LABELS, type DesignationRow, toContratosGovBrFunction } from "@iefa/sisub-domain"
 import { createFileRoute, useParams } from "@tanstack/react-router"
 import { UserCheck, UserPlus } from "lucide-react"
 import { useState } from "react"
@@ -18,7 +18,7 @@ import { formatShortDate } from "@/lib/flows/model"
  * GESTÃO UNIDADE — Designações
  * URL: /unit/:unitId/designations
  *
- * Fiscal, gestor e comissão de recebimento, com o ato que designou e a vigência. É o que o
+ * Fiscal, gestor (do contrato ou setorial) e comissão de recebimento, com o ato que designou e a vigência. É o que o
  * recebimento confere: o provisório é do fiscal designado, o definitivo de servidor ou comissão
  * designada (Lei 14.133/2021, art. 140, II). Sem designação, a entrega é conferida, mas não
  * se confirma.
@@ -64,6 +64,7 @@ function DesignationsPage() {
 	}
 
 	function renderRow(row: DesignationRow) {
+		const contratosGovBrFunction = toContratosGovBrFunction(row.role, row.isSubstitute)
 		return (
 			<Item key={row.id} variant="outline" size="sm">
 				<ItemMedia variant="icon">
@@ -77,6 +78,7 @@ function DesignationsPage() {
 					</ItemTitle>
 					<ItemDescription>
 						{scopeLabel(row)} · {row.sourceReference ?? "sem referência do ato"} · {validityLabel(row)}
+						{contratosGovBrFunction && ` · no Contratos.gov.br: ${contratosGovBrFunction}`}
 					</ItemDescription>
 				</ItemContent>
 				{canEdit && row.active && (
@@ -94,7 +96,7 @@ function DesignationsPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title="Designações"
-				description="Quem recebe as entregas em nome da OM: o fiscal confirma o provisório, o gestor ou a comissão efetiva o definitivo (Lei 14.133/2021, art. 140, II). Registre o boletim ou a portaria de cada designação."
+				description="Quem recebe as entregas em nome da OM: o fiscal confirma o provisório; o gestor do contrato, o gestor setorial ou a comissão efetiva o definitivo (Lei 14.133/2021, art. 140, II; Decreto 11.246/2022, art. 25). Registre o boletim ou a portaria de cada designação."
 			>
 				{canEdit && (
 					<Button size="sm" onClick={() => setCreating(true)}>
