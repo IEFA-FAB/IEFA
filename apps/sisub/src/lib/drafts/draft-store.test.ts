@@ -34,7 +34,7 @@ describe("draftStore", () => {
 })
 
 describe("draftStore — dono e notificação", () => {
-	it("descarta os rascunhos quando OUTRA conta entra; sair da conta não descarta", () => {
+	it("outra conta não vê os rascunhos da anterior; sair da conta não descarta", () => {
 		draftStore.bindOwner("user-1")
 		draftStore.set(entry("a", 1))
 		draftStore.bindOwner("user-1")

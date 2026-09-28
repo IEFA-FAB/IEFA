@@ -181,6 +181,33 @@ describe("server function security contracts", () => {
 		// base_recipe_id aponta para a RAIZ da linhagem, e a versão é calculada no servidor.
 		expect(opSource).toContain("baseRecipeId: rootId")
 		expect(opSource).toContain("version: nextVersion")
+
+		// Só grava sobre a versão VIGENTE no contexto, conferida sob o lock da linhagem: salvar
+		// a partir de versão superada apagava da preparação a mudança de outra pessoa.
+		const lock = opSource.indexOf("lockRecipeLineage(")
+		const check = opSource.indexOf("versionConflictError(")
+		expect(opSource).toContain("pickLiveLineageHead(")
+		expect(lock).toBeGreaterThan(-1)
+		expect(check).toBeGreaterThan(lock)
+		expect(check).toBeLessThan(opSource.indexOf(".insert(recipesInKitchen)"))
+	})
+
+	test("flow and equipment writes refuse a superseded recipe version under the lineage lock", () => {
+		for (const [file, op] of [
+			["packages/sisub-domain/src/operations/recipe-flow.ts", "saveRecipeFlow"],
+			["packages/sisub-domain/src/operations/equipment.ts", "saveRecipeEquipment"],
+		] as const) {
+			const source = readPackageFile(file)
+			const start = source.indexOf(`export async function ${op}(`)
+			expect(start, `${op} not found`).toBeGreaterThan(-1)
+			const nextFn = source.indexOf("\nexport async function ", start + 1)
+			const opSource = source.slice(start, nextFn === -1 ? undefined : nextFn)
+			const tx = opSource.indexOf("db.transaction(")
+			const check = opSource.indexOf("assertRecipeVersionIsHead(tx")
+			expect(check, `${op} does not check the lineage head inside its transaction`).toBeGreaterThan(tx)
+		}
+		const head = readPackageFile("packages/sisub-domain/src/operations/recipe-head.ts")
+		expect(head).toContain("lockRecipeLineage(tx, rootId)")
 	})
 
 	test("saveTemplateEdit forks a global template edited from a kitchen instead of mutating it", () => {

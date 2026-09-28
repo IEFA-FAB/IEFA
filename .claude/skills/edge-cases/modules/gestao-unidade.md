@@ -433,3 +433,12 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **Cobertura:** `finance-compliance-math.test.ts › anulação total`; integração
   `budget-execution.operations.test.ts`. `registerEmpenhoEventFn` grava `anulacao_total` (o valor
   legado na entrada é convertido).
+
+### GU-ANX-EDT-01 — "Montando o anexo quantitativo e alguém mexe nos preços"
+- **Realidade:** no assistente, título, notas e cozinhas só gravam ao trocar de passo, e a
+  descrição tem autosave de 800 ms cancelado ao sair da tela: a última digitação se perde. O
+  envio da descrição manda a lista inteira de itens com o preço do estado local, e sobrescreve
+  o preço que outra pessoa aplicou na tela de detalhe.
+- **O sistema precisa:** gravar ou guardar em rascunho antes de sair; mandar só o item alterado
+  (ou conferir a versão), nunca a lista inteira a partir de estado velho.
+- **Cobertura:** **LACUNA** (auditoria de 2026-09-28).

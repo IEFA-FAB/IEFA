@@ -145,7 +145,11 @@ export function useSaveRecipeEquipment(recipeId: string | undefined) {
 			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Equipamentos da preparação salvos")
 		},
-		onError: (error) => toast.error(`Erro ao salvar equipamentos: ${error.message}`),
+		onError: (error) => {
+			// Recusa por versão superada: relê a vigente para a tela mostrar o aviso.
+			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.lineageHeads() })
+			toast.error(`Erro ao salvar equipamentos: ${error.message}`)
+		},
 	})
 }
 

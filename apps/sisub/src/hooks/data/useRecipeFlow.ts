@@ -31,6 +31,8 @@ export function useSaveRecipeFlow(recipeId: string | undefined) {
 			}
 		},
 		onError: (error) => {
+			// Recusa por versão superada: relê a vigente para a tela mostrar o aviso.
+			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.lineageHeads() })
 			toast.error(`Erro ao salvar fluxo: ${error.message}`)
 		},
 	})

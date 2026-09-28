@@ -47,9 +47,21 @@ edição é um **rascunho local**.
   baseline do formulário. Por isso salvar um item filho, que gera versão do insumo mas não
   muda os campos do form, não conta como mudança. O diff é sempre contra o salvo **atual**:
   a lista mostra exatamente o que o Salvar muda.
-- **Rascunho é do usuário**: trocar de sessão na aba (o logout não recarrega a página)
-  descarta todos. Num terminal compartilhado, o próximo usuário não vê, nem salva em nome
-  próprio, o rascunho de quem saiu.
+- **Rascunho é da conta**: cada rascunho é gravado sob a assinatura da conta dona, e cada
+  conta só lê os próprios. Trocar de conta no navegador (terminal compartilhado do rancho)
+  não apaga nada: o próximo usuário não vê nem salva em nome próprio o rascunho de quem saiu,
+  e quem saiu o reencontra ao voltar.
+- **Versão superada (preparação)**: salvar só é aceito sobre a versão **vigente** da
+  linhagem no contexto (global, ou global + fork da cozinha). Aberta uma versão que outra
+  pessoa já superou (aba esquecida, rascunho de outro dia, link do histórico), a tela mostra
+  o aviso, bloqueia o Salvar e oferece **Abrir a versão vigente**, que leva o rascunho por
+  merge de três vias (`rebaseDraftValues`): só o que o usuário mudou sai do rascunho, o resto
+  vem da vigente, e campo mudado pelos dois lados fica com o valor do usuário e é sinalizado.
+  O servidor recusa do mesmo jeito (`RECIPE_VERSION_CONFLICT`, sob o lock da linhagem), então
+  o MCP e uma tela antiga também não gravam por cima. Salvar a preparação com alteração
+  pendente no Fluxo ou em Equipamentos é recusado na tela (os dois têm "Descartar
+  alterações"): a versão nova copia só o que já foi salvo deles. Levar o rascunho para a
+  vigente com fluxo ou equipamentos pendentes pede confirmação, porque eles não vão junto.
 - **Um rascunho por registro**: a tela que usa `useDraft` remonta ao trocar de registro
   (`key` na rota). Reaproveitado pelo router, o form levava os valores editados de um
   insumo para o próximo. Na preparação, a chave é a **versão** aberta: um rascunho da v3
@@ -110,11 +122,16 @@ dado pessoal nem classificado. O mais sensível é o preço de referência, e el
 quem tem acesso ao catálogo; o rascunho só existe no aparelho dessa pessoa. Travas para o
 computador compartilhado:
 
-- **Dono:** outra conta entrando no navegador — nesta aba ou em outra — descarta todos os
-  rascunhos. Sair da conta não descarta: quem volta encontra o que deixou. Guarda só uma
-  assinatura curta da conta (FNV-1a de 32 bits), sem volta ao identificador. A amarração
-  acontece no render do cabeçalho, antes de qualquer tela restaurar rascunho.
-- **Validade:** rascunho parado há mais de 7 dias é descartado ao carregar.
+- **Por conta:** a chave é `sisub:draft:<assinatura>:<rascunho>`, e o store só carrega os
+  da conta amarrada. Outra conta entrando no navegador — nesta aba ou em outra — não vê nem
+  apaga os rascunhos da anterior; sair da conta também não apaga. A assinatura é curta
+  (FNV-1a de 32 bits), sem volta ao identificador. A amarração acontece no render do
+  cabeçalho, antes de qualquer tela restaurar rascunho. Rascunho do formato anterior (sem
+  conta na chave) vai para a chave da conta que era dona. `sisub:draft:owner` guarda a conta
+  que entrou por último: quando outra conta entra numa aba, as demais abas gravam o que a
+  anterior digitou na chave dela e recarregam (a sessão do navegador já é da nova) — quem
+  entrou não vê nem salva o rascunho de quem saiu, nem o que estava montado na tela. Política de Cookies 1.6.0.
+- **Validade:** rascunho parado há mais de 7 dias é descartado ao carregar, de qualquer conta.
 - **Só no dispositivo:** nada vai ao servidor antes do Salvar.
 - **Forma do formulário:** rascunho de antes de uma publicação que mudou o formulário (campo
   novo ou renomeado) é descartado em vez de restaurado com campo faltando.
@@ -138,7 +155,8 @@ cobre qualquer tela nova que use `useDraft`.
 | `OpenDraftsMenu` | `src/components/layout/OpenDraftsMenu.tsx` | Cabeçalho do app; lista os rascunhos abertos |
 | `AutoSaveStatus` / `autoSaveStateOf` | `src/components/features/shared/AutoSaveStatus.tsx` | No lugar do Salvar (modo B) |
 | `CollapsibleItemCard` | `src/components/features/shared/CollapsibleItemCard.tsx` | Item de lista que edita no próprio card |
-| `UnsavedChangesGuard` | `src/components/features/local/planning/UnsavedChangesGuard.tsx` | Bloqueio de saída dos editores de cardápio (legado; ver pendências) |
+| `UnsavedChangesGuard` | `src/components/features/shared/UnsavedChangesGuard.tsx` | Bloqueio de saída para editor SEM rascunho: cardápios (legado; ver pendências), fluxo e equipamentos da preparação |
+| `rebaseDraftValues` | `src/lib/drafts/rebase-draft.ts` | Leva um rascunho de uma versão superada para a vigente (merge de três vias) |
 
 ## Classificação das telas
 
@@ -164,7 +182,7 @@ cobre qualquer tela nova que use `useDraft`.
 | Previsão do comensal, descrição de item do anexo quantitativo, itens do cardápio do dia, custo da abertura de estoque | Já gravam sozinhos. **Pendente**: trocar o indicador próprio (ou nenhum) por `AutoSaveStatus` |
 | Plano semanal global | **Pendente**: hoje só explícito |
 | Configurações da cozinha, da unidade e do estoque; política de validade; avaliação; perfil | **Pendente**: hoje botão na página |
-| Fluxo de produção e equipamentos da preparação | **Pendente**: hoje "Salvar fluxo" / botão da aba. Gravam na versão atual, sem versão própria |
+| Fluxo de produção e equipamentos da preparação | **Pendente**: hoje "Salvar fluxo" / botão da aba, gravando na versão aberta, sem versão própria. Enquanto não migram, sair da aba ou da tela com alteração pede confirmação (`UnsavedChangesGuard`), e o Salvar fica bloqueado em versão superada |
 | Gerenciador de locais (`DirtyChangesBar`, "Salvar tudo") | **Pendente**: sair do modo edição descarta tudo sem aviso |
 
 ### Modo C — ação explícita

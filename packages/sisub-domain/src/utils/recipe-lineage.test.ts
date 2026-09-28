@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { isLineageWinner, type LineageRank } from "./recipe-lineage.ts"
+import { isLineageWinner, type LineageRank, pickLineageHead } from "./recipe-lineage.ts"
 
 const buildRank = (version: number, kitchenId: number | null = null): LineageRank => ({ version, kitchenId })
 
@@ -33,5 +33,24 @@ describe("isLineageWinner", () => {
 				expect(isLineageWinner(candidate, incumbent)).toBe(applyPreviousLineageRule(candidate, incumbent))
 			}
 		}
+	})
+})
+
+describe("pickLineageHead", () => {
+	const row = (id: string, version: number, kitchenId: number | null = null) => ({ id, version, kitchenId })
+
+	test("no escopo global, vence a maior versão global e os forks não contam", () => {
+		const rows = [row("g1", 1), row("g2", 2), row("k1", 5, 7)]
+		expect(pickLineageHead(rows, null)?.id).toBe("g2")
+	})
+
+	test("na cozinha, o fork dela vence o global; o de outra cozinha é ignorado", () => {
+		const rows = [row("g3", 3), row("k1", 1, 7), row("k2", 2, 7), row("x9", 9, 8)]
+		expect(pickLineageHead(rows, 7)?.id).toBe("k2")
+		expect(pickLineageHead(rows, 5)?.id).toBe("g3")
+	})
+
+	test("linhagem vazia não tem versão vigente", () => {
+		expect(pickLineageHead([], null)).toBeNull()
 	})
 })

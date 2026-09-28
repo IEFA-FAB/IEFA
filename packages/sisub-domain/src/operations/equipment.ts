@@ -72,6 +72,7 @@ import {
 import { containsPattern, insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire } from "../utils/index.ts"
 import { computeStepLevels, type FlowGraphStep } from "../utils/recipe-flow-graph.ts"
 import { type EquipmentIssueWire, loadKitchenIssues } from "./equipment-maintenance.ts"
+import { assertRecipeVersionIsHead } from "./recipe-head.ts"
 
 // ── Contrato de retorno ───────────────────────────────────────────────────
 
@@ -966,6 +967,8 @@ export async function saveRecipeEquipment(db: SisubDb, ctx: UserContext, input: 
 
 	const now = new Date().toISOString()
 	await db.transaction(async (tx) => {
+		// Versão superada não recebe equipamentos (ver `assertRecipeVersionIsHead`).
+		await assertRecipeVersionIsHead(tx as unknown as SisubDb, input.recipeId)
 		await runQuery("DELETE_FAILED", () =>
 			tx
 				.update(recipeEquipmentRequirementInKitchen)

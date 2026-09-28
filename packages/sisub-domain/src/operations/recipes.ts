@@ -32,6 +32,7 @@ import type {
 	DeleteRecipe,
 	DeleteRecipeFolder,
 	FetchRecipe,
+	FetchRecipeLineageHead,
 	ListRecipeFolders,
 	ListRecipeIngredientDigests,
 	ListRecipes,
@@ -48,6 +49,7 @@ import { containsPattern, insertOneOrFail, mutateOrFail, runQuery, toNumeric, to
 import { type Allergen, normalizeAllergens } from "./allergens.ts"
 import { copyRecipeEquipmentRequirements } from "./equipment.ts"
 import { copyRecipeFlow } from "./recipe-flow.ts"
+import { loadLineageRows, loadRecipeLineageRoot, lockRecipeLineage, pickLiveLineageHead, versionConflictError } from "./recipe-head.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
@@ -208,6 +210,34 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 	const recipe = toRecipeWire<RecipeWithIngredients>(row)
 	await attachAlternatives(db, recipe.ingredients)
 	return recipe
+}
+
+/** Versão vigente de uma linhagem no contexto de quem grava. */
+export interface RecipeLineageHead {
+	id: string
+	version: number
+	kitchen_id: number | null
+	created_at: string
+}
+
+/**
+ * Versão vigente da linhagem da preparação `recipeId` no contexto informado — a que a
+ * listagem mostra e a única sobre a qual `saveRecipeEdit` aceita gravar. `null` quando todas
+ * as versões que contam no contexto estão excluídas.
+ *
+ * Mesma autorização da leitura da ficha: ler a preparação aberta e, no contexto de uma
+ * cozinha, ler aquela cozinha (é o fork dela que pode ser a vigente).
+ */
+export async function fetchRecipeLineageHead(db: SisubDb, ctx: UserContext, input: FetchRecipeLineageHead): Promise<RecipeLineageHead | null> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	const targetKitchenId = input.context.scope === "kitchen" ? input.context.kitchenId : null
+
+	const { rootId, kitchenId } = await loadRecipeLineageRoot(db, input.recipeId)
+	requireAssetRead(ctx, kitchenId)
+	if (targetKitchenId != null) requireAssetRead(ctx, targetKitchenId)
+
+	const head = pickLiveLineageHead(await loadLineageRows(db, rootId), targetKitchenId)
+	return head ? { id: head.id, version: head.version, kitchen_id: head.kitchenId, created_at: head.createdAt } : null
 }
 
 /** Colunas que o recorte da listagem lê — da tabela ou de um alias dela. */
@@ -892,15 +922,20 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 	// versão: a listagem passaria a escolher uma das duas arbitrariamente e o histórico
 	// mostraria números repetidos. O lock é liberado no commit/rollback.
 	const recipe = await db.transaction(async (tx) => {
-		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`recipe-lineage:${rootId}`}))`)
+		await lockRecipeLineage(tx as unknown as SisubDb, rootId)
 
 		// Linhagem completa (raiz + descendentes) para achar o próximo número de versão no
 		// escopo de destino. Um fork já existente desta cozinha aparece aqui, então a edição
 		// seguinte versiona esse fork em vez de bifurcar de novo.
-		const lineage = await tx
-			.select({ kitchenId: recipesInKitchen.kitchenId, version: recipesInKitchen.version })
-			.from(recipesInKitchen)
-			.where(or(eq(recipesInKitchen.id, rootId), eq(recipesInKitchen.baseRecipeId, rootId)))
+		const lineage = await loadLineageRows(tx as unknown as SisubDb, rootId)
+
+		// Só se grava sobre a versão VIGENTE no contexto. Aberta uma versão que outra pessoa já
+		// superou (aba antiga, rascunho de dias atrás, link do histórico), salvar gravaria a
+		// ficha dela por cima da vigente e o que mudou nesse meio-tempo sumiria da preparação —
+		// ficaria só no histórico, sem ninguém perceber. Conferido sob o lock da linhagem, então
+		// dois saves simultâneos da mesma versão não passam os dois.
+		const head = pickLiveLineageHead(lineage, targetKitchenId)
+		if (head && head.id !== base.id) throw versionConflictError(head)
 
 		const nextVersion = lineage.filter((r) => r.kitchenId === targetKitchenId).reduce((max, r) => Math.max(max, r.version), 0) + 1
 

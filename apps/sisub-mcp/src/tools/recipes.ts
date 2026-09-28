@@ -94,7 +94,7 @@ const saveRecipeEditTool: ToolDefinition = {
 	schema: {
 		name: "save_recipe_edit",
 		description:
-			"Salva a edição de uma receita existente. Exige `context`: com {scope:'kitchen',kitchenId} a edição de uma receita GLOBAL não a altera — cria uma cópia local daquela cozinha (fork copy-on-write, git-like), exigindo kitchen nível 2 ali. Com {scope:'global'} cria nova versão global, exigindo global nível 2. A versão e o escopo são calculados no servidor.",
+			"Salva a edição de uma receita existente. Exige `context`: com {scope:'kitchen',kitchenId} a edição de uma receita GLOBAL não a altera — cria uma cópia local daquela cozinha (fork copy-on-write, git-like), exigindo kitchen nível 2 ali. Com {scope:'global'} cria nova versão global, exigindo global nível 2. A versão e o escopo são calculados no servidor. `baseRecipeId` tem de ser a versão VIGENTE no contexto (a que a listagem mostra; na cozinha, o fork dela se existir): versão já superada é recusada com RECIPE_VERSION_CONFLICT, para não gravar por cima do que outra pessoa mudou — releia a preparação e edite a vigente.",
 		inputSchema: toJsonSchema(SaveRecipeEditSchema),
 	},
 	async handler(args, credential) {

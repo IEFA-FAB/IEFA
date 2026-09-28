@@ -13,7 +13,8 @@ import { draftStore } from "@/lib/drafts/draft-store"
  */
 export function OpenDraftsMenu() {
 	const { user } = useAuth()
-	// Rascunho é da conta: outra conta no mesmo navegador começa sem eles. No RENDER e antes
+	// Rascunho é da conta: outra conta no mesmo navegador só vê os dela, e os da anterior
+	// ficam guardados para quando ela voltar. No RENDER e antes
 	// de ler a lista — o cabeçalho renderiza antes da tela, e os efeitos da tela (que
 	// restauram o rascunho) rodariam antes de um efeito daqui.
 	draftStore.bindOwner(user?.id ?? null)

@@ -26,12 +26,19 @@ async function loadStore() {
 	return (await import("./draft-store")).draftStore
 }
 
+/** Chave no armazenamento: a assinatura da conta vem antes da chave do rascunho. */
+async function storageKey(userId: string, key: string) {
+	const { ownerSignature } = await import("./draft-store")
+	return `sisub:draft:${ownerSignature(userId)}:${key}`
+}
+
 /** Outra aba escreveu no armazenamento: o navegador avisa as demais pelo evento `storage`. */
 function otherTabWrote(key: string, newValue: string | null) {
 	for (const listener of listeners.get("storage") ?? []) listener({ key, newValue })
 }
 
 const entry = (key: string, savedAt = Date.now()) => ({ key, values: { price: 28.5 }, baseStamp: null, title: key, href: null, changeCount: 1, savedAt })
+const EIGHT_DAYS_AGO = () => Date.now() - 8 * 24 * 60 * 60 * 1000
 
 beforeEach(() => {
 	storage = fakeStorage()
@@ -52,7 +59,7 @@ describe("draftStore — persistência local", () => {
 		store.bindOwner("user-1")
 		store.set(entry("sisub:ingredient:1"))
 		store.flush()
-		expect(storage.data.has("sisub:draft:sisub:ingredient:1")).toBe(true)
+		expect(storage.data.has(await storageKey("user-1", "sisub:ingredient:1"))).toBe(true)
 
 		const reloaded = await loadStore()
 		reloaded.bindOwner("user-1")
@@ -63,9 +70,10 @@ describe("draftStore — persistência local", () => {
 		const store = await loadStore()
 		store.bindOwner("user-1")
 		store.set(entry("k"))
-		expect(storage.data.has("sisub:draft:k")).toBe(false)
+		const key = await storageKey("user-1", "k")
+		expect(storage.data.has(key)).toBe(false)
 		store.flush()
-		expect(storage.data.has("sisub:draft:k")).toBe(true)
+		expect(storage.data.has(key)).toBe(true)
 	})
 
 	it("descartar apaga também do armazenamento", async () => {
@@ -75,26 +83,28 @@ describe("draftStore — persistência local", () => {
 		store.flush()
 		store.delete("k")
 		store.flush()
-		expect(storage.data.has("sisub:draft:k")).toBe(false)
+		expect(storage.data.has(await storageKey("user-1", "k"))).toBe(false)
 	})
 
-	it("rascunho parado há mais de 7 dias, ou sem data, é descartado ao carregar", async () => {
+	it("rascunho parado há mais de 7 dias, ou sem data, é descartado ao carregar — de qualquer conta", async () => {
 		const store = await loadStore()
 		store.bindOwner("user-1")
-		store.set(entry("velho", Date.now() - 8 * 24 * 60 * 60 * 1000))
+		store.set(entry("velho", EIGHT_DAYS_AGO()))
 		store.set(entry("novo"))
 		store.flush()
-		storage.setItem("sisub:draft:sem-data", JSON.stringify({ ...entry("sem-data"), savedAt: "ontem" }))
+		storage.setItem(await storageKey("user-1", "sem-data"), JSON.stringify({ ...entry("sem-data"), savedAt: "ontem" }))
+		storage.setItem(await storageKey("user-2", "velho-dela"), JSON.stringify(entry("velho-dela", EIGHT_DAYS_AGO())))
 
 		const reloaded = await loadStore()
 		reloaded.bindOwner("user-1")
 		expect(reloaded.get("velho")).toBeUndefined()
 		expect(reloaded.get("sem-data")).toBeUndefined()
 		expect(reloaded.get("novo")).toBeDefined()
-		expect(storage.data.has("sisub:draft:velho")).toBe(false)
+		expect(storage.data.has(await storageKey("user-1", "velho"))).toBe(false)
+		expect(storage.data.has(await storageKey("user-2", "velho-dela"))).toBe(false)
 	})
 
-	it("outra conta no mesmo navegador descarta os rascunhos de quem saiu, mesmo depois do F5", async () => {
+	it("outra conta no mesmo navegador não vê os rascunhos de quem saiu, e eles voltam com a conta dona", async () => {
 		const store = await loadStore()
 		store.bindOwner("user-1")
 		store.set(entry("k"))
@@ -104,7 +114,24 @@ describe("draftStore — persistência local", () => {
 		reloaded.bindOwner("user-2")
 		expect(reloaded.get("k")).toBeUndefined()
 		expect(reloaded.list()).toEqual([])
-		expect(storage.data.has("sisub:draft:k")).toBe(false)
+		reloaded.set(entry("dela"))
+		reloaded.flush()
+
+		const back = await loadStore()
+		back.bindOwner("user-1")
+		expect(back.get("k")).toBeDefined()
+		expect(back.get("dela")).toBeUndefined()
+	})
+
+	it("trocar de conta na mesma aba grava o que a anterior digitou na chave dela", async () => {
+		const store = await loadStore()
+		store.bindOwner("user-1")
+		store.set(entry("k"))
+		store.bindOwner("user-2")
+		expect(store.get("k")).toBeUndefined()
+		expect(storage.data.has(await storageKey("user-1", "k"))).toBe(true)
+		store.bindOwner("user-1")
+		expect(store.get("k")).toBeDefined()
 	})
 
 	it("sair da conta não descarta: quem volta encontra o rascunho", async () => {
@@ -119,69 +146,157 @@ describe("draftStore — persistência local", () => {
 		expect(reloaded.get("k")).toBeDefined()
 	})
 
-	it("outra conta entrando em OUTRA aba impede esta de gravar o rascunho da conta anterior", async () => {
+	it("gravação de OUTRA conta em outra aba não aparece nesta; a da mesma conta aparece", async () => {
+		const store = await loadStore()
+		store.bindOwner("user-1")
+		const theirs = await storageKey("user-2", "dela")
+		storage.setItem(theirs, JSON.stringify(entry("dela")))
+		otherTabWrote(theirs, JSON.stringify(entry("dela")))
+		expect(store.get("dela")).toBeUndefined()
+
+		const mine = await storageKey("user-1", "minha")
+		otherTabWrote(mine, JSON.stringify(entry("minha")))
+		expect(store.get("minha")).toBeDefined()
+	})
+
+	it("rascunho do formato antigo vai para a chave da conta que era dona dele", async () => {
+		const { ownerSignature } = await import("./draft-store")
+		storage.setItem("sisub:draft:owner", ownerSignature("user-1"))
+		storage.setItem("sisub:draft:sisub:ingredient:1", JSON.stringify(entry("sisub:ingredient:1")))
+
+		const store = await loadStore()
+		store.bindOwner("user-1")
+		expect(store.get("sisub:ingredient:1")).toBeDefined()
+		expect(storage.data.has("sisub:draft:sisub:ingredient:1")).toBe(false)
+		expect(storage.data.has(await storageKey("user-1", "sisub:ingredient:1"))).toBe(true)
+
+		// Outra conta entra primeiro: não vê o rascunho, mas ele não se perde — vai para a dona.
+		storage.setItem("sisub:draft:owner", ownerSignature("user-1"))
+		storage.setItem("sisub:draft:sisub:ingredient:2", JSON.stringify(entry("sisub:ingredient:2")))
+		const other = await loadStore()
+		other.bindOwner("user-2")
+		expect(other.get("sisub:ingredient:2")).toBeUndefined()
+		expect(storage.data.has("sisub:draft:sisub:ingredient:2")).toBe(false)
+		expect(storage.data.has(await storageKey("user-1", "sisub:ingredient:2"))).toBe(true)
+		expect(storage.data.get("sisub:draft:owner")).toBe(ownerSignature("user-2"))
+	})
+
+	it("outra conta entrando em OUTRA aba: esta grava o que a anterior digitou na chave dela e recarrega", async () => {
+		const { ownerSignature } = await import("./draft-store")
+		const reload = vi.fn()
+		vi.stubGlobal("window", {
+			localStorage: storage,
+			location: { reload },
+			addEventListener: (type: string, fn: Listener) => listeners.set(type, [...(listeners.get(type) ?? []), fn]),
+		})
 		const store = await loadStore()
 		store.bindOwner("user-1")
 		store.set(entry("k"))
-		store.flush()
 
-		// aba 2: user-2 entrou, limpou e gravou a assinatura dele
-		storage.data.delete("sisub:draft:k")
-		storage.setItem("sisub:draft:owner", "outra-assinatura")
-		otherTabWrote("sisub:draft:owner", "outra-assinatura")
+		// aba 2: user-2 entrou
+		storage.setItem("sisub:draft:owner", ownerSignature("user-2"))
+		otherTabWrote("sisub:draft:owner", ownerSignature("user-2"))
 
-		// aba 1 ainda digitando: nada vai para o armazenamento, e a memória foi esvaziada
+		expect(storage.data.has(await storageKey("user-1", "k"))).toBe(true)
+		expect(reload).toHaveBeenCalledTimes(1)
+
+		// recarregamento cancelado (aviso de alteração não salva): a aba não mostra, não aceita
+		// nem grava nada até a sessão dela alcançar user-2
 		expect(store.get("k")).toBeUndefined()
-		store.set(entry("k2"))
-		store.flush()
-		expect(storage.data.has("sisub:draft:k2")).toBe(false)
-
-		// o cabeçalho da aba 1 re-renderiza com a sessão antiga em cache: não pode re-amarrar
-		// à conta anterior nem regravar o dono dela
+		store.set(entry("digitado-depois"))
 		store.bindOwner("user-1")
-		expect(storage.data.get("sisub:draft:owner")).toBe("outra-assinatura")
-		store.set(entry("k3"))
-		store.flush()
-		expect(storage.data.has("sisub:draft:k3")).toBe(false)
+		expect(store.list()).toEqual([])
+		store.bindOwner("user-2")
+		expect(store.get("digitado-depois")).toBeUndefined()
+		expect(storage.data.has(await storageKey("user-2", "digitado-depois"))).toBe(false)
 	})
 
-	it("depois que a sessão da aba alcança a conta nova, ela carrega os rascunhos dessa conta", async () => {
+	it("descartar antes do bind não ressuscita o rascunho guardado", async () => {
+		const first = await loadStore()
+		first.bindOwner("user-1")
+		first.set(entry("k"))
+		first.flush()
+
+		const store = await loadStore()
+		store.delete("k")
+		store.bindOwner("user-1")
+		expect(store.get("k")).toBeUndefined()
+		expect(storage.data.has(await storageKey("user-1", "k"))).toBe(false)
+	})
+
+	it("a mesma conta entrando em outra aba não recarrega esta", async () => {
+		const { ownerSignature } = await import("./draft-store")
+		const reload = vi.fn()
+		vi.stubGlobal("window", {
+			localStorage: storage,
+			location: { reload },
+			addEventListener: (type: string, fn: Listener) => listeners.set(type, [...(listeners.get(type) ?? []), fn]),
+		})
 		const store = await loadStore()
 		store.bindOwner("user-1")
-		const { ownerSignature } = await import("./draft-store")
-		const signature2 = ownerSignature("user-2")
-		storage.setItem("sisub:draft:owner", signature2)
-		storage.setItem("sisub:draft:dela", JSON.stringify(entry("dela")))
-		otherTabWrote("sisub:draft:owner", signature2)
+		otherTabWrote("sisub:draft:owner", ownerSignature("user-1"))
+		expect(reload).not.toHaveBeenCalled()
+	})
 
+	it("rascunho do formato antigo não passa por cima de rascunho mais novo da conta dona", async () => {
+		const { ownerSignature } = await import("./draft-store")
+		storage.setItem("sisub:draft:owner", ownerSignature("user-1"))
+		storage.setItem("sisub:draft:k", JSON.stringify({ ...entry("k"), values: { price: 1 } }))
+		storage.setItem(await storageKey("user-1", "k"), JSON.stringify({ ...entry("k"), values: { price: 2 } }))
+		const store = await loadStore()
 		store.bindOwner("user-2")
-		expect(store.get("dela")).toBeDefined()
-		store.set(entry("nova"))
-		store.flush()
-		expect(storage.data.has("sisub:draft:nova")).toBe(true)
+		expect(JSON.parse(storage.data.get(await storageKey("user-1", "k")) as string).values).toEqual({ price: 2 })
+		expect(storage.data.has("sisub:draft:k")).toBe(false)
+	})
+
+	it("no primeiro bind só grava o que nasceu antes dele, não regrava os que vieram do armazenamento", async () => {
+		const first = await loadStore()
+		first.bindOwner("user-1")
+		first.set(entry("antigo"))
+		first.flush()
+
+		const store = await loadStore()
+		store.set(entry("antes-do-bind"))
+		expect(store.isPersistent()).toBe(false)
+		const writes: string[] = []
+		const setItem = storage.setItem
+		storage.setItem = (k: string, v: string) => {
+			writes.push(k)
+			setItem(k, v)
+		}
+		store.bindOwner("user-1")
+		expect(writes).toEqual([await storageKey("user-1", "antes-do-bind")])
+		expect(store.get("antigo")).toBeDefined()
+		expect(store.isPersistent()).toBe(true)
 	})
 
 	it("entrada inválida vinda de outra aba é ignorada", async () => {
 		const store = await loadStore()
 		store.bindOwner("user-1")
-		otherTabWrote("sisub:draft:x", JSON.stringify({ key: "x" }))
+		const key = await storageKey("user-1", "x")
+		otherTabWrote(key, JSON.stringify({ key: "x" }))
 		expect(store.get("x")).toBeUndefined()
 	})
 
-	it("guarda só uma assinatura curta da conta, nunca o identificador", async () => {
+	it("a chave guarda só uma assinatura curta da conta, nunca o identificador", async () => {
 		const store = await loadStore()
 		const userId = "7f3c1d2e-9a8b-4c5d-b6e7-f8091a2b3c4d"
 		store.bindOwner(userId)
-		const saved = storage.data.get("sisub:draft:owner")
-		expect(saved).toMatch(/^[0-9a-f]{8}$/)
-		expect(saved).not.toContain(userId.slice(0, 8))
+		store.set(entry("k"))
+		store.flush()
+		const saved = [...storage.data.keys()].filter((key) => key !== "sisub:draft:owner")
+		expect(saved).toHaveLength(1)
+		expect(saved[0]).toMatch(/^sisub:draft:[0-9a-f]{8}:k$/)
+		expect(saved[0]).not.toContain(userId.slice(0, 8))
 	})
 
 	it("armazenamento corrompido não derruba a carga", async () => {
-		storage.setItem("sisub:draft:quebrado", "{não é json")
+		const key = await storageKey("user-1", "quebrado")
+		storage.setItem(key, "{não é json")
 		const store = await loadStore()
+		store.bindOwner("user-1")
 		expect(store.list()).toEqual([])
-		expect(storage.data.has("sisub:draft:quebrado")).toBe(false)
+		expect(storage.data.has(key)).toBe(false)
 	})
 
 	it("sem armazenamento, o store segue em memória e diz que não persiste", async () => {

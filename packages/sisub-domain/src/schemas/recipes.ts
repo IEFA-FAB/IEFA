@@ -7,6 +7,16 @@ export const FetchRecipeSchema = z.object({
 export type FetchRecipe = z.infer<typeof FetchRecipeSchema>
 
 /**
+ * Versão vigente da linhagem de uma preparação, para quem grava no contexto informado. A
+ * tela de edição compara com a versão aberta para avisar antes de o Salvar ser recusado.
+ */
+export const FetchRecipeLineageHeadSchema = z.object({
+	recipeId: UuidSchema,
+	context: EditScopeSchema,
+})
+export type FetchRecipeLineageHead = z.infer<typeof FetchRecipeLineageHeadSchema>
+
+/**
  * Ingredientes (sem quantidade) de várias fichas de uma vez — o cardápio impresso lista os de
  * cada preparação. Teto folgado: uma semana de cardápio tem algumas dezenas de fichas.
  */
@@ -165,7 +175,11 @@ export type CreateRecipe = z.infer<typeof CreateRecipeSchema>
  * cozinha virar uma nova versão global.
  */
 export const SaveRecipeEditSchema = CreateRecipeSchema.omit({ kitchenId: true }).extend({
-	/** Versão que o usuário abriu para editar. A raiz da linhagem é resolvida no servidor. */
+	/**
+	 * Versão que o usuário abriu para editar. A raiz da linhagem é resolvida no servidor, e a
+	 * edição é recusada se esta não for a versão vigente no contexto (outra pessoa gravou
+	 * depois): salvar gravaria por cima do que mudou.
+	 */
 	baseRecipeId: UuidSchema,
 	context: EditScopeSchema,
 })
