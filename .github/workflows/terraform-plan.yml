@@ -36,6 +36,7 @@ concurrency:
 jobs:
   detect:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       stacks: ${{ steps.detect.outputs.stacks }}
     steps:
@@ -82,6 +83,7 @@ jobs:
     needs: detect
     if: needs.detect.outputs.stacks != '[]' && vars.AWS_TF_PLAN_ROLE_ARN != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       id-token: write
       contents: read
@@ -119,7 +121,7 @@ jobs:
 
       - name: Configure AWS credentials
         if: steps.tfvars.outputs.has_tfvars == 'true'
-        uses: aws-actions/configure-aws-credentials@v6.3.0
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_TF_PLAN_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -154,7 +156,9 @@ jobs:
           set -e
           # Trim to keep the PR comment within GitHub's 65k-char limit.
           head -c 60000 plan.txt > plan.trimmed.txt
-          [ "$(wc -c < plan.txt)" -gt 60000 ] && echo -e "\n… (truncated)" >> plan.trimmed.txt || true
+          if [ "$(wc -c < plan.txt)" -gt 60000 ]; then
+            printf '\n… (truncated)\n' >> plan.trimmed.txt
+          fi
 
       - name: Comment plan on PR
         if: steps.tfvars.outputs.has_tfvars == 'true'

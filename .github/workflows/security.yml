@@ -24,8 +24,10 @@ on:
 permissions:
   contents: read
 
+# O evento entra no grupo para o agendamento semanal (o único que varre o histórico inteiro
+# com o gitleaks) não ser cancelado por um push na `main` que chegue no meio dele.
 concurrency:
-  group: security-${{ github.ref }}
+  group: security-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -36,6 +38,14 @@ env:
   GITLEAKS_VERSION: "8.30.1"
   # Linha linux_x64 do gitleaks_<versão>_checksums.txt da release.
   GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  ACTIONLINT_VERSION: "1.7.12"
+  # sha256 do asset actionlint_<versão>_linux_amd64.tar.gz da release (campo `digest`).
+  ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+  # shellcheck fixado em vez do da imagem: a versão da ubuntu-latest acusa SC2015 que a 0.11
+  # não acusa, e o resultado local tem de ser o mesmo do CI.
+  SHELLCHECK_VERSION: "0.11.0"
+  # sha256 do asset shellcheck-v<versão>.linux.x86_64.tar.xz da release (campo `digest`).
+  SHELLCHECK_SHA256: "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
 
 jobs:
   # ============================================
@@ -184,7 +194,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.0
 
@@ -268,6 +278,39 @@ jobs:
           advanced-security: true
           persona: regular
 
+  # O zizmor olha segurança; o actionlint olha correção: expressão com tipo errado, `needs`
+  # para job inexistente, input que não existe no reusable, e o shellcheck de cada `run:`.
+  # Workflow que não parseia não gera check nenhum, e check obrigatório que nunca chega
+  # deixa todo PR esperando. Configuração em `.github/actionlint.yaml`.
+  actionlint:
+    name: actionlint (workflows)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install actionlint and shellcheck
+        run: |
+          curl -fsSL -o shellcheck.tar.xz \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          echo "${SHELLCHECK_SHA256}  shellcheck.tar.xz" | sha256sum -c -
+          tar -xJf shellcheck.tar.xz "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          sudo mv "shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/
+          rm -r shellcheck.tar.xz "shellcheck-v${SHELLCHECK_VERSION}"
+          shellcheck --version
+          curl -fsSL -o actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
+          tar -xzf actionlint.tar.gz actionlint
+          sudo mv actionlint /usr/local/bin/
+          rm actionlint.tar.gz
+          actionlint -version
+
+      - name: Lint workflows
+        run: actionlint -shellcheck /usr/local/bin/shellcheck
+
   # ============================================
   # BANCO — RLS dos schemas expostos no PostgREST
   # ============================================
@@ -283,7 +326,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.0
 
@@ -341,7 +384,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.0"
 

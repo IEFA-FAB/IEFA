@@ -24,6 +24,11 @@ on:
         required: false
         type: number
         default: 15
+      bake_attempt_timeout_minutes:
+        description: "Timeout de CADA tentativa do bake. Menor que o do job, para um travamento do buildkit virar falha e sobrar tempo para a segunda tentativa"
+        required: false
+        type: number
+        default: 8
     outputs:
       tag:
         description: "Tag unica gerada para a imagem"
@@ -44,6 +49,16 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    # Um build por serviço de cada vez, sem cancelar. Todo build publica `:latest`, que é o
+    # que o ECS roda, e com dois runs da `main` em paralelo o build do commit mais velho podia
+    # terminar depois do mais novo e deixar `:latest` na imagem velha. A fila sozinha não
+    # ordena por commit (o build do mais novo pode pegar o grupo primeiro), por isso o passo
+    # "Decide whether to move :latest" confere a revisão antes de mover a tag. Um build
+    # pendente é substituído pelo do run seguinte, que contém o mesmo código.
+    # Sem `github.ref` no grupo porque `:latest` é um só, venha de onde vier o run.
+    concurrency:
+      group: ecr-build-${{ inputs.service }}
+      cancel-in-progress: false
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
     steps:
@@ -53,26 +68,73 @@ jobs:
           # depois. Este job só faz build e push pro ECR — não usa credencial de git.
           persist-credentials: false
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6.3.0
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
       - name: Generate tag
         id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
+        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
-        uses: docker/bake-action@v7
+      # Só move `:latest` se este commit descende do que `:latest` já tem (label
+      # `org.opencontainers.image.revision`, gravada abaixo). Sem isso, merges A e B em
+      # sequência com o build de B pegando a fila primeiro deixariam o de A reapontar
+      # `:latest` para o código velho, e o deploy de A o publicaria com tudo verde.
+      # A imagem com tag de SHA é publicada sempre. Falha aberto (move, como antes) quando
+      # não dá para ler a revisão: imagem anterior a esta label, ou erro de rede/API.
+      # `workflow_dispatch` move sempre: é ato explícito de alguém (o `force_<app>`).
+      - name: Decide whether to move :latest
+        id: latest
         env:
           IMAGE_REPO: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}
-        with:
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "move=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          current="$(docker buildx imagetools inspect "$IMAGE_REPO:latest" --format '{{json .Image}}' 2>/dev/null \
+            | jq -r '[.. | objects | .Labels? // empty | .["org.opencontainers.image.revision"]? // empty] | first // empty' 2>/dev/null)"
+          if [ -z "$current" ]; then
+            echo "::notice:::latest sem revisão legível; movendo :latest como antes."
+            echo "move=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${current}...${GITHUB_SHA}" --jq .status 2>/dev/null)"
+          echo ":latest está em ${current}; este build é ${GITHUB_SHA} (compare: ${status:-erro})"
+          case "$status" in
+            ahead|identical) echo "move=true" >> "$GITHUB_OUTPUT" ;;
+            behind|diverged)
+              echo "::warning:::latest já tem um commit mais novo (${current}); publicando só a tag de SHA."
+              echo "move=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *) echo "move=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      # Primeira tentativa com `continue-on-error`, e uma segunda só se ela falhar. O buildkit
+      # às vezes perde o processo do passo no meio: `test -f` de um arquivo que existe travou
+      # ~3 min e saiu com `exit code: 4294967295` (run 36355268327, build-mcp), verde no rerun.
+      # O builder guarda em cache local tudo o que já passou, então a segunda tentativa refaz
+      # só o passo que caiu: para erro de verdade o custo é repetir esse passo (~20 s no
+      # `vite build` do sisub), e o job fica vermelho do mesmo jeito. O timeout por tentativa
+      # faz um travamento virar falha (e disparar a segunda) em vez de esgotar o job inteiro.
+      - name: Build and push
+        id: bake
+        continue-on-error: true
+        timeout-minutes: ${{ inputs.bake_attempt_timeout_minutes }}
+        uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
+        env: &bake-env
+          IMAGE_REPO: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}
+        with: &bake-with
           files: ./docker-bake.hcl
           targets: ${{ inputs.service }}
           push: true
@@ -81,15 +143,27 @@ jobs:
           # sha-tagged image is also pushed for traceability/rollback.
           set: |
             ${{ inputs.service }}.tags=${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.tag }}
-            ${{ inputs.service }}.tags=${{ env.IMAGE_REPO }}:latest
+            ${{ steps.latest.outputs.move != 'false' && format('{0}.tags={1}:latest', inputs.service, env.IMAGE_REPO) || '' }}
+            ${{ inputs.service }}.labels.org.opencontainers.image.revision=${{ github.sha }}
             ${{ inputs.bake_set }}
             ${{ secrets.FARO_SOURCEMAP_API_KEY && format('{0}.args.FARO_SOURCEMAP_API_KEY={1}', inputs.service, secrets.FARO_SOURCEMAP_API_KEY) || '' }}
+
+      - name: Build and push (retry)
+        if: steps.bake.outcome == 'failure'
+        timeout-minutes: ${{ inputs.bake_attempt_timeout_minutes }}
+        uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
+        env: *bake-env
+        with: *bake-with
 
       # Varredura da imagem que ACABOU de ser publicada — a única camada que enxerga o
       # que veio da imagem base e dos pacotes de SO (opengrep/codeql só olham o código).
       # `exit-code: 0` de propósito: isto é observação, não gate. Bloquear o deploy por
       # CVE de pacote de SO sem fix disponível pararia a entrega sem ganho real.
+      # `continue-on-error` pelo mesmo motivo: o `exit-code: 0` só cobre achado, não erro do
+      # próprio scanner. Em 2026-09-09/10 um `failed to analyze layer` do trivy derrubou 14
+      # builds já publicados no ECR e deixou os deploys `skipped`.
       - name: Trivy — scan da imagem
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image

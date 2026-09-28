@@ -14,9 +14,9 @@ paths:
 
 | Workflow | Quando | Gate |
 |----------|--------|------|
-| `pr-check.yml` | PR | format + `turbo run lint typecheck test --affected` (sem segredo; arquivo global alterado roda tudo) |
+| `pr-check.yml` | PR | format + `turbo run lint typecheck test --affected` + `build` dos afetados (sem segredo; arquivo global alterado roda tudo) |
 | `security.yml` | PR, push na main, semanal | opengrep (ERROR bloqueia), `bun audit` crítico, drift do manifesto, headers; CodeQL/Trivy só reportam |
-| `integration.yml` | todo PR, push na main, dispatch; `changes` usa o escopo sisub do `paths-filter.yml` | PR: `gate` (`test:integration:gate` transacional + `audit:rls`, fila por PR, check obrigatório). Main e dispatch: `gate` + `full` (suíte inteira, monitor, trava global do banco) |
+| `integration.yml` | todo PR, push na main, dispatch; `changes` usa o escopo sisub do `paths-filter.yml` | PR: `gate` (`test:integration:gate` transacional + `audit:rls`, fila por PR, check obrigatório). Main e dispatch: `gate` a cada commit + `full` (suíte inteira, monitor, trava global do banco) |
 | `commit-lint.yml` | PR | título do PR (e subject do commit único) no commitlint |
 | `deploy.yml` (`CI/CD`) | push na main | `changes` → `check-<app>` → `build-<app>` → `deploy-<app>` por app (paths-filter); sem integração |
 | `terraform-plan/apply` | PR / push em `infra/**` | plan com role de PR; apply só na main |
@@ -37,8 +37,14 @@ paths:
   de reset de treino (`training.operations.test.ts`): siga a ordem declara → aplica → mergeia de
   `.claude/rules/database.md`.
 - **Check vermelho deixa build/deploy `skipped`, não `failed`.** Depois de mergear, confira o run do
-  `CI/CD` pelo SHA (`git merge-base --is-ancestor <seu_sha> <sha_do_run>`): merge seguido de outro
-  cancela o run do primeiro.
+  `CI/CD` pelo SHA (`git merge-base --is-ancestor <seu_sha> <sha_do_run>`). Build e deploy correm
+  um por serviço de cada vez, sem cancelar o que já roda (`:latest` é um só); com três merges em
+  sequência, o do meio fica pendente e é substituído pelo seguinte, e o run dele sai `cancelled`.
+  `:latest` só avança: no push, o build confere a label `org.opencontainers.image.revision` da
+  `:latest` atual e, se ela já tem commit mais novo, publica só a tag de SHA (aviso no log).
+- **Build de imagem tenta duas vezes.** Falha do buildkit num passo trivial
+  (`exit code: 4294967295`) passa na segunda; erro de verdade falha nas duas, e o log útil é o
+  da primeira (`Build and push`), não o do `(retry)`.
 - **`cancelled` no `full` da `main` é commit mais novo na fila da trava**, não reprovação: o run do
   commit seguinte cobre os dois. No PR, `cancelled` só vem de push novo no mesmo PR. `gh pr checks`
   mostra `cancelled` como `fail` e só lista check já registrado: confira o workflow pelo SHA.
@@ -52,8 +58,12 @@ paths:
 - Nunca `pull_request_target` nem `workflow_run` com código do PR.
 - `${{ … }}` de texto controlado pelo autor (título, branch, corpo) vai por `env:`, nunca
   interpolado no `run:`.
-- Action de terceiro com pin por SHA; `actions/*`, `github/*`, `docker/*`, `aws-actions/*` e
-  `oven-sh/*` podem usar tag (`.github/zizmor.yml`).
+- Action com pin por SHA e a versão em comentário (`uses: x/y@<sha> # v1.2.3`, o formato que o
+  Dependabot atualiza). Só `actions/*` e `github/*` podem usar tag (`.github/zizmor.yml`).
+- Reusable recebe segredo nomeado, nunca `secrets: inherit`.
+- `actionlint` (job do `security.yml`, config em `.github/actionlint.yaml`) roda o shellcheck em
+  cada `run:`, com o shellcheck 0.11 fixado no job (o da imagem acusa outra coisa). Rode local
+  antes do push: `actionlint -shellcheck <caminho do shellcheck 0.11>`.
 - `checkout` com `persist-credentials: false` em job que não faz push.
 - `id-token: write` só no job que assume role AWS, nunca no topo do workflow.
 - Binário baixado por `curl` (opengrep, gitleaks) confere sha256 fixado no workflow.
