@@ -13,7 +13,7 @@ function candidateLabel(candidate: PersonCandidate): string {
 }
 
 /**
- * Busca de pessoa para conceder acesso: nome (posto + nome de guerra), e-mail ou Nr. de ordem,
+ * Busca de pessoa para conceder acesso: nome (posto + nome de guerra), e-mail ou SARAM,
  * no cadastro do ERP, pelo servidor. Combobox do Base UI com filtro desligado (`filter={null}`):
  * quem filtra é a busca, e a lista mostra o que ela devolveu. Setas, Enter e Esc funcionam
  * como em qualquer combobox; o estado da busca é anunciado (`Combobox.Status`).
@@ -98,7 +98,7 @@ export function PersonPicker({
 						select(first)
 						setOpen(false)
 					}}
-					placeholder="Nome de guerra, e-mail ou Nr. de ordem"
+					placeholder="Nome de guerra, e-mail ou SARAM"
 					className="h-9 w-full min-w-0 border border-input bg-transparent pr-2.5 pl-8 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
 				/>
 			</div>
@@ -116,7 +116,7 @@ export function PersonPicker({
 									<span className="truncate font-medium">{candidateLabel(candidate)}</span>
 									<span className="flex gap-2 truncate text-muted-foreground text-xs">
 										{candidate.name && candidate.email ? <span className="truncate">{candidate.email}</span> : null}
-										{candidate.nrOrdem ? <span className="shrink-0 font-mono">{candidate.nrOrdem}</span> : null}
+										{candidate.saram ? <span className="shrink-0 font-mono">{candidate.saram}</span> : null}
 									</span>
 								</Combobox.Item>
 							)}

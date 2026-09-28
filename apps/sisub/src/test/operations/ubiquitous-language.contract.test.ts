@@ -14,7 +14,15 @@
  * DATADA: o PR do contract que os derruba esvazia a lista. O lote 2 (anexo quantitativo) já passou
  * pelo contract 20260927050000, o lote 3 (pesquisa de preços e prefixos) pelo 20260927070000 e o
  * lote 4 (finanças) pelo 20260927090000, o lote 7 (arranchamento) pelo 20260927140000 e o lote 8b
- * (efetivo por refeitório) pelo 20260927160000.
+ * (efetivo por refeitório) pelo 20260927160000. O lote 6 (SARAM) está em expand (20260927180000),
+ * com a compatibilidade dele na lista até o contract 20260927190000.
+ *
+ * ## Espelho do cadastro de pessoal
+ *
+ * `core.user_military_data` guarda o nome do sistema de origem (`"nrOrdem"` é o SARAM, D2 e D3):
+ * a coluna e o índice dela estão em `MIRROR_ALLOWLIST`, que é permanente. Por isso o texto (corpo
+ * de função, view, comentário) só é acusado por `nr_ordem`: `"nrOrdem"` aparece legitimamente na
+ * view `core.military_identity`, em `analytics.v_user_identity` e em `core.military_masked_cpf`.
  *
  * A lista de termos cresce por lote, como a do opengrep.
  *
@@ -46,10 +54,11 @@ const SCHEMAS = ["core", "kitchen", "procurement", "finance", "inventory", "acce
  * (`available_credit_siafi`) e a UG emitente é `issuer_ug`. Lote 7: o comensal se arrancha
  * (`kitchen.arranchamento`), não `meal_forecasts`; `forecasted_headcount` (a estimativa agregada)
  * não casa. Lote 8b: "rancho" é ambíguo (refeitório, cozinha ou unidade); o roster do efetivo é
- * `kitchen.mess_hall_workforce` e a resposta aponta para ele por `mess_hall_workforce_id`.
+ * `kitchen.mess_hall_workforce` e a resposta aponta para ele por `mess_hall_workforce_id`. Lote 6: o
+ * número do militar é o SARAM (`saram`), não `nr_ordem`/`nrOrdem`.
  */
 const DISCARDED_IDENTIFIER =
-	/procurement_list|kitchen_ata_draft|(^|_)list_id($|_)|list_kitchen_id|max_margin|margin_justification|(^|_)total_quantity($|_)|(^|_)ata_(id|item_id|draft)($|_)|pesquisa_preco|compras_amostra|(^|_)amostra(_id)?($|_)|procurement_arp|procurement_segment|(^|_)dotacao($|_)|saldo_siafi|ug_emitente|meal_forecasts?|rancho/
+	/procurement_list|kitchen_ata_draft|(^|_)list_id($|_)|list_kitchen_id|max_margin|margin_justification|(^|_)total_quantity($|_)|(^|_)ata_(id|item_id|draft)($|_)|pesquisa_preco|compras_amostra|(^|_)amostra(_id)?($|_)|procurement_arp|procurement_segment|(^|_)dotacao($|_)|saldo_siafi|ug_emitente|meal_forecasts?|rancho|nr_ordem|nrOrdem/
 
 /**
  * Nome descartado citado em texto (corpo de função, definição de view, comentário), em regex do
@@ -57,22 +66,40 @@ const DISCARDED_IDENTIFIER =
  * no nome da função "Fiscal de rancho", a única exceção do glossário; `PIRANCHO` e `arranchamento`
  * não casam (`\m` pede início de palavra).
  */
-const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M|\mmeal_forecasts?\M|(?<![Ff]iscal de )(?<![Ff]iscais de )\m[Rr][Aa][Nn][Cc][Hh][Oo]\w*`
+const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M|\mmeal_forecasts?\M|\w*nr_ordem\w*|(?<![Ff]iscal de )(?<![Ff]iscais de )\m[Rr][Aa][Nn][Cc][Hh][Oo]\w*`
 
 /**
- * Compatibilidade de um expand em andamento, até o contract dele. Vazia: os contracts
- * 20260927050000 (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e
- * prefixos), 20260927090000 (lote 4, finanças), 20260927140000 (lote 7, arranchamento) e
- * 20260927160000 (lote 8b, efetivo por refeitório) derrubaram as delas. Chave:
- * `tipo:schema.objeto[.coluna]`.
+ * Compatibilidade de um expand em andamento, até o contract dele. Os contracts 20260927050000
+ * (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e prefixos),
+ * 20260927090000 (lote 4, finanças), 20260927140000 (lote 7, arranchamento) e 20260927160000 (lote
+ * 8b, efetivo por refeitório) derrubaram as delas; sobra a do lote 6 (SARAM), que o contract
+ * 20260927190000 derruba e o PR dele esvazia. Chave: `tipo:schema.objeto[.coluna]`.
  */
-const EXPAND_ALLOWLIST = new Set<string>([])
+const EXPAND_ALLOWLIST = new Set<string>([
+	// Lote 6 (SARAM), expand 20260927180000 → contract 20260927190000.
+	"column:core.person.nr_ordem",
+	"column:core.user_data.nrOrdem",
+	"column:core.person_identity.nr_ordem",
+	"constraint:core.person_nr_ordem_key",
+	"relation:core.person_nr_ordem_key",
+	"relation:core.user_data_nrOrdem_idx",
+	// Único condicional de 20260921160410: só existe em banco sem SARAM repetido (não no compartilhado).
+	"relation:core.user_data_nr_ordem_uniq",
+	"function:core.mirror_person_saram",
+	"view:core.person_identity",
+])
+
+/**
+ * O espelho do cadastro de pessoal guarda o nome do sistema de origem: permanente, não sai com
+ * contract nenhum (a carga do mantenedor traz a coluna com esse nome; `LGPD.md`).
+ */
+const MIRROR_ALLOWLIST = new Set<string>(["column:core.user_military_data.nrOrdem", "relation:core.user_military_data_nrOrdem_idx"])
 
 /** Views de compatibilidade: as colunas delas e a definição saem com elas. */
 const allowedRelation = (schema: string, name: string) => EXPAND_ALLOWLIST.has(`relation:${schema}.${name}`)
 
 function offending(keys: string[]): string[] {
-	return keys.filter((k) => !EXPAND_ALLOWLIST.has(k))
+	return keys.filter((k) => !EXPAND_ALLOWLIST.has(k) && !MIRROR_ALLOWLIST.has(k))
 }
 
 describeIf("linguagem ubíqua no banco vivo", () => {

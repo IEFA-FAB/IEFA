@@ -76,7 +76,7 @@ export const fetchMySucontPermissionsFn = createServerFn({ method: "GET" }).hand
 	return resolveModulePermissions(userId, getAccessControlClient(), MODULES)
 })
 
-export type SucontUserSearchResult = { id: string; email: string; nrOrdem: string | null; posto: string | null; nomeGuerra: string | null }
+export type SucontUserSearchResult = { id: string; email: string; saram: string | null; posto: string | null; nomeGuerra: string | null }
 
 /**
  * Busca usuários por e-mail (para conceder acesso). Só admin do sucont.
@@ -90,13 +90,13 @@ export const searchUsersByEmailFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<SucontUserSearchResult[]> => {
 		await requireSucontAdmin()
 		const rows = await searchUsersByEmail(getCoreClient(), data.email)
-		const military = await fetchMilitaryIdentities(rows.map((r) => r.nrOrdem ?? ""))
-		return rows.map(({ id, email, nrOrdem }) => ({
+		const military = await fetchMilitaryIdentities(rows.map((r) => r.saram ?? ""))
+		return rows.map(({ id, email, saram }) => ({
 			id,
 			email,
-			nrOrdem,
-			posto: (nrOrdem && military.get(nrOrdem)?.posto) || null,
-			nomeGuerra: (nrOrdem && military.get(nrOrdem)?.nomeGuerra) || null,
+			saram,
+			posto: (saram && military.get(saram)?.posto) || null,
+			nomeGuerra: (saram && military.get(saram)?.nomeGuerra) || null,
 		}))
 	})
 
@@ -174,7 +174,7 @@ export type SucontGrant = {
 	/** E-mail institucional. Vazio só quando a conta não tem e-mail no GoTrue. */
 	email: string
 	/** SARAM vinculado à conta, e a identificação militar que ele resolve. */
-	nrOrdem: string | null
+	saram: string | null
 	posto: string | null
 	nomeGuerra: string | null
 	level: number
@@ -232,11 +232,11 @@ export const listSucontGrantsFn = createServerFn({ method: "GET" }).handler(asyn
 	const userIds = [...new Set(all.map((g) => g.userId))]
 	const core = getCoreClient()
 
-	const { data: users, error: usersError } = await core.from("user_data").select("id, email, nrOrdem").in("id", userIds)
+	const { data: users, error: usersError } = await core.from("user_data").select("id, email, saram").in("id", userIds)
 	if (usersError) throw new Error(usersError.message)
 
 	const rowById = new Map(
-		((users ?? []) as Array<{ id: string; email: string | null; nrOrdem: string | null }>).map((u) => [u.id, { email: u.email ?? "", nrOrdem: u.nrOrdem }])
+		((users ?? []) as Array<{ id: string; email: string | null; saram: string | null }>).map((u) => [u.id, { email: u.email ?? "", saram: u.saram }])
 	)
 
 	const [emailFallback, military] = await Promise.all([
@@ -244,17 +244,17 @@ export const listSucontGrantsFn = createServerFn({ method: "GET" }).handler(asyn
 			core,
 			userIds.filter((id) => !rowById.get(id)?.email)
 		),
-		fetchMilitaryIdentities(userIds.map((id) => rowById.get(id)?.nrOrdem ?? "")),
+		fetchMilitaryIdentities(userIds.map((id) => rowById.get(id)?.saram ?? "")),
 	])
 
 	const identified = all.map((g): SucontGrant => {
 		const row = rowById.get(g.userId)
-		const nrOrdem = row?.nrOrdem?.trim() || null
-		const person = nrOrdem ? military.get(nrOrdem) : undefined
+		const saram = row?.saram?.trim() || null
+		const person = saram ? military.get(saram) : undefined
 		return {
 			...g,
 			email: row?.email || emailFallback.get(g.userId) || "",
-			nrOrdem,
+			saram,
 			posto: person?.posto ?? null,
 			nomeGuerra: person?.nomeGuerra ?? null,
 		}
@@ -295,7 +295,7 @@ async function fetchEmailsFromAuth(core: AnySupabaseClient, userIds: readonly st
 	return new Map(resolved.filter(([, email]) => email !== ""))
 }
 
-type PartialGrant = Omit<SucontGrant, "email" | "nrOrdem" | "posto" | "nomeGuerra">
+type PartialGrant = Omit<SucontGrant, "email" | "saram" | "posto" | "nomeGuerra">
 
 /** Grants gravados direto na linha do usuário, nos quatro módulos do sucont. */
 async function fetchInlineGrants(accessControl: AnySupabaseClient): Promise<PartialGrant[]> {

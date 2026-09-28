@@ -484,7 +484,7 @@ export async function getSnackOrderingContext(db: SisubDb, ctx: UserContext): Pr
 
 	const me = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ defaultMessHallId: userDataInCore.defaultMessHallId, nrOrdem: userDataInCore.nrOrdem, email: userDataInCore.email })
+			.select({ defaultMessHallId: userDataInCore.defaultMessHallId, saram: userDataInCore.saram, email: userDataInCore.email })
 			.from(userDataInCore)
 			.where(eq(userDataInCore.id, ctx.userId))
 			.limit(1)
@@ -496,53 +496,50 @@ export async function getSnackOrderingContext(db: SisubDb, ctx: UserContext): Pr
 		defaultKitchenId = kitchenId != null ? Number(kitchenId) : null
 	}
 	const people = await resolvePeople(db, [ctx.userId])
-	const military = me[0]?.nrOrdem ? await fetchMilitary(db, [me[0].nrOrdem]) : new Map()
+	const military = me[0]?.saram ? await fetchMilitary(db, [me[0].saram]) : new Map()
 
 	return {
 		kitchens: kitchens.map((k) => ({ id: k.id, name: k.name ?? `Cozinha ${k.id}`, orderable_count: Number(k.orderableCount) })),
 		default_kitchen_id: defaultKitchenId,
 		requester_label: people.get(ctx.userId) ?? me[0]?.email ?? "",
-		requester_unit_label: (me[0]?.nrOrdem ? military.get(me[0].nrOrdem)?.sgOrg : null) ?? null,
+		requester_unit_label: (me[0]?.saram ? military.get(me[0].saram)?.sgOrg : null) ?? null,
 	}
 }
 
 // ── Pessoas (rótulo "posto nome de guerra") ───────────────────────────────
 
-async function fetchMilitary(db: Pick<SisubDb, "select">, nrOrdens: string[]) {
-	const rows = nrOrdens.length
+async function fetchMilitary(db: Pick<SisubDb, "select">, sarams: string[]) {
+	const rows = sarams.length
 		? await runQuery("FETCH_FAILED", () =>
 				db
 					.select({
-						nrOrdem: militaryIdentityInCore.saram,
+						saram: militaryIdentityInCore.saram,
 						nmGuerra: militaryIdentityInCore.nomeGuerra,
 						sgPosto: militaryIdentityInCore.posto,
 						sgOrg: militaryIdentityInCore.sgOrg,
 					})
 					.from(militaryIdentityInCore)
-					.where(inArray(militaryIdentityInCore.saram, nrOrdens))
+					.where(inArray(militaryIdentityInCore.saram, sarams))
 					// No `Map`, a última linha do SARAM vence: a carga mais recente.
 					.orderBy(sql`${militaryIdentityInCore.dataAtualizacao} asc nulls first`)
 			)
 		: []
-	return new Map(rows.filter((r) => r.nrOrdem != null).map((r) => [r.nrOrdem as string, r]))
+	return new Map(rows.filter((r) => r.saram != null).map((r) => [r.saram as string, r]))
 }
 
 async function resolvePeople(db: Pick<SisubDb, "select">, userIds: string[]): Promise<Map<string, string>> {
 	const ids = [...new Set(userIds)]
 	if (ids.length === 0) return new Map()
 	const users = await runQuery("FETCH_FAILED", () =>
-		db
-			.select({ id: userDataInCore.id, email: userDataInCore.email, nrOrdem: userDataInCore.nrOrdem })
-			.from(userDataInCore)
-			.where(inArray(userDataInCore.id, ids))
+		db.select({ id: userDataInCore.id, email: userDataInCore.email, saram: userDataInCore.saram }).from(userDataInCore).where(inArray(userDataInCore.id, ids))
 	)
 	const military = await fetchMilitary(
 		db,
-		users.map((u) => u.nrOrdem).filter((n): n is string => typeof n === "string" && n.length > 0)
+		users.map((u) => u.saram).filter((n): n is string => typeof n === "string" && n.length > 0)
 	)
 	const out = new Map<string, string>()
 	for (const user of users) {
-		const m = user.nrOrdem ? military.get(user.nrOrdem) : undefined
+		const m = user.saram ? military.get(user.saram) : undefined
 		const label = [m?.sgPosto, m?.nmGuerra].filter(Boolean).join(" ")
 		out.set(user.id, label || user.email)
 	}

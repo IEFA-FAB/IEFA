@@ -82,6 +82,13 @@ let seq = 0
 // só Date.now() colidiria (mesmo RUN + seq) e violaria UNIQUEs (ex.: units.code).
 const RUN = `${Date.now().toString(36)}${crypto.randomUUID().slice(0, 8)}`
 
+/**
+ * O SARAM no espelho do cadastro de pessoal (`core.user_military_data`) guarda o nome do sistema de
+ * origem, que a carga do mantenedor traz; nos objetos nossos ele é `saram` (lote 6 da linguagem
+ * ubíqua, D2).
+ */
+const MIRROR_SARAM_COLUMN = "nrOrdem"
+
 /** String única e estável por execução, com prefixo opcional. */
 export function uid(prefix = ""): string {
 	seq += 1
@@ -140,12 +147,12 @@ export interface Seeder {
 	/** Cria um usuário auth descartável (service-role). Cleanup via auth.admin.deleteUser. */
 	seedAuthUser(opts?: { email?: string }): Promise<string>
 	seedMessHall(opts?: { unitId?: number; kitchenId?: number | null; code?: string }): Promise<{ id: number; unitId: number; code: string }>
-	seedUserData(opts: { id: string; email?: string; nrOrdem?: string; defaultMessHallId?: number | null }): Promise<string>
+	seedUserData(opts: { id: string; email?: string; saram?: string; defaultMessHallId?: number | null }): Promise<string>
 	/**
 	 * Linha do espelho `core.user_military_data` (carga externa). Só a semeadura escreve o CPF:
 	 * a coluna é NOT NULL e UNIQUE; os apps não a leem (`core.military_identity`).
 	 */
-	seedUserMilitaryData(opts?: { nrOrdem?: string; cpf?: string; nmGuerra?: string; sgPosto?: string }): Promise<string>
+	seedUserMilitaryData(opts?: { saram?: string; cpf?: string; nmGuerra?: string; sgPosto?: string }): Promise<string>
 	seedArranchamento(opts: { userId: string; messHallId: number; date?: string; meal?: string; willEat?: boolean }): Promise<void>
 	seedMealPresence(opts: { userId: string; messHallId: number; date?: string; meal?: string }): Promise<string>
 	seedOtherPresence(opts: { adminId: string; messHallId: number; date?: string; meal?: string }): Promise<void>
@@ -423,7 +430,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 			const { error } = await tbl("user_data").insert({
 				id: opts.id,
 				email: opts.email ?? `${uid("ud-")}@example.invalid`.toLowerCase(),
-				...(opts.nrOrdem !== undefined && { nrOrdem: opts.nrOrdem }),
+				...(opts.saram !== undefined && { saram: opts.saram }),
 				...(opts.defaultMessHallId !== undefined && { default_mess_hall_id: opts.defaultMessHallId }),
 			})
 			if (error) throw new Error(`seed user_data failed: ${error.message}`)
@@ -432,16 +439,16 @@ export function makeSeeder(client: AnyClient): Seeder {
 		},
 
 		async seedUserMilitaryData(opts) {
-			const nrOrdem = opts?.nrOrdem ?? uid("NO")
+			const saram = opts?.saram ?? uid("NO")
 			const { error } = await tbl("user_military_data").insert({
-				nrOrdem,
+				[MIRROR_SARAM_COLUMN]: saram,
 				nrCpf: opts?.cpf ?? uid("CPF"),
 				nmGuerra: opts?.nmGuerra ?? uid("[TEST] Guerra "),
 				sgPosto: opts?.sgPosto ?? "SO",
 			})
 			if (error) throw new Error(`seed user_military_data failed: ${error.message}`)
-			trackWhere("user_military_data", "nrOrdem", nrOrdem)
-			return nrOrdem
+			trackWhere("user_military_data", MIRROR_SARAM_COLUMN, saram)
+			return saram
 		},
 
 		async seedArranchamento(opts) {

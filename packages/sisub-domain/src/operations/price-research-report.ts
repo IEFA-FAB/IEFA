@@ -521,7 +521,7 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 					join procurement.price_research rh on rh.id = ri.research_id
 					left join auth.users au on au.id = rh.created_by
 					left join core.user_data ud on ud.id = rh.created_by
-					left join core.military_identity m on m.saram = ud."nrOrdem"
+					left join core.military_identity m on m.saram = ud.saram
 					where ri.id in (${ids})
 				`),
 			{ prefix: "Erro ao ler as pesquisas" }
@@ -747,7 +747,7 @@ export async function fetchPriceResearchReport(
 			from procurement.price_research_emission e
 			left join auth.users au on au.id = e.emitted_by
 			left join core.user_data ud on ud.id = e.emitted_by
-			left join core.military_identity m on m.saram = ud."nrOrdem"
+			left join core.military_identity m on m.saram = ud.saram
 			where e.id = ${chosenId} and e.quantity_estimate_id = ${input.quantityEstimateId}
 		`)
 	)) as unknown as Row[]

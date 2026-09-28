@@ -3,8 +3,8 @@
  * Perfil militar do usuário logado (login é opcional — não bloqueia features).
  *
  * Mapeamento auth -> dados militares:
- *   auth.users.id  ==  sisub.user_data.id  ->  user_data.nrOrdem
- *   user_data.nrOrdem  ==  core.military_identity.saram  ->  posto / nome_guerra
+ *   auth.users.id  ==  sisub.user_data.id  ->  user_data.saram
+ *   user_data.saram  ==  core.military_identity.saram  ->  posto / nome_guerra
  *
  * A view `core.military_identity` não tem CPF nem nome completo (change
  * `lgpd-military-roster-key`); o cabeçalho só usa posto e nome de guerra.
@@ -28,7 +28,7 @@ export type MilitaryProfile = {
 
 // Login é opcional no rumaer: sem sessão isto devolve `null` em vez de 401 — o perfil
 // militar é um enfeite do cabeçalho, não um gate. A identidade vem SEMPRE da sessão
-// (nenhum nrOrdem entra por payload), então não há alvo a escolher.
+// (nenhum saram entra por payload), então não há alvo a escolher.
 // nosemgrep: server-fn-missing-auth-guard
 export const getMyMilitaryProfileFn = createServerFn({ method: "GET" }).handler(async (): Promise<MilitaryProfile | null> => {
 	const user = await getRequestUser()
@@ -36,16 +36,16 @@ export const getMyMilitaryProfileFn = createServerFn({ method: "GET" }).handler(
 
 	const core = getCoreReadClient()
 
-	// auth uid -> user_data.nrOrdem
-	const { data: userData } = await core.from("user_data").select("nrOrdem").eq("id", user.id).maybeSingle()
-	const nrOrdem = userData?.nrOrdem
-	if (!nrOrdem) return null
+	// auth uid -> user_data.saram
+	const { data: userData } = await core.from("user_data").select("saram").eq("id", user.id).maybeSingle()
+	const saram = userData?.saram
+	if (!saram) return null
 
 	// SARAM -> core.military_identity (o cadastro mais recente, como no sisub)
 	const { data: mil } = await core
 		.from("military_identity")
 		.select("posto, nome_guerra")
-		.eq("saram", nrOrdem)
+		.eq("saram", saram)
 		.order("data_atualizacao", { ascending: false, nullsFirst: false })
 		.limit(1)
 		.maybeSingle()

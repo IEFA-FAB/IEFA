@@ -10,8 +10,8 @@
  *     while bootstrapping a session) — no ctx, no guard.
  *   - the admin operations require global level 2 (was requireGlobalPermissionAdmin).
  *
- * Aliases explícitos no lugar de toWire: `searchUsersByEmail` projeta `user_data.nrOrdem`
- * (coluna camelCase no DB) — camel→snake corromperia a chave do contrato.
+ * Aliases explícitos no lugar de toWire: `searchUsersByEmail` projeta `user_data.saram` com as
+ * chaves do contrato.
  */
 
 import {
@@ -234,7 +234,7 @@ export async function searchUsersByEmail(db: SisubDb, ctx: UserContext, input: S
 	const term = input.email.replace(/[\\%_]/g, "\\$&")
 	return runQuery("FETCH_FAILED", () =>
 		db
-			.select({ id: userDataInCore.id, email: userDataInCore.email, nrOrdem: userDataInCore.nrOrdem })
+			.select({ id: userDataInCore.id, email: userDataInCore.email, saram: userDataInCore.saram })
 			.from(userDataInCore)
 			.where(ilike(userDataInCore.email, `%${term}%`))
 			.orderBy(asc(userDataInCore.email))
@@ -493,7 +493,7 @@ export async function deleteUserPermission(
 export interface AccountPermissionSet {
 	userId: string
 	email: string
-	nrOrdem: string | null
+	saram: string | null
 	/** Permissões EFETIVAS (inline + políticas, com precedência de deny), como em `hasPermission`. */
 	permissions: UserPermission[]
 }
@@ -521,7 +521,7 @@ export async function listAccountPermissionSets(db: SisubDb, ctx: UserContext): 
 
 	const [accounts, inlineRows, policyRows] = await Promise.all([
 		runQuery("FETCH_FAILED", () =>
-			db.select({ id: userDataInCore.id, email: userDataInCore.email, nrOrdem: userDataInCore.nrOrdem }).from(userDataInCore).orderBy(asc(userDataInCore.email))
+			db.select({ id: userDataInCore.id, email: userDataInCore.email, saram: userDataInCore.saram }).from(userDataInCore).orderBy(asc(userDataInCore.email))
 		),
 		runQuery("FETCH_FAILED", () =>
 			db
@@ -569,7 +569,7 @@ export async function listAccountPermissionSets(db: SisubDb, ctx: UserContext): 
 	return accounts.map((account) => ({
 		userId: account.id,
 		email: account.email,
-		nrOrdem: account.nrOrdem,
+		saram: account.saram,
 		permissions: resolveEffectivePermissions(inlineByUser.get(account.id) ?? [], policyByUser.get(account.id) ?? []),
 	}))
 }

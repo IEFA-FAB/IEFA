@@ -401,29 +401,6 @@ export const quantityEstimateSnapshotComponentInProcurement = procurement.table(
 	check("quantity_estimate_snapshot_component_snapshot_source_check", sql`snapshot_source = ANY (ARRAY['native'::text, 'backfill'::text])`),
 ]);
 
-export const userDataInCore = core.table("user_data", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	email: text().notNull(),
-	nrOrdem: text(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	defaultMessHallId: bigint("default_mess_hall_id", { mode: "number" }),
-}, (table) => [
-	index("user_data_default_mess_hall_id_fk_idx").using("btree", table.defaultMessHallId.asc().nullsLast()),
-	index("user_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast()),
-	foreignKey({
-			columns: [table.defaultMessHallId],
-			foreignColumns: [messHallsInKitchen.id],
-			name: "user_data_default_mess_hall_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.id],
-			foreignColumns: [usersInAuth.id],
-			name: "user_data_id_fkey"
-		}),
-	unique("user_data_email_key").on(table.email),
-]);
-
 export const foodItemRevisionInNutritionReference = nutritionReference.table("food_item_revision", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	foodItemId: uuid("food_item_id").notNull(),
@@ -599,6 +576,31 @@ export const supplyOrderItemInProcurement = procurement.table("supply_order_item
 			name: "supply_order_item_supply_order_id_fkey"
 		}).onDelete("cascade"),
 	check("supply_order_item_ordered_qty_check", sql`ordered_qty > (0)::numeric`),
+]);
+
+export const userDataInCore = core.table("user_data", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	email: text().notNull(),
+	nrOrdem: text(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	defaultMessHallId: bigint("default_mess_hall_id", { mode: "number" }),
+	saram: text(),
+}, (table) => [
+	index("user_data_default_mess_hall_id_fk_idx").using("btree", table.defaultMessHallId.asc().nullsLast()),
+	index("user_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast()),
+	index("user_data_saram_idx").using("btree", table.saram.asc().nullsLast()),
+	foreignKey({
+			columns: [table.defaultMessHallId],
+			foreignColumns: [messHallsInKitchen.id],
+			name: "user_data_default_mess_hall_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.id],
+			foreignColumns: [usersInAuth.id],
+			name: "user_data_id_fkey"
+		}),
+	unique("user_data_email_key").on(table.email),
 ]);
 
 export const nfeItemInInventory = inventory.table("nfe_item", {
@@ -811,6 +813,7 @@ export const personInCore = core.table("person", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	nameKey: text("name_key").generatedAlwaysAs(sql`core.person_name_key(display_name)`),
+	saram: text(),
 }, (table) => [
 	uniqueIndex("person_name_key_idx").using("btree", table.nameKey.asc().nullsLast()).where(sql`active`),
 	foreignKey({
@@ -820,6 +823,7 @@ export const personInCore = core.table("person", {
 		}).onDelete("set null"),
 	unique("person_nr_ordem_key").on(table.nrOrdem),
 	unique("person_user_id_key").on(table.userId),
+	unique("person_saram_key").on(table.saram),
 	check("person_display_name_check", sql`btrim(display_name) <> ''::text`),
 ]);
 
@@ -5627,7 +5631,8 @@ export const personIdentityInCore = core.view("person_identity", {	id: uuid(),
 	posto: text(),
 	nomeGuerra: text("nome_guerra"),
 	label: text(),
-}).with({"securityInvoker":true}).as(sql`SELECT p.id, p.display_name, p.nr_ordem, p.user_id, p.active, ud.email, mi.posto, mi.nome_guerra, COALESCE(NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text), ud.email, p.display_name) AS label FROM core.person p LEFT JOIN core.user_data ud ON ud.id = p.user_id LEFT JOIN core.military_identity mi ON mi.saram = p.nr_ordem`);
+	saram: text(),
+}).with({"securityInvoker":true}).as(sql`SELECT p.id, p.display_name, p.nr_ordem, p.user_id, p.active, ud.email, mi.posto, mi.nome_guerra, COALESCE(NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text), ud.email, p.display_name) AS label, p.saram FROM core.person p LEFT JOIN core.user_data ud ON ud.id = p.user_id LEFT JOIN core.military_identity mi ON mi.saram = p.saram`);
 
 export const vPurchaseItemConditioningReviewInProcurement = procurement.view("v_purchase_item_conditioning_review", {	purchaseItemId: uuid("purchase_item_id"),
 	description: text(),
@@ -5671,7 +5676,7 @@ export const vStockBalanceInInventory = inventory.view("v_stock_balance", {	// Y
 
 export const vUserIdentityInCore = core.view("v_user_identity", {	id: uuid(),
 	displayName: text("display_name"),
-}).with({"securityInvoker":true}).as(sql`SELECT ud.id, CASE WHEN NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text) IS NOT NULL THEN btrim((COALESCE(mi.posto, ''::text) || ' '::text) || initcap(COALESCE(mi.nome_guerra, ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.military_identity mi ON mi.saram = ud."nrOrdem"`);
+}).with({"securityInvoker":true}).as(sql`SELECT ud.id, CASE WHEN NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text) IS NOT NULL THEN btrim((COALESCE(mi.posto, ''::text) || ' '::text) || initcap(COALESCE(mi.nome_guerra, ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.military_identity mi ON mi.saram = ud.saram`);
 
 export const vLotExpiryInInventory = inventory.view("v_lot_expiry", {	lotId: uuid("lot_id"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations

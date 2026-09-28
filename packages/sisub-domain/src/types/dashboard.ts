@@ -36,12 +36,12 @@ export interface UserDataAPI {
 	id: string
 	created_at: string
 	email: string
-	nrOrdem: string | null
+	saram: string | null
 }
 
 /** Identificação militar (`core.military_identity`): sem CPF e sem nome completo. */
 export interface UserMilitaryDataAPI {
-	nrOrdem: string
+	saram: string
 	nmGuerra: string | null
 	sgPosto: string | null
 	sgOrg: string | null

@@ -81,7 +81,8 @@ function snakeToCamel(key: string): string {
  * Inverso (raso) de `toWire` para payloads de WRITE: converte um objeto com chaves snake_case
  * (contrato/zod, ex.: `PurchaseItemWriteSchema`) em camelCase — as props do schema Drizzle, que
  * `.values()`/`.set()` exigem. Use só com tabelas cujas colunas são snake no DB (a maioria);
- * tabelas com colunas camelCase no DB (user_data.nrOrdem) não devem passar por aqui.
+ * tabelas com colunas camelCase no DB (o espelho `core.user_military_data`) não devem passar por
+ * aqui.
  */
 export function toColumns<T = Record<string, unknown>>(payload: Record<string, unknown>): T {
 	const out: Record<string, unknown> = {}

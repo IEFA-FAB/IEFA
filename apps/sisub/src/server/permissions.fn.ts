@@ -33,7 +33,7 @@ import type { AppModule, UserPermission } from "@/types/domain/permissions"
 export type UserSearchResult = {
 	id: string
 	email: string
-	nrOrdem: string | null
+	saram: string | null
 }
 
 export type PermissionRow = {

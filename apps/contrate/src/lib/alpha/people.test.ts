@@ -62,9 +62,9 @@ function grant(partial: Partial<AlphaGrant> & Pick<AlphaGrant, "userId">): Alpha
 }
 
 const IDS: Record<string, PersonIdentity> = {
-	ana: { email: "ana@fab.mil.br", name: "1T Ána Souza", nrOrdem: "1234567" },
-	bia: { email: "bia@fab.mil.br", name: null, nrOrdem: null },
-	caio: { email: "caio@fab.mil.br", name: "Cap Caio", nrOrdem: "7654321" },
+	ana: { email: "ana@fab.mil.br", name: "1T Ána Souza", saram: "1234567" },
+	bia: { email: "bia@fab.mil.br", name: null, saram: null },
+	caio: { email: "caio@fab.mil.br", name: "Cap Caio", saram: "7654321" },
 }
 
 function people(grants: AlphaGrant[], lastChanges: Record<string, string> = {}): AlphaPerson[] {
@@ -162,7 +162,7 @@ describe("personMatches (busca e filtros)", () => {
 	])
 	const ids = (query: Partial<PeopleQuery>) => list.filter((p) => personMatches(p, { ...BASE_QUERY, ...query }, GRAPH, NOW)).map((p) => p.userId)
 
-	test("busca por nome sem acento, e-mail e Nr. de ordem; todos os termos precisam casar", () => {
+	test("busca por nome sem acento, e-mail e SARAM; todos os termos precisam casar", () => {
 		expect(ids({ q: "ana souza" })).toEqual(["ana"])
 		expect(ids({ q: "SOUZA 1t" })).toEqual(["ana"])
 		expect(ids({ q: "bia@" })).toEqual(["bia"])
@@ -223,7 +223,7 @@ describe("sortPeople e paginação", () => {
 		const userIds = Array.from({ length: 130 }, (_, i) => `u${String(i).padStart(3, "0")}`)
 		const many = aggregatePeople(
 			userIds.map((userId) => grant({ userId })),
-			new Map(userIds.map((userId) => [userId, { email: `${userId}@fab.mil.br`, name: null, nrOrdem: null }])),
+			new Map(userIds.map((userId) => [userId, { email: `${userId}@fab.mil.br`, name: null, saram: null }])),
 			null,
 			NOW
 		)

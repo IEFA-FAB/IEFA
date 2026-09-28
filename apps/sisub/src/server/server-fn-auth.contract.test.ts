@@ -211,7 +211,7 @@ describe("server function auth contract", () => {
 	 * operações sensíveis por ator está lendo o histórico de outra pessoa. `targetUserId` é o
 	 * mesmo caso pelo outro lado: filtrar o registro pela pessoa cujo acesso mudou.
 	 */
-	const IDENTITY_FIELD = /\b(userId|user_id|userIds|user_ids|adminId|admin_id|actorId|actor_id|targetUserId|target_user_id|email|nrOrdem|nr_ordem)\b/g
+	const IDENTITY_FIELD = /\b(userId|user_id|userIds|user_ids|adminId|admin_id|actorId|actor_id|targetUserId|target_user_id|email|saram)\b/g
 
 	/**
 	 * Fns em que um usuário age legitimamente sobre OUTRO. Cada entrada precisa do motivo, e
@@ -243,8 +243,8 @@ describe("server function auth contract", () => {
 	 * linha lida ou escrita.
 	 */
 	const OWN_INPUT_FIELDS: Record<string, Record<string, string>> = {
-		syncUserNrOrdemFn: {
-			nrOrdem: "vem do formulário de perfil e é gravado NA LINHA DA SESSÃO (`user.id`) — não seleciona a linha a escrever",
+		syncUserSaramFn: {
+			saram: "vem do formulário de perfil e é gravado NA LINHA DA SESSÃO (`user.id`) — não seleciona a linha a escrever",
 		},
 	}
 

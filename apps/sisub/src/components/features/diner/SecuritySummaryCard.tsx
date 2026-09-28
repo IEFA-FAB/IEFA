@@ -10,7 +10,7 @@ import { useMfaOverview } from "@/hooks/data/useMfa"
  * que a configura.
  *
  * Discreto de propósito. A spec é explícita em que o convite não bloqueia nada — quem entra no
- * perfil para conferir o Nr. de Ordem não pode ser barrado por um aviso de segurança. Enquanto
+ * perfil para conferir o SARAM não pode ser barrado por um aviso de segurança. Enquanto
  * não há obrigatoriedade, o que cabe aqui é informar e oferecer o caminho.
  */
 export function SecuritySummaryCard() {

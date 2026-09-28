@@ -10,7 +10,7 @@ import { Input } from "#/components/ui/input"
 import { toast } from "#/components/ui/toast"
 import { formatMilitaryName } from "#/lib/identity"
 import { readSaramDismissal, rememberSaramDismissal } from "#/lib/saram-dismissal"
-import { type SucontIdentity, saveMyNrOrdemFn } from "#/server/user.fn"
+import { type SucontIdentity, saveMySaramFn } from "#/server/user.fn"
 
 /**
  * Vínculo do SARAM à conta, pedido no primeiro acesso ao hub.
@@ -31,12 +31,12 @@ import { type SucontIdentity, saveMyNrOrdemFn } from "#/server/user.fn"
  * pessoa. Todo SARAM do espelho tem 7 dígitos, então um dígito trocado cai em
  * alguém de verdade — e o vínculo é lido por outros apps do ERP pela
  * `core.v_user_identity`. Sem a confirmação não haveria nenhuma outra tela por onde
- * corrigir: o diálogo é o único lugar que escreve `nrOrdem`, e ele deixaria de
+ * corrigir: o diálogo é o único lugar que escreve `saram`, e ele deixaria de
  * abrir assim que o número errado ficasse gravado.
  */
 
-const NR_ORDEM_MAXLEN = 7
-const NR_ORDEM_MINLEN = 6
+const SARAM_MAXLEN = 7
+const SARAM_MINLEN = 6
 
 export function SaramDialog() {
 	const queryClient = useQueryClient()
@@ -51,16 +51,16 @@ export function SaramDialog() {
 	const identity = useQuery({ ...myIdentityQueryOptions(), enabled: isAuthenticated && canAccess })
 
 	const [dismissed, setDismissed] = useState(readSaramDismissal)
-	const [nrOrdem, setNrOrdem] = useState("")
+	const [saram, setSaram] = useState("")
 	const [error, setError] = useState<string | null>(null)
 	/** Identidade recém-gravada, aguardando confirmação de quem a gravou. */
 	const [pendingConfirmation, setPendingConfirmation] = useState<SucontIdentity | null>(null)
 	/**
-	 * Pedido reaberto para conserto, DEPOIS que já existe `nrOrdem` gravado.
+	 * Pedido reaberto para conserto, DEPOIS que já existe `saram` gravado.
 	 *
 	 * Sem este estado o "Corrigir" fechava o diálogo em vez de voltar ao campo: a
 	 * gravação já pusera o número no cache, a consulta deixava de pedir SARAM, e a
-	 * única tela que escreve `nrOrdem` sumia com o número errado no banco.
+	 * única tela que escreve `saram` sumia com o número errado no banco.
 	 */
 	const [reopened, setReopened] = useState(false)
 	const fieldId = useId()
@@ -73,7 +73,7 @@ export function SaramDialog() {
 	}
 
 	const save = useMutation({
-		mutationFn: (value: string) => saveMyNrOrdemFn({ data: { nrOrdem: value } }),
+		mutationFn: (value: string) => saveMySaramFn({ data: { saram: value } }),
 		onSuccess: (saved) => {
 			queryClient.setQueryData(myIdentityQueryOptions().queryKey, saved)
 			// A lista de acessos passa a mostrar o nome — e quem acabou de se vincular
@@ -97,17 +97,17 @@ export function SaramDialog() {
 		setError(null)
 		// O campo volta preenchido com o que foi gravado: quase sempre o conserto é
 		// um dígito, e reescrever os sete é o caminho mais fácil de errar de novo.
-		setNrOrdem(pendingConfirmation?.nrOrdem ?? "")
+		setSaram(pendingConfirmation?.saram ?? "")
 	}
 
 	// Confirmação pendente e pedido reaberto mantêm o diálogo aberto APESAR de o
-	// `nrOrdem` já estar gravado — é essa janela que dá o caminho de correção.
-	const open = pendingConfirmation !== null || reopened || (identity.isSuccess && !identity.data.nrOrdem && !dismissed)
+	// `saram` já estar gravado — é essa janela que dá o caminho de correção.
+	const open = pendingConfirmation !== null || reopened || (identity.isSuccess && !identity.data.saram && !dismissed)
 
 	/**
 	 * Esc e clique fora. O que fechar significa depende do passo: na confirmação é
 	 * aceitar o que já foi gravado; no conserto é desistir dele (o número gravado
-	 * fica, e o pedido não volta porque já existe `nrOrdem`); no pedido inicial é
+	 * fica, e o pedido não volta porque já existe `saram`); no pedido inicial é
 	 * "agora não", que precisa ser lembrado para não reabrir na próxima rota.
 	 */
 	const closeFromOutside = () => {
@@ -115,12 +115,12 @@ export function SaramDialog() {
 		if (reopened) return setReopened(false)
 		dismiss()
 	}
-	const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, NR_ORDEM_MAXLEN)
+	const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, SARAM_MAXLEN)
 
 	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault()
-		const value = digitsOnly(nrOrdem)
-		if (value.length < NR_ORDEM_MINLEN) {
+		const value = digitsOnly(saram)
+		if (value.length < SARAM_MINLEN) {
 			setError("O SARAM tem 6 ou 7 dígitos. Confira e tente de novo.")
 			return
 		}
@@ -148,20 +148,20 @@ export function SaramDialog() {
 						<form onSubmit={handleSubmit} className="flex flex-col gap-4">
 							<div className="flex flex-col gap-1.5">
 								<label htmlFor={fieldId} className="text-label text-muted-foreground">
-									Número de ordem (SARAM)
+									SARAM
 								</label>
 								<Input
 									id={fieldId}
-									name="nrOrdem"
-									value={nrOrdem}
+									name="saram"
+									value={saram}
 									inputMode="numeric"
 									pattern="\d*"
 									enterKeyHint="done"
 									autoComplete="off"
 									placeholder="Ex.: 1234567"
-									maxLength={NR_ORDEM_MAXLEN}
+									maxLength={SARAM_MAXLEN}
 									onChange={(e) => {
-										setNrOrdem(digitsOnly(e.target.value))
+										setSaram(digitsOnly(e.target.value))
 										if (error) setError(null)
 									}}
 									aria-invalid={Boolean(error)}
@@ -213,13 +213,13 @@ function ConfirmationStep({ identity, onConfirm, onCorrect }: { identity: Sucont
 				<DialogDescription>
 					{name ? (
 						<>
-							O SARAM <span className="font-mono">{identity.nrOrdem}</span> corresponde a <strong className="text-foreground">{name}</strong>. Se não for você,
+							O SARAM <span className="font-mono">{identity.saram}</span> corresponde a <strong className="text-foreground">{name}</strong>. Se não for você,
 							corrija o número — ele é o que identifica sua conta em todo o ERP.
 						</>
 					) : (
 						<>
-							O SARAM <span className="font-mono">{identity.nrOrdem}</span> foi gravado, mas não corresponde a ninguém no cadastro de pessoal. Pode ser um
-							número novo, ainda fora da última carga — ou um dígito trocado.
+							O SARAM <span className="font-mono">{identity.saram}</span> foi gravado, mas não corresponde a ninguém no cadastro de pessoal. Pode ser um número
+							novo, ainda fora da última carga — ou um dígito trocado.
 						</>
 					)}
 				</DialogDescription>

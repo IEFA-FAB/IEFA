@@ -131,7 +131,7 @@ function MfaAdoptionPage() {
 												<ItemContent>
 													<ItemTitle>{account.email}</ItemTitle>
 													<ItemDescription>
-														{account.nrOrdem ? `Nº de ordem ${account.nrOrdem} · ` : ""}
+														{account.saram ? `SARAM ${account.saram} · ` : ""}
 														{account.verifiedFactors === 0
 															? "nenhum dispositivo cadastrado"
 															: `${account.verifiedFactors} dispositivo${account.verifiedFactors > 1 ? "s" : ""} verificado${account.verifiedFactors > 1 ? "s" : ""}`}

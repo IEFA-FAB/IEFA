@@ -64,7 +64,7 @@ export type AlphaGrant = {
 }
 
 /** Quem é a pessoa, do cadastro do ERP. `name` é posto + nome de guerra (`core.v_user_identity`). */
-export type PersonIdentity = { email: string; name: string | null; nrOrdem: string | null }
+export type PersonIdentity = { email: string; name: string | null; saram: string | null }
 
 // ─── Pessoa agregada ───────────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ export type AlphaPerson = {
 	userId: string
 	email: string
 	name: string | null
-	nrOrdem: string | null
+	saram: string | null
 	/** Todas as linhas da pessoa no escopo listado, em ordem de tela ({@link compareGrants}). */
 	grants: AlphaGrant[]
 	/** O bloqueio sem OM nos quatro papéis ("Bloqueado no copiloto"). */
@@ -182,7 +182,7 @@ export function aggregatePeople(
 			userId,
 			email: identity?.email ?? "",
 			name: identity?.name ?? null,
-			nrOrdem: identity?.nrOrdem ?? null,
+			saram: identity?.saram ?? null,
 			grants: rows,
 			copilotBlock: copilotBlockState(rows, userId, now),
 			status: summarizeStatus(rows, now),
@@ -265,7 +265,7 @@ function matchesSearch(person: AlphaPerson, q: string | undefined): boolean {
 	if (!q) return true
 	const tokens = normalizeText(q).split(/\s+/).filter(Boolean)
 	if (tokens.length === 0) return true
-	const haystack = normalizeText(`${person.name ?? ""} ${person.email} ${person.nrOrdem ?? ""}`)
+	const haystack = normalizeText(`${person.name ?? ""} ${person.email} ${person.saram ?? ""}`)
 	return tokens.every((token) => haystack.includes(token))
 }
 

@@ -43,7 +43,7 @@ import { assuranceReachability } from "@/server/assurance-registry"
 export interface ProtectedAccountAdoption {
 	userId: string
 	email: string
-	nrOrdem: string | null
+	saram: string | null
 	/** Só fatores verificados: cadastro abandonado não protege nada e não conta. */
 	verifiedFactors: number
 }
@@ -141,7 +141,7 @@ export const getMfaAdoptionFn = createServerFn({ method: "GET" }).handler(async 
 		else if (verifiedFactors === 1) totals.protectedWithoutBackup += 1
 		else totals.protectedWithBackup += 1
 
-		protectedAccounts.push({ userId: account.userId, email: account.email, nrOrdem: account.nrOrdem, verifiedFactors })
+		protectedAccounts.push({ userId: account.userId, email: account.email, saram: account.saram, verifiedFactors })
 	}
 
 	// Sem fator primeiro, depois sem reserva, e o e-mail desempata: a tela abre exatamente na

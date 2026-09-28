@@ -703,8 +703,8 @@ export type { ListTrainingResets } from "./training.ts"
 export { ListTrainingResetsSchema } from "./training.ts"
 export type { FetchUnitSettings, UnitSettingsInput, UpdateUnitSettings } from "./units.ts"
 export { FetchUnitSettingsSchema, UnitSettingsSchema, UpdateUnitSettingsSchema } from "./units.ts"
-export type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "./user.ts"
-export { FetchMilitaryDataSchema, FetchUserDataSchema, FetchUserNrOrdemSchema, SyncUserEmailSchema, SyncUserNrOrdemSchema } from "./user.ts"
+export type { FetchMilitaryData, FetchUserData, FetchUserSaram, SyncUserEmail, SyncUserSaram } from "./user.ts"
+export { FetchMilitaryDataSchema, FetchUserDataSchema, FetchUserSaramSchema, SyncUserEmailSchema, SyncUserSaramSchema } from "./user.ts"
 export type {
 	AddWorkforceNote,
 	CloseWorkforceSurvey,

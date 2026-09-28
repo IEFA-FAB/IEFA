@@ -100,7 +100,7 @@ function PersonPanelBody({
 				<SheetTitle className="font-semibold text-xl tracking-tight">{detail.isLoading ? "Carregando…" : label || "Pessoa"}</SheetTitle>
 				<SheetDescription render={<div />} className="flex flex-wrap gap-x-3 gap-y-0.5">
 					{identity?.name && identity.email ? <span>{identity.email}</span> : null}
-					{identity?.nrOrdem ? <span className="font-mono">Nr. {identity.nrOrdem}</span> : null}
+					{identity?.saram ? <span className="font-mono">SARAM {identity.saram}</span> : null}
 					{isSelf ? <span className="text-label text-foreground">Você</span> : null}
 				</SheetDescription>
 			</SheetHeader>
@@ -136,7 +136,7 @@ function PersonPanelBody({
 							</div>
 							{granting ? (
 								<GrantRolesForm
-									fixedPerson={{ id: userId, email: identity?.email ?? "", name: identity?.name ?? null, nrOrdem: identity?.nrOrdem ?? null }}
+									fixedPerson={{ id: userId, email: identity?.email ?? "", name: identity?.name ?? null, saram: identity?.saram ?? null }}
 									units={units}
 									allowGlobal={isGlobalAdmin}
 									initialUnit={defaultUnit}

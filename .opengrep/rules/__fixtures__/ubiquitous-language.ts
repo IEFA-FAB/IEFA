@@ -459,3 +459,47 @@ const countOk = { kitchenId, type: "rotativo", scope: "full" }
 span.recordException(new Error("exception"))
 // ok: ubiquitous-language-lot5-value
 const snack = { snack_family: "apoio" }
+
+// ── Lote 6: SARAM ───────────────────────────────────────────────────────────
+
+// ruleid: ubiquitous-language-lot6-identifier
+const { data } = await core.from("user_data").select("nrOrdem").eq("id", userId)
+// ruleid: ubiquitous-language-lot6-identifier
+export async function syncUserNrOrdem() {}
+// ruleid: ubiquitous-language-lot6-identifier
+throw new DomainError("NR_ORDEM_LOCKED", "travado")
+// ruleid: ubiquitous-language-lot6-identifier
+await core.from("person").update({ nr_ordem: saram }).eq("id", id)
+// ruleid: ubiquitous-language-lot6-identifier
+const field = <FieldLabel htmlFor={field.name}>Nr. de Ordem</FieldLabel>
+// ruleid: ubiquitous-language-lot6-identifier
+const hint = <span>Nr. Ordem: {user.saram}</span>
+// ruleid: ubiquitous-language-lot6-identifier
+const caption = `Nº de ordem ${account.saram}`
+// ruleid: ubiquitous-language-lot6-identifier
+toast.error("Informe seu número de Ordem.")
+// ruleid: ubiquitous-language-lot6-identifier
+const lock = sql`select pg_advisory_xact_lock(hashtext(${`nr-ordem:${requested}`}))`
+
+// ok: ubiquitous-language-lot6-identifier
+const { data: row } = await core.from("user_data").select("saram").eq("id", userId)
+// ok: ubiquitous-language-lot6-identifier
+export async function syncUserSaram() {}
+// ok: ubiquitous-language-lot6-identifier
+const label = <FieldLabel htmlFor={field.name}>SARAM</FieldLabel>
+// ok: ubiquitous-language-lot6-identifier
+export const MIRROR_SARAM_COLUMN = "nrOrdem"
+// ok: ubiquitous-language-lot6-identifier
+export const LEGACY_SARAM_FIELD = "nrOrdem"
+// ok: ubiquitous-language-lot6-identifier
+const PERSONAL_DATA_FIELDS = ["userId", "saram", "nrOrdem", "email"]
+// ok: ubiquitous-language-lot6-identifier
+// O espelho guarda `"nrOrdem"`, o nome do sistema de origem.
+// ok: ubiquitous-language-lot6-identifier
+const ordered = items.sort((a, b) => a.ordem - b.ordem)
+// ok: ubiquitous-language-lot6-identifier
+const LEGACY_SARAM_LOCK_PREFIX = "nr-ordem:"
+// ok: ubiquitous-language-lot6-identifier
+const supplyOrderLabel = "Nº de ordem de fornecimento"
+// ok: ubiquitous-language-lot6-identifier
+const serviceOrder = <span>número da ordem de serviço</span>

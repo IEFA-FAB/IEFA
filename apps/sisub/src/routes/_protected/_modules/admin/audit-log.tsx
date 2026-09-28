@@ -307,7 +307,7 @@ function AuditRow({ row, onFilterActor, onFilterTarget, activeTargetId }: AuditR
 				<div className="flex items-start gap-1">
 					<div className="min-w-0">
 						<span className="block break-all">{actorLabel(row)}</span>
-						{row.actor_nr_ordem && <span className="block text-caption text-muted-foreground">Nº de ordem {row.actor_nr_ordem}</span>}
+						{row.actor_saram && <span className="block text-caption text-muted-foreground">SARAM {row.actor_saram}</span>}
 					</div>
 					{onFilterActor && (
 						<Tooltip>

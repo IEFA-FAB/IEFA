@@ -80,7 +80,7 @@ export function TrainingRoster() {
 					<TableHeader className="border-b border-foreground">
 						<TableRow>
 							<TableHead className="text-foreground text-subheading">Usuário</TableHead>
-							<TableHead className="text-foreground text-subheading">Nr. Ordem</TableHead>
+							<TableHead className="text-foreground text-subheading">SARAM</TableHead>
 							<TableHead className="text-foreground text-subheading">Desde</TableHead>
 							<TableHead className="text-foreground text-subheading">Prazo</TableHead>
 							<TableHead className="w-[120px]" />
@@ -117,7 +117,7 @@ export function TrainingRoster() {
 							members.map((member) => (
 								<TableRow key={member.user_id} className={member.expired ? "opacity-60 hover:bg-accent/40" : "hover:bg-accent/40"}>
 									<TableCell className="text-sm">{member.email ?? member.user_id}</TableCell>
-									<TableCell className="text-sm font-mono">{member.nrOrdem ?? "—"}</TableCell>
+									<TableCell className="text-sm font-mono">{member.saram ?? "—"}</TableCell>
 									<TableCell className="text-sm">{new Date(member.attached_at).toLocaleDateString("pt-BR")}</TableCell>
 									<TableCell className="text-sm">
 										<ExpiryCell expiresAt={member.expires_at} expired={member.expired} />
@@ -250,7 +250,7 @@ function AddTraineeDialog({
 										>
 											<div>
 												<p className="text-subheading">{user.email}</p>
-												{user.nrOrdem && <p className="text-xs text-muted-foreground mt-0.5">Nr. Ordem: {user.nrOrdem}</p>}
+												{user.saram && <p className="text-xs text-muted-foreground mt-0.5">SARAM: {user.saram}</p>}
 											</div>
 											<span className="text-xs text-muted-foreground">{alreadyIn ? "Já está em treino" : "Adicionar →"}</span>
 										</button>

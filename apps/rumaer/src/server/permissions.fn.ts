@@ -45,7 +45,7 @@ export const fetchMyRumaerPermissionsFn = createServerFn({ method: "GET" }).hand
 	return resolveModulePermissions(userId, getAccessControlClient(), MODULE)
 })
 
-export type RumaerUserSearchResult = { id: string; email: string; nrOrdem: string | null }
+export type RumaerUserSearchResult = { id: string; email: string; saram: string | null }
 
 /** Busca usuários por email (para conceder acesso). Só admin do rumaer. */
 export const searchUsersByEmailFn = createServerFn({ method: "GET" })

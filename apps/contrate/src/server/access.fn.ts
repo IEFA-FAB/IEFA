@@ -140,7 +140,7 @@ export const fetchAdminScopeFn = createServerFn({ method: "GET" }).handler(async
 export type PersonCandidate = { id: string } & PersonIdentity
 
 /**
- * Busca por nome (posto + nome de guerra), e-mail ou Nr. de ordem no cadastro do ERP, para
+ * Busca por nome (posto + nome de guerra), e-mail ou SARAM no cadastro do ERP, para
  * conceder acesso. Só administrador. Até 10 resultados.
  */
 export const searchAlphaCandidatesFn = createServerFn({ method: "GET" })
@@ -457,7 +457,7 @@ export const fetchAlphaPersonFn = createServerFn({ method: "GET" })
 		})
 		const lastChanges = new Map(audit.length > 0 ? [[data.userId, audit[0]?.at ?? ""]] : [])
 		const person = aggregatePeople(grants, identities, lastChanges, now)[0] ?? null
-		return { userId: data.userId, identity: identities.get(data.userId) ?? { email: "", name: null, nrOrdem: null }, person, audit }
+		return { userId: data.userId, identity: identities.get(data.userId) ?? { email: "", name: null, saram: null }, person, audit }
 	})
 
 /** Como cada papel está para a pessoa na OM escolhida, antes de conceder. */

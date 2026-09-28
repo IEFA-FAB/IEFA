@@ -163,8 +163,8 @@ function PersonRow({ person, canManage, onChanged, onRemove }: { person: Section
 						<p className="mt-0.5 text-hint font-mono text-muted-foreground">cadastrada na seção como “{person.displayName}”</p>
 					)}
 					<div className="mt-2 flex flex-wrap items-center gap-1.5">
-						<Badge variant={person.nrOrdem ? "success" : "muted"} className="gap-1">
-							<IdCard className="size-3" /> {person.nrOrdem ? `SARAM ${person.nrOrdem}` : "sem SARAM"}
+						<Badge variant={person.saram ? "success" : "muted"} className="gap-1">
+							<IdCard className="size-3" /> {person.saram ? `SARAM ${person.saram}` : "sem SARAM"}
 						</Badge>
 						<Badge variant={person.hasAccount ? "success" : "warning"} className="gap-1">
 							<Mail className="size-3" /> {person.email ?? "sem conta"}
@@ -186,7 +186,7 @@ function PersonRow({ person, canManage, onChanged, onRemove }: { person: Section
 				{canManage && (
 					<div className="flex shrink-0 flex-wrap gap-2">
 						<Button type="button" variant="outline" size="sm" onClick={() => setLinking(linking === "roster" ? null : "roster")} className="gap-1.5">
-							<IdCard className="size-3.5" /> {person.nrOrdem ? "Trocar SARAM" : "Vincular SARAM"}
+							<IdCard className="size-3.5" /> {person.saram ? "Trocar SARAM" : "Vincular SARAM"}
 						</Button>
 						<Button type="button" variant="outline" size="sm" onClick={() => setLinking(linking === "account" ? null : "account")} className="gap-1.5">
 							<Mail className="size-3.5" /> {person.hasAccount ? "Trocar conta" : "Vincular conta"}
@@ -242,7 +242,7 @@ function RosterLinker({ person, onDone }: { person: SectionPerson; onDone: () =>
 	})
 
 	const link = useMutation({
-		mutationFn: (nrOrdem: string | null) => linkPersonRosterFn({ data: { id: person.id, nrOrdem } }),
+		mutationFn: (saram: string | null) => linkPersonRosterFn({ data: { id: person.id, saram } }),
 		onSuccess: onDone,
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao vincular"),
 	})
@@ -272,7 +272,7 @@ function RosterLinker({ person, onDone }: { person: SectionPerson; onDone: () =>
 				<Button type="submit" variant="outline" size="sm" className="gap-1.5">
 					<Search className="size-3.5" /> Buscar
 				</Button>
-				{person.nrOrdem && (
+				{person.saram && (
 					<Button type="button" variant="ghost" size="sm" onClick={() => link.mutate(null)} className="gap-1.5 text-muted-foreground hover:text-destructive">
 						<X className="size-3.5" /> Desvincular
 					</Button>
@@ -290,10 +290,10 @@ function RosterLinker({ person, onDone }: { person: SectionPerson; onDone: () =>
 					<p className="mt-3 text-hint text-muted-foreground">Escolha pela organização — nome e posto não separam homônimos.</p>
 					<ul className="mt-2 divide-y divide-border rounded border border-border bg-card">
 						{matches.map((match: RosterMatch) => (
-							<li key={match.nrOrdem}>
+							<li key={match.saram}>
 								<button
 									type="button"
-									onClick={() => link.mutate(match.nrOrdem)}
+									onClick={() => link.mutate(match.saram)}
 									disabled={link.isPending}
 									className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/50"
 								>
@@ -301,7 +301,7 @@ function RosterLinker({ person, onDone }: { person: SectionPerson; onDone: () =>
 										{match.posto} {match.nomeGuerra}
 									</span>
 									<span className="text-caption text-muted-foreground">{match.organizacao ?? "organização não informada"}</span>
-									<span className="ml-auto text-hint font-mono text-muted-foreground">SARAM {match.nrOrdem}</span>
+									<span className="ml-auto text-hint font-mono text-muted-foreground">SARAM {match.saram}</span>
 								</button>
 							</li>
 						))}

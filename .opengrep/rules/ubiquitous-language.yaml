@@ -6,7 +6,8 @@
 # A lista cresce por lote. Termo ainda em uso não entra, senão o gate nasce vermelho: os valores de
 # domínio do lote 5 (`product`, `exception`, os papéis e os tipos de inventário em inglês) entram
 # com o contract dele, e "rancho" no lote 8a (fora do efetivo) e no 8b (o efetivo,
-# `kitchen.mess_hall_workforce`). As migrations novas têm regra própria em
+# `kitchen.mess_hall_workforce`). O SARAM (lote 6) entra com o expand: o código novo já não cita o
+# nome antigo, e o banco aceita os dois até o contract. As migrations novas têm regra própria em
 # `ubiquitous-language-sql.yaml`.
 #
 # Linha de comentário não é acusada (`pattern-not-regex` da linha inteira): comentário cita o nome
@@ -423,6 +424,57 @@ rules:
       - pattern-not-regex: \bPIRANCHO\b
       # Alias depreciado da API do arranchamento (lote 7), até o mantenedor retirá-lo.
       - pattern-not-regex: \bLEGACY_ARRANCHAMENTO_PATH\s*=\s*"/rancho_previsoes"
+
+  # ── Lote 6: SARAM ──────────────────────────────────────────────────────────
+  #
+  # O número do militar é o SARAM (sigla consagrada, D1 critério 3): `saram` em todo objeto nosso
+  # (`core.user_data.saram`, `core.person.saram`, `core.military_identity.saram`) e "SARAM" na tela.
+  # O espelho do cadastro de pessoal (`core.user_military_data`) guarda o nome do sistema de origem
+  # (`"nrOrdem"`, D2 e D3), que o patch do mantenedor traz; os apps não o leem (regra
+  # `military-roster-raw-table`), e o nome antigo fica só nas constantes que o nomeiam
+  # (`MIRROR_SARAM_COLUMN` na API e na fixture de teste) e no campo obsoleto de `/api/user-data`
+  # (`LEGACY_SARAM_FIELD`, até o mantenedor retirá-lo). A lista de campos pessoais do teste de
+  # autorização da API cita os dois, porque as rotas ainda os servem.
+
+  - id: ubiquitous-language-lot6-identifier
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Nome descartado pelo glossário do sisub: o número do militar é o SARAM, `saram`
+      (`core.user_data.saram`, `core.person.saram`, `core.military_identity.saram`; `syncUserSaram`,
+      `fetchUserSaram`, `useUserSaram`, `SARAM_LOCKED`, `SARAM_TAKEN`), e "SARAM" na tela, não
+      `nrOrdem`/`nr_ordem`/"Nr. de Ordem". O espelho do cadastro de pessoal guarda o nome do sistema
+      de origem, e só as constantes `MIRROR_SARAM_COLUMN`/`LEGACY_SARAM_FIELD` o citam.
+    paths:
+      # O SARAM mora em `core`, compartilhado por todos os apps: a regra vale para todos.
+      include:
+        - "apps/*/src/**/*.ts"
+        - "apps/*/src/**/*.tsx"
+        - "apps/*/e2e/**/*.ts"
+        - "apps/*/harness/**/*.ts"
+        - "apps/*/harness/**/*.tsx"
+        - "packages/*/src/**/*.ts"
+      exclude:
+        - "**/routeTree.gen.ts"
+        - "**/generated.ts"
+        - "**/drizzle/**"
+        # Lê a migration histórica que criou `core.person` com o nome da época (20260910225309).
+        - "apps/sucont/src/test/notifications.contract.test.ts"
+        # Tipos-ponte até o `db:types`: descrevem o banco, com as colunas antigas que eles escondem.
+        - "packages/database/src/pending-*.ts"
+    patterns:
+      - pattern-either:
+          - pattern-regex: \b\w*(?:[nN]r_?[oO]rdem|NR_?ORDEM)\w*\b|\bnr-ordem\b
+          # Rótulo: "Nr. de Ordem", "Nr. Ordem", "Nº de ordem", "número de ordem".
+          # "Ordem de fornecimento/serviço/compra/produção" é outro conceito e não casa.
+          - pattern-regex: (?i)(?:\bn(?:r\.?|º)\s*(?:de\s+)?|\bn[uú]mero\s+de\s+)ordem\b(?!\s+d[aeo]s?\s+(?:fornecimento|servi[cç]o|compra|produ[cç][aã]o|pagamento|empenho))
+      - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
+      # O nome do sistema de origem no espelho, o campo obsoleto de `/api/user-data` e o prefixo do
+      # lock consultivo da versão anterior (sai no contract do lote 6).
+      - pattern-not-regex: \b(?:MIRROR_SARAM_COLUMN|LEGACY_SARAM_FIELD)\s*=\s*"nrOrdem"
+      - pattern-not-regex: \bLEGACY_SARAM_LOCK_PREFIX\s*=\s*"nr-ordem:"
+      # Campos que identificam pessoa no teste de autorização da API: as rotas ainda servem os dois.
+      - pattern-not-regex: \bPERSONAL_DATA_FIELDS\s*=\s*\[[^\]]*\]
 
   # ── Lote 5: valores de domínio ─────────────────────────────────────────────
   #

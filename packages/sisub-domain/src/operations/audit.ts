@@ -102,7 +102,7 @@ export async function recordSensitiveOperation(db: SisubDb, ctx: UserContext, in
 export type SensitiveOperationLogEntry = SensitiveOperationLogRow & {
 	/** `null` quando o ator ainda não tem linha em `core.user_data` (ela só nasce no login). */
 	actor_email: string | null
-	actor_nr_ordem: string | null
+	actor_saram: string | null
 	/**
 	 * E-mail da pessoa cujo acesso mudou (`target.target_user_id`, ou `userId`/`targetUserId`
 	 * nas linhas anteriores ao formato padrão). `null` quando a operação não tem alvo pessoal
@@ -197,7 +197,7 @@ export async function listSensitiveOperations(
 				.select({
 					...SENSITIVE_OPERATION_LOG_COLS,
 					actor_email: userDataInCore.email,
-					actor_nr_ordem: userDataInCore.nrOrdem,
+					actor_saram: userDataInCore.saram,
 					target_email: targetUser.email,
 				})
 				.from(log)

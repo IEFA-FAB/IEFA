@@ -27,6 +27,11 @@ export type ApiConfig = {
 	corsOrigin?: string
 	/** Colunas aceitas no `?order=`. Padrão: as da projeção (`select`) — ver `projectedColumns`. */
 	sortableColumns?: readonly string[]
+	/**
+	 * Nome obsoleto aceito no `?order=` → coluna real: o campo depreciado que a projeção devolve por
+	 * alias (`nome:coluna`) segue ordenável pelo nome antigo (ex.: `LEGACY_SARAM_FIELD`).
+	 */
+	orderAliases?: Readonly<Record<string, string>>
 }
 
 // Schema de erro para respostas
@@ -50,7 +55,8 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 		cacheControl = "public, max-age=300",
 		corsOrigin = "*",
 	} = config
-	const sortableColumns = config.sortableColumns ?? projectedColumns(select)
+	const orderAliases = config.orderAliases ?? {}
+	const sortableColumns = config.sortableColumns ?? [...projectedColumns(select), ...Object.keys(orderAliases)]
 
 	// Middleware para cache-control e CORS
 	const setDefaultHeaders: MiddlewareHandler = async (c, next) => {
@@ -145,7 +151,8 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 			}
 
 			// Ordenação
-			const finalOrder: OrderRule[] = orderFromParam.order.length ? orderFromParam.order : defaultOrder
+			const requestedOrder = orderFromParam.order.map((rule) => ({ ...rule, column: orderAliases[rule.column] ?? rule.column }))
+			const finalOrder: OrderRule[] = requestedOrder.length ? requestedOrder : defaultOrder
 			for (const ord of finalOrder) {
 				if (!ord.column) continue
 				query = query.order(ord.column, { ascending: ord.ascending ?? true })

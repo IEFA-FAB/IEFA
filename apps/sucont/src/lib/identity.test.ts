@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { describePerson, formatMilitaryName, type PersonIdentity } from "#/lib/identity"
 
-const base: PersonIdentity = { userId: "d8b3417d-c7d3-4e79-8dcd-17213d59ad8e", email: null, nrOrdem: null, posto: null, nomeGuerra: null }
+const base: PersonIdentity = { userId: "d8b3417d-c7d3-4e79-8dcd-17213d59ad8e", email: null, saram: null, posto: null, nomeGuerra: null }
 
 describe("formatMilitaryName", () => {
 	test("junta posto e nome de guerra", () => {
@@ -21,7 +21,7 @@ describe("formatMilitaryName", () => {
 
 describe("describePerson", () => {
 	test("identificação militar na frente, e-mail embaixo", () => {
-		expect(describePerson({ ...base, email: "nannijpsn@fab.mil.br", nrOrdem: "7379749", posto: "1T", nomeGuerra: "NANNI" })).toEqual({
+		expect(describePerson({ ...base, email: "nannijpsn@fab.mil.br", saram: "7379749", posto: "1T", nomeGuerra: "NANNI" })).toEqual({
 			primary: "1T NANNI",
 			secondary: "nannijpsn@fab.mil.br",
 		})
@@ -32,14 +32,14 @@ describe("describePerson", () => {
 	})
 
 	test("SARAM informado mas fora do cadastro de pessoal complementa o e-mail", () => {
-		expect(describePerson({ ...base, email: "larissalsb@fab.mil.br", nrOrdem: "1234567" })).toEqual({
+		expect(describePerson({ ...base, email: "larissalsb@fab.mil.br", saram: "1234567" })).toEqual({
 			primary: "larissalsb@fab.mil.br",
 			secondary: "SARAM 1234567",
 		})
 	})
 
 	test("sem e-mail, o SARAM segura o rótulo", () => {
-		expect(describePerson({ ...base, nrOrdem: "1234567" })).toEqual({ primary: "SARAM 1234567", secondary: null })
+		expect(describePerson({ ...base, saram: "1234567" })).toEqual({ primary: "SARAM 1234567", secondary: null })
 	})
 
 	// O último recurso identifica mal, mas identifica — e é o que o administrador
@@ -49,6 +49,6 @@ describe("describePerson", () => {
 	})
 
 	test("string vazia é ausência, não rótulo", () => {
-		expect(describePerson({ ...base, email: "", nrOrdem: "  " })).toEqual({ primary: base.userId, secondary: null })
+		expect(describePerson({ ...base, email: "", saram: "  " })).toEqual({ primary: base.userId, secondary: null })
 	})
 })

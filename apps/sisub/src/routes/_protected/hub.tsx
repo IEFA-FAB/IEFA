@@ -152,7 +152,7 @@ function HubPage() {
 	const { user } = useAuth()
 	const { permissions, isLoading } = usePBAC()
 	const { data: userData } = useUserData(user?.id)
-	const { data: military } = useMilitaryData(userData?.nrOrdem ?? null)
+	const { data: military } = useMilitaryData(userData?.saram ?? null)
 	const { denied } = Route.useSearch()
 	const navigate = useNavigate()
 

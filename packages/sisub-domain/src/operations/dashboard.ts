@@ -131,25 +131,25 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 				id: userDataInCore.id,
 				created_at: userDataInCore.createdAt,
 				email: userDataInCore.email,
-				nrOrdem: userDataInCore.nrOrdem,
+				saram: userDataInCore.saram,
 			})
 			.from(userDataInCore)
 			.where(inArray(userDataInCore.id, userIds))
 	)
 
-	const nrOrdens = [...new Set(userRows.map((u) => u.nrOrdem).filter((n): n is string => typeof n === "string" && n.length > 0))]
-	const militaryRows = nrOrdens.length
+	const sarams = [...new Set(userRows.map((u) => u.saram).filter((n): n is string => typeof n === "string" && n.length > 0))]
+	const militaryRows = sarams.length
 		? await runQuery("FETCH_FAILED", () =>
 				db
 					.select({
-						nrOrdem: militaryIdentityInCore.saram,
+						saram: militaryIdentityInCore.saram,
 						nmGuerra: militaryIdentityInCore.nomeGuerra,
 						sgPosto: militaryIdentityInCore.posto,
 						sgOrg: militaryIdentityInCore.sgOrg,
 						dataAtualizacao: militaryIdentityInCore.dataAtualizacao,
 					})
 					.from(militaryIdentityInCore)
-					.where(inArray(militaryIdentityInCore.saram, nrOrdens))
+					.where(inArray(militaryIdentityInCore.saram, sarams))
 					// Quem consome procura com `find`: a primeira linha do SARAM vence, a carga mais recente.
 					.orderBy(sql`${militaryIdentityInCore.dataAtualizacao} desc nulls last`)
 			)
@@ -161,9 +161,9 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 		presences,
 		users: userRows,
 		militaries: militaryRows
-			.filter((m): m is typeof m & { nrOrdem: string } => typeof m.nrOrdem === "string")
+			.filter((m): m is typeof m & { saram: string } => typeof m.saram === "string")
 			.map((m) => ({
-				nrOrdem: m.nrOrdem,
+				saram: m.saram,
 				nmGuerra: m.nmGuerra,
 				sgPosto: m.sgPosto,
 				sgOrg: m.sgOrg,

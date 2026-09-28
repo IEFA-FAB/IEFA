@@ -18,7 +18,7 @@ export type PersonIdentity = {
 	/** E-mail institucional. `null` quando a pessoa não existe em `core.user_data`. */
 	email: string | null
 	/** SARAM vinculado à conta. `null` enquanto a pessoa não o informa. */
-	nrOrdem: string | null
+	saram: string | null
 	/** Sigla do posto/graduação (`sgPosto`), ex.: "1T", "3S". */
 	posto: string | null
 	/** Nome de guerra (`nmGuerra`). */
@@ -47,10 +47,10 @@ export function formatMilitaryName(identity: Pick<PersonIdentity, "posto" | "nom
 export function describePerson(identity: PersonIdentity): { primary: string; secondary: string | null } {
 	const militaryName = formatMilitaryName(identity)
 	const email = identity.email?.trim() || null
-	const nrOrdem = identity.nrOrdem?.trim() || null
+	const saram = identity.saram?.trim() || null
 
-	if (militaryName) return { primary: militaryName, secondary: email ?? (nrOrdem && `SARAM ${nrOrdem}`) ?? null }
-	if (email) return { primary: email, secondary: nrOrdem ? `SARAM ${nrOrdem}` : null }
-	if (nrOrdem) return { primary: `SARAM ${nrOrdem}`, secondary: null }
+	if (militaryName) return { primary: militaryName, secondary: email ?? (saram && `SARAM ${saram}`) ?? null }
+	if (email) return { primary: email, secondary: saram ? `SARAM ${saram}` : null }
+	if (saram) return { primary: `SARAM ${saram}`, secondary: null }
 	return { primary: identity.userId, secondary: null }
 }

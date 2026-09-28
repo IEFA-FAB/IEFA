@@ -2,7 +2,7 @@
  * OnboardingDialogs
  *
  * Encapsula os dois diálogos de onboarding exibidos no layout _protected:
- *  1. SaramDialog  — coleta o Número de Ordem do usuário (obrigatório no 1º acesso)
+ *  1. SaramDialog  — coleta o SARAM do usuário (obrigatório no 1º acesso)
  *  2. EvaluationDialog — pergunta de avaliação configurada pela SDAB
  *
  * Motivo da separação: o layout _protected/route.tsx é responsável apenas por
@@ -12,18 +12,18 @@ import { useCallback, useReducer } from "react"
 import { EvaluationDialog } from "@/components/features/messhall/EvaluationDialog"
 import { SaramDialog } from "@/components/features/messhall/SaramDialog"
 import { useAuth } from "@/hooks/auth/useAuth"
-import { useUpdateNrOrdem, useUserNrOrdem } from "@/hooks/business/useUserNrOrdem"
+import { useUpdateSaram, useUserSaram } from "@/hooks/business/useUserSaram"
 import { useEvaluation, useSubmitEvaluation } from "@/hooks/data/useEvaluation"
 
-const NR_ORDEM_MIN_LEN = 7
+const SARAM_MIN_LEN = 7
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
 type OnboardingState = {
-	nrDialogOpenState: boolean
-	nrOrdem: string
-	nrError: string | null
-	prevServerNrOrdem: string
+	saramDialogOpenState: boolean
+	saram: string
+	saramError: string | null
+	prevServerSaram: string
 	evaluationDismissed: boolean
 	selectedRating: number | null
 	prevSaveStatus: string
@@ -31,10 +31,10 @@ type OnboardingState = {
 }
 
 type OnboardingAction =
-	| { type: "SET_NR_DIALOG_OPEN"; value: boolean }
-	| { type: "SET_NR_ORDEM"; value: string }
-	| { type: "SET_NR_ERROR"; value: string | null }
-	| { type: "SET_PREV_SERVER_NR_ORDEM"; value: string }
+	| { type: "SET_SARAM_DIALOG_OPEN"; value: boolean }
+	| { type: "SET_SARAM"; value: string }
+	| { type: "SET_SARAM_ERROR"; value: string | null }
+	| { type: "SET_PREV_SERVER_SARAM"; value: string }
 	| { type: "SET_EVALUATION_DISMISSED"; value: boolean }
 	| { type: "SET_SELECTED_RATING"; value: number | null }
 	| { type: "SET_PREV_SAVE_STATUS"; value: string }
@@ -42,14 +42,14 @@ type OnboardingAction =
 
 function onboardingReducer(state: OnboardingState, action: OnboardingAction): OnboardingState {
 	switch (action.type) {
-		case "SET_NR_DIALOG_OPEN":
-			return { ...state, nrDialogOpenState: action.value }
-		case "SET_NR_ORDEM":
-			return { ...state, nrOrdem: action.value }
-		case "SET_NR_ERROR":
-			return { ...state, nrError: action.value }
-		case "SET_PREV_SERVER_NR_ORDEM":
-			return { ...state, prevServerNrOrdem: action.value }
+		case "SET_SARAM_DIALOG_OPEN":
+			return { ...state, saramDialogOpenState: action.value }
+		case "SET_SARAM":
+			return { ...state, saram: action.value }
+		case "SET_SARAM_ERROR":
+			return { ...state, saramError: action.value }
+		case "SET_PREV_SERVER_SARAM":
+			return { ...state, prevServerSaram: action.value }
 		case "SET_EVALUATION_DISMISSED":
 			return { ...state, evaluationDismissed: action.value }
 		case "SET_SELECTED_RATING":
@@ -63,12 +63,12 @@ function onboardingReducer(state: OnboardingState, action: OnboardingAction): On
 	}
 }
 
-function makeInitialOnboardingState(serverNrOrdem: string): OnboardingState {
+function makeInitialOnboardingState(serverSaram: string): OnboardingState {
 	return {
-		nrDialogOpenState: false,
-		nrOrdem: serverNrOrdem,
-		nrError: null,
-		prevServerNrOrdem: serverNrOrdem,
+		saramDialogOpenState: false,
+		saram: serverSaram,
+		saramError: null,
+		prevServerSaram: serverSaram,
 		evaluationDismissed: false,
 		selectedRating: null,
 		prevSaveStatus: "idle",
@@ -80,57 +80,57 @@ export function OnboardingDialogs() {
 	const { user } = useAuth()
 	const userId = user?.id ?? null
 
-	const nrOrdemQuery = useUserNrOrdem(userId)
+	const saramQuery = useUserSaram(userId)
 	const evaluationQuery = useEvaluation(userId)
 
-	const serverNrOrdem = !userId ? "" : nrOrdemQuery.data ? String(nrOrdemQuery.data) : ""
-	const [state, dispatch] = useReducer(onboardingReducer, serverNrOrdem, makeInitialOnboardingState)
-	const { nrDialogOpenState, nrOrdem, nrError, prevServerNrOrdem, evaluationDismissed, selectedRating, prevSaveStatus, prevVoteSuccess } = state
+	const serverSaram = !userId ? "" : saramQuery.data ? String(saramQuery.data) : ""
+	const [state, dispatch] = useReducer(onboardingReducer, serverSaram, makeInitialOnboardingState)
+	const { saramDialogOpenState, saram, saramError, prevServerSaram, evaluationDismissed, selectedRating, prevSaveStatus, prevVoteSuccess } = state
 
 	/* ------------------------------------------------------------------
-	   NrOrdem Dialog
+	   Saram Dialog
 	   ------------------------------------------------------------------ */
-	if (prevServerNrOrdem !== serverNrOrdem) {
-		dispatch({ type: "SET_PREV_SERVER_NR_ORDEM", value: serverNrOrdem })
-		dispatch({ type: "SET_NR_ORDEM", value: serverNrOrdem })
+	if (prevServerSaram !== serverSaram) {
+		dispatch({ type: "SET_PREV_SERVER_SARAM", value: serverSaram })
+		dispatch({ type: "SET_SARAM", value: serverSaram })
 	}
 
-	const shouldForceNrDialog = !!userId && nrOrdemQuery.isSuccess && !nrOrdemQuery.data
-	const nrDialogOpen = !!userId && (shouldForceNrDialog || nrDialogOpenState)
+	const shouldForceSaramDialog = !!userId && saramQuery.isSuccess && !saramQuery.data
+	const saramDialogOpen = !!userId && (shouldForceSaramDialog || saramDialogOpenState)
 
-	const saveNrMutation = useUpdateNrOrdem()
+	const saveSaramMutation = useUpdateSaram()
 
-	if (prevSaveStatus !== saveNrMutation.status) {
-		dispatch({ type: "SET_PREV_SAVE_STATUS", value: saveNrMutation.status })
-		if (saveNrMutation.isError) {
-			dispatch({ type: "SET_NR_ERROR", value: "Não foi possível salvar. Tente novamente." })
-		} else if (saveNrMutation.isSuccess) {
-			dispatch({ type: "SET_NR_DIALOG_OPEN", value: false })
+	if (prevSaveStatus !== saveSaramMutation.status) {
+		dispatch({ type: "SET_PREV_SAVE_STATUS", value: saveSaramMutation.status })
+		if (saveSaramMutation.isError) {
+			dispatch({ type: "SET_SARAM_ERROR", value: "Não foi possível salvar. Tente novamente." })
+		} else if (saveSaramMutation.isSuccess) {
+			dispatch({ type: "SET_SARAM_DIALOG_OPEN", value: false })
 		}
 	}
 
-	const handleNrDialogOpenChange = (open: boolean) => {
-		if (!open && shouldForceNrDialog) return
-		dispatch({ type: "SET_NR_DIALOG_OPEN", value: open })
+	const handleSaramDialogOpenChange = (open: boolean) => {
+		if (!open && shouldForceSaramDialog) return
+		dispatch({ type: "SET_SARAM_DIALOG_OPEN", value: open })
 	}
 
-	const handleNrOrdemChange = (value: string) => {
-		dispatch({ type: "SET_NR_ORDEM", value })
-		if (nrError) dispatch({ type: "SET_NR_ERROR", value: null })
+	const handleSaramChange = (value: string) => {
+		dispatch({ type: "SET_SARAM", value })
+		if (saramError) dispatch({ type: "SET_SARAM_ERROR", value: null })
 	}
 
-	const handleSubmitNrOrdem = () => {
-		const digitsOnly = nrOrdem.replace(/\D/g, "").trim()
+	const handleSubmitSaram = () => {
+		const digitsOnly = saram.replace(/\D/g, "").trim()
 		if (!digitsOnly) {
-			dispatch({ type: "SET_NR_ERROR", value: "Informe seu número de Ordem." })
+			dispatch({ type: "SET_SARAM_ERROR", value: "Informe seu SARAM." })
 			return
 		}
-		if (digitsOnly.length < NR_ORDEM_MIN_LEN) {
-			dispatch({ type: "SET_NR_ERROR", value: "Nr. de Ordem parece curto. Confira e tente novamente." })
+		if (digitsOnly.length < SARAM_MIN_LEN) {
+			dispatch({ type: "SET_SARAM_ERROR", value: "SARAM parece curto. Confira e tente novamente." })
 			return
 		}
 		if (!user) return
-		saveNrMutation.mutate({ user, nrOrdem: digitsOnly })
+		saveSaramMutation.mutate({ user, saram: digitsOnly })
 	}
 
 	/* ------------------------------------------------------------------
@@ -139,7 +139,7 @@ export function OnboardingDialogs() {
 	const evaluationQuestion = evaluationQuery.data?.question ?? null
 	const evaluationShouldAsk = Boolean(evaluationQuery.data?.shouldAsk && evaluationQuestion)
 
-	const shouldShowEvaluationDialog = !!userId && evaluationQuery.isSuccess && evaluationShouldAsk && !nrDialogOpen && !evaluationDismissed
+	const shouldShowEvaluationDialog = !!userId && evaluationQuery.isSuccess && evaluationShouldAsk && !saramDialogOpen && !evaluationDismissed
 
 	const handleEvaluationOpenChange = useCallback((open: boolean) => {
 		if (!open) {
@@ -168,13 +168,13 @@ export function OnboardingDialogs() {
 	return (
 		<>
 			<SaramDialog
-				open={nrDialogOpen}
-				nrOrdem={nrOrdem}
-				error={nrError}
-				isSaving={saveNrMutation.isPending}
-				onOpenChange={handleNrDialogOpenChange}
-				onChange={handleNrOrdemChange}
-				onSubmit={handleSubmitNrOrdem}
+				open={saramDialogOpen}
+				saram={saram}
+				error={saramError}
+				isSaving={saveSaramMutation.isPending}
+				onOpenChange={handleSaramDialogOpenChange}
+				onChange={handleSaramChange}
+				onSubmit={handleSubmitSaram}
 			/>
 
 			<EvaluationDialog

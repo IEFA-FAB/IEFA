@@ -989,7 +989,7 @@ export {
 	type TrainingScopeInfo,
 } from "./training.ts"
 export { fetchUnitSettings, updateUnitSettings } from "./units.ts"
-export { fetchMaskedCpf, fetchMilitaryData, fetchSisubUserData, fetchUserNrOrdem, syncUserEmail, syncUserNrOrdem } from "./user.ts"
+export { fetchMaskedCpf, fetchMilitaryData, fetchSisubUserData, fetchUserSaram, syncUserEmail, syncUserSaram } from "./user.ts"
 export type { MessHallWorkforceWire, WorkforceMatrixWire, WorkforceNetworkWire } from "./workforce.ts"
 export {
 	addWorkforceNote,

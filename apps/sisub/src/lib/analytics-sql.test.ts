@@ -122,9 +122,7 @@ describe("validateSql", () => {
 	})
 
 	test("rejeita relação em lista com vírgula depois de JOIN ... ON (bypass da verificação)", () => {
-		expect(validateSql('SELECT d.email, d."nrOrdem" FROM (SELECT 1) x JOIN (SELECT 1) y ON true, core.user_data d ORDER BY d.email OFFSET 500').valid).toBe(
-			false
-		)
+		expect(validateSql("SELECT d.email, d.saram FROM (SELECT 1) x JOIN (SELECT 1) y ON true, core.user_data d ORDER BY d.email OFFSET 500").valid).toBe(false)
 		expect(validateSql("SELECT * FROM units u JOIN kitchen k USING (id), auth.users a").valid).toBe(false)
 	})
 

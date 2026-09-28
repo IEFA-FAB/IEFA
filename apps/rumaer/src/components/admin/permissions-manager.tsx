@@ -99,7 +99,7 @@ export function RumaerPermissionsManager() {
 									}`}
 								>
 									<span className="text-sm font-medium">{u.email}</span>
-									{u.nrOrdem && <span className="text-xs text-muted-foreground">Nr. Ordem {u.nrOrdem}</span>}
+									{u.saram && <span className="text-xs text-muted-foreground">SARAM {u.saram}</span>}
 								</button>
 							</li>
 						))}
