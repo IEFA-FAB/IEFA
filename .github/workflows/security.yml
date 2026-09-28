@@ -101,7 +101,7 @@ jobs:
 
       - name: Upload SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v4.38.0
+        uses: github/codeql-action/upload-sarif@v4.38.1
         with:
           sarif_file: opengrep.sarif
           category: opengrep
@@ -122,7 +122,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: github/codeql-action/init@v4.38.0
+      - uses: github/codeql-action/init@v4.38.1
         with:
           languages: javascript-typescript
           # security-extended inclui as queries de qualidade-com-impacto-em-segurança
@@ -130,7 +130,7 @@ jobs:
           queries: security-extended
           config-file: .github/codeql/config.yml
 
-      - uses: github/codeql-action/analyze@v4.38.0
+      - uses: github/codeql-action/analyze@v4.38.1
         with:
           category: "/language:javascript-typescript"
 
@@ -324,7 +324,7 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "0" # relatório, não gate — misconfig de IaC costuma exigir contexto
 
-      - uses: github/codeql-action/upload-sarif@v4.38.0
+      - uses: github/codeql-action/upload-sarif@v4.38.1
         if: always()
         with:
           sarif_file: trivy-config.sarif
