@@ -14,8 +14,7 @@
  * DATADA: o PR do contract que os derruba esvazia a lista. O lote 2 (anexo quantitativo) já passou
  * pelo contract 20260927050000, o lote 3 (pesquisa de preços e prefixos) pelo 20260927070000 e o
  * lote 4 (finanças) pelo 20260927090000, o lote 7 (arranchamento) pelo 20260927140000 e o lote 8b
- * (efetivo por refeitório) pelo 20260927160000. O lote 6 (SARAM) está em expand (20260927180000),
- * com a compatibilidade dele na lista até o contract 20260927190000.
+ * (efetivo por refeitório) pelo 20260927160000 e o lote 6 (SARAM) pelo 20260927190000.
  *
  * ## Espelho do cadastro de pessoal
  *
@@ -69,25 +68,13 @@ const DISCARDED_IDENTIFIER =
 const DISCARDED_TEXT = String.raw`\mprocurement_list\w*|\mkitchen_ata_draft\w*|\mlist_id\M|\mlist_kitchen_id\M|\mmax_margin_percent\M|\mmargin_justification\M|\w*pesquisa_preco\w*|\w*compras_amostra\w*|\mamostra_id\M|\mprocurement_arp\w*|\mprocurement_segment\w*|\mdotacao\M|\msaldo_siafi\M|\mug_emitente\M|\mmeal_forecasts?\M|\w*nr_ordem\w*|(?<![Ff]iscal de )(?<![Ff]iscais de )\m[Rr][Aa][Nn][Cc][Hh][Oo]\w*`
 
 /**
- * Compatibilidade de um expand em andamento, até o contract dele. Os contracts 20260927050000
- * (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e prefixos),
- * 20260927090000 (lote 4, finanças), 20260927140000 (lote 7, arranchamento) e 20260927160000 (lote
- * 8b, efetivo por refeitório) derrubaram as delas; sobra a do lote 6 (SARAM), que o contract
- * 20260927190000 derruba e o PR dele esvazia. Chave: `tipo:schema.objeto[.coluna]`.
+ * Compatibilidade de um expand em andamento, até o contract dele. Vazia: os contracts
+ * 20260927050000 (lote 2, anexo quantitativo), 20260927070000 (lote 3, pesquisa de preços e
+ * prefixos), 20260927090000 (lote 4, finanças), 20260927140000 (lote 7, arranchamento),
+ * 20260927160000 (lote 8b, efetivo por refeitório) e 20260927190000 (lote 6, SARAM) derrubaram as
+ * delas. Chave: `tipo:schema.objeto[.coluna]`.
  */
-const EXPAND_ALLOWLIST = new Set<string>([
-	// Lote 6 (SARAM), expand 20260927180000 → contract 20260927190000.
-	"column:core.person.nr_ordem",
-	"column:core.user_data.nrOrdem",
-	"column:core.person_identity.nr_ordem",
-	"constraint:core.person_nr_ordem_key",
-	"relation:core.person_nr_ordem_key",
-	"relation:core.user_data_nrOrdem_idx",
-	// Único condicional de 20260921160410: só existe em banco sem SARAM repetido (não no compartilhado).
-	"relation:core.user_data_nr_ordem_uniq",
-	"function:core.mirror_person_saram",
-	"view:core.person_identity",
-])
+const EXPAND_ALLOWLIST = new Set<string>([])
 
 /**
  * O espelho do cadastro de pessoal guarda o nome do sistema de origem: permanente, não sai com

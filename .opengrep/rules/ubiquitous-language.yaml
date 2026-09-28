@@ -469,10 +469,8 @@ rules:
           # "Ordem de fornecimento/serviço/compra/produção" é outro conceito e não casa.
           - pattern-regex: (?i)(?:\bn(?:r\.?|º)\s*(?:de\s+)?|\bn[uú]mero\s+de\s+)ordem\b(?!\s+d[aeo]s?\s+(?:fornecimento|servi[cç]o|compra|produ[cç][aã]o|pagamento|empenho))
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$
-      # O nome do sistema de origem no espelho, o campo obsoleto de `/api/user-data` e o prefixo do
-      # lock consultivo da versão anterior (sai no contract do lote 6).
+      # O nome do sistema de origem no espelho e o campo obsoleto de `/api/user-data`.
       - pattern-not-regex: \b(?:MIRROR_SARAM_COLUMN|LEGACY_SARAM_FIELD)\s*=\s*"nrOrdem"
-      - pattern-not-regex: \bLEGACY_SARAM_LOCK_PREFIX\s*=\s*"nr-ordem:"
       # Campos que identificam pessoa no teste de autorização da API: as rotas ainda servem os dois.
       - pattern-not-regex: \bPERSONAL_DATA_FIELDS\s*=\s*\[[^\]]*\]
 
