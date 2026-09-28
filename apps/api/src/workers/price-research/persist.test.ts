@@ -15,6 +15,9 @@ class FakeSupabase {
 	upsertCalls: string[] = []
 	/** Erro forçado no próximo insert de `price_research` (simula falha que não é 23505). */
 	failNextHeaderInsert: PgError | null = null
+	/** Erro forçado no insert do N-ésimo item (1-based) de `price_research_item`. */
+	failItemInsertAt: number | null = null
+	private itemInserts = 0
 	private seq = 0
 
 	from(table: string) {
@@ -34,6 +37,9 @@ class FakeSupabase {
 								return { data: null, error: { code: "23505", message: 'duplicate key value violates unique constraint "uq_price_research_idempotency"' } }
 							}
 						}
+						if (table === "price_research_item" && ++this.itemInserts === this.failItemInsertAt) {
+							return { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } }
+						}
 						const saved = { ...row, id: `${table}-${++this.seq}` }
 						rows.push(saved)
 						return { data: { id: saved.id }, error: null }
@@ -47,6 +53,16 @@ class FakeSupabase {
 						return { data: found ? { id: found.id } : null, error: null }
 					},
 				}),
+			}),
+			// `on delete cascade` de price_research → price_research_item, como no banco.
+			delete: () => ({
+				eq: async (column: string, value: unknown) => {
+					this.tables[table] = rows.filter((r) => r[column] !== value)
+					if (table === "price_research") {
+						this.tables.price_research_item = this.tables.price_research_item.filter((r) => r.research_id !== value)
+					}
+					return { error: null }
+				},
 			}),
 			upsert: async (_rows: Row[], _options: unknown) => {
 				this.upsertCalls.push(table)
@@ -144,6 +160,33 @@ describe("persistResearch — cabeçalho idempotente", () => {
 
 		expect(await persistResearch(asClient(fake), input())).toBeNull()
 		expect(fake.tables.price_research_item).toHaveLength(0)
+	})
+})
+
+describe("persistResearch — tudo ou nada", () => {
+	const twoItems = input().items.concat({ ...input().items[0], quantityEstimateItemId: "qei-2", ingredientName: "Feijão" })
+
+	test("falha num item apaga o cabeçalho criado e devolve null", async () => {
+		const fake = new FakeSupabase()
+		fake.failItemInsertAt = 2
+
+		const researchId = await persistResearch(asClient(fake), input({ items: twoItems }))
+
+		expect(researchId).toBeNull()
+		expect(fake.tables.price_research).toHaveLength(0)
+		expect(fake.tables.price_research_item).toHaveLength(0)
+	})
+
+	test("depois da falha, o reenvio do mesmo dia grava a pesquisa inteira em vez de devolver a incompleta", async () => {
+		const fake = new FakeSupabase()
+		fake.failItemInsertAt = 2
+		await persistResearch(asClient(fake), input({ items: twoItems }))
+
+		const retry = await persistResearch(asClient(fake), input({ items: twoItems }))
+
+		expect(retry).not.toBeNull()
+		expect(fake.tables.price_research).toHaveLength(1)
+		expect(fake.tables.price_research_item.map((r) => r.quantity_estimate_item_id)).toEqual(["qei-1", "qei-2"])
 	})
 })
 

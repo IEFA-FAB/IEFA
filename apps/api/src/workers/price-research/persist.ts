@@ -22,7 +22,6 @@ import type { createClient } from "@supabase/supabase-js"
 import type { PriceResearchOptions } from "./analyzer.ts"
 import type { PriceSample, QuantityEstimateItemPriceResult } from "./types.ts"
 
-// biome-ignore lint/suspicious/noExplicitAny: o client da rota não é tipado (schemas custom fora do `Database` gerado)
 export type PriceResearchClient = ReturnType<typeof createClient<any, any, any>>
 
 /** Código do Postgres para violação de unicidade — aqui, "esta pesquisa já foi gravada hoje". */
@@ -99,11 +98,17 @@ async function claimResearchHeader(
  * Falhas de persistência são logadas mas não interrompem o fluxo —
  * o resultado analítico é sempre retornado ao cliente mesmo se o audit trail falhar.
  *
+ * Tudo ou nada, por compensação: o PostgREST não abre transação entre chamadas, então se um
+ * item ou lote de amostras falha, o cabeçalho é apagado (a FK leva itens e ponte em cascata).
+ * Sem isso, a memória de cálculo pela metade ficaria sob a chave do dia, e todo reenvio cairia
+ * no 23505 e devolveria aquele id incompleto como se fosse a pesquisa gravada.
+ *
  * @returns researchId — UUID da pesquisa salva (ou da já existente com a mesma chave), ou null em caso de falha
  */
 export async function persistResearch(supabase: PriceResearchClient, input: PersistResearchInput): Promise<string | null> {
+	let createdId: string | null = null
 	try {
-		const { quantityEstimateId, options, items, summary } = input
+		const { quantityEstimateId, options, summary } = input
 
 		// ── 1. Cabeçalho da pesquisa (idempotente pela chave) ─────────────────
 		const header = await claimResearchHeader(supabase, {
@@ -125,107 +130,122 @@ export async function persistResearch(supabase: PriceResearchClient, input: Pers
 
 		if (!header) return null
 		if (!header.created) return header.id
-
-		const researchId = header.id
+		createdId = header.id
 
 		// ── 2. Resultado por item + amostras ──────────────────────────────────
-		for (const item of items) {
-			const analysis = item.analysis
-
-			const { data: researchItem, error: errItem } = await supabase
-				.from("price_research_item")
-				.insert({
-					research_id: researchId,
-					quantity_estimate_item_id: item.quantityEstimateItemId,
-					// Identificadores externos (catmat_* → nomes do catálogo)
-					catmat_codigo: item.catmatCodigo ?? null,
-					catmat_descricao: item.catmatDescricao ?? null,
-					// Campo interno
-					product_name: item.ingredientName,
-					// Funil interno
-					total_raw: analysis?.counts.raw ?? 0,
-					total_after_date_filter: analysis?.counts.afterDateFilter ?? 0,
-					total_after_pollution_filter: analysis?.counts.afterPollutionFilter ?? 0,
-					total_after_outlier: analysis?.counts.afterOutlierRemoval ?? 0,
-					// Estatísticas internas
-					price_min: analysis?.statistics?.min ?? null,
-					price_max: analysis?.statistics?.max ?? null,
-					price_mean: analysis?.statistics?.mean ?? null,
-					price_median: analysis?.statistics?.median ?? null,
-					std_dev: analysis?.statistics?.stdDev ?? null,
-					cv_pct: analysis?.statistics?.cv ?? null,
-					unique_sources: analysis?.statistics?.uniqueSources ?? null,
-					// Preço de referência interno
-					reference_price: analysis?.referencePrice ?? null,
-					reference_method: analysis ? "median" : null,
-					measure_unit: analysis?.primaryMeasureUnit ?? null,
-					// Conformidade interna
-					is_compliant: analysis?.compliance.compliant ?? false,
-					non_compliance_reasons: analysis?.compliance.nonComplianceReasons ?? [],
-					// Erro
-					error: item.error ?? null,
-				})
-				.select("id")
-				.single()
-
-			if (errItem || !researchItem) {
-				console.error(`[price-research] Falha ao persistir item ${item.quantityEstimateItemId}:`, errItem?.message)
-				continue
-			}
-
-			if (!analysis) continue
-
-			// TODAS as amostras (válidas + outliers + poluição), em ordem.
-			const classified = [
-				...analysis.samples.map((a) => ({ a, type: "valid" as const })),
-				...analysis.outliers.map((a) => ({ a, type: "outlier" as const })),
-				...analysis.pollutionDiscards.map((a) => ({ a, type: "pollution" as const })),
-			]
-
-			if (classified.length === 0) continue
-
-			// Upsert dos FATOS no catálogo deduplicado → ids alinhados à entrada.
-			const factRows = classified.map(({ a }) => factPayload(a))
-			const { data: priceSampleIds, error: errRpc } = await supabase.rpc("upsert_price_samples", { p_samples: factRows })
-
-			if (errRpc || !priceSampleIds || priceSampleIds.length !== classified.length) {
-				console.error(`[price-research] Falha no catálogo de amostras do item ${researchItem.id}:`, errRpc?.message ?? "contagem inesperada")
-				continue
-			}
-
-			// Ponte por-pesquisa (em lotes; ON CONFLICT DO NOTHING). O índice
-			// `uq_price_research_sample_item_sample` é TOTAL, então o `onConflict` do PostgREST serve.
-			const bridge = classified.map(({ type, a }, i) => ({
-				research_item_id: researchItem.id,
-				price_sample_id: priceSampleIds[i] as string,
-				sample_type: type,
-				similarity: a.similarity,
-			}))
-
-			const BATCH = 500
-			for (let i = 0; i < bridge.length; i += BATCH) {
-				const { error: errSamples } = await supabase
-					.from("price_research_sample")
-					.upsert(bridge.slice(i, i + BATCH), { onConflict: "research_item_id,price_sample_id", ignoreDuplicates: true })
-
-				if (errSamples) {
-					console.error(`[price-research] Falha nas amostras do item ${researchItem.id} (lote ${i}):`, errSamples.message)
-				}
-			}
-		}
-
-		return researchId
+		if (await writeResearchItems(supabase, header.id, input.items)) return header.id
 	} catch (err) {
 		console.error("[price-research] Erro inesperado na persistência:", err)
-		return null
 	}
+
+	if (createdId) await discardResearch(supabase, createdId)
+	return null
+}
+
+/** Apaga a pesquisa incompleta que esta chamada criou. Itens e ponte vão junto pela FK `on delete cascade`. */
+async function discardResearch(supabase: PriceResearchClient, researchId: string): Promise<void> {
+	const { error } = await supabase.from("price_research").delete().eq("id", researchId)
+	if (error) {
+		console.error(`[price-research] Pesquisa ${researchId} ficou INCOMPLETA e não foi apagada; reenvios de hoje devolverão este id:`, error.message)
+	}
+}
+
+/** Grava itens e amostras da pesquisa. `false` na primeira falha: a pesquisa não está completa. */
+async function writeResearchItems(supabase: PriceResearchClient, researchId: string, items: QuantityEstimateItemPriceResult[]): Promise<boolean> {
+	for (const item of items) {
+		const analysis = item.analysis
+
+		const { data: researchItem, error: errItem } = await supabase
+			.from("price_research_item")
+			.insert({
+				research_id: researchId,
+				quantity_estimate_item_id: item.quantityEstimateItemId,
+				// Identificadores externos (catmat_* → nomes do catálogo)
+				catmat_codigo: item.catmatCodigo ?? null,
+				catmat_descricao: item.catmatDescricao ?? null,
+				// Campo interno
+				product_name: item.ingredientName,
+				// Funil interno
+				total_raw: analysis?.counts.raw ?? 0,
+				total_after_date_filter: analysis?.counts.afterDateFilter ?? 0,
+				total_after_pollution_filter: analysis?.counts.afterPollutionFilter ?? 0,
+				total_after_outlier: analysis?.counts.afterOutlierRemoval ?? 0,
+				// Estatísticas internas
+				price_min: analysis?.statistics?.min ?? null,
+				price_max: analysis?.statistics?.max ?? null,
+				price_mean: analysis?.statistics?.mean ?? null,
+				price_median: analysis?.statistics?.median ?? null,
+				std_dev: analysis?.statistics?.stdDev ?? null,
+				cv_pct: analysis?.statistics?.cv ?? null,
+				unique_sources: analysis?.statistics?.uniqueSources ?? null,
+				// Preço de referência interno
+				reference_price: analysis?.referencePrice ?? null,
+				reference_method: analysis ? "median" : null,
+				measure_unit: analysis?.primaryMeasureUnit ?? null,
+				// Conformidade interna
+				is_compliant: analysis?.compliance.compliant ?? false,
+				non_compliance_reasons: analysis?.compliance.nonComplianceReasons ?? [],
+				// Erro
+				error: item.error ?? null,
+			})
+			.select("id")
+			.single()
+
+		if (errItem || !researchItem) {
+			console.error(`[price-research] Falha ao persistir item ${item.quantityEstimateItemId}:`, errItem?.message)
+			return false
+		}
+
+		if (!analysis) continue
+
+		// TODAS as amostras (válidas + outliers + poluição), em ordem.
+		const classified = [
+			...analysis.samples.map((a) => ({ a, type: "valid" as const })),
+			...analysis.outliers.map((a) => ({ a, type: "outlier" as const })),
+			...analysis.pollutionDiscards.map((a) => ({ a, type: "pollution" as const })),
+		]
+
+		if (classified.length === 0) continue
+
+		// Upsert dos FATOS no catálogo deduplicado → ids alinhados à entrada.
+		const factRows = classified.map(({ a }) => buildFactPayload(a))
+		const { data: priceSampleIds, error: errRpc } = await supabase.rpc("upsert_price_samples", { p_samples: factRows })
+
+		if (errRpc || !priceSampleIds || priceSampleIds.length !== classified.length) {
+			console.error(`[price-research] Falha no catálogo de amostras do item ${researchItem.id}:`, errRpc?.message ?? "contagem inesperada")
+			return false
+		}
+
+		// Ponte por-pesquisa (em lotes; ON CONFLICT DO NOTHING). O índice
+		// `uq_price_research_sample_item_sample` é TOTAL, então o `onConflict` do PostgREST serve.
+		const bridge = classified.map(({ type, a }, i) => ({
+			research_item_id: researchItem.id,
+			price_sample_id: priceSampleIds[i] as string,
+			sample_type: type,
+			similarity: a.similarity,
+		}))
+
+		const BATCH = 500
+		for (let i = 0; i < bridge.length; i += BATCH) {
+			const { error: errSamples } = await supabase
+				.from("price_research_sample")
+				.upsert(bridge.slice(i, i + BATCH), { onConflict: "research_item_id,price_sample_id", ignoreDuplicates: true })
+
+			if (errSamples) {
+				console.error(`[price-research] Falha nas amostras do item ${researchItem.id} (lote ${i}):`, errSamples.message)
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 /**
  * Extrai os campos de FATO de uma PriceSample para o catálogo procurement.price_sample.
  * Os atributos por-pesquisa (sample_type, similarity) ficam de fora — vão na ponte.
  */
-function factPayload(a: PriceSample) {
+function buildFactPayload(a: PriceSample) {
 	return {
 		// Campos externos (nomes originais do Compras.gov.br)
 		id_compra: a.idCompra,
