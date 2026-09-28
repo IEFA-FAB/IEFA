@@ -14,7 +14,7 @@ const PEOPLE: SectionPerson[] = [
 		id: "p-vanessa",
 		label: "3S VANESSA",
 		displayName: "3S VANESSA",
-		nrOrdem: null,
+		saram: null,
 		email: null,
 		posto: null,
 		nomeGuerra: null,
@@ -27,7 +27,7 @@ const PEOPLE: SectionPerson[] = [
 		id: "p-klebson",
 		label: "1S KLEBSON",
 		displayName: "SGT KLEBSON",
-		nrOrdem: "0000000",
+		saram: "0000000",
 		email: "klebson@fab.mil.br",
 		posto: "1S",
 		nomeGuerra: "KLEBSON",
@@ -40,7 +40,7 @@ const PEOPLE: SectionPerson[] = [
 		id: "p-talita",
 		label: "2S TALITA",
 		displayName: "3S TALITA",
-		nrOrdem: "0000001",
+		saram: "0000001",
 		email: null,
 		posto: "2S",
 		nomeGuerra: "TALITA",
@@ -53,7 +53,7 @@ const PEOPLE: SectionPerson[] = [
 		id: "p-iara",
 		label: "SGT IARA",
 		displayName: "SGT IARA",
-		nrOrdem: null,
+		saram: null,
 		email: null,
 		posto: null,
 		nomeGuerra: null,
@@ -72,9 +72,9 @@ export async function searchRosterFn(): Promise<RosterMatch[]> {
 	// Homônimos de propósito: é o problema que a tela existe para resolver — no
 	// efetivo real, "VANESSA" com posto "3S" casa com quatorze pessoas.
 	return [
-		{ nrOrdem: "0000002", posto: "3S", nomeGuerra: "VANESSA", organizacao: "DIREF" },
-		{ nrOrdem: "0000003", posto: "3S", nomeGuerra: "VANESSA", organizacao: "GAP-BR" },
-		{ nrOrdem: "0000004", posto: "2S", nomeGuerra: "VANESSA", organizacao: "CINDACTA I" },
+		{ saram: "0000002", posto: "3S", nomeGuerra: "VANESSA", organizacao: "DIREF" },
+		{ saram: "0000003", posto: "3S", nomeGuerra: "VANESSA", organizacao: "GAP-BR" },
+		{ saram: "0000004", posto: "2S", nomeGuerra: "VANESSA", organizacao: "CINDACTA I" },
 	]
 }
 

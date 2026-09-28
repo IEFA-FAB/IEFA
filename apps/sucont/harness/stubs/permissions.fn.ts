@@ -10,14 +10,14 @@
  */
 import type { AppModule, UserPermission } from "@iefa/pbac"
 
-export type SucontUserSearchResult = { id: string; email: string; nrOrdem: string | null; posto: string | null; nomeGuerra: string | null }
+export type SucontUserSearchResult = { id: string; email: string; saram: string | null; posto: string | null; nomeGuerra: string | null }
 export type SucontGrantTarget = { module: "sucont-1" | "sucont-3" | "sucont-4"; level: 1 | 2 } | { module: "sucont-admin"; level: 3 }
 export type SucontGrant = {
 	permissionId: string | null
 	userId: string
 	module: AppModule
 	email: string
-	nrOrdem: string | null
+	saram: string | null
 	posto: string | null
 	nomeGuerra: string | null
 	level: number
@@ -38,7 +38,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 			userId: "harness-admin",
 			module: "sucont-admin",
 			email: "nannijpsn@fab.mil.br",
-			nrOrdem: "7379749",
+			saram: "7379749",
 			posto: "1T",
 			nomeGuerra: "NANNI",
 			level: 3,
@@ -52,7 +52,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 			userId: "harness-admin",
 			module: "sucont-4",
 			email: "nannijpsn@fab.mil.br",
-			nrOrdem: "7379749",
+			saram: "7379749",
 			posto: "1T",
 			nomeGuerra: "NANNI",
 			level: 2,
@@ -65,7 +65,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 			userId: "harness-editor",
 			module: "sucont-3",
 			email: "editor@fab.mil.br",
-			nrOrdem: null,
+			saram: null,
 			posto: null,
 			nomeGuerra: null,
 			level: 2,
@@ -78,7 +78,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 			userId: "harness-policy",
 			module: "sucont-1",
 			email: "parceiro@fab.mil.br",
-			nrOrdem: "1234567",
+			saram: "1234567",
 			posto: null,
 			nomeGuerra: null,
 			level: 1,
@@ -93,7 +93,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 			userId: "8f1c0b6e-0000-4000-8000-000000000000",
 			module: "sucont-3",
 			email: "",
-			nrOrdem: null,
+			saram: null,
 			posto: null,
 			nomeGuerra: null,
 			level: 1,

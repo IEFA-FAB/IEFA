@@ -40,7 +40,7 @@ export type SectionPerson = {
 	label: string
 	/** O nome que a seção digitou. Fica visível quando difere do rótulo resolvido. */
 	displayName: string
-	nrOrdem: string | null
+	saram: string | null
 	email: string | null
 	posto: string | null
 	nomeGuerra: string | null
@@ -61,7 +61,7 @@ export type SectionPerson = {
  * lista ser decidível em vez de um sorteio.
  */
 export type RosterMatch = {
-	nrOrdem: string
+	saram: string
 	posto: string | null
 	nomeGuerra: string | null
 	organizacao: string | null
@@ -123,7 +123,7 @@ export const listSectionPeopleFn = createServerFn({ method: "GET" }).handler(asy
 							id: p.id,
 							label: p.label ?? p.display_name ?? p.id,
 							displayName: p.display_name ?? "",
-							nrOrdem: p.nr_ordem,
+							saram: p.saram,
 							email: p.email,
 							posto: p.posto,
 							nomeGuerra: p.nome_guerra,
@@ -218,22 +218,22 @@ export const searchRosterFn = createServerFn({ method: "GET" })
 			.limit(ROSTER_SEARCH_LIMIT)
 		if (error) throw new Error(error.message)
 
-		return (rows ?? []).flatMap((row) => (row.saram ? [{ nrOrdem: row.saram, posto: row.posto, nomeGuerra: row.nome_guerra, organizacao: row.sg_org }] : []))
+		return (rows ?? []).flatMap((row) => (row.saram ? [{ saram: row.saram, posto: row.posto, nomeGuerra: row.nome_guerra, organizacao: row.sg_org }] : []))
 	})
 
 /**
  * Vincula (ou desvincula) o SARAM de uma pessoa.
  *
  * A partir do vínculo o rótulo passa a vir do efetivo: "SGT KLEBSON" vira a
- * graduação de verdade — "SGT" nem é sigla do cadastro. `core.person.nr_ordem` é
+ * graduação de verdade — "SGT" nem é sigla do cadastro. `core.person.saram` é
  * UNIQUE, então o mesmo SARAM não pode ser reivindicado por duas pessoas.
  */
 export const linkPersonRosterFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.uuid(), nrOrdem: z.string().trim().min(1).nullable() }))
+	.validator(z.object({ id: z.uuid(), saram: z.string().trim().min(1).nullable() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontAdmin()
 		await requireSectionMember(data.id)
-		const { error } = await getCoreClient().from("person").update({ nr_ordem: data.nrOrdem }).eq("id", data.id)
+		const { error } = await getCoreClient().from("person").update({ saram: data.saram }).eq("id", data.id)
 		if (error) {
 			if (error.code === "23505") throw new Error("Esse SARAM já está vinculado a outra pessoa do cadastro.")
 			throw new Error(error.message)

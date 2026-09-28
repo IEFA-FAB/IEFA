@@ -50,37 +50,37 @@ export const syncSucontIdentityFn = createServerFn({ method: "POST" }).handler(a
 /**
  * SARAM vinculado à conta e a identificação militar que ele resolve.
  *
- * `nrOrdem` é o que a conta declarou; `posto`/`nomeGuerra` são o que o cadastro de
+ * `saram` é o que a conta declarou; `posto`/`nomeGuerra` são o que o cadastro de
  * pessoal responde sobre ele. Os dois viajam separados porque a segunda pode faltar
  * (SARAM digitado errado, ou pessoa ausente do espelho) sem que a primeira falte.
  */
 export type SucontIdentity = {
-	nrOrdem: string | null
+	saram: string | null
 	posto: string | null
 	nomeGuerra: string | null
 }
 
-const EMPTY_IDENTITY: SucontIdentity = { nrOrdem: null, posto: null, nomeGuerra: null }
+const EMPTY_IDENTITY: SucontIdentity = { saram: null, posto: null, nomeGuerra: null }
 
 /**
  * Identidade do PRÓPRIO usuário. Sem argumento: o `id` vem do JWT — receber um
  * `userId` do cliente aqui devolveria o SARAM de qualquer conta (IDOR), e SARAM é
  * dado pessoal.
  *
- * É o que decide se o diálogo de primeiro acesso aparece: `nrOrdem: null` significa
+ * É o que decide se o diálogo de primeiro acesso aparece: `saram: null` significa
  * "ainda não informou".
  */
 export const fetchMyIdentityFn = createServerFn({ method: "GET" }).handler(async (): Promise<SucontIdentity> => {
 	const userId = await requireUserId()
 
-	const { data, error } = await getCoreClient().from("user_data").select("nrOrdem").eq("id", userId).maybeSingle()
+	const { data, error } = await getCoreClient().from("user_data").select("saram").eq("id", userId).maybeSingle()
 	if (error) throw new Error(error.message)
 
-	const nrOrdem = data?.nrOrdem?.trim() || null
-	if (!nrOrdem) return EMPTY_IDENTITY
+	const saram = data?.saram?.trim() || null
+	if (!saram) return EMPTY_IDENTITY
 
-	const military = await fetchMilitaryIdentity(nrOrdem)
-	return { nrOrdem, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null }
+	const military = await fetchMilitaryIdentity(saram)
+	return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null }
 })
 
 /**
@@ -93,11 +93,11 @@ export const fetchMyIdentityFn = createServerFn({ method: "GET" }).handler(async
  * que a gravação devolve é a identificação resolvida — `null` ali é o sinal de que o
  * número não bate com ninguém, e a tela diz isso em vez de fingir sucesso completo.
  */
-export const saveMyNrOrdemFn = createServerFn({ method: "POST" })
-	.validator(z.object({ nrOrdem: z.string().regex(/^\d{6,7}$/, "O SARAM tem 6 ou 7 dígitos.") }))
+export const saveMySaramFn = createServerFn({ method: "POST" })
+	.validator(z.object({ saram: z.string().regex(/^\d{6,7}$/, "O SARAM tem 6 ou 7 dígitos.") }))
 	.handler(async ({ data }): Promise<SucontIdentity> => {
 		const user = await requireUser()
-		const { nrOrdem } = data
+		const { saram } = data
 		const email = user.email?.trim()
 		const core = getCoreClient()
 
@@ -111,8 +111,8 @@ export const saveMyNrOrdemFn = createServerFn({ method: "POST" })
 		// handler devolveria a identificação resolvida e a tela cantaria sucesso sobre
 		// uma gravação que não houve.
 		const { data: written, error } = email
-			? await core.from("user_data").upsert({ id: user.id, email, nrOrdem }, { onConflict: "id" }).select("id")
-			: await core.from("user_data").update({ nrOrdem }).eq("id", user.id).select("id")
+			? await core.from("user_data").upsert({ id: user.id, email, saram }, { onConflict: "id" }).select("id")
+			: await core.from("user_data").update({ saram }).eq("id", user.id).select("id")
 
 		if (error) {
 			// 23505 aqui é colisão do índice único de EMAIL: outra linha, de outro `id`,
@@ -129,6 +129,6 @@ export const saveMyNrOrdemFn = createServerFn({ method: "POST" })
 			throw new Error("Sua conta ainda não está no cadastro de pessoas do ERP. Procure o administrador do SUCONT.")
 		}
 
-		const military = await fetchMilitaryIdentity(nrOrdem)
-		return { nrOrdem, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null }
+		const military = await fetchMilitaryIdentity(saram)
+		return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null }
 	})

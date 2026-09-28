@@ -22,12 +22,12 @@ export type MilitaryIdentity = {
 }
 
 /**
- * Identificação militar de cada `nrOrdem` pedido, indexada pelo próprio `nrOrdem`.
+ * Identificação militar de cada `saram` pedido, indexada pelo próprio `saram`.
  * SARAM sem correspondência simplesmente não entra no mapa — quem chama já trata
  * a ausência (o rótulo cai para o e-mail).
  */
-export async function fetchMilitaryIdentities(nrOrdens: readonly string[]): Promise<Map<string, MilitaryIdentity>> {
-	const wanted = [...new Set(nrOrdens.filter((n) => n.trim().length > 0))]
+export async function fetchMilitaryIdentities(sarams: readonly string[]): Promise<Map<string, MilitaryIdentity>> {
+	const wanted = [...new Set(sarams.filter((n) => n.trim().length > 0))]
 	if (wanted.length === 0) return new Map()
 
 	// Da carga mais antiga para a mais recente: no `Map`, a última linha do SARAM vence, como no
@@ -43,6 +43,6 @@ export async function fetchMilitaryIdentities(nrOrdens: readonly string[]): Prom
 }
 
 /** Atalho de um SARAM só — a confirmação do diálogo de primeiro acesso. */
-export async function fetchMilitaryIdentity(nrOrdem: string): Promise<MilitaryIdentity | null> {
-	return (await fetchMilitaryIdentities([nrOrdem])).get(nrOrdem) ?? null
+export async function fetchMilitaryIdentity(saram: string): Promise<MilitaryIdentity | null> {
+	return (await fetchMilitaryIdentities([saram])).get(saram) ?? null
 }
