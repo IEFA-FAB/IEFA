@@ -58,6 +58,26 @@ describe("regra postgrest-upsert-on-partial-unique-index: leitura dos blocos", (
 	})
 })
 
+const PLATFORM_SCHEMAS = [
+	"pg_catalog",
+	"information_schema",
+	"pg_toast",
+	"auth",
+	"storage",
+	"realtime",
+	"_realtime",
+	"vault",
+	"extensions",
+	"graphql",
+	"graphql_public",
+	"pgsodium",
+	"net",
+	"cron",
+	"supabase_functions",
+	"supabase_migrations",
+	"pgbouncer",
+]
+
 const url = getSisubDatabaseUrl()
 const describeIf = url ? describeSupabaseIntegration : describe.skip
 
@@ -72,6 +92,8 @@ describeIf("regra postgrest-upsert-on-partial-unique-index × pg_index", () => {
 	})
 
 	test("todo índice único parcial sem gêmeo total está na regra", async () => {
+		// Schemas do Postgres e do Supabase ficam fora: nenhum app escreve neles pelo PostgREST
+		// (`auth.users`, `storage.objects` e `vault.secrets` têm índices parciais próprios).
 		const rows = await sql<{ sch: string; tbl: string; cols: string; iname: string }[]>`
 			with idx as (
 				select n.nspname sch, c.relname tbl, i.indexrelid::regclass::text iname,
@@ -81,7 +103,7 @@ describeIf("regra postgrest-upsert-on-partial-unique-index × pg_index", () => {
 				from pg_index i
 				join pg_class c on c.oid = i.indrelid
 				join pg_namespace n on n.oid = c.relnamespace
-				where i.indisunique and n.nspname not in ('pg_catalog', 'information_schema', 'pg_toast')
+				where i.indisunique and n.nspname::text <> all(${sql.array(PLATFORM_SCHEMAS)})
 			)
 			select sch, tbl, cols, iname from idx p
 			where partial and not expr
