@@ -1,4 +1,5 @@
-import type { Database } from "./generated.ts"
+// TODO(db:types): volta a `./generated.ts` quando os tipos forem regerados depois de 20260927170000.
+import type { Database } from "./pending-military-roster-key.ts"
 
 /**
  * O schema `sisub` foi dividido em schemas por domínio (core, access_control,
@@ -46,6 +47,8 @@ export type UserDataUpdate = TablesUpdate<"user_data">
 export type UserMilitaryData = Tables<"user_military_data">
 export type UserMilitaryDataInsert = TablesInsert<"user_military_data">
 export type UserMilitaryDataUpdate = TablesUpdate<"user_military_data">
+/** Identificação militar pelo SARAM, sem CPF e sem nome completo: o que os apps leem do espelho. */
+export type MilitaryIdentity = Views<"military_identity">
 
 export type Arranchamento = Tables<"arranchamento">
 export type ArranchamentoInsert = TablesInsert<"arranchamento">
