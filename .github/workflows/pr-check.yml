@@ -1,4 +1,5 @@
-# Lint · typecheck · testes unitários NO PULL REQUEST, antes do merge.
+# Lint · typecheck · testes unitários · build NO PULL REQUEST, antes do merge. O nome do job
+# (`lint · typecheck · test`) é check obrigatório do ruleset e não muda por causa do build.
 #
 # Até aqui esses gates só existiam nos jobs `check-<app>` do `deploy.yml`, que dispara em
 # push na `main`: o erro aparecia depois do merge, e o deploy do app ficava `skipped`.
@@ -85,3 +86,17 @@ jobs:
           VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
           VITE_ASSIGNMENT_SELECTION_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+
+      # O build pega o que typecheck e teste não pegam: o import-protection do TanStack Start
+      # (`*.server.*` alcançado pelo grafo do cliente) só existe no `vite build`. Sem este passo
+      # ele aparecia no `buildx bake` da `main`, depois do merge: 5 das 7 falhas de build do
+      # CI/CD entre 2026-09-09 e 2026-09-28, quatro seguidas em 2026-09-26/27 no sisub.
+      # Passo separado, e não mais uma task no turbo acima, para limitar a dois `vite build` ao
+      # mesmo tempo (~3,3 GB de RSS cada no sisub). Roda mesmo que o passo acima falhe: são
+      # sinais independentes. O resultado é descartado; a imagem continua saindo do Dockerfile.
+      - name: Build
+        if: ${{ !cancelled() && steps.scope.outcome == 'success' }}
+        run: bunx turbo run build ${SCOPE_ARGS:+"$SCOPE_ARGS"} --concurrency=2 --continue
+        env:
+          SCOPE_ARGS: ${{ steps.scope.outputs.args }}
+          TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}

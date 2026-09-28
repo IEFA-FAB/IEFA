@@ -14,7 +14,7 @@ paths:
 
 | Workflow | Quando | Gate |
 |----------|--------|------|
-| `pr-check.yml` | PR | format + `turbo run lint typecheck test --affected` (sem segredo; arquivo global alterado roda tudo) |
+| `pr-check.yml` | PR | format + `turbo run lint typecheck test --affected` + `build` dos afetados (sem segredo; arquivo global alterado roda tudo) |
 | `security.yml` | PR, push na main, semanal | opengrep (ERROR bloqueia), `bun audit` crítico, drift do manifesto, headers; CodeQL/Trivy só reportam |
 | `integration.yml` | todo PR, push na main, dispatch; `changes` usa o escopo sisub do `paths-filter.yml` | PR: `gate` (`test:integration:gate` transacional + `audit:rls`, fila por PR, check obrigatório). Main e dispatch: `gate` a cada commit + `full` (suíte inteira, monitor, trava global do banco) |
 | `commit-lint.yml` | PR | título do PR (e subject do commit único) no commitlint |
