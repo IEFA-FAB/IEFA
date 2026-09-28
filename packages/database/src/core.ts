@@ -12,7 +12,7 @@ export type TablesUpdate<T extends keyof CoreSchema["Tables"]> = CoreSchema["Tab
 /**
  * Pessoa que o ERP precisa nomear — com ou sem conta.
  *
- * Guarda só ponteiros (`nr_ordem` para o efetivo, `user_id` para a conta) e o
+ * Guarda só ponteiros (`saram` para o efetivo, `user_id` para a conta) e o
  * `display_name` de reserva. Posto, nome de guerra e e-mail NÃO moram aqui: têm
  * dono e mudam lá. Para exibir, use `PersonIdentity`.
  */
