@@ -71,8 +71,8 @@ export function isReceiptEditable(status: string): boolean {
 
 /**
  * `inventory.inventory_count.type` — tipo de inventário físico, na língua da norma (IN SEDAP
- * 205/1988; item e lista a confirmar, "rotativo" pode vir de outra norma). Os nomes em inglês
- * saíram com o contract 20260927110000.
+ * 205/1988, item 8.1, a, c e e, e item 8.3, que é o rotativo; o inicial e o de extinção, 8.1, b
+ * e d, não entram). Os nomes em inglês saíram com o contract 20260927110000.
  */
 export const INVENTORY_COUNT_TYPES = ["anual", "transferencia_responsabilidade", "eventual", "rotativo"] as const
 export type InventoryCountType = (typeof INVENTORY_COUNT_TYPES)[number]

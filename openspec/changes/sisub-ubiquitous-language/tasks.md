@@ -4,7 +4,7 @@
 - [x] 0.2 [sisub] Decisões do usuário de 2026-09-27 incorporadas (D2); classificação de "rancho" (D10) e nomes derivados do arranchamento (D11)
 - [x] 0.3 [sisub] Proposta `lgpd-military-roster-key`: coluna `saram` na view `core.military_identity`
 - [x] 0.4 [sisub] Mantenedor decide o destino de `kitchen.rancho` (fusão ou rename, D10.1): **rename** para `kitchen.mess_hall_workforce`, decidido em 2026-09-27. A fusão em `kitchen.mess_halls` depende do cadastro dos 4 refeitórios que faltam (ICIA, II COMAR, NuHANT) e da decisão sobre "EEAR (cozinha oficiais)", e fica para a change futura `sisub-workforce-by-mess-hall`
-- [ ] 0.5 [sisub] Conferir as fontes marcadas "a confirmar" usadas pelo lote seguinte, antes de abrir o lote
+- [x] 0.5 [sisub] Conferir as fontes marcadas "a confirmar" usadas pelo lote seguinte, antes de abrir o lote: as públicas conferidas em 2026-09-27 no texto oficial (glossário e D2); as não públicas seguem "a confirmar" com o mantenedor (item 4 das decisões)
 
 ## 1. Lote 1: só TypeScript e tela (sem banco)
 

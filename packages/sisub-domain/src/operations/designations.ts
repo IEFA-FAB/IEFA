@@ -27,8 +27,9 @@ import { brasiliaToday } from "./stock-math.ts"
 
 /**
  * Papel na designação, na língua da norma (Lei 14.133/2021, arts. 7º, 117 e 140, II, b; Decreto
- * 11.246/2022): gestor, fiscal técnico, administrativo e setorial, e membro da comissão de
- * recebimento. Os nomes em inglês saíram com o contract 20260927110000.
+ * 11.246/2022, arts. 8º, 19 e 21 a 25): gestor, fiscal técnico, administrativo e setorial, e
+ * membro da comissão de recebimento. O gestor setorial que o Decreto 13.031/2026 incluiu (arts.
+ * 19, V, e 21-A) ainda não tem papel aqui. Os nomes em inglês saíram com o contract 20260927110000.
  */
 export const DESIGNATION_ROLES = ["gestor", "fiscal_tecnico", "fiscal_administrativo", "fiscal_setorial", "membro_comissao"] as const
 export type DesignationRole = (typeof DESIGNATION_ROLES)[number]
