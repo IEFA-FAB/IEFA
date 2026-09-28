@@ -52,8 +52,11 @@ paths:
 - Nunca `pull_request_target` nem `workflow_run` com código do PR.
 - `${{ … }}` de texto controlado pelo autor (título, branch, corpo) vai por `env:`, nunca
   interpolado no `run:`.
-- Action de terceiro com pin por SHA; `actions/*`, `github/*`, `docker/*`, `aws-actions/*` e
-  `oven-sh/*` podem usar tag (`.github/zizmor.yml`).
+- Action com pin por SHA e a versão em comentário (`uses: x/y@<sha> # v1.2.3`, o formato que o
+  Dependabot atualiza). Só `actions/*` e `github/*` podem usar tag (`.github/zizmor.yml`).
+- Reusable recebe segredo nomeado, nunca `secrets: inherit`.
+- `actionlint` (job do `security.yml`, config em `.github/actionlint.yaml`) roda o shellcheck em
+  cada `run:`; rode local antes do push (`actionlint`, com `shellcheck` no PATH).
 - `checkout` com `persist-credentials: false` em job que não faz push.
 - `id-token: write` só no job que assume role AWS, nunca no topo do workflow.
 - Binário baixado por `curl` (opengrep, gitleaks) confere sha256 fixado no workflow.

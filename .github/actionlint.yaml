@@ -1,0 +1,5 @@
+# Configuração do actionlint (job `actionlint` do security.yml).
+# Os runners da Blacksmith não estão na lista embutida de labels do GitHub.
+self-hosted-runner:
+  labels:
+    - blacksmith-4vcpu-ubuntu-2404
