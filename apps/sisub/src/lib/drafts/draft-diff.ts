@@ -89,3 +89,11 @@ export function fitDraftToShape<T extends Record<string, unknown>>(saved: unknow
 	for (const key of Object.keys(baseline)) fitted[key] = key in saved ? (saved as Record<string, unknown>)[key] : baseline[key]
 	return fitted as T
 }
+
+/** Mesmas chaves no primeiro nível: o rascunho foi guardado na forma atual do formulário. */
+export function hasSameShape(saved: unknown, baseline: Record<string, unknown>): boolean {
+	if (!saved || typeof saved !== "object" || Array.isArray(saved)) return false
+	const a = Object.keys(saved).sort()
+	const b = Object.keys(baseline).sort()
+	return a.length === b.length && a.every((key, index) => key === b[index])
+}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { computeDraftChanges, type DraftChange, type DraftFields, fitDraftToShape, isDraftValueEqual } from "@/lib/drafts/draft-diff"
+import { computeDraftChanges, type DraftChange, type DraftFields, fitDraftToShape, hasSameShape, isDraftValueEqual } from "@/lib/drafts/draft-diff"
 import { type DraftEntry, draftStore } from "@/lib/drafts/draft-store"
 
 /**
@@ -94,6 +94,10 @@ export function useDraft<T extends Record<string, unknown>>({
 			return
 		}
 		if (isDraftValueEqual(values, baseline)) return
+		// Com a assinatura padrão (o baseline serializado), a guardada é a da forma antiga e
+		// acusaria "alterado por outra pessoa" para sempre: o rascunho encaixado passa a valer
+		// contra o salvo de agora. Assinatura própria (`updated_at`) não depende da forma e fica.
+		if (baseStamp === undefined && !hasSameShape(saved.values, baseline)) draftStore.set<T>({ ...saved, values, baseStamp: stamp })
 		skipPersist.current = true
 		onRestore(values)
 		setRestoredAt(saved.savedAt)

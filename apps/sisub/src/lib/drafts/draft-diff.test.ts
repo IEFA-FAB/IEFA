@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { computeDraftChanges, fitDraftToShape, isDraftValueEqual } from "./draft-diff"
+import { computeDraftChanges, fitDraftToShape, hasSameShape, isDraftValueEqual } from "./draft-diff"
 
 describe("isDraftValueEqual", () => {
 	it("trata vazio, nulo e ausente como o mesmo valor", () => {
@@ -85,5 +85,14 @@ describe("fitDraftToShape", () => {
 		expect(fitDraftToShape(undefined, { a: 0 })).toBeNull()
 		expect(fitDraftToShape([1], { 0: 0 })).toBeNull()
 		expect(fitDraftToShape("texto", { a: 0 })).toBeNull()
+	})
+})
+
+describe("hasSameShape", () => {
+	it("diz se o rascunho foi guardado na forma atual", () => {
+		expect(hasSameShape({ b: 1, a: 2 }, { a: 0, b: 0 })).toBe(true)
+		expect(hasSameShape({ a: 1 }, { a: 0, novo: 0 })).toBe(false)
+		expect(hasSameShape({ a: 1, velho: 0 }, { a: 0 })).toBe(false)
+		expect(hasSameShape(undefined, { a: 0 })).toBe(false)
 	})
 })

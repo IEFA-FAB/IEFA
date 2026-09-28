@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { BUILD_ID_HEADER, compareBuildIds } from "./build-id"
-import { checkServerFnResponse, describeTransportFailure, ServerFnTransportError } from "./server-fn-response"
+import { assertSavedRow, checkServerFnResponse, describeTransportFailure, ServerFnTransportError } from "./server-fn-response"
 
 function json(body: unknown, status: number, headers: Record<string, string> = {}) {
 	return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } })
@@ -56,6 +56,16 @@ describe("checkServerFnResponse", () => {
 		expect(outcome?.message).toContain("sendo atualizado")
 	})
 
+	it("recusa página HTML com 200 no lugar do resultado (redirecionamento seguido)", async () => {
+		const page = new Response("<!DOCTYPE html><html></html>", { status: 200, headers: { "content-type": "text/html" } })
+		const outcome = await checkServerFnResponse(page).then(
+			() => null,
+			(error: unknown) => error
+		)
+		expect(outcome).toBeInstanceOf(ServerFnTransportError)
+		expect((outcome as Error).message).not.toContain("erro 200")
+	})
+
 	it("deixa o texto curto do próprio TanStack seguir (ele lança com a mensagem)", async () => {
 		const methodNotAllowed = new Response("expected POST method. Got GET", { status: 405, headers: { "content-type": "text/plain" } })
 		expect(await checkServerFnResponse(methodNotAllowed)).toBe(methodNotAllowed)
@@ -65,6 +75,8 @@ describe("checkServerFnResponse", () => {
 describe("describeTransportFailure", () => {
 	it("avisa que pode ter gravado quando a resposta se perdeu depois do servidor", () => {
 		expect(describeTransportFailure(504, false)).toContain("pode ter sido gravada")
+		// O ALB devolve 502 também quando a task derruba a conexão depois de gravar.
+		expect(describeTransportFailure(502, false)).toContain("pode ter sido gravada")
 		expect(describeTransportFailure(0, false)).toContain("conexão com o SISUB caiu")
 		expect(describeTransportFailure(500, false)).not.toContain("pode ter sido gravada")
 	})
@@ -81,5 +93,14 @@ describe("compareBuildIds", () => {
 		expect(compareBuildIds(null, "100")).toBeNull()
 		expect(compareBuildIds("dev", "100")).toBeNull()
 		expect(compareBuildIds("100", "")).toBeNull()
+	})
+})
+
+describe("assertSavedRow", () => {
+	it("aceita a linha gravada e recusa o que não traz id", () => {
+		expect(() => assertSavedRow({ id: "r1" })).not.toThrow()
+		// O corpo de erro do h3 que chegava como resultado da gravação.
+		expect(() => assertSavedRow((UNHANDLED as { recipe?: { id?: string } }).recipe)).toThrow(ServerFnTransportError)
+		expect(() => assertSavedRow({ id: "" })).toThrow(ServerFnTransportError)
 	})
 })

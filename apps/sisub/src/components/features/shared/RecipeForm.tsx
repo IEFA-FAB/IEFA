@@ -328,19 +328,6 @@ function toFieldErrors(errors: readonly unknown[]): Array<{ message?: string }> 
 }
 
 /** Data e hora curtas da gravação de uma versão ("28/09, 14:29"). */
-/**
- * A gravação devolveu a linha gravada? Sem id, o servidor não confirmou (erro que chegou como
- * dado): o rascunho fica e o usuário é avisado, em vez de apagar o rascunho de algo não gravado.
- */
-function isSavedRow(row: { id?: unknown } | null | undefined): row is { id: string } {
-	if (typeof row?.id === "string" && row.id !== "") return true
-	toast.error("O SISUB não confirmou a gravação", {
-		id: "recipe-form-unconfirmed",
-		description: "Nada foi dado como salvo e o rascunho continua guardado. Tente de novo em alguns segundos.",
-	})
-	return false
-}
-
 function formatDateTime(iso: string) {
 	return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
 }
@@ -657,7 +644,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					kitchen_id: editContext.scope === "kitchen" ? editContext.kitchenId : null,
 					ingredients: mappedIngredients,
 				})
-				if (!isSavedRow(created)) return
 				discardDraft(draftKey)
 				stayOnSavedRecipe(created.id)
 			} else if (initialData) {
@@ -668,7 +654,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					context: editContext,
 					data: { ...recipeData, ingredients: mappedIngredients },
 				})
-				if (!isSavedRow(saved)) return
 				discardDraft(draftKey)
 				stayOnSavedRecipe(saved.id)
 			}

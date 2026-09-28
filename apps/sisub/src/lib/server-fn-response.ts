@@ -29,19 +29,30 @@ export class ServerFnTransportError extends Error {
 
 /** Mensagem da falha, completando o "Erro ao salvar X:" que as telas põem na frente. */
 export function describeTransportFailure(status: number, fromOtherBuild: boolean): string {
-	const code = status > 0 ? ` (erro ${status})` : ""
+	const code = status >= 400 ? ` (erro ${status})` : ""
 	const cause =
 		fromOtherBuild || status === 502 || status === 503
 			? `o SISUB está sendo atualizado e não confirmou a operação${code}.`
 			: status === 0
 				? "a conexão com o SISUB caiu antes da resposta."
 				: `o servidor não confirmou a operação${code}.`
-	// 504 e conexão caída: o servidor pode ter terminado depois que a resposta se perdeu.
+	// 502, 504 e conexão caída: o servidor pode ter terminado depois que a resposta se perdeu
+	// (o ALB devolve 502 também quando a task derruba a conexão no meio da requisição).
 	const next =
-		status === 504 || status === 0
+		status === 502 || status === 504 || status === 0
 			? " Ela pode ter sido gravada: confira antes de repetir. O que você digitou continua na tela."
 			: " O que você digitou continua na tela; tente de novo em alguns segundos."
 	return `${cause.charAt(0).toUpperCase()}${cause.slice(1)}${next}`
+}
+
+/**
+ * A gravação devolveu a linha gravada? Sem `id`, o servidor não confirmou: lança, para a tela
+ * tratar como erro (rascunho fica, sem toast de sucesso). Chamar no `mutationFn`, antes do
+ * `onSuccess`.
+ */
+export function assertSavedRow<T extends { id?: unknown }>(row: T | null | undefined): asserts row is T & { id: string } {
+	if (typeof row?.id === "string" && row.id !== "") return
+	throw new ServerFnTransportError("O servidor não confirmou a gravação. O que você digitou continua na tela; tente de novo em alguns segundos.", 200)
 }
 
 function isFromOtherBuild(response: Response, clientBuild: string): boolean {
@@ -56,8 +67,16 @@ function isFromOtherBuild(response: Response, clientBuild: string): boolean {
  */
 export async function checkServerFnResponse(response: Response, clientBuild: string = BUILD_ID): Promise<Response> {
 	// 0 = redirecionamento opaco; o TanStack cuida.
-	if (response.ok || response.status === 0) return response
+	if (response.status === 0) return response
 	const { headers } = response
+	if (response.ok) {
+		// Página HTML com 200 no lugar do resultado (redirecionamento seguido até uma página):
+		// o TanStack a devolveria como resultado. `Response` crua do handler vem com `x-tss-raw`.
+		if (!headers.get("x-tss-raw") && (headers.get("content-type") ?? "").includes("text/html")) {
+			throw new ServerFnTransportError(describeTransportFailure(response.status, isFromOtherBuild(response, clientBuild)), response.status)
+		}
+		return response
+	}
 	// Erro serializado pelo handler (mensagem de domínio) ou `Response` crua do handler.
 	if (headers.get("x-tss-serialized") || headers.get("x-tss-raw")) return response
 	const contentType = headers.get("content-type") ?? ""

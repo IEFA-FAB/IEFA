@@ -147,10 +147,12 @@ antes segue com o bundle antigo. Três travas para o Salvar não mentir nesse in
   o JSON de erro que o h3 monta fora do handler (server function que a task não conhece):
   a tela mostrava "Nova versão criada" e apagava o rascunho sem nada gravado. O `fetch` das
   server functions (`src/lib/server-fn-fetch.ts`, regra em `server-fn-response.ts`) lança
-  erro legível nesse caso, no 502/503/504 do ALB (antes o toast mostrava o HTML cru) e na
-  queda de conexão.
-- **Rascunho só sai com a linha gravada na mão.** A preparação confere o `id` devolvido antes
-  de apagar o rascunho e navegar.
+  erro legível nesse caso, no 502/503/504 do ALB (antes o toast mostrava o HTML cru), em página
+  HTML com 200 no lugar do resultado e na queda de conexão. No 502, 504 e na queda, a mensagem
+  avisa que pode ter gravado: o ALB devolve 502 também quando a task cai no meio da requisição.
+- **Rascunho só sai com a linha gravada na mão.** As gravações da preparação conferem o `id`
+  devolvido dentro do `mutationFn` (`assertSavedRow`): sem ele é erro, sem toast de sucesso e
+  sem apagar o rascunho.
 - **Aba desatualizada descobre.** Toda resposta traz `x-sisub-build` (instante do build); se
   o servidor é mais novo que a aba, aparece uma vez "Há uma versão nova do SISUB" com
   Recarregar, que descarrega os rascunhos antes. Não recarrega sozinho: editor com autosave
