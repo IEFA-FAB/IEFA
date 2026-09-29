@@ -171,7 +171,7 @@ export {
 	sendDemandForecast,
 	updateDemandForecast,
 } from "./demand-forecast.ts"
-export { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
+export { type DemandRounding, demandRoundingFor, resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 export {
 	CONTRATOS_GOV_BR_FUNCTIONS,
 	CONTRATOS_GOV_BR_UNMAPPED_FUNCTIONS,
@@ -583,6 +583,7 @@ export {
 	fetchDailyMenus,
 	fetchDayDetails,
 	getTrashItems,
+	portionsForArrivingHeadcount,
 	removeMenuItem,
 	restoreMenuItem,
 	updateHeadcount,
@@ -957,6 +958,7 @@ export {
 	listKitchenSnackRequests,
 	listMySnackRequests,
 	listOrderableStandards,
+	portionsPerKit,
 	registerSnackMaterialReturn,
 	registerSnackPickup,
 	setSnackClassification,
@@ -972,9 +974,12 @@ export {
 	sortFefo,
 	sufficiency,
 } from "./stock-math.ts"
+export { assertNoGlobalTemplates } from "./template-quantity-scope.ts"
 export {
 	applyEventTemplate,
 	applyTemplate,
+	assertProportionCaps,
+	assertRelativeOnlyForGlobal,
 	createBlankTemplate,
 	createTemplate,
 	deleteTemplate,

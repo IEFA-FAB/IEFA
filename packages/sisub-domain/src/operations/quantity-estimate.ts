@@ -62,11 +62,12 @@ import type {
 	UpdateQuantityEstimateLimits,
 	UpdateQuantityEstimateStatus,
 } from "../schemas/procurement.ts"
+import { isOccasionTemplateType } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
-import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
+import { demandRoundingFor, resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { isSamePrice, toMeasureUnitCode } from "./price-units.ts"
 import {
 	computeMinQuoteQuantity,
@@ -78,6 +79,7 @@ import {
 import { findSegmentConflicts, lineKey, loadLiveSegment, resolveNeedsForSegment } from "./segments.ts"
 import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
+import { assertNoGlobalTemplates } from "./template-quantity-scope.ts"
 
 /**
  * Idade a partir da qual a pesquisa de preço pede renovação. É POLÍTICA INTERNA, sem citação
@@ -292,8 +294,9 @@ async function computeQuantityEstimateNeeds(db: SisubDb, input: CalculateQuantit
 	// Efetivo base por (template → dia:refeição). O headcount_override do item é exceção;
 	// a base cobre os itens sem override (que antes eram pulados e não entravam na compra).
 	// Lido à parte, tolerante à tabela ausente (migração pendente → base vazia, sem quebrar o anexo).
-	// Evento mede pela própria refeição: o efetivo dela é a base da porcentagem dos itens.
-	const eventTemplateIds = templates.filter((t) => t.templateType === "event").map((t) => t.id)
+	// Evento e apoio medem pela própria refeição: o efetivo dela (kits, no apoio) é a base da
+	// porcentagem dos itens.
+	const eventTemplateIds = templates.filter((t) => isOccasionTemplateType(t.templateType)).map((t) => t.id)
 	const [mealsByTemplate, eventMealBases] = await Promise.all([fetchTemplateMealsSafe(db, uniqueTemplateIds), fetchEventMealBases(db, eventTemplateIds)])
 	const baseByTemplateCell = new Map<string, Map<string, number>>()
 	for (const t of templates) {
@@ -333,7 +336,10 @@ async function computeQuantityEstimateNeeds(db: SisubDb, input: CalculateQuantit
 				headcountOverride: item.headcountOverride,
 				baseHeadcount: eventItemBase(item.eventMealId, eventMealBases, baseByCell?.get(`${item.dayOfWeek}:${item.mealTypeId}`) ?? null),
 				recommendedProportion: item.recommendedProportion != null ? Number(item.recommendedProportion) : null,
+				rounding: demandRoundingFor(template.templateType),
 			})
+			// Sem efetivo a preparação não entra na conta. Não é silêncio: o fluxo "Prever demanda
+			// para compra" lista o cardápio em "sem efetivo" antes do envio (menusWithoutHeadcount).
 			if (!headcount) continue
 
 			const portionYield = Number(recipeData.portionYield ?? 0)
@@ -525,11 +531,11 @@ async function loadSelectionScope(client: SisubDb | TxClient, kitchenSelections:
 			return owner != null && owner !== ks.kitchenId
 		})
 		if (foreign.length > 0) {
-			throw new DomainError(
-				"TEMPLATE_ACCESS_DENIED",
-				`Plano(s) de cardápio que não são da cozinha ${ks.kitchenId} nem globais: ${[...new Set(foreign)].join(", ")}`
-			)
+			throw new DomainError("TEMPLATE_ACCESS_DENIED", `Plano(s) de cardápio que não são da cozinha ${ks.kitchenId}: ${[...new Set(foreign)].join(", ")}`)
 		}
+		// Modelo global é relativo (sem efetivo nem ocorrências): não dimensiona compra sem ser
+		// adaptado pela cozinha. A tela já não oferecia; o servidor agora recusa também.
+		assertNoGlobalTemplates(ks.templateIds.filter((id) => templateOwner.get(id) === null))
 	}
 	return kitchenById
 }

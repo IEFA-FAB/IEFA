@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { DateSchema, KitchenIdSchema, MenuGroupKeySchema, RecommendedProportionSchema, UuidSchema } from "./common.ts"
+import { ApplyEventTemplateSchema } from "./templates.ts"
 
 export const DailyMenuFetchSchema = z.object({
 	kitchenId: KitchenIdSchema,
@@ -118,6 +119,8 @@ export const ReplaceDayWithTemplateSchema = z.object({
 	kitchenId: KitchenIdSchema,
 	date: DateSchema,
 	templateId: UuidSchema,
+	/** Efetivo (kits, no apoio) de cada refeição do cardápio de contingência — mesma regra de `ApplyEventTemplateSchema.headcounts`. */
+	headcounts: ApplyEventTemplateSchema.shape.headcounts,
 })
 export type ReplaceDayWithTemplate = z.infer<typeof ReplaceDayWithTemplateSchema>
 

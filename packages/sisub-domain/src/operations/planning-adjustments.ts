@@ -285,7 +285,12 @@ export async function replaceDayWithTemplate(
 		await softDeleteItems(tx, ids)
 		// Mesma materialização do "Aplicar ao calendário" (valida tipo, escopo e padrão de lanche),
 		// dentro desta transação: falhar aqui desfaz também a retirada acima.
-		const applied = await applyEventTemplate(tx as unknown as SisubDb, ctx, { templateId: input.templateId, kitchenId: input.kitchenId, dates: [input.date] })
+		const applied = await applyEventTemplate(tx as unknown as SisubDb, ctx, {
+			templateId: input.templateId,
+			kitchenId: input.kitchenId,
+			dates: [input.date],
+			headcounts: input.headcounts,
+		})
 		return { removed: ids.length, itemsCreated: applied.itemsCreated, menusCreated: applied.menusCreated }
 	})
 }

@@ -167,4 +167,24 @@ describe("consolidado de produção", () => {
 		])
 		expect(summary.recipes).toEqual([])
 	})
+
+	test("meia porção por kit soma exata e arredonda para cima no total", () => {
+		const summary = buildSnackProductionSummary([
+			{
+				id: "r1",
+				missionDescription: "M1",
+				pickupAt: "2026-10-02T09:00:00Z",
+				waterQuantity: 0,
+				cupQuantity: 0,
+				iceQuantity: 0,
+				coffeeQuantity: 0,
+				lines: [
+					{ standard: standard("s1", [["cafe", 0.5]]), audience: "crew", kits: 3 },
+					{ standard: standard("s1", [["cafe", 0.5]]), audience: "pax", kits: 2 },
+				],
+			},
+		])
+		// 3 × 0,5 + 2 × 0,5 = 2,5 → 3 (não 2 + 1 arredondados em separado).
+		expect(summary.recipes.map((r) => [r.recipeId, r.portions])).toEqual([["cafe", 3]])
+	})
 })

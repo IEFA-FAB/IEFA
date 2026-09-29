@@ -42,6 +42,7 @@ export {
 	EditScopeSchema,
 	KitchenIdSchema,
 	MAX_RECOMMENDED_PROPORTION,
+	MAX_SUPPORT_PORTIONS_PROPORTION,
 	MenuGroupKeySchema,
 	PaginationSchema,
 	SortOrderSchema,
@@ -323,6 +324,7 @@ export type {
 	DeleteMenuGroupSet,
 	FetchMenuGroupSets,
 	MenuGroupInput,
+	OccasionMealGroup,
 	UpdateMenuGroupSet,
 } from "./menu-groups.ts"
 export {
@@ -334,7 +336,10 @@ export {
 	EVENT_MEAL_GROUP_SUGGESTIONS,
 	FALLBACK_MENU_GROUPS,
 	FetchMenuGroupSetsSchema,
+	MAX_GROUP_ITEM_COUNT,
 	MenuGroupSchema,
+	OccasionMealGroupSchema,
+	SUPPORT_MEAL_GROUP_SUGGESTIONS,
 	UpdateMenuGroupSetSchema,
 } from "./menu-groups.ts"
 export type { ConsumeRecoveryCode } from "./mfa-recovery.ts"
@@ -674,6 +679,7 @@ export type {
 	ForkTemplate,
 	GetTemplate,
 	ListTemplates,
+	OccasionTemplateType,
 	RestoreTemplate,
 	SaveTemplateEdit,
 	TemplateEventMeal,
@@ -689,10 +695,12 @@ export {
 	DeleteTemplateSchema,
 	ForkTemplateSchema,
 	GetTemplateSchema,
+	isOccasionTemplateType,
 	ListTemplatesSchema,
 	MAX_EVENT_MEAL_GROUPS,
 	MAX_EVENT_MEAL_HEADCOUNT,
 	MAX_EVENT_MEALS,
+	OCCASION_TEMPLATE_TYPES,
 	RestoreTemplateSchema,
 	SaveTemplateEditSchema,
 	TEMPLATE_TYPES,

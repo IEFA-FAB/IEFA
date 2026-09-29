@@ -1,8 +1,9 @@
 /**
- * Refeições próprias do evento (`kitchen.menu_template_event_meal`, 20260925120000).
+ * Refeições próprias do evento e do apoio (`kitchen.menu_template_event_meal`, 20260925120000;
+ * o apoio passou a usá-las em 20260929180000 — o nome da tabela ficou por ora).
  *
- * O evento tem zero ou mais refeições, cada uma com nome, horário no calendário e composição
- * (grupos) próprios. O item do evento aponta para a refeição em `event_meal_id` e carrega o
+ * O evento (e o apoio) tem zero ou mais refeições, cada uma com nome, horário no calendário e
+ * composição (grupos) próprios. O item do evento aponta para a refeição em `event_meal_id` e carrega o
  * `meal_type_id` DELA — é o domínio quem grava esse valor, nunca o chamador: anexo quantitativo, custeio,
  * previsão e a aplicação ao calendário leem o `meal_type_id` do item e continuam funcionando
  * sem saber das refeições do evento.
@@ -11,8 +12,8 @@
 import { menuTemplateEventMealInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { and, eq, inArray, notInArray } from "drizzle-orm"
 import { eventMealGroupsOrDefault, placeStoredEventItems, type StoredEventItemRef } from "../schemas/event-meal-placement.ts"
-import type { MenuGroupInput } from "../schemas/menu-groups.ts"
-import type { TemplateEventMeal, TemplateItem } from "../schemas/templates.ts"
+import { DEFAULT_EVENT_MEAL_GROUPS, type OccasionMealGroup } from "../schemas/menu-groups.ts"
+import { isOccasionTemplateType, type TemplateEventMeal, type TemplateItem } from "../schemas/templates.ts"
 import { DomainError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
 
@@ -25,21 +26,37 @@ export type TemplateEventMealWire = {
 	menu_template_id: string
 	name: string
 	meal_type_id: string
-	groups: MenuGroupInput[]
+	groups: OccasionMealGroup[]
 	sort_order: number
 	/** Efetivo da refeição; nulo = só o pax do item conta. */
 	base_headcount: number | null
 }
 
-/** `groups` é jsonb: o que não tiver a forma de um grupo é descartado na leitura, não repassado. */
-function parseGroups(raw: unknown): MenuGroupInput[] {
-	if (!Array.isArray(raw)) return []
-	return raw.flatMap((g) =>
-		g != null && typeof g === "object" && typeof (g as MenuGroupInput).key === "string" && typeof (g as MenuGroupInput).label === "string"
-			? [{ key: (g as MenuGroupInput).key, label: (g as MenuGroupInput).label }]
-			: []
-	)
+/** Contagem gravada no jsonb: só inteiro não negativo conta; o resto é ausência. */
+function parseCount(raw: unknown): number | undefined {
+	return typeof raw === "number" && Number.isInteger(raw) && raw >= 0 ? raw : undefined
 }
+
+/** `groups` é jsonb: o que não tiver a forma de um grupo é descartado na leitura, não repassado. */
+function parseGroups(raw: unknown): OccasionMealGroup[] {
+	if (!Array.isArray(raw)) return []
+	return raw.flatMap((g) => {
+		if (g == null || typeof g !== "object") return []
+		const group = g as Record<string, unknown>
+		if (typeof group.key !== "string" || typeof group.label !== "string") return []
+		const minItems = parseCount(group.minItems)
+		const maxItems = parseCount(group.maxItems)
+		return [{ key: group.key, label: group.label, ...(minItems !== undefined && { minItems }), ...(maxItems !== undefined && { maxItems }) }]
+	})
+}
+
+/** Composição com que uma refeição reconstruída nasce: a padrão de evento, ou nenhuma no apoio. */
+export function fallbackGroupsFor(templateType: string | null | undefined): readonly OccasionMealGroup[] {
+	return templateType === "apoio" ? [] : DEFAULT_EVENT_MEAL_GROUPS
+}
+
+/** Nome da refeição que o apoio ganha quando os itens chegam sem refeição: o kit. */
+export const DEFAULT_SUPPORT_MEAL_NAME = "Kit"
 
 /** Refeições dos templates, por template, na ordem do evento. */
 export async function fetchEventMeals(db: EventMealDb, templateIds: string[]): Promise<Map<string, TemplateEventMealWire[]>> {
@@ -108,26 +125,32 @@ export function eventMealsAsInput(meals: readonly TemplateEventMealWire[]): Temp
 /**
  * Confere refeições e itens de um template e devolve os itens com o `mealTypeId` resolvido.
  *
- * - Refeição de evento só existe em template de evento; e item de evento sempre tem refeição —
+ * - Refeição própria só existe em evento e apoio; e item de evento ou apoio sempre tem refeição —
  *   sem ela o item não aparece em coluna nenhuma do editor e some da tela continuando no banco.
+ * - Refeição de evento tem pelo menos um grupo; a de apoio pode não ter nenhum (o kit simples).
  * - O `mealTypeId` do item de evento passa a ser o da refeição: o valor enviado é descartado.
  * - O grupo do item de evento precisa estar na composição DAQUELA refeição. Diferente do
  *   cardápio semanal, aqui não existe "fora do conjunto" legítimo na escrita: a composição
  *   chega no mesmo payload, então chave desconhecida é erro de quem escreveu.
  */
 export function resolveEventContent(templateType: string | null, meals: readonly TemplateEventMeal[], items: readonly TemplateItem[]): TemplateItem[] {
-	const isEvent = templateType === "event"
-	if (!isEvent) {
+	if (!isOccasionTemplateType(templateType)) {
 		if (meals.length > 0 || items.some((i) => i.eventMealId != null)) {
-			throw new DomainError("EVENT_MEALS_ONLY_IN_EVENTS", "Refeições próprias existem só em evento; neste cardápio o item fica sob o tipo de refeição.")
+			throw new DomainError(
+				"EVENT_MEALS_ONLY_IN_EVENTS",
+				"Refeições próprias existem só em evento e apoio; no cardápio semanal o item fica sob o tipo de refeição."
+			)
 		}
 		return [...items]
 	}
 
 	const seenIds = new Set<string>()
 	for (const meal of meals) {
-		if (seenIds.has(meal.id)) throw new DomainError("EVENT_MEAL_DUPLICATE", `refeição ${meal.id} repetida no evento`)
+		if (seenIds.has(meal.id)) throw new DomainError("EVENT_MEAL_DUPLICATE", `refeição ${meal.id} repetida no cardápio`)
 		seenIds.add(meal.id)
+		if (templateType === "event" && meal.groups.length === 0) {
+			throw new DomainError("EVENT_MEAL_WITHOUT_GROUPS", `a refeição "${meal.name}" do evento precisa de pelo menos um grupo`)
+		}
 		const keys = new Set<string>()
 		for (const group of meal.groups) {
 			if (keys.has(group.key)) throw new DomainError("EVENT_MEAL_GROUP_DUPLICATE", `grupo "${group.key}" repetido na refeição "${meal.name}"`)
@@ -138,14 +161,19 @@ export function resolveEventContent(templateType: string | null, meals: readonly
 	const mealById = new Map(meals.map((m) => [m.id, m]))
 	return items.map((item) => {
 		if (item.eventMealId == null) {
-			throw new DomainError("EVENT_ITEM_WITHOUT_MEAL", "Todo item de evento pertence a uma refeição do evento (eventMealId). Crie a refeição em eventMeals.")
+			throw new DomainError(
+				"EVENT_ITEM_WITHOUT_MEAL",
+				"Todo item de evento ou apoio pertence a uma refeição do cardápio (eventMealId). Crie a refeição em eventMeals."
+			)
 		}
 		const meal = mealById.get(item.eventMealId)
-		if (!meal) throw new DomainError("EVENT_MEAL_NOT_FOUND", `refeição ${item.eventMealId} não existe neste evento`)
+		if (!meal) throw new DomainError("EVENT_MEAL_NOT_FOUND", `refeição ${item.eventMealId} não existe neste cardápio`)
 		if (item.itemGroup != null && !meal.groups.some((g) => g.key === item.itemGroup)) {
 			throw new DomainError(
 				"ITEM_GROUP_NOT_IN_SET",
-				`grupo "${item.itemGroup}" não existe na refeição "${meal.name}". Grupos válidos: ${meal.groups.map((g) => g.key).join(", ")}`
+				meal.groups.length === 0
+					? `a refeição "${meal.name}" não tem grupos: envie o item sem itemGroup ou crie o grupo na refeição`
+					: `grupo "${item.itemGroup}" não existe na refeição "${meal.name}". Grupos válidos: ${meal.groups.map((g) => g.key).join(", ")}`
 			)
 		}
 		return { ...item, mealTypeId: meal.mealTypeId }
@@ -195,13 +223,17 @@ export function keepItemsOfMeals(meals: readonly TemplateEventMeal[], items: rea
 export function normalizeStoredEventContent<I extends StoredEventItemRef>(
 	meals: readonly TemplateEventMeal[],
 	items: readonly I[],
-	mealTypeNames: ReadonlyMap<string, string> = new Map()
+	mealTypeNames: ReadonlyMap<string, string> = new Map(),
+	templateType: string | null = "event"
 ): { eventMeals: TemplateEventMeal[]; items: (I & { eventMealId: string; itemGroup: string | null })[] } {
-	const readMeals = meals.map((m) => ({ ...m, groups: eventMealGroupsOrDefault(m.groups) }))
-	const { rebuilt, placements } = placeStoredEventItems(readMeals, items)
+	const fallback = fallbackGroupsFor(templateType)
+	const readMeals = meals.map((m) => ({ ...m, groups: eventMealGroupsOrDefault(m.groups, fallback) }))
+	const { rebuilt, placements } = placeStoredEventItems(readMeals, items, fallback)
+	// No apoio a refeição reconstruída é o kit; no evento, o nome do horário.
+	const rebuiltName = (mealTypeId: string) => (templateType === "apoio" ? DEFAULT_SUPPORT_MEAL_NAME : mealTypeNames.get(mealTypeId)?.trim() || "Refeição")
 	const eventMeals: TemplateEventMeal[] = [
 		...readMeals,
-		...rebuilt.map((m) => ({ id: m.id, name: mealTypeNames.get(m.mealTypeId)?.trim() || "Refeição", mealTypeId: m.mealTypeId, groups: m.groups })),
+		...rebuilt.map((m) => ({ id: m.id, name: rebuiltName(m.mealTypeId), mealTypeId: m.mealTypeId, groups: m.groups })),
 	]
 	return {
 		eventMeals,
@@ -225,13 +257,30 @@ export function forkStoredEventContent(
 	sourceMeals: readonly TemplateEventMeal[],
 	sentMeals: readonly TemplateEventMeal[] | undefined,
 	storedItems: readonly TemplateItem[],
-	mealTypeNames: ReadonlyMap<string, string> = new Map()
+	mealTypeNames: ReadonlyMap<string, string> = new Map(),
+	templateType: string | null = "event"
 ): { eventMeals: TemplateEventMeal[]; items: TemplateItem[] } {
-	const fromSource = normalizeStoredEventContent(sourceMeals, storedItems, mealTypeNames)
+	const fromSource = normalizeStoredEventContent(sourceMeals, storedItems, mealTypeNames, templateType)
 	if (sentMeals === undefined) return fromSource
 	// Aqui todo item já cita uma refeição: o filtro tira o que saiu, e a segunda passada só
 	// arruma o grupo contra a composição enviada.
-	return normalizeStoredEventContent(sentMeals, keepItemsOfMeals(sentMeals, fromSource.items))
+	return normalizeStoredEventContent(sentMeals, keepItemsOfMeals(sentMeals, fromSource.items), new Map(), templateType)
+}
+
+/**
+ * Itens de apoio que chegaram SEM refeição, numa escrita que também não trouxe refeição
+ * nenhuma (tool antiga, script): em vez de recusar, cada horário vira uma refeição "Kit" sem
+ * grupos, que é o apoio simples. Só age quando o cardápio não tem refeição alguma — havendo
+ * refeições, o item solto é erro de quem escreveu e `resolveEventContent` recusa.
+ */
+export function wrapLooseSupportItems(
+	templateType: string | null,
+	meals: readonly TemplateEventMeal[],
+	items: readonly TemplateItem[]
+): { eventMeals: TemplateEventMeal[]; items: TemplateItem[] } | null {
+	if (templateType !== "apoio" || meals.length > 0 || !items.some((i) => i.eventMealId == null)) return null
+	const normalized = normalizeStoredEventContent([], items, new Map(), "apoio")
+	return { eventMeals: normalized.eventMeals, items: normalized.items }
 }
 
 /**
@@ -280,7 +329,12 @@ function eventMealValues(meal: TemplateEventMeal, index: number) {
 	return {
 		name: meal.name,
 		mealTypeId: meal.mealTypeId,
-		groups: meal.groups.map((g) => ({ key: g.key, label: g.label })),
+		groups: meal.groups.map((g) => ({
+			key: g.key,
+			label: g.label,
+			...(g.minItems != null && { minItems: g.minItems }),
+			...(g.maxItems != null && { maxItems: g.maxItems }),
+		})),
 		sortOrder: index,
 		// Ausente = não mexe no efetivo gravado (quem renomeia a refeição não precisa reenviá-lo);
 		// `null` = limpa. Na inserção, ausente vira nulo.

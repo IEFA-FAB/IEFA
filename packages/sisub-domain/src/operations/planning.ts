@@ -398,6 +398,37 @@ export async function updateHeadcount(db: SisubDb, ctx: UserContext, input: Upda
 			tx.update(dailyMenuInKitchen).set({ forecastedHeadcount: input.forecastedHeadcount }).where(eq(dailyMenuInKitchen.id, input.dailyMenuId)).returning()
 		)
 		const oldHeadcount = before?.forecastedHeadcount ?? null
+		// Efetivo que chega depois (dia aplicado com "efetivo a definir", típico do modelo global):
+		// calcula a porção de quem ainda não tem, pela proporção. Porção já preenchida fica.
+		if (oldHeadcount == null && input.forecastedHeadcount != null) {
+			const pending = await runQuery("FETCH_FAILED", () =>
+				tx
+					.select({
+						id: menuItemsInKitchen.id,
+						proportion: menuItemsInKitchen.recommendedProportion,
+						originTemplateType: menuItemsInKitchen.originTemplateType,
+					})
+					.from(menuItemsInKitchen)
+					.where(
+						and(eq(menuItemsInKitchen.dailyMenuId, input.dailyMenuId), isNull(menuItemsInKitchen.deletedAt), isNull(menuItemsInKitchen.plannedPortionQuantity))
+					)
+			)
+			for (const item of pending) {
+				const next = portionsForArrivingHeadcount({
+					proportion: item.proportion == null ? null : Number(item.proportion),
+					originTemplateType: item.originTemplateType,
+					headcount: input.forecastedHeadcount,
+				})
+				if (next == null) continue
+				await runQuery("UPDATE_FAILED", () =>
+					tx
+						.update(menuItemsInKitchen)
+						.set({ plannedPortionQuantity: next })
+						.where(eq(menuItemsInKitchen.id, item.id))
+						.then(() => undefined)
+				)
+			}
+		}
 		if (oldHeadcount != null && oldHeadcount !== input.forecastedHeadcount) {
 			const items = await runQuery("FETCH_FAILED", () =>
 				tx
@@ -443,6 +474,16 @@ export function rescaledPortions(input: { planned: number | null; proportion: nu
 	if (input.planned == null || derivedOld == null || input.planned !== derivedOld) return null
 	const derivedNew = derive(input.newHeadcount)
 	return derivedNew === input.planned ? null : derivedNew
+}
+
+/**
+ * Porções de um item SEM porção quando o efetivo da refeição chega (antes vazio) — ou `null`
+ * para não mexer. Item de evento ou apoio fica: ele mede pela refeição do evento ou pelos kits
+ * do apoio, não pelo efetivo da rotina daquele horário.
+ */
+export function portionsForArrivingHeadcount(input: { proportion: number | null; originTemplateType: string | null; headcount: number }): number | null {
+	if (input.originTemplateType === "event" || input.originTemplateType === "apoio") return null
+	return resolveItemDemand({ baseHeadcount: input.headcount, recommendedProportion: input.proportion })
 }
 
 export async function updateSubstitutions(db: SisubDb, ctx: UserContext, input: UpdateSubstitutions): Promise<void> {

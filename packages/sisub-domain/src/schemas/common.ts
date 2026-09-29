@@ -64,8 +64,16 @@ export type MenuGroupKey = z.infer<typeof MenuGroupKeySchema>
  */
 export const MAX_RECOMMENDED_PROPORTION = 300
 
+/**
+ * Teto da proporção no cardápio de apoio, onde ela é lida como PORÇÕES POR KIT (÷ 100): 1000 =
+ * 10 porções da preparação por kit. É a mesma conta do "% do efetivo" (2 sanduíches por kit =
+ * 200%), só com outro rótulo e outro freio. O teto por regime é conferido pelo domínio
+ * (`assertProportionCaps`); o schema aceita o maior dos dois.
+ */
+export const MAX_SUPPORT_PORTIONS_PROPORTION = 1000
+
 /** Proporção recomendada de consumo (%). Advisory — sem soma forçada dentro do grupo. */
-export const RecommendedProportionSchema = z.number().min(0).max(MAX_RECOMMENDED_PROPORTION).optional()
+export const RecommendedProportionSchema = z.number().min(0).max(MAX_SUPPORT_PORTIONS_PROPORTION).optional()
 export type RecommendedProportion = z.infer<typeof RecommendedProportionSchema>
 
 /**

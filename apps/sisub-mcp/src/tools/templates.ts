@@ -131,7 +131,7 @@ const createTemplateTool: ToolDefinition = {
 	schema: {
 		name: "create_template",
 		description:
-			"Cria um novo template de cardápio com metadados e opcionalmente seus itens. Se a inserção dos itens falhar, o template é removido (rollback compensatório). kitchen_id=null cria um template global (SDAB). `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião). Evento (templateType='event') tem refeições próprias em `eventMeals` (id UUID gerado por você, nome, mealTypeId = horário do calendário, groups = composição como entradas/volantes, baseHeadcount = efetivo da refeição); cada item de evento cita a refeição em `eventMealId`, usa um grupo da composição dela e se dimensiona por `headcountOverride` (pessoas) ou `recommendedProportion` (% do efetivo da refeição).",
+			"Cria um novo template de cardápio com metadados e opcionalmente seus itens. Se a inserção dos itens falhar, o template é removido (rollback compensatório). kitchen_id=null cria um template global (SDAB). `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião). Evento e apoio têm refeições próprias em `eventMeals` (id UUID gerado por você, nome, mealTypeId = horário do calendário, groups = composição como entradas/volantes, com minItems/maxItems opcionais = quantas preparações o grupo espera, baseHeadcount = efetivo da refeição, ou kits no apoio); cada item cita a refeição em `eventMealId` e usa um grupo da composição dela (apoio simples: uma refeição 'Kit' sem grupos). O item se dimensiona por `headcountOverride` (pessoas) ou `recommendedProportion` (% do efetivo da refeição; no apoio, porções por kit × 100: 200 = 2 por kit). Template GLOBAL (kitchen_id=null) guarda só quantidade relativa: headcountOverride, baseHeadcount e expectedMonthlyOccurrences são recusados (GLOBAL_TEMPLATE_ABSOLUTE_QUANTITY) — o número é da cozinha.",
 		inputSchema: toJsonSchema(CreateTemplateSchema),
 	},
 	async handler(args, credential) {
@@ -153,7 +153,7 @@ const createBlankTemplateTool: ToolDefinition = {
 	schema: {
 		name: "create_blank_template",
 		description:
-			"Cria um template vazio (sem itens) para uma cozinha. Use update_template para adicionar itens depois. `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião).",
+			"Cria um template vazio (sem itens) para uma cozinha. Use update_template para adicionar itens depois. `template_type` distingue: weekly (cardápio semanal), event (evento) e apoio (cardápio de apoio: lanches de bordo/apoio do Módulo 7, coffee break, café de reunião). Template global não aceita expectedMonthlyOccurrences.",
 		inputSchema: toJsonSchema(CreateBlankTemplateSchema),
 	},
 	async handler(args, credential) {
@@ -175,7 +175,7 @@ const forkTemplateTool: ToolDefinition = {
 	schema: {
 		name: "fork_template",
 		description:
-			"Cria uma cópia local de um template existente (global ou de outra cozinha), registrando base_template_id. Os itens são copiados com headcount_override, e a recorrência mensal (cardápios de apoio, template_type apoio) acompanha. Se a inserção dos itens falhar, o template novo é removido (rollback compensatório).",
+			"Cria uma cópia local de um template existente (global ou de outra cozinha), registrando base_template_id. Da cópia de um template GLOBAL vêm preparações, grupos, refeições e proporções, sem efetivo, pax nem ocorrências por mês: a cozinha os informa depois. Entre cozinhas, a cópia leva tudo. Em evento/apoio, `occasionMealIds` escolhe quais refeições do template levar (ausente = todas).",
 		inputSchema: toJsonSchema(ForkTemplateSchema),
 	},
 	async handler(args, credential) {
@@ -197,7 +197,7 @@ const updateTemplateTool: ToolDefinition = {
 	schema: {
 		name: "update_template",
 		description:
-			"Atualiza metadados de um template e, opcionalmente, substitui TODOS os seus itens (delete-all + re-insert). Se items for omitido, apenas os metadados são atualizados. Se items=[] vazio, todos os itens são removidos. Exige `context`: com {scope:'kitchen',kitchenId} a edição de um template GLOBAL não o altera — cria uma cópia local daquela cozinha. Com {scope:'global'} edita o template global (exige permissão global nível 2). Em evento, `eventMeals` substitui TODAS as refeições do evento (a que não vier sai com os itens dela; omita para não mexer) e todo item precisa de `eventMealId`. Se a cozinha já tem a cópia de um evento global, envie eventMeals e items juntos. Em `eventMeals`, omitir `baseHeadcount` preserva o efetivo gravado; `null` o limpa.",
+			"Atualiza metadados de um template e, opcionalmente, substitui TODOS os seus itens (delete-all + re-insert). Se items for omitido, apenas os metadados são atualizados. Se items=[] vazio, todos os itens são removidos. Exige `context`: com {scope:'kitchen',kitchenId} a edição de um template GLOBAL não o altera — cria uma cópia local daquela cozinha. Com {scope:'global'} edita o template global (exige permissão global nível 2). Em evento, `eventMeals` substitui TODAS as refeições do evento (a que não vier sai com os itens dela; omita para não mexer) e todo item precisa de `eventMealId`. Se a cozinha já tem a cópia de um evento global, envie eventMeals e items juntos. Em `eventMeals`, omitir `baseHeadcount` preserva o efetivo gravado; `null` o limpa. Apoio tem refeições próprias como o evento. Com {scope:'global'} não mande headcountOverride, meals com efetivo, baseHeadcount nem expectedMonthlyOccurrences: template global é só relativo.",
 		inputSchema: toJsonSchema(SaveTemplateEditSchema),
 	},
 	async handler(args, credential) {
@@ -279,6 +279,11 @@ conflictMode decide o que fazer onde já existe planejamento:
 startDayOfWeek indica qual dia do template (1=seg … 7=dom) corresponde à primeira data.
 
 O template deve ser global (SDAB) ou pertencer à mesma cozinha de destino.
+
+Efetivo: \`headcounts\` ([{mealTypeId, headcount}]) informa o efetivo de cada refeição para
+esta aplicação (o mesmo em todos os dias) e vence o do template. Template global não tem
+efetivo, então informe-o aqui; \`headcount: null\` ou refeição sem efetivo deixa o dia com
+"efetivo a definir", e as porções são calculadas quando o efetivo for informado.
 
 Exemplo: aplicar um template de 7 dias começando segunda-feira (startDayOfWeek=1)
 com startDate=2026-04-13 e endDate=2026-04-19 gera uma semana completa.`,
