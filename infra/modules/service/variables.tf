@@ -178,24 +178,6 @@ variable "deployment_maximum_percent" {
   default = 200
 }
 
-variable "deregistration_delay_seconds" {
-  description = "How long the ALB keeps a task being replaced (deploy, Spot reclamation) serving its in-flight requests before cutting them. Above the longest request of the apps (sisub: 45 s per query, 55 s per transaction), so a deploy never cuts a save midway."
-  type        = number
-  default     = 70
-}
-
-variable "shutdown_grace_seconds" {
-  description = "After SIGTERM, how long the server waits for in-flight requests before force-closing them (SERVER_SHUTDOWN_TIMEOUT, read by srvx in the Nitro apps; its default is 5 s). ECS waits this plus 15 s before SIGKILL."
-  type        = number
-  default     = 60
-
-  validation {
-    # stopTimeout = this + 15, and Fargate caps stopTimeout at 120 s.
-    condition     = var.shutdown_grace_seconds >= 0 && var.shutdown_grace_seconds <= 105
-    error_message = "shutdown_grace_seconds must be between 0 and 105 (Fargate caps stopTimeout at 120 s)."
-  }
-}
-
 variable "enable_cloudwatch_logs" {
   description = "Create a CloudWatch log group and stream container logs to it."
   type        = bool

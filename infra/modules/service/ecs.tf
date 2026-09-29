@@ -12,10 +12,6 @@ locals {
       image     = "${aws_ecr_repository.this.repository_url}:${var.image_tag}"
       essential = true
 
-      # ECS waits this long after SIGTERM before SIGKILL: the server's own grace
-      # (SERVER_SHUTDOWN_TIMEOUT below) plus margin to exit on its own.
-      stopTimeout = var.shutdown_grace_seconds + 15
-
       portMappings = [
         {
           containerPort = var.container_port
@@ -24,11 +20,8 @@ locals {
         },
       ]
 
-      # SERVER_SHUTDOWN_TIMEOUT: srvx (the Nitro apps' server) waits this long for
-      # in-flight requests after SIGTERM; its default of 5 s cut saves on Spot
-      # reclamation. The tfvars can still override it.
       environment = [
-        for env_name, env_value in merge({ SERVER_SHUTDOWN_TIMEOUT = tostring(var.shutdown_grace_seconds) }, var.environment_variables) : {
+        for env_name, env_value in var.environment_variables : {
           name  = env_name
           value = env_value
         }

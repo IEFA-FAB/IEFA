@@ -59,8 +59,7 @@ Ler exige `global:1`; editar exige `global:2`. Na cozinha, o modelo se ADAPTA (c
   "versão vundefined". O 502 do ALB aparecia como HTML cru no toast.
 - **O sistema precisa:** tratar como erro legível toda resposta que o servidor não confirmou
   (e dizer que o SISUB está sendo atualizado quando veio de outro build), só apagar o
-  rascunho com a linha gravada na mão, avisar a aba desatualizada que há versão nova e
-  deixar a task em saída terminar o que começou (drain de 70 s, 60 s de SIGTERM).
+  rascunho com a linha gravada na mão e avisar a aba desatualizada que há versão nova.
 - **Cobertura:** `server-fn-response.test.ts` (500 do h3, 502 do ALB, HTML com 200,
   notFound, build diferente, `assertSavedRow`) · `draft-diff.test.ts › fitDraftToShape`
   (rascunho atravessa publicação que mudou o formulário). Aviso de aba desatualizada:

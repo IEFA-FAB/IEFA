@@ -4,7 +4,7 @@ resource "aws_lb_target_group" "this" {
   protocol             = "HTTP"
   target_type          = "ip"
   vpc_id               = var.vpc_id
-  deregistration_delay = var.deregistration_delay_seconds
+  deregistration_delay = 30
 
   health_check {
     enabled             = true

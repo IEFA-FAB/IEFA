@@ -65,9 +65,8 @@ secret_names = [
 # leaves it down. Internal services stay on the default of 1.
 desired_count = 2
 
-# One of the two tasks on on-demand FARGATE (≈2x the hourly rate of Spot, but immune
-# to capacity reclamation): a Spot reclamation during working hours no longer cuts
-# saves on both tasks at once. Real value lives in the TF_TFVARS_JSON secret.
-fargate_on_demand_base = 1
+# Alternative to a second Spot task: pin one on-demand task instead (≈2x the
+# hourly rate of Spot, but immune to capacity reclamation).
+# fargate_on_demand_base = 1
 
 hosts = ["sisub.iefa.com.br", "app.previsaosisub.com.br"]
