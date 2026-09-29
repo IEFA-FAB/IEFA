@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useUpdateMenuItem } from "@/hooks/data/usePlanning"
 import { DEFAULT_MENU_GROUPS, type MenuGroup, type MenuItemGroup, menuItemGroupLabel, UNGROUPED_KEY, UNGROUPED_LABEL } from "@/lib/menu-item-groups"
 import { substitutionCount, substitutionLabel } from "@/lib/menu-substitutions"
+import { MAX_PORTIONS_PER_KIT, type ProportionMode, parseProportionInput, proportionInputValue, proportionModeFor } from "@/lib/occasion-menu"
 import type { OutdatedRecipe } from "@/lib/recipe-versions"
 import type { MenuItem } from "@/types/domain/planning"
 import { RecipeVersionBadge } from "./RecipeVersionUpdateDialog"
@@ -24,13 +25,20 @@ interface MenuItemCardProps {
 	outdated?: OutdatedRecipe
 	/** Grupos do conjunto da refeição. Padrão = conjunto do almoço. */
 	groups?: readonly MenuGroup[]
+	/**
+	 * Como a proporção é lida. Padrão: pela origem do item — porções por kit se veio de um
+	 * cardápio de apoio, % do efetivo nos demais.
+	 */
+	proportionMode?: ProportionMode
 }
 
 /**
  * Menu Item Card com controles editáveis para porção planejada e quantidade excluída
  */
-export function MenuItemCard({ item, onSubstitute, onReplaceRecipe, onDelete, outdated, groups = DEFAULT_MENU_GROUPS }: MenuItemCardProps) {
+export function MenuItemCard({ item, onSubstitute, onReplaceRecipe, onDelete, outdated, groups = DEFAULT_MENU_GROUPS, proportionMode }: MenuItemCardProps) {
 	const { mutate: updateMenuItem } = useUpdateMenuItem()
+	const mode = proportionMode ?? proportionModeFor(item.origin_template_type)
+	const isPerKit = mode === "portionsPerKit"
 
 	const recipeName = (item.recipe as { name?: string })?.name || "Preparação sem nome"
 
@@ -217,21 +225,22 @@ export function MenuItemCard({ item, onSubstitute, onReplaceRecipe, onDelete, ou
 
 				<div className="space-y-1">
 					<Label htmlFor={`proportion-${item.id}`} className="text-xs text-muted-foreground">
-						Proporção (%)
+						{isPerKit ? "Porções por kit" : "Proporção (%)"}
 					</Label>
 					<Input
 						id={`proportion-${item.id}`}
 						type="number"
 						min="0"
-						max={MAX_RECOMMENDED_PROPORTION}
-						value={proportion ?? ""}
+						max={isPerKit ? MAX_PORTIONS_PER_KIT : MAX_RECOMMENDED_PROPORTION}
+						step={isPerKit ? "0.5" : "1"}
+						inputMode={isPerKit ? "decimal" : "numeric"}
+						value={proportionInputValue(proportion, mode)}
 						onChange={(e) => {
-							if (e.target.value === "") return setProportion(null)
-							const parsed = Number.parseInt(e.target.value, 10)
-							if (!Number.isNaN(parsed)) setProportion(Math.max(0, Math.min(MAX_RECOMMENDED_PROPORTION, parsed)))
+							const parsed = parseProportionInput(e.target.value, mode)
+							if (parsed !== undefined) setProportion(parsed)
 						}}
 						onBlur={handleUpdateProportion}
-						placeholder="Ex: 70"
+						placeholder={isPerKit ? "Ex: 2" : "Ex: 70"}
 						className="h-8 text-xs"
 					/>
 				</div>

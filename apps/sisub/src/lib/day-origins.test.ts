@@ -27,4 +27,19 @@ describe("dayOriginsOf", () => {
 			["Cardápio de apoio", "Apoio viagem", 2],
 		])
 	})
+
+	test("conta as preparações sem porções de cada origem (aplicada sem efetivo)", () => {
+		const [origin] = dayOriginsOf(
+			[
+				{
+					menu_items: [
+						{ origin_template_id: "apoio", origin_template_type: "apoio", planned_portion_quantity: null },
+						{ origin_template_id: "apoio", origin_template_type: "apoio", planned_portion_quantity: 12 },
+					],
+				},
+			],
+			[{ id: "apoio", name: "Apoio viagem" }]
+		)
+		expect(origin).toMatchObject({ itemCount: 2, pendingCount: 1 })
+	})
 })

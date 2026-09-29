@@ -8,6 +8,7 @@ import {
 	normalizeStoredEventContent,
 	remapEventMealIds,
 	resolveEventContent,
+	wrapLooseSupportItems,
 } from "./template-event-meals.ts"
 
 const JANTAR = "00000000-0000-4000-8000-000000000001"
@@ -68,11 +69,42 @@ describe("resolveEventContent", () => {
 		expect(codeOf(() => resolveEventContent("event", [doubled], []))).toBe("EVENT_MEAL_GROUP_DUPLICATE")
 	})
 
-	test("fora de evento não há refeição própria, e o item segue como veio", () => {
+	test("no semanal não há refeição própria, e o item segue como veio", () => {
 		expect(codeOf(() => resolveEventContent("weekly", [coquetel], []))).toBe("EVENT_MEALS_ONLY_IN_EVENTS")
-		expect(codeOf(() => resolveEventContent("apoio", [], [item()]))).toBe("EVENT_MEALS_ONLY_IN_EVENTS")
+		expect(codeOf(() => resolveEventContent("weekly", [], [item()]))).toBe("EVENT_MEALS_ONLY_IN_EVENTS")
 		const routine = item({ eventMealId: undefined, itemGroup: "prato_principal" })
 		expect(resolveEventContent("weekly", [], [routine])).toEqual([routine])
+	})
+
+	test("apoio tem refeições próprias como o evento, e a do kit simples não tem grupo", () => {
+		const kit: TemplateEventMeal = { id: COQUETEL, name: "Kit", mealTypeId: JANTAR, groups: [] }
+		const [resolved] = resolveEventContent("apoio", [kit], [item({ itemGroup: null })])
+		expect(resolved?.mealTypeId).toBe(JANTAR)
+		expect(codeOf(() => resolveEventContent("apoio", [kit], [item({ itemGroup: "volante" })]))).toBe("ITEM_GROUP_NOT_IN_SET")
+		expect(codeOf(() => resolveEventContent("apoio", [kit], [item({ eventMealId: null })]))).toBe("EVENT_ITEM_WITHOUT_MEAL")
+	})
+
+	test("refeição de evento sem grupo é recusada; a de apoio passa", () => {
+		const bare = { ...coquetel, groups: [] }
+		expect(codeOf(() => resolveEventContent("event", [bare], []))).toBe("EVENT_MEAL_WITHOUT_GROUPS")
+		expect(resolveEventContent("apoio", [bare], [])).toEqual([])
+	})
+})
+
+describe("wrapLooseSupportItems", () => {
+	test("apoio sem refeição nenhuma: cada horário vira um Kit sem grupos, e o grupo solto sai", () => {
+		const wrapped = wrapLooseSupportItems("apoio", [], [item({ eventMealId: null, mealTypeId: ALMOCO, itemGroup: "bebida" })])
+		expect(wrapped?.eventMeals).toHaveLength(1)
+		expect(wrapped?.eventMeals[0]?.name).toBe("Kit")
+		expect(wrapped?.eventMeals[0]?.groups).toEqual([])
+		expect(wrapped?.eventMeals[0]?.mealTypeId).toBe(ALMOCO)
+		expect(wrapped?.items[0]?.eventMealId).toBe(wrapped?.eventMeals[0]?.id)
+		expect(wrapped?.items[0]?.itemGroup).toBeNull()
+	})
+
+	test("não age no evento, nem em apoio que já tem refeição", () => {
+		expect(wrapLooseSupportItems("event", [], [item({ eventMealId: null })])).toBeNull()
+		expect(wrapLooseSupportItems("apoio", [coquetel], [item({ eventMealId: null })])).toBeNull()
 	})
 })
 
@@ -201,5 +233,13 @@ describe("normalizeStoredEventContent — refeição gravada sem grupo", () => {
 		const { eventMeals, items } = normalizeStoredEventContent([{ ...coquetel, groups: [] }], [item({ itemGroup: "entrada" })])
 		expect(eventMeals[0]?.groups.length).toBeGreaterThan(0)
 		expect(items[0]?.itemGroup).toBe("entrada")
+	})
+})
+
+describe("contagem de preparações por grupo", () => {
+	test("a cópia e a arrumação preservam mínimo e máximo do grupo", () => {
+		const padrao: TemplateEventMeal = { ...coquetel, groups: [{ key: "volante", label: "Salgados", minItems: 6, maxItems: 8 }] }
+		const { eventMeals } = normalizeStoredEventContent([padrao], [item()])
+		expect(eventMeals[0]?.groups[0]).toEqual({ key: "volante", label: "Salgados", minItems: 6, maxItems: 8 })
 	})
 })

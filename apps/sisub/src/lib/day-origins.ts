@@ -13,9 +13,16 @@ export type DayOrigin = {
 	typeLabel: string
 	name: string
 	itemCount: number
+	/** Preparações dele sem porções — aplicado com "efetivo a definir" (evento ou apoio). */
+	pendingCount: number
 }
 
-type ItemLike = { origin_template_id?: string | null; origin_template_type?: string | null; origin_snack_request_id?: string | null }
+type ItemLike = {
+	origin_template_id?: string | null
+	origin_template_type?: string | null
+	origin_snack_request_id?: string | null
+	planned_portion_quantity?: number | string | null
+}
 type MenuLike = { menu_items?: readonly ItemLike[] | null }
 type TemplateLike = { id: string; name: string | null; template_type?: string | null }
 
@@ -33,8 +40,10 @@ export function dayOriginsOf(menus: readonly MenuLike[], templates: readonly Tem
 		for (const item of menu.menu_items ?? []) {
 			if (!item.origin_template_id || item.origin_snack_request_id) continue
 			const current = byId.get(item.origin_template_id)
+			const isPending = item.planned_portion_quantity == null
 			if (current) {
 				current.itemCount++
+				if (isPending) current.pendingCount++
 				continue
 			}
 			const type = asType(item.origin_template_type) ?? asType(templates.find((t) => t.id === item.origin_template_id)?.template_type)
@@ -45,6 +54,7 @@ export function dayOriginsOf(menus: readonly MenuLike[], templates: readonly Tem
 				// Cardápio apagado depois de aplicado continua tendo itens no dia: o nome some, a origem não.
 				name: nameById.get(item.origin_template_id) ?? "Cardápio removido",
 				itemCount: 1,
+				pendingCount: isPending ? 1 : 0,
 			})
 		}
 	}

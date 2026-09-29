@@ -9,7 +9,10 @@
  * de toda coluna do editor — o salvamento seguinte o apagaria.
  */
 
-import { DEFAULT_EVENT_MEAL_GROUPS } from "./menu-groups.ts"
+import { DEFAULT_EVENT_MEAL_GROUPS, type OccasionMealGroup } from "./menu-groups.ts"
+
+/** Nome da refeição que o apoio ganha quando os itens chegam sem refeição: o kit. Servidor e editor usam este. */
+export const DEFAULT_SUPPORT_MEAL_NAME = "Kit"
 
 /** O que a regra lê de uma refeição do evento. */
 export type PlaceableEventMeal = { id: string; mealTypeId: string; groups: readonly { key: string }[] }
@@ -17,17 +20,31 @@ export type PlaceableEventMeal = { id: string; mealTypeId: string; groups: reado
 /** O que a regra lê de um item gravado. */
 export type StoredEventItemRef = { eventMealId?: string | null; mealTypeId?: string | null; itemGroup?: string | null }
 
-/**
- * Composição da refeição gravada como a regra a lê: sem grupo nenhum (jsonb vazio ou fora de
- * forma), vale a composição padrão de evento. Sem coluna nada entraria nela, e o schema recusa
- * refeição sem grupo — a cópia nasceria inválida.
- */
-export function eventMealGroupsOrDefault<G extends { key: string; label: string }>(groups: readonly G[]): { key: string; label: string }[] {
-	return (groups.length > 0 ? groups : DEFAULT_EVENT_MEAL_GROUPS).map((g) => ({ key: g.key, label: g.label }))
+/** Grupo como a regra o devolve: chave, rótulo e, se houver, a quantidade de preparações esperada. */
+function copyGroup(g: { key: string; label: string; minItems?: number | null; maxItems?: number | null }): OccasionMealGroup {
+	return {
+		key: g.key,
+		label: g.label,
+		...(g.minItems != null && { minItems: g.minItems }),
+		...(g.maxItems != null && { maxItems: g.maxItems }),
+	}
 }
 
-/** Refeição que a regra precisou criar: nasce com a composição padrão de evento. */
-export type RebuiltEventMeal = { id: string; mealTypeId: string; groups: { key: string; label: string }[] }
+/**
+ * Composição da refeição gravada como a regra a lê: sem grupo nenhum (jsonb vazio ou fora de
+ * forma), vale `fallback` — no evento, a composição padrão de evento (sem coluna nada entraria
+ * nela, e o evento recusa refeição sem grupo); no apoio, nenhuma (`[]`): o kit simples é a lista
+ * de preparações sem coluna.
+ */
+export function eventMealGroupsOrDefault<G extends { key: string; label: string; minItems?: number | null; maxItems?: number | null }>(
+	groups: readonly G[],
+	fallback: readonly OccasionMealGroup[] = DEFAULT_EVENT_MEAL_GROUPS
+): OccasionMealGroup[] {
+	return (groups.length > 0 ? groups : fallback).map(copyGroup)
+}
+
+/** Refeição que a regra precisou criar: nasce com a composição `fallback` (a padrão de evento, ou nenhuma no apoio). */
+export type RebuiltEventMeal = { id: string; mealTypeId: string; groups: OccasionMealGroup[] }
 
 /** Destino de um item: a refeição e o grupo que ele mantém (`null` = "Sem grupo"). `null` = o item não tem onde entrar. */
 export type EventItemPlacement = { mealId: string; itemGroup: string | null } | null
@@ -47,7 +64,8 @@ export type EventItemPlacement = { mealId: string; itemGroup: string | null } | 
  */
 export function placeStoredEventItems(
 	meals: readonly PlaceableEventMeal[],
-	items: readonly StoredEventItemRef[]
+	items: readonly StoredEventItemRef[],
+	fallbackGroups: readonly OccasionMealGroup[] = DEFAULT_EVENT_MEAL_GROUPS
 ): { rebuilt: RebuiltEventMeal[]; placements: EventItemPlacement[] } {
 	const byId = new Map<string, PlaceableEventMeal>(meals.map((m) => [m.id, m]))
 	const rebuilt: RebuiltEventMeal[] = []
@@ -58,7 +76,7 @@ export function placeStoredEventItems(
 		if (!item.mealTypeId) return null
 		const sameSlot = meals.find((m) => m.mealTypeId === item.mealTypeId) ?? rebuilt.find((m) => m.mealTypeId === item.mealTypeId)
 		if (sameSlot) return sameSlot
-		const meal: RebuiltEventMeal = { id: crypto.randomUUID(), mealTypeId: item.mealTypeId, groups: eventMealGroupsOrDefault([]) }
+		const meal: RebuiltEventMeal = { id: crypto.randomUUID(), mealTypeId: item.mealTypeId, groups: eventMealGroupsOrDefault([], fallbackGroups) }
 		rebuilt.push(meal)
 		byId.set(meal.id, meal)
 		return meal

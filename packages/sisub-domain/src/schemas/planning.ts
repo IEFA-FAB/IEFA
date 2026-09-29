@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { DateSchema, KitchenIdSchema, MenuGroupKeySchema, RecommendedProportionSchema, UuidSchema } from "./common.ts"
+import { ApplyEventTemplateSchema } from "./templates.ts"
 
 export const DailyMenuFetchSchema = z.object({
 	kitchenId: KitchenIdSchema,
@@ -102,6 +103,16 @@ export type DayOrigin = z.infer<typeof DayOriginSchema>
 export const RemoveOriginFromDaySchema = DayOriginSchema
 export type RemoveOriginFromDay = z.infer<typeof RemoveOriginFromDaySchema>
 
+/**
+ * Efetivo (kits, no apoio) de um evento ou apoio aplicado ao dia SEM efetivo: as preparações
+ * dele que ainda não têm porções passam a ter, pela proporção de cada uma. É o caminho que a
+ * aplicação sem efetivo promete ("as porções são calculadas quando você informar").
+ */
+export const SizeOriginOnDaySchema = DayOriginSchema.extend({
+	headcount: z.number().int().positive().max(100_000),
+})
+export type SizeOriginOnDay = z.infer<typeof SizeOriginOnDaySchema>
+
 export const MoveOriginToDateSchema = DayOriginSchema.extend({
 	/** Data de destino. Os ajustes feitos no dia (porções, trocas, substitutos) vão junto. */
 	toDate: DateSchema,
@@ -118,6 +129,8 @@ export const ReplaceDayWithTemplateSchema = z.object({
 	kitchenId: KitchenIdSchema,
 	date: DateSchema,
 	templateId: UuidSchema,
+	/** Efetivo (kits, no apoio) de cada refeição do cardápio de contingência — mesma regra de `ApplyEventTemplateSchema.headcounts`. */
+	headcounts: ApplyEventTemplateSchema.shape.headcounts,
 })
 export type ReplaceDayWithTemplate = z.infer<typeof ReplaceDayWithTemplateSchema>
 

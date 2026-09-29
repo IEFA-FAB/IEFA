@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -28,6 +28,7 @@ import { useReplaceMenuItemRecipe } from "@/hooks/data/usePlanningAdjustments"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSnackMealType } from "@/hooks/data/useSnackRequests"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
+import { isHeadcountPending } from "@/lib/headcount-pending"
 import type { HeadcountPlan, MenuClipboardEntry } from "@/lib/menu-fill"
 import { groupMenuItems, type MenuGroup } from "@/lib/menu-item-groups"
 import { findOutdatedRecipes, indexLatestByLineage, type OutdatedRecipe, type RecipeVersionRef } from "@/lib/recipe-versions"
@@ -454,6 +455,8 @@ function MealSection({
 
 	// State for headcount editing
 	const serverHeadcount = menu?.forecasted_headcount ?? null
+	// Aplicado sem efetivo (modelo global, ou número ainda desconhecido): as porções esperam por ele.
+	const headcountPending = menu != null && isHeadcountPending(menu)
 	const [headcount, setHeadcount] = useState<number | null>(serverHeadcount)
 	const [prevServerHeadcount, setPrevServerHeadcount] = useState<number | null>(serverHeadcount)
 
@@ -508,6 +511,8 @@ function MealSection({
 						{menu ? (
 							menu.forecasted_headcount ? (
 								<span className="text-muted-foreground">{menu.forecasted_headcount} comensais</span>
+							) : headcountPending ? (
+								<Badge variant="warning">Efetivo a definir</Badge>
 							) : (
 								<span className="text-destructive text-subheading">Sem comensais</span>
 							)
@@ -546,6 +551,11 @@ function MealSection({
 									/>
 									<span className="text-xs text-muted-foreground">comensais</span>
 								</div>
+								{headcountPending && (
+									<FieldDescription>
+										Efetivo a definir: há preparações sem porções. Ao informar o efetivo, elas são calculadas pela proporção de cada uma.
+									</FieldDescription>
+								)}
 							</Field>
 						</div>
 

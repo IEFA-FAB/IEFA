@@ -10,8 +10,10 @@ import { Item, ItemGroup } from "@/components/ui/item"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useApplyTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
+import { useApplyTemplate, useMenuTemplates, useTemplate } from "@/hooks/data/useTemplates"
+import { hasInvalidHeadcount, weeklyHeadcountRows, weeklyHeadcountsPayload } from "@/lib/apply-headcounts"
 import { cn } from "@/lib/cn"
+import { ApplyHeadcountFields, HEADCOUNT_PENDING_HINT } from "./ApplyHeadcountFields"
 
 interface ApplyTemplateDialogProps {
 	open: boolean
@@ -49,6 +51,20 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(initialTemplateId)
 	const [startDayOfWeek, setStartDayOfWeek] = useState<number>(1) // Monday
 	const [conflictMode, setConflictMode] = useState<"replace" | "skip">("skip")
+	// Efetivo desta aplicação por tipo de refeição (texto do campo). Vazio usa o do cardápio; no
+	// modelo global, que só tem %, vazio é "a definir".
+	const [headcountDraft, setHeadcountDraft] = useState<Record<string, string>>({})
+	const { data: selectedTemplate, isLoading: isTemplateLoading } = useTemplate(selectedTemplateId)
+	const headcountRows = selectedTemplate ? weeklyHeadcountRows(selectedTemplate) : []
+	const isGlobalTemplate = selectedTemplate != null && selectedTemplate.kitchen_id == null
+	const hasRowWithoutBase = isGlobalTemplate || headcountRows.some((row) => row.templateHint == null)
+	const isHeadcountInvalid = hasInvalidHeadcount(headcountDraft)
+
+	const selectTemplate = (id: string) => {
+		if (id === selectedTemplateId) return
+		setSelectedTemplateId(id)
+		setHeadcountDraft({})
+	}
 
 	const plannedSet = new Set(plannedDates ?? [])
 	const conflictDates = targetDates.filter((d) => plannedSet.has(d))
@@ -71,7 +87,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 	})
 
 	const handleApply = () => {
-		if (!selectedTemplateId) return
+		if (!selectedTemplateId || isHeadcountInvalid) return
 
 		applyTemplate(
 			{
@@ -80,6 +96,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 				startDayOfWeek,
 				kitchenId,
 				conflictMode,
+				headcounts: weeklyHeadcountsPayload(headcountDraft),
 			},
 			{
 				onSuccess: () => {
@@ -87,6 +104,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 					setSelectedTemplateId(null)
 					setStartDayOfWeek(1)
 					setConflictMode("skip")
+					setHeadcountDraft({})
 				},
 			}
 		)
@@ -180,7 +198,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 										<Button
 											key={tpl.id}
 											variant="outline"
-											onClick={() => setSelectedTemplateId(tpl.id)}
+											onClick={() => selectTemplate(tpl.id)}
 											className={cn(
 												"h-auto w-full p-3 justify-between font-normal text-left transition-colors",
 												selectedTemplateId === tpl.id ? "border-primary bg-primary/5 ring-1 ring-primary" : ""
@@ -191,6 +209,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 												{tpl.description && <p className="text-xs text-muted-foreground truncate max-w-[250px]">{tpl.description}</p>}
 												<p className="text-xs text-muted-foreground">
 													{tpl.recipe_count || 0} {tpl.recipe_count === 1 ? "preparação" : "preparações"}
+													{tpl.kitchen_id == null && " · modelo global"}
 												</p>
 											</div>
 											{selectedTemplateId === tpl.id && <Calendar className="size-4 text-primary" />}
@@ -230,6 +249,28 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 						</div>
 					)}
 
+					{/* Efetivo desta aplicação */}
+					{selectedTemplateId && (
+						<ApplyHeadcountFields
+							idPrefix="apply-headcount"
+							legend="Efetivo por refeição"
+							description={
+								<>
+									{isGlobalTemplate
+										? "Modelo global: ele só tem as proporções. O efetivo informado vale para todos os dias aplicados."
+										: "Vazio usa o efetivo do cardápio, dia a dia. O número informado vale para todos os dias aplicados, só nesta aplicação."}
+									{hasRowWithoutBase && ` ${HEADCOUNT_PENDING_HINT}`}
+								</>
+							}
+							rows={headcountRows}
+							draft={headcountDraft}
+							onChange={(id, raw) => setHeadcountDraft((prev) => ({ ...prev, [id]: raw }))}
+							unit="comensais"
+							placeholderFor={(row) => (!isGlobalTemplate && row.templateHint != null ? `do cardápio: ${row.templateHint}` : "a definir")}
+							isLoading={isTemplateLoading}
+						/>
+					)}
+
 					{/* Mapping Preview */}
 					{selectedTemplateId && dayMappings.length > 0 && (
 						<div className="space-y-2">
@@ -258,7 +299,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 					<Button variant="outline" onClick={onClose}>
 						Cancelar
 					</Button>
-					<Button onClick={handleApply} disabled={!selectedTemplateId || isPending}>
+					<Button onClick={handleApply} disabled={!selectedTemplateId || isPending || isHeadcountInvalid}>
 						{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
 						Aplicar Template
 					</Button>

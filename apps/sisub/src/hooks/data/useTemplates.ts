@@ -1,5 +1,5 @@
 import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@iefa/database/sisub"
-import type { EditScope, TemplateEventMeal, TemplateType } from "@iefa/sisub-domain"
+import type { ApplyEventTemplate, EditScope, TemplateEventMeal, TemplateType } from "@iefa/sisub-domain"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
@@ -221,8 +221,8 @@ export function useRestoreTemplate() {
 export function useApplyEventTemplate() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({ templateId, kitchenId, dates }: { templateId: string; kitchenId: number; dates: string[] }) =>
-			applyEventTemplateFn({ data: { templateId, kitchenId, dates } }),
+		mutationFn: ({ templateId, kitchenId, dates, headcounts }: ApplyEventTemplate) =>
+			applyEventTemplateFn({ data: { templateId, kitchenId, dates, headcounts } }),
 		onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
@@ -241,8 +241,8 @@ export function useApplyEventTemplate() {
 export function useApplyTemplate() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({ templateId, targetDates, startDayOfWeek, kitchenId, conflictMode }: ApplyTemplatePayload) =>
-			applyTemplateFn({ data: { templateId, targetDates, startDayOfWeek, kitchenId, conflictMode } }),
+		mutationFn: ({ templateId, targetDates, startDayOfWeek, kitchenId, conflictMode, headcounts }: ApplyTemplatePayload) =>
+			applyTemplateFn({ data: { templateId, targetDates, startDayOfWeek, kitchenId, conflictMode, headcounts } }),
 		onSuccess: (result, variables) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })

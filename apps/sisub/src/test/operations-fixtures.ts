@@ -140,8 +140,16 @@ export interface Seeder {
 		templateType?: "weekly" | "event" | "apoio"
 		expectedMonthlyOccurrences?: number | null
 		deleted?: boolean
+		name?: string
 	}): Promise<string>
-	seedTemplateItem(opts: { templateId: string; mealTypeId: string; recipeId: string; dayOfWeek: number; headcountOverride?: number }): Promise<string>
+	seedTemplateItem(opts: {
+		templateId: string
+		mealTypeId: string
+		recipeId: string
+		dayOfWeek: number
+		headcountOverride?: number
+		recommendedProportion?: number
+	}): Promise<string>
 
 	// ── Identidade (auth.users) e tabelas user-scoped ──────────────────────────
 	/** Cria um usuário auth descartável (service-role). Cleanup via auth.admin.deleteUser. */
@@ -379,7 +387,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 
 		async seedTemplate(opts) {
 			const id = (await insertReturningId("menu_template", {
-				name: uid("[TEST] Template "),
+				name: opts?.name ?? uid("[TEST] Template "),
 				kitchen_id: opts?.kitchenId ?? null,
 				template_type: opts?.templateType ?? "weekly",
 				...(opts?.expectedMonthlyOccurrences != null && { expected_monthly_occurrences: opts.expectedMonthlyOccurrences }),
@@ -395,6 +403,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 				meal_type_id: opts.mealTypeId,
 				recipe_id: opts.recipeId,
 				...(opts.headcountOverride != null && { headcount_override: opts.headcountOverride }),
+				...(opts.recommendedProportion != null && { recommended_proportion: opts.recommendedProportion }),
 			})) as string
 		},
 

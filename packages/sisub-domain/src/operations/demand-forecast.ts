@@ -35,6 +35,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toColumns, toWire } from "../utils/index.ts"
+import { assertNoGlobalTemplates } from "./template-quantity-scope.ts"
 
 type Forecast = Tables<"kitchen_demand_forecast">
 type ForecastTemplateRef = { id: string; name: string; template_type: string }
@@ -186,7 +187,8 @@ async function authorizeForecast(db: SisubDb, ctx: UserContext, forecastId: stri
 }
 
 /**
- * Os cardápios citados na previsão são da própria cozinha ou globais. O guard da cozinha prova
+ * Os cardápios citados na previsão são da própria cozinha — modelo global não tem efetivo nem
+ * ocorrências (é relativo), então não dimensiona compra nenhuma sem ser adaptado antes. O guard da cozinha prova
  * só a cozinha; o `templateId` vinha do corpo, e uma previsão enviada à OM levava o cardápio
  * LOCAL de outra cozinha — que o wizard do anexo depois abria e calculava.
  */
@@ -202,8 +204,9 @@ async function assertTemplatesOfKitchen(db: SisubDb, kitchenId: number, template
 	const ownerById = new Map(rows.map((r) => [r.id, r.kitchenId]))
 	const foreign = ids.filter((id) => !ownerById.has(id) || (ownerById.get(id) != null && ownerById.get(id) !== kitchenId))
 	if (foreign.length > 0) {
-		throw new DomainError("TEMPLATE_ACCESS_DENIED", `Plano(s) de cardápio que não são desta cozinha nem globais: ${foreign.join(", ")}`)
+		throw new DomainError("TEMPLATE_ACCESS_DENIED", `Plano(s) de cardápio que não são desta cozinha: ${foreign.join(", ")}`)
 	}
+	assertNoGlobalTemplates(ids.filter((id) => ownerById.get(id) === null))
 }
 
 /** Cria a previsão de demanda em "pending" com os cardápios escolhidos, numa transação só. */

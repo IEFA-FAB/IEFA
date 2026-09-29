@@ -4,10 +4,12 @@ Menu: **Catálogo Global → Modelos de cardápio** (Eventos Modelo, Cardápios 
 Ler exige `global:1`; editar exige `global:2`. Na cozinha, o modelo se ADAPTA (cópia local).
 
 ### CG-EVT-01 — "A cozinha adapta um evento modelo"
-- **O sistema precisa:** a cópia chega com as refeições do evento, efetivo e % de cada preparação; o
-  nome já vem preenchido com o do modelo.
-- **UX:** Eventos → "Modelos Globais da SDAB" → "Adaptar" → "Criar Adaptação".
-- **Cobertura:** `e2e/tests/global-catalog-events.spec.ts`
+- **O sistema precisa:** a cópia chega com as refeições que a cozinha escolheu, os grupos (com a
+  quantidade de preparações esperada) e a % de cada preparação, **sem** efetivo, pax nem ocorrências:
+  o número é da cozinha. O nome já vem preenchido com o do modelo.
+- **UX:** Eventos → "Modelos Globais da SDAB" → "Adaptar" → marca as refeições → "Criar Adaptação".
+- **Cobertura:** `e2e/tests/global-catalog-events.spec.ts` · `templates.operations.test.ts › forkTemplate
+  de evento escolhendo as refeições…` · `› forkTemplate de apoio global leva o kit e as porções por kit…`
 
 ### CG-EVT-02 — "A SDAB edita o modelo global"
 - **O sistema precisa:** edição in-place no escopo global; refeições com ids próprios; a cópia de
@@ -19,6 +21,20 @@ Ler exige `global:1`; editar exige `global:2`. Na cozinha, o modelo se ADAPTA (c
 - **Hoje:** a cópia não sabe que o modelo mudou.
 - **Caminho proposto:** selo "modelo atualizado" na cópia, como o de versão de preparação.
 - **Cobertura:** **LACUNA**
+
+### CG-QTD-01 — "A SDAB pôs efetivo num modelo global"
+- **Realidade:** o modelo global levava "300 pax" e a cozinha de 80 comensais comprava para 300.
+- **O sistema precisa:** modelo global guarda só quantidade relativa (%, porções por kit, preparações por
+  grupo). Pax, efetivo e ocorrências são recusados no servidor e no banco; a tela global nem mostra.
+- **Cobertura:** `templates.summary.test.ts › modelo global só com quantidade relativa` ·
+  `templates.operations.test.ts › modelo global recusa pax e ocorrências`
+
+### CG-PAD-01 — "A cozinha adapta o Padrão B só para um coquetel"
+- **Realidade:** o padrão de evento da SDAB tem café, brunch, almoço, coquetel e jantar; o evento real é só o coquetel.
+- **O sistema precisa:** adaptar levando só a refeição escolhida; o grupo "Salgados 4 a 6" avisa quando
+  a cozinha põe 3, sem impedir salvar.
+- **Cobertura:** `templates.operations.test.ts › forkTemplate de evento escolhendo as refeições…`. Aviso
+  de contagem na tela: **LACUNA** de e2e.
 
 ### CG-TIP-01 — "Tipo de refeição global de teste aparecendo para todas as cozinhas"
 - **Realidade:** fixture `[TEST] Refeição …` vazada de suíte de integração aparece nos seletores de horário.

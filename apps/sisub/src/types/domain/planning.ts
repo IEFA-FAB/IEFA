@@ -1,4 +1,5 @@
 import type { DailyMenu, DailyMenuInsert, DailyMenuUpdate, MealType, MenuItem, MenuItemInsert, MenuItemUpdate, Recipe, Tables } from "@iefa/database/sisub"
+import type { ApplyTemplate } from "@iefa/sisub-domain/schemas"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
@@ -25,22 +26,23 @@ export interface TemplateMeal {
 	base_headcount: number | null
 }
 
-/** Refeição própria de um evento. Espelha kitchen.menu_template_event_meal (groups já tipado). */
+/** Refeição própria de um evento ou apoio. Espelha kitchen.menu_template_event_meal (groups já tipado). */
 export interface TemplateEventMealRow {
 	id: string
 	name: string
 	/** Horário do calendário em que a refeição é servida. */
 	meal_type_id: string
-	groups: { key: string; label: string }[]
+	/** Composição; `minItems`/`maxItems` = quantas preparações o grupo espera (aviso, nunca trava). */
+	groups: { key: string; label: string; minItems?: number | null; maxItems?: number | null }[]
 	sort_order: number
-	/** Efetivo da refeição; a porcentagem das preparações incide sobre ele. */
+	/** Efetivo da refeição (kits, no apoio); a porcentagem das preparações incide sobre ele. */
 	base_headcount: number | null
 }
 
 export type MenuTemplateWithItems = MenuTemplate & {
 	items: (MenuTemplateItem & { recipe_origin: Recipe | null; meal_type?: MealType | null })[]
 	meals: TemplateMeal[]
-	/** Só evento; vazio nos demais tipos. */
+	/** Evento e apoio; vazio no semanal. */
 	event_meals: TemplateEventMealRow[]
 }
 
@@ -97,6 +99,11 @@ export interface ApplyTemplatePayload {
 	kitchenId: number
 	/** "replace" (default) substitui dias já planejados; "skip" preserva-os e só materializa os vazios. */
 	conflictMode?: "replace" | "skip"
+	/**
+	 * Efetivo desta aplicação por tipo de refeição, o mesmo para todos os dias. Refeição ausente
+	 * usa o efetivo do cardápio; `null` = a definir. Não grava de volta no cardápio.
+	 */
+	headcounts?: ApplyTemplate["headcounts"]
 }
 
 /**

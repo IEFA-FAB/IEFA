@@ -14,9 +14,11 @@ Arquivos de teste citados:
 
 ### GC-AGD-01 — "A viagem surgiu hoje: 100 kits de apoio"
 - **Realidade:** missão marcada no próprio dia; a cozinha já tem a rotina planejada.
-- **O sistema precisa:** o apoio entra SOMANDO ao dia, sem apagar a rotina; aplicar duas vezes não duplica.
-- **UX:** no dia → "Aplicar evento ou apoio" → escolhe o apoio → aparece em "Neste dia" com a contagem.
-- **Cobertura:** `INT › viagem que surgiu hoje…` · `E2E › viagem que surgiu hoje, adiou…`
+- **O sistema precisa:** o apoio entra SOMANDO ao dia, sem apagar a rotina; aplicar duas vezes não duplica;
+  cada preparação sai com kits × porções por kit.
+- **UX:** no dia → "Aplicar evento ou apoio" → escolhe o apoio → informa os kits → aparece em "Neste dia" com a contagem.
+- **Cobertura:** `INT › viagem que surgiu hoje…` · `E2E › viagem que surgiu hoje, adiou…` ·
+  `templates.operations.test.ts › apoio aplicado com kits…`
 
 ### GC-AGD-02 — "A viagem da semana que vem foi cancelada"
 - **Realidade:** o apoio já estava no calendário, talvez com porções ajustadas.
@@ -81,6 +83,15 @@ Arquivos de teste citados:
 - **O sistema precisa:** um cardápio do dia só, com a demanda de cada refeição pelo efetivo de cada uma (300 + 200 = 500).
 - **Cobertura:** `TPL › evento: duas refeições no mesmo horário somam a demanda…`
 
+### GC-AGD-15 — "Apliquei o semanal da SDAB e não sei o efetivo ainda"
+- **Realidade:** o cardápio modelo chega antes da previsão de efetivo da semana.
+- **O sistema precisa:** aplicar sem efetivo (o dia fica "efetivo a definir", sem porções); quando o efetivo
+  é informado no dia, as porções são calculadas pela % de cada preparação, sem mexer na que foi digitada.
+- **UX:** "Aplicar ao calendário" pede o efetivo por refeição (vazio no modelo global) → selo "Efetivo a
+  definir" no dia → "Quantitativo do dia".
+- **Cobertura:** `templates.operations.test.ts › semanal global aplicado: o efetivo vem da aplicação…` ·
+  `planning.rescale.test.ts › portionsForArrivingHeadcount`
+
 ## Lacunas conhecidas (imprevisto sem caminho completo)
 
 ### GC-AGD-10 — "Só uma refeição do evento foi cancelada"
@@ -118,6 +129,12 @@ Arquivos de teste citados:
 - **O sistema precisa:** avisar antes do envio: a unidade multiplica o apoio pelas ocorrências e
   zero não compra nada.
 - **Cobertura:** `lib/flows/flows.test.ts`.
+
+### GC-PRV-05 — "Cardápio sem efetivo no envio da previsão"
+- **O sistema precisa:** avisar antes do envio quais cardápios têm preparação sem efetivo nem pax: a
+  unidade não tem por que número multiplicar e a preparação fica fora do quantitativo. Modelo global não
+  entra na previsão (é recusado com "adapte o modelo").
+- **Cobertura:** `procurement-flows.operations.test.ts › cardápio com preparação sem efetivo…` · `lib/flows/flows.test.ts`.
 
 ### GC-PRV-03 — "Insumo do cardápio sem item de compra"
 - **O sistema precisa:** avisar a nutricionista de que a unidade não consegue comprá-lo, dizendo

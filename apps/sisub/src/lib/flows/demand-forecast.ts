@@ -1,6 +1,16 @@
 import type { DemandForecastStatus } from "@iefa/sisub-domain"
 import { deriveStatusFromIssues, type FlowIssue, type FlowStep, formatMonthYear, formatShortDate, pluralize } from "./model"
 
+const MAX_LISTED_NAMES = 3
+
+/** "A, B e C", e o resto contado: a lista inteira não cabe numa linha de aviso. */
+function formatNames(names: readonly string[]): string {
+	const listed = names.slice(0, MAX_LISTED_NAMES).map((n) => `"${n}"`)
+	const rest = names.length - listed.length
+	if (rest > 0) listed.push(pluralize(rest, "outro", "outros"))
+	return new Intl.ListFormat("pt-BR", { style: "long", type: "conjunction" }).format(listed)
+}
+
 /**
  * Fluxo "Prever demanda para compra" da Gestão Cozinha: a nutricionista deixa a unidade em
  * condição de calcular o quantitativo de compra. Pendência que só a unidade ou o catálogo
@@ -31,6 +41,15 @@ export function buildDemandForecastSteps(status: DemandForecastStatus): FlowStep
 			severity: "warning",
 			message: `${pluralize(status.supportMenusWithoutOccurrences, "cardápio de apoio sem ocorrências mensais", "cardápios de apoio sem ocorrências mensais")}: a unidade multiplica o cardápio de apoio pelas ocorrências, e zero não compra nada.`,
 			action: { label: "Cardápios de Apoio", href: `${kitchen}/support-menus` },
+		})
+	}
+	// Preparação sem pax nem efetivo da refeição não tem por que número multiplicar: fica fora do
+	// quantitativo. A lista mistura semanal, evento e apoio; por isso o aviso diz os nomes.
+	const withoutHeadcount = status.menusWithoutHeadcount
+	if (withoutHeadcount.length > 0) {
+		occasionIssues.push({
+			severity: "warning",
+			message: `${pluralize(withoutHeadcount.length, "cardápio sem efetivo", "cardápios sem efetivo")} (${formatNames(withoutHeadcount)}): as preparações sem efetivo nem pax ficam fora do quantitativo. Informe o efetivo da refeição no cardápio.`,
 		})
 	}
 

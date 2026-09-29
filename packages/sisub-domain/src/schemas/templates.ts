@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { DateSchema, EditScopeSchema, KitchenIdSchema, MenuGroupKeySchema, RecommendedProportionSchema, UuidSchema } from "./common.ts"
-import { MenuGroupSchema } from "./menu-groups.ts"
+import { OccasionMealGroupSchema } from "./menu-groups.ts"
 
 export const ListTemplatesSchema = z.object({
 	kitchenId: KitchenIdSchema.nullable().optional(),
@@ -24,6 +24,16 @@ export const TEMPLATE_TYPES = ["weekly", "event", "apoio"] as const
 export const TemplateTypeSchema = z.enum(TEMPLATE_TYPES)
 export type TemplateType = z.infer<typeof TemplateTypeSchema>
 
+/**
+ * Regimes compostos por refeições PRÓPRIAS (`menu_template_event_meal`): evento e apoio. O
+ * semanal fica na grade dia × tipo de refeição da cozinha.
+ */
+export const OCCASION_TEMPLATE_TYPES = ["event", "apoio"] as const
+export type OccasionTemplateType = (typeof OCCASION_TEMPLATE_TYPES)[number]
+export function isOccasionTemplateType(templateType: string | null | undefined): templateType is OccasionTemplateType {
+	return templateType === "event" || templateType === "apoio"
+}
+
 /** Ocorrências mensais esperadas — só faz sentido para cardápio de apoio; multiplica o custeio no anexo quantitativo. */
 export const ExpectedMonthlyOccurrencesSchema = z.number().int().positive()
 
@@ -46,10 +56,10 @@ export const TemplateItemSchema = z.object({
 	/** Proporção recomendada de consumo (%), advisory. */
 	recommendedProportion: RecommendedProportionSchema.nullable(),
 	/**
-	 * Refeição do evento a que o item pertence — obrigatória em template de evento, proibida
-	 * nos demais. Num item de evento o `mealTypeId` enviado é ignorado: quem manda é o horário
-	 * da refeição (`TemplateEventMealSchema.mealTypeId`). `.nullish()` pelo mesmo motivo de
-	 * `headcountOverride`: vive dentro de array exposto a modelo.
+	 * Refeição do cardápio a que o item pertence — obrigatória em evento e apoio, proibida no
+	 * semanal. Num item de evento ou apoio o `mealTypeId` enviado é ignorado: quem manda é o
+	 * horário da refeição (`TemplateEventMealSchema.mealTypeId`). `.nullish()` pelo mesmo motivo
+	 * de `headcountOverride`: vive dentro de array exposto a modelo.
 	 */
 	eventMealId: UuidSchema.nullish(),
 })
@@ -62,9 +72,10 @@ export const MAX_EVENT_MEAL_GROUPS = 20
 export const MAX_EVENT_MEAL_HEADCOUNT = 100_000
 
 /**
- * Refeição PRÓPRIA de um evento (coquetel, jantar de gala…). O evento tem zero ou mais, e cada
- * uma tem nome, horário no calendário e composição próprios — nada disso é compartilhado com
- * os tipos de refeição da cozinha nem com os conjuntos de grupos deles.
+ * Refeição PRÓPRIA de um evento (coquetel, jantar de gala…) ou de um apoio (o kit; ou a
+ * "Refeição" e o "Lanche" de um Bordo C). O cardápio tem zero ou mais, e cada uma tem nome,
+ * horário no calendário e composição próprios — nada disso é compartilhado com os tipos de
+ * refeição da cozinha nem com os conjuntos de grupos deles.
  */
 export const TemplateEventMealSchema = z.object({
 	/**
@@ -75,11 +86,16 @@ export const TemplateEventMealSchema = z.object({
 	name: z.string().trim().min(1).max(80),
 	/** Horário do calendário em que a refeição é servida — onde o "Aplicar ao calendário" põe os itens. */
 	mealTypeId: UuidSchema,
-	/** Composição: as colunas da refeição, na ordem de leitura. Chave repetida é recusada. */
-	groups: z.array(MenuGroupSchema).min(1).max(MAX_EVENT_MEAL_GROUPS),
 	/**
-	 * Efetivo da refeição: a porcentagem de cada item (`recommendedProportion`) incide sobre ele,
-	 * como no cardápio semanal. Ausente = NÃO MEXE no efetivo gravado (renomear a refeição não
+	 * Composição: as colunas da refeição, na ordem de leitura. Chave repetida é recusada. No
+	 * evento, pelo menos uma (`resolveEventContent`); no apoio, nenhuma é o kit simples — a lista
+	 * de preparações sem coluna.
+	 */
+	groups: z.array(OccasionMealGroupSchema).max(MAX_EVENT_MEAL_GROUPS),
+	/**
+	 * Efetivo da refeição (no apoio: kits): a porcentagem de cada item (`recommendedProportion`)
+	 * incide sobre ele, como no cardápio semanal. Quantidade ABSOLUTA: só em cardápio da cozinha,
+	 * nunca em modelo global. Ausente = NÃO MEXE no efetivo gravado (renomear a refeição não
 	 * exige reenviá-lo); `null` = limpa, e aí só o pax do item conta. `.nullish()` porque este
 	 * objeto vive dentro de array exposto a modelo (`eventMeals`).
 	 */
@@ -122,6 +138,11 @@ export const ForkTemplateSchema = z.object({
 	targetKitchenId: KitchenIdSchema.optional(),
 	newName: z.string().min(1).optional(),
 	description: z.string().optional(),
+	/**
+	 * Evento e apoio: as refeições do modelo que a cópia leva, com os itens delas. Ausente = todas.
+	 * Um padrão de evento tem seis formatos de serviço e o evento real usa um ou dois.
+	 */
+	occasionMealIds: z.array(UuidSchema).min(1).max(MAX_EVENT_MEALS).optional(),
 })
 export type ForkTemplate = z.infer<typeof ForkTemplateSchema>
 
@@ -188,6 +209,16 @@ export const ApplyTemplateSchema = z.object({
 	 * qualquer chamador que esquecesse o campo apagava o dia do usuário.
 	 */
 	conflictMode: z.enum(["replace", "skip"]).optional(),
+	/**
+	 * Efetivo desta aplicação, por tipo de refeição — o mesmo para todos os dias aplicados. Vence o
+	 * efetivo do cardápio para esta aplicação e não é gravado de volta nele. É por aqui que o
+	 * modelo global (que só tem %) ganha número. `null` = não sei ainda: o dia nasce com a
+	 * pendência "efetivo a definir". Refeição ausente = usa o efetivo do cardápio.
+	 */
+	headcounts: z
+		.array(z.object({ mealTypeId: UuidSchema, headcount: z.number().int().positive().max(MAX_EVENT_MEAL_HEADCOUNT).nullable() }))
+		.max(50)
+		.optional(),
 })
 export type ApplyTemplate = z.infer<typeof ApplyTemplateSchema>
 
@@ -200,5 +231,13 @@ export const ApplyEventTemplateSchema = z.object({
 	templateId: UuidSchema,
 	kitchenId: KitchenIdSchema,
 	dates: z.array(DateSchema).min(1),
+	/**
+	 * Efetivo desta aplicação por refeição do cardápio (no apoio: kits). Mesma regra do semanal:
+	 * vence o do cardápio, não é gravado nele, `null` = a definir, ausente = o do cardápio.
+	 */
+	headcounts: z
+		.array(z.object({ occasionMealId: UuidSchema, headcount: z.number().int().positive().max(MAX_EVENT_MEAL_HEADCOUNT).nullable() }))
+		.max(MAX_EVENT_MEALS)
+		.optional(),
 })
 export type ApplyEventTemplate = z.infer<typeof ApplyEventTemplateSchema>

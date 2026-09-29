@@ -29,6 +29,7 @@ import {
 	ingredientNutritionReferenceInKitchen,
 	kitchenInKitchen,
 	menuItemsInKitchen,
+	menuTemplateEventMealInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
 	militaryIdentityInCore,
@@ -89,7 +90,7 @@ import {
 	type SnackStandardSnapshot,
 } from "../utils/snack-kit.ts"
 import { resolveSnackMealType } from "./meal-types.ts"
-import { fetchRecipesWithIngredients } from "./templates.ts"
+import { fetchRecipesWithIngredients, syncEventItemsToMeals } from "./templates.ts"
 
 type SnackRequestRow = Tables<"snack_request">
 type SnackRequestLineRow = Tables<"snack_request_line">
@@ -231,6 +232,18 @@ export type SnackStandardEnergyDetail = {
 }
 
 /**
+ * Porções por kit de um item do padrão: a proporção ÷ 100 (200% = 2 por kit; 50% = meia). Item
+ * sem número conta 1. `legacyPortions` é o `headcount_override`, onde o padrão guardava porções
+ * por kit antes de 20260929180000 — a migration move o valor, e a leitura aceita o velho para
+ * não depender da ordem entre deploy e migration.
+ */
+export function portionsPerKit(proportion: number | string | null, legacyPortions: number | null): number {
+	// Proporção 0 é "nenhuma porção por kit" (a preparação saiu do kit), como no calendário.
+	if (proportion != null) return Math.max(0, Number(proportion) / 100)
+	return legacyPortions != null && legacyPortions > 0 ? legacyPortions : 1
+}
+
+/**
  * Snapshot + energia de padrões. O que o pedido grava é o que o comensal viu: nome, classe,
  * itens com porções por kit e kcal do kit naquele instante — o padrão pode mudar depois.
  */
@@ -246,7 +259,8 @@ async function buildStandardSnapshots(
 			.select({
 				templateId: menuTemplateItemsInKitchen.menuTemplateId,
 				recipeId: menuTemplateItemsInKitchen.recipeId,
-				portions: menuTemplateItemsInKitchen.headcountOverride,
+				proportion: menuTemplateItemsInKitchen.recommendedProportion,
+				legacyPortions: menuTemplateItemsInKitchen.headcountOverride,
 				itemGroup: menuTemplateItemsInKitchen.itemGroup,
 				sortOrder: menuTemplateItemsInKitchen.sortOrder,
 			})
@@ -271,8 +285,7 @@ async function buildStandardSnapshots(
 		const own = items.filter((i) => i.templateId === standard.id && i.recipeId != null)
 		const recipeRows = own.map((item) => {
 			const recipe = recipeById.get(item.recipeId as string)
-			// Porções por kit: item sem número conta 1 (uma porção da preparação por kit).
-			const portions = item.portions != null && item.portions > 0 ? item.portions : 1
+			const portions = portionsPerKit(item.proportion, item.legacyPortions)
 			const energy = recipe
 				? computeRecipeEnergy(
 						{
@@ -411,6 +424,19 @@ export async function setSnackClassification(db: SisubDb, ctx: UserContext, inpu
 			.returning({ id: menuTemplateInKitchen.id })
 	)
 	if (!updated[0]) throw new NotFoundError("menu_template", input.templateId)
+	// Classificado como padrão, o kit passa a ser servido no horário de sistema dos lanches, que é
+	// onde o pedido aceito entra na produção: as refeições do apoio (e os itens delas) vão para lá.
+	if (c) {
+		const snackMealType = await resolveSnackMealType(db)
+		await runQuery("UPDATE_FAILED", () =>
+			db
+				.update(menuTemplateEventMealInKitchen)
+				.set({ mealTypeId: snackMealType.id })
+				.where(eq(menuTemplateEventMealInKitchen.menuTemplateId, input.templateId))
+				.then(() => undefined)
+		)
+		await syncEventItemsToMeals(db, input.templateId)
+	}
 	return updated[0]
 }
 
@@ -1232,8 +1258,9 @@ async function addToProduction(tx: Tx, request: LockedRequest, lines: (typeof sn
 	let sortOrder = existing.reduce((max, r) => Math.max(max, (r.sortOrder ?? 0) + 1), 0)
 
 	// Um item por (padrão × preparação) no pedido: tripulação e passageiros do mesmo padrão
-	// são o mesmo lote na produção — separados, o quadro mostraria "Café 6" e "Café 3".
-	const byKey = new Map<string, typeof menuItemsInKitchen.$inferInsert>()
+	// são o mesmo lote na produção — separados, o quadro mostraria "Café 6" e "Café 3". A soma é
+	// exata (porção por kit pode ser meia) e arredonda para cima no fim: 3 kits × 0,5 café = 2.
+	const byKey = new Map<string, typeof menuItemsInKitchen.$inferInsert & { exactPortions: number }>()
 	for (const { line, snapshot } of snapshots) {
 		const kits = line.approvedQuantity ?? line.quantity
 		for (const item of snapshot.items) {
@@ -1242,7 +1269,7 @@ async function addToProduction(tx: Tx, request: LockedRequest, lines: (typeof sn
 			const key = `${snapshot.id}:${item.recipeId}`
 			const existing = byKey.get(key)
 			if (existing) {
-				existing.plannedPortionQuantity = Number(existing.plannedPortionQuantity ?? 0) + kits * item.portions
+				existing.exactPortions += kits * item.portions
 				continue
 			}
 			byKey.set(key, {
@@ -1250,7 +1277,7 @@ async function addToProduction(tx: Tx, request: LockedRequest, lines: (typeof sn
 				recipeOriginId: item.recipeId,
 				// Snapshot snake_case com `ingredients` aninhado — o mesmo shape de addMenuItem.
 				recipe: toWire<Record<string, unknown>>(recipe, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" }),
-				plannedPortionQuantity: kits * item.portions,
+				exactPortions: kits * item.portions,
 				itemGroup: item.itemGroup,
 				sortOrder: sortOrder++,
 				originTemplateId: snapshot.id,
@@ -1259,7 +1286,10 @@ async function addToProduction(tx: Tx, request: LockedRequest, lines: (typeof sn
 			})
 		}
 	}
+	// Preparação com 0 porção por kit não vai para a produção.
 	const rows = [...byKey.values()]
+		.filter(({ exactPortions }) => exactPortions > 0)
+		.map(({ exactPortions, ...row }) => ({ ...row, plannedPortionQuantity: Math.ceil(exactPortions - 1e-9) }))
 	if (rows.length === 0) return
 
 	const inserted = await runQuery("INSERT_ITEMS_FAILED", () => tx.insert(menuItemsInKitchen).values(rows).returning({ id: menuItemsInKitchen.id }))

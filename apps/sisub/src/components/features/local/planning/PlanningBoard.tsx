@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useDailyMenus } from "@/hooks/data/usePlanning"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
+import { isHeadcountPending } from "@/lib/headcount-pending"
 import { ApplyTemplateDialog } from "./ApplyTemplateDialog"
 import { DayDrawer } from "./DayDrawer"
 import { ExpiringInPeriod } from "./ExpiringInPeriod"
@@ -306,13 +307,15 @@ export function PlanningBoard() {
 
 						const totalHeadcount = dayMenus.reduce((acc, m) => acc + (m.forecasted_headcount || 0), 0)
 						const hasMenus = dayMenus.length > 0
+						// Refeição aplicada sem efetivo: o total do dia estaria incompleto, então o selo diz "a definir".
+						const pendingMeals = dayMenus.filter(isHeadcountPending).map((m) => m.meal_type?.name || "Refeição")
 
 						return (
 							<button
 								key={day.toString()}
 								type="button"
 								// Nome acessível com a data inteira: "25" sozinho não diz de que mês é o dia.
-								aria-label={`${format(day, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}${hasMenus ? ` — ${dayMenus.length} ${dayMenus.length === 1 ? "refeição planejada" : "refeições planejadas"}` : ""}`}
+								aria-label={`${format(day, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}${hasMenus ? ` — ${dayMenus.length} ${dayMenus.length === 1 ? "refeição planejada" : "refeições planejadas"}` : ""}${pendingMeals.length > 0 ? ` — efetivo a definir: ${pendingMeals.join(", ")}` : ""}`}
 								data-date={format(day, "yyyy-MM-dd")}
 								onClick={(e) => handleDayClick(day, e)}
 								className={cn(
@@ -329,9 +332,12 @@ export function PlanningBoard() {
 										{format(day, "d")}
 									</span>
 									{hasMenus && (
-										<Badge variant="outline" className="text-[10px] h-5 px-1 font-normal text-muted-foreground gap-1">
+										<Badge
+											variant={pendingMeals.length > 0 ? "warning" : "outline"}
+											className={cn("text-[10px] h-5 px-1 font-normal gap-1", pendingMeals.length === 0 && "text-muted-foreground")}
+										>
 											<Users className="size-3" />
-											{totalHeadcount > 0 ? totalHeadcount : "-"}
+											{pendingMeals.length > 0 ? "a definir" : totalHeadcount > 0 ? totalHeadcount : "-"}
 										</Badge>
 									)}
 								</div>

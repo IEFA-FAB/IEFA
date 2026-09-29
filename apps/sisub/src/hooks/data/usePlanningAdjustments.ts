@@ -1,4 +1,11 @@
-import type { MoveOriginToDate, RecordMenuSubstitution, RemoveOriginFromDay, ReplaceDayWithTemplate, ReplaceMenuItemRecipe } from "@iefa/sisub-domain"
+import type {
+	MoveOriginToDate,
+	RecordMenuSubstitution,
+	RemoveOriginFromDay,
+	ReplaceDayWithTemplate,
+	ReplaceMenuItemRecipe,
+	SizeOriginOnDay,
+} from "@iefa/sisub-domain"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
@@ -9,6 +16,7 @@ import {
 	removeOriginFromDayFn,
 	replaceDayWithTemplateFn,
 	replaceMenuItemRecipeFn,
+	sizeOriginOnDayFn,
 } from "@/server/planning-adjustments.fn"
 
 /**
@@ -44,6 +52,18 @@ export function useMoveOriginToDate() {
 			invalidate()
 			const [y, m, d] = input.toDate.split("-")
 			toast.success(`${result.moved} ${result.moved === 1 ? "preparação foi" : "preparações foram"} para ${d}/${m}/${y}.`)
+		},
+		onError: (error) => toast.error(error.message),
+	})
+}
+
+export function useSizeOriginOnDay() {
+	const invalidate = useInvalidatePlanning()
+	return useMutation({
+		mutationFn: (data: SizeOriginOnDay) => sizeOriginOnDayFn({ data }),
+		onSuccess: (result) => {
+			invalidate()
+			toast.success(`${result.sized} ${result.sized === 1 ? "preparação ganhou porções" : "preparações ganharam porções"}.`)
 		},
 		onError: (error) => toast.error(error.message),
 	})

@@ -22,8 +22,9 @@ interface KitchenOccasionMenuListProps {
 }
 
 /**
- * Eventos ou exceções de uma cozinha, com os modelos globais da SDAB disponíveis para adaptar —
- * o mesmo arranjo dos cardápios semanais.
+ * Eventos ou apoios de uma cozinha, com os modelos globais da SDAB disponíveis para adaptar —
+ * o mesmo arranjo dos cardápios semanais. O modelo global não tem ocorrências por mês (é
+ * quantidade da cozinha), então a coluna só aparece na lista da cozinha.
  */
 export function KitchenOccasionMenuList({ templateType, kitchenId, description, newLink, forkLink, editorLink }: KitchenOccasionMenuListProps) {
 	const copy = OCCASION_MENU_COPY[templateType]
@@ -104,7 +105,6 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 										<TableRow>
 											<TableHead>Nome</TableHead>
 											<TableHead>Descrição</TableHead>
-											{isSupportMenu && <TableHead className="w-32 text-center">Ocorrências/mês</TableHead>}
 											<TableHead className="w-28 text-center">Preparações</TableHead>
 											{canWrite && <TableHead className="w-32 text-right">Ação</TableHead>}
 										</TableRow>
@@ -117,7 +117,6 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 													{isSupportMenu && <SnackStandardBadges template={template} />}
 												</TableCell>
 												<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
-												{isSupportMenu && occurrencesCell(template.expected_monthly_occurrences)}
 												<TableCell className="text-center">
 													<Badge variant="secondary" className="font-mono text-xs">
 														{template.recipe_count || 0}

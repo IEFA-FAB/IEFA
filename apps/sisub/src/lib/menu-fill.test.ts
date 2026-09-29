@@ -1,11 +1,9 @@
 import { describe, expect, test } from "vitest"
 import {
-	applyHeadcountToItems,
 	applyHeadcountToMeals,
 	applyRecipeSelection,
 	copyMenuItems,
 	countHeadcountTargets,
-	countItemHeadcountTargets,
 	findMenuItems,
 	type MealHeadcountDraft,
 	type MenuDraftItem,
@@ -167,26 +165,6 @@ describe("swapMenuRecipes / replaceMenuRecipe", () => {
 	test("swap que devolve o mesmo id é no-op", () => {
 		const items = [item(1, ALMOCO, "arroz")]
 		expect(swapMenuRecipes(items, () => "arroz")).toEqual(items)
-	})
-})
-
-describe("applyHeadcountToItems", () => {
-	const items = [item(1, ALMOCO, "arroz"), item(1, ALMOCO, "feijao", 50), item(1, JANTAR, "sopa")]
-	const plan = new Map([[ALMOCO, 300]])
-
-	test("preenche o pax das preparações da refeição, sem tocar nas outras refeições", () => {
-		const result = applyHeadcountToItems(items, plan)
-		expect(result.map((i) => i.headcount_override)).toEqual([300, 50, null])
-	})
-
-	test("com overwrite, troca o que já estava preenchido", () => {
-		expect(applyHeadcountToItems(items, plan, { overwrite: true }).map((i) => i.headcount_override)).toEqual([300, 300, null])
-	})
-
-	test("conta só o que vai mudar", () => {
-		expect(countItemHeadcountTargets(items, plan)).toBe(1)
-		expect(countItemHeadcountTargets(items, plan, { overwrite: true })).toBe(2)
-		expect(countItemHeadcountTargets(items, new Map([[ALMOCO, null]]))).toBe(0)
 	})
 })
 

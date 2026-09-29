@@ -19,6 +19,7 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { z } from "zod"
 import { applyTemplate } from "../operations/templates.ts"
 import { DateSchema, KitchenIdSchema } from "../schemas/common.ts"
+import { MAX_EVENT_MEAL_HEADCOUNT } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 
 /** Teto de datas por chamada de agente: um mês de calendário. */
@@ -33,6 +34,18 @@ export const AgentApplyTemplateSchema = z.object({
 		.max(AGENT_APPLY_TEMPLATE_MAX_DATES)
 		.describe(`Datas YYYY-MM-DD a preencher (no máximo ${AGENT_APPLY_TEMPLATE_MAX_DATES}). Só essas datas são tocadas`),
 	startDayOfWeek: z.number().int().min(1).max(7).describe("Dia do template (1=seg..7=dom) que corresponde à primeira data"),
+	headcounts: z
+		.array(
+			z.object({
+				mealTypeId: z.uuid().describe("Tipo de refeição do template"),
+				headcount: z.number().int().positive().max(MAX_EVENT_MEAL_HEADCOUNT).nullable().describe("Efetivo da refeição; null = a definir"),
+			})
+		)
+		.max(50)
+		.nullish()
+		.describe(
+			"Efetivo por refeição nesta aplicação (o mesmo em todos os dias), vencendo o do template. Template global não tem efetivo: informe aqui ou o dia fica com 'efetivo a definir'"
+		),
 })
 export type AgentApplyTemplate = z.infer<typeof AgentApplyTemplateSchema>
 
@@ -55,5 +68,6 @@ export async function agentApplyTemplate(db: SisubDb, ctx: UserContext, input: A
 		startDayOfWeek: input.startDayOfWeek,
 		dates,
 		conflictMode: "skip",
+		headcounts: input.headcounts ?? undefined,
 	})
 }

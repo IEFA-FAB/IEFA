@@ -473,6 +473,7 @@ export const ASSURANCE_REGISTRY = {
 
 	// ── planning-adjustments.fn.ts (imprevistos do agendamento: mesmo peso de remover/adicionar item)
 	removeOriginFromDayFn: { require: "none" },
+	sizeOriginOnDayFn: { require: "none" },
 	moveOriginToDateFn: { require: "none" },
 	replaceDayWithTemplateFn: { require: "none" },
 	replaceMenuItemRecipeFn: { require: "none" },

@@ -38,13 +38,29 @@ export function resolveItemDemand({
 	headcountOverride,
 	baseHeadcount,
 	recommendedProportion,
+	rounding = "nearest",
 }: {
 	headcountOverride?: number | null
 	baseHeadcount?: number | null
 	recommendedProportion?: number | null
+	/**
+	 * Arredondamento da porcentagem. `nearest` no semanal e no evento (número de anexo já montado
+	 * não muda); `up` no apoio, onde a proporção é porções por kit: 3 kits × 0,5 café = 2, porque
+	 * faltar porção custa mais que sobrar meia.
+	 */
+	rounding?: DemandRounding
 }): number | null {
 	if (headcountOverride != null) return headcountOverride
 	if (baseHeadcount == null) return null
 	if (recommendedProportion == null) return baseHeadcount
-	return Math.round((baseHeadcount * recommendedProportion) / 100)
+	const exact = (baseHeadcount * recommendedProportion) / 100
+	// O epsilon absorve erro de ponto flutuante logo acima de um inteiro (7,000000000000001 → 7).
+	return rounding === "up" ? Math.ceil(exact - 1e-9) : Math.round(exact)
+}
+
+export type DemandRounding = "nearest" | "up"
+
+/** Arredondamento da demanda pelo regime do cardápio ({@link resolveItemDemand}). */
+export function demandRoundingFor(templateType: string | null | undefined): DemandRounding {
+	return templateType === "apoio" ? "up" : "nearest"
 }

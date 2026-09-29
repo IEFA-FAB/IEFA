@@ -252,6 +252,11 @@ export interface DemandForecastStatus {
 	events: number
 	supportMenus: number
 	supportMenusWithoutOccurrences: number
+	/**
+	 * Cardápios da cozinha com preparação sem efetivo (nem pax, nem efetivo da refeição): a unidade
+	 * não tem por que número multiplicar, e a preparação fica fora do quantitativo.
+	 */
+	menusWithoutHeadcount: string[]
 	/** Insumos dos cardápios da cozinha sem item de compra: a unidade não consegue comprá-los. */
 	ingredientsWithoutPurchaseItem: number
 	pendingForecasts: number
@@ -290,6 +295,23 @@ export async function fetchDemandForecastStatus(db: SisubDb, ctx: UserContext, i
 						(select count(*) from kitchen.menu_template t
 							where t.kitchen_id = k.id and t.deleted_at is null and t.template_type = 'apoio'
 								and coalesce(t.expected_monthly_occurrences, 0) = 0) as support_menus_without_occurrences,
+						(select coalesce(json_agg(t.name order by t.name), '[]'::json)
+							from kitchen.menu_template t
+							-- Padrão de lanche fica de fora: os kits vêm do pedido, não do cardápio.
+							where t.kitchen_id = k.id and t.deleted_at is null and t.snack_family is null
+								and exists (
+									select 1 from kitchen.menu_template_items ti
+									left join kitchen.menu_template_event_meal em on em.id = ti.event_meal_id
+									where ti.menu_template_id = t.id and ti.recipe_id is not null and ti.headcount_override is null
+										and case
+											when ti.event_meal_id is not null then em.base_headcount is null
+											else not exists (
+												select 1 from kitchen.menu_template_meal m
+												where m.menu_template_id = t.id and m.day_of_week = ti.day_of_week
+													and m.meal_type_id = ti.meal_type_id and m.base_headcount is not null
+											)
+										end
+								)) as menus_without_headcount,
 						(select count(distinct ri.ingredient_id)
 							from kitchen.menu_template t
 							join kitchen.menu_template_items ti on ti.menu_template_id = t.id
@@ -342,6 +364,7 @@ export async function fetchDemandForecastStatus(db: SisubDb, ctx: UserContext, i
 		events: num(summary.events),
 		supportMenus: num(summary.support_menus),
 		supportMenusWithoutOccurrences: num(summary.support_menus_without_occurrences),
+		menusWithoutHeadcount: Array.isArray(summary.menus_without_headcount) ? summary.menus_without_headcount.map(String) : [],
 		ingredientsWithoutPurchaseItem: num(summary.ingredients_without_purchase_item),
 		pendingForecasts: num(summary.pending_forecasts),
 		forecast: forecast

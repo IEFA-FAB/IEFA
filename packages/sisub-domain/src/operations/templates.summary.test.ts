@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { summarizeTemplateDemand } from "./templates.ts"
+import { assertProportionCaps, assertRelativeOnlyForGlobal, summarizeTemplateDemand } from "./templates.ts"
 
 const CAFE = "cafe"
 const ALMOCO = "almoco"
@@ -47,5 +47,47 @@ describe("summarizeTemplateDemand — evento", () => {
 			["gala", null],
 		])
 		expect(summarizeTemplateDemand(items, meals, bases)).toMatchObject({ headcount_filled: 2, total: 180 + 40 })
+	})
+})
+
+describe("summarizeTemplateDemand — apoio e média de dias úteis", () => {
+	test("apoio mede porções por kit sobre os kits e arredonda para cima; sem média de dia útil", () => {
+		const items = [{ dayOfWeek: 1, mealTypeId: ALMOCO, headcountOverride: null, recommendedProportion: 50, eventMealId: "kit" }]
+		const bases = new Map<string, number | null>([["kit", 3]])
+		expect(summarizeTemplateDemand(items, [], bases, "apoio")).toMatchObject({ headcount_filled: 1, total: 2, avg_headcount_weekday: null })
+	})
+
+	test("evento não entra na média de dias úteis (o dia 1 é só marcador)", () => {
+		const items = [{ dayOfWeek: 1, mealTypeId: ALMOCO, headcountOverride: 300, recommendedProportion: null, eventMealId: "coquetel" }]
+		expect(summarizeTemplateDemand(items, [], new Map(), "event").avg_headcount_weekday).toBeNull()
+	})
+})
+
+describe("modelo global só com quantidade relativa", () => {
+	const codeOf = (fn: () => unknown) => {
+		try {
+			fn()
+		} catch (e) {
+			return (e as { code?: string }).code
+		}
+		return undefined
+	}
+
+	test("recusa pax, efetivo e ocorrências em modelo global", () => {
+		expect(codeOf(() => assertRelativeOnlyForGlobal(null, { items: [{ headcountOverride: 300 }] }))).toBe("GLOBAL_TEMPLATE_ABSOLUTE_QUANTITY")
+		expect(codeOf(() => assertRelativeOnlyForGlobal(null, { eventMeals: [{ baseHeadcount: 800 }] }))).toBe("GLOBAL_TEMPLATE_ABSOLUTE_QUANTITY")
+		expect(codeOf(() => assertRelativeOnlyForGlobal(null, { meals: [{ baseHeadcount: 800 }] }))).toBe("GLOBAL_TEMPLATE_ABSOLUTE_QUANTITY")
+		expect(codeOf(() => assertRelativeOnlyForGlobal(null, { expectedMonthlyOccurrences: 4 }))).toBe("GLOBAL_TEMPLATE_ABSOLUTE_QUANTITY")
+	})
+
+	test("aceita só relativo no global e qualquer coisa na cozinha", () => {
+		expect(codeOf(() => assertRelativeOnlyForGlobal(null, { items: [{ headcountOverride: null }], eventMeals: [{ baseHeadcount: null }] }))).toBeUndefined()
+		expect(codeOf(() => assertRelativeOnlyForGlobal(7, { items: [{ headcountOverride: 300 }], expectedMonthlyOccurrences: 4 }))).toBeUndefined()
+	})
+
+	test("teto da proporção: 300 no semanal e no evento, porções por kit até 1000 no apoio", () => {
+		expect(codeOf(() => assertProportionCaps("weekly", [{ recommendedProportion: 301 }]))).toBe("RECOMMENDED_PROPORTION_ABOVE_CAP")
+		expect(codeOf(() => assertProportionCaps("event", [{ recommendedProportion: 400 }]))).toBe("RECOMMENDED_PROPORTION_ABOVE_CAP")
+		expect(codeOf(() => assertProportionCaps("apoio", [{ recommendedProportion: 1000 }]))).toBeUndefined()
 	})
 })

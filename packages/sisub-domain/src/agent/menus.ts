@@ -21,6 +21,7 @@ import {
 	menuTemplateEventMealInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
+	menuTemplateMealInKitchen,
 	recipesInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
@@ -153,8 +154,17 @@ export interface AgentTemplateItem {
 	 */
 	event_meal_id: string | null
 	event_meal: string | null
-	/** % do efetivo da refeição (do evento, ou da célula no semanal). O pax direto vence. */
+	/**
+	 * % do efetivo da refeição (do evento, ou da célula no semanal). No apoio, porções por kit
+	 * × 100 (200 = 2 por kit). O pax direto vence.
+	 */
 	recommended_proportion: number | null
+	/**
+	 * Efetivo da refeição sobre o qual a proporção incide (no apoio: kits) — o do evento/apoio ou
+	 * o da célula (dia + refeição) no semanal. Nulo = a definir; em modelo global é sempre nulo,
+	 * porque o número é da cozinha.
+	 */
+	meal_headcount: number | null
 }
 
 /**
@@ -196,11 +206,21 @@ export async function agentGetTemplateItems(db: SisubDb, ctx: UserContext, input
 				eventMealId: menuTemplateItemsInKitchen.eventMealId,
 				recommendedProportion: menuTemplateItemsInKitchen.recommendedProportion,
 				eventMeal: menuTemplateEventMealInKitchen.name,
+				eventMealHeadcount: menuTemplateEventMealInKitchen.baseHeadcount,
+				cellHeadcount: menuTemplateMealInKitchen.baseHeadcount,
 			})
 			.from(menuTemplateItemsInKitchen)
 			.leftJoin(mealTypeInKitchen, eq(menuTemplateItemsInKitchen.mealTypeId, mealTypeInKitchen.id))
 			.leftJoin(recipesInKitchen, eq(menuTemplateItemsInKitchen.recipeId, recipesInKitchen.id))
 			.leftJoin(menuTemplateEventMealInKitchen, eq(menuTemplateItemsInKitchen.eventMealId, menuTemplateEventMealInKitchen.id))
+			.leftJoin(
+				menuTemplateMealInKitchen,
+				and(
+					eq(menuTemplateMealInKitchen.menuTemplateId, menuTemplateItemsInKitchen.menuTemplateId),
+					eq(menuTemplateMealInKitchen.dayOfWeek, menuTemplateItemsInKitchen.dayOfWeek),
+					eq(menuTemplateMealInKitchen.mealTypeId, menuTemplateItemsInKitchen.mealTypeId)
+				)
+			)
 			.where(eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId))
 			.orderBy(
 				asc(menuTemplateItemsInKitchen.dayOfWeek),
@@ -220,5 +240,6 @@ export async function agentGetTemplateItems(db: SisubDb, ctx: UserContext, input
 		event_meal_id: row.eventMealId,
 		recommended_proportion: row.recommendedProportion != null ? Number(row.recommendedProportion) : null,
 		event_meal: row.eventMeal,
+		meal_headcount: row.eventMealId != null ? (row.eventMealHeadcount ?? null) : (row.cellHeadcount ?? null),
 	}))
 }

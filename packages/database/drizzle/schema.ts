@@ -2550,46 +2550,6 @@ export const ingredientItemInKitchen = kitchen.table("ingredient_item", {
 		}),
 ]);
 
-export const menuTemplateItemsInKitchen = kitchen.table("menu_template_items", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	menuTemplateId: uuid("menu_template_id"),
-	dayOfWeek: smallint("day_of_week"),
-	mealTypeId: uuid("meal_type_id"),
-	recipeId: uuid("recipe_id"),
-	headcountOverride: integer("headcount_override"),
-	itemGroup: text("item_group"),
-	sortOrder: smallint("sort_order").default(0).notNull(),
-	recommendedProportion: numeric("recommended_proportion", { mode: "number" }),
-	eventMealId: uuid("event_meal_id"),
-}, (table) => [
-	index("menu_template_items_event_meal_idx").using("btree", table.eventMealId.asc().nullsLast()).where(sql`(event_meal_id IS NOT NULL)`),
-	index("menu_template_items_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast()),
-	index("menu_template_items_menu_template_id_fk_idx").using("btree", table.menuTemplateId.asc().nullsLast()),
-	index("menu_template_items_recipe_id_fk_idx").using("btree", table.recipeId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.eventMealId],
-			foreignColumns: [menuTemplateEventMealInKitchen.id],
-			name: "menu_template_items_event_meal_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.mealTypeId],
-			foreignColumns: [mealTypeInKitchen.id],
-			name: "menu_template_items_meal_type_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.menuTemplateId],
-			foreignColumns: [menuTemplateInKitchen.id],
-			name: "menu_template_items_menu_template_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.recipeId],
-			foreignColumns: [recipesInKitchen.id],
-			name: "menu_template_items_recipe_id_fkey"
-		}),
-	check("menu_template_items_recommended_proportion_range", sql`(recommended_proportion IS NULL) OR ((recommended_proportion >= (0)::numeric) AND (recommended_proportion <= (300)::numeric))`),
-]);
-
 export const ingredientReviewInKitchen = kitchen.table("ingredient_review", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	ingredientId: uuid("ingredient_id").notNull(),
@@ -2669,7 +2629,7 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 	check("menu_items_execution_reason_required", sql`(added_in_execution_at IS NULL) OR (NULLIF(btrim(execution_reason), ''::text) IS NOT NULL)`),
 	check("menu_items_execution_review_needs_add", sql`(execution_reviewed_at IS NULL) OR (added_in_execution_at IS NOT NULL)`),
 	check("menu_items_origin_template_type_check", sql`origin_template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'apoio'::text])`),
-	check("menu_items_recommended_proportion_range", sql`(recommended_proportion IS NULL) OR ((recommended_proportion >= (0)::numeric) AND (recommended_proportion <= (300)::numeric))`),
+	check("menu_items_recommended_proportion_range", sql`(recommended_proportion IS NULL) OR ((recommended_proportion >= (0)::numeric) AND (recommended_proportion <= (1000)::numeric))`),
 ]);
 
 export const menuTemplateInKitchen = kitchen.table("menu_template", {
@@ -2706,6 +2666,7 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 			name: "menu_template_kitchen_id_fkey"
 		}),
 	check("menu_template_expected_monthly_occurrences_check", sql`(expected_monthly_occurrences IS NULL) OR (expected_monthly_occurrences > 0)`),
+	check("menu_template_global_without_occurrences", sql`(kitchen_id IS NOT NULL) OR (expected_monthly_occurrences IS NULL)`),
 	check("menu_template_shelf_life_hours_check", sql`(shelf_life_hours IS NULL) OR ((shelf_life_hours >= 1) AND (shelf_life_hours <= 720))`),
 	check("menu_template_snack_apoio_class_check", sql`(snack_family IS DISTINCT FROM 'apoio'::text) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text]))`),
 	check("menu_template_snack_class_check", sql`(snack_class IS NULL) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text, 'C'::text]))`),
@@ -3038,6 +2999,46 @@ export const stockPolicyInInventory = inventory.table("stock_policy", {
 	check("stock_policy_coverage_days_check", sql`coverage_days > 0`),
 	check("stock_policy_min_stock_check", sql`min_stock >= (0)::numeric`),
 	check("stock_policy_urgency_threshold_days_check", sql`(urgency_threshold_days IS NULL) OR (urgency_threshold_days > 0)`),
+]);
+
+export const menuTemplateItemsInKitchen = kitchen.table("menu_template_items", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	menuTemplateId: uuid("menu_template_id"),
+	dayOfWeek: smallint("day_of_week"),
+	mealTypeId: uuid("meal_type_id"),
+	recipeId: uuid("recipe_id"),
+	headcountOverride: integer("headcount_override"),
+	itemGroup: text("item_group"),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+	recommendedProportion: numeric("recommended_proportion", { mode: "number" }),
+	eventMealId: uuid("event_meal_id"),
+}, (table) => [
+	index("menu_template_items_event_meal_idx").using("btree", table.eventMealId.asc().nullsLast()).where(sql`(event_meal_id IS NOT NULL)`),
+	index("menu_template_items_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast()),
+	index("menu_template_items_menu_template_id_fk_idx").using("btree", table.menuTemplateId.asc().nullsLast()),
+	index("menu_template_items_recipe_id_fk_idx").using("btree", table.recipeId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.eventMealId],
+			foreignColumns: [menuTemplateEventMealInKitchen.id],
+			name: "menu_template_items_event_meal_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.mealTypeId],
+			foreignColumns: [mealTypeInKitchen.id],
+			name: "menu_template_items_meal_type_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.menuTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "menu_template_items_menu_template_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.recipeId],
+			foreignColumns: [recipesInKitchen.id],
+			name: "menu_template_items_recipe_id_fkey"
+		}),
+	check("menu_template_items_recommended_proportion_range", sql`(recommended_proportion IS NULL) OR ((recommended_proportion >= (0)::numeric) AND (recommended_proportion <= (1000)::numeric))`),
 ]);
 
 export const equipmentModelInKitchen = kitchen.table("equipment_model", {

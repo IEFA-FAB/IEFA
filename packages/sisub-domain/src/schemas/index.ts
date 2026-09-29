@@ -1,3 +1,5 @@
+// Regra da demanda (pura, sem banco): o editor mostra "= N" pela MESMA conta que o servidor grava.
+export { type DemandRounding, demandRoundingFor, resolveItemDemand } from "../operations/demand-math.ts"
 export type { AssuranceLevel, ListSensitiveOperations, RecordSensitiveOperation } from "./audit.ts"
 export {
 	AssuranceLevelSchema,
@@ -42,6 +44,7 @@ export {
 	EditScopeSchema,
 	KitchenIdSchema,
 	MAX_RECOMMENDED_PROPORTION,
+	MAX_SUPPORT_PORTIONS_PROPORTION,
 	MenuGroupKeySchema,
 	PaginationSchema,
 	SortOrderSchema,
@@ -153,7 +156,7 @@ export {
 export type { SubmitEvaluation, UpsertEvalConfig } from "./evaluation.ts"
 export { SubmitEvaluationSchema, UpsertEvalConfigSchema } from "./evaluation.ts"
 export type { EventItemPlacement, PlaceableEventMeal, RebuiltEventMeal, StoredEventItemRef } from "./event-meal-placement.ts"
-export { eventMealGroupsOrDefault, placeStoredEventItems } from "./event-meal-placement.ts"
+export { DEFAULT_SUPPORT_MEAL_NAME, eventMealGroupsOrDefault, placeStoredEventItems } from "./event-meal-placement.ts"
 export type {
 	AddExecutionMenuItem,
 	FetchExecutionOptions,
@@ -323,6 +326,7 @@ export type {
 	DeleteMenuGroupSet,
 	FetchMenuGroupSets,
 	MenuGroupInput,
+	OccasionMealGroup,
 	UpdateMenuGroupSet,
 } from "./menu-groups.ts"
 export {
@@ -334,7 +338,10 @@ export {
 	EVENT_MEAL_GROUP_SUGGESTIONS,
 	FALLBACK_MENU_GROUPS,
 	FetchMenuGroupSetsSchema,
+	MAX_GROUP_ITEM_COUNT,
 	MenuGroupSchema,
+	OccasionMealGroupSchema,
+	SUPPORT_MEAL_GROUP_SUGGESTIONS,
 	UpdateMenuGroupSetSchema,
 } from "./menu-groups.ts"
 export type { ConsumeRecoveryCode } from "./mfa-recovery.ts"
@@ -400,6 +407,7 @@ export type {
 	ReplaceDayWithTemplate,
 	ReplaceMenuItemRecipe,
 	RestoreMenuItem,
+	SizeOriginOnDay,
 	SubstitutionEntry,
 	UpdateHeadcount,
 	UpdateMenuItem,
@@ -420,6 +428,7 @@ export {
 	ReplaceDayWithTemplateSchema,
 	ReplaceMenuItemRecipeSchema,
 	RestoreMenuItemSchema,
+	SizeOriginOnDaySchema,
 	SubstitutionEntrySchema,
 	UpdateHeadcountSchema,
 	UpdateMenuItemSchema,
@@ -674,6 +683,7 @@ export type {
 	ForkTemplate,
 	GetTemplate,
 	ListTemplates,
+	OccasionTemplateType,
 	RestoreTemplate,
 	SaveTemplateEdit,
 	TemplateEventMeal,
@@ -689,10 +699,12 @@ export {
 	DeleteTemplateSchema,
 	ForkTemplateSchema,
 	GetTemplateSchema,
+	isOccasionTemplateType,
 	ListTemplatesSchema,
 	MAX_EVENT_MEAL_GROUPS,
 	MAX_EVENT_MEAL_HEADCOUNT,
 	MAX_EVENT_MEALS,
+	OCCASION_TEMPLATE_TYPES,
 	RestoreTemplateSchema,
 	SaveTemplateEditSchema,
 	TEMPLATE_TYPES,

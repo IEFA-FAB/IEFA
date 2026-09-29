@@ -26,27 +26,30 @@ import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import { validateTemplateAccess } from "../guards/validate-scope.ts"
-import type {
-	ApplyEventTemplate,
-	ApplyTemplate,
-	CreateBlankTemplate,
-	CreateTemplate,
-	DeleteTemplate,
-	ForkTemplate,
-	GetTemplate,
-	ListTemplates,
-	RestoreTemplate,
-	SaveTemplateEdit,
-	TemplateEventMeal,
-	TemplateItem,
-	TemplateMeal,
-	UpdateTemplate,
+import { MAX_RECOMMENDED_PROPORTION } from "../schemas/common.ts"
+import {
+	type ApplyEventTemplate,
+	type ApplyTemplate,
+	type CreateBlankTemplate,
+	type CreateTemplate,
+	type DeleteTemplate,
+	type ForkTemplate,
+	type GetTemplate,
+	isOccasionTemplateType,
+	type ListTemplates,
+	type RestoreTemplate,
+	type SaveTemplateEdit,
+	type TemplateEventMeal,
+	type TemplateItem,
+	type TemplateMeal,
+	type UpdateTemplate,
 } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
-import { resolveItemDemand } from "./demand-math.ts"
+import { demandRoundingFor, resolveItemDemand } from "./demand-math.ts"
 import { describeProvisionalTemplateRefusal } from "./execution.ts"
+import { resolveSnackMealType } from "./meal-types.ts"
 import { assertItemGroupsInSet } from "./menu-groups.ts"
 import {
 	eventItemBase,
@@ -59,6 +62,7 @@ import {
 	remapEventMealIds,
 	resolveEventContent,
 	type TemplateEventMealWire,
+	wrapLooseSupportItems,
 	writeEventMeals,
 } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe, type TemplateMealRow } from "./template-meals.ts"
@@ -134,20 +138,28 @@ const COUNT_ITEM_COLUMNS = { headcountOverride: true, dayOfWeek: true, mealTypeI
 export function summarizeTemplateDemand(
 	items: CountItem[],
 	meals: Pick<TemplateMealRow, "dayOfWeek" | "mealTypeId" | "baseHeadcount">[],
-	eventMealBases: ReadonlyMap<string, number | null> = new Map()
+	eventMealBases: ReadonlyMap<string, number | null> = new Map(),
+	templateType: string | null = "weekly"
 ) {
 	const baseByCell = new Map(meals.map((m) => [`${m.dayOfWeek}:${m.mealTypeId}`, m.baseHeadcount]))
+	const rounding = demandRoundingFor(templateType)
 	const demands = items.map((i) => ({
 		dayOfWeek: i.dayOfWeek,
 		demand: resolveItemDemand({
 			headcountOverride: i.headcountOverride,
-			// Item de evento mede pela refeição do evento; os demais, pela célula (dia + refeição).
+			// Item de evento ou apoio mede pela refeição dele; os demais, pela célula (dia + refeição).
 			baseHeadcount: eventItemBase(i.eventMealId, eventMealBases, baseByCell.get(`${i.dayOfWeek}:${i.mealTypeId}`) ?? null),
 			recommendedProportion: i.recommendedProportion,
+			rounding,
 		}),
 	}))
 	const headcount_filled = demands.filter((d) => d.demand !== null).length
-	const weekday = demands.filter((d) => d.dayOfWeek !== null && d.dayOfWeek >= 1 && d.dayOfWeek <= 4 && d.demand !== null)
+	// Média de dias úteis só existe no semanal: evento e apoio gravam `day_of_week = 1` como
+	// marcador, e contá-los aqui puxava a média da segunda-feira para o pax do evento.
+	const weekday =
+		templateType === "weekly" || templateType == null
+			? demands.filter((d) => d.dayOfWeek !== null && d.dayOfWeek >= 1 && d.dayOfWeek <= 4 && d.demand !== null)
+			: []
 	const avg_headcount_weekday = weekday.length > 0 ? Math.round(weekday.reduce((sum, d) => sum + (d.demand ?? 0), 0) / weekday.length) : null
 	const total = demands.reduce((sum, d) => sum + (d.demand ?? 0), 0)
 	return { headcount_filled, avg_headcount_weekday, total }
@@ -156,7 +168,7 @@ export function summarizeTemplateDemand(
 function mapTemplateWithCounts(t: CountRow, meals: TemplateMealRow[], eventMealBases: ReadonlyMap<string, number | null>): TemplateWithCounts {
 	const items = t.menuTemplateItemsInKitchens ?? []
 	const item_count = items.length
-	const { headcount_filled, avg_headcount_weekday, total } = summarizeTemplateDemand(items, meals, eventMealBases)
+	const { headcount_filled, avg_headcount_weekday, total } = summarizeTemplateDemand(items, meals, eventMealBases, t.templateType ?? "weekly")
 	// Custeio do cardápio de apoio: sem semana. Soma os comensais de todos os itens e multiplica
 	// pelas ocorrências mensais (nulo = 1). Nulo para os demais cardápios.
 	const monthly_headcount_total = t.templateType === "apoio" ? total * (t.expectedMonthlyOccurrences ?? 1) : null
@@ -214,8 +226,8 @@ export async function listTemplates(db: SisubDb, ctx: UserContext, input: ListTe
 		})
 	)
 	const ids = rows.map((r) => r.id)
-	// Efetivo de refeição de evento só existe em evento: não há o que buscar para os demais.
-	const eventIds = rows.filter((r) => r.templateType === "event").map((r) => r.id)
+	// Refeição própria (e o efetivo dela) só existe em evento e apoio: não há o que buscar no semanal.
+	const eventIds = rows.filter((r) => isOccasionTemplateType(r.templateType)).map((r) => r.id)
 	const [meals, eventMealBases] = await Promise.all([fetchTemplateMealsSafe(db, ids), fetchEventMealBases(db, eventIds)])
 	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow, meals.get(r.id) ?? [], eventMealBases))
 }
@@ -237,8 +249,8 @@ export async function listDeletedTemplates(db: SisubDb, ctx: UserContext, input:
 		})
 	)
 	const ids = rows.map((r) => r.id)
-	// Efetivo de refeição de evento só existe em evento: não há o que buscar para os demais.
-	const eventIds = rows.filter((r) => r.templateType === "event").map((r) => r.id)
+	// Refeição própria (e o efetivo dela) só existe em evento e apoio: não há o que buscar no semanal.
+	const eventIds = rows.filter((r) => isOccasionTemplateType(r.templateType)).map((r) => r.id)
 	const [meals, eventMealBases] = await Promise.all([fetchTemplateMealsSafe(db, ids), fetchEventMealBases(db, eventIds)])
 	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow, meals.get(r.id) ?? [], eventMealBases))
 }
@@ -266,10 +278,10 @@ export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTempl
 	const wire = toWire<TemplateWithItemsFull>(row, TEMPLATE_RELATIONS)
 	const items = [...wire.items].sort(compareTemplateItems)
 	// Efetivo base lido à parte, tolerante à tabela ausente (migração pendente → meals vazio).
-	// Refeições próprias só existem em evento: nos demais tipos a consulta nunca traria nada.
+	// Refeições próprias só existem em evento e apoio: no semanal a consulta nunca traria nada.
 	const [mealsByTemplate, eventMealsByTemplate] = await Promise.all([
 		fetchTemplateMealsSafe(db, [input.templateId]),
-		wire.template_type === "event" ? fetchEventMeals(db, [input.templateId]) : new Map<string, TemplateEventMealWire[]>(),
+		isOccasionTemplateType(wire.template_type) ? fetchEventMeals(db, [input.templateId]) : new Map<string, TemplateEventMealWire[]>(),
 	])
 	const meals = (mealsByTemplate.get(input.templateId) ?? []).map((m) => toWire<MenuTemplateMeal>(m))
 	const event_meals = eventMealsByTemplate.get(input.templateId) ?? []
@@ -401,6 +413,60 @@ async function findOutOfScopeRefs(
 	}
 }
 
+/** Mensagem única da recusa: o que tirar e onde o número mora. */
+const GLOBAL_ABSOLUTE_MESSAGE =
+	"Modelo global guarda só quantidade relativa (proporção, porções por kit, preparações por grupo). O efetivo, o pax e as ocorrências por mês são definidos pela cozinha, ao adaptar ou aplicar o modelo."
+
+/**
+ * Modelo GLOBAL só carrega quantidade relativa. Quem sabe quantas pessoas comem, quantos kits
+ * saem e quantas vezes por mês é a cozinha: um número absoluto no modelo da SDAB era copiado ou
+ * aplicado como se fosse da cozinha, e o pax herdado vencia o efetivo local sem aviso.
+ *
+ * O banco tem a mesma regra (gatilhos de 20260929180000); esta vem antes para a mensagem ser
+ * legível na tela e na tool.
+ */
+export function assertRelativeOnlyForGlobal(
+	kitchenId: number | null,
+	content: {
+		items?: readonly Pick<TemplateItem, "headcountOverride">[]
+		meals?: readonly Pick<TemplateMeal, "baseHeadcount">[]
+		eventMeals?: readonly Pick<TemplateEventMeal, "baseHeadcount">[]
+		expectedMonthlyOccurrences?: number | null
+	}
+): void {
+	if (kitchenId != null) return
+	const found = new Set<string>()
+	if (content.expectedMonthlyOccurrences != null) found.add("ocorrências por mês")
+	if (content.items?.some((i) => i.headcountOverride != null)) found.add("pax de preparação")
+	if (content.meals?.some((m) => m.baseHeadcount != null) || content.eventMeals?.some((m) => m.baseHeadcount != null)) found.add("efetivo de refeição")
+	if (found.size > 0) throw new DomainError("GLOBAL_TEMPLATE_ABSOLUTE_QUANTITY", `${GLOBAL_ABSOLUTE_MESSAGE} Tire: ${[...found].join(", ")}.`)
+}
+
+/**
+ * Teto da proporção por regime: no semanal e no evento ela é "% do efetivo" (até 300); no
+ * apoio, porções por kit × 100 (até 1000 = 10 porções). O schema aceita o maior dos dois.
+ */
+export function assertProportionCaps(templateType: string | null, items: readonly Pick<TemplateItem, "recommendedProportion">[]): void {
+	if (templateType === "apoio") return
+	const over = items.find((i) => i.recommendedProportion != null && i.recommendedProportion > MAX_RECOMMENDED_PROPORTION)
+	if (over) {
+		throw new DomainError(
+			"RECOMMENDED_PROPORTION_ABOVE_CAP",
+			`Proporção de ${over.recommendedProportion}% passa do teto de ${MAX_RECOMMENDED_PROPORTION}% do cardápio semanal e do evento.`
+		)
+	}
+}
+
+/**
+ * Padrão de lanche: toda refeição fica no horário de sistema "Lanches de Bordo/Apoio", que é
+ * onde o pedido aceito entra na produção. O horário que vier é descartado.
+ */
+async function pinSnackStandardMeals(db: Pick<SisubDb, "select">, meals: TemplateEventMeal[]): Promise<TemplateEventMeal[]> {
+	if (meals.length === 0) return meals
+	const snackMealType = await resolveSnackMealType(db)
+	return meals.map((m) => ({ ...m, mealTypeId: snackMealType.id }))
+}
+
 function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (typeof menuTemplateItemsInKitchen.$inferInsert)[] {
 	return items.map((item, index) => ({
 		menuTemplateId: templateId,
@@ -434,7 +500,7 @@ function routineGroupPairs(items: readonly TemplateItem[]) {
  *     era recusada com `ITEM_GROUP_NOT_IN_SET`. Fica "Sem grupo", como na cópia do molde
  *     (`normalizeStoredEventContent`).
  */
-async function syncEventItemsToMeals(tx: TemplateTx, templateId: string): Promise<void> {
+export async function syncEventItemsToMeals(tx: TemplateTx | SisubDb, templateId: string): Promise<void> {
 	await runQuery("UPDATE_ITEMS_FAILED", () =>
 		tx
 			.execute(sql`
@@ -474,9 +540,13 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
 	const meals = input.meals ?? []
-	const eventMeals = input.eventMeals ?? []
-	// Item de evento sai daqui com o `mealTypeId` da refeição dele.
-	const items = resolveEventContent(input.templateType, eventMeals, input.items ?? [])
+	// Apoio escrito sem refeição nenhuma (tool, script): cada horário vira um "Kit".
+	const wrapped = wrapLooseSupportItems(input.templateType, input.eventMeals ?? [], input.items ?? [])
+	const eventMeals = wrapped?.eventMeals ?? input.eventMeals ?? []
+	// Item de evento ou apoio sai daqui com o `mealTypeId` da refeição dele.
+	const items = resolveEventContent(input.templateType, eventMeals, wrapped?.items ?? input.items ?? [])
+	assertRelativeOnlyForGlobal(input.kitchenId ?? null, { items, meals, eventMeals, expectedMonthlyOccurrences: input.expectedMonthlyOccurrences })
+	assertProportionCaps(input.templateType, items)
 	await assertTemplateContentInScope(db, input.kitchenId ?? null, items, meals, eventMeals)
 
 	const created = await db.transaction(async (tx) => {
@@ -525,6 +595,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 
 export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: CreateBlankTemplate): Promise<MenuTemplate> {
 	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
+	assertRelativeOnlyForGlobal(input.kitchenId ?? null, { expectedMonthlyOccurrences: input.expectedMonthlyOccurrences })
 
 	const [created] = await runQuery("INSERT_FAILED", () =>
 		db
@@ -592,25 +663,41 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	// Destino sem cozinha = fork PARA o catálogo global → exige global:2.
 	requireAssetWriteForScope(ctx, targetKitchenId)
 
+	// Quantidade absoluta (pax, efetivo, ocorrências) só passa de cozinha para cozinha. Do modelo
+	// global a cópia leva a composição e as proporções; o número é da cozinha que adapta. E a
+	// cópia PARA o global não pode levar o número de cozinha nenhuma.
+	const keepsAbsolutes = source.kitchenId !== null && targetKitchenId !== null
+
 	const sourceItems = source.menuTemplateItemsInKitchens
 	// Efetivo base lido à parte, tolerante à tabela ausente (fork continua mesmo sem a base).
-	const sourceMeals = (await fetchTemplateMealsSafe(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
-	// Refeições do evento: a cópia ganha as suas, com ids novos (o id é chave primária), e os
-	// itens gravados passam pela mesma arrumação do fork da edição — item sem refeição vai para
-	// a do mesmo horário em vez de nascer na cópia sem refeição nenhuma.
-	const sourceEventMeals = source.templateType === "event" ? ((await fetchEventMeals(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []) : []
+	const sourceMeals = keepsAbsolutes ? ((await fetchTemplateMealsSafe(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []) : []
+	// Refeições do evento/apoio: a cópia ganha as suas, com ids novos (o id é chave primária), e
+	// os itens gravados passam pela mesma arrumação do fork da edição — item sem refeição vai
+	// para a do mesmo horário em vez de nascer na cópia sem refeição nenhuma.
+	const isOccasion = isOccasionTemplateType(source.templateType)
+	const storedOccasionMeals = isOccasion ? ((await fetchEventMeals(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []) : []
+	// Adaptar escolhendo as refeições: um padrão de evento tem seis formatos e o evento usa um ou dois.
+	const chosenMealIds = input.occasionMealIds ? new Set(input.occasionMealIds) : null
+	if (chosenMealIds && !isOccasion) {
+		throw new DomainError("FORK_MEALS_ONLY_IN_OCCASIONS", "Escolher refeições ao copiar vale só para evento e apoio.")
+	}
+	const unknownMeal = chosenMealIds ? [...chosenMealIds].find((id) => !storedOccasionMeals.some((m) => m.id === id)) : undefined
+	if (unknownMeal) throw new DomainError("EVENT_MEAL_NOT_FOUND", `refeição ${unknownMeal} não existe no cardápio de origem`)
+	const sourceEventMeals = chosenMealIds ? storedOccasionMeals.filter((m) => chosenMealIds.has(m.id)) : storedOccasionMeals
 	// Item sem preparação fica de fora, como na leitura do editor e no fork da edição
-	// (`readSourceItems`) — e não reconstrói refeição para si.
-	const sourceEventItems = source.templateType === "event" ? sourceItems.filter((i) => i.recipeId != null) : []
-	const mealTypeNames =
-		source.templateType === "event" ? await fetchSlotNamesOfUnplacedItems(db, eventMealsAsInput(sourceEventMeals), sourceEventItems) : new Map<string, string>()
-	const eventContent =
-		source.templateType === "event"
-			? (() => {
-					const normalized = normalizeStoredEventContent(eventMealsAsInput(sourceEventMeals), sourceEventItems, mealTypeNames)
-					return remapEventMealIds(normalized.eventMeals, normalized.items)
-				})()
-			: null
+	// (`readSourceItems`) — e não reconstrói refeição para si. Com refeições escolhidas, saem
+	// também os itens das que ficaram para trás (e os soltos, que não são de nenhuma escolhida).
+	const sourceEventItems = isOccasion
+		? sourceItems.filter((i) => i.recipeId != null && (!chosenMealIds || (i.eventMealId != null && chosenMealIds.has(i.eventMealId))))
+		: []
+	const mealTypeNames = isOccasion ? await fetchSlotNamesOfUnplacedItems(db, eventMealsAsInput(sourceEventMeals), sourceEventItems) : new Map<string, string>()
+	const eventContent = isOccasion
+		? (() => {
+				const normalized = normalizeStoredEventContent(eventMealsAsInput(sourceEventMeals), sourceEventItems, mealTypeNames, source.templateType)
+				const remapped = remapEventMealIds(normalized.eventMeals, normalized.items)
+				return keepsAbsolutes ? remapped : { ...remapped, eventMeals: remapped.eventMeals.map((m) => ({ ...m, baseHeadcount: null })) }
+			})()
+		: null
 	const forkedSourceItems = eventContent?.items ?? sourceItems
 
 	// A cópia herda as referências da origem — e elas precisam caber no DESTINO, pela mesma
@@ -641,8 +728,9 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 					kitchenId: targetKitchenId,
 					baseTemplateId: input.sourceTemplateId,
 					templateType: source.templateType ?? "weekly",
-					// Cardápio de apoio sem a recorrência vira 1 ocorrência no custeio do anexo quantitativo.
-					expectedMonthlyOccurrences: source.expectedMonthlyOccurrences,
+					// Ocorrências por mês são da cozinha: do modelo global a cópia nasce sem, e o fluxo de
+					// previsão avisa (GC-PRV-02) em vez de o custeio usar o número da SDAB.
+					expectedMonthlyOccurrences: keepsAbsolutes ? source.expectedMonthlyOccurrences : null,
 					// Padrão de lanche: a cópia herda a classificação, mas nasce NÃO pedível e sem
 					// revisão — publicar para o comensal e atestar a revisão trimestral são atos da
 					// cozinha de destino, não herança do molde.
@@ -660,9 +748,8 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 				dayOfWeek: item.dayOfWeek,
 				mealTypeId: item.mealTypeId,
 				recipeId: item.recipeId,
-				// Evento e exceção não têm efetivo base: o pax mora no item. Descartá-lo
-				// entregava à cozinha uma adaptação do modelo global sem quantitativo nenhum.
-				headcountOverride: item.headcountOverride,
+				// Pax é quantidade da cozinha: passa entre cozinhas, nunca do modelo global.
+				headcountOverride: keepsAbsolutes ? item.headcountOverride : null,
 				itemGroup: item.itemGroup,
 				sortOrder: item.sortOrder ?? 0,
 				recommendedProportion: item.recommendedProportion,
@@ -729,15 +816,39 @@ async function applyTemplateContent(tx: TemplateTx, templateId: string, input: U
 	}
 	if (!row) throw new DomainError("UPDATE_FAILED", "no row returned")
 
-	const isEvent = row.templateType === "event"
+	// Modelo global: nenhuma quantidade absoluta, venha ela do payload ou já gravada no escalar.
+	assertRelativeOnlyForGlobal(row.kitchenId, {
+		items: input.items,
+		meals: input.meals,
+		eventMeals: input.eventMeals,
+		expectedMonthlyOccurrences: row.expectedMonthlyOccurrences,
+	})
+	if (input.items !== undefined) assertProportionCaps(row.templateType, input.items)
 
-	// Refeições do evento, se fornecidas — antes dos itens, que citam a refeição pela FK.
-	const newEventMeals = input.eventMeals
+	const isOccasion = isOccasionTemplateType(row.templateType)
+
+	// Apoio sem refeição nenhuma (nem enviada, nem gravada) com itens soltos: cada horário vira
+	// um "Kit" — o apoio simples. Havendo refeição, o item solto é recusado mais abaixo.
+	let sentEventMeals = input.eventMeals
+	let sentItems = input.items
+	if (row.templateType === "apoio" && sentEventMeals === undefined && sentItems !== undefined) {
+		const stored = (await fetchEventMeals(tx, [templateId])).get(templateId) ?? []
+		const wrapped = wrapLooseSupportItems(row.templateType, eventMealsAsInput(stored), sentItems)
+		if (wrapped) {
+			sentEventMeals = wrapped.eventMeals
+			sentItems = wrapped.items
+		}
+	}
+	// Padrão de lanche: as refeições ficam no horário de sistema, onde o pedido aceito produz.
+	if (row.snackFamily != null && sentEventMeals !== undefined) sentEventMeals = await pinSnackStandardMeals(tx, sentEventMeals)
+
+	// Refeições do evento/apoio, se fornecidas — antes dos itens, que citam a refeição pela FK.
+	const newEventMeals = sentEventMeals
 	if (newEventMeals !== undefined) {
 		// Sem itens: só confere o tipo do template e as repetições dentro das refeições.
 		resolveEventContent(row.templateType, newEventMeals, [])
 		await writeEventMeals(tx, templateId, newEventMeals)
-	} else if (!isEvent && input.templateType != null) {
+	} else if (!isOccasion && input.templateType != null) {
 		// Deixar de ser evento com refeições gravadas deixaria itens sob refeições que nenhum
 		// editor mostra.
 		const stored = (await fetchEventMeals(tx, [templateId])).get(templateId) ?? []
@@ -745,11 +856,11 @@ async function applyTemplateContent(tx: TemplateTx, templateId: string, input: U
 	}
 
 	// Substituição destrutiva dos itens, se fornecidos (delete-all + re-insert na transação).
-	if (input.items !== undefined) {
-		// Itens de evento conferidos contra as refeições FINAIS: as que vieram agora ou, sem
+	if (sentItems !== undefined) {
+		// Itens de evento/apoio conferidos contra as refeições FINAIS: as que vieram agora ou, sem
 		// elas, as gravadas. Saem com o `mealTypeId` da refeição.
-		const eventMeals = isEvent ? (newEventMeals ?? eventMealsAsInput((await fetchEventMeals(tx, [templateId])).get(templateId) ?? [])) : []
-		const newItems = resolveEventContent(row.templateType, eventMeals, input.items)
+		const eventMeals = isOccasion ? (newEventMeals ?? eventMealsAsInput((await fetchEventMeals(tx, [templateId])).get(templateId) ?? [])) : []
+		const newItems = resolveEventContent(row.templateType, eventMeals, sentItems)
 		await runQuery("DELETE_ITEMS_FAILED", () =>
 			tx
 				.delete(menuTemplateItemsInKitchen)
@@ -855,7 +966,7 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 			.limit(1)
 
 		if (existingFork) {
-			if (source.template_type === "event" && (input.eventMeals !== undefined || input.items !== undefined)) {
+			if (isOccasionTemplateType(source.template_type) && (input.eventMeals !== undefined || input.items !== undefined)) {
 				// Refeições e itens enviados citam os ids do MOLDE, e a cópia tem os dela. Com os dois
 				// juntos, a cópia passa a ser exatamente o que veio (com ids novos). Com um só, a outra
 				// metade teria de sair do molde e sobrescreveria o que a cozinha já adaptou na cópia.
@@ -871,24 +982,33 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 		}
 
 		// Itens e efetivo base ausentes na entrada são copiados do original, senão o fork
-		// nasceria vazio.
-		const sourceItems: TemplateItem[] = input.items ?? (await readSourceItems(tx, input.templateId))
-		// Refeições do evento idem — e com ids novos, porque os do molde são dele.
-		const sourceEventMeals =
-			source.template_type === "event" ? eventMealsAsInput((await fetchEventMeals(tx, [input.templateId])).get(input.templateId) ?? []) : undefined
+		// nasceria vazio. Do original GLOBAL vem só o relativo: o pax e o efetivo que a cópia tiver
+		// são os que a cozinha mandou nesta edição.
+		const sourceItems: TemplateItem[] = input.items ?? (await readSourceItems(tx, input.templateId)).map((i) => ({ ...i, headcountOverride: undefined }))
+		// Refeições do evento/apoio idem — e com ids novos, porque os do molde são dele.
+		const sourceEventMeals = isOccasionTemplateType(source.template_type)
+			? eventMealsAsInput((await fetchEventMeals(tx, [input.templateId])).get(input.templateId) ?? []).map((m) => ({ ...m, baseHeadcount: null }))
+			: undefined
 		// Itens enviados são entrada e passam pela validação como vieram; os copiados do molde são
 		// dado gravado e são arrumados antes (`forkStoredEventContent`), que também tira os da
 		// refeição do molde que não veio em `eventMeals`, como na edição in-place.
 		const forkEventContent = sourceEventMeals
 			? input.items !== undefined
 				? { eventMeals: input.eventMeals ?? sourceEventMeals, items: input.items }
-				: forkStoredEventContent(sourceEventMeals, input.eventMeals, sourceItems, await fetchSlotNamesOfUnplacedItems(tx, sourceEventMeals, sourceItems))
+				: forkStoredEventContent(
+						sourceEventMeals,
+						input.eventMeals,
+						sourceItems,
+						await fetchSlotNamesOfUnplacedItems(tx, sourceEventMeals, sourceItems),
+						source.template_type
+					)
 			: undefined
 		const forkContent = forkEventContent
 			? remapEventMealIds(forkEventContent.eventMeals, forkEventContent.items)
 			: { eventMeals: input.eventMeals, items: sourceItems }
 
-		const sourceMeals: NonNullable<UpdateTemplate["meals"]> = input.meals ?? (await fetchTemplateMealsSafe(tx, [input.templateId])).get(input.templateId) ?? []
+		// Efetivo por (dia + refeição) do global: não existe (o global é relativo). Só o que a cozinha mandou.
+		const sourceMeals: NonNullable<UpdateTemplate["meals"]> = input.meals ?? []
 
 		const [newTemplate] = await tx
 			.insert(menuTemplateInKitchen)
@@ -1087,6 +1207,9 @@ export async function applyTemplate(
 	for (const meal of templateMeals) {
 		if (meal.baseHeadcount != null) baseByCell.set(`${meal.dayOfWeek}:${meal.mealTypeId}`, meal.baseHeadcount)
 	}
+	// Efetivo informado nesta aplicação (o do modelo global, que não tem número, entra por aqui).
+	// Vence o do cardápio; `null` é "a definir"; refeição ausente usa o do cardápio.
+	const appliedHeadcount = new Map((input.headcounts ?? []).map((h) => [h.mealTypeId, h.headcount]))
 
 	// Intervalo de datas (YYYY-MM-DD). Iteração em UTC: as colunas são calendário puro
 	// (sem hora), então tratar a string como meia-noite UTC e avançar com setUTCDate torna
@@ -1156,18 +1279,14 @@ export async function applyTemplate(
 				datesSkippedSet.add(dateStr)
 				continue
 			}
-			// Efetivo da refeição (ponte aquisição→produção): usa o efetivo BASE do template
-			// (grão dia+refeição). Fallback para a média dos headcount_override preenchidos
-			// (templates legados sem base). Null quando nenhum dos dois existe → planejador
-			// preenche no DayDrawer. Só conta overrides de itens COM receita (os que serão
-			// materializados); um item sem recipeId é descartado abaixo e não deve enviesar.
-			const base = baseByCell.get(`${templateDay}:${mealTypeId}`) ?? null
-			const overrides = items
-				.filter((i) => i.recipeId != null)
-				.map((i) => i.headcountOverride)
-				.filter((h): h is number => h != null)
-			const overrideAvg = overrides.length > 0 ? Math.round(overrides.reduce((sum, h) => sum + h, 0) / overrides.length) : null
-			const mealHeadcount = base ?? overrideAvg
+			// Efetivo da refeição (ponte aquisição→produção): o informado nesta aplicação, senão o
+			// efetivo BASE do cardápio (grão dia+refeição). Sem nenhum dos dois o dia nasce com
+			// "efetivo a definir", e informá-lo depois calcula as porções (`updateHeadcount`). A
+			// média dos pax dos itens já foi usada aqui como efetivo; ela misturava a exceção de
+			// um item com o número da refeição inteira.
+			const mealHeadcount = appliedHeadcount.has(mealTypeId)
+				? (appliedHeadcount.get(mealTypeId) ?? null)
+				: (baseByCell.get(`${templateDay}:${mealTypeId}`) ?? null)
 
 			const menuId = crypto.randomUUID()
 			const menuItemRows: (typeof menuItemsInKitchen.$inferInsert)[] = []
@@ -1279,13 +1398,14 @@ export async function applyTemplate(
 }
 
 /**
- * Materializa um evento/exceção em datas concretas do calendário.
+ * Materializa um evento ou apoio em datas concretas do calendário.
  *
  * ADITIVO por desenho: o planejamento rotineiro do dia permanece intacto — os
  * itens do evento são acrescentados ao cardápio (daily_menu) existente da mesma
  * refeição, criando-o quando não há. `day_of_week` do template é placeholder e é
  * ignorado. `planned_portion_quantity` sai de `resolveItemDemand` por item: pax, senão a %
- * sobre o efetivo da refeição do evento, senão o efetivo cheio (exceção: só o pax).
+ * sobre o efetivo da refeição (o informado na aplicação, senão o do cardápio; kits, no
+ * apoio), senão o efetivo cheio. Sem efetivo nenhum a porção fica a definir.
  * Tudo numa transação: falha em qualquer data desfaz a aplicação inteira.
  */
 export async function applyEventTemplate(
@@ -1300,8 +1420,7 @@ export async function applyEventTemplate(
 	if (templateType !== "event" && templateType !== "apoio") {
 		throw new DomainError("NOT_EVENT_TEMPLATE", `Template ${input.templateId} is ${templateType ?? "weekly"}; use applyTemplate`)
 	}
-	// Padrão de lanche não se aplica ao calendário: nele `headcount_override` é PORÇÕES POR KIT,
-	// então aplicar produziria 1 porção por preparação, e o item nasceria sem pedido de origem —
+	// Padrão de lanche não se aplica ao calendário: o item nasceria sem pedido de origem —
 	// invisível para a cozinha, que acompanha lanche pelo pedido.
 	if (template.snack_family != null) {
 		throw new DomainError(
@@ -1311,26 +1430,32 @@ export async function applyEventTemplate(
 	}
 
 	// Itens com receita + ingredientes para o snapshot json (mesmo shape do addMenuItem).
-	const isEvent = template.template_type === "event"
 	const [rawItems, eventMeals] = await Promise.all([
 		fetchTemplateItemsWithRecipes(db, input.templateId),
-		isEvent ? fetchEventMeals(db, [input.templateId]).then((m) => m.get(input.templateId) ?? []) : Promise.resolve([]),
+		fetchEventMeals(db, [input.templateId]).then((m) => m.get(input.templateId) ?? []),
 	])
+	// Efetivo informado nesta aplicação (kits, no apoio) vence o da refeição; `null` = a definir.
+	// É por aqui que o modelo global, que não tem número, ganha o da cozinha.
+	const unknownMeal = (input.headcounts ?? []).find((h) => !eventMeals.some((m) => m.id === h.occasionMealId))
+	if (unknownMeal) throw new DomainError("EVENT_MEAL_NOT_FOUND", `refeição ${unknownMeal.occasionMealId} não existe neste cardápio`)
+	const appliedHeadcount = new Map((input.headcounts ?? []).map((h) => [h.occasionMealId, h.headcount]))
+	const eventMealBases = new Map(eventMeals.map((m) => [m.id, appliedHeadcount.has(m.id) ? (appliedHeadcount.get(m.id) ?? null) : m.base_headcount]))
 	// Demanda de cada item resolvida AQUI, antes de juntar refeições do mesmo horário: cada item
 	// mede pela própria refeição (pax, senão % do efetivo dela, senão o efetivo cheio). Resolver
 	// depois de juntar faria a primeira refeição falar pelas duas — 300 em vez de 300 + 200.
-	// Exceção não tem refeição própria: só o pax do item conta.
-	const eventMealBases = new Map(eventMeals.map((m) => [m.id, m.base_headcount]))
+	// No apoio a proporção é porções por kit e arredonda para cima.
+	const rounding = demandRoundingFor(templateType)
 	const templateItems = rawItems.map((item) => ({
 		...item,
 		headcountOverride: resolveItemDemand({
 			headcountOverride: item.headcountOverride,
 			baseHeadcount: eventItemBase(item.eventMealId, eventMealBases),
 			recommendedProportion: item.recommendedProportion != null ? Number(item.recommendedProportion) : null,
+			rounding,
 		}),
 	}))
 
-	// Agrupa por refeição, ignorando day_of_week (placeholder em evento/exceção).
+	// Agrupa por horário, ignorando day_of_week (placeholder em evento/apoio).
 	let itemsSkipped = 0
 	const itemsByMealType = new Map<string, typeof templateItems>()
 	for (const item of templateItems) {
@@ -1345,10 +1470,8 @@ export async function applyEventTemplate(
 	// Evento com duas refeições no mesmo horário (coquetel e jantar, os dois à noite) cai num
 	// cardápio do dia só: as refeições entram na ordem do evento, e a preparação repetida vira um
 	// item com o pax somado — dois itens da mesma preparação furavam a chave de idempotência.
-	if (isEvent) {
-		const mealOrder = eventMeals.map((m) => m.id)
-		for (const [mealTypeId, items] of itemsByMealType) itemsByMealType.set(mealTypeId, mergeSlotItems(items, mealOrder))
-	}
+	const mealOrder = eventMeals.map((m) => m.id)
+	for (const [mealTypeId, items] of itemsByMealType) itemsByMealType.set(mealTypeId, mergeSlotItems(items, mealOrder))
 
 	const dates = [...new Set(input.dates)].toSorted()
 	let menusCreated = 0

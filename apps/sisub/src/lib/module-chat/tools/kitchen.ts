@@ -395,6 +395,7 @@ const applyTemplate: ModuleToolDefinition = {
 	description: `Aplica um template semanal a datas de uma cozinha (no máximo ${AGENT_APPLY_TEMPLATE_MAX_DATES} datas por chamada).
 Só PREENCHE refeições que ainda não têm cardápio: o planejamento existente, inclusive ajustes manuais, é preservado — esta ferramenta nunca apaga nem substitui cardápio. Para substituir, oriente o usuário a aplicar pela tela de planejamento.
 startDayOfWeek (1=seg..7=dom) é o dia do template que corresponde à primeira data. O template deve ser semanal e global ou da mesma cozinha.
+Template global (SDAB) só tem proporções, sem efetivo: informe o efetivo de cada refeição em headcounts; sem ele o dia fica com "efetivo a definir" e as porções são calculadas quando o usuário informar.
 Na resposta, datesSkipped lista as datas que já tinham alguma refeição planejada e foram preservadas.`,
 	parameters: toJsonSchema(AgentApplyTemplateSchema),
 	requiredLevel: 2,

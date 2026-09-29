@@ -169,6 +169,7 @@ export type SnackStandardSnapshot = {
 	reviewedAt?: string | null
 	kcalPerKit: number | null
 	kcalComplete: boolean
+	/** `portions` = porções da preparação por kit; pode ser fracionária (0,5 = meia por kit). */
 	items: { recipeId: string; recipeName: string; portions: number; itemGroup: string | null }[]
 }
 
@@ -226,6 +227,12 @@ export function buildSnackProductionSummary(requests: SnackSummaryRequest[]): Sn
 				recipes.set(recipe.recipeId, row)
 			}
 		}
+	}
+
+	// Porção por kit pode ser meia: a soma é exata e o total arredonda para cima, como na produção.
+	for (const [id, row] of recipes) {
+		row.portions = Math.ceil(row.portions - 1e-9)
+		if (row.portions <= 0) recipes.delete(id)
 	}
 
 	return {

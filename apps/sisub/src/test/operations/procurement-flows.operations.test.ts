@@ -110,6 +110,32 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 		expect(unitStatus.kitchens[0].forecast?.imports).toBe(1)
 	}, 90_000)
 
+	test("cardápio com preparação sem efetivo aparece no fluxo da cozinha; modelo global é recusado na previsão", async () => {
+		if (!reachable || !seeder || !db) return
+		const ctx = { ...fullAccessCtx(), userId: await seeder.seedAuthUser() }
+		const unitId = await seeder.seedUnit()
+		const { id: kitchenId } = await seeder.seedKitchen({ unitId })
+		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 1 })
+		const mealTypeId = await seeder.seedMealType({ kitchenId })
+		const withPax = await seeder.seedTemplate({ kitchenId, templateType: "weekly", name: uid("[TEST] Com pax ") })
+		await seeder.seedTemplateItem({ templateId: withPax, mealTypeId, recipeId, dayOfWeek: 1, headcountOverride: 50 })
+		const withoutName = uid("[TEST] Sem efetivo ")
+		const without = await seeder.seedTemplate({ kitchenId, templateType: "weekly", name: withoutName })
+		await seeder.seedTemplateItem({ templateId: without, mealTypeId, recipeId, dayOfWeek: 1, recommendedProportion: 30 })
+
+		const status = await fetchDemandForecastStatus(db, ctx, { kitchenId })
+		expect(status.menusWithoutHeadcount).toEqual([withoutName])
+
+		const globalTemplate = await seeder.seedTemplate({ kitchenId: null, templateType: "weekly" })
+		await expect(
+			createDemandForecast(db, ctx, {
+				kitchenId,
+				title: uid("[TEST] Previsão "),
+				selections: [{ templateId: globalTemplate, templateName: "G", repetitions: 1 }],
+			})
+		).rejects.toThrow(/adapte o modelo/)
+	}, 60_000)
+
 	test("previsão de cozinha de outra OM não entra no anexo", async () => {
 		if (!reachable || !seeder || !db) return
 		const ctx = { ...fullAccessCtx(), userId: await seeder.seedAuthUser() }

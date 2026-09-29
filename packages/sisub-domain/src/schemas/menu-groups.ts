@@ -19,6 +19,24 @@ export const MenuGroupSchema = z.object({
 })
 export type MenuGroupInput = z.infer<typeof MenuGroupSchema>
 
+/** Teto da quantidade de preparações esperada num grupo — freio contra digitação. */
+export const MAX_GROUP_ITEM_COUNT = 50
+
+/**
+ * Grupo de uma refeição de evento ou de apoio. Além da chave e do rótulo, pode dizer quantas
+ * preparações o grupo espera ("Proteínas 2", "Salgados 6 a 8") — é como os padrões de evento e
+ * o Módulo 7 descrevem a composição. É quantidade RELATIVA (composição), então vale em modelo
+ * global. Contagem fora do esperado é aviso no editor, nunca recusa.
+ */
+export const OccasionMealGroupSchema = MenuGroupSchema.extend({
+	minItems: z.number().int().min(0).max(MAX_GROUP_ITEM_COUNT).nullish(),
+	maxItems: z.number().int().min(0).max(MAX_GROUP_ITEM_COUNT).nullish(),
+}).refine((g) => g.minItems == null || g.maxItems == null || g.minItems <= g.maxItems, {
+	message: "a quantidade mínima de preparações do grupo passa da máxima",
+	path: ["maxItems"],
+})
+export type OccasionMealGroup = z.infer<typeof OccasionMealGroupSchema>
+
 export const FetchMenuGroupSetsSchema = z.object({
 	kitchenId: KitchenIdSchema.nullable().optional(),
 })
@@ -131,5 +149,23 @@ export const EVENT_MEAL_GROUP_SUGGESTIONS: readonly MenuGroupInput[] = [
 	{ key: "salada", label: "Salada" },
 	{ key: "guarnicao", label: "Guarnição" },
 	{ key: "acompanhamento", label: "Acompanhamento" },
+	{ key: "fruta", label: "Frutas" },
+]
+
+/**
+ * Grupos que o editor de APOIO oferece com um clique. O apoio simples não tem grupo nenhum (é a
+ * lista de preparações do kit); estes servem a quem quer marcar a composição como o Módulo 7 a
+ * descreve: o lanche por sanduíche e bebida, a refeição por carboidrato, proteína, legume,
+ * leguminosa e sobremesa. Sugestão, não regra.
+ */
+export const SUPPORT_MEAL_GROUP_SUGGESTIONS: readonly MenuGroupInput[] = [
+	{ key: "sanduiche", label: "Sanduíches" },
+	{ key: "bebida", label: "Bebidas" },
+	{ key: "complemento", label: "Complementos" },
+	{ key: "carboidrato", label: "Carboidrato" },
+	{ key: "proteina", label: "Proteína" },
+	{ key: "legume", label: "Legumes" },
+	{ key: "leguminosa", label: "Leguminosa" },
+	{ key: "sobremesa", label: "Sobremesa" },
 	{ key: "fruta", label: "Frutas" },
 ]

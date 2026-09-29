@@ -1,19 +1,24 @@
 import {
 	DEFAULT_EVENT_MEAL_GROUPS,
+	DEFAULT_SUPPORT_MEAL_NAME,
 	EVENT_MEAL_GROUP_SUGGESTIONS,
 	eventMealGroupsOrDefault,
 	MAX_EVENT_MEAL_HEADCOUNT,
+	MAX_GROUP_ITEM_COUNT,
 	placeStoredEventItems,
+	SUPPORT_MEAL_GROUP_SUGGESTIONS,
 } from "@iefa/sisub-domain/schemas"
 import { type MenuGroup, menuGroupKeyFromLabel } from "@/lib/menu-item-groups"
-import { OCCASION_DAY } from "@/lib/occasion-menu"
+import { OCCASION_DAY, type OccasionMenuType } from "@/lib/occasion-menu"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 
 /**
- * Refeições próprias do evento no editor.
+ * Refeições próprias do evento e do apoio no editor.
  *
  * O evento tem zero ou mais refeições (coquetel, jantar de gala…), cada uma com nome, horário
- * no calendário (`meal_type_id`) e composição (`groups`). No RASCUNHO do editor a "refeição"
+ * no calendário (`meal_type_id`) e composição (`groups`). O apoio usa a mesma estrutura: o kit
+ * simples é uma refeição "Kit" sem grupo nenhum, e o Bordo C separa "Refeição" e "Lanche". No
+ * RASCUNHO do editor a "refeição"
  * de cada item é a refeição DO EVENTO: `TemplateItemDraft.meal_type_id` carrega o id dela.
  * Assim o localizar, a seleção em massa e o auxiliador de quantitativos — que agrupam por
  * `meal_type_id` — funcionam por refeição do evento sem saber que ela existe. Duas refeições
@@ -22,21 +27,31 @@ import type { TemplateItemDraft } from "@/types/domain/planning"
  * A tradução para o que o servidor grava (horário da refeição em `mealTypeId`, a refeição em
  * `eventMealId`) acontece só no payload, em {@link eventItemsPayload}.
  */
+/**
+ * Grupo de uma refeição de evento ou apoio: além da chave e do rótulo, quantas preparações ele
+ * espera ("Proteínas 2", "Salgados 6 a 8"). A contagem é aviso no editor, nunca trava.
+ */
+export type OccasionGroup = MenuGroup & { minItems?: number | null; maxItems?: number | null }
+
 export type EventMealDraft = {
 	id: string
 	name: string
 	/** Horário do calendário em que a refeição é servida. */
 	meal_type_id: string
-	groups: MenuGroup[]
+	/** Colunas da refeição. No apoio pode ser vazia: o kit simples é a lista de preparações. */
+	groups: OccasionGroup[]
 	/**
-	 * Efetivo da refeição. A porcentagem de cada preparação incide sobre ele, como no cardápio
-	 * semanal; `null` = só o pax da preparação conta.
+	 * Efetivo da refeição (no apoio: kits). A porcentagem de cada preparação incide sobre ele,
+	 * como no cardápio semanal; `null` = só o pax da preparação conta.
 	 */
 	base_headcount: number | null
 }
 
+/** Nome da refeição com que o apoio nasce — o mesmo que o servidor dá ao embrulhar itens soltos. */
+export const SUPPORT_KIT_MEAL_NAME = DEFAULT_SUPPORT_MEAL_NAME
+
 /** Forma gravada (leitura do template). */
-type EventMealRow = { id: string; name: string; meal_type_id: string; groups: MenuGroup[]; base_headcount?: number | null }
+type EventMealRow = { id: string; name: string; meal_type_id: string; groups: OccasionGroup[]; base_headcount?: number | null }
 type TemplateItemRow = {
 	meal_type_id: string | null
 	event_meal_id?: string | null
@@ -50,8 +65,8 @@ type TemplateItemRow = {
 }
 
 /**
- * Evento gravado → rascunho do editor (refeições + itens, com a refeição do evento no lugar do
- * tipo de refeição).
+ * Evento ou apoio gravado → rascunho do editor (refeições + itens, com a refeição do cardápio
+ * no lugar do tipo de refeição).
  *
  * Item de evento SEM refeição não pode sumir da tela: ele vem de quem gravou o evento antes das
  * refeições existirem (o editor antigo, no ar entre a migration e o deploy, regrava os itens
@@ -63,28 +78,32 @@ type TemplateItemRow = {
  */
 export function eventDraftFrom(
 	rows: readonly EventMealRow[] | undefined,
-	items: readonly TemplateItemRow[]
+	items: readonly TemplateItemRow[],
+	templateType: OccasionMenuType = "event"
 ): { meals: EventMealDraft[]; items: TemplateItemDraft[] } {
-	// Refeição gravada sem grupo nenhum ganha a composição padrão: sem coluna, nada entraria
-	// nela, e o servidor recusaria o salvamento (a composição tem ao menos um grupo).
+	// Refeição de EVENTO gravada sem grupo nenhum ganha a composição padrão: sem coluna, nada
+	// entraria nela, e o servidor recusaria o salvamento. No apoio, sem grupo é o kit simples.
+	const fallbackGroups = templateType === "apoio" ? [] : DEFAULT_EVENT_MEAL_GROUPS
 	const meals: EventMealDraft[] = (rows ?? []).map((m) => ({
 		id: m.id,
 		name: m.name,
 		meal_type_id: m.meal_type_id,
-		groups: eventMealGroupsOrDefault(m.groups),
+		groups: eventMealGroupsOrDefault(m.groups, fallbackGroups),
 		base_headcount: m.base_headcount ?? null,
 	}))
 	// Regra de colocação compartilhada com o servidor (`placeStoredEventItems`): o nome da
-	// refeição reconstruída é o do horário.
+	// refeição reconstruída é o do horário no evento e "Kit" no apoio, como no servidor.
 	// Item sem preparação não entra — nem reconstrói refeição para si.
 	const withRecipe = items.filter((i): i is TemplateItemRow & { recipe_id: string } => i.recipe_id != null)
 	const { rebuilt, placements } = placeStoredEventItems(
 		meals.map((m) => ({ id: m.id, mealTypeId: m.meal_type_id, groups: m.groups })),
-		withRecipe.map((i) => ({ eventMealId: i.event_meal_id, mealTypeId: i.meal_type_id, itemGroup: i.item_group }))
+		withRecipe.map((i) => ({ eventMealId: i.event_meal_id, mealTypeId: i.meal_type_id, itemGroup: i.item_group })),
+		fallbackGroups
 	)
 	for (const meal of rebuilt) {
 		const slotName = withRecipe.find((i) => i.meal_type_id === meal.mealTypeId)?.meal_type?.name?.trim()
-		meals.push({ id: meal.id, name: slotName || "Refeição", meal_type_id: meal.mealTypeId, groups: meal.groups, base_headcount: null })
+		const name = templateType === "apoio" ? SUPPORT_KIT_MEAL_NAME : slotName || "Refeição"
+		meals.push({ id: meal.id, name, meal_type_id: meal.mealTypeId, groups: meal.groups, base_headcount: null })
 	}
 
 	const drafts = withRecipe.flatMap((item, index): TemplateItemDraft[] => {
@@ -108,8 +127,11 @@ export function eventDraftFrom(
 /**
  * Rascunho → itens do payload. O horário vem da refeição; item de refeição que não existe
  * mais no rascunho não é enviado (a refeição saiu e levou os itens).
+ *
+ * `allowItemHeadcount: false` (modelo global, padrão de lanche) não manda pax: o global só
+ * guarda quantidade relativa, e no padrão o pax seria lido como porções por kit.
  */
-export function eventItemsPayload(items: readonly TemplateItemDraft[], meals: readonly EventMealDraft[]) {
+export function eventItemsPayload(items: readonly TemplateItemDraft[], meals: readonly EventMealDraft[], { allowItemHeadcount = true } = {}) {
 	const mealById = new Map(meals.map((m) => [m.id, m]))
 	return items.flatMap((item) => {
 		const meal = mealById.get(item.meal_type_id)
@@ -120,7 +142,7 @@ export function eventItemsPayload(items: readonly TemplateItemDraft[], meals: re
 				meal_type_id: meal.meal_type_id,
 				event_meal_id: meal.id,
 				recipe_id: item.recipe_id,
-				headcount_override: item.headcount_override ?? null,
+				headcount_override: allowItemHeadcount ? (item.headcount_override ?? null) : null,
 				recommended_proportion: item.recommended_proportion ?? null,
 				item_group: item.item_group ?? null,
 				sort_order: item.sort_order ?? 0,
@@ -129,19 +151,42 @@ export function eventItemsPayload(items: readonly TemplateItemDraft[], meals: re
 	})
 }
 
-export function eventMealsPayload(meals: readonly EventMealDraft[]) {
+/**
+ * Refeições do payload. `allowBase: false` (modelo global, padrão de lanche) manda o efetivo
+ * nulo: no global ele é da cozinha que adaptar, e no padrão os kits vêm do pedido.
+ */
+export function eventMealsPayload(meals: readonly EventMealDraft[], { allowBase = true } = {}) {
 	return meals.map((m) => ({
 		id: m.id,
 		name: m.name.trim(),
 		mealTypeId: m.meal_type_id,
-		groups: m.groups.map((g) => ({ key: g.key, label: g.label.trim() })),
-		baseHeadcount: m.base_headcount,
+		groups: m.groups.map((g) => ({
+			key: g.key,
+			label: g.label.trim(),
+			...(g.minItems != null && { minItems: g.minItems }),
+			...(g.maxItems != null && { maxItems: g.maxItems }),
+		})),
+		baseHeadcount: allowBase ? m.base_headcount : null,
 	}))
 }
 
-/** Refeição nova: nasce com a composição padrão de evento, que o editor deixa mudar inteira. */
-export function newEventMeal(name: string, mealTypeId: string): EventMealDraft {
-	return { id: crypto.randomUUID(), name, meal_type_id: mealTypeId, groups: DEFAULT_EVENT_MEAL_GROUPS.map((g) => ({ ...g })), base_headcount: null }
+/**
+ * Refeição nova. No evento nasce com a composição padrão de evento, que o editor deixa mudar
+ * inteira; no apoio, sem grupo nenhum (a lista de preparações do kit).
+ */
+export function newEventMeal(name: string, mealTypeId: string, templateType: OccasionMenuType = "event"): EventMealDraft {
+	const groups = templateType === "apoio" ? [] : DEFAULT_EVENT_MEAL_GROUPS.map((g) => ({ ...g }))
+	return { id: crypto.randomUUID(), name, meal_type_id: mealTypeId, groups, base_headcount: null }
+}
+
+/** A refeição com que o apoio vazio abre: "Kit", sem grupos. */
+export function newSupportKitMeal(mealTypeId: string): EventMealDraft {
+	return newEventMeal(SUPPORT_KIT_MEAL_NAME, mealTypeId, "apoio")
+}
+
+/** Grupos que o diálogo oferece com um clique, por regime. */
+export function groupSuggestionsFor(templateType: OccasionMenuType) {
+	return templateType === "apoio" ? SUPPORT_MEAL_GROUP_SUGGESTIONS : EVENT_MEAL_GROUP_SUGGESTIONS
 }
 
 /** Quantos itens da refeição estão em grupos que a nova composição não tem mais. */
@@ -208,22 +253,62 @@ function labelIdentity(label: string): string {
  */
 export function eventGroupKeyFor(label: string, takenKeys: ReadonlySet<string> = new Set()): string {
 	const derived = menuGroupKeyFromLabel(label)
-	const suggested = EVENT_MEAL_GROUP_SUGGESTIONS.find((s) => labelIdentity(s.label) === labelIdentity(label))?.key
+	const suggested = [...EVENT_MEAL_GROUP_SUGGESTIONS, ...SUPPORT_MEAL_GROUP_SUGGESTIONS].find((s) => labelIdentity(s.label) === labelIdentity(label))?.key
 	return suggested != null && !takenKeys.has(suggested) ? suggested : derived
 }
 
 /**
  * Chaves dos grupos da composição no diálogo. Grupo gravado mantém a chave (regerá-la tiraria
- * de grupo as preparações dele); grupo novo a deriva do rótulo, sem repetir chave já usada.
+ * de grupo as preparações dele); grupo novo a deriva do rótulo, sem repetir chave já usada. A
+ * contagem esperada passa junto.
  */
-export function resolveGroupKeys(groups: readonly { key: string; label: string }[]): MenuGroup[] {
+export function resolveGroupKeys(groups: readonly OccasionGroup[]): OccasionGroup[] {
 	const taken = new Set(groups.filter((g) => g.key !== "").map((g) => g.key))
 	return groups.map((g) => {
-		if (g.key !== "") return { key: g.key, label: g.label.trim() }
+		const counts = { ...(g.minItems != null && { minItems: g.minItems }), ...(g.maxItems != null && { maxItems: g.maxItems }) }
+		if (g.key !== "") return { key: g.key, label: g.label.trim(), ...counts }
 		const key = eventGroupKeyFor(g.label, taken)
 		taken.add(key)
-		return { key, label: g.label.trim() }
+		return { key, label: g.label.trim(), ...counts }
 	})
+}
+
+// ── Quantidade de preparações por grupo ─────────────────────────────────────
+
+/**
+ * Contagem digitada → valor gravável: inteiro de 0 até o teto do schema; vazio ou lixo =
+ * `null` (sem número esperado). Acima do teto o servidor recusaria o cardápio inteiro.
+ */
+export function parseGroupItemCount(raw: string): number | null {
+	if (raw.trim() === "") return null
+	const parsed = Number.parseInt(raw, 10)
+	if (!Number.isFinite(parsed) || parsed < 0) return null
+	return Math.min(parsed, MAX_GROUP_ITEM_COUNT)
+}
+
+/** Mínimo acima do máximo: o servidor recusaria a refeição. É o único caso que o diálogo segura. */
+export function isGroupCountInverted(group: Pick<OccasionGroup, "minItems" | "maxItems">): boolean {
+	return group.minItems != null && group.maxItems != null && group.minItems > group.maxItems
+}
+
+/** "2", "6–8", "2 ou mais", "até 3"; `null` sem número esperado. */
+export function expectedGroupCountLabel(group: Pick<OccasionGroup, "minItems" | "maxItems">): string | null {
+	const { minItems: min, maxItems: max } = group
+	if (min == null && max == null) return null
+	if (min != null && max != null) return min === max ? String(min) : `${min}–${max}`
+	if (min != null) return `${min} ou mais`
+	return `até ${max}`
+}
+
+/**
+ * Contagem do grupo contra a esperada: o texto do cabeçalho ("1 de 2", "5 de 6–8") e se está
+ * fora. Fora é aviso — a cozinha pode ter ficado sem um item, e o cardápio salva assim mesmo.
+ */
+export function groupCountStatus(count: number, group: Pick<OccasionGroup, "minItems" | "maxItems">): { label: string | null; isOutOfRange: boolean } {
+	const expected = expectedGroupCountLabel(group)
+	if (expected == null) return { label: null, isOutOfRange: false }
+	const isOutOfRange = (group.minItems != null && count < group.minItems) || (group.maxItems != null && count > group.maxItems)
+	return { label: `${count} de ${expected}`, isOutOfRange }
 }
 
 /**

@@ -69,7 +69,8 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 1, name: uid("[TEST] Água ") })
 		const mealTypeId = await seeder.seedMealType({ kitchenId })
 		const templateId = await seeder.seedTemplate({ kitchenId, templateType: "apoio" })
-		await seeder.seedTemplateItem({ templateId, mealTypeId, recipeId, dayOfWeek: 1, headcountOverride: 2 })
+		// Porções por kit = proporção ÷ 100: 2 porções por kit.
+		await seeder.seedTemplateItem({ templateId, mealTypeId, recipeId, dayOfWeek: 1, recommendedProportion: 200 })
 		await setSnackClassification(db, ctx, {
 			templateId,
 			classification: {

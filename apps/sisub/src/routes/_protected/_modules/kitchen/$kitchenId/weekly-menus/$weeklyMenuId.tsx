@@ -965,6 +965,8 @@ function WeeklyMenuEditorPage() {
 													onArrange={(arrangement) => handleArrange(day.num, mealType.id, arrangement)}
 													onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
 													onHeadcountChange={(recipeId, value) => handleItemHeadcountChange(day.num, mealType.id, recipeId, value)}
+													// Efetivo da refeição: o item em % mostra as porções que ele dá (como no evento).
+													baseHeadcount={getMealBase(day.num, mealType.id)}
 													defaultDemandType={defaultDemandType}
 													onCopy={(recipeId) =>
 														handleCopyKeys(new Set([menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })]))
