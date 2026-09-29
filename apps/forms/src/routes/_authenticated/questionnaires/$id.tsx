@@ -2,7 +2,7 @@ import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-quer
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, EditPencil, Eye, Plus, Refresh, SendDiagonal, Trash } from "iconoir-react"
 import { useEffect, useState } from "react"
-import { AllRequiredCheckbox } from "@/components/forms/AllRequiredCheckbox"
+import { AllRequiredCheckbox, QuestionRequiredCheckbox } from "@/components/forms/AllRequiredCheckbox"
 import { ViewerManager } from "@/components/forms/ViewerManager"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -194,9 +194,11 @@ function EditQuestionnairePage() {
 		}
 	}
 
-	const handleSetSectionRequired = async (sectionId: string, required: boolean) => {
+	const handleSetSectionRequired = async (sectionId: string, questions: { id: string; required: boolean }[], required: boolean) => {
+		const questionIds = questions.filter((q) => q.required !== required).map((q) => q.id)
+		if (questionIds.length === 0) return
 		try {
-			await setSectionQuestionsRequiredFn({ data: { section_id: sectionId, required } })
+			await setSectionQuestionsRequiredFn({ data: { section_id: sectionId, question_ids: questionIds, required } })
 			await invalidateQuestionnaire()
 		} catch (error) {
 			reportError(error, "Erro ao atualizar perguntas obrigatórias")
@@ -336,7 +338,7 @@ function EditQuestionnairePage() {
 								<AllRequiredCheckbox
 									total={section.question?.length ?? 0}
 									required={(section.question ?? []).filter((q) => q.required).length}
-									onChange={(required) => handleSetSectionRequired(section.id, required)}
+									onChange={(required) => handleSetSectionRequired(section.id, section.question ?? [], required)}
 								/>
 							)}
 							{(section.question ?? []).map(
@@ -392,18 +394,7 @@ function EditQuestionnairePage() {
 															</SelectContent>
 														</Select>
 													)}
-													<label className="flex items-center gap-2 text-sm">
-														<input
-															// Não controlado: a chave remonta o campo quando o valor do servidor muda
-															// (o "Todas obrigatórias" da seção, ou outro editor).
-															key={String(question.required)}
-															type="checkbox"
-															defaultChecked={question.required}
-															onChange={(e) => handleUpdateQuestion(question.id, { required: e.target.checked })}
-															className="size-3.5 border border-border accent-foreground"
-														/>
-														Obrigatória
-													</label>
+													<QuestionRequiredCheckbox value={question.required} onChange={(required) => handleUpdateQuestion(question.id, { required })} />
 												</div>
 											</div>
 										) : (

@@ -246,6 +246,17 @@ function GlobalWeeklyMenuEditorPage() {
 		})
 	}
 
+	/** Marca o que o quadro do dia MOSTRA: item sem preparação carregada ou de refeição fora da
+	 * lista não aparece, e marcá-lo às cegas o levaria junto no Remover/Substituir. */
+	const selectDay = (dayOfWeek: number) =>
+		addToSelection(
+			(mealTypes ?? []).flatMap((mealType) =>
+				getCellBoardItems(dayOfWeek, mealType.id).map((boardItem) =>
+					menuItemKey({ day_of_week: dayOfWeek, meal_type_id: mealType.id, recipe_id: boardItem.id })
+				)
+			)
+		)
+
 	/** Persiste um rearranjo (drag-drop) da célula: reatribui grupo + reindexa a ordem dos itens. */
 	const handleArrange = (dayOfWeek: number, mealTypeId: string, arrangement: BoardArrangement) => {
 		const byRecipe = new Map(arrangement.map((a) => [a.id, a]))
@@ -498,13 +509,7 @@ function GlobalWeeklyMenuEditorPage() {
 					</Button>
 					{/* O dia aberto inteiro, somado ao que já está marcado (a seleção atravessa dias). */}
 					{selectionMode && activeTab !== "overview" && (
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							aria-label="Selecionar o dia"
-							onClick={() => addToSelection(items.filter((item) => String(item.day_of_week) === activeTab).map(menuItemKey))}
-						>
+						<Button type="button" variant="outline" size="sm" aria-label="Selecionar o dia" onClick={() => selectDay(Number(activeTab))}>
 							<CheckCheck className="size-4 sm:mr-2" />
 							<span className="hidden sm:inline">Selecionar o dia</span>
 						</Button>

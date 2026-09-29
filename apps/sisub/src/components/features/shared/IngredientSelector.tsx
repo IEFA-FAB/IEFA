@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Loader2, Search, X } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { SelectAllCheckbox } from "@/components/features/shared/SelectAllCheckbox"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -81,14 +81,18 @@ export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumo
 
 	// Marcar-todos só com busca: sem ela, "todos" seria o catálogo inteiro. Alcança os insumos
 	// listados que a lista de destino aceita; pastas e travados ficam de fora.
-	const selectableListed: Ingredient[] =
-		filterText && flatTree
-			? flatTree.nodes.flatMap((node) => {
-					const ingredient = node.type === "ingredient" ? (node.data as Ingredient | undefined) : undefined
-					return ingredient && !excluded?.has(ingredient.id) ? [ingredient] : []
-				})
-			: []
-	const checkedListedCount = selectableListed.filter((ingredient) => checked.has(ingredient.id)).length
+	// Memo explícito: o arquivo é "use no memo" e o virtualizador re-renderiza a cada scroll.
+	const selectableListed = useMemo<Ingredient[]>(
+		() =>
+			filterText.trim() && flatTree
+				? flatTree.nodes.flatMap((node) => {
+						const ingredient = node.type === "ingredient" ? (node.data as Ingredient | undefined) : undefined
+						return ingredient && !excluded?.has(ingredient.id) ? [ingredient] : []
+					})
+				: [],
+		[filterText, flatTree, excluded]
+	)
+	const checkedListedCount = useMemo(() => selectableListed.filter((ingredient) => checked.has(ingredient.id)).length, [selectableListed, checked])
 
 	const toggleListed = (on: boolean) => {
 		setChecked((prev) => {

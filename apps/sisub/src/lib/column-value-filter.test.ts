@@ -22,3 +22,20 @@ describe("setListedValues", () => {
 		expect(setListedValues(["arroz", "óleo"], ALL, ["feijão", "farinha"], true)).toBeUndefined()
 	})
 })
+
+describe("setListedValues com filtro de outra coluna", () => {
+	test("valor marcado fora do universo não faz o filtro sumir com valor ainda desmarcado", () => {
+		// UF = [SP, RJ]; buscar e marcar PR não completa o universo (MG segue desmarcado).
+		expect(setListedValues(["SP", "RJ-antigo"], ["SP", "PR", "MG"], ["PR"], true)).toEqual(["SP", "RJ-antigo", "PR"])
+	})
+
+	test("limpar sem filtro prévio parte do universo, não só do que a outra coluna deixou visível", () => {
+		expect(setListedValues(undefined, ["SP", "RJ", "MG", "PR"], ["RJ"], false)).toEqual(["SP", "MG", "PR"])
+	})
+
+	test("desmarcar e remarcar um valor volta ao sem filtro", () => {
+		const unchecked = setListedValues(undefined, ALL, ["óleo"], false)
+		expect(unchecked).toEqual(["arroz", "feijão", "farinha"])
+		expect(setListedValues(unchecked, ALL, ["óleo"], true)).toBeUndefined()
+	})
+})

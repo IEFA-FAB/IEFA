@@ -690,7 +690,7 @@ export function MealGroupBoard({
 			onDragEnd={handleDragEnd}
 			onDragCancel={() => finishDrag(false)}
 		>
-			{selectionMode && items.length > 0 && (
+			{selectionMode && items.length > 1 && (
 				<SelectAllCheckbox total={items.length} selected={selectedCount} onChange={setMealSelected} className="mb-2 px-2.5">
 					Todas desta refeição
 				</SelectAllCheckbox>

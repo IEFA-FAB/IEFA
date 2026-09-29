@@ -254,6 +254,15 @@ function ColumnFilterPopover({ column }: { column: Column<Features, ComprasMater
 		[facetedValues]
 	)
 
+	// Universo do filtro: os valores ANTES dos filtros de coluna. Os facetados (a lista do popover)
+	// já vêm recortados pelos filtros das outras colunas; medir "tudo marcado" por eles apagava o
+	// filtro com valor ainda desmarcado, e limpar a partir deles perdia os valores escondidos.
+	const preFilteredRows = column.table.getPreFilteredRowModel().rows
+	const allValues = useMemo(
+		() => [...new Set(preFilteredRows.flatMap((row) => (row.getValue(column.id) == null ? [] : [String(row.getValue(column.id))])))],
+		[preFilteredRows, column.id]
+	)
+
 	const filtered = search ? sortedUniqueValues.filter((v) => v.toLowerCase().includes(search.toLowerCase())) : sortedUniqueValues
 
 	const filterValue = column.getFilterValue() as string[] | undefined
@@ -263,19 +272,13 @@ function ColumnFilterPopover({ column }: { column: Column<Features, ComprasMater
 		return !isActive || filterValue.includes(value)
 	}
 
-	function toggle(value: string) {
-		if (!isActive) {
-			column.setFilterValue(sortedUniqueValues.filter((v) => v !== value))
-		} else if (filterValue.includes(value)) {
-			column.setFilterValue(filterValue.filter((v) => v !== value))
-		} else {
-			const next = [...filterValue, value]
-			column.setFilterValue(next.length >= sortedUniqueValues.length ? undefined : next)
-		}
-	}
+	const setValues = (values: readonly string[], checked: boolean) => column.setFilterValue(setListedValues(filterValue, allValues, values, checked))
 
-	// Com busca, "Selecionar todos" e "Limpar" agem só nos valores listados e preservam o resto.
-	const setListed = (checked: boolean) => column.setFilterValue(setListedValues(filterValue, sortedUniqueValues, filtered, checked))
+	const toggle = (value: string) => setValues([value], !isChecked(value))
+
+	// Com busca, "Selecionar todos" e "Limpar" agem só nos valores listados e preservam o resto;
+	// sem busca, em todos os valores da coluna.
+	const setListed = (checked: boolean) => setValues(search ? filtered : allValues, checked)
 
 	return (
 		<Popover>
