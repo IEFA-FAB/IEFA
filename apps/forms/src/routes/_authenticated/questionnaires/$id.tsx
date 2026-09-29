@@ -2,6 +2,7 @@ import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-quer
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, EditPencil, Eye, Plus, Refresh, SendDiagonal, Trash } from "iconoir-react"
 import { useEffect, useState } from "react"
+import { AllRequiredCheckbox, QuestionRequiredCheckbox } from "@/components/forms/AllRequiredCheckbox"
 import { ViewerManager } from "@/components/forms/ViewerManager"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,6 +25,7 @@ import {
 	deleteSectionFn,
 	publishQuestionnaireFn,
 	removeEditorFn,
+	setSectionQuestionsRequiredFn,
 	updateQuestionFn,
 	updateQuestionnaireFn,
 	updateSectionFn,
@@ -192,6 +194,17 @@ function EditQuestionnairePage() {
 		}
 	}
 
+	const handleSetSectionRequired = async (sectionId: string, questions: { id: string; required: boolean }[], required: boolean) => {
+		const questionIds = questions.filter((q) => q.required !== required).map((q) => q.id)
+		if (questionIds.length === 0) return
+		try {
+			await setSectionQuestionsRequiredFn({ data: { section_id: sectionId, question_ids: questionIds, required } })
+			await invalidateQuestionnaire()
+		} catch (error) {
+			reportError(error, "Erro ao atualizar perguntas obrigatórias")
+		}
+	}
+
 	const handleDeleteQuestion = async (questionId: string) => {
 		try {
 			await deleteQuestionFn({ data: { id: questionId } })
@@ -321,6 +334,13 @@ function EditQuestionnairePage() {
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-4">
+							{canEdit && (section.question?.length ?? 0) > 1 && (
+								<AllRequiredCheckbox
+									total={section.question?.length ?? 0}
+									required={(section.question ?? []).filter((q) => q.required).length}
+									onChange={(required) => handleSetSectionRequired(section.id, section.question ?? [], required)}
+								/>
+							)}
 							{(section.question ?? []).map(
 								(question: { id: string; text: string; description: string | null; type: string; options: unknown; required: boolean }) => (
 									<div key={question.id} className="border border-border p-4 space-y-3">
@@ -374,15 +394,7 @@ function EditQuestionnairePage() {
 															</SelectContent>
 														</Select>
 													)}
-													<label className="flex items-center gap-2 text-sm">
-														<input
-															type="checkbox"
-															defaultChecked={question.required}
-															onChange={(e) => handleUpdateQuestion(question.id, { required: e.target.checked })}
-															className="size-3.5 border border-border accent-foreground"
-														/>
-														Obrigatória
-													</label>
+													<QuestionRequiredCheckbox value={question.required} onChange={(required) => handleUpdateQuestion(question.id, { required })} />
 												</div>
 											</div>
 										) : (

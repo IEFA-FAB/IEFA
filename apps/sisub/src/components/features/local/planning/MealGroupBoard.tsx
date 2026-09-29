@@ -16,6 +16,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { demandRoundingFor, MAX_RECOMMENDED_PROPORTION, resolveItemDemand } from "@iefa/sisub-domain/schemas"
 import { AlertTriangle, ArrowRightLeft, ClipboardPaste, Copy, GripVertical, Package, Percent, Plus, Users, X } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import { SelectAllCheckbox } from "@/components/features/shared/SelectAllCheckbox"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ContextMenu, ContextMenuContent, ContextMenuGroupLabel, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
@@ -674,6 +675,12 @@ export function MealGroupBoard({
 	// Sem grupo nenhum e sem item de grupo antigo: a refeição é uma lista só (o kit simples).
 	const isPlainList = groups.length === 0 && columnKeys.length === 1
 
+	const selectedCount = items.filter((item) => selectedIds?.has(item.id)).length
+	/** Marca ou desmarca a refeição inteira, mexendo só no que muda (o pai soma à seleção). */
+	const setMealSelected = (checked: boolean) => {
+		for (const item of items) if (!!selectedIds?.has(item.id) !== checked) onSelectChange?.(item.id, checked)
+	}
+
 	return (
 		<DndContext
 			sensors={sensors}
@@ -683,6 +690,11 @@ export function MealGroupBoard({
 			onDragEnd={handleDragEnd}
 			onDragCancel={() => finishDrag(false)}
 		>
+			{selectionMode && items.length > 1 && (
+				<SelectAllCheckbox total={items.length} selected={selectedCount} onChange={setMealSelected} className="mb-2 px-2.5">
+					Todas desta refeição
+				</SelectAllCheckbox>
+			)}
 			<div className={cn("grid grid-cols-1 gap-2", !isPlainList && "md:grid-cols-2 xl:grid-cols-3")}>
 				{columnKeys.map((key) => {
 					// Coluna "sem grupo" só aparece quando há itens legados nela — ou quando é a lista

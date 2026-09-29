@@ -1,5 +1,6 @@
 import { Minus, Plus, Users } from "lucide-react"
 import { useState } from "react"
+import { SelectAllCheckbox } from "@/components/features/shared/SelectAllCheckbox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -58,6 +59,16 @@ export function DemandForecastEditor({
 		}
 	}
 
+	/** Marca ou desmarca a lista inteira; quem já estava marcado mantém as repetições. */
+	const handleToggleAll = (templates: TemplateWithItemCounts[], checked: boolean) => {
+		const listed = new Set(templates.map((t) => t.id))
+		setSelections((prev) => {
+			if (!checked) return prev.filter((s) => !listed.has(s.templateId))
+			const already = new Set(prev.map((s) => s.templateId))
+			return [...prev, ...templates.filter((t) => !already.has(t.id)).map((t) => ({ templateId: t.id, templateName: t.name || "", repetitions: 1 }))]
+		})
+	}
+
 	const handleRepetitions = (templateId: string, delta: number) => {
 		setSelections((prev) => prev.map((s) => (s.templateId === templateId ? { ...s, repetitions: Math.max(1, s.repetitions + delta) } : s)))
 	}
@@ -88,6 +99,16 @@ export function DemandForecastEditor({
 					<p className="text-sm text-muted-foreground py-3 text-center">Nenhum template disponível.</p>
 				) : (
 					<div className="space-y-2">
+						{templates.length > 1 && (
+							<SelectAllCheckbox
+								total={templates.length}
+								selected={templates.filter((t) => isSelected(t.id)).length}
+								onChange={(checked) => handleToggleAll(templates, checked)}
+								className="px-3"
+							>
+								Todos
+							</SelectAllCheckbox>
+						)}
 						{templates.map((template) => {
 							const selected = isSelected(template.id)
 							const reps = getRepetitions(template.id)

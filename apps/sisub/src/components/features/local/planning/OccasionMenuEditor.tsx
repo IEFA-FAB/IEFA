@@ -456,6 +456,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		})
 	}
 
+	/** Soma à seleção, sem desfazer o que já estava marcado. */
+	const addToSelection = (keys: Iterable<string>) => setSelectedKeys((prev) => new Set([...prev, ...keys]))
+
 	const clearSelection = () => setSelectedKeys(new Set())
 
 	const exitSelectionMode = () => {
@@ -780,7 +783,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						onReplaceAll={(keys, recipeId) => dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, keys, recipeId) })}
 						onSelectMatches={(keys) => {
 							setSelectionMode(true)
-							setSelectedKeys(keys)
+							addToSelection(keys)
 						}}
 					/>
 					{/* O auxiliador preenche o efetivo (kits) de cada refeição — número da cozinha: some no

@@ -2,6 +2,7 @@ import type { RecipeSummary } from "@iefa/sisub-domain"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { ChefHat, Folder as FolderIcon, Globe, Search } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import { SelectAllCheckbox } from "@/components/features/shared/SelectAllCheckbox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -147,6 +148,21 @@ function RecipeSelectorContent({
 	const selectedSet = useMemo(() => new Set(tempSelected), [tempSelected])
 	const selectedCount = tempSelected.length
 
+	// Marcar-todos só com busca: sem ela, "todos" seria o catálogo inteiro da cozinha.
+	const listedRecipeIds = multiSelect && debouncedQuery.trim() ? tree.nodes.flatMap((node) => (node.type === "recipe" ? [node.id] : [])) : []
+	const checkedListedCount = listedRecipeIds.filter((id) => selectedSet.has(id)).length
+
+	const toggleListed = (on: boolean) => {
+		setTempSelected((prev) => {
+			if (!on) {
+				const listed = new Set(listedRecipeIds)
+				return prev.filter((id) => !listed.has(id))
+			}
+			const already = new Set(prev)
+			return [...prev, ...listedRecipeIds.filter((id) => !already.has(id))]
+		})
+	}
+
 	return (
 		<>
 			<DialogHeader>
@@ -170,6 +186,12 @@ function RecipeSelectorContent({
 					</Button>
 				</ButtonGroup>
 			</div>
+
+			{listedRecipeIds.length > 0 && (
+				<SelectAllCheckbox total={listedRecipeIds.length} selected={checkedListedCount} onChange={toggleListed} className="px-3">
+					Todos os resultados da busca ({listedRecipeIds.length})
+				</SelectAllCheckbox>
+			)}
 
 			<div className="text-xs text-muted-foreground">
 				{isLoading ? "Carregando..." : `${tree.recipeCount} ${tree.recipeCount === 1 ? "preparação" : "preparações"} em ${tree.folderCount} pastas`}
@@ -261,6 +283,12 @@ function RecipeSelectorContent({
 					)}
 				</div>
 				<div className="flex gap-2">
+					{/* Esvaziar a refeição (`allowEmpty`) era desmarcar preparação por preparação. */}
+					{multiSelect && selectedCount > 0 && (
+						<Button type="button" variant="ghost" onClick={() => setTempSelected([])}>
+							Limpar seleção
+						</Button>
+					)}
 					<Button type="button" variant="outline" onClick={onClose}>
 						Cancelar
 					</Button>

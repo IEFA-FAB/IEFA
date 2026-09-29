@@ -1,4 +1,5 @@
 import { Minus, Plus, Users } from "lucide-react"
+import { SelectAllCheckbox } from "@/components/features/shared/SelectAllCheckbox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,21 +33,22 @@ export function KitchenTemplateSection({
 	const isSelected = (templateId: string) => currentSelections.some((s) => s.templateId === templateId)
 	const getRepetitions = (templateId: string) => currentSelections.find((s) => s.templateId === templateId)?.repetitions ?? 1
 
+	// Exceção: repetições são DERIVADAS (ocorrências/mês × vigência), não digitadas.
+	// Sem isso, o número mensal entrava direto como total e subdimensionava a compra
+	// por um fator igual aos meses de vigência.
+	const newSelectionFor = (template: TemplateWithItemCounts): TemplateSelection => {
+		const monthly = template.expected_monthly_occurrences ?? 1
+		return {
+			templateId: template.id,
+			templateName: template.name || "",
+			repetitions: isSupportMenuBucket ? monthly * validityMonths : 1,
+			...(isSupportMenuBucket && { monthlyOccurrences: monthly }),
+		}
+	}
+
 	const handleToggle = (template: TemplateWithItemCounts, checked: boolean) => {
 		if (checked) {
-			// Exceção: repetições são DERIVADAS (ocorrências/mês × vigência), não digitadas.
-			// Sem isso, o número mensal entrava direto como total e subdimensionava a compra
-			// por um fator igual aos meses de vigência.
-			const monthly = template.expected_monthly_occurrences ?? 1
-			onUpdateSelection(kitchenState.kitchenId, selectionType, [
-				...currentSelections,
-				{
-					templateId: template.id,
-					templateName: template.name || "",
-					repetitions: isSupportMenuBucket ? monthly * validityMonths : 1,
-					...(isSupportMenuBucket && { monthlyOccurrences: monthly }),
-				},
-			])
+			onUpdateSelection(kitchenState.kitchenId, selectionType, [...currentSelections, newSelectionFor(template)])
 		} else {
 			onUpdateSelection(
 				kitchenState.kitchenId,
@@ -54,6 +56,18 @@ export function KitchenTemplateSection({
 				currentSelections.filter((s) => s.templateId !== template.id)
 			)
 		}
+	}
+
+	/** Marcar todos preserva as repetições dos que já estavam marcados. */
+	const handleToggleAll = (checked: boolean) => {
+		const listed = new Set(templates.map((t) => t.id))
+		onUpdateSelection(
+			kitchenState.kitchenId,
+			selectionType,
+			checked
+				? [...currentSelections, ...templates.filter((t) => !isSelected(t.id)).map(newSelectionFor)]
+				: currentSelections.filter((s) => !listed.has(s.templateId))
+		)
 	}
 
 	const handleRepetitions = (templateId: string, delta: number) => {
@@ -100,6 +114,16 @@ export function KitchenTemplateSection({
 					<p className="text-sm text-muted-foreground py-4 text-center">Nenhum template disponível para esta cozinha.</p>
 				) : (
 					<div className="space-y-2">
+						{templates.length > 1 && (
+							<SelectAllCheckbox
+								total={templates.length}
+								selected={templates.filter((t) => isSelected(t.id)).length}
+								onChange={handleToggleAll}
+								className="px-3"
+							>
+								Todos
+							</SelectAllCheckbox>
+						)}
 						{templates.map((template) => {
 							const selected = isSelected(template.id)
 							const reps = getRepetitions(template.id)

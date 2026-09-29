@@ -49,6 +49,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/cn"
+import { setListedValues } from "@/lib/column-value-filter"
 import {
 	analyzeSamples,
 	DEFAULT_PERIOD_MONTHS,
@@ -253,6 +254,15 @@ function ColumnFilterPopover({ column }: { column: Column<Features, ComprasMater
 		[facetedValues]
 	)
 
+	// Universo do filtro: os valores ANTES dos filtros de coluna. Os facetados (a lista do popover)
+	// já vêm recortados pelos filtros das outras colunas; medir "tudo marcado" por eles apagava o
+	// filtro com valor ainda desmarcado, e limpar a partir deles perdia os valores escondidos.
+	const preFilteredRows = column.table.getPreFilteredRowModel().rows
+	const allValues = useMemo(
+		() => [...new Set(preFilteredRows.flatMap((row) => (row.getValue(column.id) == null ? [] : [String(row.getValue(column.id))])))],
+		[preFilteredRows, column.id]
+	)
+
 	const filtered = search ? sortedUniqueValues.filter((v) => v.toLowerCase().includes(search.toLowerCase())) : sortedUniqueValues
 
 	const filterValue = column.getFilterValue() as string[] | undefined
@@ -262,16 +272,13 @@ function ColumnFilterPopover({ column }: { column: Column<Features, ComprasMater
 		return !isActive || filterValue.includes(value)
 	}
 
-	function toggle(value: string) {
-		if (!isActive) {
-			column.setFilterValue(sortedUniqueValues.filter((v) => v !== value))
-		} else if (filterValue.includes(value)) {
-			column.setFilterValue(filterValue.filter((v) => v !== value))
-		} else {
-			const next = [...filterValue, value]
-			column.setFilterValue(next.length >= sortedUniqueValues.length ? undefined : next)
-		}
-	}
+	const setValues = (values: readonly string[], checked: boolean) => column.setFilterValue(setListedValues(filterValue, allValues, values, checked))
+
+	const toggle = (value: string) => setValues([value], !isChecked(value))
+
+	// Com busca, "Selecionar todos" e "Limpar" agem só nos valores listados e preservam o resto;
+	// sem busca, em todos os valores da coluna.
+	const setListed = (checked: boolean) => setValues(search ? filtered : allValues, checked)
 
 	return (
 		<Popover>
@@ -284,11 +291,11 @@ function ColumnFilterPopover({ column }: { column: Column<Features, ComprasMater
 			<PopoverContent align="start" side="bottom" className="w-56 p-2">
 				<Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-7 text-xs" />
 				<div className="flex items-center gap-2 text-[11px]">
-					<button type="button" className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => column.setFilterValue(undefined)}>
+					<button type="button" className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => setListed(true)}>
 						Selecionar todos
 					</button>
 					<span className="text-muted-foreground/40">·</span>
-					<button type="button" className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => column.setFilterValue([])}>
+					<button type="button" className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => setListed(false)}>
 						Limpar
 					</button>
 				</div>
