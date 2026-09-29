@@ -16,8 +16,14 @@ export default defineConfig(async ({ mode, isSsrBuild }) => {
 	const faroSourcemapApiKey = env.FARO_SOURCEMAP_API_KEY
 	// Só faz upload dos maps do bundle do browser — erros de servidor vão via OTel, não Faro.
 	const uploadSourcemaps = Boolean(faroSourcemapApiKey) && !isSsrBuild
+	// Id do build (instante em ms), o mesmo no bundle do navegador e no servidor: é por ele
+	// que a aba descobre, no deploy rolante, que falou com outra versão (`src/lib/build-id.ts`).
+	const buildId = String(Date.now())
 
 	return {
+		define: {
+			__SISUB_BUILD_ID__: JSON.stringify(buildId),
+		},
 		resolve: {
 			tsconfigPaths: true,
 		},
@@ -29,7 +35,7 @@ export default defineConfig(async ({ mode, isSsrBuild }) => {
 				preset: "bun",
 				compressPublicAssets: true,
 				// Sink central de exceptions server-side (SSR + server fns) → OTel/OTLP.
-				plugins: ["./src/lib/observability/nitro-otel.ts", "./src/lib/observability/nitro-asset-404.ts"],
+				plugins: ["./src/lib/observability/nitro-otel.ts", "./src/lib/observability/nitro-asset-404.ts", "./src/lib/nitro-build-id.ts"],
 				handlers: [
 					{
 						route: "/api/analytics/stream",

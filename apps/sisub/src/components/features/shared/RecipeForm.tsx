@@ -505,7 +505,10 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	// gravaria por cima do que mudou. A tela avisa antes e oferece levar o rascunho para a
 	// vigente (`carryDraftToHead`).
 	const lineageHead = useRecipeLineageHead(mode === "create" ? undefined : initialData?.id, editContext)
-	const supersededBy = mode !== "create" && initialData && lineageHead.data && lineageHead.data.id !== initialData.id ? lineageHead.data : null
+	// Só uma vigente com id conta: resposta sem id (erro que chegou como dado) não bloqueia o
+	// Salvar com um "versão vundefined".
+	const supersededBy =
+		mode !== "create" && initialData && typeof lineageHead.data?.id === "string" && lineageHead.data.id !== initialData.id ? lineageHead.data : null
 	const [isCarryingDraft, setIsCarryingDraft] = useState(false)
 
 	// Fluxo e Equipamentos salvam por conta própria e não têm rascunho: enquanto houver

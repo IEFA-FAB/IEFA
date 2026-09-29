@@ -26,6 +26,11 @@ A referência implementada é a preparação do SISUB (`apps/sisub/src/component
   nem de aba fechada pelo sistema.
 - Campo inválido fica visível como inválido; a tela não mostra "tudo gravado" com texto que não
   foi gravado.
+- **Rascunho só sai com a gravação confirmada.** Apague o rascunho depois de ter na mão o que
+  o servidor gravou (o `id` da linha), não só porque a chamada não lançou: no deploy rolante,
+  o cliente do TanStack Start devolve como resultado o JSON de erro que o h3 monta fora do
+  handler. No SISUB o `fetch` das server functions já transforma isso em erro
+  (`apps/sisub/src/lib/server-fn-fetch.ts`); app TanStack Start novo leva o mesmo.
 
 **Gravação por cima (concorrência):**
 

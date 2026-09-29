@@ -76,11 +76,21 @@ export function computeDraftChanges<T extends Record<string, unknown>>(baseline:
 }
 
 /**
- * O rascunho guardado ainda cabe no formulário? Guardado por até 7 dias, ele atravessa
- * publicações que mudam o formulário (campo novo, renomeado). Restaurar um objeto de outra
- * forma deixaria campo `undefined` no form — melhor descartar. Compara as chaves do primeiro
- * nível, que é onde os formulários mudam.
+ * Encaixa o rascunho guardado na forma atual do formulário. Guardado por até 7 dias, ele
+ * atravessa publicações que mudam o formulário (campo novo, removido, renomeado): os campos
+ * que continuam existindo vêm do rascunho, campo novo vem do salvo e campo que saiu é
+ * ignorado. Descartar o rascunho inteiro por um campo novo apagava, sem aviso, tudo o que o
+ * usuário tinha digitado nos outros. Compara as chaves do primeiro nível, que é onde os
+ * formulários mudam. `null` quando o guardado não é um objeto de campos.
  */
+export function fitDraftToShape<T extends Record<string, unknown>>(saved: unknown, baseline: T): T | null {
+	if (!saved || typeof saved !== "object" || Array.isArray(saved)) return null
+	const fitted: Record<string, unknown> = {}
+	for (const key of Object.keys(baseline)) fitted[key] = key in saved ? (saved as Record<string, unknown>)[key] : baseline[key]
+	return fitted as T
+}
+
+/** Mesmas chaves no primeiro nível: o rascunho foi guardado na forma atual do formulário. */
 export function hasSameShape(saved: unknown, baseline: Record<string, unknown>): boolean {
 	if (!saved || typeof saved !== "object" || Array.isArray(saved)) return false
 	const a = Object.keys(saved).sort()

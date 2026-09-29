@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
 import { mapIngredients } from "@/lib/recipe-payload"
+import { assertSavedRow } from "@/lib/server-fn-response"
 import { createRecipeFn, saveRecipeEditFn } from "@/server/recipes.fn"
 import type { RecipeFormData } from "@/types/domain/recipes"
 
@@ -10,8 +11,10 @@ export function useCreateRecipe() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (data: RecipeFormData) =>
-			createRecipeFn({
+		// Sem a linha gravada, é erro: o `onSuccess` não anuncia (nem a tela apaga o rascunho de)
+		// algo que o servidor não confirmou.
+		mutationFn: async (data: RecipeFormData) => {
+			const created = await createRecipeFn({
 				data: {
 					name: data.name,
 					preparationMethod: data.preparation_method ?? undefined,
@@ -28,7 +31,10 @@ export function useCreateRecipe() {
 					folderId: data.folder_id ?? null,
 					ingredients: mapIngredients(data.ingredients),
 				},
-			}),
+			})
+			assertSavedRow(created)
+			return created
+		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.all() })
 			toast.success("Preparação criada com sucesso")
@@ -52,8 +58,8 @@ export function useSaveRecipeEdit() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({ baseRecipeId, data, context }: { baseRecipeId: string; data: RecipeFormData; context: EditScope }) =>
-			saveRecipeEditFn({
+		mutationFn: async ({ baseRecipeId, data, context }: { baseRecipeId: string; data: RecipeFormData; context: EditScope }) => {
+			const result = await saveRecipeEditFn({
 				data: {
 					name: data.name,
 					preparationMethod: data.preparation_method ?? undefined,
@@ -74,7 +80,11 @@ export function useSaveRecipeEdit() {
 					context,
 					ingredients: mapIngredients(data.ingredients),
 				},
-			}),
+			})
+			// Idem: sem a versão gravada, é erro.
+			assertSavedRow(result?.recipe)
+			return result
+		},
 		onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.all() })
 			toast.success(result.forked ? "Cópia local criada — a preparação global segue intacta" : "Nova versão criada com sucesso")

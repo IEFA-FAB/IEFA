@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { computeDraftChanges, hasSameShape, isDraftValueEqual } from "./draft-diff"
+import { computeDraftChanges, fitDraftToShape, hasSameShape, isDraftValueEqual } from "./draft-diff"
 
 describe("isDraftValueEqual", () => {
 	it("trata vazio, nulo e ausente como o mesmo valor", () => {
@@ -67,12 +67,32 @@ describe("computeDraftChanges com igualdade própria", () => {
 	})
 })
 
+describe("fitDraftToShape", () => {
+	it("devolve o rascunho como está quando a forma não mudou", () => {
+		expect(fitDraftToShape({ b: 1, a: 2 }, { a: 0, b: 0 })).toEqual({ a: 2, b: 1 })
+	})
+
+	it("aproveita os campos que continuam existindo depois de uma publicação que mudou o formulário", () => {
+		// Campo novo vem do salvo; campo que saiu é ignorado; o resto é o que o usuário digitou.
+		expect(fitDraftToShape({ a: 1, velho: 9 }, { a: 0, novo: 5 })).toEqual({ a: 1, novo: 5 })
+	})
+
+	it("mantém valores vazios digitados de propósito", () => {
+		expect(fitDraftToShape({ a: null, b: "" }, { a: 3, b: "x" })).toEqual({ a: null, b: "" })
+	})
+
+	it("recusa o que não é objeto de campos", () => {
+		expect(fitDraftToShape(undefined, { a: 0 })).toBeNull()
+		expect(fitDraftToShape([1], { 0: 0 })).toBeNull()
+		expect(fitDraftToShape("texto", { a: 0 })).toBeNull()
+	})
+})
+
 describe("hasSameShape", () => {
-	it("aceita o rascunho com as mesmas chaves e recusa o de outra forma", () => {
+	it("diz se o rascunho foi guardado na forma atual", () => {
 		expect(hasSameShape({ b: 1, a: 2 }, { a: 0, b: 0 })).toBe(true)
 		expect(hasSameShape({ a: 1 }, { a: 0, novo: 0 })).toBe(false)
 		expect(hasSameShape({ a: 1, velho: 0 }, { a: 0 })).toBe(false)
 		expect(hasSameShape(undefined, { a: 0 })).toBe(false)
-		expect(hasSameShape([1], { 0: 0 })).toBe(false)
 	})
 })
