@@ -38,7 +38,7 @@
 
 - [x] 6.1 [database] Migration `kitchen_menu_relative_quantities`: limpeza dos absolutos globais; CHECK de ocorrências; gatilhos em `menu_template_items`, `menu_template_meal` e `menu_template_event_meal` (`search_path = ''`)
 - [x] 6.2 [database] Mesma migration: teto 1000 no `recommended_proportion`; backfill do apoio para refeições próprias; padrões de lanche `headcount_override × 100 → recommended_proportion`; comentários
-- [ ] 6.3 [database] `audit:rls` verde; conferir carimbo contra o remoto; `db:types` + Drizzle pull
+- [x] 6.3 [database] `audit:rls` verde; conferir carimbo contra o remoto; `db:types` + Drizzle pull
 - [x] 6.4 [sisub] Teste de integração: escrita direta de absoluto em modelo global recusada pelo banco
 
 ## 7. Telas
