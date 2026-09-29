@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { AlertCircle, CheckCircle2, Circle, ClipboardPaste, ListChecks, Loader2, Plus, Printer, Save } from "lucide-react"
+import { AlertCircle, CheckCheck, CheckCircle2, Circle, ClipboardPaste, ListChecks, Loader2, Plus, Printer, Save } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
@@ -306,6 +306,9 @@ function GlobalWeeklyMenuEditorPage() {
 		})
 	}
 
+	/** Soma à seleção, sem desfazer o que já estava marcado. */
+	const addToSelection = (keys: Iterable<string>) => setSelectedKeys((prev) => new Set([...prev, ...keys]))
+
 	const clearSelection = () => setSelectedKeys(new Set())
 
 	const exitSelectionMode = () => {
@@ -481,7 +484,7 @@ function GlobalWeeklyMenuEditorPage() {
 						onReplaceAll={(keys, recipeId) => setItems(replaceMenuRecipe(items, keys, recipeId))}
 						onSelectMatches={(keys) => {
 							setSelectionMode(true)
-							setSelectedKeys(keys)
+							addToSelection(keys)
 						}}
 					/>
 					<Button
@@ -493,6 +496,19 @@ function GlobalWeeklyMenuEditorPage() {
 						<ListChecks className="size-4 sm:mr-2" />
 						<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
 					</Button>
+					{/* O dia aberto inteiro, somado ao que já está marcado (a seleção atravessa dias). */}
+					{selectionMode && activeTab !== "overview" && (
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							aria-label="Selecionar o dia"
+							onClick={() => addToSelection(items.filter((item) => String(item.day_of_week) === activeTab).map(menuItemKey))}
+						>
+							<CheckCheck className="size-4 sm:mr-2" />
+							<span className="hidden sm:inline">Selecionar o dia</span>
+						</Button>
+					)}
 				</div>
 
 				{/* Tabs: Visão Geral + dias */}

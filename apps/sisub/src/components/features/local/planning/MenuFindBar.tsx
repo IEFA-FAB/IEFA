@@ -38,7 +38,7 @@ export function MenuFindBar<T extends MenuDraftItem>({
 	/** Leva o editor até a aparição (troca a aba do dia e destaca o item). */
 	onGoTo: (match: MenuMatch<T>) => void
 	onReplaceAll: (keys: ReadonlySet<string>, recipeId: string) => void
-	/** Manda as aparições para a seleção múltipla, para uma ação em massa. */
+	/** Soma as aparições à seleção múltipla (sem desfazer a atual), para uma ação em massa. */
 	onSelectMatches: (keys: ReadonlySet<string>) => void
 }) {
 	const [open, setOpen] = useState(false)

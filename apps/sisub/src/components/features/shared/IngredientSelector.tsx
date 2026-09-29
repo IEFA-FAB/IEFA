@@ -1,6 +1,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Loader2, Search, X } from "lucide-react"
 import { useState } from "react"
+import { SelectAllCheckbox } from "@/components/features/shared/SelectAllCheckbox"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -78,6 +79,28 @@ export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumo
 		})
 	}
 
+	// Marcar-todos só com busca: sem ela, "todos" seria o catálogo inteiro. Alcança os insumos
+	// listados que a lista de destino aceita; pastas e travados ficam de fora.
+	const selectableListed: Ingredient[] =
+		filterText && flatTree
+			? flatTree.nodes.flatMap((node) => {
+					const ingredient = node.type === "ingredient" ? (node.data as Ingredient | undefined) : undefined
+					return ingredient && !excluded?.has(ingredient.id) ? [ingredient] : []
+				})
+			: []
+	const checkedListedCount = selectableListed.filter((ingredient) => checked.has(ingredient.id)).length
+
+	const toggleListed = (on: boolean) => {
+		setChecked((prev) => {
+			const next = new Map(prev)
+			for (const ingredient of selectableListed) {
+				if (on) next.set(ingredient.id, ingredient)
+				else next.delete(ingredient.id)
+			}
+			return next
+		})
+	}
+
 	const handleConfirm = () => {
 		if (checked.size === 0) return
 		onSelect([...checked.values()])
@@ -142,6 +165,14 @@ export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumo
 						)}
 					</div>
 				</div>
+
+				{selectableListed.length > 0 && (
+					<div className="px-6 sm:px-0">
+						<SelectAllCheckbox total={selectableListed.length} selected={checkedListedCount} onChange={toggleListed} className="px-3">
+							Todos os resultados da busca ({selectableListed.length})
+						</SelectAllCheckbox>
+					</div>
+				)}
 
 				{/* Content */}
 				<div className="flex-1 overflow-hidden min-h-0 px-6 pb-6 sm:px-0 sm:pb-0">
@@ -241,6 +272,13 @@ export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumo
 						{checked.size === 0 ? "Nenhum insumo marcado" : checked.size === 1 ? "1 insumo marcado" : `${checked.size} insumos marcados`}
 					</span>
 					<div className="flex gap-2">
+						{/* As marcas de buscas anteriores não aparecem na lista atual: sem isto, só dava
+						    para desfazê-las refazendo cada busca. */}
+						{checked.size > 0 && (
+							<Button type="button" variant="ghost" onClick={() => setChecked(new Map())}>
+								Limpar marcações
+							</Button>
+						)}
 						<Button type="button" variant="outline" onClick={handleClose}>
 							Cancelar
 						</Button>

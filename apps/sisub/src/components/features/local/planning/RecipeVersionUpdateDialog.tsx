@@ -1,5 +1,6 @@
 import { ArrowRight, CheckCircle2, GitCompareArrows } from "lucide-react"
 import { useState } from "react"
+import { SelectAllCheckbox } from "@/components/features/shared/SelectAllCheckbox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -82,38 +83,50 @@ export function RecipeVersionUpdateButton({ outdated, onApply }: { outdated: Out
 							<p className="text-sm text-muted-foreground">Todas as preparações deste cardápio estão na versão mais recente.</p>
 						</div>
 					) : (
-						<ul className="max-h-[60vh] space-y-2 overflow-y-auto">
-							{outdated.map((o) => (
-								<li key={o.current.id}>
-									<div className="flex items-start gap-3 rounded-md border p-3 transition-colors hover:bg-muted/40">
-										<Checkbox
-											id={`recipe-version-${o.current.id}`}
-											className="mt-0.5"
-											checked={!deselected.has(o.current.id)}
-											onCheckedChange={(checked) => toggle(o.current.id, checked)}
-										/>
-										<Label htmlFor={`recipe-version-${o.current.id}`} className="min-w-0 flex-1 flex-col items-stretch gap-1 font-normal">
-											<div className="flex items-center gap-1.5">
-												<span className="truncate text-sm text-muted-foreground">{o.current.name}</span>
-												<Badge variant="outline" className="tabular-nums">
-													v{o.current.version}
-												</Badge>
-											</div>
-											<div className="flex items-center gap-1.5">
-												<ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
-												<span className="truncate text-sm">{o.latest.name}</span>
-												<Badge variant="success" className="tabular-nums">
-													v{o.latest.version}
-												</Badge>
-											</div>
-										</Label>
-										<span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-											{o.usageCount} {o.usageCount === 1 ? "item" : "itens"}
-										</span>
-									</div>
-								</li>
-							))}
-						</ul>
+						<div className="space-y-2">
+							{outdated.length > 1 && (
+								<SelectAllCheckbox
+									total={outdated.length}
+									selected={selected.length}
+									onChange={(checked) => setDeselected(checked ? new Set() : new Set(outdated.map((o) => o.current.id)))}
+									className="px-3"
+								>
+									Todas
+								</SelectAllCheckbox>
+							)}
+							<ul className="max-h-[60vh] space-y-2 overflow-y-auto">
+								{outdated.map((o) => (
+									<li key={o.current.id}>
+										<div className="flex items-start gap-3 rounded-md border p-3 transition-colors hover:bg-muted/40">
+											<Checkbox
+												id={`recipe-version-${o.current.id}`}
+												className="mt-0.5"
+												checked={!deselected.has(o.current.id)}
+												onCheckedChange={(checked) => toggle(o.current.id, checked)}
+											/>
+											<Label htmlFor={`recipe-version-${o.current.id}`} className="min-w-0 flex-1 flex-col items-stretch gap-1 font-normal">
+												<div className="flex items-center gap-1.5">
+													<span className="truncate text-sm text-muted-foreground">{o.current.name}</span>
+													<Badge variant="outline" className="tabular-nums">
+														v{o.current.version}
+													</Badge>
+												</div>
+												<div className="flex items-center gap-1.5">
+													<ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+													<span className="truncate text-sm">{o.latest.name}</span>
+													<Badge variant="success" className="tabular-nums">
+														v{o.latest.version}
+													</Badge>
+												</div>
+											</Label>
+											<span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+												{o.usageCount} {o.usageCount === 1 ? "item" : "itens"}
+											</span>
+										</div>
+									</li>
+								))}
+							</ul>
+						</div>
 					)}
 
 					<DialogFooter>
