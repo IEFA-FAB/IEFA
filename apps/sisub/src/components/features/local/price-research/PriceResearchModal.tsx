@@ -49,6 +49,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/cn"
+import { setListedValues } from "@/lib/column-value-filter"
 import {
 	analyzeSamples,
 	DEFAULT_PERIOD_MONTHS,
@@ -273,6 +274,9 @@ function ColumnFilterPopover({ column }: { column: Column<Features, ComprasMater
 		}
 	}
 
+	// Com busca, "Selecionar todos" e "Limpar" agem só nos valores listados e preservam o resto.
+	const setListed = (checked: boolean) => column.setFilterValue(setListedValues(filterValue, sortedUniqueValues, filtered, checked))
+
 	return (
 		<Popover>
 			<PopoverTrigger
@@ -284,11 +288,11 @@ function ColumnFilterPopover({ column }: { column: Column<Features, ComprasMater
 			<PopoverContent align="start" side="bottom" className="w-56 p-2">
 				<Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-7 text-xs" />
 				<div className="flex items-center gap-2 text-[11px]">
-					<button type="button" className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => column.setFilterValue(undefined)}>
+					<button type="button" className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => setListed(true)}>
 						Selecionar todos
 					</button>
 					<span className="text-muted-foreground/40">·</span>
-					<button type="button" className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => column.setFilterValue([])}>
+					<button type="button" className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => setListed(false)}>
 						Limpar
 					</button>
 				</div>
