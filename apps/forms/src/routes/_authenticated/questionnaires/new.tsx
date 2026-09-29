@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, Plus, Refresh, Trash } from "iconoir-react"
 import { useState } from "react"
+import { AllRequiredCheckbox } from "@/components/forms/AllRequiredCheckbox"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -82,6 +83,10 @@ function NewQuestionnairePage() {
 
 	const updateQuestion = (si: number, qi: number, updates: Partial<QuestionDraft>) => {
 		setSections((prev) => prev.map((s, i) => (i === si ? { ...s, questions: s.questions.map((q, j) => (j === qi ? { ...q, ...updates } : q)) } : s)))
+	}
+
+	const setSectionRequired = (si: number, required: boolean) => {
+		setSections((prev) => prev.map((s, i) => (i === si ? { ...s, questions: s.questions.map((q) => ({ ...q, required })) } : s)))
 	}
 
 	const handleSave = async (publish: boolean) => {
@@ -192,6 +197,13 @@ function NewQuestionnairePage() {
 						/>
 					</CardHeader>
 					<CardContent className="space-y-4">
+						{section.questions.length > 1 && (
+							<AllRequiredCheckbox
+								total={section.questions.length}
+								required={section.questions.filter((q) => q.required).length}
+								onChange={(required) => setSectionRequired(si, required)}
+							/>
+						)}
 						{section.questions.map((question, qi) => (
 							<div key={qi} className="border border-border p-4 space-y-3">
 								<div className="flex items-start justify-between gap-3">

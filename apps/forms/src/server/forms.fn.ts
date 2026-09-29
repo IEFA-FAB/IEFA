@@ -500,6 +500,19 @@ export const updateQuestionFn = createServerFn({ method: "POST" })
 		return data
 	})
 
+/** "Todas obrigatórias" da seção: uma escrita só, em vez de uma chamada por pergunta. */
+export const setSectionQuestionsRequiredFn = createServerFn({ method: "POST" })
+	.validator(z.object({ section_id: z.uuid(), required: z.boolean() }))
+	.handler(async ({ data: { section_id, required } }) => {
+		const user = await requireUser()
+
+		const db = getFormsServerClient()
+		const questionnaireId = await getQuestionnaireIdBySectionId(db, section_id)
+		await requireQuestionnaireEditAccess(db, questionnaireId, user.id)
+		const { error } = await db.from("question").update({ required }).eq("section_id", section_id)
+		if (error) throw new Error(error.message)
+	})
+
 export const deleteQuestionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data: { id } }) => {
