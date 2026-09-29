@@ -294,6 +294,21 @@ function ObjectiveCard({
 						<p className="text-muted-foreground text-sm">Registre primeiro um objetivo fundamental.</p>
 					) : (
 						<div className="space-y-2">
+							{fundamentals.length > 1 && (
+								// Mesmo padrão do "Marcar os quatro" da concessão de papéis.
+								<button
+									type="button"
+									className="text-xs underline-offset-2 hover:underline"
+									onClick={() =>
+										edit((target) => {
+											const isAll = fundamentals.every((fundamental) => target.supports.includes(fundamental.id))
+											target.supports = isAll ? [] : fundamentals.map((fundamental) => fundamental.id)
+										})
+									}
+								>
+									{fundamentals.every((fundamental) => objective.supports.includes(fundamental.id)) ? "Desmarcar todos" : "Sustenta todos"}
+								</button>
+							)}
 							{fundamentals.map((fundamental) => (
 								<label key={fundamental.id} htmlFor={`${objective.id}-supports-${fundamental.id}`} className="flex items-center gap-2 text-sm">
 									<Checkbox
