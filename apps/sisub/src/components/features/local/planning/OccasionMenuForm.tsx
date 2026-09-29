@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -25,8 +27,13 @@ interface OccasionMenuFormProps {
 }
 
 /**
- * Criação de evento ou exceção — do zero (cozinha ou catálogo global) ou adaptando um modelo
- * global para a cozinha. A adaptação copia itens, pax por preparação e recorrência mensal.
+ * Criação de evento ou apoio — do zero (cozinha ou catálogo global) ou adaptando um modelo
+ * global para a cozinha.
+ *
+ * A adaptação de um modelo GLOBAL leva preparações, grupos e proporções; efetivo, pax e
+ * ocorrências por mês ficam para a cozinha preencher (o global só tem quantidade relativa). A
+ * cópia de um cardápio de cozinha leva tudo. Nos dois casos dá para escolher quais refeições
+ * levar: um padrão de evento tem seis formatos de serviço e o evento real usa um ou dois.
  */
 export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, editorLink }: OccasionMenuFormProps) {
 	const navigate = useNavigate()
@@ -42,6 +49,12 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 	const [name, setName] = useState("")
 	const [description, setDescription] = useState("")
 	const [occurrences, setOccurrences] = useState("")
+	// Refeições do modelo que a cópia NÃO leva. Guardar as desmarcadas faz "todas" ser o padrão
+	// sem esperar o modelo carregar.
+	const [skippedMealIds, setSkippedMealIds] = useState<ReadonlySet<string>>(new Set())
+	const sourceMeals = baseTemplate?.event_meals ?? []
+	const chosenMealIds = sourceMeals.filter((m) => !skippedMealIds.has(m.id)).map((m) => m.id)
+	const isSourceGlobal = baseTemplate?.kitchen_id == null
 
 	// Adaptação nasce com o nome do modelo: exigir que se redigite um nome para copiar era o
 	// passo a mais que fazia a cozinha montar o evento "na mão" em vez de adaptar o da SDAB.
@@ -94,7 +107,8 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 					description: description.trim() || undefined,
 					kitchenId,
 					templateType,
-					...(isSupportMenu ? { expectedMonthlyOccurrences: parseMonthlyOccurrences(occurrences) } : {}),
+					// Ocorrências por mês são da cozinha: o modelo global não as tem.
+					...(isSupportMenu && !isGlobal ? { expectedMonthlyOccurrences: parseMonthlyOccurrences(occurrences) } : {}),
 				},
 			})
 		},
@@ -111,6 +125,8 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 					targetKitchenId: kitchenId,
 					newName: name.trim(),
 					description: description.trim() || undefined,
+					// Ausente = todas. Só manda a escolha quando alguma ficou de fora.
+					...(chosenMealIds.length < sourceMeals.length ? { occasionMealIds: chosenMealIds } : {}),
 				},
 			})
 		},
@@ -119,9 +135,11 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 	})
 
 	const isPending = isCreating || isForking
+	// A cópia precisa de ao menos uma refeição (quando o modelo tem refeições).
+	const noMealChosen = isFork && sourceMeals.length > 0 && chosenMealIds.length === 0
 
 	const handleSubmit = () => {
-		if (!name.trim()) return
+		if (!name.trim() || noMealChosen) return
 		if (isFork) createFork()
 		else createBlank()
 	}
@@ -146,8 +164,10 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 									Modelo de origem
 								</CardTitle>
 								<CardDescription>
-									A cópia leva as preparações e o efetivo de cada uma{isSupportMenu ? ", e as ocorrências por mês" : ""}. Alterações futuras no original não
-									afetam a versão local.
+									{isSourceGlobal
+										? "A cópia leva as preparações, os grupos e as proporções. O efetivo e as ocorrências por mês você define aqui."
+										: `A cópia leva tudo: preparações, grupos, proporções e o efetivo de cada refeição${isSupportMenu ? ", e as ocorrências por mês" : ""}.`}{" "}
+									Alterações futuras no original não afetam a versão local.
 									{isSupportMenu && isSnackStandard(baseTemplate) && (
 										<>
 											{" "}
@@ -164,9 +184,48 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 										{baseTemplate.description && <p className="text-xs text-muted-foreground mt-0.5">{baseTemplate.description}</p>}
 									</div>
 									<Badge variant="outline" className="ml-auto text-xs">
-										Global · SDAB
+										{isSourceGlobal ? "Global · SDAB" : "Cozinha"}
 									</Badge>
 								</div>
+								{sourceMeals.length > 0 && (
+									<Field className="mt-4">
+										<FieldLabel>Refeições que a cópia leva</FieldLabel>
+										<div className="space-y-1.5">
+											{sourceMeals.map((meal) => {
+												const count = baseTemplate.items.filter((i) => i.event_meal_id === meal.id).length
+												const id = `fork-meal-${meal.id}`
+												return (
+													<div key={meal.id} className="flex items-center gap-2">
+														<Checkbox
+															id={id}
+															checked={!skippedMealIds.has(meal.id)}
+															onCheckedChange={(checked) =>
+																setSkippedMealIds((prev) => {
+																	const next = new Set(prev)
+																	if (checked) next.delete(meal.id)
+																	else next.add(meal.id)
+																	return next
+																})
+															}
+														/>
+														<Label htmlFor={id}>
+															{meal.name}
+															<span className="text-muted-foreground">
+																{" "}
+																· {count} {count === 1 ? "preparação" : "preparações"}
+															</span>
+														</Label>
+													</div>
+												)
+											})}
+										</div>
+										{noMealChosen ? (
+											<p className="text-sm text-destructive">Marque ao menos uma refeição.</p>
+										) : (
+											<FieldDescription>Desmarque as refeições que não vão ser usadas: elas e as preparações delas ficam fora da cópia.</FieldDescription>
+										)}
+									</Field>
+								)}
 							</CardContent>
 						</Card>
 					)
@@ -204,7 +263,8 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 							/>
 						</div>
 
-						{isSupportMenu && !isFork && (
+						{/* Ocorrências por mês são da cozinha: o modelo global não as tem. */}
+						{isSupportMenu && !isFork && !isGlobal && (
 							<div className="space-y-2">
 								<Label htmlFor="occurrences">Ocorrências por mês (opcional)</Label>
 								<Input
@@ -245,7 +305,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 							<Button type="button" variant="outline" onClick={() => navigate(listLink)}>
 								Cancelar
 							</Button>
-							<Button type="submit" disabled={isPending || !name.trim()}>
+							<Button type="submit" disabled={isPending || !name.trim() || noMealChosen}>
 								{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
 								{isFork ? <GitFork className="size-4 mr-2" /> : <Plus className="size-4 mr-2" />}
 								{isFork ? "Criar Adaptação" : `Criar ${copy.singular}`}

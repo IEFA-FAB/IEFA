@@ -22,6 +22,7 @@ import {
 	restoreMenuItem,
 	restoreTemplate,
 	saveTemplateEdit,
+	updateHeadcount,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -213,30 +214,96 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(forkItems).toHaveLength(1)
 	})
 
-	test("forkTemplate de exceção global leva o pax de cada item e a recorrência mensal", async () => {
+	test("modelo global recusa pax e ocorrências: o número é da cozinha", async () => {
+		if (!reachable || !seeder || !db) return
+		const { recipeId } = await base()
+		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
+		await expect(
+			createTemplate(db, ctx, {
+				name: uid("[TEST] Apoio global "),
+				templateType: "apoio",
+				expectedMonthlyOccurrences: 30,
+				items: [{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 45, recommendedProportion: null }],
+			})
+		).rejects.toThrow(/só quantidade relativa/)
+	})
+
+	test("forkTemplate de apoio global leva o kit e as porções por kit, sem pax nem ocorrências", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, recipeId } = await base()
 		// Template global só referencia tipo de refeição GLOBAL: o local de uma cozinha
 		// vazaria para todas (`assertTemplateContentInScope`).
 		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
-		// Modelo do catálogo global: sem efetivo base, o quantitativo mora no item.
+		// Itens sem refeição num apoio sem refeição nenhuma: o domínio monta o "Kit".
 		const src = await createTemplate(db, ctx, {
-			name: uid("[TEST] Exceção global "),
+			name: uid("[TEST] Apoio global "),
 			templateType: "apoio",
-			expectedMonthlyOccurrences: 30,
-			items: [{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 45 }],
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId, recommendedProportion: 200 }],
 		})
 		trackTemplate(src.id)
+		const global = await getTemplate(db, ctx, { templateId: src.id })
+		expect(global.event_meals.map((m) => [m.name, m.groups])).toEqual([["Kit", []]])
 
-		const fork = await forkTemplate(db, ctx, { sourceTemplateId: src.id, targetKitchenId: kitchenId, newName: uid("[TEST] Exceção adaptada ") })
+		const fork = await forkTemplate(db, ctx, { sourceTemplateId: src.id, targetKitchenId: kitchenId, newName: uid("[TEST] Apoio adaptado ") })
 		trackTemplate(fork.id)
 
 		expect(fork.kitchen_id).toBe(kitchenId)
 		expect(fork.template_type).toBe("apoio")
+		expect(fork.expected_monthly_occurrences).toBeNull()
+		const copy = await getTemplate(db, ctx, { templateId: fork.id })
+		expect(copy.event_meals.map((m) => [m.name, m.base_headcount])).toEqual([["Kit", null]])
+		expect(copy.items.map((i) => [i.headcount_override, Number(i.recommended_proportion), i.event_meal_id])).toEqual([[null, 200, copy.event_meals[0]?.id]])
+	}, 30_000)
+
+	test("forkTemplate entre cozinhas leva pax, kits e ocorrências", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		const kitId = crypto.randomUUID()
+		const src = await createTemplate(db, ctx, {
+			name: uid("[TEST] Apoio local "),
+			kitchenId,
+			templateType: "apoio",
+			expectedMonthlyOccurrences: 30,
+			eventMeals: [{ id: kitId, name: "Kit", mealTypeId, groups: [], baseHeadcount: 100 }],
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 45, recommendedProportion: null, eventMealId: kitId }],
+		})
+		trackTemplate(src.id)
+
+		const fork = await forkTemplate(db, ctx, { sourceTemplateId: src.id, targetKitchenId: kitchenId, newName: uid("[TEST] Cópia ") })
+		trackTemplate(fork.id)
 		expect(fork.expected_monthly_occurrences).toBe(30)
-		const forkItems = await getTemplateItems(db, ctx, { templateId: fork.id })
-		expect(forkItems.map((i) => i.headcount_override)).toEqual([45])
-	})
+		const copy = await getTemplate(db, ctx, { templateId: fork.id })
+		expect(copy.event_meals.map((m) => m.base_headcount)).toEqual([100])
+		expect(copy.items.map((i) => i.headcount_override)).toEqual([45])
+	}, 30_000)
+
+	test("forkTemplate de evento escolhendo as refeições leva só elas e os itens delas", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, recipeId } = await base()
+		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
+		const cafeId = crypto.randomUUID()
+		const coquetelId = crypto.randomUUID()
+		const groups = [{ key: "salgado", label: "Salgados", minItems: 4, maxItems: 6 }]
+		const src = await createTemplate(db, ctx, {
+			name: uid("[TEST] Padrão B "),
+			templateType: "event",
+			eventMeals: [
+				{ id: cafeId, name: "Café da manhã", mealTypeId, groups },
+				{ id: coquetelId, name: "Coquetel", mealTypeId, groups },
+			],
+			items: [
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "salgado", recommendedProportion: 100, eventMealId: cafeId },
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "salgado", recommendedProportion: 80, eventMealId: coquetelId },
+			],
+		})
+		trackTemplate(src.id)
+
+		const fork = await forkTemplate(db, ctx, { sourceTemplateId: src.id, targetKitchenId: kitchenId, occasionMealIds: [coquetelId] })
+		trackTemplate(fork.id)
+		const copy = await getTemplate(db, ctx, { templateId: fork.id })
+		expect(copy.event_meals.map((m) => [m.name, m.groups])).toEqual([["Coquetel", groups]])
+		expect(copy.items.map((i) => Number(i.recommended_proportion))).toEqual([80])
+	}, 30_000)
 
 	test("saveTemplateEdit forka template global editado no contexto de uma cozinha", async () => {
 		if (!reachable || !seeder || !db) return
@@ -350,39 +417,54 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(result.itemsCreated).toBe(1)
 	})
 
-	test("applyTemplate deriva forecasted_headcount + planned_portion_quantity do headcount_override", async () => {
+	test("semanal global aplicado: o efetivo vem da aplicação; sem ele o dia fica a definir e o efetivo depois calcula", async () => {
 		if (!reachable || !seeder || !db) return
-		const { kitchenId, mealTypeId, recipeId } = await base()
+		const { kitchenId, recipeId } = await base()
+		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
 		seeder.trackFn(() => seeder?.purgeKitchenMenus(kitchenId) ?? Promise.resolve())
 
-		// Dois itens na mesma refeição: um com override, outro sem → efetivo da refeição = média
-		// dos overrides preenchidos (só o 80). A porção de cada item = seu override senão o efetivo.
+		// Modelo global: só proporção (30% e sem proporção = efetivo cheio).
 		const tpl = await createTemplate(db, ctx, {
-			name: uid("[TEST] Efetivo "),
-			kitchenId,
+			name: uid("[TEST] Semanal global "),
 			templateType: "weekly",
 			items: [
-				{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 80, recommendedProportion: null },
+				{ dayOfWeek: 1, mealTypeId, recipeId, recommendedProportion: 30 },
 				{ dayOfWeek: 1, mealTypeId, recipeId, recommendedProportion: null },
 			],
 		})
 		trackTemplate(tpl.id)
 
-		const date = "2099-04-06"
-		const js = new Date(`${date}T00:00:00Z`).getUTCDay()
-		const startDayOfWeek = js === 0 ? 7 : js
-		await applyTemplate(db, ctx, { templateId: tpl.id, kitchenId, startDate: date, endDate: date, startDayOfWeek })
+		type Day = { id: string; forecasted_headcount: number | null; menu_items: { planned_portion_quantity: number | string | null }[] }
+		const portionsOf = (day: Day | undefined) =>
+			(day?.menu_items ?? []).map((m) => (m.planned_portion_quantity == null ? null : Number(m.planned_portion_quantity))).sort()
+		const dayOfWeek = (date: string) => {
+			const js = new Date(`${date}T00:00:00Z`).getUTCDay()
+			return js === 0 ? 7 : js
+		}
 
-		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as {
-			forecasted_headcount: number | null
-			menu_items: { planned_portion_quantity: number | string | null }[]
-		}[]
-		expect(details.length).toBe(1)
-		expect(details[0]?.forecasted_headcount).toBe(80)
-		const portions = details[0]?.menu_items.map((m) => Number(m.planned_portion_quantity)).sort((a, b) => a - b)
-		// item sem override herda o efetivo derivado (80); item com override mantém 80.
-		expect(portions).toEqual([80, 80])
-	})
+		const informed = "2099-04-06"
+		await applyTemplate(db, ctx, {
+			templateId: tpl.id,
+			kitchenId,
+			startDate: informed,
+			endDate: informed,
+			startDayOfWeek: dayOfWeek(informed),
+			headcounts: [{ mealTypeId, headcount: 800 }],
+		})
+		const [withHeadcount] = (await fetchDayDetails(db, ctx, { kitchenId, date: informed })) as unknown as Day[]
+		expect(withHeadcount?.forecasted_headcount).toBe(800)
+		expect(portionsOf(withHeadcount)).toEqual([240, 800])
+
+		const pending = "2099-04-13"
+		await applyTemplate(db, ctx, { templateId: tpl.id, kitchenId, startDate: pending, endDate: pending, startDayOfWeek: dayOfWeek(pending) })
+		const [withoutHeadcount] = (await fetchDayDetails(db, ctx, { kitchenId, date: pending })) as unknown as Day[]
+		expect(withoutHeadcount?.forecasted_headcount).toBeNull()
+		expect(portionsOf(withoutHeadcount)).toEqual([null, null])
+
+		await updateHeadcount(db, ctx, { dailyMenuId: withoutHeadcount?.id as string, forecastedHeadcount: 600 })
+		const [completed] = (await fetchDayDetails(db, ctx, { kitchenId, date: pending })) as unknown as Day[]
+		expect(portionsOf(completed)).toEqual([180, 600])
+	}, 45_000)
 
 	test("grupo + ordem + proporção fazem round-trip em createTemplate/getTemplateItems", async () => {
 		if (!reachable || !seeder || !db) return
@@ -660,7 +742,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 				templateType: "event",
 				items: [{ dayOfWeek: 1, mealTypeId, recipeId, recommendedProportion: null }],
 			})
-		).rejects.toThrow(/refeição do evento/)
+		).rejects.toThrow(/pertence a uma refeição/)
 		await expect(
 			createTemplate(db, ctx, {
 				name: uid("[TEST] Evento "),
@@ -735,9 +817,11 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
 		const coquetelId = crypto.randomUUID()
 		const eventMeals = [{ id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS }]
-		const items = [{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "volante", recommendedProportion: null, headcountOverride: 80, eventMealId: coquetelId }]
+		// O molde global é relativo; o pax 80 é o que a cozinha põe na cópia dela.
+		const globalItems = [{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "volante", recommendedProportion: 60, eventMealId: coquetelId }]
+		const items = [{ ...globalItems[0], headcountOverride: 80 } as (typeof globalItems)[number] & { headcountOverride: number }]
 
-		const global = await createTemplate(db, ctx, { name: uid("[TEST] Evento global "), templateType: "event", eventMeals, items })
+		const global = await createTemplate(db, ctx, { name: uid("[TEST] Evento global "), templateType: "event", eventMeals, items: globalItems })
 		trackTemplate(global.id)
 
 		// O editor manda o conteúdo com os ids do MOLDE — a primeira vez cria a cópia, a segunda
@@ -916,5 +1000,42 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 			eventMeals: [{ id: coquetelId, name: "Coquetel de gala", mealTypeId, groups: EVENT_GROUPS, baseHeadcount: null }],
 		})
 		expect((await getTemplate(db, ctx, { templateId: tpl.id })).event_meals[0]?.base_headcount).toBeNull()
+	}, 30_000)
+
+	test("apoio aplicado com kits: porções por kit × kits, arredondando para cima", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		const cafe = await seeder.seedRecipe({ kitchenId: null })
+		seeder.trackFn(() => seeder?.purgeKitchenMenus(kitchenId) ?? Promise.resolve())
+		const kitId = crypto.randomUUID()
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Apoio "),
+			kitchenId,
+			templateType: "apoio",
+			eventMeals: [{ id: kitId, name: "Kit", mealTypeId, groups: [] }],
+			items: [
+				{ dayOfWeek: 1, mealTypeId, recipeId, recommendedProportion: 200, eventMealId: kitId },
+				{ dayOfWeek: 1, mealTypeId, recipeId: cafe, recommendedProportion: 50, eventMealId: kitId },
+			],
+		})
+		trackTemplate(tpl.id)
+
+		const date = "2099-04-07"
+		await applyEventTemplate(db, ctx, { templateId: tpl.id, kitchenId, dates: [date], headcounts: [{ occasionMealId: kitId, headcount: 3 }] })
+		const [day] = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as { menu_items: { planned_portion_quantity: number | string | null }[] }[]
+		expect((day?.menu_items ?? []).map((m) => Number(m.planned_portion_quantity)).sort((a, b) => a - b)).toEqual([2, 6])
+	}, 30_000)
+
+	test("banco recusa quantidade absoluta em modelo global, mesmo por fora do domínio", async () => {
+		if (!reachable || !seeder) return
+		const { recipeId } = await base()
+		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
+		const templateId = await seeder.seedTemplate({ kitchenId: null, templateType: "weekly" })
+		await expect(seeder.seedTemplateItem({ templateId, mealTypeId, recipeId, dayOfWeek: 1, headcountOverride: 5 })).rejects.toThrow(
+			/GLOBAL_TEMPLATE_ABSOLUTE_QUANTITY/
+		)
+		await expect(seeder.seedTemplate({ kitchenId: null, templateType: "apoio", expectedMonthlyOccurrences: 4 })).rejects.toThrow(
+			/menu_template_global_without_occurrences/
+		)
 	}, 30_000)
 })

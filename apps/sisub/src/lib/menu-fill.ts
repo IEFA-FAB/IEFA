@@ -193,30 +193,6 @@ export function replaceMenuRecipe<T extends MenuDraftItem>(items: readonly T[], 
 	return swapMenuRecipes(items, (item) => (keys.has(menuItemKey(item)) ? nextRecipeId : undefined))
 }
 
-/**
- * Quantitativo por refeição direto no pax das preparações — o destino de evento e exceção,
- * que não têm efetivo base (`menu_template_meal` é do cardápio semanal). Aqui o número não
- * tem onde ficar senão em cada item.
- */
-export function applyHeadcountToItems<T extends MenuDraftItem>(items: readonly T[], plan: HeadcountPlan, { overwrite = false } = {}): T[] {
-	return items.map((item) => {
-		const headcount = plan.get(item.meal_type_id)
-		if (headcount == null) return item
-		if (!overwrite && item.headcount_override != null) return item
-		return { ...item, headcount_override: headcount }
-	})
-}
-
-/** Quantas preparações o plano ainda vai mudar. */
-export function countItemHeadcountTargets(items: readonly MenuDraftItem[], plan: HeadcountPlan, { overwrite = false } = {}): number {
-	return items.filter((item) => {
-		const headcount = plan.get(item.meal_type_id)
-		if (headcount == null) return false
-		if (!overwrite && item.headcount_override != null) return false
-		return item.headcount_override !== headcount
-	}).length
-}
-
 /** Uma preparação na área de transferência do cardápio. */
 export type MenuClipboardEntry = {
 	recipe_id: string

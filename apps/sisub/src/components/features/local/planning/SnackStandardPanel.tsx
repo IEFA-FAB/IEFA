@@ -27,9 +27,10 @@ interface SnackStandardPanelProps {
 }
 
 /**
- * Bloco "Padrão de lanche (Módulo 7)" do editor de exceção: classifica a exceção como padrão
- * de Lanche de Bordo/Apoio que o comensal pede. A classificação é gravada à parte do conteúdo
- * (`setSnackClassification`), depois do salvamento do template.
+ * Bloco "Padrão de lanche (Módulo 7)" do editor de apoio: classifica o apoio como padrão de
+ * Lanche de Bordo/Apoio que o comensal pede. A classificação é gravada à parte do conteúdo
+ * (`setSnackClassification`), depois do salvamento do template. As porções de cada preparação
+ * no kit ficam na própria preparação ("porções por kit", a proporção do apoio).
  */
 export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyTemplateId, itemsDirty }: SnackStandardPanelProps) {
 	const set = (patch: Partial<SnackStandardDraft>) => onChange(normalizeSnackDraft({ ...draft, ...patch }))

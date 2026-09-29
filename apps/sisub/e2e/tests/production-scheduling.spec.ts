@@ -313,7 +313,7 @@ function originRow(page: Page, name: string) {
 }
 
 async function applyOccasion(page: Page, mode: "add" | "replace", name: string) {
-	await page.getByRole("button", { name: mode === "add" ? "Aplicar evento ou apoio" : "Trocar o dia" }).click()
+	await page.getByRole("button", { name: mode === "add" ? "Aplicar evento ou cardápio de apoio" : "Trocar o dia" }).click()
 	const dialog = page.locator('[data-slot="dialog-content"]')
 	await dialog.locator("#day-occasion").click()
 	await page.getByRole("option", { name }).click()

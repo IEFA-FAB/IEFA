@@ -1,11 +1,13 @@
 import { expect as baseExpect, test } from "../fixtures/auth"
 import { waitForHydration } from "../helpers/fill-react-input"
+import { dismissLegalNotice } from "../helpers/procurement"
 import { createE2EServiceClient } from "../helpers/service"
 
 /**
  * Catálogo global de eventos, do jeito que a cozinha o usa: o modelo da SDAB aparece no
  * catálogo e, adaptado para a cozinha, a cópia chega com as refeições próprias do evento —
- * nome, efetivo e a porcentagem de cada preparação.
+ * nome e a porcentagem de cada preparação. O efetivo NÃO vem: modelo global é relativo, e o
+ * número é da cozinha, que o informa na cópia.
  *
  * A EDIÇÃO do modelo global exige `global:2`, que a conta dedicada do e2e não tem; ela é
  * coberta pela suíte de integração (`templates.operations.test.ts`: evento global criado,
@@ -49,7 +51,6 @@ test.describe("Catálogo global — evento com refeições próprias", () => {
 				name: "Coquetel de gala",
 				meal_type_id: mealTypeId,
 				groups: [{ key: "volante", label: "Volantes" }],
-				base_headcount: 200,
 			})
 			.select("id")
 			.single()
@@ -75,10 +76,13 @@ test.describe("Catálogo global — evento com refeições próprias", () => {
 		await db.from("menu_template").delete().in("id", ids)
 	})
 
-	test("o modelo aparece no catálogo global e a adaptação da cozinha herda refeição, efetivo e %", async ({ authenticatedPage: page }) => {
+	test("o modelo aparece no catálogo global e a adaptação da cozinha herda refeição e %, e a cozinha informa o efetivo", async ({
+		authenticatedPage: page,
+	}) => {
 		test.setTimeout(180_000)
 
 		await page.goto("/global/events")
+		await dismissLegalNotice(page)
 		await expect(page.getByRole("heading", { name: "Eventos Modelo" })).toBeVisible()
 		await expect(page.getByText(MODEL)).toBeVisible()
 
@@ -89,11 +93,19 @@ test.describe("Catálogo global — evento com refeições próprias", () => {
 		await row.getByText("Adaptar").click()
 		await page.waitForURL(/forkFrom=/)
 		await waitForHydration(page, "#name")
+		// O aviso de documentos legais chega depois da hidratação e cobre o rodapé do formulário.
+		await page
+			.getByRole("region", { name: "Aviso sobre documentos legais" })
+			.waitFor({ state: "visible", timeout: 5_000 })
+			.catch(() => undefined)
+		await dismissLegalNotice(page)
 		await page.getByRole("button", { name: "Criar Adaptação" }).click()
 		await page.waitForURL(new RegExp(`/kitchen/${KITCHEN_ID}/events/[0-9a-f-]{36}$`))
 
-		await expect(page.getByLabel("Efetivo de Coquetel de gala")).toHaveValue("200")
+		const headcount = page.getByLabel("Efetivo de Coquetel de gala")
+		await expect(headcount).toHaveValue("")
 		await expect(page.getByLabel("Porcentagem do efetivo da refeição").first()).toHaveValue("50")
+		await headcount.fill("200")
 		await expect(page.getByText("= 100")).toBeVisible()
 		await page.screenshot({ path: "test-results/global-catalog-fork.png" })
 	})

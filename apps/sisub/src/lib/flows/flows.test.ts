@@ -128,6 +128,7 @@ describe("Prever demanda para compra", () => {
 		events: 0,
 		supportMenus: 1,
 		supportMenusWithoutOccurrences: 0,
+		menusWithoutHeadcount: [],
 		ingredientsWithoutPurchaseItem: 0,
 		pendingForecasts: 0,
 		forecast: null,
@@ -169,6 +170,22 @@ describe("Prever demanda para compra", () => {
 		const catalog = steps.find((s) => s.id === "catalog")
 		expect(catalog?.status).toBe("attention")
 		expect(catalog?.issues[0].action).toBeUndefined()
+	})
+
+	test("cardápio sem efetivo é aviso que diz quais são", () => {
+		const occasions = buildDemandForecastSteps({ ...base, menusWithoutHeadcount: ["Semana SDAB", "Coquetel"] }).find((s) => s.id === "occasions")
+		expect(occasions?.status).toBe("attention")
+		expect(occasions?.issues[0]).toMatchObject({ severity: "warning" })
+		expect(occasions?.issues[0].message).toMatch(/^2 cardápios sem efetivo \("Semana SDAB" e "Coquetel"\)/)
+	})
+
+	test("cardápio sem efetivo: lista longa mostra três nomes e conta o resto", () => {
+		const occasions = buildDemandForecastSteps({ ...base, menusWithoutHeadcount: ["A", "B", "C", "D", "E"] }).find((s) => s.id === "occasions")
+		expect(occasions?.issues[0].message).toContain('("A", "B", "C" e 2 outros)')
+	})
+
+	test("todo cardápio com efetivo não gera aviso", () => {
+		expect(buildDemandForecastSteps(base).find((s) => s.id === "occasions")?.issues).toEqual([])
 	})
 
 	test("previsão em elaboração aparece mesmo com outra já recebida", () => {

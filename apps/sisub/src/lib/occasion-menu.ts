@@ -1,13 +1,15 @@
 /**
- * Eventos e apoios são o mesmo artefato — `menu_template` sem estrutura de semana, com o
- * pax por preparação — e diferem só no texto e na recorrência mensal do apoio. Cozinha e
- * catálogo global montam as mesmas telas a partir destes rótulos.
+ * Eventos e apoios são o mesmo artefato — `menu_template` sem estrutura de semana, composto por
+ * refeições próprias — e diferem no texto, na recorrência mensal do apoio e em como a proporção
+ * é lida (% do efetivo no evento, porções por kit no apoio). Cozinha e catálogo global montam as
+ * mesmas telas a partir destes rótulos.
  *
  * O cardápio de apoio é `template_type = 'apoio'` (rotas `/support-menus`); nasceu como
  * "Exceção", nome que saiu com o lote 5 da linguagem ubíqua. Engloba os lanches de bordo e de
  * apoio do Módulo 7 e os demais apoios previsíveis (coffee break, café de reunião).
  */
 
+import { MAX_RECOMMENDED_PROPORTION, MAX_SUPPORT_PORTIONS_PROPORTION } from "@iefa/sisub-domain/schemas"
 import type { SnackClass, SnackFamily, SnackVariant } from "@iefa/sisub-domain/utils"
 
 export type OccasionMenuType = "event" | "apoio"
@@ -59,6 +61,56 @@ export const OCCASION_MENU_COPY: Record<OccasionMenuType, OccasionMenuCopy> = {
 		explainer:
 			"Cardápios de apoio são refeições previsíveis e recorrentes fora da rotina semanal — lanches de bordo e de apoio (Módulo 7), coffee breaks, cafés de reunião. Crie um molde por tipo e informe quantas vezes por mês ele ocorre; o custeio do anexo quantitativo multiplica automaticamente.",
 	},
+}
+
+// ── Proporção: % do efetivo ou porções por kit ──────────────────────────────
+
+/**
+ * Como a proporção (`recommended_proportion`) aparece na tela. É um campo só: "% do efetivo" no
+ * semanal e no evento; no apoio, porções por kit (valor ÷ 100 — 2 sanduíches por kit = 200). É a
+ * mesma conta, com outro rótulo e outro teto.
+ */
+export type ProportionMode = "percent" | "portionsPerKit"
+
+/** Teto das porções por kit na tela (1000 gravado = 10 por kit). */
+export const MAX_PORTIONS_PER_KIT = MAX_SUPPORT_PORTIONS_PROPORTION / 100
+
+export function proportionModeFor(templateType: string | null | undefined): ProportionMode {
+	return templateType === "apoio" ? "portionsPerKit" : "percent"
+}
+
+/** Valor gravado → o que o campo mostra (`""` = vazio). */
+export function proportionInputValue(proportion: number | null | undefined, mode: ProportionMode): number | "" {
+	if (proportion == null) return ""
+	return mode === "portionsPerKit" ? proportion / 100 : proportion
+}
+
+/**
+ * O que o campo recebeu → valor gravável, dentro do teto do regime. `""` = `null` (limpa);
+ * `undefined` = entrada ainda incompleta, que o campo ignora. Porções por kit aceitam decimal
+ * (meia garrafa de café por kit = 0,5 → 50) e vírgula; a % é inteira.
+ */
+export function parseProportionInput(raw: string, mode: ProportionMode): number | null | undefined {
+	const trimmed = raw.trim()
+	if (trimmed === "") return null
+	if (mode === "portionsPerKit") {
+		const parsed = Number.parseFloat(trimmed.replace(",", "."))
+		if (Number.isNaN(parsed)) return undefined
+		return Math.round(Math.max(0, Math.min(MAX_PORTIONS_PER_KIT, parsed)) * 100)
+	}
+	const parsed = Number.parseInt(trimmed, 10)
+	if (Number.isNaN(parsed)) return undefined
+	return Math.max(0, Math.min(MAX_RECOMMENDED_PROPORTION, parsed))
+}
+
+/**
+ * Padrão de lanche gravado antes de 20260929180000 guardava as porções por kit no pax
+ * (`headcount_override`). A migration move o valor para a proporção; a leitura faz o mesmo,
+ * para o editor não depender da ordem entre deploy e migration nem gravar de volta o velho.
+ */
+export function withLegacySnackPortions<T extends { headcount_override?: number | null; recommended_proportion?: number | null }>(item: T): T {
+	if (item.headcount_override == null || item.recommended_proportion != null) return item
+	return { ...item, headcount_override: null, recommended_proportion: item.headcount_override * 100 }
 }
 
 /** "" → null; senão inteiro positivo (nulo se inválido). Em branco conta como 1 ocorrência no anexo quantitativo. */

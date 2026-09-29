@@ -14,7 +14,7 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
-import { ArrowRightLeft, ClipboardPaste, Copy, GripVertical, Percent, Plus, Users, X } from "lucide-react"
+import { AlertTriangle, ArrowRightLeft, ClipboardPaste, Copy, GripVertical, Package, Percent, Plus, Users, X } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -22,7 +22,9 @@ import { ContextMenu, ContextMenuContent, ContextMenuGroupLabel, ContextMenuItem
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
+import { groupCountStatus, type OccasionGroup } from "@/lib/event-meals"
 import { DEFAULT_MENU_GROUPS, type MenuGroup, type MenuItemGroup, menuItemGroupLabel, UNGROUPED_KEY, UNGROUPED_LABEL } from "@/lib/menu-item-groups"
+import { MAX_PORTIONS_PER_KIT, type ProportionMode, parseProportionInput, proportionInputValue } from "@/lib/occasion-menu"
 
 /** Item genérico exibido no board. `id` é a chave estável de drag (recipe_id no template, menu_item.id no dia). */
 export type BoardItem = {
@@ -33,9 +35,12 @@ export type BoardItem = {
 	badge?: ReactNode
 	group: MenuItemGroup | null
 	sortOrder: number
-	/** Percentual do efetivo da refeição (ex.: 30% de 800 = 240 comensais). */
+	/**
+	 * Percentual do efetivo da refeição (ex.: 30% de 800 = 240 comensais). No apoio, porções por
+	 * kit × 100 (200 = 2 por kit) — ver `proportionMode`.
+	 */
 	proportion: number | null
-	/** Quantidade direta de comensais da preparação. Excludente com `proportion`. */
+	/** Quantidade direta de comensais (no apoio: porções) da preparação. Excludente com `proportion`. */
 	headcount?: number | null
 	/** `id` do DOM para o localizar rolar até o item. */
 	anchorId?: string
@@ -56,6 +61,35 @@ export function demandTypeOf(item: Pick<BoardItem, "proportion" | "headcount">, 
 	if (item.headcount != null) return "headcount"
 	if (item.proportion != null) return "proportion"
 	return fallback
+}
+
+/** Porções que a proporção dá sobre o efetivo: % arredonda ao mais próximo; porções por kit, para cima (como o servidor). */
+function derivedDemand(baseHeadcount: number, proportion: number, mode: ProportionMode): number {
+	const exact = (baseHeadcount * proportion) / 100
+	return mode === "portionsPerKit" ? Math.ceil(exact - 1e-9) : Math.round(exact)
+}
+
+/** Textos do campo por regime: comensais e % do efetivo, ou porções e porções por kit. */
+const DEMAND_COPY: Record<
+	ProportionMode,
+	{ headcountPlaceholder: string; headcountLabel: string; proportionPlaceholder: string; proportionLabel: string; base: string; perUnit: string }
+> = {
+	percent: {
+		headcountPlaceholder: "pax",
+		headcountLabel: "Comensais desta preparação",
+		proportionPlaceholder: "%",
+		proportionLabel: "Porcentagem do efetivo da refeição",
+		base: "efetivo da refeição",
+		perUnit: "% do efetivo da refeição",
+	},
+	portionsPerKit: {
+		headcountPlaceholder: "porções",
+		headcountLabel: "Porções desta preparação no total",
+		proportionPlaceholder: "/kit",
+		proportionLabel: "Porções por kit",
+		base: "número de kits da refeição",
+		perUnit: "Porções por kit",
+	},
 }
 
 /** Resultado de um rearranjo: cada item com seu grupo e ordem já reindexados. */
@@ -124,6 +158,7 @@ function SortableItem({
 	canPaste,
 	onMoveToGroup,
 	groups,
+	proportionMode,
 }: {
 	item: BoardItem
 	onProportionChange: (id: string, value: number | null) => void
@@ -142,9 +177,12 @@ function SortableItem({
 	canPaste?: boolean
 	onMoveToGroup: (id: string, group: MenuItemGroup | null) => void
 	groups: readonly MenuGroup[]
+	proportionMode: ProportionMode
 }) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 	const style = { transform: CSS.Translate.toString(transform), transition }
+	const copy = DEMAND_COPY[proportionMode]
+	const isPerKit = proportionMode === "portionsPerKit"
 
 	const row = (
 		<div
@@ -190,20 +228,28 @@ function SortableItem({
 								className="text-muted-foreground"
 								disabled={!allowHeadcount || !allowProportion}
 								onClick={onSwitchDemandType}
-								aria-label={demandType === "headcount" ? "Medir por porcentagem do efetivo" : "Medir por número de pessoas"}
+								aria-label={
+									demandType === "headcount"
+										? isPerKit
+											? "Medir por porções por kit"
+											: "Medir por porcentagem do efetivo"
+										: isPerKit
+											? "Informar o total de porções"
+											: "Medir por número de pessoas"
+								}
 							/>
 						}
 					>
-						{demandType === "headcount" ? <Users className="size-3" /> : <Percent className="size-3" />}
+						{demandType === "headcount" ? <Users className="size-3" /> : isPerKit ? <Package className="size-3" /> : <Percent className="size-3" />}
 					</TooltipTrigger>
 					<TooltipContent>
 						{!allowProportion
-							? "Comensais desta preparação — aqui não há efetivo de refeição para a porcentagem medir."
+							? `${copy.headcountLabel} — aqui não há ${copy.base} para a proporção medir.`
 							: demandType === "headcount"
-								? "Comensais desta preparação. Clique para medir por % do efetivo da refeição."
+								? `${copy.headcountLabel}. Clique para medir por ${isPerKit ? "porções por kit" : "% do efetivo da refeição"}.`
 								: allowHeadcount
-									? "% do efetivo da refeição. Clique para informar o número de pessoas."
-									: "% do efetivo da refeição (definido pela cozinha que adotar este plano)."}
+									? `${copy.perUnit}. Clique para informar ${isPerKit ? "o total de porções" : "o número de pessoas"}.`
+									: `${copy.perUnit} (${isPerKit ? "os kits são" : "o efetivo é"} da cozinha que adotar este modelo).`}
 					</TooltipContent>
 				</Tooltip>
 				{demandType === "headcount" ? (
@@ -213,8 +259,8 @@ function SortableItem({
 						step="1"
 						className="h-6 w-16 text-xs"
 						value={item.headcount ?? ""}
-						placeholder="pax"
-						aria-label="Comensais desta preparação"
+						placeholder={copy.headcountPlaceholder}
+						aria-label={copy.headcountLabel}
 						onChange={(e) => {
 							const raw = e.target.value
 							if (raw === "") return onHeadcountChange?.(item.id, null)
@@ -230,26 +276,25 @@ function SortableItem({
 					<Input
 						type="number"
 						min="0"
-						max={MAX_RECOMMENDED_PROPORTION}
-						step="1"
+						max={isPerKit ? MAX_PORTIONS_PER_KIT : MAX_RECOMMENDED_PROPORTION}
+						step={isPerKit ? "0.5" : "1"}
+						inputMode={isPerKit ? "decimal" : "numeric"}
 						className="h-6 w-16 text-xs"
-						value={item.proportion ?? ""}
-						placeholder="%"
-						aria-label="Porcentagem do efetivo da refeição"
+						value={proportionInputValue(item.proportion, proportionMode)}
+						placeholder={copy.proportionPlaceholder}
+						aria-label={copy.proportionLabel}
 						onChange={(e) => {
-							const raw = e.target.value
-							if (raw === "") return onProportionChange(item.id, null)
-							const parsed = Number.parseInt(raw, 10)
-							if (Number.isNaN(parsed)) return
-							onProportionChange(item.id, Math.max(0, Math.min(MAX_RECOMMENDED_PROPORTION, parsed)))
+							const parsed = parseProportionInput(e.target.value, proportionMode)
+							if (parsed !== undefined) onProportionChange(item.id, parsed)
 						}}
 						onClick={(e) => e.stopPropagation()}
 					/>
 				)}
-				{/* A % só vira gente sobre o efetivo: mostra quantas pessoas ela dá. */}
+				{/* A proporção só vira porção sobre o efetivo (ou os kits): mostra quantas ela dá. */}
 				{demandType === "proportion" && item.headcount == null && item.proportion != null && baseHeadcount != null && (
-					<span className="text-xs text-muted-foreground tabular-nums" title={`${item.proportion}% de ${baseHeadcount} pessoas`}>
-						= {Math.round((baseHeadcount * item.proportion) / 100)}
+					<span className="text-xs text-muted-foreground tabular-nums">
+						= {derivedDemand(baseHeadcount, item.proportion, proportionMode)}
+						<span className="sr-only"> porções</span>
 					</span>
 				)}
 			</div>
@@ -322,12 +367,16 @@ function GroupColumn({
 	canPaste,
 	onMoveToGroup,
 	groups,
+	proportionMode,
+	expected,
+	isPlainList,
 }: {
 	columnKey: ColumnKey
 	label: string
 	itemIds: string[]
 	itemMap: Map<string, BoardItem>
-	onAdd?: (group: MenuItemGroup) => void
+	/** Já ligado à coluna; ausente = a coluna não recebe preparação nova. */
+	onAdd?: () => void
 	onProportionChange: (id: string, value: number | null) => void
 	onHeadcountChange?: (id: string, value: number | null) => void
 	onRemove: (id: string) => void
@@ -344,25 +393,37 @@ function GroupColumn({
 	canPaste?: boolean
 	onMoveToGroup: (id: string, group: MenuItemGroup | null) => void
 	groups: readonly MenuGroup[]
+	proportionMode: ProportionMode
+	/** Quantas preparações o grupo espera (evento e apoio); sem número, só a contagem. */
+	expected?: Pick<OccasionGroup, "minItems" | "maxItems">
+	/**
+	 * Refeição sem grupo nenhum (o kit simples do apoio): a coluna é a lista inteira, sem o
+	 * cabeçalho "Sem grupo" — a preparação ali não está sem classificação, a refeição é que não
+	 * tem colunas.
+	 */
+	isPlainList?: boolean
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: `col:${columnKey}`, data: { isColumn: true, columnKey } })
-	const canAdd = onAdd && columnKey !== UNGROUPED_KEY
+	const count = expected ? groupCountStatus(itemIds.length, expected) : { label: null, isOutOfRange: false }
 
 	return (
 		<div className="rounded-md border bg-card">
 			<div className="flex items-center justify-between px-3 py-2 border-b bg-muted/20">
 				<div className="flex items-center gap-2">
-					<span className="text-xs text-subheading uppercase tracking-wide text-muted-foreground">{label}</span>
-					{itemIds.length > 0 && <span className="text-xs text-muted-foreground/60 tabular-nums">{itemIds.length}</span>}
+					<span className="text-xs text-subheading uppercase tracking-wide text-muted-foreground">{isPlainList ? "Preparações" : label}</span>
+					{/* Contagem esperada: aviso, nunca trava — a cozinha pode ter ficado sem um item. */}
+					{count.label ? (
+						<span className={cn("flex items-center gap-1 text-xs tabular-nums", count.isOutOfRange ? "text-warning" : "text-muted-foreground")}>
+							{count.isOutOfRange && <AlertTriangle className="size-3" />}
+							{count.label}
+							<span className="sr-only">{count.isOutOfRange ? " preparações esperadas: fora do esperado" : " preparações esperadas"}</span>
+						</span>
+					) : (
+						itemIds.length > 0 && <span className="text-xs text-muted-foreground/60 tabular-nums">{itemIds.length}</span>
+					)}
 				</div>
-				{canAdd && (
-					<Button
-						type="button"
-						size="sm"
-						variant="ghost"
-						className="text-xs h-6 gap-1 text-muted-foreground hover:text-foreground"
-						onClick={() => onAdd?.(columnKey as MenuItemGroup)}
-					>
+				{onAdd && (
+					<Button type="button" size="sm" variant="ghost" className="text-xs h-6 gap-1 text-muted-foreground hover:text-foreground" onClick={onAdd}>
 						<Plus className="size-3.5" />
 						Adicionar
 					</Button>
@@ -371,7 +432,9 @@ function GroupColumn({
 			<div ref={setNodeRef} className={cn("p-2 space-y-1.5 min-h-14", isOver && "bg-primary/5")}>
 				<SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
 					{itemIds.length === 0 ? (
-						<p className="px-2 py-3 text-xs text-muted-foreground/50 text-center">Arraste preparações para cá</p>
+						<p className="px-2 py-3 text-xs text-muted-foreground/50 text-center">
+							{isPlainList ? "Nenhuma preparação ainda — use Adicionar." : "Arraste preparações para cá"}
+						</p>
 					) : (
 						itemIds.map((id) => {
 							const item = itemMap.get(id)
@@ -396,6 +459,7 @@ function GroupColumn({
 									canPaste={canPaste}
 									onMoveToGroup={onMoveToGroup}
 									groups={groups}
+									proportionMode={proportionMode}
 								/>
 							)
 						})
@@ -429,14 +493,22 @@ export function MealGroupBoard({
 	onCopy,
 	onPaste,
 	canPaste,
+	proportionMode = "percent",
+	onAddToList,
 }: {
 	items: BoardItem[]
-	/** Grupos do conjunto DESTA refeição, na ordem de leitura. Padrão = conjunto do almoço. */
-	groups?: readonly MenuGroup[]
+	/**
+	 * Grupos do conjunto DESTA refeição, na ordem de leitura. Padrão = conjunto do almoço. Nas
+	 * refeições de evento e apoio o grupo pode dizer quantas preparações espera; vazio (kit
+	 * simples do apoio) vira uma lista só, sem colunas.
+	 */
+	groups?: readonly OccasionGroup[]
 	onArrange: (arrangement: BoardArrangement) => void
 	onProportionChange: (id: string, value: number | null) => void
 	onRemove: (id: string) => void
 	onAdd?: (group: MenuItemGroup) => void
+	/** Refeição sem grupos (kit simples do apoio): o "Adicionar" da lista, que põe a preparação sem grupo. */
+	onAddToList?: () => void
 	onHeadcountChange?: (id: string, value: number | null) => void
 	/** `false` no plano global, que não tem efetivo de refeição para a porcentagem morder. */
 	allowHeadcount?: boolean
@@ -445,8 +517,10 @@ export function MealGroupBoard({
 	 * A porcentagem só significa alguma coisa em cima de um efetivo.
 	 */
 	allowProportion?: boolean
-	/** Efetivo da refeição — com ele, a preparação em % mostra quantas pessoas a % dá. */
+	/** Efetivo da refeição (kits, no apoio) — com ele, a preparação em % mostra quantas porções a % dá. */
 	baseHeadcount?: number | null
+	/** Como a proporção é lida: % do efetivo (semanal, evento) ou porções por kit (apoio). */
+	proportionMode?: ProportionMode
 	/** Tipo dos itens que ainda não têm nem % nem pax — ajustável no editor. */
 	defaultDemandType?: DemandType
 	onCopy?: (id: string) => void
@@ -596,6 +670,8 @@ export function MealGroupBoard({
 	}
 
 	const activeItem = activeId ? itemMap.get(activeId) : null
+	// Sem grupo nenhum e sem item de grupo antigo: a refeição é uma lista só (o kit simples).
+	const isPlainList = groups.length === 0 && columnKeys.length === 1
 
 	return (
 		<DndContext
@@ -606,11 +682,13 @@ export function MealGroupBoard({
 			onDragEnd={handleDragEnd}
 			onDragCancel={() => finishDrag(false)}
 		>
-			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+			<div className={cn("grid grid-cols-1 gap-2", !isPlainList && "md:grid-cols-2 xl:grid-cols-3")}>
 				{columnKeys.map((key) => {
-					// Coluna "sem grupo" só aparece quando há itens legados nela.
-					if (key === UNGROUPED_KEY && (columns[UNGROUPED_KEY]?.length ?? 0) === 0) return null
+					// Coluna "sem grupo" só aparece quando há itens legados nela — ou quando é a lista
+					// inteira de uma refeição sem grupos.
+					if (!isPlainList && key === UNGROUPED_KEY && (columns[UNGROUPED_KEY]?.length ?? 0) === 0) return null
 					const label = key === UNGROUPED_KEY ? UNGROUPED_LABEL : menuItemGroupLabel(key, groups)
+					const group = groups.find((g) => g.key === key)
 					return (
 						<GroupColumn
 							key={key}
@@ -619,8 +697,11 @@ export function MealGroupBoard({
 							itemIds={columns[key] ?? []}
 							itemMap={itemMap}
 							// Coluna órfã não recebe preparação nova: ela existe para esvaziar,
-							// não para crescer.
-							onAdd={groups.some((g) => g.key === key) ? onAdd : undefined}
+							// não para crescer. A lista da refeição sem grupos recebe.
+							onAdd={group ? onAdd && (() => onAdd(group.key)) : isPlainList ? onAddToList : undefined}
+							expected={group}
+							isPlainList={isPlainList}
+							proportionMode={proportionMode}
 							onProportionChange={onProportionChange}
 							onHeadcountChange={onHeadcountChange}
 							onRemove={onRemove}

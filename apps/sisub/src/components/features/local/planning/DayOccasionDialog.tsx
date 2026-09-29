@@ -6,7 +6,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useReplaceDayWithTemplate } from "@/hooks/data/usePlanningAdjustments"
-import { useApplyEventTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
+import { useApplyEventTemplate, useMenuTemplates, useTemplate } from "@/hooks/data/useTemplates"
+import { hasInvalidHeadcount, occasionHeadcountDraft, occasionHeadcountRows, occasionHeadcountsPayload } from "@/lib/apply-headcounts"
+import { ApplyHeadcountFields, HEADCOUNT_PENDING_HINT } from "./ApplyHeadcountFields"
 
 /**
  * Põe um evento ou apoio NESTE dia, direto do agendamento — o evento que surgiu, a viagem que
@@ -35,9 +37,16 @@ export function DayOccasionDialog({
 	const [templateId, setTemplateId] = useState("")
 	const { mutate: applyEvent, isPending: isApplying } = useApplyEventTemplate()
 	const { mutate: replaceDay, isPending: isReplacing } = useReplaceDayWithTemplate()
+	// Efetivo por refeição digitado (texto do campo) e o cardápio de onde ele foi preenchido.
+	const [headcountDraft, setHeadcountDraft] = useState<Record<string, string>>({})
+	const [draftTemplateId, setDraftTemplateId] = useState<string | null>(null)
 
 	useEffect(() => {
-		if (open) setTemplateId("")
+		if (open) {
+			setTemplateId("")
+			setDraftTemplateId(null)
+			setHeadcountDraft({})
+		}
 	}, [open])
 
 	const occasions = (templates ?? []).filter((t) => (t.template_type === "event" || t.template_type === "apoio") && t.snack_family == null)
@@ -47,11 +56,26 @@ export function DayOccasionDialog({
 	const isReplace = mode === "replace"
 	const isPending = isApplying || isReplacing
 
+	// Efetivo por refeição (kits, no apoio), no "aplicar neste dia" e na troca do dia: nasce com o
+	// do cardápio e fica vazio no modelo global.
+	const { data: template, isLoading: isTemplateLoading } = useTemplate(templateId ? templateId : null)
+	const templateReady = template != null && template.id === templateId
+	const occasionMeals = templateReady ? template.event_meals : []
+	const isGlobalTemplate = templateReady && template.kitchen_id == null
+	const isApoio = selected?.template_type === "apoio"
+	// Preenche ao chegar o cardápio escolhido (ajuste durante o render, não em efeito).
+	if (templateReady && draftTemplateId !== templateId) {
+		setDraftTemplateId(templateId)
+		setHeadcountDraft(occasionHeadcountDraft(template.event_meals, template.kitchen_id == null))
+	}
+	const isHeadcountInvalid = hasInvalidHeadcount(headcountDraft)
+
 	const submit = () => {
-		if (!templateId) return
+		if (!templateId || isHeadcountInvalid) return
 		const done = { onSuccess: () => onOpenChange(false) }
-		if (isReplace) replaceDay({ kitchenId, date, templateId }, done)
-		else applyEvent({ kitchenId, templateId, dates: [date] }, done)
+		const headcounts = occasionHeadcountsPayload(occasionMeals, headcountDraft)
+		if (isReplace) replaceDay({ kitchenId, date, templateId, headcounts }, done)
+		else applyEvent({ kitchenId, templateId, dates: [date], headcounts }, done)
 	}
 
 	return (
@@ -112,11 +136,32 @@ export function DayOccasionDialog({
 					{occasions.length === 0 && <p className="text-sm text-muted-foreground">Nenhum evento ou cardápio de apoio cadastrado para esta cozinha.</p>}
 				</Field>
 
+				{templateId && (
+					<ApplyHeadcountFields
+						idPrefix="day-occasion-headcount"
+						legend={isApoio ? "Kits por refeição" : "Efetivo por refeição"}
+						description={
+							<>
+								{isGlobalTemplate
+									? "Modelo global: ele só tem as proporções."
+									: `Vem ${isApoio ? "com os kits" : "com o efetivo"} do cardápio; o que mudar aqui vale só neste dia.`}{" "}
+								{HEADCOUNT_PENDING_HINT}
+							</>
+						}
+						rows={occasionHeadcountRows(occasionMeals)}
+						draft={headcountDraft}
+						onChange={(id, raw) => setHeadcountDraft((prev) => ({ ...prev, [id]: raw }))}
+						unit={isApoio ? "kits" : "comensais"}
+						placeholderFor={() => "a definir"}
+						isLoading={isTemplateLoading}
+					/>
+				)}
+
 				<DialogFooter>
 					<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
 						Cancelar
 					</Button>
-					<Button type="button" variant={isReplace ? "destructive" : "default"} disabled={!templateId || isPending} onClick={submit}>
+					<Button type="button" variant={isReplace ? "destructive" : "default"} disabled={!templateId || isPending || isHeadcountInvalid} onClick={submit}>
 						{isReplace ? "Trocar o dia" : "Aplicar neste dia"}
 					</Button>
 				</DialogFooter>

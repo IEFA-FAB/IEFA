@@ -49,6 +49,7 @@ export function GlobalTemplateCatalog({
 	newLink,
 	editorLink,
 }: GlobalTemplateCatalogProps) {
+	// Ocorrências por mês não têm coluna: são quantidade da cozinha, e o modelo global não as tem.
 	const isSupportMenu = templateType === "apoio"
 
 	const {
@@ -140,7 +141,6 @@ export function GlobalTemplateCatalog({
 								<TableRow>
 									<TableHead>Nome</TableHead>
 									<TableHead>Descrição</TableHead>
-									{isSupportMenu && <TableHead className="w-32 text-center">Ocorrências/mês</TableHead>}
 									<TableHead className="w-28 text-center">Preparações</TableHead>
 									{canWrite && <TableHead className="w-32 text-right">Ações</TableHead>}
 								</TableRow>
@@ -150,16 +150,9 @@ export function GlobalTemplateCatalog({
 									<TableRow key={template.id}>
 										<TableCell>
 											<p className="text-subheading">{template.name}</p>
-											{templateType === "apoio" && <SnackStandardBadges template={template} />}
+											{isSupportMenu && <SnackStandardBadges template={template} />}
 										</TableCell>
 										<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
-										{isSupportMenu && (
-											<TableCell className="text-center">
-												<Badge variant="outline" className="font-mono text-xs">
-													{template.expected_monthly_occurrences ?? "—"}
-												</Badge>
-											</TableCell>
-										)}
 										<TableCell className="text-center">
 											<Badge variant="secondary" className="font-mono text-xs">
 												{template.recipe_count || 0}
