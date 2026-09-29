@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useApplyEventTemplate, useTemplate } from "@/hooks/data/useTemplates"
 import { hasInvalidHeadcount, occasionHeadcountDraft, occasionHeadcountRows, occasionHeadcountsPayload } from "@/lib/apply-headcounts"
-import { ApplyHeadcountFields, HEADCOUNT_PENDING_HINT } from "./ApplyHeadcountFields"
+import { ApplyHeadcountFields, OCCASION_HEADCOUNT_PENDING_HINT } from "./ApplyHeadcountFields"
 
 interface ApplyEventDialogProps {
 	open: boolean
@@ -106,7 +106,7 @@ export function ApplyEventDialog({ open, onClose, templateId, templateName, temp
 								{isGlobalTemplate
 									? `Modelo global: ele só tem as proporções. ${templateType === "apoio" ? "Os kits informados valem" : "O efetivo informado vale"} para todas as datas.`
 									: `Vem ${templateType === "apoio" ? "com os kits" : "com o efetivo"} do ${typeLabel}; o que mudar aqui vale só nesta aplicação.`}{" "}
-								{HEADCOUNT_PENDING_HINT}
+								{OCCASION_HEADCOUNT_PENDING_HINT}
 							</>
 						}
 						rows={occasionHeadcountRows(occasionMeals)}

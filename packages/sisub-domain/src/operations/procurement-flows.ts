@@ -297,7 +297,8 @@ export async function fetchDemandForecastStatus(db: SisubDb, ctx: UserContext, i
 								and coalesce(t.expected_monthly_occurrences, 0) = 0) as support_menus_without_occurrences,
 						(select coalesce(json_agg(t.name order by t.name), '[]'::json)
 							from kitchen.menu_template t
-							where t.kitchen_id = k.id and t.deleted_at is null
+							-- Padrão de lanche fica de fora: os kits vêm do pedido, não do cardápio.
+							where t.kitchen_id = k.id and t.deleted_at is null and t.snack_family is null
 								and exists (
 									select 1 from kitchen.menu_template_items ti
 									left join kitchen.menu_template_event_meal em on em.id = ti.event_meal_id

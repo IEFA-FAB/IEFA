@@ -1,4 +1,4 @@
-import { CalendarClock, CalendarX2, Layers } from "lucide-react"
+import { CalendarClock, CalendarX2, Layers, Users } from "lucide-react"
 import { useState } from "react"
 import {
 	AlertDialog,
@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { useMoveOriginToDate, useRemoveOriginFromDay } from "@/hooks/data/usePlanningAdjustments"
+import { useMoveOriginToDate, useRemoveOriginFromDay, useSizeOriginOnDay } from "@/hooks/data/usePlanningAdjustments"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { type DayOrigin, dayOriginsOf } from "@/lib/day-origins"
 import type { DailyMenuWithItems } from "@/types/domain/planning"
@@ -31,10 +31,16 @@ export function DayOriginsPanel({ kitchenId, date, menus }: { kitchenId: number;
 	const [moving, setMoving] = useState<DayOrigin | null>(null)
 	const [toDate, setToDate] = useState("")
 	const [removing, setRemoving] = useState<DayOrigin | null>(null)
+	// Evento ou apoio aplicado sem efetivo: o número chega aqui e dá porções às preparações dele.
+	const [sizing, setSizing] = useState<DayOrigin | null>(null)
+	const [sizingValue, setSizingValue] = useState("")
+	const sizingHeadcount = Number(sizingValue)
+	const isSizingValid = sizingValue !== "" && Number.isInteger(sizingHeadcount) && sizingHeadcount > 0 && sizingHeadcount <= 100_000
 	// Adiar para trás é quase sempre ano errado; o servidor também recusa.
 	const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date())
 	const { mutate: moveOrigin, isPending: isMoving } = useMoveOriginToDate()
 	const { mutate: removeOrigin, isPending: isRemoving } = useRemoveOriginFromDay()
+	const { mutate: sizeOrigin, isPending: isSizing } = useSizeOriginOnDay()
 
 	if (origins.length === 0) return null
 
@@ -53,8 +59,24 @@ export function DayOriginsPanel({ kitchenId, date, menus }: { kitchenId: number;
 							<span className="shrink-0 text-xs text-muted-foreground tabular-nums">
 								{origin.itemCount} {origin.itemCount === 1 ? "preparação" : "preparações"}
 							</span>
+							{origin.pendingCount > 0 && origin.type !== "weekly" && <Badge variant="warning">Efetivo a definir</Badge>}
 						</div>
 						<div className="flex items-center gap-1">
+							{origin.pendingCount > 0 && origin.type !== "weekly" && (
+								<Button
+									type="button"
+									size="sm"
+									variant="ghost"
+									onClick={() => {
+										setSizingValue("")
+										setSizing(origin)
+									}}
+									aria-label={`Informar ${origin.type === "apoio" ? "kits" : "efetivo"} de ${origin.name}`}
+								>
+									<Users />
+									{origin.type === "apoio" ? "Informar kits" : "Informar efetivo"}
+								</Button>
+							)}
 							<Button
 								type="button"
 								size="sm"
@@ -101,6 +123,44 @@ export function DayOriginsPanel({ kitchenId, date, menus }: { kitchenId: number;
 							}}
 						>
 							Adiar
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			<AlertDialog open={sizing != null} onOpenChange={(open) => !open && setSizing(null)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{sizing?.type === "apoio" ? "Kits" : "Efetivo"} de “{sizing?.name}”
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							As {sizing?.pendingCount} preparações sem porções passam a ter porções pela proporção de cada uma
+							{sizing?.type === "apoio" ? " (porções por kit × kits)" : ""}. As que já têm porções ficam como estão.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<Field>
+						<FieldLabel htmlFor="origin-size-headcount">{sizing?.type === "apoio" ? "Kits" : "Efetivo"}</FieldLabel>
+						<Input
+							id="origin-size-headcount"
+							type="number"
+							inputMode="numeric"
+							min={1}
+							max={100_000}
+							value={sizingValue}
+							onChange={(e) => setSizingValue(e.target.value)}
+						/>
+					</Field>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancelar</AlertDialogCancel>
+						<AlertDialogAction
+							disabled={!isSizingValid || isSizing}
+							onClick={() => {
+								if (!sizing || !isSizingValid) return
+								sizeOrigin({ kitchenId, date, originTemplateId: sizing.templateId, headcount: sizingHeadcount }, { onSuccess: () => setSizing(null) })
+							}}
+						>
+							Calcular porções
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

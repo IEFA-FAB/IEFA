@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { resolveItemDemand } from "./demand-math.ts"
-import { portionsForArrivingHeadcount, rescaledPortions } from "./planning.ts"
+import { portionsForArrivingHeadcount, portionsForNewProportion, rescaledPortions } from "./planning.ts"
+import { portionsPerKit } from "./snack-requests.ts"
 
 describe("rescaledPortions", () => {
 	test("item derivado da previsão acompanha a previsão nova", () => {
@@ -34,5 +35,28 @@ describe("resolveItemDemand — arredondamento", () => {
 		expect(resolveItemDemand({ baseHeadcount: 7, recommendedProportion: 10 })).toBe(1)
 		expect(resolveItemDemand({ baseHeadcount: 10, recommendedProportion: 70, rounding: "up" })).toBe(7)
 		expect(resolveItemDemand({ baseHeadcount: 15, recommendedProportion: 200, rounding: "up" })).toBe(30)
+	})
+})
+
+describe("portionsForNewProportion", () => {
+	test("item da rotina segue o efetivo do dia", () => {
+		expect(portionsForNewProportion({ planned: 90, proportion: 30, headcount: 300, originTemplateType: "weekly" }, 50)).toBe(150)
+	})
+
+	test("item de apoio recupera a base (kits) das próprias porções, não usa o efetivo da rotina", () => {
+		// 30 kits × 2 por kit = 60; passar para 3 por kit dá 90, com efetivo da rotina de 300 ignorado.
+		expect(portionsForNewProportion({ planned: 60, proportion: 200, headcount: 300, originTemplateType: "apoio" }, 300)).toBe(90)
+		expect(portionsForNewProportion({ planned: null, proportion: null, headcount: 300, originTemplateType: "apoio" }, 300)).toBeNull()
+		expect(portionsForNewProportion({ planned: 240, proportion: 60, headcount: 800, originTemplateType: "event" }, 30)).toBe(120)
+	})
+})
+
+describe("portionsPerKit", () => {
+	test("proporção ÷ 100; zero tira do kit; sem proporção usa o pax antigo ou 1", () => {
+		expect(portionsPerKit(200, null)).toBe(2)
+		expect(portionsPerKit("50", null)).toBe(0.5)
+		expect(portionsPerKit(0, null)).toBe(0)
+		expect(portionsPerKit(null, 3)).toBe(3)
+		expect(portionsPerKit(null, null)).toBe(1)
 	})
 })

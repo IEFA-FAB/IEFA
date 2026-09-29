@@ -24,7 +24,30 @@
 
 begin;
 
--- ── 1. Limpeza dos absolutos em modelo global ──────────────────────────────
+-- ── 1. Porções por kit do padrão de lanche e limpeza dos absolutos globais ─
+
+-- Proporção até 1000 antes de mover as porções por kit para ela.
+alter table kitchen.menu_template_items
+	drop constraint menu_template_items_recommended_proportion_range,
+	add constraint menu_template_items_recommended_proportion_range
+	check (recommended_proportion is null or (recommended_proportion >= 0 and recommended_proportion <= 1000));
+
+alter table kitchen.menu_items
+	drop constraint menu_items_recommended_proportion_range,
+	add constraint menu_items_recommended_proportion_range
+	check (recommended_proportion is null or (recommended_proportion >= 0 and recommended_proportion <= 1000));
+
+-- Padrão de lanche (da cozinha OU global): as porções por kit moravam no pax e vão para a
+-- proporção (× 100). ANTES da limpeza abaixo, que zeraria o pax do padrão global e levaria as
+-- porções junto. Proporção já preenchida vence, como na leitura (`portionsPerKit`).
+update kitchen.menu_template_items i
+set recommended_proportion = coalesce(i.recommended_proportion, least(i.headcount_override * 100, 1000)),
+	headcount_override = null
+from kitchen.menu_template t
+where t.id = i.menu_template_id
+	and t.snack_family is not null
+	and i.headcount_override is not null;
+
 
 update kitchen.menu_template_items i
 set headcount_override = null
@@ -108,28 +131,7 @@ create trigger menu_template_event_meal_relative_only
 	before insert or update of base_headcount, menu_template_id on kitchen.menu_template_event_meal
 	for each row execute function kitchen.menu_template_meal_relative_only();
 
--- ── 3. Proporção até 1000 (porções por kit no apoio) ───────────────────────
-
-alter table kitchen.menu_template_items
-	drop constraint menu_template_items_recommended_proportion_range,
-	add constraint menu_template_items_recommended_proportion_range
-	check (recommended_proportion is null or (recommended_proportion >= 0 and recommended_proportion <= 1000));
-
-alter table kitchen.menu_items
-	drop constraint menu_items_recommended_proportion_range,
-	add constraint menu_items_recommended_proportion_range
-	check (recommended_proportion is null or (recommended_proportion >= 0 and recommended_proportion <= 1000));
-
--- Padrão de lanche: porções por kit saem do pax e vão para a proporção (× 100).
-update kitchen.menu_template_items i
-set recommended_proportion = least(i.headcount_override * 100, 1000),
-	headcount_override = null
-from kitchen.menu_template t
-where t.id = i.menu_template_id
-	and t.snack_family is not null
-	and i.headcount_override is not null;
-
--- ── 4. Apoio com refeições próprias ────────────────────────────────────────
+-- ── 3. Apoio com refeições próprias ────────────────────────────────────────
 
 create temporary table _support_meal_backfill on commit drop as
 select
@@ -164,7 +166,7 @@ where b.menu_template_id = i.menu_template_id
 	and b.meal_type_id = i.meal_type_id
 	and i.event_meal_id is null;
 
--- ── 5. Documentação ────────────────────────────────────────────────────────
+-- ── 4. Documentação ────────────────────────────────────────────────────────
 
 comment on table kitchen.menu_template_event_meal is
 	'Refeição própria de um evento (coquetel, jantar de gala…) ou de um apoio (o kit; "Refeição" e "Lanche" de um Bordo C). name = nome no cardápio; meal_type_id = horário do calendário em que é servida; groups = composição [{key,label,minItems?,maxItems?}], vazia no apoio simples.';

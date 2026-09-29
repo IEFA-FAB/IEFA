@@ -40,11 +40,13 @@ import type {
 	RemoveOriginFromDay,
 	ReplaceDayWithTemplate,
 	ReplaceMenuItemRecipe,
+	SizeOriginOnDay,
 	SubstitutionEntry,
 } from "../schemas/planning.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { brasiliaCivilDate, runQuery, toWire } from "../utils/index.ts"
+import { demandRoundingFor, resolveItemDemand } from "./demand-math.ts"
 import { applyEventTemplate } from "./templates.ts"
 
 type PlanningTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
@@ -161,6 +163,42 @@ export async function removeOriginFromDay(db: SisubDb, ctx: UserContext, input: 
 			items.map((i) => i.dailyMenuId)
 		)
 		return { removed: ids.length }
+	})
+}
+
+/**
+ * Dá porções ao que UM cardápio pôs no dia sem elas — o evento ou o apoio aplicado com "efetivo
+ * a definir". Cada preparação recebe `resolveItemDemand(efetivo, proporção)`, com o arredondamento
+ * do regime (para cima no apoio). Porção já preenchida fica.
+ */
+export async function sizeOriginOnDay(db: SisubDb, ctx: UserContext, input: SizeOriginOnDay): Promise<{ sized: number }> {
+	requireKitchen(ctx, 2, input.kitchenId)
+	const items = await activeItemsOfDay(db, input.kitchenId, input.date, input.originTemplateId)
+	if (items.length === 0) throw new DomainError("ORIGIN_NOT_ON_DAY", "Este cardápio não tem preparações neste dia.")
+	const ids = items.map((i) => i.id)
+	return db.transaction(async (tx) => {
+		const pending = await runQuery("FETCH_FAILED", () =>
+			tx
+				.select({ id: menuItemsInKitchen.id, proportion: menuItemsInKitchen.recommendedProportion, originTemplateType: menuItemsInKitchen.originTemplateType })
+				.from(menuItemsInKitchen)
+				.where(and(inArray(menuItemsInKitchen.id, ids), isNull(menuItemsInKitchen.plannedPortionQuantity)))
+				.for("update")
+		)
+		for (const item of pending) {
+			const portions = resolveItemDemand({
+				baseHeadcount: input.headcount,
+				recommendedProportion: item.proportion == null ? null : Number(item.proportion),
+				rounding: demandRoundingFor(item.originTemplateType),
+			})
+			await runQuery("UPDATE_FAILED", () =>
+				tx
+					.update(menuItemsInKitchen)
+					.set({ plannedPortionQuantity: portions })
+					.where(eq(menuItemsInKitchen.id, item.id))
+					.then(() => undefined)
+			)
+		}
+		return { sized: pending.length }
 	})
 }
 

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { useReplaceDayWithTemplate } from "@/hooks/data/usePlanningAdjustments"
 import { useApplyEventTemplate, useMenuTemplates, useTemplate } from "@/hooks/data/useTemplates"
 import { hasInvalidHeadcount, occasionHeadcountDraft, occasionHeadcountRows, occasionHeadcountsPayload } from "@/lib/apply-headcounts"
-import { ApplyHeadcountFields, HEADCOUNT_PENDING_HINT } from "./ApplyHeadcountFields"
+import { ApplyHeadcountFields, OCCASION_HEADCOUNT_PENDING_HINT } from "./ApplyHeadcountFields"
 
 /**
  * Põe um evento ou apoio NESTE dia, direto do agendamento — o evento que surgiu, a viagem que
@@ -145,7 +145,7 @@ export function DayOccasionDialog({
 								{isGlobalTemplate
 									? "Modelo global: ele só tem as proporções."
 									: `Vem ${isApoio ? "com os kits" : "com o efetivo"} do cardápio; o que mudar aqui vale só neste dia.`}{" "}
-								{HEADCOUNT_PENDING_HINT}
+								{OCCASION_HEADCOUNT_PENDING_HINT}
 							</>
 						}
 						rows={occasionHeadcountRows(occasionMeals)}

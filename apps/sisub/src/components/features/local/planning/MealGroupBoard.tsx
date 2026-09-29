@@ -13,7 +13,7 @@ import {
 } from "@dnd-kit/core"
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
+import { demandRoundingFor, MAX_RECOMMENDED_PROPORTION, resolveItemDemand } from "@iefa/sisub-domain/schemas"
 import { AlertTriangle, ArrowRightLeft, ClipboardPaste, Copy, GripVertical, Package, Percent, Plus, Users, X } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -63,10 +63,11 @@ export function demandTypeOf(item: Pick<BoardItem, "proportion" | "headcount">, 
 	return fallback
 }
 
-/** Porções que a proporção dá sobre o efetivo: % arredonda ao mais próximo; porções por kit, para cima (como o servidor). */
+/** Porções que a proporção dá sobre o efetivo, pela regra do servidor (`resolveItemDemand`). */
 function derivedDemand(baseHeadcount: number, proportion: number, mode: ProportionMode): number {
-	const exact = (baseHeadcount * proportion) / 100
-	return mode === "portionsPerKit" ? Math.ceil(exact - 1e-9) : Math.round(exact)
+	return (
+		resolveItemDemand({ baseHeadcount, recommendedProportion: proportion, rounding: demandRoundingFor(mode === "portionsPerKit" ? "apoio" : "weekly") }) ?? 0
+	)
 }
 
 /** Textos do campo por regime: comensais e % do efetivo, ou porções e porções por kit. */

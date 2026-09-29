@@ -599,6 +599,7 @@ export {
 	replaceDayWithTemplate,
 	replaceMenuItemRecipe,
 	type SubstituteOption,
+	sizeOriginOnDay,
 } from "./planning-adjustments.ts"
 export {
 	addPolicyStatement,

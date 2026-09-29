@@ -11,7 +11,7 @@
 
 import { menuTemplateEventMealInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { and, eq, inArray, notInArray } from "drizzle-orm"
-import { eventMealGroupsOrDefault, placeStoredEventItems, type StoredEventItemRef } from "../schemas/event-meal-placement.ts"
+import { DEFAULT_SUPPORT_MEAL_NAME, eventMealGroupsOrDefault, placeStoredEventItems, type StoredEventItemRef } from "../schemas/event-meal-placement.ts"
 import { DEFAULT_EVENT_MEAL_GROUPS, type OccasionMealGroup } from "../schemas/menu-groups.ts"
 import { isOccasionTemplateType, type TemplateEventMeal, type TemplateItem } from "../schemas/templates.ts"
 import { DomainError } from "../types/errors.ts"
@@ -55,8 +55,7 @@ export function fallbackGroupsFor(templateType: string | null | undefined): read
 	return templateType === "apoio" ? [] : DEFAULT_EVENT_MEAL_GROUPS
 }
 
-/** Nome da refeição que o apoio ganha quando os itens chegam sem refeição: o kit. */
-export const DEFAULT_SUPPORT_MEAL_NAME = "Kit"
+export { DEFAULT_SUPPORT_MEAL_NAME }
 
 /** Refeições dos templates, por template, na ordem do evento. */
 export async function fetchEventMeals(db: EventMealDb, templateIds: string[]): Promise<Map<string, TemplateEventMealWire[]>> {

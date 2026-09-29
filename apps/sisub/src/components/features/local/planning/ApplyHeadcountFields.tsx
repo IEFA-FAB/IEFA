@@ -7,6 +7,9 @@ import { type HeadcountRow, parseHeadcountInput } from "@/lib/apply-headcounts"
 /** Texto de ajuda comum: aplicar sem efetivo passa, e o número pode chegar depois. */
 export const HEADCOUNT_PENDING_HINT = "Sem efetivo, o dia fica com 'efetivo a definir' e as porções são calculadas quando você informar."
 
+/** Evento e apoio: o efetivo que falta se informa no próprio cardápio, em "Neste dia". */
+export const OCCASION_HEADCOUNT_PENDING_HINT = 'Sem efetivo, as preparações entram sem porções; informe o efetivo depois em "Neste dia", no cardápio aplicado.'
+
 /**
  * Campos de efetivo por refeição nos diálogos de aplicar ao calendário (semanal, evento, apoio).
  * O número vale só para esta aplicação: não é gravado de volta no cardápio.

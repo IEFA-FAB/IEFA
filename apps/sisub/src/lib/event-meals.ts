@@ -1,5 +1,6 @@
 import {
 	DEFAULT_EVENT_MEAL_GROUPS,
+	DEFAULT_SUPPORT_MEAL_NAME,
 	EVENT_MEAL_GROUP_SUGGESTIONS,
 	eventMealGroupsOrDefault,
 	MAX_EVENT_MEAL_HEADCOUNT,
@@ -47,7 +48,7 @@ export type EventMealDraft = {
 }
 
 /** Nome da refeição com que o apoio nasce — o mesmo que o servidor dá ao embrulhar itens soltos. */
-export const SUPPORT_KIT_MEAL_NAME = "Kit"
+export const SUPPORT_KIT_MEAL_NAME = DEFAULT_SUPPORT_MEAL_NAME
 
 /** Forma gravada (leitura do template). */
 type EventMealRow = { id: string; name: string; meal_type_id: string; groups: OccasionGroup[]; base_headcount?: number | null }

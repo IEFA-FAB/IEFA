@@ -19,6 +19,8 @@ import {
 	removeOriginFromDay,
 	replaceDayWithTemplate,
 	replaceMenuItemRecipe,
+	SizeOriginOnDaySchema,
+	sizeOriginOnDay,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
@@ -37,6 +39,13 @@ export const moveOriginToDateFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return moveOriginToDate(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const sizeOriginOnDayFn = createServerFn({ method: "POST" })
+	.validator(SizeOriginOnDaySchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return sizeOriginOnDay(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const replaceDayWithTemplateFn = createServerFn({ method: "POST" })

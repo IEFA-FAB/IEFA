@@ -238,8 +238,8 @@ export type SnackStandardEnergyDetail = {
  * não depender da ordem entre deploy e migration.
  */
 export function portionsPerKit(proportion: number | string | null, legacyPortions: number | null): number {
-	const fromProportion = proportion != null ? Number(proportion) / 100 : null
-	if (fromProportion != null && fromProportion > 0) return fromProportion
+	// Proporção 0 é "nenhuma porção por kit" (a preparação saiu do kit), como no calendário.
+	if (proportion != null) return Math.max(0, Number(proportion) / 100)
 	return legacyPortions != null && legacyPortions > 0 ? legacyPortions : 1
 }
 
@@ -1286,7 +1286,10 @@ async function addToProduction(tx: Tx, request: LockedRequest, lines: (typeof sn
 			})
 		}
 	}
-	const rows = [...byKey.values()].map(({ exactPortions, ...row }) => ({ ...row, plannedPortionQuantity: Math.ceil(exactPortions - 1e-9) }))
+	// Preparação com 0 porção por kit não vai para a produção.
+	const rows = [...byKey.values()]
+		.filter(({ exactPortions }) => exactPortions > 0)
+		.map(({ exactPortions, ...row }) => ({ ...row, plannedPortionQuantity: Math.ceil(exactPortions - 1e-9) }))
 	if (rows.length === 0) return
 
 	const inserted = await runQuery("INSERT_ITEMS_FAILED", () => tx.insert(menuItemsInKitchen).values(rows).returning({ id: menuItemsInKitchen.id }))

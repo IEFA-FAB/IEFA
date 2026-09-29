@@ -22,6 +22,7 @@ import {
 	restoreMenuItem,
 	restoreTemplate,
 	saveTemplateEdit,
+	sizeOriginOnDay,
 	updateHeadcount,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
@@ -1024,7 +1025,17 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		await applyEventTemplate(db, ctx, { templateId: tpl.id, kitchenId, dates: [date], headcounts: [{ occasionMealId: kitId, headcount: 3 }] })
 		const [day] = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as { menu_items: { planned_portion_quantity: number | string | null }[] }[]
 		expect((day?.menu_items ?? []).map((m) => Number(m.planned_portion_quantity)).sort((a, b) => a - b)).toEqual([2, 6])
-	}, 30_000)
+
+		// Aplicado sem kits noutro dia: sem porções até informar os kits em "Neste dia".
+		const pending = "2099-04-08"
+		await applyEventTemplate(db, ctx, { templateId: tpl.id, kitchenId, dates: [pending], headcounts: [{ occasionMealId: kitId, headcount: null }] })
+		type Day = { menu_items: { planned_portion_quantity: number | string | null }[] }
+		const [before] = (await fetchDayDetails(db, ctx, { kitchenId, date: pending })) as unknown as Day[]
+		expect((before?.menu_items ?? []).map((m) => m.planned_portion_quantity)).toEqual([null, null])
+		expect(await sizeOriginOnDay(db, ctx, { kitchenId, date: pending, originTemplateId: tpl.id, headcount: 3 })).toEqual({ sized: 2 })
+		const [after] = (await fetchDayDetails(db, ctx, { kitchenId, date: pending })) as unknown as Day[]
+		expect((after?.menu_items ?? []).map((m) => Number(m.planned_portion_quantity)).sort((a, b) => a - b)).toEqual([2, 6])
+	}, 45_000)
 
 	test("banco recusa quantidade absoluta em modelo global, mesmo por fora do domínio", async () => {
 		if (!reachable || !seeder) return

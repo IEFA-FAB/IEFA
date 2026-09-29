@@ -11,6 +11,9 @@
 
 import { DEFAULT_EVENT_MEAL_GROUPS, type OccasionMealGroup } from "./menu-groups.ts"
 
+/** Nome da refeição que o apoio ganha quando os itens chegam sem refeição: o kit. Servidor e editor usam este. */
+export const DEFAULT_SUPPORT_MEAL_NAME = "Kit"
+
 /** O que a regra lê de uma refeição do evento. */
 export type PlaceableEventMeal = { id: string; mealTypeId: string; groups: readonly { key: string }[] }
 

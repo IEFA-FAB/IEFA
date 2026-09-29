@@ -627,7 +627,8 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	}
 
 	const namePlaceholder = copy.namePlaceholder.split(",")[0]
-	const openNewMeal = () => setMealDialog({ meal: newEventMeal("", "", templateType), isNew: true, open: true })
+	// Padrão de lanche: a refeição nova nasce no horário de sistema (o diálogo trava o horário e não oferece outro).
+	const openNewMeal = () => setMealDialog({ meal: newEventMeal("", isSnackStandard ? (snackMealType?.id ?? "") : "", templateType), isNew: true, open: true })
 	/** Ligar o padrão de lanche leva as refeições para o horário de sistema, como o servidor fará. */
 	const handleSnackChange = (value: SnackStandardDraft) => {
 		dispatch({ type: "SET_SNACK", value })

@@ -230,7 +230,10 @@ export function buildSnackProductionSummary(requests: SnackSummaryRequest[]): Sn
 	}
 
 	// Porção por kit pode ser meia: a soma é exata e o total arredonda para cima, como na produção.
-	for (const row of recipes.values()) row.portions = Math.ceil(row.portions - 1e-9)
+	for (const [id, row] of recipes) {
+		row.portions = Math.ceil(row.portions - 1e-9)
+		if (row.portions <= 0) recipes.delete(id)
+	}
 
 	return {
 		standards: [...standards.values()].sort(

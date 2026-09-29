@@ -1,3 +1,5 @@
+// Regra da demanda (pura, sem banco): o editor mostra "= N" pela MESMA conta que o servidor grava.
+export { type DemandRounding, demandRoundingFor, resolveItemDemand } from "../operations/demand-math.ts"
 export type { AssuranceLevel, ListSensitiveOperations, RecordSensitiveOperation } from "./audit.ts"
 export {
 	AssuranceLevelSchema,
@@ -154,7 +156,7 @@ export {
 export type { SubmitEvaluation, UpsertEvalConfig } from "./evaluation.ts"
 export { SubmitEvaluationSchema, UpsertEvalConfigSchema } from "./evaluation.ts"
 export type { EventItemPlacement, PlaceableEventMeal, RebuiltEventMeal, StoredEventItemRef } from "./event-meal-placement.ts"
-export { eventMealGroupsOrDefault, placeStoredEventItems } from "./event-meal-placement.ts"
+export { DEFAULT_SUPPORT_MEAL_NAME, eventMealGroupsOrDefault, placeStoredEventItems } from "./event-meal-placement.ts"
 export type {
 	AddExecutionMenuItem,
 	FetchExecutionOptions,
@@ -405,6 +407,7 @@ export type {
 	ReplaceDayWithTemplate,
 	ReplaceMenuItemRecipe,
 	RestoreMenuItem,
+	SizeOriginOnDay,
 	SubstitutionEntry,
 	UpdateHeadcount,
 	UpdateMenuItem,
@@ -425,6 +428,7 @@ export {
 	ReplaceDayWithTemplateSchema,
 	ReplaceMenuItemRecipeSchema,
 	RestoreMenuItemSchema,
+	SizeOriginOnDaySchema,
 	SubstitutionEntrySchema,
 	UpdateHeadcountSchema,
 	UpdateMenuItemSchema,

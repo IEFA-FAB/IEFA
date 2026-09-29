@@ -13,6 +13,7 @@ import type { Tables } from "@iefa/database/sisub"
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm"
 import { requireKitchen } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenu, resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
+import { MAX_RECOMMENDED_PROPORTION } from "../schemas/common.ts"
 import type { FetchDailyMenuContent } from "../schemas/meal-ops.ts"
 import { DEFAULT_GROUP_SET_SLUG } from "../schemas/menu-groups.ts"
 import type {
@@ -30,7 +31,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { mutateOrFail, runQuery, toWire } from "../utils/index.ts"
-import { resolveItemDemand } from "./demand-math.ts"
+import { demandRoundingFor, resolveItemDemand } from "./demand-math.ts"
 import { assertItemGroupsInSet } from "./menu-groups.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
@@ -208,6 +209,8 @@ export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuI
 	// Snapshot da receita gravado em JSON no contrato snake_case (idêntico ao PostgREST).
 	const recipeSnapshot = toWire<Record<string, unknown>>(recipe, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
 
+	// Item incluído à mão no dia não é de apoio: "% do efetivo", teto de 300.
+	assertDayProportionCap(null, input.recommendedProportion ?? null)
 	const itemGroup = input.itemGroup ?? null
 	// O CHECK de item_group saiu do banco e `add_menu_item` é tool de MCP: sem isto
 	// o modelo grava uma chave que nenhum conjunto tem e o item nasce órfão.
@@ -248,11 +251,13 @@ export async function updateMenuItem(db: SisubDb, ctx: UserContext, input: Updat
 	if (input.excludedFromProcurement != null) updates.excludedFromProcurement = input.excludedFromProcurement
 	if (input.recommendedProportion !== undefined) {
 		updates.recommendedProportion = input.recommendedProportion ?? null
+		const current = await fetchItemSizing(db, input.menuItemId)
+		assertDayProportionCap(current?.originTemplateType ?? null, input.recommendedProportion ?? null)
 		// A proporção é o que dimensiona o item; as porções planejadas são o que produção,
 		// baixa e compra usam. Mudar uma sem a outra deixava 150% gravado e 120 porções na
 		// cozinha. Recalcula se as porções ainda são as derivadas da proporção antiga.
-		if (input.plannedPortionQuantity == null) {
-			const next = await portionsForNewProportion(db, input.menuItemId, input.recommendedProportion ?? null)
+		if (input.plannedPortionQuantity == null && current) {
+			const next = portionsForNewProportion(current, input.recommendedProportion ?? null)
 			if (next != null) updates.plannedPortionQuantity = next
 		}
 	}
@@ -275,24 +280,56 @@ export async function updateMenuItem(db: SisubDb, ctx: UserContext, input: Updat
 	return updated.map((row) => toWire<MenuItem>(row))
 }
 
-/** Porções do item quando a proporção muda — `null` se foram ajustadas à mão ou não há efetivo. */
-async function portionsForNewProportion(db: SisubDb, menuItemId: string, newProportion: number | null): Promise<number | null> {
+type ItemSizing = { planned: number | null; proportion: number | null; headcount: number | null; originTemplateType: string | null }
+
+async function fetchItemSizing(db: SisubDb, menuItemId: string): Promise<ItemSizing | null> {
 	const [row] = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
 				planned: menuItemsInKitchen.plannedPortionQuantity,
 				proportion: menuItemsInKitchen.recommendedProportion,
 				headcount: dailyMenuInKitchen.forecastedHeadcount,
+				originTemplateType: menuItemsInKitchen.originTemplateType,
 			})
 			.from(menuItemsInKitchen)
 			.innerJoin(dailyMenuInKitchen, eq(menuItemsInKitchen.dailyMenuId, dailyMenuInKitchen.id))
 			.where(eq(menuItemsInKitchen.id, menuItemId))
 	)
-	if (!row || row.headcount == null) return null
-	const derivedOld = resolveItemDemand({ baseHeadcount: row.headcount, recommendedProportion: row.proportion == null ? null : Number(row.proportion) })
-	const planned = row.planned == null ? null : Number(row.planned)
-	if (planned != null && planned !== derivedOld) return null
-	return resolveItemDemand({ baseHeadcount: row.headcount, recommendedProportion: newProportion })
+	if (!row) return null
+	return {
+		planned: row.planned == null ? null : Number(row.planned),
+		proportion: row.proportion == null ? null : Number(row.proportion),
+		headcount: row.headcount,
+		originTemplateType: row.originTemplateType,
+	}
+}
+
+/**
+ * Teto da proporção no item do dia: o esquema aceita até 1000 porque no apoio ela é porções por
+ * kit; nos demais itens ela é "% do efetivo" e o teto continua 300.
+ */
+function assertDayProportionCap(originTemplateType: string | null, proportion: number | null): void {
+	if (originTemplateType === "apoio" || proportion == null || proportion <= MAX_RECOMMENDED_PROPORTION) return
+	throw new DomainError("RECOMMENDED_PROPORTION_ABOVE_CAP", `Proporção de ${proportion}% passa do teto de ${MAX_RECOMMENDED_PROPORTION}% do efetivo.`)
+}
+
+/**
+ * Porções do item quando a proporção muda — `null` se foram ajustadas à mão ou não há base.
+ *
+ * Item de evento ou apoio não mede pelo efetivo da rotina daquele horário: a base dele é a
+ * refeição do evento (ou os kits), que o item do dia não guarda. Ela é recuperada das próprias
+ * porções (240 porções a 60% = base 400); sem porções, não há base e nada muda.
+ */
+export function portionsForNewProportion(item: ItemSizing, newProportion: number | null): number | null {
+	if (item.originTemplateType === "event" || item.originTemplateType === "apoio") {
+		if (item.planned == null || item.proportion == null || item.proportion <= 0 || newProportion == null) return null
+		const base = Math.round((item.planned * 100) / item.proportion)
+		return resolveItemDemand({ baseHeadcount: base, recommendedProportion: newProportion, rounding: demandRoundingFor(item.originTemplateType) })
+	}
+	if (item.headcount == null) return null
+	const derivedOld = resolveItemDemand({ baseHeadcount: item.headcount, recommendedProportion: item.proportion })
+	if (item.planned != null && item.planned !== derivedOld) return null
+	return resolveItemDemand({ baseHeadcount: item.headcount, recommendedProportion: newProportion })
 }
 
 export async function removeMenuItem(db: SisubDb, ctx: UserContext, input: RemoveMenuItem): Promise<void> {
@@ -400,34 +437,25 @@ export async function updateHeadcount(db: SisubDb, ctx: UserContext, input: Upda
 		const oldHeadcount = before?.forecastedHeadcount ?? null
 		// Efetivo que chega depois (dia aplicado com "efetivo a definir", típico do modelo global):
 		// calcula a porção de quem ainda não tem, pela proporção. Porção já preenchida fica.
+		// Um UPDATE só, pela regra de `portionsForArrivingHeadcount` (round do "% do efetivo"; item
+		// de evento/apoio fica: ele mede pela refeição dele, não pela rotina).
 		if (oldHeadcount == null && input.forecastedHeadcount != null) {
-			const pending = await runQuery("FETCH_FAILED", () =>
+			await runQuery("UPDATE_FAILED", () =>
 				tx
-					.select({
-						id: menuItemsInKitchen.id,
-						proportion: menuItemsInKitchen.recommendedProportion,
-						originTemplateType: menuItemsInKitchen.originTemplateType,
+					.update(menuItemsInKitchen)
+					.set({
+						plannedPortionQuantity: sql`round(${input.forecastedHeadcount}::numeric * coalesce(${menuItemsInKitchen.recommendedProportion}, 100) / 100)`,
 					})
-					.from(menuItemsInKitchen)
 					.where(
-						and(eq(menuItemsInKitchen.dailyMenuId, input.dailyMenuId), isNull(menuItemsInKitchen.deletedAt), isNull(menuItemsInKitchen.plannedPortionQuantity))
+						and(
+							eq(menuItemsInKitchen.dailyMenuId, input.dailyMenuId),
+							isNull(menuItemsInKitchen.deletedAt),
+							isNull(menuItemsInKitchen.plannedPortionQuantity),
+							sql`coalesce(${menuItemsInKitchen.originTemplateType}, '') not in ('event', 'apoio')`
+						)
 					)
+					.then(() => undefined)
 			)
-			for (const item of pending) {
-				const next = portionsForArrivingHeadcount({
-					proportion: item.proportion == null ? null : Number(item.proportion),
-					originTemplateType: item.originTemplateType,
-					headcount: input.forecastedHeadcount,
-				})
-				if (next == null) continue
-				await runQuery("UPDATE_FAILED", () =>
-					tx
-						.update(menuItemsInKitchen)
-						.set({ plannedPortionQuantity: next })
-						.where(eq(menuItemsInKitchen.id, item.id))
-						.then(() => undefined)
-				)
-			}
 		}
 		if (oldHeadcount != null && oldHeadcount !== input.forecastedHeadcount) {
 			const items = await runQuery("FETCH_FAILED", () =>
@@ -436,11 +464,14 @@ export async function updateHeadcount(db: SisubDb, ctx: UserContext, input: Upda
 						id: menuItemsInKitchen.id,
 						planned: menuItemsInKitchen.plannedPortionQuantity,
 						proportion: menuItemsInKitchen.recommendedProportion,
+						originTemplateType: menuItemsInKitchen.originTemplateType,
 					})
 					.from(menuItemsInKitchen)
 					.where(and(eq(menuItemsInKitchen.dailyMenuId, input.dailyMenuId), isNull(menuItemsInKitchen.deletedAt)))
 			)
 			for (const item of items) {
+				// Item de evento ou apoio não segue o efetivo da rotina (ver `portionsForArrivingHeadcount`).
+				if (item.originTemplateType === "event" || item.originTemplateType === "apoio") continue
 				const next = rescaledPortions({
 					planned: item.planned == null ? null : Number(item.planned),
 					proportion: item.proportion == null ? null : Number(item.proportion),
