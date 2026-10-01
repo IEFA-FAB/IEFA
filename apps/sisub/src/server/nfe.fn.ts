@@ -16,6 +16,7 @@ import { matchNfeItem, type NfeMatchCandidates, parseNfeAccessKey } from "@iefa/
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -250,13 +251,23 @@ export const uploadNfeFn = createServerFn({ method: "POST" })
 			headers: { "Content-Type": "application/xml", "x-admin-secret": process.env.ADMIN_SECRET ?? "" },
 			body: data.xml,
 		})
-		const body = (await res.json().catch(() => ({}))) as { document_id?: string; error?: string; items_count?: number }
+		const body = (await res.json().catch(() => ({}))) as {
+			document_id?: string
+			error?: string
+			items_count?: number
+			kitchen_id?: number | null
+			unit_id?: number | null
+		}
 		if (res.status === 409) throw new Error(body.error ?? "NF-e já importada")
 		if (res.status === 422) throw new Error(body.error ?? "XML inválido")
 		if (!res.ok || !body.document_id) throw new Error(body.error ?? `API retornou ${res.status}`)
 
 		const matching = await runMatchingForDocument(body.document_id)
-		return { documentId: body.document_id, itemsCount: body.items_count ?? 0, matching }
+		// O destinatário do XML é de OUTRA unidade que não a de compra desta cozinha: a API grava a
+		// nota sem cozinha, na triagem da unidade certa, e a tela avisa para onde ela foi — em vez
+		// de deixar a cozinha que enviou receber (e liquidar) a mercadoria de outra OM.
+		const routedToOtherUnit = data.kitchenId != null && body.kitchen_id === null
+		return { documentId: body.document_id, itemsCount: body.items_count ?? 0, matching, routedToOtherUnit }
 	})
 
 /** Unidade COMPRADORA da cozinha — é o CNPJ dela que aparece na nota. */
@@ -293,8 +304,13 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 			// Nota já conhecida. As mesmas travas de `claimNfeForKitchenFn`: sem elas, ler a chave
 			// de uma nota de OUTRA unidade (ela está impressa no DANFE) bastava para assumi-la, e
 			// a nota de outra cozinha devolvia o id dela a quem não pode abri-la.
-			if (existing.kitchen_id != null && Number(existing.kitchen_id) !== data.kitchenId) throw new Error("NF-e já pertence a outra cozinha")
-			if (existing.unit_id != null && unitId != null && Number(existing.unit_id) !== unitId) throw new Error("NF-e endereçada a outra unidade")
+			const problem = nfeOwnershipProblem({
+				docKitchenId: existing.kitchen_id != null ? Number(existing.kitchen_id) : null,
+				docUnitId: existing.unit_id != null ? Number(existing.unit_id) : null,
+				kitchenId: data.kitchenId,
+				kitchenPurchaseUnitId: unitId,
+			})
+			if (problem) throw new Error(problem)
 			// Sem dono: assume para esta cozinha. `is(kitchen_id, null)` fecha a corrida com outra
 			// cozinha assumindo ao mesmo tempo — desde que se confira que ESTE update pegou a linha:
 			// quem perde a corrida atualiza zero linhas, e sem a conferência receberia o id da nota
@@ -305,9 +321,11 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 					.update({ kitchen_id: data.kitchenId })
 					.eq("id", existing.id)
 					.is("kitchen_id", null)
+					.eq("unit_id", Number(existing.unit_id))
 					.select("id")
 				if (error) throw new Error(`Erro ao assumir a nota: ${error.message}`)
-				if (!claimed || claimed.length === 0) throw new Error("NF-e já pertence a outra cozinha")
+				if (!claimed || claimed.length === 0)
+					throw new Error("A nota mudou enquanto era registrada (outra cozinha a assumiu ou a triagem mudou a unidade) — recarregue a lista")
 			}
 			return { nfeDocumentId: existing.id as string, created: false, status: existing.status as string }
 		}
@@ -368,18 +386,35 @@ export const claimNfeForKitchenFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(2, data.kitchenId)
 		const inv = inventory()
-		const { data: doc } = await inv.from("nfe_document").select("id, kitchen_id, unit_id").eq("id", data.nfeDocumentId).maybeSingle()
+		const { data: doc, error: docError } = await inv.from("nfe_document").select("id, kitchen_id, unit_id").eq("id", data.nfeDocumentId).maybeSingle()
+		if (docError) throw new Error(`Erro ao carregar a nota: ${docError.message}`)
 		if (!doc) throw new Error("NF-e não encontrada")
-		if (doc.kitchen_id != null && Number(doc.kitchen_id) !== data.kitchenId) throw new Error("NF-e já pertence a outra cozinha")
+		if (doc.kitchen_id != null && Number(doc.kitchen_id) === data.kitchenId) return { claimed: true }
 
-		const unitId = await purchaseUnitIdForKitchen(data.kitchenId)
-		// a nota é da UNIDADE: cozinha de outra unidade não pode assumi-la
-		if (doc.unit_id != null && unitId != null && Number(doc.unit_id) !== unitId) {
-			throw new Error("NF-e endereçada a outra unidade")
-		}
+		// A nota é da UNIDADE: cozinha de outra unidade não a assume, e nota sem unidade (triagem
+		// global, destinatário não reconhecido) não é de cozinha nenhuma até a triagem atribuí-la.
+		// Antes, `unit_id` nulo passava direto e qualquer cozinha tomava a nota da triagem.
+		const problem = nfeOwnershipProblem({
+			docKitchenId: doc.kitchen_id != null ? Number(doc.kitchen_id) : null,
+			docUnitId: doc.unit_id != null ? Number(doc.unit_id) : null,
+			kitchenId: data.kitchenId,
+			kitchenPurchaseUnitId: await purchaseUnitIdForKitchen(data.kitchenId),
+		})
+		if (problem) throw new Error(problem)
 
-		const { error } = await inv.from("nfe_document").update({ kitchen_id: data.kitchenId }).eq("id", data.nfeDocumentId)
+		// `is(kitchen_id, null)` + conferir que ESTE update pegou a linha: duas cozinhas da mesma
+		// unidade assumindo ao mesmo tempo passavam as duas na leitura, e a segunda tomava a nota
+		// da primeira. Quem perde a corrida atualiza zero linhas.
+		const { data: claimed, error } = await inv
+			.from("nfe_document")
+			.update({ kitchen_id: data.kitchenId })
+			.eq("id", data.nfeDocumentId)
+			.is("kitchen_id", null)
+			.eq("unit_id", Number(doc.unit_id))
+			.select("id")
 		if (error) throw new Error(`Erro ao assumir a nota: ${error.message}`)
+		if (!claimed || claimed.length === 0)
+			throw new Error("A nota mudou enquanto você a assumia (outra cozinha a assumiu ou a triagem mudou a unidade) — recarregue a lista")
 		return { claimed: true }
 	})
 
