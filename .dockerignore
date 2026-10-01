@@ -32,9 +32,13 @@ Thumbs.db
 *.log
 
 # === Env (secrets) ===
-.env
-.env.*
-!.env.example
+# `**/` porque sem ele o padrão só casa na raiz do contexto: o `.env.local` de um app
+# (apps/<app>/.env.local) entrava no `COPY . .` e ia parar numa camada da imagem.
+# Os .example/.schema são versionados e sem segredo; continuam no contexto como antes.
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.schema
 
 # === Docker (não copiar para dentro do próprio build) ===
 Dockerfile*

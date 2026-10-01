@@ -35,7 +35,7 @@ on:
         value: ${{ jobs.build.outputs.tag }}
     secrets:
       FARO_SOURCEMAP_API_KEY:
-        description: "Faro sourcemap upload key — injetado como build arg <service>.args.FARO_SOURCEMAP_API_KEY quando presente"
+        description: "Faro sourcemap upload key — vai ao build como secret do BuildKit (id FARO_SOURCEMAP_API_KEY), montado só no RUN de build do target que o declara no docker-bake.hcl"
         required: false
 
 permissions:
@@ -111,6 +111,12 @@ jobs:
         uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
         env: &bake-env
           IMAGE_REPO: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}
+          # Secret de build, nunca build arg: o `secret = ["id=…,env=…"]` do target no
+          # docker-bake.hcl lê esta variável e o Dockerfile a monta só no RUN de build
+          # (`--mount=type=secret`). Build arg ficava no histórico da imagem, na chave
+          # de cache (gha, mode=max) e na proveniência. Target que não declara o secret
+          # não o recebe.
+          FARO_SOURCEMAP_API_KEY: ${{ secrets.FARO_SOURCEMAP_API_KEY }}
         with: &bake-with
           files: ./docker-bake.hcl
           targets: ${{ inputs.service }}
@@ -123,7 +129,6 @@ jobs:
             ${{ steps.latest.outputs.move != 'false' && format('{0}.tags={1}:latest', inputs.service, env.IMAGE_REPO) || '' }}
             ${{ inputs.service }}.labels.org.opencontainers.image.revision=${{ github.sha }}
             ${{ inputs.bake_set }}
-            ${{ secrets.FARO_SOURCEMAP_API_KEY && format('{0}.args.FARO_SOURCEMAP_API_KEY={1}', inputs.service, secrets.FARO_SOURCEMAP_API_KEY) || '' }}
 
       - name: Build and push (retry)
         if: steps.bake.outcome == 'failure'

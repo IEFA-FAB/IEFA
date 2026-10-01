@@ -69,17 +69,13 @@
       "path": "apps/sisub",
       "kind": "nitro",
       "port": 3000,
-      "buildArgs": [
-        "VITE_SISUB_SUPABASE_URL",
-        "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
-        "VITE_FARO_COLLECTOR_URL",
-        "VITE_FARO_APP_NAME",
-        "VITE_FARO_ENVIRONMENT",
-        "FARO_SOURCEMAP_API_KEY"
-      ],
+      "buildArgs": ["VITE_SISUB_SUPABASE_URL", "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY", "VITE_FARO_COLLECTOR_URL", "VITE_FARO_APP_NAME", "VITE_FARO_ENVIRONMENT"],
+      "buildSecrets": ["FARO_SOURCEMAP_API_KEY"],
       "buildArgComments": {
-        "VITE_FARO_COLLECTOR_URL": "Observability — Faro frontend (baked no bundle do cliente em build-time).\nVazio → faro.client.ts vira no-op silencioso. Não persiste na imagem runtime\n(o estágio de runtime é um FROM separado, não herda estes ARG).",
-        "FARO_SOURCEMAP_API_KEY": "Faro sourcemap upload — secret, consumido SÓ pelo vite.config.ts durante o build\n(loadEnv lê este ARG como env). Vazio → build não gera/envia maps. Não vai pra\nimagem runtime nem pro bundle do cliente."
+        "VITE_FARO_COLLECTOR_URL": "Observability — Faro frontend (baked no bundle do cliente em build-time).\nVazio → faro.client.ts vira no-op silencioso. Não persiste na imagem runtime\n(o estágio de runtime é um FROM separado, não herda estes ARG)."
+      },
+      "buildSecretComments": {
+        "FARO_SOURCEMAP_API_KEY": "Faro sourcemap upload — secret do BuildKit, montado como env SÓ neste RUN e lido pelo\nvite.config.ts (loadEnv). Ausente → build não gera/envia maps. Não fica em ARG,\ncamada, cache nem na imagem runtime."
       }
     },
     {

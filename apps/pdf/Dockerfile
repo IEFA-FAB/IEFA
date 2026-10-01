@@ -18,7 +18,9 @@
 #   3. OCR em português e inglês, também local, pelo mesmo motivo.
 # =============================================================================
 
-ARG NODE_IMAGE=public.ecr.aws/docker/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+# Node 24 (LTS) nos estágios de build: o upstream usa 20, que saiu de suporte em
+# 2026-04. Só roda no build (npm ci + vite); a imagem final é nginx.
+ARG NODE_IMAGE=public.ecr.aws/docker/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
 # As duas imagens vêm do ECR Public, que continua servindo um digest depois que a tag anda.
 # O quay.io responde 404 para manifesto sem tag, e a `alpine-slim` é reconstruída a cada
 # poucos dias: o pin antigo (quay.io, 123fb728…) sumiu em 2026-09-28 e derrubou o build.
@@ -124,24 +126,41 @@ LABEL org.opencontainers.image.source="https://github.com/IEFA-FAB/IEFA" \
 USER root
 RUN apk upgrade --no-cache
 
-COPY --chown=nginx:nginx --from=build /app/dist /usr/share/nginx/html
-COPY --chown=nginx:nginx --from=wasm /wasm /usr/share/nginx/html/wasm
-COPY --chown=nginx:nginx --from=source /src/nginx.conf /etc/nginx/nginx.conf
-COPY --chown=nginx:nginx --from=build /app/security-headers.conf /etc/nginx/security-headers.conf
-COPY --chown=nginx:nginx --from=build /app/security-headers-docs.conf /etc/nginx/security-headers-docs.conf
-COPY --chown=nginx:nginx --chmod=755 --from=source /src/nginx-ipv6.sh /docker-entrypoint.d/99-disable-ipv6.sh
+# Config e webroot ficam com dono root e sem escrita para o grupo: o processo nginx
+# (usuário `nginx`) lê, mas não reescreve o que serve nem a própria config. A imagem
+# base deixa /etc/nginx inteiro com dono nginx e g+w; o chown/chmod abaixo desfaz isso,
+# porque com o DIRETÓRIO gravável o nginx poderia apagar e recriar até um arquivo de
+# root. Só /etc/nginx/tmp (pid) continua do nginx. O webroot já chega como root pelo
+# COPY (um chown -R nele duplicaria a camada de WASM); o `find` no fim confere os dois.
+COPY --chown=root:root --from=build /app/dist /usr/share/nginx/html
+COPY --chown=root:root --from=wasm /wasm /usr/share/nginx/html/wasm
+COPY --chown=root:root --chmod=0644 --from=source /src/nginx.conf /etc/nginx/nginx.conf
+COPY --chown=root:root --chmod=0644 --from=build /app/security-headers.conf /etc/nginx/security-headers.conf
+COPY --chown=root:root --chmod=0644 --from=build /app/security-headers-docs.conf /etc/nginx/security-headers-docs.conf
 
+# O `nginx-ipv6.sh` do upstream desliga o listener IPv6 com `sed -i` na nginx.conf a
+# cada start, o que exige a config gravável pelo nginx. Aqui isso vira passo de build
+# (a mesma expressão do script), e a porta fica fixa em 8080: é a da task definition.
 # HSTS: o ALB termina o TLS mas não injeta header, e o upstream não o envia
 # (serve também HTTP puro). Os apps SSR do monorepo mandam o mesmo valor.
 # /health: alvo do health check do ALB — arquivo estático, sem tocar em WASM.
-RUN printf 'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;\n' \
+RUN sed -i '/^[[:space:]]*listen[[:space:]]*\[::\]:[0-9]*/s/^/#/' /etc/nginx/nginx.conf \
+    && if grep -Eq '^[[:space:]]*listen[[:space:]]*\[::\]' /etc/nginx/nginx.conf; then \
+         echo "❌ listener IPv6 ainda ativo na nginx.conf"; exit 1; \
+       fi \
+    && printf 'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;\n' \
       | tee -a /etc/nginx/security-headers.conf >> /etc/nginx/security-headers-docs.conf \
     && printf 'ok\n' > /usr/share/nginx/html/health \
+    && chown -R root:root /etc/nginx \
+    && chmod -R u=rwX,go=rX /etc/nginx \
+    && chown root:root /usr/share/nginx/html \
+    && chmod 0755 /usr/share/nginx/html \
     && mkdir -p /etc/nginx/tmp \
-    && chown nginx:nginx /usr/share/nginx/html/health /etc/nginx/tmp
+    && chown nginx:nginx /etc/nginx/tmp \
+    && writable="$(find /etc/nginx /usr/share/nginx/html -path /etc/nginx/tmp -prune -o \
+         ! -type l \( ! -user root -o -perm -g+w -o -perm -o+w \) -print)" \
+    && if [ -n "$writable" ]; then echo "❌ gravável pelo nginx:"; echo "$writable"; exit 1; fi
 USER nginx
 
-ENV PORT=8080 \
-    DISABLE_IPV6=true
 EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]

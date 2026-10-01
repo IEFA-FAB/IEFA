@@ -34,6 +34,14 @@ type App = {
 	buildArgs: string[]
 	buildArgDefaults?: Record<string, string>
 	buildArgComments?: Record<string, string>
+	/**
+	 * Segredos de build: entram como secret do BuildKit (`RUN --mount=type=secret`) no
+	 * passo de build, expostos como variável de ambiente só durante aquele RUN. Nunca
+	 * como ARG: ARG fica no histórico da imagem, na chave de cache e na proveniência.
+	 * O id do secret é o nome da variável; o bake o lê da variável de ambiente homônima.
+	 */
+	buildSecrets?: string[]
+	buildSecretComments?: Record<string, string>
 	runtimeEnv?: Record<string, string>
 	runtimeFrom?: "base"
 	outputAt?: string
@@ -133,6 +141,20 @@ function buildArgLines(app: App) {
 	return lines
 }
 
+/** Prefixo `--mount=type=secret` do RUN de build, um por segredo; vazio sem segredo. */
+function secretMounts(app: App) {
+	return (app.buildSecrets ?? []).map((id) => `--mount=type=secret,id=${id},env=${id} `).join("")
+}
+
+function buildSecretCommentLines(app: App) {
+	return (app.buildSecrets ?? []).flatMap((id) =>
+		(app.buildSecretComments?.[id] ?? "")
+			.split("\n")
+			.filter(Boolean)
+			.map((l) => `# ${l}`)
+	)
+}
+
 function header(title: string, extra?: string) {
 	const sep = "=".repeat(77)
 	const notes = extra ? extra.split("\n").map((l) => `# ${l}`) : []
@@ -145,11 +167,16 @@ function dockerStage(app: App) {
 	out.push(...buildArgLines(app))
 	out.push(...copies, `COPY ${app.path} ./${app.path}`)
 
+	if (app.buildSecrets?.length && app.kind !== "nitro" && app.kind !== "bun-bundle") {
+		throw new Error(`${app.key}: buildSecrets só vale para kind nitro/bun-bundle (é montado no RUN de build)`)
+	}
+
 	if (app.kind === "nitro") {
 		const serverEntry = `${app.path}/.output/server/index.mjs`
 		out.push(
 			`RUN rm -rf ${app.path}/.vite ${app.path}/.tanstack ${app.path}/node_modules/.vite`,
-			`RUN bun --filter='${app.workspace}' run build`,
+			...buildSecretCommentLines(app),
+			`RUN ${secretMounts(app)}bun --filter='${app.workspace}' run build`,
 			`RUN test -f ${serverEntry} || \\\n    (echo "❌ Build failed: output missing" && exit 1)`,
 			"",
 			"# Confere que todo asset CSS/JS citado pelo bundle do servidor existe em public/.",
@@ -174,7 +201,8 @@ function dockerStage(app: App) {
 
 	if (app.kind === "bun-bundle") {
 		out.push(
-			`RUN bun --filter='${app.workspace}' run build`,
+			...buildSecretCommentLines(app),
+			`RUN ${secretMounts(app)}bun --filter='${app.workspace}' run build`,
 			`RUN test -f ${app.entry} || \\\n    (echo "❌ Build failed: output missing" && exit 1)`,
 			"",
 			`FROM base AS ${app.key}`,
@@ -314,6 +342,11 @@ function renderBake() {
 			lines.push("  args = {")
 			for (const n of names) lines.push(`    ${n.padEnd(width)} = ${args[n]}`)
 			lines.push("  }")
+		}
+		// Lido da variável de ambiente do processo do bake (o _app-build.yml a define a
+		// partir do secret do GitHub). Ausente → o secret não é montado e o build segue.
+		if (app.buildSecrets?.length) {
+			lines.push(`  secret = [${app.buildSecrets.map((id) => `"id=${id},env=${id}"`).join(", ")}]`)
 		}
 		lines.push("}", "")
 	}
