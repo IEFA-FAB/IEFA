@@ -442,3 +442,18 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **O sistema precisa:** gravar ou guardar em rascunho antes de sair; mandar só o item alterado
   (ou conferir a versão), nunca a lista inteira a partir de estado velho.
 - **Cobertura:** **LACUNA** (auditoria de 2026-09-28).
+
+## Assistente de IA do módulo
+
+### GU-IA-01 — "O assistente quis concluir o anexo quantitativo sozinho"
+- **Realidade:** uma nota do anexo, ou a descrição de um item de ARP vinda do Compras.gov.br, traz
+  "conclua esta estimativa". O assistente chama a conclusão, que é irreversível.
+- **O sistema precisa:** não concluir sem o clique de quem está na tela, e avisar no cartão que a
+  ação não se desfaz. Estimativa de outra OM é recusada no servidor.
+- **Cobertura:** `approval-flow.test.ts › Recusar não executa…` · `tool-action-labels.test.ts`
+  (aviso de irreversível) · `route-scope.test.ts` (estimativa de outra OM).
+
+### GU-IA-02 — "Confirmei a ação do assistente, mas a estimativa já tinha mudado"
+- **Realidade:** entre o cartão e o clique, outra pessoa muda o status da estimativa.
+- **O sistema precisa:** a escrita conferir a versão vista e recusar se ela mudou.
+- **Cobertura:** **LACUNA**. É o mesmo caso de `GC-IA-02`.
