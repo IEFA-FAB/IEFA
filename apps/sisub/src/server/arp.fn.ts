@@ -15,9 +15,18 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 import { loadLocalCommitments } from "@/lib/arp-commitments.server"
-import { type ArpSaldo, anoFromNumeroAta, assertVigenciaWindow, formatNumeroAta, parseBrDate, parseNumeroItem, resolveArpSaldos } from "@/lib/arp-compras"
+import {
+	type ArpSaldo,
+	anoFromNumeroAta,
+	assertVigenciaWindow,
+	formatNumeroAta,
+	parseBrDate,
+	parseNumeroItem,
+	pickArpHeader,
+	resolveArpSaldos,
+} from "@/lib/arp-compras"
 import { withSensitiveAudit } from "@/lib/audit.server"
-import { requireAuth, requireUserId } from "@/lib/auth.server"
+import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import { type EmpenhoItemAmounts, summarizeArpItemShare } from "@/lib/empenho-items"
 import {
@@ -81,7 +90,9 @@ export const searchArpFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }): Promise<ComprasArpPage> => {
-		await requireUserId()
+		// Proxy do Compras.gov.br: quem busca ARP é a gestão de unidade (anexo e contratações). Só
+		// com sessão, qualquer conta usava o IP e o rate limit do servidor.
+		await requireAuthWithPermission("unit", 1)
 		assertVigenciaWindow(data.dataVigenciaInicialMin, data.dataVigenciaInicialMax)
 
 		// Número exato só é aplicável com o ano junto — o filtro da API é NNNNN/AAAA.
@@ -104,6 +115,59 @@ export const searchArpFn = createServerFn({ method: "GET" })
 	})
 
 // ─── 2. Importar ARP + seus itens (persiste no banco) ────────────────────────
+
+/** Cabeçalho da ata como a importação grava: só o que veio da API. */
+interface ArpHeader {
+	numeroAtaRegistroPreco: string
+	codigoUnidadeGerenciadora: string
+	nomeUnidadeGerenciadora: string | null
+	numeroCompra: string | null
+	objeto: string | null
+	dataVigenciaInicial: string
+	dataVigenciaFinal: string | null
+	statusAta: string | null
+}
+
+/**
+ * Relê o cabeçalho da ata em `1_consultarARP`. A janela de vigência é obrigatória na API; a do
+ * payload (o início de vigência que a busca mostrou) vira uma janela de um dia, e ata que não
+ * aparece nela — número, UASG ou início diferentes do que a API tem — é recusada.
+ */
+async function fetchArpHeader(claimed: { numeroAtaRegistroPreco: string; codigoUnidadeGerenciadora: string; dataVigenciaInicial: string }): Promise<ArpHeader> {
+	const vigencia = parseBrDate(claimed.dataVigenciaInicial)
+	if (!vigencia) throw new Error("ARP sem data de vigência inicial — não é possível consultá-la no Compras.gov.br")
+	const page = unwrapCompras(
+		await comprasApi.GET("/modulo-arp/1_consultarARP", {
+			params: {
+				query: {
+					pagina: 1,
+					tamanhoPagina: 10,
+					codigoUnidadeGerenciadora: claimed.codigoUnidadeGerenciadora,
+					dataVigenciaInicialMin: vigencia,
+					dataVigenciaInicialMax: vigencia,
+					numeroAtaRegistroPreco: claimed.numeroAtaRegistroPreco,
+				},
+			},
+		})
+	)
+	const header = pickArpHeader(page.resultado, claimed.numeroAtaRegistroPreco, claimed.codigoUnidadeGerenciadora)
+	if (!header?.numeroAtaRegistroPreco) {
+		throw new Error(
+			`A ARP ${claimed.numeroAtaRegistroPreco} da UASG ${claimed.codigoUnidadeGerenciadora} não foi encontrada no Compras.gov.br com início de vigência em ${vigencia} — busque a ata de novo e importe pelo resultado da busca`
+		)
+	}
+	return {
+		numeroAtaRegistroPreco: header.numeroAtaRegistroPreco,
+		// A UASG que a consulta pediu (e que casou): é a chave local da ata, no mesmo formato de sempre.
+		codigoUnidadeGerenciadora: claimed.codigoUnidadeGerenciadora,
+		nomeUnidadeGerenciadora: header.nomeUnidadeGerenciadora ?? null,
+		numeroCompra: header.numeroCompra ?? null,
+		objeto: header.objeto ?? null,
+		dataVigenciaInicial: header.dataVigenciaInicial ?? vigencia,
+		dataVigenciaFinal: header.dataVigenciaFinal ?? null,
+		statusAta: header.statusAta ?? null,
+	}
+}
 
 /**
  * Lê todos os itens de UMA ata.
@@ -257,8 +321,13 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		if (data.acquisitionId && (await resolveAcquisitionUnit(data.acquisitionId)) !== data.unitId) {
 			throw new Error("A contratação de origem informada não pertence a esta unidade")
 		}
-		const { unitId, arpData } = data
+		const { unitId } = data
 		const warnings: string[] = []
+
+		// O cabeçalho vai gravado como `source: "compras_gov"`: ele é RELIDO na API pelo número, pela
+		// UASG e pelo início de vigência, e o payload só serve de chave da consulta. Antes objeto,
+		// situação, gerenciadora e fim de vigência vinham do cliente e passavam por dado oficial.
+		const arpData = await fetchArpHeader(data.arpData)
 
 		// O upsert pela chave (unidade, número, UASG) trocava o anexo da ARP em silêncio quando ela
 		// era reimportada de outro anexo. Agora o vínculo existente é mantido e a tela avisa.

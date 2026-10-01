@@ -111,3 +111,21 @@ export function resolveArpSaldos(rows: SaldoRow[]): Map<number, ArpSaldo> {
 
 	return byItem
 }
+
+// ─── Cabeçalho da ata (modulo-arp/1_consultarARP) ─────────────────────────────
+
+type ArpHeaderRow = { numeroAtaRegistroPreco?: string | null; codigoUnidadeGerenciadora?: string | number | null }
+
+/**
+ * A ata exata (número canônico + UASG gerenciadora) dentro da resposta de `1_consultarARP`.
+ *
+ * A importação grava o cabeçalho como `source: "compras_gov"`; por isso ele é RELIDO na API e
+ * escolhido aqui, em vez de vir do payload — o cliente mandava objeto, situação, gerenciadora e
+ * fim de vigência que quisesse, e a ata local passava por sincronizada. A UASG volta da API às
+ * vezes como número, às vezes como string; compara-se o texto sem zeros à esquerda.
+ */
+export function pickArpHeader<T extends ArpHeaderRow>(rows: readonly T[] | null | undefined, numeroAta: string, uasg: string): T | null {
+	const normalizeUasg = (value: string | number | null | undefined) => String(value ?? "").replace(/^0+/, "")
+	const wanted = normalizeUasg(uasg)
+	return (rows ?? []).find((row) => row.numeroAtaRegistroPreco === numeroAta && normalizeUasg(row.codigoUnidadeGerenciadora) === wanted) ?? null
+}

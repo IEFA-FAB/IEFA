@@ -130,6 +130,30 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 - **Cobertura:** `receiving-links.operations.test.ts › trocar de NF-e…`, `› recebimento
   liquidado…`, `› OF de E1 não convive com o empenho E2…` (escritos, não rodados).
 
+### EST-REC-13 — "Chegou o XML de uma nota que é de outra OM"
+- **Realidade:** o fornecedor manda para a cozinha o XML (ou o DANFE) de uma nota cujo destinatário
+  é outra unidade — erro de entrega, de e-mail, ou duas OMs do mesmo pregão.
+- **O sistema precisa:** a nota é gravada (é verdadeira e já está no mundo), mas sem cozinha, na
+  triagem da unidade destinatária; a cozinha que enviou não fica com ela, não recebe e não liquida
+  por ela. Destinatário fora do cadastro de unidades mantém a cozinha que enviou (não há para onde
+  mandar), com `destination_confirmed = false`. Nota que já tinha sido lida pela chave numa cozinha
+  e cujo XML revela outra unidade também é cedida; um recebimento já criado por aquela chave fica
+  ligado à nota (a divergência é real e precisa de gente).
+- **UX:** ao importar, aviso "o destinatário deste XML é outra unidade: a nota foi para a triagem
+  dela"; a nota some da lista desta cozinha e aparece nas cozinhas da unidade certa para assumir.
+  Assumir ou receber por nota de outra unidade, ou por nota na triagem global (sem unidade), é
+  recusado dizendo quem resolve (a triagem atribui a unidade).
+- **Cobertura:** `apps/api/src/api/routes/nfe-admin.test.ts › kitchenForImportedNfe` ·
+  `apps/sisub/src/lib/nfe-ownership.test.ts` (assumir/receber). **LACUNA:** nenhuma unidade tem CNPJ
+  cadastrado em `core.units` (2026-10-01): até o cadastro, todo destinatário é "não reconhecido" e a
+  regra não age. Sem teste de integração do recebimento recusado.
+
+### EST-REC-14 — "Recebi pela NF-e citando a NE de outra unidade (ou anulada)"
+- **O sistema precisa:** o recebimento criado da NF-e segue a mesma regra da entrega sem nota: OF
+  enviada desta cozinha; empenho da unidade compradora, não anulado e coerente com a OF.
+- **Cobertura:** a regra é `resolveOrderAndEmpenho` (`receiving.fn.ts`), sem teste próprio.
+  **LACUNA:** teste de integração da server fn.
+
 ### EST-ARM-01 — "O freezer parou: o congelado foi para a geladeira"
 - **Realidade:** o freezer para durante a semana. O que estava congelado vai para a
   geladeira e passa a descongelar: a validade encolhe para o prazo pós-descongelamento.
@@ -147,6 +171,18 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 ### EST-CNT-01 — "A contagem física não bate com o sistema"
 - **O sistema precisa:** ajuste com motivo e trilha, sem apagar o histórico.
 - **Cobertura:** suíte de contagem — verificar.
+
+### EST-CNT-04 — "Durante a contagem cega, o saldo aparecia em outra tela"
+- **Realidade:** a folha escondia o esperado, mas o painel de vencimentos, o "vence no período" do
+  planejamento e o disponível da Baixa por Produção mostravam o saldo do mesmo item.
+- **O sistema precisa:** enquanto a contagem cega está aberta, quem não é nível 3 não lê o saldo do
+  item em contagem em nenhuma tela de leitura. A tela de OPERAÇÃO (nível 2: saída, ajuste, Baixa por
+  Produção) continua vendo — a cozinha não para durante a contagem.
+- **UX:** vencimentos: os lotes do item saem da lista e dos totais, com "N lote(s) em contagem cega
+  não aparecem"; planejamento: o item fica com a validade e "em contagem" no lugar da quantidade;
+  Baixa por Produção (nível 1): "em contagem" no disponível e no contador de suficiência.
+- **Cobertura:** `apps/sisub/src/lib/blind-count-mask.test.ts`. **LACUNA:** o badge do menu
+  (`fetchExpirySummaryFn`) ainda soma o valor em risco de todos os lotes (agregado, sem item).
 
 `ENB` = `apps/sisub/src/test/operations/execution-never-blocks.operations.test.ts` (banco real) ·
 `EXU` = `packages/sisub-domain/src/operations/execution.test.ts` (unitário).
@@ -197,6 +233,13 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   tolerância existe em SQL (fechamento automático) e em TS (`checkDayClosure`): as duas passam pela
   mesma tabela `packages/sisub-domain/src/operations/issue-variance.cases.ts` —
   `issue-variance.test.ts › contrato com o fechamento automático` e `ENB › contrato da tolerância…`.
+
+### EST-SAI-07 — "A saída citou a preparação de outra cozinha"
+- **O sistema precisa:** `issue_stock` recusa tarefa de produção de outra cozinha (a mesma regra de
+  `register_late_issue`); sem isso a tarefa alheia aparecia como baixada e a variância das duas
+  cozinhas mentia.
+- **Cobertura:** `stock-issue.operations.test.ts › a tarefa de produção citada na saída é da cozinha
+  da requisição` (migration `20261001110000`; roda depois de aplicada).
 
 ### EST-SAI-06 — "A tarefa concluída há mais de 30 dias sumiu da Baixa por Produção"
 - **O sistema precisa:** a janela é a competência ABERTA (depois do último fechamento mensal), não 30 dias.
