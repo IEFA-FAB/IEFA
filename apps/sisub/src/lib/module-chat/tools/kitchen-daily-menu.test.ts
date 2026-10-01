@@ -10,7 +10,8 @@
 
 import { beforeEach, describe, expect, test, vi } from "vitest"
 import type { UserPermission } from "@/types/domain/permissions"
-import { runTool, type ToolContext } from "./shared"
+import type { ToolContext } from "./shared"
+import { findWrappedTool } from "./test-helpers"
 
 const upsertDailyMenu = vi.fn()
 
@@ -24,11 +25,8 @@ const { kitchenTools } = await import("./kitchen")
 const KITCHEN_ID = 5
 const MEAL_TYPE_ID = "11111111-1111-4111-8111-111111111111"
 
-/** A tool como o `wrapTool` a roda: argumento normalizado e validado pelo `parseArgs` antes do handler. */
 function tool(name: string) {
-	const def = kitchenTools.find((t) => t.name === name)
-	if (!def) throw new Error(`tool ${name} não existe`)
-	return { ...def, handler: (args: Record<string, unknown>, ctx: ToolContext) => runTool(def, args, ctx) }
+	return findWrappedTool(kitchenTools, name)
 }
 
 function ctx(): ToolContext {

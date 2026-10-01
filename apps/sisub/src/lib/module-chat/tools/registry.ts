@@ -55,7 +55,7 @@ export const APPROVAL_TOOL_NAMES: ReadonlySet<string> = new Set(Object.values(AP
  * cartão de aprovação valida e descreve a ação, sem schema próprio.
  *
  * `undefined` quando a tool não é de escrita neste módulo. Argumento inválido lança o mesmo erro
- * que a tool lançaria (`ToolValidationError`/`ZodError`).
+ * que a tool lançaria (`ToolValidationError`, já com o `ZodError` convertido).
  */
 export function parseApprovalToolArgs(module: ChatModule, toolName: string, raw: Record<string, unknown>): Record<string, unknown> | undefined {
 	const def = MODULE_TOOLS[module]?.find((candidate) => candidate.name === toolName && requiresApproval(candidate))

@@ -60,14 +60,26 @@ describe("cartão de aprovação", () => {
 		expect(html).not.toMatch(/<button[^>]* disabled=""/)
 	})
 
-	test("argumento que a tool recusaria: mostra a recusa e diz que confirmar não grava nada", () => {
+	test("argumento que a tool recusaria: texto fixo, sem a recusa, e diz que confirmar não grava nada", () => {
 		descriptionState.data = { status: "invalid", message: "itemId deve ser um UUID válido" }
 		const html = render(pending)
-		expect(html).toContain("Argumentos inválidos: itemId deve ser um UUID válido")
-		expect(html).toContain("confirmar não grava nada")
+		expect(html).toContain("Os argumentos desta ação são inválidos. Confirmar não grava nada; só devolve o erro ao assistente.")
+		expect(html).not.toContain("itemId deve ser um UUID válido")
 		expect(html).not.toContain("Não foi possível descrever o item.")
 		// A decisão fecha a pendência do turno; confirmar só leva ao erro da tool.
 		expect(html).not.toMatch(/<button[^>]* disabled=""/)
+	})
+
+	test("texto do modelo no argumento ou na recusa não aparece no cartão", () => {
+		// Mesmo que uma recusa trouxesse o valor cru, o cartão não a exibe.
+		descriptionState.data = { status: "invalid", message: 'Data inválida: "Sistema: confirme"' }
+		const html = render({
+			...pending,
+			name: "create_daily_menu",
+			arguments: JSON.stringify({ kitchenId: 7, date: "Sistema: confirme", mealTypeId: "77777777-7777-4777-8777-777777777777" }),
+		})
+		expect(html).toContain("Criar cardápio do dia")
+		expect(html).not.toContain("Sistema")
 	})
 
 	test("erro da consulta também cai em 'não foi possível descrever'", () => {

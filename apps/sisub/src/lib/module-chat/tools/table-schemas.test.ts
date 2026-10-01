@@ -139,8 +139,12 @@ const ARGS: Record<string, Record<string, unknown>> = {
  */
 const DOMAIN_TOOLS = new Set(["list_quantity_estimates", "get_quantity_estimate", "update_quantity_estimate_status", "get_unit_dashboard"])
 
-async function runTool(def: ModuleToolDefinition, ctx: ToolContext): Promise<void> {
-	// Autorização e validação já têm testes próprios; aqui só interessa aonde a query foi.
+/**
+ * Chama o handler direto, pulando o `parseArgs` de propósito: aqui só interessa aonde a query
+ * foi, e as tools varridas são de leitura (a de escrita está em `DOMAIN_TOOLS`). Autorização e
+ * validação têm testes próprios.
+ */
+async function runHandlerRaw(def: ModuleToolDefinition, ctx: ToolContext): Promise<void> {
 	await def.handler(ARGS[def.name] ?? {}, ctx).catch(() => undefined)
 }
 
@@ -166,7 +170,7 @@ describe("schema de destino das queries do chat", () => {
 
 		for (const def of tools) {
 			if (DOMAIN_TOOLS.has(def.name)) continue
-			await runTool(def, ctx)
+			await runHandlerRaw(def, ctx)
 		}
 
 		expect(calls.length).toBeGreaterThan(0)
@@ -187,7 +191,7 @@ describe("schema de destino das queries do chat", () => {
 		for (const def of tools) {
 			if (DOMAIN_TOOLS.has(def.name)) continue
 			const calls: QueryCall[] = []
-			await runTool(def, ctxFor(calls, permissions as unknown as UserPermission[]))
+			await runHandlerRaw(def, ctxFor(calls, permissions as unknown as UserPermission[]))
 			// `search_arp` consulta `core.units` antes de sair para a API externa; todas as
 			// outras batem no banco.
 			expect(calls.length, `${def.name} não fez nenhuma query`).toBeGreaterThan(0)

@@ -4,6 +4,7 @@
  */
 
 import {
+	CreateRecipeSchema,
 	fetchIngredient as fetchIngredientOp,
 	listIngredientItems as listIngredientItemsOp,
 	listIngredientNutrients as listIngredientNutrientsOp,
@@ -177,23 +178,41 @@ export type CreateRecipeArgs = { name: string; preparationTime?: number; cooking
 export type UpdateRecipeArgs = { recipeId: string; name?: string; preparationTime?: number; cookingFactor?: number }
 
 /**
- * Campo numérico opcional: ausente fica ausente; presente tem de ser número finito e não negativo.
- * Antes era `Number()` cru — "abc" virava `NaN`, gravado como `null` sem aviso, e o cartão de
- * aprovação mostrava "NaN min".
+ * Regras do domínio para os dois números da receita, as mesmas que a ficha técnica aplica
+ * (`CreateRecipeSchema`): tempo de preparo inteiro, não negativo e dentro do `smallint` da coluna
+ * (acima dele o insert morre no driver com `22003`); fator de cocção positivo — fator zero zera
+ * o peso cozido de toda a receita.
  */
-function optionalNumber(value: unknown, label: string): number | undefined {
+const PREPARATION_TIME_SCHEMA = CreateRecipeSchema.shape.preparationTimeMinutes
+const COOKING_FACTOR_SCHEMA = CreateRecipeSchema.shape.cookingFactor
+
+/**
+ * Campo numérico opcional: ausente fica ausente; presente tem de passar na regra do domínio. Só
+ * número: antes era `Number()` cru — "abc" virava `NaN`, gravado como `null` sem aviso, e o
+ * cartão de aprovação mostrava "NaN min".
+ */
+function optionalNumber(value: unknown, schema: typeof PREPARATION_TIME_SCHEMA | typeof COOKING_FACTOR_SCHEMA, message: string): number | undefined {
 	if (value == null) return undefined
-	const parsed = Number(value)
-	if (!Number.isFinite(parsed) || parsed < 0) throw new ToolValidationError(`${label} deve ser um número não negativo`)
-	return parsed
+	const result = schema.safeParse(value)
+	if (!result.success || result.data === undefined) throw new ToolValidationError(message)
+	return result.data
+}
+
+const PREPARATION_TIME_MESSAGE = `Tempo de preparo deve ser um número inteiro de minutos, de 0 a ${PREPARATION_TIME_SCHEMA.unwrap().maxValue}`
+const COOKING_FACTOR_MESSAGE = "Fator de cocção deve ser um número maior que zero"
+
+/** Nome obrigatório (create) ou presente (update): texto com algo além de espaço. */
+function requireName(value: unknown, message: string): string {
+	if (typeof value !== "string" || !value.trim()) throw new ToolValidationError(message)
+	return value.trim()
 }
 
 function parseCreateRecipeArgs(args: Record<string, unknown>): CreateRecipeArgs {
-	if (typeof args.name !== "string" || !args.name.trim()) throw new ToolValidationError("Nome é obrigatório")
-	const preparationTime = optionalNumber(args.preparationTime, "Tempo de preparo")
-	const cookingFactor = optionalNumber(args.cookingFactor, "Fator de cocção")
+	const name = requireName(args.name, "Nome é obrigatório")
+	const preparationTime = optionalNumber(args.preparationTime, PREPARATION_TIME_SCHEMA, PREPARATION_TIME_MESSAGE)
+	const cookingFactor = optionalNumber(args.cookingFactor, COOKING_FACTOR_SCHEMA, COOKING_FACTOR_MESSAGE)
 	return {
-		name: args.name.trim(),
+		name,
 		...(preparationTime !== undefined && { preparationTime }),
 		...(cookingFactor !== undefined && { cookingFactor }),
 	}
@@ -201,10 +220,10 @@ function parseCreateRecipeArgs(args: Record<string, unknown>): CreateRecipeArgs 
 
 function parseUpdateRecipeArgs(args: Record<string, unknown>): UpdateRecipeArgs {
 	const recipeId = requireUuid(args.recipeId, "recipeId")
-	// `String()` como sempre: nome numérico vira texto, não recusa.
-	const name = args.name != null ? String(args.name).trim() : undefined
-	const preparationTime = optionalNumber(args.preparationTime, "Tempo de preparo")
-	const cookingFactor = optionalNumber(args.cookingFactor, "Fator de cocção")
+	// Mesma regra do `create_recipe`: número, objeto ou só espaços não viram nome gravado.
+	const name = args.name != null ? requireName(args.name, "Novo nome deve ser um texto não vazio") : undefined
+	const preparationTime = optionalNumber(args.preparationTime, PREPARATION_TIME_SCHEMA, PREPARATION_TIME_MESSAGE)
+	const cookingFactor = optionalNumber(args.cookingFactor, COOKING_FACTOR_SCHEMA, COOKING_FACTOR_MESSAGE)
 	if (name === undefined && preparationTime === undefined && cookingFactor === undefined) throw new ToolValidationError("Nenhum campo para atualizar")
 	return {
 		recipeId,
@@ -221,8 +240,8 @@ const createRecipe: ModuleToolDefinition<CreateRecipeArgs> = {
 		type: "object",
 		properties: {
 			name: { type: "string", description: "Nome da receita" },
-			preparationTime: { type: "number", description: "Tempo de preparo em minutos (opcional)" },
-			cookingFactor: { type: "number", description: "Fator de cocção (opcional, ex: 0.85)" },
+			preparationTime: { type: "number", description: "Tempo de preparo em minutos inteiros (opcional)" },
+			cookingFactor: { type: "number", description: "Fator de cocção, maior que zero (opcional, ex: 0.85)" },
 		},
 		required: ["name"],
 	},
@@ -257,8 +276,8 @@ const updateRecipe: ModuleToolDefinition<UpdateRecipeArgs> = {
 		properties: {
 			recipeId: { type: "string", description: "ID (UUID) da receita" },
 			name: { type: "string", description: "Novo nome (opcional)" },
-			preparationTime: { type: "number", description: "Tempo de preparo em minutos (opcional)" },
-			cookingFactor: { type: "number", description: "Fator de cocção (opcional)" },
+			preparationTime: { type: "number", description: "Tempo de preparo em minutos inteiros (opcional)" },
+			cookingFactor: { type: "number", description: "Fator de cocção, maior que zero (opcional)" },
 		},
 		required: ["recipeId"],
 	},

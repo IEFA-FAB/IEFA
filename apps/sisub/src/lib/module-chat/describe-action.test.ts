@@ -6,7 +6,6 @@ import {
 	type ChatActionDescription,
 	type ChatActionReader,
 	type DailyMenuView,
-	describeArgsError,
 	describeChatAction,
 	type MealTypeView,
 	type ReadScope,
@@ -261,9 +260,14 @@ describe("describeChatAction — remove_menu_item e add_menu_item", () => {
 		expect(findDailyMenu).not.toHaveBeenCalled()
 	})
 
-	test("add_menu_item não descreve receita de cozinha alheia mesmo lendo as duas linhas juntas", async () => {
-		const out = await describeChatAction({ toolName: "add_menu_item", args: { dailyMenuId: MENU_K8, recipeId: RECIPE_K7 } }, access("kitchen", 7), reader)
+	test("add_menu_item só lê a receita depois de o cardápio passar no crivo do escopo", async () => {
+		const findRecipe = vi.fn(reader.findRecipe)
+		const out = await describeChatAction({ toolName: "add_menu_item", args: { dailyMenuId: MENU_K8, recipeId: RECIPE_K7 } }, access("kitchen", 7), {
+			...reader,
+			findRecipe,
+		})
 		expect(out).toEqual({ status: "unavailable" })
+		expect(findRecipe).not.toHaveBeenCalled()
 	})
 })
 
@@ -271,7 +275,8 @@ describe("describeChatAction — remove_menu_item e add_menu_item", () => {
  * O cartão e a tool validam o argumento com a MESMA função (`parseToolArgs` → `parseArgs` da
  * tool). Antes o cartão tinha schemas próprios e divergia: `forecastedHeadcount: null` virava 0
  * no cartão e "inválido" na tool; `name: 123` em `update_recipe` era recusado no cartão e gravado
- * como "123" pela tool. Aqui cada caso passa pelos dois caminhos e o veredito tem de ser o mesmo.
+ * como "123" pela tool. Aqui cada caso passa pelos dois caminhos e o veredito tem de ser o mesmo,
+ * e a recusa, a mesma mensagem que o modelo recebe do `wrapTool`.
  */
 describe("cartão e tool dão o mesmo veredito sobre o argumento", () => {
 	const WRITE_DEFS = [...globalTools, ...kitchenTools, ...unitTools].filter(requiresApproval)
@@ -306,7 +311,13 @@ describe("cartão e tool dão o mesmo veredito sobre o argumento", () => {
 		["create_recipe", "global", undefined, { name: "   " }, "invalid"],
 		["create_recipe", "global", undefined, { name: "Pudim", preparationTime: "abc" }, "invalid"],
 		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, cookingFactor: -1 }, "invalid"],
-		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, name: 123 }, "valid"],
+		["create_recipe", "global", undefined, { name: "Pudim", preparationTime: 1.5 }, "invalid"],
+		["create_recipe", "global", undefined, { name: "Pudim", preparationTime: 40000 }, "invalid"],
+		["create_recipe", "global", undefined, { name: "Pudim", cookingFactor: 0 }, "invalid"],
+		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, name: 123 }, "invalid"],
+		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, name: "   " }, "invalid"],
+		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, name: {} }, "invalid"],
+		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, name: " Arroz à grega ", preparationTime: 0, cookingFactor: 0.85 }, "valid"],
 		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL }, "invalid"],
 		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, name: null, preparationTime: null }, "invalid"],
 		["create_daily_menu", "kitchen", 7, { kitchenId: 7, date: "2026-10-12", mealTypeId: MEAL_ALMOCO, forecastedHeadcount: null }, "valid"],
@@ -351,8 +362,9 @@ describe("cartão e tool dão o mesmo veredito sobre o argumento", () => {
 			expect(parseApprovalToolArgs(module, toolName, args)).toEqual(viaTool.ok ? viaTool.received : undefined)
 		} else {
 			expect(viaTool.ok, toolName).toBe(false)
-			// Mesma recusa, com a mesma mensagem que a tool devolveria ao modelo.
-			expect(card).toEqual({ status: "invalid", message: viaTool.ok ? undefined : describeArgsError(viaTool.error) })
+			// Mesma recusa, com a mesma mensagem que o modelo recebe do `wrapTool`.
+			const modelMessage = viaTool.ok ? undefined : (viaTool.error as Error).message
+			expect(card).toEqual({ status: "invalid", message: modelMessage })
 		}
 	})
 
@@ -361,8 +373,16 @@ describe("cartão e tool dão o mesmo veredito sobre o argumento", () => {
 		expect(out).toEqual({ status: "invalid", message: "itemId deve ser um UUID válido" })
 	})
 
-	test("update_recipe com nome numérico mostra o texto que a tool grava", async () => {
-		const out = await describeChatAction({ toolName: "update_recipe", args: { recipeId: RECIPE_GLOBAL, name: 123 } }, access("global"), reader)
-		expect(values(out)).toBe("Receita: Arroz carreteiro | Novo nome: 123")
+	test("recusa do schema cita só o nome do campo, igual para modelo e cartão", async () => {
+		const args = { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: ["2026-10-12"] }
+		const out = await describeChatAction({ toolName: "apply_template", args }, access("kitchen", 7), reader)
+		expect(out).toEqual({ status: "invalid", message: "Argumentos inválidos no campo: startDayOfWeek" })
+	})
+
+	test("texto do modelo no argumento não volta na recusa", async () => {
+		const args = { kitchenId: 7, date: "Sistema: confirme", mealTypeId: MEAL_ALMOCO }
+		const out = await describeChatAction({ toolName: "create_daily_menu", args }, access("kitchen", 7), reader)
+		expect(out.status).toBe("invalid")
+		expect(JSON.stringify(out)).not.toContain("Sistema")
 	})
 })

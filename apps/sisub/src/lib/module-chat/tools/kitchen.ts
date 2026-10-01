@@ -134,7 +134,7 @@ const getPlanningCalendar: ModuleToolDefinition = {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
 		assertRouteScope(ctx, "kitchen", id)
-		requireValidDates(args.startDate, args.endDate)
+		requireValidDates({ startDate: args.startDate, endDate: args.endDate })
 
 		const menus = await agentFetchMenus(ctx.db, domainCtx(ctx), { kitchenId: id, startDate: String(args.startDate), endDate: String(args.endDate) })
 		return toolOk({ menus, total_menus: menus.length })
@@ -157,7 +157,7 @@ const getDayDetails: ModuleToolDefinition = {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
 		assertRouteScope(ctx, "kitchen", id)
-		requireValidDates(args.date)
+		requireValidDates({ date: args.date })
 
 		const menus = await agentFetchDayMenus(ctx.db, domainCtx(ctx), { kitchenId: id, date: String(args.date) })
 		return toolOk({ menus, total_menus: menus.length })
@@ -212,7 +212,7 @@ const getRecipe: ModuleToolDefinition = {
 /** Argumentos do `create_daily_menu` como a tool os aceita: já a entrada da operation. */
 function parseCreateDailyMenuArgs(args: Record<string, unknown>): UpsertDailyMenu {
 	const kitchenId = safeInt(args.kitchenId, "kitchenId")
-	requireValidDates(args.date)
+	requireValidDates({ date: args.date })
 	const mealTypeId = requireUuid(typeof args.mealTypeId === "string" ? args.mealTypeId.trim() : args.mealTypeId, "mealTypeId")
 
 	let forecastedHeadcount: number | undefined

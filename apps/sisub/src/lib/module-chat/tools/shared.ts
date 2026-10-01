@@ -51,25 +51,40 @@ export function domainCtx(ctx: ToolContext): UserContext {
 
 // ── Tool definition (OpenAI function-calling format) ────────────────────────
 
-export interface ModuleToolDefinition<TArgs extends Record<string, unknown> = Record<string, unknown>> {
+/**
+ * Validação do argumento, só dele (sem banco, sem permissão): devolve os argumentos como o
+ * handler os usa ou lança `ToolValidationError`/`ZodError` (que `parseToolArgs` converte em
+ * `ToolValidationError`). Recebe o argumento já sem os `null` de ausência.
+ */
+type ParseToolArgs<TArgs> = (raw: Record<string, unknown>) => TArgs
+
+interface ModuleToolBase<TArgs extends Record<string, unknown>> {
 	name: string
 	description: string
 	parameters: Record<string, unknown> // JSON Schema
-	requiredLevel: 1 | 2 | 3
-	/**
-	 * Validação do argumento, só dele (sem banco, sem permissão): devolve os argumentos como o
-	 * handler os usa ou lança `ToolValidationError`/`ZodError` com a mensagem que o modelo lê.
-	 * Recebe o argumento já sem os `null` de ausência (`parseToolArgs`).
-	 *
-	 * Obrigatório em tool de escrita (`requiresApproval`): o cartão de aprovação descreve a ação
-	 * com o resultado desta mesma função (`parseApprovalToolArgs` do registro), então o que o
-	 * usuário confirma é o que o handler recebe. `describe-action.test.ts` confere.
-	 */
-	parseArgs?: (raw: Record<string, unknown>) => TArgs
 	// Assinatura de método de propósito: o parâmetro fica bivariante e a tool de escrita, com o
 	// handler tipado pelos argumentos já validados, ainda cabe em `ModuleToolDefinition[]`.
 	handler(args: TArgs, ctx: ToolContext): Promise<ToolHandlerResult>
 }
+
+/** Tool de leitura: sem `parseArgs`, o handler valida o que usa. */
+interface ReadToolDefinition<TArgs extends Record<string, unknown>> extends ModuleToolBase<TArgs> {
+	requiredLevel: 1
+	parseArgs?: ParseToolArgs<TArgs>
+}
+
+/**
+ * Tool de escrita (`requiresApproval`): `parseArgs` é obrigatório. O cartão de aprovação descreve
+ * a ação com o resultado desta mesma função (`parseApprovalToolArgs` do registro), então o que o
+ * usuário confirma é o que o handler recebe. `describe-action.test.ts` confere; o `wrapTool`
+ * recusa montar a tool sem ele (o tipo pode ser contornado por cast).
+ */
+interface WriteToolDefinition<TArgs extends Record<string, unknown>> extends ModuleToolBase<TArgs> {
+	requiredLevel: 2 | 3
+	parseArgs: ParseToolArgs<TArgs>
+}
+
+export type ModuleToolDefinition<TArgs extends Record<string, unknown> = Record<string, unknown>> = ReadToolDefinition<TArgs> | WriteToolDefinition<TArgs>
 
 export interface ToolHandlerResult {
 	success: boolean
@@ -171,6 +186,9 @@ export function assertRouteScope(ctx: ToolContext, kind: "kitchen" | "unit", res
 
 // ── Validation helpers ──────────────────────────────────────────────────────
 
+// As mensagens citam o NOME do campo, nunca o valor recebido: o valor é texto do modelo (que pode
+// vir de um modo de preparo gravado por outra pessoa) e a mensagem volta ao modelo e ao cartão.
+
 export function safeInt(value: unknown, name: string): number {
 	const num = Number(value)
 	if (!Number.isFinite(num) || !Number.isInteger(num)) {
@@ -179,14 +197,11 @@ export function safeInt(value: unknown, name: string): number {
 	return num
 }
 
-export function requireValidDates(...dates: unknown[]): void {
-	for (const d of dates) {
-		if (typeof d !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-			throw new ToolValidationError(`Data inválida: "${d}". Use formato YYYY-MM-DD.`)
-		}
-		const parsed = new Date(`${d}T00:00:00Z`)
-		if (Number.isNaN(parsed.getTime())) {
-			throw new ToolValidationError(`Data inválida: "${d}"`)
+/** `{ startDate: args.startDate }`: a chave é o nome do campo citado na recusa. */
+export function requireValidDates(fields: Record<string, unknown>): void {
+	for (const [name, d] of Object.entries(fields)) {
+		if (typeof d !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(new Date(`${d}T00:00:00Z`).getTime())) {
+			throw new ToolValidationError(`${name} deve ser uma data válida no formato YYYY-MM-DD`)
 		}
 	}
 }
@@ -304,18 +319,45 @@ export function requiresApproval(def: Pick<ModuleToolDefinition, "requiredLevel"
 	return def.requiredLevel >= 2
 }
 
+const UNRECOGNIZED_FIELD = "campo não reconhecido"
+const FIELD_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
+
+/**
+ * `ZodError` do `parseArgs` como recusa legível: só os nomes de campo do schema. A `message` do
+ * `ZodError` é o JSON das issues, e `unrecognized_keys` lista chaves que o MODELO escreveu —
+ * ecoá-las levaria texto dele ao cartão. Por isso: campo de topo do schema pelo nome; chave
+ * desconhecida (ou segmento que não tem cara de identificador) vira "campo não reconhecido".
+ */
+function toArgsValidationError(error: ZodError): ToolValidationError {
+	const fields = new Set<string>()
+	for (const issue of error.issues) {
+		const head = issue.path[0]
+		if (issue.code === "unrecognized_keys" || (typeof head === "string" && !FIELD_NAME_RE.test(head))) fields.add(UNRECOGNIZED_FIELD)
+		else if (typeof head === "string") fields.add(head)
+		else fields.add("argumentos")
+	}
+	const list = [...fields]
+	return new ToolValidationError(`Argumentos inválidos ${list.length === 1 ? "no campo" : "nos campos"}: ${list.join(", ")}`)
+}
+
 /**
  * O argumento do modelo como o handler o recebe. Fonte única: o `wrapTool` roda esta função
  * antes do handler, e o cartão de aprovação (`describe-action.ts`, via `parseApprovalToolArgs`)
  * descreve a ação com o resultado dela — validar de outro jeito ali deixava o usuário confirmar
- * o que a tool recusa, ou ver um valor diferente do que seria gravado.
+ * o que a tool recusa, ou ver um valor diferente do que seria gravado. A recusa sai sempre como
+ * `ToolValidationError`, com a mesma mensagem para o modelo e para o cartão.
  */
 export function parseToolArgs<TArgs extends Record<string, unknown>>(def: ModuleToolDefinition<TArgs>, raw: Record<string, unknown>): TArgs {
 	// Modelo manda `null` no lugar de omitir campo opcional. Onde o schema não previu
 	// isso, `null` é ausência — sem esta linha `safeInt(null)` viraria `0` calado.
 	const input = dropUnexpectedNulls(raw, def.parameters)
 	// Sem `parseArgs` (tools de leitura), o handler valida o que usa e recebe o tipo padrão.
-	return def.parseArgs ? def.parseArgs(input) : (input as TArgs)
+	if (!def.parseArgs) return input as TArgs
+	try {
+		return def.parseArgs(input)
+	} catch (error) {
+		throw error instanceof ZodError ? toArgsValidationError(error) : error
+	}
 }
 
 /** Normaliza e valida o argumento e roda o handler — o caminho inteiro de uma chamada da tool. */
@@ -324,6 +366,10 @@ export async function runTool<TArgs extends Record<string, unknown>>(
 	raw: Record<string, unknown>,
 	ctx: ToolContext
 ): Promise<ToolHandlerResult> {
+	// Argumento antes de permissão e escopo, de propósito: `parseArgs` não lê banco nem
+	// permissão, e o cartão de aprovação valida pela mesma função antes de olhar o escopo. Ação
+	// fora do escopo com argumento inválido sai como "argumentos inválidos" nos dois lados — e
+	// nada é gravado em nenhum caso; a autorização continua no handler.
 	return def.handler(parseToolArgs(def, raw), ctx)
 }
 
@@ -335,6 +381,11 @@ export async function runTool<TArgs extends Record<string, unknown>>(
  * `approval_<toolCallId>` e só executa quando o turno seguinte traz o `resume` aprovado.
  */
 export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): AnyServerTool {
+	// Falha cedo: tool de escrita sem `parseArgs` deixaria o cartão de aprovação sem o crivo do
+	// handler (`parseApprovalToolArgs`). O tipo já exige; isto pega o cast.
+	if (requiresApproval(def) && typeof def.parseArgs !== "function") {
+		throw new Error(`Tool de escrita ${def.name} sem parseArgs: o cartão de aprovação não teria como validar o argumento`)
+	}
 	return toolDefinition({
 		name: def.name,
 		description: def.description,

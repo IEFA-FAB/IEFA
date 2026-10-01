@@ -42,6 +42,7 @@ function harness(toolName: string, requiredLevel: 1 | 2): Harness {
 		description: "tool de teste",
 		parameters: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
 		requiredLevel,
+		parseArgs: (raw) => raw,
 		handler: async (args) => {
 			executed.push(String(args.name))
 			return toolOk({ id: "r1" })
