@@ -18,7 +18,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { forbidden, requireArticleAccess, requireArticleWriteAccess } from "@/lib/auth.server"
-import { parseStoredSubmissionPath, parseSubmissionUploadPath, SUBMISSIONS_BUCKET } from "@/lib/journal/storage-paths"
+import { parseStoredSubmissionPath, parseSubmissionUploadPath, SUBMISSIONS_BUCKET, type SubmissionUploadPath } from "@/lib/journal/storage-paths"
 import { getJournalServerClient } from "@/lib/supabase.server"
 
 /** Storage service-role pelo kit (com os deadlines de fetch) — o schema não importa aqui. */
@@ -30,15 +30,15 @@ function getStorageClient() {
 const MAX_DOWNLOAD_EXPIRES_IN = 3600
 
 /**
- * Extrai o articleId do caminho, validado INTEIRO contra a convenção (storage-paths.ts).
+ * Valida o caminho INTEIRO contra a convenção (storage-paths.ts) e devolve artigo e tipo.
  * Recusar só o `..` literal não bastava: `<A>/%2e%2e/<B>/v1/manuscript.pdf` passava pelo
  * gate do artigo A e o storage, ao normalizar a URL, assinava o manuscrito de B. O
  * default é negar, não assinar o que vier.
  */
-function articleIdFromPath(path: string): string {
+function parseDownloadPath(path: string): SubmissionUploadPath {
 	const parsed = parseStoredSubmissionPath(path)
 	if (!parsed) forbidden("Caminho inválido.")
-	return parsed.articleId
+	return parsed
 }
 
 /**
@@ -85,8 +85,11 @@ export const getSignedDownloadUrlFn = createServerFn({ method: "GET" })
 		// Bucket vindo do cliente é assinado só se for o de submissões: era por aqui que
 		// um caminho de qualquer outro bucket do projeto podia ser assinado.
 		if (data.bucket !== SUBMISSIONS_BUCKET) forbidden("Bucket não permitido.")
-		const articleId = articleIdFromPath(data.path)
+		const { articleId, kind } = parseDownloadPath(data.path)
 		const access = await requireArticleAccess(articleId)
+		// Revisor avalia o manuscrito e os suplementares; a fonte (`.typ`/`.zip`) carrega o
+		// bloco de autoria e quebraria o duplo-cego (mesma regra de `projectVersions`).
+		if (access.isAssignedReviewer && kind === "source") forbidden("Arquivo fonte não é entregue ao revisor.")
 		if (access.isPublicReader) {
 			const { data: latest } = await getJournalServerClient()
 				.from("article_versions")

@@ -9,7 +9,6 @@ import { GrantNotAllowedError } from "@iefa/pbac"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import {
-	type ArticleAccess,
 	assertRoleChangeAllowed,
 	forbidden,
 	getRequestUserId,
@@ -21,6 +20,7 @@ import {
 	requireSelf,
 	requireUserId,
 } from "@/lib/auth.server"
+import { projectArticle, projectArticleDetails, projectAuthors, projectVersion, projectVersions } from "@/lib/journal/article-projection"
 import { parseEditorialDashboardRows } from "@/lib/journal/editorial-dashboard"
 import { PORTAL_URL, sendJournalEmail, type TemplateName } from "@/lib/journal/email.server"
 import { assertStoredFilesMatchExtension } from "@/lib/journal/file-signature.server"
@@ -65,19 +65,11 @@ async function requireAssignedReviewer(assignmentId: string): Promise<void> {
 	if (assignment.status !== "accepted") forbidden("Este parecer não pode mais ser alterado.")
 }
 
-/**
- * E-mail de coautor é dado pessoal: sai para editor e para o próprio submissor. Leitor
- * público de artigo publicado (inclusive anônimo) e revisor recebem a linha sem ele.
- */
-function projectAuthorsForAccess<T>(authors: T, access: ArticleAccess): T {
-	if (access.isEditor || access.isSubmitter) return authors
-	if (!Array.isArray(authors)) return authors
-	return authors.map((author) => {
-		if (!author || typeof author !== "object") return author
-		const { email: _email, ...rest } = author as Record<string, unknown>
-		return rest
-	}) as T
-}
+// Toda leitura de artigo/autores/versões passa pela projeção por tipo de acesso
+// (`@/lib/journal/article-projection`): revisor não recebe autoria (duplo-cego), leitor
+// público não recebe e-mail de coautor nem versão não publicada, autor não recebe a
+// anotação do editor. O `as typeof result` mantém o tipo `any` do client sem tipos (ver a
+// DÍVIDA em `supabase.server.ts`): a linha projetada é um subconjunto da mesma linha.
 
 // Leitura de dados do assignment: permitida ao revisor designado ou a editores.
 // (Endpoints service-role bypassam RLS; sem isso qualquer autenticado leria o
@@ -93,15 +85,16 @@ async function requireAssignmentAccess(assignmentId: string): Promise<void> {
 
 // ─── User Profiles ────────────────────────────────────────────────────────────
 
-// Perfil de qualquer usuário do journal (nome/afiliação aparecem como autoria), mas
-// só para quem tem sessão — sem isso o endpoint era um diretório de pesquisadores
-// aberto para raspagem anônima. Ler o perfil de OUTRO usuário é intencional (autoria
-// aparece nas páginas do journal), então aqui a barreira é sessão, não escopo.
+// Perfil do journal: o próprio, ou o de qualquer um para editor (moderação de papel). A
+// autoria das páginas sai de `article_authors`/`published_articles`, não daqui. Aberto a
+// qualquer sessão, este endpoint devolvia ao revisor o nome e a afiliação do submissor a
+// partir do `submitter_id` — quebra do duplo-cego — e era um diretório de pesquisadores.
 // nosemgrep: server-fn-user-id-from-client
 export const getUserProfileFn = createServerFn({ method: "GET" })
 	.validator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
-		await requireUserId()
+		const userId = await requireUserId()
+		if (data.userId !== userId && !(await isEditor(userId))) forbidden("Você só pode ver o próprio perfil.")
 		const { data: result, error } = await getJournalServerClient().from("user_profiles").select("*").eq("id", data.userId).maybeSingle()
 		if (error) throw new Error(error.message)
 		return result
@@ -201,11 +194,12 @@ export const getArticlesFn = createServerFn({ method: "GET" })
 export const getArticleFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
-		// Editor, autor, revisor designado ou artigo publicado — mesma regra do detalhe.
-		await requireArticleAccess(data.articleId)
+		// Editor, autor, revisor designado ou artigo publicado — mesma regra do detalhe, e a
+		// mesma projeção: revisor e leitor público não recebem `submitter_id`.
+		const access = await requireArticleAccess(data.articleId)
 		const { data: result, error } = await getJournalServerClient().from("articles").select("*").eq("id", data.articleId).single()
 		if (error) throw new Error(error.message)
-		return result
+		return projectArticle(result, access) as typeof result
 	})
 
 export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
@@ -224,23 +218,12 @@ export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
 		})
 		if (error) throw new Error(error.message)
 
-		// `reviews` embute `comments_for_editors` + a identidade do revisor
-		// (assignment.reviewer_id): dados confidenciais ao corpo editorial. Expor
-		// isso no payload que chega ao autor quebra o duplo-cego, mesmo que a UI
-		// não renderize. Só editores recebem `reviews`; o autor lê os pareceres
-		// liberados via getAuthorArticleReviewsFn (apenas campos seguros).
-		// Os coautores também passam pela projeção: sem ela, qualquer anônimo lia o e-mail
-		// de todos os autores de um artigo publicado.
-		if (access.isEditor) return result
-		// `typeof [] === "object"` é true: sem o guard de array, um payload em set
-		// (RETURNS SETOF / wrapper do client) escaparia a redação silenciosamente.
-		if (result && typeof result === "object" && !Array.isArray(result)) {
-			const clone = { ...(result as Record<string, unknown>) }
-			delete clone.reviews
-			clone.authors = projectAuthorsForAccess(clone.authors, access)
-			return clone
-		}
-		return result
+		// `reviews` (parecer confidencial + identidade do revisor) só para editor; `article`,
+		// `authors` e `versions` pela projeção do acesso — o revisor recebia `submitter_id`,
+		// os coautores com nome/afiliação/ORCID e o `uploaded_by` de cada versão, e o anônimo
+		// lia o artigo inteiro de um publicado. O autor lê os pareceres liberados via
+		// getAuthorArticleReviewsFn (apenas campos seguros).
+		return projectArticleDetails(result, access) as typeof result
 	})
 
 export const getUserActiveDraftFn = createServerFn({ method: "GET" })
@@ -324,23 +307,6 @@ export const deleteArticleFn = createServerFn({ method: "POST" })
 		return result
 	})
 
-export const createSubmissionFn = createServerFn({ method: "POST" })
-	.validator(AuthorArticleFieldsSchema)
-	.handler(async ({ data }) => {
-		const userId = await requireUserId()
-		const db = getJournalServerClient()
-		const year = new Date().getFullYear()
-		const { count } = await db.from("articles").select("*", { count: "exact", head: true }).gte("created_at", `${year}-01-01`)
-		const submissionNumber = `${year}-${String((count || 0) + 1).padStart(3, "0")}`
-		const { data: result, error } = await db
-			.from("articles")
-			.insert({ ...data, submitter_id: userId, submission_number: submissionNumber, status: "submitted", submitted_at: new Date().toISOString() })
-			.select()
-			.single()
-		if (error) throw new Error(error.message)
-		return result
-	})
-
 // ─── Article Authors ──────────────────────────────────────────────────────────
 
 export const getArticleAuthorsFn = createServerFn({ method: "GET" })
@@ -353,7 +319,7 @@ export const getArticleAuthorsFn = createServerFn({ method: "GET" })
 			.eq("article_id", data.articleId)
 			.order("author_order", { ascending: true })
 		if (error) throw new Error(error.message)
-		return projectAuthorsForAccess(result, access)
+		return projectAuthors(result, access) as typeof result
 	})
 
 /**
@@ -411,15 +377,17 @@ export const deleteArticleAuthorsByArticleIdFn = createServerFn({ method: "POST"
 export const getArticleVersionsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
-		// Versões apontam para o PDF do manuscrito — mesma regra de acesso do artigo.
-		await requireArticleAccess(data.articleId)
+		// Versões apontam para o PDF do manuscrito — mesma regra de acesso do artigo. A
+		// projeção tira `notes` (anotação do editor) e `uploaded_by` de quem não é editor,
+		// a fonte do revisor e as versões não publicadas do leitor público.
+		const access = await requireArticleAccess(data.articleId)
 		const { data: result, error } = await getJournalServerClient()
 			.from("article_versions")
 			.select("*")
 			.eq("article_id", data.articleId)
 			.order("version_number", { ascending: false })
 		if (error) throw new Error(error.message)
-		return result
+		return projectVersions(result, access) as typeof result
 	})
 
 // `uploaded_by` vem da sessão (o payload não o aceita) e os caminhos têm de estar sob o
@@ -445,7 +413,7 @@ export const createArticleVersionFn = createServerFn({ method: "POST" })
 export const getLatestArticleVersionFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
-		await requireArticleAccess(data.articleId)
+		const access = await requireArticleAccess(data.articleId)
 		const { data: result, error } = await getJournalServerClient()
 			.from("article_versions")
 			.select("*")
@@ -454,7 +422,7 @@ export const getLatestArticleVersionFn = createServerFn({ method: "GET" })
 			.limit(1)
 			.single()
 		if (error) throw new Error(error.message)
-		return result
+		return projectVersion(result, access) as typeof result
 	})
 
 // ─── Published Articles ───────────────────────────────────────────────────────
@@ -761,8 +729,8 @@ export const markNotificationAsReadFn = createServerFn({ method: "POST" })
 
 // ─── Journal Settings ─────────────────────────────────────────────────────────
 
-// Colunas listadas, sem `*`: a tabela guarda as credenciais do Crossref
-// (`crossref_username`/`crossref_password`), e este endpoint responde a anônimo.
+// Colunas listadas, sem `*`: este endpoint responde a anônimo, e coluna nova da tabela
+// (como foi `crossref_password`, removida em 20261001160000) não pode sair por aqui sem decisão.
 const PUBLIC_SETTINGS_COLUMNS =
 	"id, journal_name_pt, journal_name_en, issn_print, issn_online, publisher, doi_prefix, crossref_test_mode, default_review_deadline_days, min_reviewers_required, enable_double_blind, from_email, from_name, created_at, updated_at"
 
@@ -788,24 +756,6 @@ export const updateJournalSettingsFn = createServerFn({ method: "POST" })
 		const { data: result, error } = await db.from("journal_settings").update(data).eq("id", settings.id).select().single()
 		if (error) throw new Error(error.message)
 		return result
-	})
-
-// ─── Draft helpers (usados por submission.ts) ─────────────────────────────────
-
-export const loadDraftFn = createServerFn({ method: "GET" })
-	.validator(z.object({ articleId: z.string() }))
-	.handler(async ({ data }) => {
-		const access = await requireArticleAccess(data.articleId)
-		const db = getJournalServerClient()
-		const { data: article, error: articleError } = await db.from("articles").select("*").eq("id", data.articleId).single()
-		if (articleError) throw new Error(articleError.message)
-		const { data: authors, error: authorsError } = await db
-			.from("article_authors")
-			.select("*")
-			.eq("article_id", data.articleId)
-			.order("author_order", { ascending: true })
-		if (authorsError) throw new Error(authorsError.message)
-		return { article, authors: projectAuthorsForAccess(authors ?? [], access) }
 	})
 
 // Um check de permissão avaliado sobre um `userId` escolhido pelo cliente responde

@@ -10,7 +10,6 @@ import {
 	createArticleVersionFn,
 	createReviewAssignmentFn,
 	createReviewFn,
-	createSubmissionFn,
 	createUserProfileFn,
 	decideArticleFn,
 	declineReviewInvitationFn,
@@ -58,7 +57,6 @@ import type {
 	Article,
 	ArticleAuthor,
 	ArticleVersion,
-	CreateSubmissionInput,
 	EditorialDashboardArticle,
 	JournalSettings,
 	Notification,
@@ -121,10 +119,6 @@ export type ArticleDecision = "accepted" | "rejected" | "revision_requested"
 
 export async function decideArticle(articleId: string, decision: ArticleDecision): Promise<{ id: string; submitter_id: string; title_pt: string }> {
 	return (await decideArticleFn({ data: { articleId, decision } })) as { id: string; submitter_id: string; title_pt: string }
-}
-
-export async function createSubmission(data: CreateSubmissionInput): Promise<Article> {
-	return (await createSubmissionFn({ data })) as Article
 }
 
 // ─── Article Authors ──────────────────────────────────────────────────────────
