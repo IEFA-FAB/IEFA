@@ -21,7 +21,7 @@ import {
 import { defaultVigenciaWindow } from "@/lib/arp-compras"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import type { ModuleToolDefinition } from "./shared"
-import { domainCtx, requireUnitPermission, requireUuid, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { assertRouteScope, domainCtx, requireUnitPermission, requireUuid, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
 /**
  * Tetos das listagens do chat. O resultado da tool volta inteiro no prompt do
@@ -66,7 +66,10 @@ const getQuantityEstimate: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentGetQuantityEstimateSchema.parse(args)
-		return toolOk(await agentGetQuantityEstimate(ctx.db, domainCtx(ctx), input))
+		const detail = await agentGetQuantityEstimate(ctx.db, domainCtx(ctx), input)
+		// O detalhe já traz a OM dona: o anexo de outra unidade não chega ao modelo.
+		assertRouteScope(ctx, "unit", detail.unit_id)
+		return toolOk(detail)
 	},
 }
 
@@ -78,6 +81,16 @@ const updateQuantityEstimateStatusTool: ModuleToolDefinition = {
 	requiredLevel: 2,
 	async handler(args, ctx) {
 		const input = AgentUpdateQuantityEstimateStatusSchema.parse(args)
+		// Escopo da rota ANTES da escrita: concluir é irreversível (congela a memória de cálculo).
+		// Só a OM dona é lida; anexo ausente segue para a operation, que responde "não encontrado".
+		if (ctx.scopeId != null) {
+			const { data: owner, error } = await untypedFrom(ctx, "quantity_estimate", "procurement")
+				.select("unit_id")
+				.eq("id", input.quantityEstimateId)
+				.maybeSingle()
+			if (error) return toolErr(sanitizeDbError(error, "update_quantity_estimate_status:escopo"))
+			if (owner?.unit_id != null) assertRouteScope(ctx, "unit", owner.unit_id)
+		}
 		// A operation confere `unit:2` na OM DONA do anexo, a transição, a segmentação e a
 		// justificativa, e congela o snapshot na conclusão — o que o `update` cru desta tool pulava.
 		// Anexo ainda no wizard não conclui pelo chat.
@@ -191,6 +204,7 @@ const listEmpenhos: ModuleToolDefinition = {
 		if (quantityEstimateError || !quantityEstimate) return toolErr("Anexo quantitativo não encontrado")
 
 		requireUnitPermission(ctx, 1, { type: "unit", id: quantityEstimate.unit_id })
+		assertRouteScope(ctx, "unit", quantityEstimate.unit_id)
 
 		// `finance.empenho` não aponta para o anexo — o vínculo é o `arp_item_id` dos itens da NE
 		// (`finance.empenho_item`). Filtrar pelo anexo (o que esta tool fazia) é coluna inexistente:

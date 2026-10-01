@@ -18,10 +18,12 @@ import type { UserPermission } from "@/types/domain/permissions"
 import { globalTools } from "./global"
 import { kitchenTools } from "./kitchen"
 import { localAnalyticsTools } from "./local-analytics"
+import { APPROVAL_TOOL_NAMES, getModuleConfig } from "./registry"
 import {
 	getMaxLevel,
 	type ModuleToolDefinition,
 	requireKitchenPermission,
+	requiresApproval,
 	requireUnitPermission,
 	requireUuid,
 	requireValidDates,
@@ -324,5 +326,41 @@ describe("erro de tool que chega ao modelo", () => {
 		expect(toModelFacingToolError("get_recipe", denied)).toBe(denied)
 		const invalid = new ToolValidationError("recipeId deve ser UUID")
 		expect(toModelFacingToolError("get_recipe", invalid)).toBe(invalid)
+	})
+})
+
+describe("aprovação humana das tools de escrita", () => {
+	const base = { description: "x", parameters: { type: "object", properties: {} }, handler: async () => toolOk(null) }
+
+	test("nível 2 exige aprovação; nível 1 executa direto", () => {
+		const write = wrapTool({ ...base, name: "create_recipe", requiredLevel: 2 }, ctx([]))
+		const read = wrapTool({ ...base, name: "list_recipes", requiredLevel: 1 }, ctx([]))
+		expect(write.needsApproval).toBe(true)
+		expect(read.needsApproval).toBe(false)
+	})
+
+	test("o conjunto de tools com aprovação é exatamente o das escritas do registro", () => {
+		// Tool nova de escrita entra aqui sozinha (o critério é o nível); este teste existe para a
+		// lista mudar de propósito, olhando para ela.
+		expect([...APPROVAL_TOOL_NAMES].sort()).toEqual([
+			"add_menu_item",
+			"apply_template",
+			"create_daily_menu",
+			"create_recipe",
+			"remove_menu_item",
+			"update_menu_headcount",
+			"update_quantity_estimate_status",
+			"update_recipe",
+		])
+		for (const def of [...globalTools, ...kitchenTools, ...unitTools, ...localAnalyticsTools]) {
+			expect(requiresApproval(def), def.name).toBe(APPROVAL_TOOL_NAMES.has(def.name))
+		}
+	})
+
+	test("getModuleConfig entrega à rota só as tools com aprovação que o usuário recebeu", () => {
+		const reader = getModuleConfig("kitchen", 1, ctx([]))
+		expect([...reader.approvalToolNames]).toEqual([])
+		const writer = getModuleConfig("kitchen", 2, ctx([]))
+		expect([...writer.approvalToolNames].sort()).toEqual(["add_menu_item", "apply_template", "create_daily_menu", "remove_menu_item", "update_menu_headcount"])
 	})
 })

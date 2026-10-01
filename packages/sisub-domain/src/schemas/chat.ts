@@ -96,6 +96,10 @@ export const CreateModuleChatSessionSchema = z.object({
 })
 export type CreateModuleChatSession = z.infer<typeof CreateModuleChatSessionSchema>
 
+/** Status em que uma chamada de ferramenta do chat agêntico terminou e pode ir ao histórico. */
+export const MODULE_CHAT_TERMINAL_TOOL_STATUSES = ["done", "error", "denied"] as const
+export type ModuleChatTerminalToolStatus = (typeof MODULE_CHAT_TERMINAL_TOOL_STATUSES)[number]
+
 export const SaveModuleChatMessageSchema = z
 	.object({
 		sessionId: z.uuid(),
@@ -114,8 +118,9 @@ export const SaveModuleChatMessageSchema = z
 		outputTokens: z.number().int().nonnegative().optional(),
 	})
 	// Espelha o CHECK `module_chat_message_has_payload`. A chamada de ferramenta só conta
-	// como payload quando TERMINOU (`done`/`error`): gravar uma ainda em `calling` deixaria
-	// no histórico uma linha que nunca resolve.
+	// como payload quando TERMINOU (`done`/`error`/`denied`): gravar uma ainda em `calling`
+	// ou esperando aprovação deixaria no histórico uma linha que nunca resolve. `denied` é a
+	// ação de escrita que o usuário recusou no chat — terminou, sem executar.
 	.superRefine((data, ctx) => {
 		const hasContent = data.content.trim().length > 0
 		const hasError = Boolean(data.error?.trim())
@@ -125,7 +130,7 @@ export const SaveModuleChatMessageSchema = z
 			data.toolCalls.some((tc: unknown) => {
 				if (!tc || typeof tc !== "object") return false
 				const status = (tc as { status?: unknown }).status
-				return status === "done" || status === "error"
+				return typeof status === "string" && MODULE_CHAT_TERMINAL_TOOL_STATUSES.includes(status as ModuleChatTerminalToolStatus)
 			})
 
 		if (data.role === "user" && !hasContent) {

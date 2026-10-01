@@ -10,7 +10,7 @@ import { DomainError, QueryFailedError, type UserContext } from "@iefa/sisub-dom
 import { dropUnexpectedNulls, enforcePayloadBudget } from "@iefa/sisub-domain/agent"
 import { describeDriverError } from "@iefa/sisub-domain/utils"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { ServerTool } from "@tanstack/ai"
+import type { AnyServerTool } from "@tanstack/ai"
 import { toolDefinition } from "@tanstack/ai"
 import { ZodError } from "zod"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
@@ -115,6 +115,36 @@ export function getMaxLevel(permissions: UserPermission[], module: AppModule, sc
 	}
 
 	return maxLevel
+}
+
+// ── Escopo da rota ──────────────────────────────────────────────────────────
+
+/** Que tipo de entidade o `scopeId` da conversa identifica, pelo módulo. */
+function routeScopeKind(module: string): "kitchen" | "unit" | undefined {
+	if (module === "kitchen") return "kitchen"
+	if (module === "unit" || module === "local-analytics") return "unit"
+	return undefined
+}
+
+/**
+ * Prende a tool à cozinha ou unidade da rota. Recebe o id **resolvido** da linha afetada (a
+ * cozinha do cardápio, a OM dona do anexo), não o argumento do modelo: `remove_menu_item` só
+ * recebe `itemId`, e conferir o argumento deixaria passar o item de outra cozinha.
+ *
+ * O PBAC sozinho não basta: quem tem acesso às cozinhas A e B, conversando na rota de A, não
+ * deve ver o modelo escrever em B porque um texto gravado (modo de preparo, nota) mandou. O
+ * escopo da rota é o que a pessoa vê na tela; fora dele, nada é lido nem gravado.
+ *
+ * Sem `scopeId` (conversa fora de uma cozinha/unidade) vale só o PBAC, como antes. O erro é
+ * `ToolPermissionError`, que `toModelFacingToolError` devolve ao modelo como está.
+ */
+export function assertRouteScope(ctx: ToolContext, kind: "kitchen" | "unit", resolvedId: number): void {
+	if (ctx.scopeId == null || routeScopeKind(ctx.module) !== kind) return
+	if (resolvedId === ctx.scopeId) return
+	const entity = kind === "kitchen" ? "cozinha" : "unidade"
+	throw new ToolPermissionError(
+		`Fora do escopo desta conversa: o pedido envolve outra ${entity}. Esta conversa só lê e altera dados da ${entity} da rota; para outra ${entity}, o usuário precisa abrir o chat dela.`
+	)
 }
 
 // ── Validation helpers ──────────────────────────────────────────────────────
@@ -240,16 +270,33 @@ export function toModelFacingToolError(toolName: string, error: unknown): Error 
 }
 
 /**
+ * Tool que grava dado pede aprovação humana antes de executar. O nível de escrita
+ * (`requiredLevel >= 2`) é o critério: são as mesmas tools que o PBAC já separa como escrita,
+ * e uma tool nova de escrita nasce exigindo aprovação sem ninguém lembrar de marcar.
+ *
+ * A frase "confirme antes de gravar" no prompt era a única trava, e é justamente o que um
+ * texto gravado por outro usuário (modo de preparo, notas da estimativa) contorna no mesmo
+ * turno em que é lido. A aprovação não depende do modelo.
+ */
+export function requiresApproval(def: Pick<ModuleToolDefinition, "requiredLevel">): boolean {
+	return def.requiredLevel >= 2
+}
+
+/**
  * Wraps a ModuleToolDefinition as a TanStack AI ServerTool.
  * The ToolContext is injected via closure so each request gets its own auth/supabase.
+ *
+ * Com `needsApproval`, o `chat()` para antes do handler, emite o interrupt
+ * `approval_<toolCallId>` e só executa quando o turno seguinte traz o `resume` aprovado.
  */
-export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): ServerTool {
+export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): AnyServerTool {
 	return toolDefinition({
 		name: def.name,
 		description: def.description,
 		// Pass the JSON schema directly — TanStack AI v0.22+ accepts plain JSONSchema
 		// biome-ignore lint/suspicious/noExplicitAny: plain JSONSchema accepted at runtime but not yet reflected in SchemaInput types
 		inputSchema: def.parameters as any,
+		needsApproval: requiresApproval(def),
 	}).server(async (args) => {
 		// Modelo manda `null` no lugar de omitir campo opcional. Onde o schema não previu
 		// isso, `null` é ausência — sem esta linha `safeInt(null)` viraria `0` calado.

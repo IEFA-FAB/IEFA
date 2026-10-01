@@ -2,7 +2,7 @@
  * Module tool registry — maps module → tools + system prompt, filtered by user permission level.
  */
 
-import type { ServerTool } from "@tanstack/ai"
+import type { AnyServerTool } from "@tanstack/ai"
 import type { ChatModule } from "@/types/domain/module-chat"
 import { ANSWER_STYLE_PROMPT } from "../prompts/answer-style"
 import { GLOBAL_SYSTEM_PROMPT } from "../prompts/global"
@@ -13,12 +13,17 @@ import { globalTools } from "./global"
 import { kitchenTools } from "./kitchen"
 import { localAnalyticsTools } from "./local-analytics"
 import type { ModuleToolDefinition, ToolContext } from "./shared"
-import { wrapTool } from "./shared"
+import { requiresApproval, wrapTool } from "./shared"
 import { unitTools } from "./unit"
 
 interface ModuleConfig {
 	systemPrompt: string
-	tools: ServerTool[]
+	tools: AnyServerTool[]
+	/**
+	 * Tools desta conversa que exigem aprovação humana. A rota usa o conjunto para decidir
+	 * qual call pendente do histórico pode sobreviver à higiene (`sanitizeClientMessages`).
+	 */
+	approvalToolNames: ReadonlySet<string>
 }
 
 const MODULE_TOOLS: Record<ChatModule, ModuleToolDefinition[]> = {
@@ -27,6 +32,14 @@ const MODULE_TOOLS: Record<ChatModule, ModuleToolDefinition[]> = {
 	unit: unitTools,
 	"local-analytics": localAnalyticsTools,
 }
+
+/** Todas as tools de escrita do chat, em qualquer módulo — as que exigem aprovação humana. */
+export const APPROVAL_TOOL_NAMES: ReadonlySet<string> = new Set(
+	Object.values(MODULE_TOOLS)
+		.flat()
+		.filter(requiresApproval)
+		.map((def) => def.name)
+)
 
 const MODULE_PROMPTS: Record<ChatModule, string> = {
 	global: GLOBAL_SYSTEM_PROMPT,
@@ -89,5 +102,6 @@ export function getModuleConfig(module: ChatModule, userLevel: number, toolCtx: 
 	return {
 		systemPrompt: scopedSystemPrompt(module, MODULE_PROMPTS[module], toolCtx),
 		tools: filteredDefs.map((def) => wrapTool(def, toolCtx)),
+		approvalToolNames: new Set(filteredDefs.filter(requiresApproval).map((def) => def.name)),
 	}
 }

@@ -24,8 +24,20 @@ import {
 	agentListRecipes,
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
-import type { ModuleToolDefinition } from "./shared"
-import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, ToolValidationError, toolErr, toolOk } from "./shared"
+import type { ModuleToolDefinition, ToolContext } from "./shared"
+import {
+	assertRouteScope,
+	domainCtx,
+	requireKitchenPermission,
+	requireUuid,
+	requireValidDates,
+	safeInt,
+	sanitizeDbError,
+	ToolValidationError,
+	toolErr,
+	toolOk,
+	untypedFrom,
+} from "./shared"
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -35,6 +47,20 @@ const RECIPE_LIST_MAX = 100
 // `sort_order` entra porque é a ordem em que as refeições do dia devem ser listadas;
 // `created_at`/`deleted_at` não dizem nada a quem lê o cardápio.
 const MEAL_TYPE_COLUMNS = "id, name, sort_order, kitchen_id" as const
+
+/**
+ * Escopo da rota para tools que recebem só o id da linha (receita, template, cardápio do dia)
+ * e entregam a leitura a uma operation do domínio que não devolve a cozinha dona. Lê só a
+ * `kitchen_id` da linha, e só quando a conversa tem cozinha na rota: fora dela vale o PBAC da
+ * operation, como antes. Linha global (`kitchen_id` nulo) é catálogo compartilhado e passa.
+ * Linha ausente também passa: a operation responde "não encontrado" com a mensagem dela.
+ */
+async function assertRowInRouteKitchen(ctx: ToolContext, table: "recipes" | "menu_template" | "daily_menu", id: string): Promise<void> {
+	if (ctx.scopeId == null) return
+	const { data, error } = await untypedFrom(ctx, table).select("kitchen_id").eq("id", id).maybeSingle()
+	if (error) throw new Error(sanitizeDbError(error, `escopo:${table}`))
+	if (data?.kitchen_id != null) assertRouteScope(ctx, "kitchen", data.kitchen_id)
+}
 
 // ── Tools ───────────────────────────────────────────────────────────────────
 
@@ -66,6 +92,7 @@ const getMealTypes: ModuleToolDefinition = {
 		if (args.kitchenId != null) {
 			const id = safeInt(args.kitchenId, "kitchenId")
 			requireKitchenPermission(ctx, 1, { type: "kitchen", id })
+			assertRouteScope(ctx, "kitchen", id)
 			const { data, error } = await ctx.supabase
 				.from("meal_type")
 				.select(MEAL_TYPE_COLUMNS)
@@ -105,6 +132,7 @@ const getPlanningCalendar: ModuleToolDefinition = {
 	async handler(args, ctx) {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
+		assertRouteScope(ctx, "kitchen", id)
 		requireValidDates(args.startDate, args.endDate)
 
 		const menus = await agentFetchMenus(ctx.db, domainCtx(ctx), { kitchenId: id, startDate: String(args.startDate), endDate: String(args.endDate) })
@@ -127,6 +155,7 @@ const getDayDetails: ModuleToolDefinition = {
 	async handler(args, ctx) {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
+		assertRouteScope(ctx, "kitchen", id)
 		requireValidDates(args.date)
 
 		const menus = await agentFetchDayMenus(ctx.db, domainCtx(ctx), { kitchenId: id, date: String(args.date) })
@@ -144,6 +173,7 @@ const listRecipes: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentListRecipesSchema.parse(args)
+		if (input.kitchenId != null) assertRouteScope(ctx, "kitchen", input.kitchenId)
 		const { items, ...counts } = await agentListRecipes(ctx.db, domainCtx(ctx), input)
 		return toolOk({ recipes: items, ...counts })
 	},
@@ -165,7 +195,10 @@ const getRecipe: ModuleToolDefinition = {
 	async handler(args, ctx) {
 		const recipeId = requireUuid(args.recipeId, "recipeId")
 		requireKitchenPermission(ctx, 1)
-		return toolOk(await agentGetRecipe(ctx.db, domainCtx(ctx), { recipeId }))
+		const recipe = await agentGetRecipe(ctx.db, domainCtx(ctx), { recipeId })
+		// A ficha já traz a cozinha dona: a de outra cozinha não chega ao modelo.
+		if (recipe.kitchen_id != null) assertRouteScope(ctx, "kitchen", recipe.kitchen_id)
+		return toolOk(recipe)
 	},
 }
 
@@ -191,6 +224,7 @@ const createDailyMenu: ModuleToolDefinition = {
 	async handler(args, ctx) {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id })
+		assertRouteScope(ctx, "kitchen", id)
 		requireValidDates(args.date)
 		const mealTypeId = requireUuid(typeof args.mealTypeId === "string" ? args.mealTypeId.trim() : args.mealTypeId, "mealTypeId")
 
@@ -232,6 +266,7 @@ const addMenuItem: ModuleToolDefinition = {
 		if (menu.kitchen_id == null) return toolErr("Menu sem cozinha associada")
 
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: menu.kitchen_id })
+		assertRouteScope(ctx, "kitchen", menu.kitchen_id)
 
 		const { data: recipe, error: recipeError } = await ctx.supabase
 			.from("recipes")
@@ -276,6 +311,7 @@ const removeMenuItem: ModuleToolDefinition = {
 		if (kitchenId == null) return toolErr("Não foi possível determinar a cozinha")
 
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: kitchenId })
+		assertRouteScope(ctx, "kitchen", kitchenId)
 
 		const { error } = await ctx.supabase.from("menu_items").update({ deleted_at: new Date().toISOString() }).eq("id", itemId)
 		if (error) return toolErr(sanitizeDbError(error, "remove_menu_item"))
@@ -304,6 +340,7 @@ const updateMenuHeadcount: ModuleToolDefinition = {
 		if (menu.kitchen_id == null) return toolErr("Menu sem cozinha associada")
 
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: menu.kitchen_id })
+		assertRouteScope(ctx, "kitchen", menu.kitchen_id)
 
 		const { data, error } = await ctx.supabase
 			.from("daily_menu")
@@ -340,6 +377,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 		if (args.kitchenId != null) {
 			const id = safeInt(args.kitchenId, "kitchenId")
 			requireKitchenPermission(ctx, 1, { type: "kitchen", id })
+			assertRouteScope(ctx, "kitchen", id)
 			query = query.or(`kitchen_id.is.null,kitchen_id.eq.${id}`)
 		} else {
 			requireKitchenPermission(ctx, 1)
@@ -374,6 +412,7 @@ const getTemplateItems: ModuleToolDefinition = {
 	// um template semanal cheio tem ~100 itens.
 	async handler(args, ctx) {
 		const templateId = requireUuid(args.templateId, "templateId")
+		await assertRowInRouteKitchen(ctx, "menu_template", templateId)
 		const items = await agentGetTemplateItems(ctx.db, domainCtx(ctx), { templateId })
 		return toolOk({ items, total_items: items.length })
 	},
@@ -402,6 +441,7 @@ Na resposta, datesSkipped lista as datas que já tinham alguma refeição planej
 	async handler(args, ctx) {
 		const input = AgentApplyTemplateSchema.parse(args)
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: input.kitchenId })
+		assertRouteScope(ctx, "kitchen", input.kitchenId)
 		return toolOk(await agentApplyTemplate(ctx.db, domainCtx(ctx), input))
 	},
 }
@@ -421,6 +461,7 @@ const listKitchenEquipmentTool: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentListKitchenEquipmentSchema.parse(args)
+		assertRouteScope(ctx, "kitchen", input.kitchenId)
 		const { items, ...rest } = await agentListKitchenEquipment(ctx.db, domainCtx(ctx), input)
 		return toolOk({ equipment: items, ...rest })
 	},
@@ -434,6 +475,7 @@ const getRecipeEquipmentTool: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentRecipeEquipmentSchema.parse(args)
+		await assertRowInRouteKitchen(ctx, "recipes", input.recipeId)
 		const { items, ...counts } = await agentGetRecipeEquipment(ctx.db, domainCtx(ctx), input)
 		return toolOk({ requirements: items, ...counts })
 	},
@@ -447,6 +489,8 @@ const checkRecipeEquipmentTool: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentCheckRecipeEquipmentSchema.parse(args)
+		assertRouteScope(ctx, "kitchen", input.kitchenId)
+		await assertRowInRouteKitchen(ctx, "recipes", input.recipeId)
 		return toolOk(await agentCheckRecipeEquipment(ctx.db, domainCtx(ctx), input))
 	},
 }
@@ -459,6 +503,7 @@ const checkMenuEquipmentTool: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentCheckMenuEquipmentSchema.parse(args)
+		await assertRowInRouteKitchen(ctx, "daily_menu", input.dailyMenuId)
 		return toolOk(await agentCheckMenuEquipment(ctx.db, domainCtx(ctx), input))
 	},
 }

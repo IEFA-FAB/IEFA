@@ -1,11 +1,13 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { AlertCircle } from "lucide-react"
-import { useCallback, useEffect, useRef } from "react"
+import { AlertCircle, ShieldQuestion } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
+import { Button } from "@/components/ui/button"
 import { useModuleChatSession } from "@/hooks/features/useModuleChatSession"
 import type { ModuleChatConfig } from "@/types/domain/module-chat"
 import { ModuleChatInput } from "./ModuleChatInput"
 import { ModuleChatMessageBubble } from "./ModuleChatMessage"
 import { ModuleSuggestedPrompts } from "./ModuleSuggestedPrompts"
+import type { ToolApprovalContext } from "./ToolApprovalCard"
 
 // ── Props ───────────────────────────────────────────────────────────────────
 
@@ -18,12 +20,28 @@ interface ModuleChatInterfaceProps {
 // ── Component ───────────────────────────────────────────────────────────────
 
 export function ModuleChatInterface({ config, sessionId, onSessionCreated }: ModuleChatInterfaceProps) {
-	const { messages, isStreaming, loadingMessages, streamError, handleSubmit, handleAbort } = useModuleChatSession({
+	const {
+		messages,
+		isStreaming,
+		loadingMessages,
+		streamError,
+		awaitingApproval,
+		approvalSubmitFailed,
+		handleSubmit,
+		handleAbort,
+		handleApprovalDecision,
+		handleDiscardPendingAction,
+	} = useModuleChatSession({
 		sessionId,
 		module: config.module,
 		scopeId: config.scopeId,
 		onSessionCreated,
 	})
+
+	const approval = useMemo<ToolApprovalContext>(
+		() => ({ module: config.module, scopeId: config.scopeId, onDecide: handleApprovalDecision }),
+		[config.module, config.scopeId, handleApprovalDecision]
+	)
 
 	// ── Scroll / virtualizer ──────────────────────────────────────────────────
 	const parentRef = useRef<HTMLDivElement>(null)
@@ -105,7 +123,7 @@ export function ModuleChatInterface({ config, sessionId, onSessionCreated }: Mod
 										paddingBottom: "12px",
 									}}
 								>
-									<ModuleChatMessageBubble message={message} />
+									<ModuleChatMessageBubble message={message} approval={approval} />
 								</div>
 							)
 						})}
@@ -131,7 +149,28 @@ export function ModuleChatInterface({ config, sessionId, onSessionCreated }: Mod
 							<span>{streamError}</span>
 						</div>
 					)}
-					<ModuleChatInput onSubmit={onSubmit} onAbort={handleAbort} isStreaming={isStreaming} placeholder={config.placeholder} />
+					{awaitingApproval && (
+						<div role="status" className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
+							<ShieldQuestion className="size-3.5 shrink-0 text-muted-foreground" />
+							{approvalSubmitFailed ? (
+								<>
+									<span className="flex-1 text-caption text-foreground">Não foi possível enviar sua decisão. A ação não foi executada.</span>
+									<Button size="xs" variant="outline" onClick={handleDiscardPendingAction}>
+										Descartar ação
+									</Button>
+								</>
+							) : (
+								<span className="text-caption text-foreground">Confirme ou recuse a ação acima para continuar a conversa.</span>
+							)}
+						</div>
+					)}
+					<ModuleChatInput
+						onSubmit={onSubmit}
+						onAbort={handleAbort}
+						isStreaming={isStreaming}
+						disabled={awaitingApproval}
+						placeholder={awaitingApproval ? "Confirme ou recuse a ação acima" : config.placeholder}
+					/>
 					<p className="mt-1.5 text-center text-[11px] text-muted-foreground">{config.disclaimer}</p>
 				</div>
 			</div>

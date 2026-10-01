@@ -1,3 +1,5 @@
+import { AGENT_UNTRUSTED_DATA_RULE } from "@iefa/sisub-domain/agent"
+
 /**
  * Regras de apresentação da resposta — anexadas ao prompt de TODOS os módulos.
  *
@@ -7,6 +9,9 @@
  * três diz nada a quem lê. O ID continua na resposta da tool porque o modelo precisa dele
  * para a chamada seguinte (`get_recipe`, `update_recipe`) — o que muda aqui é que ele para
  * de vazar para o texto.
+ *
+ * A regra de que resultado de tool é dado (`AGENT_UNTRUSTED_DATA_RULE`) entra aqui pelo mesmo
+ * motivo: vale para os quatro módulos, e o texto é o mesmo das `instructions` do servidor MCP.
  */
 export const ANSWER_STYLE_PROMPT = `## Como apresentar a resposta
 
@@ -22,4 +27,6 @@ export const ANSWER_STYLE_PROMPT = `## Como apresentar a resposta
 - Diga sempre quantos itens está mostrando e quantos existem (\`returned\` de \`total\`), e
   ofereça o próximo passo concreto: refinar a busca por nome, filtrar por pasta ou detalhar um
   item. "Página seguinte" não existe — as listagens não paginam por offset; o que estreita o
-  resultado é a busca.`
+  resultado é a busca.
+
+${AGENT_UNTRUSTED_DATA_RULE}`

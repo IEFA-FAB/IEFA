@@ -3,13 +3,16 @@ import { useCallback, useState } from "react"
 import { ChatMarkdown } from "@/components/ui/chat-markdown"
 import { cn } from "@/lib/cn"
 import type { ModuleChatMessage as ModuleChatMessageType } from "@/types/domain/module-chat"
+import type { ToolApprovalContext } from "./ToolApprovalCard"
 import { ToolCallDisplay } from "./ToolCallDisplay"
 
 interface ModuleChatMessageProps {
 	message: ModuleChatMessageType
+	/** Decisão das ações de escrita que esperam Confirmar/Recusar nesta conversa. */
+	approval?: ToolApprovalContext
 }
 
-export function ModuleChatMessageBubble({ message }: ModuleChatMessageProps) {
+export function ModuleChatMessageBubble({ message, approval }: ModuleChatMessageProps) {
 	const [copied, setCopied] = useState(false)
 	const isUser = message.role === "user"
 	// Tool messages are filtered out by the parent (ModuleChatInterface).
@@ -35,27 +38,30 @@ export function ModuleChatMessageBubble({ message }: ModuleChatMessageProps) {
 
 			{/* Bubble */}
 			<div className={cn("flex max-w-[85%] flex-col gap-2", isUser ? "items-end" : "items-start")}>
-				<div
-					className={cn(
-						"rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-						isUser ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted text-foreground rounded-tl-sm"
-					)}
-				>
-					{message.content ? (
-						<>
-							<ChatMarkdown>{message.content}</ChatMarkdown>
-							{message.isStreaming && !message.toolCalls?.length ? (
-								<span className="mt-1 inline-block h-4 w-0.5 animate-pulse rounded bg-current align-middle" />
-							) : null}
-						</>
-					) : message.isStreaming ? (
-						<span className="inline-flex items-center gap-1">
-							<span className="size-2 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
-							<span className="size-2 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
-							<span className="size-2 animate-bounce rounded-full bg-current" />
-						</span>
-					) : null}
-				</div>
+				{/* Mensagem só com ação (ex.: esperando Confirmar/Recusar) não desenha bolha vazia. */}
+				{(isUser || message.content || message.isStreaming) && (
+					<div
+						className={cn(
+							"rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+							isUser ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted text-foreground rounded-tl-sm"
+						)}
+					>
+						{message.content ? (
+							<>
+								<ChatMarkdown>{message.content}</ChatMarkdown>
+								{message.isStreaming && !message.toolCalls?.length ? (
+									<span className="mt-1 inline-block h-4 w-0.5 animate-pulse rounded bg-current align-middle" />
+								) : null}
+							</>
+						) : message.isStreaming ? (
+							<span className="inline-flex items-center gap-1">
+								<span className="size-2 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+								<span className="size-2 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+								<span className="size-2 animate-bounce rounded-full bg-current" />
+							</span>
+						) : null}
+					</div>
+				)}
 
 				{/* Copy button — assistant only, after streaming */}
 				{!isUser && message.content && !message.isStreaming && (
@@ -82,7 +88,7 @@ export function ModuleChatMessageBubble({ message }: ModuleChatMessageProps) {
 				{message.toolCalls && message.toolCalls.length > 0 && (
 					<div className="w-full space-y-1.5">
 						{message.toolCalls.map((tc) => (
-							<ToolCallDisplay key={tc.id} toolCall={tc} />
+							<ToolCallDisplay key={tc.id} toolCall={tc} approval={approval} />
 						))}
 					</div>
 				)}

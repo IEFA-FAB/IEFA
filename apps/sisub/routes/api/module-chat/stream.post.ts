@@ -9,6 +9,10 @@
  * 4. Load module config (system prompt + tools filtered by user level)
  * 5. chat() with maxIterationsMiddleware(8) + otelMiddleware
  * 6. toServerSentEventsResponse() → AG-UI SSE stream
+ *
+ * Aprovação humana: tool de escrita para no interrupt `approval_<toolCallId>` e o run termina.
+ * O turno seguinte traz a decisão em `resume` (+ `parentRunId`); só então a call pendente do
+ * histórico sobrevive à higiene e o `chat()` executa (ou devolve a recusa ao modelo).
  */
 
 import { createAdapterFromEnv, enforceRequestRateLimit, maxIterationsMiddleware, RateLimitError } from "@iefa/ai-provider"
@@ -24,7 +28,7 @@ import { type H3Event, HTTPError, readBody } from "h3"
 import { defineHandler } from "nitro"
 import { hasPermission } from "@/auth/pbac"
 import { getServerCapabilities } from "@/lib/capabilities.server"
-import { checkChatPayloadSize, sanitizeClientMessages } from "@/lib/chat-client-messages"
+import { assertResumeMatchesPending, ChatRequestError, checkChatPayloadSize, parseApprovalResume, sanitizeClientMessages } from "@/lib/chat-client-messages"
 import { getDb } from "@/lib/db.server"
 import { envServer } from "@/lib/env.server"
 import { getModuleConfig } from "@/lib/module-chat/tools/registry"
@@ -121,7 +125,21 @@ export default defineHandler(async (event: H3Event) => {
 	if (sizeError) {
 		throw new HTTPError({ status: 413, message: sizeError })
 	}
-	const messages = sanitizeClientMessages(params.messages, { allowPendingToolCalls: false })
+
+	// A decisão de aprovação viaja no `resume`, não no histórico: `chatParamsFromRequestBody`
+	// apaga as `parts` das mensagens. Forma fora de `{ approved: boolean }` (inclusive
+	// `editedArgs`, que executaria com argumentos que o cartão não mostrou) é 400.
+	let resume: ReturnType<typeof parseApprovalResume>
+	try {
+		resume = parseApprovalResume(params.resume)
+	} catch (error) {
+		if (error instanceof ChatRequestError) throw new HTTPError({ status: error.status, message: error.message })
+		throw error
+	}
+	if (resume && resume.length > 0 && !params.parentRunId) {
+		throw new HTTPError({ status: 400, message: "Resposta de aprovação sem o run de origem" })
+	}
+
 	const fp = params.forwardedProps as Record<string, unknown>
 	const module = fp?.module as ChatModule | undefined
 	const scopeId = fp?.scopeId != null ? Number(fp.scopeId) : undefined
@@ -159,7 +177,17 @@ export default defineHandler(async (event: H3Event) => {
 		db: getDb(),
 	}
 
-	const { systemPrompt, tools } = getModuleConfig(module, userLevel, toolCtx)
+	const { systemPrompt, tools, approvalToolNames } = getModuleConfig(module, userLevel, toolCtx)
+
+	// Higiene do histórico DEPOIS de saber quais tools esta conversa tem: só call pendente de
+	// tool que exige aprovação, com decisão neste `resume`, chega ao `chat()`.
+	const messages = sanitizeClientMessages(params.messages, { approvalTools: approvalToolNames, resume })
+	try {
+		assertResumeMatchesPending(messages, resume)
+	} catch (error) {
+		if (error instanceof ChatRequestError) throw new HTTPError({ status: error.status, message: error.message })
+		throw error
+	}
 
 	// 5. Teto de consumo — aplicado ANTES de abrir o SSE. Depois que o stream começa não há
 	// mais status HTTP para devolver: o erro vira conexão cortada, sem mensagem.
@@ -188,6 +216,12 @@ export default defineHandler(async (event: H3Event) => {
 		tools,
 		systemPrompts: [systemPrompt],
 		middleware: [otel, maxIterationsMiddleware(8)],
+		// Identificam o run no AG-UI. `parentRunId` + `resume` é o que faz o `chat()` aplicar a
+		// decisão de aprovação; sem eles a call pendente pararia de novo no mesmo interrupt.
+		threadId: params.threadId,
+		runId: params.runId,
+		parentRunId: params.parentRunId,
+		resume,
 	})
 
 	return toServerSentEventsResponse(stream)

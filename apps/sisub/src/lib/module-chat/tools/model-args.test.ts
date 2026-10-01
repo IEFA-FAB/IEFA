@@ -10,7 +10,7 @@
  * a próxima tool escrita entra na varredura sem ninguém lembrar deste teste.
  */
 
-import type { ServerTool } from "@tanstack/ai"
+import type { AnyServerTool } from "@tanstack/ai"
 import { describe, expect, test } from "vitest"
 import type { UserPermission } from "@/types/domain/permissions"
 import { globalTools } from "./global"
@@ -92,7 +92,7 @@ function argsWithNullOptionals(schema: JsonSchema): Record<string, unknown> {
  * Quando o `inputSchema` carrega um standard-schema (é o caso das tools que vêm de um
  * schema Zod do domínio), é ele quem barra a chamada — não o JSON Schema publicado.
  */
-async function validateLikeEngine(tool: ServerTool, args: Record<string, unknown>): Promise<{ ok: boolean; message?: string }> {
+async function validateLikeEngine(tool: AnyServerTool, args: Record<string, unknown>): Promise<{ ok: boolean; message?: string }> {
 	// `as unknown` no meio: em @tanstack/ai >= 0.43 o `inputSchema` do ServerTool é
 	// opcional, então o tipo estático é `undefined` e o cast direto não compila. O
 	// schema continua chegando em runtime — é justamente o que se valida aqui.
