@@ -9,6 +9,28 @@
 import { getCoreClient, getKitchenClient, getProcurementClient } from "@/lib/supabase.server"
 import type { ChatActionReader, DailyMenuView, MealTypeView } from "./describe-action"
 
+/**
+ * Colunas do cardápio para a descrição. O nome da refeição não filtra `deleted_at` de propósito:
+ * o cardápio que já existe continua com o nome dela.
+ */
+const DAILY_MENU_COLUMNS = "service_date, kitchen_id, forecasted_headcount, kitchen:kitchen_id(display_name), meal_type:meal_type_id(name)" as const
+
+function toDailyMenuView(row: {
+	service_date: string | null
+	kitchen_id: number | null
+	forecasted_headcount: number | null
+	kitchen: { display_name: string | null } | null
+	meal_type: { name: string | null } | null
+}): DailyMenuView {
+	return {
+		serviceDate: row.service_date,
+		mealTypeName: row.meal_type?.name ?? null,
+		kitchenId: row.kitchen_id,
+		kitchenName: row.kitchen?.display_name ?? null,
+		forecastedHeadcount: row.forecasted_headcount,
+	}
+}
+
 export function createChatActionReader(): ChatActionReader {
 	const kitchen = getKitchenClient()
 	const core = getCoreClient()
@@ -41,32 +63,27 @@ export function createChatActionReader(): ChatActionReader {
 		},
 
 		async findDailyMenu(id): Promise<DailyMenuView | null> {
-			// Uma consulta só: cozinha e refeição vêm pelas FKs do cardápio. O nome da refeição não
-			// filtra `deleted_at` de propósito — o cardápio que já existe continua com o nome dela.
+			// Uma consulta só: cozinha e refeição vêm pelas FKs do cardápio.
+			const { data, error } = await kitchen.from("daily_menu").select(DAILY_MENU_COLUMNS).eq("id", id).is("deleted_at", null).maybeSingle()
+			if (error) throw error
+			return data ? toDailyMenuView(data) : null
+		},
+
+		async findMenuItem(id) {
+			// Item e cardápio numa ida só, pela FK. O embed não filtra `deleted_at`; o cardápio
+			// apagado sai como ausente aqui.
 			const { data, error } = await kitchen
-				.from("daily_menu")
-				.select("service_date, kitchen_id, forecasted_headcount, kitchen:kitchen_id(display_name), meal_type:meal_type_id(name)")
+				.from("menu_items")
+				.select(`recipe, daily_menu:daily_menu_id(deleted_at, ${DAILY_MENU_COLUMNS})`)
 				.eq("id", id)
 				.is("deleted_at", null)
 				.maybeSingle()
 			if (error) throw error
 			if (!data) return null
-			return {
-				serviceDate: data.service_date,
-				mealTypeName: data.meal_type?.name ?? null,
-				kitchenId: data.kitchen_id,
-				kitchenName: data.kitchen?.display_name ?? null,
-				forecastedHeadcount: data.forecasted_headcount,
-			}
-		},
-
-		async findMenuItem(id) {
-			const { data, error } = await kitchen.from("menu_items").select("recipe, daily_menu_id").eq("id", id).is("deleted_at", null).maybeSingle()
-			if (error) throw error
-			if (!data) return null
 			// O item guarda o snapshot da receita; o nome mostrado é o que está no cardápio.
 			const snapshot = data.recipe as { name?: unknown } | null
-			return { recipeName: typeof snapshot?.name === "string" ? snapshot.name : null, dailyMenuId: data.daily_menu_id }
+			const menu = data.daily_menu && data.daily_menu.deleted_at == null ? toDailyMenuView(data.daily_menu) : null
+			return { recipeName: typeof snapshot?.name === "string" ? snapshot.name : null, menu }
 		},
 
 		async findTemplate(id) {

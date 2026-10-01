@@ -8,6 +8,12 @@ import { getActionLabel, getActionWarning, parseToolArguments } from "./tool-act
 
 export const DESCRIPTION_UNAVAILABLE = "Não foi possível descrever o item."
 
+/**
+ * Argumento que a tool recusaria. Confirmar continua possível de propósito: a decisão fecha a
+ * pendência do turno, e a tool, ao rodar, recusa com esta mesma mensagem sem gravar nada.
+ */
+export const INVALID_ARGS_HINT = "A ferramenta vai recusar esta chamada: confirmar não grava nada, só devolve o erro ao assistente."
+
 // ── View (sem dados) ────────────────────────────────────────────────────────
 
 export interface ToolApprovalCardViewProps {
@@ -25,7 +31,8 @@ export interface ToolApprovalCardViewProps {
 /**
  * Cartão de Confirmar/Recusar de uma ação de escrita do assistente. Mostra a ação e a entidade
  * por nome, data e refeição — nunca o UUID que o modelo mandou. Sem descrição, diz que não foi
- * possível descrever e ainda deixa decidir: recusar é sempre seguro.
+ * possível descrever e ainda deixa decidir: recusar é sempre seguro. Com argumento que a tool
+ * recusaria, mostra a recusa; confirmar ali só leva ao erro da tool.
  */
 export function ToolApprovalCardView({ label, description, warning, onConfirm, onDeny, disabled }: ToolApprovalCardViewProps) {
 	return (
@@ -46,6 +53,11 @@ export function ToolApprovalCardView({ label, description, warning, onConfirm, o
 							</div>
 						))}
 					</dl>
+				) : description.status === "invalid" ? (
+					<>
+						<ItemDescription>Argumentos inválidos: {description.message}</ItemDescription>
+						<ItemDescription>{INVALID_ARGS_HINT}</ItemDescription>
+					</>
 				) : (
 					<ItemDescription>{DESCRIPTION_UNAVAILABLE}</ItemDescription>
 				)}

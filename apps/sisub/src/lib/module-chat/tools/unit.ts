@@ -12,6 +12,7 @@ import { toJsonSchema } from "@iefa/sisub-domain"
 import {
 	AgentGetQuantityEstimateSchema,
 	AgentListQuantityEstimatesSchema,
+	type AgentUpdateQuantityEstimateStatus,
 	AgentUpdateQuantityEstimateStatusSchema,
 	agentGetQuantityEstimate,
 	agentListQuantityEstimates,
@@ -73,14 +74,14 @@ const getQuantityEstimate: ModuleToolDefinition = {
 	},
 }
 
-const updateQuantityEstimateStatusTool: ModuleToolDefinition = {
+const updateQuantityEstimateStatusTool: ModuleToolDefinition<AgentUpdateQuantityEstimateStatus> = {
 	name: "update_quantity_estimate_status",
 	description:
 		"Atualiza o status de um anexo quantitativo do TR: draft → completed (concluir) → archived. Concluir exige a justificativa da quantidade máxima quando algum item passa do acréscimo de referência, e congela a memória de cálculo.",
 	parameters: toJsonSchema(AgentUpdateQuantityEstimateStatusSchema),
 	requiredLevel: 2,
-	async handler(args, ctx) {
-		const input = AgentUpdateQuantityEstimateStatusSchema.parse(args)
+	parseArgs: (args) => AgentUpdateQuantityEstimateStatusSchema.parse(args),
+	async handler(input, ctx) {
 		// Escopo da rota ANTES da escrita: concluir é irreversível (congela a memória de cálculo).
 		// Só a OM dona é lida; anexo ausente segue para a operation, que responde "não encontrado".
 		if (ctx.scopeId != null) {

@@ -41,5 +41,10 @@ domínio segue a semântica do ERP, não a do provider:
   substituição destrutiva (`if (items !== undefined) delete all + reinsert`); aceitar `null` ali
   transforma "o modelo não mexeu nos itens" em "apague os itens do template".
 
+Tool de escrita do chat declara `parseArgs` (só o argumento, sem banco nem permissão) e o handler
+recebe a saída dele. O cartão de aprovação (`describe-action.ts`) valida pela mesma função, via
+`parseApprovalToolArgs` do registro: schema próprio no cartão deixava o usuário confirmar o que a
+tool recusa. Guarda: o bloco "mesmo veredito" de `describe-action.test.ts`.
+
 Guarda: `model-args.test.ts` nos dois lados varre todas as tools, tanto o `null` que vaza para o
 handler quanto o opcional dentro de array que não aceita `null`.

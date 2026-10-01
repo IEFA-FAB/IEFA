@@ -5,11 +5,17 @@ import {
 	type ChatActionAccess,
 	type ChatActionDescription,
 	type ChatActionReader,
+	type DailyMenuView,
+	describeArgsError,
 	describeChatAction,
 	type MealTypeView,
 	type ReadScope,
 } from "./describe-action"
-import { APPROVAL_TOOL_NAMES, APPROVAL_TOOL_NAMES_BY_MODULE } from "./tools/registry"
+import { globalTools } from "./tools/global"
+import { kitchenTools } from "./tools/kitchen"
+import { APPROVAL_TOOL_NAMES, APPROVAL_TOOL_NAMES_BY_MODULE, parseApprovalToolArgs } from "./tools/registry"
+import { type ModuleToolDefinition, requiresApproval, type ToolContext, toolOk, wrapTool } from "./tools/shared"
+import { unitTools } from "./tools/unit"
 
 const RECIPE_GLOBAL = "11111111-1111-4111-8111-111111111111"
 const RECIPE_K7 = "22222222-2222-4222-8222-222222222222"
@@ -22,6 +28,11 @@ const MEAL_JANTAR = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 const TEMPLATE_GLOBAL = "88888888-8888-4888-8888-888888888888"
 const ESTIMATE_U3 = "99999999-9999-4999-8999-999999999999"
 const MISSING = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+const DAILY_MENUS: Record<string, DailyMenuView> = {
+	[MENU_K7]: { serviceDate: "2026-10-12", mealTypeName: "Almoço", kitchenId: 7, kitchenName: "Cozinha do GAP-SJ", forecastedHeadcount: 120 },
+	[MENU_K8]: { serviceDate: "2026-10-12", mealTypeName: "Jantar", kitchenId: 8, kitchenName: "Cozinha 8", forecastedHeadcount: null },
+}
 
 const reader: ChatActionReader = {
 	async findRecipe(id) {
@@ -38,12 +49,10 @@ const reader: ChatActionReader = {
 		return new Map(ids.filter((id) => id in known).map((id) => [id, known[id]]))
 	},
 	async findDailyMenu(id) {
-		if (id === MENU_K7) return { serviceDate: "2026-10-12", mealTypeName: "Almoço", kitchenId: 7, kitchenName: "Cozinha do GAP-SJ", forecastedHeadcount: 120 }
-		if (id === MENU_K8) return { serviceDate: "2026-10-12", mealTypeName: "Jantar", kitchenId: 8, kitchenName: "Cozinha 8", forecastedHeadcount: null }
-		return null
+		return DAILY_MENUS[id] ?? null
 	},
 	async findMenuItem(id) {
-		return id === ITEM_K7 ? { recipeName: "Feijoada da casa", dailyMenuId: MENU_K7 } : null
+		return id === ITEM_K7 ? { recipeName: "Feijoada da casa", menu: DAILY_MENUS[MENU_K7] } : null
 	},
 	async findTemplate(id) {
 		return id === TEMPLATE_GLOBAL ? { name: "Semana padrão SDAB", kitchenId: null } : null
@@ -115,15 +124,16 @@ describe("describeChatAction — uma descrição por tool de escrita, sem UUID",
 		}
 		const out = await describeChatAction({ toolName: "apply_template", args }, access("kitchen", 7), reader)
 		expect(values(out)).toBe(
-			"Template: Semana padrão SDAB | Cozinha: Cozinha do GAP-SJ | 2 datas (só dias vazios): 12/10/2026, 13/10/2026 | Dia 1 do template cai em: segunda-feira | Efetivo por refeição: Almoço: a definir"
+			"Template: Semana padrão SDAB | Cozinha: Cozinha do GAP-SJ | 2 datas (só dias vazios): 12/10/2026, 13/10/2026 | Dia inicial do template: Segunda-feira | Efetivo por refeição: Almoço: a definir"
 		)
 	})
 
-	test("apply_template mostra em que dia da semana cai o dia 1 do template", async () => {
-		// `applyTemplate`: a data que cai no `startDayOfWeek` recebe o dia 1 do template.
+	test("apply_template mostra o dia inicial do template como a tela de aplicar", async () => {
+		// `applyTemplate`: a data que cai no `startDayOfWeek` recebe o dia 1 do template. Rótulo e
+		// valor são os do campo "Dia inicial do template" do `ApplyTemplateDialog`.
 		const args = { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: ["2026-10-14"], startDayOfWeek: 3 }
 		const out = await describeChatAction({ toolName: "apply_template", args }, access("kitchen", 7), reader)
-		expect(values(out)).toContain("Dia 1 do template cai em: quarta-feira")
+		expect(values(out)).toContain("Dia inicial do template: Quarta-feira")
 	})
 
 	test("apply_template lê as refeições do efetivo numa consulta só", async () => {
@@ -152,7 +162,7 @@ describe("describeChatAction — uma descrição por tool de escrita, sem UUID",
 
 	test("nenhuma descrição traz UUID", async () => {
 		const cases: [ChatModule, string, Record<string, unknown>, number?][] = [
-			["global", "update_recipe", { recipeId: RECIPE_GLOBAL }],
+			["global", "update_recipe", { recipeId: RECIPE_GLOBAL, cookingFactor: 0.9 }],
 			["kitchen", "add_menu_item", { dailyMenuId: MENU_K7, recipeId: RECIPE_K7 }, 7],
 			["kitchen", "remove_menu_item", { itemId: ITEM_K7 }, 7],
 			["unit", "update_quantity_estimate_status", { quantityEstimateId: ESTIMATE_U3, status: "archived" }, 3],
@@ -170,7 +180,7 @@ describe("describeChatAction — uma descrição por tool de escrita, sem UUID",
 	test("toda tool que exige aprovação tem descrição, no módulo em que existe", async () => {
 		const SAMPLE_ARGS: Record<string, [scopeId: number | undefined, args: Record<string, unknown>]> = {
 			create_recipe: [undefined, { name: "Pudim" }],
-			update_recipe: [undefined, { recipeId: RECIPE_GLOBAL }],
+			update_recipe: [undefined, { recipeId: RECIPE_GLOBAL, name: "Arroz à grega" }],
 			create_daily_menu: [7, { kitchenId: 7, date: "2026-10-12", mealTypeId: MEAL_ALMOCO }],
 			add_menu_item: [7, { dailyMenuId: MENU_K7, recipeId: RECIPE_GLOBAL }],
 			remove_menu_item: [7, { itemId: ITEM_K7 }],
@@ -195,32 +205,6 @@ describe("describeChatAction — falha vira 'não foi possível descrever'", () 
 
 	test("linha inexistente", async () => {
 		expect(await describeChatAction({ toolName: "remove_menu_item", args: { itemId: MISSING } }, access("kitchen", 7), reader)).toEqual(unavailable)
-	})
-
-	test("argumento que a tool recusaria", async () => {
-		expect(await describeChatAction({ toolName: "remove_menu_item", args: { itemId: "não-é-uuid" } }, access("kitchen", 7), reader)).toEqual(unavailable)
-		// Mesmo parser da tool: `safeInt` recusa fração, o cartão não descreve o que não roda.
-		expect(
-			await describeChatAction({ toolName: "update_menu_headcount", args: { menuId: MENU_K7, forecastedHeadcount: 1.5 } }, access("kitchen", 7), reader)
-		).toEqual(unavailable)
-		expect(
-			await describeChatAction(
-				{ toolName: "create_daily_menu", args: { kitchenId: 7, date: "2026-10-12", mealTypeId: MEAL_ALMOCO, forecastedHeadcount: 0 } },
-				access("kitchen", 7),
-				reader
-			)
-		).toEqual(unavailable)
-	})
-
-	test("apply_template acima do teto de datas do contrato do agente", async () => {
-		const targetDates = Array.from({ length: AGENT_APPLY_TEMPLATE_MAX_DATES + 1 }, (_, i) => `2026-12-${String((i % 31) + 1).padStart(2, "0")}`)
-		const args = { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates, startDayOfWeek: 1 }
-		expect(await describeChatAction({ toolName: "apply_template", args }, access("kitchen", 7), reader)).toEqual(unavailable)
-	})
-
-	test("apply_template sem startDayOfWeek, como a tool recusaria", async () => {
-		const args = { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: ["2026-10-12"] }
-		expect(await describeChatAction({ toolName: "apply_template", args }, access("kitchen", 7), reader)).toEqual(unavailable)
 	})
 
 	test("item de outra cozinha que não a da rota", async () => {
@@ -266,5 +250,119 @@ describe("describeChatAction — falha vira 'não foi possível descrever'", () 
 	test("sem rota, a permissão da cozinha resolvida decide", async () => {
 		const out = await describeChatAction({ toolName: "remove_menu_item", args: { itemId: ITEM_K7 } }, access("kitchen"), reader)
 		expect(out.status).toBe("described")
+	})
+})
+
+describe("describeChatAction — remove_menu_item e add_menu_item", () => {
+	test("remove_menu_item lê item e cardápio numa ida só", async () => {
+		const findDailyMenu = vi.fn(reader.findDailyMenu)
+		const out = await describeChatAction({ toolName: "remove_menu_item", args: { itemId: ITEM_K7 } }, access("kitchen", 7), { ...reader, findDailyMenu })
+		expect(out.status).toBe("described")
+		expect(findDailyMenu).not.toHaveBeenCalled()
+	})
+
+	test("add_menu_item não descreve receita de cozinha alheia mesmo lendo as duas linhas juntas", async () => {
+		const out = await describeChatAction({ toolName: "add_menu_item", args: { dailyMenuId: MENU_K8, recipeId: RECIPE_K7 } }, access("kitchen", 7), reader)
+		expect(out).toEqual({ status: "unavailable" })
+	})
+})
+
+/**
+ * O cartão e a tool validam o argumento com a MESMA função (`parseToolArgs` → `parseArgs` da
+ * tool). Antes o cartão tinha schemas próprios e divergia: `forecastedHeadcount: null` virava 0
+ * no cartão e "inválido" na tool; `name: 123` em `update_recipe` era recusado no cartão e gravado
+ * como "123" pela tool. Aqui cada caso passa pelos dois caminhos e o veredito tem de ser o mesmo.
+ */
+describe("cartão e tool dão o mesmo veredito sobre o argumento", () => {
+	const WRITE_DEFS = [...globalTools, ...kitchenTools, ...unitTools].filter(requiresApproval)
+
+	const toolCtx: ToolContext = { userId: "user-1", module: "kitchen", permissions: [], supabase: {} as ToolContext["supabase"], db: {} as ToolContext["db"] }
+
+	/** Roda a tool pelo `wrapTool` com o handler trocado por um espião: só o caminho do argumento. */
+	async function runThroughWrapTool(def: ModuleToolDefinition, args: Record<string, unknown>) {
+		const received: Record<string, unknown>[] = []
+		const spy: ModuleToolDefinition = {
+			...def,
+			handler: async (parsed) => {
+				received.push(parsed)
+				return toolOk({})
+			},
+		}
+		const execute = wrapTool(spy, toolCtx).execute
+		if (!execute) throw new Error("wrapTool não devolveu ServerTool executável")
+		try {
+			await execute(args, undefined as never)
+			return { ok: true as const, received: received[0] }
+		} catch (error) {
+			return { ok: false as const, error }
+		}
+	}
+
+	const tooManyDates = Array.from({ length: AGENT_APPLY_TEMPLATE_MAX_DATES + 1 }, (_, i) => `2026-12-${String((i % 31) + 1).padStart(2, "0")}`)
+
+	type Case = [toolName: string, module: ChatModule, scopeId: number | undefined, args: Record<string, unknown>, verdict: "valid" | "invalid"]
+	const CASES: Case[] = [
+		["create_recipe", "global", undefined, { name: "Pudim", preparationTime: null, cookingFactor: null }, "valid"],
+		["create_recipe", "global", undefined, { name: "   " }, "invalid"],
+		["create_recipe", "global", undefined, { name: "Pudim", preparationTime: "abc" }, "invalid"],
+		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, cookingFactor: -1 }, "invalid"],
+		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, name: 123 }, "valid"],
+		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL }, "invalid"],
+		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, name: null, preparationTime: null }, "invalid"],
+		["create_daily_menu", "kitchen", 7, { kitchenId: 7, date: "2026-10-12", mealTypeId: MEAL_ALMOCO, forecastedHeadcount: null }, "valid"],
+		["create_daily_menu", "kitchen", 7, { kitchenId: 7, date: "2026-10-12", mealTypeId: MEAL_ALMOCO, forecastedHeadcount: 0 }, "invalid"],
+		["create_daily_menu", "kitchen", 7, { kitchenId: 7, date: "12/10/2026", mealTypeId: MEAL_ALMOCO }, "invalid"],
+		["add_menu_item", "kitchen", 7, { dailyMenuId: MENU_K7, recipeId: RECIPE_GLOBAL }, "valid"],
+		["add_menu_item", "kitchen", 7, { dailyMenuId: MENU_K7, recipeId: "arroz" }, "invalid"],
+		["remove_menu_item", "kitchen", 7, { itemId: ITEM_K7 }, "valid"],
+		["remove_menu_item", "kitchen", 7, { itemId: "não-é-uuid" }, "invalid"],
+		["update_menu_headcount", "kitchen", 7, { menuId: MENU_K7, forecastedHeadcount: 90 }, "valid"],
+		["update_menu_headcount", "kitchen", 7, { menuId: MENU_K7, forecastedHeadcount: null }, "invalid"],
+		["update_menu_headcount", "kitchen", 7, { menuId: MENU_K7, forecastedHeadcount: 1.5 }, "invalid"],
+		["apply_template", "kitchen", 7, { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: ["2026-10-12"], startDayOfWeek: 1, headcounts: null }, "valid"],
+		["apply_template", "kitchen", 7, { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: ["2026-10-12"] }, "invalid"],
+		["apply_template", "kitchen", 7, { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: tooManyDates, startDayOfWeek: 1 }, "invalid"],
+		["update_quantity_estimate_status", "unit", 3, { quantityEstimateId: ESTIMATE_U3, status: "completed" }, "valid"],
+		["update_quantity_estimate_status", "unit", 3, { quantityEstimateId: ESTIMATE_U3, status: "published" }, "invalid"],
+	]
+
+	test("toda tool de escrita declara parseArgs", () => {
+		expect(WRITE_DEFS.map((def) => def.name).sort()).toEqual([...APPROVAL_TOOL_NAMES].sort())
+		for (const def of WRITE_DEFS) expect(typeof def.parseArgs, def.name).toBe("function")
+	})
+
+	test("toda tool de escrita tem caso válido e inválido", () => {
+		for (const name of APPROVAL_TOOL_NAMES) {
+			expect(new Set(CASES.filter(([toolName]) => toolName === name).map(([, , , , verdict]) => verdict)), name).toEqual(new Set(["valid", "invalid"]))
+		}
+	})
+
+	test.each(CASES)("%s %j → %s nos dois caminhos", async (toolName, module, scopeId, args, verdict) => {
+		const def = WRITE_DEFS.find((candidate) => candidate.name === toolName)
+		if (!def) throw new Error(`tool ${toolName} não existe`)
+
+		const viaTool = await runThroughWrapTool(def, args)
+		const card = await describeChatAction({ toolName, args }, access(module, scopeId), reader)
+
+		if (verdict === "valid") {
+			expect(viaTool.ok, toolName).toBe(true)
+			expect(card.status, toolName).toBe("described")
+			// O que o cartão descreve é o que o handler recebe.
+			expect(parseApprovalToolArgs(module, toolName, args)).toEqual(viaTool.ok ? viaTool.received : undefined)
+		} else {
+			expect(viaTool.ok, toolName).toBe(false)
+			// Mesma recusa, com a mesma mensagem que a tool devolveria ao modelo.
+			expect(card).toEqual({ status: "invalid", message: viaTool.ok ? undefined : describeArgsError(viaTool.error) })
+		}
+	})
+
+	test("a mensagem de recusa é a da tool", async () => {
+		const out = await describeChatAction({ toolName: "remove_menu_item", args: { itemId: "não-é-uuid" } }, access("kitchen", 7), reader)
+		expect(out).toEqual({ status: "invalid", message: "itemId deve ser um UUID válido" })
+	})
+
+	test("update_recipe com nome numérico mostra o texto que a tool grava", async () => {
+		const out = await describeChatAction({ toolName: "update_recipe", args: { recipeId: RECIPE_GLOBAL, name: 123 } }, access("global"), reader)
+		expect(values(out)).toBe("Receita: Arroz carreteiro | Novo nome: 123")
 	})
 })

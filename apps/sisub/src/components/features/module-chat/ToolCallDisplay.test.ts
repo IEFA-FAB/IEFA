@@ -60,6 +60,16 @@ describe("cartão de aprovação", () => {
 		expect(html).not.toMatch(/<button[^>]* disabled=""/)
 	})
 
+	test("argumento que a tool recusaria: mostra a recusa e diz que confirmar não grava nada", () => {
+		descriptionState.data = { status: "invalid", message: "itemId deve ser um UUID válido" }
+		const html = render(pending)
+		expect(html).toContain("Argumentos inválidos: itemId deve ser um UUID válido")
+		expect(html).toContain("confirmar não grava nada")
+		expect(html).not.toContain("Não foi possível descrever o item.")
+		// A decisão fecha a pendência do turno; confirmar só leva ao erro da tool.
+		expect(html).not.toMatch(/<button[^>]* disabled=""/)
+	})
+
 	test("erro da consulta também cai em 'não foi possível descrever'", () => {
 		descriptionState.isError = true
 		expect(render(pending)).toContain("Não foi possível descrever o item.")

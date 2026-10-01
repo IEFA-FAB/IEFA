@@ -51,12 +51,24 @@ export function domainCtx(ctx: ToolContext): UserContext {
 
 // ── Tool definition (OpenAI function-calling format) ────────────────────────
 
-export interface ModuleToolDefinition {
+export interface ModuleToolDefinition<TArgs extends Record<string, unknown> = Record<string, unknown>> {
 	name: string
 	description: string
 	parameters: Record<string, unknown> // JSON Schema
 	requiredLevel: 1 | 2 | 3
-	handler: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolHandlerResult>
+	/**
+	 * Validação do argumento, só dele (sem banco, sem permissão): devolve os argumentos como o
+	 * handler os usa ou lança `ToolValidationError`/`ZodError` com a mensagem que o modelo lê.
+	 * Recebe o argumento já sem os `null` de ausência (`parseToolArgs`).
+	 *
+	 * Obrigatório em tool de escrita (`requiresApproval`): o cartão de aprovação descreve a ação
+	 * com o resultado desta mesma função (`parseApprovalToolArgs` do registro), então o que o
+	 * usuário confirma é o que o handler recebe. `describe-action.test.ts` confere.
+	 */
+	parseArgs?: (raw: Record<string, unknown>) => TArgs
+	// Assinatura de método de propósito: o parâmetro fica bivariante e a tool de escrita, com o
+	// handler tipado pelos argumentos já validados, ainda cabe em `ModuleToolDefinition[]`.
+	handler(args: TArgs, ctx: ToolContext): Promise<ToolHandlerResult>
 }
 
 export interface ToolHandlerResult {
@@ -293,6 +305,29 @@ export function requiresApproval(def: Pick<ModuleToolDefinition, "requiredLevel"
 }
 
 /**
+ * O argumento do modelo como o handler o recebe. Fonte única: o `wrapTool` roda esta função
+ * antes do handler, e o cartão de aprovação (`describe-action.ts`, via `parseApprovalToolArgs`)
+ * descreve a ação com o resultado dela — validar de outro jeito ali deixava o usuário confirmar
+ * o que a tool recusa, ou ver um valor diferente do que seria gravado.
+ */
+export function parseToolArgs<TArgs extends Record<string, unknown>>(def: ModuleToolDefinition<TArgs>, raw: Record<string, unknown>): TArgs {
+	// Modelo manda `null` no lugar de omitir campo opcional. Onde o schema não previu
+	// isso, `null` é ausência — sem esta linha `safeInt(null)` viraria `0` calado.
+	const input = dropUnexpectedNulls(raw, def.parameters)
+	// Sem `parseArgs` (tools de leitura), o handler valida o que usa e recebe o tipo padrão.
+	return def.parseArgs ? def.parseArgs(input) : (input as TArgs)
+}
+
+/** Normaliza e valida o argumento e roda o handler — o caminho inteiro de uma chamada da tool. */
+export async function runTool<TArgs extends Record<string, unknown>>(
+	def: ModuleToolDefinition<TArgs>,
+	raw: Record<string, unknown>,
+	ctx: ToolContext
+): Promise<ToolHandlerResult> {
+	return def.handler(parseToolArgs(def, raw), ctx)
+}
+
+/**
  * Wraps a ModuleToolDefinition as a TanStack AI ServerTool.
  * The ToolContext is injected via closure so each request gets its own auth/supabase.
  *
@@ -308,10 +343,8 @@ export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): AnyServer
 		inputSchema: def.parameters as any,
 		needsApproval: requiresApproval(def),
 	}).server(async (args) => {
-		// Modelo manda `null` no lugar de omitir campo opcional. Onde o schema não previu
-		// isso, `null` é ausência — sem esta linha `safeInt(null)` viraria `0` calado.
-		const input = dropUnexpectedNulls(args as Record<string, unknown>, def.parameters)
-		const result = await def.handler(input, ctx).catch((error: unknown) => {
+		// Argumento inválido sai como erro de tool (a mensagem da validação), como erro do handler.
+		const result = await runTool(def, args as Record<string, unknown>, ctx).catch((error: unknown) => {
 			throw toModelFacingToolError(def.name, error)
 		})
 		if (!result.success) throw new Error(result.error ?? "Ferramenta falhou")

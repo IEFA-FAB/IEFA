@@ -12,7 +12,7 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import type { UserPermission } from "@/types/domain/permissions"
-import type { ToolContext } from "./shared"
+import { runTool, type ToolContext } from "./shared"
 import { unitTools } from "./unit"
 
 const UNIT_ID = 7
@@ -30,10 +30,11 @@ interface RecordedQuery {
 	ops: Array<{ op: string; args: unknown[] }>
 }
 
+/** A tool como o `wrapTool` a roda: argumento normalizado e validado pelo `parseArgs` antes do handler. */
 function tool(name: string) {
 	const def = unitTools.find((t) => t.name === name)
 	if (!def) throw new Error(`tool ${name} não existe`)
-	return def
+	return { ...def, handler: (args: Record<string, unknown>, ctx: ToolContext) => runTool(def, args, ctx) }
 }
 
 /**

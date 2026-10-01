@@ -35,6 +35,7 @@ import { menuItemGroupLabel, menuItemGroupOrder } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import { describeRecipeVersion } from "@/lib/recipe-versions"
 import { importChunkOrNull, recoverIfStaleChunk } from "@/lib/recover-stale-chunk"
+import { WEEKDAYS } from "@/lib/weekdays"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
 import { fetchRecipeIngredientDigestsFn } from "@/server/recipes.fn"
 import type { MenuTemplateWithItems } from "@/types/domain/planning"
@@ -66,16 +67,6 @@ import type { MenuTemplateWithItems } from "@/types/domain/planning"
  * Nomes de preparação e de refeição saem como estão no banco — sem caixa alta forçada — e o
  * prato principal sai em negrito.
  */
-
-const WEEKDAYS = [
-	{ num: 1, label: "Segunda-feira" },
-	{ num: 2, label: "Terça-feira" },
-	{ num: 3, label: "Quarta-feira" },
-	{ num: 4, label: "Quinta-feira" },
-	{ num: 5, label: "Sexta-feira" },
-	{ num: 6, label: "Sábado" },
-	{ num: 7, label: "Domingo" },
-] as const
 
 type SignatureBlock = { name: string; role: string }
 

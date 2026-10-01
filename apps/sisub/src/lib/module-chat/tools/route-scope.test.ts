@@ -13,7 +13,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
 import type { UserPermission } from "@/types/domain/permissions"
 import { kitchenTools } from "./kitchen"
-import { assertRouteScope, resolveRouteScope, type ToolContext, ToolPermissionError, toModelFacingToolError } from "./shared"
+import { assertRouteScope, resolveRouteScope, runTool, type ToolContext, ToolPermissionError, toModelFacingToolError } from "./shared"
 import { unitTools } from "./unit"
 
 const ROUTE_KITCHEN = 5
@@ -129,16 +129,18 @@ function unitCtx(responses: Record<string, QueryResult[]> = {}, queries: Recorde
 	return { userId: "user-1", permissions, module: "unit", scopeId: scopeId ?? undefined, supabase: fakeClient(responses, queries), db: {} as ToolContext["db"] }
 }
 
+/** A tool como o `wrapTool` a roda: argumento normalizado e validado pelo `parseArgs` antes do handler. */
 function kitchenTool(name: string) {
 	const def = kitchenTools.find((t) => t.name === name)
 	if (!def) throw new Error(`tool ${name} não existe`)
-	return def
+	return { ...def, handler: (args: Record<string, unknown>, ctx: ToolContext) => runTool(def, args, ctx) }
 }
 
+/** A tool como o `wrapTool` a roda: argumento normalizado e validado pelo `parseArgs` antes do handler. */
 function unitTool(name: string) {
 	const def = unitTools.find((t) => t.name === name)
 	if (!def) throw new Error(`tool ${name} não existe`)
-	return def
+	return { ...def, handler: (args: Record<string, unknown>, ctx: ToolContext) => runTool(def, args, ctx) }
 }
 
 const executedTables = (queries: RecordedQuery[]) => queries.filter((q) => q.executed).map((q) => q.table)

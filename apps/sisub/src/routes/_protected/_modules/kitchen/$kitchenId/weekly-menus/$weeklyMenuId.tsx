@@ -45,17 +45,8 @@ import {
 } from "@/lib/menu-fill"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { replaceRecipeVersions } from "@/lib/recipe-versions"
+import { WEEKDAYS } from "@/lib/weekdays"
 import type { TemplateItemDraft, TemplateMealDraft } from "@/types/domain/planning"
-
-const WEEKDAYS = [
-	{ num: 1, label: "Segunda-feira", abbr: "Seg" },
-	{ num: 2, label: "Terça-feira", abbr: "Ter" },
-	{ num: 3, label: "Quarta-feira", abbr: "Qua" },
-	{ num: 4, label: "Quinta-feira", abbr: "Qui" },
-	{ num: 5, label: "Sexta-feira", abbr: "Sex" },
-	{ num: 6, label: "Sábado", abbr: "Sáb" },
-	{ num: 7, label: "Domingo", abbr: "Dom" },
-]
 
 /**
  * KITCHEN — Editor de Cardápio Semanal

@@ -13,7 +13,7 @@ import { globalTools } from "./global"
 import { kitchenTools } from "./kitchen"
 import { localAnalyticsTools } from "./local-analytics"
 import type { ModuleToolDefinition, ToolContext } from "./shared"
-import { requiresApproval, wrapTool } from "./shared"
+import { parseToolArgs, requiresApproval, wrapTool } from "./shared"
 import { unitTools } from "./unit"
 
 interface ModuleConfig {
@@ -33,7 +33,7 @@ const MODULE_TOOLS: Record<ChatModule, ModuleToolDefinition[]> = {
 	"local-analytics": localAnalyticsTools,
 }
 
-function approvalToolNamesOf(defs: readonly ModuleToolDefinition[]): ReadonlySet<string> {
+function listApprovalToolNames(defs: readonly ModuleToolDefinition[]): ReadonlySet<string> {
 	return new Set(defs.filter(requiresApproval).map((def) => def.name))
 }
 
@@ -42,15 +42,25 @@ function approvalToolNamesOf(defs: readonly ModuleToolDefinition[]): ReadonlySet
  * usuário. A descrição do cartão de aprovação (`describe-action.ts`) lê daqui, em vez de manter
  * uma lista própria que divergiria quando uma tool de escrita nova entrasse.
  */
-export const APPROVAL_TOOL_NAMES_BY_MODULE: Readonly<Record<ChatModule, ReadonlySet<string>>> = {
-	global: approvalToolNamesOf(MODULE_TOOLS.global),
-	kitchen: approvalToolNamesOf(MODULE_TOOLS.kitchen),
-	unit: approvalToolNamesOf(MODULE_TOOLS.unit),
-	"local-analytics": approvalToolNamesOf(MODULE_TOOLS["local-analytics"]),
-}
+export const APPROVAL_TOOL_NAMES_BY_MODULE = Object.fromEntries(
+	Object.entries(MODULE_TOOLS).map(([module, defs]) => [module, listApprovalToolNames(defs)])
+) as Readonly<Record<ChatModule, ReadonlySet<string>>>
 
 /** Todas as tools de escrita do chat, em qualquer módulo — as que exigem aprovação humana. */
 export const APPROVAL_TOOL_NAMES: ReadonlySet<string> = new Set(Object.values(APPROVAL_TOOL_NAMES_BY_MODULE).flatMap((names) => [...names]))
+
+/**
+ * Argumentos de uma tool de escrita do módulo exatamente como o `wrapTool` os entrega ao handler
+ * (`parseToolArgs`: os `null` de ausência fora, depois o `parseArgs` da tool). É por aqui que o
+ * cartão de aprovação valida e descreve a ação, sem schema próprio.
+ *
+ * `undefined` quando a tool não é de escrita neste módulo. Argumento inválido lança o mesmo erro
+ * que a tool lançaria (`ToolValidationError`/`ZodError`).
+ */
+export function parseApprovalToolArgs(module: ChatModule, toolName: string, raw: Record<string, unknown>): Record<string, unknown> | undefined {
+	const def = MODULE_TOOLS[module]?.find((candidate) => candidate.name === toolName && requiresApproval(candidate))
+	return def ? parseToolArgs(def, raw) : undefined
+}
 
 const MODULE_PROMPTS: Record<ChatModule, string> = {
 	global: GLOBAL_SYSTEM_PROMPT,
@@ -113,6 +123,6 @@ export function getModuleConfig(module: ChatModule, userLevel: number, toolCtx: 
 	return {
 		systemPrompt: scopedSystemPrompt(module, MODULE_PROMPTS[module], toolCtx),
 		tools: filteredDefs.map((def) => wrapTool(def, toolCtx)),
-		approvalToolNames: approvalToolNamesOf(filteredDefs),
+		approvalToolNames: listApprovalToolNames(filteredDefs),
 	}
 }
