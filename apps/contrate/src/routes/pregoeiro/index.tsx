@@ -27,8 +27,10 @@ type Facility = {
 	title: string
 	content: string
 	tags: string[] | null
-	owner_id: string | null
+	owner_id?: string | null
 	default?: boolean | null
+	/** Vem da biblioteca (`getFacilitiesFn`): a frase é de quem está vendo. */
+	is_mine?: boolean
 }
 
 export const Route = createFileRoute("/pregoeiro/")({
@@ -265,8 +267,8 @@ function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: Ph
 	const canEdit = useMemo(() => {
 		if (!isEdit) return true
 		if (!currentUserId) return false
-		return initial?.owner_id === currentUserId
-	}, [isEdit, currentUserId, initial?.owner_id])
+		return initial?.is_mine === true
+	}, [isEdit, currentUserId, initial?.is_mine])
 
 	const handleSave = async () => {
 		if (!currentUserId) {
@@ -284,7 +286,7 @@ function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: Ph
 
 		setSaving(true)
 		try {
-			const payload: Facility = {
+			const payload = {
 				phase: phase.trim(),
 				title: title.trim(),
 				content: content.trim(),

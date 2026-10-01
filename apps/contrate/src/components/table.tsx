@@ -250,7 +250,7 @@ function getColumns(opts: { currentUserId?: string; onEditRow?: (row: Facilidade
 			cell: ({ row }) => {
 				const facilidade = row.original
 				const content = facilidade.content ?? ""
-				const canEdit = currentUserId && facilidade.owner_id === currentUserId
+				const canEdit = currentUserId && facilidade.is_mine
 
 				return (
 					<div className="flex items-center gap-2">
@@ -277,7 +277,7 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 	const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
 	const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
 
-	const { data: baseData = [], error } = useFacilitiesPregoeiroQuery()
+	const { data: baseData = [], error } = useFacilitiesPregoeiroQuery(currentUserId)
 
 	// Carrega e persiste configurações da tabela
 	const { settings, saveSettings, loading: settingsLoading } = useTableSettings(currentUserId)
