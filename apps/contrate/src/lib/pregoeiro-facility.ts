@@ -12,7 +12,9 @@ export const FacilityPayloadSchema = z.object({
 	title: z.string(),
 	content: z.string(),
 	tags: z.array(z.string()).nullable(),
-	owner_id: z.string().nullable(),
+	// Ignorado: o dono vem sempre da sessão (`insertFacilityFn`). Aceito só para não recusar
+	// cliente antigo que ainda o manda.
+	owner_id: z.string().nullable().optional(),
 	default: z.boolean().nullable().optional(),
 })
 

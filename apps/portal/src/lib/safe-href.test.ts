@@ -25,15 +25,25 @@ describe("safeHref", () => {
 		}
 	})
 
+	test("aceita âncora e query da própria página", () => {
+		expect(safeHref("#metodologia")).toBe("#metodologia")
+		expect(safeHref("?q=x")).toBe("?q=x")
+		expect(safeHref("#a\tb")).toBeUndefined()
+	})
+
 	test("recusa o que o navegador lê como outro domínio ou não é URL", () => {
-		for (const href of ["//evil.com", "/\\evil.com", "evil.com", "", "   "]) expect(safeHref(href)).toBeUndefined()
+		for (const href of ["//evil.com", "/\\evil.com", "/\t/evil.com", "/\n/evil.com", "/%2Fevil.com", "evil.com", "", "   "]) {
+			expect(safeHref(href)).toBeUndefined()
+		}
 		expect(safeHref(undefined)).toBeUndefined()
 		expect(safeHref(42)).toBeUndefined()
 	})
 
 	test("isInternalHref", () => {
 		expect(isInternalHref("/journal")).toBe(true)
+		expect(isInternalHref("#topo")).toBe(true)
 		expect(isInternalHref("//evil.com")).toBe(false)
+		expect(isInternalHref("/\t/evil.com")).toBe(false)
 		expect(isInternalHref("https://x.com")).toBe(false)
 	})
 })

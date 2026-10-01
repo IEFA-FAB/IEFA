@@ -248,19 +248,19 @@ const ragClient = {
    Queries (TanStack Query)
 ========================= */
 
-function useSessionsQuery(client: typeof ragClient, isLoggedIn: boolean, userId: string | null) {
+function useSessionsQuery(isLoggedIn: boolean, userId: string | null) {
 	return useQuery({
 		queryKey: QUERY_KEYS.sessions(userId),
 		enabled: isLoggedIn && !!userId,
-		queryFn: () => client.sessions(),
+		queryFn: () => ragClient.sessions(),
 	})
 }
 
-function useSessionMessagesQuery(client: typeof ragClient, isLoggedIn: boolean, userId: string | null, sessionId: string | null) {
+function useSessionMessagesQuery(isLoggedIn: boolean, userId: string | null, sessionId: string | null) {
 	return useQuery({
 		queryKey: QUERY_KEYS.sessionMessages(userId, sessionId),
 		enabled: isLoggedIn && !!userId && !!sessionId,
-		queryFn: () => client.sessionMessages(sessionId as string),
+		queryFn: () => ragClient.sessionMessages(sessionId as string),
 		// O cliente já entrega `{ id, role, content }` normalizado. O `select` anterior lia
 		// `content_json`, campo do contrato antigo que ninguém mais produz: toda mensagem
 		// restaurada saía vazia, e o `invalidateQueries` disparado após a resposta apagava
@@ -450,7 +450,7 @@ function ChatRada() {
 	const isLoggedIn = !!userId
 	const queryClient = useQueryClient()
 
-	const { data: sessions = [] } = useSessionsQuery(ragClient, isLoggedIn, userId)
+	const { data: sessions = [] } = useSessionsQuery(isLoggedIn, userId)
 
 	const [input, setInput] = useState("")
 	const [sending, setSending] = useState(false)
@@ -489,7 +489,7 @@ function ChatRada() {
 	}, [isLoggedIn, userId])
 
 	// Load history when sessionId changes
-	const { data: sessionMessages = [] } = useSessionMessagesQuery(ragClient, isLoggedIn, userId, sessionId)
+	const { data: sessionMessages = [] } = useSessionMessagesQuery(isLoggedIn, userId, sessionId)
 
 	useEffect(() => {
 		if (!isLoggedIn || !userId || !sessionId) return

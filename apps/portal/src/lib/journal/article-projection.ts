@@ -13,8 +13,9 @@
  * - **Revisor designado:** o necessário para avaliar o manuscrito e nada que identifique quem
  *   o escreveu (revisão duplo-cega): sem `submitter_id`, sem coautores, sem declarações que
  *   costumam nomear pessoas e instituições (financiamento, conflito de interesse, ética,
- *   disponibilidade de dados), e das versões só manuscrito e suplementares — a fonte
- *   (`.typ`/`.zip`) carrega o bloco de autoria. Vale mesmo com `enable_double_blind`
+ *   disponibilidade de dados), e das versões só o manuscrito (PDF). A fonte (`.typ`/`.zip`)
+ *   carrega o bloco de autoria, e o suplementar pode ser um `.zip` com ela dentro; a tela
+ *   do revisor só oferece o PDF. Vale mesmo com `enable_double_blind`
  *   desligado: o revisor não precisa da autoria para dar parecer, e a configuração muda
  *   depois de o parecer começar.
  * - **Leitor público** (artigo publicado, sem vínculo): o que a página pública mostra —
@@ -86,8 +87,8 @@ const SUBMITTER_VERSION_FIELDS = [
 	"created_at",
 ] as const
 
-/** Versão vista pelo revisor: manuscrito e suplementares, sem a fonte. */
-const REVIEWER_VERSION_FIELDS = ["id", "article_id", "version_number", "version_label", "pdf_path", "supplementary_paths", "created_at"] as const
+/** Versão vista pelo revisor: só o manuscrito. */
+const REVIEWER_VERSION_FIELDS = ["id", "article_id", "version_number", "version_label", "pdf_path", "created_at"] as const
 
 /** Versão vista pelo leitor público: só o PDF publicado. */
 const PUBLIC_VERSION_FIELDS = ["id", "article_id", "version_number", "version_label", "pdf_path", "created_at"] as const

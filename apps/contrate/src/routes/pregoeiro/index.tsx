@@ -12,6 +12,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { useInvalidateFacilities } from "@/hooks/useFacilitiesPregoeiro"
 import { supabase } from "@/lib/supabase"
 import { getPreferencesFn, insertFacilityFn, insertPreferencesFn, updateFacilityFn, upsertPreferencesFn } from "@/server/pregoeiro.fn"
 import type { FacilidadesTableProps } from "@/types/domain"
@@ -27,7 +28,6 @@ type Facility = {
 	title: string
 	content: string
 	tags: string[] | null
-	owner_id?: string | null
 	default?: boolean | null
 	/** Vem da biblioteca (`getFacilitiesFn`): a frase é de quem está vendo. */
 	is_mine?: boolean
@@ -291,7 +291,6 @@ function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: Ph
 				title: title.trim(),
 				content: content.trim(),
 				tags: parseTags(tagsText),
-				owner_id: currentUserId ?? null,
 				default: false,
 			}
 
@@ -369,6 +368,8 @@ function Pregoeiro() {
 	// Modal de frase
 	const [phraseOpen, setPhraseOpen] = useState(false)
 	const [phraseEditing, setPhraseEditing] = useState<Facility | null>(null)
+	// Sem revalidar, a frase criada só aparecia (e só ficava editável) depois de recarregar.
+	const invalidateFacilities = useInvalidateFacilities()
 
 	const handleChange = (key: keyof FacilidadesTableProps) => (e: React.ChangeEvent<HTMLInputElement>) => setEnv((prev) => ({ ...prev, [key]: e.target.value }))
 
@@ -513,7 +514,7 @@ function Pregoeiro() {
 			</div>
 
 			{/* Modal de criar/editar frase */}
-			<PhraseModal open={phraseOpen} onOpenChange={setPhraseOpen} initial={phraseEditing} currentUserId={userId} />
+			<PhraseModal open={phraseOpen} onOpenChange={setPhraseOpen} initial={phraseEditing} currentUserId={userId} onSaved={invalidateFacilities} />
 		</div>
 	)
 }

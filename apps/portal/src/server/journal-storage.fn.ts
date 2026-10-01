@@ -87,9 +87,10 @@ export const getSignedDownloadUrlFn = createServerFn({ method: "GET" })
 		if (data.bucket !== SUBMISSIONS_BUCKET) forbidden("Bucket não permitido.")
 		const { articleId, kind } = parseDownloadPath(data.path)
 		const access = await requireArticleAccess(articleId)
-		// Revisor avalia o manuscrito e os suplementares; a fonte (`.typ`/`.zip`) carrega o
-		// bloco de autoria e quebraria o duplo-cego (mesma regra de `projectVersions`).
-		if (access.isAssignedReviewer && kind === "source") forbidden("Arquivo fonte não é entregue ao revisor.")
+		// Revisor recebe só o manuscrito (PDF): a fonte (`.typ`/`.zip`) carrega o bloco de
+		// autoria, e um suplementar `.zip` pode trazê-la dentro — quebraria o duplo-cego
+		// (mesma regra de `projectVersions`).
+		if (access.isAssignedReviewer && kind !== "manuscript") forbidden("Ao revisor é entregue só o manuscrito.")
 		if (access.isPublicReader) {
 			const { data: latest } = await getJournalServerClient()
 				.from("article_versions")

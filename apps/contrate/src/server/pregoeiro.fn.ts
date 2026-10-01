@@ -108,7 +108,9 @@ export const insertFacilityFn = createServerFn({ method: "POST" })
 // nosemgrep: server-fn-missing-auth-guard
 export const getFacilitiesFn = createServerFn({ method: "GET" }).handler(async () => {
 	const [viewer, { data: result, error }] = await Promise.all([
-		getRequestUser(),
+		// `is_mine` é só dica de tela (a edição confere o dono na sessão): falha do Auth não
+		// derruba a biblioteca pública, só a lê como anônimo.
+		getRequestUser().catch(() => null),
 		getIefaServerClient().from("facilities_pregoeiro").select(FACILITY_READ_COLUMNS),
 	])
 	if (error) throw new Error(error.message)

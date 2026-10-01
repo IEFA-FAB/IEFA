@@ -78,7 +78,7 @@ const VERSIONS = [
 ]
 
 /** Tudo o que identifica autoria em qualquer ponto do payload. */
-const IDENTITY_MARKERS = ["u-autor", "Fulano", "fulano@", "0000-0000-0000-0001", "IEFA", "source.typ", "Nota interna"]
+const IDENTITY_MARKERS = ["u-autor", "Fulano", "fulano@", "0000-0000-0000-0001", "IEFA", "source.typ", "supplementary_0", "Nota interna"]
 
 describe("revisor (duplo-cego)", () => {
 	test("o detalhe do artigo não carrega nada que identifique o autor", () => {
@@ -102,12 +102,12 @@ describe("revisor (duplo-cego)", () => {
 		expect(projectAuthors(AUTHORS, REVIEWER)).toEqual([])
 	})
 
-	test("recebe manuscrito e suplementares de todas as versões, sem fonte, notes e uploaded_by", () => {
+	test("recebe o manuscrito de todas as versões, sem fonte, suplementares, notes e uploaded_by", () => {
 		const versions = projectVersions(VERSIONS, REVIEWER)
 		expect(versions.map((v) => v.pdf_path)).toEqual(["a1/v2/manuscript.pdf", "a1/v1/manuscript.pdf"])
-		expect(versions[0].supplementary_paths).toEqual(["a1/v2/supplementary_0.csv"])
 		for (const version of versions) {
 			expect(version).not.toHaveProperty("source_path")
+			expect(version).not.toHaveProperty("supplementary_paths")
 			expect(version).not.toHaveProperty("notes")
 			expect(version).not.toHaveProperty("uploaded_by")
 		}
