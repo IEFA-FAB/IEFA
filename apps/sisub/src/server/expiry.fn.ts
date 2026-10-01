@@ -19,6 +19,8 @@ import { brasiliaToday, CONSERVATION_CLASSES, EXPIRY_BANDS, type ExpiryBand } fr
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
+import { hiddenByBlindCount } from "@/lib/blind-count.server"
+import { maskBlindCountQuantities, withoutBlindCountLots } from "@/lib/blind-count-mask"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
@@ -88,7 +90,7 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const ctx = await requireStorageForKitchen(1, data.kitchenId)
 		const bands = data.bands?.length ? data.bands : [...EXPIRY_BANDS]
 
 		type Row = {
@@ -112,7 +114,7 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		// ANTES do sort perde lote vencido — os totais saem baixos e o "Mostrando X
 		// de Y" nunca aparece. Toda leitura de lista deste arquivo passa por
 		// `readAllPages`/`readAllPagesIn`, não só a que foi apontada.
-		const all = await readAllPages<Row>("os vencimentos", (from, to) =>
+		const read = await readAllPages<Row>("os vencimentos", (from, to) =>
 			inventory()
 				.from("v_lot_expiry")
 				.select(
@@ -122,6 +124,14 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 				.in("band", bands)
 				.order("lot_id")
 				.range(from, to)
+		)
+
+		// Contagem cega alcança TODA leitura de saldo (`lib/blind-count.server.ts`): o saldo do lote
+		// aqui é o mesmo número que a folha esconde. O lote do item em contagem sai da lista e dos
+		// totais, como sai do painel de estoque; a tela diz quantos ficaram de fora.
+		const { visible: all, hiddenLots } = withoutBlindCountLots(
+			read.map((row) => ({ ...row, ingredientId: row.ingredient_id, frozenPreparationId: row.frozen_preparation_id })),
+			await hiddenByBlindCount(data.kitchenId, ctx)
 		)
 
 		// descrição e unidade vêm dos dois catálogos que alimentam o lote
@@ -203,7 +213,7 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 			totals[row.band].value += row.balanceValue
 		}
 
-		return { lots: mapped.slice(0, data.limit), total: mapped.length, totals }
+		return { lots: mapped.slice(0, data.limit), total: mapped.length, totals, hiddenByBlindCount: hiddenLots }
 	})
 
 /**
@@ -407,6 +417,9 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 		if (!hasAnyPermission(ctx.permissions, ["kitchen", "storage"], 1, { type: "kitchen", id: data.kitchenId })) {
 			throw new Error("Requer acesso à cozinha ou ao estoque desta cozinha")
 		}
+		// Quantidade de item em contagem cega aberta não sai daqui: o planejamento é mais uma tela
+		// de onde se leria o esperado. O item fica — a validade é o que o cardápio usa.
+		const hidden = await hiddenByBlindCount(data.kitchenId, ctx)
 		// Olhando um mês FUTURO, o corte começa no início dele: lote que estraga
 		// semanas antes do mês nem chega a ele, e sugeri-lo para aquele cardápio
 		// é sugerir comida que não vai existir. No passado, o corte é hoje.
@@ -463,18 +476,21 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 			[...byItem.values()].map((item) => item.frozenPreparationId).filter(Boolean) as string[]
 		)
 
-		const items = [...byItem.entries()]
-			.map(([key, item]) => ({
+		const items = maskBlindCountQuantities(
+			[...byItem.entries()].map(([key, item]) => ({
 				ingredientId: item.ingredientId,
 				frozenPreparationId: item.frozenPreparationId,
 				description: describe.get(key)?.description ?? "(item sem cadastro)",
 				measureUnit: describe.get(key)?.measureUnit ?? null,
-				quantity: item.quantity,
-				value: item.value,
+				quantity: item.quantity as number | null,
+				value: item.value as number | null,
 				firstExpiry: item.firstExpiry,
-			}))
-			// o que vence antes primeiro: é o que cabe no cardápio de segunda
-			.sort((a, b) => (a.firstExpiry < b.firstExpiry ? -1 : a.firstExpiry > b.firstExpiry ? 1 : b.value - a.value))
+			})),
+			hidden
+		)
+			// o que vence antes primeiro: é o que cabe no cardápio de segunda. Ordena DEPOIS de
+			// esconder, para a posição na lista não denunciar o valor do item em contagem.
+			.sort((a, b) => (a.firstExpiry < b.firstExpiry ? -1 : a.firstExpiry > b.firstExpiry ? 1 : (b.value ?? 0) - (a.value ?? 0)))
 
 		return { items: items.slice(0, data.limit), total: items.length }
 	})
