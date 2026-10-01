@@ -16,7 +16,8 @@
     "./anthropic": "./src/providers/anthropic.ts",
     "./ollama": "./src/providers/ollama.ts",
     "./bedrock": "./src/providers/bedrock.ts",
-    "./langchain-compat": "./src/langchain-compat.ts"
+    "./langchain-compat": "./src/langchain-compat.ts",
+    "./untrusted": "./src/untrusted.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1136.0",
