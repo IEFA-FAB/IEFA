@@ -2,6 +2,9 @@
  * Rótulos no IMPERATIVO das tools de escrita do chat, para o cartão de aprovação ("Remover item
  * do cardápio") e para a ação recusada. O `ToolCallDisplay` usa gerúndio ("Removendo item…"),
  * que descreve algo em andamento — e na aprovação nada está em andamento ainda.
+ *
+ * Roda no navegador, então não importa o registro das tools (código de servidor). O teste
+ * confere este mapa contra `APPROVAL_TOOL_NAMES` do registro.
  */
 
 const ACTION_LABELS: Record<string, string> = {

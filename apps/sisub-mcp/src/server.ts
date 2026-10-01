@@ -317,7 +317,7 @@ Siga estas etapas interativamente:
 4. Pergunte:
    - Qual a data de início para aplicação (primeira data)
    - Quantas semanas deseja replicar (1-4 semanas)
-   - Qual dia do template corresponde à data de início (startDayOfWeek: 1=seg … 7=dom)
+   - Em que dia da semana cai o dia 1 do template (startDayOfWeek: 1=seg … 7=dom)
 5. Calcule o array de targetDates (YYYY-MM-DD) com base nas respostas: no máximo ${AGENT_APPLY_TEMPLATE_MAX_DATES} datas por chamada; acima disso, divida em mais de uma chamada
 6. Use \`apply_template\` com \`targetDates\` para aplicar o template. Ele só preenche refeições vazias: se o gestor quiser substituir cardápio já planejado, oriente-o a aplicar pela tela de planejamento do sisub
 7. Confirme com \`get_planning_calendar\` que os menus foram criados corretamente

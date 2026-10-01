@@ -11,11 +11,16 @@
  * ler o que a tela não mostraria.
  *
  * Puro: o acesso ao banco vem em `ChatActionReader`, montado no servidor
- * (`action-reader.server.ts`), para o teste não depender de `@/server/*`.
+ * (`action-reader.server.ts`), para o teste não depender de `@/server/*`. Roda só no servidor
+ * (`describeChatActionFn`): importa o registro das tools para saber quais são de escrita e
+ * validar o argumento com o mesmo crivo delas. O cliente só importa os tipos.
  */
 
+import { AgentApplyTemplateSchema } from "@iefa/sisub-domain/agent"
 import { z } from "zod"
 import type { ChatModule } from "@/types/domain/module-chat"
+import { parseCreateDailyMenuArgs, parseUpdateMenuHeadcountArgs } from "./tools/kitchen"
+import { APPROVAL_TOOL_NAMES_BY_MODULE } from "./tools/registry"
 
 // ── Contrato ────────────────────────────────────────────────────────────────
 
@@ -28,6 +33,11 @@ export type ChatActionDescription = { status: "described"; details: ChatActionDe
 
 export const UNAVAILABLE: ChatActionDescription = { status: "unavailable" }
 
+export interface MealTypeView {
+	name: string | null
+	kitchenId: number | null
+}
+
 export interface DailyMenuView {
 	serviceDate: string | null
 	mealTypeName: string | null
@@ -38,13 +48,14 @@ export interface DailyMenuView {
 
 /** Leituras mínimas que a descrição precisa. `null` = não existe (ou foi apagado). */
 export interface ChatActionReader {
-	recipe(id: string): Promise<{ name: string; kitchenId: number | null } | null>
-	kitchen(id: number): Promise<{ name: string | null } | null>
-	mealType(id: string): Promise<{ name: string | null; kitchenId: number | null } | null>
-	dailyMenu(id: string): Promise<DailyMenuView | null>
-	menuItem(id: string): Promise<{ recipeName: string | null; dailyMenuId: string | null } | null>
-	template(id: string): Promise<{ name: string | null; kitchenId: number | null } | null>
-	quantityEstimate(id: string): Promise<{ title: string; status: string; unitId: number; unitName: string | null } | null>
+	findRecipe(id: string): Promise<{ name: string; kitchenId: number | null } | null>
+	findKitchen(id: number): Promise<{ name: string | null } | null>
+	/** Em lote: só os ids que existem (e não foram apagados) entram no mapa. */
+	findMealTypes(ids: readonly string[]): Promise<ReadonlyMap<string, MealTypeView>>
+	findDailyMenu(id: string): Promise<DailyMenuView | null>
+	findMenuItem(id: string): Promise<{ recipeName: string | null; dailyMenuId: string | null } | null>
+	findTemplate(id: string): Promise<{ name: string | null; kitchenId: number | null } | null>
+	findQuantityEstimate(id: string): Promise<{ title: string; status: string; unitId: number; unitName: string | null } | null>
 }
 
 type PbacModule = "global" | "kitchen" | "unit"
@@ -54,7 +65,7 @@ export interface ChatActionAccess {
 	module: ChatModule
 	scopeId?: number
 	/** `hasPermission(permissions, module, 1, scope)` do usuário da sessão. */
-	canRead(module: PbacModule, scope?: ReadScope): boolean
+	hasReadPermission(module: PbacModule, scope?: ReadScope): boolean
 }
 
 export interface DescribeChatActionInput {
@@ -62,22 +73,12 @@ export interface DescribeChatActionInput {
 	args: Record<string, unknown>
 }
 
-// ── Tools de escrita por módulo ─────────────────────────────────────────────
-
-/** As 8 tools de escrita do chat, no módulo em que existem. */
-export const WRITE_TOOLS_BY_MODULE: Record<ChatModule, readonly string[]> = {
-	global: ["create_recipe", "update_recipe"],
-	kitchen: ["create_daily_menu", "add_menu_item", "remove_menu_item", "update_menu_headcount", "apply_template"],
-	unit: ["update_quantity_estimate_status"],
-	"local-analytics": [],
-}
-
 // ── Formatação ──────────────────────────────────────────────────────────────
 
 const MAX_VALUE_CHARS = 200
 
 /** Texto de banco ou do modelo, curto e numa linha só. */
-function text(value: string | null | undefined, fallback = "sem nome"): string {
+function formatText(value: string | null | undefined, fallback = "sem nome"): string {
 	const clean = (value ?? "").replace(/\s+/g, " ").trim()
 	if (!clean) return fallback
 	return clean.length > MAX_VALUE_CHARS ? `${clean.slice(0, MAX_VALUE_CHARS - 1)}…` : clean
@@ -95,40 +96,37 @@ const QUANTITY_ESTIMATE_STATUS_LABEL: Record<string, string> = {
 	archived: "arquivado",
 }
 
-function statusLabel(status: string): string {
+function formatStatus(status: string): string {
 	return QUANTITY_ESTIMATE_STATUS_LABEL[status] ?? status
 }
 
-function describeMenu(menu: DailyMenuView): string {
-	return [formatDate(menu.serviceDate), text(menu.mealTypeName, "refeição sem nome"), text(menu.kitchenName, "cozinha sem nome")].join(" · ")
+/** Dia da semana ISO (1 = segunda … 7 = domingo), a convenção do `startDayOfWeek`. */
+const WEEKDAY_LABEL = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"] as const
+
+function formatWeekday(day: number): string {
+	return WEEKDAY_LABEL[day - 1] ?? "dia inválido"
 }
 
-function described(details: (ChatActionDetail | null)[]): ChatActionDescription {
+function formatMenu(menu: DailyMenuView): string {
+	return [formatDate(menu.serviceDate), formatText(menu.mealTypeName, "refeição sem nome"), formatText(menu.kitchenName, "cozinha sem nome")].join(" · ")
+}
+
+function buildDescription(details: (ChatActionDetail | null)[]): ChatActionDescription {
 	return { status: "described", details: details.filter((d): d is ChatActionDetail => d !== null) }
 }
 
 // ── Argumentos (o mesmo formato que as tools aceitam) ───────────────────────
 
+// `create_daily_menu`, `update_menu_headcount` e `apply_template` usam o parser da própria tool
+// (`parse*Args` de `tools/kitchen.ts`, `AgentApplyTemplateSchema` do contrato do agente).
+
 const Uuid = z.uuid()
-const KitchenId = z.coerce.number().int().positive()
 const OptionalNumber = z.coerce.number().finite().nullish()
-const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
 const CreateRecipeArgs = z.object({ name: z.string().min(1), preparationTime: OptionalNumber, cookingFactor: OptionalNumber })
 const UpdateRecipeArgs = z.object({ recipeId: Uuid, name: z.string().nullish(), preparationTime: OptionalNumber, cookingFactor: OptionalNumber })
-const CreateDailyMenuArgs = z.object({ kitchenId: KitchenId, date: IsoDate, mealTypeId: z.string().trim().pipe(Uuid), forecastedHeadcount: OptionalNumber })
 const AddMenuItemArgs = z.object({ dailyMenuId: Uuid, recipeId: Uuid })
 const RemoveMenuItemArgs = z.object({ itemId: Uuid })
-const UpdateHeadcountArgs = z.object({ menuId: Uuid, forecastedHeadcount: z.coerce.number().int() })
-const ApplyTemplateArgs = z.object({
-	templateId: Uuid,
-	kitchenId: KitchenId,
-	targetDates: z.array(IsoDate).min(1).max(31),
-	headcounts: z
-		.array(z.object({ mealTypeId: Uuid, headcount: z.number().int().nullish() }))
-		.max(50)
-		.nullish(),
-})
 const UpdateEstimateStatusArgs = z.object({ quantityEstimateId: Uuid, status: z.string().min(1) })
 
 // ── Descrição ───────────────────────────────────────────────────────────────
@@ -137,15 +135,15 @@ const UpdateEstimateStatusArgs = z.object({ quantityEstimateId: Uuid, status: z.
  * A cozinha resolvida da linha tem de ser a da rota (quando há rota) e legível pelo usuário.
  * Mesmo crivo do `assertRouteScope` das tools, mais o PBAC de leitura.
  */
-function canSeeKitchen(access: ChatActionAccess, kitchenId: number | null): kitchenId is number {
+function isKitchenVisible(access: ChatActionAccess, kitchenId: number | null): kitchenId is number {
 	if (kitchenId == null) return false
 	if (access.scopeId != null && kitchenId !== access.scopeId) return false
-	return access.canRead("kitchen", { type: "kitchen", id: kitchenId })
+	return access.hasReadPermission("kitchen", { type: "kitchen", id: kitchenId })
 }
 
-function canSeeUnit(access: ChatActionAccess, unitId: number): boolean {
+function isUnitVisible(access: ChatActionAccess, unitId: number): boolean {
 	if (access.scopeId != null && unitId !== access.scopeId) return false
-	return access.canRead("unit", { type: "unit", id: unitId })
+	return access.hasReadPermission("unit", { type: "unit", id: unitId })
 }
 
 /** Receita global (catálogo) ou da própria cozinha — a mesma regra do `add_menu_item`. */
@@ -157,9 +155,9 @@ async function describeByTool(input: DescribeChatActionInput, access: ChatAction
 	switch (input.toolName) {
 		case "create_recipe": {
 			const args = CreateRecipeArgs.parse(input.args)
-			if (!access.canRead("global")) return UNAVAILABLE
-			return described([
-				{ label: "Receita nova (catálogo global)", value: text(args.name) },
+			if (!access.hasReadPermission("global")) return UNAVAILABLE
+			return buildDescription([
+				{ label: "Receita nova (catálogo global)", value: formatText(args.name) },
 				args.preparationTime != null ? { label: "Tempo de preparo", value: `${args.preparationTime} min` } : null,
 				args.cookingFactor != null ? { label: "Fator de cocção", value: String(args.cookingFactor) } : null,
 			])
@@ -167,28 +165,29 @@ async function describeByTool(input: DescribeChatActionInput, access: ChatAction
 
 		case "update_recipe": {
 			const args = UpdateRecipeArgs.parse(input.args)
-			if (!access.canRead("global")) return UNAVAILABLE
-			const recipe = await reader.recipe(args.recipeId)
+			if (!access.hasReadPermission("global")) return UNAVAILABLE
+			const recipe = await reader.findRecipe(args.recipeId)
 			// A tool só altera receita global; descrever a de uma cozinha seria mostrar o que ela não toca.
 			if (!recipe || recipe.kitchenId !== null) return UNAVAILABLE
-			return described([
-				{ label: "Receita", value: text(recipe.name) },
-				args.name != null ? { label: "Novo nome", value: text(args.name) } : null,
+			return buildDescription([
+				{ label: "Receita", value: formatText(recipe.name) },
+				args.name != null ? { label: "Novo nome", value: formatText(args.name) } : null,
 				args.preparationTime != null ? { label: "Tempo de preparo", value: `${args.preparationTime} min` } : null,
 				args.cookingFactor != null ? { label: "Fator de cocção", value: String(args.cookingFactor) } : null,
 			])
 		}
 
 		case "create_daily_menu": {
-			const args = CreateDailyMenuArgs.parse(input.args)
-			if (!canSeeKitchen(access, args.kitchenId)) return UNAVAILABLE
-			const [kitchen, mealType] = await Promise.all([reader.kitchen(args.kitchenId), reader.mealType(args.mealTypeId)])
+			const args = parseCreateDailyMenuArgs(input.args)
+			if (!isKitchenVisible(access, args.kitchenId)) return UNAVAILABLE
+			const [kitchen, mealTypes] = await Promise.all([reader.findKitchen(args.kitchenId), reader.findMealTypes([args.mealTypeId])])
+			const mealType = mealTypes.get(args.mealTypeId)
 			if (!kitchen || !mealType) return UNAVAILABLE
 			if (mealType.kitchenId !== null && mealType.kitchenId !== args.kitchenId) return UNAVAILABLE
-			return described([
+			return buildDescription([
 				{
 					label: "Cardápio novo",
-					value: [formatDate(args.date), text(mealType.name, "refeição sem nome"), text(kitchen.name, "cozinha sem nome")].join(" · "),
+					value: [formatDate(args.date), formatText(mealType.name, "refeição sem nome"), formatText(kitchen.name, "cozinha sem nome")].join(" · "),
 				},
 				args.forecastedHeadcount != null ? { label: "Comensais previstos", value: String(args.forecastedHeadcount) } : null,
 			])
@@ -196,69 +195,78 @@ async function describeByTool(input: DescribeChatActionInput, access: ChatAction
 
 		case "add_menu_item": {
 			const args = AddMenuItemArgs.parse(input.args)
-			const menu = await reader.dailyMenu(args.dailyMenuId)
-			if (!menu || !canSeeKitchen(access, menu.kitchenId)) return UNAVAILABLE
-			const recipe = await reader.recipe(args.recipeId)
+			const menu = await reader.findDailyMenu(args.dailyMenuId)
+			if (!menu || !isKitchenVisible(access, menu.kitchenId)) return UNAVAILABLE
+			const recipe = await reader.findRecipe(args.recipeId)
 			if (!recipe || !isRecipeVisibleFrom(recipe, menu.kitchenId)) return UNAVAILABLE
-			return described([
-				{ label: "Receita", value: text(recipe.name) },
-				{ label: "Cardápio", value: describeMenu(menu) },
+			return buildDescription([
+				{ label: "Receita", value: formatText(recipe.name) },
+				{ label: "Cardápio", value: formatMenu(menu) },
 			])
 		}
 
 		case "remove_menu_item": {
 			const args = RemoveMenuItemArgs.parse(input.args)
-			const item = await reader.menuItem(args.itemId)
+			const item = await reader.findMenuItem(args.itemId)
 			if (!item?.dailyMenuId) return UNAVAILABLE
-			const menu = await reader.dailyMenu(item.dailyMenuId)
-			if (!menu || !canSeeKitchen(access, menu.kitchenId)) return UNAVAILABLE
-			return described([
-				{ label: "Item", value: text(item.recipeName, "item sem nome") },
-				{ label: "Cardápio", value: describeMenu(menu) },
+			const menu = await reader.findDailyMenu(item.dailyMenuId)
+			if (!menu || !isKitchenVisible(access, menu.kitchenId)) return UNAVAILABLE
+			return buildDescription([
+				{ label: "Item", value: formatText(item.recipeName, "item sem nome") },
+				{ label: "Cardápio", value: formatMenu(menu) },
 			])
 		}
 
 		case "update_menu_headcount": {
-			const args = UpdateHeadcountArgs.parse(input.args)
-			const menu = await reader.dailyMenu(args.menuId)
-			if (!menu || !canSeeKitchen(access, menu.kitchenId)) return UNAVAILABLE
+			const args = parseUpdateMenuHeadcountArgs(input.args)
+			const menu = await reader.findDailyMenu(args.menuId)
+			if (!menu || !isKitchenVisible(access, menu.kitchenId)) return UNAVAILABLE
 			const current = menu.forecastedHeadcount == null ? "a definir" : String(menu.forecastedHeadcount)
-			return described([
-				{ label: "Cardápio", value: describeMenu(menu) },
+			return buildDescription([
+				{ label: "Cardápio", value: formatMenu(menu) },
 				{ label: "Comensais previstos", value: `${current} → ${args.forecastedHeadcount}` },
 			])
 		}
 
 		case "apply_template": {
-			const args = ApplyTemplateArgs.parse(input.args)
-			if (!canSeeKitchen(access, args.kitchenId)) return UNAVAILABLE
-			const [template, kitchen] = await Promise.all([reader.template(args.templateId), reader.kitchen(args.kitchenId)])
+			const args = AgentApplyTemplateSchema.parse(input.args)
+			if (!isKitchenVisible(access, args.kitchenId)) return UNAVAILABLE
+			const headcounts = args.headcounts ?? []
+			const [template, kitchen, mealTypes] = await Promise.all([
+				reader.findTemplate(args.templateId),
+				reader.findKitchen(args.kitchenId),
+				reader.findMealTypes([...new Set(headcounts.map((entry) => entry.mealTypeId))]),
+			])
 			if (!template || !kitchen) return UNAVAILABLE
 			if (template.kitchenId !== null && template.kitchenId !== args.kitchenId) return UNAVAILABLE
 
 			const dates = [...new Set(args.targetDates)].toSorted()
 			const headcountLines: string[] = []
-			for (const entry of args.headcounts ?? []) {
-				const mealType = await reader.mealType(entry.mealTypeId)
+			for (const entry of headcounts) {
+				const mealType = mealTypes.get(entry.mealTypeId)
 				if (!mealType || (mealType.kitchenId !== null && mealType.kitchenId !== args.kitchenId)) return UNAVAILABLE
-				headcountLines.push(`${text(mealType.name, "refeição sem nome")}: ${entry.headcount ?? "a definir"}`)
+				headcountLines.push(`${formatText(mealType.name, "refeição sem nome")}: ${entry.headcount ?? "a definir"}`)
 			}
-			return described([
-				{ label: "Template", value: text(template.name) },
-				{ label: "Cozinha", value: text(kitchen.name, "cozinha sem nome") },
+			return buildDescription([
+				{ label: "Template", value: formatText(template.name) },
+				{ label: "Cozinha", value: formatText(kitchen.name, "cozinha sem nome") },
 				{ label: dates.length === 1 ? "Data (só dias vazios)" : `${dates.length} datas (só dias vazios)`, value: dates.map(formatDate).join(", ") },
+				// O que `applyTemplate` faz com o `startDayOfWeek`: o dia 1 do template vai para as datas
+				// que caem nesse dia da semana, e os demais seguem a ordem dele (o mesmo texto da tela,
+				// "Dia inicial do template"). Não é "o dia do template da primeira data".
+				{ label: "Dia 1 do template cai em", value: formatWeekday(args.startDayOfWeek) },
 				headcountLines.length > 0 ? { label: "Efetivo por refeição", value: headcountLines.join("; ") } : null,
 			])
 		}
 
 		case "update_quantity_estimate_status": {
 			const args = UpdateEstimateStatusArgs.parse(input.args)
-			const estimate = await reader.quantityEstimate(args.quantityEstimateId)
-			if (!estimate || !canSeeUnit(access, estimate.unitId)) return UNAVAILABLE
-			return described([
-				{ label: "Anexo quantitativo", value: text(estimate.title, "sem título") },
-				{ label: "OM", value: text(estimate.unitName, "OM sem nome") },
-				{ label: "Status", value: `${statusLabel(estimate.status)} → ${statusLabel(args.status)}` },
+			const estimate = await reader.findQuantityEstimate(args.quantityEstimateId)
+			if (!estimate || !isUnitVisible(access, estimate.unitId)) return UNAVAILABLE
+			return buildDescription([
+				{ label: "Anexo quantitativo", value: formatText(estimate.title, "sem título") },
+				{ label: "OM", value: formatText(estimate.unitName, "OM sem nome") },
+				{ label: "Status", value: `${formatStatus(estimate.status)} → ${formatStatus(args.status)}` },
 			])
 		}
 
@@ -273,7 +281,7 @@ async function describeByTool(input: DescribeChatActionInput, access: ChatAction
  * `unavailable`, e o cartão mostra a ação sem a descrição.
  */
 export async function describeChatAction(input: DescribeChatActionInput, access: ChatActionAccess, reader: ChatActionReader): Promise<ChatActionDescription> {
-	if (!WRITE_TOOLS_BY_MODULE[access.module]?.includes(input.toolName)) return UNAVAILABLE
+	if (!APPROVAL_TOOL_NAMES_BY_MODULE[access.module]?.has(input.toolName)) return UNAVAILABLE
 	try {
 		return await describeByTool(input, access, reader)
 	} catch {

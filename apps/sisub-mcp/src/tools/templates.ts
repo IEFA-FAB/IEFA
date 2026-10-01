@@ -286,7 +286,7 @@ manuais, é preservado. Esta ferramenta nunca apaga nem substitui cardápio; par
 oriente o usuário a aplicar pela tela de planejamento do sisub, que mostra a prévia do que vai
 para a lixeira. Na resposta, \`datesSkipped\` lista as datas que já tinham refeição planejada.
 
-startDayOfWeek indica qual dia do template (1=seg … 7=dom) corresponde à primeira data.
+startDayOfWeek (1=seg … 7=dom) é o dia da semana em que cai o dia 1 do template: as datas nesse dia da semana recebem o dia 1, as do dia seguinte o dia 2, e assim por diante.
 
 O template deve ser semanal e global (SDAB) ou da mesma cozinha de destino.
 

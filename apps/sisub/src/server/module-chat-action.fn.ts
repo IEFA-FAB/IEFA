@@ -11,12 +11,12 @@
 
 import { hasPermission } from "@iefa/pbac"
 import { ChatModuleSchema } from "@iefa/sisub-domain/schemas"
-import type { PermissionScope } from "@iefa/sisub-domain/types"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { createChatActionReader } from "@/lib/module-chat/action-reader.server"
 import { type ChatActionDescription, describeChatAction, UNAVAILABLE } from "@/lib/module-chat/describe-action"
+import { resolveRouteScope } from "@/lib/module-chat/tools/shared"
 
 const DescribeChatActionSchema = z.object({
 	module: ChatModuleSchema,
@@ -25,25 +25,17 @@ const DescribeChatActionSchema = z.object({
 	args: z.record(z.string(), z.unknown()),
 })
 
-/** Escopo da rota no formato do PBAC — o mesmo cálculo de `module-chat/stream.post.ts`. */
-function routeScope(module: z.infer<typeof ChatModuleSchema>, scopeId: number | undefined): PermissionScope | undefined {
-	if (scopeId == null) return undefined
-	if (module === "kitchen") return { type: "kitchen", id: scopeId }
-	if (module === "unit" || module === "local-analytics") return { type: "unit", id: scopeId }
-	return undefined
-}
-
 export const describeChatActionFn = createServerFn({ method: "GET" })
 	.validator(DescribeChatActionSchema)
 	.handler(async ({ data }): Promise<ChatActionDescription> => {
-		const ctx = await requireAuthWithPermission(data.module, 1, routeScope(data.module, data.scopeId))
+		const ctx = await requireAuthWithPermission(data.module, 1, resolveRouteScope(data.module, data.scopeId))
 		try {
 			return await describeChatAction(
 				{ toolName: data.toolName, args: data.args },
 				{
 					module: data.module,
 					scopeId: data.scopeId,
-					canRead: (module, scope) => hasPermission(ctx.permissions, module, 1, scope),
+					hasReadPermission: (module, scope) => hasPermission(ctx.permissions, module, 1, scope),
 				},
 				createChatActionReader()
 			)

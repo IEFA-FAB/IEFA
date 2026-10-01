@@ -10,6 +10,7 @@
  * mensagem nova. O `onFinish` só entrega a última — gravar só ela perdia a ação do histórico.
  */
 
+import { MODULE_CHAT_TERMINAL_TOOL_STATUSES } from "@iefa/sisub-domain/schemas"
 import type { UIMessage } from "@tanstack/ai-client"
 import type { ToolCall } from "@/types/domain/module-chat"
 
@@ -25,7 +26,7 @@ type ToolCallPartView = {
 	approval?: { id: string; needsApproval: boolean; approved?: boolean }
 }
 
-function toolCallParts(parts: Parts): ToolCallPartView[] {
+function filterToolCallParts(parts: Parts): ToolCallPartView[] {
 	return parts.filter((p) => p.type === "tool-call") as unknown as ToolCallPartView[]
 }
 
@@ -42,7 +43,7 @@ function isAwaitingApproval(part: ToolCallPartView): boolean {
 }
 
 export function extractToolCalls(parts: Parts): ToolCall[] {
-	return toolCallParts(parts).map((tc) => {
+	return filterToolCallParts(parts).map((tc) => {
 		const base = { id: tc.id, name: tc.name, arguments: tc.arguments }
 		// A recusa vem antes do resultado: o servidor devolve um `{ error }` para a call recusada,
 		// e mostrá-lo como "Erro" faria a decisão do usuário parecer falha do sistema.
@@ -59,7 +60,8 @@ export function extractToolCalls(parts: Parts): ToolCall[] {
 	})
 }
 
-const TERMINAL_STATUSES: ReadonlySet<ToolCall["status"]> = new Set(["done", "error", "denied"])
+/** Os mesmos status que o `SaveModuleChatMessageSchema` aceita como payload de linha. */
+const TERMINAL_STATUSES: ReadonlySet<ToolCall["status"]> = new Set(MODULE_CHAT_TERMINAL_TOOL_STATUSES)
 
 export function hasTerminalToolCall(toolCalls: readonly ToolCall[]): boolean {
 	return toolCalls.some((tc) => TERMINAL_STATUSES.has(tc.status))
@@ -71,11 +73,11 @@ export function hasMessagePayload(content: string, toolCalls: readonly ToolCall[
 
 /** Alguma ação de escrita da conversa ainda espera Confirmar/Recusar. */
 export function hasAwaitingApproval(messages: readonly UIMessage[]): boolean {
-	return messages.some((m) => m.role === "assistant" && toolCallParts(m.parts).some(isAwaitingApproval))
+	return messages.some((m) => m.role === "assistant" && filterToolCallParts(m.parts).some(isAwaitingApproval))
 }
 
 /** Mensagens do assistente do turno corrente: tudo depois da última mensagem do usuário. */
-function currentTurnAssistantMessages(messages: readonly UIMessage[]): UIMessage[] {
+function selectCurrentTurnAssistantMessages(messages: readonly UIMessage[]): UIMessage[] {
 	let lastUser = -1
 	for (let i = messages.length - 1; i >= 0; i--) {
 		if (messages[i].role === "user") {
@@ -97,7 +99,7 @@ export interface TurnRecord {
  * critério do CHECK `module_chat_message_has_payload`).
  */
 export function collectTurnRecord(messages: readonly UIMessage[]): TurnRecord | null {
-	const assistant = currentTurnAssistantMessages(messages)
+	const assistant = selectCurrentTurnAssistantMessages(messages)
 	const content = assistant
 		.map((m) => extractText(m.parts).trim())
 		.filter((text) => text.length > 0)

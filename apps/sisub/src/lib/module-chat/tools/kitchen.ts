@@ -202,6 +202,38 @@ const getRecipe: ModuleToolDefinition = {
 	},
 }
 
+// ── Argumentos das escritas ─────────────────────────────────────────────────
+//
+// O cartão de aprovação (`describe-action.ts`) descreve a ação com os mesmos argumentos que a
+// tool aceita: argumento que a tool recusaria não vira descrição de algo que nunca vai rodar.
+
+export interface CreateDailyMenuArgs {
+	kitchenId: number
+	date: string
+	mealTypeId: string
+	forecastedHeadcount?: number
+}
+
+/** Argumentos do `create_daily_menu` como a tool os aceita. */
+export function parseCreateDailyMenuArgs(args: Record<string, unknown>): CreateDailyMenuArgs {
+	const kitchenId = safeInt(args.kitchenId, "kitchenId")
+	requireValidDates(args.date)
+	const mealTypeId = requireUuid(typeof args.mealTypeId === "string" ? args.mealTypeId.trim() : args.mealTypeId, "mealTypeId")
+
+	let forecastedHeadcount: number | undefined
+	if (args.forecastedHeadcount != null) {
+		forecastedHeadcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
+		// O schema do domínio exige positivo; aqui a recusa sai em português para o modelo corrigir.
+		if (forecastedHeadcount < 1) throw new ToolValidationError("forecastedHeadcount deve ser inteiro positivo; omita o campo se não houver previsão")
+	}
+	return { kitchenId, date: args.date as string, mealTypeId, ...(forecastedHeadcount != null && { forecastedHeadcount }) }
+}
+
+/** Argumentos do `update_menu_headcount` como a tool os aceita. */
+export function parseUpdateMenuHeadcountArgs(args: Record<string, unknown>): { menuId: string; forecastedHeadcount: number } {
+	return { menuId: requireUuid(args.menuId, "menuId"), forecastedHeadcount: safeInt(args.forecastedHeadcount, "forecastedHeadcount") }
+}
+
 const createDailyMenu: ModuleToolDefinition = {
 	name: "create_daily_menu",
 	description:
@@ -225,19 +257,11 @@ const createDailyMenu: ModuleToolDefinition = {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id })
 		assertRouteScope(ctx, "kitchen", id)
-		requireValidDates(args.date)
-		const mealTypeId = requireUuid(typeof args.mealTypeId === "string" ? args.mealTypeId.trim() : args.mealTypeId, "mealTypeId")
-
-		let forecastedHeadcount: number | undefined
-		if (args.forecastedHeadcount != null) {
-			forecastedHeadcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
-			// O schema do domínio exige positivo; aqui a recusa sai em português para o modelo corrigir.
-			if (forecastedHeadcount < 1) throw new ToolValidationError("forecastedHeadcount deve ser inteiro positivo; omita o campo se não houver previsão")
-		}
+		const { date, mealTypeId, forecastedHeadcount } = parseCreateDailyMenuArgs(args)
 
 		const input = UpsertDailyMenuSchema.parse({
 			kitchenId: id,
-			serviceDate: args.date,
+			serviceDate: date,
 			mealTypeId,
 			...(forecastedHeadcount != null && { forecastedHeadcount }),
 		})
@@ -332,8 +356,7 @@ const updateMenuHeadcount: ModuleToolDefinition = {
 	},
 	requiredLevel: 2,
 	async handler(args, ctx) {
-		const menuId = requireUuid(args.menuId, "menuId")
-		const headcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
+		const { menuId, forecastedHeadcount: headcount } = parseUpdateMenuHeadcountArgs(args)
 
 		const { data: menu, error: fetchError } = await ctx.supabase.from("daily_menu").select("kitchen_id").eq("id", menuId).single()
 		if (fetchError || !menu) return toolErr("Menu não encontrado")
@@ -433,7 +456,7 @@ const applyTemplate: ModuleToolDefinition = {
 	name: "apply_template",
 	description: `Aplica um template semanal a datas de uma cozinha (no máximo ${AGENT_APPLY_TEMPLATE_MAX_DATES} datas por chamada).
 Só PREENCHE refeições que ainda não têm cardápio: o planejamento existente, inclusive ajustes manuais, é preservado — esta ferramenta nunca apaga nem substitui cardápio. Para substituir, oriente o usuário a aplicar pela tela de planejamento.
-startDayOfWeek (1=seg..7=dom) é o dia do template que corresponde à primeira data. O template deve ser semanal e global ou da mesma cozinha.
+startDayOfWeek (1=seg..7=dom) é o dia da semana em que cai o dia 1 do template: as datas nesse dia da semana recebem o dia 1, as do dia seguinte o dia 2, e assim por diante. O template deve ser semanal e global ou da mesma cozinha.
 Template global (SDAB) só tem proporções, sem efetivo: informe o efetivo de cada refeição em headcounts; sem ele o dia fica com "efetivo a definir" e as porções são calculadas quando o usuário informar.
 Na resposta, datesSkipped lista as datas que já tinham alguma refeição planejada e foram preservadas.`,
 	parameters: toJsonSchema(AgentApplyTemplateSchema),

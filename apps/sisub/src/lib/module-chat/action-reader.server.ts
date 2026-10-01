@@ -7,66 +7,60 @@
  */
 
 import { getCoreClient, getKitchenClient, getProcurementClient } from "@/lib/supabase.server"
-import type { ChatActionReader, DailyMenuView } from "./describe-action"
+import type { ChatActionReader, DailyMenuView, MealTypeView } from "./describe-action"
 
 export function createChatActionReader(): ChatActionReader {
 	const kitchen = getKitchenClient()
 	const core = getCoreClient()
 	const procurement = getProcurementClient()
 
-	const kitchenName = async (id: number | null): Promise<string | null> => {
-		if (id == null) return null
-		const { data, error } = await kitchen.from("kitchen").select("display_name").eq("id", id).maybeSingle()
-		if (error) throw error
-		return data?.display_name ?? null
-	}
-
-	const mealTypeName = async (id: string | null): Promise<string | null> => {
-		if (!id) return null
-		const { data, error } = await kitchen.from("meal_type").select("name").eq("id", id).maybeSingle()
-		if (error) throw error
-		return data?.name ?? null
-	}
-
 	return {
-		async recipe(id) {
+		async findRecipe(id) {
 			const { data, error } = await kitchen.from("recipes").select("name, kitchen_id").eq("id", id).is("deleted_at", null).maybeSingle()
 			if (error) throw error
 			return data ? { name: data.name, kitchenId: data.kitchen_id } : null
 		},
 
-		async kitchen(id) {
+		async findKitchen(id) {
 			const { data, error } = await kitchen.from("kitchen").select("display_name").eq("id", id).maybeSingle()
 			if (error) throw error
 			return data ? { name: data.display_name } : null
 		},
 
-		async mealType(id) {
-			const { data, error } = await kitchen.from("meal_type").select("name, kitchen_id").eq("id", id).is("deleted_at", null).maybeSingle()
+		async findMealTypes(ids) {
+			const views = new Map<string, MealTypeView>()
+			if (ids.length === 0) return views
+			const { data, error } = await kitchen
+				.from("meal_type")
+				.select("id, name, kitchen_id")
+				.in("id", [...ids])
+				.is("deleted_at", null)
 			if (error) throw error
-			return data ? { name: data.name, kitchenId: data.kitchen_id } : null
+			for (const row of data ?? []) views.set(row.id, { name: row.name, kitchenId: row.kitchen_id })
+			return views
 		},
 
-		async dailyMenu(id): Promise<DailyMenuView | null> {
+		async findDailyMenu(id): Promise<DailyMenuView | null> {
+			// Uma consulta só: cozinha e refeição vêm pelas FKs do cardápio. O nome da refeição não
+			// filtra `deleted_at` de propósito — o cardápio que já existe continua com o nome dela.
 			const { data, error } = await kitchen
 				.from("daily_menu")
-				.select("service_date, meal_type_id, kitchen_id, forecasted_headcount")
+				.select("service_date, kitchen_id, forecasted_headcount, kitchen:kitchen_id(display_name), meal_type:meal_type_id(name)")
 				.eq("id", id)
 				.is("deleted_at", null)
 				.maybeSingle()
 			if (error) throw error
 			if (!data) return null
-			const [kitchenDisplayName, mealName] = await Promise.all([kitchenName(data.kitchen_id), mealTypeName(data.meal_type_id)])
 			return {
 				serviceDate: data.service_date,
-				mealTypeName: mealName,
+				mealTypeName: data.meal_type?.name ?? null,
 				kitchenId: data.kitchen_id,
-				kitchenName: kitchenDisplayName,
+				kitchenName: data.kitchen?.display_name ?? null,
 				forecastedHeadcount: data.forecasted_headcount,
 			}
 		},
 
-		async menuItem(id) {
+		async findMenuItem(id) {
 			const { data, error } = await kitchen.from("menu_items").select("recipe, daily_menu_id").eq("id", id).is("deleted_at", null).maybeSingle()
 			if (error) throw error
 			if (!data) return null
@@ -75,13 +69,13 @@ export function createChatActionReader(): ChatActionReader {
 			return { recipeName: typeof snapshot?.name === "string" ? snapshot.name : null, dailyMenuId: data.daily_menu_id }
 		},
 
-		async template(id) {
+		async findTemplate(id) {
 			const { data, error } = await kitchen.from("menu_template").select("name, kitchen_id").eq("id", id).is("deleted_at", null).maybeSingle()
 			if (error) throw error
 			return data ? { name: data.name, kitchenId: data.kitchen_id } : null
 		},
 
-		async quantityEstimate(id) {
+		async findQuantityEstimate(id) {
 			const { data, error } = await procurement.from("quantity_estimate").select("title, status, unit_id").eq("id", id).is("deleted_at", null).maybeSingle()
 			if (error) throw error
 			if (!data) return null

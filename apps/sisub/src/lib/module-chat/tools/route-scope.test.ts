@@ -13,7 +13,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
 import type { UserPermission } from "@/types/domain/permissions"
 import { kitchenTools } from "./kitchen"
-import { assertRouteScope, type ToolContext, ToolPermissionError, toModelFacingToolError } from "./shared"
+import { assertRouteScope, resolveRouteScope, type ToolContext, ToolPermissionError, toModelFacingToolError } from "./shared"
 import { unitTools } from "./unit"
 
 const ROUTE_KITCHEN = 5
@@ -192,6 +192,24 @@ describe("assertRouteScope", () => {
 		expect(() => assertRouteScope(unitCtx(), "unit", OTHER_UNIT)).toThrow(SCOPE_ERROR)
 		const analytics = { ...unitCtx(), module: "local-analytics" }
 		expect(() => assertRouteScope(analytics, "unit", OTHER_UNIT)).toThrow(SCOPE_ERROR)
+	})
+})
+
+/**
+ * O escopo do PBAC na entrada (rota do stream e `describeChatActionFn`) sai da mesma regra de
+ * módulo que o `assertRouteScope` usa: as duas portas não podem divergir sobre o que o
+ * `scopeId` de cada módulo identifica.
+ */
+describe("resolveRouteScope", () => {
+	test("cozinha na rota da cozinha; unidade nas rotas de unidade e de analytics", () => {
+		expect(resolveRouteScope("kitchen", ROUTE_KITCHEN)).toEqual({ type: "kitchen", id: ROUTE_KITCHEN })
+		expect(resolveRouteScope("unit", ROUTE_UNIT)).toEqual({ type: "unit", id: ROUTE_UNIT })
+		expect(resolveRouteScope("local-analytics", ROUTE_UNIT)).toEqual({ type: "unit", id: ROUTE_UNIT })
+	})
+
+	test("módulo global e conversa sem rota não têm escopo", () => {
+		expect(resolveRouteScope("global", ROUTE_KITCHEN)).toBeUndefined()
+		expect(resolveRouteScope("kitchen", undefined)).toBeUndefined()
 	})
 })
 

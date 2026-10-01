@@ -32,10 +32,10 @@ import { assertResumeMatchesPending, ChatRequestError, checkChatPayloadSize, par
 import { getDb } from "@/lib/db.server"
 import { envServer } from "@/lib/env.server"
 import { getModuleConfig } from "@/lib/module-chat/tools/registry"
-import { getMaxLevel, type ToolContext } from "@/lib/module-chat/tools/shared"
+import { getMaxLevel, resolveRouteScope, type ToolContext } from "@/lib/module-chat/tools/shared"
 import { getAccessControlClient } from "@/lib/supabase.server"
 import type { ChatModule } from "@/types/domain/module-chat"
-import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
+import type { AppModule, UserPermission } from "@/types/domain/permissions"
 
 const CHAT_MODULES: ChatModule[] = ["global", "kitchen", "unit", "local-analytics"]
 
@@ -153,12 +153,7 @@ export default defineHandler(async (event: H3Event) => {
 	const permissions = await loadUserPermissions(user.id)
 
 	const appModule: AppModule = module
-	const scope: PermissionScope | undefined =
-		module === "kitchen" && scopeId != null
-			? { type: "kitchen", id: scopeId }
-			: (module === "unit" || module === "local-analytics") && scopeId != null
-				? { type: "unit", id: scopeId }
-				: undefined
+	const scope = resolveRouteScope(module, scopeId)
 
 	if (!hasPermission(permissions, appModule, 1, scope)) {
 		throw new HTTPError({ status: 403, message: "Permissão insuficiente" })

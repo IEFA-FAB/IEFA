@@ -127,6 +127,16 @@ function routeScopeKind(module: string): "kitchen" | "unit" | undefined {
 }
 
 /**
+ * Escopo da rota no formato do PBAC, para a conferência de leitura no módulo da conversa. Fonte
+ * única da regra: a rota do stream e a descrição do cartão de aprovação (`describeChatActionFn`)
+ * usam esta função, e o `assertRouteScope` usa a mesma `routeScopeKind`.
+ */
+export function resolveRouteScope(module: string, scopeId: number | undefined): PermissionScope | undefined {
+	const kind = routeScopeKind(module)
+	return kind && scopeId != null ? { type: kind, id: scopeId } : undefined
+}
+
+/**
  * Prende a tool à cozinha ou unidade da rota. Recebe o id **resolvido** da linha afetada (a
  * cozinha do cardápio, a OM dona do anexo), não o argumento do modelo: `remove_menu_item` só
  * recebe `itemId`, e conferir o argumento deixaria passar o item de outra cozinha.

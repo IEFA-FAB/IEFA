@@ -33,13 +33,24 @@ const MODULE_TOOLS: Record<ChatModule, ModuleToolDefinition[]> = {
 	"local-analytics": localAnalyticsTools,
 }
 
+function approvalToolNamesOf(defs: readonly ModuleToolDefinition[]): ReadonlySet<string> {
+	return new Set(defs.filter(requiresApproval).map((def) => def.name))
+}
+
+/**
+ * Tools de escrita (as que exigem aprovação humana) de cada módulo, sem o filtro de nível do
+ * usuário. A descrição do cartão de aprovação (`describe-action.ts`) lê daqui, em vez de manter
+ * uma lista própria que divergiria quando uma tool de escrita nova entrasse.
+ */
+export const APPROVAL_TOOL_NAMES_BY_MODULE: Readonly<Record<ChatModule, ReadonlySet<string>>> = {
+	global: approvalToolNamesOf(MODULE_TOOLS.global),
+	kitchen: approvalToolNamesOf(MODULE_TOOLS.kitchen),
+	unit: approvalToolNamesOf(MODULE_TOOLS.unit),
+	"local-analytics": approvalToolNamesOf(MODULE_TOOLS["local-analytics"]),
+}
+
 /** Todas as tools de escrita do chat, em qualquer módulo — as que exigem aprovação humana. */
-export const APPROVAL_TOOL_NAMES: ReadonlySet<string> = new Set(
-	Object.values(MODULE_TOOLS)
-		.flat()
-		.filter(requiresApproval)
-		.map((def) => def.name)
-)
+export const APPROVAL_TOOL_NAMES: ReadonlySet<string> = new Set(Object.values(APPROVAL_TOOL_NAMES_BY_MODULE).flatMap((names) => [...names]))
 
 const MODULE_PROMPTS: Record<ChatModule, string> = {
 	global: GLOBAL_SYSTEM_PROMPT,
@@ -102,6 +113,6 @@ export function getModuleConfig(module: ChatModule, userLevel: number, toolCtx: 
 	return {
 		systemPrompt: scopedSystemPrompt(module, MODULE_PROMPTS[module], toolCtx),
 		tools: filteredDefs.map((def) => wrapTool(def, toolCtx)),
-		approvalToolNames: new Set(filteredDefs.filter(requiresApproval).map((def) => def.name)),
+		approvalToolNames: approvalToolNamesOf(filteredDefs),
 	}
 }

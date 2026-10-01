@@ -1,5 +1,6 @@
 import { CalendarDays, ChefHat, ClipboardList, UtensilsCrossed } from "lucide-react"
 import type { ModuleChatConfig, SuggestedPrompt } from "@/types/domain/module-chat"
+import { WRITE_APPROVAL_DISCLAIMER, WRITE_APPROVAL_RULE } from "./write-approval"
 
 export const KITCHEN_SYSTEM_PROMPT = `Você é um nutricionista militar especializado em produção de cozinhas militares da Aeronáutica Brasileira. Você atua como assistente de planejamento e gestão para a cozinha de uma organização militar.
 
@@ -21,7 +22,7 @@ export const KITCHEN_SYSTEM_PROMPT = `Você é um nutricionista militar especial
 
 ## Regras:
 1. Sempre consulte o estado atual antes de fazer alterações (use get_planning_calendar, get_day_details)
-2. Confirme operações de escrita com o usuário antes de executar
+2. ${WRITE_APPROVAL_RULE}
 3. Ao adicionar receitas, verifique se estão disponíveis para a cozinha
 4. Forneça resumos claros das ações realizadas
 5. Responda SEMPRE em português do Brasil
@@ -63,7 +64,7 @@ export function getKitchenChatConfig(kitchenId: number): ModuleChatConfig {
 			icon: ChefHat,
 		},
 		suggestedPrompts: KITCHEN_SUGGESTED_PROMPTS,
-		disclaimer: "O assistente pode executar ações reais no sistema. Confirme operações de escrita.",
+		disclaimer: WRITE_APPROVAL_DISCLAIMER,
 		placeholder: "Pergunte sobre cardápios, receitas ou planejamento…",
 	}
 }

@@ -10,11 +10,11 @@
  *   para rodar a tool com argumentos escolhidos, sem o modelo decidir nada.
  */
 
+import { dropClientSystemMessages } from "@iefa/ai-provider/untrusted"
+
 /** Teto do histórico. Acima disso o turno não cabe no contexto do modelo de qualquer jeito. */
 export const MAX_CHAT_MESSAGES = 200
 export const MAX_CHAT_PAYLOAD_CHARS = 400_000
-
-const CLIENT_FORBIDDEN_ROLES = new Set(["system", "developer"])
 
 type ClientToolCall = { id?: unknown; function?: { name?: unknown } }
 type ClientMessage = { role: string; content?: unknown; toolCalls?: unknown; toolCallId?: unknown }
@@ -134,8 +134,8 @@ export function sanitizeClientMessages<T extends ClientMessage>(messages: readon
 	}
 
 	const result: T[] = []
-	for (const message of messages) {
-		if (CLIENT_FORBIDDEN_ROLES.has(message.role)) continue
+	// `system`/`developer` saem pela mesma regra dos chats do portal e do sucont.
+	for (const message of dropClientSystemMessages(messages)) {
 		if (message.role === "assistant" && Array.isArray(message.toolCalls)) {
 			const toolCalls = (message.toolCalls as ClientToolCall[]).filter((call) => (isNonEmptyId(call?.id) && completed.has(call.id)) || keepsPending(call))
 			result.push({ ...message, toolCalls: toolCalls.length > 0 ? toolCalls : undefined })
