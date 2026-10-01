@@ -7772,7 +7772,6 @@ export type Database = {
       journal_settings: {
         Row: {
           created_at: string
-          crossref_password: string | null
           crossref_test_mode: boolean | null
           crossref_username: string | null
           default_review_deadline_days: number | null
@@ -7791,7 +7790,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          crossref_password?: string | null
           crossref_test_mode?: boolean | null
           crossref_username?: string | null
           default_review_deadline_days?: number | null
@@ -7810,7 +7808,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          crossref_password?: string | null
           crossref_test_mode?: boolean | null
           crossref_username?: string | null
           default_review_deadline_days?: number | null
