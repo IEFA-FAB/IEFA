@@ -295,6 +295,8 @@ const addMenuItem: ModuleToolDefinition<AddMenuItemArgs> = {
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: menu.kitchen_id })
 		assertRouteScope(ctx, "kitchen", menu.kitchen_id)
 
+		// Em sequência, de propósito: a receita só é lida depois da autorização na cozinha do
+		// cardápio; em paralelo, a leitura da receita sairia antes de saber se o usuário pode.
 		const { data: recipe, error: recipeError } = await ctx.supabase
 			.from("recipes")
 			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)

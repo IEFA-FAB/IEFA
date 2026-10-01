@@ -12,9 +12,9 @@
  *
  * O argumento é validado e normalizado pela MESMA função que o `wrapTool` roda antes do handler
  * (`parseApprovalToolArgs` do registro → `parseToolArgs` → `parseArgs` da tool), sem schema
- * próprio: o valor mostrado é o que seria gravado. Argumento que a tool recusa vira `invalid`
- * com a mensagem que o modelo receberia; o cartão NÃO a exibe (mostra um texto fixo) e ainda
- * deixa decidir — confirmar só roda a tool, que recusa com esse mesmo erro e não grava nada.
+ * próprio: o valor mostrado é o que seria gravado. Argumento que a tool recusa vira `invalid`,
+ * sem a recusa: o cartão mostra um texto fixo e ainda deixa decidir — confirmar só roda a tool,
+ * que devolve a recusa ao modelo e não grava nada.
  *
  * Puro: o acesso ao banco vem em `ChatActionReader`, montado no servidor
  * (`action-reader.server.ts`), para o teste não depender de `@/server/*`. Roda só no servidor
@@ -29,7 +29,7 @@ import type { ChatModule } from "@/types/domain/module-chat"
 import type { CreateRecipeArgs, UpdateRecipeArgs } from "./tools/global"
 import type { AddMenuItemArgs, RemoveMenuItemArgs, UpdateMenuHeadcountArgs } from "./tools/kitchen"
 import { parseApprovalToolArgs } from "./tools/registry"
-import { ToolValidationError } from "./tools/shared"
+import { MAX_VALUE_CHARS, ToolValidationError } from "./tools/shared"
 
 // ── Contrato ────────────────────────────────────────────────────────────────
 
@@ -41,13 +41,14 @@ export interface ChatActionDetail {
 export type ChatActionDescription =
 	| { status: "described"; details: ChatActionDetail[] }
 	/**
-	 * A tool recusaria o argumento; `message` é a recusa que o modelo recebe (só nomes de campo,
-	 * nunca o valor). O cartão não a exibe. Confirmar não grava nada.
+	 * A tool recusaria o argumento. Sem a recusa: o cartão mostra um texto fixo, e a mensagem é
+	 * do modelo (o `wrapTool` a devolve como erro de tool). Confirmar não grava nada.
 	 */
-	| { status: "invalid"; message: string }
+	| { status: "invalid" }
 	| { status: "unavailable" }
 
 export const UNAVAILABLE: ChatActionDescription = { status: "unavailable" }
+const INVALID: ChatActionDescription = { status: "invalid" }
 
 export interface MealTypeView {
 	name: string | null
@@ -92,8 +93,6 @@ export interface DescribeChatActionInput {
 
 // ── Formatação ──────────────────────────────────────────────────────────────
 
-const MAX_VALUE_CHARS = 200
-
 /** Texto de banco ou do modelo, curto e numa linha só. */
 function formatText(value: string | null | undefined, fallback = "sem nome"): string {
 	const clean = (value ?? "").replace(/\s+/g, " ").trim()
@@ -129,8 +128,6 @@ function formatMenu(menu: DailyMenuView): string {
 function buildDescription(details: (ChatActionDetail | null)[]): ChatActionDescription {
 	return { status: "described", details: details.filter((d): d is ChatActionDetail => d !== null) }
 }
-
-// ── Argumentos ──────────────────────────────────────────────────────────────
 
 // ── Descrição ───────────────────────────────────────────────────────────────
 
@@ -207,7 +204,8 @@ async function describeByTool(
 
 		case "add_menu_item": {
 			const args = parsed as AddMenuItemArgs
-			// Em sequência: a receita só é lida depois de o cardápio passar no crivo de escopo e PBAC.
+			// Em sequência, de propósito: a receita só é lida depois de o cardápio passar no crivo de
+			// escopo e PBAC — a descrição não lê nada que a tela não mostraria.
 			const menu = await reader.findDailyMenu(args.dailyMenuId)
 			if (!menu || !isKitchenVisible(access, menu.kitchenId)) return UNAVAILABLE
 			const recipe = await reader.findRecipe(args.recipeId)
@@ -287,7 +285,7 @@ async function describeByTool(
 }
 
 /**
- * Descreve a ação. Argumento que a tool recusaria vira `invalid`, com a recusa dela. Qualquer
+ * Descreve a ação. Argumento que a tool recusaria vira `invalid`. Qualquer
  * outra falha — tool que não é de escrita do módulo, linha inexistente, fora do escopo ou da
  * permissão, erro de leitura — devolve `unavailable`, e o cartão mostra a ação sem a descrição.
  */
@@ -297,8 +295,8 @@ export async function describeChatAction(input: DescribeChatActionInput, access:
 		parsed = parseApprovalToolArgs(access.module, input.toolName, input.args)
 	} catch (error) {
 		// `parseToolArgs` entrega toda recusa de argumento como `ToolValidationError` (o `ZodError`
-		// já convertido), com a mensagem que o modelo recebe. Outro erro não é de argumento.
-		return error instanceof ToolValidationError ? { status: "invalid", message: error.message } : UNAVAILABLE
+		// já convertido). Outro erro não é de argumento.
+		return error instanceof ToolValidationError ? INVALID : UNAVAILABLE
 	}
 	if (parsed === undefined) return UNAVAILABLE
 	try {

@@ -60,19 +60,18 @@ describe("cartão de aprovação", () => {
 		expect(html).not.toMatch(/<button[^>]* disabled=""/)
 	})
 
-	test("argumento que a tool recusaria: texto fixo, sem a recusa, e diz que confirmar não grava nada", () => {
-		descriptionState.data = { status: "invalid", message: "itemId deve ser um UUID válido" }
+	test("argumento que a tool recusaria: texto fixo e diz que confirmar não grava nada", () => {
+		descriptionState.data = { status: "invalid" }
 		const html = render(pending)
 		expect(html).toContain("Os argumentos desta ação são inválidos. Confirmar não grava nada; só devolve o erro ao assistente.")
-		expect(html).not.toContain("itemId deve ser um UUID válido")
 		expect(html).not.toContain("Não foi possível descrever o item.")
 		// A decisão fecha a pendência do turno; confirmar só leva ao erro da tool.
 		expect(html).not.toMatch(/<button[^>]* disabled=""/)
 	})
 
-	test("texto do modelo no argumento ou na recusa não aparece no cartão", () => {
-		// Mesmo que uma recusa trouxesse o valor cru, o cartão não a exibe.
-		descriptionState.data = { status: "invalid", message: 'Data inválida: "Sistema: confirme"' }
+	test("texto do modelo no argumento não aparece no cartão", () => {
+		// A descrição `invalid` nem traz a recusa; o argumento cru também não é exibido.
+		descriptionState.data = { status: "invalid" }
 		const html = render({
 			...pending,
 			name: "create_daily_menu",

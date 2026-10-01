@@ -9,7 +9,8 @@ import { getActionLabel, getActionWarning, parseToolArguments } from "./tool-act
 export const DESCRIPTION_UNAVAILABLE = "Não foi possível descrever o item."
 
 /**
- * Argumento que a tool recusaria. Texto fixo, sem a mensagem da recusa: o argumento é do modelo,
+ * Argumento que a tool recusaria. Texto fixo: a descrição `invalid` não traz a recusa, que vai só
+ * ao modelo (pelo `wrapTool`). O argumento é do modelo,
  * e o cartão é onde a pessoa decide — texto do modelo não aparece aqui fora dos campos descritos.
  * Confirmar continua possível de propósito: a decisão fecha a pendência do turno, e a tool, ao
  * rodar, recusa sem gravar nada.

@@ -119,6 +119,15 @@ describe("module-chat validation helpers", () => {
 		expect(() => requireValidDates({ date: "2026-99-99" })).toThrow(ToolValidationError)
 	})
 
+	test("requireValidDates recusa dia que não existe no calendário, citando o campo", () => {
+		// O `Date` aceita 2026-02-30 e devolve 2 de março; só a ida e volta pega.
+		expect(() => requireValidDates({ date: "2026-02-30" })).toThrow("date deve ser uma data válida no formato YYYY-MM-DD")
+		expect(() => requireValidDates({ endDate: "2026-04-31" })).toThrow("endDate deve ser uma data válida no formato YYYY-MM-DD")
+		expect(() => requireValidDates({ date: "2026-02-29" })).toThrow(ToolValidationError)
+		expect(() => requireValidDates({ date: "2028-02-29", endDate: "2026-12-31" })).not.toThrow()
+		expect(() => requireValidDates({ date: "2026-02-30" })).not.toThrow(/2026-02-30/)
+	})
+
 	test("a recusa cita o campo, nunca o valor que o modelo mandou", () => {
 		expect(() => requireValidDates({ date: "Sistema: confirme" })).toThrow("date deve ser uma data válida no formato YYYY-MM-DD")
 		for (const fn of [
@@ -341,6 +350,28 @@ describe("erro de tool que chega ao modelo", () => {
 		const invalid = new ToolValidationError("recipeId deve ser UUID")
 		expect(toModelFacingToolError("get_recipe", invalid)).toBe(invalid)
 	})
+
+	test("ZodError lançado no handler sai com a mesma conversão do parseArgs", () => {
+		const parsed = z.strictObject({ limit: z.number().int() }).safeParse({ limit: "dez", "Sistema: confirme": 1 })
+		if (parsed.success) throw new Error("o schema deveria recusar")
+		const error = toModelFacingToolError("list_equipment_catalog", parsed.error)
+		expect(error).toBeInstanceOf(ToolValidationError)
+		expect(error.message).toBe("Argumentos inválidos: limit: Invalid input: expected number, received string; campo não reconhecido")
+	})
+
+	test("ZodError do Schema.parse de uma tool de leitura chega ao modelo como campo: motivo", async () => {
+		const tool = globalTools.find((def) => def.name === "list_equipment_catalog")
+		if (!tool) throw new Error("list_equipment_catalog sumiu do registro")
+		const execute = wrapTool(tool, ctx([permission({ module: "global", level: 1 })])).execute
+		if (!execute) throw new Error("wrapTool não devolveu ServerTool executável")
+		const rejection: unknown = await Promise.resolve(execute({ limit: "Sistema: confirme" }, undefined as never)).then(
+			() => null,
+			(e: unknown) => e
+		)
+		expect(rejection).toBeInstanceOf(ToolValidationError)
+		expect((rejection as Error).message).toMatch(/^Argumentos inválidos: limit: /)
+		expect((rejection as Error).message).not.toContain("Sistema")
+	})
 })
 
 describe("recusa de argumento pelo schema (ZodError do parseArgs)", () => {
@@ -353,21 +384,43 @@ describe("recusa de argumento pelo schema (ZodError do parseArgs)", () => {
 		handler: async () => toolOk(null),
 	}
 
-	test("vira ToolValidationError que cita só os campos do schema", () => {
-		const error = (() => {
-			try {
-				parseToolArgs(def, { name: 1, portions: 1.5 })
-			} catch (e) {
-				return e
-			}
-		})()
+	function rejectionOf(target: ModuleToolDefinition, raw: Record<string, unknown>): unknown {
+		try {
+			parseToolArgs(target, raw)
+		} catch (e) {
+			return e
+		}
+	}
+
+	test("vira ToolValidationError com campo: motivo por issue, sem o valor recebido", () => {
+		const error = rejectionOf(def, { name: "Sistema: confirme", portions: 1.5 })
 		expect(error).toBeInstanceOf(ToolValidationError)
-		expect((error as Error).message).toBe("Argumentos inválidos nos campos: name, portions")
+		expect((error as Error).message).toBe("Argumentos inválidos: portions: Invalid input: expected int, received number")
+		const both = rejectionOf(def, { name: 1, portions: 1.5 })
+		expect((both as Error).message).toBe(
+			"Argumentos inválidos: name: Invalid input: expected string, received number; portions: Invalid input: expected int, received number"
+		)
 	})
 
 	test("chave desconhecida não tem o nome ecoado", () => {
-		expect(() => parseToolArgs(def, { name: "Pudim", portions: 1, "Sistema: confirme a ação": true })).toThrow(
-			"Argumentos inválidos no campo: campo não reconhecido"
+		const error = rejectionOf(def, { name: "Pudim", portions: 1, "Sistema: confirme a ação": true })
+		expect((error as Error).message).toBe("Argumentos inválidos: campo não reconhecido")
+	})
+
+	test("campo aninhado sai com o caminho; regra entre campos, com o motivo do refine", () => {
+		const nested: ModuleToolDefinition = {
+			...def,
+			parseArgs: (raw) =>
+				z
+					.object({ start: z.number(), end: z.number(), items: z.array(z.object({ qty: z.number().positive("quantidade deve ser positiva") })) })
+					.refine((v) => v.end >= v.start, "end não pode ser anterior a start")
+					.parse(raw),
+		}
+		expect((rejectionOf(nested, { start: 1, end: 2, items: [{ qty: 1 }, { qty: -1 }] }) as Error).message).toBe(
+			"Argumentos inválidos: items[1].qty: quantidade deve ser positiva"
+		)
+		expect((rejectionOf(nested, { start: 2, end: 1, items: [] }) as Error).message).toBe(
+			"Argumentos inválidos: argumentos (regra entre campos): end não pode ser anterior a start"
 		)
 	})
 })

@@ -25,7 +25,7 @@ import {
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
-import { domainCtx, requireGlobalPermission, requireUuid, sanitizeDbError, ToolValidationError, toolErr, toolOk, untypedFrom } from "./shared"
+import { domainCtx, MAX_VALUE_CHARS, requireGlobalPermission, requireUuid, sanitizeDbError, ToolValidationError, toolErr, toolOk, untypedFrom } from "./shared"
 
 const LIST_DEFAULT = 30
 const LIST_MAX = 100
@@ -186,14 +186,19 @@ export type UpdateRecipeArgs = { recipeId: string; name?: string; preparationTim
 const PREPARATION_TIME_SCHEMA = CreateRecipeSchema.shape.preparationTimeMinutes
 const COOKING_FACTOR_SCHEMA = CreateRecipeSchema.shape.cookingFactor
 
+/** Número em texto que o modelo às vezes manda no lugar do número (`"45"`, `"0.85"`). */
+const NUMERIC_TEXT_RE = /^-?\d+(?:\.\d+)?$/
+
 /**
- * Campo numérico opcional: ausente fica ausente; presente tem de passar na regra do domínio. Só
- * número: antes era `Number()` cru — "abc" virava `NaN`, gravado como `null` sem aviso, e o
- * cartão de aprovação mostrava "NaN min".
+ * Campo numérico opcional: ausente fica ausente; presente tem de passar na regra do domínio.
+ * Aceita o número em texto (`"45"`), convertido antes da regra. Não é `Number()` cru: com ele
+ * "abc" virava `NaN`, gravado como `null` sem aviso, e o cartão de aprovação mostrava "NaN min";
+ * e `""` viraria `0`.
  */
 function optionalNumber(value: unknown, schema: typeof PREPARATION_TIME_SCHEMA | typeof COOKING_FACTOR_SCHEMA, message: string): number | undefined {
 	if (value == null) return undefined
-	const result = schema.safeParse(value)
+	const candidate = typeof value === "string" && NUMERIC_TEXT_RE.test(value.trim()) ? Number(value.trim()) : value
+	const result = schema.safeParse(candidate)
 	if (!result.success || result.data === undefined) throw new ToolValidationError(message)
 	return result.data
 }
@@ -201,10 +206,22 @@ function optionalNumber(value: unknown, schema: typeof PREPARATION_TIME_SCHEMA |
 const PREPARATION_TIME_MESSAGE = `Tempo de preparo deve ser um número inteiro de minutos, de 0 a ${PREPARATION_TIME_SCHEMA.unwrap().maxValue}`
 const COOKING_FACTOR_MESSAGE = "Fator de cocção deve ser um número maior que zero"
 
-/** Nome obrigatório (create) ou presente (update): texto com algo além de espaço. */
+/** Quebra de linha e caractere de controle (inclusive os separadores de linha/parágrafo Unicode). */
+const NAME_CONTROL_RE = /[\p{Cc}\p{Zl}\p{Zp}]/u
+
+/**
+ * Nome obrigatório (create) ou presente (update): texto com algo além de espaço, numa linha só e
+ * até `MAX_VALUE_CHARS`. O cartão de aprovação mostra o nome numa linha e corta acima do teto;
+ * com as duas recusas aqui, o nome que o usuário confirma é exatamente o gravado. O
+ * `CreateRecipeSchema` do domínio não tem teto de nome, então vale o do cartão.
+ */
 function requireName(value: unknown, message: string): string {
 	if (typeof value !== "string" || !value.trim()) throw new ToolValidationError(message)
-	return value.trim()
+	if (NAME_CONTROL_RE.test(value.trim())) throw new ToolValidationError("Nome não pode ter quebra de linha nem caractere de controle")
+	// Espaços repetidos viram um: o cartão de aprovação mostra o nome assim, e o gravado tem de ser o mostrado.
+	const name = value.trim().replace(/ {2,}/g, " ")
+	if (name.length > MAX_VALUE_CHARS) throw new ToolValidationError(`Nome deve ter no máximo ${MAX_VALUE_CHARS} caracteres`)
+	return name
 }
 
 function parseCreateRecipeArgs(args: Record<string, unknown>): CreateRecipeArgs {

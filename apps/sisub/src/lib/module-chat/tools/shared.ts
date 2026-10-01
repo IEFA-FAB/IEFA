@@ -187,7 +187,14 @@ export function assertRouteScope(ctx: ToolContext, kind: "kitchen" | "unit", res
 // ── Validation helpers ──────────────────────────────────────────────────────
 
 // As mensagens citam o NOME do campo, nunca o valor recebido: o valor é texto do modelo (que pode
-// vir de um modo de preparo gravado por outra pessoa) e a mensagem volta ao modelo e ao cartão.
+// vir de um modo de preparo gravado por outra pessoa) e a mensagem volta ao modelo.
+
+/**
+ * Teto de texto livre que o cartão de aprovação exibe inteiro (`describe-action.ts` trunca acima
+ * dele) e, por isso, do nome de receita que as tools aceitam (`requireName`): nome válido nunca
+ * aparece cortado no cartão. O `CreateRecipeSchema` do domínio não limita o nome.
+ */
+export const MAX_VALUE_CHARS = 200
 
 export function safeInt(value: unknown, name: string): number {
 	const num = Number(value)
@@ -197,12 +204,18 @@ export function safeInt(value: unknown, name: string): number {
 	return num
 }
 
+/** Data de calendário que existe: formato YYYY-MM-DD e ida e volta pelo `Date` sem mudar o dia. */
+function isCalendarDate(value: unknown): value is string {
+	if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+	const date = new Date(`${value}T00:00:00Z`)
+	// `2026-02-30` vira 2 de março no `Date` em vez de falhar; só a volta igual prova que o dia existe.
+	return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+
 /** `{ startDate: args.startDate }`: a chave é o nome do campo citado na recusa. */
 export function requireValidDates(fields: Record<string, unknown>): void {
 	for (const [name, d] of Object.entries(fields)) {
-		if (typeof d !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(new Date(`${d}T00:00:00Z`).getTime())) {
-			throw new ToolValidationError(`${name} deve ser uma data válida no formato YYYY-MM-DD`)
-		}
+		if (!isCalendarDate(d)) throw new ToolValidationError(`${name} deve ser uma data válida no formato YYYY-MM-DD`)
 	}
 }
 
@@ -279,11 +292,12 @@ export function untypedFrom(ctx: ToolContext, table: string, schema: ToolTableSc
  *
  * Só passa adiante o erro cuja mensagem foi ESCRITA para quem lê: erro de domínio (permissão,
  * não encontrado, regra de negócio), as recusas das próprias tools e a validação de argumento
- * (o modelo precisa dela para corrigir a chamada). Todo o resto é falha de infraestrutura cuja
- * `message` ninguém revisou: o `DrizzleQueryError` que escapa de um caminho sem `runQuery`
- * (`fetchTemplateMealsSafe` relança o que não é "tabela ausente") põe `Failed query: <SQL>
- * params: <valores>` na mensagem, e um `TypeError` descreve o código. Antes só
- * `QueryFailedError` era traduzido, e esses iam crus até o navegador. O detalhe fica no log.
+ * (o modelo precisa dela para corrigir a chamada; o `ZodError` sai pela `toArgsValidationError`).
+ * Todo o resto é falha de infraestrutura cuja `message` ninguém revisou: o `DrizzleQueryError`
+ * que escapa de um caminho sem `runQuery` (`fetchTemplateMealsSafe` relança o que não é "tabela
+ * ausente") põe `Failed query: <SQL> params: <valores>` na mensagem, e um `TypeError` descreve o
+ * código. Antes só `QueryFailedError` era traduzido, e esses iam crus até o navegador. O detalhe
+ * fica no log.
  */
 export function toModelFacingToolError(toolName: string, error: unknown): Error {
 	if (error instanceof QueryFailedError) {
@@ -296,11 +310,13 @@ export function toModelFacingToolError(toolName: string, error: unknown): Error 
 		error instanceof ToolPermissionError ||
 		error instanceof ToolValidationError ||
 		error instanceof PbacPermissionDeniedError ||
-		error instanceof AssuranceRequiredError ||
-		error instanceof ZodError
+		error instanceof AssuranceRequiredError
 	) {
 		return error
 	}
+	// `Schema.parse` dentro do handler (as listagens) recusa com a mesma conversão do `parseArgs`:
+	// a `message` crua do `ZodError` é o JSON das issues, com as chaves que o modelo inventou.
+	if (error instanceof ZodError) return toArgsValidationError(error)
 	// biome-ignore lint/suspicious/noConsole: server-side error logging
 	console.error(`[module-chat:${toolName}]`, describeDriverError(error))
 	return new Error(`Erro ao executar ${toolName}. Tente novamente.`)
@@ -320,24 +336,36 @@ export function requiresApproval(def: Pick<ModuleToolDefinition, "requiredLevel"
 }
 
 const UNRECOGNIZED_FIELD = "campo não reconhecido"
+const CROSS_FIELD_RULE = "argumentos (regra entre campos)"
 const FIELD_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 
+/** Caminho da issue como o modelo o escreveria (`headcounts[0].headcount`), ou `null` se algum segmento não é identificador. */
+function formatIssuePath(path: readonly PropertyKey[]): string | null {
+	let out = ""
+	for (const segment of path) {
+		if (typeof segment === "number") out += `[${segment}]`
+		else if (typeof segment === "string" && FIELD_NAME_RE.test(segment)) out += out ? `.${segment}` : segment
+		else return null
+	}
+	return out
+}
+
 /**
- * `ZodError` do `parseArgs` como recusa legível: só os nomes de campo do schema. A `message` do
- * `ZodError` é o JSON das issues, e `unrecognized_keys` lista chaves que o MODELO escreveu —
- * ecoá-las levaria texto dele ao cartão. Por isso: campo de topo do schema pelo nome; chave
- * desconhecida (ou segmento que não tem cara de identificador) vira "campo não reconhecido".
+ * `ZodError` como recusa legível, uma linha por issue: `campo: motivo`. A `message` do `ZodError`
+ * é o JSON das issues; a de cada issue (zod v4 e `refine` do domínio) diz o que se esperava sem
+ * repetir o valor recebido, e é ela que o modelo precisa para corrigir a chamada. Exceção:
+ * `unrecognized_keys` lista chaves que o MODELO escreveu, e a mensagem do zod as repete — vira
+ * "campo não reconhecido", sem o motivo. Segmento de caminho que não tem cara de identificador
+ * idem. Caminho vazio é regra entre campos (`refine` no objeto).
  */
 function toArgsValidationError(error: ZodError): ToolValidationError {
-	const fields = new Set<string>()
+	const lines = new Set<string>()
 	for (const issue of error.issues) {
-		const head = issue.path[0]
-		if (issue.code === "unrecognized_keys" || (typeof head === "string" && !FIELD_NAME_RE.test(head))) fields.add(UNRECOGNIZED_FIELD)
-		else if (typeof head === "string") fields.add(head)
-		else fields.add("argumentos")
+		const field = formatIssuePath(issue.path)
+		if (issue.code === "unrecognized_keys" || field === null) lines.add(UNRECOGNIZED_FIELD)
+		else lines.add(`${field || CROSS_FIELD_RULE}: ${issue.message}`)
 	}
-	const list = [...fields]
-	return new ToolValidationError(`Argumentos inválidos ${list.length === 1 ? "no campo" : "nos campos"}: ${list.join(", ")}`)
+	return new ToolValidationError(`Argumentos inválidos: ${[...lines].join("; ")}`)
 }
 
 /**
@@ -345,7 +373,7 @@ function toArgsValidationError(error: ZodError): ToolValidationError {
  * antes do handler, e o cartão de aprovação (`describe-action.ts`, via `parseApprovalToolArgs`)
  * descreve a ação com o resultado dela — validar de outro jeito ali deixava o usuário confirmar
  * o que a tool recusa, ou ver um valor diferente do que seria gravado. A recusa sai sempre como
- * `ToolValidationError`, com a mesma mensagem para o modelo e para o cartão.
+ * `ToolValidationError`: o cartão só registra que é inválido, e a mensagem vai ao modelo.
  */
 export function parseToolArgs<TArgs extends Record<string, unknown>>(def: ModuleToolDefinition<TArgs>, raw: Record<string, unknown>): TArgs {
 	// Modelo manda `null` no lugar de omitir campo opcional. Onde o schema não previu
