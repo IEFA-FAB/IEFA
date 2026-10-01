@@ -269,4 +269,78 @@ describeIf("stock issue request (DB)", () => {
 				})
 		).resolves.toBe("rolled-back")
 	}, 60_000)
+
+	test("a tarefa de produção citada na saída é da cozinha da requisição (20261001110000)", async () => {
+		await expect(
+			sql
+				.begin(async (tx) => {
+					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-ISSUE5', 'unit teste saída 5') returning id`
+					const [kitchenA] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha saída 5A') returning id`
+					const [kitchenB] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha saída 5B') returning id`
+					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ TESTE SAIDA5', 'KG') returning id`
+					const [author] = await tx`select id from auth.users limit 1`
+					const today = tx`(now() at time zone 'America/Sao_Paulo')::date`
+
+					// uma tarefa em cada cozinha
+					const [mealType] = await tx`insert into kitchen.meal_type (name, kitchen_id) values ('Almoço saída 5', ${kitchenB.id}) returning id`
+					const [dailyMenuB] =
+						await tx`insert into kitchen.daily_menu (kitchen_id, service_date, meal_type_id) values (${kitchenB.id}, ${today}, ${mealType.id}) returning id`
+					const [menuItemB] = await tx`
+						insert into kitchen.menu_items (daily_menu_id, recipe, planned_portion_quantity) values (${dailyMenuB.id}, ${tx.json({ name: "B" })}, 10) returning id`
+					const [taskB] = await tx`
+						insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status) values (${kitchenB.id}, ${menuItemB.id}, ${today}, 'DONE') returning id`
+					const [mealTypeA] = await tx`insert into kitchen.meal_type (name, kitchen_id) values ('Almoço saída 5A', ${kitchenA.id}) returning id`
+					const [dailyMenuA] =
+						await tx`insert into kitchen.daily_menu (kitchen_id, service_date, meal_type_id) values (${kitchenA.id}, ${today}, ${mealTypeA.id}) returning id`
+					const [menuItemA] = await tx`
+						insert into kitchen.menu_items (daily_menu_id, recipe, planned_portion_quantity) values (${dailyMenuA.id}, ${tx.json({ name: "A" })}, 10) returning id`
+					const [taskA] = await tx`
+						insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status) values (${kitchenA.id}, ${menuItemA.id}, ${today}, 'DONE') returning id`
+
+					const [lot] = await tx`
+						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, received_at)
+						values (${kitchenA.id}, ${ingredient.id}, 'L-5A', ((now() at time zone 'America/Sao_Paulo')::date + 30), now() - interval '1 day') returning id`
+					await tx`
+						insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
+						values (${kitchenA.id}, ${ingredient.id}, ${lot.id}, 'receipt', 10, 5)`
+					const [request] = await tx`
+						insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, created_by)
+						values (${kitchenA.id}, ${today}, 'production', ${author.id}) returning id`
+
+					// saída da cozinha A citando a tarefa da cozinha B: recusada, pela alocação e pelo lote escolhido
+					await expect(
+						tx.savepoint(
+							(sp) => sp`select * from inventory.issue_stock(${request.id}, ${ingredient.id}, 1, ${author.id}, 'emissao-r5-0001', null, null, ${taskB.id})`
+						)
+					).rejects.toThrow(/não pertence a esta cozinha/)
+					await expect(
+						tx.savepoint(
+							(sp) => sp`select * from inventory.issue_stock(${request.id}, ${ingredient.id}, 1, ${author.id}, 'emissao-r5-0002', ${lot.id}, 'x', ${taskB.id})`
+						)
+					).rejects.toThrow(/não pertence a esta cozinha/)
+					// tarefa inexistente também não entra
+					await expect(
+						tx.savepoint(
+							(sp) =>
+								sp`select * from inventory.issue_stock(${request.id}, ${ingredient.id}, 1, ${author.id}, 'emissao-r5-0003', null, null, '00000000-0000-0000-0000-000000000000')`
+						)
+					).rejects.toThrow(/não pertence a esta cozinha/)
+
+					// a tarefa da própria cozinha passa, e sem tarefa continua passando
+					const [own] =
+						await tx`select * from inventory.issue_stock(${request.id}, ${ingredient.id}, 1, ${author.id}, 'emissao-r5-0004', null, null, ${taskA.id})`
+					expect(Number(own.movements)).toBe(1)
+					const [none] = await tx`select * from inventory.issue_stock(${request.id}, ${ingredient.id}, 1, ${author.id}, 'emissao-r5-0005', null, null, null)`
+					expect(Number(none.movements)).toBe(1)
+					const [{ n: fromB }] = await tx`select count(*)::int as n from inventory.stock_movement where production_task_id = ${taskB.id}`
+					expect(fromB).toBe(0)
+
+					throw new Rollback()
+				})
+				.catch((err: unknown) => {
+					if (err instanceof Rollback) return "rolled-back"
+					throw err
+				})
+		).resolves.toBe("rolled-back")
+	}, 60_000)
 })
