@@ -91,6 +91,15 @@ export function SaramDialog() {
 		setReopened(false)
 	}
 
+	/** Número que resolveu outra pessoa: gravado e travado — só o administrador corrige. */
+	const notMe = () => {
+		toast.warning("Procure o administrador do SUCONT", {
+			description: "O SARAM gravado identifica outra pessoa e só o administrador pode corrigi-lo.",
+		})
+		setPendingConfirmation(null)
+		setReopened(false)
+	}
+
 	const correct = () => {
 		setPendingConfirmation(null)
 		setReopened(true)
@@ -132,7 +141,7 @@ export function SaramDialog() {
 		<Dialog open={open} onOpenChange={(next) => !next && closeFromOutside()}>
 			<DialogContent aria-busy={save.isPending}>
 				{pendingConfirmation ? (
-					<ConfirmationStep identity={pendingConfirmation} onConfirm={confirm} onCorrect={correct} />
+					<ConfirmationStep identity={pendingConfirmation} onConfirm={confirm} onCorrect={correct} onNotMe={notMe} />
 				) : (
 					<>
 						<DialogHeader>
@@ -199,8 +208,23 @@ export function SaramDialog() {
  * conserta o dígito trocado. Sem correspondência no cadastro não há nome para
  * mostrar — dizer isso é o que separa "gravamos, mas confira" de um sucesso mudo
  * que faria a pessoa procurar o próprio nome numa tela onde ele nunca vai aparecer.
+ *
+ * Número que RESOLVEU alguém não se corrige por aqui (write-once, `core.link_own_saram`,
+ * as travas do sisub): trocar e regravar o SARAM lia posto e nome de guerra de outras
+ * pessoas, um por um. O "Corrigir" só existe para o número que não bate com ninguém; no
+ * outro caso a tela manda para quem corrige, em vez de oferecer um botão que o servidor recusa.
  */
-function ConfirmationStep({ identity, onConfirm, onCorrect }: { identity: SucontIdentity; onConfirm: () => void; onCorrect: () => void }) {
+function ConfirmationStep({
+	identity,
+	onConfirm,
+	onCorrect,
+	onNotMe,
+}: {
+	identity: SucontIdentity
+	onConfirm: () => void
+	onCorrect: () => void
+	onNotMe: () => void
+}) {
 	const name = formatMilitaryName(identity)
 
 	return (
@@ -214,7 +238,7 @@ function ConfirmationStep({ identity, onConfirm, onCorrect }: { identity: Sucont
 					{name ? (
 						<>
 							O SARAM <span className="font-mono">{identity.saram}</span> corresponde a <strong className="text-foreground">{name}</strong>. Se não for você,
-							corrija o número — ele é o que identifica sua conta em todo o ERP.
+							procure o administrador do SUCONT para corrigir — um SARAM que identifica alguém não pode ser trocado pela própria conta.
 						</>
 					) : (
 						<>
@@ -226,9 +250,15 @@ function ConfirmationStep({ identity, onConfirm, onCorrect }: { identity: Sucont
 			</DialogHeader>
 
 			<DialogFooter>
-				<Button type="button" variant="ghost" onClick={onCorrect}>
-					Corrigir
-				</Button>
+				{name ? (
+					<Button type="button" variant="ghost" onClick={onNotMe}>
+						Não sou eu
+					</Button>
+				) : (
+					<Button type="button" variant="ghost" onClick={onCorrect}>
+						Corrigir
+					</Button>
+				)}
 				<Button type="button" onClick={onConfirm}>
 					{name ? "Sou eu" : "Manter assim"}
 				</Button>
