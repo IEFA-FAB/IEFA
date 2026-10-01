@@ -43,6 +43,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#
 import { StatTile } from "#/components/ui/stat-tile"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { CONSOLIDATED_DRAFT_KEY, useMessageDrafts } from "#/hooks/use-editable-message"
+import { MAX_CONTA_GENERICA_QUERY_CHARS } from "#/lib/conta-generica-prompt"
 import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
 import { CONFERENTES, getUg } from "#/lib/ug/registry"
 import { oracleContaGenericaFn } from "#/server/conta-generica.fn"
@@ -370,8 +371,8 @@ function ContaGenerica() {
 		setIsAskingOracle(true)
 
 		try {
-			const systemContext = `
-Você é o Oráculo SUCONT, assistente de análise contábil do COMAER.
+			// Só os dados da análise: persona e regras do oráculo são do servidor.
+			const context = `
 Dados da análise atual:
 - Impacto Financeiro Total em Risco: ${formatCurrency(totalFinancialImpact)}
 - Total de inconsistências: ${odsRiskMap.reduce((a, c) => a + c.count, 0)}
@@ -388,7 +389,7 @@ Prioridades de Atuação:
 ${priorityList.map((p, i) => `${i + 1}º: UG ${p.ug} (${getUgName(p.ug)}) - Score: ${p.priorityScore}`).join("\n")}
       `.trim()
 
-			const text = await oracleContaGenericaFn({ data: { query, systemContext } })
+			const text = await oracleContaGenericaFn({ data: { query, context } })
 			setChatMessages((prev) => [...prev, { role: "model", text }])
 		} catch (_err) {
 			setChatMessages((prev) => [...prev, { role: "model", text: "Erro ao conectar com o Oráculo. Verifique sua conexão." }])
@@ -1081,6 +1082,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											onChange={(e) => setOracleInput(e.target.value)}
 											onKeyDown={(e) => e.key === "Enter" && askOracle()}
 											placeholder="Pergunte ao Oráculo sobre o risco contábil..."
+											maxLength={MAX_CONTA_GENERICA_QUERY_CHARS}
 											className="flex-1"
 										/>
 										<Button size="icon" aria-label="Enviar pergunta" onClick={() => askOracle()} disabled={isAskingOracle || !oracleInput.trim()}>

@@ -1,4 +1,5 @@
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
+import { createPromptNonce } from "@iefa/ai-provider/untrusted"
 import { defineHandler } from "nitro"
 import { type H3Event, HTTPError, readBody } from "nitro/h3"
 import { silentAdapterLogger } from "#/lib/ai-logger"
@@ -87,6 +88,7 @@ export default defineHandler(async (event: H3Event) => {
 		groupContext: request.groupContext,
 		competence: request.competence,
 		panelsFound: request.panelsFound,
+		nonce: createPromptNonce(),
 	})
 
 	type StructuredArgs = Parameters<typeof adapter.structuredOutput>[0]

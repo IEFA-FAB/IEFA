@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useApplyTemplate, useMenuTemplates, useTemplate } from "@/hooks/data/useTemplates"
 import { hasInvalidHeadcount, weeklyHeadcountRows, weeklyHeadcountsPayload } from "@/lib/apply-headcounts"
 import { cn } from "@/lib/cn"
+import { getWeekdayLabel, WEEKDAYS } from "@/lib/weekdays"
 import { ApplyHeadcountFields, HEADCOUNT_PENDING_HINT } from "./ApplyHeadcountFields"
 
 interface ApplyTemplateDialogProps {
@@ -31,16 +32,6 @@ function parseLocalDate(dateStr: string): Date {
 	const [y, m, d] = dateStr.split("-").map(Number)
 	return new Date(y, m - 1, d)
 }
-
-const WEEKDAYS = [
-	{ value: 1, label: "Segunda-feira" },
-	{ value: 2, label: "Terça-feira" },
-	{ value: 3, label: "Quarta-feira" },
-	{ value: 4, label: "Quinta-feira" },
-	{ value: 5, label: "Sexta-feira" },
-	{ value: 6, label: "Sábado" },
-	{ value: 7, label: "Domingo" },
-]
 
 export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, plannedDates, initialTemplateId = null }: ApplyTemplateDialogProps) {
 	const { data: allTemplates, isLoading, isError, refetch, isRefetching } = useMenuTemplates(kitchenId)
@@ -108,10 +99,6 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 				},
 			}
 		)
-	}
-
-	const getWeekdayLabel = (day: number) => {
-		return WEEKDAYS.find((w) => w.value === day)?.label || ""
 	}
 
 	return (
@@ -233,11 +220,11 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 								}}
 							>
 								<SelectTrigger id="start-day">
-									<SelectValue placeholder="Selecione o dia">{WEEKDAYS.find((w) => w.value === startDayOfWeek)?.label}</SelectValue>
+									<SelectValue placeholder="Selecione o dia">{getWeekdayLabel(startDayOfWeek)}</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
 									{WEEKDAYS.map((day) => (
-										<SelectItem key={day.value} value={day.value.toString()}>
+										<SelectItem key={day.num} value={day.num.toString()}>
 											{day.label}
 										</SelectItem>
 									))}

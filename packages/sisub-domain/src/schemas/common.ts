@@ -5,8 +5,15 @@ export type KitchenId = z.infer<typeof KitchenIdSchema>
 
 export const DateSchema = z
 	.string()
-	.regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD")
-	.refine((v) => !Number.isNaN(Date.parse(v)), { message: "Invalid date" })
+	.regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato AAAA-MM-DD")
+	// `Date.parse("2026-02-30")` não dá NaN (rola para 2 de março): só a volta igual prova que o dia existe.
+	.refine(
+		(v) => {
+			const date = new Date(`${v}T00:00:00Z`)
+			return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === v
+		},
+		{ message: "Data inexistente no calendário" }
+	)
 export type DateString = z.infer<typeof DateSchema>
 
 export const DateRangeSchema = z.object({

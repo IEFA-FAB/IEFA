@@ -121,6 +121,18 @@ describe.each(DIRECT_ADAPTER.map((s) => [s.path, s] as const))("adapter direto �
 		expect(source.text).toContain('document.classification !== "ostensivo"')
 		expect(source.text.indexOf('document.classification !== "ostensivo"')).toBeLessThan(source.text.indexOf("createAdapterFromEnv("))
 	})
+
+	// O AG-UI reenvia a conversa inteira e o parser preserva `system`/`developer`: sem o
+	// descarte, o navegador escrevia instrução com o peso do prompt do servidor.
+	it("descarta mensagem system/developer do cliente antes do chat()", () => {
+		expect(source.text).toMatch(/const messages = dropClientSystemMessages\(params\.messages\)/)
+		expect(source.text.indexOf("dropClientSystemMessages(params.messages)")).toBeLessThan(source.text.indexOf("chat({"))
+		expect(source.text).not.toMatch(/const \{[^}]*\bmessages\b[^}]*\} = params/)
+	})
+
+	it("o documento vai ao modelo com nonce por requisição", () => {
+		expect(source.text).toMatch(/describeDocument\(assembled, createPromptNonce\(\)\)/)
+	})
 })
 
 describe.each(VIA_GUARD_MODULE.map((s) => [s.path, s] as const))("via ai.server — %s", (_path, source) => {

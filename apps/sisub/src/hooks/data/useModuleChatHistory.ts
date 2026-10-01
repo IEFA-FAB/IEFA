@@ -8,6 +8,7 @@ import {
 	renameModuleChatSessionFn,
 	saveModuleChatMessageFn,
 } from "@/server/module-chat.fn"
+import { describeChatActionFn } from "@/server/module-chat-action.fn"
 import type { ChatModule, ModuleChatSession } from "@/types/domain/module-chat"
 
 // ── Sessions ────────────────────────────────────────────────────────────────
@@ -108,5 +109,31 @@ export function useSaveModuleChatMessage(module: ChatModule, scopeId?: number) {
 			qc.invalidateQueries({ queryKey: queryKeys.sisub.moduleSessions(module, scopeId) })
 		},
 		onError: (_err: unknown, _vars) => {},
+	})
+}
+
+// ── Aprovação de ação ───────────────────────────────────────────────────────
+
+/**
+ * O que a ação de escrita vai tocar, descrito pelo servidor (nome, data, refeição), para o
+ * cartão de Confirmar/Recusar. A chave é a call: os argumentos dela não mudam; a linha que
+ * eles apontam pode mudar, por isso o dado não fica eterno.
+ */
+export function useChatActionDescription(input: {
+	module: ChatModule
+	scopeId?: number
+	toolCallId: string
+	toolName: string
+	args: Record<string, unknown> | null
+	enabled: boolean
+}) {
+	const { module, scopeId, toolCallId, toolName, args, enabled } = input
+	return useQuery({
+		queryKey: queryKeys.sisub.moduleChatAction(module, scopeId, toolCallId),
+		queryFn: () => describeChatActionFn({ data: { module, scopeId, toolName, args: args ?? {} } }),
+		enabled: enabled && args !== null,
+		// O cartão pode ficar aberto enquanto o dado muda; ao voltar à aba, a descrição se refaz.
+		staleTime: 30_000,
+		retry: 1,
 	})
 }

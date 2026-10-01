@@ -1,5 +1,6 @@
 import { BarChart3, FileText, Scale, Truck } from "lucide-react"
 import type { ModuleChatConfig, SuggestedPrompt } from "@/types/domain/module-chat"
+import { WRITE_APPROVAL_DISCLAIMER, WRITE_APPROVAL_RULE } from "./write-approval"
 
 export const UNIT_SYSTEM_PROMPT = `Você é um oficial intendente especialista em logística de subsistência da Aeronáutica Brasileira. Você atua como assistente de gestão para o setor de subsistência de uma Organização Militar (OM).
 
@@ -20,7 +21,7 @@ export const UNIT_SYSTEM_PROMPT = `Você é um oficial intendente especialista e
 
 ## Regras:
 1. Sempre consulte o estado atual antes de alterar status de anexos quantitativos
-2. Confirme operações de escrita com o usuário antes de executar
+2. ${WRITE_APPROVAL_RULE}
 3. Transições de status devem seguir o fluxo: draft (Rascunho) → completed (Concluído) → archived (Arquivado). Não chame o anexo de "publicado": publicar é divulgar no PNCP
 4. Forneça resumos financeiros claros quando consultando empenhos/ARPs
 5. Responda SEMPRE em português do Brasil
@@ -60,7 +61,7 @@ export function getUnitChatConfig(unitId: number): ModuleChatConfig {
 			icon: Truck,
 		},
 		suggestedPrompts: UNIT_SUGGESTED_PROMPTS,
-		disclaimer: "O assistente pode executar ações reais no sistema. Confirme operações de escrita.",
+		disclaimer: WRITE_APPROVAL_DISCLAIMER,
 		placeholder: "Pergunte sobre anexos do TR, ARPs, empenhos ou logística…",
 	}
 }

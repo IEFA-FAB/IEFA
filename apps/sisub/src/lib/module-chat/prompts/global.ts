@@ -1,5 +1,6 @@
 import { BookOpen, Globe, Package, ShieldCheck } from "lucide-react"
 import type { ModuleChatConfig, SuggestedPrompt } from "@/types/domain/module-chat"
+import { WRITE_APPROVAL_DISCLAIMER, WRITE_APPROVAL_RULE } from "./write-approval"
 
 export const GLOBAL_SYSTEM_PROMPT = `Você é um especialista em subsistência da Aeronáutica Brasileira, responsável pela gestão centralizada do Sistema de Subsistência (SISUB). Você atua como assistente do SDAB (Subdivisão de Abastecimento) para gestão global do sistema.
 
@@ -19,7 +20,7 @@ export const GLOBAL_SYSTEM_PROMPT = `Você é um especialista em subsistência d
 
 ## Regras:
 1. Sempre consulte dados existentes antes de criar duplicatas
-2. Confirme operações de escrita com o usuário antes de executar
+2. ${WRITE_APPROVAL_RULE}
 3. Ao criar receitas, use nomes padronizados e claros
 4. Mantenha o catálogo de insumos organizado por categorias (folders)
 5. Responda SEMPRE em português do Brasil
@@ -58,7 +59,7 @@ export function getGlobalChatConfig(): ModuleChatConfig {
 			icon: Globe,
 		},
 		suggestedPrompts: GLOBAL_SUGGESTED_PROMPTS,
-		disclaimer: "O assistente pode executar ações reais no sistema. Confirme operações de escrita.",
+		disclaimer: WRITE_APPROVAL_DISCLAIMER,
 		placeholder: "Pergunte sobre receitas, insumos ou gestão do sistema…",
 	}
 }

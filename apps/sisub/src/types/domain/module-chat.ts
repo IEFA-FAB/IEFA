@@ -23,14 +23,23 @@ export interface ModuleChatSession {
 
 // ── Tool calls ──────────────────────────────────────────────────────────────
 
+/**
+ * `awaiting-approval` só existe na tela: a ação de escrita parou esperando Confirmar/Recusar e
+ * nada foi gravado no histórico. `denied` é terminal e persiste (`tool_calls` é jsonb): o
+ * usuário recusou e a ferramenta não executou.
+ */
+export type ToolCallStatus = "calling" | "awaiting-approval" | "done" | "error" | "denied"
+
 export interface ToolCall {
 	id: string
 	name: string
 	arguments: string
-	status: "calling" | "done" | "error"
+	status: ToolCallStatus
 	result?: unknown
 	error?: string
 	isError?: boolean
+	/** Id do interrupt `approval_<id>`, presente enquanto a ação espera decisão. */
+	approvalId?: string
 }
 
 // ── Messages ────────────────────────────────────────────────────────────────

@@ -33,7 +33,12 @@ export const AgentApplyTemplateSchema = z.object({
 		.min(1)
 		.max(AGENT_APPLY_TEMPLATE_MAX_DATES)
 		.describe(`Datas YYYY-MM-DD a preencher (no máximo ${AGENT_APPLY_TEMPLATE_MAX_DATES}). Só essas datas são tocadas`),
-	startDayOfWeek: z.number().int().min(1).max(7).describe("Dia do template (1=seg..7=dom) que corresponde à primeira data"),
+	startDayOfWeek: z
+		.number()
+		.int()
+		.min(1)
+		.max(7)
+		.describe("Dia da semana (1=seg..7=dom) em que cai o dia 1 do template; as datas desse dia da semana recebem o dia 1, as do seguinte o dia 2"),
 	headcounts: z
 		.array(
 			z.object({

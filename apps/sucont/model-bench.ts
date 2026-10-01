@@ -4,8 +4,8 @@
  * Roda os TRÊS caminhos que o app usa de verdade, com os artefatos de produção
  * importados (não reescritos):
  *   1. chatStream       → oráculo, `buildSystemPrompt` de `#/lib/oracle-prompt`
- *   2. structuredOutput → document-ai, `analysisSchema` (DATA_ANALYSIS)
- *   3. structuredOutput → document-ai, `fabSchema` (FAB_OFFICE)
+ *   2. structuredOutput → document-ai, `buildDocumentPrompt` + `analysisSchema` (DATA_ANALYSIS)
+ *   3. structuredOutput → document-ai, `buildDocumentPrompt` + `fabSchema` (FAB_OFFICE)
  *
  * O (3) existe porque `generateJson` devolve `result.data as T` sem validar: campo
  * obrigatório que o modelo não emitir vira `undefined` dentro de um ofício, sem erro.
@@ -16,6 +16,8 @@
  * Uso: cd apps/sucont && AWS_PROFILE=iefa-prod bun model-bench.ts
  */
 import { createBedrockAdapter } from "@iefa/ai-provider/bedrock"
+import { createPromptNonce } from "@iefa/ai-provider/untrusted"
+import { buildDocumentPrompt, type DocumentType } from "#/lib/document-prompt"
 import { buildSystemPrompt } from "#/lib/oracle-prompt"
 import { analysisSchema, fabSchema } from "#/server/document-schemas"
 
@@ -31,7 +33,7 @@ const CANDIDATES = [
 	{ id: "global.anthropic.claude-sonnet-4-6", label: "sonnet-4.6" },
 ]
 
-/** Contexto que a UI injeta em `forwardedProps.contextSummary` — entra no system prompt. */
+/** Contexto que a UI injeta em `forwardedProps.contextSummary` — entra delimitado no system prompt. */
 const CONTEXT_SUMMARY = JSON.stringify({
 	totalInconsistencias: 90,
 	totalVolume: 5_507_980.55,
@@ -46,15 +48,13 @@ const CONTEXT_SUMMARY = JSON.stringify({
 
 const ORACLE_USER = "Qual ODS concentra o maior risco patrimonial nos dados carregados, e qual a ordem de atuação recomendada? Seja objetivo."
 
-const JSON_ANALYSIS_USER = `Rascunho do analista: "Levantamento das inconsistências do 1º trimestre. A UG 120002 (DIREF) responde por 47 ocorrências
+const ANALYSIS_DRAFT = `Levantamento das inconsistências do 1º trimestre. A UG 120002 (DIREF) responde por 47 ocorrências
 e R$ 3.412.880,55 em saldo alongado em conta de trânsito. A 121002 tem 31 ocorrências e R$ 1.205.000,00. A 120701 tem 12 e R$ 890.100,00.
-Recomenda-se regularização por desincorporação e ajuste de exercícios anteriores, com lastro documental."
-Produza o relatório de análise de dados estruturado a partir desse rascunho.`
+Recomenda-se regularização por desincorporação e ajuste de exercícios anteriores, com lastro documental.`
 
-const JSON_FAB_USER = `Rascunho do analista: "Oficiar a UG 120002 (DIREF) sobre 47 inconsistências e R$ 3.412.880,55 em saldo alongado
+const FAB_DRAFT = `Oficiar a UG 120002 (DIREF) sobre 47 inconsistências e R$ 3.412.880,55 em saldo alongado
 em conta de trânsito, solicitando regularização por desincorporação com lastro documental, prazo de 30 dias.
-Assunto: fidedignidade patrimonial. Assina o Cel Int Guerra, Chefe da SUCONT-4, em Brasília."
-Produza o ofício FAB estruturado a partir desse rascunho.`
+Assunto: fidedignidade patrimonial. Assina o Cel Int Guerra, Chefe da SUCONT-4, em Brasília.`
 
 // biome-ignore lint/suspicious/noExplicitAny: bench — TextOptions exige campos que os adapters tratam como opcionais
 const opts = (o: Record<string, unknown>) => o as any
@@ -90,7 +90,7 @@ async function runChat(label: string, model: string) {
 
 	const drain = async () => {
 		for await (const chunk of adapter.chatStream(
-			opts({ messages: [{ role: "user", content: ORACLE_USER }], systemPrompts: [buildSystemPrompt(CONTEXT_SUMMARY)] })
+			opts({ messages: [{ role: "user", content: ORACLE_USER }], systemPrompts: [buildSystemPrompt(CONTEXT_SUMMARY, createPromptNonce())] })
 		)) {
 			const c = chunk as { type?: string; delta?: string; usage?: { promptTokens: number; completionTokens: number } }
 			if (c.type === "TEXT_MESSAGE_CONTENT" && typeof c.delta === "string") {
@@ -119,12 +119,13 @@ async function runChat(label: string, model: string) {
 	}
 }
 
-async function runJson(label: string, model: string, task: string, user: string, schema: { required: readonly string[] }) {
+async function runJson(label: string, model: string, task: string, type: DocumentType, draft: string, schema: { required: readonly string[] }) {
 	const adapter = createBedrockAdapter(model, REGION)
+	const { system, user } = buildDocumentPrompt({ type, draft, nonce: createPromptNonce() })
 	const started = performance.now()
 	try {
 		const r = await withDeadline(
-			adapter.structuredOutput(opts({ chatOptions: { messages: [{ role: "user", content: user }], systemPrompts: [] }, outputSchema: schema })),
+			adapter.structuredOutput(opts({ chatOptions: { messages: [{ role: "user", content: user }], systemPrompts: [system] }, outputSchema: schema })),
 			`${label}/${task}`
 		)
 		const d = (r as { data: Record<string, unknown> }).data
@@ -148,8 +149,8 @@ async function runJson(label: string, model: string, task: string, user: string,
 log("modelo         tarefa           ok     ttfb   total   in_tok  out_tok  obs")
 for (const c of CANDIDATES) {
 	await runChat(c.label, c.id)
-	await runJson(c.label, c.id, "json:analysis", JSON_ANALYSIS_USER, analysisSchema)
-	await runJson(c.label, c.id, "json:fab", JSON_FAB_USER, fabSchema)
+	await runJson(c.label, c.id, "json:analysis", "DATA_ANALYSIS", ANALYSIS_DRAFT, analysisSchema)
+	await runJson(c.label, c.id, "json:fab", "FAB_OFFICE", FAB_DRAFT, fabSchema)
 }
 
 const falhas = rows.filter((r) => !r.ok)

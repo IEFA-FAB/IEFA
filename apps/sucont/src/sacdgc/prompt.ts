@@ -15,10 +15,19 @@
  *    dizer quais painéis chegaram, o modelo respondia "ausência de apropriação"
  *    para um painel que ninguém enviou.
  *  - **Corte declarado.** Recorte truncado é declarado; antes o corte era mudo.
+ *  - **Planilha é dado.** Tudo o que sai das planilhas (identificação da UG, recorte
+ *    consolidado, recortes do grupo) vai entre marcadores com nonce por chamada, e o
+ *    system declara o bloco como dado. Uma célula com "ignore o checklist" tinha o
+ *    peso das regras do Módulo 19. O texto fixo do pedido cita a UG pelo bloco, não
+ *    interpola o código ou o grupo fora dele.
  */
 
+import { untrustedContentRule, wrapUntrusted } from "@iefa/ai-provider/untrusted"
 import { CHECKLIST_QUESTIONS } from "#/sacdgc/checklist"
 import { PANEL_TITLES, type PanelId, type UgDataset } from "#/sacdgc/types"
+
+/** Prefixo do marcador dos dados da planilha (`<planilha_…>`). */
+const SPREADSHEET_TAG_PREFIX = "planilha_"
 
 const SISTEMAS_COMAER = `- Preparo e Emprego: SISDABRA (COMAE), SICAOP (COMAE), SISCENDA (COMAE), SISCEAB (DECEA), SISSAR (DECEA).
 - Gerenciais: SISGI (EMAER), SISRI (ASPAER).
@@ -187,7 +196,11 @@ Cada alerta traz:
 - evidencia: a parte mais detalhada. O que foi identificado, em qual Sistema/subcentro/NDD, os valores envolvidos, o período, e por que aquilo caracteriza inconsistência ou oportunidade de melhoria.
 - acaoRecomendada: orientação específica e executável pela UG.
 
-Checklist AEC: responda as 20 perguntas com "SIM" ou "NÃO". "SIM" significa que existe apontamento. Toda resposta "SIM" precisa ter um alerta de criticidade correspondente e DEVE trazer fundamentacaoTecnica, evidenciasEncontradas e recomendacao. Resposta "NÃO" NÃO deve trazer esses três campos.`
+Checklist AEC: responda as 20 perguntas com "SIM" ou "NÃO". "SIM" significa que existe apontamento. Toda resposta "SIM" precisa ter um alerta de criticidade correspondente e DEVE trazer fundamentacaoTecnica, evidenciasEncontradas e recomendacao. Resposta "NÃO" NÃO deve trazer esses três campos.
+
+# DADOS DAS PLANILHAS
+
+${untrustedContentRule(SPREADSHEET_TAG_PREFIX)}`
 
 export interface DgcPromptInput {
 	dataset: UgDataset
@@ -197,6 +210,8 @@ export interface DgcPromptInput {
 	competence?: string
 	/** Painéis efetivamente presentes na carga. */
 	panelsFound: PanelId[]
+	/** Identificador dos marcadores, um por chamada (`createPromptNonce`). */
+	nonce: string
 }
 
 function checklistBlock(): string {
@@ -204,18 +219,21 @@ function checklistBlock(): string {
 }
 
 /** Parte variável do prompt: identidade da UG, painéis presentes, dados e contexto de grupo. */
-export function buildDgcUserPrompt({ dataset, groupContext, competence, panelsFound }: DgcPromptInput): string {
+export function buildDgcUserPrompt({ dataset, groupContext, competence, panelsFound, nonce }: DgcPromptInput): string {
 	const missing = ([1, 2, 3, 4] as PanelId[]).filter((id) => !panelsFound.includes(id))
 	const empty = ([1, 2, 3, 4] as PanelId[]).filter((id) => panelsFound.includes(id) && dataset.rowCount[id] === 0)
+	const wrap = (label: string, text: string) => wrapUntrusted({ tagPrefix: SPREADSHEET_TAG_PREFIX, nonce, label, text })
+
+	const identity = `Código: ${dataset.ugCode}
+Nome: ${dataset.ugName}
+Grupo de comparação: ${dataset.group}${competence ? `\nCompetência da base: ${competence}` : ""}`
 
 	const sections: string[] = [
 		`# UNIDADE GESTORA EM ANÁLISE
 
-Código: ${dataset.ugCode}
-Nome: ${dataset.ugName}
-Grupo de comparação: ${dataset.group}${competence ? `\nCompetência da base: ${competence}` : ""}
+${wrap("Identificação da UG, lida da planilha", identity)}
 
-Use OBRIGATORIAMENTE este código e este nome em identificacao.codigoUg e identificacao.nomeUg. Outros nomes de UG aparecem no recorte (coluna "UG Beneficiada" do Painel 4, por exemplo) — nenhum deles é a UG analisada.`,
+Use OBRIGATORIAMENTE o código e o nome desse bloco em identificacao.codigoUg e identificacao.nomeUg. Outros nomes de UG aparecem no recorte (coluna "UG Beneficiada" do Painel 4, por exemplo) — nenhum deles é a UG analisada.`,
 	]
 
 	sections.push(`# ESCOPO DA CARGA
@@ -237,14 +255,14 @@ ${checklistBlock()}`)
 
 	sections.push(`# DADOS DA UG A SER ANALISADA (FOCO PRINCIPAL)
 
-${dataset.consolidated}`)
+${wrap("Recorte consolidado da UG analisada", dataset.consolidated)}`)
 
 	if (groupContext && groupContext.trim().length > 0) {
-		sections.push(`# DADOS DE REFERÊNCIA DO GRUPO "${dataset.group}" (APENAS PARA COMPARAÇÃO)
+		sections.push(`# DADOS DE REFERÊNCIA DO GRUPO DE COMPARAÇÃO (APENAS PARA COMPARAÇÃO)
 
-Use este bloco somente para balizar o que é padrão no grupo. NUNCA confunda estes valores e efetivos com os da UG foco. Nenhum alerta de criticidade e nenhum item do checklist pode se apoiar em número que veio deste bloco — todos se referem estritamente à UG ${dataset.ugCode}.
+Use este bloco somente para balizar o que é padrão no grupo. NUNCA confunda estes valores e efetivos com os da UG foco. Nenhum alerta de criticidade e nenhum item do checklist pode se apoiar em número que veio deste bloco — todos se referem estritamente à UG analisada, a do bloco de identificação.
 
-${groupContext}`)
+${wrap("Recortes das demais UGs do grupo", groupContext)}`)
 	}
 
 	return sections.join("\n\n---\n\n")

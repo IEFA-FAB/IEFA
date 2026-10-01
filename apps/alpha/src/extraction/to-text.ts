@@ -112,7 +112,8 @@ function buildNodes(paragraphs: Array<{ level: number | null; text: string }>): 
 }
 
 export function docxToSubmissionText(bytes: Uint8Array): SubmissionText {
-	const docx = parseDocx(bytes)
+	// Texto oculto não vai ao modelo: quem revisa no Word não o vê (ver `sources/docx.ts`).
+	const docx = parseDocx(bytes, { dropHidden: true })
 	const paragraphs = docx.paragraphs.map((paragraph) => ({ level: levelOf(paragraph), text: paragraph.text }))
 
 	return {

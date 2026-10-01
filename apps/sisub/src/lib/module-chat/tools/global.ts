@@ -4,6 +4,7 @@
  */
 
 import {
+	CreateRecipeSchema,
 	fetchIngredient as fetchIngredientOp,
 	listIngredientItems as listIngredientItemsOp,
 	listIngredientNutrients as listIngredientNutrientsOp,
@@ -24,7 +25,7 @@ import {
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
-import { domainCtx, requireGlobalPermission, requireUuid, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { domainCtx, MAX_VALUE_CHARS, requireGlobalPermission, requireUuid, sanitizeDbError, ToolValidationError, toolErr, toolOk, untypedFrom } from "./shared"
 
 const LIST_DEFAULT = 30
 const LIST_MAX = 100
@@ -167,35 +168,124 @@ const listMenuTemplates: ModuleToolDefinition = {
 	},
 }
 
-const createRecipe: ModuleToolDefinition = {
+// ── Argumentos das escritas ─────────────────────────────────────────────────
+//
+// `parseArgs` é o crivo da tool e também o do cartão de aprovação (`describe-action.ts`): o que
+// ele aceita é exatamente o que o handler grava.
+
+export type CreateRecipeArgs = { name: string; preparationTime?: number; cookingFactor?: number }
+
+export type UpdateRecipeArgs = { recipeId: string; name?: string; preparationTime?: number; cookingFactor?: number }
+
+/**
+ * Regras do domínio para os dois números da receita, as mesmas que a ficha técnica aplica
+ * (`CreateRecipeSchema`): tempo de preparo inteiro, não negativo e dentro do `smallint` da coluna
+ * (acima dele o insert morre no driver com `22003`); fator de cocção positivo — fator zero zera
+ * o peso cozido de toda a receita.
+ */
+const PREPARATION_TIME_SCHEMA = CreateRecipeSchema.shape.preparationTimeMinutes
+const COOKING_FACTOR_SCHEMA = CreateRecipeSchema.shape.cookingFactor
+
+/** Número em texto que o modelo às vezes manda no lugar do número (`"45"`, `"0.85"`). */
+const NUMERIC_TEXT_RE = /^-?\d+(?:\.\d+)?$/
+
+/**
+ * Campo numérico opcional: ausente fica ausente; presente tem de passar na regra do domínio.
+ * Aceita o número em texto (`"45"`), convertido antes da regra. Não é `Number()` cru: com ele
+ * "abc" virava `NaN`, gravado como `null` sem aviso, e o cartão de aprovação mostrava "NaN min";
+ * e `""` viraria `0`.
+ */
+function optionalNumber(value: unknown, schema: typeof PREPARATION_TIME_SCHEMA | typeof COOKING_FACTOR_SCHEMA, message: string): number | undefined {
+	if (value == null) return undefined
+	const trimmed = typeof value === "string" ? value.trim() : null
+	const candidate = trimmed !== null && NUMERIC_TEXT_RE.test(trimmed) ? Number(trimmed) : value
+	const result = schema.safeParse(candidate)
+	if (!result.success || result.data === undefined) throw new ToolValidationError(message)
+	return result.data
+}
+
+const PREPARATION_TIME_MESSAGE = `Tempo de preparo deve ser um número inteiro de minutos, de 0 a ${PREPARATION_TIME_SCHEMA.unwrap().maxValue}`
+const COOKING_FACTOR_MESSAGE = "Fator de cocção deve ser um número maior que zero"
+
+/**
+ * Quebra de linha, caractere de controle (inclusive os separadores de linha/parágrafo Unicode) e
+ * de formatação invisível (`\p{Cf}`: override bidi, largura zero) — com U+202E o cartão desenharia
+ * o nome invertido, e o que se confirma não seria o que se grava.
+ */
+const NAME_CONTROL_RE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u
+
+/**
+ * Nome obrigatório (create) ou presente (update): texto com algo além de espaço, numa linha só e
+ * até `MAX_VALUE_CHARS`. O cartão de aprovação mostra o nome numa linha e corta acima do teto;
+ * com as duas recusas aqui, o nome que o usuário confirma é exatamente o gravado. O
+ * `CreateRecipeSchema` do domínio não tem teto de nome, então vale o do cartão.
+ */
+function requireName(value: unknown, message: string): string {
+	if (typeof value !== "string") throw new ToolValidationError(message)
+	const trimmed = value.trim()
+	if (!trimmed) throw new ToolValidationError(message)
+	if (NAME_CONTROL_RE.test(trimmed)) throw new ToolValidationError("Nome não pode ter quebra de linha nem caractere de controle")
+	// Espaço repetido (inclusive NBSP e os espaços Unicode) vira um: o cartão de aprovação mostra o
+	// nome assim (`formatText`), e o gravado tem de ser o mostrado.
+	const name = trimmed.replace(/\s+/gu, " ")
+	if (name.length > MAX_VALUE_CHARS) throw new ToolValidationError(`Nome deve ter no máximo ${MAX_VALUE_CHARS} caracteres`)
+	return name
+}
+
+function parseCreateRecipeArgs(args: Record<string, unknown>): CreateRecipeArgs {
+	const name = requireName(args.name, "Nome é obrigatório")
+	const preparationTime = optionalNumber(args.preparationTime, PREPARATION_TIME_SCHEMA, PREPARATION_TIME_MESSAGE)
+	const cookingFactor = optionalNumber(args.cookingFactor, COOKING_FACTOR_SCHEMA, COOKING_FACTOR_MESSAGE)
+	return {
+		name,
+		...(preparationTime !== undefined && { preparationTime }),
+		...(cookingFactor !== undefined && { cookingFactor }),
+	}
+}
+
+function parseUpdateRecipeArgs(args: Record<string, unknown>): UpdateRecipeArgs {
+	const recipeId = requireUuid(args.recipeId, "recipeId")
+	// Mesma regra do `create_recipe`: número, objeto ou só espaços não viram nome gravado.
+	const name = args.name != null ? requireName(args.name, "Novo nome deve ser um texto não vazio") : undefined
+	const preparationTime = optionalNumber(args.preparationTime, PREPARATION_TIME_SCHEMA, PREPARATION_TIME_MESSAGE)
+	const cookingFactor = optionalNumber(args.cookingFactor, COOKING_FACTOR_SCHEMA, COOKING_FACTOR_MESSAGE)
+	if (name === undefined && preparationTime === undefined && cookingFactor === undefined) throw new ToolValidationError("Nenhum campo para atualizar")
+	return {
+		recipeId,
+		...(name !== undefined && { name }),
+		...(preparationTime !== undefined && { preparationTime }),
+		...(cookingFactor !== undefined && { cookingFactor }),
+	}
+}
+
+const createRecipe: ModuleToolDefinition<CreateRecipeArgs> = {
 	name: "create_recipe",
 	description: "Cria uma nova receita global. Requer permissão de escrita.",
 	parameters: {
 		type: "object",
 		properties: {
 			name: { type: "string", description: "Nome da receita" },
-			preparationTime: { type: "number", description: "Tempo de preparo em minutos (opcional)" },
-			cookingFactor: { type: "number", description: "Fator de cocção (opcional, ex: 0.85)" },
+			preparationTime: { type: "number", description: "Tempo de preparo em minutos inteiros (opcional)" },
+			cookingFactor: { type: "number", description: "Fator de cocção, maior que zero (opcional, ex: 0.85)" },
 		},
 		required: ["name"],
 	},
 	requiredLevel: 2,
+	parseArgs: parseCreateRecipeArgs,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 2)
-
-		if (typeof args.name !== "string" || !args.name.trim()) return toolErr("Nome é obrigatório")
 
 		// `version` é NOT NULL e não tem default: sem ele o insert violava a constraint e a
 		// tool nunca criou receita nenhuma. Linhagem nova começa em 1, como no domínio.
 		const insert: Record<string, unknown> = {
-			name: String(args.name).trim(),
+			name: args.name,
 			kitchen_id: null,
 			version: 1,
 		}
 		// A coluna é `preparation_time_minutes`. Com `preparation_time` o PostgREST recusava a
 		// inserção inteira (PGRST204) sempre que o modelo informava o tempo de preparo.
-		if (args.preparationTime != null) insert.preparation_time_minutes = Number(args.preparationTime)
-		if (args.cookingFactor != null) insert.cooking_factor = Number(args.cookingFactor)
+		if (args.preparationTime !== undefined) insert.preparation_time_minutes = args.preparationTime
+		if (args.cookingFactor !== undefined) insert.cooking_factor = args.cookingFactor
 
 		const { data, error } = await untypedFrom(ctx, "recipes").insert(insert).select("id, name, version, preparation_time_minutes, cooking_factor").single()
 		if (error) return toolErr(sanitizeDbError(error, "create_recipe"))
@@ -203,7 +293,7 @@ const createRecipe: ModuleToolDefinition = {
 	},
 }
 
-const updateRecipe: ModuleToolDefinition = {
+const updateRecipe: ModuleToolDefinition<UpdateRecipeArgs> = {
 	name: "update_recipe",
 	description: "Atualiza uma receita global existente.",
 	parameters: {
@@ -211,26 +301,24 @@ const updateRecipe: ModuleToolDefinition = {
 		properties: {
 			recipeId: { type: "string", description: "ID (UUID) da receita" },
 			name: { type: "string", description: "Novo nome (opcional)" },
-			preparationTime: { type: "number", description: "Tempo de preparo em minutos (opcional)" },
-			cookingFactor: { type: "number", description: "Fator de cocção (opcional)" },
+			preparationTime: { type: "number", description: "Tempo de preparo em minutos inteiros (opcional)" },
+			cookingFactor: { type: "number", description: "Fator de cocção, maior que zero (opcional)" },
 		},
 		required: ["recipeId"],
 	},
 	requiredLevel: 2,
+	parseArgs: parseUpdateRecipeArgs,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 2)
-		const recipeId = requireUuid(args.recipeId, "recipeId")
 
 		const update: Record<string, unknown> = {}
-		if (args.name != null) update.name = String(args.name).trim()
-		if (args.preparationTime != null) update.preparation_time_minutes = Number(args.preparationTime)
-		if (args.cookingFactor != null) update.cooking_factor = Number(args.cookingFactor)
-
-		if (Object.keys(update).length === 0) return toolErr("Nenhum campo para atualizar")
+		if (args.name !== undefined) update.name = args.name
+		if (args.preparationTime !== undefined) update.preparation_time_minutes = args.preparationTime
+		if (args.cookingFactor !== undefined) update.cooking_factor = args.cookingFactor
 
 		const { data, error } = await untypedFrom(ctx, "recipes")
 			.update(update)
-			.eq("id", recipeId)
+			.eq("id", args.recipeId)
 			.is("kitchen_id", null)
 			.select("id, name, version, preparation_time_minutes, cooking_factor")
 			.single()

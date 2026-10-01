@@ -1,4 +1,5 @@
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
+import { createPromptNonce } from "@iefa/ai-provider/untrusted"
 import { defineHandler } from "nitro"
 import { type H3Event, HTTPError, readBody } from "nitro/h3"
 import { buildAnalyticNoteMarkdown } from "#/auditor/services/report-markdown"
@@ -87,7 +88,7 @@ export default defineHandler(async (event: H3Event) => {
 
 	type StructuredArgs = Parameters<typeof adapter.structuredOutput>[0]
 	const chatOptions = {
-		messages: [{ role: "user", content: buildAnalyticNoteUserPrompt(dataset) }],
+		messages: [{ role: "user", content: buildAnalyticNoteUserPrompt(dataset, createPromptNonce()) }],
 		systemPrompts: [ANALYTIC_NOTE_SYSTEM_PROMPT],
 		modelOptions: {
 			// Sete seções de prosa passam do teto padrão do Converse. Sem isto a

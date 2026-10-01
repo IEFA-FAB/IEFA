@@ -8,9 +8,10 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { AssuranceRequiredError, hasPermission, PermissionDeniedError as PbacPermissionDeniedError } from "@iefa/pbac"
 import { DomainError, QueryFailedError, type UserContext } from "@iefa/sisub-domain"
 import { dropUnexpectedNulls, enforcePayloadBudget } from "@iefa/sisub-domain/agent"
+import { DateSchema } from "@iefa/sisub-domain/schemas"
 import { describeDriverError } from "@iefa/sisub-domain/utils"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { ServerTool } from "@tanstack/ai"
+import type { AnyServerTool } from "@tanstack/ai"
 import { toolDefinition } from "@tanstack/ai"
 import { ZodError } from "zod"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
@@ -51,13 +52,40 @@ export function domainCtx(ctx: ToolContext): UserContext {
 
 // ── Tool definition (OpenAI function-calling format) ────────────────────────
 
-export interface ModuleToolDefinition {
+/**
+ * Validação do argumento, só dele (sem banco, sem permissão): devolve os argumentos como o
+ * handler os usa ou lança `ToolValidationError`/`ZodError` (que `parseToolArgs` converte em
+ * `ToolValidationError`). Recebe o argumento já sem os `null` de ausência.
+ */
+type ParseToolArgs<TArgs> = (raw: Record<string, unknown>) => TArgs
+
+interface ModuleToolBase<TArgs extends Record<string, unknown>> {
 	name: string
 	description: string
 	parameters: Record<string, unknown> // JSON Schema
-	requiredLevel: 1 | 2 | 3
-	handler: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolHandlerResult>
+	// Assinatura de método de propósito: o parâmetro fica bivariante e a tool de escrita, com o
+	// handler tipado pelos argumentos já validados, ainda cabe em `ModuleToolDefinition[]`.
+	handler(args: TArgs, ctx: ToolContext): Promise<ToolHandlerResult>
 }
+
+/** Tool de leitura: sem `parseArgs`, o handler valida o que usa. */
+interface ReadToolDefinition<TArgs extends Record<string, unknown>> extends ModuleToolBase<TArgs> {
+	requiredLevel: 1
+	parseArgs?: ParseToolArgs<TArgs>
+}
+
+/**
+ * Tool de escrita (`requiresApproval`): `parseArgs` é obrigatório. O cartão de aprovação descreve
+ * a ação com o resultado desta mesma função (`parseApprovalToolArgs` do registro), então o que o
+ * usuário confirma é o que o handler recebe. `describe-action.test.ts` confere; o `wrapTool`
+ * recusa montar a tool sem ele (o tipo pode ser contornado por cast).
+ */
+interface WriteToolDefinition<TArgs extends Record<string, unknown>> extends ModuleToolBase<TArgs> {
+	requiredLevel: 2 | 3
+	parseArgs: ParseToolArgs<TArgs>
+}
+
+export type ModuleToolDefinition<TArgs extends Record<string, unknown> = Record<string, unknown>> = ReadToolDefinition<TArgs> | WriteToolDefinition<TArgs>
 
 export interface ToolHandlerResult {
 	success: boolean
@@ -117,7 +145,57 @@ export function getMaxLevel(permissions: UserPermission[], module: AppModule, sc
 	return maxLevel
 }
 
+// ── Escopo da rota ──────────────────────────────────────────────────────────
+
+/** Que tipo de entidade o `scopeId` da conversa identifica, pelo módulo. */
+function routeScopeKind(module: string): "kitchen" | "unit" | undefined {
+	if (module === "kitchen") return "kitchen"
+	if (module === "unit" || module === "local-analytics") return "unit"
+	return undefined
+}
+
+/**
+ * Escopo da rota no formato do PBAC, para a conferência de leitura no módulo da conversa. Fonte
+ * única da regra: a rota do stream e a descrição do cartão de aprovação (`describeChatActionFn`)
+ * usam esta função, e o `assertRouteScope` usa a mesma `routeScopeKind`.
+ */
+export function resolveRouteScope(module: string, scopeId: number | undefined): PermissionScope | undefined {
+	const kind = routeScopeKind(module)
+	return kind && scopeId != null ? { type: kind, id: scopeId } : undefined
+}
+
+/**
+ * Prende a tool à cozinha ou unidade da rota. Recebe o id **resolvido** da linha afetada (a
+ * cozinha do cardápio, a OM dona do anexo), não o argumento do modelo: `remove_menu_item` só
+ * recebe `itemId`, e conferir o argumento deixaria passar o item de outra cozinha.
+ *
+ * O PBAC sozinho não basta: quem tem acesso às cozinhas A e B, conversando na rota de A, não
+ * deve ver o modelo escrever em B porque um texto gravado (modo de preparo, nota) mandou. O
+ * escopo da rota é o que a pessoa vê na tela; fora dele, nada é lido nem gravado.
+ *
+ * Sem `scopeId` (conversa fora de uma cozinha/unidade) vale só o PBAC, como antes. O erro é
+ * `ToolPermissionError`, que `toModelFacingToolError` devolve ao modelo como está.
+ */
+export function assertRouteScope(ctx: ToolContext, kind: "kitchen" | "unit", resolvedId: number): void {
+	if (ctx.scopeId == null || routeScopeKind(ctx.module) !== kind) return
+	if (resolvedId === ctx.scopeId) return
+	const entity = kind === "kitchen" ? "cozinha" : "unidade"
+	throw new ToolPermissionError(
+		`Fora do escopo desta conversa: o pedido envolve outra ${entity}. Esta conversa só lê e altera dados da ${entity} da rota; para outra ${entity}, o usuário precisa abrir o chat dela.`
+	)
+}
+
 // ── Validation helpers ──────────────────────────────────────────────────────
+
+// As mensagens citam o NOME do campo, nunca o valor recebido: o valor é texto do modelo (que pode
+// vir de um modo de preparo gravado por outra pessoa) e a mensagem volta ao modelo.
+
+/**
+ * Teto de texto livre que o cartão de aprovação exibe inteiro (`describe-action.ts` trunca acima
+ * dele) e, por isso, do nome de receita que as tools aceitam (`requireName`): nome válido nunca
+ * aparece cortado no cartão. O `CreateRecipeSchema` do domínio não limita o nome.
+ */
+export const MAX_VALUE_CHARS = 200
 
 export function safeInt(value: unknown, name: string): number {
 	const num = Number(value)
@@ -127,15 +205,16 @@ export function safeInt(value: unknown, name: string): number {
 	return num
 }
 
-export function requireValidDates(...dates: unknown[]): void {
-	for (const d of dates) {
-		if (typeof d !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-			throw new ToolValidationError(`Data inválida: "${d}". Use formato YYYY-MM-DD.`)
-		}
-		const parsed = new Date(`${d}T00:00:00Z`)
-		if (Number.isNaN(parsed.getTime())) {
-			throw new ToolValidationError(`Data inválida: "${d}"`)
-		}
+/** Data de calendário que existe: formato YYYY-MM-DD e ida e volta pelo `Date` sem mudar o dia. */
+function isCalendarDate(value: unknown): value is string {
+	// Mesma regra do domínio (`DateSchema`): formato e dia que existe no calendário.
+	return DateSchema.safeParse(value).success
+}
+
+/** `{ startDate: args.startDate }`: a chave é o nome do campo citado na recusa. */
+export function requireValidDates(fields: Record<string, unknown>): void {
+	for (const [name, d] of Object.entries(fields)) {
+		if (!isCalendarDate(d)) throw new ToolValidationError(`${name} deve ser uma data válida no formato YYYY-MM-DD`)
 	}
 }
 
@@ -212,11 +291,12 @@ export function untypedFrom(ctx: ToolContext, table: string, schema: ToolTableSc
  *
  * Só passa adiante o erro cuja mensagem foi ESCRITA para quem lê: erro de domínio (permissão,
  * não encontrado, regra de negócio), as recusas das próprias tools e a validação de argumento
- * (o modelo precisa dela para corrigir a chamada). Todo o resto é falha de infraestrutura cuja
- * `message` ninguém revisou: o `DrizzleQueryError` que escapa de um caminho sem `runQuery`
- * (`fetchTemplateMealsSafe` relança o que não é "tabela ausente") põe `Failed query: <SQL>
- * params: <valores>` na mensagem, e um `TypeError` descreve o código. Antes só
- * `QueryFailedError` era traduzido, e esses iam crus até o navegador. O detalhe fica no log.
+ * (o modelo precisa dela para corrigir a chamada; o `ZodError` sai pela `toArgsValidationError`).
+ * Todo o resto é falha de infraestrutura cuja `message` ninguém revisou: o `DrizzleQueryError`
+ * que escapa de um caminho sem `runQuery` (`fetchTemplateMealsSafe` relança o que não é "tabela
+ * ausente") põe `Failed query: <SQL> params: <valores>` na mensagem, e um `TypeError` descreve o
+ * código. Antes só `QueryFailedError` era traduzido, e esses iam crus até o navegador. O detalhe
+ * fica no log.
  */
 export function toModelFacingToolError(toolName: string, error: unknown): Error {
 	if (error instanceof QueryFailedError) {
@@ -229,10 +309,18 @@ export function toModelFacingToolError(toolName: string, error: unknown): Error 
 		error instanceof ToolPermissionError ||
 		error instanceof ToolValidationError ||
 		error instanceof PbacPermissionDeniedError ||
-		error instanceof AssuranceRequiredError ||
-		error instanceof ZodError
+		error instanceof AssuranceRequiredError
 	) {
 		return error
+	}
+	// `Schema.parse` dentro do handler (as listagens) recusa com a mesma conversão do `parseArgs`:
+	// a `message` crua do `ZodError` é o JSON das issues, com as chaves que o modelo inventou.
+	if (error instanceof ZodError) {
+		// Nem todo `ZodError` do handler vem do argumento (pode ser o parse de uma linha do banco):
+		// o modelo recebe a recusa legível, e o log guarda as issues para quem investigar.
+		// biome-ignore lint/suspicious/noConsole: server-side error logging
+		console.error(`[module-chat:${toolName}] ZodError`, JSON.stringify(error.issues.map(({ code, path }) => ({ code, path }))))
+		return toArgsValidationError(error)
 	}
 	// biome-ignore lint/suspicious/noConsole: server-side error logging
 	console.error(`[module-chat:${toolName}]`, describeDriverError(error))
@@ -240,21 +328,135 @@ export function toModelFacingToolError(toolName: string, error: unknown): Error 
 }
 
 /**
+ * Tool que grava dado pede aprovação humana antes de executar. O nível de escrita
+ * (`requiredLevel >= 2`) é o critério: são as mesmas tools que o PBAC já separa como escrita,
+ * e uma tool nova de escrita nasce exigindo aprovação sem ninguém lembrar de marcar.
+ *
+ * A frase "confirme antes de gravar" no prompt era a única trava, e é justamente o que um
+ * texto gravado por outro usuário (modo de preparo, notas da estimativa) contorna no mesmo
+ * turno em que é lido. A aprovação não depende do modelo.
+ */
+export function requiresApproval(def: Pick<ModuleToolDefinition, "requiredLevel">): boolean {
+	return def.requiredLevel >= 2
+}
+
+const UNRECOGNIZED_FIELD = "campo não reconhecido"
+const CROSS_FIELD_RULE = "argumentos (regra entre campos)"
+const FIELD_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
+
+/** Caminho da issue como o modelo o escreveria (`headcounts[0].headcount`), ou `null` se algum segmento não é identificador. */
+function formatIssuePath(path: readonly PropertyKey[]): string | null {
+	let out = ""
+	for (const segment of path) {
+		if (typeof segment === "number") out += `[${segment}]`
+		else if (typeof segment === "string" && FIELD_NAME_RE.test(segment)) out += out ? `.${segment}` : segment
+		else return null
+	}
+	return out
+}
+
+/**
+ * `ZodError` como recusa legível, uma linha por issue: `campo: motivo`. A `message` do `ZodError`
+ * é o JSON das issues; a de cada issue (zod v4 e `refine` do domínio) diz o que se esperava sem
+ * repetir o valor recebido, e é ela que o modelo precisa para corrigir a chamada. Exceção:
+ * `unrecognized_keys` lista chaves que o MODELO escreveu, e a mensagem do zod as repete — vira
+ * "campo não reconhecido", sem o motivo. Segmento de caminho que não tem cara de identificador
+ * idem. Caminho vazio é regra entre campos (`refine` no objeto).
+ */
+/** Mensagem padrão do zod v4 (em inglês). A escrita no schema do domínio (`.positive("…")`, `refine`) fica como está. */
+const ZOD_DEFAULT_MESSAGE_RE = /^(Invalid|Too (big|small)|Unrecognized|Expected)\b/
+
+/**
+ * Motivo em português, que também aparece ao usuário no painel de erro da tool. A mensagem
+ * padrão do zod vira texto fixo por código (sem o valor recebido); a que o domínio escreveu no
+ * schema já é em português e diz a regra.
+ */
+function describeIssue(issue: ZodError["issues"][number]): string {
+	if (!ZOD_DEFAULT_MESSAGE_RE.test(issue.message)) return issue.message
+	switch (issue.code) {
+		case "invalid_type":
+			return `tipo inválido (esperado ${issue.expected})`
+		case "too_big":
+			return `acima do máximo (${String(issue.maximum)})`
+		case "too_small":
+			return `abaixo do mínimo (${String(issue.minimum)})`
+		case "invalid_format":
+			return "formato inválido"
+		case "invalid_value":
+			return "valor fora das opções permitidas"
+		case "not_multiple_of":
+			return "valor fora do passo permitido"
+		default:
+			return "valor inválido"
+	}
+}
+
+function toArgsValidationError(error: ZodError): ToolValidationError {
+	const lines = new Set<string>()
+	for (const issue of error.issues) {
+		const field = formatIssuePath(issue.path)
+		if (issue.code === "unrecognized_keys" || field === null) lines.add(UNRECOGNIZED_FIELD)
+		else lines.add(`${field || CROSS_FIELD_RULE}: ${describeIssue(issue)}`)
+	}
+	return new ToolValidationError(`Argumentos inválidos: ${[...lines].join("; ")}`)
+}
+
+/**
+ * O argumento do modelo como o handler o recebe. Fonte única: o `wrapTool` roda esta função
+ * antes do handler, e o cartão de aprovação (`describe-action.ts`, via `parseApprovalToolArgs`)
+ * descreve a ação com o resultado dela — validar de outro jeito ali deixava o usuário confirmar
+ * o que a tool recusa, ou ver um valor diferente do que seria gravado. A recusa sai sempre como
+ * `ToolValidationError`: o cartão só registra que é inválido, e a mensagem vai ao modelo.
+ */
+export function parseToolArgs<TArgs extends Record<string, unknown>>(def: ModuleToolDefinition<TArgs>, raw: Record<string, unknown>): TArgs {
+	// Modelo manda `null` no lugar de omitir campo opcional. Onde o schema não previu
+	// isso, `null` é ausência — sem esta linha `safeInt(null)` viraria `0` calado.
+	const input = dropUnexpectedNulls(raw, def.parameters)
+	// Sem `parseArgs` (tools de leitura), o handler valida o que usa e recebe o tipo padrão.
+	if (!def.parseArgs) return input as TArgs
+	try {
+		return def.parseArgs(input)
+	} catch (error) {
+		throw error instanceof ZodError ? toArgsValidationError(error) : error
+	}
+}
+
+/** Normaliza e valida o argumento e roda o handler — o caminho inteiro de uma chamada da tool. */
+export async function runTool<TArgs extends Record<string, unknown>>(
+	def: ModuleToolDefinition<TArgs>,
+	raw: Record<string, unknown>,
+	ctx: ToolContext
+): Promise<ToolHandlerResult> {
+	// Argumento antes de permissão e escopo, de propósito: `parseArgs` não lê banco nem
+	// permissão, e o cartão de aprovação valida pela mesma função antes de olhar o escopo. Ação
+	// fora do escopo com argumento inválido sai como "argumentos inválidos" nos dois lados — e
+	// nada é gravado em nenhum caso; a autorização continua no handler.
+	return def.handler(parseToolArgs(def, raw), ctx)
+}
+
+/**
  * Wraps a ModuleToolDefinition as a TanStack AI ServerTool.
  * The ToolContext is injected via closure so each request gets its own auth/supabase.
+ *
+ * Com `needsApproval`, o `chat()` para antes do handler, emite o interrupt
+ * `approval_<toolCallId>` e só executa quando o turno seguinte traz o `resume` aprovado.
  */
-export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): ServerTool {
+export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): AnyServerTool {
+	// Falha cedo: tool de escrita sem `parseArgs` deixaria o cartão de aprovação sem o crivo do
+	// handler (`parseApprovalToolArgs`). O tipo já exige; isto pega o cast.
+	if (requiresApproval(def) && typeof def.parseArgs !== "function") {
+		throw new Error(`Tool de escrita ${def.name} sem parseArgs: o cartão de aprovação não teria como validar o argumento`)
+	}
 	return toolDefinition({
 		name: def.name,
 		description: def.description,
 		// Pass the JSON schema directly — TanStack AI v0.22+ accepts plain JSONSchema
 		// biome-ignore lint/suspicious/noExplicitAny: plain JSONSchema accepted at runtime but not yet reflected in SchemaInput types
 		inputSchema: def.parameters as any,
+		needsApproval: requiresApproval(def),
 	}).server(async (args) => {
-		// Modelo manda `null` no lugar de omitir campo opcional. Onde o schema não previu
-		// isso, `null` é ausência — sem esta linha `safeInt(null)` viraria `0` calado.
-		const input = dropUnexpectedNulls(args as Record<string, unknown>, def.parameters)
-		const result = await def.handler(input, ctx).catch((error: unknown) => {
+		// Argumento inválido sai como erro de tool (a mensagem da validação), como erro do handler.
+		const result = await runTool(def, args as Record<string, unknown>, ctx).catch((error: unknown) => {
 			throw toModelFacingToolError(def.name, error)
 		})
 		if (!result.success) throw new Error(result.error ?? "Ferramenta falhou")

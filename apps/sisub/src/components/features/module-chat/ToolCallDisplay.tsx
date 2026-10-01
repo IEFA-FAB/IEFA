@@ -1,7 +1,9 @@
-import { AlertCircle, Check, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
+import { AlertCircle, Ban, Check, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/cn"
 import type { ToolCall } from "@/types/domain/module-chat"
+import { ToolApprovalCard, type ToolApprovalContext } from "./ToolApprovalCard"
+import { getActionLabel, parseToolArguments } from "./tool-action-labels"
 
 // ── Tool name labels ────────────────────────────────────────────────────────
 
@@ -39,10 +41,12 @@ const TOOL_LABELS: Record<string, string> = {
 	get_kitchen_settings: "Consultando configurações",
 }
 
-function getToolLabel(name: string, status: ToolCall["status"]): string {
-	const base = TOOL_LABELS[name] ?? name
-	if (status === "calling") return `${base}…`
-	if (status === "error") return `Erro: ${base}`
+export function getToolLabel(toolCall: Pick<ToolCall, "name" | "status" | "arguments">): string {
+	// Recusada não aconteceu: o rótulo é a ação proposta, no imperativo, não o gerúndio.
+	if (toolCall.status === "denied") return `Recusada pelo usuário: ${getActionLabel(toolCall.name, parseToolArguments(toolCall.arguments))}`
+	const base = TOOL_LABELS[toolCall.name] ?? toolCall.name
+	if (toolCall.status === "calling") return `${base}…`
+	if (toolCall.status === "error") return `Erro: ${base}`
 	return base
 }
 
@@ -50,9 +54,16 @@ function getToolLabel(name: string, status: ToolCall["status"]): string {
 
 interface ToolCallDisplayProps {
 	toolCall: ToolCall
+	/** Contexto da decisão de aprovação; sem ele, a ação pendente aparece sem como decidir. */
+	approval?: ToolApprovalContext
 }
 
-export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
+export function ToolCallDisplay({ toolCall, approval }: ToolCallDisplayProps) {
+	if (toolCall.status === "awaiting-approval") return <ToolApprovalCard toolCall={toolCall} approval={approval} />
+	return <ToolCallSummary toolCall={toolCall} />
+}
+
+function ToolCallSummary({ toolCall }: { toolCall: ToolCall }) {
 	const [expanded, setExpanded] = useState(false)
 
 	const statusIcon =
@@ -60,6 +71,8 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 			<Loader2 className="size-3.5 animate-spin text-muted-foreground" />
 		) : toolCall.status === "error" ? (
 			<AlertCircle className="size-3.5 text-destructive" />
+		) : toolCall.status === "denied" ? (
+			<Ban className="size-3.5 text-muted-foreground" />
 		) : (
 			<Check className="size-3.5 text-success" />
 		)
@@ -80,7 +93,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 				className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent/30 transition-colors rounded-lg"
 			>
 				{statusIcon}
-				<span className="flex-1 text-subheading text-foreground">{getToolLabel(toolCall.name, toolCall.status)}</span>
+				<span className="flex-1 text-subheading text-foreground">{getToolLabel(toolCall)}</span>
 				{expanded ? <ChevronDown className="size-3 text-muted-foreground" /> : <ChevronRight className="size-3 text-muted-foreground" />}
 			</button>
 

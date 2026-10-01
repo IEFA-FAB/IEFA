@@ -9,6 +9,7 @@ import { FabDocument } from "#/components/plataforma-doc/fab-document"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
 import { SegmentedControl } from "#/components/ui/segmented-control"
+import { MAX_DRAFT_CHARS } from "#/lib/document-prompt"
 import type { DataAnalysisData, DocumentType, FabDocumentData } from "#/server/document-ai.fn"
 import { adaptDraftFn } from "#/server/document-ai.fn"
 
@@ -37,6 +38,11 @@ function PlataformaDoc() {
 
 	const handleGenerate = async () => {
 		if (!draft.trim()) return
+		// O servidor recusa acima do teto; avisar aqui evita a ida e diz quanto cortar.
+		if (draft.length > MAX_DRAFT_CHARS) {
+			setError(`Rascunho longo demais: ${draft.length.toLocaleString("pt-BR")} caracteres, o limite é ${MAX_DRAFT_CHARS.toLocaleString("pt-BR")}.`)
+			return
+		}
 		setIsGenerating(true)
 		setError(null)
 		try {

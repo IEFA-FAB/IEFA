@@ -22,9 +22,19 @@
  *  - **A hipótese de transferência entre OMs vinha sem ressalva.** O modelo a
  *    apresentava como causa provável; a nota agora a trata como conferência
  *    pendente, e o bloco impresso diz isso.
+ *
+ * O recorte é montado no navegador a partir da planilha e chega ao servidor como
+ * dado: nomes de UG, grupos e rótulos são texto livre de célula. Ele vai inteiro
+ * entre marcadores com nonce por chamada, e a regra do system declara o bloco como
+ * dado. Por isso o pedido cita a competência e o recorte pelo nome do campo, e não
+ * interpola os rótulos fora do bloco.
  */
 
+import { untrustedContentRule, wrapUntrusted } from "@iefa/ai-provider/untrusted"
 import type { ReportDataset } from "./report"
+
+/** Prefixo do marcador do recorte da planilha (`<planilha_…>`). */
+const SPREADSHEET_TAG_PREFIX = "planilha_"
 
 export const ANALYTIC_NOTE_SYSTEM_PROMPT = `Você é o módulo de análise estratégica do Auditor SIAFI × SILOMS, operado pela Divisão de Contabilidade Patrimonial (SUCONT-4/DIREF) do Comando da Aeronáutica.
 
@@ -53,7 +63,10 @@ TOM E FORMA
 - Português do Brasil, registro técnico-institucional, impessoal. Linguagem de auditoria governamental.
 - Objetivo e direto. Sem adjetivo de ênfase, sem exortação, sem elogio genérico. Reconhecer redução de divergência é legítimo e deve ser feito com o número que a sustenta.
 - Markdown simples dentro dos campos de texto: parágrafos e, quando ajudar, negrito. Nada de cabeçalho (#), porque a numeração das seções é do documento.
-- Cada campo do JSON de saída corresponde a uma seção. Respeite a extensão pedida na descrição de cada campo.`
+- Cada campo do JSON de saída corresponde a uma seção. Respeite a extensão pedida na descrição de cada campo.
+
+DADOS RECEBIDOS
+${untrustedContentRule(SPREADSHEET_TAG_PREFIX)}`
 
 /** Rótulo legível do grupo de contas para o corpo do prompt. */
 const GROUP_LABEL: Record<string, string> = {
@@ -95,15 +108,24 @@ function toPromptPayload(dataset: ReportDataset) {
 	}
 }
 
-export function buildAnalyticNoteUserPrompt(dataset: ReportDataset): string {
+/**
+ * @param nonce identificador do marcador, um por chamada (`createPromptNonce`).
+ */
+export function buildAnalyticNoteUserPrompt(dataset: ReportDataset, nonce: string): string {
 	const payload = toPromptPayload(dataset)
+	const block = wrapUntrusted({
+		tagPrefix: SPREADSHEET_TAG_PREFIX,
+		nonce,
+		label: "Dados da competência, em JSON",
+		text: JSON.stringify(payload),
+	})
 
-	return `Redija o texto analítico da Nota Analítica Estratégica da competência ${dataset.competenceLabel}.
+	return `Redija o texto analítico da Nota Analítica Estratégica da competência indicada no campo "competencia" dos dados abaixo.
 
-Recorte da tela: ${dataset.scopeLabel}. Escopo de comparação com o período anterior: ${dataset.timeFilter}.
+O recorte da tela está no campo "recorte". Escopo de comparação com o período anterior: ${dataset.timeFilter}.
 
 DADOS DA COMPETÊNCIA (já calculados — não recalcule, não reproduza em tabela):
-${JSON.stringify(payload)}
+${block}
 
 Produza o JSON com as sete seções. Lembre-se: as tabelas destes dados já estão impressas no documento; seu texto as INTERPRETA.`
 }

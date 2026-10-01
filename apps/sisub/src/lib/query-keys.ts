@@ -36,6 +36,9 @@ export const queryKeys = {
 		analyticsMessages: (sessionId: string) => ["sisub", "analytics-chat-messages", sessionId] as const,
 		moduleSessions: (module: ChatModule, scopeId?: number) => ["sisub", "module-chat-sessions", module, scopeId ?? "global"] as const,
 		moduleMessages: (sessionId: string) => ["sisub", "module-chat-messages", sessionId] as const,
+		/** Descrição da ação de escrita no cartão de aprovação, por call (`toolCallId`). */
+		moduleChatAction: (module: ChatModule, scopeId: number | undefined, toolCallId: string) =>
+			["sisub", "module-chat-action", module, scopeId ?? "global", toolCallId] as const,
 	},
 
 	planning: {

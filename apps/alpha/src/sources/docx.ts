@@ -31,6 +31,11 @@
  *   real (ver {@link MAX_DOCX_DOCUMENT_XML_BYTES}), a leitura para no parágrafo
  *   {@link MAX_DOCX_PARAGRAPHS}, e a varredura só copia o conteúdo de uma tag quando
  *   precisa ler atributo dela.
+ * - **Texto oculto.** Um run com `w:vanish` não aparece no Word, mas o texto dele está
+ *   no XML: era o lugar de esconder instrução para o modelo ("ignore as regras…") que
+ *   nenhum revisor humano vê. Com `dropHidden` (ver {@link ParseDocxOptions}) esse texto
+ *   não entra. Ocultação por estilo (`w:rStyle` com vanish em `styles.xml`) fica de fora:
+ *   exigiria resolver os estilos.
  */
 
 import { unzipSync } from "fflate"
@@ -49,6 +54,15 @@ export interface DocxComment {
 	id: string
 	author: string | null
 	text: string
+}
+
+export interface ParseDocxOptions {
+	/**
+	 * Descarta o texto dos runs ocultos (`w:vanish` no `w:rPr` do run). Só a submissão
+	 * do usuário usa (`extraction/to-text.ts`): o modelo da AGU é lido como sempre foi,
+	 * para não mudar o corpus já ingerido.
+	 */
+	dropHidden?: boolean
 }
 
 export interface DocxDocument {
@@ -209,12 +223,23 @@ class TextCollector {
 	}
 }
 
-function parseParagraphs(xml: string): DocxParagraph[] {
+/** `w:val` de propriedade liga/desliga (ST_OnOff): ausente liga; `false`, `0` e `off` desligam. */
+function isOnOffTrue(value: string | null): boolean {
+	return value === null || !["false", "0", "off"].includes(value)
+}
+
+function parseParagraphs(xml: string, { dropHidden = false }: ParseDocxOptions = {}): DocxParagraph[] {
 	const paragraphs: DocxParagraph[] = []
 	const collector = new TextCollector()
 	let open = false
 	let style: string | null = null
 	let commentIds: string[] = []
+	// Estado do run, só lido com `dropHidden`. A profundidade separa o `w:rPr` do run do
+	// `w:rPr` aninhado em `w:rPrChange` (formatação ANTERIOR de revisão, que não vale mais).
+	// O `w:rPr` de `w:pPr` (marca de parágrafo) fica fora de qualquer run, então não conta.
+	let inRun = false
+	let runPropsDepth = 0
+	let runHidden = false
 
 	forEachTag(xml, (tag) => {
 		if (tag.name === "w:p") {
@@ -234,11 +259,31 @@ function parseParagraphs(xml: string): DocxParagraph[] {
 				open = true
 				style = null
 				commentIds = []
+				inRun = false
+				runPropsDepth = 0
+				runHidden = false
 				collector.finish()
 			}
 			return
 		}
 		if (!open) return
+		if (dropHidden) {
+			if (tag.name === "w:r") {
+				inRun = !tag.closing && !tag.selfClosing
+				runPropsDepth = 0
+				runHidden = false
+				return
+			}
+			if (tag.name === "w:rPr") {
+				if (inRun && !tag.selfClosing) runPropsDepth = Math.max(0, runPropsDepth + (tag.closing ? -1 : 1))
+				return
+			}
+			if (tag.name === "w:vanish") {
+				if (inRun && runPropsDepth === 1 && !tag.closing) runHidden = isOnOffTrue(attribute(tagContent(xml, tag), "w:val"))
+				return
+			}
+			if (tag.name === "w:t" && runHidden) return
+		}
 		if (collector.visit(tag, xml) || tag.closing) return
 		if (tag.name === "w:pStyle") {
 			if (style === null) style = attribute(tagContent(xml, tag), "w:val")
@@ -307,7 +352,7 @@ function unzipDocxEntries(bytes: Uint8Array): Record<string, Uint8Array> {
 	})
 }
 
-export function parseDocx(bytes: Uint8Array): DocxDocument {
+export function parseDocx(bytes: Uint8Array, options: ParseDocxOptions = {}): DocxDocument {
 	const entries = unzipDocxEntries(bytes)
 
 	const documentXml = entries["word/document.xml"]
@@ -317,5 +362,5 @@ export function parseDocx(bytes: Uint8Array): DocxDocument {
 	const body = decoder.decode(documentXml)
 	const comments = parseComments(entries["word/comments.xml"] ? decoder.decode(entries["word/comments.xml"]) : undefined)
 
-	return { paragraphs: parseParagraphs(body), comments }
+	return { paragraphs: parseParagraphs(body, options), comments }
 }

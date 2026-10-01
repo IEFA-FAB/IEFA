@@ -1,4 +1,5 @@
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
+import { createPromptNonce, dropClientSystemMessages } from "@iefa/ai-provider/untrusted"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { defineHandler } from "nitro"
 import { type H3Event, HTTPError, readBody } from "nitro/h3"
@@ -39,9 +40,11 @@ export default defineHandler(async (event: H3Event) => {
 		throw new HTTPError({ status: 400, message: "Corpo da requisição inválido (AG-UI format esperado)" })
 	}
 
-	const limits = checkOracleRequestLimits(params.messages, params.forwardedProps.contextSummary)
+	// O cliente reenvia a conversa inteira a cada turno; mensagem `system`/`developer`
+	// vinda dele teria o peso do prompt do servidor. Só o servidor fala como sistema.
+	const messages = dropClientSystemMessages(params.messages)
+	const limits = checkOracleRequestLimits(messages, params.forwardedProps.contextSummary)
 	if (!limits.ok) throw new HTTPError({ status: limits.status, message: limits.message })
-	const { messages } = params
 	const { contextSummary } = limits
 
 	// Teto de requisições ANTES de abrir o SSE: depois que o stream começa não há
@@ -67,7 +70,7 @@ export default defineHandler(async (event: H3Event) => {
 	const stream = chat({
 		adapter,
 		messages,
-		systemPrompts: [buildSystemPrompt(contextSummary)],
+		systemPrompts: [buildSystemPrompt(contextSummary, createPromptNonce())],
 	})
 
 	return toServerSentEventsResponse(stream)

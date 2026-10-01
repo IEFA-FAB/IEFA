@@ -19,7 +19,8 @@ describe("anotações MCP das tools", () => {
 
 	test("leitura é readOnly; apagar/substituir é destrutivo; criar não é", () => {
 		expect(toolAnnotations("list_recipes")).toEqual({ readOnlyHint: true, openWorldHint: false })
-		expect(toolAnnotations("apply_template")).toMatchObject({ readOnlyHint: false, destructiveHint: true })
+		// `apply_template` segue o contrato de agente: só preenche refeição vazia, nunca substitui.
+		expect(toolAnnotations("apply_template")).toMatchObject({ readOnlyHint: false, destructiveHint: false })
 		expect(toolAnnotations("delete_template")).toMatchObject({ readOnlyHint: false, destructiveHint: true })
 		expect(toolAnnotations("update_template")).toMatchObject({ readOnlyHint: false, destructiveHint: true })
 		expect(toolAnnotations("create_template")).toMatchObject({ readOnlyHint: false, destructiveHint: false })

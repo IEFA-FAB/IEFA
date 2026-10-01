@@ -5,7 +5,14 @@
  * Mora aqui, e não na rota, para que o bench de modelos (`model-bench.ts`) meça o
  * prompt que produção realmente manda. Duplicar o texto no bench já deixou a medição
  * ~1k tokens menor que a chamada real — e uma mudança de prompt passaria invisível.
+ *
+ * O `contextSummary` vem do navegador (JSON montado pelo `AIAssistant` a partir das
+ * células da planilha) e entra no system prompt. Colado como texto livre, uma célula
+ * com "ignore as diretrizes" tinha o peso do próprio prompt. Ele vai entre marcadores
+ * com nonce por requisição, e a regra declara o bloco como dado. O nonce é por
+ * requisição porque esta rota não usa cache de prompt.
  */
+import { untrustedContentRule, wrapUntrusted } from "@iefa/ai-provider/untrusted"
 import { MACROFUNCOES } from "#/lib/normas"
 import { UG_INFO } from "#/subitens/constants"
 
@@ -20,7 +27,18 @@ const MACROFUNCOES_PARA_O_MODELO = Object.values(MACROFUNCOES)
 	.map((m) => `   - Macrofunção ${m.codigo}: ${m.titulo.toUpperCase()}`)
 	.join("\n")
 
-export function buildSystemPrompt(contextSummary?: string): string {
+/** Prefixo do marcador do recorte da interface (`<contexto_…>`). */
+const CONTEXT_TAG_PREFIX = "contexto_"
+
+/**
+ * @param contextSummary recorte vindo da interface; ausente, o prompt sai sem bloco.
+ * @param nonce identificador do marcador, um por requisição (`createPromptNonce`).
+ */
+export function buildSystemPrompt(contextSummary: string | undefined, nonce: string): string {
+	const contextBlock = contextSummary
+		? `\n\nDADOS DO CONTEXTO ATUAL:\n${wrapUntrusted({ tagPrefix: CONTEXT_TAG_PREFIX, nonce, label: "JSON dos dados carregados na interface", text: contextSummary })}`
+		: ""
+
 	return `Você é o Oráculo SUCONT, um assistente técnico e estratégico especializado em Contabilidade Pública Federal para o Comando da Aeronáutica (COMAER). Sua missão é apoiar a Seção de Acompanhamento Contábil (SUCONT-3.1) na análise de dados, governança financeira e suporte às unidades gestoras.
 
 🚨 HIERARQUIA E DESTAQUES CRÍTICOS (SETORIAL E STN)
@@ -43,12 +61,7 @@ DIRETRIZES DE RESPOSTA E ANÁLISE:
 ${MACROFUNCOES_PARA_O_MODELO}
 8. Se o usuário questionar sobre inconsistências contábeis, verifique sempre se a solução sugerida respeita as normas da DIREF.
 
-Responda de forma clara, objetiva e profissional. Se a pergunta não puder ser respondida com os dados fornecidos, informe educadamente.${
-		contextSummary
-			? `
+Responda de forma clara, objetiva e profissional. Se a pergunta não puder ser respondida com os dados fornecidos, informe educadamente.
 
-DADOS DO CONTEXTO ATUAL (JSON dos dados carregados na interface):
-${contextSummary}`
-			: ""
-	}`
+${untrustedContentRule(CONTEXT_TAG_PREFIX)}${contextBlock}`
 }

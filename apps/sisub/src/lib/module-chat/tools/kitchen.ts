@@ -3,9 +3,10 @@
  * Uses OpenAI function-calling format instead of MCP SDK format.
  */
 
-import { listAccessibleKitchens, toJsonSchema, UpsertDailyMenuSchema, upsertDailyMenu } from "@iefa/sisub-domain"
+import { listAccessibleKitchens, toJsonSchema, type UpsertDailyMenu, UpsertDailyMenuSchema, upsertDailyMenu } from "@iefa/sisub-domain"
 import {
 	AGENT_APPLY_TEMPLATE_MAX_DATES,
+	type AgentApplyTemplate,
 	AgentApplyTemplateSchema,
 	AgentCheckMenuEquipmentSchema,
 	AgentCheckRecipeEquipmentSchema,
@@ -24,8 +25,20 @@ import {
 	agentListRecipes,
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
-import type { ModuleToolDefinition } from "./shared"
-import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, ToolValidationError, toolErr, toolOk } from "./shared"
+import type { ModuleToolDefinition, ToolContext } from "./shared"
+import {
+	assertRouteScope,
+	domainCtx,
+	requireKitchenPermission,
+	requireUuid,
+	requireValidDates,
+	safeInt,
+	sanitizeDbError,
+	ToolValidationError,
+	toolErr,
+	toolOk,
+	untypedFrom,
+} from "./shared"
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -35,6 +48,20 @@ const RECIPE_LIST_MAX = 100
 // `sort_order` entra porque é a ordem em que as refeições do dia devem ser listadas;
 // `created_at`/`deleted_at` não dizem nada a quem lê o cardápio.
 const MEAL_TYPE_COLUMNS = "id, name, sort_order, kitchen_id" as const
+
+/**
+ * Escopo da rota para tools que recebem só o id da linha (receita, template, cardápio do dia)
+ * e entregam a leitura a uma operation do domínio que não devolve a cozinha dona. Lê só a
+ * `kitchen_id` da linha, e só quando a conversa tem cozinha na rota: fora dela vale o PBAC da
+ * operation, como antes. Linha global (`kitchen_id` nulo) é catálogo compartilhado e passa.
+ * Linha ausente também passa: a operation responde "não encontrado" com a mensagem dela.
+ */
+async function assertRowInRouteKitchen(ctx: ToolContext, table: "recipes" | "menu_template" | "daily_menu", id: string): Promise<void> {
+	if (ctx.scopeId == null) return
+	const { data, error } = await untypedFrom(ctx, table).select("kitchen_id").eq("id", id).maybeSingle()
+	if (error) throw new Error(sanitizeDbError(error, `escopo:${table}`))
+	if (data?.kitchen_id != null) assertRouteScope(ctx, "kitchen", data.kitchen_id)
+}
 
 // ── Tools ───────────────────────────────────────────────────────────────────
 
@@ -66,6 +93,7 @@ const getMealTypes: ModuleToolDefinition = {
 		if (args.kitchenId != null) {
 			const id = safeInt(args.kitchenId, "kitchenId")
 			requireKitchenPermission(ctx, 1, { type: "kitchen", id })
+			assertRouteScope(ctx, "kitchen", id)
 			const { data, error } = await ctx.supabase
 				.from("meal_type")
 				.select(MEAL_TYPE_COLUMNS)
@@ -105,7 +133,8 @@ const getPlanningCalendar: ModuleToolDefinition = {
 	async handler(args, ctx) {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
-		requireValidDates(args.startDate, args.endDate)
+		assertRouteScope(ctx, "kitchen", id)
+		requireValidDates({ startDate: args.startDate, endDate: args.endDate })
 
 		const menus = await agentFetchMenus(ctx.db, domainCtx(ctx), { kitchenId: id, startDate: String(args.startDate), endDate: String(args.endDate) })
 		return toolOk({ menus, total_menus: menus.length })
@@ -127,7 +156,8 @@ const getDayDetails: ModuleToolDefinition = {
 	async handler(args, ctx) {
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
-		requireValidDates(args.date)
+		assertRouteScope(ctx, "kitchen", id)
+		requireValidDates({ date: args.date })
 
 		const menus = await agentFetchDayMenus(ctx.db, domainCtx(ctx), { kitchenId: id, date: String(args.date) })
 		return toolOk({ menus, total_menus: menus.length })
@@ -144,6 +174,7 @@ const listRecipes: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentListRecipesSchema.parse(args)
+		if (input.kitchenId != null) assertRouteScope(ctx, "kitchen", input.kitchenId)
 		const { items, ...counts } = await agentListRecipes(ctx.db, domainCtx(ctx), input)
 		return toolOk({ recipes: items, ...counts })
 	},
@@ -165,11 +196,58 @@ const getRecipe: ModuleToolDefinition = {
 	async handler(args, ctx) {
 		const recipeId = requireUuid(args.recipeId, "recipeId")
 		requireKitchenPermission(ctx, 1)
-		return toolOk(await agentGetRecipe(ctx.db, domainCtx(ctx), { recipeId }))
+		const recipe = await agentGetRecipe(ctx.db, domainCtx(ctx), { recipeId })
+		// A ficha já traz a cozinha dona: a de outra cozinha não chega ao modelo.
+		if (recipe.kitchen_id != null) assertRouteScope(ctx, "kitchen", recipe.kitchen_id)
+		return toolOk(recipe)
 	},
 }
 
-const createDailyMenu: ModuleToolDefinition = {
+// ── Argumentos das escritas ─────────────────────────────────────────────────
+//
+// `parseArgs` é o crivo da tool e também o do cartão de aprovação (`describe-action.ts`): o que
+// ele aceita é exatamente o que o handler grava. Argumento que a tool recusaria não vira
+// descrição de algo que nunca vai rodar.
+
+/** Argumentos do `create_daily_menu` como a tool os aceita: já a entrada da operation. */
+function parseCreateDailyMenuArgs(args: Record<string, unknown>): UpsertDailyMenu {
+	const kitchenId = safeInt(args.kitchenId, "kitchenId")
+	requireValidDates({ date: args.date })
+	const mealTypeId = requireUuid(typeof args.mealTypeId === "string" ? args.mealTypeId.trim() : args.mealTypeId, "mealTypeId")
+
+	let forecastedHeadcount: number | undefined
+	if (args.forecastedHeadcount != null) {
+		forecastedHeadcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
+		// O schema do domínio exige positivo; aqui a recusa sai em português para o modelo corrigir.
+		if (forecastedHeadcount < 1) throw new ToolValidationError("forecastedHeadcount deve ser inteiro positivo; omita o campo se não houver previsão")
+	}
+	return UpsertDailyMenuSchema.parse({
+		kitchenId,
+		serviceDate: args.date,
+		mealTypeId,
+		...(forecastedHeadcount != null && { forecastedHeadcount }),
+	})
+}
+
+export type AddMenuItemArgs = { dailyMenuId: string; recipeId: string }
+
+function parseAddMenuItemArgs(args: Record<string, unknown>): AddMenuItemArgs {
+	return { dailyMenuId: requireUuid(args.dailyMenuId, "dailyMenuId"), recipeId: requireUuid(args.recipeId, "recipeId") }
+}
+
+export type RemoveMenuItemArgs = { itemId: string }
+
+function parseRemoveMenuItemArgs(args: Record<string, unknown>): RemoveMenuItemArgs {
+	return { itemId: requireUuid(args.itemId, "itemId") }
+}
+
+export type UpdateMenuHeadcountArgs = { menuId: string; forecastedHeadcount: number }
+
+function parseUpdateMenuHeadcountArgs(args: Record<string, unknown>): UpdateMenuHeadcountArgs {
+	return { menuId: requireUuid(args.menuId, "menuId"), forecastedHeadcount: safeInt(args.forecastedHeadcount, "forecastedHeadcount") }
+}
+
+const createDailyMenu: ModuleToolDefinition<UpsertDailyMenu> = {
 	name: "create_daily_menu",
 	description:
 		"Cria menu diário para cozinha em data e refeição. Idempotente: se já existir um menu ativo para (data, refeição, cozinha), devolve o existente sem mudar a previsão de comensais dele (para isso, use update_menu_headcount).",
@@ -184,34 +262,19 @@ const createDailyMenu: ModuleToolDefinition = {
 		required: ["kitchenId", "date", "mealTypeId"],
 	},
 	requiredLevel: 2,
+	parseArgs: parseCreateDailyMenuArgs,
 	// Mesma operation do `create_daily_menu` do MCP. A versão anterior fazia
 	// `upsert(onConflict: "service_date,meal_type_id,kitchen_id")` pelo PostgREST, mas a
 	// unicidade do trio é um índice PARCIAL (`daily_menu_active_unique ... where deleted_at is
 	// null`): sem o predicado o Postgres não acha árbitro e responde 42P10 em toda chamada.
-	async handler(args, ctx) {
-		const id = safeInt(args.kitchenId, "kitchenId")
-		requireKitchenPermission(ctx, 2, { type: "kitchen", id })
-		requireValidDates(args.date)
-		const mealTypeId = requireUuid(typeof args.mealTypeId === "string" ? args.mealTypeId.trim() : args.mealTypeId, "mealTypeId")
-
-		let forecastedHeadcount: number | undefined
-		if (args.forecastedHeadcount != null) {
-			forecastedHeadcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
-			// O schema do domínio exige positivo; aqui a recusa sai em português para o modelo corrigir.
-			if (forecastedHeadcount < 1) throw new ToolValidationError("forecastedHeadcount deve ser inteiro positivo; omita o campo se não houver previsão")
-		}
-
-		const input = UpsertDailyMenuSchema.parse({
-			kitchenId: id,
-			serviceDate: args.date,
-			mealTypeId,
-			...(forecastedHeadcount != null && { forecastedHeadcount }),
-		})
+	async handler(input, ctx) {
+		requireKitchenPermission(ctx, 2, { type: "kitchen", id: input.kitchenId })
+		assertRouteScope(ctx, "kitchen", input.kitchenId)
 		return toolOk(await upsertDailyMenu(ctx.db, domainCtx(ctx), input))
 	},
 }
 
-const addMenuItem: ModuleToolDefinition = {
+const addMenuItem: ModuleToolDefinition<AddMenuItemArgs> = {
 	name: "add_menu_item",
 	description: "Adiciona receita a um menu diário. A receita deve pertencer à cozinha ou ser global.",
 	parameters: {
@@ -223,16 +286,17 @@ const addMenuItem: ModuleToolDefinition = {
 		required: ["dailyMenuId", "recipeId"],
 	},
 	requiredLevel: 2,
-	async handler(args, ctx) {
-		const menuId = requireUuid(args.dailyMenuId, "dailyMenuId")
-		const recipeId = requireUuid(args.recipeId, "recipeId")
-
+	parseArgs: parseAddMenuItemArgs,
+	async handler({ dailyMenuId: menuId, recipeId }, ctx) {
 		const { data: menu, error: menuError } = await ctx.supabase.from("daily_menu").select("kitchen_id").eq("id", menuId).single()
 		if (menuError || !menu) return toolErr("Menu diário não encontrado")
 		if (menu.kitchen_id == null) return toolErr("Menu sem cozinha associada")
 
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: menu.kitchen_id })
+		assertRouteScope(ctx, "kitchen", menu.kitchen_id)
 
+		// Em sequência, de propósito: a receita só é lida depois da autorização na cozinha do
+		// cardápio; em paralelo, a leitura da receita sairia antes de saber se o usuário pode.
 		const { data: recipe, error: recipeError } = await ctx.supabase
 			.from("recipes")
 			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
@@ -255,7 +319,7 @@ const addMenuItem: ModuleToolDefinition = {
 	},
 }
 
-const removeMenuItem: ModuleToolDefinition = {
+const removeMenuItem: ModuleToolDefinition<RemoveMenuItemArgs> = {
 	name: "remove_menu_item",
 	description: "Remove (soft delete) item de menu. Pode ser restaurado depois.",
 	parameters: {
@@ -266,9 +330,8 @@ const removeMenuItem: ModuleToolDefinition = {
 		required: ["itemId"],
 	},
 	requiredLevel: 2,
-	async handler(args, ctx) {
-		const itemId = requireUuid(args.itemId, "itemId")
-
+	parseArgs: parseRemoveMenuItemArgs,
+	async handler({ itemId }, ctx) {
 		const { data: item, error: fetchError } = await ctx.supabase.from("menu_items").select(`id, daily_menu:daily_menu_id(kitchen_id)`).eq("id", itemId).single()
 		if (fetchError || !item) return toolErr("Item não encontrado")
 
@@ -276,6 +339,7 @@ const removeMenuItem: ModuleToolDefinition = {
 		if (kitchenId == null) return toolErr("Não foi possível determinar a cozinha")
 
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: kitchenId })
+		assertRouteScope(ctx, "kitchen", kitchenId)
 
 		const { error } = await ctx.supabase.from("menu_items").update({ deleted_at: new Date().toISOString() }).eq("id", itemId)
 		if (error) return toolErr(sanitizeDbError(error, "remove_menu_item"))
@@ -283,7 +347,7 @@ const removeMenuItem: ModuleToolDefinition = {
 	},
 }
 
-const updateMenuHeadcount: ModuleToolDefinition = {
+const updateMenuHeadcount: ModuleToolDefinition<UpdateMenuHeadcountArgs> = {
 	name: "update_menu_headcount",
 	description: "Atualiza número de comensais previstos de um menu diário.",
 	parameters: {
@@ -295,15 +359,14 @@ const updateMenuHeadcount: ModuleToolDefinition = {
 		required: ["menuId", "forecastedHeadcount"],
 	},
 	requiredLevel: 2,
-	async handler(args, ctx) {
-		const menuId = requireUuid(args.menuId, "menuId")
-		const headcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
-
+	parseArgs: parseUpdateMenuHeadcountArgs,
+	async handler({ menuId, forecastedHeadcount: headcount }, ctx) {
 		const { data: menu, error: fetchError } = await ctx.supabase.from("daily_menu").select("kitchen_id").eq("id", menuId).single()
 		if (fetchError || !menu) return toolErr("Menu não encontrado")
 		if (menu.kitchen_id == null) return toolErr("Menu sem cozinha associada")
 
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: menu.kitchen_id })
+		assertRouteScope(ctx, "kitchen", menu.kitchen_id)
 
 		const { data, error } = await ctx.supabase
 			.from("daily_menu")
@@ -340,6 +403,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 		if (args.kitchenId != null) {
 			const id = safeInt(args.kitchenId, "kitchenId")
 			requireKitchenPermission(ctx, 1, { type: "kitchen", id })
+			assertRouteScope(ctx, "kitchen", id)
 			query = query.or(`kitchen_id.is.null,kitchen_id.eq.${id}`)
 		} else {
 			requireKitchenPermission(ctx, 1)
@@ -374,6 +438,7 @@ const getTemplateItems: ModuleToolDefinition = {
 	// um template semanal cheio tem ~100 itens.
 	async handler(args, ctx) {
 		const templateId = requireUuid(args.templateId, "templateId")
+		await assertRowInRouteKitchen(ctx, "menu_template", templateId)
 		const items = await agentGetTemplateItems(ctx.db, domainCtx(ctx), { templateId })
 		return toolOk({ items, total_items: items.length })
 	},
@@ -390,18 +455,19 @@ const getTemplateItems: ModuleToolDefinition = {
  * planejamento de meses com uma frase. Substituir planejamento existente fica para a tela,
  * que mostra a prévia do que vai para a lixeira.
  */
-const applyTemplate: ModuleToolDefinition = {
+const applyTemplate: ModuleToolDefinition<AgentApplyTemplate> = {
 	name: "apply_template",
 	description: `Aplica um template semanal a datas de uma cozinha (no máximo ${AGENT_APPLY_TEMPLATE_MAX_DATES} datas por chamada).
 Só PREENCHE refeições que ainda não têm cardápio: o planejamento existente, inclusive ajustes manuais, é preservado — esta ferramenta nunca apaga nem substitui cardápio. Para substituir, oriente o usuário a aplicar pela tela de planejamento.
-startDayOfWeek (1=seg..7=dom) é o dia do template que corresponde à primeira data. O template deve ser semanal e global ou da mesma cozinha.
+startDayOfWeek (1=seg..7=dom) é o dia da semana em que cai o dia 1 do template: as datas nesse dia da semana recebem o dia 1, as do dia seguinte o dia 2, e assim por diante. O template deve ser semanal e global ou da mesma cozinha.
 Template global (SDAB) só tem proporções, sem efetivo: informe o efetivo de cada refeição em headcounts; sem ele o dia fica com "efetivo a definir" e as porções são calculadas quando o usuário informar.
 Na resposta, datesSkipped lista as datas que já tinham alguma refeição planejada e foram preservadas.`,
 	parameters: toJsonSchema(AgentApplyTemplateSchema),
 	requiredLevel: 2,
-	async handler(args, ctx) {
-		const input = AgentApplyTemplateSchema.parse(args)
+	parseArgs: (args) => AgentApplyTemplateSchema.parse(args),
+	async handler(input, ctx) {
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: input.kitchenId })
+		assertRouteScope(ctx, "kitchen", input.kitchenId)
 		return toolOk(await agentApplyTemplate(ctx.db, domainCtx(ctx), input))
 	},
 }
@@ -421,6 +487,7 @@ const listKitchenEquipmentTool: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentListKitchenEquipmentSchema.parse(args)
+		assertRouteScope(ctx, "kitchen", input.kitchenId)
 		const { items, ...rest } = await agentListKitchenEquipment(ctx.db, domainCtx(ctx), input)
 		return toolOk({ equipment: items, ...rest })
 	},
@@ -434,6 +501,7 @@ const getRecipeEquipmentTool: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentRecipeEquipmentSchema.parse(args)
+		await assertRowInRouteKitchen(ctx, "recipes", input.recipeId)
 		const { items, ...counts } = await agentGetRecipeEquipment(ctx.db, domainCtx(ctx), input)
 		return toolOk({ requirements: items, ...counts })
 	},
@@ -447,6 +515,8 @@ const checkRecipeEquipmentTool: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentCheckRecipeEquipmentSchema.parse(args)
+		assertRouteScope(ctx, "kitchen", input.kitchenId)
+		await assertRowInRouteKitchen(ctx, "recipes", input.recipeId)
 		return toolOk(await agentCheckRecipeEquipment(ctx.db, domainCtx(ctx), input))
 	},
 }
@@ -459,6 +529,7 @@ const checkMenuEquipmentTool: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		const input = AgentCheckMenuEquipmentSchema.parse(args)
+		await assertRowInRouteKitchen(ctx, "daily_menu", input.dailyMenuId)
 		return toolOk(await agentCheckMenuEquipment(ctx.db, domainCtx(ctx), input))
 	},
 }

@@ -8,8 +8,8 @@
  * especificação manda o cliente presumir o pior: tudo é escrita destrutiva.
  *
  * Um mapa explícito por nome, e não inferência por prefixo: `create_daily_menu` é upsert e
- * `apply_template` apaga planejamento no modo "replace" — o nome não diz. `annotations.test.ts`
- * falha quando uma tool nova entra sem classificação.
+ * `apply_template` só preenche refeição vazia (contrato de agente, sem modo "replace") — o nome
+ * não diz. `annotations.test.ts` falha quando uma tool nova entra sem classificação.
  */
 
 /** Subconjunto de `ToolAnnotations` do SDK que este servidor declara. */
@@ -40,6 +40,7 @@ const TOOL_KINDS: Record<string, Kind> = {
 
 	// ── Escrita aditiva: cria ou restaura, não sobrescreve nada ──────────────
 	add_menu_item: "additive",
+	apply_template: "additive", // contrato de agente: só preenche refeição vazia; substituir é pela tela
 	create_blank_template: "additive",
 	create_meal_type: "additive",
 	create_recipe: "additive",
@@ -50,7 +51,6 @@ const TOOL_KINDS: Record<string, Kind> = {
 	restore_template: "additive",
 
 	// ── Escrita destrutiva: apaga, substitui ou sobrescreve ──────────────────
-	apply_template: "destructive", // conflictMode "replace" manda o planejamento das datas para a lixeira
 	create_daily_menu: "destructive", // upsert: pode sobrescrever o cardápio existente
 	delete_meal_type: "destructive",
 	delete_template: "destructive",

@@ -13,6 +13,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import type { UserPermission } from "@/types/domain/permissions"
 import type { ToolContext } from "./shared"
+import { findWrappedTool } from "./test-helpers"
 import { unitTools } from "./unit"
 
 const UNIT_ID = 7
@@ -31,9 +32,7 @@ interface RecordedQuery {
 }
 
 function tool(name: string) {
-	const def = unitTools.find((t) => t.name === name)
-	if (!def) throw new Error(`tool ${name} não existe`)
-	return def
+	return findWrappedTool(unitTools, name)
 }
 
 /**
@@ -190,7 +189,7 @@ describe("get_quantity_estimate", () => {
 	})
 
 	test("devolve o que o domínio projetou", async () => {
-		const detail = { id: UUID, title: "Anexo 2026/1", items: [], items_total: 0 }
+		const detail = { id: UUID, unit_id: UNIT_ID, title: "Anexo 2026/1", items: [], items_total: 0 }
 		agentMocks.agentGetQuantityEstimate.mockResolvedValue(detail)
 
 		const result = await tool("get_quantity_estimate").handler({ quantityEstimateId: UUID, itemSearch: "arroz", limit: 5 }, ctxFor({}, []))
@@ -213,7 +212,10 @@ describe("update_quantity_estimate_status", () => {
 	test("conclui pela operation do domínio (transição, justificativa e retrato), não por update cru", async () => {
 		agentMocks.agentUpdateQuantityEstimateStatus.mockResolvedValue(undefined)
 
-		const result = await tool("update_quantity_estimate_status").handler({ quantityEstimateId: UUID, status: "completed" }, ctxFor({}, []))
+		// A conversa está na rota da unidade: antes da escrita a tool lê só a OM dona do anexo.
+		const ctx = ctxFor({ quantity_estimate: [{ data: [{ unit_id: UNIT_ID }] }] }, [])
+
+		const result = await tool("update_quantity_estimate_status").handler({ quantityEstimateId: UUID, status: "completed" }, ctx)
 
 		expect(agentMocks.agentUpdateQuantityEstimateStatus.mock.calls[0]?.[2]).toEqual({ quantityEstimateId: UUID, status: "completed" })
 		expect(result).toEqual({ success: true, data: { quantityEstimateId: UUID, status: "completed" } })

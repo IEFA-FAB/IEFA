@@ -16,9 +16,14 @@
  *   4. tamanho → histórico sem teto vira custo de token pago por turno (e 413 do provider);
  *   5. sigilo → documento classificado não vai a provider nenhum;
  *   6. teto de consumo ANTES do stream → depois do SSE aberto não há mais status HTTP.
+ *
+ * O que vem do cliente entra como DADO: mensagem `system`/`developer` do histórico é
+ * descartada (o AG-UI reenvia a conversa inteira e o parser as preserva), e o documento vai
+ * num bloco delimitado com nonce por requisição.
  */
 
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
+import { createPromptNonce, dropClientSystemMessages } from "@iefa/ai-provider/untrusted"
 import { checkSameOriginJsonRequest } from "@iefa/auth-kit"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { defineHandler } from "nitro"
@@ -65,12 +70,16 @@ export default defineHandler(async (event: H3Event) => {
 		throw err
 	}
 
-	const { messages, forwardedProps } = params
+	const { forwardedProps } = params
 
 	// `content-length` pode faltar (chunked): o teto que vale é o do conteúdo já parseado.
-	if (messages.length > MAX_MESSAGES || JSON.stringify(messages).length > MAX_MESSAGES_CHARS) {
+	// Medido sobre o que o cliente mandou, antes do descarte abaixo.
+	if (params.messages.length > MAX_MESSAGES || JSON.stringify(params.messages).length > MAX_MESSAGES_CHARS) {
 		throw new HTTPError({ status: 413, message: "Conversa grande demais para um turno. Inicie uma nova conversa." })
 	}
+
+	// Papel de sistema vindo do navegador falaria com o peso do prompt do servidor.
+	const messages = dropClientSystemMessages(params.messages)
 
 	// O documento é validado como qualquer outro dado que entra: ele vem do cliente.
 	const parsed = DocumentPayloadSchema.safeParse(forwardedProps.document)
@@ -111,7 +120,7 @@ export default defineHandler(async (event: H3Event) => {
 		adapter,
 		messages,
 		tools: buildChatTools(document),
-		systemPrompts: [buildChatSystemPrompt(assembled), describeDocument(assembled)],
+		systemPrompts: [buildChatSystemPrompt(assembled), describeDocument(assembled, createPromptNonce())],
 	})
 
 	return toServerSentEventsResponse(stream)

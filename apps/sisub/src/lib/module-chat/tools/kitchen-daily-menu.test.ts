@@ -11,6 +11,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
 import type { UserPermission } from "@/types/domain/permissions"
 import type { ToolContext } from "./shared"
+import { findWrappedTool } from "./test-helpers"
 
 const upsertDailyMenu = vi.fn()
 
@@ -25,9 +26,7 @@ const KITCHEN_ID = 5
 const MEAL_TYPE_ID = "11111111-1111-4111-8111-111111111111"
 
 function tool(name: string) {
-	const def = kitchenTools.find((t) => t.name === name)
-	if (!def) throw new Error(`tool ${name} não existe`)
-	return def
+	return findWrappedTool(kitchenTools, name)
 }
 
 function ctx(): ToolContext {
