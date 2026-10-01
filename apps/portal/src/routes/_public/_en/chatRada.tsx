@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { ArrowDown, ChatBubble, Check, Copy, Cpu, Link as LinkIcon, NavArrowLeft, Plus, Send, Sparks, User, WarningCircle } from "iconoir-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
-import { authQueryOptions } from "@/auth/service"
+import { authQueryOptions, getAccessToken } from "@/auth/service"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ModelImagePlaceholder } from "@/components/ui/markdown"
@@ -194,64 +194,61 @@ function sessionTitleLikeChatGPT(s: SessionSummary) {
  *
  * Trocado por inteiro: as chamadas antigas (`/ask`, `/sessions`, header `X-User-Id`)
  * respondem 404 há tempos. O α expõe `/api/v1/sessions*` e autentica por Bearer — o
- * token da sessão do Supabase, passado a cada request porque expira.
+ * token da sessão do Supabase, lido do client do navegador A CADA request (`getAccessToken`
+ * renova o vencido). O token não vem mais do estado de auth: ele era serializado no HTML do
+ * SSR junto com o refresh token.
  */
-function useRagClient(token: string | undefined) {
-	return useMemo(
-		() => ({
-			sessions: async (): Promise<SessionSummary[]> => {
-				if (!token) return []
-				const list = await listChatSessions(token)
-				return list.map(
-					(s: ChatSessionSummary) =>
-						({
-							id: s.session_id,
-							title: s.title,
-							created_at: s.last_message_at,
-							last_message_at: s.last_message_at,
-							updated_at: s.last_message_at,
-							message_count: s.messages,
-						}) as SessionSummary
-				)
-			},
-			sessionMessages: async (sid: string): Promise<RemoteMessage[]> => {
-				if (!token) return []
-				const messages = await fetchSessionMessages(token, sid)
-				// O α devolve o papel do LangChain (`human`/`ai`); a tela fala user/assistant.
-				return messages.map((m, i) => ({
-					id: `${sid}-${i}`,
-					role: m.role === "human" ? "user" : "assistant",
-					content: m.content,
-					// Sem repassar isto, o painel de fontes do histórico fica sempre vazio: o
-					// `select` da query lê `cited_documents` e receberia `undefined` de todas
-					// as mensagens, e o efeito que espelha o histórico apagaria até as
-					// citações da resposta recém-chegada.
-					cited_documents: m.cited_documents ?? [],
-					created_at: new Date().toISOString(),
-				})) as RemoteMessage[]
-			},
-			createSession: async (): Promise<string> => {
-				if (!token) throw new Error("Sessão expirada — entre novamente.")
-				return await createChatSession(token)
-			},
-			ask: async (sessionId: string, question: string): Promise<ChatAnswer> => {
-				if (!token) throw new Error("Sessão expirada — entre novamente.")
-				return await sendMessage(token, sessionId, question)
-			},
-			askStream: async (sessionId: string, question: string, init?: { signal?: AbortSignal }) => {
-				if (!token) throw new Error("Sessão expirada — entre novamente.")
-				return await openMessageStream(token, sessionId, question, init?.signal)
-			},
-		}),
-		[token]
-	)
+async function requireAccessToken(): Promise<string> {
+	const token = await getAccessToken()
+	if (!token) throw new Error("Sessão expirada — entre novamente.")
+	return token
+}
+
+const ragClient = {
+	sessions: async (): Promise<SessionSummary[]> => {
+		const token = await getAccessToken()
+		if (!token) return []
+		const list = await listChatSessions(token)
+		return list.map(
+			(s: ChatSessionSummary) =>
+				({
+					id: s.session_id,
+					title: s.title,
+					created_at: s.last_message_at,
+					last_message_at: s.last_message_at,
+					updated_at: s.last_message_at,
+					message_count: s.messages,
+				}) as SessionSummary
+		)
+	},
+	sessionMessages: async (sid: string): Promise<RemoteMessage[]> => {
+		const token = await getAccessToken()
+		if (!token) return []
+		const messages = await fetchSessionMessages(token, sid)
+		// O α devolve o papel do LangChain (`human`/`ai`); a tela fala user/assistant.
+		return messages.map((m, i) => ({
+			id: `${sid}-${i}`,
+			role: m.role === "human" ? "user" : "assistant",
+			content: m.content,
+			// Sem repassar isto, o painel de fontes do histórico fica sempre vazio: o
+			// `select` da query lê `cited_documents` e receberia `undefined` de todas
+			// as mensagens, e o efeito que espelha o histórico apagaria até as
+			// citações da resposta recém-chegada.
+			cited_documents: m.cited_documents ?? [],
+			created_at: new Date().toISOString(),
+		})) as RemoteMessage[]
+	},
+	createSession: async (): Promise<string> => createChatSession(await requireAccessToken()),
+	ask: async (sessionId: string, question: string): Promise<ChatAnswer> => sendMessage(await requireAccessToken(), sessionId, question),
+	askStream: async (sessionId: string, question: string, init?: { signal?: AbortSignal }) =>
+		openMessageStream(await requireAccessToken(), sessionId, question, init?.signal),
 }
 
 /* =========================
    Queries (TanStack Query)
 ========================= */
 
-function useSessionsQuery(client: ReturnType<typeof useRagClient>, isLoggedIn: boolean, userId: string | null) {
+function useSessionsQuery(client: typeof ragClient, isLoggedIn: boolean, userId: string | null) {
 	return useQuery({
 		queryKey: QUERY_KEYS.sessions(userId),
 		enabled: isLoggedIn && !!userId,
@@ -259,7 +256,7 @@ function useSessionsQuery(client: ReturnType<typeof useRagClient>, isLoggedIn: b
 	})
 }
 
-function useSessionMessagesQuery(client: ReturnType<typeof useRagClient>, isLoggedIn: boolean, userId: string | null, sessionId: string | null) {
+function useSessionMessagesQuery(client: typeof ragClient, isLoggedIn: boolean, userId: string | null, sessionId: string | null) {
 	return useQuery({
 		queryKey: QUERY_KEYS.sessionMessages(userId, sessionId),
 		enabled: isLoggedIn && !!userId && !!sessionId,
@@ -295,7 +292,7 @@ function useSessionMessagesQuery(client: ReturnType<typeof useRagClient>, isLogg
  * que aparece é o trecho que de fato embasou a resposta, com documento e dispositivo.
  */
 function CitationPanel({ chunkId, index }: { chunkId: string; index: number }) {
-	const { session } = useAuth()
+	const { isAuthenticated } = useAuth()
 	const [open, setOpen] = useState(false)
 
 	const {
@@ -306,8 +303,8 @@ function CitationPanel({ chunkId, index }: { chunkId: string; index: number }) {
 		queryKey: ["alpha", "chunk", chunkId],
 		// Só busca depois de abrir: uma resposta cita cinco trechos, e trazer todos de
 		// antemão é peso que quase ninguém abre.
-		enabled: open && !!session?.access_token,
-		queryFn: () => fetchChunk(session?.access_token as string, chunkId),
+		enabled: open && isAuthenticated,
+		queryFn: async () => fetchChunk(await requireAccessToken(), chunkId),
 		staleTime: Number.POSITIVE_INFINITY, // trecho de norma vigente não muda entre abas
 	})
 
@@ -448,14 +445,12 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 ========================= */
 
 function ChatRada() {
-	const { user, session } = useAuth()
+	const { user } = useAuth()
 	const userId = user?.id ?? null
 	const isLoggedIn = !!userId
-	// O α valida o JWT a cada request; o token vem da sessão corrente, nunca memoizado.
-	const client = useRagClient(session?.access_token)
 	const queryClient = useQueryClient()
 
-	const { data: sessions = [] } = useSessionsQuery(client, isLoggedIn, userId)
+	const { data: sessions = [] } = useSessionsQuery(ragClient, isLoggedIn, userId)
 
 	const [input, setInput] = useState("")
 	const [sending, setSending] = useState(false)
@@ -494,7 +489,7 @@ function ChatRada() {
 	}, [isLoggedIn, userId])
 
 	// Load history when sessionId changes
-	const { data: sessionMessages = [] } = useSessionMessagesQuery(client, isLoggedIn, userId, sessionId)
+	const { data: sessionMessages = [] } = useSessionMessagesQuery(ragClient, isLoggedIn, userId, sessionId)
 
 	useEffect(() => {
 		if (!isLoggedIn || !userId || !sessionId) return
@@ -555,7 +550,7 @@ function ChatRada() {
 	 */
 	const ensureSession = async (): Promise<string> => {
 		if (sessionId) return sessionId
-		const sid = await client.createSession()
+		const sid = await ragClient.createSession()
 		if (userId) saveSessionId(userId, sid)
 		return sid
 	}
@@ -587,7 +582,7 @@ function ChatRada() {
 				sseAbortRef.current = ctrl
 
 				const sid = await ensureSession()
-				const res = await client.askStream(sid, question, { signal: ctrl.signal })
+				const res = await ragClient.askStream(sid, question, { signal: ctrl.signal })
 				if (!res.body) {
 					const errText = await res.text().catch(() => "Erro desconhecido")
 					throw new Error(errText)
@@ -639,7 +634,7 @@ function ChatRada() {
 				buffer += decoder.decode()
 			} else {
 				const sid = await ensureSession()
-				const data = await client.ask(sid, question)
+				const data = await ragClient.ask(sid, question)
 
 				setSending(false)
 				const assistantMsg: ChatMessage = {
