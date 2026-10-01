@@ -249,6 +249,17 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **Cobertura:** `acquisition-origin.operations.test.ts › NE registrada à mão… erro de gravação não
   grava nada e o lote se reaplica`.
 
+### GU-SIAFI-04 — "Cliquei duas vezes em 'Adotar SIAFI'" / "outro lote chegou enquanto eu decidia"
+- **Realidade:** o reforço/anulação da conciliação era calculado com os valores que a tela mandava;
+  o segundo clique (ou o reenvio depois de um 502) gravava um segundo evento.
+- **O sistema precisa:** a decisão lê a conciliação no servidor, na mesma transação do evento, da
+  origem do empenho e da decisão, sob lock do documento e do empenho. Só decide documento
+  `divergente` sem decisão vigente; os valores da tela são a versão vista — divergiram, é conflito.
+- **UX:** conflito diz "A conciliação mudou…" e a tela recarrega a lista, mantendo a justificativa
+  digitada. O segundo clique ouve que o documento não está mais divergente.
+- **Cobertura:** `apps/sisub/src/lib/reconciliation-decision.test.ts`. **LACUNA:** teste de
+  integração de `resolveDivergenceAtomically` no banco real (corrida de dois cliques).
+
 ### GU-SIAFI-03 — "Anular a NE que já tem liquidação ou OF enviada"
 - **O sistema precisa:** a anulação passa pelo evento e pelo piso, que é o MAIOR entre o liquidado
   (o que foi liquidado não se desfaz por anulação) e o já pedido em Ordens de Fornecimento não
