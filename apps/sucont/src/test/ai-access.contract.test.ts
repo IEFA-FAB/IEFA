@@ -127,3 +127,15 @@ describe.each(VIA_GUARD_MODULE.map((s) => [s.path, s] as const))("via ai.server 
 		expect(source.text).not.toMatch(/userId:\s*z\./)
 	})
 })
+
+// O protocolo AG-UI reenvia a conversa inteira; uma mensagem `system`/`developer`
+// vinda do navegador teria o peso do prompt do servidor.
+describe("oráculo — histórico do cliente", () => {
+	const route = SOURCES.find((s) => s.path === "routes/api/chat/stream.post.ts")
+
+	it("descarta mensagem de sistema do cliente antes do chat()", () => {
+		expect(route?.text).toContain("dropClientSystemMessages(params.messages)")
+		expect(route?.text.indexOf("dropClientSystemMessages(")).toBeLessThan(route?.text.indexOf("chat({") ?? -1)
+		expect(route?.text).not.toMatch(/messages:\s*params\.messages/)
+	})
+})
