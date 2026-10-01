@@ -42,6 +42,52 @@ resource "aws_cloudfront_function" "index_rewrite" {
   JS
 }
 
+# Headers de segurança do site estático. Não há servidor para servi-los (os apps SSR
+# os põem na route rule `/**` do Nitro), então eles vivem aqui, na borda.
+#
+# CSP: o site é prerender do TanStack Start + Fumadocs, sem recurso de terceiros.
+# `'unsafe-inline'` em script/style é exigência do HTML prerenderizado (script inline
+# de hidratação e de tema, estilo inline); o resto fica preso à própria origem.
+resource "aws_cloudfront_response_headers_policy" "security" {
+  name    = "${var.name_prefix}-${var.site_name}-security-headers"
+  comment = "Security headers for the ${var.site_name} static site."
+
+  security_headers_config {
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      override                   = true
+    }
+
+    content_type_options {
+      override = true
+    }
+
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+
+    content_security_policy {
+      content_security_policy = var.content_security_policy
+      override                = true
+    }
+  }
+
+  custom_headers_config {
+    items {
+      header   = "Permissions-Policy"
+      value    = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+      override = true
+    }
+  }
+}
+
 resource "aws_cloudfront_distribution" "this" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -73,6 +119,8 @@ resource "aws_cloudfront_distribution" "this" {
     # Managed-CachingOptimized: honours the Cache-Control the deploy sets on each
     # object, so HTML revalidates while fingerprinted assets stay immutable.
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
 
     function_association {
       event_type   = "viewer-request"

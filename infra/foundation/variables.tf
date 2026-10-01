@@ -82,15 +82,27 @@ variable "enable_container_insights" {
 }
 
 variable "task_role_policy_json" {
-  description = "Optional extra IAM policy JSON attached to the shared ECS task role."
+  description = "Optional extra IAM policy JSON attached to both ECS task roles (shared and AI). On the shared role any Bedrock grant in it is cancelled by the explicit deny (restrict_bedrock_to_ai_task_role)."
   type        = string
   default     = ""
 }
 
 variable "enable_bedrock_task_access" {
-  description = "Grant the shared ECS task role permission to invoke AWS Bedrock models (Converse/InvokeModel). Used by the @iefa/ai-provider bedrock adapter (sisub, sucont) — keyless via the task role. Opt-in: set true in terraform.tfvars to avoid inadvertent privilege expansion for services that don't use AI."
+  description = "Grant the AI ECS task role (`<prefix>-ecs-task-ai`) permission to invoke AWS Bedrock models (Converse/InvokeModel/Rerank on every foundation model and inference profile). Opt-in: production grants a narrower Bedrock policy through task_role_policy_json instead."
   type        = bool
   default     = false
+}
+
+variable "bedrock_task_services" {
+  description = "ECS services (service_name of each stack) that run with the AI task role and may call Bedrock. Every other service runs with the shared task role."
+  type        = list(string)
+  default     = ["alpha", "portal", "sisub", "sucont"]
+}
+
+variable "restrict_bedrock_to_ai_task_role" {
+  description = "Explicitly deny bedrock:* on the shared ECS task role, so only services in bedrock_task_services can invoke models. Set false only to stage the cutover (see infra/README.md)."
+  type        = bool
+  default     = true
 }
 
 variable "bedrock_regions" {
@@ -129,4 +141,18 @@ variable "github_deploy_subject_refs" {
   description = "OIDC `sub` refs allowed to assume the deploy role, appended to repo:<owner>/<name>:. Defaults to the main branch only."
   type        = list(string)
   default     = ["ref:refs/heads/main"]
+}
+
+# ----- Terraform state (lido pela role de plan) -----
+
+variable "tf_state_bucket_name" {
+  description = "Terraform state bucket (infra/bootstrap). The only bucket whose objects the read-only plan role may read. Empty = bootstrap naming convention <project>-<environment>-terraform-state-<account>."
+  type        = string
+  default     = ""
+}
+
+variable "tf_lock_table_name" {
+  description = "Terraform lock table (infra/bootstrap). The only DynamoDB table whose items the read-only plan role may read (S3 backend state digest). Empty = <project>-<environment>-terraform-locks."
+  type        = string
+  default     = ""
 }

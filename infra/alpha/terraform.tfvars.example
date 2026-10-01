@@ -20,7 +20,8 @@ environment_variables = {
   # primeira coleta manual conferida.
   ALPHA_SOURCES_REFRESH_ENABLED = "false"
 
-  # IA via Bedrock, keyless pela task role compartilhada. Exige
+  # IA via Bedrock, keyless pela task role de IA (`-ecs-task-ai`; o alpha esta em
+  # `bedrock_task_services` da foundation). Exige
   # `enable_bedrock_task_access = true` no stack `foundation` e a região abaixo
   # listada em `bedrock_regions`.
   ALPHA_AI_PROVIDER        = "bedrock"

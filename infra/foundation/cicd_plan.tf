@@ -4,7 +4,8 @@
 # Separate from the deploy role on purpose. The deploy role can only roll a new
 # ECS image and is restricted to `main`. This role runs `terraform plan` on PRs
 # to surface the infra diff for review (Greptile + humans) and is:
-#   - read-only (AWS managed ReadOnlyAccess + an explicit deny on secret values),
+#   - read-only (AWS managed ReadOnlyAccess + explicit denies on secret values and
+#     on data reads: logs, objects, items, image layers — see github_tf_plan_deny),
 #   - assumable only from pull_request events of this repo,
 #   - never able to mutate anything (no apply from a PR).
 # O apply no merge é feito por uma role separada, `<prefix>-github-tf-apply`
@@ -67,13 +68,74 @@ resource "aws_iam_role_policy_attachment" "github_tf_plan_readonly" {
 # Defense in depth: plan only reads secret *metadata* (aws_secretsmanager_secret),
 # never values. Explicitly deny value reads and KMS decrypt so a read-only PR job
 # can never exfiltrate runtime secrets even if ReadOnlyAccess would allow it.
+#
+# O mesmo vale para DADO: ReadOnlyAccess lê log de aplicação, objeto de qualquer
+# bucket, item de DynamoDB, camada de imagem e parâmetro do SSM — e esta role é
+# assumível por qualquer PR do repo público. O `plan` só precisa de METADADO
+# (Describe*/Get*Policy/List*), mais o state no S3 e o digest do state na tabela de
+# lock. Esses dois ficam de fora dos Deny (NotResource).
+locals {
+  tf_state_bucket_name = coalesce(var.tf_state_bucket_name, "${local.name_prefix}-terraform-state-${local.account_id}")
+  tf_lock_table_name   = coalesce(var.tf_lock_table_name, "${local.name_prefix}-terraform-locks")
+}
+
 data "aws_iam_policy_document" "github_tf_plan_deny" {
   count = var.enable_github_tf_plan_role ? 1 : 0
 
   statement {
-    sid       = "DenySecretValueReads"
+    sid    = "DenySecretValueReads"
+    effect = "Deny"
+    actions = [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:BatchGetSecretValue",
+      "kms:Decrypt",
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "ssm:GetParametersByPath",
+      "ssm:GetParameterHistory",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "DenyLogDataReads"
+    effect = "Deny"
+    actions = [
+      "logs:GetLogEvents",
+      "logs:FilterLogEvents",
+      "logs:StartQuery",
+      "logs:GetQueryResults",
+      "logs:GetLogRecord",
+      "logs:StartLiveTail",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid           = "DenyObjectReadsOutsideState"
+    effect        = "Deny"
+    actions       = ["s3:GetObject", "s3:GetObjectVersion"]
+    not_resources = ["arn:aws:s3:::${local.tf_state_bucket_name}/*"]
+  }
+
+  statement {
+    sid    = "DenyItemReadsOutsideLockTable"
+    effect = "Deny"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:BatchGetItem",
+      "dynamodb:Query",
+      "dynamodb:Scan",
+      "dynamodb:PartiQLSelect",
+      "dynamodb:GetRecords",
+    ]
+    not_resources = ["arn:aws:dynamodb:*:${local.account_id}:table/${local.tf_lock_table_name}"]
+  }
+
+  statement {
+    sid       = "DenyImageLayerReads"
     effect    = "Deny"
-    actions   = ["secretsmanager:GetSecretValue", "kms:Decrypt"]
+    actions   = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
     resources = ["*"]
   }
 }

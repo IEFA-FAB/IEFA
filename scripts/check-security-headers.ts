@@ -6,8 +6,9 @@
  * X-Frame-Options/HSTS/etc. Este check falha o CI se qualquer header sumir DA
  * REGRA `/**` (a única que cobre todo request de página).
  *
- * Escopo: apps SSR servidos pelo próprio runtime Nitro. Fora dele de propósito:
- *   - docs    — estático em S3/CloudFront, headers vivem na distribuição (infra).
+ * Escopo: apps SSR servidos pelo próprio runtime Nitro. O docs é estático em
+ * S3/CloudFront e não tem servidor: os headers dele vêm da response headers policy do
+ * módulo `infra/modules/static-site`, conferida no fim deste gate.
  *
  * CSP: a baseline cobre só as diretivas que não tocam script/estilo/imagem
  * (`frame-ancestors`, `base-uri`, `object-src`, `form-action`) — o gate cobra essas
@@ -103,6 +104,28 @@ for (const app of SSR_APPS) {
 	}
 }
 
+// Site estático (docs): a distribuição tem de associar a response headers policy, e a
+// policy tem de declarar cada header. Mesma lógica text-based: o gate não roda terraform.
+const STATIC_SITE_CLOUDFRONT = join(REPO_ROOT, "infra", "modules", "static-site", "cloudfront.tf")
+const STATIC_SITE_BLOCKS = [
+	"response_headers_policy_id",
+	"strict_transport_security",
+	"content_type_options",
+	"frame_options",
+	"referrer_policy",
+	"content_security_policy",
+	"Permissions-Policy",
+] as const
+try {
+	const tf = readFileSync(STATIC_SITE_CLOUDFRONT, "utf8")
+	const missing = STATIC_SITE_BLOCKS.filter((b) => !tf.includes(b))
+	if (missing.length > 0) {
+		failures.push(`static-site (docs): cloudfront.tf sem ${missing.join(", ")} na response headers policy`)
+	}
+} catch {
+	failures.push(`static-site (docs): ${STATIC_SITE_CLOUDFRONT} não encontrado`)
+}
+
 if (failures.length > 0) {
 	console.error("✗ Baseline de headers de segurança violada:\n")
 	for (const f of failures) console.error(`  - ${f}`)
@@ -111,5 +134,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-	`✓ Baseline de headers de segurança presente na regra "/**" de ${SSR_APPS.length} apps SSR (${REQUIRED_HEADERS.length} headers cada), com CSRF das server functions.`
+	`✓ Baseline de headers de segurança presente na regra "/**" de ${SSR_APPS.length} apps SSR (${REQUIRED_HEADERS.length} headers cada), com CSRF das server functions, e na distribuição do site estático.`
 )

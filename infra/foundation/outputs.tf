@@ -95,6 +95,23 @@ output "task_role_arn" {
   value = aws_iam_role.task.arn
 }
 
+output "ai_task_role_arn" {
+  description = "Task role of the services that call Bedrock (bedrock_task_services)."
+  value       = aws_iam_role.task_ai.arn
+}
+
+# Lido pelo main.tf de cada stack de serviço: quem está aqui roda com a role de IA,
+# o resto cai no `task_role_arn` compartilhado.
+output "task_role_arns_by_service" {
+  description = "Task role per ECS service for the services that differ from the shared task role."
+  value       = { for s in var.bedrock_task_services : s => aws_iam_role.task_ai.arn }
+}
+
+output "workload_permissions_boundary_arn" {
+  description = "Permissions boundary every workload role <prefix>-* must carry (required by the tf-apply role to create or change it)."
+  value       = aws_iam_policy.workload_boundary.arn
+}
+
 output "secrets_kms_key_arn" {
   value = var.secrets_kms_key_arn
 }
