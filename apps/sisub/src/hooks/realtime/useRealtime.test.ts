@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from "@supabase/supabase-js"
 import { afterAll, beforeAll, describe, expect, test } from "vitest"
+import { createAccessFixtureWriter } from "@/test/access-fixture-writer"
 import {
 	createSisubAnonClient,
 	createSisubReachabilityClient,
@@ -28,18 +29,32 @@ async function canReachSupabase(schema: "sisub" | "kitchen" = "sisub") {
 	}
 }
 
+/**
+ * Autorização de cadastro do e-mail de teste (`signup_allowlist`): com o hook "Before User
+ * Created" ligado (20261001100100), o `createUser` de e-mail fora da FAB é recusado sem ela — e
+ * este bloco se pularia calado. `@example.invalid` é o domínio que a faxina de fixtures reconhece.
+ */
+const signupFixtures = createAccessFixtureWriter()
+let unauthorizeSignup: () => Promise<void> = async () => {}
+
 async function createTestUser(adminClient: SisubServiceClient) {
 	if (!supabaseEnv?.anonKey) return null
 
-	const email = `realtime-test-${Date.now()}@test.local`
+	const email = `realtime-test-${Date.now()}@example.invalid`
 	const password = `TestPass!${Date.now()}`
 
+	// Sem `SISUB_DATABASE_URL` (rodada local só com as chaves) não há como autorizar: segue sem,
+	// e o `createUser` só passa se o hook estiver desligado nesse ambiente.
+	unauthorizeSignup = await signupFixtures.authorizeSignup(email).catch(() => async () => {})
 	const { data, error } = await adminClient.auth.admin.createUser({
 		email,
 		password,
 		email_confirm: true,
 	})
-	if (error || !data.user) return null
+	if (error || !data.user) {
+		await unauthorizeSignup()
+		return null
+	}
 
 	const anonClient = createSisubAnonClient({ ...supabaseEnv, anonKey: supabaseEnv.anonKey })
 	const { data: session, error: signInErr } = await anonClient.auth.signInWithPassword({ email, password })
@@ -108,8 +123,9 @@ describeSupabaseIntegration("Realtime RLS policies", () => {
 	}, 30_000)
 
 	afterAll(async () => {
-		if (!reachable || !testUser) return
-		await adminClient.auth.admin.deleteUser(testUser.userId)
+		if (reachable && testUser) await adminClient.auth.admin.deleteUser(testUser.userId)
+		await unauthorizeSignup()
+		await signupFixtures.close()
 	})
 
 	for (const table of REALTIME_TABLES) {

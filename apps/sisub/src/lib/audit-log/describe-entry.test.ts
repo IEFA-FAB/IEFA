@@ -630,3 +630,26 @@ describe("bloqueio em vários módulos (contrate, set_module_block)", () => {
 		expect(d.fields.some((field) => field.label === "Prazo")).toBe(true)
 	})
 })
+
+describe("autorização de cadastro externo", () => {
+	test("autorizar mostra e-mail e motivo", () => {
+		const d = describeAuditEntry("authorizeExternalSignupFn", {
+			action: "grant",
+			allowlist_id: "x",
+			email: "parceiro@gs1br.org",
+			reason: "parceria GS1 Brasil",
+		})
+		expect(d.title).toBe("Autorizou cadastro de e-mail externo")
+		expect(d.fields).toEqual([
+			{ label: "E-mail", value: "parceiro@gs1br.org" },
+			{ label: "Motivo", value: "parceria GS1 Brasil" },
+		])
+	})
+
+	test("revogar lê o motivo original em `previous`", () => {
+		const d = describeAuditEntry("revokeExternalSignupFn", { action: "revoke", email: "parceiro@gs1br.org", previous: { reason: "parceria GS1 Brasil" } })
+		expect(d.title).toBe("Revogou autorização de cadastro externo")
+		expect(d.fields.map((field) => field.value)).toEqual(["parceiro@gs1br.org", "parceria GS1 Brasil"])
+		expect(staticTitle("revokeExternalSignupFn")).toBe("Revogou autorização de cadastro externo")
+	})
+})

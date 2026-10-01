@@ -235,6 +235,8 @@ describe("server function auth contract", () => {
 			"audit.fn — registro de operações sensíveis filtrado por ator ou por alvo; a fn exige `admin` nível 3, e a operation repete o guard",
 		getUserMfaStatusFn: "mfa-admin.fn — o administrador consulta o segundo fator de terceiro antes de removê-lo; exige `admin` nível 3",
 		resetUserMfaFn: "mfa-admin.fn — remoção de MFA de terceiro (último recurso, MFA-RECOVERY.md); exige `admin` nível 3 e garantia `fresh`",
+		authorizeExternalSignupFn:
+			"signup-allowlist.fn — o administrador autoriza o e-mail de um parceiro fora da FAB a criar conta e o convida; exige `admin` nível 2 e garantia `fresh`",
 	}
 
 	/**

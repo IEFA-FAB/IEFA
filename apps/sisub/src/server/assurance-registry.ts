@@ -607,6 +607,23 @@ export const ASSURANCE_REGISTRY = {
 		authorization: [{ kind: "permission", module: "unit", level: 2 }],
 	},
 
+	// ── signup-allowlist.fn.ts
+	/**
+	 * Autorizar e-mail fora de `@fab.mil.br` a ganhar conta é conceder acesso ao sistema — o hook
+	 * do Auth (20261001100100) passa a deixar essa pessoa criar conta. Mesmo peso das concessões
+	 * de permissão: `admin` nível 2 e `fresh`. Revogar também, como `deleteUserPermissionFn`.
+	 */
+	authorizeExternalSignupFn: {
+		require: "fresh",
+		reason: "Esta operação autoriza um e-mail fora da FAB a criar conta no sistema.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	revokeExternalSignupFn: {
+		require: "fresh",
+		reason: "Esta operação retira a autorização de cadastro de um e-mail fora da FAB.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+
 	// ── siafi-import.fn.ts
 	uploadSiafiReportFn: { require: "none" },
 

@@ -30,6 +30,13 @@ const BYPASS_REASON = "sisub integration fixture"
 export interface AccessFixtureWriter {
 	insertReturningId(table: string, row: Record<string, unknown>): Promise<string>
 	deleteWhere(table: string, column: string, value: string | number): Promise<void>
+	/**
+	 * Autoriza o e-mail de um usuário de fixture a ser criado no Auth (`signup_allowlist`,
+	 * 20261001100000) e devolve a faxina. Com o hook "Before User Created" ligado, o
+	 * `auth.admin.createUser` de `test-…@example.invalid` é recusado sem isto. Antes de a
+	 * migration estar aplicada, não faz nada (a tabela ainda não existe e o hook também não).
+	 */
+	authorizeSignup(email: string): Promise<() => Promise<void>>
 	close(): Promise<void>
 }
 
@@ -66,6 +73,25 @@ export function createAccessFixtureWriter(): AccessFixtureWriter {
 				await tx`select set_config('iefa.audit_bypass', ${BYPASS_REASON}, true)`
 				await tx`delete from ${tx(`access_control.${table}`)} where ${tx(column)} = ${value}`
 			})
+		},
+		async authorizeSignup(email) {
+			const normalized = email.trim().toLowerCase()
+			const [inserted] = await sql().begin(async (tx) => {
+				const [exists] = await tx<{ ok: boolean }[]>`select to_regclass('access_control.signup_allowlist') is not null as ok`
+				if (!exists?.ok) return []
+				await tx`select set_config('iefa.audit_bypass', ${BYPASS_REASON}, true)`
+				return tx<{ id: string }[]>`
+					insert into access_control.signup_allowlist (email, reason) values (${normalized}, ${BYPASS_REASON})
+					on conflict (email) where revoked_at is null do nothing
+					returning id`
+			})
+			if (!inserted) return async () => {}
+			return async () => {
+				await sql().begin(async (tx) => {
+					await tx`select set_config('iefa.audit_bypass', ${BYPASS_REASON}, true)`
+					await tx`delete from access_control.signup_allowlist where id = ${inserted.id}`
+				})
+			}
 		},
 		async close() {
 			const current = client

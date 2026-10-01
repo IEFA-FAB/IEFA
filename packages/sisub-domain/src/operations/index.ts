@@ -935,6 +935,7 @@ export {
 	type SegmentRule,
 	updateSegment,
 } from "./segments.ts"
+export { authorizeExternalSignup, listSignupAllowlist, revokeExternalSignup, type SignupAllowlistRow } from "./signup-allowlist.ts"
 export type {
 	SnackLabelData,
 	SnackOrderingContext,

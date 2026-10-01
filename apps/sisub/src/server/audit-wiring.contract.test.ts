@@ -75,6 +75,8 @@ const ACCESS_CHANGE_OPERATIONS = [
 	"createMcpKeyFn",
 	"revokeMcpKeyFn",
 	"deleteMcpKeyFn",
+	"authorizeExternalSignupFn",
+	"revokeExternalSignupFn",
 ] as const
 
 const ENVELOPE = /\b(withSensitiveAudit|withAtomicAudit)\(\s*"(\w+)"/g

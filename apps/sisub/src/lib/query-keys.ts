@@ -30,6 +30,8 @@ export const queryKeys = {
 		recoveryCodes: () => ["sisub", "recovery-codes"] as const,
 		/** Estado de MFA de OUTRO usuário, na tela de gestão de acesso (`admin` nível 3). */
 		adminUserMfa: (userId: string | null | undefined) => ["sisub", "admin-user-mfa", userId] as const,
+		/** Autorizações de cadastro de e-mail fora da FAB (`admin` nível 2). */
+		signupAllowlist: () => ["sisub", "signup-allowlist"] as const,
 		policyRules: (target: PolicyTarget) => ["sisub", "policy-rules", target] as const,
 		policyPrompt: (target: PolicyTarget) => ["sisub", "policy-prompt", target] as const,
 		analyticsSessions: () => ["sisub", "analytics-chat-sessions"] as const,

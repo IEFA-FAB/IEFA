@@ -634,6 +634,13 @@ export {
 } from "./recipes.ts"
 export type { GetReviewMetrics } from "./review-metrics.ts"
 export { GetReviewMetricsSchema } from "./review-metrics.ts"
+export type { AuthorizeExternalSignup, RevokeExternalSignup } from "./signup-allowlist.ts"
+export {
+	AuthorizeExternalSignupSchema,
+	RevokeExternalSignupSchema,
+	SIGNUP_ALLOWLIST_REASON_MAX_LENGTH,
+	SIGNUP_ALLOWLIST_REASON_MIN_LENGTH,
+} from "./signup-allowlist.ts"
 export type {
 	AdvanceSnackRequest,
 	CancelMySnackRequest,
