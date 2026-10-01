@@ -7,8 +7,16 @@
  * caminhos, sem ninguém saber qual está certo.
  */
 
+import { untrustedContentRule, wrapUntrusted } from "@iefa/ai-provider/untrusted"
 import { describeCatalog } from "./catalog"
 import type { AssembledDocument } from "./types"
+
+/**
+ * Prefixo do marcador do documento em edição. O documento vem do cliente a cada turno, e o
+ * texto dele pode ter sido colado de qualquer lugar: quem escreveu "ignore as regras" num
+ * parágrafo não pode falar com o peso do prompt do sistema.
+ */
+export const DOCUMENT_TAG_PREFIX = "documento_"
 
 /** Regras do texto: artigos que o modelo tem de respeitar ao redigir. */
 export const NORM_RULES = `Você redige comunicações oficiais do Comando da Aeronáutica segundo a NSCA 5-3/2026 (Anexo I), que adapta o Manual de Redação da Presidência da República ao COMAER.
@@ -75,14 +83,25 @@ Como agir:
 - Se o pedido implicar outra espécie (um pleito pessoal é Requerimento, não Ofício), diga isso e troque a forma pela ferramenta.
 - Responda em português, direto, sem saudação a cada turno.
 
+O documento atual chega na mensagem de sistema seguinte, delimitado. ${untrustedContentRule(DOCUMENT_TAG_PREFIX)}
+
 ${KIND_CATALOG}
 
 PENDÊNCIAS QUE A CONFERÊNCIA APONTA NO DOCUMENTO DE AGORA:
 ${pending}`
 }
 
-/** Estado do documento enviado ao modelo a cada turno — compacto e legível. */
-export function describeDocument(assembled: AssembledDocument): string {
+/**
+ * Estado do documento enviado ao modelo a cada turno — compacto e legível, dentro do bloco
+ * de dado. O `nonce` é por requisição (`createPromptNonce` na rota): o documento muda a
+ * cada turno, então não há cache de prompt a preservar com um nonce estável.
+ */
+export function describeDocument(assembled: AssembledDocument, nonce: string): string {
 	const blocks = assembled.blocks.map((b) => `${b.label}: ${b.lines.map((l) => l.text).join(" / ")}`).join("\n")
-	return `DOCUMENTO ATUAL (${assembled.kind}):\n${blocks || "(em branco)"}`
+	return wrapUntrusted({
+		tagPrefix: DOCUMENT_TAG_PREFIX,
+		nonce,
+		label: `DOCUMENTO ATUAL (${assembled.kind})`,
+		text: blocks || "(em branco)",
+	})
 }
