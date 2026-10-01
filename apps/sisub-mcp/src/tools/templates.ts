@@ -4,8 +4,6 @@
  */
 
 import {
-	ApplyTemplateSchema,
-	applyTemplate,
 	CreateBlankTemplateSchema,
 	CreateTemplateSchema,
 	createBlankTemplate,
@@ -25,12 +23,13 @@ import {
 	saveTemplateEdit,
 	toJsonSchema,
 } from "@iefa/sisub-domain"
-import { agentGetTemplateItems } from "@iefa/sisub-domain/agent"
+import { AGENT_APPLY_TEMPLATE_MAX_DATES, AgentApplyTemplateSchema, agentApplyTemplate, agentGetTemplateItems } from "@iefa/sisub-domain/agent"
+import type { z } from "zod"
 import { resolveCredential } from "../auth.ts"
 import { getDb } from "../db.ts"
 import { handleToolError } from "../utils/error-handler.ts"
 import type { ToolDefinition } from "./shared.ts"
-import { toolResult } from "./shared.ts"
+import { toolError, toolResult } from "./shared.ts"
 
 // ---------------------------------------------------------------------------
 // list_menu_templates
@@ -259,45 +258,66 @@ const restoreTemplateTool: ToolDefinition = {
 // apply_template
 // ---------------------------------------------------------------------------
 
+/**
+ * Contrato de agente (`@iefa/sisub-domain/agent`), o mesmo do chat do sisub: só preenche
+ * refeição vazia e no máximo {@link AGENT_APPLY_TEMPLATE_MAX_DATES} datas por chamada.
+ *
+ * Antes esta tool expunha o `ApplyTemplateSchema` da tela: `conflictMode: "replace"` num
+ * intervalo `startDate`/`endDate` sem teto. Um texto injetado numa receita ou num nome de
+ * template podia mandar o planejamento de meses para a lixeira numa chamada. Substituir fica
+ * na tela, que mostra a prévia do que sai.
+ *
+ * O `.strict()` é só daqui: sem ele o zod 4 descarta `conflictMode`/`startDate` calado e a
+ * chamada roda diferente do que o cliente pediu. Recusar diz ao cliente qual é a entrada nova.
+ */
+const ApplyTemplateToolSchema = AgentApplyTemplateSchema.strict()
+
 const applyTemplateTool: ToolDefinition = {
 	schema: {
 		name: "apply_template",
-		description: `Aplica um template semanal a datas de uma cozinha.
+		description: `Aplica um template semanal a datas de uma cozinha, no máximo ${AGENT_APPLY_TEMPLATE_MAX_DATES} datas por chamada.
 
-Datas: informe \`dates\` com as datas exatas, ou \`startDate\`/\`endDate\` para o intervalo
-inteiro. Com \`dates\` preenchido, NENHUMA outra data é tocada.
+Datas: informe \`targetDates\` com as datas exatas (YYYY-MM-DD). Só essas datas são tocadas;
+para mais de ${AGENT_APPLY_TEMPLATE_MAX_DATES} datas, faça uma chamada por mês. \`startDate\`,
+\`endDate\`, \`dates\` e \`conflictMode\` não são aceitos.
 
-Para cada data:
-  1. Calcula qual dia do template corresponde à data (baseado em startDayOfWeek)
-  2. Cria daily_menus com os itens do template
-
-conflictMode decide o que fazer onde já existe planejamento:
-  - "skip" (default): preserva a refeição já planejada, incluindo ajustes manuais, e só
-    preenche as refeições vazias
-  - "replace": apaga o planejamento dessas datas (vai para a lixeira) e re-materializa
+Só PREENCHE refeições que ainda não têm cardápio: o planejamento existente, inclusive ajustes
+manuais, é preservado. Esta ferramenta nunca apaga nem substitui cardápio; para substituir,
+oriente o usuário a aplicar pela tela de planejamento do sisub, que mostra a prévia do que vai
+para a lixeira. Na resposta, \`datesSkipped\` lista as datas que já tinham refeição planejada.
 
 startDayOfWeek indica qual dia do template (1=seg … 7=dom) corresponde à primeira data.
 
-O template deve ser global (SDAB) ou pertencer à mesma cozinha de destino.
+O template deve ser semanal e global (SDAB) ou da mesma cozinha de destino.
 
 Efetivo: \`headcounts\` ([{mealTypeId, headcount}]) informa o efetivo de cada refeição para
 esta aplicação (o mesmo em todos os dias) e vence o do template. Template global não tem
 efetivo, então informe-o aqui; \`headcount: null\` ou refeição sem efetivo deixa o dia com
 "efetivo a definir", e as porções são calculadas quando o efetivo for informado.
 
-Exemplo: aplicar um template de 7 dias começando segunda-feira (startDayOfWeek=1)
-com startDate=2026-04-13 e endDate=2026-04-19 gera uma semana completa.`,
-		inputSchema: toJsonSchema(ApplyTemplateSchema),
+Exemplo: aplicar um template de 7 dias começando segunda-feira (startDayOfWeek=1) na semana
+de 13/04/2026: targetDates=["2026-04-13","2026-04-14", … ,"2026-04-19"].`,
+		inputSchema: toJsonSchema(ApplyTemplateToolSchema),
 	},
 	async handler(args, credential) {
+		// `safeParse` e não `parse`: o `ZodError` cairia no "Erro interno" do `handleToolError`,
+		// e o cliente que ainda manda `startDate`/`conflictMode` precisa ler o que mudou. A
+		// recusa vem antes da credencial porque não toca em dado nenhum.
+		const parsed = ApplyTemplateToolSchema.safeParse(args)
+		if (!parsed.success) return toolError(describeApplyTemplateInputError(parsed.error))
 		try {
 			const ctx = await resolveCredential(credential)
-			const input = ApplyTemplateSchema.parse(args)
-			return toolResult(await applyTemplate(getDb(), ctx, input))
+			return toolResult(await agentApplyTemplate(getDb(), ctx, parsed.data))
 		} catch (e) {
 			return handleToolError(e)
 		}
 	},
+}
+
+/** Recusa de entrada que diz o caminho: `targetDates`, teto de datas e substituição só na tela. */
+function describeApplyTemplateInputError(error: z.ZodError): string {
+	const issues = error.issues.map((issue) => `${issue.path.length > 0 ? issue.path.map(String).join(".") : "entrada"}: ${issue.message}`).join("; ")
+	return `Entrada inválida para apply_template (${issues}). Informe targetDates com até ${AGENT_APPLY_TEMPLATE_MAX_DATES} datas YYYY-MM-DD; startDate, endDate, dates e conflictMode não são aceitos. A ferramenta só preenche refeições vazias: substituir cardápio existente é só pela tela de planejamento.`
 }
 
 // ---------------------------------------------------------------------------

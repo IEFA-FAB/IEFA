@@ -11,7 +11,7 @@
  */
 
 import { requireKitchen } from "@iefa/sisub-domain"
-import { dropUnexpectedNulls } from "@iefa/sisub-domain/agent"
+import { AGENT_APPLY_TEMPLATE_MAX_DATES, AGENT_UNTRUSTED_DATA_RULE, dropUnexpectedNulls } from "@iefa/sisub-domain/agent"
 // `Server` (baixo nível) e não `McpServer`: o SDK marca o `Server` como
 // "@deprecated ... only use for advanced use cases", e este é um deles.
 //
@@ -70,6 +70,9 @@ export function createMcpServer(credential: string): Server {
 				resources: {},
 				prompts: {},
 			},
+			// Vai ao cliente no `initialize`. Resultado de tool traz texto gravado por outros
+			// usuários (modo de preparo, nome de template); a regra é a mesma do chat do sisub.
+			instructions: AGENT_UNTRUSTED_DATA_RULE,
 		}
 	)
 
@@ -283,7 +286,7 @@ Siga estas etapas:
 4. Use \`list_recipes\` com kitchenId=${kitchenId} para ver receitas disponíveis
 5. Use \`get_planning_calendar\` para ver o planejamento atual da semana
 6. Baseado no que encontrar:
-   - Se existir um template adequado → use \`apply_template\` para aplicá-lo
+   - Se existir um template adequado → use \`apply_template\` com \`targetDates\` = as 7 datas da semana (YYYY-MM-DD) para aplicá-lo. Ele só preenche refeições vazias; o que já está planejado fica como está
    - Se não → crie os menus com \`create_daily_menu\` e adicione itens com \`add_menu_item\`
 7. Garanta variedade nutricional, considerando café da manhã, almoço e jantar para cada dia
 
@@ -315,8 +318,8 @@ Siga estas etapas interativamente:
    - Qual a data de início para aplicação (primeira data)
    - Quantas semanas deseja replicar (1-4 semanas)
    - Qual dia do template corresponde à data de início (startDayOfWeek: 1=seg … 7=dom)
-5. Calcule o array de targetDates com base nas respostas
-6. Use \`apply_template\` para aplicar o template
+5. Calcule o array de targetDates (YYYY-MM-DD) com base nas respostas: no máximo ${AGENT_APPLY_TEMPLATE_MAX_DATES} datas por chamada; acima disso, divida em mais de uma chamada
+6. Use \`apply_template\` com \`targetDates\` para aplicar o template. Ele só preenche refeições vazias: se o gestor quiser substituir cardápio já planejado, oriente-o a aplicar pela tela de planejamento do sisub
 7. Confirme com \`get_planning_calendar\` que os menus foram criados corretamente
 8. Apresente um resumo do resultado`,
 							},
