@@ -54,12 +54,18 @@ acesso vale até ser desfeito. Referência: cabeçalhos de
 `20260921130000_access_change_audited_functions.sql` e `20260921130100_access_change_enforcement.sql`.
 
 - Tabelas vigiadas: `access_control.{user_permissions, policy, policy_statement,
-  user_policy_attachment, mcp_api_keys}`, `forms.{response_viewer, response_viewer_scope_binding,
-  questionnaire_editor}` e o `role` de `journal.user_profiles`. Escrita fora de função auditada
+  user_policy_attachment, mcp_api_keys, signup_allowlist}`, `forms.{response_viewer,
+  response_viewer_scope_binding, questionnaire_editor}` e o `role` de `journal.user_profiles`.
+  Tabela de acesso nova liga o trigger `enforce_audited_change` na própria migration. Escrita fora de função auditada
   levanta `42501 ACCESS_CHANGE_UNAUDITED`. Passam só: contexto aberto pela função, cascata de FK /
   outro trigger, e bypass explícito.
 - Caminhos: `changeModulePermission`/`setModuleBlock` (`@iefa/pbac`), as operações de
   `@iefa/sisub-domain` (`runAccessFunction`), as RPCs `forms.*` e `journal.save_user_profile`.
+- **Cadastro:** só `@fab.mil.br` cria conta, no servidor, pelo hook "Before User Created"
+  (`access_control.before_user_created`, ligado no dashboard Auth → Hooks). Vale também para
+  `auth.admin.createUser`/`inviteUserByEmail`; e-mail de fora entra por
+  `access_control.authorize_external_signup` (console de Permissões do sisub). Fixture que cria
+  usuário de teste autoriza o e-mail antes (`authorizeSignup` do `access-fixture-writer`).
   Função SQL nova que escreve nessas tabelas abre o contexto antes da primeira escrita
   (`perform access_control.audit_context('<app>.<recurso>.<ação>')`) e grava o log na mesma
   transação; `packages/database/src/access-audit.sql-contract.test.ts` cobra.

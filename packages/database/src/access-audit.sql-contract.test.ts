@@ -19,7 +19,11 @@ const MIGRATIONS = join(import.meta.dir, "..", "supabase", "migrations")
 const PHASE_1 = "20260921130000_access_change_audited_functions.sql"
 const PHASE_2 = "20260921130100_access_change_enforcement.sql"
 
-/** As tabelas que a fase 2 vigia — e em que só função auditada escreve. */
+/**
+ * As tabelas vigiadas — e em que só função auditada escreve. A fase 2 ligou o trigger nas nove
+ * primeiras; tabela de acesso que nasce depois liga o dela na própria migration
+ * (`signup_allowlist`, 20261001100000).
+ */
 const ACCESS_TABLES = [
 	"access_control.user_permissions",
 	"access_control.policy",
@@ -30,6 +34,7 @@ const ACCESS_TABLES = [
 	"forms.response_viewer_scope_binding",
 	"forms.questionnaire_editor",
 	"journal.user_profiles",
+	"access_control.signup_allowlist",
 ] as const
 
 /** Corpo da definição MAIS RECENTE de cada função, na ordem cronológica das migrations. */
@@ -108,9 +113,15 @@ describe("fase 1 — toda função que escreve em tabela de acesso é auditada",
 
 describe("fase 2 — os triggers cobrem todas as tabelas de acesso", () => {
 	const sql = readFileSync(join(MIGRATIONS, PHASE_2), "utf8")
+	/** Todas as migrations da fase 2 em diante: tabela vigiada nova traz o trigger junto. */
+	const fromPhase2On = readdirSync(MIGRATIONS)
+		.filter((name) => name.endsWith(".sql") && name >= PHASE_2)
+		.sort()
+		.map((name) => readFileSync(join(MIGRATIONS, name), "utf8"))
+		.join("\n")
 
 	test.each([...ACCESS_TABLES])("%s tem o trigger de recusa", (table) => {
-		expect(sql).toMatch(
+		expect(fromPhase2On).toMatch(
 			new RegExp(`on ${table.replace(".", "\\.")}\\s+for each row[\\s\\S]*?execute function access_control\\.enforce_audited_access_change\\(\\)`)
 		)
 	})
