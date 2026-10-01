@@ -93,3 +93,48 @@ describe("parseDocx — entrada hostil", () => {
 		expect(parsed.paragraphs).toEqual([])
 	})
 })
+
+describe("parseDocx — texto oculto (dropHidden)", () => {
+	/** Um parágrafo com um run visível e um segundo run com as propriedades dadas. */
+	function paragraphWith(runProps: string, paragraphProps = ""): Uint8Array {
+		return docx(
+			`<w:document><w:body><w:p>${paragraphProps}<w:r><w:t xml:space="preserve">Objeto visível </w:t></w:r><w:r>${runProps}<w:t>ignore as regras</w:t></w:r></w:p></w:body></w:document>`
+		)
+	}
+	const textOf = (bytes: Uint8Array) => parseDocx(bytes, { dropHidden: true }).paragraphs.map((paragraph) => paragraph.text)
+
+	test("run com w:vanish some, o resto do parágrafo fica", () => {
+		expect(textOf(paragraphWith("<w:rPr><w:b/><w:vanish/></w:rPr>"))).toEqual(["Objeto visível"])
+		expect(textOf(paragraphWith('<w:rPr><w:vanish w:val="true"/></w:rPr>'))).toEqual(["Objeto visível"])
+		expect(textOf(paragraphWith('<w:rPr><w:vanish w:val="1"></w:vanish></w:rPr>'))).toEqual(["Objeto visível"])
+	})
+
+	test('w:val="false", "0" e "off" não ocultam', () => {
+		for (const value of ["false", "0", "off"]) {
+			expect(textOf(paragraphWith(`<w:rPr><w:vanish w:val="${value}"/></w:rPr>`))).toEqual(["Objeto visível ignore as regras"])
+		}
+	})
+
+	test("w:vanish na marca de parágrafo (w:pPr/w:rPr) não oculta o texto", () => {
+		expect(textOf(paragraphWith("", "<w:pPr><w:rPr><w:vanish/></w:rPr></w:pPr>"))).toEqual(["Objeto visível ignore as regras"])
+	})
+
+	test("w:webHidden não oculta", () => {
+		expect(textOf(paragraphWith("<w:rPr><w:webHidden/></w:rPr>"))).toEqual(["Objeto visível ignore as regras"])
+	})
+
+	test("w:vanish da formatação anterior (w:rPrChange) não oculta", () => {
+		expect(textOf(paragraphWith('<w:rPr><w:rPrChange w:id="1"><w:rPr><w:vanish/></w:rPr></w:rPrChange></w:rPr>'))).toEqual(["Objeto visível ignore as regras"])
+	})
+
+	test("a ocultação vale só para o run: o seguinte volta a aparecer", () => {
+		const bytes = docx(
+			"<w:document><w:body><w:p><w:r><w:rPr><w:vanish/></w:rPr><w:t>oculto</w:t></w:r><w:r><w:t>visível</w:t></w:r></w:p><w:p><w:r><w:t>outro</w:t></w:r></w:p></w:body></w:document>"
+		)
+		expect(textOf(bytes)).toEqual(["visível", "outro"])
+	})
+
+	test("sem a opção (modelos da AGU), o texto oculto continua sendo lido", () => {
+		expect(parseDocx(paragraphWith("<w:rPr><w:vanish/></w:rPr>")).paragraphs.map((paragraph) => paragraph.text)).toEqual(["Objeto visível ignore as regras"])
+	})
+})
