@@ -197,7 +197,8 @@ const NUMERIC_TEXT_RE = /^-?\d+(?:\.\d+)?$/
  */
 function optionalNumber(value: unknown, schema: typeof PREPARATION_TIME_SCHEMA | typeof COOKING_FACTOR_SCHEMA, message: string): number | undefined {
 	if (value == null) return undefined
-	const candidate = typeof value === "string" && NUMERIC_TEXT_RE.test(value.trim()) ? Number(value.trim()) : value
+	const trimmed = typeof value === "string" ? value.trim() : null
+	const candidate = trimmed !== null && NUMERIC_TEXT_RE.test(trimmed) ? Number(trimmed) : value
 	const result = schema.safeParse(candidate)
 	if (!result.success || result.data === undefined) throw new ToolValidationError(message)
 	return result.data
@@ -206,8 +207,12 @@ function optionalNumber(value: unknown, schema: typeof PREPARATION_TIME_SCHEMA |
 const PREPARATION_TIME_MESSAGE = `Tempo de preparo deve ser um número inteiro de minutos, de 0 a ${PREPARATION_TIME_SCHEMA.unwrap().maxValue}`
 const COOKING_FACTOR_MESSAGE = "Fator de cocção deve ser um número maior que zero"
 
-/** Quebra de linha e caractere de controle (inclusive os separadores de linha/parágrafo Unicode). */
-const NAME_CONTROL_RE = /[\p{Cc}\p{Zl}\p{Zp}]/u
+/**
+ * Quebra de linha, caractere de controle (inclusive os separadores de linha/parágrafo Unicode) e
+ * de formatação invisível (`\p{Cf}`: override bidi, largura zero) — com U+202E o cartão desenharia
+ * o nome invertido, e o que se confirma não seria o que se grava.
+ */
+const NAME_CONTROL_RE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u
 
 /**
  * Nome obrigatório (create) ou presente (update): texto com algo além de espaço, numa linha só e
@@ -216,10 +221,13 @@ const NAME_CONTROL_RE = /[\p{Cc}\p{Zl}\p{Zp}]/u
  * `CreateRecipeSchema` do domínio não tem teto de nome, então vale o do cartão.
  */
 function requireName(value: unknown, message: string): string {
-	if (typeof value !== "string" || !value.trim()) throw new ToolValidationError(message)
-	if (NAME_CONTROL_RE.test(value.trim())) throw new ToolValidationError("Nome não pode ter quebra de linha nem caractere de controle")
-	// Espaços repetidos viram um: o cartão de aprovação mostra o nome assim, e o gravado tem de ser o mostrado.
-	const name = value.trim().replace(/ {2,}/g, " ")
+	if (typeof value !== "string") throw new ToolValidationError(message)
+	const trimmed = value.trim()
+	if (!trimmed) throw new ToolValidationError(message)
+	if (NAME_CONTROL_RE.test(trimmed)) throw new ToolValidationError("Nome não pode ter quebra de linha nem caractere de controle")
+	// Espaço repetido (inclusive NBSP e os espaços Unicode) vira um: o cartão de aprovação mostra o
+	// nome assim (`formatText`), e o gravado tem de ser o mostrado.
+	const name = trimmed.replace(/\s+/gu, " ")
 	if (name.length > MAX_VALUE_CHARS) throw new ToolValidationError(`Nome deve ter no máximo ${MAX_VALUE_CHARS} caracteres`)
 	return name
 }

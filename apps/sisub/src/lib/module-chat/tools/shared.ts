@@ -8,6 +8,7 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { AssuranceRequiredError, hasPermission, PermissionDeniedError as PbacPermissionDeniedError } from "@iefa/pbac"
 import { DomainError, QueryFailedError, type UserContext } from "@iefa/sisub-domain"
 import { dropUnexpectedNulls, enforcePayloadBudget } from "@iefa/sisub-domain/agent"
+import { DateSchema } from "@iefa/sisub-domain/schemas"
 import { describeDriverError } from "@iefa/sisub-domain/utils"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { AnyServerTool } from "@tanstack/ai"
@@ -206,10 +207,8 @@ export function safeInt(value: unknown, name: string): number {
 
 /** Data de calendário que existe: formato YYYY-MM-DD e ida e volta pelo `Date` sem mudar o dia. */
 function isCalendarDate(value: unknown): value is string {
-	if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-	const date = new Date(`${value}T00:00:00Z`)
-	// `2026-02-30` vira 2 de março no `Date` em vez de falhar; só a volta igual prova que o dia existe.
-	return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+	// Mesma regra do domínio (`DateSchema`): formato e dia que existe no calendário.
+	return DateSchema.safeParse(value).success
 }
 
 /** `{ startDate: args.startDate }`: a chave é o nome do campo citado na recusa. */
@@ -316,7 +315,13 @@ export function toModelFacingToolError(toolName: string, error: unknown): Error 
 	}
 	// `Schema.parse` dentro do handler (as listagens) recusa com a mesma conversão do `parseArgs`:
 	// a `message` crua do `ZodError` é o JSON das issues, com as chaves que o modelo inventou.
-	if (error instanceof ZodError) return toArgsValidationError(error)
+	if (error instanceof ZodError) {
+		// Nem todo `ZodError` do handler vem do argumento (pode ser o parse de uma linha do banco):
+		// o modelo recebe a recusa legível, e o log guarda as issues para quem investigar.
+		// biome-ignore lint/suspicious/noConsole: server-side error logging
+		console.error(`[module-chat:${toolName}] ZodError`, JSON.stringify(error.issues.map(({ code, path }) => ({ code, path }))))
+		return toArgsValidationError(error)
+	}
 	// biome-ignore lint/suspicious/noConsole: server-side error logging
 	console.error(`[module-chat:${toolName}]`, describeDriverError(error))
 	return new Error(`Erro ao executar ${toolName}. Tente novamente.`)
@@ -358,12 +363,40 @@ function formatIssuePath(path: readonly PropertyKey[]): string | null {
  * "campo não reconhecido", sem o motivo. Segmento de caminho que não tem cara de identificador
  * idem. Caminho vazio é regra entre campos (`refine` no objeto).
  */
+/** Mensagem padrão do zod v4 (em inglês). A escrita no schema do domínio (`.positive("…")`, `refine`) fica como está. */
+const ZOD_DEFAULT_MESSAGE_RE = /^(Invalid|Too (big|small)|Unrecognized|Expected)\b/
+
+/**
+ * Motivo em português, que também aparece ao usuário no painel de erro da tool. A mensagem
+ * padrão do zod vira texto fixo por código (sem o valor recebido); a que o domínio escreveu no
+ * schema já é em português e diz a regra.
+ */
+function describeIssue(issue: ZodError["issues"][number]): string {
+	if (!ZOD_DEFAULT_MESSAGE_RE.test(issue.message)) return issue.message
+	switch (issue.code) {
+		case "invalid_type":
+			return `tipo inválido (esperado ${issue.expected})`
+		case "too_big":
+			return `acima do máximo (${String(issue.maximum)})`
+		case "too_small":
+			return `abaixo do mínimo (${String(issue.minimum)})`
+		case "invalid_format":
+			return "formato inválido"
+		case "invalid_value":
+			return "valor fora das opções permitidas"
+		case "not_multiple_of":
+			return "valor fora do passo permitido"
+		default:
+			return "valor inválido"
+	}
+}
+
 function toArgsValidationError(error: ZodError): ToolValidationError {
 	const lines = new Set<string>()
 	for (const issue of error.issues) {
 		const field = formatIssuePath(issue.path)
 		if (issue.code === "unrecognized_keys" || field === null) lines.add(UNRECOGNIZED_FIELD)
-		else lines.add(`${field || CROSS_FIELD_RULE}: ${issue.message}`)
+		else lines.add(`${field || CROSS_FIELD_RULE}: ${describeIssue(issue)}`)
 	}
 	return new ToolValidationError(`Argumentos inválidos: ${[...lines].join("; ")}`)
 }

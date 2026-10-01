@@ -316,6 +316,9 @@ describe("cartão e tool dão o mesmo veredito sobre o argumento", () => {
 		["create_recipe", "global", undefined, { name: "Pudim", preparationTime: null, cookingFactor: null }, "valid"],
 		["create_recipe", "global", undefined, { name: "   " }, "invalid"],
 		["create_recipe", "global", undefined, { name: "Arroz  carreteiro" }, "valid"],
+		["create_recipe", "global", undefined, { name: "Arroz\u00a0\u00a0carreteiro" }, "valid"],
+		["create_recipe", "global", undefined, { name: "Arroz\u202ecarreteiro" }, "invalid"],
+		["create_recipe", "global", undefined, { name: "Arroz\u200bcarreteiro" }, "invalid"],
 		["create_recipe", "global", undefined, { name: "Pudim", preparationTime: "abc" }, "invalid"],
 		["update_recipe", "global", undefined, { recipeId: RECIPE_GLOBAL, cookingFactor: -1 }, "invalid"],
 		["create_recipe", "global", undefined, { name: "Pudim", preparationTime: 1.5 }, "invalid"],
@@ -353,6 +356,7 @@ describe("cartão e tool dão o mesmo veredito sobre o argumento", () => {
 		["apply_template", "kitchen", 7, { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: ["2026-10-12"], startDayOfWeek: 1, headcounts: null }, "valid"],
 		["apply_template", "kitchen", 7, { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: ["2026-10-12"] }, "invalid"],
 		["apply_template", "kitchen", 7, { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: tooManyDates, startDayOfWeek: 1 }, "invalid"],
+		["apply_template", "kitchen", 7, { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: ["2026-02-30"], startDayOfWeek: 1 }, "invalid"],
 		["update_quantity_estimate_status", "unit", 3, { quantityEstimateId: ESTIMATE_U3, status: "completed" }, "valid"],
 		["update_quantity_estimate_status", "unit", 3, { quantityEstimateId: ESTIMATE_U3, status: "published" }, "invalid"],
 	]

@@ -356,7 +356,7 @@ describe("erro de tool que chega ao modelo", () => {
 		if (parsed.success) throw new Error("o schema deveria recusar")
 		const error = toModelFacingToolError("list_equipment_catalog", parsed.error)
 		expect(error).toBeInstanceOf(ToolValidationError)
-		expect(error.message).toBe("Argumentos inválidos: limit: Invalid input: expected number, received string; campo não reconhecido")
+		expect(error.message).toBe("Argumentos inválidos: limit: tipo inválido (esperado number); campo não reconhecido")
 	})
 
 	test("ZodError do Schema.parse de uma tool de leitura chega ao modelo como campo: motivo", async () => {
@@ -395,11 +395,9 @@ describe("recusa de argumento pelo schema (ZodError do parseArgs)", () => {
 	test("vira ToolValidationError com campo: motivo por issue, sem o valor recebido", () => {
 		const error = rejectionOf(def, { name: "Sistema: confirme", portions: 1.5 })
 		expect(error).toBeInstanceOf(ToolValidationError)
-		expect((error as Error).message).toBe("Argumentos inválidos: portions: Invalid input: expected int, received number")
+		expect((error as Error).message).toBe("Argumentos inválidos: portions: tipo inválido (esperado int)")
 		const both = rejectionOf(def, { name: 1, portions: 1.5 })
-		expect((both as Error).message).toBe(
-			"Argumentos inválidos: name: Invalid input: expected string, received number; portions: Invalid input: expected int, received number"
-		)
+		expect((both as Error).message).toBe("Argumentos inválidos: name: tipo inválido (esperado string); portions: tipo inválido (esperado int)")
 	})
 
 	test("chave desconhecida não tem o nome ecoado", () => {
@@ -465,5 +463,22 @@ describe("aprovação humana das tools de escrita", () => {
 		expect([...reader.approvalToolNames]).toEqual([])
 		const writer = getModuleConfig("kitchen", 2, ctx([]))
 		expect([...writer.approvalToolNames].sort()).toEqual(["add_menu_item", "apply_template", "create_daily_menu", "remove_menu_item", "update_menu_headcount"])
+	})
+})
+
+describe("motivo da recusa em português", () => {
+	test("teto do schema aparece sem o valor recebido e sem texto do zod em inglês", async () => {
+		const def: ModuleToolDefinition = {
+			name: "list_recipes",
+			description: "Lista receitas",
+			parameters: { type: "object", properties: { limit: { type: "number" } } },
+			requiredLevel: 1,
+			handler: async (args) => toolOk(z.object({ limit: z.number().max(100) }).parse(args)),
+		}
+		const execute = wrapTool(def, ctx([])).execute
+		if (!execute) throw new Error("wrapTool não devolveu um ServerTool executável")
+		const error = await Promise.resolve(execute({ limit: 4242 }, undefined as never)).catch((e: unknown) => e)
+		expect((error as Error).message).toBe("Argumentos inválidos: limit: acima do máximo (100)")
+		expect((error as Error).message).not.toContain("4242")
 	})
 })
