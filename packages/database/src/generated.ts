@@ -433,6 +433,8 @@ export type Database = {
         }
         Returns: Json
       }
+      effective_admin_level: { Args: { p_user: string }; Returns: number }
+      holds_top_admin_grant: { Args: { p_user: string }; Returns: boolean }
       lock_editable_policy: {
         Args: { p_policy_id: string }
         Returns: {
@@ -459,6 +461,10 @@ export type Database = {
       }
       policy_members_json: { Args: { p_policy_id: string }; Returns: Json }
       policy_statements_json: { Args: { p_policy_id: string }; Returns: Json }
+      policy_touches_top_admin: {
+        Args: { p_include_members: boolean; p_policy_id: string }
+        Returns: boolean
+      }
       record_access_change: {
         Args: {
           p_actor: string
@@ -476,6 +482,10 @@ export type Database = {
           p_statement_id: string
         }
         Returns: Json
+      }
+      require_top_admin: {
+        Args: { p_actor: string; p_required: boolean }
+        Returns: undefined
       }
       restore_policy: {
         Args: {
@@ -718,16 +728,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          kind: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          kind?: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          kind?: string
           user_id?: string
         }
         Relationships: []
@@ -1423,6 +1436,24 @@ export type Database = {
         }
         Relationships: []
       }
+      rada_session: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       structure_node: {
         Row: {
           body: string | null
@@ -1556,6 +1587,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      claim_usage: {
+        Args: { p_kind: string; p_max: number; p_user_id: string }
+        Returns: {
+          allowed: boolean
+          retry_at: string
+        }[]
+      }
       match_chunks_cosine: {
         Args: {
           document_types?: string[]
@@ -1595,6 +1633,7 @@ export type Database = {
           year: number
         }[]
       }
+      purge_empty_rada_sessions: { Args: { p_before: string }; Returns: number }
     }
     Enums: {
       [_ in never]: never
@@ -1774,6 +1813,19 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      grant_controller_access: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_email: string
+          p_role?: string
+        }
+        Returns: Json
+      }
+      revoke_controller_access: {
+        Args: { p_actor: string; p_assurance?: string; p_email: string }
+        Returns: Json
       }
     }
     Enums: {
