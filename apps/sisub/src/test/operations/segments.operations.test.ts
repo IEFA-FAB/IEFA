@@ -43,7 +43,7 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -51,7 +51,7 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()
@@ -118,7 +118,7 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 		})
 		expect(result.items.map((i) => i.ingredient_id)).toEqual([ingredients.boi])
 		expect(result.excluded).toEqual({ otherSegment: 1, unassigned: 1, conflict: 0 })
-	}, 60_000)
+	})
 
 	test("mesma pasta em duas contratações é conflito; contratação removida sai da resolução e não serve o anexo novo", async () => {
 		if (!reachable || !seeder || !db) return
@@ -153,7 +153,7 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 		seeder.track("quantity_estimate", draftId)
 		await expect(updateQuantityEstimateDraft(db, ctx, { draftId, segmentId: b.id })).rejects.toMatchObject({ code: "SEGMENT_NOT_FOUND" })
 		await updateQuantityEstimateDraft(db, ctx, { draftId, segmentId: a.id })
-	}, 60_000)
+	})
 
 	test("nome repetido na mesma OM é recusado", async () => {
 		if (!reachable || !seeder || !db) return
@@ -163,5 +163,5 @@ describeSupabaseIntegration("segmentação das contratações", () => {
 		const first = await createSegment(db, ctx, { unitId, name })
 		seeder.track("segment", first.id)
 		await expect(createSegment(db, ctx, { unitId, name: ` ${name.toUpperCase()} ` })).rejects.toMatchObject({ code: "SEGMENT_NAME_TAKEN" })
-	}, 30_000)
+	})
 })

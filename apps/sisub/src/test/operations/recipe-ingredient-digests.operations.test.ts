@@ -34,7 +34,7 @@ describeSupabaseIntegration("recipe ingredient digests (alergênicos)", () => {
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -42,7 +42,7 @@ describeSupabaseIntegration("recipe ingredient digests (alergênicos)", () => {
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()

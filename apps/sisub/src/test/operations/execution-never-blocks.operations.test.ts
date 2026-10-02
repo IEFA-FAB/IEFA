@@ -101,7 +101,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 			nutritionist = fullAccessCtx(nutri)
 		}
 		// sonda + dois `createUser` (20 s de teto cada no kit): 30 s não cobria o pior caso
-	}, 60_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -109,7 +109,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		// Os usuários saem mesmo que fechar a conexão falhe: são linhas de teste no banco
@@ -119,7 +119,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 		} finally {
 			await actors?.cleanup()
 		}
-	}, 60_000)
+	})
 
 	/** Cozinha + refeição. A limpeza das receitas da cozinha roda DEPOIS da dos cardápios (LIFO). */
 	async function setupKitchen() {
@@ -163,7 +163,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 		expect(after.addedItems.map((a) => a.menuItemId)).not.toContain(result.menuItemId)
 		// o turno não revisa: revisar é planejamento
 		await expect(reviewExecutionMenuItem(db, shiftCtx(kitchenId), { menuItemId: result.menuItemId })).rejects.toThrow()
-	}, 60_000)
+	})
 
 	test("outra data é planejamento, e quem só lê o cardápio não inclui", async () => {
 		if (!reachable || !seeder || !db) return
@@ -177,7 +177,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 		await expect(
 			addExecutionMenuItem(db, plannerReadCtx(kitchenId), { kitchenId, serviceDate: getBrasiliaToday(), mealTypeId, recipeId, reason: "[TEST] sem grant" })
 		).rejects.toThrow()
-	}, 60_000)
+	})
 
 	test("preparação que não existe nasce provisória, é reaproveitada pelo nome, não entra em cardápio-modelo e sai da pendência com a ficha salva", async () => {
 		if (!reachable || !seeder || !db) return
@@ -237,7 +237,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 		})
 		const done = await fetchExecutionReviewStatus(db, nutritionist, { kitchenId })
 		expect(done.provisionalRecipes.map((r) => r.id)).not.toContain(first.recipeId)
-	}, 60_000)
+	})
 
 	test("o turno registra o substituto: o que faltou e o que ENTROU, no formato do agendamento", async () => {
 		if (!reachable || !seeder || !db) return
@@ -261,7 +261,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 		const board = await fetchProductionBoard(db, shiftCtx(kitchenId), { kitchenId, date: getBrasiliaToday() })
 		const subs = board.find((i) => i.menuItem.id === added.menuItemId)?.menuItem.substitutions as Record<string, Record<string, unknown>>
 		expect(subs[ingredientId]).toMatchObject({ type: "production", substitute_description: "[TEST] polpa de acerola", rationale: "[TEST] laranja em falta" })
-	}, 60_000)
+	})
 
 	test("a tarefa do dia nasce sem o quadro aberto (a sugestão de saída depende dela)", async () => {
 		if (!reachable || !seeder || !db) return
@@ -282,7 +282,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 		await expect(ensureIssueDayProductionTasks(db, plannerReadCtx(kitchenId), { kitchenId, date })).rejects.toThrow()
 		expect((await ensureIssueDayProductionTasks(db, storageCtx, { kitchenId, date })).created).toBe(1)
 		expect((await ensureIssueDayProductionTasks(db, storageCtx, { kitchenId, date })).created).toBe(0)
-	}, 60_000)
+	})
 })
 
 // ── SQL: estoque e congelada provisória ────────────────────────────────────
@@ -412,7 +412,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 					if (!(e instanceof Rollback)) throw e
 				})
 		).resolves.toBeUndefined()
-	}, 60_000)
+	})
 
 	test("saída tardia: data real e motivo no movimento; recusa sem motivo, competência fechada e dupla baixa", async () => {
 		await expect(
@@ -509,7 +509,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 					if (!(e instanceof Rollback)) throw e
 				})
 		).resolves.toBeUndefined()
-	}, 60_000)
+	})
 
 	test("saída tardia: reenvio simultâneo da mesma emissão espera a primeira em vez de sacar de novo", async () => {
 		// Duas conexões. A primeira lança e segura a transação aberta; o reenvio (mesmo
@@ -542,7 +542,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 		} finally {
 			await other.end({ timeout: 5 })
 		}
-	}, 60_000)
+	})
 
 	test("contagem: tarefa já baixada pela produção não trava; sem baixa, aprova com ressalva registrada", async () => {
 		await expect(
@@ -638,7 +638,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 					if (!(e instanceof Rollback)) throw e
 				})
 		).resolves.toBeUndefined()
-	}, 60_000)
+	})
 
 	test("sobra sem congelada cadastrada: provisória da cozinha, reaproveitada pelo nome; provisória não entra em cardápio-modelo", async () => {
 		await expect(
@@ -689,5 +689,5 @@ describeIf("execução do dia no estoque (DB)", () => {
 					if (!(e instanceof Rollback)) throw e
 				})
 		).resolves.toBeUndefined()
-	}, 60_000)
+	})
 })

@@ -135,5 +135,5 @@ describeIf("inventory opening balance (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 })

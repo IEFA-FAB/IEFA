@@ -385,5 +385,5 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 })

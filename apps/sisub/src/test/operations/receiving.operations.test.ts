@@ -109,7 +109,7 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 30_000)
+	})
 
 	test("recebido a MENOR que o faturado sai efetivado JÁ com a pendência fiscal — na mesma transação", async () => {
 		// Antes de 20260918210000 a pendência era gravada pelo servidor DEPOIS da
@@ -160,7 +160,7 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 30_000)
+	})
 
 	test("conferência por leitura: total e lotes saem dos eventos (20260920240000)", async () => {
 		await expect(
@@ -254,7 +254,7 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 30_000)
+	})
 
 	test("conferência atômica: lote da nota preservado, arredondamento, aceitação em massa e motivo sob a trava (20260920250000)", async () => {
 		await expect(
@@ -411,7 +411,7 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 30_000)
+	})
 
 	test("conservação: o lote entra na classe em que CHEGOU; descongelado vira resfriado; transferido leva a classe (EST-REC-04, EST-ARM-01)", async () => {
 		// A especificação SUGERE congelado. Com o freezer quebrado, chegou resfriado a vácuo:
@@ -470,5 +470,5 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 30_000)
+	})
 })

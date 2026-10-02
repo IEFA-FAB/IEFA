@@ -159,7 +159,7 @@ describeSupabaseIntegration("matriz de efetivo por refeitório (DB)", () => {
 				expect(cleared.answered).toBe(false)
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("o roster recusa code repetido e a resposta exige refeitório existente", async () => {
 		if (!db) throw new Error("db ausente")
@@ -189,7 +189,7 @@ describeSupabaseIntegration("matriz de efetivo por refeitório (DB)", () => {
 				).toMatch(/workforce_submission_mess_hall_workforce_id_fkey/)
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("o passo do reset do treino apaga as respostas da unidade pelos nomes novos", async () => {
 		if (!db) throw new Error("db ausente")
@@ -211,5 +211,5 @@ describeSupabaseIntegration("matriz de efetivo por refeitório (DB)", () => {
 				expect(deleted).toHaveLength(2)
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 })

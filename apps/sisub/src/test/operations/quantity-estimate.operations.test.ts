@@ -55,7 +55,7 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -63,7 +63,7 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()
@@ -489,7 +489,7 @@ describeSupabaseIntegration("anexo operations (regressão)", () => {
 		const archivedAlface = archived?.meta.snapshot?.components.find((c) => c.ingredient_name === "Alface")
 		expect(Number(archivedAlface?.max_quantity)).toBe(624)
 		// ~15 idas ao banco (concluir, arquivar, reler): no runner do CI passa dos 15 s padrão.
-	}, 60_000)
+	})
 
 	test("anexo: item de outro anexo não é atualizado pelo ajuste de limites", async () => {
 		if (!reachable || !seeder || !db) return

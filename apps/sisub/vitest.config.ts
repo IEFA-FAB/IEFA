@@ -1,7 +1,7 @@
 import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
 import { loadEnv } from "vite"
-import { defineConfig } from "vitest/config"
+import { configDefaults, defineConfig } from "vitest/config"
 
 // @supabase/phoenix is a transitive dep (supabase-js → realtime-js → phoenix)
 // and is not directly resolvable from apps/sisub. Walk the dep chain to find it
@@ -55,6 +55,16 @@ function testEnv(): Record<string, string> {
 	return Object.fromEntries(RUN_FLAGS.filter((k) => k in all).map((k) => [k, all[k]]))
 }
 
+/**
+ * Testes que falam com backend real (banco compartilhado, Bedrock). Rodam num projeto próprio,
+ * com timeout de 60 s: contra o banco, com a fila global da integração cheia, teste de
+ * operation comum leva 10–20 s, e o `full` da `main` caía por timeout de 15 s sem regressão
+ * nenhuma (2026-10-02). O resto é unitário e fica nos 15 s, que pegam o `await` esquecido. O
+ * corte é por diretório, não pela flag: teste unitário não ganha 60 s só porque a integração
+ * está ligada. Teste de backend que precise de mais que 60 s declara o próprio.
+ */
+const BACKEND_TESTS = ["src/test/operations/**/*.test.ts", "src/test/ai/**/*.test.ts"]
+
 export default defineConfig({
 	resolve: {
 		alias: {
@@ -65,10 +75,23 @@ export default defineConfig({
 	test: {
 		environment: "node",
 		globals: false,
-		include: ["src/**/*.test.ts"],
-		hookTimeout: 15_000,
-		testTimeout: 15_000,
 		env: testEnv(),
 		setupFiles: ["./src/test/suppress-phoenix-cleanup-errors.ts"],
+		projects: [
+			{
+				extends: true,
+				test: {
+					name: "unit",
+					include: ["src/**/*.test.ts"],
+					exclude: [...configDefaults.exclude, ...BACKEND_TESTS],
+					testTimeout: 15_000,
+					hookTimeout: 15_000,
+				},
+			},
+			{
+				extends: true,
+				test: { name: "backend", include: BACKEND_TESTS, testTimeout: 60_000, hookTimeout: 60_000 },
+			},
+		],
 	},
 })

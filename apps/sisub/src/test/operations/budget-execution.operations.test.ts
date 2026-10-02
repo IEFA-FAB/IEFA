@@ -187,7 +187,7 @@ describeIf("budget execution chain (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	/**
 	 * Execução financeira conforme (20260926216000): NC, RP em duas parcelas, retenções com a
@@ -342,5 +342,5 @@ describeIf("budget execution chain (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 })

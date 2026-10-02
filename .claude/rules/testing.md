@@ -22,8 +22,10 @@ Referência completa: `TESTING.md` na raiz.
   sentinel de rollback. Não propor Postgres efêmero como substituto. Sem
   `SISUB_RUN_INTEGRATION`/`SISUB_DATABASE_URL` os testes ficam em skip, o que é esperado. Desconfie de
   run de integração rápido demais: "N skipped" parece verde.
-- Teste de integração pesado declara o próprio timeout (`test("…", fn, 60_000)`); o global de 15 s é
-  calibrado para unit.
+- No sisub, o `vitest.config.ts` tem dois projetos: `backend` (`src/test/operations`, `src/test/ai`)
+  com timeout padrão de 60 s, e `unit` (o resto) com 15 s. Contra o banco real, com a fila cheia,
+  teste comum passa de 15 s. Teste de backend só declara timeout próprio acima de 60 s
+  (`test("…", fn, 120_000)`): um `30_000` explícito ficaria MENOR que o padrão.
 - Tempo retroativo em integração usa fração do dia civil de Brasília, nunca `now() - interval '5
   hours'` nem `current_date - 1`: quebram entre 00h e 05h de Brasília.
 - `mock.module` do bun:test vale para o processo inteiro. Mock declara todos os exports do módulo real;

@@ -81,5 +81,5 @@ describeIf("monthly closing MCASP (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 30_000)
+	})
 })

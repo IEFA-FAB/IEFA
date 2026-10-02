@@ -140,7 +140,7 @@ describeIf("stock issue request (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("retry depois do fechamento, retry de outro pedido, retrato com a sugestão, cascade e avulsas (20260918220000)", async () => {
 		await expect(
@@ -268,7 +268,7 @@ describeIf("stock issue request (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("a tarefa de produção citada na saída é da cozinha da requisição (20261001110000)", async () => {
 		await expect(
@@ -342,5 +342,5 @@ describeIf("stock issue request (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 })

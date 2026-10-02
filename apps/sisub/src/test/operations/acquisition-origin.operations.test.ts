@@ -136,7 +136,7 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 				expect(quickItem.arp_item_id).toBeNull()
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("anulação não desce abaixo do que as OFs já pediram ao fornecedor", async () => {
 		await expect(
@@ -166,7 +166,7 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 				expect(Number(vigente.valor_vigente)).toBe(0)
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("anexo apagado não leva ARP nem empenho; item de ARP com empenho não se apaga", async () => {
 		await expect(
@@ -202,7 +202,7 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 				expect(left.n).toBe(0)
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("NE só com o cabeçalho (import do SIAFI, registro rápido) ganha no commit o item do valor", async () => {
 		await expect(
@@ -252,7 +252,7 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 				expect(Number(byEmpenho.get(withItems.id)?.total)).toBe(70)
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("dispensa só com o tipo; limites do art. 75 semeados; contratação de outra unidade é recusada", async () => {
 		await expect(
@@ -276,7 +276,7 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 				await expect(tx.savepoint((sp) => sp`update finance.empenho set acquisition_id = ${acq.id} where id = ${ne.id}`)).rejects.toThrow(/outra unidade/)
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 })
 
 describeIf("import do SIAFI sem perda (DB)", () => {
@@ -334,7 +334,7 @@ describeIf("import do SIAFI sem perda (DB)", () => {
 				await expect(tx.savepoint((sp) => sp`select siafi_integration.apply_document_batch(${ne}::uuid)`)).rejects.toThrow(/já aplicado/)
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("NE registrada à mão é completada pelo número sem trocar o valor; erro de gravação não grava nada e o lote se reaplica", async () => {
 		await expect(
@@ -380,5 +380,5 @@ describeIf("import do SIAFI sem perda (DB)", () => {
 				expect(status.error_message).toBeNull()
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 })

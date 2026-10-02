@@ -54,7 +54,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -62,7 +62,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()
@@ -123,7 +123,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		expect((await day(kitchenId, date)).map((i) => i.recipe_origin_id)).toEqual([rotina])
 		const trash = await getTrashItems(db, ctx, { kitchenId })
 		expect(trash.length).toBeGreaterThanOrEqual(2)
-	}, 30_000)
+	})
 
 	test("viagem adiada: o apoio muda de data com o que foi ajustado no dia, e a tarefa pendente vai junto", async () => {
 		if (!reachable || !seeder || !db) return
@@ -149,7 +149,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		// Adiar de novo para uma data que já tem o mesmo apoio é conflito, não soma.
 		await applyEventTemplate(db, ctx, { templateId: viagemId, kitchenId, dates: [from] })
 		await expect(moveOriginToDate(db, ctx, { kitchenId, date: from, toDate: to, originTemplateId: viagemId })).rejects.toThrow(/já está na data/)
-	}, 30_000)
+	})
 
 	test("viagem de hoje adiada depois que a produção começou: recusa, sem mover nada", async () => {
 		if (!reachable || !seeder || !db) return
@@ -163,7 +163,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		await expect(moveOriginToDate(db, ctx, { kitchenId, date: today, toDate: "2099-07-21", originTemplateId: viagemId })).rejects.toThrow(/em produção/)
 		await expect(removeOriginFromDay(db, ctx, { kitchenId, date: today, originTemplateId: viagemId })).rejects.toThrow(/em produção/)
 		expect(await day(kitchenId, today)).toHaveLength(2)
-	}, 30_000)
+	})
 
 	test("viagem que surgiu hoje: o apoio entra somando ao dia, sem apagar a rotina, e não duplica ao repetir", async () => {
 		if (!reachable || !seeder || !db) return
@@ -177,7 +177,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		const again = await applyEventTemplate(db, ctx, { templateId: viagemId, kitchenId, dates: [today] })
 		expect(again.itemsAlreadyApplied).toBe(2)
 		expect(await day(kitchenId, today)).toHaveLength(3)
-	}, 30_000)
+	})
 
 	test("faltou um alimento: a preparação troca mantendo porções, grupo e origem, e o motivo fica no item", async () => {
 		if (!reachable || !seeder || !db) return
@@ -199,7 +199,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		const again = await applyEventTemplate(db, ctx, { templateId: viagemId, kitchenId, dates: [date] })
 		expect(again.itemsCreated).toBe(0)
 		expect((await day(kitchenId, date)).map((i) => i.recipe_origin_id)).not.toContain(lanche)
-	}, 30_000)
+	})
 
 	test("adiar para uma data que já passou é recusado (ano digitado errado)", async () => {
 		if (!reachable || !seeder || !db) return
@@ -208,7 +208,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		await applyEventTemplate(db, ctx, { templateId: viagemId, kitchenId, dates: [date] })
 		await expect(moveOriginToDate(db, ctx, { kitchenId, date, toDate: "2020-01-02", originTemplateId: viagemId })).rejects.toThrow(/já passou/)
 		expect(await day(kitchenId, date)).toHaveLength(2)
-	}, 30_000)
+	})
 
 	test("faltou um insumo: o substituto fica registrado dentro da preparação, com o nome que o turno lê", async () => {
 		if (!reachable || !seeder || !db) return
@@ -231,7 +231,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		const [after] = (await day(kitchenId, date)).filter((i) => i.id === item.id)
 		expect(after?.substitutions?.[missing]?.substitute_description).toBe("Polpa de acerola")
 		expect(after?.substitutions?.[other]?.substitute_description).toBe("Adoçante")
-	}, 30_000)
+	})
 
 	test("faltou luz ou água: o dia inteiro vira o cardápio de contingência, numa transação só", async () => {
 		if (!reachable || !seeder || !db) return
@@ -245,7 +245,7 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		const result = await replaceDayWithTemplate(db, ctx, { kitchenId, date, templateId: contingenciaId })
 		expect(result.removed).toBe(3)
 		expect((await day(kitchenId, date)).map((i) => i.recipe_origin_id)).toEqual([fria])
-	}, 30_000)
+	})
 
 	test("evento que surgiu e depois teve o cardápio trocado por falta de luz antes do evento", async () => {
 		if (!reachable || !seeder || !db) return
@@ -269,5 +269,5 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		await removeOriginFromDay(db, ctx, { kitchenId, date, originTemplateId: evento.id })
 		await applyEventTemplate(db, ctx, { templateId: contingenciaId, kitchenId, dates: [date] })
 		expect((await day(kitchenId, date)).map((i) => i.recipe_origin_id)).toEqual([fria])
-	}, 30_000)
+	})
 })

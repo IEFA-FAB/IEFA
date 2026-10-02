@@ -131,5 +131,5 @@ describeIf("inventory expiry panel (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 })

@@ -48,7 +48,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -56,7 +56,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()
@@ -254,7 +254,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		const copy = await getTemplate(db, ctx, { templateId: fork.id })
 		expect(copy.event_meals.map((m) => [m.name, m.base_headcount])).toEqual([["Kit", null]])
 		expect(copy.items.map((i) => [i.headcount_override, Number(i.recommended_proportion), i.event_meal_id])).toEqual([[null, 200, copy.event_meals[0]?.id]])
-	}, 30_000)
+	})
 
 	test("forkTemplate entre cozinhas leva pax, kits e ocorrências", async () => {
 		if (!reachable || !seeder || !db) return
@@ -276,7 +276,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		const copy = await getTemplate(db, ctx, { templateId: fork.id })
 		expect(copy.event_meals.map((m) => m.base_headcount)).toEqual([100])
 		expect(copy.items.map((i) => i.headcount_override)).toEqual([45])
-	}, 30_000)
+	})
 
 	test("forkTemplate de evento escolhendo as refeições leva só elas e os itens delas", async () => {
 		if (!reachable || !seeder || !db) return
@@ -304,7 +304,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		const copy = await getTemplate(db, ctx, { templateId: fork.id })
 		expect(copy.event_meals.map((m) => [m.name, m.groups])).toEqual([["Coquetel", groups]])
 		expect(copy.items.map((i) => Number(i.recommended_proportion))).toEqual([80])
-	}, 30_000)
+	})
 
 	test("saveTemplateEdit forka template global editado no contexto de uma cozinha", async () => {
 		if (!reachable || !seeder || !db) return
@@ -465,7 +465,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		await updateHeadcount(db, ctx, { dailyMenuId: withoutHeadcount?.id as string, forecastedHeadcount: 600 })
 		const [completed] = (await fetchDayDetails(db, ctx, { kitchenId, date: pending })) as unknown as Day[]
 		expect(portionsOf(completed)).toEqual([180, 600])
-	}, 45_000)
+	})
 
 	test("grupo + ordem + proporção fazem round-trip em createTemplate/getTemplateItems", async () => {
 		if (!reachable || !seeder || !db) return
@@ -848,7 +848,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		const original = await getTemplate(db, ctx, { templateId: global.id })
 		expect(original.event_meals.map((m) => [m.id, m.name])).toEqual([[coquetelId, "Coquetel"]])
 		// Duas gravações de fork + cinco leituras contra o banco remoto: o teto padrão de 15s não cabe.
-	}, 45_000)
+	})
 
 	test("forkTemplate de evento dá ids novos às refeições e reaponta os itens", async () => {
 		if (!reachable || !seeder || !db) return
@@ -869,7 +869,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(forked.event_meals).toHaveLength(1)
 		expect(forked.event_meals[0]?.id).not.toBe(coquetelId)
 		expect(forked.items[0]?.event_meal_id).toBe(forked.event_meals[0]?.id)
-	}, 30_000)
+	})
 
 	test("evento global na cozinha: refeição omitida sai com os itens; com cópia existente, metade do conteúdo é recusada", async () => {
 		if (!reachable || !seeder || !db) return
@@ -903,7 +903,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		await expect(saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "kitchen", kitchenId }, eventMeals: [coquetel] })).rejects.toThrow(
 			/eventMeals e items juntos/
 		)
-	}, 30_000)
+	})
 
 	test("evento: a porcentagem da preparação incide sobre o efetivo da refeição, no custeio e no calendário", async () => {
 		if (!reachable || !seeder || !db) return
@@ -940,7 +940,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		const planned = new Map(details.flatMap((d) => d.menu_items).map((i) => [i.recipe_origin_id, Number(i.planned_portion_quantity)]))
 		expect(planned.get(recipeId)).toBe(180)
 		expect(planned.get(otherRecipe)).toBe(40)
-	}, 30_000)
+	})
 
 	test("evento: duas refeições no mesmo horário somam a demanda de cada uma, pelo efetivo de cada uma", async () => {
 		if (!reachable || !seeder || !db) return
@@ -973,7 +973,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		}[]
 		const items = details.flatMap((d) => d.menu_items).filter((i) => i.recipe_origin_id === recipeId)
 		expect(items.map((i) => Number(i.planned_portion_quantity))).toEqual([500])
-	}, 30_000)
+	})
 
 	test("evento: reenviar a refeição sem baseHeadcount preserva o efetivo; null limpa", async () => {
 		if (!reachable || !seeder || !db) return
@@ -1001,7 +1001,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 			eventMeals: [{ id: coquetelId, name: "Coquetel de gala", mealTypeId, groups: EVENT_GROUPS, baseHeadcount: null }],
 		})
 		expect((await getTemplate(db, ctx, { templateId: tpl.id })).event_meals[0]?.base_headcount).toBeNull()
-	}, 30_000)
+	})
 
 	test("apoio aplicado com kits: porções por kit × kits, arredondando para cima", async () => {
 		if (!reachable || !seeder || !db) return
@@ -1035,7 +1035,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(await sizeOriginOnDay(db, ctx, { kitchenId, date: pending, originTemplateId: tpl.id, headcount: 3 })).toEqual({ sized: 2 })
 		const [after] = (await fetchDayDetails(db, ctx, { kitchenId, date: pending })) as unknown as Day[]
 		expect((after?.menu_items ?? []).map((m) => Number(m.planned_portion_quantity)).sort((a, b) => a - b)).toEqual([2, 6])
-	}, 45_000)
+	})
 
 	test("banco recusa quantidade absoluta em modelo global, mesmo por fora do domínio", async () => {
 		if (!reachable || !seeder) return
@@ -1048,5 +1048,5 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		await expect(seeder.seedTemplate({ kitchenId: null, templateType: "apoio", expectedMonthlyOccurrences: 4 })).rejects.toThrow(
 			/menu_template_global_without_occurrences/
 		)
-	}, 30_000)
+	})
 })

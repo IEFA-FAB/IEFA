@@ -46,7 +46,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -54,7 +54,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()
@@ -172,7 +172,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		const closed = await closeSnackRequest(db, ctx, { requestId: created.id })
 		expect(closed.status).toBe("closed")
 		expect(closed.events.map((e) => e.to_status)).toEqual(["submitted", "accepted", "in_production", "ready", "delivered", "delivered", "closed"])
-	}, 60_000)
+	})
 
 	test("cancelar depois do aceite tira os itens do quadro", async () => {
 		if (!reachable || !seeder || !db) return
@@ -190,7 +190,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 			id: string
 		}[]
 		await expect(restoreMenuItem(db, ctx, { menuItemId: item?.id as string })).rejects.toMatchObject({ code: "SNACK_ITEM_NOT_RESTORABLE" })
-	}, 60_000)
+	})
 
 	test("aplicar cardápio semanal com Substituir não apaga a produção de lanche aceita", async () => {
 		if (!reachable || !seeder || !db) return
@@ -207,7 +207,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 
 		const board = await fetchProductionBoard(db, ctx, { kitchenId, date })
 		expect(board.filter((i) => i.menuItem.snack_request?.id === created.id)).toHaveLength(1)
-	}, 60_000)
+	})
 
 	test("aceite e recusa simultâneos: exatamente uma transição vence", async () => {
 		if (!reachable || !seeder || !db) return
@@ -221,7 +221,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1)
 		const detail = await getKitchenSnackRequest(db, ctx, { requestId: created.id })
 		expect(detail.events.filter((e) => e.from_status === "submitted")).toHaveLength(1)
-	}, 60_000)
+	})
 
 	test("histórico do pedido é apenas-inserção", async () => {
 		if (!reachable || !seeder || !db) return
@@ -229,7 +229,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		const created = await createSnackRequest(db, ctx, requestInput(kitchenId, templateId))
 		await expect(db.execute(sql`update kitchen.snack_request_event set note = 'x' where request_id = ${created.id}`)).rejects.toThrow()
 		await expect(db.execute(sql`delete from kitchen.snack_request_event where request_id = ${created.id}`)).rejects.toThrow()
-	}, 60_000)
+	})
 
 	test('guardas novas: padrão vazio não fica pedível, amostra não é do futuro, material "outro" exige descrição', async () => {
 		if (!reachable || !seeder || !db) return
@@ -273,7 +273,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 			registerSnackPickup(db, ctx, { requestId: created.id, pickedUpByName: "[TEST] Cb Souza", materials: [{ item: "outro", quantity: 1 }] })
 		).rejects.toMatchObject({ code: "SNACK_MATERIAL_DESCRIPTION_REQUIRED" })
 		expect((await getKitchenSnackRequest(db, ctx, { requestId: created.id })).status).toBe("ready")
-	}, 60_000)
+	})
 
 	test("padrão de lanche não se aplica ao calendário — a produção vem do pedido", async () => {
 		if (!reachable || !seeder || !db) return
@@ -281,7 +281,7 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		await expect(applyEventTemplate(db, ctx, { templateId, kitchenId, dates: [futureDate(10)] })).rejects.toMatchObject({
 			code: "SNACK_STANDARD_APPLY_BY_REQUEST",
 		})
-	}, 60_000)
+	})
 
 	test("tipo de refeição de sistema não aparece no seletor de cardápio", async () => {
 		if (!reachable || !seeder || !db) return
@@ -289,5 +289,5 @@ describeSupabaseIntegration("snack-requests operations", () => {
 		const types = await fetchMealTypes(db, ctx, { kitchenId })
 		expect(types.some((t) => t.system_key != null)).toBe(false)
 		expect(types.length).toBeGreaterThan(0)
-	}, 60_000)
+	})
 })
