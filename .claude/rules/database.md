@@ -78,7 +78,8 @@ acesso vale até ser desfeito. Referência: cabeçalhos de
   usuário de teste autoriza o e-mail antes (`authorizeSignup` do `access-fixture-writer`).
   Trocar o e-mail depois também: o trigger `enforce_institutional_email` em `auth.users`
   (`20261001140200`) recusa `email`/`email_change` novo fora de `@fab.mil.br` sem autorização ativa
-  e não toca UPDATE que não muda o endereço (login, refresh, recovery). O `postgres` cria trigger em
+  e não toca UPDATE que não muda o endereço (login, refresh, recovery). `@example.invalid` é
+  recusado mesmo autorizado: conta existente não migra para o domínio que o faxineiro apaga. O `postgres` cria trigger em
   `auth.users`, mas não o remove (o dono é `supabase_auth_admin`): para desligar, `create or
   replace` da função com `return new`.
   Função SQL nova que escreve nessas tabelas abre o contexto antes da primeira escrita
@@ -88,8 +89,9 @@ acesso vale até ser desfeito. Referência: cabeçalhos de
   INSERT. UPDATE/DELETE/TRUNCATE estão revogados de todo mundo menos o dono e recusados por trigger
   (`42501 AUDIT_LOG_APPEND_ONLY`), inclusive para o dono e com contexto de função auditada. Registro
   errado se corrige com linha nova. Única exceção: DELETE com `iefa.audit_bypass` de linha cujos
-  usuários são todos `@example.invalid` (o faxineiro de fixtures). Teste grava log só dentro de
-  transação desfeita.
+  usuários (colunas e todo uuid de usuário no `target`) são todos `@example.invalid` (o faxineiro
+  de fixtures). Teste grava log só dentro de transação desfeita. O `service_role` só tem INSERT e
+  SELECT; TRIGGER também saiu (um `before insert … return null` calaria o log).
 - Migration com seed/backfill nessas tabelas abre o bypass na própria transação:
   `select set_config('iefa.audit_bypass', '<motivo>', true);`. Sem ele, a migration falha. No código
   TS o bypass só é permitido nos arquivos da allowlist de `.opengrep/rules/access-audit.yaml`.

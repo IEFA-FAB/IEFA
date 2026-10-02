@@ -808,45 +808,79 @@ const TRIGGER_BEFORE = 2
 const TRIGGER_DELETE = 8
 const TRIGGER_UPDATE = 16
 const TRIGGER_TRUNCATE = 32
+const ROW_UPDATE_DELETE = TRIGGER_ROW | TRIGGER_BEFORE | TRIGGER_UPDATE | TRIGGER_DELETE
+const BEFORE_TRUNCATE = TRIGGER_BEFORE | TRIGGER_TRUNCATE
 
 /**
  * As garantias de 20261001140000…140200 que vivem em trigger — e trigger some sem barulho
  * (`drop trigger`, `disable trigger`, tabela recriada). O gate cobra que continuem lá:
  *
- *   audit_log_mutable          log de auditoria com UPDATE/DELETE/TRUNCATE para quem não é o
- *                              dono, ou sem os triggers que recusam (por linha e por TRUNCATE);
+ *   audit_log_mutable          log de auditoria com UPDATE/DELETE/TRUNCATE/TRIGGER/REFERENCES para
+ *                              quem não é o dono, ou sem os triggers que recusam (linha e TRUNCATE).
+ *                              TRIGGER conta: um `before insert … return null` calaria o log sem
+ *                              apagar nada;
  *   access_truncate_unguarded  tabela vigiada (tem o trigger `enforce_audited_access_change`) sem
  *                              o trigger BEFORE TRUNCATE — tabela vigiada nova traz os dois;
  *   auth_email_change_unguarded auth.users sem o trigger que recusa trocar o e-mail para fora de
  *                              @fab.mil.br sem autorização.
  *
- * Trigger desligado (`tgenabled = 'D'`) conta como ausente.
+ * Só conta trigger que dispara em sessão normal (`tgenabled` `O` ou `A`; `D` é desligado e `R`
+ * só dispara em réplica) e que chama a função do schema `access_control`, não um homônimo.
  */
 async function auditAccessTriggers(): Promise<Finding[]> {
-	const findings: Finding[] = []
+	const [logs, unguarded, [auth]] = await Promise.all([
+		sql<{ table: string; mutable_by: string[]; row_guard: boolean; truncate_guard: boolean }[]>`
+			select
+				c.oid::regclass::text as table,
+				array(
+					select r || ':' || priv
+					from unnest(array['service_role', 'authenticated', 'anon']) r,
+						unnest(array['UPDATE', 'DELETE', 'TRUNCATE', 'TRIGGER', 'REFERENCES']) priv
+					where has_table_privilege(r, c.oid, priv)
+					order by 1
+				) as mutable_by,
+				exists (
+					select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+					where t.tgrelid = c.oid and t.tgenabled in ('O', 'A')
+						and p.proname = 'refuse_audit_log_change' and p.pronamespace = 'access_control'::regnamespace
+						and t.tgtype & ${ROW_UPDATE_DELETE} = ${ROW_UPDATE_DELETE}
+				) as row_guard,
+				exists (
+					select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+					where t.tgrelid = c.oid and t.tgenabled in ('O', 'A')
+						and p.proname = 'refuse_audit_log_change' and p.pronamespace = 'access_control'::regnamespace
+						and t.tgtype & ${BEFORE_TRUNCATE} = ${BEFORE_TRUNCATE}
+				) as truncate_guard
+			from pg_class c
+			where c.oid::regclass::text = any(${[...AUDIT_LOG_TABLES]})
+		`,
+		sql<{ table: string }[]>`
+			select distinct c.oid::regclass::text as table
+			from pg_trigger t
+			join pg_proc p on p.oid = t.tgfoid
+			join pg_class c on c.oid = t.tgrelid
+			where p.proname = 'enforce_audited_access_change'
+				and p.pronamespace = 'access_control'::regnamespace
+				and not exists (
+					select 1 from pg_trigger g join pg_proc gp on gp.oid = g.tgfoid
+					where g.tgrelid = c.oid and g.tgenabled in ('O', 'A')
+						and gp.proname = 'refuse_unaudited_truncate' and gp.pronamespace = 'access_control'::regnamespace
+						and g.tgtype & ${BEFORE_TRUNCATE} = ${BEFORE_TRUNCATE}
+				)
+			order by 1
+		`,
+		sql<{ has_users: boolean; guarded: boolean }[]>`
+			select
+				to_regclass('auth.users') is not null as has_users,
+				exists (
+					select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+					where t.tgrelid = to_regclass('auth.users') and t.tgenabled in ('O', 'A')
+						and p.proname = 'enforce_institutional_email_change' and p.pronamespace = 'access_control'::regnamespace
+				) as guarded
+		`,
+	])
 
-	const logs = await sql<{ table: string; mutable_by: string[]; row_guard: boolean; truncate_guard: boolean }[]>`
-		select
-			c.oid::regclass::text as table,
-			array(
-				select r || ':' || priv
-				from unnest(array['service_role', 'authenticated', 'anon']) r, unnest(array['UPDATE', 'DELETE', 'TRUNCATE']) priv
-				where has_table_privilege(r, c.oid, priv)
-				order by 1
-			) as mutable_by,
-			exists (
-				select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
-				where t.tgrelid = c.oid and t.tgenabled <> 'D' and p.proname = 'refuse_audit_log_change'
-					and t.tgtype & ${TRIGGER_ROW | TRIGGER_BEFORE | TRIGGER_UPDATE | TRIGGER_DELETE} = ${TRIGGER_ROW | TRIGGER_BEFORE | TRIGGER_UPDATE | TRIGGER_DELETE}
-			) as row_guard,
-			exists (
-				select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
-				where t.tgrelid = c.oid and t.tgenabled <> 'D' and p.proname = 'refuse_audit_log_change'
-					and t.tgtype & ${TRIGGER_BEFORE | TRIGGER_TRUNCATE} = ${TRIGGER_BEFORE | TRIGGER_TRUNCATE}
-			) as truncate_guard
-		from pg_class c
-		where c.oid::regclass::text = any(${[...AUDIT_LOG_TABLES]})
-	`
+	const findings: Finding[] = []
 	for (const name of AUDIT_LOG_TABLES) {
 		const r = logs.find((l) => l.table === name)
 		if (!r) continue // tabela inexistente não é deste gate
@@ -855,7 +889,7 @@ async function auditAccessTriggers(): Promise<Finding[]> {
 				severity: "error",
 				lint: "audit_log_mutable",
 				object: name,
-				detail: `log de auditoria reescrevível por [${r.mutable_by.join(", ")}] — \`revoke update, delete, truncate on table ${name} from public, anon, authenticated, service_role\` (20261001140000)`,
+				detail: `log de auditoria alterável por [${r.mutable_by.join(", ")}] — \`revoke all on table ${name} from public, anon, authenticated, service_role\` e \`grant select, insert … to service_role\` (20261001140000)`,
 			})
 		}
 		if (!r.row_guard || !r.truncate_guard) {
@@ -867,21 +901,6 @@ async function auditAccessTriggers(): Promise<Finding[]> {
 			})
 		}
 	}
-
-	const unguarded = await sql<{ table: string }[]>`
-		select distinct c.oid::regclass::text as table
-		from pg_trigger t
-		join pg_proc p on p.oid = t.tgfoid
-		join pg_class c on c.oid = t.tgrelid
-		where p.proname = 'enforce_audited_access_change'
-			and p.pronamespace = 'access_control'::regnamespace
-			and not exists (
-				select 1 from pg_trigger g join pg_proc gp on gp.oid = g.tgfoid
-				where g.tgrelid = c.oid and g.tgenabled <> 'D' and gp.proname = 'refuse_unaudited_truncate'
-					and g.tgtype & ${TRIGGER_BEFORE | TRIGGER_TRUNCATE} = ${TRIGGER_BEFORE | TRIGGER_TRUNCATE}
-			)
-		order by 1
-	`
 	for (const r of unguarded) {
 		findings.push({
 			severity: "error",
@@ -891,16 +910,6 @@ async function auditAccessTriggers(): Promise<Finding[]> {
 				"tabela vigiada sem trigger BEFORE TRUNCATE: TRUNCATE não dispara o trigger de linha e esvazia o acesso sem log — `create trigger enforce_audited_truncate before truncate on … for each statement execute function access_control.refuse_unaudited_truncate()` (20261001140100)",
 		})
 	}
-
-	const [auth] = await sql<{ has_users: boolean; guarded: boolean }[]>`
-		select
-			to_regclass('auth.users') is not null as has_users,
-			exists (
-				select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
-				where t.tgrelid = to_regclass('auth.users') and t.tgenabled <> 'D'
-					and p.proname = 'enforce_institutional_email_change' and p.pronamespace = 'access_control'::regnamespace
-			) as guarded
-	`
 	if (auth?.has_users && !auth.guarded) {
 		findings.push({
 			severity: "error",
@@ -910,35 +919,41 @@ async function auditAccessTriggers(): Promise<Finding[]> {
 				"sem trigger ativo de access_control.enforce_institutional_email_change(): conta @fab.mil.br pode trocar o e-mail para qualquer domínio e furar o bloqueio de cadastro (20261001140200)",
 		})
 	}
-
 	return findings
 }
 
 /**
- * Default de privilégios do `postgres` (o role das migrations) que concede a cliente em QUALQUER
- * schema e tipo de objeto — inclusive fora de `pgrst.db_schemas`, como `storage`, que o Storage
- * API alcança com o JWT do usuário. O `auditDefaultAcl` cobre funções nos schemas expostos; este,
- * o resto. O default do `supabase_admin` (public, graphql) não entra: o `postgres` não pode
- * alterá-lo (ver `.claude/rules/database.md`).
+ * Default de privilégios do `postgres` (o role das migrations) que concede a cliente — `anon`,
+ * `authenticated` ou PUBLIC (item que começa com `=`), de quem os dois herdam — no global ou em
+ * QUALQUER schema, em qualquer tipo de objeto, inclusive fora de `pgrst.db_schemas`, como
+ * `storage`, que o Storage API alcança com o JWT do usuário. O default GLOBAL de funções é do
+ * `auditDefaultAcl`; função por schema exposto concedida a anon/authenticated sai nos dois. O
+ * default do `supabase_admin` (public, graphql) não entra: o `postgres` não pode alterá-lo (ver
+ * `.claude/rules/database.md`).
  */
-async function auditDefaultAclAnySchema(schemas: string[]): Promise<Finding[]> {
-	const rows = await sql<{ schema: string; objtype: string; acl: string }[]>`
-		select d.defaclnamespace::regnamespace::text as schema, d.defaclobjtype::text as objtype, array_to_string(d.defaclacl, ' ') as acl
+async function auditDefaultAclAnySchema(): Promise<Finding[]> {
+	const rows = await sql<{ schema: string | null; objtype: string; acl: string }[]>`
+		select
+			case when d.defaclnamespace = 0 then null else d.defaclnamespace::regnamespace::text end as schema,
+			d.defaclobjtype::text as objtype,
+			array_to_string(d.defaclacl, ' ') as acl
 		from pg_default_acl d
 		where d.defaclrole = 'postgres'::regrole
-			and d.defaclnamespace <> 0
-			and exists (select 1 from unnest(d.defaclacl) a where a::text ~ '^(anon|authenticated)=')
-			-- função em schema exposto já é do auditDefaultAcl
-			and not (d.defaclobjtype = 'f' and d.defaclnamespace::regnamespace::text = any(${schemas}))
-		order by 1, 2
+			and exists (select 1 from unnest(d.defaclacl) a where a::text ~ '^(=|anon=|authenticated=)')
+			and not (d.defaclobjtype = 'f' and d.defaclnamespace = 0)
+		order by 1 nulls first, 2
 	`
 	const kinds: Record<string, string> = { r: "tables", S: "sequences", f: "routines", T: "types", n: "schemas" }
-	return rows.map((r) => ({
-		severity: "error" as const,
-		lint: "default_acl_client_grant",
-		object: `default privileges (schema ${r.schema}, role postgres, ${kinds[r.objtype] ?? r.objtype})`,
-		detail: `objeto novo neste schema nasce concedido a cliente: ${r.acl} — \`alter default privileges for role postgres in schema ${r.schema} revoke all on ${kinds[r.objtype] ?? "…"} from anon, authenticated\``,
-	}))
+	return rows.map((r) => {
+		const kind = kinds[r.objtype] ?? r.objtype
+		const scope = r.schema ? ` in schema ${r.schema}` : ""
+		return {
+			severity: "error" as const,
+			lint: "default_acl_client_grant",
+			object: `default privileges (${r.schema ? `schema ${r.schema}` : "global"}, role postgres, ${kind})`,
+			detail: `objeto novo nasce concedido a cliente: ${r.acl} — \`alter default privileges for role postgres${scope} revoke all on ${kind} from public, anon, authenticated\``,
+		}
+	})
 }
 
 async function main() {
@@ -959,7 +974,7 @@ async function main() {
 			auditClientTableGrants(schemas),
 			auditForeignKeyIndexes(),
 			auditAccessTriggers(),
-			auditDefaultAclAnySchema(schemas),
+			auditDefaultAclAnySchema(),
 		])
 	).flat()
 

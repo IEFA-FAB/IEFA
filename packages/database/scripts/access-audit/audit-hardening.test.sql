@@ -111,7 +111,11 @@ insert into auth.users (id, email) values
 
 insert into access_control.sensitive_operation_log (id, actor_id, operation, assurance, target) values
 	('00000000-0000-0000-0000-00000000e001', '00000000-0000-0000-0000-0000000007d1', 'hardening.real', 'session', '{}'),
-	('00000000-0000-0000-0000-00000000e002', '00000000-0000-0000-0000-0000000007d4', 'hardening.fixture', 'session', '{}');
+	('00000000-0000-0000-0000-00000000e002', '00000000-0000-0000-0000-0000000007d4', 'hardening.fixture', 'session', '{"target_user_id": "00000000-0000-0000-0000-0000000007d5", "kind": "x"}'),
+	-- Ator de fixture agindo sobre conta REAL (o uuid dela no target, aninhado): a prova sobre a conta real fica.
+	('00000000-0000-0000-0000-00000000e003', '00000000-0000-0000-0000-0000000007d4', 'hardening.fixture_on_real', 'session', '{"changes": [{"user_id": "00000000-0000-0000-0000-0000000007d2"}]}'),
+	-- uuid no target que não é usuário (id de política, de grant…) não conta.
+	('00000000-0000-0000-0000-00000000e004', '00000000-0000-0000-0000-0000000007d4', 'hardening.fixture_policy', 'session', '{"policy_id": "00000000-0000-0000-0000-0000000099aa"}');
 insert into access_control.mfa_reset_log (id, target_user_id, performed_by, method, reason) values
 	('00000000-0000-0000-0000-00000000e101', '00000000-0000-0000-0000-0000000007d2', '00000000-0000-0000-0000-0000000007d1', 'admin-reset', 'perdeu o celular'),
 	('00000000-0000-0000-0000-00000000e102', '00000000-0000-0000-0000-0000000007d4', '00000000-0000-0000-0000-0000000007d5', 'admin-reset', 'fixture'),
@@ -128,6 +132,9 @@ begin
 			assert not has_table_privilege(r, t, 'UPDATE'), t || ': ' || r || ' sem UPDATE';
 			assert not has_table_privilege(r, t, 'DELETE'), t || ': ' || r || ' sem DELETE';
 			assert not has_table_privilege(r, t, 'TRUNCATE'), t || ': ' || r || ' sem TRUNCATE';
+			assert not has_table_privilege(r, t, 'TRIGGER'), t || ': ' || r || ' sem TRIGGER';
+			assert not has_table_privilege(r, t, 'REFERENCES'), t || ': ' || r || ' sem REFERENCES';
+			assert not has_table_privilege(r, t, 'MAINTAIN'), t || ': ' || r || ' sem MAINTAIN';
 		end loop;
 	end loop;
 	assert not has_function_privilege('service_role', 'access_control.refuse_audit_log_change()', 'EXECUTE');
@@ -167,10 +174,12 @@ do $$ begin
 	perform pg_temp.expect_error($q$ truncate access_control.sensitive_operation_log $q$, 'AUDIT_LOG_APPEND_ONLY');
 	perform pg_temp.expect_error($q$ delete from access_control.mfa_reset_log where id = '00000000-0000-0000-0000-00000000e103' $q$, 'AUDIT_LOG_APPEND_ONLY');
 	perform pg_temp.expect_error($q$ delete from access_control.mfa_reset_log where id = '00000000-0000-0000-0000-00000000e101' $q$, 'AUDIT_LOG_APPEND_ONLY');
+	perform pg_temp.expect_error($q$ delete from access_control.sensitive_operation_log where id = '00000000-0000-0000-0000-00000000e003' $q$, 'AUDIT_LOG_APPEND_ONLY');
 
-	delete from access_control.sensitive_operation_log where id = '00000000-0000-0000-0000-00000000e002';
+	delete from access_control.sensitive_operation_log where id in ('00000000-0000-0000-0000-00000000e002', '00000000-0000-0000-0000-00000000e004');
 	delete from access_control.mfa_reset_log where id = '00000000-0000-0000-0000-00000000e102';
-	assert not exists (select 1 from access_control.sensitive_operation_log where id = '00000000-0000-0000-0000-00000000e002'), 'linha de fixture sai';
+	assert not exists (select 1 from access_control.sensitive_operation_log where id in ('00000000-0000-0000-0000-00000000e002', '00000000-0000-0000-0000-00000000e004')), 'linhas de fixture saem';
+	assert exists (select 1 from access_control.sensitive_operation_log where id = '00000000-0000-0000-0000-00000000e003'), 'fixture sobre conta real fica';
 	assert not exists (select 1 from access_control.mfa_reset_log where id = '00000000-0000-0000-0000-00000000e102'), 'linha de fixture sai';
 	assert exists (select 1 from access_control.sensitive_operation_log where id = '00000000-0000-0000-0000-00000000e001'), 'linha real fica';
 	assert exists (select 1 from access_control.mfa_reset_log where id = '00000000-0000-0000-0000-00000000e103'), 'linha mista fica';
@@ -266,6 +275,11 @@ begin
 	v_id := (access_control.authorize_external_signup('00000000-0000-0000-0000-0000000007d1', 'hardening.authorize', 'revogado@parceiro.org', 'parceria encerrada — teste') ->> 'id')::uuid;
 	perform access_control.revoke_external_signup('00000000-0000-0000-0000-0000000007d1', 'hardening.revoke', v_id);
 	perform pg_temp.expect_error($q$ update auth.users set email = 'revogado@parceiro.org' where id = '00000000-0000-0000-0000-0000000007d2' $q$, v_msg);
+
+	-- Domínio das fixtures: recusado mesmo autorizado (o faxineiro apagaria a conta).
+	perform access_control.authorize_external_signup('00000000-0000-0000-0000-0000000007d1', 'hardening.authorize', 'test-zz99zz99ab12cd34-9@example.invalid', 'fixture de integração — teste');
+	perform pg_temp.expect_error($q$ update auth.users set email = 'test-zz99zz99ab12cd34-9@example.invalid' where id = '00000000-0000-0000-0000-0000000007d2' $q$, v_msg);
+	perform pg_temp.expect_error($q$ update auth.users set email_change = 'TEST-zz99zz99ab12cd34-9@Example.Invalid' where id = '00000000-0000-0000-0000-0000000007d2' $q$, v_msg);
 
 	assert (select email from auth.users where id = '00000000-0000-0000-0000-0000000007d2') = 'cabo.silva@fab.mil.br', 'nada mudou';
 end $$;

@@ -181,7 +181,8 @@ describe("log de auditoria append-only (20261001140000)", () => {
 
 	test.each([...AUDIT_LOGS])("%s perde UPDATE/DELETE/TRUNCATE e ganha os triggers de recusa", (table) => {
 		const t = table.replace(".", "\\.")
-		expect(sql).toMatch(new RegExp(`revoke update, delete, truncate on table ${t} from public, anon, authenticated, service_role`))
+		expect(sql).toMatch(new RegExp(`revoke all on table ${t} from public, anon, authenticated, service_role`))
+		expect(sql).toMatch(new RegExp(`grant select, insert on table ${t} to service_role`))
 		expect(sql).toMatch(new RegExp(`before update or delete on ${t}\\s+for each row execute function access_control\\.refuse_audit_log_change\\(\\)`))
 		expect(sql).toMatch(new RegExp(`before truncate on ${t}\\s+for each statement execute function access_control\\.refuse_audit_log_change\\(\\)`))
 	})
@@ -191,8 +192,10 @@ describe("log de auditoria append-only (20261001140000)", () => {
 		for (const table of AUDIT_LOGS) {
 			const t = table.replace(".", "\\.")
 			expect(later).not.toMatch(new RegExp(`grant[^;]*\\b(update|delete|truncate|all)\\b[^;]*on (table )?${t}\\b`, "i"))
-			expect(later).not.toMatch(new RegExp(`alter table ${t}\\s+disable trigger`, "i"))
+			expect(later).not.toMatch(new RegExp(`alter table ${t}\\s+(disable|enable replica) trigger`, "i"))
 		}
+		// Grant em massa no schema devolveria UPDATE/DELETE/TRUNCATE aos logs junto com o resto.
+		expect(later).not.toMatch(/grant[^;]*\b(update|delete|truncate|trigger|all)\b[^;]*on all tables in schema access_control\b/i)
 	})
 
 	test("nenhuma função reescreve ou apaga o log", () => {
@@ -206,6 +209,8 @@ describe("log de auditoria append-only (20261001140000)", () => {
 		const body = bodies.get("access_control.refuse_audit_log_change")?.body ?? ""
 		expect(body).toMatch(/if tg_op = 'DELETE' and coalesce\(current_setting\('iefa\.audit_bypass', true\), ''\) <> ''/)
 		expect(body).toContain("lower(u.email) like '%@example.invalid'")
+		// O alvo conta: ator de fixture sobre conta real não sai pela faxina.
+		expect(body).toContain("jsonb_path_query(coalesce(v_row -> 'target', 'null'::jsonb), 'strict $.**')")
 		expect(body).toContain("AUDIT_LOG_APPEND_ONLY")
 		expect(body).not.toContain("iefa.audit_operation")
 	})
@@ -250,6 +255,10 @@ describe("troca de e-mail em auth.users (20261001140200)", () => {
 		expect(body).toContain("case when v_new_email <> v_old_email then v_new_email end")
 		expect(body).toContain("case when v_new_change <> v_old_change then v_new_change end")
 		expect(sql).toMatch(/when \(old\.email is distinct from new\.email or old\.email_change is distinct from new\.email_change\)/)
+	})
+
+	test("@example.invalid (fixtures) é recusado mesmo autorizado", () => {
+		expect(body).toMatch(/if v_candidate like '%@example\.invalid' then\s+raise exception/)
 	})
 
 	test("o trigger é criado só se não existir (o postgres não é dono de auth.users e não o remove)", () => {

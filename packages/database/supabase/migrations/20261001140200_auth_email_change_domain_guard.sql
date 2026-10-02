@@ -24,7 +24,9 @@
 --   * valor sem `@`: o GoTrue só grava isso ao ofuscar a conta na exclusão "soft"
 --     (`deleteUser(id, true)` troca o e-mail por um hash). Pela API pública não há como gravar
 --     endereço sem `@` (o GoTrue valida o formato);
---   * troca para endereço autorizado — pelo próprio titular ou pelo admin/service_role.
+--   * troca para endereço autorizado — pelo próprio titular ou pelo admin/service_role. Exceção:
+--     `@example.invalid` (fixtures de integração) é recusado mesmo autorizado, porque o faxineiro
+--     de fixtures apaga a conta e o log de quem estiver nesse domínio (20261001140000).
 --
 -- A troca com confirmação passa por aqui DUAS vezes: no pedido (grava `email_change`) e na
 -- confirmação (`email` := `email_change`). Autorização revogada entre as duas faz a confirmação
@@ -69,6 +71,14 @@ begin
 	]
 	loop
 		continue when v_candidate is null or position('@' in v_candidate) = 0;
+		-- Domínio das fixtures de integração (RFC 2606): conta nasce nele pelo hook, nunca migra
+		-- para ele. Autorizado ou não — o faxineiro apaga conta e log de quem estiver lá.
+		if v_candidate like '%@example.invalid' then
+			raise exception 'E-mail restrito a endereços institucionais @fab.mil.br. Para usar outro e-mail, peça autorização à administração do sistema.'
+				using errcode = '42501',
+					detail = 'AUTH_EMAIL_DOMAIN_REFUSED: @example.invalid é reservado às fixtures de integração e não recebe conta existente',
+					hint = 'Ver 20261001140200.';
+		end if;
 		continue when v_candidate ~ '^[^@[:space:]]+@fab\.mil\.br$';
 		continue when exists (
 			select 1 from access_control.signup_allowlist a
