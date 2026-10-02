@@ -82,3 +82,13 @@ técnica — segue exclusivo de `kitchen:2`.
   como pendência da nutricionista — sem travar a produção nem a saída.
 - **UX:** selo "Ficha incompleta" no card; aviso no sheet da tarefa e no topo da Saída do dia.
 - **Cobertura:** `EXU › ficha incompleta` · `execution-review.test.ts › ficha incompleta diz o dia e o que falta` · `ENB` (lacunas da provisória no quadro).
+
+### PC-TRN-10 — "Aqui em Manaus ainda é hoje, mas o sistema já abriu o cardápio de amanhã"
+- **Realidade:** o "hoje" do sisub é o de Brasília (`getBrasiliaToday`, `@iefa/sisub-domain/civil-date`).
+  Unidades em UTC−4 (Manaus, Boa Vista, Porto Velho) e UTC−5 (Rio Branco) ficam 1 a 2 horas por
+  noite com o dia seguinte: quadro de produção, "cardápio de hoje" do MCP e datas default de
+  empenho, liquidação e pagamento. Antes do #553 o desvio era de 3 a 4 horas para todos (UTC).
+- **O sistema precisa:** o dia civil da cozinha/unidade no fuso dela.
+- **UX:** nenhum passo: o default já sai no dia local, e o usuário não precisa trocar a data à noite.
+- **Cobertura:** **LACUNA.** Falta o fuso no cadastro da unidade (coluna em `core.units`) e o
+  `getBrasiliaToday` receber o fuso. `civil-date.test.ts` cobre só Brasília.
