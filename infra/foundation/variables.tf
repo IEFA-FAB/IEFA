@@ -100,9 +100,9 @@ variable "bedrock_task_services" {
 }
 
 variable "restrict_bedrock_to_ai_task_role" {
-  description = "Explicitly deny bedrock:* on the shared ECS task role, so only services in bedrock_task_services can invoke models. Set false only to stage the cutover (see infra/README.md)."
+  description = "Explicitly deny bedrock:* on the shared ECS task role, so only services in bedrock_task_services can invoke models. Rolled out in two steps (see infra/README.md): false while the AI services move to the AI task role, true afterwards."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "bedrock_regions" {

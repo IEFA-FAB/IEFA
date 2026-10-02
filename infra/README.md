@@ -171,6 +171,11 @@ Os serviços listados em `bedrock_task_services` (foundation, default
 `task_role_arns_by_service`; um serviço novo que passe a usar IA entra na lista da
 foundation.
 
+O corte foi em duas etapas para a IA não ficar sem Bedrock entre o apply da foundation e
+o rollout dos serviços: primeiro `restrict_bedrock_to_ai_task_role = false` (os serviços
+de IA migram para a role nova), depois `true` num PR seguinte (o deny entra na role
+compartilhada). Voltar para `false` é o rollback rápido.
+
 This exists because `deploy.yml` never ran Terraform, so infra depended on a
 manual apply that in practice did not happen: the `cpu = 1024`, `awslogs` driver
 and ALB access logs from the 502 investigation sat unapplied for weeks while sisub
