@@ -19,6 +19,7 @@ import { requireAuth } from "@/lib/auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { resolveDivergenceAtomically, toReconciliationDecisionError } from "@/server/reconciliation-decision.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -48,7 +49,7 @@ export const fetchReconciliationFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<ReconciliationRow[]> => {
 		await requireUnitScope(1, data.unitId)
 		const { data: rows, error } = await finance().from("v_siafi_reconciliation").select("*").eq("unit_id", data.unitId).limit(500)
-		if (error) throw new Error(`Erro ao consultar conciliação: ${error.message}`)
+		if (error) throw new Error(`Erro ao consultar conciliação: ${publicDbMessage(error)}`)
 
 		return ((rows ?? []) as ReconciliationRow[])
 			.filter((row) => row.situacao !== "conciliado")
@@ -74,7 +75,7 @@ export const fetchPhysicalAccountingFn = createServerFn({ method: "GET" })
 			.gte("dias_desde_recebimento", data.minDays)
 			.order("dias_desde_recebimento", { ascending: false })
 			.limit(200)
-		if (error) throw new Error(`Erro ao consultar conciliação físico × contábil: ${error.message}`)
+		if (error) throw new Error(`Erro ao consultar conciliação físico × contábil: ${publicDbMessage(error)}`)
 		return rows ?? []
 	})
 
@@ -110,7 +111,7 @@ export const applyDocumentBatchFn = createServerFn({ method: "POST" })
 		await requireAuth()
 		const si = siafi()
 		const { data: batch, error: batchError } = await si.from("import_batch").select("unit_id, report_type, status").eq("id", data.batchId).maybeSingle()
-		if (batchError) throw new Error(`Erro ao buscar o lote: ${batchError.message}`)
+		if (batchError) throw new Error(`Erro ao buscar o lote: ${publicDbMessage(batchError)}`)
 		if (!batch) throw new Error("Lote não encontrado")
 		const ctx = await requireUnitScope(2, Number(batch.unit_id))
 		if (batch.report_type === "credito") throw new Error("Use a aplicação de crédito para este lote")
@@ -126,11 +127,11 @@ export const applyDocumentBatchFn = createServerFn({ method: "POST" })
 					// lote aplicado por outro clique no meio do caminho não pode virar `failed`.
 					const { error: markError } = await si
 						.from("import_batch")
-						.update({ status: "failed", error_message: error.message })
+						.update({ status: "failed", error_message: publicDbMessage(error) })
 						.eq("id", data.batchId)
 						.neq("status", "applied")
-					if (markError) throw new Error(`Lote não aplicado (${error.message}) e não marcado como falho (${markError.message})`)
-					throw new Error(`Lote não aplicado: ${error.message}. Nada foi gravado; corrija e aplique de novo.`)
+					if (markError) throw new Error(`Lote não aplicado (${publicDbMessage(error)}) e não marcado como falho (${publicDbMessage(markError)})`)
+					throw new Error(`Lote não aplicado: ${publicDbMessage(error)}. Nada foi gravado; corrija e aplique de novo.`)
 				}
 				const summary = (result ?? {}) as Partial<DocumentBatchResult>
 				return {
@@ -172,7 +173,7 @@ export const listWaitingDocumentsFn = createServerFn({ method: "GET" })
 			.in("report_type", ["ns", "ob"])
 			.order("created_at", { ascending: false })
 			.limit(200)
-		if (batchError) throw new Error(`Erro ao listar lotes: ${batchError.message}`)
+		if (batchError) throw new Error(`Erro ao listar lotes: ${publicDbMessage(batchError)}`)
 		const byBatch = new Map(((batches ?? []) as Array<{ id: string; report_type: "ns" | "ob"; created_at: string }>).map((b) => [b.id, b]))
 		if (byBatch.size === 0) return []
 		const { data: rows, error } = await si
@@ -181,7 +182,7 @@ export const listWaitingDocumentsFn = createServerFn({ method: "GET" })
 			.in("batch_id", [...byBatch.keys()])
 			.eq("parse_status", "waiting_parent")
 			.limit(500)
-		if (error) throw new Error(`Erro ao listar documentos estacionados: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar documentos estacionados: ${publicDbMessage(error)}`)
 		return ((rows ?? []) as Array<{ id: string; batch_id: string; parsed: Record<string, unknown> | null; parse_error: string | null }>).map((row) => {
 			const batch = byBatch.get(row.batch_id) as { report_type: "ns" | "ob"; created_at: string }
 			const parsed = row.parsed ?? {}

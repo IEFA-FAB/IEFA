@@ -12,6 +12,7 @@ import type { ConservationClass } from "@iefa/sisub-domain"
 import { type OpeningCatalogIngredient, type OpeningCostCandidate, pickOpeningCost, pricePerBaseUnit } from "@iefa/sisub-domain/opening-balance"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "./db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas fora dos tipos gerados
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -51,7 +52,7 @@ export async function loadOpeningCatalog(): Promise<OpeningCatalogIngredient[]> 
 /** Códigos de `core.measure_unit`. */
 export async function loadCanonicalUnits(): Promise<Set<string>> {
 	const { data, error } = await core().from("measure_unit").select("code")
-	if (error) throw new Error(`Erro ao carregar as unidades de medida: ${error.message}`)
+	if (error) throw new Error(`Erro ao carregar as unidades de medida: ${publicDbMessage(error)}`)
 	return new Set(((data ?? []) as Array<{ code: string }>).map((row) => row.code.toUpperCase()))
 }
 
@@ -101,7 +102,7 @@ export async function loadConservationClasses(): Promise<Map<string, Conservatio
 /** Unidade (OM) dona da cozinha — decide qual ARP é "da casa" na sugestão de custo. */
 export async function loadKitchenUnitId(kitchenId: number): Promise<number | null> {
 	const { data, error } = await kitchen().from("kitchen").select("unit_id").eq("id", kitchenId).maybeSingle()
-	if (error) throw new Error(`Erro ao carregar a cozinha: ${error.message}`)
+	if (error) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(error)}`)
 	return data?.unit_id != null ? Number(data.unit_id) : null
 }
 

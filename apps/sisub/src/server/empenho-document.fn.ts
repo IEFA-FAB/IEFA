@@ -35,6 +35,7 @@ import { normalizeDocument } from "@/lib/expense-execution"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 export type { CreatedEmpenho } from "@/lib/empenho-registration.server"
 
@@ -139,7 +140,7 @@ export const quickRegisterEmpenhoFn = createServerFn({ method: "POST" })
 					await requireUnitScope(2, data.unitId!)
 		if (data.kitchenId != null) {
 			const { data: kitchenRow, error } = await kitchenDb().from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).maybeSingle()
-			if (error) throw new Error(`Erro ao conferir a cozinha: ${error.message}`)
+			if (error) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(error)}`)
 			const purchaseUnit = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
 			if (purchaseUnit == null) throw new Error("A cozinha não tem unidade compradora")
 			if (data.unitId != null && data.unitId !== purchaseUnit) throw new Error("A NE só pode ser da unidade compradora desta cozinha")
@@ -156,7 +157,7 @@ export const quickRegisterEmpenhoFn = createServerFn({ method: "POST" })
 			.eq("unit_id", unitId)
 			.eq("numero_empenho", numero)
 			.maybeSingle()
-		if (lookupError) throw new Error(`Erro ao procurar o empenho: ${lookupError.message}`)
+		if (lookupError) throw new Error(`Erro ao procurar o empenho: ${publicDbMessage(lookupError)}`)
 		if (existing) {
 			return {
 				empenhoId: existing.id,
@@ -170,7 +171,7 @@ export const quickRegisterEmpenhoFn = createServerFn({ method: "POST" })
 
 		if (data.acquisitionId) {
 			const { data: acq, error } = await procurement().from("acquisition").select("unit_id").eq("id", data.acquisitionId).is("deleted_at", null).maybeSingle()
-			if (error) throw new Error(`Erro ao conferir a contratação: ${error.message}`)
+			if (error) throw new Error(`Erro ao conferir a contratação: ${publicDbMessage(error)}`)
 			if (!acq || Number(acq.unit_id) !== unitId) throw new Error("A contratação de origem não pertence a esta unidade")
 		}
 
@@ -200,7 +201,7 @@ export const quickRegisterEmpenhoFn = createServerFn({ method: "POST" })
 					.single()
 				if (error) {
 					if (error.code === "23505") throw new Error(`O empenho ${numero} acabou de ser registrado por outra pessoa: busque-o de novo`)
-					throw new Error(`Erro ao registrar o empenho: ${error.message}`)
+					throw new Error(`Erro ao registrar o empenho: ${publicDbMessage(error)}`)
 				}
 				return { id: row.id as string }
 			},
@@ -231,7 +232,7 @@ export const fetchEmpenhoItemsFn = createServerFn({ method: "GET" })
 		await requireAuth()
 		const fin = finance()
 		const { data: empenho, error: lookupError } = await fin.from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
-		if (lookupError) throw new Error(`Erro ao buscar o empenho: ${lookupError.message}`)
+		if (lookupError) throw new Error(`Erro ao buscar o empenho: ${publicDbMessage(lookupError)}`)
 		if (!empenho) throw new Error("Empenho não encontrado")
 		await requireUnitScope(1, Number(empenho.unit_id))
 
@@ -240,13 +241,13 @@ export const fetchEmpenhoItemsFn = createServerFn({ method: "GET" })
 			.select("id, position, arp_item_id, purchase_item_id, description, quantity, unit, unit_price, value")
 			.eq("empenho_id", data.empenhoId)
 			.order("position")
-		if (error) throw new Error(`Erro ao ler os itens do empenho: ${error.message}`)
+		if (error) throw new Error(`Erro ao ler os itens do empenho: ${publicDbMessage(error)}`)
 		const items = rows ?? []
 		const arpIds = [...new Set(items.map((item) => item.arp_item_id).filter((id): id is string => Boolean(id)))]
 		const numberByArpItem = new Map<string, number | null>()
 		if (arpIds.length > 0) {
 			const { data: arpRows, error: arpError } = await procurement().from("arp_item").select("id, numero_item").in("id", arpIds)
-			if (arpError) throw new Error(`Erro ao ler os itens da ARP: ${arpError.message}`)
+			if (arpError) throw new Error(`Erro ao ler os itens da ARP: ${publicDbMessage(arpError)}`)
 			for (const row of arpRows ?? []) numberByArpItem.set(row.id, row.numero_item)
 		}
 		return items.map((item) => ({

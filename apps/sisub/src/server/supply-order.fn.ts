@@ -23,6 +23,7 @@ import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { sicafDecision, supplyOrderLinkProblems, supplyOrderLinkUpdateProblem } from "@/lib/supply-order-gate"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -42,7 +43,7 @@ export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 			.eq("kitchen_id", data.kitchenId)
 			.order("created_at", { ascending: false })
 			.limit(50)
-		if (error) throw new Error(`Erro ao listar OFs: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar OFs: ${publicDbMessage(error)}`)
 		const list = orders ?? []
 		if (list.length === 0) return []
 
@@ -62,7 +63,7 @@ export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 				.from("empenho")
 				.select("id, numero_empenho, valor_total, status")
 				.in("id", empenhoIds)
-			if (empenhoError) throw new Error(`Erro ao ler os empenhos das OFs: ${empenhoError.message}`)
+			if (empenhoError) throw new Error(`Erro ao ler os empenhos das OFs: ${publicDbMessage(empenhoError)}`)
 			for (const e of empenhos ?? []) empenhoById.set(e.id, e)
 		}
 
@@ -109,7 +110,7 @@ async function resolvePurchaseItemsByArpItem(arpItemIds: readonly string[]): Pro
 /** Itens de ARP cobertos pela NE — pelos itens dela (`finance.empenho_item`). */
 async function coveredArpItemIds(empenhoId: string): Promise<string[]> {
 	const { data, error } = await (getServerClient("finance") as unknown as LooseClient).from("empenho_item").select("arp_item_id").eq("empenho_id", empenhoId)
-	if (error) throw new Error(`Erro ao ler os itens do empenho: ${error.message}`)
+	if (error) throw new Error(`Erro ao ler os itens do empenho: ${publicDbMessage(error)}`)
 	const ids: string[] = (data ?? []).map((row: { arp_item_id: string | null }) => row.arp_item_id).filter((id: string | null): id is string => id != null)
 	return [...new Set(ids)]
 }
@@ -130,7 +131,7 @@ async function supplierCnpjFor(favorecidoCnpj: string | null, arpItemIds: readon
 		.from("arp_item")
 		.select("ni_fornecedor")
 		.in("id", [...arpItemIds])
-	if (error) throw new Error(`Erro ao ler o fornecedor da ARP: ${error.message}`)
+	if (error) throw new Error(`Erro ao ler o fornecedor da ARP: ${publicDbMessage(error)}`)
 	return supplierCnpjFromRows(
 		favorecidoCnpj,
 		(data ?? []).map((row: { ni_fornecedor: string | null }) => row.ni_fornecedor)
@@ -176,7 +177,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		let empenhoRow: { unit_id: number | null; status: string; favorecido_cnpj: string | null } | null = null
 		if (data.empenhoId) {
 			const { data: row, error: empenhoError } = await finance.from("empenho").select("unit_id, status, favorecido_cnpj").eq("id", data.empenhoId).maybeSingle()
-			if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${empenhoError.message}`)
+			if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(empenhoError)}`)
 			if (!row) throw new Error("Empenho não encontrado")
 			empenhoRow = row
 		}
@@ -188,7 +189,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		// tira o empenho — e ANTES do SICAF, que não deve consultar fornecedor alheio.
 		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
 		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${kitchenError.message}`)
+		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(kitchenError)}`)
 		const problems = supplyOrderLinkProblems({
 			kitchenPurchaseUnitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
 			empenho: empenhoRow
@@ -222,7 +223,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 			})
 			.select("id")
 			.single()
-		if (error || !order) throw new Error(`Erro ao emitir OF: ${error?.message}`)
+		if (error || !order) throw new Error(`Erro ao emitir OF: ${publicDbMessage(error)}`)
 
 		// O MRP conta como "em trânsito" só o item que tem purchase_item_id: OF
 		// emitida pela tela gravava apenas arp_item_id, e o trânsito saía ZERO.
@@ -241,10 +242,10 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		)
 		if (itemsError) {
 			const { error: undoError } = await proc.from("supply_order").delete().eq("id", order.id)
-			if (undoError) throw new Error(`Erro nos itens da OF (${itemsError.message}) e ao desfazer a OF (${undoError.message})`)
+			if (undoError) throw new Error(`Erro nos itens da OF (${publicDbMessage(itemsError)}) e ao desfazer a OF (${publicDbMessage(undoError)})`)
 			// O trigger do teto (valor vigente, empenho anulado, OF sem preço) já diz o que fazer.
 			const isGate = /excede|anulado|preço/.test(itemsError.message)
-			throw new Error(isGate ? itemsError.message : `Erro nos itens da OF: ${itemsError.message}`)
+			throw new Error(isGate ? itemsError.message : `Erro nos itens da OF: ${publicDbMessage(itemsError)}`)
 		}
 		return { supplyOrderId: order.id as string, awaitingEmpenho: data.empenhoId == null }
 	})
@@ -263,7 +264,7 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 			.select("kitchen_id, empenho_id, status")
 			.eq("id", data.supplyOrderId)
 			.maybeSingle()
-		if (orderError) throw new Error(`Erro ao buscar a OF: ${orderError.message}`)
+		if (orderError) throw new Error(`Erro ao buscar a OF: ${publicDbMessage(orderError)}`)
 		if (!order) throw new Error("OF não encontrada")
 		const { userId } = await requireStorageForKitchen(2, Number(order.kitchen_id))
 		if (order.empenho_id != null) throw new Error("A OF já tem empenho vinculado")
@@ -275,16 +276,16 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 			.select("unit_id, status, favorecido_cnpj")
 			.eq("id", data.empenhoId)
 			.maybeSingle()
-		if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${empenhoError.message}`)
+		if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(empenhoError)}`)
 		if (!empenhoRow) throw new Error("Empenho não encontrado")
 		const { data: kitchenRow, error: kitchenError } = await (getServerClient("kitchen") as unknown as LooseClient)
 			.from("kitchen")
 			.select("unit_id, purchase_unit_id")
 			.eq("id", order.kitchen_id)
 			.maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${kitchenError.message}`)
+		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(kitchenError)}`)
 		const { data: items, error: itemsError } = await procurement().from("supply_order_item").select("arp_item_id").eq("supply_order_id", data.supplyOrderId)
-		if (itemsError) throw new Error(`Erro ao ler os itens da OF: ${itemsError.message}`)
+		if (itemsError) throw new Error(`Erro ao ler os itens da OF: ${publicDbMessage(itemsError)}`)
 		const covered = await coveredArpItemIds(data.empenhoId)
 
 		const problems = supplyOrderLinkProblems({
@@ -319,7 +320,7 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 			.is("empenho_id", null)
 			.neq("status", "cancelled")
 			.select("id")
-		if (error) throw new Error(/excede|anulado|preço/.test(error.message) ? error.message : `Erro ao vincular o empenho: ${error.message}`)
+		if (error) throw new Error(/excede|anulado|preço/.test(error.message) ? error.message : `Erro ao vincular o empenho: ${publicDbMessage(error)}`)
 		const problem = supplyOrderLinkUpdateProblem((updated ?? []).length)
 		if (problem) throw new Error(problem)
 	})
@@ -357,7 +358,7 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 			.eq("status", "ativo")
 			.order("data_empenho", { ascending: false })
 			.limit(100)
-		if (error) throw new Error(`Erro ao listar empenhos: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar empenhos: ${publicDbMessage(error)}`)
 		const list = empenhos ?? []
 
 		// Itens da NE: a OF se monta a partir deles (somar a quantidade de itens diferentes no teto
@@ -388,7 +389,7 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 				.from("arp_item")
 				.select("id, ni_fornecedor, nome_fornecedor, descricao_item, numero_item, valor_unitario")
 				.in("id", arpItemIds)
-			if (arpError) throw new Error(`Erro ao ler os itens da ARP: ${arpError.message}`)
+			if (arpError) throw new Error(`Erro ao ler os itens da ARP: ${publicDbMessage(arpError)}`)
 			for (const item of arpItems ?? []) arpItemById.set(item.id, item)
 		}
 		return list.map((e: { id: string; favorecido_cnpj: string | null }) => {
@@ -432,5 +433,5 @@ export const cancelSupplyOrderFn = createServerFn({ method: "POST" })
 			.update({ status: "cancelled", updated_at: new Date().toISOString() })
 			.eq("id", data.supplyOrderId)
 			.in("status", ["draft", "sent"])
-		if (error) throw new Error(`Erro ao cancelar OF: ${error.message}`)
+		if (error) throw new Error(`Erro ao cancelar OF: ${publicDbMessage(error)}`)
 	})

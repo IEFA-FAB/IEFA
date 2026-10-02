@@ -19,6 +19,7 @@ import { withSensitiveAudit } from "@/lib/audit.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { floorMessage, insertEmpenhoEventSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -94,7 +95,7 @@ export const listEmpenhosFn = createServerFn({ method: "GET" })
 		if (data.status) query = query.eq("status", data.status)
 
 		const { data: rows, error } = await query
-		if (error) throw new Error(`Erro ao listar empenhos: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar empenhos: ${publicDbMessage(error)}`)
 		const empenhos = (rows ?? []) as EmpenhoRow[]
 		const saldos = await fetchSaldos(empenhos.map((e) => e.id))
 		return empenhos.map((empenho) => ({ ...empenho, ...saldos.get(empenho.id) }))
@@ -156,7 +157,7 @@ export const updateEmpenhoClassificationFn = createServerFn({ method: "POST" })
 						issuer_ug: data.issuerUg ?? null,
 					})
 					.eq("id", data.empenhoId)
-				if (error) throw new Error(`Erro ao atualizar empenho: ${error.message}`)
+				if (error) throw new Error(`Erro ao atualizar empenho: ${publicDbMessage(error)}`)
 			},
 			// A classificação nova vai junto: o que muda AQUI é para onde a despesa é
 			// imputada, e sem ela a linha diria apenas que alguém mexeu no empenho.

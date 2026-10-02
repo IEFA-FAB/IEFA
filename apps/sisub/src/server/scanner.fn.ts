@@ -12,6 +12,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabela nova fora dos tipos gerados
 type LooseClient = { from: (table: string) => any }
@@ -97,7 +98,7 @@ export const saveScannerProfileFn = createServerFn({ method: "POST" })
 				},
 				{ onConflict: "user_id,kitchen_id" }
 			)
-		if (error) throw new Error(`Erro ao salvar o perfil do leitor: ${error.message}`)
+		if (error) throw new Error(`Erro ao salvar o perfil do leitor: ${publicDbMessage(error)}`)
 		return { saved: true }
 	})
 
@@ -120,7 +121,7 @@ async function preferStocked(kitchenId: number, ingredientIds: readonly string[]
 		.order("balance", { ascending: false })
 		.order("ingredient_id", { ascending: true })
 		.limit(1)
-	if (error) throw new Error(`Erro ao resolver o código lido: ${error.message}`)
+	if (error) throw new Error(`Erro ao resolver o código lido: ${publicDbMessage(error)}`)
 	return ((stocked ?? [])[0]?.ingredient_id as string | undefined) ?? unique[0]
 }
 
@@ -163,10 +164,10 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 					.eq("kitchen_id", data.kitchenId)
 					.eq("short_code", data.lotShortCode.toUpperCase())
 					.maybeSingle()
-				if (lotError) throw new Error(`Erro ao resolver a etiqueta lida: ${lotError.message}`)
+				if (lotError) throw new Error(`Erro ao resolver a etiqueta lida: ${publicDbMessage(lotError)}`)
 				if (!lot?.ingredient_id) return { ingredientId: null, lotId: (lot?.id as string) ?? null, description: null, matchedBy: null }
 				const { data: ingredient, error: ingredientError } = await kit.from("ingredient").select("description").eq("id", lot.ingredient_id).maybeSingle()
-				if (ingredientError) throw new Error(`Erro ao carregar o insumo: ${ingredientError.message}`)
+				if (ingredientError) throw new Error(`Erro ao carregar o insumo: ${publicDbMessage(ingredientError)}`)
 				return { ingredientId: lot.ingredient_id as string, lotId: lot.id as string, description: ingredient?.description ?? null, matchedBy: "lot" }
 			}
 
@@ -190,7 +191,7 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 				.is("deleted_at", null)
 				.order("ingredient_id", { ascending: true })
 				.limit(50)
-			if (skuError) throw new Error(`Erro ao resolver o código lido: ${skuError.message}`)
+			if (skuError) throw new Error(`Erro ao resolver o código lido: ${publicDbMessage(skuError)}`)
 			let ingredientId = await preferStocked(
 				data.kitchenId,
 				((skus ?? []) as Array<{ ingredient_id: string }>).map((row) => row.ingredient_id)
@@ -214,7 +215,7 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 					.order("status", { ascending: true })
 					.order("ingredient_item_id", { ascending: true })
 					.limit(1)
-				if (aliasError) throw new Error(`Erro ao resolver o código lido: ${aliasError.message}`)
+				if (aliasError) throw new Error(`Erro ao resolver o código lido: ${publicDbMessage(aliasError)}`)
 				const alias = (aliases ?? [])[0]
 				if (alias?.ingredient_item_id) {
 					const { data: aliasItem, error: aliasItemError } = await kit
@@ -223,7 +224,7 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 						.eq("id", alias.ingredient_item_id)
 						.is("deleted_at", null)
 						.maybeSingle()
-					if (aliasItemError) throw new Error(`Erro ao resolver o código lido: ${aliasItemError.message}`)
+					if (aliasItemError) throw new Error(`Erro ao resolver o código lido: ${publicDbMessage(aliasItemError)}`)
 					ingredientId = (aliasItem?.ingredient_id as string | undefined) ?? undefined
 					matchedBy = "alias"
 				}
@@ -231,7 +232,7 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 
 			if (!ingredientId) return { ingredientId: null, lotId: null, description: null, matchedBy: null }
 			const { data: ingredient, error: ingredientError } = await kit.from("ingredient").select("description").eq("id", ingredientId).maybeSingle()
-			if (ingredientError) throw new Error(`Erro ao carregar o insumo: ${ingredientError.message}`)
+			if (ingredientError) throw new Error(`Erro ao carregar o insumo: ${publicDbMessage(ingredientError)}`)
 			return { ingredientId, lotId: null, description: ingredient?.description ?? null, matchedBy }
 		}
 	)

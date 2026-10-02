@@ -35,6 +35,7 @@ import { currentFiscalYear } from "@/lib/expense-execution"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -87,11 +88,11 @@ async function loadDispensaRoomByClass(unitId: number | null, classCodes: readon
 				acquisitionRows.map((a) => a.id)
 			)
 			.eq("status", "ativo")
-		if (error) throw new Error(`Erro ao ler os empenhos das dispensas: ${error.message}`)
+		if (error) throw new Error(`Erro ao ler os empenhos das dispensas: ${publicDbMessage(error)}`)
 		const ids = (empenhos ?? []).map((e: { id: string }) => e.id)
 		if (ids.length > 0) {
 			const { data: vigentes, error: vigError } = await fin.from("v_empenho_vigente").select("empenho_id, valor_vigente").in("empenho_id", ids)
-			if (vigError) throw new Error(`Erro ao ler o valor vigente das dispensas: ${vigError.message}`)
+			if (vigError) throw new Error(`Erro ao ler o valor vigente das dispensas: ${publicDbMessage(vigError)}`)
 			const byEmpenho = new Map<string, number>(
 				(vigentes ?? []).map((v: { empenho_id: string; valor_vigente: number | string }) => [v.empenho_id, Number(v.valor_vigente)])
 			)
@@ -140,13 +141,13 @@ async function loadMaterialClassByCatmat(catmats: readonly number[]): Promise<Ma
 		.from("compras_material_item")
 		.select("codigo_item, codigo_pdm")
 		.in("codigo_item", [...new Set(catmats)])
-	if (error) throw new Error(`Erro ao ler o CATMAT: ${error.message}`)
+	if (error) throw new Error(`Erro ao ler o CATMAT: ${publicDbMessage(error)}`)
 	const pdms = [
 		...new Set((items ?? []).map((row: { codigo_pdm: number | null }) => row.codigo_pdm).filter((pdm: number | null): pdm is number => pdm != null)),
 	]
 	if (pdms.length === 0) return byCatmat
 	const { data: pdmRows, error: pdmError } = await compras.from("compras_material_pdm").select("codigo_pdm, codigo_classe").in("codigo_pdm", pdms)
-	if (pdmError) throw new Error(`Erro ao ler o PDM: ${pdmError.message}`)
+	if (pdmError) throw new Error(`Erro ao ler o PDM: ${publicDbMessage(pdmError)}`)
 	const classByPdm = new Map<number, string>(
 		(pdmRows ?? []).map((row: { codigo_pdm: number; codigo_classe: number }) => [row.codigo_pdm, String(row.codigo_classe)])
 	)
@@ -329,7 +330,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 
 		// (7) somatório da dispensa por ramo (classe do CATMAT) na unidade gestora que compra pela cozinha
 		const { data: kitchenRow, error: kitchenError } = await kit.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao ler a cozinha: ${kitchenError.message}`)
+		if (kitchenError) throw new Error(`Erro ao ler a cozinha: ${publicDbMessage(kitchenError)}`)
 		const purchaseUnitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
 		const classByCatmat = await loadMaterialClassByCatmat([...catmatCodeByIngredient.values()])
 		const dispensaRoom = await loadDispensaRoomByClass(purchaseUnitId, [...classByCatmat.values()])

@@ -28,6 +28,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas de gs1_integration fora dos tipos gerados até o regen pós-migration
 type LooseClient = { from: (table: string) => any }
@@ -41,7 +42,7 @@ async function loadRequirements(purchaseItemId: string): Promise<GpcRequirement[
 		.from("purchase_item_gpc_requirement")
 		.select("attribute_code, accepted_value_codes")
 		.eq("purchase_item_id", purchaseItemId)
-	if (error) throw new Error(`Erro ao carregar exigências: ${error.message}`)
+	if (error) throw new Error(`Erro ao carregar exigências: ${publicDbMessage(error)}`)
 
 	const rows = (data ?? []) as Array<{ attribute_code: string; accepted_value_codes: string[] }>
 	if (rows.length === 0) return []
@@ -128,7 +129,7 @@ export const verifyGtinAgainstPurchaseItemFn = createServerFn({ method: "POST" }
 			spec_fingerprint: result.specFingerprint,
 			checked_by: userId,
 		})
-		if (error) throw new Error(`Erro ao registrar veredito: ${error.message}`)
+		if (error) throw new Error(`Erro ao registrar veredito: ${publicDbMessage(error)}`)
 
 		return {
 			gtin,

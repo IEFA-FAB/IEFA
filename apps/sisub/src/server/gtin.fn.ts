@@ -14,6 +14,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
 
@@ -82,10 +83,10 @@ export const attachGtinToIngredientItemFn = createServerFn({ method: "POST" })
 		const kitchen = getServerClient("kitchen") as unknown as LooseClient
 
 		const { data: existing, error: readError } = await gs1.from("gtin").select("gtin").eq("gtin", gtin).maybeSingle()
-		if (readError) throw new Error(`Erro ao consultar GTIN: ${readError.message}`)
+		if (readError) throw new Error(`Erro ao consultar GTIN: ${publicDbMessage(readError)}`)
 		if (!existing) {
 			const { error: insertError } = await gs1.from("gtin").insert({ gtin, description: data.description?.trim() || null, source: "manual" })
-			if (insertError) throw new Error(`Erro ao cadastrar GTIN: ${insertError.message}`)
+			if (insertError) throw new Error(`Erro ao cadastrar GTIN: ${publicDbMessage(insertError)}`)
 		}
 
 		const { data: linked, error: linkError } = await kitchen
@@ -96,7 +97,7 @@ export const attachGtinToIngredientItemFn = createServerFn({ method: "POST" })
 			.select("id")
 		if (linkError) {
 			if (linkError.code === "23505") throw new Error("Este GTIN já está vinculado a outro item vivo")
-			throw new Error(`Erro ao vincular GTIN: ${linkError.message}`)
+			throw new Error(`Erro ao vincular GTIN: ${publicDbMessage(linkError)}`)
 		}
 		if (!linked || linked.length === 0) throw new Error("Item de insumo não encontrado (ou excluído) — vínculo não realizado")
 		return { gtin }

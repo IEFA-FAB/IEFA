@@ -21,6 +21,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -164,7 +165,7 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 		// empurraria a leitura de anexos para além do teto de 1000 linhas, e o
 		// único nível 3 real poderia sumir do resultado calado.
 		.or("level.gte.3,level.lte.0")
-	if (statementError) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${statementError.message}`)
+	if (statementError) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${publicDbMessage(statementError)}`)
 	const statementRows = (statements ?? []) as Array<Omit<PermissionRow, "user_id"> & { policy_id: string }>
 	const storagePolicyIds = [...new Set(statementRows.map((row) => row.policy_id))]
 
@@ -181,9 +182,9 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 			: Promise.resolve({ data: [], error: null }),
 		storagePolicyIds.length > 0 ? ac.from("policy").select("id").in("id", storagePolicyIds).is("deleted_at", null) : Promise.resolve({ data: [], error: null }),
 	])
-	if (inlineResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${inlineResult.error.message}`)
-	if (attachmentResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${attachmentResult.error.message}`)
-	if (liveResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${liveResult.error.message}`)
+	if (inlineResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${publicDbMessage(inlineResult.error)}`)
+	if (attachmentResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${publicDbMessage(attachmentResult.error)}`)
+	if (liveResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${publicDbMessage(liveResult.error)}`)
 
 	const live = new Set(((liveResult.data ?? []) as Array<{ id: string }>).map((row) => row.id))
 	const byPolicy = new Map<string, Array<Omit<PermissionRow, "user_id">>>()
@@ -264,7 +265,7 @@ export const saveStockSettingsFn = createServerFn({ method: "POST" })
 			},
 			{ onConflict: "kitchen_id" }
 		)
-		if (error) throw new Error(`Erro ao salvar as configurações: ${error.message}`)
+		if (error) throw new Error(`Erro ao salvar as configurações: ${publicDbMessage(error)}`)
 		return { saved: true }
 	})
 
@@ -318,7 +319,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			})
 			.select("id")
 			.single()
-		if (error || !doc) throw new Error(`Erro ao criar o ajuste: ${error?.message}`)
+		if (error || !doc) throw new Error(`Erro ao criar o ajuste: ${publicDbMessage(error)}`)
 
 		const { error: itemsError } = await inv.from("stock_adjustment_item").insert(
 			data.items.map((item) => ({
@@ -339,7 +340,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		)
 		if (itemsError) {
 			await inv.from("stock_adjustment").delete().eq("id", doc.id)
-			throw new Error(`Erro nos itens do ajuste: ${itemsError.message}`)
+			throw new Error(`Erro nos itens do ajuste: ${publicDbMessage(itemsError)}`)
 		}
 
 		// Documento e itens já existem daqui para baixo. Falha antes do lançamento
@@ -352,12 +353,12 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		// mostra.
 		const abandon = async (message: string): Promise<never> => {
 			const { error: deleteError } = await inv.from("stock_adjustment").delete().eq("id", doc.id).eq("status", "draft")
-			if (deleteError) throw new Error(`${message} — e o rascunho ${doc.id} não pôde ser desfeito (${deleteError.message}); avise o nível 3`)
+			if (deleteError) throw new Error(`${message} — e o rascunho ${doc.id} não pôde ser desfeito (${publicDbMessage(deleteError)}); avise o nível 3`)
 			throw new Error(message)
 		}
 
 		const { data: requires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
-		if (requiresError) await abandon(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
+		if (requiresError) await abandon(`Erro ao conferir a alçada do ajuste: ${publicDbMessage(requiresError)}`)
 		// O FATO fica gravado agora. A exigência é monotônica — o lançamento ainda
 		// reavalia a regra sob trava e soma o que surgiu depois (inclusive outro
 		// ajuste do mesmo autor criado ao mesmo tempo) —, mas o fato gravado impede
@@ -366,10 +367,10 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			.from("stock_adjustment")
 			.update({ approval_required: requires === true })
 			.eq("id", doc.id)
-		if (factError) await abandon(`Erro ao registrar a alçada do ajuste: ${factError.message}`)
+		if (factError) await abandon(`Erro ao registrar a alçada do ajuste: ${publicDbMessage(factError)}`)
 		if (requires === true) {
 			const { error: pendingError } = await inv.from("stock_adjustment").update({ status: "pending_approval" }).eq("id", doc.id)
-			if (pendingError) await abandon(`Erro ao enviar o ajuste para aprovação: ${pendingError.message}`)
+			if (pendingError) await abandon(`Erro ao enviar o ajuste para aprovação: ${publicDbMessage(pendingError)}`)
 			return { adjustmentId: doc.id as string, status: "pending_approval" as const, movements: 0, postFailure: null as string | null }
 		}
 
@@ -388,7 +389,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			// operador digitou é o que explica o ajuste para quem vai aprová-lo, e
 			// trocá-lo por uma mensagem técnica apaga a única informação que o
 			// aprovador tem sobre o que aconteceu na prateleira.
-			const failureNote = `Lançamento automático falhou: ${postError.message}`
+			const failureNote = `Lançamento automático falhou: ${publicDbMessage(postError)}`
 			const operatorNote = data.notes?.trim()
 			// Se o lançamento caiu porque a regra, reavaliada sob trava, passou a
 			// exigir aprovação (outro ajuste do autor lançou no meio), o documento vai
@@ -415,18 +416,18 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			// um ajuste que não está lá
 			if (recoveryError) {
 				throw new Error(
-					`Erro ao lançar o ajuste: ${postError.message}. O documento ficou em rascunho e não foi para a fila de aprovação (${recoveryError.message})`
+					`Erro ao lançar o ajuste: ${publicDbMessage(postError)}. O documento ficou em rascunho e não foi para a fila de aprovação (${publicDbMessage(recoveryError)})`
 				)
 			}
 			if ((moved ?? []).length === 0) {
 				const { data: current, error: currentError } = await inv.from("stock_adjustment").select("status").eq("id", doc.id).maybeSingle()
-				if (currentError) throw new Error(`Erro ao conferir o ajuste depois da falha: ${currentError.message}`)
+				if (currentError) throw new Error(`Erro ao conferir o ajuste depois da falha: ${publicDbMessage(currentError)}`)
 				if (current?.status === "posted") {
 					// a resposta falhou, o lançamento não: é sucesso, e dizer outra coisa
 					// convidaria o operador a lançar a mesma perda de novo
 					return { adjustmentId: doc.id as string, status: "posted" as const, movements: 0, postFailure: null as string | null }
 				}
-				throw new Error(`Erro ao lançar o ajuste: ${postError.message}. O documento está em "${current?.status ?? "desconhecido"}"`)
+				throw new Error(`Erro ao lançar o ajuste: ${publicDbMessage(postError)}. O documento está em "${current?.status ?? "desconhecido"}"`)
 			}
 			// Recuperação deu certo: o documento EXISTE, na fila de aprovação. Isto é
 			// resultado, não erro. Lançar erro aqui fazia a tela manter o formulário
@@ -458,7 +459,7 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 			.select("kitchen_id, status, created_by, approval_required")
 			.eq("id", data.adjustmentId)
 			.maybeSingle()
-		if (docError) throw new Error(`Erro ao carregar o ajuste: ${docError.message}`)
+		if (docError) throw new Error(`Erro ao carregar o ajuste: ${publicDbMessage(docError)}`)
 		if (!doc) throw new Error("Ajuste não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(doc.kitchen_id))
 		if (doc.status !== "pending_approval") throw new Error(`Ajuste em "${doc.status}" não está aguardando aprovação`)
@@ -473,7 +474,7 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 		// mesma conta no lançamento, sob trava — esta aqui decide a exceção e a
 		// mensagem, não a segurança.
 		const { data: live, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: data.adjustmentId })
-		if (requiresError) throw new Error(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
+		if (requiresError) throw new Error(`Erro ao conferir a alçada do ajuste: ${publicDbMessage(requiresError)}`)
 		const requires = doc.approval_required === true || live === true
 
 		let exceptionReason: string | null = null
@@ -489,7 +490,7 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 			p_actor: userId,
 			p_approval_exception_reason: exceptionReason,
 		})
-		if (error) throw new Error(`Erro ao lançar o ajuste: ${error.message}`)
+		if (error) throw new Error(`Erro ao lançar o ajuste: ${publicDbMessage(error)}`)
 		return { movements: Number(posted?.[0]?.movements ?? 0), value: Number(posted?.[0]?.value ?? 0), exceptionReason }
 	})
 
@@ -512,7 +513,7 @@ export const rejectAdjustmentFn = createServerFn({ method: "POST" })
 			.eq("id", data.adjustmentId)
 			.in("status", ["draft", "pending_approval"])
 			.select("id")
-		if (error) throw new Error(`Erro ao rejeitar o ajuste: ${error.message}`)
+		if (error) throw new Error(`Erro ao rejeitar o ajuste: ${publicDbMessage(error)}`)
 		if ((changed ?? []).length === 0) throw new Error("O ajuste mudou de estado enquanto era rejeitado — recarregue e confira")
 		return { rejected: true }
 	})
@@ -553,7 +554,7 @@ export const completeAdjustmentEvidenceFn = createServerFn({ method: "POST" })
 				...(data.correctedMovementId ? { corrected_movement_id: data.correctedMovementId } : {}),
 			})
 			.eq("id", data.adjustmentItemId)
-		if (error) throw new Error(`Erro ao registrar a evidência: ${error.message}`)
+		if (error) throw new Error(`Erro ao registrar a evidência: ${publicDbMessage(error)}`)
 
 		// Volta a "completo" pela MESMA regra que o marcou pendente: só os motivos
 		// de `EVIDENCE_REQUIRED` exigem evidência. Olhar `evidence_reference` de
@@ -566,7 +567,7 @@ export const completeAdjustmentEvidenceFn = createServerFn({ method: "POST" })
 		// Sem os irmãos não há como saber se ainda falta evidência. Ignorar o erro
 		// fazia `[]` passar por "nada pendente" e o documento virava `complete`
 		// com evidência faltando — o contrário do que a flag afirma.
-		if (siblingsError) throw new Error(`Erro ao conferir a evidência dos demais itens: ${siblingsError.message}`)
+		if (siblingsError) throw new Error(`Erro ao conferir a evidência dos demais itens: ${publicDbMessage(siblingsError)}`)
 		const stillPending = evidencePending(
 			(
 				(siblings ?? []) as Array<{
@@ -612,7 +613,7 @@ export const quarantineLotFn = createServerFn({ method: "POST" })
 			// só quem ainda não está: duas pessoas pondo o mesmo lote em quarentena
 			// não podem trocar o autor e o motivo registrados pela primeira
 			.is("quarantined_at", null)
-		if (error) throw new Error(`Erro ao pôr o lote em quarentena: ${error.message}`)
+		if (error) throw new Error(`Erro ao pôr o lote em quarentena: ${publicDbMessage(error)}`)
 		return { quarantined: true }
 	})
 
@@ -630,7 +631,7 @@ export const releaseQuarantineFn = createServerFn({ method: "POST" })
 			.from("stock_lot")
 			.update({ quarantined_at: null, quarantined_by: null, quarantine_reason: `Liberado: ${data.reason.trim()}` })
 			.eq("id", data.lotId)
-		if (error) throw new Error(`Erro ao liberar o lote: ${error.message}`)
+		if (error) throw new Error(`Erro ao liberar o lote: ${publicDbMessage(error)}`)
 		return { released: true }
 	})
 
@@ -662,7 +663,7 @@ export const splitLotFn = createServerFn({ method: "POST" })
 			p_expiry_date: data.expiryDate ?? null,
 			p_location: data.location?.trim() || null,
 		})
-		if (error) throw new Error(`Erro ao fracionar o lote: ${error.message}`)
+		if (error) throw new Error(`Erro ao fracionar o lote: ${publicDbMessage(error)}`)
 		const row = result?.[0]
 		return { lotId: row?.new_lot_id as string, shortCode: row?.new_short_code as string, expiryDate: (row?.new_expiry_date ?? null) as string | null }
 	})
@@ -689,7 +690,7 @@ export const listAdjustmentsFn = createServerFn({ method: "GET" })
 			.limit(data.limit)
 		if (data.status) query = query.eq("status", data.status)
 		const { data: rows, count, error } = await query
-		if (error) throw new Error(`Erro ao listar ajustes: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar ajustes: ${publicDbMessage(error)}`)
 
 		const ids = (rows ?? []).map((row: { id: string }) => row.id)
 		const itemsByDoc = new Map<string, Array<Record<string, unknown>>>()
@@ -735,7 +736,7 @@ export const fetchLossReportFn = createServerFn({ method: "GET" })
 			// período civil em Brasília, como o resto do módulo
 			.gte("occurred_at", `${data.from}T00:00:00-03:00`)
 			.lte("occurred_at", `${data.to}T23:59:59.999-03:00`)
-		if (error) throw new Error(`Erro ao montar o relatório de perdas: ${error.message}`)
+		if (error) throw new Error(`Erro ao montar o relatório de perdas: ${publicDbMessage(error)}`)
 
 		const byReason = new Map<string, { quantity: number; value: number; movements: number }>()
 		for (const row of rows ?? []) {
@@ -797,7 +798,7 @@ export const listQuarantinedLotsFn = createServerFn({ method: "GET" })
 			.not("quarantined_at", "is", null)
 			.order("quarantined_at", { ascending: true })
 			.limit(100)
-		if (error) throw new Error(`Erro ao listar lotes em quarentena: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar lotes em quarentena: ${publicDbMessage(error)}`)
 
 		const ingredientIds = [...new Set((lots ?? []).map((lot: { ingredient_id: string | null }) => lot.ingredient_id).filter(Boolean))] as string[]
 		const names = new Map<string, string>()

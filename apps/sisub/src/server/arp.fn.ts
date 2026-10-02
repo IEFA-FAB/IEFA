@@ -41,6 +41,7 @@ import { getFinanceClient, getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
 import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage, EmpenhoOfArpItem } from "@/types/domain/arp"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -341,7 +342,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 				.eq("uasg_gerenciadora", data.arpData.codigoUnidadeGerenciadora)
 				.maybeSingle(),
 		])
-		if (existingError) throw new Error(`Erro ao procurar a ARP: ${existingError.message}`)
+		if (existingError) throw new Error(`Erro ao procurar a ARP: ${publicDbMessage(existingError)}`)
 		let quantityEstimateId: string | null = data.quantityEstimateId ?? existingArp?.quantity_estimate_id ?? null
 		if (existingArp?.quantity_estimate_id && data.quantityEstimateId && existingArp.quantity_estimate_id !== data.quantityEstimateId) {
 			quantityEstimateId = existingArp.quantity_estimate_id
@@ -421,7 +422,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			.select()
 			.single()
 
-		if (arpError || !arp) throw new Error(`Erro ao salvar ARP: ${arpError?.message}`)
+		if (arpError || !arp) throw new Error(`Erro ao salvar ARP: ${publicDbMessage(arpError)}`)
 
 		// ── 4. Reconciliar itens SEM apagar empenhos locais ──────────────────────
 		// Antes: delete + reinsert, e o CASCADE de então apagava os empenhos
@@ -468,7 +469,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			if (existingId) {
 				matchedIds.add(existingId)
 				const { error } = await supabase.from("arp_item").update(toRow(item)).eq("id", existingId)
-				if (error) throw new Error(`Erro ao atualizar item ${item.numeroItem} da ARP: ${error.message}`)
+				if (error) throw new Error(`Erro ao atualizar item ${item.numeroItem} da ARP: ${publicDbMessage(error)}`)
 			}
 		}
 
@@ -480,7 +481,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			.map(toRow)
 		if (newRows.length > 0) {
 			const { error } = await supabase.from("arp_item").insert(newRows)
-			if (error) throw new Error(`Erro ao salvar itens da ARP: ${error.message}`)
+			if (error) throw new Error(`Erro ao salvar itens da ARP: ${publicDbMessage(error)}`)
 		}
 
 		// Itens locais que a API não retornou: remover apenas os sem empenho local.
@@ -489,12 +490,12 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			// Item com empenho fica (o FK é RESTRICT desde 20260926214000): a NE aponta para o item
 			// da ARP pelos itens dela (`finance.empenho_item`).
 			const { data: itemRefs, error: itemError } = await supabase.schema("finance").from("empenho_item").select("arp_item_id").in("arp_item_id", staleIds)
-			if (itemError) throw new Error(`Erro ao conferir empenhos dos itens retirados: ${itemError.message}`)
+			if (itemError) throw new Error(`Erro ao conferir empenhos dos itens retirados: ${publicDbMessage(itemError)}`)
 			const referenced = new Set((itemRefs ?? []).map((row) => row.arp_item_id))
 			const deletableIds = staleIds.filter((id) => !referenced.has(id))
 			if (deletableIds.length > 0) {
 				const { error } = await supabase.from("arp_item").delete().in("id", deletableIds)
-				if (error) throw new Error(`Erro ao retirar itens que saíram da ARP: ${error.message}`)
+				if (error) throw new Error(`Erro ao retirar itens que saíram da ARP: ${publicDbMessage(error)}`)
 			}
 			const kept = staleIds.length - deletableIds.length
 			if (kept > 0) warnings.push(`${kept} item(ns) que saíram da ARP no Compras.gov.br continuam aqui porque têm empenho`)
@@ -502,7 +503,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		const { data: finalItems, error: finalError } = await supabase.from("arp_item").select("*").eq("arp_id", arp.id).order("numero_item", { ascending: true })
 
-		if (finalError) throw new Error(`Erro ao carregar itens da ARP: ${finalError.message}`)
+		if (finalError) throw new Error(`Erro ao carregar itens da ARP: ${publicDbMessage(finalError)}`)
 
 		return { ...(arp as ArpWithItems), items: finalItems ?? [], warnings }
 	})
@@ -554,7 +555,7 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 		// Sem esta guarda, uma leitura que falha vira "0 itens para atualizar" e o
 		// last_synced_at abaixo carimba "sincronizado agora" sobre número velho —
 		// exatamente o que esta função promete não fazer.
-		if (dbItemsError) throw new Error(`Erro ao carregar itens locais da ARP: ${dbItemsError.message} — snapshot anterior mantido`)
+		if (dbItemsError) throw new Error(`Erro ao carregar itens locais da ARP: ${publicDbMessage(dbItemsError)} — snapshot anterior mantido`)
 
 		// Atualizar TODOS os itens em um único upsert (uma request PostgREST =
 		// uma transação): ou o snapshot inteiro entra, ou nada entra. Os ids vêm
@@ -579,13 +580,13 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 		if (updates.length > 0) {
 			const { error: upsertError } = await supabase.from("arp_item").upsert(updates, { onConflict: "id" })
 			if (upsertError) {
-				throw new Error(`Sincronização falhou (${upsertError.message}) — snapshot anterior mantido, last_synced_at não atualizado`)
+				throw new Error(`Sincronização falhou (${publicDbMessage(upsertError)}) — snapshot anterior mantido, last_synced_at não atualizado`)
 			}
 		}
 
 		// Atualizar timestamp da ARP (só chega aqui com todos os itens ok)
 		const { error: tsError } = await supabase.from("arp").update({ last_synced_at: now }).eq("id", data.arpId)
-		if (tsError) throw new Error(`Erro ao registrar data de sincronização: ${tsError.message}`)
+		if (tsError) throw new Error(`Erro ao registrar data de sincronização: ${publicDbMessage(tsError)}`)
 	})
 
 // ─── 4. Buscar ARP vinculada a um anexo quantitativo ─────────────────────────
@@ -606,28 +607,28 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
  */
 async function resolveQuantityEstimateUnit(supabase: ReturnType<typeof getProcurementClient>, quantityEstimateId: string): Promise<number> {
 	const { data, error } = await supabase.from("quantity_estimate").select("unit_id").eq("id", quantityEstimateId).maybeSingle()
-	if (error) throw new Error(`Erro ao resolver a unidade do anexo quantitativo: ${error.message}`)
+	if (error) throw new Error(`Erro ao resolver a unidade do anexo quantitativo: ${publicDbMessage(error)}`)
 	if (!data) throw new Error("Anexo quantitativo não encontrado")
 	return Number(data.unit_id)
 }
 
 async function resolveAcquisitionUnit(acquisitionId: string): Promise<number> {
 	const { data, error } = await getProcurementClient().from("acquisition").select("unit_id").eq("id", acquisitionId).is("deleted_at", null).maybeSingle()
-	if (error) throw new Error(`Erro ao resolver a unidade da contratação: ${error.message}`)
+	if (error) throw new Error(`Erro ao resolver a unidade da contratação: ${publicDbMessage(error)}`)
 	if (!data) throw new Error("Contratação de origem não encontrada")
 	return Number(data.unit_id)
 }
 
 async function resolveArpUnit(supabase: ReturnType<typeof getProcurementClient>, arpId: string): Promise<number> {
 	const { data, error } = await supabase.from("arp").select("unit_id").eq("id", arpId).maybeSingle()
-	if (error) throw new Error(`Erro ao resolver a unidade da ARP: ${error.message}`)
+	if (error) throw new Error(`Erro ao resolver a unidade da ARP: ${publicDbMessage(error)}`)
 	if (!data) throw new Error("ARP não encontrada")
 	return Number(data.unit_id)
 }
 
 async function resolveArpItemUnit(supabase: ReturnType<typeof getProcurementClient>, arpItemId: string): Promise<number> {
 	const { data, error } = await supabase.from("arp_item").select("arp_id").eq("id", arpItemId).maybeSingle()
-	if (error) throw new Error(`Erro ao resolver a unidade do item: ${error.message}`)
+	if (error) throw new Error(`Erro ao resolver a unidade do item: ${publicDbMessage(error)}`)
 	if (!data) throw new Error("Item da ARP não encontrado")
 	return resolveArpUnit(supabase, String(data.arp_id))
 }
@@ -720,7 +721,7 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 			.single()
 		if (error) {
 			if (error.code === "23505") throw new Error(`A ARP ${numeroAta} da UASG ${data.uasgGerenciadora} já está cadastrada nesta unidade`)
-			throw new Error(`Erro ao cadastrar a ARP: ${error.message}`)
+			throw new Error(`Erro ao cadastrar a ARP: ${publicDbMessage(error)}`)
 		}
 
 		const { error: itemsError } = await supabase.from("arp_item").insert(
@@ -743,8 +744,8 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 			// Sem os itens a ARP não serve para empenhar: desfaz o cabeçalho em vez de deixar uma
 			// ata vazia dizendo "cadastrada".
 			const { error: undoError } = await supabase.from("arp").delete().eq("id", arp.id)
-			if (undoError) throw new Error(`Erro ao cadastrar os itens (${itemsError.message}) e ao desfazer a ARP (${undoError.message})`)
-			throw new Error(`Erro ao cadastrar os itens da ARP: ${itemsError.message}`)
+			if (undoError) throw new Error(`Erro ao cadastrar os itens (${publicDbMessage(itemsError)}) e ao desfazer a ARP (${publicDbMessage(undoError)})`)
+			throw new Error(`Erro ao cadastrar os itens da ARP: ${publicDbMessage(itemsError)}`)
 		}
 		return { arpId: arp.id as string, numeroAta }
 	})
@@ -795,7 +796,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 			.order("created_at", { ascending: false })
 		if (data.acquisitionId) query = query.eq("acquisition_id", data.acquisitionId)
 		const { data: arps, error } = await query
-		if (error) throw new Error(`Erro ao listar ARPs: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar ARPs: ${publicDbMessage(error)}`)
 		const list = arps ?? []
 		if (list.length === 0) return []
 
@@ -809,7 +810,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 				list.map((arp) => arp.id)
 			)
 			.order("numero_item", { ascending: true })
-		if (itemsError) throw new Error(`Erro ao listar itens das ARPs: ${itemsError.message}`)
+		if (itemsError) throw new Error(`Erro ao listar itens das ARPs: ${publicDbMessage(itemsError)}`)
 		const itemRows = (items ?? []) as ArpItem[]
 		const committed = await loadLocalCommitments(itemRows.map((item) => item.id))
 
@@ -861,7 +862,7 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 			.from("empenho_item")
 			.select("empenho_id, quantity, unit_price, value")
 			.eq("arp_item_id", data.arpItemId)
-		if (itemsError) throw new Error(`Erro ao buscar itens de empenho: ${itemsError.message}`)
+		if (itemsError) throw new Error(`Erro ao buscar itens de empenho: ${publicDbMessage(itemsError)}`)
 		const byEmpenho = new Map<string, EmpenhoItemAmounts[]>()
 		for (const item of items ?? []) byEmpenho.set(item.empenho_id, [...(byEmpenho.get(item.empenho_id) ?? []), item])
 		if (byEmpenho.size === 0) return []
@@ -872,7 +873,7 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 			.in("id", [...byEmpenho.keys()])
 			.order("data_empenho", { ascending: false })
 
-		if (error) throw new Error(`Erro ao buscar empenhos: ${error.message}`)
+		if (error) throw new Error(`Erro ao buscar empenhos: ${publicDbMessage(error)}`)
 		return (empenhos ?? []).map((empenho) => ({
 			...empenho,
 			valor_total: Number(empenho.valor_total),
@@ -956,7 +957,7 @@ export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
 		await requireUnitScope(1, await resolveArpUnit(supabase, data.arpId))
 
 		const { data: items, error: itemsError } = await supabase.from("arp_item").select("id").eq("arp_id", data.arpId)
-		if (itemsError) throw new Error(`Erro ao buscar itens da ARP: ${itemsError.message}`)
+		if (itemsError) throw new Error(`Erro ao buscar itens da ARP: ${publicDbMessage(itemsError)}`)
 		const itemIds = (items ?? []).map((item) => item.id)
 		if (itemIds.length === 0) return {}
 
@@ -985,7 +986,7 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 		// entre eles na proporção do valor de cada item — é leitura de acompanhamento, não lançamento.
 		const financeClient = supabase.schema("finance")
 		const { data: arpNeItems, error: arpNeError } = await financeClient.from("empenho_item").select("empenho_id, arp_item_id, value").in("arp_item_id", itemIds)
-		if (arpNeError) throw new Error(`Erro ao buscar itens de empenho: ${arpNeError.message}`)
+		if (arpNeError) throw new Error(`Erro ao buscar itens de empenho: ${publicDbMessage(arpNeError)}`)
 		const empenhoIds = [...new Set((arpNeItems ?? []).map((row) => row.empenho_id))]
 		if (empenhoIds.length === 0) return {}
 
@@ -1046,7 +1047,7 @@ export const anularEmpenhoFn = createServerFn({ method: "POST" })
 		const { data: empenho, error: lookupError } = await fin.from("empenho").select("unit_id, status, numero_empenho").eq("id", data.empenhoId).maybeSingle()
 		// Falha de consulta NÃO pode virar "não encontrado": o diagnóstico errado manda o
 		// usuário procurar um empenho que existe.
-		if (lookupError) throw new Error(`Erro ao buscar empenho: ${lookupError.message}`)
+		if (lookupError) throw new Error(`Erro ao buscar empenho: ${publicDbMessage(lookupError)}`)
 		if (!empenho) throw new Error("Empenho não encontrado")
 		const ctx = await requireUnitScope(2, Number(empenho.unit_id))
 

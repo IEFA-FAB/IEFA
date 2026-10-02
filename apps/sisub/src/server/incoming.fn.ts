@@ -36,6 +36,7 @@ import { z } from "zod"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas fora dos tipos gerados
 type LooseClient = { from: (table: string) => any }
@@ -100,7 +101,7 @@ async function purchaseUnitOf(kitchenId: number): Promise<number | null> {
 		.select("unit_id, purchase_unit_id")
 		.eq("id", kitchenId)
 		.maybeSingle()
-	if (error) throw new Error(`Erro ao carregar a cozinha: ${error.message}`)
+	if (error) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(error)}`)
 	return resolvePurchaseUnitId({ unitId: row?.unit_id ?? null, purchaseUnitId: row?.purchase_unit_id ?? null })
 }
 
@@ -423,7 +424,7 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 			.select("id, kitchen_id, unit_id, supplier_cnpj, supplier_cpf, total_value")
 			.eq("id", data.nfeDocumentId)
 			.maybeSingle()
-		if (noteError) throw new Error(`Erro ao carregar a nota: ${noteError.message}`)
+		if (noteError) throw new Error(`Erro ao carregar a nota: ${publicDbMessage(noteError)}`)
 		if (!note) throw new Error("Nota não encontrada")
 		// A nota tem de ser desta cozinha — OU da unidade compradora dela, ainda
 		// não reivindicada. Recusar a não reivindicada lançava erro justamente na

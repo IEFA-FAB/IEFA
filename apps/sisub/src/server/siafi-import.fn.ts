@@ -15,6 +15,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -118,7 +119,7 @@ export const listImportBatchesFn = createServerFn({ method: "GET" })
 			.eq("unit_id", data.unitId)
 			.order("created_at", { ascending: false })
 			.limit(50)
-		if (error) throw new Error(`Erro ao listar lotes: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar lotes: ${publicDbMessage(error)}`)
 		return (batches ?? []) as ImportBatchRow[]
 	})
 

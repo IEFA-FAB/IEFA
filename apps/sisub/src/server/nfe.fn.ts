@@ -20,6 +20,7 @@ import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
 
@@ -97,7 +98,7 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 	if (docError || !doc) throw new Error("NF-e não encontrada")
 
 	const { data: items, error: itemsError } = await inv.from("nfe_item").select("*").eq("nfe_document_id", nfeDocumentId)
-	if (itemsError) throw new Error(`Erro ao carregar itens: ${itemsError.message}`)
+	if (itemsError) throw new Error(`Erro ao carregar itens: ${publicDbMessage(itemsError)}`)
 	const nfeItems = (items ?? []) as (NfeItemRow & { nfe_document_id: string })[]
 	if (nfeItems.length === 0) return { matched: 0, review: 0, noMatch: 0 }
 
@@ -126,7 +127,7 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 		if (unseen.length > 0) {
 			const dedup = [...new Map(unseen.map((row) => [row.gtin, row])).values()]
 			const { error: gtinInsertError } = await gs1().from("gtin").upsert(dedup, { onConflict: "gtin", ignoreDuplicates: true })
-			if (gtinInsertError) throw new Error(`Erro ao cadastrar GTINs da nota: ${gtinInsertError.message}`)
+			if (gtinInsertError) throw new Error(`Erro ao cadastrar GTINs da nota: ${publicDbMessage(gtinInsertError)}`)
 			for (const row of dedup) gtinEntityByGtin.set(row.gtin as string, { net_content: null, gpc_brick_code: null })
 		}
 	}
@@ -220,7 +221,7 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 	}
 
 	const { error: upsertError } = await inv.from("nfe_item").upsert(updates, { onConflict: "id" })
-	if (upsertError) throw new Error(`Erro ao gravar resultado do matching: ${upsertError.message}`)
+	if (upsertError) throw new Error(`Erro ao gravar resultado do matching: ${publicDbMessage(upsertError)}`)
 
 	const newStatus = matched === nfeItems.length ? "matched" : "imported"
 	await inv.from("nfe_document").update({ status: newStatus }).eq("id", nfeDocumentId)
@@ -317,7 +318,7 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 					.is("kitchen_id", null)
 					.eq("unit_id", Number(existing.unit_id))
 					.select("id")
-				if (error) throw new Error(`Erro ao assumir a nota: ${error.message}`)
+				if (error) throw new Error(`Erro ao assumir a nota: ${publicDbMessage(error)}`)
 				if (!claimed || claimed.length === 0)
 					throw new Error("A nota mudou enquanto era registrada (outra cozinha a assumiu ou a triagem mudou a unidade) — recarregue a lista")
 			}
@@ -343,7 +344,7 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 			})
 			.select("id")
 			.single()
-		if (error || !doc) throw new Error(`Erro ao registrar a nota pela chave: ${error?.message}`)
+		if (error || !doc) throw new Error(`Erro ao registrar a nota pela chave: ${publicDbMessage(error)}`)
 		return { nfeDocumentId: doc.id as string, created: true, status: "announced" }
 	})
 
@@ -370,7 +371,7 @@ export const registerNfeSituationFn = createServerFn({ method: "POST" })
 			update.cancelled_reason = data.note?.trim() || "Cancelada pelo emitente (consulta na SEFAZ)"
 		}
 		const { error } = await inv.from("nfe_document").update(update).eq("id", data.nfeDocumentId)
-		if (error) throw new Error(`Erro ao registrar a situação: ${error.message}`)
+		if (error) throw new Error(`Erro ao registrar a situação: ${publicDbMessage(error)}`)
 		return { saved: true }
 	})
 
@@ -381,7 +382,7 @@ export const claimNfeForKitchenFn = createServerFn({ method: "POST" })
 		await requireStorageForKitchen(2, data.kitchenId)
 		const inv = inventory()
 		const { data: doc, error: docError } = await inv.from("nfe_document").select("id, kitchen_id, unit_id").eq("id", data.nfeDocumentId).maybeSingle()
-		if (docError) throw new Error(`Erro ao carregar a nota: ${docError.message}`)
+		if (docError) throw new Error(`Erro ao carregar a nota: ${publicDbMessage(docError)}`)
 		if (!doc) throw new Error("NF-e não encontrada")
 		if (doc.kitchen_id != null && Number(doc.kitchen_id) === data.kitchenId) return { claimed: true }
 
@@ -406,7 +407,7 @@ export const claimNfeForKitchenFn = createServerFn({ method: "POST" })
 			.is("kitchen_id", null)
 			.eq("unit_id", Number(doc.unit_id))
 			.select("id")
-		if (error) throw new Error(`Erro ao assumir a nota: ${error.message}`)
+		if (error) throw new Error(`Erro ao assumir a nota: ${publicDbMessage(error)}`)
 		if (!claimed || claimed.length === 0)
 			throw new Error("A nota mudou enquanto você a assumia (outra cozinha a assumiu ou a triagem mudou a unidade) — recarregue a lista")
 		return { claimed: true }
@@ -428,7 +429,7 @@ export const listUnassignedNfeFn = createServerFn({ method: "GET" })
 			.is("unit_id", null)
 			.order("created_at", { ascending: false })
 			.limit(data.limit)
-		if (error) throw new Error(`Erro ao listar notas em triagem: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar notas em triagem: ${publicDbMessage(error)}`)
 		return { documents: docs ?? [], total: count ?? (docs ?? []).length }
 	})
 
@@ -439,7 +440,7 @@ export const assignNfeUnitFn = createServerFn({ method: "POST" })
 		await requireStorageForKitchen(3, null)
 		const inv = inventory()
 		const { data: doc, error: docError } = await inv.from("nfe_document").select("kitchen_id").eq("id", data.nfeDocumentId).maybeSingle()
-		if (docError) throw new Error(`Erro ao carregar a nota: ${docError.message}`)
+		if (docError) throw new Error(`Erro ao carregar a nota: ${publicDbMessage(docError)}`)
 		if (!doc) throw new Error("NF-e não encontrada")
 		// A nota enviada por uma cozinha com destinatário desconhecido fica com ela. Atribuída a OUTRA
 		// unidade, deixa de ser daquela cozinha e vai para as cozinhas da unidade atribuída — senão a
@@ -449,7 +450,7 @@ export const assignNfeUnitFn = createServerFn({ method: "POST" })
 			.from("nfe_document")
 			.update({ unit_id: data.unitId, destination_confirmed: false, ...(keepsKitchen ? {} : { kitchen_id: null }) })
 			.eq("id", data.nfeDocumentId)
-		if (error) throw new Error(`Erro ao atribuir a unidade: ${error.message}`)
+		if (error) throw new Error(`Erro ao atribuir a unidade: ${publicDbMessage(error)}`)
 		return { assigned: true }
 	})
 
@@ -484,7 +485,7 @@ export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 			query = unitId != null ? query.or(`kitchen_id.eq.${data.kitchenId},and(unit_id.eq.${unitId},kitchen_id.is.null)`) : query.eq("kitchen_id", data.kitchenId)
 		}
 		const { data: docs, error } = await query
-		if (error) throw new Error(`Erro ao listar NF-e: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar NF-e: ${publicDbMessage(error)}`)
 		const documents = (docs ?? []) as NfeDocumentRow[]
 		if (documents.length === 0) return []
 
@@ -600,7 +601,7 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 				.eq("purchase_item_id", purchaseItemId)
 				.eq("is_default", true)
 				.limit(2)
-			if (defaultError) throw new Error(`Erro ao ler o insumo padrão do item de compra: ${defaultError.message}`)
+			if (defaultError) throw new Error(`Erro ao ler o insumo padrão do item de compra: ${publicDbMessage(defaultError)}`)
 			if (defaultLinks?.length === 1) ingredientId = (defaultLinks[0].ingredient_id as string | null) ?? null
 		}
 		const qty = perPackage != null && perPackage > 0 && item.commercial_qty != null && item.commercial_qty > 0 ? item.commercial_qty * perPackage : null
@@ -622,7 +623,7 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 					},
 					{ onConflict: "supplier_cnpj,supplier_code" }
 				)
-			if (mapError) throw new Error(`Falha ao gravar o mapa do fornecedor (item não alterado): ${mapError.message}`)
+			if (mapError) throw new Error(`Falha ao gravar o mapa do fornecedor (item não alterado): ${publicDbMessage(mapError)}`)
 		}
 
 		const { error: updateError } = await inv
@@ -636,7 +637,7 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 				updated_at: new Date().toISOString(),
 			})
 			.eq("id", data.nfeItemId)
-		if (updateError) throw new Error(`Erro ao resolver item (mapa do fornecedor já aprendido — tente novamente): ${updateError.message}`)
+		if (updateError) throw new Error(`Erro ao resolver item (mapa do fornecedor já aprendido — tente novamente): ${publicDbMessage(updateError)}`)
 
 		return { status: qty != null ? "matched" : "review", matchedQtyBase: qty }
 	})

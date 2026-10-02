@@ -13,6 +13,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: views novas ainda fora dos tipos gerados (regen na task 2.4)
 type LooseClient = { from: (table: string) => any }
@@ -36,7 +37,7 @@ export const fetchMeasureUnitReviewFn = createServerFn({ method: "GET" }).handle
 	await requireAuthWithPermission("global", 1)
 	const core = getServerClient("core") as unknown as LooseClient
 	const { data, error } = await core.from("v_measure_unit_review").select("*").order("source_table").limit(500)
-	if (error) throw new Error(`Erro ao buscar fila de unidades: ${error.message}`)
+	if (error) throw new Error(`Erro ao buscar fila de unidades: ${publicDbMessage(error)}`)
 	return (data ?? []) as MeasureUnitReviewRow[]
 })
 
@@ -45,7 +46,7 @@ export const fetchBarcodeReviewFn = createServerFn({ method: "GET" }).handler(as
 	await requireAuthWithPermission("global", 1)
 	const gs1 = getServerClient("gs1_integration") as unknown as LooseClient
 	const { data, error } = await gs1.from("v_barcode_review").select("*").order("description").limit(500)
-	if (error) throw new Error(`Erro ao buscar fila de barcodes: ${error.message}`)
+	if (error) throw new Error(`Erro ao buscar fila de barcodes: ${publicDbMessage(error)}`)
 	return (data ?? []) as BarcodeReviewRow[]
 })
 
@@ -69,6 +70,6 @@ export const fetchConditioningReviewFn = createServerFn({ method: "GET" }).handl
 	await requireAuthWithPermission("global", 1)
 	const procurement = getServerClient("procurement") as unknown as LooseClient
 	const { data, error } = await procurement.from("v_purchase_item_conditioning_review").select("*").order("itens_vinculados", { ascending: false }).limit(500)
-	if (error) throw new Error(`Erro ao buscar fila de acondicionamento: ${error.message}`)
+	if (error) throw new Error(`Erro ao buscar fila de acondicionamento: ${publicDbMessage(error)}`)
 	return (data ?? []) as ConditioningReviewRow[]
 })
