@@ -204,7 +204,8 @@ describe("entrega ao SIGADAER", () => {
 			addressing: { formOfAddress: "senhoria", gender: "m", name: "Fulano", position: "Chefe", addressLines: ["Rua A, 1"] },
 		})
 		const texto = sigadaerHandoff(externo, assembleDocument(externo)).fields.find((c) => c.id === "texto")?.value ?? ""
-		expect(texto).toContain("A Sua Senhoria o Senhor\nFULANO\nChefe\nRua A, 1")
+		// Quebra forçada (dois espaços): a simples juntaria o bloco numa linha só no Markdown.
+		expect(texto).toContain("A Sua Senhoria o Senhor  \nFULANO  \nChefe  \nRua A, 1")
 	})
 
 	it("lista o que o SIGADAER preenche, para conferência", () => {

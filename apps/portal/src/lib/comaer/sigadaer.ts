@@ -81,11 +81,12 @@ export function escapeMarkdownStructure(text: string): string {
  * mesmo parágrafo, e um editor sem `breaks` juntava os parágrafos 1 a 5 numa massa só. Com a
  * linha em branco cada parágrafo, item e alínea é parágrafo próprio nos dois modos.
  *
- * Só no texto: endereçamento e rodapé são UM bloco de várias linhas (nome, cargo, endereço),
- * e separá-los em parágrafos desmancharia a forma de bloco.
+ * Endereçamento, referências e rodapé são UM bloco de várias linhas (nome, cargo, endereço):
+ * separá-los em parágrafos desmancharia a forma de bloco, e a quebra simples os juntaria numa
+ * linha só. Ali vai a quebra forçada do Markdown, dois espaços antes do fim da linha.
  */
 function blockToMarkdown(bloco: AssembledBlock): string {
-	return bloco.lines.map((l) => escapeMarkdownStructure(plainLine(l))).join(bloco.id === "texto" ? "\n\n" : "\n")
+	return bloco.lines.map((l) => escapeMarkdownStructure(plainLine(l))).join(bloco.id === "texto" ? "\n\n" : "  \n")
 }
 
 /**
