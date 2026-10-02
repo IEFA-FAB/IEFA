@@ -7,17 +7,19 @@ import { PersonCard } from "@/components/PersonCard"
 import { type Escolha, VacancyBoard } from "@/components/VacancyBoard"
 import { useBoardRealtime } from "@/hooks/useBoardRealtime"
 import { AssetPreloader } from "@/lib/asset-cache"
+import { maskUnannouncedChoice } from "@/lib/person-visibility"
 import { boardQueryOptions } from "@/lib/queries"
 
 export const Route = createFileRoute("/")({
-	// Telão sempre segue a edição ativa (editionId nulo → resolvido no servidor).
-	loader: ({ context }) => context.queryClient.query({ ...boardQueryOptions(null), staleTime: "static" }),
+	// Telão sempre segue a edição ativa (resolvida no servidor).
+	loader: ({ context }) => context.queryClient.query({ ...boardQueryOptions(), staleTime: "static" }),
 	component: BoardPage,
 })
 
 function BoardPage() {
-	const { data } = useSuspenseQuery(boardQueryOptions(null))
-	useBoardRealtime(data.editionId, undefined)
+	const { data } = useSuspenseQuery(boardQueryOptions())
+	// O canal entrega a linha inteira; a máscara deixa o cache igual ao que o poll traz.
+	useBoardRealtime(data.editionId, boardQueryOptions().queryKey, maskUnannouncedChoice)
 
 	const edition = data.editions.find((e) => e.id === data.editionId)
 	const editionName = edition?.name ?? "—"

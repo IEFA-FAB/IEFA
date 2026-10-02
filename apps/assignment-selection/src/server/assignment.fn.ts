@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAccess } from "@/lib/auth.server"
 import { splitPersonChanges } from "@/lib/person-changes"
+import { maskUnannouncedChoice } from "@/lib/person-visibility"
 import { getAssignmentServerClient } from "@/lib/supabase.server"
 
 export interface BoardData {
@@ -21,7 +22,7 @@ async function fetchEditions(): Promise<Edition[]> {
 	return data ?? []
 }
 
-/** Resolve a edição alvo: a explícita, senão a ativa, senão a mais recente. */
+/** Resolve a edição do controlador: a explícita, senão a ativa, senão a mais recente. */
 function resolveEditionId(editions: Edition[], requested?: string | null): string | null {
 	if (requested && editions.some((e) => e.id === requested)) return requested
 	const active = editions.find((e) => e.active)
@@ -29,40 +30,48 @@ function resolveEditionId(editions: Edition[], requested?: string | null): strin
 	return editions[0]?.id ?? null
 }
 
-// Leitura pública: o telão da escolha de vagas roda sem sessão, e as tabelas têm
-// policy `public read` para anon. A escrita (updatePerson/callPerson/…) exige requireAccess.
+/** Pessoas e vagas de uma edição, numa ida só ao banco (as duas consultas em paralelo). */
+async function fetchBoard(editions: Edition[], editionId: string | null): Promise<BoardData> {
+	if (!editionId) return { editionId: null, editions, persons: [], vacancies: [] }
+
+	const supabase = getAssignmentServerClient()
+	const [personsRes, vacanciesRes] = await Promise.all([
+		supabase.from("person").select("*").eq("edition_id", editionId).order("classificacao", { ascending: true }),
+		supabase.from("vacancy").select("*").eq("edition_id", editionId).order("om", { ascending: true }),
+	])
+
+	if (personsRes.error) throw new Error(personsRes.error.message)
+	if (vacanciesRes.error) throw new Error(vacanciesRes.error.message)
+
+	return { editionId, editions, persons: personsRes.data ?? [], vacancies: vacanciesRes.data ?? [] }
+}
+
+/*
+ * Leitura pública do telão: roda sem sessão, com o service role.
+ *
+ * - Só a edição ATIVA. O telão sempre segue a ativa; antes, qualquer um passava o id de outra
+ *   edição e recebia a lista dela (a de 2025, encerrada, inclusive). Sem edição ativa o telão
+ *   fica vazio, em vez de cair na mais recente.
+ * - A OM armada e ainda não anunciada sai mascarada (`maskUnannouncedChoice`). O custo é um
+ *   `map` sobre as ~40 linhas que já vieram: nenhuma consulta a mais no caminho do telão.
+ *
+ * O controlador lê por `getControllerBoardFn`, que exige a concessão e devolve tudo.
+ */
 // nosemgrep: server-fn-missing-auth-guard
-export const listEditionsFn = createServerFn({ method: "GET" }).handler(async (): Promise<Edition[]> => {
-	return fetchEditions()
+export const getBoardFn = createServerFn({ method: "GET" }).handler(async (): Promise<BoardData> => {
+	const editions = await fetchEditions()
+	const active = editions.find((e) => e.active) ?? null
+	const board = await fetchBoard(editions, active?.id ?? null)
+	return { ...board, persons: board.persons.map(maskUnannouncedChoice) }
 })
 
-// Leitura pública do telão — ver listEditionsFn.
-// nosemgrep: server-fn-missing-auth-guard
-export const getBoardFn = createServerFn({ method: "GET" })
+/** Quadro do painel de controle: qualquer edição, com a OM armada visível. */
+export const getControllerBoardFn = createServerFn({ method: "GET" })
 	.validator(z.object({ editionId: z.uuid().nullish() }))
 	.handler(async ({ data }): Promise<BoardData> => {
-		const supabase = getAssignmentServerClient()
+		await requireAccess()
 		const editions = await fetchEditions()
-		const editionId = resolveEditionId(editions, data.editionId)
-
-		if (!editionId) {
-			return { editionId: null, editions, persons: [], vacancies: [] }
-		}
-
-		const [personsRes, vacanciesRes] = await Promise.all([
-			supabase.from("person").select("*").eq("edition_id", editionId).order("classificacao", { ascending: true }),
-			supabase.from("vacancy").select("*").eq("edition_id", editionId).order("om", { ascending: true }),
-		])
-
-		if (personsRes.error) throw new Error(personsRes.error.message)
-		if (vacanciesRes.error) throw new Error(vacanciesRes.error.message)
-
-		return {
-			editionId,
-			editions,
-			persons: personsRes.data ?? [],
-			vacancies: vacanciesRes.data ?? [],
-		}
+		return fetchBoard(editions, resolveEditionId(editions, data.editionId))
 	})
 
 const personChangesSchema = z

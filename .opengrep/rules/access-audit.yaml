@@ -21,6 +21,8 @@
 #   - forms: `db.rpc("add_response_viewer" | "update_response_viewer_policy" |
 #     "remove_response_viewer" | "add_questionnaire_editor" | "remove_questionnaire_editor")`;
 #   - papel do journal: `rpc("save_user_profile")` (perfil + papel, uma transação);
+#   - painel da escolha de vagas: `assignment_selection.{grant,revoke}_controller_access` (SQL do
+#     mantenedor; o app só lê `access_grant`);
 #   - bloqueio em vários módulos (contrate): `setModuleBlock` (@iefa/pbac).
 #
 # Migrations (SQL, fora do alcance destas regras TS) que semeiam ou corrigem essas tabelas depois
@@ -62,6 +64,7 @@ rules:
           - pattern: $DB.from("response_viewer_scope_binding").$WRITE(...)
           - pattern: $DB.from("questionnaire_editor").$WRITE(...)
           - pattern: $DB.from("signup_allowlist").$WRITE(...)
+          - pattern: $DB.from("access_grant").$WRITE(...)
           # Drizzle
           - pattern: $DB.$WRITE(userPermissionsInAccessControl)
           - pattern: $DB.$WRITE(policyInAccessControl)
@@ -92,7 +95,7 @@ rules:
       exclude:
         - "**/*.test.ts"
         - "**/node_modules/**"
-    pattern-regex: (?i)\b(insert\s+into|update|delete\s+from)\s+(access_control\.(user_permissions|policy|policy_statement|user_policy_attachment|mcp_api_keys|signup_allowlist)|forms\.(response_viewer|response_viewer_scope_binding|questionnaire_editor))\b
+    pattern-regex: (?i)\b(insert\s+into|update|delete\s+from)\s+(access_control\.(user_permissions|policy|policy_statement|user_policy_attachment|mcp_api_keys|signup_allowlist)|forms\.(response_viewer|response_viewer_scope_binding|questionnaire_editor)|assignment_selection\.access_grant)\b
 
   - id: access-audit-bypass-outside-allowlist
     languages: [typescript]
@@ -115,6 +118,9 @@ rules:
         - "apps/sisub/src/test/access-fixture-writer.ts"
         # Faxina de fixture vazada (roda contra produção, com teto e dry-run).
         - "apps/sisub/scripts/purge-test-fixtures.ts"
+        # Fixture das concessões do /controller nos testes de integração da escolha de vagas:
+        # mesma razão do seeder do sisub (concessão de teste não vai para o log de produção).
+        - "apps/assignment-selection/src/test/access-fixture-writer.ts"
         # Contrato textual das migrations: LÊ os nomes no SQL, não os escreve.
         - "packages/database/src/access-audit.sql-contract.test.ts"
     pattern-regex: iefa\.audit_(bypass|operation)

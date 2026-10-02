@@ -22,7 +22,7 @@ const PHASE_2 = "20260921130100_access_change_enforcement.sql"
 /**
  * As tabelas vigiadas — e em que só função auditada escreve. A fase 2 ligou o trigger nas nove
  * primeiras; tabela de acesso que nasce depois liga o dela na própria migration
- * (`signup_allowlist`, 20261001100000).
+ * (`signup_allowlist`, 20261001100000; `assignment_selection.access_grant`, 20261001150000).
  */
 const ACCESS_TABLES = [
 	"access_control.user_permissions",
@@ -35,6 +35,7 @@ const ACCESS_TABLES = [
 	"forms.questionnaire_editor",
 	"journal.user_profiles",
 	"access_control.signup_allowlist",
+	"assignment_selection.access_grant",
 ] as const
 
 /** Corpo da definição MAIS RECENTE de cada função, na ordem cronológica das migrations. */
@@ -97,7 +98,7 @@ describe("fase 1 — toda função que escreve em tabela de acesso é auditada",
 		const late: string[] = []
 		for (const [name, { body }] of writers) {
 			const context = body.search(/perform access_control\.audit_context\(/)
-			const write = body.search(/(insert\s+into|update|delete\s+from)\s+(access_control|forms|journal)\.(?!sensitive_operation_log)/i)
+			const write = body.search(/(insert\s+into|update|delete\s+from)\s+(access_control|forms|journal|assignment_selection)\.(?!sensitive_operation_log)/i)
 			if (context === -1 || context > write) late.push(name)
 		}
 		expect(late).toEqual([])
