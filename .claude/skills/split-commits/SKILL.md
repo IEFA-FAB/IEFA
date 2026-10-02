@@ -15,29 +15,23 @@ allowed-tools:
   - Bash(git commit *)
   - Bash(git show *)
   - Bash(git ls-files *)
-  - Bash(git stash *)
   - Bash(bun *)
 ---
 
 ## Project context (IEFA monorepo)
 
-CI command: `bun run ci` (runs lint + typecheck via turbo)
-Full check: `bun run check` (biome check + typecheck)
-Format check: `bun run format:check`
+Gates (same as CI): `bun run format:check`, `bun run lint --concurrency=2`,
+`bun run typecheck --concurrency=2`, `bun run test --concurrency=2` (see the `ship-pr` skill).
 Quicksave pattern: `chore(root): wip unstable` — these are intentional placeholders, not real commits
 
-Apps and their canonical scopes:
-- `apps/sisub` → scope `sisub`
-- `apps/portal` → scope `portal`
-- `apps/api` → scope `api`
-- `apps/alpha` → scope `alpha`
-- `apps/docs` → scope `docs`
-- `apps/forms` → scope `forms`
-- `apps/rumaer` → scope `rumaer`
-- `apps/sisub-mcp` → scope `sisub-mcp`
-- `packages/database` → scope `database` (NOT `db` — commitlint rejects `db`)
-- `.github/`, `docker-bake.hcl`, `Dockerfile`, `fly.toml` → scope `ci`
-- `package.json`, `turbo.json`, `bun.lockb`, `biome.json` → scope `deps` or `root`
+Scope = the directory under `apps/` or `packages/` (`apps/sisub` → `sisub`,
+`packages/database` → `database`, never `db`), a key of `apps.manifest.json` (e.g. `5s`), or
+`deps`, `ci`, `scripts`, `root`. The list comes from `commitlint.config.ts`:
+
+!`bun -e 'import("./commitlint.config.ts").then((m) => console.log(m.default.rules["scope-enum"][2].join(", ")))'`
+
+- `.github/`, `docker-bake.hcl`, `Dockerfile` (generated from the manifest) → scope `ci`
+- `package.json`, `bun.lock`, `turbo.json`, `biome.json` → scope `deps` or `root`
 
 ## Current git state
 
@@ -97,9 +91,9 @@ Create commits that are independently understandable and independently green in 
 
 Prefer these boundaries (order = preferred commit sequence):
 
-1. Dependency/lockfile changes (`deps`): `package.json`, `bun.lockb`, `turbo.json`.
-2. DB migrations and generated types (`database`): `packages/database/migrations/`, `packages/database/src/types/`.
-3. Config/build/CI (`ci`): `Dockerfile`, `docker-bake.hcl`, `.github/`, `fly.toml`, `biome.json`.
+1. Dependency/lockfile changes (`deps`): `package.json`, `bun.lock`, `turbo.json`.
+2. DB migrations and generated types (`database`): `packages/database/supabase/migrations/`, `packages/database/src/generated.ts`.
+3. Config/build/CI (`ci`): `apps.manifest.json` + generated `Dockerfile`/`docker-bake.hcl`, `.github/`, `biome.json`.
 4. Backend/API behavior (`api`, `alpha`, `sisub-mcp`): server logic, routes, workers.
 5. Server functions (`sisub`, `portal`): `src/server/*.fn.ts`, `src/routes/*.ts` handlers.
 6. UI/client behavior (per-app scope): components, pages, styles.
@@ -119,11 +113,12 @@ If an intermediate commit would break typecheck or build (e.g. a type in `packag
 
 ## CI/CD safety rules
 
-This repo uses Fly.io per-app deploys triggered by paths-filter on push to `main`. A commit that breaks `bun run ci` will fail the deploy pipeline.
+Deploys are per app on AWS ECS, triggered by paths-filter on push to `main` (`deploy.yml`). A
+commit that breaks lint, typecheck or tests leaves that app's deploy `skipped`.
 
 Validation tiers:
 
-- `full`: run `bun run ci` (lint + typecheck). Required for any commit touching source files.
+- `full`: `bun run lint --concurrency=2 && bun run typecheck --concurrency=2 && bun run test --concurrency=2`. Required for any commit touching source files.
 - `light`: `bun run format:check` only. Sufficient for docs-only or comments-only commits.
 - `deferred`: cannot validate locally (e.g. migration requires live DB). Explain why.
 
@@ -181,7 +176,7 @@ Body format:
 - What changed and why it belongs here.
 - Any constraint or dependency that shaped this partition.
 
-Validation: bun run ci
+Validation: full
 ```
 
 ## Secrets and suspicious files
@@ -236,11 +231,11 @@ Soft-reset complete. Working tree contains all changes.
 
 1. `<sha>` <type(scope): subject>
    Files: ...
-   Validation: bun run ci ✓
+   Validation: full ✓
 
 2. `<sha>` <type(scope): subject>
    Files: ...
-   Validation: bun run ci ✓
+   Validation: full ✓
 
 ## Remaining working tree
 

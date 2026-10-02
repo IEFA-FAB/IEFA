@@ -31,7 +31,7 @@ Todos os apps web usam React 19.
 `database` (tipos + migrations Supabase) · `sisub-domain` (operações, guards, contrato das tools de
 IA) · `supabase-kit` (clients service-role/browser/SSR com deadlines de fetch) · `auth-kit` · `pbac`
 (autorização módulo + nível + escopo) · `legal-kit` · `ai-provider` · `agent-web` · `compras-api` ·
-`hono-client` · `alpha-client` · `tsconfig`.
+`compras-api-codegen` · `hono-client` · `alpha-client` · `tsconfig`.
 
 ## Comandos
 

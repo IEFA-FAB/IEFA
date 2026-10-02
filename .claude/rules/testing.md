@@ -11,7 +11,7 @@ paths:
 
 Referência completa: `TESTING.md` na raiz.
 
-- Runners: `bun test` em 13 workspaces (script já passa `--no-env-file`); vitest em `sisub` e
+- Runners: `bun test` nos demais workspaces (script já passa `--no-env-file`); vitest em `sisub` e
   `assignment-selection`. Não rodar `bunx vitest run` da raiz: o alias `@/` não resolve e dá ~32
   falsos positivos.
 - **`.env` no disco não entra na suíte, e a trava tem de continuar assim.** O `loadEnv` do
