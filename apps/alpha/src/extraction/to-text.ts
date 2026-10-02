@@ -144,26 +144,12 @@ export async function pdfToSubmissionText(bytes: Uint8Array, options: { maxPages
 /**
  * Confere os tetos de processamento ANTES de o documento ser aceito. Sem isto o upload
  * respondia 201 e o documento nunca mais podia ser lido: extração, texto e verificação
- * falhavam para sempre. PDF: só conta as páginas (barato). docx: a leitura inteira já é
- * leve, e o texto volta para semear o cache.
+ * falhavam para sempre. A leitura é a MESMA que as etapas seguintes fazem (no PDF, o texto
+ * inteiro no subprocesso, com prazo e teto de memória): contar só as páginas aceitava o PDF
+ * que depois estourava o prazo. O texto volta para semear o cache.
  */
-export async function inspectSubmissionDocument(bytes: Uint8Array, mimeType: string): Promise<string | null> {
-	if (mimeType.includes("pdf")) {
-		// Até contar páginas abre o documento inteiro no pdf.js: PDF hostil trava aqui também.
-		await readPdfIsolated(bytes, "inspect")
-		return null
-	}
+export async function inspectSubmissionDocument(bytes: Uint8Array, mimeType: string): Promise<string> {
 	return (await toSubmissionText(bytes, mimeType)).text
-}
-
-/**
- * Só a contagem de páginas, no processo atual — é o que o subprocesso de `pdf-isolated.ts`
- * executa. Fora dele, use `inspectSubmissionDocument`.
- */
-export async function countPdfPages(bytes: Uint8Array, maxPages: number = MAX_PDF_PAGES): Promise<number> {
-	const pdf = await getDocumentProxy(bytes.slice())
-	if (pdf.numPages > maxPages) throw new PdfTooLargeError(pdf.numPages, maxPages)
-	return pdf.numPages
 }
 
 /**
@@ -173,6 +159,6 @@ export async function countPdfPages(bytes: Uint8Array, maxPages: number = MAX_PD
  */
 export async function toSubmissionText(bytes: Uint8Array, mimeType: string): Promise<SubmissionText> {
 	if (mimeType.includes("wordprocessingml") || mimeType.endsWith("docx")) return docxToSubmissionText(bytes)
-	if (mimeType.includes("pdf")) return readPdfIsolated(bytes, "text")
+	if (mimeType.includes("pdf")) return readPdfIsolated(bytes)
 	throw new Error(`formato não suportado: ${mimeType}`)
 }

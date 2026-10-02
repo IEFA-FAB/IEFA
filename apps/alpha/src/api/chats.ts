@@ -28,7 +28,7 @@ import { buildSourceBundle, type TurnSources } from "../chat/sources.ts"
 import { loadThread, presentThread, removeThread, THREAD_COLUMNS, type ThreadRow, touchThread } from "../chat/threads.ts"
 import { supabase } from "../db/supabase.ts"
 import { env } from "../env.ts"
-import { inspectSubmissionDocument, toSubmissionText } from "../extraction/to-text.ts"
+import { toSubmissionText } from "../extraction/to-text.ts"
 import { type AlphaAccess, decideThreadAccess } from "../lib/alpha-access.ts"
 import { DocumentLimitError } from "../lib/document-limits.ts"
 import { isTransientModelFailure } from "../lib/transient.ts"
@@ -231,8 +231,7 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 		const bytes = new Uint8Array(await file.arrayBuffer())
 		let sections: ReturnType<typeof toSections>
 		try {
-			// Teto de páginas ANTES da leitura inteira, como no envio de submissão.
-			await inspectSubmissionDocument(bytes, file.type)
+			// Uma leitura só: no PDF ela já aplica o teto de páginas, o prazo e o de memória.
 			sections = toSections(await toSubmissionText(bytes, file.type))
 		} catch (readError) {
 			if (readError instanceof DocumentLimitError) return c.json({ error: "Unprocessable Entity", code: "DOCUMENT_TOO_LARGE", message: readError.message }, 422)
@@ -332,6 +331,11 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 		try {
 			sources = thread.submission_id ? await loadProcessSources(thread.submission_id) : await loadAttachmentSources(thread.id)
 		} catch (error) {
+			// Documento acima de um teto de leitura (prazo, memória, páginas) não é falha do
+			// serviço: a pessoa precisa saber o motivo, e repetir não resolve.
+			if (error instanceof DocumentLimitError) {
+				return c.json({ error: "Unprocessable Entity", code: "DOCUMENT_TOO_LARGE", message: error.message }, 422)
+			}
 			console.error(`[chat] fontes da conversa ${thread.id} não carregadas:`, error)
 			return failed(c, error instanceof SourceLoadError ? "SOURCES_UNAVAILABLE" : "INTERNAL_ERROR", 502)
 		}

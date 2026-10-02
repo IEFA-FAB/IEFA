@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { DocumentLimitError, PdfTooLargeError } from "../lib/document-limits.ts"
-import { readPdfIsolated } from "./pdf-isolated.ts"
+import { pdfReaderLoad, readPdfIsolated } from "./pdf-isolated.ts"
 import { toSubmissionText } from "./to-text.ts"
 
 /** PDF de uma página com uma linha de texto, montado à mão (o mesmo de `to-text.test.ts`). */
@@ -33,36 +33,65 @@ const failure = (promise: Promise<unknown>) =>
 
 describe("readPdfIsolated", () => {
 	it("lê o texto no subprocesso, igual à leitura no processo", async () => {
-		const result = await readPdfIsolated(minimalPdf(), "text")
+		const result = await readPdfIsolated(minimalPdf())
 		expect(result.text).toContain("RADA teste")
 		expect(result.pages).toHaveLength(1)
 		// O caminho da submissão passa por aqui.
 		expect((await toSubmissionText(minimalPdf(), "application/pdf")).text).toBe(result.text)
 	})
 
-	it("conta páginas e devolve o teto como PdfTooLargeError", async () => {
-		expect(await readPdfIsolated(minimalPdf(), "inspect")).toEqual({ pages: 1 })
-		const error = await failure(readPdfIsolated(minimalPdf(), "inspect", { maxPages: 0 }))
+	it("devolve o teto de páginas como PdfTooLargeError", async () => {
+		const error = await failure(readPdfIsolated(minimalPdf(), { maxPages: 0 }))
 		expect(error).toBeInstanceOf(PdfTooLargeError)
 		expect(error?.message).toContain("1 páginas")
 	})
 
 	it("prazo estourado mata o filho e vira DocumentLimitError", async () => {
-		const error = await failure(readPdfIsolated(minimalPdf(), "text", { timeoutMs: 1 }))
+		const error = await failure(readPdfIsolated(minimalPdf(), { timeoutMs: 1 }))
 		expect(error).toBeInstanceOf(DocumentLimitError)
 		expect(error?.message).toContain("para ser lido")
 	})
 
 	it.if(process.platform === "linux")("memória acima do teto mata o filho e vira DocumentLimitError", async () => {
-		const error = await failure(readPdfIsolated(minimalPdf(), "text", { maxRssBytes: 1 }))
+		const error = await failure(readPdfIsolated(minimalPdf(), { maxRssBytes: 1 }))
 		expect(error).toBeInstanceOf(DocumentLimitError)
 		expect(error?.message).toContain("memória")
 	})
 
 	it("arquivo que não é PDF falha como erro comum, sem derrubar quem chamou", async () => {
-		const error = await failure(readPdfIsolated(new TextEncoder().encode("não sou um pdf"), "text"))
+		const error = await failure(readPdfIsolated(new TextEncoder().encode("não sou um pdf")))
 		expect(error).toBeInstanceOf(Error)
 		expect(error).not.toBeInstanceOf(DocumentLimitError)
+	})
+
+	it("recusa que se repete não relê o arquivo: a mesma falha volta sem subprocesso", async () => {
+		const bytes = minimalPdf()
+		const limits = { timeoutMs: 2 }
+		const first = await failure(readPdfIsolated(bytes, limits))
+		const started = performance.now()
+		const second = await failure(readPdfIsolated(bytes, limits))
+		expect(second).toBe(first)
+		// Sem spawn: a resposta é imediata.
+		expect(performance.now() - started).toBeLessThan(20)
+	})
+
+	it("no máximo duas leituras ao mesmo tempo, mesmo com a fila em movimento", async () => {
+		let peak = 0
+		const sampler = setInterval(() => {
+			peak = Math.max(peak, pdfReaderLoad().running)
+		}, 1)
+		// Leituras que chegam enquanto outras terminam: o caso em que a vaga podia ser tomada
+		// por quem chegou depois, além de quem esperava na fila.
+		const reads: Array<Promise<{ text: string }>> = []
+		for (let n = 0; n < 6; n++) {
+			reads.push(readPdfIsolated(minimalPdf(), { maxPages: 100 + n }))
+			await Bun.sleep(15)
+		}
+		const results = await Promise.all(reads)
+		clearInterval(sampler)
+		expect(results.every((result) => result.text.includes("RADA teste"))).toBe(true)
+		expect(peak).toBeLessThanOrEqual(2)
+		expect(pdfReaderLoad()).toEqual({ running: 0, waiting: 0 })
 	})
 
 	it("o event loop segue livre enquanto o filho lê", async () => {
@@ -70,7 +99,7 @@ describe("readPdfIsolated", () => {
 		const ticker = setInterval(() => {
 			ticks += 1
 		}, 5)
-		await readPdfIsolated(minimalPdf(), "text")
+		await readPdfIsolated(minimalPdf())
 		clearInterval(ticker)
 		expect(ticks).toBeGreaterThan(0)
 	})

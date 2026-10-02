@@ -19,6 +19,7 @@
  * Estouro de prazo ou de memória é `DocumentLimitError` (422 com a mensagem para quem enviou).
  */
 
+import { createHash } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { DocumentLimitError, MAX_PDF_PAGES, PdfTooLargeError } from "../lib/document-limits.ts"
 import type { PdfWorkerReply } from "./pdf-worker.ts"
@@ -43,13 +44,59 @@ let running = 0
 const waiting: Array<() => void> = []
 
 async function withSlot<T>(task: () => Promise<T>): Promise<T> {
-	if (running >= MAX_CONCURRENT_READS) await new Promise<void>((resolve) => waiting.push(resolve))
-	running += 1
+	if (running >= MAX_CONCURRENT_READS) {
+		// A vaga chega PASSADA por quem terminou (`running` não desce): sem isso, um chamador
+		// novo entre o fim de uma leitura e o despertar do próximo da fila entrava também, e
+		// ficavam três filhos de até 256 MB numa task de 512 MB.
+		await new Promise<void>((resolve) => waiting.push(resolve))
+	} else {
+		running += 1
+	}
 	try {
 		return await task()
 	} finally {
-		running -= 1
-		waiting.shift()?.()
+		const next = waiting.shift()
+		if (next) next()
+		else running -= 1
+	}
+}
+
+/** Leituras em curso e na fila — para teste e diagnóstico. */
+export function pdfReaderLoad(): { running: number; waiting: number } {
+	return { running, waiting: waiting.length }
+}
+
+// ─── Recusas em cache ─────────────────────────────────────────────────────────
+
+/**
+ * Documento que já estourou prazo, memória ou páginas, ou que o pdf.js não abre, falha igual
+ * na próxima vez. Sem lembrar disso, repetir `GET /submissions/:id/text` com um PDF hostil
+ * ocupava as vagas de leitura em loop, sem cota nenhuma. A chave é o conteúdo (e os limites),
+ * não o caminho: o mesmo arquivo enviado de novo também não é relido.
+ */
+const FAILURE_TTL_MS = 30 * 60 * 1000
+const MAX_REMEMBERED_FAILURES = 200
+const failures = new Map<string, { error: Error; expiresAt: number }>()
+
+function failureKey(bytes: Uint8Array, limits: Required<PdfReadLimits>): string {
+	const digest = createHash("sha256").update(bytes).digest("hex")
+	return `${digest}:${limits.timeoutMs}:${limits.maxRssBytes}:${limits.maxPages}`
+}
+
+function rememberFailure(key: string, error: Error): void {
+	failures.set(key, { error, expiresAt: Date.now() + FAILURE_TTL_MS })
+	while (failures.size > MAX_REMEMBERED_FAILURES) {
+		const oldest = failures.keys().next().value
+		if (oldest === undefined) break
+		failures.delete(oldest)
+	}
+}
+
+/** Recusa que se repete: teto estourado ou erro relatado pelo próprio leitor. */
+class PdfReadError extends Error {
+	constructor(message: string) {
+		super(message)
+		this.name = "PdfReadError"
 	}
 }
 
@@ -68,19 +115,31 @@ async function readRss(pid: number): Promise<number | null> {
 
 // ─── Leitura ──────────────────────────────────────────────────────────────────
 
-export function readPdfIsolated(bytes: Uint8Array, mode: "inspect", limits?: PdfReadLimits): Promise<{ pages: number }>
-export function readPdfIsolated(bytes: Uint8Array, mode: "text", limits?: PdfReadLimits): Promise<PdfSubmissionText>
-export function readPdfIsolated(bytes: Uint8Array, mode: "inspect" | "text", limits: PdfReadLimits = {}): Promise<{ pages: number } | PdfSubmissionText> {
-	return withSlot(() => runWorker(bytes, mode, limits))
+export async function readPdfIsolated(bytes: Uint8Array, limits: PdfReadLimits = {}): Promise<PdfSubmissionText> {
+	const resolved = {
+		timeoutMs: limits.timeoutMs ?? PDF_READ_TIMEOUT_MS,
+		maxRssBytes: limits.maxRssBytes ?? PDF_READ_MAX_RSS_BYTES,
+		maxPages: limits.maxPages ?? MAX_PDF_PAGES,
+	}
+	const key = failureKey(bytes, resolved)
+	const known = failures.get(key)
+	if (known && known.expiresAt > Date.now()) throw known.error
+	if (known) failures.delete(key)
+
+	try {
+		return await withSlot(() => runWorker(bytes, resolved))
+	} catch (error) {
+		// Só o que se repete com o mesmo arquivo; falha de infraestrutura (spawn) não fica.
+		if (error instanceof DocumentLimitError || error instanceof PdfReadError) rememberFailure(key, error)
+		throw error
+	}
 }
 
-async function runWorker(bytes: Uint8Array, mode: "inspect" | "text", limits: PdfReadLimits): Promise<{ pages: number } | PdfSubmissionText> {
-	const timeoutMs = limits.timeoutMs ?? PDF_READ_TIMEOUT_MS
-	const maxRssBytes = limits.maxRssBytes ?? PDF_READ_MAX_RSS_BYTES
-	const maxPages = limits.maxPages ?? MAX_PDF_PAGES
+async function runWorker(bytes: Uint8Array, limits: Required<PdfReadLimits>): Promise<PdfSubmissionText> {
+	const { timeoutMs, maxRssBytes, maxPages } = limits
 
 	const child = Bun.spawn({
-		cmd: [process.execPath, "--smol", WORKER_PATH, mode, String(maxPages)],
+		cmd: [process.execPath, "--smol", WORKER_PATH, String(maxPages)],
 		// Cópia com `ArrayBuffer` próprio: o `Blob` não aceita a visão sobre `SharedArrayBuffer`.
 		stdin: new Blob([new Uint8Array(bytes)]),
 		stdout: "pipe",
@@ -113,14 +172,14 @@ async function runWorker(bytes: Uint8Array, mode: "inspect" | "text", limits: Pd
 		try {
 			reply = JSON.parse(stdout.trim().split("\n").at(-1) ?? "") as PdfWorkerReply
 		} catch {
-			throw new Error(`leitura do PDF falhou (saída ${exitCode}): ${stderr.slice(0, 500)}`)
+			throw new PdfReadError(`leitura do PDF falhou (saída ${exitCode}): ${stderr.slice(0, 500)}`)
 		}
 
 		if (!reply.ok) {
 			if (reply.kind === "too_large") throw new PdfTooLargeError(reply.pages, reply.maxPages)
-			throw new Error(reply.message)
+			throw new PdfReadError(reply.message)
 		}
-		return reply.mode === "inspect" ? { pages: reply.pages } : reply.result
+		return reply.result
 	} finally {
 		clearTimeout(timer)
 		clearInterval(watchdog)

@@ -134,8 +134,8 @@ export function parseEnv(source: Record<string, string | undefined>) {
 	}
 
 	// Provedores NVIDIA precisam de chave; Bedrock autentica pela cadeia da AWS.
-	const usaNvidia = parsed.ALPHA_AI_PROVIDER === "nvidia" || parsed.ALPHA_EMBEDDING_PROVIDER === "nvidia"
-	if (usaNvidia && !parsed.NVIDIA_API_KEY) {
+	const usesNvidia = parsed.ALPHA_AI_PROVIDER === "nvidia" || parsed.ALPHA_EMBEDDING_PROVIDER === "nvidia"
+	if (usesNvidia && !parsed.NVIDIA_API_KEY) {
 		throw new Error("NVIDIA_API_KEY é obrigatório quando ALPHA_AI_PROVIDER ou ALPHA_EMBEDDING_PROVIDER é 'nvidia'.")
 	}
 

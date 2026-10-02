@@ -272,6 +272,19 @@ describe("sessão do ChatRADA", () => {
 		expect(state.graphCalls).toBe(0)
 	})
 
+	test("sessão criada pelo α anterior (só em query_log): o autor da primeira pergunta é adotado como dono", async () => {
+		const legacy = "33333333-3333-4333-8333-333333333333"
+		state.tables.query_log = [
+			{ session_id: legacy, user_id: "me", created_at: "2026-10-01T10:00:00Z", termination_reason: "success" },
+			{ session_id: legacy, user_id: "other", created_at: "2026-10-01T11:00:00Z", termination_reason: "success" },
+		]
+		expect((await as("other").request(`/api/v1/sessions/${legacy}/messages`, json({ message: "oi" }))).status).toBe(403)
+		expect((await as("me").request(`/api/v1/sessions/${legacy}/messages`, json({ message: "oi" }))).status).toBe(200)
+		expect(state.tables.rada_session).toContainEqual(expect.objectContaining({ id: legacy, user_id: "me" }))
+		// Adotado o dono, a regra é a da tabela: o outro continua fora.
+		expect((await as("other").request(`/api/v1/sessions/${legacy}/messages`, json({ message: "oi" }))).status).toBe(403)
+	})
+
 	test("o dono conversa até o teto diário; depois, 429 sem chamar o grafo (também no SSE)", async () => {
 		const app = as("other")
 		const path = "/api/v1/sessions/11111111-1111-4111-8111-111111111111/messages"
@@ -384,6 +397,26 @@ describe("POST /api/v1/compliance/runs", () => {
 		const res = await as("author").request("/api/v1/compliance/runs", body)
 		expect(res.status).toBe(409)
 		expect(await codeOf(res)).toBe("COMPLIANCE_RUN_IN_PROGRESS")
+	})
+
+	test("parecer só sobre a execução mais recente, e sem outra em andamento", async () => {
+		const review = json({ decision: "reprovado" })
+		state.tables.compliance_run?.push(
+			{ id: "run-old", submission_id: SUBMISSION, status: "succeeded", started_at: "2026-10-01T10:00:00Z" },
+			{ id: "run-live", submission_id: SUBMISSION, status: "running", started_at: new Date().toISOString() }
+		)
+		const during = await as("aci", ACI).request("/api/v1/compliance/runs/run-old/reviews", review)
+		expect(during.status).toBe(409)
+		expect(await codeOf(during)).toBe("RUN_IN_PROGRESS")
+
+		const live = state.tables.compliance_run?.find((run) => run.id === "run-live")
+		if (live) live.status = "succeeded"
+		const old = await as("aci", ACI).request("/api/v1/compliance/runs/run-old/reviews", review)
+		expect(old.status).toBe(409)
+		expect(await codeOf(old)).toBe("RUN_NOT_LATEST")
+
+		expect((await as("aci", ACI).request("/api/v1/compliance/runs/run-live/reviews", review)).status).toBe(201)
+		expect(state.tables.compliance_review).toHaveLength(1)
 	})
 
 	test("teto diário de verificações: 429 sem chamar o modelo", async () => {

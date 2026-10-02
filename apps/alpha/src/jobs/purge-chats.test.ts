@@ -5,15 +5,25 @@
  */
 
 import { beforeEach, describe, expect, mock, test } from "bun:test"
+import { testEnv } from "../lib/test-env.test-helpers.ts"
 
 type Row = Record<string, unknown>
 
-const state: { threads: Row[]; attachments: Row[]; failRemoveFor: Set<string>; removed: string[]; usage: Row[]; failUsage: boolean } = {
+const state: {
+	threads: Row[]
+	attachments: Row[]
+	failRemoveFor: Set<string>
+	removed: string[]
+	usage: Row[]
+	failUsage: boolean
+	rpcCalls: Array<{ name: string; args: Record<string, unknown> }>
+} = {
 	threads: [],
 	attachments: [],
 	failRemoveFor: new Set(),
 	removed: [],
 	usage: [],
+	rpcCalls: [],
 	failUsage: false,
 }
 
@@ -67,6 +77,10 @@ function from(table: string) {
 
 const fakeClient = {
 	from,
+	rpc: async (name: string, args: Record<string, unknown>) => {
+		state.rpcCalls.push({ name, args })
+		return state.failUsage ? { data: null, error: { message: "function does not exist" } } : { data: 2, error: null }
+	},
 	storage: {
 		from: () => ({
 			remove: async (paths: string[]) => {
@@ -79,6 +93,7 @@ const fakeClient = {
 }
 
 mock.module("../db/supabase.ts", () => ({ supabase: fakeClient, core: fakeClient, accessControl: fakeClient }))
+mock.module("../env.ts", () => ({ env: testEnv() }))
 
 const { purgeExpiredChats } = await import("./purge-chats.ts")
 
@@ -87,6 +102,7 @@ const daysAgo = (days: number) => new Date(NOW.getTime() - days * 24 * 60 * 60 *
 
 beforeEach(() => {
 	state.failUsage = false
+	state.rpcCalls = []
 	state.failRemoveFor = new Set()
 	state.removed = []
 	state.threads = [
@@ -109,7 +125,9 @@ describe("purgeExpiredChats", () => {
 	test("apaga só a avulsa não salva com 180 dias ou mais, com os arquivos", async () => {
 		const report = await purgeExpiredChats(NOW)
 
-		expect(report).toEqual({ removed: 1, failed: 0, usage: 1 })
+		expect(report).toEqual({ removed: 1, failed: 0, usage: 1, emptySessions: 2 })
+		// Sessões do ChatRADA vazias há mais de 24 h.
+		expect(state.rpcCalls).toEqual([{ name: "purge_empty_rada_sessions", args: { p_before: daysAgo(1) } }])
 		// O teto diário olha 24 h; o registro de 3 dias atrás sai, o de 12 horas fica.
 		expect(state.usage.map((row) => row.id)).toEqual(["u-new"])
 		expect(state.threads.map((row) => row.id)).toEqual(["young-loose", "old-saved", "old-process"])
@@ -121,7 +139,7 @@ describe("purgeExpiredChats", () => {
 		state.failRemoveFor.add("u/old-loose/a.pdf")
 		const report = await purgeExpiredChats(NOW)
 
-		expect(report).toEqual({ removed: 0, failed: 1, usage: 1 })
+		expect(report).toEqual({ removed: 0, failed: 1, usage: 1, emptySessions: 2 })
 		expect(state.threads.map((row) => row.id)).toContain("old-loose")
 		expect(state.attachments).toHaveLength(2)
 	})
@@ -130,7 +148,7 @@ describe("purgeExpiredChats", () => {
 		state.failUsage = true
 		const report = await purgeExpiredChats(NOW)
 
-		expect(report).toEqual({ removed: 1, failed: 0, usage: 0 })
+		expect(report).toEqual({ removed: 1, failed: 0, usage: 0, emptySessions: 0 })
 		expect(state.threads.map((row) => row.id)).not.toContain("old-loose")
 	})
 })

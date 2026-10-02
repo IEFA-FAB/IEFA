@@ -12,7 +12,8 @@ import { Hono } from "hono"
 import { z } from "zod"
 import { LegalRefResolver } from "../compliance/resolve-legal-ref.ts"
 import { runCompliance } from "../compliance/run.ts"
-import { ComplianceRunConflictError, decideComplianceRun, isStaleRun, type RunRecord } from "../compliance/run-policy.ts"
+import { loadRunHistory, reapStaleRuns } from "../compliance/run-history.ts"
+import { ComplianceRunConflictError, decideComplianceRun } from "../compliance/run-policy.ts"
 import { applyCitationGuard, type ChecklistRule, judgeRule } from "../compliance/verify.ts"
 import { supabase } from "../db/supabase.ts"
 import { env } from "../env.ts"
@@ -40,24 +41,6 @@ const RuleStatusSchema = z.object({
 	status: z.enum(["draft", "active", "needs_review", "retired"]),
 })
 
-/** Execuções da submissão e se alguma tem parecer. `null` = a leitura falhou (a rota recusa). */
-async function loadRunHistory(submissionId: string): Promise<{ runs: RunRecord[]; hasReview: boolean } | null> {
-	const { data: runs, error } = await supabase.from("compliance_run").select("id, status, started_at").eq("submission_id", submissionId)
-	if (error) {
-		console.error(`[compliance] execuções da submissão ${JSON.stringify(submissionId)} não lidas: ${error.message}`)
-		return null
-	}
-	const runIds = (runs ?? []).map((run) => run.id as string)
-	if (runIds.length === 0) return { runs: [], hasReview: false }
-
-	const { data: reviews, error: reviewsError } = await supabase.from("compliance_review").select("id").in("run_id", runIds).limit(1)
-	if (reviewsError) {
-		console.error(`[compliance] pareceres da submissão ${JSON.stringify(submissionId)} não lidos: ${reviewsError.message}`)
-		return null
-	}
-	return { runs: (runs ?? []) as RunRecord[], hasReview: (reviews ?? []).length > 0 }
-}
-
 export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	// POST /api/v1/compliance/runs — executa a verificação
 	.post("/api/v1/compliance/runs", zValidator("json", RunBodySchema), async (c) => {
@@ -77,28 +60,15 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 		// Reexecução: congelada depois do parecer, uma por vez, e só o ACI repete uma
 		// verificação concluída — ver `compliance/run-policy.ts`. Antes do teto diário, para a
 		// recusa não gastar cota.
-		const history = await loadRunHistory(submission_id)
-		if (history === null) return c.json({ error: "Internal Server Error", code: "RUNS_FAILED" }, 500)
+		const loaded = await loadRunHistory(submission_id)
+		if (loaded === null) return c.json({ error: "Internal Server Error", code: "RUNS_FAILED" }, 500)
 		const now = new Date()
-		const policy = decideComplianceRun({
-			...history,
-			canReview: await canReviewSubmission(submission_id, access),
-			maxRuns: env.ALPHA_COMPLIANCE_MAX_RUNS_PER_SUBMISSION,
-			now,
-		})
+		const history = await reapStaleRuns(loaded, now)
+		// O papel de ACI na OM só importa para repetir uma verificação concluída: a primeira
+		// não paga a leitura.
+		const canReview = history.runs.some((run) => run.status === "succeeded") ? await canReviewSubmission(submission_id, access) : false
+		const policy = decideComplianceRun({ ...history, canReview, maxRuns: env.ALPHA_COMPLIANCE_MAX_RUNS_PER_SUBMISSION, now })
 		if (!policy.allowed) return c.json({ error: "Conflict", code: policy.code, message: policy.message }, 409)
-
-		// Execução que ficou `running` além do prazo (o processo caiu no meio) seguraria a
-		// submissão para sempre pelo índice único: é dada como falha antes da nova.
-		const stale = history.runs.filter((run) => isStaleRun(run, now)).map((run) => run.id)
-		if (stale.length > 0) {
-			const { error: reapError } = await supabase
-				.from("compliance_run")
-				.update({ status: "failed", finished_at: now.toISOString() })
-				.in("id", stale)
-				.eq("status", "running")
-			if (reapError) console.error(`[compliance] execuções presas ${stale.join(", ")} não encerradas: ${reapError.message}`)
-		}
 
 		const refused = await enforceUsage(c, user.id, "compliance")
 		if (refused) return refused
