@@ -99,7 +99,7 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 								id={field("sequence")}
 								label="Sequencial da seção"
 								hint='Vem do controle da sua seção. Em branco, o documento sai como "s/nº", forma reservada ao expediente de interesse particular.'
-								required
+								required={requiresSequence(kind)}
 							>
 								<Input
 									id={field("sequence")}
@@ -114,14 +114,18 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 								/>
 							</Campo>
 
-							<Campo id={field("sector")} label="Indicativo do setor" required>
-								<Input
-									id={field("sector")}
-									value={input.numbering.sector ?? ""}
-									onChange={(e) => onChange({ numbering: { ...input.numbering, sector: e.target.value } })}
-									placeholder="GAB"
-								/>
-							</Campo>
+							{/* O Parecer numera por ano (art. 53 § 2º, III) e não lê o setor: o campo sairia
+							    sem efeito nenhum na folha. */}
+							{kind.numbering !== "parecer" && (
+								<Campo id={field("sector")} label="Indicativo do setor" required={requiresSector(kind)}>
+									<Input
+										id={field("sector")}
+										value={input.numbering.sector ?? ""}
+										onChange={(e) => onChange({ numbering: { ...input.numbering, sector: e.target.value } })}
+										placeholder="GAB"
+									/>
+								</Campo>
+							)}
 
 							{kind.numbering !== "interna" && (
 								<Campo

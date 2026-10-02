@@ -24,14 +24,25 @@ describe("contrato da impressão", () => {
 	})
 
 	it("o CSS de impressão aponta para o atributo que a folha renderiza", () => {
+		expect(route).toContain(`[${attribute}], [${attribute}] * { visibility: visible; }`)
 		expect(route).toContain(`:not([${attribute}]):not([${attribute}] *) { display: none !important; }`)
 		expect(route).toContain(`body :has([${attribute}]) {`)
 	})
 
 	// `visibility: hidden` esconde sem tirar do fluxo: o editor inteiro continuava ocupando
-	// altura e a impressão saía com o ofício seguido de quatro folhas em branco.
-	it("esconde o resto da página com display, não com visibility", () => {
-		expect(route).not.toMatch(/visibility:\s*hidden;/)
+	// altura e a impressão saía com o ofício seguido de quatro folhas em branco. Ela fica só
+	// como base para navegador sem `:has()`; onde há suporte, quem esconde é o `display`.
+	it("esconde o resto da página com display onde o navegador tem :has()", () => {
+		const supported = route.slice(route.indexOf("@supports selector(:has(*))"))
+		expect(supported).toContain("display: none !important")
+		expect(supported).toContain("overflow: visible !important")
+	})
+
+	it("todo bloco citado no CSS de impressão existe", () => {
+		const types = readFileSync(join(APP_ROOT, "src/lib/comaer/types.ts"), "utf8")
+		const blocks = [...route.matchAll(/\[data-block="([a-z-]+)"\]/g)].map((m) => m[1])
+		expect(blocks.length).toBeGreaterThan(0)
+		for (const block of blocks) expect(types).toContain(`| "${block}"`)
 	})
 
 	it("não sobrou seletor apontando para um atributo que ninguém renderiza", () => {

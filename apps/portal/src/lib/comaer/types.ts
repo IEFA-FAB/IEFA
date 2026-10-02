@@ -160,6 +160,8 @@ export interface Line {
 	 * texto a 2,5 cm dela (art. 20, II, a); a saída em texto puro usa `text` como está.
 	 */
 	marker?: string
+	/** Recuo só na primeira linha: parágrafo sem número também começa a 2,5 cm (art. 20, II, a). */
+	indentFirstLine?: boolean
 	/** Linha à direita na MESMA linha da anterior (numeração × localidade e data). */
 	rightOnSameLine?: string
 }

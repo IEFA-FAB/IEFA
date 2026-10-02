@@ -265,7 +265,7 @@ export function renderDivisions(paragraphs: Paragraph[], shouldNumber = true): L
 	paragraphs.forEach((p, i) => {
 		lines.push({
 			text: numberParagraphs ? `${i + 1}. ${p.text}` : p.text,
-			...(numberParagraphs ? { marker: `${i + 1}.` } : {}),
+			...(numberParagraphs ? { marker: `${i + 1}.` } : { indentFirstLine: true }),
 			alignment: "justificado",
 			indentCm: 2.5,
 			edit: { target: { field: "paragraph", paragraph: i }, value: p.text },

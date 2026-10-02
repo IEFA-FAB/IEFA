@@ -184,7 +184,10 @@ describe("divisões do texto (art. 39)", () => {
 		expect(lines.map((l) => l.marker)).toEqual(["1.", undefined, "2."])
 		// O texto puro continua com o número: é ele que vai para o SIGADAER.
 		expect(lines[0].text).toBe("1. Primeiro")
-		expect(renderDivisions([{ text: "Único" }])[0].marker).toBeUndefined()
+		// Sem número, o recuo de 2,5 cm vale só para a primeira linha.
+		const [unico] = renderDivisions([{ text: "Único" }])
+		expect(unico.marker).toBeUndefined()
+		expect(unico.indentFirstLine).toBe(true)
 	})
 })
 

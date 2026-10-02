@@ -196,6 +196,17 @@ describe("entrega ao SIGADAER", () => {
 		expect(texto).toContain("1\\. Trata-se de alteração de período de férias.\n\n2\\. Solicita-se providência.")
 	})
 
+	it("mantém o endereçamento como bloco: a linha em branco é só entre parágrafos do texto", () => {
+		const externo = base({
+			kind: "oficio-externo",
+			scope: "externo",
+			references: [],
+			addressing: { formOfAddress: "senhoria", gender: "m", name: "Fulano", position: "Chefe", addressLines: ["Rua A, 1"] },
+		})
+		const texto = sigadaerHandoff(externo, assembleDocument(externo)).fields.find((c) => c.id === "texto")?.value ?? ""
+		expect(texto).toContain("A Sua Senhoria o Senhor\nFULANO\nChefe\nRua A, 1")
+	})
+
 	it("lista o que o SIGADAER preenche, para conferência", () => {
 		expect(generated.map((b) => b.id)).toContain("epigrafe")
 		expect(generated.find((b) => b.id === "numeracao")?.value).toBe("Ofício nº 34/GAB/255\nBrasília, 3 de julho de 2026.")
