@@ -6,7 +6,10 @@
  * *inline policy*. As permissões efetivas são a união das duas origens, com deny de
  * precedência absoluta — a resolução vive em `@iefa/pbac`.
  *
- * Toda operação exige `global:2`: quem administra acesso administra acesso.
+ * Toda operação exige `admin:2`: quem administra acesso administra acesso. Acima disso há o
+ * teto (20261001120000): statement `admin:3`, política que concede ou alcança `admin:3` e o
+ * anexo de quem detém `admin:3` só passam por quem tem `admin:3` (`assertTopAdminCeiling` aqui,
+ * a regra completa nas funções SQL).
  *
  * Políticas `managed` (criadas por seed, hoje só o "Conjunto Treino") são imutáveis. Sem
  * isso, alguém trocaria o escopo dos statements e transformaria a política que define o
@@ -45,7 +48,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { isExpired, notExpired, runQuery } from "../utils/index.ts"
-import { type AccessAudit, defaultAccessAudit, runAccessFunction, SELF_ADMIN_EXPIRY_MESSAGE } from "./access-change.ts"
+import { type AccessAudit, assertTopAdminCeiling, defaultAccessAudit, runAccessFunction, SELF_ADMIN_EXPIRY_MESSAGE } from "./access-change.ts"
 import { isAttached, loadActorAccessSnapshot, refuseIfLosesAdministration, wouldLoseAdministration } from "./self-admin-guard.ts"
 
 export type PolicyStatementRow = {
@@ -519,6 +522,9 @@ export async function addPolicyStatement(
 
 	const statement = input.statement
 	assertStatementScopeAllowed(statement)
+	// Teto (20261001120000): statement `admin:3` só por quem tem `admin:3`. Política que já
+	// concede ou alcança `admin:3` a função SQL recusa (daqui não se vê sem ler o banco).
+	assertTopAdminCeiling(ctx, [statement])
 	// Um `admin:0` numa política anexada ao ator o bloquearia na hora (deny vence allow).
 	const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
 	if (isAttached(snapshot, input.policyId)) {
@@ -560,6 +566,7 @@ export async function updatePolicyStatement(
 
 	const statement = input.statement
 	assertStatementScopeAllowed(statement)
+	assertTopAdminCeiling(ctx, [current, statement])
 	// Rebaixar o statement de `admin` de uma política anexada ao ator — ou transformar QUALQUER
 	// statement dela em `admin:0` — o deixaria sem administração.
 	const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
@@ -599,6 +606,7 @@ export async function removePolicyStatement(
 	requireAssurance(ctx, assurance)
 	const current = await loadStatement(db, input.statementId)
 	await assertPolicyEditable(db, current.policyId)
+	assertTopAdminCeiling(ctx, [current])
 	const snapshot = await loadActorAccessSnapshot(db, ctx.userId)
 	if (isAttached(snapshot, current.policyId)) refuseIfLosesAdministration(snapshot, { kind: "statement-delete", statementId: input.statementId })
 

@@ -21,6 +21,7 @@
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { hasPermission } from "@iefa/pbac"
 import {
+	addPolicyStatement,
 	attachPolicy,
 	createUserPermission,
 	deleteUserPermission,
@@ -376,4 +377,43 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 		expect(all.find((m) => m.user_id === expiredUser)?.expired).toBe(true)
 		expect(all.find((m) => m.user_id === liveUser)?.expired).toBe(false)
 	})
+
+	// REQUER 20261001120000 aplicada. O ctx do app é `fullAccessCtx` (admin:3) de propósito: a
+	// recusa antecipada do domínio não decide, e quem decide é a função SQL, pelo nível que o
+	// ator TEM NO BANCO — é a prova de que a escalada não passa nem por quem chame a função direto.
+	test("teto de admin:3: a função SQL recusa a escalada pelo nível do ator no banco", async () => {
+		if (!reachable || !seeder || !db) return
+		const admin2 = await seeder.seedAuthUser()
+		const admin3 = await seeder.seedAuthUser()
+		const target = await seeder.seedAuthUser()
+		for (const userId of [admin2, admin3, target]) seeder.trackWhere("user_permissions", "user_id", userId)
+		await seeder.seedUserPermission({ userId: admin2, module: "admin", level: 2 })
+		await seeder.seedUserPermission({ userId: admin3, module: "admin", level: 3 })
+		const topPolicy = await seeder.seedPolicy()
+		await seeder.seedPolicyStatement({ policyId: topPolicy, module: "admin", level: 3 })
+		seeder.trackWhere("user_policy_attachment", "policy_id", topPolicy)
+
+		const refused = { code: "GRANT_NOT_ALLOWED", message: expect.stringContaining("nível 3") }
+		// Cada recusa fecha a própria transação: depois do erro ela está abortada.
+		await inRollback(db, async (tx) => {
+			await expect(attachPolicy(tx, fullAccessCtx(admin2), { userId: admin2, policyId: topPolicy })).rejects.toMatchObject(refused)
+		})
+		await inRollback(db, async (tx) => {
+			await expect(createUserPermission(tx, fullAccessCtx(admin2), { userId: admin2, module: "admin", level: 3 })).rejects.toMatchObject(refused)
+		})
+		await inRollback(db, async (tx) => {
+			await expect(addPolicyStatement(tx, fullAccessCtx(admin2), { policyId: topPolicy, statement: { module: "kitchen", level: 1 } })).rejects.toMatchObject(
+				refused
+			)
+		})
+		await inRollback(db, async (tx) => {
+			// admin:3 anexa; a partir daí o alvo DETÉM admin:3 e o admin:2 não mexe no acesso dele.
+			await expect(attachPolicy(tx, fullAccessCtx(admin3), { userId: target, policyId: topPolicy })).resolves.toMatchObject({ success: true })
+			await expect(createUserPermission(tx, fullAccessCtx(admin2), { userId: target, module: "kitchen", level: 1 })).rejects.toMatchObject(refused)
+		})
+		await inRollback(db, async (tx) => {
+			// Abaixo do teto, o admin:2 segue administrando.
+			await expect(createUserPermission(tx, fullAccessCtx(admin2), { userId: target, module: "admin", level: 2 })).resolves.toMatchObject({ success: true })
+		})
+	}, 60_000)
 })

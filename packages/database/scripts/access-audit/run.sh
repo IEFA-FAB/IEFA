@@ -2,9 +2,9 @@
 # Valida as migrations de auditoria de acesso num Postgres DESCARTÁVEL — nunca no banco
 # compartilhado. Sobe um cluster temporário (initdb), aplica stub.sql + fase 1, roda os testes
 # da fase 1 e a corrida, aplica a fase 2 e roda os testes dela, o arquivamento de
-# 20260926218000, a autorização de cadastro externo e o hook do Auth (20261001100000…) e, por
-# fim, o endurecimento de 20261001140000… (log append-only, TRUNCATE, troca de e-mail).
-# Apaga o cluster no fim.
+# 20260926218000, a autorização de cadastro externo e o hook do Auth (20261001100000…), o teto
+# de `admin:3` (20261001120000) e, por fim, o endurecimento de 20261001140000… (log
+# append-only, TRUNCATE, troca de e-mail). Apaga o cluster no fim.
 #
 #   bash packages/database/scripts/access-audit/run.sh
 #
@@ -56,4 +56,8 @@ run "$HERE/signup-allowlist.test.sql"
 # 20261001140000…140300: log append-only, TRUNCATE nas tabelas vigiadas, troca de e-mail em
 # auth.users, policies inertes e default de privilégios em storage.
 run "$HERE/audit-hardening.test.sql"
+# 20261001120000: teto de `admin:3` nas funções de grant inline, statement e anexo. Reaplicável.
+run "$MIGRATIONS/20261001120000_access_admin_level_ceiling.sql"
+run "$MIGRATIONS/20261001120000_access_admin_level_ceiling.sql"
+run "$HERE/admin-ceiling.test.sql"
 echo "access-audit: tudo verde"
