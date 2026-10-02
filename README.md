@@ -14,7 +14,8 @@ the Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA).
 | App | Stack | Purpose |
 |-----|-------|---------|
 | `apps/sisub` | TanStack Start + Nitro SSR | Sistema de Subsistência — cardápios, receitas, planejamento, estoque, orçamento, analytics |
-| `apps/portal` | Vite + Nitro SSR + TanStack Router | Portal institucional — CMS (Sanity), journal, console do projeto α |
+| `apps/portal` | Vite + Nitro SSR + TanStack Router | Portal institucional — CMS (Sanity), journal |
+| `apps/contrate` | TanStack Start + Nitro SSR | Front do Projeto α (contratações), extraído do portal |
 | `apps/sucont` | TanStack Start + Nitro SSR | Hub SUCONT-4 — acompanhamento contábil |
 | `apps/rumaer` | TanStack Start + Nitro SSR | Uniformes da FAB (RUMAER) |
 | `apps/forms` | TanStack Start + Nitro SSR | Questionários e pesquisas internas; multi-tenant (tenant `cinco-s` = deploy `5s`) |
@@ -23,6 +24,7 @@ the Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA).
 | `apps/alpha` | Bun + Hono + LangChain/LangGraph | Projeto α — IA aplicada a contratações públicas (Lei 14.133/21) |
 | `apps/docs` | TanStack Start + Fumadocs | Documentação interna |
 | `apps/sisub-mcp` | Bun + MCP SDK | MCP server — acesso de modelos aos dados do sisub (stdio/HTTP) |
+| `apps/pdf` | BentoPDF (nginx estático) | Ferramentas de PDF; não é workspace, só `Dockerfile` (kind `dockerfile` no manifesto) |
 
 ## Packages
 
@@ -37,6 +39,7 @@ the Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA).
 | `@iefa/ai-provider` | Adapter de modelo: Bedrock no primário, reserva com API key, tetos de consumo |
 | `@iefa/agent-web` | Camada agent-ready dos apps web (Markdown negotiation, llms.txt, descoberta) |
 | `@iefa/compras-api` | Client gerado da API do Compras.gov |
+| `@iefa/compras-api-codegen` | Gera os tipos do `compras-api` a partir do OpenAPI (isolado porque o openapi-typescript exige TypeScript 5) |
 | `@iefa/hono-client` | Client RPC tipado do `apps/api` |
 | `@iefa/alpha-client` | Contrato de acesso do `apps/alpha`, consumido pelo `contrate` |
 | `@iefa/tsconfig` | Bases de tsconfig (`base`, `library`, `react-app`, `bun-service`) |
@@ -45,7 +48,7 @@ the Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA).
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) — the repo pins `bun@1.3.14` via `packageManager`
+- [Bun](https://bun.sh) — the version pinned in `packageManager` (`package.json`)
 - [Docker](https://www.docker.com) — optional, only for building the deploy images
 
 ### Install

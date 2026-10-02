@@ -58,7 +58,9 @@ Rodada seguinte revisa só a diferença entre os heads, não o PR inteiro.
 
 ## 6. Merge
 
-Leia a política em AGENTS.md > Workflow.
+Leia a política em AGENTS.md > Workflow. `bun scripts/pr-policy.ts <n>` aplica a parte que o
+caminho do arquivo decide: imprime `auto` (sai 0) ou `maintainer` com cada arquivo e o motivo
+(sai 2). Grant, RLS ou segredo fora desses caminhos continuam sendo leitura do diff.
 
 - **PR fora da lista "esperam o mantenedor"**, gates locais verdes e nenhum achado do próprio PR em
   aberto: `gh pr merge <n> --squash --delete-branch --auto`. O GitHub mergeia quando os checks
@@ -68,7 +70,9 @@ Leia a política em AGENTS.md > Workflow.
 
 ## 7. Depois do merge
 
-`gh pr checks <n> --watch` até o merge acontecer (ou um check falhar: corrija e empurre de novo).
-`cancelled` no `gate` de integração só vem de push novo no mesmo PR: confira o run do último
-commit. Mergeado, confira pelo SHA o run do `CI/CD` na `main` (deploy `skipped` é check
-vermelho) e, se o PR tocou o sisub, o `full` do `sisub integration (real db)`.
+`bun scripts/watch-merge.ts <n> --wait` espera o merge e os runs da `main` daquele commit e
+diz, por app, `deployed`, `checked`, `blocked` (build verde e deploy `skipped`) ou `failed`.
+Também lê o `cancelled` do `full` da integração como a fila da trava: vale se um run posterior,
+de um commit que contém este, passou. Sai 0 quando tudo chegou e 1 com algo vermelho (check
+vermelho antes do merge também: corrija e empurre de novo). `cancelled` no `gate` de
+integração do PR só vem de push novo no mesmo PR.
