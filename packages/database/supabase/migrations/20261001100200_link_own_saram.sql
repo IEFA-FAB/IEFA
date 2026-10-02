@@ -90,7 +90,11 @@ begin
 			-- `core.user_data.email` é NOT NULL: sem e-mail não há como inserir.
 			raise exception 'USER_DATA_NOT_FOUND' using errcode = 'P0002', detail = 'conta sem e-mail e sem cadastro';
 		else
-			insert into core.user_data (id, email, saram) values (p_user, v_email, nullif(v_requested, ''));
+			-- A linha pode nascer entre a leitura e aqui (o sync de e-mail do login roda junto, e
+			-- `for update` não trava linha inexistente). Ela nasce sem SARAM — nada a travar —,
+			-- então o conflito de `id` vira atualização, e não um EMAIL_TAKEN falso.
+			insert into core.user_data (id, email, saram) values (p_user, v_email, nullif(v_requested, ''))
+				on conflict (id) do update set email = excluded.email, saram = excluded.saram;
 		end if;
 	exception
 		when unique_violation then

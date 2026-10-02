@@ -92,10 +92,6 @@ rules:
       exclude:
         - "**/*.test.ts"
         - "**/node_modules/**"
-        # Seeder das fixtures de integração do sisub: autoriza o e-mail `@example.invalid` do
-        # usuário de teste na mesma transação do bypass (`authorizeSignup`). Fixture não é
-        # autorização de ninguém e não vai para o log de produção.
-        - "apps/sisub/src/test/access-fixture-writer.ts"
     pattern-regex: (?i)\b(insert\s+into|update|delete\s+from)\s+(access_control\.(user_permissions|policy|policy_statement|user_policy_attachment|mcp_api_keys|signup_allowlist)|forms\.(response_viewer|response_viewer_scope_binding|questionnaire_editor))\b
 
   - id: access-audit-bypass-outside-allowlist

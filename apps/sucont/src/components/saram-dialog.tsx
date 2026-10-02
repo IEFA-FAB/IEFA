@@ -91,10 +91,10 @@ export function SaramDialog() {
 		setReopened(false)
 	}
 
-	/** Número que resolveu outra pessoa: gravado e travado — só o administrador corrige. */
+	/** Número que resolveu outra pessoa: gravado e travado — a correção é da administração do sistema. */
 	const notMe = () => {
-		toast.warning("Procure o administrador do SUCONT", {
-			description: "O SARAM gravado identifica outra pessoa e só o administrador pode corrigi-lo.",
+		toast.warning("Procure a administração do sistema", {
+			description: "O SARAM gravado identifica outra pessoa e não pode ser trocado pela sua conta.",
 		})
 		setPendingConfirmation(null)
 		setReopened(false)
@@ -209,10 +209,12 @@ export function SaramDialog() {
  * mostrar — dizer isso é o que separa "gravamos, mas confira" de um sucesso mudo
  * que faria a pessoa procurar o próprio nome numa tela onde ele nunca vai aparecer.
  *
- * Número que RESOLVEU alguém não se corrige por aqui (write-once, `core.link_own_saram`,
+ * Número que LOCALIZA um cadastro não se corrige por aqui (write-once, `core.link_own_saram`,
  * as travas do sisub): trocar e regravar o SARAM lia posto e nome de guerra de outras
- * pessoas, um por um. O "Corrigir" só existe para o número que não bate com ninguém; no
- * outro caso a tela manda para quem corrige, em vez de oferecer um botão que o servidor recusa.
+ * pessoas, um por um. O "Corrigir" só existe para o número que não bate com ninguém
+ * (`registered: false`, a mesma regra do servidor); no outro caso a tela manda procurar a
+ * administração, em vez de oferecer um botão que o servidor recusa. Não há, hoje, tela de
+ * administrador que limpe o SARAM (nem no sisub): a correção é manual, no banco.
  */
 function ConfirmationStep({
 	identity,
@@ -238,19 +240,21 @@ function ConfirmationStep({
 					{name ? (
 						<>
 							O SARAM <span className="font-mono">{identity.saram}</span> corresponde a <strong className="text-foreground">{name}</strong>. Se não for você,
-							procure o administrador do SUCONT para corrigir — um SARAM que identifica alguém não pode ser trocado pela própria conta.
+							procure a administração do sistema para corrigir — um SARAM que identifica alguém não pode ser trocado pela própria conta.
 						</>
 					) : (
 						<>
-							O SARAM <span className="font-mono">{identity.saram}</span> foi gravado, mas não corresponde a ninguém no cadastro de pessoal. Pode ser um número
-							novo, ainda fora da última carga — ou um dígito trocado.
+							O SARAM <span className="font-mono">{identity.saram}</span> foi gravado, mas{" "}
+							{identity.registered
+								? "o cadastro de pessoal não traz nome de guerra para ele. Se o número não for seu, procure a administração do sistema para corrigir."
+								: "não corresponde a ninguém no cadastro de pessoal. Pode ser um número novo, ainda fora da última carga — ou um dígito trocado."}
 						</>
 					)}
 				</DialogDescription>
 			</DialogHeader>
 
 			<DialogFooter>
-				{name ? (
+				{identity.registered ? (
 					<Button type="button" variant="ghost" onClick={onNotMe}>
 						Não sou eu
 					</Button>

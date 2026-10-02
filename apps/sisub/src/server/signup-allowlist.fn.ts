@@ -39,8 +39,9 @@ export type { SignupAllowlistRow }
  * Desfecho do convite, que acontece DEPOIS da autorização gravada e nunca a desfaz:
  *   - `sent`: o Auth enviou o e-mail de convite;
  *   - `account-exists`: o e-mail já tem conta (as contas antigas fora da FAB continuam entrando);
- *   - `failed`: o convite falhou (limite de e-mail, SMTP). A autorização vale: a pessoa pode se
- *     cadastrar pelo formulário, ou o administrador autoriza de novo depois de revogar.
+ *   - `failed`: o convite falhou (limite de e-mail, SMTP). A autorização fica, mas a pessoa
+ *     depende do convite — os formulários de cadastro dos apps só aceitam @fab.mil.br. Reenviar
+ *     é revogar e autorizar de novo.
  */
 export type ExternalSignupInvite = { status: "sent" } | { status: "account-exists" } | { status: "failed"; message: string }
 
@@ -48,8 +49,11 @@ export type AuthorizeExternalSignupResult = { id: string; email: string; invite:
 
 /**
  * Para onde o link do convite volta: a tela de definir senha. A pessoa convidada não tem senha;
- * o link abre uma sessão e a tela pede a senha nova (fluxo implícito, `#access_token`). O caminho
- * já está na allow-list de redirect do projeto (é o mesmo da recuperação de senha).
+ * o link abre uma sessão e a tela pede a senha nova. O convite do admin API não tem code
+ * verifier, então o GoTrue volta no fluxo IMPLÍCITO (`#access_token=…&type=invite`) — que o
+ * client PKCE do navegador recusa sozinho; `/auth/reset-password` o consome à mão
+ * (`readImplicitSession`, `lib/auth-otp.ts`). O caminho já está na allow-list de redirect do
+ * projeto (é o mesmo da recuperação de senha).
  */
 const INVITE_REDIRECT = `${SISUB_PUBLIC_URL}/auth/reset-password`
 

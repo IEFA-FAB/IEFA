@@ -27,6 +27,9 @@ export const ACCESS_FIXTURE_TABLES = new Set(["user_permissions", "policy", "pol
 
 const BYPASS_REASON = "sisub integration fixture"
 
+/** Autorizações de cadastro externo (20261001100000), escritas por `authorizeSignup`. */
+const SIGNUP_ALLOWLIST = "access_control.signup_allowlist"
+
 export interface AccessFixtureWriter {
 	insertReturningId(table: string, row: Record<string, unknown>): Promise<string>
 	deleteWhere(table: string, column: string, value: string | number): Promise<void>
@@ -80,8 +83,10 @@ export function createAccessFixtureWriter(): AccessFixtureWriter {
 				const [exists] = await tx<{ ok: boolean }[]>`select to_regclass('access_control.signup_allowlist') is not null as ok`
 				if (!exists?.ok) return []
 				await tx`select set_config('iefa.audit_bypass', ${BYPASS_REASON}, true)`
+				// Como as demais escritas daqui: tabela pelo helper de identificador, autorizada pelo
+				// bypass explícito acima (este arquivo é o da allowlist do bypass no opengrep).
 				return tx<{ id: string }[]>`
-					insert into access_control.signup_allowlist (email, reason) values (${normalized}, ${BYPASS_REASON})
+					insert into ${tx(SIGNUP_ALLOWLIST)} (email, reason) values (${normalized}, ${BYPASS_REASON})
 					on conflict (email) where revoked_at is null do nothing
 					returning id`
 			})
@@ -89,7 +94,7 @@ export function createAccessFixtureWriter(): AccessFixtureWriter {
 			return async () => {
 				await sql().begin(async (tx) => {
 					await tx`select set_config('iefa.audit_bypass', ${BYPASS_REASON}, true)`
-					await tx`delete from access_control.signup_allowlist where id = ${inserted.id}`
+					await tx`delete from ${tx(SIGNUP_ALLOWLIST)} where id = ${inserted.id}`
 				})
 			}
 		},

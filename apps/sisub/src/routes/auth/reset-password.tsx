@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { parseOtpType } from "@/lib/auth-otp"
+import { parseOtpType, readImplicitSession } from "@/lib/auth-otp"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
 
@@ -174,6 +174,23 @@ function ResetPasswordPage() {
 				dispatch({ type: "SET_PAGE_STATE", value: "form" })
 			}
 		})
+
+		// Convite do admin API (e-mails externos autorizados no console de Permissões): o GoTrue
+		// volta no fluxo implícito, `#access_token=…`, que o client PKCE recusa sozinho. A sessão
+		// é aplicada à mão (`setSession` valida o token no GoTrue) e o fragmento sai da URL —
+		// token no histórico do navegador é token vazado.
+		const implicit = typeof window === "undefined" ? null : readImplicitSession(window.location.hash)
+		if (implicit) {
+			window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`)
+			supabase.auth.setSession({ access_token: implicit.accessToken, refresh_token: implicit.refreshToken }).then(({ error: sessionError }) => {
+				if (sessionError) {
+					dispatch({ type: "REJECT_LINK", reason: sessionError.message })
+					return
+				}
+				dispatch({ type: "RESOLVE_OTP", verified: true })
+			})
+			return () => subscription.unsubscribe()
+		}
 
 		// Formato token_hash: nenhum client do Supabase troca isso por sessão
 		// sozinho — detectSessionInUrl só enxerga `?code=` e `#access_token=`.

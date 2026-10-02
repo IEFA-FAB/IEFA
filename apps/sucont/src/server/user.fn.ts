@@ -59,9 +59,15 @@ export type SucontIdentity = {
 	saram: string | null
 	posto: string | null
 	nomeGuerra: string | null
+	/**
+	 * O SARAM localiza um cadastro militar — e por isso está TRAVADO (write-once,
+	 * `core.link_own_saram`). Separado do nome: o cadastro pode existir sem nome de guerra, e a
+	 * tela não pode oferecer "Corrigir" para um número que o servidor vai recusar trocar.
+	 */
+	registered: boolean
 }
 
-const EMPTY_IDENTITY: SucontIdentity = { saram: null, posto: null, nomeGuerra: null }
+const EMPTY_IDENTITY: SucontIdentity = { saram: null, posto: null, nomeGuerra: null, registered: false }
 
 /**
  * Identidade do PRÓPRIO usuário. Sem argumento: o `id` vem do JWT — receber um
@@ -81,7 +87,7 @@ export const fetchMyIdentityFn = createServerFn({ method: "GET" }).handler(async
 	if (!saram) return EMPTY_IDENTITY
 
 	const military = await fetchMilitaryIdentity(saram)
-	return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null }
+	return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null, registered: military !== null }
 })
 
 /**
@@ -130,5 +136,5 @@ export const saveMySaramFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(saramLinkErrorMessage(error.message))
 
 		const military = await fetchMilitaryIdentity(saram)
-		return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null }
+		return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null, registered: military !== null }
 	})

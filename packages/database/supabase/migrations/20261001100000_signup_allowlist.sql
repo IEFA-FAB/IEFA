@@ -112,8 +112,8 @@ create trigger enforce_audited_change
 -- ═════════════════════════════════════════════════════════════════════════════
 --
 -- O convite (`auth.admin.inviteUserByEmail`) é do app, DEPOIS desta transação: o hook só enxerga
--- a autorização confirmada. Convite que falha não desfaz a autorização — o administrador pode
--- reenviar, ou a pessoa pode se cadastrar pelo formulário.
+-- a autorização confirmada. Convite que falha não desfaz a autorização; reenviar é revogar e
+-- autorizar de novo (os formulários de cadastro dos apps só aceitam @fab.mil.br).
 
 create or replace function access_control.authorize_external_signup(
 	p_actor     uuid,

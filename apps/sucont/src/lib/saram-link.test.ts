@@ -5,8 +5,8 @@ import { SARAM_LINK_FALLBACK_MESSAGE, saramLinkErrorMessage } from "#/lib/saram-
 
 describe("saramLinkErrorMessage", () => {
 	test.each([
-		["SARAM_LOCKED", "O SARAM já está vinculado à sua conta e não pode ser alterado por aqui. Para corrigi-lo, procure o administrador do SUCONT."],
-		["SARAM_TAKEN", "Este SARAM já está vinculado a outra conta. Se ele é seu, procure o administrador do SUCONT."],
+		["SARAM_LOCKED", "O SARAM já está vinculado à sua conta e não pode ser alterado por aqui. Para corrigi-lo, procure a administração do sistema."],
+		["SARAM_TAKEN", "Este SARAM já está vinculado a outra conta. Se ele é seu, procure a administração do sistema."],
 		["EMAIL_TAKEN", "Seu e-mail já está registrado em outra conta do ERP. Procure o administrador do SUCONT."],
 		["USER_DATA_NOT_FOUND", "Sua conta ainda não está no cadastro de pessoas do ERP. Procure o administrador do SUCONT."],
 	])("%p vira frase para a tela", (token, expected) => {

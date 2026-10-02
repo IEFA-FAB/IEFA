@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { isFabEmail } from "./email-domain.ts"
+import { normalizeEmail } from "./errors.ts"
 
 /** Casos que o hook do Auth (migration 20261001100100) e `isFabEmail` precisam decidir igual. */
 const CASES: [string, boolean][] = [
@@ -48,10 +49,14 @@ describe("paridade com o hook do Auth", () => {
 		expect(literal).toBe("^[^@[:space:]]+@fab\\.mil\\.br$")
 	})
 
-	test.each(CASES)("hook e tela concordam em %p", (email, expected) => {
+	test.each([...CASES, ["x@fab.mil.br\n", true] as [string, boolean]])("hook e tela concordam em %p", (email, expected) => {
 		const hookPattern = new RegExp((literal ?? "(?!)").replace("[:space:]", "\\s"))
-		// O hook aplica `lower(btrim(...))` antes; `btrim` sem argumento tira só o espaço.
-		const normalized = email.toLowerCase().replace(/^ +| +$/g, "")
-		expect(hookPattern.test(normalized)).toBe(expected)
+		// O caminho real: o formulário manda `normalizeEmail(email)` ao GoTrue (`createAuthActions`),
+		// e o hook aplica `lower(btrim(...))` sobre o que chegou — `btrim` sem argumento tira só espaço.
+		const atHook = normalizeEmail(email)
+			.toLowerCase()
+			.replace(/^ +| +$/g, "")
+		expect(hookPattern.test(atHook)).toBe(expected)
+		expect(isFabEmail(email)).toBe(expected)
 	})
 })

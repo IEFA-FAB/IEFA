@@ -171,7 +171,8 @@ function InviteOutcome({ outcome }: { outcome: AuthorizeExternalSignupResult }) 
 			<MailPlus aria-hidden />
 			<AlertTitle>Autorizado, mas o convite não saiu</AlertTitle>
 			<AlertDescription>
-				{outcome.invite.message} A autorização vale: {outcome.email} pode criar a conta pela tela de cadastro do sistema.
+				{outcome.invite.message} A autorização ficou registrada, mas {outcome.email} precisa do convite para criar a conta — os formulários de cadastro só
+				aceitam @fab.mil.br. Para reenviar, revogue esta autorização e autorize de novo.
 			</AlertDescription>
 		</Alert>
 	)

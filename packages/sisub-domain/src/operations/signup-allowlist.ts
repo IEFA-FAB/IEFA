@@ -57,7 +57,14 @@ const SIGNUP_OVERRIDES = {
 export async function listSignupAllowlist(db: SisubDb, ctx: UserContext): Promise<SignupAllowlistRow[]> {
 	requirePermission(ctx, "admin", 2)
 	const rows = await runQuery("FETCH_FAILED", () =>
+		// `accounts`: uma passada só em auth.users. O GoTrue pode guardar e-mail com caixa (o
+		// cadastro antigo não normalizava), então a comparação é por `lower()`, e um `exists`
+		// correlacionado com `lower()` faria uma varredura por linha da lista.
 		db.execute(sql`
+			with accounts as (
+				select distinct lower(u.email) as email from auth.users u
+				where lower(u.email) in (select l.email from access_control.signup_allowlist l)
+			)
 			select
 				a.id,
 				a.email,
@@ -66,8 +73,9 @@ export async function listSignupAllowlist(db: SisubDb, ctx: UserContext): Promis
 				authorizer.email as authorized_by_email,
 				a.revoked_at,
 				revoker.email as revoked_by_email,
-				exists (select 1 from auth.users u where lower(u.email) = a.email) as has_account
+				acc.email is not null as has_account
 			from access_control.signup_allowlist a
+			left join accounts acc on acc.email = a.email
 			left join auth.users authorizer on authorizer.id = a.authorized_by
 			left join auth.users revoker on revoker.id = a.revoked_by
 			order by (a.revoked_at is null) desc, a.created_at desc
