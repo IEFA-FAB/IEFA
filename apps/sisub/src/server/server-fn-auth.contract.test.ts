@@ -146,8 +146,13 @@ describe("server function auth contract", () => {
 	 */
 	test("toda supressão nosemgrep do monorepo tem motivo escrito e cita uma regra existente", () => {
 		const root = monorepoRoot()
-		const rulesFile = readFileSync(join(root, ".opengrep/rules/server-fn-authz.yaml"), "utf8")
-		const knownRules = new Set([...rulesFile.matchAll(/^ {2}- id: ([\w-]+)$/gm)].map((m) => m[1]))
+		// Toda regra do diretório: supressão de qualquer uma delas vale, não só das de server fn.
+		const rulesDir = join(root, ".opengrep/rules")
+		const knownRules = new Set(
+			readdirSync(rulesDir)
+				.filter((f) => f.endsWith(".yaml"))
+				.flatMap((f) => [...readFileSync(join(rulesDir, f), "utf8").matchAll(/^ {2}- id: ([\w-]+)$/gm)].map((m) => m[1]))
+		)
 		expect(knownRules.size).toBeGreaterThan(0)
 
 		const appsDir = join(root, "apps")
