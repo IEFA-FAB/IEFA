@@ -17,6 +17,7 @@ import { inspectSubmissionDocument, toSubmissionText } from "../extraction/to-te
 import { type AlphaAccess, coversUnit, READER_ROLES, unitsFor } from "../lib/alpha-access.ts"
 import { DocumentLimitError } from "../lib/document-limits.ts"
 import { TextCache } from "../lib/text-cache.ts"
+import { enforceUsage } from "../lib/usage-limit.ts"
 import { canReadSubmission } from "./authorize.ts"
 import { SUBMISSION_BUCKET } from "./submission-bucket.ts"
 import { buildSubmissionStoragePath, MAX_SUBMISSION_BYTES, SUBMISSION_EXTENSIONS, sanitizeSubmissionFilename } from "./submission-file.ts"
@@ -100,6 +101,11 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		const { data: unit, error: unitError } = await core.from("units").select("id, is_training").eq("id", unit_id).maybeSingle()
 		if (unitError) return c.json({ error: "Internal Server Error", code: "UNIT_LOOKUP_FAILED" }, 500)
 		if (!unit || unit.is_training) return c.json({ error: "Unprocessable Entity", code: "UNIT_NOT_FOUND", message: "OM inexistente" }, 422)
+
+		// Cota diária de envios, cobrada antes de ler o arquivo: sem ela, qualquer autenticado
+		// gravava arquivos de 25 MB no Storage (e prendia CPU lendo cada um) sem limite.
+		const refused = await enforceUsage(c, user.id, "upload")
+		if (refused) return refused
 
 		const bytes = new Uint8Array(await file.arrayBuffer())
 
@@ -199,6 +205,12 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		try {
 			const text = await loadSubmissionText(submission.storage_path, submission.mime_type)
 			if (text === null) return c.json({ error: "Internal Server Error", code: "DOWNLOAD_FAILED" }, 500)
+
+			// Teto diário cobrado só agora, com o texto em mãos: falha de leitura não gasta cota,
+			// e a chamada de modelo abaixo é o que custa.
+			const refused = await enforceUsage(c, user.id, "extraction")
+			if (refused) return refused
+
 			const result = await extractContratacao(text, submission.doc_kind)
 
 			const { data: extraction, error: insertError } = await supabase

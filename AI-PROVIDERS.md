@@ -492,8 +492,13 @@ de ferramentas próprio (`chat/agent.ts`), com texto transmitido por SSE. Três 
 os demais consumidores do α não têm:
 
 - **Teto diário por pessoa** (`ALPHA_CHAT_MAX_TURNS_PER_DAY`, default 60). É conferido ANTES
-  de abrir o SSE e responde 429 `CHAT_DAILY_LIMIT` com `retry_after`. É o único teto de
-  consumo do α. O turno leva o documento inteiro no contexto e é a chamada mais cara do app.
+  de abrir o SSE e responde 429 `CHAT_DAILY_LIMIT` com `retry_after`. O turno leva o documento
+  inteiro no contexto e é a chamada mais cara do app. Desde 2026-10-01 toda rota do α que chama
+  modelo ou recebe arquivo tem teto próprio no mesmo livro (`chat_turn_usage.kind`, registro
+  atômico por `alpha.claim_usage`): `ALPHA_RADA_MAX_TURNS_PER_DAY`, `ALPHA_EXTRACTIONS_MAX_PER_DAY`,
+  `ALPHA_COMPLIANCE_RUNS_MAX_PER_DAY`, `ALPHA_UPLOADS_MAX_PER_DAY`,
+  `ALPHA_RULE_EVALUATIONS_MAX_PER_DAY` e `ALPHA_SOURCE_REFRESHES_MAX_PER_DAY`
+  (`apps/alpha/src/lib/usage-limit.ts`).
 - **Cache de prompt**: as regras e as fontes vão num bloco de sistema com `cachePoint`. O
   `@langchain/aws` 1.4.5 repassa o bloco (`convertSystemMessageToConverseMessage`). A reserva
   (`langchain-compat`) recebe texto puro, porque o bloco a quebraria.

@@ -13,10 +13,10 @@
  * Ligar no deploy não apaga nada — nenhuma conversa alcança 180 dias antes de 180 dias.
  */
 
-import { purgeTurnUsage } from "../chat/rate-limit.ts"
 import { isPurgeable, purgeCutoff } from "../chat/retention.ts"
 import { removeThread, THREAD_COLUMNS, type ThreadRow } from "../chat/threads.ts"
 import { supabase } from "../db/supabase.ts"
+import { purgeTurnUsage } from "../lib/usage-limit.ts"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 

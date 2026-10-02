@@ -3,6 +3,10 @@ import type { Context, Next } from "hono"
 import { WWW_AUTHENTICATE } from "../api/agent-discovery.ts"
 import { accessControl, core, supabase } from "../db/supabase.ts"
 import { needsUnitGraph, resolveAlphaAccess } from "../lib/alpha-access.ts"
+import { createTokenVerifier } from "./token-verifier.ts"
+
+/** Um por processo: o cache de validação vale entre requisições (ver `token-verifier.ts`). */
+const tokenVerifier = createTokenVerifier((token) => supabase.auth.getUser(token))
 
 /**
  * O `WWW-Authenticate` aponta os metadados do recurso (RFC 9728). Sem ele o
@@ -20,13 +24,15 @@ export async function authMiddleware(c: Context, next: Next) {
 		return unauthorized(c, "MISSING_TOKEN")
 	}
 
-	const {
-		data: { user },
-		error,
-	} = await supabase.auth.getUser(token)
-	if (error || !user) {
+	const verification = await tokenVerifier.verify(token)
+	if (!verification.ok) {
+		// Sessão anônima é autêntica, mas não é pessoa: 403, e não 401 (renovar o token não resolve).
+		if (verification.reason === "ANONYMOUS_USER") {
+			return c.json({ error: "Forbidden", code: "ANONYMOUS_USER", message: "entre com uma conta para usar o α" }, 403)
+		}
 		return unauthorized(c, "INVALID_TOKEN")
 	}
+	const { user } = verification
 
 	// Falha ao ler permissões fecha a porta: tratar como "sem grant" rebaixaria o ACI em
 	// silêncio e, pior, esconderia um deny.

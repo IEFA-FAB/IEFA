@@ -23,7 +23,9 @@ import { z } from "zod"
 import { buildQueue, DECISIONS, deriveStage, type QueueRow, type RunStatus, summarizeQueue } from "../aci/queue.ts"
 import { type FinalReport, type ReportDocument, type ReportFinding, type ReportReview, renderReportMarkdown, resolveFindings } from "../aci/report.ts"
 import { blockersByDecision, decisionBlockers, reviewSnapshot, type TriagedFinding } from "../aci/review.ts"
+import { decideComplianceRun, type RunRecord } from "../compliance/run-policy.ts"
 import { supabase } from "../db/supabase.ts"
+import { env } from "../env.ts"
 import { type AlphaAccess, coversUnit, decideSubmissionReview, isEmptyCoverage, type SubmissionOwnership, unitsFor } from "../lib/alpha-access.ts"
 import { requireRole } from "../middleware/require-role.ts"
 import { canReadComplianceRun, canReadSubmission, canReviewComplianceRun, canTriageFinding } from "./authorize.ts"
@@ -132,6 +134,15 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 
 		const latestRun = runs.data?.[0] ?? null
 		const latestReviewed = latestRun ? (reviews.data ?? []).some((review) => review.run_id === latestRun.id) : false
+		const canDecide = decideSubmissionReview(c.get("access"), submission as SubmissionOwnership)
+		// A mesma decisão que `POST /compliance/runs` aplica: a tela não oferece o que a rota recusa.
+		const rerun = decideComplianceRun({
+			runs: (runs.data ?? []) as RunRecord[],
+			hasReview: (reviews.data ?? []).length > 0,
+			canReview: canDecide,
+			maxRuns: env.ALPHA_COMPLIANCE_MAX_RUNS_PER_SUBMISSION,
+			now: new Date(),
+		})
 
 		return c.json({
 			submission,
@@ -139,7 +150,9 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 			unit_id: submission.unit_id as number,
 			// Decidido aqui, com a MESMA regra que as rotas de triagem e parecer aplicam: ACI
 			// que cobre a OM deste processo. A tela não recalcula.
-			can_decide: decideSubmissionReview(c.get("access"), submission as SubmissionOwnership),
+			can_decide: canDecide,
+			// Pode disparar (ou repetir) a verificação agora? Com o motivo, quando não.
+			compliance_run: rerun.allowed ? { allowed: true, code: null, message: null } : { allowed: false, code: rerun.code, message: rerun.message },
 			// Derivada aqui, com a mesma função da fila — a tela não recalcula.
 			stage: deriveStage((extractions.data ?? []).length > 0, (latestRun?.status as RunStatus | undefined) ?? null, latestReviewed),
 			extractions: extractions.data ?? [],
