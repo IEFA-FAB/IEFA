@@ -8,7 +8,7 @@ import { createGroqAdapter } from "./providers/groq.js"
 import { createNvidiaAdapter } from "./providers/nvidia.js"
 import { createOllamaAdapter } from "./providers/ollama.js"
 import { createOpenRouterAdapter } from "./providers/openrouter.js"
-import { rateLimitConfigFromEnv, scopedKey, withRateLimit } from "./rate-limit.js"
+import { type RateLimitConfig, rateLimitConfigFromEnv, scopedKey, withRateLimit } from "./rate-limit.js"
 import type { AdapterConfig, ProviderType } from "./types.js"
 
 export type { AnyTextAdapter, ChatMiddleware } from "@tanstack/ai"
@@ -79,6 +79,11 @@ export interface AdapterFromEnvOptions {
 	 * usuário viram um balde único compartilhado, o que só faz sentido em job/CLI.
 	 */
 	rateLimitKey?: string
+	/**
+	 * Tetos que valem quando o env do prefixo não os define (o env vence). Passe os MESMOS a
+	 * `enforceRequestRateLimit`, senão o endpoint e o adapter divergem sobre o teto.
+	 */
+	rateLimitDefaults?: RateLimitConfig
 }
 
 /**
@@ -101,7 +106,7 @@ export function createAdapterFromEnv(prefix?: string, options: AdapterFromEnvOpt
 	const fallback = adapterFromEnvOrUndefined(prefix ? `${prefix}_FALLBACK` : "FALLBACK")
 	const chained = fallback ? withFallbackChain(primary, fallback) : primary
 
-	const rateLimit = rateLimitConfigFromEnv(prefix)
+	const rateLimit = rateLimitConfigFromEnv(prefix, options.rateLimitDefaults)
 	if (!rateLimit) return chained
 
 	// Chave com o prefixo embutido: o teto do chat dos módulos não pode consumir o do analytics.

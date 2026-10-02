@@ -352,13 +352,26 @@ Dois detalhes que o wrapper existe para resolver:
 
 ## Tetos de consumo
 
-`packages/ai-provider/src/rate-limit.ts`. Três limites, todos opcionais:
+`packages/ai-provider/src/rate-limit.ts`. Quatro limites, todos opcionais:
 
 | Var | Escopo | Para que serve |
 |---|---|---|
 | `<PREFIX>_AI_MAX_REQUESTS_PER_MINUTE` | por usuário | corta loop de UI e martelada em botão |
 | `<PREFIX>_AI_MAX_TOKENS_PER_MINUTE` | por usuário | corta a conversa que cresceu demais |
+| `<PREFIX>_AI_MAX_TOKENS_PER_DAY_PER_USER` | por usuário | um usuário não esgota sozinho o orçamento do dia |
 | `<PREFIX>_AI_MAX_TOKENS_PER_DAY` | por processo | é o teto de custo propriamente dito |
+
+O consumidor pode declarar no código um piso para o teto que o env não define
+(`createAdapterFromEnv(prefix, { rateLimitDefaults })` e o mesmo objeto em
+`enforceRequestRateLimit`); o env, quando presente, vence. O sisub declara
+`SISUB_AI_RATE_LIMIT_DEFAULTS` (`apps/sisub/src/lib/ai-chat-limits.ts`: 12 turnos/min e
+1 milhão de tokens/dia por usuário) para `MODULE_CHAT` e `ANALYTICS`, porque a task definition
+de produção não trazia teto nenhum.
+
+Tokens contam no **início** de cada chamada ao provider (estimativa do prompt, ~4 caracteres por
+token) e são acertados pelo `usage` do `RUN_FINISHED`. Contar só no fim deixava de fora a
+chamada que não termina (aba fechada no meio do stream, `RUN_ERROR`), cujo prompt o provider
+já cobrou.
 
 Por que tokens e não só requisições: um chat com tools reenvia o histórico **inteiro** a cada
 iteração do loop agêntico. Oito iterações de uma conversa longa custam muito mais que oito

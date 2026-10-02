@@ -7,7 +7,7 @@
  * 2. Parse body (AG-UI format) — module + scopeId come from forwardedProps
  * 3. PBAC check (module + scope)
  * 4. Load module config (system prompt + tools filtered by user level)
- * 5. chat() with maxIterationsMiddleware(8) + otelMiddleware
+ * 5. chat() with maxIterationsMiddleware(AI_CHAT_MAX_ITERATIONS) + otelMiddleware
  * 6. toServerSentEventsResponse() → AG-UI SSE stream
  *
  * Aprovação humana: tool de escrita para no interrupt `approval_<toolCallId>` e o run termina.
@@ -15,7 +15,7 @@
  * histórico sobrevive à higiene e o `chat()` executa (ou devolve a recusa ao modelo).
  */
 
-import { createAdapterFromEnv, enforceRequestRateLimit, maxIterationsMiddleware, RateLimitError } from "@iefa/ai-provider"
+import { createAdapterFromEnv, defaultRateLimitStore, enforceRequestRateLimit, maxIterationsMiddleware, RateLimitError } from "@iefa/ai-provider"
 import { checkSameOriginJsonRequest } from "@iefa/auth-kit"
 import type { Database } from "@iefa/database"
 import { resolveUserPermissions } from "@iefa/pbac"
@@ -27,6 +27,7 @@ import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
 import { type H3Event, HTTPError, readBody } from "h3"
 import { defineHandler } from "nitro"
 import { hasPermission } from "@/auth/pbac"
+import { AI_CHAT_MAX_ITERATIONS, SISUB_AI_RATE_LIMIT_DEFAULTS } from "@/lib/ai-chat-limits"
 import { getServerCapabilities } from "@/lib/capabilities.server"
 import { assertResumeMatchesPending, ChatRequestError, checkChatPayloadSize, parseApprovalResume, sanitizeClientMessages } from "@/lib/chat-client-messages"
 import { getDb } from "@/lib/db.server"
@@ -187,7 +188,7 @@ export default defineHandler(async (event: H3Event) => {
 	// 5. Teto de consumo — aplicado ANTES de abrir o SSE. Depois que o stream começa não há
 	// mais status HTTP para devolver: o erro vira conexão cortada, sem mensagem.
 	try {
-		enforceRequestRateLimit("MODULE_CHAT", user.id)
+		enforceRequestRateLimit("MODULE_CHAT", user.id, defaultRateLimitStore, SISUB_AI_RATE_LIMIT_DEFAULTS)
 	} catch (error) {
 		if (error instanceof RateLimitError) {
 			// `Retry-After` vai DENTRO do erro. O h3 v2 monta a resposta de erro a partir de
@@ -204,13 +205,13 @@ export default defineHandler(async (event: H3Event) => {
 	}
 
 	// 6. Stream
-	const adapter = createAdapterFromEnv("MODULE_CHAT", { rateLimitKey: user.id })
+	const adapter = createAdapterFromEnv("MODULE_CHAT", { rateLimitKey: user.id, rateLimitDefaults: SISUB_AI_RATE_LIMIT_DEFAULTS })
 	const stream = chat({
 		adapter,
 		messages,
 		tools,
 		systemPrompts: [systemPrompt],
-		middleware: [otel, maxIterationsMiddleware(8)],
+		middleware: [otel, maxIterationsMiddleware(AI_CHAT_MAX_ITERATIONS)],
 		// Identificam o run no AG-UI. `parentRunId` + `resume` é o que faz o `chat()` aplicar a
 		// decisão de aprovação; sem eles a call pendente pararia de novo no mesmo interrupt.
 		threadId: params.threadId,

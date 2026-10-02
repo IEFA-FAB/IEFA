@@ -5,10 +5,16 @@
  * INTEIRO a cada turno: 8 iterações de uma conversa longa custam bem mais que 8 perguntas
  * soltas. Sem teto, uma aba esquecida em loop ou um usuário curioso viram fatura.
  *
- * Três limites, todos opcionais (ausente = sem teto):
+ * Quatro limites, todos opcionais (ausente = sem teto):
  *   - requisições por minuto, por chave (o usuário) — corta loop de UI e martelada em botão;
  *   - tokens por minuto, por chave — corta a conversa que cresceu demais;
+ *   - tokens por dia, por chave — um usuário não esgota sozinho o orçamento de todos;
  *   - tokens por dia, por PROCESSO — o teto de custo propriamente dito.
+ *
+ * Tokens contam no INÍCIO de cada chamada ao provider (estimativa do prompt, que é o grosso do
+ * custo num loop agêntico) e são acertados pelo `usage` do `RUN_FINISHED`. Contar só no fim
+ * deixava de fora a chamada que não termina: aba fechada no meio do stream, `RUN_ERROR` do
+ * provider, timeout. O prompt já tinha sido cobrado pelo provider e não entrava em teto nenhum.
  *
  * Limitação consciente: o estado é em memória, por processo. Com N tasks no ECS o teto
  * efetivo é N × o configurado. Dimensione considerando a contagem de tasks; um teto
@@ -20,7 +26,7 @@ export class RateLimitError extends Error {
 	constructor(
 		message: string,
 		readonly retryAfterSeconds: number,
-		readonly limit: "requests-per-minute" | "tokens-per-minute" | "tokens-per-day"
+		readonly limit: "requests-per-minute" | "tokens-per-minute" | "tokens-per-day" | "tokens-per-day-per-user"
 	) {
 		super(message)
 		this.name = "RateLimitError"
@@ -44,6 +50,22 @@ export interface RateLimitConfig {
 	tokensPerMinute?: number
 	/** Tokens por dia, somados de TODAS as chaves deste processo. */
 	tokensPerDay?: number
+	/** Tokens por dia, por chave — a fatia de um usuário no orçamento diário. */
+	tokensPerDayPerUser?: number
+}
+
+/**
+ * Prompt estimado de uma chamada ao provider (histórico + system prompts), a ~4 caracteres por
+ * token — a faixa de português e JSON nos tokenizadores em uso. Serve para COBRAR ANTES, não
+ * para faturar: o `usage` do provider acerta a conta quando a chamada termina. Ferramentas ficam
+ * de fora (fixas e pequenas perto do histórico).
+ */
+export function estimatePromptTokens(options: unknown): number {
+	const { messages, systemPrompts } = (options ?? {}) as { messages?: unknown; systemPrompts?: unknown }
+	let chars = 0
+	if (messages != null) chars += JSON.stringify(messages)?.length ?? 0
+	if (systemPrompts != null) chars += JSON.stringify(systemPrompts)?.length ?? 0
+	return Math.ceil(chars / 4)
 }
 
 const MINUTE_MS = 60_000
@@ -88,6 +110,17 @@ export class RateLimitStore {
 			}
 		}
 
+		if (config.tokensPerDayPerUser != null) {
+			const mine = this.window(this.userDayKey(key), DAY_MS, now)
+			if (mine.used >= config.tokensPerDayPerUser) {
+				throw new RateLimitError(
+					`Você atingiu o seu limite diário de uso do assistente (${mine.used.toLocaleString("pt-BR")} tokens). Tente novamente amanhã.`,
+					this.retryAfter(mine, DAY_MS, now),
+					"tokens-per-day-per-user"
+				)
+			}
+		}
+
 		if (config.tokensPerMinute != null) {
 			const tokens = this.window(`tokens:minute:${key}`, MINUTE_MS, now)
 			if (tokens.used >= config.tokensPerMinute) {
@@ -127,19 +160,36 @@ export class RateLimitStore {
 		return scope ? `tokens:day:${scope}` : "tokens:day"
 	}
 
-	/** Contabiliza os tokens de um turno já concluído. */
+	/** Janela diária DA CHAVE (o usuário dentro do consumidor), ao lado da do consumidor. */
+	private userDayKey(key: string): string {
+		return `tokens:day:user:${key}`
+	}
+
+	/**
+	 * Contabiliza tokens nas janelas do minuto, do dia da chave e do dia do consumidor. Valor
+	 * negativo devolve (acerto de estimativa maior que o gasto real), sem deixar janela abaixo
+	 * de zero.
+	 */
 	recordTokens(key: string, tokens: number, now = Date.now()): void {
-		if (!Number.isFinite(tokens) || tokens <= 0) return
-		this.window(`tokens:minute:${key}`, MINUTE_MS, now).used += tokens
-		this.window(this.dayKey(key), DAY_MS, now).used += tokens
+		if (!Number.isFinite(tokens) || tokens === 0) return
+		const windows: [string, number][] = [
+			[`tokens:minute:${key}`, MINUTE_MS],
+			[this.userDayKey(key), DAY_MS],
+			[this.dayKey(key), DAY_MS],
+		]
+		for (const [windowKey, size] of windows) {
+			const window = this.window(windowKey, size, now)
+			window.used = Math.max(0, window.used + tokens)
+		}
 	}
 
 	/** Uso corrente — para observabilidade e teste. */
-	snapshot(key: string, now = Date.now()): { requestsThisMinute: number; tokensThisMinute: number; tokensToday: number } {
+	snapshot(key: string, now = Date.now()): { requestsThisMinute: number; tokensThisMinute: number; tokensToday: number; tokensTodayForKey: number } {
 		return {
 			requestsThisMinute: this.window(`requests:minute:${key}`, MINUTE_MS, now).used,
 			tokensThisMinute: this.window(`tokens:minute:${key}`, MINUTE_MS, now).used,
 			tokensToday: this.window(this.dayKey(key), DAY_MS, now).used,
+			tokensTodayForKey: this.window(this.userDayKey(key), DAY_MS, now).used,
 		}
 	}
 
@@ -165,16 +215,21 @@ function positiveInt(name: string, raw: string | undefined): number | undefined 
 }
 
 /**
- * Lê os tetos de `<PREFIX>_AI_MAX_REQUESTS_PER_MINUTE`, `<PREFIX>_AI_MAX_TOKENS_PER_MINUTE`
- * e `<PREFIX>_AI_MAX_TOKENS_PER_DAY`. Devolve `undefined` quando nenhum está configurado —
- * o chamador então não embrulha o adapter.
+ * Lê os tetos de `<PREFIX>_AI_MAX_REQUESTS_PER_MINUTE`, `<PREFIX>_AI_MAX_TOKENS_PER_MINUTE`,
+ * `<PREFIX>_AI_MAX_TOKENS_PER_DAY` e `<PREFIX>_AI_MAX_TOKENS_PER_DAY_PER_USER`. Devolve
+ * `undefined` quando nenhum está configurado — o chamador então não embrulha o adapter.
+ *
+ * `defaults` preenche o teto que o env não define: é o piso que o consumidor declara no código
+ * para não depender de a variável existir na task definition. O env, quando presente, vence.
  */
-export function rateLimitConfigFromEnv(prefix?: string): RateLimitConfig | undefined {
+export function rateLimitConfigFromEnv(prefix?: string, defaults: RateLimitConfig = {}): RateLimitConfig | undefined {
 	const p = prefix ? `${prefix}_` : ""
+	const read = (name: string) => positiveInt(`${p}${name}`, process.env[`${p}${name}`])
 	const config: RateLimitConfig = {
-		requestsPerMinute: positiveInt(`${p}AI_MAX_REQUESTS_PER_MINUTE`, process.env[`${p}AI_MAX_REQUESTS_PER_MINUTE`]),
-		tokensPerMinute: positiveInt(`${p}AI_MAX_TOKENS_PER_MINUTE`, process.env[`${p}AI_MAX_TOKENS_PER_MINUTE`]),
-		tokensPerDay: positiveInt(`${p}AI_MAX_TOKENS_PER_DAY`, process.env[`${p}AI_MAX_TOKENS_PER_DAY`]),
+		requestsPerMinute: read("AI_MAX_REQUESTS_PER_MINUTE") ?? defaults.requestsPerMinute,
+		tokensPerMinute: read("AI_MAX_TOKENS_PER_MINUTE") ?? defaults.tokensPerMinute,
+		tokensPerDay: read("AI_MAX_TOKENS_PER_DAY") ?? defaults.tokensPerDay,
+		tokensPerDayPerUser: read("AI_MAX_TOKENS_PER_DAY_PER_USER") ?? defaults.tokensPerDayPerUser,
 	}
 	const configured = Object.values(config).some((v) => v != null)
 	return configured ? config : undefined
@@ -214,10 +269,12 @@ export interface WithRateLimitOptions {
 
 /**
  * Embrulha um adapter aplicando os tetos: checa ANTES de chamar o provider (lança
- * `RateLimitError`) e contabiliza os tokens do `RUN_FINISHED` depois.
+ * `RateLimitError`), cobra a estimativa do prompt no início da chamada e acerta pelo `usage`
+ * do `RUN_FINISHED` depois.
  *
  * Cada iteração do loop agêntico é uma chamada ao provider e conta no teto de tokens —
- * é assim que uma conversa que cresceu sozinha para de sangrar.
+ * é assim que uma conversa que cresceu sozinha para de sangrar. A cobrança antecipada é o que
+ * faz contar também a chamada que nunca chega ao `RUN_FINISHED` (aba fechada, erro do provider).
  */
 export function withRateLimit<
 	TAdapter extends { chatStream: (options: never) => AsyncIterable<unknown>; structuredOutput: (options: never) => Promise<unknown> },
@@ -235,31 +292,45 @@ export function withRateLimit<
 				return
 			}
 
+			const estimated = estimatePromptTokens(options)
+			store.recordTokens(key, estimated)
 			for await (const chunk of adapter.chatStream(options)) {
 				if ((chunk as { type?: string }).type === "RUN_FINISHED") {
-					store.recordTokens(key, totalTokensOf(chunk))
+					// Sem `usage` (provider que não informa) a estimativa fica como o gasto.
+					const actual = totalTokensOf(chunk)
+					if (actual > 0) store.recordTokens(key, actual - estimated)
 				}
 				yield chunk
 			}
 		},
 		structuredOutput: async (options: never) => {
 			store.checkTokenBudgets(key, config)
+			const estimated = estimatePromptTokens(options)
+			store.recordTokens(key, estimated)
 			const result = await adapter.structuredOutput(options)
-			store.recordTokens(key, totalTokensOf(result))
+			const actual = totalTokensOf(result)
+			if (actual > 0) store.recordTokens(key, actual - estimated)
 			return result
 		},
 	} as TAdapter
 }
 
 /**
- * Aplica o teto de requisições do prefixo a uma chave, ANTES de abrir o stream — só assim o
- * endpoint consegue responder 429 com corpo legível; um erro lançado depois que o SSE já
- * começou vira conexão cortada, sem status.
+ * Aplica os tetos do prefixo a uma chave, ANTES de abrir o stream — só assim o endpoint
+ * consegue responder 429 com corpo legível; um erro lançado depois que o SSE já começou vira
+ * conexão cortada, sem status. O turno conta aqui, no início (requisição por minuto), e o de
+ * quem já esgotou os tokens do dia ou do minuto é recusado antes de chegar ao provider.
  *
- * No-op quando nenhum teto está configurado para o prefixo.
+ * `defaults`: os mesmos passados a `createAdapterFromEnv`, senão endpoint e adapter divergem
+ * sobre o teto. No-op quando nenhum teto está configurado para o prefixo.
  */
-export function enforceRequestRateLimit(prefix: string | undefined, key: string, store: RateLimitStore = defaultRateLimitStore): void {
-	const config = rateLimitConfigFromEnv(prefix)
+export function enforceRequestRateLimit(
+	prefix: string | undefined,
+	key: string,
+	store: RateLimitStore = defaultRateLimitStore,
+	defaults: RateLimitConfig = {}
+): void {
+	const config = rateLimitConfigFromEnv(prefix, defaults)
 	if (!config) return
 	store.admitRequest(scopedKey(prefix, key), config)
 }
