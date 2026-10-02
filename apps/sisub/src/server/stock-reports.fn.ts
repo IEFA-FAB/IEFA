@@ -17,6 +17,7 @@ import { csvRow } from "@/lib/csv"
 import { committedQuantity } from "@/lib/empenho-items"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -57,7 +58,7 @@ export const closeMonthFn = createServerFn({ method: "POST" })
 		})
 		if (error) {
 			if (error.code === "23505") throw new Error(`Competência ${data.competencia} já fechada para esta cozinha`)
-			throw new Error(`Fechamento falhou: ${error.message}`)
+			throw new Error(`Fechamento falhou: ${publicDbMessage(error)}`)
 		}
 		return { closingId: result?.[0]?.closing_id as string, items: Number(result?.[0]?.items ?? 0) }
 	})
@@ -72,7 +73,7 @@ export const listClosingsFn = createServerFn({ method: "GET" })
 			.eq("kitchen_id", data.kitchenId)
 			.order("competencia", { ascending: false })
 			.limit(24)
-		if (error) throw new Error(`Erro ao listar fechamentos: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar fechamentos: ${publicDbMessage(error)}`)
 		return closings ?? []
 	})
 
@@ -92,7 +93,7 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 			.select("ingredient_id, frozen_preparation_id, type, quantity, total_cost, created_at")
 			.eq("kitchen_id", data.kitchenId)
 			.lt("created_at", to)
-		if (error) throw new Error(`Erro ao consultar ledger: ${error.message}`)
+		if (error) throw new Error(`Erro ao consultar ledger: ${publicDbMessage(error)}`)
 
 		type Row = {
 			key: string
@@ -178,7 +179,7 @@ export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 			.gte("created_at", from)
 			.lt("created_at", to)
 			.order("created_at", { ascending: true })
-		if (error) throw new Error(`Erro ao consultar ficha: ${error.message}`)
+		if (error) throw new Error(`Erro ao consultar ficha: ${publicDbMessage(error)}`)
 
 		const entries = (moves ?? []).map((move: { type: string; quantity: number }) => {
 			running += isInflow(move.type) ? Number(move.quantity) : -Number(move.quantity)
@@ -273,7 +274,7 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 				"empenho_id",
 				list.map((e: { id: string }) => e.id)
 			)
-		if (neItemsError) throw new Error(`Erro ao ler os itens dos empenhos: ${neItemsError.message}`)
+		if (neItemsError) throw new Error(`Erro ao ler os itens dos empenhos: ${publicDbMessage(neItemsError)}`)
 		const itemsByEmpenho = new Map<string, Array<{ quantity: number | string | null; unit: string | null }>>()
 		for (const item of (neItems ?? []) as Array<{ empenho_id: string; quantity: number | string | null; unit: string | null }>) {
 			itemsByEmpenho.set(item.empenho_id, [...(itemsByEmpenho.get(item.empenho_id) ?? []), item])

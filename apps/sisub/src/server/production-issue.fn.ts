@@ -27,6 +27,7 @@ import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { maskBlindCountIssueLines } from "@/lib/blind-count-mask"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient, toLooseRpcClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
@@ -45,7 +46,7 @@ async function fetchTask(taskId: string): Promise<{ task: TaskWithSnapshot; kitc
 	// Leitura que falha não vira "tarefa sem ficha": seguir com `menu_item` nulo baixava a tarefa
 	// com consumo teórico vazio.
 	const { data: menuItem, error: menuError } = await kit.from("menu_items").select("recipe, planned_portion_quantity").eq("id", task.menu_item_id).maybeSingle()
-	if (menuError) throw new Error(`Erro ao carregar a preparação da tarefa: ${menuError.message}`)
+	if (menuError) throw new Error(`Erro ao carregar a preparação da tarefa: ${publicDbMessage(menuError)}`)
 	if (!menuItem) throw new Error("A preparação desta tarefa não está mais no cardápio")
 	return {
 		// `recipe` é o snapshot jsonb gravado no cardápio; o tipo gerado o declara `Json`.
@@ -84,7 +85,7 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 		// Sem esta leitura o lote em quarentena volta a contar como disponível, e a
 		// tela diz que há saldo que o banco vai pular — o defeito que esta consulta
 		// existe para fechar, de volta e calado.
-		if (lotError) throw new Error(`Erro ao carregar os lotes: ${lotError.message}`)
+		if (lotError) throw new Error(`Erro ao carregar os lotes: ${publicDbMessage(lotError)}`)
 		for (const lot of lots ?? []) lotMeta.set(lot.id, lot)
 	}
 
@@ -119,8 +120,8 @@ async function openPeriodStart(kitchenId: number): Promise<string> {
 		inv.from("monthly_closing").select("competencia").eq("kitchen_id", kitchenId).order("competencia", { ascending: false }).limit(1).maybeSingle(),
 		inv.from("stock_movement").select("occurred_at").eq("kitchen_id", kitchenId).order("occurred_at", { ascending: true }).limit(1).maybeSingle(),
 	])
-	if (closingError) throw new Error(`Erro ao ler o fechamento mensal: ${closingError.message}`)
-	if (firstError) throw new Error(`Erro ao ler o início do estoque: ${firstError.message}`)
+	if (closingError) throw new Error(`Erro ao ler o fechamento mensal: ${publicDbMessage(closingError)}`)
+	if (firstError) throw new Error(`Erro ao ler o início do estoque: ${publicDbMessage(firstError)}`)
 	return pendingIssueWindowStart({
 		lastClosedCompetencia: closing?.competencia ?? null,
 		firstMovementDate: first?.occurred_at ? brasiliaDate(String(first.occurred_at)) : null,
@@ -151,7 +152,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 			.gte("production_date", since)
 			.order("production_date", { ascending: false })
 			.limit(PENDING_ISSUES_LIMIT)
-		if (error) throw new Error(`Erro ao listar tarefas: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar tarefas: ${publicDbMessage(error)}`)
 		const taskList = tasks ?? []
 		if (taskList.length === 0) return []
 
@@ -163,7 +164,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 				"production_task_id",
 				taskList.map((t) => t.id)
 			)
-		if (issuedError) throw new Error(`Erro ao conferir as baixas das tarefas: ${issuedError.message}`)
+		if (issuedError) throw new Error(`Erro ao conferir as baixas das tarefas: ${publicDbMessage(issuedError)}`)
 		// Baixada é a tarefa com saída que NÃO é tardia. A saída tardia ligada à tarefa é de um
 		// insumo: a baixa segue pendente, com o que já saiu tarde descontado por insumo.
 		const issuedIds = new Set<string>()
@@ -277,7 +278,7 @@ export const confirmIssueFn = createServerFn({ method: "POST" })
 			p_lines: lines,
 			p_user: userId,
 		})
-		if (error) throw new Error(`Erro ao registrar baixa: ${error.message}`)
+		if (error) throw new Error(`Erro ao registrar baixa: ${publicDbMessage(error)}`)
 		return { movements: Number(result?.[0]?.movements ?? lines.length) }
 	})
 
@@ -335,7 +336,7 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 				p_reason: data.discardReason?.trim() ?? null,
 				p_user: userId,
 			})
-			if (error) throw new Error(`Erro ao registrar sobra: ${error.message}`)
+			if (error) throw new Error(`Erro ao registrar sobra: ${publicDbMessage(error)}`)
 			return { lotId: (result?.[0]?.lot_id as string) ?? null, discarded: data.discard, provisional: true }
 		}
 
@@ -359,7 +360,7 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 			p_reason: data.discardReason?.trim() ?? null,
 			p_user: userId,
 		})
-		if (error) throw new Error(`Erro ao registrar sobra: ${error.message}`)
+		if (error) throw new Error(`Erro ao registrar sobra: ${publicDbMessage(error)}`)
 		return { lotId: (result?.[0]?.lot_id as string) ?? null, discarded: data.discard, provisional: false }
 	})
 
@@ -378,7 +379,7 @@ export const listFrozenPreparationsLiteFn = createServerFn({ method: "GET" })
 			.or(`provisional_since.is.null,provisional_reviewed_at.not.is.null,provisional_kitchen_id.eq.${input.kitchenId}`)
 			.order("description")
 			.limit(500)
-		if (error) throw new Error(`Erro ao listar preparações: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar preparações: ${publicDbMessage(error)}`)
 		return (data ?? []).map((row) => ({
 			id: row.id,
 			description: row.description,

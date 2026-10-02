@@ -46,6 +46,7 @@ import { loadLocalCommitments } from "@/lib/arp-commitments.server"
 import { getDb } from "@/lib/db.server"
 import { normalizeDocument } from "@/lib/expense-execution"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "./db-error-message"
 
 const procurement = () => getServerClient("procurement")
 const siafi = () => getServerClient("siafi_integration")
@@ -86,7 +87,7 @@ export type EmpenhoRegistrationOperation = "createEmpenhoFn" | "createEmpenhoWit
 export async function relinkWaitingRows(unitId: number, actorId: string): Promise<number> {
 	try {
 		const { data, error } = await siafi().rpc("relink_waiting_rows", { p_unit_id: unitId, p_actor: actorId })
-		if (error) throw new Error(error.message)
+		if (error) throw new Error(publicDbMessage(error))
 		const row = Array.isArray(data) ? data[0] : data
 		return Number(row?.relinked ?? 0)
 	} catch (error) {
@@ -154,7 +155,7 @@ export async function prepareEmpenhoRegistration(data: EmpenhoRegistration): Pro
 			.eq("id", acquisitionId)
 			.is("deleted_at", null)
 			.maybeSingle()
-		if (error) throw new Error(`Erro ao conferir a contratação: ${error.message}`)
+		if (error) throw new Error(`Erro ao conferir a contratação: ${publicDbMessage(error)}`)
 		if (!acq || Number(acq.unit_id) !== data.unitId) throw new Error("A contratação de origem não pertence a esta unidade")
 		acquisitionSupplier = { cnpj: acq.supplier_cnpj, name: acq.supplier_name }
 	}
@@ -173,7 +174,7 @@ export async function prepareEmpenhoRegistration(data: EmpenhoRegistration): Pro
 				"id, arp_id, numero_item, descricao_item, ni_fornecedor, nome_fornecedor, valor_unitario, quantidade_homologada, quantidade_empenhada, saldo_empenho, medida_catmat"
 			)
 			.in("id", arpItemIds)
-		if (itemError) throw new Error(`Erro ao conferir os itens da ARP: ${itemError.message}`)
+		if (itemError) throw new Error(`Erro ao conferir os itens da ARP: ${publicDbMessage(itemError)}`)
 		const rows = (itemRows ?? []) as ArpItemRow[]
 		if (rows.length !== arpItemIds.length) throw new Error("Item da ARP não encontrado")
 		const arpIds = [...new Set(rows.map((row) => row.arp_id))]
@@ -181,7 +182,7 @@ export async function prepareEmpenhoRegistration(data: EmpenhoRegistration): Pro
 			.from("arp")
 			.select("id, unit_id, acquisition_id, data_vigencia_inicio, data_vigencia_fim, last_synced_at, source")
 			.in("id", arpIds)
-		if (arpError) throw new Error(`Erro ao conferir as ARPs: ${arpError.message}`)
+		if (arpError) throw new Error(`Erro ao conferir as ARPs: ${publicDbMessage(arpError)}`)
 		const arpById = new Map((arpRows ?? []).map((arp) => [arp.id, arp]))
 		// Já empenhado AQUI em NEs ativas: numa ARP cadastrada à mão o saldo oficial é o
 		// homologado cheio até a primeira sincronização, e sem o local duas NEs passariam do total.

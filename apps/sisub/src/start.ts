@@ -1,7 +1,6 @@
 import { isRequestOrigin } from "@iefa/auth-kit"
 import { createCsrfMiddleware, createStart } from "@tanstack/react-start"
 
-import { dbDiagnosticsMiddleware } from "@/lib/db-diagnostics-middleware"
 import { serverFnFetch } from "@/lib/server-fn-fetch"
 
 /**
@@ -25,9 +24,6 @@ const csrfMiddleware = createCsrfMiddleware({
 
 export const startInstance = createStart(() => ({
 	requestMiddleware: [csrfMiddleware],
-	// Diagnóstico do banco ("column x does not exist", constraint, PostgREST) não chega ao
-	// navegador: sai cortado, com o contexto da server fn, e vai inteiro para o log.
-	functionMiddleware: [dbDiagnosticsMiddleware],
 	// Resposta de erro que o TanStack tomaria por sucesso vira erro, e aba de build velho
 	// descobre que há versão nova (ver `server-fn-fetch.ts`).
 	serverFns: { fetch: serverFnFetch },

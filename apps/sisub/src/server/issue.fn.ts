@@ -35,6 +35,7 @@ import { z } from "zod"
 import { getDb } from "@/lib/db.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
@@ -48,7 +49,7 @@ async function toleranceFor(kitchenId: number) {
 		.maybeSingle()
 	// Sem linha valem os defaults — mas leitura que FALHA não é "sem linha": cair
 	// no default aqui trocaria a tolerância da cozinha pela de fábrica em silêncio.
-	if (error) throw new Error(`Erro ao carregar a tolerância da cozinha: ${error.message}`)
+	if (error) throw new Error(`Erro ao carregar a tolerância da cozinha: ${publicDbMessage(error)}`)
 	return {
 		tolerancePct: Number(row?.issue_tolerance_pct ?? 10),
 		toleranceFloorValue: Number(row?.issue_tolerance_floor_value ?? 20),
@@ -80,7 +81,7 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		.or(`issue_date.eq.${issueDate},and(issue_date.is.null,production_date.eq.${issueDate})`)
 		.order("production_date", { ascending: true })
 		.order("id", { ascending: true })
-	if (taskError) throw new Error(`Erro ao carregar as tarefas do dia: ${taskError.message}`)
+	if (taskError) throw new Error(`Erro ao carregar as tarefas do dia: ${publicDbMessage(taskError)}`)
 	const allTasks = tasks ?? []
 	if (allTasks.length === 0) return { lines: [], taskIds: [] as string[] }
 
@@ -99,7 +100,7 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		.is("issue_request_id", null)
 		// A saída TARDIA ligada à tarefa é de um insumo, não a baixa da tarefa (20260926217000).
 		.eq("is_late_issue", false)
-	if (issuedError) throw new Error(`Erro ao conferir as baixas por produção do dia: ${issuedError.message}`)
+	if (issuedError) throw new Error(`Erro ao conferir as baixas por produção do dia: ${publicDbMessage(issuedError)}`)
 	const issuedByProduction = new Set((issuedMoves ?? []).map((move) => move.production_task_id))
 	const taskList = allTasks.filter((task) => !issuedByProduction.has(task.id))
 	if (taskList.length === 0) return { lines: [], taskIds: [] as string[] }
@@ -119,13 +120,13 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		// o quadro de produção já os esconde, e contá-los aqui fazia o dia pedir
 		// motivo para a "falta" de algo que ninguém vai cozinhar.
 		.is("deleted_at", null)
-	if (menuError) throw new Error(`Erro ao carregar o cardápio do dia: ${menuError.message}`)
+	if (menuError) throw new Error(`Erro ao carregar o cardápio do dia: ${publicDbMessage(menuError)}`)
 
 	const dailyMenuIds = [...new Set((menuItems ?? []).map((item) => item.daily_menu_id).filter((id) => id != null))]
 	const mealTypeByMenu = new Map<string, string | null>()
 	if (dailyMenuIds.length > 0) {
 		const { data: dailyMenus, error: menuTypeError } = await kit.from("daily_menu").select("id, meal_type_id").in("id", dailyMenuIds).is("deleted_at", null)
-		if (menuTypeError) throw new Error(`Erro ao carregar as refeições do dia: ${menuTypeError.message}`)
+		if (menuTypeError) throw new Error(`Erro ao carregar as refeições do dia: ${publicDbMessage(menuTypeError)}`)
 		for (const menu of dailyMenus ?? []) mealTypeByMenu.set(menu.id, menu.meal_type_id ?? null)
 	}
 
@@ -167,7 +168,7 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		.from("ingredient")
 		.select("id, description, measure_unit, correction_factor, issue_package_quantity")
 		.in("id", [...totals.keys()])
-	if (ingredientError) throw new Error(`Erro ao carregar os dados dos insumos: ${ingredientError.message}`)
+	if (ingredientError) throw new Error(`Erro ao carregar os dados dos insumos: ${publicDbMessage(ingredientError)}`)
 	const metaById = new Map((ingredients ?? []).map((row) => [row.id, row]))
 
 	const lines = [...totals.entries()].map(([ingredientId, total]) => {
@@ -227,7 +228,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		// destino — reusar a primeira calada perdia os dois.
 		if (data.origin === "ad_hoc") {
 			const { data: created, error } = await inv.from("stock_issue_request").insert(values).select("id").single()
-			if (error || !created) throw new Error(`Erro ao abrir a saída avulsa: ${error?.message}`)
+			if (error || !created) throw new Error(`Erro ao abrir a saída avulsa: ${publicDbMessage(error)}`)
 			return { requestId: created.id, reopened: false as const, suggested: 0 }
 		}
 
@@ -246,14 +247,14 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 				.eq("issue_date", issueDate)
 				.eq("origin", "production")
 				.maybeSingle()
-			if (error) throw new Error(`Erro ao carregar a requisição do dia: ${error.message}`)
+			if (error) throw new Error(`Erro ao carregar a requisição do dia: ${publicDbMessage(error)}`)
 			return row
 		}
 
 		let existing = await readRequest()
 		if (!existing) {
 			const { error } = await inv.from("stock_issue_request").insert(values)
-			if (error && error.code !== "23505") throw new Error(`Erro ao abrir a requisição: ${error.message}`)
+			if (error && error.code !== "23505") throw new Error(`Erro ao abrir a requisição: ${publicDbMessage(error)}`)
 			existing = await readRequest()
 			if (!existing) throw new Error("Erro ao abrir a requisição do dia")
 		}
@@ -284,7 +285,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 			p_request_id: requestId,
 			p_lines: lines.map((line) => ({ ingredient_id: line.ingredientId, meal_type_id: line.mealTypeId, suggested_qty: line.suggestedQty })),
 		})
-		if (refreshError) throw new Error(`Erro ao gravar a sugestão do dia: ${refreshError.message}`)
+		if (refreshError) throw new Error(`Erro ao gravar a sugestão do dia: ${publicDbMessage(refreshError)}`)
 
 		return { requestId, reopened: false as const, suggested: lines.length }
 	})
@@ -320,7 +321,7 @@ export const fetchTodayIssueRequestFn = createServerFn({ method: "GET" })
 				.eq("issue_date", issueDate)
 				.eq("origin", "production")
 				.maybeSingle()
-			if (error) throw new Error(`Erro ao carregar a requisição do dia: ${error.message}`)
+			if (error) throw new Error(`Erro ao carregar a requisição do dia: ${publicDbMessage(error)}`)
 			return { requestId: row?.id ?? null, adHocToday: [] as AdHocSummary[] }
 		}
 
@@ -334,7 +335,7 @@ export const fetchTodayIssueRequestFn = createServerFn({ method: "GET" })
 			.eq("origin", "ad_hoc")
 			.order("created_at", { ascending: false })
 			.limit(50)
-		if (error) throw new Error(`Erro ao carregar as saídas avulsas do dia: ${error.message}`)
+		if (error) throw new Error(`Erro ao carregar as saídas avulsas do dia: ${publicDbMessage(error)}`)
 		const adHocToday = (rows ?? []).map((row) => ({
 			id: row.id,
 			status: row.status,
@@ -382,7 +383,7 @@ export const issueStockFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
-		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
 		// A recusa de dia fechado é do `issue_stock`, DEPOIS de reconhecer o retry.
@@ -394,7 +395,7 @@ export const issueStockFn = createServerFn({ method: "POST" })
 		if (data.overrideLotId) {
 			if (!data.justification?.trim()) throw new Error("Escolher o lote fora da ordem exige justificativa")
 			const { data: lot, error: lotError } = await inv.from("stock_lot").select("expiry_date, quarantined_at").eq("id", data.overrideLotId).maybeSingle()
-			if (lotError) throw new Error(`Erro ao conferir o lote: ${lotError.message}`)
+			if (lotError) throw new Error(`Erro ao conferir o lote: ${publicDbMessage(lotError)}`)
 			if (lot?.quarantined_at) throw new Error("Lote em quarentena não sai para produção")
 			if (lot?.expiry_date && lot.expiry_date < brasiliaToday()) {
 				await requireStorageForKitchen(3, Number(request.kitchen_id))
@@ -412,7 +413,7 @@ export const issueStockFn = createServerFn({ method: "POST" })
 			p_justification: data.justification?.trim() || undefined,
 			p_production_task_id: data.productionTaskId,
 		})
-		if (error) throw new Error(`Erro ao emitir a saída: ${error.message}`)
+		if (error) throw new Error(`Erro ao emitir a saída: ${publicDbMessage(error)}`)
 		const row = result?.[0]
 		return { movements: Number(row?.movements ?? 0), withoutLot: Number(row?.without_lot ?? 0) }
 	})
@@ -423,7 +424,7 @@ export const returnIssueFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
-		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
 
@@ -434,7 +435,7 @@ export const returnIssueFn = createServerFn({ method: "POST" })
 			p_user: userId,
 			p_emission_id: data.emissionId,
 		})
-		if (error) throw new Error(`Erro ao devolver: ${error.message}`)
+		if (error) throw new Error(`Erro ao devolver: ${publicDbMessage(error)}`)
 		return { unitCost: Number(result?.[0]?.return_unit_cost ?? 0) }
 	})
 
@@ -449,7 +450,7 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 			.select("id, kitchen_id, issue_date, origin, status, destination, purpose, closed_at, auto_closed_at, explained_at, explanation")
 			.eq("id", data.requestId)
 			.maybeSingle()
-		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		await requireStorageForKitchen(1, Number(request.kitchen_id))
 
@@ -464,8 +465,8 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 			inv.from("stock_movement").select("ingredient_id, lot_id, type, quantity, unit_cost").eq("issue_request_id", data.requestId),
 			toleranceFor(Number(request.kitchen_id)),
 		])
-		if (itemsError) throw new Error(`Erro ao carregar os itens do dia: ${itemsError.message}`)
-		if (movementsError) throw new Error(`Erro ao carregar as saídas do dia: ${movementsError.message}`)
+		if (itemsError) throw new Error(`Erro ao carregar os itens do dia: ${publicDbMessage(itemsError)}`)
+		if (movementsError) throw new Error(`Erro ao carregar as saídas do dia: ${publicDbMessage(movementsError)}`)
 
 		const issued = new Map<string, number>()
 		const returned = new Map<string, number>()
@@ -491,7 +492,7 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 				.eq("kitchen_id", Number(request.kitchen_id))
 				.in("ingredient_id", ingredientIds)
 			// sem custo, o valor do desvio dá zero e o piso nunca é passado
-			if (averagesError) throw new Error(`Erro ao carregar os custos: ${averagesError.message}`)
+			if (averagesError) throw new Error(`Erro ao carregar os custos: ${publicDbMessage(averagesError)}`)
 			for (const row of averages ?? []) {
 				if (row.ingredient_id == null) continue
 				if (!costs.has(row.ingredient_id) && row.avg_unit_cost != null) costs.set(row.ingredient_id, Number(row.avg_unit_cost))
@@ -536,10 +537,10 @@ export const setVarianceReasonFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: item, error: itemError } = await inv.from("stock_issue_request_item").select("request_id").eq("id", data.itemId).maybeSingle()
-		if (itemError) throw new Error(`Erro ao carregar a linha: ${itemError.message}`)
+		if (itemError) throw new Error(`Erro ao carregar a linha: ${publicDbMessage(itemError)}`)
 		if (!item) throw new Error("Linha não encontrada")
 		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", item.request_id).maybeSingle()
-		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		await requireStorageForKitchen(2, Number(request.kitchen_id))
 		// Dia fechado é dia fechado: a variância foi julgada no fechamento contra
@@ -551,7 +552,7 @@ export const setVarianceReasonFn = createServerFn({ method: "POST" })
 			.from("stock_issue_request_item")
 			.update({ variance_reason: data.reason, variance_note: data.note?.trim() || null })
 			.eq("id", data.itemId)
-		if (error) throw new Error(`Erro ao registrar o motivo: ${error.message}`)
+		if (error) throw new Error(`Erro ao registrar o motivo: ${publicDbMessage(error)}`)
 		return { saved: true }
 	})
 
@@ -564,7 +565,7 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", data.requestId).maybeSingle()
-		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
 		if (request.status !== "open") throw new Error("Requisição já fechada")
@@ -578,14 +579,14 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 			.from("stock_movement")
 			.select("id", { count: "exact", head: true })
 			.eq("issue_request_id", data.requestId)
-		if (countError) throw new Error(`Erro ao conferir os movimentos do dia: ${countError.message}`)
+		if (countError) throw new Error(`Erro ao conferir os movimentos do dia: ${publicDbMessage(countError)}`)
 		// E a SUGESTÃO, também antes do retrato: "recalcular" no meio do fechamento
 		// não muda a contagem, mas muda o número contra o qual a tolerância é medida.
 		const { data: seenItems, error: seenItemsError } = await inv
 			.from("stock_issue_request_item")
 			.select("ingredient_id, suggested_qty")
 			.eq("request_id", data.requestId)
-		if (seenItemsError) throw new Error(`Erro ao conferir a sugestão do dia: ${seenItemsError.message}`)
+		if (seenItemsError) throw new Error(`Erro ao conferir a sugestão do dia: ${publicDbMessage(seenItemsError)}`)
 		const seenSuggestions = issueSuggestionFingerprint(
 			(seenItems ?? []).map((row) => ({
 				ingredientId: row.ingredient_id,
@@ -607,7 +608,7 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 			p_seen_movements: seenMovements ?? 0,
 			p_seen_suggestions: seenSuggestions,
 		})
-		if (error) throw new Error(`Erro ao fechar o dia: ${error.message}`)
+		if (error) throw new Error(`Erro ao fechar o dia: ${publicDbMessage(error)}`)
 		return { closed: true }
 	})
 
@@ -626,7 +627,7 @@ export const listIssueRequestsFn = createServerFn({ method: "GET" })
 			.eq("kitchen_id", data.kitchenId)
 			.order("issue_date", { ascending: false })
 			.limit(data.limit)
-		if (error) throw new Error(`Erro ao listar requisições: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar requisições: ${publicDbMessage(error)}`)
 		return { requests: rows ?? [], total: count ?? (rows ?? []).length }
 	})
 
@@ -653,7 +654,7 @@ export const fetchReturnableLotsFn = createServerFn({ method: "GET" })
 			.eq("issue_request_id", data.requestId)
 			.eq("ingredient_id", data.ingredientId)
 			.in("type", ["production_issue", "issue_return"])
-		if (error) throw new Error(`Erro ao carregar os lotes emitidos: ${error.message}`)
+		if (error) throw new Error(`Erro ao carregar os lotes emitidos: ${publicDbMessage(error)}`)
 
 		const net = new Map<string, number>()
 		for (const move of moves ?? []) {
@@ -696,7 +697,7 @@ export const fetchIssueDayGapsFn = createServerFn({ method: "GET" })
 			.eq("kitchen_id", data.kitchenId)
 			.eq("service_date", data.issueDate)
 			.is("deleted_at", null)
-		if (menuError) throw new Error(`Erro ao carregar os cardápios do dia: ${menuError.message}`)
+		if (menuError) throw new Error(`Erro ao carregar os cardápios do dia: ${publicDbMessage(menuError)}`)
 		const menuIds = (menus ?? []).map((menu) => menu.id)
 		const out: Array<{ menuItemId: string; recipeName: string; notice: string }> = []
 		if (menuIds.length === 0) return { items: out }
@@ -705,7 +706,7 @@ export const fetchIssueDayGapsFn = createServerFn({ method: "GET" })
 			.select("id, recipe, planned_portion_quantity")
 			.in("daily_menu_id", menuIds)
 			.is("deleted_at", null)
-		if (itemError) throw new Error(`Erro ao carregar as preparações do dia: ${itemError.message}`)
+		if (itemError) throw new Error(`Erro ao carregar as preparações do dia: ${publicDbMessage(itemError)}`)
 		for (const item of (items ?? []) as Array<{ id: string; recipe: (SnapshotForGaps & { name?: string }) | null; planned_portion_quantity: number | null }>) {
 			const notice = describeSnapshotGaps(findSnapshotGaps(item.recipe, item.planned_portion_quantity))
 			if (notice) out.push({ menuItemId: item.id, recipeName: item.recipe?.name ?? "(sem nome)", notice })
@@ -736,7 +737,7 @@ export const searchIssuableIngredientsFn = createServerFn({ method: "GET" })
 			.ilike("description", containsPattern(data.search))
 			.order("description", { ascending: true })
 			.limit(INGREDIENT_SEARCH_LIMIT)
-		if (error) throw new Error(`Erro ao buscar insumos: ${error.message}`)
+		if (error) throw new Error(`Erro ao buscar insumos: ${publicDbMessage(error)}`)
 		return rows ?? []
 	})
 
@@ -752,7 +753,7 @@ export const listIssueDayTasksFn = createServerFn({ method: "GET" })
 			.eq("kitchen_id", data.kitchenId)
 			.or(`issue_date.eq.${data.issueDate},and(issue_date.is.null,production_date.eq.${data.issueDate})`)
 			.order("id", { ascending: true })
-		if (error) throw new Error(`Erro ao carregar as preparações do dia: ${error.message}`)
+		if (error) throw new Error(`Erro ao carregar as preparações do dia: ${publicDbMessage(error)}`)
 		const taskList = tasks ?? []
 		if (taskList.length === 0) return []
 		const { data: items, error: itemError } = await kit
@@ -763,7 +764,7 @@ export const listIssueDayTasksFn = createServerFn({ method: "GET" })
 				taskList.map((task) => task.menu_item_id)
 			)
 			.is("deleted_at", null)
-		if (itemError) throw new Error(`Erro ao carregar as preparações do dia: ${itemError.message}`)
+		if (itemError) throw new Error(`Erro ao carregar as preparações do dia: ${publicDbMessage(itemError)}`)
 		const nameById = new Map(
 			((items ?? []) as Array<{ id: string; recipe: { name?: string } | null }>).map((item) => [item.id, item.recipe?.name ?? "(sem nome)"])
 		)
@@ -804,7 +805,7 @@ export const registerLateIssueFn = createServerFn({ method: "POST" })
 			// `DEFAULT NULL` na função: sem tarefa, a chave é omitida.
 			p_production_task_id: data.productionTaskId,
 		})
-		if (error) throw new Error(`Erro ao lançar a saída tardia: ${error.message}`)
+		if (error) throw new Error(`Erro ao lançar a saída tardia: ${publicDbMessage(error)}`)
 		const row = result?.[0]
 		return { movements: Number(row?.movements ?? 0), withoutLot: Number(row?.without_lot ?? 0), requestId: row?.request_id ?? null }
 	})
@@ -822,7 +823,7 @@ export const listUnexplainedIssueDaysFn = createServerFn({ method: "GET" })
 			.is("explained_at", null)
 			.order("issue_date", { ascending: false })
 			.limit(60)
-		if (error) throw new Error(`Erro ao carregar os dias sem justificativa: ${error.message}`)
+		if (error) throw new Error(`Erro ao carregar os dias sem justificativa: ${publicDbMessage(error)}`)
 		return rows ?? []
 	})
 
@@ -835,7 +836,7 @@ export const explainIssueRequestFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", data.requestId).maybeSingle()
-		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
 		if (request.status !== "closed_unexplained") throw new Error("Só o dia que fechou sozinho sem explicação pede justificativa")
@@ -846,6 +847,6 @@ export const explainIssueRequestFn = createServerFn({ method: "POST" })
 			.eq("status", "closed_unexplained")
 			.is("explained_at", null)
 			.select("id")
-		if (error) throw new Error(`Erro ao registrar a justificativa: ${error.message}`)
+		if (error) throw new Error(`Erro ao registrar a justificativa: ${publicDbMessage(error)}`)
 		return { explained: (updated ?? []).length > 0 }
 	})

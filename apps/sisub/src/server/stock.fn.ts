@@ -20,6 +20,7 @@ import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { transferDestinationProblem } from "@/lib/transfer-destination"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -210,7 +211,7 @@ export const fetchStockMovementsFn = createServerFn({ method: "GET" })
 			.eq("kitchen_id", data.kitchenId)
 			.order("created_at", { ascending: false })
 			.limit(data.limit)
-		if (error) throw new Error(`Erro ao consultar movimentos: ${error.message}`)
+		if (error) throw new Error(`Erro ao consultar movimentos: ${publicDbMessage(error)}`)
 
 		const movements = rows ?? []
 		const names = await describeItems(
@@ -243,7 +244,7 @@ export const createTransferFn = createServerFn({ method: "POST" })
 			.from("kitchen")
 			.select("id, unit_id, purchase_unit_id")
 			.in("id", [Number(lotRow.kitchen_id), data.toKitchenId])
-		if (kitchenError) throw new Error(`Erro ao conferir as cozinhas da transferência: ${kitchenError.message}`)
+		if (kitchenError) throw new Error(`Erro ao conferir as cozinhas da transferência: ${publicDbMessage(kitchenError)}`)
 		type KitchenUnitRow = { id: number; unit_id: number | null; purchase_unit_id: number | null }
 		const toUnits = (row: KitchenUnitRow | undefined) =>
 			row
@@ -265,7 +266,7 @@ export const createTransferFn = createServerFn({ method: "POST" })
 			p_quantity: data.quantity,
 			p_user: userId,
 		})
-		if (error) throw new Error(`Transferência falhou: ${error.message}`)
+		if (error) throw new Error(`Transferência falhou: ${publicDbMessage(error)}`)
 		return { transferPairId: result?.[0]?.transfer_pair_id ?? null }
 	})
 

@@ -7,6 +7,7 @@
 
 import { resolvePurchaseUnitId } from "@iefa/sisub-domain"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "./db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: leitura enxuta da cozinha, sem depender dos tipos gerados deste client
 type LooseClient = { from: (table: string) => any }
@@ -17,6 +18,6 @@ export async function purchaseUnitIdOfKitchen(kitchenId: number): Promise<number
 		.select("unit_id, purchase_unit_id")
 		.eq("id", kitchenId)
 		.maybeSingle()
-	if (error) throw new Error(`Erro ao carregar a cozinha: ${error.message}`)
+	if (error) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(error)}`)
 	return resolvePurchaseUnitId({ unitId: row?.unit_id ?? null, purchaseUnitId: row?.purchase_unit_id ?? null })
 }

@@ -1,3 +1,4 @@
+import { publicDbMessage } from "./db-error-message"
 /**
  * Leitura PostgREST sem corte calado.
  *
@@ -33,7 +34,7 @@ export async function readAllPages<T>(what: string, page: (from: number, to: num
 	const rows: T[] = []
 	for (let from = 0; ; ) {
 		const { data, error } = await page(from, from + pageSize - 1)
-		if (error) throw new Error(`Erro ao carregar ${what}: ${error.message}`)
+		if (error) throw new Error(`Erro ao carregar ${what}: ${publicDbMessage(error)}`)
 		const batch = data ?? []
 		if (batch.length === 0) return rows
 		rows.push(...batch)

@@ -29,6 +29,7 @@ import { withSensitiveAudit } from "@/lib/audit.server"
 import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 const finance = () => getServerClient("finance")
 const siafi = () => getServerClient("siafi_integration")
@@ -125,8 +126,8 @@ async function fetchClassifiedEmpenhos(unitId: number): Promise<ClassifiedEmpenh
 			.limit(2000),
 		fin.from("v_empenho_vigente").select("empenho_id, valor_vigente").eq("unit_id", unitId).limit(2000),
 	])
-	if (error) throw new Error(`Erro ao consultar empenhos: ${error.message}`)
-	if (vigenteError) throw new Error(`Erro ao consultar o valor vigente dos empenhos: ${vigenteError.message}`)
+	if (error) throw new Error(`Erro ao consultar empenhos: ${publicDbMessage(error)}`)
+	if (vigenteError) throw new Error(`Erro ao consultar o valor vigente dos empenhos: ${publicDbMessage(vigenteError)}`)
 	const vigenteById = new Map((vigentes ?? []).map((row) => [row.empenho_id, Number(row.valor_vigente)]))
 	return (rows ?? []).map((row) => ({
 		id: row.id,
@@ -148,7 +149,7 @@ async function fetchCreditNoteEntries(unitId: number): Promise<CreditNoteEntry[]
 		.select("kind, amount, issued_on, beneficiary_ug, nd, ptres, fonte")
 		.eq("unit_id", unitId)
 		.limit(2000)
-	if (error) throw new Error(`Erro ao consultar notas de crédito: ${error.message}`)
+	if (error) throw new Error(`Erro ao consultar notas de crédito: ${publicDbMessage(error)}`)
 	return (data ?? []).map((row) => ({
 		tipo: row.kind,
 		valor: Number(row.amount),
@@ -183,7 +184,7 @@ export const fetchBudgetCreditFn = createServerFn({ method: "GET" })
 		if (data.competencia) query = query.eq("competencia", `${data.competencia}-01`)
 
 		const { data: rows, error } = await query
-		if (error) throw new Error(`Erro ao consultar crédito: ${error.message}`)
+		if (error) throw new Error(`Erro ao consultar crédito: ${publicDbMessage(error)}`)
 		if ((rows ?? []).length === 0) return []
 
 		const [empenhos, notes] = await Promise.all([fetchClassifiedEmpenhos(data.unitId), fetchCreditNoteEntries(data.unitId)])
@@ -239,7 +240,7 @@ export const checkBudgetForEmpenhoFn = createServerFn({ method: "GET" })
 			.eq("unit_id", data.unitId)
 			.order("competencia", { ascending: false })
 			.limit(500)
-		if (error) throw new Error(`Erro ao consultar crédito: ${error.message}`)
+		if (error) throw new Error(`Erro ao consultar crédito: ${publicDbMessage(error)}`)
 		const lines = (rows ?? []).map(toCreditLineSnapshot)
 
 		const dataEmpenho = data.dataEmpenho ?? new Date().toISOString().substring(0, 10)
@@ -280,7 +281,7 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 			async () => {
 				// reserva sob advisory lock: dois cliques simultâneos não aplicam duas vezes
 				const { error: claimError } = await si.rpc("claim_import_batch", { p_batch_id: data.batchId })
-				if (claimError) throw new Error(claimError.message)
+				if (claimError) throw new Error(publicDbMessage(claimError))
 
 				const { data: rows } = await si.from("import_row").select("id, parsed").eq("batch_id", data.batchId).eq("parse_status", "parsed")
 				const parsedRows = (rows ?? []) as { id: string; parsed: Record<string, unknown> }[]
@@ -309,7 +310,7 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 				}))
 
 				const { error } = await finance().from("budget_credit").upsert(payload, { onConflict: "unit_id,ug,nd,ptres,fonte,competencia" })
-				if (error) throw new Error(`Erro ao aplicar crédito: ${error.message}`)
+				if (error) throw new Error(`Erro ao aplicar crédito: ${publicDbMessage(error)}`)
 
 				await si.from("import_batch").update({ status: "applied", applied_rows: payload.length, applied_at: snapshotAt }).eq("id", data.batchId)
 				return { applied: payload.length, competencia }
@@ -342,7 +343,7 @@ export const listCreditNotesFn = createServerFn({ method: "GET" })
 			.limit(500)
 		if (data.exercicio) query = query.gte("issued_on", `${data.exercicio}-01-01`).lte("issued_on", `${data.exercicio}-12-31`)
 		const { data: rows, error } = await query
-		if (error) throw new Error(`Erro ao listar notas de crédito: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar notas de crédito: ${publicDbMessage(error)}`)
 		return (rows ?? []).map((row) => ({
 			...row,
 			amount: Number(row.amount),
@@ -420,7 +421,7 @@ export const createCreditNoteFn = createServerFn({ method: "POST" })
 					.single()
 				if (error || !row) {
 					if (error?.code === "23505") throw new Error(`NC "${number}" já registrada para esta UG emitente`)
-					throw new Error(`Erro ao registrar a nota de crédito: ${error?.message}`)
+					throw new Error(`Erro ao registrar a nota de crédito: ${publicDbMessage(error)}`)
 				}
 				return { creditNoteId: row.id as string }
 			},
@@ -438,7 +439,7 @@ export const deleteCreditNoteFn = createServerFn({ method: "POST" })
 		const ctx = await requireUnitScope(2, data.unitId)
 		const fin = finance()
 		const { data: row, error } = await fin.from("credit_note").select("id, number, origin").eq("id", data.creditNoteId).eq("unit_id", data.unitId).maybeSingle()
-		if (error) throw new Error(`Erro ao conferir a nota de crédito: ${error.message}`)
+		if (error) throw new Error(`Erro ao conferir a nota de crédito: ${publicDbMessage(error)}`)
 		if (!row) throw new Error("Nota de crédito não encontrada nesta unidade")
 		if (row.origin !== "manual") throw new Error("NC importada do SIAFI não se apaga aqui: registre a NC de anulação")
 
@@ -455,7 +456,7 @@ export const deleteCreditNoteFn = createServerFn({ method: "POST" })
 					.eq("unit_id", data.unitId)
 					.eq("origin", "manual")
 					.select("id")
-				if (deleteError) throw new Error(`Erro ao apagar a nota de crédito: ${deleteError.message}`)
+				if (deleteError) throw new Error(`Erro ao apagar a nota de crédito: ${publicDbMessage(deleteError)}`)
 				if ((deleted ?? []).length === 0) throw new Error("NC importada do SIAFI não se apaga aqui: registre a NC de anulação")
 			},
 			() => ({ creditNoteId: data.creditNoteId, unitId: data.unitId, number: row.number as string })

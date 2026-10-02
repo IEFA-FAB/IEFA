@@ -37,6 +37,7 @@ import { type LiquidacaoLinkInput, liquidacaoLinkProblems, type ReceiptForLiquid
 import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 const finance = () => getServerClient("finance")
 const inventory = () => getServerClient("inventory")
@@ -89,7 +90,7 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
 			.eq("unit_id", data.unitId)
 			.order("data", { ascending: false })
 			.limit(200)
-		if (error) throw new Error(`Erro ao listar liquidações: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar liquidações: ${publicDbMessage(error)}`)
 		const liquidacoes = rows ?? []
 		if (liquidacoes.length === 0) return []
 
@@ -98,7 +99,7 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
 			fin.from("pagamento").select("liquidacao_id, valor").in("liquidacao_id", ids),
 			fin.from("liquidacao_deduction").select(selectColumns(DEDUCTION_COLUMNS)).in("liquidacao_id", ids).order("created_at"),
 		])
-		if (deductionError) throw new Error(`Erro ao listar as deduções: ${deductionError.message}`)
+		if (deductionError) throw new Error(`Erro ao listar as deduções: ${publicDbMessage(deductionError)}`)
 		const pagamentosByLiquidacao = new Map<string, number[]>()
 		for (const pag of pagamentos ?? []) {
 			const list = pagamentosByLiquidacao.get(pag.liquidacao_id) ?? []
@@ -229,9 +230,9 @@ async function readReceiptCeilings(receiptIds: readonly string[]): Promise<Map<s
 		inv.from("goods_receipt").select("id, nfe_document_id").in("id", ids),
 		finance().from("liquidacao").select("id, valor, goods_receipt_id").in("goods_receipt_id", ids),
 	])
-	if (itemsError) throw new Error(`Erro ao ler os itens do recebimento: ${itemsError.message}`)
-	if (receiptError) throw new Error(`Erro ao ler o recebimento: ${receiptError.message}`)
-	if (liqError) throw new Error(`Erro ao ler as liquidações do recebimento: ${liqError.message}`)
+	if (itemsError) throw new Error(`Erro ao ler os itens do recebimento: ${publicDbMessage(itemsError)}`)
+	if (receiptError) throw new Error(`Erro ao ler o recebimento: ${publicDbMessage(receiptError)}`)
+	if (liqError) throw new Error(`Erro ao ler as liquidações do recebimento: ${publicDbMessage(liqError)}`)
 
 	const nfeIds = [
 		...new Set(((receipts ?? []) as Array<{ nfe_document_id: string | null }>).map((r) => r.nfe_document_id).filter((id): id is string => id != null)),
@@ -239,7 +240,7 @@ async function readReceiptCeilings(receiptIds: readonly string[]): Promise<Map<s
 	const nfeTotalById = new Map<string, number>()
 	if (nfeIds.length > 0) {
 		const { data: nfes, error } = await inv.from("nfe_document").select("id, total_value").in("id", nfeIds)
-		if (error) throw new Error(`Erro ao ler a NF-e do recebimento: ${error.message}`)
+		if (error) throw new Error(`Erro ao ler a NF-e do recebimento: ${publicDbMessage(error)}`)
 		for (const nfe of (nfes ?? []) as Array<{ id: string; total_value: number | string | null }>) {
 			if (nfe.total_value != null) nfeTotalById.set(nfe.id, Number(nfe.total_value))
 		}
@@ -279,14 +280,14 @@ export type LiquidacaoPendingKind = "liquidacao_sem_recebimento" | "recebimento_
  */
 async function assertEmpenhoOfUnit(unitId: number, empenhoId: string): Promise<void> {
 	const { data: row, error } = await finance().from("empenho").select("id").eq("id", empenhoId).eq("unit_id", unitId).maybeSingle()
-	if (error) throw new Error(`Erro ao conferir o empenho: ${error.message}`)
+	if (error) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(error)}`)
 	if (!row) throw new Error("Empenho não encontrado nesta unidade")
 }
 
 /** A liquidação paga pela OB é da unidade que paga — mesma regra, mesmo sigilo. */
 async function assertLiquidacaoOfUnit(unitId: number, liquidacaoId: string): Promise<void> {
 	const { data: row, error } = await finance().from("liquidacao").select("id").eq("id", liquidacaoId).eq("unit_id", unitId).maybeSingle()
-	if (error) throw new Error(`Erro ao conferir a liquidação: ${error.message}`)
+	if (error) throw new Error(`Erro ao conferir a liquidação: ${publicDbMessage(error)}`)
 	if (!row) throw new Error("Liquidação não encontrada nesta unidade")
 }
 
@@ -341,12 +342,12 @@ async function assertLiquidacaoLinks(
 			.select("id, kitchen_id, status, definitive_at, nfe_document_id, empenho_id, fiscal_pending")
 			.eq("id", goodsReceiptId)
 			.maybeSingle()
-		if (error) throw new Error(`Erro ao conferir o recebimento: ${error.message}`)
+		if (error) throw new Error(`Erro ao conferir o recebimento: ${publicDbMessage(error)}`)
 		if (!row) throw new Error("Recebimento não encontrado")
 
 		const kitchenDb = getServerClient("kitchen")
 		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", row.kitchen_id).maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao conferir a cozinha do recebimento: ${kitchenError.message}`)
+		if (kitchenError) throw new Error(`Erro ao conferir a cozinha do recebimento: ${publicDbMessage(kitchenError)}`)
 
 		receipt = {
 			unitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
@@ -366,7 +367,7 @@ async function assertLiquidacaoLinks(
 			.select("id, unit_id, status, situation_result, situation_checked_at")
 			.eq("id", nfeId)
 			.maybeSingle()
-		if (error) throw new Error(`Erro ao conferir a NF-e: ${error.message}`)
+		if (error) throw new Error(`Erro ao conferir a NF-e: ${publicDbMessage(error)}`)
 		if (!doc) throw new Error("NF-e não encontrada")
 		invoice = {
 			unitId: doc.unit_id == null ? null : Number(doc.unit_id),
@@ -444,9 +445,9 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 					if (error?.message?.includes("excede o empenho")) throw new Error(error.message)
 					// o trigger repete o teto do recebimento sob lock: duas NS simultâneas do mesmo recebimento
 					if (error?.message?.includes("excede o valor recebido")) {
-						throw new Error(`${error.message}. Liquide só o que foi recebido (Lei 4.320, art. 63), ou vincule a NS a outro recebimento.`)
+						throw new Error(`${publicDbMessage(error)}. Liquide só o que foi recebido (Lei 4.320, art. 63), ou vincule a NS a outro recebimento.`)
 					}
-					throw new Error(`Erro ao registrar liquidação: ${error?.message}`)
+					throw new Error(`Erro ao registrar liquidação: ${publicDbMessage(error)}`)
 				}
 
 				// O vínculo mora em finance.liquidacao.goods_receipt_id (N liquidações
@@ -515,7 +516,7 @@ export const createPagamentoFn = createServerFn({ method: "POST" })
 				if (error || !pagamento) {
 					if (error?.code === "23505") throw new Error(`OB "${data.numeroOb}" já registrada nesta unidade`)
 					if (error?.message?.includes("excede a liquidação")) throw new Error(error.message)
-					throw new Error(`Erro ao registrar pagamento: ${error?.message}`)
+					throw new Error(`Erro ao registrar pagamento: ${publicDbMessage(error)}`)
 				}
 				return { pagamentoId: pagamento.id as string }
 			},
@@ -626,7 +627,7 @@ export const listReceiptsForLiquidacaoFn = createServerFn({ method: "GET" })
 			.not("definitive_at", "is", null)
 			.order("definitive_at", { ascending: false, nullsFirst: false })
 			.limit(100)
-		if (error) throw new Error(`Erro ao listar os recebimentos do empenho: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar os recebimentos do empenho: ${publicDbMessage(error)}`)
 
 		const attested = (receipts ?? []) as Array<{ id: string; kitchen_id: number; definitive_at: string | null; nfe_document_id: string | null }>
 		const ceilings = await readReceiptCeilings(attested.map((row) => row.id))
@@ -705,8 +706,8 @@ export const addLiquidacaoDeductionFn = createServerFn({ method: "POST" })
 					.select("id")
 					.single()
 				if (error || !row) {
-					if (error?.message?.includes("Dedução excede")) throw new Error(`${error.message}. Registre a retenção antes da OB, ou corrija o valor.`)
-					throw new Error(`Erro ao registrar a dedução: ${error?.message}`)
+					if (error?.message?.includes("Dedução excede")) throw new Error(`${publicDbMessage(error)}. Registre a retenção antes da OB, ou corrija o valor.`)
+					throw new Error(`Erro ao registrar a dedução: ${publicDbMessage(error)}`)
 				}
 				return { deductionId: row.id as string }
 			},
@@ -721,7 +722,7 @@ async function readDeductionOfUnit(
 ): Promise<{ id: string; liquidacao_id: string; paid_on: string | null; document_number: string | null }> {
 	const fin = finance()
 	const { data: row, error } = await fin.from("liquidacao_deduction").select("id, liquidacao_id, paid_on, document_number").eq("id", deductionId).maybeSingle()
-	if (error) throw new Error(`Erro ao conferir a dedução: ${error.message}`)
+	if (error) throw new Error(`Erro ao conferir a dedução: ${publicDbMessage(error)}`)
 	if (!row) throw new Error("Dedução não encontrada nesta unidade")
 	await assertLiquidacaoOfUnit(unitId, row.liquidacao_id).catch(() => {
 		throw new Error("Dedução não encontrada nesta unidade")
@@ -764,7 +765,7 @@ export const registerDeductionRemittanceFn = createServerFn({ method: "POST" })
 					.eq("id", data.deductionId)
 					.is("paid_on", null)
 					.select("id")
-				if (error) throw new Error(`Erro ao registrar o recolhimento: ${error.message}`)
+				if (error) throw new Error(`Erro ao registrar o recolhimento: ${publicDbMessage(error)}`)
 				if ((updated ?? []).length === 0) {
 					const { data: now } = await finance().from("liquidacao_deduction").select("paid_on, document_number").eq("id", data.deductionId).maybeSingle()
 					throw new Error(
@@ -794,7 +795,7 @@ export const deleteLiquidacaoDeductionFn = createServerFn({ method: "POST" })
 			ctx,
 			async () => {
 				const { error } = await finance().from("liquidacao_deduction").delete().eq("id", data.deductionId).is("paid_on", null)
-				if (error) throw new Error(`Erro ao apagar a dedução: ${error.message}`)
+				if (error) throw new Error(`Erro ao apagar a dedução: ${publicDbMessage(error)}`)
 			},
 			() => ({ deductionId: data.deductionId, unitId: data.unitId, liquidacaoId: row.liquidacao_id })
 		)

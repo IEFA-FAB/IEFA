@@ -14,6 +14,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
 import { getComprasGovIntegrationClient, getProcurementClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 /** CNPJ raiz do Comando da Aeronáutica: um plano cobre todas as UASGs do órgão. */
 const COMAER_CNPJ = "00394429000100"
@@ -100,7 +101,7 @@ export const fetchPcaItemsFn = createServerFn({ method: "GET" })
 		if (data.uasg) query = query.eq("uasg", data.uasg)
 
 		const { data: rows, count, error } = await query.order("uasg").order("id_item_pca").limit(limit)
-		if (error) throw new Error(`Falha ao ler o plano de contratações: ${error.message}`)
+		if (error) throw new Error(`Falha ao ler o plano de contratações: ${publicDbMessage(error)}`)
 
 		const items = rows ?? []
 
@@ -120,7 +121,7 @@ export const fetchPcaItemsFn = createServerFn({ method: "GET" })
 			if (data.uasg) scan = scan.eq("uasg", data.uasg)
 
 			const { data: page, error: scanErr } = await scan.order("id_item_pca").range(from, from + SCAN_PAGE - 1)
-			if (scanErr) throw new Error(`Falha ao apurar a cobertura do plano: ${scanErr.message}`)
+			if (scanErr) throw new Error(`Falha ao apurar a cobertura do plano: ${publicDbMessage(scanErr)}`)
 			if (!page?.length) break
 			scope.push(...page)
 			if (page.length < SCAN_PAGE) break
@@ -150,7 +151,7 @@ export const fetchPcaItemsFn = createServerFn({ method: "GET" })
 				)
 			// Engolir este erro renderizaria "0 no catálogo" e todo item como não cadastrado —
 			// número silenciosamente errado, que é o modo de falha que este change combate.
-			if (catErr) throw new Error(`Falha ao cruzar o plano com o catálogo: ${catErr.message}`)
+			if (catErr) throw new Error(`Falha ao cruzar o plano com o catálogo: ${publicDbMessage(catErr)}`)
 			for (const m of matches ?? []) {
 				if (m.catmat_item_codigo != null) catalog.set(catmatKey(m.catmat_item_codigo), m.description ?? "")
 			}
@@ -235,7 +236,7 @@ export const fetchPcaUasgsFn = createServerFn({ method: "GET" })
 				.order("id_item_pca")
 				.range(from, from + SCAN_PAGE - 1)
 
-			if (error) throw new Error(`Falha ao ler as UASGs do plano: ${error.message}`)
+			if (error) throw new Error(`Falha ao ler as UASGs do plano: ${publicDbMessage(error)}`)
 			if (!page?.length) break
 			rows.push(...page)
 			if (page.length < SCAN_PAGE) break
@@ -250,7 +251,7 @@ export const fetchPcaUasgsFn = createServerFn({ method: "GET" })
 		}
 
 		const { data: units, error: unitsErr } = await getProcurementClient().schema("core").from("units").select("uasg").not("uasg", "is", null)
-		if (unitsErr) throw new Error(`Falha ao ler as UASGs já cadastradas: ${unitsErr.message}`)
+		if (unitsErr) throw new Error(`Falha ao ler as UASGs já cadastradas: ${publicDbMessage(unitsErr)}`)
 		const cadastradas = new Set((units ?? []).map((u: { uasg: string }) => u.uasg))
 
 		const uasgs = [...byUasg.entries()]

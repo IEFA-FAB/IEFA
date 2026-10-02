@@ -24,6 +24,7 @@ import { maskBlindCountQuantities, withoutBlindCountLots } from "@/lib/blind-cou
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: view e tabela novas, fora dos tipos gerados
 type LooseClient = { from: (table: string) => any }
@@ -271,7 +272,7 @@ export const setLotUseFirstFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, kitchen_id, quarantined_at").eq("id", data.lotId).maybeSingle()
-		if (lotError) throw new Error(`Erro ao carregar o lote: ${lotError.message}`)
+		if (lotError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotError)}`)
 		if (!lot) throw new Error("Lote não encontrado")
 		await requireStorageForKitchen(2, Number(lot.kitchen_id))
 		// marcar "usar primeiro" um lote em quarentena é uma ordem que a alocação
@@ -279,7 +280,7 @@ export const setLotUseFirstFn = createServerFn({ method: "POST" })
 		if (data.useFirst && lot.quarantined_at != null) throw new Error("Lote está em quarentena — libere antes de marcar para usar primeiro")
 
 		const { error } = await inv.from("stock_lot").update({ use_first: data.useFirst }).eq("id", data.lotId)
-		if (error) throw new Error(`Erro ao marcar o lote: ${error.message}`)
+		if (error) throw new Error(`Erro ao marcar o lote: ${publicDbMessage(error)}`)
 		return { useFirst: data.useFirst }
 	})
 
@@ -353,7 +354,7 @@ export const saveExpiryPolicyFn = createServerFn({ method: "POST" })
 		}
 
 		const { data: updated, error: updateError } = await matching().select("id")
-		if (updateError) throw new Error(`Erro ao salvar a política de vencimento: ${updateError.message}`)
+		if (updateError) throw new Error(`Erro ao salvar a política de vencimento: ${publicDbMessage(updateError)}`)
 		if ((updated ?? []).length === 0) {
 			const { error: insertError } = await inv.from("expiry_alert_policy").insert({
 				kitchen_id: data.kitchenId,
@@ -363,9 +364,9 @@ export const saveExpiryPolicyFn = createServerFn({ method: "POST" })
 			})
 			if (insertError?.code === "23505") {
 				const { error: retryError } = await matching()
-				if (retryError) throw new Error(`Erro ao salvar a política de vencimento: ${retryError.message}`)
+				if (retryError) throw new Error(`Erro ao salvar a política de vencimento: ${publicDbMessage(retryError)}`)
 			} else if (insertError) {
-				throw new Error(`Erro ao salvar a política de vencimento: ${insertError.message}`)
+				throw new Error(`Erro ao salvar a política de vencimento: ${publicDbMessage(insertError)}`)
 			}
 		}
 		return { saved: true }
@@ -377,14 +378,14 @@ export const deleteExpiryPolicyFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: policy, error: policyError } = await inv.from("expiry_alert_policy").select("id, kitchen_id").eq("id", data.policyId).maybeSingle()
-		if (policyError) throw new Error(`Erro ao carregar a política: ${policyError.message}`)
+		if (policyError) throw new Error(`Erro ao carregar a política: ${publicDbMessage(policyError)}`)
 		if (!policy) throw new Error("Política não encontrada")
 		// política global não se apaga por aqui — o dono dela é a administração
 		if (policy.kitchen_id == null) throw new Error("Política global não é editável pela cozinha")
 		await requireStorageForKitchen(3, Number(policy.kitchen_id))
 
 		const { error } = await inv.from("expiry_alert_policy").delete().eq("id", data.policyId)
-		if (error) throw new Error(`Erro ao remover a política: ${error.message}`)
+		if (error) throw new Error(`Erro ao remover a política: ${publicDbMessage(error)}`)
 		return { deleted: true }
 	})
 

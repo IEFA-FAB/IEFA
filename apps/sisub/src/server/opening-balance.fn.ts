@@ -38,6 +38,7 @@ import {
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -82,7 +83,7 @@ interface OpeningItemRow {
  */
 async function requireOpeningDoc(openingBalanceId: string, level: 1 | 2 | 3) {
 	const { data, error } = await inventory().from("opening_balance").select("id, kitchen_id, status").eq("id", openingBalanceId).maybeSingle()
-	if (error) throw new Error(`Erro ao carregar a carga de abertura: ${error.message}`)
+	if (error) throw new Error(`Erro ao carregar a carga de abertura: ${publicDbMessage(error)}`)
 	if (!data) throw new Error("Carga de abertura não encontrada")
 	const kitchenId = Number(data.kitchen_id)
 	const ctx = await requireStorageForKitchen(level, kitchenId)
@@ -124,7 +125,7 @@ export const fetchOpeningBalanceFn = createServerFn({ method: "GET" })
 			.eq("kitchen_id", data.kitchenId)
 			.order("created_at", { ascending: false })
 			.limit(20)
-		if (error) throw new Error(`Erro ao carregar as cargas de abertura: ${error.message}`)
+		if (error) throw new Error(`Erro ao carregar as cargas de abertura: ${publicDbMessage(error)}`)
 		const rows = (docs ?? []) as OpeningDocRow[]
 		const draftRow = rows.find((row) => row.status === "draft") ?? null
 
@@ -273,7 +274,7 @@ export const importOpeningSheetFn = createServerFn({ method: "POST" })
 			})),
 			p_rejections: rejections,
 		})
-		if (error) throw new Error(`Erro ao salvar o rascunho da carga: ${error.message}`)
+		if (error) throw new Error(`Erro ao salvar o rascunho da carga: ${publicDbMessage(error)}`)
 
 		return { openingBalanceId: openingBalanceId as string, accepted: lines.length, rejected: rejections.length }
 	})
@@ -301,7 +302,7 @@ export const applyOpeningCostSuggestionsFn = createServerFn({ method: "POST" })
 		})
 		if (costs.length > 0) {
 			const { error } = await inventory().rpc("set_opening_balance_costs", { p_opening_balance_id: data.openingBalanceId, p_actor: ctx.userId, p_costs: costs })
-			if (error) throw new Error(`Erro ao aplicar as sugestões de custo: ${error.message}`)
+			if (error) throw new Error(`Erro ao aplicar as sugestões de custo: ${publicDbMessage(error)}`)
 		}
 		return { applied: costs.length, remaining: pending.length - costs.length }
 	})
@@ -326,7 +327,7 @@ export const setOpeningItemCostFn = createServerFn({ method: "POST" })
 				{ item_id: data.itemId, unit_cost: Math.round(data.unitCost * 10_000) / 10_000, cost_source: "manual", cost_reference: data.reference || null },
 			],
 		})
-		if (error) throw new Error(`Erro ao gravar o custo: ${error.message}`)
+		if (error) throw new Error(`Erro ao gravar o custo: ${publicDbMessage(error)}`)
 		return { saved: true }
 	})
 
@@ -339,7 +340,7 @@ export const postOpeningBalanceFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { ctx } = await requireOpeningDoc(data.openingBalanceId, 3)
 		const { data: result, error } = await inventory().rpc("post_opening_balance", { p_opening_balance_id: data.openingBalanceId, p_actor: ctx.userId })
-		if (error) throw new Error(`Erro ao lançar a carga de abertura: ${error.message}`)
+		if (error) throw new Error(`Erro ao lançar a carga de abertura: ${publicDbMessage(error)}`)
 		const row = (Array.isArray(result) ? result[0] : result) as { movements: number; value: number | string | null } | undefined
 		return { movements: Number(row?.movements ?? 0), value: Number(row?.value ?? 0) }
 	})
@@ -350,6 +351,6 @@ export const cancelOpeningBalanceFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { ctx } = await requireOpeningDoc(data.openingBalanceId, 2)
 		const { error } = await inventory().rpc("cancel_opening_balance", { p_opening_balance_id: data.openingBalanceId, p_actor: ctx.userId })
-		if (error) throw new Error(`Erro ao cancelar o rascunho: ${error.message}`)
+		if (error) throw new Error(`Erro ao cancelar o rascunho: ${publicDbMessage(error)}`)
 		return { cancelled: true }
 	})

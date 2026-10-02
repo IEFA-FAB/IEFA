@@ -40,6 +40,7 @@ import { requireAuth } from "@/lib/auth.server"
 import { currentFiscalYear } from "@/lib/expense-execution"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 const procurement = () => getServerClient("procurement")
 const finance = () => getServerClient("finance")
@@ -195,7 +196,7 @@ function dispensaEntryOf(row: AcquisitionRow, committedValue: number): DispensaE
 
 async function loadLimits(): Promise<DirectContractLimitRow[]> {
 	const { data, error } = await procurement().from("direct_contract_limit").select("clause, valid_from, value, source_act").order("valid_from")
-	if (error) throw new Error(`Erro ao ler os limites da dispensa: ${error.message}`)
+	if (error) throw new Error(`Erro ao ler os limites da dispensa: ${publicDbMessage(error)}`)
 	return (data ?? []).map((row: { clause: string; valid_from: string; value: number | string; source_act: string }) => ({
 		clause: row.clause,
 		validFrom: row.valid_from,
@@ -395,7 +396,7 @@ export const listActivityLinesFn = createServerFn({ method: "GET" })
 			.eq("status_classe", true)
 			.order("codigo_classe")
 			.limit(2000)
-		if (error) throw new Error(`Erro ao listar as classes de material: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar as classes de material: ${publicDbMessage(error)}`)
 		return (rows ?? []).map((row: { codigo_classe: number; nome_classe: string }) => ({ code: String(row.codigo_classe), name: row.nome_classe }))
 	})
 
@@ -479,12 +480,12 @@ function writeError(error: { message: string; code?: string }): Error {
 	if (error.message.includes("acquisition_srp_role_ck")) return new Error("O papel na ata só vale para registro de preços")
 	if (error.message.includes("acquisition_direct_contract_clause_ck")) return new Error("O inciso do art. 75 só vale para dispensa")
 	if (error.message.includes("acquisition_validity_ck")) return new Error("O fim da vigência não pode ser antes do início")
-	return new Error(`Erro ao gravar a contratação: ${error.message}`)
+	return new Error(`Erro ao gravar a contratação: ${publicDbMessage(error)}`)
 }
 
 async function resolveAcquisitionUnit(acquisitionId: string): Promise<number> {
 	const { data, error } = await procurement().from("acquisition").select("unit_id").eq("id", acquisitionId).is("deleted_at", null).maybeSingle()
-	if (error) throw new Error(`Erro ao buscar a contratação: ${error.message}`)
+	if (error) throw new Error(`Erro ao buscar a contratação: ${publicDbMessage(error)}`)
 	if (!data) throw new Error("Contratação não encontrada")
 	return Number(data.unit_id)
 }
@@ -541,7 +542,7 @@ export const deleteAcquisitionFn = createServerFn({ method: "POST" })
 			throw new Error(`A contratação sustenta ${empenhoCount ?? 0} empenho(s) e ${arpCount ?? 0} ARP(s). Vincule-os a outra contratação antes de remover esta.`)
 		}
 		const { error } = await procurement().from("acquisition").update({ deleted_at: new Date().toISOString() }).eq("id", data.acquisitionId)
-		if (error) throw new Error(`Erro ao remover a contratação: ${error.message}`)
+		if (error) throw new Error(`Erro ao remover a contratação: ${publicDbMessage(error)}`)
 	})
 
 /** Liga (ou desliga) a ARP à contratação de registro de preços que a sustenta. */
@@ -551,14 +552,14 @@ export const linkArpAcquisitionFn = createServerFn({ method: "POST" })
 		// Sessão antes de ler a linha; o escopo de unidade sai da linha, nunca do corpo.
 		await requireAuth()
 		const { data: arp, error: arpError } = await procurement().from("arp").select("unit_id").eq("id", data.arpId).maybeSingle()
-		if (arpError) throw new Error(`Erro ao buscar a ARP: ${arpError.message}`)
+		if (arpError) throw new Error(`Erro ao buscar a ARP: ${publicDbMessage(arpError)}`)
 		if (!arp) throw new Error("ARP não encontrada")
 		await requireUnitScope(2, Number(arp.unit_id))
 		if (data.acquisitionId && (await resolveAcquisitionUnit(data.acquisitionId)) !== Number(arp.unit_id)) {
 			throw new Error("A contratação é de outra unidade")
 		}
 		const { error } = await procurement().from("arp").update({ acquisition_id: data.acquisitionId }).eq("id", data.arpId)
-		if (error) throw new Error(`Erro ao vincular a ARP: ${error.message}`)
+		if (error) throw new Error(`Erro ao vincular a ARP: ${publicDbMessage(error)}`)
 	})
 
 /**
@@ -572,7 +573,7 @@ export const linkEmpenhoAcquisitionFn = createServerFn({ method: "POST" })
 		// Sessão antes de ler a linha; o escopo de unidade sai da linha, nunca do corpo.
 		await requireAuth()
 		const { data: empenho, error: lookupError } = await finance().from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
-		if (lookupError) throw new Error(`Erro ao buscar o empenho: ${lookupError.message}`)
+		if (lookupError) throw new Error(`Erro ao buscar o empenho: ${publicDbMessage(lookupError)}`)
 		if (!empenho) throw new Error("Empenho não encontrado")
 		const unitId = Number(empenho.unit_id)
 		const ctx = await requireUnitScope(2, unitId)
@@ -583,7 +584,7 @@ export const linkEmpenhoAcquisitionFn = createServerFn({ method: "POST" })
 			ctx,
 			async () => {
 				const { error } = await finance().from("empenho").update({ acquisition_id: data.acquisitionId }).eq("id", data.empenhoId)
-				if (error) throw new Error(`Erro ao vincular o empenho: ${error.message}`)
+				if (error) throw new Error(`Erro ao vincular o empenho: ${publicDbMessage(error)}`)
 			},
 			() => ({ empenhoId: data.empenhoId, unitId, acquisitionId: data.acquisitionId })
 		)

@@ -29,6 +29,7 @@ import { PENDING_PRODUCTION_SQLSTATE, parsePendingProductionDays } from "@/lib/c
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -55,7 +56,7 @@ export const listInventoryCountsFn = createServerFn({ method: "GET" })
 			.eq("kitchen_id", data.kitchenId)
 			.order("created_at", { ascending: false })
 			.limit(data.limit)
-		if (error) throw new Error(`Erro ao listar as contagens: ${error.message}`)
+		if (error) throw new Error(`Erro ao listar as contagens: ${publicDbMessage(error)}`)
 		return { counts: rows ?? [], total: count ?? (rows ?? []).length }
 	})
 
@@ -83,7 +84,7 @@ export const openInventoryCountFn = createServerFn({ method: "POST" })
 			p_blind_waiver_reason: data.blindWaiverReason?.trim() || null,
 			p_user: userId,
 		})
-		if (error) throw new Error(`Erro ao abrir a contagem: ${error.message}`)
+		if (error) throw new Error(`Erro ao abrir a contagem: ${publicDbMessage(error)}`)
 		const row = result?.[0]
 		return { countId: row?.count_id as string, scopeItems: Number(row?.scope_items ?? 0) }
 	})
@@ -150,7 +151,7 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 			)
 			.eq("id", data.countId)
 			.maybeSingle()
-		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
 		const kitchenId = Number(count.kitchen_id)
 		const ctx = await requireStorageForKitchen(2, kitchenId)
@@ -292,7 +293,7 @@ async function countToleranceFor(kitchenId: number) {
 		.select("count_tolerance_pct, count_tolerance_value")
 		.eq("kitchen_id", kitchenId)
 		.maybeSingle()
-	if (error) throw new Error(`Erro ao carregar a tolerância da contagem: ${error.message}`)
+	if (error) throw new Error(`Erro ao carregar a tolerância da contagem: ${publicDbMessage(error)}`)
 	return {
 		percent: Number(row?.count_tolerance_pct ?? 5),
 		floorValue: Number(row?.count_tolerance_value ?? 50),
@@ -335,7 +336,7 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 			.select("id, kitchen_id, status, created_at")
 			.eq("id", data.countId)
 			.maybeSingle()
-		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
 		const { userId } = await requireStorageForKitchen(2, Number(count.kitchen_id))
 		if (!["draft", "counting"].includes(String(count.status))) {
@@ -363,7 +364,7 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 			.order("created_at", { ascending: false })
 			.limit(1)
 			.maybeSingle()
-		if (lastError) throw new Error(`Erro ao conferir os lançamentos anteriores: ${lastError.message}`)
+		if (lastError) throw new Error(`Erro ao conferir os lançamentos anteriores: ${publicDbMessage(lastError)}`)
 		const floor = new Date(Math.max(new Date(String(count.created_at)).getTime(), last?.created_at ? new Date(String(last.created_at)).getTime() : 0))
 		const clamp = (deviceAt: string | undefined): Date => {
 			if (!deviceAt) return receivedAt
@@ -392,7 +393,7 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 			}),
 			{ onConflict: "count_id,client_event_id", ignoreDuplicates: true }
 		)
-		if (error) throw new Error(`Erro ao gravar os lançamentos: ${error.message}`)
+		if (error) throw new Error(`Erro ao gravar os lançamentos: ${publicDbMessage(error)}`)
 		return { received: data.entries.length, receivedAt: receivedAt.toISOString() }
 	})
 
@@ -410,7 +411,7 @@ export const addFoundItemFn = createServerFn({ method: "POST" })
 		}
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
-		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
 		await requireStorageForKitchen(2, Number(count.kitchen_id))
 
@@ -419,7 +420,7 @@ export const addFoundItemFn = createServerFn({ method: "POST" })
 			p_ingredient_id: data.ingredientId ?? null,
 			p_frozen_preparation_id: data.frozenPreparationId ?? null,
 		})
-		if (error) throw new Error(`Erro ao incluir o achado: ${error.message}`)
+		if (error) throw new Error(`Erro ao incluir o achado: ${publicDbMessage(error)}`)
 		return { added: added === true }
 	})
 
@@ -436,7 +437,7 @@ export const acceptNotCountedFn = createServerFn({ method: "POST" })
 		}
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
-		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
 		await requireStorageForKitchen(3, Number(count.kitchen_id))
 
@@ -449,7 +450,7 @@ export const acceptNotCountedFn = createServerFn({ method: "POST" })
 			p_frozen_preparation_id: data.frozenPreparationId ?? null,
 			p_accepted: data.accepted,
 		})
-		if (error) throw new Error(`Erro ao marcar o item: ${error.message}`)
+		if (error) throw new Error(`Erro ao marcar o item: ${publicDbMessage(error)}`)
 		return { accepted: data.accepted }
 	})
 
@@ -459,14 +460,14 @@ export const reviewInventoryCountFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
-		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
 		await requireStorageForKitchen(3, Number(count.kitchen_id))
 
 		// condicional ao status E conferida: sem o `select`, mudar nada contava
 		// como sucesso
 		const { data: moved, error } = await inv.from("inventory_count").update({ status: "review" }).eq("id", data.countId).eq("status", "counting").select("id")
-		if (error) throw new Error(`Erro ao encerrar a coleta: ${error.message}`)
+		if (error) throw new Error(`Erro ao encerrar a coleta: ${publicDbMessage(error)}`)
 		if ((moved ?? []).length === 0) throw new Error("A contagem não está em coleta")
 		return { status: "review" as const }
 	})
@@ -494,7 +495,7 @@ export const openRecountFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id, round").eq("id", data.countId).maybeSingle()
-		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
 
@@ -504,7 +505,7 @@ export const openRecountFn = createServerFn({ method: "POST" })
 			p_frozen_preparation_ids: [...new Set(data.frozenPreparationIds)],
 			p_user: userId,
 		})
-		if (error) throw new Error(`Erro ao abrir a recontagem: ${error.message}`)
+		if (error) throw new Error(`Erro ao abrir a recontagem: ${publicDbMessage(error)}`)
 		return { countId: created as string, round: Number(count.round) + 1 }
 	})
 
@@ -527,7 +528,7 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
-		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
 
@@ -549,7 +550,7 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 		if (error?.code === PENDING_PRODUCTION_SQLSTATE && !data.pendingProductionWaiver) {
 			return { status: "needs_waiver" as const, pendingDays: parsePendingProductionDays(error.hint), message: String(error.message) }
 		}
-		if (error) throw new Error(`Erro ao aprovar a contagem: ${error.message}`)
+		if (error) throw new Error(`Erro ao aprovar a contagem: ${publicDbMessage(error)}`)
 		const row = result?.[0]
 		return {
 			status: "approved" as const,
@@ -565,11 +566,11 @@ export const rejectInventoryCountFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
-		if (countError) throw new Error(`Erro ao carregar a contagem: ${countError.message}`)
+		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
 
 		const { error } = await inv.rpc("reject_inventory_count", { p_count_id: data.countId, p_actor: userId, p_reason: data.reason.trim() })
-		if (error) throw new Error(`Erro ao rejeitar a contagem: ${error.message}`)
+		if (error) throw new Error(`Erro ao rejeitar a contagem: ${publicDbMessage(error)}`)
 		return { rejected: true }
 	})
