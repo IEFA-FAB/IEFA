@@ -13,16 +13,16 @@ const PERMISSION_COLUMNS = "module, level, mess_hall_id, kitchen_id, unit_id"
  *   PGRST205 — o PostgREST não achou a tabela no cache de schema;
  *   42P01    — `undefined_table`, do próprio Postgres.
  *
- * SÓ estes degradam para "sem políticas". Qualquer outro erro (rede, permissão,
- * timeout) propaga: conjunto vazio por falha de infra é um deny silencioso, que
- * ninguém investiga porque parece configuração.
+ * Por padrão, estes códigos FALHAM FECHADO como qualquer outro erro: a resolução lança.
+ * Descartar a origem de política descarta também os DENY que vêm dela — um usuário com
+ * allow inline e um deny por política voltaria a ter o allow enquanto a falha durasse.
+ * E `PGRST205` não significa só "tabela ausente": o PostgREST também o devolve com o
+ * cache de schema velho, a janela logo depois de qualquer DDL no `access_control`, e
+ * nesse caso "sem políticas" seria um fail-open silencioso num banco que TEM o modelo.
  *
- * ATENÇÃO — esta degradação é fail-OPEN, e é o único ponto do arquivo que é.
- * Descartar a origem de política descarta também os DENY que vêm dela: um usuário
- * com allow inline e um deny por política volta a ter o allow enquanto ela durar.
- * `PGRST205` não significa só "tabela ausente" — o PostgREST também o devolve com o
- * cache de schema velho, a janela logo depois de qualquer DDL no `access_control`.
- * Por isso ela NÃO é silenciosa: ver `warnMissingPolicyModel`.
+ * Degradar para "sem políticas" só com `allowMissingPolicyModel: true`, opção que o
+ * consumidor liga conscientemente por apontar para um banco sem o modelo de políticas.
+ * Mesmo aí a degradação NÃO é silenciosa: ver `warnMissingPolicyModel`.
  */
 const MISSING_TABLE_CODES = new Set(["PGRST205", "42P01"])
 
@@ -31,11 +31,12 @@ function isMissingTable(error: { code?: string | null }): boolean {
 }
 
 /**
- * Nenhum consumidor de hoje deveria cair aqui: sisub, sisub-mcp, rumaer e sucont
- * apontam para o MESMO schema `access_control`, onde as tabelas de política existem.
- * Se este aviso aparecer, ou um consumidor novo tem um banco sem o modelo, ou o cache
- * de schema do PostgREST está velho — e no segundo caso permissão está sendo resolvida
- * a menos. Fica no log porque um fail-open sem rastro é indistinguível de configuração.
+ * Só roda com `allowMissingPolicyModel: true`. Nenhum consumidor de hoje liga a opção:
+ * todos apontam para o MESMO schema `access_control`, onde as tabelas de política existem.
+ * Se este aviso aparecer, ou o consumidor que ligou a opção tem de fato um banco sem o
+ * modelo, ou o cache de schema do PostgREST está velho — e no segundo caso permissão está
+ * sendo resolvida a menos. Fica no log porque um fail-open sem rastro é indistinguível de
+ * configuração.
  */
 function warnMissingPolicyModel(error: { code?: string | null; message: string }): void {
 	// biome-ignore lint/suspicious/noConsole: o pacote não tem logger próprio, e um fail-open sem rastro é indistinguível de configuração — o aviso É o mecanismo
@@ -56,6 +57,17 @@ function warnMissingPolicyModel(error: { code?: string | null; message: string }
  * que chegam até ela.
  */
 export const NOT_EXPIRED = "expires_at.is.null,expires_at.gt.now()"
+
+/** Opções de `resolveUserPermissions`. */
+export interface ResolveUserPermissionsOptions {
+	/**
+	 * Trata tabela de política ausente (`PGRST205`/`42P01` em `user_policy_attachment`)
+	 * como "nenhuma política", com aviso no log, em vez de lançar. É fail-OPEN: os DENY
+	 * vindos de política somem junto. Ligue só para um banco que comprovadamente não tem
+	 * o modelo de políticas — ver `MISSING_TABLE_CODES`. Default: `false` (lança).
+	 */
+	allowMissingPolicyModel?: boolean
+}
 
 /** Grants inline — as linhas de `user_permissions` do próprio usuário. */
 async function fetchInlinePermissions(userId: string, supabase: AnySupabaseClient): Promise<UserPermission[]> {
@@ -80,16 +92,16 @@ async function fetchInlinePermissions(userId: string, supabase: AnySupabaseClien
  * Sem anexo, sai na primeira query e devolve `[]` — que é como rumaer e sucont
  * seguem resolvendo exatamente o mesmo conjunto de antes.
  */
-async function fetchPolicyPermissions(userId: string, supabase: AnySupabaseClient): Promise<UserPermission[]> {
+async function fetchPolicyPermissions(userId: string, supabase: AnySupabaseClient, allowMissingPolicyModel: boolean): Promise<UserPermission[]> {
 	// O prazo vale para as DUAS origens: anexo vencido não empresta os statements da
 	// política, do mesmo jeito que grant inline vencido não concede.
 	const { data: attachments, error: attachmentError } = await supabase.from("user_policy_attachment").select("policy_id").eq("user_id", userId).or(NOT_EXPIRED)
 
 	if (attachmentError) {
-		// Banco de app que não tem o modelo de políticas: não há política para anexar,
-		// então "nenhuma" é a resposta correta, e não um erro. Fail-open, e por isso
-		// registrado — ver `MISSING_TABLE_CODES`.
-		if (isMissingTable(attachmentError)) {
+		// Tabela ausente só vira "nenhuma política" quando o consumidor declarou um banco
+		// sem o modelo. Sem a opção, lança como qualquer outro erro: resolver sem a origem
+		// de política descartaria os DENY dela — ver `MISSING_TABLE_CODES`.
+		if (allowMissingPolicyModel && isMissingTable(attachmentError)) {
 			warnMissingPolicyModel(attachmentError)
 			return []
 		}
@@ -151,11 +163,20 @@ async function fetchPolicyPermissions(userId: string, supabase: AnySupabaseClien
  * As duas leituras saem em paralelo: a de políticas não entra no caminho crítico dos apps
  * que não têm política nenhuma anexada.
  *
+ * Falha FECHADO: erro em qualquer leitura lança, inclusive tabela de política ausente —
+ * a não ser com `options.allowMissingPolicyModel` (ver `MISSING_TABLE_CODES`).
+ *
  * @param userId   - UUID do usuário autenticado
  * @param supabase - Cliente Supabase com service role (bypass RLS)
+ * @param options  - Ver `ResolveUserPermissionsOptions`
  */
-export async function resolveUserPermissions(userId: string, supabase: AnySupabaseClient): Promise<UserPermission[]> {
-	const [inline, policy] = await Promise.all([fetchInlinePermissions(userId, supabase), fetchPolicyPermissions(userId, supabase)])
+export async function resolveUserPermissions(
+	userId: string,
+	supabase: AnySupabaseClient,
+	options: ResolveUserPermissionsOptions = {}
+): Promise<UserPermission[]> {
+	const allowMissingPolicyModel = options.allowMissingPolicyModel === true
+	const [inline, policy] = await Promise.all([fetchInlinePermissions(userId, supabase), fetchPolicyPermissions(userId, supabase, allowMissingPolicyModel)])
 
 	// Resolução compartilhada com o sisub (comensal implícito + precedência de deny).
 	// Sem política anexada — o caso de todo usuário de rumaer e sucont hoje — `policy` é
