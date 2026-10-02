@@ -6,55 +6,55 @@ on:
     inputs:
       # >>> gerado: force-inputs (bun run generate:deploy; não editar à mão)
       force_api:
-        description: "Force deploy api"
+        description: "Force deploy api — API"
         type: boolean
         default: false
       force_portal:
-        description: "Force deploy portal"
+        description: "Force deploy portal — PORTAL"
         type: boolean
         default: false
       force_rumaer:
-        description: "Force deploy rumaer"
+        description: "Force deploy rumaer — RUMAER"
         type: boolean
         default: false
       force_sucont:
-        description: "Force deploy sucont"
+        description: "Force deploy sucont — SUCONT (HUB SUCONT-4 — acompanhamento contábil)"
         type: boolean
         default: false
       force_assignment_selection:
-        description: "Force deploy assignment-selection"
+        description: "Force deploy assignment-selection — ASSIGNMENT-SELECTION (escolha de vagas / CPAINT)"
         type: boolean
         default: false
       force_sisub:
-        description: "Force deploy sisub"
+        description: "Force deploy sisub — SISUB"
         type: boolean
         default: false
       force_forms:
-        description: "Force deploy forms"
+        description: "Force deploy forms — FORMS"
         type: boolean
         default: false
       force_contrate:
-        description: "Force deploy contrate"
+        description: "Force deploy contrate — CONTRATE (copiloto de aquisições — Projeto α)"
         type: boolean
         default: false
       force_alpha:
-        description: "Force deploy alpha"
+        description: "Force deploy alpha — Projeto α (apps/alpha) — Hono + LangGraph + Bun"
         type: boolean
         default: false
       force_docs:
-        description: "Force deploy docs"
+        description: "Force deploy docs — DOCS"
         type: boolean
         default: false
       force_mcp:
-        description: "Force deploy sisub-mcp"
+        description: "Force deploy sisub-mcp — SISUB-MCP — MCP server (bun runtime, HTTP transport)"
         type: boolean
         default: false
       force_5s:
-        description: "Force deploy 5s"
+        description: "Force deploy 5s — 5S — mesmo build do forms, com o tenant trocado"
         type: boolean
         default: false
       force_pdf:
-        description: "Force deploy pdf"
+        description: "Force deploy pdf — PDF — BentoPDF (ferramentas de PDF que rodam no navegador)"
         type: boolean
         default: false
       # <<< gerado: force-inputs

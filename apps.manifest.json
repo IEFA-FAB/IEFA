@@ -1,7 +1,8 @@
 {
   "$comment": [
     "Fonte única dos artefatos de deploy. Editar aqui e rodar `bun run generate:deploy`,",
-    "que reescreve Dockerfile, docker-bake.hcl e .github/paths-filter.yml. O CI roda",
+    "que reescreve Dockerfile, docker-bake.hcl, .github/paths-filter.yml e as regiões",
+    "`# >>> gerado:` do .github/workflows/deploy.yml. O CI roda",
     "`bun run check:deploy` e falha se algum deles estiver fora de sincronia.",
     "",
     "As dependências de workspace NÃO ficam aqui: o gerador as resolve do package.json",

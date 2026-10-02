@@ -62,9 +62,9 @@ estoura a RAM das máquinas de desenvolvimento.
   de `@iefa/auth-kit/react`.
 - **tsconfig:** estender `@iefa/tsconfig/{react-app,bun-service,library}.json`; o app só declara
   `paths`. Imports `@/*` → `src/*` (o `sucont` também aceita `#/*`, legado).
-- **Arquivos gerados** não se editam à mão: `Dockerfile`, `docker-bake.hcl` e
-  `.github/paths-filter.yml` saem de `apps.manifest.json` (`bun run generate:deploy`; o CI falha em
-  drift). `routeTree.gen.ts` sai do dev server do app. `packages/database/src/generated.ts` sai de
+- **Arquivos gerados** não se editam à mão: `Dockerfile`, `docker-bake.hcl`,
+  `.github/paths-filter.yml` e as regiões `# >>> gerado:` do `deploy.yml` saem de
+  `apps.manifest.json` (`bun run generate:deploy`; o CI falha em drift). `routeTree.gen.ts` sai do dev server do app. `packages/database/src/generated.ts` sai de
   `db:types`.
 - **Identificador em inglês; valor de domínio na língua da norma.** Função começa por verbo,
   predicado por `is`/`has`, constante em `SCREAMING_SNAKE`. Fica em português só termo sem
