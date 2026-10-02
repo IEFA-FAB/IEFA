@@ -12,13 +12,13 @@
  * @migration 20260731160000_finance_siafi_reconciliation
  */
 
-import { roundToCents } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
+import { resolveDivergenceAtomically, toReconciliationDecisionError } from "@/server/reconciliation-decision.server"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -199,7 +199,15 @@ export const listWaitingDocumentsFn = createServerFn({ method: "GET" })
 		})
 	})
 
-/** Resolução explícita: adotar o valor do SIAFI ou manter o local com justificativa. */
+/**
+ * Resolução explícita: adotar o valor do SIAFI ou manter o local com justificativa.
+ *
+ * Os valores confrontados saem da conciliação lida no servidor, dentro da transação da escrita
+ * (`resolveDivergenceAtomically`). `valorSisub`/`valorSiafi` do payload são a VERSÃO que a tela
+ * viu — obrigatórios, e divergindo do banco a decisão é recusada com conflito. Documento conciliado
+ * ou com decisão vigente é recusado (o segundo clique não grava um segundo reforço), e só o
+ * `divergente` gera evento no empenho.
+ */
 export const resolveDivergenceFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
@@ -208,69 +216,42 @@ export const resolveDivergenceFn = createServerFn({ method: "POST" })
 			numeroDocumento: z.string().min(1),
 			decisao: z.enum(["adotado_siafi", "mantido_local"]),
 			justificativa: z.string().optional(),
-			valorSisub: z.number().nullable().optional(),
-			valorSiafi: z.number().nullable().optional(),
+			valorSisub: z.number().nullable(),
+			valorSiafi: z.number().nullable(),
 		})
 	)
 	.handler(async ({ data }) => {
 		const ctx = await requireUnitScope(2, data.unitId)
-		const { userId } = ctx
 		if (data.decisao === "mantido_local" && !data.justificativa?.trim()) {
 			throw new Error("Manter o valor local exige justificativa")
 		}
-		const fin = finance()
 
 		return withSensitiveAudit(
 			"resolveDivergenceFn",
 			ctx,
-			async () => {
-				// adotar o SIAFI num empenho entra como EVENTO (o valor nunca é editado)
-				if (data.decisao === "adotado_siafi" && data.documentoTipo === "ne" && data.valorSiafi != null && data.valorSisub != null) {
-					const { data: empenho } = await fin.from("empenho").select("id").eq("unit_id", data.unitId).eq("numero_empenho", data.numeroDocumento).maybeSingle()
-					if (empenho) {
-						const delta = roundToCents(data.valorSiafi - data.valorSisub)
-						if (Math.abs(delta) > 0.009) {
-							const { error } = await fin.from("empenho_event").insert({
-								empenho_id: empenho.id,
-								tipo: delta > 0 ? "reforco" : "anulacao",
-								valor: Math.abs(delta),
-								data: new Date().toISOString().substring(0, 10),
-								justificativa: `Conciliação SIAFI: valor ajustado de ${data.valorSisub.toFixed(2)} para ${data.valorSiafi.toFixed(2)}`,
-								origem: "siafi",
-								created_by: userId,
-							})
-							if (error) throw new Error(`Erro ao ajustar empenho: ${error.message}`)
-						}
-						const { error: originError } = await fin.from("empenho").update({ origem: "siafi", siafi_synced_at: new Date().toISOString() }).eq("id", empenho.id)
-						if (originError) throw new Error(`Erro ao marcar a origem do empenho: ${originError.message}`)
-					}
-				}
-
-				const { error } = await fin.from("reconciliation_decision").upsert(
-					{
-						unit_id: data.unitId,
-						documento_tipo: data.documentoTipo,
-						numero_documento: data.numeroDocumento,
-						valor_sisub: data.valorSisub ?? null,
-						valor_siafi: data.valorSiafi ?? null,
-						decisao: data.decisao,
-						justificativa: data.justificativa?.trim() || null,
-						decided_by: userId,
-						decided_at: new Date().toISOString(),
-					},
-					{ onConflict: "unit_id,documento_tipo,numero_documento" }
-				)
-				if (error) throw new Error(`Erro ao registrar decisão: ${error.message}`)
-			},
-			// A decisão e os dois valores confrontados entram no alvo: "adotou o SIAFI" sem
-			// dizer de quanto para quanto não responde à pergunta que a conciliação levanta.
-			() => ({
+			() =>
+				resolveDivergenceAtomically({
+					unitId: data.unitId,
+					documentoTipo: data.documentoTipo,
+					numeroDocumento: data.numeroDocumento,
+					decisao: data.decisao,
+					justificativa: data.justificativa?.trim() || null,
+					seenValorSisub: data.valorSisub,
+					seenValorSiafi: data.valorSiafi,
+					userId: ctx.userId,
+				}).catch((error: unknown) => {
+					throw toReconciliationDecisionError(error)
+				}),
+			// A decisão e os dois valores confrontados (os do BANCO) entram no alvo: "adotou o SIAFI"
+			// sem dizer de quanto para quanto não responde à pergunta que a conciliação levanta.
+			(result) => ({
 				unitId: data.unitId,
 				documentoTipo: data.documentoTipo,
 				numeroDocumento: data.numeroDocumento,
 				decisao: data.decisao,
-				valorSisub: data.valorSisub ?? null,
-				valorSiafi: data.valorSiafi ?? null,
+				valorSisub: result.valorSisub,
+				valorSiafi: result.valorSiafi,
+				empenhoEvent: result.empenhoEvent,
 			})
 		)
 	})

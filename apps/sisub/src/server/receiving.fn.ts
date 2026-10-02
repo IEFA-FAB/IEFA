@@ -54,6 +54,8 @@ import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { withDeferralRollback } from "@/lib/deferral-mark"
 import { invoiceSituationProblem } from "@/lib/invoice-gate"
+import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
+import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { readAllPages } from "@/lib/read-all-pages"
 import { decideReceiptInvoice, isInvoiceCancelled } from "@/lib/receipt-invoice-gate"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -166,16 +168,24 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 
 		// refs cruzadas precisam ser da MESMA cozinha (review: receipt podia
 		// apontar NF-e/OF de outra cozinha e movimentar o ledger errado)
-		const { data: doc } = await inv.from("nfe_document").select("kitchen_id").eq("id", data.nfeDocumentId).maybeSingle()
+		const { data: doc, error: docError } = await inv.from("nfe_document").select("kitchen_id, unit_id").eq("id", data.nfeDocumentId).maybeSingle()
+		if (docError) throw new Error(`Erro ao carregar a NF-e: ${docError.message}`)
 		if (!doc) throw new Error("NF-e não encontrada")
-		if (doc.kitchen_id != null && Number(doc.kitchen_id) !== data.kitchenId) {
-			throw new Error("NF-e pertence a outra cozinha")
-		}
-		if (data.supplyOrderId) {
-			const proc = procurement()
-			const { data: order } = await proc.from("supply_order").select("kitchen_id").eq("id", data.supplyOrderId).maybeSingle()
-			if (!order || Number(order.kitchen_id) !== data.kitchenId) throw new Error("OF não encontrada ou de outra cozinha")
-		}
+		const unitId = await purchaseUnitIdOfKitchen(data.kitchenId)
+		// Nota sem cozinha é da UNIDADE destinatária: só cozinha cuja unidade de compra é aquela
+		// recebe por ela. Antes, `kitchen_id` nulo passava direto — inclusive nota da triagem
+		// global e nota endereçada a outra OM.
+		const ownership = nfeOwnershipProblem({
+			docKitchenId: doc.kitchen_id != null ? Number(doc.kitchen_id) : null,
+			docUnitId: doc.unit_id != null ? Number(doc.unit_id) : null,
+			kitchenId: data.kitchenId,
+			kitchenPurchaseUnitId: unitId,
+		})
+		if (ownership) throw new Error(ownership)
+		// A mesma regra da entrega sem nota: OF enviada desta cozinha, e empenho da unidade
+		// compradora, não anulado e coerente com a OF. Antes, o empenho do payload ia direto para
+		// o recebimento — NE de outra unidade ou anulada sustentava a entrega.
+		const { empenhoId } = await resolveOrderAndEmpenho(data.kitchenId, unitId, data.supplyOrderId ?? null, data.empenhoId ?? null)
 		// Nota que já fecha entregas recebidas sem ela (o pão da semana) não gera recebimento
 		// próprio: o estoque seria contado duas vezes. O banco também recusa
 		// (`goods_receipt_nfe_single_use`); aqui a frase diz o que fazer.
@@ -229,7 +239,7 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 				nfe_document_id: data.nfeDocumentId,
 				source: "nfe",
 				supply_order_id: data.supplyOrderId ?? null,
-				empenho_id: data.empenhoId ?? null,
+				empenho_id: empenhoId,
 				created_by: userId,
 			})
 			.select("id")
@@ -510,11 +520,9 @@ export const deleteReceiptLotFn = createServerFn({ method: "POST" })
 
 /** Unidade COMPRADORA da cozinha: é nela que a designação e o empenho moram. */
 async function purchaseUnitOfKitchen(kitchenId: number): Promise<number> {
-	const { data: kitchenRow, error } = await kitchen().from("kitchen").select("unit_id, purchase_unit_id").eq("id", kitchenId).maybeSingle()
-	if (error) throw new Error(`Erro ao carregar a cozinha: ${error.message}`)
-	const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
+	const unitId = await purchaseUnitIdOfKitchen(kitchenId)
 	if (unitId == null) throw new Error("Cozinha sem unidade vinculada — não há como verificar a designação")
-	return Number(unitId)
+	return unitId
 }
 
 /** O que a busca de designação precisa do recebimento: a unidade compradora e o empenho. */
@@ -1356,7 +1364,7 @@ export const searchReceivableIngredientsFn = createServerFn({ method: "GET" })
 	})
 
 /** OF da cozinha e empenho da unidade compradora, conferidos como na criação pela NF-e. */
-async function resolveOrderAndEmpenho(kitchenId: number, unitId: number, supplyOrderId: string | null, empenhoId: string | null) {
+async function resolveOrderAndEmpenho(kitchenId: number, unitId: number | null, supplyOrderId: string | null, empenhoId: string | null) {
 	let resolvedEmpenhoId = empenhoId
 	if (supplyOrderId) {
 		const { data: order, error } = await procurement().from("supply_order").select("kitchen_id, empenho_id, status").eq("id", supplyOrderId).maybeSingle()
@@ -1379,7 +1387,7 @@ async function resolveOrderAndEmpenho(kitchenId: number, unitId: number, supplyO
 			.eq("id", resolvedEmpenhoId)
 			.maybeSingle()
 		if (error) throw new Error(`Erro ao carregar o empenho: ${error.message}`)
-		if (!row || Number(row.unit_id) !== unitId) throw new Error("Empenho não encontrado nesta unidade")
+		if (!row || unitId == null || Number(row.unit_id) !== unitId) throw new Error("Empenho não encontrado nesta unidade")
 		if (row.status === "anulado") throw new Error("Empenho anulado não sustenta entrega — registre sem empenho e vincule a NE vigente depois")
 		empenho = row
 	}

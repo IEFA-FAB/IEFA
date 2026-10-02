@@ -1,10 +1,10 @@
 /**
  * Kitchen operations — listagem, vínculo a unidades e address settings. Drizzle query layer.
  *
- * Auth: leituras de referência (`listKitchens`/`listUnitKitchens`) são apenas autenticadas —
- * o catálogo de cozinhas/unidades (id, nome, OM) é visível a qualquer usuário logado (ex.: o
- * admin `global` monta o seletor de escopo de permissões sem ter `kitchen`; o wizard do anexo quantitativo
- * lista as cozinhas da OM). Mesma postura de `listUnits`/`listAllMessHalls`. O ENDEREÇO não é
+ * Auth: `listKitchens` é leitura de referência apenas autenticada — o catálogo de cozinhas/unidades
+ * (id, nome, OM) é visível a qualquer usuário logado (ex.: o admin `global` monta o seletor de
+ * escopo de permissões sem ter `kitchen`). Mesma postura de `listUnits`/`listAllMessHalls`.
+ * `listUnitKitchens` (o wizard do anexo quantitativo lista as cozinhas da OM) exige `unit:1` na OM. O ENDEREÇO não é
  * catálogo: `fetchKitchenSettings` exige `kitchen:1` na cozinha ou `unit:1` numa OM dela, e a
  * ESCRITA de settings exige `kitchen:2` na própria cozinha.
  */
@@ -14,7 +14,7 @@ import type { Tables } from "@iefa/database/sisub"
 import { hasAnyPermission } from "@iefa/pbac"
 import { asc, eq } from "drizzle-orm"
 import { requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
-import { requireAnyPermission, requireKitchen } from "../guards/require-permission.ts"
+import { requireAnyPermission, requireKitchen, requireUnit } from "../guards/require-permission.ts"
 import type { FetchKitchenSettings, ListUnitKitchens, UpdateKitchenSettings } from "../schemas/kitchens.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
@@ -80,7 +80,13 @@ export async function listAccessibleKitchens(db: SisubDb, ctx: UserContext): Pro
 		.map((r) => toWire<AccessibleKitchen>(r, KITCHEN_RELATIONS))
 }
 
-export async function listUnitKitchens(db: SisubDb, _ctx: UserContext, input: ListUnitKitchens): Promise<{ id: number; display_name: string | null }[]> {
+/**
+ * Cozinhas de UMA unidade, para quem gere a unidade (`unit:1` nela). Quem usa é o wizard do anexo
+ * quantitativo, que já exige `unit:2`. Antes descartava o contexto: qualquer sessão varria
+ * `unitId` e remontava a lista da FAB que `listAccessibleKitchens` deixou de entregar.
+ */
+export async function listUnitKitchens(db: SisubDb, ctx: UserContext, input: ListUnitKitchens): Promise<{ id: number; display_name: string | null }[]> {
+	requireUnit(ctx, 1, input.unitId)
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({ id: kitchenInKitchen.id, display_name: kitchenInKitchen.displayName })

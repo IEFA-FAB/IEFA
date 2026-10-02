@@ -43,7 +43,16 @@ function NfeListPage() {
 		try {
 			const xml = await file.text()
 			const result = await uploadNfeFn({ data: { xml, kitchenId: Number(kitchenId) } })
-			toast.success(`NF-e importada: ${result.itemsCount} itens (${result.matching.matched} casados, ${result.matching.review} em revisão)`)
+			if (result.routedToOtherUnit) {
+				// A nota foi gravada, mas não é desta cozinha: some da lista daqui e aparece para as
+				// cozinhas da unidade destinatária. Sem o aviso, o operador acharia que a importação falhou.
+				toast.warning(
+					"O destinatário deste XML é outra unidade: a nota foi importada para a triagem dela e não fica com esta cozinha. Se a mercadoria chegou aqui, fale com a unidade destinatária.",
+					{ duration: 12_000 }
+				)
+			} else {
+				toast.success(`NF-e importada: ${result.itemsCount} itens (${result.matching.matched} casados, ${result.matching.review} em revisão)`)
+			}
 			router.invalidate()
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Falha ao importar NF-e")

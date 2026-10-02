@@ -36,8 +36,10 @@ interface PendingLine {
 	description: string
 	measureUnit: string | null
 	quantity: number
-	available: number
-	sufficient: boolean
+	/** Nulo para quem só lê, com o insumo numa contagem cega aberta. */
+	available: number | null
+	sufficient: boolean | null
+	isInBlindCount: boolean
 }
 
 interface PendingTask {
@@ -47,6 +49,7 @@ interface PendingTask {
 	lines: PendingLine[]
 	sufficient: number
 	total: number
+	blindCountLines: number
 }
 
 function TaskCard({
@@ -131,10 +134,11 @@ function TaskCard({
 					<CardTitle className="text-subheading">{task.recipeName}</CardTitle>
 					<span className="text-xs text-muted-foreground">{task.productionDate}</span>
 					<Badge
-						variant={task.sufficient === task.total ? "secondary" : "outline"}
-						className={`ml-auto text-xs ${task.sufficient < task.total ? "text-warning" : ""}`}
+						variant={task.sufficient === task.total - task.blindCountLines ? "secondary" : "outline"}
+						className={`ml-auto text-xs ${task.sufficient < task.total - task.blindCountLines ? "text-warning" : ""}`}
 					>
-						Ingredientes: {task.sufficient}/{task.total} disponíveis
+						Ingredientes: {task.sufficient}/{task.total - task.blindCountLines} disponíveis
+						{task.blindCountLines > 0 && ` · ${task.blindCountLines} em contagem cega`}
 					</Badge>
 				</div>
 			</CardHeader>
@@ -157,7 +161,9 @@ function TaskCard({
 										{NUM.format(line.quantity)}
 										{line.measureUnit && <span className="ml-1 text-muted-foreground">{line.measureUnit}</span>}
 									</td>
-									<td className={`py-1.5 px-2 text-xs text-right tabular-nums ${line.sufficient ? "" : "text-warning"}`}>{NUM.format(line.available)}</td>
+									<td className={`py-1.5 px-2 text-xs text-right tabular-nums ${line.sufficient === false ? "text-warning" : ""}`}>
+										{line.available == null ? <span className="text-muted-foreground">em contagem</span> : NUM.format(line.available)}
+									</td>
 									<td className="py-1.5 px-2">
 										<Input
 											type="number"

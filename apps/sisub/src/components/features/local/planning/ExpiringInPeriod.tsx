@@ -51,9 +51,8 @@ export function ExpiringInPeriod({ kitchenId, from, until }: { kitchenId: number
 					{data.items.map((item) => (
 						<li key={item.ingredientId ?? item.frozenPreparationId} className="flex flex-wrap items-baseline gap-x-2">
 							<strong>{item.description}</strong>
-							<span>
-								{NUM.format(item.quantity)} {item.measureUnit ?? ""}
-							</span>
+							{/* Item em contagem cega aberta: a quantidade é o número que a contagem esconde. */}
+							<span>{item.quantity == null ? "em contagem" : `${NUM.format(item.quantity)} ${item.measureUnit ?? ""}`}</span>
 							{/*
 							 * A validade vem do banco como data civil (YYYY-MM-DD). `new Date`
 							 * a lê como meia-noite UTC, que em Brasília é o dia ANTERIOR: sem

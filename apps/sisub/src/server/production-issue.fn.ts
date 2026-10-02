@@ -20,8 +20,11 @@ import {
 	type RecipeSnapshotForIssue,
 	remainingAfterLateIssues,
 } from "@iefa/sisub-domain"
+import { hasPermission } from "@iefa/pbac"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { hiddenByBlindCount } from "@/lib/blind-count.server"
+import { maskBlindCountIssueLines } from "@/lib/blind-count-mask"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient, toLooseRpcClient } from "@/lib/supabase.server"
 
@@ -129,9 +132,15 @@ async function openPeriodStart(kitchenId: number): Promise<string> {
 export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const ctx = await requireStorageForKitchen(1, data.kitchenId)
 		const kit = kitchen()
 		const inv = inventory()
+		// Tela de OPERAÇÃO para quem confirma a baixa (nível 2): vê o disponível, como a saída e o
+		// ajuste (`fetchStockBalanceFn` com `operation`). Quem só lê (nível 1) não vê o disponível
+		// do insumo em contagem cega aberta — seria mais uma tela de onde ler o esperado.
+		const hidden = hasPermission(ctx.permissions, "storage", 2, { type: "kitchen", id: data.kitchenId })
+			? new Set<string>()
+			: await hiddenByBlindCount(data.kitchenId, ctx)
 
 		const since = await openPeriodStart(data.kitchenId)
 		const { data: tasks, error } = await kit
@@ -195,19 +204,24 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 				theoretical.map((t) => t.ingredientId)
 			)
 			const today = brasiliaToday()
-			const lines = theoretical.map((line) => {
-				const lots = balances.get(line.ingredientId) ?? []
-				// lote vencido não conta como disponível: ele não vai ser alocado
-				const available = lots.reduce((acc, lot) => (lot.expiryDate != null && lot.expiryDate < today ? acc : acc + lot.balance), 0)
-				return { ...line, available, sufficient: available >= line.quantity }
-			})
+			const lines = maskBlindCountIssueLines(
+				theoretical.map((line) => {
+					const lots = balances.get(line.ingredientId) ?? []
+					// lote vencido não conta como disponível: ele não vai ser alocado
+					const available = lots.reduce((acc, lot) => (lot.expiryDate != null && lot.expiryDate < today ? acc : acc + lot.balance), 0)
+					return { ...line, available: available as number | null, sufficient: (available >= line.quantity) as boolean | null }
+				}),
+				hidden
+			)
 			results.push({
 				taskId: task.id,
 				productionDate: task.production_date,
 				recipeName: (menuItem?.recipe as { name?: string } | null)?.name ?? "(sem nome)",
 				lines,
-				sufficient: lines.filter((l) => l.sufficient).length,
+				sufficient: lines.filter((l) => l.sufficient === true).length,
 				total: lines.length,
+				/** Linhas sem disponível porque o insumo está numa contagem cega aberta. */
+				blindCountLines: lines.filter((l) => l.isInBlindCount).length,
 			})
 		}
 		return results

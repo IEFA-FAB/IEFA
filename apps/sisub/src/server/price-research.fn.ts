@@ -11,7 +11,7 @@ import { COMPRAS_MAX_PAGE_SIZE, COMPRAS_MIN_PAGE_SIZE } from "@iefa/compras-api"
 import { PRICE_RESEARCH_METHODS, type PriceResearchAuditResult, savePriceResearchAudit } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
+import { requireAuthWithPermission } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import { parseComprasJson } from "@/lib/compras-json"
 import { getDb } from "@/lib/db.server"
@@ -28,7 +28,10 @@ export const searchMaterialPricesFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }): Promise<ComprasMaterialPricePage> => {
-		await requireUserId()
+		// Proxy do Compras.gov.br: só quem trabalha na gestão de unidade (anexo quantitativo, as
+		// únicas telas que pesquisam preço) — a mesma permissão de gravar a pesquisa, logo abaixo.
+		// Só com sessão, qualquer conta usava o IP e o rate limit do servidor.
+		await requireAuthWithPermission("unit", 1)
 		// `parseAs: "text"` de propósito: `idCompra` é um inteiro de 17 dígitos e o
 		// JSON.parse do openapi-fetch corromperia os últimos dígitos antes de nós
 		// vermos o valor. Ver parseComprasJson.

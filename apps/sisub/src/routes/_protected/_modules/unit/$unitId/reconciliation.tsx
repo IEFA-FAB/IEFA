@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
+import { RECONCILIATION_CONFLICT_PREFIX } from "@/lib/reconciliation-decision"
 import { fetchPhysicalAccountingFn, fetchReconciliationFn, type ReconciliationRow, resolveDivergenceFn } from "@/server/reconciliation.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/reconciliation")({
@@ -71,7 +72,13 @@ function DivergenceRow({ row, unitId, onResolved }: { row: ReconciliationRow; un
 			onResolved()
 		} catch (err) {
 			// Desistir da confirmação de identidade não é falha: a justificativa continua na tela.
-			if (!isElevationCancelled(err)) toast.error(err instanceof Error ? err.message : "Falha ao resolver divergência")
+			if (!isElevationCancelled(err)) {
+				const message = err instanceof Error ? err.message : "Falha ao resolver divergência"
+				toast.error(message)
+				// Conflito: a conciliação mudou (lote novo, outra decisão). Recarrega para o usuário
+				// decidir sobre os valores atuais; a justificativa digitada continua no campo.
+				if (message.startsWith(RECONCILIATION_CONFLICT_PREFIX)) onResolved()
+			}
 		} finally {
 			setBusy(false)
 		}

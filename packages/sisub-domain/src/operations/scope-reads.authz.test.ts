@@ -18,7 +18,7 @@ import { requireUnscopedPermission } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import { fetchDemandForecasts, fetchPendingDemandForecast } from "./demand-forecast.ts"
-import { fetchKitchenSettings } from "./kitchens.ts"
+import { fetchKitchenSettings, listUnitKitchens } from "./kitchens.ts"
 import { resolveDisplayName } from "./places.ts"
 import { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
 import { calculateQuantityEstimateNeeds, fetchQuantityEstimateDetails, fetchQuantityEstimateList } from "./quantity-estimate.ts"
@@ -294,5 +294,18 @@ describe("forkTemplate", () => {
 		)
 		expect((error as DomainError | null)?.code).not.toBe("TEMPLATE_FORK_OUT_OF_SCOPE")
 		expect(error).not.toBeInstanceOf(PermissionDeniedError)
+	})
+})
+
+describe("listUnitKitchens — cozinhas de uma OM, para quem gere a OM", () => {
+	test("nega sessão sem unit, com unit de outra OM ou só com a cozinha", async () => {
+		expect(await denied(listUnitKitchens({} as SisubDb, ctx(), { unitId: UNIT }))).toBe(true)
+		expect(await denied(listUnitKitchens({} as SisubDb, ctx(perm("unit", 1, { unit_id: OTHER_UNIT })), { unitId: UNIT }))).toBe(true)
+		expect(await denied(listUnitKitchens({} as SisubDb, ctx(perm("kitchen", 2, { kitchen_id: KITCHEN })), { unitId: UNIT }))).toBe(true)
+	})
+
+	test("passa unit:1 na OM pedida e unit sem escopo", async () => {
+		expect(await denied(listUnitKitchens({} as SisubDb, ctx(perm("unit", 1, { unit_id: UNIT })), { unitId: UNIT }))).toBe(false)
+		expect(await denied(listUnitKitchens({} as SisubDb, ctx(perm("unit", 1)), { unitId: UNIT }))).toBe(false)
 	})
 })

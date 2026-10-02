@@ -1,5 +1,14 @@
 import { describe, expect, test } from "vitest"
-import { anoFromNumeroAta, assertVigenciaWindow, defaultVigenciaWindow, formatNumeroAta, parseBrDate, parseNumeroItem, resolveArpSaldos } from "./arp-compras"
+import {
+	anoFromNumeroAta,
+	assertVigenciaWindow,
+	defaultVigenciaWindow,
+	formatNumeroAta,
+	parseBrDate,
+	parseNumeroItem,
+	pickArpHeader,
+	resolveArpSaldos,
+} from "./arp-compras"
 
 describe("formatNumeroAta", () => {
 	// Verificado contra a API: só "00002/2025" retorna a ata; "2/2025" e "00002"
@@ -135,5 +144,26 @@ describe("resolveArpSaldos", () => {
 
 	test("linha sem número utilizável é descartada", () => {
 		expect(resolveArpSaldos([{ numeroItem: null }, { numeroItem: "item 1" }]).size).toBe(0)
+	})
+})
+
+describe("pickArpHeader — o cabeçalho gravado é o da API, não o do payload", () => {
+	const rows = [
+		{ numeroAtaRegistroPreco: "00002/2025", codigoUnidadeGerenciadora: "120001", objeto: "outra UASG" },
+		{ numeroAtaRegistroPreco: "00002/2025", codigoUnidadeGerenciadora: "120002", objeto: "a ata certa" },
+		{ numeroAtaRegistroPreco: "00003/2025", codigoUnidadeGerenciadora: "120002", objeto: "outro número" },
+	]
+
+	test("escolhe a ata pelo número E pela UASG gerenciadora", () => {
+		expect(pickArpHeader(rows, "00002/2025", "120002")?.objeto).toBe("a ata certa")
+	})
+
+	test("UASG com zeros à esquerda ou numérica casa", () => {
+		expect(pickArpHeader([{ numeroAtaRegistroPreco: "00002/2025", codigoUnidadeGerenciadora: 90001 }], "00002/2025", "090001")).not.toBeNull()
+	})
+
+	test("ata que a API não devolve é null (a importação recusa)", () => {
+		expect(pickArpHeader(rows, "00009/2025", "120002")).toBeNull()
+		expect(pickArpHeader(undefined, "00002/2025", "120002")).toBeNull()
 	})
 })

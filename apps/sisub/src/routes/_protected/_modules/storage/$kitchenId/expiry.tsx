@@ -134,6 +134,17 @@ function ExpiryPage() {
 				</Card>
 			</div>
 
+			{expiring.hiddenByBlindCount > 0 && (
+				<Card>
+					<CardContent className="pt-4">
+						<p className="text-sm text-muted-foreground">
+							{expiring.hiddenByBlindCount} lote(s) de itens em contagem cega aberta não aparecem aqui nem nos totais enquanto a contagem não termina. O nível 3
+							vê.
+						</p>
+					</CardContent>
+				</Card>
+			)}
+
 			{expiring.total > expiring.lots.length && (
 				<Card>
 					<CardContent className="pt-4 text-sm text-muted-foreground">
@@ -301,7 +312,7 @@ function ExpiryPage() {
 				)
 			})}
 
-			{expiring.total === 0 && (
+			{expiring.total === 0 && expiring.hiddenByBlindCount === 0 && (
 				<Card>
 					<CardContent className="pt-4 text-sm text-muted-foreground">
 						Nenhum lote vencido, crítico ou sem validade. Isto é o estado bom — e não quer dizer que a tela esteja quebrada.
