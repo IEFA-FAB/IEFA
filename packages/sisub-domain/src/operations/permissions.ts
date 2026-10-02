@@ -39,6 +39,7 @@ import { isExpired, notExpired, runQuery, unwrapPgError } from "../utils/index.t
 import {
 	type AccessAudit,
 	assertSisubGrantable,
+	assertTopAdminCeiling,
 	defaultAccessAudit,
 	runAccessFunction,
 	SELF_ADMIN_EXPIRY_MESSAGE,
@@ -337,6 +338,9 @@ export async function createUserPermission(
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
 	assertScopeAllowed(input.module, input)
+	// Teto (20261001120000): `admin:3` só por quem tem `admin:3`. Grant sobre quem JÁ detém
+	// `admin:3` a função SQL recusa (daqui não se vê sem ler o banco).
+	assertTopAdminCeiling(ctx, [input])
 	assertSisubGrantable(ctx.userId, { userId: input.userId, revokesAdministration: input.module === SISUB_ADMIN_MODULE && input.level <= 0 })
 	// Rede geral (self-admin-guard): um grant novo sobre si mesmo — um deny de `admin` escopado,
 	// por exemplo — não pode deixar o ator sem a administração que ele tem.
@@ -404,6 +408,8 @@ export async function updateUserPermission(
 	if (!current) throw new DomainError("UPDATE_FAILED", `permission ${input.permissionId} not found`)
 	// O módulo não é editável e não vem no input: vale o da LINHA.
 	assertScopeAllowed(current.module, input)
+	// Teto: a linha é ou passa a ser `admin:3` — inclusive subir o PRÓPRIO grant de 2 para 3.
+	assertTopAdminCeiling(ctx, [current, { module: current.module, level: input.level }])
 	const refusal = selfAdminUpdateRefusal(ctx.userId, current, { level: input.level, expiresAt: input.expires_at })
 	if (refusal === "EXPIRY") throw new DomainError("GRANT_NOT_ALLOWED", SELF_ADMIN_EXPIRY_MESSAGE)
 	assertSisubGrantable(ctx.userId, { userId: current.userId, revokesAdministration: refusal === "LEVEL" })
@@ -472,6 +478,7 @@ export async function deleteUserPermission(
 
 	const current = await loadPermissionRow(db, input.permissionId)
 	if (!current) throw new DomainError("DELETE_FAILED", `permission ${input.permissionId} not found`)
+	assertTopAdminCeiling(ctx, [current])
 	assertSisubGrantable(ctx.userId, { userId: current.userId, revokesAdministration: current.module === SISUB_ADMIN_MODULE && current.level > 0 })
 	if (current.userId === ctx.userId) refuseIfLosesAdministration(await loadActorAccessSnapshot(db, ctx.userId), { kind: "inline-delete", id: current.id })
 

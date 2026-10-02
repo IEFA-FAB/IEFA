@@ -211,8 +211,10 @@ export async function updateEquipmentIssue(db: SisubDb, ctx: UserContext, input:
 // ── Plano de manutenção ───────────────────────────────────────────────────
 
 /** Leitura do catálogo de rotinas: qualquer módulo que monta ou executa preparação. */
+const PLAN_READ_MODULES = ["kitchen", "kitchen-production", "global"] as const
+
 function requirePlanRead(ctx: UserContext): void {
-	requireAnyPermission(ctx, ["kitchen", "kitchen-production", "global"], 1)
+	requireAnyPermission(ctx, PLAN_READ_MODULES, 1)
 }
 
 /** Escrita do plano: `global:2` quando é global, `kitchen:2` quando é da cozinha. */
@@ -223,6 +225,10 @@ function requirePlanWrite(ctx: UserContext, kitchenId: number | null): void {
 
 export async function listMaintenancePlans(db: SisubDb, ctx: UserContext, input: ListMaintenancePlans): Promise<MaintenancePlanWire[]> {
 	requirePlanRead(ctx)
+	// O plano global é de todos; o plano que uma cozinha cadastrou é dela. Sem este gate,
+	// `kitchenId` no input enumerava as rotinas de qualquer cozinha (mesmo critério de
+	// `listEquipmentModels`).
+	if (input.kitchenId != null) requireAnyPermission(ctx, PLAN_READ_MODULES, 1, { type: "kitchen", id: input.kitchenId })
 	const scope =
 		input.kitchenId != null
 			? or(isNull(equipmentMaintenancePlanInKitchen.kitchenId), eq(equipmentMaintenancePlanInKitchen.kitchenId, input.kitchenId))

@@ -27,6 +27,7 @@ export {
 	requireUnscopedPermission,
 } from "./require-permission.ts"
 export {
+	assertMealTypeForKitchen,
 	resolveKitchenFromMenu,
 	resolveKitchenFromMenuItem,
 	resolveKitchenFromTemplate,

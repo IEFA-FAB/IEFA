@@ -279,12 +279,11 @@ describe("resolveUserPermissions — políticas anexadas", () => {
 })
 
 describe("resolveUserPermissions — bancos sem o modelo de políticas", () => {
-	// Um consumidor novo pode passar um cliente apontado para um banco sem as tabelas de
-	// política. Faltar a tabela é "não há política", não indisponibilidade — mas como a
-	// degradação é fail-open (descarta também os DENY da política), ela precisa deixar rastro.
-	// Os apps de hoje (sisub, sisub-mcp, rumaer, sucont) compartilham o MESMO schema
-	// `access_control`, onde as tabelas existem: aqui ninguém deveria cair.
-	test.each([["PGRST205"], ["42P01"]])("código %s degrada para 'sem políticas', e avisa", async (code) => {
+	// Tabela de política ausente FALHA FECHADO por padrão: resolver sem a origem de
+	// política descartaria os DENY dela, e `PGRST205` também aparece com o cache de schema
+	// do PostgREST velho, num banco que TEM o modelo. Os apps de hoje (sisub, sisub-mcp,
+	// rumaer, sucont, contrate, alpha) compartilham o MESMO schema `access_control`.
+	test.each([["PGRST205"], ["42P01"]])("código %s lança por padrão, sem avisar nem degradar", async (code) => {
 		const { client } = createSupabaseStub({
 			inline: [KITCHEN_WRITE],
 			attachmentError: { message: "Could not find the table 'access_control.user_policy_attachment'", code },
@@ -292,13 +291,57 @@ describe("resolveUserPermissions — bancos sem o modelo de políticas", () => {
 		const warn = spyOn(console, "warn").mockImplementation(() => {})
 
 		try {
-			expect(await resolveUserPermissions("user-1", client)).toEqual([KITCHEN_WRITE, DINER_IMPLICIT])
+			await expect(resolveUserPermissions("user-1", client)).rejects.toThrow("Falha ao buscar políticas do usuário: Could not find the table")
+			expect(warn).not.toHaveBeenCalled()
+		} finally {
+			warn.mockRestore()
+		}
+	})
+
+	test("deny de política não é descartado por cache de schema velho: a resolução lança em vez de devolver o allow inline", async () => {
+		// O cenário que o fail-open abria: allow inline + deny por política. Com o anexo
+		// "sumido" (PGRST205), devolver só o inline reautorizaria a cozinha negada.
+		const { client } = createSupabaseStub({
+			inline: [KITCHEN_WRITE],
+			...attachedPolicy("policy-deny", [{ module: "kitchen", level: 0, kitchen_id: 11, mess_hall_id: null, unit_id: null }]),
+			attachmentError: { message: "Could not find the table 'access_control.user_policy_attachment' in the schema cache", code: "PGRST205" },
+		})
+
+		const outcome = await resolveUserPermissions("user-1", client).then(
+			(permissions) => permissions,
+			(error: unknown) => error
+		)
+
+		expect(outcome).toBeInstanceOf(Error)
+		expect(Array.isArray(outcome)).toBe(false)
+	})
+
+	test.each([["PGRST205"], ["42P01"]])("com allowMissingPolicyModel, código %s degrada para só os grants inline, e avisa", async (code) => {
+		const { client } = createSupabaseStub({
+			inline: [KITCHEN_WRITE],
+			attachmentError: { message: "Could not find the table 'access_control.user_policy_attachment'", code },
+		})
+		const warn = spyOn(console, "warn").mockImplementation(() => {})
+
+		try {
+			expect(await resolveUserPermissions("user-1", client, { allowMissingPolicyModel: true })).toEqual([KITCHEN_WRITE, DINER_IMPLICIT])
 			// Fail-open sem rastro é indistinguível de "este usuário não tem política nenhuma".
 			expect(warn).toHaveBeenCalledTimes(1)
 			expect(warn.mock.calls[0]?.[0]).toContain(code)
 		} finally {
 			warn.mockRestore()
 		}
+	})
+
+	test("allowMissingPolicyModel não engole erro que não é de tabela ausente", async () => {
+		const { client } = createSupabaseStub({
+			inline: [KITCHEN_WRITE],
+			attachmentError: { message: "fetch failed", code: "ECONNRESET" },
+		})
+
+		await expect(resolveUserPermissions("user-1", client, { allowMissingPolicyModel: true })).rejects.toThrow(
+			"Falha ao buscar políticas do usuário: fetch failed"
+		)
 	})
 
 	test("o caminho normal — sem anexo — não avisa nada", async () => {

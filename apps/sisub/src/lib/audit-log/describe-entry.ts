@@ -487,5 +487,7 @@ export function staticTitle(operation: string): string | null {
 	if (isAttachOperation(operation)) return "Anexou política ou alterou prazo do anexo"
 	if (operation === "detachPolicyFn") return "Desanexou política"
 	if (operation === "portal.journal-role.change") return "Papel no journal alterado"
+	// Mudar a OM de cozinha/refeitório muda quem os alcança por `unit` (`changes` vai em details).
+	if (operation === "applyPlacesDiffFn") return "Mudou a OM de cozinha ou refeitório"
 	return POLICY_TITLES[operation] ?? STATEMENT_TITLES[operation] ?? MCP_TITLES[operation] ?? SIGNUP_TITLES[operation] ?? FORMS_TITLES[operation] ?? null
 }

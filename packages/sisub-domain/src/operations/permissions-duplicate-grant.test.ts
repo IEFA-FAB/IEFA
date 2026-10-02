@@ -40,6 +40,9 @@ const ADMIN: UserContext = {
 	origin: "session",
 }
 
+/** `admin:3`: o teto de 20261001120000 (só ele concede/altera/revoga `admin:3`). */
+const TOP_ADMIN: UserContext = { ...ADMIN, permissions: [{ module: "admin", level: 3, kitchen_id: null, mess_hall_id: null, unit_id: null }] }
+
 const GRANT = { userId: "user-2", module: "kitchen", level: 2, kitchen_id: 7 } as const
 
 /**
@@ -219,12 +222,18 @@ describe("updateUserPermission", () => {
 		await expect(updateUserPermission(db, ADMIN, EDIT)).resolves.toEqual({ success: true, user_id: "user-2", log_id: "log-1" })
 	})
 
-	test("ninguém rebaixa a própria administração; subir o próprio nível pode", async () => {
-		const own = { id: "perm-1", userId: "user-1", module: "admin", level: 3 }
-		const error = await caught(updateUserPermission(accessDb({ existing: own }).db, ADMIN, { permissionId: "perm-1", level: 2 }))
+	test("ninguém rebaixa a própria administração; subir o próprio nível pode até o teto de quem sobe", async () => {
+		const own = { id: "perm-1", userId: "user-1", module: "admin", level: 2 }
+		const error = await caught(updateUserPermission(accessDb({ existing: own }).db, ADMIN, { permissionId: "perm-1", level: 1 }))
 		expect(error?.code).toBe("GRANT_NOT_ALLOWED")
 
-		await expect(updateUserPermission(accessDb({ existing: { ...own, level: 2 } }).db, ADMIN, { permissionId: "perm-1", level: 3 })).resolves.toMatchObject({
+		// Até 20261001120000 este caso afirmava o contrário: um `admin:2` subia o PRÓPRIO grant
+		// para `admin:3` — a escalada que o teto fecha. Quem já tem `admin:3` continua subindo.
+		const escalation = await caught(updateUserPermission(accessDb({ existing: own }).db, ADMIN, { permissionId: "perm-1", level: 3 }))
+		expect(escalation?.code).toBe("GRANT_NOT_ALLOWED")
+		expect(escalation?.message).toContain("nível 3")
+
+		await expect(updateUserPermission(accessDb({ existing: own }).db, TOP_ADMIN, { permissionId: "perm-1", level: 3 })).resolves.toMatchObject({
 			success: true,
 		})
 	})

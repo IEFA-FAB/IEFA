@@ -77,6 +77,9 @@ const ACCESS_CHANGE_OPERATIONS = [
 	"deleteMcpKeyFn",
 	"authorizeExternalSignupFn",
 	"revokeExternalSignupFn",
+	// Reparentar cozinha/refeitório muda quem os alcança por `unit`. Não escreve tabela de acesso:
+	// o log sai da operação de domínio, na mesma transação Drizzle das escritas.
+	"applyPlacesDiffFn",
 ] as const
 
 const ENVELOPE = /\b(withSensitiveAudit|withAtomicAudit)\(\s*"(\w+)"/g

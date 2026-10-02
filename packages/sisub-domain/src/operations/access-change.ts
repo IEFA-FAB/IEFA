@@ -28,8 +28,9 @@
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { assertGrantable, GrantNotAllowedError } from "@iefa/pbac"
+import { assertGrantable, GrantNotAllowedError, hasPermission } from "@iefa/pbac"
 import { type SQL, sql } from "drizzle-orm"
+import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { describeDriverError, unwrapPgError } from "../utils/index.ts"
 
@@ -44,11 +45,17 @@ export function defaultAccessAudit(operation: string): AccessAudit {
 	return { operation, grade: "session" }
 }
 
+/** Recusa do teto de `admin:3` — a antecipada (`assertTopAdminCeiling`) e a da função SQL. */
+export const TOP_ADMIN_REQUIRED_MESSAGE =
+	"Só quem tem administração nível 3 concede, altera ou revoga administração nível 3 — ou mexe no acesso de quem a tem. Peça a um administrador nível 3."
+
 /**
  * Tokens estáveis que as funções SQL levantam → erro de domínio legível. O SQL cru nunca
  * chega à tela: vai em `details`, para o log do servidor.
  */
 const ACCESS_ERRORS: Record<string, { code: string; message: string; notFound?: string }> = {
+	// 20261001120000: o teto decidido pela função, sob as travas dela.
+	ADMIN_LEVEL_3_REQUIRED: { code: "GRANT_NOT_ALLOWED", message: TOP_ADMIN_REQUIRED_MESSAGE },
 	ACCESS_CHANGE_INVALID: { code: "INVALID_INPUT", message: "Alteração de acesso inválida." },
 	ACCESS_ACTOR_NOT_FOUND: {
 		code: "ACTOR_NOT_FOUND",
@@ -148,6 +155,9 @@ export const SELF_ADMIN_EXPIRY_MESSAGE =
  * deixaria a auto-tranca a um clique de distância (e dependente de fuso). Quem precisa de
  * administração com prazo recebe de OUTRO administrador, e o log registra isso.
  *
+ * "Subir" é até o teto de quem sobe: chegar a `admin:3` exige já ter `admin:3`
+ * (`assertTopAdminCeiling`, 20261001120000). Esta função só responde à auto-tranca.
+ *
  * Pura: `current` é a linha como está; `next` é o que o update pede (`expiresAt` ausente = não
  * mexe no prazo).
  */
@@ -160,4 +170,31 @@ export function selfAdminUpdateRefusal(
 	if (next.level < current.level) return "LEVEL"
 	if (next.expiresAt !== undefined && next.expiresAt !== null) return "EXPIRY"
 	return null
+}
+
+// ── Teto: `admin:3` só passa por quem tem `admin:3` ──────────────────────────
+//
+// O console exige `admin:2`, e nada comparava o que se concedia com o nível de quem concedia:
+// um `admin:2` criava um statement `admin:3`, anexava a política a si mesmo (ou subia o próprio
+// grant inline de 2 para 3) e virava `admin:3`. A regra completa, e a que vale, mora nas
+// funções SQL auditadas (migration 20261001120000): elas também recusam mexer no acesso de quem
+// DETÉM `admin:3` e anexar política que o concede, o que daqui não se vê sem ler o banco. Aqui
+// fica a recusa antecipada do que se vê no input e na linha já lida, com a mesma frase.
+
+/** Nível de `admin` que só quem o tem concede, altera ou revoga. */
+export const TOP_ADMIN_LEVEL = 3
+
+/** A linha (grant ou statement) é `admin` de nível ≥ 3? */
+export function isTopAdminRow(row: { module: string; level: number }): boolean {
+	return row.module === SISUB_ADMIN_MODULE && row.level >= TOP_ADMIN_LEVEL
+}
+
+/**
+ * Recusa quando alguma das linhas (o antes e o depois da mudança) é `admin` ≥ 3 e o ator não
+ * tem `admin:3` efetivo — o mesmo `hasPermission` do guard, com deny.
+ */
+export function assertTopAdminCeiling(ctx: UserContext, rows: ReadonlyArray<{ module: string; level: number }>): void {
+	if (!rows.some(isTopAdminRow)) return
+	if (hasPermission(ctx.permissions, SISUB_ADMIN_MODULE, TOP_ADMIN_LEVEL)) return
+	throw new DomainError("GRANT_NOT_ALLOWED", TOP_ADMIN_REQUIRED_MESSAGE)
 }

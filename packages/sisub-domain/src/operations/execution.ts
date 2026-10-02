@@ -32,7 +32,7 @@ import {
 import { hasPermission } from "@iefa/pbac"
 import { and, asc, eq, isNotNull, isNull, max, or, sql } from "drizzle-orm"
 import { requireKitchen, requireKitchenExecution, requirePermission } from "../guards/require-permission.ts"
-import { resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
+import { assertMealTypeForKitchen, resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type {
 	AddExecutionMenuItem,
 	FetchExecutionOptions,
@@ -185,23 +185,7 @@ export async function addExecutionMenuItem(
 	requireKitchenExecution(ctx, input.kitchenId)
 	assertExecutionDate(input.serviceDate, brasiliaToday(now))
 
-	const [mealType] = await runQuery(
-		"FETCH_FAILED",
-		() =>
-			db
-				.select({ id: mealTypeInKitchen.id })
-				.from(mealTypeInKitchen)
-				.where(
-					and(
-						eq(mealTypeInKitchen.id, input.mealTypeId),
-						isNull(mealTypeInKitchen.deletedAt),
-						isNull(mealTypeInKitchen.systemKey),
-						or(isNull(mealTypeInKitchen.kitchenId), eq(mealTypeInKitchen.kitchenId, input.kitchenId))
-					)
-				),
-		{ prefix: "Erro ao conferir a refeição" }
-	)
-	if (!mealType) throw new NotFoundError("meal_type", input.mealTypeId)
+	await assertMealTypeForKitchen(db, input.mealTypeId, input.kitchenId)
 
 	// Dentro de `runQuery`: constraint, FK ou deadlock no meio da transação vira
 	// `QueryFailedError` com o prefixo de negócio, e não o erro cru do driver com o SQL.

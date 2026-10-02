@@ -38,7 +38,7 @@ export {
 	touchesDenyPartition,
 } from "./permission-change.ts"
 export { type AssuranceReachability, isProtectedAccount } from "./protected-account.ts"
-export { NOT_EXPIRED, resolveUserPermissions } from "./resolve-permissions.ts"
+export { NOT_EXPIRED, type ResolveUserPermissionsOptions, resolveUserPermissions } from "./resolve-permissions.ts"
 export type { AppModule, CredentialOrigin, PermissionScope, UserContext, UserPermission } from "./types.ts"
 export {
 	assertGrantable,
