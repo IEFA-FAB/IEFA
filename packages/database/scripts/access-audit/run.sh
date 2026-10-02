@@ -40,6 +40,14 @@ bash "$HERE/concurrency.sh"
 run "$MIGRATIONS/20260921130100_access_change_enforcement.sql"
 run "$MIGRATIONS/20260921130100_access_change_enforcement.sql"
 run "$HERE/phase2.test.sql"
+# 20261001150000 / 20261001150100: concessão do /controller da escolha de vagas e leitura do
+# telão. Aplicadas duas vezes (idempotentes) sobre o estado anterior do stub.
+run "$HERE/assignment-selection.stub.sql"
+for _ in 1 2; do
+	run "$MIGRATIONS/20261001150000_assignment_selection_access_grant_audited.sql"
+	run "$MIGRATIONS/20261001150100_assignment_selection_person_active_edition_read.sql"
+done
+run "$HERE/assignment-selection.test.sql"
 # 20260926218000: aplicada (duas vezes) de dentro do próprio teste, depois do estado de antes. A
 # primeira, sem posse de auth.users como em produção, tem de avisar que o trigger ficou.
 if ! run "$HERE/legacy-access-profiles.test.sql" 2>"$WORK/legacy.stderr"; then

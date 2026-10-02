@@ -2,8 +2,10 @@ import type { Database, Json } from "@iefa/database"
 import { notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { env } from "@/env"
 import { SELF_VIEWER_MESSAGES, selfViewerGrantRefusal, toFormsAccessError } from "@/lib/access-change"
 import { forbidden, requireUser, requireUserId } from "@/lib/auth.server"
+import { enforceWriteRate } from "@/lib/rate-limit.server"
 import {
 	buildBindingsFromPolicyInput,
 	filterResponsesByViewerPolicy,
@@ -17,9 +19,29 @@ import {
 	type ViewerScopeMode,
 	validateViewerPolicyInput,
 } from "@/lib/response-visibility-policy"
+import {
+	answerValueSchema,
+	isVersionCapReached,
+	MAX_RESPONSE_VERSIONS,
+	observationSchema,
+	omInputSchema,
+	secaoInputSchema,
+	VERSION_CAP_MESSAGE,
+} from "@/lib/response-limits"
 import { getFormsServerClient } from "@/lib/supabase.server"
+import { hasTenantTags, resolveServerTenant, scopeTags } from "@/lib/tenant-scope"
 
 type FormsDbClient = ReturnType<typeof getFormsServerClient>
+
+/** Tenant deste deploy, decidido no servidor — ver `lib/tenant-scope.ts`. */
+function serverTenant() {
+	return resolveServerTenant(process.env.VITE_APP_TENANT, env.VITE_APP_TENANT)
+}
+
+/** O questionário tem as tags que o tenant deste deploy exige? */
+function isInServerTenant(tags: readonly string[] | null) {
+	return hasTenantTags(serverTenant(), tags)
+}
 
 /** Linhas devolvidas pelas funções auditadas (`to_jsonb(row)`, mais o `log_id`). */
 type ResponseViewerRow = Database["forms"]["Tables"]["response_viewer"]["Row"] & { log_id: string }
@@ -264,17 +286,20 @@ async function lookupUserIdByEmail(db: FormsDbClient, email: string) {
  * a tela `/respond/$id` recusava, mas as server functions não.
  */
 async function requirePublishedQuestionnaire(db: FormsDbClient, questionnaireId: string) {
-	const { data, error } = await db.from("questionnaire").select("status").eq("id", questionnaireId).maybeSingle()
+	const { data, error } = await db.from("questionnaire").select("status, tags").eq("id", questionnaireId).maybeSingle()
 	if (error) throw new Error(error.message)
-	if (!data) throw notFound()
+	// Fora do tenant deste deploy é como se não existisse (sessão, autosave e envio passam aqui).
+	if (!data || !isInServerTenant(data.tags)) throw notFound()
 	if (data.status !== "sent") forbidden("Este questionário não está publicado")
 }
 
-async function getQuestionnairesByIds(db: FormsDbClient, ids: string[], tags?: string[]) {
+/** Questionários por id, recortados pelo tenant do deploy (e pelas tags pedidas, se houver). */
+async function getQuestionnairesByIds(db: FormsDbClient, ids: string[], requestedTags?: string[]) {
 	if (ids.length === 0) return []
 
 	let query = db.from("questionnaire").select("*").in("id", ids).order("created_at", { ascending: false })
-	if (tags?.length) {
+	const tags = scopeTags(serverTenant(), requestedTags)
+	if (tags.length) {
 		query = query.contains("tags", tags)
 	}
 
@@ -297,8 +322,10 @@ export const getQuestionnairesFn = createServerFn({ method: "GET" })
 		// entregava o rascunho alheio a qualquer usuário logado. Os compartilhados para
 		// edição vêm de `getEditableSharedWithMeFn`, que checa `questionnaire_editor`.
 		let query = db.from("questionnaire").select("*").or(`created_by.eq.${userId},status.eq.sent`).order("created_at", { ascending: false })
-		if (tags?.length) {
-			query = query.contains("tags", tags)
+		// O recorte do tenant vem do servidor; o `tags` do cliente só estreita.
+		const scopedTags = scopeTags(serverTenant(), tags)
+		if (scopedTags.length) {
+			query = query.contains("tags", scopedTags)
 		}
 		const { data, error } = await query
 		if (error) throw new Error(error.message)
@@ -320,7 +347,8 @@ export const getQuestionnaireFn = createServerFn({ method: "GET" })
 		if (error) throw new Error(error.message)
 		// maybeSingle + notFound: com .single() o PostgREST devolve PGRST116 e o usuário
 		// via a mensagem crua "JSON object requested, multiple (or no) rows returned".
-		if (!data) throw notFound()
+		// Fora do tenant deste deploy (ex.: questionário sem a tag `5s` aberto pelo id no deploy 5S).
+		if (!data || !isInServerTenant(data.tags)) throw notFound()
 
 		const access = await getQuestionnaireAccessFromRow(db, data.id, data.created_by, user.id)
 		if (data.status !== "sent" && !access.canEdit) {
@@ -352,10 +380,13 @@ export const createQuestionnaireFn = createServerFn({ method: "POST" })
 		const user = await requireUser()
 
 		const db = getFormsServerClient()
-		const metadataConfig = buildDefaultResponseMetadataConfig(tags, response_metadata_config)
+		// Nasce com a tag do tenant: criado no deploy `5s`, aparece na lista do `5s` mesmo que o
+		// cliente não mande a tag.
+		const scopedTags = scopeTags(serverTenant(), tags)
+		const metadataConfig = buildDefaultResponseMetadataConfig(scopedTags, response_metadata_config)
 		const { data, error } = await db
 			.from("questionnaire")
-			.insert({ title, description: description ?? null, created_by: user.id, tags, response_metadata_config: metadataConfig })
+			.insert({ title, description: description ?? null, created_by: user.id, tags: scopedTags, response_metadata_config: metadataConfig })
 			.select()
 			.single()
 		if (error) throw new Error(error.message)
@@ -579,6 +610,21 @@ export const getMyResponseStateFn = createServerFn({ method: "GET" })
 		return { status: "not_started" as const, session: null }
 	})
 
+/**
+ * A OM declarada tem de estar em `om_option` ativo. O escopo dos visualizadores
+ * (`response_viewer_scope_binding`, atributo `om`) filtra pela OM que o RESPONDENTE declara;
+ * com texto livre, um erro de digitação tirava a resposta de todo escopo e qualquer string
+ * entrava na coluna que decide quem vê o quê. Grava na forma normalizada de sempre.
+ */
+async function resolveActiveOm(db: FormsDbClient, declared: string): Promise<string> {
+	// Os nomes de `om_option` já estão na forma normalizada (maiúsculas, espaço simples).
+	const normalized = normalizeScopeValue(declared)
+	const { data, error } = await db.from("om_option").select("name").eq("active", true).eq("name", normalized).limit(1).maybeSingle()
+	if (error) throw new Error(error.message)
+	if (!data) throw new Error("OM fora da lista de OMs ativas. Escolha a sua OM na lista.")
+	return data.name
+}
+
 export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
@@ -587,12 +633,13 @@ export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 			// valor inválido só era recusado no INSERT, virando erro de driver em vez
 			// de erro de validação na borda.
 			evaluation_type: z.enum(["auditoria_interna", "auditoria_externa", "preparatoria"]),
-			om: z.string(),
-			secao: z.string(),
+			om: omInputSchema,
+			secao: secaoInputSchema,
 		})
 	)
 	.handler(async ({ data: { questionnaire_id, evaluation_type, om, secao } }) => {
 		const user = await requireUser()
+		enforceWriteRate(user.id, "session")
 
 		const db = getFormsServerClient()
 		await requirePublishedQuestionnaire(db, questionnaire_id)
@@ -607,9 +654,10 @@ export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 
 		if (existing) return existing
 
+		const activeOm = await resolveActiveOm(db, om)
 		const { data: created, error } = await db
 			.from("questionnaire_response")
-			.insert({ questionnaire_id, respondent_id: user.id, evaluation_type, om: normalizeScopeValue(om), secao })
+			.insert({ questionnaire_id, respondent_id: user.id, evaluation_type, om: activeOm, secao })
 			.select()
 			.single()
 		if (error) throw new Error(error.message)
@@ -621,12 +669,13 @@ export const saveAnswerFn = createServerFn({ method: "POST" })
 		z.object({
 			questionnaire_response_id: z.uuid(),
 			question_id: z.uuid(),
-			value: z.any(),
-			observation: z.string().nullable().optional(),
+			value: answerValueSchema,
+			observation: observationSchema,
 		})
 	)
 	.handler(async ({ data: { questionnaire_response_id, question_id, value, observation } }) => {
 		const user = await requireUser()
+		enforceWriteRate(user.id, "answer")
 
 		const db = getFormsServerClient()
 		const { data: session, error: sessionError } = await db
@@ -671,6 +720,7 @@ export const submitResponseFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const user = await requireUser()
+		enforceWriteRate(user.id, "submit")
 
 		const db = getFormsServerClient()
 		const { data: session, error: sessionError } = await db
@@ -696,6 +746,8 @@ export const submitResponseFn = createServerFn({ method: "POST" })
 			.maybeSingle()
 
 		const versionNumber = (maxVersion?.version_number ?? 0) + 1
+		// O reabrir já recusa no teto; isto fecha o envio de um rascunho reaberto antes dele.
+		if (versionNumber > MAX_RESPONSE_VERSIONS) throw new Error(VERSION_CAP_MESSAGE)
 		const submittedAt = new Date().toISOString()
 
 		const { error: versionError } = await db.from("response_version").insert({
@@ -933,12 +985,15 @@ export const reopenResponseFn = createServerFn({ method: "POST" })
 	.validator(z.object({ questionnaire_response_id: z.uuid() }))
 	.handler(async ({ data: { questionnaire_response_id } }) => {
 		const user = await requireUser()
+		enforceWriteRate(user.id, "reopen")
 
 		const db = getFormsServerClient()
 		const { data: session, error: sessionError } = await db.from("questionnaire_response").select("*, response(*)").eq("id", questionnaire_response_id).single()
 		if (sessionError) throw new Error(sessionError.message)
 		if (session.respondent_id !== user.id) forbidden()
 		if (session.status !== "sent") throw new Error("Resposta não está enviada")
+		// Cada reabrir + reenviar grava uma cópia inteira em `response_version`: teto por resposta.
+		if (isVersionCapReached(session.current_version)) throw new Error(VERSION_CAP_MESSAGE)
 
 		const { data: existingDraft } = await db
 			.from("questionnaire_response")

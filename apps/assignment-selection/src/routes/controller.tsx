@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useBoardRealtime } from "@/hooks/useBoardRealtime"
 import { authQueryOptions } from "@/lib/auth"
 import { localidadesFab } from "@/lib/localidades"
-import { boardQueryOptions } from "@/lib/queries"
+import { controllerBoardQueryOptions } from "@/lib/queries"
 import { callPersonFn, resetEditionFn, setActiveEditionFn, setEditionLockFn, updatePersonFn } from "@/server/assignment.fn"
 
 type ControllerSearch = { edition?: string }
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/controller")({
 		}
 	},
 	loaderDeps: ({ search }) => ({ edition: search.edition }),
-	loader: ({ context, deps }) => context.queryClient.query({ ...boardQueryOptions(deps.edition), staleTime: "static" }),
+	loader: ({ context, deps }) => context.queryClient.query({ ...controllerBoardQueryOptions(deps.edition), staleTime: "static" }),
 	component: ControllerPage,
 })
 
@@ -42,7 +42,7 @@ function ControllerPage() {
 	const navigate = Route.useNavigate()
 	const queryClient = useQueryClient()
 	const { user, signOut } = useAuth()
-	const { data } = useSuspenseQuery(boardQueryOptions(edition))
+	const { data } = useSuspenseQuery(controllerBoardQueryOptions(edition))
 
 	const handleSignOut = async () => {
 		await signOut()
@@ -50,7 +50,7 @@ function ControllerPage() {
 		navigate({ to: "/auth" })
 	}
 
-	useBoardRealtime(data.editionId, edition)
+	useBoardRealtime(data.editionId, controllerBoardQueryOptions(edition).queryKey)
 
 	const activeEdition = data.editions.find((e) => e.active)
 	const isActiveOnBoard = !!data.editionId && activeEdition?.id === data.editionId
@@ -63,7 +63,7 @@ function ControllerPage() {
 	const mutation = useMutation({
 		mutationFn: (action: () => Promise<unknown>) => action(),
 		onError: (err) => toast.error(err instanceof Error ? err.message : "Erro ao atualizar"),
-		onSettled: () => queryClient.invalidateQueries({ queryKey: boardQueryOptions(edition).queryKey }),
+		onSettled: () => queryClient.invalidateQueries({ queryKey: controllerBoardQueryOptions(edition).queryKey }),
 	})
 	const run = (action: () => Promise<unknown>) => mutation.mutate(action)
 	const editionId = data.editionId

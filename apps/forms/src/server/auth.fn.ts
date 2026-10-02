@@ -8,16 +8,12 @@ export const getServerSessionFn = createServerFn({ method: "GET" })
 	.validator(z.object({}))
 	.handler(async () => {
 		const supabase = getIefaAuthClient()
-		const [
-			{
-				data: { user },
-			},
-			{
-				data: { session },
-			},
-		] = await Promise.all([supabase.auth.getUser(), supabase.auth.getSession()])
-		return {
-			user: user ?? null,
-			session: session ?? null,
-		}
+		// Só getUser(): valida o JWT contra o Supabase. A sessão (access/refresh token) NÃO volta
+		// daqui: ia serializada no HTML do SSR e no cache do React Query, ao alcance de qualquer
+		// script da página. O navegador mantém a própria sessão pelo supabase-js
+		// (onAuthStateChange). Mesmo desenho do sucont.
+		const {
+			data: { user },
+		} = await supabase.auth.getUser()
+		return { user: user ?? null }
 	})

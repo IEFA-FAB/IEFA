@@ -63,18 +63,21 @@ acesso vale até ser desfeito. Referência: cabeçalhos de
 
 - Tabelas vigiadas: `access_control.{user_permissions, policy, policy_statement,
   user_policy_attachment, mcp_api_keys, signup_allowlist}`, `forms.{response_viewer,
-  response_viewer_scope_binding, questionnaire_editor}` e o `role` de `journal.user_profiles`.
+  response_viewer_scope_binding, questionnaire_editor}`, `assignment_selection.access_grant`
+  (desde `20261001150000`) e o `role` de `journal.user_profiles`.
   Tabela de acesso nova liga, na própria migration, o trigger `enforce_audited_change` (por linha)
   e o `enforce_audited_truncate` (BEFORE TRUNCATE, `20261001140100`: TRUNCATE não dispara trigger
   de linha, e só o bypass o libera). Escrita fora de função auditada
   levanta `42501 ACCESS_CHANGE_UNAUDITED`. Passam só: contexto aberto pela função, cascata de FK /
   outro trigger, e bypass explícito.
 - Caminhos: `changeModulePermission`/`setModuleBlock` (`@iefa/pbac`), as operações de
-  `@iefa/sisub-domain` (`runAccessFunction`), as RPCs `forms.*` e `journal.save_user_profile`.
+  `@iefa/sisub-domain` (`runAccessFunction`), as RPCs `forms.*`, `journal.save_user_profile` e
+  `assignment_selection.{grant,revoke}_controller_access` (só pelo SQL; o app não concede).
 - **Cadastro:** só `@fab.mil.br` cria conta, no servidor, pelo hook "Before User Created"
-  (`access_control.before_user_created`, ligado no dashboard Auth → Hooks). Vale também para
-  `auth.admin.createUser`/`inviteUserByEmail`; e-mail de fora entra por
-  `access_control.authorize_external_signup` (console de Permissões do sisub). Fixture que cria
+  (`access_control.before_user_created`, ligado em Auth → Hooks desde 2026-10-01). Vale para o
+  cadastro público e OAuth; `auth.admin.createUser` com a chave secreta NÃO passa pelo hook
+  (conferido em produção). E-mail de fora entra por `access_control.authorize_external_signup`
+  (console de Permissões do sisub), que libera o cadastro e a troca de e-mail para ele. Fixture que cria
   usuário de teste autoriza o e-mail antes (`authorizeSignup` do `access-fixture-writer`).
   Trocar o e-mail depois também: o trigger `enforce_institutional_email` em `auth.users`
   (`20261001140200`) recusa `email`/`email_change` novo fora de `@fab.mil.br` sem autorização ativa

@@ -18,11 +18,9 @@ import { useAutoSave } from "@/hooks/useAutoSave"
 import { EVALUATION_TYPES, type EvaluationType } from "@/lib/5s-constants"
 import { CONFORMITY_OPTIONS, type ConformityOptions } from "@/lib/conformity"
 import { myResponseStateQueryOptions, omOptionsQueryOptions, questionnaireQueryOptions } from "@/lib/queries"
+import { MAX_ANSWER_TEXT_CHARS, MAX_OBSERVATION_CHARS, MAX_SECAO_CHARS } from "@/lib/response-limits"
 import { assertUuidParam } from "@/lib/route-params"
 import { type getMyResponseStateFn, getOrCreateResponseSessionFn, submitResponseFn } from "@/server/forms.fn"
-
-/** Sentinela da OM fora da lista — o nome real vem do campo de texto ao lado. */
-const OM_OTHER = "__outro"
 
 export const Route = createFileRoute("/respond/$id")({
 	beforeLoad: ({ context, location, params }) => {
@@ -124,20 +122,14 @@ function respondReducer(state: RespondState, action: RespondAction): RespondStat
 type MetadataState = {
 	evaluationType: EvaluationType | null
 	om: string | null
-	omCustom: string
 	secao: string
 }
 
-type MetadataAction =
-	| { type: "SET_EVALUATION_TYPE"; value: EvaluationType }
-	| { type: "SET_OM"; value: string | null }
-	| { type: "SET_OM_CUSTOM"; value: string }
-	| { type: "SET_SECAO"; value: string }
+type MetadataAction = { type: "SET_EVALUATION_TYPE"; value: EvaluationType } | { type: "SET_OM"; value: string | null } | { type: "SET_SECAO"; value: string }
 
 const initialMetadataState: MetadataState = {
 	evaluationType: null,
 	om: null,
-	omCustom: "",
 	secao: "",
 }
 
@@ -147,8 +139,6 @@ function metadataReducer(state: MetadataState, action: MetadataAction): Metadata
 			return { ...state, evaluationType: action.value }
 		case "SET_OM":
 			return { ...state, om: action.value }
-		case "SET_OM_CUSTOM":
-			return { ...state, omCustom: action.value }
 		case "SET_SECAO":
 			return { ...state, secao: action.value }
 		default:
@@ -182,14 +172,21 @@ function RespondPage() {
 		if (!responseSessionId) return
 		dispatch({ type: "SUBMITTING" })
 		try {
-			await flush()
+			// Enviar com resposta que não chegou ao banco gravaria uma versão incompleta.
+			if (!(await flush())) {
+				toast.error("Algumas respostas não foram salvas. Aguarde um instante e envie de novo.")
+				dispatch({ type: "SUBMIT_FAILED" })
+				return
+			}
 			const submitted = await submitResponseFn({ data: { id: responseSessionId } })
 			// A sessão deixou de ser rascunho: sem isto, voltar à página dentro do
 			// `gcTime` reabriria uma resposta já enviada em modo de edição, e todo
 			// autosave passaria a falhar no guard de `status`.
 			await queryClient.invalidateQueries({ queryKey: myResponseStateQueryOptions(id).queryKey })
 			dispatch({ type: "SUBMITTED", submittedAt: submitted.submitted_at ?? null })
-		} catch {
+		} catch (error) {
+			// A mensagem do servidor é para o usuário (teto de versões, aguardar o limite de gravações).
+			toast.error(error instanceof Error ? error.message : "Não foi possível enviar as respostas")
 			dispatch({ type: "SUBMIT_FAILED" })
 		}
 	}
@@ -338,6 +335,7 @@ function RespondPage() {
 																save(question.id, existing?.value ?? null, observation)
 															}}
 															rows={2}
+															maxLength={MAX_OBSERVATION_CHARS}
 															className="text-sm"
 														/>
 													)}
@@ -373,12 +371,13 @@ function MetadataStep({
 }) {
 	const queryClient = useQueryClient()
 	const [state, dispatch] = useReducer(metadataReducer, initialMetadataState)
-	const { evaluationType, om, omCustom, secao } = state
+	const { evaluationType, om, secao } = state
 	const { data: omOptions = [] } = useQuery(omOptionsQueryOptions())
-	// A lista de OMs ativas já passa de 25 — e quem responde procura a própria sigla.
-	const omSelectOptions = useMemo(() => [...omOptions.map((o) => ({ value: o.name, label: o.name })), { value: OM_OTHER, label: "Outro…" }], [omOptions])
+	// A lista de OMs ativas já passa de 25 — e quem responde procura a própria sigla. Só a
+	// lista: o servidor recusa OM fora de `om_option`, porque é ela que decide quem vê a resposta.
+	const omSelectOptions = useMemo(() => omOptions.map((o) => ({ value: o.name, label: o.name })), [omOptions])
 
-	const resolvedOm = om === OM_OTHER ? omCustom.trim() : (om ?? "")
+	const resolvedOm = om ?? ""
 	const canSubmit = evaluationType && resolvedOm && secao.trim()
 
 	// Criação de sessão é escrita: como mutation ela ganha erro tratado e o
@@ -429,19 +428,17 @@ function MetadataStep({
 						emptyLabel="Nenhuma OM encontrada."
 						aria-label="OM (Organização Militar)"
 					/>
-					{om === OM_OTHER && (
-						<Input
-							value={omCustom}
-							onChange={(e) => dispatch({ type: "SET_OM_CUSTOM", value: e.target.value })}
-							placeholder="Digite o nome da OM"
-							className="mt-2"
-						/>
-					)}
+					<p className="text-xs text-muted-foreground">Sua OM não está na lista? Avise quem enviou o questionário para incluí-la.</p>
 				</div>
 
 				<div className="space-y-2">
 					<Label className="text-sm font-medium">Seção</Label>
-					<Input value={secao} onChange={(e) => dispatch({ type: "SET_SECAO", value: e.target.value })} placeholder="Ex: Seção de Subsistência" />
+					<Input
+						value={secao}
+						onChange={(e) => dispatch({ type: "SET_SECAO", value: e.target.value })}
+						placeholder="Ex: Seção de Subsistência"
+						maxLength={MAX_SECAO_CHARS}
+					/>
 				</div>
 
 				<div className="pt-2">
@@ -497,9 +494,9 @@ function QuestionInput({
 
 	switch (question.type) {
 		case "text":
-			return <Input value={(value as string) ?? ""} onChange={(event) => onChange(event.target.value)} />
+			return <Input value={(value as string) ?? ""} onChange={(event) => onChange(event.target.value)} maxLength={MAX_ANSWER_TEXT_CHARS} />
 		case "textarea":
-			return <Textarea value={(value as string) ?? ""} onChange={(event) => onChange(event.target.value)} rows={3} />
+			return <Textarea value={(value as string) ?? ""} onChange={(event) => onChange(event.target.value)} rows={3} maxLength={MAX_ANSWER_TEXT_CHARS} />
 		case "number":
 			return <Input type="number" value={(value as string) ?? ""} onChange={(event) => onChange(event.target.value ? Number(event.target.value) : null)} />
 		case "date":
