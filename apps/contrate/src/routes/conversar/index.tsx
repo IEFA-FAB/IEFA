@@ -4,7 +4,6 @@ import { ChatLines, Plus, WarningTriangle } from "iconoir-react"
 import { SectionHeader } from "@/components/alpha/SectionNav"
 import { SaveToggle } from "@/components/chat/SaveToggle"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/useAuth"
 import { chatListQueryOptions, useCreateChat } from "@/lib/alpha/chat"
 import { describeChatError } from "@/lib/alpha/chat-model"
 import { formatDateTime } from "@/lib/alpha/format"
@@ -15,8 +14,7 @@ export const Route = createFileRoute("/conversar/")({
 })
 
 function ConversasPage() {
-	const { session } = useAuth()
-	const threads = useQuery(chatListQueryOptions(session?.access_token, { kind: "avulso" }))
+	const threads = useQuery(chatListQueryOptions({ kind: "avulso" }))
 	const create = useCreateChat()
 	const navigate = useNavigate()
 

@@ -5,7 +5,6 @@ import { StatGrid } from "@/components/aci/StatGrid"
 import { SectionHeader } from "@/components/alpha/SectionNav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/useAuth"
 import { DECISION_LABEL, downloadReportMarkdown, type FinalReport, finalReportQueryOptions } from "@/lib/alpha/aci"
 import { compareSeverity, type Finding } from "@/lib/alpha/compliance"
 import { formatDateTime } from "@/lib/alpha/format"
@@ -190,10 +189,8 @@ function ReportBody({ report }: { report: FinalReport }) {
 
 /** Relatório final de uma execução — o mesmo na Plataforma ACI e no módulo Requisitante. */
 export function ReportView({ runId, eyebrow, processLink }: { runId: string; eyebrow: string; processLink: ProcessLink }) {
-	const { session } = useAuth()
-	const token = session?.access_token
-	const report = useQuery(finalReportQueryOptions(token, runId))
-	const download = useMutation({ mutationFn: () => downloadReportMarkdown(token, runId) })
+	const report = useQuery(finalReportQueryOptions(runId))
+	const download = useMutation({ mutationFn: () => downloadReportMarkdown(runId) })
 
 	return (
 		<div>

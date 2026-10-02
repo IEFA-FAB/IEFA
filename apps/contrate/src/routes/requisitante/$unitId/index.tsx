@@ -4,7 +4,6 @@ import { CloudUpload, WarningTriangle } from "iconoir-react"
 import { useMemo } from "react"
 import { RequesterNav } from "@/components/requisitante/RequesterNav"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/useAuth"
 import { formatDateTime } from "@/lib/alpha/format"
 import { submissionsQueryOptions } from "@/lib/alpha/submissions"
 import { unitsQueryOptions } from "@/lib/alpha/units"
@@ -15,10 +14,9 @@ const LIST_LIMIT = 50
 export const Route = createFileRoute("/requisitante/$unitId/")({
 	// Só no cliente (a rota-mãe é `ssr: false`): `alphaRequest` fala com outro serviço.
 	loader: ({ context }) => {
-		const token = context.auth.session?.access_token
-		if (!token) return
+		if (!context.auth.isAuthenticated) return
 
-		void context.queryClient.query({ ...submissionsQueryOptions(token, context.scopeContext), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...submissionsQueryOptions(context.scopeContext), staleTime: "static" }).catch(() => {})
 	},
 	component: ProcessosPage,
 	head: () => ({ meta: [{ title: "Processos · Requisitante" }] }),
@@ -31,12 +29,10 @@ const SUBTITLE = {
 } as const
 
 function ProcessosPage() {
-	const { session } = useAuth()
-	const token = session?.access_token
 	const { unitId } = Route.useParams()
 	const { scopeContext } = Route.useRouteContext()
-	const submissions = useQuery(submissionsQueryOptions(token, scopeContext))
-	const units = useQuery(unitsQueryOptions(token))
+	const submissions = useQuery(submissionsQueryOptions(scopeContext))
+	const units = useQuery(unitsQueryOptions())
 	const unitCodes = useMemo(() => new Map((units.data ?? []).map((unit) => [unit.id, unit.code])), [units.data])
 	// Numa OM só, a coluna repetiria a mesma sigla em todas as linhas.
 	const showUnit = scopeContext.kind !== "unit"

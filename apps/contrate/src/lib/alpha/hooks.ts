@@ -1,13 +1,11 @@
 /**
  * Acesso ao Projeto α a partir do portal.
  *
- * O alpha valida o JWT do Supabase por request, então o cliente RPC é criado
- * sob demanda com o token da sessão corrente — nunca memoizado, porque token
- * expira (ver `getAlphaClient` em `@/lib/hono`).
+ * O alpha valida o JWT do Supabase por request; `alphaRequest` lê o token da sessão
+ * corrente a cada chamada — nunca memoizado, porque token expira.
  */
 
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useAuth } from "@/hooks/useAuth"
 import { alphaPath, alphaRequest } from "./client"
 
 export interface NormativeSource {
@@ -53,46 +51,40 @@ export interface DocumentStructure {
 	nodes: StructureNode[]
 }
 
-export function sourcesQueryOptions(token: string | undefined) {
+export function sourcesQueryOptions() {
 	return queryOptions({
 		queryKey: ["alpha", "sources"],
-		queryFn: async () => (await alphaRequest<{ sources: NormativeSource[] }>("/api/v1/sources", token)).sources,
+		queryFn: async () => (await alphaRequest<{ sources: NormativeSource[] }>("/api/v1/sources")).sources,
 		staleTime: 30_000,
 	})
 }
 
-export function sourceDocumentsQueryOptions(token: string | undefined, sourceId: string, includeSuperseded = false) {
+export function sourceDocumentsQueryOptions(sourceId: string, includeSuperseded = false) {
 	return queryOptions({
 		queryKey: ["alpha", "sources", sourceId, "documents", includeSuperseded],
 		queryFn: async () =>
-			(await alphaRequest<{ documents: AlphaDocument[] }>(alphaPath`/api/v1/sources/${sourceId}/documents?include_superseded=${includeSuperseded}`, token))
-				.documents,
+			(await alphaRequest<{ documents: AlphaDocument[] }>(alphaPath`/api/v1/sources/${sourceId}/documents?include_superseded=${includeSuperseded}`)).documents,
 	})
 }
 
-export function documentStructureQueryOptions(token: string | undefined, documentId: string) {
+export function documentStructureQueryOptions(documentId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "documents", documentId, "structure"],
-		queryFn: () => alphaRequest<DocumentStructure>(alphaPath`/api/v1/documents/${documentId}/structure`, token),
+		queryFn: () => alphaRequest<DocumentStructure>(alphaPath`/api/v1/documents/${documentId}/structure`),
 	})
 }
 
 export function useRefreshSource() {
 	const queryClient = useQueryClient()
-	const { session } = useAuth()
 
 	return useMutation({
 		mutationFn: (sourceId: string) =>
 			// Coleta a partir do console é sempre simulação: gravar é decisão de
 			// operação, feita pela CLI ou pelo job agendado, não por clique na tela.
-			alphaRequest<{ source_id: string; discovered: number; items: Array<{ outcome: string }> }>(
-				alphaPath`/api/v1/sources/${sourceId}/refresh`,
-				session?.access_token,
-				{
-					method: "POST",
-					body: JSON.stringify({ apply: false }),
-				}
-			),
+			alphaRequest<{ source_id: string; discovered: number; items: Array<{ outcome: string }> }>(alphaPath`/api/v1/sources/${sourceId}/refresh`, {
+				method: "POST",
+				body: JSON.stringify({ apply: false }),
+			}),
 		onSuccess: (_result, sourceId) => {
 			queryClient.invalidateQueries({ queryKey: ["alpha", "sources"] })
 			queryClient.invalidateQueries({ queryKey: ["alpha", "sources", sourceId] })

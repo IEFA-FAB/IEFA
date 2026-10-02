@@ -4,7 +4,6 @@ import { useCallback, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { useAuth } from "@/hooks/useAuth"
 import { chatListQueryOptions } from "@/lib/alpha/chat"
 import { formatDateTime } from "@/lib/alpha/format"
 import { ChatStarter } from "./ChatStarter"
@@ -31,8 +30,7 @@ export function ProcessChatPanel({
 	draft: string | null
 	onDraftConsumed: () => void
 }) {
-	const { session } = useAuth()
-	const threads = useQuery({ ...chatListQueryOptions(session?.access_token, { submissionId }), enabled: open && Boolean(session?.access_token) })
+	const threads = useQuery({ ...chatListQueryOptions({ submissionId }), enabled: open })
 
 	// `undefined` = a mais recente; `null` = nova conversa, ainda sem id.
 	const [selected, setSelected] = useState<string | null | undefined>(undefined)

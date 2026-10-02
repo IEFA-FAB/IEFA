@@ -25,9 +25,8 @@ export interface ModuleAccess {
  * módulos abertos). É conveniência de tela; quem decide é o servidor.
  */
 export function useModuleAccess(): ModuleAccess {
-	const { isAuthenticated, session } = useAuth()
-	const token = session?.access_token
-	const access = useQuery({ ...alphaAccessQueryOptions(token), enabled: isAuthenticated && !!token })
+	const { isAuthenticated } = useAuth()
+	const access = useQuery({ ...alphaAccessQueryOptions(), enabled: isAuthenticated })
 	const hydrated = useHydrated()
 
 	// Até a hidratação terminar, o perfil é tratado como "ainda chegando", mesmo que já esteja
@@ -39,8 +38,8 @@ export function useModuleAccess(): ModuleAccess {
 	return {
 		modules: accessibleModules({ isAuthenticated, access: data }),
 		access: data,
-		// Consulta desabilitada (sem token) também fica `pending` para sempre: não é espera.
-		isPending: isAuthenticated && !!token && (!hydrated || access.isPending),
+		// Consulta desabilitada (sem sessão) também fica `pending` para sempre: não é espera.
+		isPending: isAuthenticated && (!hydrated || access.isPending),
 		accessFailed: hydrated && access.isError && access.data === undefined,
 		isAuthenticated,
 	}

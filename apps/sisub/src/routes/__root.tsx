@@ -42,7 +42,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			return {
 				auth: {
 					user: null,
-					session: null,
 					isAuthenticated: false,
 					isLoading: false,
 				},

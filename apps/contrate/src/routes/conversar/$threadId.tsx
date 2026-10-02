@@ -5,7 +5,6 @@ import { AttachmentDropzone } from "@/components/chat/AttachmentDropzone"
 import { ChatThreadView } from "@/components/chat/ChatThreadView"
 import { SaveToggle } from "@/components/chat/SaveToggle"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/useAuth"
 import { chatThreadQueryOptions, useDeleteChat } from "@/lib/alpha/chat"
 import { describeChatError } from "@/lib/alpha/chat-model"
 
@@ -16,8 +15,7 @@ export const Route = createFileRoute("/conversar/$threadId")({
 
 function ConversaPage() {
 	const { threadId } = Route.useParams()
-	const { session } = useAuth()
-	const thread = useQuery(chatThreadQueryOptions(session?.access_token, threadId))
+	const thread = useQuery(chatThreadQueryOptions(threadId))
 	const remove = useDeleteChat()
 	const navigate = useNavigate()
 

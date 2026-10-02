@@ -128,7 +128,6 @@ function AuthSync() {
 			if (event === "SIGNED_OUT") {
 				queryClient.setQueryData(authQueryOptions().queryKey, {
 					user: null,
-					session: null,
 					isAuthenticated: false,
 					isLoading: false,
 				})

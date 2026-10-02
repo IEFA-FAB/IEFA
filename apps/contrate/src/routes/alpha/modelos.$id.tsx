@@ -4,7 +4,6 @@ import { NavArrowLeft, WarningTriangle } from "iconoir-react"
 import { useMemo, useState } from "react"
 import { ConsoleNav } from "@/components/alpha/ConsoleNav"
 import { Badge } from "@/components/ui/badge"
-import { useAuth } from "@/hooks/useAuth"
 import { documentStructureQueryOptions, type StructureNode } from "@/lib/alpha/hooks"
 
 export const Route = createFileRoute("/alpha/modelos/$id")({
@@ -13,14 +12,13 @@ export const Route = createFileRoute("/alpha/modelos/$id")({
 		// no SSR uma chamada pendurada prenderia a resposta do documento.
 		if (typeof document === "undefined") return
 
-		const token = context.auth.session?.access_token
-		if (!token) return
+		if (!context.auth.isAuthenticated) return
 
 		// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
 		// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação
 		// (e o SSR) na resposta.
 		// O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
-		void context.queryClient.query({ ...documentStructureQueryOptions(token, params.id), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...documentStructureQueryOptions(params.id), staleTime: "static" }).catch(() => {})
 	},
 	component: ModeloPage,
 })
@@ -46,8 +44,7 @@ function NodeRow({ node, selected, onSelect }: { node: StructureNode; selected: 
 
 function ModeloPage() {
 	const { id } = Route.useParams()
-	const { session } = useAuth()
-	const structure = useQuery(documentStructureQueryOptions(session?.access_token, id))
+	const structure = useQuery(documentStructureQueryOptions(id))
 	const [selectedPath, setSelectedPath] = useState<string | null>(null)
 
 	const selected = useMemo(() => structure.data?.nodes.find((node) => node.path === selectedPath) ?? null, [structure.data, selectedPath])

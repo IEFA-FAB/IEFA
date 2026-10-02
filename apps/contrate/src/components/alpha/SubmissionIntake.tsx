@@ -3,7 +3,6 @@ import { CloudUpload, WarningTriangle } from "iconoir-react"
 import { useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useAuth } from "@/hooks/useAuth"
 import {
 	CAMPO_LABELS,
 	type CampoKey,
@@ -57,9 +56,8 @@ export function SubmissionIntakeForm({
 	onExtracted: (result: IntakeResult) => void
 }) {
 	const queryClient = useQueryClient()
-	const { session } = useAuth()
 	const fileRef = useRef<HTMLInputElement>(null)
-	const units = useQuery(unitsQueryOptions(session?.access_token))
+	const units = useQuery(unitsQueryOptions())
 
 	const [docKind, setDocKind] = useState<DocKind>("TR")
 	const [objeto, setObjeto] = useState<ObjetoTipo | null>(null)
@@ -202,9 +200,8 @@ export function ExtractionFieldsView({
 	payload: ExtractionPayload
 	spans: Partial<Record<CampoKey, SourceSpan>>
 }) {
-	const { session } = useAuth()
 	const [selectedField, setSelectedField] = useState<CampoKey | null>(null)
-	const documentText = useQuery({ ...submissionTextQueryOptions(session?.access_token, submissionId), enabled: selectedField !== null })
+	const documentText = useQuery({ ...submissionTextQueryOptions(submissionId), enabled: selectedField !== null })
 
 	const fields = useMemo(
 		() =>

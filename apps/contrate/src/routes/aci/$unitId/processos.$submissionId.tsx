@@ -4,11 +4,10 @@ import { processDetailQueryOptions } from "@/lib/alpha/aci"
 
 export const Route = createFileRoute("/aci/$unitId/processos/$submissionId")({
 	loader: ({ context, params }) => {
-		const token = context.auth.session?.access_token
-		if (!token) return
+		if (!context.auth.isAuthenticated) return
 
 		// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento próprio.
-		void context.queryClient.query({ ...processDetailQueryOptions(token, params.submissionId), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...processDetailQueryOptions(params.submissionId), staleTime: "static" }).catch(() => {})
 	},
 	component: ProcessoPage,
 	head: () => ({ meta: [{ title: "Processo · Plataforma ACI" }] }),

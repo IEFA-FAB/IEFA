@@ -9,11 +9,10 @@ import { UnitsResponseSchema } from "@iefa/alpha-client/access"
 import { queryOptions } from "@tanstack/react-query"
 import { alphaRequest } from "./client"
 
-export function unitsQueryOptions(token: string | undefined) {
+export function unitsQueryOptions() {
 	return queryOptions({
 		queryKey: ["alpha", "units"] as const,
-		queryFn: async () => UnitsResponseSchema.parse(await alphaRequest<unknown>("/api/v1/units", token)).units,
-		enabled: !!token,
+		queryFn: async () => UnitsResponseSchema.parse(await alphaRequest<unknown>("/api/v1/units")).units,
 		// Cadastro de OM muda por migração, não por uso.
 		staleTime: 10 * 60_000,
 	})

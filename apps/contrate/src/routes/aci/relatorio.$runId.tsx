@@ -16,7 +16,7 @@ export const Route = createFileRoute("/aci/relatorio/$runId")({
 		try {
 			const [access, report] = await Promise.all([
 				loadAlphaAccess(context),
-				context.queryClient.query({ ...finalReportQueryOptions(context.auth.session?.access_token, params.runId), staleTime: 60_000 }),
+				context.queryClient.query({ ...finalReportQueryOptions(params.runId), staleTime: 60_000 }),
 			])
 			target = resolveLegacyProcessPath(access, report.submission.unit_id, "relatorio", params.runId)
 		} catch {

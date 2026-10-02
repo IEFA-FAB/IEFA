@@ -1,7 +1,7 @@
 /**
  * Plataforma ACI (Etapa 1.8) — fila, processo, triagem, parecer e relatório.
  *
- * Mesmo padrão das demais libs do α: `fetch` direto com o token da sessão a
+ * Mesmo padrão das demais libs do α: `fetch` direto com o token da sessão lido a
  * cada chamada, porque o α valida o JWT por request e o token expira.
  *
  * O que é REGRA (em que etapa o processo está, se a decisão pode ser emitida)
@@ -10,8 +10,7 @@
  */
 
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useAuth } from "@/hooks/useAuth"
-import { ALPHA_BASE_URL, alphaPath, alphaRequest } from "./client"
+import { ALPHA_BASE_URL, alphaAuthHeaders, alphaPath, alphaRequest } from "./client"
 import type { ComplianceRun, Finding, Severity } from "./compliance"
 
 export const STAGE_ORDER = ["enviado", "extraido", "verificado", "parecer"] as const
@@ -166,34 +165,34 @@ export interface FinalReport {
  * Fila das OMs cobertas. `unitId` recorta uma OM; `null` é a cobertura inteira — que só a
  * rota `todas` pede, e só o papel global alcança (fora dele o α responde 403).
  */
-export function aciQueueQueryOptions(token: string | undefined, unitId: number | null) {
+export function aciQueueQueryOptions(unitId: number | null) {
 	return queryOptions({
 		queryKey: ["alpha", "aci", "queue", unitId ?? "todas"],
-		queryFn: () => alphaRequest<Queue>(unitId === null ? "/api/v1/aci/queue" : alphaPath`/api/v1/aci/queue?unit_id=${unitId}`, token),
+		queryFn: () => alphaRequest<Queue>(unitId === null ? "/api/v1/aci/queue" : alphaPath`/api/v1/aci/queue?unit_id=${unitId}`),
 		staleTime: 15_000,
 	})
 }
 
-export function processDetailQueryOptions(token: string | undefined, submissionId: string) {
+export function processDetailQueryOptions(submissionId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "aci", "process", submissionId],
-		queryFn: () => alphaRequest<ProcessDetail>(alphaPath`/api/v1/aci/processes/${submissionId}`, token),
+		queryFn: () => alphaRequest<ProcessDetail>(alphaPath`/api/v1/aci/processes/${submissionId}`),
 		staleTime: 30_000,
 	})
 }
 
-export function reviewsQueryOptions(token: string | undefined, runId: string) {
+export function reviewsQueryOptions(runId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "compliance", runId, "reviews"],
-		queryFn: () => alphaRequest<ReviewsResponse>(alphaPath`/api/v1/compliance/runs/${runId}/reviews`, token),
+		queryFn: () => alphaRequest<ReviewsResponse>(alphaPath`/api/v1/compliance/runs/${runId}/reviews`),
 		staleTime: 30_000,
 	})
 }
 
-export function finalReportQueryOptions(token: string | undefined, runId: string) {
+export function finalReportQueryOptions(runId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "compliance", runId, "report"],
-		queryFn: () => alphaRequest<FinalReport>(alphaPath`/api/v1/compliance/runs/${runId}/report`, token),
+		queryFn: () => alphaRequest<FinalReport>(alphaPath`/api/v1/compliance/runs/${runId}/report`),
 		// O relatório junta seis leituras no α; ele só muda por triagem ou parecer,
 		// e as duas mutações já invalidam esta chave.
 		staleTime: 60_000,
@@ -206,9 +205,9 @@ export function finalReportQueryOptions(token: string | undefined, runId: string
  * Não é um link: o α exige o Bearer, e um `<a href>` não o leva. O corpo vem
  * como texto e vira um download no cliente.
  */
-export async function downloadReportMarkdown(token: string | undefined, runId: string): Promise<void> {
+export async function downloadReportMarkdown(runId: string): Promise<void> {
 	const response = await fetch(`${ALPHA_BASE_URL}${alphaPath`/api/v1/compliance/runs/${runId}/report`}?format=md`, {
-		headers: token ? { Authorization: `Bearer ${token}` } : {},
+		headers: await alphaAuthHeaders(),
 	})
 	if (!response.ok) throw new Error(`relatório: ${response.status}`)
 
@@ -222,12 +221,11 @@ export async function downloadReportMarkdown(token: string | undefined, runId: s
 }
 
 export function useTriageFinding() {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 
 	return useMutation({
 		mutationFn: ({ findingId, triage, note }: { findingId: string; runId: string; submissionId?: string; triage: Triage; note?: string }) =>
-			alphaRequest<Finding>(alphaPath`/api/v1/compliance/findings/${findingId}`, session?.access_token, {
+			alphaRequest<Finding>(alphaPath`/api/v1/compliance/findings/${findingId}`, {
 				method: "PATCH",
 				body: JSON.stringify({ triage, note }),
 			}),
@@ -249,12 +247,11 @@ export function useTriageFinding() {
 }
 
 export function useIssueReview() {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 
 	return useMutation({
 		mutationFn: ({ runId, decision, notes }: { runId: string; submissionId?: string; decision: Decision; notes?: string }) =>
-			alphaRequest<Review>(alphaPath`/api/v1/compliance/runs/${runId}/reviews`, session?.access_token, {
+			alphaRequest<Review>(alphaPath`/api/v1/compliance/runs/${runId}/reviews`, {
 				method: "POST",
 				body: JSON.stringify({ decision, notes }),
 			}),

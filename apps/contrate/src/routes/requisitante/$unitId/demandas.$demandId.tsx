@@ -5,7 +5,6 @@ import { useState } from "react"
 import { z } from "zod"
 import { DemandEditor, EDITOR_STEPS, type EditorStep } from "@/components/demand/DemandEditor"
 import { RequesterNav } from "@/components/requisitante/RequesterNav"
-import { useAuth } from "@/hooks/useAuth"
 import { demandQueryOptions } from "@/lib/alpha/demands"
 import { formatDateTime } from "@/lib/alpha/format"
 import { unitsQueryOptions } from "@/lib/alpha/units"
@@ -16,23 +15,21 @@ const SearchSchema = z.object({ passo: z.enum(EDITOR_STEPS).optional().catch(und
 export const Route = createFileRoute("/requisitante/$unitId/demandas/$demandId")({
 	validateSearch: (search: Record<string, unknown>) => SearchSchema.parse(search),
 	loader: ({ context, params }) => {
-		const token = context.auth.session?.access_token
-		if (!token) return
-		void context.queryClient.query({ ...demandQueryOptions(token, params.demandId), staleTime: "static" }).catch(() => {})
+		if (!context.auth.isAuthenticated) return
+		void context.queryClient.query({ ...demandQueryOptions(params.demandId), staleTime: "static" }).catch(() => {})
 	},
 	component: DemandaPage,
 	head: () => ({ meta: [{ title: "Demanda · Requisitante" }] }),
 })
 
 function DemandaPage() {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	const navigate = useNavigate({ from: Route.fullPath })
 	const { unitId, demandId } = Route.useParams()
 	const { passo } = Route.useSearch()
 	const { scopeContext } = Route.useRouteContext()
-	const detail = useQuery(demandQueryOptions(session?.access_token, demandId))
-	const units = useQuery(unitsQueryOptions(session?.access_token))
+	const detail = useQuery(demandQueryOptions(demandId))
+	const units = useQuery(unitsQueryOptions())
 	const unit = units.data?.find((candidate) => candidate.id === detail.data?.unit_id)
 	// Recarregar depois de um conflito remonta o editor com a versão do banco.
 	const [generation, setGeneration] = useState(0)

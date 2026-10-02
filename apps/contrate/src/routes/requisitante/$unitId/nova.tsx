@@ -4,7 +4,6 @@ import { Lock } from "iconoir-react"
 import { useState } from "react"
 import { SubmissionIntakeForm } from "@/components/alpha/SubmissionIntake"
 import { RequesterNav } from "@/components/requisitante/RequesterNav"
-import { useAuth } from "@/hooks/useAuth"
 import { alphaAccessQueryOptions } from "@/lib/alpha/role"
 import { getModule, moduleScopeOptions } from "@/lib/modules"
 import { pickScopeForUnit } from "@/lib/scope"
@@ -23,10 +22,9 @@ export const Route = createFileRoute("/requisitante/$unitId/nova")({
  */
 function NovaPage() {
 	const navigate = useNavigate()
-	const { session } = useAuth()
 	const { unitId } = Route.useParams()
 	const { scopeContext } = Route.useRouteContext()
-	const access = useQuery(alphaAccessQueryOptions(session?.access_token))
+	const access = useQuery(alphaAccessQueryOptions())
 	// Guardado assim que o documento existe no α: se a extração falhar, ainda há como
 	// chegar ao processo em vez de reenviar o arquivo.
 	const [submitted, setSubmitted] = useState<{ submissionId: string; unitId: number } | null>(null)

@@ -25,7 +25,7 @@ interface GuardContext {
 
 /** O perfil do α, do cache quando fresco. Falha propaga: a rota mostra o erro, não "sem acesso". */
 export function loadAlphaAccess(context: GuardContext): Promise<MeAccess> {
-	return context.queryClient.query({ ...alphaAccessQueryOptions(context.auth.session?.access_token), staleTime: 60_000 })
+	return context.queryClient.query({ ...alphaAccessQueryOptions(), staleTime: 60_000 })
 }
 
 /**

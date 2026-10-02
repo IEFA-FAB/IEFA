@@ -31,12 +31,11 @@ export const ROLE_LABEL: Record<AlphaRole, string> = {
 	admin: "Administração de acessos",
 }
 
-export function alphaAccessQueryOptions(token: string | undefined) {
+export function alphaAccessQueryOptions() {
 	return queryOptions({
 		queryKey: ALPHA_ACCESS_QUERY_KEY,
 		queryFn: async (): Promise<MeAccess> =>
-			MeAccessSchema.parse(await alphaRequest<unknown>("/api/v1/me/access", token, { signal: AbortSignal.timeout(ACCESS_TIMEOUT_MS) })),
-		enabled: !!token,
+			MeAccessSchema.parse(await alphaRequest<unknown>("/api/v1/me/access", { signal: AbortSignal.timeout(ACCESS_TIMEOUT_MS) })),
 		staleTime: 60_000,
 	})
 }

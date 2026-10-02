@@ -5,7 +5,6 @@ import { useMemo, useState } from "react"
 import { ConsoleNav } from "@/components/alpha/ConsoleNav"
 import { FindingCard } from "@/components/alpha/FindingCard"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useAuth } from "@/hooks/useAuth"
 import { compareSeverity, complianceRunQueryOptions, SEVERITY_ORDER, type Severity } from "@/lib/alpha/compliance"
 
 export const Route = createFileRoute("/alpha/analise/$runId")({
@@ -14,14 +13,13 @@ export const Route = createFileRoute("/alpha/analise/$runId")({
 		// no SSR uma chamada pendurada prenderia a resposta do documento.
 		if (typeof document === "undefined") return
 
-		const token = context.auth.session?.access_token
-		if (!token) return
+		if (!context.auth.isAuthenticated) return
 
 		// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
 		// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação
 		// (e o SSR) na resposta.
 		// O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
-		void context.queryClient.query({ ...complianceRunQueryOptions(token, params.runId), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...complianceRunQueryOptions(params.runId), staleTime: "static" }).catch(() => {})
 	},
 	component: RelatorioPage,
 })
@@ -30,8 +28,7 @@ type Tab = "estrutural" | "conformidade" | "execucao"
 
 function RelatorioPage() {
 	const { runId } = Route.useParams()
-	const { session } = useAuth()
-	const report = useQuery(complianceRunQueryOptions(session?.access_token, runId))
+	const report = useQuery(complianceRunQueryOptions(runId))
 
 	const [tab, setTab] = useState<Tab>("conformidade")
 	const [severityFilter, setSeverityFilter] = useState<Severity | "todas">("todas")

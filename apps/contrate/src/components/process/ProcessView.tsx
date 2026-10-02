@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { useAuth } from "@/hooks/useAuth"
 import { DECISION_LABEL, DECISIONS, type Decision, processDetailQueryOptions, reviewsQueryOptions, useIssueReview, useTriageFinding } from "@/lib/alpha/aci"
 import { findingQuestion } from "@/lib/alpha/chat-model"
 import {
@@ -116,8 +115,7 @@ function FindingsTab({
 	decider: boolean
 	onAsk?: (question: string) => void
 }) {
-	const { session } = useAuth()
-	const report = useQuery(complianceRunQueryOptions(session?.access_token, run.id))
+	const report = useQuery(complianceRunQueryOptions(run.id))
 	const [severityFilter, setSeverityFilter] = useState<Severity | "todas">("todas")
 	const [onlyPending, setOnlyPending] = useState(false)
 
@@ -215,8 +213,7 @@ function FindingsTab({
 }
 
 function ExtractionTab({ submissionId }: { submissionId: string }) {
-	const { session } = useAuth()
-	const extractions = useQuery(extractionsQueryOptions(session?.access_token, submissionId))
+	const extractions = useQuery(extractionsQueryOptions(submissionId))
 	const latest = extractions.data?.[0]
 
 	if (extractions.isLoading) return <p className="text-muted-foreground text-sm">carregando extração…</p>
@@ -235,8 +232,7 @@ function ExtractionTab({ submissionId }: { submissionId: string }) {
 }
 
 function ReviewTab({ run, submissionId, decider, reportLink }: { run: ComplianceRun; submissionId: string; decider: boolean; reportLink: ReportLink }) {
-	const { session } = useAuth()
-	const reviews = useQuery(reviewsQueryOptions(session?.access_token, run.id))
+	const reviews = useQuery(reviewsQueryOptions(run.id))
 	const issue = useIssueReview()
 
 	const [decision, setDecision] = useState<Decision | null>(null)
@@ -408,11 +404,9 @@ function ReviewTab({ run, submissionId, decider, reportLink }: { run: Compliance
  * sobre o processo de outra.
  */
 export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionId: string; eyebrow: string; reportLink: ReportLink }) {
-	const { session } = useAuth()
-	const token = session?.access_token
 	const queryClient = useQueryClient()
 
-	const detail = useQuery(processDetailQueryOptions(token, submissionId))
+	const detail = useQuery(processDetailQueryOptions(submissionId))
 	const decider = detail.data?.can_decide ?? false
 	const runExtraction = useRunExtraction()
 	const runCompliance = useRunCompliance()

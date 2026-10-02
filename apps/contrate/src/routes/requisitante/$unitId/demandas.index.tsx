@@ -15,9 +15,8 @@ import { unitsQueryOptions } from "@/lib/alpha/units"
 export const Route = createFileRoute("/requisitante/$unitId/demandas/")({
 	// Só no cliente (a rota-mãe é `ssr: false`): `alphaRequest` fala com outro serviço.
 	loader: ({ context }) => {
-		const token = context.auth.session?.access_token
-		if (!token) return
-		void context.queryClient.query({ ...demandsQueryOptions(token, context.scopeContext), staleTime: "static" }).catch(() => {})
+		if (!context.auth.isAuthenticated) return
+		void context.queryClient.query({ ...demandsQueryOptions(context.scopeContext), staleTime: "static" }).catch(() => {})
 	},
 	component: DemandasPage,
 	head: () => ({ meta: [{ title: "Demandas · Requisitante" }] }),
@@ -32,17 +31,16 @@ const STATUS_LABEL = { rascunho: "Rascunho", enviada: "Enviada à ACI" } as cons
  */
 function DemandasPage() {
 	const navigate = useNavigate()
-	const { session } = useAuth()
-	const token = session?.access_token
 	const { unitId } = Route.useParams()
 	const { scopeContext } = Route.useRouteContext()
-	const demands = useQuery(demandsQueryOptions(token, scopeContext))
-	const units = useQuery(unitsQueryOptions(token))
-	const access = useQuery(alphaAccessQueryOptions(token))
+	const demands = useQuery(demandsQueryOptions(scopeContext))
+	const units = useQuery(unitsQueryOptions())
+	const access = useQuery(alphaAccessQueryOptions())
 	const unitCodes = useMemo(() => new Map((units.data ?? []).map((unit) => [unit.id, unit.code])), [units.data])
 	const create = useCreateDemand()
 	const remove = useDeleteDemand()
-	const userId = session?.user.id
+	const { user } = useAuth()
+	const userId = user?.id
 
 	const [creating, setCreating] = useState(false)
 	const [title, setTitle] = useState("")
