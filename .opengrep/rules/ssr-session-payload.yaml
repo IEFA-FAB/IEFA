@@ -1,0 +1,24 @@
+##
+# Invariante: a server fn que o React Query usa para o estado de auth devolve só o usuário.
+#
+# Nasceu de bug: `getServerSessionFn` devolvia a sessão do Supabase (access e refresh token),
+# o `authQueryOptions` a guardava no React Query e o SSR serializava o estado no HTML. O
+# portal fechou no #537; contrate e sisub seguiam iguais até o #552. Quem precisa do token
+# lê do client do navegador na hora (`readAccessToken` de `@iefa/auth-kit`).
+#
+# Casos de teste: `__fixtures__/ssr-session-payload.ts` (opengrep test --config
+# .opengrep/rules/ssr-session-payload.yaml .opengrep/rules/__fixtures__/ssr-session-payload.ts).
+##
+rules:
+  - id: ssr-auth-session-payload
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `getSession()` na server fn de auth: o retorno dela vai para o estado do React Query,
+      que o SSR serializa no HTML, e a sessão carrega access e refresh token. Devolva só
+      `{ user }` (validado com `getUser()`); o token, quem precisa lê do client do navegador
+      com `readAccessToken` (`@iefa/auth-kit`).
+    paths:
+      include:
+        - "apps/*/src/server/auth.fn.ts"
+    pattern: $CLIENT.auth.getSession(...)

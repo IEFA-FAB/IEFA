@@ -46,7 +46,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit|Bash",
+        "matcher": "Edit|Write|MultiEdit|Bash|mcp__supabase__apply_migration|mcp__supabase__execute_sql",
         "hooks": [
           {
             "type": "command",

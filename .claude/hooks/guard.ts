@@ -9,7 +9,7 @@
 type HookInput = {
 	tool_name?: string;
 	cwd?: string;
-	tool_input?: { file_path?: string; command?: string };
+	tool_input?: { file_path?: string; command?: string; query?: string };
 };
 
 const input: HookInput = await Bun.stdin.json().catch(() => ({}));
@@ -61,9 +61,28 @@ const GENERATED: Array<[RegExp, string]> = [
 		"Tipos gerados do Supabase. Rode `bun --filter @iefa/database db:types` depois de aplicar a migration.",
 	],
 	[/^packages\/compras-api\/src\/types\.gen\.ts$/, "Gerado por openapi-typescript a partir do swagger do Compras.gov."],
+	[
+		/^packages\/database\/drizzle\/(schema|relations)\.ts$/,
+		"Gerado por `bun --filter @iefa/database db:drizzle:pull` (drizzle-kit pull + patch). Ajuste o banco ou `scripts/patch-drizzle-pull.ts` e gere de novo.",
+	],
 ];
 
 const tool = input.tool_name ?? "";
+
+// MCP do Supabase aponta para o banco compartilhado (produção + treino). Leitura é livre;
+// migration e SQL que escreve seguem a mesma regra do `db push`: só com pedido explícito.
+if (tool === "mcp__supabase__apply_migration") {
+	decide("ask", "apply_migration escreve no banco compartilhado (produção + treino). Ordem declara → aplica → mergeia, só com pedido explícito do mantenedor.");
+}
+if (tool === "mcp__supabase__execute_sql") {
+	const sql = (input.tool_input?.query ?? "")
+		.replace(/--[^\n]*/g, "")
+		.replace(/\/\*[\s\S]*?\*\//g, "")
+		.replace(/'(?:''|[^'])*'/g, "''");
+	if (/\b(insert|update|delete|merge|upsert|alter|create|drop|truncate|grant|revoke|comment|do|call|copy|vacuum|reindex|cluster|refresh|lock|security\s+label|select\s+[^;]*\binto\b)\b/i.test(sql)) {
+		decide("ask", "Este SQL escreve no banco compartilhado (produção + treino). Leitura é livre; escrita só com pedido explícito do mantenedor.");
+	}
+}
 
 if (tool === "Edit" || tool === "Write" || tool === "MultiEdit") {
 	const abs = input.tool_input?.file_path ?? "";
@@ -90,6 +109,10 @@ if (tool === "Bash") {
 		"main";
 	if (pushes.some((s) => /(\s|:|\+)(refs\/heads\/)?main(\s|$)/.test(s)) || (pushes.length > 0 && onMain())) {
 		deny("A main não aceita push direto (ruleset sem bypass). Abra PR a partir de uma branch: skill ship-pr.");
+	}
+	// O ruleset da main não tem bypass e check vermelho é para ser corrigido (skill ship-pr).
+	if (segments.some((s) => /\bgh\s+pr\s+merge\b/.test(s) && /\s--admin\b/.test(s))) {
+		deny("`gh pr merge --admin` fura a espera pelos checks. Use `--auto`: o GitHub mergeia quando os checks obrigatórios passarem.");
 	}
 	if (segments.some(skipsCommitHooks)) {
 		deny(

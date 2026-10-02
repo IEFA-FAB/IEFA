@@ -1,0 +1,40 @@
+##
+# Invariante: o "hoje" do sisub é o dia civil de Brasília, não o de UTC.
+#
+# Nasceu de bug (#553): `new Date().toISOString().slice(0, 10)` devolve AMANHÃ entre 21h e a
+# meia-noite de Brasília (servidor em UTC; no navegador, o mesmo desvio). O cardápio "de
+# hoje" do MCP saía o de amanhã, o lote recebido às 22h ganhava código do dia seguinte e as
+# datas default de empenho/liquidação/pagamento pulavam um dia. Todo "hoje" sai de
+# `@iefa/sisub-domain/civil-date` (`getBrasiliaToday`, `getBrasiliaCurrentMonth`,
+# `addCivilDays`). Aritmética sobre data que JÁ é civil (`new Date(\`${d}T12:00:00Z\`)`) não
+# é o alvo: a regra só olha `new Date()` sem argumento e `Date.now()`.
+#
+# Casos de teste: `__fixtures__/utc-civil-date.ts` (opengrep test --config
+# .opengrep/rules/utc-civil-date.yaml .opengrep/rules/__fixtures__/utc-civil-date.ts).
+##
+rules:
+  - id: utc-today-as-civil-date
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Data civil tirada do relógio em UTC: entre 21h e a meia-noite de Brasília isso já é o
+      dia seguinte. Use `getBrasiliaToday()` / `getBrasiliaCurrentMonth()` e `addCivilDays`
+      de `@iefa/sisub-domain/civil-date`.
+    paths:
+      include:
+        - "apps/sisub/src"
+        - "apps/sisub-mcp/src"
+        - "packages/sisub-domain/src"
+      exclude:
+        - "*.test.ts"
+        - "*.test.tsx"
+    pattern-either:
+      - pattern: new Date().toISOString().slice(...)
+      - pattern: new Date().toISOString().substring(...)
+      - pattern: new Date().toISOString().split(...)
+      - pattern: new Date(Date.now() + $X).toISOString().slice(...)
+      - pattern: new Date(Date.now() + $X).toISOString().substring(...)
+      - pattern: new Date(Date.now() + $X).toISOString().split(...)
+      - pattern: new Date(Date.now() - $X).toISOString().slice(...)
+      - pattern: new Date(Date.now() - $X).toISOString().substring(...)
+      - pattern: new Date(Date.now() - $X).toISOString().split(...)
