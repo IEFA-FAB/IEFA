@@ -1,5 +1,5 @@
 import type { Person, Vacancy } from "@iefa/database/assignment-selection"
-import { type QueryKey, useQueryClient } from "@tanstack/react-query"
+import { hashKey, type QueryKey, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
 import { ASSIGNMENT_SELECTION_DB_SCHEMA, supabase } from "@/lib/supabase"
 import type { BoardData } from "@/server/assignment.fn"
@@ -29,13 +29,16 @@ function upsertById<T extends { id: number }>(list: T[], row: T): T[] {
  */
 export function useBoardRealtime(resolvedEditionId: string | null, queryKey: QueryKey, transformPerson?: (person: Person) => Person) {
 	const queryClient = useQueryClient()
-	// A chave é recriada a cada render; o canal só se refaz quando o conteúdo dela muda.
-	const keyHash = JSON.stringify(queryKey)
+	// A chave é recriada a cada render; o canal só se refaz quando o conteúdo dela muda (o hash
+	// do próprio React Query). O closure usa a chave do render em que o efeito rodou, igual em
+	// conteúdo à de qualquer render com o mesmo hash.
+	const keyHash = hashKey(queryKey)
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `keyHash` representa `queryKey` (array recriado a cada render)
 	useEffect(() => {
 		if (!resolvedEditionId) return
 
-		const key = JSON.parse(keyHash) as QueryKey
+		const key = queryKey
 		const transform = (row: Person) => (transformPerson ? transformPerson(row) : row)
 		const patch = (mutate: (d: BoardData) => BoardData) => queryClient.setQueryData<BoardData>(key, (old) => (old ? mutate(old) : old))
 		const resync = () => queryClient.invalidateQueries({ queryKey: key })

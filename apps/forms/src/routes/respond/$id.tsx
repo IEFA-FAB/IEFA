@@ -184,7 +184,9 @@ function RespondPage() {
 			// autosave passaria a falhar no guard de `status`.
 			await queryClient.invalidateQueries({ queryKey: myResponseStateQueryOptions(id).queryKey })
 			dispatch({ type: "SUBMITTED", submittedAt: submitted.submitted_at ?? null })
-		} catch {
+		} catch (error) {
+			// A mensagem do servidor é para o usuário (teto de versões, aguardar o limite de gravações).
+			toast.error(error instanceof Error ? error.message : "Não foi possível enviar as respostas")
 			dispatch({ type: "SUBMIT_FAILED" })
 		}
 	}

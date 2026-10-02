@@ -29,13 +29,18 @@ import {
 	VERSION_CAP_MESSAGE,
 } from "@/lib/response-limits"
 import { getFormsServerClient } from "@/lib/supabase.server"
-import { resolveServerTenant, scopeTags } from "@/lib/tenant-scope"
+import { hasTenantTags, resolveServerTenant, scopeTags } from "@/lib/tenant-scope"
 
 type FormsDbClient = ReturnType<typeof getFormsServerClient>
 
 /** Tenant deste deploy, decidido no servidor — ver `lib/tenant-scope.ts`. */
 function serverTenant() {
 	return resolveServerTenant(process.env.VITE_APP_TENANT, env.VITE_APP_TENANT)
+}
+
+/** O questionário tem as tags que o tenant deste deploy exige? */
+function isInServerTenant(tags: readonly string[] | null) {
+	return hasTenantTags(serverTenant(), tags)
 }
 
 /** Linhas devolvidas pelas funções auditadas (`to_jsonb(row)`, mais o `log_id`). */
@@ -281,9 +286,10 @@ async function lookupUserIdByEmail(db: FormsDbClient, email: string) {
  * a tela `/respond/$id` recusava, mas as server functions não.
  */
 async function requirePublishedQuestionnaire(db: FormsDbClient, questionnaireId: string) {
-	const { data, error } = await db.from("questionnaire").select("status").eq("id", questionnaireId).maybeSingle()
+	const { data, error } = await db.from("questionnaire").select("status, tags").eq("id", questionnaireId).maybeSingle()
 	if (error) throw new Error(error.message)
-	if (!data) throw notFound()
+	// Fora do tenant deste deploy é como se não existisse (sessão, autosave e envio passam aqui).
+	if (!data || !isInServerTenant(data.tags)) throw notFound()
 	if (data.status !== "sent") forbidden("Este questionário não está publicado")
 }
 
@@ -341,7 +347,8 @@ export const getQuestionnaireFn = createServerFn({ method: "GET" })
 		if (error) throw new Error(error.message)
 		// maybeSingle + notFound: com .single() o PostgREST devolve PGRST116 e o usuário
 		// via a mensagem crua "JSON object requested, multiple (or no) rows returned".
-		if (!data) throw notFound()
+		// Fora do tenant deste deploy (ex.: questionário sem a tag `5s` aberto pelo id no deploy 5S).
+		if (!data || !isInServerTenant(data.tags)) throw notFound()
 
 		const access = await getQuestionnaireAccessFromRow(db, data.id, data.created_by, user.id)
 		if (data.status !== "sent" && !access.canEdit) {
@@ -610,12 +617,12 @@ export const getMyResponseStateFn = createServerFn({ method: "GET" })
  * entrava na coluna que decide quem vê o quê. Grava na forma normalizada de sempre.
  */
 async function resolveActiveOm(db: FormsDbClient, declared: string): Promise<string> {
+	// Os nomes de `om_option` já estão na forma normalizada (maiúsculas, espaço simples).
 	const normalized = normalizeScopeValue(declared)
-	const { data, error } = await db.from("om_option").select("name").eq("active", true)
+	const { data, error } = await db.from("om_option").select("name").eq("active", true).eq("name", normalized).limit(1).maybeSingle()
 	if (error) throw new Error(error.message)
-	const match = (data ?? []).find((option) => normalizeScopeValue(option.name) === normalized)
-	if (!match) throw new Error("OM fora da lista de OMs ativas. Escolha a sua OM na lista.")
-	return normalizeScopeValue(match.name)
+	if (!data) throw new Error("OM fora da lista de OMs ativas. Escolha a sua OM na lista.")
+	return data.name
 }
 
 export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })

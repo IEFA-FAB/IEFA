@@ -36,3 +36,9 @@ export function scopeTags(tenant: Tenant, requested?: readonly string[] | null):
 	const required = TENANTS[tenant].tagFilter ?? []
 	return Array.from(new Set([...required, ...(requested ?? [])]))
 }
+
+/** O questionário tem todas as tags que o tenant exige? (`forms` não exige nenhuma.) */
+export function hasTenantTags(tenant: Tenant, tags: readonly string[] | null | undefined): boolean {
+	const required = TENANTS[tenant].tagFilter ?? []
+	return required.every((tag) => tags?.includes(tag) ?? false)
+}
