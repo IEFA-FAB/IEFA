@@ -58,6 +58,26 @@ type Manifest = {
 
 const manifest: Manifest = JSON.parse(readFileSync(join(ROOT, "apps.manifest.json"), "utf8"))
 
+/**
+ * Segredos que o target do bake tem de declarar: os do próprio app e, num alias, os do
+ * estágio que ele reusa (o `--mount=type=secret` está no RUN desse estágio). Sem o
+ * segundo, o alias buildaria sem o segredo em silêncio.
+ */
+function bakeSecretsOf(app: App): string[] {
+	const stage = app.aliasOf ? manifest.apps.find((a) => a.key === app.aliasOf) : undefined
+	return [...new Set([...(stage?.buildSecrets ?? []), ...(app.buildSecrets ?? [])])]
+}
+
+for (const app of manifest.apps) {
+	if (!app.buildSecrets?.length) continue
+	// O secret é montado no RUN de build do estágio do próprio app: Dockerfile próprio
+	// (kind dockerfile), bun-source (sem passo de build) e alias (reusa outro estágio)
+	// não têm onde montá-lo.
+	if (app.aliasOf || (app.kind !== "nitro" && app.kind !== "bun-bundle")) {
+		throw new Error(`${app.key}: buildSecrets só vale para app kind nitro/bun-bundle sem aliasOf (é montado no RUN de build)`)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Grafo de workspaces
 // ---------------------------------------------------------------------------
@@ -166,10 +186,6 @@ function dockerStage(app: App) {
 	const out: string[] = [header(app.title ?? app.key, app.notes), `FROM deps AS ${app.key}-build`]
 	out.push(...buildArgLines(app))
 	out.push(...copies, `COPY ${app.path} ./${app.path}`)
-
-	if (app.buildSecrets?.length && app.kind !== "nitro" && app.kind !== "bun-bundle") {
-		throw new Error(`${app.key}: buildSecrets só vale para kind nitro/bun-bundle (é montado no RUN de build)`)
-	}
 
 	if (app.kind === "nitro") {
 		const serverEntry = `${app.path}/.output/server/index.mjs`
@@ -345,8 +361,9 @@ function renderBake() {
 		}
 		// Lido da variável de ambiente do processo do bake (o _app-build.yml a define a
 		// partir do secret do GitHub). Ausente → o secret não é montado e o build segue.
-		if (app.buildSecrets?.length) {
-			lines.push(`  secret = [${app.buildSecrets.map((id) => `"id=${id},env=${id}"`).join(", ")}]`)
+		const secrets = bakeSecretsOf(app)
+		if (secrets.length) {
+			lines.push(`  secret = [${secrets.map((id) => `"id=${id},env=${id}"`).join(", ")}]`)
 		}
 		lines.push("}", "")
 	}

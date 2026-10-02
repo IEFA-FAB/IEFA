@@ -138,6 +138,25 @@ data "aws_iam_policy_document" "github_tf_plan_deny" {
     actions   = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
     resources = ["*"]
   }
+
+  # Outras leituras de dado que o ReadOnlyAccess concede e que nenhum stack usa:
+  # trilha de API, resultado de query (Athena sobre os access logs do ALB, por
+  # exemplo), saída de comando e console de instância, código de função.
+  statement {
+    sid    = "DenyOtherDataReads"
+    effect = "Deny"
+    actions = [
+      "cloudtrail:LookupEvents",
+      "athena:GetQueryResults",
+      "athena:GetQueryResultsStream",
+      "ssm:GetCommandInvocation",
+      "logs:GetLogGroupFields",
+      "ec2:GetConsoleOutput",
+      "ec2:GetConsoleScreenshot",
+      "lambda:GetFunction",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "github_tf_plan_deny" {

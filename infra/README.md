@@ -96,9 +96,10 @@ every PR that touches `infra/**` and posts the diff as a PR comment (one per
 changed stack; a `modules/**` change fans out to every service stack). It **never**
 applies — apply stays human/out-of-band. It authenticates via a dedicated
 read-only OIDC role (`<prefix>-github-tf-plan`, assumable only from `pull_request`
-events, AWS `ReadOnlyAccess` minus secret-value/KMS/SSM reads and minus data reads:
-log events, S3 objects outside the state bucket, DynamoDB items outside the lock
-table, ECR image layers).
+events, AWS `ReadOnlyAccess` minus secret-value/KMS/SSM reads and minus the main data
+reads: log events, S3 objects outside the state bucket, DynamoDB items outside the
+lock table, ECR image layers, CloudTrail events, Athena results). The deny list is not
+exhaustive, and the role still reads the whole Terraform state, which plan needs.
 
 One-time setup after `terraform apply` of `foundation`:
 

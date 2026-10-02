@@ -95,11 +95,6 @@ output "task_role_arn" {
   value = aws_iam_role.task.arn
 }
 
-output "ai_task_role_arn" {
-  description = "Task role of the services that call Bedrock (bedrock_task_services)."
-  value       = aws_iam_role.task_ai.arn
-}
-
 # Lido pelo main.tf de cada stack de serviço: quem está aqui roda com a role de IA,
 # o resto cai no `task_role_arn` compartilhado.
 output "task_role_arns_by_service" {

@@ -817,7 +817,10 @@ jobs:
           path: apps/docs/.output/public
           if-no-files-found: error
           include-hidden-files: true
-          retention-days: 1
+          # "Re-run all jobs" sobe de novo com o mesmo nome no mesmo run.
+          overwrite: true
+          # Folga para um "Re-run failed jobs" do deploy-docs dias depois.
+          retention-days: 7
 
   deploy-docs:
     needs: [build-docs]
@@ -853,12 +856,37 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      # O build-docs não é serializado: com dois merges seguidos, o build do mais novo pode
+      # terminar antes e o deploy do mais velho publicar por cima depois. O bucket guarda a
+      # revisão publicada em `.deploy-revision`; se ela já é mais nova que este commit, este
+      # deploy não publica. Falha na leitura ou na comparação publica (o comportamento de
+      # antes), como o `scripts/decide-latest-tag.sh` dos apps.
+      - name: Decide whether to publish
+        id: order
+        env:
+          BUCKET: ${{ vars.DOCS_S3_BUCKET }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          published="$(aws s3 cp "s3://$BUCKET/.deploy-revision" - 2>/dev/null | tr -dc '0-9a-f')"
+          publish=true
+          if [ -n "$published" ] && [ "$published" != "$GITHUB_SHA" ]; then
+            status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${published}...${GITHUB_SHA}" --jq .status 2>/dev/null || echo unknown)"
+            echo "publicado: $published, este: $GITHUB_SHA, comparação: $status"
+            if [ "$status" = "behind" ]; then
+              publish=false
+              echo "::warning::o bucket já tem $published, mais novo que este commit — não publico"
+            fi
+          fi
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+
       # Dois syncs porque a política de cache difere. Os arquivos em assets/ têm
       # hash no nome, então podem ser imutáveis; HTML e índices precisam
       # revalidar a cada visita, senão uma publicação nova demora a aparecer.
       # Cada sync usa --delete apenas dentro do seu escopo (o --exclude protege
       # assets/ de ser apagado pelo primeiro).
       - name: Publish to S3
+        if: steps.order.outputs.publish == 'true'
         env:
           BUCKET: ${{ vars.DOCS_S3_BUCKET }}
         run: |
@@ -867,6 +895,7 @@ jobs:
 
           aws s3 sync . "s3://$BUCKET" --delete \
             --exclude "assets/*" \
+            --exclude ".deploy-revision" \
             --cache-control "public, max-age=0, must-revalidate"
 
           aws s3 sync ./assets "s3://$BUCKET/assets" --delete \
@@ -883,7 +912,11 @@ jobs:
               --cache-control "public, max-age=0, must-revalidate"
           done
 
+          printf '%s' "$GITHUB_SHA" | aws s3 cp - "s3://$BUCKET/.deploy-revision" \
+            --content-type text/plain --cache-control "no-store"
+
       - name: Invalidate CloudFront
+        if: steps.order.outputs.publish == 'true'
         env:
           DISTRIBUTION_ID: ${{ vars.DOCS_CLOUDFRONT_DISTRIBUTION_ID }}
         run: |

@@ -104,26 +104,50 @@ for (const app of SSR_APPS) {
 	}
 }
 
-// Site estático (docs): a distribuição tem de associar a response headers policy, e a
-// policy tem de declarar cada header. Mesma lógica text-based: o gate não roda terraform.
-const STATIC_SITE_CLOUDFRONT = join(REPO_ROOT, "infra", "modules", "static-site", "cloudfront.tf")
+// Site estático (docs): a distribuição tem de associar a response headers policy, a
+// policy tem de declarar cada header e a CSP default do módulo tem de carregar as
+// diretivas que travam embed/base/plugins. Text-based, sem comentários (`#`/`//`), para
+// um nome citado em comentário não passar por config: o gate não roda terraform.
+const STATIC_SITE_DIR = join(REPO_ROOT, "infra", "modules", "static-site")
 const STATIC_SITE_BLOCKS = [
-	"response_headers_policy_id",
 	"strict_transport_security",
 	"content_type_options",
 	"frame_options",
 	"referrer_policy",
 	"content_security_policy",
-	"Permissions-Policy",
+	'"Permissions-Policy"',
 ] as const
+const STATIC_SITE_CSP_DIRECTIVES = ["frame-ancestors 'none'", "base-uri 'self'", "object-src 'none'", "form-action 'self'"] as const
+
+function stripHclComments(source: string): string {
+	return source
+		.split("\n")
+		.filter((line) => !/^\s*(#|\/\/)/.test(line))
+		.join("\n")
+}
+
 try {
-	const tf = readFileSync(STATIC_SITE_CLOUDFRONT, "utf8")
+	const tf = stripHclComments(readFileSync(join(STATIC_SITE_DIR, "cloudfront.tf"), "utf8"))
 	const missing = STATIC_SITE_BLOCKS.filter((b) => !tf.includes(b))
 	if (missing.length > 0) {
 		failures.push(`static-site (docs): cloudfront.tf sem ${missing.join(", ")} na response headers policy`)
 	}
+	const behavior = /default_cache_behavior\s*\{[\s\S]*?\n {2}\}/.exec(tf)?.[0] ?? ""
+	if (!/response_headers_policy_id\s*=\s*aws_cloudfront_response_headers_policy\./.test(behavior)) {
+		failures.push("static-site (docs): default_cache_behavior não associa a response headers policy")
+	}
+	const vars = stripHclComments(readFileSync(join(STATIC_SITE_DIR, "variables.tf"), "utf8"))
+	const csp = /variable "content_security_policy"[\s\S]*?default\s*=\s*"([^"]*)"/.exec(vars)?.[1]
+	if (csp === undefined) {
+		failures.push('static-site (docs): variables.tf sem default para "content_security_policy"')
+	} else {
+		const missingDirectives = STATIC_SITE_CSP_DIRECTIVES.filter((d) => !csp.includes(d))
+		if (missingDirectives.length > 0) {
+			failures.push(`static-site (docs): CSP default sem as diretivas: ${missingDirectives.join("; ")}`)
+		}
+	}
 } catch {
-	failures.push(`static-site (docs): ${STATIC_SITE_CLOUDFRONT} não encontrado`)
+	failures.push(`static-site (docs): ${STATIC_SITE_DIR}/{cloudfront,variables}.tf não encontrado`)
 }
 
 if (failures.length > 0) {
