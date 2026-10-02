@@ -38,7 +38,15 @@ publicável (`anon`/`authenticated`) está no bundle de todo app. Desde `2026092
 - Gate: `bun --filter @iefa/database audit:rls` roda no job `gate` do `integration.yml` e falha em
   função executável por cliente, função que o `service_role` não executa, default que abra função
   nova, USAGE/grant de cliente fora da allowlist, RLS desligada alcançável, função sem `search_path`
-  fixo (definer ou não) e SECURITY DEFINER exposta.
+  fixo (definer ou não) e SECURITY DEFINER exposta. Também cobra os triggers de
+  `20261001140000…140200` (log append-only, TRUNCATE das vigiadas, troca de e-mail em `auth.users`) e
+  default de privilégios do `postgres` que conceda a cliente em qualquer schema (`storage` incluso).
+- Default de privilégios que o `postgres` não alcança: o do `supabase_admin` em `public` (e
+  `graphql`/`graphql_public`) concede tudo e EXECUTE a `anon`/`authenticated` em objeto que ELE
+  crie (extensões da plataforma). `alter default privileges for role supabase_admin` exige ser
+  membro desse role, e o `postgres` não é; só o suporte da Supabase muda. O que as nossas
+  migrations criam é do `postgres`, cujo default não concede a cliente em schema nenhum desde
+  `20261001140300` (o de `storage` foi revogado; os grants e policies do Storage existentes ficam).
 - Função nova ou recriada fixa `set search_path` (de preferência `''`, com tudo qualificado; built-in
   de `pg_catalog` dispensa schema). `create or replace` sem a cláusula apaga o `search_path` que a
   função tinha. A regra `migration-function-without-search-path` do opengrep acusa na migration
@@ -56,7 +64,9 @@ acesso vale até ser desfeito. Referência: cabeçalhos de
 - Tabelas vigiadas: `access_control.{user_permissions, policy, policy_statement,
   user_policy_attachment, mcp_api_keys, signup_allowlist}`, `forms.{response_viewer,
   response_viewer_scope_binding, questionnaire_editor}` e o `role` de `journal.user_profiles`.
-  Tabela de acesso nova liga o trigger `enforce_audited_change` na própria migration. Escrita fora de função auditada
+  Tabela de acesso nova liga, na própria migration, o trigger `enforce_audited_change` (por linha)
+  e o `enforce_audited_truncate` (BEFORE TRUNCATE, `20261001140100`: TRUNCATE não dispara trigger
+  de linha, e só o bypass o libera). Escrita fora de função auditada
   levanta `42501 ACCESS_CHANGE_UNAUDITED`. Passam só: contexto aberto pela função, cascata de FK /
   outro trigger, e bypass explícito.
 - Caminhos: `changeModulePermission`/`setModuleBlock` (`@iefa/pbac`), as operações de
@@ -66,9 +76,22 @@ acesso vale até ser desfeito. Referência: cabeçalhos de
   `auth.admin.createUser`/`inviteUserByEmail`; e-mail de fora entra por
   `access_control.authorize_external_signup` (console de Permissões do sisub). Fixture que cria
   usuário de teste autoriza o e-mail antes (`authorizeSignup` do `access-fixture-writer`).
+  Trocar o e-mail depois também: o trigger `enforce_institutional_email` em `auth.users`
+  (`20261001140200`) recusa `email`/`email_change` novo fora de `@fab.mil.br` sem autorização ativa
+  e não toca UPDATE que não muda o endereço (login, refresh, recovery). `@example.invalid` é
+  recusado mesmo autorizado: conta existente não migra para o domínio que o faxineiro apaga. O `postgres` cria trigger em
+  `auth.users`, mas não o remove (o dono é `supabase_auth_admin`): para desligar, `create or
+  replace` da função com `return new`.
   Função SQL nova que escreve nessas tabelas abre o contexto antes da primeira escrita
   (`perform access_control.audit_context('<app>.<recurso>.<ação>')`) e grava o log na mesma
   transação; `packages/database/src/access-audit.sql-contract.test.ts` cobra.
+- **Logs append-only** (`20261001140000`): `sensitive_operation_log` e `mfa_reset_log` só aceitam
+  INSERT. UPDATE/DELETE/TRUNCATE estão revogados de todo mundo menos o dono e recusados por trigger
+  (`42501 AUDIT_LOG_APPEND_ONLY`), inclusive para o dono e com contexto de função auditada. Registro
+  errado se corrige com linha nova. Única exceção: DELETE com `iefa.audit_bypass` de linha cujos
+  usuários (colunas e todo uuid de usuário no `target`) são todos `@example.invalid` (o faxineiro
+  de fixtures). Teste grava log só dentro de transação desfeita. O `service_role` só tem INSERT e
+  SELECT; TRIGGER também saiu (um `before insert … return null` calaria o log).
 - Migration com seed/backfill nessas tabelas abre o bypass na própria transação:
   `select set_config('iefa.audit_bypass', '<motivo>', true);`. Sem ele, a migration falha. No código
   TS o bypass só é permitido nos arquivos da allowlist de `.opengrep/rules/access-audit.yaml`.

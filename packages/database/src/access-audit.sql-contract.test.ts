@@ -157,3 +157,113 @@ test("set_module_block (20260921090100, aplicada) é substituída pela versão q
 		/p_actor\s+uuid,\s*p_app\s+text,\s*p_user\s+uuid,\s*p_modules\s+text\[\],\s*p_blocked\s+boolean,\s*p_assurance\s+text default 'session'/
 	)
 })
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 20261001140000…140200 — log append-only, TRUNCATE e troca de e-mail
+// ═════════════════════════════════════════════════════════════════════════════
+
+const APPEND_ONLY = "20261001140000_audit_log_append_only.sql"
+const TRUNCATE_GUARD = "20261001140100_access_tables_truncate_guard.sql"
+const EMAIL_GUARD = "20261001140200_auth_email_change_domain_guard.sql"
+const AUDIT_LOGS = ["access_control.sensitive_operation_log", "access_control.mfa_reset_log"] as const
+
+/** Migrations com nome maior que `after` (ou igual, com `inclusive`), concatenadas. */
+function migrationsAfter(after: string, inclusive = false): string {
+	return readdirSync(MIGRATIONS)
+		.filter((name) => name.endsWith(".sql") && (inclusive ? name >= after : name > after))
+		.sort()
+		.map((name) => readFileSync(join(MIGRATIONS, name), "utf8"))
+		.join("\n")
+}
+
+describe("log de auditoria append-only (20261001140000)", () => {
+	const sql = readFileSync(join(MIGRATIONS, APPEND_ONLY), "utf8")
+
+	test.each([...AUDIT_LOGS])("%s perde UPDATE/DELETE/TRUNCATE e ganha os triggers de recusa", (table) => {
+		const t = table.replace(".", "\\.")
+		expect(sql).toMatch(new RegExp(`revoke all on table ${t} from public, anon, authenticated, service_role`))
+		expect(sql).toMatch(new RegExp(`grant select, insert on table ${t} to service_role`))
+		expect(sql).toMatch(new RegExp(`before update or delete on ${t}\\s+for each row execute function access_control\\.refuse_audit_log_change\\(\\)`))
+		expect(sql).toMatch(new RegExp(`before truncate on ${t}\\s+for each statement execute function access_control\\.refuse_audit_log_change\\(\\)`))
+	})
+
+	test("nenhuma migration posterior devolve escrita no log nem desliga o trigger", () => {
+		const later = migrationsAfter(APPEND_ONLY)
+		for (const table of AUDIT_LOGS) {
+			const t = table.replace(".", "\\.")
+			expect(later).not.toMatch(new RegExp(`grant[^;]*\\b(update|delete|truncate|all)\\b[^;]*on (table )?${t}\\b`, "i"))
+			expect(later).not.toMatch(new RegExp(`alter table ${t}\\s+(disable|enable replica) trigger`, "i"))
+		}
+		// Grant em massa no schema devolveria UPDATE/DELETE/TRUNCATE aos logs junto com o resto.
+		expect(later).not.toMatch(/grant[^;]*\b(update|delete|truncate|trigger|all)\b[^;]*on all tables in schema access_control\b/i)
+	})
+
+	test("nenhuma função reescreve ou apaga o log", () => {
+		const offenders = [...bodies.entries()]
+			.filter(([, { body }]) => /(update|delete\s+from|truncate)\s+(table\s+)?access_control\.(sensitive_operation_log|mfa_reset_log)\b/i.test(body))
+			.map(([name]) => name)
+		expect(offenders).toEqual([])
+	})
+
+	test("UPDATE e TRUNCATE não têm exceção; DELETE só com bypass E conta de fixture", () => {
+		const body = bodies.get("access_control.refuse_audit_log_change")?.body ?? ""
+		expect(body).toMatch(/if tg_op = 'DELETE' and coalesce\(current_setting\('iefa\.audit_bypass', true\), ''\) <> ''/)
+		expect(body).toContain("lower(u.email) like '%@example.invalid'")
+		// O alvo conta: ator de fixture sobre conta real não sai pela faxina.
+		expect(body).toContain("jsonb_path_query(coalesce(v_row -> 'target', 'null'::jsonb), 'strict $.**')")
+		expect(body).toContain("AUDIT_LOG_APPEND_ONLY")
+		expect(body).not.toContain("iefa.audit_operation")
+	})
+})
+
+describe("TRUNCATE nas tabelas vigiadas (20261001140100)", () => {
+	const fromGuard = migrationsAfter(TRUNCATE_GUARD, true)
+
+	test.each([...ACCESS_TABLES])("%s tem o trigger BEFORE TRUNCATE", (table) => {
+		expect(fromGuard).toMatch(
+			new RegExp(`before truncate on ${table.replace(".", "\\.")}\\s+for each statement execute function access_control\\.refuse_unaudited_truncate\\(\\)`)
+		)
+	})
+
+	test("só o bypass explícito libera — o contexto de função auditada não", () => {
+		const body = bodies.get("access_control.refuse_unaudited_truncate")?.body ?? ""
+		expect(body).toContain("current_setting('iefa.audit_bypass', true)")
+		expect(body).not.toContain("iefa.audit_operation")
+		expect(body).toContain("ACCESS_CHANGE_UNAUDITED")
+	})
+})
+
+describe("troca de e-mail em auth.users (20261001140200)", () => {
+	const sql = readFileSync(join(MIGRATIONS, EMAIL_GUARD), "utf8")
+	const body = bodies.get("access_control.enforce_institutional_email_change")?.body ?? ""
+
+	test("SECURITY DEFINER do postgres, search_path vazio, EXECUTE só com o dono", () => {
+		expect(body).toMatch(/security definer\s+set search_path = ''/)
+		expect(sql).toContain("alter function access_control.enforce_institutional_email_change() owner to postgres")
+		expect(sql).toContain("revoke all on function access_control.enforce_institutional_email_change() from public, anon, authenticated, service_role")
+	})
+
+	test("mesma regra de domínio do hook de cadastro, e a allowlist ativa", () => {
+		const hook = bodies.get("access_control.before_user_created")?.body ?? ""
+		const domain = "~ '^[^@[:space:]]+@fab\\.mil\\.br$'"
+		expect(hook).toContain(domain)
+		expect(body).toContain(domain)
+		expect(body).toMatch(/from access_control\.signup_allowlist a\s+where a\.email = v_candidate and a\.revoked_at is null/)
+	})
+
+	test("só confere endereço que MUDOU (login, refresh e recovery não trocam e-mail)", () => {
+		expect(body).toContain("case when v_new_email <> v_old_email then v_new_email end")
+		expect(body).toContain("case when v_new_change <> v_old_change then v_new_change end")
+		expect(sql).toMatch(/when \(old\.email is distinct from new\.email or old\.email_change is distinct from new\.email_change\)/)
+	})
+
+	test("@example.invalid (fixtures) é recusado mesmo autorizado", () => {
+		expect(body).toMatch(/if v_candidate like '%@example\.invalid' then\s+raise exception/)
+	})
+
+	test("o trigger é criado só se não existir (o postgres não é dono de auth.users e não o remove)", () => {
+		// O cabeçalho ensina a remover como supabase_auth_admin; o que conta é o SQL que executa.
+		expect(sql.replace(/--[^\n]*/g, "")).not.toMatch(/drop trigger[^;]*on auth\.users/i)
+		expect(sql).toMatch(/if not exists \([\s\S]*?tgname = 'enforce_institutional_email'[\s\S]*?create trigger enforce_institutional_email/)
+	})
+})

@@ -2284,25 +2284,6 @@ export const quantityEstimateInProcurement = procurement.table("quantity_estimat
 	check("quantity_estimate_wizard_step_check", sql`(wizard_step >= 1) AND (wizard_step <= 5)`),
 ]);
 
-export const sensitiveOperationLogInAccessControl = accessControl.table("sensitive_operation_log", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	actorId: uuid("actor_id").notNull(),
-	operation: text().notNull(),
-	assurance: text().notNull(),
-	target: jsonb(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("sensitive_operation_log_actor_created_idx").using("btree", table.actorId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
-	index("sensitive_operation_log_created_idx").using("btree", table.createdAt.desc().nullsFirst()),
-	index("sensitive_operation_log_target_user_idx").using("btree", sql`((target ->> 'target_user_id'::text))`, sql`created_at`),
-	foreignKey({
-			columns: [table.actorId],
-			foreignColumns: [usersInAuth.id],
-			name: "sensitive_operation_log_actor_id_fkey"
-		}).onDelete("restrict"),
-	check("sensitive_operation_log_assurance_check", sql`assurance = ANY (ARRAY['session'::text, 'fresh'::text])`),
-]);
-
 export const recipeStepInKitchen = kitchen.table("recipe_step", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	recipeId: uuid("recipe_id").notNull(),
@@ -2397,6 +2378,25 @@ export const ingredientSubstitutionInKitchen = kitchen.table("ingredient_substit
 		}).onDelete("cascade"),
 	unique("ingredient_substitution_unique").on(table.ingredientId, table.substituteIngredientId),
 	check("ingredient_substitution_not_self", sql`ingredient_id <> substitute_ingredient_id`),
+]);
+
+export const sensitiveOperationLogInAccessControl = accessControl.table("sensitive_operation_log", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	actorId: uuid("actor_id").notNull(),
+	operation: text().notNull(),
+	assurance: text().notNull(),
+	target: jsonb(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("sensitive_operation_log_actor_created_idx").using("btree", table.actorId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("sensitive_operation_log_created_idx").using("btree", table.createdAt.desc().nullsFirst()),
+	index("sensitive_operation_log_target_user_idx").using("btree", sql`((target ->> 'target_user_id'::text))`, sql`created_at`),
+	foreignKey({
+			columns: [table.actorId],
+			foreignColumns: [usersInAuth.id],
+			name: "sensitive_operation_log_actor_id_fkey"
+		}).onDelete("restrict"),
+	check("sensitive_operation_log_assurance_check", sql`assurance = ANY (ARRAY['session'::text, 'fresh'::text])`),
 ]);
 
 export const recipeStepInputInKitchen = kitchen.table("recipe_step_input", {
@@ -2521,29 +2521,6 @@ export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {
 			name: "recipe_ingredients_recipe_id_fkey"
 		}),
 	check("recipe_ingredients_source_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) <= 1`),
-]);
-
-export const mfaResetLogInAccessControl = accessControl.table("mfa_reset_log", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	targetUserId: uuid("target_user_id").notNull(),
-	performedBy: uuid("performed_by").notNull(),
-	method: text().notNull(),
-	reason: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("mfa_reset_log_performed_by_created_idx").using("btree", table.performedBy.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
-	index("mfa_reset_log_target_created_idx").using("btree", table.targetUserId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
-	foreignKey({
-			columns: [table.performedBy],
-			foreignColumns: [usersInAuth.id],
-			name: "mfa_reset_log_performed_by_fkey"
-		}).onDelete("restrict"),
-	foreignKey({
-			columns: [table.targetUserId],
-			foreignColumns: [usersInAuth.id],
-			name: "mfa_reset_log_target_user_id_fkey"
-		}).onDelete("restrict"),
-	check("mfa_reset_log_method_check", sql`method = ANY (ARRAY['recovery-code'::text, 'admin-reset'::text])`),
 ]);
 
 export const ingredientItemInKitchen = kitchen.table("ingredient_item", {
@@ -3876,6 +3853,30 @@ export const budgetCreditInFinance = finance.table("budget_credit", {
 	unique("budget_credit_classification_key").on(table.unitId, table.ug, table.nd, table.ptres, table.fonte, table.competencia),
 ]);
 
+export const userPolicyAttachmentInAccessControl = accessControl.table("user_policy_attachment", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	policyId: uuid("policy_id").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	createdBy: uuid("created_by"),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("user_policy_attachment_expires_at_idx").using("btree", table.expiresAt.asc().nullsLast()).where(sql`(expires_at IS NOT NULL)`),
+	index("user_policy_attachment_policy_idx").using("btree", table.policyId.asc().nullsLast()),
+	index("user_policy_attachment_user_idx").using("btree", table.userId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.policyId],
+			foreignColumns: [policyInAccessControl.id],
+			name: "user_policy_attachment_policy_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [usersInAuth.id],
+			name: "user_policy_attachment_user_id_fkey"
+		}).onDelete("restrict"),
+	unique("user_policy_attachment_unique").on(table.userId, table.policyId),
+]);
+
 export const policyStatementInAccessControl = accessControl.table("policy_statement", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	policyId: uuid("policy_id").notNull(),
@@ -3914,6 +3915,7 @@ export const policyStatementInAccessControl = accessControl.table("policy_statem
 			name: "policy_statement_unit_id_fkey"
 		}),
 	check("policy_statement_admin_global_unscoped", sql`(module <> ALL (ARRAY['admin'::text, 'global'::text])) OR ((unit_id IS NULL) AND (kitchen_id IS NULL) AND (mess_hall_id IS NULL))`),
+	check("policy_statement_analytics_unscoped", sql`(module <> 'analytics'::text) OR ((unit_id IS NULL) AND (kitchen_id IS NULL) AND (mess_hall_id IS NULL))`),
 	check("policy_statement_level_check", sql`(level >= 0) AND (level <= 3)`),
 	check("policy_statement_single_scope_check", sql`((
 CASE
@@ -3928,30 +3930,6 @@ CASE
     WHEN (mess_hall_id IS NOT NULL) THEN 1
     ELSE 0
 END) <= 1`),
-]);
-
-export const userPolicyAttachmentInAccessControl = accessControl.table("user_policy_attachment", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	userId: uuid("user_id").notNull(),
-	policyId: uuid("policy_id").notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	createdBy: uuid("created_by"),
-	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }),
-}, (table) => [
-	index("user_policy_attachment_expires_at_idx").using("btree", table.expiresAt.asc().nullsLast()).where(sql`(expires_at IS NOT NULL)`),
-	index("user_policy_attachment_policy_idx").using("btree", table.policyId.asc().nullsLast()),
-	index("user_policy_attachment_user_idx").using("btree", table.userId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.policyId],
-			foreignColumns: [policyInAccessControl.id],
-			name: "user_policy_attachment_policy_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [usersInAuth.id],
-			name: "user_policy_attachment_user_id_fkey"
-		}).onDelete("restrict"),
-	unique("user_policy_attachment_unique").on(table.userId, table.policyId),
 ]);
 
 export const policyInAccessControl = accessControl.table("policy", {
@@ -4636,6 +4614,30 @@ export const userPermissionsInAccessControl = accessControl.table("user_permissi
 		}).onDelete("cascade"),
 	check("exclusive_scope", sql`num_nonnulls(mess_hall_id, kitchen_id, unit_id) <= 1`),
 	check("user_permissions_admin_global_unscoped", sql`(module <> ALL (ARRAY['admin'::text, 'global'::text])) OR ((unit_id IS NULL) AND (kitchen_id IS NULL) AND (mess_hall_id IS NULL))`),
+	check("user_permissions_analytics_unscoped", sql`(module <> 'analytics'::text) OR ((unit_id IS NULL) AND (kitchen_id IS NULL) AND (mess_hall_id IS NULL))`),
+]);
+
+export const mfaResetLogInAccessControl = accessControl.table("mfa_reset_log", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	targetUserId: uuid("target_user_id").notNull(),
+	performedBy: uuid("performed_by").notNull(),
+	method: text().notNull(),
+	reason: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("mfa_reset_log_performed_by_created_idx").using("btree", table.performedBy.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("mfa_reset_log_target_created_idx").using("btree", table.targetUserId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	foreignKey({
+			columns: [table.performedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "mfa_reset_log_performed_by_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.targetUserId],
+			foreignColumns: [usersInAuth.id],
+			name: "mfa_reset_log_target_user_id_fkey"
+		}).onDelete("restrict"),
+	check("mfa_reset_log_method_check", sql`method = ANY (ARRAY['recovery-code'::text, 'admin-reset'::text])`),
 ]);
 
 export const userMilitaryDataInCore = core.table("user_military_data", {
@@ -5125,7 +5127,6 @@ export const measureUnitInCore = core.table("measure_unit", {
 	dimension: text().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, () => [
-	pgPolicy("measure_unit_read", { as: "permissive", for: "select", to: ["anon", "authenticated"], using: sql`true` }),
 	check("measure_unit_code_check", sql`(code = upper(btrim(code))) AND (code <> ''::text)`),
 	check("measure_unit_dimension_check", sql`dimension = ANY (ARRAY['mass'::text, 'volume'::text, 'count'::text, 'package'::text])`),
 ]);
