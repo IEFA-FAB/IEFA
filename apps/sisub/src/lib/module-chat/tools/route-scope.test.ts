@@ -29,6 +29,7 @@ const NO_ROUTE = null
 
 const domainMocks = vi.hoisted(() => ({
 	upsertDailyMenu: vi.fn(),
+	updateHeadcount: vi.fn(),
 	agentFetchMenus: vi.fn(),
 	agentFetchDayMenus: vi.fn(),
 	agentListRecipes: vi.fn(),
@@ -46,10 +47,11 @@ const domainMocks = vi.hoisted(() => ({
 vi.mock("@iefa/sisub-domain", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@iefa/sisub-domain")>()),
 	upsertDailyMenu: domainMocks.upsertDailyMenu,
+	updateHeadcount: domainMocks.updateHeadcount,
 }))
 
 vi.mock("@iefa/sisub-domain/agent", async (importOriginal) => {
-	const { upsertDailyMenu: _upsert, ...agentMocks } = domainMocks
+	const { upsertDailyMenu: _upsert, updateHeadcount: _headcount, ...agentMocks } = domainMocks
 	return { ...(await importOriginal<typeof import("@iefa/sisub-domain/agent")>()), ...agentMocks }
 })
 
@@ -141,6 +143,7 @@ const writes = (queries: RecordedQuery[]) =>
 beforeEach(() => {
 	for (const mock of Object.values(domainMocks)) mock.mockReset()
 	domainMocks.upsertDailyMenu.mockResolvedValue([])
+	domainMocks.updateHeadcount.mockResolvedValue([])
 	domainMocks.agentFetchMenus.mockResolvedValue([])
 	domainMocks.agentFetchDayMenus.mockResolvedValue([])
 	domainMocks.agentListRecipes.mockResolvedValue({ items: [], returned: 0, total: 0, limit: 30 })
@@ -323,16 +326,30 @@ describe("update_menu_headcount", () => {
 		await expect(kitchenTool("update_menu_headcount").handler({ menuId: UUID, forecastedHeadcount: 80 }, ctx)).rejects.toThrow(SCOPE_ERROR)
 
 		expect(writes(queries)).toEqual([])
+		expect(domainMocks.updateHeadcount).not.toHaveBeenCalled()
 	})
 
-	test("cardápio da rota é atualizado", async () => {
+	test("cardápio da rota é atualizado pela operation da tela (reescala as porções), não por UPDATE cru", async () => {
 		const queries: RecordedQuery[] = []
-		const ctx = kitchenCtx({ daily_menu: [{ data: [{ kitchen_id: ROUTE_KITCHEN }] }, { data: [{ id: UUID, forecasted_headcount: 80 }] }] }, queries)
+		const ctx = kitchenCtx({ daily_menu: [{ data: [{ kitchen_id: ROUTE_KITCHEN }] }] }, queries)
+		domainMocks.updateHeadcount.mockResolvedValue([{ id: UUID, service_date: "2026-10-02", forecasted_headcount: 80, status: "PLANNED" }])
 
 		const result = await kitchenTool("update_menu_headcount").handler({ menuId: UUID, forecastedHeadcount: 80 }, ctx)
 
-		expect(result.success).toBe(true)
-		expect(writes(queries)).toEqual(["update"])
+		expect(result).toMatchObject({ success: true, data: [{ id: UUID, service_date: "2026-10-02", forecasted_headcount: 80 }] })
+		expect(writes(queries)).toEqual([])
+		expect(domainMocks.updateHeadcount).toHaveBeenCalledWith(ctx.db, expect.anything(), { dailyMenuId: UUID, forecastedHeadcount: 80 })
+	})
+
+	test("previsão zero ou negativa é recusada antes de ler ou gravar", async () => {
+		for (const forecastedHeadcount of [0, -5]) {
+			const queries: RecordedQuery[] = []
+			const ctx = kitchenCtx({ daily_menu: [{ data: [{ kitchen_id: ROUTE_KITCHEN }] }] }, queries)
+
+			await expect(kitchenTool("update_menu_headcount").handler({ menuId: UUID, forecastedHeadcount }, ctx)).rejects.toThrow(/inteiro positivo/)
+			expect(executedTables(queries)).toEqual([])
+		}
+		expect(domainMocks.updateHeadcount).not.toHaveBeenCalled()
 	})
 })
 

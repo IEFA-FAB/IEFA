@@ -27,7 +27,9 @@ import {
 	updateAnalyticsMessageChartType,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { setResponseStatus } from "@tanstack/react-start/server"
 import { requireAuth } from "@/lib/auth.server"
+import { CHAT_HISTORY_WRITE_LIMITER } from "@/lib/chat-history-rate-limit"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 
@@ -75,6 +77,12 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 	.validator(SaveAnalyticsChatMessageSchema)
 	.handler(async ({ data }): Promise<AnalyticsChatMessageRow> => {
 		const ctx = await requireAuth()
+		// Teto por usuário: o tamanho de cada linha o schema já limita; isto limita quantas.
+		const verdict = CHAT_HISTORY_WRITE_LIMITER.admit(ctx.userId)
+		if (!verdict.allowed) {
+			setResponseStatus(429)
+			throw new Error(verdict.message)
+		}
 		return saveAnalyticsChatMessage(getDb(), ctx, data).catch(handleDomainError)
 	})
 

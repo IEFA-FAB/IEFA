@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { hasAnyPermission, hasPermission } from "./has-permission.ts"
+import { hasAnyPermission, hasPermission, hasUnscopedPermission } from "./has-permission.ts"
 import type { UserPermission } from "./types.ts"
 
 function permission(overrides: Partial<UserPermission> = {}): UserPermission {
@@ -86,5 +86,29 @@ describe("hasAnyPermission", () => {
 		const permissions = [permission({ module: "sucont-3", level: 3 })]
 
 		expect(hasAnyPermission(permissions, [], 1)).toBe(false)
+	})
+})
+
+describe("hasUnscopedPermission", () => {
+	test("allow sem escopo no nível passa", () => {
+		expect(hasUnscopedPermission([permission({ module: "analytics", level: 2 })], "analytics", 1)).toBe(true)
+		expect(hasUnscopedPermission([permission({ module: "analytics", level: 1 })], "analytics", 2)).toBe(false)
+	})
+
+	test("allow escopado não conta, ao contrário de hasPermission sem escopo", () => {
+		const permissions = [permission({ module: "analytics", level: 2, unit_id: 5 })]
+		expect(hasPermission(permissions, "analytics", 1)).toBe(true)
+		expect(hasUnscopedPermission(permissions, "analytics", 1)).toBe(false)
+	})
+
+	test("qualquer deny do módulo nega, escopado ou não", () => {
+		expect(hasUnscopedPermission([permission({ module: "analytics", level: 2 }), permission({ module: "analytics", level: 0, unit_id: 5 })], "analytics")).toBe(
+			false
+		)
+		expect(hasUnscopedPermission([permission({ module: "analytics", level: 2 }), permission({ module: "analytics", level: 0 })], "analytics")).toBe(false)
+	})
+
+	test("permissão de outro módulo não conta", () => {
+		expect(hasUnscopedPermission([permission({ module: "local-analytics", level: 2 })], "analytics")).toBe(false)
 	})
 })

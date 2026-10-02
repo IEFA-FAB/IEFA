@@ -353,6 +353,8 @@ describe("cartão e tool dão o mesmo veredito sobre o argumento", () => {
 		["update_menu_headcount", "kitchen", 7, { menuId: MENU_K7, forecastedHeadcount: 90 }, "valid"],
 		["update_menu_headcount", "kitchen", 7, { menuId: MENU_K7, forecastedHeadcount: null }, "invalid"],
 		["update_menu_headcount", "kitchen", 7, { menuId: MENU_K7, forecastedHeadcount: 1.5 }, "invalid"],
+		["update_menu_headcount", "kitchen", 7, { menuId: MENU_K7, forecastedHeadcount: -5 }, "invalid"],
+		["update_menu_headcount", "kitchen", 7, { menuId: MENU_K7, forecastedHeadcount: 0 }, "invalid"],
 		["apply_template", "kitchen", 7, { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: ["2026-10-12"], startDayOfWeek: 1, headcounts: null }, "valid"],
 		["apply_template", "kitchen", 7, { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: ["2026-10-12"] }, "invalid"],
 		["apply_template", "kitchen", 7, { templateId: TEMPLATE_GLOBAL, kitchenId: 7, targetDates: tooManyDates, startDayOfWeek: 1 }, "invalid"],

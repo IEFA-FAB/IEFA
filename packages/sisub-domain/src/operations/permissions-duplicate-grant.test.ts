@@ -285,3 +285,24 @@ describe("admin/global sem escopo", () => {
 		expect(error?.code).toBe("SCOPE_NOT_ALLOWED")
 	})
 })
+
+// analytics também não aceita escopo: o assistente lê todas as OMs com BYPASSRLS, e um
+// `analytics` "só da unidade 5" abriria o banco inteiro. A visão por OM é `local-analytics`.
+describe("analytics sem escopo", () => {
+	test("o schema recusa grant e statement escopados de analytics e aceita local-analytics escopado", () => {
+		expect(CreateUserPermissionSchema.safeParse({ userId: "00000000-0000-4000-8000-000000000002", module: "analytics", level: 1, unit_id: 5 }).success).toBe(
+			false
+		)
+		expect(PolicyStatementInputSchema.safeParse({ module: "analytics", level: 2, kitchen_id: 7 }).success).toBe(false)
+		expect(PolicyStatementInputSchema.safeParse({ module: "analytics", level: 2 }).success).toBe(true)
+		expect(
+			CreateUserPermissionSchema.safeParse({ userId: "00000000-0000-4000-8000-000000000002", module: "local-analytics", level: 1, unit_id: 5 }).success
+		).toBe(true)
+	})
+
+	test("a operação recusa mesmo sem passar pelo validator", async () => {
+		const { db } = accessDb({ result: { log_id: "log-1", permission_id: "perm-1", user_id: "user-2" } })
+		const error = await caught(createUserPermission(db, ADMIN, { userId: "user-2", module: "analytics", level: 1, mess_hall_id: 3 }))
+		expect(error?.code).toBe("SCOPE_NOT_ALLOWED")
+	})
+})

@@ -28,6 +28,37 @@ export type ChatModule = z.infer<typeof ChatModuleSchema>
 
 const ChatSessionTitleSchema = z.string().min(1).max(200)
 
+// ── Tetos do corpo da mensagem ───────────────────────────────────────────────
+//
+// As fns de gravação aceitam o que o navegador manda; sem teto, uma linha só podia ter
+// megabytes. Os tetos ficam acima do que o chat produz de verdade e abaixo do que quebraria:
+//   - o histórico inteiro de uma conversa viaja de volta ao modelo a cada turno, e o endpoint
+//     recusa acima de 400 mil caracteres (`MAX_CHAT_PAYLOAD_CHARS` no app). Uma linha maior que
+//     isso sozinha já tornaria a conversa impossível de continuar;
+//   - medido em 2026-10-01 no banco: texto até 4.791 caracteres, gráfico até 802, ferramentas até
+//     21.366. Gráfico do analytics tem no máximo 500 linhas (LIMIT da RPC).
+//
+// O texto usa o MESMO teto do endpoint, não um menor: o que o endpoint aceitou (uma planilha colada
+// na pergunta) tem de caber no histórico, senão a gravação falha e a pergunta some ao recarregar.
+
+/** Texto da mensagem (pergunta do usuário ou resposta do modelo) — o teto do payload do endpoint. */
+export const MAX_CHAT_CONTENT_CHARS = 400_000
+/** Gráfico, chamadas e resultado de ferramenta, medidos em JSON. */
+export const MAX_CHAT_JSON_CHARS = 400_000
+const MAX_CHAT_ERROR_CHARS = 16_000
+const MAX_CHAT_LABEL_CHARS = 200
+
+const ChatContentSchema = z
+	.string()
+	.max(MAX_CHAT_CONTENT_CHARS, `Mensagem longa demais (máximo de ${MAX_CHAT_CONTENT_CHARS.toLocaleString("pt-BR")} caracteres)`)
+const ChatErrorSchema = z.string().max(MAX_CHAT_ERROR_CHARS)
+const ChatLabelSchema = z.string().max(MAX_CHAT_LABEL_CHARS)
+
+/** jsonb livre, com teto pelo tamanho serializado. */
+const ChatJsonSchema = z.unknown().refine((value) => value === undefined || (JSON.stringify(value)?.length ?? 0) <= MAX_CHAT_JSON_CHARS, {
+	message: `Conteúdo estruturado grande demais (máximo de ${MAX_CHAT_JSON_CHARS.toLocaleString("pt-BR")} caracteres em JSON)`,
+})
+
 /** Referência a uma sessão de chat — usada por leitura de mensagens e exclusão, nos dois chats. */
 export const ChatSessionRefSchema = z.object({ sessionId: z.uuid() })
 export type ChatSessionRef = z.infer<typeof ChatSessionRefSchema>
@@ -47,14 +78,14 @@ export const SaveAnalyticsChatMessageSchema = z
 	.object({
 		sessionId: z.uuid(),
 		role: z.enum(["user", "assistant"]),
-		content: z.string(),
-		chart: z.unknown().optional(),
+		content: ChatContentSchema,
+		chart: ChatJsonSchema.optional(),
 		chartTypeOverride: ChartTypeSchema.optional(),
-		error: z.string().optional(),
+		error: ChatErrorSchema.optional(),
 		// Observabilidade
-		model: z.string().optional(),
+		model: ChatLabelSchema.optional(),
 		latencyMs: z.number().int().nonnegative().optional(),
-		langsmithRunId: z.string().optional(),
+		langsmithRunId: ChatLabelSchema.optional(),
 		inputTokens: z.number().int().nonnegative().optional(),
 		outputTokens: z.number().int().nonnegative().optional(),
 	})
@@ -104,16 +135,16 @@ export const SaveModuleChatMessageSchema = z
 	.object({
 		sessionId: z.uuid(),
 		role: z.enum(["user", "assistant", "tool"]),
-		content: z.string(),
-		toolCalls: z.unknown().optional(),
-		toolCallId: z.string().optional(),
-		toolName: z.string().optional(),
-		toolResult: z.unknown().optional(),
-		error: z.string().optional(),
+		content: ChatContentSchema,
+		toolCalls: ChatJsonSchema.optional(),
+		toolCallId: ChatLabelSchema.optional(),
+		toolName: ChatLabelSchema.optional(),
+		toolResult: ChatJsonSchema.optional(),
+		error: ChatErrorSchema.optional(),
 		// Observabilidade
-		model: z.string().optional(),
+		model: ChatLabelSchema.optional(),
 		latencyMs: z.number().int().nonnegative().optional(),
-		langsmithRunId: z.string().optional(),
+		langsmithRunId: ChatLabelSchema.optional(),
 		inputTokens: z.number().int().nonnegative().optional(),
 		outputTokens: z.number().int().nonnegative().optional(),
 	})

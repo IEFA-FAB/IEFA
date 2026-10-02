@@ -25,8 +25,13 @@ export const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-pro
  * `admin` concedido "só para a unidade 5" passaria em toda checagem de admin como se fosse
  * pleno: o escopo não recorta nada, só engana quem concede. Recusar na concessão é o único
  * lugar em que isso fecha sem mexer na semântica de todas as outras checagens.
+ *
+ * `analytics` entrou pelo mesmo motivo, com dano maior: o assistente de analytics roda SQL como
+ * `analytics_reader` (BYPASSRLS) sobre todas as OMs. Um `analytics` "só da unidade 5" abria o
+ * banco inteiro ao assistente. A visão por OM é o `local-analytics`, que tem escopo. O banco tem
+ * a mesma trava (CHECKs `*_admin_global_unscoped` e `*_analytics_unscoped`).
  */
-export const UNSCOPED_ONLY_MODULES = ["admin", "global"] as const
+export const UNSCOPED_ONLY_MODULES = ["admin", "global", "analytics"] as const
 
 type ScopeFields = { unit_id?: number | null; kitchen_id?: number | null; mess_hall_id?: number | null }
 

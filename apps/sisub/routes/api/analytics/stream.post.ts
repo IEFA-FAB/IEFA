@@ -1,13 +1,14 @@
-import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
+import { createAdapterFromEnv, defaultRateLimitStore, enforceRequestRateLimit, maxIterationsMiddleware, RateLimitError } from "@iefa/ai-provider"
 import { checkSameOriginJsonRequest } from "@iefa/auth-kit"
 import type { Database } from "@iefa/database"
-import { hasPermission, resolveUserPermissions } from "@iefa/pbac"
+import { resolveUserPermissions } from "@iefa/pbac"
 import { metrics, trace } from "@opentelemetry/api"
 import { createServerClient } from "@supabase/ssr"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
 import { type H3Event, HTTPError, readBody } from "h3"
 import { defineHandler } from "nitro"
+import { AI_CHAT_MAX_ITERATIONS, canUseAnalyticsAssistant, SISUB_AI_RATE_LIMIT_DEFAULTS } from "@/lib/ai-chat-limits"
 import { ANALYTICS_SYSTEM_PROMPT } from "@/lib/analytics-prompt"
 import { getServerCapabilities } from "@/lib/capabilities.server"
 import { checkChatPayloadSize, sanitizeClientMessages } from "@/lib/chat-client-messages"
@@ -59,10 +60,10 @@ export default defineHandler(async (event: H3Event) => {
 		throw new HTTPError({ status: 401, message: "Não autenticado" })
 	}
 
-	// A tela exige `analytics:1`; o endpoint tem de exigir o mesmo. Antes só a sessão bastava,
-	// e qualquer conta chegava ao `render_chart`.
+	// `analytics:1` SEM escopo: o `render_chart` roda SQL com BYPASSRLS sobre todas as OMs, e um
+	// grant escopado não recortaria nada do que ele lê (ver `canUseAnalyticsAssistant`).
 	const permissions = await resolveUserPermissions(user.id, getAccessControlClient())
-	if (!hasPermission(permissions, "analytics", 1)) {
+	if (!canUseAnalyticsAssistant(permissions)) {
 		throw new HTTPError({ status: 403, message: "Permissão insuficiente" })
 	}
 
@@ -87,7 +88,7 @@ export default defineHandler(async (event: H3Event) => {
 
 	// Teto de consumo antes de abrir o SSE — ver comentário equivalente no chat dos módulos.
 	try {
-		enforceRequestRateLimit("ANALYTICS", user.id)
+		enforceRequestRateLimit("ANALYTICS", user.id, defaultRateLimitStore, SISUB_AI_RATE_LIMIT_DEFAULTS)
 	} catch (error) {
 		if (error instanceof RateLimitError) {
 			// `Retry-After` vai DENTRO do erro. O h3 v2 monta a resposta de erro a partir de
@@ -103,13 +104,15 @@ export default defineHandler(async (event: H3Event) => {
 		throw error
 	}
 
-	const adapter = createAdapterFromEnv("ANALYTICS", { rateLimitKey: user.id })
+	const adapter = createAdapterFromEnv("ANALYTICS", { rateLimitKey: user.id, rateLimitDefaults: SISUB_AI_RATE_LIMIT_DEFAULTS })
 	const stream = chat({
 		adapter,
 		messages,
 		tools: [renderChartTool],
 		systemPrompts: [ANALYTICS_SYSTEM_PROMPT],
-		middleware: [otel],
+		// Mesmo teto do chat dos módulos: SQL recusado faz o modelo tentar de novo, e cada
+		// tentativa reenvia o histórico inteiro (com os resultados das anteriores).
+		middleware: [otel, maxIterationsMiddleware(AI_CHAT_MAX_ITERATIONS)],
 	})
 
 	return toServerSentEventsResponse(stream)

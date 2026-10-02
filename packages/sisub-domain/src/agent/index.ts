@@ -38,6 +38,8 @@ export type { AgentQuantityEstimateDetail, AgentQuantityEstimateItem, AgentQuant
 export { agentGetQuantityEstimate, agentListQuantityEstimates, agentUpdateQuantityEstimateStatus } from "./quantity-estimates.ts"
 export type { AgentIngredientSummary, AgentList, AgentRecipeDetail, AgentRecipeIngredient, AgentRecipeSummary } from "./reads.ts"
 export { agentGetRecipe, agentListIngredients, agentListLegacyPreparations, agentListRecipes } from "./reads.ts"
+export type { AgentUpdateRecipe, AgentUpdateRecipeResult } from "./recipes.ts"
+export { agentUpdateRecipe } from "./recipes.ts"
 export type {
 	AgentCheckMenuEquipment,
 	AgentCheckRecipeEquipment,

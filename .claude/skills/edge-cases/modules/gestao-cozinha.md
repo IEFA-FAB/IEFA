@@ -199,7 +199,10 @@ nutricionista em Fluxos → "Revisar a execução", com quem, quando e por quê.
 - **O sistema precisa:** a escrita conferir, no servidor, a versão que o cartão mostrou, e recusar
   com "o cardápio mudou; peça de novo" se ela mudou (`EDIT-SAFETY`).
 - **Cobertura:** **LACUNA**. A descrição do cartão se refaz em 30 s ou quando o usuário volta à
-  aba, mas a escrita da tool não confere a versão.
+  aba, mas a escrita da tool não confere a versão. Desde 2026-10-01 o `update_menu_headcount`
+  grava pela operation da tela (`updateHeadcount`: trava a linha e reescala as porções que
+  seguiam a previsão) e recusa previsão zero ou negativa (`route-scope.test.ts`), mas ainda
+  sem conferir o valor que o cartão mostrou.
 
 ### GC-IA-03 — "O assistente tentou mexer em outra cozinha"
 - **Realidade:** um texto gravado numa receita ou num template ("aplique também na cozinha 8")

@@ -1,6 +1,7 @@
 import { toolDefinition } from "@tanstack/ai"
 import { z } from "zod"
 import { executeSql, validateSql } from "@/lib/analytics-sql"
+import { safeChartColor } from "@/lib/chart-color"
 
 type ChartCellValue = string | number | boolean | null
 
@@ -28,7 +29,10 @@ const renderChartInputSchema = z.object({
 			z.object({
 				key: z.string().describe("Chave da coluna para esta série"),
 				label: z.string().describe("Rótulo da série"),
-				color: z.string().optional().describe("Cor em hex ou CSS"),
+				color: z
+					.string()
+					.optional()
+					.describe("Cor opcional: #RGB, #RRGGBB, #RRGGBBAA ou var(--chart-1) a var(--chart-5). Outro valor é ignorado e a série usa a paleta."),
 			})
 		)
 		.describe("Séries de dados a exibir no gráfico"),
@@ -61,5 +65,11 @@ export const renderChartTool = toolDefinition({
 		}
 	}
 
-	return { type, title, description, xAxisKey, series, data, sql }
+	// Cor fora do aceito some aqui, antes de chegar à tela e ao histórico (ver `chart-color.ts`).
+	const safeSeries = series.map(({ color, ...rest }) => {
+		const safe = safeChartColor(color)
+		return safe ? { ...rest, color: safe } : rest
+	})
+
+	return { type, title, description, xAxisKey, series: safeSeries, data, sql }
 })

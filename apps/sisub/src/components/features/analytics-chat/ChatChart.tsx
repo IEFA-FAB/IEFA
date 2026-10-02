@@ -5,6 +5,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { CHART_PALETTE, seriesColor } from "@/lib/chart-color"
 import { reportError } from "@/lib/observability/report-error"
 import type { ChartSpec, ChartType } from "@/types/domain/analytics-chat"
 
@@ -174,9 +175,8 @@ function exportAsPng(container: HTMLDivElement, title: string) {
 
 // ── Lazy Recharts (avoid SSR, reduce initial bundle) ────────────────────────
 
-// Paleta de séries de dados — tokens de chart calibrados do tema (styles.css).
-// O 6º slot usa --governance (roxo calibrado) para manter 6 matizes distintos.
-const COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-5)", "var(--governance)", "var(--chart-4)"]
+// A cor pedida pelo modelo passa por `seriesColor`: só `#hex` ou `var(--chart-N)`, senão a paleta.
+// Vale também para o histórico gravado antes de a tool filtrar a cor no servidor.
 
 const RechartsBarChart = lazy(() =>
 	import("recharts").then((m) => ({
@@ -191,7 +191,7 @@ const RechartsBarChart = lazy(() =>
 						<Tooltip />
 						<Legend />
 						{spec.series.map((s, i) => (
-							<Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color ?? COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} />
+							<Bar key={s.key} dataKey={s.key} name={s.label} fill={seriesColor(s.color, i)} radius={[3, 3, 0, 0]} />
 						))}
 					</BarChart>
 				</ResponsiveContainer>
@@ -213,7 +213,7 @@ const RechartsLineChart = lazy(() =>
 						<Tooltip />
 						<Legend />
 						{spec.series.map((s, i) => (
-							<Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color ?? COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
+							<Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={seriesColor(s.color, i)} strokeWidth={2} dot={false} />
 						))}
 					</LineChart>
 				</ResponsiveContainer>
@@ -235,7 +235,7 @@ const RechartsAreaChart = lazy(() =>
 						<Tooltip />
 						<Legend />
 						{spec.series.map((s, i) => {
-							const color = s.color ?? COLORS[i % COLORS.length]
+							const color = seriesColor(s.color, i)
 							return <Area key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={2} />
 						})}
 					</AreaChart>
@@ -254,7 +254,7 @@ const RechartsPieChart = lazy(() =>
 			// nem no `shape`: o recharts lê `fill` da linha para pintar o setor E para montar
 			// legenda, rótulo e marcador do tooltip. Cor só no `shape` pinta o setor e deixa o
 			// resto no cinza padrão.
-			const slices = useMemo(() => spec.data.map((row, index) => ({ ...row, fill: COLORS[index % COLORS.length] })), [spec.data])
+			const slices = useMemo(() => spec.data.map((row, index) => ({ ...row, fill: CHART_PALETTE[index % CHART_PALETTE.length] })), [spec.data])
 			return (
 				<ResponsiveContainer width="100%" height={300}>
 					<PieChart>
