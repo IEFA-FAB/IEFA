@@ -15,6 +15,7 @@ import {
 	updatePlacesEntity,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { withAtomicAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
@@ -34,9 +35,14 @@ export const updatePlacesEntityFn = createServerFn({ method: "POST" })
 		return updatePlacesEntity(getDb(), ctx, data).catch(handleDomainError)
 	})
 
+/**
+ * Reparentar cozinha ou refeitório (mudar a OM dele) muda quem o alcança: a operação exige
+ * `admin:2` para isso e grava o log na mesma transação da escrita — por isso o envelope atômico,
+ * que só entrega nome e grau.
+ */
 export const applyPlacesDiffFn = createServerFn({ method: "POST" })
 	.validator(ApplyPlacesDiffSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return applyPlacesDiff(getDb(), ctx, data).catch(handleDomainError)
+		return withAtomicAudit("applyPlacesDiffFn", ({ audit }) => applyPlacesDiff(getDb(), ctx, data, audit)).catch(handleDomainError)
 	})

@@ -2,7 +2,9 @@
  * Org-hierarchy + mess-hall operations. Drizzle query layer.
  *
  * Auth: leituras da hierarquia são apenas autenticadas (catálogo visível a qualquer sessão);
- * `addOtherPresence` escreve presença de terceiro e exige `messhall:2` no refeitório.
+ * `addOtherPresence` escreve presença de terceiro e exige `messhall:2` no refeitório. Mutação da
+ * hierarquia exige `global:2`; reparentar (mudar a OM de cozinha/refeitório) exige também
+ * `admin:2` e é auditado (`applyPlacesDiff`).
  *
  * `units`/`mess_halls` têm PK bigserial, lida como `number`: o patcher do pull
  * (`patch-drizzle-pull.ts`, passo 10) uniformiza todo `bigserial` em mode "number".
@@ -28,11 +30,15 @@ import type {
 	FetchOtherPresencesCount,
 	FetchUserArranchamento,
 	ListPlaces,
+	PlacesDiffItem,
 	ResolveDisplayName,
 	UpdateEntityInput,
 } from "../schemas/places.ts"
 import type { UserContext } from "../types/context.ts"
+import { DomainError } from "../types/errors.ts"
 import { driverFailure, runQuery, toWire } from "../utils/index.ts"
+import { type AccessAudit, defaultAccessAudit } from "./access-change.ts"
+import { recordSensitiveOperation } from "./audit.ts"
 
 type Unit = Tables<"units">
 type Kitchen = Tables<"kitchen">
@@ -179,21 +185,80 @@ const KITCHEN_DIFF_KEY = { unit_id: "unitId", purchase_unit_id: "purchaseUnitId"
 >
 const MESS_HALL_DIFF_KEY = { unit_id: "unitId", kitchen_id: "kitchenId" } satisfies Record<string, keyof typeof messHallsInKitchen.$inferInsert>
 
-export async function applyPlacesDiff(db: SisubDb, ctx: UserContext, input: ApplyPlacesDiff) {
-	// Idem: o diff reparenteia cozinhas e refeitórios. Sem gate, qualquer sessão válida
-	// remontava a hierarquia.
-	requirePermission(ctx, "global", 2)
+/**
+ * Colunas que decidem o ALCANCE de quem tem permissão de `unit`: a OM de uma cozinha é
+ * `unit_id` ou `purchase_unit_id` (`kitchen-unit.ts`), a de um refeitório é `unit_id`. Mudá-las
+ * numa linha existente é reparentar — a cozinha passa a ser alcançada pelos administradores de
+ * OUTRA OM, e deixa de ser pelos da antiga —, o que é mudança de acesso, não de cadastro.
+ */
+const REPARENT_COLUMNS: Record<PlacesDiffItem["table"], ReadonlySet<string>> = {
+	kitchen: new Set(["unit_id", "purchase_unit_id"]),
+	mess_halls: new Set(["unit_id"]),
+}
 
-	await Promise.all(
-		input.diffs.map(async (diff) => {
+/** O item do diff muda a OM de uma cozinha ou de um refeitório? */
+export function isReparentDiff(diff: PlacesDiffItem): boolean {
+	return REPARENT_COLUMNS[diff.table].has(diff.column)
+}
+
+type ReparentChange = { table: string; record_id: number; column: string; previous: number | null; value: number }
+
+/** Valor atual da coluna, travado até o fim da transação — é o `previous` do log. */
+async function lockCurrentValue(tx: SisubDb, diff: PlacesDiffItem): Promise<number | null> {
+	const rows =
+		diff.table === "kitchen"
+			? await tx
+					.select({ value: kitchenInKitchen[KITCHEN_DIFF_KEY[diff.column]] })
+					.from(kitchenInKitchen)
+					.where(eq(kitchenInKitchen.id, diff.recordId))
+					.for("update")
+			: await tx
+					.select({ value: messHallsInKitchen[MESS_HALL_DIFF_KEY[diff.column]] })
+					.from(messHallsInKitchen)
+					.where(eq(messHallsInKitchen.id, diff.recordId))
+					.for("update")
+	if (rows.length === 0) throw new DomainError("UPDATE_FAILED", `${diff.table} ${diff.recordId} não encontrado`)
+	const value = rows[0].value
+	return value == null ? null : Number(value)
+}
+
+/**
+ * Aplica o diff de relações da hierarquia. `global:2` para o diff; REPARENTAR (mudar a OM de
+ * cozinha ou refeitório existente, `isReparentDiff`) exige também `admin:2`, porque decide quem
+ * alcança aquela cozinha — e entra em `access_control.sensitive_operation_log` na MESMA
+ * transação das escritas, com o antes e o depois de cada coluna.
+ *
+ * Tudo numa transação: um diff aplicado pela metade deixaria a hierarquia num estado que
+ * ninguém desenhou, e o log descreveria o que não ficou.
+ */
+export async function applyPlacesDiff(
+	db: SisubDb,
+	ctx: UserContext,
+	input: ApplyPlacesDiff,
+	audit: AccessAudit = defaultAccessAudit("applyPlacesDiff")
+): Promise<{ ok: true; count: number }> {
+	// Sem gate, qualquer sessão válida remontava a hierarquia.
+	requirePermission(ctx, "global", 2)
+	const reparents = input.diffs.filter(isReparentDiff)
+	if (reparents.length > 0) requirePermission(ctx, "admin", 2)
+
+	await db.transaction(async (tx) => {
+		const changes: ReparentChange[] = []
+		for (const diff of reparents) {
+			const previous = await runQuery("FETCH_FAILED", () => lockCurrentValue(tx as unknown as SisubDb, diff))
+			if (previous !== diff.newValue) changes.push({ table: diff.table, record_id: diff.recordId, column: diff.column, previous, value: diff.newValue })
+		}
+
+		// Em sequência: a transação é uma conexão só.
+		for (const diff of input.diffs) {
 			try {
 				if (diff.table === "kitchen") {
-					await db
+					await tx
 						.update(kitchenInKitchen)
 						.set({ [KITCHEN_DIFF_KEY[diff.column]]: diff.newValue })
 						.where(eq(kitchenInKitchen.id, diff.recordId))
 				} else {
-					await db
+					await tx
 						.update(messHallsInKitchen)
 						.set({ [MESS_HALL_DIFF_KEY[diff.column]]: diff.newValue })
 						.where(eq(messHallsInKitchen.id, diff.recordId))
@@ -201,8 +266,16 @@ export async function applyPlacesDiff(db: SisubDb, ctx: UserContext, input: Appl
 			} catch (e) {
 				throw driverFailure("UPDATE_FAILED", e, `Falha ao atualizar ${diff.table} (id ${diff.recordId})`, `Falha ao atualizar ${diff.table}`)
 			}
-		})
-	)
+		}
+
+		if (changes.length > 0) {
+			await recordSensitiveOperation(tx as unknown as SisubDb, ctx, {
+				operation: audit.operation,
+				assurance: audit.grade,
+				target: { action: "reparent", changes },
+			})
+		}
+	})
 	return { ok: true as const, count: input.diffs.length }
 }
 
