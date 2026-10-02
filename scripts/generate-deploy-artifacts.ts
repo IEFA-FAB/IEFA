@@ -2,7 +2,8 @@
 /**
  * Gera Dockerfile, docker-bake.hcl e .github/paths-filter.yml a partir de
  * `apps.manifest.json` + o grafo de dependências de workspace lido dos
- * package.json.
+ * package.json, e as regiões marcadas (`# >>> gerado: <nome>`) do
+ * .github/workflows/deploy.yml que só repetem a lista de apps.
  *
  * Motivo: adicionar um app (ou um package compartilhado) exigia editar as mesmas
  * listas à mão em três arquivos. Elas divergiam em silêncio e o modo de falha era
@@ -56,7 +57,24 @@ type Manifest = {
 	apps: App[]
 }
 
-const manifest: Manifest = JSON.parse(readFileSync(join(ROOT, "apps.manifest.json"), "utf8"))
+export const manifest: Manifest = JSON.parse(readFileSync(join(ROOT, "apps.manifest.json"), "utf8"))
+
+/**
+ * Chave do app no paths-filter e nos outputs do `changes` (`sisub-mcp` é lido como `mcp`). Uma
+ * função só para os dois geradores: se divergirem, o deploy.yml lê um output que não existe e
+ * o app para de deployar em silêncio.
+ */
+export function filterKeyOf(app: App): string {
+	return app.filterKey ?? app.key.replaceAll("-", "_")
+}
+
+/** O app de onde vem o build (o próprio, ou o `aliasOf`): é dele o `kind`. */
+export function buildSourceOf(app: App): App {
+	if (!app.aliasOf) return app
+	const source = manifest.apps.find((a) => a.key === app.aliasOf)
+	if (!source) throw new Error(`aliasOf inválido em ${app.key}`)
+	return source
+}
 
 /**
  * Segredos que o target do bake tem de declarar: os do próprio app e, num alias, os do
@@ -402,8 +420,7 @@ function renderPathsFilter() {
 		"",
 	]
 	for (const app of manifest.apps) {
-		const source = app.aliasOf ? manifest.apps.find((a) => a.key === app.aliasOf) : app
-		if (!source) throw new Error(`aliasOf inválido em ${app.key}`)
+		const source = buildSourceOf(app)
 		// Um app de kind `dockerfile` não usa o Dockerfile raiz, o bun.lock nem o turbo:
 		// redeployar a cada mudança neles reconstruiria a imagem à toa.
 		const paths =
@@ -412,7 +429,7 @@ function renderPathsFilter() {
 				: [`${source.path}/**`, ...packageDepsOf(source.workspace as string).map((d) => `${d}/**`), ...GLOBAL_TRIGGERS]
 		// `filterKey` existe porque o deploy.yml lê `steps.filter.outputs.<key>` e alguns
 		// nomes históricos não batem com a chave do app (sisub-mcp é lido como `mcp`).
-		lines.push(`${app.filterKey ?? app.key.replaceAll("-", "_")}:`)
+		lines.push(`${filterKeyOf(app)}:`)
 		for (const p of paths) lines.push(`  - '${p}'`)
 		lines.push("")
 	}
@@ -420,34 +437,101 @@ function renderPathsFilter() {
 }
 
 // ---------------------------------------------------------------------------
+// .github/workflows/deploy.yml — regiões geradas
+// ---------------------------------------------------------------------------
 
-const artifacts: Array<[string, string]> = [
-	["Dockerfile", renderDockerfile()],
-	["docker-bake.hcl", renderBake()],
-	[".github/paths-filter.yml", renderPathsFilter()],
-]
+/**
+ * O deploy.yml repetia a lista de apps em seis lugares (input `force_*`, output do `changes`,
+ * env e `echo` do "Resolve outputs", condição do `warm-deps`), e app novo era seis edições à
+ * mão. Essas regiões ficam entre `# >>> gerado: <nome>` e `# <<< gerado: <nome>` e saem
+ * daqui; os jobs `check/build/deploy-<app>` continuam escritos à mão, porque cada app tem
+ * os seus passos.
+ */
+const DEPLOY_WORKFLOW = ".github/workflows/deploy.yml"
 
-const check = process.argv.includes("--check")
-let drift = false
+/** `steps.x.outputs.<k>`, com colchetes quando a chave começa por dígito (`5s`). */
+const outputRef = (prefix: string, key: string) => (/^\d/.test(key) ? `${prefix}['${key}']` : `${prefix}.${key}`)
+const envNameOf = (key: string) => key.toUpperCase()
 
-for (const [file, content] of artifacts) {
-	const path = join(ROOT, file)
-	const current = (() => {
-		try {
-			return readFileSync(path, "utf8")
-		} catch {
-			return null
-		}
-	})()
-	if (current === content) continue
-	if (check) {
-		console.error(`❌ ${file} está fora de sincronia com apps.manifest.json — rode \`bun run generate:deploy\``)
-		drift = true
-	} else {
-		writeFileSync(path, content)
-		console.log(`✅ ${file}`)
+/** Linhas de cada região, com indentação RELATIVA ao marcador (o renderizador soma a dele). */
+export function deployRegions(apps: readonly App[] = manifest.apps): Record<string, string[]> {
+	const keys = apps.map(filterKeyOf)
+	return {
+		"force-inputs": apps.flatMap((app) => [
+			`force_${filterKeyOf(app)}:`,
+			`  description: "Force deploy ${app.key}${app.title ? ` — ${app.title.replaceAll('"', "'")}` : ""}"`,
+			"  type: boolean",
+			"  default: false",
+		]),
+		"changes-outputs": keys.map((key) => `${key}: \${{ ${outputRef("steps.final.outputs", key)} }}`),
+		"resolve-env": [
+			...keys.map((key) => `FORCE_${envNameOf(key)}: \${{ inputs.force_${key} }}`),
+			...keys.map((key) => `FILTER_${envNameOf(key)}: \${{ ${outputRef("steps.filter.outputs", key)} }}`),
+		],
+		"resolve-force": keys.map((key) => `echo "${key}=$FORCE_${envNameOf(key)}"`),
+		"resolve-filter": keys.map((key) => `echo "${key}=$FILTER_${envNameOf(key)}"`),
+		// App cujo build é de kind `dockerfile` (próprio ou pelo alias) não usa o estágio `deps`.
+		"warm-deps-if": [
+			"if: >-",
+			...apps
+				.filter((app) => buildSourceOf(app).kind !== "dockerfile")
+				.map((app, index, list) => `  ${outputRef("needs.changes.outputs", filterKeyOf(app))} == 'true'${index < list.length - 1 ? " ||" : ""}`),
+		],
 	}
 }
 
-if (check && drift) process.exit(1)
-if (check) console.log("✅ artefatos de deploy em sincronia com apps.manifest.json")
+/** Reescreve cada região marcada; região ausente ou duplicada é erro (cópia não seria checada). */
+export function renderDeployWorkflow(current: string, regions: Record<string, string[]> = deployRegions()): string {
+	let out = current
+	for (const [name, body] of Object.entries(regions)) {
+		const openings = out.split("\n").filter((line) => line.trimStart().startsWith(`# >>> gerado: ${name} `)).length
+		if (openings !== 1) throw new Error(`${DEPLOY_WORKFLOW}: região "${name}" aparece ${openings} vez(es); tem de ser exatamente uma`)
+		const re = new RegExp(`^( *)# >>> gerado: ${name} [^\\n]*\\n[\\s\\S]*?^ *# <<< gerado: ${name}$`, "m")
+		const match = re.exec(out)
+		if (!match) throw new Error(`${DEPLOY_WORKFLOW}: região "${name}" sem o marcador de fim (# <<< gerado: ${name})`)
+		const indent = match[1] ?? ""
+		const block = [
+			`${indent}# >>> gerado: ${name} (bun run generate:deploy; não editar à mão)`,
+			...body.map((line) => indent + line),
+			`${indent}# <<< gerado: ${name}`,
+		].join("\n")
+		out = out.slice(0, match.index) + block + out.slice(match.index + match[0].length)
+	}
+	return out
+}
+
+// ---------------------------------------------------------------------------
+
+export const artifacts: Array<[string, string]> = [
+	["Dockerfile", renderDockerfile()],
+	["docker-bake.hcl", renderBake()],
+	[".github/paths-filter.yml", renderPathsFilter()],
+	[DEPLOY_WORKFLOW, renderDeployWorkflow(readFileSync(join(ROOT, DEPLOY_WORKFLOW), "utf8"))],
+]
+
+if (import.meta.main) {
+	const check = process.argv.includes("--check")
+	let drift = false
+
+	for (const [file, content] of artifacts) {
+		const path = join(ROOT, file)
+		const current = (() => {
+			try {
+				return readFileSync(path, "utf8")
+			} catch {
+				return null
+			}
+		})()
+		if (current === content) continue
+		if (check) {
+			console.error(`❌ ${file} está fora de sincronia com apps.manifest.json — rode \`bun run generate:deploy\``)
+			drift = true
+		} else {
+			writeFileSync(path, content)
+			console.log(`✅ ${file}`)
+		}
+	}
+
+	if (check && drift) process.exit(1)
+	if (check) console.log("✅ artefatos de deploy em sincronia com apps.manifest.json")
+}
