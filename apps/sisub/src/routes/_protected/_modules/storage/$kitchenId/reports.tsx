@@ -1,3 +1,4 @@
+import { brasiliaCurrentMonth } from "@iefa/sisub-domain/civil-date"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Download, FileSpreadsheet, Lock, Printer } from "lucide-react"
 import { useState } from "react"
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/re
 	loaderDeps: ({ search }) => ({ competencia: search.competencia }),
 	loader: async ({ params, deps }) => {
 		const kitchenId = Number(params.kitchenId)
-		const competencia = deps.competencia ?? new Date().toISOString().substring(0, 7)
+		const competencia = deps.competencia ?? brasiliaCurrentMonth()
 		const [balancete, closings, empenhoPanel] = await Promise.all([
 			fetchBalanceteFn({ data: { kitchenId, competencia } }),
 			listClosingsFn({ data: { kitchenId } }),

@@ -3,6 +3,7 @@
  * e consolidado de produção. Sem banco — testadas em `snack-kit.test.ts`.
  */
 
+import { brasiliaCivilDateOf } from "./civil-date.ts"
 import type { SnackAudience, SnackClass, SnackFamily, SnackVariant } from "./snack-entitlement.ts"
 
 // ── Energia ────────────────────────────────────────────────────────────────
@@ -148,10 +149,9 @@ export function labelExpiresAt(fabricatedAt: Date, shelfLifeHours: number | null
 	return new Date(fabricatedAt.getTime() + (shelfLifeHours ?? DEFAULT_SHELF_LIFE_HOURS) * 3_600_000)
 }
 
-/** Data civil de Brasília (UTC−3 fixo) de um instante — é a data do quadro de produção. */
+/** Data civil de Brasília de um instante — é a data do quadro de produção. */
 export function brasiliaCivilDate(iso: string): string {
-	const shifted = new Date(Date.parse(iso) - 3 * 3_600_000)
-	return shifted.toISOString().slice(0, 10)
+	return brasiliaCivilDateOf(iso) ?? iso.slice(0, 10)
 }
 
 // ── Snapshot do padrão e consolidado ───────────────────────────────────────

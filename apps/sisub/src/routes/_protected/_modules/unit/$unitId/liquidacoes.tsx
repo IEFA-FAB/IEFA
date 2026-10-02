@@ -1,3 +1,4 @@
+import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { ChevronDown, ChevronRight, Receipt } from "lucide-react"
@@ -51,7 +52,7 @@ function LiquidacoesPage() {
 	const [empenhoId, setEmpenhoId] = useState("")
 	const [receiptId, setReceiptId] = useState<string>(NO_RECEIPT)
 	const [numeroNs, setNumeroNs] = useState("")
-	const [data, setData] = useState(new Date().toISOString().substring(0, 10))
+	const [data, setData] = useState(brasiliaToday())
 	const [valor, setValor] = useState("")
 	const [expanded, setExpanded] = useState<string | null>(null)
 

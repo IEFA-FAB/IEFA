@@ -7,6 +7,7 @@
  */
 
 import { clampLimit } from "@iefa/sisub-domain/agent"
+import { addCivilDays, brasiliaToday } from "@iefa/sisub-domain/civil-date"
 import type { ModuleToolDefinition } from "./shared"
 import { requireModulePermission, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 import { listQuantityEstimates } from "./unit"
@@ -107,8 +108,8 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		const kitchenIds = (kitchens ?? []).map((k: { id: number }) => k.id)
 
 		if (kitchenIds.length > 0) {
-			const today = new Date().toISOString().substring(0, 10)
-			const future = new Date(Date.now() + 30 * 86_400_000).toISOString().substring(0, 10)
+			const today = brasiliaToday()
+			const future = addCivilDays(today, 30)
 			const { data: menus, error: menusError } = await untypedFrom(ctx, "daily_menu")
 				.select("id, menu_items(id, deleted_at, recipe_origin:recipe_origin_id(recipe_ingredients(ingredient_id)))")
 				.in("kitchen_id", kitchenIds)
@@ -216,8 +217,8 @@ const getUpcomingMenus: ModuleToolDefinition = {
 
 		const kitchenNames = new Map((kitchens ?? []).map((k: { id: number; display_name: string | null }) => [k.id, k.display_name ?? String(k.id)]))
 
-		const today = new Date().toISOString().substring(0, 10)
-		const future = new Date(Date.now() + days * 86_400_000).toISOString().substring(0, 10)
+		const today = brasiliaToday()
+		const future = addCivilDays(today, days)
 
 		const { data: menus, error: menusError } = await untypedFrom(ctx, "daily_menu")
 			.select("id, kitchen_id, service_date, meal_type:meal_type_id(name), menu_items(id, deleted_at, recipe_origin:recipe_origin_id(name))")

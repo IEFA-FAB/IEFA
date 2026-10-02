@@ -5,11 +5,10 @@
  * para o bundle do navegador.
  */
 
+import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { parseSheetNumber } from "@iefa/sisub-domain/opening-balance"
 /** Data civil de hoje em Brasília ("YYYY-MM-DD"). O servidor roda em UTC. */
-export function todayInBrasilia(now: Date = new Date()): string {
-	return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(now)
-}
+export const todayInBrasilia = brasiliaToday
 
 /** Exercício corrente em Brasília. */
 export function currentFiscalYear(now: Date = new Date()): number {

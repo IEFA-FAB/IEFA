@@ -1,4 +1,5 @@
 import { NATURE_LABELS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASON_LABELS, type StockAdjustmentReason } from "@iefa/sisub-domain"
+import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { AlertTriangle, Check, ShieldAlert, SlidersHorizontal, Trash2, X } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -46,7 +47,7 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/ad
 	beforeLoad: (opts) => requirePermission(opts, "storage", 2),
 	loader: async ({ params }) => {
 		const kitchenId = Number(params.kitchenId)
-		const today = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
+		const today = brasiliaToday()
 		const monthStart = `${today.slice(0, 7)}-01`
 		const [balance, adjustments, quarantined, losses, scannerProfile] = await Promise.all([
 			fetchStockBalanceFn({ data: { kitchenId, operation: true } }),

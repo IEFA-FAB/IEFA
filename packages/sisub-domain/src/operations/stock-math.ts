@@ -1,3 +1,4 @@
+import { brasiliaCivilDateOf, brasiliaToday } from "../utils/civil-date.ts"
 /**
  * Matemática pura do estoque (Fase 3/5 do ciclo).
  *
@@ -41,9 +42,7 @@ export interface FefoResult {
 }
 
 /** Hoje no fuso de Brasília (o vencimento é uma data civil, não UTC). */
-export function brasiliaToday(now: Date = new Date()): string {
-	return now.toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
-}
+export { brasiliaToday }
 
 /**
  * Data civil de Brasília de um instante ISO. A entrada do lote chega como
@@ -52,9 +51,7 @@ export function brasiliaToday(now: Date = new Date()): string {
  * à noite entrava na fila como se fosse de amanhã.
  */
 export function brasiliaDate(instant: string): string {
-	if (instant.length === 10) return instant
-	const parsed = new Date(instant)
-	return Number.isNaN(parsed.getTime()) ? instant.slice(0, 10) : brasiliaToday(parsed)
+	return brasiliaCivilDateOf(instant) ?? instant.slice(0, 10)
 }
 
 /**

@@ -310,7 +310,7 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 						: null
 					return {
 						receipt_item_id: item.id,
-						lot_code: source?.lotCode?.trim() || `SEM-LOTE-${new Date().toISOString().slice(0, 10)}-${index + 1}`,
+						lot_code: source?.lotCode?.trim() || `SEM-LOTE-${brasiliaToday()}-${index + 1}`,
 						expiry_date: expiryDate,
 						quantity_base: Number(item.received_qty_base),
 						unit_cost: item.unit_cost,

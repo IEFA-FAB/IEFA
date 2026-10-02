@@ -7,6 +7,7 @@
  */
 
 import type { SnackRequestSummary } from "@iefa/sisub-domain"
+import { addCivilDays, brasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { brasiliaCivilDate, isStandardReviewOverdue, type SnackRequestStatus } from "@iefa/sisub-domain/utils"
 import { z } from "zod"
 import { audienceLabel, classLabel } from "@/components/features/diner/snack-requests/snack-format"
@@ -65,15 +66,9 @@ export function formatInt(value: number): string {
 }
 
 /** Data civil de hoje em Brasília (YYYY-MM-DD). */
-export function todayBrasilia(): string {
-	return brasiliaCivilDate(new Date().toISOString())
-}
+export const todayBrasilia = (): string => brasiliaToday()
 
-export function addDaysToCivilDate(civilDate: string, days: number): string {
-	const date = new Date(`${civilDate}T12:00:00Z`)
-	date.setUTCDate(date.getUTCDate() + days)
-	return date.toISOString().slice(0, 10)
-}
+export const addDaysToCivilDate = addCivilDays
 
 /** Data civil de Brasília de um instante — é a data do quadro de produção. */
 export function pickupCivilDate(iso: string): string {

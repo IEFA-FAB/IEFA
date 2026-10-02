@@ -1,3 +1,4 @@
+import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { CalendarClock, CalendarX2, Layers, Users } from "lucide-react"
 import { useState } from "react"
 import {
@@ -37,7 +38,7 @@ export function DayOriginsPanel({ kitchenId, date, menus }: { kitchenId: number;
 	const sizingHeadcount = Number(sizingValue)
 	const isSizingValid = sizingValue !== "" && Number.isInteger(sizingHeadcount) && sizingHeadcount > 0 && sizingHeadcount <= 100_000
 	// Adiar para trás é quase sempre ano errado; o servidor também recusa.
-	const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date())
+	const today = brasiliaToday()
 	const { mutate: moveOrigin, isPending: isMoving } = useMoveOriginToDate()
 	const { mutate: removeOrigin, isPending: isRemoving } = useRemoveOriginFromDay()
 	const { mutate: sizeOrigin, isPending: isSizing } = useSizeOriginOnDay()

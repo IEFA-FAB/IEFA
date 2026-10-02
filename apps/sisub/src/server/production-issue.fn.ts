@@ -10,6 +10,7 @@
  * @migration 20260729160000_inventory_stock_core
  */
 
+import { hasPermission } from "@iefa/pbac"
 import {
 	brasiliaDate,
 	brasiliaToday,
@@ -20,7 +21,6 @@ import {
 	type RecipeSnapshotForIssue,
 	remainingAfterLateIssues,
 } from "@iefa/sisub-domain"
-import { hasPermission } from "@iefa/pbac"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { hiddenByBlindCount } from "@/lib/blind-count.server"

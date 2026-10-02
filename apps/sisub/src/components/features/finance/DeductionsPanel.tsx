@@ -1,3 +1,4 @@
+import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { DEDUCTION_DOCUMENT_KINDS, DEDUCTION_KINDS, DEDUCTION_LABELS, type DeductionDocumentKind, type DeductionKind } from "@iefa/sisub-domain/operations"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
@@ -18,7 +19,7 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 export const DOCUMENT_LABELS: Record<DeductionDocumentKind, string> = { darf: "DARF", dar: "DAR", gps: "GPS", outro: "Outro" }
 
 function today(): string {
-	return new Date().toISOString().substring(0, 10)
+	return brasiliaToday()
 }
 
 /** Registrar o recolhimento de uma retenção: o documento e a data em que foi pago. */
