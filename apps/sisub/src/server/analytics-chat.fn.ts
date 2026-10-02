@@ -27,6 +27,7 @@ import {
 	updateAnalyticsMessageChartType,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { requireAuth } from "@/lib/auth.server"
 import { CHAT_HISTORY_WRITE_LIMITER } from "@/lib/chat-history-rate-limit"
@@ -43,35 +44,17 @@ export const listChatSessionsFn = createServerFn({ method: "GET" }).handler(asyn
 
 export const createChatSessionFn = createServerFn({ method: "POST" })
 	.validator(CreateAnalyticsChatSessionSchema)
-	.handler(async ({ data }): Promise<AnalyticsChatSessionRow> => {
-		const ctx = await requireAuth()
-		return createAnalyticsChatSession(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(createAnalyticsChatSession))
 
-export const renameChatSessionFn = createServerFn({ method: "POST" })
-	.validator(RenameChatSessionSchema)
-	.handler(async ({ data }): Promise<void> => {
-		const ctx = await requireAuth()
-		return renameAnalyticsChatSession(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const renameChatSessionFn = createServerFn({ method: "POST" }).validator(RenameChatSessionSchema).handler(requireAuthThenRun(renameAnalyticsChatSession))
 
 /** Exclusão definitiva da sessão; as mensagens caem por cascade. */
-export const deleteChatSessionFn = createServerFn({ method: "POST" })
-	.validator(ChatSessionRefSchema)
-	.handler(async ({ data }): Promise<void> => {
-		const ctx = await requireAuth()
-		return deleteAnalyticsChatSession(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const deleteChatSessionFn = createServerFn({ method: "POST" }).validator(ChatSessionRefSchema).handler(requireAuthThenRun(deleteAnalyticsChatSession))
 
 // ── Messages ─────────────────────────────────────────────────────────────────
 
 /** Mensagens em ordem cronológica. Sessão inexistente ou de terceiro → 404. */
-export const getChatMessagesFn = createServerFn({ method: "GET" })
-	.validator(ChatSessionRefSchema)
-	.handler(async ({ data }): Promise<AnalyticsChatMessageRow[]> => {
-		const ctx = await requireAuth()
-		return listAnalyticsChatMessages(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const getChatMessagesFn = createServerFn({ method: "GET" }).validator(ChatSessionRefSchema).handler(requireAuthThenRun(listAnalyticsChatMessages))
 
 export const saveChatMessageFn = createServerFn({ method: "POST" })
 	.validator(SaveAnalyticsChatMessageSchema)
@@ -88,7 +71,4 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 
 export const updateMessageChartTypeFn = createServerFn({ method: "POST" })
 	.validator(UpdateMessageChartTypeSchema)
-	.handler(async ({ data }): Promise<void> => {
-		const ctx = await requireAuth()
-		return updateAnalyticsMessageChartType(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(updateAnalyticsMessageChartType))

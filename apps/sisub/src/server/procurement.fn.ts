@@ -7,13 +7,8 @@
 
 import { FetchProcurementNeedsSchema, fetchProcurementNeeds } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuth } from "@/lib/auth.server"
-import { getDb } from "@/lib/db.server"
-import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 	.validator(FetchProcurementNeedsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchProcurementNeeds(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchProcurementNeeds))

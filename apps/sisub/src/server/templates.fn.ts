@@ -38,6 +38,7 @@ import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
 export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })
@@ -55,61 +56,21 @@ export const fetchDeletedTemplatesFn = createServerFn({ method: "GET" })
 		return (await listDeletedTemplates(getDb(), ctx, data).catch(handleDomainError)) as unknown as TemplateWithItemCounts[]
 	})
 
-export const fetchTemplateFn = createServerFn({ method: "GET" })
-	.validator(GetTemplateSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return getTemplate(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchTemplateFn = createServerFn({ method: "GET" }).validator(GetTemplateSchema).handler(requireAuthThenRun(getTemplate))
 
-export const fetchTemplateItemsFn = createServerFn({ method: "GET" })
-	.validator(GetTemplateSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return getTemplateItems(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchTemplateItemsFn = createServerFn({ method: "GET" }).validator(GetTemplateSchema).handler(requireAuthThenRun(getTemplateItems))
 
-export const createTemplateFn = createServerFn({ method: "POST" })
-	.validator(CreateTemplateSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return createTemplate(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const createTemplateFn = createServerFn({ method: "POST" }).validator(CreateTemplateSchema).handler(requireAuthThenRun(createTemplate))
 
-export const createBlankTemplateFn = createServerFn({ method: "POST" })
-	.validator(CreateBlankTemplateSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return createBlankTemplate(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const createBlankTemplateFn = createServerFn({ method: "POST" }).validator(CreateBlankTemplateSchema).handler(requireAuthThenRun(createBlankTemplate))
 
-export const forkTemplateFn = createServerFn({ method: "POST" })
-	.validator(ForkTemplateSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return forkTemplate(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const forkTemplateFn = createServerFn({ method: "POST" }).validator(ForkTemplateSchema).handler(requireAuthThenRun(forkTemplate))
 
-export const saveTemplateEditFn = createServerFn({ method: "POST" })
-	.validator(SaveTemplateEditSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return saveTemplateEdit(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const saveTemplateEditFn = createServerFn({ method: "POST" }).validator(SaveTemplateEditSchema).handler(requireAuthThenRun(saveTemplateEdit))
 
-export const deleteTemplateFn = createServerFn({ method: "POST" })
-	.validator(DeleteTemplateSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return deleteTemplate(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const deleteTemplateFn = createServerFn({ method: "POST" }).validator(DeleteTemplateSchema).handler(requireAuthThenRun(deleteTemplate))
 
-export const restoreTemplateFn = createServerFn({ method: "POST" })
-	.validator(RestoreTemplateSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return restoreTemplate(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const restoreTemplateFn = createServerFn({ method: "POST" }).validator(RestoreTemplateSchema).handler(requireAuthThenRun(restoreTemplate))
 
 // applyTemplateFn: o frontend manda as datas ESCOLHIDAS. `startDate`/`endDate` seguem indo
 // (o domínio ainda os aceita como janela), mas quem determina o que é materializado — e, no
@@ -126,12 +87,7 @@ const ApplyTemplateFnSchema = z.object({
 
 // applyEventTemplateFn: materializa evento/exceção em datas concretas (aditivo,
 // não substitui o planejamento rotineiro do dia).
-export const applyEventTemplateFn = createServerFn({ method: "POST" })
-	.validator(ApplyEventTemplateSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return applyEventTemplate(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const applyEventTemplateFn = createServerFn({ method: "POST" }).validator(ApplyEventTemplateSchema).handler(requireAuthThenRun(applyEventTemplate))
 
 export const applyTemplateFn = createServerFn({ method: "POST" })
 	.validator(ApplyTemplateFnSchema)

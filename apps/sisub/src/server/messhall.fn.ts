@@ -23,21 +23,12 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth, requireAuthWithPermission, requireSessionIdentity } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { withSessionIdentity } from "@/lib/session-identity"
 
-export const fetchMessHallByCodeFn = createServerFn({ method: "GET" })
-	.validator(FetchMessHallByCodeSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchMessHallByCode(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchMessHallByCodeFn = createServerFn({ method: "GET" }).validator(FetchMessHallByCodeSchema).handler(requireAuthThenRun(fetchMessHallByCode))
 
-export const fetchMessHallIdByCodeFn = createServerFn({ method: "GET" })
-	.validator(FetchMessHallByCodeSchema)
-	.handler(async ({ data }): Promise<number | null> => {
-		const ctx = await requireAuth()
-		return fetchMessHallIdByCode(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchMessHallIdByCodeFn = createServerFn({ method: "GET" }).validator(FetchMessHallByCodeSchema).handler(requireAuthThenRun(fetchMessHallIdByCode))
 
 // Dois chamadores legítimos, como em `insertPresence`: o comensal no self check-in (manda o
 // PRÓPRIO id) e o Fiscal de rancho (manda o id de terceiro). Só o segundo precisa de

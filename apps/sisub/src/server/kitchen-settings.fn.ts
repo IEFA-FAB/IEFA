@@ -17,6 +17,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 export type { KitchenSettingsInput }
 
@@ -44,7 +45,4 @@ export const fetchKitchenSettingsFn = createServerFn({ method: "GET" })
 
 export const updateKitchenSettingsFn = createServerFn({ method: "POST" })
 	.validator(UpdateKitchenSettingsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateKitchenSettings(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(updateKitchenSettings))

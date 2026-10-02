@@ -29,6 +29,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import type { ProductionItem, ProductionTask } from "@/types/domain/production"
 
 export const fetchProductionBoardFn = createServerFn({ method: "GET" })
@@ -40,10 +41,7 @@ export const fetchProductionBoardFn = createServerFn({ method: "GET" })
 
 export const ensureProductionTasksFn = createServerFn({ method: "POST" })
 	.validator(EnsureProductionTasksSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return ensureProductionTasks(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(ensureProductionTasks))
 
 export const updateProductionTaskStatusFn = createServerFn({ method: "POST" })
 	.validator(UpdateProductionTaskStatusSchema)
@@ -61,17 +59,11 @@ export const updateProductionTaskRecordFn = createServerFn({ method: "POST" })
 
 export const adjustProductionPortionsFn = createServerFn({ method: "POST" })
 	.validator(AdjustProductionPortionsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return adjustProductionPortions(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(adjustProductionPortions))
 
 export const recordProductionSubstitutionFn = createServerFn({ method: "POST" })
 	.validator(RecordProductionSubstitutionSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return recordProductionSubstitution(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(recordProductionSubstitution))
 
 /**
  * Opções do "Incluir preparação" do turno: refeições e preparações do catálogo. Leitura própria
@@ -79,15 +71,7 @@ export const recordProductionSubstitutionFn = createServerFn({ method: "POST" })
  */
 export const fetchExecutionOptionsFn = createServerFn({ method: "GET" })
 	.validator(FetchExecutionOptionsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchExecutionOptions(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchExecutionOptions))
 
 /** O turno inclui uma preparação no cardápio de HOJE (inclusive uma provisória, só com o nome). */
-export const addExecutionMenuItemFn = createServerFn({ method: "POST" })
-	.validator(AddExecutionMenuItemSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return addExecutionMenuItem(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const addExecutionMenuItemFn = createServerFn({ method: "POST" }).validator(AddExecutionMenuItemSchema).handler(requireAuthThenRun(addExecutionMenuItem))

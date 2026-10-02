@@ -8,22 +8,10 @@
 
 import { FetchUnitSettingsSchema, fetchUnitSettings, type UnitSettingsInput, UpdateUnitSettingsSchema, updateUnitSettings } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuth } from "@/lib/auth.server"
-import { getDb } from "@/lib/db.server"
-import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 export type { UnitSettingsInput }
 
-export const fetchUnitSettingsFn = createServerFn({ method: "GET" })
-	.validator(FetchUnitSettingsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchUnitSettings(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchUnitSettingsFn = createServerFn({ method: "GET" }).validator(FetchUnitSettingsSchema).handler(requireAuthThenRun(fetchUnitSettings))
 
-export const updateUnitSettingsFn = createServerFn({ method: "POST" })
-	.validator(UpdateUnitSettingsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateUnitSettings(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const updateUnitSettingsFn = createServerFn({ method: "POST" }).validator(UpdateUnitSettingsSchema).handler(requireAuthThenRun(updateUnitSettings))

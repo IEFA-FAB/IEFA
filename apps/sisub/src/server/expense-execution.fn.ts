@@ -6,23 +6,15 @@
  * @domain core
  */
 
-import { type ExpenseExecutionStatus, fetchExpenseExecutionStatus, fetchReceivingPendingStatus, type ReceivingPendingStatus } from "@iefa/sisub-domain"
+import { fetchExpenseExecutionStatus, fetchReceivingPendingStatus } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { z } from "zod"
-import { requireAuth } from "@/lib/auth.server"
-import { getDb } from "@/lib/db.server"
-import { handleDomainError } from "@/lib/domain-errors"
 
 export const fetchExpenseExecutionStatusFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive() }))
-	.handler(async ({ data }): Promise<ExpenseExecutionStatus> => {
-		const ctx = await requireAuth()
-		return fetchExpenseExecutionStatus(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchExpenseExecutionStatus))
 
 export const fetchReceivingPendingStatusFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
-	.handler(async ({ data }): Promise<ReceivingPendingStatus> => {
-		const ctx = await requireAuth()
-		return fetchReceivingPendingStatus(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchReceivingPendingStatus))

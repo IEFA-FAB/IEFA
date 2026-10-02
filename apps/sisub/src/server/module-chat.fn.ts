@@ -25,13 +25,13 @@ import {
 	listModuleChatMessages,
 	listModuleChatSessions,
 	type ModuleChatMessageRow,
-	type ModuleChatSessionRow,
 	RenameChatSessionSchema,
 	renameModuleChatSession,
 	SaveModuleChatMessageSchema,
 	saveModuleChatMessage,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { requireAuth } from "@/lib/auth.server"
 import { CHAT_HISTORY_WRITE_LIMITER } from "@/lib/chat-history-rate-limit"
@@ -43,42 +43,23 @@ import { handleDomainError } from "@/lib/domain-errors"
 /** Até 50 sessões do usuário no módulo. Sem `scopeId` = sessões SEM escopo (`scope_id IS NULL`). */
 export const listModuleChatSessionsFn = createServerFn({ method: "GET" })
 	.validator(ListModuleChatSessionsSchema)
-	.handler(async ({ data }): Promise<ModuleChatSessionRow[]> => {
-		const ctx = await requireAuth()
-		return listModuleChatSessions(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(listModuleChatSessions))
 
 export const createModuleChatSessionFn = createServerFn({ method: "POST" })
 	.validator(CreateModuleChatSessionSchema)
-	.handler(async ({ data }): Promise<ModuleChatSessionRow> => {
-		const ctx = await requireAuth()
-		return createModuleChatSession(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(createModuleChatSession))
 
 export const renameModuleChatSessionFn = createServerFn({ method: "POST" })
 	.validator(RenameChatSessionSchema)
-	.handler(async ({ data }): Promise<void> => {
-		const ctx = await requireAuth()
-		return renameModuleChatSession(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(renameModuleChatSession))
 
 /** Exclusão definitiva da sessão; as mensagens caem por cascade. */
-export const deleteModuleChatSessionFn = createServerFn({ method: "POST" })
-	.validator(ChatSessionRefSchema)
-	.handler(async ({ data }): Promise<void> => {
-		const ctx = await requireAuth()
-		return deleteModuleChatSession(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const deleteModuleChatSessionFn = createServerFn({ method: "POST" }).validator(ChatSessionRefSchema).handler(requireAuthThenRun(deleteModuleChatSession))
 
 // ── Messages ─────────────────────────────────────────────────────────────────
 
 /** Mensagens em ordem cronológica. Sessão inexistente ou de terceiro → 404. */
-export const getModuleChatMessagesFn = createServerFn({ method: "GET" })
-	.validator(ChatSessionRefSchema)
-	.handler(async ({ data }): Promise<ModuleChatMessageRow[]> => {
-		const ctx = await requireAuth()
-		return listModuleChatMessages(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const getModuleChatMessagesFn = createServerFn({ method: "GET" }).validator(ChatSessionRefSchema).handler(requireAuthThenRun(listModuleChatMessages))
 
 export const saveModuleChatMessageFn = createServerFn({ method: "POST" })
 	.validator(SaveModuleChatMessageSchema)

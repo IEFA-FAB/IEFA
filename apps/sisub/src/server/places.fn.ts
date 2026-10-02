@@ -19,6 +19,7 @@ import { withAtomicAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import type { PlacesGraphData } from "@/types/domain/places"
 
 export type { UpdateEntityInput }
@@ -28,12 +29,7 @@ export const fetchPlacesGraphFn = createServerFn({ method: "GET" }).handler(asyn
 	return (await fetchPlacesGraph(getDb(), ctx).catch(handleDomainError)) as unknown as PlacesGraphData
 })
 
-export const updatePlacesEntityFn = createServerFn({ method: "POST" })
-	.validator(UpdatePlacesEntitySchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updatePlacesEntity(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const updatePlacesEntityFn = createServerFn({ method: "POST" }).validator(UpdatePlacesEntitySchema).handler(requireAuthThenRun(updatePlacesEntity))
 
 /**
  * Reparentar cozinha ou refeitório (mudar a OM dele) muda quem o alcança: a operação exige

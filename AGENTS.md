@@ -54,6 +54,8 @@ estoura a RAM das máquinas de desenvolvimento.
 
 - **Server functions (TanStack Start):** `createServerFn().validator(z.object(...))` em
   `src/server/*.fn.ts`. `.inputValidator()` está depreciado.
+  No sisub, fn que só repassa a uma operation de `@iefa/sisub-domain` usa
+  `.handler(requireAuthThenRun(op))` (`lib/domain-handler.server.ts`), não as quatro linhas à mão.
 - **Supabase:** sempre via `@iefa/supabase-kit` (`createServiceRoleClient` /
   `createAppBrowserClient` / `createSsrAuthClient`), criado por request dentro do `.handler()`.
   Não instanciar `createClient` direto: os deadlines de fetch que evitam o 502 no ALB vivem no kit.

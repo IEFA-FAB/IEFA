@@ -7,29 +7,15 @@
  * @migration 20260926217000_execution_never_blocks
  */
 
-import {
-	type ExecutionReviewStatus,
-	FetchExecutionReviewStatusSchema,
-	fetchExecutionReviewStatus,
-	ReviewExecutionMenuItemSchema,
-	reviewExecutionMenuItem,
-} from "@iefa/sisub-domain"
+import { FetchExecutionReviewStatusSchema, fetchExecutionReviewStatus, ReviewExecutionMenuItemSchema, reviewExecutionMenuItem } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuth } from "@/lib/auth.server"
-import { getDb } from "@/lib/db.server"
-import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 export const fetchExecutionReviewStatusFn = createServerFn({ method: "GET" })
 	.validator(FetchExecutionReviewStatusSchema)
-	.handler(async ({ data }): Promise<ExecutionReviewStatus> => {
-		const ctx = await requireAuth()
-		return fetchExecutionReviewStatus(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchExecutionReviewStatus))
 
 /** A nutricionista marca como revisada a preparação que o turno incluiu no dia. */
 export const reviewExecutionMenuItemFn = createServerFn({ method: "POST" })
 	.validator(ReviewExecutionMenuItemSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return reviewExecutionMenuItem(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(reviewExecutionMenuItem))

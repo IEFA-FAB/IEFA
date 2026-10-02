@@ -371,16 +371,24 @@ describe("server function security contracts", () => {
 	test("places and settings write functions require authentication before service-role writes", () => {
 		for (const fileName of ["places.fn.ts", "unit-settings.fn.ts", "kitchen-settings.fn.ts"]) {
 			const source = readServerFile(fileName)
-			const postHandlers = source.match(
-				new RegExp(`createServerFn\\(\\{ method: "POST" \\}\\)[\\s\\S]*?\\.handler\\(async \\(\\{ data \\}\\) => \\{[\\s\\S]*?${DB_CLIENT}`, "g")
+			const postFns = (source.match(/export const \w+ = createServerFn\(\{ method: "POST" \}\)[\s\S]*?(?=\nexport const |$)/g) ?? []).filter(
+				(fn) => new RegExp(DB_CLIENT).test(fn) || /\brequireAuthThenRun\(/.test(fn)
 			)
 
-			expect(postHandlers?.length ?? 0).toBeGreaterThan(0)
-			for (const handler of postHandlers ?? []) {
-				expect(handler).toContain("requireAuth()")
+			expect(postFns.length).toBeGreaterThan(0)
+			// O handler delegado herda a ordem do helper: o guard antes do client de DB.
+			const helper = readFileSync(join(serverDir, "../lib/domain-handler.server.ts"), "utf8")
+				.replace(/\/\*[\s\S]*?\*\//g, "")
+				.replace(/\/\/.*$/gm, "")
+			expect(helper.indexOf("await guard()")).toBeGreaterThan(-1)
+			expect(helper.indexOf("await guard()")).toBeLessThan(helper.search(new RegExp(DB_CLIENT)))
+			for (const fn of postFns) {
+				// Delegado: `requireAuthThenRun(op)` autentica antes de obter o client de DB.
+				if (/\.handler\(requireAuthThenRun\(\w+\)\)/.test(fn)) continue
+				expect(fn).toContain("requireAuth()")
 				// requireAuth() precede a obtenção do client de DB (seja getSupabaseServerClient ou getDb)
-				const clientIdx = handler.search(new RegExp(DB_CLIENT))
-				expect(handler.indexOf("requireAuth()")).toBeLessThan(clientIdx)
+				const clientIdx = fn.search(new RegExp(DB_CLIENT))
+				expect(fn.indexOf("requireAuth()")).toBeLessThan(clientIdx)
 			}
 		}
 	})

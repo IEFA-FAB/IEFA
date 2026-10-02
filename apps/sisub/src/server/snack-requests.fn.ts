@@ -47,22 +47,17 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 // ─── Padrões (Gestão Cozinha / catálogo) ─────────────────────────────────────
 
 export const setSnackClassificationFn = createServerFn({ method: "POST" })
 	.validator(SetSnackClassificationSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return setSnackClassification(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(setSnackClassification))
 
 export const fetchSnackStandardEnergyFn = createServerFn({ method: "GET" })
 	.validator(GetSnackStandardEnergySchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return getSnackStandardEnergy(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(getSnackStandardEnergy))
 
 export const fetchSnackMealTypeFn = createServerFn({ method: "GET" }).handler(async () => {
 	const ctx = await requireAuth()
@@ -78,105 +73,45 @@ export const fetchSnackOrderingContextFn = createServerFn({ method: "GET" }).han
 
 export const fetchOrderableSnackStandardsFn = createServerFn({ method: "GET" })
 	.validator(ListOrderableStandardsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listOrderableStandards(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(listOrderableStandards))
 
-export const createSnackRequestFn = createServerFn({ method: "POST" })
-	.validator(CreateSnackRequestSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return createSnackRequest(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const createSnackRequestFn = createServerFn({ method: "POST" }).validator(CreateSnackRequestSchema).handler(requireAuthThenRun(createSnackRequest))
 
 export const fetchMySnackRequestsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const ctx = await requireAuth()
 	return listMySnackRequests(getDb(), ctx).catch(handleDomainError)
 })
 
-export const fetchMySnackRequestFn = createServerFn({ method: "GET" })
-	.validator(SnackRequestIdSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return getMySnackRequest(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchMySnackRequestFn = createServerFn({ method: "GET" }).validator(SnackRequestIdSchema).handler(requireAuthThenRun(getMySnackRequest))
 
-export const cancelMySnackRequestFn = createServerFn({ method: "POST" })
-	.validator(CancelMySnackRequestSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return cancelMySnackRequest(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const cancelMySnackRequestFn = createServerFn({ method: "POST" }).validator(CancelMySnackRequestSchema).handler(requireAuthThenRun(cancelMySnackRequest))
 
 // ─── Gestão Cozinha ──────────────────────────────────────────────────────────
 
 export const fetchKitchenSnackRequestsFn = createServerFn({ method: "GET" })
 	.validator(ListKitchenSnackRequestsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listKitchenSnackRequests(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(listKitchenSnackRequests))
 
-export const fetchKitchenSnackRequestFn = createServerFn({ method: "GET" })
-	.validator(SnackRequestIdSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return getKitchenSnackRequest(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchKitchenSnackRequestFn = createServerFn({ method: "GET" }).validator(SnackRequestIdSchema).handler(requireAuthThenRun(getKitchenSnackRequest))
 
-export const fetchSnackLabelDataFn = createServerFn({ method: "GET" })
-	.validator(SnackRequestIdSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return getSnackLabelData(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchSnackLabelDataFn = createServerFn({ method: "GET" }).validator(SnackRequestIdSchema).handler(requireAuthThenRun(getSnackLabelData))
 
 export const fetchSnackProductionSummaryFn = createServerFn({ method: "GET" })
 	.validator(SnackProductionSummarySchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchSnackProductionSummary(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchSnackProductionSummary))
 
-export const decideSnackRequestFn = createServerFn({ method: "POST" })
-	.validator(DecideSnackRequestSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return decideSnackRequest(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const decideSnackRequestFn = createServerFn({ method: "POST" }).validator(DecideSnackRequestSchema).handler(requireAuthThenRun(decideSnackRequest))
 
-export const advanceSnackRequestFn = createServerFn({ method: "POST" })
-	.validator(AdvanceSnackRequestSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return advanceSnackRequest(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const advanceSnackRequestFn = createServerFn({ method: "POST" }).validator(AdvanceSnackRequestSchema).handler(requireAuthThenRun(advanceSnackRequest))
 
-export const registerSnackPickupFn = createServerFn({ method: "POST" })
-	.validator(RegisterSnackPickupSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return registerSnackPickup(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const registerSnackPickupFn = createServerFn({ method: "POST" }).validator(RegisterSnackPickupSchema).handler(requireAuthThenRun(registerSnackPickup))
 
 export const registerSnackMaterialReturnFn = createServerFn({ method: "POST" })
 	.validator(RegisterSnackMaterialReturnSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return registerSnackMaterialReturn(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(registerSnackMaterialReturn))
 
-export const closeSnackRequestFn = createServerFn({ method: "POST" })
-	.validator(SnackRequestIdSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return closeSnackRequest(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const closeSnackRequestFn = createServerFn({ method: "POST" }).validator(SnackRequestIdSchema).handler(requireAuthThenRun(closeSnackRequest))
 
 export const cancelKitchenSnackRequestFn = createServerFn({ method: "POST" })
 	.validator(KitchenCancelSnackRequestSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return cancelKitchenSnackRequest(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(cancelKitchenSnackRequest))

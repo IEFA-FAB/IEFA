@@ -11,6 +11,7 @@
 
 import { fetchEvalConfig, fetchEvaluationForUser, SubmitEvaluationSchema, submitEvaluation, UpsertEvalConfigSchema, upsertEvalConfig } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
@@ -31,12 +32,7 @@ export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async
  * @remarks
  * SIDE EFFECTS: escreve em super_admin_controller. Exige `admin:2` (guard na operation).
  */
-export const upsertEvalConfigFn = createServerFn({ method: "POST" })
-	.validator(UpsertEvalConfigSchema)
-	.handler(async ({ data }): Promise<EvalConfig> => {
-		const ctx = await requireAuth()
-		return upsertEvalConfig(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const upsertEvalConfigFn = createServerFn({ method: "POST" }).validator(UpsertEvalConfigSchema).handler(requireAuthThenRun(upsertEvalConfig))
 
 /**
  * Diz se o usuário da sessão ainda deve ver o convite de avaliação.
@@ -53,9 +49,4 @@ export const fetchEvaluationForUserFn = createServerFn({ method: "GET" }).handle
  * @remarks
  * SIDE EFFECTS: insere em opinions. Sem unicidade — resposta repetida é aceita.
  */
-export const submitEvaluationFn = createServerFn({ method: "POST" })
-	.validator(SubmitEvaluationSchema)
-	.handler(async ({ data }): Promise<void> => {
-		const ctx = await requireAuth()
-		return submitEvaluation(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const submitEvaluationFn = createServerFn({ method: "POST" }).validator(SubmitEvaluationSchema).handler(requireAuthThenRun(submitEvaluation))

@@ -13,15 +13,13 @@ import {
 	createDesignation,
 	DESIGNATION_ROLES,
 	DESIGNATION_SOURCES,
-	type DesignationCandidate,
-	type DesignationRow,
-	type DesignationScopes,
 	endDesignation,
 	listDesignationCandidates,
 	listDesignationScopes,
 	listDesignations,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
@@ -32,24 +30,15 @@ const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
 export const listDesignationsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive() }))
-	.handler(async ({ data }): Promise<DesignationRow[]> => {
-		const ctx = await requireAuth()
-		return listDesignations(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(listDesignations))
 
 export const listDesignationCandidatesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive() }))
-	.handler(async ({ data }): Promise<DesignationCandidate[]> => {
-		const ctx = await requireAuth()
-		return listDesignationCandidates(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(listDesignationCandidates))
 
 export const listDesignationScopesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive() }))
-	.handler(async ({ data }): Promise<DesignationScopes> => {
-		const ctx = await requireAuth()
-		return listDesignationScopes(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(listDesignationScopes))
 
 export const createDesignationFn = createServerFn({ method: "POST" })
 	.validator(
