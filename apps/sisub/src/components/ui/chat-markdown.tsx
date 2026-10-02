@@ -1,5 +1,5 @@
 import { ExternalLink } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useState, useSyncExternalStore } from "react"
 import type { Components } from "react-markdown"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
@@ -20,8 +20,19 @@ import { cn } from "@/lib/cn"
 
 const LINK_CLASS = "underline opacity-80 hover:opacity-100"
 
-function currentOrigin(): string | undefined {
-	return typeof window === "undefined" ? undefined : window.location.origin
+const noSubscription = () => () => {}
+
+/**
+ * Origin do app, só depois da hidratação: no servidor e na hidratação vale `undefined` (link
+ * absoluto conta como externo dos dois lados, sem divergência de HTML) e no cliente, em seguida, o
+ * origin real, que devolve o link absoluto do próprio app ao caminho interno.
+ */
+function useAppOrigin(): string | undefined {
+	return useSyncExternalStore(
+		noSubscription,
+		() => window.location.origin,
+		() => undefined
+	)
 }
 
 /**
@@ -32,7 +43,7 @@ function currentOrigin(): string | undefined {
  */
 function ChatLink({ href, children }: { href: unknown; children: ReactNode }) {
 	const [open, setOpen] = useState(false)
-	const target = classifyChatLink(href, currentOrigin())
+	const target = classifyChatLink(href, useAppOrigin())
 
 	if (target.kind === "blocked") return <span>{children}</span>
 	if (target.kind === "internal") {

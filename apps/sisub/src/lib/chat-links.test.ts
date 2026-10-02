@@ -33,6 +33,11 @@ describe("classifyChatLink", () => {
 		for (const href of [
 			"//evil.example/x",
 			"/\\evil.example/x",
+			// O navegador apaga tab/quebra do meio da URL: viraria `//evil.example`.
+			"/\t/evil.example/x",
+			"/\n/evil.example/x",
+			"/\r/evil.example/x",
+			"https://evil.example/a b",
 			"javascript:alert(1)",
 			"data:text/html,oi",
 			"mailto:a@b.c",

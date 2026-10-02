@@ -37,12 +37,15 @@ const ChatSessionTitleSchema = z.string().min(1).max(200)
 //     isso sozinha já tornaria a conversa impossível de continuar;
 //   - medido em 2026-10-01 no banco: texto até 4.791 caracteres, gráfico até 802, ferramentas até
 //     21.366. Gráfico do analytics tem no máximo 500 linhas (LIMIT da RPC).
+//
+// O texto usa o MESMO teto do endpoint, não um menor: o que o endpoint aceitou (uma planilha colada
+// na pergunta) tem de caber no histórico, senão a gravação falha e a pergunta some ao recarregar.
 
-/** Texto da mensagem (pergunta do usuário ou resposta do modelo). */
-export const MAX_CHAT_CONTENT_CHARS = 64_000
+/** Texto da mensagem (pergunta do usuário ou resposta do modelo) — o teto do payload do endpoint. */
+export const MAX_CHAT_CONTENT_CHARS = 400_000
 /** Gráfico, chamadas e resultado de ferramenta, medidos em JSON. */
 export const MAX_CHAT_JSON_CHARS = 400_000
-const MAX_CHAT_ERROR_CHARS = 8_000
+const MAX_CHAT_ERROR_CHARS = 16_000
 const MAX_CHAT_LABEL_CHARS = 200
 
 const ChatContentSchema = z

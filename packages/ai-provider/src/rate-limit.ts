@@ -165,21 +165,32 @@ export class RateLimitStore {
 		return `tokens:day:user:${key}`
 	}
 
-	/**
-	 * Contabiliza tokens nas janelas do minuto, do dia da chave e do dia do consumidor. Valor
-	 * negativo devolve (acerto de estimativa maior que o gasto real), sem deixar janela abaixo
-	 * de zero.
-	 */
-	recordTokens(key: string, tokens: number, now = Date.now()): void {
-		if (!Number.isFinite(tokens) || tokens === 0) return
-		const windows: [string, number][] = [
+	/** As três janelas de tokens de uma chave: minuto, dia da chave e dia do consumidor. */
+	private tokenWindows(key: string): [string, number][] {
+		return [
 			[`tokens:minute:${key}`, MINUTE_MS],
 			[this.userDayKey(key), DAY_MS],
 			[this.dayKey(key), DAY_MS],
 		]
-		for (const [windowKey, size] of windows) {
-			const window = this.window(windowKey, size, now)
-			window.used = Math.max(0, window.used + tokens)
+	}
+
+	/** Contabiliza tokens nas janelas correntes de minuto, dia da chave e dia do consumidor. */
+	recordTokens(key: string, tokens: number, now = Date.now()): void {
+		if (!Number.isFinite(tokens) || tokens <= 0) return
+		for (const [windowKey, size] of this.tokenWindows(key)) this.window(windowKey, size, now).used += tokens
+	}
+
+	/**
+	 * Devolve o que a estimativa cobrou a mais, só nas janelas que ainda são as da cobrança
+	 * (`chargedAt`). Janela que virou no meio da chamada não recebe devolução: o excesso ficou na
+	 * janela fechada, e descontar da nova liberaria tokens que ninguém tinha cobrado nela.
+	 */
+	refundTokens(key: string, tokens: number, chargedAt: number, now = Date.now()): void {
+		if (!Number.isFinite(tokens) || tokens <= 0) return
+		for (const [windowKey, size] of this.tokenWindows(key)) {
+			const window = this.windows.get(windowKey)
+			if (!window || now - window.startedAt >= size || window.startedAt > chargedAt) continue
+			window.used = Math.max(0, window.used - tokens)
 		}
 	}
 
@@ -201,6 +212,9 @@ export class RateLimitStore {
 /** Estado compartilhado do processo. */
 export const defaultRateLimitStore = new RateLimitStore()
 
+/** Valor de env que desliga um teto de propósito, inclusive o default declarado no código. */
+const CAP_OFF = "off"
+
 function positiveInt(name: string, raw: string | undefined): number | undefined {
 	if (!raw) return undefined
 	const parsed = Number(raw)
@@ -220,16 +234,21 @@ function positiveInt(name: string, raw: string | undefined): number | undefined 
  * `undefined` quando nenhum está configurado — o chamador então não embrulha o adapter.
  *
  * `defaults` preenche o teto que o env não define: é o piso que o consumidor declara no código
- * para não depender de a variável existir na task definition. O env, quando presente, vence.
+ * para não depender de a variável existir na task definition. O env, quando presente, vence; o
+ * valor `off` desliga o teto, inclusive o default (sem ele, só daria para subir, nunca tirar).
  */
 export function rateLimitConfigFromEnv(prefix?: string, defaults: RateLimitConfig = {}): RateLimitConfig | undefined {
 	const p = prefix ? `${prefix}_` : ""
-	const read = (name: string) => positiveInt(`${p}${name}`, process.env[`${p}${name}`])
+	const read = (name: string, fallback: number | undefined) => {
+		const raw = process.env[`${p}${name}`]
+		if (raw?.trim().toLowerCase() === CAP_OFF) return undefined
+		return positiveInt(`${p}${name}`, raw) ?? fallback
+	}
 	const config: RateLimitConfig = {
-		requestsPerMinute: read("AI_MAX_REQUESTS_PER_MINUTE") ?? defaults.requestsPerMinute,
-		tokensPerMinute: read("AI_MAX_TOKENS_PER_MINUTE") ?? defaults.tokensPerMinute,
-		tokensPerDay: read("AI_MAX_TOKENS_PER_DAY") ?? defaults.tokensPerDay,
-		tokensPerDayPerUser: read("AI_MAX_TOKENS_PER_DAY_PER_USER") ?? defaults.tokensPerDayPerUser,
+		requestsPerMinute: read("AI_MAX_REQUESTS_PER_MINUTE", defaults.requestsPerMinute),
+		tokensPerMinute: read("AI_MAX_TOKENS_PER_MINUTE", defaults.tokensPerMinute),
+		tokensPerDay: read("AI_MAX_TOKENS_PER_DAY", defaults.tokensPerDay),
+		tokensPerDayPerUser: read("AI_MAX_TOKENS_PER_DAY_PER_USER", defaults.tokensPerDayPerUser),
 	}
 	const configured = Object.values(config).some((v) => v != null)
 	return configured ? config : undefined
@@ -260,6 +279,26 @@ function tokenBudgetError(store: RateLimitStore, key: string, config: RateLimitC
 	}
 }
 
+type Charge = { estimated: number; chargedAt: number }
+
+/** Cobra a estimativa do prompt no início da chamada. */
+function chargeEstimate(store: RateLimitStore, key: string, options: unknown): Charge {
+	const charge = { estimated: estimatePromptTokens(options), chargedAt: Date.now() }
+	store.recordTokens(key, charge.estimated, charge.chargedAt)
+	return charge
+}
+
+/**
+ * Acerta a estimativa pelo `usage` real: cobra a diferença se gastou mais, devolve (só na janela
+ * da cobrança) se gastou menos. Sem `usage` (provider que não informa), a estimativa fica.
+ */
+function settleCharge(store: RateLimitStore, key: string, charge: Charge, actual: number): void {
+	if (actual <= 0) return
+	const delta = actual - charge.estimated
+	if (delta > 0) store.recordTokens(key, delta)
+	else store.refundTokens(key, -delta, charge.chargedAt)
+}
+
 export interface WithRateLimitOptions {
 	/** Chave do teto por usuário — o id do usuário autenticado. */
 	key: string
@@ -275,6 +314,11 @@ export interface WithRateLimitOptions {
  * Cada iteração do loop agêntico é uma chamada ao provider e conta no teto de tokens —
  * é assim que uma conversa que cresceu sozinha para de sangrar. A cobrança antecipada é o que
  * faz contar também a chamada que nunca chega ao `RUN_FINISHED` (aba fechada, erro do provider).
+ *
+ * Limitação conhecida: com reserva (`withFallbackChain` por dentro deste embrulho), a chamada em
+ * que o primário falha depois de ler o prompt e a reserva o repete conta uma estimativa só,
+ * acertada pelo `usage` da reserva; o prompt lido pelo primário fica fora. A reserva só entra em
+ * falha transitória antes do primeiro conteúdo, então é exceção, não o caso comum.
  */
 export function withRateLimit<
 	TAdapter extends { chatStream: (options: never) => AsyncIterable<unknown>; structuredOutput: (options: never) => Promise<unknown> },
@@ -292,24 +336,17 @@ export function withRateLimit<
 				return
 			}
 
-			const estimated = estimatePromptTokens(options)
-			store.recordTokens(key, estimated)
+			const charge = chargeEstimate(store, key, options)
 			for await (const chunk of adapter.chatStream(options)) {
-				if ((chunk as { type?: string }).type === "RUN_FINISHED") {
-					// Sem `usage` (provider que não informa) a estimativa fica como o gasto.
-					const actual = totalTokensOf(chunk)
-					if (actual > 0) store.recordTokens(key, actual - estimated)
-				}
+				if ((chunk as { type?: string }).type === "RUN_FINISHED") settleCharge(store, key, charge, totalTokensOf(chunk))
 				yield chunk
 			}
 		},
 		structuredOutput: async (options: never) => {
 			store.checkTokenBudgets(key, config)
-			const estimated = estimatePromptTokens(options)
-			store.recordTokens(key, estimated)
+			const charge = chargeEstimate(store, key, options)
 			const result = await adapter.structuredOutput(options)
-			const actual = totalTokensOf(result)
-			if (actual > 0) store.recordTokens(key, actual - estimated)
+			settleCharge(store, key, charge, totalTokensOf(result))
 			return result
 		},
 	} as TAdapter

@@ -23,6 +23,8 @@ describe("safeChartColor", () => {
 			"var(--governance)",
 			"var(--chart-1) url(x)",
 			"var(--chart-10)",
+			"var(--chart-6)",
+			"var(--chart-9)",
 			"#abcd",
 			"#12345",
 			"#ggg",

@@ -17,6 +17,15 @@ export type ChatLinkTarget =
 	/** `javascript:`, `data:`, `mailto:`, URL malformada… — vira só texto. */
 	| { kind: "blocked" }
 
+/** Caractere de controle ASCII, espaço ou DEL em qualquer posição. */
+function hasControlOrSpace(text: string): boolean {
+	for (let i = 0; i < text.length; i++) {
+		const code = text.charCodeAt(i)
+		if (code <= 0x20 || code === 0x7f) return true
+	}
+	return false
+}
+
 /** Teto do endereço mostrado no aviso; o resto vira reticências (o domínio aparece à parte). */
 export const MAX_SHOWN_URL_CHARS = 300
 
@@ -28,6 +37,10 @@ export function classifyChatLink(href: unknown, origin?: string): ChatLinkTarget
 	if (typeof href !== "string") return { kind: "blocked" }
 	const trimmed = href.trim()
 	if (!trimmed) return { kind: "blocked" }
+	// O navegador descarta tab e quebra de linha do meio da URL (WHATWG URL): `/<tab>/evil` vira
+	// `//evil`, outro domínio. Markdown entrega esses caracteres por entidade (`&#9;`). Qualquer
+	// caractere de controle ou espaço no meio do endereço recusa o link.
+	if (hasControlOrSpace(trimmed)) return { kind: "blocked" }
 
 	// Caminho do próprio app. `//host` é absoluto sem esquema (vai para outro domínio) e `/\host`
 	// o navegador normaliza para o mesmo: os dois ficam de fora.

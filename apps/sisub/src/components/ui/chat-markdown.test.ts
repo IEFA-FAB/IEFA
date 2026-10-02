@@ -60,4 +60,11 @@ describe("ChatMarkdown — link escrito pelo modelo", () => {
 			expect(html).not.toContain("segredo")
 		}
 	})
+
+	test("tab por entidade chega percent-encoded: o link fica no próprio app, não vira //host", () => {
+		// O navegador só descarta tab/quebra crus. O markdown codifica a entidade como %09, e
+		// `/%09/evil.example` é um caminho do sisub. O `classifyChatLink` recusa o cru de qualquer jeito.
+		const html = render("[x](/&#9;/evil.example/?d=1)")
+		expect(html).toContain('href="/%09/evil.example/?d=1"')
+	})
 })

@@ -5,7 +5,7 @@
  * A cor vem do modelo (`render_chart.series[].color`) e ia crua para `fill`/`stroke` do
  * Recharts. Um modelo sob prompt injection escreve `url(https://x/?d=…)` (busca sozinha ao
  * desenhar), `url(#id)` apontando para outro elemento da página, ou só texto que quebra o
- * gráfico. Passa só `#hex` (3, 6 ou 8 dígitos) e `var(--chart-N)` do tema; o resto cai na
+ * gráfico. Passa só `#hex` (3, 6 ou 8 dígitos) e `var(--chart-1..5)` do tema; o resto cai na
  * paleta. Vale no servidor (o que a tool devolve e o histórico grava) e na tela (o histórico
  * gravado antes desta regra).
  * @domain app
@@ -15,7 +15,9 @@
 export const CHART_PALETTE = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-5)", "var(--governance)", "var(--chart-4)"] as const
 
 const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
-const THEME_CHART_VAR_RE = /^var\(--chart-[1-9]\)$/
+// Só os tokens que o tema define (styles.css: --chart-1 a --chart-5). Variável inexistente deixaria
+// fill/stroke inválido e a série sairia preta ou invisível, sem cair na paleta.
+const THEME_CHART_VAR_RE = /^var\(--chart-[1-5]\)$/
 
 /** A cor, se for uma das formas aceitas; senão `undefined`. */
 export function safeChartColor(color: unknown): string | undefined {

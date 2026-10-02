@@ -140,12 +140,28 @@ describe("teto diário por usuário", () => {
 		expect(() => store.admitRequest("user-1", config, T0 + 24 * 3_600_000 + 1)).not.toThrow()
 	})
 
-	test("acerto negativo devolve tokens sem deixar janela abaixo de zero", () => {
+	test("devolução não deixa janela abaixo de zero, e valor negativo em recordTokens é ignorado", () => {
 		const store = new RateLimitStore()
 		store.recordTokens("user-1", 100, T0)
-		store.recordTokens("user-1", -300, T0)
+		store.recordTokens("user-1", -50, T0)
+		expect(store.snapshot("user-1", T0)).toMatchObject({ tokensThisMinute: 100, tokensToday: 100, tokensTodayForKey: 100 })
 
+		store.refundTokens("user-1", 300, T0, T0)
 		expect(store.snapshot("user-1", T0)).toMatchObject({ tokensThisMinute: 0, tokensToday: 0, tokensTodayForKey: 0 })
+	})
+
+	test("devolução só vale na janela da cobrança: a que virou no meio da chamada não recebe", () => {
+		const store = new RateLimitStore()
+		// Cobrou a estimativa no fim da janela do minuto; a chamada terminou no minuto seguinte.
+		store.recordTokens("user-1", 1000, T0)
+		store.recordTokens("user-1", 10, T0 + 61_000) // abre a janela nova do minuto
+		store.refundTokens("user-1", 800, T0, T0 + 61_000)
+
+		const after = store.snapshot("user-1", T0 + 61_000)
+		// Minuto novo: não recebe devolução do que foi cobrado no anterior.
+		expect(after.tokensThisMinute).toBe(10)
+		// Dia: mesma janela da cobrança, devolve.
+		expect(after.tokensTodayForKey).toBe(210)
 	})
 })
 
@@ -199,6 +215,20 @@ describe("rateLimitConfigFromEnv", () => {
 		}
 		// Sem env e sem default continua "sem teto".
 		expect(rateLimitConfigFromEnv("RLDEF")).toBeUndefined()
+	})
+
+	test("`off` no env desliga o teto, inclusive o default do código", () => {
+		process.env.RLOFF_AI_MAX_TOKENS_PER_DAY_PER_USER = "off"
+		try {
+			expect(rateLimitConfigFromEnv("RLOFF", { requestsPerMinute: 12, tokensPerDayPerUser: 2_000_000 })).toEqual({
+				requestsPerMinute: 12,
+				tokensPerMinute: undefined,
+				tokensPerDay: undefined,
+				tokensPerDayPerUser: undefined,
+			})
+		} finally {
+			delete process.env.RLOFF_AI_MAX_TOKENS_PER_DAY_PER_USER
+		}
 	})
 })
 

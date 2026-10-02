@@ -9,7 +9,10 @@
  * limita quantas.
  *
  * Um turno normal grava 2 a 4 linhas (pergunta, resposta, ferramentas), e o chat aceita 12 turnos
- * por minuto (`SISUB_AI_RATE_LIMIT_DEFAULTS`): 120 por minuto é folga de sobra para o uso real.
+ * por minuto (`SISUB_AI_RATE_LIMIT_DEFAULTS`): ~50 por minuto no pior caso de uma aba. O teto fica
+ * bem acima disso (várias abas, os dois chats somados) porque estourar custa caro: o cliente
+ * (`persistTurn`) tenta de novo em segundos, dentro da mesma janela, e desiste, e o turno some do
+ * histórico. O teto existe para o laço de script, não para o uso real.
  *
  * Em memória, por processo — mesma limitação consciente de `@iefa/ai-provider` (`rate-limit.ts`):
  * com N tasks o teto efetivo é N × o configurado. Arquivo puro, sem import do provider (as fns
@@ -17,7 +20,7 @@
  * @domain app
  */
 
-export const CHAT_HISTORY_WRITES_PER_MINUTE = 120
+export const CHAT_HISTORY_WRITES_PER_MINUTE = 300
 
 const WINDOW_MS = 60_000
 

@@ -363,7 +363,8 @@ Dois detalhes que o wrapper existe para resolver:
 
 O consumidor pode declarar no código um piso para o teto que o env não define
 (`createAdapterFromEnv(prefix, { rateLimitDefaults })` e o mesmo objeto em
-`enforceRequestRateLimit`); o env, quando presente, vence. O sisub declara
+`enforceRequestRateLimit`); o env, quando presente, vence, e o valor `off` desliga o teto
+(inclusive o default). O sisub declara
 `SISUB_AI_RATE_LIMIT_DEFAULTS` (`apps/sisub/src/lib/ai-chat-limits.ts`: 12 turnos/min e
 1 milhão de tokens/dia por usuário) para `MODULE_CHAT` e `ANALYTICS`, porque a task definition
 de produção não trazia teto nenhum.
@@ -371,7 +372,8 @@ de produção não trazia teto nenhum.
 Tokens contam no **início** de cada chamada ao provider (estimativa do prompt, ~4 caracteres por
 token) e são acertados pelo `usage` do `RUN_FINISHED`. Contar só no fim deixava de fora a
 chamada que não termina (aba fechada no meio do stream, `RUN_ERROR`), cujo prompt o provider
-já cobrou.
+já cobrou. A devolução da estimativa a mais só vale na janela em que ela foi cobrada. Limitação
+conhecida: quando a reserva repete o prompt depois de o primário falhar, conta uma estimativa só.
 
 Por que tokens e não só requisições: um chat com tools reenvia o histórico **inteiro** a cada
 iteração do loop agêntico. Oito iterações de uma conversa longa custam muito mais que oito

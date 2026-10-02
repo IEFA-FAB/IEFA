@@ -60,6 +60,6 @@ describe("tetos do corpo da mensagem", () => {
 	test("rótulos e erro têm teto", () => {
 		expect(SaveModuleChatMessageSchema.safeParse({ ...base, content: "ok", toolName: "x".repeat(201) }).success).toBe(false)
 		expect(SaveModuleChatMessageSchema.safeParse({ ...base, content: "ok", model: "x".repeat(201) }).success).toBe(false)
-		expect(SaveAnalyticsChatMessageSchema.safeParse({ ...base, content: "", error: "x".repeat(8001) }).success).toBe(false)
+		expect(SaveAnalyticsChatMessageSchema.safeParse({ ...base, content: "", error: "x".repeat(16_001) }).success).toBe(false)
 	})
 })
