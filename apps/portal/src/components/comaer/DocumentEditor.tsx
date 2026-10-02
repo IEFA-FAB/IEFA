@@ -225,12 +225,16 @@ export function DocumentEditor({
 
 	return (
 		<div className="w-full py-10">
+			{/* `display: none`, não `visibility: hidden`: o invisível continua ocupando lugar, e o
+			    editor inteiro (formulário, conversa, exportação) virava quatro folhas em branco
+			    depois do ofício. Os ancestrais da folha ficam, sem grade, recuo nem sticky, para
+			    ela fluir sob as margens do @page. */}
 			<style>{`
 				@media print {
 					@page { size: A4; margin: 2cm 2cm 2cm 3cm; }
-					body * { visibility: hidden; }
-					[data-sheet], [data-sheet] * { visibility: visible; }
-					[data-sheet] { position: absolute; left: 0; top: 0; width: 100%; }
+					body *:not(:has([data-sheet])):not([data-sheet]):not([data-sheet] *) { display: none !important; }
+					body :has([data-sheet]) { display: block !important; position: static !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: auto !important; max-width: none !important; min-height: 0 !important; height: auto !important; }
+					[data-block="signatario"] { break-inside: avoid; }
 				}
 			`}</style>
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { assembleDocument } from "./assemble"
-import { DOCUMENT_KINDS, EXTERNAL_OFICIO_LABEL, findKind, resolveKind } from "./catalog"
+import { DOCUMENT_KINDS, describeCatalog, EXTERNAL_OFICIO_LABEL, findKind, resolveKind } from "./catalog"
 import { newDocument } from "./draft"
 import { applyInlineEdit } from "./inline-edit"
 import { sigadaerHandoff, toPlainText } from "./sigadaer"
@@ -33,6 +33,12 @@ describe("catálogo de espécies", () => {
 			expect(e.blocks, e.id).toContain("signatario")
 			expect(e.legalBasis, e.id).toMatch(/art\. \d+/)
 		}
+	})
+
+	it("diz ao modelo quais espécies levam fecho, para ele não prometer o que a folha não imprime", () => {
+		const catalog = describeCatalog()
+		expect(catalog).toMatch(/- oficio-comaer —[^\n]*Fecho de cortesia: não leva\./)
+		expect(catalog).toMatch(/- oficio-externo —[^\n]*Fecho de cortesia: sim/)
 	})
 
 	it("só espécie de âmbito externo pode ter fecho de cortesia (art. 30)", () => {
@@ -183,6 +189,11 @@ describe("entrega ao SIGADAER", () => {
 		expect(texto).not.toContain("Protocolo COMAER")
 		expect(texto).not.toContain("Do Diretor")
 		expect(texto).not.toContain("FULANO DE TAL")
+	})
+
+	it("separa parágrafos com linha em branco: quebra simples em Markdown junta tudo num parágrafo só", () => {
+		const texto = field("texto")?.value ?? ""
+		expect(texto).toContain("1\\. Trata-se de alteração de período de férias.\n\n2\\. Solicita-se providência.")
 	})
 
 	it("lista o que o SIGADAER preenche, para conferência", () => {
@@ -480,6 +491,17 @@ describe("conferência em dois níveis", () => {
 		// No ofício de interesse particular o "s/nº" é a forma certa: não há o que apontar.
 		const particular = assembleDocument(base({ kind: "oficio-particular", numbering: { sequence: null } }))
 		expect(particular.warnings.map((w) => w.text).join(" ")).not.toContain("s/nº")
+	})
+
+	it("aponta o indicativo do setor ausente, que o painel conta como obrigatório", () => {
+		const semSetor = assembleDocument(base({ numbering: { sequence: 34, sector: "", organizationNumber: "255" } }))
+		expect(semSetor.warnings.find((w) => w.text.includes("indicativo do setor"))?.block).toBe("numeracao")
+
+		// O Parecer numera por ano e o ofício particular é s/nº: nenhum dos dois cobra o setor.
+		const parecer = assembleDocument(base({ kind: "parecer", numbering: { sequence: 3, organizationNumber: "255" } }))
+		expect(parecer.warnings.map((w) => w.text).join(" ")).not.toContain("indicativo do setor")
+		const particular = assembleDocument(base({ kind: "oficio-particular", numbering: { sequence: null } }))
+		expect(particular.warnings.map((w) => w.text).join(" ")).not.toContain("indicativo do setor")
 	})
 
 	it("cada achado aponta o bloco da folha a que se refere", () => {

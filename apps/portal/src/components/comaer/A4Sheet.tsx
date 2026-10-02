@@ -82,12 +82,26 @@ function blockSpacing(id: string): string {
 
 /**
  * Art. 20, II, a c/c art. 39: o número do parágrafo fica NA margem esquerda e o texto
- * começa a 2,5 cm dela — recuo pendente, não recuo de primeira linha. Sem o `textIndent`
- * negativo, o "1." andaria junto com o texto e a coluna de números sumiria.
+ * começa a 2,5 cm dela — recuo pendente, não recuo de primeira linha. O `textIndent`
+ * negativo devolve a primeira linha à margem, e o número ocupa uma caixa de 2,5 cm
+ * (`LineContent`) para o texto da primeira linha alinhar com o das seguintes.
+ *
+ * Só a linha numerada recua para a margem. Antes a regra valia para todo recuo de 2,5 cm,
+ * e o fecho de cortesia (art. 30, I: "iniciando-se a 2,5 cm da margem") saía colado nela.
  */
 function indent(linha: Line): React.CSSProperties | undefined {
 	if (!linha.indentCm) return undefined
-	return { paddingLeft: `${linha.indentCm}cm`, textIndent: linha.indentCm === 2.5 ? "-2.5cm" : undefined }
+	return { paddingLeft: `${linha.indentCm}cm`, textIndent: linha.marker ? `-${linha.indentCm}cm` : undefined }
+}
+
+function LineContent({ linha }: { linha: Line }) {
+	const body = linha.marker ? linha.text.slice(linha.marker.length).trimStart() : linha.text
+	return (
+		<>
+			{linha.marker && <span style={{ display: "inline-block", width: `${linha.indentCm ?? 2.5}cm`, textIndent: 0 }}>{linha.marker}</span>}
+			{linha.bold ? <strong>{body}</strong> : body}
+		</>
+	)
 }
 
 function SheetLine({ linha, onEdit }: { linha: Line; onEdit?: (target: EditTarget, value: string) => void }) {
@@ -99,7 +113,7 @@ function SheetLine({ linha, onEdit }: { linha: Line; onEdit?: (target: EditTarge
 				: linha.alignment === "justificado"
 					? "text-justify"
 					: "text-left"
-	const conteudo = linha.bold ? <strong>{linha.text}</strong> : linha.text
+	const conteudo = <LineContent linha={linha} />
 
 	// Numeração à esquerda e localidade/data à direita dividem a linha (art. 35, III).
 	if (linha.rightOnSameLine) {
@@ -185,7 +199,7 @@ function EditableLine({ line, className, style, onCommit }: { line: Line; classN
 				style={style}
 				aria-label={`Editar esta linha: ${line.text}`}
 			>
-				{line.bold ? <strong>{line.text}</strong> : line.text}
+				<LineContent linha={line} />
 			</button>
 		)
 	}

@@ -24,8 +24,14 @@ describe("contrato da impressão", () => {
 	})
 
 	it("o CSS de impressão aponta para o atributo que a folha renderiza", () => {
-		expect(route).toContain(`[${attribute}], [${attribute}] * { visibility: visible; }`)
-		expect(route).toContain(`[${attribute}] { position: absolute;`)
+		expect(route).toContain(`:not([${attribute}]):not([${attribute}] *) { display: none !important; }`)
+		expect(route).toContain(`body :has([${attribute}]) {`)
+	})
+
+	// `visibility: hidden` esconde sem tirar do fluxo: o editor inteiro continuava ocupando
+	// altura e a impressão saía com o ofício seguido de quatro folhas em branco.
+	it("esconde o resto da página com display, não com visibility", () => {
+		expect(route).not.toMatch(/visibility:\s*hidden;/)
 	})
 
 	it("não sobrou seletor apontando para um atributo que ninguém renderiza", () => {

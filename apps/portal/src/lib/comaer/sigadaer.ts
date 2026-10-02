@@ -76,8 +76,13 @@ export function escapeMarkdownStructure(text: string): string {
 		.join("\n")
 }
 
+/**
+ * Linha em branco entre as linhas do bloco: em Markdown, uma quebra simples é continuação
+ * do mesmo parágrafo, e um editor sem `breaks` juntava os parágrafos 1 a 5 numa massa só.
+ * Com linha em branco cada parágrafo, item e alínea é parágrafo próprio nos dois modos.
+ */
 function blockToMarkdown(bloco: AssembledBlock): string {
-	return bloco.lines.map((l) => escapeMarkdownStructure(plainLine(l))).join("\n")
+	return bloco.lines.map((l) => escapeMarkdownStructure(plainLine(l))).join("\n\n")
 }
 
 /**

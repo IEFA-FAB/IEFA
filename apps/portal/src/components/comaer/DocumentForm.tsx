@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { type DocumentKind, kindsForScope } from "@/lib/comaer/catalog"
-import { QUADROS_IN_FULL } from "@/lib/comaer/ranks"
 import type { Classification, DocumentInput, Party, Scope } from "@/lib/comaer/types"
 
 /**
@@ -381,20 +380,6 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 
 			<Section title="Assinatura por ordem e substituição">
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<Field id="signer-quadro" label="Quadro ou especialidade">
-						<Input
-							id="signer-quadro"
-							list="quadros-comaer"
-							value={input.signer.quadro ?? ""}
-							onChange={(e) => onChange({ signer: { ...input.signer, quadro: e.target.value } })}
-							placeholder="Int"
-						/>
-						<datalist id="quadros-comaer">
-							{Object.keys(QUADROS_IN_FULL).map((q) => (
-								<option key={q} value={q} />
-							))}
-						</datalist>
-					</Field>
 					<Field id="signer-om" label="OM do signatário">
 						<Input id="signer-om" value={input.signer.om ?? ""} onChange={(e) => onChange({ signer: { ...input.signer, om: e.target.value } })} />
 					</Field>
@@ -493,7 +478,7 @@ function PartyField({ id, label, parte, onChange }: { id: string; label: string;
 					id={id}
 					value={parte.position}
 					onChange={(e) => onChange({ ...parte, position: e.target.value })}
-					placeholder="Diretor do Instituto de Economia e Finanças da Aeronáutica"
+					placeholder="Diretor do Instituto de Economia, Finanças e Administração da Aeronáutica"
 				/>
 				<GenderToggle label={`Concordância: ${label}`} value={parte.gender ?? "m"} onChange={(gender) => onChange({ ...parte, gender })} />
 			</div>

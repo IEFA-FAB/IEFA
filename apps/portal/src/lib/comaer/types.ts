@@ -155,6 +155,11 @@ export interface Line {
 	bold?: boolean
 	/** Recuo em cm, como a norma mede (2,5 cm do parágrafo, 1,5 cm da continuação). */
 	indentCm?: number
+	/**
+	 * Número do parágrafo ("1."), que já abre `text`. A folha o imprime na margem e começa o
+	 * texto a 2,5 cm dela (art. 20, II, a); a saída em texto puro usa `text` como está.
+	 */
+	marker?: string
 	/** Linha à direita na MESMA linha da anterior (numeração × localidade e data). */
 	rightOnSameLine?: string
 }
