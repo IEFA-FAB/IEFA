@@ -126,7 +126,9 @@ jobs:
           # deixaria o serviço lendo um state defasado.
           foundation=false
           if grep -qx 'foundation' <<<"$stacks"; then foundation=true; fi
-          services="$(grep -vx 'foundation' <<<"$stacks" | awk 'NF' | jq -R . | jq -cs .)"
+          # `|| true`: com só a foundation alterada o grep não seleciona nada, sai com 1 e,
+          # sob `pipefail`, derrubava o detect (push de 3ae0d86e) sem aplicar nada.
+          services="$({ grep -vx 'foundation' <<<"$stacks" || true; } | awk 'NF' | jq -R . | jq -cs .)"
 
           echo "foundation=$foundation" >> "$GITHUB_OUTPUT"
           echo "services=$services" >> "$GITHUB_OUTPUT"
