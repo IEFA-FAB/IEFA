@@ -14,18 +14,14 @@ import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 export const fetchTrainingScopeFn = createServerFn({ method: "GET" }).handler(async () => {
 	const ctx = await requireAuth()
 	return fetchTrainingScope(getDb(), ctx).catch(handleDomainError)
 })
 
-export const fetchTrainingResetsFn = createServerFn({ method: "GET" })
-	.validator(ListTrainingResetsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listTrainingResets(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchTrainingResetsFn = createServerFn({ method: "GET" }).validator(ListTrainingResetsSchema).handler(requireAuthThenRun(listTrainingResets))
 
 export const resetTrainingScopeFn = createServerFn({ method: "POST" }).handler(async () => {
 	const ctx = await requireAuth()

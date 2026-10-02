@@ -46,6 +46,12 @@ const PUBLIC_SERVER_FNS: Record<string, string> = {
 /** Chamadas que contam como guard de autenticação (prefixo `require` + maiúscula). */
 const GUARD_CALL = /\brequire[A-Z]\w*\(/
 
+/**
+ * Handler que só repassa a uma operation (`lib/domain-handler.server.ts`): autentica, e a
+ * operation recebe o `ctx` e o payload inteiro. Captura o nome da operation.
+ */
+const DELEGATED_OP = /\brequireAuthThenRun\((\w+)\)/
+
 type ServerFn = { file: string; name: string; body: string }
 
 function listServerFnFiles(): string[] {
@@ -398,7 +404,8 @@ describe("server function auth contract", () => {
 			if (fn.name in CROSS_USER_SERVER_FNS) continue
 			const handler = handlerOf(fn)
 			// Passar o payload inteiro adiante entrega o campo de identidade junto.
-			const forwardsWholePayload = /\{\s*\.\.\.data\b/.test(handler) || /[(,]\s*data\s*[,)]/.test(handler)
+			// `requireAuthThenRun(op)` é `op(getDb(), ctx, data)`: repassa o payload inteiro.
+			const forwardsWholePayload = /\{\s*\.\.\.data\b/.test(handler) || /[(,]\s*data\s*[,)]/.test(handler) || DELEGATED_OP.test(handler)
 			// `const { userId } = data` lê o identificador sem escrever `data.userId`: sem isto
 			// a garantia valeria só para os estilos de escrita que já estão na árvore.
 			const destructured = new Set(
@@ -436,7 +443,8 @@ describe("server function auth contract", () => {
 			const handler = handlerOf(fn)
 			if (AUTHZ_CALL.test(handler)) continue
 			// Sem guard na fn, alguma operation chamada precisa ter o dela.
-			const called = [...handler.matchAll(/\b([a-z]\w+)\(/g)].map((m) => m[1])
+			// Chamada direta (`op(getDb(), ...)`) ou delegada (`requireAuthThenRun(op)`).
+			const called = [...handler.matchAll(/\b([a-z]\w+)\(/g), ...handler.matchAll(new RegExp(DELEGATED_OP, "g"))].map((m) => m[1])
 			if (called.some((name) => domainOps.get(name) === true)) continue
 			ungated.push(`${fn.file}:${fn.name}`)
 		}

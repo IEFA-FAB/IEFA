@@ -29,6 +29,7 @@ import {
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { type EmpenhoItemAmounts, summarizeArpItemShare } from "@/lib/empenho-items"
 import {
 	type CreatedEmpenho,
@@ -41,7 +42,6 @@ import { getFinanceClient, getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
 import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage, EmpenhoOfArpItem } from "@/types/domain/arp"
-import { publicDbMessage } from "@/lib/db-error-message"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 

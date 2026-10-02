@@ -70,237 +70,98 @@ import {
 	updateMaintenancePlan,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuth } from "@/lib/auth.server"
-import { getDb } from "@/lib/db.server"
-import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 // ── Catálogo: papéis ──────────────────────────────────────────────────────
 
-export const listEquipmentRolesFn = createServerFn({ method: "GET" })
-	.validator(ListEquipmentRolesSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listEquipmentRoles(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const listEquipmentRolesFn = createServerFn({ method: "GET" }).validator(ListEquipmentRolesSchema).handler(requireAuthThenRun(listEquipmentRoles))
 
-export const createEquipmentRoleFn = createServerFn({ method: "POST" })
-	.validator(CreateEquipmentRoleSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return createEquipmentRole(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const createEquipmentRoleFn = createServerFn({ method: "POST" }).validator(CreateEquipmentRoleSchema).handler(requireAuthThenRun(createEquipmentRole))
 
-export const updateEquipmentRoleFn = createServerFn({ method: "POST" })
-	.validator(UpdateEquipmentRoleSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateEquipmentRole(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const updateEquipmentRoleFn = createServerFn({ method: "POST" }).validator(UpdateEquipmentRoleSchema).handler(requireAuthThenRun(updateEquipmentRole))
 
-export const deleteEquipmentRoleFn = createServerFn({ method: "POST" })
-	.validator(DeleteEquipmentRoleSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return deleteEquipmentRole(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const deleteEquipmentRoleFn = createServerFn({ method: "POST" }).validator(DeleteEquipmentRoleSchema).handler(requireAuthThenRun(deleteEquipmentRole))
 
 // ── Catálogo: modelos ─────────────────────────────────────────────────────
 
-export const listEquipmentModelsFn = createServerFn({ method: "GET" })
-	.validator(ListEquipmentModelsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listEquipmentModels(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const listEquipmentModelsFn = createServerFn({ method: "GET" }).validator(ListEquipmentModelsSchema).handler(requireAuthThenRun(listEquipmentModels))
 
-export const createEquipmentModelFn = createServerFn({ method: "POST" })
-	.validator(CreateEquipmentModelSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return createEquipmentModel(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const createEquipmentModelFn = createServerFn({ method: "POST" }).validator(CreateEquipmentModelSchema).handler(requireAuthThenRun(createEquipmentModel))
 
-export const updateEquipmentModelFn = createServerFn({ method: "POST" })
-	.validator(UpdateEquipmentModelSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateEquipmentModel(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const updateEquipmentModelFn = createServerFn({ method: "POST" }).validator(UpdateEquipmentModelSchema).handler(requireAuthThenRun(updateEquipmentModel))
 
-export const deleteEquipmentModelFn = createServerFn({ method: "POST" })
-	.validator(DeleteEquipmentModelSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return deleteEquipmentModel(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const deleteEquipmentModelFn = createServerFn({ method: "POST" }).validator(DeleteEquipmentModelSchema).handler(requireAuthThenRun(deleteEquipmentModel))
 
 // ── Parque instalado ──────────────────────────────────────────────────────
 
-export const listKitchenEquipmentFn = createServerFn({ method: "GET" })
-	.validator(ListKitchenEquipmentSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listKitchenEquipment(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const listKitchenEquipmentFn = createServerFn({ method: "GET" }).validator(ListKitchenEquipmentSchema).handler(requireAuthThenRun(listKitchenEquipment))
 
-export const createEquipmentUnitFn = createServerFn({ method: "POST" })
-	.validator(CreateEquipmentUnitSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return createEquipmentUnit(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const createEquipmentUnitFn = createServerFn({ method: "POST" }).validator(CreateEquipmentUnitSchema).handler(requireAuthThenRun(createEquipmentUnit))
 
-export const updateEquipmentUnitFn = createServerFn({ method: "POST" })
-	.validator(UpdateEquipmentUnitSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateEquipmentUnit(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const updateEquipmentUnitFn = createServerFn({ method: "POST" }).validator(UpdateEquipmentUnitSchema).handler(requireAuthThenRun(updateEquipmentUnit))
 
-export const deleteEquipmentUnitFn = createServerFn({ method: "POST" })
-	.validator(DeleteEquipmentUnitSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return deleteEquipmentUnit(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const deleteEquipmentUnitFn = createServerFn({ method: "POST" }).validator(DeleteEquipmentUnitSchema).handler(requireAuthThenRun(deleteEquipmentUnit))
 
 // ── Exigência da preparação ───────────────────────────────────────────────
 
-export const fetchRecipeEquipmentFn = createServerFn({ method: "GET" })
-	.validator(FetchRecipeEquipmentSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchRecipeEquipment(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchRecipeEquipmentFn = createServerFn({ method: "GET" }).validator(FetchRecipeEquipmentSchema).handler(requireAuthThenRun(fetchRecipeEquipment))
 
-export const saveRecipeEquipmentFn = createServerFn({ method: "POST" })
-	.validator(SaveRecipeEquipmentSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return saveRecipeEquipment(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const saveRecipeEquipmentFn = createServerFn({ method: "POST" }).validator(SaveRecipeEquipmentSchema).handler(requireAuthThenRun(saveRecipeEquipment))
 
 export const evaluateRecipeEquipmentFitnessFn = createServerFn({ method: "GET" })
 	.validator(EvaluateRecipeEquipmentFitnessSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return evaluateRecipeEquipmentFitness(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(evaluateRecipeEquipmentFitness))
 
 export const suggestRecipeEquipmentFromFlowFn = createServerFn({ method: "GET" })
 	.validator(SuggestRecipeEquipmentSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return suggestRecipeEquipmentFromFlow(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(suggestRecipeEquipmentFromFlow))
 
-export const setUtensilRoleFn = createServerFn({ method: "POST" })
-	.validator(SetUtensilRoleSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return setUtensilRole(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const setUtensilRoleFn = createServerFn({ method: "POST" }).validator(SetUtensilRoleSchema).handler(requireAuthThenRun(setUtensilRole))
 
 export const evaluateMenuEquipmentFitnessFn = createServerFn({ method: "GET" })
 	.validator(EvaluateMenuEquipmentFitnessSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return evaluateMenuEquipmentFitness(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(evaluateMenuEquipmentFitness))
 
 // ── Panes ─────────────────────────────────────────────────────────────────
 
-export const listEquipmentIssuesFn = createServerFn({ method: "GET" })
-	.validator(ListEquipmentIssuesSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listEquipmentIssues(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const listEquipmentIssuesFn = createServerFn({ method: "GET" }).validator(ListEquipmentIssuesSchema).handler(requireAuthThenRun(listEquipmentIssues))
 
-export const reportEquipmentIssueFn = createServerFn({ method: "POST" })
-	.validator(ReportEquipmentIssueSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return reportEquipmentIssue(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const reportEquipmentIssueFn = createServerFn({ method: "POST" }).validator(ReportEquipmentIssueSchema).handler(requireAuthThenRun(reportEquipmentIssue))
 
-export const updateEquipmentIssueFn = createServerFn({ method: "POST" })
-	.validator(UpdateEquipmentIssueSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateEquipmentIssue(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const updateEquipmentIssueFn = createServerFn({ method: "POST" }).validator(UpdateEquipmentIssueSchema).handler(requireAuthThenRun(updateEquipmentIssue))
 
 // ── Rotinas de manutenção ─────────────────────────────────────────────────
 
-export const listMaintenancePlansFn = createServerFn({ method: "GET" })
-	.validator(ListMaintenancePlansSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listMaintenancePlans(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const listMaintenancePlansFn = createServerFn({ method: "GET" }).validator(ListMaintenancePlansSchema).handler(requireAuthThenRun(listMaintenancePlans))
 
-export const listApplicablePlansFn = createServerFn({ method: "GET" })
-	.validator(ListApplicablePlansSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listApplicablePlans(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const listApplicablePlansFn = createServerFn({ method: "GET" }).validator(ListApplicablePlansSchema).handler(requireAuthThenRun(listApplicablePlans))
 
 export const createMaintenancePlanFn = createServerFn({ method: "POST" })
 	.validator(CreateMaintenancePlanSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return createMaintenancePlan(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(createMaintenancePlan))
 
 export const updateMaintenancePlanFn = createServerFn({ method: "POST" })
 	.validator(UpdateMaintenancePlanSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateMaintenancePlan(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(updateMaintenancePlan))
 
 export const deleteMaintenancePlanFn = createServerFn({ method: "POST" })
 	.validator(DeleteMaintenancePlanSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return deleteMaintenancePlan(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(deleteMaintenancePlan))
 
-export const logMaintenanceFn = createServerFn({ method: "POST" })
-	.validator(LogMaintenanceSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return logMaintenance(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const logMaintenanceFn = createServerFn({ method: "POST" }).validator(LogMaintenanceSchema).handler(requireAuthThenRun(logMaintenance))
 
-export const listMaintenanceLogsFn = createServerFn({ method: "GET" })
-	.validator(ListMaintenanceLogsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listMaintenanceLogs(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const listMaintenanceLogsFn = createServerFn({ method: "GET" }).validator(ListMaintenanceLogsSchema).handler(requireAuthThenRun(listMaintenanceLogs))
 
 // ── Relatórios ────────────────────────────────────────────────────────────
 
 export const getKitchenEquipmentConditionFn = createServerFn({ method: "GET" })
 	.validator(KitchenEquipmentConditionSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return getKitchenEquipmentCondition(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(getKitchenEquipmentCondition))
 
 export const getKitchenMaintenanceMatrixFn = createServerFn({ method: "GET" })
 	.validator(KitchenMaintenanceMatrixSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return getKitchenMaintenanceMatrix(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(getKitchenMaintenanceMatrix))
 
 export const getFleetEquipmentReportFn = createServerFn({ method: "GET" })
 	.validator(FleetEquipmentReportSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return getFleetEquipmentReport(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(getFleetEquipmentReport))

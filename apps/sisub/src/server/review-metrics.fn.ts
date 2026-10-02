@@ -7,13 +7,6 @@
 
 import { GetReviewMetricsSchema, getReviewMetrics } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuth } from "@/lib/auth.server"
-import { getDb } from "@/lib/db.server"
-import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
-export const fetchReviewMetricsFn = createServerFn({ method: "GET" })
-	.validator(GetReviewMetricsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return getReviewMetrics(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchReviewMetricsFn = createServerFn({ method: "GET" }).validator(GetReviewMetricsSchema).handler(requireAuthThenRun(getReviewMetrics))

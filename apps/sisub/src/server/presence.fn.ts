@@ -20,6 +20,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import type { ArranchamentoMap, FiscalPresenceRecord } from "@/types/domain/presence"
 
 // Os reads são do FISCAL: devolvem quem comeu onde e quando, e o mapa de previsão de uma lista
@@ -51,9 +52,4 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 		return insertPresence(getDb(), ctx, data)
 	})
 
-export const deletePresenceFn = createServerFn({ method: "POST" })
-	.validator(DeletePresenceSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return deletePresence(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const deletePresenceFn = createServerFn({ method: "POST" }).validator(DeletePresenceSchema).handler(requireAuthThenRun(deletePresence))

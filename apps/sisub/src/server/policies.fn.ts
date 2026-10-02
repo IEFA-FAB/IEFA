@@ -41,52 +41,25 @@ import { withAtomicAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { tryRevokeRecoveryCodesIfProtected } from "@/lib/mfa-recovery.server"
 
-export const fetchPoliciesFn = createServerFn({ method: "GET" })
-	.validator(ListPoliciesSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listPolicies(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchPoliciesFn = createServerFn({ method: "GET" }).validator(ListPoliciesSchema).handler(requireAuthThenRun(listPolicies))
 
-export const fetchPolicyFn = createServerFn({ method: "GET" })
-	.validator(FetchPolicySchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchPolicy(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchPolicyFn = createServerFn({ method: "GET" }).validator(FetchPolicySchema).handler(requireAuthThenRun(fetchPolicy))
 
 /** Turma de uma política: quem a tem anexada. Visão reversa de `fetchUserPoliciesFn`. */
-export const fetchPolicyMembersFn = createServerFn({ method: "GET" })
-	.validator(ListPolicyMembersSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listPolicyMembers(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchPolicyMembersFn = createServerFn({ method: "GET" }).validator(ListPolicyMembersSchema).handler(requireAuthThenRun(listPolicyMembers))
 
 /** Política gerenciada pelo nome — o id vem de migration e varia por ambiente. */
-export const fetchManagedPolicyFn = createServerFn({ method: "GET" })
-	.validator(FetchManagedPolicySchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchManagedPolicyByName(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchManagedPolicyFn = createServerFn({ method: "GET" }).validator(FetchManagedPolicySchema).handler(requireAuthThenRun(fetchManagedPolicyByName))
 
-export const fetchUserPoliciesFn = createServerFn({ method: "GET" })
-	.validator(ListUserPoliciesSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listUserPolicies(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchUserPoliciesFn = createServerFn({ method: "GET" }).validator(ListUserPoliciesSchema).handler(requireAuthThenRun(listUserPolicies))
 
 /** Permissões efetivas COM a origem de cada uma — a resposta canônica do console. */
 export const fetchEffectivePermissionsFn = createServerFn({ method: "GET" })
 	.validator(FetchUserPermissionsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listEffectiveUserPermissionsWithOrigin(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(listEffectiveUserPermissionsWithOrigin))
 
 /*
  * Toda escrita de política, statement e anexo grava a mudança e a linha de auditoria na MESMA

@@ -23,6 +23,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import {
 	type CreatedEmpenho,
 	completeEmpenhoRegistration,
@@ -35,7 +36,6 @@ import { normalizeDocument } from "@/lib/expense-execution"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 
 export type { CreatedEmpenho } from "@/lib/empenho-registration.server"
 

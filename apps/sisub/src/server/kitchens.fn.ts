@@ -12,6 +12,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 /** Kitchen row with the joined unit (id + display_name + code). */
 export type KitchenWithUnit = Tables<"kitchen"> & {
@@ -23,9 +24,4 @@ export const fetchKitchensFn = createServerFn({ method: "GET" }).handler(async (
 	return (await listKitchens(getDb(), ctx).catch(handleDomainError)) as unknown as KitchenWithUnit[]
 })
 
-export const fetchUnitKitchensFn = createServerFn({ method: "GET" })
-	.validator(ListUnitKitchensSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listUnitKitchens(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchUnitKitchensFn = createServerFn({ method: "GET" }).validator(ListUnitKitchensSchema).handler(requireAuthThenRun(listUnitKitchens))

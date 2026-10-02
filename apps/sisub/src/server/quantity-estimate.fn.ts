@@ -43,6 +43,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import type { QuantityEstimateWithDetails } from "@/types/domain/quantity-estimate"
 
 // ─── Calcular necessidades (sem persistir) ────────────────────────────────────
@@ -71,19 +72,13 @@ export const createQuantityEstimateDraftFn = createServerFn({ method: "POST" })
 
 export const updateQuantityEstimateDraftFn = createServerFn({ method: "POST" })
 	.validator(UpdateQuantityEstimateDraftSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateQuantityEstimateDraft(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(updateQuantityEstimateDraft))
 
 // ─── Salvar itens calculados no rascunho (substitui todos) ───────────────────
 
 export const saveQuantityEstimateDraftItemsFn = createServerFn({ method: "POST" })
 	.validator(SaveQuantityEstimateDraftItemsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return saveQuantityEstimateDraftItems(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(saveQuantityEstimateDraftItems))
 
 // ─── Finalizar rascunho (wizard_step → null, anexo pronto para conclusão) ──────
 
@@ -125,43 +120,28 @@ export const fetchQuantityEstimateDetailsFn = createServerFn({ method: "GET" })
 
 export const updateQuantityEstimateStatusFn = createServerFn({ method: "POST" })
 	.validator(UpdateQuantityEstimateStatusSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateQuantityEstimateStatus(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(updateQuantityEstimateStatus))
 
 // ─── Atualizar preços de itens de um anexo já salvo ───────────────────────────
 
 export const updateQuantityEstimateItemPricesFn = createServerFn({ method: "POST" })
 	.validator(UpdateQuantityEstimateItemPricesSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateQuantityEstimateItemPrices(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(updateQuantityEstimateItemPrices))
 
 // ─── Atualizar descrição de um item de anexo ───────────────────────────────────
 
 export const updateQuantityEstimateItemDescriptionFn = createServerFn({ method: "POST" })
 	.validator(UpdateQuantityEstimateItemDescriptionSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateQuantityEstimateItemDescription(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(updateQuantityEstimateItemDescription))
 
 // ─── Ajustar limites do anexo de quantitativos ───────────────────────────────
 
 export const updateQuantityEstimateLimitsFn = createServerFn({ method: "POST" })
 	.validator(UpdateQuantityEstimateLimitsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateQuantityEstimateLimits(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(updateQuantityEstimateLimits))
 
 // ─── Deletar anexo (soft delete) ────────────────────────────────────────────────
 
 export const deleteQuantityEstimateFn = createServerFn({ method: "POST" })
 	.validator(DeleteQuantityEstimateSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return deleteQuantityEstimate(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(deleteQuantityEstimate))

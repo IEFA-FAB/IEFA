@@ -22,6 +22,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth, requireSessionIdentity } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { withSessionIdentity } from "@/lib/session-identity"
 
 // Toda fn deste módulo é self-only: age sobre o arranchamento de QUEM CHAMA. Os reads
@@ -57,16 +58,6 @@ export const persistDefaultMessHallFn = createServerFn({ method: "POST" })
 		return persistDefaultMessHall(getDb(), ctx, withSessionIdentity(data, session, ["email"])).catch(handleDomainError)
 	})
 
-export const upsertArranchamentoFn = createServerFn({ method: "POST" })
-	.validator(UpsertArranchamentoSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return upsertArranchamento(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const upsertArranchamentoFn = createServerFn({ method: "POST" }).validator(UpsertArranchamentoSchema).handler(requireAuthThenRun(upsertArranchamento))
 
-export const deleteArranchamentoFn = createServerFn({ method: "POST" })
-	.validator(DeleteArranchamentoSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return deleteArranchamento(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const deleteArranchamentoFn = createServerFn({ method: "POST" }).validator(DeleteArranchamentoSchema).handler(requireAuthThenRun(deleteArranchamento))

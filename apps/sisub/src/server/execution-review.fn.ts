@@ -18,6 +18,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 export const fetchExecutionReviewStatusFn = createServerFn({ method: "GET" })
 	.validator(FetchExecutionReviewStatusSchema)
@@ -29,7 +30,4 @@ export const fetchExecutionReviewStatusFn = createServerFn({ method: "GET" })
 /** A nutricionista marca como revisada a preparação que o turno incluiu no dia. */
 export const reviewExecutionMenuItemFn = createServerFn({ method: "POST" })
 	.validator(ReviewExecutionMenuItemSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return reviewExecutionMenuItem(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(reviewExecutionMenuItem))

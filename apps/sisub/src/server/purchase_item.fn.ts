@@ -33,41 +33,23 @@ import {
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
-import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { withIngredientVersions } from "./ingredient-versioning.server"
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
-export const fetchPurchaseItemsFn = createServerFn({ method: "GET" })
-	.validator(FetchPurchaseItemsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchPurchaseItems(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchPurchaseItemsFn = createServerFn({ method: "GET" }).validator(FetchPurchaseItemsSchema).handler(requireAuthThenRun(fetchPurchaseItems))
 
 export const fetchIngredientPurchaseItemsFn = createServerFn({ method: "GET" })
 	.validator(FetchIngredientPurchaseItemsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchIngredientPurchaseItems(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchIngredientPurchaseItems))
 
-export const fetchPurchaseItemFn = createServerFn({ method: "GET" })
-	.validator(FetchPurchaseItemSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchPurchaseItem(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchPurchaseItemFn = createServerFn({ method: "GET" }).validator(FetchPurchaseItemSchema).handler(requireAuthThenRun(fetchPurchaseItem))
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
-export const createPurchaseItemFn = createServerFn({ method: "POST" })
-	.validator(CreatePurchaseItemSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return createPurchaseItem(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const createPurchaseItemFn = createServerFn({ method: "POST" }).validator(CreatePurchaseItemSchema).handler(requireAuthThenRun(createPurchaseItem))
 
 export const updatePurchaseItemFn = createServerFn({ method: "POST" })
 	.validator(UpdatePurchaseItemSchema)
@@ -94,10 +76,7 @@ export const deletePurchaseItemFn = createServerFn({ method: "POST" })
 
 export const fetchPurchaseItemIngredientsFn = createServerFn({ method: "GET" })
 	.validator(FetchPurchaseItemIngredientsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchPurchaseItemIngredients(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchPurchaseItemIngredients))
 
 export const upsertPurchaseItemIngredientFn = createServerFn({ method: "POST" })
 	.validator(UpsertPurchaseItemIngredientSchema)

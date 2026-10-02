@@ -12,8 +12,8 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuthWithPermission } from "@/lib/auth.server"
-import { getServerClient } from "@/lib/supabase.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { getServerClient } from "@/lib/supabase.server"
 
 // biome-ignore lint/suspicious/noExplicitAny: views novas ainda fora dos tipos gerados (regen na task 2.4)
 type LooseClient = { from: (table: string) => any }

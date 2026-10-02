@@ -26,45 +26,31 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
 export const listFrozenPreparationsFn = createServerFn({ method: "GET" })
 	.validator(ListFrozenPreparationsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listFrozenPreparations(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(listFrozenPreparations))
 
 export const fetchFrozenPreparationFn = createServerFn({ method: "GET" })
 	.validator(FetchFrozenPreparationSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return fetchFrozenPreparation(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchFrozenPreparation))
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export const createFrozenPreparationFn = createServerFn({ method: "POST" })
 	.validator(CreateFrozenPreparationSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return createFrozenPreparation(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(createFrozenPreparation))
 
 export const updateFrozenPreparationFn = createServerFn({ method: "POST" })
 	.validator(UpdateFrozenPreparationSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return updateFrozenPreparation(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(updateFrozenPreparation))
 
 export const deleteFrozenPreparationFn = createServerFn({ method: "POST" })
 	.validator(DeleteFrozenPreparationSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return deleteFrozenPreparation(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(deleteFrozenPreparation))
 
 // ─── Congelada provisória (sobra registrada pela cozinha sem cadastro) ────────
 
@@ -77,7 +63,4 @@ export const listPendingProvisionalFrozenPreparationsFn = createServerFn({ metho
 /** A SDAB aceita a congelada provisória no catálogo global. */
 export const reviewProvisionalFrozenPreparationFn = createServerFn({ method: "POST" })
 	.validator(ReviewProvisionalFrozenPreparationSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return reviewProvisionalFrozenPreparation(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(reviewProvisionalFrozenPreparation))
