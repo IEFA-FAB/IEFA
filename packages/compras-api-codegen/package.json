@@ -4,7 +4,8 @@
   "type": "module",
   "description": "Gera os tipos do client do Compras.gov (packages/compras-api) a partir do OpenAPI. Existe separado porque o openapi-typescript exige o TypeScript 5 (usa a API JS do compilador, que o TypeScript 7 nativo não expõe) e o compras-api compila com o 7.",
   "scripts": {
-    "generate": "openapi-typescript ../compras-api/openapi.json -o ../compras-api/src/types.gen.ts"
+    "generate": "openapi-typescript ../compras-api/openapi.json -o ../compras-api/src/types.gen.ts",
+    "lint": "biome lint"
   },
   "devDependencies": {
     "openapi-typescript": "^7.13.0",
