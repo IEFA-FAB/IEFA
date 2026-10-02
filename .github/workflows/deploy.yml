@@ -868,7 +868,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
-          published="$(aws s3 cp "s3://$BUCKET/.deploy-revision" - 2>/dev/null | tr -dc '0-9a-f')"
+          # Sem `|| true`, o `-e` do shell do Actions encerra o passo quando o objeto ainda não
+          # existe (primeira publicação): o `pipefail` propaga a falha do `aws s3 cp`.
+          published="$(aws s3 cp "s3://$BUCKET/.deploy-revision" - 2>/dev/null | tr -dc '0-9a-f' || true)"
           publish=true
           if [ -n "$published" ] && [ "$published" != "$GITHUB_SHA" ]; then
             status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${published}...${GITHUB_SHA}" --jq .status 2>/dev/null || echo unknown)"
