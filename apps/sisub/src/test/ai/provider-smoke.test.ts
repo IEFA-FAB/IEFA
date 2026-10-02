@@ -114,7 +114,7 @@ describeAiSmoke("smoke do provider de IA", () => {
 		expect(outcome.errors).toEqual([])
 		expect(outcome.finished).toBe(true)
 		expect(outcome.text.trim().length).toBeGreaterThan(0)
-	}, 60_000)
+	})
 
 	test("chama uma tool do catálogo e responde em cima do resultado", async () => {
 		// A pergunta é deliberadamente do tipo que exige a tool: o modelo não tem como

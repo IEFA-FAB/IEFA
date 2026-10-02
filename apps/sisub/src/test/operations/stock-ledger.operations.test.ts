@@ -127,5 +127,5 @@ describeIf("inventory stock ledger (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 30_000)
+	})
 })

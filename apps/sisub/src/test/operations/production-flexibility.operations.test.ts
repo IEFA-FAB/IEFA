@@ -57,7 +57,7 @@ describeSupabaseIntegration("production flexibility operations (PR #96)", () => 
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -65,7 +65,7 @@ describeSupabaseIntegration("production flexibility operations (PR #96)", () => 
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()

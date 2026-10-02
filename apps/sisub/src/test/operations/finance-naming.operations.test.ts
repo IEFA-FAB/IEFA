@@ -73,7 +73,7 @@ describeIf("crédito recebido, crédito disponível e UG emitente (DB)", () => {
 				expect(await read("33903099")).toEqual({ received: 3000, available: 2500 })
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("import do SIAFI grava issuer_ug na NE nova e só completa a que falta", async () => {
 		await expect(
@@ -103,5 +103,5 @@ describeIf("crédito recebido, crédito disponível e UG emitente (DB)", () => {
 				expect(await issuerUg("2026NE004001")).toBe("120070")
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 })

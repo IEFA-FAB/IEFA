@@ -71,7 +71,7 @@ describeSupabaseIntegration("signup allowlist + hook do Auth (banco real)", () =
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -79,7 +79,7 @@ describeSupabaseIntegration("signup allowlist + hook do Auth (banco real)", () =
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()

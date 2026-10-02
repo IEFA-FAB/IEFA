@@ -66,7 +66,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -87,7 +87,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()
@@ -157,7 +157,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 
 		const parque = await listKitchenEquipment(db, ctx, { kitchenId, includeInactive: false })
 		expect(parque.find((u) => u.id === unit.id)?.effective_role_ids).toEqual([griddle.id])
-	}, 45_000)
+	})
 
 	test("lista mínima faz round-trip e o mesmo alvo repetido é recusado", async () => {
 		if (!reachable || !seeder || !db) return
@@ -244,7 +244,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		const tres = await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })
 		expect(tres.satisfied).toBe(false)
 		expect(tres.missing_total).toBe(1)
-	}, 45_000)
+	})
 
 	test("volume vira ciclos, não vira mais equipamento", async () => {
 		if (!reachable || !seeder || !db) return
@@ -272,7 +272,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(fitness.batches).toBe(9)
 		expect(fitness.max_parallel_batches).toBe(1)
 		expect(fitness.cycles).toBe(9) // …e roda em nove rodadas
-	}, 45_000)
+	})
 
 	test("re-salvar o fluxo reaponta a exigência para a etapa NOVA (não a deixa órfã)", async () => {
 		if (!reachable || !seeder || !db) return
@@ -320,7 +320,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 
 		// E a lista continua salvável (era este o sintoma visível do bug).
 		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id, recipeStepId: secondStepId }] })
-	}, 45_000)
+	})
 
 	test("cardápio: duas preparações do mesmo almoço disputam o único forno", async () => {
 		if (!reachable || !seeder || !db) return
@@ -360,7 +360,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(meal.targets[0].satisfied).toBe(1)
 		expect(meal.targets[0].competing_items).toHaveLength(2)
 		expect(meal.delegated).toBe(false)
-	}, 45_000)
+	})
 
 	test("projeção de agente: parque vazio é 'não cadastrado', não 'faltando'", async () => {
 		if (!reachable || !seeder || !db) return
@@ -385,7 +385,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		const parque = await agentListKitchenEquipment(db, ctx, { kitchenId, includeInactive: null, limit: null })
 		expect(parque.total).toBe(0)
 		expect(parque.limit).toBeGreaterThan(0)
-	}, 45_000)
+	})
 
 	test("projeção de agente: volume vira rodadas, e o multifuncional aparece com suas funções", async () => {
 		if (!reachable || !seeder || !db) return
@@ -416,7 +416,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(check.satisfied).toBe(true)
 		expect(check.park_not_registered).toBe(false)
 		expect(check.volume).toMatchObject({ batches: 5, cycles: 3 }) // 2 zonas → 2 bateladas por vez
-	}, 45_000)
+	})
 
 	test("pane inoperante tira a unidade do atendimento; degradada não; descartar devolve", async () => {
 		if (!reachable || !seeder || !db) return
@@ -470,7 +470,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(condition.counts.degraded).toBe(1)
 		expect(condition.open_issues.map((row) => row.issue.id)).toContain(degraded.id)
 		expect(condition.history.map((i) => i.id)).toContain(down.id)
-	}, 60_000)
+	})
 
 	test("parque inteiro parado é 'insuficiente', não 'não cadastrado'", async () => {
 		if (!reachable || !seeder || !db) return
@@ -503,7 +503,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		const check = await agentCheckRecipeEquipment(db, ctx, { recipeId, kitchenId, portions: null })
 		expect(check.park_not_registered).toBe(false)
 		expect(check.satisfied).toBe(false)
-	}, 60_000)
+	})
 
 	test("registro de manutenção não encerra pane de OUTRA unidade da mesma cozinha", async () => {
 		if (!reachable || !seeder || !db) return
@@ -550,7 +550,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 				resolveIssue: true,
 			})
 		).rejects.toThrow()
-	}, 60_000)
+	})
 
 	test("relatórios: matriz sem registro NÃO nasce vencida, e a frota conta cobertura por operante", async () => {
 		if (!reachable || !seeder || !db) return
@@ -585,7 +585,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		const after = await getFleetEquipmentReport(db, ctx, { roleId: oven.id, modelId: null, kitchenId, today: null })
 		expect(after.coverage[0]).toMatchObject({ kitchens_covered: 0, kitchens_down: 1 })
 		expect(after.inoperative_issues).toHaveLength(1)
-	}, 60_000)
+	})
 
 	test("preparação sem lista mínima devolve unspecified, não 'não atende'", async () => {
 		if (!reachable || !seeder || !db) return

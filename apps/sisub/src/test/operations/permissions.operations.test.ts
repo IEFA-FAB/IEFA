@@ -87,7 +87,7 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -95,7 +95,7 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()
@@ -415,5 +415,5 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 			// Abaixo do teto, o admin:2 segue administrando.
 			await expect(createUserPermission(tx, fullAccessCtx(admin2), { userId: target, module: "admin", level: 2 })).resolves.toMatchObject({ success: true })
 		})
-	}, 60_000)
+	})
 })

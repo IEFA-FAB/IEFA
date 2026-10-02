@@ -46,12 +46,12 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 		seeder = makeSeeder(setup.client as AnyClient)
 		personId = await seeder.seedAuthUser()
 		sql = postgres(url, { max: 1, prepare: false })
-	}, 30_000)
+	})
 
 	afterAll(async () => {
 		await sql?.end({ timeout: 5 })
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	/** Roda o caso numa transação que sempre desfaz. */
 	async function inRollback(body: (tx: Tx) => Promise<void>) {
@@ -175,7 +175,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 				tx.savepoint((sp) => sp`insert into inventory.goods_receipt (kitchen_id, source, nfe_document_id) values (${kitchenId}, 'nfe', ${note.id})`)
 			).rejects.toThrow(/contado duas vezes/)
 		})
-	}, 60_000)
+	})
 
 	test("entrega sem NF-e: a de compra fica pendente de nota; a remessa do depósito, não", async () => {
 		await inRollback(async (tx) => {
@@ -200,7 +200,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			expect(pending.get(purchase.receiptId)).toEqual(expect.arrayContaining(["without_invoice", "without_empenho", "without_supply_order"]))
 			expect(pending.get(depot.receiptId) ?? []).not.toContain("without_invoice")
 		})
-	}, 60_000)
+	})
 
 	test("designar agora: a conferência registrada sem fiscal ganha quem confirme, sem redigitar", async () => {
 		await inRollback(async (tx) => {
@@ -237,7 +237,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			const [line] = await tx`select received_qty_base from inventory.goods_receipt_item where id = ${draft.itemId}`
 			expect(Number(line.received_qty_base)).toBe(5)
 		})
-	}, 60_000)
+	})
 
 	test("definitivo sem gestor ou comissão designada é recusado com quem designa e onde", async () => {
 		await inRollback(async (tx) => {
@@ -255,7 +255,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			const pending = await pendingOf(tx, kitchenId)
 			expect(pending.get(receipt.receiptId)).toContain("provisional_without_manager")
 		})
-	}, 60_000)
+	})
 
 	test("gestor setorial designado efetiva o definitivo na unidade dele (Decreto 11.246/2022, art. 25)", async () => {
 		await inRollback(async (tx) => {
@@ -266,7 +266,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			const [definitive] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...DEFINITIVE_RECEIPT_ROLES])}) as id`
 			expect(definitive.id).toBe(designation.id)
 		})
-	}, 60_000)
+	})
 
 	test("SEFAZ fora do ar: o estoque entra com a consulta pendente; a liquidação continua exigindo", async () => {
 		await inRollback(async (tx) => {
@@ -326,7 +326,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			pending = await pendingOf(tx, kitchenId)
 			expect(pending.get(String(receipt.id)) ?? []).not.toContain("invoice_check_pending")
 		})
-	}, 60_000)
+	})
 
 	test("físico × contábil liga pela liquidação que aponta o recebimento, somando as parcelas", async () => {
 		await inRollback(async (tx) => {
@@ -360,7 +360,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			expect(after.situacao).toBe("conciliado")
 			expect(Number(after.valor_liquidado)).toBe(100)
 		})
-	}, 60_000)
+	})
 
 	/** NE da unidade sem ARP (a 214000 permite): basta número, data e valor. */
 	async function seedEmpenho(tx: Tx, unitId: number, value = 1000) {
@@ -388,7 +388,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			const [row] = await tx`select empenho_id from inventory.goods_receipt where id = ${delivery.receiptId}`
 			expect(row.empenho_id).toBe(e1)
 		})
-	}, 60_000)
+	})
 
 	test("OF de E1 não convive com o empenho E2, mesmo vinculando só a NE", async () => {
 		await inRollback(async (tx) => {
@@ -415,7 +415,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 				tx.savepoint((sp) => sp`select * from inventory.link_receipt_documents(${other.receiptId}, ${personId}, null, null, ${e2})`)
 			).rejects.toThrow(/aguardando empenho: vincule a NE na própria OF/)
 		})
-	}, 60_000)
+	})
 
 	test("trocar de NF-e desliga a linha que não casa com a nova e tira o custo que veio da antiga", async () => {
 		await inRollback(async (tx) => {
@@ -446,7 +446,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			const pending = await pendingOf(tx, kitchenId)
 			expect(pending.get(delivery.receiptId)).toContain("lines_without_invoice_item")
 		})
-	}, 60_000)
+	})
 
 	test("designação encerrada hoje deixa de valer hoje: o destituído não assina", async () => {
 		await inRollback(async (tx) => {
@@ -462,5 +462,5 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			const [after] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...DEFINITIVE_RECEIPT_ROLES])}) as id`
 			expect(after.id).toBeNull()
 		})
-	}, 60_000)
+	})
 })

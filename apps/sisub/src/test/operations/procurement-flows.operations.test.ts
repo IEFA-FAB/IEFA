@@ -39,7 +39,7 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	beforeEach(() => {
 		seeder = reachable ? makeSeeder(client) : null
@@ -47,7 +47,7 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 
 	afterEach(async () => {
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	afterAll(async () => {
 		await closeDb?.()
@@ -134,7 +134,7 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 				selections: [{ templateId: globalTemplate, templateName: "G", repetitions: 1 }],
 			})
 		).rejects.toThrow(/adapte o modelo/)
-	}, 60_000)
+	})
 
 	test("previsão de cozinha de outra OM não entra no anexo", async () => {
 		if (!reachable || !seeder || !db) return
@@ -152,5 +152,5 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 		const { id: quantityEstimateId } = await createQuantityEstimateDraft(db, ctx, { unitId })
 		seeder.track("quantity_estimate", quantityEstimateId)
 		await expect(recordDemandForecastImport(db, ctx, { forecastId: draft.id, quantityEstimateId })).rejects.toMatchObject({ code: "KITCHEN_NOT_IN_UNIT" })
-	}, 60_000)
+	})
 })

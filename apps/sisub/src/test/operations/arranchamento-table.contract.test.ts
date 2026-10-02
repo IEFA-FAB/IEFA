@@ -78,7 +78,7 @@ describeIf("kitchen.arranchamento: grants, regras e analytics (DB)", () => {
 				expect(row.r).toEqual([{ n: 0 }])
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("uma linha por comensal, data e refeição; refeição do vocabulário; refeitório existente", async () => {
 		await expect(
@@ -104,7 +104,7 @@ describeIf("kitchen.arranchamento: grants, regras e analytics (DB)", () => {
 				await expect(tx.savepoint((sp) => sp`delete from kitchen.mess_halls where id = ${messHall.id}`)).rejects.toMatchObject({ code: "23503" })
 			})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("constraints e índices levam o nome do glossário", async () => {
 		const names = await sql<{ name: string }[]>`

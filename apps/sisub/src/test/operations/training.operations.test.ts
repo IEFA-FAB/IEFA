@@ -110,7 +110,7 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			db = t.db
 			closeDb = t.close
 		}
-	}, 30_000)
+	})
 
 	test("resolveTrainingScope encontra as três sentinelas", async () => {
 		if (!db) return

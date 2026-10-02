@@ -32,12 +32,12 @@ describeSupabaseIntegration("valores de domínio do lote 5 (DB)", () => {
 		seeder = makeSeeder(setup.client as AnyClient)
 		personId = await seeder.seedAuthUser()
 		sql = postgres(url, { max: 1, prepare: false })
-	}, 30_000)
+	})
 
 	afterAll(async () => {
 		await sql?.end({ timeout: 5 })
 		await seeder?.cleanup()
-	}, 60_000)
+	})
 
 	async function inRollback(body: (tx: Tx) => Promise<void>) {
 		if (!sql) throw new Error("SISUB_DATABASE_URL ausente")
@@ -90,7 +90,7 @@ describeSupabaseIntegration("valores de domínio do lote 5 (DB)", () => {
 			const [found] = await tx`select inventory.find_designation(${personId}, ${unitId}, null, ${tx.array([...PROVISIONAL_RECEIPT_ROLES])}) as id`
 			expect(found.id).not.toBeNull()
 		})
-	}, 60_000)
+	})
 
 	test("regra de política: o alvo do insumo é `ingredient`", async () => {
 		await inRollback(async (tx) => {
@@ -102,7 +102,7 @@ describeSupabaseIntegration("valores de domínio do lote 5 (DB)", () => {
 			const rules = (await listPolicyRules(dbOf(tx), fullAccessCtx(), { target: "ingredient" })).filter((r) => r.title.startsWith(tag))
 			expect(rules.map((r) => r.target)).toEqual(["ingredient"])
 		})
-	}, 60_000)
+	})
 
 	test("cardápio de apoio: `apoio` no modelo e no item do dia", async () => {
 		await inRollback(async (tx) => {
@@ -126,7 +126,7 @@ describeSupabaseIntegration("valores de domínio do lote 5 (DB)", () => {
 				tx.savepoint((sp) => sp`insert into kitchen.menu_template (name, kitchen_id, template_type) values ('[TEST] x', ${kitchenId}, 'excecao')`)
 			).rejects.toThrow(/menu_template_template_type_check/)
 		})
-	}, 60_000)
+	})
 
 	test("inventário: o tipo é o da norma, e o nome antigo é recusado", async () => {
 		await inRollback(async (tx) => {
@@ -141,5 +141,5 @@ describeSupabaseIntegration("valores de domínio do lote 5 (DB)", () => {
 				tx.savepoint((sp) => sp`insert into inventory.inventory_count (kitchen_id, status, type, scope) values (${kitchenId}, 'expired', 'rotativa', 'full')`)
 			).rejects.toThrow(/inventory_count_type_check/)
 		})
-	}, 60_000)
+	})
 })

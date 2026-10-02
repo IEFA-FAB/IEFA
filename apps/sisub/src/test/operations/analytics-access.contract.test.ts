@@ -57,7 +57,7 @@ describeIf("analytics: identidade sem dado pessoal e módulo sem escopo (DB)", (
 			return tx`select sisub.execute_analytics_query(${"select count(*) as n from v_meal_presences_with_user where display_name like '%@%'"}) as r`
 		})
 		expect(row.r).toEqual([{ n: 0 }])
-	}, 60_000)
+	})
 
 	test("grants da view intactos: só o analytics_reader lê", async () => {
 		const [grants] = await sql`

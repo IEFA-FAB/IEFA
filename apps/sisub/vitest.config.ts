@@ -1,7 +1,7 @@
 import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
 import { loadEnv } from "vite"
-import { defineConfig } from "vitest/config"
+import { configDefaults, defineConfig } from "vitest/config"
 
 // @supabase/phoenix is a transitive dep (supabase-js → realtime-js → phoenix)
 // and is not directly resolvable from apps/sisub. Walk the dep chain to find it
@@ -56,14 +56,14 @@ function testEnv(): Record<string, string> {
 }
 
 /**
- * Timeout padrão por modo. 15 s é calibrado para teste unitário. Contra o banco real o mesmo
- * teste leva 10–20 s quando a fila global da integração está cheia, e o `full` da `main`
- * caía por timeout sem regressão nenhuma (dois casos em 2026-10-02, 15,5 s e 17,4 s). Teste
- * que precisa de mais que 60 s continua declarando o próprio timeout.
+ * Testes que falam com backend real (banco compartilhado, Bedrock). Rodam num projeto próprio,
+ * com timeout de 60 s: contra o banco, com a fila global da integração cheia, teste de
+ * operation comum leva 10–20 s, e o `full` da `main` caía por timeout de 15 s sem regressão
+ * nenhuma (2026-10-02). O resto é unitário e fica nos 15 s, que pegam o `await` esquecido. O
+ * corte é por diretório, não pela flag: teste unitário não ganha 60 s só porque a integração
+ * está ligada. Teste de backend que precise de mais que 60 s declara o próprio.
  */
-const env = testEnv()
-const isIntegrationRun = (process.env.SISUB_RUN_INTEGRATION ?? env.SISUB_RUN_INTEGRATION) === "true"
-const DEFAULT_TIMEOUT_MS = isIntegrationRun ? 60_000 : 15_000
+const BACKEND_TESTS = ["src/test/operations/**/*.test.ts", "src/test/ai/**/*.test.ts"]
 
 export default defineConfig({
 	resolve: {
@@ -75,10 +75,23 @@ export default defineConfig({
 	test: {
 		environment: "node",
 		globals: false,
-		include: ["src/**/*.test.ts"],
-		hookTimeout: DEFAULT_TIMEOUT_MS,
-		testTimeout: DEFAULT_TIMEOUT_MS,
-		env,
+		env: testEnv(),
 		setupFiles: ["./src/test/suppress-phoenix-cleanup-errors.ts"],
+		projects: [
+			{
+				extends: true,
+				test: {
+					name: "unit",
+					include: ["src/**/*.test.ts"],
+					exclude: [...configDefaults.exclude, ...BACKEND_TESTS],
+					testTimeout: 15_000,
+					hookTimeout: 15_000,
+				},
+			},
+			{
+				extends: true,
+				test: { name: "backend", include: BACKEND_TESTS, testTimeout: 60_000, hookTimeout: 60_000 },
+			},
+		],
 	},
 })

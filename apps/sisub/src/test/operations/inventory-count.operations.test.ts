@@ -215,7 +215,7 @@ describeIf("inventory count (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 
 	test("revisão inteira (20260920160000): alçada, sem lote, escopo, não contado, rodadas e transições", async () => {
 		await expect(
@@ -424,5 +424,5 @@ describeIf("inventory count (DB)", () => {
 					throw err
 				})
 		).resolves.toBe("rolled-back")
-	}, 60_000)
+	})
 })

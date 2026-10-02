@@ -130,7 +130,7 @@ describeIf("tipos do banco × schema real", () => {
 			if (!live.has(key)) live.set(key, new Set())
 			live.get(key)?.add(row.column_name)
 		}
-	}, 30_000)
+	})
 
 	afterAll(async () => {
 		await sql?.end({ timeout: 5 })
