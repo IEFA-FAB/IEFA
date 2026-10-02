@@ -10,8 +10,7 @@
  *   - congelada PROVISÓRIA ainda não revisada (`provisional_since` preenchido e
  *     `provisional_reviewed_at` nulo) é a sobra que uma cozinha registrou sem cadastro: até a SDAB
  *     revisar, ela é da cozinha que a criou (`provisional_kitchen_id`). Só a vê quem tem `global:1`
- *     ou alcança essa cozinha — `kitchen`/`kitchen-production` escopado a ela, ou `unit` de uma OM
- *     que responde por ela (lotação ou compra, `kitchenUnitIds`);
+ *     ou `kitchen`/`kitchen-production` escopado a essa cozinha;
  *   - escrita: catálogo global, `global:2`.
  */
 
@@ -19,7 +18,6 @@ import { frozenPreparationInKitchen, type SisubDb } from "@iefa/database/drizzle
 import type { FrozenPreparation } from "@iefa/database/sisub"
 import { hasAnyPermission, hasPermission } from "@iefa/pbac"
 import { and, asc, eq, ilike, isNotNull, isNull, or } from "drizzle-orm"
-import { kitchenUnitIds, loadKitchenUnitRef } from "../guards/kitchen-unit.ts"
 import { requireAnyPermission, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateFrozenPreparation,
@@ -37,16 +35,14 @@ type FrozenPreparationInsert = typeof frozenPreparationInKitchen.$inferInsert
 const CATALOG_READ_MODULES = ["kitchen", "kitchen-production", "global"] as const
 
 /**
- * Quem pode ver uma congelada provisória pendente da cozinha `ownerKitchenId`. Lê a OM da LINHA
- * da cozinha (nunca da requisição) e só quando os atalhos sem banco não decidem.
+ * Quem pode ver uma congelada provisória pendente da cozinha `ownerKitchenId`: `global:1` (a SDAB,
+ * que a revisa) ou `kitchen`/`kitchen-production` escopado à cozinha dona. Pura: o dono vem da
+ * LINHA, nunca da requisição.
  */
-async function canSeePendingProvisional(db: SisubDb, ctx: UserContext, ownerKitchenId: number | null): Promise<boolean> {
+function canSeePendingProvisional(ctx: UserContext, ownerKitchenId: number | null): boolean {
 	if (hasPermission(ctx.permissions, "global", 1)) return true
 	if (ownerKitchenId == null) return false
-	if (hasAnyPermission(ctx.permissions, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: ownerKitchenId })) return true
-	if (!hasPermission(ctx.permissions, "unit", 1)) return false
-	const kitchen = await loadKitchenUnitRef(db, ownerKitchenId)
-	return kitchenUnitIds(kitchen).some((unitId) => hasPermission(ctx.permissions, "unit", 1, { type: "unit", id: unitId }))
+	return hasAnyPermission(ctx.permissions, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: ownerKitchenId })
 }
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
@@ -89,7 +85,7 @@ export async function fetchFrozenPreparation(db: SisubDb, ctx: UserContext, inpu
 	// Provisória pendente de outra cozinha responde igual a id inexistente: sondar o UUID não
 	// revela que a sobra existe nem de quem é.
 	const isPendingProvisional = row.provisionalSince != null && row.provisionalReviewedAt == null
-	if (isPendingProvisional && !(await canSeePendingProvisional(db, ctx, row.provisionalKitchenId))) {
+	if (isPendingProvisional && !canSeePendingProvisional(ctx, row.provisionalKitchenId)) {
 		throw new NotFoundError("frozen_preparation", input.id)
 	}
 	return toWire<FrozenPreparation>(row)

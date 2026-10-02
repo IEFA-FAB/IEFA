@@ -20,6 +20,7 @@ import {
 	vUserIdentityInCore,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
+import { hasPermission } from "@iefa/pbac"
 import { and, asc, count, eq, inArray, or } from "drizzle-orm"
 import type { PgColumn } from "drizzle-orm/pg-core"
 import { requireMessHall, requirePermission } from "../guards/require-permission.ts"
@@ -35,7 +36,7 @@ import type {
 	UpdateEntityInput,
 } from "../schemas/places.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError } from "../types/errors.ts"
+import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import { driverFailure, runQuery, toWire } from "../utils/index.ts"
 import { type AccessAudit, defaultAccessAudit } from "./access-change.ts"
 import { recordSensitiveOperation } from "./audit.ts"
@@ -203,6 +204,16 @@ export function isReparentDiff(diff: PlacesDiffItem): boolean {
 
 type ReparentChange = { table: string; record_id: number; column: string; previous: number | null; value: number }
 
+/**
+ * Um item por (tabela, registro, coluna) — o ÚLTIMO do diff, que é o valor que ficaria — em ordem
+ * canônica. Sem isso, A→B e B→C no mesmo diff gravariam no log duas mudanças a partir de A.
+ */
+function finalDiffs(diffs: readonly PlacesDiffItem[]): PlacesDiffItem[] {
+	const byKey = new Map<string, PlacesDiffItem>()
+	for (const diff of diffs) byKey.set(`${diff.table}:${diff.recordId}:${diff.column}`, diff)
+	return [...byKey.values()].sort((a, b) => a.table.localeCompare(b.table) || a.recordId - b.recordId || a.column.localeCompare(b.column))
+}
+
 /** Valor atual da coluna, travado até o fim da transação — é o `previous` do log. */
 async function lockCurrentValue(tx: SisubDb, diff: PlacesDiffItem): Promise<number | null> {
 	const rows =
@@ -239,18 +250,26 @@ export async function applyPlacesDiff(
 ): Promise<{ ok: true; count: number }> {
 	// Sem gate, qualquer sessão válida remontava a hierarquia.
 	requirePermission(ctx, "global", 2)
-	const reparents = input.diffs.filter(isReparentDiff)
-	if (reparents.length > 0) requirePermission(ctx, "admin", 2)
+	const diffs = finalDiffs(input.diffs)
+	if (diffs.some(isReparentDiff) && !hasPermission(ctx.permissions, "admin", 2)) {
+		// 403 como qualquer guard, com a frase que diz o que fazer (a tela salva o lote inteiro).
+		throw Object.assign(new PermissionDeniedError("admin", 2), {
+			message:
+				"Mudar a OM de uma cozinha ou de um refeitório muda quem os alcança e exige também administração de acessos (admin nível 2). Nada foi salvo: desfaça essa mudança para salvar o resto, ou peça a um administrador.",
+		})
+	}
 
 	await db.transaction(async (tx) => {
+		// Trava e lê o antes na ordem canônica (`finalDiffs`): dois saves concorrentes travam as
+		// mesmas linhas na mesma ordem e não se cruzam em deadlock.
 		const changes: ReparentChange[] = []
-		for (const diff of reparents) {
+		for (const diff of diffs.filter(isReparentDiff)) {
 			const previous = await runQuery("FETCH_FAILED", () => lockCurrentValue(tx as unknown as SisubDb, diff))
 			if (previous !== diff.newValue) changes.push({ table: diff.table, record_id: diff.recordId, column: diff.column, previous, value: diff.newValue })
 		}
 
 		// Em sequência: a transação é uma conexão só.
-		for (const diff of input.diffs) {
+		for (const diff of diffs) {
 			try {
 				if (diff.table === "kitchen") {
 					await tx

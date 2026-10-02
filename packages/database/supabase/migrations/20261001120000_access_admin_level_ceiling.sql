@@ -30,7 +30,7 @@
 -- ficam fora. `change_module_permission`/`set_module_block` (contrate, rumaer, sucont) não
 -- administram o `admin` do sisub e ficam fora.
 --
--- O app (`@iefa/sisub-domain`, `top-admin-guard.ts`) recusa antes o que dá para ver sem ler
+-- O app (`@iefa/sisub-domain`, `assertTopAdminCeiling` em `operations/access-change.ts`) recusa antes o que dá para ver sem ler
 -- o banco (o nível pedido e a linha alterada), com a mesma frase; quem vale é a função, sob
 -- as travas que ela já toma.
 --

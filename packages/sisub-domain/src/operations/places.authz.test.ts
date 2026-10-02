@@ -136,6 +136,34 @@ describe("applyPlacesDiff", () => {
 		expect(state.logs).toEqual([])
 	})
 
+	test("a recusa diz o que fazer, e o lote não é aplicado em parte", async () => {
+		const { db, state } = stubDb({ current: 1 })
+		const error = await caught(
+			applyPlacesDiff(db, GLOBAL_ONLY, {
+				diffs: [
+					{ table: "mess_halls", recordId: 9, column: "kitchen_id", newValue: 3 },
+					{ table: "kitchen", recordId: 7, column: "unit_id", newValue: 2 },
+				],
+			})
+		)
+		expect(error?.code).toBe("PERMISSION_DENIED")
+		expect(error?.message).toContain("admin nível 2")
+		expect(state.transactions).toBe(0)
+	})
+
+	test("o mesmo registro duas vezes no diff vale o ÚLTIMO valor, uma vez — o log não inventa transição", async () => {
+		const { db, state } = stubDb({ current: 1 })
+		await applyPlacesDiff(db, GLOBAL_AND_ADMIN, {
+			diffs: [
+				{ table: "kitchen", recordId: 7, column: "unit_id", newValue: 2 },
+				{ table: "kitchen", recordId: 7, column: "unit_id", newValue: 3 },
+			],
+		})
+		expect(state.locks).toBe(1)
+		expect(state.updates).toEqual([{ unitId: 3 }])
+		expect(state.logs[0]?.target).toEqual({ action: "reparent", changes: [{ table: "kitchen", record_id: 7, column: "unit_id", previous: 1, value: 3 }] })
+	})
+
 	test("falha do log derruba a operação (a transação desfaz as escritas)", async () => {
 		const { db } = stubDb({ current: 1, failLog: true })
 		const error = await caught(applyPlacesDiff(db, GLOBAL_AND_ADMIN, { diffs: [{ table: "kitchen", recordId: 7, column: "unit_id", newValue: 2 }] }))

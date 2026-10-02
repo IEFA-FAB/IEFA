@@ -306,14 +306,14 @@ describe("preparação congelada", () => {
 		expect(viaOtherUnit).toBeInstanceOf(NotFoundError)
 	})
 
-	test("provisória pendente abre para a cozinha dona, a OM dela e a SDAB", async () => {
-		const allowed = [
-			ctx(perm("kitchen", 1, { kitchen_id: KITCHEN })),
-			ctx(perm("kitchen-production", 1, { kitchen_id: KITCHEN })),
-			ctx(perm("kitchen", 1, { kitchen_id: OTHER_KITCHEN }), perm("unit", 1, { unit_id: UNIT })),
-			ctx(perm("global", 1)),
-		]
+	test("provisória pendente abre só para a cozinha dona e a SDAB", async () => {
+		const allowed = [ctx(perm("kitchen", 1, { kitchen_id: KITCHEN })), ctx(perm("kitchen-production", 1, { kitchen_id: KITCHEN })), ctx(perm("global", 1))]
 		for (const c of allowed) expect(await outcome(fetchFrozenPreparation(frozenDb(PENDING), c, { id: FROZEN_ID }))).toBeNull()
+		// `unit` da OM dona não é cozinha dona: a sobra é da cozinha até a revisão.
+		const viaOwnerUnit = await outcome(
+			fetchFrozenPreparation(frozenDb(PENDING), ctx(perm("kitchen", 1, { kitchen_id: OTHER_KITCHEN }), perm("unit", 1, { unit_id: UNIT })), { id: FROZEN_ID })
+		)
+		expect(viaOwnerUnit).toBeInstanceOf(NotFoundError)
 	})
 
 	test("id inexistente é NotFound", async () => {
