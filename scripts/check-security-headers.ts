@@ -6,8 +6,9 @@
  * X-Frame-Options/HSTS/etc. Este check falha o CI se qualquer header sumir DA
  * REGRA `/**` (a única que cobre todo request de página).
  *
- * Escopo: apps SSR servidos pelo próprio runtime Nitro. Fora dele de propósito:
- *   - docs    — estático em S3/CloudFront, headers vivem na distribuição (infra).
+ * Escopo: apps SSR servidos pelo próprio runtime Nitro. O docs é estático em
+ * S3/CloudFront e não tem servidor: os headers dele vêm da response headers policy do
+ * módulo `infra/modules/static-site`, conferida no fim deste gate.
  *
  * CSP: a baseline cobre só as diretivas que não tocam script/estilo/imagem
  * (`frame-ancestors`, `base-uri`, `object-src`, `form-action`) — o gate cobra essas
@@ -103,6 +104,52 @@ for (const app of SSR_APPS) {
 	}
 }
 
+// Site estático (docs): a distribuição tem de associar a response headers policy, a
+// policy tem de declarar cada header e a CSP default do módulo tem de carregar as
+// diretivas que travam embed/base/plugins. Text-based, sem comentários (`#`/`//`), para
+// um nome citado em comentário não passar por config: o gate não roda terraform.
+const STATIC_SITE_DIR = join(REPO_ROOT, "infra", "modules", "static-site")
+const STATIC_SITE_BLOCKS = [
+	"strict_transport_security",
+	"content_type_options",
+	"frame_options",
+	"referrer_policy",
+	"content_security_policy",
+	'"Permissions-Policy"',
+] as const
+const STATIC_SITE_CSP_DIRECTIVES = ["frame-ancestors 'none'", "base-uri 'self'", "object-src 'none'", "form-action 'self'"] as const
+
+function stripHclComments(source: string): string {
+	return source
+		.split("\n")
+		.filter((line) => !/^\s*(#|\/\/)/.test(line))
+		.join("\n")
+}
+
+try {
+	const tf = stripHclComments(readFileSync(join(STATIC_SITE_DIR, "cloudfront.tf"), "utf8"))
+	const missing = STATIC_SITE_BLOCKS.filter((b) => !tf.includes(b))
+	if (missing.length > 0) {
+		failures.push(`static-site (docs): cloudfront.tf sem ${missing.join(", ")} na response headers policy`)
+	}
+	const behavior = /default_cache_behavior\s*\{[\s\S]*?\n {2}\}/.exec(tf)?.[0] ?? ""
+	if (!/response_headers_policy_id\s*=\s*aws_cloudfront_response_headers_policy\./.test(behavior)) {
+		failures.push("static-site (docs): default_cache_behavior não associa a response headers policy")
+	}
+	const vars = stripHclComments(readFileSync(join(STATIC_SITE_DIR, "variables.tf"), "utf8"))
+	const csp = /variable "content_security_policy"[\s\S]*?default\s*=\s*"([^"]*)"/.exec(vars)?.[1]
+	if (csp === undefined) {
+		failures.push('static-site (docs): variables.tf sem default para "content_security_policy"')
+	} else {
+		const missingDirectives = STATIC_SITE_CSP_DIRECTIVES.filter((d) => !csp.includes(d))
+		if (missingDirectives.length > 0) {
+			failures.push(`static-site (docs): CSP default sem as diretivas: ${missingDirectives.join("; ")}`)
+		}
+	}
+} catch {
+	failures.push(`static-site (docs): ${STATIC_SITE_DIR}/{cloudfront,variables}.tf não encontrado`)
+}
+
 if (failures.length > 0) {
 	console.error("✗ Baseline de headers de segurança violada:\n")
 	for (const f of failures) console.error(`  - ${f}`)
@@ -111,5 +158,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-	`✓ Baseline de headers de segurança presente na regra "/**" de ${SSR_APPS.length} apps SSR (${REQUIRED_HEADERS.length} headers cada), com CSRF das server functions.`
+	`✓ Baseline de headers de segurança presente na regra "/**" de ${SSR_APPS.length} apps SSR (${REQUIRED_HEADERS.length} headers cada), com CSRF das server functions, e na distribuição do site estático.`
 )

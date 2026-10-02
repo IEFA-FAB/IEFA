@@ -240,10 +240,6 @@ ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
 ARG VITE_FARO_COLLECTOR_URL
 ARG VITE_FARO_APP_NAME
 ARG VITE_FARO_ENVIRONMENT
-# Faro sourcemap upload — secret, consumido SÓ pelo vite.config.ts durante o build
-# (loadEnv lê este ARG como env). Vazio → build não gera/envia maps. Não vai pra
-# imagem runtime nem pro bundle do cliente.
-ARG FARO_SOURCEMAP_API_KEY
 COPY packages/agent-web ./packages/agent-web
 COPY packages/ai-provider ./packages/ai-provider
 COPY packages/auth-kit ./packages/auth-kit
@@ -256,7 +252,10 @@ COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/sisub ./apps/sisub
 RUN rm -rf apps/sisub/.vite apps/sisub/.tanstack apps/sisub/node_modules/.vite
-RUN bun --filter='@iefa/sisub' run build
+# Faro sourcemap upload — secret do BuildKit, montado como env SÓ neste RUN e lido pelo
+# vite.config.ts (loadEnv). Ausente → build não gera/envia maps. Não fica em ARG,
+# camada, cache nem na imagem runtime.
+RUN --mount=type=secret,id=FARO_SOURCEMAP_API_KEY,env=FARO_SOURCEMAP_API_KEY bun --filter='@iefa/sisub' run build
 RUN test -f apps/sisub/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
 

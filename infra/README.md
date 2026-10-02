@@ -96,7 +96,10 @@ every PR that touches `infra/**` and posts the diff as a PR comment (one per
 changed stack; a `modules/**` change fans out to every service stack). It **never**
 applies — apply stays human/out-of-band. It authenticates via a dedicated
 read-only OIDC role (`<prefix>-github-tf-plan`, assumable only from `pull_request`
-events, AWS `ReadOnlyAccess` minus secret-value/KMS reads).
+events, AWS `ReadOnlyAccess` minus secret-value/KMS/SSM reads and minus the main data
+reads: log events, S3 objects outside the state bucket, DynamoDB items outside the
+lock table, ECR image layers, CloudTrail events, Athena results). The deny list is not
+exhaustive, and the role still reads the whole Terraform state, which plan needs.
 
 One-time setup after `terraform apply` of `foundation`:
 
@@ -125,6 +128,53 @@ printed. It authenticates with a third OIDC role, `<prefix>-github-tf-apply`
 `<prefix>-*` roles/policies, assumable only from `ref:refs/heads/main`, and
 explicitly denied `secretsmanager:GetSecretValue` (no stack ever reads a secret
 value — the module only creates the container).
+
+### Permissions boundary e roles de CI como bootstrap
+
+`iam:*` no prefixo `<prefix>-*` deixava a tf-apply virar admin: bastava criar uma
+role `<prefix>-x` com `AdministratorAccess`, ou escrever `*` na própria policy. A
+tf-apply agora segue o padrão de **permissions boundary delegada**:
+
+- toda role de workload (`<prefix>-ecs-execution`, `<prefix>-ecs-task`,
+  `<prefix>-ecs-task-ai`) carrega a boundary `<prefix>-workload-boundary`
+  (`foundation/iam.tf`), que nega IAM, Organizations e Account;
+- a tf-apply só cria role, grava policy nela ou troca a boundary se a role ficar com
+  essa boundary; não remove boundary de role nenhuma e não altera a policy da boundary;
+- as três roles de CI (`github-deploy`, `github-tf-plan`, `github-tf-apply`) não têm
+  boundary e a tf-apply não grava policy, trust nem boundary nelas, nem as apaga.
+
+**Isso torna bootstrap** as roles de CI e a boundary: mudar `cicd.tf`,
+`cicd_plan.tf`, `cicd_apply.tf` ou `workload_boundary` em `iam.tf` não sai pelo
+`terraform-apply` (ele falha com `AccessDenied` nesses recursos). O caminho é um apply
+local da foundation com credencial de admin:
+
+```bash
+cd infra/foundation
+cp backend.tf.example backend.tf     # bucket/tabela do infra/bootstrap
+# terraform.tfvars = a entrada "foundation" do secret TF_TFVARS_JSON
+terraform init
+terraform plan -out=tfplan           # confira que o diff é só o que você quer
+terraform apply tfplan
+```
+
+Role de workload nova em qualquer stack precisa de
+`permissions_boundary = <output workload_permissions_boundary_arn>`; sem isso o apply
+do CI é negado no `CreateRole`.
+
+### Task roles: compartilhada e de IA
+
+Os serviços listados em `bedrock_task_services` (foundation, default
+`alpha, portal, sisub, sucont`: os que importam `@iefa/ai-provider`) rodam com a role
+`<prefix>-ecs-task-ai`, que recebe a policy de Bedrock. Os demais rodam com
+`<prefix>-ecs-task`, que tem `bedrock:*` negado explicitamente
+(`restrict_bedrock_to_ai_task_role`). Cada stack de serviço escolhe a role pelo output
+`task_role_arns_by_service`; um serviço novo que passe a usar IA entra na lista da
+foundation.
+
+O corte foi em duas etapas para a IA não ficar sem Bedrock entre o apply da foundation e
+o rollout dos serviços: primeiro `restrict_bedrock_to_ai_task_role = false` (os serviços
+de IA migram para a role nova), depois `true` num PR seguinte (o deny entra na role
+compartilhada). Voltar para `false` é o rollback rápido.
 
 This exists because `deploy.yml` never ran Terraform, so infra depended on a
 manual apply that in practice did not happen: the `cpu = 1024`, `awslogs` driver

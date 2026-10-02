@@ -19,8 +19,8 @@
 #   1. habilitacao (perfil ACTIVE NAO basta) — `bedrock-runtime converse` de verdade:
 #      opus-4-6 e sonnet-4-6 respondem; opus-4-8 e opus-5 devolvem
 #      `AccessDeniedException: not available for this account`, mesmo listados ACTIVE;
-#   2. autorizacao da task role `iefa-prod-ecs-task` — a policy inline
-#      `iefa-prod-ecs-task-extra` concede `bedrock:InvokeModel*` em
+#   2. autorizacao da task role `iefa-prod-ecs-task-ai` (a dos servicos de IA) — a
+#      policy inline `iefa-prod-ecs-task-ai-extra` concede `bedrock:InvokeModel*` em
 #      `inference-profile/global.anthropic.*` e `foundation-model/openai.gpt-oss-*`,
 #      que cobrem o primario e a reserva abaixo. Simular a acao `bedrock:Converse`
 #      da implicitDeny e isso e ESPERADO: e por InvokeModel* que a Converse autoriza;

@@ -12,10 +12,6 @@ variable "TAG" {
   default = "latest"
 }
 
-variable "FARO_SOURCEMAP_API_KEY" {
-  default = ""
-}
-
 variable "VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY" {
   default = ""
 }
@@ -156,8 +152,8 @@ target "sisub" {
     VITE_FARO_COLLECTOR_URL             = VITE_FARO_COLLECTOR_URL
     VITE_FARO_APP_NAME                  = VITE_FARO_APP_NAME
     VITE_FARO_ENVIRONMENT               = VITE_FARO_ENVIRONMENT
-    FARO_SOURCEMAP_API_KEY              = FARO_SOURCEMAP_API_KEY
   }
+  secret = ["id=FARO_SOURCEMAP_API_KEY,env=FARO_SOURCEMAP_API_KEY"]
 }
 
 target "forms" {

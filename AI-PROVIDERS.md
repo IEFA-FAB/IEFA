@@ -56,7 +56,7 @@ Respondem hoje: **opus-4-6, opus-4-5, sonnet-4-6, sonnet-4-5, haiku-4-5 e gpt-os
 mesma lista de 2026-08-21, ou seja, nada novo foi habilitado desde então.
 
 **`bedrock:Converse` dar `implicitDeny` na simulação é esperado, não é bug.** A policy
-`iefa-prod-ecs-task-extra` concede só `bedrock:InvokeModel` e
+`iefa-prod-ecs-task-ai-extra` concede só `bedrock:InvokeModel` e
 `bedrock:InvokeModelWithResponseStream` — e é por essas ações que a Converse API autoriza.
 Simular a ação `Converse`/`ConverseStream` faz uma config correta parecer quebrada; simule
 sempre `InvokeModelWithResponseStream`.
@@ -278,11 +278,16 @@ produção hoje, ver a seção acima):
 
 ### IAM: o que está aplicado ≠ o que o `iam.tf` descreve
 
+Só os serviços de IA (`bedrock_task_services` na foundation: alpha, portal, sisub, sucont)
+rodam com a task role `iefa-prod-ecs-task-ai`; os demais rodam com `iefa-prod-ecs-task`, que
+nega `bedrock:*` explicitamente. Simular a role compartilhada dá `explicitDeny`, e isso é o
+esperado.
+
 `infra/foundation/iam.tf` tem um bloco `task_bedrock` atrás de `enable_bedrock_task_access`,
 com `bedrock:Converse*` + `bedrock:InvokeModel*` em `foundation-model/*` e
 `inference-profile/*`. **Esse bloco não está aplicado**: a flag é `false` no `terraform.tfvars`
-real e a role `iefa-prod-ecs-task` não tem a policy `-ecs-task-bedrock`. O acesso vem da
-policy `-ecs-task-extra`, montada de `task_role_policy_json`, e é bem mais estreita:
+real e a role de IA não tem a policy `-ecs-task-ai-bedrock`. O acesso vem da policy
+`-ecs-task-ai-extra`, montada de `task_role_policy_json`, e é bem mais estreita:
 
 ```
 Action:   bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream
@@ -309,7 +314,7 @@ Duas coisas que decorrem disso, e que valem mais que a intuição:
 
 ```sh
 SIM() { aws iam simulate-principal-policy \
-  --policy-source-arn arn:aws:iam::<conta>:role/iefa-prod-ecs-task \
+  --policy-source-arn arn:aws:iam::<conta>:role/iefa-prod-ecs-task-ai \
   --action-names bedrock:InvokeModelWithResponseStream \
   --resource-arns "$1" --query 'EvaluationResults[0].EvalDecision' --output text; }
 

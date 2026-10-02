@@ -8,6 +8,11 @@ resource "aws_lb" "this" {
   enable_deletion_protection = false
   idle_timeout               = 60
 
+  # Header com nome inválido (fora de [A-Za-z0-9-], ex.: `x_forwarded_for`) é
+  # descartado no ALB em vez de chegar ao app: é o vetor clássico de smuggling e de
+  # confusão de header entre proxy e backend.
+  drop_invalid_header_fields = true
+
   # Access logs por-request → visibilidade de 502/504, status por path e
   # target_processing_time (ver alb_logs.tf). depends_on garante a bucket policy
   # antes do LB tentar a primeira entrega.

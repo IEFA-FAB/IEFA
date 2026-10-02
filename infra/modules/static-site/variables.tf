@@ -46,3 +46,9 @@ variable "passthrough_prefixes" {
   type        = list(string)
   default     = ["/api/"]
 }
+
+variable "content_security_policy" {
+  description = "Content-Security-Policy served by the response headers policy. The default fits a prerendered TanStack Start/Fumadocs site with no third-party resources: inline hydration/theme scripts and inline styles are allowed, everything else is same-origin."
+  type        = string
+  default     = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'; upgrade-insecure-requests"
+}

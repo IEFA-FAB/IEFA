@@ -34,6 +34,11 @@ data "terraform_remote_state" "foundation" {
 
 locals {
   f = data.terraform_remote_state.foundation.outputs
+
+  # Serviço de IA (lista `bedrock_task_services` da foundation) roda com a task role
+  # que pode chamar o Bedrock; o resto, com a compartilhada, que nega Bedrock. O
+  # `try` cobre o state da foundation anterior a esse output.
+  task_role_arn = lookup(try(local.f.task_role_arns_by_service, {}), var.service_name, local.f.task_role_arn)
 }
 
 module "service" {
@@ -52,7 +57,7 @@ module "service" {
   tasks_security_group_id = local.f.tasks_security_group_id
   cluster_id              = local.f.ecs_cluster_id
   execution_role_arn      = local.f.task_execution_role_arn
-  task_role_arn           = local.f.task_role_arn
+  task_role_arn           = local.task_role_arn
   alb_dns_name            = local.f.alb_dns_name
   alb_zone_id             = local.f.alb_zone_id
   route53_zone_id         = local.f.route53_zone_id

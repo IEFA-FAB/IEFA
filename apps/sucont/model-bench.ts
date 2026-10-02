@@ -10,7 +10,7 @@
  * O (3) existe porque `generateJson` devolve `result.data as T` sem validar: campo
  * obrigatório que o modelo não emitir vira `undefined` dentro de um ofício, sem erro.
  *
- * Só entram candidatos que a task role pode invocar (policy `-ecs-task-extra`):
+ * Só entram candidatos que a task role pode invocar (policy `-ecs-task-ai-extra`):
  * `global.anthropic.*` (inference profile) e `openai.gpt-oss-*` (foundation model).
  *
  * Uso: cd apps/sucont && AWS_PROFILE=iefa-prod bun model-bench.ts
