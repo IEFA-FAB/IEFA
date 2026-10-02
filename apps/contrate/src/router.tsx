@@ -1,14 +1,12 @@
 import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import type { ReactNode } from "react"
-import { type AuthState, authActions, getAccessToken } from "@/auth/service"
-import { setAlphaAccessTokenReader } from "@/lib/alpha/client"
+import { type AuthState, authActions } from "@/auth/service"
 import * as TanstackQuery from "./integrations/tanstack-query/root-provider"
 import { routeTree } from "./routeTree.gen"
 
 export const getRouter = () => {
 	const rqContext = TanstackQuery.getContext()
-	setAlphaAccessTokenReader(getAccessToken)
 
 	// --- AUTH SETUP ---
 	const initialAuthData: AuthState = {

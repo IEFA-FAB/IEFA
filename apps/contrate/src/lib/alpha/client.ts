@@ -52,15 +52,18 @@ export class AlphaRequestError extends Error {
 	}
 }
 
-let readAccessToken: () => Promise<string | undefined> = async () => undefined
-
 /**
- * Registra quem lê o token da sessão (`getAccessToken` do client do navegador). Injetado pelo
- * `getRouter`, e não importado aqui, para estas libs não carregarem o client do Supabase (e a
- * validação do env) em quem só usa os tipos e os helpers puros.
+ * Quem lê o token: `getAccessToken` do client do navegador. Import tardio, para estas libs
+ * não carregarem o client do Supabase (e a validação do env) em quem só usa os tipos e os
+ * helpers puros — os testes delas rodam sem env.
  */
-export function setAlphaAccessTokenReader(reader: () => Promise<string | undefined>): void {
-	readAccessToken = reader
+const readBrowserAccessToken = async (): Promise<string | undefined> => (await import("@/auth/service")).getAccessToken()
+
+let readAccessToken = readBrowserAccessToken
+
+/** Troca o leitor do token (testes). `null` volta ao do navegador. */
+export function setAlphaAccessTokenReader(reader: (() => Promise<string | undefined>) | null): void {
+	readAccessToken = reader ?? readBrowserAccessToken
 }
 
 /** `Authorization` com o token da sessão corrente; vazio sem sessão (o α responde 401). */

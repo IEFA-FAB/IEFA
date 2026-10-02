@@ -1,4 +1,4 @@
-import { createAuthActions } from "@iefa/auth-kit"
+import { createAuthActions, readAccessToken } from "@iefa/auth-kit"
 import type { User } from "@supabase/supabase-js"
 import { queryOptions } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
@@ -31,14 +31,8 @@ export const authActions = createAuthActions({
 	resetPasswordRedirectPath: "/auth",
 })
 
-/**
- * Access token da sessão corrente, lido do client do navegador na hora da chamada (o
- * `getSession()` renova o token vencido). `undefined` sem sessão ou no servidor.
- */
-export async function getAccessToken(): Promise<string | undefined> {
-	const { data } = await supabase.auth.getSession()
-	return data.session?.access_token
-}
+/** Access token da sessão corrente, lido do client do navegador na hora da chamada. */
+export const getAccessToken = (): Promise<string | undefined> => readAccessToken(supabase)
 
 export const authQueryOptions = () =>
 	queryOptions({

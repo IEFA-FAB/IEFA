@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it } from "bun:test"
 import { alphaAuthHeaders, alphaPath, DEFAULT_ALPHA_BASE_URL, setAlphaAccessTokenReader } from "./client"
 
 describe("ALPHA_BASE_URL", () => {
@@ -21,6 +21,8 @@ describe("alphaPath", () => {
 })
 
 describe("alphaAuthHeaders", () => {
+	afterEach(() => setAlphaAccessTokenReader(null))
+
 	it("lê o token a cada chamada, do leitor registrado", async () => {
 		let token: string | undefined = "a"
 		setAlphaAccessTokenReader(async () => token)

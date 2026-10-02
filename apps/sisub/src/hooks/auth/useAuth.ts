@@ -7,6 +7,6 @@ export function useAuth() {
 
 	return {
 		...authActions, // signIn, signOut, etc
-		...data, // user, session, isAuthenticated
+		...data, // user, isAuthenticated
 	}
 }
