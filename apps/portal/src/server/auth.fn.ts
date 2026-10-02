@@ -8,26 +8,18 @@ import { createServerFn } from "@tanstack/react-start"
 import { getIefaAuthClient } from "@/lib/supabase.server"
 
 /**
- * Validates the current request's JWT and returns the authenticated user and session, or null for each if unauthenticated.
+ * Valida o JWT do request e devolve o usuário autenticado, ou `{ user: null }` sem sessão.
  *
- * @remarks
- * Uses getIefaAuthClient — auth.getUser() performs a server-side token check via cookies.
- * Does NOT throw on unauthenticated requests — returns { user: null, session: null } instead.
+ * Só o usuário, nunca a sessão: o retorno desta fn é serializado no HTML do SSR (estado
+ * desidratado do React Query), e a sessão carrega access e refresh token. Quem precisa do
+ * token (chamada ao α com Bearer) lê do client do navegador na hora da chamada.
  */
 // Público por contrato: valida o JWT do request e devolve { user: null } sem sessão.
 // nosemgrep: server-fn-missing-auth-guard
 export const getServerSessionFn = createServerFn({ method: "GET" }).handler(async () => {
-	const supabase = getIefaAuthClient()
 	// getUser() valida o token no servidor Supabase — não usa localStorage
 	const {
 		data: { user },
-	} = await supabase.auth.getUser()
-	const {
-		data: { session },
-	} = await supabase.auth.getSession()
-
-	return {
-		user: user ?? null,
-		session: session ?? null,
-	}
+	} = await getIefaAuthClient().auth.getUser()
+	return { user: user ?? null }
 })

@@ -3,6 +3,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router"
 import { ArrowLeft } from "iconoir-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { isInternalHref, safeHref } from "@/lib/safe-href"
 import { client, urlFor } from "@/lib/sanity"
 import type { PostDetail } from "@/types/domain"
 
@@ -22,16 +23,22 @@ const myPortableTextComponents: PortableTextComponents = {
 				</figure>
 			)
 		},
-		callToAction: ({ value }: { value: { url: string; text: string } }) => (
-			<div className="my-8 text-center">
-				<a
-					href={value.url}
-					className={`inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2`}
-				>
-					{value.text}
-				</a>
-			</div>
-		),
+		// `url` e `href` vêm do CMS: só esquema da allowlist vira link (`safeHref`); o resto
+		// renderiza o texto sem link, em vez de um `javascript:` clicável.
+		callToAction: ({ value }: { value: { url: string; text: string } }) => {
+			const href = safeHref(value.url)
+			if (!href) return <p className="my-8 text-center font-medium">{value.text}</p>
+			return (
+				<div className="my-8 text-center">
+					<a
+						href={href}
+						className={`inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2`}
+					>
+						{value.text}
+					</a>
+				</div>
+			)
+		},
 		code: ({ value }: { value: { language: string; code: string } }) => (
 			<div className="my-6 rounded-md bg-muted p-4 overflow-x-auto">
 				<pre data-language={value.language} className="text-sm font-mono">
@@ -51,9 +58,11 @@ const myPortableTextComponents: PortableTextComponents = {
 	},
 	marks: {
 		link: ({ children, value }: { children?: React.ReactNode; value?: { href: string } }) => {
-			const rel = !value?.href.startsWith("/") ? "noreferrer noopener" : undefined
+			const href = safeHref(value?.href)
+			if (!href) return <>{children}</>
+			const rel = isInternalHref(href) ? undefined : "noreferrer noopener"
 			return (
-				<a href={value?.href} rel={rel} className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
+				<a href={href} rel={rel} className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
 					{children}
 				</a>
 			)

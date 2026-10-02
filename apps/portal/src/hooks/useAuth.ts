@@ -19,6 +19,6 @@ export function useAuth(): UseAuthReturn {
 
 	return {
 		actions: context.authActions, // Acoes (signIn, signOut, etc)
-		...data, // Dados (user, session, isAuthenticated)
+		...data, // Dados (user, isAuthenticated). Token para chamada autenticada: `getAccessToken()`.
 	}
 }

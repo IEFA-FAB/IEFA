@@ -22,8 +22,9 @@ export type Facilidades_pregoeiro = {
 	title: string
 	content: string
 	tags: string[] | null
-	owner_id: string | null
 	default: boolean | null
+	/** A frase é de quem está vendo (calculado no servidor pela sessão; o dono não sai). */
+	is_mine: boolean
 }
 
 export interface FacilidadesTableProps {

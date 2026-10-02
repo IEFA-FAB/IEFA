@@ -16,6 +16,7 @@
  */
 
 import { createRequestAuth, forbidden as denyWithStatus, unauthorized as unauthenticatedWithStatus } from "@iefa/pbac/start"
+import type { ArticleAccess } from "./journal/article-projection"
 import { fetchJournalProfile, JOURNAL_PROFILE_REQUIRED_MESSAGE, type JournalProfileAccess } from "./journal/profile"
 import { AUTHOR_EDITABLE_STATUSES } from "./journal/write-schemas"
 import { getIefaAuthClient, getJournalServerClient } from "./supabase.server"
@@ -105,17 +106,11 @@ export async function requireArticleOwnerOrEditor(articleId: string): Promise<{ 
 }
 
 /**
- * Com que direito o chamador lê o artigo. As fns de leitura decidem a PROJEÇÃO por aqui:
- * leitor público de artigo publicado não recebe e-mail de coautor, e revisor não recebe
- * identidade de quem submeteu além do que a página mostra.
+ * Com que direito o chamador lê o artigo. As fns de leitura decidem a PROJEÇÃO por aqui
+ * (`@/lib/journal/article-projection`): leitor público de artigo publicado não recebe e-mail
+ * de coautor, e revisor não recebe identidade de autor nenhuma (duplo-cego).
  */
-export type ArticleAccess = {
-	isEditor: boolean
-	isSubmitter: boolean
-	isAssignedReviewer: boolean
-	/** Acesso só porque o artigo está publicado — anônimo ou autenticado sem vínculo. */
-	isPublicReader: boolean
-}
+export type { ArticleAccess }
 
 const NO_ACCESS: ArticleAccess = { isEditor: false, isSubmitter: false, isAssignedReviewer: false, isPublicReader: false }
 

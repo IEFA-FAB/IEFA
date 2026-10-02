@@ -11,7 +11,6 @@ export const getRouter = () => {
 	// --- AUTH SETUP ---
 	const initialAuthData: AuthState = {
 		user: null,
-		session: null,
 		isLoading: false,
 		isAuthenticated: false,
 	}

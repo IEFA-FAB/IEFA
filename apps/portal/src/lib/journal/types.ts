@@ -162,7 +162,6 @@ export interface JournalSettings {
 	publisher: string
 	doi_prefix: string | null
 	crossref_username: string | null
-	crossref_password: string | null
 	crossref_test_mode: boolean
 	default_review_deadline_days: number
 	min_reviewers_required: number
@@ -228,20 +227,3 @@ export interface PublishedArticle {
 
 // Editorial dashboard view type: o schema que o servidor confere (`editorial-dashboard.ts`).
 export type { EditorialDashboardArticle } from "./editorial-dashboard"
-
-// Input types for mutations
-export interface CreateSubmissionInput {
-	submitter_id: string
-	title_pt: string
-	title_en: string
-	abstract_pt: string
-	abstract_en: string
-	keywords_pt: string[]
-	keywords_en: string[]
-	article_type: ArticleType
-	subject_area: string
-	conflict_of_interest: string
-	funding_info?: string | null
-	data_availability?: string | null
-	ethics_approval?: string | null
-}

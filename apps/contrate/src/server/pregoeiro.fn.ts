@@ -10,8 +10,8 @@
 import type { Json, TablesInsert } from "@iefa/database/generated"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { forbidden, requireSelf, requireUserId } from "@/lib/auth.server"
-import { FacilityPayloadSchema, FacilityUpdateSchema } from "@/lib/pregoeiro-facility"
+import { forbidden, getRequestUser, requireSelf, requireUserId } from "@/lib/auth.server"
+import { FACILITY_READ_COLUMNS, FacilityPayloadSchema, FacilityUpdateSchema, toPublicFacility } from "@/lib/pregoeiro-facility"
 import { getIefaServerClient } from "@/lib/supabase.server"
 
 // ─── Pregoeiro Preferences ────────────────────────────────────────────────────
@@ -100,15 +100,19 @@ export const insertFacilityFn = createServerFn({ method: "POST" })
 	})
 
 /**
- * Biblioteca de frases do pregoeiro, lida na ferramenta pública (`/pregoeiro`)
- * antes de qualquer login. Mantido público para não quebrar a ferramenta — mas note que
- * isso expõe TODAS as frases, inclusive as de `owner_id` de outros usuários. Se a
- * intenção era biblioteca compartilhada, ok; se não, o filtro por dono é um follow-up
- * de produto, não de segurança.
+ * Biblioteca de frases do pregoeiro, lida na ferramenta pública (`/pregoeiro`) antes de
+ * qualquer login — biblioteca compartilhada: toda frase aparece para todo mundo. O que NÃO
+ * sai é o `owner_id` de cada frase (UUID da conta do autor): a tela só precisa saber se a
+ * frase é de quem está vendo (`is_mine`), e isso vem da sessão, quando houver.
  */
 // nosemgrep: server-fn-missing-auth-guard
 export const getFacilitiesFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data: result, error } = await getIefaServerClient().from("facilities_pregoeiro").select("*")
+	const [viewer, { data: result, error }] = await Promise.all([
+		// `is_mine` é só dica de tela (a edição confere o dono na sessão): falha do Auth não
+		// derruba a biblioteca pública, só a lê como anônimo.
+		getRequestUser().catch(() => null),
+		getIefaServerClient().from("facilities_pregoeiro").select(FACILITY_READ_COLUMNS),
+	])
 	if (error) throw new Error(error.message)
-	return result ?? []
+	return (result ?? []).map((row) => toPublicFacility(row, viewer?.id ?? null))
 })

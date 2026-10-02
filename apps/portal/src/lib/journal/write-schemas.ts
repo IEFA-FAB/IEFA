@@ -175,7 +175,7 @@ export const JournalSettingsUpdateSchema = z.object({
 	publisher: z.string().min(1).optional(),
 	doi_prefix: nullableText,
 	crossref_username: nullableText,
-	crossref_password: nullableText,
+	// Sem `crossref_password`: a senha não mora no banco (migration 20261001160000).
 	crossref_test_mode: z.boolean().optional(),
 	default_review_deadline_days: z.number().int().positive().optional(),
 	min_reviewers_required: z.number().int().min(1).optional(),
