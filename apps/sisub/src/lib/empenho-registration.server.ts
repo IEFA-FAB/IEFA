@@ -87,7 +87,8 @@ export type EmpenhoRegistrationOperation = "createEmpenhoFn" | "createEmpenhoWit
 export async function relinkWaitingRows(unitId: number, actorId: string): Promise<number> {
 	try {
 		const { data, error } = await siafi().rpc("relink_waiting_rows", { p_unit_id: unitId, p_actor: actorId })
-		if (error) throw new Error(publicDbMessage(error))
+		// Fica no servidor: o catch abaixo só loga.
+		if (error) throw new Error(error.message)
 		const row = Array.isArray(data) ? data[0] : data
 		return Number(row?.relinked ?? 0)
 	} catch (error) {

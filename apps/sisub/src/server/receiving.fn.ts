@@ -828,16 +828,16 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 			skuIds.length > 0 ? kit.from("ingredient_item").select("id, gtin").in("id", skuIds) : { data: [], error: null },
 			purchaseItemIds.length > 0 ? proc.from("purchase_item").select(SPEC_COLUMNS).in("id", purchaseItemIds) : { data: [], error: null },
 		])
-		if (lotsResult.error) throw new Error(`Erro ao carregar os lotes do recebimento: ${lotsResult.error.message}`)
-		if (ingredientsResult.error) throw new Error(`Erro ao carregar os insumos: ${ingredientsResult.error.message}`)
-		if (skusResult.error) throw new Error(`Erro ao carregar os códigos dos itens: ${skusResult.error.message}`)
+		if (lotsResult.error) throw new Error(`Erro ao carregar os lotes do recebimento: ${publicDbMessage(lotsResult.error)}`)
+		if (ingredientsResult.error) throw new Error(`Erro ao carregar os insumos: ${publicDbMessage(ingredientsResult.error)}`)
+		if (skusResult.error) throw new Error(`Erro ao carregar os códigos dos itens: ${publicDbMessage(skusResult.error)}`)
 		// Acondicionamento sugerido, por especificação de compra da linha. Linha sem
 		// purchase_item — ou com ele sem classe — cai na especificação padrão do insumo, desde
 		// que não excluída: a MESMA resolução de `requiredRangeFor` (que grava o lote) e de
 		// `finalize_goods_receipt`. Tela e servidor divergindo, o conferente via uma sugestão
 		// e o recebimento era julgado por outra — por isso a leitura que falha lança, em vez de
 		// mostrar a linha sem especificação.
-		if (specsResult.error) throw new Error(`Erro ao carregar as especificações de compra: ${specsResult.error.message}`)
+		if (specsResult.error) throw new Error(`Erro ao carregar as especificações de compra: ${publicDbMessage(specsResult.error)}`)
 
 		const narrowedLots = (lotsResult.data ?? []).map((lot) => ({ ...lot, conservation_class: lot.conservation_class as ConservationClass | null }))
 		const lotsByItem = new Map<string, typeof narrowedLots>()
@@ -1589,7 +1589,7 @@ export const listReceiptLinkCandidatesFn = createServerFn({ method: "GET" })
 				.limit(100),
 		])
 		for (const result of [notes, orders, empenhos]) {
-			if (result.error) throw new Error(`Erro ao carregar os documentos: ${result.error.message}`)
+			if (result.error) throw new Error(`Erro ao carregar os documentos: ${publicDbMessage(result.error)}`)
 		}
 
 		type Note = {
@@ -1696,7 +1696,7 @@ export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
 				inv.from("goods_receipt_item").select("id, ingredient_id, purchase_item_id, nfe_item_id, unit_cost, unit_cost_source").eq("receipt_id", data.receiptId),
 			])
 			for (const result of [doc, nfeItems, lines]) {
-				if (result.error) throw new Error(`Erro ao carregar a nota e as linhas: ${result.error.message}`)
+				if (result.error) throw new Error(`Erro ao carregar a nota e as linhas: ${publicDbMessage(result.error)}`)
 			}
 			if (!doc.data) throw new Error("NF-e não encontrada")
 			const toNumber = (value: unknown) => (value == null ? null : Number(value))
@@ -1813,7 +1813,7 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 			finance().from("liquidacao").select("id", { count: "exact", head: true }).eq("goods_receipt_id", data.receiptId),
 		])
 		for (const result of [note, order, empenho, liquidacoes]) {
-			if (result.error) throw new Error(`Erro ao carregar os documentos do recebimento: ${result.error.message}`)
+			if (result.error) throw new Error(`Erro ao carregar os documentos do recebimento: ${publicDbMessage(result.error)}`)
 		}
 		if (receipt.nfe_document_id && !note.data) throw new Error("A NF-e deste recebimento não foi encontrada")
 		const invoice = note.data

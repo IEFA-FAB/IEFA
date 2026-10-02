@@ -127,7 +127,7 @@ export const applyDocumentBatchFn = createServerFn({ method: "POST" })
 					// lote aplicado por outro clique no meio do caminho não pode virar `failed`.
 					const { error: markError } = await si
 						.from("import_batch")
-						.update({ status: "failed", error_message: error.message })
+						.update({ status: "failed", error_message: publicDbMessage(error) })
 						.eq("id", data.batchId)
 						.neq("status", "applied")
 					if (markError) throw new Error(`Lote não aplicado (${publicDbMessage(error)}) e não marcado como falho (${publicDbMessage(markError)})`)

@@ -1,4 +1,3 @@
-import { publicDbMessage } from "./db-error-message"
 /**
  * Leitura PostgREST sem corte calado.
  *
@@ -13,6 +12,8 @@ import { publicDbMessage } from "./db-error-message"
  * Quem chama tem de ORDENAR a consulta por uma chave única (`.order("id")`):
  * paginar sem ordem estável repete e pula linhas entre as páginas.
  */
+
+import { publicDbMessage } from "./db-error-message"
 
 export const PAGE_SIZE = 1000
 export const IN_CHUNK_SIZE = 100

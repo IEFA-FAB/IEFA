@@ -18,6 +18,7 @@
  */
 
 import { createServerFn } from "@tanstack/react-start"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { getCoreClient } from "@/lib/supabase.server"
 
 const DATABASE_HEALTH_TIMEOUT_MS = 3500
@@ -34,7 +35,8 @@ export const checkDatabaseStatusFn = createServerFn({ method: "GET" }).handler(a
 		const { error } = await supabase.from("units").select("id").limit(1).abortSignal(controller.signal)
 
 		if (error) {
-			throw new Error(error.message)
+			// O abort não lança: o supabase-js devolve `{ error }` com o AbortError na mensagem.
+			throw new Error(controller.signal.aborted ? "database_timeout" : publicDbMessage(error))
 		}
 
 		return { status: "ok" }

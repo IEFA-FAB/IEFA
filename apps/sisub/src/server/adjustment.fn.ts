@@ -182,9 +182,9 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 			: Promise.resolve({ data: [], error: null }),
 		storagePolicyIds.length > 0 ? ac.from("policy").select("id").in("id", storagePolicyIds).is("deleted_at", null) : Promise.resolve({ data: [], error: null }),
 	])
-	if (inlineResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${inlineResult.error.message}`)
-	if (attachmentResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${attachmentResult.error.message}`)
-	if (liveResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${liveResult.error.message}`)
+	if (inlineResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${publicDbMessage(inlineResult.error)}`)
+	if (attachmentResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${publicDbMessage(attachmentResult.error)}`)
+	if (liveResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${publicDbMessage(liveResult.error)}`)
 
 	const live = new Set(((liveResult.data ?? []) as Array<{ id: string }>).map((row) => row.id))
 	const byPolicy = new Map<string, Array<Omit<PermissionRow, "user_id">>>()
