@@ -8,7 +8,8 @@
 # vai para o log e a tela lê um texto em português. O texto em volta continua do autor.
 #
 # A regra olha só variável com nome de erro (`error`, `err`, `<x>Error`, `<x>Err`): erro de
-# validação, de parser ou de API externa tem outro nome e outro tratamento.
+# validação, de parser ou de API externa tem outro nome e outro tratamento. Erro checado por
+# `instanceof` (classe do app) fica de fora: o texto dele é do autor.
 #
 # Casos de teste: `__fixtures__/sisub-db-error-message.ts` (opengrep test --config
 # .opengrep/rules/sisub-db-error-message.yaml .opengrep/rules/__fixtures__/sisub-db-error-message.ts).
@@ -29,10 +30,22 @@ rules:
         - "*.test.ts"
     patterns:
       - pattern-either:
-          - pattern: throw new Error(`...${$E.message}...`)
-          - pattern: throw new Error(`...${$E?.message}...`)
-          - pattern: throw new Error($E.message)
-          - pattern: throw new Error($E?.message)
+          - pattern: new Error(`...${$E.message}...`)
+          - pattern: new Error(`...${$E?.message}...`)
+          - pattern: new Error(`...${$E.message ?? $X}...`)
+          - pattern: new Error(`...${$E?.message ?? $X}...`)
+          - pattern: new Error($E.message)
+          - pattern: new Error($E?.message)
+          - pattern: new Error($E.message || $X)
+          - pattern: new Error($E.message ?? $X)
+          - pattern: new Error($E?.message ?? $X)
+          - pattern: new Error($S + $E.message)
+          - pattern: new Error($S + $E.message + $T)
+      # Erro de classe conhecida (DomainError, OpeningSheetError…) traz texto escrito para o usuário.
+      - pattern-not-inside: |
+          if ($E instanceof $CLASS) { ... }
+      - pattern-not-inside: |
+          if ($E instanceof $CLASS) $STMT;
       - metavariable-regex:
           metavariable: $E
           regex: ^(error|err|[a-z][a-zA-Z]*Error|[a-z][a-zA-Z]*Err|[a-z][a-zA-Z]*\.error)$

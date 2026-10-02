@@ -69,19 +69,73 @@ const GENERATED: Array<[RegExp, string]> = [
 
 const tool = input.tool_name ?? "";
 
-// MCP do Supabase aponta para o banco compartilhado (produção + treino). Leitura é livre;
-// migration e SQL que escreve seguem a mesma regra do `db push`: só com pedido explícito.
-if (tool === "mcp__supabase__apply_migration") {
-	decide("ask", "apply_migration escreve no banco compartilhado (produção + treino). Ordem declara → aplica → mergeia, só com pedido explícito do mantenedor.");
-}
-if (tool === "mcp__supabase__execute_sql") {
-	const sql = (input.tool_input?.query ?? "")
-		.replace(/--[^\n]*/g, "")
-		.replace(/\/\*[\s\S]*?\*\//g, "")
-		.replace(/'(?:''|[^'])*'/g, "''");
-	if (/\b(insert|update|delete|merge|upsert|alter|create|drop|truncate|grant|revoke|comment|do|call|copy|vacuum|reindex|cluster|refresh|lock|security\s+label|select\s+[^;]*\binto\b)\b/i.test(sql)) {
-		decide("ask", "Este SQL escreve no banco compartilhado (produção + treino). Leitura é livre; escrita só com pedido explícito do mantenedor.");
+/**
+ * O SQL com comentários e literais trocados por espaço, numa passada só: `'…'` (com `''`),
+ * `E'…'` (com `\'`), `$tag$…$tag$`, `"identificador"`, comentário de linha e de bloco. Fazer isso em
+ * etapas (comentário antes de literal) deixava `'--'` engolir o resto da linha.
+ */
+function stripSqlLiterals(sql: string): string {
+	let out = "";
+	let i = 0;
+	while (i < sql.length) {
+		const rest = sql.slice(i);
+		const dollar = rest.match(/^\$([A-Za-z_]\w*)?\$/);
+		if (rest.startsWith("--")) {
+			const nl = sql.indexOf("\n", i);
+			i = nl < 0 ? sql.length : nl;
+		} else if (rest.startsWith("/*")) {
+			const close = sql.indexOf("*/", i + 2);
+			i = close < 0 ? sql.length : close + 2;
+		} else if (dollar) {
+			const close = sql.indexOf(dollar[0], i + dollar[0].length);
+			i = close < 0 ? sql.length : close + dollar[0].length;
+		} else if (/^[eE]'/.test(rest)) {
+			i += 2;
+			while (i < sql.length && sql[i] !== "'") i += sql[i] === "\\" ? 2 : 1;
+			i += 1;
+		} else if (sql[i] === "'" || sql[i] === '"') {
+			const q = sql[i];
+			i += 1;
+			while (i < sql.length) {
+				if (sql[i] === q && sql[i + 1] === q) i += 2;
+				else if (sql[i] === q) break;
+				else i += 1;
+			}
+			i += 1;
+		} else {
+			out += sql[i];
+			i += 1;
+			continue;
+		}
+		out += " ";
 	}
+	return out;
+}
+
+/** Funções nativas que escrevem ou mexem no servidor mesmo dentro de um `select`. */
+const UNSAFE_BUILTINS =
+	/\b(pg_terminate_backend|pg_cancel_backend|pg_reload_conf|pg_rotate_logfile|setval|nextval|set_config|pg_advisory\w*|lo_\w+|dblink\w*|pg_read_\w+|pg_ls_\w+|pg_stat_reset\w*|txid_current|pg_switch_wal|pg_create_\w+|pg_drop_\w+)\s*\(/i;
+
+/** Leitura certa: um statement só, começando por leitura, sem escrita e sem chamar função do app. */
+function isReadOnlySql(sql: string): boolean {
+	const code = stripSqlLiterals(sql).trim().replace(/;\s*$/, "");
+	if (!code || code.includes(";")) return false;
+	if (!/^(select|with|explain|show|table|values)\b/i.test(code)) return false;
+	if (/\b(insert|update|delete|merge|alter|create|drop|truncate|grant|revoke|comment|do|call|copy|vacuum|analyze|reindex|cluster|refresh|lock|listen|notify|prepare|execute|discard|reset|set|security\s+label|into)\b/i.test(code)) return false;
+	if (UNSAFE_BUILTINS.test(code)) return false;
+	// Função qualificada por schema é função do app (as auditadas de acesso inclusive): pode escrever.
+	const qualifiedCalls = [...code.matchAll(/\b([A-Za-z_]\w*)\s*\.\s*[A-Za-z_]\w*\s*\(/g)].map((m) => m[1].toLowerCase());
+	return qualifiedCalls.every((schema) => schema === "pg_catalog" || schema === "information_schema");
+}
+
+// MCP do Supabase aponta para o banco compartilhado (produção + treino). Leitura é livre;
+// migration, deploy de Edge Function e SQL que pode escrever seguem a regra do `db push`: só
+// com pedido explícito. O SQL passa sem perguntar só quando é, com certeza, uma leitura.
+if (tool === "mcp__supabase__apply_migration" || tool === "mcp__supabase__deploy_edge_function") {
+	decide("ask", `${tool.replace("mcp__supabase__", "")} escreve no projeto compartilhado (produção + treino). Só com pedido explícito do mantenedor.`);
+}
+if (tool === "mcp__supabase__execute_sql" && !isReadOnlySql(input.tool_input?.query ?? "")) {
+	decide("ask", "Este SQL pode escrever no banco compartilhado (produção + treino). Leitura simples é livre; o resto só com pedido explícito do mantenedor.");
 }
 
 if (tool === "Edit" || tool === "Write" || tool === "MultiEdit") {
@@ -112,7 +166,7 @@ if (tool === "Bash") {
 	}
 	// O ruleset da main não tem bypass e check vermelho é para ser corrigido (skill ship-pr).
 	if (segments.some((s) => /\bgh\s+pr\s+merge\b/.test(s) && /\s--admin\b/.test(s))) {
-		deny("`gh pr merge --admin` fura a espera pelos checks. Use `--auto`: o GitHub mergeia quando os checks obrigatórios passarem.");
+		deny("`gh pr merge --admin` não é o caminho: o ruleset da main não tem bypass. Use `--auto`, que mergeia quando os checks obrigatórios passarem.");
 	}
 	if (segments.some(skipsCommitHooks)) {
 		deny(

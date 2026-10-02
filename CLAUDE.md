@@ -11,7 +11,8 @@ o que depende do harness do Claude Code. -->
   - `guard.ts` recusa editar arquivo gerado, push na `main`, commit que pula hooks,
     `gh pr merge --admin`, vitest da raiz, `supabase db reset` remoto e
     `migration repair --status reverted`, e pede confirmação humana para `db push`/`migration
-    repair` e para `apply_migration`/`execute_sql` que escreve, pelo MCP, no banco compartilhado.
+    repair` e, pelo MCP, para `apply_migration`, `deploy_edge_function` e `execute_sql` que não
+    seja leitura simples, no projeto compartilhado.
     Se ele recusar, siga o caminho que a mensagem indica, sem contornar.
     Casos em `guard.test.ts` (`bun test ./.claude/hooks/guard.test.ts`).
   - `format.ts` formata e organiza os imports do arquivo editado. O lint continua sendo

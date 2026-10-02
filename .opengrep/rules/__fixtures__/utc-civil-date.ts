@@ -15,6 +15,20 @@ export const c = new Date().toISOString().substring(0, 7)
 // ruleid: utc-today-as-civil-date
 export const d = new Date(Date.now() + 30 * 86_400_000).toISOString().substring(0, 10)
 
+export function viaVariable() {
+	const now = new Date()
+	now.setMonth(now.getMonth() - 3)
+	// ruleid: utc-today-as-civil-date
+	return now.toISOString().slice(0, 10)
+}
+
+export function civilArithmetic() {
+	const d = new Date(`${civilDate}T12:00:00Z`)
+	d.setUTCDate(d.getUTCDate() + 1)
+	// ok: utc-today-as-civil-date
+	return d.toISOString().slice(0, 10)
+}
+
 // ok: utc-today-as-civil-date
 export const today = getBrasiliaToday()
 // ok: utc-today-as-civil-date

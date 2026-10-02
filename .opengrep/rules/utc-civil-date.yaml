@@ -7,7 +7,9 @@
 # datas default de empenho/liquidação/pagamento pulavam um dia. Todo "hoje" sai de
 # `@iefa/sisub-domain/civil-date` (`getBrasiliaToday`, `getBrasiliaCurrentMonth`,
 # `addCivilDays`). Aritmética sobre data que JÁ é civil (`new Date(\`${d}T12:00:00Z\`)`) não
-# é o alvo: a regra só olha `new Date()` sem argumento e `Date.now()`.
+# é o alvo: a regra só olha `new Date()` sem argumento (direto ou guardado numa variável) e
+# `Date.now()`. Não pega `Date` que chega por parâmetro (`(d: Date) => d.toISOString()…`):
+# ali não dá para saber se é instante ou data civil; quem pega é a revisão.
 #
 # Casos de teste: `__fixtures__/utc-civil-date.ts` (opengrep test --config
 # .opengrep/rules/utc-civil-date.yaml .opengrep/rules/__fixtures__/utc-civil-date.ts).
@@ -38,3 +40,11 @@ rules:
       - pattern: new Date(Date.now() - $X).toISOString().slice(...)
       - pattern: new Date(Date.now() - $X).toISOString().substring(...)
       - pattern: new Date(Date.now() - $X).toISOString().split(...)
+      - patterns:
+          - pattern-inside: |
+              $D = new Date()
+              ...
+          - pattern-either:
+              - pattern: $D.toISOString().slice(...)
+              - pattern: $D.toISOString().substring(...)
+              - pattern: $D.toISOString().split(...)

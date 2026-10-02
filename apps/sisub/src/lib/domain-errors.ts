@@ -71,8 +71,6 @@ export function handleDomainError(error: unknown): never {
 	// Regra de negócio (validação, conflito, estado inválido): texto escrito para o usuário.
 	if (error instanceof DomainError) {
 		setResponseStatus(400)
-		// DomainError: mensagem escrita para o usuário pela regra de negócio.
-		// nosemgrep: sisub-raw-db-error-message
 		throw new Error(error.message)
 	}
 	if (isDriverError(error)) {

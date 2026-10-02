@@ -155,40 +155,53 @@ describe("server function auth contract", () => {
 		)
 		expect(knownRules.size).toBeGreaterThan(0)
 
-		const appsDir = join(root, "apps")
 		const problems: string[] = []
 
-		for (const app of readdirSync(appsDir)) {
-			const dir = join(appsDir, app, "src", "server")
-			if (!existsSync(dir)) continue
-
-			for (const file of readdirSync(dir).filter((f) => f.endsWith(".fn.ts"))) {
-				const lines = readFileSync(join(dir, file), "utf8").split("\n")
-				lines.forEach((line, index) => {
-					const match = line.match(/nosemgrep:\s*([\w-]+)/)
-					if (!match) return
-					const where = `${app}/${file}:${index + 1}`
-
-					if (!knownRules.has(match[1])) problems.push(`${where} suprime regra inexistente "${match[1]}"`)
-
-					// Sobe pelo bloco de comentário contíguo (linha `//`, corpo `*` ou o
-					// fechamento `*/` de um JSDoc) procurando prosa de verdade. Aceita tanto
-					// `// motivo` + `// nosemgrep` quanto o JSDoc acima da supressão.
-					let cursor = index - 1
-					let hasReason = false
-					while (cursor >= 0) {
-						const previous = (lines[cursor] ?? "").trim()
-						const isComment = previous.startsWith("//") || previous.startsWith("*") || previous.startsWith("/*")
-						if (!isComment) break
-						if (!previous.includes("nosemgrep") && previous.replace(/^[/*\s]+/, "").length > 8) {
-							hasReason = true
-							break
-						}
-						cursor--
-					}
-					if (!hasReason) problems.push(`${where} não explica o motivo no comentário acima`)
-				})
+		// Todo .ts/.tsx de `apps/*/src` e `packages/*/src`: o gate do Opengrep cobre o monorepo
+		// inteiro, e supressão fora de `src/server` (lib, componente, pacote) envelhece igual.
+		const sourceFiles: Array<{ where: string; path: string }> = []
+		const walk = (dir: string, label: string) => {
+			for (const entry of readdirSync(dir, { withFileTypes: true })) {
+				if (entry.name === "node_modules" || entry.name.startsWith(".")) continue
+				const path = join(dir, entry.name)
+				if (entry.isDirectory()) walk(path, `${label}/${entry.name}`)
+				else if (/\.tsx?$/.test(entry.name) && !entry.name.endsWith(".gen.ts")) sourceFiles.push({ where: `${label}/${entry.name}`, path })
 			}
+		}
+		for (const top of ["apps", "packages"]) {
+			for (const workspace of readdirSync(join(root, top))) {
+				const src = join(root, top, workspace, "src")
+				if (existsSync(src)) walk(src, `${workspace}`)
+			}
+		}
+
+		for (const { where: file, path } of sourceFiles) {
+			const lines = readFileSync(path, "utf8").split("\n")
+			lines.forEach((line, index) => {
+				const match = line.match(/nosemgrep:\s*([\w-]+)/)
+				if (!match) return
+				const where = `${file}:${index + 1}`
+
+				if (!knownRules.has(match[1])) problems.push(`${where} suprime regra inexistente "${match[1]}"`)
+
+				// Sobe pelo bloco de comentário contíguo (linha `//`, corpo `*` ou o
+				// fechamento `*/` de um JSDoc) procurando prosa de verdade. Aceita tanto
+				// `// motivo` + `// nosemgrep` quanto o JSDoc acima da supressão.
+				let cursor = index - 1
+				// Motivo na própria linha também vale: `// nosemgrep: <regra> — motivo`.
+				let hasReason = line.slice((match.index ?? 0) + match[0].length).replace(/^[\s—:-]+/, "").length > 8
+				while (!hasReason && cursor >= 0) {
+					const previous = (lines[cursor] ?? "").trim()
+					const isComment = previous.startsWith("//") || previous.startsWith("*") || previous.startsWith("/*")
+					if (!isComment) break
+					if (!previous.includes("nosemgrep") && previous.replace(/^[/*\s]+/, "").length > 8) {
+						hasReason = true
+						break
+					}
+					cursor--
+				}
+				if (!hasReason) problems.push(`${where} não explica o motivo no comentário acima`)
+			})
 		}
 
 		expect(problems, "supressões nosemgrep sem justificativa ou apontando para regra inexistente").toEqual([])

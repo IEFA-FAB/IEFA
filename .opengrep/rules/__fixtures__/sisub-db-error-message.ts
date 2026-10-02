@@ -26,6 +26,27 @@ export function viaResult() {
 	throw new Error(`Erro ao carregar os lotes: ${result.error.message}`)
 }
 
+export function variants() {
+	// ruleid: sisub-raw-db-error-message
+	if (error) throw new Error(`Erro: ${error?.message ?? "desconhecido"}`)
+	// ruleid: sisub-raw-db-error-message
+	if (error) throw new Error(error.message || "falhou")
+	// ruleid: sisub-raw-db-error-message
+	if (error) throw new Error("Erro ao gravar: " + error.message)
+}
+
+export function helperThatBuildsTheError(lotError: PgError) {
+	// ruleid: sisub-raw-db-error-message
+	return new Error(`Erro no lote: ${lotError.message}`)
+}
+
+class AppError extends Error {}
+export function knownClass(caught: unknown) {
+	const err = caught as Error
+	// ok: sisub-raw-db-error-message
+	if (err instanceof AppError) throw new Error(err.message)
+}
+
 export function redacted() {
 	// ok: sisub-raw-db-error-message
 	if (error) throw new Error(`Erro ao listar empenhos: ${publicDbMessage(error)}`)
