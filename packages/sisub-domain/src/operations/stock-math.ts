@@ -1,3 +1,4 @@
+import { getBrasiliaToday, toBrasiliaCivilDate } from "../utils/civil-date.ts"
 /**
  * Matemática pura do estoque (Fase 3/5 do ciclo).
  *
@@ -40,11 +41,6 @@ export interface FefoResult {
 	shortfall: number
 }
 
-/** Hoje no fuso de Brasília (o vencimento é uma data civil, não UTC). */
-export function brasiliaToday(now: Date = new Date()): string {
-	return now.toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
-}
-
 /**
  * Data civil de Brasília de um instante ISO. A entrada do lote chega como
  * timestamp UTC; cortar os 10 primeiros caracteres dava a data UTC, que entre
@@ -52,9 +48,7 @@ export function brasiliaToday(now: Date = new Date()): string {
  * à noite entrava na fila como se fosse de amanhã.
  */
 export function brasiliaDate(instant: string): string {
-	if (instant.length === 10) return instant
-	const parsed = new Date(instant)
-	return Number.isNaN(parsed.getTime()) ? instant.slice(0, 10) : brasiliaToday(parsed)
+	return toBrasiliaCivilDate(instant) ?? instant.slice(0, 10)
 }
 
 /**
@@ -102,7 +96,7 @@ export interface FefoOptions {
 export function allocateFefo(lots: readonly LotBalance[], quantity: number, options: FefoOptions = {}): FefoResult {
 	if (!Number.isFinite(quantity) || quantity <= 0) return { allocations: [], shortfall: 0 }
 
-	const today = options.referenceDate ?? brasiliaToday()
+	const today = options.referenceDate ?? getBrasiliaToday()
 	const excluded = new Set(options.excludeLotIds ?? [])
 	let remaining = quantity
 	const allocations: FefoAllocation[] = []

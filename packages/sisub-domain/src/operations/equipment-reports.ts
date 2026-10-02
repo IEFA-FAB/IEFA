@@ -28,6 +28,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm"
 import { requireAnyPermission, requirePermission } from "../guards/require-permission.ts"
 import type { EquipmentUnitStatus, FleetEquipmentReport, KitchenEquipmentCondition, KitchenMaintenanceMatrix } from "../schemas/equipment.ts"
 import type { UserContext } from "../types/context.ts"
+import { getBrasiliaToday } from "../utils/civil-date.ts"
 import { deriveEquipmentCondition, EQUIPMENT_CONDITIONS, type EquipmentCondition, unitCountsForFitness } from "../utils/equipment-condition.ts"
 import { resolveUnitRoleIds } from "../utils/equipment-matching.ts"
 import { runQuery } from "../utils/index.ts"
@@ -36,9 +37,9 @@ import { listKitchenEquipment } from "./equipment.ts"
 import type { EquipmentIssueWire, MaintenancePlanWire } from "./equipment-maintenance.ts"
 import { loadApplicablePlans, loadKitchenIssues, loadKitchenLogs } from "./equipment-maintenance.ts"
 
-/** Hoje no servidor, em ISO `YYYY-MM-DD`. Único ponto que lê o relógio nestes relatórios. */
+/** Hoje em Brasília, em ISO `YYYY-MM-DD`. Único ponto que lê o relógio nestes relatórios. */
 function resolveToday(today: string | null | undefined): string {
-	return today ?? new Date().toISOString().slice(0, 10)
+	return today ?? getBrasiliaToday()
 }
 
 const SEVERITY_WEIGHT: Record<string, number> = { inoperative: 0, degraded: 1 }

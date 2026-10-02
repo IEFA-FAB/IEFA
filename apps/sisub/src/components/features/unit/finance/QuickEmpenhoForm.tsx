@@ -1,3 +1,4 @@
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { FileSignature } from "lucide-react"
 import { useId, useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -7,7 +8,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { useQuickRegisterEmpenho } from "@/hooks/data/useAcquisitions"
-import { BRL, normalizeDocument, parseMoneyInput, todayInBrasilia } from "@/lib/expense-execution"
+import { BRL, normalizeDocument, parseMoneyInput } from "@/lib/expense-execution"
 import type { QuickEmpenhoResult } from "@/server/empenho-document.fn"
 
 export type { QuickEmpenhoResult }
@@ -53,7 +54,7 @@ export function QuickEmpenhoForm({
 }: QuickEmpenhoFormProps) {
 	const id = useId()
 	const [numero, setNumero] = useState(defaultNumber)
-	const [data, setData] = useState(todayInBrasilia())
+	const [data, setData] = useState(getBrasiliaToday())
 	const [valor, setValor] = useState(defaultValue != null ? String(defaultValue).replace(".", ",") : "")
 	const [cnpj, setCnpj] = useState(defaultFavorecido?.cnpj ?? "")
 	const [nome, setNome] = useState(defaultFavorecido?.nome ?? "")

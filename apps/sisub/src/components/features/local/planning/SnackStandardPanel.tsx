@@ -1,4 +1,5 @@
-import { brasiliaCivilDate, DEFAULT_SHELF_LIFE_HOURS, isStandardReviewOverdue, kcalRangeFor, NORM_REFS } from "@iefa/sisub-domain/utils"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { DEFAULT_SHELF_LIFE_HOURS, isStandardReviewOverdue, kcalRangeFor, NORM_REFS } from "@iefa/sisub-domain/utils"
 import { useQuery } from "@tanstack/react-query"
 import { AlertTriangle, Flame, Loader2, Sandwich } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -34,7 +35,7 @@ interface SnackStandardPanelProps {
  */
 export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyTemplateId, itemsDirty }: SnackStandardPanelProps) {
 	const set = (patch: Partial<SnackStandardDraft>) => onChange(normalizeSnackDraft({ ...draft, ...patch }))
-	const today = brasiliaCivilDate(new Date().toISOString())
+	const today = getBrasiliaToday()
 	const reviewOverdue = draft.enabled && isStandardReviewOverdue(draft.reviewedAt || null, today)
 	// Valor inválido some calado se não for mostrado: a validade fora da faixa virava o default
 	// de 24 h na etiqueta, e a revisão no futuro desligava o aviso de vencida.

@@ -1,4 +1,5 @@
 import { RESTOS_A_PAGAR_LABELS } from "@iefa/sisub-domain"
+import { getBrasiliaYear } from "@iefa/sisub-domain/civil-date"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { CalendarClock } from "lucide-react"
 import { useState } from "react"
@@ -23,7 +24,7 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
  * conjunto já é o de 31/12, ou ele é recalculado e substituído (com trilha).
  */
 export function RestosAPagarCard({ unitId }: { unitId: number }) {
-	const [exercicio, setExercicio] = useState(new Date().getFullYear())
+	const [exercicio, setExercicio] = useState(getBrasiliaYear())
 	const [busy, setBusy] = useState(false)
 	const queryClient = useQueryClient()
 	// `inscribeRpParcelsFn` é `"session"` no registro de garantia (`unit` nível 3).

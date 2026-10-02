@@ -13,7 +13,8 @@
     "./opening-balance": "./src/utils/opening-balance-sheet.ts",
     "./guards": "./src/guards/index.ts",
     "./types": "./src/types/index.ts",
-    "./utils": "./src/utils/index.ts"
+    "./utils": "./src/utils/index.ts",
+    "./civil-date": "./src/utils/civil-date.ts"
   },
   "scripts": {
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",

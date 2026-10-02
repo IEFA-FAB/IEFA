@@ -1,3 +1,4 @@
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { DEDUCTION_DOCUMENT_KINDS, DEDUCTION_KINDS, DEDUCTION_LABELS, type DeductionDocumentKind, type DeductionKind } from "@iefa/sisub-domain/operations"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
@@ -17,17 +18,13 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 
 export const DOCUMENT_LABELS: Record<DeductionDocumentKind, string> = { darf: "DARF", dar: "DAR", gps: "GPS", outro: "Outro" }
 
-function today(): string {
-	return new Date().toISOString().substring(0, 10)
-}
-
 /** Registrar o recolhimento de uma retenção: o documento e a data em que foi pago. */
 export function DeductionRemittanceForm({ unitId, deduction, onDone }: { unitId: number; deduction: LiquidacaoDeductionRow; onDone: () => void }) {
 	const [documentKind, setDocumentKind] = useState<DeductionDocumentKind>(
 		deduction.document_kind ?? (deduction.kind === "inss" ? "gps" : deduction.kind === "iss" ? "dar" : "darf")
 	)
 	const [documentNumber, setDocumentNumber] = useState(deduction.document_number ?? "")
-	const [paidOn, setPaidOn] = useState(today())
+	const [paidOn, setPaidOn] = useState(getBrasiliaToday())
 	const [busy, setBusy] = useState(false)
 	const runAssured = useAssuredAction()
 

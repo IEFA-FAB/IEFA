@@ -15,12 +15,12 @@ import { sql } from "drizzle-orm"
 import { kitchenUnitIds, requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
 import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
+import { getBrasiliaToday } from "../utils/civil-date.ts"
 import { runQuery } from "../utils/index.ts"
 import { PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
 import { type CalendarCycle, computeContractingCycle } from "./procurement-calendar.ts"
 import { PRICE_RESEARCH_VALIDITY_DAYS } from "./quantity-estimate.ts"
 import { summarizeSegmentation } from "./segments.ts"
-import { brasiliaToday } from "./stock-math.ts"
 
 export interface KitchenPlanningState {
 	id: number
@@ -165,7 +165,7 @@ async function loadCalendar(db: SisubDb, unitIds: readonly number[], today: stri
 
 export async function fetchProcurementPlanningStatus(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<ProcurementPlanningStatus> {
 	requireUnit(ctx, 1, input.unitId)
-	const today = brasiliaToday()
+	const today = getBrasiliaToday()
 	const unitId = input.unitId
 
 	const [kitchens, overview, calendar, drafts, pricing] = await Promise.all([
@@ -274,7 +274,7 @@ export interface DemandForecastStatus {
 
 export async function fetchDemandForecastStatus(db: SisubDb, ctx: UserContext, input: { kitchenId: number }): Promise<DemandForecastStatus> {
 	await requireKitchenOrItsUnit(db, ctx, 1, input.kitchenId)
-	const today = brasiliaToday()
+	const today = getBrasiliaToday()
 	const kitchenId = input.kitchenId
 
 	const [summaryRows, forecastRows] = await Promise.all([

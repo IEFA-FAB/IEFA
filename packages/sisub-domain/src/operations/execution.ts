@@ -42,10 +42,10 @@ import type {
 } from "../schemas/execution.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError, PermissionDeniedError } from "../types/errors.ts"
+import { getBrasiliaToday } from "../utils/civil-date.ts"
 import { runQuery, toWire } from "../utils/index.ts"
 import { findSnapshotGaps, type SnapshotForGaps, type SnapshotGap } from "./production-issue.ts"
 import { buildLineageWinnerFilter } from "./recipes.ts"
-import { brasiliaToday } from "./stock-math.ts"
 
 type Row = Record<string, unknown>
 
@@ -61,12 +61,12 @@ function formatBrDate(isoDate: string): string {
 }
 
 /** A execução é do dia de HOJE (Brasília). Outra data é planejamento. */
-export function isExecutionDate(serviceDate: string, today: string = brasiliaToday()): boolean {
+export function isExecutionDate(serviceDate: string, today: string = getBrasiliaToday()): boolean {
 	return serviceDate === today
 }
 
 /** Recusa com instrução: diz qual é o dia de hoje e onde se inclui em outro dia. */
-export function assertExecutionDate(serviceDate: string, today: string = brasiliaToday()): void {
+export function assertExecutionDate(serviceDate: string, today: string = getBrasiliaToday()): void {
 	if (isExecutionDate(serviceDate, today)) return
 	throw new DomainError(
 		"EXECUTION_DATE_NOT_TODAY",
@@ -143,7 +143,7 @@ export async function fetchExecutionOptions(db: SisubDb, ctx: UserContext, input
 	])
 
 	return {
-		today: brasiliaToday(),
+		today: getBrasiliaToday(),
 		// `meal_type.name` é anulável: sem nome, a tela mostra o marcador, nunca a string "null".
 		mealTypes: mealRows.map((row) => ({ id: row.id, name: row.name ?? "(sem nome)" })),
 		recipes: recipeRows
@@ -183,7 +183,7 @@ export async function addExecutionMenuItem(
 	now: Date = new Date()
 ): Promise<AddExecutionMenuItemResult> {
 	requireKitchenExecution(ctx, input.kitchenId)
-	assertExecutionDate(input.serviceDate, brasiliaToday(now))
+	assertExecutionDate(input.serviceDate, getBrasiliaToday(now))
 
 	await assertMealTypeForKitchen(db, input.mealTypeId, input.kitchenId)
 
@@ -398,7 +398,7 @@ const INCOMPLETE_WINDOW_NEXT_DAYS = 7
 export async function fetchExecutionReviewStatus(db: SisubDb, ctx: UserContext, input: FetchExecutionReviewStatus): Promise<ExecutionReviewStatus> {
 	requireKitchen(ctx, 1, input.kitchenId)
 	const kitchenId = input.kitchenId
-	const today = brasiliaToday()
+	const today = getBrasiliaToday()
 
 	const [added, provisional, recent, unexplained, frozen] = (await Promise.all([
 		runQuery(

@@ -10,17 +10,17 @@
  * @migration 20260729160000_inventory_stock_core
  */
 
+import { hasPermission } from "@iefa/pbac"
 import {
 	brasiliaDate,
-	brasiliaToday,
 	computeTheoreticalConsumption,
+	getBrasiliaToday,
 	type LotBalance,
 	leftoverExpiryDate,
 	pendingIssueWindowStart,
 	type RecipeSnapshotForIssue,
 	remainingAfterLateIssues,
 } from "@iefa/sisub-domain"
-import { hasPermission } from "@iefa/pbac"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { hiddenByBlindCount } from "@/lib/blind-count.server"
@@ -124,7 +124,7 @@ async function openPeriodStart(kitchenId: number): Promise<string> {
 	return pendingIssueWindowStart({
 		lastClosedCompetencia: closing?.competencia ?? null,
 		firstMovementDate: first?.occurred_at ? brasiliaDate(String(first.occurred_at)) : null,
-		today: brasiliaToday(),
+		today: getBrasiliaToday(),
 	})
 }
 
@@ -203,7 +203,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 				data.kitchenId,
 				theoretical.map((t) => t.ingredientId)
 			)
-			const today = brasiliaToday()
+			const today = getBrasiliaToday()
 			const lines = maskBlindCountIssueLines(
 				theoretical.map((line) => {
 					const lots = balances.get(line.ingredientId) ?? []

@@ -21,9 +21,9 @@ import { sql } from "drizzle-orm"
 import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
+import { addCivilDays, getBrasiliaToday } from "../utils/civil-date.ts"
 import { runQuery } from "../utils/index.ts"
 import { ACQUISITION_KIND_LABEL, type AcquisitionKind } from "./acquisition.ts"
-import { brasiliaToday } from "./stock-math.ts"
 
 /**
  * Papel na designação, na língua da norma (Lei 14.133/2021, arts. 7º, 117 e 140, II, b; Decreto
@@ -187,7 +187,7 @@ const PERSON_LABEL = sql`coalesce(nullif(btrim(concat_ws(' ', m.posto, m.nome_gu
 
 export async function listDesignations(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<DesignationRow[]> {
 	requireUnit(ctx, 1, input.unitId)
-	const today = brasiliaToday()
+	const today = getBrasiliaToday()
 	const rows = (await runQuery(
 		"QUERY_FAILED",
 		() =>
@@ -392,9 +392,7 @@ export async function listDesignationScopes(db: SisubDb, ctx: UserContext, input
 
 /** Véspera de uma data civil "YYYY-MM-DD". */
 function previousDay(date: string): string {
-	const d = new Date(`${date}T12:00:00Z`)
-	d.setUTCDate(d.getUTCDate() - 1)
-	return d.toISOString().slice(0, 10)
+	return addCivilDays(date, -1)
 }
 
 export type EndDesignationPlan = { action: "remove" } | { action: "end"; validTo: string } | { action: "refuse"; code: string; message: string }
@@ -440,7 +438,7 @@ export async function endDesignation(db: SisubDb, ctx: UserContext, input: { des
 	const plan = planEndDesignation({
 		validFrom: isoDate(row.valid_from),
 		validTo: row.valid_to == null ? null : isoDate(row.valid_to),
-		today: brasiliaToday(),
+		today: getBrasiliaToday(),
 		usedByReceipt: Boolean(row.used),
 	})
 	if (plan.action === "refuse") throw new DomainError(plan.code, plan.message)

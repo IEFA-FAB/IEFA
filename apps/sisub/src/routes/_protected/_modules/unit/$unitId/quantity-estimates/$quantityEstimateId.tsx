@@ -1,3 +1,4 @@
+import { toBrasiliaCivilDate } from "@iefa/sisub-domain/civil-date"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
@@ -103,7 +104,7 @@ function QuantityEstimateDetailPage() {
 	const handleExportCSV = () => {
 		if (!quantityEstimate) return
 		downloadCsv(
-			`anexo-quantitativos-${quantityEstimate.title}-${quantityEstimate.created_at.split("T")[0]}.csv`,
+			`anexo-quantitativos-${quantityEstimate.title}-${toBrasiliaCivilDate(quantityEstimate.created_at) ?? ""}.csv`,
 			buildAnnexCsv(annexRows, quantityEstimate.max_quantity_justification, { confidential: Boolean(quantityEstimate.is_budget_confidential) })
 		)
 	}

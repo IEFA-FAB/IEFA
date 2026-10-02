@@ -12,7 +12,7 @@
  */
 
 import { hasPermission } from "@iefa/pbac"
-import { brasiliaToday } from "@iefa/sisub-domain"
+import { getBrasiliaToday } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { hiddenByBlindCount } from "@/lib/blind-count.server"
@@ -178,7 +178,7 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 			})
 			if (meta?.quarantined_at != null) item.quarantinedBalance += Number(row.balance ?? 0)
 			// vencido na data civil de Brasília, como a alocação mede
-			else if (row.expiry_date != null && row.expiry_date < brasiliaToday()) item.expiredBalance += Number(row.balance ?? 0)
+			else if (row.expiry_date != null && row.expiry_date < getBrasiliaToday()) item.expiredBalance += Number(row.balance ?? 0)
 			if (row.expiry_date && Number(row.balance ?? 0) > 0 && meta?.quarantined_at == null && (item.nextExpiry == null || row.expiry_date < item.nextExpiry)) {
 				item.nextExpiry = row.expiry_date
 			}

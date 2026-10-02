@@ -1,3 +1,4 @@
+import { getBrasiliaYear } from "@iefa/sisub-domain/civil-date"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
@@ -21,7 +22,7 @@ const nf = new Intl.NumberFormat("pt-BR")
 const cf = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
 function ProcurementPlanPage() {
-	const currentYear = new Date().getFullYear()
+	const currentYear = getBrasiliaYear()
 	const [ano, setAno] = useState(currentYear)
 
 	const { data, isLoading, isError, error } = useQuery({

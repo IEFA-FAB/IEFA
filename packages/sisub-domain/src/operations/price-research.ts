@@ -39,6 +39,7 @@ import { asc, eq, isNotNull, sql } from "drizzle-orm"
 import { requirePermission, requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
+import { getBrasiliaToday } from "../utils/civil-date.ts"
 import { insertOneOrFail, runQuery } from "../utils/index.ts"
 import {
 	justificationsToPersist,
@@ -260,7 +261,7 @@ function idempotencyKeyFor(input: SavePriceResearchAudit, facts: ResearchComplia
 		(input.quantityEstimateId ? `quantity-estimate-${input.quantityEstimateId}:catmat-${input.catmatCodigo}` : `catmat-${input.catmatCodigo}`)
 	// Dia no fuso de Brasília (não UTC) — senão re-execuções entre 21h–24h BRT cairiam em dias
 	// UTC distintos e gerariam registros duplicados.
-	const day = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
+	const day = getBrasiliaToday()
 
 	// v3: janela, seleção manual e justificativas entram na chave. Justificar no mesmo dia a
 	// pesquisa que o lote gravou sem justificativa é OUTRA memória de cálculo; com a chave v2

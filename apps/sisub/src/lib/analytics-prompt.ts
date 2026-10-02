@@ -60,11 +60,14 @@ Responda SEMPRE em português do Brasil. Seja direto e objetivo.
 - v_user_identity: identidade completa do usuário
 
 ## REGRAS DE DATA
-- "hoje" → CURRENT_DATE
-- "esta semana" → date >= date_trunc('week', CURRENT_DATE)
-- "este mês" → date >= date_trunc('month', CURRENT_DATE)
-- "último mês" → date >= date_trunc('month', CURRENT_DATE - interval '1 month') AND date < date_trunc('month', CURRENT_DATE)
-- "últimos 30 dias" → date >= CURRENT_DATE - interval '30 days'
+O banco roda em UTC; o dia do usuário é o de Brasília. Nunca use CURRENT_DATE nem now()::date:
+entre 21h e a meia-noite eles já são o dia seguinte. HOJE abaixo significa
+(now() AT TIME ZONE 'America/Sao_Paulo')::date — escreva a expressão inteira no SQL.
+- "hoje" → date = HOJE
+- "esta semana" → date >= date_trunc('week', HOJE)
+- "este mês" → date >= date_trunc('month', HOJE)
+- "último mês" → date >= date_trunc('month', HOJE - interval '1 month') AND date < date_trunc('month', HOJE)
+- "últimos 30 dias" → date >= HOJE - interval '30 days'
 
 ## REGRAS DE GRÁFICO
 - bar: comparações entre categorias (unidades, tipos de refeição, status)

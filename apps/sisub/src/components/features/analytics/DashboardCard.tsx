@@ -1,3 +1,4 @@
+import { addCivilDays, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { useQuery } from "@tanstack/react-query"
 import { AlertTriangle, Building2, LayoutDashboard, Users } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -15,14 +16,8 @@ import MetricsOverview from "./MetricsOverview"
 
 export default function DashboardCard({ unitId }: { unitId: number }) {
 	const [dateRange, setDateRange] = useState(() => {
-		const today = new Date()
-		const nextWeek = new Date(today)
-		nextWeek.setDate(today.getDate() + 6)
-
-		return {
-			start: today.toISOString().split("T")[0],
-			end: nextWeek.toISOString().split("T")[0],
-		}
+		const today = getBrasiliaToday()
+		return { start: today, end: addCivilDays(today, 6) }
 	})
 	const [selectedMessHall, setSelectedMessHall] = useState<string>("all")
 

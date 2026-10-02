@@ -7,6 +7,7 @@
  * terceira grandeza derivada, sempre exibida com rótulo próprio.
  */
 
+import { toBrasiliaCivilDate } from "../utils/civil-date.ts"
 import { empenhoEventSign } from "./empenho-events.ts"
 import { roundToCents } from "./liquidacao-math.ts"
 
@@ -187,10 +188,7 @@ function yearOf(isoDate: string): number | null {
  * snapshot para "antes" dele.
  */
 export function brasiliaCivilDay(value: string): string | null {
-	if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
-	const ms = Date.parse(value)
-	if (Number.isNaN(ms)) return null
-	return new Date(ms).toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).substring(0, 10)
+	return toBrasiliaCivilDate(value)
 }
 
 /**

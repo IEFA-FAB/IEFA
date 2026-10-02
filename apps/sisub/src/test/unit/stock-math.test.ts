@@ -5,7 +5,7 @@
  * (`referenceDate`): sem isso o teste vira bomba-relógio — passava em 2026 e
  * quebrava quando o "2026-08-01" dos exemplos vencesse de verdade.
  */
-import { allocateFefo, brasiliaToday, sortFefo, sufficiency } from "@iefa/sisub-domain"
+import { allocateFefo, getBrasiliaToday, sortFefo, sufficiency } from "@iefa/sisub-domain"
 import { describe, expect, test } from "vitest"
 
 const REF = "2026-07-01"
@@ -91,10 +91,10 @@ describe("allocateFefo", () => {
 	})
 })
 
-describe("brasiliaToday", () => {
+describe("getBrasiliaToday", () => {
 	test("converte o instante UTC para a data civil de Brasília", () => {
 		// 01/09 00:30 UTC ainda é 31/08 em Brasília (UTC-3)
-		expect(brasiliaToday(new Date("2026-09-01T00:30:00Z"))).toBe("2026-08-31")
+		expect(getBrasiliaToday(new Date("2026-09-01T00:30:00Z"))).toBe("2026-08-31")
 	})
 })
 

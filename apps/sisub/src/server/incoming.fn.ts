@@ -29,7 +29,7 @@
  * @migration 20260917200000_receiving_designation_and_scan
  */
 
-import { brasiliaToday } from "@iefa/sisub-domain"
+import { getBrasiliaToday } from "@iefa/sisub-domain"
 import { resolvePurchaseUnitId } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -76,7 +76,7 @@ export interface IncomingRow {
  * atraso a partir das 21h — e o painel que grita atraso onde não há é o painel
  * que ensina a ignorar o alerta.
  */
-function daysLateFrom(expected: string | null, today = brasiliaToday()): number {
+function daysLateFrom(expected: string | null, today = getBrasiliaToday()): number {
 	if (!expected) return 0
 	const diff = Math.floor((new Date(`${today}T12:00:00Z`).getTime() - new Date(`${expected.slice(0, 10)}T12:00:00Z`).getTime()) / 86_400_000)
 	return diff > 0 ? diff : 0
@@ -90,7 +90,7 @@ const UNBILLED_HORIZON_DAYS = 45
  * emitida às 22h no dia seguinte — e mudava a ordem "mais antigo primeiro".
  */
 function civilDate(timestamp: string): string {
-	return brasiliaToday(new Date(timestamp))
+	return getBrasiliaToday(new Date(timestamp))
 }
 
 /** Unidade COMPRADORA da cozinha — quem empenha e a quem a nota é enviada. */
@@ -116,7 +116,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		await requireStorageForKitchen(1, data.kitchenId)
 		const inv = inventory()
 		const proc = procurement()
-		const today = brasiliaToday()
+		const today = getBrasiliaToday()
 		const rows: IncomingRow[] = []
 
 		// ── (a) OF enviada com saldo a receber ───────────────────────────────────

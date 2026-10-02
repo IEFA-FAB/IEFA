@@ -1,3 +1,4 @@
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ChevronDown, ChevronRight, FileSignature, Minus, Plus } from "lucide-react"
 import { useState } from "react"
@@ -77,7 +78,7 @@ function EmpenhoDetail({ empenhoId, onChanged }: { empenhoId: string; onChanged:
 						empenhoId,
 						tipo,
 						valor: Number(valor),
-						data: new Date().toISOString().substring(0, 10),
+						data: getBrasiliaToday(),
 						justificativa: justificativa.trim(),
 					},
 				})

@@ -12,6 +12,7 @@
 
 import { requireKitchen } from "@iefa/sisub-domain"
 import { AGENT_APPLY_TEMPLATE_MAX_DATES, AGENT_UNTRUSTED_DATA_RULE, dropUnexpectedNulls } from "@iefa/sisub-domain/agent"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 // `Server` (baixo nível) e não `McpServer`: o SDK marca o `Server` como
 // "@deprecated ... only use for advanced use cases", e este é um deles.
 //
@@ -142,7 +143,7 @@ export function createMcpServer(credential: string): Server {
 			const ctx = await resolveCredential(credential)
 			requireKitchen(ctx, 1, kitchenId)
 
-			const today = new Date().toISOString().split("T")[0]
+			const today = getBrasiliaToday()
 			const db = getDataClient("kitchen")
 			const { data, error } = await db
 				.from("daily_menu")

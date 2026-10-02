@@ -15,7 +15,7 @@
  */
 
 import { hasAnyPermission } from "@iefa/pbac"
-import { brasiliaToday, CONSERVATION_CLASSES, EXPIRY_BANDS, type ExpiryBand } from "@iefa/sisub-domain"
+import { CONSERVATION_CLASSES, EXPIRY_BANDS, type ExpiryBand, getBrasiliaToday } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
@@ -428,7 +428,7 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 		// Olhando um mês FUTURO, o corte começa no início dele: lote que estraga
 		// semanas antes do mês nem chega a ele, e sugeri-lo para aquele cardápio
 		// é sugerir comida que não vai existir. No passado, o corte é hoje.
-		const today = brasiliaToday()
+		const today = getBrasiliaToday()
 		const cutoff = data.from && data.from > today ? data.from : today
 		type Row = {
 			ingredient_id: string | null

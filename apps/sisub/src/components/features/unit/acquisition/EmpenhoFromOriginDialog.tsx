@@ -1,4 +1,5 @@
 import { EMPENHO_TYPES, type EmpenhoType } from "@iefa/sisub-domain"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -10,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/components/ui/toast"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { type CreateEmpenhoWithItemsInput, useCreateEmpenhoWithItems, useUnitArps } from "@/hooks/data/useAcquisitions"
-import { BRL, normalizeDocument, parseMoneyInput, todayInBrasilia } from "@/lib/expense-execution"
+import { BRL, normalizeDocument, parseMoneyInput } from "@/lib/expense-execution"
 
 const TIPO_LABEL: Record<EmpenhoType, string> = { ordinario: "Ordinário", estimativo: "Estimativo", global: "Global" }
 
@@ -56,7 +57,7 @@ export function EmpenhoFromOriginDialog({ unitId, origin, onClose }: { unitId: n
 
 	const [mode, setMode] = useState<Mode>(origin.arpId || origin.kind === "registro_precos" ? "arp" : "items")
 	const [numero, setNumero] = useState("")
-	const [data, setData] = useState(todayInBrasilia())
+	const [data, setData] = useState(getBrasiliaToday())
 	const [tipo, setTipo] = useState<EmpenhoType>("ordinario")
 	const [cnpj, setCnpj] = useState(origin.supplierCnpj ?? "")
 	const [favorecido, setFavorecido] = useState(origin.supplierName ?? "")

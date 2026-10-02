@@ -1,7 +1,8 @@
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
-import { civilDateSearchParam, todayBrasilia } from "@/components/features/local/snack-requests/format"
+import { civilDateSearchParam } from "@/components/features/local/snack-requests/format"
 import { SnackProductionDay } from "@/components/features/local/snack-requests/SnackProductionDay"
 
 const productionSearchSchema = z.object({
@@ -23,7 +24,7 @@ function SnackProductionPage() {
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const { date } = Route.useSearch()
 	const navigate = useNavigate({ from: Route.fullPath })
-	const today = todayBrasilia()
+	const today = getBrasiliaToday()
 
 	return (
 		<SnackProductionDay

@@ -64,17 +64,6 @@ export function formatInt(value: number): string {
 	return intFormat.format(value)
 }
 
-/** Data civil de hoje em Brasília (YYYY-MM-DD). */
-export function todayBrasilia(): string {
-	return brasiliaCivilDate(new Date().toISOString())
-}
-
-export function addDaysToCivilDate(civilDate: string, days: number): string {
-	const date = new Date(`${civilDate}T12:00:00Z`)
-	date.setUTCDate(date.getUTCDate() + days)
-	return date.toISOString().slice(0, 10)
-}
-
 /** Data civil de Brasília de um instante — é a data do quadro de produção. */
 export function pickupCivilDate(iso: string): string {
 	return brasiliaCivilDate(iso)
