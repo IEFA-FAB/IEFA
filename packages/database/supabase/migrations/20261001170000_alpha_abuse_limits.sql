@@ -13,7 +13,9 @@
 --    requisições em paralelo passava inteiro pela leitura antes da primeira gravação.
 --
 -- 2. Conformidade: no máximo UMA execução `running` por submissão (índice único
---    parcial), e nenhuma execução nova depois que a submissão tem parecer (gatilho).
+--    parcial), nenhuma execução nova depois que a submissão tem parecer, e parecer só
+--    sobre a execução mais recente e sem outra em andamento (gatilhos, serializados pela
+--    linha da submissão).
 --    Sem isto, cada clique em "verificar" disparava uma chamada de modelo por regra
 --    ativa, quatro em paralelo, quantas vezes se quisesse — e, como o chat e a etapa
 --    leem só a execução mais recente, reexecutar até sair um resultado limpo apagava
@@ -100,8 +102,10 @@ create unique index compliance_run_one_running_ix on alpha.compliance_run (submi
 /**
  * Parecer congela a submissão: nenhuma execução nova depois dele.
  *
- * O α confere antes (409 legível); aqui a regra roda dentro do insert, para que uma
- * emissão de parecer concorrente não deixe passar uma execução que a contradiz.
+ * O α confere antes (409 legível); aqui a regra roda dentro do insert. A trava na linha da
+ * submissão (`for no key update`, que não briga com as FKs) serializa este gatilho com o do
+ * parecer abaixo: sem ela, em READ COMMITTED, cada um conferia o outro antes de ele gravar e
+ * os dois passavam.
  */
 create function alpha.compliance_run_frozen_guard()
 returns trigger
@@ -109,6 +113,8 @@ language plpgsql
 set search_path = ''
 as $$
 begin
+	perform 1 from alpha.submission where id = new.submission_id for no key update;
+
 	if exists (
 		select 1
 		from alpha.compliance_review v
@@ -124,6 +130,51 @@ $$;
 create trigger compliance_run_frozen_guard
 	before insert on alpha.compliance_run
 	for each row execute function alpha.compliance_run_frozen_guard();
+
+/**
+ * Parecer só sobre a execução MAIS RECENTE da submissão, e sem outra em andamento.
+ *
+ * O chat e a etapa do processo leem a execução mais recente; um parecer sobre uma anterior
+ * (ou emitido enquanto outra roda e vai virar a mais recente) ficaria gravado contradizendo
+ * o que a tela mostra. Mesma trava de linha do gatilho acima. O α confere antes (409).
+ */
+create function alpha.compliance_review_run_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+	v_submission_id uuid;
+	v_started_at    timestamptz;
+begin
+	select r.submission_id, r.started_at into v_submission_id, v_started_at
+	from alpha.compliance_run r
+	where r.id = new.run_id;
+
+	if v_submission_id is null then
+		return new; -- a FK recusa a execução inexistente
+	end if;
+
+	perform 1 from alpha.submission where id = v_submission_id for no key update;
+
+	if exists (select 1 from alpha.compliance_run r where r.submission_id = v_submission_id and r.status = 'running') then
+		raise exception 'RUN_IN_PROGRESS' using errcode = 'check_violation', detail = 'há uma verificação em andamento nesta submissão — aguarde o fim para emitir o parecer';
+	end if;
+
+	if exists (
+		select 1 from alpha.compliance_run r
+		where r.submission_id = v_submission_id and r.id <> new.run_id and r.started_at > v_started_at
+	) then
+		raise exception 'RUN_NOT_LATEST' using errcode = 'check_violation', detail = 'o parecer só cabe sobre a execução mais recente da submissão';
+	end if;
+
+	return new;
+end;
+$$;
+
+create trigger compliance_review_run_guard
+	before insert on alpha.compliance_review
+	for each row execute function alpha.compliance_review_run_guard();
 
 -- ----------------------------------------------------------------------------
 -- 3. Sessão do ChatRADA com dono
@@ -141,6 +192,26 @@ comment on table alpha.rada_session is
 
 alter table alpha.rada_session enable row level security;
 grant all on alpha.rada_session to service_role;
+
+/**
+ * Expurgo das sessões que nunca receberam pergunta. `POST /sessions` grava uma linha por
+ * chamada; sem isto, sessão vazia (aba aberta e fechada, ou script) ficava para sempre. A
+ * rotina diária do α chama com o corte de 24 h. Sessão com pergunta segue a retenção do
+ * `query_log`.
+ */
+create function alpha.purge_empty_rada_sessions(p_before timestamptz)
+returns integer
+language sql
+set search_path = ''
+as $$
+	with purged as (
+		delete from alpha.rada_session s
+		where s.created_at < p_before
+			and not exists (select 1 from alpha.query_log q where q.session_id = s.id)
+		returning 1
+	)
+	select count(*)::integer from purged;
+$$;
 
 insert into alpha.rada_session (id, user_id, created_at)
 select q.session_id, (array_agg(q.user_id order by q.created_at))[1], min(q.created_at)
