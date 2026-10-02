@@ -3,7 +3,7 @@
   "extends": ["//"],
   "tasks": {
     "test": {
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/*/src/**", "$TURBO_ROOT$/packages/*/src/**"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/bunfig.toml", "$TURBO_ROOT$/apps/*/src/**", "$TURBO_ROOT$/packages/*/src/**"]
     }
   }
 }

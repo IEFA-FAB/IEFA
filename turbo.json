@@ -1,16 +1,16 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "agentGuidance": false,
-  "globalDependencies": ["bunfig.toml"],
   "tasks": {
     "transit": {
-      "dependsOn": ["^transit"]
+      "dependsOn": ["^transit"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.test.*", "!*.md"]
     },
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".output/**", "dist/**", "build/**"],
       "env": ["VITE_*", "NODE_ENV"],
-      "inputs": ["$TURBO_DEFAULT$", "!**/*.test.*", "!**/*.md", "!e2e/**", "!tests/**", "!src/test/**", "!playwright.config.*", "!vitest.config.*"]
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.test.*", "!*.md", "!e2e/**", "!tests/**", "!src/test/**", "!playwright.config.*", "!vitest.config.*"]
     },
     "lint": {
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/biome.json", "$TURBO_ROOT$/.oxlintrc.tailwind.jsonc", "$TURBO_ROOT$/scripts/lint-tailwind.ts"],
@@ -22,6 +22,7 @@
     },
     "test": {
       "dependsOn": ["transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/bunfig.toml"],
       "outputs": [],
       "env": [
         "SISUB_DATABASE_URL",
@@ -33,6 +34,8 @@
       ]
     },
     "test:unit": {
+      "dependsOn": ["transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/bunfig.toml"],
       "outputs": []
     },
     "test:integration": {
