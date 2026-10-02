@@ -5,8 +5,9 @@
  * (`@iefa/hono-client`) foi removido do portal como código morto e não vale
  * ressuscitar por três telas internas.
  *
- * O α valida o JWT do Supabase por request, então o token é passado a cada
- * chamada em vez de memoizado: token expira.
+ * O α valida o JWT do Supabase por request, então o token é lido do client do navegador a
+ * cada chamada ({@link alphaAuthHeaders}) em vez de memoizado: token expira. Ele nunca passa
+ * pelo estado do React Query, que o SSR serializa no HTML.
  */
 
 /**
@@ -51,8 +52,29 @@ export class AlphaRequestError extends Error {
 	}
 }
 
-export async function alphaRequest<T>(path: string, token: string | undefined, init: RequestInit = {}): Promise<T> {
+/**
+ * Quem lê o token: `getAccessToken` do client do navegador. Import tardio, para estas libs
+ * não carregarem o client do Supabase (e a validação do env) em quem só usa os tipos e os
+ * helpers puros — os testes delas rodam sem env.
+ */
+const readBrowserAccessToken = async (): Promise<string | undefined> => (await import("@/auth/service")).getAccessToken()
+
+let readAccessToken = readBrowserAccessToken
+
+/** Troca o leitor do token (testes). `null` volta ao do navegador. */
+export function setAlphaAccessTokenReader(reader: (() => Promise<string | undefined>) | null): void {
+	readAccessToken = reader ?? readBrowserAccessToken
+}
+
+/** `Authorization` com o token da sessão corrente; vazio sem sessão (o α responde 401). */
+export async function alphaAuthHeaders(): Promise<Record<string, string>> {
+	const token = await readAccessToken()
+	return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+export async function alphaRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
 	const isFormData = init.body instanceof FormData
+	const authHeaders = await alphaAuthHeaders()
 
 	const response = await fetch(`${ALPHA_BASE_URL}${path}`, {
 		...init,
@@ -60,7 +82,7 @@ export async function alphaRequest<T>(path: string, token: string | undefined, i
 			// FormData define o próprio Content-Type com o boundary; sobrescrever quebra o upload.
 			...(isFormData ? {} : { "Content-Type": "application/json" }),
 			...(init.headers ?? {}),
-			...(token ? { Authorization: `Bearer ${token}` } : {}),
+			...authHeaders,
 		},
 	})
 

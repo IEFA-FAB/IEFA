@@ -5,7 +5,6 @@ import { useState } from "react"
 import { ConsoleNav } from "@/components/alpha/ConsoleNav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/useAuth"
 import { type Rule, rulesQueryOptions, useEvaluateRule, useSetRuleStatus } from "@/lib/alpha/compliance"
 
 export const Route = createFileRoute("/alpha/bancada")({
@@ -16,14 +15,13 @@ export const Route = createFileRoute("/alpha/bancada")({
 		// no SSR uma chamada pendurada prenderia a resposta do documento.
 		if (typeof document === "undefined") return
 
-		const token = context.auth.session?.access_token
-		if (!token) return
+		if (!context.auth.isAuthenticated) return
 
 		// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
 		// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação
 		// (e o SSR) na resposta.
 		// O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
-		void context.queryClient.query({ ...rulesQueryOptions(token, "draft"), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...rulesQueryOptions("draft"), staleTime: "static" }).catch(() => {})
 	},
 	component: BancadaPage,
 })
@@ -37,14 +35,11 @@ const STATUS_FILTERS: Array<{ value: Rule["status"] | "todas"; label: string }> 
 ]
 
 function BancadaPage() {
-	const { session } = useAuth()
-	const token = session?.access_token
-
 	const [statusFilter, setStatusFilter] = useState<Rule["status"] | "todas">("draft")
 	const [selected, setSelected] = useState<Rule | null>(null)
 	const [sample, setSample] = useState("")
 
-	const rules = useQuery(rulesQueryOptions(token, statusFilter === "todas" ? undefined : statusFilter))
+	const rules = useQuery(rulesQueryOptions(statusFilter === "todas" ? undefined : statusFilter))
 	const evaluate = useEvaluateRule()
 	const setStatus = useSetRuleStatus()
 

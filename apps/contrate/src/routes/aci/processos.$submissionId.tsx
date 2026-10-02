@@ -19,7 +19,7 @@ export const Route = createFileRoute("/aci/processos/$submissionId")({
 		try {
 			const [access, detail] = await Promise.all([
 				loadAlphaAccess(context),
-				context.queryClient.query({ ...processDetailQueryOptions(context.auth.session?.access_token, params.submissionId), staleTime: 30_000 }),
+				context.queryClient.query({ ...processDetailQueryOptions(params.submissionId), staleTime: 30_000 }),
 			])
 			target = resolveLegacyProcessPath(access, detail.unit_id, "processos", params.submissionId)
 		} catch {

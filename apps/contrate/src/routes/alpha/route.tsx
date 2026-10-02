@@ -4,7 +4,6 @@ import { Lock } from "iconoir-react"
 import { authQueryOptions } from "@/auth/service"
 import { ModuleShell } from "@/components/layout/ModuleShell"
 import { AccessCheckFailed, CheckingAccess } from "@/components/layout/ScopeHub"
-import { useAuth } from "@/hooks/useAuth"
 import { alphaAccessQueryOptions } from "@/lib/alpha/role"
 
 /**
@@ -29,8 +28,7 @@ export const Route = createFileRoute("/alpha")({
 })
 
 function AlphaConsoleLayout() {
-	const { session } = useAuth()
-	const access = useQuery(alphaAccessQueryOptions(session?.access_token))
+	const access = useQuery(alphaAccessQueryOptions())
 
 	// A casca sai em todos os estados: enquanto o perfil é conferido (ou se a conferência
 	// falha) a barra já está ali, e o seletor segue levando a outro módulo.

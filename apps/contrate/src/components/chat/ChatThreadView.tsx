@@ -3,7 +3,6 @@ import { SendDiagonal, WarningTriangle } from "iconoir-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { useAuth } from "@/hooks/useAuth"
 import { chatKeys, chatThreadQueryOptions, streamTurn } from "@/lib/alpha/chat"
 import { type ChatMessage, type ChatPhase, describeChatError, PHASE_LABEL } from "@/lib/alpha/chat-model"
 import { CitationList } from "./CitationList"
@@ -37,10 +36,8 @@ export function ChatThreadView({
 	emptyState?: ReactNode
 	header?: ReactNode
 }) {
-	const { session } = useAuth()
-	const token = session?.access_token
 	const queryClient = useQueryClient()
-	const thread = useQuery(chatThreadQueryOptions(token, threadId))
+	const thread = useQuery(chatThreadQueryOptions(threadId))
 
 	const [input, setInput] = useState("")
 	const [pending, setPending] = useState<Pending | null>(null)
@@ -84,7 +81,6 @@ export function ChatThreadView({
 		abortRef.current = controller
 		try {
 			await streamTurn(
-				token,
 				threadId,
 				text,
 				{

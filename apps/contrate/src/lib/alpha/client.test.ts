@@ -1,5 +1,5 @@
-import { describe, expect, it } from "bun:test"
-import { alphaPath, DEFAULT_ALPHA_BASE_URL } from "./client"
+import { afterEach, describe, expect, it } from "bun:test"
+import { alphaAuthHeaders, alphaPath, DEFAULT_ALPHA_BASE_URL, setAlphaAccessTokenReader } from "./client"
 
 describe("ALPHA_BASE_URL", () => {
 	it("aponta para o host do α em produção", () => {
@@ -17,5 +17,23 @@ describe("alphaPath", () => {
 		expect(alphaPath`/api/v1/submissions/${"../aci/queue?x="}/text`).toBe("/api/v1/submissions/..%2Faci%2Fqueue%3Fx%3D/text")
 		expect(alphaPath`/api/v1/aci/queue?unit_id=${26}`).toBe("/api/v1/aci/queue?unit_id=26")
 		expect(alphaPath`/api/v1/rules`).toBe("/api/v1/rules")
+	})
+})
+
+describe("alphaAuthHeaders", () => {
+	afterEach(() => setAlphaAccessTokenReader(null))
+
+	it("lê o token a cada chamada, do leitor registrado", async () => {
+		let token: string | undefined = "a"
+		setAlphaAccessTokenReader(async () => token)
+		expect(await alphaAuthHeaders()).toEqual({ Authorization: "Bearer a" })
+		// Token renovado entre chamadas: a seguinte já sai com o novo, nada fica memoizado.
+		token = "b"
+		expect(await alphaAuthHeaders()).toEqual({ Authorization: "Bearer b" })
+	})
+
+	it("sem sessão não manda Authorization", async () => {
+		setAlphaAccessTokenReader(async () => undefined)
+		expect(await alphaAuthHeaders()).toEqual({})
 	})
 })

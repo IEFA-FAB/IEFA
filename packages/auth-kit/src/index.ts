@@ -1,3 +1,4 @@
+export { ACCESS_TOKEN_READ_TIMEOUT_MS, readAccessToken } from "./access-token.ts"
 export { type AuthActions, type AuthActionsOptions, createAuthActions } from "./actions.ts"
 export { FAB_EMAIL_DOMAIN, isFabEmail } from "./email-domain.ts"
 export { getAuthErrorMessage, normalizeEmail, SIGNUP_DOMAIN_REFUSED_MESSAGE, SIGNUP_HOOK_UNAVAILABLE_MESSAGE } from "./errors.ts"

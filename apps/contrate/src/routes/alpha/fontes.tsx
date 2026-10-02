@@ -5,7 +5,6 @@ import { useState } from "react"
 import { ConsoleNav } from "@/components/alpha/ConsoleNav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/useAuth"
 import { formatDateTime } from "@/lib/alpha/format"
 import { type NormativeSource, sourceDocumentsQueryOptions, sourcesQueryOptions, useRefreshSource } from "@/lib/alpha/hooks"
 
@@ -16,22 +15,21 @@ export const Route = createFileRoute("/alpha/fontes")({
 		// no SSR uma chamada pendurada prenderia a resposta do documento.
 		if (typeof document === "undefined") return
 
-		const token = context.auth.session?.access_token
-		if (!token) return
+		if (!context.auth.isAuthenticated) return
 
 		// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
 		// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação
 		// (e o SSR) na resposta.
 		// O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
-		void context.queryClient.query({ ...sourcesQueryOptions(token), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...sourcesQueryOptions(), staleTime: "static" }).catch(() => {})
 	},
 	component: FontesPage,
 })
 
-function SourceRow({ source, token }: { source: NormativeSource; token: string | undefined }) {
+function SourceRow({ source }: { source: NormativeSource }) {
 	const [expanded, setExpanded] = useState(false)
 	const refresh = useRefreshSource()
-	const documents = useQuery({ ...sourceDocumentsQueryOptions(token, source.id), enabled: expanded })
+	const documents = useQuery({ ...sourceDocumentsQueryOptions(source.id), enabled: expanded })
 
 	const result = refresh.data
 
@@ -123,9 +121,7 @@ function SourceRow({ source, token }: { source: NormativeSource; token: string |
 }
 
 function FontesPage() {
-	const { session } = useAuth()
-	const token = session?.access_token
-	const sources = useQuery(sourcesQueryOptions(token))
+	const sources = useQuery(sourcesQueryOptions())
 
 	return (
 		<div>
@@ -157,7 +153,7 @@ function FontesPage() {
 			{sources.data ? (
 				<div>
 					{sources.data.map((source) => (
-						<SourceRow key={source.id} source={source} token={token} />
+						<SourceRow key={source.id} source={source} />
 					))}
 				</div>
 			) : null}

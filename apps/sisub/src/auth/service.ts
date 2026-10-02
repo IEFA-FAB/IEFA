@@ -6,7 +6,7 @@ import { getServerSessionFn } from "@/server/auth.fn"
 import type { AuthContextType } from "../types/domain/auth"
 
 // Separate state from actions for router context typing
-export type AuthState = Pick<AuthContextType, "user" | "session" | "isLoading" | "isAuthenticated">
+export type AuthState = Pick<AuthContextType, "user" | "isLoading" | "isAuthenticated">
 
 // Auth Query Options — usa server function para que funcione tanto no SSR
 // (lê cookies via getSupabaseAuthClient) quanto no cliente (HTTP call com cache).
@@ -14,10 +14,9 @@ export const authQueryOptions = () =>
 	queryOptions({
 		queryKey: queryKeys.auth.user(),
 		queryFn: async () => {
-			const { user, session } = await getServerSessionFn()
+			const { user } = await getServerSessionFn()
 			return {
 				user,
-				session,
 				isAuthenticated: !!user,
 				isLoading: false,
 			} as AuthState

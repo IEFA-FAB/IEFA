@@ -6,7 +6,6 @@ import { AciNav } from "@/components/aci/AciNav"
 import { StageBadge } from "@/components/aci/StageStepper"
 import { StatGrid } from "@/components/aci/StatGrid"
 import { Badge } from "@/components/ui/badge"
-import { useAuth } from "@/hooks/useAuth"
 import { aciQueueQueryOptions, DECISION_LABEL, type QueueItem, STAGE_LABEL, STAGE_ORDER, type Stage } from "@/lib/alpha/aci"
 import { SEVERITY_ORDER } from "@/lib/alpha/compliance"
 import { formatDateTime } from "@/lib/alpha/format"
@@ -15,12 +14,11 @@ import { alphaAccessQueryOptions } from "@/lib/alpha/role"
 export const Route = createFileRoute("/aci/$unitId/")({
 	// Só no cliente (a rota-mãe é `ssr: false`): `alphaRequest` fala com outro serviço.
 	loader: ({ context }) => {
-		const token = context.auth.session?.access_token
-		if (!token) return
+		if (!context.auth.isAuthenticated) return
 
 		// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
 		// próprio. O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
-		void context.queryClient.query({ ...aciQueueQueryOptions(token, context.scopeContext.unitId), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...aciQueueQueryOptions(context.scopeContext.unitId), staleTime: "static" }).catch(() => {})
 	},
 	component: PainelPage,
 	head: () => ({ meta: [{ title: "Fila · Plataforma ACI" }] }),
@@ -88,11 +86,10 @@ function QueueRow({ item, unitId, unitLabel }: { item: QueueItem; unitId: string
 }
 
 function PainelPage() {
-	const { session } = useAuth()
 	const { scopeContext } = Route.useRouteContext()
 	const { unitId } = Route.useParams()
-	const queue = useQuery(aciQueueQueryOptions(session?.access_token, scopeContext.unitId))
-	const access = useQuery(alphaAccessQueryOptions(session?.access_token))
+	const queue = useQuery(aciQueueQueryOptions(scopeContext.unitId))
+	const access = useQuery(alphaAccessQueryOptions())
 	// Na fila de mais de uma OM (`todas`), cada linha diz de que OM é o processo.
 	const unitCodes = useMemo(() => new Map((access.data?.units ?? []).map((unit) => [unit.id, unit.code])), [access.data])
 	const labelFor = (item: QueueItem) => (scopeContext.kind === "unit" ? null : (unitCodes.get(item.submission.unit_id) ?? `OM ${item.submission.unit_id}`))

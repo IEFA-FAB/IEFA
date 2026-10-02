@@ -16,7 +16,6 @@ export const getRouter = () => {
 	// --- AUTH SETUP ---
 	const initialAuthData: AuthState = {
 		user: null,
-		session: null,
 		isLoading: false,
 		isAuthenticated: false,
 	}
@@ -97,7 +96,6 @@ export const getRouter = () => {
 			if (event === "SIGNED_OUT") {
 				rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
 					user: null,
-					session: null,
 					isAuthenticated: false,
 					isLoading: false,
 				})

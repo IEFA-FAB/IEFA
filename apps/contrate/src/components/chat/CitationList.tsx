@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
 import { Badge } from "@/components/ui/badge"
-import { useAuth } from "@/hooks/useAuth"
 import { chunkQueryOptions } from "@/lib/alpha/chat"
 import { type Citation, chunkLabel, chunkText } from "@/lib/alpha/chat-model"
 
@@ -68,8 +67,7 @@ function CitationDetail({ citation }: { citation: Citation }) {
 }
 
 function NormaDetail({ chunkId }: { chunkId: string }) {
-	const { session } = useAuth()
-	const chunk = useQuery(chunkQueryOptions(session?.access_token, chunkId))
+	const chunk = useQuery(chunkQueryOptions(chunkId))
 
 	if (chunk.isLoading) return <p className="mb-2 p-2 text-muted-foreground text-xs">carregando o trecho…</p>
 	if (chunk.isError || !chunk.data) return <p className="mb-2 p-2 text-xs">Não foi possível carregar o trecho.</p>

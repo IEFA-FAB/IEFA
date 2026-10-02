@@ -10,7 +10,6 @@
  */
 
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useAuth } from "@/hooks/useAuth"
 import {
 	type ChatAttachment,
 	type ChatKind,
@@ -21,7 +20,7 @@ import {
 	type ChunkDetail,
 	type Citation,
 } from "./chat-model"
-import { ALPHA_BASE_URL, alphaPath, alphaRequest } from "./client"
+import { ALPHA_BASE_URL, alphaAuthHeaders, alphaPath, alphaRequest } from "./client"
 import { parseSseBuffer } from "./sse"
 
 // ─── Leitura ──────────────────────────────────────────────────────────────────
@@ -32,31 +31,28 @@ export const chatKeys = {
 	thread: (threadId: string) => ["alpha", "chats", "thread", threadId] as const,
 }
 
-export function chatListQueryOptions(token: string | undefined, filter: { submissionId?: string; kind?: ChatKind }) {
+export function chatListQueryOptions(filter: { submissionId?: string; kind?: ChatKind }) {
 	const query = filter.submissionId ? alphaPath`?submission_id=${filter.submissionId}` : filter.kind ? alphaPath`?kind=${filter.kind}` : ""
 	return queryOptions({
 		queryKey: chatKeys.list(filter),
-		queryFn: async () => (await alphaRequest<{ items: ChatThread[]; truncated: boolean }>(`/api/v1/chats${query}`, token)).items,
-		enabled: Boolean(token),
+		queryFn: async () => (await alphaRequest<{ items: ChatThread[]; truncated: boolean }>(`/api/v1/chats${query}`)).items,
 	})
 }
 
-export function chatThreadQueryOptions(token: string | undefined, threadId: string) {
+export function chatThreadQueryOptions(threadId: string) {
 	return queryOptions({
 		queryKey: chatKeys.thread(threadId),
-		queryFn: () => alphaRequest<ChatThreadDetail>(alphaPath`/api/v1/chats/${threadId}`, token),
-		enabled: Boolean(token),
+		queryFn: () => alphaRequest<ChatThreadDetail>(alphaPath`/api/v1/chats/${threadId}`),
 	})
 }
 
 // ─── Escrita ──────────────────────────────────────────────────────────────────
 
 export function useCreateChat() {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (input: { submissionId?: string }) =>
-			alphaRequest<ChatThread>("/api/v1/chats", session?.access_token, {
+			alphaRequest<ChatThread>("/api/v1/chats", {
 				method: "POST",
 				body: JSON.stringify(input.submissionId ? { submission_id: input.submissionId } : {}),
 			}),
@@ -65,11 +61,10 @@ export function useCreateChat() {
 }
 
 export function useUpdateChat() {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (input: { threadId: string; saved?: boolean; title?: string }) =>
-			alphaRequest<ChatThread>(alphaPath`/api/v1/chats/${input.threadId}`, session?.access_token, {
+			alphaRequest<ChatThread>(alphaPath`/api/v1/chats/${input.threadId}`, {
 				method: "PATCH",
 				body: JSON.stringify({ saved: input.saved, title: input.title }),
 			}),
@@ -78,10 +73,9 @@ export function useUpdateChat() {
 }
 
 export function useDeleteChat() {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (threadId: string) => alphaRequest<void>(alphaPath`/api/v1/chats/${threadId}`, session?.access_token, { method: "DELETE" }),
+		mutationFn: (threadId: string) => alphaRequest<void>(alphaPath`/api/v1/chats/${threadId}`, { method: "DELETE" }),
 		onSuccess: (_result, threadId) => {
 			queryClient.removeQueries({ queryKey: chatKeys.thread(threadId) })
 			// Só as listas: invalidar `chatKeys.all` refazia a leitura da conversa que acabou de
@@ -92,24 +86,22 @@ export function useDeleteChat() {
 }
 
 export function useUploadAttachment() {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (input: { threadId: string; file: File }) => {
 			const form = new FormData()
 			form.append("file", input.file)
-			return alphaRequest<ChatAttachment>(alphaPath`/api/v1/chats/${input.threadId}/attachments`, session?.access_token, { method: "POST", body: form })
+			return alphaRequest<ChatAttachment>(alphaPath`/api/v1/chats/${input.threadId}/attachments`, { method: "POST", body: form })
 		},
 		onSettled: (_result, _error, input) => queryClient.invalidateQueries({ queryKey: chatKeys.thread(input.threadId) }),
 	})
 }
 
 export function useDeleteAttachment() {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (input: { threadId: string; attachmentId: string }) =>
-			alphaRequest<void>(alphaPath`/api/v1/chats/${input.threadId}/attachments/${input.attachmentId}`, session?.access_token, { method: "DELETE" }),
+			alphaRequest<void>(alphaPath`/api/v1/chats/${input.threadId}/attachments/${input.attachmentId}`, { method: "DELETE" }),
 		onSettled: (_result, _error, input) => queryClient.invalidateQueries({ queryKey: chatKeys.thread(input.threadId) }),
 	})
 }
@@ -132,16 +124,10 @@ export interface TurnHandlers {
  * Envia a pergunta e consome o SSE até o `complete`. Recusa ANTES do stream (403, 404, 429,
  * 502) vira {@link ChatTurnError} com o código do α; erro DEPOIS dele, pelo evento `error`.
  */
-export async function streamTurn(
-	token: string | undefined,
-	threadId: string,
-	message: string,
-	handlers: TurnHandlers,
-	signal: AbortSignal
-): Promise<TurnComplete> {
+export async function streamTurn(threadId: string, message: string, handlers: TurnHandlers, signal: AbortSignal): Promise<TurnComplete> {
 	const response = await fetch(`${ALPHA_BASE_URL}${alphaPath`/api/v1/chats/${threadId}/messages/stream`}`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+		headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(await alphaAuthHeaders()) },
 		body: JSON.stringify({ message }),
 		signal,
 	})
@@ -173,11 +159,10 @@ export async function streamTurn(
 }
 
 /** Trecho de norma citado, lido sob demanda ao abrir a citação. Imutável: não expira. */
-export function chunkQueryOptions(token: string | undefined, chunkId: string) {
+export function chunkQueryOptions(chunkId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "chunks", chunkId],
-		queryFn: () => alphaRequest<ChunkDetail>(alphaPath`/api/v1/chunks/${chunkId}`, token),
+		queryFn: () => alphaRequest<ChunkDetail>(alphaPath`/api/v1/chunks/${chunkId}`),
 		staleTime: Number.POSITIVE_INFINITY,
-		enabled: Boolean(token),
 	})
 }

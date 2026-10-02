@@ -12,7 +12,6 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { WarningTriangle } from "iconoir-react"
 import { useMemo } from "react"
-import { useAuth } from "@/hooks/useAuth"
 import { demandQueryOptions } from "@/lib/alpha/demands"
 import { alphaAccessQueryOptions } from "@/lib/alpha/role"
 import { getModule, moduleScopeOptions } from "@/lib/modules"
@@ -21,9 +20,8 @@ import { CheckList } from "./fields"
 import { RATING_LABEL } from "./steps-structure"
 
 export function DemandOverview({ demandId }: { demandId: string }) {
-	const { session } = useAuth()
-	const detail = useQuery(demandQueryOptions(session?.access_token, demandId))
-	const access = useQuery(alphaAccessQueryOptions(session?.access_token))
+	const detail = useQuery(demandQueryOptions(demandId))
+	const access = useQuery(alphaAccessQueryOptions())
 	// O editor mora no módulo Requisitante: abre no escopo da OM da demanda, se a pessoa a
 	// alcança lá; senão em `minhas`, onde a leitura vale pela regra da demanda.
 	const scopeId =

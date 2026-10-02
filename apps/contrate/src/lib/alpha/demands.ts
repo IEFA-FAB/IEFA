@@ -7,7 +7,6 @@
 
 import type { DemandPayload } from "@iefa/alpha-client/demand"
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useAuth } from "@/hooks/useAuth"
 import { alphaPath, alphaRequest } from "./client"
 
 export type DemandStatus = "rascunho" | "enviada"
@@ -42,20 +41,20 @@ export interface DemandDetail extends DemandSummary {
 /** Teto da lista no α (`DEMAND_LIST_LIMIT`). */
 export const DEMAND_LIST_LIMIT = 100
 
-export function demandsQueryOptions(token: string | undefined, scope: { kind: "unit" | "all" | "personal"; unitId: number | null }) {
+export function demandsQueryOptions(scope: { kind: "unit" | "all" | "personal"; unitId: number | null }) {
 	const path =
 		scope.kind === "personal" ? "/api/v1/demands?mine=true" : scope.unitId === null ? "/api/v1/demands" : alphaPath`/api/v1/demands?unit_id=${scope.unitId}`
 	return queryOptions({
 		queryKey: ["alpha", "demands", "list", scope.kind, scope.unitId ?? "all"],
-		queryFn: async () => (await alphaRequest<{ demands: DemandSummary[] }>(path, token)).demands,
+		queryFn: async () => (await alphaRequest<{ demands: DemandSummary[] }>(path)).demands,
 		staleTime: 15_000,
 	})
 }
 
-export function demandQueryOptions(token: string | undefined, demandId: string) {
+export function demandQueryOptions(demandId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "demands", demandId],
-		queryFn: () => alphaRequest<DemandDetail>(alphaPath`/api/v1/demands/${demandId}`, token),
+		queryFn: () => alphaRequest<DemandDetail>(alphaPath`/api/v1/demands/${demandId}`),
 		// O editor é dono do estado enquanto está aberto; refetch em foco sobrescreveria o que
 		// ainda não foi gravado.
 		refetchOnWindowFocus: false,
@@ -64,21 +63,18 @@ export function demandQueryOptions(token: string | undefined, demandId: string) 
 }
 
 export function useCreateDemand() {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (input: { unit_id: number; title: string }) =>
-			alphaRequest<DemandDetail>("/api/v1/demands", session?.access_token, { method: "POST", body: JSON.stringify(input) }),
+		mutationFn: (input: { unit_id: number; title: string }) => alphaRequest<DemandDetail>("/api/v1/demands", { method: "POST", body: JSON.stringify(input) }),
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alpha", "demands", "list"] }),
 	})
 }
 
 export function useSaveDemand(demandId: string) {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (input: { payload: DemandPayload; title?: string; expected_updated_at?: string }) =>
-			alphaRequest<DemandSummary>(alphaPath`/api/v1/demands/${demandId}`, session?.access_token, { method: "PATCH", body: JSON.stringify(input) }),
+			alphaRequest<DemandSummary>(alphaPath`/api/v1/demands/${demandId}`, { method: "PATCH", body: JSON.stringify(input) }),
 		// O detalhe tem `staleTime` infinito (o editor é dono do estado enquanto aberto): sem
 		// atualizar o cache, reabrir a demanda mostraria o rascunho de antes da gravação, com o
 		// `updated_at` velho, e a primeira edição daria um falso 409.
@@ -92,24 +88,21 @@ export function useSaveDemand(demandId: string) {
 }
 
 export function useDeleteDemand() {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (demandId: string) => alphaRequest<void>(alphaPath`/api/v1/demands/${demandId}`, session?.access_token, { method: "DELETE" }),
+		mutationFn: (demandId: string) => alphaRequest<void>(alphaPath`/api/v1/demands/${demandId}`, { method: "DELETE" }),
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alpha", "demands", "list"] }),
 	})
 }
 
 export function useSubmitDemand(demandId: string) {
-	const { session } = useAuth()
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (input: { expected_updated_at: string }) =>
-			alphaRequest<{ demand_id: string; updated_at: string; submissions: DemandSubmission[] }>(
-				alphaPath`/api/v1/demands/${demandId}/submissions`,
-				session?.access_token,
-				{ method: "POST", body: JSON.stringify(input) }
-			),
+			alphaRequest<{ demand_id: string; updated_at: string; submissions: DemandSubmission[] }>(alphaPath`/api/v1/demands/${demandId}/submissions`, {
+				method: "POST",
+				body: JSON.stringify(input),
+			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["alpha", "demands"] })
 			queryClient.invalidateQueries({ queryKey: ["alpha", "submissions"] })

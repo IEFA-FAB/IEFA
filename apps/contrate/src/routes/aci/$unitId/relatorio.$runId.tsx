@@ -4,10 +4,9 @@ import { finalReportQueryOptions } from "@/lib/alpha/aci"
 
 export const Route = createFileRoute("/aci/$unitId/relatorio/$runId")({
 	loader: ({ context, params }) => {
-		const token = context.auth.session?.access_token
-		if (!token) return
+		if (!context.auth.isAuthenticated) return
 
-		void context.queryClient.query({ ...finalReportQueryOptions(token, params.runId), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...finalReportQueryOptions(params.runId), staleTime: "static" }).catch(() => {})
 	},
 	component: RelatorioPage,
 	head: () => ({ meta: [{ title: "Relatório final · Plataforma ACI" }] }),

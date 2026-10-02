@@ -5,10 +5,9 @@ import { processDetailQueryOptions } from "@/lib/alpha/aci"
 
 export const Route = createFileRoute("/requisitante/$unitId/processos/$submissionId")({
 	loader: ({ context, params }) => {
-		const token = context.auth.session?.access_token
-		if (!token) return
+		if (!context.auth.isAuthenticated) return
 
-		void context.queryClient.query({ ...processDetailQueryOptions(token, params.submissionId), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...processDetailQueryOptions(params.submissionId), staleTime: "static" }).catch(() => {})
 	},
 	component: ProcessoPage,
 	head: () => ({ meta: [{ title: "Processo · Requisitante" }] }),

@@ -1,8 +1,9 @@
-import type { Session, User } from "@supabase/supabase-js"
+import type { User } from "@supabase/supabase-js"
 
+// Sem `session`: o estado de auth vive no React Query, que o SSR serializa no HTML, e a
+// sessão carrega access e refresh token. Quem precisar do token lê do client do navegador.
 export interface AuthContextType {
 	user: User | null
-	session: Session | null
 	isLoading: boolean
 	isAuthenticated: boolean
 	signIn: (email: string, password: string) => Promise<void>
