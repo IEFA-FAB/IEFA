@@ -32,8 +32,8 @@ export function withoutBlindCountLots<T extends ItemRef>(rows: readonly T[], hid
 export function maskBlindCountQuantities<T extends ItemRef & { quantity: number | null; value: number | null }>(
 	items: readonly T[],
 	hidden: ReadonlySet<string>
-): Array<T & { blindCount: boolean }> {
-	return items.map((item) => (hidden.has(itemKey(item)) ? { ...item, quantity: null, value: null, blindCount: true } : { ...item, blindCount: false }))
+): Array<T & { isInBlindCount: boolean }> {
+	return items.map((item) => (hidden.has(itemKey(item)) ? { ...item, quantity: null, value: null, isInBlindCount: true } : { ...item, isInBlindCount: false }))
 }
 
 /**
@@ -43,8 +43,8 @@ export function maskBlindCountQuantities<T extends ItemRef & { quantity: number 
 export function maskBlindCountIssueLines<T extends { ingredientId: string; available: number | null; sufficient: boolean | null }>(
 	lines: readonly T[],
 	hidden: ReadonlySet<string>
-): Array<T & { blindCount: boolean }> {
+): Array<T & { isInBlindCount: boolean }> {
 	return lines.map((line) =>
-		hidden.has(line.ingredientId) ? { ...line, available: null, sufficient: null, blindCount: true } : { ...line, blindCount: false }
+		hidden.has(line.ingredientId) ? { ...line, available: null, sufficient: null, isInBlindCount: true } : { ...line, isInBlindCount: false }
 	)
 }

@@ -14,6 +14,10 @@ describe("nfeOwnershipProblem — assumir a nota ou receber por ela", () => {
 		expect(nfeOwnershipProblem({ docKitchenId: KITCHEN, docUnitId: null, kitchenId: KITCHEN, kitchenPurchaseUnitId: UNIT })).toBeNull()
 	})
 
+	test("nota desta cozinha, mas com destinatário de outra unidade, não passa", () => {
+		expect(nfeOwnershipProblem({ docKitchenId: KITCHEN, docUnitId: OTHER_UNIT, kitchenId: KITCHEN, kitchenPurchaseUnitId: UNIT })).toMatch(/outra unidade/)
+	})
+
 	test("nota de outra cozinha não passa", () => {
 		expect(nfeOwnershipProblem({ docKitchenId: 8, docUnitId: UNIT, kitchenId: KITCHEN, kitchenPurchaseUnitId: UNIT })).toMatch(/outra cozinha/)
 	})

@@ -16,6 +16,7 @@ import { matchNfeItem, type NfeMatchCandidates, parseNfeAccessKey } from "@iefa/
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
@@ -266,16 +267,9 @@ export const uploadNfeFn = createServerFn({ method: "POST" })
 		// O destinatário do XML é de OUTRA unidade que não a de compra desta cozinha: a API grava a
 		// nota sem cozinha, na triagem da unidade certa, e a tela avisa para onde ela foi — em vez
 		// de deixar a cozinha que enviou receber (e liquidar) a mercadoria de outra OM.
-		const routedToOtherUnit = data.kitchenId != null && body.kitchen_id === null
+		const routedToOtherUnit = data.kitchenId != null && body.kitchen_id === null && body.unit_id != null
 		return { documentId: body.document_id, itemsCount: body.items_count ?? 0, matching, routedToOtherUnit }
 	})
-
-/** Unidade COMPRADORA da cozinha — é o CNPJ dela que aparece na nota. */
-async function purchaseUnitIdForKitchen(kitchenId: number): Promise<number | null> {
-	const { data: row } = await kitchen().from("kitchen").select("unit_id, purchase_unit_id").eq("id", kitchenId).maybeSingle()
-	const unitId = row?.purchase_unit_id ?? row?.unit_id
-	return unitId == null ? null : Number(unitId)
-}
 
 /**
  * Entrada da nota pela CHAVE DE ACESSO, lida do código de barras do DANFE.
@@ -297,7 +291,7 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 		if (!parsed) throw new Error("Chave de acesso inválida — confira o dígito verificador")
 
 		const inv = inventory()
-		const unitId = await purchaseUnitIdForKitchen(data.kitchenId)
+		const unitId = await purchaseUnitIdOfKitchen(data.kitchenId)
 
 		const { data: existing } = await inv.from("nfe_document").select("id, status, kitchen_id, unit_id").eq("access_key", parsed.key).maybeSingle()
 		if (existing) {
@@ -398,7 +392,7 @@ export const claimNfeForKitchenFn = createServerFn({ method: "POST" })
 			docKitchenId: doc.kitchen_id != null ? Number(doc.kitchen_id) : null,
 			docUnitId: doc.unit_id != null ? Number(doc.unit_id) : null,
 			kitchenId: data.kitchenId,
-			kitchenPurchaseUnitId: await purchaseUnitIdForKitchen(data.kitchenId),
+			kitchenPurchaseUnitId: await purchaseUnitIdOfKitchen(data.kitchenId),
 		})
 		if (problem) throw new Error(problem)
 
@@ -443,7 +437,18 @@ export const assignNfeUnitFn = createServerFn({ method: "POST" })
 	.validator(z.object({ nfeDocumentId: z.uuid(), unitId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(3, null)
-		const { error } = await inventory().from("nfe_document").update({ unit_id: data.unitId, destination_confirmed: false }).eq("id", data.nfeDocumentId)
+		const inv = inventory()
+		const { data: doc, error: docError } = await inv.from("nfe_document").select("kitchen_id").eq("id", data.nfeDocumentId).maybeSingle()
+		if (docError) throw new Error(`Erro ao carregar a nota: ${docError.message}`)
+		if (!doc) throw new Error("NF-e não encontrada")
+		// A nota enviada por uma cozinha com destinatário desconhecido fica com ela. Atribuída a OUTRA
+		// unidade, deixa de ser daquela cozinha e vai para as cozinhas da unidade atribuída — senão a
+		// cozinha que enviou seguiria dona de uma nota de outra OM.
+		const keepsKitchen = doc.kitchen_id != null && (await purchaseUnitIdOfKitchen(Number(doc.kitchen_id))) === data.unitId
+		const { error } = await inv
+			.from("nfe_document")
+			.update({ unit_id: data.unitId, destination_confirmed: false, ...(keepsKitchen ? {} : { kitchen_id: null }) })
+			.eq("id", data.nfeDocumentId)
 		if (error) throw new Error(`Erro ao atribuir a unidade: ${error.message}`)
 		return { assigned: true }
 	})
@@ -475,7 +480,7 @@ export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 		// de uma das cozinhas da unidade que a assume. Nota sem unidade resolvida
 		// não entra aqui — ela fica na triagem do nível 3 global.
 		if (data.kitchenId != null) {
-			const unitId = await purchaseUnitIdForKitchen(data.kitchenId)
+			const unitId = await purchaseUnitIdOfKitchen(data.kitchenId)
 			query = unitId != null ? query.or(`kitchen_id.eq.${data.kitchenId},and(unit_id.eq.${unitId},kitchen_id.is.null)`) : query.eq("kitchen_id", data.kitchenId)
 		}
 		const { data: docs, error } = await query

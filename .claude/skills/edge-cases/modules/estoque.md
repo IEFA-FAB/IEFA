@@ -137,8 +137,9 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   triagem da unidade destinatária; a cozinha que enviou não fica com ela, não recebe e não liquida
   por ela. Destinatário fora do cadastro de unidades mantém a cozinha que enviou (não há para onde
   mandar), com `destination_confirmed = false`. Nota que já tinha sido lida pela chave numa cozinha
-  e cujo XML revela outra unidade também é cedida; um recebimento já criado por aquela chave fica
-  ligado à nota (a divergência é real e precisa de gente).
+  e cujo XML revela outra unidade também é cedida — salvo se ela já sustenta entrega ou liquidação
+  ali: aí o XML não é aplicado (409) e quem enviou é avisado, porque a divergência é real e precisa
+  de gente. A triagem que atribui outra unidade a uma nota com cozinha também a tira da cozinha.
 - **UX:** ao importar, aviso "o destinatário deste XML é outra unidade: a nota foi para a triagem
   dela"; a nota some da lista desta cozinha e aparece nas cozinhas da unidade certa para assumir.
   Assumir ou receber por nota de outra unidade, ou por nota na triagem global (sem unidade), é
@@ -181,8 +182,10 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 - **UX:** vencimentos: os lotes do item saem da lista e dos totais, com "N lote(s) em contagem cega
   não aparecem"; planejamento: o item fica com a validade e "em contagem" no lugar da quantidade;
   Baixa por Produção (nível 1): "em contagem" no disponível e no contador de suficiência.
-- **Cobertura:** `apps/sisub/src/lib/blind-count-mask.test.ts`. **LACUNA:** o badge do menu
-  (`fetchExpirySummaryFn`) ainda soma o valor em risco de todos os lotes (agregado, sem item).
+- **Cobertura:** `apps/sisub/src/lib/blind-count-mask.test.ts`; regra
+  `.opengrep/rules/blind-count-reads.yaml` (GET que lê `v_stock_balance`/`v_lot_expiry` sem
+  passar pela cegueira reprova o scan). **LACUNA:** o badge do menu (`fetchExpirySummaryFn`) ainda
+  soma o valor em risco de todos os lotes (agregado, sem item; marcado `blind-count-exempt`).
 
 `ENB` = `apps/sisub/src/test/operations/execution-never-blocks.operations.test.ts` (banco real) ·
 `EXU` = `packages/sisub-domain/src/operations/execution.test.ts` (unitário).

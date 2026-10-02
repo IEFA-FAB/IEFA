@@ -253,8 +253,10 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **Realidade:** o reforço/anulação da conciliação era calculado com os valores que a tela mandava;
   o segundo clique (ou o reenvio depois de um 502) gravava um segundo evento.
 - **O sistema precisa:** a decisão lê a conciliação no servidor, na mesma transação do evento, da
-  origem do empenho e da decisão, sob lock do documento e do empenho. Só decide documento
-  `divergente` sem decisão vigente; os valores da tela são a versão vista — divergiram, é conflito.
+  origem do empenho e da decisão, sob lock do documento e do empenho. Recusa documento conciliado
+  ou com decisão vigente, e só o `divergente` gera evento no empenho (`apenas_siafi`,
+  `aguardando_documento_pai` e `apenas_sisub` continuam podendo ser dispensados com a decisão
+  registrada). Os valores da tela são a versão vista — divergiram, é conflito.
 - **UX:** conflito diz "A conciliação mudou…" e a tela recarrega a lista, mantendo a justificativa
   digitada. O segundo clique ouve que o documento não está mais divergente.
 - **Cobertura:** `apps/sisub/src/lib/reconciliation-decision.test.ts`. **LACUNA:** teste de

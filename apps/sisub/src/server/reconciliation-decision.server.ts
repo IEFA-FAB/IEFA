@@ -81,7 +81,12 @@ export async function resolveDivergenceAtomically(input: ResolveDivergenceInput)
 			limit 1
 		`)
 		const snapshot: ReconciliationSnapshot | null = row
-			? { situacao: row.situacao, valorSisub: toNumber(row.valor_sisub), valorSiafi: toNumber(row.valor_siafi), decisaoVigente: Boolean(row.decisao_vigente) }
+			? {
+					situacao: row.situacao,
+					valorSisub: toNumber(row.valor_sisub),
+					valorSiafi: toNumber(row.valor_siafi),
+					hasCurrentDecision: Boolean(row.decisao_vigente),
+				}
 			: null
 
 		const plan = planDivergenceResolution({

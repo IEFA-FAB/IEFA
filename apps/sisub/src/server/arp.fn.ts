@@ -327,17 +327,20 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		// O cabeçalho vai gravado como `source: "compras_gov"`: ele é RELIDO na API pelo número, pela
 		// UASG e pelo início de vigência, e o payload só serve de chave da consulta. Antes objeto,
 		// situação, gerenciadora e fim de vigência vinham do cliente e passavam por dado oficial.
-		const arpData = await fetchArpHeader(data.arpData)
-
 		// O upsert pela chave (unidade, número, UASG) trocava o anexo da ARP em silêncio quando ela
-		// era reimportada de outro anexo. Agora o vínculo existente é mantido e a tela avisa.
-		const { data: existingArp, error: existingError } = await supabase
-			.from("arp")
-			.select("id, quantity_estimate_id, acquisition_id")
-			.eq("unit_id", unitId)
-			.eq("numero_ata", arpData.numeroAtaRegistroPreco)
-			.eq("uasg_gerenciadora", arpData.codigoUnidadeGerenciadora)
-			.maybeSingle()
+		// era reimportada de outro anexo. Agora o vínculo existente é mantido e a tela avisa. A
+		// chave é a mesma da consulta à API (o cabeçalho devolvido casa número e UASG), então as
+		// duas leituras correm juntas.
+		const [arpData, { data: existingArp, error: existingError }] = await Promise.all([
+			fetchArpHeader(data.arpData),
+			supabase
+				.from("arp")
+				.select("id, quantity_estimate_id, acquisition_id")
+				.eq("unit_id", unitId)
+				.eq("numero_ata", data.arpData.numeroAtaRegistroPreco)
+				.eq("uasg_gerenciadora", data.arpData.codigoUnidadeGerenciadora)
+				.maybeSingle(),
+		])
 		if (existingError) throw new Error(`Erro ao procurar a ARP: ${existingError.message}`)
 		let quantityEstimateId: string | null = data.quantityEstimateId ?? existingArp?.quantity_estimate_id ?? null
 		if (existingArp?.quantity_estimate_id && data.quantityEstimateId && existingArp.quantity_estimate_id !== data.quantityEstimateId) {

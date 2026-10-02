@@ -26,7 +26,14 @@ export interface NfeOwnershipInput {
  * ninguém a assumiu); senão, a frase que diz por que não e o que fazer.
  */
 export function nfeOwnershipProblem(input: NfeOwnershipInput): string | null {
-	if (input.docKitchenId != null) return input.docKitchenId === input.kitchenId ? null : "NF-e já pertence a outra cozinha"
+	if (input.docKitchenId != null && input.docKitchenId !== input.kitchenId) return "NF-e já pertence a outra cozinha"
+	if (input.docKitchenId === input.kitchenId) {
+		// Já é desta cozinha — desde que o destinatário conhecido seja a unidade dela. Nota que ficou
+		// com a cozinha e depois teve outra unidade atribuída (ou gravada antes desta regra) não
+		// sustenta recebimento aqui.
+		const isOtherUnit = input.docUnitId != null && input.kitchenPurchaseUnitId != null && input.docUnitId !== input.kitchenPurchaseUnitId
+		return isOtherUnit ? "NF-e endereçada a outra unidade" : null
+	}
 	if (input.docUnitId == null) {
 		return "NF-e em triagem: o destinatário da nota não foi reconhecido. Peça a quem faz a triagem das notas (estoque, nível 3 global) para atribuir a unidade; depois a nota aparece aqui para ser assumida"
 	}

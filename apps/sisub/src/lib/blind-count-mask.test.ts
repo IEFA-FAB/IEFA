@@ -35,8 +35,8 @@ describe("maskBlindCountQuantities — vence no período", () => {
 			{ ingredientId: FEIJAO, frozenPreparationId: null, quantity: 4, value: 20, firstExpiry: "2026-10-04" },
 		]
 		const masked = maskBlindCountQuantities(items, HIDDEN)
-		expect(masked[0]).toMatchObject({ ingredientId: ARROZ, quantity: null, value: null, blindCount: true, firstExpiry: "2026-10-03" })
-		expect(masked[1]).toMatchObject({ ingredientId: FEIJAO, quantity: 4, value: 20, blindCount: false })
+		expect(masked[0]).toMatchObject({ ingredientId: ARROZ, quantity: null, value: null, isInBlindCount: true, firstExpiry: "2026-10-03" })
+		expect(masked[1]).toMatchObject({ ingredientId: FEIJAO, quantity: 4, value: 20, isInBlindCount: false })
 	})
 })
 
@@ -47,7 +47,7 @@ describe("maskBlindCountIssueLines — baixa por produção, para quem só lê",
 			{ ingredientId: FEIJAO, quantity: 3, available: 1 as number | null, sufficient: false as boolean | null },
 		]
 		const masked = maskBlindCountIssueLines(lines, HIDDEN)
-		expect(masked[0]).toMatchObject({ available: null, sufficient: null, blindCount: true, quantity: 3 })
-		expect(masked[1]).toMatchObject({ available: 1, sufficient: false, blindCount: false })
+		expect(masked[0]).toMatchObject({ available: null, sufficient: null, isInBlindCount: true, quantity: 3 })
+		expect(masked[1]).toMatchObject({ available: 1, sufficient: false, isInBlindCount: false })
 	})
 })

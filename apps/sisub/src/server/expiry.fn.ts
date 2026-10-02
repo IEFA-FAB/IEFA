@@ -114,24 +114,27 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		// ANTES do sort perde lote vencido — os totais saem baixos e o "Mostrando X
 		// de Y" nunca aparece. Toda leitura de lista deste arquivo passa por
 		// `readAllPages`/`readAllPagesIn`, não só a que foi apontada.
-		const read = await readAllPages<Row>("os vencimentos", (from, to) =>
-			inventory()
-				.from("v_lot_expiry")
-				.select(
-					"lot_id, short_code, lot_code, ingredient_id, frozen_preparation_id, location, expiry_date, days_left, alert_days, conservation_class, balance, balance_value, use_first, quarantined_at, band"
-				)
-				.eq("kitchen_id", data.kitchenId)
-				.in("band", bands)
-				.order("lot_id")
-				.range(from, to)
-		)
+		const [read, hidden] = await Promise.all([
+			readAllPages<Row>("os vencimentos", (from, to) =>
+				inventory()
+					.from("v_lot_expiry")
+					.select(
+						"lot_id, short_code, lot_code, ingredient_id, frozen_preparation_id, location, expiry_date, days_left, alert_days, conservation_class, balance, balance_value, use_first, quarantined_at, band"
+					)
+					.eq("kitchen_id", data.kitchenId)
+					.in("band", bands)
+					.order("lot_id")
+					.range(from, to)
+			),
+			hiddenByBlindCount(data.kitchenId, ctx),
+		])
 
 		// Contagem cega alcança TODA leitura de saldo (`lib/blind-count.server.ts`): o saldo do lote
 		// aqui é o mesmo número que a folha esconde. O lote do item em contagem sai da lista e dos
 		// totais, como sai do painel de estoque; a tela diz quantos ficaram de fora.
 		const { visible: all, hiddenLots } = withoutBlindCountLots(
 			read.map((row) => ({ ...row, ingredientId: row.ingredient_id, frozenPreparationId: row.frozen_preparation_id })),
-			await hiddenByBlindCount(data.kitchenId, ctx)
+			hidden
 		)
 
 		// descrição e unidade vêm dos dois catálogos que alimentam o lote
@@ -227,6 +230,8 @@ export const fetchExpirySummaryFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
+		// blind-count-exempt: contagem de lotes e valor em risco agregados para o badge do menu, sem
+		// item nem quantidade (lacuna anotada em EST-CNT-04).
 		// Só as faixas que o resumo soma. Ler todo lote com saldo — inclusive a
 		// faixa `ok`, que é a maioria — levava cozinha grande ao teto de 1000 linhas
 		// do PostgREST, e o cartão mostrava menos vencido e menos risco do que há.

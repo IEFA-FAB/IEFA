@@ -39,7 +39,7 @@ interface PendingLine {
 	/** Nulo para quem só lê, com o insumo numa contagem cega aberta. */
 	available: number | null
 	sufficient: boolean | null
-	blindCount: boolean
+	isInBlindCount: boolean
 }
 
 interface PendingTask {
@@ -49,7 +49,7 @@ interface PendingTask {
 	lines: PendingLine[]
 	sufficient: number
 	total: number
-	blindCount: number
+	blindCountLines: number
 }
 
 function TaskCard({
@@ -134,11 +134,11 @@ function TaskCard({
 					<CardTitle className="text-subheading">{task.recipeName}</CardTitle>
 					<span className="text-xs text-muted-foreground">{task.productionDate}</span>
 					<Badge
-						variant={task.sufficient === task.total - task.blindCount ? "secondary" : "outline"}
-						className={`ml-auto text-xs ${task.sufficient < task.total - task.blindCount ? "text-warning" : ""}`}
+						variant={task.sufficient === task.total - task.blindCountLines ? "secondary" : "outline"}
+						className={`ml-auto text-xs ${task.sufficient < task.total - task.blindCountLines ? "text-warning" : ""}`}
 					>
-						Ingredientes: {task.sufficient}/{task.total - task.blindCount} disponíveis
-						{task.blindCount > 0 && ` · ${task.blindCount} em contagem cega`}
+						Ingredientes: {task.sufficient}/{task.total - task.blindCountLines} disponíveis
+						{task.blindCountLines > 0 && ` · ${task.blindCountLines} em contagem cega`}
 					</Badge>
 				</div>
 			</CardHeader>

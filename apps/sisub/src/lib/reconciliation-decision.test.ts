@@ -5,7 +5,7 @@
 import { describe, expect, test } from "vitest"
 import { planDivergenceResolution, RECONCILIATION_CONFLICT_PREFIX, type ReconciliationSnapshot } from "@/lib/reconciliation-decision"
 
-const DIVERGENTE: ReconciliationSnapshot = { situacao: "divergente", valorSisub: 1000, valorSiafi: 1200, decisaoVigente: false }
+const DIVERGENTE: ReconciliationSnapshot = { situacao: "divergente", valorSisub: 1000, valorSiafi: 1200, hasCurrentDecision: false }
 const SEEN = { valorSisub: 1000, valorSiafi: 1200 }
 
 function plan(overrides: Partial<Parameters<typeof planDivergenceResolution>[0]> = {}) {
@@ -37,14 +37,14 @@ describe("planDivergenceResolution — o valor é o do banco, não o do payload"
 		expect(plan({ seen: { valorSisub: 1000.004, valorSiafi: 1200 } }).ok).toBe(true)
 	})
 
-	test("documento que já não está divergente (o primeiro clique já adotou) é recusado — idempotência", () => {
+	test("documento já conciliado (o primeiro clique já adotou) é recusado — idempotência", () => {
 		const result = plan({ snapshot: { ...DIVERGENTE, situacao: "conciliado" } })
 		expect(result.ok).toBe(false)
-		if (!result.ok) expect(result.message).toMatch(/não está mais divergente/)
+		if (!result.ok) expect(result.message).toMatch(/já está conciliado/)
 	})
 
 	test("decisão vigente para os mesmos valores é recusada", () => {
-		const result = plan({ snapshot: { ...DIVERGENTE, decisaoVigente: true } })
+		const result = plan({ snapshot: { ...DIVERGENTE, hasCurrentDecision: true } })
 		expect(result.ok).toBe(false)
 		if (!result.ok) expect(result.message).toMatch(/já tem decisão/)
 	})
@@ -53,8 +53,12 @@ describe("planDivergenceResolution — o valor é o do banco, não o do payload"
 		expect(plan({ snapshot: null }).ok).toBe(false)
 	})
 
-	test("apenas no SIAFI / apenas no sisub não é divergência de valor", () => {
-		expect(plan({ snapshot: { ...DIVERGENTE, situacao: "apenas_siafi", valorSisub: null }, seen: { valorSisub: null, valorSiafi: 1200 } }).ok).toBe(false)
+	test("apenas no SIAFI / aguardando o pai: a decisão é registrada, sem evento no empenho", () => {
+		const apenasSiafi = { ...DIVERGENTE, situacao: "apenas_siafi", valorSisub: null }
+		expect(plan({ snapshot: apenasSiafi, seen: { valorSisub: null, valorSiafi: 1200 } })).toMatchObject({ ok: true, empenhoEvent: null })
+		expect(plan({ snapshot: apenasSiafi, seen: { valorSisub: null, valorSiafi: 1200 }, decisao: "mantido_local" })).toMatchObject({ ok: true })
+		const aguardando = { ...DIVERGENTE, situacao: "aguardando_documento_pai", valorSisub: null }
+		expect(plan({ snapshot: aguardando, documentoTipo: "ns", seen: { valorSisub: null, valorSiafi: 1200 } })).toMatchObject({ ok: true, empenhoEvent: null })
 	})
 
 	test("manter o local não mexe no empenho", () => {

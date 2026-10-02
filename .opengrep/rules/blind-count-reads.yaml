@@ -1,0 +1,42 @@
+##
+# Contagem cega alcança TODA leitura de saldo.
+#
+# Nasceu de um bug que já aconteceu três vezes: a folha da contagem cega escondia o esperado,
+# mas o painel de vencimentos (`fetchExpiringLotsFn`), o "vence no período" do planejamento
+# (`fetchExpiringInPeriodFn`) e o disponível da Baixa por Produção (`fetchPendingIssuesFn`) liam
+# o saldo do mesmo item nas views do ledger e o mostravam. Contagem que confirma o número que o
+# operador acabou de ler noutra tela não acha erro nenhum.
+#
+# A regra olha as server fns de LEITURA (GET) do sisub que leem saldo — as views
+# `v_stock_balance`/`v_lot_expiry`, ou o helper `lotBalancesForIngredients` — e cobra que o
+# handler passe por `hiddenByBlindCount` ou `assertNoBlindCountHides`
+# (`apps/sisub/src/lib/blind-count.server.ts`). Leitura que legitimamente não precisa (agregado
+# sem item, escolha interna que não devolve o número) declara no handler um comentário
+# `blind-count-exempt: <motivo>`.
+#
+# Limite conhecido: a regra vê o texto do handler. Saldo lido num helper com outro nome e
+# devolvido ao cliente escapa — o helper novo entra na lista abaixo.
+#
+# Casos de teste: `__fixtures__/blind-count-reads.ts` (opengrep test --config
+# .opengrep/rules/blind-count-reads.yaml .opengrep/rules/__fixtures__/blind-count-reads.ts).
+##
+rules:
+  - id: stock-balance-read-without-blind-count
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Server fn de leitura que lê saldo (v_stock_balance / v_lot_expiry / lotBalancesForIngredients)
+      sem passar por hiddenByBlindCount ou assertNoBlindCountHides. Durante uma contagem cega
+      aberta, esta tela mostraria o esperado que a folha esconde. Aplique a cegueira
+      (lib/blind-count.server.ts + lib/blind-count-mask.ts) ou, se a leitura não devolve o saldo
+      de item nenhum, declare no handler `// blind-count-exempt: <motivo>`.
+    paths:
+      include:
+        - "apps/sisub/src/server/*.fn.ts"
+    patterns:
+      - pattern-either:
+          - pattern: 'createServerFn({ method: "GET" }).handler($HANDLER)'
+          - pattern: 'createServerFn({ method: "GET" }).validator($V).handler($HANDLER)'
+      - metavariable-regex:
+          metavariable: $HANDLER
+          regex: '(?s)^(?=.*(\bv_stock_balance\b|\bv_lot_expiry\b|\blotBalancesForIngredients\())(?!.*(\bhiddenByBlindCount\(|\bassertNoBlindCountHides\(|blind-count-exempt:))'

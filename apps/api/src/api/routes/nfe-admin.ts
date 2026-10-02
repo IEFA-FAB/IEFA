@@ -5,7 +5,7 @@
  */
 
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
-import { computeNfeItemCosts } from "@iefa/sisub-domain"
+import { computeNfeItemCosts, resolvePurchaseUnitId } from "@iefa/sisub-domain"
 import { createClient } from "@supabase/supabase-js"
 import { secureCompare } from "../../lib/secure-compare.ts"
 import { MAX_NFE_XML_BODY_BYTES, uploadBodyLimit } from "../../lib/upload-limit.ts"
@@ -96,8 +96,7 @@ async function purchaseUnitOfKitchen(supabase: NfeClient, kitchenId: number | nu
 	if (kitchenId == null) return null
 	const { data, error } = await supabase.schema("kitchen").from("kitchen").select("unit_id, purchase_unit_id").eq("id", kitchenId).maybeSingle()
 	if (error) throw new Error(`Falha ao carregar a cozinha: ${error.message}`)
-	const unitId = data?.purchase_unit_id ?? data?.unit_id
-	return unitId == null ? null : Number(unitId)
+	return resolvePurchaseUnitId({ unitId: data?.unit_id ?? null, purchaseUnitId: data?.purchase_unit_id ?? null })
 }
 
 function buildItemRows(documentId: string, parsed: ParsedNfe, costByItem: Map<number, number>) {
@@ -144,6 +143,38 @@ async function completeAnnouncedDocument(
 	parsed: ParsedNfe,
 	costByItem: Map<number, number>
 ): Promise<{ itemsCount: number; unitId: number | null; kitchenId: number | null } | { error: string; conflict?: boolean }> {
+	// Destinatário do XML vence o palpite da chave (a unidade de compra da cozinha que leu);
+	// sem destinatário conhecido, fica o que a leitura da chave registrou.
+	const unitId = (fields.unit_id as number | null) ?? existing.unit_id
+	// A cozinha que leu a chave também cede a nota quando o XML revela que ela é de outra
+	// unidade: sem isto, ler a chave de um DANFE alheio e depois enviar o XML deixava a nota
+	// com a cozinha errada. Decidido ANTES de gravar itens: a recusa abaixo não deixa sobra.
+	const claimedKitchen = existing.kitchen_id ?? (fields.kitchen_id as number | null)
+	const destinationUnitId = fields.unit_id as number | null
+	const kitchenId = kitchenForImportedNfe({
+		requestedKitchenId: claimedKitchen,
+		destinationUnitId,
+		kitchenPurchaseUnitId: destinationUnitId == null ? null : await purchaseUnitOfKitchen(supabase, claimedKitchen),
+	})
+	if (claimedKitchen != null && kitchenId == null) {
+		// A cozinha já registrou entrega ou liquidação por esta chave, e o XML diz que a nota é de
+		// outra OM: ceder a nota em silêncio deixaria o recebimento dela apontando para nota alheia
+		// (e a outra unidade poderia receber a mesma mercadoria de novo). É divergência real —
+		// a nota continua anunciada e quem enviou fica sabendo.
+		const [{ count: receipts, error: receiptsError }, { count: liquidacoes, error: liquidacoesError }] = await Promise.all([
+			supabase.from("goods_receipt").select("id", { count: "exact", head: true }).eq("nfe_document_id", existing.id).neq("status", "rejected"),
+			supabase.schema("finance").from("liquidacao").select("id", { count: "exact", head: true }).eq("nfe_document_id", existing.id),
+		])
+		if (receiptsError || liquidacoesError) return { error: `Falha ao conferir o uso da nota: ${(receiptsError ?? liquidacoesError)?.message}` }
+		if ((receipts ?? 0) + (liquidacoes ?? 0) > 0) {
+			return {
+				error:
+					"O destinatário deste XML é outra unidade, mas esta nota já sustenta entrega ou liquidação nesta cozinha. O XML não foi aplicado: confira com a unidade destinatária (nota trocada ou mercadoria entregue no lugar errado)",
+				conflict: true,
+			}
+		}
+	}
+
 	const itemRows = buildItemRows(existing.id, parsed, costByItem)
 	// Nota ainda anunciada não tem item legítimo: sobra de um completamento que morreu entre o
 	// insert dos itens e o update do documento. Sem limpar, todo reenvio batia no único
@@ -153,24 +184,6 @@ async function completeAnnouncedDocument(
 	const { error: itemsError } = await supabase.from("nfe_item").insert(itemRows)
 	if (itemsError) return { error: `Falha ao gravar nfe_item: ${itemsError.message}` }
 
-	// Destinatário do XML vence o palpite da chave (a unidade de compra da cozinha que leu);
-	// sem destinatário conhecido, fica o que a leitura da chave registrou.
-	const unitId = (fields.unit_id as number | null) ?? existing.unit_id
-	// A cozinha que leu a chave também cede a nota quando o XML revela que ela é de outra
-	// unidade: sem isto, ler a chave de um DANFE alheio e depois enviar o XML deixava a nota
-	// com a cozinha errada.
-	const claimedKitchen = existing.kitchen_id ?? (fields.kitchen_id as number | null)
-	let kitchenId: number | null
-	try {
-		kitchenId = kitchenForImportedNfe({
-			requestedKitchenId: claimedKitchen,
-			destinationUnitId: fields.unit_id as number | null,
-			kitchenPurchaseUnitId: await purchaseUnitOfKitchen(supabase, claimedKitchen),
-		})
-	} catch (error) {
-		await supabase.from("nfe_item").delete().eq("nfe_document_id", existing.id)
-		return { error: error instanceof Error ? error.message : String(error) }
-	}
 	const { data: completed, error: docError } = await supabase
 		.from("nfe_document")
 		.update({
@@ -248,7 +261,8 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 		const kitchenId = kitchenForImportedNfe({
 			requestedKitchenId: kitchen_id ?? null,
 			destinationUnitId: unitId,
-			kitchenPurchaseUnitId: await purchaseUnitOfKitchen(supabase, kitchen_id ?? null),
+			// Sem destinatário reconhecido a cozinha fica de qualquer jeito: nem precisa ler a unidade dela.
+			kitchenPurchaseUnitId: unitId == null ? null : await purchaseUnitOfKitchen(supabase, kitchen_id ?? null),
 		})
 
 		const costs = computeNfeItemCosts(

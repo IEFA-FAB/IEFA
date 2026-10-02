@@ -221,7 +221,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 				sufficient: lines.filter((l) => l.sufficient === true).length,
 				total: lines.length,
 				/** Linhas sem disponível porque o insumo está numa contagem cega aberta. */
-				blindCount: lines.filter((l) => l.blindCount).length,
+				blindCountLines: lines.filter((l) => l.isInBlindCount).length,
 			})
 		}
 		return results

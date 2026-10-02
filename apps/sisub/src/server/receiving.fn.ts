@@ -54,6 +54,7 @@ import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { withDeferralRollback } from "@/lib/deferral-mark"
 import { invoiceSituationProblem } from "@/lib/invoice-gate"
+import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { readAllPages } from "@/lib/read-all-pages"
 import { decideReceiptInvoice, isInvoiceCancelled } from "@/lib/receipt-invoice-gate"
@@ -170,7 +171,7 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 		const { data: doc, error: docError } = await inv.from("nfe_document").select("kitchen_id, unit_id").eq("id", data.nfeDocumentId).maybeSingle()
 		if (docError) throw new Error(`Erro ao carregar a NF-e: ${docError.message}`)
 		if (!doc) throw new Error("NF-e não encontrada")
-		const unitId = await purchaseUnitIdOrNull(data.kitchenId)
+		const unitId = await purchaseUnitIdOfKitchen(data.kitchenId)
 		// Nota sem cozinha é da UNIDADE destinatária: só cozinha cuja unidade de compra é aquela
 		// recebe por ela. Antes, `kitchen_id` nulo passava direto — inclusive nota da triagem
 		// global e nota endereçada a outra OM.
@@ -517,17 +518,9 @@ export const deleteReceiptLotFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(`Erro ao remover lote: ${error.message}`)
 	})
 
-/** Unidade COMPRADORA da cozinha, ou `null` quando ela não tem unidade vinculada. */
-async function purchaseUnitIdOrNull(kitchenId: number): Promise<number | null> {
-	const { data: kitchenRow, error } = await kitchen().from("kitchen").select("unit_id, purchase_unit_id").eq("id", kitchenId).maybeSingle()
-	if (error) throw new Error(`Erro ao carregar a cozinha: ${error.message}`)
-	const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
-	return unitId == null ? null : Number(unitId)
-}
-
 /** Unidade COMPRADORA da cozinha: é nela que a designação e o empenho moram. */
 async function purchaseUnitOfKitchen(kitchenId: number): Promise<number> {
-	const unitId = await purchaseUnitIdOrNull(kitchenId)
+	const unitId = await purchaseUnitIdOfKitchen(kitchenId)
 	if (unitId == null) throw new Error("Cozinha sem unidade vinculada — não há como verificar a designação")
 	return unitId
 }

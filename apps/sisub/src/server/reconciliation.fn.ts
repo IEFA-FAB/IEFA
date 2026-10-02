@@ -204,8 +204,9 @@ export const listWaitingDocumentsFn = createServerFn({ method: "GET" })
  *
  * Os valores confrontados saem da conciliação lida no servidor, dentro da transação da escrita
  * (`resolveDivergenceAtomically`). `valorSisub`/`valorSiafi` do payload são a VERSÃO que a tela
- * viu — obrigatórios, e divergindo do banco a decisão é recusada com conflito. Só decide documento
- * `divergente` sem decisão vigente: o segundo clique não grava um segundo reforço.
+ * viu — obrigatórios, e divergindo do banco a decisão é recusada com conflito. Documento conciliado
+ * ou com decisão vigente é recusado (o segundo clique não grava um segundo reforço), e só o
+ * `divergente` gera evento no empenho.
  */
 export const resolveDivergenceFn = createServerFn({ method: "POST" })
 	.validator(
