@@ -89,12 +89,7 @@ export const MealButton = memo<MealButtonProps>(({ meal, isSelected, onToggle, d
 								{mainDish.ingredients.length > 0 ? (
 									<ul className="list-disc pl-3 space-y-0.5 mt-1">
 										{mainDish.ingredients.map((ing, i) => (
-											<li key={`${ing.ingredient_name}-${i}`}>
-												{ing.ingredient_name}
-												<span className="opacity-70 ml-1">
-													({ing.quantity} {ing.measure_unit})
-												</span>
-											</li>
+											<li key={`${ing.ingredient_name}-${i}`}>{ing.ingredient_name}</li>
 										))}
 									</ul>
 								) : (

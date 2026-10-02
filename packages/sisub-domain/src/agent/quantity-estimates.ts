@@ -12,7 +12,7 @@
 import { quantityEstimateInProcurement, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { and, desc, eq, isNull, sql } from "drizzle-orm"
 import { requireAnyPermission } from "../guards/require-permission.ts"
-import { fetchQuantityEstimateDetails, updateQuantityEstimateStatus } from "../operations/quantity-estimate.ts"
+import { authorizeQuantityEstimate, fetchQuantityEstimateDetails, updateQuantityEstimateStatus } from "../operations/quantity-estimate.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
@@ -186,9 +186,13 @@ export async function agentGetQuantityEstimate(db: SisubDb, ctx: UserContext, in
  * a justificativa da quantidade máxima, e congela o retrato na conclusão. O que ela não confere, e a
  * tela nunca oferece, é concluir um anexo ainda no wizard (`wizard_step` preenchido): o retrato
  * congelaria um anexo com itens parciais, sem volta. Pelo chat, isso é recusado; arquivar continua.
+ *
+ * A permissão vem ANTES da leitura do passo: lido primeiro, o "ainda está no passo N" respondia a
+ * quem não tem a OM dona se o anexo existe e em que pé está.
  */
 export async function agentUpdateQuantityEstimateStatus(db: SisubDb, ctx: UserContext, input: AgentUpdateQuantityEstimateStatus): Promise<void> {
 	if (input.status === "completed") {
+		await authorizeQuantityEstimate(db, ctx, input.quantityEstimateId, 2)
 		const [row] = await runQuery(
 			"QUERY_FAILED",
 			() =>

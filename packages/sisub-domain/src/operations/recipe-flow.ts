@@ -97,8 +97,60 @@ async function hydrateUtensils(db: SisubDb, links: UtensilLink[]): Promise<void>
  * Autoriza mutação de fluxo conforme a posse da receita (global vs cozinha).
  * Delega ao guard compartilhado de ownership (guards/asset-ownership.ts).
  */
-async function authorizeFlowMutation(db: SisubDb, ctx: UserContext, recipeId: string): Promise<void> {
-	await authorizeAssetMutation(db, ctx, "recipe", recipeId)
+async function authorizeFlowMutation(db: SisubDb, ctx: UserContext, recipeId: string): Promise<number | null> {
+	return authorizeAssetMutation(db, ctx, "recipe", recipeId)
+}
+
+/**
+ * Confere que cada utensílio/etapa-modelo citado é do catálogo global (`kitchen_id` nulo) ou
+ * da cozinha dona do registro que os cita (`ownerKitchenId`; `null` = registro global, que só
+ * aceita referência global).
+ *
+ * Sem isto, o fluxo de uma receita (ou a etapa-modelo) de uma cozinha gravava vínculo com o
+ * utensílio local de outra — e a leitura do fluxo hidratava a linha alheia (nome incluso) para
+ * quem a abrisse. Id inexistente e id de outra cozinha dão a mesma recusa: sondar não revela
+ * posse. Item apagado (soft delete) segue aceito: o fluxo salvo de novo reenvia os vínculos que
+ * já tinha, e recusá-lo travaria a edição da receita inteira.
+ */
+async function assertCatalogRefsInScope(
+	db: SisubDb,
+	ownerKitchenId: number | null,
+	refs: { utensilIds: readonly string[]; stepTemplateIds: readonly string[] }
+): Promise<void> {
+	const utensilIds = [...new Set(refs.utensilIds)]
+	const stepTemplateIds = [...new Set(refs.stepTemplateIds)]
+	const inScope = (kitchenId: number | null) => kitchenId == null || kitchenId === ownerKitchenId
+
+	if (utensilIds.length > 0) {
+		const rows = await runQuery("FETCH_FAILED", () =>
+			db.select({ id: utensilInKitchen.id, kitchenId: utensilInKitchen.kitchenId }).from(utensilInKitchen).where(inArray(utensilInKitchen.id, utensilIds))
+		)
+		const allowed = new Set(rows.filter((r) => inScope(r.kitchenId)).map((r) => r.id))
+		const rejected = utensilIds.filter((id) => !allowed.has(id))
+		if (rejected.length > 0) {
+			throw new DomainError("INVALID_REFERENCE", "Há utensílio que não existe ou não é do catálogo global nem da cozinha dona. Remova-o e salve de novo.", {
+				utensilIds: rejected,
+			})
+		}
+	}
+
+	if (stepTemplateIds.length > 0) {
+		const rows = await runQuery("FETCH_FAILED", () =>
+			db
+				.select({ id: stepTemplateInKitchen.id, kitchenId: stepTemplateInKitchen.kitchenId })
+				.from(stepTemplateInKitchen)
+				.where(inArray(stepTemplateInKitchen.id, stepTemplateIds))
+		)
+		const allowed = new Set(rows.filter((r) => inScope(r.kitchenId)).map((r) => r.id))
+		const rejected = stepTemplateIds.filter((id) => !allowed.has(id))
+		if (rejected.length > 0) {
+			throw new DomainError(
+				"INVALID_REFERENCE",
+				"Há etapa-modelo que não existe ou não é do catálogo global nem da cozinha dona da receita. Troque a etapa e salve de novo.",
+				{ stepTemplateIds: rejected }
+			)
+		}
+	}
 }
 
 export async function fetchRecipeFlow(db: SisubDb, ctx: UserContext, input: FetchRecipeFlow): Promise<RecipeFlowWire> {
@@ -196,7 +248,11 @@ const numOrNull = (n: number | null | undefined): number | null => n ?? null
  * `warnings`. Remapeia `clientId` → uuid para steps e saídas.
  */
 export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveRecipeFlow): Promise<SaveFlowResult> {
-	await authorizeFlowMutation(db, ctx, input.recipeId)
+	const ownerKitchenId = await authorizeFlowMutation(db, ctx, input.recipeId)
+	await assertCatalogRefsInScope(db, ownerKitchenId, {
+		utensilIds: input.steps.flatMap((s) => s.utensilIds),
+		stepTemplateIds: input.steps.flatMap((s) => (s.stepTemplateId != null ? [s.stepTemplateId] : [])),
+	})
 
 	const declared = await fetchDeclaredIngredients(db, input.recipeId)
 	const { errors, warnings, balance } = validateFlow(input.steps, declared)
@@ -431,6 +487,9 @@ const WITH_TEMPLATE_UTENSILS = {
 
 export async function listStepTemplates(db: SisubDb, ctx: UserContext, input: ListStepTemplates): Promise<StepTemplateWire[]> {
 	requirePermission(ctx, "kitchen", 1)
+	// O catálogo global é de todos; a etapa-modelo que uma cozinha cadastrou é dela. Sem este
+	// gate, `kitchenId` no input listava o catálogo local de qualquer cozinha.
+	if (input.kitchenId != null) requirePermission(ctx, "kitchen", 1, { type: "kitchen", id: input.kitchenId })
 
 	const conditions: (SQL | undefined)[] = [isNull(stepTemplateInKitchen.deletedAt)]
 	if (input.kitchenId != null) {
@@ -459,6 +518,9 @@ export async function createStepTemplate(db: SisubDb, ctx: UserContext, input: C
 	// kitchenId ausente = step template GLOBAL → exige global:2. O requireAnyPermission
 	// anterior aceitava kitchen:2 sozinho, deixando uma cozinha publicar no catálogo global.
 	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
+	// Utensílio padrão da etapa-modelo: global, ou da mesma cozinha da etapa. Etapa global só
+	// cita utensílio global — senão o catálogo da FAB passaria a apontar para item de uma cozinha.
+	await assertCatalogRefsInScope(db, input.kitchenId ?? null, { utensilIds: input.utensilIds, stepTemplateIds: [] })
 
 	const template = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
@@ -483,10 +545,14 @@ export async function createStepTemplate(db: SisubDb, ctx: UserContext, input: C
 	return toWire<StepTemplate>(template, FLOW_RELATIONS)
 }
 
+const UTENSIL_READ_MODULES = ["kitchen", "kitchen-production", "global"] as const
+
 export async function listUtensils(db: SisubDb, ctx: UserContext, input: ListUtensils): Promise<UtensilWire[]> {
 	// `global` entra na leitura porque a SDAB mantém a ponte utensílio→papel de equipamento na
 	// tela do catálogo; sem isso, quem só tem `global` não enxerga a lista que precisa mapear.
-	requireAnyPermission(ctx, ["kitchen", "kitchen-production", "global"], 1)
+	requireAnyPermission(ctx, UTENSIL_READ_MODULES, 1)
+	// Idem às etapas-modelo: o utensílio local só para quem tem a cozinha pedida.
+	if (input.kitchenId != null) requireAnyPermission(ctx, UTENSIL_READ_MODULES, 1, { type: "kitchen", id: input.kitchenId })
 
 	const conditions: (SQL | undefined)[] = [isNull(utensilInKitchen.deletedAt)]
 	if (input.kitchenId != null) {

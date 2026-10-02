@@ -3,8 +3,16 @@
  * of recipes, menu templates, daily menus and menu items before a scoped mutation.
  */
 
-import { dailyMenuInKitchen, kitchenInKitchen, menuItemsInKitchen, menuTemplateInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
-import { eq } from "drizzle-orm"
+import {
+	dailyMenuInKitchen,
+	kitchenInKitchen,
+	mealTypeInKitchen,
+	menuItemsInKitchen,
+	menuTemplateInKitchen,
+	recipesInKitchen,
+	type SisubDb,
+} from "@iefa/database/drizzle/sisub"
+import { and, eq, isNull, or } from "drizzle-orm"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
 
@@ -30,6 +38,35 @@ export async function validateRecipeAccess(db: SisubDb, recipeId: string, target
 	if (recipe.kitchenId !== null && recipe.kitchenId !== targetKitchenId) {
 		throw new DomainError("RECIPE_ACCESS_DENIED", `Recipe ${recipeId} does not belong to kitchen ${targetKitchenId}`)
 	}
+}
+
+/**
+ * A refeição pode receber cardápio NESTA cozinha? Só se estiver ativa, não for de sistema (a do
+ * pedido de lanche só recebe item pelo pedido) e for global ou da própria cozinha.
+ *
+ * O `mealTypeId` vem do input: sem esta checagem, quem planeja a cozinha 3 abria cardápio com a
+ * refeição local da cozinha 9 (que então aparecia, com nome e grupos, no calendário da 3) ou com
+ * a refeição de sistema. Mesmo erro para "não existe" e "é de outra cozinha": sondar o id não
+ * distingue os dois.
+ */
+export async function assertMealTypeForKitchen(db: SisubDb, mealTypeId: string, kitchenId: number): Promise<void> {
+	const [mealType] = await runQuery(
+		"FETCH_FAILED",
+		() =>
+			db
+				.select({ id: mealTypeInKitchen.id })
+				.from(mealTypeInKitchen)
+				.where(
+					and(
+						eq(mealTypeInKitchen.id, mealTypeId),
+						isNull(mealTypeInKitchen.deletedAt),
+						isNull(mealTypeInKitchen.systemKey),
+						or(isNull(mealTypeInKitchen.kitchenId), eq(mealTypeInKitchen.kitchenId, kitchenId))
+					)
+				),
+		{ prefix: "Erro ao conferir a refeição" }
+	)
+	if (!mealType) throw new NotFoundError("meal_type", mealTypeId)
 }
 
 export async function validateTemplateAccess(db: SisubDb, templateId: string, kitchenId: number | null): Promise<TemplateRow> {

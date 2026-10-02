@@ -11,8 +11,8 @@
 import { dailyMenuInKitchen, menuGroupInKitchen, menuGroupSetInKitchen, menuItemsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm"
-import { requireKitchen } from "../guards/require-permission.ts"
-import { resolveKitchenFromMenu, resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
+import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
+import { assertMealTypeForKitchen, resolveKitchenFromMenu, resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import { MAX_RECOMMENDED_PROPORTION } from "../schemas/common.ts"
 import type { FetchDailyMenuContent } from "../schemas/meal-ops.ts"
 import { DEFAULT_GROUP_SET_SLUG } from "../schemas/menu-groups.ts"
@@ -102,6 +102,8 @@ export async function fetchDayDetails(db: SisubDb, ctx: UserContext, input: DayD
 
 export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: UpsertDailyMenu): Promise<DailyMenu[]> {
 	requireKitchen(ctx, 2, input.kitchenId)
+	// Refeição global ou desta cozinha, ativa e não de sistema — a mesma regra de incluir no dia.
+	await assertMealTypeForKitchen(db, input.mealTypeId, input.kitchenId)
 
 	// "Cria se não existir, senão mantém" (idempotente). A unicidade do trio (data, refeição,
 	// cozinha) é garantida por um índice PARCIAL (where deleted_at is null). O select poupa o
@@ -556,7 +558,12 @@ export async function getTrashItems(db: SisubDb, ctx: UserContext, input: GetTra
 
 // ─── Aggregated daily menu content (diner-facing) ───────────────────────────
 
-type DishIngredient = { ingredient_name: string; quantity: number; measure_unit: string }
+/**
+ * O que o comensal lê de cada ingrediente: o NOME, e só. A ficha técnica (quantidades líquidas
+ * do rendimento inteiro, fator de correção, ids, a linha completa do insumo) é dado de
+ * planejamento da cozinha; a tela do comensal só lista a composição do prato.
+ */
+type DishIngredient = { ingredient_name: string }
 type DishDetails = {
 	id: string
 	name: string
@@ -570,7 +577,24 @@ type DishDetails = {
 	recommended_proportion: number | null
 }
 type DayMenuContent = { [date: string]: { [mealKey: string]: DishDetails[] } }
-type RecipeSnapshot = { name?: string; ingredients?: DishIngredient[] }
+/** Linha de ingrediente como o snapshot de `menu_items.recipe` a grava (`recipe_ingredients` + insumo). */
+type SnapshotIngredient = { deleted_at?: string | null; ingredient?: { description?: string | null } | null }
+type RecipeSnapshot = { name?: string; ingredients?: SnapshotIngredient[] | null }
+
+/**
+ * Composição do prato para o comensal: nomes dos insumos ativos do snapshot, sem repetição, na
+ * ordem da ficha. Linha de preparação congelada não traz o insumo no snapshot e fica de fora.
+ */
+function toDishIngredients(snapshot: RecipeSnapshot): DishIngredient[] {
+	if (!Array.isArray(snapshot.ingredients)) return []
+	const names = new Set<string>()
+	for (const row of snapshot.ingredients) {
+		if (row?.deleted_at) continue
+		const name = row?.ingredient?.description?.trim()
+		if (name) names.add(name)
+	}
+	return [...names].map((ingredient_name) => ({ ingredient_name }))
+}
 
 function mapMealTypeNameToKey(name: string): string | null {
 	const lower = name.toLowerCase()
@@ -584,11 +608,17 @@ function mapMealTypeNameToKey(name: string): string | null {
 /**
  * Returns a nested map of dishes per date per meal key for the given kitchens and
  * date range. Dish name prefers the recipe JSON snapshot, falling back to
- * recipe_origin.name then "Prato sem nome"; ingredients come from the snapshot only.
+ * recipe_origin.name then "Prato sem nome"; ingredients come from the snapshot only,
+ * projected to names (`toDishIngredients`).
  *
- * Auth posture preserved: authenticated entrypoint with no module-level guard.
+ * Leitura do COMENSAL: exige `diner:1` (implícito para toda conta; um deny de `diner` derruba).
+ * Sem escopo de cozinha de propósito: o comensal escolhe o refeitório de qualquer dia, e o
+ * cardápio publicado não é segredo. O que o protege é a projeção (nada da ficha técnica sai
+ * daqui) e o teto de cozinhas e de dias no schema. Nenhuma tela de cozinha usa esta operação.
  */
-export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, input: FetchDailyMenuContent): Promise<DayMenuContent> {
+export async function fetchDailyMenuContent(db: SisubDb, ctx: UserContext, input: FetchDailyMenuContent): Promise<DayMenuContent> {
+	requirePermission(ctx, "diner", 1)
+	if (input.kitchenIds.length === 0) return {}
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.dailyMenuInKitchen.findMany({
 			columns: { serviceDate: true, kitchenId: true },
@@ -679,7 +709,7 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 			if (item.recipe) {
 				const snapshot = item.recipe as RecipeSnapshot
 				dishName = snapshot?.name || dishName
-				if (snapshot.ingredients) ingredients = snapshot.ingredients
+				ingredients = toDishIngredients(snapshot)
 			} else if (item.recipesInKitchen?.name) {
 				dishName = item.recipesInKitchen.name || dishName
 			}

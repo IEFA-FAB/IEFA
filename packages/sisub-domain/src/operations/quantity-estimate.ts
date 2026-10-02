@@ -749,7 +749,7 @@ export async function explainQuantityEstimateNeeds(db: SisubDb, ctx: UserContext
  * Estas operações recebem só o id. Sem resolver o dono, qualquer detentor de `unit:2` numa OM
  * editava preço, descrição e status — ou apagava — o anexo de outra.
  */
-async function authorizeQuantityEstimate(db: SisubDb, ctx: UserContext, quantityEstimateId: string, level: 1 | 2 = 2): Promise<number> {
+export async function authorizeQuantityEstimate(db: SisubDb, ctx: UserContext, quantityEstimateId: string, level: 1 | 2 = 2): Promise<number> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({ unitId: quantityEstimateInProcurement.unitId })

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { DateSchema, KitchenIdSchema } from "./common.ts"
 
 // ─── Arranchamento (o comensal declara que vai comer) ──────────────────────
 
@@ -105,9 +106,26 @@ export type RecordProductionSubstitution = z.infer<typeof RecordProductionSubsti
 
 // ─── Daily menu content (aggregated dishes) ─────────────────────────────────
 
-export const FetchDailyMenuContentSchema = z.object({
-	kitchenIds: z.array(z.number()),
-	startDate: z.string(),
-	endDate: z.string(),
-})
+/**
+ * Tetos da leitura do cardápio pelo comensal. O arranchamento pede 30 dias a partir de hoje e,
+ * no máximo, a cozinha padrão mais uma por dia com refeitório trocado (30 + 1); o cardápio da
+ * semana pede 7 dias e uma cozinha. Os tetos cobrem as duas telas com folga zero de propósito:
+ * acima disso não é tela, é varredura.
+ */
+export const DAILY_MENU_CONTENT_MAX_KITCHENS = 31
+export const DAILY_MENU_CONTENT_MAX_DAYS = 31
+
+const DAY_MS = 86_400_000
+
+export const FetchDailyMenuContentSchema = z
+	.object({
+		kitchenIds: z.array(KitchenIdSchema).max(DAILY_MENU_CONTENT_MAX_KITCHENS, `no máximo ${DAILY_MENU_CONTENT_MAX_KITCHENS} cozinhas por consulta`),
+		startDate: DateSchema,
+		endDate: DateSchema,
+	})
+	.refine((v) => v.endDate >= v.startDate, { message: "a data final não pode ser anterior à inicial", path: ["endDate"] })
+	.refine((v) => (Date.parse(`${v.endDate}T00:00:00Z`) - Date.parse(`${v.startDate}T00:00:00Z`)) / DAY_MS < DAILY_MENU_CONTENT_MAX_DAYS, {
+		message: `no máximo ${DAILY_MENU_CONTENT_MAX_DAYS} dias por consulta`,
+		path: ["endDate"],
+	})
 export type FetchDailyMenuContent = z.infer<typeof FetchDailyMenuContentSchema>

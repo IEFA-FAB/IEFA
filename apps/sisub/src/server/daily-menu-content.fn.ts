@@ -13,10 +13,12 @@ import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 
+/**
+ * Só o nome: o comensal lê a composição do prato, não a ficha técnica (quantidades do
+ * rendimento, fatores, ids). A projeção é do domínio (`fetchDailyMenuContent`).
+ */
 export interface DishIngredient {
 	ingredient_name: string
-	quantity: number
-	measure_unit: string
 }
 
 export interface DishDetails {
