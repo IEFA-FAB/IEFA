@@ -88,8 +88,8 @@ describe("inspectSubmissionDocument", () => {
 		expect((error as Error).message).toContain(`${MAX_PDF_PAGES + 1} páginas`)
 	})
 
-	it("aceita o PDF dentro do teto sem extrair o texto", async () => {
-		expect(await inspectSubmissionDocument(blankPdf(2), "application/pdf")).toBeNull()
+	it("aceita o PDF dentro do teto lendo-o inteiro (o texto semeia o cache)", async () => {
+		expect(await inspectSubmissionDocument(blankPdf(2), "application/pdf")).toBe("")
 	})
 })
 

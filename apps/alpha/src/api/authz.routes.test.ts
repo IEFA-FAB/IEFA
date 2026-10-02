@@ -16,6 +16,8 @@ import { MeAccessSchema, UnitsResponseSchema } from "@iefa/alpha-client/access"
 import type { UnitSupportEdge, UserPermission } from "@iefa/pbac"
 import { Hono } from "hono"
 import { type AlphaAccess, needsUnitGraph, resolveAlphaAccess } from "../lib/alpha-access.ts"
+import { testEnv } from "../lib/test-env.test-helpers.ts"
+import { fakeClaimUsage } from "../lib/usage-limit.test-helpers.ts"
 
 /**
  * PDF de uma página, o menor que o pdf.js abre. O upload confere o teto de páginas antes de
@@ -128,11 +130,15 @@ const fakeClient = {
 	},
 	rpc: async (name: string, args: Record<string, unknown>) => {
 		state.rpcCalls.push({ name, args })
-		return { data: [], error: null }
+		if (name !== "claim_usage") return { data: [], error: null }
+		const { reply, inserted } = fakeClaimUsage(state.tables.chat_turn_usage ?? [], args)
+		if (inserted) state.tables.chat_turn_usage = [...(state.tables.chat_turn_usage ?? []), inserted]
+		return { data: [reply], error: null }
 	},
 }
 
 mock.module("../db/supabase.ts", () => ({ supabase: fakeClient, core: fakeClient, accessControl: fakeClient }))
+mock.module("../env.ts", () => ({ env: testEnv({ ALPHA_UPLOADS_MAX_PER_DAY: 2, ALPHA_EXTRACTIONS_MAX_PER_DAY: 1 }) }))
 // A extração chama o modelo e lê o `env` do serviço na carga; nenhuma rota testada aqui a usa.
 mock.module("../extraction/extract.ts", () => ({
 	extractContratacao: async () => {
@@ -200,6 +206,7 @@ beforeEach(() => {
 		compliance_finding: [{ id: "finding-iae", run_id: "run-iae", severity: "MEDIA", triage: null, triage_note: null }],
 		compliance_review: [],
 		extraction: [],
+		chat_turn_usage: [],
 	}
 })
 
@@ -344,6 +351,18 @@ describe("POST /api/v1/submissions", () => {
 		expect(storageCalls).toEqual([])
 	})
 
+	test("cota diária de envios: o terceiro do dia é recusado ANTES de ler ou gravar o arquivo", async () => {
+		for (let n = 0; n < 2; n++) expect((await appAs([]).request("/api/v1/submissions", form({ unit_id: String(IAE) }))).status).toBe(201)
+
+		const res = await appAs([]).request("/api/v1/submissions", form({ unit_id: String(IAE) }))
+		expect(res.status).toBe(429)
+		const body = (await res.json()) as { code: string; retry_after: string }
+		expect(body.code).toBe("UPLOAD_DAILY_LIMIT")
+		expect(res.headers.get("retry-after")).toBeTruthy()
+		expect(storageCalls).toHaveLength(2)
+		expect(state.writes.filter((write) => write.table === "submission")).toHaveLength(2)
+	})
+
 	test("deny sem escopo em alpha-requester fecha o envio", async () => {
 		const res = await appAs([grant("alpha-requester", 0)]).request("/api/v1/submissions", form({ unit_id: String(IAE) }))
 
@@ -401,6 +420,18 @@ describe("GET /api/v1/aci/processes/:id", () => {
 
 	test("papel de outra OM: 403", async () => {
 		expect((await appAs([grant("alpha-procurement", 1, GAP_RJ)]).request("/api/v1/aci/processes/sub-iae")).status).toBe(403)
+	})
+
+	test("reexecução: depois de uma verificação concluída, só o ACI da OM; depois do parecer, ninguém", async () => {
+		const aci = await (await appAs([grant("alpha-aci", 1, GAP_SJ)]).request("/api/v1/aci/processes/sub-iae")).json()
+		expect(aci).toMatchObject({ compliance_run: { allowed: true, code: null } })
+
+		const procurement = await (await appAs([grant("alpha-procurement", 1, IAE)]).request("/api/v1/aci/processes/sub-iae")).json()
+		expect(procurement).toMatchObject({ compliance_run: { allowed: false, code: "COMPLIANCE_RERUN_ACI_ONLY" } })
+
+		state.tables.compliance_review?.push({ id: "review-iae", run_id: "run-iae", decision: "aprovado" })
+		const frozen = await (await appAs([grant("alpha-aci", 1, GAP_SJ)]).request("/api/v1/aci/processes/sub-iae")).json()
+		expect(frozen).toMatchObject({ compliance_run: { allowed: false, code: "COMPLIANCE_FROZEN" } })
 	})
 })
 

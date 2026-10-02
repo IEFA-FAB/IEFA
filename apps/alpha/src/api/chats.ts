@@ -24,15 +24,15 @@ import { loadAttachmentSources, loadProcessSources, rememberDocument, SourceLoad
 import { chatModels } from "../chat/models.ts"
 import { searchNorms } from "../chat/norm-search.ts"
 import { buildSourcesBlock, CHAT_SYSTEM_RULES, conversationNonce } from "../chat/prompt.ts"
-import { dailyLimitState, recordTurnUsage } from "../chat/rate-limit.ts"
 import { buildSourceBundle, type TurnSources } from "../chat/sources.ts"
 import { loadThread, presentThread, removeThread, THREAD_COLUMNS, type ThreadRow, touchThread } from "../chat/threads.ts"
 import { supabase } from "../db/supabase.ts"
 import { env } from "../env.ts"
-import { inspectSubmissionDocument, toSubmissionText } from "../extraction/to-text.ts"
+import { toSubmissionText } from "../extraction/to-text.ts"
 import { type AlphaAccess, decideThreadAccess } from "../lib/alpha-access.ts"
 import { DocumentLimitError } from "../lib/document-limits.ts"
 import { isTransientModelFailure } from "../lib/transient.ts"
+import { claimUsage, dailyLimitResponse, dailyLimitState, enforceUsage } from "../lib/usage-limit.ts"
 import { canReadSubmission } from "./authorize.ts"
 import { buildSubmissionStoragePath, MAX_SUBMISSION_BYTES, sanitizeSubmissionFilename } from "./submission-file.ts"
 
@@ -222,11 +222,16 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 		if (countError) return failed(c, "ATTACHMENTS_FAILED")
 		if ((count ?? 0) >= MAX_ATTACHMENTS_PER_THREAD) return attachmentLimit(c)
 
+		// O teto de anexos é por conversa, e conversa avulsa não tem limite: sem a cota diária,
+		// abrir conversas novas era um envio ilimitado de arquivos de 25 MB. A cota é a mesma
+		// do envio de submissão, cobrada antes de ler o arquivo.
+		const refused = await enforceUsage(c, c.get("user").id, "upload")
+		if (refused) return refused
+
 		const bytes = new Uint8Array(await file.arrayBuffer())
 		let sections: ReturnType<typeof toSections>
 		try {
-			// Teto de páginas ANTES da leitura inteira, como no envio de submissão.
-			await inspectSubmissionDocument(bytes, file.type)
+			// Uma leitura só: no PDF ela já aplica o teto de páginas, o prazo e o de memória.
 			sections = toSections(await toSubmissionText(bytes, file.type))
 		} catch (readError) {
 			if (readError instanceof DocumentLimitError) return c.json({ error: "Unprocessable Entity", code: "DOCUMENT_TOO_LARGE", message: readError.message }, 422)
@@ -318,25 +323,19 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 			return c.json({ error: "Forbidden", code: "SUBMISSION_ACCESS_REVOKED", message: "você não tem mais acesso a este processo" }, 403)
 		}
 
-		const limit = await dailyLimitState(user.id, env.ALPHA_CHAT_MAX_TURNS_PER_DAY, new Date())
+		const limit = await dailyLimitState(user.id, "chat", new Date())
 		if (limit === null) return failed(c, "RATE_LIMIT_CHECK_FAILED")
-		if (limit.blocked) {
-			return c.json(
-				{
-					error: "Too Many Requests",
-					code: "CHAT_DAILY_LIMIT",
-					message: `limite de ${env.ALPHA_CHAT_MAX_TURNS_PER_DAY} perguntas em 24 horas atingido`,
-					retry_after: limit.retryAt.toISOString(),
-				},
-				429,
-				{ "retry-after": String(Math.max(1, Math.ceil((limit.retryAt.getTime() - Date.now()) / 1000))) }
-			)
-		}
+		if (limit.blocked) return dailyLimitResponse(c, "chat", limit.retryAt)
 
 		let sources: TurnSources
 		try {
 			sources = thread.submission_id ? await loadProcessSources(thread.submission_id) : await loadAttachmentSources(thread.id)
 		} catch (error) {
+			// Documento acima de um teto de leitura (prazo, memória, páginas) não é falha do
+			// serviço: a pessoa precisa saber o motivo, e repetir não resolve.
+			if (error instanceof DocumentLimitError) {
+				return c.json({ error: "Unprocessable Entity", code: "DOCUMENT_TOO_LARGE", message: error.message }, 422)
+			}
 			console.error(`[chat] fontes da conversa ${thread.id} não carregadas:`, error)
 			return failed(c, error instanceof SourceLoadError ? "SOURCES_UNAVAILABLE" : "INTERNAL_ERROR", 502)
 		}
@@ -367,12 +366,15 @@ export const chatRoutes = new Hono<{ Variables: Variables }>()
 		if (insertError || !question) return failed(c, "MESSAGE_CREATE_FAILED")
 
 		// O teto conta depois da pergunta gravada — tentativa que nem chegou a gravar não gasta
-		// cota — e antes do modelo, num registro que apagar a conversa não alcança. Sem o
-		// registro não há turno: a pergunta sai, para não ficar como "turno em andamento".
-		if (!(await recordTurnUsage(user.id))) {
+		// cota — e antes do modelo, num registro que apagar a conversa não alcança. A leitura
+		// acima é só para recusar cedo; quem decide é este registro, atômico (duas abas no
+		// mesmo instante não passam as duas do teto). Sem o registro não há turno: a pergunta
+		// sai, para não ficar como "turno em andamento".
+		const usage = await claimUsage(user.id, "chat")
+		if (usage === null || usage.blocked) {
 			const { error: rollbackError } = await supabase.from("chat_message").delete().eq("id", question.id)
 			if (rollbackError) console.error(`[chat] pergunta ${question.id} sem registro de uso não removida: ${rollbackError.message}`)
-			return failed(c, "RATE_LIMIT_RECORD_FAILED")
+			return usage === null ? failed(c, "RATE_LIMIT_RECORD_FAILED") : dailyLimitResponse(c, "chat", usage.retryAt)
 		}
 		await touchThread(thread.id, thread.title ? {} : { title: titleFrom(message) })
 

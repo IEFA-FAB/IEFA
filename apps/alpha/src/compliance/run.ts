@@ -14,6 +14,7 @@ import { FEDERAL_LEGISLATION_TYPES } from "../lib/corpora.ts"
 import { runCrossChecks } from "./cross-checks.ts"
 import { matchSections, type SectionFinding, toComparable } from "./match-sections.ts"
 import { LegalRefResolver } from "./resolve-legal-ref.ts"
+import { runInsertConflict } from "./run-policy.ts"
 import { type ObjetoTipo, selectApplicableModel } from "./select-model.ts"
 import { compareSeverity, type Severity, structuralSeverity } from "./severity.ts"
 import { applyCitationGuard, blockForRule, isApplicable, judgeRule, loadActiveRules } from "./verify.ts"
@@ -141,6 +142,10 @@ export async function runCompliance(submissionId: string, extractionId: string):
 		.select("id")
 		.single()
 
+	// As travas do banco (uma execução em andamento por submissão; nada depois do parecer)
+	// viram erro próprio, que a rota responde com 409 — não é falha de infraestrutura.
+	const conflict = runInsertConflict(runError)
+	if (conflict) throw conflict
 	if (runError || !run) throw new Error(`criação da execução falhou: ${runError?.message}`)
 
 	const findings: FindingRow[] = []

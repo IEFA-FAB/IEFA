@@ -23,7 +23,10 @@ import { z } from "zod"
 import { buildQueue, DECISIONS, deriveStage, type QueueRow, type RunStatus, summarizeQueue } from "../aci/queue.ts"
 import { type FinalReport, type ReportDocument, type ReportFinding, type ReportReview, renderReportMarkdown, resolveFindings } from "../aci/report.ts"
 import { blockersByDecision, decisionBlockers, reviewSnapshot, type TriagedFinding } from "../aci/review.ts"
+import { latestRun, loadRunHistory, reapStaleRuns } from "../compliance/run-history.ts"
+import { decideComplianceRun, type RunRecord } from "../compliance/run-policy.ts"
 import { supabase } from "../db/supabase.ts"
+import { env } from "../env.ts"
 import { type AlphaAccess, coversUnit, decideSubmissionReview, isEmptyCoverage, type SubmissionOwnership, unitsFor } from "../lib/alpha-access.ts"
 import { requireRole } from "../middleware/require-role.ts"
 import { canReadComplianceRun, canReadSubmission, canReviewComplianceRun, canTriageFinding } from "./authorize.ts"
@@ -132,6 +135,15 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 
 		const latestRun = runs.data?.[0] ?? null
 		const latestReviewed = latestRun ? (reviews.data ?? []).some((review) => review.run_id === latestRun.id) : false
+		const canDecide = decideSubmissionReview(c.get("access"), submission as SubmissionOwnership)
+		// A mesma decisão que `POST /compliance/runs` aplica: a tela não oferece o que a rota recusa.
+		const rerun = decideComplianceRun({
+			runs: (runs.data ?? []) as RunRecord[],
+			hasReview: (reviews.data ?? []).length > 0,
+			canReview: canDecide,
+			maxRuns: env.ALPHA_COMPLIANCE_MAX_RUNS_PER_SUBMISSION,
+			now: new Date(),
+		})
 
 		return c.json({
 			submission,
@@ -139,7 +151,9 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 			unit_id: submission.unit_id as number,
 			// Decidido aqui, com a MESMA regra que as rotas de triagem e parecer aplicam: ACI
 			// que cobre a OM deste processo. A tela não recalcula.
-			can_decide: decideSubmissionReview(c.get("access"), submission as SubmissionOwnership),
+			can_decide: canDecide,
+			// Pode disparar (ou repetir) a verificação agora? Com o motivo, quando não.
+			compliance_run: rerun.allowed ? { allowed: true, code: null, message: null } : { allowed: false, code: rerun.code, message: rerun.message },
 			// Derivada aqui, com a mesma função da fila — a tela não recalcula.
 			stage: deriveStage((extractions.data ?? []).length > 0, (latestRun?.status as RunStatus | undefined) ?? null, latestReviewed),
 			extractions: extractions.data ?? [],
@@ -214,7 +228,7 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 		// Parecer só do ACI que cobre a OM do processo — ver a triagem acima.
 		if (!(await canReviewComplianceRun(id, c.get("access")))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 
-		const { data: run, error } = await supabase.from("compliance_run").select("id, status").eq("id", id).maybeSingle()
+		const { data: run, error } = await supabase.from("compliance_run").select("id, status, submission_id").eq("id", id).maybeSingle()
 		if (error) return failed(c, "RUN_LOOKUP_FAILED")
 		if (!run) return c.json({ error: "Not Found", code: "RUN_NOT_FOUND" }, 404)
 		if (run.status !== "succeeded") {
@@ -222,6 +236,22 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 				{ error: "Conflict", code: "RUN_NOT_SUCCEEDED", message: `a execução está "${run.status}" — parecer só sobre execução concluída`, status: run.status },
 				409
 			)
+		}
+
+		// O parecer congela a submissão e se refere a UMA execução: tem de ser a mais recente, e
+		// sem outra em andamento. Senão a etapa e o chat (que leem a mais recente) contradiriam
+		// o parecer gravado. O gatilho `compliance_review_run_guard` repete a regra no insert.
+		const loaded = await loadRunHistory(run.submission_id as string)
+		if (loaded === null) return failed(c, "RUNS_FAILED")
+		const history = await reapStaleRuns(loaded, new Date())
+		if (history.runs.some((other) => other.status === "running")) {
+			return c.json(
+				{ error: "Conflict", code: "RUN_IN_PROGRESS", message: "há uma verificação em andamento nesta submissão — aguarde o fim para emitir o parecer" },
+				409
+			)
+		}
+		if (latestRun(history.runs)?.id !== run.id) {
+			return c.json({ error: "Conflict", code: "RUN_NOT_LATEST", message: "o parecer só cabe sobre a execução mais recente da submissão" }, 409)
 		}
 
 		// Falha aqui NÃO vira "sem achados": seria emitir parecer sem ler.
@@ -248,7 +278,8 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 			// corrida entre a checagem acima e uma triagem concorrente. Mesma
 			// resposta que a checagem do app, para a tela reagir igual.
 			if (insertError.code === "23514") {
-				const code = insertError.message.includes("RUN_NOT_SUCCEEDED") ? "RUN_NOT_SUCCEEDED" : "DECISION_BLOCKED"
+				const code =
+					(["RUN_NOT_SUCCEEDED", "RUN_IN_PROGRESS", "RUN_NOT_LATEST"] as const).find((known) => insertError.message.includes(known)) ?? "DECISION_BLOCKED"
 				const message = insertError.details || "os achados mudaram durante a emissão — confira a triagem e tente de novo"
 				return c.json({ error: "Conflict", code, message, blockers: [message] }, 409)
 			}

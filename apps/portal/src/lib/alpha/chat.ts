@@ -166,10 +166,52 @@ export async function openMessageStream(token: string, sessionId: string, messag
 		signal,
 	})
 
-	if (!response.ok || !response.body) {
-		throw new Error(await response.text().catch(() => `stream: ${response.status}`))
-	}
+	if (!response.ok) throw await toAlphaChatError(response)
+	if (!response.body) throw new Error(`stream: ${response.status} sem corpo`)
 	return response
+}
+
+/**
+ * Recusa do α ANTES do stream, com o código e a mensagem que ele mandou. Depois que o SSE
+ * abre não há mais status — o erro vira evento `error`.
+ */
+export class AlphaChatError extends Error {
+	readonly status: number
+	readonly code: string | null
+	/** Teto diário: quando o envio volta a valer (ISO), vindo do α. */
+	readonly retryAfter: string | null
+
+	constructor(status: number, code: string | null, message: string | null, retryAfter: string | null) {
+		super(message ?? code ?? `stream: ${status}`)
+		this.name = "AlphaChatError"
+		this.status = status
+		this.code = code
+		this.retryAfter = retryAfter
+	}
+}
+
+export async function toAlphaChatError(response: Response): Promise<AlphaChatError> {
+	const body = (await response.json().catch(() => null)) as { code?: string; message?: string; retry_after?: string } | null
+	return new AlphaChatError(response.status, body?.code ?? null, body?.message ?? null, body?.retry_after ?? null)
+}
+
+/**
+ * A sessão guardada não é (mais) desta pessoa para o α: criada antes do registro de dono e
+ * nunca usada, ou expurgada por ficar vazia. A tela abre uma conversa nova e reenvia.
+ */
+export function isUnavailableSession(error: unknown): boolean {
+	return error instanceof AlphaChatError && error.status === 403 && error.code === "FORBIDDEN"
+}
+
+export const GENERIC_CHAT_ERROR = "Ocorreu um erro ao consultar o serviço. Tente novamente em instantes."
+
+/** O que a tela mostra na falha: no teto diário, o motivo e quando volta; no resto, o genérico. */
+export function chatErrorText(error: unknown): string {
+	if (!(error instanceof AlphaChatError) || error.status !== 429) return GENERIC_CHAT_ERROR
+	const when = error.retryAfter ? new Date(error.retryAfter) : null
+	const reason = error.code === "RADA_DAILY_LIMIT" ? error.message : "Limite diário de perguntas atingido"
+	if (!when || Number.isNaN(when.getTime())) return `${reason}.`
+	return `${reason}. Você pode perguntar de novo a partir de ${when.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}.`
 }
 
 /** Um evento SSE já separado em nome e dado. */

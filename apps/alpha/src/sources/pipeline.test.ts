@@ -89,7 +89,16 @@ function builder(table: string) {
 // arquivo (`Export named 'core' not found`), e só na ordem de execução do CI.
 const fakeSupabase = { from: (table: string) => builder(table) }
 mock.module("../db/supabase.ts", () => ({ supabase: fakeSupabase, core: fakeSupabase, accessControl: fakeSupabase }))
-mock.module("../lib/embeddings.ts", () => ({ embeddingModelId: () => "fake:model" }))
+// Mesmo motivo: todos os exports de `lib/embeddings.ts`, senão quem importa `embeddingError`
+// depois deste arquivo quebra com `Export named 'embeddingError' not found`.
+mock.module("../lib/embeddings.ts", () => ({
+	EMBEDDING_DIMENSIONS: 1024,
+	embeddingModelId: () => "fake:model",
+	getEmbeddings: () => {
+		throw new Error("getEmbeddings não deveria ser chamado no teste do pipeline")
+	},
+	embeddingError: (cause: unknown) => new Error(`embedding falhou [fake:model]: ${cause instanceof Error ? cause.message : String(cause)}`),
+}))
 
 const { ingestSource } = await import("./pipeline.ts")
 

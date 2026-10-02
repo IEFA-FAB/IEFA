@@ -17,6 +17,7 @@ import { inspectSubmissionDocument, toSubmissionText } from "../extraction/to-te
 import { type AlphaAccess, coversUnit, READER_ROLES, unitsFor } from "../lib/alpha-access.ts"
 import { DocumentLimitError } from "../lib/document-limits.ts"
 import { TextCache } from "../lib/text-cache.ts"
+import { enforceUsage } from "../lib/usage-limit.ts"
 import { canReadSubmission } from "./authorize.ts"
 import { SUBMISSION_BUCKET } from "./submission-bucket.ts"
 import { buildSubmissionStoragePath, MAX_SUBMISSION_BYTES, SUBMISSION_EXTENSIONS, sanitizeSubmissionFilename } from "./submission-file.ts"
@@ -101,12 +102,17 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		if (unitError) return c.json({ error: "Internal Server Error", code: "UNIT_LOOKUP_FAILED" }, 500)
 		if (!unit || unit.is_training) return c.json({ error: "Unprocessable Entity", code: "UNIT_NOT_FOUND", message: "OM inexistente" }, 422)
 
+		// Cota diária de envios, cobrada antes de ler o arquivo: sem ela, qualquer autenticado
+		// gravava arquivos de 25 MB no Storage (e prendia CPU lendo cada um) sem limite.
+		const refused = await enforceUsage(c, user.id, "upload")
+		if (refused) return refused
+
 		const bytes = new Uint8Array(await file.arrayBuffer())
 
 		// Tetos de leitura conferidos ANTES de aceitar: um documento acima deles (PDF de 600
 		// páginas, docx com XML gigante) era gravado com 201 e depois falhava para sempre em
 		// texto, extração e verificação, sem dizer por quê.
-		let inspectedText: string | null
+		let inspectedText: string
 		try {
 			inspectedText = await inspectSubmissionDocument(bytes, file.type)
 		} catch (inspectError) {
@@ -123,7 +129,7 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 			console.error(`[submissions] upload de ${storagePath} falhou: ${uploadError.message}`)
 			return c.json({ error: "Internal Server Error", code: "UPLOAD_FAILED", message: "falha ao gravar o arquivo" }, 500)
 		}
-		if (inspectedText !== null) submissionTexts.set(storagePath, inspectedText)
+		submissionTexts.set(storagePath, inspectedText)
 
 		const { data, error } = await supabase
 			.from("submission")
@@ -196,9 +202,15 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		if (error) return c.json({ error: "Internal Server Error", code: "SUBMISSION_LOOKUP_FAILED" }, 500)
 		if (!submission) return c.json({ error: "Not Found", code: "SUBMISSION_NOT_FOUND" }, 404)
 
+		// Teto diário cobrado ANTES da leitura: ler o PDF também ocupa uma das vagas do leitor
+		// isolado, e a chamada de modelo abaixo é o que mais custa.
+		const refused = await enforceUsage(c, user.id, "extraction")
+		if (refused) return refused
+
 		try {
 			const text = await loadSubmissionText(submission.storage_path, submission.mime_type)
 			if (text === null) return c.json({ error: "Internal Server Error", code: "DOWNLOAD_FAILED" }, 500)
+
 			const result = await extractContratacao(text, submission.doc_kind)
 
 			const { data: extraction, error: insertError } = await supabase

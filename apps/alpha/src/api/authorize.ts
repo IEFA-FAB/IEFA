@@ -83,6 +83,13 @@ export async function canReviewComplianceRun(runId: string, access: AlphaAccess)
 	const submissionId = await loadRunSubmissionId(runId)
 	if (!submissionId) return false
 
+	return canReviewSubmission(submissionId, access)
+}
+
+/** O usuário é ACI que cobre a OM desta submissão? (Reexecutar a verificação exige isso.) */
+export async function canReviewSubmission(submissionId: string, access: AlphaAccess): Promise<boolean> {
+	if (access.roles.aci === "all") return true
+
 	const ownership = await loadSubmissionOwnership(submissionId)
 	return ownership !== null && decideSubmissionReview(access, ownership)
 }
@@ -121,12 +128,45 @@ export async function extractionBelongsToSubmission(extractionId: string, submis
  * processo, e o ACI não tem por que ler a conversa de outro servidor. A regra é
  * dono ou ninguém.
  *
- * Sessão sem nenhum registro em `query_log` é thread recém-criado pelo próprio
- * cliente — ainda não tem dono, e negar impediria a primeira mensagem.
+ * O dono é gravado em `rada_session` quando `POST /sessions` cunha o id. Antes, o dono saía
+ * da primeira linha de `query_log`, gravada só no FIM do turno (e sujeita a falhar calada), e
+ * sessão sem linha era aceita para qualquer autenticado — quem soubesse o id de uma sessão
+ * recém-criada a lia e continuava.
+ *
+ * Sessão sem linha em `rada_session` mas com perguntas em `query_log` (criada pelo α anterior
+ * entre a migration e o deploy) é do autor da PRIMEIRA pergunta: ele é adotado como dono, e
+ * mais ninguém. Sessão sem nenhuma das duas é recusada. Falha de leitura nega.
  */
-export async function canAccessSession(sessionId: string, user: User): Promise<boolean> {
-	const { data } = await supabase.from("query_log").select("user_id").eq("session_id", sessionId).limit(1).maybeSingle()
-	if (!data) return true
+export async function canAccessSession(sessionId: string, user: Pick<User, "id">): Promise<boolean> {
+	const { data, error } = await supabase.from("rada_session").select("user_id").eq("id", sessionId).maybeSingle()
+	if (error) {
+		// Id que não é UUID cai aqui (22P02) — é recusa, não incidente, mas fica no log igual.
+		console.error(`[authorize] sessão ${JSON.stringify(sessionId)} não lida: ${error.message}`)
+		return false
+	}
+	if (data) return data.user_id === user.id
 
-	return data.user_id === user.id
+	const { data: first, error: logError } = await supabase
+		.from("query_log")
+		.select("user_id")
+		.eq("session_id", sessionId)
+		.not("user_id", "is", null)
+		.order("created_at", { ascending: true })
+		.limit(1)
+		.maybeSingle()
+	if (logError) {
+		console.error(`[authorize] dono da sessão ${JSON.stringify(sessionId)} não lido: ${logError.message}`)
+		return false
+	}
+	if (!first || first.user_id !== user.id) return false
+
+	// Adoção: grava o dono para as próximas. Se outra requisição gravou antes (23505), vale o
+	// que está lá — relido, não presumido.
+	const { error: adoptError } = await supabase.from("rada_session").insert({ id: sessionId, user_id: user.id })
+	if (adoptError && adoptError.code !== "23505") console.error(`[authorize] dono da sessão ${JSON.stringify(sessionId)} não gravado: ${adoptError.message}`)
+	if (adoptError?.code === "23505") {
+		const { data: winner } = await supabase.from("rada_session").select("user_id").eq("id", sessionId).maybeSingle()
+		return winner?.user_id === user.id
+	}
+	return true
 }

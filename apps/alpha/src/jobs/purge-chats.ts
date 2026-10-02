@@ -13,10 +13,10 @@
  * Ligar no deploy não apaga nada — nenhuma conversa alcança 180 dias antes de 180 dias.
  */
 
-import { purgeTurnUsage } from "../chat/rate-limit.ts"
 import { isPurgeable, purgeCutoff } from "../chat/retention.ts"
 import { removeThread, THREAD_COLUMNS, type ThreadRow } from "../chat/threads.ts"
 import { supabase } from "../db/supabase.ts"
+import { purgeTurnUsage } from "../lib/usage-limit.ts"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -33,10 +33,15 @@ export interface PurgeReport {
 	failed: number
 	/** Registros do teto diário que já saíram da janela (`chat_turn_usage`). */
 	usage: number
+	/** Sessões do ChatRADA criadas há mais de 24 h sem nenhuma pergunta (`rada_session`). */
+	emptySessions: number
 }
 
+/** Sessão do ChatRADA vazia por mais que isto é expurgada: `POST /sessions` grava uma por chamada. */
+export const EMPTY_SESSION_TTL_MS = 24 * 60 * 60 * 1000
+
 export async function purgeExpiredChats(now: Date = new Date()): Promise<PurgeReport> {
-	const report: PurgeReport = { removed: 0, failed: 0, usage: 0 }
+	const report: PurgeReport = { removed: 0, failed: 0, usage: 0, emptySessions: 0 }
 	const failedIds = new Set<string>()
 
 	for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
@@ -75,6 +80,13 @@ export async function purgeExpiredChats(now: Date = new Date()): Promise<PurgeRe
 	} catch (error) {
 		console.error("[jobs] registros do teto diário não expurgados", error)
 	}
+
+	// Mesmo isolamento: sessão vazia não tem conteúdo, só o dono e a hora.
+	const { data: emptySessions, error: sessionsError } = await supabase.rpc("purge_empty_rada_sessions", {
+		p_before: new Date(now.getTime() - EMPTY_SESSION_TTL_MS).toISOString(),
+	})
+	if (sessionsError) console.error(`[jobs] sessões vazias do ChatRADA não expurgadas: ${sessionsError.message}`)
+	else report.emptySessions = Number(emptySessions ?? 0)
 
 	return report
 }

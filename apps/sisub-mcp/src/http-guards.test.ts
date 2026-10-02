@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { IncomingMessage } from "node:http"
 import { PassThrough } from "node:stream"
-import { BodyTooLargeError, clientIpFrom, countUserSessions, readBodyCapped } from "./http-guards.ts"
+import { BodyTooLargeError, clientIpFrom, countUserSessions, readBodyCapped, SECURITY_HEADERS } from "./http-guards.ts"
 
 describe("clientIpFrom", () => {
 	test("usa o ÚLTIMO hop do X-Forwarded-For — o que o ALB acrescenta", () => {
@@ -45,4 +45,14 @@ describe("readBodyCapped", () => {
 
 test("countUserSessions conta só as do usuário", () => {
 	expect(countUserSessions([{ userId: "a" }, { userId: "b" }, { userId: "a" }], "a")).toBe(2)
+})
+
+describe("SECURITY_HEADERS", () => {
+	test("HSTS, nosniff, frame-options e referrer, sem tocar nos cabeçalhos de CORS", () => {
+		expect(SECURITY_HEADERS["Strict-Transport-Security"]).toContain("max-age=")
+		expect(SECURITY_HEADERS["X-Content-Type-Options"]).toBe("nosniff")
+		expect(SECURITY_HEADERS["X-Frame-Options"]).toBe("DENY")
+		expect(SECURITY_HEADERS["Referrer-Policy"]).toBe("no-referrer")
+		expect(Object.keys(SECURITY_HEADERS).some((name) => name.toLowerCase().startsWith("access-control-"))).toBe(false)
+	})
 })

@@ -11,6 +11,7 @@ import type { AlphaAccess } from "../lib/alpha-access.ts"
 import { messageText } from "../lib/message-text.ts"
 import { redactCloudIdentifiers } from "../lib/redact.ts"
 import { createRunCollector } from "../lib/run-collector.ts"
+import { enforceUsage } from "../lib/usage-limit.ts"
 import { authMiddleware } from "../middleware/auth"
 import { requireRole } from "../middleware/require-role.ts"
 import { embedDocuments } from "../sources/embeddings"
@@ -25,6 +26,7 @@ import { chatRoutes } from "./chats.ts"
 import { complianceRoutes } from "./compliance"
 import { browserCors } from "./cors.ts"
 import { demandRoutes } from "./demands.ts"
+import { alphaSecureHeaders } from "./security-headers.ts"
 import { submissionRoutes } from "./submissions"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -37,9 +39,9 @@ type AppVariables = {
 /**
  * Motivos de término em que NÃO houve resposta do assistente.
  *
- * Existem porque a sessão precisa de dono mesmo quando o turno morre (`canAccessSession`
- * devolve `true` para sessão sem linha em `query_log`), e ao mesmo tempo não podem entrar
- * no pareamento posicional do histórico, que exige uma linha por resposta.
+ * O turno perdido fica registrado (com o motivo verdadeiro, não como `success`), e ao mesmo
+ * tempo não pode entrar no pareamento posicional do histórico, que exige uma linha por
+ * resposta. O dono da sessão não depende mais disto: mora em `rada_session` desde a criação.
  */
 const TURN_ABORTED = "aborted"
 const TURN_ERRORED = "error"
@@ -206,10 +208,8 @@ function buildResponse(session_id: string, state: any): MessageResponse {
  * Registra o turno.
  *
  * A falha era engolida, e `query_log` não é só telemetria: é de onde saem a lista de
- * sessões, as citações do histórico e o dono que `canAccessSession` confere. Perder a
- * linha em silêncio some com a conversa da lista, desalinha as citações e — o pior —
- * deixa `canAccessSession` devolver `true` para aquela sessão a QUALQUER autenticado,
- * porque ela passa a não ter dono registrado.
+ * sessões e as citações do histórico. Perder a linha em silêncio some com a conversa da
+ * lista e desalinha as citações. (O dono da sessão já não sai daqui: `rada_session`.)
  *
  * Não relança: o usuário já recebeu a resposta, e derrubar o turno depois disso trocaria
  * um registro perdido por uma resposta perdida. O aviso é o que torna a perda visível.
@@ -239,6 +239,9 @@ async function logQuery(session_id: string, user_id: string, query: string, stat
 // ─── Rotas ────────────────────────────────────────────────────────────────────
 
 const app = new Hono<{ Variables: AppVariables }>()
+	// HSTS, nosniff, frame-options e referrer em TODA resposta — inclusive as rotas que o
+	// `index.ts` acrescenta depois (health, legal, descoberta de agente) e o SSE.
+	.use("*", alphaSecureHeaders)
 	.use("/api/v1/*", browserCors)
 	// Auth ANTES do teto de corpo: com o corpo em chunked (sem `content-length`) o
 	// `bodyLimit` lê o stream inteiro até o teto para contar — um anônimo fazia o α
@@ -258,13 +261,12 @@ const app = new Hono<{ Variables: AppVariables }>()
 	// Chat sobre documento do contrate: conversas de processo e avulsas.
 	.route("/", chatRoutes)
 
-	// POST /api/v1/sessions — cria nova sessão de conversa
 	/**
 	 * GET /api/v1/sessions — conversas do usuário, da mais recente para a mais antiga.
 	 *
-	 * A sessão não tem tabela própria: ela é um UUID que o cliente cunha e que o α passa a
-	 * conhecer quando a primeira pergunta é registrada em `query_log`. Daí a lista sair
-	 * daqui, com a primeira pergunta servindo de título — é o que o usuário reconhece.
+	 * O dono da sessão mora em `rada_session` (gravado em `POST /sessions`), mas a lista sai
+	 * de `query_log`: sessão sem pergunta não é conversa, e a pergunta mais recente serve de
+	 * título — é o que o usuário reconhece.
 	 *
 	 * Sem este endpoint o ChatRADA não tinha como oferecer histórico: a tela chamava um
 	 * `GET /sessions` que nunca existiu e recebia 404.
@@ -303,9 +305,17 @@ const app = new Hono<{ Variables: AppVariables }>()
 		return c.json({ sessions, truncated: (data?.length ?? 0) >= ROW_WINDOW || bySession.size > MAX_SESSIONS })
 	})
 
+	// POST /api/v1/sessions — cria nova sessão de conversa, já com dono
 	.post("/api/v1/sessions", async (c) => {
 		const user = c.get("user")
 		const session_id = uuid()
+		// O dono é gravado aqui, antes de qualquer turno: `canAccessSession` recusa sessão sem
+		// linha em `rada_session`. Sem a gravação não há sessão.
+		const { error } = await supabase.from("rada_session").insert({ id: session_id, user_id: user.id })
+		if (error) {
+			console.error(`[sessions] sessão não criada: ${error.message}`)
+			return c.json({ error: "Internal Server Error", code: "SESSION_CREATE_FAILED" }, 500)
+		}
 		return c.json<SessionCreatedResponse>(
 			{
 				session_id,
@@ -329,6 +339,10 @@ const app = new Hono<{ Variables: AppVariables }>()
 		if (!(await canAccessSession(session_id, user))) {
 			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
+		// Teto diário antes do grafo (e, no SSE, antes de abrir o stream: depois dele não há
+		// mais status HTTP). Cada turno são várias chamadas de modelo.
+		const refused = await enforceUsage(c, user.id, "rada")
+		if (refused) return refused
 
 		const input = buildTurnInput(message, session_id, user.id)
 		const config = { configurable: { thread_id: session_id } }
@@ -347,7 +361,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 			await logQuery(session_id, user.id, message, result, Date.now() - startMs, tracer?.getRunId() ?? null)
 			return c.json<MessageResponse>(buildResponse(session_id, result))
 		} catch (error) {
-			// O turno some, mas a sessão não pode ficar sem dono — ver o comentário no SSE.
+			// O turno some, mas o registro dele fica — ver o comentário no SSE.
 			const aborted = c.req.raw.signal.aborted
 			await logQuery(
 				session_id,
@@ -373,6 +387,10 @@ const app = new Hono<{ Variables: AppVariables }>()
 		if (!(await canAccessSession(session_id, user))) {
 			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
+		// Teto diário antes do grafo (e, no SSE, antes de abrir o stream: depois dele não há
+		// mais status HTTP). Cada turno são várias chamadas de modelo.
+		const refused = await enforceUsage(c, user.id, "rada")
+		if (refused) return refused
 
 		const input = buildTurnInput(message, session_id, user.id)
 		const config = { configurable: { thread_id: session_id } }
@@ -417,11 +435,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 				await stream.writeSSE({ event: "complete", data: JSON.stringify(buildResponse(session_id, finalState.values)) })
 			} catch {
 				clearTimeout(timeoutId)
-				// Registrar o turno perdido não é telemetria: `canAccessSession` devolve
-				// `true` para sessão SEM linha em `query_log`, e `POST /sessions` não grava
-				// nada. Sem este registro, todo turno abortado deixaria a sessão sem dono —
-				// legível e continuável por qualquer autenticado. O motivo vai gravado como
-				// é, e não como `success`.
+				// O turno perdido fica registrado, com o motivo como é e não como `success`.
 				const aborted = run.signal.aborted
 				await logQuery(
 					session_id,
@@ -533,6 +547,11 @@ const app = new Hono<{ Variables: AppVariables }>()
 		const source = await getSource(id)
 		if (!source) return c.json({ error: "Not Found", code: "SOURCE_NOT_FOUND" }, 404)
 		if (!hasAdapter(source.id)) return c.json({ error: "Not Implemented", code: "SOURCE_ADAPTER_MISSING" }, 501)
+		// Só a coleta que grava gera embeddings (chamada de modelo); o dry-run não cobra.
+		if (apply) {
+			const refused = await enforceUsage(c, c.get("user").id, "source_refresh")
+			if (refused) return refused
+		}
 
 		try {
 			// A coleta da AGU baixa um .docx por modelo (~50) e cada um leva

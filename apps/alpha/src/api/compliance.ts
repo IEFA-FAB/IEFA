@@ -12,12 +12,16 @@ import { Hono } from "hono"
 import { z } from "zod"
 import { LegalRefResolver } from "../compliance/resolve-legal-ref.ts"
 import { runCompliance } from "../compliance/run.ts"
+import { loadRunHistory, reapStaleRuns } from "../compliance/run-history.ts"
+import { ComplianceRunConflictError, decideComplianceRun } from "../compliance/run-policy.ts"
 import { applyCitationGuard, type ChecklistRule, judgeRule } from "../compliance/verify.ts"
 import { supabase } from "../db/supabase.ts"
+import { env } from "../env.ts"
 import type { AlphaAccess } from "../lib/alpha-access.ts"
 import { DocumentLimitError } from "../lib/document-limits.ts"
+import { enforceUsage } from "../lib/usage-limit.ts"
 import { requireRole } from "../middleware/require-role.ts"
-import { canReadComplianceRun, canReadSubmission, extractionBelongsToSubmission } from "./authorize.ts"
+import { canReadComplianceRun, canReadSubmission, canReviewSubmission, extractionBelongsToSubmission } from "./authorize.ts"
 import { FINDING_COLUMNS, RUN_COLUMNS } from "./columns.ts"
 
 type Variables = { user: User; access: AlphaAccess }
@@ -41,8 +45,10 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	// POST /api/v1/compliance/runs — executa a verificação
 	.post("/api/v1/compliance/runs", zValidator("json", RunBodySchema), async (c) => {
 		const { submission_id, extraction_id } = c.req.valid("json")
+		const user = c.get("user")
+		const access = c.get("access")
 
-		if (!(await canReadSubmission(submission_id, c.get("user"), c.get("access")))) {
+		if (!(await canReadSubmission(submission_id, user, access))) {
 			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
 		// Extração de outra submissão produziria um parecer com trechos de um
@@ -51,9 +57,28 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 			return c.json({ error: "Bad Request", code: "EXTRACTION_SUBMISSION_MISMATCH" }, 400)
 		}
 
+		// Reexecução: congelada depois do parecer, uma por vez, e só o ACI repete uma
+		// verificação concluída — ver `compliance/run-policy.ts`. Antes do teto diário, para a
+		// recusa não gastar cota.
+		const loaded = await loadRunHistory(submission_id)
+		if (loaded === null) return c.json({ error: "Internal Server Error", code: "RUNS_FAILED" }, 500)
+		const now = new Date()
+		const history = await reapStaleRuns(loaded, now)
+		// O papel de ACI na OM só importa para repetir uma verificação concluída: a primeira
+		// não paga a leitura.
+		const canReview = history.runs.some((run) => run.status === "succeeded") ? await canReviewSubmission(submission_id, access) : false
+		const policy = decideComplianceRun({ ...history, canReview, maxRuns: env.ALPHA_COMPLIANCE_MAX_RUNS_PER_SUBMISSION, now })
+		if (!policy.allowed) return c.json({ error: "Conflict", code: policy.code, message: policy.message }, 409)
+
+		const refused = await enforceUsage(c, user.id, "compliance")
+		if (refused) return refused
+
 		try {
 			return c.json(await runCompliance(submission_id, extraction_id), 201)
 		} catch (error) {
+			if (error instanceof ComplianceRunConflictError) {
+				return c.json({ error: "Conflict", code: error.code, message: error.message }, 409)
+			}
 			if (error instanceof DocumentLimitError) {
 				return c.json({ error: "Unprocessable Entity", code: "DOCUMENT_TOO_LARGE", message: error.message }, 422)
 			}
@@ -119,6 +144,9 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 
 		if (error) return c.json({ error: "Internal Server Error", code: "RULE_LOOKUP_FAILED" }, 500)
 		if (!rule) return c.json({ error: "Not Found", code: "RULE_NOT_FOUND" }, 404)
+
+		const refused = await enforceUsage(c, c.get("user").id, "rule_evaluation")
+		if (refused) return refused
 
 		try {
 			const verdict = await judgeRule(rule as ChecklistRule, { label: label ?? "trecho avulso", text })

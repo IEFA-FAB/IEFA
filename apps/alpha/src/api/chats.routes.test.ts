@@ -12,6 +12,8 @@ import type { UnitSupportEdge, UserPermission } from "@iefa/pbac"
 import { AIMessageChunk } from "@langchain/core/messages"
 import { Hono } from "hono"
 import { type AlphaAccess, needsUnitGraph, resolveAlphaAccess } from "../lib/alpha-access.ts"
+import { testEnv } from "../lib/test-env.test-helpers.ts"
+import { fakeClaimUsage } from "../lib/usage-limit.test-helpers.ts"
 
 // ─── PostgREST de memória ─────────────────────────────────────────────────────
 
@@ -136,7 +138,15 @@ const fakeClient = {
 			download: async () => ({ data: null, error: { message: "não usado" } }),
 		}),
 	},
-	rpc: async () => ({ data: [], error: null }),
+	rpc: async (name: string, args: Record<string, unknown>) => {
+		if (name !== "claim_usage") return { data: [], error: null }
+		const { reply, inserted } = fakeClaimUsage(state.tables.chat_turn_usage ?? [], args)
+		if (inserted) {
+			state.tables.chat_turn_usage = [...(state.tables.chat_turn_usage ?? []), { id: `chat_turn_usage-${state.nextId++}`, ...inserted }]
+			state.writes.push({ table: "chat_turn_usage", verb: "insert", payload: inserted })
+		}
+		return { data: [reply], error: null }
+	},
 }
 
 mock.module("../db/supabase.ts", () => ({ supabase: fakeClient, core: fakeClient, accessControl: fakeClient }))
@@ -188,9 +198,7 @@ mock.module("../chat/models.ts", () => ({
 
 mock.module("../chat/norm-search.ts", () => ({ searchNorms: async () => ({ hits: [], unavailable: false }) }))
 
-mock.module("../env.ts", () => ({
-	env: { ALPHA_CHAT_MAX_TURNS_PER_DAY: 2, ALPHA_CHAT_DOC_MAX_CHARS: 150_000, ALPHA_CHAT_PURGE_ENABLED: false, ALPHA_FALLBACK_AI_MODEL: "" },
-}))
+mock.module("../env.ts", () => ({ env: testEnv({ ALPHA_CHAT_MAX_TURNS_PER_DAY: 2, ALPHA_UPLOADS_MAX_PER_DAY: 3 }) }))
 
 const { chatRoutes } = await import("./chats.ts")
 
@@ -342,6 +350,20 @@ describe("conversa de processo", () => {
 		expect((await readJson(res)).code).toBe("CHAT_ATTACHMENTS_NOT_ALLOWED")
 		expect(state.storage.uploaded).toEqual([])
 	})
+
+	test("cota diária de envios: abrir conversa nova não dá anexo ilimitado", async () => {
+		// O teto de 5 anexos é por conversa; a cota de envios (3 neste teste) é da pessoa.
+		const now = Date.now()
+		state.tables.chat_turn_usage = [1, 2, 3].map((n) => ({ id: `up${n}`, user_id: ME, kind: "upload", created_at: new Date(now - n * 60_000).toISOString() }))
+		const form = new FormData()
+		form.append("file", new File([new Uint8Array([1])], "x.pdf", { type: "application/pdf" }))
+		const res = await appAs(REQUESTER_IAE).request("/api/v1/chats/thread-loose/attachments", { method: "POST", body: form })
+
+		expect(res.status).toBe(429)
+		expect((await readJson(res)).code).toBe("UPLOAD_DAILY_LIMIT")
+		expect(state.storage.uploaded).toEqual([])
+		expect(state.tables.chat_turn_usage).toHaveLength(3)
+	})
 })
 
 describe("turno", () => {
@@ -369,8 +391,8 @@ describe("turno", () => {
 	test("teto diário: 429 antes do SSE, sem gravar a pergunta nem chamar o modelo", async () => {
 		const now = Date.now()
 		state.tables.chat_turn_usage = [
-			{ id: "u1", user_id: ME, created_at: new Date(now - 60_000).toISOString() },
-			{ id: "u2", user_id: ME, created_at: new Date(now - 120_000).toISOString() },
+			{ id: "u1", user_id: ME, kind: "chat", created_at: new Date(now - 60_000).toISOString() },
+			{ id: "u2", user_id: ME, kind: "chat", created_at: new Date(now - 120_000).toISOString() },
 		]
 		const res = await appAs(REQUESTER_IAE).request("/api/v1/chats/thread-process/messages/stream", json("POST", { message: "mais uma" }))
 
@@ -379,6 +401,28 @@ describe("turno", () => {
 		expect(body.code).toBe("CHAT_DAILY_LIMIT")
 		expect(new Date(body.retry_after ?? 0).getTime()).toBe(now - 120_000 + 24 * 60 * 60 * 1000)
 		expect(state.writes).toEqual([])
+		expect(state.modelCalls).toBe(0)
+	})
+
+	test("duas abas no mesmo instante: a que perde o registro atômico desfaz a pergunta e recebe 429", async () => {
+		// A leitura prévia vê 1 uso (passa); entre ela e o registro, a outra aba registra o 2º.
+		const now = Date.now()
+		state.tables.chat_turn_usage = [{ id: "u1", user_id: ME, kind: "chat", created_at: new Date(now - 60_000).toISOString() }]
+		const originalFrom = fakeClient.from
+		fakeClient.from = (table: string) => {
+			if (table === "chat_message" && state.tables.chat_turn_usage?.length === 1) {
+				state.tables.chat_turn_usage.push({ id: "u2", user_id: ME, kind: "chat", created_at: new Date(now - 1_000).toISOString() })
+			}
+			return originalFrom(table)
+		}
+		try {
+			const res = await appAs(REQUESTER_IAE).request("/api/v1/chats/thread-process/messages/stream", json("POST", { message: "corrida" }))
+			expect(res.status).toBe(429)
+			expect((await readJson(res)).code).toBe("CHAT_DAILY_LIMIT")
+		} finally {
+			fakeClient.from = originalFrom
+		}
+		expect(state.tables.chat_message).toEqual([])
 		expect(state.modelCalls).toBe(0)
 	})
 
