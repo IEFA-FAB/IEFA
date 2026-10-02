@@ -16,21 +16,15 @@ import { siafiAdminRoutes } from "./api/routes/siafi-admin.ts"
 import { api, RESTRICTED_PATHS } from "./api/routes.js"
 import { env } from "./env.ts"
 import { adminAttemptGuard, clientIpFromForwardedFor, FailedAttemptLimiter, isAdminSecretPath, UNKNOWN_ORIGIN } from "./lib/admin-attempt-limit.ts"
+import { apiSecureHeaders } from "./lib/security-headers.ts"
 import { startComprasSyncWorker } from "./workers/compras-sync/index.ts"
 import { startNutritionReferenceSyncWorker } from "./workers/nutrition-reference-sync/index.ts"
 
-/**
- * Segredo curto é adivinhável mesmo com o freio abaixo. Não derruba o boot — o valor de
- * produção é o que é, e trocar o requisito quebraria o deploy —, mas fica visível no log.
- */
-const RECOMMENDED_ADMIN_SECRET_LENGTH = 32
-if (env.ADMIN_SECRET.length < RECOMMENDED_ADMIN_SECRET_LENGTH) {
-	console.warn(
-		`[admin-auth] ADMIN_SECRET tem ${env.ADMIN_SECRET.length} caracteres; o recomendado é ${RECOMMENDED_ADMIN_SECRET_LENGTH} ou mais (ex.: \`openssl rand -hex 32\`).`
-	)
-}
-
 const app = new OpenAPIHono()
+
+// Cabeçalhos de segurança em toda resposta (HSTS, nosniff, frame-options, referrer) — ver
+// `lib/security-headers.ts`. Antes do CORS, para valer também no preflight e no 4xx.
+app.use("*", apiSecureHeaders)
 
 /**
  * IP do cliente: o valor da DIREITA do `X-Forwarded-For` (o que o ALB acrescentou); sem o

@@ -17,6 +17,7 @@
  *   M5 — Validação de `Origin` (spec MCP Streamable HTTP, contra DNS rebinding/CSRF):
  *         sem `Origin` passa; origem fora de SISUB_MCP_ALLOWED_ORIGINS leva 403, sem CORS.
  *         Ver `cors.ts`.
+ *   M7 — Cabeçalhos de segurança (HSTS, nosniff, frame-options, referrer) em toda resposta.
  *
  * Variáveis de ambiente:
  *   MCP_TRANSPORT              "http" (padrão) ou "stdio"
@@ -35,7 +36,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { resolveCredential } from "./auth.ts"
 import { ALLOWED_ORIGINS_ENV, corsHeadersFor, evaluateOrigin, parseAllowedOrigins } from "./cors.ts"
 import { isDbPoolWedged } from "./db.ts"
-import { BodyTooLargeError, clientIpFrom, MAX_SESSIONS_PER_USER, readBodyCapped } from "./http-guards.ts"
+import { BodyTooLargeError, clientIpFrom, MAX_SESSIONS_PER_USER, readBodyCapped, SECURITY_HEADERS } from "./http-guards.ts"
 import { createMcpServer } from "./server.ts"
 import { runFirstRequest, SessionRegistry } from "./session-limits.ts"
 
@@ -153,9 +154,10 @@ if (transportMode === "stdio") {
 
 		// M5: Origem antes de tudo — inclusive do preflight e do /health. Requisição sem
 		// `Origin` (cliente de servidor/CLI) segue sem CORS; origem fora da lista leva 403
-		// sem `Access-Control-Allow-Origin`, então o navegador não lê nem a recusa.
+		// sem `Access-Control-Allow-Origin`, então o navegador não lê nem a recusa. M7: os
+		// cabeçalhos de segurança vão junto, em toda resposta.
 		const originDecision = evaluateOrigin(req.headers.origin, allowedOrigins)
-		for (const [k, v] of Object.entries(corsHeadersFor(originDecision))) {
+		for (const [k, v] of Object.entries({ ...corsHeadersFor(originDecision), ...SECURITY_HEADERS })) {
 			res.setHeader(k, v)
 		}
 		if (originDecision.kind === "denied") {

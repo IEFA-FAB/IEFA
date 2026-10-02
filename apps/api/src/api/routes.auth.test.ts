@@ -39,7 +39,7 @@ const stub = Bun.serve({
 // para onde este teste aponta.
 process.env.API_SUPABASE_URL = `http://127.0.0.1:${stub.port}`
 process.env.API_SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key"
-process.env.ADMIN_SECRET = "test-admin-secret"
+process.env.ADMIN_SECRET = "test-admin-secret-with-32-or-more-chars"
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET
 

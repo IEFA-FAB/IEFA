@@ -12,6 +12,19 @@ export const MAX_BODY_BYTES = 1024 * 1024
 export const MAX_SESSIONS_PER_USER = 10
 
 /**
+ * Cabeçalhos de segurança de toda resposta — os mesmos que o `secureHeaders` do Hono põe na
+ * api e no α (este servidor é `node:http` puro, sem Hono). HSTS de 180 dias com
+ * subdomínios; `nosniff` para o JSON e o SSE não serem reinterpretados; `DENY` porque nada
+ * aqui é página; sem referrer. Nenhum deles interfere no CORS (`M5`) nem no SSE do MCP.
+ */
+export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
+	"Strict-Transport-Security": "max-age=15552000; includeSubDomains",
+	"X-Content-Type-Options": "nosniff",
+	"X-Frame-Options": "DENY",
+	"Referrer-Policy": "no-referrer",
+}
+
+/**
  * IP do cliente para o rate limit.
  *
  * O serviço roda atrás do ALB, que ACRESCENTA ao fim do `X-Forwarded-For` o endereço de quem
