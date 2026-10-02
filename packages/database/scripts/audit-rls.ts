@@ -22,6 +22,10 @@
  *   ERRO   client_table_grant_latent grant de tabela a cliente num schema que ele não alcança
  *   ERRO   client_table_grant    grant de tabela/view a cliente fora da CLIENT_TABLE_ALLOWLIST (ou além de SELECT)
  *   ERRO   fk_without_full_index FK sem índice cheio no lado filho (parcial não serve à checagem de FK)
+ *   ERRO   audit_log_mutable     log de auditoria (sensitive_operation_log, mfa_reset_log) reescrevível ou sem os triggers append-only
+ *   ERRO   access_truncate_unguarded tabela de acesso vigiada sem o trigger BEFORE TRUNCATE
+ *   ERRO   auth_email_change_unguarded auth.users sem o trigger que barra troca de e-mail para fora de @fab.mil.br
+ *   ERRO   default_acl_client_grant default de privilégios do postgres que concede a cliente em qualquer schema (storage incluso)
  *   AVISO  view_secdef_no_grant  view sem security_invoker, mas sem GRANT de cliente hoje
  *   AVISO  secdef_execute_latent EXECUTE de cliente numa SECURITY DEFINER de schema sem USAGE
  *   AVISO  rls_no_policy         RLS ligada e nenhuma policy → deny-all (ok se for só service-role)
@@ -795,6 +799,148 @@ async function auditClientSchemaUsage(schemas: string[]): Promise<Finding[]> {
 	]
 }
 
+/** Logs de auditoria de acesso: só INSERT (20261001140000). */
+const AUDIT_LOG_TABLES = ["access_control.sensitive_operation_log", "access_control.mfa_reset_log"] as const
+
+// Bits de `pg_trigger.tgtype` (src/include/catalog/pg_trigger.h).
+const TRIGGER_ROW = 1
+const TRIGGER_BEFORE = 2
+const TRIGGER_DELETE = 8
+const TRIGGER_UPDATE = 16
+const TRIGGER_TRUNCATE = 32
+
+/**
+ * As garantias de 20261001140000…140200 que vivem em trigger — e trigger some sem barulho
+ * (`drop trigger`, `disable trigger`, tabela recriada). O gate cobra que continuem lá:
+ *
+ *   audit_log_mutable          log de auditoria com UPDATE/DELETE/TRUNCATE para quem não é o
+ *                              dono, ou sem os triggers que recusam (por linha e por TRUNCATE);
+ *   access_truncate_unguarded  tabela vigiada (tem o trigger `enforce_audited_access_change`) sem
+ *                              o trigger BEFORE TRUNCATE — tabela vigiada nova traz os dois;
+ *   auth_email_change_unguarded auth.users sem o trigger que recusa trocar o e-mail para fora de
+ *                              @fab.mil.br sem autorização.
+ *
+ * Trigger desligado (`tgenabled = 'D'`) conta como ausente.
+ */
+async function auditAccessTriggers(): Promise<Finding[]> {
+	const findings: Finding[] = []
+
+	const logs = await sql<{ table: string; mutable_by: string[]; row_guard: boolean; truncate_guard: boolean }[]>`
+		select
+			c.oid::regclass::text as table,
+			array(
+				select r || ':' || priv
+				from unnest(array['service_role', 'authenticated', 'anon']) r, unnest(array['UPDATE', 'DELETE', 'TRUNCATE']) priv
+				where has_table_privilege(r, c.oid, priv)
+				order by 1
+			) as mutable_by,
+			exists (
+				select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+				where t.tgrelid = c.oid and t.tgenabled <> 'D' and p.proname = 'refuse_audit_log_change'
+					and t.tgtype & ${TRIGGER_ROW | TRIGGER_BEFORE | TRIGGER_UPDATE | TRIGGER_DELETE} = ${TRIGGER_ROW | TRIGGER_BEFORE | TRIGGER_UPDATE | TRIGGER_DELETE}
+			) as row_guard,
+			exists (
+				select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+				where t.tgrelid = c.oid and t.tgenabled <> 'D' and p.proname = 'refuse_audit_log_change'
+					and t.tgtype & ${TRIGGER_BEFORE | TRIGGER_TRUNCATE} = ${TRIGGER_BEFORE | TRIGGER_TRUNCATE}
+			) as truncate_guard
+		from pg_class c
+		where c.oid::regclass::text = any(${[...AUDIT_LOG_TABLES]})
+	`
+	for (const name of AUDIT_LOG_TABLES) {
+		const r = logs.find((l) => l.table === name)
+		if (!r) continue // tabela inexistente não é deste gate
+		if (r.mutable_by.length > 0) {
+			findings.push({
+				severity: "error",
+				lint: "audit_log_mutable",
+				object: name,
+				detail: `log de auditoria reescrevível por [${r.mutable_by.join(", ")}] — \`revoke update, delete, truncate on table ${name} from public, anon, authenticated, service_role\` (20261001140000)`,
+			})
+		}
+		if (!r.row_guard || !r.truncate_guard) {
+			findings.push({
+				severity: "error",
+				lint: "audit_log_mutable",
+				object: name,
+				detail: `falta trigger ativo de access_control.refuse_audit_log_change(): ${[!r.row_guard && "BEFORE UPDATE OR DELETE FOR EACH ROW", !r.truncate_guard && "BEFORE TRUNCATE"].filter(Boolean).join(" e ")} (20261001140000)`,
+			})
+		}
+	}
+
+	const unguarded = await sql<{ table: string }[]>`
+		select distinct c.oid::regclass::text as table
+		from pg_trigger t
+		join pg_proc p on p.oid = t.tgfoid
+		join pg_class c on c.oid = t.tgrelid
+		where p.proname = 'enforce_audited_access_change'
+			and p.pronamespace = 'access_control'::regnamespace
+			and not exists (
+				select 1 from pg_trigger g join pg_proc gp on gp.oid = g.tgfoid
+				where g.tgrelid = c.oid and g.tgenabled <> 'D' and gp.proname = 'refuse_unaudited_truncate'
+					and g.tgtype & ${TRIGGER_BEFORE | TRIGGER_TRUNCATE} = ${TRIGGER_BEFORE | TRIGGER_TRUNCATE}
+			)
+		order by 1
+	`
+	for (const r of unguarded) {
+		findings.push({
+			severity: "error",
+			lint: "access_truncate_unguarded",
+			object: r.table,
+			detail:
+				"tabela vigiada sem trigger BEFORE TRUNCATE: TRUNCATE não dispara o trigger de linha e esvazia o acesso sem log — `create trigger enforce_audited_truncate before truncate on … for each statement execute function access_control.refuse_unaudited_truncate()` (20261001140100)",
+		})
+	}
+
+	const [auth] = await sql<{ has_users: boolean; guarded: boolean }[]>`
+		select
+			to_regclass('auth.users') is not null as has_users,
+			exists (
+				select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+				where t.tgrelid = to_regclass('auth.users') and t.tgenabled <> 'D'
+					and p.proname = 'enforce_institutional_email_change' and p.pronamespace = 'access_control'::regnamespace
+			) as guarded
+	`
+	if (auth?.has_users && !auth.guarded) {
+		findings.push({
+			severity: "error",
+			lint: "auth_email_change_unguarded",
+			object: "auth.users",
+			detail:
+				"sem trigger ativo de access_control.enforce_institutional_email_change(): conta @fab.mil.br pode trocar o e-mail para qualquer domínio e furar o bloqueio de cadastro (20261001140200)",
+		})
+	}
+
+	return findings
+}
+
+/**
+ * Default de privilégios do `postgres` (o role das migrations) que concede a cliente em QUALQUER
+ * schema e tipo de objeto — inclusive fora de `pgrst.db_schemas`, como `storage`, que o Storage
+ * API alcança com o JWT do usuário. O `auditDefaultAcl` cobre funções nos schemas expostos; este,
+ * o resto. O default do `supabase_admin` (public, graphql) não entra: o `postgres` não pode
+ * alterá-lo (ver `.claude/rules/database.md`).
+ */
+async function auditDefaultAclAnySchema(schemas: string[]): Promise<Finding[]> {
+	const rows = await sql<{ schema: string; objtype: string; acl: string }[]>`
+		select d.defaclnamespace::regnamespace::text as schema, d.defaclobjtype::text as objtype, array_to_string(d.defaclacl, ' ') as acl
+		from pg_default_acl d
+		where d.defaclrole = 'postgres'::regrole
+			and d.defaclnamespace <> 0
+			and exists (select 1 from unnest(d.defaclacl) a where a::text ~ '^(anon|authenticated)=')
+			-- função em schema exposto já é do auditDefaultAcl
+			and not (d.defaclobjtype = 'f' and d.defaclnamespace::regnamespace::text = any(${schemas}))
+		order by 1, 2
+	`
+	const kinds: Record<string, string> = { r: "tables", S: "sequences", f: "routines", T: "types", n: "schemas" }
+	return rows.map((r) => ({
+		severity: "error" as const,
+		lint: "default_acl_client_grant",
+		object: `default privileges (schema ${r.schema}, role postgres, ${kinds[r.objtype] ?? r.objtype})`,
+		detail: `objeto novo neste schema nasce concedido a cliente: ${r.acl} — \`alter default privileges for role postgres in schema ${r.schema} revoke all on ${kinds[r.objtype] ?? "…"} from anon, authenticated\``,
+	}))
+}
+
 async function main() {
 	const schemas = await resolveExposedSchemas()
 	const findings = (
@@ -812,6 +958,8 @@ async function main() {
 			auditClientSchemaUsage(schemas),
 			auditClientTableGrants(schemas),
 			auditForeignKeyIndexes(),
+			auditAccessTriggers(),
+			auditDefaultAclAnySchema(schemas),
 		])
 	).flat()
 
