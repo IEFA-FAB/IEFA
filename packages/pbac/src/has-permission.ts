@@ -56,6 +56,23 @@ export function hasPermission(permissions: UserPermission[], module: AppModule, 
 }
 
 /**
+ * `true` só com allow SEM escopo no nível mínimo, e sem deny do módulo que o derrube.
+ *
+ * Para recurso que vale para a FAB inteira e roda sem recorte de escopo — o assistente de
+ * analytics do sisub executa SQL com BYPASSRLS sobre todas as OMs. `hasPermission` sem escopo
+ * aceitaria um grant escopado ("consulta sem escopo aceita qualquer escopo concedido"), e o
+ * escopo concedido não recortaria nada do que o recurso lê. Aqui ele não conta.
+ *
+ * Qualquer deny do módulo, escopado ou não, também nega: o recurso lê o escopo negado junto com
+ * o resto, então não há como honrar o deny e liberar o resto.
+ */
+export function hasUnscopedPermission(permissions: UserPermission[], module: AppModule, minLevel = 1): boolean {
+	const ofModule = permissions.filter((p) => p.module === module)
+	if (ofModule.some((p) => p.level <= 0)) return false
+	return ofModule.some((p) => p.level >= minLevel && isUnscoped(p))
+}
+
+/**
  * `true` quando QUALQUER um dos módulos concede o nível mínimo.
  *
  * Para o recurso que mais de um módulo legitimamente alcança — no sucont, a casca do
