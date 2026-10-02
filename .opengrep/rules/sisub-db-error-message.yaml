@@ -1,0 +1,51 @@
+##
+# Invariante: erro de query relançado por server fn do sisub passa por `publicDbMessage`.
+#
+# Nasceu de bug (#554): ~300 server fns faziam `throw new Error(\`Erro ao X: ${error.message}\`)`,
+# e quando o erro era do próprio Postgres/PostgREST (coluna inexistente, constraint, cache de
+# schema) a tela recebia nome de tabela, coluna, constraint e valor da linha, em inglês.
+# `publicDbMessage(error)` decide pelo `code`: `RAISE` das funções do sisub passa, o resto
+# vai para o log e a tela lê um texto em português. O texto em volta continua do autor.
+#
+# A regra olha só variável com nome de erro (`error`, `err`, `<x>Error`, `<x>Err`): erro de
+# validação, de parser ou de API externa tem outro nome e outro tratamento. Erro checado por
+# `instanceof` (classe do app) fica de fora: o texto dele é do autor.
+#
+# Casos de teste: `__fixtures__/sisub-db-error-message.ts` (opengrep test --config
+# .opengrep/rules/sisub-db-error-message.yaml .opengrep/rules/__fixtures__/sisub-db-error-message.ts).
+##
+rules:
+  - id: sisub-raw-db-error-message
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Mensagem crua de erro do banco relançada para a tela. Use `${publicDbMessage(error)}`
+      (`@/lib/db-error-message`) no lugar de `${error.message}`: ele deixa passar o texto dos
+      RAISE do sisub e manda o diagnóstico do Postgres/PostgREST para o log.
+    paths:
+      include:
+        - "apps/sisub/src/server"
+        - "apps/sisub/src/lib"
+      exclude:
+        - "*.test.ts"
+    patterns:
+      - pattern-either:
+          - pattern: new Error(`...${$E.message}...`)
+          - pattern: new Error(`...${$E?.message}...`)
+          - pattern: new Error(`...${$E.message ?? $X}...`)
+          - pattern: new Error(`...${$E?.message ?? $X}...`)
+          - pattern: new Error($E.message)
+          - pattern: new Error($E?.message)
+          - pattern: new Error($E.message || $X)
+          - pattern: new Error($E.message ?? $X)
+          - pattern: new Error($E?.message ?? $X)
+          - pattern: new Error($S + $E.message)
+          - pattern: new Error($S + $E.message + $T)
+      # Erro de classe conhecida (DomainError, OpeningSheetError…) traz texto escrito para o usuário.
+      - pattern-not-inside: |
+          if ($E instanceof $CLASS) { ... }
+      - pattern-not-inside: |
+          if ($E instanceof $CLASS) $STMT;
+      - metavariable-regex:
+          metavariable: $E
+          regex: ^(error|err|[a-z][a-zA-Z]*Error|[a-z][a-zA-Z]*Err|[a-z][a-zA-Z]*\.error)$

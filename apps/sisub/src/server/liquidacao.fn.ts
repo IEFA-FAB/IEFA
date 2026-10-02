@@ -442,7 +442,7 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 					.single()
 				if (error || !liquidacao) {
 					if (error?.code === "23505") throw new Error(`NS "${data.numeroNs}" já registrada nesta unidade`)
-					if (error?.message?.includes("excede o empenho")) throw new Error(error.message)
+					if (error?.message?.includes("excede o empenho")) throw new Error(publicDbMessage(error))
 					// o trigger repete o teto do recebimento sob lock: duas NS simultâneas do mesmo recebimento
 					if (error?.message?.includes("excede o valor recebido")) {
 						throw new Error(`${publicDbMessage(error)}. Liquide só o que foi recebido (Lei 4.320, art. 63), ou vincule a NS a outro recebimento.`)
@@ -515,7 +515,7 @@ export const createPagamentoFn = createServerFn({ method: "POST" })
 					.single()
 				if (error || !pagamento) {
 					if (error?.code === "23505") throw new Error(`OB "${data.numeroOb}" já registrada nesta unidade`)
-					if (error?.message?.includes("excede a liquidação")) throw new Error(error.message)
+					if (error?.message?.includes("excede a liquidação")) throw new Error(publicDbMessage(error))
 					throw new Error(`Erro ao registrar pagamento: ${publicDbMessage(error)}`)
 				}
 				return { pagamentoId: pagamento.id as string }

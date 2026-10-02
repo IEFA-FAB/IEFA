@@ -88,6 +88,7 @@ export async function relinkWaitingRows(unitId: number, actorId: string): Promis
 	try {
 		const { data, error } = await siafi().rpc("relink_waiting_rows", { p_unit_id: unitId, p_actor: actorId })
 		// Fica no servidor: o catch abaixo só loga.
+		// nosemgrep: sisub-raw-db-error-message
 		if (error) throw new Error(error.message)
 		const row = Array.isArray(data) ? data[0] : data
 		return Number(row?.relinked ?? 0)
