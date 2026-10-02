@@ -1,4 +1,4 @@
-import { addCivilDays, brasiliaToday, civilMonthBounds } from "@iefa/sisub-domain/civil-date"
+import { addCivilDays, getBrasiliaToday, getCivilMonthBounds } from "@iefa/sisub-domain/civil-date"
 import type { MessHallAPI } from "@iefa/sisub-domain/types"
 import { Calendar } from "lucide-react"
 import { useMemo } from "react"
@@ -25,17 +25,17 @@ export default function DashboardFilters({ dateRange, onDateRangeChange, messHal
 	const messHallOptions = useMemo(() => messHalls.map((mh) => ({ value: mh.id.toString(), label: mh.display_name })), [messHalls])
 
 	const setToday = () => {
-		const today = brasiliaToday()
+		const today = getBrasiliaToday()
 		onDateRangeChange({ start: today, end: today })
 	}
 
 	const setNext7Days = () => {
-		const today = brasiliaToday()
+		const today = getBrasiliaToday()
 		onDateRangeChange({ start: today, end: addCivilDays(today, 6) })
 	}
 
 	const setThisMonth = () => {
-		onDateRangeChange(civilMonthBounds(brasiliaToday()))
+		onDateRangeChange(getCivilMonthBounds(getBrasiliaToday()))
 	}
 
 	return (

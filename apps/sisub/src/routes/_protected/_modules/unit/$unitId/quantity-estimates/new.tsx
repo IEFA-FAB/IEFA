@@ -1,5 +1,5 @@
 import { DEFAULT_MAX_INCREASE_PERCENT, DEFAULT_MIN_QUOTE_PERCENT, type SegmentExclusion } from "@iefa/sisub-domain"
-import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
@@ -513,7 +513,7 @@ function NewQuantityEstimatePage() {
 
 	const handleExportCSV = () => {
 		downloadCsv(
-			`anexo-quantitativos-${wizardState.title || "suprimentos"}-${brasiliaToday()}.csv`,
+			`anexo-quantitativos-${wizardState.title || "suprimentos"}-${getBrasiliaToday()}.csv`,
 			buildAnnexCsv(annexRows, annexSettings.maxQuantityJustification)
 		)
 	}

@@ -24,6 +24,7 @@ import { kitchenUnitIds, loadKitchenUnitRef } from "../guards/kitchen-unit.ts"
 import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { PermissionDeniedError } from "../types/errors.ts"
+import { getBrasiliaToday } from "../utils/civil-date.ts"
 import { runQuery } from "../utils/index.ts"
 import {
 	ACQUISITION_KIND_LABEL,
@@ -41,7 +42,6 @@ import {
 } from "./acquisition.ts"
 import { canDesignateInUnit, DEFINITIVE_RECEIPT_ROLES, type DesignationRole, PROVISIONAL_RECEIPT_ROLES } from "./designations.ts"
 import type { ReceiptSource } from "./receiving-links.ts"
-import { brasiliaToday } from "./stock-math.ts"
 
 // ────────────────────────────────────────────────────────────────────────────
 // Recebimento: regras puras
@@ -260,7 +260,7 @@ export async function fetchReceivingPendingStatus(db: SisubDb, ctx: UserContext,
 	const receipts = rows.map((row) => ({ ...row, pending: receiptPendingKinds(row) })).filter((row) => row.pending.length > 0)
 	return {
 		kitchenId: input.kitchenId,
-		today: brasiliaToday(),
+		today: getBrasiliaToday(),
 		receipts,
 		counts: countReceiptPending(rows),
 		canDesignate: canDesignateInUnit(ctx.permissions, kitchen.purchaseUnitId ?? kitchen.unitId),
@@ -390,7 +390,7 @@ const numOrNull = (value: unknown): number | null => (value == null ? null : Num
 export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<ExpenseExecutionStatus> {
 	requireUnit(ctx, 1, input.unitId)
 	const unitId = input.unitId
-	const today = brasiliaToday()
+	const today = getBrasiliaToday()
 
 	const kitchens = (await runQuery(
 		"QUERY_FAILED",

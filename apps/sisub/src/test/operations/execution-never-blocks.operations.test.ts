@@ -25,11 +25,11 @@
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	addExecutionMenuItem,
-	brasiliaToday,
 	createTemplate,
 	ensureIssueDayProductionTasks,
 	fetchExecutionReviewStatus,
 	fetchProductionBoard,
+	getBrasiliaToday,
 	ISSUE_VARIANCE_CONTRACT_CASES,
 	recordProductionSubstitution,
 	reviewExecutionMenuItem,
@@ -136,7 +136,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, mealTypeId } = await setupKitchen()
 		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 10 })
-		const today = brasiliaToday()
+		const today = getBrasiliaToday()
 
 		const result = await addExecutionMenuItem(db, shiftCtx(kitchenId), {
 			kitchenId,
@@ -169,20 +169,20 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, mealTypeId } = await setupKitchen()
 		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 10 })
-		const tomorrow = plusDays(brasiliaToday(), 1)
+		const tomorrow = plusDays(getBrasiliaToday(), 1)
 
 		await expect(
 			addExecutionMenuItem(db, shiftCtx(kitchenId), { kitchenId, serviceDate: tomorrow, mealTypeId, recipeId, reason: "[TEST] amanhã" })
 		).rejects.toThrow(/só no cardápio de hoje/)
 		await expect(
-			addExecutionMenuItem(db, plannerReadCtx(kitchenId), { kitchenId, serviceDate: brasiliaToday(), mealTypeId, recipeId, reason: "[TEST] sem grant" })
+			addExecutionMenuItem(db, plannerReadCtx(kitchenId), { kitchenId, serviceDate: getBrasiliaToday(), mealTypeId, recipeId, reason: "[TEST] sem grant" })
 		).rejects.toThrow()
 	}, 60_000)
 
 	test("preparação que não existe nasce provisória, é reaproveitada pelo nome, não entra em cardápio-modelo e sai da pendência com a ficha salva", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, mealTypeId } = await setupKitchen()
-		const today = brasiliaToday()
+		const today = getBrasiliaToday()
 		const name = `[TEST] Farofa ${Date.now()}`
 
 		const first = await addExecutionMenuItem(db, shiftCtx(kitchenId), {
@@ -246,7 +246,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 10 })
 		const added = await addExecutionMenuItem(db, shiftCtx(kitchenId), {
 			kitchenId,
-			serviceDate: brasiliaToday(),
+			serviceDate: getBrasiliaToday(),
 			mealTypeId,
 			recipeId,
 			reason: "[TEST] inclusão",
@@ -258,7 +258,7 @@ describeSupabaseIntegration("execução do dia pelo turno (domínio)", () => {
 			substituteDescription: "[TEST] polpa de acerola",
 			rationale: "[TEST] laranja em falta",
 		})
-		const board = await fetchProductionBoard(db, shiftCtx(kitchenId), { kitchenId, date: brasiliaToday() })
+		const board = await fetchProductionBoard(db, shiftCtx(kitchenId), { kitchenId, date: getBrasiliaToday() })
 		const subs = board.find((i) => i.menuItem.id === added.menuItemId)?.menuItem.substitutions as Record<string, Record<string, unknown>>
 		expect(subs[ingredientId]).toMatchObject({ type: "production", substitute_description: "[TEST] polpa de acerola", rationale: "[TEST] laranja em falta" })
 	}, 60_000)

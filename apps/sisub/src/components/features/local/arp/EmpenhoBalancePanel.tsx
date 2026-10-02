@@ -1,5 +1,5 @@
 import type { Arp, ArpItem } from "@iefa/database/sisub"
-import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, PlusCircle, RefreshCw, XCircle } from "lucide-react"
 import { useState } from "react"
 import { usePBAC } from "@/auth/pbac"
@@ -141,7 +141,7 @@ interface EmpenhoFormProps {
 
 function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) {
 	const [numero, setNumero] = useState("")
-	const [data, setData] = useState(brasiliaToday())
+	const [data, setData] = useState(getBrasiliaToday())
 	const [qtd, setQtd] = useState("")
 	const [valor, setValor] = useState("")
 	const [nota, setNota] = useState("")

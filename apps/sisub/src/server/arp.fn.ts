@@ -11,6 +11,7 @@
 
 import type { ArpItem } from "@iefa/database/sisub"
 import { resolveItemValue } from "@iefa/sisub-domain"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
@@ -36,7 +37,6 @@ import {
 	insertPreparedEmpenho,
 	prepareEmpenhoRegistration,
 } from "@/lib/empenho-registration.server"
-import { todayInBrasilia } from "@/lib/expense-execution"
 import { getFinanceClient, getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
@@ -1060,7 +1060,7 @@ export const anularEmpenhoFn = createServerFn({ method: "POST" })
 				try {
 					return await cancelEmpenhoSerialized({
 						empenhoId: data.empenhoId,
-						data: todayInBrasilia(),
+						data: getBrasiliaToday(),
 						justificativa: data.justificativa ?? "Anulação total da nota de empenho",
 						userId: ctx.userId,
 					})

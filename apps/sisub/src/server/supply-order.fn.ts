@@ -13,7 +13,7 @@
  * @migration 20260926214000_acquisition_origin
  */
 
-import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { resolvePurchaseUnitId } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -213,7 +213,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 				empenho_id: data.empenhoId ?? null,
 				kitchen_id: data.kitchenId,
 				number: data.number?.trim() || null,
-				sent_at: brasiliaToday(),
+				sent_at: getBrasiliaToday(),
 				expected_delivery: data.expectedDelivery,
 				status: "sent",
 				sicaf_status: sicafStatus,

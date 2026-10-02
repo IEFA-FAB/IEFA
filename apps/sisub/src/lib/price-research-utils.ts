@@ -1,5 +1,5 @@
 import { convertSamplePrice, type PriceResearchMethod, resolveResearchUnit, splitOutliersByIqr } from "@iefa/sisub-domain"
-import { addCivilMonths, brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { addCivilMonths, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { searchMaterialPricesFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 
@@ -59,7 +59,7 @@ export function sampleReferenceDate(r: ComprasMaterialPriceResult): string | nul
 
 /** Início da janela: `months` meses antes de `now`, em YYYY-MM-DD. */
 export function periodCutoff(months: number, now: Date = new Date()): string {
-	return addCivilMonths(brasiliaToday(now), -months)
+	return addCivilMonths(getBrasiliaToday(now), -months)
 }
 
 export interface PeriodPartition {

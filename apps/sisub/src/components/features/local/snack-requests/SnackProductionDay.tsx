@@ -1,4 +1,5 @@
 import type { SnackRequestSummary } from "@iefa/sisub-domain"
+import { addCivilDays } from "@iefa/sisub-domain/civil-date"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { ArrowLeft, ChefHat, ChevronLeft, ChevronRight, Info, Plane, Tag, Truck } from "lucide-react"
@@ -13,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { snackProductionSummaryQueryOptions } from "@/hooks/data/useSnackRequests"
-import { addDaysToCivilDate, classLabel, formatCivilDateLong, formatInt, formatTime, kitsByClass, lineKits } from "./format"
+import { classLabel, formatCivilDateLong, formatInt, formatTime, kitsByClass, lineKits } from "./format"
 import { SnackLoadError, SnackRequestFlagBadges, SnackStatusBadge } from "./SnackBadges"
 import { SnackLabelsDialog } from "./SnackLabels"
 
@@ -74,14 +75,14 @@ export function SnackProductionDay({ kitchenId, kitchenIdStr, date, today, onDat
 			</PageHeader>
 
 			<div className="flex flex-wrap items-end gap-2">
-				<Button size="icon-sm" variant="outline" aria-label="Dia anterior" onClick={() => onDateChange(addDaysToCivilDate(date, -1))}>
+				<Button size="icon-sm" variant="outline" aria-label="Dia anterior" onClick={() => onDateChange(addCivilDays(date, -1))}>
 					<ChevronLeft aria-hidden="true" />
 				</Button>
 				<Field className="w-44">
 					<FieldLabel htmlFor="snack-production-date">Data de retirada</FieldLabel>
 					<Input id="snack-production-date" type="date" value={date} onChange={(e) => e.target.value && onDateChange(e.target.value)} />
 				</Field>
-				<Button size="icon-sm" variant="outline" aria-label="Dia seguinte" onClick={() => onDateChange(addDaysToCivilDate(date, 1))}>
+				<Button size="icon-sm" variant="outline" aria-label="Dia seguinte" onClick={() => onDateChange(addCivilDays(date, 1))}>
 					<ChevronRight aria-hidden="true" />
 				</Button>
 				{date !== today && (

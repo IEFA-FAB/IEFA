@@ -8,6 +8,7 @@
  * snapshot e o efetivo, aqui só a matemática.
  */
 
+import { addCivilDays } from "../utils/civil-date.ts"
 import { scaleIngredientQuantity } from "./demand-math.ts"
 
 export interface SnapshotIngredientRow {
@@ -84,10 +85,8 @@ export function remainingAfterLateIssues<T extends TheoreticalConsumption>(
 /** Validade de sobra congelada: data da produção + shelf_life_days (null = sem validade). */
 export function leftoverExpiryDate(productionDate: string, shelfLifeDays: number | null | undefined): string | null {
 	if (shelfLifeDays == null || shelfLifeDays <= 0) return null
-	const base = new Date(`${productionDate}T00:00:00Z`)
-	if (Number.isNaN(base.getTime())) return null
-	base.setUTCDate(base.getUTCDate() + shelfLifeDays)
-	return base.toISOString().substring(0, 10)
+	if (Number.isNaN(Date.parse(`${productionDate}T12:00:00Z`))) return null
+	return addCivilDays(productionDate, shelfLifeDays)
 }
 
 /**
@@ -108,9 +107,7 @@ export function pendingIssueWindowStart(input: {
 	maxDays?: number
 }): string {
 	const maxDays = input.maxDays ?? 400
-	const floor = new Date(`${input.today}T00:00:00Z`)
-	floor.setUTCDate(floor.getUTCDate() - maxDays)
-	let start = floor.toISOString().slice(0, 10)
+	let start = addCivilDays(input.today, -maxDays)
 	if (input.firstMovementDate && input.firstMovementDate > start) start = input.firstMovementDate
 	if (input.lastClosedCompetencia) {
 		const [year, month] = input.lastClosedCompetencia.split("-").map(Number) as [number, number]

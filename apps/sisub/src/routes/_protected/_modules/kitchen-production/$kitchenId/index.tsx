@@ -1,3 +1,4 @@
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createFileRoute } from "@tanstack/react-router"
 import { addDays, format, isToday, parseISO, subDays } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -25,7 +26,7 @@ function KitchenProductionPage() {
 	const kitchenName = ctx.scopeContext?.name ?? `Cozinha ${kitchenId}`
 
 	// Date state — defaults to today
-	const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), "yyyy-MM-dd"))
+	const [selectedDate, setSelectedDate] = useState<string>(getBrasiliaToday())
 
 	const selectedDateObj = parseISO(selectedDate)
 	const isTodaySelected = isToday(selectedDateObj)
@@ -39,7 +40,7 @@ function KitchenProductionPage() {
 	}
 
 	function goToToday() {
-		setSelectedDate(format(new Date(), "yyyy-MM-dd"))
+		setSelectedDate(getBrasiliaToday())
 	}
 
 	// Data

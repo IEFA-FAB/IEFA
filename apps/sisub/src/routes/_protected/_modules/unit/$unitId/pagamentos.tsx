@@ -1,4 +1,4 @@
-import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { DEDUCTION_LABELS } from "@iefa/sisub-domain/operations"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Banknote } from "lucide-react"
@@ -41,7 +41,7 @@ function PayRow({ row, unitId, onPaid }: { row: LiquidacaoRow & { fornecedor: st
 		try {
 			await runAssured(() =>
 				createPagamentoFn({
-					data: { unitId: Number(unitId), liquidacaoId: row.id, numeroOb, data: brasiliaToday(), valor: Number(valor) },
+					data: { unitId: Number(unitId), liquidacaoId: row.id, numeroOb, data: getBrasiliaToday(), valor: Number(valor) },
 				})
 			)
 			toast.success("Pagamento registrado")

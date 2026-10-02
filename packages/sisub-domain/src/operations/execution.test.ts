@@ -14,6 +14,7 @@ import { requireKitchenExecution } from "../guards/require-permission.ts"
 import { AddExecutionMenuItemSchema } from "../schemas/execution.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError, QueryFailedError } from "../types/errors.ts"
+import { getBrasiliaToday } from "../utils/civil-date.ts"
 import {
 	addExecutionMenuItem,
 	assertExecutionDate,
@@ -24,7 +25,6 @@ import {
 } from "./execution.ts"
 import * as operationsIndex from "./index.ts"
 import { describeSnapshotGaps, findSnapshotGaps, pendingIssueWindowStart, remainingAfterLateIssues } from "./production-issue.ts"
-import { brasiliaToday } from "./stock-math.ts"
 
 const KITCHEN = 7
 const MEAL = "11111111-1111-4111-8111-111111111111"
@@ -62,7 +62,7 @@ describe("janela de hoje (Brasília)", () => {
 
 	test("o 'hoje' do servidor é o civil de Brasília, não o UTC", () => {
 		// 01h UTC de 27/09 ainda é 22h de 26/09 em Brasília: o jantar de 26 é execução.
-		expect(brasiliaToday(new Date("2026-09-27T01:00:00Z"))).toBe("2026-09-26")
+		expect(getBrasiliaToday(new Date("2026-09-27T01:00:00Z"))).toBe("2026-09-26")
 	})
 })
 
@@ -197,7 +197,7 @@ describe("falha dentro da transação da inclusão vira erro de domínio", () =>
 			select: () => ({ from: () => ({ where: () => Promise.resolve([{ id: MEAL }]) }) }),
 			transaction: () => Promise.reject(new Error('insert into kitchen.menu_items … violates check constraint "menu_items_execution_reason_required"')),
 		} as unknown as SisubDb
-		const today = brasiliaToday()
+		const today = getBrasiliaToday()
 		const run = addExecutionMenuItem(db, ctx([perm("kitchen-production", 1)]), {
 			kitchenId: KITCHEN,
 			serviceDate: today,

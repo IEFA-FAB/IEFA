@@ -1,4 +1,4 @@
-import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { CheckCircle2, ChevronDown, ChevronRight, FlameKindling, Snowflake } from "lucide-react"
 import { useState } from "react"
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/pr
 	beforeLoad: (opts) => requirePermission(opts, "storage", 2),
 	loader: async ({ params }) => {
 		const kitchenId = Number(params.kitchenId)
-		const to = brasiliaToday()
+		const to = getBrasiliaToday()
 		const from = `${to.slice(0, 7)}-01`
 		const [pending, variance, frozenPreparations] = await Promise.all([
 			fetchPendingIssuesFn({ data: { kitchenId } }),

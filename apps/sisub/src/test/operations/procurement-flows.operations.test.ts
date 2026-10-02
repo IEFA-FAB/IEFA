@@ -6,13 +6,13 @@
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
-	brasiliaToday,
 	createDemandForecast,
 	createQuantityEstimateDraft,
 	createSegment,
 	fetchDemandForecastStatus,
 	fetchPendingDemandForecast,
 	fetchProcurementPlanningStatus,
+	getBrasiliaToday,
 	recordDemandForecastImport,
 	sendDemandForecast,
 	updateQuantityEstimateDraft,
@@ -78,7 +78,7 @@ describeSupabaseIntegration("fluxos do planejamento da contratação", () => {
 		expect(kitchenStatus.forecast).toMatchObject({ id: draft.id, status: "sent", imports: [] })
 
 		// Unidade: contratação no mês corrente, com a janela aberta.
-		const month = Number(brasiliaToday().slice(5, 7))
+		const month = Number(getBrasiliaToday().slice(5, 7))
 		const segment = await createSegment(db, ctx, { unitId, name: uid("Carnes "), plannedMonth: month, leadTimeMonths: 1 })
 		seeder.track("segment", segment.id)
 

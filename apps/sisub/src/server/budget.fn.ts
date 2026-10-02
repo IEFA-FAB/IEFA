@@ -23,7 +23,7 @@ import {
 	projectCreditLine,
 	sumCreditNotesForLine,
 } from "@iefa/sisub-domain"
-import { brasiliaCurrentMonth, brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { getBrasiliaCurrentMonth, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
@@ -243,7 +243,7 @@ export const checkBudgetForEmpenhoFn = createServerFn({ method: "GET" })
 		if (error) throw new Error(`Erro ao consultar crédito: ${error.message}`)
 		const lines = (rows ?? []).map(toCreditLineSnapshot)
 
-		const dataEmpenho = data.dataEmpenho ?? brasiliaToday()
+		const dataEmpenho = data.dataEmpenho ?? getBrasiliaToday()
 		const empenhos = lines.length > 0 ? await fetchClassifiedEmpenhos(data.unitId) : []
 		return checkCreditForClassifiedEmpenho(
 			data.valor,
@@ -287,7 +287,7 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 				const parsedRows = (rows ?? []) as { id: string; parsed: Record<string, unknown> }[]
 				if (parsedRows.length === 0) throw new Error("Lote sem linhas válidas para aplicar")
 
-				const competencia = batch.competencia ?? `${brasiliaCurrentMonth()}-01`
+				const competencia = batch.competencia ?? `${getBrasiliaCurrentMonth()}-01`
 				const snapshotAt = new Date().toISOString()
 				const payload = parsedRows.map(({ parsed }) => ({
 					unit_id: batch.unit_id,

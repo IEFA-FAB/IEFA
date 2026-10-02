@@ -25,7 +25,7 @@ import {
 	resolveDirectContractLimit,
 	resolvePurchaseUnitId,
 } from "@iefa/sisub-domain"
-import { addCivilDays, brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { addCivilDays, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
@@ -188,7 +188,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		const kit = kitchen()
 		const proc = procurement()
 
-		const today = brasiliaToday()
+		const today = getBrasiliaToday()
 		const horizonEnd = addCivilDays(today, data.horizonDays)
 
 		// (1) demanda bruta do horizonte (cardápios reais; fórmula compartilhada)

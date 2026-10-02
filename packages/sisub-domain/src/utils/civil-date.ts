@@ -13,29 +13,47 @@
 
 export const BRASILIA_TIME_ZONE = "America/Sao_Paulo"
 
-// `en-CA` é o locale cujo formato numérico curto já é ISO (`YYYY-MM-DD`).
-const CIVIL_DATE_FORMAT = new Intl.DateTimeFormat("en-CA", { timeZone: BRASILIA_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" })
+const CIVIL_DATE_PARTS = new Intl.DateTimeFormat("en-US", { timeZone: BRASILIA_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" })
 
 const CIVIL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
+/**
+ * `YYYY-MM-DD` do instante em Brasília. Monta pelas partes, e não pelo formato do locale: o
+ * formato curto de um locale (o `en-CA` "ISO") muda entre versões do ICU dos navegadores.
+ */
+function formatCivilDate(instant: Date): string {
+	const parts: Partial<Record<Intl.DateTimeFormatPartTypes, string>> = {}
+	for (const part of CIVIL_DATE_PARTS.formatToParts(instant)) parts[part.type] = part.value
+	return `${parts.year}-${parts.month}-${parts.day}`
+}
+
 /** Data civil de hoje em Brasília. */
-export function brasiliaToday(now: Date = new Date()): string {
-	return CIVIL_DATE_FORMAT.format(now)
+export function getBrasiliaToday(now: Date = new Date()): string {
+	return formatCivilDate(now)
+}
+
+/** Exercício (ano civil) corrente em Brasília. */
+export function getBrasiliaYear(now: Date = new Date()): number {
+	return Number(getBrasiliaToday(now).slice(0, 4))
 }
 
 /** Competência corrente em Brasília (`YYYY-MM`). */
-export function brasiliaCurrentMonth(now: Date = new Date()): string {
-	return brasiliaToday(now).slice(0, 7)
+export function getBrasiliaCurrentMonth(now: Date = new Date()): string {
+	return getBrasiliaToday(now).slice(0, 7)
 }
 
 /**
- * Data civil de Brasília de um instante (timestamptz do banco, `Date`). Data já civil
+ * Data civil de Brasília de um instante (timestamptz do banco, em string). Data já civil
  * (`YYYY-MM-DD`) volta como veio; instante ilegível devolve `null`.
+ *
+ * Só string, de propósito: uma data civil já convertida em `Date` (`new Date("2026-10-01")`,
+ * coluna `date` lida pelo driver) é meia-noite UTC, que em Brasília ainda é o dia anterior.
+ * Para um instante em `Date`, use {@link getBrasiliaToday}`(instante)`.
  */
-export function brasiliaCivilDateOf(instant: string | Date): string | null {
-	if (typeof instant === "string" && CIVIL_DATE_RE.test(instant)) return instant
-	const date = typeof instant === "string" ? new Date(instant) : instant
-	return Number.isNaN(date.getTime()) ? null : CIVIL_DATE_FORMAT.format(date)
+export function toBrasiliaCivilDate(instant: string): string | null {
+	if (CIVIL_DATE_RE.test(instant)) return instant
+	const date = new Date(instant)
+	return Number.isNaN(date.getTime()) ? null : formatCivilDate(date)
 }
 
 /** `YYYY-MM-DD` somado de `days` dias (negativo subtrai). */
@@ -55,7 +73,7 @@ export function addCivilMonths(civilDate: string, months: number): string {
 }
 
 /** Primeiro e último dia do mês de uma data civil. */
-export function civilMonthBounds(civilDate: string): { start: string; end: string } {
+export function getCivilMonthBounds(civilDate: string): { start: string; end: string } {
 	const start = `${civilDate.slice(0, 7)}-01`
 	return { start, end: addCivilDays(addCivilMonths(start, 1), -1) }
 }

@@ -1,4 +1,5 @@
-import { brasiliaCivilDate, isStandardReviewOverdue } from "@iefa/sisub-domain/utils"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { isStandardReviewOverdue } from "@iefa/sisub-domain/utils"
 import { AlertTriangle, Sandwich, ShoppingBag } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { isSnackStandard, type SnackStandardColumns, snackStandardLabel } from "@/lib/occasion-menu"
@@ -10,7 +11,7 @@ import { isSnackStandard, type SnackStandardColumns, snackStandardLabel } from "
 export function SnackStandardBadges({ template }: { template: SnackStandardColumns & { kitchen_id: number | null } }) {
 	if (!isSnackStandard(template)) return null
 	const label = snackStandardLabel(template)
-	const today = brasiliaCivilDate(new Date().toISOString())
+	const today = getBrasiliaToday()
 	const overdue = isStandardReviewOverdue(template.reviewed_at, today)
 	return (
 		<div className="flex flex-wrap items-center gap-1 mt-1">

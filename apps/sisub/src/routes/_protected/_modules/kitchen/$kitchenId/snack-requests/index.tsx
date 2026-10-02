@@ -1,7 +1,8 @@
+import { addCivilDays, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
-import { addDaysToCivilDate, civilDateSearchParam, QUEUE_TAB_KEYS, type QueueTab, todayBrasilia } from "@/components/features/local/snack-requests/format"
+import { civilDateSearchParam, QUEUE_TAB_KEYS, type QueueTab } from "@/components/features/local/snack-requests/format"
 import { KitchenSnackQueue, type KitchenSnackQueueSearch } from "@/components/features/local/snack-requests/KitchenSnackQueue"
 
 const queueSearchSchema = z.object({
@@ -31,8 +32,8 @@ function KitchenSnackRequestsPage() {
 	const search = Route.useSearch()
 	const navigate = useNavigate({ from: Route.fullPath })
 
-	const today = todayBrasilia()
-	const defaultRange = { from: today, to: addDaysToCivilDate(today, 7) }
+	const today = getBrasiliaToday()
+	const defaultRange = { from: today, to: addCivilDays(today, 7) }
 	const resolved: KitchenSnackQueueSearch = {
 		tab: search.tab ?? "decide",
 		from: search.from ?? defaultRange.from,

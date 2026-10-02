@@ -1,6 +1,6 @@
 import type { EditScope, SetSnackClassification } from "@iefa/sisub-domain"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { MAX_EVENT_MEALS } from "@iefa/sisub-domain/schemas"
-import { brasiliaCivilDate } from "@iefa/sisub-domain/utils"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type LinkOptions, useNavigate } from "@tanstack/react-router"
 import { AlertTriangle, CalendarPlus, GitFork, ListChecks, Loader2, Plus, Save, Users } from "lucide-react"
@@ -211,7 +211,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const allowAbsolutes = isKitchenTemplate
 	const allowMealAbsolutes = allowAbsolutes && !isSnackStandard
 	// Data civil de Brasília: o mesmo "hoje" que o painel usa para cobrar a revisão trimestral.
-	const snackIssues = useMemo(() => snackDraftIssues(snack, brasiliaCivilDate(new Date().toISOString())), [snack])
+	const snackIssues = useMemo(() => snackDraftIssues(snack, getBrasiliaToday()), [snack])
 	const hasSnackIssues = Object.keys(snackIssues).length > 0
 	const snackPayload = useMemo(
 		() => (isSupportMenu ? snackClassificationFromDraft(snack, { isKitchenTemplate }) : null),

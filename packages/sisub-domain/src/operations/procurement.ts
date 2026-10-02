@@ -27,7 +27,7 @@ import { requireAnyPermission, requireUnit, requireUnscopedPermission } from "..
 import type { FetchProcurementNeeds, FetchUnitDashboard } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
-import { addCivilDays, brasiliaToday } from "../utils/civil-date.ts"
+import { addCivilDays, getBrasiliaToday } from "../utils/civil-date.ts"
 import { runQuery, toWire } from "../utils/index.ts"
 import { scaleIngredientQuantity } from "./demand-math.ts"
 
@@ -352,7 +352,7 @@ export async function fetchUnitDashboard(
 		const kitchenIds = kitchens.map((k) => k.id)
 
 		if (kitchenIds.length > 0) {
-			const today = brasiliaToday()
+			const today = getBrasiliaToday()
 			const future = addCivilDays(today, 30)
 
 			// DUAS queries de propósito (mesmo split de production.ts): daily_menu →

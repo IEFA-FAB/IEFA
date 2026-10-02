@@ -45,7 +45,8 @@ import type {
 } from "../schemas/planning.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { brasiliaCivilDate, runQuery, toWire } from "../utils/index.ts"
+import { getBrasiliaToday } from "../utils/civil-date.ts"
+import { runQuery, toWire } from "../utils/index.ts"
 import { demandRoundingFor, resolveItemDemand } from "./demand-math.ts"
 import { applyEventTemplate } from "./templates.ts"
 
@@ -213,7 +214,7 @@ export async function moveOriginToDate(db: SisubDb, ctx: UserContext, input: Mov
 	if (input.toDate === input.date) throw new DomainError("SAME_DATE", "Escolha uma data diferente da atual.")
 	// Para trás é quase sempre ano digitado errado: os itens cairiam num dia já servido, sumiriam de
 	// todo quadro futuro e inflariam o consumo histórico. Registrar o que já passou se faz no dia.
-	if (input.toDate < brasiliaCivilDate(new Date().toISOString())) {
+	if (input.toDate < getBrasiliaToday()) {
 		throw new DomainError("PAST_DATE", "A nova data já passou. Confira o dia (e o ano) escolhido.")
 	}
 

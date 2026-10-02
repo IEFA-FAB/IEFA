@@ -13,8 +13,8 @@
 import { hasPermission } from "@iefa/pbac"
 import {
 	brasiliaDate,
-	brasiliaToday,
 	computeTheoreticalConsumption,
+	getBrasiliaToday,
 	type LotBalance,
 	leftoverExpiryDate,
 	pendingIssueWindowStart,
@@ -124,7 +124,7 @@ async function openPeriodStart(kitchenId: number): Promise<string> {
 	return pendingIssueWindowStart({
 		lastClosedCompetencia: closing?.competencia ?? null,
 		firstMovementDate: first?.occurred_at ? brasiliaDate(String(first.occurred_at)) : null,
-		today: brasiliaToday(),
+		today: getBrasiliaToday(),
 	})
 }
 
@@ -203,7 +203,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 				data.kitchenId,
 				theoretical.map((t) => t.ingredientId)
 			)
-			const today = brasiliaToday()
+			const today = getBrasiliaToday()
 			const lines = maskBlindCountIssueLines(
 				theoretical.map((line) => {
 					const lots = balances.get(line.ingredientId) ?? []

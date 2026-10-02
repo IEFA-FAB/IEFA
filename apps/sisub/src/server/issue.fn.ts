@@ -16,12 +16,12 @@
  */
 
 import {
-	brasiliaToday,
 	checkDayClosure,
 	computeTheoreticalConsumption,
 	describeSnapshotGaps,
 	ensureIssueDayProductionTasks,
 	findSnapshotGaps,
+	getBrasiliaToday,
 	ISSUE_VARIANCE_REASONS,
 	type IssueLineForVariance,
 	issueSuggestionFingerprint,
@@ -201,7 +201,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		const ctx = await requireStorageForKitchen(2, data.kitchenId)
 		const { userId } = ctx
 		const inv = inventory()
-		const issueDate = data.issueDate ?? brasiliaToday()
+		const issueDate = data.issueDate ?? getBrasiliaToday()
 
 		if (data.origin === "ad_hoc" && (!data.purpose?.trim() || !data.destination?.trim())) {
 			// Saída avulsa sem destino é saída sem dono: não há cardápio para
@@ -311,7 +311,7 @@ export const fetchTodayIssueRequestFn = createServerFn({ method: "GET" })
 	)
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const issueDate = data.issueDate ?? brasiliaToday()
+		const issueDate = data.issueDate ?? getBrasiliaToday()
 		if (data.origin === "production") {
 			const { data: row, error } = await inventory()
 				.from("stock_issue_request")
@@ -396,7 +396,7 @@ export const issueStockFn = createServerFn({ method: "POST" })
 			const { data: lot, error: lotError } = await inv.from("stock_lot").select("expiry_date, quarantined_at").eq("id", data.overrideLotId).maybeSingle()
 			if (lotError) throw new Error(`Erro ao conferir o lote: ${lotError.message}`)
 			if (lot?.quarantined_at) throw new Error("Lote em quarentena não sai para produção")
-			if (lot?.expiry_date && lot.expiry_date < brasiliaToday()) {
+			if (lot?.expiry_date && lot.expiry_date < getBrasiliaToday()) {
 				await requireStorageForKitchen(3, Number(request.kitchen_id))
 			}
 		}
@@ -792,7 +792,7 @@ export const registerLateIssueFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
-		if (data.occurredOn > brasiliaToday()) throw new Error("A data real da saída não pode ser futura")
+		if (data.occurredOn > getBrasiliaToday()) throw new Error("A data real da saída não pode ser futura")
 		const { data: result, error } = await inventory().rpc("register_late_issue", {
 			p_kitchen_id: data.kitchenId,
 			p_ingredient_id: data.ingredientId,

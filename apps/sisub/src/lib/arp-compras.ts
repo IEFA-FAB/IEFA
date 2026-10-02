@@ -6,7 +6,7 @@
  */
 
 import { COMPRAS_MAX_DATE_WINDOW_DAYS } from "@iefa/compras-api"
-import { addCivilDays, brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { addCivilDays, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 
 const MS_PER_DAY = 86_400_000
 
@@ -53,7 +53,7 @@ export function assertVigenciaWindow(min: string, max: string): void {
 
 /** Janela padrão de busca: os últimos 365 dias de vigência inicial. */
 export function defaultVigenciaWindow(now: Date = new Date()): { min: string; max: string } {
-	const today = brasiliaToday(now)
+	const today = getBrasiliaToday(now)
 	return { min: addCivilDays(today, -COMPRAS_MAX_DATE_WINDOW_DAYS), max: today }
 }
 

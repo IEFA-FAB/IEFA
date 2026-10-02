@@ -1,3 +1,4 @@
+import { getBrasiliaYear } from "@iefa/sisub-domain/civil-date"
 import { Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -46,7 +47,7 @@ const toNumber = (value: string): number | null => {
 export function ManualArpDialog({ unitId, acquisitionId, onClose }: { unitId: number; acquisitionId: string | null; onClose: () => void }) {
 	const create = useCreateManualArp(unitId)
 	const [numero, setNumero] = useState("")
-	const [ano, setAno] = useState(String(new Date().getFullYear()))
+	const [ano, setAno] = useState(String(getBrasiliaYear()))
 	const [uasg, setUasg] = useState("")
 	const [nomeUasg, setNomeUasg] = useState("")
 	const [objeto, setObjeto] = useState("")

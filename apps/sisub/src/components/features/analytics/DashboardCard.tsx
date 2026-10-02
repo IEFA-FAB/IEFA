@@ -1,4 +1,4 @@
-import { addCivilDays, brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { addCivilDays, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { useQuery } from "@tanstack/react-query"
 import { AlertTriangle, Building2, LayoutDashboard, Users } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -16,7 +16,7 @@ import MetricsOverview from "./MetricsOverview"
 
 export default function DashboardCard({ unitId }: { unitId: number }) {
 	const [dateRange, setDateRange] = useState(() => {
-		const today = brasiliaToday()
+		const today = getBrasiliaToday()
 		return { start: today, end: addCivilDays(today, 6) }
 	})
 	const [selectedMessHall, setSelectedMessHall] = useState<string>("all")

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { parseMoneyInput, planEmpenhoCancellation, todayInBrasilia } from "@/lib/expense-execution"
+import { parseMoneyInput, planEmpenhoCancellation } from "@/lib/expense-execution"
 
 describe("parseMoneyInput — dinheiro digitado em pt-BR", () => {
 	test("milhar com ponto e decimal com vírgula", () => {
@@ -46,11 +46,5 @@ describe("planEmpenhoCancellation — anulação total pelo valor lido sob o loc
 
 	test("vigente zerado por eventos: cancela zero e marca o status", () => {
 		expect(planEmpenhoCancellation({ ...base, vigente: 0 })).toEqual({ ok: true, valor: 0 })
-	})
-})
-
-describe("todayInBrasilia", () => {
-	test("02h UTC ainda é o dia anterior em Brasília", () => {
-		expect(todayInBrasilia(new Date("2026-09-27T02:00:00Z"))).toBe("2026-09-26")
 	})
 })

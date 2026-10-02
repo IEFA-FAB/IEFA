@@ -1,3 +1,4 @@
+export { getBrasiliaToday } from "../utils/civil-date.ts"
 export { type AccessAudit, type AuditGrade, defaultAccessAudit } from "./access-change.ts"
 export {
 	ACQUISITION_INSTRUMENT_LABEL,
@@ -968,7 +969,6 @@ export {
 export {
 	allocateFefo,
 	brasiliaDate,
-	brasiliaToday,
 	type FefoAllocation,
 	type FefoOptions,
 	type FefoResult,

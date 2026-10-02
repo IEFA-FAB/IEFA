@@ -18,7 +18,6 @@
  */
 
 import {
-	brasiliaToday,
 	CONSERVATION_CLASSES,
 	type ConservationClass,
 	canDesignateInUnit,
@@ -27,6 +26,7 @@ import {
 	DEFINITIVE_RECEIPT_ROLES,
 	designationMissingMessage,
 	divergesFromInvoice,
+	getBrasiliaToday,
 	isReceiptEditable,
 	isTemperatureOutOfRange,
 	matchReceiptLinesToInvoice,
@@ -144,7 +144,7 @@ async function requiredRangeFor(
 
 /** Data (Brasília) em que a carga chegou: a criação do recebimento. É contra ela que se mede a validade. */
 function arrivalDate(receiptCreatedAt: string | null | undefined): string {
-	return brasiliaToday(receiptCreatedAt ? new Date(receiptCreatedAt) : new Date())
+	return getBrasiliaToday(receiptCreatedAt ? new Date(receiptCreatedAt) : new Date())
 }
 
 /**
@@ -310,7 +310,7 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 						: null
 					return {
 						receipt_item_id: item.id,
-						lot_code: source?.lotCode?.trim() || `SEM-LOTE-${brasiliaToday()}-${index + 1}`,
+						lot_code: source?.lotCode?.trim() || `SEM-LOTE-${today}-${index + 1}`,
 						expiry_date: expiryDate,
 						quantity_base: Number(item.received_qty_base),
 						unit_cost: item.unit_cost,

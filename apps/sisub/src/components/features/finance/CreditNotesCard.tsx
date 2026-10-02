@@ -1,4 +1,4 @@
-import { brasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { FileText, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -30,7 +30,7 @@ const SPHERE_LABELS: Record<"1" | "2" | "3", string> = {
 
 const EMPTY = {
 	number: "",
-	issuedOn: brasiliaToday(),
+	issuedOn: "",
 	kind: "descentralizacao" as CreditNoteRow["kind"],
 	issuerUg: "",
 	beneficiaryUg: "",
@@ -49,7 +49,7 @@ const EMPTY = {
  * snapshot do SIAFI mostra como saldo. Registrar a NC é registro do ato já feito no SIAFI.
  */
 export function CreditNotesCard({ unitId, notes, onChanged }: { unitId: number; notes: CreditNoteRow[]; onChanged: () => void }) {
-	const [form, setForm] = useState(EMPTY)
+	const [form, setForm] = useState(() => ({ ...EMPTY, issuedOn: getBrasiliaToday() }))
 	const [busy, setBusy] = useState(false)
 	const [deletingId, setDeletingId] = useState<string | null>(null)
 	// `createCreditNoteFn`/`deleteCreditNoteFn` são `"session"` no registro de garantia (`unit` nível 2).

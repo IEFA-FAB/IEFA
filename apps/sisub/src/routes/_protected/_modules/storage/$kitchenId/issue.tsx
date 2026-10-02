@@ -1,4 +1,4 @@
-import { brasiliaToday, ISSUE_VARIANCE_REASON_LABELS, ISSUE_VARIANCE_REASONS, type IssueVarianceReason } from "@iefa/sisub-domain"
+import { getBrasiliaToday, ISSUE_VARIANCE_REASON_LABELS, ISSUE_VARIANCE_REASONS, type IssueVarianceReason } from "@iefa/sisub-domain"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { AlertTriangle, CalendarDays, CheckCircle2, PackageMinus, RefreshCw, Undo2 } from "lucide-react"
@@ -108,7 +108,7 @@ function DailyIssuePage() {
 
 	const open = request?.request.status === "open"
 	const pending = request?.lines.filter((line) => line.requiresReason && !line.hasReason) ?? []
-	const today = brasiliaToday()
+	const today = getBrasiliaToday()
 	const issueDate = request?.request.issue_date ?? today
 
 	// Preparações do dia com ficha que não dá sugestão: o aviso que faltava na sugestão vazia.
