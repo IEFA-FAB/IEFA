@@ -71,8 +71,15 @@ caminho do arquivo decide: imprime `auto` (sai 0) ou `maintainer` com cada arqui
 ## 7. Depois do merge
 
 `bun scripts/watch-merge.ts <n> --wait` espera o merge e os runs da `main` daquele commit e
-diz, por app, `deployed`, `checked`, `blocked` (build verde e deploy `skipped`) ou `failed`.
-Também lê o `cancelled` do `full` da integração como a fila da trava: vale se um run posterior,
-de um commit que contém este, passou. Sai 0 quando tudo chegou e 1 com algo vermelho (check
-vermelho antes do merge também: corrija e empurre de novo). `cancelled` no `gate` de
-integração do PR só vem de push novo no mesmo PR.
+diz, por app, `deployed`, `checked`, `blocked` (build verde e deploy `skipped`) ou `failed`; a
+integração, pelos jobs `gate`/`full` (o run sai verde com o `full` vermelho). Um `cancelled` só
+vale como fila se um run posterior, de commit que contém este, terminou a mesma etapa: o
+veredito é o dele. Saída:
+
+- **0**: tudo em produção.
+- **1**: algo vermelho, inclusive check obrigatório antes do merge. Corrija e empurre de novo.
+- **3**: ainda falta (sem `--wait`, ou passou o `--timeout`, 120 min por padrão). Rode de novo
+  mais tarde; não é falha.
+- **4**: a verificação em si falhou (gh, git). O estado é desconhecido: rode de novo.
+
+`cancelled` no `gate` de integração do PR só vem de push novo no mesmo PR.

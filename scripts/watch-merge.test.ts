@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { classifyDeployJobs, classifyIntegrationJobs, type Job, parseArgs } from "./watch-merge"
+import { classifyDeployJobs, classifyIntegrationJobs, type Job, parseArgs, resolveCancelled } from "./watch-merge"
 
 const job = (name: string, conclusion: string | null, status = "completed"): Job => ({ name, conclusion, status })
 
@@ -39,9 +39,9 @@ describe("classifyDeployJobs", () => {
 })
 
 describe("classifyDeployJobs — fila do deploy", () => {
-	test("deploy cancelado pela concorrência não é falha: depende do deploy posterior", () => {
+	test("deploy cancelado: quem decide é o deploy posterior", () => {
 		const states = classifyDeployJobs([job("check-sisub", "success"), job("build-sisub / build", "success"), job("deploy-sisub / deploy", "cancelled")])
-		expect(states.get("sisub")).toBe("superseded?")
+		expect(states.get("sisub")).toBe("cancelled")
 	})
 })
 
@@ -55,8 +55,8 @@ describe("classifyIntegrationJobs", () => {
 		expect(classifyIntegrationJobs([changes, job("gate (transacionais + ciclo e2e)", "success"), job("full suite (monitor)", "failure")])).toBe("failed")
 	})
 
-	test("gate cancelado na fila: depende do run posterior", () => {
-		expect(classifyIntegrationJobs([changes, job("gate (transacionais + ciclo e2e)", "cancelled"), job("full suite (monitor)", "skipped")])).toBe("superseded?")
+	test("gate cancelado: depende do run posterior", () => {
+		expect(classifyIntegrationJobs([changes, job("gate (transacionais + ciclo e2e)", "cancelled"), job("full suite (monitor)", "skipped")])).toBe("cancelled")
 	})
 
 	test("commit que não toca o sisub: não se aplica", () => {
@@ -74,5 +74,21 @@ describe("parseArgs", () => {
 	test("número, --wait e --timeout em qualquer ordem", () => {
 		expect(parseArgs(["--wait", "557", "--timeout", "30"])).toEqual({ pr: "557", wait: true, timeoutMin: 30 })
 		expect(parseArgs(["557"])).toEqual({ pr: "557", wait: false, timeoutMin: 120 })
+	})
+})
+
+describe("resolveCancelled", () => {
+	test("o primeiro posterior que terminou a etapa decide, verde ou vermelho", () => {
+		expect(resolveCancelled(["absent", "passed"])).toBe("passed")
+		expect(resolveCancelled(["cancelled", "failed", "passed"])).toBe("failed")
+	})
+
+	test("posterior ainda rodando: pendente", () => {
+		expect(resolveCancelled(["absent", "running"])).toBe("running")
+	})
+
+	test("nenhum posterior rodou a etapa: não foi fila (timeout ou à mão)", () => {
+		expect(resolveCancelled([])).toBe("failed")
+		expect(resolveCancelled(["absent", "absent"])).toBe("failed")
 	})
 })

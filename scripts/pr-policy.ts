@@ -17,25 +17,26 @@
  *   produção num arquivo qualquer. A skill continua lendo o diff.
  */
 
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-export type MaintainerRule = { pattern: RegExp; reason: string }
+/** `cited`: como o caminho aparece na lista do AGENTS.md (o teste confere os dois sentidos). */
+export type MaintainerRule = { pattern: RegExp; reason: string; cited?: string }
 
 export const MAINTAINER_RULES: readonly MaintainerRule[] = [
 	{ pattern: /^packages\/database\/supabase\/migrations\//, reason: "migration nova ou alterada (inclui grant, RLS, policy e documento legal)" },
-	{ pattern: /^infra\//, reason: "infra/**" },
+	{ pattern: /^infra\//, reason: "infra/**", cited: "infra/**" },
 	{ pattern: /^secrets\/|(^|\/)\.env\.schema$|(^|\/)terraform\.tfvars/, reason: "segredo ou variável de produção" },
-	{ pattern: /^\.github\//, reason: "definição de gate (.github/**)" },
-	{ pattern: /^\.opengrep\/rules\//, reason: "definição de gate (.opengrep/rules/)" },
-	{ pattern: /^\.claude\/hooks\//, reason: "definição de gate (.claude/hooks/)" },
-	{ pattern: /^\.claude\/settings\.json$/, reason: "definição de gate (.claude/settings.json)" },
-	{ pattern: /^commitlint\.config\.ts$/, reason: "definição de gate (commitlint.config.ts)" },
-	{ pattern: /^biome\.json$/, reason: "definição de gate (biome.json)" },
-	{ pattern: /^\.oxlintrc\.tailwind\.jsonc$/, reason: "definição de gate (.oxlintrc.tailwind.jsonc)" },
-	{ pattern: /(^|\/)turbo\.json$/, reason: "definição de gate (turbo.json)" },
-	{ pattern: /^scripts\/pr-policy\.ts$/, reason: "definição de gate (esta política)" },
+	{ pattern: /^\.github\//, reason: "definição de gate (.github/**)", cited: ".github/**" },
+	{ pattern: /^\.opengrep\/rules\//, reason: "definição de gate (.opengrep/rules/)", cited: ".opengrep/rules/" },
+	{ pattern: /^\.claude\/hooks\//, reason: "definição de gate (.claude/hooks/)", cited: ".claude/hooks/" },
+	{ pattern: /^\.claude\/settings\.json$/, reason: "definição de gate (.claude/settings.json)", cited: ".claude/settings.json" },
+	{ pattern: /^commitlint\.config\.ts$/, reason: "definição de gate (commitlint.config.ts)", cited: "commitlint.config.ts" },
+	{ pattern: /^biome\.json$/, reason: "definição de gate (biome.json)", cited: "biome.json" },
+	{ pattern: /^\.oxlintrc\.tailwind\.jsonc$/, reason: "definição de gate (.oxlintrc.tailwind.jsonc)", cited: ".oxlintrc.tailwind.jsonc" },
+	{ pattern: /(^|\/)turbo\.json$/, reason: "definição de gate (turbo.json)", cited: "turbo.json" },
+	{ pattern: /^scripts\/pr-policy\.ts$/, reason: "definição de gate (esta política)", cited: "scripts/pr-policy.ts" },
 ]
 
 export type PolicyVerdict = { decision: "auto" | "maintainer"; matches: Array<{ file: string; reason: string }> }
@@ -54,22 +55,26 @@ function run(cmd: string[]): string {
 	return proc.stdout.toString()
 }
 
-/** Caminhos do PR, com o de origem dos renomeados. */
-function changedFiles(pr: string | undefined): string[] {
-	if (pr) {
-		const out = run(["gh", "api", `repos/{owner}/{repo}/pulls/${pr}/files`, "--paginate", "--jq", ".[] | .filename, (.previous_filename // empty)"])
-		return out.split("\n").filter(Boolean)
-	}
-	// `--name-status -M`: renomeado sai como `R<n>\t<antigo>\t<novo>`.
-	const out = run(["git", "diff", "--name-status", "-M", "origin/main...HEAD"])
-	return out
+/** Caminhos de `git diff --name-status -M`: renomeado/copiado (`R100\tantigo\tnovo`) conta pelos dois. */
+export function parseNameStatus(output: string): string[] {
+	return output
 		.split("\n")
 		.flatMap((line) => line.split("\t").slice(1))
 		.filter(Boolean)
 }
 
-/** Fonte desta política na `main`, se diferente da local; `null` se igual ou se a main não a tem. */
-function mainCopy(): string | null {
+/** Caminhos do PR, com o de origem dos renomeados. */
+function listChangedFiles(pr: string | undefined): string[] {
+	if (pr) {
+		const out = run(["gh", "api", `repos/{owner}/{repo}/pulls/${pr}/files`, "--paginate", "--jq", ".[] | .filename, (.previous_filename // empty)"])
+		return out.split("\n").filter(Boolean)
+	}
+	return parseNameStatus(run(["git", "diff", "--name-status", "-M", "origin/main...HEAD"]))
+}
+
+/** Fonte desta política na `main` (buscada agora), se diferente da local; `null` se igual ou se a main não a tem. */
+function readMainCopy(): string | null {
+	run(["git", "fetch", "-q", "origin", "main"])
 	const proc = Bun.spawnSync(["git", "show", "origin/main:scripts/pr-policy.ts"], { stderr: "pipe" })
 	if (proc.exitCode !== 0) return null
 	const source = proc.stdout.toString()
@@ -77,19 +82,20 @@ function mainCopy(): string | null {
 }
 
 if (import.meta.main) {
-	const main = process.env.PR_POLICY_FROM_MAIN ? null : mainCopy()
+	// `--as-main`: esta já é a cópia da main, reexecutada abaixo; não buscar de novo.
+	const asMain = process.argv.includes("--as-main")
+	const args = process.argv.slice(2).filter((arg) => arg !== "--as-main")
+	const main = asMain ? null : readMainCopy()
 	if (main) {
-		const file = join(mkdtempSync(join(tmpdir(), "pr-policy-")), "pr-policy.ts")
+		const dir = mkdtempSync(join(tmpdir(), "pr-policy-"))
+		const file = join(dir, "pr-policy.ts")
 		writeFileSync(file, main)
 		console.error("(regras da origin/main: a cópia local difere)")
-		const proc = Bun.spawnSync(["bun", file, ...process.argv.slice(2)], {
-			stdout: "inherit",
-			stderr: "inherit",
-			env: { ...process.env, PR_POLICY_FROM_MAIN: "1" },
-		})
+		const proc = Bun.spawnSync(["bun", file, ...args, "--as-main"], { stdout: "inherit", stderr: "inherit" })
+		rmSync(dir, { recursive: true, force: true })
 		process.exit(proc.exitCode ?? 1)
 	}
-	const verdict = classifyPrFiles(changedFiles(process.argv[2]))
+	const verdict = classifyPrFiles(listChangedFiles(args[0]))
 	console.log(verdict.decision)
 	for (const { file, reason } of verdict.matches) console.log(`  ${file} — ${reason}`)
 	process.exit(verdict.decision === "auto" ? 0 : 2)
