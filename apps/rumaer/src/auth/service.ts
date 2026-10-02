@@ -38,10 +38,12 @@ export const authQueryOptions = () =>
 		// getRumaerAuthClient) quanto no cliente (HTTP call com cache).
 		queryFn: async () => {
 			try {
-				const { user, session } = await getServerSessionFn()
+				// O servidor só devolve o `user` verificado (getUser). A sessão do browser é
+				// mantida client-side pelo supabase-js (onAuthStateChange), não aqui.
+				const { user } = await getServerSessionFn()
 				return {
 					user,
-					session,
+					session: null,
 					isAuthenticated: !!user,
 					isLoading: false,
 				} as AuthState
