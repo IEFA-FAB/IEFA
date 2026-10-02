@@ -442,6 +442,8 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 					.single()
 				if (error || !liquidacao) {
 					if (error?.code === "23505") throw new Error(`NS "${data.numeroNs}" já registrada nesta unidade`)
+					// Texto do RAISE do teto, reconhecido pelo conteúdo.
+					// nosemgrep: sisub-raw-db-error-message
 					if (error?.message?.includes("excede o empenho")) throw new Error(error.message)
 					// o trigger repete o teto do recebimento sob lock: duas NS simultâneas do mesmo recebimento
 					if (error?.message?.includes("excede o valor recebido")) {
@@ -515,6 +517,8 @@ export const createPagamentoFn = createServerFn({ method: "POST" })
 					.single()
 				if (error || !pagamento) {
 					if (error?.code === "23505") throw new Error(`OB "${data.numeroOb}" já registrada nesta unidade`)
+					// Texto do RAISE do teto, reconhecido pelo conteúdo.
+					// nosemgrep: sisub-raw-db-error-message
 					if (error?.message?.includes("excede a liquidação")) throw new Error(error.message)
 					throw new Error(`Erro ao registrar pagamento: ${publicDbMessage(error)}`)
 				}

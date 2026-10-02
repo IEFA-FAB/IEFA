@@ -241,6 +241,8 @@ export const importOpeningSheetFn = createServerFn({ method: "POST" })
 		try {
 			parsed = parseOpeningSheet(data.content)
 		} catch (error) {
+			// OpeningSheetError: mensagem da validação da planilha, escrita para o usuário.
+			// nosemgrep: sisub-raw-db-error-message
 			if (error instanceof OpeningSheetError) throw new Error(error.message)
 			throw error
 		}

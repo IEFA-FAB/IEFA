@@ -407,6 +407,8 @@ export async function executeSql(sql: string): Promise<Record<string, unknown>[]
 	const { data, error } = await getSupabaseServerClient().rpc("execute_analytics_query", {
 		query: safeSql,
 	})
+	// O erro do SQL gerado volta para o modelo corrigir a consulta; não é texto de tela.
+	// nosemgrep: sisub-raw-db-error-message
 	if (error) throw new Error(error.message)
 
 	return Array.isArray(data) ? (data as Record<string, unknown>[]) : []
