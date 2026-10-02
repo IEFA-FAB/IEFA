@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { classifyDeployJobs, type Job } from "./watch-merge"
+import { classifyDeployJobs, classifyIntegrationJobs, type Job, parseArgs } from "./watch-merge"
 
 const job = (name: string, conclusion: string | null, status = "completed"): Job => ({ name, conclusion, status })
 
@@ -35,5 +35,44 @@ describe("classifyDeployJobs", () => {
 	test("nome de app com hífen e job fora do padrão", () => {
 		const states = classifyDeployJobs([job("deploy-assignment-selection / deploy", "success"), job("changes", "success"), job("warm-deps", "success")])
 		expect([...states.keys()]).toEqual(["assignment-selection"])
+	})
+})
+
+describe("classifyDeployJobs — fila do deploy", () => {
+	test("deploy cancelado pela concorrência não é falha: depende do deploy posterior", () => {
+		const states = classifyDeployJobs([job("check-sisub", "success"), job("build-sisub / build", "success"), job("deploy-sisub / deploy", "cancelled")])
+		expect(states.get("sisub")).toBe("superseded?")
+	})
+})
+
+describe("classifyIntegrationJobs", () => {
+	const changes = job("changes", "success")
+	test("full verde: passou", () => {
+		expect(classifyIntegrationJobs([changes, job("gate (transacionais + ciclo e2e)", "success"), job("full suite (monitor)", "success")])).toBe("passed")
+	})
+
+	test("full vermelho com run 'success' (continue-on-error): falhou", () => {
+		expect(classifyIntegrationJobs([changes, job("gate (transacionais + ciclo e2e)", "success"), job("full suite (monitor)", "failure")])).toBe("failed")
+	})
+
+	test("gate cancelado na fila: depende do run posterior", () => {
+		expect(classifyIntegrationJobs([changes, job("gate (transacionais + ciclo e2e)", "cancelled"), job("full suite (monitor)", "skipped")])).toBe("superseded?")
+	})
+
+	test("commit que não toca o sisub: não se aplica", () => {
+		expect(classifyIntegrationJobs([changes, job("gate (transacionais + ciclo e2e)", "skipped"), job("full suite (monitor)", "skipped")])).toBe(
+			"not-applicable"
+		)
+	})
+
+	test("gate verde e full pulado não conta como coberto", () => {
+		expect(classifyIntegrationJobs([changes, job("gate (transacionais + ciclo e2e)", "success"), job("full suite (monitor)", "skipped")])).toBe("failed")
+	})
+})
+
+describe("parseArgs", () => {
+	test("número, --wait e --timeout em qualquer ordem", () => {
+		expect(parseArgs(["--wait", "557", "--timeout", "30"])).toEqual({ pr: "557", wait: true, timeoutMin: 30 })
+		expect(parseArgs(["557"])).toEqual({ pr: "557", wait: false, timeoutMin: 120 })
 	})
 })

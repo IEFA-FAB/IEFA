@@ -32,21 +32,19 @@ describe("classifyPrFiles", () => {
 		expect(verdict.matches).toEqual([{ file: "infra/alpha/main.tf", reason: "infra/**" }])
 	})
 
-	test("a lista do AGENTS.md e a do script falam dos mesmos gates", () => {
+	test("todo caminho citado na lista do AGENTS.md cai numa regra daqui", () => {
 		const agents = readFileSync(join(import.meta.dir, "../AGENTS.md"), "utf8")
 		const section = agents.slice(agents.indexOf("**Esperam o mantenedor**"), agents.indexOf("**Commits e título do PR:**"))
-		for (const gate of [
-			".github/**",
-			".opengrep/rules/",
-			".claude/hooks/",
-			".claude/settings.json",
-			"commitlint.config.ts",
-			"biome.json",
-			".oxlintrc.tailwind.jsonc",
-			"turbo.json",
-			"infra/**",
-		]) {
-			expect(section, `AGENTS.md não cita ${gate}`).toContain(gate)
+		// Itens entre crases que são caminho (têm `/` ou `.`), fora o próprio comando de exemplo.
+		const cited = [...section.matchAll(/`([^`\s]+)`/g)].map((m) => m[1]).filter((item) => /[/.]/.test(item) && !item.startsWith("bun "))
+		expect(cited.length).toBeGreaterThan(8)
+		for (const item of cited) {
+			const sample = item.replace(/\*\*$/, "x/y.ts").replace(/\/$/, "/x.yaml")
+			expect(classifyPrFiles([sample]).decision, `${item} (amostra ${sample}) não cai em regra do pr-policy`).toBe("maintainer")
 		}
+	})
+
+	test("arquivo renomeado: o caminho de origem também decide", () => {
+		expect(classifyPrFiles(["scripts/guard.ts", ".claude/hooks/guard.ts"]).decision).toBe("maintainer")
 	})
 })

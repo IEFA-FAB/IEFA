@@ -130,8 +130,9 @@ Leia antes de mexer na área (o Claude Code carrega sozinho pelo caminho do arqu
   grant, RLS, policy ou tabela de acesso; `infra/**`; segredo ou variável de produção; texto de
   documento legal; e qualquer definição de gate, porque o PR roda a versão dele mesmo: `.github/**`,
   `.opengrep/rules/`, `.claude/hooks/`, `.claude/settings.json`, `commitlint.config.ts`,
-  `biome.json`, `.oxlintrc.tailwind.jsonc`, `turbo.json`. Esses o mantenedor mergeia, ou pede
-  explicitamente que o agente mergeie.
+  `biome.json`, `.oxlintrc.tailwind.jsonc`, `turbo.json`, `scripts/pr-policy.ts`. Esses o mantenedor
+  mergeia, ou pede explicitamente que o agente mergeie. `bun scripts/pr-policy.ts <n>` aplica a
+  parte desta lista que o caminho do arquivo decide.
 - **Commits e título do PR:** Conventional Commits em inglês (subject e body). Os escopos derivam de
   `apps/` + `packages/` + chaves do `apps.manifest.json` + `deps`, `ci`, `scripts`, `root`
   (`database`, não `db`). O merge é squash: o título do PR vira o commit da `main`.
