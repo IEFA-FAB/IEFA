@@ -199,6 +199,36 @@ export type Database = {
         }
         Relationships: []
       }
+      signup_allowlist: {
+        Row: {
+          authorized_by: string | null
+          created_at: string
+          email: string
+          id: string
+          reason: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          authorized_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          reason: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          authorized_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          reason?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           created_at: string
@@ -301,6 +331,17 @@ export type Database = {
         Returns: Json
       }
       audit_context: { Args: { p_operation: string }; Returns: undefined }
+      authorize_external_signup: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_email: string
+          p_operation: string
+          p_reason: string
+        }
+        Returns: Json
+      }
+      before_user_created: { Args: { event: Json }; Returns: Json }
       change_module_permission: {
         Args: {
           p_action: string
@@ -442,6 +483,15 @@ export type Database = {
           p_assurance?: string
           p_operation: string
           p_policy_id: string
+        }
+        Returns: Json
+      }
+      revoke_external_signup: {
+        Args: {
+          p_actor: string
+          p_assurance?: string
+          p_id: string
+          p_operation: string
         }
         Returns: Json
       }
@@ -3304,6 +3354,10 @@ export type Database = {
       }
     }
     Functions: {
+      link_own_saram: {
+        Args: { p_email: string; p_saram: string; p_user: string }
+        Returns: Json
+      }
       military_masked_cpf: { Args: { p_saram: string }; Returns: string }
       person_name_key: { Args: { p_name: string }; Returns: string }
     }

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Valida as migrations de auditoria de acesso num Postgres DESCARTÁVEL — nunca no banco
 # compartilhado. Sobe um cluster temporário (initdb), aplica stub.sql + fase 1, roda os testes
-# da fase 1 e a corrida, aplica a fase 2 e roda os testes dela, e por fim o arquivamento de
-# 20260926218000. Apaga o cluster no fim.
+# da fase 1 e a corrida, aplica a fase 2 e roda os testes dela, o arquivamento de
+# 20260926218000 e, por fim, a autorização de cadastro externo e o hook do Auth (20261001100000…).
+# Apaga o cluster no fim.
 #
 #   bash packages/database/scripts/access-audit/run.sh
 #
@@ -49,4 +50,6 @@ if ! grep -q "NOTICE:  on_auth_user_created mantido" "$WORK/legacy.stderr"; then
 	cat "$WORK/legacy.stderr" >&2
 	exit 1
 fi
+# 20261001100000/100100/100200: autorização de cadastro externo, hook do Auth e vínculo de SARAM.
+run "$HERE/signup-allowlist.test.sql"
 echo "access-audit: tudo verde"

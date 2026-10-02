@@ -1341,6 +1341,36 @@ export const equipmentModelRoleInKitchen = kitchen.table("equipment_model_role",
 		}),
 ]);
 
+export const signupAllowlistInAccessControl = accessControl.table("signup_allowlist", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	email: text().notNull(),
+	reason: text().notNull(),
+	authorizedBy: uuid("authorized_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	revokedAt: timestamp("revoked_at", { withTimezone: true, mode: 'string' }),
+	revokedBy: uuid("revoked_by"),
+}, (table) => [
+	uniqueIndex("signup_allowlist_active_email_uniq").using("btree", table.email.asc().nullsLast()).where(sql`(revoked_at IS NULL)`),
+	index("signup_allowlist_authorized_by_idx").using("btree", table.authorizedBy.asc().nullsLast()),
+	index("signup_allowlist_created_at_idx").using("btree", table.createdAt.desc().nullsFirst()),
+	index("signup_allowlist_revoked_by_idx").using("btree", table.revokedBy.asc().nullsLast()),
+	foreignKey({
+			columns: [table.authorizedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "signup_allowlist_authorized_by_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.revokedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "signup_allowlist_revoked_by_fkey"
+		}).onDelete("restrict"),
+	pgPolicy("signup_allowlist_auth_hook_read", { as: "permissive", for: "select", to: ["supabase_auth_admin"], using: sql`(revoked_at IS NULL)` }),
+	check("signup_allowlist_email_format", sql`(char_length(email) <= 254) AND (email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'::text)`),
+	check("signup_allowlist_email_normalized", sql`email = lower(btrim(email))`),
+	check("signup_allowlist_reason_length", sql`(char_length(btrim(reason)) >= 10) AND (char_length(btrim(reason)) <= 500)`),
+	check("signup_allowlist_revoked_pair", sql`(revoked_by IS NULL) OR (revoked_at IS NOT NULL)`),
+]);
+
 export const equipmentUnitRoleInKitchen = kitchen.table("equipment_unit_role", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	unitId: uuid("unit_id").notNull(),

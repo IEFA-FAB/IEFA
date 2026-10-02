@@ -13,3 +13,23 @@ const OTP_TYPES: readonly AuthOtpType[] = ["email", "recovery", "signup", "invit
 export function parseOtpType(type: string | undefined): AuthOtpType {
 	return OTP_TYPES.includes(type as AuthOtpType) ? (type as AuthOtpType) : "recovery"
 }
+
+/** Sessão entregue no fragmento da URL pelo fluxo implícito do GoTrue. */
+export type ImplicitSession = { accessToken: string; refreshToken: string; type: string | null }
+
+/**
+ * Lê `#access_token=…&refresh_token=…` do fragmento.
+ *
+ * O convite do admin API (`inviteUserByEmail`, console de e-mails externos) não tem code
+ * verifier, então o GoTrue devolve a sessão no fluxo IMPLÍCITO — e o client do navegador, em
+ * PKCE, recusa esse formato ("Not a valid PKCE flow url"). A tela que recebe o convite o consome
+ * à mão com `setSession`, que valida o token no GoTrue antes de aceitar. `null` quando o
+ * fragmento não traz os dois tokens.
+ */
+export function readImplicitSession(hash: string): ImplicitSession | null {
+	const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash)
+	const accessToken = params.get("access_token")
+	const refreshToken = params.get("refresh_token")
+	if (!accessToken || !refreshToken) return null
+	return { accessToken, refreshToken, type: params.get("type") }
+}

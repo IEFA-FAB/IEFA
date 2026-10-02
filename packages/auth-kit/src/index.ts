@@ -1,5 +1,6 @@
 export { type AuthActions, type AuthActionsOptions, createAuthActions } from "./actions.ts"
-export { getAuthErrorMessage, normalizeEmail } from "./errors.ts"
+export { FAB_EMAIL_DOMAIN, isFabEmail } from "./email-domain.ts"
+export { getAuthErrorMessage, normalizeEmail, SIGNUP_DOMAIN_REFUSED_MESSAGE, SIGNUP_HOOK_UNAVAILABLE_MESSAGE } from "./errors.ts"
 export { getRemainingSeconds, type RateLimitState, recordFailure, resetRateLimit } from "./rate-limiter.ts"
 export { isInternalPath, safeRedirect } from "./redirect.ts"
 export { checkSameOriginJsonRequest, isRequestOrigin, type SameOriginCheck } from "./same-origin.ts"

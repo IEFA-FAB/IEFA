@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 
-import { getAuthErrorMessage, normalizeEmail } from "./errors.ts"
+import { getAuthErrorMessage, normalizeEmail, SIGNUP_DOMAIN_REFUSED_MESSAGE, SIGNUP_HOOK_UNAVAILABLE_MESSAGE } from "./errors.ts"
 
 describe("normalizeEmail", () => {
 	test("apara espaços e baixa a caixa", () => {
@@ -18,6 +20,28 @@ describe("getAuthErrorMessage", () => {
 		["Signup is disabled", "Cadastro temporariamente desabilitado"],
 	])("traduz %p", (input, expected) => {
 		expect(getAuthErrorMessage({ message: input })).toBe(expected)
+	})
+
+	test("a recusa do hook de cadastro sai com a frase canônica, com ou sem código do GoTrue", () => {
+		const refusal = "Cadastro restrito a e-mails institucionais @fab.mil.br. Para usar outro e-mail, peça autorização à administração do sistema."
+		expect(getAuthErrorMessage({ message: refusal, status: 403 })).toBe(SIGNUP_DOMAIN_REFUSED_MESSAGE)
+		// Código que a tabela não conhece não pode esconder a recusa atrás de texto cru.
+		expect(getAuthErrorMessage({ code: "unexpected_failure", message: refusal })).toBe(SIGNUP_DOMAIN_REFUSED_MESSAGE)
+		expect(getAuthErrorMessage({ message: `403: ${refusal}` })).toBe(SIGNUP_DOMAIN_REFUSED_MESSAGE)
+	})
+
+	test("a frase canônica é a mesma que o hook devolve", () => {
+		const migration = readFileSync(
+			join(import.meta.dir, "..", "..", "database", "supabase", "migrations", "20261001100100_before_user_created_hook.sql"),
+			"utf8"
+		)
+		expect(migration).toContain(`'message', '${SIGNUP_DOMAIN_REFUSED_MESSAGE}'`)
+	})
+
+	test("falha do próprio hook não vira 'e-mail recusado'", () => {
+		expect(getAuthErrorMessage({ message: "Error running hook URI: pg-functions://postgres/access_control/before_user_created" })).toBe(
+			SIGNUP_HOOK_UNAVAILABLE_MESSAGE
+		)
 	})
 
 	test("repassa mensagem desconhecida em vez de esconder a causa", () => {

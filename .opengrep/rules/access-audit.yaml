@@ -61,6 +61,7 @@ rules:
           - pattern: $DB.from("response_viewer").$WRITE(...)
           - pattern: $DB.from("response_viewer_scope_binding").$WRITE(...)
           - pattern: $DB.from("questionnaire_editor").$WRITE(...)
+          - pattern: $DB.from("signup_allowlist").$WRITE(...)
           # Drizzle
           - pattern: $DB.$WRITE(userPermissionsInAccessControl)
           - pattern: $DB.$WRITE(policyInAccessControl)
@@ -70,6 +71,7 @@ rules:
           - pattern: $DB.$WRITE(responseViewerInForms)
           - pattern: $DB.$WRITE(responseViewerScopeBindingInForms)
           - pattern: $DB.$WRITE(questionnaireEditorInForms)
+          - pattern: $DB.$WRITE(signupAllowlistInAccessControl)
       - metavariable-regex:
           metavariable: $WRITE
           regex: ^(insert|update|upsert|delete)$
@@ -90,7 +92,7 @@ rules:
       exclude:
         - "**/*.test.ts"
         - "**/node_modules/**"
-    pattern-regex: (?i)\b(insert\s+into|update|delete\s+from)\s+(access_control\.(user_permissions|policy|policy_statement|user_policy_attachment|mcp_api_keys)|forms\.(response_viewer|response_viewer_scope_binding|questionnaire_editor))\b
+    pattern-regex: (?i)\b(insert\s+into|update|delete\s+from)\s+(access_control\.(user_permissions|policy|policy_statement|user_policy_attachment|mcp_api_keys|signup_allowlist)|forms\.(response_viewer|response_viewer_scope_binding|questionnaire_editor))\b
 
   - id: access-audit-bypass-outside-allowlist
     languages: [typescript]

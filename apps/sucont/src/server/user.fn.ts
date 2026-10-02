@@ -15,8 +15,9 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireUser, requireUserId } from "#/lib/auth.server"
+import { requireSucontApp, requireUser, requireUserId } from "#/lib/auth.server"
 import { fetchMilitaryIdentity } from "#/lib/military.server"
+import { saramLinkErrorMessage } from "#/lib/saram-link"
 import { getCoreClient } from "#/lib/supabase.server"
 
 /**
@@ -58,9 +59,15 @@ export type SucontIdentity = {
 	saram: string | null
 	posto: string | null
 	nomeGuerra: string | null
+	/**
+	 * O SARAM localiza um cadastro militar — e por isso está TRAVADO (write-once,
+	 * `core.link_own_saram`). Separado do nome: o cadastro pode existir sem nome de guerra, e a
+	 * tela não pode oferecer "Corrigir" para um número que o servidor vai recusar trocar.
+	 */
+	registered: boolean
 }
 
-const EMPTY_IDENTITY: SucontIdentity = { saram: null, posto: null, nomeGuerra: null }
+const EMPTY_IDENTITY: SucontIdentity = { saram: null, posto: null, nomeGuerra: null, registered: false }
 
 /**
  * Identidade do PRÓPRIO usuário. Sem argumento: o `id` vem do JWT — receber um
@@ -80,12 +87,33 @@ export const fetchMyIdentityFn = createServerFn({ method: "GET" }).handler(async
 	if (!saram) return EMPTY_IDENTITY
 
 	const military = await fetchMilitaryIdentity(saram)
-	return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null }
+	return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null, registered: military !== null }
 })
+
+/**
+ * `core.link_own_saram` nasce em 20261001100200; o client tipado só a conhece depois do
+ * `db:types` que segue o apply. Assinatura declarada aqui, e só ela — a chamada continua sendo
+ * método do client (o `rpc` solto perderia o `this`).
+ */
+type LinkOwnSaramClient = {
+	rpc(fn: "link_own_saram", args: { p_user: string; p_email: string | null; p_saram: string }): PromiseLike<{ error: { message: string } | null }>
+}
 
 /**
  * Vincula um SARAM à PRÓPRIA conta. O número vem do formulário (é input legítimo do
  * usuário); `id` e `email`, da sessão.
+ *
+ * Exige acesso ao app (`requireSucontApp`, qualquer módulo do sucont): só sessão bastava, e
+ * qualquer conta do ERP gravava SARAM por este endpoint sem nunca ter acesso ao hub.
+ *
+ * As travas são as de `syncUserSaram` (sisub-domain), aplicadas no banco por
+ * `core.link_own_saram` (migration 20261001100200) — o sucont não tem conexão Postgres
+ * direta, e checar-e-gravar pelo PostgREST seriam duas requisições sem transação:
+ *   - write-once: SARAM que já localiza um cadastro militar não muda pela própria conta (sem
+ *     isso, gravar e regravar o SARAM de outras pessoas lia posto e nome de guerra delas, um
+ *     por um — LGPD). O que não localiza ninguém (dígito trocado) segue corrigível;
+ *   - exclusivo: SARAM vinculado a outra conta é recusado;
+ *   - lock: o mesmo advisory lock do sisub, então os dois apps se serializam no mesmo número.
  *
  * O SARAM NÃO é validado contra o cadastro de pessoal antes de gravar, de propósito:
  * o espelho de `core.user_military_data` é uma cópia com data, e recusar quem não
@@ -96,39 +124,17 @@ export const fetchMyIdentityFn = createServerFn({ method: "GET" }).handler(async
 export const saveMySaramFn = createServerFn({ method: "POST" })
 	.validator(z.object({ saram: z.string().regex(/^\d{6,7}$/, "O SARAM tem 6 ou 7 dígitos.") }))
 	.handler(async ({ data }): Promise<SucontIdentity> => {
+		await requireSucontApp()
 		const user = await requireUser()
 		const { saram } = data
-		const email = user.email?.trim()
-		const core = getCoreClient()
 
-		// A linha já existe em quase todo caso — `syncSucontIdentityFn` a grava no
-		// login. Sem e-mail na conta não há como INSERIR (`core.user_data.email` é
-		// NOT NULL), então resta atualizar a linha que porventura exista — e é
-		// justamente a conta sem e-mail que `syncSucontIdentityFn` desiste de gravar,
-		// então "porventura" ali costuma ser "nenhuma".
-		//
-		// Daí o `.select("id")`: sem ele o update de zero linhas volta SEM erro, o
-		// handler devolveria a identificação resolvida e a tela cantaria sucesso sobre
-		// uma gravação que não houve.
-		const { data: written, error } = email
-			? await core.from("user_data").upsert({ id: user.id, email, saram }, { onConflict: "id" }).select("id")
-			: await core.from("user_data").update({ saram }).eq("id", user.id).select("id")
-
-		if (error) {
-			// 23505 aqui é colisão do índice único de EMAIL: outra linha, de outro `id`,
-			// já detém este endereço. Reivindicá-lo apagaria o cadastro de outra pessoa
-			// (o sisub faz isso deliberadamente; aqui não). O usuário não resolve isso
-			// sozinho, então a mensagem manda para quem resolve.
-			if (error.code === "23505") throw new Error("Seu e-mail já está registrado em outra conta do ERP. Procure o administrador do SUCONT.")
-			throw new Error(error.message)
-		}
-
-		// Conta sem e-mail e sem linha no cadastro: não há o que atualizar, e o ERP
-		// não tem como inseri-la. O caminho de saída passa por quem administra.
-		if (!written || written.length === 0) {
-			throw new Error("Sua conta ainda não está no cadastro de pessoas do ERP. Procure o administrador do SUCONT.")
-		}
+		// `id` e `email` da sessão, nunca do payload. Conta sem e-mail só ATUALIZA a linha que
+		// existir (`core.user_data.email` é NOT NULL); sem linha, a função recusa em vez de
+		// devolver sucesso sobre uma gravação que não houve.
+		const core = getCoreClient() as unknown as LinkOwnSaramClient
+		const { error } = await core.rpc("link_own_saram", { p_user: user.id, p_email: user.email?.trim() || null, p_saram: saram })
+		if (error) throw new Error(saramLinkErrorMessage(error.message))
 
 		const military = await fetchMilitaryIdentity(saram)
-		return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null }
+		return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null, registered: military !== null }
 	})

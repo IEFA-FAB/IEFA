@@ -91,6 +91,15 @@ export function SaramDialog() {
 		setReopened(false)
 	}
 
+	/** Número que resolveu outra pessoa: gravado e travado — a correção é da administração do sistema. */
+	const notMe = () => {
+		toast.warning("Procure a administração do sistema", {
+			description: "O SARAM gravado identifica outra pessoa e não pode ser trocado pela sua conta.",
+		})
+		setPendingConfirmation(null)
+		setReopened(false)
+	}
+
 	const correct = () => {
 		setPendingConfirmation(null)
 		setReopened(true)
@@ -132,7 +141,7 @@ export function SaramDialog() {
 		<Dialog open={open} onOpenChange={(next) => !next && closeFromOutside()}>
 			<DialogContent aria-busy={save.isPending}>
 				{pendingConfirmation ? (
-					<ConfirmationStep identity={pendingConfirmation} onConfirm={confirm} onCorrect={correct} />
+					<ConfirmationStep identity={pendingConfirmation} onConfirm={confirm} onCorrect={correct} onNotMe={notMe} />
 				) : (
 					<>
 						<DialogHeader>
@@ -199,8 +208,25 @@ export function SaramDialog() {
  * conserta o dígito trocado. Sem correspondência no cadastro não há nome para
  * mostrar — dizer isso é o que separa "gravamos, mas confira" de um sucesso mudo
  * que faria a pessoa procurar o próprio nome numa tela onde ele nunca vai aparecer.
+ *
+ * Número que LOCALIZA um cadastro não se corrige por aqui (write-once, `core.link_own_saram`,
+ * as travas do sisub): trocar e regravar o SARAM lia posto e nome de guerra de outras
+ * pessoas, um por um. O "Corrigir" só existe para o número que não bate com ninguém
+ * (`registered: false`, a mesma regra do servidor); no outro caso a tela manda procurar a
+ * administração, em vez de oferecer um botão que o servidor recusa. Não há, hoje, tela de
+ * administrador que limpe o SARAM (nem no sisub): a correção é manual, no banco.
  */
-function ConfirmationStep({ identity, onConfirm, onCorrect }: { identity: SucontIdentity; onConfirm: () => void; onCorrect: () => void }) {
+function ConfirmationStep({
+	identity,
+	onConfirm,
+	onCorrect,
+	onNotMe,
+}: {
+	identity: SucontIdentity
+	onConfirm: () => void
+	onCorrect: () => void
+	onNotMe: () => void
+}) {
 	const name = formatMilitaryName(identity)
 
 	return (
@@ -214,21 +240,29 @@ function ConfirmationStep({ identity, onConfirm, onCorrect }: { identity: Sucont
 					{name ? (
 						<>
 							O SARAM <span className="font-mono">{identity.saram}</span> corresponde a <strong className="text-foreground">{name}</strong>. Se não for você,
-							corrija o número — ele é o que identifica sua conta em todo o ERP.
+							procure a administração do sistema para corrigir — um SARAM que identifica alguém não pode ser trocado pela própria conta.
 						</>
 					) : (
 						<>
-							O SARAM <span className="font-mono">{identity.saram}</span> foi gravado, mas não corresponde a ninguém no cadastro de pessoal. Pode ser um número
-							novo, ainda fora da última carga — ou um dígito trocado.
+							O SARAM <span className="font-mono">{identity.saram}</span> foi gravado, mas{" "}
+							{identity.registered
+								? "o cadastro de pessoal não traz nome de guerra para ele. Se o número não for seu, procure a administração do sistema para corrigir."
+								: "não corresponde a ninguém no cadastro de pessoal. Pode ser um número novo, ainda fora da última carga — ou um dígito trocado."}
 						</>
 					)}
 				</DialogDescription>
 			</DialogHeader>
 
 			<DialogFooter>
-				<Button type="button" variant="ghost" onClick={onCorrect}>
-					Corrigir
-				</Button>
+				{identity.registered ? (
+					<Button type="button" variant="ghost" onClick={onNotMe}>
+						Não sou eu
+					</Button>
+				) : (
+					<Button type="button" variant="ghost" onClick={onCorrect}>
+						Corrigir
+					</Button>
+				)}
 				<Button type="button" onClick={onConfirm}>
 					{name ? "Sou eu" : "Manter assim"}
 				</Button>

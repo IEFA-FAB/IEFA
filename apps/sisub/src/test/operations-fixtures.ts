@@ -409,6 +409,10 @@ export function makeSeeder(client: AnyClient): Seeder {
 
 		async seedAuthUser(opts) {
 			const email = opts?.email ?? `${uid("test-")}@example.invalid`.toLowerCase()
+			// O hook do Auth (20261001100100) só cria conta de e-mail @fab.mil.br ou autorizado.
+			// A autorização da fixture sai DEPOIS da conta (LIFO): registrada antes dela.
+			const unauthorize = await access.authorizeSignup(email)
+			cleanups.push({ label: `signup_allowlist ${email}`, fn: unauthorize })
 			const { data, error } = await client.auth.admin.createUser({ email, email_confirm: true })
 			if (error || !data.user) throw new Error(`seed auth user failed: ${error?.message ?? "no user"}`)
 			const id = data.user.id

@@ -56,6 +56,22 @@ const MESSAGE_BY_CODE: Record<string, string> = {
 }
 
 /**
+ * Recusa do hook "Before User Created" (migration 20261001100100): cadastro de e-mail fora de
+ * `@fab.mil.br` sem autorização. O GoTrue repassa ao cliente a mensagem que o hook devolve — ela
+ * já sai em português, mas o texto canônico mora AQUI: o formulário mostra sempre esta frase,
+ * mesmo que o hook mude a redação ou o GoTrue a embrulhe.
+ */
+export const SIGNUP_DOMAIN_REFUSED_MESSAGE =
+	"Cadastro restrito a e-mails institucionais @fab.mil.br. Para usar outro e-mail, peça autorização à administração do sistema."
+
+/**
+ * Falha do PRÓPRIO hook (função fora do ar, permissão revogada): o GoTrue responde 500 com
+ * "Error running hook URI". Não é recusa da pessoa — dizer "e-mail não autorizado" a quem tem
+ * e-mail institucional a mandaria procurar o problema no lugar errado.
+ */
+export const SIGNUP_HOOK_UNAVAILABLE_MESSAGE = "O cadastro está temporariamente indisponível. Tente de novo em instantes ou procure a administração do sistema."
+
+/**
  * Traduções por mensagem, para o GoTrue que não manda `code` (versões antigas e
  * erros repassados por um proxy que perdeu o corpo estruturado).
  *
@@ -77,6 +93,8 @@ const MESSAGE_BY_PATTERN: [RegExp, string][] = [
 	[/password should be at least/i, "A senha deve ter no mínimo 8 caracteres, com maiúscula, minúscula e número"],
 	[/invalid format/i, "Formato de e-mail inválido"],
 	[/signup is disabled/i, "Cadastro temporariamente desabilitado"],
+	[/cadastro restrito a e-mails institucionais/i, SIGNUP_DOMAIN_REFUSED_MESSAGE],
+	[/(error running hook|hook .*(timed out|timeout|unavailable))/i, SIGNUP_HOOK_UNAVAILABLE_MESSAGE],
 	[/(too many requests|rate limit)/i, MESSAGE_BY_CODE.over_request_rate_limit],
 ]
 

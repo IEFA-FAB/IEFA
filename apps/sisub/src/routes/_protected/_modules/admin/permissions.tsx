@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as React from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
+import { ExternalSignupManager } from "@/components/features/global/ExternalSignupManager"
 import PermissionsManager from "@/components/features/global/PermissionsManager"
 import { PoliciesManager } from "@/components/features/global/policies/PoliciesManager"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -9,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 
-const VIEWS = ["usuarios", "politicas"] as const
+const VIEWS = ["usuarios", "politicas", "externos"] as const
 type View = (typeof VIEWS)[number]
 
 const searchSchema = z.object({
@@ -66,9 +67,10 @@ function PermissionsPage() {
 			/>
 
 			<Tabs value={activeView} onValueChange={(value) => navigate({ search: { view: value as View }, replace: true })}>
-				<TabsList className="grid w-full max-w-md grid-cols-2">
+				<TabsList className="grid w-full max-w-lg grid-cols-3">
 					<TabsTrigger value="usuarios">Usuários</TabsTrigger>
 					<TabsTrigger value="politicas">Políticas</TabsTrigger>
+					<TabsTrigger value="externos">E-mails externos</TabsTrigger>
 				</TabsList>
 
 				<TabsContent value="usuarios" className="pt-4">
@@ -77,6 +79,10 @@ function PermissionsPage() {
 
 				<TabsContent value="politicas" className="pt-4">
 					<PoliciesManager maps={maps} scopes={scopes} />
+				</TabsContent>
+
+				<TabsContent value="externos" className="pt-4">
+					<ExternalSignupManager />
 				</TabsContent>
 			</Tabs>
 		</div>

@@ -55,7 +55,9 @@ export function isSecurityEmailConfigured(): boolean {
 
 const FROM = process.env.SISUB_SECURITY_EMAIL_FROM ?? `SISUB <${LEGAL_CONTACT_EMAIL}>`
 
-const PUBLIC_URL = (process.env.SISUB_PUBLIC_URL ?? "https://sisub.iefa.com.br").replace(/\/+$/, "")
+/** Origem pública do sisub, para link que sai do servidor (e-mail de aviso, convite do Auth). */
+export const SISUB_PUBLIC_URL = (process.env.SISUB_PUBLIC_URL ?? "https://sisub.iefa.com.br").replace(/\/+$/, "")
+const PUBLIC_URL = SISUB_PUBLIC_URL
 
 /** Endereço da tela de segurança, para o titular agir se não foi ele. */
 const SECURITY_URL = `${PUBLIC_URL}/diner/security`

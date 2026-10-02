@@ -351,6 +351,20 @@ function describeMcpKey(t: Json): AuditField[] {
 	return f.list
 }
 
+const SIGNUP_TITLES: Record<string, string> = {
+	authorizeExternalSignupFn: "Autorizou cadastro de e-mail externo",
+	revokeExternalSignupFn: "Revogou autorização de cadastro externo",
+}
+
+/** Autorização de cadastro fora de @fab.mil.br (20261001100000): o e-mail e o motivo. */
+function describeSignup(t: Json): AuditField[] {
+	const f = new Fields()
+	const previous = asRecord(t.previous)
+	f.add("E-mail", asString(t.email))
+	f.add("Motivo", asString(t.reason) ?? asString(previous?.reason))
+	return f.list
+}
+
 const FORMS_TITLES: Record<string, string> = {
 	"forms.viewer.grant": "Visualizador de respostas concedido",
 	"forms.viewer.change": "Recorte do visualizador alterado",
@@ -439,6 +453,7 @@ export function describeAuditEntry(operation: string, target: unknown): AuditEnt
 		}
 
 		if (MCP_TITLES[operation]) return known(MCP_TITLES[operation], describeMcpKey(t))
+		if (SIGNUP_TITLES[operation]) return known(SIGNUP_TITLES[operation], describeSignup(t))
 		if (FORMS_TITLES[operation]) return known(FORMS_TITLES[operation], describeForms(operation, t))
 
 		if (operation === "portal.journal-role.change") {
@@ -472,5 +487,5 @@ export function staticTitle(operation: string): string | null {
 	if (isAttachOperation(operation)) return "Anexou política ou alterou prazo do anexo"
 	if (operation === "detachPolicyFn") return "Desanexou política"
 	if (operation === "portal.journal-role.change") return "Papel no journal alterado"
-	return POLICY_TITLES[operation] ?? STATEMENT_TITLES[operation] ?? MCP_TITLES[operation] ?? FORMS_TITLES[operation] ?? null
+	return POLICY_TITLES[operation] ?? STATEMENT_TITLES[operation] ?? MCP_TITLES[operation] ?? SIGNUP_TITLES[operation] ?? FORMS_TITLES[operation] ?? null
 }
