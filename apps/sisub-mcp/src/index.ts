@@ -6,12 +6,24 @@
  *         Verifica que o userId do JWT atual corresponde ao da sessão criada,
  *         impedindo session hijacking.
  *   M1 — Sessões HTTP têm TTL (2h de inatividade) e limite máximo (200 sessões).
- *         Cleanup automático a cada 10 minutos.
+ *         Cleanup automático a cada 10 minutos, que FECHA transport e servidor MCP da
+ *         sessão expirada (não só a tira do Map). Ver `session-limits.ts`.
  *   M2 — Rate limiting por IP: 100 req/min. Resposta 429 quando excedido. O IP é o
  *         último item do X-Forwarded-For (o que o ALB acrescenta), não o primeiro, que o
  *         cliente escreve.
- *   M6 — Teto de sessões por usuário (10) além do global, e corpo limitado a 1 MiB.
- *   M5 — Headers CORS definidos explicitamente; preflight OPTIONS tratado.
+ *   M6 — Teto de sessões por usuário (10) além do global, e corpo limitado a 1 MiB. A
+ *         vaga é reservada quando o `initialize` é aceito, não quando a sessão nasce:
+ *         `initialize` concorrentes não furam o teto.
+ *   M5 — Validação de `Origin` (spec MCP Streamable HTTP, contra DNS rebinding/CSRF):
+ *         sem `Origin` passa; origem fora de SISUB_MCP_ALLOWED_ORIGINS leva 403, sem CORS.
+ *         Ver `cors.ts`.
+ *
+ * Variáveis de ambiente:
+ *   MCP_TRANSPORT              "http" (padrão) ou "stdio"
+ *   MCP_PORT                   porta HTTP (padrão 3000)
+ *   SISUB_USER_JWT             credencial do modo stdio (Claude Desktop local)
+ *   SISUB_MCP_ALLOWED_ORIGINS  origens de navegador permitidas, separadas por vírgula
+ *                              (vazio = nenhuma; clientes sem `Origin` não dependem dela)
  *
  * Transporte "stdio": JWT via SISUB_USER_JWT env var (Claude Desktop local)
  * Transporte "http":  JWT via Authorization: Bearer <token> em cada request
@@ -21,9 +33,11 @@ import { createServer } from "node:http"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
 import { resolveCredential } from "./auth.ts"
+import { ALLOWED_ORIGINS_ENV, corsHeadersFor, evaluateOrigin, parseAllowedOrigins } from "./cors.ts"
 import { isDbPoolWedged } from "./db.ts"
-import { BodyTooLargeError, clientIpFrom, countUserSessions, MAX_SESSIONS_PER_USER, readBodyCapped } from "./http-guards.ts"
+import { BodyTooLargeError, clientIpFrom, MAX_SESSIONS_PER_USER, readBodyCapped } from "./http-guards.ts"
 import { createMcpServer } from "./server.ts"
+import { runFirstRequest, SessionRegistry } from "./session-limits.ts"
 
 const transportMode = process.env.MCP_TRANSPORT ?? "http"
 
@@ -56,13 +70,9 @@ if (transportMode === "stdio") {
 
 	const port = parseInt(process.env.MCP_PORT ?? "3000", 10)
 
-	// ── M5: Headers CORS ──────────────────────────────────────────────────────
-	const CORS_HEADERS: Record<string, string> = {
-		"Access-Control-Allow-Origin": "*",
-		"Access-Control-Allow-Methods": "POST, GET, DELETE, OPTIONS",
-		"Access-Control-Allow-Headers": "Content-Type, Authorization, mcp-session-id",
-		"Access-Control-Max-Age": "86400",
-	}
+	// ── M5: Origens de navegador permitidas ───────────────────────────────────
+	// Configuração inválida derruba a partida (ver `parseAllowedOrigins`).
+	const allowedOrigins = parseAllowedOrigins(process.env[ALLOWED_ORIGINS_ENV])
 
 	// ── M1: Session store com TTL e limite máximo ─────────────────────────────
 
@@ -71,26 +81,23 @@ if (transportMode === "stdio") {
 	/** Número máximo de sessões simultâneas antes de rejeitar novas. */
 	const MAX_SESSIONS = 200
 
-	interface SessionEntry {
-		transport: StreamableHTTPServerTransport
-		/** userId do usuário que criou a sessão — usado para verificar C1. */
-		userId: string
-		createdAt: number
-		lastSeenAt: number
-	}
+	const sessions = new SessionRegistry<StreamableHTTPServerTransport>({ maxSessions: MAX_SESSIONS, maxSessionsPerUser: MAX_SESSIONS_PER_USER })
 
-	const sessions = new Map<string, SessionEntry>()
+	const logCloseError = (sessionId: string | undefined, error: unknown) =>
+		process.stderr.write(`[sisub-mcp] Erro ao fechar sessão ${sessionId ?? "(não inicializada)"}: ${error instanceof Error ? error.message : String(error)}\n`)
 
 	// M1: Limpeza periódica de sessões expiradas e entradas de rate limit antigas
 	const cleanupInterval = setInterval(
 		() => {
 			const now = Date.now()
-			for (const [id, entry] of sessions) {
-				if (now - entry.lastSeenAt > SESSION_TTL_MS) {
-					sessions.delete(id)
-					process.stderr.write(`[sisub-mcp] Sessão expirada por inatividade: ${id}\n`)
-				}
-			}
+			// O sweep fecha transport e servidor de cada sessão expirada; erro de close é
+			// registrado e não interrompe o resto (nem a limpeza do rate limit abaixo).
+			sessions
+				.sweepExpired(now, SESSION_TTL_MS, logCloseError)
+				.then((expired) => {
+					for (const id of expired) process.stderr.write(`[sisub-mcp] Sessão expirada por inatividade: ${id}\n`)
+				})
+				.catch((error: unknown) => logCloseError(undefined, error))
 			// Limpar entradas de rate limit expiradas para não crescer indefinidamente
 			for (const [ip, entry] of rateLimits) {
 				if (now > entry.resetAt) rateLimits.delete(ip)
@@ -144,9 +151,17 @@ if (transportMode === "stdio") {
 		const url = new URL(req.url ?? "/", `http://localhost:${port}`)
 		const clientIp = getClientIp(req)
 
-		// M5: CORS em todas as respostas
-		for (const [k, v] of Object.entries(CORS_HEADERS)) {
+		// M5: Origem antes de tudo — inclusive do preflight e do /health. Requisição sem
+		// `Origin` (cliente de servidor/CLI) segue sem CORS; origem fora da lista leva 403
+		// sem `Access-Control-Allow-Origin`, então o navegador não lê nem a recusa.
+		const originDecision = evaluateOrigin(req.headers.origin, allowedOrigins)
+		for (const [k, v] of Object.entries(corsHeadersFor(originDecision))) {
 			res.setHeader(k, v)
+		}
+		if (originDecision.kind === "denied") {
+			res.writeHead(403, { "Content-Type": "application/json" })
+			res.end(JSON.stringify({ error: "Origem não permitida" }))
+			return
 		}
 
 		// M5: Preflight OPTIONS — responder imediatamente, sem auth
@@ -237,7 +252,6 @@ if (transportMode === "stdio") {
 
 		// ── Resolver sessão ───────────────────────────────────────────────────
 		const sessionId = req.headers["mcp-session-id"] as string | undefined
-		let transport: StreamableHTTPServerTransport
 
 		if (sessionId && sessions.has(sessionId)) {
 			// Map.get() após .has() garante existência — guard defensivo para satisfazer o tipo
@@ -258,53 +272,64 @@ if (transportMode === "stdio") {
 
 			// M1: Atualizar lastSeenAt para manter a sessão viva
 			entry.lastSeenAt = Date.now()
-			transport = entry.transport
-		} else {
-			// M1: Rejeitar nova sessão se o limite global foi atingido
-			if (sessions.size >= MAX_SESSIONS) {
-				res.writeHead(503, { "Content-Type": "application/json" })
-				res.end(JSON.stringify({ error: "Servidor com capacidade máxima de sessões. Tente novamente em alguns minutos." }))
-				return
-			}
-			// M6: e por usuário — sem isto, UMA credencial ocupava as 200 vagas e travava o
-			// servidor para todo mundo até o TTL de 2 h expirar.
-			if (countUserSessions(sessions.values(), currentUserId) >= MAX_SESSIONS_PER_USER) {
-				res.writeHead(429, { "Content-Type": "application/json" })
-				res.end(JSON.stringify({ error: "Limite de sessões simultâneas deste usuário atingido. Encerre uma sessão ou aguarde." }))
-				return
-			}
-
-			// Nova sessão: criar transport e capturar o JWT atual
-			// createMcpServer(credential) captura a credencial em closure para uso nas tool calls.
-			transport = new StreamableHTTPServerTransport({
-				sessionIdGenerator: () => crypto.randomUUID(),
-				onsessioninitialized: (sid) => {
-					// Armazenar sessão com userId para validação C1 nas próximas requests
-					sessions.set(sid, {
-						transport,
-						userId: currentUserId,
-						createdAt: Date.now(),
-						lastSeenAt: Date.now(),
-					})
-					process.stderr.write(`[sisub-mcp] Nova sessão: ${sid} (user: ${currentUserId})\n`)
-				},
-			})
-
-			transport.onclose = () => {
-				if (transport.sessionId) {
-					sessions.delete(transport.sessionId)
-					process.stderr.write(`[sisub-mcp] Sessão encerrada: ${transport.sessionId}\n`)
-				}
-			}
-
-			transport.onerror = (err) => process.stderr.write(`[sisub-mcp] Erro no transport: ${err.message}\n`)
-
-			const mcpServer = createMcpServer(credential)
-			await mcpServer.connect(transport)
+			// Delegar ao SDK MCP
+			await entry.transport.handleRequest(req, res, parsedBody)
+			return
 		}
 
-		// Delegar ao SDK MCP
-		await transport.handleRequest(req, res, parsedBody)
+		// M1/M6: Reservar a vaga ANTES de qualquer `await` — a checagem e a ocupação são o
+		// mesmo passo síncrono, então `initialize` concorrentes não passam juntos pelo teto.
+		// Global primeiro; depois por usuário — sem este, UMA credencial ocupava as 200 vagas
+		// e travava o servidor para todo mundo até o TTL de 2 h expirar.
+		const reserved = sessions.tryReserve(currentUserId)
+		if (!reserved.ok) {
+			if (reserved.reason === "global") {
+				res.writeHead(503, { "Content-Type": "application/json" })
+				res.end(JSON.stringify({ error: "Servidor com capacidade máxima de sessões. Tente novamente em alguns minutos." }))
+			} else {
+				res.writeHead(429, { "Content-Type": "application/json" })
+				res.end(JSON.stringify({ error: "Limite de sessões simultâneas deste usuário atingido. Encerre uma sessão ou aguarde." }))
+			}
+			return
+		}
+		const { reservation } = reserved
+
+		// Nova sessão: criar transport e capturar o JWT atual
+		// createMcpServer(credential) captura a credencial em closure para uso nas tool calls.
+		const mcpServer = createMcpServer(credential)
+		const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+			sessionIdGenerator: () => crypto.randomUUID(),
+			onsessioninitialized: (sid) => {
+				// A reserva vira sessão, com userId para validação C1 nas próximas requests
+				if (sessions.commit(reservation, sid, { transport, server: mcpServer })) {
+					process.stderr.write(`[sisub-mcp] Nova sessão: ${sid} (user: ${currentUserId})\n`)
+				}
+			},
+		})
+
+		transport.onclose = () => {
+			// Transport fechado antes de inicializar devolve a vaga (no-op se já virou sessão).
+			sessions.release(reservation)
+			if (transport.sessionId && sessions.delete(transport.sessionId)) {
+				process.stderr.write(`[sisub-mcp] Sessão encerrada: ${transport.sessionId}\n`)
+			}
+		}
+
+		transport.onerror = (err) => process.stderr.write(`[sisub-mcp] Erro no transport: ${err.message}\n`)
+
+		// Se esta requisição não inicializar a sessão (não era `initialize`, foi recusada ou
+		// lançou), a vaga volta e transport + servidor são fechados.
+		await runFirstRequest(
+			sessions,
+			reservation,
+			{ transport, server: mcpServer },
+			async () => {
+				await mcpServer.connect(transport)
+				// Delegar ao SDK MCP
+				await transport.handleRequest(req, res, parsedBody)
+			},
+			(error) => logCloseError(transport.sessionId, error)
+		)
 	})
 
 	// O ALB reusa conexões ociosas por até 60 s. O `keepAliveTimeout` padrão do `node:http` é
