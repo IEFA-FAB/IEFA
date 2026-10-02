@@ -435,6 +435,10 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 
 	const latestExtraction = detail.data?.extractions[0] ?? null
 	const submission = detail.data?.submission
+	// Repetir a verificação: o α decide (parecer congela; depois de concluída, só o ACI).
+	const runPolicy = detail.data?.compliance_run
+	const runBlocked = runPolicy?.allowed === false
+	const reviewedRunIds = new Set((detail.data?.reviews ?? []).map((review) => review.run_id))
 	const demandId = submission?.demand_id ?? null
 
 	const refresh = () => {
@@ -466,8 +470,8 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 							</Button>
 							<Button
 								size="sm"
-								disabled={!latestExtraction || runCompliance.isPending}
-								title={latestExtraction ? undefined : "extraia o documento antes de verificar"}
+								disabled={!latestExtraction || runCompliance.isPending || runBlocked}
+								title={!latestExtraction ? "extraia o documento antes de verificar" : runBlocked ? (runPolicy?.message ?? undefined) : undefined}
 								onClick={() => {
 									if (!latestExtraction) return
 									runCompliance.mutate(
@@ -500,6 +504,7 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 			) : null}
 			{runExtraction.isError ? <p className="mb-4 text-sm">{(runExtraction.error as Error).message}</p> : null}
 			{runCompliance.isError ? <p className="mb-4 text-sm">{(runCompliance.error as Error).message}</p> : null}
+			{runBlocked && runs.length > 0 && runPolicy?.message ? <p className="mb-4 text-muted-foreground text-xs">Verificação: {runPolicy.message}.</p> : null}
 			{runCompliance.isPending ? (
 				<p className="mb-4 border border-border p-3 text-muted-foreground text-sm">
 					A verificação julga cada regra ativa contra a norma vigente — leva alguns minutos.
@@ -520,13 +525,18 @@ export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionI
 									<SelectValue>{selectedRun ? `${formatDateTime(selectedRun.started_at)} · ${selectedRun.status}` : "—"}</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
-									{runs.map((run) => (
+									{runs.map((run, index) => (
 										<SelectItem key={run.id} value={run.id}>
 											{formatDateTime(run.started_at)} · {run.status}
+											{index === 0 ? " · mais recente" : ""}
+											{reviewedRunIds.has(run.id) ? " · com parecer" : ""}
 										</SelectItem>
 									))}
 								</SelectContent>
 							</Select>
+							{/* O chat e a etapa do processo usam só a mais recente: quem decide precisa ver
+							    que houve outras, e o que cada uma achou, antes de emitir o parecer. */}
+							<span className="text-muted-foreground text-xs">{runs.length} execuções nesta submissão; a etapa e o chat consideram a mais recente.</span>
 						</div>
 					) : null}
 

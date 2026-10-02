@@ -127,6 +127,12 @@ export interface ProcessDetail {
 	extractions: ExtractionSummary[]
 	runs: ComplianceRun[]
 	reviews: Review[]
+	/**
+	 * Se a verificação pode ser disparada (ou repetida) agora, decidido no α com a mesma regra
+	 * de `POST /compliance/runs`: com parecer, ninguém repete; depois de uma concluída, só o ACI.
+	 * Ausente em α anterior à regra — a tela então não bloqueia, e a rota decide.
+	 */
+	compliance_run?: { allowed: boolean; code: string | null; message: string | null }
 }
 
 export interface ReportDocument {
