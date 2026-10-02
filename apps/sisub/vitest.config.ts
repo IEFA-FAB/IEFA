@@ -55,6 +55,16 @@ function testEnv(): Record<string, string> {
 	return Object.fromEntries(RUN_FLAGS.filter((k) => k in all).map((k) => [k, all[k]]))
 }
 
+/**
+ * Timeout padrão por modo. 15 s é calibrado para teste unitário. Contra o banco real o mesmo
+ * teste leva 10–20 s quando a fila global da integração está cheia, e o `full` da `main`
+ * caía por timeout sem regressão nenhuma (dois casos em 2026-10-02, 15,5 s e 17,4 s). Teste
+ * que precisa de mais que 60 s continua declarando o próprio timeout.
+ */
+const env = testEnv()
+const isIntegrationRun = (process.env.SISUB_RUN_INTEGRATION ?? env.SISUB_RUN_INTEGRATION) === "true"
+const DEFAULT_TIMEOUT_MS = isIntegrationRun ? 60_000 : 15_000
+
 export default defineConfig({
 	resolve: {
 		alias: {
@@ -66,9 +76,9 @@ export default defineConfig({
 		environment: "node",
 		globals: false,
 		include: ["src/**/*.test.ts"],
-		hookTimeout: 15_000,
-		testTimeout: 15_000,
-		env: testEnv(),
+		hookTimeout: DEFAULT_TIMEOUT_MS,
+		testTimeout: DEFAULT_TIMEOUT_MS,
+		env,
 		setupFiles: ["./src/test/suppress-phoenix-cleanup-errors.ts"],
 	},
 })
