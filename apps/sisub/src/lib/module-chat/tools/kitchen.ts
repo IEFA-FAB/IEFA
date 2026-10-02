@@ -3,7 +3,15 @@
  * Uses OpenAI function-calling format instead of MCP SDK format.
  */
 
-import { listAccessibleKitchens, toJsonSchema, type UpsertDailyMenu, UpsertDailyMenuSchema, upsertDailyMenu } from "@iefa/sisub-domain"
+import {
+	listAccessibleKitchens,
+	toJsonSchema,
+	UpdateHeadcountSchema,
+	type UpsertDailyMenu,
+	UpsertDailyMenuSchema,
+	updateHeadcount,
+	upsertDailyMenu,
+} from "@iefa/sisub-domain"
 import {
 	AGENT_APPLY_TEMPLATE_MAX_DATES,
 	type AgentApplyTemplate,
@@ -244,7 +252,12 @@ function parseRemoveMenuItemArgs(args: Record<string, unknown>): RemoveMenuItemA
 export type UpdateMenuHeadcountArgs = { menuId: string; forecastedHeadcount: number }
 
 function parseUpdateMenuHeadcountArgs(args: Record<string, unknown>): UpdateMenuHeadcountArgs {
-	return { menuId: requireUuid(args.menuId, "menuId"), forecastedHeadcount: safeInt(args.forecastedHeadcount, "forecastedHeadcount") }
+	const menuId = requireUuid(args.menuId, "menuId")
+	const forecastedHeadcount = safeInt(args.forecastedHeadcount, "forecastedHeadcount")
+	// Mesmo piso da tela e do domínio (`UpdateHeadcountSchema`: inteiro positivo). Sem ele o chat
+	// gravava previsão negativa, e as porções reescaladas a partir dela.
+	if (forecastedHeadcount < 1) throw new ToolValidationError("forecastedHeadcount deve ser inteiro positivo")
+	return { menuId, forecastedHeadcount }
 }
 
 const createDailyMenu: ModuleToolDefinition<UpsertDailyMenu> = {
@@ -349,12 +362,13 @@ const removeMenuItem: ModuleToolDefinition<RemoveMenuItemArgs> = {
 
 const updateMenuHeadcount: ModuleToolDefinition<UpdateMenuHeadcountArgs> = {
 	name: "update_menu_headcount",
-	description: "Atualiza número de comensais previstos de um menu diário.",
+	description:
+		"Atualiza número de comensais previstos de um menu diário (inteiro positivo). As porções dos itens que seguiam a previsão anterior são reescaladas junto; porção ajustada à mão fica.",
 	parameters: {
 		type: "object",
 		properties: {
 			menuId: { type: "string", description: "ID (UUID) do menu diário" },
-			forecastedHeadcount: { type: "number", description: "Novo número de comensais" },
+			forecastedHeadcount: { type: "number", description: "Novo número de comensais, inteiro positivo" },
 		},
 		required: ["menuId", "forecastedHeadcount"],
 	},
@@ -368,13 +382,11 @@ const updateMenuHeadcount: ModuleToolDefinition<UpdateMenuHeadcountArgs> = {
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: menu.kitchen_id })
 		assertRouteScope(ctx, "kitchen", menu.kitchen_id)
 
-		const { data, error } = await ctx.supabase
-			.from("daily_menu")
-			.update({ forecasted_headcount: headcount })
-			.eq("id", menuId)
-			.select("id, service_date, forecasted_headcount")
-		if (error) return toolErr(sanitizeDbError(error, "update_menu_headcount"))
-		return toolOk(data)
+		// A operation da tela, não UPDATE cru: ela trava a linha, grava a previsão e reescala as
+		// porções que vinham da previsão antiga. O UPDATE direto mudava a previsão e deixava as
+		// porções (que a produção, a baixa e a compra usam) no valor velho.
+		const rows = await updateHeadcount(ctx.db, domainCtx(ctx), UpdateHeadcountSchema.parse({ dailyMenuId: menuId, forecastedHeadcount: headcount }))
+		return toolOk(rows.map((row) => ({ id: row.id, service_date: row.service_date, forecasted_headcount: row.forecasted_headcount })))
 	},
 }
 

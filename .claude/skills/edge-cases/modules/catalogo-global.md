@@ -81,3 +81,17 @@ Ler exige `global:1`; editar exige `global:2`. Na cozinha, o modelo se ADAPTA (c
   (rascunho atravessa publicação que mudou o formulário). Aviso de aba desatualizada:
   **LACUNA** de teste (sem teste de componente no sisub; cabeçalho conferido no build local). Mistura de versões no ALB
   (stickiness): **LACUNA**, depende de o cookie `AWSALB` entrar na Política de Cookies.
+
+### CG-PRE-05 — "Pedi ao assistente para mudar a preparação, e alguém já tinha salvo outra versão"
+- **Realidade:** no chat do catálogo global o assistente lê a v5 e propõe mudar o fator de
+  cocção; antes da confirmação, outra nutricionista grava a v6 na tela. Até 2026-10-01 o
+  `update_recipe` fazia `UPDATE` direto na linha lida: reescrevia a v5 já publicada (o cardápio
+  que a usou mudava de ficha por baixo) e a v6 não recebia a mudança.
+- **O sistema precisa:** a tool gravar versão nova pela mesma operation da tela, a partir da
+  versão que o modelo leu e o cartão descreveu, e recusar sem gravar se ela não for mais a
+  vigente.
+- **UX:** o assistente recebe "a versão vigente agora é a v6; nada foi gravado" e relê antes de
+  propor de novo.
+- **Cobertura:** `recipes.operations.test.ts › agentUpdateRecipe recusa versão superada sem gravar
+  nada` e `› agentUpdateRecipe cria versão nova preservando a ficha…` · `global-update-recipe.test.ts`
+  · `sisub-domain/agent/recipes.test.ts`.

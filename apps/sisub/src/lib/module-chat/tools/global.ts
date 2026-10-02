@@ -22,6 +22,7 @@ import {
 	agentListIngredients,
 	agentListLegacyPreparations,
 	agentListRecipes,
+	agentUpdateRecipe,
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
@@ -295,7 +296,8 @@ const createRecipe: ModuleToolDefinition<CreateRecipeArgs> = {
 
 const updateRecipe: ModuleToolDefinition<UpdateRecipeArgs> = {
 	name: "update_recipe",
-	description: "Atualiza uma receita global existente.",
+	description:
+		"Atualiza uma receita global criando uma VERSÃO NOVA (a anterior fica no histórico). recipeId tem de ser a versão vigente, a que list_recipes/get_recipe mostram; versão já superada é recusada sem gravar nada, e aí releia a receita antes de tentar de novo.",
 	parameters: {
 		type: "object",
 		properties: {
@@ -308,22 +310,18 @@ const updateRecipe: ModuleToolDefinition<UpdateRecipeArgs> = {
 	},
 	requiredLevel: 2,
 	parseArgs: parseUpdateRecipeArgs,
+	// Versão nova pela operation da tela, nunca UPDATE na linha: a linha é uma versão publicada
+	// (cardápios a referenciam) e o `recipeId` é a versão que o modelo leu e o cartão de aprovação
+	// descreveu — se outra pessoa gravou depois, `saveRecipeEdit` recusa (EDIT-SAFETY.md).
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 2)
-
-		const update: Record<string, unknown> = {}
-		if (args.name !== undefined) update.name = args.name
-		if (args.preparationTime !== undefined) update.preparation_time_minutes = args.preparationTime
-		if (args.cookingFactor !== undefined) update.cooking_factor = args.cookingFactor
-
-		const { data, error } = await untypedFrom(ctx, "recipes")
-			.update(update)
-			.eq("id", args.recipeId)
-			.is("kitchen_id", null)
-			.select("id, name, version, preparation_time_minutes, cooking_factor")
-			.single()
-		if (error) return toolErr(sanitizeDbError(error, "update_recipe"))
-		return toolOk(data)
+		const result = await agentUpdateRecipe(ctx.db, domainCtx(ctx), {
+			recipeId: args.recipeId,
+			...(args.name !== undefined && { name: args.name }),
+			...(args.preparationTime !== undefined && { preparationTimeMinutes: args.preparationTime }),
+			...(args.cookingFactor !== undefined && { cookingFactor: args.cookingFactor }),
+		})
+		return toolOk(result)
 	},
 }
 

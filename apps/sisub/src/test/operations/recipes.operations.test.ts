@@ -23,6 +23,7 @@ import {
 	saveRecipeFlow,
 	setRecipeFolder,
 } from "@iefa/sisub-domain"
+import { agentUpdateRecipe } from "@iefa/sisub-domain/agent"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -415,6 +416,63 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 
 		const head = await fetchRecipeLineageHead(db, ctx, { recipeId: v1, context: { scope: "global" } })
 		expect(head).toMatchObject({ id: v2.id, version: 2, kitchen_id: null })
+	}, 90_000)
+
+	/**
+	 * `update_recipe` do chat: grava versão nova pela mesma operation da tela, com a ficha inteira
+	 * da versão lida e só os campos do agente por cima. Antes era `UPDATE` na linha publicada.
+	 */
+	test("agentUpdateRecipe cria versão nova preservando a ficha e deixa a lida intacta", async () => {
+		if (!reachable || !seeder || !db) return
+		const ingredientId = await seeder.seedIngredient()
+		const substituteId = await seeder.seedIngredient()
+		const v1 = await createRecipe(db, ctx, {
+			name: uid("[TEST] Agente v1 "),
+			portionYield: 100,
+			preparationMethod: "Refogar",
+			cookingFactor: 2.5,
+			kitchenId: null,
+			ingredients: [
+				{
+					ingredientId,
+					netQuantity: 2,
+					isOptional: false,
+					priorityOrder: 0,
+					alternatives: [{ ingredientId: substituteId, netQuantity: 1.6, priorityOrder: 0 }],
+				},
+			],
+		})
+		seeder.track("recipes", v1.id)
+		seeder.trackWhere("recipe_ingredients", "recipe_id", v1.id)
+
+		const result = await agentUpdateRecipe(db, ctx, { recipeId: v1.id, cookingFactor: 2.2 })
+		seeder.track("recipes", result.id)
+		seeder.trackWhere("recipe_ingredients", "recipe_id", result.id)
+
+		expect(result).toMatchObject({ version: 2, cooking_factor: 2.2, previous_version_id: v1.id })
+		const v2 = await fetchRecipe(db, ctx, { recipeId: result.id })
+		expect(v2).toMatchObject({ name: v1.name, preparation_method: "Refogar", base_recipe_id: v1.id })
+		expect(v2.ingredients).toHaveLength(1)
+		expect(v2.ingredients[0]).toMatchObject({ ingredient_id: ingredientId, net_quantity: 2 })
+		expect((v2.ingredients[0].alternatives ?? [])[0]).toMatchObject({ ingredient_id: substituteId, net_quantity: 1.6 })
+
+		// A versão lida não muda: cardápio que a usou continua com a ficha dele.
+		const antiga = await fetchRecipe(db, ctx, { recipeId: v1.id })
+		expect(antiga.cooking_factor).toBe(2.5)
+	}, 90_000)
+
+	test("agentUpdateRecipe recusa versão superada sem gravar nada", async () => {
+		if (!reachable || !seeder || !db) return
+		const v1 = await seeder.seedRecipe({ name: uid("[TEST] Agente superada ") })
+		const { recipe: v2 } = await saveRecipeEdit(db, ctx, { name: uid("[TEST] Agente v2 "), portionYield: 110, baseRecipeId: v1, context: { scope: "global" } })
+		seeder.track("recipes", v2.id)
+
+		await expect(agentUpdateRecipe(db, ctx, { recipeId: v1, name: uid("[TEST] Agente v3 ") })).rejects.toMatchObject({
+			code: "RECIPE_VERSION_CONFLICT",
+			details: { headId: v2.id },
+		})
+		const versions = await listRecipeVersions(db, ctx, { recipeId: v1 })
+		expect(versions.map((r) => r.id)).toEqual([v1, v2.id])
 	}, 90_000)
 
 	test("saveRecipeFlow recusa gravar o fluxo numa versão já superada", async () => {
