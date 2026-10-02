@@ -50,6 +50,11 @@ paths:
   mostra `cancelled` como `fail` e só lista check já registrado: confira o workflow pelo SHA.
 - **Pacote novo em `packages/`** entra no manifesto e no `package.json`; `bun run generate:deploy`
   cuida das linhas `COPY` do Dockerfile. Sem isso o `warm-deps` quebra o build de todos os apps.
+- **App novo** entra no `apps.manifest.json`; `bun run generate:deploy` escreve, além do
+  Dockerfile, do bake e do paths-filter, as regiões `# >>> gerado:` do `deploy.yml` (input
+  `force_*`, outputs e "Resolve outputs" do `changes`, condição do `warm-deps`). Os jobs
+  `check/build/deploy-<app>` continuam à mão; `scripts/generate-deploy-artifacts.test.ts` falha
+  se o app não tiver o `deploy-<app>`.
 - **PR do Dependabot e de fork** não recebem segredo: o `gate` pula (verde) e a integração deles
   roda no push da `main`. Para validar antes, dispare o workflow numa branch-cópia.
 
