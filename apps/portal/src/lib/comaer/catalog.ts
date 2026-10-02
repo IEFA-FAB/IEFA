@@ -302,6 +302,19 @@ export function kindsForScope(scope: Scope): DocumentKind[] {
 }
 
 /**
+ * A espécie leva o sequencial da seção. O ofício de interesse particular numera pela
+ * ausência ("s/nº", art. 51 § 6º), então não cobra o campo.
+ */
+export function requiresSequence(kind: DocumentKind): boolean {
+	return kind.numbering !== "nenhuma" && kind.id !== "oficio-particular"
+}
+
+/** O indicativo do setor entra na numeração (art. 31 § 1º, III); o Parecer numera por ano. */
+export function requiresSector(kind: DocumentKind): boolean {
+	return requiresSequence(kind) && kind.numbering !== "parecer"
+}
+
+/**
  * Catálogo em texto, para o prompt do modelo.
  *
  * Sai daqui, e não de uma lista escrita à mão no prompt, porque espécie nova no catálogo
@@ -309,7 +322,12 @@ export function kindsForScope(scope: Scope): DocumentKind[] {
  * silêncio, e o modelo continuaria escolhendo entre as espécies de ontem.
  */
 export function describeCatalog(): string {
-	return DOCUMENT_KINDS.map((e) => `- ${e.id} — ${e.label} (${e.legalBasis}). Âmbitos: ${e.scopes.join(", ")}. ${e.description}`).join("\n")
+	// O fecho vai explícito: sem ele o modelo deduzia "Atenciosamente" da precedência e o
+	// prometia ao redator num ofício entre OM, que a folha (corretamente) não imprime.
+	return DOCUMENT_KINDS.map(
+		(e) =>
+			`- ${e.id} — ${e.label} (${e.legalBasis}). Âmbitos: ${e.scopes.join(", ")}. ${e.description} Fecho de cortesia: ${e.allowsClosing ? "sim, inserido pelo sistema conforme a precedência" : "não leva"}.`
+	).join("\n")
 }
 
 /**

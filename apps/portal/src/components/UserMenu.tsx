@@ -7,9 +7,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 function getInitials(nameOrEmail?: string) {
 	if (!nameOrEmail) return "US"
 	const name = nameOrEmail.split("@")[0]
+	// Pontuação não é inicial: "Teste (Treino E2E)" virava "T(" no avatar.
 	const parts = name
 		.trim()
 		.split(/\s+/)
+		.map((p) => p.replace(/[^\p{L}\p{N}]/gu, ""))
 		.filter((p) => p.length > 0)
 	if (parts.length === 0) return "US"
 	if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()

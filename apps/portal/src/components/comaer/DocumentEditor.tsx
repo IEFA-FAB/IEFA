@@ -225,12 +225,26 @@ export function DocumentEditor({
 
 	return (
 		<div className="w-full py-10">
+			{/* `display: none`, não `visibility: hidden`: o invisível continua ocupando lugar, e o
+			    editor inteiro (formulário, conversa, exportação) virava quatro folhas em branco
+			    depois do ofício. Os ancestrais da folha ficam, sem grade, recuo, sticky nem
+			    rolagem, para ela fluir sob as margens do @page. A regra por `visibility` fica
+			    como base para navegador sem `:has()` (Firefox ESR 115): lá a impressão volta a
+			    sair com folhas em branco, mas sem o editor por cima do ofício. */}
 			<style>{`
 				@media print {
 					@page { size: A4; margin: 2cm 2cm 2cm 3cm; }
 					body * { visibility: hidden; }
 					[data-sheet], [data-sheet] * { visibility: visible; }
 					[data-sheet] { position: absolute; left: 0; top: 0; width: 100%; }
+					[data-block="signatario"] { break-inside: avoid; }
+				}
+				@supports selector(:has(*)) {
+					@media print {
+						body *:not(:has([data-sheet])):not([data-sheet]):not([data-sheet] *) { display: none !important; }
+						body :has([data-sheet]) { display: block !important; position: static !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: auto !important; max-width: none !important; min-height: 0 !important; height: auto !important; }
+						[data-sheet] { position: static; }
+					}
 				}
 			`}</style>
 

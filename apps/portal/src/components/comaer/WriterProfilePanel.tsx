@@ -8,7 +8,7 @@ import { EMPTY_PROFILE, missingProfileFields, type WriterProfile } from "@/lib/c
 import { loadWriterProfileFn, saveWriterProfileFn } from "@/server/writer-profile.fn"
 
 const FIELDS: { key: keyof WriterProfile; label: string; placeholder?: string }[] = [
-	{ key: "om_name", label: "Nome da OM", placeholder: "Instituto de Economia e Finanças da Aeronáutica" },
+	{ key: "om_name", label: "Nome da OM", placeholder: "Instituto de Economia, Finanças e Administração da Aeronáutica" },
 	{ key: "om_acronym", label: "Sigla", placeholder: "IEFA" },
 	{ key: "om_sector", label: "Setor", placeholder: "Gabinete" },
 	{ key: "city", label: "Localidade padrão", placeholder: "Rio de Janeiro" },

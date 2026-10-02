@@ -9,7 +9,7 @@
  * sistema, e o erro só apareceria depois do despacho.
  */
 
-import { type DocumentKind, EXTERNAL_OFICIO_LABEL, findKind } from "./catalog"
+import { type DocumentKind, EXTERNAL_OFICIO_LABEL, findKind, requiresSector, requiresSequence } from "./catalog"
 import {
 	addressingLines,
 	annexLetter,
@@ -194,11 +194,16 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 	if (kind.blocks.includes("nup") && !(input.nup && isValidNup(input.nup))) {
 		pending("Falta o NUP. Peça ao protocolo da OM ou copie o do processo no SIGADAER: são 17 dígitos.", "nup")
 	}
-	if (kind.numbering !== "nenhuma" && input.numbering.sequence === null && kind.id !== "oficio-particular") {
+	if (requiresSequence(kind) && input.numbering.sequence === null) {
 		pending(
 			'Falta o número sequencial da seção. Sem ele o documento sai como "s/nº", forma que a norma reserva ao expediente de interesse particular.',
 			"numeracao"
 		)
+	}
+	// O painel marca o setor como obrigatório e o conta no "x de y preenchidos"; sem este
+	// aviso o contador ficava em falta enquanto a conferência dizia que só faltavam os outros.
+	if (requiresSector(kind) && !input.numbering.sector?.trim()) {
+		pending("Falta o indicativo do setor que elabora o documento: sem ele a numeração sai incompleta (art. 31 § 1º, III).", "numeracao")
 	}
 	if (input.paragraphs.every((p) => p.text.trim() === "")) pending("O documento está sem texto.", "texto")
 

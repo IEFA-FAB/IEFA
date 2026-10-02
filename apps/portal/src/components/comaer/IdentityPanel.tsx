@@ -5,9 +5,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { DocumentKind } from "@/lib/comaer/catalog"
+import { type DocumentKind, requiresSector, requiresSequence } from "@/lib/comaer/catalog"
 import { fromDateInputValue, toDateInputValue } from "@/lib/comaer/draft"
-import { RANKS } from "@/lib/comaer/ranks"
+import { QUADROS_IN_FULL, RANKS } from "@/lib/comaer/ranks"
 import type { DocumentInput } from "@/lib/comaer/types"
 
 const FAB_RANKS = RANKS.filter((r) => r.force === "aer")
@@ -29,11 +29,12 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 	// O denominador conta só o que ESTA espécie mostra: a Ata não tem numeração e o Parecer
 	// não tem NUP. Dividir sempre por oito exibia um débito contra campos que não existem na
 	// tela, e que a pessoa nunca conseguiria zerar.
-	const numbered = kind.numbering !== "nenhuma"
+	// Mesmas regras da conferência: o contador e a lista de pendências não podem discordar.
 	const hasNup = kind.blocks.includes("nup")
 	const required: string[] = [
 		input.om.name.trim(),
-		...(numbered ? [input.numbering.sequence !== null ? "n" : "", input.numbering.sector?.trim() ?? ""] : []),
+		...(requiresSequence(kind) ? [input.numbering.sequence !== null ? "n" : ""] : []),
+		...(requiresSector(kind) ? [input.numbering.sector?.trim() ?? ""] : []),
 		...(hasNup ? [input.nup?.trim() ?? ""] : []),
 		input.city.trim(),
 		input.signer.name.trim(),
@@ -69,7 +70,7 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 							aria-describedby={`${field("om")}-hint`}
 							value={input.om.name}
 							onChange={(e) => onChange({ om: { ...input.om, name: e.target.value } })}
-							placeholder="Instituto de Economia e Finanças da Aeronáutica"
+							placeholder="Instituto de Economia, Finanças e Administração da Aeronáutica"
 						/>
 					</Campo>
 
@@ -98,7 +99,7 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 								id={field("sequence")}
 								label="Sequencial da seção"
 								hint='Vem do controle da sua seção. Em branco, o documento sai como "s/nº", forma reservada ao expediente de interesse particular.'
-								required
+								required={requiresSequence(kind)}
 							>
 								<Input
 									id={field("sequence")}
@@ -113,14 +114,18 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 								/>
 							</Campo>
 
-							<Campo id={field("sector")} label="Indicativo do setor" required>
-								<Input
-									id={field("sector")}
-									value={input.numbering.sector ?? ""}
-									onChange={(e) => onChange({ numbering: { ...input.numbering, sector: e.target.value } })}
-									placeholder="GAB"
-								/>
-							</Campo>
+							{/* O Parecer numera por ano (art. 53 § 2º, III) e não lê o setor: o campo sairia
+							    sem efeito nenhum na folha. */}
+							{kind.numbering !== "parecer" && (
+								<Campo id={field("sector")} label="Indicativo do setor" required={requiresSector(kind)}>
+									<Input
+										id={field("sector")}
+										value={input.numbering.sector ?? ""}
+										onChange={(e) => onChange({ numbering: { ...input.numbering, sector: e.target.value } })}
+										placeholder="GAB"
+									/>
+								</Campo>
+							)}
 
 							{kind.numbering !== "interna" && (
 								<Campo
@@ -183,6 +188,23 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 								))}
 							</SelectContent>
 						</Select>
+					</Campo>
+
+					{/* O quadro fica aqui, e não só no formulário: no modo de redação assistida este é o
+					    único lugar de identidade, e a assinatura saía "Ten Cel" sem o "Int". */}
+					<Campo id={field("quadro")} label="Quadro ou especialidade">
+						<Input
+							id={field("quadro")}
+							list={field("quadros")}
+							value={input.signer.quadro ?? ""}
+							onChange={(e) => onChange({ signer: { ...input.signer, quadro: e.target.value } })}
+							placeholder="Int"
+						/>
+						<datalist id={field("quadros")}>
+							{Object.keys(QUADROS_IN_FULL).map((q) => (
+								<option key={q} value={q} />
+							))}
+						</datalist>
 					</Campo>
 
 					<Campo id={field("position")} label="Cargo do signatário" required>

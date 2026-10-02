@@ -178,6 +178,17 @@ describe("divisões do texto (art. 39)", () => {
 	it("dispensa a numeração quando o documento tem parágrafo único (parágrafo único, I)", () => {
 		expect(renderDivisions([{ text: "Único" }]).map((l) => l.text)).toEqual(["Único"])
 	})
+
+	it("separa o número do parágrafo para a folha começar o texto a 2,5 cm (art. 20, II, a)", () => {
+		const lines = renderDivisions([{ text: "Primeiro", items: [{ text: "Item" }] }, { text: "Segundo" }])
+		expect(lines.map((l) => l.marker)).toEqual(["1.", undefined, "2."])
+		// O texto puro continua com o número: é ele que vai para o SIGADAER.
+		expect(lines[0].text).toBe("1. Primeiro")
+		// Sem número, o recuo de 2,5 cm vale só para a primeira linha.
+		const [unico] = renderDivisions([{ text: "Único" }])
+		expect(unico.marker).toBeUndefined()
+		expect(unico.indentFirstLine).toBe(true)
+	})
 })
 
 /**
