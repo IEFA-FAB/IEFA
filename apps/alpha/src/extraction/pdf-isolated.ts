@@ -81,7 +81,8 @@ async function runWorker(bytes: Uint8Array, mode: "inspect" | "text", limits: Pd
 
 	const child = Bun.spawn({
 		cmd: [process.execPath, "--smol", WORKER_PATH, mode, String(maxPages)],
-		stdin: new Blob([bytes]),
+		// Cópia com `ArrayBuffer` próprio: o `Blob` não aceita a visão sobre `SharedArrayBuffer`.
+		stdin: new Blob([new Uint8Array(bytes)]),
 		stdout: "pipe",
 		stderr: "pipe",
 		env: { PATH: process.env.PATH ?? "" },
