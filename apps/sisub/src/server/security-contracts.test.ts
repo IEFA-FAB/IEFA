@@ -376,6 +376,12 @@ describe("server function security contracts", () => {
 			)
 
 			expect(postFns.length).toBeGreaterThan(0)
+			// O handler delegado herda a ordem do helper: o guard antes do client de DB.
+			const helper = readFileSync(join(serverDir, "../lib/domain-handler.server.ts"), "utf8")
+				.replace(/\/\*[\s\S]*?\*\//g, "")
+				.replace(/\/\/.*$/gm, "")
+			expect(helper.indexOf("await guard()")).toBeGreaterThan(-1)
+			expect(helper.indexOf("await guard()")).toBeLessThan(helper.search(new RegExp(DB_CLIENT)))
 			for (const fn of postFns) {
 				// Delegado: `requireAuthThenRun(op)` autentica antes de obter o client de DB.
 				if (/\.handler\(requireAuthThenRun\(\w+\)\)/.test(fn)) continue

@@ -13,6 +13,7 @@
 
 import { ListSensitiveOperationsSchema, listSensitiveOperationNames, listSensitiveOperations, type SensitiveOperationLogEntry } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
@@ -28,10 +29,7 @@ export type SensitiveOperationRow = SensitiveOperationLogEntry
  */
 export const listSensitiveOperationsFn = createServerFn({ method: "GET" })
 	.validator(ListSensitiveOperationsSchema)
-	.handler(async ({ data }): Promise<{ rows: SensitiveOperationRow[]; total: number }> => {
-		const ctx = await requireAuthWithPermission("admin", 3)
-		return listSensitiveOperations(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(listSensitiveOperations, () => requireAuthWithPermission("admin", 3)))
 
 /** Nomes de operação distintos já gravados — as opções do filtro "Operação" da tela. */
 export const listSensitiveOperationNamesFn = createServerFn({ method: "GET" }).handler(async (): Promise<string[]> => {

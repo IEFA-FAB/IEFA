@@ -13,8 +13,8 @@ import { PCA_FOOD_CLASS_CODES } from "@iefa/sisub-domain/pncp-pca"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 import { getComprasGovIntegrationClient, getProcurementClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 /** CNPJ raiz do Comando da Aeronáutica: um plano cobre todas as UASGs do órgão. */
 const COMAER_CNPJ = "00394429000100"

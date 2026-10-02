@@ -1,7 +1,7 @@
 /**
  * @module equipment.fn
  * Server fns dos equipamentos de cozinha (papel × modelo × parque × exigência da preparação).
- * Wrappers finos sobre as operations de @iefa/sisub-domain, com auth via requireAuth().
+ * Wrappers finos sobre as operations de @iefa/sisub-domain, com auth via requireAuthThenRun().
  * @domain core
  */
 

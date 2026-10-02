@@ -52,7 +52,6 @@ import type { UserContext } from "@iefa/sisub-domain/types"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 import { withDeferralRollback } from "@/lib/deferral-mark"
 import { invoiceSituationProblem } from "@/lib/invoice-gate"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
@@ -61,6 +60,7 @@ import { readAllPages } from "@/lib/read-all-pages"
 import { decideReceiptInvoice, isInvoiceCancelled } from "@/lib/receipt-invoice-gate"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas do módulo inventory ainda fora dos tipos gerados até o regen pós-migration
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }

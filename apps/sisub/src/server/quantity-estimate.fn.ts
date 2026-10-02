@@ -63,10 +63,7 @@ export const calculateQuantityEstimateNeedsFn = createServerFn({ method: "POST" 
 
 export const createQuantityEstimateDraftFn = createServerFn({ method: "POST" })
 	.validator(CreateQuantityEstimateDraftSchema)
-	.handler(async ({ data }): Promise<{ id: string }> => {
-		const ctx = await requireAuth()
-		return createQuantityEstimateDraft(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(createQuantityEstimateDraft))
 
 // ─── Atualizar metadados e seleções do rascunho ───────────────────────────────
 

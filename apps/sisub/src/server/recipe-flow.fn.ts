@@ -1,7 +1,7 @@
 /**
  * @module recipe-flow.fn
  * Server fns do Fluxo de Produção (DAG do modo de preparo). Wrappers finos sobre
- * as operations de @iefa/sisub-domain, com auth via requireAuth().
+ * as operations de @iefa/sisub-domain, com auth via requireAuthThenRun().
  * @domain core
  */
 

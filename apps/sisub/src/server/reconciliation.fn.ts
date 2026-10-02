@@ -16,10 +16,10 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { resolveDivergenceAtomically, toReconciliationDecisionError } from "@/server/reconciliation-decision.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }

@@ -5,23 +5,15 @@
  * @domain core
  */
 
-import { type DemandForecastStatus, fetchDemandForecastStatus, fetchProcurementPlanningStatus, type ProcurementPlanningStatus } from "@iefa/sisub-domain"
+import { fetchDemandForecastStatus, fetchProcurementPlanningStatus } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { z } from "zod"
-import { requireAuth } from "@/lib/auth.server"
-import { getDb } from "@/lib/db.server"
-import { handleDomainError } from "@/lib/domain-errors"
 
 export const fetchProcurementPlanningStatusFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive() }))
-	.handler(async ({ data }): Promise<ProcurementPlanningStatus> => {
-		const ctx = await requireAuth()
-		return fetchProcurementPlanningStatus(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchProcurementPlanningStatus))
 
 export const fetchDemandForecastStatusFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
-	.handler(async ({ data }): Promise<DemandForecastStatus> => {
-		const ctx = await requireAuth()
-		return fetchDemandForecastStatus(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(fetchDemandForecastStatus))

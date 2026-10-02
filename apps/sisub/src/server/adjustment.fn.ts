@@ -19,9 +19,9 @@ import { hasPermission, NOT_EXPIRED, resolveEffectivePermissions, type UserPermi
 import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASONS, type StockAdjustmentReason } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { publicDbMessage } from "@/lib/db-error-message"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }

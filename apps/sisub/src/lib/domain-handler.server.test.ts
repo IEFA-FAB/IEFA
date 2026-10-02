@@ -48,4 +48,22 @@ describe("requireAuthThenRun", () => {
 		await expect(requireAuthThenRun(operation as never)({ data: {} })).rejects.toThrow("traduzido: Lote não encontrado")
 		expect(handleDomainError).toHaveBeenCalledTimes(1)
 	})
+
+	test("guard customizado substitui o requireAuth", async () => {
+		const guard = vi.fn(async () => {
+			calls.push("guard")
+			return { userId: "admin" }
+		})
+		const operation = vi.fn(async (_db: unknown, ctx: unknown) => ctx)
+		await expect(requireAuthThenRun(operation as never, guard as never)({ data: {} })).resolves.toEqual({ userId: "admin" })
+		expect(calls).toEqual(["guard", "getDb"])
+		expect(requireAuth).not.toHaveBeenCalled()
+	})
+
+	test("falha ao obter o banco também passa pelo handleDomainError", async () => {
+		getDb.mockImplementationOnce(() => {
+			throw new Error("SISUB_DATABASE_URL is not set")
+		})
+		await expect(requireAuthThenRun(vi.fn() as never)({ data: {} })).rejects.toThrow("traduzido: SISUB_DATABASE_URL is not set")
+	})
 })

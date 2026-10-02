@@ -14,10 +14,10 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { assertNoBlindCountHides, hiddenByBlindCount } from "@/lib/blind-count.server"
 import { csvRow } from "@/lib/csv"
-import { publicDbMessage } from "@/lib/db-error-message"
 import { committedQuantity } from "@/lib/empenho-items"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }

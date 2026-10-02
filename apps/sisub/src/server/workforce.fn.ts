@@ -1,7 +1,7 @@
 /**
  * @module workforce.fn
  * Server fns da matriz de efetivo por refeitório (roster, competência, quantitativos, observações).
- * Wrappers finos sobre as operations de @iefa/sisub-domain, com auth via requireAuth().
+ * Wrappers finos sobre as operations de @iefa/sisub-domain, com auth via requireAuthThenRun().
  * @domain core
  */
 

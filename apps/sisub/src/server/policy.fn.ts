@@ -25,6 +25,7 @@ import {
 	updatePolicyRule,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { z } from "zod"
 import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
@@ -36,12 +37,7 @@ import type { PolicyRule, PolicyTarget } from "@/types/domain/policy"
 // ============================================================================
 
 /** Lista as regras ativas e inativas de um alvo, ordenadas por display_order e depois created_at. */
-export const fetchPolicyRulesFn = createServerFn({ method: "GET" })
-	.validator(ListPolicyRulesSchema)
-	.handler(async ({ data }): Promise<PolicyRule[]> => {
-		const ctx = await requireAuth()
-		return listPolicyRules(getDb(), ctx, data).catch(handleDomainError)
-	})
+export const fetchPolicyRulesFn = createServerFn({ method: "GET" }).validator(ListPolicyRulesSchema).handler(requireAuthThenRun(listPolicyRules))
 
 /** Cria uma regra de política. `display_order` default 0. */
 export const createPolicyRuleFn = createServerFn({ method: "POST" })
@@ -56,18 +52,12 @@ export const createPolicyRuleFn = createServerFn({ method: "POST" })
 /** Patch de título, descrição, ordem ou flag `active` — só os campos enviados mudam. */
 export const updatePolicyRuleFn = createServerFn({ method: "POST" })
 	.validator(UpdatePolicyRuleSchema)
-	.handler(async ({ data }): Promise<PolicyRule> => {
-		const ctx = await requireAuthWithPermission("global", 2)
-		return updatePolicyRule(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(updatePolicyRule, () => requireAuthWithPermission("global", 2)))
 
 /** Soft-delete: carimba `deleted_at`. Regra já excluída (ou inexistente) falha como não encontrada. */
 export const deletePolicyRuleFn = createServerFn({ method: "POST" })
 	.validator(DeletePolicyRuleSchema)
-	.handler(async ({ data }): Promise<void> => {
-		const ctx = await requireAuthWithPermission("global", 2)
-		return deletePolicyRule(getDb(), ctx, data).catch(handleDomainError)
-	})
+	.handler(requireAuthThenRun(deletePolicyRule, () => requireAuthWithPermission("global", 2)))
 
 // ============================================================================
 // Geração de Prompt de Revisão

@@ -33,10 +33,10 @@ import { getBrasiliaToday } from "@iefa/sisub-domain"
 import { resolvePurchaseUnitId } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas fora dos tipos gerados
 type LooseClient = { from: (table: string) => any }

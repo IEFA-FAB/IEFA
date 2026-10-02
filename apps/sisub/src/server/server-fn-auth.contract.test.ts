@@ -48,9 +48,10 @@ const GUARD_CALL = /\brequire[A-Z]\w*\(/
 
 /**
  * Handler que só repassa a uma operation (`lib/domain-handler.server.ts`): autentica, e a
- * operation recebe o `ctx` e o payload inteiro. Captura o nome da operation.
+ * operation recebe o `ctx` e o payload inteiro. Qualquer argumento conta como repasse (nome,
+ * membro, lambda); o nome, quando há, é capturado para o contrato de autorização.
  */
-const DELEGATED_OP = /\brequireAuthThenRun\((\w+)\)/
+const DELEGATED_OP = /\brequireAuthThenRun\(\s*([\w.]*)/
 
 type ServerFn = { file: string; name: string; body: string }
 
@@ -444,7 +445,7 @@ describe("server function auth contract", () => {
 			if (AUTHZ_CALL.test(handler)) continue
 			// Sem guard na fn, alguma operation chamada precisa ter o dela.
 			// Chamada direta (`op(getDb(), ...)`) ou delegada (`requireAuthThenRun(op)`).
-			const called = [...handler.matchAll(/\b([a-z]\w+)\(/g), ...handler.matchAll(new RegExp(DELEGATED_OP, "g"))].map((m) => m[1])
+			const called = [...handler.matchAll(/\b([a-z]\w+)\(/g), ...handler.matchAll(new RegExp(DELEGATED_OP, "g"))].map((m) => m[1].split(".").pop() ?? "")
 			if (called.some((name) => domainOps.get(name) === true)) continue
 			ungated.push(`${fn.file}:${fn.name}`)
 		}

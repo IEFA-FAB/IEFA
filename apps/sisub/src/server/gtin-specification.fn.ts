@@ -27,8 +27,8 @@ import { createLocalVerifier, type GpcRequirement, isVerdictStale, normalizeGtin
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas de gs1_integration fora dos tipos gerados até o regen pós-migration
 type LooseClient = { from: (table: string) => any }

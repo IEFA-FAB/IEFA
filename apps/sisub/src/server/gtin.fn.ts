@@ -13,8 +13,8 @@ import { parseGtin } from "@iefa/sisub-domain/gtin"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
 

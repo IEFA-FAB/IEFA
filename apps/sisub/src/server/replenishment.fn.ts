@@ -31,11 +31,11 @@ import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { assertNoBlindCountHides } from "@/lib/blind-count.server"
 import { getDb } from "@/lib/db.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 import { currentFiscalYear } from "@/lib/expense-execution"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
