@@ -69,6 +69,17 @@ rules:
           - metavariable-regex:
               metavariable: $COLS
               regex: ^["'`]\s*(?:name)\s*["'`]$
+      # access_control.signup_allowlist
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]signup_allowlist["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:email)\s*["'`]$
       # access_control.user_permissions
       - patterns:
           - pattern-either:
