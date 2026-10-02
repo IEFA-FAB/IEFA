@@ -13,11 +13,13 @@ import { useAuth } from "@/hooks/useAuth"
 import type { ChatAnswer, ChatSessionSummary } from "@/lib/alpha/chat"
 import {
 	answerText,
+	chatErrorText,
 	chunkLabel,
 	chunkText,
 	createChatSession,
 	fetchChunk,
 	fetchSessionMessages,
+	isUnavailableSession,
 	listChatSessions,
 	openMessageStream,
 	parseSseBuffer,
@@ -581,12 +583,22 @@ function ChatRada() {
 				const ctrl = new AbortController()
 				sseAbortRef.current = ctrl
 
-				const sid = await ensureSession()
-				const res = await ragClient.askStream(sid, question, { signal: ctrl.signal })
-				if (!res.body) {
-					const errText = await res.text().catch(() => "Erro desconhecido")
-					throw new Error(errText)
+				let sid = await ensureSession()
+				let res: Response
+				try {
+					res = await ragClient.askStream(sid, question, { signal: ctrl.signal })
+				} catch (openError) {
+					// A sessão guardada no navegador não é mais aceita pelo α (criada antes do
+					// registro de dono e nunca usada, ou expurgada vazia): abre uma conversa nova
+					// e reenvia a mesma pergunta, uma vez.
+					if (!isUnavailableSession(openError)) throw openError
+					if (userId) clearSessionId(userId)
+					sid = await ragClient.createSession()
+					if (userId) saveSessionId(userId, sid)
+					setSessionId(sid)
+					res = await ragClient.askStream(sid, question, { signal: ctrl.signal })
 				}
+				if (!res.body) throw new Error("stream sem corpo")
 
 				const reader = res.body.getReader()
 				const decoder = new TextDecoder()
@@ -661,7 +673,8 @@ function ChatRada() {
 			const assistantErr: ChatMessage = {
 				id: crypto?.randomUUID?.() ?? String(Date.now()),
 				role: "assistant",
-				content: "Ocorreu um erro ao consultar o serviço. Tente novamente em instantes.",
+				// No teto diário, o motivo e quando volta — tentar de novo não resolve.
+				content: chatErrorText(err),
 				error: true,
 				createdAt: Date.now(),
 			}

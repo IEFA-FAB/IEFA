@@ -1,5 +1,15 @@
 import { describe, expect, it } from "bun:test"
-import { answerText, chunkLabel, chunkText, parseSseBuffer } from "./chat"
+import {
+	AlphaChatError,
+	answerText,
+	chatErrorText,
+	chunkLabel,
+	chunkText,
+	GENERIC_CHAT_ERROR,
+	isUnavailableSession,
+	parseSseBuffer,
+	toAlphaChatError,
+} from "./chat"
 
 describe("parseSseBuffer", () => {
 	it("lê o nome do evento, não só o dado", () => {
@@ -146,5 +156,36 @@ describe("chunkLabel — capítulo redundante", () => {
 	it("não confunde prefixo de dígito com prefixo de nível", () => {
 		// `1` prefixa `19.2` como TEXTO, mas não como numeração — o ponto é o que separa.
 		expect(chunkLabel({ ...base, chapter: "1", article: "19.2", metadata: { source: "RADA-e Módulo C" } })).toBe("RADA-e Módulo C — 1, 19.2")
+	})
+})
+
+describe("recusa do α antes do stream", () => {
+	it("lê código, mensagem e retry_after do corpo", async () => {
+		const response = new Response(
+			JSON.stringify({ code: "RADA_DAILY_LIMIT", message: "limite de 60 perguntas ao ChatRADA em 24 horas atingido", retry_after: "2026-10-02T15:00:00.000Z" }),
+			{ status: 429 }
+		)
+		const error = await toAlphaChatError(response)
+		expect(error).toBeInstanceOf(AlphaChatError)
+		expect(error).toMatchObject({ status: 429, code: "RADA_DAILY_LIMIT", retryAfter: "2026-10-02T15:00:00.000Z" })
+	})
+
+	it("no teto diário, a tela diz o motivo e quando volta", () => {
+		const text = chatErrorText(
+			new AlphaChatError(429, "RADA_DAILY_LIMIT", "limite de 60 perguntas ao ChatRADA em 24 horas atingido", "2026-10-02T15:00:00.000Z")
+		)
+		expect(text).toContain("limite de 60 perguntas")
+		expect(text).toContain("a partir de")
+	})
+
+	it("outras falhas seguem com a mensagem genérica", () => {
+		expect(chatErrorText(new AlphaChatError(500, "INTERNAL_ERROR", null, null))).toBe(GENERIC_CHAT_ERROR)
+		expect(chatErrorText(new Error("rede"))).toBe(GENERIC_CHAT_ERROR)
+	})
+
+	it("403 FORBIDDEN é sessão indisponível (a tela abre outra); corpo ilegível não", async () => {
+		expect(isUnavailableSession(new AlphaChatError(403, "FORBIDDEN", null, null))).toBe(true)
+		expect(isUnavailableSession(new AlphaChatError(403, "ANONYMOUS_USER", null, null))).toBe(false)
+		expect(isUnavailableSession(await toAlphaChatError(new Response("<html>", { status: 502 })))).toBe(false)
 	})
 })
