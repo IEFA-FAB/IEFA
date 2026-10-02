@@ -32,7 +32,9 @@ import {
 	saveModuleChatMessage,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { setResponseStatus } from "@tanstack/react-start/server"
 import { requireAuth } from "@/lib/auth.server"
+import { CHAT_HISTORY_WRITE_LIMITER } from "@/lib/chat-history-rate-limit"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 
@@ -82,5 +84,11 @@ export const saveModuleChatMessageFn = createServerFn({ method: "POST" })
 	.validator(SaveModuleChatMessageSchema)
 	.handler(async ({ data }): Promise<ModuleChatMessageRow> => {
 		const ctx = await requireAuth()
+		// Teto por usuário: o tamanho de cada linha o schema já limita; isto limita quantas.
+		const verdict = CHAT_HISTORY_WRITE_LIMITER.admit(ctx.userId)
+		if (!verdict.allowed) {
+			setResponseStatus(429)
+			throw new Error(verdict.message)
+		}
 		return saveModuleChatMessage(getDb(), ctx, data).catch(handleDomainError)
 	})
