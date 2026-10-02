@@ -91,6 +91,17 @@ rules:
           - metavariable-regex:
               metavariable: $COLS
               regex: ^["'`]\s*(?:(?:(?:kitchen_id|mess_hall_id|module|unit_id|user_id)\s*,\s*){4}(?:kitchen_id|mess_hall_id|module|unit_id|user_id))\s*["'`]$
+      # alpha.compliance_run
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]compliance_run["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:submission_id)\s*["'`]$
       # alpha.chat_message
       - patterns:
           - pattern-either:
