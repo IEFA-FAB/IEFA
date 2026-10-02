@@ -32,12 +32,12 @@ import { describe, expect, test } from "vitest"
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-/** Raiz do monorepo (diretório que contém o turbo.json), subindo a partir daqui. */
+/** Raiz do monorepo (diretório que contém o apps.manifest.json; há turbo.json também nos workspaces), subindo a partir daqui. */
 function monorepoRoot(): string {
 	let dir = here
-	while (!existsSync(join(dir, "turbo.json"))) {
+	while (!existsSync(join(dir, "apps.manifest.json"))) {
 		const parent = dirname(dir)
-		if (parent === dir || dir === parse(dir).root) throw new Error(`turbo.json não encontrado subindo de ${here}`)
+		if (parent === dir || dir === parse(dir).root) throw new Error(`apps.manifest.json não encontrado subindo de ${here}`)
 		dir = parent
 	}
 	return dir

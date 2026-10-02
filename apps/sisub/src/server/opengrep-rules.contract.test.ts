@@ -20,9 +20,9 @@ const serverDir = dirname(fileURLToPath(import.meta.url))
 
 function monorepoRoot(): string {
 	let dir = serverDir
-	while (!existsSync(join(dir, "turbo.json"))) {
+	while (!existsSync(join(dir, "apps.manifest.json"))) {
 		const parent = dirname(dir)
-		if (parent === dir || dir === parse(dir).root) throw new Error(`turbo.json não encontrado subindo de ${serverDir}`)
+		if (parent === dir || dir === parse(dir).root) throw new Error(`apps.manifest.json não encontrado subindo de ${serverDir}`)
 		dir = parent
 	}
 	return dir

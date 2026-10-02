@@ -6,17 +6,17 @@ import { describe, expect, test } from "vitest"
 const serverDir = dirname(fileURLToPath(import.meta.url))
 
 /**
- * Walk up from `serverDir` until the monorepo root (the dir holding `turbo.json`)
+ * Walk up from `serverDir` until the monorepo root (the dir holding `apps.manifest.json`; workspaces have their own turbo.json)
  * so cross-package paths survive any change in nesting depth. Falls back to a
  * thrown error with a clear message instead of a later opaque ENOENT.
  */
 function findMonorepoRoot(): string {
 	let dir = serverDir
 	while (true) {
-		if (existsSync(join(dir, "turbo.json"))) return dir
+		if (existsSync(join(dir, "apps.manifest.json"))) return dir
 		const parent = dirname(dir)
 		if (parent === dir || dir === parse(dir).root) {
-			throw new Error(`monorepo root (turbo.json) not found walking up from ${serverDir}`)
+			throw new Error(`monorepo root (apps.manifest.json) not found walking up from ${serverDir}`)
 		}
 		dir = parent
 	}

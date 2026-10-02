@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "biome check .",
     "typecheck": "tsc --noEmit"
   },
   "exports": {
