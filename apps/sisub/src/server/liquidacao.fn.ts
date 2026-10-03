@@ -34,8 +34,8 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { publicDbMessage } from "@/lib/db-error-message"
-import { readAllPagesIn } from "@/lib/read-all-pages"
 import { type LiquidacaoLinkInput, liquidacaoLinkProblems, type ReceiptForLiquidacao } from "@/lib/invoice-gate"
+import { readAllPagesIn } from "@/lib/read-all-pages"
 import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
@@ -787,6 +787,7 @@ export const registerDeductionRemittanceFn = createServerFn({ method: "POST" })
 						.select("paid_on, document_number")
 						.eq("id", data.deductionId)
 						.maybeSingle()
+					// biome-ignore lint/suspicious/noConsole: server-side — a queda para o padrão fica no log
 					if (nowError) console.error("[registerDeductionRemittanceFn] recolhimento anterior não lido:", nowError.message)
 					throw new Error(
 						deductionRemittanceProblem({ paidOn: now?.paid_on ?? "outra data", documentNumber: now?.document_number ?? null }) ??

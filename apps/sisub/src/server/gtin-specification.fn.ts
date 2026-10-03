@@ -53,6 +53,7 @@ async function loadRequirements(purchaseItemId: string): Promise<GpcRequirement[
 			"attribute_code",
 			rows.map((row) => row.attribute_code)
 		)
+	// biome-ignore lint/suspicious/noConsole: server-side — a queda para o padrão fica no log
 	if (attributesError) console.error("[loadRequirements] títulos GPC não lidos:", attributesError.message)
 	const titleByCode = new Map<string, string>()
 	for (const attribute of attributes ?? []) {

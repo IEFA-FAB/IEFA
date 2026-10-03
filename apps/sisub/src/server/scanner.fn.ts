@@ -60,6 +60,7 @@ export const fetchScannerProfileFn = createServerFn({ method: "GET" })
 			.maybeSingle()
 		// De propósito: sem o perfil salvo, o leitor funciona com o padrão; a conferência não para por
 		// isso. O log diz por que o prefixo/sufixo configurado não valeu.
+		// biome-ignore lint/suspicious/noConsole: server-side — a queda para o padrão fica no log
 		if (error) console.error("[fetchScannerProfileFn] perfil não lido, usando o padrão:", error.message)
 		if (error || !row) return DEFAULT_SCANNER_PROFILE
 		return {
