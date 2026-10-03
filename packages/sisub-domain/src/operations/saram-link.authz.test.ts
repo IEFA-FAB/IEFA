@@ -17,7 +17,7 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import type { SQL } from "drizzle-orm"
 import { PgDialect } from "drizzle-orm/pg-core"
 import type { UserContext } from "../types/context.ts"
-import { DomainError, NotFoundError, PermissionDeniedError, QueryFailedError } from "../types/errors.ts"
+import { DomainError, PermissionDeniedError, QueryFailedError } from "../types/errors.ts"
 import { upsertArranchamento } from "./arranchamento.ts"
 import {
 	assertAccountCanEat,
@@ -29,6 +29,7 @@ import {
 	listSaramReviewQueue,
 	parseSaramReviewQueue,
 	parseSaramStatus,
+	searchSaramAccounts,
 	setUserAccountKind,
 	toSaramDomainError,
 	unlinkUserSaram,
@@ -193,9 +194,10 @@ describe("operações do comensal: a sessão, nunca o payload", () => {
 		expect(await fetchVisibleSaram(fakeDb([{ saram: null }]).db, { userId: TARGET })).toBeNull()
 	})
 
-	test("pedido inexistente vira NotFound; bloqueio de tentativas não é exceção", async () => {
+	test("pedido que já não está pendente vira conflito com mensagem; bloqueio de tentativas não é exceção", async () => {
 		const missing = await withdrawSaramRequest(fakeDb([], pgError("REQUEST_NOT_FOUND", "P0002")).db, session, { requestId: REQUEST }).catch((e) => e)
-		expect(missing).toBeInstanceOf(NotFoundError)
+		expect(missing).toBeInstanceOf(DomainError)
+		expect(missing).toMatchObject({ code: "CONFLICT" })
 		const locked = await verifySaramByCpf(
 			fakeDb([{ result: { outcome: "locked", locked_until: "2026-10-03T15:00:00Z", status: { status: "locked_out" } } }]).db,
 			session,
@@ -292,5 +294,47 @@ describe("contrato do jsonb", () => {
 		expect(error).toBeInstanceOf(QueryFailedError)
 		expect(error.code).toBe("SARAM_LINK_FAILED")
 		expect((error as QueryFailedError).publicMessage).not.toContain("select core")
+	})
+})
+
+describe("searchSaramAccounts (busca do console)", () => {
+	test("admin:2 antes do banco; quem não é admin não lê nada", async () => {
+		for (const ctx of [plainCtx, kitchenAdminCtx]) {
+			const { db, executed } = fakeDb([])
+			await expect(searchSaramAccounts(db, ctx, { query: "fulano" })).rejects.toBeInstanceOf(PermissionDeniedError)
+			expect(executed).toHaveLength(0)
+		}
+	})
+
+	test("curinga digitado é literal; SARAM casa exato; a linha sai no contrato", async () => {
+		const { db, executed } = fakeDb([
+			{
+				user_id: TARGET,
+				email: "fulano@fab.mil.br",
+				account_kind: "pessoal",
+				saram: "1000001",
+				saram_verified_by: "legacy",
+				posto: "3S",
+				nome_guerra: "FULANO",
+				sg_org: "GAP-SJ",
+				verified_elsewhere: true,
+				has_pending: false,
+			},
+		])
+		const rows = await searchSaramAccounts(db, adminCtx, { query: "Ful%_" })
+		expect(executed[0]?.params).toContain("%ful\\%\\_%")
+		expect(executed[0]?.params).toContain("Ful%_")
+		expect(rows).toEqual([
+			{
+				userId: TARGET,
+				email: "fulano@fab.mil.br",
+				accountKind: "pessoal",
+				saram: "1000001",
+				verifiedBy: "legacy",
+				verifiedElsewhere: true,
+				hasPendingRequest: false,
+				identity: { posto: "3S", nomeGuerra: "FULANO", sgOrg: "GAP-SJ" },
+			},
+		])
 	})
 })

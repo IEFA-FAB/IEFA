@@ -15,6 +15,7 @@
     "./rumaer": "./src/rumaer.ts",
     "./assignment-selection": "./src/assignment-selection.ts",
     "./sucont": "./src/sucont.ts",
+    "./saram-link": "./src/saram-link.ts",
     "./documents": "./src/documents.ts",
     "./drizzle/sisub": "./drizzle/sisub.ts",
     "./postgres-pool": "./src/postgres-pool.ts"

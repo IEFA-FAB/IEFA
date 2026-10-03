@@ -9,11 +9,13 @@ import { format } from "date-fns"
 import { useEffect, useReducer, useRef } from "react"
 import { z } from "zod"
 import { MessHallSelector } from "@/components/features/diner/MessHallSelector"
+import { InstitutionalAccountNotice } from "@/components/features/military-record/DinerAccountNotices"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/auth/useAuth"
+import { useSaramStatus } from "@/hooks/business/useUserSaram"
 import { inferDefaultMeal, MEAL_LABEL } from "@/lib/fiscal"
 import { insertPresenceFn } from "@/server/presence.fn"
 import { messHallByCodeQueryOptions, userArranchamentoQueryOptions } from "@/services/SelfCheckInService"
@@ -115,6 +117,7 @@ function SelfCheckin() {
 	const search = useSearch({ from: "/_protected/_modules/diner/self-check-in" })
 	const navigate = useNavigate()
 	const { user } = useAuth()
+	const { data: saramStatus } = useSaramStatus()
 
 	const userId = user?.id ?? ""
 	const date = todayISO()
@@ -221,6 +224,16 @@ function SelfCheckin() {
 	}
 
 	if (!user) return null
+
+	// Conta de seção não registra presença (o banco recusa): a tela diz antes, com o caminho.
+	if (saramStatus?.accountKind === "institucional") {
+		return (
+			<div className="w-full max-w-2xl mx-auto px-6 py-8 space-y-8">
+				<PageHeader title="Check-in de Refeição" />
+				<InstitutionalAccountNotice what="check-in" />
+			</div>
+		)
+	}
 
 	const isSelectPhase = !confirmedCode
 	const isConfirmPhase = !isSelectPhase

@@ -29,7 +29,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireSucontAdmin, requireUserId } from "#/lib/auth.server"
 import { describePerson } from "#/lib/identity"
-import { fetchMilitaryIdentities } from "#/lib/military.server"
+import { fetchMilitaryIdentities, fetchVisibleSarams } from "#/lib/military.server"
 import { buildSucontGrant, buildSucontRevoke, type SucontPermissionRow } from "#/lib/permission-change"
 import { SUCONT_ADMIN_MODULE, SUCONT_PERMISSION_MODULES } from "#/lib/permission-modules"
 import { getAccessControlClient, getCoreClient } from "#/lib/supabase.server"
@@ -90,14 +90,19 @@ export const searchUsersByEmailFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<SucontUserSearchResult[]> => {
 		await requireSucontAdmin()
 		const rows = await searchUsersByEmail(getCoreClient(), data.email)
-		const military = await fetchMilitaryIdentities(rows.map((r) => r.saram ?? ""))
-		return rows.map(({ id, email, saram }) => ({
-			id,
-			email,
-			saram,
-			posto: (saram && military.get(saram)?.posto) || null,
-			nomeGuerra: (saram && military.get(saram)?.nomeGuerra) || null,
-		}))
+		// Só o SARAM verificado identifica (a coluna crua pode ter número de outra pessoa).
+		const visible = await fetchVisibleSarams(rows.map((r) => r.id))
+		const military = await fetchMilitaryIdentities(rows.map((r) => visible.get(r.id) ?? ""))
+		return rows.map(({ id, email }) => {
+			const saram = visible.get(id) ?? null
+			return {
+				id,
+				email,
+				saram,
+				posto: (saram && military.get(saram)?.posto) || null,
+				nomeGuerra: (saram && military.get(saram)?.nomeGuerra) || null,
+			}
+		})
 	})
 
 /**
@@ -232,11 +237,16 @@ export const listSucontGrantsFn = createServerFn({ method: "GET" }).handler(asyn
 	const userIds = [...new Set(all.map((g) => g.userId))]
 	const core = getCoreClient()
 
-	const { data: users, error: usersError } = await core.from("user_data").select("id, email, saram").in("id", userIds)
+	const [{ data: users, error: usersError }, visible] = await Promise.all([
+		core.from("user_data").select("id, email").in("id", userIds),
+		// Só o SARAM verificado identifica (change `saram-verified-link`): a coluna crua pode ter o
+		// número de outra pessoa, ainda sem verificação.
+		fetchVisibleSarams(userIds),
+	])
 	if (usersError) throw new Error(usersError.message)
 
 	const rowById = new Map(
-		((users ?? []) as Array<{ id: string; email: string | null; saram: string | null }>).map((u) => [u.id, { email: u.email ?? "", saram: u.saram }])
+		((users ?? []) as Array<{ id: string; email: string | null }>).map((u) => [u.id, { email: u.email ?? "", saram: visible.get(u.id) ?? null }])
 	)
 
 	const [emailFallback, military] = await Promise.all([

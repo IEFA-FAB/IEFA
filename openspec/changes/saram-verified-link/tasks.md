@@ -29,10 +29,12 @@
 
 ## FASE 2 — telas (outro PR)
 
-- [ ] 4.1 [sisub] Diálogo/tela de vínculo a partir de `fetchMySaramStatusFn` (um componente por `status`; `actions` decide os botões)
-- [ ] 4.2 [sisub] Perfil: selo "SARAM não verificado" e caminho para verificar; arranchamento sinaliza sem bloquear
-- [ ] 4.3 [sisub] Console "Vínculos SARAM" (admin): fila com pedidos, contestações, legacy, candidatas a institucional; decidir, vincular, desvincular, marcar tipo, com conflito de versão tratado
-- [ ] 4.4 [sucont] Diálogo de primeiro acesso a partir do estado (`saram_link_status`)
-- [ ] 4.5 [sisub] e2e do fluxo de sugestão e do pedido
+- [x] 4.1 [sisub] Tela "Meu cadastro militar" (`/diner/military-record`) a partir de `fetchMySaramStatusFn`: um passo por `status`, só os botões de `actions`; aviso de entrada não bloqueante (`MilitaryRecordNotice`) no lugar do diálogo que pedia o SARAM; perfil e onboarding sem campo de SARAM solto (`syncUserSaramFn` sai do app)
+- [x] 4.2 [sisub] Perfil com o estado e o caminho para verificar; arranchamento sinaliza conta não verificada sem bloquear; arranchamento e auto check-in explicam a conta de seção
+- [x] 4.3 [sisub] Console "Cadastro Militar" (`/admin/military-records`, admin:2): Pedidos, Contestações, Vínculos antigos (e gravados sem verificação), Candidatas a seção (com lote, uma operação auditada por conta), Contas de seção e busca de qualquer conta (`searchSaramAccountsFn`); diálogo com o efeito, motivo obrigatório, elevação de garantia e conflito de versão tratado
+- [x] 4.4 [sucont] Aviso e diálogo "Meu cadastro militar" pelas mesmas funções (RPC) no lugar de `saveMySaramFn`; console de acessos rotula pelo SARAM verificado (`fetchVisibleSarams`)
+- [x] 4.4b [rumaer] Menu do usuário diz por que o posto não aparece e leva à tela do SISUB
+- [x] 4.4c [database] Contrato e frases compartilhados (`@iefa/database/saram-link`): parser do `jsonb`, leitura de cada estado e desfecho, erros com o próximo passo, `visibleSaramOf`
+- [ ] 4.5 [sisub] e2e do fluxo de sugestão e do pedido (conferido no navegador no PR da FASE 2; spec Playwright pendente)
 - [ ] 4.6 [database] Drop de `core.link_own_saram` depois do deploy do sucont
-- [ ] 4.7 [root] `bun run check`
+- [x] 4.7 [root] `bun run check` (afetados), `lint:tailwind`, `scan:rules`, `format:check`

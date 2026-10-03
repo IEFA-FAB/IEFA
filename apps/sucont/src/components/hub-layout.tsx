@@ -1,16 +1,16 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router"
-import { ChevronRight, FileBarChart, LayoutGrid, LogOut, type LucideIcon, Moon, Search, SquareKanban, Sun, X } from "lucide-react"
+import { ChevronRight, FileBarChart, IdCard, LayoutGrid, LogOut, type LucideIcon, Moon, Search, SquareKanban, Sun, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
 import { useSucontAccess } from "#/auth/pbac"
 import { authActions, authQueryOptions } from "#/auth/service"
 import { IconRenderer } from "#/components/icon-renderer"
 import { LegalNotice } from "#/components/LegalNotice"
+import { MilitaryRecordNotice, MilitaryRecordProvider, useMilitaryRecordDialog } from "#/components/military-record"
 import { ModuleSwitcher } from "#/components/module-switcher"
 import { NotificationBell } from "#/components/notification-bell"
-import { SaramDialog } from "#/components/saram-dialog"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
@@ -124,43 +124,45 @@ export function HubLayout({ children, title, description, searchable = false, ac
 
 	return (
 		<SidebarProvider defaultOpen={sidebarOpen} className="bg-tech-bg selection:bg-tech-cyan/10 selection:text-tech-cyan">
-			<HubSidebar />
+			<MilitaryRecordProvider>
+				<HubSidebar />
 
-			<SidebarInset className="bg-transparent min-w-0">
-				<header className="no-print sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-tech-bg/80 px-4 backdrop-blur supports-backdrop-filter:bg-tech-bg/60 md:px-6">
-					<SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-					<Separator orientation="vertical" className="mx-1 h-6 data-[orientation=vertical]:self-center" />
-					<HubBreadcrumb />
-					<div className="ml-auto flex shrink-0 items-center gap-1">
-						<NotificationBell />
-						<ThemeToggle />
+				<SidebarInset className="bg-transparent min-w-0">
+					<header className="no-print sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-tech-bg/80 px-4 backdrop-blur supports-backdrop-filter:bg-tech-bg/60 md:px-6">
+						<SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+						<Separator orientation="vertical" className="mx-1 h-6 data-[orientation=vertical]:self-center" />
+						<HubBreadcrumb />
+						<div className="ml-auto flex shrink-0 items-center gap-1">
+							<NotificationBell />
+							<ThemeToggle />
+						</div>
+					</header>
+
+					<div className="flex-1">
+						<div className={cn("mx-auto w-full px-4 pt-6 pb-24 md:px-8", CONTENT_WIDTH)}>
+							<MilitaryRecordNotice />
+							{(heading || searchable) && (
+								<div className="mb-6 flex flex-col gap-6">
+									{heading && (
+										<PageHeader title={heading} description={blurb} badge={scope ? <Badge variant="muted">{scope}</Badge> : undefined}>
+											{actions || guide ? (
+												<>
+													{actions}
+													{guide}
+												</>
+											) : undefined}
+										</PageHeader>
+									)}
+									{searchable && <HubSearchBar />}
+								</div>
+							)}
+							{children}
+						</div>
 					</div>
-				</header>
+				</SidebarInset>
 
-				<div className="flex-1">
-					<div className={cn("mx-auto w-full px-4 pt-6 pb-24 md:px-8", CONTENT_WIDTH)}>
-						{(heading || searchable) && (
-							<div className="mb-6 flex flex-col gap-6">
-								{heading && (
-									<PageHeader title={heading} description={blurb} badge={scope ? <Badge variant="muted">{scope}</Badge> : undefined}>
-										{actions || guide ? (
-											<>
-												{actions}
-												{guide}
-											</>
-										) : undefined}
-									</PageHeader>
-								)}
-								{searchable && <HubSearchBar />}
-							</div>
-						)}
-						{children}
-					</div>
-				</div>
-			</SidebarInset>
-
-			<LegalNotice />
-			<SaramDialog />
+				<LegalNotice />
+			</MilitaryRecordProvider>
 		</SidebarProvider>
 	)
 }
@@ -502,6 +504,7 @@ function NavUser() {
 	const router = useRouter()
 	const queryClient = useQueryClient()
 	const { data: auth, isPending } = useQuery(authQueryOptions())
+	const militaryRecord = useMilitaryRecordDialog()
 	const user = auth?.user ?? null
 	const email = user?.email ?? ""
 
@@ -535,6 +538,12 @@ function NavUser() {
 
 	return (
 		<SidebarMenu>
+			<SidebarMenuItem>
+				<SidebarMenuButton tooltip="Meu cadastro militar" onClick={militaryRecord.open}>
+					<IdCard aria-hidden />
+					<span>Meu cadastro militar</span>
+				</SidebarMenuButton>
+			</SidebarMenuItem>
 			<SidebarMenuItem className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-0">
 				{withTooltip(
 					isMobile,

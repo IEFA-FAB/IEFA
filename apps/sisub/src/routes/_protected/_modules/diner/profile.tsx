@@ -1,23 +1,17 @@
-import { useForm } from "@tanstack/react-form"
-import { useQueryClient } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { describeSaramStatus } from "@iefa/database/saram-link"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
-import { useEffect } from "react"
-import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { SecuritySummaryCard } from "@/components/features/diner/SecuritySummaryCard"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
-import { useUpdateSaram } from "@/hooks/business/useUserSaram"
+import { useSaramStatus } from "@/hooks/business/useUserSaram"
 import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
-import { queryKeys } from "@/lib/query-keys"
 import { toNameCase } from "@/lib/utils"
 import type { MilitaryDataRow } from "@/types/domain/admin"
 
@@ -27,10 +21,6 @@ export const Route = createFileRoute("/_protected/_modules/diner/profile")({
 	head: () => ({
 		meta: [{ name: "description", content: "Gerencie seu perfil e dados militares" }],
 	}),
-})
-
-const profileSchema = z.object({
-	saram: z.string().regex(/^\d*$/, "Apenas números são permitidos").max(20, "Máximo de 20 caracteres"),
 })
 
 function DataField({ label, value, mono = false }: { label: string; value: string | null | undefined; mono?: boolean }) {
@@ -71,48 +61,16 @@ function MilitaryPanel({ military, effectiveSaram }: { military: MilitaryDataRow
 
 function ProfilePage() {
 	const { user } = useAuth()
-	const queryClient = useQueryClient()
 
 	const { data: userData, isLoading: isLoadingUserData } = useUserData(user?.id)
 	const effectiveSaram = userData?.saram ?? ""
 	const { data: military, isLoading: isLoadingMilitary } = useMilitaryData(effectiveSaram)
-	const updateSaram = useUpdateSaram()
-	// SARAM que já localiza um cadastro militar é write-once (`syncUserSaram`): o
-	// servidor recusa a troca, então a tela nem a oferece. O que não localiza nada (erro de
-	// digitação) segue editável.
-	const isSaramLocked = !!effectiveSaram && !!military
-
-	const form = useForm({
-		defaultValues: { saram: "" },
-		validators: {
-			onChange: ({ value }) => {
-				const result = profileSchema.safeParse(value)
-				if (result.success) return undefined
-				const errors: Record<string, string> = {}
-				result.error.issues.forEach((issue) => {
-					errors[issue.path.join(".")] = issue.message
-				})
-				return errors
-			},
-		},
-		onSubmit: async ({ value }) => {
-			if (!user || isSaramLocked) return
-			try {
-				await updateSaram.mutateAsync({ user, saram: value.saram ?? "" })
-			} catch (error) {
-				// Nr. já vinculado a outra conta, ou já travado nesta: a mensagem do servidor diz o que fazer.
-				toast.error(error instanceof Error ? error.message : "Não foi possível salvar o SARAM")
-				return
-			}
-			await queryClient.invalidateQueries({ queryKey: queryKeys.user.data(user.id) })
-		},
-	})
-
-	useEffect(() => {
-		if (userData?.saram) {
-			form.setFieldValue("saram", userData.saram)
-		}
-	}, [userData?.saram, form])
+	// O SARAM não se digita aqui: o vínculo é verificado em "Meu cadastro militar" (change
+	// `saram-verified-link`), e o perfil só mostra o estado e leva até lá.
+	const { data: saramStatus } = useSaramStatus()
+	const statusView = saramStatus ? describeSaramStatus(saramStatus) : null
+	const badgeVariant =
+		statusView?.tone === "ok" ? "success" : statusView?.tone === "blocked" ? "destructive" : statusView?.tone === "attention" ? "warning" : "outline"
 
 	return (
 		<div className="space-y-6">
@@ -127,67 +85,26 @@ function ProfilePage() {
 					</CardHeader>
 					<CardContent className="space-y-5">
 						<div className="space-y-0.5">
-							<span className="text-xs text-muted-foreground">E-mail</span>
-							<p className="text-sm">{user?.email ?? userData?.email ?? "Carregando..."}</p>
+							<span className="text-caption text-muted-foreground">E-mail</span>
+							<p className="text-body">{user?.email ?? userData?.email ?? "Carregando..."}</p>
 						</div>
 
 						<Separator />
 
-						<form
-							onSubmit={(e) => {
-								e.preventDefault()
-								e.stopPropagation()
-								form.handleSubmit()
-							}}
-							className="space-y-4"
-						>
-							<FieldGroup>
-								<form.Field name="saram">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor={field.name}>SARAM</FieldLabel>
-											<Input
-												id={field.name}
-												name={field.name}
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="Ex.: 1234567"
-												inputMode="numeric"
-												pattern="[0-9]*"
-												readOnly={isSaramLocked}
-												aria-readonly={isSaramLocked}
-											/>
-											<FieldError errors={field.state.meta.errors?.map((e) => ({ message: String(e) }))} />
-											<FieldDescription>
-												{isSaramLocked
-													? "Vinculado ao seu cadastro militar. Para corrigi-lo, procure o administrador do sistema."
-													: "Vincula sua conta ao cadastro militar automaticamente. Depois de localizado, o vínculo não pode ser alterado por aqui."}
-											</FieldDescription>
-										</Field>
-									)}
-								</form.Field>
-							</FieldGroup>
-
-							<div className="flex items-center gap-3">
-								<Button type="submit" disabled={isSaramLocked || updateSaram.isPending || !!form.state.isSubmitting}>
-									{updateSaram.isPending ? (
-										<>
-											<Loader2 className="mr-2 size-4 animate-spin" />
-											Salvando...
-										</>
-									) : (
-										"Salvar"
-									)}
-								</Button>
-								{isLoadingUserData && (
-									<span className="text-muted-foreground text-sm flex items-center gap-1.5">
-										<Loader2 className="size-3.5 animate-spin" />
-										Carregando...
-									</span>
-								)}
+						<div className="space-y-3">
+							<div className="flex flex-wrap items-center gap-2">
+								<span className="text-caption text-muted-foreground">Cadastro militar</span>
+								{statusView && <Badge variant={badgeVariant}>{statusView.badge}</Badge>}
+								{isLoadingUserData && <Loader2 className="size-3.5 animate-spin text-muted-foreground" aria-label="Carregando" />}
 							</div>
-						</form>
+							{statusView && <p className="text-body text-foreground">{statusView.title}</p>}
+							<Button
+								variant={statusView?.needsAttention ? "default" : "outline"}
+								size="sm"
+								nativeButton={false}
+								render={<Link to="/diner/military-record">{statusView?.notice?.cta ?? "Ver meu cadastro militar"}</Link>}
+							/>
+						</div>
 					</CardContent>
 				</Card>
 
@@ -195,12 +112,19 @@ function ProfilePage() {
 				<Card>
 					<CardHeader>
 						<CardTitle>Dados militares</CardTitle>
-						<CardDescription>{effectiveSaram ? "Encontrados a partir do SARAM." : "Informe seu SARAM para localizar seus dados."}</CardDescription>
+						<CardDescription>
+							{military ? "Do cadastro de pessoal, pelo SARAM verificado." : "Aparecem quando o vínculo do SARAM estiver confirmado."}
+						</CardDescription>
 					</CardHeader>
 					<CardContent>
-						{!effectiveSaram ? (
-							<div className="py-10 text-center">
-								<p className="text-sm text-muted-foreground">Nenhum SARAM informado.</p>
+						{!effectiveSaram || (!isLoadingMilitary && !military) ? (
+							<div className="py-10 text-center space-y-1">
+								<p className="text-body text-muted-foreground">{statusView?.title ?? "Nenhum cadastro militar vinculado."}</p>
+								<p className="text-caption text-muted-foreground">
+									<Link to="/diner/military-record" className="underline underline-offset-2 hover:text-foreground">
+										Ver o que fazer
+									</Link>
+								</p>
 							</div>
 						) : isLoadingMilitary ? (
 							<div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
@@ -209,14 +133,7 @@ function ProfilePage() {
 							</div>
 						) : military ? (
 							<MilitaryPanel military={military} effectiveSaram={effectiveSaram} />
-						) : (
-							<div className="py-10 text-center space-y-1">
-								<p className="text-sm text-muted-foreground">
-									Nenhum registro encontrado para <span className="font-mono text-foreground">{effectiveSaram}</span>.
-								</p>
-								<p className="text-xs text-muted-foreground">Verifique se o número está correto.</p>
-							</div>
-						)}
+						) : null}
 					</CardContent>
 				</Card>
 
