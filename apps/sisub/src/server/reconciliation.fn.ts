@@ -45,11 +45,33 @@ export const fetchReconciliationFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive(), includeResolved: z.boolean().default(false) }))
 	.handler(async ({ data }): Promise<ReconciliationRow[]> => {
 		await requireUnitScope(1, data.unitId)
-		const { data: rows, error } = await finance().from("v_siafi_reconciliation").select("*").eq("unit_id", data.unitId).limit(500)
+		// O conciliado sai no banco, antes do teto: filtrado depois do `limit`, uma unidade com
+		// muito conciliado escondia a divergência que caísse fora das 500 linhas.
+		const { data: rows, error } = await finance()
+			.from("v_siafi_reconciliation")
+			.select("*")
+			.eq("unit_id", data.unitId)
+			.neq("situacao", "conciliado")
+			.order("numero_documento")
+			.limit(500)
 		if (error) throw new Error(`Erro ao consultar conciliação: ${publicDbMessage(error)}`)
 
-		return ((rows ?? []) as ReconciliationRow[])
-			.filter((row) => row.situacao !== "conciliado")
+		// Coluna de view sai anulável nos tipos gerados: normaliza aqui, uma vez, em vez de afirmar.
+		return (rows ?? [])
+			.map(
+				(row): ReconciliationRow => ({
+					documento_tipo: row.documento_tipo ?? "",
+					numero_documento: row.numero_documento ?? "",
+					valor_sisub: row.valor_sisub,
+					valor_siafi: row.valor_siafi,
+					situacao: (row.situacao ?? "divergente") as ReconciliationRow["situacao"],
+					diferenca: Number(row.diferenca ?? 0),
+					decisao: row.decisao,
+					justificativa: row.justificativa,
+					decisao_vigente: row.decisao_vigente ?? false,
+					lote_em: row.lote_em,
+				})
+			)
 			.filter((row) => data.includeResolved || !row.decisao_vigente)
 			.sort((a, b) => (SEVERITY[a.situacao] ?? 9) - (SEVERITY[b.situacao] ?? 9) || Math.abs(b.diferenca) - Math.abs(a.diferenca))
 	})
@@ -70,8 +92,12 @@ export const fetchPhysicalAccountingFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		await requireUnitScope(1, data.unitId)
 		const kitchenDb = getServerClient("kitchen")
-		const { data: kitchens } = await kitchenDb.from("kitchen").select("id").or(`unit_id.eq.${data.unitId},purchase_unit_id.eq.${data.unitId}`)
-		const kitchenIds = (kitchens ?? []).map((k: { id: number }) => k.id)
+		const { data: kitchens, error: kitchensError } = await kitchenDb
+			.from("kitchen")
+			.select("id")
+			.or(`unit_id.eq.${data.unitId},purchase_unit_id.eq.${data.unitId}`)
+		if (kitchensError) throw new Error(`Erro ao carregar as cozinhas da unidade: ${publicDbMessage(kitchensError)}`)
+		const kitchenIds = (kitchens ?? []).map((k) => k.id)
 		if (kitchenIds.length === 0) return []
 
 		const { data: rows, error } = await finance()

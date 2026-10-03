@@ -18,12 +18,6 @@ import { getServerClient } from "@/lib/supabase.server"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
 
-/**
- * As tabelas/views de gs1_integration entram nos tipos gerados apenas após o
- * `bun run db:types` pós-migration (task 2.4 do change sisub-inventory-cycle).
- * Até lá, acesso frouxo e explícito — não espalhar `any` pelos call sites.
- */
-
 export interface GtinLookupResult {
 	gtin: string
 	description: string | null

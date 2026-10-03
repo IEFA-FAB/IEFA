@@ -342,7 +342,8 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 		const kitchenDb = getLooseServerClient("kitchen")
 		const finance = getLooseServerClient("finance")
 
-		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
+		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
+		if (kitchenError) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(kitchenError)}`)
 		// Mesma regra que `createSupplyOrderFn` confere na emissão: o que se lista aqui
 		// é exatamente o que se pode usar lá.
 		const unitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })

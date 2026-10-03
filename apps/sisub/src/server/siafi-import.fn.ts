@@ -117,7 +117,7 @@ export const listImportBatchesFn = createServerFn({ method: "GET" })
 			.order("created_at", { ascending: false })
 			.limit(50)
 		if (error) throw new Error(`Erro ao listar lotes: ${publicDbMessage(error)}`)
-		return (batches ?? []) as ImportBatchRow[]
+		return batches ?? []
 	})
 
 /** Linhas de um lote — inclui as não reconhecidas, para diagnóstico de layout. */

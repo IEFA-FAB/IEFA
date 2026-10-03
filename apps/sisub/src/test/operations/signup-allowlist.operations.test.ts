@@ -29,7 +29,7 @@ class Rollback extends Error {}
 async function inRollback(db: SisubDb, fn: (tx: SisubDb) => Promise<void>): Promise<void> {
 	try {
 		await db.transaction(async (tx) => {
-			await fn(tx as unknown as SisubDb)
+			await fn(tx)
 			throw new Rollback()
 		})
 	} catch (e) {

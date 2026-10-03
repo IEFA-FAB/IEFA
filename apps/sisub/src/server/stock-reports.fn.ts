@@ -247,7 +247,8 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 		const kitchenDb = getLooseServerClient("kitchen")
 		const finance = getLooseServerClient("finance")
 
-		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
+		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
+		if (kitchenError) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(kitchenError)}`)
 		const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
 		if (unitId == null) return []
 

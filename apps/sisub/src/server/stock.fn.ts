@@ -247,7 +247,7 @@ export const createTransferFn = createServerFn({ method: "POST" })
 			row
 				? { unitId: row.unit_id == null ? null : Number(row.unit_id), purchaseUnitId: row.purchase_unit_id == null ? null : Number(row.purchase_unit_id) }
 				: null
-		const byId = new Map<number, KitchenUnitRow>(((kitchenRows ?? []) as KitchenUnitRow[]).map((row) => [Number(row.id), row]))
+		const byId = new Map<number, KitchenUnitRow>((kitchenRows ?? []).map((row) => [Number(row.id), row]))
 		const problem = transferDestinationProblem({
 			origin: toUnits(byId.get(Number(lotRow.kitchen_id))),
 			destination: toUnits(byId.get(data.toKitchenId)),
