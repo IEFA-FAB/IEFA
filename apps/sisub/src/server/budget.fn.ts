@@ -284,7 +284,9 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 				const { error: claimError } = await si.rpc("claim_import_batch", { p_batch_id: data.batchId })
 				if (claimError) throw new Error(publicDbMessage(claimError))
 
-				const { data: rows } = await si.from("import_row").select("id, parsed").eq("batch_id", data.batchId).eq("parse_status", "parsed")
+				// Erro aqui virava "lote sem linhas válidas", e o operador reimportaria um arquivo bom.
+				const { data: rows, error: rowsError } = await si.from("import_row").select("id, parsed").eq("batch_id", data.batchId).eq("parse_status", "parsed")
+				if (rowsError) throw new Error(`Erro ao ler as linhas do lote: ${publicDbMessage(rowsError)}`)
 				const parsedRows = (rows ?? []) as { id: string; parsed: Record<string, unknown> }[]
 				if (parsedRows.length === 0) throw new Error("Lote sem linhas válidas para aplicar")
 
@@ -313,7 +315,12 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 				const { error } = await finance().from("budget_credit").upsert(payload, { onConflict: "unit_id,ug,nd,ptres,fonte,competencia" })
 				if (error) throw new Error(`Erro ao aplicar crédito: ${publicDbMessage(error)}`)
 
-				await si.from("import_batch").update({ status: "applied", applied_rows: payload.length, applied_at: snapshotAt }).eq("id", data.batchId)
+				// Sem o status, o lote seguiria "a aplicar" e poderia ser aplicado de novo.
+				const { error: statusError } = await si
+					.from("import_batch")
+					.update({ status: "applied", applied_rows: payload.length, applied_at: snapshotAt })
+					.eq("id", data.batchId)
+				if (statusError) throw new Error(`Crédito aplicado, mas o lote não foi marcado como aplicado: ${publicDbMessage(statusError)}`)
 				return { applied: payload.length, competencia }
 			},
 			// O lote identifica o alvo; as linhas de crédito que ele gravou carregam

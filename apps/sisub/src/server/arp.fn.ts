@@ -29,6 +29,7 @@ import {
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { type EmpenhoItemAmounts, summarizeArpItemShare } from "@/lib/empenho-items"
 import {
 	type CreatedEmpenho,
@@ -41,7 +42,6 @@ import { getFinanceClient, getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
 import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage, EmpenhoOfArpItem } from "@/types/domain/arp"
-import { publicDbMessage } from "@/lib/db-error-message"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -380,9 +380,12 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		// ── 2. Buscar os itens do anexo quantitativo para fazer o match por catmat ──
 
-		const { data: quantityEstimateItems } = quantityEstimateId
+		// Falha aqui não é "anexo sem itens": o update abaixo desligaria todo item da ARP do anexo e
+		// apagaria a medida deles.
+		const { data: quantityEstimateItems, error: quantityEstimateItemsError } = quantityEstimateId
 			? await supabase.from("quantity_estimate_item").select("id, catmat_item_codigo, measure_unit").eq("quantity_estimate_id", quantityEstimateId)
-			: { data: [] as Array<{ id: string; catmat_item_codigo: number | null; measure_unit: string | null }> }
+			: { data: [] as Array<{ id: string; catmat_item_codigo: number | null; measure_unit: string | null }>, error: null }
+		if (quantityEstimateItemsError) throw new Error(`Erro ao ler os itens do anexo quantitativo: ${publicDbMessage(quantityEstimateItemsError)}`)
 
 		const catmatToQuantityEstimateItemId = new Map<number, string>()
 		// `2_consultarARPItem` não traz unidade de fornecimento; a medida vem do
@@ -430,7 +433,9 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		// ausentes na API → delete só se nenhum item de NE apontar para eles.
 
 		const now = new Date().toISOString()
-		const { data: existingItems } = await supabase.from("arp_item").select("id, numero_item").eq("arp_id", arp.id)
+		// Sem os itens que já existem, todo item da ata seria inserido de novo: erro lança.
+		const { data: existingItems, error: existingItemsError } = await supabase.from("arp_item").select("id, numero_item").eq("arp_id", arp.id)
+		if (existingItemsError) throw new Error(`Erro ao ler os itens já cadastrados da ARP: ${publicDbMessage(existingItemsError)}`)
 
 		const byNumeroItem = new Map<number, string>()
 		for (const item of existingItems ?? []) {
@@ -642,11 +647,22 @@ export const fetchArpForQuantityEstimateFn = createServerFn({ method: "GET" })
 		// leitura exige nível 1 NA unidade dona do anexo.
 		await requireUnitScope(1, await resolveQuantityEstimateUnit(supabase, data.quantityEstimateId))
 
-		const { data: arp } = await supabase.from("arp").select("*").eq("quantity_estimate_id", data.quantityEstimateId).maybeSingle()
+		// `quantity_estimate_id` não é único em `arp` (duas atas do mesmo pregão, ou uma manual e uma
+		// importada): a tela mostra a mais recente, e `maybeSingle` sozinho daria erro de várias linhas.
+		const { data: arp, error: arpError } = await supabase
+			.from("arp")
+			.select("*")
+			.eq("quantity_estimate_id", data.quantityEstimateId)
+			.order("created_at", { ascending: false })
+			.order("id")
+			.limit(1)
+			.maybeSingle()
+		if (arpError) throw new Error(`Erro ao carregar a ARP do anexo: ${publicDbMessage(arpError)}`)
 
 		if (!arp) return null
 
-		const { data: items } = await supabase.from("arp_item").select("*").eq("arp_id", arp.id).order("numero_item", { ascending: true })
+		const { data: items, error: itemsError } = await supabase.from("arp_item").select("*").eq("arp_id", arp.id).order("numero_item", { ascending: true })
+		if (itemsError) throw new Error(`Erro ao carregar os itens da ARP: ${publicDbMessage(itemsError)}`)
 
 		return { ...arp, items: items ?? [] }
 	})
@@ -978,7 +994,8 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 		const supabase = getProcurementClient()
 		await requireUnitScope(1, await resolveArpUnit(supabase, data.arpId))
 
-		const { data: items } = await supabase.from("arp_item").select("id").eq("arp_id", data.arpId)
+		const { data: items, error: itemsError } = await supabase.from("arp_item").select("id").eq("arp_id", data.arpId)
+		if (itemsError) throw new Error(`Erro ao carregar os itens da ARP: ${publicDbMessage(itemsError)}`)
 		const itemIds = (items ?? []).map((item) => item.id)
 		if (itemIds.length === 0) return {}
 
@@ -995,8 +1012,8 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 			financeClient.from("empenho_item").select("empenho_id, value").in("empenho_id", empenhoIds),
 			financeClient.from("v_empenho_saldo").select("empenho_id, valor_liquidado, valor_pago, saldo_a_liquidar").in("empenho_id", empenhoIds),
 		])
-		if (activeError || allItemsError || saldoError)
-			throw new Error(`Erro ao ler a execução dos empenhos: ${(activeError ?? allItemsError ?? saldoError)?.message}`)
+		const executionError = activeError ?? allItemsError ?? saldoError
+		if (executionError) throw new Error(`Erro ao ler a execução dos empenhos: ${publicDbMessage(executionError)}`)
 		const activeIds = new Set((active ?? []).map((row) => row.id))
 		const totalByEmpenho = new Map<string, number>()
 		for (const row of allItems ?? []) {

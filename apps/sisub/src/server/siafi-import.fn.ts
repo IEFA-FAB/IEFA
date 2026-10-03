@@ -129,11 +129,12 @@ export const fetchImportBatchFn = createServerFn({ method: "GET" })
 		if (error || !batch) throw new Error("Lote não encontrado")
 		await requireUnitScope(1, Number(batch.unit_id))
 
-		const { data: rows } = await si
+		const { data: rows, error: rowsError } = await si
 			.from("import_row")
 			.select("id, row_number, raw, parsed, parse_status, parse_error, applied_table, applied_id")
 			.eq("batch_id", data.batchId)
 			.order("row_number")
 			.limit(500)
+		if (rowsError) throw new Error(`Erro ao carregar as linhas do lote: ${publicDbMessage(rowsError)}`)
 		return { ...batch, rows: rows ?? [] }
 	})
