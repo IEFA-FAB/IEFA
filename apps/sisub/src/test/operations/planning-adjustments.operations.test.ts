@@ -233,6 +233,47 @@ describeSupabaseIntegration("agendamento da produção — imprevistos", () => {
 		expect(after?.substitutions?.[other]?.substitute_description).toBe("Adoçante")
 	})
 
+	test("substituição vinda do agente: só insumo da ficha, só substituto do catálogo, nunca sobre registro existente", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId } = await scenario()
+		const laranja = await seeder.seedIngredient()
+		const acerola = await seeder.seedIngredient()
+		const recipeId = await seeder.seedRecipe({ kitchenId })
+		const { id: dailyMenuId } = await seeder.seedDailyMenu({ kitchenId, mealTypeId, serviceDate: "2099-08-09" })
+		const menuItemId = await seeder.seedMenuItem({ dailyMenuId, recipeId, recipe: { ingredients: [{ ingredient_id: laranja, net_quantity: 1 }] } })
+		const asAgent = { fromAgent: true }
+
+		const foreign = "00000000-0000-4000-8000-00000000abcf"
+		await expect(
+			recordMenuSubstitution(db, ctx, { menuItemId, ingredientId: foreign, rationale: "[TEST]", substituteDescription: "Acerola" }, asAgent)
+		).rejects.toThrow(/não está na ficha/)
+		await expect(
+			recordMenuSubstitution(
+				db,
+				ctx,
+				{ menuItemId, ingredientId: laranja, substituteIngredientId: foreign, rationale: "[TEST]", substituteDescription: "Acerola" },
+				asAgent
+			)
+		).rejects.toThrow(/não existe no catálogo/)
+
+		await recordMenuSubstitution(
+			db,
+			ctx,
+			{ menuItemId, ingredientId: laranja, substituteIngredientId: acerola, rationale: "[TEST] laranja em falta", substituteDescription: "Polpa de acerola" },
+			asAgent
+		)
+		// O registro existe: o agente não o reescreve a partir de uma leitura velha.
+		await expect(
+			recordMenuSubstitution(db, ctx, { menuItemId, ingredientId: laranja, rationale: "[TEST]", substituteDescription: "Outra coisa" }, asAgent)
+		).rejects.toThrow(/Já há substituição/)
+
+		const { data } = await client.schema("kitchen").from("menu_items").select("substitutions").eq("id", menuItemId).single()
+		const entry = (data?.substitutions as Record<string, { substitute_description?: string; source?: string; recorded_by?: string }> | null)?.[laranja]
+		expect(entry?.substitute_description).toBe("Polpa de acerola")
+		expect(entry?.source).toBe("mcp")
+		expect(entry?.recorded_by).toBe(ctx.userId)
+	})
+
 	test("faltou luz ou água: o dia inteiro vira o cardápio de contingência, numa transação só", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, mealTypeId, viagemId, contingenciaId, fria } = await scenario()

@@ -54,13 +54,13 @@ const TOOL_KINDS: Record<string, Kind> = {
 	create_daily_menu: "destructive", // upsert: pode sobrescrever o cardápio existente
 	delete_meal_type: "destructive",
 	delete_template: "destructive",
+	record_menu_substitution: "destructive", // grava no item do dia; recusa se o insumo já tem registro
 	remove_menu_item: "destructive",
 	save_recipe_edit: "destructive",
 	update_meal_type: "destructive",
 	update_menu_headcount: "destructive",
 	update_menu_item: "destructive",
 	update_template: "destructive", // `items` é substituição destrutiva (delete-all + reinsert)
-	record_menu_substitution: "destructive", // merge por chave, mas reescreve o registro do mesmo insumo
 }
 
 /** Tools que existem mas ainda não foram classificadas — o teste exige lista vazia. */

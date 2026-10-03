@@ -302,14 +302,14 @@ const recordMenuSubstitutionTool: ToolDefinition = {
 	schema: {
 		name: "record_menu_substitution",
 		description:
-			"Registra a substituição de UM insumo que faltou num item do cardápio do dia (ingredientId = o que faltou; substituteIngredientId ou substituteDescription = o que entrou; rationale = motivo). Grava só essa chave: as outras substituições do item ficam. Repetir para o mesmo insumo atualiza o registro dele. Requer permissão kitchen nível 2.",
+			"Registra a substituição de UM insumo que faltou num item do cardápio do dia. ingredientId = o insumo que faltou, que tem de estar na ficha da preparação do item; substituteDescription (obrigatório) = o nome do que entrou, como o turno lê; substituteIngredientId (opcional) = o insumo do catálogo que entrou; rationale = motivo. Grava só essa chave: as outras substituições do item ficam. Se o insumo já tem substituição registrada, recusa (alterar é pela tela). Requer permissão kitchen nível 2.",
 		inputSchema: toJsonSchema(RecordMenuSubstitutionSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = RecordMenuSubstitutionSchema.parse(args)
-			await recordMenuSubstitution(getDb(), ctx, input)
+			await recordMenuSubstitution(getDb(), ctx, input, { fromAgent: true })
 			return toolResult({ success: true, menuItemId: input.menuItemId, ingredientId: input.ingredientId, message: "Substituição registrada" })
 		} catch (e) {
 			return handleToolError(e)

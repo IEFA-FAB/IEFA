@@ -134,7 +134,14 @@ export interface Seeder {
 	}): Promise<string>
 	seedMealType(opts?: { kitchenId?: number | null; sortOrder?: number }): Promise<string>
 	seedDailyMenu(opts: { kitchenId: number; mealTypeId: string; serviceDate?: string }): Promise<{ id: string; serviceDate: string }>
-	seedMenuItem(opts: { dailyMenuId: string; recipeId: string; plannedPortionQuantity?: number; excludedFromProcurement?: 0 | 1 | null }): Promise<string>
+	seedMenuItem(opts: {
+		dailyMenuId: string
+		recipeId: string
+		plannedPortionQuantity?: number
+		excludedFromProcurement?: 0 | 1 | null
+		/** Ficha congelada do item (`menu_items.recipe`); vazia por omissão. */
+		recipe?: Record<string, unknown>
+	}): Promise<string>
 	seedTemplate(opts?: {
 		kitchenId?: number | null
 		templateType?: "weekly" | "event" | "apoio"
@@ -378,7 +385,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 			return (await insertReturningId("menu_items", {
 				daily_menu_id: opts.dailyMenuId,
 				recipe_origin_id: opts.recipeId,
-				recipe: {},
+				recipe: opts.recipe ?? {},
 				planned_portion_quantity: opts.plannedPortionQuantity ?? 100,
 				// `null` explícito é o que o aplicador de template grava; o default 0 escondia isso.
 				excluded_from_procurement: opts.excludedFromProcurement === undefined ? 0 : opts.excludedFromProcurement,
