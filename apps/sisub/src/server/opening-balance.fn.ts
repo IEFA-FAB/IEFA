@@ -135,10 +135,8 @@ export const fetchOpeningBalanceFn = createServerFn({ method: "GET" })
 		if (draftRow) {
 			const items = await loadItems(draftRow.id)
 			const ingredientIds = [...new Set(items.map((item) => item.ingredient_id))]
-			const described = await readAllPagesIn<{ id: string; description: string | null; measure_unit: string | null }>(
-				"os insumos da carga",
-				ingredientIds,
-				(chunk, from, to) => kitchen().from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
+			const described = await readAllPagesIn("os insumos da carga", ingredientIds, (chunk, from, to) =>
+				kitchen().from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
 			)
 			const ingredientById = new Map(described.map((row) => [row.id, row]))
 			const suggestions = await suggestOpeningCosts(ingredientIds, await loadKitchenUnitId(data.kitchenId))

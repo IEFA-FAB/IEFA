@@ -135,6 +135,13 @@ async function supplierCnpjFor(favorecidoCnpj: string | null, arpItemIds: readon
 	)
 }
 
+async function loadEmpenhoForOrder(finance: ReturnType<typeof getServerClient<"finance">>, empenhoId: string) {
+	const { data: row, error } = await finance.from("empenho").select("unit_id, status, favorecido_cnpj").eq("id", empenhoId).maybeSingle()
+	if (error) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(error)}`)
+	if (!row) throw new Error("Empenho não encontrado")
+	return row
+}
+
 /**
  * Emite uma OF contra um empenho — ou AGUARDANDO empenho (`empenhoId` ausente). O trigger do banco
  * garante soma das OFs ≤ valor vigente do empenho e recusa empenho anulado.
@@ -171,13 +178,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		// aqui, na emissão. OF aguardando empenho não tem fornecedor conhecido ainda.
 		let sicafStatus: string | null = null
 		const finance = getServerClient("finance")
-		let empenhoRow: { unit_id: number | null; status: string; favorecido_cnpj: string | null } | null = null
-		if (data.empenhoId) {
-			const { data: row, error: empenhoError } = await finance.from("empenho").select("unit_id, status, favorecido_cnpj").eq("id", data.empenhoId).maybeSingle()
-			if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(empenhoError)}`)
-			if (!row) throw new Error("Empenho não encontrado")
-			empenhoRow = row
-		}
+		const empenhoRow = data.empenhoId ? await loadEmpenhoForOrder(finance, data.empenhoId) : null
 		const covered = empenhoRow && data.empenhoId ? await coveredArpItemIds(data.empenhoId) : []
 
 		// O guard acima prova só a cozinha. O empenho vinha do corpo e o `unit_id`
@@ -189,9 +190,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(kitchenError)}`)
 		const problems = supplyOrderLinkProblems({
 			kitchenPurchaseUnitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
-			empenho: empenhoRow
-				? { unitId: empenhoRow.unit_id == null ? null : Number(empenhoRow.unit_id), status: String(empenhoRow.status), coveredArpItemIds: covered }
-				: null,
+			empenho: empenhoRow ? { unitId: empenhoRow.unit_id, status: empenhoRow.status, coveredArpItemIds: covered } : null,
 			itemArpItemIds: data.items.map((item) => item.arpItemId),
 		})
 		if (problems.length > 0) throw new Error(problems.join("; "))
@@ -322,18 +321,6 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 		if (problem) throw new Error(problem)
 	})
 
-interface EmpenhoItemForOrder {
-	id: string
-	position: number
-	arp_item_id: string | null
-	purchase_item_id: string | null
-	description: string | null
-	quantity: number | string | null
-	unit: string | null
-	unit_price: number | string | null
-	value: number | string
-}
-
 /** Empenhos ativos da unidade da cozinha (para emitir OF), com os itens de cada NE. */
 export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
@@ -365,7 +352,7 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 		const neItems =
 			empenhoIds.length === 0
 				? []
-				: await readAllPagesIn<EmpenhoItemForOrder & { empenho_id: string }>("itens das NEs", empenhoIds, (chunk, from, to) =>
+				: await readAllPagesIn("itens das NEs", empenhoIds, (chunk, from, to) =>
 						finance
 							.from("empenho_item")
 							.select("id, empenho_id, position, arp_item_id, purchase_item_id, description, quantity, unit, unit_price, value")

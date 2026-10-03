@@ -25,16 +25,14 @@ const procurement = () => getServerClient("procurement")
  * São ~1.800 linhas: passa do teto de 1000 do PostgREST, por isso a leitura paginada.
  */
 export async function loadOpeningCatalog(): Promise<OpeningCatalogIngredient[]> {
-	const rows = await readAllPages<{ id: string; legacy_id: number | null; description: string | null; measure_unit: string | null }>(
-		"o catálogo de insumos",
-		(from, to) =>
-			kitchen()
-				.from("ingredient")
-				.select("id, legacy_id, description, measure_unit")
-				.is("deleted_at", null)
-				.is("preparation_group_id", null)
-				.order("id")
-				.range(from, to)
+	const rows = await readAllPages("o catálogo de insumos", (from, to) =>
+		kitchen()
+			.from("ingredient")
+			.select("id, legacy_id, description, measure_unit")
+			.is("deleted_at", null)
+			.is("preparation_group_id", null)
+			.order("id")
+			.range(from, to)
 	)
 	return rows
 		.filter((row) => (row.description ?? "").trim() !== "")
@@ -63,7 +61,7 @@ export async function loadCanonicalUnits(): Promise<Set<string>> {
  * `post_opening_balance`, que olha o ledger sob trava.
  */
 export async function loadMovedIngredientIds(kitchenId: number): Promise<Set<string>> {
-	const rows = await readAllPages<{ ingredient_id: string | null }>("os itens já movimentados", (from, to) =>
+	const rows = await readAllPages("os itens já movimentados", (from, to) =>
 		// Paginado por `ingredient_id`: filtrada por cozinha, a chave de negócio de `stock_cost` é
 		// o insumo — (kitchen_id, ingredient_id), única por índice parcial —, e ela já dá a ordem
 		// estável que a paginação exige. O `id` (PK física desde 20260926219000) não acrescenta nada.
@@ -78,15 +76,13 @@ export async function loadMovedIngredientIds(kitchenId: number): Promise<Set<str
  * padrão fica sem classe, e a folha filtrada por classe não o traz.
  */
 export async function loadConservationClasses(): Promise<Map<string, ConservationClass>> {
-	const links = await readAllPages<{ ingredient_id: string; purchase_item: { conservation_class: string | null } | null }>(
-		"a classe de conservação dos insumos",
-		(from, to) =>
-			procurement()
-				.from("purchase_item_ingredient")
-				.select("id, ingredient_id, purchase_item:purchase_item_id (conservation_class)")
-				.eq("is_default", true)
-				.order("id")
-				.range(from, to)
+	const links = await readAllPages("a classe de conservação dos insumos", (from, to) =>
+		procurement()
+			.from("purchase_item_ingredient")
+			.select("id, ingredient_id, purchase_item:purchase_item_id (conservation_class)")
+			.eq("is_default", true)
+			.order("id")
+			.range(from, to)
 	)
 	const byIngredient = new Map<string, ConservationClass>()
 	for (const link of links) {
