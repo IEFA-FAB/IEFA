@@ -589,7 +589,6 @@ export {
 	restoreMenuItem,
 	updateHeadcount,
 	updateMenuItem,
-	updateSubstitutions,
 	upsertDailyMenu,
 } from "./planning.ts"
 export {

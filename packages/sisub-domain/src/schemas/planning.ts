@@ -76,12 +76,6 @@ export const SubstitutionEntrySchema = z.object({
 
 export type SubstitutionEntry = z.infer<typeof SubstitutionEntrySchema>
 
-export const UpdateSubstitutionsSchema = z.object({
-	menuItemId: UuidSchema,
-	substitutions: z.record(z.string(), SubstitutionEntrySchema),
-})
-export type UpdateSubstitutions = z.infer<typeof UpdateSubstitutionsSchema>
-
 export const GetTrashItemsSchema = z.object({
 	kitchenId: KitchenIdSchema,
 })

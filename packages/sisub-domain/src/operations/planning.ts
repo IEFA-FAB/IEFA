@@ -25,7 +25,6 @@ import type {
 	RestoreMenuItem,
 	UpdateHeadcount,
 	UpdateMenuItem,
-	UpdateSubstitutions,
 	UpsertDailyMenu,
 } from "../schemas/planning.ts"
 import type { UserContext } from "../types/context.ts"
@@ -517,19 +516,6 @@ export function rescaledPortions(input: { planned: number | null; proportion: nu
 export function portionsForArrivingHeadcount(input: { proportion: number | null; originTemplateType: string | null; headcount: number }): number | null {
 	if (input.originTemplateType === "event" || input.originTemplateType === "apoio") return null
 	return resolveItemDemand({ baseHeadcount: input.headcount, recommendedProportion: input.proportion })
-}
-
-export async function updateSubstitutions(db: SisubDb, ctx: UserContext, input: UpdateSubstitutions): Promise<void> {
-	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
-	requireKitchen(ctx, 2, kitchenId)
-
-	await runQuery("UPDATE_FAILED", () =>
-		db
-			.update(menuItemsInKitchen)
-			.set({ substitutions: input.substitutions })
-			.where(eq(menuItemsInKitchen.id, input.menuItemId))
-			.then(() => undefined)
-	)
 }
 
 export async function getTrashItems(db: SisubDb, ctx: UserContext, input: GetTrashItems): Promise<TrashMenuItem[]> {

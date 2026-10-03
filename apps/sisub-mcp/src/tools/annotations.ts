@@ -59,8 +59,8 @@ const TOOL_KINDS: Record<string, Kind> = {
 	update_meal_type: "destructive",
 	update_menu_headcount: "destructive",
 	update_menu_item: "destructive",
-	update_substitutions: "destructive",
 	update_template: "destructive", // `items` é substituição destrutiva (delete-all + reinsert)
+	record_menu_substitution: "destructive", // merge por chave, mas reescreve o registro do mesmo insumo
 }
 
 /** Tools que existem mas ainda não foram classificadas — o teste exige lista vazia. */
