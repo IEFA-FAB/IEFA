@@ -67,16 +67,17 @@ export interface StockBalanceItem {
 async function describeItems(ingredientIds: string[], frozenIds: string[]) {
 	const kit = kitchen()
 	const names = new Map<string, { description: string; measureUnit: string | null }>()
-	if (ingredientIds.length > 0) {
-		const { data, error } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
-		if (error) throw new Error(`Erro ao carregar os insumos: ${publicDbMessage(error)}`)
-		for (const row of data ?? []) names.set(`i:${row.id}`, { description: itemDescription(row.description), measureUnit: row.measure_unit })
-	}
-	if (frozenIds.length > 0) {
-		const { data, error } = await kit.from("frozen_preparation").select("id, description, measure_unit").in("id", frozenIds)
-		if (error) throw new Error(`Erro ao carregar as preparações: ${publicDbMessage(error)}`)
-		for (const row of data ?? []) names.set(`f:${row.id}`, { description: itemDescription(row.description), measureUnit: row.measure_unit })
-	}
+	// Fatiados: o painel tem centenas de itens, e todos os ids num `.in()` só estouram a URL.
+	const [ingredients, frozen] = await Promise.all([
+		readAllPagesIn("os insumos", ingredientIds, (chunk, from, to) =>
+			kit.from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
+		),
+		readAllPagesIn("as preparações", frozenIds, (chunk, from, to) =>
+			kit.from("frozen_preparation").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
+		),
+	])
+	for (const row of ingredients) names.set(`i:${row.id}`, { description: itemDescription(row.description), measureUnit: row.measure_unit })
+	for (const row of frozen) names.set(`f:${row.id}`, { description: itemDescription(row.description), measureUnit: row.measure_unit })
 	return names
 }
 

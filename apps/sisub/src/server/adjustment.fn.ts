@@ -395,11 +395,12 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			// exigir aprovação (outro ajuste do autor lançou no meio), o documento vai
 			// para a fila COM a exigência gravada — monotônica: depois de 24 h ela
 			// não some sozinha.
-			// Dentro da recuperação: lançar aqui abandonaria o documento em rascunho. Sem a leitura, ele vai
-			// para a fila sem a exigência gravada, e o log diz por quê.
+			// Dentro da recuperação: lançar aqui abandonaria o documento em rascunho. Sem a leitura, a
+			// exigência é gravada mesmo assim (falha FECHADA): sem ela, quando a regra viva deixasse de
+			// exigir, o próprio autor aprovaria o ajuste — a fuga que a marca monotônica existe para barrar.
 			const { data: nowRequires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
-			// biome-ignore lint/suspicious/noConsole: server-side — a recuperação segue sem a marca, e o log diz por quê
-			if (requiresError) console.error("[createAdjustmentFn] alçada não relida na recuperação:", requiresError.message)
+			// biome-ignore lint/suspicious/noConsole: server-side — a recuperação grava a exigência por precaução, e o log diz por quê
+			if (requiresError) console.error("[createAdjustmentFn] alçada não relida na recuperação; exigindo aprovação:", requiresError.message)
 			// SÓ se o documento ainda está em rascunho. O erro pode ter vindo depois
 			// do COMMIT — o deadline de fetch do `@iefa/supabase-kit` existe
 			// justamente para cortar resposta lenta — e aí o documento já está
@@ -410,7 +411,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 				.update({
 					status: "pending_approval",
 					notes: operatorNote ? `${operatorNote}\n\n${failureNote}` : failureNote,
-					...(nowRequires === true ? { approval_required: true } : {}),
+					...(requiresError != null || nowRequires === true ? { approval_required: true } : {}),
 				})
 				.eq("id", doc.id)
 				.eq("status", "draft")

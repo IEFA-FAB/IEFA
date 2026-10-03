@@ -20,6 +20,7 @@ import { requireAuthWithPermission } from "@/lib/auth.server"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
+import { readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -494,16 +495,14 @@ export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 		const documents = (docs ?? []) as NfeDocumentRow[]
 		if (documents.length === 0) return []
 
-		const { data: items, error: itemsError } = await inv
-			.from("nfe_item")
-			.select("nfe_document_id, match_status")
-			.in(
-				"nfe_document_id",
-				documents.map((d) => d.id)
-			)
-		if (itemsError) throw new Error(`Erro ao carregar os itens das notas: ${publicDbMessage(itemsError)}`)
+		// 50 notas de 30 itens já passam de 1000 linhas: paginada, para a contagem por situação não cortar.
+		const items = await readAllPagesIn(
+			"os itens das notas",
+			documents.map((d) => d.id),
+			(chunk, from, to) => inv.from("nfe_item").select("id, nfe_document_id, match_status").in("nfe_document_id", chunk).order("id").range(from, to)
+		)
 		const counts = new Map<string, Record<string, number>>()
-		for (const item of items ?? []) {
+		for (const item of items) {
 			const acc = counts.get(item.nfe_document_id) ?? {}
 			acc[item.match_status] = (acc[item.match_status] ?? 0) + 1
 			counts.set(item.nfe_document_id, acc)
@@ -518,8 +517,9 @@ export const fetchNfeDocumentFn = createServerFn({ method: "GET" })
 		await requireStorageForDocument(1, data.nfeDocumentId)
 		const inv = inventory()
 
-		const { data: doc, error } = await inv.from("nfe_document").select("*").eq("id", data.nfeDocumentId).single()
-		if (error || !doc) throw new Error("NF-e não encontrada")
+		const { data: doc, error } = await inv.from("nfe_document").select("*").eq("id", data.nfeDocumentId).maybeSingle()
+		if (error) throw new Error(`Erro ao carregar a NF-e: ${publicDbMessage(error)}`)
+		if (!doc) throw new Error("NF-e não encontrada")
 		const { data: items, error: itemsError } = await inv.from("nfe_item").select("*").eq("nfe_document_id", data.nfeDocumentId).order("n_item")
 		if (itemsError) throw new Error(`Erro ao carregar os itens da NF-e: ${publicDbMessage(itemsError)}`)
 		return { ...doc, items: (items ?? []) as NfeItemRow[] } as NfeDocumentRow & { items: NfeItemRow[] }
