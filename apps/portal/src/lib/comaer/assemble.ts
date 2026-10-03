@@ -9,7 +9,7 @@
  * sistema, e o erro só apareceria depois do despacho.
  */
 
-import { type DocumentKind, EXTERNAL_OFICIO_LABEL, findKind, requiresSector, requiresSequence } from "./catalog"
+import { type DocumentKind, EXTERNAL_OFICIO_LABEL, findKind, requiresSector, requiresSequence, resolveKind } from "./catalog"
 import {
 	addressingLines,
 	annexLetter,
@@ -25,6 +25,7 @@ import {
 	preambuloLines,
 	privateInterestSender,
 	renderDivisions,
+	shortDate,
 	signerForKind,
 	signerIdentification,
 } from "./format"
@@ -89,26 +90,29 @@ function titleBlock(input: DocumentInput, kind: DocumentKind): Line[] {
 
 function ementaBlock(input: DocumentInput, kind: DocumentKind): Line[] {
 	const lines: Line[] = []
+	const external = kind.id === "oficio-externo"
 	if (input.subject) {
-		// Art. 51 § 9º, IX: no ofício externo o assunto vai em negrito e sozinho.
+		// Art. 51 § 9º, IX: no ofício externo o assunto vai em negrito e sozinho, no padrão do
+		// Manual da Presidência. Nos demais o rótulo fica na margem e o texto a 2,5 cm (Anexo XV).
 		lines.push({
 			text: `Assunto: ${input.subject.replace(/\.?$/, ".")}`,
-			bold: kind.id === "oficio-externo",
+			...(external ? { bold: true } : { marker: "Assunto:" }),
 			edit: { target: { field: "subject" }, value: input.subject },
 		})
 	}
-	if (kind.id !== "oficio-externo") {
-		// Art. 37 § 2º, II: a primeira linha leva o rótulo; as seguintes alinham sob ela.
+	if (!external) {
+		// Art. 37 § 2º, II: a primeira linha leva o rótulo; as seguintes alinham sob ela. Entre
+		// os grupos, a linha em branco do modelo do Anexo XV.
 		for (const [i, item] of enumerationEntries(input.references ?? [], (n) => `${n + 1}.`).entries())
 			lines.push({
 				text: i === 0 ? `Referência: ${item.text}` : item.text,
-				indentCm: i === 0 ? 0 : 2.5,
+				...(i === 0 ? { marker: "Referência:", gapBefore: lines.length > 0 } : { indentCm: 2.5 }),
 				edit: { target: { field: "reference", index: item.sourceIndex }, value: item.value },
 			})
 		for (const [i, item] of enumerationEntries(input.annexes ?? [], (n) => `${annexLetter(n)}.`).entries())
 			lines.push({
 				text: i === 0 ? `Anexo: ${item.text}` : item.text,
-				indentCm: i === 0 ? 0 : 2.5,
+				...(i === 0 ? { marker: "Anexo:", gapBefore: lines.length > 0 } : { indentCm: 2.5 }),
 				edit: { target: { field: "annex", index: item.sourceIndex }, value: item.value },
 			})
 	}
@@ -278,6 +282,20 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 		)
 	}
 	return findings
+}
+
+/**
+ * Art. 42 § 1º — identificação das folhas suplementares, sem os parênteses e sem o "Fl x/y":
+ * "Ofício nº 12/DFP/771 - IEFA, de 02 OUT 2026, Prot nº 68002.000722/2026-25". A folha atual e
+ * o total só existem na impressão, e é o contador de páginas dela que os escreve.
+ */
+export function continuationLabel(input: DocumentInput): string {
+	const kind = resolveKind(input.kind)
+	const numbering = kind.numbering === "nenhuma" ? kind.label : numberingLine(kind.numberingLabel, input.numbering, input.classification, kind.numbering)
+	const om = input.om.acronym?.trim() || input.om.name.trim()
+	const parts = [[numbering, om].filter(Boolean).join(" - "), `de ${shortDate(input.date, "mes-maiusculo")}`]
+	if (input.nup && isValidNup(input.nup)) parts.push(`Prot nº ${formatNup(input.nup)}`)
+	return parts.join(", ")
 }
 
 export function assembleDocument(input: DocumentInput): AssembledDocument {

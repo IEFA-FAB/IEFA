@@ -156,10 +156,13 @@ export interface Line {
 	/** Recuo em cm, como a norma mede (2,5 cm do parágrafo, 1,5 cm da continuação). */
 	indentCm?: number
 	/**
-	 * Número do parágrafo ("1."), que já abre `text`. A folha o imprime na margem e começa o
-	 * texto a 2,5 cm dela (art. 20, II, a); a saída em texto puro usa `text` como está.
+	 * Rótulo que já abre `text` — o número do parágrafo ("1.") ou o da ementa ("Assunto:"). A
+	 * folha o imprime na margem e começa o texto a 2,5 cm dela (art. 20, II, a; Anexo XV); a
+	 * saída em texto puro usa `text` como está.
 	 */
 	marker?: string
+	/** Linha em branco antes: separa os grupos da ementa (assunto, referência, anexo). */
+	gapBefore?: boolean
 	/** Recuo só na primeira linha: parágrafo sem número também começa a 2,5 cm (art. 20, II, a). */
 	indentFirstLine?: boolean
 	/** Linha à direita na MESMA linha da anterior (numeração × localidade e data). */

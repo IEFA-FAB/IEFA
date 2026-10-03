@@ -94,3 +94,14 @@ describe("histórico vindo do navegador", () => {
 		expect(dropClientSystemMessages(params.messages).map((m) => m.role)).toEqual(["user", "assistant"])
 	})
 })
+
+describe("tom da redação", () => {
+	// Decisão do mantenedor: cortesia com qualquer destinatário, inclusive subordinado. O
+	// repertório não oferece verbo de ordem, e a regra diz isso com todas as letras.
+	it("pede em vez de ordenar, com qualquer destinatário", () => {
+		const prompt = buildChatSystemPrompt(assembleDocument(base()))
+		expect(prompt).toContain("CORTESIA SEMPRE")
+		expect(prompt).toContain("superior, par ou subordinado")
+		expect(prompt).not.toContain("Determino")
+	})
+})

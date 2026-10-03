@@ -9,7 +9,7 @@ import { ExportPanel } from "@/components/comaer/ExportPanel"
 import { IdentityPanel } from "@/components/comaer/IdentityPanel"
 import { ImportPanel } from "@/components/comaer/ImportPanel"
 import { Button } from "@/components/ui/button"
-import { assembleDocument } from "@/lib/comaer/assemble"
+import { assembleDocument, continuationLabel } from "@/lib/comaer/assemble"
 import { resolveKind } from "@/lib/comaer/catalog"
 import { clearDraft, documentDraftKey, hasContent, isDirty, loadDraft, newDocument, saveDraft } from "@/lib/comaer/draft"
 import {
@@ -24,6 +24,7 @@ import {
 	undoTurn,
 } from "@/lib/comaer/editor-state"
 import { applyInlineEdit } from "@/lib/comaer/inline-edit"
+import { continuationPageRule } from "@/lib/comaer/print"
 import { applyProposal } from "@/lib/comaer/proposal"
 import { toPayload } from "@/lib/comaer/schema"
 import type { DocumentInput, EditTarget } from "@/lib/comaer/types"
@@ -234,6 +235,7 @@ export function DocumentEditor({
 			<style>{`
 				@media print {
 					@page { size: A4; margin: 2cm 2cm 2cm 3cm; }
+					${continuationPageRule(continuationLabel(input))}
 					body * { visibility: hidden; }
 					[data-sheet], [data-sheet] * { visibility: visible; }
 					[data-sheet] { position: absolute; left: 0; top: 0; width: 100%; }

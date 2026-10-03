@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { assembleDocument } from "./assemble"
+import { assembleDocument, continuationLabel } from "./assemble"
 import { DOCUMENT_KINDS, describeCatalog, EXTERNAL_OFICIO_LABEL, findKind, resolveKind } from "./catalog"
 import { newDocument } from "./draft"
 import { applyInlineEdit } from "./inline-edit"
@@ -587,5 +587,33 @@ describe("espécie fora do catálogo", () => {
 
 	it("espécie conhecida atravessa intacta", () => {
 		expect(resolveKind("requerimento").id).toBe("requerimento")
+	})
+})
+
+describe("modelo do Anexo XV", () => {
+	it("põe o rótulo da ementa na margem e separa os grupos com linha em branco", () => {
+		const doc = assembleDocument(base({ references: ["Acordo X", "Acordo Y"], annexes: ["Planta"] }))
+		const ementa = doc.blocks.find((b) => b.id === "ementa")?.lines ?? []
+		expect(ementa.map((l) => l.marker)).toEqual(["Assunto:", "Referência:", undefined, "Anexo:"])
+		expect(ementa.map((l) => Boolean(l.gapBefore))).toEqual([false, true, false, true])
+		// O texto continua com o rótulo: é ele que vai para o campo "Texto" do SIGADAER.
+		expect(ementa[1].text).toBe("Referência: 1. Acordo X; e")
+	})
+
+	it("no ofício externo o assunto segue o Manual da Presidência: negrito, sem coluna de rótulo", () => {
+		const externo = base({ kind: "oficio-externo", scope: "externo", references: [] })
+		const assunto = assembleDocument(externo).blocks.find((b) => b.id === "ementa")?.lines[0]
+		expect(assunto?.bold).toBe(true)
+		expect(assunto?.marker).toBeUndefined()
+	})
+})
+
+describe("folhas suplementares (art. 42 § 1º)", () => {
+	it("identifica o documento, a OM, a data abreviada e o protocolo", () => {
+		expect(continuationLabel(base())).toBe("Ofício nº 34/GAB/255 - IEFA, de 03 JUL 2026, Prot nº 68000.000000/2026-00")
+	})
+
+	it("omite o protocolo incompleto em vez de imprimir um número pela metade", () => {
+		expect(continuationLabel(base({ nup: "680" }))).toBe("Ofício nº 34/GAB/255 - IEFA, de 03 JUL 2026")
 	})
 })
