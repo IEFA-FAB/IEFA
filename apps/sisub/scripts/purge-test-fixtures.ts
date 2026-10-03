@@ -30,7 +30,9 @@
  * script aborta sem apagar nada.
  */
 
-import postgres from "postgres"
+import { createResilientPostgres } from "@iefa/database/postgres-pool"
+import { unwrapPgError } from "@iefa/sisub-domain/utils"
+import type postgres from "postgres"
 
 // Marcadores usados pelas fixtures (`src/test/operations-fixtures.ts`) e pelos testes legados
 // de `src/server/*.test.ts`.
@@ -111,6 +113,19 @@ function isFollowedOnDelete(onDelete: string): boolean {
 	return onDelete === "a" || onDelete === "r" || onDelete === "c"
 }
 
+/** Teto de cada comando da faxina, e de espera por trava (as fixtures podem estar em uso pelo gate). */
+const STATEMENT_TIMEOUT = "120s"
+const LOCK_TIMEOUT = "15s"
+
+const IDLE_IN_TRANSACTION_TIMEOUT = "60s"
+/** A transação inteira; acima disto o pool encerra a conexão do lado do cliente. */
+const TRANSACTION_DEADLINE_MS = 10 * 60_000
+
+/** 55P03 = lock_not_available (o `lock_timeout` disparou). */
+const isLockTimeout = (e: unknown) => unwrapPgError(e).code === "55P03"
+/** 57014 = query_canceled (o `statement_timeout` disparou). */
+const isStatementTimeout = (e: unknown) => unwrapPgError(e).code === "57014"
+
 const qualified = (schema: string, table: string) => `"${schema}"."${table}"`
 const key = (r: Row) => `${r.schema}.${r.table}#${r.ctid}`
 
@@ -119,7 +134,13 @@ async function main() {
 	const url = process.env.SISUB_DATABASE_URL
 	if (!url) throw new Error("SISUB_DATABASE_URL ausente")
 
-	const sql = postgres(url, { max: 1, prepare: false })
+	// Prazo também no CLIENTE: conexão do pooler presa no meio do protocolo não dispara o
+	// `statement_timeout` (o servidor espera o cliente), e o passo esperaria o job inteiro.
+	const sql = createResilientPostgres(url, {
+		connection: { max: 1, prepare: false, connect_timeout: 15 },
+		queryDeadlineMs: 150_000,
+		transactionDeadlineMs: TRANSACTION_DEADLINE_MS,
+	}).sql
 	try {
 		// Uma transação só: os `ctid` coletados na varredura precisam continuar válidos no delete.
 		// Sem `--apply` termina em ROLLBACK, então o dry-run também exercita os deletes de verdade
@@ -130,6 +151,12 @@ async function main() {
 			// auditadas. Apagar lixo de teste não é revogar acesso de ninguém — e não vai ao log.
 			// LOCAL à transação: some no commit/rollback (seguro no transaction pooler).
 			await tx`select set_config('iefa.audit_bypass', 'purge-test-fixtures', true)`
+			// Prazos no SERVIDOR, locais à transação. Matar só o processo (teto do passo no CI) deixava
+			// o backend esperando a trava de outra suíte com a transação aberta; aqui o próprio banco
+			// cancela o comando e solta o que segurava, e o erro diz qual foi.
+			// `idle_in_transaction`: processo morto ENTRE comandos deixava a transação aberta, que os dois
+			// prazos acima (só valem para comando rodando ou esperando) não encerram.
+			await tx`select set_config('statement_timeout', ${STATEMENT_TIMEOUT}, true), set_config('lock_timeout', ${LOCK_TIMEOUT}, true), set_config('idle_in_transaction_session_timeout', ${IDLE_IN_TRANSACTION_TIMEOUT}, true)`
 			const fks = await loadForeignKeys(tx)
 			const { roots, suspects, deferred, timestamped } = await findCandidates(tx, minAgeMinutes, force)
 
@@ -160,6 +187,17 @@ async function main() {
 		if (e instanceof DryRun) {
 			console.log(`\n🔎 dry-run: ${e.rows.length} linha(s) seriam removidas. Rode com --apply para efetivar.`)
 			return
+		}
+		if (isLockTimeout(e)) {
+			// Outra transação segura o que a faxina precisa (em geral uma suíte usando a fixture): como
+			// `FreshData`, o próximo passe recolhe. Aviso visível no CI, e não só no log: trava que
+			// nunca solta (transação vazada, DDL) deixaria a faxina pulando verde para sempre.
+			const notice = `Faxina pulada: trava de outra transação passou de ${LOCK_TIMEOUT}. O próximo passe recolhe; se repetir, procure transação presa no banco.`
+			console.log(process.env.GITHUB_ACTIONS ? `::warning title=purge-test-fixtures::${notice}` : `\n⏭️  ${notice}`)
+			return
+		}
+		if (isStatementTimeout(e)) {
+			throw new Error(`A faxina passou de ${STATEMENT_TIMEOUT} num comando e o banco o cancelou (nada foi apagado).`, { cause: e })
 		}
 		if (e instanceof FreshData) {
 			// Não é erro: outra suíte está usando essas linhas. Sair 0 evita passo vermelho no CI
@@ -415,6 +453,9 @@ async function deleteAll(tx: postgres.TransactionSql, rows: Row[]) {
 				// Savepoint: um DELETE que viola FK aborta só o savepoint, não a transação externa.
 				await tx.savepoint((sp) => sp.unsafe(`delete from ${qualified(schema, table)} where ctid = any($1::tid[])`, [ctids]))
 			} catch (e) {
+				// Prazo não é FK pendente: reagendar só gastaria outro prazo inteiro por passe, e o erro
+				// final culparia o fecho por FK.
+				if (isLockTimeout(e) || isStatementTimeout(e)) throw e
 				lastErr = e
 				stillFailing.push([k, ctids])
 			}
