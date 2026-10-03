@@ -35,6 +35,7 @@ import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './ro
 import { Route as ProtectedModulesAdminAuditLogRouteImport } from './routes/_protected/_modules/admin/audit-log'
 import { Route as ProtectedModulesAdminEvaluationRouteImport } from './routes/_protected/_modules/admin/evaluation'
 import { Route as ProtectedModulesAdminMfaAdoptionRouteImport } from './routes/_protected/_modules/admin/mfa-adoption'
+import { Route as ProtectedModulesAdminMilitaryRecordsRouteImport } from './routes/_protected/_modules/admin/military-records'
 import { Route as ProtectedModulesAdminPermissionsRouteImport } from './routes/_protected/_modules/admin/permissions'
 import { Route as ProtectedModulesAdminSyncRoutinesRouteImport } from './routes/_protected/_modules/admin/sync-routines'
 import { Route as ProtectedModulesAdminTrainingRouteImport } from './routes/_protected/_modules/admin/training'
@@ -48,6 +49,7 @@ import { Route as ProtectedModulesDinerIndexRouteImport } from './routes/_protec
 import { Route as ProtectedModulesDinerArranchamentoRouteImport } from './routes/_protected/_modules/diner/arranchamento'
 import { Route as ProtectedModulesDinerMcpKeysRouteImport } from './routes/_protected/_modules/diner/mcp-keys'
 import { Route as ProtectedModulesDinerMenuRouteImport } from './routes/_protected/_modules/diner/menu'
+import { Route as ProtectedModulesDinerMilitaryRecordRouteImport } from './routes/_protected/_modules/diner/military-record'
 import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_protected/_modules/diner/profile'
 import { Route as ProtectedModulesDinerQrCodeRouteImport } from './routes/_protected/_modules/diner/qr-code'
 import { Route as ProtectedModulesDinerSecurityRouteImport } from './routes/_protected/_modules/diner/security'
@@ -310,6 +312,12 @@ const ProtectedModulesAdminMfaAdoptionRoute =
     path: '/admin/mfa-adoption',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
+const ProtectedModulesAdminMilitaryRecordsRoute =
+  ProtectedModulesAdminMilitaryRecordsRouteImport.update({
+    id: '/admin/military-records',
+    path: '/admin/military-records',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
 const ProtectedModulesAdminPermissionsRoute =
   ProtectedModulesAdminPermissionsRouteImport.update({
     id: '/admin/permissions',
@@ -386,6 +394,12 @@ const ProtectedModulesDinerMenuRoute =
   ProtectedModulesDinerMenuRouteImport.update({
     id: '/diner/menu',
     path: '/diner/menu',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesDinerMilitaryRecordRoute =
+  ProtectedModulesDinerMilitaryRecordRouteImport.update({
+    id: '/diner/military-record',
+    path: '/diner/military-record',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesDinerProfileRoute =
@@ -1193,6 +1207,7 @@ export interface FileRoutesByFullPath {
   '/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
   '/admin/mfa-adoption': typeof ProtectedModulesAdminMfaAdoptionRoute
+  '/admin/military-records': typeof ProtectedModulesAdminMilitaryRecordsRoute
   '/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/admin/training': typeof ProtectedModulesAdminTrainingRoute
@@ -1204,6 +1219,7 @@ export interface FileRoutesByFullPath {
   '/diner/arranchamento': typeof ProtectedModulesDinerArranchamentoRoute
   '/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
+  '/diner/military-record': typeof ProtectedModulesDinerMilitaryRecordRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
   '/diner/security': typeof ProtectedModulesDinerSecurityRoute
@@ -1352,6 +1368,7 @@ export interface FileRoutesByTo {
   '/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
   '/admin/mfa-adoption': typeof ProtectedModulesAdminMfaAdoptionRoute
+  '/admin/military-records': typeof ProtectedModulesAdminMilitaryRecordsRoute
   '/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/admin/training': typeof ProtectedModulesAdminTrainingRoute
@@ -1363,6 +1380,7 @@ export interface FileRoutesByTo {
   '/diner/arranchamento': typeof ProtectedModulesDinerArranchamentoRoute
   '/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
+  '/diner/military-record': typeof ProtectedModulesDinerMilitaryRecordRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
   '/diner/security': typeof ProtectedModulesDinerSecurityRoute
@@ -1519,6 +1537,7 @@ export interface FileRoutesById {
   '/_protected/_modules/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/_protected/_modules/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
   '/_protected/_modules/admin/mfa-adoption': typeof ProtectedModulesAdminMfaAdoptionRoute
+  '/_protected/_modules/admin/military-records': typeof ProtectedModulesAdminMilitaryRecordsRoute
   '/_protected/_modules/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/_protected/_modules/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/_protected/_modules/admin/training': typeof ProtectedModulesAdminTrainingRoute
@@ -1530,6 +1549,7 @@ export interface FileRoutesById {
   '/_protected/_modules/diner/arranchamento': typeof ProtectedModulesDinerArranchamentoRoute
   '/_protected/_modules/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/_protected/_modules/diner/menu': typeof ProtectedModulesDinerMenuRoute
+  '/_protected/_modules/diner/military-record': typeof ProtectedModulesDinerMilitaryRecordRoute
   '/_protected/_modules/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/_protected/_modules/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
   '/_protected/_modules/diner/security': typeof ProtectedModulesDinerSecurityRoute
@@ -1686,6 +1706,7 @@ export interface FileRouteTypes {
     | '/admin/audit-log'
     | '/admin/evaluation'
     | '/admin/mfa-adoption'
+    | '/admin/military-records'
     | '/admin/permissions'
     | '/admin/sync-routines'
     | '/admin/training'
@@ -1697,6 +1718,7 @@ export interface FileRouteTypes {
     | '/diner/arranchamento'
     | '/diner/mcp-keys'
     | '/diner/menu'
+    | '/diner/military-record'
     | '/diner/profile'
     | '/diner/qr-code'
     | '/diner/security'
@@ -1845,6 +1867,7 @@ export interface FileRouteTypes {
     | '/admin/audit-log'
     | '/admin/evaluation'
     | '/admin/mfa-adoption'
+    | '/admin/military-records'
     | '/admin/permissions'
     | '/admin/sync-routines'
     | '/admin/training'
@@ -1856,6 +1879,7 @@ export interface FileRouteTypes {
     | '/diner/arranchamento'
     | '/diner/mcp-keys'
     | '/diner/menu'
+    | '/diner/military-record'
     | '/diner/profile'
     | '/diner/qr-code'
     | '/diner/security'
@@ -2011,6 +2035,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/admin/audit-log'
     | '/_protected/_modules/admin/evaluation'
     | '/_protected/_modules/admin/mfa-adoption'
+    | '/_protected/_modules/admin/military-records'
     | '/_protected/_modules/admin/permissions'
     | '/_protected/_modules/admin/sync-routines'
     | '/_protected/_modules/admin/training'
@@ -2022,6 +2047,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/diner/arranchamento'
     | '/_protected/_modules/diner/mcp-keys'
     | '/_protected/_modules/diner/menu'
+    | '/_protected/_modules/diner/military-record'
     | '/_protected/_modules/diner/profile'
     | '/_protected/_modules/diner/qr-code'
     | '/_protected/_modules/diner/security'
@@ -2343,6 +2369,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesAdminMfaAdoptionRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
+    '/_protected/_modules/admin/military-records': {
+      id: '/_protected/_modules/admin/military-records'
+      path: '/admin/military-records'
+      fullPath: '/admin/military-records'
+      preLoaderRoute: typeof ProtectedModulesAdminMilitaryRecordsRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
     '/_protected/_modules/admin/permissions': {
       id: '/_protected/_modules/admin/permissions'
       path: '/admin/permissions'
@@ -2432,6 +2465,13 @@ declare module '@tanstack/react-router' {
       path: '/diner/menu'
       fullPath: '/diner/menu'
       preLoaderRoute: typeof ProtectedModulesDinerMenuRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/diner/military-record': {
+      id: '/_protected/_modules/diner/military-record'
+      path: '/diner/military-record'
+      fullPath: '/diner/military-record'
+      preLoaderRoute: typeof ProtectedModulesDinerMilitaryRecordRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/diner/profile': {
@@ -3691,12 +3731,14 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesAdminAuditLogRoute: typeof ProtectedModulesAdminAuditLogRoute
   ProtectedModulesAdminEvaluationRoute: typeof ProtectedModulesAdminEvaluationRoute
   ProtectedModulesAdminMfaAdoptionRoute: typeof ProtectedModulesAdminMfaAdoptionRoute
+  ProtectedModulesAdminMilitaryRecordsRoute: typeof ProtectedModulesAdminMilitaryRecordsRoute
   ProtectedModulesAdminPermissionsRoute: typeof ProtectedModulesAdminPermissionsRoute
   ProtectedModulesAdminSyncRoutinesRoute: typeof ProtectedModulesAdminSyncRoutinesRoute
   ProtectedModulesAdminTrainingRoute: typeof ProtectedModulesAdminTrainingRoute
   ProtectedModulesDinerArranchamentoRoute: typeof ProtectedModulesDinerArranchamentoRoute
   ProtectedModulesDinerMcpKeysRoute: typeof ProtectedModulesDinerMcpKeysRoute
   ProtectedModulesDinerMenuRoute: typeof ProtectedModulesDinerMenuRoute
+  ProtectedModulesDinerMilitaryRecordRoute: typeof ProtectedModulesDinerMilitaryRecordRoute
   ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
   ProtectedModulesDinerQrCodeRoute: typeof ProtectedModulesDinerQrCodeRoute
   ProtectedModulesDinerSecurityRoute: typeof ProtectedModulesDinerSecurityRoute
@@ -3761,6 +3803,8 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesAdminAuditLogRoute: ProtectedModulesAdminAuditLogRoute,
   ProtectedModulesAdminEvaluationRoute: ProtectedModulesAdminEvaluationRoute,
   ProtectedModulesAdminMfaAdoptionRoute: ProtectedModulesAdminMfaAdoptionRoute,
+  ProtectedModulesAdminMilitaryRecordsRoute:
+    ProtectedModulesAdminMilitaryRecordsRoute,
   ProtectedModulesAdminPermissionsRoute: ProtectedModulesAdminPermissionsRoute,
   ProtectedModulesAdminSyncRoutinesRoute:
     ProtectedModulesAdminSyncRoutinesRoute,
@@ -3769,6 +3813,8 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesDinerArranchamentoRoute,
   ProtectedModulesDinerMcpKeysRoute: ProtectedModulesDinerMcpKeysRoute,
   ProtectedModulesDinerMenuRoute: ProtectedModulesDinerMenuRoute,
+  ProtectedModulesDinerMilitaryRecordRoute:
+    ProtectedModulesDinerMilitaryRecordRoute,
   ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,
   ProtectedModulesDinerQrCodeRoute: ProtectedModulesDinerQrCodeRoute,
   ProtectedModulesDinerSecurityRoute: ProtectedModulesDinerSecurityRoute,

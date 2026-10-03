@@ -34,6 +34,7 @@ import { sucontTools } from "#/lib/data"
 import { Route as PessoasRoute } from "#/routes/admin/pessoas"
 import { Route as IndexRoute } from "#/routes/index"
 import { Route as WorkspaceRoute } from "#/routes/workspace"
+import { harnessSaramStatus } from "./stubs/user.fn"
 import "./harness.css"
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -65,10 +66,11 @@ queryClient.setQueryData(
 	).map((p) => ({ ...p, mess_hall_id: null, kitchen_id: null, unit_id: null }))
 )
 
-// SARAM já vinculado: sem isto o diálogo de primeiro acesso (montado pelo
-// HubLayout) abriria sobre TODA tela do harness, e o que está sob exame é a
-// casca. Para inspecionar o diálogo, apague esta semente.
-queryClient.setQueryData(["sucont", "myIdentity"], { saram: "7379749", posto: "1T", nomeGuerra: "NANNI", registered: true, status: "verified", outcome: null })
+// Vínculo de SARAM verificado por padrão: sem isto o aviso de cadastro militar (montado pelo
+// HubLayout) apareceria em TODA tela do harness, e o que está sob exame é a casca. Para
+// inspecionar o aviso e o diálogo, `?saram=<estado>` (suggestion, homonyms, no_match,
+// pending_request, institutional).
+queryClient.setQueryData(["sucont", "saramStatus"], harnessSaramStatus(new URLSearchParams(window.location.search).get("saram")))
 
 const Catalogo = IndexRoute.options.component as () => React.ReactNode
 // A área de trabalho entra no harness porque é a tela cujo estado é o mais difícil

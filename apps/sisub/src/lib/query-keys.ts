@@ -12,6 +12,9 @@ export const queryKeys = {
 		military: (saram: string | null | undefined) => ["military", saram] as const,
 		saram: (userId: string | null | undefined) => ["user", userId, "saram"] as const,
 		saramStatus: (userId: string | null | undefined) => ["user", userId, "saram", "status"] as const,
+		/** Console "Cadastro militar" (admin:2): filas e busca de contas. */
+		saramReviewQueue: () => ["admin", "saram", "queue"] as const,
+		saramAccountSearch: (query: string) => ["admin", "saram", "search", query] as const,
 		kitchens: () => ["user", "kitchens"] as const,
 	},
 

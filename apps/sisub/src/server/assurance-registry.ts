@@ -786,7 +786,6 @@ export const ASSURANCE_REGISTRY = {
 	updateUnitSettingsFn: { require: "none" },
 
 	// ── user.fn.ts
-	syncUserSaramFn: { require: "none" },
 	syncUserEmailFn: { require: "none" },
 
 	// ── workforce.fn.ts

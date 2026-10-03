@@ -1,11 +1,12 @@
 /**
  * @module saram-dismissal
- * Dispensa do pedido de SARAM, guardada FORA do componente de propósito.
+ * Dispensa do aviso do cadastro militar ("Agora não"), guardada FORA do componente de propósito.
  *
- * O `HubLayout` — que monta o diálogo — é renderizado por CADA uma das nove rotas
+ * O `HubLayout` — que monta o aviso — é renderizado por CADA uma das nove rotas
  * do hub; não é um layout compartilhado do roteador. Em estado de componente,
- * "Agora não" morreria na primeira navegação e o diálogo reabriria sobre a tela
- * seguinte. Estado de módulo sobrevive à remontagem porque a navegação do
+ * "Agora não" morreria na primeira navegação e o aviso voltaria na tela
+ * seguinte. A dispensa guarda o ESTADO dispensado: se ele muda (o pedido foi
+ * recusado, o bloqueio passou), o aviso volta. Estado de módulo sobrevive à remontagem porque a navegação do
  * TanStack Router não recarrega o bundle.
  *
  * **Nada é gravado no dispositivo, e isso é a decisão, não um descuido.**
@@ -25,18 +26,19 @@
 /**
  * Só do lado do cliente. No servidor o valor é sempre `false`: um módulo é
  * compartilhado entre requisições, e um `true` deixado por uma sessão calaria o
- * pedido na renderização da seguinte.
+ * aviso na renderização da seguinte.
  */
-let dismissedInThisTab = false
+let dismissedInThisTab: string | null = null
 
-export function readSaramDismissal(): boolean {
-	if (typeof window === "undefined") return false
+/** Estado do vínculo dispensado nesta aba (`null` = nada dispensado). */
+export function readSaramDismissal(): string | null {
+	if (typeof window === "undefined") return null
 	return dismissedInThisTab
 }
 
-export function rememberSaramDismissal(): void {
+export function rememberSaramDismissal(status: string): void {
 	if (typeof window === "undefined") return
-	dismissedInThisTab = true
+	dismissedInThisTab = status
 }
 
 /**
@@ -46,5 +48,5 @@ export function rememberSaramDismissal(): void {
  * recarregar a página é o caminho normal de saída do hub.
  */
 export function forgetSaramDismissal(): void {
-	dismissedInThisTab = false
+	dismissedInThisTab = null
 }

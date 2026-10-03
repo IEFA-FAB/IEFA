@@ -22,6 +22,7 @@ import {
 	FileText,
 	FlameKindling,
 	GraduationCap,
+	IdCard,
 	KeyRound,
 	Landmark,
 	Layers,
@@ -134,6 +135,13 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Auto Check-in", url: "/diner/self-check-in", icon: ScanQrCode, keywords: ["check-in", "ler qr"] },
 			// Conta do usuário — separada do uso diário do refeitório
 			{ title: "Perfil", url: "/diner/profile", icon: User, group: "Minha conta", keywords: ["dados militares", "conta"] },
+			{
+				title: "Meu cadastro militar",
+				url: "/diner/military-record",
+				icon: IdCard,
+				group: "Minha conta",
+				keywords: ["saram", "dados militares", "vínculo", "verificar", "conta de seção"],
+			},
 			// Some junto com a verificação em duas etapas (`MFA_AVAILABLE`).
 			...(MFA_AVAILABLE
 				? [
@@ -399,6 +407,13 @@ export const ALL_MODULES: ModuleDef[] = [
 		color: "admin",
 		items: [
 			{ title: "Permissões", url: "/admin/permissions", icon: UserCog, minLevel: 2, keywords: ["acesso", "usuário", "pbac", "conceder"] },
+			{
+				title: "Cadastro Militar",
+				url: "/admin/military-records",
+				icon: IdCard,
+				minLevel: 2,
+				keywords: ["saram", "vínculo", "pedido", "contestação", "conta de seção", "institucional"],
+			},
 			{ title: "Avaliação", url: "/admin/evaluation", icon: Star, minLevel: 2, keywords: ["pesquisa", "pergunta"] },
 			{ title: "Sincronização", url: "/admin/sync-routines", icon: RefreshCw, minLevel: 2, keywords: ["compras.gov", "nutrição", "sync", "rotina"] },
 			// Nível 1: o painel mostra o estado do ambiente; só o botão de reset exige nível 2.
